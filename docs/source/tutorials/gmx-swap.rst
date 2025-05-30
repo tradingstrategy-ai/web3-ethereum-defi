@@ -15,6 +15,9 @@ GMX is a `decentralised exchange <https://tradingstrategy.ai/glossary/decentrali
 
 - You can swap between GMX collateral tokens
 
+- This is the simplest possible GMX code example for getting started - it does not use any leverage
+  or advanced GMX features
+
 - The example does not use external APIs, only raw Arbitrum JSON-RPC API
 
 - Takes a time range and estimates the APY for it

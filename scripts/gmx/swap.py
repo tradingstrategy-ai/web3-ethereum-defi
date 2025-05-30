@@ -63,11 +63,12 @@ def main():
         ]
         anvil = fork_network_anvil(
             JSON_RPC_ARBITRUM,
-            unlocked_addresses=unlocked_addresses
+            unlocked_addresses=unlocked_addresses,
+            fork_block_number=341_830_407,  # Always simulate against a fixed state
         )
         web3 = create_multi_provider_web3(
             anvil.json_rpc_url,
-            default_http_timeout=(10.0, 45.0),  # Increase default timeouts if your Anvil is slow
+            default_http_timeout=(10.0, 60.0),  # Increase default timeouts if your Anvil is slow
             retries=0,  # If Anvil RPC call fails, retries won't help
         )
         hot_wallet = create_fork_funded_wallet(web3)

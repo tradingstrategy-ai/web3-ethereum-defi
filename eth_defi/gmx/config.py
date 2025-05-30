@@ -69,7 +69,7 @@ class GMXConfig:
 
         # Create base config dictionary without private key
         self._base_config_dict = {
-            "rpcs": {chain: self._rpc_url},
+            # "rpcs": {chain: self._rpc_url},
             "chain_ids": {chain: web3.eth.chain_id},
             "user_wallet_address": user_wallet_address,
         }
@@ -77,10 +77,10 @@ class GMXConfig:
         # Initialize a read-only ConfigManager instance (no private key)
         self._read_config = ConfigManager(
             chain=chain,
-            rpc=self._rpc_url,
             chain_id=web3.eth.chain_id,
             user_wallet_address=user_wallet_address,
             config=self._base_config_dict,
+            web3=web3,
         )
 
         # Only initialize a write config if we have a wallet
@@ -95,11 +95,11 @@ class GMXConfig:
             write_config_dict["private_key"] = private_key
             self._write_config = ConfigManager(
                 chain=chain,
-                rpc=self._rpc_url,
                 chain_id=web3.eth.chain_id,
                 user_wallet_address=user_wallet_address,
                 private_key=private_key,
                 config=write_config_dict,
+                web3=self.web3,
             )
 
     def _create_write_config(self) -> ConfigManager:
@@ -117,11 +117,11 @@ class GMXConfig:
         # Create ConfigManager with the adapter signer
         config_manager = ConfigManager(
             chain=self.chain,
-            rpc=self._rpc_url,
             chain_id=self.web3.eth.chain_id,
             user_wallet_address=self._user_wallet_address,
             config=write_config_dict,
             signer=adapter_signer,
+            web3=self.web3
         )
 
         return config_manager
