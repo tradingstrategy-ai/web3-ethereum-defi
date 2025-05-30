@@ -1,7 +1,117 @@
 """
 GMX Utilities Module
 
-This module provides utility functions for the GMX integration.
+This module provides the essential utility functions and computational foundations
+that power the GMX integration system. It implements the mathematical calculations,
+data transformations, and helper operations that form the backbone of all higher-level
+trading, position management, and risk assessment functionality.
+
+**Utility Layer Architecture:**
+
+Professional trading systems are built on layers of abstraction, where sophisticated
+user interfaces depend on robust utility layers that handle the complex mathematics
+and data processing behind the scenes. This module represents that crucial
+foundation layer, implementing the precise calculations and transformations needed
+for safe and accurate trading operations.
+
+**Key Computational Categories:**
+
+- **Financial Mathematics**: Precise liquidation price calculations and risk metrics
+- **Data Transformation**: Converting between different data formats and representations
+- **Position Analysis**: Extracting meaningful insights from complex position data
+- **Parameter Validation**: Ensuring data integrity and operational safety
+- **Error Handling**: Graceful handling of edge cases and exceptional conditions
+
+**Mathematical Precision Philosophy:**
+
+Financial calculations require absolute precision because small errors can compound
+into significant financial losses. The utility functions implement robust mathematical
+operations using appropriate data types and validation to ensure accuracy across
+all supported market conditions and position sizes.
+
+**Integration with Trading Operations:**
+
+These utilities serve as the computational engine for all higher-level operations.
+When you open a position through the trading interface, liquidation calculations
+happen here. When you analyze your portfolio through the market data interface,
+position formatting occurs here. Understanding these utilities helps you understand
+how the entire system works at its core.
+
+**Error Prevention and Validation:**
+
+The utility layer implements comprehensive validation and error handling to prevent
+invalid operations from propagating through the system. This defensive programming
+approach ensures that errors are caught early and reported clearly, preventing
+costly mistakes during live trading operations.
+
+Example:
+
+.. code-block:: python
+
+    # Mathematical risk analysis workflow
+    from eth_defi.gmx.config import GMXConfig
+    from eth_defi.gmx.utils import (
+        calculate_estimated_liquidation_price,
+        format_position_for_display,
+        get_positions
+    )
+
+    # Set up configuration for analysis
+    config = GMXConfig.from_private_key(web3, "0x...", "arbitrum")
+
+    # Retrieve and analyze current positions
+    positions = get_positions(config.get_read_config())
+
+    for position_key, position_data in positions.items():
+        # Format position for human-readable analysis
+        display_info = format_position_for_display(position_data)
+
+        # Calculate liquidation risk
+        liq_price = calculate_estimated_liquidation_price(
+            entry_price=position_data["entry_price"],
+            collateral_usd=position_data["collateral_usd"],
+            size_usd=position_data["size_usd"],
+            is_long=position_data["is_long"],
+            maintenance_margin=0.01  # 1% maintenance margin
+        )
+
+        # Risk assessment analysis
+        current_price = position_data["mark_price"]
+        risk_distance = abs(current_price - liq_price) / current_price
+
+        print(f"Position: {display_info['market']} {display_info['direction']}")
+        print(f"Liquidation Price: ${liq_price:.2f}")
+        print(f"Risk Distance: {risk_distance:.1%}")
+
+        # Transform position for strategic closure if high risk
+        if risk_distance < 0.10:  # Less than 10% safety margin
+            close_params = transform_open_position_to_order_parameters(
+                config=config.get_write_config(),
+                positions=positions,
+                market_symbol=display_info['market'],
+                is_long=position_data["is_long"],
+                slippage_percent=0.02,  # Higher slippage for urgent closure
+                out_token="USDC",       # Convert to stable asset
+                amount_of_position_to_close=0.5,  # Reduce risk by 50%
+                amount_of_collateral_to_remove=0.2  # Free some capital
+            )
+
+**Design Philosophy:**
+
+The utilities are designed around principles of mathematical accuracy, operational
+safety, and educational transparency. Each function includes comprehensive validation
+and clear error messages to help developers understand both successful operations
+and failure modes. This approach builds confidence and competence in using
+sophisticated financial tools.
+
+Note:
+    All mathematical calculations use appropriate precision arithmetic to ensure
+    accuracy in financial contexts where rounding errors can have costly consequences.
+
+Warning:
+    Liquidation price calculations are estimates based on current parameters.
+    Actual liquidation prices may vary due to market volatility, funding costs,
+    and other dynamic factors not captured in simplified calculations.
 """
 
 import logging
@@ -37,13 +147,46 @@ from gmx_python_sdk.scripts.v2.gmx_utils import (
 
 def format_position_for_display(position: dict[str, Any]) -> dict[str, Any]:
     """
-    Format a position for display.
+    Transform raw position data into human-readable format for analysis and display.
 
-    Args:
-        position: Raw position data
+    This function serves as a crucial bridge between the complex internal data
+    structures used by the GMX protocol and the simplified, meaningful information
+    that traders need for decision-making. It extracts the essential metrics
+    from technical position data and presents them in an intuitive format.
 
-    Returns:
-        Formatted position data
+    **Data Transformation Philosophy:**
+
+    Raw position data from blockchain protocols contains extensive technical
+    information including contract addresses, encoded values, and implementation
+    details that are necessary for system operation but overwhelming for human
+    analysis. This function implements intelligent filtering and formatting to
+    present only the information needed for trading decisions.
+
+    **Essential Trading Metrics:**
+
+    The formatted output focuses on the core metrics that professional traders
+    use for position analysis: market identification, position direction, size
+    measurements, leverage calculations, entry and current pricing, and
+    profit/loss performance. These metrics enable quick assessment of position
+    health and strategic planning.
+
+    **Integration with Analysis Workflows:**
+
+    The standardized output format integrates seamlessly with portfolio analysis
+    tools, risk management systems, and reporting dashboards. By providing
+    consistent data formatting, it enables reliable automation of position
+    monitoring and strategic decision-making processes.
+
+    :param position:
+        Raw position data dictionary containing all technical position information
+        as returned from GMX protocol queries, including internal identifiers,
+        encoded values, and comprehensive position state
+    :type position: dict[str, Any]
+    :return:
+        Formatted dictionary containing human-readable position information
+        with standardized keys and simplified values optimized for analysis
+        and display in trading interfaces
+    :rtype: dict[str, Any]
     """
     # Extract and format relevant fields for display
     return {
@@ -66,17 +209,91 @@ def calculate_estimated_liquidation_price(
     maintenance_margin: float = 0.01,
 ) -> float:  # 1% maintenance margin
     """
-    Calculate an estimated liquidation price.
+    Calculate estimated liquidation price using fundamental leveraged trading mathematics.
 
-    Args:
-        entry_price: Entry price of the position
-        collateral_usd: Collateral in USD
-        size_usd: Position size in USD
-        is_long: Whether this is a long position
-        maintenance_margin: Maintenance margin requirement
+    This function implements the core mathematical relationship that determines
+    when leveraged positions become unsustainable and subject to forced closure.
+    Understanding liquidation mechanics is essential for risk management and
+    position sizing in leveraged trading systems.
 
-    Returns:
-        Estimated liquidation price
+    **Liquidation Mathematics Explained:**
+
+    Liquidation occurs when a position's collateral value falls below the minimum
+    required to maintain the leveraged exposure. For long positions, this happens
+    when prices fall enough that collateral loses value. For short positions,
+    liquidation occurs when prices rise and the position accumulates losses that
+    exceed available collateral.
+
+    The mathematical relationship derives from the leverage formula:
+    leverage = position_size / collateral_value
+
+    When market moves against a position, the collateral absorbs losses. Liquidation
+    triggers when remaining collateral falls below the maintenance margin requirement,
+    which ensures the protocol can close positions before they become undercollateralized.
+
+    **Risk Management Applications:**
+
+    Liquidation price calculations are fundamental to position sizing and risk
+    management. Professional traders use these calculations to determine appropriate
+    position sizes, set stop-loss levels, and monitor portfolio risk in real-time.
+    Understanding your liquidation price helps prevent unexpected position closures
+    during normal market volatility.
+
+    **Calculation Methodology:**
+
+    The calculation accounts for leverage effects, maintenance margin requirements,
+    and position direction. For long positions, liquidation prices are below entry
+    prices by an amount determined by leverage and margin requirements. For short
+    positions, liquidation prices are above entry prices by the corresponding amount.
+
+    Example:
+
+    .. code-block:: python
+
+        # Risk analysis for leveraged ETH position
+        entry_price = 2000.0    # Entered ETH long at $2000
+        collateral_usd = 1000   # $1000 collateral
+        size_usd = 5000         # $5000 position (5x leverage)
+
+        liq_price = calculate_estimated_liquidation_price(
+            entry_price=entry_price,
+            collateral_usd=collateral_usd,
+            size_usd=size_usd,
+            is_long=True,
+            maintenance_margin=0.01  # 1% maintenance margin
+        )
+
+        # Result: liquidation at approximately $1620
+        # Risk analysis: 19% price drop triggers liquidation
+        risk_tolerance = (entry_price - liq_price) / entry_price
+        print(f"Position liquidates if ETH drops {risk_tolerance:.1%}")
+
+    :param entry_price:
+        Price at which the position was opened, serving as the baseline for
+        profit/loss calculations and liquidation risk assessment
+    :type entry_price: float
+    :param collateral_usd:
+        Total collateral value backing the position in USD terms. This capital
+        absorbs gains and losses as market prices move
+    :type collateral_usd: float
+    :param size_usd:
+        Total position size in USD terms, representing the market exposure
+        controlled through leveraged capital
+    :type size_usd: float
+    :param is_long:
+        Position direction - True for long (bullish) positions that profit
+        from price increases, False for short (bearish) positions that
+        profit from price decreases
+    :type is_long: bool
+    :param maintenance_margin:
+        Minimum margin requirement as decimal (0.01 = 1%). Protocol-specific
+        safety buffer ensuring positions can be closed before becoming
+        undercollateralized
+    :type maintenance_margin: float
+    :return:
+        Estimated price level at which the position would face liquidation
+        based on current parameters and maintenance margin requirements
+    :rtype: float
     """
     leverage = size_usd / collateral_usd
 
@@ -92,19 +309,50 @@ def calculate_estimated_liquidation_price(
 
 def get_positions(config, address: str = None) -> dict[str, Any]:
     """
-    Get open positions for an address on a given network.
+    Retrieve comprehensive position data with intelligent address resolution and error handling.
 
-    If address is not passed, it will use the address from the user's config.
+    This function implements robust position retrieval logic that handles multiple
+    address sources and provides clear error handling for common failure scenarios.
+    It serves as a reliable foundation for all position-dependent operations
+    throughout the trading system.
 
-    Args:
-        config: GMX configuration object
-        address: Address to fetch open positions for (optional)
+    **Address Resolution Strategy:**
 
-    Returns:
-        dictionary containing all open positions, keyed by position identifier
+    The function implements intelligent fallback logic for address determination.
+    If an explicit address is provided, it takes precedence. If no address is
+    provided, the function attempts to use the address from the configuration.
+    This pattern provides flexibility for multi-wallet operations while ensuring
+    safe defaults for single-wallet workflows.
 
-    Raises:
-        Exception: If no address is provided and none is in config
+    **Position Data Structure:**
+
+    The returned data structure uses human-readable position keys (like "ETH_long")
+    that make position identification intuitive for both programmatic access and
+    manual analysis. Each position entry contains comprehensive information about
+    size, collateral, current performance, and risk metrics.
+
+    **Error Handling Philosophy:**
+
+    The function implements defensive programming principles by validating address
+    availability before attempting position queries. Clear error messages help
+    developers understand configuration requirements and debug common setup issues.
+
+    :param config:
+        GMX configuration object containing network settings and optional
+        wallet information for position queries
+    :type config: ConfigManager
+    :param address:
+        Specific Ethereum address to query positions for. If None, attempts
+        to use the address from the provided configuration object
+    :type address: str, optional
+    :return:
+        Dictionary containing all open positions keyed by human-readable
+        position identifiers (e.g., "ETH_long", "BTC_short") with comprehensive
+        position data as values
+    :rtype: dict[str, Any]
+    :raises Exception:
+        When no address is available from either parameter or configuration,
+        making position queries impossible
     """
     if address is None:
         address = config.user_wallet_address
@@ -132,26 +380,106 @@ def transform_open_position_to_order_parameters(
     amount_of_collateral_to_remove: float,
 ) -> dict[str, Any]:
     """
-    Transform an open position into parameters for a close order.
+    Transform existing position data into precise order parameters for strategic position closure.
 
-    Finds the specified position by market symbol and direction, then formats it
-    into parameters needed to close the position.
+    This function implements sophisticated data transformation logic that bridges
+    the gap between high-level trading intentions ("close 50% of my ETH position")
+    and the precise technical parameters required by the GMX protocol for order
+    execution. It handles complex address resolution, swap path calculation,
+    and mathematical precision for financial calculations.
 
-    Args:
-        config: GMX configuration object
-        positions: dictionary containing all open positions
-        market_symbol: Symbol of the market to close
-        is_long: True for long position, False for short
-        slippage_percent: Slippage tolerance as a percentage
-        out_token: Symbol of token to receive upon closing
-        amount_of_position_to_close: Portion of position to close (0-1)
-        amount_of_collateral_to_remove: Portion of collateral to remove (0-1)
+    **Data Transformation Architecture:**
 
-    Returns:
-        dictionary of order parameters formatted to close the position
+    The transformation process involves multiple complex steps: position identification
+    using human-readable keys, address resolution for multiple token types, swap
+    path determination for asset conversion, and precise mathematical calculations
+    for partial position closure. Each step includes validation to ensure data
+    integrity and prevent execution errors.
 
-    Raises:
-        Exception: If the requested position cannot be found
+    **Mathematical Precision Requirements:**
+
+    Financial calculations require absolute precision to prevent rounding errors
+    that could cause transaction failures or unexpected results. The function uses
+    Decimal arithmetic for position size calculations and properly scales values
+    to match protocol requirements for order parameters.
+
+    **Swap Path Intelligence:**
+
+    When the desired output token differs from the position's collateral token,
+    the function automatically determines the optimal swap path through available
+    markets. This enables strategic asset selection upon position closure without
+    requiring manual path configuration.
+
+    **Error Prevention and Validation:**
+
+    Comprehensive validation ensures that all required position data is available
+    and properly formatted before attempting transformation. Clear error messages
+    help identify configuration issues or missing position data that would prevent
+    successful order creation.
+
+    Example:
+
+    .. code-block:: python
+
+        # Strategic position closure with precise control
+        positions = get_positions(config)
+
+        # Close 75% of ETH long position, convert to USDC
+        close_params = transform_open_position_to_order_parameters(
+            config=config,
+            positions=positions,
+            market_symbol="ETH",
+            is_long=True,
+            slippage_percent=0.005,         # 0.5% slippage
+            out_token="USDC",               # Convert to stable asset
+            amount_of_position_to_close=0.75,  # Close 75% of position
+            amount_of_collateral_to_remove=0.5  # Remove 50% of collateral
+        )
+
+        # Parameters ready for order execution
+        order = DecreaseOrder(**close_params, debug_mode=True)
+
+    :param config:
+        GMX configuration object containing network settings and token
+        information required for address resolution and market data access
+    :type config: ConfigManager
+    :param positions:
+        Dictionary containing all current open positions with human-readable
+        keys and comprehensive position data for transformation
+    :type positions: dict[str, Any]
+    :param market_symbol:
+        Symbol identifying the market containing the position to close
+        (e.g., "ETH", "BTC"). Must match an existing position
+    :type market_symbol: str
+    :param is_long:
+        Direction of the position to close - True for long positions,
+        False for short positions. Must match existing position direction
+    :type is_long: bool
+    :param slippage_percent:
+        Maximum acceptable slippage for the closure operation as decimal
+        (0.005 = 0.5%). Higher values enable faster execution in volatile
+        markets but may result in worse prices
+    :type slippage_percent: float
+    :param out_token:
+        Symbol of the token to receive upon position closure. May differ
+        from collateral token, triggering automatic swap path calculation
+    :type out_token: str
+    :param amount_of_position_to_close:
+        Fraction of total position size to close, expressed as decimal
+        (0.5 = 50%). Enables precise partial position management strategies
+    :type amount_of_position_to_close: float
+    :param amount_of_collateral_to_remove:
+        Fraction of position collateral to withdraw, expressed as decimal.
+        Independent of position closure amount for flexible capital management
+    :type amount_of_collateral_to_remove: float
+    :return:
+        Dictionary containing all parameters required for order execution,
+        formatted according to GMX protocol requirements with proper
+        address resolution and mathematical precision
+    :rtype: dict[str, Any]
+    :raises Exception:
+        When the specified position cannot be found in the positions
+        dictionary, indicating invalid market/direction combination
     """
     direction = "long" if is_long else "short"
     position_dictionary_key = f"{market_symbol.upper()}_{direction}"
