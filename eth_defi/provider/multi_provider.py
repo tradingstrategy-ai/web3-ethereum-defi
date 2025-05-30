@@ -19,7 +19,7 @@ from eth_defi.provider.broken_provider import set_block_tip_latency
 from eth_defi.provider.fallback import FallbackProvider
 from eth_defi.provider.mev_blocker import MEVBlockerProvider
 from eth_defi.provider.named import NamedProvider, get_provider_name
-
+from eth_defi.utils import get_url_domain
 
 logger = logging.getLogger(__name__)
 
@@ -216,15 +216,26 @@ def create_multi_provider_web3(
         # https://stackoverflow.com/a/47475019/315168
         # TODO: Make these parameters configurable
         session = requests.Session()
-        retry = Retry(connect=3, backoff_factor=0.5)
-        adapter = HTTPAdapter(max_retries=retry)
-        session.mount("http://", adapter)
-        session.mount("https://", adapter)
+
+        if retries >= 1:
+            retry = Retry(connect=3, backoff_factor=0.5)
+            adapter = HTTPAdapter(max_retries=retry)
+            session.mount("http://", adapter)
+            session.mount("https://", adapter)
 
     if request_kwargs is None:
         request_kwargs = {"timeout": default_http_timeout}
 
-    call_providers = [HTTPProvider(url, request_kwargs=request_kwargs, session=session) for url in call_endpoints]
+    call_providers = []
+    for url in call_endpoints:
+        provider = HTTPProvider(url, request_kwargs=request_kwargs, session=session)
+        logger.info(
+            "Created provider %s, using request args %s, headers %s",
+            get_url_domain(url),
+            provider.get_request_kwargs(),
+            provider.get_request_headers(),
+        )
+        call_providers.append(provider)
 
     # Do uJSON patching
     for p in call_providers:
