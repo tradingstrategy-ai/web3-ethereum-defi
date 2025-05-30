@@ -42,6 +42,7 @@ class GMXAPI:
 
         :param config:
             GMX configuration object containing chain and other settings
+        :type config: GMXConfig
         """
         self.config = config
         self.chain = config.get_chain()
@@ -64,10 +65,13 @@ class GMXAPI:
 
         :param endpoint:
             API endpoint path (e.g., "/prices/tickers")
+        :type endpoint: str
         :param params:
             Optional dictionary of query parameters to include in the request
+        :type params: Optional[dict[str, Any]]
         :return:
             API response parsed as a dictionary
+        :rtype: dict[str, Any]
         :raises RuntimeError:
             When both primary and backup API URLs fail to respond
         """
@@ -97,6 +101,7 @@ class GMXAPI:
         :return:
             Dictionary containing current price information for all tokens,
             typically including bid/ask prices, last price, and volume data
+        :rtype: dict[str, Any]
         """
         return self._make_request("/prices/tickers")
 
@@ -111,6 +116,7 @@ class GMXAPI:
         :return:
             Dictionary containing signed price data that can be submitted
             to smart contracts for price verification
+        :rtype: dict[str, Any]
         """
         return self._make_request("/signed_prices/latest")
 
@@ -125,6 +131,7 @@ class GMXAPI:
         :return:
             Dictionary containing detailed information about all supported tokens,
             including addresses, symbols, decimals, and other metadata
+        :rtype: dict[str, Any]
         """
         return self._make_request("/tokens")
 
@@ -137,11 +144,14 @@ class GMXAPI:
 
         :param token_symbol:
             Symbol of the token to retrieve data for (e.g., "ETH", "BTC")
+        :type token_symbol: str
         :param period:
             Time period for each candlestick. Supported values are:
             '1m', '5m', '15m', '1h', '4h', '1d'. Default is '1h'
+        :type period: str
         :return:
             Dictionary containing candlestick data with timestamps and OHLCV values
+        :rtype: dict[str, Any]
         """
         params = {"tokenSymbol": token_symbol, "period": period}
         return self._make_request("/prices/candles", params=params)
@@ -169,12 +179,15 @@ class GMXAPI:
 
         :param token_symbol:
             Symbol of the token to retrieve data for (e.g., "ETH", "BTC")
+        :type token_symbol: str
         :param period:
             Time period for each candlestick. Supported values are:
             '1m', '5m', '15m', '1h', '4h', '1d'. Default is '1h'
+        :type period: str
         :return:
             pandas DataFrame with columns: timestamp (datetime), open (float),
             high (float), low (float), close (float)
+        :rtype: pd.DataFrame
         """
         data = self.get_candlesticks(token_symbol, period)
 
