@@ -396,15 +396,7 @@ def override_storage_slot(
     return result
 
 
-def emulate_keepers(
-    gmx_config: GMXConfig,
-    initial_token_symbol: str,
-    target_token_symbol: str, w3: Web3,
-    recipient_address: str,
-    initial_token_address: str,
-    target_token_address: str,
-    debug_logs: bool = False
-):
+def emulate_keepers(gmx_config: GMXConfig, initial_token_symbol: str, target_token_symbol: str, w3: Web3, recipient_address: str, initial_token_address: str, target_token_address: str, debug_logs: bool = False):
     """Fake GMX keeper transaction to fulfill an order."""
     if debug_logs:
         erc20_abi = [
