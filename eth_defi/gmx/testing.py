@@ -10,6 +10,7 @@ import json
 import os
 from decimal import Decimal
 from pathlib import Path
+import logging
 
 from cchecksum import to_checksum_address
 from eth_abi import encode
@@ -27,6 +28,9 @@ from eth_defi.gmx.config import GMXConfig
 # Create the ORDER_LIST key directly
 ORDER_LIST = create_hash_string("ORDER_LIST")
 print = Console().print
+
+
+logger = logging.getLogger(__name__)
 
 
 # TOKENS: dict = {
@@ -75,7 +79,15 @@ def set_opt_code(w3: Web3, bytecode=None, contract_address=None):
             print(f"Length mismatch - Expected: {len(bytecode)}, Got: {len(deployed_code)}")
 
 
-def execute_order(config, connection, order_key, deployed_oracle_address, initial_token_address, target_token_address, logger=None, overrides=None):
+def execute_order(
+    config,
+    connection,
+    order_key,
+    deployed_oracle_address,
+    initial_token_address,
+    target_token_address,
+    overrides=None,
+):
     """
     Execute an order with oracle prices
 
@@ -248,7 +260,7 @@ def deploy_custom_oracle(w3: Web3, account) -> str:
     # Wait for transaction receipt
     tx_receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
     contract_address = tx_receipt.contractAddress
-    print(f"🚀 Deployed GmOracleProvider to: {contract_address}")
+    logger.info(f"🚀 Deployed GmOracleProvider to: {contract_address}")
     # print(f"   Gas used: {tx_receipt.gasUsed}")
 
     # Get deployed contract
@@ -319,7 +331,7 @@ def deploy_custom_oracle_provider(w3: Web3, account) -> str:
     # Wait for transaction receipt
     tx_receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
     contract_address = tx_receipt.contractAddress
-    print(f"🚀 Deployed GmOracleProvider to: {contract_address}")
+    logger.info(f"🚀 Deployed GmOracleProvider to: {contract_address}")
     # print(f"   Gas used: {tx_receipt.gasUsed}")
 
     # Get deployed contract
@@ -389,7 +401,7 @@ def override_storage_slot(
     if "error" in result:
         raise Exception(f"Error setting storage: {result['error']}")
 
-    print(f"Successfully set storage at slot {slot} to {padded_hex_value}")
+    logger.info(f"Successfully set storage at slot {slot} to {padded_hex_value}")
 
     storage_value = web3.eth.get_storage_at(contract_address, slot)
     # print(f"Verified value: {storage_value.hex()}")
@@ -444,7 +456,7 @@ def emulate_keepers(gmx_config: GMXConfig, initial_token_symbol: str, target_tok
 
         # Check initial balances
         balance = initial_token_contract.functions.balanceOf(recipient_address).call()
-        print(f"Recipient {initial_token_symbol} balance: {Decimal(balance / 10**decimals)} {symbol}")
+        logger.info(f"Recipient {initial_token_symbol} balance: {Decimal(balance / 10**decimals)} {symbol}")
 
         target_balance_before = target_contract.functions.balanceOf(recipient_address).call()
         target_symbol = target_contract.functions.symbol().call()
@@ -454,7 +466,7 @@ def emulate_keepers(gmx_config: GMXConfig, initial_token_symbol: str, target_tok
         balance_decimal = Decimal(str(target_balance_before)) / Decimal(10**target_decimals)
 
         # Format to avoid scientific notation and show proper decimal places
-        print(f"Recipient {target_token_symbol} balance before: {balance_decimal:.18f} {target_symbol}")
+        logger.info(f"Recipient {target_token_symbol} balance before: {balance_decimal:.18f} {target_symbol}")
 
     deployed: tuple = (None, None)  # (None, None)
     if not deployed[0]:
@@ -575,7 +587,7 @@ def emulate_keepers(gmx_config: GMXConfig, initial_token_symbol: str, target_tok
             # Check the balances after execution
             balance = initial_token_contract.functions.balanceOf(recipient_address).call()
             symbol = initial_token_contract.functions.symbol().call()
-            print(f"Recipient {initial_token_symbol} balance after swap: {Decimal(balance / 10**decimals)} {symbol}")
+            logger.info(f"Recipient {initial_token_symbol} balance after swap: {Decimal(balance / 10**decimals)} {symbol}")
 
             target_balance_after = target_contract.functions.balanceOf(recipient_address).call()
             symbol = target_contract.functions.symbol().call()
@@ -584,8 +596,8 @@ def emulate_keepers(gmx_config: GMXConfig, initial_token_symbol: str, target_tok
             balance_decimal = Decimal(str(target_balance_after)) / Decimal(10**target_decimals)
 
             # Format to avoid scientific notation and show proper decimal places
-            print(f"Recipient {target_token_symbol} balance after swap: {balance_decimal:.18f} {target_symbol}")
-            print(f"Change in {target_token_symbol} balance: {Decimal((target_balance_after - target_balance_before) / 10**target_decimals):.18f}")
+            logger.info(f"Recipient {target_token_symbol} balance after swap: {balance_decimal:.18f} {target_symbol}")
+            logger.info(f"Change in {target_token_symbol} balance: {Decimal((target_balance_after - target_balance_before) / 10**target_decimals):.18f}")
     except Exception as e:
-        print(f"Error during swap process: {e!s}")
+        logger.error(f"Error during swap process: {e!s}")
         raise e
