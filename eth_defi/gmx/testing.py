@@ -19,7 +19,9 @@ from eth_abi import encode
 from eth_pydantic_types import HexStr
 from eth_utils import keccak
 
-from eth_defi.provider.anvil import make_anvil_custom_rpc_request
+from eth_defi.provider.anvil import make_anvil_custom_rpc_request, is_anvil
+from eth_defi.provider.named import get_provider_name
+from eth_defi.provider.tenderly import is_tenderly
 from eth_defi.trace import assert_transaction_success_with_explanation
 from gmx_python_sdk.scripts.v2.get.get_oracle_prices import OraclePrices
 from gmx_python_sdk.scripts.v2.gmx_utils import create_hash_string, get_reader_contract, get_datastore_contract
@@ -56,33 +58,41 @@ ABIS_PATH = os.path.dirname(os.path.abspath(__file__))
 
 
 def set_opt_code(w3: Web3, bytecode=None, contract_address=None):
+    """Replace contract code with mock bytecode on Anvil or Tenderly."""
+
     # Use Anvil's RPC to set the contract's bytecode
-    response = w3.provider.make_request("anvil_setCode", [contract_address, bytecode])
+    if is_tenderly(w3):
+        # https://docs.tenderly.co/virtual-testnets/admin-rpc#tenderly_setcode
+        response = w3.provider.make_request("tenderly_setCode", [contract_address, bytecode])
+    elif is_anvil(w3):
+        response = w3.provider.make_request("anvil_setCode", [contract_address, bytecode])
+    else:
+        raise NotImplementedError(f"Unsupported RPC backend: {get_provider_name(w3.provider)}")
 
     # print(f"{response=}")
 
     # Verify the response from anvil
     if response.get("result"):
-        print("Code successfully set via anvil")
+        logger.info("Code successfully set via anvil")
     else:
-        print(f"Failed to set code: {response.get('error', {}).get('message', 'Unknown error')}")
+        logger.info(f"Failed to set code: {response.get('error', {}).get('message', 'Unknown error')}")
 
     # Now verify that the code was actually set by retrieving it
     deployed_code = w3.eth.get_code(contract_address).hex()
 
     # Compare the deployed code with the mock bytecode
     if deployed_code == bytecode.hex():
-        print("✅ Code verification successful: Deployed bytecode matches mock bytecode")
+        logger.info("✅ Code verification successful: Deployed bytecode matches mock bytecode")
     else:
-        print("❌ Code verification failed: Deployed bytecode does not match mock bytecode")
-        print(f"Expected: {bytecode.hex()}")
-        print(f"Actual: {deployed_code}")
+        logger.info("❌ Code verification failed: Deployed bytecode does not match mock bytecode")
+        logger.info(f"Expected: {bytecode.hex()}")
+        logger.info(f"Actual: {deployed_code}")
 
         # You can also check if the length at least matches
         if len(deployed_code) == len(bytecode) or len(deployed_code) == len("0x" + bytecode.lstrip("0x")):
-            print("Lengths match but content differs")
+            logger.info("Lengths match but content differs")
         else:
-            print(f"Length mismatch - Expected: {len(bytecode)}, Got: {len(deployed_code)}")
+            logger.info(f"Length mismatch - Expected: {len(bytecode)}, Got: {len(deployed_code)}")
 
 
 def execute_order(
@@ -397,7 +407,12 @@ def override_storage_slot(
     contract_address = web3.to_checksum_address(contract_address)
 
     # Call the anvil_setStorageAt RPC method
-    result = web3.provider.make_request("anvil_setStorageAt", [contract_address, slot, padded_hex_value])
+    if is_tenderly(web3):
+        result = web3.provider.make_request("tenderly_setStorageAt", [contract_address, slot, padded_hex_value])
+    elif is_anvil(web3):
+        result = web3.provider.make_request("anvil_setStorageAt", [contract_address, slot, padded_hex_value])
+    else:
+        raise NotImplementedError(f"Unsupported RPC backend: {get_provider_name(web3.provider)}")
 
     # Check for errors
     if "error" in result:
@@ -534,11 +549,22 @@ def emulate_keepers(
         # Set the controller address to have enough balance to execute the transaction
         balance_in_wei = 10**18  # 1 ETH in wei
         assert controller == "0xf5F30B10141E1F63FC11eD772931A8294a591996"
-        tx_hash = make_anvil_custom_rpc_request(
-            w3,
-            "anvil_setBalance",
-            [controller, hex(balance_in_wei)]
-        )
+
+        if is_tenderly(w3):
+            tx_hash = make_anvil_custom_rpc_request(
+                w3,
+                "tenderly_setBalance",
+                [controller, hex(balance_in_wei)]
+            )
+
+        elif is_anvil(w3):
+            tx_hash = make_anvil_custom_rpc_request(
+                w3,
+                "anvil_setBalance",
+                [controller, hex(balance_in_wei)]
+            )
+        else:
+            raise NotImplementedError(f"Unsupported RPC backend: {get_provider_name(w3.provider)}")
 
         data_store.functions.setBool("0x1153e082323163af55b3003076402c9f890dda21455104e09a048bf53f1ab30c", True).transact({
             "from": controller,

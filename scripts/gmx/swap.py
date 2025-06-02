@@ -35,6 +35,9 @@ GMX_KEEPER = "0xE47b36382DC50b90bCF6176Ddb159C4b9333A7AB"
 #: GMX controller address, used in simulations
 GMX_CONTROLLER = "0xf5F30B10141E1F63FC11eD772931A8294a591996"
 
+#: Block number to fork from in Anvil simulation
+SIMULATION_ARBITUM_FORK_BLOCK_NUMBER = 341_830_407
+
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +79,6 @@ def main():
     JSON_RPC_TENDERLY = os.environ["JSON_RPC_TENDERLY"]
 
     if SIMULATE:
-        logger.info("Simulation deployment with Anvil")
         # Addresses we need to take control to simulate GMX offchain Keeper fuctionality
         unlocked_addresses = [
             LARGE_USDC_HOLDER,
@@ -98,7 +100,7 @@ def main():
             anvil = fork_network_anvil(
                 JSON_RPC_ARBITRUM,
                 unlocked_addresses=unlocked_addresses,
-                fork_block_number=341_830_407,  # Always simulate against a fixed state
+                fork_block_number=SIMULATION_ARBITUM_FORK_BLOCK_NUMBER,  # Always simulate against a fixed state
             )
             web3 = create_multi_provider_web3(
                 anvil.json_rpc_url,
