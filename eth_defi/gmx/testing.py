@@ -3,6 +3,8 @@
 - This file aims to emulate the off-chain `Keeper`'s actions
 - Use with pytest and Anvil mainnet forks
 
+TODO: Document and clean up this module.
+
 """
 
 
@@ -14,7 +16,11 @@ import logging
 
 from cchecksum import to_checksum_address
 from eth_abi import encode
+from eth_pydantic_types import HexStr
 from eth_utils import keccak
+
+from eth_defi.provider.anvil import make_anvil_custom_rpc_request
+from eth_defi.trace import assert_transaction_success_with_explanation
 from gmx_python_sdk.scripts.v2.get.get_oracle_prices import OraclePrices
 from gmx_python_sdk.scripts.v2.gmx_utils import create_hash_string, get_reader_contract, get_datastore_contract
 from gmx_python_sdk.scripts.v2.utils.exchange import execute_with_oracle_params
@@ -104,11 +110,6 @@ def execute_order(
     Returns:
         Result of the execute_with_oracle_params call
     """
-    if logger is None:
-        import logging
-
-        logger = logging.getLogger(__name__)
-
     if overrides is None:
         overrides = {}
 
@@ -249,17 +250,17 @@ def deploy_custom_oracle(w3: Web3, account) -> str:
             "from": account,
             "nonce": nonce,
             "gas": 33000000,
-            "gasPrice": w3.to_wei("50", "gwei"),
         }
     )
 
     # Send transaction
     tx_hash = w3.eth.send_transaction(transaction)
     # print(f"📝 Deployment tx hash: {tx_hash.hex()}")
+    assert_transaction_success_with_explanation(w3, tx_hash)
 
     # Wait for transaction receipt
     tx_receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
-    contract_address = tx_receipt.contractAddress
+    contract_address = tx_receipt["contractAddress"]
     logger.info(f"🚀 Deployed GmOracleProvider to: {contract_address}")
     # print(f"   Gas used: {tx_receipt.gasUsed}")
 
@@ -320,17 +321,18 @@ def deploy_custom_oracle_provider(w3: Web3, account) -> str:
             "from": account,
             "nonce": nonce,
             "gas": 33000000,
-            "gasPrice": w3.to_wei("50", "gwei"),
         }
     )
 
     # Send transaction
+    # import ipdb ; ipdb.set_trace()
     tx_hash = w3.eth.send_transaction(transaction)
     # print(f"📝 Deployment tx hash: {tx_hash.hex()}")
+    assert_transaction_success_with_explanation(w3, tx_hash)
 
     # Wait for transaction receipt
     tx_receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
-    contract_address = tx_receipt.contractAddress
+    contract_address = tx_receipt["contractAddress"]
     logger.info(f"🚀 Deployed GmOracleProvider to: {contract_address}")
     # print(f"   Gas used: {tx_receipt.gasUsed}")
 
@@ -409,8 +411,28 @@ def override_storage_slot(
     return result
 
 
-def emulate_keepers(gmx_config: GMXConfig, initial_token_symbol: str, target_token_symbol: str, w3: Web3, recipient_address: str, initial_token_address: str, target_token_address: str, debug_logs: bool = False):
-    """Fake GMX keeper transaction to fulfill an order."""
+def emulate_keepers(
+    gmx_config: GMXConfig,
+    initial_token_symbol: str,
+    target_token_symbol: str,
+    w3: Web3,
+    recipient_address: str,
+    initial_token_address: str,
+    target_token_address: str,
+    debug_logs: bool = False,
+    deployer_address: str | None = None,
+) -> HexStr:
+    """Fake GMX keeper transaction to fulfill an order.
+
+    - Uses Anvil to spoof GMX Keeper infra on Arbitrum
+
+    :return:
+        The transaction hash of the last of keeper transactions
+    """
+
+    if deployer_address is None:
+        deployer_address = recipient_address
+
     if debug_logs:
         erc20_abi = [
             {
@@ -470,8 +492,8 @@ def emulate_keepers(gmx_config: GMXConfig, initial_token_symbol: str, target_tok
 
     deployed: tuple = (None, None)  # (None, None)
     if not deployed[0]:
-        deployed_oracle_address = deploy_custom_oracle_provider(w3, recipient_address)
-        custom_oracle_contract_address = deploy_custom_oracle(w3, recipient_address)
+        deployed_oracle_address = deploy_custom_oracle_provider(w3, deployer_address)
+        custom_oracle_contract_address = deploy_custom_oracle(w3, deployer_address)
     else:
         deployed_oracle_address = deployed[0]
         custom_oracle_contract_address = deployed[1]
@@ -508,7 +530,20 @@ def emulate_keepers(gmx_config: GMXConfig, initial_token_symbol: str, target_tok
         oracle_signer = "0x0F711379095f2F0a6fdD1e8Fccd6eBA0833c1F1f"
         # set this value to true to pass the provider enabled check in contract
         # OrderHandler(0xfc9bc118fddb89ff6ff720840446d73478de4153)
-        data_store.functions.setBool("0x1153e082323163af55b3003076402c9f890dda21455104e09a048bf53f1ab30c", True).transact({"from": controller})
+
+        # Set the controller address to have enough balance to execute the transaction
+        balance_in_wei = 10**18  # 1 ETH in wei
+        assert controller == "0xf5F30B10141E1F63FC11eD772931A8294a591996"
+        tx_hash = make_anvil_custom_rpc_request(
+            w3,
+            "anvil_setBalance",
+            [controller, hex(balance_in_wei)]
+        )
+
+        data_store.functions.setBool("0x1153e082323163af55b3003076402c9f890dda21455104e09a048bf53f1ab30c", True).transact({
+            "from": controller,
+            "gas": 1_000_000,
+        })
 
         value = data_store.functions.getBool("0x1153e082323163af55b3003076402c9f890dda21455104e09a048bf53f1ab30c").call()
         # print(f"Value: {value}")
@@ -566,6 +601,8 @@ def emulate_keepers(gmx_config: GMXConfig, initial_token_symbol: str, target_tok
 
         oracle_prices = OraclePrices(chain=config.chain).get_recent_prices()
 
+        target_token_address = target_token_address.lower()
+        oracle_prices = {k.lower(): v for k, v in oracle_prices.items()}
         max_price: int = int(oracle_prices[target_token_address]["maxPriceFull"])
         min_price: int = int(oracle_prices[target_token_address]["minPriceFull"])
         max_res = override_storage_slot(oracle_contract, token_b_max_value_slot, max_price, w3)
@@ -581,7 +618,8 @@ def emulate_keepers(gmx_config: GMXConfig, initial_token_symbol: str, target_tok
             "simulate": False,
         }
         # Execute the order with oracle prices
-        execute_order(config=config, connection=w3, order_key=order_key, deployed_oracle_address=deployed_oracle_address, overrides=overrides, initial_token_address=initial_token_address, target_token_address=target_token_address)
+        tx_hash = execute_order(config=config, connection=w3, order_key=order_key, deployed_oracle_address=deployed_oracle_address, overrides=overrides, initial_token_address=initial_token_address, target_token_address=target_token_address)
+        # print(f"Transaction hash: {tx_hash.hex()}")
 
         if debug_logs:
             # Check the balances after execution
@@ -598,6 +636,8 @@ def emulate_keepers(gmx_config: GMXConfig, initial_token_symbol: str, target_tok
             # Format to avoid scientific notation and show proper decimal places
             logger.info(f"Recipient {target_token_symbol} balance after swap: {balance_decimal:.18f} {target_symbol}")
             logger.info(f"Change in {target_token_symbol} balance: {Decimal((target_balance_after - target_balance_before) / 10**target_decimals):.18f}")
+
+        return tx_hash
     except Exception as e:
         logger.error(f"Error during swap process: {e!s}")
         raise e
