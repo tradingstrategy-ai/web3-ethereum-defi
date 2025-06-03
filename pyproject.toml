@@ -86,7 +86,7 @@ joblib = "^1.4.2"
 
 # HyperSync
 hypersync = {version = "^0.8.5", optional = true}
-cherry-etl = "^0.5.1"
+# cherry-etl = "^0.5.1"
 
 # Since new Poetry version
 [tool.poetry.group.dev.dependencies]
