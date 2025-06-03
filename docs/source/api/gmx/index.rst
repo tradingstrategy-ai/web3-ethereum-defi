@@ -38,4 +38,5 @@ More info
    eth_defi.gmx.trading
    eth_defi.gmx.utils
    eth_defi.gmx.wallet_adapter_signer
+   eth_defi.gmx.testing
 

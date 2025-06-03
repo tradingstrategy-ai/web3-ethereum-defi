@@ -3,6 +3,10 @@
 - This file aims to emulate the off-chain `Keeper`'s actions
 - Use with pytest and Anvil mainnet forks
 
+Here be the dragons.
+
+TODO: Document and clean up this module.
+
 """
 
 
@@ -10,23 +14,35 @@ import json
 import os
 from decimal import Decimal
 from pathlib import Path
+import logging
+from pprint import pformat
 
+import eth_abi
 from cchecksum import to_checksum_address
 from eth_abi import encode
+from eth_pydantic_types import HexStr
+from eth_typing import HexAddress
 from eth_utils import keccak
+from web3 import Web3
+from web3.contract import Contract
+
+from eth_defi.provider.anvil import make_anvil_custom_rpc_request, is_anvil
+from eth_defi.provider.named import get_provider_name
+from eth_defi.provider.tenderly import is_tenderly
+from eth_defi.trace import assert_transaction_success_with_explanation
 from gmx_python_sdk.scripts.v2.get.get_oracle_prices import OraclePrices
-from gmx_python_sdk.scripts.v2.gmx_utils import create_hash_string, get_reader_contract, get_datastore_contract
+from gmx_python_sdk.scripts.v2.gmx_utils import create_hash_string, get_reader_contract, get_datastore_contract, create_hash
 from gmx_python_sdk.scripts.v2.utils.exchange import execute_with_oracle_params
 from gmx_python_sdk.scripts.v2.utils.hash_utils import hash_data
 from gmx_python_sdk.scripts.v2.utils.keys import IS_ORACLE_PROVIDER_ENABLED, MAX_ORACLE_REF_PRICE_DEVIATION_FACTOR
-from rich.console import Console
-from web3 import Web3
 
 from eth_defi.gmx.config import GMXConfig
 
 # Create the ORDER_LIST key directly
 ORDER_LIST = create_hash_string("ORDER_LIST")
-print = Console().print
+
+
+logger = logging.getLogger(__name__)
 
 
 # TOKENS: dict = {
@@ -45,37 +61,66 @@ print = Console().print
 ABIS_PATH = os.path.dirname(os.path.abspath(__file__))
 
 
+
+def generate_oracle_provider_for_token_key(token_address: HexAddress) -> HexStr:
+    """Generate a storage slot address for GMX Keys and DataStorage smart contracts.
+
+    https://github.com/gmx-io/gmx-synthetics/blob/66b5d7dbd4684d7612c9db6f6a3000be84fa2ff7/utils/keys.ts#L422
+    """
+    # export function oracleProviderForTokenKey(token: string) {
+    #   return hashData(["bytes32", "address"], [ORACLE_PROVIDER_FOR_TOKEN, token]);
+    # }
+    ORACLE_PROVIDER_FOR_TOKEN = create_hash_string("ORACLE_PROVIDER_FOR_TOKEN")
+    return create_hash(["bytes32", "address"], [ORACLE_PROVIDER_FOR_TOKEN, token_address])
+
+
 def set_opt_code(w3: Web3, bytecode=None, contract_address=None):
+    """Replace contract code with mock bytecode on Anvil or Tenderly."""
+
     # Use Anvil's RPC to set the contract's bytecode
-    response = w3.provider.make_request("anvil_setCode", [contract_address, bytecode])
+    if is_tenderly(w3):
+        # https://docs.tenderly.co/virtual-testnets/admin-rpc#tenderly_setcode
+        response = w3.provider.make_request("tenderly_setCode", [contract_address, bytecode])
+    elif is_anvil(w3):
+        response = w3.provider.make_request("anvil_setCode", [contract_address, bytecode])
+    else:
+        raise NotImplementedError(f"Unsupported RPC backend: {get_provider_name(w3.provider)}")
 
     # print(f"{response=}")
 
     # Verify the response from anvil
     if response.get("result"):
-        print("Code successfully set via anvil")
+        logger.info("Code successfully set via anvil")
     else:
-        print(f"Failed to set code: {response.get('error', {}).get('message', 'Unknown error')}")
+        logger.info(f"Failed to set code: {response.get('error', {}).get('message', 'Unknown error')}")
 
     # Now verify that the code was actually set by retrieving it
     deployed_code = w3.eth.get_code(contract_address).hex()
 
     # Compare the deployed code with the mock bytecode
     if deployed_code == bytecode.hex():
-        print("✅ Code verification successful: Deployed bytecode matches mock bytecode")
+        logger.info("✅ Code verification successful: Deployed bytecode matches mock bytecode")
     else:
-        print("❌ Code verification failed: Deployed bytecode does not match mock bytecode")
-        print(f"Expected: {bytecode.hex()}")
-        print(f"Actual: {deployed_code}")
+        logger.info("❌ Code verification failed: Deployed bytecode does not match mock bytecode")
+        logger.info(f"Expected: {bytecode.hex()}")
+        logger.info(f"Actual: {deployed_code}")
 
         # You can also check if the length at least matches
         if len(deployed_code) == len(bytecode) or len(deployed_code) == len("0x" + bytecode.lstrip("0x")):
-            print("Lengths match but content differs")
+            logger.info("Lengths match but content differs")
         else:
-            print(f"Length mismatch - Expected: {len(bytecode)}, Got: {len(deployed_code)}")
+            logger.info(f"Length mismatch - Expected: {len(bytecode)}, Got: {len(deployed_code)}")
 
 
-def execute_order(config, connection, order_key, deployed_oracle_address, initial_token_address, target_token_address, logger=None, overrides=None):
+def execute_order(
+    config,
+    connection,
+    order_key,
+    deployed_oracle_address,
+    initial_token_address,
+    target_token_address,
+    overrides=None,
+):
     """
     Execute an order with oracle prices
 
@@ -92,11 +137,6 @@ def execute_order(config, connection, order_key, deployed_oracle_address, initia
     Returns:
         Result of the execute_with_oracle_params call
     """
-    if logger is None:
-        import logging
-
-        logger = logging.getLogger(__name__)
-
     if overrides is None:
         overrides = {}
 
@@ -169,6 +209,9 @@ def execute_order(config, connection, order_key, deployed_oracle_address, initia
     oracle_signer = overrides.get("oracle_signer", config.get_signer())
 
     # Build the parameters for execute_with_oracle_params
+
+    min_prices = [1, 1]
+
     params = {
         "key": order_key,
         "oracleBlockNumber": oracle_block_number,
@@ -199,6 +242,11 @@ def execute_order(config, connection, order_key, deployed_oracle_address, initia
             "signerIndexes": [0, 1, 2, 3, 4, 5, 6],  # Default signer indexes
         },
     }
+
+    logger.info(
+        "Executing order with parameters:\n%s",
+        pformat(params),
+    )
 
     # Call execute_with_oracle_params with the built parameters
     return execute_with_oracle_params(fixture, params, config, deployed_oracle_address=deployed_oracle_address)
@@ -237,18 +285,18 @@ def deploy_custom_oracle(w3: Web3, account) -> str:
             "from": account,
             "nonce": nonce,
             "gas": 33000000,
-            "gasPrice": w3.to_wei("50", "gwei"),
         }
     )
 
     # Send transaction
     tx_hash = w3.eth.send_transaction(transaction)
     # print(f"📝 Deployment tx hash: {tx_hash.hex()}")
+    assert_transaction_success_with_explanation(w3, tx_hash)
 
     # Wait for transaction receipt
     tx_receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
-    contract_address = tx_receipt.contractAddress
-    print(f"🚀 Deployed GmOracleProvider to: {contract_address}")
+    contract_address = tx_receipt["contractAddress"]
+    logger.info(f"🚀 Deployed GmOracleProvider to: {contract_address}")
     # print(f"   Gas used: {tx_receipt.gasUsed}")
 
     # Get deployed contract
@@ -308,18 +356,19 @@ def deploy_custom_oracle_provider(w3: Web3, account) -> str:
             "from": account,
             "nonce": nonce,
             "gas": 33000000,
-            "gasPrice": w3.to_wei("50", "gwei"),
         }
     )
 
     # Send transaction
+    # import ipdb ; ipdb.set_trace()
     tx_hash = w3.eth.send_transaction(transaction)
     # print(f"📝 Deployment tx hash: {tx_hash.hex()}")
+    assert_transaction_success_with_explanation(w3, tx_hash)
 
     # Wait for transaction receipt
     tx_receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
-    contract_address = tx_receipt.contractAddress
-    print(f"🚀 Deployed GmOracleProvider to: {contract_address}")
+    contract_address = tx_receipt["contractAddress"]
+    logger.info(f"🚀 Deployed GmOracleProvider to: {contract_address}")
     # print(f"   Gas used: {tx_receipt.gasUsed}")
 
     # Get deployed contract
@@ -383,13 +432,18 @@ def override_storage_slot(
     contract_address = web3.to_checksum_address(contract_address)
 
     # Call the anvil_setStorageAt RPC method
-    result = web3.provider.make_request("anvil_setStorageAt", [contract_address, slot, padded_hex_value])
+    if is_tenderly(web3):
+        result = web3.provider.make_request("tenderly_setStorageAt", [contract_address, slot, padded_hex_value])
+    elif is_anvil(web3):
+        result = web3.provider.make_request("anvil_setStorageAt", [contract_address, slot, padded_hex_value])
+    else:
+        raise NotImplementedError(f"Unsupported RPC backend: {get_provider_name(web3.provider)}")
 
     # Check for errors
     if "error" in result:
         raise Exception(f"Error setting storage: {result['error']}")
 
-    print(f"Successfully set storage at slot {slot} to {padded_hex_value}")
+    logger.info(f"Successfully set storage at slot {slot} to {padded_hex_value}")
 
     storage_value = web3.eth.get_storage_at(contract_address, slot)
     # print(f"Verified value: {storage_value.hex()}")
@@ -397,8 +451,28 @@ def override_storage_slot(
     return result
 
 
-def emulate_keepers(gmx_config: GMXConfig, initial_token_symbol: str, target_token_symbol: str, w3: Web3, recipient_address: str, initial_token_address: str, target_token_address: str, debug_logs: bool = False):
-    """Fake GMX keeper transaction to fulfill an order."""
+def emulate_keepers(
+    gmx_config: GMXConfig,
+    initial_token_symbol: str,
+    target_token_symbol: str,
+    w3: Web3,
+    recipient_address: str,
+    initial_token_address: str,
+    target_token_address: str,
+    debug_logs: bool = False,
+    deployer_address: str | None = None,
+) -> HexStr:
+    """Fake GMX keeper transaction to fulfill an order.
+
+    - Uses Anvil to spoof GMX Keeper infra on Arbitrum
+
+    :return:
+        The transaction hash of the last of keeper transactions
+    """
+
+    if deployer_address is None:
+        deployer_address = recipient_address
+
     if debug_logs:
         erc20_abi = [
             {
@@ -444,7 +518,7 @@ def emulate_keepers(gmx_config: GMXConfig, initial_token_symbol: str, target_tok
 
         # Check initial balances
         balance = initial_token_contract.functions.balanceOf(recipient_address).call()
-        print(f"Recipient {initial_token_symbol} balance: {Decimal(balance / 10**decimals)} {symbol}")
+        logger.info(f"Recipient {initial_token_symbol} balance: {Decimal(balance / 10**decimals)} {symbol}")
 
         target_balance_before = target_contract.functions.balanceOf(recipient_address).call()
         target_symbol = target_contract.functions.symbol().call()
@@ -454,12 +528,12 @@ def emulate_keepers(gmx_config: GMXConfig, initial_token_symbol: str, target_tok
         balance_decimal = Decimal(str(target_balance_before)) / Decimal(10**target_decimals)
 
         # Format to avoid scientific notation and show proper decimal places
-        print(f"Recipient {target_token_symbol} balance before: {balance_decimal:.18f} {target_symbol}")
+        logger.info(f"Recipient {target_token_symbol} balance before: {balance_decimal:.18f} {target_symbol}")
 
     deployed: tuple = (None, None)  # (None, None)
     if not deployed[0]:
-        deployed_oracle_address = deploy_custom_oracle_provider(w3, recipient_address)
-        custom_oracle_contract_address = deploy_custom_oracle(w3, recipient_address)
+        deployed_oracle_address = deploy_custom_oracle_provider(w3, deployer_address)
+        custom_oracle_contract_address = deploy_custom_oracle(w3, deployer_address)
     else:
         deployed_oracle_address = deployed[0]
         custom_oracle_contract_address = deployed[1]
@@ -496,7 +570,31 @@ def emulate_keepers(gmx_config: GMXConfig, initial_token_symbol: str, target_tok
         oracle_signer = "0x0F711379095f2F0a6fdD1e8Fccd6eBA0833c1F1f"
         # set this value to true to pass the provider enabled check in contract
         # OrderHandler(0xfc9bc118fddb89ff6ff720840446d73478de4153)
-        data_store.functions.setBool("0x1153e082323163af55b3003076402c9f890dda21455104e09a048bf53f1ab30c", True).transact({"from": controller})
+
+        # Set the controller address to have enough balance to execute the transaction
+        balance_in_wei = 10**18  # 1 ETH in wei
+        assert controller == "0xf5F30B10141E1F63FC11eD772931A8294a591996"
+
+        if is_tenderly(w3):
+            make_anvil_custom_rpc_request(
+                w3,
+                "tenderly_setBalance",
+                [controller, hex(balance_in_wei)]
+            )
+
+        elif is_anvil(w3):
+            make_anvil_custom_rpc_request(
+                w3,
+                "anvil_setBalance",
+                [controller, hex(balance_in_wei)]
+            )
+        else:
+            raise NotImplementedError(f"Unsupported RPC backend: {get_provider_name(w3.provider)}")
+
+        data_store.functions.setBool("0x1153e082323163af55b3003076402c9f890dda21455104e09a048bf53f1ab30c", True).transact({
+            "from": controller,
+            "gas": 1_000_000,
+        })
 
         value = data_store.functions.getBool("0x1153e082323163af55b3003076402c9f890dda21455104e09a048bf53f1ab30c").call()
         # print(f"Value: {value}")
@@ -515,18 +613,31 @@ def emulate_keepers(gmx_config: GMXConfig, initial_token_symbol: str, target_tok
         # print(f"Value: {is_oracle_provider_enabled}")
         assert is_oracle_provider_enabled, "Value should be true"
 
-        # pass the test `address expectedProvider = dataStore.getAddress(Keys.oracleProviderForTokenKey(token));` in Oracle.sol#L278
-        address_slot: str = "0x233a49594db4e7a962a8bd9ec7298b99d6464865065bd50d94232b61d213f16d"
-        data_store.functions.setAddress(address_slot, custom_oracle_provider).transact({"from": controller})
+        # Each token has its own oracle provider set.
+        # This will tell the token price against USD(C).
 
-        new_address = data_store.functions.getAddress(address_slot).call()
-        # print(f"New address: {new_address}")
-        # 0x0000000000000000000000005d6B84086DA6d4B0b6C0dF7E02f8a6A039226530
-        assert new_address == custom_oracle_provider, "New address should be the oracle provider"
+        # pass the test `address expectedProvider = dataStore.getAddress(Keys.oracleProviderForTokenKey(token));` in Oracle.sol#L278
+        # Keys.oracleProviderForTokenKey(token)
+
+        # Address slot for the token we are buying
+        # token 0xaf88d065e77c8cC2239327C5EDb3A432268e5831
+        # address_slot: str = "0x233a49594db4e7a962a8bd9ec7298b99d6464865065bd50d94232b61d213f16d"
+        for token in (initial_token_address, target_token_address):
+            address_slot = generate_oracle_provider_for_token_key(token)
+            logger.info(
+                "Setting ORACLE_PROVIDER_FOR_TOKEN, token is %s, address slot %s, oracle provider %s",
+                token,
+                address_slot.hex(),
+                custom_oracle_provider,
+            )
+            data_store.functions.setAddress(address_slot, custom_oracle_provider).transact({"from": controller})
+
+            # Double check our set operation succeeded
+            new_address = data_store.functions.getAddress(address_slot).call()
+            assert new_address == custom_oracle_provider, "New address should be the oracle provider"
 
         # need this to be set to pass the `Oracle._validatePrices` check. Key taken from anvil tx debugger
         address_key: str = "0xf986b0f912da0acadea6308636145bb2af568ddd07eb6c76b880b8f341fef306"  # "0xf986b0f912da0acadea6308636145bb2af568ddd07eb6c76b880b8f341fef306"
-
         data_store.functions.setAddress(address_key, custom_oracle_provider).transact({"from": controller})
         value = data_store.functions.getAddress(address_key).call()
         # print(f"Value: {value}")
@@ -548,18 +659,28 @@ def emulate_keepers(gmx_config: GMXConfig, initial_token_symbol: str, target_tok
         # print(f"Value: {value}")
         assert value == large_value, f"Value should be {large_value}"
 
+        # Override min/max token prices
         oracle_contract: str = "0x918b60ba71badfada72ef3a6c6f71d0c41d4785c"
+
         token_b_max_value_slot: str = "0x636d2c90aa7802b40e3b1937e91c5450211eefbc7d3e39192aeb14ee03e3a958"
         token_b_min_value_slot: str = "0x636d2c90aa7802b40e3b1937e91c5450211eefbc7d3e39192aeb14ee03e3a959"
 
         oracle_prices = OraclePrices(chain=config.chain).get_recent_prices()
 
-        max_price: int = int(oracle_prices[target_token_address]["maxPriceFull"])
-        min_price: int = int(oracle_prices[target_token_address]["minPriceFull"])
-        max_res = override_storage_slot(oracle_contract, token_b_max_value_slot, max_price, w3)
-        min_res = override_storage_slot(oracle_contract, token_b_min_value_slot, min_price, w3)
+        target_token_address = target_token_address.lower()
+        oracle_prices = {k.lower(): v for k, v in oracle_prices.items()}
+        #max_price: int = int(oracle_prices[target_token_address]["maxPriceFull"])
+        #min_price: int = int(oracle_prices[target_token_address]["minPriceFull"])
+        min_price = 10
+        max_price = 2**64 - 1
 
-        # print(f"Max price: {max_price}")
+        # max_res = override_storage_slot(oracle_contract, token_b_max_value_slot, max_price, w3)
+        # min_res = override_storage_slot(oracle_contract, token_b_min_value_slot, min_price, w3)
+
+        override_storage_slot(oracle_contract, token_b_max_value_slot, min_price, w3)
+        override_storage_slot(oracle_contract, token_b_min_value_slot, max_price, w3)
+
+        # print(f"Max price: {max_price}")s
         # print(f"Min price: {min_price}")
         # print(f"Max res: {max_res}")
         # print(f"Min res: {min_res}")
@@ -569,13 +690,22 @@ def emulate_keepers(gmx_config: GMXConfig, initial_token_symbol: str, target_tok
             "simulate": False,
         }
         # Execute the order with oracle prices
-        execute_order(config=config, connection=w3, order_key=order_key, deployed_oracle_address=deployed_oracle_address, overrides=overrides, initial_token_address=initial_token_address, target_token_address=target_token_address)
+        tx_hash = execute_order(
+            config=config,
+            connection=w3,
+            order_key=order_key,
+            deployed_oracle_address=deployed_oracle_address,
+            overrides=overrides,
+            initial_token_address=initial_token_address,
+            target_token_address=target_token_address
+        )
+        # print(f"Transaction hash: {tx_hash.hex()}")
 
         if debug_logs:
             # Check the balances after execution
             balance = initial_token_contract.functions.balanceOf(recipient_address).call()
             symbol = initial_token_contract.functions.symbol().call()
-            print(f"Recipient {initial_token_symbol} balance after swap: {Decimal(balance / 10**decimals)} {symbol}")
+            logger.info(f"Recipient {initial_token_symbol} balance after swap: {Decimal(balance / 10**decimals)} {symbol}")
 
             target_balance_after = target_contract.functions.balanceOf(recipient_address).call()
             symbol = target_contract.functions.symbol().call()
@@ -584,8 +714,10 @@ def emulate_keepers(gmx_config: GMXConfig, initial_token_symbol: str, target_tok
             balance_decimal = Decimal(str(target_balance_after)) / Decimal(10**target_decimals)
 
             # Format to avoid scientific notation and show proper decimal places
-            print(f"Recipient {target_token_symbol} balance after swap: {balance_decimal:.18f} {target_symbol}")
-            print(f"Change in {target_token_symbol} balance: {Decimal((target_balance_after - target_balance_before) / 10**target_decimals):.18f}")
+            logger.info(f"Recipient {target_token_symbol} balance after swap: {balance_decimal:.18f} {target_symbol}")
+            logger.info(f"Change in {target_token_symbol} balance: {Decimal((target_balance_after - target_balance_before) / 10**target_decimals):.18f}")
+
+        return tx_hash
     except Exception as e:
-        print(f"Error during swap process: {e!s}")
+        logger.error(f"Error during swap process: {e!s}")
         raise e

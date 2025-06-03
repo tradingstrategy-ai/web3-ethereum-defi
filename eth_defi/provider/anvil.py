@@ -136,6 +136,8 @@ def make_anvil_custom_rpc_request(web3: Web3, method: str, args: Optional[list] 
     if args is None:
         args = ()
 
+    args = tuple(args)
+
     try:
         response = web3.provider.make_request(method, args)  # type: ignore
         if "result" in response:
