@@ -75,8 +75,8 @@ def main():
     setup_console_logging(default_log_level=os.environ.get("LOG_LEVEL", "info"))
 
     SIMULATE = os.environ.get("SIMULATE") == "true"
-    JSON_RPC_ARBITRUM = os.environ["JSON_RPC_ARBITRUM"]
-    JSON_RPC_TENDERLY = os.environ["JSON_RPC_TENDERLY"]
+    JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
+    JSON_RPC_TENDERLY = os.environ.get("JSON_RPC_TENDERLY")
 
     if SIMULATE:
         # Addresses we need to take control to simulate GMX offchain Keeper fuctionality
@@ -115,6 +115,7 @@ def main():
         logger.info("GMX controller address is %s", GMX_CONTROLLER)
     else:
         logger.info("Base production deployment")
+        assert JSON_RPC_ARBITRUM
         web3 = create_multi_provider_web3(JSON_RPC_ARBITRUM)
         PRIVATE_KEY = os.environ.get("PRIVATE_KEY")
         assert PRIVATE_KEY, "Private key must be set in environment variable PRIVATE_KEY"

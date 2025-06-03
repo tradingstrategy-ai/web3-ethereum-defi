@@ -3,6 +3,8 @@
 - This file aims to emulate the off-chain `Keeper`'s actions
 - Use with pytest and Anvil mainnet forks
 
+Here be the dragons.
+
 TODO: Document and clean up this module.
 
 """
@@ -13,29 +15,31 @@ import os
 from decimal import Decimal
 from pathlib import Path
 import logging
+from pprint import pformat
 
+import eth_abi
 from cchecksum import to_checksum_address
 from eth_abi import encode
 from eth_pydantic_types import HexStr
+from eth_typing import HexAddress
 from eth_utils import keccak
+from web3 import Web3
+from web3.contract import Contract
 
 from eth_defi.provider.anvil import make_anvil_custom_rpc_request, is_anvil
 from eth_defi.provider.named import get_provider_name
 from eth_defi.provider.tenderly import is_tenderly
 from eth_defi.trace import assert_transaction_success_with_explanation
 from gmx_python_sdk.scripts.v2.get.get_oracle_prices import OraclePrices
-from gmx_python_sdk.scripts.v2.gmx_utils import create_hash_string, get_reader_contract, get_datastore_contract
+from gmx_python_sdk.scripts.v2.gmx_utils import create_hash_string, get_reader_contract, get_datastore_contract, create_hash
 from gmx_python_sdk.scripts.v2.utils.exchange import execute_with_oracle_params
 from gmx_python_sdk.scripts.v2.utils.hash_utils import hash_data
 from gmx_python_sdk.scripts.v2.utils.keys import IS_ORACLE_PROVIDER_ENABLED, MAX_ORACLE_REF_PRICE_DEVIATION_FACTOR
-from rich.console import Console
-from web3 import Web3
 
 from eth_defi.gmx.config import GMXConfig
 
 # Create the ORDER_LIST key directly
 ORDER_LIST = create_hash_string("ORDER_LIST")
-print = Console().print
 
 
 logger = logging.getLogger(__name__)
@@ -55,6 +59,19 @@ logger = logging.getLogger(__name__)
 # target_token_address: str = TOKENS[TARGET_TOKEN_SYMBOL]
 
 ABIS_PATH = os.path.dirname(os.path.abspath(__file__))
+
+
+
+def generate_oracle_provider_for_token_key(token_address: HexAddress) -> HexStr:
+    """Generate a storage slot address for GMX Keys and DataStorage smart contracts.
+
+    https://github.com/gmx-io/gmx-synthetics/blob/66b5d7dbd4684d7612c9db6f6a3000be84fa2ff7/utils/keys.ts#L422
+    """
+    # export function oracleProviderForTokenKey(token: string) {
+    #   return hashData(["bytes32", "address"], [ORACLE_PROVIDER_FOR_TOKEN, token]);
+    # }
+    ORACLE_PROVIDER_FOR_TOKEN = create_hash_string("ORACLE_PROVIDER_FOR_TOKEN")
+    return create_hash(["bytes32", "address"], [ORACLE_PROVIDER_FOR_TOKEN, token_address])
 
 
 def set_opt_code(w3: Web3, bytecode=None, contract_address=None):
@@ -192,6 +209,9 @@ def execute_order(
     oracle_signer = overrides.get("oracle_signer", config.get_signer())
 
     # Build the parameters for execute_with_oracle_params
+
+    min_prices = [1, 1]
+
     params = {
         "key": order_key,
         "oracleBlockNumber": oracle_block_number,
@@ -222,6 +242,11 @@ def execute_order(
             "signerIndexes": [0, 1, 2, 3, 4, 5, 6],  # Default signer indexes
         },
     }
+
+    logger.info(
+        "Executing order with parameters:\n%s",
+        pformat(params),
+    )
 
     # Call execute_with_oracle_params with the built parameters
     return execute_with_oracle_params(fixture, params, config, deployed_oracle_address=deployed_oracle_address)
@@ -551,14 +576,14 @@ def emulate_keepers(
         assert controller == "0xf5F30B10141E1F63FC11eD772931A8294a591996"
 
         if is_tenderly(w3):
-            tx_hash = make_anvil_custom_rpc_request(
+            make_anvil_custom_rpc_request(
                 w3,
                 "tenderly_setBalance",
                 [controller, hex(balance_in_wei)]
             )
 
         elif is_anvil(w3):
-            tx_hash = make_anvil_custom_rpc_request(
+            make_anvil_custom_rpc_request(
                 w3,
                 "anvil_setBalance",
                 [controller, hex(balance_in_wei)]
@@ -588,18 +613,31 @@ def emulate_keepers(
         # print(f"Value: {is_oracle_provider_enabled}")
         assert is_oracle_provider_enabled, "Value should be true"
 
-        # pass the test `address expectedProvider = dataStore.getAddress(Keys.oracleProviderForTokenKey(token));` in Oracle.sol#L278
-        address_slot: str = "0x233a49594db4e7a962a8bd9ec7298b99d6464865065bd50d94232b61d213f16d"
-        data_store.functions.setAddress(address_slot, custom_oracle_provider).transact({"from": controller})
+        # Each token has its own oracle provider set.
+        # This will tell the token price against USD(C).
 
-        new_address = data_store.functions.getAddress(address_slot).call()
-        # print(f"New address: {new_address}")
-        # 0x0000000000000000000000005d6B84086DA6d4B0b6C0dF7E02f8a6A039226530
-        assert new_address == custom_oracle_provider, "New address should be the oracle provider"
+        # pass the test `address expectedProvider = dataStore.getAddress(Keys.oracleProviderForTokenKey(token));` in Oracle.sol#L278
+        # Keys.oracleProviderForTokenKey(token)
+
+        # Address slot for the token we are buying
+        # token 0xaf88d065e77c8cC2239327C5EDb3A432268e5831
+        # address_slot: str = "0x233a49594db4e7a962a8bd9ec7298b99d6464865065bd50d94232b61d213f16d"
+        for token in (initial_token_address, target_token_address):
+            address_slot = generate_oracle_provider_for_token_key(token)
+            logger.info(
+                "Setting ORACLE_PROVIDER_FOR_TOKEN, token is %s, address slot %s, oracle provider %s",
+                token,
+                address_slot.hex(),
+                custom_oracle_provider,
+            )
+            data_store.functions.setAddress(address_slot, custom_oracle_provider).transact({"from": controller})
+
+            # Double check our set operation succeeded
+            new_address = data_store.functions.getAddress(address_slot).call()
+            assert new_address == custom_oracle_provider, "New address should be the oracle provider"
 
         # need this to be set to pass the `Oracle._validatePrices` check. Key taken from anvil tx debugger
         address_key: str = "0xf986b0f912da0acadea6308636145bb2af568ddd07eb6c76b880b8f341fef306"  # "0xf986b0f912da0acadea6308636145bb2af568ddd07eb6c76b880b8f341fef306"
-
         data_store.functions.setAddress(address_key, custom_oracle_provider).transact({"from": controller})
         value = data_store.functions.getAddress(address_key).call()
         # print(f"Value: {value}")
@@ -621,7 +659,9 @@ def emulate_keepers(
         # print(f"Value: {value}")
         assert value == large_value, f"Value should be {large_value}"
 
+        # Override min/max token prices
         oracle_contract: str = "0x918b60ba71badfada72ef3a6c6f71d0c41d4785c"
+
         token_b_max_value_slot: str = "0x636d2c90aa7802b40e3b1937e91c5450211eefbc7d3e39192aeb14ee03e3a958"
         token_b_min_value_slot: str = "0x636d2c90aa7802b40e3b1937e91c5450211eefbc7d3e39192aeb14ee03e3a959"
 
@@ -629,12 +669,18 @@ def emulate_keepers(
 
         target_token_address = target_token_address.lower()
         oracle_prices = {k.lower(): v for k, v in oracle_prices.items()}
-        max_price: int = int(oracle_prices[target_token_address]["maxPriceFull"])
-        min_price: int = int(oracle_prices[target_token_address]["minPriceFull"])
-        max_res = override_storage_slot(oracle_contract, token_b_max_value_slot, max_price, w3)
-        min_res = override_storage_slot(oracle_contract, token_b_min_value_slot, min_price, w3)
+        #max_price: int = int(oracle_prices[target_token_address]["maxPriceFull"])
+        #min_price: int = int(oracle_prices[target_token_address]["minPriceFull"])
+        min_price = 10
+        max_price = 2**64 - 1
 
-        # print(f"Max price: {max_price}")
+        # max_res = override_storage_slot(oracle_contract, token_b_max_value_slot, max_price, w3)
+        # min_res = override_storage_slot(oracle_contract, token_b_min_value_slot, min_price, w3)
+
+        override_storage_slot(oracle_contract, token_b_max_value_slot, min_price, w3)
+        override_storage_slot(oracle_contract, token_b_min_value_slot, max_price, w3)
+
+        # print(f"Max price: {max_price}")s
         # print(f"Min price: {min_price}")
         # print(f"Max res: {max_res}")
         # print(f"Min res: {min_res}")
@@ -644,7 +690,15 @@ def emulate_keepers(
             "simulate": False,
         }
         # Execute the order with oracle prices
-        tx_hash = execute_order(config=config, connection=w3, order_key=order_key, deployed_oracle_address=deployed_oracle_address, overrides=overrides, initial_token_address=initial_token_address, target_token_address=target_token_address)
+        tx_hash = execute_order(
+            config=config,
+            connection=w3,
+            order_key=order_key,
+            deployed_oracle_address=deployed_oracle_address,
+            overrides=overrides,
+            initial_token_address=initial_token_address,
+            target_token_address=target_token_address
+        )
         # print(f"Transaction hash: {tx_hash.hex()}")
 
         if debug_logs:
