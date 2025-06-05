@@ -1,7 +1,8 @@
 """Block timestamp related utilities"""
 import dataclasses
 import datetime
-from typing import TypedDict
+import logging
+import time
 
 import requests
 from eth_typing import HexStr
@@ -10,6 +11,13 @@ from web3.types import BlockIdentifier
 
 from eth_defi.event_reader.conversion import convert_jsonrpc_value_to_int
 from eth_defi.utils import to_unix_timestamp
+
+
+logger = logging.getLogger(__name__)
+
+
+class FindBlockError(Exception):
+    """Something wrong with FindBlock AI call"""
 
 
 
@@ -91,6 +99,7 @@ def get_block_timestamp(web3: Web3, block_identifier: BlockIdentifier) -> dateti
 def estimate_block_number_for_timestamp_by_findblock(
     chain_id: int,
     timestamp: datetime.datetime,
+    attempts=5,
 ) -> FindBlockReply:
     """Estimate block number for a given timestamp.
 
@@ -111,9 +120,24 @@ def estimate_block_number_for_timestamp_by_findblock(
 
     unix_time = to_unix_timestamp(timestamp)
 
-    response = requests.get(f"https://api.findblock.xyz/v1/chain/{chain_id}/block/before/{unix_time}?inclusive=true")
+    while attempts > 0:
 
-    data = response.json()
+        response = requests.get(f"https://api.findblock.xyz/v1/chain/{chain_id}/block/before/{unix_time}?inclusive=true")
+
+        try:
+            data = response.json()
+        except Exception as e:
+            data = {}
+
+        if data.get("error") == "Too many requests":
+            logger.info("Throttling: %s", data)
+            time.sleep(10)
+            attempts -= 1
+            continue
+
+        if "number" not in data:
+            raise FindBlockError(f"FindBlock API did not return a valid block number for {chain_id} at {timestamp}. Response: {response.status_code} {response.text}")
+
     return FindBlockReply(
         block_number=int(data["number"]),
         hash=HexStr(data["hash"]),

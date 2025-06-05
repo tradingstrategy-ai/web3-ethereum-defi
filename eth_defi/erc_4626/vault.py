@@ -9,7 +9,7 @@ from eth_typing import HexAddress
 from fontTools.unicodedata import block
 from web3 import Web3
 from web3.contract import Contract
-from web3.exceptions import BadFunctionCallOutput
+from web3.exceptions import BadFunctionCallOutput, BlockNumberOutofRange
 from web3.types import BlockIdentifier
 
 from eth_defi.abi import get_deployed_contract, get_contract
@@ -398,7 +398,11 @@ class ERC4626Vault(VaultBase):
         :return:
             The vault value in underlyinh token
         """
-        raw_amount = self.share_token.contract.functions.totalSupply().call(block_identifier=block_identifier)
+        assert isinstance(block_identifier, (int, str)), f"Block identifier should be int or str, got {type(block_identifier)}"
+        try:
+            raw_amount = self.share_token.contract.functions.totalSupply().call(block_identifier=block_identifier)
+        except BlockNumberOutofRange as e:
+            raise RuntimeError(f"Cannot fetch total supply for block number: {block_identifier} for vault {self}") from e
         return self.share_token.convert_to_decimals(raw_amount)
 
     def fetch_share_price(self, block_identifier: BlockIdentifier) -> Decimal:
