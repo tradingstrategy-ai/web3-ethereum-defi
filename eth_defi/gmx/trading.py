@@ -627,8 +627,7 @@ class GMXTrading:
 
         # Process parameters
         order_parameters = OrderArgumentParser(write_config, is_swap=True).process_parameters_dictionary(parameters)
-        print(f"{write_config.get_signer().get_address()=}")
-        print(f"{write_config.get_web3_connection().provider.endpoint_uri=}")
+
         # Create order with any additional parameters
         return SwapOrder(
             config=write_config,
