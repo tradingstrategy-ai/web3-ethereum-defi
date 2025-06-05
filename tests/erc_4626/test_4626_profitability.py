@@ -15,6 +15,8 @@ from eth_defi.vault.base import VaultSpec
 
 JSON_RPC_BASE = os.environ.get("JSON_RPC_BASE")
 
+CI = os.environ.get("CI") == "true"
+
 pytestmark = pytest.mark.skipif(JSON_RPC_BASE is None, reason="JSON_RPC_BASE needed to run these tests")
 
 
@@ -63,6 +65,7 @@ def test_4626_recent_profitability(
     assert 0 < profitability < 900
 
 
+@pytest.mark.skipif(CI, reason="Getting Response: 429 ***error:Too many requests*** from FindBlock on Github")
 def test_4626_profitability_historical(
     vault: ERC4626Vault,
 ):
