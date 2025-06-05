@@ -1,4 +1,4 @@
-# Current
+# 0.30
 
 - Add: GMX support
 - Add: ERC-4626 APY calculation, both live and historical
