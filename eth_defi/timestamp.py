@@ -3,6 +3,7 @@ import dataclasses
 import datetime
 import logging
 import time
+from dataclasses import dataclass
 
 import requests
 from eth_typing import HexStr
@@ -28,6 +29,8 @@ class FindBlockReply:
     block_number: int
     block_timestamp: datetime.datetime
     searched_timestamp: datetime.datetime
+
+
 
 
 def get_latest_block_timestamp(web3: Web3) -> datetime.datetime:
@@ -100,6 +103,7 @@ def estimate_block_number_for_timestamp_by_findblock(
     chain_id: int,
     timestamp: datetime.datetime,
     attempts=5,
+    sleep=60,
 ) -> FindBlockReply:
     """Estimate block number for a given timestamp.
 
@@ -107,6 +111,11 @@ def estimate_block_number_for_timestamp_by_findblock(
     - Uses `FindBlock API <https://www.findblock.xyz/>`__, using ``block/before`` API
     - Gets the block that was finaliesd at the timestamp or before it.
     - FindBlock API is free
+
+    .. note ::
+
+        FindBlock API is too throttled to get the timestamp only but few blocks.
+        I think we get 5 request per minute.
 
     :param timestamp:
         Timestamp to estimate the block number for
@@ -120,6 +129,7 @@ def estimate_block_number_for_timestamp_by_findblock(
 
     unix_time = to_unix_timestamp(timestamp)
 
+    data = {}
     while attempts > 0:
 
         response = requests.get(f"https://api.findblock.xyz/v1/chain/{chain_id}/block/before/{unix_time}?inclusive=true")
@@ -127,16 +137,19 @@ def estimate_block_number_for_timestamp_by_findblock(
         try:
             data = response.json()
         except Exception as e:
-            data = {}
+            data = {"error": str(e)}
 
         if data.get("error") == "Too many requests":
             logger.info("Throttling: %s", data)
-            time.sleep(10)
+            time.sleep(sleep)
             attempts -= 1
             continue
 
         if "number" not in data:
             raise FindBlockError(f"FindBlock API did not return a valid block number for {chain_id} at {timestamp}. Response: {response.status_code} {response.text}")
+
+    if "error" in data:
+        raise FindBlockError(f"FindBlock API run out of retry attempts {chain_id} at {timestamp}. Response: {response.status_code} {response.text}")
 
     return FindBlockReply(
         block_number=int(data["number"]),
