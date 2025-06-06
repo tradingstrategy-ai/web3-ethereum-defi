@@ -419,3 +419,78 @@ def test_swap_tokens(chain_name, trading_manager, gmx_config_fork, arb, wsol, wa
 
     # As of 21 May 2025, 50k ARB -> 122 SOL (Roughly). Keeping it at 100 just be safe.
     assert output // decimals >= 100
+
+
+def test_swap_tokens_usdc_aave(chain_name, trading_manager, gmx_config_fork, usdc, aave, wallet_with_usdc):
+    """
+    Test swapping tokens.
+
+    This tests creating a SwapOrder.
+    """
+    start_token_symbol: str = "USDC"
+    start_token_address = usdc.contract.functions.address
+    # Select appropriate parameters based on the chain
+    if chain_name == "arbitrum":
+        out_token_symbol = "AAVE"
+        out_token_address = aave.contract.functions.address
+    # avalanche
+    else:
+        # For https://github.com/gmx-io/gmx-synthetics/issues/164 skip the test for avalanche
+        pytest.skip("Skipping swap_tokens for avalanche because of the known issue in the Reader contract")
+        out_token_symbol = "GMX"
+
+    # Get test wallet address
+    wallet_address = gmx_config_fork.get_wallet_address()
+
+    # Check initial balances
+    initial_usdc_balance = usdc.contract.functions.balanceOf(wallet_address).call()
+
+    # Swap USDC for chain-specific native token
+    swap_order = trading_manager.swap_tokens(
+        out_token_symbol=out_token_symbol,
+        in_token_symbol=start_token_symbol,
+        amount=50000.3785643,  # 50000 ARB tokens & fractions for fun
+        slippage_percent=0.02,  # 0.2% slippage
+        debug_mode=False,
+        execution_buffer=2.5,  # this is needed to pass the gas usage
+    )
+
+    # Verify the order was created with the right type
+    assert isinstance(swap_order, SwapOrder)
+
+    # Verify key properties
+    assert hasattr(swap_order, "config")
+    assert hasattr(swap_order, "market_key")
+    assert hasattr(swap_order, "start_token")
+    assert hasattr(swap_order, "out_token")
+    assert hasattr(swap_order, "initial_collateral_delta_amount")
+    assert hasattr(swap_order, "slippage_percent")
+    assert hasattr(swap_order, "swap_path")
+
+    # Verify swap path exists
+    assert hasattr(swap_order, "swap_path")
+
+    # Verify debug mode
+    assert swap_order.debug_mode is False
+
+    # Check final balances
+    final_usdc_balance = usdc.contract.functions.balanceOf(wallet_address).call()
+    decimals = aave.contract.functions.decimals().call()
+
+    # Verify balances changed
+    assert final_usdc_balance < initial_usdc_balance, "USDC balance should decrease after swap"
+
+    emulate_keepers(
+        gmx_config_fork,
+        start_token_symbol,
+        out_token_symbol,
+        gmx_config_fork.web3,
+        wallet_address,
+        start_token_address,
+        out_token_address,
+    )
+
+    output = aave.contract.functions.balanceOf(wallet_address).call()
+
+    # As of 21 May 2025, 50k ARB -> 122 SOL (Roughly). Keeping it at 100 just be safe.
+    assert output // decimals >= 100

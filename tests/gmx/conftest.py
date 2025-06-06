@@ -35,6 +35,7 @@ CHAIN_CONFIG = {
         "wsol_address": "0x2bcC6D6CdBbDC0a4071e48bb3B969b06B3330c07",  # WSOL on Arbitrum
         "arb_address": "0x912CE59144191C1204E64559FE8253a0e49E6548",  # ARB on Arbitrum
         "native_token_address": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",  # WETH
+        "aave_address": "0xba5DdD1f9d7F570dc94a51479a000E3BCE967196", # AAVE
     },
     "avalanche": {
         "rpc_env_var": "AVALANCHE_JSON_RPC_URL",
@@ -243,7 +244,7 @@ def web3_fork(anvil_chain_fork: str) -> Web3:
     """Set up a local unit testing blockchain with the forked chain."""
     web3 = Web3(
         HTTPProvider(
-            anvil_chain_fork,
+            "https://virtual.arbitrum.rpc.tenderly.co/6b1bca7e-2738-4b5c-8df1-f11842b3709a", # anvil_chain_fork,
             request_kwargs={"timeout": 30},
         )
     )
@@ -275,7 +276,7 @@ def web3_mainnet(chain_name, chain_rpc_url):
 @pytest.fixture()
 def gmx_config(web3_mainnet, chain_name) -> GMXConfig:
     """Create a GMX configuration for the specified chain."""
-    return GMXConfig(web3_mainnet, chain=chain_name)
+    return GMXConfig(web3_mainnet)
 
 
 @pytest.fixture()
@@ -377,6 +378,12 @@ def usdt(web3_fork: Web3, chain_name) -> TokenDetails:
     usdt_address = CHAIN_CONFIG[chain_name]["usdt_address"]
     return fetch_erc20_details(web3_fork, usdt_address)
 
+@pytest.fixture()
+def aave(web3_fork: Web3, chain_name) -> TokenDetails:
+    """AAVE token details for the specified chain."""
+    aave_address = CHAIN_CONFIG[chain_name]["aave_address"]
+    return fetch_erc20_details(web3_fork, aave_address)
+
 
 @pytest.fixture()
 def wrapped_native_token(web3_fork: Web3, chain_name) -> TokenDetails:
@@ -408,8 +415,8 @@ def wallet_with_native_token(
     else:
         # Fund the account with native gas tokens of arbitrum
         amount_wei = 5000000 * 10**18
-        web3_fork.provider.make_request("anvil_setBalance", [gmx_controller_arbitrum, hex(amount_wei)])
-        web3_fork.provider.make_request("anvil_setBalance", [test_address, hex(amount_wei)])
+        web3_fork.provider.make_request("tenderly_setBalance", [gmx_controller_arbitrum, hex(amount_wei)])
+        web3_fork.provider.make_request("tenderly_setBalance", [test_address, hex(amount_wei)])
 
 
 @pytest.fixture()
@@ -457,7 +464,7 @@ def wallet_with_wbtc(
         #     large_holder = large_wbtc_holder_avalanche
         #     amount = 5 * 10 ** 8  # 1 WBTC (8 decimals)
         try:
-            web3_fork.provider.make_request("anvil_addErc20Balance", [wbtc_address, [test_address], hex(amount)])
+            web3_fork.provider.make_request("tenderly_addErc20Balance", [wbtc_address, [test_address], hex(amount)])
             # wbtc.contract.functions.transfer(test_address, amount).transact({"from": large_holder})
         except Exception as e:
             # If the transfer fails, skip the test instead of failing
@@ -534,7 +541,7 @@ def gmx_config_fork(
     wallet.sync_nonce(web3_fork)
 
     # The wallet_with_all_tokens fixture ensures the wallet has all necessary tokens
-    return GMXConfig(web3_fork, chain=chain_name, wallet=wallet, user_wallet_address=test_address)
+    return GMXConfig(web3_fork, wallet=wallet, user_wallet_address=test_address)
 
 
 @pytest.fixture()

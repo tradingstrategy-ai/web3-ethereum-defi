@@ -261,7 +261,7 @@ class GMXConfig:
             chain_id=web3.eth.chain_id,
             user_wallet_address=user_wallet_address,
             config=self._base_config_dict,
-            web3=web3,
+            rpc=self.web3.provider.endpoint_uri
         )
 
         # Only initialize a write config if we have a wallet
@@ -280,7 +280,7 @@ class GMXConfig:
                 user_wallet_address=user_wallet_address,
                 private_key=private_key,
                 config=write_config_dict,
-                web3=self.web3,
+                rpc=self.web3.provider.endpoint_uri
             )
 
     def _create_write_config(self) -> ConfigManager:
@@ -322,7 +322,7 @@ class GMXConfig:
             self._wallet.sync_nonce(self.web3)
 
         # Create ConfigManager with the adapter signer
-        config_manager = ConfigManager(chain=self.chain, chain_id=self.web3.eth.chain_id, user_wallet_address=self._user_wallet_address, config=write_config_dict, signer=adapter_signer, web3=self.web3)
+        config_manager = ConfigManager(chain=self.chain, chain_id=self.web3.eth.chain_id, user_wallet_address=self._user_wallet_address, config=write_config_dict, signer=adapter_signer,  rpc=self.web3.provider.endpoint_uri)
 
         return config_manager
 

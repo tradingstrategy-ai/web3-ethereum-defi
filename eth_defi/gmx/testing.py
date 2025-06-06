@@ -23,6 +23,7 @@ from eth_abi import encode
 from eth_pydantic_types import HexStr
 from eth_typing import HexAddress
 from eth_utils import keccak
+from hexbytes import HexBytes
 from web3 import Web3
 from web3.contract import Contract
 
@@ -34,7 +35,8 @@ from gmx_python_sdk.scripts.v2.get.get_oracle_prices import OraclePrices
 from gmx_python_sdk.scripts.v2.gmx_utils import create_hash_string, get_reader_contract, get_datastore_contract, create_hash
 from gmx_python_sdk.scripts.v2.utils.exchange import execute_with_oracle_params
 from gmx_python_sdk.scripts.v2.utils.hash_utils import hash_data
-from gmx_python_sdk.scripts.v2.utils.keys import IS_ORACLE_PROVIDER_ENABLED, MAX_ORACLE_REF_PRICE_DEVIATION_FACTOR
+from gmx_python_sdk.scripts.v2.utils.keys import IS_ORACLE_PROVIDER_ENABLED, MAX_ORACLE_REF_PRICE_DEVIATION_FACTOR, \
+    oracle_provider_for_token_key, open_interest_in_tokens_key, pool_amount_key, max_pool_amount_key
 
 from eth_defi.gmx.config import GMXConfig
 
@@ -651,7 +653,7 @@ def emulate_keepers(
         assert value == custom_oracle_provider, "Value should be recipient address"
 
         # ? Set the `maxRefPriceDeviationFactor` to pass tests in `Oracle.sol`
-        price_deviation_factor_key: str = f"0x{MAX_ORACLE_REF_PRICE_DEVIATION_FACTOR.hex()}"
+        price_deviation_factor_key: bytes = bytes.fromhex(MAX_ORACLE_REF_PRICE_DEVIATION_FACTOR.hex().removeprefix("0x"))
         # * set some big value to pass the test
         large_value: int = 10021573904618365809021423188717
         data_store.functions.setUint(price_deviation_factor_key, large_value).transact({"from": controller})
@@ -662,28 +664,42 @@ def emulate_keepers(
         # Override min/max token prices
         oracle_contract: str = "0x918b60ba71badfada72ef3a6c6f71d0c41d4785c"
 
-        token_b_max_value_slot: str = "0x636d2c90aa7802b40e3b1937e91c5450211eefbc7d3e39192aeb14ee03e3a958"
-        token_b_min_value_slot: str = "0x636d2c90aa7802b40e3b1937e91c5450211eefbc7d3e39192aeb14ee03e3a959"
+        # token_b_max_value_slot: str = "0x636d2c90aa7802b40e3b1937e91c5450211eefbc7d3e39192aeb14ee03e3a958"
+        # token_b_min_value_slot: str = "0x636d2c90aa7802b40e3b1937e91c5450211eefbc7d3e39192aeb14ee03e3a959"
+
+        token_b_max_value_slot = HexBytes(oracle_provider_for_token_key(target_token_address)).hex()
+        token_b_min_value_slot = token_b_max_value_slot[:-1] + str(int(token_b_max_value_slot[-1]) + 1)
+        print(f"{token_b_max_value_slot=}")
+        print(f"{token_b_min_value_slot=}")
 
         oracle_prices = OraclePrices(chain=config.chain).get_recent_prices()
 
-        target_token_address = target_token_address.lower()
-        oracle_prices = {k.lower(): v for k, v in oracle_prices.items()}
-        #max_price: int = int(oracle_prices[target_token_address]["maxPriceFull"])
-        #min_price: int = int(oracle_prices[target_token_address]["minPriceFull"])
-        min_price = 10
-        max_price = 2**64 - 1
+        # target_token_address = target_token_address.lower()
+        # oracle_prices = {k.lower(): v for k, v in oracle_prices.items()}
+        max_price: int = int(oracle_prices[target_token_address]["maxPriceFull"])
+        min_price: int = int(oracle_prices[target_token_address]["minPriceFull"])
+        # min_price = 10
+        # max_price = 2**64 - 1
 
-        # max_res = override_storage_slot(oracle_contract, token_b_max_value_slot, max_price, w3)
-        # min_res = override_storage_slot(oracle_contract, token_b_min_value_slot, min_price, w3)
+        max_res = override_storage_slot(oracle_contract, token_b_max_value_slot, max_price, w3)
+        min_res = override_storage_slot(oracle_contract, token_b_min_value_slot, min_price, w3)
 
-        override_storage_slot(oracle_contract, token_b_max_value_slot, min_price, w3)
-        override_storage_slot(oracle_contract, token_b_min_value_slot, max_price, w3)
+        # override_storage_slot(oracle_contract, slot, min_price, w3)
+        # override_storage_slot(oracle_contract, token_b_min_value_slot, max_price, w3)
 
-        # print(f"Max price: {max_price}")s
-        # print(f"Min price: {min_price}")
-        # print(f"Max res: {max_res}")
-        # print(f"Min res: {min_res}")
+        print(f"Max price: {max_price}")
+        print(f"Min price: {min_price}")
+        print(f"Max res: {max_res}")
+        print(f"Min res: {min_res}")
+
+        # * set some big value to pass the test
+        large_value: int = 9914611141387747627324635505610366123
+        key_slot: bytes = bytes.fromhex(max_pool_amount_key("0x1cbba6346f110c8a5ea739ef2d1eb182990e4eb2", target_token_address).hex().removeprefix("0x"))
+        print(f"{key_slot.hex()=}")
+        data_store.functions.setUint(key_slot, large_value).transact({"from": controller})
+        value = data_store.functions.getUint(key_slot).call()
+        # print(f"Value: {value}")
+        assert value == large_value, f"Value should be {large_value}"
 
         # print(f"Order key: {order_key.hex()}")
         overrides = {
@@ -696,8 +712,8 @@ def emulate_keepers(
             order_key=order_key,
             deployed_oracle_address=deployed_oracle_address,
             overrides=overrides,
-            initial_token_address=initial_token_address,
-            target_token_address=target_token_address
+            initial_token_address=to_checksum_address(initial_token_address),
+            target_token_address=to_checksum_address(target_token_address)
         )
         # print(f"Transaction hash: {tx_hash.hex()}")
 
