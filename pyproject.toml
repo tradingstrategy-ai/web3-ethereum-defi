@@ -8,7 +8,7 @@ license = "MIT"
 homepage = "https://web3-ethereum-defi.readthedocs.io/"
 repository = "https://github.com/tradingstrategy-ai/web3-ethereum-defi"
 readme = "README.md"
-keywords = ["ethereum", "cryptocurrency", "uniswap", "erc-20", "pancakeswap", "bnb smart chain", "polygon", "web3", "blockchain", "avalanche", "arbitrum", "chainlink"]
+keywords = ["uniswap", "aave", "gmx", "safe", "ethereum", "cryptocurrency", "erc-20", "pancakeswap", "bnb smart chain", "base", "web3", "blockchain", "avalanche", "arbitrum", "chainlink"]
 packages = [
     { include = "eth_defi" },
 ]

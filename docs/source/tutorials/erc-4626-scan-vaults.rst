@@ -40,7 +40,7 @@ You must install the package with all extra dependencies (HyperSync) to use this
 
 .. code-block:: shell
 
-    pip install web3-ethereum-defi["hypersync"]
+    pip install "web3-ethereum-defi[hypersync]"
 
 Then to run this script:
 
