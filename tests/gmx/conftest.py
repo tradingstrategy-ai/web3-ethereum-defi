@@ -244,7 +244,7 @@ def web3_fork(anvil_chain_fork: str) -> Web3:
     """Set up a local unit testing blockchain with the forked chain."""
     web3 = Web3(
         HTTPProvider(
-            "https://virtual.arbitrum.rpc.tenderly.co/ee5ed696-81bc-4951-86b7-ab832f3381ad",  # anvil_chain_fork,
+            anvil_chain_fork,
             request_kwargs={"timeout": 30},
         )
     )

@@ -346,14 +346,14 @@ def test_close_position_full_size(chain_name, trading_manager, gmx_config_fork, 
     assert usdc_balance_after_close > usdc_balance_before_close, "USDC balance should increase after closing a full position"
 
 
-def test_swap_tokens(chain_name, trading_manager, gmx_config_fork, arb, wsol, wallet_with_arb):
+def test_swap_tokens(chain_name, trading_manager, gmx_config_fork, usdc, wsol, wallet_with_usdc):
     """
     Test swapping tokens.
 
     This tests creating a SwapOrder.
     """
-    start_token_symbol: str = "ARB"
-    start_token_address = arb.contract.functions.address
+    start_token_symbol: str = "USDC"
+    start_token_address = usdc.contract.functions.address
     # Select appropriate parameters based on the chain
     if chain_name == "arbitrum":
         out_token_symbol = "SOL"
@@ -368,13 +368,13 @@ def test_swap_tokens(chain_name, trading_manager, gmx_config_fork, arb, wsol, wa
     wallet_address = gmx_config_fork.get_wallet_address()
 
     # Check initial balances
-    initial_arb_balance = arb.contract.functions.balanceOf(wallet_address).call()
+    initial_usdc_balance = usdc.contract.functions.balanceOf(wallet_address).call()
 
     # Swap USDC for chain-specific native token
     swap_order = trading_manager.swap_tokens(
         out_token_symbol=out_token_symbol,
         in_token_symbol=start_token_symbol,
-        amount=50000.3785643,  # 50000 ARB tokens & fractions for fun
+        amount=50000.3785643,  # 50000 USDC tokens & fractions for fun
         slippage_percent=0.02,  # 0.2% slippage
         debug_mode=False,
         execution_buffer=2.5,  # this is needed to pass the gas usage
@@ -399,11 +399,11 @@ def test_swap_tokens(chain_name, trading_manager, gmx_config_fork, arb, wsol, wa
     assert swap_order.debug_mode is False
 
     # Check final balances
-    final_arb_balance = arb.contract.functions.balanceOf(wallet_address).call()
+    final_usdc_balance = usdc.contract.functions.balanceOf(wallet_address).call()
     decimals = wsol.contract.functions.decimals().call()
 
     # Verify balances changed
-    assert final_arb_balance < initial_arb_balance, "USDC balance should decrease after swap"
+    assert final_usdc_balance < initial_usdc_balance, "USDC balance should decrease after swap"
 
     emulate_keepers(
         gmx_config_fork,

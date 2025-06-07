@@ -439,6 +439,15 @@ def override_storage_slot(
 
     return result
 
+def get_next_hex_slot(hex_str: str) -> str:
+    """
+    Takes a hex string (like a storage slot) and returns the next slot as a hex string.
+    E.g., '0x...958' → '0x...959'
+    """
+    int_val = int(hex_str, 16)
+    next_int_val = int_val + 1
+    return hex(next_int_val)
+
 
 def emulate_keepers(
     gmx_config: GMXConfig,
@@ -648,10 +657,12 @@ def emulate_keepers(
         # token_b_max_value_slot: str = "0x636d2c90aa7802b40e3b1937e91c5450211eefbc7d3e39192aeb14ee03e3a958"
         # token_b_min_value_slot: str = "0x636d2c90aa7802b40e3b1937e91c5450211eefbc7d3e39192aeb14ee03e3a959"
 
+        # TODO: handle the case when the last char is not int
         token_b_max_value_slot = HexBytes(oracle_provider_for_token_key(target_token_address)).hex()
-        token_b_min_value_slot = token_b_max_value_slot[:-1] + str(int(token_b_max_value_slot[-1]) + 1)
-        print(f"{token_b_max_value_slot=}")
-        print(f"{token_b_min_value_slot=}")
+        # token_b_min_value_slot = token_b_max_value_slot[:-1] + str(int(token_b_max_value_slot[-1]) + 1)
+        token_b_min_value_slot = get_next_hex_slot(token_b_max_value_slot)
+        # print(f"{token_b_max_value_slot=}")
+        # print(f"{token_b_min_value_slot=}")
 
         oracle_prices = OraclePrices(chain=config.chain).get_recent_prices()
 
@@ -668,10 +679,10 @@ def emulate_keepers(
         # override_storage_slot(oracle_contract, slot, min_price, w3)
         # override_storage_slot(oracle_contract, token_b_min_value_slot, max_price, w3)
 
-        print(f"Max price: {max_price}")
-        print(f"Min price: {min_price}")
-        print(f"Max res: {max_res}")
-        print(f"Min res: {min_res}")
+        # print(f"Max price: {max_price}")
+        # print(f"Min price: {min_price}")
+        # print(f"Max res: {max_res}")
+        # print(f"Min res: {min_res}")
 
         # * set some big value to pass the test
         large_value: int = 9914611141387747627324635505610366123
