@@ -35,7 +35,7 @@ CHAIN_CONFIG = {
         "wsol_address": "0x2bcC6D6CdBbDC0a4071e48bb3B969b06B3330c07",  # WSOL on Arbitrum
         "arb_address": "0x912CE59144191C1204E64559FE8253a0e49E6548",  # ARB on Arbitrum
         "native_token_address": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",  # WETH
-        "aave_address": "0xba5DdD1f9d7F570dc94a51479a000E3BCE967196", # AAVE
+        "aave_address": "0xba5DdD1f9d7F570dc94a51479a000E3BCE967196",  # AAVE
     },
     "avalanche": {
         "rpc_env_var": "AVALANCHE_JSON_RPC_URL",
@@ -244,7 +244,7 @@ def web3_fork(anvil_chain_fork: str) -> Web3:
     """Set up a local unit testing blockchain with the forked chain."""
     web3 = Web3(
         HTTPProvider(
-            "https://virtual.arbitrum.rpc.tenderly.co/6b1bca7e-2738-4b5c-8df1-f11842b3709a", # anvil_chain_fork,
+            "https://virtual.arbitrum.rpc.tenderly.co/ee5ed696-81bc-4951-86b7-ab832f3381ad",  # anvil_chain_fork,
             request_kwargs={"timeout": 30},
         )
     )
@@ -377,6 +377,7 @@ def usdt(web3_fork: Web3, chain_name) -> TokenDetails:
     """USDT token details for the specified chain."""
     usdt_address = CHAIN_CONFIG[chain_name]["usdt_address"]
     return fetch_erc20_details(web3_fork, usdt_address)
+
 
 @pytest.fixture()
 def aave(web3_fork: Web3, chain_name) -> TokenDetails:

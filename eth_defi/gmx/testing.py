@@ -35,8 +35,7 @@ from gmx_python_sdk.scripts.v2.get.get_oracle_prices import OraclePrices
 from gmx_python_sdk.scripts.v2.gmx_utils import create_hash_string, get_reader_contract, get_datastore_contract, create_hash
 from gmx_python_sdk.scripts.v2.utils.exchange import execute_with_oracle_params
 from gmx_python_sdk.scripts.v2.utils.hash_utils import hash_data
-from gmx_python_sdk.scripts.v2.utils.keys import IS_ORACLE_PROVIDER_ENABLED, MAX_ORACLE_REF_PRICE_DEVIATION_FACTOR, \
-    oracle_provider_for_token_key, open_interest_in_tokens_key, pool_amount_key, max_pool_amount_key
+from gmx_python_sdk.scripts.v2.utils.keys import IS_ORACLE_PROVIDER_ENABLED, MAX_ORACLE_REF_PRICE_DEVIATION_FACTOR, oracle_provider_for_token_key, open_interest_in_tokens_key, pool_amount_key, max_pool_amount_key
 
 from eth_defi.gmx.config import GMXConfig
 
@@ -61,7 +60,6 @@ logger = logging.getLogger(__name__)
 # target_token_address: str = TOKENS[TARGET_TOKEN_SYMBOL]
 
 ABIS_PATH = os.path.dirname(os.path.abspath(__file__))
-
 
 
 def generate_oracle_provider_for_token_key(token_address: HexAddress) -> HexStr:
@@ -114,15 +112,7 @@ def set_opt_code(w3: Web3, bytecode=None, contract_address=None):
             logger.info(f"Length mismatch - Expected: {len(bytecode)}, Got: {len(deployed_code)}")
 
 
-def execute_order(
-    config,
-    connection,
-    order_key,
-    deployed_oracle_address,
-    initial_token_address,
-    target_token_address,
-    overrides=None,
-):
+def execute_order(config, connection, order_key, deployed_oracle_address, initial_token_address, target_token_address, logger=None, overrides=None):
     """
     Execute an order with oracle prices
 
@@ -139,6 +129,11 @@ def execute_order(
     Returns:
         Result of the execute_with_oracle_params call
     """
+    if logger is None:
+        import logging
+
+        logger = logging.getLogger(__name__)
+
     if overrides is None:
         overrides = {}
 
@@ -211,9 +206,6 @@ def execute_order(
     oracle_signer = overrides.get("oracle_signer", config.get_signer())
 
     # Build the parameters for execute_with_oracle_params
-
-    min_prices = [1, 1]
-
     params = {
         "key": order_key,
         "oracleBlockNumber": oracle_block_number,
@@ -244,11 +236,6 @@ def execute_order(
             "signerIndexes": [0, 1, 2, 3, 4, 5, 6],  # Default signer indexes
         },
     }
-
-    logger.info(
-        "Executing order with parameters:\n%s",
-        pformat(params),
-    )
 
     # Call execute_with_oracle_params with the built parameters
     return execute_with_oracle_params(fixture, params, config, deployed_oracle_address=deployed_oracle_address)
@@ -578,25 +565,19 @@ def emulate_keepers(
         assert controller == "0xf5F30B10141E1F63FC11eD772931A8294a591996"
 
         if is_tenderly(w3):
-            make_anvil_custom_rpc_request(
-                w3,
-                "tenderly_setBalance",
-                [controller, hex(balance_in_wei)]
-            )
+            make_anvil_custom_rpc_request(w3, "tenderly_setBalance", [controller, hex(balance_in_wei)])
 
         elif is_anvil(w3):
-            make_anvil_custom_rpc_request(
-                w3,
-                "anvil_setBalance",
-                [controller, hex(balance_in_wei)]
-            )
+            make_anvil_custom_rpc_request(w3, "anvil_setBalance", [controller, hex(balance_in_wei)])
         else:
             raise NotImplementedError(f"Unsupported RPC backend: {get_provider_name(w3.provider)}")
 
-        data_store.functions.setBool("0x1153e082323163af55b3003076402c9f890dda21455104e09a048bf53f1ab30c", True).transact({
-            "from": controller,
-            "gas": 1_000_000,
-        })
+        data_store.functions.setBool("0x1153e082323163af55b3003076402c9f890dda21455104e09a048bf53f1ab30c", True).transact(
+            {
+                "from": controller,
+                "gas": 1_000_000,
+            }
+        )
 
         value = data_store.functions.getBool("0x1153e082323163af55b3003076402c9f890dda21455104e09a048bf53f1ab30c").call()
         # print(f"Value: {value}")
@@ -625,7 +606,7 @@ def emulate_keepers(
         # token 0xaf88d065e77c8cC2239327C5EDb3A432268e5831
         # address_slot: str = "0x233a49594db4e7a962a8bd9ec7298b99d6464865065bd50d94232b61d213f16d"
         for token in (initial_token_address, target_token_address):
-            address_slot = generate_oracle_provider_for_token_key(token)
+            address_slot = bytes.fromhex(oracle_provider_for_token_key(token).hex().removeprefix("0x"))
             logger.info(
                 "Setting ORACLE_PROVIDER_FOR_TOKEN, token is %s, address slot %s, oracle provider %s",
                 token,
@@ -711,9 +692,9 @@ def emulate_keepers(
             connection=w3,
             order_key=order_key,
             deployed_oracle_address=deployed_oracle_address,
+            initial_token_address=initial_token_address,
+            target_token_address=target_token_address,
             overrides=overrides,
-            initial_token_address=to_checksum_address(initial_token_address),
-            target_token_address=to_checksum_address(target_token_address)
         )
         # print(f"Transaction hash: {tx_hash.hex()}")
 

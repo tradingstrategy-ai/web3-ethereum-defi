@@ -256,13 +256,7 @@ class GMXConfig:
         }
 
         # Initialize a read-only ConfigManager instance (no private key)
-        self._read_config = ConfigManager(
-            chain=chain,
-            chain_id=web3.eth.chain_id,
-            user_wallet_address=user_wallet_address,
-            config=self._base_config_dict,
-            rpc=self.web3.provider.endpoint_uri
-        )
+        self._read_config = ConfigManager(chain=chain, chain_id=web3.eth.chain_id, user_wallet_address=user_wallet_address, config=self._base_config_dict, rpc=self.web3.provider.endpoint_uri)
 
         # Only initialize a write config if we have a wallet
         self._write_config = None
@@ -274,14 +268,7 @@ class GMXConfig:
             # For backward compatibility
             write_config_dict = self._base_config_dict.copy()
             write_config_dict["private_key"] = private_key
-            self._write_config = ConfigManager(
-                chain=chain,
-                chain_id=web3.eth.chain_id,
-                user_wallet_address=user_wallet_address,
-                private_key=private_key,
-                config=write_config_dict,
-                rpc=self.web3.provider.endpoint_uri
-            )
+            self._write_config = ConfigManager(chain=chain, chain_id=web3.eth.chain_id, user_wallet_address=user_wallet_address, private_key=private_key, config=write_config_dict, rpc=self.web3.provider.endpoint_uri)
 
     def _create_write_config(self) -> ConfigManager:
         """
@@ -322,7 +309,7 @@ class GMXConfig:
             self._wallet.sync_nonce(self.web3)
 
         # Create ConfigManager with the adapter signer
-        config_manager = ConfigManager(chain=self.chain, chain_id=self.web3.eth.chain_id, user_wallet_address=self._user_wallet_address, config=write_config_dict, signer=adapter_signer,  rpc=self.web3.provider.endpoint_uri)
+        config_manager = ConfigManager(chain=self.chain, chain_id=self.web3.eth.chain_id, user_wallet_address=self._user_wallet_address, config=write_config_dict, signer=adapter_signer, rpc=self.web3.provider.endpoint_uri)
 
         return config_manager
 
