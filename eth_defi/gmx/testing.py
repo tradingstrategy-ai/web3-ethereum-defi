@@ -15,27 +15,22 @@ import os
 from decimal import Decimal
 from pathlib import Path
 import logging
-from pprint import pformat
-
-import eth_abi
 from cchecksum import to_checksum_address
 from eth_abi import encode
 from eth_pydantic_types import HexStr
-from eth_typing import HexAddress
 from eth_utils import keccak
 from hexbytes import HexBytes
 from web3 import Web3
-from web3.contract import Contract
 
 from eth_defi.provider.anvil import make_anvil_custom_rpc_request, is_anvil
 from eth_defi.provider.named import get_provider_name
 from eth_defi.provider.tenderly import is_tenderly
 from eth_defi.trace import assert_transaction_success_with_explanation
 from gmx_python_sdk.scripts.v2.get.get_oracle_prices import OraclePrices
-from gmx_python_sdk.scripts.v2.gmx_utils import create_hash_string, get_reader_contract, get_datastore_contract, create_hash
+from gmx_python_sdk.scripts.v2.gmx_utils import create_hash_string, get_reader_contract, get_datastore_contract
 from gmx_python_sdk.scripts.v2.utils.exchange import execute_with_oracle_params
 from gmx_python_sdk.scripts.v2.utils.hash_utils import hash_data
-from gmx_python_sdk.scripts.v2.utils.keys import IS_ORACLE_PROVIDER_ENABLED, MAX_ORACLE_REF_PRICE_DEVIATION_FACTOR, oracle_provider_for_token_key, open_interest_in_tokens_key, pool_amount_key, max_pool_amount_key
+from gmx_python_sdk.scripts.v2.utils.keys import IS_ORACLE_PROVIDER_ENABLED, MAX_ORACLE_REF_PRICE_DEVIATION_FACTOR, oracle_provider_for_token_key, max_pool_amount_key
 
 from eth_defi.gmx.config import GMXConfig
 
@@ -44,34 +39,7 @@ ORDER_LIST = create_hash_string("ORDER_LIST")
 
 
 logger = logging.getLogger(__name__)
-
-
-# TOKENS: dict = {
-#     "USDC": to_checksum_address("0xaf88d065e77c8cC2239327C5EDb3A432268e5831"),
-#     "SOL": to_checksum_address("0x2bcC6D6CdBbDC0a4071e48bb3B969b06B3330c07"),
-#     "ARB": to_checksum_address("0x912ce59144191c1204e64559fe8253a0e49e6548"),
-#     "LINK": to_checksum_address("0xf97f4df75117a78c1A5a0DBb814Af92458539FB4"),
-# }
-#
-# INITIAL_TOKEN_SYMBOL: str = "ARB"
-# TARGET_TOKEN_SYMBOL: str = "SOL"
-#
-# initial_token_address: str = TOKENS[INITIAL_TOKEN_SYMBOL]
-# target_token_address: str = TOKENS[TARGET_TOKEN_SYMBOL]
-
 ABIS_PATH = os.path.dirname(os.path.abspath(__file__))
-
-
-def generate_oracle_provider_for_token_key(token_address: HexAddress) -> HexStr:
-    """Generate a storage slot address for GMX Keys and DataStorage smart contracts.
-
-    https://github.com/gmx-io/gmx-synthetics/blob/66b5d7dbd4684d7612c9db6f6a3000be84fa2ff7/utils/keys.ts#L422
-    """
-    # export function oracleProviderForTokenKey(token: string) {
-    #   return hashData(["bytes32", "address"], [ORACLE_PROVIDER_FOR_TOKEN, token]);
-    # }
-    ORACLE_PROVIDER_FOR_TOKEN = create_hash_string("ORACLE_PROVIDER_FOR_TOKEN")
-    return create_hash(["bytes32", "address"], [ORACLE_PROVIDER_FOR_TOKEN, token_address])
 
 
 def set_opt_code(w3: Web3, bytecode=None, contract_address=None):
@@ -85,8 +53,6 @@ def set_opt_code(w3: Web3, bytecode=None, contract_address=None):
         response = w3.provider.make_request("anvil_setCode", [contract_address, bytecode])
     else:
         raise NotImplementedError(f"Unsupported RPC backend: {get_provider_name(w3.provider)}")
-
-    # print(f"{response=}")
 
     # Verify the response from anvil
     if response.get("result"):
@@ -233,7 +199,7 @@ def execute_order(config, connection, order_key, deployed_oracle_address, initia
         "accounts": {"signers": [oracle_signer] * 7},
         "props": {
             "oracleSalt": hash_data(["uint256", "string"], [config.chain_id, "xget-oracle-v1"]),
-            "signerIndexes": [0, 1, 2, 3, 4, 5, 6],  # Default signer indexes
+            "signerIndexes": [0, 1, 2, 3, 4, 5, 6],
         },
     }
 
@@ -245,10 +211,9 @@ GMX_ADMIN = "0x7A967D114B8676874FA2cFC1C14F3095C88418Eb"
 
 
 def deploy_custom_oracle(w3: Web3, account) -> str:
-    # /// Delpoy the `Oracle` contract here & then return the deployed bytecode
+    # Delpoy the `Oracle` contract here & then return the deployed bytecode
     # Check balance
     balance = w3.eth.get_balance(account)
-    # print(f"Deployer balance: {w3.from_wei(balance, 'ether')} ETH")
 
     # Load contract ABI and bytecode
     artifacts_path = Path(f"{ABIS_PATH}/mock_abis/Oracle.json")
@@ -279,36 +244,24 @@ def deploy_custom_oracle(w3: Web3, account) -> str:
 
     # Send transaction
     tx_hash = w3.eth.send_transaction(transaction)
-    # print(f"📝 Deployment tx hash: {tx_hash.hex()}")
     assert_transaction_success_with_explanation(w3, tx_hash)
 
     # Wait for transaction receipt
     tx_receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
     contract_address = tx_receipt["contractAddress"]
     logger.info(f"🚀 Deployed GmOracleProvider to: {contract_address}")
-    # print(f"   Gas used: {tx_receipt.gasUsed}")
 
     # Get deployed contract
     deployed_contract = w3.eth.contract(address=contract_address, abi=abi)
 
     # Fetch on-chain bytecode and print its size
     code = w3.eth.get_code(contract_address)
-    # print(f"📦 On-chain code size (bytes): {len(code) // 2}")
-
-    # List contract methods
-    # methods = [func for func in deployed_contract.functions]
-    # print("🔧 Available contract methods:")
-    # for method in methods:
-    #     print(f"   - {method}")
 
     # Verify constructor-stored state
     role_store_address = deployed_contract.functions.roleStore().call()
     data_store_address = deployed_contract.functions.dataStore().call()
     event_emitter_address = deployed_contract.functions.eventEmitter().call()
 
-    # print(f"📌 roleStore address: {role_store_address}")
-    # print(f"📌 dataStore address: {data_store_address}")
-    # print(f"📌 eventEmitter address: {event_emitter_address}")
     bytecode = w3.eth.get_code(contract_address)
 
     original_oracle_contract = to_checksum_address("0x918b60ba71badfada72ef3a6c6f71d0c41d4785c")
@@ -351,34 +304,22 @@ def deploy_custom_oracle_provider(w3: Web3, account) -> str:
     # Send transaction
     # import ipdb ; ipdb.set_trace()
     tx_hash = w3.eth.send_transaction(transaction)
-    # print(f"📝 Deployment tx hash: {tx_hash.hex()}")
     assert_transaction_success_with_explanation(w3, tx_hash)
 
     # Wait for transaction receipt
     tx_receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
     contract_address = tx_receipt["contractAddress"]
     logger.info(f"🚀 Deployed GmOracleProvider to: {contract_address}")
-    # print(f"   Gas used: {tx_receipt.gasUsed}")
 
     # Get deployed contract
     deployed_contract = w3.eth.contract(address=contract_address, abi=abi)
 
     # Fetch on-chain bytecode and print its size
     code = w3.eth.get_code(contract_address)
-    # print(f"📦 On-chain code size (bytes): {len(code) // 2}")
-
-    # List contract methods
-    # methods = [func for func in deployed_contract.functions]
-    # print("🔧 Available contract methods:")
-    # for method in methods:
-    #     print(f"   - {method}")
 
     # Verify constructor-stored state
     role_store_address = deployed_contract.functions.roleStore().call()
     data_store_address = deployed_contract.functions.dataStore().call()
-
-    # print(f"📌 roleStore address: {role_store_address}")
-    # print(f"📌 dataStore address: {data_store_address}")
 
     return contract_address
 
@@ -435,14 +376,15 @@ def override_storage_slot(
     logger.info(f"Successfully set storage at slot {slot} to {padded_hex_value}")
 
     storage_value = web3.eth.get_storage_at(contract_address, slot)
-    # print(f"Verified value: {storage_value.hex()}")
 
     return result
+
 
 def get_next_hex_slot(hex_str: str) -> str:
     """
     Takes a hex string (like a storage slot) and returns the next slot as a hex string.
     E.g., '0x...958' → '0x...959'
+    Because some of the last digits will not be numbers. It can be in the range of hex chars A-F. Handle those cases.
     """
     int_val = int(hex_str, 16)
     next_int_val = int_val + 1
@@ -542,8 +484,6 @@ def emulate_keepers(
 
         data_store = get_datastore_contract(config)
 
-        # print(f"Order LIST: {ORDER_LIST.hex()}")
-
         assert ORDER_LIST.hex().removeprefix("0x") == "0x86f7cfd5d8f8404e5145c91bebb8484657420159dabd0753d6a59f3de3f7b8c1".removeprefix("0x"), "Order list mismatch"
         order_count = data_store.functions.getBytes32Count(ORDER_LIST).call()
         if order_count == 0:
@@ -551,20 +491,16 @@ def emulate_keepers(
 
         # Get the most recent order key
         order_key = data_store.functions.getBytes32ValuesAt(ORDER_LIST, order_count - 1, order_count).call()[0]
-        # print(f"Order created with key: {order_key.hex()}")
 
-        # for key in keys:
-        #     print(f"Key: {key.hex()}")
-
-        reader = get_reader_contract(config)
-        order_info = reader.functions.getOrder(data_store.address, order_key).call()
+        # reader = get_reader_contract(config)
+        # order_info = reader.functions.getOrder(data_store.address, order_key).call()
         # print(f"Order: {order_info}")
 
         # data_store_owner = "0xE7BfFf2aB721264887230037940490351700a068"
         controller = "0xf5F30B10141E1F63FC11eD772931A8294a591996"
         oracle_provider = "0x5d6B84086DA6d4B0b6C0dF7E02f8a6A039226530"
         custom_oracle_provider = deployed_oracle_address  # "0xA1D67424a5122d83831A14Fa5cB9764Aeb15CD99"
-        # NOTE: Somehow have to sign the oracle params by this bad boy
+
         oracle_signer = "0x0F711379095f2F0a6fdD1e8Fccd6eBA0833c1F1f"
         # set this value to true to pass the provider enabled check in contract
         # OrderHandler(0xfc9bc118fddb89ff6ff720840446d73478de4153)
@@ -581,15 +517,15 @@ def emulate_keepers(
         else:
             raise NotImplementedError(f"Unsupported RPC backend: {get_provider_name(w3.provider)}")
 
-        data_store.functions.setBool("0x1153e082323163af55b3003076402c9f890dda21455104e09a048bf53f1ab30c", True).transact(
+        bool_key: str = "0x1153e082323163af55b3003076402c9f890dda21455104e09a048bf53f1ab30c"
+        data_store.functions.setBool(bool_key, True).transact(
             {
                 "from": controller,
                 "gas": 1_000_000,
             }
         )
 
-        value = data_store.functions.getBool("0x1153e082323163af55b3003076402c9f890dda21455104e09a048bf53f1ab30c").call()
-        # print(f"Value: {value}")
+        value = data_store.functions.getBool(bool_key).call()
 
         assert value, "Value should be true"
 
@@ -657,7 +593,6 @@ def emulate_keepers(
         # token_b_max_value_slot: str = "0x636d2c90aa7802b40e3b1937e91c5450211eefbc7d3e39192aeb14ee03e3a958"
         # token_b_min_value_slot: str = "0x636d2c90aa7802b40e3b1937e91c5450211eefbc7d3e39192aeb14ee03e3a959"
 
-        # TODO: handle the case when the last char is not int
         token_b_max_value_slot = HexBytes(oracle_provider_for_token_key(target_token_address)).hex()
         # token_b_min_value_slot = token_b_max_value_slot[:-1] + str(int(token_b_max_value_slot[-1]) + 1)
         token_b_min_value_slot = get_next_hex_slot(token_b_max_value_slot)
@@ -687,7 +622,7 @@ def emulate_keepers(
         # * set some big value to pass the test
         large_value: int = 9914611141387747627324635505610366123
         key_slot: bytes = bytes.fromhex(max_pool_amount_key("0x1cbba6346f110c8a5ea739ef2d1eb182990e4eb2", target_token_address).hex().removeprefix("0x"))
-        print(f"{key_slot.hex()=}")
+        # print(f"{key_slot.hex()=}")
         data_store.functions.setUint(key_slot, large_value).transact({"from": controller})
         value = data_store.functions.getUint(key_slot).call()
         # print(f"Value: {value}")

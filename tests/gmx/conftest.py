@@ -360,9 +360,9 @@ def wsol(web3_fork: Web3, chain_name) -> TokenDetails:
 
 @pytest.fixture()
 def link(web3_fork: Web3, chain_name) -> TokenDetails:
-    """USDC token details for the specified chain."""
-    usdc_address = CHAIN_CONFIG[chain_name]["link_address"]
-    return fetch_erc20_details(web3_fork, usdc_address)
+    """LINK token details for the specified chain."""
+    link_address = CHAIN_CONFIG[chain_name]["link_address"]
+    return fetch_erc20_details(web3_fork, link_address)
 
 
 @pytest.fixture()
@@ -416,8 +416,8 @@ def wallet_with_native_token(
     else:
         # Fund the account with native gas tokens of arbitrum
         amount_wei = 5000000 * 10**18
-        web3_fork.provider.make_request("tenderly_setBalance", [gmx_controller_arbitrum, hex(amount_wei)])
-        web3_fork.provider.make_request("tenderly_setBalance", [test_address, hex(amount_wei)])
+        web3_fork.provider.make_request("anvil_setBalance", [gmx_controller_arbitrum, hex(amount_wei)])
+        web3_fork.provider.make_request("anvil_setBalance", [test_address, hex(amount_wei)])
 
 
 @pytest.fixture()
@@ -465,7 +465,7 @@ def wallet_with_wbtc(
         #     large_holder = large_wbtc_holder_avalanche
         #     amount = 5 * 10 ** 8  # 1 WBTC (8 decimals)
         try:
-            web3_fork.provider.make_request("tenderly_addErc20Balance", [wbtc_address, [test_address], hex(amount)])
+            web3_fork.provider.make_request("anvil_addErc20Balance", [wbtc_address, [test_address], hex(amount)])
             # wbtc.contract.functions.transfer(test_address, amount).transact({"from": large_holder})
         except Exception as e:
             # If the transfer fails, skip the test instead of failing
@@ -477,7 +477,7 @@ def wallet_with_link(web3_fork, chain_name, test_address: HexAddress, large_link
     """Fund the test wallet with LINK."""
     amount = 10000 * 10**18
     if chain_name == "avalanche":
-        link_address = "0x5947BB275c521040051D82396192181b413227A3"
+        link_address = CHAIN_CONFIG[chain_name]["link_address"]
         link = fetch_erc20_details(web3_fork, link_address)
         # 10k LINK tokens
         try:
@@ -488,7 +488,7 @@ def wallet_with_link(web3_fork, chain_name, test_address: HexAddress, large_link
     # else:
     #     link_address = to_checksum_address(CHAIN_CONFIG[chain_name]["link_address"])
     #
-    #     web3_fork.provider.make_request("tenderly_addErc20Balance", [link_address, [test_address], hex(amount)])
+    #     web3_fork.provider.make_request("anvil_addErc20Balance", [link_address, [test_address], hex(amount)])
 
 
 @pytest.fixture()
@@ -527,7 +527,6 @@ def anvil_private_key() -> HexAddress:
 @pytest.fixture()
 def gmx_config_fork(
     web3_fork: Web3,
-    chain_name: str,
     test_address: HexAddress,
     anvil_private_key: HexAddress,
     wallet_with_all_tokens,
