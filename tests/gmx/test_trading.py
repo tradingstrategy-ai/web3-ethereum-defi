@@ -406,13 +406,11 @@ def test_swap_tokens(chain_name, trading_manager, gmx_config_fork, usdc, wsol, w
     assert final_usdc_balance < initial_usdc_balance, "USDC balance should decrease after swap"
 
     emulate_keepers(
-        gmx_config_fork,
-        start_token_symbol,
-        out_token_symbol,
-        gmx_config_fork.web3,
-        wallet_address,
-        start_token_address,
-        out_token_address,
+        gmx_config=gmx_config_fork,
+        initial_token=usdc,
+        target_token=wsol,
+        w3=gmx_config_fork.web3,
+        recipient_address=wallet_address,
     )
 
     output = wsol.contract.functions.balanceOf(wallet_address).call()
@@ -449,7 +447,7 @@ def test_swap_tokens_usdc_aave(chain_name, trading_manager, gmx_config_fork, usd
     swap_order = trading_manager.swap_tokens(
         out_token_symbol=out_token_symbol,
         in_token_symbol=start_token_symbol,
-        amount=50000.3785643,  # 50000 ARB tokens & fractions for fun
+        amount=50000.3785643,  # 50000 AAVE tokens & fractions for fun
         slippage_percent=0.02,  # 0.2% slippage
         debug_mode=False,
         execution_buffer=2.5,  # this is needed to pass the gas usage
@@ -481,16 +479,13 @@ def test_swap_tokens_usdc_aave(chain_name, trading_manager, gmx_config_fork, usd
     assert final_usdc_balance < initial_usdc_balance, "USDC balance should decrease after swap"
 
     emulate_keepers(
-        gmx_config_fork,
-        start_token_symbol,
-        out_token_symbol,
-        gmx_config_fork.web3,
-        wallet_address,
-        start_token_address,
-        out_token_address,
+        gmx_config=gmx_config_fork,
+        initial_token=usdc,
+        target_token=aave,
+        w3=gmx_config_fork.web3,
+        recipient_address=wallet_address,
     )
 
     output = aave.contract.functions.balanceOf(wallet_address).call()
 
-    # As of 21 May 2025, 50k ARB -> 122 SOL (Roughly). Keeping it at 100 just be safe.
     assert output // decimals >= 100

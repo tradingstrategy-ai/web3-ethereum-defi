@@ -25,6 +25,7 @@ from web3 import Web3
 from eth_defi.provider.anvil import make_anvil_custom_rpc_request, is_anvil
 from eth_defi.provider.named import get_provider_name
 from eth_defi.provider.tenderly import is_tenderly
+from eth_defi.token import TokenDetails
 from eth_defi.trace import assert_transaction_success_with_explanation
 from gmx_python_sdk.scripts.v2.get.get_oracle_prices import OraclePrices
 from gmx_python_sdk.scripts.v2.gmx_utils import create_hash_string, get_reader_contract, get_datastore_contract
@@ -393,12 +394,10 @@ def get_next_hex_slot(hex_str: str) -> str:
 
 def emulate_keepers(
     gmx_config: GMXConfig,
-    initial_token_symbol: str,
-    target_token_symbol: str,
+    initial_token: TokenDetails,
+    target_token: TokenDetails,
     w3: Web3,
     recipient_address: str,
-    initial_token_address: str,
-    target_token_address: str,
     debug_logs: bool = False,
     deployer_address: str | None = None,
 ) -> HexStr:
@@ -409,6 +408,10 @@ def emulate_keepers(
     :return:
         The transaction hash of the last of keeper transactions
     """
+    initial_token_symbol = initial_token.symbol
+    initial_token_address = initial_token.address
+    target_token_symbol = target_token.symbol
+    target_token_address = target_token.address
 
     if deployer_address is None:
         deployer_address = recipient_address

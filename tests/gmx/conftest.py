@@ -14,6 +14,7 @@ from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.data import GMXMarketData
 from eth_defi.gmx.liquidity import GMXLiquidityManager
 from eth_defi.gmx.order import GMXOrderManager
+from eth_defi.gmx.synthetic_tokens import get_gmx_synthetic_token_by_symbol
 from eth_defi.gmx.trading import GMXTrading
 from eth_defi.provider.anvil import fork_network_anvil
 from eth_defi.token import fetch_erc20_details, TokenDetails
@@ -21,31 +22,69 @@ from eth_defi.token import fetch_erc20_details, TokenDetails
 import pytest
 from eth_typing import HexAddress
 
+CHAIN_ID: dict[str, int] = {"arbitrum": 42161, "avalanche": 43114}
+
+
+def get_gmx_address(chain_id: int, symbol: str) -> str:
+    """
+    Simple helper to get token address from GMX API.
+
+    This wrapper function serves two purposes:
+    1. Makes the configuration more readable by hiding the .address access
+    2. Provides a single place to handle the case where a token isn't found
+
+    Args:
+        chain_id: The blockchain chain ID
+        symbol: Token symbol (e.g., "USDC", "WBTC")
+
+    Returns:
+        Token address as string
+
+    Raises:
+        ValueError: If token is not found in GMX API
+    """
+    # As GMX uses own synthetic BTC, it's listed there as BTC. WBTC listed as WBTC.b
+    # Same for WETH, WAVAX, WSOL is listed as ETH, AVAX, SOL respectively
+    if symbol == "WETH":
+        symbol = "ETH"
+    if symbol == "WBTC":
+        symbol = "WBTC.b"
+    elif symbol == "WSOL":
+        symbol = "SOL"
+    elif symbol == "WAVAX":
+        symbol = "AVAX"
+    token = get_gmx_synthetic_token_by_symbol(chain_id, symbol)
+    if token is None:
+        raise ValueError(f"Token '{symbol}' not found on chain {chain_id}")
+    return token.address
+
 
 # Configure chain-specific parameters
 CHAIN_CONFIG = {
     "arbitrum": {
         "rpc_env_var": "ARBITRUM_JSON_RPC_URL",
-        "chain_id": 42161,
+        "chain_id": CHAIN_ID["arbitrum"],
         "fork_block_number": 338206286,
-        "wbtc_address": "0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f",
-        "usdc_address": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",  # USDC on Arbitrum
-        "usdt_address": "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",  # USDT on Arbitrum
-        "link_address": "0xf97f4df75117a78c1A5a0DBb814Af92458539FB4",
-        "wsol_address": "0x2bcC6D6CdBbDC0a4071e48bb3B969b06B3330c07",  # WSOL on Arbitrum
-        "arb_address": "0x912CE59144191C1204E64559FE8253a0e49E6548",  # ARB on Arbitrum
-        "native_token_address": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",  # WETH
-        "aave_address": "0xba5DdD1f9d7F570dc94a51479a000E3BCE967196",  # AAVE
+        # Dynamic token addresses - GMX API calls
+        "wbtc_address": get_gmx_address(CHAIN_ID["arbitrum"], "WBTC"),
+        "usdc_address": get_gmx_address(CHAIN_ID["arbitrum"], "USDC"),
+        "usdt_address": get_gmx_address(CHAIN_ID["arbitrum"], "USDT"),
+        "link_address": get_gmx_address(CHAIN_ID["arbitrum"], "LINK"),
+        "wsol_address": get_gmx_address(CHAIN_ID["arbitrum"], "WSOL"),
+        "arb_address": get_gmx_address(CHAIN_ID["arbitrum"], "ARB"),
+        "native_token_address": get_gmx_address(CHAIN_ID["arbitrum"], "WETH"),  # WETH as "ETH" in GMX
+        "aave_address": get_gmx_address(CHAIN_ID["arbitrum"], "AAVE"),
     },
     "avalanche": {
         "rpc_env_var": "AVALANCHE_JSON_RPC_URL",
-        "chain_id": 43114,
+        "chain_id": CHAIN_ID["avalanche"],
         "fork_block_number": 60491219,
-        "wbtc_address": "0x152b9d0FdC40C096757F570A51E494bd4b943E50",
-        "usdc_address": "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E",  # USDC on Avalanche
-        "usdt_address": "0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7",  # USDT on Avalanche
-        "wavax_address": "0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7",  # WAVAX on Avalanche
-        "native_token_address": "0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7",  # WAVAX
+        # Avalanche dynamic lookups
+        "wbtc_address": get_gmx_synthetic_token_by_symbol(CHAIN_ID["avalanche"], "WBTC"),
+        "usdc_address": get_gmx_synthetic_token_by_symbol(CHAIN_ID["avalanche"], "USDC"),
+        "usdt_address": get_gmx_synthetic_token_by_symbol(CHAIN_ID["avalanche"], "USDT"),
+        "wavax_address": get_gmx_synthetic_token_by_symbol(CHAIN_ID["avalanche"], "AVAX"),  # WAVAX as "AVAX" in GMX
+        "native_token_address": get_gmx_synthetic_token_by_symbol(CHAIN_ID["avalanche"], "AVAX"),
     },
 }
 
