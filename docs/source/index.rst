@@ -6,7 +6,7 @@ Web3-Ethereum-DeFi Python APIs
 
 .. image:: logo-wall-white.png
 
-This is the documentation for `Web3-Ethereum-Defi <https://github.com/tradingstrategy-ai/web3-ethereum-defi>`__ package for `Python <https://tradingstrategy.ai/glossary/python>`.
+This is the documentation for `Web3-Ethereum-Defi <https://github.com/tradingstrategy-ai/web3-ethereum-defi>`__ package for `Python <https://tradingstrategy.ai/glossary/python>`__.
 
 Web-Ethereum-DeFi (``eth_defi``) Python package allows you to interact and consume data from EVM DeFi protocols.
 
