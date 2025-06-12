@@ -80,11 +80,11 @@ CHAIN_CONFIG = {
         "chain_id": CHAIN_ID["avalanche"],
         "fork_block_number": 60491219,
         # Avalanche dynamic lookups
-        "wbtc_address": get_gmx_synthetic_token_by_symbol(CHAIN_ID["avalanche"], "WBTC"),
-        "usdc_address": get_gmx_synthetic_token_by_symbol(CHAIN_ID["avalanche"], "USDC"),
-        "usdt_address": get_gmx_synthetic_token_by_symbol(CHAIN_ID["avalanche"], "USDT"),
-        "wavax_address": get_gmx_synthetic_token_by_symbol(CHAIN_ID["avalanche"], "AVAX"),  # WAVAX as "AVAX" in GMX
-        "native_token_address": get_gmx_synthetic_token_by_symbol(CHAIN_ID["avalanche"], "AVAX"),
+        "wbtc_address": get_gmx_address(CHAIN_ID["avalanche"], "WBTC"),
+        "usdc_address": get_gmx_address(CHAIN_ID["avalanche"], "USDC"),
+        "usdt_address": get_gmx_address(CHAIN_ID["avalanche"], "USDT"),
+        "wavax_address": get_gmx_address(CHAIN_ID["avalanche"], "WAVAX"),  # WAVAX as "AVAX" in GMX
+        "native_token_address": get_gmx_address(CHAIN_ID["avalanche"], "AVAX"),
     },
 }
 
