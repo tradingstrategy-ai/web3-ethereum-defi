@@ -137,6 +137,7 @@ select = [
     "ARG",   # flake8-unused-arguments
     "B",     # flake8-bugbear
     "C",     # mccabe
+    "COM",   # flake8-commas (enforces trailing commas)
     "DTZ",   # flake8-datetimez
     "E",     # pycodestyle errors
     "EM",    # flake8-errmsg
@@ -174,7 +175,8 @@ ignore = [
     "PLW2901", # `for` loop variable overwritten
     "SIM114", # Combine `if` branches using logical `or` operator
     "E203", # Whitespace before :, needed for black compatibility and also `ruff format`
-    "ISC001", # causes unexpected behaviour with formatter
+    "ISC001", # causes unexpected behaviour with formatter,
+    "COM812", # Trailing comma missing - conflicts with formatter
 ]
 
 [tool.ruff.lint.isort]
@@ -183,6 +185,18 @@ known-first-party = ["eth_defi"]
 
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "all"
+
+
+[tool.ruff.format]
+# Force function parameters to cascade when they don't fit on one line
+# This makes ruff more aggressive about splitting long function calls/definitions
+skip-magic-trailing-comma = false  # Respect trailing commas to force multi-line
+docstring-code-format = true       # Format code blocks in docstrings
+
+# NOTE: Still under development. Ref: https://github.com/astral-sh/ruff/issues/6606
+#[tool.ruff.lint.pydocstyle]
+## Use Sphinx docstring convention
+#convention = "sphinx"
 
 [tool.poetry.scripts]
 install-aave-for-testing = 'eth_defi.aave_v3.deployer:install_aave_for_testing'

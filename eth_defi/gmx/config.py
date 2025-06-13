@@ -68,11 +68,7 @@ Example:
     market_data = readonly_config.get_read_config()
 
     # Legacy system integration
-    legacy_config = GMXConfig.from_private_key(
-        web3=web3,
-        private_key="0x...",
-        chain="arbitrum"
-    )
+    legacy_config = GMXConfig.from_private_key(web3=web3, private_key="0x...", chain="arbitrum")
 
     # All configurations provide identical operational interfaces
     configs = [config, readonly_config, legacy_config]
@@ -511,11 +507,7 @@ class GMXConfig:
         .. code-block:: python
 
             # Legacy-compatible production initialization
-            config = GMXConfig.from_private_key(
-                web3=web3,
-                private_key="0x1234567890abcdef...",
-                chain="arbitrum"
-            )
+            config = GMXConfig.from_private_key(web3=web3, private_key="0x1234567890abcdef...", chain="arbitrum")
 
             # Modern production equivalent with explicit security control
             wallet = HotWallet.from_private_key("0x1234567890abcdef...")

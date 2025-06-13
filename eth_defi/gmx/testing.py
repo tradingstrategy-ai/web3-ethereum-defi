@@ -9,7 +9,6 @@ TODO: Document and clean up this module.
 
 """
 
-
 import json
 import os
 from decimal import Decimal

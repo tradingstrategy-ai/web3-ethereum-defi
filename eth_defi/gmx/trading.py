@@ -66,14 +66,14 @@ Example:
     # Strategic position opening with precise risk parameters
     long_eth_order = trader.open_position(
         market_symbol="ETH",
-        collateral_symbol="USDC",        # Use stable collateral
-        start_token_symbol="USDC",       # Start with stable asset
-        is_long=True,                    # Bullish position
-        size_delta_usd=5000,             # $5000 position size
-        leverage=3.0,                    # 3x leverage
-        slippage_percent=0.005,          # 0.5% slippage tolerance
-        debug_mode=True,                 # Test execution first
-        auto_cancel=True                 # Cancel if execution fails
+        collateral_symbol="USDC",  # Use stable collateral
+        start_token_symbol="USDC",  # Start with stable asset
+        is_long=True,  # Bullish position
+        size_delta_usd=5000,  # $5000 position size
+        leverage=3.0,  # 3x leverage
+        slippage_percent=0.005,  # 0.5% slippage tolerance
+        debug_mode=True,  # Test execution first
+        auto_cancel=True,  # Cancel if execution fails
     )
 
     # Execute if debug validation passes
@@ -85,10 +85,10 @@ Example:
     swap_order = trader.swap_tokens(
         in_token_symbol="ETH",
         out_token_symbol="USDC",
-        amount=1.5,                      # Swap 1.5 ETH
-        slippage_percent=0.01,           # 1% slippage for volatile swap
-        execution_buffer=3.0,            # Higher execution buffer
-        debug_mode=False                 # Execute real swap
+        amount=1.5,  # Swap 1.5 ETH
+        slippage_percent=0.01,  # 1% slippage for volatile swap
+        execution_buffer=3.0,  # Higher execution buffer
+        debug_mode=False,  # Execute real swap
     )
 
     # Risk management: Close position with strategic asset selection
@@ -97,10 +97,10 @@ Example:
         collateral_symbol="USDC",
         start_token_symbol="USDC",
         is_long=True,
-        size_delta_usd=2500,             # Close half the position
-        initial_collateral_delta=800,    # Remove $800 collateral
-        slippage_percent=0.003,          # Tight slippage for profit taking
-        debug_mode=False
+        size_delta_usd=2500,  # Close half the position
+        initial_collateral_delta=800,  # Remove $800 collateral
+        slippage_percent=0.003,  # Tight slippage for profit taking
+        debug_mode=False,
     )
 
 **Integration with Trading Strategies:**
@@ -241,27 +241,27 @@ class GMXTrading:
             # Conservative long position with stable collateral
             conservative_long = trader.open_position(
                 market_symbol="ETH",
-                collateral_symbol="USDC",       # Stable collateral
-                start_token_symbol="USDC",      # Start with stable asset
-                is_long=True,                   # Bullish position
-                size_delta_usd=1000,            # $1000 position
-                leverage=2.0,                   # Conservative 2x leverage
-                slippage_percent=0.005,         # 0.5% slippage
-                debug_mode=True,                # Test first
-                auto_cancel=True                # Cancel if execution fails
+                collateral_symbol="USDC",  # Stable collateral
+                start_token_symbol="USDC",  # Start with stable asset
+                is_long=True,  # Bullish position
+                size_delta_usd=1000,  # $1000 position
+                leverage=2.0,  # Conservative 2x leverage
+                slippage_percent=0.005,  # 0.5% slippage
+                debug_mode=True,  # Test first
+                auto_cancel=True,  # Cancel if execution fails
             )
 
             # Aggressive position with asset collateral
             aggressive_long = trader.open_position(
                 market_symbol="ETH",
-                collateral_symbol="ETH",        # Same asset collateral
-                start_token_symbol="ETH",       # Start with ETH
+                collateral_symbol="ETH",  # Same asset collateral
+                start_token_symbol="ETH",  # Start with ETH
                 is_long=True,
-                size_delta_usd=5000,            # $5000 position
-                leverage=5.0,                   # Aggressive 5x leverage
-                slippage_percent=0.01,          # 1% slippage for speed
-                debug_mode=False,               # Execute real order
-                execution_buffer=2.0            # Higher execution buffer
+                size_delta_usd=5000,  # $5000 position
+                leverage=5.0,  # Aggressive 5x leverage
+                slippage_percent=0.01,  # 1% slippage for speed
+                debug_mode=False,  # Execute real order
+                execution_buffer=2.0,  # Higher execution buffer
             )
 
         :param market_symbol:
@@ -398,11 +398,11 @@ class GMXTrading:
                 collateral_symbol="USDC",
                 start_token_symbol="USDC",
                 is_long=True,
-                size_delta_usd=2000,            # Close $2000 of position
-                initial_collateral_delta=500,   # Remove $500 collateral
-                slippage_percent=0.003,         # Tight slippage for profits
-                debug_mode=True,                # Validate execution
-                auto_cancel=True
+                size_delta_usd=2000,  # Close $2000 of position
+                initial_collateral_delta=500,  # Remove $500 collateral
+                slippage_percent=0.003,  # Tight slippage for profits
+                debug_mode=True,  # Validate execution
+                auto_cancel=True,
             )
 
             # Emergency closure: Full exit with speed priority
@@ -411,11 +411,11 @@ class GMXTrading:
                 collateral_symbol="BTC",
                 start_token_symbol="BTC",
                 is_long=False,
-                size_delta_usd=10000,           # Close entire $10k position
+                size_delta_usd=10000,  # Close entire $10k position
                 initial_collateral_delta=2000,  # Withdraw all collateral
-                slippage_percent=0.02,          # Higher slippage for speed
-                debug_mode=False,               # Execute immediately
-                execution_buffer=3.0            # Higher execution buffer
+                slippage_percent=0.02,  # Higher slippage for speed
+                debug_mode=False,  # Execute immediately
+                execution_buffer=3.0,  # Higher execution buffer
             )
 
         :param market_symbol:
@@ -547,22 +547,22 @@ class GMXTrading:
             profit_conversion = trader.swap_tokens(
                 in_token_symbol="ETH",
                 out_token_symbol="USDC",
-                amount=2.5,                     # Swap 2.5 ETH
-                slippage_percent=0.01,          # 1% slippage tolerance
-                execution_buffer=2.0,           # Standard execution buffer
-                debug_mode=True,                # Test execution
-                auto_cancel=True
+                amount=2.5,  # Swap 2.5 ETH
+                slippage_percent=0.01,  # 1% slippage tolerance
+                execution_buffer=2.0,  # Standard execution buffer
+                debug_mode=True,  # Test execution
+                auto_cancel=True,
             )
 
             # Strategy preparation: Convert stable assets for position opening
             position_prep = trader.swap_tokens(
                 in_token_symbol="USDC",
                 out_token_symbol="BTC",
-                amount=5000,                    # Swap $5000 USDC
-                slippage_percent=0.015,         # 1.5% slippage for large swap
-                execution_buffer=3.0,           # Higher buffer for complex swap
-                debug_mode=False,               # Execute real swap
-                max_fee_per_gas=50000000000     # Custom gas price
+                amount=5000,  # Swap $5000 USDC
+                slippage_percent=0.015,  # 1.5% slippage for large swap
+                execution_buffer=3.0,  # Higher buffer for complex swap
+                debug_mode=False,  # Execute real swap
+                max_fee_per_gas=50000000000,  # Custom gas price
             )
 
         :param in_token_symbol:
