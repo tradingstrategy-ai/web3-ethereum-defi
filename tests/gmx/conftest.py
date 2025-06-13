@@ -48,7 +48,10 @@ def get_gmx_address(chain_id: int, symbol: str) -> str:
     if symbol == "WETH":
         symbol = "ETH"
     if symbol == "WBTC":
-        symbol = "WBTC.b"
+        if chain_id == CHAIN_ID["avalanche"]:
+            symbol = "BTC"  # For Avalanche, it's BTC, Address: 0x152b9d0FdC40C096757F570A51E494bd4b943E50
+        else:
+            symbol = "WBTC.b"
     elif symbol == "WSOL":
         symbol = "SOL"
     elif symbol == "WAVAX":
