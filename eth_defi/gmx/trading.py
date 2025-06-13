@@ -123,7 +123,7 @@ Warning:
     with more capital than you can afford to lose completely.
 """
 
-from typing import Optional, Any, Dict, List, Union
+from typing import Optional
 
 from gmx_python_sdk.scripts.v2.order.create_increase_order import IncreaseOrder
 from gmx_python_sdk.scripts.v2.order.create_decrease_order import DecreaseOrder
