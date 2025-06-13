@@ -175,7 +175,7 @@ class GMXAPI:
             print(df.head())
 
             # Calculate simple moving average
-            df['sma_20'] = df['close'].rolling(window=20).mean()
+            df["sma_20"] = df["close"].rolling(window=20).mean()
 
         :param token_symbol:
             Symbol of the token to retrieve data for (e.g., "ETH", "BTC")

@@ -512,7 +512,7 @@ def main():
 
     # Check initial balances
     balance = initial_token_contract.functions.balanceOf(test_address).call()
-    print(f"Recipient {INITIAL_TOKEN_SYMBOL} balance: {Decimal(balance / 10 ** decimals)} {symbol}")
+    print(f"Recipient {INITIAL_TOKEN_SYMBOL} balance: {Decimal(balance / 10**decimals)} {symbol}")
 
     target_balance_before = target_contract.functions.balanceOf(test_address).call()
     target_symbol = target_contract.functions.symbol().call()
@@ -546,7 +546,7 @@ def main():
     # Check the balances after execution
     balance = initial_token_contract.functions.balanceOf(test_address).call()
     symbol = initial_token_contract.functions.symbol().call()
-    print(f"Recipient {INITIAL_TOKEN_SYMBOL} balance after swap: {Decimal(balance / 10 ** decimals)} {symbol}")
+    print(f"Recipient {INITIAL_TOKEN_SYMBOL} balance after swap: {Decimal(balance / 10**decimals)} {symbol}")
 
     target_balance_after = target_contract.functions.balanceOf(test_address).call()
     symbol = target_contract.functions.symbol().call()
@@ -556,7 +556,7 @@ def main():
 
     # Format to avoid scientific notation and show proper decimal places
     print(f"Recipient {TARGET_TOKEN_SYMBOL} balance after swap: {balance_decimal:.18f} {target_symbol}")
-    print(f"Change in {TARGET_TOKEN_SYMBOL} balance: {Decimal((target_balance_after - target_balance_before) / 10 ** target_decimals):.18f}")
+    print(f"Change in {TARGET_TOKEN_SYMBOL} balance: {Decimal((target_balance_after - target_balance_before) / 10**target_decimals):.18f}")
 
 
 if __name__ == "__main__":
