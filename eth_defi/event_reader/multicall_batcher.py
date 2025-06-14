@@ -546,7 +546,7 @@ class EncodedCall:
         web3: Web3,
         block_identifier: BlockIdentifier,
         from_=ZERO_ADDRESS_STR,
-        gas=75_000_000,
+        gas=99_000_000,
     ) -> bytes:
         """Return raw results of the call.
 
