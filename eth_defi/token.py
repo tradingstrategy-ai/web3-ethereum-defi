@@ -56,7 +56,7 @@ TokenAddress: TypeAlias = str
 
 
 #: Addresses of wrapped native token (WETH9) of different chains
-WRAPPED_NATIVE_TOKEN: dict[int, HexAddress] = {
+WRAPPED_NATIVE_TOKEN: dict[int, HexAddress | str] = {
     # Mainnet
     1: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
     # Base
@@ -70,7 +70,7 @@ WRAPPED_NATIVE_TOKEN: dict[int, HexAddress] = {
 }
 
 #: Addresses of wrapped native token (WETH9) of different chains
-USDC_NATIVE_TOKEN: dict[int, HexAddress] = {
+USDC_NATIVE_TOKEN: dict[int, HexAddress | str] = {
     # Mainnet
     1: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
     # Base
@@ -343,7 +343,7 @@ class TokenDetails:
         - For the list see :py:func:`is_stablecoin_like`
 
         :return:
-            True if we think think this could be a stablecoin.
+            True if we think this could be a stablecoin.
         """
         return is_stablecoin_like(self.symbol)
 

@@ -60,7 +60,7 @@ eth-pydantic-types = {version = "<0.2"}
 web3-google-hsm = "^0.1.0"
 pytz = "^2024.2"
 # The project's python requirement is incompatible with eth_defi so for now use this fork
-gmx-python-ng = "^1.0.0"
+gmx-python-ng = "1.0.1"
 
 # Docs
 Sphinx = {version = "^4.5.0", optional = true}

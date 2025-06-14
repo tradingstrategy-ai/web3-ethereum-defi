@@ -14,6 +14,7 @@ from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.data import GMXMarketData
 from eth_defi.gmx.liquidity import GMXLiquidityManager
 from eth_defi.gmx.order import GMXOrderManager
+from eth_defi.gmx.synthetic_tokens import get_gmx_synthetic_token_by_symbol
 from eth_defi.gmx.trading import GMXTrading
 from eth_defi.provider.anvil import fork_network_anvil
 from eth_defi.token import fetch_erc20_details, TokenDetails
@@ -21,30 +22,72 @@ from eth_defi.token import fetch_erc20_details, TokenDetails
 import pytest
 from eth_typing import HexAddress
 
+CHAIN_ID: dict[str, int] = {"arbitrum": 42161, "avalanche": 43114}
+
+
+def get_gmx_address(chain_id: int, symbol: str) -> str:
+    """
+    Simple helper to get token address from GMX API.
+
+    This wrapper function serves two purposes:
+    1. Makes the configuration more readable by hiding the .address access
+    2. Provides a single place to handle the case where a token isn't found
+
+    Args:
+        chain_id: The blockchain chain ID
+        symbol: Token symbol (e.g., "USDC", "WBTC")
+
+    Returns:
+        Token address as string
+
+    Raises:
+        ValueError: If token is not found in GMX API
+    """
+    # As GMX uses own synthetic BTC, it's listed there as BTC. WBTC listed as WBTC.b
+    # Same for WETH, WAVAX, WSOL is listed as ETH, AVAX, SOL respectively
+    if symbol == "WETH":
+        symbol = "ETH"
+    if symbol == "WBTC":
+        if chain_id == CHAIN_ID["avalanche"]:
+            symbol = "BTC"  # For Avalanche, it's BTC, Address: 0x152b9d0FdC40C096757F570A51E494bd4b943E50
+        else:
+            symbol = "WBTC.b"
+    elif symbol == "WSOL":
+        symbol = "SOL"
+    elif symbol == "WAVAX":
+        symbol = "AVAX"
+    token = get_gmx_synthetic_token_by_symbol(chain_id, symbol)
+    if token is None:
+        raise ValueError(f"Token '{symbol}' not found on chain {chain_id}")
+    return token.address
+
 
 # Configure chain-specific parameters
 CHAIN_CONFIG = {
     "arbitrum": {
         "rpc_env_var": "ARBITRUM_JSON_RPC_URL",
-        "chain_id": 42161,
+        "chain_id": CHAIN_ID["arbitrum"],
         "fork_block_number": 338206286,
-        "wbtc_address": "0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f",
-        "usdc_address": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",  # USDC on Arbitrum
-        "usdt_address": "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",  # USDT on Arbitrum
-        "link_address": "0xf97f4df75117a78c1A5a0DBb814Af92458539FB4",
-        "wsol_address": "0x2bcC6D6CdBbDC0a4071e48bb3B969b06B3330c07",  # WSOL on Arbitrum
-        "arb_address": "0x912CE59144191C1204E64559FE8253a0e49E6548",  # ARB on Arbitrum
-        "native_token_address": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",  # WETH
+        # Dynamic token addresses - GMX API calls
+        "wbtc_address": get_gmx_address(CHAIN_ID["arbitrum"], "WBTC"),
+        "usdc_address": get_gmx_address(CHAIN_ID["arbitrum"], "USDC"),
+        "usdt_address": get_gmx_address(CHAIN_ID["arbitrum"], "USDT"),
+        "link_address": get_gmx_address(CHAIN_ID["arbitrum"], "LINK"),
+        "wsol_address": get_gmx_address(CHAIN_ID["arbitrum"], "WSOL"),
+        "arb_address": get_gmx_address(CHAIN_ID["arbitrum"], "ARB"),
+        "native_token_address": get_gmx_address(CHAIN_ID["arbitrum"], "WETH"),  # WETH as "ETH" in GMX
+        "aave_address": get_gmx_address(CHAIN_ID["arbitrum"], "AAVE"),
     },
     "avalanche": {
         "rpc_env_var": "AVALANCHE_JSON_RPC_URL",
-        "chain_id": 43114,
+        "chain_id": CHAIN_ID["avalanche"],
         "fork_block_number": 60491219,
-        "wbtc_address": "0x152b9d0FdC40C096757F570A51E494bd4b943E50",
-        "usdc_address": "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E",  # USDC on Avalanche
-        "usdt_address": "0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7",  # USDT on Avalanche
-        "wavax_address": "0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7",  # WAVAX on Avalanche
-        "native_token_address": "0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7",  # WAVAX
+        # Avalanche dynamic lookups
+        "wbtc_address": get_gmx_address(CHAIN_ID["avalanche"], "WBTC"),
+        "usdc_address": get_gmx_address(CHAIN_ID["avalanche"], "USDC"),
+        "usdt_address": get_gmx_address(CHAIN_ID["avalanche"], "USDT"),
+        "wavax_address": get_gmx_address(CHAIN_ID["avalanche"], "WAVAX"),  # WAVAX as "AVAX" in GMX
+        "native_token_address": get_gmx_address(CHAIN_ID["avalanche"], "AVAX"),
     },
 }
 
@@ -275,7 +318,7 @@ def web3_mainnet(chain_name, chain_rpc_url):
 @pytest.fixture()
 def gmx_config(web3_mainnet, chain_name) -> GMXConfig:
     """Create a GMX configuration for the specified chain."""
-    return GMXConfig(web3_mainnet, chain=chain_name)
+    return GMXConfig(web3_mainnet)
 
 
 @pytest.fixture()
@@ -359,9 +402,9 @@ def wsol(web3_fork: Web3, chain_name) -> TokenDetails:
 
 @pytest.fixture()
 def link(web3_fork: Web3, chain_name) -> TokenDetails:
-    """USDC token details for the specified chain."""
-    usdc_address = CHAIN_CONFIG[chain_name]["link_address"]
-    return fetch_erc20_details(web3_fork, usdc_address)
+    """LINK token details for the specified chain."""
+    link_address = CHAIN_CONFIG[chain_name]["link_address"]
+    return fetch_erc20_details(web3_fork, link_address)
 
 
 @pytest.fixture()
@@ -376,6 +419,13 @@ def usdt(web3_fork: Web3, chain_name) -> TokenDetails:
     """USDT token details for the specified chain."""
     usdt_address = CHAIN_CONFIG[chain_name]["usdt_address"]
     return fetch_erc20_details(web3_fork, usdt_address)
+
+
+@pytest.fixture()
+def aave(web3_fork: Web3, chain_name) -> TokenDetails:
+    """AAVE token details for the specified chain."""
+    aave_address = CHAIN_CONFIG[chain_name]["aave_address"]
+    return fetch_erc20_details(web3_fork, aave_address)
 
 
 @pytest.fixture()
@@ -469,7 +519,7 @@ def wallet_with_link(web3_fork, chain_name, test_address: HexAddress, large_link
     """Fund the test wallet with LINK."""
     amount = 10000 * 10**18
     if chain_name == "avalanche":
-        link_address = "0x5947BB275c521040051D82396192181b413227A3"
+        link_address = CHAIN_CONFIG[chain_name]["link_address"]
         link = fetch_erc20_details(web3_fork, link_address)
         # 10k LINK tokens
         try:
@@ -480,7 +530,7 @@ def wallet_with_link(web3_fork, chain_name, test_address: HexAddress, large_link
     # else:
     #     link_address = to_checksum_address(CHAIN_CONFIG[chain_name]["link_address"])
     #
-    #     web3_fork.provider.make_request("tenderly_addErc20Balance", [link_address, [test_address], hex(amount)])
+    #     web3_fork.provider.make_request("anvil_addErc20Balance", [link_address, [test_address], hex(amount)])
 
 
 @pytest.fixture()
@@ -519,7 +569,6 @@ def anvil_private_key() -> HexAddress:
 @pytest.fixture()
 def gmx_config_fork(
     web3_fork: Web3,
-    chain_name: str,
     test_address: HexAddress,
     anvil_private_key: HexAddress,
     wallet_with_all_tokens,
@@ -534,7 +583,7 @@ def gmx_config_fork(
     wallet.sync_nonce(web3_fork)
 
     # The wallet_with_all_tokens fixture ensures the wallet has all necessary tokens
-    return GMXConfig(web3_fork, chain=chain_name, wallet=wallet, user_wallet_address=test_address)
+    return GMXConfig(web3_fork, wallet=wallet, user_wallet_address=test_address)
 
 
 @pytest.fixture()
