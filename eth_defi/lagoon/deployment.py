@@ -505,10 +505,10 @@ def deploy_automated_lagoon_vault(
         Deploy a new version of the guard smart contract and skip deploying the actual vault.
     """
 
-    assert len(safe_owners) >= 1, "Multisig owners emptty"
-
     if existing_vault_address:
         assert guard_only, "You cannot pass existing vault address without guard_only=True"
+    else:
+        assert len(safe_owners) >= 1, "Multisig owners emptty"
 
     if guard_only:
         assert existing_vault_address, "You must pass existing vault address if guard_only=True"
@@ -556,7 +556,7 @@ def deploy_automated_lagoon_vault(
         )
 
         try:
-            vault_contract.functions.functions.pendingSilo().call()
+            vault_contract.functions.pendingSilo().call()
         except Exception as e:
             raise RuntimeError(f"Does not look like Lagoon vault: {existing_vault_address}") from e
 
