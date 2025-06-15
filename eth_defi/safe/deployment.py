@@ -145,3 +145,13 @@ def add_new_safe_owners(
     )
     assert_transaction_success_with_explanation(web3, tx_hash)
     logger.info("Owners updated")
+
+
+def fetch_safe_deployment(
+    web3: Web3,
+    address: HexAddress | str,
+) -> SafeV141:
+    """Wrap Safe contract as Safe Python proxy object"""
+    ethereum_client = create_safe_ethereum_client(web3)
+    safe = SafeV141(address, ethereum_client)
+    return safe

@@ -14,15 +14,13 @@ from web3 import Web3
 from web3.contract import Contract
 from web3.contract.contract import ContractFunction
 
-from eth_defi.balances import fetch_erc20_balances_fallback
-from eth_defi.vault.base import VaultBase, VaultSpec, VaultInfo, TradingUniverse, VaultPortfolio, VaultFlowManager
+from eth_defi.vault.base import VaultSpec, VaultInfo, VaultFlowManager
 
 from safe_eth.safe import Safe
 
 from ..abi import get_deployed_contract, encode_function_call, present_solidity_args, get_function_selector
 from ..erc_4626.vault import ERC4626Vault
 from ..safe.safe_compat import create_safe_ethereum_client
-from ..token import TokenDetails, fetch_erc20_details
 from ..trace import assert_transaction_success_with_explanation
 
 logger = logging.getLogger(__name__)
