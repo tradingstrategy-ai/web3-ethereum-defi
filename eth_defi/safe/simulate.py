@@ -1,4 +1,4 @@
-"""Perform Safe transaction on forked mainnet when you do not have all the keys."""
+"""Perform Safe transaction on forked mainnet when you do not have all the private keys."""
 
 from hexbytes import HexBytes
 from web3 import Web3
