@@ -235,6 +235,14 @@ class ERC4626Vault(VaultBase):
     def __repr__(self):
         return f"<{self.__class__.__name__}: {self.spec}>"
 
+    def is_valid(self) -> bool:
+        """Check if this vault is valid.
+
+        - Call a known smart contract function to verify the function exists
+        """
+        denomination_token = self.fetch_denomination_token_address()
+        return denomination_token is not None
+
     @property
     def chain_id(self) -> int:
         return self.spec.chain_id
