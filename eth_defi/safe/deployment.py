@@ -1,5 +1,7 @@
 """Deploy Safe multisig wallets.
 
+- Helpers for deploying Safe, managing owners and modifying the deployment
+
 Safe source code:
 
 - https://github.com/safe-global/safe-smart-account/blob/main/contracts/Safe.sol
@@ -11,7 +13,9 @@ from eth_typing import HexAddress
 from safe_eth.safe import Safe
 from safe_eth.safe.safe import SafeV141
 from web3 import Web3
+from web3.contract.contract import ContractFunction
 
+from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.safe.safe_compat import create_safe_ethereum_client
 from eth_defi.trace import assert_transaction_success_with_explanation
 
@@ -155,3 +159,38 @@ def fetch_safe_deployment(
     ethereum_client = create_safe_ethereum_client(web3)
     safe = SafeV141(address, ethereum_client)
     return safe
+
+
+def disable_safe_module(
+    web3: Web3,
+    safe_address: str,
+    module_address: HexAddress | str,
+) -> ContractFunction:
+    """Spoof Safe.disableModule() call on a forked mainnet.
+
+    - Safe makes disable module transaction unnecessary complicated,
+      because the internal linked list is exposed
+
+    - Cannot handle disabling a single module https://github.com/safe-global/safe-smart-account/issues/992
+
+    :raise ValueError:
+        Module is not enabled.
+
+    :return:
+        Bound ContractFunction to call on the Safe contract.
+    """
+    safe = fetch_safe_deployment(web3, safe_address)
+    modules = safe.retrieve_modules()
+
+    try:
+        idx = modules.index(module_address)
+    except ValueError as e:
+        raise ValueError(f"Module {module_address} not found in Safe {safe_address} modules: {modules}") from e
+
+    if idx == 0:
+        previous_module = ZERO_ADDRESS_STR
+    else:
+        previous_module = modules[idx - 1]
+
+    import ipdb ; ipdb.set_trace()
+    return safe.contract.functions.disableModule(previous_module, module_address)
