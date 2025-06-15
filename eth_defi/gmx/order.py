@@ -66,11 +66,11 @@ Example:
         # Take 50% profits while keeping position open
         close_order = order_manager.close_position_by_key(
             position_key="ETH_long",
-            out_token_symbol="USDC",           # Convert to stable value
-            amount_of_position_to_close=0.5,   # Close half the position
-            amount_of_collateral_to_remove=0.3, # Remove some collateral
-            slippage_percent=0.005,            # 0.5% slippage tolerance
-            debug_mode=True                    # Test execution first
+            out_token_symbol="USDC",  # Convert to stable value
+            amount_of_position_to_close=0.5,  # Close half the position
+            amount_of_collateral_to_remove=0.3,  # Remove some collateral
+            slippage_percent=0.005,  # 0.5% slippage tolerance
+            debug_mode=True,  # Test execution first
         )
 
     # Step 3: Algorithmic position management with precise parameters
@@ -80,14 +80,14 @@ Example:
         "collateral_token_symbol": "SOL",
         "start_token_symbol": "SOL",
         "is_long": True,
-        "size_delta_usd": 1000,        # Close $1000 of position
-        "initial_collateral_delta": 50, # Remove 50 tokens collateral
-        "slippage_percent": 0.01       # 1% slippage for volatile market
+        "size_delta_usd": 1000,  # Close $1000 of position
+        "initial_collateral_delta": 50,  # Remove 50 tokens collateral
+        "slippage_percent": 0.01,  # 1% slippage for volatile market
     }
 
     algorithmic_order = order_manager.close_position(
         parameters=risk_parameters,
-        debug_mode=False  # Execute real order
+        debug_mode=False,  # Execute real order
     )
 
     # Step 4: Monitor and execute orders
@@ -265,12 +265,12 @@ class GMXOrderManager:
                 "is_long": True,
                 "size_delta_usd": calculate_optimal_size_reduction(),
                 "initial_collateral_delta": calculate_collateral_removal(),
-                "slippage_percent": optimal_slippage
+                "slippage_percent": optimal_slippage,
             }
 
             order = order_manager.close_position(
                 parameters=risk_parameters,
-                debug_mode=True  # Validate before execution
+                debug_mode=True,  # Validate before execution
             )
 
         :param parameters:
@@ -375,21 +375,21 @@ class GMXOrderManager:
             # Strategic profit-taking on successful position
             profit_taking_order = order_manager.close_position_by_key(
                 position_key="ETH_long",
-                out_token_symbol="USDC",              # Lock in USD value
-                amount_of_position_to_close=0.25,     # Take 25% profits
-                amount_of_collateral_to_remove=0.1,   # Remove minimal collateral
-                slippage_percent=0.005,               # Tight slippage for profits
-                debug_mode=False
+                out_token_symbol="USDC",  # Lock in USD value
+                amount_of_position_to_close=0.25,  # Take 25% profits
+                amount_of_collateral_to_remove=0.1,  # Remove minimal collateral
+                slippage_percent=0.005,  # Tight slippage for profits
+                debug_mode=False,
             )
 
             # Risk management: Full position closure during market stress
             risk_management_order = order_manager.close_position_by_key(
                 position_key="SOL_short",
-                out_token_symbol="SOL",               # Maintain asset exposure
-                amount_of_position_to_close=1.0,      # Close entire position
-                amount_of_collateral_to_remove=1.0,   # Withdraw all collateral
-                slippage_percent=0.02,                # Higher slippage for speed
-                debug_mode=True                       # Test emergency procedure
+                out_token_symbol="SOL",  # Maintain asset exposure
+                amount_of_position_to_close=1.0,  # Close entire position
+                amount_of_collateral_to_remove=1.0,  # Withdraw all collateral
+                slippage_percent=0.02,  # Higher slippage for speed
+                debug_mode=True,  # Test emergency procedure
             )
 
         :param position_key:

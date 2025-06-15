@@ -28,7 +28,7 @@ Modern DeFi applications must support diverse wallet types to accommodate differ
 user preferences and security requirements:
 
 - **HotWallet**: Direct private key management with optimized performance
-- **Web3ProviderWallet**: Integration with browser wallets and external providers  
+- **Web3ProviderWallet**: Integration with browser wallets and external providers
 - **BaseWallet**: Generic interface supporting various specialized implementations
 
 **Transaction Signing Complexity:**
@@ -62,7 +62,7 @@ Example:
     hot_wallet = HotWallet.from_private_key("0x...")
     hot_adapter = WalletAdapterSigner(hot_wallet, web3)
 
-    # Scenario 2: Browser integration with Web3ProviderWallet  
+    # Scenario 2: Browser integration with Web3ProviderWallet
     provider_wallet = Web3ProviderWallet(web3)
     provider_adapter = WalletAdapterSigner(provider_wallet, web3)
 
@@ -74,11 +74,13 @@ Example:
     for adapter in [hot_adapter, provider_adapter, custom_adapter]:
         address = adapter.get_address()
         message_sig = adapter.sign_message("Hello GMX!")
-        tx_hash = adapter.send_transaction({
-            "to": "0x...",
-            "value": web3.to_wei(0.1, "ether"),
-            "gas": 21000
-        })
+        tx_hash = adapter.send_transaction(
+            {
+                "to": "0x...",
+                "value": web3.to_wei(0.1, "ether"),
+                "gas": 21000,
+            }
+        )
 
         print(f"Wallet {address} signed message and sent transaction {tx_hash.hex()}")
 
@@ -371,7 +373,7 @@ class WalletAdapterSigner(Signer):
                 "to": "0x742d35Cc6634C0532925a3b8D6c2C0C4e85a4d0A",
                 "value": web3.to_wei(0.1, "ether"),
                 "gas": 21000,
-                "gasPrice": web3.to_wei(20, "gwei")
+                "gasPrice": web3.to_wei(20, "gwei"),
             }
 
             signed_tx = adapter.sign_transaction(unsigned_tx)
@@ -379,7 +381,7 @@ class WalletAdapterSigner(Signer):
             # Sign transaction with explicit nonce (for advanced use cases)
             nonce_tx = {
                 **unsigned_tx,
-                "nonce": web3.eth.get_transaction_count(adapter.get_address())
+                "nonce": web3.eth.get_transaction_count(adapter.get_address()),
             }
 
             signed_nonce_tx = adapter.sign_transaction(nonce_tx)
@@ -476,7 +478,7 @@ class WalletAdapterSigner(Signer):
                 "to": "0x742d35Cc6634C0532925a3b8D6c2C0C4e85a4d0A",
                 "value": web3.to_wei(0.1, "ether"),
                 "gas": 21000,
-                "gasPrice": web3.to_wei(20, "gwei")
+                "gasPrice": web3.to_wei(20, "gwei"),
             }
 
             tx_hash = adapter.send_transaction(transfer_tx)
@@ -490,7 +492,7 @@ class WalletAdapterSigner(Signer):
                 "to": contract_address,
                 "data": contract.encodeABI(fn_name="complexOperation", args=[...]),
                 "gas": 500000,
-                "gasPrice": web3.to_wei(50, "gwei")
+                "gasPrice": web3.to_wei(50, "gwei"),
             }
 
             complex_tx_hash = adapter.send_transaction(contract_tx)
