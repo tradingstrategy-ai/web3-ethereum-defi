@@ -234,7 +234,6 @@ def create_probe_calls(
         yield share_price_call
         yield ipor_fee_call
         yield harvest_finance_call
-        yield erc_7545_call
         yield erc_7540_call
         yield baklava_space
         yield astrolab_call
