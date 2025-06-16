@@ -116,7 +116,7 @@ def redeem_4626(
     check_enough_token=True,
     check_max_redeem=True,
     receiver=None,
-    epsilon: float | None = 10**-6,
+    epsilon: float | None = 0.005,  # 0.5% epsilon correction for rounding errors
 ) -> ContractFunction:
     """Craft a transaction for ERC-4626 vault deposit.
 

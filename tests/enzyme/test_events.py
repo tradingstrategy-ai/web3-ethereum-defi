@@ -154,7 +154,8 @@ def test_read_withdrawal(
     # Buy shares for 500 USDC, receive min share
     usdc.functions.transfer(user_1, 500 * 10**6).transact({"from": deployer})
     usdc.functions.approve(vault.comptroller.address, 500 * 10**6).transact({"from": user_1})
-    vault.comptroller.functions.buyShares(500 * 10**6, 1).transact({"from": user_1})
+    tx_hash = vault.comptroller.functions.buyShares(500 * 10**6, 1).transact({"from": user_1})
+    assert_transaction_success_with_explanation(web3, tx_hash)
 
     assert vault.get_total_supply() == 500 * 10**18
 
