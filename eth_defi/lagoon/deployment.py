@@ -29,6 +29,7 @@ from web3.contract import Contract
 from web3.contract.contract import ContractFunction
 
 from eth_defi.aave_v3.deployment import AaveV3Deployment
+from eth_defi.abi import get_deployed_contract
 from eth_defi.deploy import deploy_contract
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.foundry.forge import deploy_contract_with_forge
@@ -36,7 +37,7 @@ from eth_defi.hotwallet import HotWallet
 from eth_defi.lagoon.beacon_proxy import deploy_beacon_proxy
 from eth_defi.lagoon.vault import LagoonVault
 from eth_defi.provider.anvil import is_anvil
-from eth_defi.safe.deployment import deploy_safe, add_new_safe_owners
+from eth_defi.safe.deployment import deploy_safe, add_new_safe_owners, fetch_safe_deployment
 from eth_defi.token import get_wrapped_native_token_address, fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.uniswap_v2.deployment import UniswapV2Deployment
@@ -100,6 +101,10 @@ class LagoonAutomatedDeployment:
     deployer: HexAddress
     block_number: BlockNumber
     parameters: LagoonDeploymentParameters
+
+    @property
+    def safe(self) -> Safe:
+        return self.vault.safe
 
     def is_asset_manager(self, address: HexAddress) -> bool:
         return self.trading_strategy_module.functions.isAllowedSender(address).call()
@@ -306,11 +311,16 @@ def deploy_safe_trading_strategy_module(
     safe: Safe,
     use_forge=False,
     etherscan_api_key: str = None,
+    enable_on_safe=True,
 ) -> Contract:
     """Deploy TradingStrategyModuleV0 for Safe and Lagoon.
 
     :param use_forge:
         Deploy Etherscan verified build with Forge
+
+    :parma enable_on_safe:
+        Automatically enable this module on the Safe multisig.
+        Must be 1-of-1 deployer address multisig.
 
     :return:
         TradingStrategyModuleV0 instance
@@ -340,17 +350,19 @@ def deploy_safe_trading_strategy_module(
             safe.address,
         )
 
-    # Enable TradingStrategyModuleV0 as Safe module
-    # Multisig owners can enable the module
-    tx = safe.contract.functions.enableModule(module.address).build_transaction(
-        {"from": deployer.address, "gas": 0, "gasPrice": 0}
-    )
-    safe_tx = safe.build_multisig_tx(safe.address, 0, tx["data"])
-    safe_tx.sign(deployer._private_key.hex())
-    tx_hash, tx = safe_tx.execute(
-        tx_sender_private_key=deployer._private_key.hex(),
-    )
-    assert_transaction_success_with_explanation(web3, tx_hash)
+    if enable_on_safe:
+
+        # Enable TradingStrategyModuleV0 as Safe module
+        # Multisig owners can enable the module
+        tx = safe.contract.functions.enableModule(module.address).build_transaction(
+            {"from": deployer.address, "gas": 0, "gasPrice": 0}
+        )
+        safe_tx = safe.build_multisig_tx(safe.address, 0, tx["data"])
+        safe_tx.sign(deployer._private_key.hex())
+        tx_hash, tx = safe_tx.execute(
+            tx_sender_private_key=deployer._private_key.hex(),
+        )
+        assert_transaction_success_with_explanation(web3, tx_hash)
 
     return module
 
@@ -386,7 +398,7 @@ def setup_guard(
 
     _broadcast = broadcast_func
 
-    logger.info("Setting up TradingStrategyModuleV0 guard")
+    logger.info("Setting up TradingStrategyModuleV0 guard: %s", module.address)
 
     # Enable asset_manager as the whitelisted trade-executor
     logger.info("Whitelisting trade-executor as sender")
@@ -403,12 +415,16 @@ def setup_guard(
         logger.info("Whitelisting Uniswap v2 router: %s", uniswap_v2.router.address)
         tx_hash = _broadcast(module.functions.whitelistUniswapV2Router(uniswap_v2.router.address, "Allow Uniswap v2"))
         assert_transaction_success_with_explanation(web3, tx_hash)
+    else:
+        logger.info("Not whitelisted: Uniswap v2")
 
     # Whitelist Uniswap v3
     if uniswap_v3:
         logger.info("Whitelisting Uniswap v3 router: %s", uniswap_v3.swap_router.address)
         tx_hash = _broadcast(module.functions.whitelistUniswapV3Router(uniswap_v3.swap_router.address, "Allow Uniswap v3"))
         assert_transaction_success_with_explanation(web3, tx_hash)
+    else:
+        logger.info("Not whitelisted: Uniswap v3")
 
     # Whitelist Aave v3 with aUSDC deposits.
     # TODO: Add automatic whitelisting of any aToken and vToken
@@ -429,16 +445,25 @@ def setup_guard(
             tx_hash = _broadcast(module.functions.whitelistToken(ausdc.address, note))
             assert_transaction_success_with_explanation(web3, tx_hash)
 
+    else:
+        logger.info("Not whitelisted: Aave v3")
+
     # Whitelist all ERC-4626 vaults
     if erc_4626_vaults:
         for erc_4626_vault in erc_4626_vaults:
-            assert isinstance(erc_4626_vault, ERC4626Vault), f"Expected ERC4626Vault, got {type(erc_4626_vault)}: {erc4626_vault}"
+            assert isinstance(erc_4626_vault, ERC4626Vault), f"Expected ERC4626Vault, got {type(erc_4626_vault)}: {erc_4626_vault}"
             # This will whitelist vault deposit/withdraw and its share and denomination token.
             # USDC may be whitelisted twice because denomination tokens are shared.
             logger.info("Whitelisting ERC-4626 vault %s: %s", erc_4626_vault, erc_4626_vault.vault_address)
             note = f"Whitelisting {erc_4626_vault.name}"
             tx_hash = _broadcast(module.functions.whitelistERC4626(erc_4626_vault.vault_address, note))
             assert_transaction_success_with_explanation(web3, tx_hash)
+
+            # Check we really whitelisted the vault,
+            # e.g. not a bad contract version
+            assert module.functions.isAllowedApprovalDestination(erc_4626_vault.vault_address).call() == True
+    else:
+        logger.info("Not whitelisted: any ERC-4626 vaults")
 
     # Whitelist all assets
     if any_asset:
@@ -469,6 +494,9 @@ def deploy_automated_lagoon_vault(
     use_forge=False,
     between_contracts_delay_seconds=10.0,
     erc_4626_vaults: list[ERC4626Vault] | None = None,
+    guard_only: bool = False,
+    existing_vault_address: HexAddress | str | None = None,
+    existing_safe_address: HexAddress | str | None = None,
 ) -> LagoonAutomatedDeployment:
     """Deploy a full Lagoon setup with a guard.
 
@@ -490,9 +518,18 @@ def deploy_automated_lagoon_vault(
     .. note ::
 
         Deployer account must be manually removed from the Safe by new owners.
+
+    :param guard_only:
+        Deploy a new version of the guard smart contract and skip deploying the actual vault.
     """
 
-    assert len(safe_owners) >= 1, "Multisig owners emptty"
+    if existing_vault_address:
+        assert guard_only, "You cannot pass existing vault address without guard_only=True"
+    else:
+        assert len(safe_owners) >= 1, "Multisig owners emptty"
+
+    if guard_only:
+        assert existing_vault_address, "You must pass existing vault address if guard_only=True"
 
     chain_id = web3.eth.chain_id
 
@@ -516,29 +553,55 @@ def deploy_automated_lagoon_vault(
         else:
             raise NotImplementedError(f"No idea about: {deployer}")
 
-    safe = deploy_safe(
-        web3,
-        deployer_local_account,
-        owners=[deployer.address],
-        threshold=1,
-    )
+    if not existing_vault_address:
+        # Deploy a Safe multisig that forms the core of Lagoon vault
+        safe = deploy_safe(
+            web3,
+            deployer_local_account,
+            owners=[deployer.address],
+            threshold=1,
+        )
 
-    parameters.safe = safe.address
+        parameters.safe = safe.address
+        logger.info("Deployed new Safe: %s", safe.address)
+    else:
+
+        assert existing_safe_address, "You must pass existing Safe address if existing_vault_address is set"
+
+        vault_contract = get_deployed_contract(
+            web3,
+            "lagoon/Vault.json",
+            existing_vault_address,
+        )
+        safe = fetch_safe_deployment(
+            web3,
+            existing_safe_address,
+            # Only added in Lagoon v0.5
+            #  vault_contract.functions.safe().call()
+        )
+        logger.info("Using existing Safe: %s", safe.address)
+        parameters.safe = safe.address
+
+        try:
+            vault_contract.functions.pendingSilo().call()
+        except Exception as e:
+            raise RuntimeError(f"Does not look like Lagoon vault: {existing_vault_address}") from e
 
     if not is_anvil(web3):
         logger.info("Between contracts deployment delay: Sleeping %s for new nonce to propagade", between_contracts_delay_seconds)
         time.sleep(between_contracts_delay_seconds)
 
-    vault_contract = deploy_lagoon(
-        web3=web3,
-        deployer=deployer_local_account,
-        safe=safe,
-        asset_manager=asset_manager,
-        parameters=parameters,
-        owner=safe.address,
-        etherscan_api_key=etherscan_api_key,
-        use_forge=use_forge,
-    )
+    if not existing_vault_address:
+        vault_contract = deploy_lagoon(
+            web3=web3,
+            deployer=deployer_local_account,
+            safe=safe,
+            asset_manager=asset_manager,
+            parameters=parameters,
+            owner=safe.address,
+            etherscan_api_key=etherscan_api_key,
+            use_forge=use_forge,
+        )
 
     if not is_anvil(web3):
         logger.info("Between contracts deployment delay: Sleeping %s for new nonce to propagade", between_contracts_delay_seconds)
@@ -550,6 +613,7 @@ def deploy_automated_lagoon_vault(
         safe=safe,
         etherscan_api_key=etherscan_api_key,
         use_forge=use_forge,
+        enable_on_safe=not guard_only,
     )
 
     if not is_anvil(web3):
@@ -559,6 +623,7 @@ def deploy_automated_lagoon_vault(
     if isinstance(deployer, HotWallet):
         deployer.sync_nonce(web3)
 
+    # Configure TradingStrategyModuleV0 guard
     setup_guard(
         web3=web3,
         safe=safe,
@@ -585,29 +650,31 @@ def deploy_automated_lagoon_vault(
     tx_hash = _broadcast(module.functions.transferOwnership(safe.address))
     assert_transaction_success_with_explanation(web3, tx_hash)
 
-    # 2. USDC.approve() for redemptions on Safe
-    underlying = fetch_erc20_details(web3, parameters.underlying, chain_id=chain_id)
-    tx_data = underlying.contract.functions.approve(vault_contract.address, 2**256-1).build_transaction({
-        "from": deployer.address,
-        "gas": 0,
-        "gasPrice": 0,
-    })
-    safe_tx = safe.build_multisig_tx(underlying.address, 0, tx_data["data"])
-    safe_tx.sign(deployer_local_account._private_key.hex())
-    tx_hash, tx = safe_tx.execute(
-        tx_sender_private_key=deployer_local_account._private_key.hex(),
-    )
-    assert_transaction_success_with_explanation(web3, tx_hash)
+    if not guard_only:
 
-    # 3. Set Gnosis to a true multisig
-    # DOES NOT REMOVE DEPLOYER
-    add_new_safe_owners(
-        web3,
-        safe,
-        deployer_local_account,
-        owners=safe_owners,
-        threshold=safe_threshold,
-    )
+        # 2. USDC.approve() for redemptions on Safe
+        underlying = fetch_erc20_details(web3, parameters.underlying, chain_id=chain_id)
+        tx_data = underlying.contract.functions.approve(vault_contract.address, 2**256-1).build_transaction({
+            "from": deployer.address,
+            "gas": 0,
+            "gasPrice": 0,
+        })
+        safe_tx = safe.build_multisig_tx(underlying.address, 0, tx_data["data"])
+        safe_tx.sign(deployer_local_account._private_key.hex())
+        tx_hash, tx = safe_tx.execute(
+            tx_sender_private_key=deployer_local_account._private_key.hex(),
+        )
+        assert_transaction_success_with_explanation(web3, tx_hash)
+
+        # 3. Set Gnosis to a true multisig
+        # DOES NOT REMOVE DEPLOYER
+        add_new_safe_owners(
+            web3,
+            safe,
+            deployer_local_account,
+            owners=safe_owners,
+            threshold=safe_threshold,
+        )
 
     vault = LagoonVault(
         web3,

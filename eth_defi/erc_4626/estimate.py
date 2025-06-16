@@ -26,11 +26,18 @@ def estimate_4626_deposit(
     assert isinstance(vault, ERC4626Vault)
     assert isinstance(denomination_token_amount, Decimal)
     assert denomination_token_amount > 0
+
+    assert not vault.erc_7540, f"previewDeposit() is not supported for ERC-7540 vaults: {vault}"
+
     contract = vault.vault_contract
+    raw_amount = vault.denomination_token.convert_to_raw(denomination_token_amount)
     deposit_call = contract.functions.previewDeposit(
-        vault.denomination_token.convert_to_raw(denomination_token_amount),
+        raw_amount,
     )
-    raw_amount = deposit_call.call(block_identifier=block_identifier)
+    try:
+        raw_amount = deposit_call.call(block_identifier=block_identifier)
+    except Exception as e:
+        raise RuntimeError(f"previewDeposit() failed at vault {vault} with amount {denomination_token_amount} ({raw_amount} raw) @ {block_identifier}\nRevert reason: {e}\n{format_debug_instructions(deposit_call)}") from e
     return vault.share_token.convert_to_decimals(raw_amount)
 
 

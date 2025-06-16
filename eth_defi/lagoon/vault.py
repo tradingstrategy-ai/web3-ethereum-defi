@@ -14,15 +14,13 @@ from web3 import Web3
 from web3.contract import Contract
 from web3.contract.contract import ContractFunction
 
-from eth_defi.balances import fetch_erc20_balances_fallback
-from eth_defi.vault.base import VaultBase, VaultSpec, VaultInfo, TradingUniverse, VaultPortfolio, VaultFlowManager
+from eth_defi.vault.base import VaultSpec, VaultInfo, VaultFlowManager
 
 from safe_eth.safe import Safe
 
 from ..abi import get_deployed_contract, encode_function_call, present_solidity_args, get_function_selector
 from ..erc_4626.vault import ERC4626Vault
 from ..safe.safe_compat import create_safe_ethereum_client
-from ..token import TokenDetails, fetch_erc20_details
 from ..trace import assert_transaction_success_with_explanation
 
 logger = logging.getLogger(__name__)
@@ -476,6 +474,11 @@ class LagoonVault(ERC4626Vault):
         rates = self.vault_contract.functions.feeRates().call(block_identifier=block_identifier)
         return rates[1] / 10_000
 
+    def is_trading_strategy_module_enabled(self) -> bool:
+        """Check if TradingStrategyModuleV0 is enabled on the Safe multisig."""
+        assert self.trading_strategy_module_address, "TradingStrategyModuleV0 address must be separately given in the configuration"
+        return self.safe.contract.functions.isModuleEnabled(self.trading_strategy_module_address).call() == True
+
 
 class LagoonFlowManager(VaultFlowManager):
     """Manage deposit/redemption queue for Lagoon.
@@ -524,6 +527,7 @@ class LagoonFlowManager(VaultFlowManager):
         shares_pending = self.fetch_pending_redemption(block_identifier)
         share_price = self.vault.fetch_share_price(block_identifier)
         return shares_pending * share_price
+
 
 
 

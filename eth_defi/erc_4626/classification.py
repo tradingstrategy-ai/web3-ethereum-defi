@@ -87,16 +87,6 @@ def create_probe_calls(
             extra_data=None,
         )
 
-        # See standard
-        # https://eips.ethereum.org/EIPS/eip-7540#methods
-        erc_7545_call = EncodedCall.from_keccak_signature(
-            address=address,
-            signature=Web3.keccak(text="isOperator()")[0:4],
-            function="isOperator",
-            data=b"",
-            extra_data=None,
-        )
-
         #function isOperator(address controller, address operator) external returns (bool);
         erc_7540_call = EncodedCall.from_keccak_signature(
             address=address,
@@ -244,7 +234,6 @@ def create_probe_calls(
         yield share_price_call
         yield ipor_fee_call
         yield harvest_finance_call
-        yield erc_7545_call
         yield erc_7540_call
         yield baklava_space
         yield astrolab_call

@@ -5,6 +5,7 @@
 - Find Lagoon events here https://github.com/hopperlabsxyz/lagoon-v0/blob/b790b1c1fbb51a101b0c78a4bb20e8700abed054/src/vault/primitives/Events.sol
 """
 import datetime
+import logging
 from dataclasses import dataclass
 from decimal import Decimal
 
@@ -14,6 +15,9 @@ from web3._utils.events import EventLogErrorFlags
 from eth_defi.lagoon.vault import LagoonVault
 from eth_defi.timestamp import get_block_timestamp
 from eth_defi.token import TokenDetails
+from eth_defi.trace import assert_transaction_success_with_explanation
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(slots=True, frozen=True)
@@ -145,13 +149,29 @@ def analyse_vault_flow_in_settlement(
     - Analyse vault asset flow based on the settlement tx logs in the receipt
     - May need to call vault contract if no deposist or redeem events were prevent.
       This needs an archive node for historical lookback.
+
+    - `Gnosis Safe error list <https://github.com/safe-global/safe-smart-account/blob/main/docs/error_codes.md>`__.
+
+    :raise AssertionError:
+        If the Lagoon settlement transaction reverted.
     """
     web3 = vault.web3
     receipt = web3.eth.get_transaction_receipt(tx_hash)
     assert receipt is not None, f"Cannot find tx: {tx_hash}"
     assert isinstance(tx_hash, HexBytes), f"Got {tx_hash}"
 
-    assert receipt["status"] == 1, f"Lagoon vault settlement transaction did not succeed: {tx_hash.hex()}"
+    if receipt["status"] != 1:
+        # Do a verbose traceback / revert reason if the transaction failed
+        # GS104: Method can only be called from an enabled module
+        logger.error(
+            f"Lagoon vault settlement transaction did not succeed: {tx_hash.hex()}\n"
+            f"Vault: {vault}\n"
+            f"Guard: {vault.trading_strategy_module_address}\n"
+            f"Safe: {vault.safe_address}\n"
+            f"Guard enabled: {vault.is_trading_strategy_module_enabled()}\n"
+            f"Receipt: {receipt}\n"
+        )
+        assert_transaction_success_with_explanation(web3, tx_hash)
 
     deposits = vault.vault_contract.events.SettleDeposit().process_receipt(receipt, errors=EventLogErrorFlags.Discard)
     redeems = vault.vault_contract.events.SettleRedeem().process_receipt(receipt, errors=EventLogErrorFlags.Discard)

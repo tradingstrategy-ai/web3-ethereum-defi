@@ -14,6 +14,7 @@ def analyse_4626_flow_transaction(
     tx_hash: str | bytes,
     tx_receipt: dict,
     direction: Literal["deposit", "redeem"],
+    hot_wallet=True,
 ) -> TradeSuccess | TradeFail:
     """Analyse a ERC-4626 deposit/redeem transaction.
 
@@ -31,8 +32,18 @@ def analyse_4626_flow_transaction(
     :param tx_receipt:
         Transaction receipt
 
+    :param hot_wallet:
+        Is this a hot wallet originiated transaction or contract to contract transaction.
+
+        We can perform additioanl checks with hot wallet transactions.
+
     """
-    assert tx_receipt["to"] == vault.address
+
+    web3 = vault.web3
+
+    if hot_wallet:
+        assert tx_receipt["to"] == vault.address, f"Transaction receipt 'to' address {tx_receipt['to']} does not match vault address {vault.address}.\nVault is: {vault}"
+
     assert direction in ("deposit", "redeem")
 
     effective_gas_price = tx_receipt.get("effectiveGasPrice", 0)
