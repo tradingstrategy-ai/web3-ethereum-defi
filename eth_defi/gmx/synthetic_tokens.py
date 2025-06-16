@@ -147,7 +147,13 @@ class GMXSyntheticTokenDetails:
         Returns:
             dictionary with all token information
         """
-        return {"symbol": self.symbol, "address": self.address, "decimals": self.decimals, "chain_id": self.chain_id, "extra_data": self.extra_data}
+        return {
+            "symbol": self.symbol,
+            "address": self.address,
+            "decimals": self.decimals,
+            "chain_id": self.chain_id,
+            "extra_data": self.extra_data,
+        }
 
 
 class GMXTokenFetchError(Exception):
@@ -156,7 +162,12 @@ class GMXTokenFetchError(Exception):
     pass
 
 
-def fetch_gmx_synthetic_tokens(chain_id: int, cache: Optional[cachetools.Cache] = DEFAULT_GMX_TOKEN_CACHE, timeout: int = 30, force_refresh: bool = False) -> list[GMXSyntheticTokenDetails]:
+def fetch_gmx_synthetic_tokens(
+    chain_id: int,
+    cache: Optional[cachetools.Cache] = DEFAULT_GMX_TOKEN_CACHE,
+    timeout: int = 30,
+    force_refresh: bool = False,
+) -> list[GMXSyntheticTokenDetails]:
     """Fetch GMX synthetic token details from API with caching.
 
     This function fetches all available GMX synthetic tokens for a given chain
@@ -203,7 +214,16 @@ def fetch_gmx_synthetic_tokens(chain_id: int, cache: Optional[cachetools.Cache] 
         cached_tokens = cache.get(cache_key)
         if cached_tokens is not None:
             logger.debug(f"Returning {len(cached_tokens)} cached GMX tokens for chain {chain_id}")
-            return [GMXSyntheticTokenDetails(symbol=token_data["symbol"], address=token_data["address"], decimals=token_data["decimals"], chain_id=chain_id, extra_data={"cached": True}) for token_data in cached_tokens]
+            return [
+                GMXSyntheticTokenDetails(
+                    symbol=token_data["symbol"],
+                    address=token_data["address"],
+                    decimals=token_data["decimals"],
+                    chain_id=chain_id,
+                    extra_data={"cached": True},
+                )
+                for token_data in cached_tokens
+            ]
 
     # Fetch fresh data from API
     api_url = GMX_API_ENDPOINTS[chain_id]
@@ -240,7 +260,13 @@ def fetch_gmx_synthetic_tokens(chain_id: int, cache: Optional[cachetools.Cache] 
                     continue
 
             # Create token details object
-            token = GMXSyntheticTokenDetails(symbol=token_data["symbol"], address=token_data["address"], decimals=int(token_data["decimals"]), chain_id=chain_id, extra_data={"cached": False, "api_source": api_url})
+            token = GMXSyntheticTokenDetails(
+                symbol=token_data["symbol"],
+                address=token_data["address"],
+                decimals=int(token_data["decimals"]),
+                chain_id=chain_id,
+                extra_data={"cached": False, "api_source": api_url},
+            )
             tokens.append(token)
 
         except (KeyError, ValueError, TypeError) as e:
@@ -257,7 +283,11 @@ def fetch_gmx_synthetic_tokens(chain_id: int, cache: Optional[cachetools.Cache] 
     return tokens
 
 
-def get_gmx_synthetic_token_by_symbol(chain_id: int, symbol: str, cache: Optional[cachetools.Cache] = DEFAULT_GMX_TOKEN_CACHE) -> Optional[GMXSyntheticTokenDetails]:
+def get_gmx_synthetic_token_by_symbol(
+    chain_id: int,
+    symbol: str,
+    cache: Optional[cachetools.Cache] = DEFAULT_GMX_TOKEN_CACHE,
+) -> Optional[GMXSyntheticTokenDetails]:
     """Get a specific GMX token by symbol on a given chain.
 
     This is a convenience function that fetches all tokens and filters by symbol.
@@ -291,7 +321,11 @@ def get_gmx_synthetic_token_by_symbol(chain_id: int, symbol: str, cache: Optiona
     return None
 
 
-def get_gmx_synthetic_token_by_address(chain_id: int, address: HexAddress, cache: Optional[cachetools.Cache] = DEFAULT_GMX_TOKEN_CACHE) -> Optional[GMXSyntheticTokenDetails]:
+def get_gmx_synthetic_token_by_address(
+    chain_id: int,
+    address: HexAddress,
+    cache: Optional[cachetools.Cache] = DEFAULT_GMX_TOKEN_CACHE,
+) -> Optional[GMXSyntheticTokenDetails]:
     """Get a specific GMX token by address on a given chain.
 
     Args:

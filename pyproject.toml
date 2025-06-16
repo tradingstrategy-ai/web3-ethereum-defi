@@ -125,6 +125,7 @@ filterwarnings = [
 [tool.ruff]
 # We hate arbitrary line lengths
 line-length = 999
+indent-width = 4
 
 [tool.ruff.lint]
 # Enable preview features & checks (use with caution)
@@ -159,7 +160,7 @@ select = [
     "UP",    # pyupgrade
     "W",     # pycodestyle warnings
     "YTT",   # flake8-2020
-    "RUF100", # Automatically remove unused # noqa directives
+    "RUF100", # Automatically remove unused # noqa directives,
 ]
 
 ignore = [
@@ -192,6 +193,7 @@ ban-relative-imports = "all"
 # This makes ruff more aggressive about splitting long function calls/definitions
 skip-magic-trailing-comma = false  # Respect trailing commas to force multi-line
 docstring-code-format = true       # Format code blocks in docstrings
+indent-style = "space"
 
 # NOTE: Still under development. Ref: https://github.com/astral-sh/ruff/issues/6606
 #[tool.ruff.lint.pydocstyle]
