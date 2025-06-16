@@ -474,6 +474,11 @@ class LagoonVault(ERC4626Vault):
         rates = self.vault_contract.functions.feeRates().call(block_identifier=block_identifier)
         return rates[1] / 10_000
 
+    def is_trading_strategy_module_enabled(self) -> bool:
+        """Check if TradingStrategyModuleV0 is enabled on the Safe multisig."""
+        assert self.trading_strategy_module_address, "TradingStrategyModuleV0 address must be separately given in the configuration"
+        return self.safe.contract.functions.isModuleEnabled(self.trading_strategy_module_address).call() == True
+
 
 class LagoonFlowManager(VaultFlowManager):
     """Manage deposit/redemption queue for Lagoon.
@@ -522,6 +527,7 @@ class LagoonFlowManager(VaultFlowManager):
         shares_pending = self.fetch_pending_redemption(block_identifier)
         share_price = self.vault.fetch_share_price(block_identifier)
         return shares_pending * share_price
+
 
 
 

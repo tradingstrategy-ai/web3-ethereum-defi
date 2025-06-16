@@ -192,5 +192,4 @@ def disable_safe_module(
     else:
         previous_module = modules[idx - 1]
 
-    import ipdb ; ipdb.set_trace()
     return safe.contract.functions.disableModule(previous_module, module_address)

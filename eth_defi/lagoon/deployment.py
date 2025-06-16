@@ -37,7 +37,7 @@ from eth_defi.hotwallet import HotWallet
 from eth_defi.lagoon.beacon_proxy import deploy_beacon_proxy
 from eth_defi.lagoon.vault import LagoonVault
 from eth_defi.provider.anvil import is_anvil
-from eth_defi.safe.deployment import deploy_safe, add_new_safe_owners
+from eth_defi.safe.deployment import deploy_safe, add_new_safe_owners, fetch_safe_deployment
 from eth_defi.token import get_wrapped_native_token_address, fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.uniswap_v2.deployment import UniswapV2Deployment
@@ -479,6 +479,7 @@ def deploy_automated_lagoon_vault(
     erc_4626_vaults: list[ERC4626Vault] | None = None,
     guard_only: bool = False,
     existing_vault_address: HexAddress | str | None = None,
+    existing_safe_address: HexAddress | str | None = None,
 ) -> LagoonAutomatedDeployment:
     """Deploy a full Lagoon setup with a guard.
 
@@ -535,33 +536,45 @@ def deploy_automated_lagoon_vault(
         else:
             raise NotImplementedError(f"No idea about: {deployer}")
 
-    safe = deploy_safe(
-        web3,
-        deployer_local_account,
-        owners=[deployer.address],
-        threshold=1,
-    )
+    if not existing_vault_address:
+        # Deploy a Safe multisig that forms the core of Lagoon vault
+        safe = deploy_safe(
+            web3,
+            deployer_local_account,
+            owners=[deployer.address],
+            threshold=1,
+        )
 
-    parameters.safe = safe.address
+        parameters.safe = safe.address
+        logger.info("Deployed new Safe: %s", safe.address)
+    else:
 
-    if not is_anvil(web3):
-        logger.info("Between contracts deployment delay: Sleeping %s for new nonce to propagade", between_contracts_delay_seconds)
-        time.sleep(between_contracts_delay_seconds)
+        assert existing_safe_address, "You must pass existing Safe address if existing_vault_address is set"
 
-    if existing_vault_address:
         vault_contract = get_deployed_contract(
             web3,
             "lagoon/Vault.json",
             existing_vault_address,
         )
+        safe = fetch_safe_deployment(
+            web3,
+            existing_safe_address,
+            # Only added in Lagoon v0.5
+            #  vault_contract.functions.safe().call()
+        )
+        logger.info("Using existing Safe: %s", safe.address)
+        parameters.safe = safe.address
 
         try:
             vault_contract.functions.pendingSilo().call()
         except Exception as e:
             raise RuntimeError(f"Does not look like Lagoon vault: {existing_vault_address}") from e
 
-    else:
+    if not is_anvil(web3):
+        logger.info("Between contracts deployment delay: Sleeping %s for new nonce to propagade", between_contracts_delay_seconds)
+        time.sleep(between_contracts_delay_seconds)
 
+    if not existing_vault_address:
         vault_contract = deploy_lagoon(
             web3=web3,
             deployer=deployer_local_account,
