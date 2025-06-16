@@ -116,6 +116,7 @@ def redeem_4626(
     check_enough_token=True,
     check_max_redeem=True,
     receiver=None,
+    epsilon: float | None = 10**-6,
 ) -> ContractFunction:
     """Craft a transaction for ERC-4626 vault deposit.
 
@@ -171,6 +172,8 @@ def redeem_4626(
         Matters in complex vault setups. Like in the case of Lagoon vault,
         the receiver is the Safe multisig address of the vault.
 
+    :param epsilon:
+        Handle rounding errors in the case of close all.
     """
 
     assert isinstance(vault, ERC4626Vault)
@@ -191,6 +194,16 @@ def redeem_4626(
     contract = vault.vault_contract
 
     raw_amount = vault.share_token.convert_to_raw(amount)
+    raw_available = vault.share_token.fetch_raw_balance_of(owner)
+
+    # Apply epsilon correction
+    # AssertionError: Max redeem 980060998000964315 is less than 980060999302489527, -1301525212 (-1.301525212e-09)
+    if epsilon:
+        assert epsilon > 0
+        diff = abs(raw_amount - raw_available) / raw_amount
+        if diff != 0 and diff < epsilon:
+            logger.info("Applying balanceOf() epsilon correction %s -> %s", raw_amount, raw_available)
+            raw_amount = raw_available
 
     if check_enough_token:
         actual_balance = vault.share_token.fetch_raw_balance_of(owner)
@@ -198,8 +211,16 @@ def redeem_4626(
 
     if check_max_redeem:
         max_redeem = contract.functions.maxRedeem(receiver).call()
+
+        # Some vaults always return max redeem as zero?
         if max_redeem != 0:
-            assert raw_amount <= max_redeem, f"Max redeem {max_redeem} is less than {raw_amount}"
+            diff = abs(max_redeem - raw_amount) / raw_amount
+
+            if diff != 0 and diff < epsilon:
+                logger.info("Applying maxRedeem epsilon correction %s -> %s", raw_amount, raw_available)
+                raw_amount = max_redeem
+
+            assert raw_amount <= max_redeem, f"Max redeem {max_redeem} (raw) is less than what we try to redeem {raw_amount} (raw), diff {diff:.6%} ({diff / 10**18}) "
 
     call = contract.functions.redeem(raw_amount, owner, receiver)
     return call

@@ -102,6 +102,10 @@ class LagoonAutomatedDeployment:
     block_number: BlockNumber
     parameters: LagoonDeploymentParameters
 
+    @property
+    def safe(self) -> Safe:
+        return self.vault.safe
+
     def is_asset_manager(self, address: HexAddress) -> bool:
         return self.trading_strategy_module.functions.isAllowedSender(address).call()
 
@@ -394,7 +398,7 @@ def setup_guard(
 
     _broadcast = broadcast_func
 
-    logger.info("Setting up TradingStrategyModuleV0 guard")
+    logger.info("Setting up TradingStrategyModuleV0 guard: %s", module.address)
 
     # Enable asset_manager as the whitelisted trade-executor
     logger.info("Whitelisting trade-executor as sender")
@@ -411,12 +415,16 @@ def setup_guard(
         logger.info("Whitelisting Uniswap v2 router: %s", uniswap_v2.router.address)
         tx_hash = _broadcast(module.functions.whitelistUniswapV2Router(uniswap_v2.router.address, "Allow Uniswap v2"))
         assert_transaction_success_with_explanation(web3, tx_hash)
+    else:
+        logger.info("Not whitelisted: Uniswap v2")
 
     # Whitelist Uniswap v3
     if uniswap_v3:
         logger.info("Whitelisting Uniswap v3 router: %s", uniswap_v3.swap_router.address)
         tx_hash = _broadcast(module.functions.whitelistUniswapV3Router(uniswap_v3.swap_router.address, "Allow Uniswap v3"))
         assert_transaction_success_with_explanation(web3, tx_hash)
+    else:
+        logger.info("Not whitelisted: Uniswap v3")
 
     # Whitelist Aave v3 with aUSDC deposits.
     # TODO: Add automatic whitelisting of any aToken and vToken
@@ -437,16 +445,25 @@ def setup_guard(
             tx_hash = _broadcast(module.functions.whitelistToken(ausdc.address, note))
             assert_transaction_success_with_explanation(web3, tx_hash)
 
+    else:
+        logger.info("Not whitelisted: Aave v3")
+
     # Whitelist all ERC-4626 vaults
     if erc_4626_vaults:
         for erc_4626_vault in erc_4626_vaults:
-            assert isinstance(erc_4626_vault, ERC4626Vault), f"Expected ERC4626Vault, got {type(erc_4626_vault)}: {erc4626_vault}"
+            assert isinstance(erc_4626_vault, ERC4626Vault), f"Expected ERC4626Vault, got {type(erc_4626_vault)}: {erc_4626_vault}"
             # This will whitelist vault deposit/withdraw and its share and denomination token.
             # USDC may be whitelisted twice because denomination tokens are shared.
             logger.info("Whitelisting ERC-4626 vault %s: %s", erc_4626_vault, erc_4626_vault.vault_address)
             note = f"Whitelisting {erc_4626_vault.name}"
             tx_hash = _broadcast(module.functions.whitelistERC4626(erc_4626_vault.vault_address, note))
             assert_transaction_success_with_explanation(web3, tx_hash)
+
+            # Check we really whitelisted the vault,
+            # e.g. not a bad contract version
+            assert module.functions.isAllowedApprovalDestination(erc_4626_vault.vault_address).call() == True
+    else:
+        logger.info("Not whitelisted: any ERC-4626 vaults")
 
     # Whitelist all assets
     if any_asset:

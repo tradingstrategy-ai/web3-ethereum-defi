@@ -5,6 +5,7 @@ from decimal import Decimal
 from functools import cached_property
 from typing import Iterable
 
+import eth_abi
 from eth_typing import HexAddress
 from fontTools.unicodedata import block
 from web3 import Web3
@@ -12,7 +13,7 @@ from web3.contract import Contract
 from web3.exceptions import BadFunctionCallOutput, BlockNumberOutofRange
 from web3.types import BlockIdentifier
 
-from eth_defi.abi import get_deployed_contract, get_contract
+from eth_defi.abi import get_deployed_contract, get_contract, ZERO_ADDRESS_STR
 from eth_defi.balances import fetch_erc20_balances_fallback
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract, ERC4626Feature
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int, convert_uint256_bytes_to_address
@@ -20,6 +21,7 @@ from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResu
 from eth_defi.provider.broken_provider import get_almost_latest_block_number
 from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.vault.base import VaultBase, VaultSpec, VaultInfo, TradingUniverse, VaultPortfolio, VaultFlowManager, VaultHistoricalReader, VaultHistoricalRead
+from tradeexecutor.strategy.execution_model import ExecutionModel
 
 
 class ERC4626VaultInfo(VaultInfo):
@@ -276,6 +278,27 @@ class ERC4626Vault(VaultBase):
     def underlying_token(self) -> TokenDetails:
         """Alias for :py:meth:`denomination_token`"""
         return self.denomination_token
+
+    @cached_property
+    def erc_7540(self) -> bool:
+        """Is this ERC-7540 vault with asynchronous deposits.
+
+        - For example ``previewDeposit()`` function and other functions will revert
+        """
+        try:
+            # isOperator() function is only part of 7545 ABI and will revert is missing
+            double_address = eth_abi.encode(['address', 'address'], [ZERO_ADDRESS_STR, ZERO_ADDRESS_STR])
+            erc_7540_call = EncodedCall.from_keccak_signature(
+                address=self.address,
+                signature=Web3.keccak(text="isOperator(address,address)")[0:4],
+                function="isOperator",
+                data=double_address,
+                extra_data=None,
+            )
+            erc_7540_call.call(self.web3, block_identifier="latest")
+            return True
+        except (ValueError, BadFunctionCallOutput):
+            return False
 
     def fetch_denomination_token_address(self) -> HexAddress | None:
         try:

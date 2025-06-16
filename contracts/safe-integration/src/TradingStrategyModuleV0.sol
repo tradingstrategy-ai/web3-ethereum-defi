@@ -15,6 +15,7 @@ pragma solidity ^0.8.26;
 import "@gnosis.pm/zodiac/contracts/core/Module.sol";
 import "@guard/GuardV0Base.sol";
 
+
 /**
  * Trading Strategy integration as Zodiac Module.
  *
