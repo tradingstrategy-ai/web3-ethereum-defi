@@ -4,6 +4,7 @@
 
 - View Safe here https://app.safe.global/home?safe=base:0x20415f3Ec0FEA974548184bdD6e67575D128953F
 """
+
 from decimal import Decimal
 
 import pytest
@@ -21,6 +22,7 @@ from eth_defi.uniswap_v3.deployment import UniswapV3Deployment
 from eth_defi.vault.base import TradingUniverse
 from eth_defi.safe.trace import assert_execute_module_success
 from eth_defi.uniswap_v3.deployment import fetch_deployment as fetch_deployment_uni_v3, UniswapV3Deployment
+
 
 @pytest.fixture()
 def uniswap_v2(web3):

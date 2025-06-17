@@ -8,12 +8,13 @@ Explore the static deployment which we fork from the Base mainnet:
 - Safe contract: https://basescan.org/address/0x20415f3Ec0FEA974548184bdD6e67575D128953F#readProxyContract
 - Roles: https://app.safe.global/apps/open?safe=base:0x20415f3Ec0FEA974548184bdD6e67575D128953F&appUrl=https%3A%2F%2Fzodiac.gnosisguild.org%2F
 """
+
 import os
 from decimal import Decimal
 
 import pytest
 from eth_account.signers.local import LocalAccount
-from eth_typing import HexAddress
+from eth_typing import HexAddress, HexStr
 from web3 import Web3
 
 from eth_defi.hotwallet import HotWallet
@@ -37,31 +38,31 @@ pytestmark = pytest.mark.skipif(not JSON_RPC_BASE, reason="No JSON_RPC_BASE envi
 @pytest.fixture()
 def vault_owner() -> HexAddress:
     # Vaut owner
-    return "0x0c9db006f1c7bfaa0716d70f012ec470587a8d4f"
+    return HexAddress(HexStr("0x0c9db006f1c7bfaa0716d70f012ec470587a8d4f"))
 
 
 @pytest.fixture()
 def depositor() -> HexAddress:
     # Someone how deposited assets to the vault earlier
-    return "0x20415f3Ec0FEA974548184bdD6e67575D128953F"
+    return HexAddress(HexStr("0x20415f3Ec0FEA974548184bdD6e67575D128953F"))
 
 
 @pytest.fixture()
 def usdc_holder() -> HexAddress:
     # https://basescan.org/token/0x833589fcd6edb6e08f4c7c32d4f71b54bda02913#balances
-    return "0x3304E22DDaa22bCdC5fCa2269b418046aE7b566A"
+    return HexAddress(HexStr("0x3304E22DDaa22bCdC5fCa2269b418046aE7b566A"))
 
 
 @pytest.fixture()
 def valuation_manager() -> HexAddress:
     """Unlockable account set as the vault valuation manager."""
-    return "0x8358bBFb4Afc9B1eBe4e8C93Db8bF0586BD8331a"
+    return HexAddress(HexStr("0x8358bBFb4Afc9B1eBe4e8C93Db8bF0586BD8331a"))
 
 
 @pytest.fixture()
 def safe_address() -> HexAddress:
     """Unlockable Safe multisig as spoofed Anvil account."""
-    return "0x20415f3Ec0FEA974548184bdD6e67575D128953F"
+    return HexAddress(HexStr("0x20415f3Ec0FEA974548184bdD6e67575D128953F"))
 
 
 @pytest.fixture()
@@ -147,7 +148,7 @@ def hot_wallet_user(web3, usdc, usdc_holder) -> HotWallet:
     hw = HotWallet.create_for_testing(
         web3,
         test_account_n=1,
-        eth_amount=10
+        eth_amount=10,
     )
     hw.sync_nonce(web3)
 
@@ -222,7 +223,6 @@ def automated_lagoon_vault(
     return deploy_info
 
 
-
 @pytest.fixture()
 def asset_manager() -> HexAddress:
     """The asset manager role."""
@@ -232,11 +232,13 @@ def asset_manager() -> HexAddress:
 @pytest.fixture()
 def topped_up_asset_manager(web3, asset_manager) -> HexAddress:
     # Topped up with some ETH
-    tx_hash = web3.eth.send_transaction({
-        "to": asset_manager,
-        "from": web3.eth.accounts[0],
-        "value": 9 * 10**18,
-    })
+    tx_hash = web3.eth.send_transaction(
+        {
+            "to": asset_manager,
+            "from": web3.eth.accounts[0],
+            "value": 9 * 10**18,
+        }
+    )
     assert_transaction_success_with_explanation(web3, tx_hash)
     return asset_manager
 
@@ -244,11 +246,13 @@ def topped_up_asset_manager(web3, asset_manager) -> HexAddress:
 @pytest.fixture()
 def topped_up_valuation_manager(web3, valuation_manager) -> HexAddress:
     # Topped up with some ETH
-    tx_hash = web3.eth.send_transaction({
-        "to": valuation_manager,
-        "from": web3.eth.accounts[0],
-        "value": 9 * 10**18,
-    })
+    tx_hash = web3.eth.send_transaction(
+        {
+            "to": valuation_manager,
+            "from": web3.eth.accounts[0],
+            "value": 9 * 10**18,
+        }
+    )
     assert_transaction_success_with_explanation(web3, tx_hash)
     return valuation_manager
 
@@ -306,7 +310,6 @@ def deployer_local_account(deployer_hot_wallet) -> LocalAccount:
 def multisig_owners(web3) -> list[HexAddress]:
     """Accouunts that are set as the owners of deployed Safe w/valt"""
     return [web3.eth.accounts[2], web3.eth.accounts[3], web3.eth.accounts[4]]
-
 
 
 # @pytest.fixture()

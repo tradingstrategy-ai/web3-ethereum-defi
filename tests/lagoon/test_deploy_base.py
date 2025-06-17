@@ -1,4 +1,5 @@
 """Deploy a new Lagoon vault on Base."""
+
 import logging
 from decimal import Decimal
 
@@ -109,7 +110,7 @@ def test_lagoon_deploy_base_guarded_any_token(
     # Safe it set to take the ownership
     vault = deploy_info.vault
     assert deploy_info.chain_id == 8453
-    assert len(deploy_info.vault.safe.retrieve_owners()) == 4   # Multisig owners + deployer account we cannot remove
+    assert len(deploy_info.vault.safe.retrieve_owners()) == 4  # Multisig owners + deployer account we cannot remove
     assert deploy_info.trading_strategy_module.functions.owner().call() == deploy_info.vault.safe.address
     assert vault.safe.retrieve_modules() == [deploy_info.trading_strategy_module.address]
     assert deploy_info.is_asset_manager(asset_manager), f"Guard asset manager not set: {asset_manager}"
@@ -153,10 +154,12 @@ def test_lagoon_deploy_base_guarded_any_token(
 
     # Settle deposit queue 9 USDC -> 0 USDC
     settle_func = vault.settle_via_trading_strategy_module()
-    tx_hash = settle_func.transact({
-        "from": asset_manager,
-        "gas": 1_000_000,
-    })
+    tx_hash = settle_func.transact(
+        {
+            "from": asset_manager,
+            "gas": 1_000_000,
+        }
+    )
     assert_transaction_success_with_explanation(web3, tx_hash)
     assert vault.get_flow_manager().fetch_pending_deposit(web3.eth.block_number) == 0
     assert vault.underlying_token.fetch_balance_of(vault.safe_address) == 9

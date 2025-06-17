@@ -118,8 +118,8 @@ def test_lagoon_deposit_redeem(
     analysis = analyse_vault_flow_in_settlement(vault, tx_hash)
 
     # Check how the balance look like
-    assert vault.share_token.contract.functions.totalSupply().call() == pytest.approx(11*10**18)
-    assert vault.share_token.contract.functions.balanceOf(vault.address).call() == pytest.approx(5 * 10 ** 18) # Shares are held on the vault contract until redeem() called by yhe user
+    assert vault.share_token.contract.functions.totalSupply().call() == pytest.approx(11 * 10**18)
+    assert vault.share_token.contract.functions.balanceOf(vault.address).call() == pytest.approx(5 * 10**18)  # Shares are held on the vault contract until redeem() called by yhe user
     assert vault.share_token.contract.functions.balanceOf(vault.silo_address).call() == pytest.approx(0)
 
     assert analysis.deposited == 5
@@ -290,7 +290,7 @@ def test_lagoon_redeem_too_much(
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     # Now we have enough cash in the vault
-    assert usdc.fetch_balance_of(vault.safe_address) == pytest.approx(Decimal('8.97304'))
+    assert usdc.fetch_balance_of(vault.safe_address) == pytest.approx(Decimal("8.97304"))
 
     # Settle
     tx_hash = vault.post_valuation_and_settle(approx_value_after_swap, asset_manager)

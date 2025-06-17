@@ -41,8 +41,8 @@ def test_lagoon_safe(read_only_vault: LagoonVault):
     vault = read_only_vault
     safe = vault.safe
     # No idea what these are, but let's test out
-    assert safe.retrieve_owners() == ['0xc690827Ca7AFD92Ccff616F73Ec5AB7c273295f4', '0x8846189A4E46997Dd30Fd9e8bE48C1fA1B846920']
-    assert safe.retrieve_modules() == ['0x0b2582E9Bf6AcE4E7f42883d4E91240551cf0947', '0x0Cdee1aCD67a424E476AD97bC60aa5F35D2556c9']
+    assert safe.retrieve_owners() == ["0xc690827Ca7AFD92Ccff616F73Ec5AB7c273295f4", "0x8846189A4E46997Dd30Fd9e8bE48C1fA1B846920"]
+    assert safe.retrieve_modules() == ["0x0b2582E9Bf6AcE4E7f42883d4E91240551cf0947", "0x0Cdee1aCD67a424E476AD97bC60aa5F35D2556c9"]
 
 
 def test_lagoon_tokens(read_only_vault: LagoonVault):
@@ -76,7 +76,7 @@ def test_lagoon_fetch_portfolio(
     portfolio = vault.fetch_portfolio(universe, latest_block)
 
     assert portfolio.spot_erc20[base_usdc.address] == pytest.approx(Decimal(0.347953))
-    assert portfolio.spot_erc20[base_weth.address] == pytest.approx(Decimal(1*10**-16))
+    assert portfolio.spot_erc20[base_weth.address] == pytest.approx(Decimal(1 * 10**-16))
 
 
 def test_lagoon_fee(web3: Web3, read_only_vault: LagoonVault):
