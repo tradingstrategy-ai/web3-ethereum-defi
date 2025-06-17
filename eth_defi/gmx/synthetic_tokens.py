@@ -73,8 +73,7 @@ class GMXSyntheticTokenDetails:
         """Two GMX tokens are equal if they have same address and chain."""
         if not isinstance(other, GMXSyntheticTokenDetails):
             return False
-        return (self.address.lower() == other.address.lower() and
-                self.chain_id == other.chain_id)
+        return self.address.lower() == other.address.lower() and self.chain_id == other.chain_id
 
     def __hash__(self):
         """Hash based on chain and address for use in sets/dicts."""
@@ -102,7 +101,7 @@ class GMXSyntheticTokenDetails:
         """
         if not isinstance(raw_amount, int):
             raise ValueError(f"Expected int, got {type(raw_amount)}: {raw_amount}")
-        return Decimal(raw_amount) / Decimal(10 ** self.decimals)
+        return Decimal(raw_amount) / Decimal(10**self.decimals)
 
     def convert_to_raw(self, decimal_amount: Decimal) -> int:
         """Convert decimal amount to raw token units.
@@ -118,7 +117,7 @@ class GMXSyntheticTokenDetails:
         """
         if not isinstance(decimal_amount, Decimal):
             raise ValueError(f"Expected Decimal, got {type(decimal_amount)}")
-        return int(decimal_amount * (10 ** self.decimals))
+        return int(decimal_amount * (10**self.decimals))
 
     @staticmethod
     def generate_cache_key(chain_id: int, symbol: str) -> str:
@@ -153,20 +152,21 @@ class GMXSyntheticTokenDetails:
             "address": self.address,
             "decimals": self.decimals,
             "chain_id": self.chain_id,
-            "extra_data": self.extra_data
+            "extra_data": self.extra_data,
         }
 
 
 class GMXTokenFetchError(Exception):
     """Exception raised when GMX token fetching fails."""
+
     pass
 
 
 def fetch_gmx_synthetic_tokens(
-        chain_id: int,
-        cache: Optional[cachetools.Cache] = DEFAULT_GMX_TOKEN_CACHE,
-        timeout: int = 30,
-        force_refresh: bool = False
+    chain_id: int,
+    cache: Optional[cachetools.Cache] = DEFAULT_GMX_TOKEN_CACHE,
+    timeout: int = 30,
+    force_refresh: bool = False,
 ) -> list[GMXSyntheticTokenDetails]:
     """Fetch GMX synthetic token details from API with caching.
 
@@ -220,7 +220,7 @@ def fetch_gmx_synthetic_tokens(
                     address=token_data["address"],
                     decimals=token_data["decimals"],
                     chain_id=chain_id,
-                    extra_data={"cached": True}
+                    extra_data={"cached": True},
                 )
                 for token_data in cached_tokens
             ]
@@ -265,7 +265,7 @@ def fetch_gmx_synthetic_tokens(
                 address=token_data["address"],
                 decimals=int(token_data["decimals"]),
                 chain_id=chain_id,
-                extra_data={"cached": False, "api_source": api_url}
+                extra_data={"cached": False, "api_source": api_url},
             )
             tokens.append(token)
 
@@ -284,9 +284,9 @@ def fetch_gmx_synthetic_tokens(
 
 
 def get_gmx_synthetic_token_by_symbol(
-        chain_id: int,
-        symbol: str,
-        cache: Optional[cachetools.Cache] = DEFAULT_GMX_TOKEN_CACHE
+    chain_id: int,
+    symbol: str,
+    cache: Optional[cachetools.Cache] = DEFAULT_GMX_TOKEN_CACHE,
 ) -> Optional[GMXSyntheticTokenDetails]:
     """Get a specific GMX token by symbol on a given chain.
 
@@ -322,9 +322,9 @@ def get_gmx_synthetic_token_by_symbol(
 
 
 def get_gmx_synthetic_token_by_address(
-        chain_id: int,
-        address: HexAddress,
-        cache: Optional[cachetools.Cache] = DEFAULT_GMX_TOKEN_CACHE
+    chain_id: int,
+    address: HexAddress,
+    cache: Optional[cachetools.Cache] = DEFAULT_GMX_TOKEN_CACHE,
 ) -> Optional[GMXSyntheticTokenDetails]:
     """Get a specific GMX token by address on a given chain.
 

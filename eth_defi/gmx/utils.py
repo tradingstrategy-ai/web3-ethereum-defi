@@ -53,7 +53,7 @@ Example:
     from eth_defi.gmx.utils import (
         calculate_estimated_liquidation_price,
         format_position_for_display,
-        get_positions
+        get_positions,
     )
 
     # Set up configuration for analysis
@@ -72,7 +72,7 @@ Example:
             collateral_usd=position_data["collateral_usd"],
             size_usd=position_data["size_usd"],
             is_long=position_data["is_long"],
-            maintenance_margin=0.01  # 1% maintenance margin
+            maintenance_margin=0.01,  # 1% maintenance margin
         )
 
         # Risk assessment analysis
@@ -88,12 +88,12 @@ Example:
             close_params = transform_open_position_to_order_parameters(
                 config=config.get_write_config(),
                 positions=positions,
-                market_symbol=display_info['market'],
+                market_symbol=display_info["market"],
                 is_long=position_data["is_long"],
                 slippage_percent=0.02,  # Higher slippage for urgent closure
-                out_token="USDC",       # Convert to stable asset
+                out_token="USDC",  # Convert to stable asset
                 amount_of_position_to_close=0.5,  # Reduce risk by 50%
-                amount_of_collateral_to_remove=0.2  # Free some capital
+                amount_of_collateral_to_remove=0.2,  # Free some capital
             )
 
 **Design Philosophy:**
@@ -251,16 +251,16 @@ def calculate_estimated_liquidation_price(
     .. code-block:: python
 
         # Risk analysis for leveraged ETH position
-        entry_price = 2000.0    # Entered ETH long at $2000
-        collateral_usd = 1000   # $1000 collateral
-        size_usd = 5000         # $5000 position (5x leverage)
+        entry_price = 2000.0  # Entered ETH long at $2000
+        collateral_usd = 1000  # $1000 collateral
+        size_usd = 5000  # $5000 position (5x leverage)
 
         liq_price = calculate_estimated_liquidation_price(
             entry_price=entry_price,
             collateral_usd=collateral_usd,
             size_usd=size_usd,
             is_long=True,
-            maintenance_margin=0.01  # 1% maintenance margin
+            maintenance_margin=0.01,  # 1% maintenance margin
         )
 
         # Result: liquidation at approximately $1620
@@ -430,10 +430,10 @@ def transform_open_position_to_order_parameters(
             positions=positions,
             market_symbol="ETH",
             is_long=True,
-            slippage_percent=0.005,         # 0.5% slippage
-            out_token="USDC",               # Convert to stable asset
+            slippage_percent=0.005,  # 0.5% slippage
+            out_token="USDC",  # Convert to stable asset
             amount_of_position_to_close=0.75,  # Close 75% of position
-            amount_of_collateral_to_remove=0.5  # Remove 50% of collateral
+            amount_of_collateral_to_remove=0.5,  # Remove 50% of collateral
         )
 
         # Parameters ready for order execution

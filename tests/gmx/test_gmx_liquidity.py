@@ -4,6 +4,7 @@ Tests for GMXLiquidityManager with parametrized chain testing.
 This test suite verifies the functionality of the GMXLiquidityManager class
 when connected to different networks.
 """
+
 import logging
 
 import pytest
