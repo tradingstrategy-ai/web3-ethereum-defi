@@ -8,11 +8,11 @@ import random
 import socket
 import time
 from itertools import islice
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 from urllib.parse import urlparse
 
 import psutil
-
+from eth_typing import HexAddress, HexStr
 
 logger = logging.getLogger(__name__)
 
@@ -213,4 +213,18 @@ def chunked(iterable, chunk_size):
         yield chunk
 
 
+def addr(address: Union[str, HexAddress, HexStr]) -> HexAddress:
+    """
+    Convert various address formats to HexAddress.
+
+    Args:
+        address: Can be a string, HexAddress, or HexStr
+
+    Returns:
+        HexAddress object
+    """
+    if isinstance(address, (str, HexStr)):
+        return HexAddress(HexStr(address))
+    else:
+        return address
 

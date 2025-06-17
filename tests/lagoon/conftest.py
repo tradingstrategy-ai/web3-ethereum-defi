@@ -26,6 +26,7 @@ from eth_defi.token import TokenDetails, fetch_erc20_details, USDC_NATIVE_TOKEN
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.uniswap_v2.constants import UNISWAP_V2_DEPLOYMENTS
 from eth_defi.uniswap_v2.deployment import fetch_deployment
+from eth_defi.utils import addr
 from eth_defi.vault.base import VaultSpec
 
 JSON_RPC_BASE = os.environ.get("JSON_RPC_BASE")
@@ -38,31 +39,31 @@ pytestmark = pytest.mark.skipif(not JSON_RPC_BASE, reason="No JSON_RPC_BASE envi
 @pytest.fixture()
 def vault_owner() -> HexAddress:
     # Vaut owner
-    return HexAddress(HexStr("0x0c9db006f1c7bfaa0716d70f012ec470587a8d4f"))
+    return addr("0x0c9db006f1c7bfaa0716d70f012ec470587a8d4f")
 
 
 @pytest.fixture()
 def depositor() -> HexAddress:
     # Someone how deposited assets to the vault earlier
-    return HexAddress(HexStr("0x20415f3Ec0FEA974548184bdD6e67575D128953F"))
+    return addr("0x20415f3Ec0FEA974548184bdD6e67575D128953F")
 
 
 @pytest.fixture()
 def usdc_holder() -> HexAddress:
     # https://basescan.org/token/0x833589fcd6edb6e08f4c7c32d4f71b54bda02913#balances
-    return HexAddress(HexStr("0x3304E22DDaa22bCdC5fCa2269b418046aE7b566A"))
+    return addr("0x3304E22DDaa22bCdC5fCa2269b418046aE7b566A")
 
 
 @pytest.fixture()
 def valuation_manager() -> HexAddress:
     """Unlockable account set as the vault valuation manager."""
-    return HexAddress(HexStr("0x8358bBFb4Afc9B1eBe4e8C93Db8bF0586BD8331a"))
+    return addr("0x8358bBFb4Afc9B1eBe4e8C93Db8bF0586BD8331a")
 
 
 @pytest.fixture()
 def safe_address() -> HexAddress:
     """Unlockable Safe multisig as spoofed Anvil account."""
-    return HexAddress(HexStr("0x20415f3Ec0FEA974548184bdD6e67575D128953F"))
+    return addr("0x20415f3Ec0FEA974548184bdD6e67575D128953F")
 
 
 @pytest.fixture()
