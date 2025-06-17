@@ -175,7 +175,7 @@ class LagoonVault(ERC4626Vault):
             See :py:class:`LagoonVaultInfo`
         """
         vault_info = self.fetch_vault_info()
-        safe = self.fetch_safe(vault_info['safe'])
+        safe = self.fetch_safe(vault_info["safe"])
         safe_info_dict = asdict(safe.retrieve_all_info())
         del safe_info_dict["address"]  # Key conflict
         return vault_info | safe_info_dict
@@ -246,9 +246,11 @@ class LagoonVault(ERC4626Vault):
             # Then settle the valuation as the vault owner (Safe multisig) in this case
             settle_call = vault.settle()
             moduled_tx = vault.transact_through_module(settle_call)
-            tx_data = moduled_tx.build_transaction({
-                "from": asset_manager,
-            })
+            tx_data = moduled_tx.build_transaction(
+                {
+                    "from": asset_manager,
+                }
+            )
             # Normal estimate_gas does not give enough gas for
             # Safe execTransactionFromModule() transaction for some reason
             gnosis_gas_fix = 1_000_000
@@ -527,14 +529,3 @@ class LagoonFlowManager(VaultFlowManager):
         shares_pending = self.fetch_pending_redemption(block_identifier)
         share_price = self.vault.fetch_share_price(block_identifier)
         return shares_pending * share_price
-
-
-
-
-
-
-
-
-
-
-
