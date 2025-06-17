@@ -36,9 +36,8 @@ class GMXClient:
         # Initialize GMX client for Arbitrum with read-only access
         config = GMXConfig(
             chain="arbitrum",
-            rpc_url="https://arb1.arbitrum.io/rpc"
+            rpc_url="https://arb1.arbitrum.io/rpc",
         )
-        gmx = GMXClient(config)
 
         # Check configuration
         print(f"Connected to {gmx.get_chain()}")
@@ -52,7 +51,7 @@ class GMXClient:
             trade_result = gmx.trading.open_position(
                 market="ETH/USD",
                 side="long",
-                size_usd=1000
+                size_usd=1000,
             )
 
     :ivar config: Configuration object containing network and wallet settings

@@ -90,12 +90,11 @@ hypersync = {version = "^0.8.5", optional = true}
 
 # Since new Poetry version
 [tool.poetry.group.dev.dependencies]
-black = "^23.3.0"
+ruff = "^0.11.13"
 coloredlogs = "^15.0.1"
 pytest = "^7.4.3"
 pytest-mock = "^3.7.0"
 ipdb = "^0.13.9"
-flake8 = "^4.0.1"
 flaky = "^3.7.0"
 
 # See discussion https://github.com/python-poetry/poetry/issues/3348#issuecomment-726534462
@@ -123,17 +122,83 @@ filterwarnings = [
     "ignore::DeprecationWarning:eth_tester.*:",
 ]
 
+[tool.ruff]
 # We hate arbitrary line lengths
-[tool.black]
 line-length = 999
+indent-width = 4
 
-[tool.isort]
-profile = "black"
+[tool.ruff.lint]
+# Enable preview features & checks (use with caution)
+preview = true
+extend-select = [ # features in preview
+    "W292", # missing-newline-at-end-of-file
+]
+select = [
+    "A",     # flake8-builtins
+    "ARG",   # flake8-unused-arguments
+    "B",     # flake8-bugbear
+    "C",     # mccabe
+    "COM",   # flake8-commas (enforces trailing commas)
+    "DTZ",   # flake8-datetimez
+    "E",     # pycodestyle errors
+    "EM",    # flake8-errmsg
+    "F",     # Pyflakes
+    "FBT",   # flake8-boolean-trap
+    "ICN",   # flake8-import-conventions
+    "ISC",   # flake8-implicit-str-concat
+    "I",     # isort
+    "N",     # pep8-naming
+    "PLC",   # Pylint Convention
+    "PLE",   # Pylint Error
+    "PLR",   # Pylint Refactor
+    "PLW",   # Pylint Warning
+    "Q",     # flake8-quotes
+    "RUF",   # Ruff-specific rules
+    "S",     # flake8-bandit
+    "T",     # flake8-debugger
+    "TID",   # flake8-tidy-imports
+    "UP",    # pyupgrade
+    "W",     # pycodestyle warnings
+    "YTT",   # flake8-2020
+    "RUF100", # Automatically remove unused # noqa directives,
+]
 
-# We hate arbitrary line lengths
-[flake8]
-max-line-length = 999
-extend-ignore = "E203"
+ignore = [
+    # Allow non-abstract empty methods in abstract base classes
+    "B027",
+    # Allow boolean positional values in function calls, like `dict.get(... True)`
+    "FBT003",
+    # Ignore checks for possible passwords
+    "S105", "S106", "S107",
+    # Ignore complexity
+    "C901", "PLR0911", "PLR0912", "PLR0913", "PLR0915",
+    "PLC1901", # empty string comparisons
+    "PLW2901", # `for` loop variable overwritten
+    "SIM114", # Combine `if` branches using logical `or` operator
+    "E203", # Whitespace before :, needed for black compatibility and also `ruff format`
+    "ISC001", # causes unexpected behaviour with formatter,
+    "COM812", # Trailing comma missing - conflicts with formatter
+]
+
+[tool.ruff.lint.isort]
+# Configure import sorting
+known-first-party = ["eth_defi"]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+
+[tool.ruff.format]
+# Force function parameters to cascade when they don't fit on one line
+# This makes ruff more aggressive about splitting long function calls/definitions
+skip-magic-trailing-comma = false  # Respect trailing commas to force multi-line
+docstring-code-format = true       # Format code blocks in docstrings
+indent-style = "space"
+
+# NOTE: Still under development. Ref: https://github.com/astral-sh/ruff/issues/6606
+#[tool.ruff.lint.pydocstyle]
+## Use Sphinx docstring convention
+#convention = "sphinx"
 
 [tool.poetry.scripts]
 install-aave-for-testing = 'eth_defi.aave_v3.deployer:install_aave_for_testing'

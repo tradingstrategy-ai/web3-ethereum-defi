@@ -71,7 +71,7 @@ Example:
     legacy_config = GMXConfig.from_private_key(
         web3=web3,
         private_key="0x...",
-        chain="arbitrum"
+        chain="arbitrum",
     )
 
     # All configurations provide identical operational interfaces
@@ -514,7 +514,7 @@ class GMXConfig:
             config = GMXConfig.from_private_key(
                 web3=web3,
                 private_key="0x1234567890abcdef...",
-                chain="arbitrum"
+                chain="arbitrum",
             )
 
             # Modern production equivalent with explicit security control

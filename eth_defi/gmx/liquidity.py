@@ -61,9 +61,9 @@ Example:
         market_token_symbol="ETH",
         long_token_symbol="ETH",
         short_token_symbol="USDC",
-        long_token_usd=1000,    # $1000 worth of ETH
-        short_token_usd=1000,   # $1000 worth of USDC
-        debug_mode=True         # Test first before real transaction
+        long_token_usd=1000,  # $1000 worth of ETH
+        short_token_usd=1000,  # $1000 worth of USDC
+        debug_mode=True,  # Test first before real transaction
     )
 
     # Execute the deposit (when ready to commit real funds)
@@ -74,9 +74,9 @@ Example:
     # Later: Remove liquidity when strategy calls for it
     withdrawal_order = liquidity_manager.remove_liquidity(
         market_token_symbol="ETH",
-        out_token_symbol="USDC",    # Withdraw as USDC
-        gm_amount=0.5,              # Withdraw 50% of position
-        debug_mode=False            # Execute real withdrawal
+        out_token_symbol="USDC",  # Withdraw as USDC
+        gm_amount=0.5,  # Withdraw 50% of position
+        debug_mode=False,  # Execute real withdrawal
     )
 
 **Integration with Trading Strategy:**
@@ -209,9 +209,9 @@ class GMXLiquidityManager:
                 market_token_symbol="ETH",
                 long_token_symbol="ETH",
                 short_token_symbol="USDC",
-                long_token_usd=500,     # $500 of ETH exposure
-                short_token_usd=500,    # $500 of stable collateral
-                debug_mode=True
+                long_token_usd=500,  # $500 of ETH exposure
+                short_token_usd=500,  # $500 of stable collateral
+                debug_mode=True,
             )
 
             # Aggressive strategy: Full ETH exposure for maximum fee potential
@@ -219,9 +219,9 @@ class GMXLiquidityManager:
                 market_token_symbol="ETH",
                 long_token_symbol="ETH",
                 short_token_symbol="USDC",
-                long_token_usd=1000,    # $1000 of ETH exposure
-                short_token_usd=0,      # No stable collateral
-                debug_mode=False        # Execute real transaction
+                long_token_usd=1000,  # $1000 of ETH exposure
+                short_token_usd=0,  # No stable collateral
+                debug_mode=False,  # Execute real transaction
             )
 
         :param market_token_symbol:
@@ -333,17 +333,17 @@ class GMXLiquidityManager:
             # Partial withdrawal to lock in profits
             withdrawal = liquidity_manager.remove_liquidity(
                 market_token_symbol="ETH",
-                out_token_symbol="USDC",    # Convert to stable value
-                gm_amount=0.25,             # Withdraw 25% of position
-                debug_mode=True             # Test the withdrawal first
+                out_token_symbol="USDC",  # Convert to stable value
+                gm_amount=0.25,  # Withdraw 25% of position
+                debug_mode=True,  # Test the withdrawal first
             )
 
             # Full exit strategy during market uncertainty
             withdrawal = liquidity_manager.remove_liquidity(
                 market_token_symbol="ETH",
-                out_token_symbol="ETH",     # Maintain ETH exposure
-                gm_amount=1.0,              # Withdraw entire position
-                debug_mode=False            # Execute real withdrawal
+                out_token_symbol="ETH",  # Maintain ETH exposure
+                gm_amount=1.0,  # Withdraw entire position
+                debug_mode=False,  # Execute real withdrawal
             )
 
         :param market_token_symbol:
