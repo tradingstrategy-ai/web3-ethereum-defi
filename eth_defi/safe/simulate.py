@@ -1,5 +1,5 @@
 """Perform Safe transaction on forked mainnet when you do not have all the private keys."""
-
+from eth_typing import HexAddress
 from hexbytes import HexBytes
 from web3 import Web3
 from web3.contract.contract import ContractFunction
@@ -10,7 +10,7 @@ from eth_defi.safe.deployment import fetch_safe_deployment
 
 def simulate_safe_execution_anvil(
     web3: Web3,
-    safe_address: str,
+    safe_address: HexAddress | str,
     contract_func: ContractFunction,
     gas=10_000_000,
 ) -> HexBytes:
@@ -23,8 +23,20 @@ def simulate_safe_execution_anvil(
     TODO: Later we might want to change this to use mock Safe contract where we
     override ``checkSignatures()`` as described in https://chatgpt.com/share/684f0e0d-6000-8013-be12-a9d7a0a1d751
 
+    Example:
+
+    .. code-block:: python
+
+        func = safe.contract.functions.enableModule(new_guard_address)
+        tx_hash = simulate_safe_execution_anvil(
+            web3,
+            safe_address,
+            func,
+        )
+        assert_transaction_success_with_explanation(web3, tx_hash)
+
     :return:
-        Transaction hash
+        Transaction hash.
     """
 
     safe = fetch_safe_deployment(web3, safe_address)
