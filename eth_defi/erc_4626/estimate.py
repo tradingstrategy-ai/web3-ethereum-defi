@@ -1,4 +1,5 @@
 """ERC-4626 estimations."""
+
 from decimal import Decimal
 
 from eth_typing import HexAddress
@@ -78,4 +79,3 @@ def estimate_4626_redeem(
     raw_amount = redeem_call.call(block_identifier=block_identifier)
 
     return vault.denomination_token.convert_to_decimals(raw_amount)
-

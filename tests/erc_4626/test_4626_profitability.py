@@ -1,4 +1,5 @@
 """Calculate ERC-4626 APY"""
+
 import datetime
 import os
 
@@ -20,24 +21,24 @@ CI = os.environ.get("CI") == "true"
 pytestmark = pytest.mark.skipif(JSON_RPC_BASE is None, reason="JSON_RPC_BASE needed to run these tests")
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def web3() -> Web3:
     web3 = create_multi_provider_web3(JSON_RPC_BASE)
     return web3
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def test_block_number() -> int:
     return 27975506
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def ipor_usdc_address() -> HexAddress:
     # https://app.ipor.io/fusion/base/0x45aa96f0b3188d47a1dafdbefce1db6b37f58216
     return "0x45aa96f0b3188d47a1dafdbefce1db6b37f58216"
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def vault(web3, ipor_usdc_address) -> ERC4626VaultInfo:
     # https://app.ipor.io/fusion/base/0x45aa96f0b3188d47a1dafdbefce1db6b37f58216
     spec = VaultSpec(web3.eth.chain_id, ipor_usdc_address)
@@ -78,7 +79,7 @@ def test_4626_profitability_historical(
     start_at = datetime.datetime(2025, 3, 1, tzinfo=None)
     end_at = datetime.datetime(2025, 5, 1, tzinfo=None)
     start_block_find = estimate_block_number_for_timestamp_by_findblock(chain_id, start_at)
-    end_block_find  = estimate_block_number_for_timestamp_by_findblock(chain_id, end_at)
+    end_block_find = estimate_block_number_for_timestamp_by_findblock(chain_id, end_at)
 
     profitability_data = estimate_4626_profitability(
         vault,
@@ -88,4 +89,3 @@ def test_4626_profitability_historical(
 
     yearly_profitability = profitability_data.calculate_profitability(annualise=True)
     assert yearly_profitability == pytest.approx(0.05319605877774247)
-

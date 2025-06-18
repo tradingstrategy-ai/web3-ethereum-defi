@@ -3,6 +3,7 @@
 - Used in vault discovery to figure out what kind of vaults we have autodetected
 - Use multicall based apporach to probe contracts
 """
+
 from collections import defaultdict
 from collections.abc import Iterable
 from itertools import chain
@@ -23,6 +24,7 @@ from eth_defi.vault.base import VaultBase, VaultSpec
 @dataclass(frozen=True, slots=True)
 class VaultFeatureProbe:
     """Results of a multicall probing to a vault address."""
+
     address: HexAddress
     features: set[ERC4626Feature]
 
@@ -37,13 +39,12 @@ def create_probe_calls(
       we figure out the vault type by probing it with various calls
     """
 
-    convert_to_shares_payload = eth_abi.encode(['uint256'], [share_probe_amount])
-    zero_uint_payload = eth_abi.encode(['uint256'], [0])
-    double_address = eth_abi.encode(['address', 'address'], [ZERO_ADDRESS_STR, ZERO_ADDRESS_STR])
+    convert_to_shares_payload = eth_abi.encode(["uint256"], [share_probe_amount])
+    zero_uint_payload = eth_abi.encode(["uint256"], [0])
+    double_address = eth_abi.encode(["address", "address"], [ZERO_ADDRESS_STR, ZERO_ADDRESS_STR])
 
     # TODO: Might be bit slowish here, but we are not perf intensive
     for address in addresses:
-
         bad_probe_call = EncodedCall.from_keccak_signature(
             address=address,
             signature=Web3.keccak(text="EVM IS BROKEN SHIT()")[0:4],
@@ -87,7 +88,7 @@ def create_probe_calls(
             extra_data=None,
         )
 
-        #function isOperator(address controller, address operator) external returns (bool);
+        # function isOperator(address controller, address operator) external returns (bool);
         erc_7540_call = EncodedCall.from_keccak_signature(
             address=address,
             signature=Web3.keccak(text="isOperator(address,address)")[0:4],
@@ -443,16 +444,20 @@ def create_vault_instance(
     elif ERC4626Feature.ipor_like in features:
         # IPOR instance
         from eth_defi.ipor.vault import IPORVault
+
         return IPORVault(web3, spec, token_cache=token_cache)
     elif ERC4626Feature.lagoon_like in features:
         # Lagoon instance
         from eth_defi.lagoon.vault import LagoonVault
+
         return LagoonVault(web3, spec, token_cache=token_cache)
     elif ERC4626Feature.morpho_like in features:
         # Lagoon instance
         from eth_defi.morpho.vault import MorphoVault
+
         return MorphoVault(web3, spec, token_cache=token_cache)
     else:
         # Generic ERC-4626 without fee data
         from eth_defi.erc_4626.vault import ERC4626Vault
+
         return ERC4626Vault(web3, spec, token_cache=token_cache)
