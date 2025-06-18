@@ -10,6 +10,7 @@ To run tests in this module:
     pytest -k test_price_oracle
 
 """
+
 import datetime
 import os
 from decimal import Decimal

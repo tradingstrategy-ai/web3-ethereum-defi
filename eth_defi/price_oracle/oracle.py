@@ -192,10 +192,10 @@ class PriceOracle(BasePriceOracle):
             web3,
             bnb_busd_address,
             start_block,
-            end_block
+            end_block,
         )
 
-        assert oracle.calculate_price() == pytest.approx(Decimal('523.8243566658033237353702655'))
+        assert oracle.calculate_price() == pytest.approx(Decimal("523.8243566658033237353702655"))
     """
 
     #: An "infinite" place holder for max age
@@ -303,7 +303,7 @@ class PriceOracle(BasePriceOracle):
         threshold = now_ - self.max_age
         last_refresh = self.get_last_refreshed()
         if last_refresh < threshold:
-            raise DataTooOld(f"The data is too old (stale?).\n" f"The latest refresh is at {last_refresh}\n" f"where oracle cut off for stale data is {threshold}")
+            raise DataTooOld(f"The data is too old (stale?).\nThe latest refresh is at {last_refresh}\nwhere oracle cut off for stale data is {threshold}")
 
     def calculate_price(self, block_number: Optional[int] = None) -> Decimal:
         """Calculate the price based on the data in the price data buffer.
