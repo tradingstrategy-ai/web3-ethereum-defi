@@ -1,4 +1,5 @@
 """Create token buy lists for testing."""
+
 import logging
 from dataclasses import dataclass
 from decimal import Decimal
@@ -27,7 +28,7 @@ BASE_SHOPPING_LIST: list[TokenTradeDefinition] = [
     ("uniswap-v3", "odos", "0xca73ed1815e5915489570014e024b7ebe65de679"),  # ODOS-WETH
     ("uniswap-v3", "cbBTC", "0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf"),  # CBBTC-USDC
     ("uniswap-v2", "AGNT", "0x7484a9fb40b16c4dfe9195da399e808aa45e9bb9"),  # AGNT-USDC
-    ("uniswap-v3", "SIMMI", "0x161e113b8e9bbaefb846f73f31624f6f9607bd44")  # Uniswap v3 only
+    ("uniswap-v3", "SIMMI", "0x161e113b8e9bbaefb846f73f31624f6f9607bd44"),  # Uniswap v3 only
 ]
 
 
@@ -122,7 +123,7 @@ def buy_tokens(
     buy_func=_default_buy_function,
     uniswap_v2: UniswapV2Deployment | None = None,
     uniswap_v3: UniswapV3Deployment | None = None,
-    multicall_batch_size: int=5,
+    multicall_batch_size: int = 5,
 ) -> BuyResult:
     """Buy bunch of tokens on the wish list.
 
@@ -169,13 +170,13 @@ def buy_tokens(
 
         # Generate both approve and swap txs
         for call in buy_func(
-                web3=web3,
-                user=user,
-                route=best_route,
-                amount=buy_amount,
-                uniswap_v2=uniswap_v2,
-                uniswap_v3=uniswap_v3,
-            ):
+            web3=web3,
+            user=user,
+            route=best_route,
+            amount=buy_amount,
+            uniswap_v2=uniswap_v2,
+            uniswap_v3=uniswap_v3,
+        ):
             assert isinstance(call, ContractFunction)
             calls.append(call)
 
@@ -185,7 +186,3 @@ def buy_tokens(
         needed_transactions=calls,
         taken_routes=used_routes,
     )
-
-
-
-
