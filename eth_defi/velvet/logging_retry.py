@@ -18,14 +18,14 @@ class LoggingRetry(Retry):
             retry_policy = LoggingRetry(
                 total=5,
                 backoff_factor=0.1,
-                status_forcelist=[ 500, 502, 503, 504 ],
+                status_forcelist=[500, 502, 503, 504],
             )
-            session.mount('http://', HTTPAdapter(max_retries=retry_policy))
-            session.mount('https://', HTTPAdapter(max_retries=retry_policy))
+            session.mount("http://", HTTPAdapter(max_retries=retry_policy))
+            session.mount("https://", HTTPAdapter(max_retries=retry_policy))
     """
 
     def __init__(self, *args, **kwargs):
-        self.logger = kwargs.pop('logger', logging.getLogger(__name__))
+        self.logger = kwargs.pop("logger", logging.getLogger(__name__))
         super().__init__(*args, **kwargs)
 
     def increment(self, method=None, url=None, response=None, error=None, _pool=None, _stacktrace=None):

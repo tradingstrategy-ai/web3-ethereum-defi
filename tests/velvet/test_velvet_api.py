@@ -31,7 +31,7 @@ JSON_RPC_BASE = os.environ.get("JSON_RPC_BASE")
 
 CI = os.environ.get("CI", None) is not None
 
-#pytestmark = pytest.mark.skipif(not JSON_RPC_BASE, reason="No JSON_RPC_BASE environment variable")
+# pytestmark = pytest.mark.skipif(not JSON_RPC_BASE, reason="No JSON_RPC_BASE environment variable")
 
 pytestmark = pytest.mark.skip(reason="Velvet API unstable and takes too much time to keep fixing it")
 
@@ -68,7 +68,6 @@ def slippage() -> float:
     - Random TooMuchSlippage "2Po" errors
     """
     return 0.10
-
 
 
 @pytest.fixture()
@@ -139,7 +138,6 @@ def base_doginme_token(web3) -> TokenDetails:
     return fetch_erc20_details(web3, "0x6921B130D297cc43754afba22e5EAc0FBf8Db75b")
 
 
-
 @pytest.fixture()
 def hot_wallet_user(web3, usdc, usdc_holder) -> HotWallet:
     """A test account with USDC balance."""
@@ -147,7 +145,7 @@ def hot_wallet_user(web3, usdc, usdc_holder) -> HotWallet:
     hw = HotWallet.create_for_testing(
         web3,
         test_account_n=1,
-        eth_amount=10
+        eth_amount=10,
     )
     hw.sync_nonce(web3)
 
@@ -367,7 +365,7 @@ def test_velvet_api_deposit(
     allowance = usdc.contract.functions.allowance(
         Web3.to_checksum_address(deposit_user),
         Web3.to_checksum_address(deposit_manager),
-        ).call()
+    ).call()
     raw_amount = 4999999
     assert allowance == raw_amount
 
@@ -433,15 +431,17 @@ def test_velvet_api_redeem(
     allowance = share_token.contract.functions.allowance(
         Web3.to_checksum_address(existing_shareholder),
         Web3.to_checksum_address(withdrawal_manager),
-        ).call()
+    ).call()
     assert allowance == pytest.approx(1000 * 10**18)
 
     tx_hash = share_token.contract.functions.approve(
         Web3.to_checksum_address(vault.portfolio_address),
-        share_token.convert_to_raw(shares)
-    ).transact({
-        "from": Web3.to_checksum_address(existing_shareholder),
-    })
+        share_token.convert_to_raw(shares),
+    ).transact(
+        {
+            "from": Web3.to_checksum_address(existing_shareholder),
+        }
+    )
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     # Velvet vault tracked assets
