@@ -1,4 +1,5 @@
 """Turn vault discoveries to human-readable and machine-readable tables."""
+
 import threading
 import logging
 
@@ -120,8 +121,10 @@ def create_vault_scan_record(
         )
         return record
 
+
 #: Handle per-process connections and databases
 _subprocess_web3_cache = threading.local()
+
 
 def create_vault_scan_record_subprocess(
     web3factory: Web3Factory,
@@ -149,7 +152,7 @@ def create_vault_scan_record_subprocess(
         web3,
         detection,
         block_number,
-        token_cache=token_cache
+        token_cache=token_cache,
     )
 
     return record

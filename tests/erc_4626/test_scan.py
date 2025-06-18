@@ -17,7 +17,7 @@ JSON_RPC_BASE = os.environ.get("JSON_RPC_BASE")
 pytestmark = pytest.mark.skipif(JSON_RPC_BASE is None, reason="JSON_RPC_BASE needed to run these tests")
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def web3() -> Web3:
     web3 = create_multi_provider_web3(JSON_RPC_BASE)
     return web3
@@ -95,5 +95,3 @@ def test_4626_scan_moonwell(web3):
     assert len(rows) == 73
     moonwell = [r for r in rows if r["Name"] == "Moonwell Flagship USDC"][0]
     assert 29_000_000 < moonwell["NAV"] < 31_000_000
-
-

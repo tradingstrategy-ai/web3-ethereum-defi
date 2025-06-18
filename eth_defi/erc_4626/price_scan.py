@@ -1,4 +1,5 @@
 """Scan all historical prices."""
+
 from typing import Iterator
 
 from eth_typing import HexAddress
@@ -34,5 +35,5 @@ def read_chain(
 
     reader = VaultHistoricalReadMulticaller(
         web3factory,
-        s
+        s,
     )

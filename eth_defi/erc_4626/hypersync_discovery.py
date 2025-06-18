@@ -6,6 +6,7 @@
 - This is because ERC-4626, like many other ERC standards, are very poorly designed, lacking proper identification events and interface introspection
 
 """
+
 import asyncio
 import logging
 import dataclasses
@@ -37,6 +38,7 @@ logger = logging.getLogger(__name__)
 @dataclasses.dataclass(slots=True, frozen=False)
 class PotentialVaultMatch:
     """Categorise contracts that emit ERC-4626 like events."""
+
     chain: int
     address: HexAddress
     first_seen_at_block: int
@@ -202,7 +204,6 @@ class HypersyncVaultDiscover:
                 block_lookup = {b.number: b for b in res.data.blocks}
                 log: hypersync.Log
                 for log in res.data.logs:
-
                     lead = leads.get(log.address)
 
                     if not lead:
@@ -240,10 +241,12 @@ class HypersyncVaultDiscover:
 
                 # Add extra data to the progress bar
                 if timestamp is not None:
-                    progress_bar.set_postfix({
-                        "At": timestamp,
-                        "Matches": f"{matches:,}",
-                    })
+                    progress_bar.set_postfix(
+                        {
+                            "At": timestamp,
+                            "Matches": f"{matches:,}",
+                        }
+                    )
 
         logger.info(f"HyperSync sees {last_synced} as the last block")
 

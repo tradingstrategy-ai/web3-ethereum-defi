@@ -4,6 +4,7 @@
 - Feature flags vaults can have
 
 """
+
 import dataclasses
 import datetime
 import enum

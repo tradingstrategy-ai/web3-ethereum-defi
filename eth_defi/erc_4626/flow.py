@@ -1,4 +1,5 @@
 """Deposit and redemption from ERC-4626 vaults."""
+
 import logging
 from decimal import Decimal
 
@@ -9,7 +10,6 @@ from eth_defi.erc_4626.vault import ERC4626Vault
 
 
 logger = logging.getLogger(__name__)
-
 
 
 def deposit_4626(
@@ -129,7 +129,7 @@ def redeem_4626(
     .. code-block:: python
 
         shares = vault.share_token.fetch_balance_of(depositor, "latest")
-        assert shares == pytest.approx(Decimal('96.7523176'))
+        assert shares == pytest.approx(Decimal("96.7523176"))
 
         # See how much we get after all this time
         estimated_usdc = estimate_4626_redeem(
@@ -272,4 +272,3 @@ def approve_and_redeem_4626(
         receiver=receiver,
     )
     return approve_call, redeem_call
-
