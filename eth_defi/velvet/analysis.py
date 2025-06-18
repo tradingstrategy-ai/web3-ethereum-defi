@@ -89,7 +89,7 @@ def analyse_trade_by_receipt_generic(
         return TradeFail(
             gas_used,
             effective_gas_price,
-            revert_reason=f"analyse_trade_by_receipt_generic() needs at least 2 transfer events, got {len(transfer_events)}"
+            revert_reason=f"analyse_trade_by_receipt_generic() needs at least 2 transfer events, got {len(transfer_events)}",
         )
 
     first_transfer_event = transfer_events[0]
