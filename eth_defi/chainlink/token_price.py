@@ -1,6 +1,6 @@
 """Read token price using Chainlink.
 
-See tutorials 
+See tutorials
 
 - :ref:`chainlink-native-token`
 
