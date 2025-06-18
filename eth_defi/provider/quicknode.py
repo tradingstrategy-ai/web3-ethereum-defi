@@ -1,4 +1,5 @@
 """Quicknode proprietary RPC calls."""
+
 import dataclasses
 import datetime
 
@@ -11,6 +12,7 @@ from eth_defi.utils import to_unix_timestamp
 @dataclasses.dataclass
 class QuickNodeEstimatedBlock:
     """Estimated block number and timestamp."""
+
     network: str
     block_number: int
     timestamp: int
@@ -51,4 +53,3 @@ def estimate_block_number_for_timestamp_by_quicknode(
         block_number=result["blockNumber"],
         timestamp=datetime.datetime.utcfromtimestamp(result["timestamp"]),
     )
-

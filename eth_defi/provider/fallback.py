@@ -2,6 +2,7 @@
 
 - See :py:class:`FallbackProvider`
 """
+
 import enum
 import time
 from collections import defaultdict, Counter
@@ -213,8 +214,8 @@ class FallbackProvider(BaseNamedProvider):
                         headers = get_last_headers()
                         logger.log(
                             self.switchover_noisiness,
-                           "Encountered JSON-RPC retryable error %s\nWhen calling RPC method: %s%s\nHeaders are: %s\nRetrying in %f seconds, retry #%d / %d",
-                           e,
+                            "Encountered JSON-RPC retryable error %s\nWhen calling RPC method: %s%s\nHeaders are: %s\nRetrying in %f seconds, retry #%d / %d",
+                            e,
                             method,
                             params,
                             pformat(headers),
