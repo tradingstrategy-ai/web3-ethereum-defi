@@ -2,6 +2,7 @@
 
 - Deposit and redeem.
 """
+
 import os
 from decimal import Decimal
 
@@ -32,11 +33,9 @@ def usdc_holder() -> HexAddress:
     return "0x3304E22DDaa22bCdC5fCa2269b418046aE7b566A"
 
 
-
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def test_block_number() -> int:
     return 27975506
-
 
 
 @pytest.fixture()
@@ -117,7 +116,6 @@ def base_weth(web3) -> TokenDetails:
     )
 
 
-
 def test_ipor_deposit(
     web3: Web3,
     vault: IPORVault,
@@ -134,7 +132,7 @@ def test_ipor_deposit(
         amount,
         block_identifier=test_block_number,
     )
-    assert shares == pytest.approx(Decimal('96.75231846'))
+    assert shares == pytest.approx(Decimal("96.75231846"))
 
     tx_hash = base_usdc.approve(
         vault.address,
@@ -196,10 +194,10 @@ def test_ipor_redeem(
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     # Redeem after 1 year
-    mine(web3, increase_timestamp=24*3600*365)
+    mine(web3, increase_timestamp=24 * 3600 * 365)
 
     shares = vault.share_token.fetch_balance_of(depositor, "latest")
-    assert shares == pytest.approx(Decimal('96.7523176'))
+    assert shares == pytest.approx(Decimal("96.7523176"))
 
     # See how much we get after all this time
     estimated_usdc = estimate_4626_redeem(
@@ -234,4 +232,3 @@ def test_ipor_redeem(
     # Share price has changed over 1yera
     share_price = vault.fetch_share_price("latest")
     assert share_price == pytest.approx(Decimal("1.024204051979538320520931622"))
-
