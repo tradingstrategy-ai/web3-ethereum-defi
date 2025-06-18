@@ -8,6 +8,7 @@
 
 - See :py:class:`VaultBase` to get started
 """
+
 import dataclasses
 import datetime
 from abc import ABC, abstractmethod
@@ -60,7 +61,6 @@ class VaultSpec:
         return self.chain_id == other.chain_id and self.vault_address == other.vault_address
 
 
-
 class VaultInfo(TypedDict):
     """Vault-protocol specific intormation about the vault.
 
@@ -108,7 +108,6 @@ class VaultPortfolio:
     dex_hints: dict[HexAddress, list[str]] = field(default_factory=dict)
 
     def __post_init__(self):
-
         assert isinstance(self.spot_erc20, LowercaseDict)
 
         for token, value in self.spot_erc20.items():
@@ -132,7 +131,9 @@ class VaultPortfolio:
         chain_id = web3.eth.chain_id
         return LowercaseDict(**{addr: fetch_erc20_details(web3, addr, chain_id=chain_id).convert_to_raw(value) for addr, value in self.spot_erc20.items()})
 
+
 _nan = float("nan")
+
 
 @dataclass(slots=True, frozen=True)
 class VaultHistoricalRead:
@@ -197,24 +198,26 @@ class VaultHistoricalRead:
         - Write multiple chains, multiple vaults, to a single Parquet file
         """
         import pyarrow as pa
-        schema = pa.schema([
-            ("chain", pa.uint32()),
-            ("address", pa.string()),  # Lowercase
-            ("block_number", pa.uint32()),
-            ("timestamp", pa.timestamp("ms")),  # s accuracy does not seem to work on rewrite
-            ("share_price", pa.float64()),
-            ("total_assets", pa.float64()),
-            ("total_supply", pa.float64()),
-            ("performance_fee", pa.float32()),
-            ("management_fee", pa.float32()),
-            ("errors", pa.string()),
-        ])
+
+        schema = pa.schema(
+            [
+                ("chain", pa.uint32()),
+                ("address", pa.string()),  # Lowercase
+                ("block_number", pa.uint32()),
+                ("timestamp", pa.timestamp("ms")),  # s accuracy does not seem to work on rewrite
+                ("share_price", pa.float64()),
+                ("total_assets", pa.float64()),
+                ("total_supply", pa.float64()),
+                ("performance_fee", pa.float32()),
+                ("management_fee", pa.float32()),
+                ("errors", pa.string()),
+            ]
+        )
         return schema
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class VaultReadCondition:
-
     last_timestamp: datetime.datetime
 
     last_tvl: Decimal
@@ -402,7 +405,7 @@ class VaultBase(ABC):
     #:
     first_seen_at_block: int | None
 
-    def __init__(self, token_cache: dict | None=None):
+    def __init__(self, token_cache: dict | None = None):
         """
         :param token_cache:
             Token cache for vault tokens.
@@ -578,4 +581,3 @@ class VaultBase(ABC):
             0.1 = 10%
         """
         raise NotImplementedError()
-

@@ -8,6 +8,7 @@
 - See :py:class:`NetAssetValueCalculator` for usage
 
 """
+
 import logging
 from abc import ABC, abstractmethod
 from collections import defaultdict
@@ -41,7 +42,6 @@ class NoRouteFound(Exception):
     """We could not route some of the spot tokens to get any valuations for them."""
 
 
-
 @dataclass(slots=True)
 class PortfolioValuation:
     """Valuation calulated for a portfolio.
@@ -62,7 +62,6 @@ class PortfolioValuation:
     def get_total_equity(self) -> Decimal:
         """How much we value this portfolio in the :py:attr:`denomination_token`"""
         return sum(self.spot_valuations.values())
-
 
 
 @dataclass(frozen=True, slots=True)
@@ -121,9 +120,11 @@ class Route:
         return hash((self.dex_hint, self.path, self.fees))
 
     def __eq__(self, other: "Route") -> bool:
+        # fmt: off
         return self.path == other.path and \
                self.dex_hint == other.dex_hint  and \
                self.fees == other.fees
+        # fmt: on
 
     @property
     def source_token(self) -> TokenDetails:
@@ -188,7 +189,6 @@ class ValuationMulticallWrapper(MulticallWrapper):
         return call
 
     def handle(self, success, raw_return_value: bytes) -> TokenAmount | None:
-
         if not success:
             return None
 
@@ -226,7 +226,6 @@ class ValuationQuoter(ABC):
         amount: Decimal,
         debug: bool,
     ) -> Iterable[Route]:
-
         # Direct route
         yield ()
 
@@ -255,7 +254,6 @@ class ValuationQuoter(ABC):
         """
 
 
-
 class UniswapV2Router02Quoter(ValuationQuoter):
     """Handle Uniswap v2 quoters using Router02 contract.
 
@@ -276,7 +274,7 @@ class UniswapV2Router02Quoter(ValuationQuoter):
         debug: bool = False,
     ):
         super().__init__(debug=debug)
-        assert isinstance(swap_router_v2, Contract)        
+        assert isinstance(swap_router_v2, Contract)
         self.swap_router_v2 = swap_router_v2
 
     def __repr__(self):
@@ -334,7 +332,7 @@ class UniswapV2Router02Quoter(ValuationQuoter):
             route.source_token.convert_to_decimals(wrapper.amount_in),
             route.source_token.symbol,
             human_out,
-            route.target_token.symbol
+            route.target_token.symbol,
         )
         return human_out
 
@@ -351,7 +349,6 @@ class UniswapV2Router02Quoter(ValuationQuoter):
 
         # Path with each intermediate
         for middle in intermediate_tokens:
-
             if source_token.address == middle.address:
                 # Skip WETH -> WETH -> USDC
                 continue
@@ -359,16 +356,15 @@ class UniswapV2Router02Quoter(ValuationQuoter):
             yield (source_token, middle, target_token)
 
     def format_path(self, route) -> str:
-
         str_path = [
-            f"{route.source_token.symbol} ->"
+            f"{route.source_token.symbol} ->",
         ]
 
         for token in route.path[1:-1]:
             str_path.append(f"{token.symbol} ->")
 
         str_path.append(
-            f"{route.target_token.symbol}"
+            f"{route.target_token.symbol}",
         )
 
         return " ".join(str_path)
@@ -376,7 +372,8 @@ class UniswapV2Router02Quoter(ValuationQuoter):
 
 def _fee_hook(
     source_token,
-    target_token) -> tuple[int] | tuple[int, int]:
+    target_token,
+) -> tuple[int] | tuple[int, int]:
     """Guess supported fees for Uniswap v3 pairs.
 
     - Radically reduce the search space by using heurestics
@@ -384,12 +381,17 @@ def _fee_hook(
     - 5 BPS is only available on well known pools, otherwise it is 30 bps or 1%
     """
 
+    # fmt: off
     # #: 1 BPS = 100 units
     if (source_token.symbol == "WETH" and target_token.symbol == "USDC") or \
        (source_token.symbol == "USDC" and target_token.symbol == "WETH"):
         # 5 BPS is only enabled on
         return (500,)
-    return (30*100, 100*100,)
+    # fmt: on
+    return (
+        30 * 100,
+        100 * 100,
+    )
 
 
 class UniswapV3Quoter(ValuationQuoter):
@@ -404,13 +406,13 @@ class UniswapV3Quoter(ValuationQuoter):
         self,
         quoter: Contract,
         debug: bool = False,
-        #fee_tiers=(0.0030, 0.0005, 0.01),
+        # fee_tiers=(0.0030, 0.0005, 0.01),
         fee_hook=_fee_hook,
     ):
         super().__init__(debug=debug)
         assert isinstance(quoter, Contract)
         self.quoter = quoter
-        #self.fee_tiers = [int(f * 1_000_000) for f in fee_tiers]
+        # self.fee_tiers = [int(f * 1_000_000) for f in fee_tiers]
         self.fee_hook = _fee_hook
 
     def __repr__(self):
@@ -454,7 +456,7 @@ class UniswapV3Quoter(ValuationQuoter):
             yield Route(
                 quoter=self,
                 path=path,
-                fees=fees
+                fees=fees,
             )
 
     def handle_onchain_return_value(
@@ -500,18 +502,16 @@ class UniswapV3Quoter(ValuationQuoter):
                 for fee_2 in fees_2:
                     yield (source_token, middle, target_token), (fee_1, fee_2)
 
-
     def format_path(self, route) -> str:
-
         str_path = [
-            f"{route.source_token.symbol} -({route.fees[0] // 100} BPS)->"
+            f"{route.source_token.symbol} -({route.fees[0] // 100} BPS)->",
         ]
 
         for token in route.path[1:-1]:
             str_path.append(f"{token.symbol} -({route.fees[1] // 100} BPS)->")
 
         str_path.append(
-            f"{route.target_token.symbol}"
+            f"{route.target_token.symbol}",
         )
 
         return " ".join(str_path)
@@ -584,7 +584,7 @@ class NetAssetValueCalculator:
         denomination_token: HexAddress | TokenDetails,
         intermediary_tokens: set[HexAddress | TokenDetails],
         quoters: set[ValuationQuoter],
-        multicall: bool|None=None,
+        multicall: bool | None = None,
         block_identifier: BlockIdentifier = None,
         multicall_gas_limit=10_000_000,
         debug=False,
@@ -660,7 +660,6 @@ class NetAssetValueCalculator:
             Otherwise generate routes for selling: portfolio tokens present tokens we want to get rid off.
         """
         for token_address, amount in portfolio.spot_erc20.items():
-
             if token_address == self.denomination_token.address_lower:
                 # Reserve currency does not need to be valued in the reserve currency
                 continue
@@ -691,17 +690,17 @@ class NetAssetValueCalculator:
     ) -> PortfolioValuation:
         """Calculate net asset value for each position.
 
-        - Portfolio net asset value is the sum of positions
+                - Portfolio net asset value is the sum of positions
 
-        - What is our NAV if we do market sell on DEXes for the whole portfolio now
+                - What is our NAV if we do market sell on DEXes for the whole portfolio now
 
-        - Price impact included
+                - Price impact included
 
-        :param allow_failed_routing:
-            Raise an error if we cannot get a single route for some token
-s
-        :return:
-            Map of token address -> valuation in denomiation token
+                :param allow_failed_routing:
+                    Raise an error if we cannot get a single route for some token
+        s
+                :return:
+                    Map of token address -> valuation in denomiation token
         """
         assert portfolio.is_spot_only()
         assert portfolio.get_position_count() > 0, "Empty portfolio"
@@ -744,7 +743,7 @@ s
     def resolve_best_valuations(
         self,
         input_tokens: set[HexAddress],
-        routes: dict[Route, TokenAmount]
+        routes: dict[Route, TokenAmount],
     ):
         """Any source token may have multiple paths. Pick one that gives the best amount out."""
 
@@ -761,7 +760,6 @@ s
 
         # Validate all tokens got at least one path
         for token_address in input_tokens:
-
             if token_address == self.denomination_token.address_lower:
                 # Cannot route reserve currency to itself
                 continue
@@ -775,7 +773,7 @@ s
 
     def do_multicall(
         self,
-        calls: list[MulticallWrapper]
+        calls: list[MulticallWrapper],
     ):
         """Multicall mess untangling."""
         if self.legacy_multicall:
@@ -920,19 +918,20 @@ s
 
         if reserve_balance:
             # Handle case where we cannot route reserve balance to itself
-            data.append({
-                "DEX": "reserve",
-                "Path": self.denomination_token.symbol,
-                # "Asset": self.denomination_token.symbol,
-                # "Address": self.denomination_token.address,
-                "Balance": f"{reserve_balance:,.2f}",
-                # "Router": "",
-                "Works": "yes",
-                "Value": f"{reserve_balance:,.2f}",
-            })
+            data.append(
+                {
+                    "DEX": "reserve",
+                    "Path": self.denomination_token.symbol,
+                    # "Asset": self.denomination_token.symbol,
+                    # "Address": self.denomination_token.address,
+                    "Balance": f"{reserve_balance:,.2f}",
+                    # "Router": "",
+                    "Works": "yes",
+                    "Value": f"{reserve_balance:,.2f}",
+                }
+            )
 
         for route in routes:
-
             out_balance = sell_prices[route]
 
             if out_balance is not None:
@@ -940,15 +939,17 @@ s
             else:
                 formatted_balance = "-"
 
-            data.append({
-                "DEX": route.quoter.dex_hint,
-                "Path": route.quoter.format_path(route),
-                # "Asset": route.source_token.symbol,
-                # "Address": route.source_token.address,
-                "Balance": f"{portfolio.spot_erc20[route.source_token.address]:.6f}",
-                "Works": "yes" if out_balance is not None else "no",
-                "Value": formatted_balance,
-            })
+            data.append(
+                {
+                    "DEX": route.quoter.dex_hint,
+                    "Path": route.quoter.format_path(route),
+                    # "Asset": route.source_token.symbol,
+                    # "Address": route.source_token.address,
+                    "Balance": f"{portfolio.spot_erc20[route.source_token.address]:.6f}",
+                    "Works": "yes" if out_balance is not None else "no",
+                    "Value": formatted_balance,
+                }
+            )
 
         df = pd.DataFrame(data)
         df = df.sort_values(by=["Path", "DEX"])
@@ -984,6 +985,7 @@ s
             best_results_by_token=results_by_token,
         )
 
+
 def _convert_to_token_details(
     web3: Web3,
     chain_id: int,
@@ -992,5 +994,3 @@ def _convert_to_token_details(
     if isinstance(token_or_address, TokenDetails):
         return token_or_address
     return fetch_erc20_details(web3, token_or_address, chain_id=chain_id)
-
-
