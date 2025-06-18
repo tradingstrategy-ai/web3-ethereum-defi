@@ -1,4 +1,5 @@
 """ChainLink price feed functions"""
+
 from decimal import Decimal
 from dataclasses import dataclass
 from functools import cached_property
