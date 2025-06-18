@@ -46,7 +46,9 @@ def anvil_base_fork(request, usdc_holder) -> AnvilLaunch:
     fork_block_number = 29192700
     launch = fork_network_anvil(
         JSON_RPC_BASE,
-        unlocked_addresses=[usdc_holder,],
+        unlocked_addresses=[
+            usdc_holder,
+        ],
         fork_block_number=fork_block_number,
     )
     try:
@@ -115,7 +117,7 @@ def hot_wallet_user(web3, base_usdc, usdc_holder) -> HotWallet:
     hw = HotWallet.create_for_testing(
         web3,
         test_account_n=1,
-        eth_amount=10
+        eth_amount=10,
     )
     hw.sync_nonce(web3)
 
@@ -135,6 +137,7 @@ def hot_wallet_user(web3, base_usdc, usdc_holder) -> HotWallet:
     web3.middleware_onion.add(construct_sign_and_send_raw_middleware_anvil(hw.account))
 
     return hw
+
 
 @pytest.fixture()
 def random_receiver(web3) -> HexAddress:
@@ -175,7 +178,7 @@ def test_analyse_taxed_buy(
     #    base_usdc.address,
     #    base_weth.address,
     #    base_eai.address
-    #]
+    # ]
 
     tx_hash = swap_with_slippage_protection(
         uniswap_v2_deployment=uniswap_v2,
