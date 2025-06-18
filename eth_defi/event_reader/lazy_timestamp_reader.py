@@ -2,6 +2,7 @@
 
 See :py:func:`extract_timestamps_json_rpc_lazy`
 """
+
 import logging
 from typing import Callable
 

@@ -1,4 +1,5 @@
 """Event reader test coverage."""
+
 import os
 
 import flaky

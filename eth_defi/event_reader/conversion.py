@@ -1,4 +1,5 @@
 """Raw log event data conversion helpers."""
+
 from eth_abi import decode
 from eth_typing import ChecksumAddress
 from hexbytes import HexBytes
