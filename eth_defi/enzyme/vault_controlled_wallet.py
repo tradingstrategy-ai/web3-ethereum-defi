@@ -1,5 +1,5 @@
-"""Vault owner wallet implementation.
-"""
+"""Vault owner wallet implementation."""
+
 from dataclasses import dataclass, field
 from typing import List, Collection, Any, Optional, Tuple
 

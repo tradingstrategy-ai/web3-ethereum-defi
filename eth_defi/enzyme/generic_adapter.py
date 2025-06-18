@@ -25,6 +25,7 @@ See :py:func:`eth_defi.enzyme.uniswap_v2.prepare_swap` how to use the generic ad
 `See the GenericAdapter source code on Github <https://github.com/tradingstrategy-ai/ethdubai-2023-hackathon/blob/master/forge/src/SushiAdapter.sol>`__.
 
 """
+
 import logging
 from typing import TypeAlias, Collection, Tuple, Final
 

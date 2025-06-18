@@ -1,4 +1,5 @@
 """Enzyme vault ERC-20 helpers."""
+
 from eth_typing import HexAddress
 from web3.contract import Contract
 from web3.contract.contract import ContractFunction

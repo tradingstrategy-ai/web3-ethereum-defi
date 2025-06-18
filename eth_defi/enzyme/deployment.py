@@ -18,6 +18,7 @@ See Enzyme Subgraphs: ---
 
 
 """
+
 import logging
 import enum
 import re
@@ -327,7 +328,7 @@ class EnzymeDeployment:
         denomination_asset: Contract,
         fund_name="Example Fund",
         fund_symbol="EXAMPLE",
-        shares_action_time_lock = None,
+        shares_action_time_lock=None,
         fee_manager_config_data=b"",
         policy_manager_config_data=b"",
         deployer=None,
@@ -392,7 +393,7 @@ class EnzymeDeployment:
             except Exception as e:
                 logger.info("Ethereum mainnet Enzyme deployment workaround %d: %s", i, e)
                 logger.exception(e)
-                time.sleep(i*2)
+                time.sleep(i * 2)
                 continue
 
         receipt = web3.eth.get_transaction_receipt(tx_hash)
