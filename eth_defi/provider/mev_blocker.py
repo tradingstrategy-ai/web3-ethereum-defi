@@ -14,6 +14,7 @@ This module provides methods to create special
 - Normal JSON-RPC node for reading data from the blockchain
 
 """
+
 from collections import Counter
 from typing import Any
 
@@ -86,4 +87,3 @@ def get_mev_blocker_provider(web3: Web3) -> MEVBlockerProvider | None:
     if isinstance(provider, MEVBlockerProvider):
         return provider
     return None
-

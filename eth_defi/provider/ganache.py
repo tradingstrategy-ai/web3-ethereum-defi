@@ -311,7 +311,8 @@ def fork_network(
             mainnet_rpc = os.environ["BNB_CHAIN_JSON_RPC"]
             launch = fork_network(
                 mainnet_rpc,
-                unlocked_addresses=[large_busd_holder])
+                unlocked_addresses=[large_busd_holder],
+            )
             yield launch.json_rpc_url
             # Wind down Ganache process after the test is complete
             launch.close()
@@ -324,20 +325,19 @@ def fork_network(
 
 
         def test_mainnet_fork_transfer_busd(web3: Web3, large_busd_holder: HexAddress, user_1: LocalAccount):
-
             # BUSD deployment on BNB chain
             # https://bscscan.com/token/0xe9e7cea3dedca5984780bafc599bd69add087d56
             busd_details = fetch_erc20_details(web3, "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56")
             busd = busd_details.contract
 
             # Transfer 500 BUSD to the user 1
-            tx_hash = busd.functions.transfer(user_1.address, 500*10**18).transact({"from": large_busd_holder})
+            tx_hash = busd.functions.transfer(user_1.address, 500 * 10**18).transact({"from": large_busd_holder})
 
             # Because Ganache has instamine turned on by default, we do not need to wait for the transaction
             receipt = web3.eth.get_transaction_receipt(tx_hash)
             assert receipt.status == 1, "BUSD transfer reverted"
 
-            assert busd.functions.balanceOf(user_1.address).call() == 500*10**18
+            assert busd.functions.balanceOf(user_1.address).call() == 500 * 10**18
 
     `See the full example in tests source code <https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/tests/test_ganache.py>`_.
 
