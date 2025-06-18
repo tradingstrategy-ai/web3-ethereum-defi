@@ -1,4 +1,5 @@
 """TokenSniffer integration tests."""
+
 import os
 
 import pytest
