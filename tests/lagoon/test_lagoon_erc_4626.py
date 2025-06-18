@@ -1,4 +1,5 @@
 """Lagoon deposit/withdrawal from ERC-4626 tests."""
+
 from decimal import Decimal
 from typing import cast
 
@@ -96,10 +97,12 @@ def test_lagoon_erc_4626(
 
     # Settle deposit queue 9 USDC -> 0 USDC
     settle_func = vault.settle_via_trading_strategy_module()
-    tx_hash = settle_func.transact({
-        "from": asset_manager,
-        "gas": 1_000_000,
-    })
+    tx_hash = settle_func.transact(
+        {
+            "from": asset_manager,
+            "gas": 1_000_000,
+        }
+    )
     assert_transaction_success_with_explanation(
         web3,
         tx_hash,
@@ -145,4 +148,3 @@ def test_lagoon_erc_4626(
         moduled_tx = vault.transact_via_trading_strategy_module(fn_call)
         tx_hash = moduled_tx.transact({"from": asset_manager, "gas": 1_000_000})
         assert_transaction_success_with_explanation(web3, tx_hash, func=fn_call)
-

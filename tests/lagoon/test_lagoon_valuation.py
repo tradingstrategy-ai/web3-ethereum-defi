@@ -82,7 +82,7 @@ def extensive_portfolio(
 
     portfolio = create_buy_portfolio(
         BASE_SHOPPING_LIST,
-        Decimal(5.0)
+        Decimal(5.0),
     )
 
     buy_result = buy_tokens(
@@ -111,7 +111,7 @@ def extensive_portfolio(
             # Annoying checksum address
             raise RuntimeError(f"Wrapped call failed: {call}") from e
         tx_data = wrapped_call.build_transaction({"from": topped_up_asset_manager})
-        tx_data["gas"] = tx_data["gas"] + 1_000_000   # Gnosis tx tend to underestimate gas
+        tx_data["gas"] = tx_data["gas"] + 1_000_000  # Gnosis tx tend to underestimate gas
         tx_hash = web3.eth.send_transaction(tx_data)
         assert_execute_module_success(web3, tx_hash)
 
@@ -145,14 +145,14 @@ def test_uniswap_v3_quoter_basic_three_leg(
     ]
     path = encode_path(
         parts,
-        fees
+        fees,
     )
     amount = 5 * 10**6
 
     # Try Web3.py native encoding
-    quote_call  = quoter.functions.quoteExactInput(
+    quote_call = quoter.functions.quoteExactInput(
         path,
-        amount
+        amount,
     )
     quote_result = quote_call.call()
     amount_out_1 = quote_result[0]
@@ -161,10 +161,12 @@ def test_uniswap_v3_quoter_basic_three_leg(
     # Try passing data blob around
     data = quote_call.build_transaction()["data"]
     assert len(bytes.fromhex(data[2:])) == 196
-    quote_result_bytes = web3.eth.call({
-        "to": quoter.address,
-        "data": data,
-    })
+    quote_result_bytes = web3.eth.call(
+        {
+            "to": quoter.address,
+            "data": data,
+        }
+    )
     amount_out_2 = int.from_bytes(quote_result_bytes[0:32])
     assert amount_out_2 == amount_out_1
 
@@ -189,14 +191,14 @@ def test_uniswap_v3_quoter_basic_token_missing(
     ]
     path = encode_path(
         parts,
-        fees
+        fees,
     )
     amount = 5 * 10**6
 
     # Try Web3.py native encoding
-    quote_call  = quoter.functions.quoteExactInput(
+    quote_call = quoter.functions.quoteExactInput(
         path,
-        amount
+        amount,
     )
     quote_result = quote_call.call()
     amount_out_1 = quote_result[0]
@@ -205,10 +207,12 @@ def test_uniswap_v3_quoter_basic_token_missing(
     # Try passing data blob around
     data = quote_call.build_transaction()["data"]
     assert len(bytes.fromhex(data[2:])) == 196
-    quote_result_bytes = web3.eth.call({
-        "to": quoter.address,
-        "data": data,
-    })
+    quote_result_bytes = web3.eth.call(
+        {
+            "to": quoter.address,
+            "data": data,
+        }
+    )
     amount_out_2 = int.from_bytes(quote_result_bytes[0:32])
     assert amount_out_2 == amount_out_1
 
@@ -259,12 +263,12 @@ def test_uniswap_v2_weth_usdc_sell_route(
     # Another method to double check call data encoding
     bound_call = uniswap_v2_quoter_v2.swap_router_v2.functions.getAmountsOut(amount, route.address_path)
     tx_data_2 = bound_call.build_transaction(
-        {"from": ZERO_ADDRESS}
+        {"from": ZERO_ADDRESS},
     )
     correct_bytes = tx_data_2["data"][2:]
 
     address, data = wrapped_call.get_address_and_data()
-    tx_data ={
+    tx_data = {
         "data": data,
         "address": address,
     }
@@ -279,10 +283,10 @@ def test_uniswap_v2_weth_usdc_sell_route(
 
     assert raw_result is not None
 
-    multicall_contract =  get_multicall_contract(web3)
+    multicall_contract = get_multicall_contract(web3)
     batched_result = call_multicall_batched_single_thread(
         multicall_contract,
-        calls=[MulticallWrapper(call=bound_call, debug=False)]
+        calls=[MulticallWrapper(call=bound_call, debug=False)],
     )
     result = batched_result[route]
     assert result is not None, f"Reading quoter using Multicall failed"
@@ -352,8 +356,7 @@ def test_lagoon_diagnose_routes(
     base_dino: TokenDetails,
     uniswap_v2: UniswapV2Deployment,
 ):
-    """Run route diagnostics.
-    """
+    """Run route diagnostics."""
     vault = lagoon_vault
 
     universe = TradingUniverse(
@@ -448,7 +451,7 @@ def test_lagoon_post_valuation(
     assert total_value > 10  # 0.30 USDC
 
     bound_func = vault.post_new_valuation(total_value)
-    tx_hash = bound_func.transact({"from": valuation_manager})      # Unlocked by anvil
+    tx_hash = bound_func.transact({"from": valuation_manager})  # Unlocked by anvil
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     # Check we have no pending redemptions (might abort settle)
@@ -458,9 +461,11 @@ def test_lagoon_post_valuation(
     # Then settle the valuation as the vault owner (Safe multisig) in this case
     settle_call = vault.vault_contract.functions.settleDeposit()
     moduled_tx = vault.transact_via_exec_module(settle_call)
-    tx_data = moduled_tx.build_transaction({
-        "from": asset_manager,
-    })
+    tx_data = moduled_tx.build_transaction(
+        {
+            "from": asset_manager,
+        }
+    )
     # Normal estimate_gas does not give enough gas for
     # Safe execTransactionFromModule() transaction for some reason
     gnosis_gas_fix = 1_000_000

@@ -1,4 +1,5 @@
 """Lagoon swap tests."""
+
 from decimal import Decimal
 
 import pytest
@@ -93,10 +94,12 @@ def test_lagoon_uniswap_v3(
 
     # Settle deposit queue 9 USDC -> 0 USDC
     settle_func = vault.settle_via_trading_strategy_module()
-    tx_hash = settle_func.transact({
-        "from": asset_manager,
-        "gas": 1_000_000,
-    })
+    tx_hash = settle_func.transact(
+        {
+            "from": asset_manager,
+            "gas": 1_000_000,
+        }
+    )
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     # Check we have money for the swap
