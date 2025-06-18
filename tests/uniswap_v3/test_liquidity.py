@@ -1,9 +1,11 @@
 """Test Uniswap v3 liquidity."""
+
 import pytest
 
 from eth_defi.uniswap_v3.liquidity import estimate_liquidity_depth_at_block
 
 #  gql.transport.exceptions.TransportQueryError: Error while fetching schema: {'message': 'indexing_error'}
+
 
 # TheGraph is broken
 @pytest.mark.skip(reason=" gql.transport.exceptions.TransportQueryError: Error while fetching schema: {'message': 'indexing_error'}")

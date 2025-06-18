@@ -5,6 +5,7 @@
 - Read also unit test suite tests/test_token_tax.py to see the retrieval of token taxes for ELEPHANT token on BSC
 
 """
+
 import logging
 from typing import Optional
 

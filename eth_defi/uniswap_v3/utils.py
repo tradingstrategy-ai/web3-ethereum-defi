@@ -1,16 +1,12 @@
 """Uniswap v3 helper functions."""
+
 import math
 from typing import Tuple
 
 from web3 import Web3
 from eth_typing import HexAddress
 
-from eth_defi.uniswap_v3.constants import (
-    DEFAULT_TICK_SPACINGS,
-    MAX_TICK,
-    MIN_TICK,
-    UNISWAP_V3_SUBGRAPH_ENDPOINTS
-)
+from eth_defi.uniswap_v3.constants import DEFAULT_TICK_SPACINGS, MAX_TICK, MIN_TICK, UNISWAP_V3_SUBGRAPH_ENDPOINTS
 
 
 def encode_sqrt_ratio_x96(*, amount0: int, amount1: int) -> int:
@@ -170,7 +166,7 @@ def run_graphql_query(query: str, api_key: str, chain: int, *, variables: dict =
     from gql import Client, gql
     from gql.transport.requests import RequestsHTTPTransport
 
-    transport = RequestsHTTPTransport(url=UNISWAP_V3_SUBGRAPH_ENDPOINTS[chain].replace('$', api_key), verify=True, retries=3)
+    transport = RequestsHTTPTransport(url=UNISWAP_V3_SUBGRAPH_ENDPOINTS[chain].replace("$", api_key), verify=True, retries=3)
     graphql_client = Client(transport=transport, fetch_schema_from_transport=True)
 
     return graphql_client.execute(gql(query), variable_values=variables)

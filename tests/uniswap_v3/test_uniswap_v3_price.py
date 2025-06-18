@@ -1,4 +1,5 @@
 """Test Uniswap v3 price calculation."""
+
 import secrets
 from decimal import Decimal
 

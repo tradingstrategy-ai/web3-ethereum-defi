@@ -48,7 +48,7 @@ def get_input_args(params: tuple | dict) -> dict:
             # SwapRouterV2
             full_path_decoded = decode_path(params[0])
             return {
-                "path": full_path_decoded, # Undecoded
+                "path": full_path_decoded,  # Undecoded
                 "recipient": params[1],
                 "amountIn": params[2],
                 "amountOutMinimum": params[3],

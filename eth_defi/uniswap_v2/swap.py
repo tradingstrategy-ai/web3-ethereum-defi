@@ -1,4 +1,5 @@
 """Uniswap v2 swap helper functions."""
+
 import warnings
 from typing import Callable, Optional
 import logging

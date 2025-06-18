@@ -1,4 +1,5 @@
 """Test Uniswap V3 util functions."""
+
 import pytest
 
 from eth_defi.uniswap_v3.utils import encode_path, decode_path
