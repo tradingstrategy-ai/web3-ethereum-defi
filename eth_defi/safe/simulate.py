@@ -1,4 +1,5 @@
 """Perform Safe transaction on forked mainnet when you do not have all the private keys."""
+
 from eth_typing import HexAddress
 from hexbytes import HexBytes
 from web3 import Web3
@@ -44,7 +45,7 @@ def simulate_safe_execution_anvil(
     make_anvil_custom_rpc_request(
         web3,
         "anvil_impersonateAccount",
-        [safe_address]
+        [safe_address],
     )
 
     # Top up ETH needed to pay for the gas,
@@ -54,21 +55,14 @@ def simulate_safe_execution_anvil(
     # Call Anvil's custom RPC to set the balance
     web3.provider.make_request(
         "anvil_setBalance",
-        [safe_address, hex(wei_amount)]
+        [safe_address, hex(wei_amount)],
     )
 
-    tx_hash = contract_func.transact({
-        "from": safe_address,
-        "gas": gas,
-    })
+    tx_hash = contract_func.transact(
+        {
+            "from": safe_address,
+            "gas": gas,
+        }
+    )
 
     return tx_hash
-
-
-
-
-
-
-
-
-
