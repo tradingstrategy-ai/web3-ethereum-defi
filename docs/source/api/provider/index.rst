@@ -25,4 +25,5 @@ This submodule offers functionality to connect and enhance robustness of various
    eth_defi.provider.anvil
    eth_defi.provider.ganache
    eth_defi.provider.named
+   eth_defi.provider.env
 

@@ -28,10 +28,8 @@ from decimal import Decimal
 import argparse
 from typing import cast
 
-from eth_typing import HexAddress
 from web3 import Web3
 from web3.contract.contract import ContractFunction
-from web3.middleware import construct_sign_and_send_raw_middleware
 
 from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.classification import create_vault_instance
