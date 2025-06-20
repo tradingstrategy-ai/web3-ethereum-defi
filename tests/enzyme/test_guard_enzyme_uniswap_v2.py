@@ -8,7 +8,7 @@ import datetime
 import random
 
 import flaky
-from web3.middleware import construct_sign_and_send_raw_middleware
+from web3.middleware import SignAndSendRawMiddlewareBuilder
 
 from eth_defi.enzyme.generic_adapter_vault import deploy_vault_with_generic_adapter, deploy_guard, whitelist_sender_receiver, bind_vault, deploy_generic_adapter_with_guard
 
@@ -161,7 +161,7 @@ def hot_wallet(web3):
 
     hot_wallet = HotWallet(account)
     hot_wallet.sync_nonce(web3)
-    web3.middleware_onion.add(construct_sign_and_send_raw_middleware(account))
+    web3.middleware_onion.add(SignAndSendRawMiddlewareBuilder.build(account))
     return hot_wallet
 
 

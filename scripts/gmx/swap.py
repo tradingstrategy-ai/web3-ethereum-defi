@@ -12,7 +12,7 @@ import os
 from decimal import Decimal
 
 from web3 import Web3
-from web3.middleware import construct_sign_and_send_raw_middleware
+from web3.middleware import SignAndSendRawMiddlewareBuilder
 
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.testing import emulate_keepers
@@ -56,7 +56,7 @@ def create_fork_funded_wallet(web3: Web3) -> HotWallet:
 
     # Inject web3 middleware for signign
     # GMX code uses legacy signer infrastructure
-    web3.middleware_onion.add(construct_sign_and_send_raw_middleware(hot_wallet.account))
+    web3.middleware_onion.add(SignAndSendRawMiddlewareBuilder.build(hot_wallet.account))
 
     assert usdc.fetch_balance_of(hot_wallet.address) > 0, "Simulated wallet did not receive USDC"
     assert web3.eth.get_balance(hot_wallet.address) > 0, "Simulated wallet did not receive ETH"

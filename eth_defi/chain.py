@@ -121,7 +121,7 @@ def install_chain_middleware(web3: Web3, poa_middleware=None):
         assert private_key is not None, "You must set PRIVATE_KEY environment variable"
         assert private_key.startswith("0x"), "Private key must start with 0x hex prefix"
         account: LocalAccount = Account.from_key(private_key)
-        web3.middleware_onion.add(construct_sign_and_send_raw_middleware(account))
+        web3.middleware_onion.add(SignAndSendRawMiddlewareBuilder.build(account))
 
         # Support Polygon, BNG chain
         install_chain_middleware(web3)

@@ -122,7 +122,7 @@ class HotWallet:
     .. code-block:: python
 
             from eth_account import Account
-            from web3.middleware import construct_sign_and_send_raw_middleware
+            from web3.middleware import SignAndSendRawMiddlewareBuilder
 
             from eth_defi.trace import assert_transaction_success_with_explanation
             from eth_defi.hotwallet import HotWallet
@@ -136,7 +136,7 @@ class HotWallet:
             assert_transaction_success_with_explanation(web3, tx_hash)
 
             # Attach local private key to the web3.py middleware machinery
-            web3.middleware_onion.add(construct_sign_and_send_raw_middleware(account))
+            web3.middleware_onion.add(SignAndSendRawMiddlewareBuilder.build(account))
 
             # Create a hot wallet instance
             hot_wallet = HotWallet(account)

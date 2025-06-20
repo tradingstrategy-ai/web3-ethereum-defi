@@ -57,7 +57,7 @@ Then create the following script:
     from eth_account import Account
     from eth_account.signers.local import LocalAccount
     from web3 import HTTPProvider, Web3
-    from web3.middleware import construct_sign_and_send_raw_middleware
+    from web3.middleware import SignAndSendRawMiddlewareBuilder
 
     from eth_defi.abi import get_deployed_contract
     from eth_defi.token import fetch_erc20_details
@@ -77,7 +77,7 @@ Then create the following script:
     assert private_key is not None, "You must set PRIVATE_KEY environment variable"
     assert private_key.startswith("0x"), "Private key must start with 0x hex prefix"
     account: LocalAccount = Account.from_key(private_key)
-    web3.middleware_onion.add(construct_sign_and_send_raw_middleware(account))
+    web3.middleware_onion.add(SignAndSendRawMiddlewareBuilder.build(account))
 
     # Show users the current status of token and his address
     erc_20 = get_deployed_contract(web3, "ERC20MockDecimals.json", ERC_20_TOKEN_ADDRESS)

@@ -8,7 +8,7 @@ from safe_eth.safe import Safe
 from safe_eth.safe.safe import SafeV141
 from web3 import Web3
 from web3.contract import Contract
-from web3.middleware import construct_sign_and_send_raw_middleware
+from web3.middleware import SignAndSendRawMiddlewareBuilder
 
 from eth_defi.deploy import deploy_contract
 from eth_defi.hotwallet import HotWallet
@@ -50,7 +50,7 @@ def attacker_account(web3) -> HexAddress:
 def safe_deployer_hot_wallet(web3) -> HotWallet:
     """Safe Python library only takes LocalAccount as the input for Safe.create()"""
     hot_wallet = HotWallet.create_for_testing(web3)
-    web3.middleware_onion.add(construct_sign_and_send_raw_middleware(hot_wallet.account))
+    web3.middleware_onion.add(SignAndSendRawMiddlewareBuilder.build(hot_wallet.account))
     return hot_wallet
 
 

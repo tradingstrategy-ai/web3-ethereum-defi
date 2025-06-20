@@ -81,7 +81,7 @@ sphinxcontrib-qthelp = {version = "1.0.3", optional = true} # Version pindowns h
 # Only soft dependency in tests, but RTD complains
 # terms-of-service = {path = "contracts/terms-of-service", develop = true}
 multicall = "^0.9.0"
-safe-eth-py = "6.0.0b42"
+safe-eth-py = "^7.5.1"
 joblib = "^1.4.2"
 
 # HyperSync

@@ -5652,14 +5652,14 @@ files = [
 
 [[package]]
 name = "safe-eth-py"
-version = "6.0.0b42"
+version = "7.5.1"
 description = "Safe Ecosystem Foundation utilities for Ethereum projects"
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "safe_eth_py-6.0.0b42-py3-none-any.whl", hash = "sha256:dd7e57bd9c817ac25b241aeae5c5ccf201af0a7e21b6d9c0a6b2b1ded382457e"},
-    {file = "safe_eth_py-6.0.0b42.tar.gz", hash = "sha256:425c7f630b20576871434c720dd07eff7fdab4a7438b7614c35582500220fb0d"},
+    {file = "safe_eth_py-7.5.1-py3-none-any.whl", hash = "sha256:17958ad6a6e57e68d917cce597f95aea2d94c3c1d5f805f9fbf6be6faca6b874"},
+    {file = "safe_eth_py-7.5.1.tar.gz", hash = "sha256:37de42defb47bb68ea99120793deb11a66b5d64e156a222789c410b0393db04c"},
 ]
 
 [package.dependencies]
@@ -5667,7 +5667,7 @@ packaging = "*"
 py-evm = ">=0.7.0a1"
 requests = ">=2"
 safe-pysha3 = ">=1.0.0"
-web3 = ">=6.2.0"
+web3 = ">=7"
 
 [package.extras]
 django = ["django (>=2)", "django-filter (>=2)", "djangorestframework (>=2)"]
@@ -6853,4 +6853,4 @@ test = ["pytest-xdist"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<4"
-content-hash = "baadd9f3004b11f6cba77c68b55c256ddb155687c5fc4fef67fe5718e34e17cb"
+content-hash = "bed198b1d9451d4ca7c7897c35c50035544f8557f4887518d1744de73e28eef8"
