@@ -27,7 +27,7 @@ Then to run this script:
 
 Output looks like:
 
-.. code-block:: plain
+.. code-block:: text
 
     Vault: IPOR USDC Lending Optimizer Base (0x45aa96f0b3188d47a1dafdbefce1db6b37f58216)
     Estimated APY: 5.53%

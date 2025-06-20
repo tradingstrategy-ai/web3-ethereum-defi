@@ -32,7 +32,7 @@ Then to run this script:
 
 Output looks like:
 
-.. code-block:: plain
+.. code-block:: text
 
     TODO
 

@@ -52,7 +52,7 @@ Then to run this script:
 
 Output looks like (scroll right):
 
-.. code-block:: plain
+.. code-block:: text
                                                                    Symbol                                               Name          Denomination  ...         Protocol                   Shares   First seen
     Address                                                                                                                                         ...
     0x665a1B7F87a938a8ac560EfDB37Dd7f3567Ec263             f50BALD/50WETH                                 FARM_50BALD/50WETH         50BALD/50WETH  ...  Harvest Finance                    0.489  2023-Aug-04

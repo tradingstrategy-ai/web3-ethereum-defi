@@ -27,7 +27,7 @@ Then to run this script:
 
 Output looks like:
 
-.. code-block:: plain
+.. code-block:: text
 
     Created provider lb.drpc.org, using request args {'headers': {'Content-Type': 'application/json', 'User-Agent': "web3.py/6.14.0/<class 'web3.providers.rpc.HTTPProvider'>"}, 'timeout': (3.0, 30.0)}, headers {'Content-Type': 'application/json', 'User-Agent': "web3.py/6.14.0/<class 'web3.providers.rpc.HTTPProvider'>"}
     Created provider base-mainnet.g.alchemy.com, using request args {'headers': {'Content-Type': 'application/json', 'User-Agent': "web3.py/6.14.0/<class 'web3.providers.rpc.HTTPProvider'>"}, 'timeout': (3.0, 30.0)}, headers {'Content-Type': 'application/json', 'User-Agent': "web3.py/6.14.0/<class 'web3.providers.rpc.HTTPProvider'>"}
