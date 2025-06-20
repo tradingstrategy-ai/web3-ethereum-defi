@@ -353,13 +353,13 @@ def encode_function_call(
     w3 = func.w3
     contract_abi = func.contract_abi
     fn_abi = func.abi
-    fn_identifier = func.function_identifier
+    fn_name = func.fn_name
 
     if fn_abi:
         # If we already have the function ABI, get the selector
         fn_info = get_abi_element_info(
             contract_abi,
-            fn_identifier,
+            fn_name,
             *args,
             abi_codec=w3.codec
         )
@@ -369,7 +369,7 @@ def encode_function_call(
         # Get full function info
         fn_info = get_abi_element_info(
             contract_abi,
-            fn_identifier,
+            fn_name,
             *args,
             abi_codec=w3.codec
         )
