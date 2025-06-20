@@ -22,7 +22,7 @@ Here is an example how to read the blockchain native asset price in USD.
 
 Sample output:
 
-.. code-block:: text
+.. code-block:: none
 
    The chain native token price of is 2465.16569563 ETH / USD
 

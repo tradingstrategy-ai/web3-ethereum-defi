@@ -131,7 +131,7 @@ Run the script:
 
 Example output
 
-.. code-block:: text
+.. code-block:: none
 
     Connected to blockchain, chain id is 1. the latest block is 14,627,918
     Token details are <XXX (XXX) at 0x0aC7B3733cBeE5D87A80fbf331f4A0bD01f17386>

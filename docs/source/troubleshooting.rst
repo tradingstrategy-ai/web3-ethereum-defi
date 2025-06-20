@@ -9,7 +9,7 @@ Limits exceeded
 
 You get the following reply from a BNB Chain node:
 
-.. code-block:: text
+.. code-block:: none
 
     { "jsonrpc": "2.0", "id": 1, "error": { "code": -32005, "message": "limit exceeded" } }
 

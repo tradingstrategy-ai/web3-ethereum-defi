@@ -28,7 +28,7 @@ To run:
 
 Example output:
 
-.. code-block:: text
+.. code-block:: none
 
     Swap at block:30,239,875 buy price:2.64193807 LEE/USDT in tx 0x0b51a9f0a0f50c493111c29e670a419f400daba03e63b9360c52dcf6a3b16c20
     Swap at block:30,239,875 sell price:236.64745674 WBNB/USDT in tx 0x13b65557c777ec26a52dd2e025ac22f8382c62262af8838dc7ebd13b2711765d

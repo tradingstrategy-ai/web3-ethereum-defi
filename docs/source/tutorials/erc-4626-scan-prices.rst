@@ -42,7 +42,7 @@ Then to run this script:
 
 Output looks like (scroll right):
 
-.. code-block:: text
+.. code-block:: none
                       
       Scanning vault historical prices on chain 999: Hyperliquid
       Chain Hyperliquid has 12 vaults in the vault detection database

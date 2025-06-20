@@ -9,7 +9,7 @@ ERC-4626 deposit and redeem
 Here is a Python example how to deposit and redeem ERC-4626 vaults.
 
 - This is a script that performs deposit and redeem operations on an ERC-4626 vault
-- It can be run in simulation mode (:ref:`Anvil` mainnet fork)
+- It can be run in simulation mode (Anvil mainnet fork)
 - The chain id and vault are given as a command line arguments
 - The script it is multichain: it will automatically pick JSON-RPC connection
   for the given chain id
@@ -27,7 +27,7 @@ Then to run this script:
 
 Output looks like:
 
-.. code-block:: text
+.. code-block:: none
 
     Created provider lb.drpc.org, using request args {'headers': {'Content-Type': 'application/json', 'User-Agent': "web3.py/6.14.0/<class 'web3.providers.rpc.HTTPProvider'>"}, 'timeout': (3.0, 30.0)}, headers {'Content-Type': 'application/json', 'User-Agent': "web3.py/6.14.0/<class 'web3.providers.rpc.HTTPProvider'>"}
     Created provider base-mainnet.g.alchemy.com, using request args {'headers': {'Content-Type': 'application/json', 'User-Agent': "web3.py/6.14.0/<class 'web3.providers.rpc.HTTPProvider'>"}, 'timeout': (3.0, 30.0)}, headers {'Content-Type': 'application/json', 'User-Agent': "web3.py/6.14.0/<class 'web3.providers.rpc.HTTPProvider'>"}
