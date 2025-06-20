@@ -59,6 +59,24 @@ class VaultSpec:
             return False
         return self.chain_id == other.chain_id and self.vault_address == other.vault_address
 
+    @staticmethod
+    def parse_string(spec: str) -> "VaultSpec":
+        """Parse vault spec from a string.
+
+        :param spec:
+            String in the format of "chain_id,address"
+
+        :return:
+            :py:class:`VaultSpec` instance
+        """
+        try:
+            chain_id, address = spec.split(",")
+            chain_id = chain_id.strip()
+            address = address.strip()
+            return VaultSpec(chain_id=int(chain_id), vault_address=address)
+        except Exception as e:
+            raise ValueError(f"Cannot parse vault spec from string: {spec}") from e
+
 
 
 class VaultInfo(TypedDict):
