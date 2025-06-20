@@ -17,12 +17,13 @@ import eth_abi
 from eth_abi import decode
 from eth_typing import HexAddress, HexStr
 from eth_utils import encode_hex, function_abi_to_4byte_selector
-from eth_utils.abi import _abi_to_signature, function_signature_to_4byte_selector, event_abi_to_log_topic
+from eth_utils.abi import abi_to_signature, function_signature_to_4byte_selector, event_abi_to_log_topic
 from hexbytes import HexBytes
 from web3 import Web3
 from web3._utils.abi import get_abi_input_names, get_abi_input_types
-from web3._utils.contracts import encode_abi, get_function_info
+from web3._utils.contracts import encode_abi
 from web3.contract.contract import Contract, ContractFunction, ContractEvent
+from web3.utils import get_abi_element_info
 
 # Cache loaded ABI files in-process memory for speedup
 from web3.datastructures import AttributeDict
@@ -286,12 +287,14 @@ def encode_function_args(func: ContractFunction, args: Sequence) -> bytes:
 
     web3 = func.w3
 
-    fn_abi, fn_selector, aligned_fn_arguments = get_function_info(
-        func.fn_name,
-        web3.codec,
+    fn_info = get_abi_element_info(
         func.contract_abi,
-        args=args,
+        func.fn_name,
+        *args,
+        abi_codec=web3.codec
     )
+    fn_abi = fn_info["abi"]
+
     arg_types = [t["type"] for t in fn_abi["inputs"]]
     encoded_args = eth_abi.encode(arg_types, args)
     return encoded_args
@@ -314,12 +317,14 @@ def decode_function_output(func: ContractFunction, data: bytes) -> Any:
 
     web3 = func.w3
 
-    fn_abi, fn_selector, aligned_fn_arguments = get_function_info(
-        func.fn_name,
-        web3.codec,
+    fn_info = get_abi_element_info(
         func.contract_abi,
-        args=func.args,
+        func.fn_name,
+        *func.args,
+        abi_codec=web3.codec
     )
+    fn_abi = fn_info["abi"]
+
     arg_types = [t["type"] for t in fn_abi["outputs"]]
     decoded_out = eth_abi.decode(arg_types, data)
     return decoded_out
@@ -349,14 +354,29 @@ def encode_function_call(
     contract_abi = func.contract_abi
     fn_abi = func.abi
     fn_identifier = func.function_identifier
-    fn_abi, fn_selector, fn_arguments = get_function_info(
-        # type ignored b/c fn_id here is always str b/c FallbackFn is handled above
-        fn_identifier,  # type: ignore
-        w3.codec,
-        contract_abi,
-        fn_abi,
-        args,
-    )
+
+    if fn_abi:
+        # If we already have the function ABI, get the selector
+        fn_info = get_abi_element_info(
+            contract_abi,
+            fn_identifier,
+            *args,
+            abi_codec=w3.codec
+        )
+        fn_selector = fn_info["selector"]
+        fn_arguments = args
+    else:
+        # Get full function info
+        fn_info = get_abi_element_info(
+            contract_abi,
+            fn_identifier,
+            *args,
+            abi_codec=w3.codec
+        )
+        fn_abi = fn_info["abi"]
+        fn_selector = fn_info["selector"]
+        fn_arguments = fn_info["arguments"]
+
     try:
         encoded = encode_abi(w3, fn_abi, fn_arguments, fn_selector)
     except Exception as e:
@@ -501,7 +521,7 @@ def get_function_selector(func: ContractFunction) -> bytes:
     # https://stackoverflow.com/a/8534381/315168
     fn_abi = next((a for a in contract_abi if a.get("name") == func.fn_name), None)
     assert fn_abi, f"Could not find function {func.fn_name} in Contract ABI"
-    function_signature = _abi_to_signature(fn_abi)
+    function_signature = abi_to_signature(fn_abi)
     fn_selector = function_signature_to_4byte_selector(function_signature)  # type: ignore
     return fn_selector
 

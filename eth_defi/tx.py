@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Union
 
 from eth_account._utils.legacy_transactions import Transaction
-from eth_account._utils.typed_transactions import TypedTransaction
+from eth_account.typed_transactions import TypedTransaction
 from eth_typing import HexAddress
 from hexbytes import HexBytes
 
@@ -60,7 +60,7 @@ def decode_signed_transaction(raw_bytes: Union[bytes, str, HexBytes]) -> dict:
     try:
         # First we try EIP-2718 and this will fail we fall back to the legacy tx
         typed_tx = TypedTransaction.from_bytes(raw_bytes)
-        return typed_tx.transaction.dictionary
+        return typed_tx.transaction.as_dict()
     except ValueError:
         try:
             return Transaction.from_bytes(raw_bytes).as_dict()

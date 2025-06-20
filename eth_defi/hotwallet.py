@@ -13,7 +13,6 @@ from pprint import pformat
 from typing import Optional, NamedTuple
 
 from eth_account import Account
-from eth_account.datastructures import __getitem__
 from eth_account.signers.local import LocalAccount
 from eth_typing import HexAddress
 from hexbytes import HexBytes
@@ -88,10 +87,6 @@ class SignedTransactionWithNonce(NamedTuple):
         Legacy web3.py compatibility.
         """
         return self.rawTransaction
-
-    def __getitem__(self, index):
-        # Legacy web3.py compatibility.
-        return __getitem__(self, index)
 
 
 class HotWallet:

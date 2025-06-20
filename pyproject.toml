@@ -89,6 +89,7 @@ hypersync = {version = "^0.8.5", optional = true}
 # cherry-etl = "^0.5.1"
 
 # Since new Poetry version
+eth-tester = "^0.13.0b1"
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.11.13"
 coloredlogs = "^15.0.1"
