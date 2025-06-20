@@ -1,7 +1,7 @@
 .. meta::
    :description: ERC-4626 deposit and redeem example using Python and web3.py
 
-.. _gmx-swap:
+.. erc-4626-deposit-redeem:
 
 ERC-4626 deposit and redeem
 ===========================
