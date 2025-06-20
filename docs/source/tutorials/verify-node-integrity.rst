@@ -62,7 +62,7 @@ Run in a single-thread example, good for debugging):
 
 The script will go through all randomly blocks in the order print its progress int the console:
 
-.. code-block:: text
+.. code-block:: none
 
     Block 26,613,761 ok - has logs
     Block 26,525,210 ok - has logs
@@ -71,13 +71,13 @@ The script will go through all randomly blocks in the order print its progress i
 
 In the end the script prints out all failed :
 
-.. code-block:: text
+.. code-block:: none
 
     Finished, found 0 uncertain/failed blocks out of 1,000 with the failure rate of 0.0%
 
 In the case of errors you will see:
 
-.. code-block:: text
+.. code-block:: none
 
     Finished, found 52 uncertain/failed blocks out of 100 with the failure rate of 52.0%
     Double check uncertain blocks manually and with a block explorer:
