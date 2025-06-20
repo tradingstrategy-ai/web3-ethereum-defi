@@ -86,7 +86,7 @@ def test_ec_recover(
     # The message payload is receiveAuthorization arguments, tightly encoded,
     # without the function selector
     message_hash = eip712_encode_hash(data)
-    signed_message = from_.signHash(message_hash)
+    signed_message = from_.unsafe_sign_hash(message_hash)
     # Should come in the order defined for the dict,
     # as Python 3.10+ does ordered dicts
     args = list(data["message"].values())  # from, to, value, validAfter, validBefore, nonce

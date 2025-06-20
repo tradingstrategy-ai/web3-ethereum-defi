@@ -100,8 +100,10 @@ class FallbackProvider(BaseNamedProvider):
 
         self.providers = providers
 
-        for provider in providers:
-            assert "http_retry_request" not in provider.middlewares, "http_retry_request middleware cannot be used with FallbackProvider"
+        # UPDATED: In web3.py 7.x, middleware is managed by Web3 instance, not providers
+        # The old check for provider.middlewares doesn't work anymore
+        # We can optionally warn users about potential conflicts instead
+        self._check_provider_middleware_conflicts()
 
         #: Currently active provider
         self.currently_active_provider = 0
@@ -233,6 +235,31 @@ class FallbackProvider(BaseNamedProvider):
                 raise  # Not retryable exception
 
         raise AssertionError("Should never be reached")
+
+    def _check_provider_middleware_conflicts(self):
+        """Check for potential middleware conflicts in web3.py 7.x+
+
+        In web3.py 7.x, middleware is managed by Web3 instance, not providers.
+        This method provides warnings about potential configuration issues.
+        """
+        for i, provider in enumerate(self.providers):
+            # Check if provider has retry configuration that might conflict
+            if hasattr(provider,
+                       'exception_retry_configuration') and provider.exception_retry_configuration is not None:
+                logger.warning(
+                    "Provider %d (%s) has exception_retry_configuration enabled. "
+                    "This may conflict with FallbackProvider's built-in retry logic. "
+                    "Consider setting provider.exception_retry_configuration = None",
+                    i, get_provider_name(provider)
+                )
+
+            # Check for other potential conflicts
+            if hasattr(provider, 'cache_allowed_requests') and provider.cache_allowed_requests:
+                logger.debug(
+                    "Provider %d (%s) has request caching enabled. "
+                    "This should work fine with FallbackProvider.",
+                    i, get_provider_name(provider)
+                )
 
 
 def _check_faulty_rpc_response(

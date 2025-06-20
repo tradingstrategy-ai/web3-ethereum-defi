@@ -274,7 +274,7 @@ def create_multi_provider_web3(
 
     web3.middleware_onion.clear()
 
-    web3.middleware_onion.inject(static_call_cache_middleware, layer=0)
+    web3.middleware_onion.inject(static_call_cache_middleware(), layer=0)
 
     # Note that this triggers the first RPC call here
     install_chain_middleware(web3)
@@ -288,7 +288,7 @@ def create_multi_provider_web3(
 
 
 def _fix_provider(provider: HTTPProvider):
-    provider.middlewares.clear()
+    # provider.middlewares.clear()
     patch_provider(provider)
 
 

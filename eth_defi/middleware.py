@@ -32,10 +32,10 @@ from requests.exceptions import (
     Timeout,
     TooManyRedirects,
 )
-from web3 import Web3
+from web3 import Web3, AsyncWeb3
 from web3._utils.transactions import get_buffered_gas_estimate
 from web3.exceptions import BlockNotFound, ContractLogicError
-from web3.middleware import Middleware
+from web3.middleware import Middleware, Web3Middleware
 from web3.types import RPCEndpoint, RPCResponse
 from web3.providers import HTTPProvider, AsyncHTTPProvider
 from web3.providers.rpc.utils import ExceptionRetryConfiguration
@@ -559,10 +559,48 @@ from web3._utils.transactions import fill_nonce, fill_transaction_defaults
 from web3.middleware.signing import format_transaction, gen_normalized_accounts
 
 
-def construct_sign_and_send_raw_middleware_anvil(
-    private_key_or_account,
-) -> Middleware:
+class SignAndSendRawMiddlewareAnvil(Web3Middleware):
+    """Sign and send raw transaction middleware for Anvil compatibility - Web3.py 7.x+"""
+
+    def __init__(self, accounts, w3: AsyncWeb3 | Web3):
+        super().__init__(w3)
+        self.accounts = accounts
+        self.w3 = w3
+
+    def wrap_make_request(self, make_request: Callable[[RPCEndpoint, Any], RPCResponse]) -> Callable[
+        [RPCEndpoint, Any], RPCResponse]:
+        """Wrap the make_request function with signing logic"""
+
+        # Create the formatter functions using self.w3
+        format_and_fill_tx = compose(
+            format_transaction,
+            fill_transaction_defaults(self.w3),
+            fill_nonce(self.w3)
+        )
+
+        def middleware(method: RPCEndpoint, params: Any) -> RPCResponse:
+            if method != "eth_sendTransaction":
+                return make_request(method, params)
+            else:
+                transaction = format_and_fill_tx(params[0])
+
+            if "from" not in transaction:
+                return make_request(method, params)
+            elif transaction.get("from") not in self.accounts:
+                return make_request(method, params)
+
+            account = self.accounts[transaction["from"]]
+            raw_tx = account.sign_transaction(transaction).raw_transaction
+            return make_request(RPCEndpoint("eth_sendRawTransaction"), [raw_tx.hex()])
+
+        return middleware
+
+
+def construct_sign_and_send_raw_middleware_anvil(private_key_or_account) -> Callable[
+    [Web3], SignAndSendRawMiddlewareAnvil]:
     """Capture transactions sign and send as raw transactions
+
+    UPDATED FOR WEB3.PY 7.12.0+
 
     .. note ::
 
@@ -578,49 +616,45 @@ def construct_sign_and_send_raw_middleware_anvil(
 
     accounts = gen_normalized_accounts(private_key_or_account)
 
-    def sign_and_send_raw_middleware(make_request: Callable[[RPCEndpoint, Any], Any], w3: "Web3") -> Callable[[RPCEndpoint, Any], RPCResponse]:
-        format_and_fill_tx = compose(format_transaction, fill_transaction_defaults(w3), fill_nonce(w3))
+    def builder(w3: Web3) -> SignAndSendRawMiddlewareAnvil:
+        """Create middleware instance when called by web3"""
+        return SignAndSendRawMiddlewareAnvil(accounts, w3)
 
-        def middleware(method: RPCEndpoint, params: Any) -> RPCResponse:
-            if method != "eth_sendTransaction":
-                return make_request(method, params)
-            else:
-                transaction = format_and_fill_tx(params[0])
-
-            if "from" not in transaction:
-                return make_request(method, params)
-            elif transaction.get("from") not in accounts:
-                return make_request(method, params)
-
-            account = accounts[transaction["from"]]
-            raw_tx = account.sign_transaction(transaction).raw_transaction
-            return make_request(RPCEndpoint("eth_sendraw_transaction"), [raw_tx.hex()])
-
-        return middleware
-
-    return sign_and_send_raw_middleware
+    return builder
 
 
-def static_call_cache_middleware(
-    make_request: Callable[[RPCEndpoint, Any], Any],
-    web3: "Web3",
-) -> Callable[[RPCEndpoint, Any], Any]:
+def static_call_cache_middleware():
     """Cache JSON-RPC call values that never change.
 
     The cache is web3 instance itself, to allow sharing the cache
     between different JSON-RPC providers.
     """
 
-    def middleware(method: RPCEndpoint, params: Any) -> RPCResponse:
-        cache = getattr(web3, "static_call_cache", {})
-        if method in STATIC_CALL_LIST:
-            cached = cache.get(method)
-            if cached:
-                return cached
+    def builder(w3: Web3):
+        """Builder function called by web3.py"""
 
-        resp = make_request(method, params)
-        cache[method] = resp
-        web3.static_call_cache = cache
-        return resp
+        def cache_middleware_func(make_request, web3):
+            """Original middleware logic"""
 
-    return middleware
+            def middleware(method, params):
+                cache = getattr(web3, "static_call_cache", {})
+                if method in STATIC_CALL_LIST:
+                    cached = cache.get(method)
+                    if cached:
+                        return cached
+
+                resp = make_request(method, params)
+                cache[method] = resp
+                web3.static_call_cache = cache
+                return resp
+
+            return middleware
+
+        # Return object with wrap_make_request method
+        class CacheMiddleware:
+            def wrap_make_request(self, make_request):
+                return cache_middleware_func(make_request, w3)
+
+        return CacheMiddleware()
+
+    return builder
