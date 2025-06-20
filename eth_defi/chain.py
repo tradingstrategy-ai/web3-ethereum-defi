@@ -13,7 +13,7 @@ from urllib.parse import urljoin
 
 import requests
 from web3 import HTTPProvider, Web3
-from web3.middleware import geth_poa_middleware
+from web3.middleware import ExtraDataToPOAMiddleware
 from web3.providers import BaseProvider, JSONBaseProvider
 from web3.types import RPCEndpoint, RPCResponse
 
@@ -140,7 +140,7 @@ def install_chain_middleware(web3: Web3, poa_middleware=None):
         poa_middleware = web3.eth.chain_id in POA_MIDDLEWARE_NEEDED_CHAIN_IDS
 
     if poa_middleware:
-        web3.middleware_onion.inject(geth_poa_middleware, layer=0)
+        web3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
 
 
 def install_retry_middleware(web3: Web3):

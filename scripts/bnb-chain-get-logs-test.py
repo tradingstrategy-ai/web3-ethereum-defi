@@ -25,7 +25,7 @@ import textwrap
 import requests
 
 from web3 import HTTPProvider, Web3
-from web3.middleware import geth_poa_middleware
+from web3.middleware import ExtraDataToPOAMiddleware
 
 from eth_defi.abi import get_contract
 from eth_defi.event_reader.filter import Filter
@@ -74,7 +74,7 @@ def main():
 
     web3 = Web3(HTTPProvider(json_rpc_url, request_kwargs={"timeout": TIMEOUT}, session=session))
     web3.middleware_onion.clear()
-    web3.middleware_onion.inject(geth_poa_middleware, layer=0)
+    web3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
 
     bnb_busd_pair_address = "0x58F876857a02D6762E0101bb5C46A8c1ED44Dc16"
 

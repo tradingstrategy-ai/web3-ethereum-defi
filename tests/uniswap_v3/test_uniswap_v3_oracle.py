@@ -14,7 +14,7 @@ from decimal import Decimal
 
 import pytest
 from web3 import HTTPProvider, Web3
-from web3.middleware import geth_poa_middleware
+from web3.middleware import ExtraDataToPOAMiddleware
 
 from eth_defi.event_reader.web3factory import TunedWeb3Factory
 from eth_defi.price_oracle.oracle import PriceOracle, time_weighted_average_price
@@ -38,7 +38,7 @@ def web3() -> Web3:
     # https://web3py.readthedocs.io/en/latest/web3.eth.account.html#read-a-private-key-from-an-environment-variable
     web3 = Web3(HTTPProvider(os.environ["ETHEREUM_JSON_RPC"]))
     web3.middleware_onion.clear()
-    web3.middleware_onion.inject(geth_poa_middleware, layer=0)
+    web3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
     return web3
 
 

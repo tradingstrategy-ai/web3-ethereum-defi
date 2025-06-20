@@ -23,7 +23,7 @@ import os
 import time
 
 from web3 import HTTPProvider, Web3
-from web3.middleware import geth_poa_middleware
+from web3.middleware import ExtraDataToPOAMiddleware
 
 from eth_defi.price_oracle.oracle import PriceOracle, time_weighted_average_price
 from eth_defi.uniswap_v2.oracle import update_live_price_feed
@@ -35,7 +35,7 @@ def main():
 
     web3 = Web3(HTTPProvider(json_rpc_url))
     web3.middleware_onion.clear()
-    web3.middleware_onion.inject(geth_poa_middleware, layer=0)
+    web3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
 
     # https://tradingstrategy.ai/trading-view/binance/pancakeswap-v2/bnb-busd
     pair_contract_address = "0x58F876857a02D6762E0101bb5C46A8c1ED44Dc16"
