@@ -34,15 +34,13 @@ def anvil() -> AnvilLaunch:
 
 @pytest.fixture()
 def provider_1(anvil):
-    provider = HTTPProvider(anvil.json_rpc_url)
-    provider.middlewares.clear()
+    provider = HTTPProvider(anvil.json_rpc_url,middleware=None)
     return provider
 
 
 @pytest.fixture()
 def provider_2(anvil):
-    provider = HTTPProvider(anvil.json_rpc_url)
-    provider.middlewares.clear()
+    provider = HTTPProvider(anvil.json_rpc_url,middleware=None)
     return provider
 
 
