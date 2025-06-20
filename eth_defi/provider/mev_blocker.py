@@ -27,7 +27,7 @@ from eth_defi.provider.named import BaseNamedProvider
 #:
 TRANSACT_METHODS = (
     "eth_sendTransaction",
-    "eth_sendRawTransaction",
+    "eth_sendraw_transaction",
 )
 
 

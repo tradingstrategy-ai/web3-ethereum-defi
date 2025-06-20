@@ -137,7 +137,7 @@ def test_fallback_unhandled_exception(fallback_provider: FallbackProvider, provi
 
 
 def test_fallback_nonce_too_low(web3, deployer: str):
-    """Retry nonce too low errors with eth_sendRawTransaction,
+    """Retry nonce too low errors with eth_sendraw_transaction,
 
     See if we can retry LlamanNodes nonce too low errors when sending multiple transactions.
     """
@@ -157,12 +157,12 @@ def test_fallback_nonce_too_low(web3, deployer: str):
     HotWallet.fill_in_gas_price(web3, tx2)
     signed_tx2 = hot_wallet.sign_transaction_with_new_nonce(tx2)
     assert signed_tx2.nonce == 0
-    tx2_hash = web3.eth.send_raw_transaction(signed_tx2.rawTransaction)
+    tx2_hash = web3.eth.send_raw_transaction(signed_tx2.raw_transaction)
     assert_transaction_success_with_explanation(web3, tx2_hash)
 
     fallback_provider = web3.provider
-    assert fallback_provider.api_call_counts[0]["eth_sendRawTransaction"] == 1
-    assert fallback_provider.api_retry_counts[0]["eth_sendRawTransaction"] == 0
+    assert fallback_provider.api_call_counts[0]["eth_sendraw_transaction"] == 1
+    assert fallback_provider.api_retry_counts[0]["eth_sendraw_transaction"] == 0
 
     # Then send a transaction with too low nonce.
     # We are not interested that the transaction goes thru, only
@@ -175,9 +175,9 @@ def test_fallback_nonce_too_low(web3, deployer: str):
 
     with pytest.raises(ValueError):
         # nonce too low happens during RPC call
-        tx3_hash = web3.eth.send_raw_transaction(signed_tx3.rawTransaction)
+        tx3_hash = web3.eth.send_raw_transaction(signed_tx3.raw_transaction)
 
-    assert fallback_provider.api_retry_counts[0]["eth_sendRawTransaction"] == 3  # 5 attempts, 3 retries, the last retry does not count
+    assert fallback_provider.api_retry_counts[0]["eth_sendraw_transaction"] == 3  # 5 attempts, 3 retries, the last retry does not count
 
 
 @pytest.mark.skipif(

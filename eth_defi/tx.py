@@ -37,7 +37,7 @@ def decode_signed_transaction(raw_bytes: Union[bytes, str, HexBytes]) -> dict:
     .. code-block:: python
 
         signed_tx = hot_wallet.sign_transaction_with_new_nonce(raw_tx)
-        signed_tx_bytes = signed_tx.rawTransaction
+        signed_tx_bytes = signed_tx.raw_transaction
         d = decode_signed_transaction(signed_tx_bytes)
         assert d["chainId"] == 1337
         assert d["nonce"] == 0

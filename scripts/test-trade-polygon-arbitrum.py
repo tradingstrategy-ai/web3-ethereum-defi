@@ -90,7 +90,7 @@ if allowance < 1:  # Check if the allowance is not enough
     apply_gas(tx, gas_fees)
 
     signed_tx = hot_wallet.sign_transaction_with_new_nonce(tx)
-    tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+    tx_hash = web3.eth.send_raw_transaction(signed_tx.raw_transaction)
     tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
     assert tx_receipt.status == 1, "approve usdc failed"
     print("Approved USDC successfully")
@@ -140,7 +140,7 @@ print("Max priority fee: ", tx["maxPriorityFeePerGas"])
 print("\nInitiating swap...\n")
 
 signed_tx = hot_wallet.sign_transaction_with_new_nonce(tx)
-tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+tx_hash = web3.eth.send_raw_transaction(signed_tx.raw_transaction)
 tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
 assert tx_receipt.status == 1, f"Swap failed \n{Web3.to_hex(tx_receipt.transactionHash)}\n"
 print(f"Swap successful \n{Web3.to_hex(tx_receipt.transactionHash)}\n")

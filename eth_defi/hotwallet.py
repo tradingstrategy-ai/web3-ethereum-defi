@@ -231,10 +231,10 @@ class HotWallet:
         _signed = self.account.sign_transaction(tx)
 
         # Check that we can decode
-        decode_signed_transaction(_signed.rawTransaction)
+        decode_signed_transaction(_signed.raw_transaction)
 
         signed = SignedTransactionWithNonce(
-            rawTransaction=_signed.rawTransaction,
+            rawTransaction=_signed.raw_transaction,
             hash=_signed.hash,
             v=_signed.v,
             r=_signed.r,
@@ -260,7 +260,7 @@ class HotWallet:
 
             bound_func = busd_token.functions.transfer(user_2, 50*10**18)  # Transfer 50 BUDF
             signed_tx = hot_wallet.sign_bound_call_with_new_nonce(bound_func)
-            web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+            web3.eth.send_raw_transaction(signed_tx.raw_transaction)
 
         With manual gas estimation:
 
@@ -556,7 +556,7 @@ class HotWallet:
                 }
             )
 
-            tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+            tx_hash = web3.eth.send_raw_transaction(signed_tx.raw_transaction)
             assert_transaction_success_with_explanation(web3, tx_hash)
 
         """

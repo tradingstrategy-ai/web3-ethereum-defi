@@ -115,12 +115,12 @@ def _test_supply(
 
     tx = approve_fn.build_transaction({"from": hot_wallet.address, "gas": 200_000})
     signed = hot_wallet.sign_transaction_with_new_nonce(tx)
-    tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
+    tx_hash = web3.eth.send_raw_transaction(signed.raw_transaction)
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     tx = supply_fn.build_transaction({"from": hot_wallet.address, "gas": 350_000})
     signed = hot_wallet.sign_transaction_with_new_nonce(tx)
-    tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
+    tx_hash = web3.eth.send_raw_transaction(signed.raw_transaction)
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     # nothing left in USDC balance
@@ -205,7 +205,7 @@ def test_aave_v3_withdraw(
         }
     )
     signed = hot_wallet.sign_transaction_with_new_nonce(tx)
-    tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
+    tx_hash = web3.eth.send_raw_transaction(signed.raw_transaction)
 
     if isinstance(expected_exception, Exception):
         with pytest.raises(type(expected_exception), match=str(expected_exception)) as e:
@@ -322,7 +322,7 @@ def test_aave_v3_borrow(
         }
     )
     signed = hot_wallet.sign_transaction_with_new_nonce(tx)
-    tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
+    tx_hash = web3.eth.send_raw_transaction(signed.raw_transaction)
 
     if isinstance(expected_exception, Exception):
         with pytest.raises(type(expected_exception), match=str(expected_exception)) as e:
@@ -412,7 +412,7 @@ def test_aave_v3_repay(
         }
     )
     signed = hot_wallet.sign_transaction_with_new_nonce(tx)
-    tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
+    tx_hash = web3.eth.send_raw_transaction(signed.raw_transaction)
     assert_transaction_success_with_explanation(web3, tx_hash)
     assert borrow_asset.functions.balanceOf(hot_wallet.address).call() == borrow_amount
 
@@ -432,7 +432,7 @@ def test_aave_v3_repay(
     # approve first
     tx = approve_fn.build_transaction({"from": hot_wallet.address, "gas": 200_000})
     signed = hot_wallet.sign_transaction_with_new_nonce(tx)
-    tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
+    tx_hash = web3.eth.send_raw_transaction(signed.raw_transaction)
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     # then repay
@@ -443,7 +443,7 @@ def test_aave_v3_repay(
         }
     )
     signed = hot_wallet.sign_transaction_with_new_nonce(tx)
-    tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
+    tx_hash = web3.eth.send_raw_transaction(signed.raw_transaction)
 
     if isinstance(expected_exception, Exception):
         with pytest.raises(type(expected_exception), match=str(expected_exception)) as e:

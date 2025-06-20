@@ -266,7 +266,7 @@ def deploy_lagoon(
         "nonce": web3.eth.get_transaction_count(deployer.address),
     })
     signed_tx = deployer.sign_transaction(tx_params)
-    tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+    tx_hash = web3.eth.send_raw_transaction(signed_tx.raw_transaction)
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     return vault

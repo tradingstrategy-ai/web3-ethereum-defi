@@ -135,7 +135,7 @@ DEFAULT_RETRYABLE_RPC_ERROR_CODES = (
     -32603,
     # ValueError: {'code': -32000, 'message': 'nonce too low'}.
     # Might happen when we are broadcasting multiple transactions through multiple RPC providers
-    # using eth_sendRawTransaction
+    # using eth_sendraw_transaction
     # One provider has not yet seen a transaction broadcast through the other provider.
     # CRAP! -32000 is also Execution reverted on Alchemy.
     # -32000,
@@ -593,8 +593,8 @@ def construct_sign_and_send_raw_middleware_anvil(
                 return make_request(method, params)
 
             account = accounts[transaction["from"]]
-            raw_tx = account.sign_transaction(transaction).rawTransaction
-            return make_request(RPCEndpoint("eth_sendRawTransaction"), [raw_tx.hex()])
+            raw_tx = account.sign_transaction(transaction).raw_transaction
+            return make_request(RPCEndpoint("eth_sendraw_transaction"), [raw_tx.hex()])
 
         return middleware
 

@@ -62,7 +62,7 @@ hot_wallet.sync_nonce(web3)
 signed_tx = hot_wallet.sign_transaction_with_new_nonce(tx)
 
 if False:
-    tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+    tx_hash = web3.eth.send_raw_transaction(signed_tx.raw_transaction)
     print("Broadcasting", tx_hash.hex())
 
     receipts = wait_transactions_to_complete(

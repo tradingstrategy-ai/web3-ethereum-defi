@@ -81,7 +81,7 @@ class Web3ProviderWallet(BaseWallet):
         as the signing is handled by the provider when the transaction is sent.
         Instead, it prepares the transaction with a nonce and returns a placeholder.
 
-        Call send_raw_transaction on the returned object's rawTransaction to broadcast.
+        Call send_raw_transaction on the returned object's raw_transaction to broadcast.
         """
         assert "nonce" not in tx, "Transaction already has a nonce"
         tx["nonce"] = self.allocate_nonce()
@@ -90,7 +90,7 @@ class Web3ProviderWallet(BaseWallet):
         # A placeholder for SignedTransactionWithNonce
         # The actual signing will happen when send_raw_transaction is called
         return SignedTransactionWithNonce(
-            rawTransaction=tx,  # Not actually raw, but will be processed by send_raw_transaction
+            raw_transaction=tx,  # Not actually raw, but will be processed by send_raw_transaction
             hash=None,
             r=0,
             s=0,

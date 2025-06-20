@@ -237,8 +237,8 @@ def test_wallet_adapter_sign_transaction(web3_fork, chain_name):
 
     # Verify it's a properly signed transaction
     assert signed_tx is not None
-    assert hasattr(signed_tx, "rawTransaction")
-    assert isinstance(signed_tx.rawTransaction, (bytes, HexBytes))
+    assert hasattr(signed_tx, "raw_transaction")
+    assert isinstance(signed_tx.raw_transaction, (bytes, HexBytes))
 
     # Sign transaction with nonce
     tx_with_nonce = tx.copy()
@@ -248,8 +248,8 @@ def test_wallet_adapter_sign_transaction(web3_fork, chain_name):
 
     # Verify it's a properly signed transaction
     assert signed_tx2 is not None
-    assert hasattr(signed_tx2, "rawTransaction")
-    assert isinstance(signed_tx2.rawTransaction, (bytes, HexBytes))
+    assert hasattr(signed_tx2, "raw_transaction")
+    assert isinstance(signed_tx2.raw_transaction, (bytes, HexBytes))
 
 
 def test_wallet_adapter_send_transaction(web3_fork, chain_name):

@@ -530,12 +530,12 @@ class WalletAdapterSigner(Signer):
             signed_tx = self.sign_transaction(unsigned_tx)
 
             # Extract the raw transaction bytes
-            if hasattr(signed_tx, "rawTransaction"):
-                raw_tx = cast(Any, signed_tx).rawTransaction
+            if hasattr(signed_tx, "raw_transaction"):
+                raw_tx = cast(Any, signed_tx).raw_transaction
             elif hasattr(signed_tx, "raw_transaction"):
                 raw_tx = cast(Any, signed_tx).raw_transaction
             elif isinstance(signed_tx, SignedTransactionWithNonce):
-                raw_tx = signed_tx.rawTransaction
+                raw_tx = signed_tx.raw_transaction
             else:
                 raise ValueError(f"Unknown signed transaction format: {type(signed_tx)}")
 
