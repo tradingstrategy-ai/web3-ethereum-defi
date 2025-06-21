@@ -272,8 +272,10 @@ def create_multi_provider_web3(
 
     patch_web3(web3)
 
+    # Clear existing middleware
     web3.middleware_onion.clear()
 
+    # Add the corrected static call cache middleware
     web3.middleware_onion.inject(static_call_cache_middleware(), layer=0)
 
     # Note that this triggers the first RPC call here

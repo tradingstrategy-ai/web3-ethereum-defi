@@ -624,37 +624,33 @@ def construct_sign_and_send_raw_middleware_anvil(private_key_or_account) -> Call
 
 
 def static_call_cache_middleware():
-    """Cache JSON-RPC call values that never change.
+    """Cache JSON-RPC call values that never change."""
 
-    The cache is web3 instance itself, to allow sharing the cache
-    between different JSON-RPC providers.
-    """
-
-    def builder(w3: Web3):
-        """Builder function called by web3.py"""
-
-        def cache_middleware_func(make_request, web3):
-            """Original middleware logic"""
-
-            def middleware(method, params):
-                cache = getattr(web3, "static_call_cache", {})
-                if method in STATIC_CALL_LIST:
-                    cached = cache.get(method)
-                    if cached:
-                        return cached
-
-                resp = make_request(method, params)
-                cache[method] = resp
-                web3.static_call_cache = cache
-                return resp
-
-            return middleware
-
-        # Return object with wrap_make_request method
+    def middleware_builder(w3: Web3):
         class CacheMiddleware:
-            def wrap_make_request(self, make_request):
-                return cache_middleware_func(make_request, w3)
+            def wrap_make_request(self, make_request: Callable) -> Callable:
+                def middleware(method: str, params: Any) -> dict:
+                    # Get or initialize cache on web3 instance
+                    cache = getattr(w3, "static_call_cache", {})
+
+                    # Check if this method should be cached
+                    if method in STATIC_CALL_LIST:
+                        cached_response = cache.get(method)
+                        if cached_response is not None:
+                            return cached_response
+
+                    # Make the actual request
+                    response = make_request(method, params)
+
+                    # Cache the response if method is in static list
+                    if method in STATIC_CALL_LIST:
+                        cache[method] = response
+                        w3.static_call_cache = cache
+
+                    return response
+
+                return middleware
 
         return CacheMiddleware()
 
-    return builder
+    return middleware_builder
