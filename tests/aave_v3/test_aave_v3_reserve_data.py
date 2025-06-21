@@ -1,4 +1,5 @@
 """Tests for reading reserve data."""
+
 import json
 import os
 

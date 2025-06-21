@@ -141,7 +141,7 @@ def decode_reserve_data_updated(
     # Any indexed Solidity event parameter will be in topics data.
     # The first topics (0) is always the event signature.
     if len(log["topics"]) < 2:
-        logging.warn(f'IGNORING EVENT: block={log["blockNumber"]} tx={log["transactionHash"]} topics={log["topics"]} data={log["data"]}')
+        logging.warn(f"IGNORING EVENT: block={log['blockNumber']} tx={log['transactionHash']} topics={log['topics']} data={log['data']}")
         return None
     event_signature, reserve = log["topics"]
     deposit_address = convert_uint256_string_to_address(reserve)
@@ -174,7 +174,7 @@ def decode_reserve_data_updated(
     else:
         result["token"] = None
 
-    logger.debug(f'EVENT: block={log["blockNumber"]} tx={log["transactionHash"]} token={result["token"]} reserve={deposit_address} liquidity_rate={liquidity_rate} stable_borrow_rate={stable_borrow_rate} variable_borrow_rate={variable_borrow_rate} liquidity_index={liquidity_index} variable_borrow_index={variable_borrow_rate}')
+    logger.debug(f"EVENT: block={log['blockNumber']} tx={log['transactionHash']} token={result['token']} reserve={deposit_address} liquidity_rate={liquidity_rate} stable_borrow_rate={stable_borrow_rate} variable_borrow_rate={variable_borrow_rate} liquidity_index={liquidity_index} variable_borrow_index={variable_borrow_rate}")
 
     return result
 

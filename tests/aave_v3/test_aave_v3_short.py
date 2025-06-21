@@ -1,4 +1,5 @@
 """Test open and close short position with Aave v3"""
+
 import flaky
 import pytest
 from eth_account import Account
