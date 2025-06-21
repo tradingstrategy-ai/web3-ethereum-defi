@@ -13,7 +13,6 @@ from pprint import pformat
 from typing import Optional, NamedTuple
 
 from eth_account import Account
-from eth_account.datastructures import __getitem__
 from eth_account.signers.local import LocalAccount
 from eth_typing import HexAddress
 from hexbytes import HexBytes
@@ -89,10 +88,6 @@ class SignedTransactionWithNonce(NamedTuple):
         """
         return self.rawTransaction
 
-    def __getitem__(self, index):
-        # Legacy web3.py compatibility.
-        return __getitem__(self, index)
-
 
 class HotWallet:
     """Hot wallet for signing transactions effectively.
@@ -127,7 +122,7 @@ class HotWallet:
     .. code-block:: python
 
             from eth_account import Account
-            from web3.middleware import construct_sign_and_send_raw_middleware
+            from web3.middleware import SignAndSendRawMiddlewareBuilder
 
             from eth_defi.trace import assert_transaction_success_with_explanation
             from eth_defi.hotwallet import HotWallet
@@ -141,7 +136,7 @@ class HotWallet:
             assert_transaction_success_with_explanation(web3, tx_hash)
 
             # Attach local private key to the web3.py middleware machinery
-            web3.middleware_onion.add(construct_sign_and_send_raw_middleware(account))
+            web3.middleware_onion.add(SignAndSendRawMiddlewareBuilder.build(account))
 
             # Create a hot wallet instance
             hot_wallet = HotWallet(account)
@@ -236,10 +231,10 @@ class HotWallet:
         _signed = self.account.sign_transaction(tx)
 
         # Check that we can decode
-        decode_signed_transaction(_signed.rawTransaction)
+        decode_signed_transaction(_signed.raw_transaction)
 
         signed = SignedTransactionWithNonce(
-            rawTransaction=_signed.rawTransaction,
+            rawTransaction=_signed.raw_transaction,
             hash=_signed.hash,
             v=_signed.v,
             r=_signed.r,
@@ -265,7 +260,7 @@ class HotWallet:
 
             bound_func = busd_token.functions.transfer(user_2, 50*10**18)  # Transfer 50 BUDF
             signed_tx = hot_wallet.sign_bound_call_with_new_nonce(bound_func)
-            web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+            web3.eth.send_raw_transaction(signed_tx.raw_transaction)
 
         With manual gas estimation:
 
@@ -561,7 +556,7 @@ class HotWallet:
                 }
             )
 
-            tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+            tx_hash = web3.eth.send_raw_transaction(signed_tx.raw_transaction)
             assert_transaction_success_with_explanation(web3, tx_hash)
 
         """

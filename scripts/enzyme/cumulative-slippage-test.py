@@ -3,7 +3,7 @@ import os
 
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
-from web3.middleware import construct_sign_and_send_raw_middleware
+from web3.middleware import SignAndSendRawMiddlewareBuilder
 
 from eth_defi.abi import get_deployed_contract, encode_function_call
 from eth_defi.enzyme.deployment import EnzymeDeployment, POLYGON_DEPLOYMENT
@@ -20,7 +20,7 @@ receiver = "0x7612A94AafF7a552C373e3124654C1539a4486A8"
 
 web3 = create_multi_provider_web3(json_rpc_url)
 account: LocalAccount = Account.from_key(private_key)
-web3.middleware_onion.add(construct_sign_and_send_raw_middleware(account))
+web3.middleware_onion.add(SignAndSendRawMiddlewareBuilder.build(account))
 
 deployment = EnzymeDeployment.fetch_deployment(web3, POLYGON_DEPLOYMENT)
 vault = Vault.fetch(web3, vault_address)

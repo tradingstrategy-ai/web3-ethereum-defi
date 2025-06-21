@@ -14,7 +14,7 @@ from web3.datastructures import AttributeDict
 from eth_defi.abi import get_deployed_contract
 from eth_defi.gas import node_default_gas_price_strategy
 from eth_defi.confirmation import wait_transactions_to_complete
-from web3.middleware import construct_sign_and_send_raw_middleware
+from web3.middleware import SignAndSendRawMiddlewareBuilder
 
 
 # Trace down to DEBUG level what the heck is going on
@@ -28,7 +28,7 @@ web3 = Web3(HTTPProvider(node))
 
 # We need
 account: LocalAccount = Account.from_key(private_key)
-web3.middleware_onion.add(construct_sign_and_send_raw_middleware(account))
+web3.middleware_onion.add(SignAndSendRawMiddlewareBuilder.build(account))
 
 print(f"{node} current block is {web3.eth.block_number:,}")
 

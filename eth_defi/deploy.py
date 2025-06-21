@@ -108,7 +108,7 @@ def deploy_contract(
         tx_data = Contract.constructor(*constructor_args).build_transaction(tx_params)
 
         signed_tx = deployer.sign_transaction(tx_data)
-        tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+        tx_hash = web3.eth.send_raw_transaction(signed_tx.raw_transaction)
     else:
         # Delegate to test RPC
         tx_params = {"from": deployer}

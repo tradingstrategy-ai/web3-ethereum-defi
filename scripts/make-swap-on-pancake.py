@@ -49,7 +49,7 @@ from decimal import Decimal
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
 from web3 import HTTPProvider, Web3
-from web3.middleware import construct_sign_and_send_raw_middleware
+from web3.middleware import SignAndSendRawMiddlewareBuilder
 
 from eth_defi.chain import install_chain_middleware
 from eth_defi.gas import node_default_gas_price_strategy
@@ -116,7 +116,7 @@ account: LocalAccount = Account.from_key(private_key)
 my_address = account.address
 
 # Enable eth_sendTransaction using this private key
-web3.middleware_onion.add(construct_sign_and_send_raw_middleware(account))
+web3.middleware_onion.add(SignAndSendRawMiddlewareBuilder.build(account))
 
 # Read on-chain ERC-20 token data (name, symbol, etc.)
 base = fetch_erc20_details(web3, BASE_TOKEN_ADDRESS)

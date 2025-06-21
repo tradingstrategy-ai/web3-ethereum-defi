@@ -19,7 +19,7 @@ from eth_defi.terms_of_service.acceptance_message import (
 )
 from web3 import Web3
 from web3.contract import Contract
-from web3.middleware import construct_sign_and_send_raw_middleware
+from web3.middleware import SignAndSendRawMiddlewareBuilder
 
 from eth_defi.deploy import deploy_contract
 from eth_defi.enzyme.deployment import EnzymeDeployment, RateAsset
@@ -182,7 +182,7 @@ def vault(
 
     hot_wallet = HotWallet(account)
     hot_wallet.sync_nonce(web3)
-    web3.middleware_onion.add(construct_sign_and_send_raw_middleware(account))
+    web3.middleware_onion.add(SignAndSendRawMiddlewareBuilder.build(account))
 
     return deploy_vault_with_generic_adapter(enzyme, hot_wallet, asset_manager, deployer, usdc, terms_of_service)
 

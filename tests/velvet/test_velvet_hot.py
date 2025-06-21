@@ -92,7 +92,7 @@ def test_hot_vault_swap_partially(
     signed_tx = hot_wallet.sign_transaction_with_new_nonce(tx_data)
 
     logger.info("Broadcasting LIVE tx: https://basescan.org/tx/%s", signed_tx.hash.hex())
-    tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+    tx_hash = web3.eth.send_raw_transaction(signed_tx.raw_transaction)
 
     wait_transactions_to_complete(
         web3,

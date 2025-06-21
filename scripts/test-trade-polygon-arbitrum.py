@@ -3,7 +3,7 @@
 import os
 from dotenv import load_dotenv
 from web3 import Web3
-from web3.middleware import geth_poa_middleware
+from web3.middleware import ExtraDataToPOAMiddleware
 
 from eth_account import Account
 
@@ -39,7 +39,7 @@ api_key = api_key_polygon if blockchain == "polygon" else api_key_arbitrum
 web3 = Web3(Web3.HTTPProvider(api_key))
 
 # see https://web3py.readthedocs.io/en/stable/middleware.html#geth-style-proof-of-authority
-web3.middleware_onion.inject(geth_poa_middleware, layer=0)
+web3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
 
 # create hot wallet
 account = Account.from_key(private_key)
@@ -90,7 +90,7 @@ if allowance < 1:  # Check if the allowance is not enough
     apply_gas(tx, gas_fees)
 
     signed_tx = hot_wallet.sign_transaction_with_new_nonce(tx)
-    tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+    tx_hash = web3.eth.send_raw_transaction(signed_tx.raw_transaction)
     tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
     assert tx_receipt.status == 1, "approve usdc failed"
     print("Approved USDC successfully")
@@ -140,7 +140,7 @@ print("Max priority fee: ", tx["maxPriorityFeePerGas"])
 print("\nInitiating swap...\n")
 
 signed_tx = hot_wallet.sign_transaction_with_new_nonce(tx)
-tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+tx_hash = web3.eth.send_raw_transaction(signed_tx.raw_transaction)
 tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
 assert tx_receipt.status == 1, f"Swap failed \n{Web3.to_hex(tx_receipt.transactionHash)}\n"
 print(f"Swap successful \n{Web3.to_hex(tx_receipt.transactionHash)}\n")

@@ -151,7 +151,7 @@ class GCloudHSMWallet(BaseWallet):
             }
 
             signed_tx = wallet.sign_transaction_with_new_nonce(tx)
-            tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+            tx_hash = web3.eth.send_raw_transaction(signed_tx.raw_transaction)
             assert_transaction_success_with_explanation(web3, tx_hash)
 
     Example with explicit configuration:
@@ -257,7 +257,7 @@ class GCloudHSMWallet(BaseWallet):
                 "chainId": web3.eth.chain_id,
                 "data": "0x",
             })
-            tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+            tx_hash = web3.eth.send_raw_transaction(signed_tx.raw_transaction)
 
         Args:
             tx: Ethereum transaction data as a dict
@@ -285,7 +285,7 @@ class GCloudHSMWallet(BaseWallet):
             raise Exception("Failed to sign transaction")
 
         signed = SignedTransactionWithNonce(
-            rawTransaction=signed_tx_bytes,
+            raw_transaction=signed_tx_bytes,
             hash=Web3.keccak(signed_tx_bytes),
             v=signed_tx_bytes[-1],
             r=int.from_bytes(signed_tx_bytes[0:32], "big"),
@@ -311,7 +311,7 @@ class GCloudHSMWallet(BaseWallet):
 
             bound_func = busd_token.functions.transfer(user_2, 50*10**18)  # Transfer 50 BUDF
             signed_tx = hot_wallet.sign_bound_call_with_new_nonce(bound_func)
-            web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+            web3.eth.send_raw_transaction(signed_tx.raw_transaction)
 
         With manual gas estimation:
 
@@ -417,7 +417,7 @@ class GCloudHSMWallet(BaseWallet):
                 Web3.to_checksum_address(vault.rebalance_address),
                 deposit_amount
             )
-            tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+            tx_hash = web3.eth.send_raw_transaction(signed_tx.raw_transaction)
             assert_transaction_success_with_explanation(web3, tx_hash)
 
         Chain ID management:
@@ -547,7 +547,7 @@ class GCloudHSMWallet(BaseWallet):
             signed_tx = wallet.sign_transaction_with_new_nonce(tx_data)
 
             # Broadcast the transaction
-            tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+            tx_hash = web3.eth.send_raw_transaction(signed_tx.raw_transaction)
 
         Args:
             web3: Web3 instance

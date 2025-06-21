@@ -60,7 +60,7 @@ def fetch_all_events(
     # Namely, convert event names to their keccak signatures
     # More information here:
     # https://github.com/ethereum/web3.py/blob/e176ce0793dafdd0573acc8d4b76425b6eb604ca/web3/_utils/filters.py#L71
-    data_filter_set, event_filter_params = construct_event_filter_params(abi, codec, address=address, argument_filters=argument_filters, fromBlock=from_block, toBlock=to_block)
+    data_filter_set, event_filter_params = construct_event_filter_params(abi, codec, address=address, argument_filters=argument_filters, from_block=from_block, to_block=to_block)
 
     # Call JSON-RPC API on your Ethereum node.
     # get_logs() returns raw AttributedDict entries

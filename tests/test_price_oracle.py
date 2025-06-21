@@ -18,7 +18,7 @@ import flaky
 import pytest
 from eth_defi.middleware import http_retry_request_with_sleep_middleware
 from web3 import HTTPProvider, Web3
-from web3.middleware import geth_poa_middleware
+from web3.middleware import ExtraDataToPOAMiddleware
 
 from eth_defi.event_reader.web3factory import TunedWeb3Factory
 from eth_defi.price_oracle.oracle import PriceOracle, time_weighted_average_price, NotEnoughData, DataTooOld, DataPeriodTooShort
@@ -41,7 +41,7 @@ def web3() -> Web3:
     web3 = create_multi_provider_web3(os.environ["JSON_RPC_BINANCE"])
     web3.middleware_onion.clear()
     web3.middleware_onion.inject(http_retry_request_with_sleep_middleware, layer=0)
-    web3.middleware_onion.inject(geth_poa_middleware, layer=0)
+    web3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
     return web3
 
 

@@ -228,7 +228,7 @@ def test_buy_with_slippage_when_you_know_quote_amount(
 
     # sign and broadcast
     signed_tx = hot_wallet.sign_transaction(tx)
-    tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+    tx_hash = web3.eth.send_raw_transaction(signed_tx.raw_transaction)
     tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
     assert tx_receipt.status == 1
 
@@ -283,7 +283,7 @@ def test_sell_three_way_with_slippage_when_you_know_base_amount(
 
     # sign and broadcast
     signed_tx = hot_wallet.sign_transaction(tx)
-    tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+    tx_hash = web3.eth.send_raw_transaction(signed_tx.raw_transaction)
     tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
     assert tx_receipt.status == 1
 
@@ -371,7 +371,7 @@ def test_swap_slippage_revert(
     # print(f"Price moved: {price_move_percent} %")
 
     # now the hot wallet finally manages to broadcast the tx, it should fail
-    tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+    tx_hash = web3.eth.send_raw_transaction(signed_tx.raw_transaction)
     tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
 
     assert tx_receipt.status == 0  # failure

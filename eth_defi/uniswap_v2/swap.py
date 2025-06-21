@@ -56,7 +56,7 @@ def swap_with_slippage_protection(
 
         # sign and broadcast
         signed_tx = hot_wallet.sign_transaction(tx)
-        tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+        tx_hash = web3.eth.send_raw_transaction(signed_tx.raw_transaction)
         tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
         assert tx_receipt.status == 1
 
@@ -81,7 +81,7 @@ def swap_with_slippage_protection(
         gas_fees = estimate_gas_fees(web3)
         apply_gas(tx, gas_fees)
         signed_tx = hot_wallet.sign_transaction(tx)
-        tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+        tx_hash = web3.eth.send_raw_transaction(signed_tx.raw_transaction)
         tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
         assert tx_receipt.status == 1
 

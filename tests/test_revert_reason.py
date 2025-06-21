@@ -17,7 +17,7 @@ import shutil
 import pytest
 
 from web3 import HTTPProvider, Web3
-from web3.middleware import construct_sign_and_send_raw_middleware
+from web3.middleware import SignAndSendRawMiddlewareBuilder
 
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
@@ -91,7 +91,7 @@ def web3(anvil_bnb_chain_fork: str, user_1):
     # https://web3py.readthedocs.io/en/stable/examples.html#contract-unit-tests-in-python
     web3 = Web3(HTTPProvider(anvil_bnb_chain_fork))
     install_chain_middleware(web3)
-    web3.middleware_onion.add(construct_sign_and_send_raw_middleware(user_1))
+    web3.middleware_onion.add(SignAndSendRawMiddlewareBuilder.build(user_1))
     web3.eth.set_gas_price_strategy(node_default_gas_price_strategy)
     return web3
 

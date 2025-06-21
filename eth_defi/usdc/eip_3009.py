@@ -288,7 +288,7 @@ def make_eip_3009_transfer(
     # Mute DeprecationWarning
     with warnings.catch_warnings():
         warnings.filterwarnings(action="ignore", category=DeprecationWarning)
-        signed_message = from_.signHash(message_hash)
+        signed_message = from_.unsafe_sign_hash(message_hash)
 
     # Should come in the order defined for the dict,
     # as Python 3.10+ does ordered dicts

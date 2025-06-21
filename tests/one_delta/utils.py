@@ -4,7 +4,7 @@ from eth_defi.trace import assert_transaction_success_with_explanation
 def _execute_tx(web3, hot_wallet, fn, gas=350_000):
     tx = fn.build_transaction({"from": hot_wallet.address, "gas": gas})
     signed = hot_wallet.sign_transaction_with_new_nonce(tx)
-    tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
+    tx_hash = web3.eth.send_raw_transaction(signed.raw_transaction)
     assert_transaction_success_with_explanation(web3, tx_hash)
 
 

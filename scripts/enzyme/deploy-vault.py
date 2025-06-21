@@ -62,7 +62,7 @@ import sys
 from pprint import pformat
 
 from eth_account import Account
-from web3.middleware import construct_sign_and_send_raw_middleware
+from web3.middleware import SignAndSendRawMiddlewareBuilder
 
 from eth_defi.abi import get_deployed_contract
 from eth_defi.enzyme.deployment import (
@@ -117,7 +117,7 @@ def main():
         assert etherscan_api_key is not None, "You need Etherscan API key to verify deployed prod contracts"
 
     deployer = Account.from_key(private_key)
-    web3.middleware_onion.add(construct_sign_and_send_raw_middleware(deployer))
+    web3.middleware_onion.add(SignAndSendRawMiddlewareBuilder.build(deployer))
 
     # Build the list of whitelisted assets GuardV0 allows us to trade
     whitelisted_assets = []

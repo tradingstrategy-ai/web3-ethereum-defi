@@ -7,7 +7,7 @@ import os
 
 from eth_defi.uniswap_v2.deployment import fetch_deployment
 from web3 import HTTPProvider, Web3
-from web3.middleware import geth_poa_middleware
+from web3.middleware import ExtraDataToPOAMiddleware
 
 
 def main():
@@ -15,7 +15,7 @@ def main():
 
     web3 = Web3(HTTPProvider(json_rpc_url))
     web3.middleware_onion.clear()
-    web3.middleware_onion.inject(geth_poa_middleware, layer=0)
+    web3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
 
     deployment = fetch_deployment(
         web3,

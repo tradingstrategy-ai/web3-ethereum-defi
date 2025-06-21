@@ -91,7 +91,7 @@ def test_raw_transaction_with_gas(web3: Web3, eth_tester, deployer: HexAddress, 
     apply_gas(tx, gas_fees)
 
     signed = hot_wallet_account.sign_transaction(tx)
-    tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
+    tx_hash = web3.eth.send_raw_transaction(signed.raw_transaction)
     receipt = web3.eth.get_transaction_receipt(tx_hash)
     assert receipt.status == 1  # 1=success and mined
 
@@ -123,7 +123,7 @@ def test_build_transaction_legacy(web3: Web3, deployer: str, hot_wallet_account)
     apply_gas(tx, gas_fees)
 
     signed_tx = hot_wallet.sign_transaction_with_new_nonce(tx)
-    signed_bytes = signed_tx.rawTransaction
+    signed_bytes = signed_tx.raw_transaction
     assert len(signed_bytes) > 0
 
     tx_hash = web3.eth.send_raw_transaction(signed_bytes)

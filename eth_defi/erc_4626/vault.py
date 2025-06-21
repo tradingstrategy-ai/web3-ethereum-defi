@@ -8,7 +8,7 @@ import eth_abi
 from eth_typing import HexAddress
 from web3 import Web3
 from web3.contract import Contract
-from web3.exceptions import BadFunctionCallOutput, BlockNumberOutofRange
+from web3.exceptions import BadFunctionCallOutput, BlockNumberOutOfRange
 from web3.types import BlockIdentifier
 
 from eth_defi.abi import ZERO_ADDRESS_STR
@@ -428,7 +428,7 @@ class ERC4626Vault(VaultBase):
         assert isinstance(block_identifier, (int, str)), f"Block identifier should be int or str, got {type(block_identifier)}"
         try:
             raw_amount = self.share_token.contract.functions.totalSupply().call(block_identifier=block_identifier)
-        except BlockNumberOutofRange as e:
+        except BlockNumberOutOfRange as e:
             raise RuntimeError(f"Cannot fetch total supply for block number: {block_identifier} for vault {self}") from e
         return self.share_token.convert_to_decimals(raw_amount)
 

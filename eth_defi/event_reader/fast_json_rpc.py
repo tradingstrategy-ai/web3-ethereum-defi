@@ -10,7 +10,7 @@ from typing import Any, cast
 
 import ujson
 from web3 import Web3
-from web3._utils.request import get_response_from_post_request
+from web3._utils.http_session_manager import HTTPSessionManager
 from web3.providers import JSONBaseProvider
 from web3.providers.rpc import HTTPProvider
 from web3.types import RPCEndpoint, RPCResponse
@@ -41,7 +41,9 @@ def _make_request(self, method: RPCEndpoint, params: Any) -> RPCResponse:
     """Add response headers logging in case of exception raised."""
 
     request_data = self.encode_rpc_request(method, params)
-    raw_response = get_response_from_post_request(
+
+    sessions = HTTPSessionManager()
+    raw_response = sessions.get_response_from_post_request(
         self.endpoint_uri,
         data=request_data,
         **self.get_request_kwargs(),
