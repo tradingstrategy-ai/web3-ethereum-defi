@@ -17,12 +17,45 @@ import eth_abi
 from eth_abi import decode
 from eth_typing import HexAddress, HexStr
 from eth_utils import encode_hex, function_abi_to_4byte_selector
-from eth_utils.abi import _abi_to_signature, function_signature_to_4byte_selector, event_abi_to_log_topic
 from hexbytes import HexBytes
 from web3 import Web3
 from web3._utils.abi import get_abi_input_names, get_abi_input_types
-from web3._utils.contracts import encode_abi, get_function_info
+from web3._utils.contracts import encode_abi
 from web3.contract.contract import Contract, ContractFunction, ContractEvent
+
+from eth_defi.version_detector import version_info
+
+if version_info.is_v7_or_higher:
+    try:
+        from eth_utils.abi import (
+            abi_to_signature as _abi_to_signature,
+            function_signature_to_4byte_selector,
+            event_abi_to_log_topic
+        )
+        from web3.utils import get_abi_element_info
+    except ImportError as e:
+        # Handle edge cases where function might have moved again
+        print(f"Warning: Failed to import from eth_utils.abi in v7+: {e}")
+        # Try alternative import paths
+        try:
+            from eth_utils import (
+                abi_to_signature as _abi_to_signature,
+                function_signature_to_4byte_selector,
+                event_abi_to_log_topic
+            )
+        except ImportError:
+            raise ImportError(f"Could not import ABI functions for web3.py {version_info.raw_version}")
+else:
+    # v6 imports
+    from eth_utils.abi import (
+        _abi_to_signature,
+        function_signature_to_4byte_selector,
+        event_abi_to_log_topic
+    )
+    from web3._utils.contracts import get_function_info
+
+# Create consistent interface
+abi_to_signature = _abi_to_signature
 
 # Cache loaded ABI files in-process memory for speedup
 from web3.datastructures import AttributeDict
@@ -271,8 +304,10 @@ def encode_with_signature(function_signature: str, args: Sequence) -> bytes:
     return function_selector + encoded_args
 
 
-def encode_function_args(func: ContractFunction, args: Sequence) -> bytes:
+def encode_function_args_v6(func: ContractFunction, args: Sequence) -> bytes:
     """Mimic Solidity's abi.encodeWithSignature() in Python.
+
+    For backwards support for web3.py v6.x.x
 
     Uses `web3.Contract.functions` prepared function as the ABI source.
 
@@ -296,9 +331,39 @@ def encode_function_args(func: ContractFunction, args: Sequence) -> bytes:
     encoded_args = eth_abi.encode(arg_types, args)
     return encoded_args
 
+def encode_function_args_v7(func: ContractFunction, args: Sequence) -> bytes:
+    """Mimic Solidity's abi.encodeWithSignature() in Python.
 
-def decode_function_output(func: ContractFunction, data: bytes) -> Any:
+    Latest version support for web3.py v7.x.x
+
+    Uses `web3.Contract.functions` prepared function as the ABI source.
+
+    :param func:
+        Function which arguments we are going to encode.
+
+    :param args:
+        Argument values to be encoded.
+    """
+    assert isinstance(func, ContractFunction)
+
+    web3 = func.w3
+
+    fn_info = get_abi_element_info(
+        func.contract_abi,
+        func.fn_name,
+        *args,
+        abi_codec=web3.codec
+    )
+    fn_abi = fn_info["abi"]
+    arg_types = [t["type"] for t in fn_abi["inputs"]]
+    encoded_args = eth_abi.encode(arg_types, args)
+    return encoded_args
+
+
+def decode_function_output_v6(func: ContractFunction, data: bytes) -> Any:
     """Decode raw return value of Solidity function using Contract proxy object.
+
+    For backwards support for web3.py v6.x.x
 
     Uses `web3.Contract.functions` prepared function as the ABI source.
 
@@ -325,11 +390,44 @@ def decode_function_output(func: ContractFunction, data: bytes) -> Any:
     return decoded_out
 
 
-def encode_function_call(
+def decode_function_output_v7(func: ContractFunction, data: bytes) -> Any:
+    """Decode raw return value of Solidity function using Contract proxy object.
+
+    Latest version support for web3.py v7.x.x
+
+    Uses `web3.Contract.functions` prepared function as the ABI source.
+
+    :param func:
+        Function which arguments we are going to encode.
+
+        Must be bound.
+
+    :param result:
+        Raw encoded Solidity bytes.
+    """
+    assert isinstance(func, ContractFunction)
+
+    web3 = func.w3
+
+    fn_info = get_abi_element_info(
+        func.contract_abi,
+        func.fn_name,
+        *func.args,
+        abi_codec=web3.codec
+    )
+    fn_abi = fn_info["abi"]
+
+    arg_types = [t["type"] for t in fn_abi["outputs"]]
+    decoded_out = eth_abi.decode(arg_types, data)
+    return decoded_out
+
+def encode_function_call_v6(
     func: ContractFunction,
     args: Sequence,
 ) -> HexBytes:
     """Encode function selector + its arguments as data payload.
+
+    For backwards support for web3.py v6.x.x
 
     Uses `web3.Contract.functions` prepared function as the ABI source.
 
@@ -357,6 +455,62 @@ def encode_function_call(
         fn_abi,
         args,
     )
+    try:
+        encoded = encode_abi(w3, fn_abi, fn_arguments, fn_selector)
+    except Exception as e:
+        raise RuntimeError(f"Could not encode ABI: {fn_abi}, args: {fn_arguments}") from e
+    return HexBytes(encoded)
+
+
+def encode_function_call_v7(
+        func: ContractFunction,
+        args: Sequence,
+) -> HexBytes:
+    """Encode function selector + its arguments as data payload.
+
+    Latest version support for web3.py v7.x.x
+
+    Uses `web3.Contract.functions` prepared function as the ABI source.
+
+    See also :py:func:`encode_function_args`.
+
+    :param func:
+        Function which arguments we are going to encode.
+
+    :param args:
+        Argument values to be encoded.
+
+    :return:
+        Solidity's function selector + argument payload.
+
+    """
+    w3 = func.w3
+    contract_abi = func.contract_abi
+    fn_abi = func.abi
+    fn_name = func.fn_name
+
+    if fn_abi:
+        # If we already have the function ABI, get the selector
+        fn_info = get_abi_element_info(
+            contract_abi,
+            fn_name,
+            *args,
+            abi_codec=w3.codec
+        )
+        fn_selector = fn_info["selector"]
+        fn_arguments = args
+    else:
+        # Get full function info
+        fn_info = get_abi_element_info(
+            contract_abi,
+            fn_name,
+            *args,
+            abi_codec=w3.codec
+        )
+        fn_abi = fn_info["abi"]
+        fn_selector = fn_info["selector"]
+        fn_arguments = fn_info["arguments"]
+
     try:
         encoded = encode_abi(w3, fn_abi, fn_arguments, fn_selector)
     except Exception as e:
@@ -501,7 +655,7 @@ def get_function_selector(func: ContractFunction) -> bytes:
     # https://stackoverflow.com/a/8534381/315168
     fn_abi = next((a for a in contract_abi if a.get("name") == func.fn_name), None)
     assert fn_abi, f"Could not find function {func.fn_name} in Contract ABI"
-    function_signature = _abi_to_signature(fn_abi)
+    function_signature = abi_to_signature(fn_abi)
     fn_selector = function_signature_to_4byte_selector(function_signature)  # type: ignore
     return fn_selector
 
@@ -525,7 +679,7 @@ def _hexify(s: Any):
 
 
 def present_solidity_args(a: list | tuple | Any) -> str:
-    """Try make Solidity call args human readable.
+    """Try to make Solidity call args human readable.
 
     Make sure we display bytes as hex.
 
@@ -551,6 +705,15 @@ def present_solidity_args(a: list | tuple | Any) -> str:
     """
     return _hexify(a)
 
+# Version-based aliasing
+if version_info.is_v7_or_higher:
+    encode_function_args = encode_function_args_v7
+    encode_function_call = encode_function_call_v7
+    decode_function_output = decode_function_output_v7
+else:
+    encode_function_args = encode_function_args_v6
+    encode_function_call = encode_function_call_v6
+    decode_function_output = decode_function_output_v6
 
 def format_debug_instructions(bound_call: ContractFunction, block_identifier="latest") -> str:
     """Print curl command line syntax to repeat a failed contract call.
@@ -578,3 +741,6 @@ def format_debug_instructions(bound_call: ContractFunction, block_identifier="la
     }}' \\
     $JSON_RPC_URL"""
     return debug_template
+
+# Export the functions
+__all__ = ["encode_function_args", "encode_function_call", "decode_function_output"]
