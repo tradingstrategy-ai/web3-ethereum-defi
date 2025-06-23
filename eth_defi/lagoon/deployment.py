@@ -457,7 +457,7 @@ def setup_guard(
             assert isinstance(erc_4626_vault, ERC4626Vault), f"Expected ERC4626Vault, got {type(erc_4626_vault)}: {erc_4626_vault}"
             # This will whitelist vault deposit/withdraw and its share and denomination token.
             # USDC may be whitelisted twice because denomination tokens are shared.
-            logger.info("Whitelisting ERC-4626 vault %s: %s", erc_4626_vault, erc_4626_vault.vault_address)
+            logger.info("Whitelisting ERC-4626 vault %s: %s", erc_4626_vault.name, erc_4626_vault.vault_address)
             note = f"Whitelisting {erc_4626_vault.name}"
             tx_hash = _broadcast(module.functions.whitelistERC4626(erc_4626_vault.vault_address, note))
             assert_transaction_success_with_explanation(web3, tx_hash)
