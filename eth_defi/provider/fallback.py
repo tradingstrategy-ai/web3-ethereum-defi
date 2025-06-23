@@ -241,6 +241,7 @@ class FallbackProvider(BaseNamedProvider):
 
             except Exception as e:
 
+                # Honour eth eth_call() payload data and don't try retry, logging, etc.
                 if ignore_error:
                     raise
 
