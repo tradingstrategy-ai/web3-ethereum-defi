@@ -19,6 +19,20 @@ from eth_defi.provider.named import BaseNamedProvider, NamedProvider, get_provid
 logger = logging.getLogger(__name__)
 
 
+class ExtraValueError(ValueError):
+    """A ValueError that is used to signal that the RPC response was not valid.
+
+    Add extra debugging.
+    """
+
+    def __init__(self, extra_help: str, *args, **kwargs): # real signature unknown
+        super().__init__(*args, **kwargs)
+        self.extra_help = extra_help
+
+    def __repr__(self):
+        return f"{super().__repr__()}\n{self.extra_help}"
+
+
 class FallbackStrategy(enum.Enum):
     """Different supported fallback strategies."""
 
@@ -196,6 +210,9 @@ class FallbackProvider(BaseNamedProvider):
         for i in range(self.retries + 1):
             provider = self.get_active_provider()
             try:
+                # Track API counts
+                self.api_call_counts[self.currently_active_provider][method] += 1
+
                 # Call the underlying provider
                 resp_data = provider.make_request(method, params)
 
@@ -208,12 +225,13 @@ class FallbackProvider(BaseNamedProvider):
                     # {'jsonrpc': '2.0', 'id': 23, 'error': {'code': -32003, 'message': 'nonce too low'}}
                     # This will trigger exception that will be handled by is_retryable_http_exception()
                     headers = get_last_headers()
-                    raise ValueError(f"Error in JSON-RPC response:\n{resp_data['error']}\nMethod: {method}\nParams: {pformat(params)}\nReply headers: {pformat(headers)}")
+                    error_json_payload = resp_data.get("error")
+                    raise ExtraValueError(
+                        f"Error in JSON-RPC response:\n{resp_data['error']}\nignore_error: {ignore_error}\nMethod: {method}\nParams: {pformat(params)}\nReply headers: {pformat(headers)}",
+                        error_json_payload,
+                    )
 
                 _check_faulty_rpc_response(self, method, params, resp_data)
-
-                # Track API counts
-                self.api_call_counts[self.currently_active_provider][method] += 1
 
                 return resp_data
 
@@ -222,7 +240,14 @@ class FallbackProvider(BaseNamedProvider):
                 if ignore_error:
                     raise
 
-                if is_retryable_http_exception(e, retryable_rpc_error_codes=self.retryable_rpc_error_codes, retryable_status_codes=self.retryable_status_codes, retryable_exceptions=self.retryable_exceptions, method=method, params=params):
+                if is_retryable_http_exception(
+                    e,
+                    retryable_rpc_error_codes=self.retryable_rpc_error_codes,
+                    retryable_status_codes=self.retryable_status_codes,
+                    retryable_exceptions=self.retryable_exceptions,
+                    method=method,
+                    params=params,
+                ):
                     if self.has_multiple_providers():
                         self.switch_provider()
 

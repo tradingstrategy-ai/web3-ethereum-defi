@@ -176,6 +176,7 @@ def test_fallback_nonce_too_low(web3, deployer: str):
     with pytest.raises(ValueError):
         # nonce too low happens during RPC call
         tx3_hash = web3.eth.send_raw_transaction(signed_tx3.rawTransaction)
+        web3.eth.wait_for_transaction_receipt(web3, tx3_hash)
 
     assert fallback_provider.api_retry_counts[0]["eth_sendRawTransaction"] == 3  # 5 attempts, 3 retries, the last retry does not count
 
