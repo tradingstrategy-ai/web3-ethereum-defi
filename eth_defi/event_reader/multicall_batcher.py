@@ -513,6 +513,7 @@ class EncodedCall:
         data: bytes,
         extra_data: dict | None,
         first_block_number: int | None = None,
+        ignore_errors: bool = False,
     ) -> "EncodedCall":
         """Create poller call directly from a raw function signature"""
         assert isinstance(signature,  bytes)
@@ -547,6 +548,7 @@ class EncodedCall:
         block_identifier: BlockIdentifier,
         from_=ZERO_ADDRESS_STR,
         gas=99_000_000,
+        ignore_error=False,
     ) -> bytes:
         """Return raw results of the call.
 
@@ -565,6 +567,9 @@ class EncodedCall:
             result = erc_7575_call.call(self.web3, block_identifier="latest")
             share_token_address = convert_uint256_bytes_to_address(result)
 
+        :param ignore_error:
+            Set to True to inform middleware that it is normal for this call to fail and do not log it as a failed call, or retry it.
+
         :return:
             Raw call results as bytes
 
@@ -576,6 +581,7 @@ class EncodedCall:
             "from": from_,
             "data": self.data.hex(),
             "gas": gas,
+            "ignore_error": ignore_error,  # Hint logging middleware that we should not care about if this fails
         }
         try:
             result = web3.eth.call(

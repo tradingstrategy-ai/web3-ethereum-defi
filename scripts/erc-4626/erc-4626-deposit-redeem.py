@@ -18,7 +18,16 @@ To run:
         --simulate \
         --vault 8453,0x0d877Dc7C8Fa3aD980DfDb18B48eC9F8768359C4
 
+Another example using Spark USDC vault on Base mainnet fork:
 
+.. code-block:: shell
+
+    # Test Harvest finance USDC Autopilot vault on IPOR on Base mainnet fork.
+    # You need your own Base JSON-RPC provider.
+    export JSON_RPC_BASE=...
+    python scripts/erc-4626/erc-4626-deposit-redeem.py \
+        --simulate \
+        --vault 8453,0x0d877Dc7C8Fa3aD980DfDb18B48eC9F8768359C4
 
 """
 

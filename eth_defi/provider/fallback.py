@@ -193,7 +193,8 @@ class FallbackProvider(BaseNamedProvider):
                 if "error" in resp_data:
                     # {'jsonrpc': '2.0', 'id': 23, 'error': {'code': -32003, 'message': 'nonce too low'}}
                     # This will trigger exception that will be handled by is_retryable_http_exception()
-                    raise ValueError(resp_data["error"])
+                    headers = get_last_headers()
+                    raise ValueError(f"Error in JSON-RPC response:\n{resp_data['error']}\nMethod: {method}\nParams: {pformat(params)}\nReply headers: {pformat(headers)}")
 
                 _check_faulty_rpc_response(self, method, params, resp_data)
 
@@ -203,6 +204,15 @@ class FallbackProvider(BaseNamedProvider):
                 return resp_data
 
             except Exception as e:
+
+                # The caller has requested not to retry
+                param_1 = params[0] if isinstance(params, list) and len(params) > 0 else None
+                if param_1 and isinstance(param_1, dict):
+                    # Set in EncodedCall.call(ignore_errors=True)
+                    ignore_errors = param_1.get("ignore_errors", False)
+                    if ignore_errors:
+                        raise
+
                 if is_retryable_http_exception(e, retryable_rpc_error_codes=self.retryable_rpc_error_codes, retryable_status_codes=self.retryable_status_codes, retryable_exceptions=self.retryable_exceptions, method=method, params=params):
                     if self.has_multiple_providers():
                         self.switch_provider()
