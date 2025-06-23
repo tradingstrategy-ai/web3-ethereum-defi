@@ -184,6 +184,7 @@ class FallbackProvider(BaseNamedProvider):
 
         # The caller has requested not to retry.
         # Set in EncodedCall.call(ignore_error=True)
+        ignore_error = False
         param_1 = params[0] if isinstance(params, (tuple, list)) and len(params) > 0 else None
         if param_1 and isinstance(param_1, dict):
             ignore_error = param_1.pop("ignore_error", False)
