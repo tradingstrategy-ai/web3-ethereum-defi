@@ -342,10 +342,11 @@ def test_swap_through_module_revert(
     )
     target, call_data = encode_simple_vault_transaction(trade_call)
 
-    with pytest.raises(ValueError) as e:
+    with pytest.raises(ValueError) as exc_info:
         ts_module.functions.performCall(target, call_data).transact({"from": asset_manager})
 
-    assert "TRANSFER_FROM_FAILED" in str(e)
+    formatted = str(exc_info.value)
+    assert "TRANSFER_FROM_FAILED" in formatted, f"Failed: {exc_info.e}\n{exc_info}"
 
 
 def test_swap_through_module_unauthorised(

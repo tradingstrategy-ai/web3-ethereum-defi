@@ -336,7 +336,11 @@ class ERC4626Vault(VaultBase):
                 extra_data=None,
             )
 
-            result = erc_7575_call.call(self.web3, block_identifier="latest")
+            result = erc_7575_call.call(
+                self.web3,
+                block_identifier="latest",
+                ignore_error=True,
+            )
             if len(result) == 32:
                 erc_7575 = True
                 share_token_address = convert_uint256_bytes_to_address(result)
