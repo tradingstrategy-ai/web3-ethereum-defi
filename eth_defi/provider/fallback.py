@@ -177,7 +177,20 @@ class FallbackProvider(BaseNamedProvider):
 
         - If there are errors try cycle through providers and sleep
           between cycles until one provider works
+
+        - Use a special "ignore_error" parameter to skip retries,
+          if given in ``eth_call`` payload.
         """
+
+        # The caller has requested not to retry.
+        # Set in EncodedCall.call(ignore_error=True)
+        param_1 = params[0] if isinstance(params, (tuple, list)) and len(params) > 0 else None
+        if param_1 and isinstance(param_1, dict):
+            ignore_error = param_1.pop("ignore_error", False)
+            if ignore_error:
+                # Don't pass the flag to RPC
+                params = [param_1, *params[1:]]
+
         current_sleep = self.sleep
         for i in range(self.retries + 1):
             provider = self.get_active_provider()
@@ -205,13 +218,8 @@ class FallbackProvider(BaseNamedProvider):
 
             except Exception as e:
 
-                # The caller has requested not to retry
-                param_1 = params[0] if isinstance(params, list) and len(params) > 0 else None
-                if param_1 and isinstance(param_1, dict):
-                    # Set in EncodedCall.call(ignore_errors=True)
-                    ignore_errors = param_1.get("ignore_errors", False)
-                    if ignore_errors:
-                        raise
+                if ignore_error:
+                    raise
 
                 if is_retryable_http_exception(e, retryable_rpc_error_codes=self.retryable_rpc_error_codes, retryable_status_codes=self.retryable_status_codes, retryable_exceptions=self.retryable_exceptions, method=method, params=params):
                     if self.has_multiple_providers():
