@@ -413,6 +413,8 @@ def setup_guard(
     tx_hash = _broadcast(module.functions.allowReceiver(safe.address, "Whitelist Safe as trade receiver"))
     assert_transaction_success_with_explanation(web3, tx_hash)
 
+    anvil = is_anvil(web3)
+
     # Whitelist Uniswap v2
     if uniswap_v2:
         logger.info("Whitelisting Uniswap v2 router: %s", uniswap_v2.router.address)
@@ -462,9 +464,14 @@ def setup_guard(
             tx_hash = _broadcast(module.functions.whitelistERC4626(erc_4626_vault.vault_address, note))
             assert_transaction_success_with_explanation(web3, tx_hash)
 
+            if not anvil:
+                logger.info("Enforce vault tx readback lag on mainnet, sleeping 10 seconds")
+                time.sleep(20)
+
             # Check we really whitelisted the vault,
             # e.g. not a bad contract version
-            assert module.functions.isAllowedApprovalDestination(erc_4626_vault.vault_address).call() == True
+            result = module.functions.isAllowedApprovalDestination(erc_4626_vault.vault_address).call()
+            assert result == True, f"Guard {module.address} approval check for ERC-4626 vault failed, attempted to whitelist: {erc_4626_vault.vault_address}, isAllowedApprovalDestination(): {result}"
     else:
         logger.info("Not whitelisted: any ERC-4626 vaults")
 
