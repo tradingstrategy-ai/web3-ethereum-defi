@@ -40,6 +40,10 @@ ZERO_ADDRESS_STR = "0x0000000000000000000000000000000000000000"
 #: Ethereum 0x0000000000000000000000000000000000000000 address
 ZERO_ADDRESS = ZERO_ADDRESS_STR
 
+#: Used by Gnosis Safe in linked lists
+#: https://github.com/safe-global/safe-smart-account/pull/993
+ONE_ADDRESS_STR = "0x0000000000000000000000000000000000000001"
+
 
 @lru_cache(maxsize=_CACHE_SIZE)
 def get_abi_by_filename(fname: str) -> dict:

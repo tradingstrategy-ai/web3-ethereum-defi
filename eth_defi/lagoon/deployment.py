@@ -102,6 +102,9 @@ class LagoonAutomatedDeployment:
     block_number: BlockNumber
     parameters: LagoonDeploymentParameters
 
+    #: In redeploy guard, the old module
+    old_trading_strategy_module: Contract | None = None
+
     @property
     def safe(self) -> Safe:
         return self.vault.safe
@@ -539,6 +542,8 @@ def deploy_automated_lagoon_vault(
     else:
         deployer_local_account = deployer
 
+    existing_guard_module = None
+
     # Hack together a nonce management helper
     def _broadcast(bound_func: ContractFunction):
         assert isinstance(bound_func, ContractFunction)
@@ -586,6 +591,23 @@ def deploy_automated_lagoon_vault(
             vault_contract.functions.pendingSilo().call()
         except Exception as e:
             raise RuntimeError(f"Does not look like Lagoon vault: {existing_vault_address}") from e
+
+        # Look up the old module
+        modules = safe.retrieve_modules()
+        for module_addr in modules:
+            module = get_deployed_contract(
+                web3,
+                "safe-integration/TradingStrategyModuleV0.json",
+                module_addr
+            )
+
+            try:
+                module.functions.getGovernanceAddress()
+                existing_guard_module = module
+            except ValueError as e:
+                continue
+
+        assert existing_guard_module is not None, f"Cannot find TradingStrategyModuleV0 on Safe {safe.address} with vault {vault_contract.address}, modules {modules}"
 
     if not is_anvil(web3):
         logger.info("Between contracts deployment delay: Sleeping %s for new nonce to propagade", between_contracts_delay_seconds)
@@ -691,6 +713,7 @@ def deploy_automated_lagoon_vault(
         block_number=web3.eth.block_number,
         deployer=deployer.address,
         parameters=parameters,
+        old_trading_strategy_module=existing_guard_module,
     )
 
 

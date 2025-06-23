@@ -15,7 +15,7 @@ from safe_eth.safe.safe import SafeV141
 from web3 import Web3
 from web3.contract.contract import ContractFunction
 
-from eth_defi.abi import ZERO_ADDRESS_STR
+from eth_defi.abi import ZERO_ADDRESS_STR, ONE_ADDRESS_STR
 from eth_defi.safe.safe_compat import create_safe_ethereum_client
 from eth_defi.trace import assert_transaction_success_with_explanation
 
@@ -171,8 +171,6 @@ def disable_safe_module(
     - Safe makes disable module transaction unnecessary complicated,
       because the internal linked list is exposed
 
-    - Cannot handle disabling a single module https://github.com/safe-global/safe-smart-account/issues/992
-
     :raise ValueError:
         Module is not enabled.
 
@@ -188,7 +186,8 @@ def disable_safe_module(
         raise ValueError(f"Module {module_address} not found in Safe {safe_address} modules: {modules}") from e
 
     if idx == 0:
-        previous_module = ZERO_ADDRESS_STR
+        # See https://github.com/safe-global/safe-smart-account/pull/993
+        previous_module = ONE_ADDRESS_STR
     else:
         previous_module = modules[idx - 1]
 

@@ -5,6 +5,7 @@
 - Add: Gnosis Safe Anvil mainnet fork transaction simulation, when you do not all private keys of Gnosis Safe multisig co-signers
 - Add: `ignore_error` flag for `eth_call` in fallback/retry middleware. Allow the caller to signal that it is normal for `eth_call` request to fail, and retries should not be ignored, or the failure should not be logged
 - Add: [ERC-4626 deposit and redeem workflow improvements, tutorial](https://web3-ethereum-defi.readthedocs.io/tutorials/erc-4626-deposit-redeem.html)
+- Add: `disable_safe_module()` for Safe multisigs
 
 # 0.30
 
