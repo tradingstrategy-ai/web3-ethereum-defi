@@ -210,8 +210,6 @@ class FallbackProvider(BaseNamedProvider):
         for i in range(self.retries + 1):
             provider = self.get_active_provider()
             try:
-                # Track API counts
-                self.api_call_counts[self.currently_active_provider][method] += 1
 
                 # Call the underlying provider
                 resp_data = provider.make_request(method, params)
@@ -223,7 +221,9 @@ class FallbackProvider(BaseNamedProvider):
                 # Might be also related to EthereumTester only code paths.
                 if "error" in resp_data:
                     # {'jsonrpc': '2.0', 'id': 23, 'error': {'code': -32003, 'message': 'nonce too low'}}
-                    # This will trigger exception that will be handled by is_retryable_http_exception()
+                    # This will trigger exception that will be handled by is_retryable_http_exception().
+                    # We add extra error message payload to make the exception more understandable in common error situations,
+                    # while still maintaining the compatibility with vanilla ValueError()
                     headers = get_last_headers()
                     error_json_payload = resp_data.get("error")
                     raise ExtraValueError(
@@ -232,6 +232,10 @@ class FallbackProvider(BaseNamedProvider):
                     )
 
                 _check_faulty_rpc_response(self, method, params, resp_data)
+
+                # Track succeed API counts,
+                # see test_fallback_single_fault
+                self.api_call_counts[self.currently_active_provider][method] += 1
 
                 return resp_data
 
