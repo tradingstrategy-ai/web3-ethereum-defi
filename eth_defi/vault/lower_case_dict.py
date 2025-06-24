@@ -1,5 +1,6 @@
 """Ethereum address headache tools."""
 
+
 class LowercaseDict(dict):
     """A dictionary subclass that automatically converts all string keys to lowercase.
 
@@ -14,7 +15,7 @@ class LowercaseDict(dict):
         # Handle initialization from dict or kwargs
         if args:
             if len(args) > 1:
-                raise TypeError('expected at most 1 argument, got %d' % len(args))
+                raise TypeError("expected at most 1 argument, got %d" % len(args))
             self.update(args[0])
         if kwargs:
             self.update(kwargs)
