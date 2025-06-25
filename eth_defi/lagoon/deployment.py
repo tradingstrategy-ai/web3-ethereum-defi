@@ -465,6 +465,7 @@ def setup_guard(
             assert_transaction_success_with_explanation(web3, tx_hash)
 
             if not anvil:
+                # TODO: A hack on Base mainnet inconsitency
                 logger.info("Enforce vault tx readback lag on mainnet, sleeping 10 seconds")
                 time.sleep(20)
 

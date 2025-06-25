@@ -82,7 +82,7 @@ def deposit_redeem(
     """Perform deposit and redeem transactions.
 
     - 4 transactions total with approves
-    - `See here for IPOR error codes<https://www.codeslaw.app/contracts/base/0x12e9b15ad32faeb1a02f5ddd99254309faf5f2f8?tab=abi>`__
+    - `See here for IPOR error codes <https://www.codeslaw.app/contracts/base/0x12e9b15ad32faeb1a02f5ddd99254309faf5f2f8?tab=abi>`__
 
     :return:
         Dict for slippage analysis
@@ -257,7 +257,7 @@ def main():
         vault=vault,
         hot_wallet=hot_wallet,
         deposit_value=deposit_value,
-        redeem_wait_seconds=redeem_wait_seconds,
+        redeem_wait_seconds=0 and redeem_wait_seconds,
     )
 
     slippage = (analysis["redeemed_value"] - analysis["deposit_value"]) / analysis["deposit_value"]
