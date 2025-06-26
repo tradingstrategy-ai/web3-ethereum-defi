@@ -22,6 +22,7 @@ def _move_columns_to_front(
 
 def format_markdown_table(
     df: pd.DataFrame,
+    columns: list[str] | None = None,
 ) -> pd.DataFrame:
     """Format a DataFrame as a Markdown table.
     
@@ -33,14 +34,17 @@ def format_markdown_table(
         raise RuntimeError("No data available.")
     
     def _format_links(row: pd.Series) -> pd.Series:
-        index = row.name
-        vault_name = index
+        if "name" in row:
+            vault_name = row["name"]
+        else:
+            index = row.name
+            vault_name = index
         vault_id = row["id"]
         chain_id, address = vault_id.split("-")
         vault_link = get_address_link(chain_id, address)
         return f"[{vault_name}]({vault_link})"
 
-    def _format_chain_name(row: pd.Series) -> pd.Series:
+    def _format_chain_name(row: pd.Series) -> pd.Series:        
         index = row.name
         vault_id = row["id"]
         chain_id, address = vault_id.split("-")
@@ -62,11 +66,13 @@ def format_markdown_table(
     df["Vault"] = df.apply(_format_links, axis=1)
     df["Chain"] = df.apply(_format_chain_name, axis=1)
 
-
-
     df = df.reset_index(drop=True)
+    df.index = df.index + 1  # Start index at 1 for Markdown table
     
     df = _move_columns_to_front(df, ["Vault", "Chain"])
+
+    if columns:
+        df = df[columns]
 
     return df
 
