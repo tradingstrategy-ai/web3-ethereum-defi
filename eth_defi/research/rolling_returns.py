@@ -16,21 +16,56 @@ CHART_HISTORY = pd.Timedelta(days=30*4)  #
 
 
 
+def wrap_legend_text(text: str, max_length: int = 30) -> str:
+    """Wrap long legend text by inserting line breaks."""
+    if len(text) <= max_length:
+        return text
+    
+    words = text.split()
+    lines = []
+    current_line = []
+    current_length = 0
+    
+    for word in words:
+        # If adding this word would exceed the limit, start a new line
+        if current_length + len(word) + len(current_line) > max_length and current_line:
+            lines.append(' '.join(current_line))
+            current_line = [word]
+            current_length = len(word)
+        else:
+            current_line.append(word)
+            current_length += len(word)
+    
+    # Add the last line
+    if current_line:
+        lines.append(' '.join(current_line))
+    
+    return '<br>'.join(lines)
+
+
 def visualise_rolling_returns(
     df: pd.DataFrame,
     title: str,
+    legend_wrap_length: int = 30,
 ) -> Figure:
     assert isinstance(df, pd.DataFrame), "df must be a pandas DataFrame"
     assert isinstance(title, str), f"title must be a string: {title}"
+    
+    # Create a copy of the dataframe to avoid modifying the original
+    df_plot = df.copy()
+    
+    # Wrap long legend names
+    df_plot['name_wrapped'] = df_plot['name'].apply(lambda x: wrap_legend_text(x, legend_wrap_length))
+    
     fig = px.line(
-        df, 
+        df_plot, 
         x='timestamp', 
         y='rolling_1m_returns_annualized',
-        color='name',
+        color='name_wrapped',
         title=title,
         labels={'rolling_1m_returns': '1M rolling return annualised (%)',
                 'timestamp': 'Time',
-                'name': 'Vault'},
+                'name_wrapped': 'Vault'},
         hover_data=['id'],
         color_discrete_sequence=qualitative.Dark24,
         )
@@ -40,7 +75,11 @@ def visualise_rolling_returns(
         yaxis_title='1M rolling return annualised (%)',
         legend_title='Vaults',
         hovermode='closest',
-        template=pio.templates.default
+        template=pio.templates.default,
+        legend=dict(
+            valign='top',  # Align legend items to top
+            itemsizing='constant',  # Keep consistent item sizing
+        )
     )
 
     fig.update_traces(line=dict(width=4))

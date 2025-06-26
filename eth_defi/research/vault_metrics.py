@@ -56,7 +56,7 @@ def calculate_lifetime_metrics(
         # Get the first and last date
         start_date = group.index.min()
         end_date = group.index.max()
-        years = (end_date - start_date).days / 365.25        
+        age = years = (end_date - start_date).days / 365.25        
         cagr = (1 + lifetime_return) ** (1 / years) - 1 if years > 0 else np.nan
 
         # Calculate 3 months CAGR
@@ -82,7 +82,7 @@ def calculate_lifetime_metrics(
             'chain': get_chain_name(chain_id),            
             'peak_nav': max_nav,            
             'current_nav': current_nav,
-            'years': years, 
+            'years': age, 
             "mgmt_fee": mgmt_fee,
             "perf_fee": perf_fee,
             "event_count": event_count,
