@@ -62,7 +62,7 @@ CHAIN_HOMEPAGES = {
     130: {"name": "Unichain", "homepage": "https://www.uniswap.org/unichain"},  # Uniswap's Unichain
     645749: {"name": "Hyperliquid", "homepage": "https://hyperliquid.xyz"},  # Primary Hyperliquid entry
     8453: {"name": "Base", "homepage": "https://www.base.org"},
-    146: {"name": "Sonic", "homepage": "https://sonic.so"},  # Formerly Fantom Sonic
+    146: {"name": "Sonic", "homepage": "https://www.soniclabs.com/"},  # Formerly Fantom Sonic
     34443: {"name": "Mode", "homepage": "https://www.mode.network"},
     5000: {"name": "Mantle", "homepage": "https://www.mantle.xyz"},
     999: {"name": "Hyperliquid", "homepage": "https://hyperliquid.xyz"},  # Duplicate, same as 645749

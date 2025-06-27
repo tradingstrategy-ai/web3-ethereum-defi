@@ -59,6 +59,9 @@ def format_markdown_table(
     # Remove newlines in text strings,
     # because Markdown cannot handle them
     df = df.map(lambda x: x.replace("\n", " ") if isinstance(x, str) else x)
+
+    # Fix "<Unknown protocol" breaking HTML tags
+    df = df.map(lambda x: "" if isinstance(x, str) and "<unknown" in x.lower() else x)
     
     # Format all float values to 2 decimal places
     df = df.map(lambda x: f"{x:.2f}" if isinstance(x, float) else x)
