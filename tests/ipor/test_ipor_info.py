@@ -5,7 +5,6 @@
 import os
 
 import pytest
-from scipy.signal import dbode
 from web3 import Web3
 
 from eth_defi.erc_4626.classification import detect_vault_features
