@@ -27,7 +27,7 @@ Another example using Spark USDC vault on Base mainnet fork:
     export JSON_RPC_BASE=...
     python scripts/erc-4626/erc-4626-deposit-redeem.py \
         --simulate \
-        --vault 8453,0x0d877Dc7C8Fa3aD980DfDb18B48eC9F8768359C4
+        --vault 8453,0x7bfa7c4f149e7415b73bdedfe609237e29cbf34a
 
 """
 

@@ -1,7 +1,8 @@
 """IPOR Base mainnet fork based tests.
 
-- Read various information out of the vault
+- Read vault redemption delay
 """
+import datetime
 import os
 
 import pytest
@@ -25,24 +26,27 @@ def web3() -> Web3:
 
 @pytest.fixture(scope='module')
 def test_block_number() -> int:
-    return 27975506
+    return 32155807
 
 
 @pytest.fixture()
 def vault(web3) -> IPORVault:
     """TODO: Optimise test speed - fetch vault data only once per this module"""
-    spec = VaultSpec(8545, "0x45aa96f0b3188d47a1dafdbefce1db6b37f58216")
+    spec = VaultSpec(8545, "0x0d877Dc7C8Fa3aD980DfDb18B48eC9F8768359C4")
     return IPORVault(web3, spec)
 
 
-def test_ipor_fee(
+
+def test_ipor_redemption_delay(
     web3: Web3,
     vault: IPORVault,
     test_block_number,
 ):
-    """Read IPOR vault fees."""
-    block_number = test_block_number
-    assert vault.get_management_fee(block_number) == 0.01
-    assert vault.get_performance_fee(block_number) == 0.10
+    """Read IPOR vault redemption delay."""
 
+    # Harvest USDC Autopilot
+    # REDEMPTION_DELAY_IN_SECONDS = 1
+    # https://basescan.org/address/0x187937aab9b2d57D606D0C3fB98816301fcE0d1f#readContract
+    delay = vault.get_redemption_delay()
+    assert delay == datetime.timedelta(seconds=1)
 

@@ -126,6 +126,10 @@ def redeem_4626(
 
     - `See here for IPOR error codes <https://www.codeslaw.app/contracts/base/0x12e9b15ad32faeb1a02f5ddd99254309faf5f2f8?tab=abi>`__
 
+    .. note::
+
+        You need at least 6_000_000 gas to redeem from IPOR vault.
+
     .. table:: Key Differences Between Redeem and Withdraw in ERC-4626
 
        +----------------+----------------------------------------+----------------------------------------+
