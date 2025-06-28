@@ -27,12 +27,13 @@ Another example using Spark USDC vault on Base mainnet fork:
     export JSON_RPC_BASE=...
     python scripts/erc-4626/erc-4626-deposit-redeem.py \
         --simulate \
-        --vault 8453,0x0d877Dc7C8Fa3aD980DfDb18B48eC9F8768359C4
+        --vault 8453,0x7bfa7c4f149e7415b73bdedfe609237e29cbf34a
 
 """
 
 import logging
 import os
+import datetime
 from decimal import Decimal
 import argparse
 from typing import cast
@@ -40,8 +41,8 @@ from typing import cast
 from web3 import Web3
 from web3.contract.contract import ContractFunction
 
-from eth_defi.chain import get_chain_name
-from eth_defi.erc_4626.classification import create_vault_instance
+from eth_defi.chain import get_chain_name, get_block_time
+from eth_defi.erc_4626.classification import create_vault_instance, detect_vault_features
 from eth_defi.erc_4626.flow import approve_and_deposit_4626, approve_and_redeem_4626
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.hotwallet import HotWallet
@@ -49,6 +50,7 @@ from eth_defi.provider.anvil import fork_network_anvil, create_fork_funded_walle
 from eth_defi.provider.env import read_json_rpc_url
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.provider.named import get_provider_name
+from eth_defi.timestamp import get_block_timestamp
 from eth_defi.token import fetch_erc20_details, USDC_NATIVE_TOKEN, LARGE_USDC_HOLDERS
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.utils import setup_console_logging
@@ -94,6 +96,18 @@ def deposit_redeem(
     # so do not wait for long time if it is going to crash
     timeout = 10 if is_anvil(web3) else 60
 
+    # If we live in a forked universe, time can be whatever
+    block_number = web3.eth.block_number
+    now_ = get_block_timestamp(web3, block_number)
+
+    # Check for non-instant deposit/redemem cycle
+    try:
+        redemption_delay = vault.get_redemption_delay()
+    except NotImplementedError:
+        redemption_delay = "<unimplemented>"
+
+    logger.info("Vault %s (%s) redemption delay: %s", vault.name, vault.address, redemption_delay)
+
     def _perform_tx(func: ContractFunction):
         signed_tx = hot_wallet.sign_bound_call_with_new_nonce(
             func,
@@ -126,8 +140,21 @@ def deposit_redeem(
     share_count = vault.share_token.fetch_balance_of(hot_wallet.address)
     logger.info("We received %f %s", share_count, vault.share_token.symbol)
 
-    logger.info("Redeeming, simulated waiting for %s seconds", redeem_wait_seconds)
-    if redeem_wait_seconds:
+    try:
+        redemption_over = vault.get_redemption_delay_over(hot_wallet.address)
+        redemption_delay = redemption_over - now_
+        redemption_delay_seconds = redemption_delay.total_seconds()
+    except NotImplementedError:
+        redemption_delay = "<unimplemented>"
+        redemption_delay_seconds = None
+
+    logger.info("After deposit, address has %s redemption over at: %s (%s seconds)", hot_wallet.address, redemption_delay, redemption_delay_seconds)
+
+    if redemption_delay_seconds:
+        logger.info("Simulating redeem delay. Using vault-given redemption_delay_seconds: %s", redemption_delay_seconds)
+        mine(web3, increase_timestamp=redemption_delay_seconds + 1)
+    elif redeem_wait_seconds:
+        logger.info("Simulating redeem delay. Using default redemption_delay_seconds: %s", redeem_wait_seconds)
         mine(web3, increase_timestamp=redeem_wait_seconds)
 
     func_3, func_4 = approve_and_redeem_4626(
@@ -228,15 +255,19 @@ def main():
         hot_wallet = None
         raise NotImplementedError("TODO: Unfinished")
 
+    features = detect_vault_features(web3, spec.vault_address, verbose=False)
+    logger.info("Detected vault features: %s", features)
+
     vault = create_vault_instance(
         web3,
         spec.vault_address,
+        features=features,
     )
 
     vault = cast(ERC4626Vault, vault)
     assert vault.is_valid(), f"Vault contract does not look like ERC-4626: {vault.address}"
 
-    logger.info("Using vault %s (%s)", vault.name, vault.address)
+    logger.info("Using vault %s (%s), our proxy class is %s", vault.name, vault.address, vault.__class__.__name__)
 
     usdc = fetch_erc20_details(web3, usdc_address)
 
