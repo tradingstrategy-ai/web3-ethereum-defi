@@ -599,7 +599,7 @@ class VaultBase(ABC):
         """
         raise NotImplementedError(f"Class {self.__class__.__name__} does not implement get_redemption_delay()")
 
-    def get_redemption_delay_left(self, address: HexAddress | str) -> datetime.timedelta:
+    def get_redemption_delay_over(self, address: HexAddress | str) -> datetime.datetime:
         """Get the redemption timer left for an address.
 
         - How long it takes before a redemption request is allowed
@@ -610,12 +610,14 @@ class VaultBase(ABC):
           if you `try to instantly redeem from IPOR vaults <https://ethereum.stackexchange.com/questions/170119/is-there-a-way-to-map-binary-solidity-custom-errors-to-their-symbolic-sources>`__
 
         :return:
-            Redemption delay as a :py:class:`datetime.timedelta`
+            UTC timestamp when the account can redeem.
+
+            Naive datetime.
 
         :raises NotImplementedError:
             If not implemented for this vault protocoll.
         """
-        raise NotImplementedError(f"Class {self.__class__.__name__} does not implement get_redemption_delay_left()")
+        raise NotImplementedError(f"Class {self.__class__.__name__} does not implement get_redemption_delay_over()")
 
     def get_management_fee(self, block_identifier: BlockIdentifier) -> float:
         """Get the current management fee as a percent.
