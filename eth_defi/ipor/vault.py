@@ -189,3 +189,15 @@ class IPORVault(ERC4626Vault):
         access_manager = self.access_manager
         seconds = access_manager.functions.REDEMPTION_DELAY_IN_SECONDS().call()
         return datetime.timedelta(seconds=seconds)
+
+    def get_redemption_delay_left(self, address: str) -> datetime.timedelta:
+        """Get the redemption delay left for an account.
+
+        :return: Redemption delay as a timedelta.
+        """
+        # IPOR vaults do not have a redemption delay
+        # https://basescan.org/address/0x187937aab9b2d57D606D0C3fB98816301fcE0d1f#readContract
+        access_manager = self.access_manager
+        seconds = access_manager.functions.getAccountLockTime(address).call()
+        # import ipdb; ipdb.set_trace()
+        return datetime.timedelta(seconds=seconds)

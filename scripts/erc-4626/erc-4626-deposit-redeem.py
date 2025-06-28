@@ -35,13 +35,14 @@ import logging
 import os
 from decimal import Decimal
 import argparse
+from tabnanny import verbose
 from typing import cast
 
 from web3 import Web3
 from web3.contract.contract import ContractFunction
 
 from eth_defi.chain import get_chain_name
-from eth_defi.erc_4626.classification import create_vault_instance
+from eth_defi.erc_4626.classification import create_vault_instance, detect_vault_features
 from eth_defi.erc_4626.flow import approve_and_deposit_4626, approve_and_redeem_4626
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.hotwallet import HotWallet
@@ -94,6 +95,14 @@ def deposit_redeem(
     # so do not wait for long time if it is going to crash
     timeout = 10 if is_anvil(web3) else 60
 
+    # Check for non-instant deposit/redemem cycle
+    try:
+        redemption_delay = vault.get_redemption_delay()
+    except NotImplementedError:
+        redemption_delay = "<unimplemented>"
+
+    logger.info("Vault %s (%s) redemption delay: %s", vault.name, vault.address, redemption_delay)
+
     def _perform_tx(func: ContractFunction):
         signed_tx = hot_wallet.sign_bound_call_with_new_nonce(
             func,
@@ -125,6 +134,13 @@ def deposit_redeem(
 
     share_count = vault.share_token.fetch_balance_of(hot_wallet.address)
     logger.info("We received %f %s", share_count, vault.share_token.symbol)
+
+    try:
+        redemption_delay = vault.get_redemption_delay_left(hot_wallet.address)
+    except NotImplementedError:
+        redemption_delay = "<unimplemented>"
+
+    logger.info("After deposit, address has %s redemption delay left: %s", hot_wallet.address, redemption_delay)
 
     logger.info("Redeeming, simulated waiting for %s seconds", redeem_wait_seconds)
     if redeem_wait_seconds:
@@ -228,15 +244,19 @@ def main():
         hot_wallet = None
         raise NotImplementedError("TODO: Unfinished")
 
+    features = detect_vault_features(web3, spec.vault_address, verbose=False)
+    logger.info("Detected vault features: %s", features)
+
     vault = create_vault_instance(
         web3,
         spec.vault_address,
+        features=features,
     )
 
     vault = cast(ERC4626Vault, vault)
     assert vault.is_valid(), f"Vault contract does not look like ERC-4626: {vault.address}"
 
-    logger.info("Using vault %s (%s)", vault.name, vault.address)
+    logger.info("Using vault %s (%s), our proxy class is %s", vault.name, vault.address, vault.__class__.__name__)
 
     usdc = fetch_erc20_details(web3, usdc_address)
 

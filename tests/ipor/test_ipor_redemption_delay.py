@@ -8,6 +8,7 @@ import os
 import pytest
 from web3 import Web3
 
+from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.ipor.vault import IPORVault
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 
@@ -50,3 +51,17 @@ def test_ipor_redemption_delay(
     delay = vault.get_redemption_delay()
     assert delay == datetime.timedelta(seconds=1)
 
+
+
+def test_ipor_redemption_delay_left(
+    web3: Web3,
+    vault: IPORVault,
+    test_block_number,
+):
+    """Read IPOR vault redemption delay left."""
+
+    # Harvest USDC Autopilot
+    # REDEMPTION_DELAY_IN_SECONDS = 1
+    # https://basescan.org/address/0x187937aab9b2d57D606D0C3fB98816301fcE0d1f#readContract
+    delay = vault.get_redemption_delay_left(ZERO_ADDRESS_STR)
+    assert delay == datetime.timedelta(seconds=0)

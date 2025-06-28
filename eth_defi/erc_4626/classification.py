@@ -5,7 +5,7 @@
 """
 from collections import defaultdict
 from collections.abc import Iterable
-from itertools import chain
+import logging
 
 import eth_abi
 from attr import dataclass
@@ -18,6 +18,9 @@ from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.event_reader.multicall_batcher import EncodedCall, read_multicall_chunked, EncodedCallResult
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.vault.base import VaultBase, VaultSpec
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -254,7 +257,11 @@ def identify_vault_features(
     calls: dict[str, EncodedCallResult],
     debug_text: str | None,
 ) -> set[ERC4626Feature]:
-    """Based on multicall results, create the feature flags for the vault."""
+    """Based on multicall results, create the feature flags for the vault..
+
+    :param calls:
+        Call name -> result
+    """
 
     features = set()
 
@@ -413,20 +420,78 @@ def probe_vaults(
         )
 
 
+def detect_vault_features(
+    web3: Web3,
+    address: HexAddress | str,
+    verbose=True,
+) -> set[ERC4626Feature]:
+    """Detect the ERC-4626 features of a vault smart contract.
+
+    - Protocols: Harvest, Lagoon, etc.
+    - Does support ERC-7540
+    - Very slow, only use in scripts and tutorials.
+    - Use to pass to :py:func:`create_vault_instance` to get a correct Python proxy class for the vault institated.
+
+    Example:
+
+    .. code-block:: python
+
+        features = detect_vault_features(web3, spec.vault_address, verbose=False)
+        logger.info("Detected vault features: %s", features)
+
+        vault = create_vault_instance(
+            web3,
+            spec.vault_address,
+            features=features,
+        )
+
+    :param verbose:
+        Disable for command line scripts
+    """
+    address = Web3.to_checksum_address(address)
+    logger.info("Detecting vault features for %s", address)
+    probe_calls = list(create_probe_calls([address]))
+    block_number = web3.eth.block_number
+
+    results = {}
+    for call in probe_calls:
+        result = call.call_as_result(
+            web3,
+            block_identifier=block_number,
+            ignore_error=True,
+        )
+        if verbose:
+            logger.info("Result for %s: %s, error: %s", call.func_name, result.success, str(result.revert_exception))
+        results[call.func_name] = result
+
+    features = identify_vault_features(results, debug_text=f"vault: {address}")
+    return features
+
+
 def create_vault_instance(
     web3: Web3,
     address: HexAddress,
     features: set[ERC4626Feature] | None = None,
     token_cache: dict | None = None,
+    auto_detect: bool = False,
 ) -> VaultBase | None:
     """Create a new vault instance class based on the detected features.
 
-    - Get a a protocol-specific Python instance that can e.g. read the fees of the vault (not standardised).
+    - Get a protocol-specific Python instance that can e.g. read the fees of the vault (not standardised).
+
+    See also
+    - :py:func:`detect_vault_features` to determine features for a vault address
 
     :param features:
         Previously/manually extracted vault feature flags for the type.
 
         Give empty set for generic ERC-4626 vault class.
+
+    :param auto_detect:
+        Auto-detect the vault protocol.
+
+        Very slow, do not use except in tutorials and scripts.
+        Prefer to manually pass ``feature``.
 
     :return:
         None if the vault creation is not supported
@@ -435,6 +500,10 @@ def create_vault_instance(
     if not features:
         # If no features are given, we assume it is a generic ERC-4626 vault
         features = {}
+
+    if auto_detect:
+        assert not features, "Do not pass features when auto-detecting vault type"
+
 
     spec = VaultSpec(web3.eth.chain_id, address.lower())
 

@@ -23,6 +23,7 @@ from itertools import islice
 from pprint import pformat
 from typing import TypeAlias, Iterable, Generator, Hashable, Any, Final, Callable
 
+from hexbytes import HexBytes
 from requests import HTTPError
 from tqdm_loggable.auto import tqdm
 
@@ -592,6 +593,48 @@ class EncodedCall:
         except Exception as e:
             raise ValueError(f"Call failed: {str(e)}\nBlock: {block_identifier}, chain: {web3.eth.chain_id}\nTransaction data:{pformat(transaction)}") from e
 
+    def call_as_result(
+        self,
+        web3: Web3,
+        block_identifier: BlockIdentifier,
+        from_=ZERO_ADDRESS_STR,
+        gas=99_000_000,
+        ignore_error=False,
+    ) -> "EncodedCallResult":
+        """Perform RPC call and return the result as an :py:class:`EncodedCallResult`.
+
+        - Performs an RPC call and returns a wrapped result in an :py:class:`EncodedCallResult`.
+
+        See :py:meth:`call` for info.
+        """
+
+        try:
+            raw_result = self.call(
+                web3=web3,
+                block_identifier=block_identifier,
+                from_=from_,
+                gas=gas,
+                ignore_error=ignore_error,
+            )
+
+            assert isinstance(raw_result, HexBytes), f"Expected HexBytes, got {type(raw_result)}: {raw_result.hex()}"
+
+            return EncodedCallResult(
+                call=self,
+                success=True,
+                result=bytes(raw_result),
+                block_identifier=block_identifier,
+            )
+        except ValueError as e:
+            # TODO: RPCs can return varying exceptoins here
+            return EncodedCallResult(
+                call=self,
+                success=False,
+                result=b"",
+                block_identifier=block_identifier,
+                revert_exception=e,
+            )
+
 
 @dataclass(slots=True, frozen=True)
 class EncodedCallResult:
@@ -615,6 +658,9 @@ class EncodedCallResult:
     success: bool
     result: bytes
     block_identifier: BlockIdentifier
+
+    #: Not available in multicalls, only through :py:meth:`EncodedCall.call_as_result`
+    revert_exception: Exception | None = None
 
     def __repr__(self):
         return f"<Call {self.call} at block {self.block_identifier}, success {self.success}, result: {self.result.hex()}, result len {len(self.result)}>"

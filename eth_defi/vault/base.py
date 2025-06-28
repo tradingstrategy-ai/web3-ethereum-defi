@@ -599,6 +599,24 @@ class VaultBase(ABC):
         """
         raise NotImplementedError(f"Class {self.__class__.__name__} does not implement get_redemption_delay()")
 
+    def get_redemption_delay_left(self, address: HexAddress | str) -> datetime.timedelta:
+        """Get the redemption timer left for an address.
+
+        - How long it takes before a redemption request is allowed
+
+        - This is not specific for any address, but the general vault rule
+
+        - E.g. you get  0xa592703b is an IPOR Fusion error code AccountIsLocked,
+          if you `try to instantly redeem from IPOR vaults <https://ethereum.stackexchange.com/questions/170119/is-there-a-way-to-map-binary-solidity-custom-errors-to-their-symbolic-sources>`__
+
+        :return:
+            Redemption delay as a :py:class:`datetime.timedelta`
+
+        :raises NotImplementedError:
+            If not implemented for this vault protocoll.
+        """
+        raise NotImplementedError(f"Class {self.__class__.__name__} does not implement get_redemption_delay_left()")
+
     def get_management_fee(self, block_identifier: BlockIdentifier) -> float:
         """Get the current management fee as a percent.
 
