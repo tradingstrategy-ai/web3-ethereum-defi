@@ -63,5 +63,5 @@ def test_ipor_redemption_delay_left(
     # Harvest USDC Autopilot
     # REDEMPTION_DELAY_IN_SECONDS = 1
     # https://basescan.org/address/0x187937aab9b2d57D606D0C3fB98816301fcE0d1f#readContract
-    delay = vault.get_redemption_delay_over(ZERO_ADDRESS_STR)
-    assert delay == datetime.timedelta(seconds=0)
+    redeem_available_at = vault.get_redemption_delay_over(ZERO_ADDRESS_STR)
+    assert redeem_available_at == datetime.datetime(1970, 1, 1, 0, 0)
