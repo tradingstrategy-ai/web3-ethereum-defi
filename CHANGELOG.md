@@ -7,7 +7,8 @@
 - Add: [ERC-4626 deposit and redeem workflow improvements, tutorial](https://web3-ethereum-defi.readthedocs.io/tutorials/erc-4626-deposit-redeem.html)
 - Add: `disable_safe_module()` for Safe multisigs
 - Add: Support accessing IPOR redemption delay 
-- Add: Support Etherscan-style ABI files that are just a JSON list of ABI items, not a full ABI dictionary 
+- Add: Support Etherscan-style ABI files that are just a JSON list of ABI items, not a full ABI dictionary
+- Add: `detect_vault_features(address)` to easily detect arbitrary vaults
 
 # 0.30
 
