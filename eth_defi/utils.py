@@ -8,19 +8,19 @@ import random
 import socket
 import time
 from itertools import islice
-from typing import Optional, Tuple
+from typing import Optional
 from urllib.parse import urlparse
 
 import psutil
-
+from eth_typing import HexAddress, HexStr
 
 logger = logging.getLogger(__name__)
 
 
-def sanitise_string(s: str, max_length: int | None=None) -> str:
+def sanitise_string(s: str, max_length: int | None = None) -> str:
     """Remove null characters."""
     # https://stackoverflow.com/a/18762899/315168
-    fixed = s.replace("\x00", "\U0000FFFD")
+    fixed = s.replace("\x00", "\U0000FFFD")  # fmt: off
     if max_length is not None:
         return fixed[0:max_length]
     return fixed
@@ -81,7 +81,7 @@ def shutdown_hard(
     block=True,
     block_timeout=30,
     check_port: Optional[int] = None,
-) -> Tuple[bytes, bytes]:
+) -> tuple[bytes, bytes]:
     """Kill Psutil process.
 
     - Straight out OS `SIGKILL` a process
@@ -220,4 +220,17 @@ def chunked(iterable, chunk_size):
         yield chunk
 
 
+def addr(address: str | HexAddress | HexStr) -> HexAddress:
+    """
+    Convert various address formats to HexAddress.
 
+    Args:
+        address: Can be a string, HexAddress, or HexStr
+
+    Returns:
+        HexAddress object
+    """
+    if isinstance(address, (str, HexStr)):
+        return HexAddress(HexStr(address))
+    else:
+        return address
