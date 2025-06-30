@@ -1,4 +1,5 @@
 """Price oracle implementation for Uniswap v2 pools."""
+
 import datetime
 from collections import Counter
 from dataclasses import dataclass

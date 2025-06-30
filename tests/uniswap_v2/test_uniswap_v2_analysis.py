@@ -1,4 +1,5 @@
 """Test Uniswap v2 liquidity provision and trading."""
+
 from decimal import Decimal
 
 import pytest

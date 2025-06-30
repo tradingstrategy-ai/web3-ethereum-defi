@@ -132,6 +132,7 @@ Example:
         print(f"Quoted price (no execution slippage): {quoted_price:,.2f} {quote_token.symbol}")
         print(f"Price impact: {price_impact * 100:.2f}%")
 
+
     if __name__ == "__main__":
         main()
 
@@ -163,8 +164,8 @@ class UniswapV3PriceHelper:
     """Internal helper class for price calculations."""
 
     def __init__(
-            self,
-            uniswap_v3: UniswapV3Deployment,
+        self,
+        uniswap_v3: UniswapV3Deployment,
     ):
         self.deployment = uniswap_v3
 
@@ -288,7 +289,7 @@ class UniswapV3PriceHelper:
 def estimate_buy_received_amount(
     uniswap: UniswapV3Deployment,
     base_token_address: HexAddress | str,
-    quote_token_address: HexAddress| str,
+    quote_token_address: HexAddress | str,
     quantity: Decimal | int,
     target_pair_fee: int,
     *,
@@ -316,7 +317,7 @@ def estimate_buy_received_amount(
         assert eth_received / (10**18) == pytest.approx(0.9667409780905836)
 
         # Calculate price of ETH as $ for our purchase
-        price = (1650*10**18) / eth_received
+        price = (1650 * 10**18) / eth_received
         assert price == pytest.approx(Decimal(1706.7653460381143))
 
     :param quantity:

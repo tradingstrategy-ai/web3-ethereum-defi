@@ -8,6 +8,7 @@ To run tests in this module:
     pytest -k test_eth_usdc_price_concurrent
 
 """
+
 import datetime
 import os
 from decimal import Decimal

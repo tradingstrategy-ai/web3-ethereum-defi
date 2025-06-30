@@ -1,4 +1,5 @@
 """Uniswap v2 synthetic data generation tests."""
+
 import secrets
 from decimal import Decimal
 

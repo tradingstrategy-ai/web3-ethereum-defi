@@ -1,4 +1,5 @@
 """Liquidity measuring."""
+
 from dataclasses import dataclass
 from typing import Union
 
