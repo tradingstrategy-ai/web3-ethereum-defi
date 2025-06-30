@@ -1,6 +1,5 @@
-"""Block header store.
+"""Block header store."""
 
-"""
 import abc
 from typing import Tuple, Optional
 
