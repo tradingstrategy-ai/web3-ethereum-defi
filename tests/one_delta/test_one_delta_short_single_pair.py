@@ -1,4 +1,5 @@
 """Test 1delta opening and closing positions using forked Polygon."""
+
 import logging
 import os
 import shutil
