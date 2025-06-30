@@ -2,6 +2,7 @@
 
 See :py:class:`Vault`.
 """
+
 from decimal import Decimal
 from dataclasses import dataclass
 from functools import cached_property
@@ -23,6 +24,7 @@ from eth_defi.hotwallet import HotWallet
 from eth_defi.token import TokenDetails, fetch_erc20_details
 
 logger = logging.getLogger(__name__)
+
 
 # Cannot be slots because of cached property
 # @dataclass(slots=True)
@@ -445,6 +447,3 @@ class Vault:
             nominated_owner=nominated_owner,
             asset_manager=asset_manager,  # We cannot read asset manager back from the vault because it's just EVM hash map
         )
-
-
-

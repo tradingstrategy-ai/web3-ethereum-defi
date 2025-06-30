@@ -392,7 +392,6 @@ def deploy_guard(
     deployer.sync_nonce(web3)
 
     if not mock_guard:
-
         usdc_token = fetch_erc20_details(web3, denomination_asset.address)
         all_assets = [usdc_token] + whitelisted_assets
         for asset in all_assets:
@@ -466,7 +465,6 @@ def deploy_guard(
             assert_transaction_success_with_explanation(web3, tx_hash)
 
         if aave:
-
             note = f"Allow Aave v3 pool"
             tx_hash = guard.functions.whitelistAaveV3(aave_pool_address, note).transact({"from": deployer.address})
             assert_transaction_success_with_explanation(web3, tx_hash)
@@ -602,8 +600,10 @@ def bind_vault(
         vault.address,
         production,
         meta,
-    ).transact({
-        "from": deployer.address,
-        "gas": gas,
-    })
+    ).transact(
+        {
+            "from": deployer.address,
+            "gas": gas,
+        }
+    )
     assert_transaction_success_with_explanation(web3, tx_hash)
