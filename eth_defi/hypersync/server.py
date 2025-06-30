@@ -2,6 +2,7 @@
 
 - `Find source page here <https://docs.envio.dev/docs/HyperSync/hypersync-supported-networks>`__
 """
+
 from web3 import Web3
 
 #: Converted with Grok.
