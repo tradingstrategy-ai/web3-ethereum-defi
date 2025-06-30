@@ -123,7 +123,7 @@ def web3(anvil_bnb_fork) -> Web3:
 def bnb_usdt_token(web3) -> TokenDetails:
     return fetch_erc20_details(
         web3,
-        USDT_NATIVE_TOKEN[web3.eth.chain_id]
+        USDT_NATIVE_TOKEN[web3.eth.chain_id],
     )
 
 
@@ -136,7 +136,6 @@ def bnb_cake_token(web3) -> TokenDetails:
     return fetch_erc20_details(web3, "0x0e09fabb73bd3ade0a17ecc321fd13a19e81ce82")
 
 
-
 @pytest.fixture()
 def hot_wallet_user(web3, bnb_usdt_token, usdt_holder) -> HotWallet:
     """A test account with USDC balance."""
@@ -144,7 +143,7 @@ def hot_wallet_user(web3, bnb_usdt_token, usdt_holder) -> HotWallet:
     hw = HotWallet.create_for_testing(
         web3,
         test_account_n=1,
-        eth_amount=10
+        eth_amount=10,
     )
     hw.sync_nonce(web3)
 
@@ -163,7 +162,6 @@ def hot_wallet_user(web3, bnb_usdt_token, usdt_holder) -> HotWallet:
     return hw
 
 
-
 @pytest.fixture()
 def vault(web3) -> VelvetVault:
     return VelvetVault(
@@ -173,10 +171,7 @@ def vault(web3) -> VelvetVault:
 
 
 def test_velvet_bnb_fetch_info(vault: VelvetVault):
-    """Read vault metadata from the Velvet endpoint.
-
-
-    """
+    """Read vault metadata from the Velvet endpoint."""
     data = vault.fetch_info()
     assert data["owner"] == "0xc9edbb9f5b3f55b7cc87a8af6a695f18200e47af"
     vault.check_valid_contract()
@@ -273,7 +268,7 @@ def test_velvet_bnb_swap_very_little(
     )
 
     #  code 500: {"message":"Could not quote shortcuts for route 0x833589fcd6edb6e08f4c7c32d4f71b54bda02913 -> 0x6921b130d297cc43754afba22e5eac0fbf8db75b on network 8453, please make sure your amountIn (1) is within an acceptable range","description":"failed enso request"}
-    #with pytest.raises(VelvetSwapError):
+    # with pytest.raises(VelvetSwapError):
     tx_data = vault.prepare_swap_with_enso(
         token_in=bnb_usdt_token.address,
         token_out=bnb_cake_token.address,
@@ -292,13 +287,12 @@ def test_velvet_bnb_swap_very_little(
     receipt = web3.eth.get_transaction_receipt(tx_hash)
 
 
-
 def test_velvet_bnb_swap_analyse(
     vault: VelvetVault,
     vault_owner: HexAddress,
     slippage: float,
     bnb_cake_token,
-    bnb_usdt_token
+    bnb_usdt_token,
 ):
     """Analyse the receipt of Velvet swap transaction
 
