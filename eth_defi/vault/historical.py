@@ -8,6 +8,7 @@
 
 See :py:class:`VaultHistoricalReadMulticaller` for usage.
 """
+
 import logging
 import os
 import tempfile
@@ -44,6 +45,7 @@ DEFAULT_BLACK_LIST = [
 
 class ParquetScanResult(TypedDict):
     """Result of generating historical prices Parquet file."""
+
     existing: bool
     chain_id: int
     rows_written: int
@@ -124,8 +126,8 @@ class VaultHistoricalReadMulticaller:
     ) -> dict[HexAddress, VaultHistoricalReader]:
         """Create readrs for vaults."""
         logger.info(
-        "Preparing readers for %d vaults, using %d threads",
-    len(vaults),
+            "Preparing readers for %d vaults, using %d threads",
+            len(vaults),
             self.max_workers,
         )
 
@@ -135,7 +137,7 @@ class VaultHistoricalReadMulticaller:
 
         # Warm up token disk cache for denomination tokens.
         # We need to load this up before because we need to calculate share price for amount 1 in denomination token (USDC)
-        token_addresses = Parallel(n_jobs=self.max_workers, backend='threading')(delayed(self._prepare_denomination_token)(v) for v in vaults)
+        token_addresses = Parallel(n_jobs=self.max_workers, backend="threading")(delayed(self._prepare_denomination_token)(v) for v in vaults)
         token_addresses = [a for a in token_addresses if a is not None]
         self.token_cache.load_token_details_with_multicall(
             chain_id=chain_id,
@@ -145,7 +147,7 @@ class VaultHistoricalReadMulticaller:
 
         # Each vault reader creation causes ~5 RPC call as it initialises the token information.
         # We do parallel to cut down the time here.
-        results = Parallel(n_jobs=self.max_workers, backend='threading')(delayed(self._prepare_reader)(v) for v in vaults)
+        results = Parallel(n_jobs=self.max_workers, backend="threading")(delayed(self._prepare_reader)(v) for v in vaults)
         readers = {r.address: r for r in results}
         return readers
 
@@ -162,13 +164,13 @@ class VaultHistoricalReadMulticaller:
         if display_progress:
             progress_bar = tqdm(
                 total=len(readers),
-                unit=' readers',
-                desc=f"Preparing historical multicalls for {len(readers)} readers using {self.max_workers} workers"
+                unit=" readers",
+                desc=f"Preparing historical multicalls for {len(readers)} readers using {self.max_workers} workers",
             )
         else:
             progress_bar = None
 
-        results = Parallel(n_jobs=self.max_workers, backend='threading')(delayed(self._prepare_multicalls)(r) for r in readers.values())
+        results = Parallel(n_jobs=self.max_workers, backend="threading")(delayed(self._prepare_multicalls)(r) for r in readers.values())
 
         for r in results:
             if progress_bar is not None:
@@ -193,7 +195,9 @@ class VaultHistoricalReadMulticaller:
         readers = self.prepare_readers(vaults)
         logger.info("Prepared %d readers", len(readers))
         calls = list(self.generate_vault_historical_calls(readers))
-        logger.info(f"Starting historical read loop, total calls {len(calls)} per block, {start_block:,} - {end_block:,} blocks, step is {step}", )
+        logger.info(
+            f"Starting historical read loop, total calls {len(calls)} per block, {start_block:,} - {end_block:,} blocks, step is {step}",
+        )
 
         vault_data: dict[HexAddress, list[EncodedCallResult]] = defaultdict(list)
 
@@ -204,6 +208,7 @@ class VaultHistoricalReadMulticaller:
 
         active_vault_set = set()
         last_block_at = None
+
         def progress_bar_suffix():
             return {
                 "Active vaults": len(active_vault_set),
@@ -221,8 +226,7 @@ class VaultHistoricalReadMulticaller:
             max_workers=self.max_workers,
             progress_suffix=progress_bar_suffix,
             require_multicall_result=self.require_multicall_result,
-            ):
-
+        ):
             active_vault_set.clear()
 
             # Transform single multicall call results to calls batched by vault-results
@@ -382,14 +386,13 @@ def scan_historical_prices_to_parquet(
         existing_table = None
 
     if existing_table is not None:
-
         logger.info(
             "Detected existing file %s with %d rows",
             output_fname,
-            len(existing_table)
+            len(existing_table),
         )
         # Clear existing entries for this chain
-        mask = pc.equal(existing_table['chain'], chain_id)
+        mask = pc.equal(existing_table["chain"], chain_id)
         rows_deleted = pc.sum(mask).as_py() or 0
         existing_table = existing_table.filter(pc.invert(mask))
         existing_row_count = existing_table.num_rows
@@ -408,12 +411,11 @@ def scan_historical_prices_to_parquet(
 
     # Perform atomic update of the prices Parquet file
     with tempfile.NamedTemporaryFile(
-        mode='wb',
+        mode="wb",
         dir=output_fname.parent,
-        suffix='.parquet',
-        delete=False
+        suffix=".parquet",
+        delete=False,
     ) as tmp:
-
         # Initialize ParquetWriter with the schema
         temp_fname = tmp.name
         writer = pq.ParquetWriter(temp_fname, schema, compression=compression)
@@ -449,7 +451,7 @@ def scan_historical_prices_to_parquet(
     size = output_fname.stat().st_size
 
     logger.info(
-        f"Exported {rows_written} rows, file size is now {size:,} bytes"
+        f"Exported {rows_written} rows, file size is now {size:,} bytes",
     )
 
     return ParquetScanResult(
@@ -462,4 +464,3 @@ def scan_historical_prices_to_parquet(
         existing_row_count=existing_row_count,
         chunks_done=chunks_done,
     )
-
