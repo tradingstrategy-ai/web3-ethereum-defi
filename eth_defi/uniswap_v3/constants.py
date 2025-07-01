@@ -51,7 +51,7 @@ UNISWAP_V3_DEPLOYMENTS = {
         "quoter": "0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a",
         "quoter_v2": True,
         "router_v2": True,
-    }
+    },
 }
 
 # address of factory deployed on Ethereum mainnet, Polygon, Optimism, Arbitrum
@@ -62,10 +62,10 @@ UNISWAP_V3_FACTORY_CREATED_AT_BLOCK = 12369621
 
 # Subgraph endpoints
 UNISWAP_V3_SUBGRAPH_ENDPOINTS = {
-    1 : f"https://gateway-arbitrum.network.thegraph.com/api/$/subgraphs/id/5zvR82QoaXYFyDEKLZ9t6v9adgnptxYpKpSbxtgVENFV",
-    42161 : f"https://gateway-arbitrum.network.thegraph.com/api/$/subgraphs/id/FbCGRftH4a3yZugY7TnbYgPJVEv2LvMT6oF1fxPe9aJM",
-    10 : f"https://gateway-arbitrum.network.thegraph.com/api/$/subgraphs/id/Cghf4LfVqPiFw6fp6Y5X5Ubc8UpmUhSfJL82zwiBFLaj",
-    8453 : f"https://gateway-arbitrum.network.thegraph.com/api/$/subgraphs/id/3RGpVwLywy5nNV17BPRC3QvGZPwKXQFQLsSK6Txr2jzi"
+    1: f"https://gateway-arbitrum.network.thegraph.com/api/$/subgraphs/id/5zvR82QoaXYFyDEKLZ9t6v9adgnptxYpKpSbxtgVENFV",
+    42161: f"https://gateway-arbitrum.network.thegraph.com/api/$/subgraphs/id/FbCGRftH4a3yZugY7TnbYgPJVEv2LvMT6oF1fxPe9aJM",
+    10: f"https://gateway-arbitrum.network.thegraph.com/api/$/subgraphs/id/Cghf4LfVqPiFw6fp6Y5X5Ubc8UpmUhSfJL82zwiBFLaj",
+    8453: f"https://gateway-arbitrum.network.thegraph.com/api/$/subgraphs/id/3RGpVwLywy5nNV17BPRC3QvGZPwKXQFQLsSK6Txr2jzi",
 }
 
 # https://etherscan.io/address/0x1F98431c8aD98523631AE4a59f267346ea31F984#code

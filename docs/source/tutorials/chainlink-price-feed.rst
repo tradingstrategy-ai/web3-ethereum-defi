@@ -16,7 +16,7 @@ Here is an example how to read any Chainlink price feed.
 
 Sample output:
 
-.. code-block:: text
+.. code-block:: none
 
    The token price of is 306.34 BNB / USD
 

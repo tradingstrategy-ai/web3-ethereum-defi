@@ -12,9 +12,8 @@ Tutorials
 
 More info
 
+- `Difference between preview and redeem in ERC-4626 <https://x.com/i/grok/share/4wpbfzVDk7PrQO8g41R0cpr6b>`__.
 - https://ethereum.org/en/developers/docs/standards/tokens/erc-4626/
 - https://docs.openzeppelin.com/contracts/5.x/erc4626
 
 """
-
-

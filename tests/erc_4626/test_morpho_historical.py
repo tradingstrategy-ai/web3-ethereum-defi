@@ -21,7 +21,7 @@ JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
 pytestmark = pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHEREUM needed to run these tests")
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def web3() -> Web3:
     web3 = create_multi_provider_web3(JSON_RPC_ETHEREUM)
     return web3
@@ -48,7 +48,7 @@ def test_steakhouse_usdt(
         web3,
         address="0xbEef047a543E45807105E51A8BBEFCc5950fcfBa",
         features={ERC4626Feature.morpho_like},
-        token_cache=token_cache
+        token_cache=token_cache,
     )
 
     vaults = [
@@ -87,7 +87,7 @@ def test_steakhouse_usdt(
         vaults=vaults,
         start_block=start,
         end_block=end,
-        step=24*3600 // 12,
+        step=24 * 3600 // 12,
         token_cache=token_cache,
         require_multicall_result=True,
     )

@@ -1,4 +1,5 @@
 """Mock token deployment."""
+
 import pytest
 from web3 import EthereumTesterProvider, Web3
 

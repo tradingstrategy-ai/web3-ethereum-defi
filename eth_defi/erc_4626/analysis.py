@@ -1,4 +1,5 @@
 """ERC-4626 deposit slippage analysis."""
+
 from decimal import Decimal
 from typing import Literal
 

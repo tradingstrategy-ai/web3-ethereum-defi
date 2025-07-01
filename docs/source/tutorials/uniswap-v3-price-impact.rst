@@ -29,7 +29,7 @@ To run:
 
 Example output:
 
-.. code-block:: text
+.. code-block:: none
 
     --------------------------------------------------------------------------------
     Uniswap pool details

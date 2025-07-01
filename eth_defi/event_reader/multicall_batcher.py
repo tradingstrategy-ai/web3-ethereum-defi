@@ -11,6 +11,7 @@
     See Multicall `private key leak hack warning <https://github.com/mds1/multicall>`__.
 
 """
+
 import abc
 import datetime
 import logging
@@ -23,6 +24,7 @@ from itertools import islice
 from pprint import pformat
 from typing import TypeAlias, Iterable, Generator, Hashable, Any, Final, Callable
 
+from hexbytes import HexBytes
 from requests import HTTPError
 from tqdm_loggable.auto import tqdm
 
@@ -64,7 +66,7 @@ MUTLICALL_DEPLOYED_AT: Final[dict[int, tuple[BlockNumber, datetime.datetime]]] =
     43114: (11_907_934, datetime.datetime(2022, 3, 9, 23, 11, 52)),  # Ava
     42161: (7_654_707, datetime.datetime(2022, 3, 9, 16, 5, 28)),  # Arbitrum
     5000: (304717, datetime.datetime(2023, 6, 29)),  # Mantle
-    100: (21022491, datetime.datetime(2022, 4, 9)), # Gnosis  https://blockscout.com/xdai/mainnet/address/0xcA11bde05977b3631167028862bE2a173976CA11/contracts
+    100: (21022491, datetime.datetime(2022, 4, 9)),  # Gnosis  https://blockscout.com/xdai/mainnet/address/0xcA11bde05977b3631167028862bE2a173976CA11/contracts
     324: (3908235, datetime.datetime(2023, 5, 24)),  # Zksync
     42220: (13112599, datetime.datetime(2022, 5, 21)),  # Celo https://celo.blockscout.com/tx/0xe21952e50a541d6a9129009429b4c931841f95817235b2a7de4d0904c6278afb
     2741: (284377, datetime.datetime(2025, 1, 28)),  # Abstract https://abscan.org/tx/0x99fbeee476b397360a2a8cdac20488053198520c3055b78888a52bb765cb3051
@@ -83,6 +85,7 @@ class MulticallRetryable(Exception):
 
     Try to decrease batch size.
     """
+
 
 class MulticallNonRetryable(Exception):
     """Need to take a manual look these errors."""
@@ -161,7 +164,6 @@ def call_multicall(
     logger.info("Multicall result fetch and handling took %s, output was %d bytes", duration, out_size)
 
     return results
-
 
 
 def call_multicall_encoded(
@@ -292,7 +294,7 @@ def call_multicall_debug_single_thread(
 
 
 def _batcher(iterable: Iterable, batch_size: int) -> Generator:
-    """"Batch data into lists of batch_size length. The last batch may be shorter.
+    """ "Batch data into lists of batch_size length. The last batch may be shorter.
 
     https://stackoverflow.com/a/8290514/2527433
     """
@@ -352,18 +354,20 @@ class MulticallWrapper(abc.ABC):
     def get_address_and_data(self) -> tuple[HexAddress, bytes]:
         data = encode_function_call(
             self.call,
-            self.call.args
+            self.call.args,
         )
         return self.call.address, data
 
     def get_human_args(self) -> str:
         """Get Solidity args as human readable string for debugging."""
         args = self.call.args
+
         def _humanise(a):
             if not type(a) == int:
                 if hasattr(a, "hex"):
                     return a.hex()
             return str(a)
+
         return "(" + ", ".join(_humanise(a) for a in args) + ")"
 
     def multicall_callback(self, succeed: bool, raw_return_value: Any) -> Any:
@@ -390,18 +394,17 @@ class MulticallWrapper(abc.ABC):
                 self.get_human_id(),
                 raw_return_value,
             )
-            raise e #  0.0000673
+            raise e  #  0.0000673
 
         if self.debug:
             logger.info(
-            "Succeed: %s, got handled value %s",
+                "Succeed: %s, got handled value %s",
                 self,
                 self.get_human_id(),
                 value,
             )
 
         return value
-
 
 
 @dataclass(slots=True, frozen=True)
@@ -418,7 +421,7 @@ class EncodedCall:
 
     .. code-block:: python
 
-        convert_to_shares_payload = eth_abi.encode(['uint256'], [share_probe_amount])
+        convert_to_shares_payload = eth_abi.encode(["uint256"], [share_probe_amount])
 
         share_price_call = EncodedCall.from_keccak_signature(
             address=address,
@@ -495,7 +498,7 @@ class EncodedCall:
         assert isinstance(extra_data, dict)
         data = encode_function_call(
             call,
-            call.args
+            call.args,
         )
         return EncodedCall(
             func_name=call.fn_name,
@@ -513,9 +516,10 @@ class EncodedCall:
         data: bytes,
         extra_data: dict | None,
         first_block_number: int | None = None,
+        ignore_errors: bool = False,
     ) -> "EncodedCall":
         """Create poller call directly from a raw function signature"""
-        assert isinstance(signature,  bytes)
+        assert isinstance(signature, bytes)
         assert len(signature) == 4
         assert isinstance(data, bytes)
 
@@ -547,6 +551,7 @@ class EncodedCall:
         block_identifier: BlockIdentifier,
         from_=ZERO_ADDRESS_STR,
         gas=99_000_000,
+        ignore_error=False,
     ) -> bytes:
         """Return raw results of the call.
 
@@ -565,6 +570,9 @@ class EncodedCall:
             result = erc_7575_call.call(self.web3, block_identifier="latest")
             share_token_address = convert_uint256_bytes_to_address(result)
 
+        :param ignore_error:
+            Set to True to inform middleware that it is normal for this call to fail and do not log it as a failed call, or retry it.
+
         :return:
             Raw call results as bytes
 
@@ -576,6 +584,7 @@ class EncodedCall:
             "from": from_,
             "data": self.data.hex(),
             "gas": gas,
+            "ignore_error": ignore_error,  # Hint logging middleware that we should not care about if this fails
         }
         try:
             result = web3.eth.call(
@@ -585,6 +594,48 @@ class EncodedCall:
             return result
         except Exception as e:
             raise ValueError(f"Call failed: {str(e)}\nBlock: {block_identifier}, chain: {web3.eth.chain_id}\nTransaction data:{pformat(transaction)}") from e
+
+    def call_as_result(
+        self,
+        web3: Web3,
+        block_identifier: BlockIdentifier,
+        from_=ZERO_ADDRESS_STR,
+        gas=99_000_000,
+        ignore_error=False,
+    ) -> "EncodedCallResult":
+        """Perform RPC call and return the result as an :py:class:`EncodedCallResult`.
+
+        - Performs an RPC call and returns a wrapped result in an :py:class:`EncodedCallResult`.
+
+        See :py:meth:`call` for info.
+        """
+
+        try:
+            raw_result = self.call(
+                web3=web3,
+                block_identifier=block_identifier,
+                from_=from_,
+                gas=gas,
+                ignore_error=ignore_error,
+            )
+
+            assert isinstance(raw_result, HexBytes), f"Expected HexBytes, got {type(raw_result)}: {raw_result.hex()}"
+
+            return EncodedCallResult(
+                call=self,
+                success=True,
+                result=bytes(raw_result),
+                block_identifier=block_identifier,
+            )
+        except ValueError as e:
+            # TODO: RPCs can return varying exceptoins here
+            return EncodedCallResult(
+                call=self,
+                success=False,
+                result=b"",
+                block_identifier=block_identifier,
+                revert_exception=e,
+            )
 
 
 @dataclass(slots=True, frozen=True)
@@ -605,10 +656,14 @@ class EncodedCallResult:
         performance_fee = int.from_bytes(data[32:64], byteorder="big") / 10_000
 
     """
+
     call: EncodedCall
     success: bool
     result: bytes
     block_identifier: BlockIdentifier
+
+    #: Not available in multicalls, only through :py:meth:`EncodedCall.call_as_result`
+    revert_exception: Exception | None = None
 
     def __repr__(self):
         return f"<Call {self.call} at block {self.block_identifier}, success {self.success}, result: {self.result.hex()}, result len {len(self.result)}>"
@@ -625,10 +680,10 @@ class CombinedEncodedCallResult:
 
     Return the whole block worth of calls when iterating over chain block by block.
     """
+
     block_number: int
     timestamp: datetime.datetime
     results: list[EncodedCallResult]
-
 
 
 class MultiprocessMulticallReader:
@@ -751,6 +806,7 @@ class MultiprocessMulticallReader:
                 parsed_error = str(e)
                 # F*cking hell Ethereum nodes, what unbearable mess.
                 # Need to maintain crappy retry rules and all node behaviour is totally random
+                # fmt: off
                 if ("out of gas" in parsed_error) or \
                    ("evm timeout" in parsed_error) or \
                    ("request timeout" in parsed_error) or \
@@ -758,8 +814,9 @@ class MultiprocessMulticallReader:
                    ("intrinsic gas too low" in parsed_error) or \
                    ("intrinsic gas too high" in parsed_error) or \
                    isinstance(e, ProbablyNodeHasNoBlock) or \
-                   ((isinstance(e, HTTPError) and e.response.status_code == 500)):
+                   (isinstance(e, HTTPError) and e.response.status_code == 500):
                     raise MulticallRetryable(error_msg) from e
+                # fmt: on
                 else:
                     raise MulticallNonRetryable(error_msg) from e
 
@@ -958,7 +1015,7 @@ def read_multicall_historical(
         n_jobs=max_workers,
         backend="loky",
         timeout=timeout,
-        max_nbytes=40*1024*1024,  # Allow passing 40 MBytes for child processes
+        max_nbytes=40 * 1024 * 1024,  # Allow passing 40 MBytes for child processes
         return_as="generator",  # TODO: Dig generator_unordered cause bugs?
     )
 
@@ -1012,7 +1069,7 @@ def read_multicall_chunked(
     block_identifier: BlockIdentifier,
     max_workers=8,
     timeout=1800,
-    chunk_size: int=40,
+    chunk_size: int = 40,
     progress_bar_desc: str | None = None,
 ) -> Iterable[EncodedCallResult]:
     """Read current data using multiple processes in parallel for speedup.
@@ -1053,7 +1110,7 @@ def read_multicall_chunked(
         n_jobs=max_workers,
         backend="loky",
         timeout=timeout,
-        max_nbytes=40*1024*1024,  # Allow passing 40 MBytes for child processes
+        max_nbytes=40 * 1024 * 1024,  # Allow passing 40 MBytes for child processes
         return_as="generator_unordered",
     )
 
@@ -1072,7 +1129,7 @@ def read_multicall_chunked(
 
     def _task_gen() -> Iterable[MulticallHistoricalTask]:
         for i in range(0, len(calls), chunk_size):
-            chunk = calls[i:i + chunk_size]
+            chunk = calls[i : i + chunk_size]
             yield MulticallHistoricalTask(chain_id, web3factory, block_identifier, chunk)
 
     performed_calls = success_calls = failed_calls = 0

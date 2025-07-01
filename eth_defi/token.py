@@ -127,6 +127,22 @@ WRAPPED_STABLECOIN_LIKE = {"cUSDC", "cUSDT", "sUSD", "aDAI", "cDAI", "tfUSDC", "
 ALL_STABLECOIN_LIKE = STABLECOIN_LIKE | WRAPPED_STABLECOIN_LIKE
 
 
+#: Some test accounts with funded USDC for Anvil mainnet forking
+#:
+#: TBD: In theory we can find ERC-20 balance slots and write value there with Anvil, but
+#: it is difficult to do reliably.
+LARGE_USDC_HOLDERS = {
+    # Arbitrum
+    42161: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+    # Ave
+    43114: "0x9f8c163cBA728e99993ABe7495F06c0A3c8Ac8b9",
+    # Base
+    # Bybits hot wallet
+    # https://basescan.org/token/0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
+    8453: "0xBaeD383EDE0e5d9d72430661f3285DAa77E9439F",
+}
+
+
 @dataclass
 class TokenDetails:
     """ERC-20 token Python presentation.

@@ -14,6 +14,7 @@ Compatible exchanges include, but not limited to
 
 Under the hood we are using `SushiSwap v2 contracts <github.com/sushiswap/sushiswap>`_ for the deployment.
 """
+
 from dataclasses import dataclass
 from typing import Optional, Union, Tuple, Type
 
@@ -271,7 +272,7 @@ def fetch_deployment(
                 "0x10ED43C718714eb63d5aA57B78B54704E256024E",
                 # Taken from https://bscscan.com/address/0xca143ce32fe78f1f7019d7d551a6402fc5350c73#readContract
                 init_code_hash="0x00fb7f630766e6a796048ea87d01acd3068e8ff67d078148a3fa3f4a84f69bd5",
-                )
+            )
             return deployment
 
     :param init_code_hash:

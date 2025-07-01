@@ -22,6 +22,7 @@ BlockNumber: TypeAlias = int
 @dataclasses.dataclass(frozen=True, slots=True)
 class ERC4626Profitability:
     """Capture the data needed for the vault profitability calculation."""
+
     vault: ERC4626Vault
     start_block: BlockNumber
     end_block: BlockNumber
@@ -30,7 +31,7 @@ class ERC4626Profitability:
 
     def calculate_profitability(
         self,
-        annualise= True,
+        annualise=True,
         year_in_seconds=365 * 24 * 3600,
     ) -> float:
         """Get profitability for the whole duration of the sampling period.

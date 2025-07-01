@@ -178,7 +178,7 @@ def get_url_domain(url: str) -> str:
         return f"{parsed.hostname}:{parsed.port}"
 
 
-def setup_console_logging(default_log_level="warning"):
+def setup_console_logging(default_log_level="warning", simplified_logging=False):
     """Set up coloured log output.
 
     - Helper function to have nicer logging output in tutorial scripts.
@@ -192,8 +192,14 @@ def setup_console_logging(default_log_level="warning"):
 
     level = os.environ.get("LOG_LEVEL", default_log_level).upper()
 
-    fmt = "%(asctime)s %(name)-44s %(message)s"
-    date_fmt = "%H:%M:%S"
+    if simplified_logging:
+        # Simplified logging format for tutorials
+        fmt = "%(message)s"
+        date_fmt = "%H:%M:%S"
+    else:
+        fmt = "%(asctime)s %(name)-44s %(message)s"
+        date_fmt = "%H:%M:%S"
+
     coloredlogs.install(level=level, fmt=fmt, date_fmt=date_fmt)
 
     logging.basicConfig(level=level, handlers=[logging.StreamHandler()])
@@ -202,6 +208,7 @@ def setup_console_logging(default_log_level="warning"):
     logging.getLogger("web3.providers.HTTPProvider").setLevel(logging.WARNING)
     logging.getLogger("web3.RequestManager").setLevel(logging.WARNING)
     logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
+    logging.getLogger("eth_defi.token").setLevel(logging.WARNING)
 
 
 def chunked(iterable, chunk_size):

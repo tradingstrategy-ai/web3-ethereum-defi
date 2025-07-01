@@ -1,4 +1,5 @@
 """Deposit and redemption from ERC-4626 vaults."""
+
 import logging
 from decimal import Decimal
 
@@ -9,7 +10,6 @@ from eth_defi.erc_4626.vault import ERC4626Vault
 
 
 logger = logging.getLogger(__name__)
-
 
 
 def deposit_4626(
@@ -97,8 +97,8 @@ def deposit_4626(
     raw_amount = vault.denomination_token.convert_to_raw(amount)
 
     if check_enough_token:
-        actual_balance = vault.denomination_token.fetch_raw_balance_of(from_)
-        assert actual_balance >= raw_amount, f"Not enough token in {from_} to deposit {amount} to {vault.address}, has {actual_balance}"
+        actual_balance_raw = vault.denomination_token.fetch_raw_balance_of(from_)
+        assert actual_balance_raw >= raw_amount, f"Not enough token in {from_} to deposit {amount} to {vault.address}, has {actual_balance_raw}, tries to deposit {raw_amount}"
 
     if check_max_deposit:
         max_deposit = contract.functions.maxDeposit(receiver).call()
@@ -124,12 +124,29 @@ def redeem_4626(
 
     - The resulting transaction can be analysed with :py:func:`eth_defi.erc_4626.analysis.analyse_4626_flow_transaction`
 
+    - `See here for IPOR error codes <https://www.codeslaw.app/contracts/base/0x12e9b15ad32faeb1a02f5ddd99254309faf5f2f8?tab=abi>`__
+
+    .. note::
+
+        You need at least 6_000_000 gas to redeem from IPOR vault.
+
+    .. table:: Key Differences Between Redeem and Withdraw in ERC-4626
+
+       +----------------+----------------------------------------+----------------------------------------+
+       | **Aspect**     | **Redeem**                             | **Withdraw**                           |
+       +----------------+----------------------------------------+----------------------------------------+
+       | **Input**      | Number of shares to burn               | Number of assets to receive    |
+       | **Output**      | Assets received                        | Shares burned                          |
+       | **User Intent**| Burn a specific number of shares       | Receive a specific amount of assets|
+       | **Calculation**| Shares → Assets                       | Assets → Shares                        |
+       +----------------+----------------------------------------+----------------------------------------+
+
     Example:
 
     .. code-block:: python
 
         shares = vault.share_token.fetch_balance_of(depositor, "latest")
-        assert shares == pytest.approx(Decimal('96.7523176'))
+        assert shares == pytest.approx(Decimal("96.7523176"))
 
         # See how much we get after all this time
         estimated_usdc = estimate_4626_redeem(
@@ -217,7 +234,7 @@ def redeem_4626(
             diff = abs(max_redeem - raw_amount) / raw_amount
 
             if diff != 0 and diff < epsilon:
-                logger.info("Applying maxRedeem epsilon correction %s -> %s", raw_amount, raw_available)
+                logger.info("Applying maxRedeem epsilon correction %s -> %s", raw_amount, max_redeem)
                 raw_amount = max_redeem
 
             assert raw_amount <= max_redeem, f"Max redeem {max_redeem} (raw) is less than what we try to redeem {raw_amount} (raw), diff {diff:.6%} ({diff / 10**18}) "
@@ -272,4 +289,3 @@ def approve_and_redeem_4626(
         receiver=receiver,
     )
     return approve_call, redeem_call
-

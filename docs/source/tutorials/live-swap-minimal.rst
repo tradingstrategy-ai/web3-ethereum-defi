@@ -22,7 +22,7 @@ To run:
 
 Example output:
 
-.. code-block:: text
+.. code-block:: none
 
     Swap at block:42,549,528 tx:0x2011d03b4f3d80992339eb6303b0b7b86ec77f629ce7f2508344e739c4536cc7
     Swap at block:42,549,528 tx:0x67af6d9d28634747d83f14d48bdc3d56421df7b686055c4519850b97e863291d

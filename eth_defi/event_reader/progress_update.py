@@ -7,6 +7,7 @@
 - Python logging based notifications
 
 """
+
 import datetime
 
 from tqdm_loggable.auto import tqdm

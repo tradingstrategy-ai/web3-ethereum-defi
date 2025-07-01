@@ -301,4 +301,3 @@ class MultiProviderWeb3Factory:
 
     def __call__(self) -> Web3:
         return create_multi_provider_web3(self.rpc_url, retries=self.retries)
-

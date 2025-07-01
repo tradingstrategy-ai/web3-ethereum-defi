@@ -21,6 +21,7 @@ Internally we use :py:mod:`eth_defi.eip_712` module for managing the messages he
     See :py:func:`make_eip_3009_transfer` for workarounds.
 
 """
+
 import datetime
 import enum
 import secrets

@@ -1,4 +1,5 @@
 """Base mainnet fork based interation tests for TradingStrategyModuleV0 Safe module integration."""
+
 import os
 
 import pytest
@@ -67,6 +68,7 @@ def base_usdc(web3) -> TokenDetails:
         web3,
         "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
     )
+
 
 @pytest.fixture()
 def base_weth(web3) -> TokenDetails:
@@ -194,7 +196,7 @@ def uniswap_v2_whitelisted_trading_strategy_module(
     # Enable Safe module
     # Multisig owners can enable the module
     tx = safe.contract.functions.enableModule(module.address).build_transaction(
-        {"from": safe_deployer_hot_wallet.address, "gas": 0, "gasPrice": 0}
+        {"from": safe_deployer_hot_wallet.address, "gas": 0, "gasPrice": 0},
     )
     safe_tx = safe.build_multisig_tx(safe.address, 0, tx["data"])
     safe_tx.sign(safe_deployer_hot_wallet.private_key.hex())
@@ -247,7 +249,7 @@ def test_enable_safe_module(
 
     # Multisig owners can enable the module
     tx = safe_contract.functions.enableModule(module.address).build_transaction(
-        {"from": safe_deployer_hot_wallet.address, "gas": 0, "gasPrice": 0}
+        {"from": safe_deployer_hot_wallet.address, "gas": 0, "gasPrice": 0},
     )
     safe_tx = safe.build_multisig_tx(safe.address, 0, tx["data"])
     safe_tx.sign(safe_deployer_hot_wallet.private_key.hex())
@@ -342,10 +344,11 @@ def test_swap_through_module_revert(
     )
     target, call_data = encode_simple_vault_transaction(trade_call)
 
-    with pytest.raises(ValueError) as e:
+    with pytest.raises(ValueError) as exc_info:
         ts_module.functions.performCall(target, call_data).transact({"from": asset_manager})
 
-    assert "TRANSFER_FROM_FAILED" in str(e)
+    formatted = str(exc_info.value)
+    assert "TRANSFER_FROM_FAILED" in formatted, f"Failed: {exc_info.e}\n{exc_info}"
 
 
 def test_swap_through_module_unauthorised(

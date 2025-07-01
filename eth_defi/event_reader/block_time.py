@@ -1,4 +1,5 @@
 """Measurements of block time."""
+
 from web3 import Web3
 
 from eth_defi.event_reader.conversion import convert_jsonrpc_value_to_int

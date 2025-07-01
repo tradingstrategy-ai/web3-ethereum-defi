@@ -1,4 +1,5 @@
 """Aave v3 deployments."""
+
 from dataclasses import dataclass
 from typing import NamedTuple
 

@@ -2,6 +2,7 @@
 
 - See :py:class:`FallbackProvider`
 """
+
 import enum
 import time
 from collections import defaultdict, Counter
@@ -17,6 +18,20 @@ from eth_defi.middleware import is_retryable_http_exception, DEFAULT_RETRYABLE_E
 from eth_defi.provider.named import BaseNamedProvider, NamedProvider, get_provider_name
 
 logger = logging.getLogger(__name__)
+
+
+class ExtraValueError(ValueError):
+    """A ValueError that is used to signal that the RPC response was not valid.
+
+    Add extra debugging.
+    """
+
+    def __init__(self, extra_help: str, *args, **kwargs): # real signature unknown
+        super().__init__(*args, **kwargs)
+        self.extra_help = extra_help
+
+    def __repr__(self):
+        return f"{super().__repr__()}\n{self.extra_help}"
 
 
 class FallbackStrategy(enum.Enum):
@@ -177,11 +192,26 @@ class FallbackProvider(BaseNamedProvider):
 
         - If there are errors try cycle through providers and sleep
           between cycles until one provider works
+
+        - Use a special "ignore_error" parameter to skip retries,
+          if given in ``eth_call`` payload.
         """
+
+        # The caller has requested not to retry.
+        # Set in EncodedCall.call(ignore_error=True)
+        ignore_error = False
+        param_1 = params[0] if isinstance(params, (tuple, list)) and len(params) > 0 else None
+        if param_1 and isinstance(param_1, dict):
+            ignore_error = param_1.pop("ignore_error", False)
+            if ignore_error:
+                # Don't pass the flag to RPC
+                params = [param_1, *params[1:]]
+
         current_sleep = self.sleep
         for i in range(self.retries + 1):
             provider = self.get_active_provider()
             try:
+
                 # Call the underlying provider
                 resp_data = provider.make_request(method, params)
 
@@ -192,18 +222,38 @@ class FallbackProvider(BaseNamedProvider):
                 # Might be also related to EthereumTester only code paths.
                 if "error" in resp_data:
                     # {'jsonrpc': '2.0', 'id': 23, 'error': {'code': -32003, 'message': 'nonce too low'}}
-                    # This will trigger exception that will be handled by is_retryable_http_exception()
-                    raise ValueError(resp_data["error"])
+                    # This will trigger exception that will be handled by is_retryable_http_exception().
+                    # We add extra error message payload to make the exception more understandable in common error situations,
+                    # while still maintaining the compatibility with vanilla ValueError()
+                    headers = get_last_headers()
+                    error_json_payload = resp_data.get("error")
+                    raise ExtraValueError(
+                        f"Error in JSON-RPC response:\n{resp_data['error']}\nignore_error: {ignore_error}\nMethod: {method}\nParams: {pformat(params)}\nReply headers: {pformat(headers)}",
+                        error_json_payload,
+                    )
 
                 _check_faulty_rpc_response(self, method, params, resp_data)
 
-                # Track API counts
+                # Track succeed API counts,
+                # see test_fallback_single_fault
                 self.api_call_counts[self.currently_active_provider][method] += 1
 
                 return resp_data
 
             except Exception as e:
-                if is_retryable_http_exception(e, retryable_rpc_error_codes=self.retryable_rpc_error_codes, retryable_status_codes=self.retryable_status_codes, retryable_exceptions=self.retryable_exceptions, method=method, params=params):
+
+                # Honour eth eth_call() payload data and don't try retry, logging, etc.
+                if ignore_error:
+                    raise
+
+                if is_retryable_http_exception(
+                    e,
+                    retryable_rpc_error_codes=self.retryable_rpc_error_codes,
+                    retryable_status_codes=self.retryable_status_codes,
+                    retryable_exceptions=self.retryable_exceptions,
+                    method=method,
+                    params=params,
+                ):
                     if self.has_multiple_providers():
                         self.switch_provider()
 
@@ -213,8 +263,8 @@ class FallbackProvider(BaseNamedProvider):
                         headers = get_last_headers()
                         logger.log(
                             self.switchover_noisiness,
-                           "Encountered JSON-RPC retryable error %s\nWhen calling RPC method: %s%s\nHeaders are: %s\nRetrying in %f seconds, retry #%d / %d",
-                           e,
+                            "Encountered JSON-RPC retryable error %s\nWhen calling RPC method: %s%s\nHeaders are: %s\nRetrying in %f seconds, retry #%d / %d",
+                            e,
                             method,
                             params,
                             pformat(headers),

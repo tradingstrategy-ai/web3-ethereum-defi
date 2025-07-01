@@ -1,4 +1,5 @@
 """Serialise event scan state as a JSON file."""
+
 import os
 from typing import Tuple
 
