@@ -100,7 +100,7 @@ def _launch(cmd: str, **kwargs) -> tuple[psutil.Popen, list[str]]:
                 cmd_list.extend([CLI_FLAGS[key], str(value)])
         except KeyError:
             warnings.warn(
-                f"Ignoring invalid commandline setting for anvil: " f'"{key}" with value "{value}".',
+                f'Ignoring invalid commandline setting for anvil: "{key}" with value "{value}".',
                 InvalidArgumentWarning,
             )
 
@@ -239,6 +239,7 @@ def launch_anvil(
         from eth_defi.chain import install_chain_middleware
         from eth_defi.gas import node_default_gas_price_strategy
 
+
         @pytest.fixture()
         def large_busd_holder() -> HexAddress:
             # An onchain address with BUSD balance
@@ -254,7 +255,7 @@ def launch_anvil(
 
         @pytest.fixture()
         def anvil_bnb_chain_fork(request, large_busd_holder, user_1, user_2) -> str:
-             # Create a testable fork of live BNB chain.
+            # Create a testable fork of live BNB chain.
             mainnet_rpc = os.environ["BNB_CHAIN_JSON_RPC"]
             launch = fork_network_anvil(mainnet_rpc, unlocked_addresses=[large_busd_holder])
             try:
@@ -268,11 +269,12 @@ def launch_anvil(
         def web3(anvil_bnb_chain_fork: str):
             # Set up a local unit testing blockchain
             # https://web3py.readthedocs.io/en/stable/examples.html#contract-unit-tests-in-python
-            web3 =  Web3(HTTPProvider(anvil_bnb_chain_fork))
+            web3 = Web3(HTTPProvider(anvil_bnb_chain_fork))
             # Anvil needs POA middlware if parent chain needs POA middleware
             install_chain_middleware(web3)
             web3.eth.set_gas_price_strategy(node_default_gas_price_strategy)
             return web3
+
 
         def test_anvil_fork_transfer_busd(web3: Web3, large_busd_holder: HexAddress, user_1: LocalAccount):
             # Forks the BNB chain mainnet and transfers from USDC to the user.
@@ -398,7 +400,7 @@ def launch_anvil(
         port = find_free_port(*port)
     else:
         warnings.warn(f"launch_anvil(port={port}) called - we recommend using the default random port range instead", DeprecationWarning, stacklevel=2)
-        assert not is_localhost_port_listening(port), f"localhost port {port} occupied.\n" f"You might have a zombie Anvil process around.\nRun to kill: kill -SIGKILL $(lsof -ti:{port})"
+        assert not is_localhost_port_listening(port), f"localhost port {port} occupied.\nYou might have a zombie Anvil process around.\nRun to kill: kill -SIGKILL $(lsof -ti:{port})"
 
     url = f"http://localhost:{port}"
 
@@ -500,7 +502,7 @@ def sleep(web3: Web3, seconds: int) -> int:
     return seconds
 
 
-def mine(web3: Web3, timestamp: Optional[int] = None, increase_timestamp: float=0) -> None:
+def mine(web3: Web3, timestamp: Optional[int] = None, increase_timestamp: float = 0) -> None:
     """Call evm_setNextBlockTimestamp on Anvil.
 
     Mine blocks, optionally set the time of the new block.

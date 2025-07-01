@@ -1,12 +1,12 @@
-
 import requests
 import logging
 from requests.adapters import HTTPAdapter
 from urllib3.response import HTTPResponse
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
+
 
 class RPCMonitoringAdapter(HTTPAdapter):
     def build_response(self, req, resp):
@@ -34,22 +34,24 @@ class RPCMonitoringAdapter(HTTPAdapter):
         # Example: Check if response contains specific error code or message
         if isinstance(content, dict):
             # Example conditions - customize these based on the payload patterns you want to catch
-            if content.get('error_code') == 'RATE_LIMIT_EXCEEDED':
+            if content.get("error_code") == "RATE_LIMIT_EXCEEDED":
                 return True
-            if content.get('status') == 'failed' and content.get('reason') == 'authentication_error':
+            if content.get("status") == "failed" and content.get("reason") == "authentication_error":
                 return True
         return False
+
 
 # Usage example
 def create_monitored_session():
     session = requests.Session()
     adapter = ResponseMonitoringAdapter()
-    session.mount('http://', adapter)
-    session.mount('https://', adapter)
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
     return session
+
 
 # Example use
 if __name__ == "__main__":
     session = create_monitored_session()
-    response = session.post('https://api.example.com/data', json={'key': 'value'})
+    response = session.post("https://api.example.com/data", json={"key": "value"})
     # The adapter will automatically log warnings for responses matching your criteria
