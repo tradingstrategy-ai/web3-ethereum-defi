@@ -4,6 +4,7 @@
 
 - Find Lagoon events here https://github.com/hopperlabsxyz/lagoon-v0/blob/b790b1c1fbb51a101b0c78a4bb20e8700abed054/src/vault/primitives/Events.sol
 """
+
 import datetime
 import logging
 from dataclasses import dataclass
@@ -163,6 +164,7 @@ def analyse_vault_flow_in_settlement(
     if receipt["status"] != 1:
         # Do a verbose traceback / revert reason if the transaction failed
         # GS104: Method can only be called from an enabled module
+        # fmt: off
         logger.error(
             f"Lagoon vault settlement transaction did not succeed: {tx_hash.hex()}\n"
             f"Vault: {vault}\n"
@@ -171,6 +173,7 @@ def analyse_vault_flow_in_settlement(
             f"Guard enabled: {vault.is_trading_strategy_module_enabled()}\n"
             f"Receipt: {receipt}\n"
         )
+        # fmt: on
         assert_transaction_success_with_explanation(web3, tx_hash)
 
     deposits = vault.vault_contract.events.SettleDeposit().process_receipt(receipt, errors=EventLogErrorFlags.Discard)
