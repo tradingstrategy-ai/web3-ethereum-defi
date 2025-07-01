@@ -9,6 +9,7 @@
 - Add: Support accessing IPOR redemption delay 
 - Add: Support Etherscan-style ABI files that are just a JSON list of ABI items, not a full ABI dictionary
 - Add: `detect_vault_features(address)` to easily detect arbitrary vaults
+- Add: Ruff linting of the code
 
 # 0.30
 
