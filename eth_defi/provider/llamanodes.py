@@ -6,6 +6,7 @@
 
 See also :py:mod:`eth_defi.provider.broken_provider`.
 """
+
 from requests import Response
 
 

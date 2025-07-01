@@ -11,6 +11,7 @@ Notes:
     - Vault metadata https://api.velvet.capital/api/v3/portfolio/0xbdd3897d59843220927f0915aa943ddfa1214703r
 
 """
+
 import logging
 from functools import cached_property
 
@@ -41,6 +42,7 @@ class VelvetVaultInfo(VaultInfo):
 
     - Fetched over proprietary API server
     """
+
     portfolioId: str
     portfolio: str  # Ethereum address
     name: str
@@ -154,7 +156,7 @@ class VelvetVault(VaultBase):
         return get_deployed_contract(
             self.web3,
             "velvet/PortfolioV3_4.json",
-            self.portfolio_address
+            self.portfolio_address,
         )
 
     @property

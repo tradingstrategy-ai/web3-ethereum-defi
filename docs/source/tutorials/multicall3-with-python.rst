@@ -35,7 +35,7 @@ To run this script:
 
 Output looks like (scroll right):
 
-.. code-block:: plain
+.. code-block:: none
                       
     2025-04-21 23:05:45 eth_defi.provider.multi_provider             Configuring MultiProviderWeb3. Call providers: ['lb.drpc.org'], transact providers -
     2025-04-21 23:05:46 eth_defi.event_reader.multicall_batcher      About to perform 200 multicalls

@@ -40,6 +40,10 @@ ZERO_ADDRESS_STR = "0x0000000000000000000000000000000000000000"
 #: Ethereum 0x0000000000000000000000000000000000000000 address
 ZERO_ADDRESS = ZERO_ADDRESS_STR
 
+#: Used by Gnosis Safe in linked lists
+#: https://github.com/safe-global/safe-smart-account/pull/993
+ONE_ADDRESS_STR = "0x0000000000000000000000000000000000000001"
+
 
 @lru_cache(maxsize=_CACHE_SIZE)
 def get_abi_by_filename(fname: str) -> dict:
@@ -73,20 +77,22 @@ def get_contract(
     fname: str | Path,
     bytecode: Optional[str] = None,
 ) -> Type[Contract]:
-    """Create a Contract proxy class from our bundled contracts or filesystem..
+    """Get Contract proxy class from ABI JSON file.
+
+    Read ABI file from
+    - Our bundled contracts in the Python package
+    - Filesystem using absolute path
+    - ABI file can be a solc compiling artifact or Etherscan copy-pasted ABI.
 
     `See Web3.py documentation on Contract instances <https://web3py.readthedocs.io/en/stable/contracts.html#contract-deployment-example>`_.
 
     Any results are cached. Web3 connection is part of the cache key.
 
-    .. note ::
-
-        This function cannot do linking. See :py:func:`get_linked_contract`
-        if the bytecode contains link markers.
-
     Example:
 
-        pass
+    .. code-block:: python
+
+        IERC20 = get_contract(web3, "sushi/IERC20.json")
 
     :param web3:
         Web3 instance
@@ -106,10 +112,17 @@ def get_contract(
     """
 
     contract_interface = get_abi_by_filename(fname)
-    abi = contract_interface["abi"]
 
-    if bytecode is None:
-        bytecode = contract_interface["bytecode"]
+    if type(contract_interface) == list:
+        # Etherscan
+        abi = contract_interface
+        bytecode = None
+    else:
+        # Solc output
+        abi = contract_interface["abi"]
+
+        if bytecode is None:
+            bytecode = contract_interface.get("bytecode")
 
         if type(bytecode) == dict:
             # Sol 0.8 / Forge?

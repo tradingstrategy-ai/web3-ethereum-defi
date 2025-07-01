@@ -70,6 +70,7 @@ def get_provider_name(provider: BaseProvider) -> str:
     """
 
     from eth_defi.provider.fallback import FallbackProvider
+
     if isinstance(provider, FallbackProvider):
         return "fallbacks " + ", ".join(get_provider_name(p) for p in provider.providers)
     elif hasattr(provider, "endpoint_uri"):

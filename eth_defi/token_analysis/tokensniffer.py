@@ -12,6 +12,7 @@
 
 - For more examples see `Getting started repo <https://github.com/tradingstrategy-ai/getting-started>`__
 """
+
 import datetime
 import logging
 import json
@@ -26,7 +27,7 @@ from requests import Session
 from eth_defi.sqlite_cache import PersistentKeyValueStore
 
 
-logger  = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 #: Manually whitelist some custodian tokens
@@ -520,7 +521,6 @@ class CachedTokenSniffer(TokenSniffer):
     .. code-block:: python
 
         class TokenInternalCache(UserDict):
-
             def __init__(self, dbsession: Session):
                 self.dbsession = dbsession
 
@@ -547,6 +547,7 @@ class CachedTokenSniffer(TokenSniffer):
 
             def __contains__(self, key):
                 return self.get(key) is not None
+
 
         # And then usage:
 
@@ -710,5 +711,3 @@ def is_tradeable_token(
 
     # Trust on TokenSniffer heurestics
     return data["score"] >= risk_score_threshold
-
-

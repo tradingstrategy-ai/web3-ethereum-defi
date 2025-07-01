@@ -50,6 +50,8 @@ gql = {extras = ["requests"], version = "^3.3.0", optional = true}
 jupyter = {version = "^1.0.0", optional = true}
 matplotlib = {version = ">=3.5", optional = true}
 plotly = {version = ">=5.8.2", optional = true}
+# Needed for Plotly
+tenacity = {version = "*", optional = true}
 pyarrow = {version = "*", optional = true}
 pytest-xdist = {version = "^3.3.1", optional = true}
 
@@ -100,7 +102,7 @@ flaky = "^3.7.0"
 # See discussion https://github.com/python-poetry/poetry/issues/3348#issuecomment-726534462
 [tool.poetry.extras]
 docs = ["Sphinx", "sphinx-rtd-theme", "sphinx-sitemap", "sphinx-autodoc-typehints", "furo", "nbsphinx", "zope.dottedname", "sphinx-sitemap", "sphinx-rtd-theme"]
-data = ["jupyter", "tqdm", "pandas", "gql", "matplotlib", "plotly", "pyarrow", "numpy"]
+data = ["jupyter", "tqdm", "pandas", "gql", "matplotlib", "plotly", "pyarrow", "numpy", "tenacity"]
 test = ["pytest-xdist"]
 hypersync = ["hypersync"]
 

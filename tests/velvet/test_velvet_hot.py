@@ -3,6 +3,7 @@
 - Because Enso is a piece of crap protocol and does not offer any kind of test environment.
 - Uses real money, only run these tests manually
 """
+
 import logging
 import os
 from decimal import Decimal

@@ -59,6 +59,24 @@ class VaultSpec:
             return False
         return self.chain_id == other.chain_id and self.vault_address == other.vault_address
 
+    @staticmethod
+    def parse_string(spec: str) -> "VaultSpec":
+        """Parse vault spec from a string.
+
+        :param spec:
+            String in the format of "chain_id,address"
+
+        :return:
+            :py:class:`VaultSpec` instance
+        """
+        try:
+            chain_id, address = spec.split(",")
+            chain_id = chain_id.strip()
+            address = address.strip()
+            return VaultSpec(chain_id=int(chain_id), vault_address=address)
+        except Exception as e:
+            raise ValueError(f"Cannot parse vault spec from string: {spec}") from e
+
 
 
 class VaultInfo(TypedDict):
@@ -563,19 +581,56 @@ class VaultBase(ABC):
         """
         return self.fetch_info()
 
+    def get_redemption_delay(self) -> datetime.timedelta:
+        """Get the redemption delay for this vault.
+
+        - How long it takes before a redemption request is allowed
+
+        - This is not specific for any address, but the general vault rule
+
+        - E.g. you get  0xa592703b is an IPOR Fusion error code AccountIsLocked,
+          if you `try to instantly redeem from IPOR vaults <https://ethereum.stackexchange.com/questions/170119/is-there-a-way-to-map-binary-solidity-custom-errors-to-their-symbolic-sources>`__
+
+        :return:
+            Redemption delay as a :py:class:`datetime.timedelta`
+
+        :raises NotImplementedError:
+            If not implemented for this vault protocoll.
+        """
+        raise NotImplementedError(f"Class {self.__class__.__name__} does not implement get_redemption_delay()")
+
+    def get_redemption_delay_over(self, address: HexAddress | str) -> datetime.datetime:
+        """Get the redemption timer left for an address.
+
+        - How long it takes before a redemption request is allowed
+
+        - This is not specific for any address, but the general vault rule
+
+        - E.g. you get  0xa592703b is an IPOR Fusion error code AccountIsLocked,
+          if you `try to instantly redeem from IPOR vaults <https://ethereum.stackexchange.com/questions/170119/is-there-a-way-to-map-binary-solidity-custom-errors-to-their-symbolic-sources>`__
+
+        :return:
+            UTC timestamp when the account can redeem.
+
+            Naive datetime.
+
+        :raises NotImplementedError:
+            If not implemented for this vault protocoll.
+        """
+        raise NotImplementedError(f"Class {self.__class__.__name__} does not implement get_redemption_delay_over()")
+
     def get_management_fee(self, block_identifier: BlockIdentifier) -> float:
         """Get the current management fee as a percent.
 
         :return:
             0.1 = 10%
         """
-        raise NotImplementedError()
+        raise NotImplementedError(f"Class {self.__class__.__name__} does not implement get_management_fee()")
 
     def get_performance_fee(self, block_identifier: BlockIdentifier) -> float:
-        """Get the current performancae fee as a percent.
+        """Get the current performance fee as a percent.
 
         :return:
             0.1 = 10%
         """
-        raise NotImplementedError()
-
+        raise NotImplementedError(f"Class {self.__class__.__name__} does not implement get_performance_fee()")

@@ -1,4 +1,5 @@
 """Troublesome tokens"""
+
 from eth_typing import HexAddress
 
 # https://tokensniffer.com/token/base/iof2ha9v86i69416go2kzasch62nqbn9ecxmcssn8ie5j0z1qqv8p1ncvqs2
@@ -29,7 +30,8 @@ _rugpulls_by_address = {v: k for k, v in RUGPULLS.items()}
 
 def is_blacklisted_address(
     address: str | HexAddress,
-    chain_id: int = None):
+    chain_id: int = None,
+):
     assert isinstance(address, str)
     assert address.startswith("0x")
     return address in _rugpulls_by_address
@@ -37,6 +39,6 @@ def is_blacklisted_address(
 
 def is_blacklisted_symbol(
     symbol: str | HexAddress,
-    chain_id: int = None):
+    chain_id: int = None,
+):
     return symbol in RUGPULLS
-

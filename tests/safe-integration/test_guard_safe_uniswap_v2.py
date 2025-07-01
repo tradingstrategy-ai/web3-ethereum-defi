@@ -274,4 +274,3 @@ def test_safe_module_can_trade_uniswap_v2(
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     assert weth.functions.balanceOf(safe.address).call() == 3696700037078235076
-

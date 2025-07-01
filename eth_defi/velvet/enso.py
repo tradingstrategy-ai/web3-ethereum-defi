@@ -2,6 +2,7 @@
 
 - See https://www.enso.finance/
 """
+
 import logging
 from pprint import pformat
 
@@ -19,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 class VelvetSwapError(Exception):
     """Error reply from velvet txn API"""
+
 
 # swap_with_velvet_and_enso
 def swap_with_velvet_intent(
@@ -53,8 +55,8 @@ def swap_with_velvet_intent(
     assert 0 <= slippage <= 1
     assert token_in.startswith("0x"), f"Got {token_in} instead of hex string"
     assert token_out.startswith("0x"), f"Got {token_out} instead of hex string"
-    assert portfolio_address.startswith('0x'), f"Got {portfolio_address} instead of hex string"
-    assert owner_address.startswith('0x'), f"Got {owner_address} instead of hex string"
+    assert portfolio_address.startswith("0x"), f"Got {portfolio_address} instead of hex string"
+    assert owner_address.startswith("0x"), f"Got {owner_address} instead of hex string"
     assert len(remaining_tokens) >= 1, f"At least the vault reserve currency must be always left"
     assert type(swap_amount) == int, f"Got {type(swap_amount)} instead of int, swap amount must be the raw number of tokens"
 
@@ -67,7 +69,7 @@ def swap_with_velvet_intent(
             status_forcelist=[500, 502, 503, 504],
             allowed_methods=["POST"],  # Need to whitelist POST
         )
-        session.mount('https://', HTTPAdapter(max_retries=retry_policy))
+        session.mount("https://", HTTPAdapter(max_retries=retry_policy))
 
     payload = {
         "portfolio": portfolio_address,
