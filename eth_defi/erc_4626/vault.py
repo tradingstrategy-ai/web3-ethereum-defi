@@ -1,4 +1,5 @@
 """Generic ECR-4626 vault reader implementation."""
+
 import datetime
 from decimal import Decimal
 from functools import cached_property
@@ -76,7 +77,7 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
 
         total_assets = EncodedCall.from_contract_call(
             self.vault.vault_contract.functions.totalAssets(),
-            extra_data = {
+            extra_data={
                 "function": "total_assets",
                 "vault": self.vault.address,
             },
@@ -86,7 +87,7 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
 
         total_supply = EncodedCall.from_contract_call(
             self.vault.vault_contract.functions.totalSupply(),
-            extra_data = {
+            extra_data={
                 "function": "total_supply",
                 "vault": self.vault.address,
             },
@@ -162,7 +163,6 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
         timestamp: datetime.datetime,
         call_results: list[EncodedCallResult],
     ) -> VaultHistoricalRead:
-
         call_by_name = self.dictify_multicall_results(block_number, call_results)
         assert all(c.block_identifier == block_number for c in call_by_name.values()), "Sanity check for call block numbering"
 
@@ -283,7 +283,7 @@ class ERC4626Vault(VaultBase):
         """
         try:
             # isOperator() function is only part of 7545 ABI and will revert is missing
-            double_address = eth_abi.encode(['address', 'address'], [ZERO_ADDRESS_STR, ZERO_ADDRESS_STR])
+            double_address = eth_abi.encode(["address", "address"], [ZERO_ADDRESS_STR, ZERO_ADDRESS_STR])
             erc_7540_call = EncodedCall.from_keccak_signature(
                 address=self.address,
                 signature=Web3.keccak(text="isOperator(address,address)")[0:4],
@@ -372,8 +372,8 @@ class ERC4626Vault(VaultBase):
     def fetch_vault_info(self) -> ERC4626VaultInfo:
         """Get all information we can extract from the vault smart contracts."""
         vault = self.vault_contract
-        #roles_tuple = vault.functions.getRolesStorage().call()
-        #whitelistManager, feeReceiver, safe, feeRegistry, valuationManager = roles_tuple
+        # roles_tuple = vault.functions.getRolesStorage().call()
+        # whitelistManager, feeReceiver, safe, feeRegistry, valuationManager = roles_tuple
         try:
             asset = vault.functions.asset().call()
         except ValueError as e:
@@ -393,8 +393,8 @@ class ERC4626Vault(VaultBase):
 
             assert vault.denomination_token.symbol == "USDC"
             assert vault.share_token.symbol == "ipUSDCfusion"
-            assert vault.fetch_total_assets(block_identifier=test_block_number) == Decimal('1437072.77357')
-            assert vault.fetch_total_supply(block_identifier=test_block_number) == Decimal('1390401.22652875')
+            assert vault.fetch_total_assets(block_identifier=test_block_number) == Decimal("1437072.77357")
+            assert vault.fetch_total_supply(block_identifier=test_block_number) == Decimal("1390401.22652875")
 
         :param block_identifier:
             Block number to read.

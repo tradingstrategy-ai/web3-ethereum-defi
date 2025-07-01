@@ -22,13 +22,13 @@ JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
 pytestmark = pytest.mark.skipif(JSON_RPC_BASE is None or JSON_RPC_ETHEREUM is None, reason="JSON_RPC_BASE and JSON_RPC_ETHEREUM needed to run these tests")
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def web3() -> Web3:
     web3 = create_multi_provider_web3(JSON_RPC_BASE)
     return web3
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def web3_ethereum() -> Web3:
     web3 = create_multi_provider_web3(JSON_RPC_ETHEREUM)
     return web3
@@ -71,7 +71,7 @@ def test_4626_historical_prices(
 
     web3_factory = MultiProviderWeb3Factory(JSON_RPC_BASE)
 
-    output_fname = tmp_path / 'price-history.parquet'
+    output_fname = tmp_path / "price-history.parquet"
 
     #
     # First scan

@@ -17,5 +17,3 @@ More info
 - https://docs.openzeppelin.com/contracts/5.x/erc4626
 
 """
-
-

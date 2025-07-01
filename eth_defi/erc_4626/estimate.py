@@ -3,6 +3,7 @@
 - Deposit: estimate number of shares we are going to receive
 - Redeem: estimate how much underlying denomination we are going to receive when burning shares
 """
+
 from decimal import Decimal
 import logging
 
@@ -104,4 +105,3 @@ def estimate_4626_redeem(
         raise RuntimeError(msg)
 
     return vault.denomination_token.convert_to_decimals(raw_amount)
-
