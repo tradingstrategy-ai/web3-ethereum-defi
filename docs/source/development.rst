@@ -132,7 +132,9 @@ To format any of your code:
 .. code-block:: shell
 
     # ruff comes in dev dependencies
-     poetry run ruff format .
+    # This will automatically format all Python files in the repository
+    # according to the project rules.
+    poetry run ruff format .
 
 Pull requests
 -------------

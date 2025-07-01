@@ -98,3 +98,8 @@ jobs:
           KEY_RING: ${{ secrets.KEY_RING }}
           KEY_NAME: ${{ secrets.KEY_NAME }}
           GCP_ADC_CREDENTIALS_STRING: ${{ secrets.GCP_ADC_CREDENTIALS_STRING }}
+
+      - name: Ruff lint check
+        run: |
+          poetry run ruff format --check          
+
