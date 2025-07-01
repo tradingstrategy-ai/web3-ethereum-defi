@@ -2,6 +2,7 @@
 
 Methods for creating Web3 connections over multiple threads and processes.
 """
+
 from collections import Counter
 from threading import local
 from typing import Protocol, Optional, Any, Dict, List

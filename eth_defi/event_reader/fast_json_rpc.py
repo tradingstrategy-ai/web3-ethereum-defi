@@ -81,6 +81,7 @@ def patch_web3(web3: Web3):
     .. code-block:: python
 
         from eth_defi.event_reader.fast_json_rpc import patch_web3
+
         patch_web3(web3)
     """
     patch_provider(web3.provider)
