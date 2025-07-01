@@ -1,4 +1,5 @@
 """Token holding and portfolio for addresses."""
+
 import logging
 from collections import Counter
 from dataclasses import dataclass
@@ -254,7 +255,6 @@ def fetch_erc20_balances_multicall(
     .. code-block:: python
 
         def test_fetch_erc20_balances_multicall(web3):
-
             tokens = {
                 "0x6921B130D297cc43754afba22e5EAc0FBf8Db75b",  # DogInMe
                 "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",  # USDC on Base
@@ -351,14 +351,10 @@ def fetch_erc20_balances_multicall(
     tokens = list(tokens)
 
     for i in range(0, len(tokens), chunk_size):
-
-        token_address_chunk = tokens[i:i + chunk_size]
+        token_address_chunk = tokens[i : i + chunk_size]
 
         # Build the batch of calls for
-        calls =[
-            Call(token_addr, ['balanceOf(address)(uint256)', address], [(token_addr, _handler)])
-            for token_addr in token_address_chunk
-        ]
+        calls = [Call(token_addr, ["balanceOf(address)(uint256)", address], [(token_addr, _handler)]) for token_addr in token_address_chunk]
 
         multicall = Multicall(
             calls=calls,
@@ -397,7 +393,7 @@ def fetch_erc20_balances_fallback(
     token_cache: cachetools.Cache | None = DEFAULT_TOKEN_CACHE,
     gas_limit=10_000_000,
     raise_on_error=True,
-    disable_multicall: bool=None,
+    disable_multicall: bool = None,
 ) -> dict[HexAddress | str, Decimal]:
     """Get all onchain balances of the token.
 

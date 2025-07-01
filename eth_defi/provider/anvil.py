@@ -598,7 +598,6 @@ def is_mainnet_fork(web3: Web3) -> bool:
     return web3.eth.block_number > 500_000
 
 
-
 def create_fork_funded_wallet(
     web3: Web3,
     usdc_address: HexAddress,
@@ -614,7 +613,7 @@ def create_fork_funded_wallet(
 
     from eth_defi.hotwallet import HotWallet
     from eth_defi.token import fetch_erc20_details
-    from eth_defi.trace import  assert_transaction_success_with_explanation
+    from eth_defi.trace import assert_transaction_success_with_explanation
     from eth_defi.middleware import construct_sign_and_send_raw_middleware_anvil
 
     assert large_usdc_holder.startswith("0x"), f"Large USDC holder address must start with 0x: {large_usdc_holder}"
@@ -623,11 +622,13 @@ def create_fork_funded_wallet(
     logger.info("Creating a simulated wallet %s with USDC and ETH funding for testing", hot_wallet.address)
 
     # Fund with ETH
-    tx_hash = web3.eth.send_transaction({
-        "from": web3.eth.accounts[0],
-        "to": hot_wallet.address,
-        "value": web3.to_wei(eth_amount, "ether"),
-    })
+    tx_hash = web3.eth.send_transaction(
+        {
+            "from": web3.eth.accounts[0],
+            "to": hot_wallet.address,
+            "value": web3.to_wei(eth_amount, "ether"),
+        }
+    )
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     # Picked on Etherscan

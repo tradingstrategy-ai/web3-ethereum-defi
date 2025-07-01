@@ -8,6 +8,7 @@ To run:
 
     python scripts/erc-4626/read-historical-apy.py
 """
+
 import os
 import datetime
 
@@ -19,7 +20,6 @@ from eth_defi.timestamp import estimate_block_number_for_timestamp_by_findblock
 
 
 def main():
-
     JSON_RPC_BASE = os.environ.get("JSON_RPC_BASE")
     assert JSON_RPC_BASE, "Please set JSON_RPC_BASE environment variable to your JSON-RPC endpoint."
 
@@ -39,7 +39,7 @@ def main():
 
     # Use FindBlock.xyz to estimate block numbers for the given timestamps
     start_block_find = estimate_block_number_for_timestamp_by_findblock(chain_id, start_at)
-    end_block_find  = estimate_block_number_for_timestamp_by_findblock(chain_id, end_at)
+    end_block_find = estimate_block_number_for_timestamp_by_findblock(chain_id, end_at)
 
     profitability_data = estimate_4626_profitability(
         vault,

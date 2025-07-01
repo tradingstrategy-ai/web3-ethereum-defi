@@ -17,25 +17,14 @@ from eth_defi.confirmation import wait_transactions_to_complete
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 
-private_key = os.environ['PRIVATE_KEY']
-json_rpc_base = os.environ['JSON_RPC_BASE']
+private_key = os.environ["PRIVATE_KEY"]
+json_rpc_base = os.environ["JSON_RPC_BASE"]
 
 api_url = "https://eventsapi.velvetdao.xyz/api/v3/rebalance/txn"
 
 # owner: 0x0c9db006f1c7bfaa0716d70f012ec470587a8d4f
 # 0x59b9263c01e3bb1a888698da8a74afac67286d7f
-payload = {
-  "rebalanceAddress": "0x59b9263c01e3bb1a888698da8a74afac67286d7f",
-  "sellToken": "0x6921b130d297cc43754afba22e5eac0fbf8db75b",
-  "buyToken": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
-  "sellAmount": "100000000000000000000",
-  "slippage": "100",
-  "remainingTokens": [
-    "0x6921b130d297cc43754afba22e5eac0fbf8db75b",
-    "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
-  ],
-  "owner": "0x0C9dB006F1c7bfaA0716D70F012EC470587a8D4F"
-}
+payload = {"rebalanceAddress": "0x59b9263c01e3bb1a888698da8a74afac67286d7f", "sellToken": "0x6921b130d297cc43754afba22e5eac0fbf8db75b", "buyToken": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913", "sellAmount": "100000000000000000000", "slippage": "100", "remainingTokens": ["0x6921b130d297cc43754afba22e5eac0fbf8db75b", "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"], "owner": "0x0C9dB006F1c7bfaA0716D70F012EC470587a8D4F"}
 
 resp = requests.post(api_url, json=payload)
 
@@ -73,4 +62,3 @@ if False:
     print("TX receipt", receipts[tx_hash])
 
     print("All good")
-

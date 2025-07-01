@@ -35,7 +35,7 @@ from eth_defi.vault.historical import scan_historical_prices_to_parquet
 logger = logging.getLogger(__name__)
 
 # Read JSON_RPC_CONFIGURATION from the environment
-JSON_RPC_URL = os.environ.get('JSON_RPC_URL')
+JSON_RPC_URL = os.environ.get("JSON_RPC_URL")
 if JSON_RPC_URL is None:
     try:
         urlparse(JSON_RPC_URL)
@@ -44,7 +44,6 @@ if JSON_RPC_URL is None:
 
 
 def main():
-
     setup_console_logging()
 
     token_cache = TokenDiskCache()
@@ -130,6 +129,5 @@ def main():
     print(pformat(scan_result))
 
 
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

@@ -71,6 +71,7 @@ Past copyright:
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE.
 """
+
 import re
 from typing import Any, Dict, List, Union
 

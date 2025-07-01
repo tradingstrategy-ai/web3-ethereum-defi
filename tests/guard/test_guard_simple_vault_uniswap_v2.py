@@ -266,6 +266,7 @@ def test_guard_token_in_not_approved(
         target, call_data = encode_simple_vault_transaction(trade_call)
         vault.functions.performCall(target, call_data).transact({"from": asset_manager})
 
+
 def test_guard_token_in_not_approved(
     uniswap_v2: UniswapV2Deployment,
     weth_usdc_pair: PairDetails,

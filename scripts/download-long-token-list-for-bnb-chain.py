@@ -20,6 +20,7 @@ Then run:
 This will save `tests/token-list.json`
 
 """
+
 import json
 import os
 import logging

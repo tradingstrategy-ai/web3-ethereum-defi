@@ -1,4 +1,5 @@
 """Solidity linking tests."""
+
 import pytest
 
 from web3 import Web3, EthereumTesterProvider

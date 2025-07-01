@@ -64,17 +64,17 @@ class PersistentKeyValueStore(dict):
 
     def iterkeys(self):
         c = self.conn.cursor()
-        for row in c.execute('SELECT key FROM kv'):
+        for row in c.execute("SELECT key FROM kv"):
             yield row[0]
 
     def itervalues(self):
         c = self.conn.cursor()
-        for row in c.execute('SELECT value FROM kv'):
+        for row in c.execute("SELECT value FROM kv"):
             yield row[0]
 
     def iteritems(self):
         c = self.conn.cursor()
-        for row in c.execute('SELECT key, value FROM kv'):
+        for row in c.execute("SELECT key, value FROM kv"):
             yield row[0], row[1]
 
     def keys(self):
@@ -87,11 +87,11 @@ class PersistentKeyValueStore(dict):
         return list(self.iteritems())
 
     def __contains__(self, key):
-        return self.conn.execute('SELECT 1 FROM kv WHERE key = ?', (key,)).fetchone() is not None
+        return self.conn.execute("SELECT 1 FROM kv WHERE key = ?", (key,)).fetchone() is not None
 
     def __getitem__(self, key):
         assert type(key) == str, f"Only string keys allowed, got {key}"
-        item = self.conn.execute('SELECT value FROM kv WHERE key = ?', (key,)).fetchone()
+        item = self.conn.execute("SELECT value FROM kv WHERE key = ?", (key,)).fetchone()
         if item is None:
             raise KeyError(key)
         return self.decode_value(item[0])
@@ -100,20 +100,20 @@ class PersistentKeyValueStore(dict):
         assert type(key) == str, f"Only string keys allowed, got {key}"
         value = self.encode_value(value)
         assert type(value) == str, f"Only string values allowed, got {value}"
-        self.conn.execute('REPLACE INTO kv (key, value) VALUES (?,?)', (key, value))
+        self.conn.execute("REPLACE INTO kv (key, value) VALUES (?,?)", (key, value))
         if self.autocommit:
             self.conn.commit()
 
     def __delitem__(self, key):
         if key not in self:
             raise KeyError(key)
-        self.conn.execute('DELETE FROM kv WHERE key = ?', (key,))
+        self.conn.execute("DELETE FROM kv WHERE key = ?", (key,))
 
     def __iter__(self):
         return self.iterkeys()
 
     def __len__(self):
-        rows = self.conn.execute('SELECT COUNT(*) FROM kv').fetchone()[0]
+        rows = self.conn.execute("SELECT COUNT(*) FROM kv").fetchone()[0]
         return rows if rows is not None else 0
 
     def get(self, key, default=None):

@@ -27,9 +27,9 @@ from eth_defi.provider.multi_provider import create_multi_provider_web3, MultiPr
 
 logger = logging.getLogger(__name__)
 
-def main():
 
-    log_level = os.environ.get('LOG_LEVEL', 'WARNING').upper()
+def main():
+    log_level = os.environ.get("LOG_LEVEL", "WARNING").upper()
     logging.basicConfig(level=log_level, stream=sys.stdout)
 
     # How many CPUs / subprocess we use
@@ -89,8 +89,8 @@ def main():
     output_fname = Path(f"{output_folder}/chain-{chain}-vaults.parquet")
     parquet_df = df.copy()
     parquet_df = parquet_df.fillna(pd.NA)  # fillna replaces None and NaN with pd.NA
-    parquet_df['Mgmt fee'] = pd.to_numeric(parquet_df['Mgmt fee'], errors='coerce')
-    parquet_df['Perf fee'] = pd.to_numeric(parquet_df['Perf fee'], errors='coerce')
+    parquet_df["Mgmt fee"] = pd.to_numeric(parquet_df["Mgmt fee"], errors="coerce")
+    parquet_df["Perf fee"] = pd.to_numeric(parquet_df["Perf fee"], errors="coerce")
     print(f"Saving raw data to {output_fname}")
     parquet_df.to_parquet(output_fname)
 
@@ -110,7 +110,7 @@ def main():
     #
 
     # Format DataFrame output for terminal
-    df["First seen"] = df["First seen"].dt.strftime('%Y-%b-%d')
+    df["First seen"] = df["First seen"].dt.strftime("%Y-%b-%d")
     df["Mgmt fee"] = df["Mgmt fee"].apply(lambda x: f"{x:.1%}" if type(x) == float else "-")
     df["Perf fee"] = df["Perf fee"].apply(lambda x: f"{x:.1%}" if type(x) == float else "-")
     # df["Address"] = df["Address"].apply(lambda x: x[0:8])  # Address is too wide in terminal
@@ -119,9 +119,8 @@ def main():
     # Round dust to zero, drop to 4 decimals
     def round_below_epsilon(x, epsilon=Decimal("0.1"), round_factor=Decimal("0.001")):
         if isinstance(x, Decimal):
-
             # Eliminate dust
-            x = Decimal('0') if abs(x) < epsilon else x
+            x = Decimal("0") if abs(x) < epsilon else x
 
             float_x = float(x)
 
@@ -149,9 +148,9 @@ def main():
     print(f"Total: {len(df)} vaults detected")
     print(f"ERC-7540: {len(erc_7540s)} vaults detected")
 
-    with pd.option_context('display.max_rows', None):
+    with pd.option_context("display.max_rows", None):
         display(df)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

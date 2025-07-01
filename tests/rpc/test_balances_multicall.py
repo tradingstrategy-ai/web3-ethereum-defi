@@ -1,4 +1,5 @@
 """Read token balalances using multicall"""
+
 import os
 from decimal import Decimal
 
@@ -101,4 +102,3 @@ def test_fetch_erc20_balances_multicall_mev_blocker():
 
     existing_usdc_balance = balances["0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"]
     assert existing_usdc_balance > Decimal(1.0)
-

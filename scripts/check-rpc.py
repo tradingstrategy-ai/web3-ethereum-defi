@@ -1,4 +1,5 @@
 """Check JSON-RPC connection."""
+
 import os
 
 from eth_defi.chain import get_chain_name

@@ -8,6 +8,7 @@ To run:
 
     PRIVATE_KEY=... python scripts/base/base_sequencer.py
 """
+
 import os
 import logging
 import sys
@@ -58,5 +59,6 @@ def main():
     receipt = receipts[signed_tx.hash]
     print(f"Transaction broadcasted:\n{pformat(dict(receipt.items()))}")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

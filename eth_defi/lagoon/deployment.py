@@ -608,11 +608,7 @@ def deploy_automated_lagoon_vault(
         # Look up the old module
         modules = safe.retrieve_modules()
         for module_addr in modules:
-            module = get_deployed_contract(
-                web3,
-                "safe-integration/TradingStrategyModuleV0.json",
-                module_addr
-            )
+            module = get_deployed_contract(web3, "safe-integration/TradingStrategyModuleV0.json", module_addr)
 
             try:
                 module.functions.getGovernanceAddress()

@@ -1,6 +1,4 @@
-"""Fetch enzyme price feeds.
-
-"""
+"""Fetch enzyme price feeds."""
 
 from decimal import Decimal
 from functools import partial

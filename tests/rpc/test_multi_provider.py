@@ -1,4 +1,5 @@
 """MultiProviderWeb3 configuration tests."""
+
 import os
 
 import pytest

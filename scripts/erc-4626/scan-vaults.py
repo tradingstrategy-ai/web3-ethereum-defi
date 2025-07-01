@@ -17,6 +17,7 @@ Or for faster small sample scan limit the end block:
     END_BLOCK=5555721 python scripts/erc-4626/scan-vaults.py
 
 """
+
 import decimal
 import logging
 import os
@@ -52,7 +53,7 @@ logger = logging.getLogger(__name__)
 
 
 # Read JSON_RPC_CONFIGURATION from the environment
-JSON_RPC_URL = os.environ.get('JSON_RPC_URL')
+JSON_RPC_URL = os.environ.get("JSON_RPC_URL")
 if JSON_RPC_URL is None:
     try:
         urlparse(JSON_RPC_URL)
@@ -61,7 +62,6 @@ if JSON_RPC_URL is None:
 
 
 def main():
-
     setup_console_logging()
 
     # How many CPUs / subprocess we use
@@ -124,23 +124,22 @@ def main():
     df = pd.DataFrame(rows)
     # Parquet cannot export the raw Python objects,
     # so we remove columns that are marked Python-internal only
-    df = df.drop(columns=[col for col in df.columns if col.startswith('_')])
+    df = df.drop(columns=[col for col in df.columns if col.startswith("_")])
     df = df.sort_values("First seen")
 
     #
     # Save raw data rows
     #
 
-
     output_fname = Path(f"{output_folder}/chain-{chain}-vaults.parquet")
     parquet_df = df.copy()
     parquet_df = parquet_df.fillna(pd.NA)  # fillna replaces None and NaN with pd.NA
     # Avoid funny number issues
     # pyarrow.lib.ArrowInvalid: ('Decimal precision out of range [1, 76]: 90', 'Conversion failed for column NAV with type object')
-    parquet_df['Mgmt fee'] = pd.to_numeric(parquet_df['Mgmt fee'], errors='coerce').astype('float64')
-    parquet_df['Perf fee'] = pd.to_numeric(parquet_df['Perf fee'], errors='coerce').astype('float64')
-    parquet_df['Shares'] = pd.to_numeric(parquet_df['Shares'], errors='coerce').astype('float64')
-    parquet_df['NAV'] = pd.to_numeric(parquet_df['NAV'], errors='coerce').astype('float64')
+    parquet_df["Mgmt fee"] = pd.to_numeric(parquet_df["Mgmt fee"], errors="coerce").astype("float64")
+    parquet_df["Perf fee"] = pd.to_numeric(parquet_df["Perf fee"], errors="coerce").astype("float64")
+    parquet_df["Shares"] = pd.to_numeric(parquet_df["Shares"], errors="coerce").astype("float64")
+    parquet_df["NAV"] = pd.to_numeric(parquet_df["NAV"], errors="coerce").astype("float64")
     print(f"Saving raw data to {output_fname}")
     parquet_df.to_parquet(output_fname)
 
@@ -151,13 +150,13 @@ def main():
     # Save dict -> data mapping with raw data to be read in notebooks and such.
     # This will preserve raw vault detection objects.
     # Keyed by (chain id, address)
-    data_dict = {r["_detection_data"].get_spec(): r  for r in rows}
+    data_dict = {r["_detection_data"].get_spec(): r for r in rows}
     output_fname = Path(f"{output_folder}/vault-db.pickle")
     print(f"Saving vault pickled database to {output_fname}")
     if not output_fname.exists():
         existing_db = {}
     else:
-        existing_db = pickle.load(output_fname.open('rb'))
+        existing_db = pickle.load(output_fname.open("rb"))
         assert type(existing_db) == dict, f"Got: {type(existing_db)}: {existing_db}"
     # Merge new results
     existing_db.update(data_dict)
@@ -169,7 +168,7 @@ def main():
     #
 
     # Format DataFrame output for terminal
-    df["First seen"] = df["First seen"].dt.strftime('%Y-%b-%d')
+    df["First seen"] = df["First seen"].dt.strftime("%Y-%b-%d")
     df["Mgmt fee"] = df["Mgmt fee"].apply(lambda x: f"{x:.1%}" if type(x) == float else "-")
     df["Perf fee"] = df["Perf fee"].apply(lambda x: f"{x:.1%}" if type(x) == float else "-")
     # df["Address"] = df["Address"].apply(lambda x: x[0:8])  # Address is too wide in terminal
@@ -178,9 +177,8 @@ def main():
     # Round dust to zero, drop to 4 decimals
     def round_below_epsilon(x, epsilon=Decimal("0.1"), round_factor=Decimal("0.001")):
         if isinstance(x, Decimal):
-
             # Eliminate dust
-            x = Decimal('0') if abs(x) < epsilon else x
+            x = Decimal("0") if abs(x) < epsilon else x
 
             float_x = float(x)
 
@@ -208,9 +206,9 @@ def main():
     print(f"Total: {len(df)} vaults detected")
     print(f"ERC-7540: {len(erc_7540s)} vaults detected")
 
-    with pd.option_context('display.max_rows', None):
+    with pd.option_context("display.max_rows", None):
         display(df)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

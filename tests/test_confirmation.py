@@ -1,4 +1,5 @@
 """Transaction monitoring tests."""
+
 import secrets
 
 import pytest

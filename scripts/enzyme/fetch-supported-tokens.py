@@ -1,4 +1,4 @@
-""""Print out enzyme supported tokens.
+""" "Print out enzyme supported tokens.
 
 Needs Polygon full node. Get one from QuickNode.
 
@@ -11,6 +11,7 @@ Example:
     END_BLOCK=26000000 python scripts/enzyme/fetch-price-feeds.py
 
 """
+
 import datetime
 import logging
 import os

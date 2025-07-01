@@ -1,4 +1,5 @@
 """Test JSON-RPC provider fallback mechanism."""
+
 import datetime
 import os
 from unittest.mock import patch, DEFAULT

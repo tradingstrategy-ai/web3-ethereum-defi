@@ -9,6 +9,7 @@ To run:
     python scripts/hsm/check-hsm-address.py
 
 """
+
 import os
 import json
 from web3_google_hsm.config import BaseConfig
@@ -17,7 +18,6 @@ from eth_defi.gcloud_hsm_wallet import GCloudHSMWallet
 
 
 def main():
-
     credentials = json.loads(os.environ["GCP_ADC_CREDENTIALS_STRING"])
     config = BaseConfig.from_env()
     print("Environment configured successfully!")
@@ -32,5 +32,6 @@ def main():
     print(f"Google Cloud HSM wallet configured.")
     print(f"HSM account is: {hsm_wallet.address}")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

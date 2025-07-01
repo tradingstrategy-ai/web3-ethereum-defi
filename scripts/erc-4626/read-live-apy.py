@@ -8,6 +8,7 @@ To run:
 
     python scripts/erc-4626/read-live-apy.py
 """
+
 import os
 import datetime
 
@@ -18,7 +19,6 @@ from eth_defi.provider.multi_provider import create_multi_provider_web3
 
 
 def main():
-
     JSON_RPC_BASE = os.environ.get("JSON_RPC_BASE")
     assert JSON_RPC_BASE, "Please set JSON_RPC_BASE environment variable to your JSON-RPC endpoint."
 
@@ -33,10 +33,7 @@ def main():
     vault_address = "0x45aa96f0b3188d47a1dafdbefce1db6b37f58216"
     vault = create_vault_instance(web3, vault_address)
 
-    profitability_data = estimate_4626_recent_profitability(
-        vault,
-        lookback_window=datetime.timedelta(days=7)
-    )
+    profitability_data = estimate_4626_recent_profitability(vault, lookback_window=datetime.timedelta(days=7))
 
     estimated_apy = profitability_data.calculate_profitability(annualise=True)
     start_block, end_block = profitability_data.get_block_range()

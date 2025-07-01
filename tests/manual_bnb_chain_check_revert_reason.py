@@ -1,4 +1,5 @@
 """A sample script to check that we get revert reason from BNB Chain JSON-RPC."""
+
 import logging
 import datetime
 import os

@@ -9,6 +9,7 @@ To run:
     export JSON_RPC_BASE=<get your own RPC URL>
     python scripts/base/multicall3-example.py
 """
+
 import json
 import logging
 import os
@@ -57,7 +58,6 @@ class PoolData(TypedDict):
 
 
 def main():
-
     setup_console_logging(default_log_level="info")
 
     # See https://web3-ethereum-defi.readthedocs.io/tutorials/mev-blocker.html how to configure RPC
@@ -87,17 +87,16 @@ def main():
     # See tutorial https://github.com/tradingstrategy-ai/getting-started/blob/master/scratchpad/uniswap-v3-pool-data/01-uniswap-v3-pools-on-base.ipynb
     # on how to generate this data.
     pool_data: list[PoolData]
-    pool_data = json.load((Path(__file__).parent  / "pools.json").open("rt"))
+    pool_data = json.load((Path(__file__).parent / "pools.json").open("rt"))
 
     # Choose random N pools
     pool_data = [p for p in pool_data if p["quote"] == "USDC"]
     pools_to_read = pool_data[0:NUMBER_OF_PAIRS]
-    amount_in = 1_000_000 # 1 USDC in raw units
+    amount_in = 1_000_000  # 1 USDC in raw units
 
     # Example 1:
     # Do a Multicall3 read for Uniswap v3 prices using Web3.py proxy contracts to construct ABI payload
     def _create_call_using_proxy_class(pool_data: PoolData) -> EncodedCall:
-
         # Uniswap v3 internal path struct
         path_bytes = encode_path(
             path=[pool_data["quote_token_address"], pool_data["base_token_address"]],
@@ -109,10 +108,7 @@ def main():
             amount_in,
         )
         # Add a pool hint as an extra data for which pool this call is
-        return EncodedCall.from_contract_call(
-            bound_func,
-            extra_data={"pool_address": pool_data["pool_address"]}
-        )
+        return EncodedCall.from_contract_call(bound_func, extra_data={"pool_address": pool_data["pool_address"]})
 
     # Example 2:
     # Do a Multicall3 read for Uniswap v3 prices using raw abi_encode
@@ -130,7 +126,7 @@ def main():
             function="quoteExactInput",  # For debug
             signature=signature_4bytes,
             data=packed_args,
-            extra_data={"pool_address": pool_data["pool_address"]}
+            extra_data={"pool_address": pool_data["pool_address"]},
         )
 
     match METHOD:
@@ -168,7 +164,6 @@ def main():
         block_number = result.block_identifier
 
         if result.success:
-
             # WE unpack the QuoterV2 reply struct by hand
             #         returns (
             #             uint256 amountOut,
@@ -178,13 +173,12 @@ def main():
             #         );
 
             price_raw = convert_int256_bytes_to_int(result.result[0:32])
-            price_decimals = Decimal(price_raw) / Decimal(10**pool["base_token_decimals"])
+            price_decimals = Decimal(price_raw) / Decimal(10 ** pool["base_token_decimals"])
             price = Decimal(1) / price_decimals
-            print(f"Pool {idx+1}: {pool_name}: price {price} {pool['base']} / {pool['quote']}, at block {block_number}")
+            print(f"Pool {idx + 1}: {pool_name}: price {price} {pool['base']} / {pool['quote']}, at block {block_number}")
         else:
             print(f"Pool {idx + 1}: {pool_name}: call failed, debug details:\n{result.call.get_debug_info()}")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
-

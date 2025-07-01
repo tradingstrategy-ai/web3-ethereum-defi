@@ -7,6 +7,7 @@ We also provide some helper functions to deal with ABI encode/decode.
 
 `See Github for available contracts ABI files <https://github.com/tradingstrategy-ai/web3-ethereum-defi/tree/master/eth_defi/abi>`_.
 """
+
 import json
 import re
 from functools import lru_cache
@@ -524,7 +525,6 @@ def get_topic_signature_from_event(event: Type[ContractEvent]) -> HexStr:
     abi = event._get_event_abi()
     event_topic = encode_hex(event_abi_to_log_topic(abi))  # type: ignore
     return event_topic
-
 
 
 def _hexify(s: Any):

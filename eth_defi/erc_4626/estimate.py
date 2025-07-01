@@ -98,10 +98,7 @@ def estimate_4626_redeem(
     if raw_amount == 0:
         total_assets = vault.vault_contract.functions.totalAssets().call(block_identifier=block_identifier)
         total_supply = vault.vault_contract.functions.totalSupply().call(block_identifier=block_identifier)
-        msg = f"previewRedeem() returned 0, this may indicate a problem with vault {vault.name} {vault.vault_address}.\n" \
-            f"Total assets: {total_assets}, total supply: {total_supply}.\n" \
-            f"Share amount: {share_amount}, share amount raw: {raw_amount}.\n" \
-            f"Block identifier: {block_identifier}\n"
+        msg = f"previewRedeem() returned 0, this may indicate a problem with vault {vault.name} {vault.vault_address}.\nTotal assets: {total_assets}, total supply: {total_supply}.\nShare amount: {share_amount}, share amount raw: {raw_amount}.\nBlock identifier: {block_identifier}\n"
         raise RuntimeError(msg)
 
     return vault.denomination_token.convert_to_decimals(raw_amount)

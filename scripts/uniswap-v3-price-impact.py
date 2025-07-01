@@ -10,7 +10,6 @@ To run:
 
 """
 
-
 import os
 from decimal import Decimal
 
@@ -130,6 +129,7 @@ def main():
     print(f"Quoted amount to received: {received_amount:,.2f} {base_token.symbol}")
     print(f"Quoted price (no execution slippage): {quoted_price:,.2f} {quote_token.symbol}")
     print(f"Price impact: {price_impact * 100:.2f}%")
+
 
 if __name__ == "__main__":
     main()

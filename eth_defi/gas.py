@@ -2,6 +2,7 @@
 
 `Web3.py no longer support gas price strategies post London hard work <https://web3py.readthedocs.io/en/stable/gas_price.html>`_.
 """
+
 import enum
 from dataclasses import dataclass
 from typing import Optional
@@ -97,6 +98,7 @@ def estimate_gas_price(web3: Web3, method=None) -> GasPriceSuggestion:
 
 # Legacy
 estimate_gas_fees = estimate_gas_price
+
 
 def apply_gas(tx: dict, suggestion: GasPriceSuggestion) -> dict:
     """Apply gas fees to a raw transaction dict.

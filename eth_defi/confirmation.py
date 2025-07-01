@@ -408,7 +408,6 @@ def _broadcast_multiple_nodes(
             web3.eth.send_raw_transaction(signed_tx.rawTransaction)
             success.add(p)
         except ValueError as e:
-
             headers = get_last_headers()
             resp_data: dict = e.args[0]
 
@@ -458,7 +457,7 @@ def _broadcast_multiple_nodes(
                     our_balance = Decimal(our_balance) / Decimal(10**18)
                 else:
                     our_balance = None
-                raise OutOfGasFunds(f"Failed to broadcast {tx_hash}, out of gas, account {address} balance is {our_balance}.\n" f"TX details: {signed_tx}") from e
+                raise OutOfGasFunds(f"Failed to broadcast {tx_hash}, out of gas, account {address} balance is {our_balance}.\nTX details: {signed_tx}") from e
             else:
                 raise ValueError(f"Does not know how to handle error: {e}\nTx: {tx_hash}, nonce {nonce}, address {address}, see logs for further details") from e
 
@@ -679,10 +678,7 @@ def wait_and_broadcast_multiple_nodes(
 
         if len(txs) >= 2:
             # https://github.com/ethereum/go-ethereum/issues/26890
-            logger.info(
-                "Broadcasting multiple transactions, using inter node delay %s to sleep to ensure poor-quality nodes like Alchemy work",
-                inter_node_delay
-            )
+            logger.info("Broadcasting multiple transactions, using inter node delay %s to sleep to ensure poor-quality nodes like Alchemy work", inter_node_delay)
             time.sleep(inter_node_delay.total_seconds())
 
             if anviled:
@@ -770,7 +766,6 @@ def wait_and_broadcast_multiple_nodes(
                 raise ConfirmationTimedOut(f"Transaction confirmation failed. Started: {started_at}, timed out after {max_timeout} ({max_timeout.total_seconds()}s). Poll delay: {poll_delay.total_seconds()}s. Still unconfirmed: {unconfirmed_tx_strs}")
 
         if datetime.datetime.utcnow() >= next_node_switch:
-
             if transact_provider:
                 logger.info(f"Broadcast failed with {transact_provider} - trying again")
             else:
@@ -894,7 +889,6 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
 
     """
 
-
     assert isinstance(poll_delay, datetime.timedelta)
     assert isinstance(max_timeout, datetime.timedelta)
 
@@ -935,7 +929,6 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
     try_other_provider_timeout = time.time() + try_other_provider_delay.total_seconds()
 
     for tx in txs:
-
         logger.info(
             "Broadcasting nonce: %d, hash: %s, endpoint: %s",
             tx.nonce,
@@ -1028,15 +1021,11 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
                 raise ConfirmationTimedOut(
                     f"Run out of poll delay when confirming %d: %s, last exception is %s",
                     tx.nonce,
-                    tx.hash.hex() if tx_hash else '-',
+                    tx.hash.hex() if tx_hash else "-",
                     last_exception,
                 ) from last_exception
             else:
-                raise ConfirmationTimedOut(
-                    f"Run out of poll delay when confirming %d: %s",
-                    tx.nonce,
-                    tx.hash.hex()
-                )
+                raise ConfirmationTimedOut(f"Run out of poll delay when confirming %d: %s", tx.nonce, tx.hash.hex())
 
     if last_exception:
         raise last_exception

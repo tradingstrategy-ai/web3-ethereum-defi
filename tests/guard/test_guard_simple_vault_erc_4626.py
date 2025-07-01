@@ -25,7 +25,8 @@ from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.simple_vault.transact import encode_simple_vault_transaction
 from eth_defi.token import fetch_erc20_details, TokenDetails
 from eth_defi.trace import (
-    assert_transaction_success_with_explanation, TransactionAssertionError,
+    assert_transaction_success_with_explanation,
+    TransactionAssertionError,
 )
 
 
@@ -82,7 +83,6 @@ def web3(anvil_base_chain_fork: AnvilLaunch):
         )
     assert web3.eth.chain_id == 8453
     return web3
-
 
 
 @pytest.fixture
@@ -267,9 +267,9 @@ def test_vault_initialised(
 
     assert guard.functions.callSiteCount().call() == 7
     assert guard.functions.isAllowedApprovalDestination(vault_address)
-    #assert guard.functions.isAllowedCallSite(share_token, get_function_selector(usdc.functions.approve)).call()
-    #assert guard.functions.isAllowedCallSite(share_token, get_function_selector(usdc.functions.transfer)).call()
-    #assert guard.functions.isAllowedCallSite(denomination_token, get_function_selector(denomination_token.functions.approve)).call()
+    # assert guard.functions.isAllowedCallSite(share_token, get_function_selector(usdc.functions.approve)).call()
+    # assert guard.functions.isAllowedCallSite(share_token, get_function_selector(usdc.functions.transfer)).call()
+    # assert guard.functions.isAllowedCallSite(denomination_token, get_function_selector(denomination_token.functions.approve)).call()
     assert guard.functions.isAllowedAsset(share_token).call()
     assert guard.functions.isAllowedAsset(denomination_token).call()
 
@@ -287,7 +287,7 @@ def test_guard_can_do_erc_4626_deposit(
     assert isinstance(usdc, TokenDetails)
     assert erc4626_vault.name == "Autopilot USDC Base"
     vault = vault_with_balance
-    assert erc4626_vault.fetch_total_assets("latest") == pytest.approx(Decimal('4619873.988981'))
+    assert erc4626_vault.fetch_total_assets("latest") == pytest.approx(Decimal("4619873.988981"))
     usdc_amount = Decimal(10_000)
     fn_calls = approve_and_deposit_4626(
         vault=erc4626_vault,
@@ -298,7 +298,7 @@ def test_guard_can_do_erc_4626_deposit(
         target, call_data = encode_simple_vault_transaction(fn_call)
         tx_hash = vault.functions.performCall(target, call_data).transact({"from": asset_manager})
         assert_transaction_success_with_explanation(web3, tx_hash, tracing=True, func=fn_call)
-    assert erc4626_vault.fetch_total_assets("latest") == pytest.approx(Decimal('4629873.988981'))
+    assert erc4626_vault.fetch_total_assets("latest") == pytest.approx(Decimal("4629873.988981"))
 
 
 def test_guard_no_erc_4626_deposit_unapproved_vault(
@@ -314,7 +314,7 @@ def test_guard_no_erc_4626_deposit_unapproved_vault(
     erc4626_vault = malicious_vault
     assert isinstance(erc4626_vault, ERC4626Vault)
     vault = vault_with_balance
-    assert erc4626_vault.fetch_total_assets("latest") == pytest.approx(Decimal('265089.086941'))
+    assert erc4626_vault.fetch_total_assets("latest") == pytest.approx(Decimal("265089.086941"))
     usdc_amount = Decimal(10_000)
     fn_calls = approve_and_deposit_4626(
         vault=malicious_vault,
@@ -328,7 +328,7 @@ def test_guard_no_erc_4626_deposit_unapproved_vault(
     with pytest.raises(TransactionAssertionError) as exc_info:
         assert_transaction_success_with_explanation(web3, tx_hash, tracing=True)
 
-    assert erc4626_vault.fetch_total_assets("latest") == pytest.approx(Decimal('265089.086941'))
+    assert erc4626_vault.fetch_total_assets("latest") == pytest.approx(Decimal("265089.086941"))
 
 
 def test_guard_can_do_erc_4626_withdraw(
@@ -343,8 +343,8 @@ def test_guard_can_do_erc_4626_withdraw(
     """Test withdraw from the vault we want to trade"""
 
     vault = vault_with_balance
-    assert erc4626_vault.fetch_total_assets("latest") == pytest.approx(Decimal('4619873.988981'))
-    assert usdc.fetch_balance_of(vault.address) == pytest.approx(Decimal('10000'))
+    assert erc4626_vault.fetch_total_assets("latest") == pytest.approx(Decimal("4619873.988981"))
+    assert usdc.fetch_balance_of(vault.address) == pytest.approx(Decimal("10000"))
     usdc_amount = Decimal(10_000)
 
     fn_calls = approve_and_deposit_4626(
@@ -357,7 +357,7 @@ def test_guard_can_do_erc_4626_withdraw(
         tx_hash = vault.functions.performCall(target, call_data).transact({"from": asset_manager})
         assert_transaction_success_with_explanation(web3, tx_hash, tracing=True, func=fn_call)
 
-    #assert erc4626_vault.fetch_total_assets("latest") == pytest.approx(Decimal('4629873.988981'))
+    # assert erc4626_vault.fetch_total_assets("latest") == pytest.approx(Decimal('4629873.988981'))
     share_count = erc4626_vault.share_token.fetch_balance_of(vault.address)
 
     fn_calls = approve_and_redeem_4626(
@@ -384,8 +384,8 @@ def test_guard_can_do_erc_4626_withdraw(
     assert receiver == vault.address
 
     # We do not lose anything in fees
-    assert erc4626_vault.fetch_total_assets("latest") == pytest.approx(Decimal('4619874.201603'))
-    assert usdc.fetch_balance_of(vault.address) == pytest.approx(Decimal('10000'))
+    assert erc4626_vault.fetch_total_assets("latest") == pytest.approx(Decimal("4619874.201603"))
+    assert usdc.fetch_balance_of(vault.address) == pytest.approx(Decimal("10000"))
 
 
 def test_guard_malicious_withdraw(
@@ -400,8 +400,8 @@ def test_guard_malicious_withdraw(
 ):
     """Try to withdraw to the malicious destination"""
     vault = vault_with_balance
-    assert erc4626_vault.fetch_total_assets("latest") == pytest.approx(Decimal('4619873.988981'))
-    assert usdc.fetch_balance_of(vault.address) == pytest.approx(Decimal('10000'))
+    assert erc4626_vault.fetch_total_assets("latest") == pytest.approx(Decimal("4619873.988981"))
+    assert usdc.fetch_balance_of(vault.address) == pytest.approx(Decimal("10000"))
     usdc_amount = Decimal(10_000)
 
     fn_calls = approve_and_deposit_4626(
@@ -414,7 +414,7 @@ def test_guard_malicious_withdraw(
         tx_hash = vault.functions.performCall(target, call_data).transact({"from": asset_manager})
         assert_transaction_success_with_explanation(web3, tx_hash, tracing=True, func=fn_call)
 
-    #assert erc4626_vault.fetch_total_assets("latest") == pytest.approx(Decimal('4629873.988981'))
+    # assert erc4626_vault.fetch_total_assets("latest") == pytest.approx(Decimal('4629873.988981'))
     share_count = erc4626_vault.share_token.fetch_balance_of(vault.address)
 
     fn_calls = approve_and_redeem_4626(
@@ -431,9 +431,12 @@ def test_guard_malicious_withdraw(
     assert_transaction_success_with_explanation(web3, tx_hash, tracing=True, func=fn_calls[0])
 
     # Inject malicious address as redeem receiver
-    fn_calls[1].args = (fn_calls[1].args[0], third_party, third_party,)
+    fn_calls[1].args = (
+        fn_calls[1].args[0],
+        third_party,
+        third_party,
+    )
     target, call_data = encode_simple_vault_transaction(fn_calls[1])
     tx_hash = vault.functions.performCall(target, call_data).transact({"from": asset_manager})
     with pytest.raises(TransactionAssertionError) as exc_info:
         assert_transaction_success_with_explanation(web3, tx_hash, tracing=True, func=fn_calls[1])
-

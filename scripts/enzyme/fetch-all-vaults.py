@@ -1,4 +1,4 @@
-""""Fetch all Enzyme vaults, TVL, policies and such from on-chain data.
+""" "Fetch all Enzyme vaults, TVL, policies and such from on-chain data.
 
 Example how to run:
 
@@ -11,6 +11,7 @@ Example how to run:
   because `NewFundCreated` event seems to be a recent addon
 
 """
+
 import csv
 from functools import lru_cache
 import logging

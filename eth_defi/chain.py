@@ -7,6 +7,7 @@ In this module, we have helpers.
 import datetime
 from collections import Counter
 from typing import Any, Callable, Optional
+
 #: These chains need POA middleware
 from urllib.parse import urljoin
 
@@ -74,28 +75,28 @@ CHAIN_HOMEPAGES = {
     100: {"name": "Gnosis", "homepage": "https://www.gnosis.io"},
     81457: {"name": "Blast", "homepage": "https://blast.io"},
     42220: {"name": "Celo", "homepage": "https://celo.org"},
-    7777777: {"name": "Zora", "homepage": "https://zora.co"}
+    7777777: {"name": "Zora", "homepage": "https://zora.co"},
 }
 
 #: Chain avg block times.
 #:
 #: By Grok, not verified.
 EVM_BLOCK_TIMES = {
-    1: 12,        # Ethereum (post-Merge, ~12 seconds)
-    56: 3,        # Binance Smart Chain (~3 seconds)
-    137: 2,       # Polygon PoS (~2 seconds)
-    43114: 2,     # Avalanche C-Chain (~2 seconds)
-    80094: 1,     # Berachain (assuming ~1 second, based on high-performance claims; may need verification)
-    130: 1,       # Unichain (estimated ~1 second, as a high-throughput chain; confirm with official docs)
+    1: 12,  # Ethereum (post-Merge, ~12 seconds)
+    56: 3,  # Binance Smart Chain (~3 seconds)
+    137: 2,  # Polygon PoS (~2 seconds)
+    43114: 2,  # Avalanche C-Chain (~2 seconds)
+    80094: 1,  # Berachain (assuming ~1 second, based on high-performance claims; may need verification)
+    130: 1,  # Unichain (estimated ~1 second, as a high-throughput chain; confirm with official docs)
     645749: 0.1,  # Hyperliquid (speculative: ~100ms, based on its high-speed design; adjust as needed)
-    8453: 2,      # Base (~2 seconds, aligned with Optimism rollup timing)
-    146: 1,       # Sonic (estimated ~1 second, designed for speed; confirm with official sources)
-    34443: 2,     # Mode (~2 seconds, typical for Optimistic rollups)
-    5000: 2,      # Mantle (~2 seconds, based on its Ethereum L2 design)
-    999: 0.1,     # Hyperliquid (same as 645749, assuming chain ID confusion; verify correct ID)
+    8453: 2,  # Base (~2 seconds, aligned with Optimism rollup timing)
+    146: 1,  # Sonic (estimated ~1 second, designed for speed; confirm with official sources)
+    34443: 2,  # Mode (~2 seconds, typical for Optimistic rollups)
+    5000: 2,  # Mantle (~2 seconds, based on its Ethereum L2 design)
+    999: 0.1,  # Hyperliquid (same as 645749, assuming chain ID confusion; verify correct ID)
     42161: 0.25,  # Arbitrum (block time ~250ms, though batches vary; reflects Nitro update)
     2741: 2,  # Layer-2, assumed fast like other L2s
-    10:  2,  # Optimistic Rollup, ~2s block time
+    10: 2,  # Optimistic Rollup, ~2s block time
     1868: 2,  # New L2, assumed ~2s based on typical L2 performance
     324: 1,  # ZK-Rollup, very fast, ~1s
     100: 5,  # Gnosis Chain, ~5s
@@ -116,7 +117,7 @@ def get_chain_name(chain_id: int) -> str:
 
 def get_chain_homepage(chain_id: int) -> tuple[str, str]:
     """Translate Ethereum chain id to a link to its homepage.
-    
+
     :return:
         name, homepage link tuple
     """

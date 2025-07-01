@@ -43,6 +43,7 @@ Some data background info:
 - Uniswap v2 deployment transaction https://bloxy.info/tx/0xc31d7e7e85cab1d38ce1b8ac17e821ccd47dbde00f9d57f2bd8613bff9428396
 
 """
+
 import csv
 import datetime
 import logging

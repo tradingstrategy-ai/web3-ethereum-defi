@@ -1,4 +1,5 @@
 """Get JSON-RPC URL from environment varbless."""
+
 import os
 
 from eth_defi.chain import CHAIN_NAMES

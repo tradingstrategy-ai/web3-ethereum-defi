@@ -7,6 +7,7 @@
 - You should really use alternative blockchain with less gas fees for trading
 
 """
+
 import os
 
 from web3 import Web3

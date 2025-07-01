@@ -4,6 +4,7 @@
 
 - Check some negative cases for unauthroised transactions
 """
+
 import datetime
 import random
 
@@ -150,9 +151,9 @@ def enzyme(
 
     return deployment
 
+
 @pytest.fixture()
 def hot_wallet(web3):
-
     _deployer = web3.eth.accounts[0]
     account: LocalAccount = Account.create()
     stash = web3.eth.get_balance(_deployer)
@@ -631,7 +632,7 @@ def test_enzyme_guarded_trade_singlehop_uniswap_v2_guard_redeploy(
             "comptroller_lib": enzyme.contracts.comptroller_lib.address,
             "allowed_adapters_policy": enzyme.contracts.allowed_adapters_policy.address,
             "generic_adapter": generic_adapter.address,
-        }
+        },
     )
 
     bind_vault(
@@ -651,7 +652,7 @@ def test_enzyme_guarded_trade_singlehop_uniswap_v2_guard_redeploy(
     #    vault,
     #    generic_adapter,
     #    hot_wallet
-    #)
+    # )
 
     whitelist_sender_receiver(
         guard,

@@ -1,4 +1,5 @@
 """Test cumulative slippage tolerance of Enzyme vault."""
+
 import os
 
 from eth_account import Account

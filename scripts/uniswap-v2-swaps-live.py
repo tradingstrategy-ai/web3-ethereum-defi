@@ -38,6 +38,7 @@ To run for Polygon (and QuickSwap):
     python scripts/read-uniswap-v2-swaps-live.py
 
 """
+
 import datetime
 import os
 import time
@@ -212,7 +213,7 @@ def main():
         # Start from the existing save point
         block_header_df = block_store.load()
         reorg_mon.load_pandas(block_header_df)
-        logger.info("Loaded %d existing blocks from %s.\n" "If the save checkpoint was long time ago, we need to catch up all blocks and it could be slow.", len(block_header_df), block_store.path)
+        logger.info("Loaded %d existing blocks from %s.\nIf the save checkpoint was long time ago, we need to catch up all blocks and it could be slow.", len(block_header_df), block_store.path)
     else:
         # Start from the scratch,
         # use tqdm progess bar for interactive progress
