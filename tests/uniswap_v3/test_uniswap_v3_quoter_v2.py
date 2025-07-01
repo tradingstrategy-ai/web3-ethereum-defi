@@ -2,6 +2,7 @@
 
 - Uses live Base Uniswap v3 deployment
 """
+
 import os
 from decimal import Decimal
 
@@ -19,6 +20,7 @@ pytestmark = pytest.mark.skipif(not JSON_RPC_BASE, reason="No JSON_RPC_BASE envi
 
 #: Running on Github
 CI = os.environ.get("CI") == "true"
+
 
 @pytest.fixture()
 def web3() -> Web3:
