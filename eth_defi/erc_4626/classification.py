@@ -505,7 +505,6 @@ def create_vault_instance(
     if auto_detect:
         assert not features, "Do not pass features when auto-detecting vault type"
 
-
     spec = VaultSpec(web3.eth.chain_id, address.lower())
 
     if ERC4626Feature.broken in features:

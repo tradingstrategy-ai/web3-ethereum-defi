@@ -8,6 +8,7 @@ To run tests in this module:
     pytest -k test_decode_tx
 
 """
+
 import os
 import logging
 import shutil

@@ -46,6 +46,7 @@ Full traceback of the issue::
     ValueError: {'code': -32601, 'message': 'the method eth_feeHistory does not exist/is not available'}
 
 """
+
 import os
 from decimal import Decimal
 

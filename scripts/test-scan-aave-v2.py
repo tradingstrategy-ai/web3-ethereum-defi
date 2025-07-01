@@ -23,7 +23,7 @@ web3 = Web3(HTTPProvider(json_rpc_url))
 
 aave_network = get_aave_v2_network_by_chain_id(web3.eth.chain_id)
 
-print(f"Detected network {aave_network.name } chain {web3.eth.chain_id} start block {aave_network.pool_created_at_block}")
+print(f"Detected network {aave_network.name} chain {web3.eth.chain_id} start block {aave_network.pool_created_at_block}")
 
 # Stores the last block number of event data we store
 state = JSONFileScanState(f"/tmp/aave-v2-{aave_network.name.lower()}-scan.json")

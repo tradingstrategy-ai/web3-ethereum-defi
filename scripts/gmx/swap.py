@@ -7,6 +7,7 @@
 
 - When given JSON_RPC_TENDERLY, use Tenderly virtual testnet for the simulation
 """
+
 import logging
 import os
 from decimal import Decimal
@@ -71,7 +72,6 @@ def create_fork_funded_wallet(web3: Web3) -> HotWallet:
 
 
 def main():
-
     setup_console_logging(default_log_level=os.environ.get("LOG_LEVEL", "info"))
 
     SIMULATE = os.environ.get("SIMULATE") == "true"
@@ -86,10 +86,7 @@ def main():
             GMX_CONTROLLER,
         ]
         if JSON_RPC_TENDERLY:
-            logger.info(
-                "Using Tenderly virtual testnet for simulation: %s",
-                JSON_RPC_TENDERLY
-            )
+            logger.info("Using Tenderly virtual testnet for simulation: %s", JSON_RPC_TENDERLY)
             web3 = create_multi_provider_web3(
                 JSON_RPC_TENDERLY,
                 default_http_timeout=(10.0, 60.0),  # Increase default timeouts if your Anvil is slow
@@ -132,7 +129,6 @@ def main():
     gmx_config = GMXConfig(
         web3=web3,
         wallet=hot_wallet,
-
     )
     trading_manager = GMXTrading(gmx_config)
 
@@ -156,10 +152,7 @@ def main():
 
     tx_hash = swap_order.tx_info.hex()
 
-    logger.info(
-        "Swap transaction created, transaction hash is %s",
-        tx_hash
-    )
+    logger.info("Swap transaction created, transaction hash is %s", tx_hash)
 
     assert_transaction_success_with_explanation(web3, tx_hash)
 
@@ -197,6 +190,7 @@ def main():
 
     assert out_token.fetch_balance_of(hot_wallet.address) > 0, f"Swap did not result in any output tokens for {out_token}"
     logger.info("All ok")
+
 
 if __name__ == "__main__":
     main()

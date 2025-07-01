@@ -1,6 +1,5 @@
 """Trying to make Sphinx more useful."""
 
-
 # Monkey-patch autosummary template context
 from sphinx.ext.autosummary.generate import AutosummaryRenderer
 

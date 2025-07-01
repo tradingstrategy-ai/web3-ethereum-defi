@@ -1,6 +1,4 @@
-"""Get the latest price of a Chainlink price feed.
-
-"""
+"""Get the latest price of a Chainlink price feed."""
 
 import os
 

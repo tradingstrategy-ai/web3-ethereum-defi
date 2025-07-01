@@ -8,6 +8,7 @@ To run tests in this module:
     pytest -k test_ganache
 
 """
+
 import logging
 import os
 import shutil

@@ -2,6 +2,7 @@
 
 Based on https://github.com/enzymefinance/protocol/blob/v4/packages/protocol/tests/release/e2e/FundManagementWalkthrough.test.ts
 """
+
 from eth_typing import HexAddress
 from web3 import Web3
 from web3.contract import Contract

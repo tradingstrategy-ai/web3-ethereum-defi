@@ -6,6 +6,7 @@
 
 - Do swap and credit supply tests
 """
+
 import os
 from decimal import Decimal
 
@@ -36,7 +37,8 @@ from eth_defi.trace import (
 )
 from eth_defi.uniswap_v3.constants import UNISWAP_V3_DEPLOYMENTS
 from eth_defi.uniswap_v3.deployment import (
-    UniswapV3Deployment, fetch_deployment,
+    UniswapV3Deployment,
+    fetch_deployment,
 )
 from eth_defi.uniswap_v3.pool import PoolDetails, fetch_pool_details
 from eth_defi.aave_v3.deployment import fetch_deployment as fetch_aave_v3_deployment
@@ -124,7 +126,7 @@ def terms_of_service(web3) -> Contract:
     tos = get_deployed_contract(
         web3,
         "terms-of-service/TermsOfService.json",
-        "0xDCD7C644a6AA72eb2f86781175b18ADc30Aa4f4d", # https://github.com/tradingstrategy-ai/terms-of-service
+        "0xDCD7C644a6AA72eb2f86781175b18ADc30Aa4f4d",  # https://github.com/tradingstrategy-ai/terms-of-service
     )
     return tos
 
@@ -228,11 +230,14 @@ def test_enzyme_uniswap_v3_arbitrum(
     assert usdt.fetch_balance_of(usdt_whale) > 500, f"Whale balance is {usdt.fetch_balance_of(usdt_whale)}"
 
     # Get USDT, to the initial shares buy
-    tx_hash = usdt.contract.functions.transfer(user_1, 500 * 10 ** 6,).transact({"from": usdt_whale})
+    tx_hash = usdt.contract.functions.transfer(
+        user_1,
+        500 * 10**6,
+    ).transact({"from": usdt_whale})
     assert_transaction_success_with_explanation(web3, tx_hash)
-    tx_hash = usdt.contract.functions.approve(vault.comptroller.address, 500 * 10 ** 6).transact({"from": user_1})
+    tx_hash = usdt.contract.functions.approve(vault.comptroller.address, 500 * 10**6).transact({"from": user_1})
     assert_transaction_success_with_explanation(web3, tx_hash)
-    tx_hash = vault.comptroller.functions.buyShares(500 * 10 ** 6, 1).transact({"from": user_1})
+    tx_hash = vault.comptroller.functions.buyShares(500 * 10**6, 1).transact({"from": user_1})
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     assert vault.get_gross_asset_value() == 500 * 10**6  # Vault has been funded
@@ -282,17 +287,20 @@ def test_enzyme_aave_arbitrum(
     assert usdt.fetch_balance_of(usdt_whale) > 500, f"Whale balance is {usdt.fetch_balance_of(usdt_whale)}"
 
     # Get USDT, to the initial shares buy
-    tx_hash = usdt.contract.functions.transfer(user_1, 500 * 10 ** 6, ).transact({"from": usdt_whale})
+    tx_hash = usdt.contract.functions.transfer(
+        user_1,
+        500 * 10**6,
+    ).transact({"from": usdt_whale})
     assert_transaction_success_with_explanation(web3, tx_hash)
-    tx_hash = usdt.contract.functions.approve(vault.comptroller.address, 500 * 10 ** 6).transact({"from": user_1})
+    tx_hash = usdt.contract.functions.approve(vault.comptroller.address, 500 * 10**6).transact({"from": user_1})
     assert_transaction_success_with_explanation(web3, tx_hash)
-    tx_hash = vault.comptroller.functions.buyShares(500 * 10 ** 6, 1).transact({"from": user_1})
+    tx_hash = vault.comptroller.functions.buyShares(500 * 10**6, 1).transact({"from": user_1})
     assert_transaction_success_with_explanation(web3, tx_hash)
 
-    assert vault.get_gross_asset_value() == 500 * 10 ** 6  # Vault has been funded
+    assert vault.get_gross_asset_value() == 500 * 10**6  # Vault has been funded
 
     # Deposit $100 USDT
-    raw_amount = 100 * 10 ** 6
+    raw_amount = 100 * 10**6
 
     # Supply to USDT reserve
     vault_delivery_address = vault.generic_adapter.address

@@ -2,6 +2,7 @@
 
 `See Github for available contracts <https://github.com/tradingstrategy-ai/web3-ethereum-defi/tree/master/eth_defi/abi>`_.
 """
+
 from pathlib import Path
 from shutil import which
 from typing import Dict, TypeAlias, Union
@@ -35,7 +36,7 @@ def deploy_contract(
     deployer: str | LocalAccount,
     *constructor_args,
     register_for_tracing=True,
-    gas: int=None,
+    gas: int = None,
     confirm=True,
 ) -> Contract | HexBytes:
     """Deploys a new contract from ABI file.

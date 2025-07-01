@@ -1,4 +1,5 @@
 """Block timestamp related utilities"""
+
 import dataclasses
 import datetime
 import logging
@@ -21,16 +22,14 @@ class FindBlockError(Exception):
     """Something wrong with FindBlock AI call"""
 
 
-
 @dataclasses.dataclass(frozen=True, slots=True)
 class FindBlockReply:
     """For block number estimation by time"""
+
     hash: HexStr
     block_number: int
     block_timestamp: datetime.datetime
     searched_timestamp: datetime.datetime
-
-
 
 
 def get_latest_block_timestamp(web3: Web3) -> datetime.datetime:
@@ -131,7 +130,6 @@ def estimate_block_number_for_timestamp_by_findblock(
 
     data = {}
     while attempts > 0:
-
         response = requests.get(f"https://api.findblock.xyz/v1/chain/{chain_id}/block/before/{unix_time}?inclusive=true")
 
         try:
@@ -157,4 +155,3 @@ def estimate_block_number_for_timestamp_by_findblock(
         block_timestamp=datetime.datetime.utcfromtimestamp(data["timestamp"]),
         searched_timestamp=timestamp,
     )
-

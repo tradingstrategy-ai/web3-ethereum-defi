@@ -1,4 +1,4 @@
-""""Print out enzyme supported tokens.
+""" "Print out enzyme supported tokens.
 
 Needs an Arbitrum node.
 
@@ -10,6 +10,7 @@ Example:
     python scripts/enzyme/fetch-supported-tokens-arbitrum.py
 
 """
+
 import datetime
 import logging
 import os
@@ -93,7 +94,7 @@ def main():
             aggregator = feed.chainlink_aggregator
             round_data = fetch_chainlink_round_data(web3, aggregator.address)
             ago = datetime.datetime.utcnow() - round_data.update_time
-            print(f"   {feed. primitive_token.symbol}, current price is {price:,.4f} USDC, Chainlink feed is {round_data.description}, updated {ago} ago")
+            print(f"   {feed.primitive_token.symbol}, current price is {price:,.4f} USDC, Chainlink feed is {round_data.description}, updated {ago} ago")
         except UnsupportedBaseAsset as e:
             print(f"   {feed.primitive_token.symbol} price feed not available: unsupported base asset")
 
@@ -104,6 +105,7 @@ def main():
     print("]")
 
     print(f"Total {len(feeds)} Enzyme price feeds")
+
 
 if __name__ == "__main__":
     main()

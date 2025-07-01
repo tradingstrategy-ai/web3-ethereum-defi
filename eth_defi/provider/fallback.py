@@ -26,7 +26,7 @@ class ExtraValueError(ValueError):
     Add extra debugging.
     """
 
-    def __init__(self, extra_help: str, *args, **kwargs): # real signature unknown
+    def __init__(self, extra_help: str, *args, **kwargs):  # real signature unknown
         super().__init__(*args, **kwargs)
         self.extra_help = extra_help
 
@@ -211,7 +211,6 @@ class FallbackProvider(BaseNamedProvider):
         for i in range(self.retries + 1):
             provider = self.get_active_provider()
             try:
-
                 # Call the underlying provider
                 resp_data = provider.make_request(method, params)
 
@@ -241,7 +240,6 @@ class FallbackProvider(BaseNamedProvider):
                 return resp_data
 
             except Exception as e:
-
                 # Honour eth eth_call() payload data and don't try retry, logging, etc.
                 if ignore_error:
                     raise

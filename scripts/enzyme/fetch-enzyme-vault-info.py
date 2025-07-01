@@ -1,4 +1,4 @@
-""""Read Enzyme vault info from Polygon.
+""" "Read Enzyme vault info from Polygon.
 
 Manual test script to print out information for a single Enzyme vault.
 
@@ -12,6 +12,7 @@ Example:
     python scripts/fetch-enzyme-vault-info.py
 
 """
+
 import logging
 import os
 from functools import partial

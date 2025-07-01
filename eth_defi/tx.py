@@ -110,7 +110,7 @@ class AssetDelta:
 
         .. code-block:: python
 
-            d = AssetDelta(usdc.address, 1*10**6)
+            d = AssetDelta(usdc.address, 1 * 10**6)
             d2 = d * 0.99
             assert d2.raw_amount == int(10**6 * 0.99)
         """

@@ -1,6 +1,4 @@
-"""Test vault's wallet like interface.
-
-"""
+"""Test vault's wallet like interface."""
 
 import secrets
 from decimal import Decimal

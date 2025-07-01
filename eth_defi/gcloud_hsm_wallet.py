@@ -135,7 +135,7 @@ class GCloudHSMWallet(BaseWallet):
             from web3 import Web3
             from eth_defi.trace import assert_transaction_success_with_explanation
 
-            web3 = Web3(Web3.HTTPProvider('http://localhost:8545'))
+            web3 = Web3(Web3.HTTPProvider("http://localhost:8545"))
             wallet = HSMWallet()  # Uses env vars for configuration
             wallet.sync_nonce(web3)
 
@@ -161,12 +161,7 @@ class GCloudHSMWallet(BaseWallet):
             from web3_google_hsm.config import BaseConfig
             import json
 
-            config = BaseConfig(
-                project_id='my-project',
-                location_id='us-east1',
-                key_ring_id='eth-keys',
-                key_id='signing-key'
-            )
+            config = BaseConfig(project_id="my-project", location_id="us-east1", key_ring_id="eth-keys", key_id="signing-key")
             credentials = json.loads(os.environ["GCP_CREDENTIALS_STRING"])
             wallet = HSMWallet(config=config, credentials=credentials)
             wallet.sync_nonce(web3)
@@ -244,19 +239,21 @@ class GCloudHSMWallet(BaseWallet):
 
         .. code-block:: python
 
-            web3 = Web3(Web3.HTTPProvider('http://localhost:8545'))
+            web3 = Web3(Web3.HTTPProvider("http://localhost:8545"))
             wallet = HSMWallet()  # Using env vars
             wallet.sync_nonce(web3)
 
-            signed_tx = wallet.sign_transaction_with_new_nonce({
-                "to": "0x742d35Cc6634C0532925a3b844Bc454e4438f44e",
-                "from": wallet.address,
-                "value": web3.to_wei(0.1, "ether"),
-                "gas": 21000,
-                "gasPrice": web3.eth.gas_price,
-                "chainId": web3.eth.chain_id,
-                "data": "0x",
-            })
+            signed_tx = wallet.sign_transaction_with_new_nonce(
+                {
+                    "to": "0x742d35Cc6634C0532925a3b844Bc454e4438f44e",
+                    "from": wallet.address,
+                    "value": web3.to_wei(0.1, "ether"),
+                    "gas": 21000,
+                    "gasPrice": web3.eth.gas_price,
+                    "chainId": web3.eth.chain_id,
+                    "data": "0x",
+                }
+            )
             tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
 
         Args:
@@ -301,7 +298,7 @@ class GCloudHSMWallet(BaseWallet):
         func: ContractFunction,
         tx_params: dict | None = None,
         web3: Web3 | None = None,
-        fill_gas_price: bool | GasPriceMethod=False,
+        fill_gas_price: bool | GasPriceMethod = False,
     ) -> SignedTransactionWithNonce:
         """Signs a bound Web3 Contract call.
 
@@ -309,7 +306,7 @@ class GCloudHSMWallet(BaseWallet):
 
         .. code-block:: python
 
-            bound_func = busd_token.functions.transfer(user_2, 50*10**18)  # Transfer 50 BUDF
+            bound_func = busd_token.functions.transfer(user_2, 50 * 10**18)  # Transfer 50 BUDF
             signed_tx = hot_wallet.sign_bound_call_with_new_nonce(bound_func)
             web3.eth.send_raw_transaction(signed_tx.rawTransaction)
 
@@ -412,11 +409,7 @@ class GCloudHSMWallet(BaseWallet):
 
             # Approve USDC deposit to a vault contract
             deposit_amount = 500 * 10**6  # 500 USDC
-            signed_tx = wallet.transact_with_contract(
-                usdc.contract.functions.approve,
-                Web3.to_checksum_address(vault.rebalance_address),
-                deposit_amount
-            )
+            signed_tx = wallet.transact_with_contract(usdc.contract.functions.approve, Web3.to_checksum_address(vault.rebalance_address), deposit_amount)
             tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
             assert_transaction_success_with_explanation(web3, tx_hash)
 
@@ -428,7 +421,7 @@ class GCloudHSMWallet(BaseWallet):
             signed_tx = wallet.transact_with_contract(
                 contract.functions.initialize,
                 owner_address,
-                chainId=137  # Polygon mainnet
+                chainId=137,  # Polygon mainnet
             )
 
         Args:
@@ -482,7 +475,7 @@ class GCloudHSMWallet(BaseWallet):
         .. code-block:: python
 
             # For local testing with environment variables
-            web3 = Web3(Web3.HTTPProvider('http://localhost:8545'))
+            web3 = Web3(Web3.HTTPProvider("http://localhost:8545"))
             wallet = HSMWallet.create_for_testing(web3)
 
             # For testing with specific config and credentials

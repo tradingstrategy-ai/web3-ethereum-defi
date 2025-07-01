@@ -12,6 +12,7 @@ To run:
     export JSON_RPC_BASE=...
     SIMULATE=true python scripts/lagoon/deploy-lagoon.py
 """
+
 import logging
 import os
 import sys

@@ -129,7 +129,7 @@ gas_balance = web3.eth.get_balance(account.address)
 print(f"Your address is {my_address}")
 print(f"Your have {base.fetch_balance_of(my_address)} {base.symbol}")
 print(f"Your have {quote.fetch_balance_of(my_address)} {quote.symbol}")
-print(f"Your have {gas_balance / (10 ** 18)} for gas fees")
+print(f"Your have {gas_balance / (10**18)} for gas fees")
 
 assert quote.fetch_balance_of(my_address) > 0, f"Cannot perform swap, as you have zero {quote.symbol} needed to swap"
 
@@ -226,4 +226,4 @@ for completed_tx_hash, receipt in receipts.items():
 print("All ok!")
 print(f"After swap, you have {base.fetch_balance_of(my_address)} {base.symbol}")
 print(f"After swap, you have {quote.fetch_balance_of(my_address)} {quote.symbol}")
-print(f"After swap, you have {gas_balance / (10 ** 18)} native token left")
+print(f"After swap, you have {gas_balance / (10**18)} native token left")

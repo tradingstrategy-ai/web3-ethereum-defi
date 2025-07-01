@@ -1,6 +1,5 @@
-"""Test Enzyme policy API.
+"""Test Enzyme policy API."""
 
-"""
 import pytest
 from eth_typing import HexAddress
 from web3 import Web3

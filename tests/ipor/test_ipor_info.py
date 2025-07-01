@@ -55,11 +55,5 @@ def test_ipor_identify(
     test_block_number,
 ):
     """Identify IPOR vault."""
-    features = detect_vault_features(
-        web3,
-        "0x45aa96f0b3188d47a1dafdbefce1db6b37f58216"
-    )
+    features = detect_vault_features(web3, "0x45aa96f0b3188d47a1dafdbefce1db6b37f58216")
     assert features == {ERC4626Feature.ipor_like}
-
-
-

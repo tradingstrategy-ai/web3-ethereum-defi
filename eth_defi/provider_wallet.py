@@ -101,11 +101,11 @@ class Web3ProviderWallet(BaseWallet):
         )
 
     def sign_bound_call_with_new_nonce(
-            self,
-            func: ContractFunction,
-            tx_params: Optional[dict] = None,
-            web3: Optional[Web3] = None,
-            fill_gas_price: bool = False,
+        self,
+        func: ContractFunction,
+        tx_params: Optional[dict] = None,
+        web3: Optional[Web3] = None,
+        fill_gas_price: bool = False,
     ) -> SignedTransactionWithNonce:
         """Sign a contract function call with a new nonce."""
         if tx_params is None:
@@ -147,9 +147,9 @@ class Web3ProviderWallet(BaseWallet):
         return self.web3.eth.send_transaction(unsigned_tx)
 
     def transact_and_broadcast_with_contract(
-            self,
-            func: ContractFunction,
-            gas_limit: Optional[int] = None,
+        self,
+        func: ContractFunction,
+        gas_limit: Optional[int] = None,
     ) -> HexBytes:
         """Transact with a contract and broadcast the transaction.
 
@@ -167,9 +167,11 @@ class Web3ProviderWallet(BaseWallet):
         """
         web3 = func.w3
 
-        tx_data = func.build_transaction({
-            "from": self.address,
-        })
+        tx_data = func.build_transaction(
+            {
+                "from": self.address,
+            }
+        )
 
         if gas_limit is not None:
             tx_data["gas"] = gas_limit

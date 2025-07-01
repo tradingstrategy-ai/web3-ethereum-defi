@@ -107,7 +107,7 @@ def trace_evm_transaction(
             struct_logs = trace_dump["structLogs"]
 
             if not struct_logs:
-                raise TraceNotEnabled(f"Tracing not enabled on the backend {web3.provider}.\n" f"If you are using anvil make sure you start with --steps-trace")
+                raise TraceNotEnabled(f"Tracing not enabled on the backend {web3.provider}.\nIf you are using anvil make sure you start with --steps-trace")
 
             tx = web3.eth.get_transaction(tx_hash)
 
@@ -225,7 +225,7 @@ def print_symbolic_trace(
         # use ABI data from deployed contracts to enrich the output
         trace_output = print_symbolic_trace(get_or_create_contract_registry(web3), trace_data)
 
-        assert trace_output == 'CALL: [reverted] RevertTest.<revert1> [500000 gas]'
+        assert trace_output == "CALL: [reverted] RevertTest.<revert1> [500000 gas]"
 
     :param contract_registry:
         The registered contracts for which we have symbolic information available.
@@ -251,7 +251,7 @@ def assert_transaction_success_with_explanation(
     RaisedException=TransactionAssertionError,
     tracing: bool = False,
     func: ContractFunction = None,
-    timeout: float=120.0,
+    timeout: float = 120.0,
 ) -> TxReceipt:
     """Checks if a transaction succeeds and give a verbose explanation why not..
 

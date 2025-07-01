@@ -2,6 +2,7 @@
 
 - transferWithAuthorization() and receiveWithAuthorization() integration tests for Enzyme protocol
 """
+
 import flaky
 import pytest
 from eth_account import Account

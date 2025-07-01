@@ -1,6 +1,5 @@
-"""Tests for lazy_timestamp_reader.py
+"""Tests for lazy_timestamp_reader.py"""
 
-"""
 import pytest
 from eth_defi.provider.anvil import launch_anvil, AnvilLaunch, mine
 from eth_defi.chain import install_chain_middleware

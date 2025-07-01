@@ -86,6 +86,7 @@ In the case of errors you will see:
         Block 11,984,710 - could not fetch transaction data for transaction 0x
 
 """
+
 import os
 import random
 import time

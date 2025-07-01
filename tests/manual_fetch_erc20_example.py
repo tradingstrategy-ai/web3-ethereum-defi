@@ -1,6 +1,5 @@
-"""A sample script to manually test brokeness of BSC nodes.
+"""A sample script to manually test brokeness of BSC nodes."""
 
-"""
 from web3 import Web3, HTTPProvider
 
 from eth_defi.balances import fetch_erc20_balances_by_transfer_event

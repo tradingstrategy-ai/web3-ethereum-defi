@@ -117,6 +117,7 @@ class HotWallet:
     .. code-block:: python
 
         from eth_defi.token import fetch_erc20_details
+
         usdc = fetch_erc20_details(web3, "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48")  # Ethereum mainnet
         bound_call = usdc.transfer("<to address here>", Decimal(2140))
         tx_hash = hot_wallet.transact_and_broadcast_with_contract(bound_call)
@@ -214,13 +215,15 @@ class HotWallet:
 
             # Send some ETH to zero address from
             # the hot wallet
-            signed_tx = wallet.sign_transaction_with_new_nonce({
-                "from": wallet.address,
-                "to": ZERO_ADDRESS,
-                "value": 1,
-                "gas": 100_000,
-                "gasPrice": web3.eth.gas_price,
-            })
+            signed_tx = wallet.sign_transaction_with_new_nonce(
+                {
+                    "from": wallet.address,
+                    "to": ZERO_ADDRESS,
+                    "value": 1,
+                    "gas": 100_000,
+                    "gasPrice": web3.eth.gas_price,
+                }
+            )
             tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
 
         :param tx:
@@ -254,7 +257,7 @@ class HotWallet:
         self,
         func: ContractFunction,
         tx_params: dict | None = None,
-        web3: Web3 | None=None,
+        web3: Web3 | None = None,
         fill_gas_price=False,
     ) -> SignedTransactionWithNonce:
         """Signs a bound Web3 Contract call.
@@ -263,7 +266,7 @@ class HotWallet:
 
         .. code-block:: python
 
-            bound_func = busd_token.functions.transfer(user_2, 50*10**18)  # Transfer 50 BUDF
+            bound_func = busd_token.functions.transfer(user_2, 50 * 10**18)  # Transfer 50 BUDF
             signed_tx = hot_wallet.sign_bound_call_with_new_nonce(bound_func)
             web3.eth.send_raw_transaction(signed_tx.rawTransaction)
 
@@ -281,12 +284,7 @@ class HotWallet:
         .. code-block:: python
 
             bound_func = vault.settle_via_trading_strategy_module()
-            signed_tx_2 = self.hot_wallet.sign_bound_call_with_new_nonce(
-                bound_func,
-                tx_params={"gas": DEFAULT_LAGOON_SETTLE_GAS},
-                web3=web3,
-                fill_gas_price=True
-            )
+            signed_tx_2 = self.hot_wallet.sign_bound_call_with_new_nonce(bound_func, tx_params={"gas": DEFAULT_LAGOON_SETTLE_GAS}, web3=web3, fill_gas_price=True)
 
         See also
 
@@ -368,12 +366,8 @@ class HotWallet:
         .. code-block:: python
 
             # Approve USDC deposit to a vault contract
-            deposit_amount = 500 * 10 ** 6
-            signed_tx = hot_wallet_user.transact_with_contract(
-                usdc.contract.functions.approve,
-                Web3.to_checksum_address(vault.rebalance_address),
-                deposit_amount
-            )
+            deposit_amount = 500 * 10**6
+            signed_tx = hot_wallet_user.transact_with_contract(usdc.contract.functions.approve, Web3.to_checksum_address(vault.rebalance_address), deposit_amount)
             tx_hash = web3.eth.send_raw_transaction(signed_tx.raw_transaction)
             assert_transaction_success_with_explanation(web3, tx_hash)
         """
@@ -382,9 +376,11 @@ class HotWallet:
         web3 = func.w3
         assert web3 is not None, "ContractFunction not bound to web3 instance"
 
-        tx_data = func(*args, **kwargs).build_transaction({
-            "from": self.address,
-        })
+        tx_data = func(*args, **kwargs).build_transaction(
+            {
+                "from": self.address,
+            }
+        )
 
         self.fill_in_gas_price(web3, tx_data)
         return self.sign_transaction_with_new_nonce(tx_data)
@@ -392,7 +388,7 @@ class HotWallet:
     def transact_and_broadcast_with_contract(
         self,
         func: ContractFunction,
-        gas_limit: int=None,
+        gas_limit: int = None,
     ) -> HexBytes:
         """Transacts with a contract, broadcasts transaction.
 
@@ -405,6 +401,7 @@ class HotWallet:
         .. code-block:: python
 
             from eth_defi.token import fetch_erc20_details
+
             usdc = fetch_erc20_details(web3, "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48")  # Ethereum mainnet
             bound_call = usdc.transfer("<to address here>", Decimal(2140))
             tx_hash = hot_wallet.transact_and_broadcast_with_contract(bound_call)
@@ -425,9 +422,11 @@ class HotWallet:
         assert func.args is not None, f"Unbound contract function? {func}"
         web3 = func.w3
 
-        tx_data = func.build_transaction({
-            "from": self.address,
-        })
+        tx_data = func.build_transaction(
+            {
+                "from": self.address,
+            }
+        )
 
         if gas_limit is not None:
             tx_data["gas"] = gas_limit

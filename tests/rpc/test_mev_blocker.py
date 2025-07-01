@@ -1,4 +1,5 @@
 """Test MEV blocker provider switching."""
+
 import datetime
 
 import pytest
@@ -78,7 +79,6 @@ def test_mev_blocker_send_transaction_raw(mev_blocker_provider: MEVBlockerProvid
     assert mev_blocker_provider.provider_counter["transact"] == 2
 
 
-
 def test_mev_blocker_broadcast_single(mev_blocker_provider: MEVBlockerProvider):
     """Use wait_and_broadcast_multiple_nodes_mev_blocker() MEV Blocker compatible broadcasting method"""
 
@@ -98,10 +98,7 @@ def test_mev_blocker_broadcast_single(mev_blocker_provider: MEVBlockerProvider):
         }
     )
 
-    receipts = wait_and_broadcast_multiple_nodes_mev_blocker(
-        web3.provider,
-        [signed_tx]
-    )
+    receipts = wait_and_broadcast_multiple_nodes_mev_blocker(web3.provider, [signed_tx])
 
     assert len(receipts) == 1
 
@@ -131,10 +128,7 @@ def test_mev_blocker_broadcast_two(mev_blocker_provider: MEVBlockerProvider):
             "gasPrice": web3.eth.gas_price,
         }
     )
-    receipts = wait_and_broadcast_multiple_nodes_mev_blocker(
-        web3.provider,
-        [signed_tx, signed_tx_2]
-    )
+    receipts = wait_and_broadcast_multiple_nodes_mev_blocker(web3.provider, [signed_tx, signed_tx_2])
 
     assert len(receipts) == 2
 
@@ -156,9 +150,4 @@ def test_mev_blocker_broadcast_timeout(mev_blocker_provider: MEVBlockerProvider)
     )
 
     with pytest.raises(ConfirmationTimedOut):
-        wait_and_broadcast_multiple_nodes_mev_blocker(
-            web3.provider,
-            [signed_tx],
-            max_timeout=datetime.timedelta(seconds=-1)
-        )
-
+        wait_and_broadcast_multiple_nodes_mev_blocker(web3.provider, [signed_tx], max_timeout=datetime.timedelta(seconds=-1))

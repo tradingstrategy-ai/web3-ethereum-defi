@@ -5,6 +5,7 @@ Further reading
 - `Web3.py Patterns: Revert Reason Lookups <https://snakecharmers.ethereum.org/web3py-revert-reason-parsing/>`_
 
 """
+
 import logging
 import pprint
 from typing import Union
@@ -158,5 +159,5 @@ def fetch_transaction_revert_reason(
     current_block_number = web3.eth.block_number
     # TODO: Convert to logger record
     pretty_result = pprint.pformat(result)
-    logger.error(f"Transaction succeeded, when we tried to fetch its revert reason.\n" f"To address: {tx['to']}, hash: {tx_hash.hex()}, tx block num: {tx['blockNumber']}, gas: {tx['gas']}, current block number: {current_block_number}\n" f"Transaction result:\n" f"{pretty_result}\n" f"- Maybe the chain tip is unstable\n" f"- Maybe transaction failed due to slippage\n" f"- Maybe someone is frontrunning you and it does not happen with eth_call replay\n- Maybe the target address is not code")
+    logger.error(f"Transaction succeeded, when we tried to fetch its revert reason.\nTo address: {tx['to']}, hash: {tx_hash.hex()}, tx block num: {tx['blockNumber']}, gas: {tx['gas']}, current block number: {current_block_number}\nTransaction result:\n{pretty_result}\n- Maybe the chain tip is unstable\n- Maybe transaction failed due to slippage\n- Maybe someone is frontrunning you and it does not happen with eth_call replay\n- Maybe the target address is not code")
     return unknown_error_message

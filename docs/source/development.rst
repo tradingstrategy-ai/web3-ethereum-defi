@@ -59,6 +59,10 @@ Note that `-E docs` is important, otherwise Sphinx package won't be installed an
 Ganache
 -------
 
+.. warning ::
+
+    Ganache is legacy and any Ganache-based code is no longer maintained. Use Foundry and Anvil instead.
+
 Some features require ganache, to install it.
 
 First install Node / NPM:
@@ -119,15 +123,16 @@ This will
 Formatting code
 ---------------
 
-The code uses `Python black <https://github.com/psf/black>`_ formatting with unlimited line length.
+The code uses Ruff formatting with unlimited line length.
+
+- All pull requests will be validated for valid ``ruff`` formatting.
 
 To format any of your code:
 
 .. code-block:: shell
 
-    # Black comes in dev dependencies
-    poetry shell
-    black eth_defi tests scripts
+    # ruff comes in dev dependencies
+     poetry run ruff format .
 
 Pull requests
 -------------
@@ -170,7 +175,7 @@ To update dependencies for Read the Docs run:
 Pull request quality checklist
 ------------------------------
 
-- ✅ The Python code passes `flake8 formatting conventions <https://flake8.pycqa.org/en/latest/>`_.
+- ✅ The Python code passes `ruff formatting conventions <https://flake8.pycqa.org/en/latest/>`_.
   Run `poetry run flake8` and you should get a clean output. Note that Github Action will complain on these
   when you open a pull request.
 

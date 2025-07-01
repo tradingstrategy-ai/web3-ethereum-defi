@@ -1,6 +1,5 @@
-"""Test generic adapter on Enzyme.
+"""Test generic adapter on Enzyme."""
 
-"""
 import flaky
 import pytest
 from eth_typing import HexAddress

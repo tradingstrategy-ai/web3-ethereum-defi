@@ -67,7 +67,6 @@ DEFAULT_RETRYABLE_EXCEPTIONS: Tuple[BaseException] = (
     # requests.exceptions.ChunkedEncodingError: ("Connection broken: InvalidChunkLength(got length b'', 0 bytes read)", InvalidChunkLength(got length b'', 0 bytes read))
     #
     ChunkedEncodingError,
-
 )
 
 #: List of HTTP status codes we know we might want to retry after a timeout
@@ -82,11 +81,9 @@ DEFAULT_RETRYABLE_HTTP_STATUS_CODES = (
     525,  # Returned by Alchemy - SSL handshake failed - cause unknown, internal Alchemy failure suspected https://http.dev/525
     520,  # Returned by Alchemy - CloudFlare: Unknown error
     410,  # happens on dRPC: requests.exceptions.HTTPError: 410 Client Error: Gone for url: https://lb.drpc.org/ogrpc?network=avalanche&dkey=xxx
-
     # dRPC error
     # requests.exceptions.HTTPError: 403 Client Error: Forbidden for url: https://lb.drpc.org/ogrpc?network=polygon&dkey=x/
     403,
-
 )
 
 #: List of ValueError status codes we know we might want to retry after a timeout
@@ -130,11 +127,9 @@ DEFAULT_RETRYABLE_RPC_ERROR_CODES = (
     # Some JSON-RPC provider is buying nodes from allondes.com have have screwed it up
     # ValueError: {'code': -32701, 'message': 'Please specify address in your request or, to remove restrictions, order a dedicated full node here: https://www.allnodes.com/bnb/host'}
     -32701,
-
     # dRPC failure
     # ValueError: {'message': 'There are not enough CUPs left to cover the CU required for current request.', 'code': 42903}g
     42903,
-
 )
 
 
@@ -161,7 +156,6 @@ DEFAULT_RETRYABLE_RPC_ERROR_MESSAGES = {
     # dRPC Optimism failure
     #  {'message': 'Parse error', 'code': -32700}.,
     "Parse error",
-
     # Hyperliquid EVM WTF
     "Unexpected error (code=40000)",
 }

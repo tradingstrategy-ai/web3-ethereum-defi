@@ -7,7 +7,6 @@
 - This script is made for Uniswap v3 on Polygon, using free RPC endpoint
 """
 
-
 import os
 import time
 import datetime
@@ -49,7 +48,6 @@ def main():
 
     # Keep reading events as they land
     while True:
-
         # Record the block number close to our timestamp
         block_num = web3.eth.get_block_number()
 
@@ -69,6 +67,7 @@ def main():
 
         # Refresh every 5 seconds
         time.sleep(5)
+
 
 if __name__ == "__main__":
     main()

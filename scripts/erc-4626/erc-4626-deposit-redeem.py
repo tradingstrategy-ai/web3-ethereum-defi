@@ -120,11 +120,7 @@ def deposit_redeem(
             signed_tx.hash.hex(),
         )
         web3.eth.send_raw_transaction(signed_tx.rawTransaction)
-        assert_transaction_success_with_explanation(
-            web3,
-            signed_tx.hash.hex(),
-            timeout=timeout
-        )
+        assert_transaction_success_with_explanation(web3, signed_tx.hash.hex(), timeout=timeout)
 
     logger.info("Depositing...")
 
@@ -174,7 +170,6 @@ def deposit_redeem(
     }
 
 
-
 def main():
     """Main entry point for the script."""
     args = parse_args()
@@ -216,7 +211,6 @@ def main():
     assert usdc_address, f"USDC address not found for chain {spec.chain_id}"
 
     if simulate:
-
         # TODO: Currently only USDC autofunding supported
         if funding_wallet is None:
             funding_wallet = LARGE_USDC_HOLDERS[spec.chain_id]
