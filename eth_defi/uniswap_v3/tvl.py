@@ -1,4 +1,5 @@
-""""Analyse Uniswap v3 TVL (total value locked) and market depth."""
+""" "Analyse Uniswap v3 TVL (total value locked) and market depth."""
+
 from decimal import Decimal
 
 from eth_typing import BlockIdentifier
@@ -36,7 +37,7 @@ def fetch_uniswap_v3_pool_tvl(
             block_identifier=block_estimated,
         )
 
-        print(f"TVL {tvl_estimated:,} USDC at block {block_estimated,}")
+        print(f"TVL {tvl_estimated:,} USDC at block {(block_estimated,)}")
 
     :param pool:
         Uniswap v3 pool data fully resolved.

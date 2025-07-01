@@ -7,6 +7,7 @@
 
 - See `EthAccout.sign_message implementation <https://github.com/ethereum/eth-account/blob/b4883627557839bed906c89b93eec0fbbb017ec5/eth_account/account.py#L535>`__.
 """
+
 import datetime
 
 from eth_account.datastructures import SignedMessage

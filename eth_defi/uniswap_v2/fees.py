@@ -28,7 +28,7 @@ A short example how to get started:
         web3=web3,
         factory_address="0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f",
         router_address="0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
-        init_code_hash='0x96e8ac4277198ff8b6f785478aa9a39f403cb768dd02cbee326c3e7da348845f',
+        init_code_hash="0x96e8ac4277198ff8b6f785478aa9a39f403cb768dd02cbee326c3e7da348845f",
     )
 
     # Uniswap v2's USDC-WETH needs to be reserved to WETH-USDC in human logic
@@ -234,7 +234,7 @@ def estimate_buy_quantity(
             uniswap_v2,
             weth,
             usdc,
-            500*10**18,
+            500 * 10**18,
         )
         assert amount_eth / 1e18 == pytest.approx(0.28488156127668085)
 
@@ -289,7 +289,7 @@ def estimate_buy_price(
             web3=web3,
             factory_address="0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f",
             router_address="0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
-            init_code_hash='0x96e8ac4277198ff8b6f785478aa9a39f403cb768dd02cbee326c3e7da348845f',
+            init_code_hash="0x96e8ac4277198ff8b6f785478aa9a39f403cb768dd02cbee326c3e7da348845f",
         )
 
         # Uniswap v2's USDC-WETH needs to be reserved to WETH-USDC in human logic
@@ -321,7 +321,7 @@ def estimate_buy_price(
             uniswap_v2,
             weth,
             usdc,
-            1*10**18,
+            1 * 10**18,
         )
         assert amount_eth / 1e18 == pytest.approx(0.28488156127668085)
 
@@ -559,7 +559,7 @@ def estimate_buy_received_amount_raw(
         assert eth_received / (10**18) == pytest.approx(0.9667409780905836)
 
         # Calculate price of ETH as $ for our purchase
-        price = (1650*10**18) / eth_received
+        price = (1650 * 10**18) / eth_received
         assert price == pytest.approx(Decimal(1706.7653460381143))
 
     :param quantity: How much of the base token we want to buy
@@ -620,7 +620,7 @@ def estimate_sell_received_amount_raw(
         assert usdc_received_decimals == pytest.approx(80721.05538886508)
 
         # Calculate price of ETH as $ for our purchase
-        price = usdc_received / (50*10**18)
+        price = usdc_received / (50 * 10**18)
         assert price == pytest.approx(Decimal(1614.4211077773016))
 
     :param quantity: How much of the base token we want to buy

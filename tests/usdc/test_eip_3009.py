@@ -1,4 +1,4 @@
-""" EIP-3009 tests
+"""EIP-3009 tests
 
 - Test against MockEIP3009Receiver
 
@@ -7,6 +7,7 @@
 - For more EIP-3009 tests, see Enzyme test suite
 
 """
+
 import pytest
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
