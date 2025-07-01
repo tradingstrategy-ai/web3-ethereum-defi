@@ -67,7 +67,9 @@ Tutorials and examples
    erc-4626-vault-list
    erc-4626-historical-price
    erc-4626-best-vaults
+   erc-4626-vault-report-markdown
    erc-4626-single-vault
+   erc-4626-deposit-redeem
    enzyme-read-vaults
    enzyme-deploy
    verify-node-integrity

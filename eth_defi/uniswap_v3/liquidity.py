@@ -1,4 +1,5 @@
 """Uniswap v3 liquidity events and depth estimation."""
+
 import csv
 import math
 from functools import reduce
@@ -218,7 +219,7 @@ def get_pool_state_at_block(pool_address: HexAddress, block_number: int, api_key
             }
         }
         """,
-        api_key, 
+        api_key,
         chain,
         variables={
             "pool_id": pool_address,
@@ -252,7 +253,7 @@ def get_pool_state_at_block(pool_address: HexAddress, block_number: int, api_key
                     }
                 }
                 """,
-                api_key, 
+                api_key,
                 chain,
                 variables={
                     "pool": pool_address,

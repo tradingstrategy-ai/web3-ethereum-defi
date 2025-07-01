@@ -1,4 +1,5 @@
 """safe-eth-py RPC compatibility layer."""
+
 from web3 import Web3
 
 from safe_eth.eth import EthereumClient

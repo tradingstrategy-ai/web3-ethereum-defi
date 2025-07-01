@@ -1,5 +1,7 @@
 """Anvil integration.
 
+_ ..anvil:
+
 This module provides Python integration for Anvil.
 
 - `Anvil <https://github.com/foundry-rs/foundry/tree/master?tab=readme-ov-file#anvil>`__
@@ -34,12 +36,12 @@ The code was originally lifted from Brownie project.
 
 import logging
 import os
-import random
 import shutil
 import sys
 import time
 import warnings
 from dataclasses import dataclass
+from decimal import Decimal
 from subprocess import DEVNULL, PIPE
 from typing import Any, Optional, Union
 
@@ -98,7 +100,7 @@ def _launch(cmd: str, **kwargs) -> tuple[psutil.Popen, list[str]]:
                 cmd_list.extend([CLI_FLAGS[key], str(value)])
         except KeyError:
             warnings.warn(
-                f"Ignoring invalid commandline setting for anvil: " f'"{key}" with value "{value}".',
+                f'Ignoring invalid commandline setting for anvil: "{key}" with value "{value}".',
                 InvalidArgumentWarning,
             )
 
@@ -207,6 +209,7 @@ def launch_anvil(
     steps_tracing=False,
     test_request_timeout=3.0,
     fork_block_number: Optional[int] = None,
+    log_wait=False,
 ) -> AnvilLaunch:
     """Creates Anvil unit test backend or mainnet fork.
 
@@ -236,6 +239,7 @@ def launch_anvil(
         from eth_defi.chain import install_chain_middleware
         from eth_defi.gas import node_default_gas_price_strategy
 
+
         @pytest.fixture()
         def large_busd_holder() -> HexAddress:
             # An onchain address with BUSD balance
@@ -251,7 +255,7 @@ def launch_anvil(
 
         @pytest.fixture()
         def anvil_bnb_chain_fork(request, large_busd_holder, user_1, user_2) -> str:
-             # Create a testable fork of live BNB chain.
+            # Create a testable fork of live BNB chain.
             mainnet_rpc = os.environ["BNB_CHAIN_JSON_RPC"]
             launch = fork_network_anvil(mainnet_rpc, unlocked_addresses=[large_busd_holder])
             try:
@@ -265,11 +269,12 @@ def launch_anvil(
         def web3(anvil_bnb_chain_fork: str):
             # Set up a local unit testing blockchain
             # https://web3py.readthedocs.io/en/stable/examples.html#contract-unit-tests-in-python
-            web3 =  Web3(HTTPProvider(anvil_bnb_chain_fork))
+            web3 = Web3(HTTPProvider(anvil_bnb_chain_fork))
             # Anvil needs POA middlware if parent chain needs POA middleware
             install_chain_middleware(web3)
             web3.eth.set_gas_price_strategy(node_default_gas_price_strategy)
             return web3
+
 
         def test_anvil_fork_transfer_busd(web3: Web3, large_busd_holder: HexAddress, user_1: LocalAccount):
             # Forks the BNB chain mainnet and transfers from USDC to the user.
@@ -372,6 +377,9 @@ def launch_anvil(
 
         If not given, fork at the latest block.
         Needs an archive node to work.
+
+    :parma log_wait:
+        Display info level logging while waiting for Anvil to start.
     """
 
     attempts_left = attempts
@@ -392,14 +400,14 @@ def launch_anvil(
         port = find_free_port(*port)
     else:
         warnings.warn(f"launch_anvil(port={port}) called - we recommend using the default random port range instead", DeprecationWarning, stacklevel=2)
-        assert not is_localhost_port_listening(port), f"localhost port {port} occupied.\n" f"You might have a zombie Anvil process around.\nRun to kill: kill -SIGKILL $(lsof -ti:{port})"
+        assert not is_localhost_port_listening(port), f"localhost port {port} occupied.\nYou might have a zombie Anvil process around.\nRun to kill: kill -SIGKILL $(lsof -ti:{port})"
 
     url = f"http://localhost:{port}"
 
     if fork_url and " " in fork_url:
         # Assume multi-RPC syntax
         cleaned_fork_url = fork_url.split(" ")[0]
-        logger.info("Multi RPC detectec, using Anvil at the first RPC endpoint %s", cleaned_fork_url)
+        logger.info("Multi RPC detected, using Anvil at the first RPC endpoint %s", cleaned_fork_url)
     else:
         cleaned_fork_url = fork_url
 
@@ -439,7 +447,8 @@ def launch_anvil(
                 chain_id = web3.eth.chain_id
                 break
             except (requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout) as e:
-                logger.info("Anvil not ready, got exception %s", e)
+                if log_wait:
+                    logger.info("Anvil not ready, got exception %s", e)
                 # requests.exceptions.ConnectionError: ('Connection aborted.', ConnectionResetError(54, 'Connection reset by peer'))
                 time.sleep(0.1)
                 continue
@@ -493,7 +502,7 @@ def sleep(web3: Web3, seconds: int) -> int:
     return seconds
 
 
-def mine(web3: Web3, timestamp: Optional[int] = None, increase_timestamp: float=0) -> None:
+def mine(web3: Web3, timestamp: Optional[int] = None, increase_timestamp: float = 0) -> None:
     """Call evm_setNextBlockTimestamp on Anvil.
 
     Mine blocks, optionally set the time of the new block.
@@ -587,6 +596,58 @@ def is_mainnet_fork(web3: Web3) -> bool:
     """
     # Heurestics
     return web3.eth.block_number > 500_000
+
+
+
+def create_fork_funded_wallet(
+    web3: Web3,
+    usdc_address: HexAddress,
+    large_usdc_holder: HexAddress,
+    usdc_amount=Decimal("10000"),
+    eth_amount=Decimal("10"),
+) -> "eth_defi.hot_wallet.HotWallet":
+    """On Anvil forked mainnet, create a wallet with some USDC funds.
+
+    - Make a new private key account on a forked mainnet
+    - Top this up with ETH and USDC from a large USDC holder
+    """
+
+    from eth_defi.hotwallet import HotWallet
+    from eth_defi.token import fetch_erc20_details
+    from eth_defi.trace import  assert_transaction_success_with_explanation
+    from eth_defi.middleware import construct_sign_and_send_raw_middleware_anvil
+
+    assert large_usdc_holder.startswith("0x"), f"Large USDC holder address must start with 0x: {large_usdc_holder}"
+
+    hot_wallet = HotWallet.create_for_testing(web3)
+    logger.info("Creating a simulated wallet %s with USDC and ETH funding for testing", hot_wallet.address)
+
+    # Fund with ETH
+    tx_hash = web3.eth.send_transaction({
+        "from": web3.eth.accounts[0],
+        "to": hot_wallet.address,
+        "value": web3.to_wei(eth_amount, "ether"),
+    })
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # Picked on Etherscan
+    # https://arbiscan.io/token/0xaf88d065e77c8cc2239327c5edb3a432268e5831#balances
+    usdc = fetch_erc20_details(web3, usdc_address)
+
+    forked_balance = usdc.fetch_balance_of(large_usdc_holder)
+    assert forked_balance > 0, f"Large USDC holder {large_usdc_holder} does not have enough USDC balance on chain {web3.eth.chain_id}, needed {usdc_amount}, has {forked_balance}"
+
+    tx_hash = usdc.transfer(hot_wallet.address, forked_balance).transact({"from": large_usdc_holder})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # Inject web3 middleware for signign
+    # GMX code uses legacy signer infrastructure
+    web3.middleware_onion.add(construct_sign_and_send_raw_middleware_anvil(hot_wallet.account))
+
+    assert usdc.fetch_balance_of(hot_wallet.address) > 0, "Simulated wallet did not receive USDC"
+    assert web3.eth.get_balance(hot_wallet.address) > 0, "Simulated wallet did not receive ETH"
+
+    return hot_wallet
 
 
 # Backwards compatibility

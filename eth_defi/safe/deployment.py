@@ -6,6 +6,7 @@ Safe source code:
 
 - https://github.com/safe-global/safe-smart-account/blob/main/contracts/Safe.sol
 """
+
 import logging
 
 from eth_account.signers.local import LocalAccount
@@ -15,7 +16,7 @@ from safe_eth.safe.safe import SafeV141
 from web3 import Web3
 from web3.contract.contract import ContractFunction
 
-from eth_defi.abi import ZERO_ADDRESS_STR
+from eth_defi.abi import ZERO_ADDRESS_STR, ONE_ADDRESS_STR
 from eth_defi.safe.safe_compat import create_safe_ethereum_client
 from eth_defi.trace import assert_transaction_success_with_explanation
 
@@ -27,7 +28,7 @@ def deploy_safe(
     deployer: LocalAccount,
     owners: list[HexAddress | str],
     threshold: int,
-    master_copy_address = "0x29fcB43b46531BcA003ddC8FCB67FFE91900C762",
+    master_copy_address="0x29fcB43b46531BcA003ddC8FCB67FFE91900C762",
 ) -> Safe:
     """Deploy a new Safe wallet.
 
@@ -128,7 +129,7 @@ def add_new_safe_owners(
 
         logger.info("Adding owner %s", owner)
         tx = safe.contract.functions.addOwnerWithThreshold(owner, 1).build_transaction(
-            {"from": deployer.address, "gas": gas_per_tx, "gasPrice": 0}
+            {"from": deployer.address, "gas": gas_per_tx, "gasPrice": 0},
         )
         safe_tx = safe.build_multisig_tx(safe.address, 0, tx["data"])
         safe_tx.sign(deployer._private_key.hex())
@@ -140,7 +141,7 @@ def add_new_safe_owners(
     # Change the threshold
     logger.info("Changing signign threhold to: %d", threshold)
     tx = safe.contract.functions.changeThreshold(threshold).build_transaction(
-        {"from": deployer.address, "gas": gas_per_tx, "gasPrice": 0}
+        {"from": deployer.address, "gas": gas_per_tx, "gasPrice": 0},
     )
     safe_tx = safe.build_multisig_tx(safe.address, 0, tx["data"])
     safe_tx.sign(deployer._private_key.hex())
@@ -171,8 +172,6 @@ def disable_safe_module(
     - Safe makes disable module transaction unnecessary complicated,
       because the internal linked list is exposed
 
-    - Cannot handle disabling a single module https://github.com/safe-global/safe-smart-account/issues/992
-
     :raise ValueError:
         Module is not enabled.
 
@@ -188,7 +187,8 @@ def disable_safe_module(
         raise ValueError(f"Module {module_address} not found in Safe {safe_address} modules: {modules}") from e
 
     if idx == 0:
-        previous_module = ZERO_ADDRESS_STR
+        # See https://github.com/safe-global/safe-smart-account/pull/993
+        previous_module = ONE_ADDRESS_STR
     else:
         previous_module = modules[idx - 1]
 

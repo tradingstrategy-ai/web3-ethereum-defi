@@ -251,6 +251,7 @@ def assert_transaction_success_with_explanation(
     RaisedException=TransactionAssertionError,
     tracing: bool = False,
     func: ContractFunction = None,
+    timeout: float=120.0,
 ) -> TxReceipt:
     """Checks if a transaction succeeds and give a verbose explanation why not..
 
@@ -316,6 +317,9 @@ def assert_transaction_success_with_explanation(
 
         Used for diagnostics and exception messages only.
 
+    :param timeout:
+        How long to wait for the transaction receipt, seconds.
+
     :raise TransactionAssertionError:
         Outputs a verbose AssertionError on what went wrong.
 
@@ -326,7 +330,7 @@ def assert_transaction_success_with_explanation(
     if type(tx_hash) == str:
         tx_hash = HexBytes(tx_hash)
 
-    receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
+    receipt = web3.eth.wait_for_transaction_receipt(tx_hash, timeout=timeout)
     if receipt["status"] == 0:
         # Explain why the transaction failed
         tx_details = web3.eth.get_transaction(tx_hash)

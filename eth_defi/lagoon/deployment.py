@@ -102,6 +102,9 @@ class LagoonAutomatedDeployment:
     block_number: BlockNumber
     parameters: LagoonDeploymentParameters
 
+    #: In redeploy guard, the old module
+    old_trading_strategy_module: Contract | None = None
+
     @property
     def safe(self) -> Safe:
         return self.vault.safe
@@ -410,6 +413,8 @@ def setup_guard(
     tx_hash = _broadcast(module.functions.allowReceiver(safe.address, "Whitelist Safe as trade receiver"))
     assert_transaction_success_with_explanation(web3, tx_hash)
 
+    anvil = is_anvil(web3)
+
     # Whitelist Uniswap v2
     if uniswap_v2:
         logger.info("Whitelisting Uniswap v2 router: %s", uniswap_v2.router.address)
@@ -454,14 +459,20 @@ def setup_guard(
             assert isinstance(erc_4626_vault, ERC4626Vault), f"Expected ERC4626Vault, got {type(erc_4626_vault)}: {erc_4626_vault}"
             # This will whitelist vault deposit/withdraw and its share and denomination token.
             # USDC may be whitelisted twice because denomination tokens are shared.
-            logger.info("Whitelisting ERC-4626 vault %s: %s", erc_4626_vault, erc_4626_vault.vault_address)
+            logger.info("Whitelisting ERC-4626 vault %s: %s", erc_4626_vault.name, erc_4626_vault.vault_address)
             note = f"Whitelisting {erc_4626_vault.name}"
             tx_hash = _broadcast(module.functions.whitelistERC4626(erc_4626_vault.vault_address, note))
             assert_transaction_success_with_explanation(web3, tx_hash)
 
+            if not anvil:
+                # TODO: A hack on Base mainnet inconsitency
+                logger.info("Enforce vault tx readback lag on mainnet, sleeping 10 seconds")
+                time.sleep(20)
+
             # Check we really whitelisted the vault,
             # e.g. not a bad contract version
-            assert module.functions.isAllowedApprovalDestination(erc_4626_vault.vault_address).call() == True
+            result = module.functions.isAllowedApprovalDestination(erc_4626_vault.vault_address).call()
+            assert result == True, f"Guard {module.address} approval check for ERC-4626 vault failed, attempted to whitelist: {erc_4626_vault.vault_address}, isAllowedApprovalDestination(): {result}"
     else:
         logger.info("Not whitelisted: any ERC-4626 vaults")
 
@@ -539,6 +550,8 @@ def deploy_automated_lagoon_vault(
     else:
         deployer_local_account = deployer
 
+    existing_guard_module = None
+
     # Hack together a nonce management helper
     def _broadcast(bound_func: ContractFunction):
         assert isinstance(bound_func, ContractFunction)
@@ -586,6 +599,23 @@ def deploy_automated_lagoon_vault(
             vault_contract.functions.pendingSilo().call()
         except Exception as e:
             raise RuntimeError(f"Does not look like Lagoon vault: {existing_vault_address}") from e
+
+        # Look up the old module
+        modules = safe.retrieve_modules()
+        for module_addr in modules:
+            module = get_deployed_contract(
+                web3,
+                "safe-integration/TradingStrategyModuleV0.json",
+                module_addr
+            )
+
+            try:
+                module.functions.getGovernanceAddress()
+                existing_guard_module = module
+            except ValueError as e:
+                continue
+
+        assert existing_guard_module is not None, f"Cannot find TradingStrategyModuleV0 on Safe {safe.address} with vault {vault_contract.address}, modules {modules}"
 
     if not is_anvil(web3):
         logger.info("Between contracts deployment delay: Sleeping %s for new nonce to propagade", between_contracts_delay_seconds)
@@ -691,6 +721,7 @@ def deploy_automated_lagoon_vault(
         block_number=web3.eth.block_number,
         deployer=deployer.address,
         parameters=parameters,
+        old_trading_strategy_module=existing_guard_module,
     )
 
 

@@ -50,7 +50,7 @@ The script is shipped with `eth_defi` package. To run in UNIX shell from master 
 
 After run you will see output like:
 
-.. code-block:: text
+.. code-block:: none
 
     Scanning blocks 25,999,700 - 25,999,800, done 100.0%
     Scanning blocks 25,999,800 - 25,999,900, done 100.0%

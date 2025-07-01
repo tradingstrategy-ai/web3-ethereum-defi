@@ -51,7 +51,7 @@ Example output
 
 Here is what the output should look like
 
-.. code-block:: text
+.. code-block:: none
 
     Connected to blockchain, chain id is 137. the latest block is 56,006,351
     Using Uniwap v3 compatible router at 0xE592427A0AEce92De3Edee1F18E0157C05861564

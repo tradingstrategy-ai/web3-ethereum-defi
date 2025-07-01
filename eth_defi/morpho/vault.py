@@ -1,4 +1,5 @@
 """Morpho vault reading implementation."""
+
 import datetime
 from typing import Iterable
 
@@ -25,7 +26,7 @@ class MorphoVaultHistoricalReader(ERC4626HistoricalReader):
             signature=Web3.keccak(text="fee()")[0:4],
             function="fee",
             data=b"",
-            extra_data = {
+            extra_data={
                 "vault": self.vault.address,
             },
             first_block_number=self.first_block,
@@ -47,7 +48,6 @@ class MorphoVaultHistoricalReader(ERC4626HistoricalReader):
         timestamp: datetime.datetime,
         call_results: list[EncodedCallResult],
     ) -> VaultHistoricalRead:
-
         call_by_name = self.dictify_multicall_results(block_number, call_results)
         assert all(c.block_identifier == block_number for c in call_by_name.values()), "Sanity check for call block numbering"
 
@@ -67,7 +67,6 @@ class MorphoVaultHistoricalReader(ERC4626HistoricalReader):
             management_fee=0,
             errors=errors,
         )
-
 
 
 class MorphoVault(ERC4626Vault):
@@ -92,9 +91,9 @@ class MorphoVault(ERC4626Vault):
             signature=Web3.keccak(text="fee()")[0:4],
             function="fee",
             data=b"",
-            extra_data = {
+            extra_data={
                 "vault": self.address,
-            }
+            },
         )
         data = fee_call.call(self.web3, block_identifier)
         performance_fee = int.from_bytes(data[0:32], byteorder="big") / (10**18)

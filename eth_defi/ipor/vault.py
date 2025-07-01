@@ -1,12 +1,15 @@
 """IPOR vault reading implementation."""
+
 import datetime
 from functools import cached_property
 from typing import Iterable
 
+from cachetools import cached
 from web3 import Web3
+from web3.contract import Contract
 from web3.types import BlockIdentifier
 
-from eth_defi.abi import ZERO_ADDRESS_STR
+from eth_defi.abi import ZERO_ADDRESS_STR, get_deployed_contract
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, MultiprocessMulticallReader
@@ -36,7 +39,7 @@ class IPORVaultHistoricalReader(ERC4626HistoricalReader):
             signature=PERFORMANCE_FEE_CALL_SIGNATURE,
             function="getPerformanceFeeData",
             data=b"",
-            extra_data = {
+            extra_data={
                 "vault": self.vault.address,
             },
             first_block_number=self.first_block,
@@ -48,7 +51,7 @@ class IPORVaultHistoricalReader(ERC4626HistoricalReader):
             signature=MANAGEGEMENT_FEE_CALL_SIGNATURE,
             function="getManagementFeeData",
             data=b"",
-            extra_data = {
+            extra_data={
                 "vault": self.vault.address,
             },
             first_block_number=self.first_block,
@@ -86,7 +89,6 @@ class IPORVaultHistoricalReader(ERC4626HistoricalReader):
         timestamp: datetime.datetime,
         call_results: list[EncodedCallResult],
     ) -> VaultHistoricalRead:
-
         call_by_name = self.dictify_multicall_results(block_number, call_results)
 
         # Decode common variables
@@ -107,13 +109,37 @@ class IPORVaultHistoricalReader(ERC4626HistoricalReader):
         )
 
 
-
 class IPORVault(ERC4626Vault):
     """IPOR vault support.
 
     - Add specialised reader with fees support
     - Example vault: https://app.ipor.io/fusion/base/0x45aa96f0b3188d47a1dafdbefce1db6b37f58216
     """
+
+    @cached_property
+    def plasma_vault(self) -> Contract:
+        """Get IPOR's proprietary PlasmaVault implementation."""
+        #
+        return get_deployed_contract(
+            self.web3,
+            fname="ipor/PlasmaVaultBase.json",
+            address=self.vault_address,
+        )
+
+    @cached_property
+    def access_manager(self) -> Contract:
+        """Get IPOR's contract managing vault access rules.
+
+        - Redemption delay, and such
+        """
+        plasma_vault = self.plasma_vault
+        access_manager = plasma_vault.functions.getAccessManagerAddress().call()
+
+        return get_deployed_contract(
+            self.web3,
+            fname="ipor/AccessManager.json",
+            address=access_manager,
+        )
 
     def get_historical_reader(self) -> VaultHistoricalReader:
         return IPORVaultHistoricalReader(self)
@@ -152,4 +178,25 @@ class IPORVault(ERC4626Vault):
         performance_fee = int.from_bytes(data[32:64], byteorder="big") / 10_000
         return performance_fee
 
+    def get_redemption_delay(self) -> datetime.timedelta:
+        """Get the redemption delay for the vault.
+
+        :return: Redemption delay as a timedelta.
+        """
+        # IPOR vaults do not have a redemption delay
+        # https://basescan.org/address/0x187937aab9b2d57D606D0C3fB98816301fcE0d1f#readContract
+        access_manager = self.access_manager
+        seconds = access_manager.functions.REDEMPTION_DELAY_IN_SECONDS().call()
+        return datetime.timedelta(seconds=seconds)
+
+    def get_redemption_delay_over(self, address: str) -> datetime.datetime:
+        """Get the redemption delay left for an account.
+
+        :return: When the account can redeem.
+        """
+        # IPOR vaults do not have a redemption delay
+        # https://basescan.org/address/0x187937aab9b2d57D606D0C3fB98816301fcE0d1f#readContract
+        access_manager = self.access_manager
+        unix_timestamp = access_manager.functions.getAccountLockTime(address).call()
+        return datetime.datetime.fromtimestamp(unix_timestamp, tz=datetime.timezone.utc).replace(tzinfo=None)
 

@@ -12,6 +12,7 @@ Currently we are tracking these events:
 
 - Burn
 """
+
 import logging
 import csv
 import datetime
