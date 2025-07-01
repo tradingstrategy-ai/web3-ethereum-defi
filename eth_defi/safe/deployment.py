@@ -6,6 +6,7 @@ Safe source code:
 
 - https://github.com/safe-global/safe-smart-account/blob/main/contracts/Safe.sol
 """
+
 import logging
 
 from eth_account.signers.local import LocalAccount
@@ -27,7 +28,7 @@ def deploy_safe(
     deployer: LocalAccount,
     owners: list[HexAddress | str],
     threshold: int,
-    master_copy_address = "0x29fcB43b46531BcA003ddC8FCB67FFE91900C762",
+    master_copy_address="0x29fcB43b46531BcA003ddC8FCB67FFE91900C762",
 ) -> Safe:
     """Deploy a new Safe wallet.
 
@@ -128,7 +129,7 @@ def add_new_safe_owners(
 
         logger.info("Adding owner %s", owner)
         tx = safe.contract.functions.addOwnerWithThreshold(owner, 1).build_transaction(
-            {"from": deployer.address, "gas": gas_per_tx, "gasPrice": 0}
+            {"from": deployer.address, "gas": gas_per_tx, "gasPrice": 0},
         )
         safe_tx = safe.build_multisig_tx(safe.address, 0, tx["data"])
         safe_tx.sign(deployer._private_key.hex())
@@ -140,7 +141,7 @@ def add_new_safe_owners(
     # Change the threshold
     logger.info("Changing signign threhold to: %d", threshold)
     tx = safe.contract.functions.changeThreshold(threshold).build_transaction(
-        {"from": deployer.address, "gas": gas_per_tx, "gasPrice": 0}
+        {"from": deployer.address, "gas": gas_per_tx, "gasPrice": 0},
     )
     safe_tx = safe.build_multisig_tx(safe.address, 0, tx["data"])
     safe_tx.sign(deployer._private_key.hex())
