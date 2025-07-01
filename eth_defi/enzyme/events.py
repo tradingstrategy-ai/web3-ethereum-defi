@@ -7,6 +7,7 @@
   trading capital
 
 """
+
 import logging
 import datetime
 from decimal import Decimal

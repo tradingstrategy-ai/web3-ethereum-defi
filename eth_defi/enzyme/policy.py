@@ -8,6 +8,7 @@ By default, Enzyme vault does not have any adapters set when you create vaults p
 Enzyme frontend has some vault policies by default, but Enzyme frontend is not open source.
 
 """
+
 import enum
 from typing import Iterable
 import logging
@@ -60,7 +61,7 @@ def get_vault_policies(vault: Vault) -> Iterable[Contract]:
 def create_safe_default_policy_configuration_for_generic_adapter(
     deployment: EnzymeDeployment,
     generic_adapter: Contract | None = None,
-    cumulative_slippage_tolerance: int=10,
+    cumulative_slippage_tolerance: int = 10,
 ) -> VaultPolicyConfiguration:
     """Create safe policies for a vault.
 
@@ -121,9 +122,11 @@ def create_safe_default_policy_configuration_for_generic_adapter(
 
     # Lock adapter policy to use only our adapter
     if generic_adapter is not None:
-        policies.update({
-            contracts.allowed_adapters_policy.address: encode_single_address_list_policy_args(generic_adapter.address),
-        })
+        policies.update(
+            {
+                contracts.allowed_adapters_policy.address: encode_single_address_list_policy_args(generic_adapter.address),
+            }
+        )
 
     return VaultPolicyConfiguration(policies)
 
