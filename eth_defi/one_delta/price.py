@@ -135,7 +135,7 @@ def estimate_buy_received_amount(
         assert eth_received / (10**18) == pytest.approx(0.9667409780905836)
 
         # Calculate price of ETH as $ for our purchase
-        price = (1650*10**18) / eth_received
+        price = (1650 * 10**18) / eth_received
         assert price == pytest.approx(Decimal(1706.7653460381143))
 
     :param quantity: How much of the base token we want to buy
