@@ -1,4 +1,5 @@
 """Aave v3 rate calculation."""
+
 import logging
 from datetime import datetime
 from decimal import Decimal
