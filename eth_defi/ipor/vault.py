@@ -1,4 +1,5 @@
 """IPOR vault reading implementation."""
+
 import datetime
 from functools import cached_property
 from typing import Iterable
@@ -38,7 +39,7 @@ class IPORVaultHistoricalReader(ERC4626HistoricalReader):
             signature=PERFORMANCE_FEE_CALL_SIGNATURE,
             function="getPerformanceFeeData",
             data=b"",
-            extra_data = {
+            extra_data={
                 "vault": self.vault.address,
             },
             first_block_number=self.first_block,
@@ -50,7 +51,7 @@ class IPORVaultHistoricalReader(ERC4626HistoricalReader):
             signature=MANAGEGEMENT_FEE_CALL_SIGNATURE,
             function="getManagementFeeData",
             data=b"",
-            extra_data = {
+            extra_data={
                 "vault": self.vault.address,
             },
             first_block_number=self.first_block,
@@ -88,7 +89,6 @@ class IPORVaultHistoricalReader(ERC4626HistoricalReader):
         timestamp: datetime.datetime,
         call_results: list[EncodedCallResult],
     ) -> VaultHistoricalRead:
-
         call_by_name = self.dictify_multicall_results(block_number, call_results)
 
         # Decode common variables
@@ -107,7 +107,6 @@ class IPORVaultHistoricalReader(ERC4626HistoricalReader):
             management_fee=management_fee,
             errors=errors,
         )
-
 
 
 class IPORVault(ERC4626Vault):
@@ -200,3 +199,4 @@ class IPORVault(ERC4626Vault):
         access_manager = self.access_manager
         unix_timestamp = access_manager.functions.getAccountLockTime(address).call()
         return datetime.datetime.fromtimestamp(unix_timestamp, tz=datetime.timezone.utc).replace(tzinfo=None)
+

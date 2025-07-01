@@ -2,6 +2,7 @@
 
 - Read various information out of the vault
 """
+
 import os
 
 import pytest
@@ -19,13 +20,13 @@ JSON_RPC_BASE = os.environ.get("JSON_RPC_BASE")
 pytestmark = pytest.mark.skipif(JSON_RPC_BASE is None, reason="JSON_RPC_BASE needed to run these tests")
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def web3() -> Web3:
     web3 = create_multi_provider_web3(JSON_RPC_BASE)
     return web3
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def test_block_number() -> int:
     return 27975506
 
