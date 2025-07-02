@@ -148,6 +148,23 @@ velvet:
 	@mkdir -p eth_defi/abi/velvet
 	@find contracts/velvet-core/artifacts/contracts -iname "*.json" -not -iname "*.dbg.json" -exec cp {} eth_defi/abi/velvet \;
 
+# Compile and copy Orderly contracts
+orderly:
+	@(cd contracts/orderly-contract-evm && \
+		forge install && \
+		mkdir -p out/custom && \
+		forge in src/vaultSide/Vault.sol:Vault abi > out/custom/Vault.json && \
+		forge in src/Ledger.sol:Ledger abi > out/custom/Ledger.json && \
+		forge in src/OperatorManager.sol:OperatorManager abi > out/custom/OperatorManager.json && \
+		forge in src/zip/OperatorManagerZip.sol:OperatorManagerZip abi > out/custom/OperatorManagerZip.json && \
+		forge in src/vaultSide/Vault.sol:Vault abi > out/custom/Vault.json && \
+		forge in src/VaultManager.sol:VaultManager abi > out/custom/VaultManager.json && \
+		forge in src/FeeManager.sol:FeeManager abi > out/custom/FeeManager.json && \
+		forge in src/MarketManager.sol:MarketManager abi > out/custom/MarketManager.json \
+	) > /dev/null
+	@mkdir -p eth_defi/abi/orderly
+	@find contracts/orderly-contract-evm/out/custom -iname "*.json" -exec cp {} eth_defi/abi/orderly \;
+
 
 # TODO: Not sure if this step works anymore
 clean:
