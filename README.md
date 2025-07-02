@@ -26,6 +26,7 @@ Web-Ethereum-DeFi (`eth_defi`) Python package allows you to interact and consume
 
 Use cases for this package include
 
+- Vaults and automated DeFi strategies
 - Trading and bots
 - Data research, extraction, transformation and loading
 - Portfolio management and accounting
