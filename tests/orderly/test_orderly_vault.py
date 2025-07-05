@@ -1,18 +1,24 @@
 """Test Orderly vault"""
 
+import os
+
 import pytest
-from eth_account import Account
-from eth_account.signers.local import LocalAccount
-from eth_typing import HexAddress, HexStr
+from eth_typing import HexAddress
 from web3 import Web3
-from web3.contract import Contract
 
 from eth_defi.hotwallet import HotWallet
 from eth_defi.orderly.vault import OrderlyVault, deposit
 from eth_defi.token import TokenDetails
-from eth_defi.trace import (
-    TransactionAssertionError,
-    assert_transaction_success_with_explanation,
+from eth_defi.trace import assert_transaction_success_with_explanation
+
+pytestmark = pytest.mark.skipif(
+    not any(
+        [
+            os.environ.get("JSON_RPC_ARBITRUM_SEPOLIA"),
+            os.environ.get("HOT_WALLET_PRIVATE_KEY"),
+        ]
+    ),
+    reason="No JSON_RPC_ARBITRUM_SEPOLIA or HOT_WALLET_PRIVATE_KEY environment variable",
 )
 
 

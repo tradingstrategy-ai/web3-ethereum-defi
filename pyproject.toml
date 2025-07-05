@@ -88,6 +88,7 @@ sphinxcontrib-qthelp = {version = "1.0.3", optional = true} # Version pindowns h
 # terms-of-service = {path = "contracts/terms-of-service", develop = true}
 multicall = "^0.9.0"
 joblib = "^1.4.2"
+base58 = "^2.1.1"
 
 # HyperSync
 hypersync = {version = "^0.8.5", optional = true}
