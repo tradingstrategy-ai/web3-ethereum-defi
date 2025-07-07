@@ -153,7 +153,7 @@ def test_4626_historical_vault_data_stateful(
     # Ipor
     state = vault_readers["0x45aa96f0b3188D47a1DaFdbefCE1db6B37f58216"].reader_state
     assert state.first_seen_at_block is None  # Never passed as arg
-    assert state.max_tvl == pytest.approx(Decimal('1327724.55695781'))
+    assert state.max_tvl == pytest.approx(Decimal("1327724.55695781"))
     assert state.peaked_at is None
     assert state.faded_at is None
     assert state.last_call_at == datetime.datetime(2024, 12, 21, 13, 49, 7)
@@ -189,6 +189,3 @@ def test_4626_historical_vault_data_stateful(
     r = records[-3]
     assert r.block_number == 23998000
     assert r.vault.name == "Moonwell Flagship USDC"
-
-
-

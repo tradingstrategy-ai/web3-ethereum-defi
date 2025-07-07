@@ -1,4 +1,5 @@
 """Read timestamps of blocks using multiprocess."""
+
 import datetime
 import threading
 
@@ -17,7 +18,6 @@ def _read_timestamp_subprocess(
     chain_id: int,
     block_number: int,
 ) -> tuple[int, datetime.datetime]:
-
     # Initialise web3 connection when called for the first time.
     # We will recycle the same connection instance and it is kept open
     # until shutdown.
@@ -87,13 +87,13 @@ def fetch_block_timestamps_multiprocess(
 
         if progress_bar:
             progress_bar.update(1)
-            progress_bar.set_postfix({
-                "timestamp": timestamp,
-            })
+            progress_bar.set_postfix(
+                {
+                    "timestamp": timestamp,
+                }
+            )
 
     if progress_bar:
         progress_bar.close()
 
     return result
-
-

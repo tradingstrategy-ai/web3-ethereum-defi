@@ -188,7 +188,7 @@ class VaultHistoricalReadMulticaller:
         start_block: int,
         end_block: int,
         step: int,
-        reader_func: Callable=read_multicall_historical,
+        reader_func: Callable = read_multicall_historical,
     ) -> Iterable[VaultHistoricalRead]:
         """Create an iterable that extracts vault record from RPC.
 
@@ -209,7 +209,6 @@ class VaultHistoricalReadMulticaller:
         logger.info(
             f"Starting historical read loop, total calls {len(calls)} per block, {start_block:,} - {end_block:,} blocks, step is {step}",
         )
-
 
         if len(vaults) == 0:
             return

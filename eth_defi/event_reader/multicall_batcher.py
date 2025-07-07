@@ -1106,7 +1106,6 @@ def read_multicall_historical(
         progress_bar.close()
 
 
-
 def read_multicall_historical_stateful(
     chain_id: int,
     web3factory: Web3Factory,
@@ -1120,7 +1119,7 @@ def read_multicall_historical_stateful(
     progress_suffix: Callable | None = None,
     require_multicall_result=False,
 ) -> Iterable[CombinedEncodedCallResult]:
-    """Read historical data using multiple processesin parallel for speedup.
+    """Read historical data using multicall with reading state and adaptive frequency filtering.
 
     - Allow adaptive frequency with read state
     - Slower loop than the dumb :py:func:`read_multicall_historical` as it has to maintain state
@@ -1133,16 +1132,6 @@ def read_multicall_historical_stateful(
     assert type(end_block) == int, f"Got: {end_block}"
     assert type(step) == int, f"Got: {step}"
     assert type(chain_id) == int, f"Got: {step}"
-
-    web3 = web3factory()
-
-    worker_processor = Parallel(
-        n_jobs=max_workers,
-        backend="loky",
-        timeout=timeout,
-        max_nbytes=10 * 1024 * 1024,  # Allow passing 10 MBytes for child processes
-        return_as="generator",
-    )
 
     iter_count = (end_block - start_block + 1) // step
     total = iter_count
@@ -1181,7 +1170,6 @@ def read_multicall_historical_stateful(
     reader = MultiprocessMulticallReader(web3factory)
 
     for block_number in range(start_block, end_block, step):
-
         # Map prefetch timesstamp
         timestamp = timestamps[block_number]
 
@@ -1397,7 +1385,3 @@ def _execute_multicall_subprocess(
         timestamp=timestamp,
         results=[c for c in call_results],
     )
-
-
-
-

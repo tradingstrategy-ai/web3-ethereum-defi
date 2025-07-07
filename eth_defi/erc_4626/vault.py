@@ -41,7 +41,6 @@ class ERC4626VaultInfo(VaultInfo):
     asset: HexAddress | None
 
 
-
 class VaultReaderState(BatchCallState):
     """Adaptive reading frequency for vaults.
 
@@ -57,10 +56,10 @@ class VaultReaderState(BatchCallState):
     def __init__(
         self,
         vault: "ERC4626Vault",
-        tvl_threshold_1d_read = Decimal(10_000),
-        peaked_tvl_threshold = Decimal(200_000),
+        tvl_threshold_1d_read=Decimal(10_000),
+        peaked_tvl_threshold=Decimal(200_000),
         min_tvl_threshold=Decimal(1_500),
-        down_hard = 0.98,
+        down_hard=0.98,
         traction_period: datetime.timedelta = datetime.timedelta(days=14),
     ):
         """
@@ -105,7 +104,6 @@ class VaultReaderState(BatchCallState):
         block_identifier: BlockIdentifier,
         timestamp: datetime.datetime,
     ) -> bool:
-
         if self.first_seen_at_block:
             if block_identifier < self.first_seen_at_block:
                 # We do not read historical data before the first seen block

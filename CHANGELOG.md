@@ -10,6 +10,8 @@
 - Add: Support Etherscan-style ABI files that are just a JSON list of ABI items, not a full ABI dictionary
 - Add: `detect_vault_features(address)` to easily detect arbitrary vaults
 - Add: Ruff linting of the code
+- Add: `read_multicall_historical_stateful()`: Read historical data using multicall with reading state and adaptive frequency filtering
+- Add: Support for ERC-4626 historical vault reads with adaptive frequency per vault
 
 # 0.30
 
