@@ -80,12 +80,13 @@ class VaultReaderState(BatchCallState):
         super().__init__()
         self.vault = vault
 
-        self.first_seen_at_block = vault.first_seen_at_block
-
         self.tvl_threshold_1d_read = tvl_threshold_1d_read
-
         self.peaked_tvl_threshold = peaked_tvl_threshold
         self.down_hard = down_hard
+
+        #: Passed from the vault discovery reader,
+        #: pass the block number as args when we know this vault popped in to the existing
+        self.first_seen_at_block = vault.first_seen_at_block
 
         #: TVL from the last read
         self.last_tvl: Decimal = None
@@ -96,6 +97,7 @@ class VaultReaderState(BatchCallState):
         #: Start with zero TVL
         self.max_tvl: Decimal = Decimal(0)
 
+        #: When this vault received its last eth_call update
         self.last_call_at: datetime.datetime | None = None
 
         #: Disable reading if the vault has peaked (TVL too much down) and is no longer active
