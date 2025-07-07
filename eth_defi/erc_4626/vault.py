@@ -68,6 +68,14 @@ class VaultReaderState(BatchCallState):
         :param tvl_threshold_1d_read:
             If the TVL is below this threshold, we will not read it more than once per day,
             otherwise hourly.
+        :param down_hard:
+            Stop reading the vault if the TVL is down by this percentage from the peak.
+        :parm peaked_tvl_threshold:
+            The TVL value we first need to reach to trigger down hard condition.
+        :param min_tvl_threshold:
+            If the vault never reaches this TVL, we stop reading it after the traction period.
+        :param traction_period:
+            How long we wait for the vault to get traction before we stop reading it.
         """
         super().__init__()
         self.vault = vault
@@ -85,17 +93,24 @@ class VaultReaderState(BatchCallState):
         #: Timestamp of the block of the first successful read of this vault.
         self.first_read_at: datetime.datetime = None
 
+        #: Start with zero TVL
         self.max_tvl: Decimal = Decimal(0)
 
         self.last_call_at: datetime.datetime | None = None
 
-        #: Disable reading if the vault has peaked and is no longer active
+        #: Disable reading if the vault has peaked (TVL too much down) and is no longer active
         self.peaked_at: datetime.datetime = None
+
+        #: Disable reading if the vault has never gotten any traction
         self.faded_at: datetime.datetime = None
 
+        #: How much time after deployment we allow to get traction
         self.traction_period = traction_period
+
+        #: Minimum TVL traction threshold to start reading the vault
         self.min_tvl_threshold = min_tvl_threshold
 
+        #: Events read, used for testing
         self.read_count = 0
 
     def should_invoke(
@@ -122,6 +137,7 @@ class VaultReaderState(BatchCallState):
         return (timestamp - self.last_call_at) >= freq
 
     def get_frequency(self) -> datetime.timedelta | None:
+        """How fast we are reading this vault."""
         if self.peaked_at or self.faded_at:
             # Disabled due to either of reasons
             return None
