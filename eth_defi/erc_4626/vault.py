@@ -1,6 +1,7 @@
 """Generic ECR-4626 vault reader implementation."""
 
 import datetime
+import logging
 from decimal import Decimal
 from functools import cached_property
 from typing import Iterable
@@ -16,10 +17,10 @@ from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.balances import fetch_erc20_balances_fallback
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract, ERC4626Feature
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int, convert_uint256_bytes_to_address
-from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, HistoricalReaderFrequencyManagerState
+from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, BatchCallState
 from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.vault.base import VaultBase, VaultSpec, VaultInfo, TradingUniverse, VaultPortfolio, VaultFlowManager, VaultHistoricalReader, VaultHistoricalRead
-from strategies.test_only.frozen_asset import logging
+
 
 logger = logging.getLogger(__name__)
 
@@ -41,10 +42,12 @@ class ERC4626VaultInfo(VaultInfo):
 
 
 
-class VaultReaderState(HistoricalReaderFrequencyManagerState):
+class VaultReaderState(BatchCallState):
     """Adaptive reading frequency for vaults.
 
-    - Most vaults are uninteresting, but we do not know ahead of time whhich ones
+    - This class maintains the per-vault state of reading between different eth_call reads over time
+
+    - Most vaults are uninteresting, but we do not know ahead of time which ones
 
     - We need 1h data for interesting vaults to make good trade decisions
 
@@ -70,6 +73,8 @@ class VaultReaderState(HistoricalReaderFrequencyManagerState):
         super().__init__()
         self.vault = vault
 
+        self.first_seen_at_block = vault.first_seen_at_block
+
         self.tvl_threshold_1d_read = tvl_threshold_1d_read
 
         self.peaked_tvl_threshold = peaked_tvl_threshold
@@ -77,17 +82,22 @@ class VaultReaderState(HistoricalReaderFrequencyManagerState):
 
         #: TVL from the last read
         self.last_tvl: Decimal = None
-        self.first_seen_at: datetime.datetime = None
+
+        #: Timestamp of the block of the first successful read of this vault.
+        self.first_read_at: datetime.datetime = None
 
         self.max_tvl: Decimal = Decimal(0)
 
         self.last_call_at: datetime.datetime | None = None
 
         #: Disable reading if the vault has peaked and is no longer active
-        self.peaked = False
+        self.peaked_at: datetime.datetime = None
+        self.faded_at: datetime.datetime = None
 
         self.traction_period = traction_period
         self.min_tvl_threshold = min_tvl_threshold
+
+        self.read_count = 0
 
     def should_invoke(
         self,
@@ -95,13 +105,28 @@ class VaultReaderState(HistoricalReaderFrequencyManagerState):
         block_identifier: BlockIdentifier,
         timestamp: datetime.datetime,
     ) -> bool:
-        if self.last_call_at is None:
-            return True
-        return (timestamp - self.last_call_at) >= self.get_frequency()
 
-    def get_frequency(self) -> datetime.timedelta:
-        if self.peaked:
+        if self.first_seen_at_block:
+            if block_identifier < self.first_seen_at_block:
+                # We do not read historical data before the first seen block
+                return False
+
+        if self.last_call_at is None:
+            # First read, we always read it
+            return True
+
+        freq = self.get_frequency()
+
+        if freq is None:
+            # Further reads disabled
             return False
+
+        return (timestamp - self.last_call_at) >= freq
+
+    def get_frequency(self) -> datetime.timedelta | None:
+        if self.peaked_at or self.faded_at:
+            # Disabled due to either of reasons
+            return None
         elif self.last_tvl < self.tvl_threshold_1d_read:
             return datetime.timedelta(days=1)
         else:
@@ -113,24 +138,28 @@ class VaultReaderState(HistoricalReaderFrequencyManagerState):
         total_assets: Decimal | None = None,
     ):
         assert result.timestamp, f"EncodedCallResult {result} has no timestamp, cannot update state"
-        self.last_call_at = result.timestamp
 
-        if self.first_seen_at is None:
-            self.first_seen_at = result.timestamp
+        timestamp = result.timestamp
+        self.last_call_at = timestamp
+
+        if self.first_read_at is None:
+            self.first_read_at = timestamp
 
         self.last_tvl = total_assets
-        self.last_call_at = result.timestamp
+        self.last_call_at = timestamp
         self.max_tvl = max(self.max_tvl, total_assets)
 
         if self.max_tvl > self.peaked_tvl_threshold:
             if self.last_tvl < self.max_tvl * Decimal(1 - self.down_hard):
                 logger.info(f"{self.last_call_at}: Vault {self.vault} peaked at {self.max_tvl}, now TVL is {self.last_tvl}, no longer reading it")
-                self.peaked = True
+                self.peaked_at = timestamp
 
-        if self.last_call_at - self.first_seen_at > self.traction_period:
+        if self.last_call_at - self.first_read_at > self.traction_period:
             if self.max_tvl < self.min_tvl_threshold:
                 logger.info(f"{self.last_call_at}:  Vault {self.vault} disabled at {self.max_tvl}, never reached min TVL {self.min_tvl_threshold}, no longer reading it")
-                self.peaked = True
+                self.faded_at = timestamp
+
+        self.read_count += 1
 
 
 class ERC4626HistoricalReader(VaultHistoricalReader):
@@ -143,6 +172,7 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
 
     def __init__(self, vault: "ERC4626Vault"):
         super().__init__(vault)
+        self.reader_state = VaultReaderState(vault)
 
     def construct_multicalls(self) -> Iterable[EncodedCall]:
         """Get the onchain calls that are needed to read the share price."""
@@ -178,6 +208,7 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
                 "vault": self.vault.address,
             },
             first_block_number=self.first_block,
+            state=self.reader_state,
         )
         yield total_assets
 
@@ -188,6 +219,7 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
                 "vault": self.vault.address,
             },
             first_block_number=self.first_block,
+            state=self.reader_state,
         )
         yield total_supply
 
@@ -267,7 +299,13 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
         call_results: list[EncodedCallResult],
     ) -> VaultHistoricalRead:
         call_by_name = self.dictify_multicall_results(block_number, call_results)
-        assert all(c.block_identifier == block_number for c in call_by_name.values()), "Sanity check for call block numbering"
+
+        # Sanity check that all calls are from the same block
+        if not all(c.block_identifier == block_number for c in call_by_name.values()):
+            msg = "Mismatch of block numbers in multicall results:\n"
+            for c in call_by_name.values():
+                msg += f"{c.call.func_name} has block number {c.block_identifier:,}, expected {block_number:,}\n"
+            raise AssertionError(msg)
 
         # Decode common variables
         share_price, total_supply, total_assets, errors = self.process_core_erc_4626_result(call_by_name)

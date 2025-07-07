@@ -103,8 +103,6 @@ def test_4626_historical_vault_data(
     assert r.management_fee == 0.01
 
 
-
-
 def test_4626_historical_vault_data_stateful(
     web3: Web3,
 ):
@@ -126,7 +124,7 @@ def test_4626_historical_vault_data_stateful(
     ]
 
     # When IPOR vault was deployed https://basescan.org/tx/0x65e66f1b8648a880ade22e316d8394ed4feddab6fc0fc5bbc3e7128e994e84bf
-    start = 22_140_976
+    start = 23_800_000
     end = 24_000_000
 
     usdc = fetch_erc20_details(web3, USDC_NATIVE_TOKEN[web3.eth.chain_id])
@@ -147,35 +145,50 @@ def test_4626_historical_vault_data_stateful(
     )
 
     records = list(records)
-    assert len(records) == 132
+
+    # We read 3 vaults, so we should have 3 stateful readers
+    vault_readers = reader.readers
+    assert len(vault_readers) == 3
+
+    # Ipor
+    state = vault_readers["0x45aa96f0b3188D47a1DaFdbefCE1db6B37f58216"].reader_state
+    assert state.first_seen_at_block is None  # Never passed as arg
+    assert state.max_tvl == pytest.approx(Decimal('1327724.55695781'))
+    assert state.peaked_at is None
+    assert state.faded_at is None
+    assert state.last_call_at == datetime.datetime(2024, 12, 21, 13, 49, 7)
+    assert state.first_read_at == datetime.datetime(2024, 12, 16, 22, 49, 7)
+    assert state.get_frequency() == datetime.timedelta(hours=1)
+
+    # Steak
+    # Deployed at 26_598_326
+    # No data
+    state = vault_readers["0xB17B070A56043e1a5a1AB7443AfAFDEbcc1168D7"].reader_state
+    assert state.read_count == 5
+    assert state.vault.name == "Steakhouse sUSDS"
+    assert state.get_frequency() == datetime.timedelta(days=1)
+
+    # Many more records than with the daily scanner above because we read every hour
+    assert len(records) == 229
 
     # Records are not guaranteed to be in specific order, so fix it here
     records.sort(key=lambda r: (r.block_number, r.vault.address))
 
-    r = records[0]
-    assert r.block_number == 22140976
-    assert r.timestamp == datetime.datetime(2024, 11, 8, 13, 8, 19)
-    assert r.vault.name == "IPOR USDC Lending Optimizer Base"
-    assert r.total_assets == 0
-    assert r.total_supply == 0
-    assert r.share_price is None
-
     r = records[-1]
-    assert r.block_number == 23998576
-    assert r.timestamp == datetime.datetime(2024, 12, 21, 13, 8, 19)
-    assert r.vault.name == "Moonwell Flagship USDC"
-    assert r.total_assets == Decimal("37404103.569505")
-    assert r.total_supply == Decimal("37003383.191686681452465622")
-    assert r.share_price == pytest.approx(Decimal("1.0108292902771210900318"))
+    assert r.block_number == 23999800
     assert r.management_fee == 0
     assert r.performance_fee == 0.15
+    assert r.vault.name == "Moonwell Flagship USDC"
 
-    r = records[-3]
-    assert r.block_number == 23998576
-    assert r.timestamp == datetime.datetime(2024, 12, 21, 13, 8, 19)
+    r = records[-2]
+    assert r.block_number == 23999800
     assert r.vault.name == "IPOR USDC Lending Optimizer Base"
-    assert r.total_assets == Decimal("1343875.946355")
-    assert r.total_supply == Decimal("1327724.55695781")
-    assert r.share_price == pytest.approx(Decimal("1.012164713917920875873501"))
     assert r.performance_fee == 0.10
     assert r.management_fee == 0.01
+
+    r = records[-3]
+    assert r.block_number == 23998000
+    assert r.vault.name == "Moonwell Flagship USDC"
+
+
+

@@ -90,6 +90,8 @@ class VaultHistoricalReadMulticaller:
         self.token_cache = token_cache
         self.require_multicall_result = require_multicall_result
 
+        self.readers: dict[HexAddress, VaultHistoricalReader] = {}
+
     def validate_vaults(
         self,
         vaults: list[VaultBase],
@@ -196,14 +198,18 @@ class VaultHistoricalReadMulticaller:
         :return:
             Unordered results
         """
+
         readers = self.prepare_readers(vaults)
+
+        # Expose for testing purposes
+        self.readers = readers
+
         logger.info("Prepared %d readers", len(readers))
         calls = list(self.generate_vault_historical_calls(readers))
         logger.info(
             f"Starting historical read loop, total calls {len(calls)} per block, {start_block:,} - {end_block:,} blocks, step is {step}",
         )
 
-        vault_data: dict[HexAddress, list[EncodedCallResult]] = defaultdict(list)
 
         if len(vaults) == 0:
             return
@@ -232,6 +238,7 @@ class VaultHistoricalReadMulticaller:
             require_multicall_result=self.require_multicall_result,
         ):
             active_vault_set.clear()
+            vault_data: dict[HexAddress, list[EncodedCallResult]] = defaultdict(list)
 
             # Transform single multicall call results to calls batched by vault-results
             block_number = combined_result.block_number
@@ -246,8 +253,6 @@ class VaultHistoricalReadMulticaller:
                 vault: HexAddress = call_result.call.extra_data["vault"]
                 vault_data[vault].append(call_result)
                 active_vault_set.add(vault)
-
-            last_block_at = combined_result.timestamp
 
             for vault_address, results in vault_data.items():
                 reader = readers[vault_address]

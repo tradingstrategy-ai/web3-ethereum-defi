@@ -30,6 +30,7 @@ class MorphoVaultHistoricalReader(ERC4626HistoricalReader):
                 "vault": self.vault.address,
             },
             first_block_number=self.first_block,
+            state=self.reader_state,
         )
         yield fee_call
 
