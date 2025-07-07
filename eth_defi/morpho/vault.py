@@ -78,8 +78,8 @@ class MorphoVault(ERC4626Vault):
     - `Example contract <https://basescan.org/address/0x6b13c060F13Af1fdB319F52315BbbF3fb1D88844#readContract>`__
     """
 
-    def get_historical_reader(self) -> VaultHistoricalReader:
-        return MorphoVaultHistoricalReader(self)
+    def get_historical_reader(self, stateful) -> VaultHistoricalReader:
+        return MorphoVaultHistoricalReader(self, stateful)
 
     def get_management_fee(self, block_identifier: BlockIdentifier) -> float:
         """Morpho vaults have no management fee"""

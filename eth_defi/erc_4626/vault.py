@@ -168,9 +168,13 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
       each protocol
     """
 
-    def __init__(self, vault: "ERC4626Vault"):
+    def __init__(self, vault: "ERC4626Vault", stateful: bool):
         super().__init__(vault)
-        self.reader_state = VaultReaderState(vault)
+        if stateful:
+            self.reader_state = VaultReaderState(vault)
+        else:
+            # Stateful reading cannot be used in unordered multiprocess reads
+            self.reader_state = None
 
     def construct_multicalls(self) -> Iterable[EncodedCall]:
         """Get the onchain calls that are needed to read the share price."""
@@ -266,7 +270,7 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
             if state:
                 state.on_called(total_assets_call_result, total_supply)
 
-        return share_price, total_supply, total_supply, (errors or None)
+        return share_price, total_supply, total_assets, (errors or None)
 
     def dictify_multicall_results(
         self,
@@ -654,5 +658,5 @@ class ERC4626Vault(VaultBase):
     def has_deposit_distribution_to_all_positions(self):
         raise NotImplementedError()
 
-    def get_historical_reader(self) -> VaultHistoricalReader:
-        return ERC4626HistoricalReader(self)
+    def get_historical_reader(self, stateful) -> VaultHistoricalReader:
+        return ERC4626HistoricalReader(self, stateful=stateful)

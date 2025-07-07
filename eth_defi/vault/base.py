@@ -511,8 +511,11 @@ class VaultBase(ABC):
         """
 
     @abstractmethod
-    def get_historical_reader(self) -> VaultHistoricalReader:
+    def get_historical_reader(self, stateful: bool) -> VaultHistoricalReader:
         """Get share price reader to fetch historical returns.
+
+        :param stateful:
+            If True, use a stateful reading strategy.
 
         :return:
             None if unsupported

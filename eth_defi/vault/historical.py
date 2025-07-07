@@ -16,7 +16,7 @@ from collections import defaultdict
 import datetime
 from pathlib import Path
 
-from typing import Iterable, TypedDict, Callable
+from typing import Iterable, TypedDict, Callable, Literal
 
 from eth_typing import HexAddress
 from joblib import Parallel, delayed
@@ -24,7 +24,7 @@ from tqdm_loggable.auto import tqdm
 from web3 import Web3
 
 from eth_defi.chain import EVM_BLOCK_TIMES
-from eth_defi.event_reader.multicall_batcher import EncodedCall, read_multicall_historical, EncodedCallResult
+from eth_defi.event_reader.multicall_batcher import EncodedCall, read_multicall_historical, EncodedCallResult, read_multicall_historical_stateful
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.provider.broken_provider import get_almost_latest_block_number
 from eth_defi.token import TokenDetails, TokenDiskCache
@@ -109,9 +109,9 @@ class VaultHistoricalReadMulticaller:
                 if denomination_token not in self.supported_quote_tokens:
                     raise VaultReadNotSupported(f"Vault {vault} has denomination token {denomination_token} which is not supported denomination token set: {self.supported_quote_tokens}")
 
-    def _prepare_reader(self, vault: VaultBase):
+    def _prepare_reader(self, vault: VaultBase, stateful=False) -> VaultHistoricalReader:
         """Run in subprocess"""
-        return vault.get_historical_reader()
+        return vault.get_historical_reader(stateful=stateful)
 
     def _prepare_denomination_token(self, vault: VaultBase) -> HexAddress:
         """Run in subprocess"""
@@ -125,6 +125,7 @@ class VaultHistoricalReadMulticaller:
     def prepare_readers(
         self,
         vaults: list[VaultBase],
+        stateful=False,
     ) -> dict[HexAddress, VaultHistoricalReader]:
         """Create readrs for vaults."""
         logger.info(
@@ -149,7 +150,7 @@ class VaultHistoricalReadMulticaller:
 
         # Each vault reader creation causes ~5 RPC call as it initialises the token information.
         # We do parallel to cut down the time here.
-        results = Parallel(n_jobs=self.max_workers, backend="threading")(delayed(self._prepare_reader)(v) for v in vaults)
+        results = Parallel(n_jobs=self.max_workers, backend="threading")(delayed(self._prepare_reader)(v, stateful) for v in vaults)
         readers = {r.address: r for r in results}
         return readers
 
@@ -199,7 +200,9 @@ class VaultHistoricalReadMulticaller:
             Unordered results
         """
 
-        readers = self.prepare_readers(vaults)
+        # TODO: Clean up as an arg
+        stateful = reader_func != read_multicall_historical
+        readers = self.prepare_readers(vaults, stateful=stateful)
 
         # Expose for testing purposes
         self.readers = readers
@@ -264,7 +267,6 @@ def scan_historical_prices_to_parquet(
     web3factory: Web3Factory,
     vaults: list[VaultBase],
     token_cache: TokenDiskCache,
-    step_duration=datetime.timedelta(hours=24),
     start_block=None,
     end_block=None,
     step=None,
@@ -272,6 +274,7 @@ def scan_historical_prices_to_parquet(
     compression="zstd",
     max_workers=8,
     require_multicall_result=False,
+    frequency: Literal["1d", "1h"] = "1d",
 ) -> ParquetScanResult:
     """Scan all historical vault share prices of vaults and save them in to Parquet file.
 
@@ -354,6 +357,16 @@ def scan_historical_prices_to_parquet(
         require_multicall_result=require_multicall_result,
     )
 
+    match frequency:
+        case "1d":
+            step_duration = datetime.timedelta(hours=24)
+            reader_func = read_multicall_historical
+        case "1h":
+            step_duration = datetime.timedelta(hours=1)
+            reader_func = read_multicall_historical_stateful
+        case _:
+            raise ValueError(f"Unsupported frequency: {frequency}")
+
     # Note this is an approx,
     # manual tuning will be needed
     if step is None:
@@ -369,6 +382,7 @@ def scan_historical_prices_to_parquet(
         start_block=start_block,
         end_block=end_block,
         step=step,
+        reader_func=reader_func,
     )
 
     # Convert VaultHistoricalRead objects to exportable dicts for Parquet

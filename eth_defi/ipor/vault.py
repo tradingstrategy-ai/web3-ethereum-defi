@@ -143,8 +143,8 @@ class IPORVault(ERC4626Vault):
             address=access_manager,
         )
 
-    def get_historical_reader(self) -> VaultHistoricalReader:
-        return IPORVaultHistoricalReader(self)
+    def get_historical_reader(self, stateful) -> VaultHistoricalReader:
+        return IPORVaultHistoricalReader(self, stateful)
 
     def get_management_fee(self, block_identifier: BlockIdentifier) -> float:
         """Get the current management fee as a percent.

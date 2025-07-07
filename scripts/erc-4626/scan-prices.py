@@ -14,6 +14,11 @@ Or for faster small sample scan limit the end block:
 
     END_BLOCK=5555721 python scripts/erc-4626/scan-prices.py
 
+Or for dynamic frequency with hourly adaption:
+
+    FREQUENCY=1h
+    python scripts/erc-4626/scan-prices.py
+
 """
 
 import logging
@@ -73,8 +78,12 @@ def main():
     else:
         output_folder = Path(output_folder).expanduser()
 
+    frequency = os.environ.get("FREQUENCY", "1d")
+
+    assert frequency in ["1h", "1d"], f"Unsupported frequency: {frequency}"
+
     vault_db_fname = Path(f"{output_folder}/vault-db.pickle")
-    price_parquet_fname = output_folder / "vault-prices.parquet"
+    price_parquet_fname = output_folder / f"vault-prices={frequency}.parquet"
 
     print(f"Scanning vault historical prices on chain {web3.eth.chain_id}: {name}")
 
@@ -121,6 +130,7 @@ def main():
         max_workers=max_workers,
         chunk_size=32,
         token_cache=token_cache,
+        frequency=frequency,
     )
 
     token_cache.commit()

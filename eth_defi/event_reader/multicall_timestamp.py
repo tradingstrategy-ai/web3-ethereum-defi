@@ -44,7 +44,7 @@ def fetch_block_timestamps_multiprocess(
     max_workers=8,
     timeout=120,
 ) -> dict[int, datetime.datetime]:
-    """Extract timesstamps using multiprocessing.
+    """Extract timestamps using fast multiprocessing.
 
     - Subprocess entrypoint
     - This is called by a joblib.Parallel

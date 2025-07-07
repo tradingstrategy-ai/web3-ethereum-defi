@@ -28,7 +28,7 @@ def web3() -> Web3:
     return web3
 
 
-def test_4626_historical_vault_data(
+def test_4626_historical_vault_data_stateless(
     web3: Web3,
 ):
     """Read historical data of IPOR USDC and some other vaults."""
@@ -86,6 +86,7 @@ def test_4626_historical_vault_data(
     assert r.block_number == 23998576
     assert r.timestamp == datetime.datetime(2024, 12, 21, 13, 8, 19)
     assert r.vault.name == "Moonwell Flagship USDC"
+    # AssertionError: assert Decimal('37003383.191686681452465622') == Decimal('37404103.569505')
     assert r.total_assets == Decimal("37404103.569505")
     assert r.total_supply == Decimal("37003383.191686681452465622")
     assert r.share_price == pytest.approx(Decimal("1.0108292902771210900318"))
