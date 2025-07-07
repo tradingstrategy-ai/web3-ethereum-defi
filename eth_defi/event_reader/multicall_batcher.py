@@ -407,6 +407,23 @@ class MulticallWrapper(abc.ABC):
         return value
 
 
+class BatchCallState(abc.ABC):
+    """Allow mutlicall calls to maintain state over the multiple invocations.
+
+    - Mostly useful for historical mutlticall read and frequency management
+    """
+
+    @abstractmethod
+    def should_invoke(
+        self,
+        call: "EncodedCall",
+        block_identifier: BlockIdentifier,
+        timestamp: datetime.datetime,
+    ) -> bool:
+        """Check the condition if this multicall is good to go."""
+        pass
+
+
 @dataclass(slots=True, frozen=True)
 class EncodedCall:
     """Multicall payload, minified implementation.
@@ -450,6 +467,12 @@ class EncodedCall:
     #: Skip calls for blocks that are earlier than this block number.
     #:
     first_block_number: int | None = None
+
+    #: Shared state across multiple calls.
+    #:
+    #: For us one vault = one state.
+    #: Then we use state for adaptive vault read frequency.
+    state: BatchCallState | None = None
 
     def get_debug_info(self) -> str:
         """Get human-readable details for debugging.
@@ -660,7 +683,12 @@ class EncodedCallResult:
     call: EncodedCall
     success: bool
     result: bytes
+
+    #: Block number
     block_identifier: BlockIdentifier
+
+    #: Timestamp of the block (if available)
+    timestamp: datetime.datetime | None = None
 
     #: Not available in multicalls, only through :py:meth:`EncodedCall.call_as_result`
     revert_exception: Exception | None = None
@@ -1038,6 +1066,7 @@ def read_multicall_historical(
 
     logger.info("Per block we need to do %d calls", len(calls_pickle_friendly))
 
+
     def _task_gen() -> Iterable[MulticallHistoricalTask]:
         for block_number in range(start_block, end_block, step):
             task = MulticallHistoricalTask(chain_id, web3factory, block_number, calls_pickle_friendly, require_multicall_result=require_multicall_result)
@@ -1057,6 +1086,88 @@ def read_multicall_historical(
                 progress_bar.set_postfix(suffixes)
 
         yield completed_task
+
+    if progress_bar:
+        progress_bar.close()
+
+
+
+def read_multicall_historical_stateful(
+    chain_id: int,
+    web3factory: Web3Factory,
+    calls: Iterable[EncodedCall],
+    start_block: int,
+    end_block: int,
+    step: int,
+    max_workers=8,
+    timeout=1800,
+    display_progress: bool | str = True,
+    progress_suffix: Callable | None = None,
+    require_multicall_result=False,
+) -> Iterable[CombinedEncodedCallResult]:
+    """Read historical data using multiple processesin parallel for speedup.
+
+    - Allow adaptive frequency with read state
+    - Slower loop than the dumb :py:func:`read_multicall_historical` as it has to maintain state
+    - Because of state, we need to do block by block reading,
+      as we need to evaluate state to see which calls are needed for which block,
+      and the state depends on the result of the previous blocks
+    """
+
+    assert type(start_block) == int, f"Got: {start_block}"
+    assert type(end_block) == int, f"Got: {end_block}"
+    assert type(step) == int, f"Got: {step}"
+    assert type(chain_id) == int, f"Got: {step}"
+
+    web3 = Web3Factory()
+
+    worker_processor = Parallel(
+        n_jobs=max_workers,
+        backend="loky",
+        timeout=timeout,
+        max_nbytes=40 * 1024 * 1024,  # Allow passing 40 MBytes for child processes
+        return_as="generator",  # TODO: Dig generator_unordered cause bugs?
+    )
+
+    iter_count = (end_block - start_block + 1) // step
+    total = iter_count
+
+    if display_progress:
+        if type(display_progress) == str:
+            desc = display_progress
+        else:
+            desc = f"Reading chain data w/historical multicall, {total} tasks, using {max_workers} CPUs"
+        progress_bar = tqdm(
+            total=total,
+            desc=desc,
+        )
+    else:
+        progress_bar = None
+
+    all_calls = list(calls)
+    logger.info("Per block we need to do %d max calls", len(all_calls))
+
+    # Make sure we are doing stateful reading
+    for c in all_calls:
+        assert c.state is not None, f"Call {c} has no state set, please set BatchCallState for it"
+
+    for block_number in range(start_block, end_block, step):
+        timestamp = get_block_timestamp(web3, block_number)
+
+        # Get the list of calls that are effective for this block.
+        # Drop vaults that have peaked/dysfunctional
+        accepted_calls = [c for c in all_calls if if c.state and c.state.should_invoke(c, block_number, timestamp)]
+        task = MulticallHistoricalTask(chain_id, web3factory, block_number, accepted_calls, require_multicall_result=require_multicall_result)
+
+        for completed_task in worker_processor(delayed(_execute_multicall_subprocess)(task)):
+            yield completed_task
+
+        if progress_bar:
+            progress_bar.update(1)
+
+            if progress_suffix is not None:
+                suffixes = progress_suffix()
+                progress_bar.set_postfix(suffixes)
 
     if progress_bar:
         progress_bar.close()
@@ -1225,6 +1336,7 @@ def _execute_multicall_subprocess(
         task.calls,
         require_multicall_result=task.require_multicall_result,
     )
+
     # Pass results back to the main process
     return CombinedEncodedCallResult(
         block_number=task.block_number,

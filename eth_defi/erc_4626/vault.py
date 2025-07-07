@@ -16,9 +16,12 @@ from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.balances import fetch_erc20_balances_fallback
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract, ERC4626Feature
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int, convert_uint256_bytes_to_address
-from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
+from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, HistoricalReaderFrequencyManagerState
 from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.vault.base import VaultBase, VaultSpec, VaultInfo, TradingUniverse, VaultPortfolio, VaultFlowManager, VaultHistoricalReader, VaultHistoricalRead
+from strategies.test_only.frozen_asset import logging
+
+logger = logging.getLogger(__name__)
 
 
 class ERC4626VaultInfo(VaultInfo):
@@ -35,6 +38,99 @@ class ERC4626VaultInfo(VaultInfo):
     #: E.g. USDC.
     #:
     asset: HexAddress | None
+
+
+
+class VaultReaderState(HistoricalReaderFrequencyManagerState):
+    """Adaptive reading frequency for vaults.
+
+    - Most vaults are uninteresting, but we do not know ahead of time whhich ones
+
+    - We need 1h data for interesting vaults to make good trade decisions
+
+    - We switch to 1h scanning if the TVL is above a threshold, otherwise we read it once per day
+    """
+
+    def __init__(
+        self,
+        vault: "ERC4626Vault",
+        tvl_threshold_1d_read = Decimal(10_000),
+        peaked_tvl_threshold = Decimal(200_000),
+        min_tvl_threshold=Decimal(1_500),
+        down_hard = 0.98,
+        traction_period: datetime.timedelta = datetime.timedelta(days=14),
+    ):
+        """
+        :param vault:
+            The vault we are reading historical data for
+        :param tvl_threshold_1d_read:
+            If the TVL is below this threshold, we will not read it more than once per day,
+            otherwise hourly.
+        """
+        super().__init__()
+        self.vault = vault
+
+        self.tvl_threshold_1d_read = tvl_threshold_1d_read
+
+        self.peaked_tvl_threshold = peaked_tvl_threshold
+        self.down_hard = down_hard
+
+        #: TVL from the last read
+        self.last_tvl: Decimal = None
+        self.first_seen_at: datetime.datetime = None
+
+        self.max_tvl: Decimal = Decimal(0)
+
+        self.last_call_at: datetime.datetime | None = None
+
+        #: Disable reading if the vault has peaked and is no longer active
+        self.peaked = False
+
+        self.traction_period = traction_period
+        self.min_tvl_threshold = min_tvl_threshold
+
+    def should_invoke(
+        self,
+        call: "EncodedCall",
+        block_identifier: BlockIdentifier,
+        timestamp: datetime.datetime,
+    ) -> bool:
+        if self.last_call_at is None:
+            return True
+        return (timestamp - self.last_call_at) >= self.get_frequency()
+
+    def get_frequency(self) -> datetime.timedelta:
+        if self.peaked:
+            return False
+        elif self.last_tvl < self.tvl_threshold_1d_read:
+            return datetime.timedelta(days=1)
+        else:
+            return datetime.timedelta(hours=1)
+
+    def on_called(
+        self,
+        result: "EncodedCallResult",
+        total_assets: Decimal | None = None,
+    ):
+        assert result.timestamp, f"EncodedCallResult {result} has no timestamp, cannot update state"
+        self.last_call_at = result.timestamp
+
+        if self.first_seen_at is None:
+            self.first_seen_at = result.timestamp
+
+        self.last_tvl = total_assets
+        self.last_call_at = result.timestamp
+        self.max_tvl = max(self.max_tvl, total_assets)
+
+        if self.max_tvl > self.peaked_tvl_threshold:
+            if self.last_tvl < self.max_tvl * Decimal(1 - self.down_hard):
+                logger.info(f"{self.last_call_at}: Vault {self.vault} peaked at {self.max_tvl}, now TVL is {self.last_tvl}, no longer reading it")
+                self.peaked = True
+
+        if self.last_call_at - self.first_seen_at > self.traction_period:
+            if self.max_tvl < self.min_tvl_threshold:
+                logger.info(f"{self.last_call_at}:  Vault {self.vault} disabled at {self.max_tvl}, never reached min TVL {self.min_tvl_threshold}, no longer reading it")
+                self.peaked = True
 
 
 class ERC4626HistoricalReader(VaultHistoricalReader):
@@ -133,7 +229,14 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
         else:
             share_price = None
 
-        return share_price, total_supply, total_assets, (errors or None)
+        total_assets_call_result = call_by_name.get("total_assets")
+        if total_assets_call_result and total_assets_call_result.success:
+            # Handle dealing with the adaptive frequency
+            state = total_assets_call_result.call.state
+            if state:
+                state.on_called(total_assets_call_result, total_supply)
+
+        return share_price, total_supply, total_supply, (errors or None)
 
     def dictify_multicall_results(
         self,

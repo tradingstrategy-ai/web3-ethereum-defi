@@ -16,7 +16,7 @@ from collections import defaultdict
 import datetime
 from pathlib import Path
 
-from typing import Iterable, TypedDict
+from typing import Iterable, TypedDict, Callable
 
 from eth_typing import HexAddress
 from joblib import Parallel, delayed
@@ -186,8 +186,12 @@ class VaultHistoricalReadMulticaller:
         start_block: int,
         end_block: int,
         step: int,
+        reader_func: Callable=read_multicall_historical,
     ) -> Iterable[VaultHistoricalRead]:
         """Create an iterable that extracts vault record from RPC.
+
+        :param reader_func:
+            Either ``read_multicall_historical`` or ``read_multicall_historical_stateful``
 
         :return:
             Unordered results
@@ -215,7 +219,7 @@ class VaultHistoricalReadMulticaller:
                 "Last block at": last_block_at,
             }
 
-        for combined_result in read_multicall_historical(
+        for combined_result in reader_func(
             chain_id=chain_id,
             web3factory=self.web3factory,
             calls=calls,
