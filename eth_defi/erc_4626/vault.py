@@ -53,6 +53,17 @@ class VaultReaderState(BatchCallState):
     - We switch to 1h scanning if the TVL is above a threshold, otherwise we read it once per day
     """
 
+    #: All attributes we store when we serialise the read state between runs
+    SERIALISABLE_ATTRIBUTES = (
+        "last_tvl",
+        "first_read_at",
+        "max_tvl",
+        "last_call_at",
+        "peaked_at",
+        "faded_at",
+        "entry_count",
+    )
+
     def __init__(
         self,
         vault: "ERC4626Vault",
@@ -113,7 +124,16 @@ class VaultReaderState(BatchCallState):
         self.min_tvl_threshold = min_tvl_threshold
 
         #: Events read, used for testing
-        self.read_count = 0
+        self.entry_count = 0
+
+    def save(self) -> dict:
+        return {k: getattr(self, k) for k in self.SERIALISABLE_ATTRIBUTES}
+
+    def load(self, data: dict):
+        """Load the state from a dictionary."""
+        for k, v in data.items():
+            assert k in VaultReaderState.SERIALISABLE_ATTRIBUTES, f"Unknown key {k} in VaultReaderState.load()"
+            setattr(self, k, v)
 
     def should_invoke(
         self,
@@ -175,7 +195,7 @@ class VaultReaderState(BatchCallState):
                 logger.info(f"{self.last_call_at}:  Vault {self.vault} disabled at {self.max_tvl}, never reached min TVL {self.min_tvl_threshold}, no longer reading it")
                 self.faded_at = timestamp
 
-        self.read_count += 1
+        self.entry_count += 1
 
 
 class ERC4626HistoricalReader(VaultHistoricalReader):

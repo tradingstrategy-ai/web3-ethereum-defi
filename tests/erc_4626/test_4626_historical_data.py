@@ -8,7 +8,7 @@ import pytest
 
 from web3 import Web3
 
-from eth_defi.erc_4626.vault import ERC4626Vault
+from eth_defi.erc_4626.vault import ERC4626Vault, VaultReaderState
 from eth_defi.event_reader.multicall_batcher import read_multicall_historical_stateful
 from eth_defi.ipor.vault import IPORVault
 from eth_defi.morpho.vault import MorphoVault
@@ -165,9 +165,17 @@ def test_4626_historical_vault_data_stateful(
     # Deployed at 26_598_326
     # No data
     state = vault_readers["0xB17B070A56043e1a5a1AB7443AfAFDEbcc1168D7"].reader_state
-    assert state.read_count == 5
+    assert state.entry_count == 5
     assert state.vault.name == "Steakhouse sUSDS"
     assert state.get_frequency() == datetime.timedelta(days=1)
+
+    # Test serialisation: IPOR
+    state = vault_readers["0x45aa96f0b3188D47a1DaFdbefCE1db6B37f58216"].reader_state
+    saved = state.save()
+    assert saved["max_tvl"] == pytest.approx(Decimal("1327724.55695781"))
+    alternative_state = VaultReaderState(vaults[0])
+    alternative_state.load(saved)
+    assert alternative_state.max_tvl == pytest.approx(Decimal("1327724.55695781"))
 
     # Many more records than with the daily scanner above because we read every hour
     assert len(records) == 229

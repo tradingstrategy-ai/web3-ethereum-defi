@@ -424,6 +424,20 @@ class BatchCallState(abc.ABC):
         """Check the condition if this multicall is good to go."""
         pass
 
+    @abstractmethod
+    def save(self) -> dict:
+        """Persist state across multiple runs.
+
+        :return:
+            Pickleable Python object
+        """
+        pass
+
+    @abstractmethod
+    def load(self, data: dict):
+        """Persist state across multiple runs"""
+        pass
+
 
 @dataclass(slots=True, frozen=True)
 class EncodedCall:
