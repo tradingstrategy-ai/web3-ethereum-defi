@@ -441,6 +441,12 @@ class VaultBase(ABC):
     def __repr__(self):
         return f"<{self.__class__.__name__} {self.name} {self.symbol} at {self.address}>"
 
+    def get_spec(self) -> VaultSpec:
+        return VaultSpec(
+            chain_id=self.chain_id,
+            vault_address=self.address,
+        )
+
     @property
     @abstractmethod
     def chain_id(self) -> int:

@@ -24,13 +24,13 @@ from tqdm_loggable.auto import tqdm
 from web3 import Web3
 
 from eth_defi.chain import EVM_BLOCK_TIMES
+from eth_defi.erc_4626.vault import VaultReaderState
 from eth_defi.event_reader.multicall_batcher import EncodedCall, read_multicall_historical, EncodedCallResult, read_multicall_historical_stateful
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.provider.broken_provider import get_almost_latest_block_number
 from eth_defi.token import TokenDetails, TokenDiskCache
 from eth_defi.utils import chunked
-from eth_defi.vault.base import VaultBase, VaultHistoricalReader, VaultHistoricalRead
-
+from eth_defi.vault.base import VaultBase, VaultHistoricalReader, VaultHistoricalRead, VaultSpec
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +54,8 @@ class ParquetScanResult(TypedDict):
     output_fname: Path
     file_size: int
     chunks_done: int
+
+    reader_states: dict[VaultSpec, dict] | None
 
 
 class VaultReadNotSupported(Exception):
@@ -190,6 +192,7 @@ class VaultHistoricalReadMulticaller:
         end_block: int,
         step: int,
         reader_func: Callable = read_multicall_historical,
+        saved_states: dict[VaultReaderState, dict] | None = None,
     ) -> Iterable[VaultHistoricalRead]:
         """Create an iterable that extracts vault record from RPC.
 
@@ -206,6 +209,14 @@ class VaultHistoricalReadMulticaller:
 
         # Expose for testing purposes
         self.readers = readers
+
+        # Hydrate states from the previous run
+        if saved_states:
+            for reader in readers.values():
+                spec = reader.vault.get_spec()
+                existing_state = saved_states.get(spec)
+                if existing_state:
+                    reader.load(existing_state)
 
         logger.info("Prepared %d readers", len(readers))
         calls = list(self.generate_vault_historical_calls(readers))
@@ -260,6 +271,16 @@ class VaultHistoricalReadMulticaller:
                 reader = readers[vault_address]
                 yield reader.process_result(block_number, timestamp, results)
 
+    def save_reader_state(self) -> dict[VaultSpec, dict]:
+        """Save the state of all readers.
+
+        :return:
+            Dictionary keyed by the vault spce
+        """
+
+        # TODO: Fix class inheritance, etc.
+        return {r.vault.get_spec(): r.reader_state.save() for r in self.readers.values()}
+
 
 def scan_historical_prices_to_parquet(
     output_fname: Path,
@@ -275,6 +296,7 @@ def scan_historical_prices_to_parquet(
     max_workers=8,
     require_multicall_result=False,
     frequency: Literal["1d", "1h"] = "1d",
+    reader_states: dict[VaultSpec, dict] | None = None,
 ) -> ParquetScanResult:
     """Scan all historical vault share prices of vaults and save them in to Parquet file.
 
@@ -383,6 +405,7 @@ def scan_historical_prices_to_parquet(
         end_block=end_block,
         step=step,
         reader_func=reader_func,
+        saved_states=reader_states,
     )
 
     # Convert VaultHistoricalRead objects to exportable dicts for Parquet
