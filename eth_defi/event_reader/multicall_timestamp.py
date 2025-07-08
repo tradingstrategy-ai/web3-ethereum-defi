@@ -69,7 +69,7 @@ def fetch_block_timestamps_multiprocess(
     if display_progress:
         progress_bar = tqdm(
             total=(end_block - start_block) // step,
-            desc=f"Reading timestamps for chain {chain_name}: {start_block:,} - {end_block:,}",
+            desc=f"Reading timestamps for chain {chain_name}: {start_block:,} - {end_block:,}, {max_workers} workers",
         )
     else:
         progress_bar = None

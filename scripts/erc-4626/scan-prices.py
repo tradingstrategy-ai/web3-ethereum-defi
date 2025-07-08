@@ -17,9 +17,9 @@ Or for faster small sample scan limit the end block:
 Or for dynamic 1h frequency scan for Polygon, delete existing data:
 
     rm -rf ~/.tradingstrategy/vaults
-    FREQUENCY=1h
-    export JSON_RPC_URL=$JSON_RPC_POLYGON
-    python scripts/erc-4626/scan-vaults.py
+    export FREQUENCY=1h
+    export JSON_RPC_URL=$JSON_RPC_HYPERLIQUID
+    # python scripts/erc-4626/scan-vaults.py
     python scripts/erc-4626/scan-prices.py
 
 """
@@ -97,6 +97,8 @@ def main():
 
     if reader_state_db.exists():
         reader_states = pickle.load(reader_state_db.open("rb"))
+    else:
+        reader_states = None
 
     chain_vaults = [v for v in vault_db.values() if v["_detection_data"].chain == chain_id]
     print(f"Chain {name} has {len(chain_vaults):,} vaults in the vault detection database")
