@@ -1184,7 +1184,7 @@ def read_multicall_historical_stateful(
     reader = MultiprocessMulticallReader(web3factory)
 
     for block_number in range(start_block, end_block, step):
-        # Map prefetch timesstamp
+        # Map prefetch timestamp
         timestamp = timestamps[block_number]
 
         # Get the list of calls that are effective for this block.
