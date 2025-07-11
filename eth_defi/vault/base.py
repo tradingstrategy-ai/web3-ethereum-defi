@@ -441,6 +441,12 @@ class VaultBase(ABC):
     def __repr__(self):
         return f"<{self.__class__.__name__} {self.name} {self.symbol} at {self.address}>"
 
+    def get_spec(self) -> VaultSpec:
+        return VaultSpec(
+            chain_id=self.chain_id,
+            vault_address=self.address,
+        )
+
     @property
     @abstractmethod
     def chain_id(self) -> int:
@@ -511,8 +517,11 @@ class VaultBase(ABC):
         """
 
     @abstractmethod
-    def get_historical_reader(self) -> VaultHistoricalReader:
+    def get_historical_reader(self, stateful: bool) -> VaultHistoricalReader:
         """Get share price reader to fetch historical returns.
+
+        :param stateful:
+            If True, use a stateful reading strategy.
 
         :return:
             None if unsupported

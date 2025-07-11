@@ -26,6 +26,7 @@ resumed from the data on disk.
    eth_defi.event_reader.fast_json_rpc
    eth_defi.event_reader.block_header
    eth_defi.event_reader.block_time
+   eth_defi.event_reader.multicall_timestamp
    eth_defi.event_reader.block_data_store
    eth_defi.event_reader.reorganisation_monitor
    eth_defi.event_reader.parquet_block_data_store

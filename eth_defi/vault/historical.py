@@ -16,7 +16,7 @@ from collections import defaultdict
 import datetime
 from pathlib import Path
 
-from typing import Iterable, TypedDict
+from typing import Iterable, TypedDict, Callable, Literal
 
 from eth_typing import HexAddress
 from joblib import Parallel, delayed
@@ -24,13 +24,13 @@ from tqdm_loggable.auto import tqdm
 from web3 import Web3
 
 from eth_defi.chain import EVM_BLOCK_TIMES
-from eth_defi.event_reader.multicall_batcher import EncodedCall, read_multicall_historical, EncodedCallResult
+from eth_defi.erc_4626.vault import VaultReaderState
+from eth_defi.event_reader.multicall_batcher import EncodedCall, read_multicall_historical, EncodedCallResult, read_multicall_historical_stateful
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.provider.broken_provider import get_almost_latest_block_number
 from eth_defi.token import TokenDetails, TokenDiskCache
 from eth_defi.utils import chunked
-from eth_defi.vault.base import VaultBase, VaultHistoricalReader, VaultHistoricalRead
-
+from eth_defi.vault.base import VaultBase, VaultHistoricalReader, VaultHistoricalRead, VaultSpec
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +54,8 @@ class ParquetScanResult(TypedDict):
     output_fname: Path
     file_size: int
     chunks_done: int
+
+    reader_states: dict[VaultSpec, dict] | None
 
 
 class VaultReadNotSupported(Exception):
@@ -90,6 +92,8 @@ class VaultHistoricalReadMulticaller:
         self.token_cache = token_cache
         self.require_multicall_result = require_multicall_result
 
+        self.readers: dict[HexAddress, VaultHistoricalReader] = {}
+
     def validate_vaults(
         self,
         vaults: list[VaultBase],
@@ -107,9 +111,9 @@ class VaultHistoricalReadMulticaller:
                 if denomination_token not in self.supported_quote_tokens:
                     raise VaultReadNotSupported(f"Vault {vault} has denomination token {denomination_token} which is not supported denomination token set: {self.supported_quote_tokens}")
 
-    def _prepare_reader(self, vault: VaultBase):
+    def _prepare_reader(self, vault: VaultBase, stateful=False) -> VaultHistoricalReader:
         """Run in subprocess"""
-        return vault.get_historical_reader()
+        return vault.get_historical_reader(stateful=stateful)
 
     def _prepare_denomination_token(self, vault: VaultBase) -> HexAddress:
         """Run in subprocess"""
@@ -123,6 +127,7 @@ class VaultHistoricalReadMulticaller:
     def prepare_readers(
         self,
         vaults: list[VaultBase],
+        stateful=False,
     ) -> dict[HexAddress, VaultHistoricalReader]:
         """Create readrs for vaults."""
         logger.info(
@@ -147,7 +152,7 @@ class VaultHistoricalReadMulticaller:
 
         # Each vault reader creation causes ~5 RPC call as it initialises the token information.
         # We do parallel to cut down the time here.
-        results = Parallel(n_jobs=self.max_workers, backend="threading")(delayed(self._prepare_reader)(v) for v in vaults)
+        results = Parallel(n_jobs=self.max_workers, backend="threading")(delayed(self._prepare_reader)(v, stateful) for v in vaults)
         readers = {r.address: r for r in results}
         return readers
 
@@ -186,20 +191,38 @@ class VaultHistoricalReadMulticaller:
         start_block: int,
         end_block: int,
         step: int,
+        reader_func: Callable = read_multicall_historical,
+        saved_states: dict[VaultReaderState, dict] | None = None,
     ) -> Iterable[VaultHistoricalRead]:
         """Create an iterable that extracts vault record from RPC.
+
+        :param reader_func:
+            Either ``read_multicall_historical`` or ``read_multicall_historical_stateful``
 
         :return:
             Unordered results
         """
-        readers = self.prepare_readers(vaults)
+
+        # TODO: Clean up as an arg
+        stateful = reader_func != read_multicall_historical
+        readers = self.prepare_readers(vaults, stateful=stateful)
+
+        # Expose for testing purposes
+        self.readers = readers
+
+        # Hydrate states from the previous run
+        if saved_states:
+            for reader in readers.values():
+                spec = reader.vault.get_spec()
+                existing_state = saved_states.get(spec)
+                if existing_state:
+                    reader.load(existing_state)
+
         logger.info("Prepared %d readers", len(readers))
         calls = list(self.generate_vault_historical_calls(readers))
         logger.info(
             f"Starting historical read loop, total calls {len(calls)} per block, {start_block:,} - {end_block:,} blocks, step is {step}",
         )
-
-        vault_data: dict[HexAddress, list[EncodedCallResult]] = defaultdict(list)
 
         if len(vaults) == 0:
             return
@@ -215,7 +238,7 @@ class VaultHistoricalReadMulticaller:
                 "Last block at": last_block_at,
             }
 
-        for combined_result in read_multicall_historical(
+        for combined_result in reader_func(
             chain_id=chain_id,
             web3factory=self.web3factory,
             calls=calls,
@@ -228,6 +251,7 @@ class VaultHistoricalReadMulticaller:
             require_multicall_result=self.require_multicall_result,
         ):
             active_vault_set.clear()
+            vault_data: dict[HexAddress, list[EncodedCallResult]] = defaultdict(list)
 
             # Transform single multicall call results to calls batched by vault-results
             block_number = combined_result.block_number
@@ -243,11 +267,19 @@ class VaultHistoricalReadMulticaller:
                 vault_data[vault].append(call_result)
                 active_vault_set.add(vault)
 
-            last_block_at = combined_result.timestamp
-
             for vault_address, results in vault_data.items():
                 reader = readers[vault_address]
                 yield reader.process_result(block_number, timestamp, results)
+
+    def save_reader_state(self) -> dict[VaultSpec, dict]:
+        """Save the state of all readers.
+
+        :return:
+            Dictionary keyed by the vault spce
+        """
+
+        # TODO: Fix class inheritance, etc.
+        return {r.vault.get_spec(): r.reader_state.save() for r in self.readers.values()}
 
 
 def scan_historical_prices_to_parquet(
@@ -256,7 +288,6 @@ def scan_historical_prices_to_parquet(
     web3factory: Web3Factory,
     vaults: list[VaultBase],
     token_cache: TokenDiskCache,
-    step_duration=datetime.timedelta(hours=24),
     start_block=None,
     end_block=None,
     step=None,
@@ -264,6 +295,8 @@ def scan_historical_prices_to_parquet(
     compression="zstd",
     max_workers=8,
     require_multicall_result=False,
+    frequency: Literal["1d", "1h"] = "1d",
+    reader_states: dict[VaultSpec, dict] | None = None,
 ) -> ParquetScanResult:
     """Scan all historical vault share prices of vaults and save them in to Parquet file.
 
@@ -346,6 +379,16 @@ def scan_historical_prices_to_parquet(
         require_multicall_result=require_multicall_result,
     )
 
+    match frequency:
+        case "1d":
+            step_duration = datetime.timedelta(hours=24)
+            reader_func = read_multicall_historical
+        case "1h":
+            step_duration = datetime.timedelta(hours=1)
+            reader_func = read_multicall_historical_stateful
+        case _:
+            raise ValueError(f"Unsupported frequency: {frequency}")
+
     # Note this is an approx,
     # manual tuning will be needed
     if step is None:
@@ -361,6 +404,8 @@ def scan_historical_prices_to_parquet(
         start_block=start_block,
         end_block=end_block,
         step=step,
+        reader_func=reader_func,
+        saved_states=reader_states,
     )
 
     # Convert VaultHistoricalRead objects to exportable dicts for Parquet
