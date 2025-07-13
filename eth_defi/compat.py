@@ -17,12 +17,11 @@ def _add_named_middleware_v7(web3, middleware_name, layer):
     middleware_map = {
         "static_call_cache": "static_call_cache_middleware",
         "retry": "retry_middleware",
-        # Add more mappings as needed
     }
 
     actual_name = middleware_map.get(middleware_name, middleware_name)
     # v7 implementation for named middleware
-    # TODO: Implement based on actual v7 API
+    # TODO: Implement based v7 API
     pass
 
 
@@ -68,7 +67,6 @@ def clear_middleware(web3):
     web3.middleware_onion.clear()
 
 
-# Function encoding compatibility
 def encode_function_args_v6(func, args):
     """v6 implementation"""
     if not WEB3_PY_V7:
