@@ -18,11 +18,12 @@ import eth_abi
 from eth_abi import decode
 from eth_typing import HexAddress, HexStr
 from eth_utils import encode_hex, function_abi_to_4byte_selector
-from eth_utils.abi import _abi_to_signature, function_signature_to_4byte_selector, event_abi_to_log_topic
+from web3._utils.contracts import encode_abi
+
+from eth_defi.compat import abi_to_signature, function_signature_to_4byte_selector, event_abi_to_log_topic, get_function_info
 from hexbytes import HexBytes
 from web3 import Web3
 from web3._utils.abi import get_abi_input_names, get_abi_input_types
-from web3._utils.contracts import encode_abi, get_function_info
 from web3.contract.contract import Contract, ContractFunction, ContractEvent
 
 # Cache loaded ABI files in-process memory for speedup
@@ -285,32 +286,6 @@ def encode_with_signature(function_signature: str, args: Sequence) -> bytes:
     return function_selector + encoded_args
 
 
-def encode_function_args(func: ContractFunction, args: Sequence) -> bytes:
-    """Mimic Solidity's abi.encodeWithSignature() in Python.
-
-    Uses `web3.Contract.functions` prepared function as the ABI source.
-
-    :param func:
-        Function which arguments we are going to encode.
-
-    :param args:
-        Argument values to be encoded.
-    """
-    assert isinstance(func, ContractFunction)
-
-    web3 = func.w3
-
-    fn_abi, fn_selector, aligned_fn_arguments = get_function_info(
-        func.fn_name,
-        web3.codec,
-        func.contract_abi,
-        args=args,
-    )
-    arg_types = [t["type"] for t in fn_abi["inputs"]]
-    encoded_args = eth_abi.encode(arg_types, args)
-    return encoded_args
-
-
 def decode_function_output(func: ContractFunction, data: bytes) -> Any:
     """Decode raw return value of Solidity function using Contract proxy object.
 
@@ -363,6 +338,7 @@ def encode_function_call(
     contract_abi = func.contract_abi
     fn_abi = func.abi
     fn_identifier = func.function_identifier
+
     fn_abi, fn_selector, fn_arguments = get_function_info(
         # type ignored b/c fn_id here is always str b/c FallbackFn is handled above
         fn_identifier,  # type: ignore
@@ -515,7 +491,8 @@ def get_function_selector(func: ContractFunction) -> bytes:
     # https://stackoverflow.com/a/8534381/315168
     fn_abi = next((a for a in contract_abi if a.get("name") == func.fn_name), None)
     assert fn_abi, f"Could not find function {func.fn_name} in Contract ABI"
-    function_signature = _abi_to_signature(fn_abi)
+
+    function_signature = abi_to_signature(fn_abi)
     fn_selector = function_signature_to_4byte_selector(function_signature)  # type: ignore
     return fn_selector
 
