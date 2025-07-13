@@ -19,8 +19,8 @@ from eth_abi import decode
 from eth_typing import HexAddress, HexStr
 from eth_utils import encode_hex, function_abi_to_4byte_selector
 from web3._utils.contracts import encode_abi
-
-from eth_defi.compat import abi_to_signature, function_signature_to_4byte_selector, event_abi_to_log_topic, get_function_info
+from eth_utils.abi import event_abi_to_log_topic
+from eth_defi.compat import abi_to_signature, get_function_info
 from hexbytes import HexBytes
 from web3 import Web3
 from web3._utils.abi import get_abi_input_names, get_abi_input_types
@@ -493,7 +493,7 @@ def get_function_selector(func: ContractFunction) -> bytes:
     assert fn_abi, f"Could not find function {func.fn_name} in Contract ABI"
 
     function_signature = abi_to_signature(fn_abi)
-    fn_selector = function_signature_to_4byte_selector(function_signature)  # type: ignore
+    fn_selector = function_abi_to_4byte_selector(function_signature)  # type: ignore
     return fn_selector
 
 
