@@ -153,7 +153,7 @@ from decimal import Decimal
 
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
-from web3.middleware import construct_sign_and_send_raw_middleware
+from eth_defi.compat import construct_sign_and_send_raw_middleware
 
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.revert_reason import fetch_transaction_revert_reason
