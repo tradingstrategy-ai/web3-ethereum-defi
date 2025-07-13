@@ -10,10 +10,11 @@ from typing import Any, cast
 
 import ujson
 from web3 import Web3
-from web3._utils.request import get_response_from_post_request
 from web3.providers import JSONBaseProvider
 from web3.providers.rpc import HTTPProvider
 from web3.types import RPCEndpoint, RPCResponse
+
+from eth_defi.compat import get_response_from_post_request
 
 logger = logging.getLogger(__name__)
 
