@@ -13,11 +13,11 @@ from urllib.parse import urljoin
 
 import requests
 from web3 import HTTPProvider, Web3
-from web3.middleware import geth_poa_middleware
 from web3.providers import BaseProvider, JSONBaseProvider
 from web3.types import RPCEndpoint, RPCResponse
 
 from eth_defi.event_reader.conversion import convert_jsonrpc_value_to_int
+from eth_defi.compat import install_poa_middleware, install_retry_middleware_compat, install_api_call_counter_middleware_compat, WEB3_PY_V7
 from eth_defi.middleware import http_retry_request_with_sleep_middleware
 from eth_defi.provider.named import get_provider_name
 
@@ -119,20 +119,6 @@ def get_chain_name(chain_id: int) -> str:
     return f"<Unknown chain, id {chain_id}>"
 
 
-def get_chain_homepage(chain_id: int) -> tuple[str, str]:
-    """Translate Ethereum chain id to a link to its homepage.
-
-    :return:
-        name, homepage link tuple
-    """
-    name = CHAIN_NAMES.get(chain_id)
-    link = CHAIN_HOMEPAGES.get(chain_id)
-    if not name or not link:
-        return f"<Unknown chain , id {chain_id}>", "https://"
-
-    return name, link["homepage"]
-
-
 def get_block_time(chain_id: int) -> float:
     """Get average block time for a chain.
 
@@ -191,7 +177,8 @@ def install_chain_middleware(web3: Web3, poa_middleware=None, hint: str = ""):
             raise RuntimeError(f"Could not call eth_chainId on {name} provider. Is it a valid JSON-RPC provider? As this is often the first call, you might be also out of API credits. Hint is {hint}") from e
 
     if poa_middleware:
-        web3.middleware_onion.inject(geth_poa_middleware, layer=0)
+        # Use compat.py's POA middleware installation
+        install_poa_middleware(web3, layer=0)
 
 
 def install_retry_middleware(web3: Web3):
@@ -200,7 +187,8 @@ def install_retry_middleware(web3: Web3):
     In the case your Internet connection or JSON-RPC node has issues,
     gracefully do exponential backoff retries.
     """
-    web3.middleware_onion.inject(http_retry_request_with_sleep_middleware, layer=0)
+    # Use compat.py's retry middleware installation
+    install_retry_middleware_compat(web3)
 
 
 def install_api_call_counter_middleware(web3: Web3) -> Counter:
@@ -237,18 +225,8 @@ def install_api_call_counter_middleware(web3: Web3) -> Counter:
     :return:
         Counter object with columns per RPC endpoint and "total"
     """
-    api_counter = Counter()
-
-    def factory(make_request: Callable[[RPCEndpoint, Any], Any], web3: "Web3"):
-        def middleware(method: RPCEndpoint, params: Any) -> Optional[RPCResponse]:
-            api_counter[method] += 1
-            api_counter["total"] += 1
-            return make_request(method, params)
-
-        return middleware
-
-    web3.middleware_onion.inject(factory, layer=0)
-    return api_counter
+    # Use compat.py's API call counter middleware installation
+    return install_api_call_counter_middleware_compat(web3)
 
 
 def install_api_call_counter_middleware_on_provider(provider: JSONBaseProvider) -> Counter:
@@ -271,15 +249,30 @@ def install_api_call_counter_middleware_on_provider(provider: JSONBaseProvider) 
 
     api_counter = Counter()
 
-    def factory(make_request: Callable[[RPCEndpoint, Any], Any], web3: "Web3"):
-        def middleware(method: RPCEndpoint, params: Any) -> Optional[RPCResponse]:
-            api_counter[method] += 1
-            api_counter["total"] += 1
-            return make_request(method, params)
+    if WEB3_PY_V7:
+        # v7 implementation - inspired by your working code
+        from eth_defi.compat import Web3Middleware
 
-        return middleware
+        class ProviderAPICounterMiddleware(Web3Middleware):
+            def request_processor(self, method: RPCEndpoint, params: Any) -> tuple[RPCEndpoint, Any]:
+                api_counter[method] += 1
+                api_counter["total"] += 1
+                return method, params
 
-    provider.middlewares.add("api_counter_middleware", factory)
+        # For provider-level middleware in web3.py 7.x+
+        provider.middlewares = provider.middlewares + (ProviderAPICounterMiddleware,)
+    else:
+        # v6 implementation
+        def factory(make_request: Callable[[RPCEndpoint, Any], Any], web3: "Web3"):
+            def middleware(method: RPCEndpoint, params: Any) -> Optional[RPCResponse]:
+                api_counter[method] += 1
+                api_counter["total"] += 1
+                return make_request(method, params)
+
+            return middleware
+
+        provider.middlewares.add("api_counter_middleware", factory)
+
     return api_counter
 
 
@@ -362,14 +355,5 @@ def fetch_block_timestamp(web3: Web3, block_number: int) -> datetime.datetime:
     """
     block = web3.eth.get_block(block_number)
     timestamp = convert_jsonrpc_value_to_int(block["timestamp"])
-    time = datetime.datetime.utcfromtimestamp(timestamp)
+    time = datetime.datetime.fromtimestamp(timestamp, tz=datetime.timezone.utc)
     return time
-
-
-def install_retry_middleware(web3: Web3):
-    """Install gracefully HTTP request retry middleware.
-
-    In the case your Internet connection or JSON-RPC node has issues,
-    gracefully do exponential backoff retries.
-    """
-    web3.middleware_onion.inject(http_retry_request_with_sleep_middleware, layer=0)
