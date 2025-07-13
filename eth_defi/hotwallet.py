@@ -10,7 +10,7 @@ import logging
 import secrets
 from decimal import Decimal
 from pprint import pformat
-from typing import Optional, NamedTuple
+from typing import NamedTuple, Optional
 
 from eth_account import Account
 from eth_account.datastructures import __getitem__
@@ -21,9 +21,8 @@ from web3 import Web3
 from web3._utils.contracts import prepare_transaction
 from web3.contract.contract import ContractFunction
 
-from eth_defi.gas import estimate_gas_fees, apply_gas, estimate_gas_price
+from eth_defi.gas import apply_gas, estimate_gas_fees, estimate_gas_price
 from eth_defi.tx import decode_signed_transaction
-
 
 logger = logging.getLogger(__name__)
 
@@ -128,7 +127,7 @@ class HotWallet:
     .. code-block:: python
 
             from eth_account import Account
-            from web3.middleware import construct_sign_and_send_raw_middleware
+            from eth_defi.compat import construct_sign_and_send_raw_middleware
 
             from eth_defi.trace import assert_transaction_success_with_explanation
             from eth_defi.hotwallet import HotWallet
