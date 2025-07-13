@@ -3,21 +3,22 @@
 v6/v7 compatibility module
 """
 
-from importlib.metadata import version
-from packaging.version import Version
-import eth_abi
 from collections import Counter
+from importlib.metadata import version
 from typing import Any
+
+import eth_abi
+from packaging.version import Version
 
 pkg_version = version("web3")
 WEB3_PY_V7 = Version(pkg_version) >= Version("7.0.0")
 
 # Middleware imports with compatibility
 if WEB3_PY_V7:
-    from web3.middleware import ExtraDataToPOAMiddleware, Web3Middleware
-    from web3.types import RPCEndpoint
-    from web3.providers.rpc.utils import ExceptionRetryConfiguration
     from requests.exceptions import ConnectionError, HTTPError, Timeout
+    from web3.middleware import ExtraDataToPOAMiddleware, Web3Middleware
+    from web3.providers.rpc.utils import ExceptionRetryConfiguration
+    from web3.types import RPCEndpoint
 else:
     from web3.middleware import geth_poa_middleware
 
@@ -238,15 +239,19 @@ def get_function_info_v7(*args, **kwargs):
 if WEB3_PY_V7:
     from eth_utils.abi import abi_to_signature as _abi_to_signature
     from web3._utils.http_session_manager import HTTPSessionManager
+    from web3.middleware import SignAndSendRawMiddlewareBuilder
 
     sessions = HTTPSessionManager()
     _get_response_from_post_request = sessions.get_response_from_post_request
 
     encode_function_args = encode_function_args_v7
     get_function_info = get_function_info_v7
+    construct_sign_and_send_raw_middleware = SignAndSendRawMiddlewareBuilder
 else:
     from eth_utils.abi import _abi_to_signature
     from web3._utils.request import get_response_from_post_request as _get_response_from_post_request
+
+    from eth_defi.compat import construct_sign_and_send_raw_middleware
 
     encode_function_args = encode_function_args_v6
     get_function_info = get_function_info_v6
