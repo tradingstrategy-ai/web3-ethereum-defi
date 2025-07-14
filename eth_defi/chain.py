@@ -17,6 +17,8 @@ from web3.providers import BaseProvider, JSONBaseProvider
 from web3.types import RPCEndpoint, RPCResponse
 
 from eth_defi.event_reader.conversion import convert_jsonrpc_value_to_int
+from eth_defi.middleware import http_retry_request_with_sleep_middleware
+from eth_defi.compat import WEB3_PY_V7
 from eth_defi.compat import install_poa_middleware, install_retry_middleware_compat, install_api_call_counter_middleware_compat, WEB3_PY_V7
 from eth_defi.middleware import http_retry_request_with_sleep_middleware
 from eth_defi.provider.named import get_provider_name
@@ -177,8 +179,15 @@ def install_chain_middleware(web3: Web3, poa_middleware=None, hint: str = ""):
             raise RuntimeError(f"Could not call eth_chainId on {name} provider. Is it a valid JSON-RPC provider? As this is often the first call, you might be also out of API credits. Hint is {hint}") from e
 
     if poa_middleware:
-        # Use compat.py's POA middleware installation
-        install_poa_middleware(web3, layer=0)
+        # Use compat POA middleware installation
+        if WEB3_PY_V7:
+            from web3.middleware import ExtraDataToPOAMiddleware
+
+            web3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
+        else:
+            from web3.middleware import geth_poa_middleware
+
+            web3.middleware_onion.inject(geth_poa_middleware, layer=0)
 
 
 def install_retry_middleware(web3: Web3):
@@ -187,8 +196,22 @@ def install_retry_middleware(web3: Web3):
     In the case your Internet connection or JSON-RPC node has issues,
     gracefully do exponential backoff retries.
     """
-    # Use compat.py's retry middleware installation
-    install_retry_middleware_compat(web3)
+    # Use v7 provider configuration or v6 middleware
+    if WEB3_PY_V7:
+        # v7 uses ExceptionRetryConfiguration on provider (recommended approach)
+        from web3.providers.rpc.utils import ExceptionRetryConfiguration
+        from requests.exceptions import ConnectionError, HTTPError, Timeout
+
+        provider = web3.provider
+        if hasattr(provider, "exception_retry_configuration"):
+            provider.exception_retry_configuration = ExceptionRetryConfiguration(
+                errors=(ConnectionError, HTTPError, Timeout),
+                retries=10,  # defaults to 5
+                backoff_factor=0.5,  # defaults to 0.125
+            )
+    else:
+        # v6 uses middleware injection
+        web3.middleware_onion.inject(http_retry_request_with_sleep_middleware, layer=0)
 
 
 def install_api_call_counter_middleware(web3: Web3) -> Counter:
@@ -225,8 +248,22 @@ def install_api_call_counter_middleware(web3: Web3) -> Counter:
     :return:
         Counter object with columns per RPC endpoint and "total"
     """
-    # Use compat.py's API call counter middleware installation
-    return install_api_call_counter_middleware_compat(web3)
+    api_counter = Counter()
+
+    if WEB3_PY_V7:
+        # MIGRATED: v7 class-based middleware using the compat class
+        from eth_defi.compat import APICallCounterMiddleware
+
+        counter_middleware = APICallCounterMiddleware(api_counter, web3)
+        web3.middleware_onion.inject(lambda w3: counter_middleware, layer=0)
+    else:
+        # v6 function-based middleware
+        from eth_defi.compat import APICallCounterMiddleware
+
+        counter_middleware = APICallCounterMiddleware(api_counter)
+        web3.middleware_onion.inject(counter_middleware, layer=0)
+
+    return api_counter
 
 
 def install_api_call_counter_middleware_on_provider(provider: JSONBaseProvider) -> Counter:
@@ -250,8 +287,8 @@ def install_api_call_counter_middleware_on_provider(provider: JSONBaseProvider) 
     api_counter = Counter()
 
     if WEB3_PY_V7:
-        # v7 implementation - inspired by your working code
-        from eth_defi.compat import Web3Middleware
+        # v7 implementation
+        from web3.middleware import Web3Middleware
 
         class ProviderAPICounterMiddleware(Web3Middleware):
             def request_processor(self, method: RPCEndpoint, params: Any) -> tuple[RPCEndpoint, Any]:
