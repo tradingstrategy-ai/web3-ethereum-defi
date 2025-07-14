@@ -13,6 +13,7 @@ from web3.contract import Contract
 from eth_defi.gas import apply_gas, estimate_gas_fees
 from eth_defi.revert_reason import fetch_transaction_revert_reason
 from eth_defi.token import create_token
+from eth_defi.tx import get_tx_broadcast_data
 from eth_defi.uniswap_v3.constants import FOREVER_DEADLINE
 from eth_defi.uniswap_v3.deployment import (
     UniswapV3Deployment,
@@ -229,7 +230,8 @@ def test_buy_with_slippage_when_you_know_quote_amount(
 
     # sign and broadcast
     signed_tx = hot_wallet.sign_transaction(tx)
-    tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+    raw_bytes = get_tx_broadcast_data(signed_tx)
+    tx_hash = web3.eth.send_raw_transaction(raw_bytes)
     tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
     assert tx_receipt.status == 1
 
@@ -284,7 +286,8 @@ def test_sell_three_way_with_slippage_when_you_know_base_amount(
 
     # sign and broadcast
     signed_tx = hot_wallet.sign_transaction(tx)
-    tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+    raw_bytes = get_tx_broadcast_data(signed_tx)
+    tx_hash = web3.eth.send_raw_transaction(raw_bytes)
     tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
     assert tx_receipt.status == 1
 
@@ -372,7 +375,8 @@ def test_swap_slippage_revert(
     # print(f"Price moved: {price_move_percent} %")
 
     # now the hot wallet finally manages to broadcast the tx, it should fail
-    tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+    raw_bytes = get_tx_broadcast_data(signed_tx)
+    tx_hash = web3.eth.send_raw_transaction(raw_bytes)
     tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
 
     assert tx_receipt.status == 0  # failure

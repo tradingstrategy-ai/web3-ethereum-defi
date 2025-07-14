@@ -12,6 +12,7 @@ from eth_defi.aave_v3.deployment import AaveV3Deployment
 from eth_defi.aave_v3.loan import borrow, repay, supply, withdraw
 from eth_defi.hotwallet import HotWallet
 from eth_defi.trace import assert_transaction_success_with_explanation
+from eth_defi.tx import get_tx_broadcast_data
 from eth_defi.uniswap_v3.constants import FOREVER_DEADLINE
 from eth_defi.uniswap_v3.deployment import (
     UniswapV3Deployment,
@@ -191,12 +192,14 @@ def test_aave_v3_short(
 
     tx = approve_fn.build_transaction({"from": hot_wallet.address, "gas": 200_000})
     signed = hot_wallet.sign_transaction_with_new_nonce(tx)
-    tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
+    raw_bytes = get_tx_broadcast_data(signed)
+    tx_hash = web3.eth.send_raw_transaction(raw_bytes)
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     tx = supply_fn.build_transaction({"from": hot_wallet.address, "gas": 350_000})
     signed = hot_wallet.sign_transaction_with_new_nonce(tx)
-    tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
+    raw_bytes = get_tx_broadcast_data(signed)
+    tx_hash = web3.eth.send_raw_transaction(raw_bytes)
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     # verify aUSDC token amount in hot wallet
@@ -223,7 +226,8 @@ def test_aave_v3_short(
         }
     )
     signed = hot_wallet.sign_transaction_with_new_nonce(tx)
-    tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
+    raw_bytes = get_tx_broadcast_data(signed)
+    tx_hash = web3.eth.send_raw_transaction(raw_bytes)
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     assert weth.functions.balanceOf(hot_wallet.address).call() == borrow_amount
@@ -247,7 +251,8 @@ def test_aave_v3_short(
     uniswap_v3_router = uniswap_v3.swap_router
     tx = weth.functions.approve(uniswap_v3_router.address, borrow_amount).build_transaction({"from": hot_wallet.address, "gas": 200_000})
     signed = hot_wallet.sign_transaction_with_new_nonce(tx)
-    tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
+    raw_bytes = get_tx_broadcast_data(signed)
+    tx_hash = web3.eth.send_raw_transaction(raw_bytes)
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     swap_fn = swap_with_slippage_protection(
@@ -261,7 +266,8 @@ def test_aave_v3_short(
     )
     tx = swap_fn.build_transaction({"from": hot_wallet.address, "gas": 350_000})
     signed = hot_wallet.sign_transaction_with_new_nonce(tx)
-    tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
+    raw_bytes = get_tx_broadcast_data(signed)
+    tx_hash = web3.eth.send_raw_transaction(raw_bytes)
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     # we should get ~8k USDC after selling WETH
@@ -308,7 +314,8 @@ def test_aave_v3_short(
         }
     )
     signed = hot_wallet.sign_transaction_with_new_nonce(tx)
-    tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
+    raw_bytes = get_tx_broadcast_data(signed)
+    tx_hash = web3.eth.send_raw_transaction(raw_bytes)
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     swap_fn = swap_with_slippage_protection(
@@ -324,7 +331,8 @@ def test_aave_v3_short(
     )
     tx = swap_fn.build_transaction({"from": hot_wallet.address, "gas": 350_000})
     signed = hot_wallet.sign_transaction_with_new_nonce(tx)
-    tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
+    raw_bytes = get_tx_broadcast_data(signed)
+    tx_hash = web3.eth.send_raw_transaction(raw_bytes)
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     print("Buy back WETH done")
@@ -345,7 +353,8 @@ def test_aave_v3_short(
     # approve first
     tx = approve_fn.build_transaction({"from": hot_wallet.address, "gas": 200_000})
     signed = hot_wallet.sign_transaction_with_new_nonce(tx)
-    tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
+    raw_bytes = get_tx_broadcast_data(signed)
+    tx_hash = web3.eth.send_raw_transaction(raw_bytes)
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     # then repay
@@ -356,7 +365,8 @@ def test_aave_v3_short(
         }
     )
     signed = hot_wallet.sign_transaction_with_new_nonce(tx)
-    tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
+    raw_bytes = get_tx_broadcast_data(signed)
+    tx_hash = web3.eth.send_raw_transaction(raw_bytes)
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     user_data = aave_v3_deployment.get_user_data(hot_wallet.address)
@@ -380,7 +390,8 @@ def test_aave_v3_short(
         }
     )
     signed = hot_wallet.sign_transaction_with_new_nonce(tx)
-    tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
+    raw_bytes = get_tx_broadcast_data(signed)
+    tx_hash = web3.eth.send_raw_transaction(raw_bytes)
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     print("Withdraw done")

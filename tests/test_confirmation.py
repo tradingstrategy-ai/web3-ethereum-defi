@@ -13,6 +13,7 @@ from eth_defi.gas import estimate_gas_fees, apply_gas
 from eth_defi.hotwallet import HotWallet
 from eth_defi.token import create_token
 from eth_defi.confirmation import wait_transactions_to_complete, broadcast_and_wait_transactions_to_complete
+from eth_defi.tx import get_tx_broadcast_data
 
 
 @pytest.fixture
@@ -97,8 +98,11 @@ def test_wait_txs_parallel(web3: Web3, eth_tester, deployer: HexAddress, hot_wal
     signed1 = hot_wallet.sign_transaction_with_new_nonce(tx1)
     signed2 = hot_wallet.sign_transaction_with_new_nonce(tx2)
 
-    tx_hash1 = web3.eth.send_raw_transaction(signed1.rawTransaction)
-    tx_hash2 = web3.eth.send_raw_transaction(signed2.rawTransaction)
+    raw_bytes1 = get_tx_broadcast_data(signed1)
+    tx_hash1 = web3.eth.send_raw_transaction(raw_bytes1)
+
+    raw_bytes2 = get_tx_broadcast_data(signed2)
+    tx_hash2 = web3.eth.send_raw_transaction(raw_bytes2)
 
     complete = wait_transactions_to_complete(web3, [tx_hash1, tx_hash2])
 
