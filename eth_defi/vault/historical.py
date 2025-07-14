@@ -240,11 +240,7 @@ class VaultHistoricalReadMulticaller:
         last_block_at = last_block_num = None
 
         def _progress_bar_suffix():
-            return {
-                "Active vaults": len(active_vault_set),
-                "Last block at": last_block_at.strftime("%Y-%m-%d") if last_block_at else "-",
-                "Block": f"{last_block_num:,}" if last_block_num else "-"
-            }
+            return {"Active vaults": len(active_vault_set), "Last block at": last_block_at.strftime("%Y-%m-%d") if last_block_at else "-", "Block": f"{last_block_num:,}" if last_block_num else "-"}
 
         chain_name = get_chain_name(chain_id)
 
@@ -283,7 +279,6 @@ class VaultHistoricalReadMulticaller:
             for vault_address, results in vault_data.items():
                 reader = readers[vault_address]
                 yield reader.process_result(block_number, timestamp, results)
-
 
     def save_reader_state(self) -> dict[VaultSpec, dict]:
         """Save the state of all readers.

@@ -442,6 +442,7 @@ class BatchCallState(abc.ABC):
 
 _next_call_id = 0
 
+
 def _generate_call_id():
     global _next_call_id
     _next_call_id += 1
@@ -658,7 +659,6 @@ class EncodedCall:
         attempt = 0
 
         while True:
-
             try:
                 result = web3.eth.call(
                     transaction=transaction,
@@ -1206,7 +1206,7 @@ def read_multicall_historical_stateful(
         return_as="generator",  # TODO: Dig generator_unordered cause bugs?
     )
 
-    iter_count = (end_block - start_block + 1)
+    iter_count = end_block - start_block + 1
     total = iter_count
 
     if display_progress:
@@ -1405,6 +1405,7 @@ _reader_instance = threading.local()
 
 _task_counter = 0
 
+
 def _create_task_id() -> int:
     global _task_counter
     _task_counter += 1
@@ -1498,5 +1499,3 @@ def _execute_multicall_subprocess(
         timestamp=timestamp,
         results=[c for c in call_results],
     )
-
-

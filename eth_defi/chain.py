@@ -105,6 +105,7 @@ EVM_BLOCK_TIMES = {
     81457: 2,  # Layer-2, ~2s typical for Optimistic-style chains
     42220: 5,  # Celo, ~5s block time
     7777777: 2,  # Zora L2
+    57073: 2,  # Ink (Optimism)
 }
 
 

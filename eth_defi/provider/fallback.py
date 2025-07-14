@@ -324,7 +324,6 @@ def _check_faulty_rpc_response(
                     bi_str = block_identifier
                 name = get_provider_name(provider)
 
-
                 raise ProbablyNodeHasNoBlock(f"Empty 0x response for a smart contract call on chain. Provider: {name} Node lacked state data when doing eth_call for block {bi_str}?\nLast response headers\n{pformat(headers)}")
 
     # BlockNotFound exception gets applied only later with the formatters,

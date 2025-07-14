@@ -150,7 +150,6 @@ class VaultReaderState(BatchCallState):
         block_identifier: BlockIdentifier,
         timestamp: datetime.datetime,
     ) -> bool:
-
         if self.first_seen_at_block:
             if block_identifier < self.first_seen_at_block:
                 # We do not read historical data before the first seen block
