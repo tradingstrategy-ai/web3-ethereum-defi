@@ -13,7 +13,6 @@ from pprint import pformat
 from typing import NamedTuple, Optional
 
 from eth_account import Account
-from eth_account.datastructures import __getitem__
 from eth_account.signers.local import LocalAccount
 from eth_typing import HexAddress
 from hexbytes import HexBytes
@@ -89,9 +88,12 @@ class SignedTransactionWithNonce(NamedTuple):
         """
         return self.rawTransaction
 
-    def __getitem__(self, index):
-        # Legacy web3.py compatibility.
-        return __getitem__(self, index)
+    # MIGRATED: Removed __getitem__ method - NamedTuple already provides this functionality
+    # The original import was breaking and the method was causing infinite recursion anyway
+    # NamedTuple inherits from tuple, so indexing (obj[0], obj[1], etc.) works automatically
+    # def __getitem__(self, index):
+    #     # Legacy web3.py compatibility.
+    #     return __getitem__(self, index)
 
 
 class HotWallet:
