@@ -3,24 +3,45 @@
 v6/v7 compatibility module
 """
 
-from collections import Counter
 from importlib.metadata import version
-from typing import Any
-
-import eth_abi
 from packaging.version import Version
+import eth_abi
+from collections import Counter
+from typing import Any, Callable
 
 pkg_version = version("web3")
 WEB3_PY_V7 = Version(pkg_version) >= Version("7.0.0")
 
 # Middleware imports with compatibility
 if WEB3_PY_V7:
-    from requests.exceptions import ConnectionError, HTTPError, Timeout
     from web3.middleware import ExtraDataToPOAMiddleware, Web3Middleware
+    from web3.types import RPCEndpoint, RPCResponse
     from web3.providers.rpc.utils import ExceptionRetryConfiguration
-    from web3.types import RPCEndpoint
+    from requests.exceptions import ConnectionError, HTTPError, Timeout
+
+    # Fallback if it moved or doesn't exist in v7
+    def check_if_retry_on_failure(method):
+        # Default allowlist for v7 if the function is not available
+        DEFAULT_ALLOWLIST = (
+            "eth_call",
+            "eth_getBalance",
+            "eth_getCode",
+            "eth_getTransactionCount",
+            "eth_getBlockByNumber",
+            "eth_getBlockByHash",
+            "eth_getLogs",
+            "eth_chainId",
+            "net_version",
+            "eth_blockNumber",
+            "eth_gasPrice",
+            "eth_estimateGas",
+            "eth_getTransactionByHash",
+            "eth_getTransactionReceipt",
+        )
+        return method in DEFAULT_ALLOWLIST
 else:
     from web3.middleware import geth_poa_middleware
+    from web3.middleware.exception_retry_request import check_if_retry_on_failure
 
 
 class APICallCounterMiddleware:
@@ -48,6 +69,183 @@ class APICallCounterMiddleware:
             return make_request(method, params)
 
         return middleware
+
+
+def check_if_retry_on_failure_v6(method):
+    """v6 implementation of check_if_retry_on_failure"""
+    if not WEB3_PY_V7:
+        from web3.middleware.exception_retry_request import check_if_retry_on_failure
+
+        return check_if_retry_on_failure(method)
+    return None
+
+
+def check_if_retry_on_failure_v7(method):
+    """v7 implementation of check_if_retry_on_failure"""
+    if WEB3_PY_V7:
+        # Try to import from v7 location, or use fallback
+        try:
+            from web3.middleware.exception_retry_request import check_if_retry_on_failure
+
+            return check_if_retry_on_failure(method)
+        except ModuleNotFoundError:
+            # Fallback allowlist if function is not available in v7
+            DEFAULT_ALLOWLIST = (
+                "eth_call",
+                "eth_getBalance",
+                "eth_getCode",
+                "eth_getTransactionCount",
+                "eth_getBlockByNumber",
+                "eth_getBlockByHash",
+                "eth_getLogs",
+                "eth_chainId",
+                "net_version",
+                "eth_blockNumber",
+                "eth_gasPrice",
+                "eth_estimateGas",
+                "eth_getTransactionByHash",
+                "eth_getTransactionReceipt",
+            )
+            return method in DEFAULT_ALLOWLIST
+    return None
+
+
+def exception_retry_middleware_v6(
+    make_request: Callable[[RPCEndpoint, Any], RPCResponse],
+    web3: "Web3",
+    retryable_exceptions,
+    retryable_status_codes,
+    retryable_rpc_error_codes,
+    retries: int = 10,
+    sleep: float = 5.0,
+    backoff: float = 1.6,
+) -> Callable[[RPCEndpoint, Any], RPCResponse | None] | None:
+    """v6 implementation of exception_retry_middleware"""
+    if not WEB3_PY_V7:
+        import time
+        from pprint import pformat
+        from eth_defi.event_reader.fast_json_rpc import get_last_headers
+
+        # Import the helper function we need
+        from eth_defi.middleware import is_retryable_http_exception
+        import logging
+
+        logger = logging.getLogger(__name__)
+
+        def middleware(method: RPCEndpoint, params: Any):
+            nonlocal sleep
+            current_sleep = sleep
+
+            # Check if the RPC method is whitelisted for multiple retries
+            if check_if_retry_on_failure(method):
+                # Try to recover from any JSON-RPC node error, sleep and try again
+                for i in range(retries):
+                    try:
+                        return make_request(method, params)
+                    except Exception as e:
+                        if is_retryable_http_exception(
+                            e,
+                            retryable_rpc_error_codes=retryable_rpc_error_codes,
+                            retryable_status_codes=retryable_status_codes,
+                            retryable_exceptions=retryable_exceptions,
+                        ):
+                            if i < retries - 1:
+                                headers = get_last_headers()
+                                logger.warning(
+                                    "Encountered JSON-RPC retryable error %s when calling method %s, retrying in %f seconds, retry #%d\nHeaders are: %s",
+                                    e,
+                                    method,
+                                    current_sleep,
+                                    i,
+                                    pformat(headers),
+                                )
+                                time.sleep(current_sleep)
+                                current_sleep *= backoff
+                                continue
+                            else:
+                                raise  # Out of retries
+                        raise  # Not retryable exception
+                return None
+            else:
+                try:
+                    return make_request(method, params)
+                except Exception as e:
+                    # Be verbose so that we know our whitelist is missing methods
+                    raise RuntimeError(f"JSON-RPC failed for non-whitelisted method {method}: {e}") from e
+
+        return middleware
+    return None
+
+
+def exception_retry_middleware_v7(
+    make_request: Callable[[RPCEndpoint, Any], RPCResponse],
+    web3: "Web3",
+    retryable_exceptions,
+    retryable_status_codes,
+    retryable_rpc_error_codes,
+    retries: int = 10,
+    sleep: float = 5.0,
+    backoff: float = 1.6,
+) -> Callable[[RPCEndpoint, Any], RPCResponse | None] | None:
+    """v7 implementation of exception_retry_middleware - uses provider config when possible"""
+    if WEB3_PY_V7:
+        import logging
+
+        logger = logging.getLogger(__name__)
+
+        # In v7, we recommend using provider-level retry configuration
+        # But if someone really wants middleware, we'll provide it
+        logger.warning("exception_retry_middleware is deprecated in web3.py v7+. Consider using ExceptionRetryConfiguration on your provider instead.")
+
+        # For v7, we'll still provide the middleware but recommend against it
+        import time
+        from pprint import pformat
+        from eth_defi.event_reader.fast_json_rpc import get_last_headers
+        from eth_defi.middleware import is_retryable_http_exception
+
+        def middleware(method: RPCEndpoint, params: Any):
+            nonlocal sleep
+            current_sleep = sleep
+
+            # Check if the RPC method is whitelisted for multiple retries
+            if check_if_retry_on_failure(method):
+                # Try to recover from any JSON-RPC node error, sleep and try again
+                for i in range(retries):
+                    try:
+                        return make_request(method, params)
+                    except Exception as e:
+                        if is_retryable_http_exception(
+                            e,
+                            retryable_rpc_error_codes=retryable_rpc_error_codes,
+                            retryable_status_codes=retryable_status_codes,
+                            retryable_exceptions=retryable_exceptions,
+                        ):
+                            if i < retries - 1:
+                                headers = get_last_headers()
+                                logger.warning(
+                                    "Encountered JSON-RPC retryable error %s when calling method %s, retrying in %f seconds, retry #%d\nHeaders are: %s",
+                                    e,
+                                    method,
+                                    current_sleep,
+                                    i,
+                                    pformat(headers),
+                                )
+                                time.sleep(current_sleep)
+                                current_sleep *= backoff
+                                continue
+                            else:
+                                raise  # Out of retries
+                        raise  # Not retryable exception
+                return None
+            else:
+                try:
+                    return make_request(method, params)
+                except Exception as e:
+                    # Be verbose so that we know our whitelist is missing methods
+                    raise RuntimeError(f"JSON-RPC failed for non-whitelisted method {method}: {e}") from e
+
+        return middleware
+    return None
 
 
 def _add_named_middleware_v7(web3, middleware_name, layer):
@@ -247,14 +445,16 @@ if WEB3_PY_V7:
     encode_function_args = encode_function_args_v7
     get_function_info = get_function_info_v7
     construct_sign_and_send_raw_middleware = SignAndSendRawMiddlewareBuilder
+    exception_retry_middleware = exception_retry_middleware_v7
+    check_if_retry_on_failure_compat = check_if_retry_on_failure_v7
 else:
     from eth_utils.abi import _abi_to_signature
     from web3._utils.request import get_response_from_post_request as _get_response_from_post_request
 
-    from eth_defi.compat import construct_sign_and_send_raw_middleware
-
     encode_function_args = encode_function_args_v6
     get_function_info = get_function_info_v6
+    exception_retry_middleware = exception_retry_middleware_v6
+    check_if_retry_on_failure_compat = check_if_retry_on_failure_v6
 
 abi_to_signature = _abi_to_signature
 get_response_from_post_request = _get_response_from_post_request
