@@ -23,7 +23,7 @@ from joblib import Parallel, delayed
 from tqdm_loggable.auto import tqdm
 from web3 import Web3
 
-from eth_defi.chain import EVM_BLOCK_TIMES
+from eth_defi.chain import EVM_BLOCK_TIMES, get_chain_name
 from eth_defi.erc_4626.vault import VaultReaderState
 from eth_defi.event_reader.multicall_batcher import EncodedCall, read_multicall_historical, EncodedCallResult, read_multicall_historical_stateful, BatchCallState
 from eth_defi.event_reader.web3factory import Web3Factory
@@ -237,13 +237,16 @@ class VaultHistoricalReadMulticaller:
         chain_id = vaults[0].chain_id
 
         active_vault_set = set()
-        last_block_at = None
+        last_block_at = last_block_num = None
 
-        def progress_bar_suffix():
+        def _progress_bar_suffix():
             return {
                 "Active vaults": len(active_vault_set),
-                "Last block at": last_block_at,
+                "Last block at": last_block_at.strftime("%Y-%m-%d") if last_block_at else "-",
+                "Block": f"{last_block_num:,}" if last_block_num else "-"
             }
+
+        chain_name = get_chain_name(chain_id)
 
         for combined_result in reader_func(
             chain_id=chain_id,
@@ -252,9 +255,9 @@ class VaultHistoricalReadMulticaller:
             start_block=start_block,
             end_block=end_block,
             step=step,
-            display_progress=f"Reading historical vault price data for chain {chain_id} with {self.max_workers} workers, blocks {start_block:,} - {end_block:,}",
+            display_progress=f"Reading {chain_name} historical with {self.max_workers} workers, blocks {start_block:,} - {end_block:,}",
             max_workers=self.max_workers,
-            progress_suffix=progress_bar_suffix,
+            progress_suffix=_progress_bar_suffix,
             require_multicall_result=self.require_multicall_result,
         ):
             active_vault_set.clear()
@@ -274,9 +277,13 @@ class VaultHistoricalReadMulticaller:
                 vault_data[vault].append(call_result)
                 active_vault_set.add(vault)
 
+            last_block_num = combined_result.block_number
+            last_block_at = combined_result.timestamp
+
             for vault_address, results in vault_data.items():
                 reader = readers[vault_address]
                 yield reader.process_result(block_number, timestamp, results)
+
 
     def save_reader_state(self) -> dict[VaultSpec, dict]:
         """Save the state of all readers.
@@ -415,6 +422,8 @@ def scan_historical_prices_to_parquet(
         saved_states=reader_states,
     )
 
+    reader_states = reader.save_reader_state()
+
     # Convert VaultHistoricalRead objects to exportable dicts for Parquet
     def converter(entries_iter: Iterable[VaultHistoricalRead]) -> Iterable[dict]:
         for entry in entries_iter:
@@ -515,4 +524,5 @@ def scan_historical_prices_to_parquet(
         existing=existing,
         existing_row_count=existing_row_count,
         chunks_done=chunks_done,
+        reader_states=reader_states,
     )

@@ -1152,7 +1152,7 @@ def read_multicall_historical_stateful(
     display_progress: bool | str = True,
     progress_suffix: Callable | None = None,
     require_multicall_result=False,
-    chunk_size=24
+    chunk_size=48,
 ) -> Iterable[CombinedEncodedCallResult]:
     """Read historical data using multicall with reading state and adaptive frequency filtering.
 
@@ -1184,7 +1184,7 @@ def read_multicall_historical_stateful(
         return_as="generator",  # TODO: Dig generator_unordered cause bugs?
     )
 
-    iter_count = (end_block - start_block + 1) // step
+    iter_count = (end_block - start_block + 1)
     total = iter_count
 
     if display_progress:
@@ -1195,6 +1195,7 @@ def read_multicall_historical_stateful(
         progress_bar = tqdm(
             total=total,
             desc=desc,
+            unit_scale=True,
         )
     else:
         progress_bar = None
@@ -1219,11 +1220,12 @@ def read_multicall_historical_stateful(
 
     chunk = []
 
-    def _flush_chunk():
+    def _flush_chunk(chunk: list[MulticallHistoricalTask]) -> Iterable[CombinedEncodedCallResult]:
         # Pass all buffered calls to sub-multiprocesses for JSON-RPC fetching
-        nonlocal chunk
-
         combined_result: CombinedEncodedCallResult
+
+        if len(chunk) == 0:
+            return
 
         for combined_result in worker_processor(delayed(_execute_multicall_subprocess)(task) for task in chunk):
             for r in combined_result.results:
@@ -1234,14 +1236,12 @@ def read_multicall_historical_stateful(
                 r.state = state
             yield combined_result
 
-        # Clear or multiprocessing buffer
-        chunk = []
-
+    last_block = start_block
     for block_number in range(start_block, end_block, step):
         # Map prefetch timestamp
         timestamp = timestamps[block_number]
 
-        # Get the list of calls that are effective for this block.
+        # Get the list of calls that are effective for this block and the blocks in the next multicall batch.
         # Drop vaults that have peaked/dysfunctional
         accepted_calls = [c for c, state in calls.items() if state.should_invoke(c, block_number, timestamp)]
 
@@ -1262,19 +1262,25 @@ def read_multicall_historical_stateful(
 
         chunk.append(task)
 
+        # Check if we are ready to process chunk blocks at a time
         if len(chunk) > chunk_size:
             if progress_bar:
-                progress_bar.update(len(chunk))
+                block_now = chunk[-1].block_number
+                blocks_done = block_now - last_block
+                last_block = block_now
+                progress_bar.update(blocks_done)
                 if progress_suffix is not None:
                     suffixes = progress_suffix()
                     progress_bar.set_postfix(suffixes)
 
-            for combined_result in _flush_chunk():
+            for combined_result in _flush_chunk(chunk):
                 logger.info(f"Updating states for {combined_result.timestamp} {combined_result.block_number:,}")
                 yield combined_result
 
+            chunk = []
+
     # Process the remaning uneven chunk
-    yield from _flush_chunk()
+    yield from _flush_chunk(chunk)
 
     if progress_bar:
         progress_bar.close()

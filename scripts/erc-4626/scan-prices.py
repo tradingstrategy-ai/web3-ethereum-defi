@@ -57,7 +57,7 @@ def main():
     token_cache = TokenDiskCache()
 
     # How many CPUs / subprocess we use
-    max_workers = 14
+    max_workers = 20
     # max_workers = 1  # To debug, set workers to 1
 
     web3 = create_multi_provider_web3(JSON_RPC_URL)
@@ -144,7 +144,7 @@ def main():
     )
 
     # Save states
-    states = scan_result.reader_states
+    states = scan_result["reader_states"]
     if states:
         print(f"Saving {len(states)} reader states to {reader_state_db}")
         pickle.dump(states, reader_state_db.open("wb"))

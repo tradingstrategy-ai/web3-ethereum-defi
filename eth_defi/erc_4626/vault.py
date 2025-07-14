@@ -59,6 +59,7 @@ class VaultReaderState(BatchCallState):
         "first_read_at",
         "max_tvl",
         "last_call_at",
+        "last_block",
         "peaked_at",
         "faded_at",
         "entry_count",
@@ -110,6 +111,9 @@ class VaultReaderState(BatchCallState):
 
         #: When this vault received its last eth_call update
         self.last_call_at: datetime.datetime | None = None
+
+        #: When this vault received its last eth_call update
+        self.last_block: int | None = None
 
         #: Disable reading if the vault has peaked (TVL too much down) and is no longer active
         self.peaked_at: datetime.datetime = None
@@ -180,6 +184,8 @@ class VaultReaderState(BatchCallState):
     ):
         assert result.timestamp, f"EncodedCallResult {result} has no timestamp, cannot update state"
 
+        assert total_assets is not None, f"EncodedCallResult {result} has no total_assets, cannot update state"
+
         timestamp = result.timestamp
         self.last_call_at = timestamp
 
@@ -188,7 +194,9 @@ class VaultReaderState(BatchCallState):
 
         self.last_tvl = total_assets
         self.last_call_at = timestamp
-        self.max_tvl = max(self.max_tvl, total_assets)
+        self.last_block = result.block_identifier
+        existing_max_tvl = self.max_tvl or 0
+        self.max_tvl = max(existing_max_tvl, total_assets)
 
         if self.max_tvl > self.peaked_tvl_threshold:
             if self.last_tvl < self.max_tvl * Decimal(1 - self.down_hard):

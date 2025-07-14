@@ -14,7 +14,14 @@
 set -e
 set -u
 
+# Do 1h scan vs 1d scan
+export FREQUENCY=1h
+
 SCAN_PRICES=${SCAN_PRICES:-"false"}
+
+export JSON_RPC_URL=$JSON_RPC_BASE
+python scripts/erc-4626/scan-vaults.py
+if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
 
 export JSON_RPC_URL=$JSON_RPC_BLAST
 python scripts/erc-4626/scan-vaults.py
@@ -57,10 +64,6 @@ python scripts/erc-4626/scan-vaults.py
 if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
 
 export JSON_RPC_URL=$JSON_RPC_AVALANCHE
-python scripts/erc-4626/scan-vaults.py
-if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
-
-export JSON_RPC_URL=$JSON_RPC_BASE
 python scripts/erc-4626/scan-vaults.py
 if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
 
