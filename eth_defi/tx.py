@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Union
 
 from eth_account._utils.legacy_transactions import Transaction
+from eth_account.datastructures import SignedTransaction
 from eth_typing import HexAddress
 from hexbytes import HexBytes
 from eth_defi.compat import WEB3_PY_V7
@@ -42,7 +43,7 @@ def decode_signed_transaction(raw_bytes: Union[bytes, str, HexBytes]) -> dict:
     .. code-block:: python
 
         signed_tx = hot_wallet.sign_transaction_with_new_nonce(raw_tx)
-        signed_tx_bytes = signed_tx.rawTransaction
+        signed_tx_bytes = get_tx_broadcast_data(signed_tx)
         d = decode_signed_transaction(signed_tx_bytes)
         assert d["chainId"] == 1337
         assert d["nonce"] == 0
@@ -139,3 +140,47 @@ class AssetDelta:
         We need to convert large Python ints to strings.
         """
         return {"asset": str(self.asset), "raw_amount": str(self.raw_amount)}
+
+
+# Note: Due to circular import the signed_tx variable type also supports SignedTransactionWithNonce but it's not mentioned in the parameter of this function
+def get_tx_broadcast_data(signed_tx: SignedTransaction) -> "HexBytes":
+    """Get raw transaction bytes with compatibility for attribute name changes.
+
+    eth_account changed rawTransaction to raw_transaction in newer versions.
+    This function handles both attribute names.
+
+    :param signed_tx:
+        Signed transaction object from SignedTransaction | SignedTransactionWithNonce
+
+    :type signed_tx:
+        SignedTransaction | SignedTransactionWithNonce
+
+    :return:
+        Raw transaction bytes ready for broadcasting to the network
+
+    :rtype:
+        HexBytes
+
+    :raises AttributeError:
+        If the signed transaction object has neither 'raw_transaction'
+        nor 'rawTransaction' attribute
+
+    Example:
+
+    .. code-block:: python
+
+        from eth_defi.compat import get_tx_broadcast_data
+
+        # Works with both old and new eth_account versions
+        raw_bytes = get_tx_broadcast_data(signed_tx)
+        tx_hash = web3.eth.send_raw_transaction(raw_bytes)
+
+    """
+    # Try new attribute name first (raw_transaction)
+    if hasattr(signed_tx, "raw_transaction"):
+        return signed_tx.raw_transaction
+    # Fall back to old attribute name (rawTransaction)
+    elif hasattr(signed_tx, "rawTransaction"):
+        return signed_tx.rawTransaction
+    else:
+        raise AttributeError(f"SignedTransaction object has neither 'raw_transaction' nor 'rawTransaction' attribute. Available attributes: {dir(signed_tx)}")

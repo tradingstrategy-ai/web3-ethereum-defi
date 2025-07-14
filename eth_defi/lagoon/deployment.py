@@ -41,6 +41,7 @@ from eth_defi.provider.anvil import is_anvil
 from eth_defi.safe.deployment import deploy_safe, add_new_safe_owners, fetch_safe_deployment
 from eth_defi.token import get_wrapped_native_token_address, fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
+from eth_defi.tx import get_tx_broadcast_data
 from eth_defi.uniswap_v2.deployment import UniswapV2Deployment
 from eth_defi.uniswap_v3.deployment import UniswapV3Deployment
 from eth_defi.vault.base import VaultSpec
@@ -277,7 +278,8 @@ def deploy_lagoon(
         }
     )
     signed_tx = deployer.sign_transaction(tx_params)
-    tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+    raw_bytes = get_tx_broadcast_data(signed_tx)
+    tx_hash = web3.eth.send_raw_transaction(raw_bytes)
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     return vault
