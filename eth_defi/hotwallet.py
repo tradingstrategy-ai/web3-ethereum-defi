@@ -23,6 +23,7 @@ from web3.contract.contract import ContractFunction
 from eth_defi.gas import apply_gas, estimate_gas_fees, estimate_gas_price
 from eth_defi.tx import decode_signed_transaction
 from eth_defi.middleware import construct_sign_and_send_raw_middleware_anvil
+from eth_defi.tx import decode_signed_transaction, get_tx_broadcast_data
 
 logger = logging.getLogger(__name__)
 
@@ -226,7 +227,8 @@ class HotWallet:
                     "gasPrice": web3.eth.gas_price,
                 }
             )
-            tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+            raw_bytes = get_tx_broadcast_data(signed_tx)
+            tx_hash = web3.eth.send_raw_transaction(raw_bytes)
 
         :param tx:
             Ethereum transaction data as a dict.
@@ -240,11 +242,12 @@ class HotWallet:
         tx["nonce"] = self.allocate_nonce()
         _signed = self.account.sign_transaction(tx)
 
+        raw_bytes = get_tx_broadcast_data(_signed)
         # Check that we can decode
-        decode_signed_transaction(_signed.rawTransaction)
+        decode_signed_transaction(raw_bytes)
 
         signed = SignedTransactionWithNonce(
-            rawTransaction=_signed.rawTransaction,
+            rawTransaction=raw_bytes,
             hash=_signed.hash,
             v=_signed.v,
             r=_signed.r,
@@ -270,7 +273,8 @@ class HotWallet:
 
             bound_func = busd_token.functions.transfer(user_2, 50 * 10**18)  # Transfer 50 BUDF
             signed_tx = hot_wallet.sign_bound_call_with_new_nonce(bound_func)
-            web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+            raw_bytes = get_tx_broadcast_data(signed_tx)
+            web3.eth.send_raw_transaction(raw_bytes)
 
         With manual gas estimation:
 
@@ -567,7 +571,8 @@ class HotWallet:
                 }
             )
 
-            tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+            raw_bytes = get_tx_broadcast_data(signed_tx)
+            tx_hash = web3.eth.send_raw_transaction(raw_bytes)
             assert_transaction_success_with_explanation(web3, tx_hash)
 
         """

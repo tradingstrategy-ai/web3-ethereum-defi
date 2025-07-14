@@ -151,7 +151,7 @@ class GCloudHSMWallet(BaseWallet):
             }
 
             signed_tx = wallet.sign_transaction_with_new_nonce(tx)
-            tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+            tx_hash = web3.eth.send_raw_transaction(raw_bytes = get_tx_broadcast_data(signed_tx)\n)
             assert_transaction_success_with_explanation(web3, tx_hash)
 
     Example with explicit configuration:
@@ -254,7 +254,8 @@ class GCloudHSMWallet(BaseWallet):
                     "data": "0x",
                 }
             )
-            tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+            raw_bytes = get_tx_broadcast_data(signed_tx)
+            tx_hash = web3.eth.send_raw_transaction(raw_bytes)
 
         Args:
             tx: Ethereum transaction data as a dict
@@ -308,7 +309,8 @@ class GCloudHSMWallet(BaseWallet):
 
             bound_func = busd_token.functions.transfer(user_2, 50 * 10**18)  # Transfer 50 BUDF
             signed_tx = hot_wallet.sign_bound_call_with_new_nonce(bound_func)
-            web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+            raw_bytes = get_tx_broadcast_data(signed_tx)
+            web3.eth.send_raw_transaction(raw_bytes)
 
         With manual gas estimation:
 
@@ -410,7 +412,8 @@ class GCloudHSMWallet(BaseWallet):
             # Approve USDC deposit to a vault contract
             deposit_amount = 500 * 10**6  # 500 USDC
             signed_tx = wallet.transact_with_contract(usdc.contract.functions.approve, Web3.to_checksum_address(vault.rebalance_address), deposit_amount)
-            tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+            raw_bytes = get_tx_broadcast_data(signed_tx)
+            tx_hash = web3.eth.send_raw_transaction(raw_bytes)
             assert_transaction_success_with_explanation(web3, tx_hash)
 
         Chain ID management:
@@ -540,7 +543,8 @@ class GCloudHSMWallet(BaseWallet):
             signed_tx = wallet.sign_transaction_with_new_nonce(tx_data)
 
             # Broadcast the transaction
-            tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+            raw_bytes = get_tx_broadcast_data(signed_tx)
+            tx_hash = web3.eth.send_raw_transaction(raw_bytes)
 
         Args:
             web3: Web3 instance

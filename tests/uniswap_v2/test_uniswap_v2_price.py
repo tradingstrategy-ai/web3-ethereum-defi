@@ -10,6 +10,7 @@ from web3._utils.transactions import fill_nonce
 from web3.contract import Contract
 
 from eth_defi.token import create_token, reset_default_token_cache
+from eth_defi.tx import get_tx_broadcast_data
 from eth_defi.uniswap_v2.deployment import (
     FOREVER_DEADLINE,
     UniswapV2Deployment,
@@ -531,7 +532,8 @@ def test_swap_price_from_hot_wallet(
         usdc_amount_to_pay,
     )
 
-    tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
+    raw_bytes = get_tx_broadcast_data(signed)
+    tx_hash = web3.eth.send_raw_transaction(raw_bytes)
     tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
     assert tx_receipt.status == 1  # 1=success and mined
 

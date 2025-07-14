@@ -23,7 +23,7 @@ from web3.contract import Contract
 from web3_google_hsm.config import BaseConfig
 
 from eth_defi.token import create_token
-from eth_defi.tx import decode_signed_transaction
+from eth_defi.tx import decode_signed_transaction, get_tx_broadcast_data
 from eth_defi.gcloud_hsm_wallet import GCloudHSMWallet
 from eth_defi.uniswap_v2.deployment import UniswapV2Deployment, deploy_uniswap_v2_like
 
@@ -132,7 +132,8 @@ def test_eth_native_transfer(web3: Web3, deployer: str, hsm_wallet: GCloudHSMWal
 
     # Sign and send
     signed_tx = hsm_wallet.sign_transaction_with_new_nonce(tx)
-    tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+    raw_bytes = get_tx_broadcast_data(signed_tx)
+    tx_hash = web3.eth.send_raw_transaction(raw_bytes)
     receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
     logger.debug(f"Transaction receipt: {receipt}")
     assert receipt["status"] == 1
@@ -165,7 +166,8 @@ def test_dai_sign_bound_call(web3: Web3, dai: Contract, deployer: str, hsm_walle
     tx_gas_parameters = apply_gas({"gas": 100_000}, gas_estimation)
     tx_gas_parameters["gasPrice"] = web3.eth.gas_price
     signed_tx1 = hsm_wallet.sign_bound_call_with_new_nonce(approve_func1, tx_gas_parameters)
-    tx_hash1 = web3.eth.send_raw_transaction(signed_tx1.rawTransaction)
+    raw_bytes = get_tx_broadcast_data(signed_tx1)
+    tx_hash1 = web3.eth.send_raw_transaction(raw_bytes)
     receipt1 = web3.eth.wait_for_transaction_receipt(tx_hash1)
     assert receipt1["status"] == 1
 
@@ -178,7 +180,8 @@ def test_dai_sign_bound_call(web3: Web3, dai: Contract, deployer: str, hsm_walle
         "gasPrice": web3.eth.gas_price * 2,  # Higher gas price
     }
     signed_tx2 = hsm_wallet.sign_bound_call_with_new_nonce(approve_func2, tx_params2)
-    tx_hash2 = web3.eth.send_raw_transaction(signed_tx2.rawTransaction)
+    raw_bytes = get_tx_broadcast_data(signed_tx2)
+    tx_hash2 = web3.eth.send_raw_transaction(raw_bytes)
     receipt2 = web3.eth.wait_for_transaction_receipt(tx_hash2)
     assert receipt2["status"] == 1
 
@@ -194,7 +197,8 @@ def test_dai_sign_bound_call(web3: Web3, dai: Contract, deployer: str, hsm_walle
     #     web3=web3,
     #     fill_gas_price=GasPriceMethod.london,
     # )
-    # tx_hash3 = web3.eth.send_raw_transaction(signed_tx3.rawTransaction)
+    # raw_bytes = get_tx_broadcast_data(signed_tx3)
+    # tx_hash = web3.eth.send_raw_transaction(raw_bytes)
     # receipt3 = web3.eth.wait_for_transaction_receipt(tx_hash3)
     # assert receipt3["status"] == 1
 
@@ -255,13 +259,15 @@ def test_eth_erc20_approval(web3: Web3, weth, deployer, hsm_wallet: GCloudHSMWal
     )
 
     # Verify transaction data
-    decoded_tx = decode_signed_transaction(signed_tx.rawTransaction)
+    raw_bytes = get_tx_broadcast_data(signed_tx)
+    decoded_tx = decode_signed_transaction(raw_bytes)
     logger.debug(f"\nDecoded transaction: {decoded_tx}")
     assert decoded_tx["to"].hex().lower() == weth.address.lower()
     assert decoded_tx["data"].hex().startswith("0x095ea7b3")  # approve() selector
 
     # Send and verify transaction
-    tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+    raw_bytes = get_tx_broadcast_data(signed_tx)
+    tx_hash = web3.eth.send_raw_transaction(raw_bytes)
     receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
     logger.debug(f"\nApproval transaction receipt: {receipt}")
     assert receipt["status"] == 1
@@ -285,7 +291,8 @@ def test_create_for_testing_with_auth(web3: Web3, gcp_config: BaseConfig, gcp_cr
     tx = {"from": wallet.address, "to": recipient, "value": web3.to_wei(0.1, "ether"), "gas": 21000, "gasPrice": web3.eth.gas_price, "chainId": web3.eth.chain_id}
 
     signed_tx = wallet.sign_transaction_with_new_nonce(tx)
-    tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+    raw_bytes = get_tx_broadcast_data(signed_tx)
+    tx_hash = web3.eth.send_raw_transaction(raw_bytes)
     receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
     assert receipt["status"] == 1
 
@@ -322,6 +329,7 @@ def test_create_for_testing_with_auth(web3: Web3, gcp_config: BaseConfig, gcp_cr
 
 #     # Test transaction with calculated gas values
 #     signed_tx = hsm_wallet.sign_transaction_with_new_nonce(filled_tx)
-#     tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+#     raw_bytes = get_tx_broadcast_data(signed_tx)
+#     tx_hash = web3.eth.send_raw_transaction(raw_bytes)
 #     receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
 #     assert receipt["status"] == 1
