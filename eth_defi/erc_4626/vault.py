@@ -51,6 +51,11 @@ class VaultReaderState(BatchCallState):
     - We need 1h data for interesting vaults to make good trade decisions
 
     - We switch to 1h scanning if the TVL is above a threshold, otherwise we read it once per day
+
+    .. note ::
+
+        Due to filtering, only handles stablecoin vaults correctly at the moment.
+        Lacks exchange rate support.
     """
 
     #: All attributes we store when we serialise the read state between runs
@@ -324,7 +329,7 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
             # Handle dealing with the adaptive frequency
             state = total_assets_call_result.state
             if state:
-                state.on_called(total_assets_call_result, total_supply)
+                state.on_called(total_assets_call_result, total_assets)
 
         return share_price, total_supply, total_assets, (errors or None)
 
