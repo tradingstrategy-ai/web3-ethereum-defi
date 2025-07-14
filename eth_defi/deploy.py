@@ -15,6 +15,7 @@ from web3 import Web3
 from web3.contract import Contract
 
 from eth_defi.abi import get_contract
+from eth_defi.tx import get_tx_broadcast_data
 
 #: Manage internal registry of deployed contracts
 #:
@@ -109,7 +110,8 @@ def deploy_contract(
         tx_data = Contract.constructor(*constructor_args).build_transaction(tx_params)
 
         signed_tx = deployer.sign_transaction(tx_data)
-        tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+        raw_bytes = get_tx_broadcast_data(signed_tx)
+        tx_hash = web3.eth.send_raw_transaction(raw_bytes)
     else:
         # Delegate to test RPC
         tx_params = {"from": deployer}
