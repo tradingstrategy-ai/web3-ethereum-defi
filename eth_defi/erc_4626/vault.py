@@ -141,6 +141,7 @@ class VaultReaderState(BatchCallState):
         block_identifier: BlockIdentifier,
         timestamp: datetime.datetime,
     ) -> bool:
+
         if self.first_seen_at_block:
             if block_identifier < self.first_seen_at_block:
                 # We do not read historical data before the first seen block
@@ -156,7 +157,11 @@ class VaultReaderState(BatchCallState):
             # Further reads disabled
             return False
 
-        return (timestamp - self.last_call_at) >= freq
+        refresh_needed = (timestamp - self.last_call_at) >= freq
+        if refresh_needed:
+            return True
+
+        return False
 
     def get_frequency(self) -> datetime.timedelta | None:
         """How fast we are reading this vault."""
@@ -199,11 +204,14 @@ class VaultReaderState(BatchCallState):
 
 
 class ERC4626HistoricalReader(VaultHistoricalReader):
-    """Support reading historical vault data.
+    """A reader that reads the historcal state of one specific vaults.
 
+    - Generate a list of multicall instances that is needed to capture the vault state in a specific block height
+    - All calls share the same state object which we use to track disabling reads for inactive vaults
     - Share price (returns), supply, NAV
     - For performance fees etc. there are no standards so you need to subclass this for
       each protocol
+    - All calls for this reader share the same
     """
 
     def __init__(self, vault: "ERC4626Vault", stateful: bool):
@@ -248,7 +256,6 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
                 "vault": self.vault.address,
             },
             first_block_number=self.first_block,
-            state=self.reader_state,
         )
         yield total_assets
 
@@ -259,7 +266,6 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
                 "vault": self.vault.address,
             },
             first_block_number=self.first_block,
-            state=self.reader_state,
         )
         yield total_supply
 
@@ -304,7 +310,7 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
         total_assets_call_result = call_by_name.get("total_assets")
         if total_assets_call_result and total_assets_call_result.success:
             # Handle dealing with the adaptive frequency
-            state = total_assets_call_result.call.state
+            state = total_assets_call_result.state
             if state:
                 state.on_called(total_assets_call_result, total_supply)
 

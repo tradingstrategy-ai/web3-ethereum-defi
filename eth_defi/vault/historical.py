@@ -25,7 +25,7 @@ from web3 import Web3
 
 from eth_defi.chain import EVM_BLOCK_TIMES
 from eth_defi.erc_4626.vault import VaultReaderState
-from eth_defi.event_reader.multicall_batcher import EncodedCall, read_multicall_historical, EncodedCallResult, read_multicall_historical_stateful
+from eth_defi.event_reader.multicall_batcher import EncodedCall, read_multicall_historical, EncodedCallResult, read_multicall_historical_stateful, BatchCallState
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.provider.broken_provider import get_almost_latest_block_number
 from eth_defi.token import TokenDetails, TokenDiskCache
@@ -119,10 +119,10 @@ class VaultHistoricalReadMulticaller:
         """Run in subprocess"""
         return vault.fetch_denomination_token_address()
 
-    def _prepare_multicalls(self, reader: VaultHistoricalReader) -> Iterable[EncodedCall]:
+    def _prepare_multicalls(self, reader: VaultHistoricalReader, stateful=False) -> Iterable[tuple[EncodedCall, BatchCallState]]:
         """Run in subprocess"""
-        calls = list(reader.construct_multicalls())
-        return calls
+        for call in reader.construct_multicalls():
+            yield call, reader.reader_state
 
     def prepare_readers(
         self,
@@ -160,7 +160,7 @@ class VaultHistoricalReadMulticaller:
         self,
         readers: dict[HexAddress, VaultHistoricalReader],
         display_progress: bool = True,
-    ) -> Iterable[EncodedCall]:
+    ) -> Iterable[tuple[EncodedCall, BatchCallState]]:
         """Generate multicalls for each vault to read its state at any block."""
         # Each vault reader creation causes ~5 RPC call as it initialises the token information.
         # We do parallel to cut down the time here.
@@ -219,7 +219,14 @@ class VaultHistoricalReadMulticaller:
                     reader.load(existing_state)
 
         logger.info("Prepared %d readers", len(readers))
-        calls = list(self.generate_vault_historical_calls(readers))
+
+        # Dealing with legacy shit here
+        calls = {c: state for c, state in self.generate_vault_historical_calls(readers)}
+
+        if not stateful:
+            # Discard any state mapping
+            calls = list(calls.keys())
+
         logger.info(
             f"Starting historical read loop, total calls {len(calls)} per block, {start_block:,} - {end_block:,} blocks, step is {step}",
         )

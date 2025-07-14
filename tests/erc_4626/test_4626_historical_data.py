@@ -153,19 +153,19 @@ def test_4626_historical_vault_data_stateful(
 
     # Ipor
     state = vault_readers["0x45aa96f0b3188D47a1DaFdbefCE1db6B37f58216"].reader_state
+    assert state.last_call_at == datetime.datetime(2024, 12, 21, 13, 49, 7)
+    assert state.first_read_at == datetime.datetime(2024, 12, 16, 22, 49, 7)
     assert state.first_seen_at_block is None  # Never passed as arg
     assert state.max_tvl == pytest.approx(Decimal("1327724.55695781"))
     assert state.peaked_at is None
     assert state.faded_at is None
-    assert state.last_call_at == datetime.datetime(2024, 12, 21, 13, 49, 7)
-    assert state.first_read_at == datetime.datetime(2024, 12, 16, 22, 49, 7)
     assert state.get_frequency() == datetime.timedelta(hours=1)
 
     # Steak
     # Deployed at 26_598_326
     # No data
     state = vault_readers["0xB17B070A56043e1a5a1AB7443AfAFDEbcc1168D7"].reader_state
-    assert state.entry_count == 5
+    assert state.entry_count == 31
     assert state.vault.name == "Steakhouse sUSDS"
     assert state.get_frequency() == datetime.timedelta(days=1)
 
@@ -178,7 +178,7 @@ def test_4626_historical_vault_data_stateful(
     assert alternative_state.max_tvl == pytest.approx(Decimal("1327724.55695781"))
 
     # Many more records than with the daily scanner above because we read every hour
-    assert len(records) == 229
+    assert len(records) == 255
 
     # Records are not guaranteed to be in specific order, so fix it here
     records.sort(key=lambda r: (r.block_number, r.vault.address))

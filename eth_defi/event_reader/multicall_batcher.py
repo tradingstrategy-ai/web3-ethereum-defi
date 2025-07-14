@@ -17,9 +17,10 @@ import datetime
 import logging
 import os
 import threading
+import zlib
 
 from abc import abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from itertools import islice
 from pprint import pformat
 from typing import TypeAlias, Iterable, Generator, Hashable, Any, Final, Callable
@@ -439,7 +440,15 @@ class BatchCallState(abc.ABC):
         pass
 
 
-@dataclass(slots=True, frozen=True)
+_next_call_id = 0
+
+def _generate_call_id():
+    global _next_call_id
+    _next_call_id += 1
+    return _next_call_id
+
+
+@dataclass(slots=True, frozen=False)
 class EncodedCall:
     """Multicall payload, minified implementation.
 
@@ -483,14 +492,25 @@ class EncodedCall:
     #:
     first_block_number: int | None = None
 
-    #: Shared state across multiple calls.
-    #:
-    #: For us one vault = one state.
-    #: Then we use state for adaptive vault read frequency.
-    #:
-    #: State cannot be used with multiprocessing readers, as it cannot be send across processe boundaries.
-    #:
-    state: BatchCallState | None = None
+    #: Running counter call id for debugging purposes
+    call_id: int = field(default_factory=_generate_call_id)
+
+    _hash: int = None
+
+    def __hash__(self):
+        """Multiprocess compatible hash.
+
+        Needed for the workarounds when passing EncodedCall.state across multiprocess boundaries.
+        """
+        if not self._hash:
+            # Must be multiprocess compatible
+            hash_data = self.address.encode("ascii") + self.data
+            self._hash = zlib.crc32(hash_data)
+        return self._hash
+
+    def __eq__(self, other):
+        assert isinstance(other, EncodedCall)
+        return self.address == other.address and self.data == other.data
 
     def get_debug_info(self) -> str:
         """Get human-readable details for debugging.
@@ -531,7 +551,6 @@ class EncodedCall:
         call: ContractFunction,
         extra_data: dict | None = None,
         first_block_number: int | None = None,
-        state: BatchCallState | None = None,
     ) -> "EncodedCall":
         """Create poller call from Web3.py Contract proxy object"""
         assert isinstance(call, ContractFunction)
@@ -548,7 +567,6 @@ class EncodedCall:
             data=data,
             extra_data=extra_data,
             first_block_number=first_block_number,
-            state=state,
         )
 
     @staticmethod
@@ -576,7 +594,6 @@ class EncodedCall:
             data=signature + data,
             extra_data=extra_data,
             first_block_number=first_block_number,
-            state=state,
         )
 
     def is_valid_for_block(self, block_number: BlockIdentifier) -> bool:
@@ -683,7 +700,7 @@ class EncodedCall:
             )
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=False)
 class EncodedCallResult:
     """Result of an one multicall.
 
@@ -714,6 +731,9 @@ class EncodedCallResult:
 
     #: Not available in multicalls, only through :py:meth:`EncodedCall.call_as_result`
     revert_exception: Exception | None = None
+
+    #: Copy the state reference in stateful reading
+    state: BatchCallState | None = None
 
     def __repr__(self):
         return f"<Call {self.call} at block {self.block_identifier}, success {self.success}, result: {self.result.hex()}, result len {len(self.result)}>"
@@ -1123,7 +1143,7 @@ def read_multicall_historical(
 def read_multicall_historical_stateful(
     chain_id: int,
     web3factory: Web3Factory,
-    calls: Iterable[EncodedCall],
+    calls: dict[EncodedCall, BatchCallState],
     start_block: int,
     end_block: int,
     step: int,
@@ -1132,6 +1152,7 @@ def read_multicall_historical_stateful(
     display_progress: bool | str = True,
     progress_suffix: Callable | None = None,
     require_multicall_result=False,
+    chunk_size=24
 ) -> Iterable[CombinedEncodedCallResult]:
     """Read historical data using multicall with reading state and adaptive frequency filtering.
 
@@ -1140,12 +1161,28 @@ def read_multicall_historical_stateful(
     - Because of state, we need to do block by block reading,
       as we need to evaluate state to see which calls are needed for which block,
       and the state depends on the result of the previous blocks
+
+    :param chunk_size:
+        We guarantee to update the reader state at least this many steps.
+
+        24 = 24h hours per day, assuming we update state once for every day data read.
+
+        Between chunks we blindly push data to subprocesses for speedup,
+        do not attempt to hear back from the multiprocess to update the state.
     """
 
     assert type(start_block) == int, f"Got: {start_block}"
     assert type(end_block) == int, f"Got: {end_block}"
     assert type(step) == int, f"Got: {step}"
     assert type(chain_id) == int, f"Got: {step}"
+
+    worker_processor = Parallel(
+        n_jobs=max_workers,
+        backend="loky",
+        timeout=timeout,
+        max_nbytes=40 * 1024 * 1024,  # Allow passing 40 MBytes for child processes
+        return_as="generator",  # TODO: Dig generator_unordered cause bugs?
+    )
 
     iter_count = (end_block - start_block + 1) // step
     total = iter_count
@@ -1162,12 +1199,11 @@ def read_multicall_historical_stateful(
     else:
         progress_bar = None
 
-    all_calls = list(calls)
+    assert isinstance(calls, dict), f"Input must be call->state dict dictionary, got {type(calls)}"
+    all_calls = list(calls.keys())
     logger.info("Per block we need to do %d max calls", len(all_calls))
 
-    # Make sure we are doing stateful reading
-    for c in all_calls:
-        assert c.state is not None, f"Call {c} has no state set, please set BatchCallState for all calls when using read_multicall_historical_stateful()"
+    assert all(s is not None for s in calls.values()), f"States missing for some calls"
 
     # Significant speedup by prefetcing timestamps
     timestamps = fetch_block_timestamps_multiprocess(
@@ -1181,7 +1217,25 @@ def read_multicall_historical_stateful(
         display_progress=display_progress,
     )
 
-    reader = MultiprocessMulticallReader(web3factory)
+    chunk = []
+
+    def _flush_chunk():
+        # Pass all buffered calls to sub-multiprocesses for JSON-RPC fetching
+        nonlocal chunk
+
+        combined_result: CombinedEncodedCallResult
+
+        for combined_result in worker_processor(delayed(_execute_multicall_subprocess)(task) for task in chunk):
+            for r in combined_result.results:
+                # Retrofit states to the result objects
+                assert r.timestamp, f"Got bad result: {r}"
+                state = calls[r.call]
+                assert state is not None
+                r.state = state
+            yield combined_result
+
+        # Clear or multiprocessing buffer
+        chunk = []
 
     for block_number in range(start_block, end_block, step):
         # Map prefetch timestamp
@@ -1189,7 +1243,9 @@ def read_multicall_historical_stateful(
 
         # Get the list of calls that are effective for this block.
         # Drop vaults that have peaked/dysfunctional
-        accepted_calls = [c for c in all_calls if c.state and c.state.should_invoke(c, block_number, timestamp)]
+        accepted_calls = [c for c, state in calls.items() if state.should_invoke(c, block_number, timestamp)]
+
+        logger.info(f"Compiling calls for {block_number:,}, {timestamp}, total calls {len(all_calls):,}, accepted calls {len(accepted_calls):,}")
 
         if len(accepted_calls) == 0:
             logger.info("Block %d has no calls to perform, skipping", block_number)
@@ -1200,30 +1256,25 @@ def read_multicall_historical_stateful(
             web3factory,
             block_number,
             accepted_calls,
+            timestamp=timestamp,
             require_multicall_result=require_multicall_result,
         )
 
-        call_results = reader.process_calls(
-            task.block_number,
-            task.calls,
-            require_multicall_result=task.require_multicall_result,
-            timestamp=timestamp,
-        )
+        chunk.append(task)
 
-        combined_result = CombinedEncodedCallResult(
-            block_number=block_number,
-            timestamp=timestamp,
-            results=[c for c in call_results],
-        )
+        if len(chunk) > chunk_size:
+            if progress_bar:
+                progress_bar.update(len(chunk))
+                if progress_suffix is not None:
+                    suffixes = progress_suffix()
+                    progress_bar.set_postfix(suffixes)
 
-        yield combined_result
+            for combined_result in _flush_chunk():
+                logger.info(f"Updating states for {combined_result.timestamp} {combined_result.block_number:,}")
+                yield combined_result
 
-        if progress_bar:
-            progress_bar.update(1)
-
-            if progress_suffix is not None:
-                suffixes = progress_suffix()
-                progress_bar.set_postfix(suffixes)
+    # Process the remaning uneven chunk
+    yield from _flush_chunk()
 
     if progress_bar:
         progress_bar.close()
@@ -1324,6 +1375,13 @@ def read_multicall_chunked(
 #: Store per-chain reader instances recycled in multiprocess reading
 _reader_instance = threading.local()
 
+_task_counter = 0
+
+def _create_task_id() -> int:
+    global _task_counter
+    _task_counter += 1
+    return _task_counter
+
 
 @dataclass(slots=True, frozen=True)
 class MulticallHistoricalTask:
@@ -1346,6 +1404,14 @@ class MulticallHistoricalTask:
 
     #: Debug parameter to early abort if we get invalid replies from Multicall contract
     require_multicall_result: bool = False
+
+    #: Fetch timestamp not given.
+    #:
+    #: Otherwise prefetched
+    timestamp: datetime.datetime = None
+
+    #: Running counter for task ids, for serialisation checks
+    task_id: int = field(default_factory=_create_task_id)
 
     def __post_init__(self):
         assert callable(self.web3factory)
@@ -1384,13 +1450,18 @@ def _execute_multicall_subprocess(
 
     # Read block timestan for this batch
     assert task.chain_id == reader.web3.eth.chain_id, f"chain_id mismatch. Wanted: {task.chain_id}, reader has: {reader.web3.eth.chain_id}"
-    timestamp = reader.get_block_timestamp(task.block_number)
+
+    if task.timestamp is None:
+        timestamp = reader.get_block_timestamp(task.block_number)
+    else:
+        timestamp = task.timestamp
 
     # Perform multicall to read share prices
     call_results = reader.process_calls(
         task.block_number,
         task.calls,
         require_multicall_result=task.require_multicall_result,
+        timestamp=timestamp,
     )
 
     # Pass results back to the main process
@@ -1399,3 +1470,5 @@ def _execute_multicall_subprocess(
         timestamp=timestamp,
         results=[c for c in call_results],
     )
+
+

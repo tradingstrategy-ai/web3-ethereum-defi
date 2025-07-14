@@ -43,7 +43,6 @@ class IPORVaultHistoricalReader(ERC4626HistoricalReader):
                 "vault": self.vault.address,
             },
             first_block_number=self.first_block,
-            state=self.reader_state,
         )
         yield performance_fee_call
 
@@ -56,7 +55,6 @@ class IPORVaultHistoricalReader(ERC4626HistoricalReader):
                 "vault": self.vault.address,
             },
             first_block_number=self.first_block,
-            state=self.reader_state,
         )
         yield management_fee_call
 
