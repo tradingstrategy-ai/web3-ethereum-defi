@@ -475,26 +475,57 @@ def construct_sign_and_send_raw_middleware_anvil(
     return sign_and_send_raw_middleware
 
 
-def static_call_cache_middleware(
-    make_request: Callable[[RPCEndpoint, Any], Any],
-    web3: "Web3",
-) -> Callable[[RPCEndpoint, Any], Any]:
-    """Cache JSON-RPC call values that never change.
+# Create class-based middleware for v7 compatibility
+if WEB3_PY_V7:
+    from web3.middleware import Web3Middleware
 
-    The cache is web3 instance itself, to allow sharing the cache
-    between different JSON-RPC providers.
-    """
+    class StaticCallCacheMiddleware(Web3Middleware):
+        """v7-style static call cache middleware."""
 
-    def middleware(method: RPCEndpoint, params: Any) -> RPCResponse:
-        cache = getattr(web3, "static_call_cache", {})
-        if method in STATIC_CALL_LIST:
-            cached = cache.get(method)
-            if cached:
-                return cached
+        def __init__(self, w3):
+            super().__init__(w3)
+            self.w3 = w3
 
-        resp = make_request(method, params)
-        cache[method] = resp
-        web3.static_call_cache = cache
-        return resp
+        def wrap_make_request(self, make_request):
+            def middleware(method: RPCEndpoint, params: Any) -> RPCResponse:
+                cache = getattr(self.w3, "static_call_cache", {})
+                if method in STATIC_CALL_LIST:
+                    cached = cache.get(method)
+                    if cached:
+                        return cached
 
-    return middleware
+                resp = make_request(method, params)
+                cache[method] = resp
+                self.w3.static_call_cache = cache
+                return resp
+
+            return middleware
+
+    # Export the class as the middleware
+    static_call_cache_middleware = StaticCallCacheMiddleware
+
+else:
+    # v6: Original function-based middleware
+    def static_call_cache_middleware(
+        make_request: Callable[[RPCEndpoint, Any], Any],
+        web3: "Web3",
+    ) -> Callable[[RPCEndpoint, Any], Any]:
+        """Cache JSON-RPC call values that never change.
+
+        The cache is web3 instance itself, to allow sharing the cache
+        between different JSON-RPC providers.
+        """
+
+        def middleware(method: RPCEndpoint, params: Any) -> RPCResponse:
+            cache = getattr(web3, "static_call_cache", {})
+            if method in STATIC_CALL_LIST:
+                cached = cache.get(method)
+                if cached:
+                    return cached
+
+            resp = make_request(method, params)
+            cache[method] = resp
+            web3.static_call_cache = cache
+            return resp
+
+        return middleware

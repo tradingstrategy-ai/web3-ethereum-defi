@@ -292,7 +292,25 @@ def create_multi_provider_web3(
 
 
 def _fix_provider(provider: HTTPProvider):
-    provider.middlewares.clear()
+    """Clear provider middlewares with v6/v7 compatibility."""
+    from eth_defi.compat import WEB3_PY_V7
+
+    try:
+        if WEB3_PY_V7:
+            # v7: Try different ways to clear middlewares
+            if hasattr(provider, "middlewares"):
+                if hasattr(provider.middlewares, "clear"):
+                    provider.middlewares.clear()
+                else:
+                    # Reset to empty collection
+                    provider.middlewares = ()
+        else:
+            # v6: Original behavior
+            provider.middlewares.clear()
+    except AttributeError as e:
+        # If middlewares attribute doesn't exist or behaves differently
+        logger.warning(f"Could not clear provider middlewares: {e}")
+
     patch_provider(provider)
 
 
