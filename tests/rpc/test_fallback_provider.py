@@ -190,6 +190,11 @@ def test_eth_call_not_having_block(fallback_provider: FallbackProvider, provider
     """What happens if you ask data from non-existing block."""
 
     json_rpc_url = os.environ["JSON_RPC_POLYGON"]
+
+    provider_urls = json_rpc_url.split(" ")
+    if len(provider_urls) > 1:
+        json_rpc_url = provider_urls[0]
+
     provider = HTTPProvider(json_rpc_url)
     # We don't do real fallbacks, but test the internal
     fallback_provider = FallbackProvider(

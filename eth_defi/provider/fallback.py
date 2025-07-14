@@ -306,6 +306,8 @@ def _check_faulty_rpc_response(
     # stack and trigger middleware fallover node switch if the condition is detected.
     #
     if method == "eth_call":
+        # WTF? error
+        # ***'code': -32000, 'message': 'state transitaion failed: inverted_index(v1-accounts.0-64.ef) at (0000000000000000000000000000000000000000, 5) returned value 0, but it out-of-bounds 100000000-5501010835. it may signal that .ef file is broke - can detect by `erigon seg integrity --check=InvertedIndex`, or re-download files'***
         args, block_identifier = params
         if block_identifier != "latest":
             result = resp_data["result"]
@@ -321,6 +323,8 @@ def _check_faulty_rpc_response(
                 else:
                     bi_str = block_identifier
                 name = get_provider_name(provider)
+
+
                 raise ProbablyNodeHasNoBlock(f"Empty 0x response for a smart contract call on chain. Provider: {name} Node lacked state data when doing eth_call for block {bi_str}?\nLast response headers\n{pformat(headers)}")
 
     # BlockNotFound exception gets applied only later with the formatters,
