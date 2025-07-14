@@ -184,7 +184,10 @@ class VaultReaderState(BatchCallState):
     ):
         assert result.timestamp, f"EncodedCallResult {result} has no timestamp, cannot update state"
 
-        assert total_assets is not None, f"EncodedCallResult {result} has no total_assets, cannot update state"
+        if total_assets is None:
+            # Cannot read total assets from this vault for some reason as the call is failing.
+            # We will mark these broken vaults with special -1 TVL value in the vault reader state.
+            total_assets = -1
 
         timestamp = result.timestamp
         self.last_call_at = timestamp
@@ -196,7 +199,7 @@ class VaultReaderState(BatchCallState):
         self.last_call_at = timestamp
         self.last_block = result.block_identifier
         existing_max_tvl = self.max_tvl or 0
-        self.max_tvl = max(existing_max_tvl, total_assets)
+        self.max_tvl = max(existing_max_tvl, total_assets) if total_assets != -1 else total_assets
 
         if self.max_tvl > self.peaked_tvl_threshold:
             if self.last_tvl < self.max_tvl * Decimal(1 - self.down_hard):
