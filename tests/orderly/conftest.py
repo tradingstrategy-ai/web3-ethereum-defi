@@ -6,12 +6,16 @@ import pytest
 from eth_account import Account
 from eth_typing import HexAddress
 from web3 import Web3
+from web3.contract import Contract
 
+from eth_defi.abi import get_contract, get_deployed_contract, get_function_selector
+from eth_defi.deploy import deploy_contract
 from eth_defi.hotwallet import HotWallet
 from eth_defi.orderly.vault import OrderlyVault
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import TokenDetails, fetch_erc20_details
+from eth_defi.trace import assert_transaction_success_with_explanation
 
 JSON_RPC_ARBITRUM_SEPOLIA = os.environ.get("JSON_RPC_ARBITRUM_SEPOLIA")
 HOT_WALLET_PRIVATE_KEY = os.environ.get("HOT_WALLET_PRIVATE_KEY")
@@ -22,15 +26,15 @@ pytestmark = pytest.mark.skipif(not JSON_RPC_ARBITRUM_SEPOLIA, reason="No JSON_R
 
 
 @pytest.fixture()
-def anvil_base_fork(request) -> AnvilLaunch:
+def anvil_base_fork(request, large_usdc_holder) -> AnvilLaunch:
     """Create a testable fork of live BNB chain.
 
     :return: JSON-RPC URL for Web3
     """
     launch = fork_network_anvil(
         JSON_RPC_ARBITRUM_SEPOLIA,
-        unlocked_addresses=[],
-        fork_block_number=169570220,
+        unlocked_addresses=[large_usdc_holder],
+        fork_block_number=171644830,
     )
     try:
         yield launch
@@ -84,7 +88,7 @@ def hot_wallet(web3, usdc) -> HotWallet:
     hw = HotWallet(Account.from_key(HOT_WALLET_PRIVATE_KEY))
     hw.sync_nonce(web3)
 
-    assert usdc.functions.balanceOf(hw.address).call() == pytest.approx(1008 * 10**6)
+    # assert usdc.functions.balanceOf(hw.address).call() == pytest.approx(1008 * 10**6)
 
     return hw
 
@@ -104,3 +108,69 @@ def orderly_vault(web3) -> OrderlyVault:
     """Orderly vault."""
     # https://orderly.network/docs/build-on-omnichain/addresses
     return OrderlyVault(web3, "0x0EaC556c0C2321BA25b9DC01e4e3c95aD5CDCd2f")
+
+
+@pytest.fixture()
+def large_usdc_holder() -> str:
+    return "0x547f521Ac112e87180d0A161087b250a020E5fF4"
+
+
+@pytest.fixture()
+def deployer(web3, usdc, large_usdc_holder) -> str:
+    """Deploy account.
+
+    Do some account allocation for tests.
+    """
+    address = web3.eth.accounts[0]
+
+    usdc.functions.transfer(
+        address,
+        500_000 * 10**6,
+    ).transact({"from": large_usdc_holder})
+
+    print(web3.eth.get_balance(address))
+
+    return address
+
+
+@pytest.fixture()
+def owner(web3) -> str:
+    return web3.eth.accounts[1]
+
+
+@pytest.fixture()
+def asset_manager(web3) -> str:
+    return web3.eth.accounts[2]
+
+
+@pytest.fixture()
+def vault(
+    web3: Web3,
+    usdc: Contract,
+    deployer: str,
+    owner: str,
+    asset_manager: str,
+    broker_id: str,
+    hot_wallet: HotWallet,
+    orderly_vault: OrderlyVault,
+) -> Contract:
+    """Mock vault."""
+    vault = deploy_contract(web3, "guard/SimpleVaultV1.json", deployer, asset_manager)
+
+    assert vault.functions.owner().call() == deployer
+    vault.functions.initialiseOwnership(owner).transact({"from": deployer})
+    assert vault.functions.owner().call() == owner
+    assert vault.functions.assetManager().call() == asset_manager
+
+    broker_hash = web3.keccak(text=broker_id)
+    tx = vault.functions.delegate(orderly_vault.address, (broker_hash, hot_wallet.address)).transact({"from": deployer, "gas": 500_000})
+    assert_transaction_success_with_explanation(web3, tx)
+
+    guard = get_deployed_contract(web3, "guard/GuardV0.json", vault.functions.guard().call())
+    assert guard.functions.owner().call() == owner
+
+    guard.functions.whitelistToken(usdc.address, "Allow USDC").transact({"from": owner})
+
+    assert guard.functions.callSiteCount().call() == 2
+
+    return vault

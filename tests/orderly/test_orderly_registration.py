@@ -6,7 +6,7 @@ import pytest
 from web3 import Web3
 
 from eth_defi.hotwallet import HotWallet
-from eth_defi.orderly.registration import register_orderly_account, register_orderly_key
+from eth_defi.orderly.api import OrderlyApiClient
 
 pytestmark = pytest.mark.skipif(
     not any(
@@ -38,16 +38,16 @@ def test_orderly_register_account(
             return mocker.Mock(json=mocker.Mock(return_value=response_data))
 
         mocker.patch(
-            "eth_defi.orderly.registration.requests.post",
+            "eth_defi.orderly.api.requests.post",
             side_effect=mock_by_url,
         )
 
-    orderly_account_id = register_orderly_account(
+    orderly_account_id = OrderlyApiClient(
         account=hot_wallet.account,
         broker_id=broker_id,
         chain_id=web3.eth.chain_id,
         is_testnet=True,
-    )
+    ).register_account()
 
     assert orderly_account_id
 
@@ -63,7 +63,7 @@ def test_orderly_register_key(
 ):
     if not SEND_REAL_REQUESTS:
         mocker.patch(
-            "eth_defi.orderly.registration.requests.post",
+            "eth_defi.orderly.api.requests.post",
             return_value=mocker.Mock(
                 json=mocker.Mock(
                     return_value={
@@ -78,12 +78,12 @@ def test_orderly_register_key(
             ),
         )
 
-    resp = register_orderly_key(
+    resp = OrderlyApiClient(
         account=hot_wallet.account,
         broker_id=broker_id,
         chain_id=web3.eth.chain_id,
         is_testnet=True,
-    )
+    ).register_key()
     assert resp["success"]
     assert resp["data"]["orderly_key"]
 
