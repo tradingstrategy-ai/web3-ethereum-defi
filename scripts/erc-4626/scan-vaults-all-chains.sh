@@ -19,7 +19,7 @@ export FREQUENCY=1h
 
 SCAN_PRICES=${SCAN_PRICES:-"false"}
 
-export JSON_RPC_URL=$JSON_RPC_BASE
+export JSON_RPC_URL=$JSON_RPC_INK
 python scripts/erc-4626/scan-vaults.py
 if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
 
@@ -74,7 +74,6 @@ if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ;
 export JSON_RPC_URL=$JSON_RPC_UNICHAIN
 if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
 
-
 export JSON_RPC_URL=$JSON_RPC_SONIC
 python scripts/erc-4626/scan-vaults.py
 if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
@@ -99,15 +98,6 @@ export JSON_RPC_URL=$JSON_RPC_MANTLE
 python scripts/erc-4626/scan-vaults.py
 if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
 
-export JSON_RPC_URL=$JSON_RPC_UNICHAIN
+export JSON_RPC_URL=$JSON_RPC_BASE
 python scripts/erc-4626/scan-vaults.py
 if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
-
-export JSON_RPC_URL=$JSON_RPC_INK
-python scripts/erc-4626/scan-vaults.py
-if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
-
-# Sonic net yet on HyperSync
-export JSON_RPC_URL=$JSON_RPC_SONIC
-python scripts/erc-4626/scan-vaults.py
-

@@ -51,6 +51,7 @@ CHAIN_NAMES = {
     81457: "Blast",
     42220: "Celo",
     7777777: "Zora",
+    57073: "Ink",
 }
 
 #: For linking on reports
