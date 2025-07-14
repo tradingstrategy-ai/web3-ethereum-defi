@@ -2,6 +2,7 @@
 
 import datetime
 import os
+from pprint import pformat
 from unittest.mock import patch, DEFAULT
 
 import pytest
@@ -10,6 +11,7 @@ from eth.exceptions import OutOfGas
 from eth_account import Account
 
 from eth_defi.confirmation import wait_and_broadcast_multiple_nodes, NonceMismatch
+from eth_defi.event_reader.fast_json_rpc import get_last_headers
 from eth_defi.provider.broken_provider import get_default_block_tip_latency
 from web3 import HTTPProvider, Web3
 
@@ -213,8 +215,14 @@ def test_eth_call_not_having_block(fallback_provider: FallbackProvider, provider
 
     bad_block = 1  # We get empty response if the contract has not been deployed yet
 
-    with pytest.raises(ProbablyNodeHasNoBlock):
-        usdc.contract.functions.balanceOf(ZERO_ADDRESS).call(block_identifier=bad_block)
+    try:
+        with pytest.raises(ProbablyNodeHasNoBlock):
+            usdc.contract.functions.balanceOf(ZERO_ADDRESS).call(block_identifier=bad_block)
+    except Exception as e:
+        # Happens on Github CI
+        #  FAILED tests/rpc/test_fallback_provider.py::test_eth_call_not_having_block - eth_defi.provider.fallback.ExtraValueError: ***'code': -32000, 'message': 'state transitaion failed: inverted_index(v1-accounts.0-64.ef) at (0000000000000000000000000000000000000000, 5) returned value 0, but it out-of-bounds 100000000-5501010835. it may signal that .ef file is broke - can detect by `erigon seg integrity --check=InvertedIndex`, or re-download files'***
+        headers = get_last_headers()
+        raise RuntimeError(f"Error fetching balance at block {bad_block} with headers {pformat(headers)}") from e
 
     assert fallback_provider.api_retry_counts[0]["eth_call"] == 3  # 5 attempts, 3 retries, the last retry does not count
 
