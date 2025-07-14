@@ -11,6 +11,7 @@ from web3._utils.transactions import fill_nonce
 from eth_defi.gas import estimate_gas_fees, GasPriceMethod, apply_gas, GasPriceSuggestion, node_default_gas_price_strategy
 from eth_defi.hotwallet import HotWallet
 from eth_defi.token import create_token
+from eth_defi.tx import get_tx_broadcast_data
 
 
 @pytest.fixture
@@ -91,7 +92,8 @@ def test_raw_transaction_with_gas(web3: Web3, eth_tester, deployer: HexAddress, 
     apply_gas(tx, gas_fees)
 
     signed = hot_wallet_account.sign_transaction(tx)
-    tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
+    raw_bytes = get_tx_broadcast_data(signed)
+    tx_hash = web3.eth.send_raw_transaction(raw_bytes)
     receipt = web3.eth.get_transaction_receipt(tx_hash)
     assert receipt.status == 1  # 1=success and mined
 
@@ -123,7 +125,7 @@ def test_build_transaction_legacy(web3: Web3, deployer: str, hot_wallet_account)
     apply_gas(tx, gas_fees)
 
     signed_tx = hot_wallet.sign_transaction_with_new_nonce(tx)
-    signed_bytes = signed_tx.rawTransaction
+    signed_bytes = get_tx_broadcast_data(signed_tx)
     assert len(signed_bytes) > 0
 
     tx_hash = web3.eth.send_raw_transaction(signed_bytes)
