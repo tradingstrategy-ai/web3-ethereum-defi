@@ -38,6 +38,10 @@ def test_orderly_register_account(
             return mocker.Mock(json=mocker.Mock(return_value=response_data))
 
         mocker.patch(
+            "eth_defi.orderly.api.requests.get",
+            side_effect=mock_by_url,
+        )
+        mocker.patch(
             "eth_defi.orderly.api.requests.post",
             side_effect=mock_by_url,
         )
