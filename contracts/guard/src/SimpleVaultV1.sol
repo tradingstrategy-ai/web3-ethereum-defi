@@ -21,7 +21,7 @@ import "./interface/IVault.sol";
  * - No slippage protection (unlike Enzyme)
  * - Delegation of signer to a hot wallet
  */
-contract SimpleVaultV1 is Ownable, IGuard {
+contract SimpleVaultV1 is Ownable {
 
     address public assetManager;
 

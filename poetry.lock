@@ -6254,7 +6254,7 @@ description = "Fundamental algorithms for scientific computing in Python"
 optional = true
 python-versions = ">=3.10"
 groups = ["main"]
-markers = "python_version < \"3.11\" and extra == \"data\" and (implementation_name == \"cpython\" or implementation_name == \"pypy\")"
+markers = "(implementation_name == \"cpython\" or implementation_name == \"pypy\") and extra == \"data\" and python_version < \"3.11\""
 files = [
     {file = "scipy-1.15.3-cp310-cp310-macosx_10_13_x86_64.whl", hash = "sha256:a345928c86d535060c9c2b25e71e87c39ab2f22fc96e9636bd74d1dbf9de448c"},
     {file = "scipy-1.15.3-cp310-cp310-macosx_12_0_arm64.whl", hash = "sha256:ad3432cb0f9ed87477a8d97f03b763fd1d57709f1bbde3c9369b1dff5503b253"},
@@ -6319,7 +6319,7 @@ description = "Fundamental algorithms for scientific computing in Python"
 optional = true
 python-versions = ">=3.11"
 groups = ["main"]
-markers = "python_version >= \"3.11\" and extra == \"data\" and (implementation_name == \"cpython\" or implementation_name == \"pypy\")"
+markers = "(implementation_name == \"cpython\" or implementation_name == \"pypy\") and extra == \"data\" and python_version >= \"3.11\""
 files = [
     {file = "scipy-1.16.0-cp311-cp311-macosx_10_14_x86_64.whl", hash = "sha256:deec06d831b8f6b5fb0b652433be6a09db29e996368ce5911faf673e78d20085"},
     {file = "scipy-1.16.0-cp311-cp311-macosx_12_0_arm64.whl", hash = "sha256:d30c0fe579bb901c61ab4bb7f3eeb7281f0d4c4a7b52dbf563c89da4fd2949be"},
@@ -7780,4 +7780,4 @@ test = ["pytest-xdist"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<4"
-content-hash = "1e64c9216b5dccdff85ab7de84e94562f5213220040c50e283448e28d882f70f"
+content-hash = "56dcd3246cb083110c67308aadfb4b81dadcf4e0bf2454b5d0cbd268c8780a82"

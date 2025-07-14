@@ -6,16 +6,12 @@ import pytest
 from eth_account import Account
 from eth_typing import HexAddress
 from web3 import Web3
-from web3.contract import Contract
 
-from eth_defi.abi import get_contract, get_deployed_contract, get_function_selector
-from eth_defi.deploy import deploy_contract
 from eth_defi.hotwallet import HotWallet
 from eth_defi.orderly.vault import OrderlyVault
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import TokenDetails, fetch_erc20_details
-from eth_defi.trace import assert_transaction_success_with_explanation
 
 JSON_RPC_ARBITRUM_SEPOLIA = os.environ.get("JSON_RPC_ARBITRUM_SEPOLIA")
 HOT_WALLET_PRIVATE_KEY = os.environ.get("HOT_WALLET_PRIVATE_KEY")
@@ -128,8 +124,6 @@ def deployer(web3, usdc, large_usdc_holder) -> str:
         500_000 * 10**6,
     ).transact({"from": large_usdc_holder})
 
-    print(web3.eth.get_balance(address))
-
     return address
 
 
@@ -141,36 +135,3 @@ def owner(web3) -> str:
 @pytest.fixture()
 def asset_manager(web3) -> str:
     return web3.eth.accounts[2]
-
-
-@pytest.fixture()
-def vault(
-    web3: Web3,
-    usdc: Contract,
-    deployer: str,
-    owner: str,
-    asset_manager: str,
-    broker_id: str,
-    hot_wallet: HotWallet,
-    orderly_vault: OrderlyVault,
-) -> Contract:
-    """Mock vault."""
-    vault = deploy_contract(web3, "guard/SimpleVaultV1.json", deployer, asset_manager)
-
-    assert vault.functions.owner().call() == deployer
-    vault.functions.initialiseOwnership(owner).transact({"from": deployer})
-    assert vault.functions.owner().call() == owner
-    assert vault.functions.assetManager().call() == asset_manager
-
-    broker_hash = web3.keccak(text=broker_id)
-    tx = vault.functions.delegate(orderly_vault.address, (broker_hash, hot_wallet.address)).transact({"from": deployer, "gas": 500_000})
-    assert_transaction_success_with_explanation(web3, tx)
-
-    guard = get_deployed_contract(web3, "guard/GuardV0.json", vault.functions.guard().call())
-    assert guard.functions.owner().call() == owner
-
-    guard.functions.whitelistToken(usdc.address, "Allow USDC").transact({"from": owner})
-
-    assert guard.functions.callSiteCount().call() == 2
-
-    return vault
