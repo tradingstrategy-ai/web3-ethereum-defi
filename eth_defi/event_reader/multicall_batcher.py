@@ -643,6 +643,8 @@ class EncodedCall:
             This works regardless of middleware installed.
             Set to zero to ignore.
 
+            Cannot be used with ignore_errors.
+
         :return:
             Raw call results as bytes
 
@@ -656,7 +658,12 @@ class EncodedCall:
             "gas": gas,
             "ignore_error": ignore_error,  # Hint logging middleware that we should not care about if this fails
         }
+
         attempt = 0
+
+        # Cannot use with ignore eror
+        if ignore_error:
+            attempts = 0
 
         while True:
             try:
@@ -677,7 +684,7 @@ class EncodedCall:
                     )
                     continue
 
-                raise ValueError(msg) from e
+                raise e
 
     def call_as_result(
         self,
@@ -905,6 +912,7 @@ class MultiprocessMulticallReader:
                    ("request timed out" in parsed_error) or \
                    ("intrinsic gas too low" in parsed_error) or \
                    ("intrinsic gas too high" in parsed_error) or \
+                   ("Non-hexadecimal digit found" in parsed_error) or \
                    isinstance(e, ProbablyNodeHasNoBlock) or \
                    (isinstance(e, HTTPError) and e.response.status_code == 500):
                     raise MulticallRetryable(error_msg) from e

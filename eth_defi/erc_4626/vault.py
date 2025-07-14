@@ -298,16 +298,24 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
         assert "total_supply" in call_by_name, f"total_supply call missing for {self.vault}, we got {list(call_by_name.items())}"
         assert "total_assets" in call_by_name, f"total_assets call missing for {self.vault}, we got {list(call_by_name.items())}"
 
-        if call_by_name["total_supply"].success:
+        share_token = self.vault.share_token
+        if call_by_name["total_supply"].success and share_token is not None:
             raw_total_supply = convert_int256_bytes_to_int(call_by_name["total_supply"].result)
             total_supply = self.vault.share_token.convert_to_decimals(raw_total_supply)
         else:
             errors.append("total_supply call failed")
             total_supply = None
 
-        if self.vault.denomination_token is not None and call_by_name["total_assets"].success:
-            raw_total_assets = convert_int256_bytes_to_int(call_by_name["total_assets"].result)
+        total_assets_call_result = call_by_name.get("total_assets")
+        if self.vault.denomination_token is not None and total_assets_call_result.success:
+            raw_total_assets = convert_int256_bytes_to_int(total_assets_call_result.result)
             total_assets = self.vault.denomination_token.convert_to_decimals(raw_total_assets)
+
+            # Handle dealing with the adaptive frequency
+            state = total_assets_call_result.state
+            if state:
+                state.on_called(total_assets_call_result, total_assets)
+
         else:
             errors.append("total_assets call failed")
             total_assets = None
@@ -322,13 +330,6 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
             share_price = Decimal(total_assets) / Decimal(total_supply)
         else:
             share_price = None
-
-        total_assets_call_result = call_by_name.get("total_assets")
-        if total_assets_call_result and total_assets_call_result.success:
-            # Handle dealing with the adaptive frequency
-            state = total_assets_call_result.state
-            if state:
-                state.on_called(total_assets_call_result, total_assets)
 
         return share_price, total_supply, total_assets, (errors or None)
 
@@ -543,6 +544,7 @@ class ERC4626Vault(VaultBase):
                 self.web3,
                 block_identifier="latest",
                 ignore_error=True,
+                attempts=0,
             )
             if len(result) == 32:
                 erc_7575 = True
@@ -557,7 +559,12 @@ class ERC4626Vault(VaultBase):
             # Could not read ERC4626Vault 0x32F6D2c91FF3C3d2f1fC2cCAb4Afcf2b6ecF24Ef (set()): {'message': 'out of gas', 'code': -32000}
             # Hyperliquid
             # ValueError: Call failed: 400 Client Error: Bad Request for url: https://lb.drpc.org/ogrpc?network=hyperliquid&dkey=AiWA4TvYpkijvapnvFlyx_WBfO5CICoR76hArr3WfgV4
-            if not (("execution reverted" in parsed_error) or ("out of gas" in parsed_error) or ("Bad Request" in parsed_error)):
+            if not (
+                ("execution reverted" in parsed_error) or
+                ("out of gas" in parsed_error) or
+                ("Bad Request" in parsed_error) or
+                ("VM execution error" in parsed_error)
+            ):
                 raise
 
             share_token_address = self.vault_address
