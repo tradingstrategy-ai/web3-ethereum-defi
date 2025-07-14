@@ -44,6 +44,8 @@ guard:
 		-name "GuardV0.json" \
 		-o \
 		-name "SimpleVaultV0.json" \
+		-o \
+		-name "SimpleVaultV1.json" \
 		\) \
 		-exec cp {} eth_defi/abi/guard \;
 
