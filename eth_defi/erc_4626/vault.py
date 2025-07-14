@@ -185,6 +185,7 @@ class VaultReaderState(BatchCallState):
         assert result.timestamp, f"EncodedCallResult {result} has no timestamp, cannot update state"
 
         if total_assets is None:
+            assert result.revert_exception, f"EncodedCallResult {result} has no total assets, but no revert exception either"
             # Cannot read total assets from this vault for some reason as the call is failing.
             # We will mark these broken vaults with special -1 TVL value in the vault reader state.
             total_assets = -1

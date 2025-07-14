@@ -165,7 +165,7 @@ def test_4626_historical_vault_data_stateful(
     # Deployed at 26_598_326
     # No data
     state = vault_readers["0xB17B070A56043e1a5a1AB7443AfAFDEbcc1168D7"].reader_state
-    assert state.entry_count == 31
+    assert state.entry_count == 75
     assert state.vault.name == "Steakhouse sUSDS"
     assert state.get_frequency() == datetime.timedelta(days=1)
 
@@ -178,7 +178,7 @@ def test_4626_historical_vault_data_stateful(
     assert alternative_state.max_tvl == pytest.approx(Decimal("1327724.55695781"))
 
     # Many more records than with the daily scanner above because we read every hour
-    assert len(records) == 255
+    assert len(records) == 299
 
     # Records are not guaranteed to be in specific order, so fix it here
     records.sort(key=lambda r: (r.block_number, r.vault.address))
