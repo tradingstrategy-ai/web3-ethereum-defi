@@ -42,6 +42,7 @@ from web3.middleware import Middleware
 from web3.types import RPCEndpoint, RPCResponse
 
 from eth_defi.compat import WEB3_PY_V7, exception_retry_middleware as compat_exception_retry_middleware, check_if_retry_on_failure_compat
+from eth_defi.tx import get_tx_broadcast_data
 
 logger = logging.getLogger(__name__)
 
@@ -465,7 +466,8 @@ def construct_sign_and_send_raw_middleware_anvil(
                 return make_request(method, params)
 
             account = accounts[transaction["from"]]
-            raw_tx = account.sign_transaction(transaction).rawTransaction
+            signed_tx = account.sign_transaction(transaction)
+            raw_tx = get_tx_broadcast_data(signed_tx)
             return make_request(RPCEndpoint("eth_sendRawTransaction"), [raw_tx.hex()])
 
         return middleware

@@ -53,6 +53,7 @@ from eth_defi.provider.named import get_provider_name
 from eth_defi.timestamp import get_block_timestamp
 from eth_defi.token import fetch_erc20_details, USDC_NATIVE_TOKEN, LARGE_USDC_HOLDERS
 from eth_defi.trace import assert_transaction_success_with_explanation
+from eth_defi.tx import get_tx_broadcast_data
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.base import VaultSpec, VaultBase
 
@@ -119,7 +120,8 @@ def deposit_redeem(
             func.fn_name,
             signed_tx.hash.hex(),
         )
-        web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+        raw_bytes = get_tx_broadcast_data(signed_tx)
+        web3.eth.send_raw_transaction(raw_bytes)
         assert_transaction_success_with_explanation(web3, signed_tx.hash.hex(), timeout=timeout)
 
     logger.info("Depositing...")
