@@ -39,7 +39,7 @@ from eth_defi.abi import get_deployed_contract, ZERO_ADDRESS, encode_function_ca
 from eth_defi.event_reader.fast_json_rpc import get_last_headers
 from eth_defi.event_reader.multicall_timestamp import fetch_block_timestamps_multiprocess
 from eth_defi.event_reader.web3factory import Web3Factory
-from eth_defi.middleware import ProbablyNodeHasNoBlock
+from eth_defi.middleware import ProbablyNodeHasNoBlock, is_retryable_http_exception
 from eth_defi.provider.fallback import FallbackProvider
 from eth_defi.provider.named import get_provider_name
 from eth_defi.timestamp import get_block_timestamp
@@ -614,6 +614,7 @@ class EncodedCall:
         from_=ZERO_ADDRESS_STR,
         gas=99_000_000,
         ignore_error=False,
+        attempts: int = 3,
     ) -> bytes:
         """Return raw results of the call.
 
@@ -635,6 +636,12 @@ class EncodedCall:
         :param ignore_error:
             Set to True to inform middleware that it is normal for this call to fail and do not log it as a failed call, or retry it.
 
+        :param attempts:
+            Use built-in retry mechanism for flaky RPC.
+
+            This works regardless of middleware installed.
+            Set to zero to ignore.
+
         :return:
             Raw call results as bytes
 
@@ -648,14 +655,29 @@ class EncodedCall:
             "gas": gas,
             "ignore_error": ignore_error,  # Hint logging middleware that we should not care about if this fails
         }
-        try:
-            result = web3.eth.call(
-                transaction=transaction,
-                block_identifier=block_identifier,
-            )
-            return result
-        except Exception as e:
-            raise ValueError(f"Call failed: {str(e)}\nBlock: {block_identifier}, chain: {web3.eth.chain_id}\nTransaction data:{pformat(transaction)}") from e
+        attempt = 0
+
+        while True:
+
+            try:
+                result = web3.eth.call(
+                    transaction=transaction,
+                    block_identifier=block_identifier,
+                )
+                return result
+            except Exception as e:
+                msg = f"Call failed: {str(e)}\nBlock: {block_identifier}, chain: {web3.eth.chain_id}\nTransaction data:{pformat(transaction)}"
+                if is_retryable_http_exception(e, method="eth_call") and attempt < attempts:
+                    attempt += 1
+                    logger.warning(
+                        "Retrying EncodedCall.call() %s/%s, %s",
+                        attempt,
+                        attempts,
+                        msg,
+                    )
+                    continue
+
+                raise ValueError(msg) from e
 
     def call_as_result(
         self,

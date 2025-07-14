@@ -76,6 +76,7 @@ CHAIN_HOMEPAGES = {
     81457: {"name": "Blast", "homepage": "https://blast.io"},
     42220: {"name": "Celo", "homepage": "https://celo.org"},
     7777777: {"name": "Zora", "homepage": "https://zora.co"},
+    57073: {"name": "Ink", "homepage": "https://inkonchain.com/"},
 }
 
 #: Chain avg block times.

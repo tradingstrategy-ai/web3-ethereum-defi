@@ -13,6 +13,7 @@ Most are for dealing with JSON-RPC unreliability issues with retries.
 
 import logging
 import time
+from http.client import RemoteDisconnected
 from pprint import pformat
 from typing import (
     Any,
@@ -67,6 +68,8 @@ DEFAULT_RETRYABLE_EXCEPTIONS: Tuple[BaseException] = (
     # requests.exceptions.ChunkedEncodingError: ("Connection broken: InvalidChunkLength(got length b'', 0 bytes read)", InvalidChunkLength(got length b'', 0 bytes read))
     #
     ChunkedEncodingError,
+    # urllib3.exceptions.ProtocolError: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+    RemoteDisconnected,
 )
 
 #: List of HTTP status codes we know we might want to retry after a timeout
