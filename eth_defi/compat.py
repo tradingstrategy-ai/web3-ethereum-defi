@@ -9,12 +9,14 @@ import eth_abi
 from collections import Counter
 from typing import Any, Callable
 
+from web3 import HTTPProvider, Web3
+
 pkg_version = version("web3")
 WEB3_PY_V7 = Version(pkg_version) >= Version("7.0.0")
 
 # Middleware imports with compatibility
 if WEB3_PY_V7:
-    from web3.middleware import ExtraDataToPOAMiddleware, Web3Middleware
+    from web3.middleware import ExtraDataToPOAMiddleware as _geth_poa_middleware, Web3Middleware
     from web3.types import RPCEndpoint, RPCResponse
     from web3.providers.rpc.utils import ExceptionRetryConfiguration
     from requests.exceptions import ConnectionError, HTTPError, Timeout
@@ -40,35 +42,105 @@ if WEB3_PY_V7:
         )
         return method in DEFAULT_ALLOWLIST
 else:
-    from web3.middleware import geth_poa_middleware
+    from eth_defi.compat import geth_poa_middleware as _geth_poa_middleware
     from web3.middleware.exception_retry_request import check_if_retry_on_failure
 
+# Replace the APICallCounterMiddleware class and related functions with this:
 
-class APICallCounterMiddleware:
-    """API call counter middleware that works for both v6 and v7"""
+if WEB3_PY_V7:
 
-    def __init__(self, counter: Counter, w3=None):
-        self.counter = counter
-        if WEB3_PY_V7 and w3:
-            # v7 - inherit from Web3Middleware
-            self.__class__ = type(self.__class__.__name__, (Web3Middleware,), dict(self.__class__.__dict__))
+    class APICallCounterMiddleware(Web3Middleware):
+        """v7 API call counter middleware"""
+
+        def __init__(self, w3, counter: Counter):
             super().__init__(w3)
+            self.counter = counter
 
-    def request_processor(self, method: RPCEndpoint, params: Any) -> tuple[RPCEndpoint, Any]:
-        """Process the request and count API calls - v7 style"""
-        self.counter[method] += 1
-        self.counter["total"] += 1
-        return method, params
-
-    def __call__(self, make_request, web3):
-        """v6 style middleware function"""
-
-        def middleware(method: RPCEndpoint, params: Any):
+        def request_processor(self, method: RPCEndpoint, params: Any) -> tuple[RPCEndpoint, Any]:
+            """Process the request and count API calls"""
             self.counter[method] += 1
             self.counter["total"] += 1
-            return make_request(method, params)
+            return method, params
+else:
 
-        return middleware
+    class APICallCounterMiddleware:
+        """v6 API call counter middleware"""
+
+        def __init__(self, counter: Counter):
+            self.counter = counter
+
+        def __call__(self, make_request, web3):
+            """v6 style middleware function"""
+
+            def middleware(method: RPCEndpoint, params: Any):
+                self.counter[method] += 1
+                self.counter["total"] += 1
+                return make_request(method, params)
+
+            return middleware
+
+
+def install_api_call_counter_middleware_compat(web3):
+    """Install API call counter middleware with v6/v7 compatibility"""
+    api_counter = Counter()
+
+    if WEB3_PY_V7:
+        # v7 class-based middleware - create the class properly
+        counter_middleware = APICallCounterMiddleware(web3, api_counter)
+        web3.middleware_onion.inject(counter_middleware, layer=0)
+    else:
+        # v6 function-based middleware
+        counter_middleware = APICallCounterMiddleware(api_counter)
+        web3.middleware_onion.inject(counter_middleware, layer=0)
+
+    return api_counter
+
+
+def _add_function_middleware_v7(web3, middleware_func, layer):
+    """Wrap v6-style function middleware for v7 - FIXED VERSION"""
+
+    class MiddlewareAdapter(Web3Middleware):
+        def __init__(self, w3, func):
+            super().__init__(w3)
+            self.func = func
+            # Create the actual middleware by calling the function
+            self.middleware = self.func(self._make_request, w3)
+
+        def _make_request(self, method, params):
+            # This should be overridden by the actual middleware
+            return method, params
+
+        def request_processor(self, method: RPCEndpoint, params: Any) -> tuple[RPCEndpoint, Any]:
+            # Call the wrapped v6 middleware
+            return self.middleware(method, params)
+
+    # Inject wrapped middleware
+    web3.middleware_onion.inject(MiddlewareAdapter(web3, middleware_func), layer=layer)
+
+
+def add_middleware(web3, middleware_func_or_name, layer=0):
+    """
+    Add middleware with v6/v7 compatibility - FIXED VERSION
+
+    Args:
+        web3: Web3 instance
+        middleware_func_or_name: Either middleware function or string name
+        layer: Layer to inject at (default 0)
+    """
+    if WEB3_PY_V7:
+        # v7 class-style middleware handling
+        if isinstance(middleware_func_or_name, str):
+            # Handle named middlewares
+            _add_named_middleware_v7(web3, middleware_func_or_name, layer)
+        elif hasattr(middleware_func_or_name, "request_processor"):
+            # Already a v7-style middleware class
+            web3.middleware_onion.inject(middleware_func_or_name, layer=layer)
+        else:
+            # Handle function middlewares - need to wrap with v7 class
+            _add_function_middleware_v7(web3, middleware_func_or_name, layer)
+    else:
+        # v6 function-style middleware
+        web3.middleware_onion.inject(middleware_func_or_name, layer=layer)
 
 
 def check_if_retry_on_failure_v6(method):
@@ -262,46 +334,24 @@ def _add_named_middleware_v7(web3, middleware_name, layer):
     pass
 
 
-def _add_function_middleware_v7(web3, middleware_func, layer):
-    """Wrap v6-style function middleware for v7"""
+def clear_middleware(web3_or_provider: Web3 | HTTPProvider) -> None:
+    """Clear all middleware with v6/v7 compatibility - handles both Web3 instances and providers"""
 
-    # Create v7-compatible class wrapper
-    class MiddlewareAdapter:
-        def __init__(self, func):
-            self.func = func
+    # Check if it's a Web3 instance
+    if hasattr(web3_or_provider, "middleware_onion"):
+        # It's a Web3 instance - clear middleware onion
+        web3_or_provider.middleware_onion.clear()
+        return
 
-        def __call__(self, make_request, web3):
-            return self.func(make_request, web3)
+    # Check if it's a provider with middlewares (v6 style)
+    if hasattr(web3_or_provider, "middlewares"):
+        # It's a v6 provider - clear middlewares
+        web3_or_provider.middlewares.clear()
+        return
 
-    # Inject wrapped middleware
-    web3.middleware_onion.inject(MiddlewareAdapter(middleware_func), layer=layer)
-
-
-def add_middleware(web3, middleware_func_or_name, layer=0):
-    """
-    Add middleware with v6/v7 compatibility
-
-    Args:
-        web3: Web3 instance
-        middleware_func_or_name: Either middleware function or string name
-        layer: Layer to inject at (default 0)
-    """
-    if WEB3_PY_V7:
-        # v7 class-style middleware handling
-        if isinstance(middleware_func_or_name, str):
-            # Handle named middlewares
-            _add_named_middleware_v7(web3, middleware_func_or_name, layer)
-        else:
-            # Handle function middlewares - need to wrap with v7 class
-            _add_function_middleware_v7(web3, middleware_func_or_name, layer)
-    else:
-        # v6 function-style middleware
-        web3.middleware_onion.inject(middleware_func_or_name, layer=layer)
-
-
-def clear_middleware(web3):
-    """Clear all middleware with compatibility"""
-    web3.middleware_onion.clear()
+    # For v7 providers or unknown objects, do nothing
+    # In v7, providers don't have middleware - it's managed at Web3 level
+    pass
 
 
 def install_poa_middleware(web3, layer=0):
@@ -330,22 +380,6 @@ def install_retry_middleware_compat(web3):
         from eth_defi.middleware import http_retry_request_with_sleep_middleware
 
         web3.middleware_onion.inject(http_retry_request_with_sleep_middleware, layer=0)
-
-
-def install_api_call_counter_middleware_compat(web3):
-    """Install API call counter middleware with v6/v7 compatibility"""
-    api_counter = Counter()
-
-    if WEB3_PY_V7:
-        # v7 class-based middleware
-        counter_middleware = APICallCounterMiddleware(api_counter, web3)
-        web3.middleware_onion.inject(lambda w3: counter_middleware, layer=0)
-    else:
-        # v6 function-based middleware
-        counter_middleware = APICallCounterMiddleware(api_counter)
-        web3.middleware_onion.inject(counter_middleware, layer=0)
-
-    return api_counter
 
 
 def encode_function_args_v6(func, args):
@@ -458,3 +492,4 @@ else:
 
 abi_to_signature = _abi_to_signature
 get_response_from_post_request = _get_response_from_post_request
+geth_poa_middleware = _geth_poa_middleware
