@@ -432,45 +432,51 @@ from web3._utils.transactions import fill_nonce, fill_transaction_defaults
 from web3.middleware.signing import format_transaction, gen_normalized_accounts
 
 
-def construct_sign_and_send_raw_middleware_anvil(
-    private_key_or_account,
-) -> Middleware:
-    """Capture transactions sign and send as raw transactions
+def construct_sign_and_send_raw_middleware_anvil(private_key_or_account) -> Middleware:
+    """Capture transactions sign and send as raw transactions - v6/v7 compatible."""
+    from eth_defi.compat import construct_sign_and_send_raw_middleware
 
-    .. note ::
-
-        This is web3.py middleware that has been fixed for Anvil/other JSON-RPC compatibility.
-
-    Keyword arguments:
-    private_key_or_account -- A single private key or a tuple,
-    list or set of private keys. Keys can be any of the following formats:
-      - An eth_account.LocalAccount object
-      - An eth_keys.PrivateKey object
-      - A raw private key as a hex string or byte string
-    """
-
-    accounts = gen_normalized_accounts(private_key_or_account)
-
-    def sign_and_send_raw_middleware(make_request: Callable[[RPCEndpoint, Any], Any], w3: "Web3") -> Callable[[RPCEndpoint, Any], RPCResponse]:
-        format_and_fill_tx = compose(format_transaction, fill_transaction_defaults(w3), fill_nonce(w3))
-
-        def middleware(method: RPCEndpoint, params: Any) -> RPCResponse:
-            if method != "eth_sendTransaction":
-                return make_request(method, params)
-            else:
-                transaction = format_and_fill_tx(params[0])
-
-            if "from" not in transaction:
-                return make_request(method, params)
-            elif transaction.get("from") not in accounts:
-                return make_request(method, params)
-
-            account = accounts[transaction["from"]]
-            signed_tx = account.sign_transaction(transaction)
-            raw_tx = get_tx_broadcast_data(signed_tx)
-            return make_request(RPCEndpoint("eth_sendRawTransaction"), [raw_tx.hex()])
-
-        return middleware
+    # Just use the compat version - it handles both v6 and v7
+    return construct_sign_and_send_raw_middleware(private_key_or_account)
+    # def construct_sign_and_send_raw_middleware_anvil(
+    #     private_key_or_account,
+    # ) -> Middleware:
+    #     """Capture transactions sign and send as raw transactions
+    #
+    #     .. note ::
+    #
+    #         This is web3.py middleware that has been fixed for Anvil/other JSON-RPC compatibility.
+    #
+    #     Keyword arguments:
+    #     private_key_or_account -- A single private key or a tuple,
+    #     list or set of private keys. Keys can be any of the following formats:
+    #       - An eth_account.LocalAccount object
+    #       - An eth_keys.PrivateKey object
+    #       - A raw private key as a hex string or byte string
+    #     """
+    #
+    #     accounts = gen_normalized_accounts(private_key_or_account)
+    #
+    #     def sign_and_send_raw_middleware(make_request: Callable[[RPCEndpoint, Any], Any], w3: "Web3") -> Callable[[RPCEndpoint, Any], RPCResponse]:
+    #         format_and_fill_tx = compose(format_transaction, fill_transaction_defaults(w3), fill_nonce(w3))
+    #
+    #         def middleware(method: RPCEndpoint, params: Any) -> RPCResponse:
+    #             if method != "eth_sendTransaction":
+    #                 return make_request(method, params)
+    #             else:
+    #                 transaction = format_and_fill_tx(params[0])
+    #
+    #             if "from" not in transaction:
+    #                 return make_request(method, params)
+    #             elif transaction.get("from") not in accounts:
+    #                 return make_request(method, params)
+    #
+    #             account = accounts[transaction["from"]]
+    #             signed_tx = account.sign_transaction(transaction)
+    #             raw_tx = get_tx_broadcast_data(signed_tx)
+    #             return make_request(RPCEndpoint("eth_sendRawTransaction"), [raw_tx.hex()])
+    #
+    #         return middleware
 
     return sign_and_send_raw_middleware
 
