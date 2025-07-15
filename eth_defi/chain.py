@@ -185,7 +185,7 @@ def install_chain_middleware(web3: Web3, poa_middleware=None, hint: str = ""):
 
             web3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
         else:
-            from web3.middleware import geth_poa_middleware
+            from eth_defi.compat import geth_poa_middleware
 
             web3.middleware_onion.inject(geth_poa_middleware, layer=0)
 
