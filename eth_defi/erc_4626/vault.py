@@ -555,6 +555,8 @@ class ERC4626Vault(VaultBase):
 
         except (ValueError, BadFunctionCallOutput) as e:
             parsed_error = str(e)
+            # Try to figure out broken ERC-4626 contract and have all conditions
+            # to gracefully handle failed erc_7575_call()
             # Mantle
             # Could not read ERC4626Vault 0x32F6D2c91FF3C3d2f1fC2cCAb4Afcf2b6ecF24Ef (set()): {'message': 'out of gas', 'code': -32000}
             # Hyperliquid
