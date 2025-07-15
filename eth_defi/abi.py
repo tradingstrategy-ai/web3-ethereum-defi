@@ -20,7 +20,7 @@ from eth_typing import HexAddress, HexStr
 from eth_utils import encode_hex, function_abi_to_4byte_selector
 from web3._utils.contracts import encode_abi
 from eth_utils.abi import event_abi_to_log_topic
-from eth_defi.compat import abi_to_signature, get_function_info
+from eth_defi.compat import abi_to_signature, get_function_info, WEB3_PY_V7
 from hexbytes import HexBytes
 from web3 import Web3
 from web3._utils.abi import get_abi_input_names, get_abi_input_types
@@ -337,7 +337,11 @@ def encode_function_call(
     w3 = func.w3
     contract_abi = func.contract_abi
     fn_abi = func.abi
-    fn_identifier = func.function_identifier
+
+    if WEB3_PY_V7:
+        fn_identifier = func.abi_element_identifier
+    else:
+        fn_identifier = func.function_identifier
 
     fn_abi, fn_selector, fn_arguments = get_function_info(
         # type ignored b/c fn_id here is always str b/c FallbackFn is handled above
