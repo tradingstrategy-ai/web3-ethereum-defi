@@ -20,6 +20,7 @@ from web3 import Web3
 from web3._utils.contracts import prepare_transaction
 from web3.contract.contract import ContractFunction
 
+from eth_defi.compat import WEB3_PY_V7
 from eth_defi.gas import apply_gas, estimate_gas_fees, estimate_gas_price
 from eth_defi.tx import decode_signed_transaction
 from eth_defi.middleware import construct_sign_and_send_raw_middleware_anvil
@@ -332,17 +333,32 @@ class HotWallet:
             # Use the default gas filler
             tx = func.build_transaction(tx_params)
         else:
-            # Use given gas parameters
-            tx = prepare_transaction(
-                func.address,
-                func.w3,
-                fn_identifier=func.function_identifier,
-                contract_abi=func.contract_abi,
-                fn_abi=func.abi,
-                transaction=tx_params,
-                fn_args=func.args,
-                fn_kwargs=func.kwargs,
-            )
+            if WEB3_PY_V7:
+                fn_identifier = func.abi_element_identifier
+                # Use given gas parameters
+                tx = prepare_transaction(
+                    func.address,
+                    func.w3,
+                    abi_element_identifier=fn_identifier,
+                    contract_abi=func.contract_abi,
+                    abi_callable=func.abi,
+                    transaction=tx_params,
+                    fn_args=func.args,
+                    fn_kwargs=func.kwargs,
+                )
+            else:
+                fn_identifier = func.function_identifier
+                # Use given gas parameters
+                tx = prepare_transaction(
+                    func.address,
+                    func.w3,
+                    fn_identifier=fn_identifier,
+                    contract_abi=func.contract_abi,
+                    fn_abi=func.abi,
+                    transaction=tx_params,
+                    fn_args=func.args,
+                    fn_kwargs=func.kwargs,
+                )
 
         return self.sign_transaction_with_new_nonce(tx)
 
