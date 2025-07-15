@@ -25,7 +25,7 @@ import textwrap
 import requests
 
 from web3 import HTTPProvider, Web3
-from web3.middleware import geth_poa_middleware
+from eth_defi.compat import geth_poa_middleware
 
 from eth_defi.abi import get_contract
 from eth_defi.event_reader.filter import Filter
