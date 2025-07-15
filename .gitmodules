@@ -56,3 +56,6 @@
 [submodule "contracts/safe-integration/lib/openzeppelin-contracts-upgradeable"]
 	path = contracts/safe-integration/lib/openzeppelin-contracts-upgradeable
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable.git
+[submodule "contracts/lagoon-v0"]
+	path = contracts/lagoon-v0
+	url = https://github.com/hopperlabsxyz/lagoon-v0.git
