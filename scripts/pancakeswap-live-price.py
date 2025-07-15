@@ -24,7 +24,7 @@ import os
 import time
 
 from web3 import HTTPProvider, Web3
-from web3.middleware import geth_poa_middleware
+from eth_defi.compat import geth_poa_middleware
 
 from eth_defi.price_oracle.oracle import PriceOracle, time_weighted_average_price
 from eth_defi.uniswap_v2.oracle import update_live_price_feed

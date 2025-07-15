@@ -19,8 +19,7 @@ import flaky
 import pytest
 from eth_defi.middleware import http_retry_request_with_sleep_middleware
 from web3 import HTTPProvider, Web3
-from web3.middleware import geth_poa_middleware
-
+from eth_defi.compat import geth_poa_middleware
 from eth_defi.event_reader.web3factory import TunedWeb3Factory
 from eth_defi.price_oracle.oracle import PriceOracle, time_weighted_average_price, NotEnoughData, DataTooOld, DataPeriodTooShort
 from eth_defi.provider.multi_provider import create_multi_provider_web3, MultiProviderWeb3Factory

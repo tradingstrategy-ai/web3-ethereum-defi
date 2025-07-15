@@ -1,7 +1,8 @@
 from typing import Tuple
 
 from eth_typing import ChecksumAddress, HexStr
-from web3._utils.contracts import get_function_info, encode_abi
+from web3._utils.contracts import encode_abi
+from eth_defi.compat import get_function_info
 from web3.contract.contract import ContractFunction
 
 
