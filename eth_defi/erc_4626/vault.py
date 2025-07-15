@@ -561,12 +561,7 @@ class ERC4626Vault(VaultBase):
             # Could not read ERC4626Vault 0x32F6D2c91FF3C3d2f1fC2cCAb4Afcf2b6ecF24Ef (set()): {'message': 'out of gas', 'code': -32000}
             # Hyperliquid
             # ValueError: Call failed: 400 Client Error: Bad Request for url: https://lb.drpc.org/ogrpc?network=hyperliquid&dkey=AiWA4TvYpkijvapnvFlyx_WBfO5CICoR76hArr3WfgV4
-            if not (
-                ("execution reverted" in parsed_error) or
-                ("out of gas" in parsed_error) or
-                ("Bad Request" in parsed_error) or
-                ("VM execution error" in parsed_error)
-            ):
+            if not (("execution reverted" in parsed_error) or ("out of gas" in parsed_error) or ("Bad Request" in parsed_error) or ("VM execution error" in parsed_error)):
                 raise
 
             share_token_address = self.vault_address
