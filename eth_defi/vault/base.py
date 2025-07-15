@@ -21,10 +21,8 @@ from eth.typing import BlockRange
 from eth_typing import BlockIdentifier, HexAddress
 from web3 import Web3
 
-from eth_defi.event_reader.multicall_batcher import (EncodedCall,
-                                                     EncodedCallResult)
-from eth_defi.token import (DEFAULT_TOKEN_CACHE, TokenAddress, TokenDetails,
-                            fetch_erc20_details)
+from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
+from eth_defi.token import DEFAULT_TOKEN_CACHE, TokenAddress, TokenDetails, fetch_erc20_details
 from eth_defi.vault.lower_case_dict import LowercaseDict
 
 
@@ -441,6 +439,12 @@ class VaultBase(ABC):
     def __repr__(self):
         return f"<{self.__class__.__name__} {self.name} {self.symbol} at {self.address}>"
 
+    def get_spec(self) -> VaultSpec:
+        return VaultSpec(
+            chain_id=self.chain_id,
+            vault_address=self.address,
+        )
+
     @property
     @abstractmethod
     def chain_id(self) -> int:
@@ -511,8 +515,11 @@ class VaultBase(ABC):
         """
 
     @abstractmethod
-    def get_historical_reader(self) -> VaultHistoricalReader:
+    def get_historical_reader(self, stateful: bool) -> VaultHistoricalReader:
         """Get share price reader to fetch historical returns.
+
+        :param stateful:
+            If True, use a stateful reading strategy.
 
         :return:
             None if unsupported

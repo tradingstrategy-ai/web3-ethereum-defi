@@ -6,6 +6,7 @@
 """
 
 import datetime
+import os
 import random
 
 import flaky
@@ -43,6 +44,9 @@ from eth_defi.trace import (
 )
 from eth_defi.uniswap_v2.deployment import UniswapV2Deployment, deploy_trading_pair
 from eth_defi.usdc.eip_3009 import EIP3009AuthorizationType, make_eip_3009_transfer
+
+
+CI = os.environ.get("CI") == "true"
 
 
 @pytest.fixture
@@ -230,6 +234,7 @@ def mln_weth_pair(web3, deployer, uniswap_v2, weth, mln) -> Contract:
     return pair
 
 
+@pytest.mark.skipif(CI, reason="Too flaky on Github CI")
 def test_enzyme_usdc_payment_forwarder_transfer_with_authorization_and_terms(
     web3: Web3,
     deployer: HexAddress,

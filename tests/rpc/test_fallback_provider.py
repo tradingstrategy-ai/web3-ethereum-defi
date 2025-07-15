@@ -2,14 +2,15 @@
 
 import datetime
 import os
+from pprint import pformat
 from unittest.mock import patch, DEFAULT
 
 import pytest
 import requests
-from eth.exceptions import OutOfGas
 from eth_account import Account
 
 from eth_defi.confirmation import wait_and_broadcast_multiple_nodes, NonceMismatch
+from eth_defi.event_reader.fast_json_rpc import get_last_headers
 from eth_defi.provider.broken_provider import get_default_block_tip_latency
 from web3 import HTTPProvider, Web3
 
@@ -21,6 +22,9 @@ from eth_defi.provider.fallback import FallbackProvider
 from eth_defi.token import fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.abi import ZERO_ADDRESS
+
+
+CI = os.environ.get("CI") == "true"
 
 
 @pytest.fixture(scope="module")
@@ -183,13 +187,18 @@ def test_fallback_nonce_too_low(web3, deployer: str):
 
 
 @pytest.mark.skipif(
-    os.environ.get("JSON_RPC_POLYGON") is None,
-    reason="Set JSON_RPC_POLYGON environment variable to a Polygon node",
+    os.environ.get("JSON_RPC_POLYGON") is None or CI,
+    reason="Set JSON_RPC_POLYGON environment variable to a Polygon node, also does not seem to work on CI JSON-RPC",
 )
 def test_eth_call_not_having_block(fallback_provider: FallbackProvider, provider_1):
     """What happens if you ask data from non-existing block."""
 
     json_rpc_url = os.environ["JSON_RPC_POLYGON"]
+
+    provider_urls = json_rpc_url.split(" ")
+    if len(provider_urls) > 1:
+        json_rpc_url = provider_urls[0]
+
     provider = HTTPProvider(json_rpc_url)
     # We don't do real fallbacks, but test the internal
     fallback_provider = FallbackProvider(
@@ -208,8 +217,14 @@ def test_eth_call_not_having_block(fallback_provider: FallbackProvider, provider
 
     bad_block = 1  # We get empty response if the contract has not been deployed yet
 
-    with pytest.raises(ProbablyNodeHasNoBlock):
-        usdc.contract.functions.balanceOf(ZERO_ADDRESS).call(block_identifier=bad_block)
+    try:
+        with pytest.raises(ProbablyNodeHasNoBlock):
+            usdc.contract.functions.balanceOf(ZERO_ADDRESS).call(block_identifier=bad_block)
+    except Exception as e:
+        # Happens on Github CI
+        #  FAILED tests/rpc/test_fallback_provider.py::test_eth_call_not_having_block - eth_defi.provider.fallback.ExtraValueError: ***'code': -32000, 'message': 'state transitaion failed: inverted_index(v1-accounts.0-64.ef) at (0000000000000000000000000000000000000000, 5) returned value 0, but it out-of-bounds 100000000-5501010835. it may signal that .ef file is broke - can detect by `erigon seg integrity --check=InvertedIndex`, or re-download files'***
+        headers = get_last_headers()
+        raise RuntimeError(f"Error fetching balance at block {bad_block} with headers {pformat(headers)}") from e
 
     assert fallback_provider.api_retry_counts[0]["eth_call"] == 3  # 5 attempts, 3 retries, the last retry does not count
 

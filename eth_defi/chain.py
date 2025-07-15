@@ -51,6 +51,7 @@ CHAIN_NAMES = {
     81457: "Blast",
     42220: "Celo",
     7777777: "Zora",
+    57073: "Ink",
 }
 
 #: For linking on reports
@@ -76,6 +77,7 @@ CHAIN_HOMEPAGES = {
     81457: {"name": "Blast", "homepage": "https://blast.io"},
     42220: {"name": "Celo", "homepage": "https://celo.org"},
     7777777: {"name": "Zora", "homepage": "https://zora.co"},
+    57073: {"name": "Ink", "homepage": "https://inkonchain.com/"},
 }
 
 #: Chain avg block times.
@@ -103,6 +105,7 @@ EVM_BLOCK_TIMES = {
     81457: 2,  # Layer-2, ~2s typical for Optimistic-style chains
     42220: 5,  # Celo, ~5s block time
     7777777: 2,  # Zora L2
+    57073: 2,  # Ink (Optimism)
 }
 
 

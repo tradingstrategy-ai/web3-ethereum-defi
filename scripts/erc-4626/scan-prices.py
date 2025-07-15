@@ -14,6 +14,14 @@ Or for faster small sample scan limit the end block:
 
     END_BLOCK=5555721 python scripts/erc-4626/scan-prices.py
 
+Or for dynamic 1h frequency scan for Polygon, delete existing data:
+
+    rm -rf ~/.tradingstrategy/vaults
+    export FREQUENCY=1h
+    export JSON_RPC_URL=$JSON_RPC_MANTLE
+    python scripts/erc-4626/scan-vaults.py
+    python scripts/erc-4626/scan-prices.py
+
 """
 
 import logging
@@ -49,7 +57,7 @@ def main():
     token_cache = TokenDiskCache()
 
     # How many CPUs / subprocess we use
-    max_workers = 14
+    max_workers = 20
     # max_workers = 1  # To debug, set workers to 1
 
     web3 = create_multi_provider_web3(JSON_RPC_URL)
@@ -73,14 +81,24 @@ def main():
     else:
         output_folder = Path(output_folder).expanduser()
 
+    frequency = os.environ.get("FREQUENCY", "1d")
+
+    assert frequency in ["1h", "1d"], f"Unsupported frequency: {frequency}"
+
     vault_db_fname = Path(f"{output_folder}/vault-db.pickle")
-    price_parquet_fname = output_folder / "vault-prices.parquet"
+    price_parquet_fname = output_folder / f"vault-prices-{frequency}.parquet"
+
+    reader_state_db = output_folder / f"vault-reader-state-{frequency}.pickle"
 
     print(f"Scanning vault historical prices on chain {web3.eth.chain_id}: {name}")
 
     assert vault_db_fname.exists(), f"File {vault_db_fname} does not exist - run scan-vaults.py first"
-
     vault_db = pickle.load(vault_db_fname.open("rb"))
+
+    if reader_state_db.exists():
+        reader_states = pickle.load(reader_state_db.open("rb"))
+    else:
+        reader_states = None
 
     chain_vaults = [v for v in vault_db.values() if v["_detection_data"].chain == chain_id]
     print(f"Chain {name} has {len(chain_vaults):,} vaults in the vault detection database")
@@ -121,7 +139,15 @@ def main():
         max_workers=max_workers,
         chunk_size=32,
         token_cache=token_cache,
+        frequency=frequency,
+        reader_states=reader_states,
     )
+
+    # Save states
+    states = scan_result["reader_states"]
+    if states:
+        print(f"Saving {len(states)} reader states to {reader_state_db}")
+        pickle.dump(states, reader_state_db.open("wb"))
 
     token_cache.commit()
     print(f"Token cache size is {token_cache.get_file_size():,} bytes, {len(token_cache):,} tokens")
