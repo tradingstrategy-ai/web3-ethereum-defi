@@ -1,0 +1,1193 @@
+[
+  {
+    "type": "constructor",
+    "inputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "allowedToken",
+    "inputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "changeTokenAddressAndAllow",
+    "inputs": [
+      {
+        "name": "_tokenHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "_tokenAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "crossChainManagerAddress",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "delegateSigner",
+    "inputs": [
+      {
+        "name": "data",
+        "type": "tuple",
+        "internalType": "struct VaultTypes.VaultDelegate",
+        "components": [
+          {
+            "name": "brokerHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "delegateSigner",
+            "type": "address",
+            "internalType": "address"
+          }
+        ]
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "deposit",
+    "inputs": [
+      {
+        "name": "data",
+        "type": "tuple",
+        "internalType": "struct VaultTypes.VaultDepositFE",
+        "components": [
+          {
+            "name": "accountId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "brokerHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "tokenHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "tokenAmount",
+            "type": "uint128",
+            "internalType": "uint128"
+          }
+        ]
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "payable"
+  },
+  {
+    "type": "function",
+    "name": "depositFeeEnabled",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "depositId",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "depositTo",
+    "inputs": [
+      {
+        "name": "receiver",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "data",
+        "type": "tuple",
+        "internalType": "struct VaultTypes.VaultDepositFE",
+        "components": [
+          {
+            "name": "accountId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "brokerHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "tokenHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "tokenAmount",
+            "type": "uint128",
+            "internalType": "uint128"
+          }
+        ]
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "payable"
+  },
+  {
+    "type": "function",
+    "name": "emergencyPause",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "emergencyUnpause",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "enableDepositFee",
+    "inputs": [
+      {
+        "name": "_enabled",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "getAllAllowedBroker",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32[]",
+        "internalType": "bytes32[]"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getAllAllowedToken",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32[]",
+        "internalType": "bytes32[]"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getAllowedBroker",
+    "inputs": [
+      {
+        "name": "_brokerHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getAllowedToken",
+    "inputs": [
+      {
+        "name": "_tokenHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getDepositFee",
+    "inputs": [
+      {
+        "name": "receiver",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "data",
+        "type": "tuple",
+        "internalType": "struct VaultTypes.VaultDepositFE",
+        "components": [
+          {
+            "name": "accountId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "brokerHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "tokenHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "tokenAmount",
+            "type": "uint128",
+            "internalType": "uint128"
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "initialize",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "messageTransmitterContract",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "owner",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "paused",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "protocolVault",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract IProtocolVault"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "rebalanceBurn",
+    "inputs": [
+      {
+        "name": "data",
+        "type": "tuple",
+        "internalType": "struct RebalanceTypes.RebalanceBurnCCData",
+        "components": [
+          {
+            "name": "dstDomain",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "rebalanceId",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "amount",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "tokenHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "burnChainId",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "mintChainId",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "dstVaultAddress",
+            "type": "address",
+            "internalType": "address"
+          }
+        ]
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "rebalanceMint",
+    "inputs": [
+      {
+        "name": "data",
+        "type": "tuple",
+        "internalType": "struct RebalanceTypes.RebalanceMintCCData",
+        "components": [
+          {
+            "name": "rebalanceId",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "amount",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "tokenHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "burnChainId",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "mintChainId",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "messageBytes",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "messageSignature",
+            "type": "bytes",
+            "internalType": "bytes"
+          }
+        ]
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "renounceOwnership",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setAllowedBroker",
+    "inputs": [
+      {
+        "name": "_brokerHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "_allowed",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setAllowedToken",
+    "inputs": [
+      {
+        "name": "_tokenHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "_allowed",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setCrossChainManager",
+    "inputs": [
+      {
+        "name": "_crossChainManagerAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setDepositLimit",
+    "inputs": [
+      {
+        "name": "_tokenAddress",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_limit",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setProtocolVaultAddress",
+    "inputs": [
+      {
+        "name": "_protocolVaultAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setRebalanceMessengerContract",
+    "inputs": [
+      {
+        "name": "_rebalanceMessengerContract",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setTokenMessengerContract",
+    "inputs": [
+      {
+        "name": "_tokenMessengerContract",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "tokenAddress2DepositLimit",
+    "inputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "tokenMessengerContract",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "transferOwnership",
+    "inputs": [
+      {
+        "name": "newOwner",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "withdraw",
+    "inputs": [
+      {
+        "name": "data",
+        "type": "tuple",
+        "internalType": "struct VaultTypes.VaultWithdraw",
+        "components": [
+          {
+            "name": "accountId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "brokerHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "tokenHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "tokenAmount",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "fee",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "sender",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "receiver",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "withdrawNonce",
+            "type": "uint64",
+            "internalType": "uint64"
+          }
+        ]
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "withdraw2Contract",
+    "inputs": [
+      {
+        "name": "data",
+        "type": "tuple",
+        "internalType": "struct VaultTypes.VaultWithdraw2Contract",
+        "components": [
+          {
+            "name": "vaultType",
+            "type": "uint8",
+            "internalType": "enum VaultTypes.VaultEnum"
+          },
+          {
+            "name": "accountId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "brokerHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "tokenHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "tokenAmount",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "fee",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "sender",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "receiver",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "withdrawNonce",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "clientId",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "event",
+    "name": "AccountDelegate",
+    "inputs": [
+      {
+        "name": "delegateContract",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "brokerHash",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "delegateSigner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "chainId",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "blockNumber",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "AccountDeposit",
+    "inputs": [
+      {
+        "name": "accountId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "userAddress",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "depositNonce",
+        "type": "uint64",
+        "indexed": true,
+        "internalType": "uint64"
+      },
+      {
+        "name": "tokenHash",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "tokenAmount",
+        "type": "uint128",
+        "indexed": false,
+        "internalType": "uint128"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "AccountDepositTo",
+    "inputs": [
+      {
+        "name": "accountId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "userAddress",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "depositNonce",
+        "type": "uint64",
+        "indexed": true,
+        "internalType": "uint64"
+      },
+      {
+        "name": "tokenHash",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "tokenAmount",
+        "type": "uint128",
+        "indexed": false,
+        "internalType": "uint128"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "AccountWithdraw",
+    "inputs": [
+      {
+        "name": "accountId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "withdrawNonce",
+        "type": "uint64",
+        "indexed": true,
+        "internalType": "uint64"
+      },
+      {
+        "name": "brokerHash",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "sender",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "receiver",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "tokenHash",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "tokenAmount",
+        "type": "uint128",
+        "indexed": false,
+        "internalType": "uint128"
+      },
+      {
+        "name": "fee",
+        "type": "uint128",
+        "indexed": false,
+        "internalType": "uint128"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ChangeCrossChainManager",
+    "inputs": [
+      {
+        "name": "oldAddress",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "newAddress",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ChangeDepositLimit",
+    "inputs": [
+      {
+        "name": "_tokenAddress",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "_limit",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ChangeTokenAddressAndAllow",
+    "inputs": [
+      {
+        "name": "_tokenHash",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "_tokenAddress",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Initialized",
+    "inputs": [
+      {
+        "name": "version",
+        "type": "uint8",
+        "indexed": false,
+        "internalType": "uint8"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "OwnershipTransferred",
+    "inputs": [
+      {
+        "name": "previousOwner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "newOwner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Paused",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SetAllowedBroker",
+    "inputs": [
+      {
+        "name": "_brokerHash",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "_allowed",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SetAllowedToken",
+    "inputs": [
+      {
+        "name": "_tokenHash",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "_allowed",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Unpaused",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "WithdrawFailed",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "receiver",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "AccountIdInvalid",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "AddressZero",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "BalanceNotEnough",
+    "inputs": [
+      {
+        "name": "balance",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "amount",
+        "type": "uint128",
+        "internalType": "uint128"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "BrokerNotAllowed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "DepositExceedLimit",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "EnumerableSetError",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotImplemented",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotZeroCodeLength",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "OnlyCrossChainManagerCanCall",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ProtocolVaultAddressMismatch",
+    "inputs": [
+      {
+        "name": "want",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "got",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "TokenNotAllowed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZeroCodeLength",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZeroDeposit",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZeroDepositFee",
+    "inputs": []
+  }
+]

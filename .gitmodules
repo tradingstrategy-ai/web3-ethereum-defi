@@ -56,3 +56,6 @@
 [submodule "contracts/safe-integration/lib/openzeppelin-contracts-upgradeable"]
 	path = contracts/safe-integration/lib/openzeppelin-contracts-upgradeable
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable.git
+[submodule "contracts/orderly-contract-evm"]
+	path = contracts/orderly-contract-evm
+	url = https://github.com/OrderlyNetwork/contract-evm.git
