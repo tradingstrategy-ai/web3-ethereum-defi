@@ -164,6 +164,7 @@ def deploy_lagoon(
     use_forge=False,
     beacon_proxy=True,
     beacon_address="0x652716FaD571f04D26a3c8fFd9E593F17123Ab20",
+    vault_abi="lagoon/v0.5.0/Vault.json",
 ) -> Contract:
     """Deploy a new Lagoon vault.
 
@@ -198,6 +199,11 @@ def deploy_lagoon(
 
     :param etherscan_api_key:
         For Forge.
+
+    :param vault_abi:
+        Which Lagoon vault version we deploy.
+
+        Use "lagoon/Vault.json" for the legacy version. **Warning**: unsafe.
 
     :return:
         Vault contract.
@@ -258,13 +264,13 @@ def deploy_lagoon(
             web3,
             deployer=deployer,
             beacon_address=beacon_address,
-            implementation_contract_abi="lagoon/Vault.json",
+            implementation_contract_abi=vault_abi,
         )
 
     else:
         vault = deploy_contract(
             web3,
-            "lagoon/Vault.json",
+            vault_abi,
             deployer,
             False,
         )
@@ -514,6 +520,7 @@ def deploy_automated_lagoon_vault(
     guard_only: bool = False,
     existing_vault_address: HexAddress | str | None = None,
     existing_safe_address: HexAddress | str | None = None,
+    vault_abi="lagoon/v0.5.0/Vault.json",
 ) -> LagoonAutomatedDeployment:
     """Deploy a full Lagoon setup with a guard.
 
@@ -632,6 +639,7 @@ def deploy_automated_lagoon_vault(
             owner=safe.address,
             etherscan_api_key=etherscan_api_key,
             use_forge=use_forge,
+            vault_abi=vault_abi,
         )
 
     if not is_anvil(web3):
