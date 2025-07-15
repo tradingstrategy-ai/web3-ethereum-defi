@@ -140,6 +140,7 @@ lagoon:
 	@mkdir -p eth_defi/abi/lagoon
 	@mkdir -p eth_defi/abi/lagoon/v0.5.0
 	@find contracts/lagoon-v0/out/v0.5.0 -iname "*.json" -not -iname "*.dbg.json" -exec cp {} eth_defi/abi/lagoon/v0.5.0 \;
+	@cp contracts/lagoon-v0/out/BeaconProxyFactory.sol/BeaconProxyFactory.json eth_defi/abi/lagoon
 
 # Compile and copy Velvet capital contracts
 velvet:
