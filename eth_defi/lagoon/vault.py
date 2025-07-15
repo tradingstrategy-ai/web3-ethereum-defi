@@ -1,5 +1,5 @@
 """Vault adapter for Lagoon Finance protocol."""
-
+import enum
 import logging
 from dataclasses import asdict
 from decimal import Decimal
@@ -20,6 +20,7 @@ from safe_eth.safe import Safe
 
 from ..abi import get_deployed_contract, encode_function_call, present_solidity_args, get_function_selector
 from ..erc_4626.vault import ERC4626Vault
+from ..event_reader.multicall_batcher import EncodedCall
 from ..safe.safe_compat import create_safe_ethereum_client
 from ..trace import assert_transaction_success_with_explanation
 
@@ -69,6 +70,12 @@ class LagoonVaultInfo(VaultInfo):
     version: str
 
 
+class LagoonVersion(enum.Enum):
+    """Figure out Lagoon version."""
+    legacy = "legacy"
+    v_0_5_0 = "v0.5.0"
+
+
 class LagoonVault(ERC4626Vault):
     """Python interface for interacting with Lagoon Finance vaults.
 
@@ -115,6 +122,33 @@ class LagoonVault(ERC4626Vault):
 
     def __repr__(self):
         return f"<Lagoon vault:{self.vault_contract.address} safe:{self.safe_address}>"
+
+    def fetch_version(self) -> LagoonVersion:
+        """Figure out Lagoon version.
+
+        - Poke the smart contract with probe functions to get version
+        """
+        probe_call = EncodedCall.from_keccak_signature(
+            address=self.spec.vault_address,
+            signature=Web3.keccak("pendingSilo()")[0:4],
+            data=b"",
+        )
+
+        try:
+            probe_call.call(self.web3)
+            version = LagoonVersion.legacy
+        except ValueError as e:
+            version = LagoonVersion.v_0_5_0
+
+        return version
+
+    @cached_property
+    def version(self) -> LagoonVersion:
+        """Get Lagoon version.
+
+        - Cached property to avoid multiple calls
+        """
+        return self.fetch_version()
 
     @cached_property
     def vault_contract(self) -> Contract:
@@ -209,8 +243,18 @@ class LagoonVault(ERC4626Vault):
     @cached_property
     def silo_address(self) -> HexAddress:
         """Pending Silo contract address"""
-        vault_contract = self.vault_contract
-        silo_address = vault_contract.functions.pendingSilo().call()
+
+        # Because of EVM is such piece of shit,
+        # Lagoon team removed pendingSilo() function
+        # as they hit the contract size limit
+
+        if self.version == LagoonVersion.legacy:
+            vault_contract = self.vault_contract
+            web3 = self.web3
+            web3.eth.get_storage_at(vault_contract.address, )
+            silo_address = vault_contract.functions.pendingSilo().call()
+        else:
+            pass
         return silo_address
 
     @cached_property
