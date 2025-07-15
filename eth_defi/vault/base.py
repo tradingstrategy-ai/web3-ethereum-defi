@@ -21,10 +21,8 @@ from eth.typing import BlockRange
 from eth_typing import BlockIdentifier, HexAddress
 from web3 import Web3
 
-from eth_defi.event_reader.multicall_batcher import (EncodedCall,
-                                                     EncodedCallResult)
-from eth_defi.token import (DEFAULT_TOKEN_CACHE, TokenAddress, TokenDetails,
-                            fetch_erc20_details)
+from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
+from eth_defi.token import DEFAULT_TOKEN_CACHE, TokenAddress, TokenDetails, fetch_erc20_details
 from eth_defi.vault.lower_case_dict import LowercaseDict
 
 

@@ -9,33 +9,29 @@ import datetime
 import random
 
 import flaky
-from web3.middleware import construct_sign_and_send_raw_middleware
-
-from eth_defi.enzyme.generic_adapter_vault import deploy_vault_with_generic_adapter, deploy_guard, whitelist_sender_receiver, bind_vault, deploy_generic_adapter_with_guard
-
 import pytest
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
 from eth_typing import HexAddress
+from web3 import Web3
+from web3.contract import Contract
 
-from eth_defi.enzyme.policy import update_adapter_policy, create_safe_default_policy_configuration_for_generic_adapter
+from eth_defi.abi import get_deployed_contract
+from eth_defi.compat import construct_sign_and_send_raw_middleware
+from eth_defi.deploy import deploy_contract
+from eth_defi.enzyme.deployment import EnzymeDeployment, RateAsset
+from eth_defi.enzyme.erc20 import prepare_approve
+from eth_defi.enzyme.generic_adapter_vault import bind_vault, deploy_generic_adapter_with_guard, deploy_guard, deploy_vault_with_generic_adapter, whitelist_sender_receiver
+from eth_defi.enzyme.policy import create_safe_default_policy_configuration_for_generic_adapter, update_adapter_policy
+from eth_defi.enzyme.uniswap_v2 import prepare_swap
+from eth_defi.enzyme.vault import Vault
+from eth_defi.hotwallet import HotWallet
+from eth_defi.middleware import construct_sign_and_send_raw_middleware_anvil
 from eth_defi.terms_of_service.acceptance_message import (
     generate_acceptance_message,
     get_signing_hash,
     sign_terms_of_service,
 )
-
-from web3 import Web3
-from web3.contract import Contract
-
-from eth_defi.abi import get_deployed_contract
-from eth_defi.deploy import deploy_contract
-from eth_defi.enzyme.deployment import EnzymeDeployment, RateAsset
-from eth_defi.enzyme.erc20 import prepare_approve
-from eth_defi.enzyme.uniswap_v2 import prepare_swap
-from eth_defi.enzyme.vault import Vault
-from eth_defi.hotwallet import HotWallet
-from eth_defi.middleware import construct_sign_and_send_raw_middleware_anvil
 from eth_defi.token import TokenDetails
 from eth_defi.trace import (
     TransactionAssertionError,

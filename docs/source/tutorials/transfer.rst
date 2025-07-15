@@ -57,7 +57,7 @@ Then create the following script:
     from eth_account import Account
     from eth_account.signers.local import LocalAccount
     from web3 import HTTPProvider, Web3
-    from web3.middleware import construct_sign_and_send_raw_middleware
+    from eth_defi.compat import construct_sign_and_send_raw_middleware
 
     from eth_defi.abi import get_deployed_contract
     from eth_defi.token import fetch_erc20_details

@@ -6,7 +6,6 @@ from unittest.mock import patch, DEFAULT
 
 import pytest
 import requests
-from eth.exceptions import OutOfGas
 from eth_account import Account
 
 from eth_defi.confirmation import wait_and_broadcast_multiple_nodes, NonceMismatch
@@ -21,6 +20,8 @@ from eth_defi.provider.fallback import FallbackProvider
 from eth_defi.token import fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.abi import ZERO_ADDRESS
+from eth_defi.tx import get_tx_broadcast_data
+from eth_defi.compat import WEB3_PY_V7, clear_middleware
 
 
 @pytest.fixture(scope="module")
@@ -35,15 +36,16 @@ def anvil() -> AnvilLaunch:
 
 @pytest.fixture()
 def provider_1(anvil):
+    """Create HTTPProvider - middleware cleared separately for v6/v7 compatibility"""
     provider = HTTPProvider(anvil.json_rpc_url)
-    provider.middlewares.clear()
+    clear_middleware(provider)
     return provider
 
 
 @pytest.fixture()
 def provider_2(anvil):
     provider = HTTPProvider(anvil.json_rpc_url)
-    provider.middlewares.clear()
+    clear_middleware(provider)
     return provider
 
 
@@ -158,7 +160,8 @@ def test_fallback_nonce_too_low(web3, deployer: str):
     HotWallet.fill_in_gas_price(web3, tx2)
     signed_tx2 = hot_wallet.sign_transaction_with_new_nonce(tx2)
     assert signed_tx2.nonce == 0
-    tx2_hash = web3.eth.send_raw_transaction(signed_tx2.rawTransaction)
+    raw_bytes = get_tx_broadcast_data(signed_tx2)
+    tx2_hash = web3.eth.send_raw_transaction(raw_bytes)
     assert_transaction_success_with_explanation(web3, tx2_hash)
 
     fallback_provider = web3.provider
@@ -176,7 +179,8 @@ def test_fallback_nonce_too_low(web3, deployer: str):
 
     with pytest.raises(ValueError):
         # nonce too low happens during RPC call
-        tx3_hash = web3.eth.send_raw_transaction(signed_tx3.rawTransaction)
+        raw_bytes = get_tx_broadcast_data(signed_tx3)
+        tx3_hash = web3.eth.send_raw_transaction(raw_bytes)
         web3.eth.wait_for_transaction_receipt(web3, tx3_hash)
 
     assert fallback_provider.api_retry_counts[0]["eth_sendRawTransaction"] == 3  # 5 attempts, 3 retries, the last retry does not count

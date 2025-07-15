@@ -13,12 +13,12 @@ from urllib.parse import urljoin
 
 import requests
 from web3 import HTTPProvider, Web3
-from web3.middleware import geth_poa_middleware
 from web3.providers import BaseProvider, JSONBaseProvider
 from web3.types import RPCEndpoint, RPCResponse
 
 from eth_defi.event_reader.conversion import convert_jsonrpc_value_to_int
 from eth_defi.middleware import http_retry_request_with_sleep_middleware
+from eth_defi.compat import WEB3_PY_V7
 
 #: List of chain ids that need to have proof-of-authority middleweare installed
 POA_MIDDLEWARE_NEEDED_CHAIN_IDS = {
@@ -51,31 +51,6 @@ CHAIN_NAMES = {
     81457: "Blast",
     42220: "Celo",
     7777777: "Zora",
-}
-
-#: For linking on reports
-CHAIN_HOMEPAGES = {
-    1: {"name": "Ethereum", "homepage": "https://ethereum.org"},
-    56: {"name": "Binance", "homepage": "https://www.bnbchain.org"},
-    137: {"name": "Polygon", "homepage": "https://polygon.technology"},
-    43114: {"name": "Avalanche", "homepage": "https://www.avax.network"},
-    80094: {"name": "Berachain", "homepage": "https://www.berachain.com"},
-    130: {"name": "Unichain", "homepage": "https://www.uniswap.org/unichain"},  # Uniswap's Unichain
-    645749: {"name": "Hyperliquid", "homepage": "https://hyperliquid.xyz"},  # Primary Hyperliquid entry
-    8453: {"name": "Base", "homepage": "https://www.base.org"},
-    146: {"name": "Sonic", "homepage": "https://www.soniclabs.com/"},  # Formerly Fantom Sonic
-    34443: {"name": "Mode", "homepage": "https://www.mode.network"},
-    5000: {"name": "Mantle", "homepage": "https://www.mantle.xyz"},
-    999: {"name": "Hyperliquid", "homepage": "https://hyperliquid.xyz"},  # Duplicate, same as 645749
-    42161: {"name": "Arbitrum", "homepage": "https://arbitrum.io"},
-    2741: {"name": "Abstract", "homepage": "https://www.abstract.foundation"},  # Limited info, assumed official
-    10: {"name": "Optimism", "homepage": "https://www.optimism.io"},
-    1868: {"name": "Soneium", "homepage": "https://www.soneium.org"},
-    324: {"name": "ZKsync", "homepage": "https://zksync.io"},
-    100: {"name": "Gnosis", "homepage": "https://www.gnosis.io"},
-    81457: {"name": "Blast", "homepage": "https://blast.io"},
-    42220: {"name": "Celo", "homepage": "https://celo.org"},
-    7777777: {"name": "Zora", "homepage": "https://zora.co"},
 }
 
 #: Chain avg block times.
@@ -113,20 +88,6 @@ def get_chain_name(chain_id: int) -> str:
         return name
 
     return f"<Unknown chain, id {chain_id}>"
-
-
-def get_chain_homepage(chain_id: int) -> tuple[str, str]:
-    """Translate Ethereum chain id to a link to its homepage.
-
-    :return:
-        name, homepage link tuple
-    """
-    name = CHAIN_NAMES.get(chain_id)
-    link = CHAIN_HOMEPAGES.get(chain_id)
-    if not name or not link:
-        return f"<Unknown chain , id {chain_id}>", "https://"
-
-    return name, link["homepage"]
 
 
 def get_block_time(chain_id: int) -> float:
@@ -179,7 +140,15 @@ def install_chain_middleware(web3: Web3, poa_middleware=None):
         poa_middleware = web3.eth.chain_id in POA_MIDDLEWARE_NEEDED_CHAIN_IDS
 
     if poa_middleware:
-        web3.middleware_onion.inject(geth_poa_middleware, layer=0)
+        # Use compat POA middleware installation
+        if WEB3_PY_V7:
+            from web3.middleware import ExtraDataToPOAMiddleware
+
+            web3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
+        else:
+            from eth_defi.compat import geth_poa_middleware
+
+            web3.middleware_onion.inject(geth_poa_middleware, layer=0)
 
 
 def install_retry_middleware(web3: Web3):
@@ -188,7 +157,22 @@ def install_retry_middleware(web3: Web3):
     In the case your Internet connection or JSON-RPC node has issues,
     gracefully do exponential backoff retries.
     """
-    web3.middleware_onion.inject(http_retry_request_with_sleep_middleware, layer=0)
+    # Use v7 provider configuration or v6 middleware
+    if WEB3_PY_V7:
+        # v7 uses ExceptionRetryConfiguration on provider (recommended approach)
+        from web3.providers.rpc.utils import ExceptionRetryConfiguration
+        from requests.exceptions import ConnectionError, HTTPError, Timeout
+
+        provider = web3.provider
+        if hasattr(provider, "exception_retry_configuration"):
+            provider.exception_retry_configuration = ExceptionRetryConfiguration(
+                errors=(ConnectionError, HTTPError, Timeout),
+                retries=10,  # defaults to 5
+                backoff_factor=0.5,  # defaults to 0.125
+            )
+    else:
+        # v6 uses middleware injection
+        web3.middleware_onion.inject(http_retry_request_with_sleep_middleware, layer=0)
 
 
 def install_api_call_counter_middleware(web3: Web3) -> Counter:
@@ -227,15 +211,19 @@ def install_api_call_counter_middleware(web3: Web3) -> Counter:
     """
     api_counter = Counter()
 
-    def factory(make_request: Callable[[RPCEndpoint, Any], Any], web3: "Web3"):
-        def middleware(method: RPCEndpoint, params: Any) -> Optional[RPCResponse]:
-            api_counter[method] += 1
-            api_counter["total"] += 1
-            return make_request(method, params)
+    if WEB3_PY_V7:
+        # MIGRATED: v7 class-based middleware using the compat class
+        from eth_defi.compat import APICallCounterMiddleware
 
-        return middleware
+        counter_middleware = APICallCounterMiddleware(api_counter, web3)
+        web3.middleware_onion.inject(lambda w3: counter_middleware, layer=0)
+    else:
+        # v6 function-based middleware
+        from eth_defi.compat import APICallCounterMiddleware
 
-    web3.middleware_onion.inject(factory, layer=0)
+        counter_middleware = APICallCounterMiddleware(api_counter)
+        web3.middleware_onion.inject(counter_middleware, layer=0)
+
     return api_counter
 
 
@@ -259,15 +247,30 @@ def install_api_call_counter_middleware_on_provider(provider: JSONBaseProvider) 
 
     api_counter = Counter()
 
-    def factory(make_request: Callable[[RPCEndpoint, Any], Any], web3: "Web3"):
-        def middleware(method: RPCEndpoint, params: Any) -> Optional[RPCResponse]:
-            api_counter[method] += 1
-            api_counter["total"] += 1
-            return make_request(method, params)
+    if WEB3_PY_V7:
+        # v7 implementation
+        from web3.middleware import Web3Middleware
 
-        return middleware
+        class ProviderAPICounterMiddleware(Web3Middleware):
+            def request_processor(self, method: RPCEndpoint, params: Any) -> tuple[RPCEndpoint, Any]:
+                api_counter[method] += 1
+                api_counter["total"] += 1
+                return method, params
 
-    provider.middlewares.add("api_counter_middleware", factory)
+        # For provider-level middleware in web3.py 7.x+
+        provider.middlewares = provider.middlewares + (ProviderAPICounterMiddleware,)
+    else:
+        # v6 implementation
+        def factory(make_request: Callable[[RPCEndpoint, Any], Any], web3: "Web3"):
+            def middleware(method: RPCEndpoint, params: Any) -> Optional[RPCResponse]:
+                api_counter[method] += 1
+                api_counter["total"] += 1
+                return make_request(method, params)
+
+            return middleware
+
+        provider.middlewares.add("api_counter_middleware", factory)
+
     return api_counter
 
 
@@ -350,14 +353,5 @@ def fetch_block_timestamp(web3: Web3, block_number: int) -> datetime.datetime:
     """
     block = web3.eth.get_block(block_number)
     timestamp = convert_jsonrpc_value_to_int(block["timestamp"])
-    time = datetime.datetime.utcfromtimestamp(timestamp)
+    time = datetime.datetime.fromtimestamp(timestamp, tz=datetime.timezone.utc)
     return time
-
-
-def install_retry_middleware(web3: Web3):
-    """Install gracefully HTTP request retry middleware.
-
-    In the case your Internet connection or JSON-RPC node has issues,
-    gracefully do exponential backoff retries.
-    """
-    web3.middleware_onion.inject(http_retry_request_with_sleep_middleware, layer=0)

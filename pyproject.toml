@@ -37,8 +37,8 @@ cachetools = ">=4"
 futureproof = "^0.3.1"
 setuptools = {version = ">=63,<=70"}
 eth-bloom = "^2.0.0"
-evm-trace = "^0.1.0a17"
-web3 = {version = "6.14.0", extras = ["tester"]}
+evm-trace = "^0.2.6"
+web3 = {version = "^7.12.0", extras = ["tester"]}
 tqdm-loggable = ">=0.1.3"
 sigfig = "^1.3.2"
 tqdm = {version = ">=4.66.1", optional = true}
@@ -56,7 +56,7 @@ pyarrow = {version = "*", optional = true}
 pytest-xdist = {version = "^3.3.1", optional = true}
 
 # We are using evm-trace, so for compat
-eth-pydantic-types = {version = "<0.2"}
+eth-pydantic-types = {version = "^0.2.0"}
 
 # web3-google-hsm = {git = "https://github.com/Ankvik-Tech-Labs/web3-google-hsm"}
 web3-google-hsm = "^0.1.0"
@@ -82,8 +82,8 @@ sphinxcontrib-qthelp = {version = "1.0.3", optional = true} # Version pindowns h
 # Removed
 # Only soft dependency in tests, but RTD complains
 # terms-of-service = {path = "contracts/terms-of-service", develop = true}
-multicall = "^0.9.0"
-safe-eth-py = "6.0.0b42"
+multicall = "^0.12.3"
+safe-eth-py = "^7.5.1"
 joblib = "^1.4.2"
 
 # HyperSync
