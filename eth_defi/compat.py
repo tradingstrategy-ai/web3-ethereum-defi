@@ -16,7 +16,7 @@ WEB3_PY_V7 = Version(pkg_version) >= Version("7.0.0")
 
 # Middleware imports with compatibility
 if WEB3_PY_V7:
-    from web3.middleware import ExtraDataToPOAMiddleware as _geth_poa_middleware, Web3Middleware
+    from web3.middleware import Web3Middleware
     from web3.types import RPCEndpoint, RPCResponse
     from web3.providers.rpc.utils import ExceptionRetryConfiguration
     from requests.exceptions import ConnectionError, HTTPError, Timeout
@@ -42,7 +42,6 @@ if WEB3_PY_V7:
         )
         return method in DEFAULT_ALLOWLIST
 else:
-    from eth_defi.compat import geth_poa_middleware as _geth_poa_middleware
     from web3.middleware.exception_retry_request import check_if_retry_on_failure
 
 # Replace the APICallCounterMiddleware class and related functions with this:
@@ -357,8 +356,9 @@ def clear_middleware(web3_or_provider: Web3 | HTTPProvider) -> None:
 def install_poa_middleware(web3, layer=0):
     """Install POA middleware with v6/v7 compatibility"""
     if WEB3_PY_V7:
-        # v7 uses ExtraDataToPOAMiddleware
-        web3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=layer)
+        # v7 uses ExtraDataToPOAMiddleware - instantiate it properly
+        poa_middleware = ExtraDataToPOAMiddleware(web3)
+        web3.middleware_onion.inject(poa_middleware, layer=layer)
     else:
         # v6 uses geth_poa_middleware
         web3.middleware_onion.inject(geth_poa_middleware, layer=layer)
@@ -469,19 +469,28 @@ def get_function_info_v7(*args, **kwargs):
 
 # Version-based aliasing
 if WEB3_PY_V7:
+    from web3.middleware import SignAndSendRawMiddlewareBuilder, ExtraDataToPOAMiddleware
     from eth_utils.abi import abi_to_signature as _abi_to_signature
     from web3._utils.http_session_manager import HTTPSessionManager
-    from web3.middleware import SignAndSendRawMiddlewareBuilder
 
     sessions = HTTPSessionManager()
     _get_response_from_post_request = sessions.get_response_from_post_request
 
+    def construct_sign_and_send_raw_middleware(private_key_or_account):
+        """v7 wrapper for SignAndSendRawMiddlewareBuilder to maintain v6 compatibility"""
+
+        def create_middleware(w3):
+            return SignAndSendRawMiddlewareBuilder.build(private_key_or_account, w3)
+
+        return create_middleware
+
     encode_function_args = encode_function_args_v7
     get_function_info = get_function_info_v7
-    construct_sign_and_send_raw_middleware = SignAndSendRawMiddlewareBuilder
     exception_retry_middleware = exception_retry_middleware_v7
     check_if_retry_on_failure_compat = check_if_retry_on_failure_v7
+    _geth_poa_middleware = ExtraDataToPOAMiddleware
 else:
+    from web3.middleware import construct_sign_and_send_raw_middleware, geth_poa_middleware
     from eth_utils.abi import _abi_to_signature
     from web3._utils.request import get_response_from_post_request as _get_response_from_post_request
 
@@ -489,6 +498,7 @@ else:
     get_function_info = get_function_info_v6
     exception_retry_middleware = exception_retry_middleware_v6
     check_if_retry_on_failure_compat = check_if_retry_on_failure_v6
+    _geth_poa_middleware = geth_poa_middleware
 
 abi_to_signature = _abi_to_signature
 get_response_from_post_request = _get_response_from_post_request
