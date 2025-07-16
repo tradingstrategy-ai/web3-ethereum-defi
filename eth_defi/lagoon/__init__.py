@@ -1,2 +1,1 @@
-"""Lagoon vault protocol integration.
-"""
+"""Lagoon vault protocol integration."""
