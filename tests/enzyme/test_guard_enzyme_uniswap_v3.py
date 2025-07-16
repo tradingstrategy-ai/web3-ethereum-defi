@@ -340,6 +340,7 @@ def test_enzyme_guarded_trade_singlehop_uniswap_v3(
         pool_fees=[POOL_FEE_RAW],
         token_in_amount=200 * 10**6,  # 200 USD
     )
+    print(f"*****{prepared_tx=}*****")
 
     tx_hash = prepared_tx.transact({"from": asset_manager, "gas": 1_000_000})
     assert_transaction_success_with_explanation(web3, tx_hash)
