@@ -306,7 +306,7 @@ class MultiProviderWeb3Factory:
         self.retries = retries
         self.hint = hint
 
-    def __call__(self, context: Optional[Any]=None) -> Web3:
+    def __call__(self, context: Optional[Any] = None) -> Web3:
         """CAlled by the subprocess.
 
         :param context:

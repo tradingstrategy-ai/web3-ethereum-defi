@@ -159,6 +159,7 @@ class LagoonVault(ERC4626Vault):
                 vault_abi = "lagoon/v0.5.0/Vault.json"
 
         self.vault_abi = vault_abi
+        self.check_version_compatibility()
 
     def __repr__(self):
         return f"<Lagoon vault:{self.vault_contract.address} safe:{self.safe_address}>"
@@ -167,6 +168,7 @@ class LagoonVault(ERC4626Vault):
         """Figure out Lagoon version.
 
         - Poke the smart contract with probe functions to get version
+        - Our ABI definitions and callign conventions change between Lagoon versions
         """
         probe_call = EncodedCall.from_keccak_signature(
             function="pendingSilo",
@@ -184,6 +186,14 @@ class LagoonVault(ERC4626Vault):
 
         return version
 
+    def check_version_compatibility(self):
+        """Throw if there is mismatch between ABI and contract exposed EVM calls"""
+        if self.version != LagoonVersion.legacy:
+            # Check we have correct ABI file loaded
+            settle_deposit_abi = get_function_abi_by_name(self.vault_contract, "settleDeposit")
+            # function settleDeposit(uint256 _newTotalAssets) public override onlySafe onlyOpen {
+            assert len(settle_deposit_abi["inputs"]) == 1, f"Wrong old Lagoon ABI file loaded for {self.vault_address}"
+
     @cached_property
     def version(self) -> LagoonVersion:
         """Get Lagoon version.
@@ -191,11 +201,6 @@ class LagoonVault(ERC4626Vault):
         - Cached property to avoid multiple calls
         """
         version = self.fetch_version()
-        if version != LagoonVersion.legacy:
-            # Check we have correct ABI file loaded
-            settle_deposit_abi = get_function_abi_by_name(self.vault_contract, "settleDeposit")
-            # function settleDeposit(uint256 _newTotalAssets) public override onlySafe onlyOpen {
-            assert len(settle_deposit_abi["inputs"]) == 1, f"Wrong old Lagoon ABI file loaded for {self.vault_address}"
         return version
 
     @cached_property
