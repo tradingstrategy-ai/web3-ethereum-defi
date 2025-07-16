@@ -129,13 +129,15 @@ class LagoonVault(ERC4626Vault):
         - Poke the smart contract with probe functions to get version
         """
         probe_call = EncodedCall.from_keccak_signature(
-            address=self.spec.vault_address,
-            signature=Web3.keccak("pendingSilo()")[0:4],
+            function="pendingSilo",
+            address=Web3.to_checksum_address(self.spec.vault_address),
+            signature=Web3.keccak(text="pendingSilo()")[0:4],
             data=b"",
+            extra_data={},
         )
 
         try:
-            probe_call.call(self.web3)
+            probe_call.call(self.web3, block_identifier="latest")
             version = LagoonVersion.legacy
         except ValueError as e:
             version = LagoonVersion.v_0_5_0
@@ -242,19 +244,24 @@ class LagoonVault(ERC4626Vault):
 
     @cached_property
     def silo_address(self) -> HexAddress:
-        """Pending Silo contract address"""
+        """Pending Silo contract address.
+
+        Checksummed.
+        """
 
         # Because of EVM is such piece of shit,
         # Lagoon team removed pendingSilo() function
         # as they hit the contract size limit
-
-        if self.version == LagoonVersion.legacy:
-            vault_contract = self.vault_contract
+        vault_contract = self.vault_contract
+        if self.version == LagoonVersion.v_0_5_0:
             web3 = self.web3
-            web3.eth.get_storage_at(vault_contract.address, )
-            silo_address = vault_contract.functions.pendingSilo().call()
+            # Magic storage slot for Silo address
+            slot = "0x5c74d456014b1c0eb4368d944667a568313858a3029a650ff0cb7b56f8b57a08"
+            value = web3.eth.get_storage_at(vault_contract.address, slot)
+            # Take the last 20 bytes as the address
+            silo_address = Web3.to_checksum_address('0x' + value.hex()[-40:])
         else:
-            pass
+            silo_address = vault_contract.functions.pendingSilo().call()
         return silo_address
 
     @cached_property
