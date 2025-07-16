@@ -128,45 +128,18 @@ class LagoonDeploymentParameters:
             "uint16",  # managementRate
             "uint16",  # performanceRate
             "bool",  # enableWhitelist
-            "uint256"  # rateUpdateCooldown
+            "uint256",  # rateUpdateCooldown
         ]
 
-        export_data = {
-            "underlying": self.underlying,
-            "name": self.name,
-            "symbol": self.symbol,
-            "safe": self.safe,
-            "whitelistManager": self.whitelistManager,
-            "valuationManager": self.valuationManager,
-            "admin": self.admin,
-            "feeReceiver": self.feeReceiver,
-            "managementRate": self.managementRate,
-            "performanceRate": self.performanceRate,
-            "enableWhitelist": self.enableWhitelist,
-            "rateUpdateCooldown": self.rateUpdateCooldown
-        }
+        export_data = {"underlying": self.underlying, "name": self.name, "symbol": self.symbol, "safe": self.safe, "whitelistManager": self.whitelistManager, "valuationManager": self.valuationManager, "admin": self.admin, "feeReceiver": self.feeReceiver, "managementRate": self.managementRate, "performanceRate": self.performanceRate, "enableWhitelist": self.enableWhitelist, "rateUpdateCooldown": self.rateUpdateCooldown}
 
         abi_data = list(export_data.values())
         assert len(abi_data) == len(abi_types), f"ABI data length {len(abi_data)} does not match ABI types length {len(abi_types)}"
         return eth_abi.encode(abi_types, abi_data)
 
     def get_create_vault_proxy_arguments(self) -> list[Any]:
-        """For createVaultProxy()
-        """
-        export_data = {
-            "underlying": self.underlying,
-            "name": self.name,
-            "symbol": self.symbol,
-            "safe": self.safe,
-            "whitelistManager": self.whitelistManager,
-            "valuationManager": self.valuationManager,
-            "admin": self.admin,
-            "feeReceiver": self.feeReceiver,
-            "managementRate": self.managementRate,
-            "performanceRate": self.performanceRate,
-            "enableWhitelist": self.enableWhitelist,
-            "rateUpdateCooldown": self.rateUpdateCooldown
-        }
+        """For createVaultProxy()"""
+        export_data = {"underlying": self.underlying, "name": self.name, "symbol": self.symbol, "safe": self.safe, "whitelistManager": self.whitelistManager, "valuationManager": self.valuationManager, "admin": self.admin, "feeReceiver": self.feeReceiver, "managementRate": self.managementRate, "performanceRate": self.performanceRate, "enableWhitelist": self.enableWhitelist, "rateUpdateCooldown": self.rateUpdateCooldown}
         return list(export_data.values())
 
 

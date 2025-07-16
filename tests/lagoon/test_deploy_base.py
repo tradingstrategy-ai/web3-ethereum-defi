@@ -256,7 +256,6 @@ def test_lagoon_deploy_base_guarded_any_token(
     assert usdc.fetch_balance_of(depositor) > 994
 
 
-
 def test_lagoon_deploy_base_guarded_any_token(
     web3: Web3,
     uniswap_v2,
@@ -471,8 +470,7 @@ def test_lagoon_legacy_deploy_base_guarded_any_token(
     deployer_hot_wallet: HotWallet,
     multisig_owners: list[str],
 ):
-    """Same as the test above, but uses old Lagoon v0.1 contract and legacy code paths.
-    """
+    """Same as the test above, but uses old Lagoon v0.1 contract and legacy code paths."""
 
     chain_id = web3.eth.chain_id
     asset_manager = topped_up_asset_manager

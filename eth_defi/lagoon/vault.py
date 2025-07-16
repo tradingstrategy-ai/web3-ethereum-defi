@@ -1,4 +1,5 @@
 """Vault adapter for Lagoon Finance protocol."""
+
 import enum
 import logging
 from dataclasses import asdict
@@ -72,6 +73,7 @@ class LagoonVaultInfo(VaultInfo):
 
 class LagoonVersion(enum.Enum):
     """Figure out Lagoon version."""
+
     legacy = "legacy"
     v_0_5_0 = "v0.5.0"
 
@@ -103,7 +105,7 @@ class LagoonVault(ERC4626Vault):
         spec: VaultSpec,
         trading_strategy_module_address: HexAddress | None = None,
         token_cache: dict | None = None,
-        vault_abi: str | None=None,
+        vault_abi: str | None = None,
     ):
         """
         :param spec:
@@ -171,7 +173,7 @@ class LagoonVault(ERC4626Vault):
         if version != LagoonVersion.legacy:
             # Check we have correct ABI file loaded
             settle_deposit_abi = get_function_abi_by_name(self.vault_contract, "settleDeposit")
-            #function settleDeposit(uint256 _newTotalAssets) public override onlySafe onlyOpen {
+            # function settleDeposit(uint256 _newTotalAssets) public override onlySafe onlyOpen {
             assert len(settle_deposit_abi["inputs"]) == 1, f"Wrong old Lagoon ABI file loaded for {self.vault_address}"
         return version
 
@@ -283,7 +285,7 @@ class LagoonVault(ERC4626Vault):
             slot = "0x5c74d456014b1c0eb4368d944667a568313858a3029a650ff0cb7b56f8b57a08"
             value = web3.eth.get_storage_at(vault_contract.address, slot)
             # Take the last 20 bytes as the address
-            silo_address = Web3.to_checksum_address('0x' + value.hex()[-40:])
+            silo_address = Web3.to_checksum_address("0x" + value.hex()[-40:])
         else:
             silo_address = vault_contract.functions.pendingSilo().call()
         return silo_address
@@ -414,7 +416,7 @@ class LagoonVault(ERC4626Vault):
         bound_func = self.vault_contract.functions.updateNewTotalAssets(raw_amount)
         return bound_func
 
-    def settle_via_trading_strategy_module(self, valuation: Decimal=None) -> ContractFunction:
+    def settle_via_trading_strategy_module(self, valuation: Decimal = None) -> ContractFunction:
         """Settle the new valuation and deposits.
 
         - settleDeposit will also settle the redeems request if possible. If there are enough assets in the safe it will settleRedeem

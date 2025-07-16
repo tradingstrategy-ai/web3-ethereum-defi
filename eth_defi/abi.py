@@ -526,10 +526,11 @@ def get_topic_signature_from_event(event: Type[ContractEvent]) -> HexStr:
     event_topic = encode_hex(event_abi_to_log_topic(abi))  # type: ignore
     return event_topic
 
+
 def get_function_abi_by_name(contract: Contract, function_name: str) -> dict | None:
     """Get function ABI by its name."""
     for item in contract.abi:
-        if item.get('type') == 'function' and item.get('name') == function_name:
+        if item.get("type") == "function" and item.get("name") == function_name:
             return item
     return None  # Return None if function is not found
 
