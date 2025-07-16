@@ -254,7 +254,7 @@ def install_api_call_counter_middleware(web3: Web3) -> Counter:
         # MIGRATED: v7 class-based middleware using the compat class
         from eth_defi.compat import APICallCounterMiddleware
 
-        counter_middleware = APICallCounterMiddleware(api_counter, web3)
+        counter_middleware = APICallCounterMiddleware(web3, api_counter)
         web3.middleware_onion.inject(lambda w3: counter_middleware, layer=0)
     else:
         # v6 function-based middleware
