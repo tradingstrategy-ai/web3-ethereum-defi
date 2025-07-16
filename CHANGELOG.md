@@ -1,4 +1,4 @@
-# Current
+# 0.31
 
 - Add: Lagoon vault guard re-deployment against an existing vault
 - Add: ERC-7540 flag on `ERC4626Vault`, disable functions that are on ERC-4262 but not 7540
