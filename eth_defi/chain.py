@@ -147,7 +147,7 @@ def get_block_time(chain_id: int) -> float:
     return block_time
 
 
-def install_chain_middleware(web3: Web3, poa_middleware=None):
+def install_chain_middleware(web3: Web3, poa_middleware=None, hint: str = ""):
     """Install any chain-specific middleware to Web3 instance.
 
     Mainly this is POA middleware for BNB Chain, Polygon, Avalanche C-chain.
@@ -177,6 +177,9 @@ def install_chain_middleware(web3: Web3, poa_middleware=None):
 
         Needed e.g. when using forked Polygon with Anvil.
 
+    :param hint:
+        Optional hint for error logs when something goes wrong. Useful for debugging and logging.
+
     """
 
     if poa_middleware is None:
@@ -185,7 +188,7 @@ def install_chain_middleware(web3: Web3, poa_middleware=None):
         except Exception as e:
             # Github WTF
             name = get_provider_name(web3.provider)
-            raise RuntimeError(f"Could not call eth_chainId on {name} provider. Is it a valid JSON-RPC provider? As this is often the first call, you might be also out of API credits.") from e
+            raise RuntimeError(f"Could not call eth_chainId on {name} provider. Is it a valid JSON-RPC provider? As this is often the first call, you might be also out of API credits. Hint is {hint}") from e
 
     if poa_middleware:
         web3.middleware_onion.inject(geth_poa_middleware, layer=0)

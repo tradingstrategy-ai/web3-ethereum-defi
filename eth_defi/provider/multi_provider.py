@@ -108,6 +108,7 @@ def create_multi_provider_web3(
     switchover_noisiness=logging.WARNING,
     default_http_timeout=(3.0, 30.0),
     retries: int = 6,
+    hint: Optional[str] = "",
 ) -> MultiProviderWeb3:
     """Create a Web3 instance with multi-provider support.
 
@@ -175,6 +176,9 @@ def create_multi_provider_web3(
     :param retries:
         How many retry count we do calling JSON-RPC API if the API response fails.
 
+    :param hint:
+        A hint for error logs if something goes wrong.
+
     :return:
         Configured Web3 instance with multiple providers
     """
@@ -190,24 +194,24 @@ def create_multi_provider_web3(
         try:
             url = parse_url(parsable)
         except Exception as e:
-            raise MultiProviderConfigurationError(f"Could not parse JSON-RPC configuration URL: {parsable}")
+            raise MultiProviderConfigurationError(f"Could not parse JSON-RPC configuration URL: {parsable}. Hint is {hint}.")
 
         if not url.scheme:
-            raise MultiProviderConfigurationError(f"Bad URL: {parsable}")
+            raise MultiProviderConfigurationError(f"Bad URL: {parsable}. Hint is {hint}.")
 
         if url in urls:
-            raise MultiProviderConfigurationError(f"Entry appears twice: {url}")
+            raise MultiProviderConfigurationError(f"Entry appears twice: {url}. Hint is {hint}.")
 
         urls.append(url)
 
     if len(urls) == 0:
-        raise MultiProviderConfigurationError(f"No configured endpoints: The config line is '{configuration_line}'")
+        raise MultiProviderConfigurationError(f"No configured endpoints: The config line is '{configuration_line}'. Hint is {hint}.")
 
     transact_endpoints = [url.url.replace("mev+", "") for url in urls if url.scheme.startswith("mev+")]
     call_endpoints = [url.url for url in urls if not url.scheme.startswith("mev+")]
 
     if len(transact_endpoints) > 1:
-        raise MultiProviderConfigurationError(f"Only one execution endpoint can be specified, got {transact_endpoints}")
+        raise MultiProviderConfigurationError(f"Only one execution endpoint can be specified, got {transact_endpoints}. Hint is {hint}.")
 
     if len(call_endpoints) < 0:
         raise MultiProviderConfigurationError(f"At least one call endpoint must be specified, configuration was {configuration_line}")
@@ -276,7 +280,7 @@ def create_multi_provider_web3(
     web3.middleware_onion.inject(static_call_cache_middleware, layer=0)
 
     # Note that this triggers the first RPC call here
-    install_chain_middleware(web3)
+    install_chain_middleware(web3, hint=hint)
 
     if is_anvil(web3):
         # When running against local testing,
@@ -292,11 +296,15 @@ def _fix_provider(provider: HTTPProvider):
 
 
 class MultiProviderWeb3Factory:
-    """Needed to pass RPC URL as :py:type:`Web3Factory`"""
+    """Needed to pass RPC URL as :py:type:`Web3Factory`
 
-    def __init__(self, rpc_url: str, retries=6):
+    - Allows creating web3 connections from a config line in multiprocessing worker pools
+    """
+
+    def __init__(self, rpc_url: str, retries=6, hint: Optional[str] = ""):
         self.rpc_url = rpc_url
         self.retries = retries
+        self.hint = hint
 
     def __call__(self) -> Web3:
-        return create_multi_provider_web3(self.rpc_url, retries=self.retries)
+        return create_multi_provider_web3(self.rpc_url, retries=self.retries, hint=self.hint)
