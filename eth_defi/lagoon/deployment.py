@@ -186,6 +186,9 @@ class LagoonAutomatedDeployment:
     block_number: BlockNumber
     parameters: LagoonDeploymentParameters
 
+    #: Vault ABI file we use
+    vault_abi: str
+
     #: In redeploy guard, the old module
     old_trading_strategy_module: Contract | None = None
 
@@ -217,6 +220,7 @@ class LagoonAutomatedDeployment:
             "Block number": f"{self.block_number:,}",
             "Performance fee": f"{self.parameters.performanceRate / 100:,} %",
             "Management fee": f"{self.parameters.managementRate / 100:,} %",
+            "ABI": self.vault_abi,
         }
         return fields
 
@@ -831,6 +835,7 @@ def deploy_automated_lagoon_vault(
         web3,
         VaultSpec(chain_id, vault_contract.address),
         trading_strategy_module_address=module.address,
+        vault_abi=vault_abi,
     )
 
     return LagoonAutomatedDeployment(
@@ -843,6 +848,7 @@ def deploy_automated_lagoon_vault(
         deployer=deployer.address,
         parameters=parameters,
         old_trading_strategy_module=existing_guard_module,
+        vault_abi=vault_abi,
     )
 
 

@@ -18,7 +18,7 @@ from eth_defi.vault.base import VaultSpec, VaultInfo, VaultFlowManager
 
 from safe_eth.safe import Safe
 
-from ..abi import get_deployed_contract, encode_function_call, present_solidity_args, get_function_selector
+from ..abi import get_deployed_contract, encode_function_call, present_solidity_args, get_function_selector, get_function_abi_by_name
 from ..erc_4626.vault import ERC4626Vault
 from ..event_reader.multicall_batcher import EncodedCall
 from ..safe.safe_compat import create_safe_ethereum_client
@@ -103,6 +103,7 @@ class LagoonVault(ERC4626Vault):
         spec: VaultSpec,
         trading_strategy_module_address: HexAddress | None = None,
         token_cache: dict | None = None,
+        vault_abi="lagoon/v0.5.0/Vault.json",
     ):
         """
         :param spec:
@@ -112,6 +113,11 @@ class LagoonVault(ERC4626Vault):
             TradingStrategyModuleV0 enabled on Safe for automated trading.
 
             If not given, not known.
+
+        :param vault_abi:
+            ABI filename we use.
+
+            Lagoon has different versions.
         """
         assert isinstance(web3, Web3)
         assert isinstance(spec, VaultSpec)
@@ -119,6 +125,7 @@ class LagoonVault(ERC4626Vault):
         self.web3 = web3
         self.spec = spec
         self.trading_strategy_module_address = trading_strategy_module_address
+        self.vault_abi = vault_abi
 
     def __repr__(self):
         return f"<Lagoon vault:{self.vault_contract.address} safe:{self.safe_address}>"
@@ -150,14 +157,20 @@ class LagoonVault(ERC4626Vault):
 
         - Cached property to avoid multiple calls
         """
-        return self.fetch_version()
+        version = self.fetch_version()
+        if version != LagoonVersion.legacy:
+            # Check we have correct ABI file loaded
+            settle_deposit_abi = get_function_abi_by_name(self.vault_contract, "settleDeposit")
+            #function settleDeposit(uint256 _newTotalAssets) public override onlySafe onlyOpen {
+            assert len(settle_deposit_abi["inputs"]) == 1, f"Wrong old Lagoon ABI file loaded for {self.vault_address}"
+        return version
 
     @cached_property
     def vault_contract(self) -> Contract:
         """Get vault deployment."""
         return get_deployed_contract(
             self.web3,
-            "lagoon/Vault.json",
+            self.vault_abi,
             self.spec.vault_address,
         )
 
@@ -246,7 +259,8 @@ class LagoonVault(ERC4626Vault):
     def silo_address(self) -> HexAddress:
         """Pending Silo contract address.
 
-        Checksummed.
+        :return:
+            Checksummed Silo contract addrewss "pendingSilo".
         """
 
         # Because of EVM is such piece of shit,
@@ -390,7 +404,7 @@ class LagoonVault(ERC4626Vault):
         bound_func = self.vault_contract.functions.updateNewTotalAssets(raw_amount)
         return bound_func
 
-    def settle_via_trading_strategy_module(self) -> ContractFunction:
+    def settle_via_trading_strategy_module(self, valuation: Decimal=None) -> ContractFunction:
         """Settle the new valuation and deposits.
 
         - settleDeposit will also settle the redeems request if possible. If there are enough assets in the safe it will settleRedeem
@@ -399,12 +413,30 @@ class LagoonVault(ERC4626Vault):
         - if there is nothing to settle: no deposit and redeem requests you can still call settleDeposit/settleRedeem to validate the new nav
 
         - If there is not enough USDC to redeem, the transaction will revert
+
+        :param raw_amount:
+            Needed in Lagoon v0.5+
         """
         assert self.trading_strategy_module_address, "TradingStrategyModuleV0 not configured"
+        if self.version != LagoonVersion.legacy:
+            assert valuation is not None, f"Lagoon v0.5.0+ needs valuation raw amount when calling settle"
+            assert isinstance(valuation, Decimal), f"Expected DEcimal, got {type(valuation)}"
+            raw_amount = self.denomination_token.convert_to_raw(valuation)
+        else:
+            raw_amount = None
         block = self.web3.eth.block_number
         pending = self.get_flow_manager().fetch_pending_deposit(block)
-        logger.info("Settling deposits for the block %d, we have %s %s deposits pending", block, pending, self.underlying_token.symbol)
-        bound_func = self.vault_contract.functions.settleDeposit()
+        logger.info(
+            "Settling deposits for the block %d, we have %s %s deposits pending, raw mount is",
+            block,
+            pending,
+            self.underlying_token.symbol,
+            raw_amount,
+        )
+        if raw_amount is not None:
+            bound_func = self.vault_contract.functions.settleDeposit(raw_amount)
+        else:
+            bound_func = self.vault_contract.functions.settleDeposit()
         return self.transact_via_trading_strategy_module(bound_func)
 
     def post_valuation_and_settle(
@@ -429,13 +461,21 @@ class LagoonVault(ERC4626Vault):
 
         assert isinstance(valuation, Decimal)
 
-        bound_func = self.post_new_valuation(valuation)
-        tx_hash = bound_func.transact({"from": asset_manager, "gas": gas})
-        assert_transaction_success_with_explanation(self.web3, tx_hash)
+        if self.version == LagoonVersion.legacy:
+            bound_func = self.post_new_valuation(valuation)
+            tx_hash = bound_func.transact({"from": asset_manager, "gas": gas})
+            assert_transaction_success_with_explanation(self.web3, tx_hash)
 
-        bound_func = self.settle_via_trading_strategy_module()
-        tx_hash = bound_func.transact({"from": asset_manager, "gas": gas})
-        assert_transaction_success_with_explanation(self.web3, tx_hash)
+            bound_func = self.settle_via_trading_strategy_module()
+            tx_hash = bound_func.transact({"from": asset_manager, "gas": gas})
+            assert_transaction_success_with_explanation(self.web3, tx_hash)
+        else:
+            # New secure method safe for frontrunning
+            logger.info("Settling new valuation using settleDeposit(_newTotalAssets), valuation is %s", valuation)
+            bound_func = self.settle_via_trading_strategy_module(valuation)
+            tx_hash = bound_func.transact({"from": asset_manager, "gas": gas})
+            assert_transaction_success_with_explanation(self.web3, tx_hash)
+
 
         return tx_hash
 
