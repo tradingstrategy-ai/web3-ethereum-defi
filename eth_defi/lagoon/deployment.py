@@ -314,9 +314,10 @@ def deploy_lagoon(
     chain_id = web3.eth.chain_id
 
     logger.info(
-        "Deploying Lagoon vault on chain %d, deployer is %s",
+        "Deploying Lagoon vault on chain %d, deployer is %s, legacy is %s",
         chain_id,
         deployer,
+        legacy,
     )
 
     if owner is None:
@@ -755,6 +756,7 @@ def deploy_automated_lagoon_vault(
             use_forge=use_forge,
             vault_abi=vault_abi,
             factory_contract=factory_contract,
+            legacy=legacy,
         )
 
     if not is_anvil(web3):
