@@ -696,7 +696,7 @@ def deploy_automated_lagoon_vault(
         parameters.safe = safe.address
 
         try:
-            vault_contract.functions.pendingSilo().call()
+            vault_contract.functions.totalAssets().call()
         except Exception as e:
             raise RuntimeError(f"Does not look like Lagoon vault: {existing_vault_address}") from e
 
