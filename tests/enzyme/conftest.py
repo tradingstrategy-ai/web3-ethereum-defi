@@ -14,7 +14,7 @@ from pytest import FixtureRequest
 from web3 import EthereumTesterProvider, HTTPProvider, Web3
 from web3.contract import Contract
 
-from eth_defi.chain import install_chain_middleware
+
 from eth_defi.deploy import deploy_contract
 from eth_defi.provider.anvil import AnvilLaunch, launch_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
