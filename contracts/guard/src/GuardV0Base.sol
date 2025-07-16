@@ -230,6 +230,9 @@ abstract contract GuardV0Base is IGuard  {
         allowedLagoonVaults[vault] = true;
         allowCallSite(vault, getSelector("settleDeposit()"), notes);
         allowCallSite(vault, getSelector("settleRedeem()"), notes);
+        // Lagoon v0.5.0+
+        allowCallSite(vault, getSelector("settleDeposit(uint256)"), notes);
+        allowCallSite(vault, getSelector("settleRedeem(uint256)"), notes);
         emit LagoonVaultApproved(vault, notes);
     }
 
@@ -401,6 +404,10 @@ abstract contract GuardV0Base is IGuard  {
         } else if (selector == getSelector("settleDeposit()")) {
             validate_lagoonSettle(target);
         } else if (selector == getSelector("settleRedeem()")) {
+            validate_lagoonSettle(target);
+        } else if (selector == getSelector("settleDeposit(uint256)")) {
+            validate_lagoonSettle(target);
+        } else if (selector == getSelector("settleRedeem(uint256)")) {
             validate_lagoonSettle(target);
         } else if (selector == getSelector("deposit(uint256,address)")) {
             // approve() based

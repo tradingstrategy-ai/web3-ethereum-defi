@@ -103,7 +103,7 @@ class LagoonVault(ERC4626Vault):
         spec: VaultSpec,
         trading_strategy_module_address: HexAddress | None = None,
         token_cache: dict | None = None,
-        vault_abi="lagoon/v0.5.0/Vault.json",
+        vault_abi: str | None=None,
     ):
         """
         :param spec:
@@ -118,6 +118,8 @@ class LagoonVault(ERC4626Vault):
             ABI filename we use.
 
             Lagoon has different versions.
+
+            None = autodetect.
         """
         assert isinstance(web3, Web3)
         assert isinstance(spec, VaultSpec)
@@ -125,6 +127,14 @@ class LagoonVault(ERC4626Vault):
         self.web3 = web3
         self.spec = spec
         self.trading_strategy_module_address = trading_strategy_module_address
+
+        if vault_abi is None:
+            version = self.version
+            if version == LagoonVersion.legacy:
+                vault_abi = "lagoon/Vault.json"
+            else:
+                vault_abi = "lagoon/v0.5.0/Vault.json"
+
         self.vault_abi = vault_abi
 
     def __repr__(self):
@@ -427,7 +437,7 @@ class LagoonVault(ERC4626Vault):
         block = self.web3.eth.block_number
         pending = self.get_flow_manager().fetch_pending_deposit(block)
         logger.info(
-            "Settling deposits for the block %d, we have %s %s deposits pending, raw mount is",
+            "Settling deposits for the block %d, we have %s %s deposits pending, raw mount is %s",
             block,
             pending,
             self.underlying_token.symbol,
@@ -461,11 +471,11 @@ class LagoonVault(ERC4626Vault):
 
         assert isinstance(valuation, Decimal)
 
-        if self.version == LagoonVersion.legacy:
-            bound_func = self.post_new_valuation(valuation)
-            tx_hash = bound_func.transact({"from": asset_manager, "gas": gas})
-            assert_transaction_success_with_explanation(self.web3, tx_hash)
+        bound_func = self.post_new_valuation(valuation)
+        tx_hash = bound_func.transact({"from": asset_manager, "gas": gas})
+        assert_transaction_success_with_explanation(self.web3, tx_hash)
 
+        if self.version == LagoonVersion.legacy:
             bound_func = self.settle_via_trading_strategy_module()
             tx_hash = bound_func.transact({"from": asset_manager, "gas": gas})
             assert_transaction_success_with_explanation(self.web3, tx_hash)
@@ -475,7 +485,6 @@ class LagoonVault(ERC4626Vault):
             bound_func = self.settle_via_trading_strategy_module(valuation)
             tx_hash = bound_func.transact({"from": asset_manager, "gas": gas})
             assert_transaction_success_with_explanation(self.web3, tx_hash)
-
 
         return tx_hash
 
