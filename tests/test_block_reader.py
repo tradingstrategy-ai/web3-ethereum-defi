@@ -31,7 +31,7 @@ from eth_defi.event_reader.web3factory import TunedWeb3Factory
 from eth_defi.event_reader.web3worker import create_thread_pool_executor
 from eth_defi.token import TokenDetails, fetch_erc20_details
 
-JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_URL") or os.environ.get("JSON_RPC_ETHEREUM")
+JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
 
 pytestmark = pytest.mark.skipif(
     JSON_RPC_ETHEREUM is None,
