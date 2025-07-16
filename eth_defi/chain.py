@@ -185,7 +185,7 @@ def install_chain_middleware(web3: Web3, poa_middleware=None):
         except Exception as e:
             # Github WTF
             name = get_provider_name(web3.provider)
-            raise RuntimeError(f"Could not call eth_chainId on {name} provider. Is it a valid JSON-RPC provider?") from e
+            raise RuntimeError(f"Could not call eth_chainId on {name} provider. Is it a valid JSON-RPC provider? As this is often the first call, you might be also out of API credits.") from e
 
     if poa_middleware:
         web3.middleware_onion.inject(geth_poa_middleware, layer=0)
