@@ -301,10 +301,15 @@ class MultiProviderWeb3Factory:
     - Allows creating web3 connections from a config line in multiprocessing worker pools
     """
 
-    def __init__(self, rpc_url: str, retries=6, hint: Optional[str] = ""):
+    def __init__(self, rpc_url: str, retries=6, hint: str | None = ""):
         self.rpc_url = rpc_url
         self.retries = retries
         self.hint = hint
 
-    def __call__(self) -> Web3:
+    def __call__(self, context: Optional[Any]=None) -> Web3:
+        """CAlled by the subprocess.
+
+        :param context:
+            Legacy argument, not used.
+        """
         return create_multi_provider_web3(self.rpc_url, retries=self.retries, hint=self.hint)

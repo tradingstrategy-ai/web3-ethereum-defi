@@ -161,8 +161,8 @@ def test_read_events_concurrent():
     threads = 16
 
     json_rpc_url = JSON_RPC_ETHEREUM
-    web3 = create_multi_provider_web3(json_rpc_url, hint="Ethereum, token cache concurrent test")
     web3_factory = MultiProviderWeb3Factory(json_rpc_url, hint="Ethereum, token cache concurrent test")
+    web3 = web3_factory()
     executor = create_thread_pool_executor(web3_factory, token_cache, max_workers=threads)
 
     # Get contracts
