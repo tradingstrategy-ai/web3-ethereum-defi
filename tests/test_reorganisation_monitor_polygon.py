@@ -7,6 +7,7 @@ from web3 import Web3, HTTPProvider
 
 from eth_defi.chain import install_chain_middleware
 from eth_defi.event_reader.reorganisation_monitor import JSONRPCReorganisationMonitor, create_reorganisation_monitor
+from eth_defi.provider.multi_provider import create_multi_provider_web3
 
 # Allow to override for a private node to run test faster
 JSON_RPC_POLYGON = os.environ.get("JSON_RPC_POLYGON", "https://polygon-rpc.com")
@@ -15,8 +16,7 @@ JSON_RPC_POLYGON = os.environ.get("JSON_RPC_POLYGON", "https://polygon-rpc.com")
 @pytest.mark.skipif(os.environ.get("CI") is not None, reason="Too flaky to run on Github because public Polygon endpoint is crap")
 def test_polygon_block_headers():
     """Polygon block header data is downloaded."""
-    web3 = Web3(HTTPProvider(JSON_RPC_POLYGON))
-    install_chain_middleware(web3)
+    web3 = create_multi_provider_web3(JSON_RPC_POLYGON)
 
     assert web3.eth.block_number > 0
 
