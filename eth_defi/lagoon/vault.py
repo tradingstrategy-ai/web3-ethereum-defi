@@ -35,6 +35,7 @@ from hexbytes import HexBytes
 from web3 import Web3
 from web3.contract import Contract
 from web3.contract.contract import ContractFunction
+from web3.exceptions import ContractLogicError
 
 from eth_defi.vault.base import VaultSpec, VaultInfo, VaultFlowManager
 
@@ -168,6 +169,7 @@ class LagoonVault(ERC4626Vault):
         """Figure out Lagoon version.
 
         - Poke the smart contract with probe functions to get version
+        - Specifically call pendingSilo() that has been removed because the contract is too big
         - Our ABI definitions and callign conventions change between Lagoon versions
         """
         probe_call = EncodedCall.from_keccak_signature(
@@ -181,7 +183,7 @@ class LagoonVault(ERC4626Vault):
         try:
             probe_call.call(self.web3, block_identifier="latest")
             version = LagoonVersion.legacy
-        except ValueError as e:
+        except (ValueError, ContractLogicError) as e:
             version = LagoonVersion.v_0_5_0
 
         return version
