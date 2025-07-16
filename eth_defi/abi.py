@@ -496,7 +496,11 @@ def get_function_selector(func: ContractFunction) -> bytes:
     fn_abi = next((a for a in contract_abi if a.get("name") == func.fn_name), None)
     assert fn_abi, f"Could not find function {func.fn_name} in Contract ABI"
 
-    function_signature = abi_to_signature(fn_abi)
+    # In v7 the function_abi_to_4byte_selector method is updated to call abi_to_signature before processing the signature
+    if not WEB3_PY_V7:
+        function_signature = abi_to_signature(fn_abi)
+    else:
+        function_signature = fn_abi
     fn_selector = function_abi_to_4byte_selector(function_signature)  # type: ignore
     return fn_selector
 
