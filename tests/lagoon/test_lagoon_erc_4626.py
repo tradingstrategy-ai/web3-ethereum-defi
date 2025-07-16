@@ -91,12 +91,13 @@ def test_lagoon_erc_4626(
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     # We need to do the initial valuation at value 0
-    bound_func = vault.post_new_valuation(Decimal(0))
+    valuation = Decimal(0)
+    bound_func = vault.post_new_valuation(valuation)
     tx_hash = bound_func.transact({"from": asset_manager})
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     # Settle deposit queue 9 USDC -> 0 USDC
-    settle_func = vault.settle_via_trading_strategy_module()
+    settle_func = vault.settle_via_trading_strategy_module(valuation)
     tx_hash = settle_func.transact(
         {
             "from": asset_manager,
