@@ -201,7 +201,7 @@ def create_multi_provider_web3(
         urls.append(url)
 
     if len(urls) == 0:
-        raise MultiProviderConfigurationError(f"No configured endpoints")
+        raise MultiProviderConfigurationError(f"No configured endpoints: The config line is '{configuration_line}'")
 
     transact_endpoints = [url.url.replace("mev+", "") for url in urls if url.scheme.startswith("mev+")]
     call_endpoints = [url.url for url in urls if not url.scheme.startswith("mev+")]
