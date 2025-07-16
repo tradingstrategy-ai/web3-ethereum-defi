@@ -29,9 +29,10 @@ from eth_defi.event_reader.logresult import LogContext, LogResult
 from eth_defi.event_reader.reader import read_events, read_events_concurrent
 from eth_defi.event_reader.web3factory import TunedWeb3Factory
 from eth_defi.event_reader.web3worker import create_thread_pool_executor
+from eth_defi.provider.multi_provider import create_multi_provider_web3, MultiProviderWeb3Factory
 from eth_defi.token import TokenDetails, fetch_erc20_details
 
-JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_URL") or os.environ.get("JSON_RPC_ETHEREUM")
+JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
 
 pytestmark = pytest.mark.skipif(
     JSON_RPC_ETHEREUM is None,
@@ -108,16 +109,8 @@ def decode_pair_created(web3: Web3, log: LogResult) -> dict:
 def test_read_events():
     """Read events quickly over JSON-RPC API."""
 
-    # HTTP 1.1 keep-alive
-    session = requests.Session()
-
     json_rpc_url = JSON_RPC_ETHEREUM
-    web3 = Web3(HTTPProvider(json_rpc_url, session=session))
-
-    # Enable faster ujson reads
-    patch_web3(web3)
-
-    web3.middleware_onion.clear()
+    web3 = create_multi_provider_web3(json_rpc_url, hint="Ethereum, token cache test")
 
     # Get contracts
     Factory = get_contract(web3, "sushi/UniswapV2Factory.json")
@@ -164,12 +157,12 @@ def test_read_events():
 def test_read_events_concurrent():
     """Read events quickly over JSON-RPC API using a thread pool."""
 
-    json_rpc_url = JSON_RPC_ETHEREUM
     token_cache = TokenCache()
     threads = 16
-    http_adapter = HTTPAdapter(pool_connections=threads, pool_maxsize=threads)
-    web3_factory = TunedWeb3Factory(json_rpc_url, http_adapter)
-    web3 = web3_factory(token_cache)
+
+    json_rpc_url = JSON_RPC_ETHEREUM
+    web3_factory = MultiProviderWeb3Factory(json_rpc_url, hint="Ethereum, token cache concurrent test")
+    web3 = web3_factory()
     executor = create_thread_pool_executor(web3_factory, token_cache, max_workers=threads)
 
     # Get contracts
@@ -218,10 +211,10 @@ def test_read_events_concurrent_two_nodes():
     json_rpc_url = JSON_RPC_ETHEREUM
     token_cache = TokenCache()
     threads = 16
-    http_adapter = HTTPAdapter(pool_connections=threads, pool_maxsize=threads)
     config_line = json_rpc_url + " " + json_rpc_url + "?foo=bar"  # Fake
-    web3_factory = TunedWeb3Factory(config_line, http_adapter)
-    web3 = web3_factory(token_cache)
+    json_rpc_url = JSON_RPC_ETHEREUM
+    web3 = create_multi_provider_web3(json_rpc_url, hint="Ethereum, token cache concurrent test")
+    web3_factory = MultiProviderWeb3Factory(json_rpc_url, hint="Ethereum, token cache concurrent test")
     executor = create_thread_pool_executor(web3_factory, token_cache, max_workers=threads)
 
     # Get contracts

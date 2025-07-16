@@ -18,8 +18,9 @@ from dataclasses import dataclass, asdict
 from io import StringIO
 from pathlib import Path
 from pprint import pformat
-from typing import Callable
+from typing import Callable, Any
 
+import eth_abi
 from eth_account.signers.local import LocalAccount
 from eth_typing import HexAddress, BlockNumber
 from hexbytes import HexBytes
@@ -39,7 +40,7 @@ from eth_defi.lagoon.beacon_proxy import deploy_beacon_proxy
 from eth_defi.lagoon.vault import LagoonVault
 from eth_defi.provider.anvil import is_anvil
 from eth_defi.safe.deployment import deploy_safe, add_new_safe_owners, fetch_safe_deployment
-from eth_defi.token import get_wrapped_native_token_address, fetch_erc20_details
+from eth_defi.token import get_wrapped_native_token_address, fetch_erc20_details, WRAPPED_NATIVE_TOKEN
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.uniswap_v2.deployment import UniswapV2Deployment
 from eth_defi.uniswap_v3.deployment import UniswapV3Deployment
@@ -56,6 +57,21 @@ DEFAULT_PERFORMANCE_RATE = 2000
 
 
 CONTRACTS_ROOT = Path(os.path.dirname(__file__)) / ".." / ".." / "contracts"
+
+# struct InitStruct {
+#     IERC20 underlying;
+#     string name;
+#     string symbol;
+#     address safe;
+#     address whitelistManager;
+#     address valuationManager;
+#     address admin;
+#     address feeReceiver;
+#     uint16 managementRate;
+#     uint16 performanceRate;
+#     bool enableWhitelist;
+#     uint256 rateUpdateCooldown;
+# }
 
 
 @dataclass(slots=True)
@@ -85,9 +101,46 @@ class LagoonDeploymentParameters:
     #: If set None, then autoresolve
     wrappedNativeToken: HexAddress | None = None
 
+    def __post_init__(self):
+        if self.underlying:
+            assert self.underlying.startswith("0x"), f"Underlying token address must be a valid hex address, got {self.underlying}"
+
     def as_solidity_struct(self) -> dict:
         # Return Vault.InitStruct to be passed to the constructor
         return asdict(self)
+
+    def as_abi_encoded_bytes(self) -> HexBytes:
+        """Return Lagoon vault initialization struct ABI encoded.
+
+        - Before was passed as is, was changed to ABI encoded bytes in Lagoon v0.5.0.
+        - Does **not** include wrappedNativeToken
+        - Does **not** include feeRegistry, as it is passed separately.
+        """
+        abi_types = [
+            "address",  # underlying (IERC20)
+            "string",  # name
+            "string",  # symbol
+            "address",  # safe
+            "address",  # whitelistManager
+            "address",  # valuationManager
+            "address",  # admin
+            "address",  # feeReceiver
+            "uint16",  # managementRate
+            "uint16",  # performanceRate
+            "bool",  # enableWhitelist
+            "uint256",  # rateUpdateCooldown
+        ]
+
+        export_data = {"underlying": self.underlying, "name": self.name, "symbol": self.symbol, "safe": self.safe, "whitelistManager": self.whitelistManager, "valuationManager": self.valuationManager, "admin": self.admin, "feeReceiver": self.feeReceiver, "managementRate": self.managementRate, "performanceRate": self.performanceRate, "enableWhitelist": self.enableWhitelist, "rateUpdateCooldown": self.rateUpdateCooldown}
+
+        abi_data = list(export_data.values())
+        assert len(abi_data) == len(abi_types), f"ABI data length {len(abi_data)} does not match ABI types length {len(abi_types)}"
+        return eth_abi.encode(abi_types, abi_data)
+
+    def get_create_vault_proxy_arguments(self) -> list[Any]:
+        """For createVaultProxy()"""
+        export_data = {"underlying": self.underlying, "name": self.name, "symbol": self.symbol, "safe": self.safe, "whitelistManager": self.whitelistManager, "valuationManager": self.valuationManager, "admin": self.admin, "feeReceiver": self.feeReceiver, "managementRate": self.managementRate, "performanceRate": self.performanceRate, "enableWhitelist": self.enableWhitelist, "rateUpdateCooldown": self.rateUpdateCooldown}
+        return list(export_data.values())
 
 
 @dataclass(slots=True, frozen=True)
@@ -105,6 +158,9 @@ class LagoonAutomatedDeployment:
     deployer: HexAddress
     block_number: BlockNumber
     parameters: LagoonDeploymentParameters
+
+    #: Vault ABI file we use
+    vault_abi: str
 
     #: In redeploy guard, the old module
     old_trading_strategy_module: Contract | None = None
@@ -137,6 +193,7 @@ class LagoonAutomatedDeployment:
             "Block number": f"{self.block_number:,}",
             "Performance fee": f"{self.parameters.performanceRate / 100:,} %",
             "Management fee": f"{self.parameters.managementRate / 100:,} %",
+            "ABI": self.vault_abi,
         }
         return fields
 
@@ -162,8 +219,14 @@ def deploy_lagoon(
     gas=2_000_000,
     etherscan_api_key: str = None,
     use_forge=False,
-    beacon_proxy=True,
+    beacon_proxy=False,
+    factory_contract=True,
     beacon_address="0x652716FaD571f04D26a3c8fFd9E593F17123Ab20",
+    vault_abi="lagoon/v0.5.0/Vault.json",
+    deploy_fee_registry: bool = True,
+    fee_registry_address: HexAddress | None = None,
+    legacy: bool = False,
+    salt=Web3.to_bytes(hexstr="0x" + "01" * 32),
 ) -> Contract:
     """Deploy a new Lagoon vault.
 
@@ -199,6 +262,19 @@ def deploy_lagoon(
     :param etherscan_api_key:
         For Forge.
 
+    :param vault_abi:
+        Which Lagoon vault version we deploy.
+
+        Use "lagoon/Vault.json" for the legacy version. **Warning**: unsafe.
+
+    :param beacon_proxy:
+        TODO
+
+    :param deploy_fee_registry:
+        Deploy a fee registry contract needed for deployment.
+
+        Set the fee receiver as the owner.
+
     :return:
         Vault contract.
 
@@ -211,9 +287,10 @@ def deploy_lagoon(
     chain_id = web3.eth.chain_id
 
     logger.info(
-        "Deploying Lagoon vault on chain %d, deployer is %s",
+        "Deploying Lagoon vault on chain %d, deployer is %s, legacy is %s",
         chain_id,
         deployer,
+        legacy,
     )
 
     if owner is None:
@@ -239,81 +316,93 @@ def deploy_lagoon(
     if parameters.admin is None:
         parameters.admin = owner
 
-    init_struct = parameters.as_solidity_struct()
+    wrapped_native_token = WRAPPED_NATIVE_TOKEN.get(chain_id)
+    assert wrapped_native_token is not None, f"Lagoon deployment needs WRAPPED_NATIVE_TOKEN configured for chain {chain_id}"
 
-    # fmt: off
-    logger.info(
-        "Parameters are:\n%s",
-        pformat(init_struct)
-    )
-    # fmt: on
-
+    logger.info("Wrapped native token is: %s", wrapped_native_token)
     # TODO: Beacon proxy deployment does not work
-
     if use_forge:
         logger.warning("lagoon/Vault.sol yet not open source - cannot do source verified deploy")
 
-    if beacon_proxy:
-        vault = deploy_beacon_proxy(
-            web3,
-            deployer=deployer,
-            beacon_address=beacon_address,
-            implementation_contract_abi="lagoon/Vault.json",
+    if legacy:
+        assert not factory_contract
+        logger.info("Deploying Lagoon vault in legacy mode, beacon proxy is %s", beacon_proxy)
+        init_struct = parameters.as_solidity_struct()
+
+        if beacon_proxy:
+            vault = deploy_beacon_proxy(
+                web3,
+                deployer=deployer,
+                beacon_address=beacon_address,
+                implementation_contract_abi="lagoon/Vault.json",
+            )
+        else:
+            vault = deploy_contract(
+                web3,
+                vault_abi,
+                deployer,
+                False,
+            )
+
+        tx_params = vault.functions.initialize(
+            init_struct,
+        ).build_transaction(
+            {
+                "gas": 2_000_000,
+                "chainId": chain_id,
+                "nonce": web3.eth.get_transaction_count(deployer.address),
+            }
         )
 
-    else:
-        vault = deploy_contract(
+        signed_tx = deployer.sign_transaction(tx_params)
+        tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+        assert_transaction_success_with_explanation(web3, tx_hash)
+    elif factory_contract:
+        # Latest method
+        # https://docs.lagoon.finance/vault/create-your-vault
+        assert not beacon_proxy
+        assert not legacy
+        beacon_proxy_factory_address = LAGOON_BEACON_PROXY_FACTORIES.get(chain_id)
+        assert beacon_proxy_factory_address, f"Cannot deploy Lagoon vault beacon proxy on chain {chain_id}, no factory address found"
+        beacon_proxy_factory = get_deployed_contract(
             web3,
-            "lagoon/Vault.json",
-            deployer,
-            False,
+            "lagoon/BeaconProxyFactory.json",
+            beacon_proxy_factory_address,
         )
 
-    tx_params = vault.functions.initialize(init_struct).build_transaction(
-        {
+        args = [parameters.get_create_vault_proxy_arguments(), salt]
+        logger.info(
+            "Transacting with factory contract %s.createVaultProxy() with args %s",
+            beacon_proxy_factory_address,
+            args,
+        )
+
+        bound_func = beacon_proxy_factory.functions.createVaultProxy(*args)
+
+        tx_params = {
             "gas": 2_000_000,
             "chainId": chain_id,
             "nonce": web3.eth.get_transaction_count(deployer.address),
         }
-    )
-    signed_tx = deployer.sign_transaction(tx_params)
-    tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
-    assert_transaction_success_with_explanation(web3, tx_hash)
+        tx_data = bound_func.build_transaction(tx_params)
+        signed_tx = deployer.sign_transaction(tx_data)
+        tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+        assert_transaction_success_with_explanation(web3, tx_hash)
+
+        receipt = web3.eth.get_transaction_receipt(tx_hash)
+        events = beacon_proxy_factory.events.BeaconProxyDeployed().process_receipt(receipt)
+        event = events[0]
+        contract_address = event["args"]["proxy"]
+        vault = get_deployed_contract(
+            web3,
+            vault_abi,
+            contract_address,
+        )
+    else:
+        # Direct deployment without factory
+        raise NotImplementedError("Nothing goes here")
 
     return vault
-
-    # VaultContract = get_contract(
-    #     web3,
-    #     "lagoon/Vault.json",
-    # )
-    #
-
-    # payable(Upgrades.deployBeaconProxy(beacon, abi.encodeWithSelector(Vault.initialize.selector, init)))
-    # E           Could not identify the intended function with name `initialize`, positional arguments with type(s) `address,str,str,address,address,address,address,address,address,int,int,bool,int,address` and keyword arguments with type(s) `{}`.
-    #
-    # abi_packed_init_args = encode_function_call(
-    #     VaultContract.functions.initialize,
-    #     [init_struct],  # Solidity struct encoding is a headache
-    # )
-    #
-    # tx_hash = deploy_contract(
-    #     web3,
-    #     "lagoon/BeaconProxy.json",
-    #     deployer,
-    #     owner,
-    #     abi_packed_init_args,
-    #     gas=gas,
-    #     confirm=False,
-    # )
-    # tx_receipt = assert_transaction_success_with_explanation(web3, tx_hash)
-    #
-    # beacon_address = tx_receipt["contractAddress"]
-    # vault_proxy = get_deployed_contract(
-    #     web3,
-    #     "lagoon/Vault.json",
-    #     beacon_address,
-    # )
-    # return vault_proxy
 
 
 def deploy_safe_trading_strategy_module(
@@ -514,6 +603,8 @@ def deploy_automated_lagoon_vault(
     guard_only: bool = False,
     existing_vault_address: HexAddress | str | None = None,
     existing_safe_address: HexAddress | str | None = None,
+    vault_abi="lagoon/v0.5.0/Vault.json",
+    factory_contract=True,
 ) -> LagoonAutomatedDeployment:
     """Deploy a full Lagoon setup with a guard.
 
@@ -539,6 +630,10 @@ def deploy_automated_lagoon_vault(
     :param guard_only:
         Deploy a new version of the guard smart contract and skip deploying the actual vault.
     """
+
+    legacy = vault_abi == "lagoon/Vault.json"
+
+    logger.info("Beginning Lagoon vault deployment, legacy mode: %s, ABI is %s", legacy, vault_abi)
 
     if existing_vault_address:
         assert guard_only, "You cannot pass existing vault address without guard_only=True"
@@ -588,7 +683,7 @@ def deploy_automated_lagoon_vault(
 
         vault_contract = get_deployed_contract(
             web3,
-            "lagoon/Vault.json",
+            vault_abi,
             existing_vault_address,
         )
         safe = fetch_safe_deployment(
@@ -601,7 +696,7 @@ def deploy_automated_lagoon_vault(
         parameters.safe = safe.address
 
         try:
-            vault_contract.functions.pendingSilo().call()
+            vault_contract.functions.totalAssets().call()
         except Exception as e:
             raise RuntimeError(f"Does not look like Lagoon vault: {existing_vault_address}") from e
 
@@ -632,6 +727,9 @@ def deploy_automated_lagoon_vault(
             owner=safe.address,
             etherscan_api_key=etherscan_api_key,
             use_forge=use_forge,
+            vault_abi=vault_abi,
+            factory_contract=factory_contract,
+            legacy=legacy,
         )
 
     if not is_anvil(web3):
@@ -712,6 +810,7 @@ def deploy_automated_lagoon_vault(
         web3,
         VaultSpec(chain_id, vault_contract.address),
         trading_strategy_module_address=module.address,
+        vault_abi=vault_abi,
     )
 
     return LagoonAutomatedDeployment(
@@ -724,6 +823,7 @@ def deploy_automated_lagoon_vault(
         deployer=deployer.address,
         parameters=parameters,
         old_trading_strategy_module=existing_guard_module,
+        vault_abi=vault_abi,
     )
 
 
@@ -733,9 +833,23 @@ LAGOON_BEACONS = {
     8453: "0xD69BC314bdaa329EB18F36E4897D96A3A48C3eeF",
 }
 
+#  https://github.com/hopperlabsxyz/lagoon-v0
+LAGOON_LEGACY_BEACONS = {
+    # Base
+    8453: "0xD69BC314bdaa329EB18F36E4897D96A3A48C3eeF",
+}
+
 
 # https://github.com/hopperlabsxyz/lagoon-v0
+# https://basescan.org/address/0xc953fd298fdfa8ed0d38ee73772d3e21bf19c61b#readContract
 LAGOON_FEE_REGISTRIES = {
     # Base
     8453: "0x6dA4D1859bA1d02D095D2246142CdAd52233e27C",
+}
+
+#: https://basescan.org/address/0xC953Fd298FdfA8Ed0D38ee73772D3e21Bf19c61b#writeContract
+#: https://docs.lagoon.finance/vault/create-your-vault
+LAGOON_BEACON_PROXY_FACTORIES = {
+    # Base
+    8453: "0xC953Fd298FdfA8Ed0D38ee73772D3e21Bf19c61b",
 }

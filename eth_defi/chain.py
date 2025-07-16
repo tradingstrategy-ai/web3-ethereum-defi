@@ -19,6 +19,7 @@ from web3.types import RPCEndpoint, RPCResponse
 
 from eth_defi.event_reader.conversion import convert_jsonrpc_value_to_int
 from eth_defi.middleware import http_retry_request_with_sleep_middleware
+from eth_defi.provider.named import get_provider_name
 
 #: List of chain ids that need to have proof-of-authority middleweare installed
 POA_MIDDLEWARE_NEEDED_CHAIN_IDS = {
@@ -146,7 +147,7 @@ def get_block_time(chain_id: int) -> float:
     return block_time
 
 
-def install_chain_middleware(web3: Web3, poa_middleware=None):
+def install_chain_middleware(web3: Web3, poa_middleware=None, hint: str = ""):
     """Install any chain-specific middleware to Web3 instance.
 
     Mainly this is POA middleware for BNB Chain, Polygon, Avalanche C-chain.
@@ -176,10 +177,18 @@ def install_chain_middleware(web3: Web3, poa_middleware=None):
 
         Needed e.g. when using forked Polygon with Anvil.
 
+    :param hint:
+        Optional hint for error logs when something goes wrong. Useful for debugging and logging.
+
     """
 
     if poa_middleware is None:
-        poa_middleware = web3.eth.chain_id in POA_MIDDLEWARE_NEEDED_CHAIN_IDS
+        try:
+            poa_middleware = web3.eth.chain_id in POA_MIDDLEWARE_NEEDED_CHAIN_IDS
+        except Exception as e:
+            # Github WTF
+            name = get_provider_name(web3.provider)
+            raise RuntimeError(f"Could not call eth_chainId on {name} provider. Is it a valid JSON-RPC provider? As this is often the first call, you might be also out of API credits. Hint is {hint}") from e
 
     if poa_middleware:
         web3.middleware_onion.inject(geth_poa_middleware, layer=0)

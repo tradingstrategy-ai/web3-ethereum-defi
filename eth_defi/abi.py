@@ -527,6 +527,14 @@ def get_topic_signature_from_event(event: Type[ContractEvent]) -> HexStr:
     return event_topic
 
 
+def get_function_abi_by_name(contract: Contract, function_name: str) -> dict | None:
+    """Get function ABI by its name."""
+    for item in contract.abi:
+        if item.get("type") == "function" and item.get("name") == function_name:
+            return item
+    return None  # Return None if function is not found
+
+
 def _hexify(s: Any):
     if type(s) in (list, tuple):
         return str([_hexify(x) for x in s])

@@ -13,6 +13,7 @@
 - Add: `fetch_block_timestamps_multiprocess()`: fast block timestamp prefetch for dRPC and legacy RPC
 - Add: `read_multicall_historical_stateful()`: Read historical data using multicall with reading state and adaptive frequency filtering
 - Add: Support for ERC-4626 historical vault reads with adaptive frequency per vault
+- Add: Upgrade [Lagoon](https://web3-ethereum-defi.readthedocs.io/api/lagoon/index.html) compatibility to v0.5.0 vault smart contracts
 
 # 0.30
 

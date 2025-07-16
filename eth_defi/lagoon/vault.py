@@ -1,5 +1,27 @@
-"""Vault adapter for Lagoon Finance protocol."""
+"""Vault adapter for Lagoon Finance protocol.
 
+*Notes on active Lagoon development*:
+
+Lagoon v0.5.0 changes to the original release
+
+- Affect the vault interactions greatlty
+- Vault initialisation parameters changed: fee registry and wrapped native token moved from parameters payload to constructor arguments
+- Beacon proxy replaced with BeaconProxyFactory.createVault() patterns
+- ``pendingSilo()`` accessor removed, now needs a direct storage slot read
+- ``safe()`` accessor added
+
+How to detect version:
+
+- Call pendingSilo(): if reverts is a new version
+
+How to get ``pendingSilo()``: see :py:meth:`eth_defi.lagoon.vault.LagoonVault.silo_address`.
+
+Lagoon error code translation.
+
+- `See Codeslaw page to translate custome errors to human readable <https://www.codeslaw.app/contracts/base/0xe50554ec802375c9c3f9c087a8a7bb8c26d3dedf?tab=abi>`__
+"""
+
+import enum
 import logging
 from dataclasses import asdict
 from decimal import Decimal
@@ -13,13 +35,15 @@ from hexbytes import HexBytes
 from web3 import Web3
 from web3.contract import Contract
 from web3.contract.contract import ContractFunction
+from web3.exceptions import ContractLogicError
 
 from eth_defi.vault.base import VaultSpec, VaultInfo, VaultFlowManager
 
 from safe_eth.safe import Safe
 
-from ..abi import get_deployed_contract, encode_function_call, present_solidity_args, get_function_selector
+from ..abi import get_deployed_contract, encode_function_call, present_solidity_args, get_function_selector, get_function_abi_by_name
 from ..erc_4626.vault import ERC4626Vault
+from ..event_reader.multicall_batcher import EncodedCall
 from ..safe.safe_compat import create_safe_ethereum_client
 from ..trace import assert_transaction_success_with_explanation
 
@@ -69,6 +93,13 @@ class LagoonVaultInfo(VaultInfo):
     version: str
 
 
+class LagoonVersion(enum.Enum):
+    """Figure out Lagoon version."""
+
+    legacy = "legacy"
+    v_0_5_0 = "v0.5.0"
+
+
 class LagoonVault(ERC4626Vault):
     """Python interface for interacting with Lagoon Finance vaults.
 
@@ -96,6 +127,7 @@ class LagoonVault(ERC4626Vault):
         spec: VaultSpec,
         trading_strategy_module_address: HexAddress | None = None,
         token_cache: dict | None = None,
+        vault_abi: str | None = None,
     ):
         """
         :param spec:
@@ -105,6 +137,13 @@ class LagoonVault(ERC4626Vault):
             TradingStrategyModuleV0 enabled on Safe for automated trading.
 
             If not given, not known.
+
+        :param vault_abi:
+            ABI filename we use.
+
+            Lagoon has different versions.
+
+            None = autodetect.
         """
         assert isinstance(web3, Web3)
         assert isinstance(spec, VaultSpec)
@@ -113,15 +152,65 @@ class LagoonVault(ERC4626Vault):
         self.spec = spec
         self.trading_strategy_module_address = trading_strategy_module_address
 
+        if vault_abi is None:
+            version = self.version
+            if version == LagoonVersion.legacy:
+                vault_abi = "lagoon/Vault.json"
+            else:
+                vault_abi = "lagoon/v0.5.0/Vault.json"
+
+        self.vault_abi = vault_abi
+        self.check_version_compatibility()
+
     def __repr__(self):
         return f"<Lagoon vault:{self.vault_contract.address} safe:{self.safe_address}>"
+
+    def fetch_version(self) -> LagoonVersion:
+        """Figure out Lagoon version.
+
+        - Poke the smart contract with probe functions to get version
+        - Specifically call pendingSilo() that has been removed because the contract is too big
+        - Our ABI definitions and callign conventions change between Lagoon versions
+        """
+        probe_call = EncodedCall.from_keccak_signature(
+            function="pendingSilo",
+            address=Web3.to_checksum_address(self.spec.vault_address),
+            signature=Web3.keccak(text="pendingSilo()")[0:4],
+            data=b"",
+            extra_data={},
+        )
+
+        try:
+            probe_call.call(self.web3, block_identifier="latest")
+            version = LagoonVersion.legacy
+        except (ValueError, ContractLogicError) as e:
+            version = LagoonVersion.v_0_5_0
+
+        return version
+
+    def check_version_compatibility(self):
+        """Throw if there is mismatch between ABI and contract exposed EVM calls"""
+        if self.version != LagoonVersion.legacy:
+            # Check we have correct ABI file loaded
+            settle_deposit_abi = get_function_abi_by_name(self.vault_contract, "settleDeposit")
+            # function settleDeposit(uint256 _newTotalAssets) public override onlySafe onlyOpen {
+            assert len(settle_deposit_abi["inputs"]) == 1, f"Wrong old Lagoon ABI file loaded for {self.vault_address}"
+
+    @cached_property
+    def version(self) -> LagoonVersion:
+        """Get Lagoon version.
+
+        - Cached property to avoid multiple calls
+        """
+        version = self.fetch_version()
+        return version
 
     @cached_property
     def vault_contract(self) -> Contract:
         """Get vault deployment."""
         return get_deployed_contract(
             self.web3,
-            "lagoon/Vault.json",
+            self.vault_abi,
             self.spec.vault_address,
         )
 
@@ -208,9 +297,25 @@ class LagoonVault(ERC4626Vault):
 
     @cached_property
     def silo_address(self) -> HexAddress:
-        """Pending Silo contract address"""
+        """Pending Silo contract address.
+
+        :return:
+            Checksummed Silo contract addrewss "pendingSilo".
+        """
+
+        # Because of EVM is such piece of shit,
+        # Lagoon team removed pendingSilo() function
+        # as they hit the contract size limit
         vault_contract = self.vault_contract
-        silo_address = vault_contract.functions.pendingSilo().call()
+        if self.version == LagoonVersion.v_0_5_0:
+            web3 = self.web3
+            # Magic storage slot for Silo address
+            slot = "0x5c74d456014b1c0eb4368d944667a568313858a3029a650ff0cb7b56f8b57a08"
+            value = web3.eth.get_storage_at(vault_contract.address, slot)
+            # Take the last 20 bytes as the address
+            silo_address = Web3.to_checksum_address("0x" + value.hex()[-40:])
+        else:
+            silo_address = vault_contract.functions.pendingSilo().call()
         return silo_address
 
     @cached_property
@@ -339,7 +444,7 @@ class LagoonVault(ERC4626Vault):
         bound_func = self.vault_contract.functions.updateNewTotalAssets(raw_amount)
         return bound_func
 
-    def settle_via_trading_strategy_module(self) -> ContractFunction:
+    def settle_via_trading_strategy_module(self, valuation: Decimal = None) -> ContractFunction:
         """Settle the new valuation and deposits.
 
         - settleDeposit will also settle the redeems request if possible. If there are enough assets in the safe it will settleRedeem
@@ -348,12 +453,30 @@ class LagoonVault(ERC4626Vault):
         - if there is nothing to settle: no deposit and redeem requests you can still call settleDeposit/settleRedeem to validate the new nav
 
         - If there is not enough USDC to redeem, the transaction will revert
+
+        :param raw_amount:
+            Needed in Lagoon v0.5+
         """
         assert self.trading_strategy_module_address, "TradingStrategyModuleV0 not configured"
+        if self.version != LagoonVersion.legacy:
+            assert valuation is not None, f"Lagoon v0.5.0+ needs valuation raw amount when calling settle"
+            assert isinstance(valuation, Decimal), f"Expected DEcimal, got {type(valuation)}"
+            raw_amount = self.denomination_token.convert_to_raw(valuation)
+        else:
+            raw_amount = None
         block = self.web3.eth.block_number
         pending = self.get_flow_manager().fetch_pending_deposit(block)
-        logger.info("Settling deposits for the block %d, we have %s %s deposits pending", block, pending, self.underlying_token.symbol)
-        bound_func = self.vault_contract.functions.settleDeposit()
+        logger.info(
+            "Settling deposits for the block %d, we have %s %s deposits pending, raw mount is %s",
+            block,
+            pending,
+            self.underlying_token.symbol,
+            raw_amount,
+        )
+        if raw_amount is not None:
+            bound_func = self.vault_contract.functions.settleDeposit(raw_amount)
+        else:
+            bound_func = self.vault_contract.functions.settleDeposit()
         return self.transact_via_trading_strategy_module(bound_func)
 
     def post_valuation_and_settle(
@@ -382,9 +505,16 @@ class LagoonVault(ERC4626Vault):
         tx_hash = bound_func.transact({"from": asset_manager, "gas": gas})
         assert_transaction_success_with_explanation(self.web3, tx_hash)
 
-        bound_func = self.settle_via_trading_strategy_module()
-        tx_hash = bound_func.transact({"from": asset_manager, "gas": gas})
-        assert_transaction_success_with_explanation(self.web3, tx_hash)
+        if self.version == LagoonVersion.legacy:
+            bound_func = self.settle_via_trading_strategy_module()
+            tx_hash = bound_func.transact({"from": asset_manager, "gas": gas})
+            assert_transaction_success_with_explanation(self.web3, tx_hash)
+        else:
+            # New secure method safe for frontrunning
+            logger.info("Settling new valuation using settleDeposit(_newTotalAssets), valuation is %s", valuation)
+            bound_func = self.settle_via_trading_strategy_module(valuation)
+            tx_hash = bound_func.transact({"from": asset_manager, "gas": gas})
+            assert_transaction_success_with_explanation(self.web3, tx_hash)
 
         return tx_hash
 

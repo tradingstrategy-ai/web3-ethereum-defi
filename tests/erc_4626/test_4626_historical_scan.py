@@ -24,13 +24,13 @@ pytestmark = pytest.mark.skipif(JSON_RPC_BASE is None or JSON_RPC_ETHEREUM is No
 
 @pytest.fixture(scope="module")
 def web3() -> Web3:
-    web3 = create_multi_provider_web3(JSON_RPC_BASE)
+    web3 = create_multi_provider_web3(JSON_RPC_BASE, hint="Base RPC")
     return web3
 
 
 @pytest.fixture(scope="module")
 def web3_ethereum() -> Web3:
-    web3 = create_multi_provider_web3(JSON_RPC_ETHEREUM)
+    web3 = create_multi_provider_web3(JSON_RPC_ETHEREUM, hint="Ethereum RPC")
     return web3
 
 
