@@ -14,7 +14,7 @@ from eth_defi.event_reader.lazy_timestamp_reader import extract_timestamps_json_
 from eth_defi.event_reader.reader import read_events, BadTimestampValueReturned, TimestampNotFound, read_events_concurrent
 from eth_defi.event_reader.web3factory import TunedWeb3Factory
 from eth_defi.event_reader.web3worker import create_thread_pool_executor
-
+from eth_defi.provider.multi_provider import create_multi_provider_web3
 
 JSON_RPC_POLYGON = os.environ.get("JSON_RPC_POLYGON", "https://polygon-rpc.com")
 
@@ -22,17 +22,7 @@ JSON_RPC_POLYGON = os.environ.get("JSON_RPC_POLYGON", "https://polygon-rpc.com")
 @pytest.fixture()
 def web3():
     """Live Polygon web3 instance."""
-
-    # HTTP 1.1 keep-alive
-    session = requests.Session()
-
-    web3 = Web3(HTTPProvider(JSON_RPC_POLYGON, session=session))
-
-    web3.middleware_onion.clear()
-
-    # Enable faster ujson reads
-    install_chain_middleware(web3)
-
+    web3 = create_multi_provider_web3(JSON_RPC_POLYGON)
     return web3
 
 
