@@ -151,7 +151,7 @@ def main():
         print("Example state:\n", pformat(example_state))
         pickle.dump(states, reader_state_db.open("wb"))
 
-        unique_chains = set(spec.chain_id for spec in reader_states.keys())
+        unique_chains = set(spec.chain_id for spec in states.keys())
         print(f"Reader states saved for {len(unique_chains)} chains")
     else:
         print("No states to save")

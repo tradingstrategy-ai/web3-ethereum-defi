@@ -183,7 +183,8 @@ def create_multi_provider_web3(
         Configured Web3 instance with multiple providers
     """
 
-    assert type(configuration_line) == str
+    assert configuration_line is not None, f"create_multi_provider_web3(): JSON-RPC URL configuration line is missing, hint {hint}"
+    assert type(configuration_line) == str, f"create_multi_provider_web3(): JSON-RPC URL configuration line is not a string, got {type(configuration_line)}"
 
     items = configuration_line.split()
 
