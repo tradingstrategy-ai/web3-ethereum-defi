@@ -798,6 +798,7 @@ class MultiprocessMulticallReader:
         self,
         web3factory: Web3Factory | Web3,
         batch_size=40,
+        backswitch_threshold = 100,
     ):
         """Create subprocess worker instance.
 
@@ -826,6 +827,15 @@ class MultiprocessMulticallReader:
             name,
         )
         self.batch_size = batch_size
+
+        # How many calls we have done in this subprocess
+        self.calls = 0
+
+        #: How many calls ago we switched the fallback provider.
+        self.last_switch = 0
+
+        #: Try to switch back from the fallback provider to the main provider after this many calls.
+        self.backswitch_threshold = backswitch_threshold
 
     def __repr__(self):
         return f"<MultiprocessMulticallReader process: {os.getpid()}, thread: {threading.current_thread()}, chain: {self.web3.eth.chain_id}>"
@@ -1027,6 +1037,7 @@ class MultiprocessMulticallReader:
             # Work around some bad apples by doing forced switch
             provider = self.web3.provider
             if isinstance(provider, FallbackProvider):
+                self.last_switch = self.calls
                 provider.switch_provider()
 
             # Set batch size to 1 and give it one more go
@@ -1041,6 +1052,8 @@ class MultiprocessMulticallReader:
 
             except MulticallRetryable as e:
                 raise RuntimeError("Encountered a contract that cannot be called, bailing out. Manually update blacklist.") from e
+
+        self.calls += 1
 
         # Calculate byte size of output
         out_size = sum(len(o[1]) for o in calls_results)
@@ -1062,6 +1075,18 @@ class MultiprocessMulticallReader:
         # User friendly logging
         duration = datetime.datetime.utcnow() - start
         logger.info("Multicall result fetch and handling took %s, output was %d bytes", duration, out_size)
+
+        # Cycle back to our main provider and hope it has recovered from the errors
+        if self.last_switch:
+            diff = self.calls - self.last_switch
+            if diff > self.backswitch_threshold:
+                # Switch back to the main provider if we have been using the fallback for too long
+                provider = self.web3.provider
+                if isinstance(provider, FallbackProvider):
+                    if provider.currently_active_provider != 0:
+                        logger.info("Switching back to the main provider at %d call after %d calls", self.calls, diff)
+                        provider.reset_switch()
+                self.last_switch = 0
 
 
 def read_multicall_historical(

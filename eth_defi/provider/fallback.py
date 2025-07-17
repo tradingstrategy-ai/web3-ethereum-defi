@@ -159,6 +159,22 @@ class FallbackProvider(BaseNamedProvider):
         """Have we configured multiple providers"""
         return len(self.providers) >= 2
 
+    def reset_switch(self):
+        """Reset the provider switch to the first provider.
+
+        - Assume we have main provider and more expensive backup providers
+        - Try to switch back to the main provider if we have switched away due to a temporary error
+        - Used in batch scan tasks
+        """
+
+        provider = self.get_active_provider()
+        old_provider_name = get_provider_name(provider)
+        self.currently_active_provider = 0
+        new_provider_name = get_provider_name(self.get_active_provider())
+
+        if old_provider_name != new_provider_name:
+            logger.log(self.switchover_noisiness, "Reset switch toggled for RPC providers %s -> %s\n", old_provider_name, new_provider_name)
+
     def switch_provider(self):
         """Switch to next available provider."""
         provider = self.get_active_provider()

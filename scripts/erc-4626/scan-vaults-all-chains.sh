@@ -16,6 +16,7 @@ set -u
 
 # Do 1h scan vs 1d scan
 export FREQUENCY=1h
+export MAX_WORKERS=50
 
 SCAN_PRICES=${SCAN_PRICES:-"false"}
 
