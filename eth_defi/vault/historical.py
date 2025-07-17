@@ -398,15 +398,18 @@ def scan_historical_prices_to_parquet(
     assert all(v.first_seen_at_block for v in vaults), f"You need to set vault.first_seen_at_block hint in order to run this reader"
     assert all(v.chain_id == chain_id for v in vaults), f"All vaults must be on the same chain"
 
+    first_detect_block = min(v.first_seen_at_block for v in vaults)
+    logger.info(f"First vault lead detection at block {first_detect_block:,} on chain {chain_id} ({get_chain_name(chain_id)})")
     if start_block is None:
         if reader_states:
             # If we have reader states, use the earliest block from there
-            start_block = max(state["last_block"] for spec, state in reader_states.values() if spec.chain_id == chain_id)
+            start_block = max((state["last_block"] for spec, state in reader_states.items() if spec.chain_id == chain_id), default=first_detect_block)
             logger.info(f"Chain {chain_id}: determined start block to be {start_block:,} from {len(reader_states)} vault read states")
         else:
             # Clean start, find the first block of any vault on this chain.
             # Detected during probing.
-            start_block = min(v.first_seen_at_block for v in vaults)
+            logger.info("No previous state, using first vault detection block as start block")
+            start_block = first_detect_block
 
     if end_block is None:
         end_block = get_almost_latest_block_number(web3)
@@ -477,7 +480,10 @@ def scan_historical_prices_to_parquet(
             len(existing_table),
         )
         # Clear existing entries for this chain
-        mask = pc.equal(existing_table["chain"], chain_id)
+        mask = pc.and_(
+            pc.equal(existing_table["chain"], chain_id),
+            pc.greater(existing_table["start_block"], start_block),
+        )
         rows_deleted = pc.sum(mask).as_py() or 0
         existing_table = existing_table.filter(pc.invert(mask))
         existing_row_count = existing_table.num_rows
