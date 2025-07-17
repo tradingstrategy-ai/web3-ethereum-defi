@@ -148,7 +148,7 @@ class VaultReaderState(BatchCallState):
     def exchange_rate(self) -> Decimal:
         # TODO: Approx hardcoded rules for now for TVL conversion.
         # Latest add exchange rate orcale.
-        token = self.vault.denomination_token.symbol
+        token = self.vault.denomination_token.symbol or ""
 
         # Try to cover common case
         if "BTC" in token:

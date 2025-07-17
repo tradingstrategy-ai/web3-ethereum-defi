@@ -65,13 +65,13 @@ def pformat_scan_result(self) -> str:
         f"ParquetScanResult(chain_id={self['chain_id']}, \n"
         f"start_block={self['start_block']:,}, \n"
         f"end_block={self['end_block']:,}, \n"                
-        f"rows_written={self['rows_written']}, \n"
-        f"rows_deleted={self['rows_deleted']}, \n"
-        f"existing_row_count={self['existing_row_count']}, \n"
+        f"rows_written={self['rows_written']:,}, \n"
+        f"rows_deleted={self['rows_deleted']:,}, \n"
+        f"existing_row_count={self['existing_row_count']:,}, \n"
         f"reader_state_count={len(self['reader_states'])}, \n"
         f"output_fname={self['output_fname']}, \n"
-        f"file_size={self['file_size']} bytes, \n"
-        f"chunks_done={self['chunks_done']})"
+        f"file_size={self['file_size']:,} bytes, \n"
+        f"chunks_done={self['chunks_done']:,})"
     )
 
 
