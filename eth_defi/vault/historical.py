@@ -312,7 +312,7 @@ class VaultHistoricalReadMulticaller:
         """
 
         # TODO: Fix class inheritance, etc.
-        return {r.vault.get_spec(): r.reader_state.save() for r in self.readers.values()}
+        return {r.vault.get_spec(): r.reader_state.save() for r in self.readers.values() if r.reader_state}
 
 
 def scan_historical_prices_to_parquet(
@@ -386,6 +386,8 @@ def scan_historical_prices_to_parquet(
     import pyarrow.parquet as pq
     import pyarrow.compute as pc
 
+    stateful = reader_states is not None
+
     assert isinstance(output_fname, Path)
     if start_block is not None:
         assert type(start_block) == int
@@ -395,13 +397,21 @@ def scan_historical_prices_to_parquet(
 
     chain_id = web3.eth.chain_id
 
+    logger.info(
+        "Vault scan on %s: %s - %s, stateful is %s",
+        chain_id,
+        start_block,
+        end_block,
+        stateful,
+    )
+
     assert all(v.first_seen_at_block for v in vaults), f"You need to set vault.first_seen_at_block hint in order to run this reader"
     assert all(v.chain_id == chain_id for v in vaults), f"All vaults must be on the same chain"
 
     first_detect_block = min(v.first_seen_at_block for v in vaults)
     logger.info(f"First vault lead detection at block {first_detect_block:,} on chain {chain_id} ({get_chain_name(chain_id)})")
     if start_block is None:
-        if reader_states:
+        if stateful:
             # If we have reader states, use the earliest block from there
             start_block = max((state["last_block"] for spec, state in reader_states.items() if spec.chain_id == chain_id), default=first_detect_block)
             logger.info(f"Chain {chain_id}: determined start block to be {start_block:,} from {len(reader_states)} vault read states")
@@ -482,19 +492,22 @@ def scan_historical_prices_to_parquet(
         # Clear existing entries for this chain
         mask = pc.and_(
             pc.equal(existing_table["chain"], chain_id),
-            pc.greater(existing_table["start_block"], start_block),
+            pc.greater_equal(existing_table["block_number"], start_block),
         )
+        all_row_count = len(existing_table)
         rows_deleted = pc.sum(mask).as_py() or 0
         existing_table = existing_table.filter(pc.invert(mask))
         existing_row_count = existing_table.num_rows
         logger.info(
-            "Removed existing %d rows for chain %d from the vault time-series data, existing table has %d rows",
+            "Removed existing %d rows out of %d rows for chain %d from the vault time-series data, existing table has %d rows",
             rows_deleted,
+            all_row_count,
             chain_id,
             existing_row_count,
         )
         existing = True
     else:
+        logger.info("No existing table, no removed rows")
         existing_table = None
         rows_deleted = 0
         existing = False
@@ -548,7 +561,8 @@ def scan_historical_prices_to_parquet(
     )
 
     reader_states = reader.save_reader_state()
-    assert len(reader_states) > 0, "No reader states exported, this is a bug"
+    if stateful:
+        assert len(reader_states) > 0, "No reader states exported, this is a bug"
 
     return ParquetScanResult(
         rows_written=rows_written,
