@@ -38,7 +38,7 @@ from eth_defi.erc_4626.core import ERC4262VaultDetection
 from eth_defi.provider.multi_provider import create_multi_provider_web3, MultiProviderWeb3Factory
 from eth_defi.token import TokenDiskCache
 from eth_defi.utils import setup_console_logging
-from eth_defi.vault.historical import scan_historical_prices_to_parquet
+from eth_defi.vault.historical import scan_historical_prices_to_parquet, pformat_scan_result
 
 logger = logging.getLogger(__name__)
 
@@ -134,7 +134,7 @@ def main():
         web3=web3,
         web3factory=web3factory,
         vaults=vaults,
-        start_block=start,
+        start_block=None,
         end_block=end_block,
         max_workers=max_workers,
         chunk_size=32,
@@ -147,12 +147,19 @@ def main():
     states = scan_result["reader_states"]
     if states:
         print(f"Saving {len(states)} reader states to {reader_state_db}")
+        example_state = next(iter(states.values()))
+        print("Example state:\n", pformat(example_state))
         pickle.dump(states, reader_state_db.open("wb"))
+
+        unique_chains = set(spec.chain_id for spec in reader_states.keys())
+        print(f"Reader states saved for {len(unique_chains)} chains")
+    else:
+        print("No states to save")
 
     token_cache.commit()
     print(f"Token cache size is {token_cache.get_file_size():,} bytes, {len(token_cache):,} tokens")
     print("Scan complete")
-    print(pformat(scan_result))
+    print(pformat_scan_result(scan_result))
 
 
 if __name__ == "__main__":

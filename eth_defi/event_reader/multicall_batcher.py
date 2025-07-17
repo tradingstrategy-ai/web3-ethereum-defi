@@ -1275,10 +1275,10 @@ def read_multicall_historical_stateful(
         # Drop vaults that have peaked/dysfunctional
         accepted_calls = [c for c, state in calls.items() if state.should_invoke(c, block_number, timestamp)]
 
-        logger.info(f"Compiling calls for {block_number:,}, {timestamp}, total calls {len(all_calls):,}, accepted calls {len(accepted_calls):,}")
+        logger.debug(f"Compiling calls for {block_number:,}, {timestamp}, total calls {len(all_calls):,}, accepted calls {len(accepted_calls):,}")
 
         if len(accepted_calls) == 0:
-            logger.info("Block %d has no calls to perform, skipping", block_number)
+            logger.debug("Block %d has no calls to perform, skipping", block_number)
             continue
 
         task = MulticallHistoricalTask(

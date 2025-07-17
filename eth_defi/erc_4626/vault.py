@@ -144,6 +144,37 @@ class VaultReaderState(BatchCallState):
             assert k in VaultReaderState.SERIALISABLE_ATTRIBUTES, f"Unknown key {k} in VaultReaderState.load()"
             setattr(self, k, v)
 
+    @cached_property
+    def exchange_rate(self) -> Decimal:
+        # TODO: Approx hardcoded rules for now for TVL conversion.
+        # Latest add exchange rate orcale.
+        token = self.vault.denomination_token.symbol
+
+        # Try to cover common case
+        if "BTC" in token:
+            return Decimal(100_000)
+        elif "ETH" in token:
+            return Decimal(3000)
+        elif "AVA" in token:
+            return Decimal(50)
+        elif "POL" in token or "MATIC" in token:
+            return Decimal(1)
+        elif "BERA" in token:
+            return Decimal(2)
+        elif "BNB" in token:
+            return Decimal(500)
+        elif "ARB" in token:
+            return Decimal(0.4)
+        elif "S" == token or "WS" == token:
+            return Decimal(0.2)
+        elif "OP" == token or "WOP" == token:
+            return Decimal(0.5)
+        elif "MNT" in token:
+            return Decimal(0.5)
+        else:
+            # Assume stablecoin / some non-supported token
+            return Decimal(1)
+
     def should_invoke(
         self,
         call: "EncodedCall",
@@ -194,6 +225,8 @@ class VaultReaderState(BatchCallState):
             # We will mark these broken vaults with special -1 TVL value in the vault reader state.
             total_assets = -1
 
+        total_assets = total_assets * self.exchange_rate
+
         timestamp = result.timestamp
         self.last_call_at = timestamp
 
@@ -206,11 +239,13 @@ class VaultReaderState(BatchCallState):
         existing_max_tvl = self.max_tvl or 0
         self.max_tvl = max(existing_max_tvl, total_assets) if total_assets != -1 else total_assets
 
+        # The vault TVL has fell too much, disable
         if self.max_tvl > self.peaked_tvl_threshold:
             if self.last_tvl < self.max_tvl * Decimal(1 - self.down_hard):
                 logger.info(f"{self.last_call_at}: Vault {self.vault} peaked at {self.max_tvl}, now TVL is {self.last_tvl}, no longer reading it")
                 self.peaked_at = timestamp
 
+        # The vault never got any traction, disable
         if self.last_call_at - self.first_read_at > self.traction_period:
             if self.max_tvl < self.min_tvl_threshold:
                 logger.info(f"{self.last_call_at}:  Vault {self.vault} disabled at {self.max_tvl}, never reached min TVL {self.min_tvl_threshold}, no longer reading it")

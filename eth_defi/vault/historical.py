@@ -54,8 +54,25 @@ class ParquetScanResult(TypedDict):
     output_fname: Path
     file_size: int
     chunks_done: int
+    start_block: int
+    end_block: int
 
     reader_states: dict[VaultSpec, dict] | None
+
+def pformat_scan_result(self) -> str:
+    """Format the result as a string."""
+    return (
+        f"ParquetScanResult(chain_id={self['chain_id']}, \n"
+        f"start_block={self['start_block']:,}, \n"
+        f"end_block={self['end_block']:,}, \n"                
+        f"rows_written={self['rows_written']}, \n"
+        f"rows_deleted={self['rows_deleted']}, \n"
+        f"existing_row_count={self['existing_row_count']}, \n"
+        f"reader_state_count={len(self['reader_states'])}, \n"
+        f"output_fname={self['output_fname']}, \n"
+        f"file_size={self['file_size']} bytes, \n"
+        f"chunks_done={self['chunks_done']})"
+    )
 
 
 class VaultReadNotSupported(Exception):
@@ -196,6 +213,11 @@ class VaultHistoricalReadMulticaller:
     ) -> Iterable[VaultHistoricalRead]:
         """Create an iterable that extracts vault record from RPC.
 
+        :param start_block:
+            The first block to read from.
+
+            Set to None to get from the saved state what we have not yet read.
+
         :param reader_func:
             Either ``read_multicall_historical`` or ``read_multicall_historical_stateful``
 
@@ -211,14 +233,16 @@ class VaultHistoricalReadMulticaller:
         self.readers = readers
 
         # Hydrate states from the previous run
+        loaded_state_count = 0
         if saved_states:
             for reader in readers.values():
                 spec = reader.vault.get_spec()
                 existing_state = saved_states.get(spec)
                 if existing_state:
-                    reader.load(existing_state)
+                    reader.reader_state.load(existing_state)
+                    loaded_state_count += 1
 
-        logger.info("Prepared %d readers", len(readers))
+        logger.info("Prepared %d readers, loaded %d states", len(readers), loaded_state_count)
 
         # Dealing with legacy shit here
         calls = {c: state for c, state in self.generate_vault_historical_calls(readers)}
@@ -288,7 +312,7 @@ class VaultHistoricalReadMulticaller:
         """
 
         # TODO: Fix class inheritance, etc.
-        return {r.vault.get_spec(): r.reader_state.save() for r in self.readers.values()}
+        return {r.vault.get_spec(): r.reader_state.save() for r in self.readers.values() if r.reader_state}
 
 
 def scan_historical_prices_to_parquet(
@@ -362,6 +386,8 @@ def scan_historical_prices_to_parquet(
     import pyarrow.parquet as pq
     import pyarrow.compute as pc
 
+    stateful = reader_states is not None
+
     assert isinstance(output_fname, Path)
     if start_block is not None:
         assert type(start_block) == int
@@ -371,11 +397,29 @@ def scan_historical_prices_to_parquet(
 
     chain_id = web3.eth.chain_id
 
+    logger.info(
+        "Vault scan on %s: %s - %s, stateful is %s",
+        chain_id,
+        start_block,
+        end_block,
+        stateful,
+    )
+
     assert all(v.first_seen_at_block for v in vaults), f"You need to set vault.first_seen_at_block hint in order to run this reader"
     assert all(v.chain_id == chain_id for v in vaults), f"All vaults must be on the same chain"
 
+    first_detect_block = min(v.first_seen_at_block for v in vaults)
+    logger.info(f"First vault lead detection at block {first_detect_block:,} on chain {chain_id} ({get_chain_name(chain_id)})")
     if start_block is None:
-        start_block = min(v.first_seen_at_block for v in vaults)
+        if stateful:
+            # If we have reader states, use the earliest block from there
+            start_block = max((state["last_block"] for spec, state in reader_states.items() if spec.chain_id == chain_id), default=first_detect_block)
+            logger.info(f"Chain {chain_id}: determined start block to be {start_block:,} from {len(reader_states)} vault read states")
+        else:
+            # Clean start, find the first block of any vault on this chain.
+            # Detected during probing.
+            logger.info("No previous state, using first vault detection block as start block")
+            start_block = first_detect_block
 
     if end_block is None:
         end_block = get_almost_latest_block_number(web3)
@@ -417,8 +461,6 @@ def scan_historical_prices_to_parquet(
         saved_states=reader_states,
     )
 
-    reader_states = reader.save_reader_state()
-
     # Convert VaultHistoricalRead objects to exportable dicts for Parquet
     def converter(entries_iter: Iterable[VaultHistoricalRead]) -> Iterable[dict]:
         for entry in entries_iter:
@@ -448,18 +490,24 @@ def scan_historical_prices_to_parquet(
             len(existing_table),
         )
         # Clear existing entries for this chain
-        mask = pc.equal(existing_table["chain"], chain_id)
+        mask = pc.and_(
+            pc.equal(existing_table["chain"], chain_id),
+            pc.greater_equal(existing_table["block_number"], start_block),
+        )
+        all_row_count = len(existing_table)
         rows_deleted = pc.sum(mask).as_py() or 0
         existing_table = existing_table.filter(pc.invert(mask))
         existing_row_count = existing_table.num_rows
         logger.info(
-            "Removed existing %d rows for chain %d from the vault time-series data, existing table has %d rows",
+            "Removed existing %d rows out of %d rows for chain %d from the vault time-series data, existing table has %d rows",
             rows_deleted,
+            all_row_count,
             chain_id,
             existing_row_count,
         )
         existing = True
     else:
+        logger.info("No existing table, no removed rows")
         existing_table = None
         rows_deleted = 0
         existing = False
@@ -492,6 +540,8 @@ def scan_historical_prices_to_parquet(
             token_cache.filename,
         )
 
+        assert end_block >= start_block, f"End block {end_block} must be greater than or equal to start block {start_block}"
+
         chunks_done = 0
         for chunk in chunked(converted_iter, chunk_size):
             logger.info("Processing chunk %d", chunks_done)
@@ -510,6 +560,10 @@ def scan_historical_prices_to_parquet(
         f"Exported {rows_written} rows, file size is now {size:,} bytes",
     )
 
+    reader_states = reader.save_reader_state()
+    if stateful:
+        assert len(reader_states) > 0, "No reader states exported, this is a bug"
+
     return ParquetScanResult(
         rows_written=rows_written,
         rows_deleted=rows_deleted,
@@ -520,4 +574,6 @@ def scan_historical_prices_to_parquet(
         existing_row_count=existing_row_count,
         chunks_done=chunks_done,
         reader_states=reader_states,
+        start_block=start_block,
+        end_block=end_block,
     )
