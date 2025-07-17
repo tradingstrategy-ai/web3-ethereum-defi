@@ -34,7 +34,7 @@ Use cases for this package include
 
 # Supported protocols, chains and integrations
 
-![Supported protocols include Uniswap, Aave, others](https://web3-ethereum-defi.readthedocs.io/_images/logo-wall-white.png)
+![Supported protocols include Uniswap, Aave, others](https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/docs/source/_static/logo-wall-white.png)
 
 | Protocol         | Actions                                        | Tutorial and API links                                                                                                                                                     |
 |:-----------------|:-----------------------------------------------|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
