@@ -219,13 +219,13 @@ class VaultReaderState(BatchCallState):
     ):
         assert result.timestamp, f"EncodedCallResult {result} has no timestamp, cannot update state"
 
-        total_assets = total_assets * self.exchange_rate
-
         if total_assets is None:
             assert result.revert_exception, f"EncodedCallResult {result} has no total assets, but no revert exception either"
             # Cannot read total assets from this vault for some reason as the call is failing.
             # We will mark these broken vaults with special -1 TVL value in the vault reader state.
             total_assets = -1
+
+        total_assets = total_assets * self.exchange_rate
 
         timestamp = result.timestamp
         self.last_call_at = timestamp
@@ -239,11 +239,13 @@ class VaultReaderState(BatchCallState):
         existing_max_tvl = self.max_tvl or 0
         self.max_tvl = max(existing_max_tvl, total_assets) if total_assets != -1 else total_assets
 
+        # The vault TVL has fell too much, disable
         if self.max_tvl > self.peaked_tvl_threshold:
             if self.last_tvl < self.max_tvl * Decimal(1 - self.down_hard):
                 logger.info(f"{self.last_call_at}: Vault {self.vault} peaked at {self.max_tvl}, now TVL is {self.last_tvl}, no longer reading it")
                 self.peaked_at = timestamp
 
+        # The vault never got any traction, disable
         if self.last_call_at - self.first_read_at > self.traction_period:
             if self.max_tvl < self.min_tvl_threshold:
                 logger.info(f"{self.last_call_at}:  Vault {self.vault} disabled at {self.max_tvl}, never reached min TVL {self.min_tvl_threshold}, no longer reading it")
