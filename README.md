@@ -6,7 +6,7 @@
 
 # Web3-Ethereum-Defi
 
-Web-Ethereum-DeFi (`eth_defi`) Python package allows you to interact and consume data from EVM DeFi protocols.
+Web-Ethereum-DeFi (`eth_defi`) allows you to integrate [EVM-compatible](https://tradingstrategy.ai/glossary/evm-compatible) Web3 and DeFi protocols into your Python application.
 
 - [Use cases](#use-cases)
 - [Supported protocols, chains and integrations](#supported-protocols-chains-and-integrations)
