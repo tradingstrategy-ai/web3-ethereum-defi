@@ -223,8 +223,8 @@ def redeem_4626(
             raw_amount = raw_available
 
     if check_enough_token:
-        actual_balance = vault.share_token.fetch_raw_balance_of(owner)
-        assert actual_balance >= raw_amount, f"Not enough token in {owner} to deposit {amount} to {vault.address}, has {actual_balance}"
+        raw_actual_balance = vault.share_token.fetch_raw_balance_of(owner)
+        assert raw_actual_balance >= raw_amount, f"ERC-4626 redemption: Not enough token in {owner} to redeem from {vault.address}, has {raw_actual_balance}, wanted to redeem {raw_amount}"
 
     if check_max_redeem:
         max_redeem = contract.functions.maxRedeem(receiver).call()
