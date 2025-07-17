@@ -144,6 +144,37 @@ class VaultReaderState(BatchCallState):
             assert k in VaultReaderState.SERIALISABLE_ATTRIBUTES, f"Unknown key {k} in VaultReaderState.load()"
             setattr(self, k, v)
 
+    @cached_property
+    def exchange_rate(self) -> Decimal:
+        # TODO: Approx hardcoded rules for now for TVL conversion.
+        # Latest add exchange rate orcale.
+        token = self.vault.denomination_token.symbol
+
+        # Try to cover common case
+        if "BTC" in token:
+            return Decimal(100_000)
+        elif "ETH" in token:
+            return Decimal(3000)
+        elif "AVA" in token:
+            return Decimal(50)
+        elif "POL" in token or "MATIC" in token:
+            return Decimal(1)
+        elif "BERA" in token:
+            return Decimal(2)
+        elif "BNB" in token:
+            return Decimal(500)
+        elif "ARB" in token:
+            return Decimal(0.4)
+        elif "S" == token or "WS" == token:
+            return Decimal(0.2)
+        elif "OP" == token or "WOP" == token:
+            return Decimal(0.5)
+        elif "MNT" in token:
+            return Decimal(0.5)
+        else:
+            # Assume stablecoin / some non-supported token
+            return Decimal(1)
+
     def should_invoke(
         self,
         call: "EncodedCall",
@@ -187,6 +218,8 @@ class VaultReaderState(BatchCallState):
         total_assets: Decimal | None = None,
     ):
         assert result.timestamp, f"EncodedCallResult {result} has no timestamp, cannot update state"
+
+        total_assets = total_assets * self.exchange_rate
 
         if total_assets is None:
             assert result.revert_exception, f"EncodedCallResult {result} has no total assets, but no revert exception either"

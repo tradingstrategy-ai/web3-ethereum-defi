@@ -68,6 +68,7 @@ def pformat_scan_result(self) -> str:
         f"rows_written={self['rows_written']}, \n"
         f"rows_deleted={self['rows_deleted']}, \n"
         f"existing_row_count={self['existing_row_count']}, \n"
+        f"reader_state_count={len(self['reader_states'])}, \n"
         f"output_fname={self['output_fname']}, \n"
         f"file_size={self['file_size']} bytes, \n"
         f"chunks_done={self['chunks_done']})"
@@ -400,8 +401,8 @@ def scan_historical_prices_to_parquet(
     if start_block is None:
         if reader_states:
             # If we have reader states, use the earliest block from there
-            start_block = max(state["last_block"] for state in reader_states.values())
-            logger.info(f"Determined start block to be {start_block:,} from {len(reader_states)} vault read states")
+            start_block = max(state["last_block"] for spec, state in reader_states.values() if spec.chain_id == chain_id)
+            logger.info(f"Chain {chain_id}: determined start block to be {start_block:,} from {len(reader_states)} vault read states")
         else:
             # Clean start, find the first block of any vault on this chain.
             # Detected during probing.
@@ -519,6 +520,8 @@ def scan_historical_prices_to_parquet(
             block_time,
             token_cache.filename,
         )
+
+        assert end_block >= start_block, f"End block {end_block} must be greater than or equal to start block {start_block}"
 
         chunks_done = 0
         for chunk in chunked(converted_iter, chunk_size):
