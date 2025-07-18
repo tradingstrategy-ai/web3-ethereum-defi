@@ -242,13 +242,13 @@ class VaultReaderState(BatchCallState):
         # The vault TVL has fell too much, disable
         if self.max_tvl > self.peaked_tvl_threshold:
             if self.last_tvl < self.max_tvl * Decimal(1 - self.down_hard):
-                logger.info(f"{self.last_call_at}: Vault {self.vault} peaked at {self.max_tvl}, now TVL is {self.last_tvl}, no longer reading it")
+                logger.debug(f"{self.last_call_at}: Vault {self.vault} peaked at {self.max_tvl}, now TVL is {self.last_tvl}, no longer reading it")
                 self.peaked_at = timestamp
 
         # The vault never got any traction, disable
         if self.last_call_at - self.first_read_at > self.traction_period:
             if self.max_tvl < self.min_tvl_threshold:
-                logger.info(f"{self.last_call_at}:  Vault {self.vault} disabled at {self.max_tvl}, never reached min TVL {self.min_tvl_threshold}, no longer reading it")
+                logger.debug(f"{self.last_call_at}:  Vault {self.vault} disabled at {self.max_tvl}, never reached min TVL {self.min_tvl_threshold}, no longer reading it")
                 self.faded_at = timestamp
 
         self.entry_count += 1

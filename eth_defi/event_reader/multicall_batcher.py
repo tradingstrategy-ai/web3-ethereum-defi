@@ -1329,7 +1329,7 @@ def read_multicall_historical_stateful(
                     progress_bar.set_postfix(suffixes)
 
             for combined_result in _flush_chunk(chunk):
-                logger.info(f"Updating states for {combined_result.timestamp} {combined_result.block_number:,}")
+                logger.debug(f"Updating states for {combined_result.timestamp} {combined_result.block_number:,}")
                 yield combined_result
 
             chunk = []
