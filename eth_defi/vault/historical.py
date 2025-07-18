@@ -59,20 +59,10 @@ class ParquetScanResult(TypedDict):
 
     reader_states: dict[VaultSpec, dict] | None
 
+
 def pformat_scan_result(self) -> str:
     """Format the result as a string."""
-    return (
-        f"ParquetScanResult(chain_id={self['chain_id']}, \n"
-        f"start_block={self['start_block']:,}, \n"
-        f"end_block={self['end_block']:,}, \n"                
-        f"rows_written={self['rows_written']:,}, \n"
-        f"rows_deleted={self['rows_deleted']:,}, \n"
-        f"existing_row_count={self['existing_row_count']:,}, \n"
-        f"reader_state_count={len(self['reader_states'])}, \n"
-        f"output_fname={self['output_fname']}, \n"
-        f"file_size={self['file_size']:,} bytes, \n"
-        f"chunks_done={self['chunks_done']:,})"
-    )
+    return f"ParquetScanResult(chain_id={self['chain_id']}, \nstart_block={self['start_block']:,}, \nend_block={self['end_block']:,}, \nrows_written={self['rows_written']:,}, \nrows_deleted={self['rows_deleted']:,}, \nexisting_row_count={self['existing_row_count']:,}, \nreader_state_count={len(self['reader_states'])}, \noutput_fname={self['output_fname']}, \nfile_size={self['file_size']:,} bytes, \nchunks_done={self['chunks_done']:,})"
 
 
 class VaultReadNotSupported(Exception):

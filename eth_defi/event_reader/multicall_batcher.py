@@ -798,7 +798,7 @@ class MultiprocessMulticallReader:
         self,
         web3factory: Web3Factory | Web3,
         batch_size=40,
-        backswitch_threshold = 100,
+        backswitch_threshold=100,
     ):
         """Create subprocess worker instance.
 
