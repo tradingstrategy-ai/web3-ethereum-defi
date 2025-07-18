@@ -18,6 +18,7 @@ from web3.types import RPCEndpoint, RPCResponse
 
 from eth_defi.event_reader.conversion import convert_jsonrpc_value_to_int
 from eth_defi.middleware import http_retry_request_with_sleep_middleware
+from eth_defi.provider.named import get_provider_name
 from eth_defi.compat import WEB3_PY_V7
 from eth_defi.compat import install_poa_middleware, install_retry_middleware_compat, install_api_call_counter_middleware_compat, WEB3_PY_V7
 from eth_defi.middleware import http_retry_request_with_sleep_middleware
@@ -29,6 +30,33 @@ POA_MIDDLEWARE_NEEDED_CHAIN_IDS = {
     137,  # Polygon
     43114,  # Avalanche C-chain
 }
+
+#: For linking on reports
+CHAIN_HOMEPAGES = {
+    1: {"name": "Ethereum", "homepage": "https://ethereum.org"},
+    56: {"name": "Binance", "homepage": "https://www.bnbchain.org"},
+    137: {"name": "Polygon", "homepage": "https://polygon.technology"},
+    43114: {"name": "Avalanche", "homepage": "https://www.avax.network"},
+    80094: {"name": "Berachain", "homepage": "https://www.berachain.com"},
+    130: {"name": "Unichain", "homepage": "https://www.uniswap.org/unichain"},  # Uniswap's Unichain
+    645749: {"name": "Hyperliquid", "homepage": "https://hyperliquid.xyz"},  # Primary Hyperliquid entry
+    8453: {"name": "Base", "homepage": "https://www.base.org"},
+    146: {"name": "Sonic", "homepage": "https://www.soniclabs.com/"},  # Formerly Fantom Sonic
+    34443: {"name": "Mode", "homepage": "https://www.mode.network"},
+    5000: {"name": "Mantle", "homepage": "https://www.mantle.xyz"},
+    999: {"name": "Hyperliquid", "homepage": "https://hyperliquid.xyz"},  # Duplicate, same as 645749
+    42161: {"name": "Arbitrum", "homepage": "https://arbitrum.io"},
+    2741: {"name": "Abstract", "homepage": "https://www.abstract.foundation"},  # Limited info, assumed official
+    10: {"name": "Optimism", "homepage": "https://www.optimism.io"},
+    1868: {"name": "Soneium", "homepage": "https://www.soneium.org"},
+    324: {"name": "ZKsync", "homepage": "https://zksync.io"},
+    100: {"name": "Gnosis", "homepage": "https://www.gnosis.io"},
+    81457: {"name": "Blast", "homepage": "https://blast.io"},
+    42220: {"name": "Celo", "homepage": "https://celo.org"},
+    7777777: {"name": "Zora", "homepage": "https://zora.co"},
+    57073: {"name": "Ink", "homepage": "https://inkonchain.com/"},
+}
+
 
 #: Manually maintained shorthand names for different EVM chains
 CHAIN_NAMES = {
