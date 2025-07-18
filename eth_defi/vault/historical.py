@@ -451,6 +451,16 @@ def scan_historical_prices_to_parquet(
     else:
         block_time = None
 
+    logger.info(
+        "Reading %d vaults on chain %d, start block %d, end block %d, step %d blocks, step duration %s",
+        len(vaults),
+        chain_id,
+        start_block,
+        end_block,
+        step,
+        step_duration,
+    )
+
     # Create iterator that will drop in vault historical read entries block by block
     entries_iter = reader.read_historical(
         vaults=vaults,
@@ -564,9 +574,10 @@ def scan_historical_prices_to_parquet(
         # Merge new reader states
         new_states = reader.save_reader_state()
         logger.info("Total %d updates reader states available", len(new_states))
+        if len(vaults) > 0:
+            assert len(new_states) > 0, f"Reader states are empty, this is a bug, chain_id: {chain_id}, vaults: {vaults}"
         reader_states = reader_states or {}
         reader_states.update(new_states)
-        assert len(reader_states) > 0, "No reader states exported, this is a bug"
     else:
         logger.info("Not a stateful scan, do not update states")
 

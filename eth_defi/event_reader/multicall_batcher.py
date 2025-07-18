@@ -1169,7 +1169,7 @@ def read_multicall_historical(
 
     calls_pickle_friendly = list(calls)
 
-    logger.info("Per block we need to do %d calls", len(calls_pickle_friendly))
+    logger.debug("Per block we need to do %d calls", len(calls_pickle_friendly))
 
     def _task_gen() -> Iterable[MulticallHistoricalTask]:
         for block_number in range(start_block, end_block, step):
