@@ -417,7 +417,7 @@ def scan_historical_prices_to_parquet(
     if start_block is None:
         if stateful:
             # If we have reader states, use the earliest block from there
-            start_block = max((state["last_block"] for spec, state in reader_states.items() if spec.chain_id == chain_id), default=first_detect_block)
+            start_block = max(((state["last_block"] or 0) for spec, state in reader_states.items() if spec.chain_id == chain_id), default=first_detect_block)
             logger.info(f"Chain {chain_id}: determined start block to be {start_block:,} from {len(reader_states)} vault read states")
         else:
             # Clean start, find the first block of any vault on this chain.

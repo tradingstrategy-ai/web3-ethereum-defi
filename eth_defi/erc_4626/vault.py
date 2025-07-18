@@ -61,8 +61,10 @@ class VaultReaderState(BatchCallState):
     #: All attributes we store when we serialise the read state between runs
     SERIALISABLE_ATTRIBUTES = (
         "last_tvl",
-        "first_read_at",
         "max_tvl",
+        "first_seen_at_block",
+        "first_block",
+        "first_read_at",
         "last_call_at",
         "last_block",
         "peaked_at",
@@ -110,6 +112,7 @@ class VaultReaderState(BatchCallState):
 
         #: Timestamp of the block of the first successful read of this vault.
         self.first_read_at: datetime.datetime = None
+        self.first_block: int = None
 
         #: Start with zero TVL
         self.max_tvl: Decimal = Decimal(0)
