@@ -852,7 +852,7 @@ class MultiprocessMulticallReader:
             # Mantle: 1000B gas
             # Block 61298003
             # Address 0xca11bde05977b3631167028862be2a173976ca11
-            return 999_000_000_000
+            return 9_999_000_000_000
         else:
             return None
 
