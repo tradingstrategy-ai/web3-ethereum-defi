@@ -79,7 +79,7 @@ def test_mev_blocker_send_transaction_raw(mev_blocker_provider: MEVBlockerProvid
     raw_bytes = get_tx_broadcast_data(signed_tx)
     tx_hash = web3.eth.send_raw_transaction(raw_bytes)
     assert_transaction_success_with_explanation(web3, tx_hash)
-    #assert mev_blocker_provider.provider_counter["call"] == 11
+    # assert mev_blocker_provider.provider_counter["call"] == 11
     assert mev_blocker_provider.provider_counter["transact"] == 2
 
 
