@@ -436,13 +436,12 @@ def scan_historical_prices_to_parquet(
         require_multicall_result=require_multicall_result,
     )
 
+    reader_func = read_multicall_historical_stateful
     match frequency:
         case "1d":
             step_duration = datetime.timedelta(hours=24)
-            reader_func = read_multicall_historical
         case "1h":
             step_duration = datetime.timedelta(hours=1)
-            reader_func = read_multicall_historical_stateful
         case _:
             raise ValueError(f"Unsupported frequency: {frequency}")
 
