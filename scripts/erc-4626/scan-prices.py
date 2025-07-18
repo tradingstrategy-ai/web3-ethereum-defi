@@ -18,9 +18,19 @@ Or for dynamic 1h frequency scan for Polygon, delete existing data:
 
     rm -rf ~/.tradingstrategy/vaults
     export FREQUENCY=1h
-    export JSON_RPC_URL=$JSON_RPC_MANTLE
+    export JSON_RPC_URL=$JSON_RPC_GNOSIS
     python scripts/erc-4626/scan-vaults.py
     python scripts/erc-4626/scan-prices.py
+
+    export JSON_RPC_URL=$JSON_RPC_GNOSIS
+    python scripts/erc-4626/scan-prices.py
+
+    export JSON_RPC_URL=$JSON_RPC_MANTLE
+    python scripts/erc-4626/scan-prices.py
+
+    export JSON_RPC_URL=$JSON_RPC_GNOSIS
+    python scripts/erc-4626/scan-prices.py
+
 
 """
 

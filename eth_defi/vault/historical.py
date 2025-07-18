@@ -544,7 +544,7 @@ def scan_historical_prices_to_parquet(
 
         chunks_done = 0
         for chunk in chunked(converted_iter, chunk_size):
-            logger.info("Processing chunk %d", chunks_done)
+            logger.debug("Processing chunk %d", chunks_done)
             table = pa.Table.from_pylist(chunk, schema=schema)
             writer.write_table(table)
             rows_written += len(chunk)
