@@ -148,9 +148,10 @@ class VaultHistoricalReadMulticaller:
     ) -> dict[HexAddress, VaultHistoricalReader]:
         """Create readrs for vaults."""
         logger.info(
-            "Preparing readers for %d vaults, using %d threads",
+            "Preparing readers for %d vaults, using %d threads, stateful is %s",
             len(vaults),
             self.max_workers,
+            stateful,
         )
 
         assert len(vaults) > 0
@@ -250,6 +251,9 @@ class VaultHistoricalReadMulticaller:
         if not stateful:
             # Discard any state mapping
             calls = list(calls.keys())
+        else:
+            for reader in readers.values():
+                assert reader.reader_state, f"Stateful reading: Reader did not set up state: {reader}"
 
         logger.info(
             f"Starting historical read loop, total calls {len(calls)} per block, {start_block:,} - {end_block:,} blocks, step is {step}",
