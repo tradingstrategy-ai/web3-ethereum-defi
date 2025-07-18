@@ -70,6 +70,8 @@ class VaultReaderState(BatchCallState):
         "peaked_at",
         "faded_at",
         "entry_count",
+        "chain_id",
+        "vault_address",
     )
 
     def __init__(
@@ -137,6 +139,10 @@ class VaultReaderState(BatchCallState):
 
         #: Events read, used for testing
         self.entry_count = 0
+
+        #: Copy for state debuggin
+        self.chain_id = vault.spec.chain_id
+        self.vault_address = vault.vault_address
 
     def save(self) -> dict:
         return {k: getattr(self, k) for k in self.SERIALISABLE_ATTRIBUTES}
@@ -235,6 +241,9 @@ class VaultReaderState(BatchCallState):
 
         if self.first_read_at is None:
             self.first_read_at = timestamp
+
+        if self.first_block is None:
+            self.first_block = result.block_identifier
 
         self.last_tvl = total_assets
         self.last_call_at = timestamp
