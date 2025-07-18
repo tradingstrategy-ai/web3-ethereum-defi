@@ -60,7 +60,7 @@ def _save_data(timestamps: ChainBlockTimestampMap, cache_file: Path):
     tmp_path.replace(cache_file)  # Atomic move
 
     size = cache_file.stat().st_size
-    logger.info(f"Saved block timestamps to {cache_file}, size is {size / 1024 * 1024} MB")
+    logger.debug(f"Saved block timestamps to {cache_file}, size is {size / 1024 * 1024} MB")
 
 
 def fetch_block_timestamps_multiprocess(
