@@ -10,17 +10,20 @@ Usage:
     export JSON_RPC_URL=...
     python scripts/erc-4626/scan-prices.py
 
-Or for faster small sample scan limit the end block:
+Or for faster small sample scan limit the end block::
 
     END_BLOCK=5555721 python scripts/erc-4626/scan-prices.py
 
-Or for dynamic 1h frequency scan for Polygon, delete existing data:
+Or for dynamic 1h frequency scan for Polygon, delete existing data::
 
     rm -rf ~/.tradingstrategy/vaults
     export FREQUENCY=1h
     export JSON_RPC_URL=$JSON_RPC_GNOSIS
     python scripts/erc-4626/scan-vaults.py
     python scripts/erc-4626/scan-prices.py
+
+
+Re-run manual test::
 
     export JSON_RPC_URL=$JSON_RPC_GNOSIS
     python scripts/erc-4626/scan-prices.py
@@ -111,7 +114,8 @@ def main():
         unique_chains = set(spec.chain_id for spec in reader_states.keys())
         print(f"Loaded {len(reader_states)} reader states from {reader_state_db}, contains {len(unique_chains)} chains")
     else:
-        reader_states = None
+        # Start with empty reader states:g first chain. first scan
+        reader_states = {}
 
     chain_vaults = [v for v in vault_db.values() if v["_detection_data"].chain == chain_id]
     print(f"Chain {name} has {len(chain_vaults):,} vaults in the vault detection database")
