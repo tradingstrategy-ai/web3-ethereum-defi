@@ -40,6 +40,7 @@ from web3.exceptions import ContractLogicError
 from eth_defi.vault.base import VaultSpec, VaultInfo, VaultFlowManager
 
 from safe_eth.safe import Safe
+from safe_eth.safe.exceptions import CannotRetrieveSafeInfoException
 
 from ..abi import get_deployed_contract, encode_function_call, present_solidity_args, get_function_selector, get_function_abi_by_name
 from ..erc_4626.vault import ERC4626Vault
@@ -196,6 +197,8 @@ class LagoonVault(ERC4626Vault):
             # function settleDeposit(uint256 _newTotalAssets) public override onlySafe onlyOpen {
             assert len(settle_deposit_abi["inputs"]) == 1, f"Wrong old Lagoon ABI file loaded for {self.vault_address}"
 
+        assert self.safe is not None, f"Safe multisig address is not set for {self.vault_address}"
+
     @cached_property
     def version(self) -> LagoonVersion:
         """Get Lagoon version.
@@ -265,8 +268,15 @@ class LagoonVault(ERC4626Vault):
         """
         vault_info = self.fetch_vault_info()
         safe = self.fetch_safe(vault_info["safe"])
-        safe_info_dict = asdict(safe.retrieve_all_info())
-        del safe_info_dict["address"]  # Key conflict
+        try:
+            safe_info_dict = asdict(safe.retrieve_all_info())
+            del safe_info_dict["address"]  # Key conflict
+        except CannotRetrieveSafeInfoException as e:
+            # Safe is not a safe but EOA address
+            # https://arbiscan.io/address/0xb03EdA433d5bB1ef76b63087D4042A92C02822bD
+            logger.error(f"Lagoon Safe info fetch failed for Safe {safe}, vault {self.vault_address}, vault info is {vault_info}: {e}", exc_info=e)
+            safe_info_dict = {}
+
         return vault_info | safe_info_dict
 
     @property
