@@ -108,6 +108,8 @@ def main():
 
     if reader_state_db.exists():
         reader_states = pickle.load(reader_state_db.open("rb"))
+        unique_chains = set(spec.chain_id for spec in reader_states.keys())
+        print(f"Loaded {len(reader_states)} reader states from {reader_state_db}, contains {len(unique_chains)} chains")
     else:
         reader_states = None
 

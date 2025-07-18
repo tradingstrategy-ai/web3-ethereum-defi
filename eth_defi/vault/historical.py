@@ -560,8 +560,15 @@ def scan_historical_prices_to_parquet(
         f"Exported {rows_written} rows, file size is now {size:,} bytes",
     )
 
-    reader_states = reader.save_reader_state()
+
     if stateful:
+
+        # Merge new reader states
+        new_states = reader.save_reader_state()
+        logger.info("Total %d updates reader states available", len(new_states))
+        reader_states = reader_states or {}
+        reader_states.update(new_states)
+
         assert len(reader_states) > 0, "No reader states exported, this is a bug"
 
     return ParquetScanResult(
