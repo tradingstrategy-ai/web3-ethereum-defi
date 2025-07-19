@@ -17,6 +17,8 @@ from eth_defi.token import is_stablecoin_like
 from eth_defi.vault.vaultdb import VaultDatabase
 from eth_defi.research.vault_metrics import calculate_lifetime_metrics
 
+from IPython.display import display
+
 
 def assign_unique_names(
     vault_db: VaultDatabase,
@@ -267,10 +269,11 @@ def clean_by_tvl(
     return returns_df
 
 
-def preprocess_vault_data(
+def process_raw_vault_scan_data(
     vault_db: VaultDatabase,
     prices_df: pd.DataFrame,
     logger=print,
+    display: Callable = lambda x: None,
 ) -> pd.DataFrame:
     """Preprocess vault data for further analysis.
 
@@ -284,7 +287,7 @@ def preprocess_vault_data(
     prices_df = filter_vaults_by_stablecoin(vault_db, prices_df, logger)
     prices_df = _calculate_returns(prices_df)
     prices_df = clean_price_data(vault_db, prices_df, logger)
-    prices_df = clean_returns(vault_db, prices_df, logger)
+    prices_df = clean_returns(vault_db, prices_df, logger, display)
     prices_df = clean_by_tvl(vault_db, prices_df, logger)
     return prices_df
 
@@ -294,6 +297,7 @@ def generate_cleaned_vault_datasets(
     price_df_path=Path.home() / ".tradingstrategy" / "vaults" / "vault-prices-1h.parquet",
     cleaned_price_df_path=Path.home() / ".tradingstrategy" / "vaults" / "vault-prices-1h.parquet",
     logger=print,
+    display=display,
 ):
     """A command line script to take raw scanned vault price data and clean it up to a format that can be analysed.
 
@@ -313,9 +317,15 @@ def generate_cleaned_vault_datasets(
     vault_db: VaultDatabase = pickle.load(vault_db_path.open("rb"))
     prices_df = pd.read_parquet(price_df_path)
 
-    enhanced_prices_df = preprocess_vault_data(vault_db, prices_df, logger)
+    enhanced_prices_df = process_raw_vault_scan_data(
+        vault_db,
+        prices_df,
+        logger,
+        display=display,
+    )
     enhanced_prices_df.to_parquet(
         cleaned_price_df_path,
+        compression="zstd",
     )
 
     fsize = cleaned_price_df_path.stat().st_size
