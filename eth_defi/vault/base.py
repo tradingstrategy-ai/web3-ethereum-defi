@@ -15,7 +15,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from decimal import Decimal
 from functools import cached_property
-from typing import Iterable, TypedDict
+from typing import Iterable, TypedDict, TypeAlias
 
 from eth.typing import BlockRange
 from eth_typing import BlockIdentifier, HexAddress
@@ -87,6 +87,8 @@ class VaultInfo(TypedDict):
 
     - Not standardised yet
     """
+
+
 
 
 @dataclass
@@ -646,3 +648,5 @@ class VaultBase(ABC):
             0.1 = 10%
         """
         raise NotImplementedError(f"Class {self.__class__.__name__} does not implement get_performance_fee()")
+
+
