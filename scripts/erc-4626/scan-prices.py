@@ -38,7 +38,7 @@ Re-run manual test::
 
 Copy server-side run results back to the local machine::
 
-    rsync -av --inplace --progress --exclude="tmp*" "poly:.tradingstrategy/vaults/*" "~/.tradingstrategy/vaults/"
+    rsync -av --inplace --progress --exclude="tmp*" "poly:.tradingstrategy/vaults/*" ~/.tradingstrategy/vaults/
 
 """
 

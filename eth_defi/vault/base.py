@@ -60,6 +60,9 @@ class VaultSpec:
             return False
         return self.chain_id == other.chain_id and self.vault_address == other.vault_address
 
+    def as_string_id(self) -> str:
+        return f"{self.chain_id}-{self.vault_address}"
+
     @staticmethod
     def parse_string(spec: str) -> "VaultSpec":
         """Parse vault spec from a string.

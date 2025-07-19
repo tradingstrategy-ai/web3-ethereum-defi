@@ -5,11 +5,12 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
-import plotly.express as px
+
 from plotly.subplots import make_subplots
 from plotly.graph_objects import Figure
 
 from eth_defi.chain import get_chain_name
+from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.vaultdb import VaultDatabase
 
 try:
@@ -21,19 +22,18 @@ except ImportError:
 def calculate_lifetime_metrics(
     df: pd.DataFrame,
     vaults_by_id: dict,
+    returns_column: str = "daily_returns",
 ):
     """Calculate lifetime metrics for each vault in the provided DataFrame.
 
     - All-time returns
-    - 3M returns
-    - 1M returns
+    - 3M returns, latest
+    - 1M returns, latest
     - Volatility (3M)
-
-    :param df:
-        See notebooks
-
     """
     results = []
+
+    assert isinstance(df.index, pd.DatetimeIndex)
 
     month_ago = df.index.max() - pd.Timedelta(days=30)
     three_months_ago = df.index.max() - pd.Timedelta(days=90)
@@ -44,12 +44,12 @@ def calculate_lifetime_metrics(
         name = vaults_by_id[id_val]["Name"] if id_val in vaults_by_id else None
 
         # Calculate lifetime return using cumulative product approach
-        lifetime_return = (1 + group["daily_returns"]).prod() - 1
+        lifetime_return = (1 + group[returns_column]).prod() - 1
 
-        last_three_months = group["daily_returns"].loc[three_months_ago:]
+        last_three_months = group[returns_column].loc[three_months_ago:]
         three_month_returns = (1 + last_three_months).prod() - 1
 
-        last_month = group["daily_returns"].loc[month_ago:]
+        last_month = group[returns_column].loc[month_ago:]
         one_month_returns = (1 + last_month).prod() - 1
 
         # Calculate volatility so we can separate actively trading vaults (market making, such) from passive vaults (lending optimisaiton)
@@ -170,8 +170,10 @@ class VaultReport:
 
 def analyse_vault(
     vault_db: VaultDatabase,
-    all_returns_df: pd.DataFrame,
-    id: str,
+    prices_df: pd.DataFrame,
+    spec: VaultSpec,
+    returns_col: str = "returns_1h",
+    logger=print,
 ) -> VaultReport:
     """Create charts and tables to analyse a vault performance.
 
@@ -180,8 +182,10 @@ def analyse_vault(
     :param vault_db:
         Database of all vault metadata
 
-    :param all_returns_df:
-        Cleaned returns of all vaults
+    :param price_df:
+        Cleaned price and returns data for all vaults.
+
+        Can be be in any time frame.
 
     :param id:
         Vault chain + address to analyse, e.g. "1-0x1234567890abcdef1234567890abcdef12345678"
@@ -189,19 +193,27 @@ def analyse_vault(
     :return:
         Analysis report to display
     """
-    returns_df = all_returns_df
-    name = vault_db[id]["Name"]
+    returns_df = prices_df
+
+    id = spec.as_string_id()
+
+    vault_metadata = vault_db.get(spec)
+    if vault_metadata is None:
+        assert vault_metadata, f"Vault with id {spec} not found in vault database"
+
+    name = vault_metadata["Name"]
 
     vault_df = returns_df.loc[returns_df["id"] == id]
-    daily_returns = returns_df.loc[returns_df["id"] == id]["daily_returns"]
-    vault_metadata = vault_db[id]
-    print(f"Examining vault {name}: {id}, having {len(daily_returns):,} daily returns rows")
+    returns_series = returns_df.loc[returns_df["id"] == id][returns_col]
+    returns_freq = pd.infer_freq(returns_series.index)
+    assert returns_freq is not None, f"Could not infer frequency for returns series of vault {name}: {id}:\n{returns_series}"
+    logger(f"Examining vault {name}: {id}, having {len(returns_series):,} returns rows with inferred frequency {returns_freq}")
     nav_series = vault_df["total_assets"]
 
     price_series = vault_df["share_price"]
 
     # Calculate cumulative returns (what $1 would grow to)
-    cumulative_returns = (1 + daily_returns).cumprod()
+    cumulative_returns = (1 + returns_series).cumprod()
 
     # Create figure with secondary y-axis
     fig = make_subplots(specs=[[{"secondary_y": True}]])
@@ -239,7 +251,7 @@ def analyse_vault(
 
             metrics = quantstats.reports.metrics
             performance_metrics_df = metrics(
-                daily_returns,
+                returns_series,
                 benchmark=None,
                 as_pct=True,  # QuantStats codebase is a mess
                 periods_per_year=365,
@@ -256,3 +268,81 @@ def analyse_vault(
         performance_metrics_df=performance_metrics_df,
     )
 
+
+
+def calculate_performance_metrics_for_all_vaults(
+    vault_db: VaultDatabase,
+    prices_df: pd.DataFrame,
+    logger=print,
+    lifetime_min_nav_threshold = 100.00,
+    broken_max_nav_value = 99_000_000_000,
+    cagr_too_high=10_000,
+    min_events = 25,
+) -> pd.DataFrame:
+    """Calculate performance metrics for each vault.
+
+    - Only applicable to stablecoin vaults as cleaning units are in USD
+    - Clean up idle vaults that have never seen enough events to be considered active
+    - Calculate lifetime returns, CAGR, NAV, etc.
+    - Filter out results with abnormal values
+
+    :return:
+        DataFrame with lifetime metrics for each vault, indexed by vault name.
+    """
+
+    vaults_by_id = {f"{vault['_detection_data'].chain}-{vault['_detection_data'].address}": vault for vault in vault_db.values()}
+
+    # Numpy complains about something
+    # - invalid value encountered in reduce
+    # - Boolean Series key will be reindexed to match DataFrame index.
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)
+        warnings.simplefilter("ignore", RuntimeWarning)
+        lifetime_data_df = calculate_lifetime_metrics(
+            prices_df,
+            vaults_by_id,
+            returns_column="returns_1h",
+        )
+
+    lifetime_data_df = lifetime_data_df.sort_values(by="cagr", ascending=False)
+    lifetime_data_df = lifetime_data_df.set_index("name")
+
+    assert not lifetime_data_df.index.duplicated().any(), f"There are duplicate ids in the index: {lifetime_data_df.index}"
+
+    # Verify we no longer have duplicates
+    # display(lifetime_data_df.index)
+    assert not lifetime_data_df.index.dropna().duplicated().any(), f"There are still duplicate names in the index: {lifetime_data_df.index}"
+    logger("Successfully made all vault names unique by appending chain information")
+
+    logger(f"Calculated lifetime data for {len(lifetime_data_df):,} vaults")
+    logger("Sample entrys of lifetime data:")
+
+    #
+    # Clean data
+    #
+
+    # Filter FRAX vault with broken interface
+    lifetime_data_df = lifetime_data_df[~lifetime_data_df.index.isna()]
+
+    # Filter out MAAT Stargate V2 USDT
+    # Not sure what's going on with this one and other ones with massive returns.
+    # Rebase token?
+    # Consider 10,000x returns as "valid"
+    lifetime_data_df = lifetime_data_df[lifetime_data_df["cagr"] < cagr_too_high]
+
+    # Filter out some vaults that report broken NAV
+    broken_mask = lifetime_data_df["peak_nav"] > broken_max_nav_value
+    logger(f"Vault entries with too high NAV values filtered out: {len(lifetime_data_df[broken_mask])}")
+    lifetime_data_df = lifetime_data_df[~broken_mask]
+
+    # Filter out some vaults that have too little NAV (ATH NAV)
+    broken_mask = lifetime_data_df["peak_nav"] <= lifetime_min_nav_threshold
+    logger(f"Vault entries with too small ATH NAV values filtered out: {len(lifetime_data_df[broken_mask])}")
+    lifetime_data_df = lifetime_data_df[~broken_mask]
+
+    # Filter out some vaults that have not seen many deposit and redemptions
+    broken_mask = lifetime_data_df["event_count"] < min_events
+    logger(f"Vault entries with too few deposit and redeem events (min {min_events}) filtered out: {len(lifetime_data_df[broken_mask])}")
+    lifetime_data_df = lifetime_data_df[~broken_mask]
+
+    return lifetime_data_df
