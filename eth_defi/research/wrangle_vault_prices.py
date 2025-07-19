@@ -25,6 +25,11 @@ def assign_unique_names(
     prices_df: pd.DataFrame,
     logger=print,
 ) -> pd.DataFrame:
+    """Ensure all vaults have unique human-readable name.
+
+    - Find duplicate vault names
+    - Add a running counter to the name to make it unique
+    """
     vaults_by_id = {f"{vault['_detection_data'].chain}-{vault['_detection_data'].address}": vault for vault in vault_db.values()}
 
     # We use name later as DF index, so we need to make sure they are unique
@@ -63,6 +68,7 @@ def add_denormalised_vaut_data(
     """Add denormalised data to the prices DataFrame.
 
     - Take data from vault database and duplicate it across every row
+    - Add protocol name and event count columns
     """
 
     vaults_by_id = {f"{vault['_detection_data'].chain}-{vault['_detection_data'].address}": vault for vault in vault_db.values()}
@@ -97,80 +103,35 @@ def filter_vaults_by_stablecoin(
     prices_df = prices_df.loc[prices_df["id"].isin(allowed_vault_ids)]
     logger(f"Filtered out prices have {len(prices_df):,} rows")
 
-
-def _calculate_returns(prices_df: pd.DataFrame):
-    prices_df['returns'] = prices_df.groupby('id')['price'].pct_change()
     return prices_df
 
 
-def clean_price_data(
-    vault_db: VaultDatabase,
-    prices_df: pd.DataFrame,
-    logger=print,
-    lifetime_min_nav_threshold = 100.00,
-    broken_max_nav_value = 99_000_000_000,
-    cagr_too_high=10_000,
-    min_events = 25,
-) -> pd.DataFrame:
-    """Clean price data by removing abnormalities.
+def calculate_vault_returns(prices_df: pd.DataFrame, logger=print):
+    """Calculate returns for each vault.
 
-    - Only applicable to stablecoin vaults as cleaning units are in USD
-    - Clean up idle vaults that have never seen enough events to be considered active
+    - Filter out reads for which we did not get a proper share price
+    - Add ``returns_1h`` columns
+
+    Example of input data:
+
+    .. code-block:: none
+
+             chain                                     address  block_number           timestamp  share_price  ...  errors                                                id  name  event_count            protocol
+        207  42161  0x487cdc7d21ac8765eff6c0e681aea36ae1594471      13294721 2022-05-30 19:59:22          1.0  ...          42161-0x487cdc7d21ac8765eff6c0e681aea36ae1594471  LDAI           17  <unknown ERC-4626>
+
     """
+    assert isinstance(prices_df, pd.DataFrame), "prices_df must be a pandas DataFrame"
 
-    vaults_by_id = {f"{vault['_detection_data'].chain}-{vault['_detection_data'].address}": vault for vault in vault_db.values()}
+    missing_share_price_mask = prices_df['share_price'].isna()
+    bad_share_price_df = prices_df[missing_share_price_mask]
+    if len(bad_share_price_df) > 0:
+        logger(f"We have NaN share prices for {len(bad_share_price_df):,} rows, these will be dropped")
+        prices_df = prices_df[~missing_share_price_mask]
 
-    # Numpy complains about something
-    # - invalid value encountered in reduce
-    # - Boolean Series key will be reindexed to match DataFrame index.
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", UserWarning)
-        warnings.simplefilter("ignore", RuntimeWarning)
-        lifetime_data_df = calculate_lifetime_metrics(prices_df, vaults_by_id)
-
-    lifetime_data_df = lifetime_data_df.sort_values(by="cagr", ascending=False)
-    lifetime_data_df = lifetime_data_df.set_index("name")
-
-    assert not lifetime_data_df.index.duplicated().any(), f"There are duplicate ids in the index: {lifetime_data_df.index}"
-
-    # Verify we no longer have duplicates
-    # display(lifetime_data_df.index)
-    assert not lifetime_data_df.index.dropna().duplicated().any(), f"There are still duplicate names in the index: {lifetime_data_df.index}"
-    logger("Successfully made all vault names unique by appending chain information")
-
-    logger(f"Calculated lifetime data for {len(lifetime_data_df):,} vaults")
-    logger("Sample entrys of lifetime data:")
-
-    #
-    # Clean data
-    #
-
-    # Filter FRAX vault with broken interface
-    lifetime_data_df = lifetime_data_df[~lifetime_data_df.index.isna()]
-
-    # Filter out MAAT Stargate V2 USDT
-    # Not sure what's going on with this one and other ones with massive returns.
-    # Rebase token?
-    # Consider 10,000x returns as "valid"
-    lifetime_data_df = lifetime_data_df[lifetime_data_df["cagr"] < cagr_too_high]
-
-    # Filter out some vaults that report broken NAV
-    broken_mask = lifetime_data_df["peak_nav"] > broken_max_nav_value
-    logger(f"Vault entries with too high NAV values filtered out: {len(lifetime_data_df[broken_mask])}")
-    lifetime_data_df = lifetime_data_df[~broken_mask]
-
-    # Filter out some vaults that have too little NAV (ATH NAV)
-
-    broken_mask = lifetime_data_df["peak_nav"] <= lifetime_min_nav_threshold
-    logger(f"Vault entries with too small ATH NAV values filtered out: {len(lifetime_data_df[broken_mask])}")
-    lifetime_data_df = lifetime_data_df[~broken_mask]
-
-    # Filter out some vaults that have not seen many deposit and redemptions
-    broken_mask = lifetime_data_df["event_count"] < min_events
-    logger(f"Vault entries with too few deposit and redeem events (min {min_events}) filtered out: {len(lifetime_data_df[broken_mask])}")
-    lifetime_data_df = lifetime_data_df[~broken_mask]
-
-    return lifetime_data_df
+    assert prices_df["share_price"].isna().sum() == 0, "share_price column must not contain NaN values"
+    prices_df = prices_df.copy()
+    prices_df['returns_1h'] = prices_df.groupby('id')['share_price'].pct_change()
+    return prices_df
 
 
 def clean_returns(
@@ -178,7 +139,8 @@ def clean_returns(
     prices_df: pd.DataFrame,
     logger=print,
     outlier_threshold = 0.50,  # Set threshold we suspect not valid returns for one day
-    display: Callable = lambda x: x
+    display: Callable = lambda x: x,
+    returns_col="returns_1h",
 ) -> pd.DataFrame:
     """Clean returns data by removing rows with NaN or infinite values.
 
@@ -197,15 +159,15 @@ def clean_returns(
 
     returns_df = prices_df
 
-    high_returns_mask = returns_df["returns"] > outlier_threshold
+    high_returns_mask = returns_df[returns_col] > outlier_threshold
     outlier_returns = returns_df[high_returns_mask]
 
     # Sort by return value (highest first)
-    outlier_returns = outlier_returns.sort_values(by="daily_returns", ascending=False)
+    outlier_returns = outlier_returns.sort_values(by=returns_col, ascending=False)
 
     # Display the results
     logger(f"Found {len(outlier_returns)} outlier returns > {outlier_threshold:%}")
-    display(outlier_returns[["name", "id", "returns", "share_price", "total_assets"]].head(3))
+    display(outlier_returns[["name", "id", returns_col, "share_price", "total_assets"]].head(3))
 
     # Show the distribution of these outliers by vault
     outlier_counts = outlier_returns.groupby("name").size().sort_values(ascending=False)
@@ -213,7 +175,9 @@ def clean_returns(
     display(outlier_counts.head(3))
 
     # Clean up obv too high returns
-    returns_df.loc[returns_df["daily_returns"] > outlier_threshold, "daily_returns"] = 0
+    returns_df.loc[returns_df[returns_col] > outlier_threshold, returns_col] = 0
+
+    return returns_df
 
 
 def clean_by_tvl(
@@ -280,22 +244,33 @@ def process_raw_vault_scan_data(
     - Assign unique names to vaults
     - Add denormalised vault data to prices DataFrame
     - Filter out non-stablecoin vaults
+    - Calculate returns, rolling metrics
     """
 
     assign_unique_names(vault_db, prices_df, logger)
     prices_df = add_denormalised_vaut_data(vault_db, prices_df, logger)
+    prices_df = prices_df.sort_values(by=["id", "timestamp"]).set_index("timestamp")
     prices_df = filter_vaults_by_stablecoin(vault_db, prices_df, logger)
-    prices_df = _calculate_returns(prices_df)
-    prices_df = clean_price_data(vault_db, prices_df, logger)
-    prices_df = clean_returns(vault_db, prices_df, logger, display)
-    prices_df = clean_by_tvl(vault_db, prices_df, logger)
+    prices_df = calculate_vault_returns(prices_df)
+    # prices_df = calculate_vault_performance_metrics(vault_db, prices_df, logger)
+    prices_df = clean_returns(
+        vault_db,
+        prices_df,
+        logger=logger,
+        display=display,
+    )
+    prices_df = clean_by_tvl(
+        vault_db,
+        prices_df,
+        logger,
+    )
     return prices_df
 
 
 def generate_cleaned_vault_datasets(
     vault_db_path=Path.home() / ".tradingstrategy" / "vaults" / "vault-db.pickle",
     price_df_path=Path.home() / ".tradingstrategy" / "vaults" / "vault-prices-1h.parquet",
-    cleaned_price_df_path=Path.home() / ".tradingstrategy" / "vaults" / "vault-prices-1h.parquet",
+    cleaned_price_df_path=Path.home() / ".tradingstrategy" / "vaults" / "cleaned-vault-prices-1h.parquet",
     logger=print,
     display=display,
 ):
@@ -317,6 +292,8 @@ def generate_cleaned_vault_datasets(
     vault_db: VaultDatabase = pickle.load(vault_db_path.open("rb"))
     prices_df = pd.read_parquet(price_df_path)
 
+    logger(f"We have {len(vault_db):,} vaults in the vault database and {len(prices_df):,} price rows in the raw prices DataFrame")
+
     enhanced_prices_df = process_raw_vault_scan_data(
         vault_db,
         prices_df,
@@ -329,7 +306,7 @@ def generate_cleaned_vault_datasets(
     )
 
     fsize = cleaned_price_df_path.stat().st_size
-    logger(f"Saved cleaned vault prices to {cleaned_price_df_path}, size is {fsize / 1024 / 1024:.2f} MB")
+    logger(f"Saved cleaned vault prices to {cleaned_price_df_path}, total {len(enhanced_prices_df):,} rows, file size is {fsize / 1024 / 1024:.2f} MB")
 
 
 
