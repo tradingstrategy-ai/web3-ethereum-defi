@@ -1,4 +1,6 @@
-"""Generic ECR-4626 vault reader implementation."""
+"""Generic ECR-4626 vault reader implementation.
+
+"""
 
 import datetime
 import logging
