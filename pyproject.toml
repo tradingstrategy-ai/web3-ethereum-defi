@@ -46,7 +46,7 @@ tqdm = {version = ">=4.66.1", optional = true}
 # too tired to deal with them now
 numpy = {version = "<2", optional = true}
 pandas = {version = ">=1.4", optional = true}
-gql = {extras = ["requests"], version = "^3.3.0", optional = true}
+safe-eth-py = "6.0.0b42"
 
 # Data
 jupyter = {version = "^1.0.0", optional = true}
@@ -56,6 +56,8 @@ kaleido = {version = "^1.0.0", optional = true}
 tenacity = {version = "*", optional = true} # Needed for Plotly
 pyarrow = {version = "*", optional = true}
 pytest-xdist = {version = "^3.3.1", optional = true}
+gql = {extras = ["requests"], version = "^3.3.0", optional = true}
+ffn = {version = "^1.1.2", optional = true}
 
 # We are using evm-trace, so for compat
 eth-pydantic-types = {version = "<0.2"}
@@ -85,12 +87,12 @@ sphinxcontrib-qthelp = {version = "1.0.3", optional = true} # Version pindowns h
 # Only soft dependency in tests, but RTD complains
 # terms-of-service = {path = "contracts/terms-of-service", develop = true}
 multicall = "^0.9.0"
-safe-eth-py = "6.0.0b42"
 joblib = "^1.4.2"
 
 # HyperSync
 hypersync = {version = "^0.8.5", optional = true}
 # cherry-etl = "^0.5.1"
+
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.11.13"
@@ -103,7 +105,7 @@ flaky = "^3.7.0"
 # See discussion https://github.com/python-poetry/poetry/issues/3348#issuecomment-726534462
 [tool.poetry.extras]
 docs = ["Sphinx", "sphinx-rtd-theme", "sphinx-sitemap", "sphinx-autodoc-typehints", "furo", "nbsphinx", "zope.dottedname", "sphinx-sitemap", "sphinx-rtd-theme"]
-data = ["jupyter", "tqdm", "pandas", "gql", "matplotlib", "plotly", "pyarrow", "numpy", "tenacity", "kaleido"]
+data = ["jupyter", "tqdm", "pandas", "gql", "matplotlib", "plotly", "pyarrow", "numpy", "tenacity", "kaleido", "ffn"]
 test = ["pytest-xdist"]
 hypersync = ["hypersync"]
 

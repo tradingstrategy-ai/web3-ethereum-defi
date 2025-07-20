@@ -1,4 +1,8 @@
-"""Vault metrics calculations."""
+"""Vault metrics calculations.
+
+- Calculate various performance reports and charts for vaults.
+- `For performance stats see FFN <https://pmorissette.github.io/ffn/quick.html>`__.
+"""
 import warnings
 from dataclasses import dataclass
 
@@ -15,10 +19,8 @@ from eth_defi.chain import get_chain_name
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.vaultdb import VaultDatabase
 
-try:
-    import quantstats
-except ImportError:
-    quantstats = None
+from ffn.core import PerformanceStats
+from ffn.core import calc_stats
 
 
 def calculate_lifetime_metrics(
@@ -165,7 +167,9 @@ class VaultReport:
     #: Performance table
     #:
     #: Needs to have quantstats installed
-    performance_metrics_df: pd.DataFrame | None
+    #performance_metrics_df: pd.DataFrame | None
+
+    performance_stats: PerformanceStats
 
     daily_returns: pd.Series
     hourly_returns: pd.Series
@@ -261,30 +265,12 @@ def analyse_vault(
     # Set y-axes titles
     fig.update_yaxes(title_text=f"Share Price ({vault_metadata['Denomination']})", secondary_y=False)
     fig.update_yaxes(title_text=f"TVL ({vault_metadata['Denomination']})", secondary_y=True)
-
-    # Show portfolio metrics
-    if quantstats:
-        with warnings.catch_warnings():
-            warnings.simplefilter(action="ignore", category=RuntimeWarning)
-            warnings.simplefilter(action="ignore", category=FutureWarning)
-
-            metrics = quantstats.reports.metrics
-            performance_metrics_df = metrics(
-                daily_returns,
-                benchmark=None,
-                as_pct=True,  # QuantStats codebase is a mess
-                periods_per_year=365,
-                mode="simple",
-                display=False,
-                internal=True,
-            )
-            performance_metrics_df.rename(columns={"Strategy": name}, inplace=True)
-    else:
-        performance_metrics_df = None
-
+        
+    performance_stats = calc_stats(daily_prices)
+            
     return VaultReport(
         rolling_returns_chart=fig,
-        performance_metrics_df=performance_metrics_df,
+        performance_stats=performance_stats,
         daily_returns=daily_returns,
         hourly_returns=hourly_returns,
     )
