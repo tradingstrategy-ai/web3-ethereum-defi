@@ -10,6 +10,7 @@ from web3.contract import Contract
 from eth_defi.enzyme.deployment import EnzymeDeployment, RateAsset
 from eth_defi.enzyme.vault import Vault
 from eth_defi.event_reader.reader import extract_events
+from eth_defi.trace import assert_transaction_success_with_explanation
 
 
 def test_deploy_enzyme(
@@ -106,7 +107,8 @@ def test_vault_api(
     # Buy shares for 500 USDC, receive min share
     usdc.functions.transfer(user_1, 500 * 10**6).transact({"from": deployer})
     usdc.functions.approve(vault.comptroller.address, 500 * 10**6).transact({"from": user_1})
-    vault.comptroller.functions.buyShares(500 * 10**6, 1).transact({"from": user_1})
+    tx_hash = vault.comptroller.functions.buyShares(500 * 10**6, 1).transact({"from": user_1})
+    assert_transaction_success_with_explanation(web3, tx_hash)
 
     assert vault.get_total_supply() == 500 * 10**18
     assert vault.get_gross_asset_value() == 500 * 10**6
