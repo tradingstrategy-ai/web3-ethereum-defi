@@ -22,6 +22,11 @@ from tqdm.auto import tqdm
 
 from IPython.display import display
 
+#: For manual debugging, we process these vaults first
+PRIORITY_SORT_IDS = [
+    "8453-0x0d877dc7c8fa3ad980dfdb18b48ec9f8768359c4",
+]
+
 
 def assign_unique_names(
     vault_db: VaultDatabase,
@@ -266,6 +271,9 @@ def filter_unneeded_row(
         if len(group) <= 1:
             return group  # Keep groups with only one row
 
+        # chain-address id for debug
+        id = group.iloc[0]['id']
+
         keep_mask = pd.Series(True, index=group.index)
         i = 0
 
@@ -325,11 +333,14 @@ def filter_unneeded_row(
     )
 
     with warnings.catch_warnings():
+        # Abort on bad share price dividsion
         # /Users/moo/code/trade-executor/deps/web3-ethereum-defi/eth_defi/research/wrangle_vault_prices.py:298: RuntimeWarning: invalid value encountered in scalar divide
         #   total_assets_change = abs((group.iloc[current_idx]['total_assets'] - start_total_assets) / start_total_assets)
         warnings.filterwarnings("error", category=RuntimeWarning)
+
+        # Don't let groupby re-sort as the filtering loop depends on the order of rows
         filtered_df = prices_df \
-            .groupby('id', group_keys=False) \
+            .groupby('id', group_keys=True, sort=False) \
             .progress_apply(_filter_pair_for_almost_duplicate_entries)
 
     rows_left = len(filtered_df)
@@ -337,6 +348,24 @@ def filter_unneeded_row(
     logger(f"Filtered too small change rows: {original_row_count:,} -> {rows_left:,} ({removed_count:,}) epsilon={epsilon}, invalid share price entries {invalid_share_price_entry_count:,}")
 
     return filtered_df
+
+
+def sort_and_index_vault_prices(
+    prices_df: pd.DataFrame,
+    priority_ids: list[str],
+):
+    """Set up the order of vaults for processing.
+
+    - If we do debugging we want vaults we debug go first,
+      as the pipeline takes several minutes to run
+    """
+
+    # Create a priority column for sorting
+    prices_df["sort_priority"] = prices_df["id"].apply(lambda x: 0 if x in priority_ids else 1)
+
+    # Sort by priority first, then by id and timestamp
+    prices_df = prices_df.sort_values(by=["sort_priority", "id", "timestamp"]).drop("sort_priority", axis=1).set_index("timestamp")
+    return prices_df
 
 
 def process_raw_vault_scan_data(
@@ -354,8 +383,10 @@ def process_raw_vault_scan_data(
     """
 
     assign_unique_names(vault_db, prices_df, logger)
+
     prices_df = add_denormalised_vaut_data(vault_db, prices_df, logger)
-    prices_df = prices_df.sort_values(by=["id", "timestamp"]).set_index("timestamp")
+
+    prices_df = sort_and_index_vault_prices(prices_df, PRIORITY_SORT_IDS)
     prices_df = filter_vaults_by_stablecoin(vault_db, prices_df, logger)
     prices_df = filter_unneeded_row(prices_df, logger)
     prices_df = calculate_vault_returns(prices_df)
@@ -414,6 +445,3 @@ def generate_cleaned_vault_datasets(
 
     fsize = cleaned_price_df_path.stat().st_size
     logger(f"Saved cleaned vault prices to {cleaned_price_df_path}, total {len(enhanced_prices_df):,} rows, file size is {fsize / 1024 / 1024:.2f} MB")
-
-
-
