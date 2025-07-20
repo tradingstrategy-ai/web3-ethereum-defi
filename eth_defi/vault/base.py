@@ -15,7 +15,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from decimal import Decimal
 from functools import cached_property
-from typing import Iterable, TypedDict
+from typing import Iterable, TypedDict, TypeAlias
 
 from eth.typing import BlockRange
 from eth_typing import BlockIdentifier, HexAddress
@@ -59,6 +59,9 @@ class VaultSpec:
         if not isinstance(other, VaultSpec):
             return False
         return self.chain_id == other.chain_id and self.vault_address == other.vault_address
+
+    def as_string_id(self) -> str:
+        return f"{self.chain_id}-{self.vault_address}"
 
     @staticmethod
     def parse_string(spec: str) -> "VaultSpec":

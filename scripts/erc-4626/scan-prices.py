@@ -36,6 +36,9 @@ Re-run manual test::
     export JSON_RPC_URL=$JSON_RPC_GNOSIS
     python scripts/erc-4626/scan-prices.py
 
+Copy server-side run results back to the local machine::
+
+    rsync -av --inplace --progress --exclude="tmp*" "poly:.tradingstrategy/vaults/*" ~/.tradingstrategy/vaults/
 
 """
 

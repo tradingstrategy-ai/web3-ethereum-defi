@@ -192,6 +192,7 @@ def vault(
     vault_address = erc4626_vault.vault_address
     note = f"Allow {erc4626_vault.name}"
     tx_hash = guard.functions.whitelistERC4626(vault_address, note).transact({"from": owner})
+    assert_transaction_success_with_explanation(web3, tx_hash)
     receipt = web3.eth.get_transaction_receipt(tx_hash)
     assert len(receipt["logs"]) == 10
 

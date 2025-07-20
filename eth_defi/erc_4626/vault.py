@@ -81,7 +81,7 @@ class VaultReaderState(BatchCallState):
         peaked_tvl_threshold=Decimal(200_000),
         min_tvl_threshold=Decimal(1_500),
         down_hard=0.98,
-        traction_period: datetime.timedelta = datetime.timedelta(days=2*30),
+        traction_period: datetime.timedelta = datetime.timedelta(days=2 * 30),
     ):
         """
         :param vault:
