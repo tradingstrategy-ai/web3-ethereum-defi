@@ -60,6 +60,8 @@ def test_mev_blocker_send_transaction_raw(mev_blocker_provider: MEVBlockerProvid
     web3 = Web3(mev_blocker_provider)
     wallet = HotWallet.create_for_testing(web3)
 
+    start_call_count = mev_blocker_provider.provider_counter["call"]
+
     signed_tx = wallet.sign_transaction_with_new_nonce(
         {
             "from": wallet.address,
@@ -71,7 +73,7 @@ def test_mev_blocker_send_transaction_raw(mev_blocker_provider: MEVBlockerProvid
     )
 
     # Account for setup API counts from create_for_testing()
-    assert mev_blocker_provider.provider_counter["call"] == 10
+    assert mev_blocker_provider.provider_counter["call"] == start_call_count + 1
     assert mev_blocker_provider.provider_counter["transact"] == 1
     tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
     assert_transaction_success_with_explanation(web3, tx_hash)
