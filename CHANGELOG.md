@@ -1,3 +1,8 @@
+# Current
+
+- Add: Vault 1h price scanning and cleaning pipeline
+- Add: Move a lot of vault analysis functionality to their own Python modules, instead of copy-pasting in notebook to improve documentation and reusability
+
 # 0.31
 
 - Add: Lagoon vault guard re-deployment against an existing vault

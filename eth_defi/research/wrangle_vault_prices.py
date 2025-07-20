@@ -2,6 +2,7 @@
 
 - Denormalise data to a single DataFrame
 - Remove abnormalities in the price data
+- Reduce data by removing hourly changes that are below our epsilon threshold
 - Generate returns data
 """
 import pickle
@@ -15,7 +16,6 @@ from eth_defi.chain import get_chain_name
 from eth_defi.token import is_stablecoin_like
 
 from eth_defi.vault.vaultdb import VaultDatabase
-from eth_defi.research.vault_metrics import calculate_lifetime_metrics
 
 from tqdm.auto import tqdm
 
@@ -179,7 +179,8 @@ def clean_returns(
 
     # Show the distribution of these outliers by vault
     outlier_counts = outlier_returns.groupby("name").size().sort_values(ascending=False)
-    print("\nOutlier distribution by vault:")
+    print("\nTop outlier too high return row count by vault:")
+
     display(outlier_counts.head(3))
 
     # Clean up obv too high returns
@@ -195,6 +196,7 @@ def clean_by_tvl(
     tvl_threshold_min = 1000.00,
     tvl_threshold_max = 99_000_000_000,  # USD 99B
     tvl_threshold_min_dynamic = 0.02,
+    returns_col="returns_1h",
 ) -> pd.DataFrame:
     """TVL-based threshold filtering of returns.
 
@@ -226,7 +228,7 @@ def clean_by_tvl(
     mask |= below_threshold_mask
     # Count how many data points will be affected
     affected_count = below_threshold_mask.sum()
-    logger(f"Setting daily_returns to zero for {affected_count:,} / {len(returns_df):,} data points where total_assets < {tvl_threshold_min_dynamic:.2%} of all-time average TVL")
+    logger(f"Setting returns to zero for {affected_count:,} / {len(returns_df):,} data points where total_assets < {tvl_threshold_min_dynamic:.2%} of all-time average TVL")
 
     # We also need to expand the mask,
     # so that we zero the returns of the following day
@@ -235,7 +237,7 @@ def clean_by_tvl(
         mask = mask | mask.groupby(returns_df["id"]).shift(1).fillna(False)
 
     # Set daily_returns to zero where the mask is True
-    returns_df.loc[mask, "daily_returns"] = 0
+    returns_df.loc[mask, returns_col] = 0
     returns_df["tvl_filtering_mask"] = mask
 
     return returns_df
@@ -244,12 +246,16 @@ def clean_by_tvl(
 def filter_unneeded_row(
     prices_df: pd.DataFrame,
     logger=print,
-    epsilon=1e-4,  #
+    epsilon=0.0025,  #
 ) -> pd.DataFrame:
     """Dedpulicate data rows with epsilon.
 
     - Reduce data size by elimating rows where the value changes is too little
     - Remove rows where the total asset/share price/total supply change has been too small
+
+    .. note ::
+
+        This filter conly yields 2% savings in row count, so it turned out not to be worth of the problems.
 
     :param prices_df:
         Assume sorted by timestsamp
@@ -262,11 +268,15 @@ def filter_unneeded_row(
     original_row_count = len(prices_df)
 
     invalid_share_price_entry_count = 0
+    total_removed = 0
+    total_rows = 0
 
     def _filter_pair_for_almost_duplicate_entries(group):
         """Filter a single group using range-based filtering."""
 
         nonlocal invalid_share_price_entry_count
+        nonlocal total_removed
+        nonlocal total_rows
 
         if len(group) <= 1:
             return group  # Keep groups with only one row
@@ -323,7 +333,22 @@ def filter_unneeded_row(
             # Move to the next position
             i = max(current_idx, start_idx + 1)
 
-        return group[keep_mask]
+        filtered_group = group[keep_mask]
+
+        total_rows += len(group)
+        total_removed += len(group) - len(filtered_group)
+
+        # Get the latest progress bar
+        # created by progress_apply()
+        pbar = list(tqdm._instances)[-1]
+        pbar.set_postfix({
+            "removed": f"{total_removed:,}",
+            "removed_pct": f"{total_removed / total_rows:.2%}",
+            "total": f"{total_rows:,}",
+            "invalid_share_price_entries": f"{invalid_share_price_entry_count:,}",
+        })
+
+        return filtered_group
 
     # Apply the filter function to each group
     tqdm.pandas(
@@ -346,6 +371,10 @@ def filter_unneeded_row(
     rows_left = len(filtered_df)
     removed_count = original_row_count - rows_left
     logger(f"Filtered too small change rows: {original_row_count:,} -> {rows_left:,} ({removed_count:,}) epsilon={epsilon}, invalid share price entries {invalid_share_price_entry_count:,}")
+
+    # groupby() added id as an MultiIndex(id, timestamp), but unwind this change back,
+    # as other functions do not expect it
+    filtered_df = filtered_df.droplevel("id")
 
     return filtered_df
 
@@ -412,7 +441,7 @@ def generate_cleaned_vault_datasets(
     logger=print,
     display=display,
 ):
-    """A command line script to take raw scanned vault price data and clean it up to a format that can be analysed.
+    """A command line script entry point to take raw scanned vault price data and clean it up to a format that can be analysed.
 
     - Reads ``vault-prices-1h.parquet`` and generates ``vault-prices-1h-cleaned.parquet``
     - Calculate returns and various performance metrics to be included with prices data

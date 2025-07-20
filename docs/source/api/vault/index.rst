@@ -16,6 +16,7 @@ A generic high-level Python framework to integrate different vault providers.
    :recursive:
 
    eth_defi.vault.base
+   eth_defi.vault.vaultdb
    eth_defi.vault.valuation
    eth_defi.vault.historical
    eth_defi.vault.lower_case_dict
