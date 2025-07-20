@@ -50,6 +50,8 @@ KNOWN_GOOD_TOKENS = {
     "FLOKI",
     "WETH",
     "cbBTC",
+    "ETH",
+    "WBNB",
 }
 
 

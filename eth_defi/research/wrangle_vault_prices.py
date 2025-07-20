@@ -17,6 +17,9 @@ from eth_defi.token import is_stablecoin_like
 from eth_defi.vault.vaultdb import VaultDatabase
 from eth_defi.research.vault_metrics import calculate_lifetime_metrics
 
+from tqdm.auto import tqdm
+
+
 from IPython.display import display
 
 
@@ -233,6 +236,109 @@ def clean_by_tvl(
     return returns_df
 
 
+def filter_unneeded_row(
+    prices_df: pd.DataFrame,
+    logger=print,
+    epsilon=1e-4,  #
+) -> pd.DataFrame:
+    """Dedpulicate data rows with epsilon.
+
+    - Reduce data size by elimating rows where the value changes is too little
+    - Remove rows where the total asset/share price/total supply change has been too small
+
+    :param prices_df:
+        Assume sorted by timestsamp
+
+    :param epsilon:
+        Tolerance for floating point comparison
+
+    """
+
+    original_row_count = len(prices_df)
+
+    invalid_share_price_entry_count = 0
+
+    def _filter_pair_for_almost_duplicate_entries(group):
+        """Filter a single group using range-based filtering."""
+
+        nonlocal invalid_share_price_entry_count
+
+        if len(group) <= 1:
+            return group  # Keep groups with only one row
+
+        keep_mask = pd.Series(True, index=group.index)
+        i = 0
+
+        start_total_assets = None
+        start_total_supply = None
+        start_share_price = None
+
+        while i < len(group) - 1:
+            # Start from current position
+            start_idx = i
+            current_idx = i + 1
+
+            start_total_assets = start_total_assets or group.iloc[start_idx]['total_assets']
+            start_total_supply = start_total_supply or group.iloc[start_idx]['total_supply']
+            start_share_price = start_share_price or group.iloc[start_idx]['share_price']
+
+            if pd.isna(start_share_price) or \
+               pd.isna(start_total_supply) or \
+               pd.isna(start_total_assets):
+                invalid_share_price_entry_count += 1
+                i += 1
+                continue
+
+            # assert not pd.isna(start_share_price), "Start share price should not be NaN"
+
+            # Find the end of the sequence where all changes are below epsilon
+            while current_idx < len(group):
+                # Calculate relative changes from the start position
+                total_assets_change = abs((group.iloc[current_idx]['total_assets'] - start_total_assets) / start_total_assets)
+                share_price_change = abs((group.iloc[current_idx]['share_price'] - start_share_price) / start_share_price)
+                total_supply_change = abs((group.iloc[current_idx]['total_supply'] - start_total_supply) / start_total_supply)
+
+                # Check if ANY change exceeds epsilon
+                if (total_assets_change > epsilon or
+                        share_price_change > epsilon or
+                        total_supply_change > epsilon):
+                    break
+
+                current_idx += 1
+
+            # If we found a sequence of small changes, mark intermediate rows for removal
+            if current_idx > start_idx + 1:
+                # Keep start row, remove intermediate rows, keep end row (if it exists)
+                for j in range(start_idx + 1, current_idx):
+                    keep_mask.iloc[j] = False
+
+            # Move to the next position
+            i = max(current_idx, start_idx + 1)
+
+        return group[keep_mask]
+
+    # Apply the filter function to each group
+    tqdm.pandas(
+        desc="Filtering non-relevant changes rows",
+        unit="vault",
+        unit_scale=True,
+    )
+
+    with warnings.catch_warnings():
+        # /Users/moo/code/trade-executor/deps/web3-ethereum-defi/eth_defi/research/wrangle_vault_prices.py:298: RuntimeWarning: invalid value encountered in scalar divide
+        #   total_assets_change = abs((group.iloc[current_idx]['total_assets'] - start_total_assets) / start_total_assets)
+        warnings.filterwarnings("error", category=RuntimeWarning)
+        filtered_df = prices_df \
+            .groupby('id', group_keys=False) \
+            .progress_apply(_filter_pair_for_almost_duplicate_entries)
+
+    rows_left = len(filtered_df)
+    removed_count = original_row_count - rows_left
+    logger(f"Filtered too small change rows: {original_row_count:,} -> {rows_left:,} ({removed_count:,}) epsilon={epsilon}, invalid share price entries {invalid_share_price_entry_count:,}")
+
+    return filtered_df
+
+
 def process_raw_vault_scan_data(
     vault_db: VaultDatabase,
     prices_df: pd.DataFrame,
@@ -251,6 +357,7 @@ def process_raw_vault_scan_data(
     prices_df = add_denormalised_vaut_data(vault_db, prices_df, logger)
     prices_df = prices_df.sort_values(by=["id", "timestamp"]).set_index("timestamp")
     prices_df = filter_vaults_by_stablecoin(vault_db, prices_df, logger)
+    prices_df = filter_unneeded_row(prices_df, logger)
     prices_df = calculate_vault_returns(prices_df)
     # prices_df = calculate_vault_performance_metrics(vault_db, prices_df, logger)
     prices_df = clean_returns(
