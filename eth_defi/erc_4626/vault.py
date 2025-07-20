@@ -1,6 +1,4 @@
-"""Generic ECR-4626 vault reader implementation.
-
-"""
+"""Generic ECR-4626 vault reader implementation."""
 
 import datetime
 import logging
@@ -22,7 +20,6 @@ from eth_defi.event_reader.conversion import convert_int256_bytes_to_int, conver
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, BatchCallState
 from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.vault.base import VaultBase, VaultSpec, VaultInfo, TradingUniverse, VaultPortfolio, VaultFlowManager, VaultHistoricalReader, VaultHistoricalRead
-
 
 
 logger = logging.getLogger(__name__)
