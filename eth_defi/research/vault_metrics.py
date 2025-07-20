@@ -3,6 +3,7 @@
 - Calculate various performance reports and charts for vaults.
 - `For performance stats see FFN <https://pmorissette.github.io/ffn/quick.html>`__.
 """
+from typing import Literal
 import warnings
 from dataclasses import dataclass
 
@@ -181,7 +182,7 @@ def analyse_vault(
     spec: VaultSpec,
     returns_col: str = "returns_1h",
     logger=print,
-    resample_frequency="1d",
+    chart_frequency: Literal["hourly", "daily"] = "daily",
 ) -> VaultReport:
     """Create charts and tables to analyse a vault performance.
 
@@ -198,6 +199,11 @@ def analyse_vault(
     :param id:
         Vault chain + address to analyse, e.g. "1-0x1234567890abcdef1234567890abcdef12345678"
 
+    :param chart_frequency:
+        Do we plot based on daily or hourly datapoints.
+
+        Hourly data has too many points, chocking Plotly.
+        
     :return:
         Analysis report to display
     """
@@ -235,6 +241,14 @@ def analyse_vault(
     # Create figure with secondary y-axis
     fig = make_subplots(specs=[[{"secondary_y": True}]])
 
+    if chart_frequency == "daily":
+        price_series = price_series.resample('D').last()  # Resample to daily prices
+        cumulative_returns = (1 + daily_returns).cumprod()
+        nav_series = nav_series.resample('D').last()  # Resample NAV to daily
+    else:
+        # Assume default data is hourly
+        pass
+
     # Add cumulative returns trace on a separate y-axis (share same axis as share price)
     fig.add_trace(
         go.Scatter(x=cumulative_returns.index, y=cumulative_returns.values, name="Cumulative returns (cleaned)", line=dict(color="darkgreen", width=4), opacity=0.75),
@@ -267,6 +281,7 @@ def analyse_vault(
     fig.update_yaxes(title_text=f"TVL ({vault_metadata['Denomination']})", secondary_y=True)
         
     performance_stats = calc_stats(daily_prices)
+    performance_stats.name = name
             
     return VaultReport(
         rolling_returns_chart=fig,
