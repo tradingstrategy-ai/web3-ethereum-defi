@@ -8,6 +8,8 @@ import plotly.graph_objects as go
 
 from plotly.subplots import make_subplots
 from plotly.graph_objects import Figure
+import plotly.io as pio
+
 
 from eth_defi.chain import get_chain_name
 from eth_defi.vault.base import VaultSpec
@@ -157,8 +159,6 @@ def format_lifetime_table(df: pd.DataFrame) -> pd.DataFrame:
 class VaultReport:
     """One vault data analysed"""
 
-    rolling_returns_freq: str
-
     #: Rolling returns chart
     rolling_returns_chart: Figure
 
@@ -167,6 +167,9 @@ class VaultReport:
     #: Needs to have quantstats installed
     performance_metrics_df: pd.DataFrame | None
 
+    daily_returns: pd.Series
+    hourly_returns: pd.Series
+
 
 def analyse_vault(
     vault_db: VaultDatabase,
@@ -174,6 +177,7 @@ def analyse_vault(
     spec: VaultSpec,
     returns_col: str = "returns_1h",
     logger=print,
+    resample_frequency="1d",
 ) -> VaultReport:
     """Create charts and tables to analyse a vault performance.
 
@@ -203,17 +207,26 @@ def analyse_vault(
 
     name = vault_metadata["Name"]
 
+    # Use cleaned returns data and resample it to something useful
     vault_df = returns_df.loc[returns_df["id"] == id]
     returns_series = returns_df.loc[returns_df["id"] == id][returns_col]
-    returns_freq = pd.infer_freq(returns_series.index)
-    assert returns_freq is not None, f"Could not infer frequency for returns series of vault {name}: {id}:\n{returns_series}"
-    logger(f"Examining vault {name}: {id}, having {len(returns_series):,} returns rows with inferred frequency {returns_freq}")
+    
+    cleaned_price_series = (1 + returns_series).cumprod()
+    cleaned_price_series = cleaned_price_series
+    daily_prices = cleaned_price_series.resample('D').last()  # Take last price of each day
+    daily_returns = daily_prices.dropna().pct_change().dropna()    
+
+    hourly_prices = cleaned_price_series.resample('h').last()  # Take last price of each day
+    hourly_returns = hourly_prices.dropna().pct_change().dropna()    
+
+    logger(f"Examining vault {name}: {id}, having {len(returns_series):,} raw returns, {len(hourly_returns):,} hourly and {len(daily_returns):,} daily returns")
     nav_series = vault_df["total_assets"]
 
+    # Uncleaned share price that may contain abnormal return values
     price_series = vault_df["share_price"]
 
     # Calculate cumulative returns (what $1 would grow to)
-    cumulative_returns = (1 + returns_series).cumprod()
+    cumulative_returns = (1 + hourly_returns).cumprod()
 
     # Create figure with secondary y-axis
     fig = make_subplots(specs=[[{"secondary_y": True}]])
@@ -237,7 +250,13 @@ def analyse_vault(
     )
 
     # Set titles and labels
-    fig.update_layout(title_text=f"{name} - Returns TVL and share price", hovermode="x unified", template=pio.templates.default, showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5))
+    fig.update_layout(
+        title_text=f"{name} - Returns TVL and share price", 
+        hovermode="x unified", 
+        template=pio.templates.default, 
+        showlegend=True, 
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5),
+    )
 
     # Set y-axes titles
     fig.update_yaxes(title_text=f"Share Price ({vault_metadata['Denomination']})", secondary_y=False)
@@ -251,7 +270,7 @@ def analyse_vault(
 
             metrics = quantstats.reports.metrics
             performance_metrics_df = metrics(
-                returns_series,
+                daily_returns,
                 benchmark=None,
                 as_pct=True,  # QuantStats codebase is a mess
                 periods_per_year=365,
@@ -266,6 +285,8 @@ def analyse_vault(
     return VaultReport(
         rolling_returns_chart=fig,
         performance_metrics_df=performance_metrics_df,
+        daily_returns=daily_returns,
+        hourly_returns=hourly_returns,
     )
 
 
