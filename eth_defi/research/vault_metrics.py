@@ -215,7 +215,9 @@ def analyse_vault(
     if vault_metadata is None:
         assert vault_metadata, f"Vault with id {spec} not found in vault database"
 
-    name = vault_metadata["Name"]
+    chain_name = get_chain_name(spec.chain_id)
+    name = vault_metadata["Name"] 
+    subtitle = f"{vault_metadata['Address']} on {chain_name}, on {vault_metadata['Protocol']} protocol"
 
     # Use cleaned returns data and resample it to something useful
     vault_df = returns_df.loc[returns_df["id"] == id]
@@ -269,11 +271,17 @@ def analyse_vault(
 
     # Set titles and labels
     fig.update_layout(
-        title_text=f"{name} - Returns TVL and share price", 
+        title=dict(
+            text=f"{name}: Cumulative returns, TVL and share price<br><sub>{subtitle}</sub>",
+            x=0.5,
+            xanchor='center',
+            y=0.95
+        ),
         hovermode="x unified", 
         template=pio.templates.default, 
         showlegend=True, 
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5),
+        legend=dict(orientation="h", yanchor="bottom", y=1.03, xanchor="center", x=0.5),
+        margin=dict(t=120),
     )
 
     # Set y-axes titles
