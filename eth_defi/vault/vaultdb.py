@@ -1,4 +1,5 @@
 """Describe vault database pickle format."""
+
 import datetime
 from typing import TypedDict, TypeAlias
 
@@ -31,7 +32,6 @@ class VaultLead(TypedDict):
         "Mgmt fee": float,
         "Perf fee": float,
     }
-
 
 
 #: All vaults across all chains we know about.

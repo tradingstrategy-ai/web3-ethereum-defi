@@ -5,6 +5,7 @@
 - Reduce data by removing hourly changes that are below our epsilon threshold
 - Generate returns data
 """
+
 import pickle
 import warnings
 from pathlib import Path
@@ -130,7 +131,7 @@ def calculate_vault_returns(prices_df: pd.DataFrame, logger=print):
     """
     assert isinstance(prices_df, pd.DataFrame), "prices_df must be a pandas DataFrame"
 
-    missing_share_price_mask = prices_df['share_price'].isna()
+    missing_share_price_mask = prices_df["share_price"].isna()
     bad_share_price_df = prices_df[missing_share_price_mask]
     if len(bad_share_price_df) > 0:
         logger(f"We have NaN share prices for {len(bad_share_price_df):,} rows, these will be dropped")
@@ -138,7 +139,7 @@ def calculate_vault_returns(prices_df: pd.DataFrame, logger=print):
 
     assert prices_df["share_price"].isna().sum() == 0, "share_price column must not contain NaN values"
     prices_df = prices_df.copy()
-    prices_df['returns_1h'] = prices_df.groupby('id')['share_price'].pct_change()
+    prices_df["returns_1h"] = prices_df.groupby("id")["share_price"].pct_change()
     return prices_df
 
 
@@ -146,7 +147,7 @@ def clean_returns(
     vault_db: VaultDatabase,
     prices_df: pd.DataFrame,
     logger=print,
-    outlier_threshold = 0.50,  # Set threshold we suspect not valid returns for one day
+    outlier_threshold=0.50,  # Set threshold we suspect not valid returns for one day
     display: Callable = lambda x: x,
     returns_col="returns_1h",
 ) -> pd.DataFrame:
@@ -193,9 +194,9 @@ def clean_by_tvl(
     vault_db: VaultDatabase,
     prices_df: pd.DataFrame,
     logger=print,
-    tvl_threshold_min = 1000.00,
-    tvl_threshold_max = 99_000_000_000,  # USD 99B
-    tvl_threshold_min_dynamic = 0.02,
+    tvl_threshold_min=1000.00,
+    tvl_threshold_max=99_000_000_000,  # USD 99B
+    tvl_threshold_min_dynamic=0.02,
     returns_col="returns_1h",
 ) -> pd.DataFrame:
     """TVL-based threshold filtering of returns.
@@ -282,7 +283,7 @@ def filter_unneeded_row(
             return group  # Keep groups with only one row
 
         # chain-address id for debug
-        id = group.iloc[0]['id']
+        id = group.iloc[0]["id"]
 
         keep_mask = pd.Series(True, index=group.index)
         i = 0
@@ -296,13 +297,11 @@ def filter_unneeded_row(
             start_idx = i
             current_idx = i + 1
 
-            start_total_assets = start_total_assets or group.iloc[start_idx]['total_assets']
-            start_total_supply = start_total_supply or group.iloc[start_idx]['total_supply']
-            start_share_price = start_share_price or group.iloc[start_idx]['share_price']
+            start_total_assets = start_total_assets or group.iloc[start_idx]["total_assets"]
+            start_total_supply = start_total_supply or group.iloc[start_idx]["total_supply"]
+            start_share_price = start_share_price or group.iloc[start_idx]["share_price"]
 
-            if pd.isna(start_share_price) or \
-               pd.isna(start_total_supply) or \
-               pd.isna(start_total_assets):
+            if pd.isna(start_share_price) or pd.isna(start_total_supply) or pd.isna(start_total_assets):
                 invalid_share_price_entry_count += 1
                 i += 1
                 continue
@@ -312,14 +311,12 @@ def filter_unneeded_row(
             # Find the end of the sequence where all changes are below epsilon
             while current_idx < len(group):
                 # Calculate relative changes from the start position
-                total_assets_change = abs((group.iloc[current_idx]['total_assets'] - start_total_assets) / start_total_assets)
-                share_price_change = abs((group.iloc[current_idx]['share_price'] - start_share_price) / start_share_price)
-                total_supply_change = abs((group.iloc[current_idx]['total_supply'] - start_total_supply) / start_total_supply)
+                total_assets_change = abs((group.iloc[current_idx]["total_assets"] - start_total_assets) / start_total_assets)
+                share_price_change = abs((group.iloc[current_idx]["share_price"] - start_share_price) / start_share_price)
+                total_supply_change = abs((group.iloc[current_idx]["total_supply"] - start_total_supply) / start_total_supply)
 
                 # Check if ANY change exceeds epsilon
-                if (total_assets_change > epsilon or
-                        share_price_change > epsilon or
-                        total_supply_change > epsilon):
+                if total_assets_change > epsilon or share_price_change > epsilon or total_supply_change > epsilon:
                     break
 
                 current_idx += 1
@@ -341,12 +338,14 @@ def filter_unneeded_row(
         # Get the latest progress bar
         # created by progress_apply()
         pbar = list(tqdm._instances)[-1]
-        pbar.set_postfix({
-            "removed": f"{total_removed:,}",
-            "removed_pct": f"{total_removed / total_rows:.2%}",
-            "total": f"{total_rows:,}",
-            "invalid_share_price_entries": f"{invalid_share_price_entry_count:,}",
-        })
+        pbar.set_postfix(
+            {
+                "removed": f"{total_removed:,}",
+                "removed_pct": f"{total_removed / total_rows:.2%}",
+                "total": f"{total_rows:,}",
+                "invalid_share_price_entries": f"{invalid_share_price_entry_count:,}",
+            }
+        )
 
         return filtered_group
 
@@ -364,9 +363,7 @@ def filter_unneeded_row(
         warnings.filterwarnings("error", category=RuntimeWarning)
 
         # Don't let groupby re-sort as the filtering loop depends on the order of rows
-        filtered_df = prices_df \
-            .groupby('id', group_keys=True, sort=False) \
-            .progress_apply(_filter_pair_for_almost_duplicate_entries)
+        filtered_df = prices_df.groupby("id", group_keys=True, sort=False).progress_apply(_filter_pair_for_almost_duplicate_entries)
 
     rows_left = len(filtered_df)
     removed_count = original_row_count - rows_left

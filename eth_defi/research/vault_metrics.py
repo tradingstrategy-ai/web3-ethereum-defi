@@ -3,6 +3,7 @@
 - Calculate various performance reports and charts for vaults.
 - `For performance stats see FFN <https://pmorissette.github.io/ffn/quick.html>`__.
 """
+
 from typing import Literal
 import warnings
 from dataclasses import dataclass
@@ -168,7 +169,7 @@ class VaultReport:
     #: Performance table
     #:
     #: Needs to have quantstats installed
-    #performance_metrics_df: pd.DataFrame | None
+    # performance_metrics_df: pd.DataFrame | None
 
     performance_stats: PerformanceStats
 
@@ -203,7 +204,7 @@ def analyse_vault(
         Do we plot based on daily or hourly datapoints.
 
         Hourly data has too many points, chocking Plotly.
-        
+
     :return:
         Analysis report to display
     """
@@ -216,20 +217,20 @@ def analyse_vault(
         assert vault_metadata, f"Vault with id {spec} not found in vault database"
 
     chain_name = get_chain_name(spec.chain_id)
-    name = vault_metadata["Name"] 
+    name = vault_metadata["Name"]
     subtitle = f"{vault_metadata['Address']} on {chain_name}, on {vault_metadata['Protocol']} protocol"
 
     # Use cleaned returns data and resample it to something useful
     vault_df = returns_df.loc[returns_df["id"] == id]
     returns_series = returns_df.loc[returns_df["id"] == id][returns_col]
-    
+
     cleaned_price_series = (1 + returns_series).cumprod()
     cleaned_price_series = cleaned_price_series
-    daily_prices = cleaned_price_series.resample('D').last()  # Take last price of each day
-    daily_returns = daily_prices.dropna().pct_change().dropna()    
+    daily_prices = cleaned_price_series.resample("D").last()  # Take last price of each day
+    daily_returns = daily_prices.dropna().pct_change().dropna()
 
-    hourly_prices = cleaned_price_series.resample('h').last()  # Take last price of each day
-    hourly_returns = hourly_prices.dropna().pct_change().dropna()    
+    hourly_prices = cleaned_price_series.resample("h").last()  # Take last price of each day
+    hourly_returns = hourly_prices.dropna().pct_change().dropna()
 
     logger(f"Examining vault {name}: {id}, having {len(returns_series):,} raw returns, {len(hourly_returns):,} hourly and {len(daily_returns):,} daily returns")
     nav_series = vault_df["total_assets"]
@@ -244,9 +245,9 @@ def analyse_vault(
     fig = make_subplots(specs=[[{"secondary_y": True}]])
 
     if chart_frequency == "daily":
-        price_series = price_series.resample('D').last()  # Resample to daily prices
+        price_series = price_series.resample("D").last()  # Resample to daily prices
         cumulative_returns = (1 + daily_returns).cumprod()
-        nav_series = nav_series.resample('D').last()  # Resample NAV to daily
+        nav_series = nav_series.resample("D").last()  # Resample NAV to daily
     else:
         # Assume default data is hourly
         pass
@@ -271,15 +272,10 @@ def analyse_vault(
 
     # Set titles and labels
     fig.update_layout(
-        title=dict(
-            text=f"{name}: Cumulative returns, TVL and share price<br><sub>{subtitle}</sub>",
-            x=0.5,
-            xanchor='center',
-            y=0.95
-        ),
-        hovermode="x unified", 
-        template=pio.templates.default, 
-        showlegend=True, 
+        title=dict(text=f"{name}: Cumulative returns, TVL and share price<br><sub>{subtitle}</sub>", x=0.5, xanchor="center", y=0.95),
+        hovermode="x unified",
+        template=pio.templates.default,
+        showlegend=True,
         legend=dict(orientation="h", yanchor="bottom", y=1.03, xanchor="center", x=0.5),
         margin=dict(t=120),
     )
@@ -287,10 +283,10 @@ def analyse_vault(
     # Set y-axes titles
     fig.update_yaxes(title_text=f"Share Price ({vault_metadata['Denomination']})", secondary_y=False)
     fig.update_yaxes(title_text=f"TVL ({vault_metadata['Denomination']})", secondary_y=True)
-        
+
     performance_stats = calc_stats(daily_prices)
     performance_stats.name = name
-            
+
     return VaultReport(
         rolling_returns_chart=fig,
         performance_stats=performance_stats,
@@ -299,15 +295,14 @@ def analyse_vault(
     )
 
 
-
 def calculate_performance_metrics_for_all_vaults(
     vault_db: VaultDatabase,
     prices_df: pd.DataFrame,
     logger=print,
-    lifetime_min_nav_threshold = 100.00,
-    broken_max_nav_value = 99_000_000_000,
+    lifetime_min_nav_threshold=100.00,
+    broken_max_nav_value=99_000_000_000,
     cagr_too_high=10_000,
-    min_events = 25,
+    min_events=25,
 ) -> pd.DataFrame:
     """Calculate performance metrics for each vault.
 

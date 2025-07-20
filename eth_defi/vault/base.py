@@ -92,8 +92,6 @@ class VaultInfo(TypedDict):
     """
 
 
-
-
 @dataclass
 class TradingUniverse:
     """Describe assets vault can manage.
@@ -651,5 +649,3 @@ class VaultBase(ABC):
             0.1 = 10%
         """
         raise NotImplementedError(f"Class {self.__class__.__name__} does not implement get_performance_fee()")
-
-
