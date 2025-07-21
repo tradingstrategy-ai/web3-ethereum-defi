@@ -1,5 +1,7 @@
 """Clean vault price data.
 
+.. _wrangle vault:
+
 - Denormalise data to a single DataFrame
 - Remove abnormalities in the price data
 - Reduce data by removing hourly changes that are below our epsilon threshold
