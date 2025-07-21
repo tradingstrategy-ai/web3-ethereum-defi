@@ -3,6 +3,8 @@
 
 .. _scan-erc_4626_prices:
 
+.. _scan-erc-4626:
+
 ERC-4626: scanning vault data
 =============================
 
@@ -77,7 +79,9 @@ then use JSON-RPC archive nodes polling to extract historical prices and paramet
 Scan process is stateful
 - It can resume, you can rerun the script and it will rescan from where the scan ended last time
 - Using the state, we filter out vaults that are not interesting, e.g. vaults that become
-  dead after certain point of time, to keep the amount of JSON-RPC calls lower
+  dead after certain point of time, to keep the amount of JSON-RPC calls lower.
+  This will mean that some vault data might be incorrectly discarded if it does not pass
+  our filters for being a viable vault.
 
 The default scan is set to 1h interval.
 
