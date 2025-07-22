@@ -86,17 +86,17 @@ def _calculate_1m_rolling_returns_from_prices(price_series: pd.Series) -> pd.Ser
     """
     Calculate 1-month rolling returns from hourly share prices.
     """
+
     def _window_returns(window):
         if len(window) == 0:
             return np.nan
         return window.iloc[-1] / window.iloc[0] - 1
 
     windowed = price_series.rolling(
-        window=pd.Timedelta(days=30), 
+        window=pd.Timedelta(days=30),
         min_periods=1,
     )
     rolling_returns = windowed.apply(_window_returns)
-
 
     rolling_returns_pct = rolling_returns * 100
     return rolling_returns_pct
@@ -105,7 +105,7 @@ def _calculate_1m_rolling_returns_from_prices(price_series: pd.Series) -> pd.Ser
 def calculate_rolling_returns(
     returns_df: pd.DataFrame,
     interesting_vaults: pd.Series | None = None,
-    filtered_vault_list_df: pd.DataFrame | None = None,    
+    filtered_vault_list_df: pd.DataFrame | None = None,
     period: pd.Timedelta = CHART_HISTORY,
     cap: float = None,
     clip_down: float = None,
@@ -152,7 +152,7 @@ def calculate_rolling_returns(
         # All vaults
         df = returns_df
 
-    def _calc_returns(df):        
+    def _calc_returns(df):
         # Calculate rollling returns
         df["rolling_1m_returns"] = df["share_price"].transform(_calculate_1m_rolling_returns_from_prices)
         # df["rolling_1m_returns_annualized"] = ((1 + df["rolling_1m_returns"] / 100) ** 12 - 1) * 100
@@ -197,7 +197,7 @@ def visualise_rolling_returns(
     title="1M rolling returns by vault",
 ) -> Figure:
     """Visualise rolling returns from a DataFrame.
-    
+
     :param df:
         Calculated with :py:func`calculate_rolling_returns`.
     """
@@ -207,7 +207,7 @@ def visualise_rolling_returns(
     assert "rolling_1m_returns" in rolling_returns_df.columns, "rolling_returns_df must have a 'rolling_1m_returns' column"
 
     df = rolling_returns_df
-    
+
     # Remove entries with all zero returns.
     # TODO: Get rid of Hyped USDB and others with zero returns still showing up in the charts
     mask = df.groupby("name")["returns_1h"].transform(lambda x: (x != 0).any())
