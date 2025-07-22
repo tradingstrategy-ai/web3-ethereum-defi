@@ -1,4 +1,5 @@
 """Jupyter notebook set up and formatting utilities."""
+
 import enum
 import logging
 import sys
@@ -25,12 +26,12 @@ class OutputMode(enum.Enum):
 
 
 def setup_charting_and_output(
-        mode: OutputMode = OutputMode.interactive,
-        image_format="svg",
-        max_rows=1000,
-        width=1500,
-        height=1500,
-        increase_font_size=False,
+    mode: OutputMode = OutputMode.interactive,
+    image_format="svg",
+    max_rows=1000,
+    width=1500,
+    height=1500,
+    increase_font_size=False,
 ):
     """Sets charting and other output options for Jupyter Notebooks.
 
@@ -49,6 +50,7 @@ def setup_charting_and_output(
         # Set Jupyter Notebook output mode parameters.
         # For example, table max output rows is lifted from 20 to unlimited.
         from tradeexecutor.utils.notebook import setup_charting_and_output
+
         setup_charting_and_output()
 
     Example how to set up static image rendering:
@@ -75,6 +77,7 @@ def setup_charting_and_output(
     """
 
     import plotly.io as pio
+
     # Apply Plotly bug fixes
     import tradeexecutor.monkeypatch.plotly
     from plotly.offline import init_notebook_mode
@@ -90,7 +93,6 @@ def setup_charting_and_output(
 
     # Set Plotly to offline (static image mode)
     if mode == OutputMode.static:
-
         # https://stackoverflow.com/a/52956402/315168
         init_notebook_mode()
 
@@ -117,16 +119,16 @@ def setup_charting_and_output(
     # If you run setup_charting_and_output(offline) once you are stuck offline
 
     if max_rows:
-        pd.set_option('display.max_rows', max_rows)
+        pd.set_option("display.max_rows", max_rows)
 
 
 def set_large_plotly_chart_font(
-        title_font_size=30,
-        font_size=24,
-        legend_font_size=24,
-        line_width=3,
-        axis_title_font_size=24,
-        base_template="plotly",
+    title_font_size=30,
+    font_size=24,
+    legend_font_size=24,
+    line_width=3,
+    axis_title_font_size=24,
+    base_template="plotly",
 ):
     """Increase the default Plotly chart font sizes so that charts are readable on other mediums like mobile and PowerPoint.
 
@@ -154,16 +156,16 @@ def set_large_plotly_chart_font(
     pio.templates["custom"]["layout"]["yaxis"]["title"]["font"]["size"] = axis_title_font_size  # Set the y-axis title font size
 
     # Set the default title font size
-    pio.templates["custom"]["layout"]["title"] = {
-        "font": {"size": title_font_size}
-    }
+    pio.templates["custom"]["layout"]["title"] = {"font": {"size": title_font_size}}
 
     # Set the default line width
-    pio.templates["custom"]["data"]["scatter"] = [{
-        "type": "scatter",
-        "mode": "lines",
-        "line": {"width": line_width}  # Set the default line width for scatter plots
-    }]
+    pio.templates["custom"]["data"]["scatter"] = [
+        {
+            "type": "scatter",
+            "mode": "lines",
+            "line": {"width": line_width},  # Set the default line width for scatter plots
+        }
+    ]
 
     # Set the default template to the custom template
     pio.templates.default = "custom"
@@ -178,11 +180,11 @@ def set_notebook_logging(log_level: int | str = logging.INFO):
     if type(log_level) == str:
         log_level = getattr(logging, log_level.upper())
 
-    format = '[%(asctime)s] %(levelname)s %(module)s: %(message)s'
+    format = "[%(asctime)s] %(levelname)s %(module)s: %(message)s"
     logging.basicConfig(
         level=log_level,
         format=format,
-        datefmt='%H:%M:%S',
+        datefmt="%H:%M:%S",
         stream=sys.stdout,
         force=True,  # Force to override any previous logging configuration
     )

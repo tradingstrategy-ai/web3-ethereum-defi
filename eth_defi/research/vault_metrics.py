@@ -48,10 +48,10 @@ def calculate_lifetime_metrics(
         """Process a single vault group to calculate metrics."""
         # Extract the group name (id_val)
         id_val = group["id"].iloc[0]
-        
+
         # Sort by timestamp just to be safe
         # group = group.sort_index()
-        
+
         # Extract vault metadata
         vault_spec = VaultSpec.parse_string(id_val, separator="-")
         vault_metadata: VaultLead = vaults_by_id[vault_spec]
@@ -75,7 +75,7 @@ def calculate_lifetime_metrics(
         age = years = (end_date - start_date).days / 365.25
         cagr = (1 + lifetime_return) ** (1 / years) - 1 if years > 0 else np.nan
 
-        last_three_months = group.loc[three_months_ago:]        
+        last_three_months = group.loc[three_months_ago:]
         last_month = group.loc[month_ago:]
 
         # Calculate 3 months CAGR
@@ -92,7 +92,7 @@ def calculate_lifetime_metrics(
             # Daily-equivalent volatility from hourly returns (multiply by sqrt(24) to scale from hourly to daily)
             three_months_volatility = hourly_returns.std() * np.sqrt(30)
             # three_months_volatility = 0
-            
+
         else:
             # We have not collected data for the last three months,
             # because our stateful reader decided the vault is dead
@@ -105,7 +105,7 @@ def calculate_lifetime_metrics(
             end_date = last_month.index.max()
             years = (end_date - start_date).days / 365.25
             one_month_returns = last_month.iloc[-1]["share_price"] / last_month.iloc[0]["share_price"] - 1
-            one_month_cagr = (1 + one_month_returns) ** (1 / years) - 1 if years > 0 else np.nan            
+            one_month_cagr = (1 + one_month_returns) ** (1 / years) - 1 if years > 0 else np.nan
 
         else:
             # We have not collected data for the last month,
@@ -113,35 +113,37 @@ def calculate_lifetime_metrics(
             one_month_cagr = 0
             one_month_returns = 0
 
-        return pd.Series({
-            "name": name,
-            "lifetime_return": lifetime_return,
-            "cagr": cagr,            
-            "three_months_returns": three_month_returns,
-            "three_months_cagr": three_months_cagr,
-            "one_month_returns": one_month_returns,
-            "one_month_cagr": one_month_cagr,
-            "three_months_volatility": three_months_volatility,
-            "denomination": denomination,
-            "chain": get_chain_name(chain_id),
-            "peak_nav": max_nav,
-            "current_nav": current_nav,
-            "years": age,
-            "mgmt_fee": mgmt_fee,
-            "perf_fee": perf_fee,
-            "event_count": event_count,
-            "protocol": protocol,
-            "id": id_val,                        
-            "start_date": start_date,
-            "end_date": end_date,
-        })
+        return pd.Series(
+            {
+                "name": name,
+                "lifetime_return": lifetime_return,
+                "cagr": cagr,
+                "three_months_returns": three_month_returns,
+                "three_months_cagr": three_months_cagr,
+                "one_month_returns": one_month_returns,
+                "one_month_cagr": one_month_cagr,
+                "three_months_volatility": three_months_volatility,
+                "denomination": denomination,
+                "chain": get_chain_name(chain_id),
+                "peak_nav": max_nav,
+                "current_nav": current_nav,
+                "years": age,
+                "mgmt_fee": mgmt_fee,
+                "perf_fee": perf_fee,
+                "event_count": event_count,
+                "protocol": protocol,
+                "id": id_val,
+                "start_date": start_date,
+                "end_date": end_date,
+            }
+        )
 
     # Enable tqdm progress bar for pandas
     tqdm.pandas(desc="Calculating vault performance metrics")
-    
+
     # Use progress_apply instead of the for loop
     results_df = df.groupby("id").progress_apply(process_vault_group)
-    
+
     # Reset index to convert the grouped results to a regular DataFrame
     results_df = results_df.reset_index(drop=True)
 
@@ -150,14 +152,14 @@ def calculate_lifetime_metrics(
 
 def clean_lifetime_metrics(
     lifetime_data_df: pd.DataFrame,
-    broken_max_nav_value = 99_000_000_000,
-    lifetime_min_nav_threshold = 100.00,
-    max_annualised_return=3.0,  # 300% max return    
-    min_events = 25,
+    broken_max_nav_value=99_000_000_000,
+    lifetime_min_nav_threshold=100.00,
+    max_annualised_return=3.0,  # 300% max return
+    min_events=25,
     logger=print,
 ) -> pd.DataFrame:
     """Clean lifetime data so we have only valid vaults.
-    
+
     - Filter out vaults that have broken records or never saw daylight
     - See :py:func:`calculate_lifetime_metrics`.
 
@@ -196,7 +198,6 @@ def clean_lifetime_metrics(
     return lifetime_data_df
 
 
-
 def format_lifetime_table(df: pd.DataFrame) -> pd.DataFrame:
     """Format table for human readable output.
 
@@ -218,12 +219,12 @@ def format_lifetime_table(df: pd.DataFrame) -> pd.DataFrame:
     df = df.rename(
         columns={
             "lifetime_return": "Lifetime return",
-            "cagr": "Lifetime return ann.",                        
+            "cagr": "Lifetime return ann.",
             "three_months_returns": "Last 3M return",
-            "three_months_cagr": "Last 3M return ann.",            
+            "three_months_cagr": "Last 3M return ann.",
             "three_months_volatility": "Last 3M months volatility",
             "one_month_returns": "Last 1M return",
-            "one_month_cagr": "Last 1M return ann.",            
+            "one_month_cagr": "Last 1M return ann.",
             "event_count": "Deposit/redeem count",
             "peak_nav": "Peak TVL USD",
             "current_nav": "Current TVL USD",
@@ -235,7 +236,7 @@ def format_lifetime_table(df: pd.DataFrame) -> pd.DataFrame:
             "protocol": "Protocol",
             "start_date": "First deposit",
             "end_date": "Last deposit",
-            "name": "Name",            
+            "name": "Name",
         }
     )
 
@@ -302,7 +303,7 @@ def analyse_vault(
         assert vault_metadata, f"Vault with id {spec} not found in vault database"
 
     chain_name = get_chain_name(spec.chain_id)
-    name = vault_metadata["Name"]    
+    name = vault_metadata["Name"]
     subtitle = f"{vault_metadata['Symbol']} / {vault_metadata['Denomination']} {vault_metadata['Address']} on {chain_name}, on {vault_metadata['Protocol']} protocol"
 
     # Use cleaned returns data and resample it to something useful
@@ -345,7 +346,7 @@ def analyse_vault(
     # fig.add_trace(
     #    go.Scatter(x=cumulative_returns.index, y=cumulative_returns.values, name="Cumulative returns (cleaned)", line=dict(color="darkgreen", width=4), opacity=0.75),
     #     secondary_y=False,
-    #)
+    # )
 
     # Add share price trace on primary y-axis
     fig.add_trace(

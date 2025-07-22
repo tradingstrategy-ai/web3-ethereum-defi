@@ -66,7 +66,7 @@ class VaultSpec:
     @staticmethod
     def parse_string(spec: str, separator=",") -> "VaultSpec":
         """Parse vault spec from a string.
-    
+
         :param spec:
             String in the format of "chain_id,address" or "chain_id-address"
 

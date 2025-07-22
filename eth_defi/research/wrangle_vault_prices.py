@@ -416,7 +416,6 @@ def filter_outlier_share_prices(
     share_prices_fixed = 0
 
     def _clean_share_price_for_pair(prices_df: pd.DataFrame) -> pd.DataFrame:
-
         nonlocal share_prices_fixed
 
         prices_df = prices_df.copy()
