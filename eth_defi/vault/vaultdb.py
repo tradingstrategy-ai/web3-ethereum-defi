@@ -1,9 +1,10 @@
 """Describe vault database pickle format."""
 
 import datetime
+from decimal import Decimal
 from typing import TypedDict, TypeAlias
 
-from eth_defi.erc_4626.core import ERC4262VaultDetection
+from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.vault.base import VaultSpec
 
 
@@ -11,21 +12,29 @@ class VaultLead(TypedDict):
     """Vault info gathered during the vault discovery from the chain.
 
     - Avaulable as VaultDb pickle
+    - Human readable entry
+    - Machine readable data in :py:attr:`_detection_data`
     """
 
-    symbol: str
+    Symbol: str
 
-    name: str
+    Name: str
 
-    address: str
+    Address: str
 
-    denomination_token: str
+    Denomination: str
 
-    nav: float
+    NAV: Decimal
 
-    shares: float
+    Shares: Decimal
+
+    Protocol: str
 
     _detection_data: ERC4262VaultDetection
+
+    _denomination_token: dict
+
+    features: set[ERC4626Feature]
 
     __annotations__ = {
         "First seen at": datetime.datetime,

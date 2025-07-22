@@ -64,17 +64,20 @@ class VaultSpec:
         return f"{self.chain_id}-{self.vault_address}"
 
     @staticmethod
-    def parse_string(spec: str) -> "VaultSpec":
+    def parse_string(spec: str, separator=",") -> "VaultSpec":
         """Parse vault spec from a string.
-
+    
         :param spec:
-            String in the format of "chain_id,address"
+            String in the format of "chain_id,address" or "chain_id-address"
+
+        :param separator:
+            Either "-" or ","
 
         :return:
             :py:class:`VaultSpec` instance
         """
         try:
-            chain_id, address = spec.split(",")
+            chain_id, address = spec.split(separator)
             chain_id = chain_id.strip()
             address = address.strip()
             return VaultSpec(chain_id=int(chain_id), vault_address=address)

@@ -6,7 +6,6 @@ import plotly.express as px
 import plotly.io as pio
 from plotly.colors import qualitative
 from plotly.graph_objects import Figure
-from plotly.subplots import make_subplots
 
 CHART_BENCHMARK_COUNT: int = 10
 
@@ -94,32 +93,48 @@ def calculate_rolling_returns(
     clip_up: float = None,
     drop_threshold: float = None,
     benchmark_count: int = CHART_BENCHMARK_COUNT,
-):
-    """Calculate rolling returns starts for vaults.
+    returns_column: str = "returns_1h",
+) -> pd.DataFrame:
+    """Calculate rolling returns stats for vaults.
+
+    - Take a snapshot of returns from the return data pool of all vaults
+    - Calculate rolling return chart metrics for those vaults
 
     :param returns_df:
+        Hourly cleaned return data of all vaults as a DataFrame.
+
         See notebook examples.
+
+    :param interesting_vaults:
+        A Series of vault ids to limit the results to.
+
+        A list of chain id-address strings.
+
+    :return:
+        A DataFrame with MultiIndex(id, timestamp) and columns like rolling_1m_returns_annualized.
     """
 
     # Pick N top vaults to show,
     # assume returns_df is sorted by wanted order
     if benchmark_count:
         assert isinstance(benchmark_count, int), "benchmark_count must be an integer"
-        assert isinstance(filtered_vault_list_df, pd.DataFrame), "filtered_vault_list_df must be a pandas DataFrame"
-        interesting_vaults = filtered_vault_list_df[0:benchmark_count]["id"]
+
+        if interesting_vaults is None:
+            assert isinstance(filtered_vault_list_df, pd.DataFrame), "filtered_vault_list_df must be a pandas DataFrame"
+            interesting_vaults = filtered_vault_list_df[0:benchmark_count]["id"]
 
     # Limit to benchmarked vaults
     if interesting_vaults is not None:
+        # Limit to the vaults on interesting vaults list
         df = returns_df[returns_df["id"].isin(interesting_vaults)]
     else:
+        # All vaults
         df = returns_df
+
     df = df.reset_index().sort_values(by=["id", "timestamp"])
 
-    # Manually blacklist one vault where we get data until fixed
-    df = df[df["name"] != "Revert Lend Arbitrum USDC,"]
-
     # Calculate rollling returns
-    df["rolling_1m_returns"] = df.groupby("id")["daily_returns"].transform(lambda x: (((1 + x).rolling(window=window).apply(np.prod) - 1) * 100))
+    df["rolling_1m_returns"] = df.groupby("id")[returns_column].transform(lambda x: (((1 + x).rolling(window=window).apply(np.prod) - 1) * 100))
 
     df["rolling_1m_returns_annualized"] = ((1 + df["rolling_1m_returns"] / 100) ** 12 - 1) * 100
 
@@ -137,7 +152,7 @@ def calculate_rolling_returns(
 
     if drop_threshold is not None:
         # Step 1: Identify vaults with extreme returns
-        extreme_return_vaults = returns_df.groupby("name")["daily_returns"].apply(lambda x: (x > 1000).any())
+        extreme_return_vaults = returns_df.groupby("name")[returns_column].apply(lambda x: (x > 1000).any())
         extreme_return_names = extreme_return_vaults[extreme_return_vaults].index.tolist()
 
         print("Removing extreme return vaults: ", extreme_return_names)

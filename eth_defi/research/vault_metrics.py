@@ -19,7 +19,7 @@ import plotly.io as pio
 
 from eth_defi.chain import get_chain_name
 from eth_defi.vault.base import VaultSpec
-from eth_defi.vault.vaultdb import VaultDatabase
+from eth_defi.vault.vaultdb import VaultDatabase, VaultLead
 
 from ffn.core import PerformanceStats
 from ffn.core import calc_stats
@@ -27,8 +27,8 @@ from ffn.core import calc_stats
 
 def calculate_lifetime_metrics(
     df: pd.DataFrame,
-    vaults_by_id: dict,
-    returns_column: str = "daily_returns",
+    vaults_by_id: VaultDatabase,
+    returns_column: str = "returns_1h",
 ):
     """Calculate lifetime metrics for each vault in the provided DataFrame.
 
@@ -40,6 +40,7 @@ def calculate_lifetime_metrics(
     results = []
 
     assert isinstance(df.index, pd.DatetimeIndex)
+    assert isinstance(vaults_by_id, dict), "vaults_by_id should be a dictionary of vault metadata"
 
     month_ago = df.index.max() - pd.Timedelta(days=30)
     three_months_ago = df.index.max() - pd.Timedelta(days=90)
@@ -47,7 +48,12 @@ def calculate_lifetime_metrics(
     for id_val, group in df.groupby("id"):
         # Sort by timestamp just to be safe
         group = group.sort_index()
-        name = vaults_by_id[id_val]["Name"] if id_val in vaults_by_id else None
+        
+        # Extract vault metadata
+        vault_spec = VaultSpec.parse_string(id_val, separator="-")
+        vault_metadata: VaultLead = vaults_by_id[vault_spec]
+        name = vault_metadata.get("Name")
+        denomination = vault_metadata.get("Denomination")
 
         # Calculate lifetime return using cumulative product approach
         lifetime_return = (1 + group[returns_column]).prod() - 1
@@ -57,9 +63,6 @@ def calculate_lifetime_metrics(
 
         last_month = group[returns_column].loc[month_ago:]
         one_month_returns = (1 + last_month).prod() - 1
-
-        # Calculate volatility so we can separate actively trading vaults (market making, such) from passive vaults (lending optimisaiton)
-        three_months_volatility = last_three_months.std()
 
         max_nav = group["total_assets"].max()
         current_nav = group["total_assets"].iloc[-1]
@@ -78,15 +81,28 @@ def calculate_lifetime_metrics(
 
         # Calculate 3 months CAGR
         # Get the first and last date
-        start_date = last_three_months.index.min()
-        end_date = last_three_months.index.max()
-        years = (end_date - start_date).days / 365.25
-        three_months_cagr = (1 + three_month_returns) ** (1 / years) - 1 if years > 0 else np.nan
+        if len(last_three_months) >= 2:
+            start_date = last_three_months.index.min()
+            end_date = last_three_months.index.max()
+            years = (end_date - start_date).days / 365.25
+            three_months_cagr = (1 + three_month_returns) ** (1 / years) - 1 if years > 0 else np.nan
+            # Calculate volatility so we can separate actively trading vaults (market making, such) from passive vaults (lending optimisaiton)
+            three_months_volatility = last_three_months.std()
+        else:
+            # We have not collected data for the last three months,
+            # because our stateful reader decided the vault is dead
+            three_months_cagr = 0
+            three_months_volatility = 0
 
-        start_date = last_month.index.min()
-        end_date = last_month.index.max()
-        years = (end_date - start_date).days / 365.25
-        one_month_cagr = (1 + one_month_returns) ** (1 / years) - 1 if years > 0 else np.nan
+        if len(last_month) >= 2:
+            start_date = last_month.index.min()
+            end_date = last_month.index.max()
+            years = (end_date - start_date).days / 365.25
+            one_month_cagr = (1 + one_month_returns) ** (1 / years) - 1 if years > 0 else np.nan
+        else:
+            # We have not collected data for the last month,
+            # because our stateful reader decided the vault is dead
+            one_month_cagr = 0
 
         results.append(
             {
@@ -96,7 +112,7 @@ def calculate_lifetime_metrics(
                 "three_months_cagr": three_months_cagr,
                 "one_month_cagr": one_month_cagr,
                 "three_months_volatility": three_months_volatility,
-                "denomination": vaults_by_id[id_val]["Denomination"] if id_val in vaults_by_id else None,
+                "denomination": denomination,
                 "chain": get_chain_name(chain_id),
                 "peak_nav": max_nav,
                 "current_nav": current_nav,
@@ -114,6 +130,55 @@ def calculate_lifetime_metrics(
         )
 
     return pd.DataFrame(results)
+
+
+def clean_lifetime_metrics(
+    lifetime_data_df: pd.DataFrame,
+    broken_max_nav_value = 99_000_000_000,
+    lifetime_min_nav_threshold = 100.00,
+    max_annualised_return=3.0,  # 300% max return    
+    min_events = 25,
+    logger=print,
+) -> pd.DataFrame:
+    """Clean lifetime data so we have only valid vaults.
+    
+    - Filter out vaults that have broken records or never saw daylight
+    - See :py:func:`calculate_lifetime_metrics`.
+
+    :return:
+        Cleaned lifetime dataframe
+    """
+
+    # Filter FRAX vault with broken interface
+    lifetime_data_df = lifetime_data_df[~lifetime_data_df.index.isna()]
+
+    # Filter out MAAT Stargate V2 USDT
+    # Not sure what's going on with this one and other ones with massive returns.
+    # Rebase token?
+    # Consider 10,000x returns as "valid"
+    lifetime_data_df = lifetime_data_df[lifetime_data_df["cagr"] < 10_000]
+
+    # Filter out some vaults that report broken NAV
+    broken_mask = lifetime_data_df["peak_nav"] > broken_max_nav_value
+    logger(f"Vault entries with too high NAV values filtered out: {len(lifetime_data_df[broken_mask])}")
+    lifetime_data_df = lifetime_data_df[~broken_mask]
+
+    # Filter out some vaults that have too little NAV (ATH NAV)
+    broken_mask = lifetime_data_df["peak_nav"] <= lifetime_min_nav_threshold
+    logger(f"Vault entries with too small ATH NAV values filtered out: {len(lifetime_data_df[broken_mask])}")
+    lifetime_data_df = lifetime_data_df[~broken_mask]
+
+    # Filter out with too HIGH CAGR
+    broken_mask = lifetime_data_df["cagr"] >= max_annualised_return
+    logger(f"Vaults abnormally high returns: {len(lifetime_data_df[broken_mask])}")
+    lifetime_data_df = lifetime_data_df[~broken_mask]
+
+    # Filter out some vaults that have not seen many deposit and redemptions
+    broken_mask = lifetime_data_df["event_count"] < min_events
+    logger(f"Vault entries with too few deposit and redeem events (min {min_events}) filtered out: {len(lifetime_data_df[broken_mask])}")
+    lifetime_data_df = lifetime_data_df[~broken_mask]
+    return lifetime_data_df
+
 
 
 def format_lifetime_table(df: pd.DataFrame) -> pd.DataFrame:
@@ -217,8 +282,8 @@ def analyse_vault(
         assert vault_metadata, f"Vault with id {spec} not found in vault database"
 
     chain_name = get_chain_name(spec.chain_id)
-    name = vault_metadata["Name"]
-    subtitle = f"{vault_metadata['Address']} on {chain_name}, on {vault_metadata['Protocol']} protocol"
+    name = vault_metadata["Name"]    
+    subtitle = f"{vault_metadata['Symbol']} / {vault_metadata['Denomination']} {vault_metadata['Address']} on {chain_name}, on {vault_metadata['Protocol']} protocol"
 
     # Use cleaned returns data and resample it to something useful
     vault_df = returns_df.loc[returns_df["id"] == id]
@@ -240,6 +305,11 @@ def analyse_vault(
 
     # Calculate cumulative returns (what $1 would grow to)
     cumulative_returns = (1 + hourly_returns).cumprod()
+
+    start_share_price = vault_df["share_price"].iloc[0]
+    end_share_price = vault_df["share_price"].iloc[-1]
+    logger(f"Share price movement: {start_share_price:.4f} {vault_df.index[0]} -> {end_share_price:.4f} {vault_df.index[-1]}")
+
 
     # Create figure with secondary y-axis
     fig = make_subplots(specs=[[{"secondary_y": True}]])
