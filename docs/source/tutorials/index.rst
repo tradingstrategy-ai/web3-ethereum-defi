@@ -62,7 +62,6 @@ Tutorials and examples
    gmx-swap
    erc-4626-read-apy
    erc-4626-historical-apy
-   erc-4626-scan-vaults
    erc-4626-scan-prices
    erc-4626-vault-list
    erc-4626-historical-price
