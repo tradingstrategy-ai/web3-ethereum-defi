@@ -132,6 +132,7 @@ filterwarnings = [
 # We hate arbitrary line lengths
 line-length = 999
 indent-width = 4
+extend-exclude = ["*.ipynb"]
 
 [tool.ruff.lint]
 # Enable preview features & checks (use with caution)
