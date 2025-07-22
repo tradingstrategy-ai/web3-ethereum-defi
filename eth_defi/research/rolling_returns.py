@@ -82,6 +82,28 @@ def visualise_rolling_returns(
     return fig
 
 
+def _calculate_1m_rolling_returns_from_prices(price_series: pd.Series, window_hours: int = 24 * 30) -> pd.Series:
+    """
+    Calculate 1-month rolling returns from hourly share prices.
+    
+    :param price_series: Pandas Series with hourly share prices (with datetime index)
+    :param window_hours: Rolling window size in hours (default: 30 days * 24 hours = 720 hours)
+    :return: Series with 1-month rolling returns as percentages
+    """
+    
+    # Step 1: Calculate hourly returns
+    hourly_returns = price_series.pct_change()
+    
+    # Step 2: Calculate rolling returns over the window
+    rolling_returns = (1 + hourly_returns).rolling(window=window_hours).apply(np.prod) - 1
+    
+    # Step 3: Convert to percentage
+    rolling_returns_pct = rolling_returns * 100
+    
+    return rolling_returns_pct
+
+
+
 def calculate_rolling_returns(
     returns_df: pd.DataFrame,
     interesting_vaults: pd.Series | None = None,
@@ -134,7 +156,7 @@ def calculate_rolling_returns(
     df = df.reset_index().sort_values(by=["id", "timestamp"])
 
     # Calculate rollling returns
-    df["rolling_1m_returns"] = df.groupby("id")[returns_column].transform(lambda x: (((1 + x).rolling(window=window).apply(np.prod) - 1) * 100))
+    df["rolling_1m_returns"] = df.groupby("id")["share_price"].transform(_calculate_1m_rolling_returns_from_prices)
 
     df["rolling_1m_returns_annualized"] = ((1 + df["rolling_1m_returns"] / 100) ** 12 - 1) * 100
 
