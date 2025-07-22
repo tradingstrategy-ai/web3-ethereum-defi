@@ -11,7 +11,7 @@ CHART_BENCHMARK_COUNT: int = 10
 
 RETURNS_ROLLING_WINDOW = 30  # Bars, 1M
 
-CHART_HISTORY = pd.Timedelta(days=30 * 4)  #
+CHART_HISTORY = pd.Timedelta(days=30 * 5)  #
 
 
 def wrap_legend_text(text: str, max_length: int = 30) -> str:
@@ -82,32 +82,30 @@ def visualise_rolling_returns(
     return fig
 
 
-def _calculate_1m_rolling_returns_from_prices(price_series: pd.Series, window_hours: int = 24 * 30) -> pd.Series:
+def _calculate_1m_rolling_returns_from_prices(price_series: pd.Series) -> pd.Series:
     """
     Calculate 1-month rolling returns from hourly share prices.
-
-    :param price_series: Pandas Series with hourly share prices (with datetime index)
-    :param window_hours: Rolling window size in hours (default: 30 days * 24 hours = 720 hours)
-    :return: Series with 1-month rolling returns as percentages
     """
+    def _window_returns(window):
+        if len(window) == 0:
+            return np.nan
+        return window.iloc[-1] / window.iloc[0] - 1
 
-    # Step 1: Calculate hourly returns
-    hourly_returns = price_series.pct_change()
+    windowed = price_series.rolling(
+        window=pd.Timedelta(days=30), 
+        min_periods=1,
+    )
+    rolling_returns = windowed.apply(_window_returns)
 
-    # Step 2: Calculate rolling returns over the window
-    rolling_returns = (1 + hourly_returns).rolling(window=window_hours).apply(np.prod) - 1
 
-    # Step 3: Convert to percentage
     rolling_returns_pct = rolling_returns * 100
-
     return rolling_returns_pct
 
 
 def calculate_rolling_returns(
     returns_df: pd.DataFrame,
     interesting_vaults: pd.Series | None = None,
-    filtered_vault_list_df: pd.DataFrame | None = None,
-    window: int = RETURNS_ROLLING_WINDOW,  # Bars
+    filtered_vault_list_df: pd.DataFrame | None = None,    
     period: pd.Timedelta = CHART_HISTORY,
     cap: float = None,
     clip_down: float = None,
@@ -135,6 +133,8 @@ def calculate_rolling_returns(
         A DataFrame with MultiIndex(id, timestamp) and columns like rolling_1m_returns_annualized.
     """
 
+    assert isinstance(returns_df.index, pd.DatetimeIndex)
+
     # Pick N top vaults to show,
     # assume returns_df is sorted by wanted order
     if benchmark_count:
@@ -152,24 +152,29 @@ def calculate_rolling_returns(
         # All vaults
         df = returns_df
 
-    df = df.reset_index().sort_values(by=["id", "timestamp"])
+    def _calc_returns(df):        
+        # Calculate rollling returns
+        df["rolling_1m_returns"] = df["share_price"].transform(_calculate_1m_rolling_returns_from_prices)
+        # df["rolling_1m_returns_annualized"] = ((1 + df["rolling_1m_returns"] / 100) ** 12 - 1) * 100
+        return df
 
-    # Calculate rollling returns
-    df["rolling_1m_returns"] = df.groupby("id")["share_price"].transform(_calculate_1m_rolling_returns_from_prices)
+    df = df.groupby("id").apply(_calc_returns, include_groups=False)
+    df = df.reset_index()
 
-    df["rolling_1m_returns_annualized"] = ((1 + df["rolling_1m_returns"] / 100) ** 12 - 1) * 100
+    if len(df) == 0:
+        return df
 
     # When vault launches it has usually near-infinite APY
     # Cap it here so charts are readable
     if cap is not None:
         # Using mask (replaces values WHERE condition is True)
-        df["rolling_1m_returns_annualized"] = df["rolling_1m_returns_annualized"].mask((df["rolling_1m_returns_annualized"] > cap) | (df["rolling_1m_returns_annualized"] < -cap), np.nan)
+        df["rolling_1m_returns"] = df["rolling_1m_returns"].mask((df["rolling_1m_returns"] > cap) | (df["rolling_1m_returns"] < -cap), np.nan)
 
     if clip_down is not None:
-        df["rolling_1m_returns_annualized"] = df["rolling_1m_returns_annualized"].clip(lower=clip_down)
+        df["rolling_1m_returns"] = df["rolling_1m_returns"].clip(lower=clip_down)
 
     if clip_up is not None:
-        df["rolling_1m_returns_annualized"] = df["rolling_1m_returns_annualized"].clip(upper=clip_up)
+        df["rolling_1m_returns"] = df["rolling_1m_returns"].clip(upper=clip_up)
 
     if drop_threshold is not None:
         # Step 1: Identify vaults with extreme returns
@@ -185,3 +190,47 @@ def calculate_rolling_returns(
     df = df.loc[df["timestamp"] >= (pd.Timestamp.now() - period)]
 
     return df
+
+
+def visualise_rolling_returns(
+    rolling_returns_df: pd.DataFrame,
+    title="1M rolling returns by vault",
+) -> Figure:
+    """Visualise rolling returns from a DataFrame.
+    
+    :param df:
+        Calculated with :py:func`calculate_rolling_returns`.
+    """
+    assert isinstance(rolling_returns_df, pd.DataFrame), "rolling_returns_df must be a pandas DataFrame"
+
+    assert "timestamp" in rolling_returns_df.columns, "rolling_returns_df must have a 'timestamp' column, index not supported"
+    assert "rolling_1m_returns" in rolling_returns_df.columns, "rolling_returns_df must have a 'rolling_1m_returns' column"
+
+    df = rolling_returns_df
+    
+    # Remove entries with all zero returns.
+    # TODO: Get rid of Hyped USDB and others with zero returns still showing up in the charts
+    mask = df.groupby("name")["returns_1h"].transform(lambda x: (x != 0).any())
+    filtered_returns_df = df[mask]
+
+    fig = px.line(
+        filtered_returns_df,
+        x="timestamp",
+        y="rolling_1m_returns",
+        color="name",
+        title=title,
+        labels={"rolling_1m_returns": "1-Month Rolling Returns (%)", "timestamp": "Date", "name": "Name"},
+        hover_data=["id"],
+        color_discrete_sequence=qualitative.Dark24,
+    )
+
+    fig.update_layout(
+        xaxis_title="Date",
+        yaxis_title="1-Month Rolling Returns (%)",
+        legend_title="Name",
+        hovermode="closest",
+        template=pio.templates.default,
+    )
+    fig.update_traces(line=dict(width=4))
+
+    return fig
