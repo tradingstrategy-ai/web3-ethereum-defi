@@ -56,14 +56,11 @@ def calculate_lifetime_metrics(
         denomination = vault_metadata.get("Denomination")
 
         # Calculate lifetime return using cumulative product approach
-        lifetime_return = (1 + group[returns_column]).prod() - 1
+        lifetime_return = df["share_price"].loc[group.index].iloc[-1] / df["share_price"].iloc[0] - 1
 
-        last_three_months = group[returns_column].loc[three_months_ago:]
-        three_month_returns = (1 + last_three_months).prod() - 1
-
-        last_month = group[returns_column].loc[month_ago:]
-        one_month_returns = (1 + last_month).prod() - 1
-
+        last_three_months = group.loc[three_months_ago:]        
+        last_month = group.loc[month_ago:]
+        
         max_nav = group["total_assets"].max()
         current_nav = group["total_assets"].iloc[-1]
         chain_id = group["chain"].iloc[-1]
@@ -85,24 +82,39 @@ def calculate_lifetime_metrics(
             start_date = last_three_months.index.min()
             end_date = last_three_months.index.max()
             years = (end_date - start_date).days / 365.25
+            three_month_returns = last_three_months.iloc[-1]["share_price"] / last_three_months.iloc[0]["share_price"] - 1
             three_months_cagr = (1 + three_month_returns) ** (1 / years) - 1 if years > 0 else np.nan
             # Calculate volatility so we can separate actively trading vaults (market making, such) from passive vaults (lending optimisaiton)
-            three_months_volatility = last_three_months.std()
+            hourly_returns = last_three_months[returns_column]
+
+            # Convert returns to cumulative price series
+            cumulative_prices = (1 + hourly_returns).cumprod()
+
+            # Resample prices to daily (take last price of each day)
+            daily_prices = cumulative_prices.resample('D').last()
+
+            # Convert back to daily returns
+            daily_returns = daily_prices.pct_change().dropna()            
+            three_months_volatility = daily_returns.std()
+            
         else:
             # We have not collected data for the last three months,
             # because our stateful reader decided the vault is dead
             three_months_cagr = 0
             three_months_volatility = 0
+            three_month_returns = 0
 
         if len(last_month) >= 2:
             start_date = last_month.index.min()
             end_date = last_month.index.max()
             years = (end_date - start_date).days / 365.25
-            one_month_cagr = (1 + one_month_returns) ** (1 / years) - 1 if years > 0 else np.nan
+            one_month_returns = last_month.iloc[-1]["share_price"] / last_month.iloc[0]["share_price"] - 1
+            one_month_cagr = (1 + one_month_returns) ** (1 / years) - 1 if years > 0 else np.nan            
         else:
             # We have not collected data for the last month,
             # because our stateful reader decided the vault is dead
             one_month_cagr = 0
+            one_month_returns = 0
 
         results.append(
             {
