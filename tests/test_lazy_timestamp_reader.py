@@ -1,6 +1,8 @@
 """Tests for lazy_timestamp_reader.py"""
 
 import pytest
+
+from eth_defi.compat import clear_middleware
 from eth_defi.provider.anvil import launch_anvil, AnvilLaunch, mine
 from eth_defi.chain import install_chain_middleware
 from web3 import HTTPProvider, Web3
@@ -29,17 +31,73 @@ def web3(anvil: AnvilLaunch) -> Web3:
     provider = HTTPProvider(anvil.json_rpc_url)
 
     # Web3 6.0 fixes - force no middlewares
-    provider.middlewares = (
-        #    attrdict_middleware,
-        # default_transaction_fields_middleware,
-        # ethereum_tester_middleware,
-    )
+    # provider.middlewares = (
+    #     #    attrdict_middleware,
+    #     # default_transaction_fields_middleware,
+    #     # ethereum_tester_middleware,
+    # )
+    clear_middleware(provider)
 
     web3 = Web3(provider)
-    # Get rid of attributeddict slow down
-    web3.middleware_onion.clear()
+    # Clear all middleware from web3 instance
+    clear_middleware(web3)
+
     install_chain_middleware(web3)
     return web3
+
+
+def debug_web3_setup(web3: Web3):
+    """Debug what's happening with the web3 setup"""
+    from eth_defi.compat import WEB3_PY_V7
+
+    print(f"Web3.py v7: {WEB3_PY_V7}")
+    print(f"Block number: {web3.eth.block_number}")
+    print(f"Chain ID: {web3.eth.chain_id}")
+    print(f"Middleware count: {len(web3.middleware_onion)}")
+
+    # Test block reading
+    try:
+        block = web3.eth.get_block(1)
+        print(f"Block 1 hash: {block['hash'].hex()}")
+        print(f"Block 1 timestamp: {block['timestamp']}")
+    except Exception as e:
+        print(f"Error reading block 1: {e}")
+
+
+def test_lazy_timestamp_reader_block_range_debug(web3: Web3):
+    """Debug version of the timestamp reader test."""
+
+    # Debug initial state
+    debug_web3_setup(web3)
+
+    # Create some blocks
+    for i in range(1, 5 + 1):
+        mine(web3)
+        print(f"Mined block {i}, current block number: {web3.eth.block_number}")
+
+    assert web3.eth.block_number == 5
+
+    # Debug blocks
+    for i in range(1, 6):
+        try:
+            block = web3.eth.get_block(i)
+            print(f"Block {i}: hash={block['hash'].hex()}, timestamp={block['timestamp']}")
+        except Exception as e:
+            print(f"Error reading block {i}: {e}")
+
+    timestamps = extract_timestamps_json_rpc_lazy(web3, 1, 5)
+    assert isinstance(timestamps, LazyTimestampContainer)
+
+    for i in range(1, 5 + 1):
+        block_hash = web3.eth.get_block(i)["hash"]
+        print(f"Checking timestamp for block {i}, hash: {block_hash.hex()}")
+        try:
+            timestamp = timestamps[block_hash]
+            print(f"Got timestamp: {timestamp}")
+            assert timestamp > 0
+        except Exception as e:
+            print(f"Error getting timestamp for block {i}: {e}")
+            raise
 
 
 def test_lazy_timestamp_reader_block_range(web3: Web3):

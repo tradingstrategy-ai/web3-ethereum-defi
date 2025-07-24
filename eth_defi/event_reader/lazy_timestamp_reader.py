@@ -107,13 +107,24 @@ class LazyTimestampContainer:
         return timestamp
 
     def __getitem__(self, block_hash: HexStr | HexBytes | str):
-        """Get a timestamp of a block hash."""
+        """Get a timestamp of a block hash - v6/v7 compatible."""
         assert not type(block_hash) == int, f"Use block hashes, block numbers not supported, passed {block_hash}"
-
         assert type(block_hash) == str or isinstance(block_hash, HexBytes), f"Got: {block_hash} {block_hash.__class__}"
 
+        # Ensure consistent string format for cache keys
         if type(block_hash) != str:
-            block_hash = block_hash.hex()
+            if hasattr(block_hash, "hex"):
+                # HexBytes object
+                block_hash = block_hash.hex()
+            else:
+                # Fallback for other types
+                block_hash = str(block_hash)
+
+        # Ensure lowercase hex for consistent cache keys
+        if block_hash.startswith("0x"):
+            block_hash = block_hash.lower()
+        else:
+            block_hash = "0x" + block_hash.lower()
 
         if block_hash not in self.cache_by_block_hash:
             self.update_block_hash(block_hash)
