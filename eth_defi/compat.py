@@ -435,32 +435,23 @@ def get_function_info_v7(*args, **kwargs):
     """v7 get_function_info equivalent - returns v6-compatible format"""
     if WEB3_PY_V7:
         from web3.utils import get_abi_element_info
+        from eth_utils.abi import abi_to_signature
+        from eth_utils import function_signature_to_4byte_selector
 
         if len(args) == 4:
-            # Called as: get_function_info(fn_name, codec, contract_abi, args)
             fn_name, codec, contract_abi, fn_args = args
             fn_info = get_abi_element_info(contract_abi, fn_name, *fn_args, abi_codec=codec)
             fn_abi = fn_info["abi"]
 
-            # Create function selector manually for v6 compatibility
-            from eth_utils import function_signature_to_4byte_selector
-
-            input_types = [inp["type"] for inp in fn_abi["inputs"]]
-            signature = f"{fn_abi['name']}({','.join(input_types)})"
+            signature = abi_to_signature(fn_abi)
             fn_selector = function_signature_to_4byte_selector(signature)
 
             return fn_abi, fn_selector, fn_args
 
         elif len(args) == 5:
-            # Called as: get_function_info(fn_identifier, codec, contract_abi, fn_abi, args)
             fn_identifier, codec, contract_abi, fn_abi, fn_args = args
 
-            # For this signature, fn_abi is already provided, so we can use it directly
-            # Just need to create the selector
-            from eth_utils import function_signature_to_4byte_selector
-
-            input_types = [inp["type"] for inp in fn_abi["inputs"]]
-            signature = f"{fn_abi['name']}({','.join(input_types)})"
+            signature = abi_to_signature(fn_abi)
             fn_selector = function_signature_to_4byte_selector(signature)
 
             return fn_abi, fn_selector, fn_args
