@@ -186,6 +186,7 @@ class LagoonAutomatedDeployment:
             "Deployer": self.deployer,
             "Safe": safe.address,
             "Vault": vault.address,
+            "Beacon proxy factory": self.beacon_proxy_factory,
             "Trading strategy module": self.trading_strategy_module.address,
             "Asset manager": self.asset_manager,
             "Underlying token": self.vault.underlying_token.address,
@@ -198,6 +199,7 @@ class LagoonAutomatedDeployment:
             "Management fee": f"{self.parameters.managementRate / 100:,} %",
             "ABI": self.vault_abi,
         }
+
         return fields
 
     def pformat(self) -> str:
@@ -389,8 +391,6 @@ def deploy_lagoon(
     :param use_forge:
         Deploy a new vault contract from source with Forge and Etherscan verification.
 
-        TODO: Not implemented, contract not yet open source.
-
     :param etherscan_api_key:
         For Forge.
 
@@ -456,9 +456,6 @@ def deploy_lagoon(
     assert wrapped_native_token is not None, f"Lagoon deployment needs WRAPPED_NATIVE_TOKEN configured for chain {chain_id}"
 
     logger.info("Wrapped native token is: %s", wrapped_native_token)
-    # TODO: Beacon proxy deployment does not work
-    if use_forge:
-        logger.warning("lagoon/Vault.sol yet not open source - cannot do source verified deploy")
 
     if legacy:
         assert not factory_contract

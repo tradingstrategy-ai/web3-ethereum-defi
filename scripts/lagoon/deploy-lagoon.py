@@ -39,6 +39,8 @@ from eth_defi.token import USDC_NATIVE_TOKEN, USDT_NATIVE_TOKEN
 
 from eth_defi.uniswap_v2.constants import UNISWAP_V2_DEPLOYMENTS
 from eth_defi.uniswap_v2.deployment import fetch_deployment
+from eth_defi.uniswap_v3.deployment import fetch_deployment as fetch_deployment_uni_v3
+
 from eth_defi.utils import setup_console_logging
 
 logger = logging.getLogger(__name__)
@@ -50,7 +52,7 @@ RANDO2 = "0xbD35322AA7c7842bfE36a8CF49d0F063bf83a100"
 
 def main():
 
-    setup_console_logging()
+    setup_console_logging(default_log_level="info")
 
     PRIVATE_KEY = os.environ["PRIVATE_KEY"]
     JSON_RPC_URL = os.environ["JSON_RPC_URL"]
@@ -61,7 +63,7 @@ def main():
     VAULTS = os.environ.get("VAULTS")
 
     web3 = create_multi_provider_web3(JSON_RPC_URL)
-    chain_name = get_chain_name(web3.eth.chain_id)
+    chain_name = get_chain_name(web3.eth.chain_id).lower()
 
     logger.info(f"Connected to chain {chain_name}, last block is {web3.eth.block_number:,}")
 
@@ -81,21 +83,25 @@ def main():
 
     chain_id = web3.eth.chain_id
 
+    assert chain_name in UNISWAP_V2_DEPLOYMENTS, "Unsupported chain in Uniswap v2 deployment data: " + chain_name
+
     uniswap_v2 = fetch_deployment(
         web3,
-        factory_address=UNISWAP_V2_DEPLOYMENTS["base"]["factory"],
-        router_address=UNISWAP_V2_DEPLOYMENTS["base"]["router"],
-        init_code_hash=UNISWAP_V2_DEPLOYMENTS["base"]["init_code_hash"],
+        factory_address=UNISWAP_V2_DEPLOYMENTS[chain_name]["factory"],
+        router_address=UNISWAP_V2_DEPLOYMENTS[chain_name]["router"],
+        init_code_hash=UNISWAP_V2_DEPLOYMENTS[chain_name]["init_code_hash"],
     )
 
     if web3.eth.chain_id == 56:
         # Binance uses USDT,
         # also it does not have official Lagoon factory as the writing of this.
         underlying = USDT_NATIVE_TOKEN[chain_id]
-        factory_contract = False
+        from_the_scratch = True
+        factory_contract = True
     else:
         underlying = USDC_NATIVE_TOKEN[chain_id]
         factory_contract = True
+        from_the_scratch = False
 
     parameters = LagoonDeploymentParameters(
         underlying=underlying,
@@ -124,12 +130,13 @@ def main():
         safe_owners=multisig_owners,
         safe_threshold=len(multisig_owners) - 1,
         uniswap_v2=uniswap_v2,
-        uniswap_v3=True,
+        uniswap_v3=None,
         any_asset=True,
         erc_4626_vaults=erc_4626_vaults,
         factory_contract=factory_contract,
         use_forge=True,
         etherscan_api_key=ETHERSCAN_API_KEY,
+        from_the_scratch=from_the_scratch,
     )
 
     logger.info(f"Lagoon vault deployed:\n{deploy_info.pformat()}")
