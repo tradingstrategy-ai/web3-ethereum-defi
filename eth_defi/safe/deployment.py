@@ -16,9 +16,10 @@ from safe_eth.safe.safe import SafeV141
 from web3 import Web3
 from web3.contract.contract import ContractFunction
 
-from eth_defi.abi import ZERO_ADDRESS_STR, ONE_ADDRESS_STR
+from eth_defi.abi import ONE_ADDRESS_STR
 from eth_defi.safe.safe_compat import create_safe_ethereum_client
 from eth_defi.trace import assert_transaction_success_with_explanation
+
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +52,8 @@ def deploy_safe(
         - https://ethereum.stackexchange.com/questions/167329/programmatically-creating-safe-ui-compatible-multisig-wallets
     """
 
+    assert len(owners) >= 1, "Safe must have at least one owner"
+
     assert isinstance(deployer, LocalAccount), f"Safe can be only deployed using LocalAccount"
     for a in owners:
         assert type(a) == str and a.startswith("0x"), f"owners must be hex addresses, got {type(a)}"
@@ -61,17 +64,23 @@ def deploy_safe(
     owners = [Web3.to_checksum_address(a) for a in owners]
     master_copy_address = Web3.to_checksum_address(master_copy_address)
 
-    safe_tx = SafeV141.create(
+    safe_tx_stuff = SafeV141.create(
         ethereum_client,
         deployer,
         master_copy_address,
         owners,
         threshold,
     )
-    contract_address = safe_tx.contract_address
+
+    tx_hash = safe_tx_stuff.tx_hash
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    contract_address = safe_tx_stuff.contract_address
     safe = SafeV141(contract_address, ethereum_client)
 
-    # Check that we can read back Safe data
+    # Check that we can read back Safe data.
+    # If this call fails make sure you do not have bad fork block number set
+    # for your Anvil.
     retrieved_owners = safe.retrieve_owners()
     assert retrieved_owners == owners
 

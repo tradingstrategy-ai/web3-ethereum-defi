@@ -46,7 +46,6 @@ from eth_defi.uniswap_v2.deployment import UniswapV2Deployment
 from eth_defi.uniswap_v3.deployment import UniswapV3Deployment
 from eth_defi.vault.base import VaultSpec
 
-
 logger = logging.getLogger(__name__)
 
 DEFAULT_RATE_UPDATE_COOLDOWN = 86400
@@ -104,6 +103,7 @@ class LagoonDeploymentParameters:
     def __post_init__(self):
         if self.underlying:
             assert self.underlying.startswith("0x"), f"Underlying token address must be a valid hex address, got {self.underlying}"
+            self.underlying = Web3.to_checksum_address(self.underlying)
 
     def as_solidity_struct(self) -> dict:
         # Return Vault.InitStruct to be passed to the constructor
@@ -165,6 +165,9 @@ class LagoonAutomatedDeployment:
     #: In redeploy guard, the old module
     old_trading_strategy_module: Contract | None = None
 
+    #: Address of beacon proxy factory
+    beacon_proxy_factory: HexAddress | None = None
+
     @property
     def safe(self) -> Safe:
         return self.vault.safe
@@ -183,6 +186,7 @@ class LagoonAutomatedDeployment:
             "Deployer": self.deployer,
             "Safe": safe.address,
             "Vault": vault.address,
+            "Beacon proxy factory": self.beacon_proxy_factory,
             "Trading strategy module": self.trading_strategy_module.address,
             "Asset manager": self.asset_manager,
             "Underlying token": self.vault.underlying_token.address,
@@ -195,6 +199,7 @@ class LagoonAutomatedDeployment:
             "Management fee": f"{self.parameters.managementRate / 100:,} %",
             "ABI": self.vault_abi,
         }
+
         return fields
 
     def pformat(self) -> str:
@@ -209,9 +214,137 @@ class LagoonAutomatedDeployment:
         return io.getvalue()
 
 
+def deploy_lagoon_protocol_registry(
+    web3: Web3,
+    deployer: HotWallet,
+    safe: Safe,
+    broadcast_func: Callable,
+    etherscan_api_key: str = None,
+) -> Contract:
+    """Deploy a fee registry contract.
+
+    - This is referred by all Lagoon deployments
+    """
+
+    logger.info("Deploying ProtocolRegistry for Lagoon")
+
+    _broadcast = broadcast_func
+
+    lagoon_folder = CONTRACTS_ROOT / "lagoon-v0"
+    full_path = CONTRACTS_ROOT / "lagoon-v0/src/protocol-v2/ProtocolRegistry.sol"
+    full_path = full_path.resolve()
+
+    assert full_path.exists(), f"Does not exist: {full_path}"
+
+    contract, tx_hash = deploy_contract_with_forge(
+        web3,
+        lagoon_folder,
+        "protocol-v2/ProtocolRegistry.sol",
+        "ProtocolRegistry",
+        deployer=deployer,
+        constructor_args=["false"],
+        etherscan_api_key=etherscan_api_key,
+        contract_file_out="ProtocolRegistry.sol",
+    )
+
+    time.sleep(4)
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    #     function initialize(address initialOwner, address _protocolFeeReceiver) public initializer {
+    #         __Ownable_init(initialOwner);
+    #         FeeRegistryStorage storage $ = _getFeeRegistryStorage();
+    #         $.protocolFeeReceiver = _protocolFeeReceiver;
+    #     }
+    tx_hash = _broadcast(contract.functions.initialize(
+        safe.address,
+        safe.address,
+    ))
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    return contract
+
+
+def deploy_fresh_lagoon_protocol(
+    web3: Web3,
+    deployer: HotWallet,
+    safe: Safe,
+    broadcast_func: Callable,
+    etherscan_api_key: str = None,
+    forge_sync_delay=4.0,
+) -> Contract:
+    """Deploy a fresh Lagoon implementation from the scratch.
+
+    - Fee registry contract
+    - Vault implementation
+    - Beacon proxy factory contract
+    """
+
+    assert isinstance(deployer, HotWallet), f"Can be only deployed with HotWallet deployer. got: {type(deployer)}: {deployer}"
+
+    _broadcast = broadcast_func
+
+    wrapped_native_token_address = WRAPPED_NATIVE_TOKEN[web3.eth.chain_id]
+
+    # Deploy fee regis
+    fee_registry = deploy_lagoon_protocol_registry(
+        web3=web3,
+        deployer=deployer,
+        safe=safe,
+        etherscan_api_key=etherscan_api_key,
+        broadcast_func=broadcast_func,
+    )
+
+    lagoon_folder = CONTRACTS_ROOT / "lagoon-v0"
+
+    implementation_contract, tx_hash = deploy_contract_with_forge(
+        web3,
+        project_folder=lagoon_folder,
+        contract_file="v0.5.0/Vault.sol",
+        contract_name="Vault",
+        deployer=deployer,
+        etherscan_api_key=etherscan_api_key,
+        constructor_args=["true"],
+        contract_file_out="Vault.sol",
+    )
+    time.sleep(forge_sync_delay)
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    #     constructor(
+    #         address _registry,
+    #         address _implementation,
+    #         address _owner,
+    #         address _wrappedNativeToken
+    #     ) UpgradeableBeacon(_implementation, _owner) {
+    #         REGISTRY = _registry;
+    #         WRAPPED_NATIVE = _wrappedNativeToken;
+    #     }
+
+    beacon_proxy_factory_contract, tx_hash = deploy_contract_with_forge(
+        web3,
+        project_folder=lagoon_folder,
+        contract_file="protocol-v1/BeaconProxyFactory.sol",
+        contract_name="BeaconProxyFactory",
+        deployer=deployer,
+        etherscan_api_key=etherscan_api_key,
+        constructor_args=[
+            fee_registry.address,
+            implementation_contract.address,
+            safe.address,
+            wrapped_native_token_address,
+        ],
+        contract_file_out="BeaconProxyFactory.sol",
+    )
+    time.sleep(forge_sync_delay)
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    logger.info(f"Deployed Lagoon protocol. Fee registry: {fee_registry.address}, implementation: {implementation_contract.address}, beacon proxy factory: {beacon_proxy_factory_contract.address}")
+
+    return beacon_proxy_factory_contract
+
+
 def deploy_lagoon(
     web3: Web3,
-    deployer: LocalAccount,
+    deployer: LocalAccount | HotWallet,
     safe: Safe,
     asset_manager: HexAddress,
     parameters: LagoonDeploymentParameters,
@@ -222,6 +355,7 @@ def deploy_lagoon(
     beacon_proxy=False,
     factory_contract=True,
     beacon_address="0x652716FaD571f04D26a3c8fFd9E593F17123Ab20",
+    beacon_proxy_factory_address=None,
     vault_abi="lagoon/v0.5.0/Vault.json",
     deploy_fee_registry: bool = True,
     fee_registry_address: HexAddress | None = None,
@@ -256,8 +390,6 @@ def deploy_lagoon(
 
     :param use_forge:
         Deploy a new vault contract from source with Forge and Etherscan verification.
-
-        TODO: Not implemented, contract not yet open source.
 
     :param etherscan_api_key:
         For Forge.
@@ -310,8 +442,12 @@ def deploy_lagoon(
     if parameters.valuationManager is None:
         parameters.valuationManager = asset_manager
 
-    if parameters.feeRegistry is None:
-        parameters.feeRegistry = LAGOON_FEE_REGISTRIES[chain_id]
+    if factory_contract is None:
+        # Factory contract takes care of fee registry for us
+        if parameters.feeRegistry is None:
+            parameters.feeRegistry = LAGOON_FEE_REGISTRIES[chain_id]
+    else:
+        parameters.feeRegistry = None
 
     if parameters.admin is None:
         parameters.admin = owner
@@ -320,9 +456,6 @@ def deploy_lagoon(
     assert wrapped_native_token is not None, f"Lagoon deployment needs WRAPPED_NATIVE_TOKEN configured for chain {chain_id}"
 
     logger.info("Wrapped native token is: %s", wrapped_native_token)
-    # TODO: Beacon proxy deployment does not work
-    if use_forge:
-        logger.warning("lagoon/Vault.sol yet not open source - cannot do source verified deploy")
 
     if legacy:
         assert not factory_contract
@@ -362,8 +495,9 @@ def deploy_lagoon(
         # https://docs.lagoon.finance/vault/create-your-vault
         assert not beacon_proxy
         assert not legacy
-        beacon_proxy_factory_address = LAGOON_BEACON_PROXY_FACTORIES.get(chain_id)
-        assert beacon_proxy_factory_address, f"Cannot deploy Lagoon vault beacon proxy on chain {chain_id}, no factory address found"
+        if beacon_proxy_factory_address is None:
+            beacon_proxy_factory_address = LAGOON_BEACON_PROXY_FACTORIES.get(chain_id)
+        assert beacon_proxy_factory_address, f"Cannot deploy Lagoon vault beacon proxy on chain {chain_id}, no factory address found. Registered factories: {pformat(LAGOON_BEACON_PROXY_FACTORIES)}"
         beacon_proxy_factory = get_deployed_contract(
             web3,
             "lagoon/BeaconProxyFactory.json",
@@ -399,8 +533,15 @@ def deploy_lagoon(
             contract_address,
         )
     else:
-        # Direct deployment without factory
-        raise NotImplementedError("Nothing goes here")
+        # Direct deployment without factory, new Lagoon version
+        vault = deploy_beacon_proxy(
+            web3,
+            deployer=deployer,
+            beacon_address=beacon_address,
+            implementation_contract_abi="lagoon/v0.5.0/Vault.json",
+        )
+        logger.info("Deployed Lagoon vault at %s", vault.address)
+
 
     return vault
 
@@ -605,6 +746,7 @@ def deploy_automated_lagoon_vault(
     existing_safe_address: HexAddress | str | None = None,
     vault_abi="lagoon/v0.5.0/Vault.json",
     factory_contract=True,
+    from_the_scratch: bool = False,
 ) -> LagoonAutomatedDeployment:
     """Deploy a full Lagoon setup with a guard.
 
@@ -629,6 +771,11 @@ def deploy_automated_lagoon_vault(
 
     :param guard_only:
         Deploy a new version of the guard smart contract and skip deploying the actual vault.
+
+    :param from_the_scratch:
+        Need to deloy a fee registry contract as well.
+
+        A new chain deployment.
     """
 
     legacy = vault_abi == "lagoon/Vault.json"
@@ -652,14 +799,24 @@ def deploy_automated_lagoon_vault(
         deployer_local_account = deployer
 
     existing_guard_module = None
+    beacon_proxy_factory_address = None
 
-    # Hack together a nonce management helper
+    #
     def _broadcast(bound_func: ContractFunction):
+        """Hack together a nonce management helper.
+
+        - Update nonce before broadcast
+        - Broadcast
+        - Check for success
+        """
         assert isinstance(bound_func, ContractFunction)
         assert bound_func.args is not None
         if isinstance(deployer, HotWallet):
             # Path must be taken with prod deployers
-            return deployer.transact_and_broadcast_with_contract(bound_func)
+            tx_hash = deployer.transact_and_broadcast_with_contract(bound_func)
+            assert_transaction_success_with_explanation(web3, tx_hash)
+            deployer.sync_nonce(web3)
+            return tx_hash
         elif isinstance(deployer, LocalAccount):
             # Only for Anvil
             # Will cause nonce sync errors in proc
@@ -718,6 +875,25 @@ def deploy_automated_lagoon_vault(
         time.sleep(between_contracts_delay_seconds)
 
     if not existing_vault_address:
+
+        assert use_forge, f"Fee registry deployment is only supported with Forge"
+
+        if from_the_scratch:
+            # Deploy the full Lagoon protocol with fee registry and beacon proxy factory,
+            # setting out Safe as the protocol owner
+            beacon_proxy_factory_contract = deploy_fresh_lagoon_protocol(
+                web3=web3,
+                deployer=deployer,
+                safe=safe,
+                etherscan_api_key=etherscan_api_key,
+                broadcast_func=_broadcast,
+            )
+            beacon_proxy_factory_address = beacon_proxy_factory_contract.address
+        else:
+            beacon_proxy_factory_address = LAGOON_BEACON_PROXY_FACTORIES.get(chain_id)
+
+        assert beacon_proxy_factory_address, f"Cannot deploy Lagoon vault beacon proxy on chain {chain_id}, no factory address found. Registered factories: {pformat(LAGOON_BEACON_PROXY_FACTORIES)}"
+
         vault_contract = deploy_lagoon(
             web3=web3,
             deployer=deployer_local_account,
@@ -730,6 +906,7 @@ def deploy_automated_lagoon_vault(
             vault_abi=vault_abi,
             factory_contract=factory_contract,
             legacy=legacy,
+            beacon_proxy_factory_address=beacon_proxy_factory_address,
         )
 
     if not is_anvil(web3):
@@ -824,6 +1001,7 @@ def deploy_automated_lagoon_vault(
         parameters=parameters,
         old_trading_strategy_module=existing_guard_module,
         vault_abi=vault_abi,
+        beacon_proxy_factory=beacon_proxy_factory_address,
     )
 
 

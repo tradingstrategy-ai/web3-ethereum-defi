@@ -1,0 +1,973 @@
+[
+  {
+    "type": "constructor",
+    "inputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "getPerpMarketCfg",
+    "inputs": [
+      {
+        "name": "_pairSymbol",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct MarketTypes.PerpMarketCfg",
+        "components": [
+          {
+            "name": "baseMaintenanceMargin",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "baseInitialMargin",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "liquidationFeeMax",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "markPrice",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "indexPriceOrderly",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "sumUnitaryFundings",
+            "type": "int128",
+            "internalType": "int128"
+          },
+          {
+            "name": "lastMarkPriceUpdated",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "lastFundingUpdated",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "storkPrice",
+            "type": "uint128",
+            "internalType": "uint128"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "initialize",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "ledgerAddress",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "operatorManagerAddress",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "owner",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "perpMarketCfg",
+    "inputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "baseMaintenanceMargin",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "baseInitialMargin",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "liquidationFeeMax",
+        "type": "uint128",
+        "internalType": "uint128"
+      },
+      {
+        "name": "markPrice",
+        "type": "uint128",
+        "internalType": "uint128"
+      },
+      {
+        "name": "indexPriceOrderly",
+        "type": "uint128",
+        "internalType": "uint128"
+      },
+      {
+        "name": "sumUnitaryFundings",
+        "type": "int128",
+        "internalType": "int128"
+      },
+      {
+        "name": "lastMarkPriceUpdated",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "lastFundingUpdated",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "storkPrice",
+        "type": "uint128",
+        "internalType": "uint128"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "renounceOwnership",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setLastFundingUpdated",
+    "inputs": [
+      {
+        "name": "_pairSymbol",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "_lastFundingUpdated",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setLastMarkPriceUpdated",
+    "inputs": [
+      {
+        "name": "_pairSymbol",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "_lastMarkPriceUpdated",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setLedgerAddress",
+    "inputs": [
+      {
+        "name": "_ledgerAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setOperatorManagerAddress",
+    "inputs": [
+      {
+        "name": "_operatorManagerAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setPerpMarketCfg",
+    "inputs": [
+      {
+        "name": "_symbolHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "_perpMarketCfg",
+        "type": "tuple",
+        "internalType": "struct MarketTypes.PerpMarketCfg",
+        "components": [
+          {
+            "name": "baseMaintenanceMargin",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "baseInitialMargin",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "liquidationFeeMax",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "markPrice",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "indexPriceOrderly",
+            "type": "uint128",
+            "internalType": "uint128"
+          },
+          {
+            "name": "sumUnitaryFundings",
+            "type": "int128",
+            "internalType": "int128"
+          },
+          {
+            "name": "lastMarkPriceUpdated",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "lastFundingUpdated",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "storkPrice",
+            "type": "uint128",
+            "internalType": "uint128"
+          }
+        ]
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "transferOwnership",
+    "inputs": [
+      {
+        "name": "newOwner",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "updateMarketUpload",
+    "inputs": [
+      {
+        "name": "data",
+        "type": "tuple",
+        "internalType": "struct MarketTypes.UploadSumUnitaryFundings",
+        "components": [
+          {
+            "name": "r",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "s",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "v",
+            "type": "uint8",
+            "internalType": "uint8"
+          },
+          {
+            "name": "maxTimestamp",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "sumUnitaryFundings",
+            "type": "tuple[]",
+            "internalType": "struct MarketTypes.SumUnitaryFunding[]",
+            "components": [
+              {
+                "name": "symbolHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "sumUnitaryFunding",
+                "type": "int128",
+                "internalType": "int128"
+              },
+              {
+                "name": "timestamp",
+                "type": "uint64",
+                "internalType": "uint64"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "updateMarketUpload",
+    "inputs": [
+      {
+        "name": "data",
+        "type": "tuple",
+        "internalType": "struct MarketTypes.UploadPerpPrice",
+        "components": [
+          {
+            "name": "r",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "s",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "v",
+            "type": "uint8",
+            "internalType": "uint8"
+          },
+          {
+            "name": "maxTimestamp",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "perpPrices",
+            "type": "tuple[]",
+            "internalType": "struct MarketTypes.PerpPrice[]",
+            "components": [
+              {
+                "name": "symbolHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "indexPrice",
+                "type": "uint128",
+                "internalType": "uint128"
+              },
+              {
+                "name": "markPrice",
+                "type": "uint128",
+                "internalType": "uint128"
+              },
+              {
+                "name": "storkPrice",
+                "type": "uint128",
+                "internalType": "uint128"
+              },
+              {
+                "name": "timestamp",
+                "type": "uint64",
+                "internalType": "uint64"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "event",
+    "name": "ChangeLedger",
+    "inputs": [
+      {
+        "name": "oldAddress",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "newAddress",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ChangeOperatorManager",
+    "inputs": [
+      {
+        "name": "oldAddress",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "newAddress",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "FundingData",
+    "inputs": [
+      {
+        "name": "maxTimestamp",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Initialized",
+    "inputs": [
+      {
+        "name": "version",
+        "type": "uint8",
+        "indexed": false,
+        "internalType": "uint8"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "MarketData",
+    "inputs": [
+      {
+        "name": "maxTimestamp",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "OwnershipTransferred",
+    "inputs": [
+      {
+        "name": "previousOwner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "newOwner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "AccountIdInvalid",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "AddressZero",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "BalanceNotEnough",
+    "inputs": [
+      {
+        "name": "balance",
+        "type": "uint128",
+        "internalType": "uint128"
+      },
+      {
+        "name": "amount",
+        "type": "int128",
+        "internalType": "int128"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "BatchIdNotMatch",
+    "inputs": [
+      {
+        "name": "batchId",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "futuresUploadBatchId",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "BrokerNotAllowed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "Bytes32Zero",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CountNotMatch",
+    "inputs": [
+      {
+        "name": "length",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "count",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "DelegateChainIdNotMatch",
+    "inputs": [
+      {
+        "name": "accountId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "savedChainId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "givenChainId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "DelegateReceiverNotMatch",
+    "inputs": [
+      {
+        "name": "receiver",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "delegateContract",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "DelegateSignerNotMatch",
+    "inputs": [
+      {
+        "name": "accountId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "savedSginer",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "givenSigner",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "DelegatecallFail",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "EnumerableSetError",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "FrozenBalanceInconsistent",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InsurancePositionQtyInvalid",
+    "inputs": [
+      {
+        "name": "adlPositionQtyTransfer",
+        "type": "int128",
+        "internalType": "int128"
+      },
+      {
+        "name": "userPositionQty",
+        "type": "int128",
+        "internalType": "int128"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InsuranceTransferAmountInvalid",
+    "inputs": [
+      {
+        "name": "balance",
+        "type": "uint128",
+        "internalType": "uint128"
+      },
+      {
+        "name": "insuranceTransferAmount",
+        "type": "uint128",
+        "internalType": "uint128"
+      },
+      {
+        "name": "settledAmount",
+        "type": "int128",
+        "internalType": "int128"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InsuranceTransferToSelf",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidBizType",
+    "inputs": [
+      {
+        "name": "bizType",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidFeeCollectorType",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "LedgerAddressZero",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "OnlyCrossChainManagerCanCall",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "OnlyCrossChainManagerV2CanCall",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "OnlyLedgerCanCall",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "OnlyOperatorCanCall",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "OnlyOperatorManagerCanCall",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "OperatorManagerAddressZero",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "RebalanceAlreadySucc",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "RebalanceChainIdInvalid",
+    "inputs": [
+      {
+        "name": "chainId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "RebalanceIdNotMatch",
+    "inputs": [
+      {
+        "name": "givenId",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "wantId",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "RebalanceMintUnexpected",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "RebalanceStillPending",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "RebalanceTokenNotSupported",
+    "inputs": [
+      {
+        "name": "tokenHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "chainId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "SafeCastOverflow",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SafeCastUnderflow",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SignatureNotMatch",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SymbolNotAllowed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SymbolNotRegister",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "TokenNotAllowed",
+    "inputs": [
+      {
+        "name": "tokenHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "chainId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "TotalSettleAmountNotMatch",
+    "inputs": [
+      {
+        "name": "amount",
+        "type": "int128",
+        "internalType": "int128"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "UserPerpPositionQtyZero",
+    "inputs": [
+      {
+        "name": "accountId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "symbolHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "WithdrawBalanceNotEnough",
+    "inputs": [
+      {
+        "name": "balance",
+        "type": "uint128",
+        "internalType": "uint128"
+      },
+      {
+        "name": "withdrawAmount",
+        "type": "uint128",
+        "internalType": "uint128"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "WithdrawFeeTooLarge",
+    "inputs": [
+      {
+        "name": "maxFee",
+        "type": "uint128",
+        "internalType": "uint128"
+      },
+      {
+        "name": "withdrawFee",
+        "type": "uint128",
+        "internalType": "uint128"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "WithdrawToAddressZero",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "WithdrawVaultBalanceNotEnough",
+    "inputs": [
+      {
+        "name": "balance",
+        "type": "uint128",
+        "internalType": "uint128"
+      },
+      {
+        "name": "withdrawAmount",
+        "type": "uint128",
+        "internalType": "uint128"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ZeroChainId",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZeroDelegateContract",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZeroDelegateSigner",
+    "inputs": []
+  }
+]

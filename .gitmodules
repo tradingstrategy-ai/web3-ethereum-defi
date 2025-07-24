@@ -59,3 +59,6 @@
 [submodule "contracts/lagoon-v0"]
 	path = contracts/lagoon-v0
 	url = https://github.com/hopperlabsxyz/lagoon-v0.git
+[submodule "contracts/orderly-contract-evm"]
+	path = contracts/orderly-contract-evm
+	url = https://github.com/OrderlyNetwork/contract-evm.git

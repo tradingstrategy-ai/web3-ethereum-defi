@@ -44,6 +44,8 @@ guard:
 		-name "GuardV0.json" \
 		-o \
 		-name "SimpleVaultV0.json" \
+		-o \
+		-name "SimpleVaultV1.json" \
 		\) \
 		-exec cp {} eth_defi/abi/guard \;
 
@@ -132,21 +134,38 @@ centre:
 	@find contracts/1delta/artifacts/contracts/1delta -iname "*.json" -not -iname "*.dbg.json" -exec cp {} eth_defi/abi/1delta \;
 
 # Compile and copy Lagoon Finance contracts.
-# Needs access to pre-release repo of Lagoon.
-# We need both Legacy version with old ABI and the new version with ABI with a security fix.
 lagoon:
 	@(cd contracts/lagoon-v0 && soldeer install)
 	@(cd contracts/lagoon-v0 && make build)
 	@mkdir -p eth_defi/abi/lagoon
 	@mkdir -p eth_defi/abi/lagoon/v0.5.0
+	@mkdir -p eth_defi/abi/lagoon/protocol-v2
 	@find contracts/lagoon-v0/out/v0.5.0 -iname "*.json" -not -iname "*.dbg.json" -exec cp {} eth_defi/abi/lagoon/v0.5.0 \;
 	@cp contracts/lagoon-v0/out/BeaconProxyFactory.sol/BeaconProxyFactory.json eth_defi/abi/lagoon
+	@find contracts/lagoon-v0/out/protocol-v2 -iname "*.json" -not -iname "*.dbg.json" -exec cp {} eth_defi/abi/lagoon/protocol-v2 \;
 
 # Compile and copy Velvet capital contracts
 velvet:
 	@(cd contracts/velvet-core && npm i --legacy-peer-deps && npx hardhat compile)
 	@mkdir -p eth_defi/abi/velvet
 	@find contracts/velvet-core/artifacts/contracts -iname "*.json" -not -iname "*.dbg.json" -exec cp {} eth_defi/abi/velvet \;
+
+# Compile and copy Orderly contracts
+orderly:
+	@(cd contracts/orderly-contract-evm && \
+		forge install && \
+		mkdir -p out/custom && \
+		forge in src/vaultSide/Vault.sol:Vault abi > out/custom/Vault.json && \
+		forge in src/Ledger.sol:Ledger abi > out/custom/Ledger.json && \
+		forge in src/OperatorManager.sol:OperatorManager abi > out/custom/OperatorManager.json && \
+		forge in src/zip/OperatorManagerZip.sol:OperatorManagerZip abi > out/custom/OperatorManagerZip.json && \
+		forge in src/vaultSide/Vault.sol:Vault abi > out/custom/Vault.json && \
+		forge in src/VaultManager.sol:VaultManager abi > out/custom/VaultManager.json && \
+		forge in src/FeeManager.sol:FeeManager abi > out/custom/FeeManager.json && \
+		forge in src/MarketManager.sol:MarketManager abi > out/custom/MarketManager.json \
+	) > /dev/null
+	@mkdir -p eth_defi/abi/orderly
+	@find contracts/orderly-contract-evm/out/custom -iname "*.json" -exec cp {} eth_defi/abi/orderly \;
 
 
 # TODO: Not sure if this step works anymore
