@@ -1,6 +1,7 @@
 """Test MEV blocker provider switching."""
 
 import datetime
+from eth_defi.compat import WEB3_PY_V7
 
 import pytest
 from web3 import HTTPProvider, Web3
@@ -51,7 +52,12 @@ def test_mev_blocker_send_transaction(mev_blocker_provider: MEVBlockerProvider):
     assert mev_blocker_provider.provider_counter["transact"] == 0
     tx_hash = web3.eth.send_transaction({"to": ZERO_ADDRESS, "from": account, "value": 1})
     assert_transaction_success_with_explanation(web3, tx_hash)
-    assert mev_blocker_provider.provider_counter["call"] == 8  # Account for various gas cost methods
+
+    # For web3.py v7 there are 1 more API calls most probably 1 more `eth_chainid` call so 11 & for v6 of it's good old 10
+    if WEB3_PY_V7:
+        assert mev_blocker_provider.provider_counter["call"] == 9  # Account for various gas cost methods
+    else:
+        assert mev_blocker_provider.provider_counter["call"] == 8
     assert mev_blocker_provider.provider_counter["transact"] == 1
 
 
@@ -74,12 +80,23 @@ def test_mev_blocker_send_transaction_raw(mev_blocker_provider: MEVBlockerProvid
     )
 
     # Account for setup API counts from create_for_testing()
+    # For web3.py v7 there are 1 more API calls most probably 1 more `eth_chainid` call so 11 & for v6 of it's good old 10
+    if WEB3_PY_V7:
+        assert mev_blocker_provider.provider_counter["call"] == 11
+    else:
+        assert mev_blocker_provider.provider_counter["call"] == 10
     assert mev_blocker_provider.provider_counter["call"] == start_call_count + 1
     assert mev_blocker_provider.provider_counter["transact"] == 1
+
     raw_bytes = get_tx_broadcast_data(signed_tx)
     tx_hash = web3.eth.send_raw_transaction(raw_bytes)
     assert_transaction_success_with_explanation(web3, tx_hash)
-    # assert mev_blocker_provider.provider_counter["call"] == 11
+
+    # Same as before 1 more `eth_chainid` call
+    if WEB3_PY_V7:
+        assert mev_blocker_provider.provider_counter["call"] == 12
+    else:
+        assert mev_blocker_provider.provider_counter["call"] == 11
     assert mev_blocker_provider.provider_counter["transact"] == 2
 
 
