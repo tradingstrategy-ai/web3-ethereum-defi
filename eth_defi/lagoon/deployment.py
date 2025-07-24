@@ -515,6 +515,7 @@ def deploy_lagoon(
             args,
         )
 
+        import ipdb ; ipdb.set_trace()
         bound_func = beacon_proxy_factory.functions.createVaultProxy(*args)
 
         tx_params = {
