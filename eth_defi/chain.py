@@ -233,6 +233,7 @@ def install_api_call_counter_middleware(web3: Web3) -> Counter:
     .. code-block:: python
 
         from eth_defi.chain import install_api_call_counter_middleware
+
         web3 = Web3(tester)
         counter = install_api_call_counter_middleware(web3)
 
@@ -253,6 +254,7 @@ def install_api_call_counter_middleware(web3: Web3) -> Counter:
     api_counter = Counter()
 
     if WEB3_PY_V7:
+
         def create_counter_middleware():
             class APICallCounterMiddleware(Web3Middleware):
                 def wrap_make_request(self, make_request):
@@ -310,14 +312,10 @@ def install_api_call_counter_middleware_on_provider(provider: JSONBaseProvider) 
         # In v7, middleware is primarily managed at the Web3 level
         # Provider-level middleware is less common and has different patterns
 
-        logger.warning(
-            "install_api_call_counter_middleware_on_provider() is deprecated in web3.py v7+. "
-            "Provider-level middleware is discouraged in v7. "
-            "Consider using install_api_call_counter_middleware() on the Web3 instance instead."
-        )
+        logger.warning("install_api_call_counter_middleware_on_provider() is deprecated in web3.py v7+. Provider-level middleware is discouraged in v7. Consider using install_api_call_counter_middleware() on the Web3 instance instead.")
 
         # Try to add middleware if the provider still supports it
-        if hasattr(provider, 'middlewares') and hasattr(provider.middlewares, 'add'):
+        if hasattr(provider, "middlewares") and hasattr(provider.middlewares, "add"):
             # Some v7 providers might still support this pattern
             def factory(make_request: Callable[[RPCEndpoint, Any], Any], web3: Web3):
                 def middleware(method: RPCEndpoint, params: Any) -> Optional[RPCResponse]:
@@ -330,18 +328,11 @@ def install_api_call_counter_middleware_on_provider(provider: JSONBaseProvider) 
             try:
                 provider.middlewares.add("api_counter_middleware", factory)
             except (AttributeError, TypeError) as e:
-                logger.error(
-                    f"Cannot install provider-level middleware in v7: {e}. "
-                    f"Provider type: {type(provider)}. "
-                    f"Use install_api_call_counter_middleware() on Web3 instance instead."
-                )
+                logger.error(f"Cannot install provider-level middleware in v7: {e}. Provider type: {type(provider)}. Use install_api_call_counter_middleware() on Web3 instance instead.")
                 # Return empty counter that will remain at zero
                 pass
         else:
-            logger.error(
-                f"Provider {type(provider)} does not support middleware installation in v7. "
-                f"Use install_api_call_counter_middleware() on Web3 instance instead."
-            )
+            logger.error(f"Provider {type(provider)} does not support middleware installation in v7. Use install_api_call_counter_middleware() on Web3 instance instead.")
     else:
         # v6: Original behavior
         def factory(make_request: Callable[[RPCEndpoint, Any], Any], web3: Web3):
@@ -439,6 +430,6 @@ def fetch_block_timestamp(web3: Web3, block_number: int) -> datetime.datetime:
     time = datetime.datetime.fromtimestamp(timestamp, tz=datetime.timezone.utc)
     return time
 
-def install_retry_muiddleware(web3: Web3):
 
+def install_retry_muiddleware(web3: Web3):
     return install_retry_middleware_compat(web3)
