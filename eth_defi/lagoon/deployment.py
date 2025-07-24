@@ -100,12 +100,9 @@ class LagoonDeploymentParameters:
     #: If set None, then autoresolve
     wrappedNativeToken: HexAddress | None = None
 
-
-
     def __post_init__(self):
         if self.underlying:
             assert self.underlying.startswith("0x"), f"Underlying token address must be a valid hex address, got {self.underlying}"
-
             self.underlying = Web3.to_checksum_address(self.underlying)
 
     def as_solidity_struct(self) -> dict:
@@ -517,7 +514,6 @@ def deploy_lagoon(
             args,
         )
 
-        import ipdb ; ipdb.set_trace()
         bound_func = beacon_proxy_factory.functions.createVaultProxy(*args)
 
         tx_params = {
@@ -806,6 +802,7 @@ def deploy_automated_lagoon_vault(
         deployer_local_account = deployer
 
     existing_guard_module = None
+    beacon_proxy_factory_address = None
 
     #
     def _broadcast(bound_func: ContractFunction):
@@ -1007,6 +1004,7 @@ def deploy_automated_lagoon_vault(
         parameters=parameters,
         old_trading_strategy_module=existing_guard_module,
         vault_abi=vault_abi,
+        beacon_proxy_factory=beacon_proxy_factory_address,
     )
 
 
