@@ -106,6 +106,8 @@ class LagoonDeploymentParameters:
         if self.underlying:
             assert self.underlying.startswith("0x"), f"Underlying token address must be a valid hex address, got {self.underlying}"
 
+            self.underlying = Web3.to_checksum_address(self.underlying)
+
     def as_solidity_struct(self) -> dict:
         # Return Vault.InitStruct to be passed to the constructor
         return asdict(self)
