@@ -310,8 +310,12 @@ def deploy_lagoon(
     if parameters.valuationManager is None:
         parameters.valuationManager = asset_manager
 
-    if parameters.feeRegistry is None:
-        parameters.feeRegistry = LAGOON_FEE_REGISTRIES[chain_id]
+    if factory_contract is None:
+        # Factory contract takes care of fee registry for us
+        if parameters.feeRegistry is None:
+            parameters.feeRegistry = LAGOON_FEE_REGISTRIES[chain_id]
+    else:
+        parameters.feeRegistry = None
 
     if parameters.admin is None:
         parameters.admin = owner
@@ -363,7 +367,7 @@ def deploy_lagoon(
         assert not beacon_proxy
         assert not legacy
         beacon_proxy_factory_address = LAGOON_BEACON_PROXY_FACTORIES.get(chain_id)
-        assert beacon_proxy_factory_address, f"Cannot deploy Lagoon vault beacon proxy on chain {chain_id}, no factory address found"
+        assert beacon_proxy_factory_address, f"Cannot deploy Lagoon vault beacon proxy on chain {chain_id}, no factory address found. Registered factories: {pformat(LAGOON_BEACON_PROXY_FACTORIES)}"
         beacon_proxy_factory = get_deployed_contract(
             web3,
             "lagoon/BeaconProxyFactory.json",

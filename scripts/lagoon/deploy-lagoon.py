@@ -7,6 +7,8 @@ A quick script to test/simulate Lagoon vault deployment on any chain.
 - Allow automated trading on Uniswap v2 via TradingStrategyModuleV0,
   with configurations for Uniswap, ERC-4626 vault whitelisting and such
 - Safe is 1-of-1 multisig with the deployer as the only cosigner
+- You need to have a real deployer key with a balance,
+  but in `SIMULATE` mode we will not use it and just do Anvil mainnet fork deployment
 
 This **cannot** be used for product deployments, only for tests,
 as it configures random Safe multisig cosigners.
