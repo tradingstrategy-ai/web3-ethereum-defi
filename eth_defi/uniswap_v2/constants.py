@@ -9,6 +9,14 @@ UNISWAP_V2_DEPLOYMENTS = {
         "router": "0x4752ba5dbc23f44d87826276bf6fd6b1c372ad24",
         "init_code_hash": "96e8ac4277198ff8b6f785478aa9a39f403cb768dd02cbee326c3e7da348845f",
     },
+
+    # PancakeSwap v2,
+    # NOT Uniswap v2
+    "binance": {
+        "factory": "0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73",
+        "router": "0x10ED43C718714eb63d5aA57B78B54704E256024E",
+        "init_code_hash": "0x00fb7f630766e6a796048ea87d01acd3068e8ff67d078148a3fa3f4a84f69bd5",
+    },
 }
 
 QUICKSWAP_DEPLOYMENTS = {
