@@ -9,7 +9,6 @@ UNISWAP_V2_DEPLOYMENTS = {
         "router": "0x4752ba5dbc23f44d87826276bf6fd6b1c372ad24",
         "init_code_hash": "96e8ac4277198ff8b6f785478aa9a39f403cb768dd02cbee326c3e7da348845f",
     },
-
     # PancakeSwap v2,
     # NOT Uniswap v2
     "binance": {

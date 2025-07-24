@@ -255,10 +255,12 @@ def deploy_lagoon_protocol_registry(
     #         FeeRegistryStorage storage $ = _getFeeRegistryStorage();
     #         $.protocolFeeReceiver = _protocolFeeReceiver;
     #     }
-    tx_hash = _broadcast(contract.functions.initialize(
-        safe.address,
-        safe.address,
-    ))
+    tx_hash = _broadcast(
+        contract.functions.initialize(
+            safe.address,
+            safe.address,
+        )
+    )
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     return contract
@@ -541,7 +543,6 @@ def deploy_lagoon(
             implementation_contract_abi="lagoon/v0.5.0/Vault.json",
         )
         logger.info("Deployed Lagoon vault at %s", vault.address)
-
 
     return vault
 
@@ -875,7 +876,6 @@ def deploy_automated_lagoon_vault(
         time.sleep(between_contracts_delay_seconds)
 
     if not existing_vault_address:
-
         assert use_forge, f"Fee registry deployment is only supported with Forge"
 
         if from_the_scratch:

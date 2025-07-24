@@ -38,7 +38,6 @@ def usdt_holder() -> HexAddress:
     return addr("0xF977814e90dA44bFA03b6295A0616a897441aceC")
 
 
-
 @pytest.fixture()
 def anvil_binance_fork(vault_owner, usdt_holder, asset_manager, valuation_manager) -> AnvilLaunch:
     """Create a testable fork of live BNB chain.

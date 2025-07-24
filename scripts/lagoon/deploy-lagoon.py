@@ -54,7 +54,6 @@ RANDO2 = "0xbD35322AA7c7842bfE36a8CF49d0F063bf83a100"
 
 
 def main():
-
     setup_console_logging(default_log_level="info")
 
     PRIVATE_KEY = os.environ["PRIVATE_KEY"]
