@@ -55,6 +55,7 @@ def main():
     PRIVATE_KEY = os.environ["PRIVATE_KEY"]
     JSON_RPC_URL = os.environ["JSON_RPC_URL"]
     SIMULATE = os.environ.get("SIMULATE")
+    ETHERSCAN_API_KEY = os.environ.get("ETHERSCAN_API_KEY")
 
     # Comma separated list of ERC-4626 to whitelist
     VAULTS = os.environ.get("VAULTS")
@@ -88,10 +89,13 @@ def main():
     )
 
     if web3.eth.chain_id == 56:
-        # Binance uses USDT
+        # Binance uses USDT,
+        # also it does not have official Lagoon factory as the writing of this.
         underlying = USDT_NATIVE_TOKEN[chain_id]
+        factory_contract = False
     else:
         underlying = USDC_NATIVE_TOKEN[chain_id]
+        factory_contract = True
 
     parameters = LagoonDeploymentParameters(
         underlying=underlying,
@@ -123,6 +127,9 @@ def main():
         uniswap_v3=True,
         any_asset=True,
         erc_4626_vaults=erc_4626_vaults,
+        factory_contract=factory_contract,
+        use_forge=True,
+        etherscan_api_key=ETHERSCAN_API_KEY,
     )
 
     logger.info(f"Lagoon vault deployed:\n{deploy_info.pformat()}")
