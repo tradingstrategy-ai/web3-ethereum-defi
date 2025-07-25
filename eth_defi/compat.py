@@ -10,7 +10,7 @@ from collections import Counter
 from typing import Any, Callable
 
 from web3 import HTTPProvider, Web3
-
+from web3.contract import Contract
 
 pkg_version = version("web3")
 WEB3_PY_V7 = Version(pkg_version) >= Version("7.0.0")
@@ -457,6 +457,27 @@ def get_function_info_v7(*args, **kwargs):
 
             return fn_abi, fn_selector, fn_args
     return None
+
+
+def encode_abi_compat(contract: Contract, fn_name: str, args: list[Any]) -> str:
+    """Encode ABI with v6/v7 compatibility.
+
+    In v6: contract.encodeABI(fn_name="function_name", args=[...])
+    In v7: contract.encode_abi(fn_name="function_name", args=[...])
+
+    :param contract: Web3 contract instance
+    :param fn_name: Function name to encode
+    :param args: Arguments for the function
+    :return: Encoded ABI string
+    """
+    # Check if v7 method exists
+    if hasattr(contract, "encode_abi"):
+        return contract.encode_abi(abi_element_identifier=fn_name, args=args)
+    # Fall back to v6 method
+    elif hasattr(contract, "encodeABI"):
+        return contract.encodeABI(fn_name=fn_name, args=args)
+    else:
+        raise AttributeError(f"Contract {contract} has neither encode_abi nor encodeABI methods")
 
 
 # Version-based aliasing
