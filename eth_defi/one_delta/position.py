@@ -14,6 +14,7 @@ from eth_defi.one_delta.lending import (
     _build_withdraw_multicall,
 )
 from eth_defi.one_delta.utils import encode_path
+from eth_defi.compat import encode_abi_compat
 
 
 def approve(
@@ -107,7 +108,8 @@ def open_short_position(
         interest_mode=interest_mode,
     )
 
-    call_swap = one_delta_deployment.flash_aggregator.encodeABI(
+    call_swap = encode_abi_compat(
+        contract=one_delta_deployment.flash_aggregator,
         fn_name="flashSwapExactIn",
         args=[
             borrow_amount,
@@ -173,7 +175,8 @@ def close_short_position(
         interest_mode=interest_mode,
     )
 
-    call_swap = one_delta_deployment.flash_aggregator.encodeABI(
+    call_swap = encode_abi_compat(
+        contract=one_delta_deployment.flash_aggregator,
         fn_name="flashSwapAllOut",
         args=[
             MAX_AMOUNT,
@@ -247,7 +250,8 @@ def reduce_short_position(
             trade_type=TradeType.EXACT_OUTPUT,
         )
 
-        call_swap = one_delta_deployment.flash_aggregator.encodeABI(
+        call_swap = encode_abi_compat(
+            contract=one_delta_deployment.flash_aggregator,
             fn_name="flashSwapExactOut",
             args=[
                 reduce_borrow_amount,
@@ -272,7 +276,8 @@ def reduce_short_position(
             trade_type=TradeType.EXACT_INPUT,
         )
 
-        call_swap = one_delta_deployment.flash_aggregator.encodeABI(
+        call_swap = encode_abi_compat(
+            contract=one_delta_deployment.flash_aggregator,
             fn_name="flashSwapExactIn",
             args=[
                 reduce_collateral_amount,
@@ -287,12 +292,14 @@ def reduce_short_position(
     if withdraw_collateral_amount == 0:
         calls = [call_swap]
     else:
-        call_transfer = one_delta_deployment.flash_aggregator.encodeABI(
+        call_transfer = encode_abi_compat(
+            contract=one_delta_deployment.flash_aggregator,
             fn_name="transferERC20In",
             args=[atoken.address, withdraw_collateral_amount],
         )
 
-        call_withdraw = one_delta_deployment.flash_aggregator.encodeABI(
+        call_withdraw = encode_abi_compat(
+            contract=one_delta_deployment.flash_aggregator,
             fn_name="withdraw",
             args=[
                 collateral_token.address,
