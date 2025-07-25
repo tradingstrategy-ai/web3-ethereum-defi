@@ -434,29 +434,46 @@ def get_function_info_v6(*args, **kwargs):
 
 def get_function_info_v7(*args, **kwargs):
     """v7 get_function_info equivalent - returns v6-compatible format"""
-    if WEB3_PY_V7:
-        from web3.utils import get_abi_element_info
-        from eth_utils.abi import abi_to_signature
-        from eth_utils import function_signature_to_4byte_selector
+    from web3.utils import get_abi_element_info
+    from eth_utils.abi import abi_to_signature
+    from eth_utils import function_signature_to_4byte_selector
 
-        if len(args) == 4:
-            fn_name, codec, contract_abi, fn_args = args
-            fn_info = get_abi_element_info(contract_abi, fn_name, *fn_args, abi_codec=codec)
-            fn_abi = fn_info["abi"]
+    # Handle the case: get_function_info(fn_name, codec, contract_abi, args=func.args)
+    if len(args) == 3 and "args" in kwargs:
+        fn_name, codec, contract_abi = args
+        fn_args = kwargs["args"]
 
-            signature = abi_to_signature(fn_abi)
-            fn_selector = function_signature_to_4byte_selector(signature)
+        fn_info = get_abi_element_info(contract_abi, fn_name, *fn_args, abi_codec=codec)
+        fn_abi = fn_info["abi"]
 
-            return fn_abi, fn_selector, fn_args
+        signature = abi_to_signature(fn_abi)
+        fn_selector = function_signature_to_4byte_selector(signature)
 
-        elif len(args) == 5:
-            fn_identifier, codec, contract_abi, fn_abi, fn_args = args
+        return fn_abi, fn_selector, fn_args
 
-            signature = abi_to_signature(fn_abi)
-            fn_selector = function_signature_to_4byte_selector(signature)
+    # Handle the original 4-argument case: get_function_info(fn_name, codec, contract_abi, fn_args)
+    elif len(args) == 4:
+        fn_name, codec, contract_abi, fn_args = args
+        fn_info = get_abi_element_info(contract_abi, fn_name, *fn_args, abi_codec=codec)
+        fn_abi = fn_info["abi"]
 
-            return fn_abi, fn_selector, fn_args
-    return None
+        signature = abi_to_signature(fn_abi)
+        fn_selector = function_signature_to_4byte_selector(signature)
+
+        return fn_abi, fn_selector, fn_args
+
+    # Handle the 5-argument case: get_function_info(fn_identifier, codec, contract_abi, fn_abi, fn_args)
+    elif len(args) == 5:
+        fn_identifier, codec, contract_abi, fn_abi, fn_args = args
+
+        signature = abi_to_signature(fn_abi)
+        fn_selector = function_signature_to_4byte_selector(signature)
+
+        return fn_abi, fn_selector, fn_args
+
+    # If no pattern matches, raise an informative error instead of returning None
+    else:
+        raise ValueError(f"Unsupported argument pattern for get_function_info: {len(args)} positional args, kwargs: {list(kwargs.keys())}")
 
 
 def encode_abi_compat(contract: Contract, fn_name: str, args: list[Any]) -> str:
