@@ -17,10 +17,11 @@ from decimal import Decimal
 
 import flaky
 import pytest
-from eth_defi.middleware import http_retry_request_with_sleep_middleware
-from web3 import HTTPProvider, Web3
-from eth_defi.compat import geth_poa_middleware
-from eth_defi.event_reader.web3factory import TunedWeb3Factory
+from web3 import Web3
+from web3.middleware import ExtraDataToPOAMiddleware
+from eth_defi.compat import WEB3_PY_V7, install_retry_middleware_compat
+
+from eth_defi.compat import clear_middleware
 from eth_defi.price_oracle.oracle import PriceOracle, time_weighted_average_price, NotEnoughData, DataTooOld, DataPeriodTooShort
 from eth_defi.provider.multi_provider import create_multi_provider_web3, MultiProviderWeb3Factory
 from eth_defi.uniswap_v2.oracle import update_price_oracle_with_sync_events_single_thread
@@ -36,12 +37,28 @@ def web3_factory() -> MultiProviderWeb3Factory:
 
 @pytest.fixture
 def web3() -> Web3:
-    """Set up a Web3 connection generation factury"""
+    """Set up a Web3 connection generation factory"""
+
     # https://web3py.readthedocs.io/en/latest/web3.eth.account.html#read-a-private-key-from-an-environment-variable
     web3 = create_multi_provider_web3(os.environ["JSON_RPC_BINANCE"])
-    web3.middleware_onion.clear()
-    web3.middleware_onion.inject(http_retry_request_with_sleep_middleware, layer=0)
-    web3.middleware_onion.inject(geth_poa_middleware, layer=0)
+
+    # MIGRATED: Clear middleware with v6/v7 compatibility
+    clear_middleware(web3)
+
+    # MIGRATED: Use compatibility functions instead of direct middleware injection
+    if WEB3_PY_V7:
+        # v7: Use provider-level retry configuration instead of middleware
+        install_retry_middleware_compat(web3)
+        # v7: Use ExtraDataToPOAMiddleware
+        web3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
+    else:
+        # v6: Use the original middleware approach
+        from eth_defi.middleware import http_retry_request_with_sleep_middleware
+        from eth_defi.compat import geth_poa_middleware
+
+        web3.middleware_onion.inject(http_retry_request_with_sleep_middleware, layer=0)
+        web3.middleware_onion.inject(geth_poa_middleware, layer=0)
+
     return web3
 
 
