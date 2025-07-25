@@ -46,7 +46,7 @@ tqdm = {version = ">=4.66.1", optional = true}
 # too tired to deal with them now
 numpy = {version = "<2", optional = true}
 pandas = {version = ">=1.4", optional = true}
-safe-eth-py = "6.0.0b42"
+
 
 # Data
 jupyter = {version = "^1.0.0", optional = true}
