@@ -262,7 +262,7 @@ def test_eth_erc20_approval(web3: Web3, weth, deployer, hsm_wallet: GCloudHSMWal
     raw_bytes = get_tx_broadcast_data(signed_tx)
     decoded_tx = decode_signed_transaction(raw_bytes)
     logger.debug(f"\nDecoded transaction: {decoded_tx}")
-    assert decoded_tx["to"].hex().lower() == weth.address.lower()
+    assert decoded_tx["to"].hex().lower() == weth.address.lower().removeprefix("0x")
     assert decoded_tx["data"].hex().startswith("0x095ea7b3")  # approve() selector
 
     # Send and verify transaction
