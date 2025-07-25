@@ -11,6 +11,7 @@ from typing import Any, Callable
 
 from web3 import HTTPProvider, Web3
 
+
 pkg_version = version("web3")
 WEB3_PY_V7 = Version(pkg_version) >= Version("7.0.0")
 
@@ -364,7 +365,7 @@ def install_poa_middleware(web3, layer=0):
         web3.middleware_onion.inject(geth_poa_middleware, layer=layer)
 
 
-def install_retry_middleware_compat(web3):
+def install_retry_middleware_compat(web3: HTTPProvider, layer: int = 0):
     """Install retry middleware with v6/v7 compatibility"""
     if WEB3_PY_V7:
         # v7 uses ExceptionRetryConfiguration on provider
@@ -379,7 +380,7 @@ def install_retry_middleware_compat(web3):
         # v6 uses middleware injection
         from eth_defi.middleware import http_retry_request_with_sleep_middleware
 
-        web3.middleware_onion.inject(http_retry_request_with_sleep_middleware, layer=0)
+        web3.middleware_onion.inject(http_retry_request_with_sleep_middleware, layer=layer)
 
 
 def encode_function_args_v6(func, args):
