@@ -6,8 +6,7 @@
 
 from web3.contract.contract import Contract, ContractFunction
 
-from eth_defi.aave_v3.constants import MAX_AMOUNT, AaveV3InterestRateMode
-from eth_defi.aave_v3.deployment import AaveV3Deployment
+from eth_defi.aave_v3.constants import MAX_AMOUNT
 from eth_defi.one_delta.deployment import OneDeltaDeployment
 
 from eth_defi.compat import encode_abi_compat

@@ -1,7 +1,7 @@
 """Transaction parsing and building utilities."""
 
 from dataclasses import dataclass
-from typing import Union
+from typing import Union, Optional
 
 from eth_account._utils.legacy_transactions import Transaction
 from eth_account.datastructures import SignedTransaction
@@ -19,7 +19,7 @@ class DecodeFailure(Exception):
     """We could not decode transaction for a reason or another."""
 
 
-def decode_signed_transaction(raw_bytes: Union[bytes, str, HexBytes]) -> dict:
+def decode_signed_transaction(raw_bytes: Union[bytes, str, HexBytes]) -> Optional[dict]:
     """Decode already signed transaction.
 
     Reverse raw transaction bytes back to dictionary form, so you can access
@@ -67,7 +67,7 @@ def decode_signed_transaction(raw_bytes: Union[bytes, str, HexBytes]) -> dict:
         # First we try EIP-2718 and this will fail we fall back to the legacy tx
         typed_tx = TypedTransaction.from_bytes(raw_bytes)
         if WEB3_PY_V7:
-            typed_tx.transaction.as_dict()
+            return typed_tx.transaction.as_dict()
         else:
             return typed_tx.transaction.dictionary
     except ValueError:
