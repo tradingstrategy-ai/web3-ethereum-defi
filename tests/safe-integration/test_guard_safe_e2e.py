@@ -3,24 +3,23 @@
 import os
 
 import pytest
-
 from eth_typing import HexAddress
 from safe_eth.safe import Safe
 from safe_eth.safe.safe import SafeV141
 from web3 import Web3
 from web3.contract import Contract
-from web3.middleware import construct_sign_and_send_raw_middleware
 
+from eth_defi.compat import construct_sign_and_send_raw_middleware
 from eth_defi.deploy import deploy_contract
 from eth_defi.hotwallet import HotWallet
-from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch
+from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.safe.safe_compat import create_safe_ethereum_client
 from eth_defi.simple_vault.transact import encode_simple_vault_transaction
 from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.uniswap_v2.constants import UNISWAP_V2_DEPLOYMENTS
-from eth_defi.uniswap_v2.deployment import fetch_deployment, UniswapV2Deployment, FOREVER_DEADLINE
+from eth_defi.uniswap_v2.deployment import FOREVER_DEADLINE, UniswapV2Deployment, fetch_deployment
 
 JSON_RPC_BASE = os.environ.get("JSON_RPC_BASE")
 

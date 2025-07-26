@@ -37,11 +37,12 @@ from requests.exceptions import (
 )
 from web3 import Web3
 from web3._utils.transactions import get_buffered_gas_estimate
-from web3.exceptions import BlockNotFound, ContractLogicError
-from web3.middleware.exception_retry_request import check_if_retry_on_failure
-from web3.types import Middleware, RPCEndpoint, RPCResponse
+from web3.exceptions import BlockNotFound
+from web3.middleware import Middleware
+from web3.types import RPCEndpoint, RPCResponse
 
-from eth_defi.event_reader.fast_json_rpc import get_last_headers
+from eth_defi.compat import WEB3_PY_V7, exception_retry_middleware as compat_exception_retry_middleware, check_if_retry_on_failure_compat
+from eth_defi.tx import get_tx_broadcast_data
 
 logger = logging.getLogger(__name__)
 
@@ -274,54 +275,22 @@ def exception_retry_middleware(
     Creates middleware that retries failed HTTP requests. Is a default
     middleware for HTTPProvider.
 
+    MIGRATED: Now uses compat version for v6/v7 compatibility.
+
     See :py:func:`http_retry_request_with_sleep_middleware` for usage.
 
     """
 
-    def middleware(method: RPCEndpoint, params: Any) -> Optional[RPCResponse]:
-        nonlocal sleep
-
-        current_sleep = sleep
-
-        # Check if the RPC method is whitelisted for multiple retries
-        if check_if_retry_on_failure(method):
-            # Try to recover from any JSON-RPC node error, sleep and try again
-            for i in range(retries):
-                try:
-                    return make_request(method, params)
-                # https://github.com/python/mypy/issues/5349
-                except Exception as e:  # type: ignore
-                    if is_retryable_http_exception(
-                        e,
-                        retryable_rpc_error_codes=retryable_rpc_error_codes,
-                        retryable_status_codes=retryable_status_codes,
-                        retryable_exceptions=retryable_exceptions,
-                    ):
-                        if i < retries - 1:
-                            headers = get_last_headers()
-                            logger.warning(
-                                "Encountered JSON-RPC retryable error %s when calling method %s, retrying in %f seconds, retry #%d\nHeaders are: %s",
-                                e,
-                                method,
-                                current_sleep,
-                                i,
-                                pformat(headers),
-                            )
-                            time.sleep(current_sleep)
-                            current_sleep *= backoff
-                            continue
-                        else:
-                            raise  # Out of retries
-                    raise  # Not retryable exception
-            return None
-        else:
-            try:
-                return make_request(method, params)
-            except Exception as e:
-                # Be verbose so that we know our whitelist is missing methods
-                raise RuntimeError(f"JSON-RPC failed for non-whitelisted method {method}: {e}") from e
-
-    return middleware
+    return compat_exception_retry_middleware(
+        make_request,
+        web3,
+        retryable_exceptions,
+        retryable_status_codes,
+        retryable_rpc_error_codes,
+        retries,
+        sleep,
+        backoff,
+    )
 
 
 def http_retry_request_with_sleep_middleware(
@@ -329,6 +298,11 @@ def http_retry_request_with_sleep_middleware(
     web3: "Web3",
 ) -> Callable[[RPCEndpoint, Any], Any]:
     """A HTTP retry middleware with sleep and backoff.
+
+    MIGRATED: In web3.py v7+, this function is deprecated in favor of
+    ExceptionRetryConfiguration on the provider. However, for backwards
+    compatibility, this function still works but may not be called if
+    v7 provider retry configuration is used instead.
 
     If you want to customise timeouts, supported exceptions and such
     you can directly create your own middleware
@@ -350,6 +324,14 @@ def http_retry_request_with_sleep_middleware(
     :return:
         Web3.py middleware
     """
+
+    if WEB3_PY_V7:
+        # In v7, this middleware is deprecated but we'll still provide it
+        # for backwards compatibility. However, users should prefer
+        # configuring ExceptionRetryConfiguration on the provider instead.
+        logger.warning("http_retry_request_with_sleep_middleware is deprecated in web3.py v7+. Consider using ExceptionRetryConfiguration on your HTTPProvider instead.")
+
+    # MIGRATED: Use the compat version
     return exception_retry_middleware(
         make_request,
         web3,
@@ -357,6 +339,40 @@ def http_retry_request_with_sleep_middleware(
         retryable_status_codes=DEFAULT_RETRYABLE_HTTP_STATUS_CODES,
         retryable_rpc_error_codes=DEFAULT_RETRYABLE_RPC_ERROR_CODES,
     )
+
+
+def configure_provider_retry(
+    provider,
+    retries: int = 10,
+    backoff_factor: float = 0.5,
+    retryable_exceptions: tuple = None,
+):
+    """Configure provider retry settings for web3.py v7+.
+
+    This is the recommended way to configure retries in v7+.
+
+    :param provider: HTTPProvider or AsyncHTTPProvider instance
+    :param retries: Number of retries to attempt (default 10)
+    :param backoff_factor: Initial delay multiplier (default 0.5)
+    :param retryable_exceptions: Tuple of exceptions to retry on
+    """
+    if not WEB3_PY_V7:
+        # For v6, this function doesn't do anything since v6 uses middleware
+        logger.warning("configure_provider_retry only works with web3.py v7+. Use middleware for v6.")
+        return
+
+    if retryable_exceptions is None:
+        # Map our custom exceptions to v7 defaults
+        retryable_exceptions = (ConnectionError, HTTPError, Timeout)
+
+    if hasattr(provider, "exception_retry_configuration"):
+        from web3.providers.rpc.utils import ExceptionRetryConfiguration
+
+        provider.exception_retry_configuration = ExceptionRetryConfiguration(
+            errors=retryable_exceptions,
+            retries=retries,
+            backoff_factor=backoff_factor,
+        )
 
 
 def raise_on_revert_middleware(
@@ -414,71 +430,108 @@ def raise_on_revert_middleware(
 from eth_utils.toolz import compose
 from web3._utils.transactions import fill_nonce, fill_transaction_defaults
 from web3.middleware.signing import format_transaction, gen_normalized_accounts
-from web3.types import Middleware, RPCEndpoint, RPCResponse
 
 
-def construct_sign_and_send_raw_middleware_anvil(
-    private_key_or_account,
-) -> Middleware:
-    """Capture transactions sign and send as raw transactions
+def construct_sign_and_send_raw_middleware_anvil(private_key_or_account) -> Middleware:
+    """Capture transactions sign and send as raw transactions - v6/v7 compatible."""
+    from eth_defi.compat import construct_sign_and_send_raw_middleware
 
-    .. note ::
-
-        This is web3.py middleware that has been fixed for Anvil/other JSON-RPC compatibility.
-
-    Keyword arguments:
-    private_key_or_account -- A single private key or a tuple,
-    list or set of private keys. Keys can be any of the following formats:
-      - An eth_account.LocalAccount object
-      - An eth_keys.PrivateKey object
-      - A raw private key as a hex string or byte string
-    """
-
-    accounts = gen_normalized_accounts(private_key_or_account)
-
-    def sign_and_send_raw_middleware(make_request: Callable[[RPCEndpoint, Any], Any], w3: "Web3") -> Callable[[RPCEndpoint, Any], RPCResponse]:
-        format_and_fill_tx = compose(format_transaction, fill_transaction_defaults(w3), fill_nonce(w3))
-
-        def middleware(method: RPCEndpoint, params: Any) -> RPCResponse:
-            if method != "eth_sendTransaction":
-                return make_request(method, params)
-            else:
-                transaction = format_and_fill_tx(params[0])
-
-            if "from" not in transaction:
-                return make_request(method, params)
-            elif transaction.get("from") not in accounts:
-                return make_request(method, params)
-
-            account = accounts[transaction["from"]]
-            raw_tx = account.sign_transaction(transaction).rawTransaction
-            return make_request(RPCEndpoint("eth_sendRawTransaction"), [raw_tx.hex()])
-
-        return middleware
+    # Just use the compat version - it handles both v6 and v7
+    return construct_sign_and_send_raw_middleware(private_key_or_account)
+    # def construct_sign_and_send_raw_middleware_anvil(
+    #     private_key_or_account,
+    # ) -> Middleware:
+    #     """Capture transactions sign and send as raw transactions
+    #
+    #     .. note ::
+    #
+    #         This is web3.py middleware that has been fixed for Anvil/other JSON-RPC compatibility.
+    #
+    #     Keyword arguments:
+    #     private_key_or_account -- A single private key or a tuple,
+    #     list or set of private keys. Keys can be any of the following formats:
+    #       - An eth_account.LocalAccount object
+    #       - An eth_keys.PrivateKey object
+    #       - A raw private key as a hex string or byte string
+    #     """
+    #
+    #     accounts = gen_normalized_accounts(private_key_or_account)
+    #
+    #     def sign_and_send_raw_middleware(make_request: Callable[[RPCEndpoint, Any], Any], w3: "Web3") -> Callable[[RPCEndpoint, Any], RPCResponse]:
+    #         format_and_fill_tx = compose(format_transaction, fill_transaction_defaults(w3), fill_nonce(w3))
+    #
+    #         def middleware(method: RPCEndpoint, params: Any) -> RPCResponse:
+    #             if method != "eth_sendTransaction":
+    #                 return make_request(method, params)
+    #             else:
+    #                 transaction = format_and_fill_tx(params[0])
+    #
+    #             if "from" not in transaction:
+    #                 return make_request(method, params)
+    #             elif transaction.get("from") not in accounts:
+    #                 return make_request(method, params)
+    #
+    #             account = accounts[transaction["from"]]
+    #             signed_tx = account.sign_transaction(transaction)
+    #             raw_tx = get_tx_broadcast_data(signed_tx)
+    #             return make_request(RPCEndpoint("eth_sendRawTransaction"), [raw_tx.hex()])
+    #
+    #         return middleware
 
     return sign_and_send_raw_middleware
 
 
-def static_call_cache_middleware(
-    make_request: Callable[[RPCEndpoint, Any], Any],
-    web3: "Web3",
-) -> Callable[[RPCEndpoint, Any], Any]:
-    """Cache JSON-RPC call values that never change.
+# Create class-based middleware for v7 compatibility
+if WEB3_PY_V7:
+    from web3.middleware import Web3Middleware
 
-    The cache is web3 instance itself, to allow sharing the cache
-    between different JSON-RPC providers.
-    """
+    class StaticCallCacheMiddleware(Web3Middleware):
+        """v7-style static call cache middleware."""
 
-    def middleware(method: RPCEndpoint, params: Any) -> RPCResponse:
-        cache = getattr(web3, "static_call_cache", {})
-        if method in STATIC_CALL_LIST:
-            cached = cache.get(method)
-            if cached:
-                return cached
+        def __init__(self, w3):
+            super().__init__(w3)
+            self.w3 = w3
 
-        resp = make_request(method, params)
-        cache[method] = resp
-        web3.static_call_cache = cache
-        return resp
+        def wrap_make_request(self, make_request):
+            def middleware(method: RPCEndpoint, params: Any) -> RPCResponse:
+                cache = getattr(self.w3, "static_call_cache", {})
+                if method in STATIC_CALL_LIST:
+                    cached = cache.get(method)
+                    if cached:
+                        return cached
 
-    return middleware
+                resp = make_request(method, params)
+                cache[method] = resp
+                self.w3.static_call_cache = cache
+                return resp
+
+            return middleware
+
+    # Export the class as the middleware
+    static_call_cache_middleware = StaticCallCacheMiddleware
+
+else:
+    # v6: Original function-based middleware
+    def static_call_cache_middleware(
+        make_request: Callable[[RPCEndpoint, Any], Any],
+        web3: "Web3",
+    ) -> Callable[[RPCEndpoint, Any], Any]:
+        """Cache JSON-RPC call values that never change.
+
+        The cache is web3 instance itself, to allow sharing the cache
+        between different JSON-RPC providers.
+        """
+
+        def middleware(method: RPCEndpoint, params: Any) -> RPCResponse:
+            cache = getattr(web3, "static_call_cache", {})
+            if method in STATIC_CALL_LIST:
+                cached = cache.get(method)
+                if cached:
+                    return cached
+
+            resp = make_request(method, params)
+            cache[method] = resp
+            web3.static_call_cache = cache
+            return resp
+
+        return middleware

@@ -32,7 +32,7 @@ from eth_defi.provider.fallback import FallbackProvider, get_fallback_provider
 from eth_defi.provider.mev_blocker import MEVBlockerProvider
 from eth_defi.provider.named import get_provider_name
 from eth_defi.timestamp import get_latest_block_timestamp
-from eth_defi.tx import decode_signed_transaction
+from eth_defi.tx import decode_signed_transaction, get_tx_broadcast_data
 from eth_defi.utils import to_unix_timestamp
 
 
@@ -97,8 +97,11 @@ def wait_transactions_to_complete(
 
     .. code-block:: python
 
-        tx_hash1 = web3.eth.send_raw_transaction(signed1.rawTransaction)
-        tx_hash2 = web3.eth.send_raw_transaction(signed2.rawTransaction)
+        raw_bytes1 = get_tx_broadcast_data(signed1)
+        tx_hash1 = web3.eth.send_raw_transaction(raw_bytes)
+
+        raw_bytes2 = get_tx_broadcast_data(signed2)
+        tx_hash2 = web3.eth.send_raw_transaction(raw_bytes2)
 
         complete = wait_transactions_to_complete(web3, [tx_hash1, tx_hash2])
 
@@ -266,13 +269,14 @@ def broadcast_transactions(
     hashes = []
     for tx in txs:
         assert isinstance(tx, SignedTransaction) or isinstance(tx, SignedTransactionWithNonce), f"Got {tx}"
+        raw_bytes = get_tx_broadcast_data(tx)
 
         try:
-            hash = web3.eth.send_raw_transaction(tx.rawTransaction)
+            hash = web3.eth.send_raw_transaction(raw_bytes)
         except ValueError as e:
             # Anvil/Ethereum tester immediately fail on the broadcast
             # ValueError: {'code': -32003, 'message': 'Insufficient funds for gas * price + value'}
-            decoded_tx = decode_signed_transaction(tx.rawTransaction)
+            decoded_tx = decode_signed_transaction(raw_bytes)
             raise BroadcastFailure(f"Could not broadcast transaction: {tx.hash.hex()}. Transaction data: {decoded_tx}. JSON-RPC error: {e}") from e
 
         assert hash
@@ -297,7 +301,7 @@ def broadcast_transactions(
 
                 time.sleep(broadcast_sleep)
                 logger.warning("Rebroadcasting %s, attempts left %d", hash.hex(), attempt)
-                hash = web3.eth.send_raw_transaction(tx.rawTransaction)
+                hash = web3.eth.send_raw_transaction(raw_bytes)
                 attempt -= 1
             assert tx_data, f"Could not read broadcasted transaction back from the node {hash.hex()}"
         else:
@@ -405,7 +409,8 @@ def _broadcast_multiple_nodes(
         # Does not use any middleware
         web3 = Web3(p)
         try:
-            web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+            raw_bytes = get_tx_broadcast_data(signed_tx)
+            web3.eth.send_raw_transaction(raw_bytes)
             success.add(p)
         except ValueError as e:
             headers = get_last_headers()
@@ -944,7 +949,8 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
             try:
                 if not tx_hash:
                     # Can raise nonce too low if some node is behind
-                    tx_hash = web3.eth.send_raw_transaction(tx.rawTransaction)
+                    raw_bytes = get_tx_broadcast_data(tx)
+                    tx_hash = web3.eth.send_raw_transaction(raw_bytes)
 
                     if not anviled:
                         # Sleep between send and first read
@@ -965,7 +971,8 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
                             backup_provider,
                         )
                         try:
-                            tx_hash_2 = backup_web3.eth.send_raw_transaction(tx.rawTransaction)
+                            raw_bytes = get_tx_broadcast_data(tx)
+                            tx_hash_2 = web3.eth.send_raw_transaction(raw_bytes)
                             logger.info("Backup provider broadcast complete: %s", tx_hash.hex())
                         except ValueError as e:
                             logger.info("Backup broadcast failed: %s", e)

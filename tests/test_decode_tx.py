@@ -18,16 +18,13 @@ import pytest
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
 from eth_typing import HexAddress, HexStr
-from web3 import HTTPProvider, Web3
+from web3 import Web3
 
 from eth_defi.provider.anvil import fork_network_anvil
-from eth_defi.chain import install_chain_middleware
-from eth_defi.gas import node_default_gas_price_strategy
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import fetch_erc20_details
-from eth_defi.tx import decode_signed_transaction
-
+from eth_defi.tx import decode_signed_transaction, get_tx_broadcast_data
 
 # https://docs.pytest.org/en/latest/how-to/skipping.html#skip-all-test-functions-of-a-class-or-module
 pytestmark = pytest.mark.skipif(
@@ -97,7 +94,7 @@ def test_bnb_chain_decode_tx(web3: Web3, large_busd_holder: HexAddress, hot_wall
     # Create a spoofed transfer() (never executed)
     raw_tx = busd.functions.transfer("0x0000000000000000000000000000000000000000", 500 * 10**18).build_transaction({"gas": 100_000})
     signed_tx = hot_wallet.sign_transaction_with_new_nonce(raw_tx)
-    signed_tx_bytes = signed_tx.rawTransaction
+    signed_tx_bytes = get_tx_broadcast_data(signed_tx)
     d = decode_signed_transaction(signed_tx_bytes)
     assert d["nonce"] == 0
-    assert d["data"].hex().startswith("0xa9059cbb0")  # transfer() function selector
+    assert d["data"].hex().removeprefix("0x").startswith("a9059cbb0")  # transfer() function selector
