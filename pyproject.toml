@@ -99,7 +99,11 @@ hypersync = {version = "^0.8.5", optional = true}
 # Conditional dependencies matrix based on extras
 web3 = [
     {version = "^7.12.0", extras = ["tester"], markers = "extra != 'web3v6'"},
-    {version = ">=6.14.0,<7.0.0", extras = ["tester"], markers = "extra == 'web3v6'"}
+    {version = "=6.14.0", extras = ["tester"], markers = "extra == 'web3v6'"}
+]
+
+eth-tester = [
+    {version = "*", markers = "extra != 'web3v6'", optional = true},
 ]
 
 evm-trace = [
@@ -137,7 +141,8 @@ docs = ["Sphinx", "sphinx-rtd-theme", "sphinx-sitemap", "sphinx-autodoc-typehint
 data = ["jupyter", "tqdm", "pandas", "gql", "matplotlib", "plotly", "pyarrow", "numpy", "tenacity", "kaleido", "ffn"]
 test = ["pytest-xdist"]
 hypersync = ["hypersync"]
-web3v6 = []
+web3v6 = ["eth-tester"]
+tester = ["eth-tester", "py-evm"]
 
 
 [build-system]
