@@ -79,7 +79,8 @@ jobs:
       - name: Build needed contracts
         run: |
           pnpm --version 
-          make guard in-house safe-integration
+      # Broken with the latest foudry?
+      # make guard in-house safe-integration
 
       # Lagoon source deployment needs soldeer
       - name: Lagoon dependency issue smoke test
