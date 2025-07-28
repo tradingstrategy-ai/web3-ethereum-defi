@@ -13,6 +13,8 @@ For verying contracts on Etherscan and others see :py:func:`eth_defi.foundry.for
    :toctree: _autosummary_etherscan
    :recursive:
 
+   eth_defi.etherscan.config
+   eth_defi.etherscan.validation
    eth_defi.etherscan.verify
 
 

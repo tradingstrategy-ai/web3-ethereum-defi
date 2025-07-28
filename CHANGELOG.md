@@ -2,6 +2,11 @@
 
 - Add: Vault 1h price scanning and cleaning pipeline
 - Add: Move a lot of vault analysis functionality to their own Python modules, instead of copy-pasting in notebook to improve documentation and reusability
+- Add: Lagoon contract size fizes
+- Add: Customise Anvil `--code-size-limit`
+- Add: `check_etherscan_api_key()` to do a pre-flight check your Etherscan API key works
+- Add: Lagoon custom deployments for BNB Chain and Mode
+- Fix: `TradingStrategyModuleV0` Zodiac module contract size for deployment
 
 # 0.31
 

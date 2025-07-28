@@ -22,6 +22,7 @@ To run:
 
     export PRIVATE_KEY=...
     export JSON_RPC_URL=$JSON_RPC_BINANCE
+    export VAULTS=.... # Comma separated list of ERC-4626 vaults to whitelist for trading
     SIMULATE=true python scripts/lagoon/deploy-lagoon.py
 """
 
@@ -34,6 +35,7 @@ from web3 import Web3
 from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.classification import create_vault_instance, detect_vault_features
 from eth_defi.erc_4626.vault import ERC4626Vault
+from eth_defi.etherscan.validation import check_etherscan_api_key
 from eth_defi.hotwallet import HotWallet
 from eth_defi.lagoon.deployment import LagoonDeploymentParameters, deploy_automated_lagoon_vault
 from eth_defi.provider.anvil import fork_network_anvil
@@ -60,17 +62,12 @@ def main():
     JSON_RPC_URL = os.environ["JSON_RPC_URL"]
     SIMULATE = os.environ.get("SIMULATE")
     ETHERSCAN_API_KEY = os.environ.get("ETHERSCAN_API_KEY")
-
-    # Comma separated list of ERC-4626 to whitelist
-    VAULTS = os.environ.get("VAULTS")
+    VAULTS = os.environ.get("VAULTS")  # Comma separated list of ERC-4626 to whitelist to trade
 
     web3 = create_multi_provider_web3(JSON_RPC_URL)
     chain_name = get_chain_name(web3.eth.chain_id).lower()
 
     logger.info(f"Connected to chain {chain_name}, last block is {web3.eth.block_number:,}")
-
-    # Comma separated list of ERC-4626 to whitelist
-    VAULTS = os.environ.get("VAULTS")
 
     web3 = create_multi_provider_web3(JSON_RPC_URL)
     chain_name = get_chain_name(web3.eth.chain_id).lower()
@@ -93,6 +90,11 @@ def main():
     else:
         logger.info("Production deployment")
         web3 = create_multi_provider_web3(JSON_RPC_URL)
+
+        check_etherscan_api_key(
+            web3,
+            api_key=ETHERSCAN_API_KEY,
+        )
 
     chain_id = web3.eth.chain_id
 
