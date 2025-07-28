@@ -37,8 +37,8 @@ cachetools = ">=4"
 futureproof = "^0.3.1"
 setuptools = {version = ">=63,<=70"}
 eth-bloom = "^2.0.0"
-evm-trace = "^0.2.6"
-web3 = {version = "^7.12.0", extras = ["tester"]}
+#evm-trace = "^0.2.6"
+#web3 = {version = "^7.12.0", extras = ["tester"]}
 tqdm-loggable = ">=0.1.3"
 sigfig = "^1.3.2"
 tqdm = {version = ">=4.66.1", optional = true}
@@ -60,7 +60,7 @@ gql = {extras = ["requests"], version = "^3.3.0", optional = true}
 ffn = {version = "^1.1.2", optional = true}
 
 # We are using evm-trace, so for compat
-eth-pydantic-types = {version = "^0.2.0"}
+#eth-pydantic-types = {version = "^0.2.0"}
 
 # web3-google-hsm = {git = "https://github.com/Ankvik-Tech-Labs/web3-google-hsm"}
 web3-google-hsm = "^0.1.0"
@@ -86,14 +86,41 @@ sphinxcontrib-qthelp = {version = "1.0.3", optional = true} # Version pindowns h
 # Removed
 # Only soft dependency in tests, but RTD complains
 # terms-of-service = {path = "contracts/terms-of-service", develop = true}
-multicall = "^0.12.3"
-safe-eth-py = "^7.5.1"
+#multicall = "^0.12.3"
+#safe-eth-py = "^7.5.1"
 joblib = "^1.4.2"
 base58 = "^2.1.1"
 
 # HyperSync
 hypersync = {version = "^0.8.5", optional = true}
 # cherry-etl = "^0.5.1"
+
+# The project is now migrating to web3py v7 while keeping the legacy support for v6. To make it compatible with v6 use these dependencies
+# Conditional dependencies matrix based on extras
+web3 = [
+    {version = "^7.12.0", extras = ["tester"], markers = "extra != 'web3v6'"},
+    {version = ">=6.14.0,<7.0.0", extras = ["tester"], markers = "extra == 'web3v6'"}
+]
+
+evm-trace = [
+    {version = "^0.2.6", markers = "extra != 'web3v6'"},
+    {version = "^0.1.0a17", markers = "extra == 'web3v6'"}
+]
+
+safe-eth-py = [
+    {version = "^7.5.1", markers = "extra != 'web3v6'"},
+    {version = "6.0.0b42", markers = "extra == 'web3v6'"}
+]
+
+eth-pydantic-types = [
+    {version = "^0.2.0", markers = "extra != 'web3v6'"},
+    {version = "<0.2", markers = "extra == 'web3v6'"}
+]
+
+multicall = [
+    {version = "^0.12.3", markers = "extra != 'web3v6'"},
+    {version = "^0.9.0", markers = "extra == 'web3v6'"}
+]
 
 
 [tool.poetry.group.dev.dependencies]
@@ -110,6 +137,7 @@ docs = ["Sphinx", "sphinx-rtd-theme", "sphinx-sitemap", "sphinx-autodoc-typehint
 data = ["jupyter", "tqdm", "pandas", "gql", "matplotlib", "plotly", "pyarrow", "numpy", "tenacity", "kaleido", "ffn"]
 test = ["pytest-xdist"]
 hypersync = ["hypersync"]
+web3v6 = []
 
 
 [build-system]
