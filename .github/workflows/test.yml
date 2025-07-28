@@ -90,7 +90,7 @@ jobs:
           # during the deployment
           cargo install soldeer          
           export PATH="$HOME/.cargo/bin:$PATH"
-          (cd contracts/lagoon-v0 && @soldeer install) 
+          (cd contracts/lagoon-v0 && soldeer install) 
           ls -lha contracts/lagoon-v0/dependencies/
           ls -lha contracts/lagoon-v0/dependencies/@openzeppelin-contracts-upgradeable-5.0.0/
 
