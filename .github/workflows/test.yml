@@ -7,7 +7,6 @@ on:
     branches: [ master ]
 
 jobs:
-
   test-python:
 
     # Reserved multicore instance for running tests
