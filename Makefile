@@ -138,11 +138,14 @@ lagoon:
 	@(cd contracts/lagoon-v0 && soldeer install)
 	@(cd contracts/lagoon-v0 && make build)
 	@mkdir -p eth_defi/abi/lagoon
+	@mkdir -p eth_defi/abi/lagoon/v0.4.0
 	@mkdir -p eth_defi/abi/lagoon/v0.5.0
 	@mkdir -p eth_defi/abi/lagoon/protocol-v2
 	@find contracts/lagoon-v0/out/v0.5.0 -iname "*.json" -not -iname "*.dbg.json" -exec cp {} eth_defi/abi/lagoon/v0.5.0 \;
+	@find contracts/lagoon-v0/out/v0.4.0 -iname "*.json" -not -iname "*.dbg.json" -exec cp {} eth_defi/abi/lagoon/v0.4.0 \;
 	@cp contracts/lagoon-v0/out/BeaconProxyFactory.sol/BeaconProxyFactory.json eth_defi/abi/lagoon
-	@find contracts/lagoon-v0/out/protocol-v2 -iname "*.json" -not -iname "*.dbg.json" -exec cp {} eth_defi/abi/lagoon/protocol-v2 \;
+	@cp contracts/lagoon-v0/out/ProtocolRegistry.sol/ProtocolRegistry.json eth_defi/abi/lagoon
+#	@find contracts/lagoon-v0/out/protocol-v2 -iname "*.json" -not -iname "*.dbg.json" -exec cp {} eth_defi/abi/lagoon/protocol-v2 \;
 
 # Compile and copy Velvet capital contracts
 velvet:
