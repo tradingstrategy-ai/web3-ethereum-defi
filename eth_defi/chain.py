@@ -14,7 +14,6 @@ from urllib.parse import urljoin
 
 import requests
 from web3 import HTTPProvider, Web3
-from web3.middleware import Web3Middleware
 from web3.providers import BaseProvider, JSONBaseProvider
 from web3.types import RPCEndpoint, RPCResponse
 
@@ -254,6 +253,7 @@ def install_api_call_counter_middleware(web3: Web3) -> Counter:
     api_counter = Counter()
 
     if WEB3_PY_V7:
+        from web3.middleware import Web3Middleware
 
         def create_counter_middleware():
             class APICallCounterMiddleware(Web3Middleware):

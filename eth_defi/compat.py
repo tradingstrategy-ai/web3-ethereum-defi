@@ -8,6 +8,7 @@ from packaging.version import Version
 import eth_abi
 from collections import Counter
 from typing import Any, Callable
+from web3.types import RPCEndpoint, RPCResponse
 
 from web3 import HTTPProvider, Web3
 from web3.contract import Contract
@@ -18,7 +19,6 @@ WEB3_PY_V7 = Version(pkg_version) >= Version("7.0.0")
 # Middleware imports with compatibility
 if WEB3_PY_V7:
     from web3.middleware import Web3Middleware
-    from web3.types import RPCEndpoint, RPCResponse
     from web3.providers.rpc.utils import ExceptionRetryConfiguration
     from requests.exceptions import ConnectionError, HTTPError, Timeout
 
