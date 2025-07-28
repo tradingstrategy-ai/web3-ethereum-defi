@@ -114,6 +114,11 @@ With `pip`:
 ```shell
 pip install "web3-ethereum-defi[data]"
 ```
+**N.B.** From relase `0.4` this project will use `v7` of `web3py` to keep using it with `v6` after the above setp run the following step as well.
+
+```shell
+pip install "web3-ethereum-defi[web3v6]"
+```
 
 With `poetry`:
 
