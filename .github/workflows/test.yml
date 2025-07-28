@@ -22,7 +22,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # for now let's keep the 3.13 aside as many of the modules don"t support it yet
+        # for now let's keep the 3.13 aside as many of the modules don't support it yet
         python-version: ["3.10", "3.11", "3.12"]
         web3-version: ["6", "7"]
 
@@ -64,18 +64,17 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: "poetry"
 
-      - name: Install dependencies
+      - name: Install dependencies (Web3.py v7 - default)
+        if: matrix.web3-version == '7'
         run: |
           poetry env use "${{ matrix.python-version }}"
           poetry install --all-extras
 
-      - name: Install specific Web3.py version
+      - name: Install dependencies (Web3.py v6 - with web3v6 extra)
+        if: matrix.web3-version == '6'
         run: |
-          if [ "${{ matrix.web3-version }}" = "6" ]; then
-            poetry install -E web3v6
-          else
-            poetry run pip install "web3>=7.12.1,<8.0.0"
-          fi
+          poetry env use "${{ matrix.python-version }}"
+          poetry install -E web3v6
 
       - name: Install Ganache
         run: yarn global add ganache
@@ -110,7 +109,7 @@ jobs:
 
       - name: Verify Web3.py version
         run: |
-          poetry run python -c "import web3; print(f"Web3.py version: {web3.__version__}")"
+          poetry run python -c "import web3; print(f'Web3.py version: {web3.__version__}')"
 
       - name: Run tests (parallel)
         run: |
