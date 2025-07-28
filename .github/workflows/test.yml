@@ -72,9 +72,10 @@ jobs:
       - name: Install specific Web3.py version
         run: |
           if [ "${{ matrix.web3-version }}" = "6" ]; then
-            poetry run pip install "web3>=6.14.0,<7.0.0"
-          else
-            poetry run pip install "web3>=7.12.1,<8.0.0"
+            poetry install -E web3v6
+# don't need them maybe
+#          else
+#            poetry run pip install "web3>=7.12.1,<8.0.0"
           fi
 
       - name: Install Ganache
