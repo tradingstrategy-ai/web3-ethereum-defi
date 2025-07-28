@@ -57,6 +57,8 @@ DEFAULT_PERFORMANCE_RATE = 2000
 
 CONTRACTS_ROOT = Path(os.path.dirname(__file__)) / ".." / ".." / "contracts"
 
+DEFAULT_LAGOON_VAULT_ABI = "v0.4.0/Vault.sol"
+
 # struct InitStruct {
 #     IERC20 underlying;
 #     string name;
@@ -301,7 +303,7 @@ def deploy_fresh_lagoon_protocol(
     implementation_contract, tx_hash = deploy_contract_with_forge(
         web3,
         project_folder=lagoon_folder,
-        contract_file="v0.5.0/Vault.sol",
+        contract_file=DEFAULT_LAGOON_VAULT_ABI,
         contract_name="Vault",
         deployer=deployer,
         etherscan_api_key=etherscan_api_key,
