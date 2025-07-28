@@ -73,7 +73,6 @@ jobs:
         run: |
           if [ "${{ matrix.web3-version }}" = "6" ]; then
             poetry install -E web3v6
-            # don't need them maybe
           else
             poetry run pip install "web3>=7.12.1,<8.0.0"
           fi
