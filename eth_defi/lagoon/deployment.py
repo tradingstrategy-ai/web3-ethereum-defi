@@ -134,6 +134,7 @@ class LagoonDeploymentParameters:
         ]
         # Return Vault.InitStruct to be passed to the constructor
         #     struct InitStruct {
+
     #         IERC20 underlying;
     #         string name;
     #         string symbol;
@@ -922,7 +923,6 @@ def deploy_automated_lagoon_vault(
         time.sleep(between_contracts_delay_seconds)
 
     if not existing_vault_address:
-
         if from_the_scratch:
             # Deploy the full Lagoon protocol with fee registry and beacon proxy factory,
             # setting out Safe as the protocol owner
