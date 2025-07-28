@@ -142,7 +142,7 @@ data = ["jupyter", "tqdm", "pandas", "gql", "matplotlib", "plotly", "pyarrow", "
 test = ["pytest-xdist"]
 hypersync = ["hypersync"]
 web3v6 = ["eth-tester"]
-tester = ["eth-tester", "py-evm"]
+# tester = ["eth-tester"]
 
 
 [build-system]

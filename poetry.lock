@@ -2020,7 +2020,7 @@ description = "Tools for testing Ethereum applications."
 optional = true
 python-versions = ">=3.6.8,<4"
 groups = ["main"]
-markers = "(extra == \"tester\" or extra == \"web3v6\") and (implementation_name == \"cpython\" or implementation_name == \"pypy\")"
+markers = "<empty>"
 files = [
     {file = "eth-tester-0.9.1b1.tar.gz", hash = "sha256:b9cbc93d0b17a6e8acbb52294dad214ee223cf88209fa5be66ead353937d274c"},
     {file = "eth_tester-0.9.1b1-py3-none-any.whl", hash = "sha256:0e4367d99ae242efdb8c1d18ed99d1ff3f03149abb0a4c2427bc6d333ebef13b"},
@@ -2054,7 +2054,7 @@ description = "eth-tester: Tools for testing Ethereum applications."
 optional = true
 python-versions = "<4,>=3.8"
 groups = ["main"]
-markers = "(implementation_name == \"cpython\" or implementation_name == \"pypy\") and extra != \"web3v6\""
+markers = "<empty>"
 files = [
     {file = "eth_tester-0.13.0b1-py3-none-any.whl", hash = "sha256:872108cea7df1340f56bab25b9ed5cf0f835aa467c1a8195d0891238c0e73ab3"},
     {file = "eth_tester-0.13.0b1.tar.gz", hash = "sha256:87fb561d450cd3639ce82eed52e566c902a0ac241f3e9581c6b7545690fcece5"},
@@ -8544,10 +8544,9 @@ data = ["ffn", "gql", "jupyter", "kaleido", "matplotlib", "numpy", "pandas", "pl
 docs = ["Sphinx", "furo", "nbsphinx", "sphinx-autodoc-typehints", "sphinx-rtd-theme", "sphinx-rtd-theme", "sphinx-sitemap", "sphinx-sitemap", "zope-dottedname"]
 hypersync = ["hypersync"]
 test = ["pytest-xdist"]
-tester = ["eth-tester"]
 web3v6 = ["eth-tester"]
 
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<4"
-content-hash = "f9a6bd254d69f780aa691d2fc830558e5e795b7473e703c3ec665baa42e9eb97"
+content-hash = "0d1c2a87dbf4e0dc8b441138d4d990dd57d3d391365d3aaa2461f3ea50600196"
