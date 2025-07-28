@@ -114,6 +114,42 @@ class LagoonDeploymentParameters:
         # Return Vault.InitStruct to be passed to the constructor
         return asdict(self)
 
+    def as_solidity_struct_v_0_1_0(self) -> list:
+        parameters = asdict(self)
+        return [
+            parameters["underlying"],
+            parameters["name"],
+            parameters["symbol"],
+            parameters["safe"],
+            parameters["whitelistManager"],
+            parameters["valuationManager"],
+            parameters["admin"],
+            parameters["feeReceiver"],
+            parameters["feeRegistry"],
+            parameters["wrappedNativeToken"],
+            parameters["managementRate"],
+            parameters["performanceRate"],
+            parameters["enableWhitelist"],
+            parameters["rateUpdateCooldown"],
+        ]
+        # Return Vault.InitStruct to be passed to the constructor
+        #     struct InitStruct {
+    #         IERC20 underlying;
+    #         string name;
+    #         string symbol;
+    #         address safe;
+    #         address whitelistManager;
+    #         address valuationManager;
+    #         address admin;
+    #         address feeReceiver;
+    #         address feeRegistry;
+    #         address wrappedNativeToken;
+    #         uint16 managementRate;
+    #         uint16 performanceRate;
+    #         bool enableWhitelist;
+    #         uint256 rateUpdateCooldown;
+    #     }
+
     def as_abi_encoded_bytes(self) -> HexBytes:
         """Return Lagoon vault initialization struct ABI encoded.
 
@@ -449,7 +485,7 @@ def deploy_lagoon(
     if parameters.valuationManager is None:
         parameters.valuationManager = asset_manager
 
-    if factory_contract is None:
+    if not factory_contract:
         # Factory contract takes care of fee registry for us
         if parameters.feeRegistry is None:
             parameters.feeRegistry = LAGOON_FEE_REGISTRIES[chain_id]
@@ -472,7 +508,7 @@ def deploy_lagoon(
         #     function initialize(
         #         InitStruct memory init
         #     ) public virtual initializer {
-        init_struct = parameters.as_abi_encoded_bytes()
+        init_struct = parameters.as_solidity_struct_v_0_1_0()
 
         if beacon_proxy:
             vault = deploy_beacon_proxy(
