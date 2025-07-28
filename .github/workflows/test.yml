@@ -22,8 +22,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ['3.10', '3.11', '3.12', '3.13']
-        web3-version: ['6', '7']
+        # for now let's keep the 3.13 aside as many of the modules don"t support it yet
+        python-version: ["3.10", "3.11", "3.12"]
+        web3-version: ["6", "7"]
 
     name: Python ${{ matrix.python-version }} - Web3.py v${{ matrix.web3-version }}
 
@@ -40,7 +41,7 @@ jobs:
         with:
           # npm version need to support aave-deploy
           node-version: 18
-          cache: 'npm'
+          cache: "npm"
           cache-dependency-path: contracts/aave-v3-deploy/package-lock.json
 
       # pnpm needed to compile Enzyme
@@ -61,11 +62,11 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          cache: 'poetry'
+          cache: "poetry"
 
       - name: Install dependencies
         run: |
-          poetry env use '${{ matrix.python-version }}'
+          poetry env use "${{ matrix.python-version }}"
           poetry install --all-extras
 
       - name: Install specific Web3.py version
@@ -83,7 +84,7 @@ jobs:
         uses: foundry-rs/foundry-toolchain@v1
         with:
           # pick a nightly release from: https://github.com/foundry-rs/foundry/releases
-          # version: 'nightly-de33b6af53005037b463318d2628b5cfcaf39916'
+          # version: "nightly-de33b6af53005037b463318d2628b5cfcaf39916"
           #version: "nightly-fdd321bac95f0935529164a88faf99d4d5cfa321"
           version: "v1.2.3"
 
@@ -109,7 +110,7 @@ jobs:
 
       - name: Verify Web3.py version
         run: |
-          poetry run python -c "import web3; print(f'Web3.py version: {web3.__version__}')"
+          poetry run python -c "import web3; print(f"Web3.py version: {web3.__version__}")"
 
       - name: Run tests (parallel)
         run: |
@@ -133,4 +134,4 @@ jobs:
         run: |
           poetry run ruff format --check --diff
         # Only run linting once (on the newest Python with latest web3.py)
-        if: matrix.python-version == '3.12' && matrix.web3-version == '7'
+        if: matrix.python-version == "3.12" && matrix.web3-version == "7"
