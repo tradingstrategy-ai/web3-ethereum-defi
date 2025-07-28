@@ -4,6 +4,7 @@
 - `For performance stats see FFN <https://pmorissette.github.io/ffn/quick.html>`__.
 """
 
+import datetime
 from typing import Literal
 import warnings
 from dataclasses import dataclass
@@ -19,11 +20,14 @@ from tqdm.auto import tqdm
 
 
 from eth_defi.chain import get_chain_name
+from eth_defi.erc_4626.core import ERC4262VaultDetection
+from eth_defi.token import is_stablecoin_like
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.vaultdb import VaultDatabase, VaultLead
 
 from ffn.core import PerformanceStats
 from ffn.core import calc_stats
+from ffn.utils import fmtn, fmtp, fmtpn, get_freq_name
 
 
 def calculate_lifetime_metrics(
@@ -270,7 +274,7 @@ def analyse_vault(
     returns_col: str = "returns_1h",
     logger=print,
     chart_frequency: Literal["hourly", "daily"] = "daily",
-) -> VaultReport:
+) -> VaultReport | None:
     """Create charts and tables to analyse a vault performance.
 
     - We plot our annualised 1 month rolling returns on the chart, to see how vaults move in the direction of the markets, or what kind of outliers there are
@@ -292,7 +296,9 @@ def analyse_vault(
         Hourly data has too many points, chocking Plotly.
 
     :return:
-        Analysis report to display
+        Analysis report to display.
+
+        None if the vault does not have price data.
     """
     returns_df = prices_df
 
@@ -326,6 +332,10 @@ def analyse_vault(
 
     # Calculate cumulative returns (what $1 would grow to)
     cumulative_returns = (1 + hourly_returns).cumprod()
+
+    if len(price_series) < 2:
+        # f"Price data must have at least two rows: {vault_df}"
+        return None
 
     start_share_price = vault_df["share_price"].iloc[0]
     end_share_price = vault_df["share_price"].iloc[-1]
@@ -366,8 +376,8 @@ def analyse_vault(
         hovermode="x unified",
         template=pio.templates.default,
         showlegend=True,
-        legend=dict(orientation="h", yanchor="bottom", y=1.03, xanchor="center", x=0.5),
-        margin=dict(t=120),
+        legend=dict(orientation="h", yanchor="bottom", y=1.05, xanchor="center", x=0.5),
+        margin=dict(t=150),
     )
 
     # Set y-axes titles
@@ -461,3 +471,121 @@ def calculate_performance_metrics_for_all_vaults(
     lifetime_data_df = lifetime_data_df[~broken_mask]
 
     return lifetime_data_df
+
+
+def format_vault_database(
+    vault_db: VaultDatabase,
+    index=True,
+) -> pd.DataFrame:
+    """Format vault database for human readable output.
+
+    :param vault_db:
+        Vault database to format
+
+    :return:
+        DataFrame with vault metadata, with human readable columns
+    """
+    data = list(vault_db.values())
+    df = pd.DataFrame(data)
+
+    # Build useful columns out of raw pickled Python data
+    # _detection_data contains entries as ERC4262VaultDetection class
+    entry: ERC4262VaultDetection
+    df["Chain"] = df["_detection_data"].apply(lambda entry: get_chain_name(entry.chain))
+    df["Protocol identified"] = df["_detection_data"].apply(lambda entry: entry.is_protocol_identifiable())
+    df["Stablecoin denominated"] = df["_denomination_token"].apply(lambda token_data: is_stablecoin_like(token_data["symbol"]) if pd.notna(token_data) else False)
+    df["ERC-7540"] = df["_detection_data"].apply(lambda entry: entry.is_erc_7540())
+    df["ERC-7575"] = df["_detection_data"].apply(lambda entry: entry.is_erc_7575())
+    df["Fee detected"] = df.apply(lambda row: (row["Mgmt fee"] is not None) or (row["Perf fee"] is not None), axis=1)
+    # Event counts
+    df["Deposit count"] = df["_detection_data"].apply(lambda entry: entry.deposit_count)
+    df["Redeem count"] = df["_detection_data"].apply(lambda entry: entry.redeem_count)
+    df["Total events"] = df["Deposit count"] + df["Redeem count"]
+    df["Mgmt fee"] = df["Mgmt fee"].fillna("<unknown>")
+    df["Perf fee"] = df["Mgmt fee"].fillna("<unknown>")
+    df["Age"] = datetime.datetime.utcnow() - df["First seen"]
+    df["NAV"] = df["NAV"].astype("float64")
+    if index:
+        df = df.sort_values(["Chain", "Address"])
+        df = df.set_index(["Chain", "Address"])
+    return df
+
+
+def format_vault_header(vault_row: pd.Series) -> pd.Series:
+    """Format vault header for human readable output.
+
+    See :py:func:`format_vault_database`
+
+    :return:
+        DataFrame with formatted performance metrics
+    """
+
+    assert isinstance(vault_row, pd.Series), f"vault_row must be a pandas Series, got {type(vault_row)}"
+
+    keys = [
+        "Name",
+        "Chain",
+        "Address",
+        "Denomination",
+        "NAV",
+        "First seen",
+        "Total events",
+        "Age",
+    ]
+
+    return vault_row[keys]
+
+
+def format_ffn_performance_stats(
+    report: PerformanceStats,
+    prefix_series: pd.Series | None = None,
+) -> pd.Series:
+    """Format FFN report for human readable output.
+
+    - Return a Series with formatted performance metrics
+    - Multiple series can be combined to a comparison table
+
+    :param prefix_data:
+        Extra header data to insert.
+
+    :param report:
+        FFN performance report to format
+
+    :return:
+        DataFrame with formatted performance metrics
+    """
+    assert isinstance(report, PerformanceStats), f"report must be an instance of PerformanceStats, got {type(report)}"
+
+    # Get the keys
+    stat_definitions = report._stats()
+
+    def _format(k, f, raw):
+        # if rf is a series print nan
+        if k == "rf" and not isinstance(raw, float):
+            return np.nan
+        elif f is None:
+            return raw
+        elif f == "p":
+            return fmtp(raw)
+        elif f == "n":
+            return fmtn(raw)
+        elif f == "dt":
+            return raw.strftime("%Y-%m-%d")
+        else:
+            raise NotImplementedError("unsupported format %s" % f)
+
+    keys = []
+    values = []
+    for key, name, typ in stat_definitions:
+        if not name:
+            continue
+        keys.append(name)
+        raw = getattr(report, key, "")
+        values.append(_format(key, typ, raw))
+
+    data_series = pd.Series(values, index=keys)
+
+    if prefix_series is not None:
+        return pd.concat([prefix_series, data_series])
+    else:
+        return data_series

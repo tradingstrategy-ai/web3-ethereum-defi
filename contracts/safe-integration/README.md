@@ -37,3 +37,8 @@ Included as Github submodules
 make safe-integration
 ```
 
+## How to test deployment
+
+```shell
+
+```

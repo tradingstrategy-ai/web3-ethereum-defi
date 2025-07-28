@@ -33,9 +33,9 @@ from eth_defi.trace import assert_transaction_success_with_explanation
 logger = logging.getLogger(__name__)
 
 
-#: Crash unless forge completes in 3 minutes
+#: Crash unless forge completes in 4 minutes
 #:
-DEFAULT_TIMEOUT = 3 * 60
+DEFAULT_TIMEOUT = 4 * 60
 
 
 class ForgeFailed(Exception):

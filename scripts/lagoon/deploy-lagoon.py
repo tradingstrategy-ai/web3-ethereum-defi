@@ -80,6 +80,9 @@ def main():
     deployer_wallet = HotWallet.from_private_key(PRIVATE_KEY)
     asset_manager = deployer_wallet.address
 
+    balance_at_start = web3.eth.get_balance(deployer_wallet.address)
+    logger.info("Deployer balance at start: %s", Web3.from_wei(balance_at_start, "ether"))
+
     # Add some random multisig holders
     multisig_owners = [deployer_wallet.address, RANDO1, RANDO2]
 
@@ -150,6 +153,13 @@ def main():
     )
 
     logger.info(f"Lagoon vault deployed:\n{deploy_info.pformat()}")
+
+    balance_at_end = web3.eth.get_balance(deployer_wallet.address)
+    logger.info(
+        "Deployer balance at end: %s, gas used: %s",
+        Web3.from_wei(balance_at_end, "ether"),
+        Web3.from_wei(balance_at_start - balance_at_end, "ether"),
+    )
 
 
 if __name__ == "__main__":

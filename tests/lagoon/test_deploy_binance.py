@@ -49,6 +49,7 @@ def anvil_binance_fork(vault_owner, usdt_holder, asset_manager, valuation_manage
     launch = fork_network_anvil(
         JSON_RPC_BINANCE,
         unlocked_addresses=[vault_owner, usdt_holder, asset_manager, valuation_manager],
+        # code_size_limit=99_999,
     )
     try:
         yield launch

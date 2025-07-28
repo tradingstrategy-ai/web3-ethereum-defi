@@ -56,7 +56,7 @@ def anvil(request: FixtureRequest) -> AnvilLaunch:
             log_level = log_cli_level
 
     # London hardfork will enable EIP-1559 style gas fees
-    anvil = launch_anvil()
+    anvil = launch_anvil(code_size_limit=99_9999)
     try:
         # Make the initial snapshot ("zero state") to which we revert between tests
         # web3 = Web3(HTTPProvider(anvil.json_rpc_url))
