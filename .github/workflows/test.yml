@@ -82,9 +82,14 @@ jobs:
           pnpm --version 
           make guard in-house safe-integration
 
+      # Lagoon source deployment needs soldeer
       - name: Lagoon dependency issue smoke test
         run: |
-          # This is a workaround for
+          # This is a workaround for Lagoon now needing to refer to 
+          # /home/runner/work/web3-ethereum-defi/web3-ethereum-defi/contracts/lagoon-v0/dependencies/@openzeppelin-contracts-upgradeable-5.0.0/access/Ownable2StepUpgradeable.sol": No such file or directory (os error 2)
+          # during the deployment
+          cargo install soldeer          
+          (cd contracts/lagoon-v0 && @soldeer install) 
           ls -lha contracts/lagoon-v0/dependencies/
           ls -lha contracts/lagoon-v0/dependencies/@openzeppelin-contracts-upgradeable-5.0.0/
 
