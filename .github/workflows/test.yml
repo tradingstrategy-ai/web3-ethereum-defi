@@ -89,6 +89,7 @@ jobs:
           # /home/runner/work/web3-ethereum-defi/web3-ethereum-defi/contracts/lagoon-v0/dependencies/@openzeppelin-contracts-upgradeable-5.0.0/access/Ownable2StepUpgradeable.sol": No such file or directory (os error 2)
           # during the deployment
           cargo install soldeer          
+          export PATH="$HOME/.cargo/bin:$PATH"
           (cd contracts/lagoon-v0 && @soldeer install) 
           ls -lha contracts/lagoon-v0/dependencies/
           ls -lha contracts/lagoon-v0/dependencies/@openzeppelin-contracts-upgradeable-5.0.0/
