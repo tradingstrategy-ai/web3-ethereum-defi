@@ -31,6 +31,7 @@ from eth.typing import BlockRange
 from eth_typing import HexAddress, BlockIdentifier, ChecksumAddress
 
 
+import eth_abi
 from hexbytes import HexBytes
 from web3 import Web3
 from web3.contract import Contract
@@ -99,6 +100,7 @@ class LagoonVersion(enum.Enum):
 
     legacy = "legacy"
     v_0_5_0 = "v0.5.0"
+    v_0_4_0 = "v0.4.0"
 
 
 class LagoonVault(ERC4626Vault):
@@ -173,6 +175,24 @@ class LagoonVault(ERC4626Vault):
         - Specifically call pendingSilo() that has been removed because the contract is too big
         - Our ABI definitions and callign conventions change between Lagoon versions
         """
+
+        probe_call = EncodedCall.from_keccak_signature(
+            function="version",
+            address=Web3.to_checksum_address(self.spec.vault_address),
+            signature=Web3.keccak(text="version()")[0:4],
+            data=b"",
+            extra_data={},
+        )
+        try:
+            result = probe_call.call(self.web3, block_identifier="latest")
+            decoded = eth_abi.decode(["string"], result)
+            decoded_version = decoded[0]
+            if decoded_version == "v0.4.0":
+                return LagoonVersion.v_0_4_0
+            raise NotImplementedError(f"Unknown Lagoon version {decoded_version} for vault {self.spec.vault_address}")
+        except (ValueError, ContractLogicError) as e:
+            pass
+
         probe_call = EncodedCall.from_keccak_signature(
             function="pendingSilo",
             address=Web3.to_checksum_address(self.spec.vault_address),
@@ -317,7 +337,7 @@ class LagoonVault(ERC4626Vault):
         # Lagoon team removed pendingSilo() function
         # as they hit the contract size limit
         vault_contract = self.vault_contract
-        if self.version == LagoonVersion.v_0_5_0:
+        if self.version in (LagoonVersion.v_0_5_0, LagoonVersion.v_0_4_0):
             web3 = self.web3
             # Magic storage slot for Silo address
             slot = "0x5c74d456014b1c0eb4368d944667a568313858a3029a650ff0cb7b56f8b57a08"

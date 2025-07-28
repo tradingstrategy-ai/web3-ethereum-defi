@@ -107,6 +107,9 @@ class LagoonDeploymentParameters:
             assert self.underlying.startswith("0x"), f"Underlying token address must be a valid hex address, got {self.underlying}"
             self.underlying = Web3.to_checksum_address(self.underlying)
 
+        if self.managementRate:
+            assert type(self.managementRate) == int
+
     def as_solidity_struct(self) -> dict:
         # Return Vault.InitStruct to be passed to the constructor
         return asdict(self)
@@ -463,15 +466,20 @@ def deploy_lagoon(
 
     if legacy:
         assert not factory_contract
+        assert vault_abi == "lagoon/Vault.json", f"Legacy Lagoon vault ABI must be lagoon/Vault.json: {vault_abi}"
         logger.info("Deploying Lagoon vault in legacy mode, beacon proxy is %s", beacon_proxy)
-        init_struct = parameters.as_solidity_struct()
+
+        #     function initialize(
+        #         InitStruct memory init
+        #     ) public virtual initializer {
+        init_struct = parameters.as_abi_encoded_bytes()
 
         if beacon_proxy:
             vault = deploy_beacon_proxy(
                 web3,
                 deployer=deployer,
                 beacon_address=beacon_address,
-                implementation_contract_abi="lagoon/Vault.json",
+                implementation_contract_abi=vault_abi,
             )
         else:
             vault = deploy_contract(
@@ -878,11 +886,11 @@ def deploy_automated_lagoon_vault(
         time.sleep(between_contracts_delay_seconds)
 
     if not existing_vault_address:
-        assert use_forge, f"Fee registry deployment is only supported with Forge"
 
         if from_the_scratch:
             # Deploy the full Lagoon protocol with fee registry and beacon proxy factory,
             # setting out Safe as the protocol owner
+            assert use_forge, f"Fee registry deployment is only supported with Forge"
             beacon_proxy_factory_contract = deploy_fresh_lagoon_protocol(
                 web3=web3,
                 deployer=deployer,

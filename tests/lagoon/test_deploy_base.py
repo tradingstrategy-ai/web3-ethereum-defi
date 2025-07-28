@@ -459,6 +459,7 @@ def test_lagoon_deploy_base_guarded_any_token(
     assert usdc.fetch_balance_of(depositor) > 994
 
 
+@pytest.mark.skip(reason="Legacy Lagoon v0.1 is not supported anymore")
 def test_lagoon_legacy_deploy_base_guarded_any_token(
     web3: Web3,
     uniswap_v2,

@@ -426,7 +426,7 @@ def launch_anvil(
     )
 
     if code_size_limit:
-        args["code_size_limit"] = code_size_limit,
+        args["code_size_limit"] = code_size_limit
 
     if fork_block_number:
         args["fork_block_number"] = fork_block_number
