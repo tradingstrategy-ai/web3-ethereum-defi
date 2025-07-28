@@ -75,7 +75,7 @@ jobs:
         if: matrix.web3-version == '6'
         run: |
           poetry env use "${{ matrix.python-version }}"
-          poetry install -E web3v6
+          petry install -E docs -E data -E test -E hypersync -E tester -E web3v6
 
       - name: Install Ganache
         run: yarn global add ganache
