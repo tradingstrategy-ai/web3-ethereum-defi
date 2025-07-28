@@ -57,7 +57,7 @@ DEFAULT_PERFORMANCE_RATE = 2000
 
 CONTRACTS_ROOT = Path(os.path.dirname(__file__)) / ".." / ".." / "contracts"
 
-DEFAULT_LAGOON_VAULT_ABI = "v0.4.0/Vault.sol"
+DEFAULT_LAGOON_VAULT_ABI = "v0.5.0/Vault.sol"
 
 # struct InitStruct {
 #     IERC20 underlying;

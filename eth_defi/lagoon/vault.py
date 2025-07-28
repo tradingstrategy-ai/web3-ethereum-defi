@@ -189,7 +189,10 @@ class LagoonVault(ERC4626Vault):
             decoded_version = decoded[0]
             if decoded_version == "v0.4.0":
                 return LagoonVersion.v_0_4_0
-            raise NotImplementedError(f"Unknown Lagoon version {decoded_version} for vault {self.spec.vault_address}")
+            elif decoded_version == "v0.5.0":
+                return LagoonVersion.v_0_5_0
+            else:
+                raise NotImplementedError(f"Unknown Lagoon version {decoded_version} for vault {self.spec.vault_address}")
         except (ValueError, ContractLogicError) as e:
             pass
 

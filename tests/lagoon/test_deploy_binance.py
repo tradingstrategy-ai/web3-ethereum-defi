@@ -55,7 +55,7 @@ def anvil_binance_fork(vault_owner, usdt_holder, asset_manager, valuation_manage
         yield launch
     finally:
         # Wind down Anvil process after the test is complete
-        launch.close(log_level=logging.INFO)
+        launch.close()
 
 
 @pytest.fixture()
@@ -196,7 +196,7 @@ def test_lagoon_deploy_from_scratch_binance_guarded_any_token(
     assert vault.underlying_token.address == usdt.address
     assert usdt.contract.functions.allowance(vault.safe.address, vault.address).call() > 0
 
-    assert vault.version == LagoonVersion.v_0_4_0
+    assert vault.version == LagoonVersion.v_0_5_0
 
     pretty = deploy_info.pformat()
     assert type(pretty) == str
