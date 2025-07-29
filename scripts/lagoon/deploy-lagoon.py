@@ -95,11 +95,10 @@ def main():
         logger.info("Production deployment")
         web3 = create_multi_provider_web3(JSON_RPC_URL)
 
-        if chain_id != 421614 or ETHERSCAN_API_KEY:
-            check_etherscan_api_key(
-                web3,
-                api_key=ETHERSCAN_API_KEY,
-            )
+        check_etherscan_api_key(
+            web3,
+            api_key=ETHERSCAN_API_KEY,
+        )
 
     if chain_id == 421614:
         uniswap_v2 = None

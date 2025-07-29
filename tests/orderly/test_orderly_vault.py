@@ -35,7 +35,7 @@ def test_orderly_deposit(
         vault=orderly_vault,
         token=usdc.contract,
         amount=100 * 10**6,
-        wallet_address=hot_wallet.address,
+        depositor_address=hot_wallet.address,
         orderly_account_id=orderly_account_id,
         broker_id=broker_id,
         token_id="USDC",
