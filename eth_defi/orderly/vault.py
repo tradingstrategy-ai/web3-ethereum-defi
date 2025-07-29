@@ -17,7 +17,7 @@ def deposit(
     *,
     amount: int,
     token: Contract,
-    wallet_address: HexAddress,
+    depositor_address: HexAddress,
     orderly_account_id: HexAddress,
     broker_id: str,
     token_id: str | None = None,
@@ -33,8 +33,8 @@ def deposit(
         The amount of tokens to deposit.
     :param token:
         The token to deposit.
-    :param wallet_address:
-        The wallet address to deposit from.
+    :param depositor_address:
+        The address that will be used to deposit.
     :param orderly_account_id:
         The orderly account ID to deposit to.
     :param broker_id:
@@ -57,7 +57,7 @@ def deposit(
     )
 
     get_deposit_fee_function = vault.contract.functions.getDepositFee(
-        Web3.to_checksum_address(wallet_address),
+        Web3.to_checksum_address(depositor_address),
         deposit_input,
     )
 
