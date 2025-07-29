@@ -103,7 +103,8 @@ web3 = [
 ]
 
 eth-tester = [
-    {version = "*", markers = "extra != 'web3v6'", optional = true},
+    {version = "*", markers = "extra != 'web3v6'"},
+    {version = "*", markers = "extra == 'web3v6'"}
 ]
 
 evm-trace = [
@@ -141,8 +142,10 @@ docs = ["Sphinx", "sphinx-rtd-theme", "sphinx-sitemap", "sphinx-autodoc-typehint
 data = ["jupyter", "tqdm", "pandas", "gql", "matplotlib", "plotly", "pyarrow", "numpy", "tenacity", "kaleido", "ffn"]
 test = ["pytest-xdist"]
 hypersync = ["hypersync"]
-web3v6 = ["eth-tester"]
-# tester = ["eth-tester"]
+# To install the web3py version based dependencies
+web3v6 = []
+web3v7 = []
+#tester = ["eth-tester"]
 
 
 [build-system]
