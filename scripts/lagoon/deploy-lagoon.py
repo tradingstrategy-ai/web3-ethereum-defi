@@ -37,14 +37,13 @@ from eth_defi.erc_4626.classification import create_vault_instance, detect_vault
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.etherscan.validation import check_etherscan_api_key
 from eth_defi.hotwallet import HotWallet
+from eth_defi.lagoon.config import get_lagoon_chain_config
 from eth_defi.lagoon.deployment import LagoonDeploymentParameters, deploy_automated_lagoon_vault
 from eth_defi.provider.anvil import fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.token import USDC_NATIVE_TOKEN, USDT_NATIVE_TOKEN
 
 from eth_defi.uniswap_v2.constants import UNISWAP_V2_DEPLOYMENTS
 from eth_defi.uniswap_v2.deployment import fetch_deployment
-from eth_defi.uniswap_v3.deployment import fetch_deployment as fetch_deployment_uni_v3
 
 from eth_defi.utils import setup_console_logging
 
@@ -98,6 +97,8 @@ def main():
 
     chain_id = web3.eth.chain_id
 
+    config = get_lagoon_chain_config(chain_id)
+
     assert chain_name in UNISWAP_V2_DEPLOYMENTS, "Unsupported chain in Uniswap v2 deployment data: " + chain_name
 
     uniswap_v2 = fetch_deployment(
@@ -107,19 +108,8 @@ def main():
         init_code_hash=UNISWAP_V2_DEPLOYMENTS[chain_name]["init_code_hash"],
     )
 
-    if web3.eth.chain_id == 56:
-        # Binance uses USDT,
-        # also it does not have official Lagoon factory as the writing of this.
-        underlying = USDT_NATIVE_TOKEN[chain_id]
-        from_the_scratch = True
-        factory_contract = True
-    else:
-        underlying = USDC_NATIVE_TOKEN[chain_id]
-        factory_contract = True
-        from_the_scratch = False
-
     parameters = LagoonDeploymentParameters(
-        underlying=underlying,
+        underlying=config.underlying,
         name="Test vault",
         symbol="TEST",
     )
@@ -148,10 +138,10 @@ def main():
         uniswap_v3=None,
         any_asset=True,
         erc_4626_vaults=erc_4626_vaults,
-        factory_contract=factory_contract,
+        factory_contract=config.factory_contract,
         use_forge=True,
         etherscan_api_key=ETHERSCAN_API_KEY,
-        from_the_scratch=from_the_scratch,
+        from_the_scratch=config.from_the_scratch,
     )
 
     logger.info(f"Lagoon vault deployed:\n{deploy_info.pformat()}")
