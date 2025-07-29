@@ -8,6 +8,8 @@ Lagoon protocol vaults integration.
    :recursive:
 
    eth_defi.lagoon.vault
+   eth_defi.lagoon.config
    eth_defi.lagoon.deployment
    eth_defi.lagoon.analysis
    eth_defi.lagoon.beacon_proxy
+   eth_defi.lagoon.testing

@@ -23,6 +23,7 @@ from web3.contract.contract import ContractFunction
 
 from eth_defi.gas import estimate_gas_fees, apply_gas, estimate_gas_price
 from eth_defi.tx import decode_signed_transaction
+from eth_defi.middleware import construct_sign_and_send_raw_middleware_anvil
 
 
 logger = logging.getLogger(__name__)
@@ -538,7 +539,12 @@ class HotWallet:
         return HotWallet(account)
 
     @staticmethod
-    def create_for_testing(web3: Web3, test_account_n=0, eth_amount=1) -> "HotWallet":
+    def create_for_testing(
+        web3: Web3,
+        test_account_n=0,
+        eth_amount=1,
+        register_middleware=True,
+    ) -> "HotWallet":
         """Creates a new hot wallet and seeds it with ETH from one of well-known test accounts.
 
         Shortcut method for unit testing.
@@ -574,4 +580,9 @@ class HotWallet:
         )
         web3.eth.wait_for_transaction_receipt(tx_hash)
         wallet.sync_nonce(web3)
+
+        if register_middleware:
+            # Add to the local signer chain
+            web3.middleware_onion.add(construct_sign_and_send_raw_middleware_anvil(wallet.account))
+
         return wallet
