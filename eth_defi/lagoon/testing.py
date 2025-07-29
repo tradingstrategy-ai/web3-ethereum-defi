@@ -1,4 +1,5 @@
 """Lagoon unit test helpers."""
+
 from decimal import Decimal
 
 import pytest

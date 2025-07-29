@@ -52,7 +52,6 @@ UNISWAP_V3_DEPLOYMENTS = {
         "quoter_v2": True,
         "router_v2": True,
     },
-
     # BNB deployment
     #
     # https://docs.uniswap.org/contracts/v3/reference/deployments/bnb-deployments
@@ -65,7 +64,6 @@ UNISWAP_V3_DEPLOYMENTS = {
         "quoter_v2": True,
         "router_v2": True,
     },
-
 }
 
 # address of factory deployed on Ethereum mainnet, Polygon, Optimism, Arbitrum

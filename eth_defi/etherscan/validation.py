@@ -1,4 +1,5 @@
 """Etherscan configuration validation."""
+
 import logging
 
 import requests
@@ -45,9 +46,7 @@ def check_etherscan_api_key(
     resp = requests.get(url)
 
     if resp.status_code != 200:
-        raise EtherscanConfigurationError(
-            f"Failed to validate Etherscan API key for chain ID {chain_id}: {resp.status_code} - {resp.text}"
-        )
+        raise EtherscanConfigurationError(f"Failed to validate Etherscan API key for chain ID {chain_id}: {resp.status_code} - {resp.text}")
 
     status = resp.json().get("status")
     assert status == "1", f"Invalid Etherscan API key for chain ID {chain_id}: {resp.json()}"

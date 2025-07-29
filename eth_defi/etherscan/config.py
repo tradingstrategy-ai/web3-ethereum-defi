@@ -31,5 +31,3 @@ def get_etherscan_url(chain_id: int) -> str | None:
     assert type(chain_id) is int, f"Chain ID must be an integer, got {type(chain_id)}"
     url = ETHERSCAN_URLS.get(chain_id)
     return url
-
-

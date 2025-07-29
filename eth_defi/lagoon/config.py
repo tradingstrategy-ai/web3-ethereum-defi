@@ -10,7 +10,6 @@ from eth_typing import HexAddress
 from eth_defi.token import USDT_NATIVE_TOKEN, USDC_NATIVE_TOKEN
 
 
-
 @dataclass(slots=True, frozen=True)
 class LagoonChainConfig:
     #: The default denomination token
@@ -19,7 +18,6 @@ class LagoonChainConfig:
     factory_contract: bool
     #: Do we need to deploy the whole protocol or just the existing protocol
     from_the_scratch: bool
-
 
 
 def get_lagoon_chain_config(chain_id: int) -> LagoonChainConfig:
@@ -39,4 +37,3 @@ def get_lagoon_chain_config(chain_id: int) -> LagoonChainConfig:
         factory_contract=factory_contract,
         from_the_scratch=from_the_scratch,
     )
-
