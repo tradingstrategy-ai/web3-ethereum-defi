@@ -14,6 +14,7 @@ pragma solidity ^0.8.26;
 
 import "@gnosis.pm/zodiac/contracts/core/Module.sol";
 import "@guard/GuardV0Base.sol";
+import "@guard/interface/IVault.sol";
 
 
 /**
@@ -95,6 +96,33 @@ contract TradingStrategyModuleV0 is Module, GuardV0Base {
                 revert(add(response, 0x20), mload(response))
             }
        }
+    }
+
+    /**
+     * Orderly integration: Delegate signer for the the vault to an EOA
+     *
+     * https://orderly.network/docs/build-on-omnichain/user-flows/delegate-signer
+     */
+    function orderlyDelegateSigner(address orderlyVault, VaultTypes.VaultDelegate calldata data) public {
+        IVault(orderlyVault).delegateSigner(data);
+    }
+
+    /**
+     * Orderly integration: Deposit to an Orderly vault
+     *
+     * https://orderly.network/docs/build-on-omnichain/user-flows/withdrawal-deposit
+     */
+    function orderlyDeposit(address orderlyVault, address receiver, VaultTypes.VaultDepositFE calldata data) public {
+        IVault(orderlyVault).depositTo(receiver, data);
+    }
+
+    /**
+     * Orderly integration: Withdraw from an Orderly vault
+     *
+     * https://orderly.network/docs/build-on-omnichain/user-flows/withdrawal-deposit
+     */
+    function orderlyWithdraw(address orderlyVault, VaultTypes.VaultWithdraw calldata data) public {
+        IVault(orderlyVault).withdraw(data);
     }
 }
 
