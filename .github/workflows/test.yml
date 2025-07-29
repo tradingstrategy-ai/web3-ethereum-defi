@@ -70,7 +70,7 @@ jobs:
           poetry env use '${{ matrix.python-version }}'
           # this will try to install both web3v6 & web3v7 deps eventually end up with web3v7 deps
           # poetry install --all-extras
-          poetry install -E docs -E data -E test -E hypersync -E tester
+          poetry install -E docs -E data -E test -E hypersync
 
       - name: Install specific Web3.py version
         run: |
