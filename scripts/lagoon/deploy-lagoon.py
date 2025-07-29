@@ -48,10 +48,10 @@ from eth_defi.lagoon.config import get_lagoon_chain_config
 from eth_defi.lagoon.deployment import LagoonDeploymentParameters, deploy_automated_lagoon_vault
 from eth_defi.provider.anvil import fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
-
+from eth_defi.token import USDC_NATIVE_TOKEN, USDT_NATIVE_TOKEN
 from eth_defi.uniswap_v2.constants import UNISWAP_V2_DEPLOYMENTS
 from eth_defi.uniswap_v2.deployment import fetch_deployment
-
+from eth_defi.uniswap_v3.deployment import fetch_deployment as fetch_deployment_uni_v3
 from eth_defi.utils import setup_console_logging
 
 logger = logging.getLogger(__name__)
@@ -73,12 +73,8 @@ def main():
     VAULTS = os.environ.get("VAULTS")  # Comma separated list of ERC-4626 to whitelist to trade
 
     web3 = create_multi_provider_web3(JSON_RPC_URL)
-    chain_name = get_chain_name(web3.eth.chain_id).lower()
-
-    logger.info(f"Connected to chain {chain_name}, last block is {web3.eth.block_number:,}")
-
-    web3 = create_multi_provider_web3(JSON_RPC_URL)
-    chain_name = get_chain_name(web3.eth.chain_id).lower()
+    chain_id = web3.eth.chain_id
+    chain_name = get_chain_name(chain_id).lower()
 
     logger.info(f"Connected to chain {chain_name}, last block is {web3.eth.block_number:,}")
 
@@ -99,23 +95,25 @@ def main():
         logger.info("Production deployment")
         web3 = create_multi_provider_web3(JSON_RPC_URL)
 
-        check_etherscan_api_key(
+        if chain_id != 421614 or ETHERSCAN_API_KEY:
+            check_etherscan_api_key(
+                web3,
+                api_key=ETHERSCAN_API_KEY,
+            )
+
+    if chain_id == 421614:
+        uniswap_v2 = None
+    else:
+        assert chain_name in UNISWAP_V2_DEPLOYMENTS, "Unsupported chain in Uniswap v2 deployment data: " + chain_name
+
+        uniswap_v2 = fetch_deployment(
             web3,
-            api_key=ETHERSCAN_API_KEY,
+            factory_address=UNISWAP_V2_DEPLOYMENTS[chain_name]["factory"],
+            router_address=UNISWAP_V2_DEPLOYMENTS[chain_name]["router"],
+            init_code_hash=UNISWAP_V2_DEPLOYMENTS[chain_name]["init_code_hash"],
         )
 
-    chain_id = web3.eth.chain_id
-
     config = get_lagoon_chain_config(chain_id)
-
-    assert chain_name in UNISWAP_V2_DEPLOYMENTS, "Unsupported chain in Uniswap v2 deployment data: " + chain_name
-
-    uniswap_v2 = fetch_deployment(
-        web3,
-        factory_address=UNISWAP_V2_DEPLOYMENTS[chain_name]["factory"],
-        router_address=UNISWAP_V2_DEPLOYMENTS[chain_name]["router"],
-        init_code_hash=UNISWAP_V2_DEPLOYMENTS[chain_name]["init_code_hash"],
-    )
 
     parameters = LagoonDeploymentParameters(
         underlying=config.underlying,
