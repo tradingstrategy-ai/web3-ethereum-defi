@@ -98,8 +98,8 @@ hypersync = {version = "^0.8.5", optional = true}
 # The project is now migrating to web3py v7 while keeping the legacy support for v6. To make it compatible with v6 use these dependencies
 # Conditional dependencies matrix based on extras
 web3 = [
-    {version = "^7.12.0", extras = ["tester"], markers = "extra != 'web3v6'"},
-    {version = "=6.14.0", extras = ["tester"], markers = "extra == 'web3v6'"}
+    {version = "^7.12.0", markers = "extra != 'web3v6'"},
+    {version = "=6.14.0", markers = "extra == 'web3v6'"}
 ]
 
 eth-tester = [
@@ -131,6 +131,15 @@ eth-account = [
     {version = "^0.13.7", markers = "extra != 'web3v6'"},
     {version = "=0.11.3", markers = "extra == 'web3v6'"}
 ]
+eth-typing = [
+    {version = "^5.2.1", markers = "extra != 'web3v6'"},
+    {version = "=4.2.1", markers = "extra == 'web3v6'"}
+#    {version = "^3.0.0", markers = "extra == 'web3v6'"}
+]
+#py-evm = [
+#    {version = "^0.12.1b1", markers = "extra != 'web3v6'"},
+#    {version = "^v0.10.1-beta.2", markers = "extra == 'web3v6'"}
+#]
 
 
 [tool.poetry.group.dev.dependencies]
@@ -147,10 +156,10 @@ docs = ["Sphinx", "sphinx-rtd-theme", "sphinx-sitemap", "sphinx-autodoc-typehint
 data = ["jupyter", "tqdm", "pandas", "gql", "matplotlib", "plotly", "pyarrow", "numpy", "tenacity", "kaleido", "ffn"]
 test = ["pytest-xdist"]
 hypersync = ["hypersync"]
-tester = ["eth-tester"]
+#tester = ["eth-tester"]
 # To install the web3py version based dependencies
 web3v6 = []
-web3v7 = []
+web3v7 = ["eth-tester", "evm-trace", "safe-eth-py", "eth-pydantic-types", "multicall", "eth-account", "eth-typing"]
 
 
 
