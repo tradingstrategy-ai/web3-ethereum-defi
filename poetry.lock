@@ -2020,7 +2020,7 @@ description = "Tools for testing Ethereum applications."
 optional = true
 python-versions = ">=3.6.8,<4"
 groups = ["main"]
-markers = "implementation_name == \"cpython\" or implementation_name == \"pypy\""
+markers = "(extra == \"web3v6\" or extra == \"tester\") and (implementation_name == \"cpython\" or implementation_name == \"pypy\")"
 files = [
     {file = "eth-tester-0.9.1b1.tar.gz", hash = "sha256:b9cbc93d0b17a6e8acbb52294dad214ee223cf88209fa5be66ead353937d274c"},
     {file = "eth_tester-0.9.1b1-py3-none-any.whl", hash = "sha256:0e4367d99ae242efdb8c1d18ed99d1ff3f03149abb0a4c2427bc6d333ebef13b"},
@@ -8544,10 +8544,11 @@ data = ["ffn", "gql", "jupyter", "kaleido", "matplotlib", "numpy", "pandas", "pl
 docs = ["Sphinx", "furo", "nbsphinx", "sphinx-autodoc-typehints", "sphinx-rtd-theme", "sphinx-rtd-theme", "sphinx-sitemap", "sphinx-sitemap", "zope-dottedname"]
 hypersync = ["hypersync"]
 test = ["pytest-xdist"]
+tester = ["eth-tester", "eth-tester"]
 web3v6 = []
 web3v7 = []
 
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<4"
-content-hash = "cbcd463403abff2807c4b1b9e39cb17c73e66e1763ce6ad5e2588577085b20ca"
+content-hash = "4ca58c434c1d01643b35048c00ce36f91db2cd695e70bbcd348cf2b686239a16"

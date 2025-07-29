@@ -113,7 +113,7 @@ evm-trace = [
 ]
 
 safe-eth-py = [
-    {version = "^7.5.1", markers = "extra != 'web3v6'"},
+    {version = "^7.8.0", markers = "extra != 'web3v6'"},
     {version = "6.0.0b42", markers = "extra == 'web3v6'"}
 ]
 
@@ -125,6 +125,11 @@ eth-pydantic-types = [
 multicall = [
     {version = "^0.12.3", markers = "extra != 'web3v6'"},
     {version = "^0.9.0", markers = "extra == 'web3v6'"}
+]
+# Have to pin it to make web3py v6/v7 compatible
+eth-account = [
+    {version = "^0.13.7", markers = "extra != 'web3v6'"},
+    {version = "=0.11.3", markers = "extra == 'web3v6'"}
 ]
 
 
@@ -142,10 +147,11 @@ docs = ["Sphinx", "sphinx-rtd-theme", "sphinx-sitemap", "sphinx-autodoc-typehint
 data = ["jupyter", "tqdm", "pandas", "gql", "matplotlib", "plotly", "pyarrow", "numpy", "tenacity", "kaleido", "ffn"]
 test = ["pytest-xdist"]
 hypersync = ["hypersync"]
+tester = ["eth-tester"]
 # To install the web3py version based dependencies
 web3v6 = []
 web3v7 = []
-#tester = ["eth-tester"]
+
 
 
 [build-system]
