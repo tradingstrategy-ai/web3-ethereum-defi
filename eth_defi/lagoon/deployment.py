@@ -251,7 +251,7 @@ class LagoonAutomatedDeployment:
         io = StringIO()
         print("{:<30} {:30}".format("Key", "Label"), file=io)
         for k, v in fields.items():
-            print("{:<30} {:<30}".format(k, v), file=io)
+            print("{:<30} {:<30}".format(k, v or "-"), file=io)
 
         return io.getvalue()
 
