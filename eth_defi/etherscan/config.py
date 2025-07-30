@@ -31,3 +31,17 @@ def get_etherscan_url(chain_id: int) -> str | None:
     assert type(chain_id) is int, f"Chain ID must be an integer, got {type(chain_id)}"
     url = ETHERSCAN_URLS.get(chain_id)
     return url
+
+
+def get_etherscan_tx_link(chain_id: int, tx_hash: str) -> str | None:
+    """Get the Etherscan transaction link for a given chain ID and transaction hash."""
+    url = get_etherscan_url(chain_id)
+    assert url is not None, f"No Etherscan URL found for chain ID {chain_id}"
+    return f"{url}/tx/{tx_hash}"
+
+
+def get_etherscan_address_link(chain_id: int, address: str) -> str | None:
+    """Get the Etherscan address link for a given chain ID and address."""
+    url = get_etherscan_url(chain_id)
+    assert url is not None, f"No Etherscan URL found for chain ID {chain_id}"
+    return f"{url}/address/{address}"

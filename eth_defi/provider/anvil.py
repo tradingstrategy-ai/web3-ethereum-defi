@@ -212,6 +212,7 @@ def launch_anvil(
     fork_block_number: Optional[int] = None,
     log_wait=False,
     code_size_limit: int = None,
+    rpc_smoke_test=True,
 ) -> AnvilLaunch:
     """Creates Anvil unit test backend or mainnet fork.
 
@@ -383,8 +384,12 @@ def launch_anvil(
     :parma code_size_limit:
         Max smart contract size
 
+    :param rpc_smoke_test:
+        Check that the RPC is working before attempting to start Anvil
+
     :parma log_wait:
         Display info level logging while waiting for Anvil to start.
+
     """
 
     attempts_left = attempts
@@ -415,6 +420,12 @@ def launch_anvil(
         logger.info("Multi RPC detected, using Anvil at the first RPC endpoint %s", cleaned_fork_url)
     else:
         cleaned_fork_url = fork_url
+
+    # Check given RPC works
+    if rpc_smoke_test:
+        web3 = Web3(HTTPProvider(cleaned_fork_url, request_kwargs={"timeout": test_request_timeout}))
+        # Will raise an exception if not working
+        web3.eth.block_number
 
     # https://book.getfoundry.sh/reference/anvil/
     args = dict(
