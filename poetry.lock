@@ -3071,8 +3071,8 @@ files = [
 ]
 
 [package.dependencies]
-decorator = {version = "*", markers = "python_version >= \"3.11\""}
-ipython = {version = ">=7.31.1", markers = "python_version >= \"3.11\""}
+decorator = {version = "*", markers = "python_version > \"3.6\""}
+ipython = {version = ">=7.31.1", markers = "python_version > \"3.6\""}
 tomli = {version = "*", markers = "python_version > \"3.6\" and python_version < \"3.11\""}
 
 [[package]]
@@ -8258,4 +8258,4 @@ web3v7 = ["eth-account", "eth-account", "eth-pydantic-types", "eth-pydantic-type
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<4"
-content-hash = "55e908035e6d217b2373d0ad754850ceef05cbeceea64a4d29d824999eb7e8f3"
+content-hash = "8463d210c19f81ef83c3a4c682aceb68e9134c76bc56358f6431e24546b06f88"
