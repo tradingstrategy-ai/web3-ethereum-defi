@@ -84,6 +84,7 @@ jobs:
              # poetry run pip install "safe-eth-py==6.0.0b42"
              # poetry run pip install "eth-pydantic-types<0.2"
              # poetry run pip install "multicall>=0.9.0,<0.10.0"
+             poetry run pip freeze
           else
              poetry install -E web3v7
              poetry run pip install -e ".[web3v7]"
@@ -93,6 +94,7 @@ jobs:
              # poetry run pip install "safe-eth-py>=7.5.1"
              # poetry run pip install "eth-pydantic-types>=0.2.0"
              # poetry run pip install "multicall>=0.12.3"
+             poetry run pip freeze
           fi
 
       - name: Install Ganache
