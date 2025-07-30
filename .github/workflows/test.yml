@@ -37,10 +37,6 @@ jobs:
         with:
           submodules: true
 
-      # Setup Debug Session - Add this when you need to debug
-      - name: Setup Debug Session
-        uses: csexton/debugger-action@master
-
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
@@ -79,23 +75,23 @@ jobs:
       - name: Install specific Web3.py version
         run: |
           if [ "${{ matrix.web3-version }}" = "6" ]; then
-            poetry install -E docs -E data -E test -E hypersync -E web3v6
-            # poetry run pip install -e ".[web3v6]"
-            # poetry run pip install "web3>=6.14.0,<7.0.0"
-            # poetry run pip install "web3[tester]==6.14.0"
-            # poetry run pip install "evm-trace==0.1.0a17"
-            # poetry run pip install "safe-eth-py==6.0.0b42"
-            # poetry run pip install "eth-pydantic-types<0.2"
-            # poetry run pip install "multicall>=0.9.0,<0.10.0"
+             poetry install -E web3v6
+             poetry run pip install -e ".[web3v6]"
+#             poetry run pip install "web3>=6.14.0,<7.0.0"
+#             poetry run pip install "web3[tester]==6.14.0"
+#             poetry run pip install "evm-trace==0.1.0a17"
+#             poetry run pip install "safe-eth-py==6.0.0b42"
+#             poetry run pip install "eth-pydantic-types<0.2"
+#             poetry run pip install "multicall>=0.9.0,<0.10.0"
           else
-            poetry install -E docs -E data -E test -E hypersync -E web3v7
-            # poetry run pip install -e ".[web3v7]"
-            # poetry run pip install "web3>=7.12.0,<8.0.0"
-            # poetry run pip install "web3[tester]>=7.12.0"
-            # poetry run pip install "evm-trace>=0.2.6"
-            # poetry run pip install "safe-eth-py>=7.5.1"
-            # poetry run pip install "eth-pydantic-types>=0.2.0"
-            # poetry run pip install "multicall>=0.12.3"
+             poetry install -E web3v7
+             poetry run pip install -e ".[web3v7]"
+#             poetry run pip install "web3>=7.12.0,<8.0.0"
+#             poetry run pip install "web3[tester]>=7.12.0"
+#             poetry run pip install "evm-trace>=0.2.6"
+#             poetry run pip install "safe-eth-py>=7.5.1"
+#             poetry run pip install "eth-pydantic-types>=0.2.0"
+#             poetry run pip install "multicall>=0.12.3"
           fi
 
       - name: Install Ganache
@@ -158,7 +154,9 @@ jobs:
           KEY_RING: ${{ secrets.KEY_RING }}
           KEY_NAME: ${{ secrets.KEY_NAME }}
           GCP_ADC_CREDENTIALS_STRING: ${{ secrets.GCP_ADC_CREDENTIALS_STRING }}
-
+      # Setup Debug Session - Add this when you need to debug
+      - name: Setup Debug Session
+        uses: csexton/debugger-action@master
       # SSH Debug Step - Place after tests for debugging test results
       - name: Setup SSH Debug Session (After Tests)
         if: (env.ENABLE_SSH_DEBUG == 'true' && failure()) || (env.ENABLE_SSH_DEBUG == 'true' && success())
