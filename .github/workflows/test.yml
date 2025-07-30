@@ -37,6 +37,10 @@ jobs:
         with:
           submodules: true
 
+      # Setup Debug Session - Add this when you need to debug
+      - name: Setup Debug Session
+        uses: csexton/debugger-action@master
+
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
@@ -129,6 +133,14 @@ jobs:
         run: |
           poetry run python -c "import web3; print(f'Web3.py version: {web3.__version__}')"
 
+      # SSH Debug Step - Place before tests for debugging test issues
+      - name: Setup SSH Debug Session (Before Tests)
+        if: env.ENABLE_SSH_DEBUG == 'true'
+        uses: mxschmitt/action-tmate@v3
+        with:
+          limit-access-to-actor: true
+          timeout-minutes: 30
+
       # Setup Debug Session before tests - Enable this when you need to debug test issues
       # - name: Setup Debug Session Before Tests
       #   uses: csexton/debugger-action@master
@@ -154,9 +166,7 @@ jobs:
           KEY_RING: ${{ secrets.KEY_RING }}
           KEY_NAME: ${{ secrets.KEY_NAME }}
           GCP_ADC_CREDENTIALS_STRING: ${{ secrets.GCP_ADC_CREDENTIALS_STRING }}
-      # Setup Debug Session - Add this when you need to debug
-      - name: Setup Debug Session
-        uses: csexton/debugger-action@master
+
       # SSH Debug Step - Place after tests for debugging test results
       - name: Setup SSH Debug Session (After Tests)
         if: (env.ENABLE_SSH_DEBUG == 'true' && failure()) || (env.ENABLE_SSH_DEBUG == 'true' && success())
