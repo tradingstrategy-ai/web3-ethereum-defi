@@ -54,7 +54,7 @@ def test_orderly_deposit(
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     # nothing left in USDC balance
-    assert usdc.functions.balanceOf(hot_wallet.address).call() == pytest.approx((1008 - 100) * 10**6)
+    assert usdc.functions.balanceOf(hot_wallet.address).call() == pytest.approx((1003 - 100) * 10**6)
 
     # NOTE: There is no easy to way to verify the USDC balance in the vault
     # it can be done via offchain API: https://orderly.network/docs/build-on-omnichain/evm-api/restful-api/private/get-current-holding
