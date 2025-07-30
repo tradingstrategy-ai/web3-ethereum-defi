@@ -2,13 +2,18 @@
 
 A quick script to test/simulate Lagoon vault deployment on any chain.
 
+.. note ::
+
+    THIS SCRIPT IS ONLY FOR TESTING PURPOSES. See the comment
+    about multisig owners below.
+
 - Deploy a new Safe and Lagoon vault on any chain,
   using Lagoon v0.5.0 factory contract
 - Allow automated trading on Uniswap v2 via TradingStrategyModuleV0,
   with configurations for Uniswap, ERC-4626 vault whitelisting and such
-- Safe is 1-of-1 multisig with the deployer as the only cosigner
 - You need to have a real deployer key with a balance,
   but in `SIMULATE` mode we will not use it and just do Anvil mainnet fork deployment
+- Safe multisig in the core of Lagoon vault is set to random owners.
 
 This **cannot** be used for product deployments, only for tests,
 as it configures random Safe multisig cosigners.
@@ -51,9 +56,11 @@ from eth_defi.utils import setup_console_logging
 
 logger = logging.getLogger(__name__)
 
-
+# Broken addresses without private keys,
+# only used to demostrate the setup
 RANDO1 = "0xa7208b5c92d4862b3f11c0047b57a00Dc304c0f8"
 RANDO2 = "0xbD35322AA7c7842bfE36a8CF49d0F063bf83a100"
+RANDO3 = "0xdadB0d80178819F2319190D340ce9A924f783711"
 
 
 def main():
@@ -82,7 +89,7 @@ def main():
     logger.info("Deployer balance at start: %s", Web3.from_wei(balance_at_start, "ether"))
 
     # Add some random multisig holders
-    multisig_owners = [deployer_wallet.address, RANDO1, RANDO2]
+    multisig_owners = [deployer_wallet.address, RANDO1, RANDO2, RANDO3]
 
     if SIMULATE:
         logger.info("Simulation deployment with Anvil")

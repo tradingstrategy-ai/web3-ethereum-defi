@@ -1022,6 +1022,11 @@ def deploy_automated_lagoon_vault(
         )
         assert_transaction_success_with_explanation(web3, tx_hash)
 
+        if not is_anvil(web3):
+            gnosis_sleep = 20.0
+            logger.info("Gnosis GS206 sync issue sleep %s seconds", gnosis_sleep)
+            time.sleep(gnosis_sleep)
+
         # 3. Set Gnosis to a true multisig
         # DOES NOT REMOVE DEPLOYER
         add_new_safe_owners(
