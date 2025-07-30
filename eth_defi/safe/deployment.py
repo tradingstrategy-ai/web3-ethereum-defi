@@ -8,6 +8,7 @@ Safe source code:
 """
 
 import logging
+import time
 
 from eth_account.signers.local import LocalAccount
 from eth_typing import HexAddress
@@ -17,6 +18,7 @@ from web3 import Web3
 from web3.contract.contract import ContractFunction
 
 from eth_defi.abi import ONE_ADDRESS_STR
+from eth_defi.provider.anvil import is_anvil
 from eth_defi.safe.safe_compat import create_safe_ethereum_client
 from eth_defi.trace import assert_transaction_success_with_explanation
 
@@ -95,6 +97,7 @@ def add_new_safe_owners(
     owners: list[HexAddress | str],
     threshold: int,
     gas_per_tx=500_000,
+    gnosis_safe_state_safety_sleep=20,
 ):
     """Update Safe owners and threshold list.
 
@@ -147,6 +150,12 @@ def add_new_safe_owners(
             tx_gas=1_000_000,
         )
         assert_transaction_success_with_explanation(web3, tx_hash)
+
+        if not is_anvil(web3):
+            # Don't do transactions two fast or we might get
+            # require(currentOwner > lastOwner && owners[currentOwner] != address(0) && currentOwner != SENTINEL_OWNERS, "GS026");
+            logger.info("Sleeping for %d seconds to avoid Safe state safety issues", gnosis_safe_state_safety_sleep)
+            time.sleep(gnosis_safe_state_safety_sleep)
 
     # Change the threshold
     logger.info("Changing signign threhold to: %d", threshold)
