@@ -238,6 +238,9 @@ def deploy_contract_with_forge(
         nonce,
     ]
 
+    if verbose:
+        cmd_line.append("-vvv")
+
     if etherscan_api_key:
         if is_anvil(web3):
             logger.warning("Etherscan verification skipped, running on a local fork")

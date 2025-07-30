@@ -287,6 +287,7 @@ def deploy_lagoon_protocol_registry(
         constructor_args=["false"],
         etherscan_api_key=etherscan_api_key,
         contract_file_out="ProtocolRegistry.sol",
+        verbose=True,
     )
 
     time.sleep(4)
@@ -349,6 +350,7 @@ def deploy_fresh_lagoon_protocol(
         etherscan_api_key=etherscan_api_key,
         constructor_args=["true"],
         contract_file_out="Vault.sol",
+        verbose=True,
     )
     time.sleep(forge_sync_delay)
     assert_transaction_success_with_explanation(web3, tx_hash)
@@ -377,6 +379,7 @@ def deploy_fresh_lagoon_protocol(
             wrapped_native_token_address,
         ],
         contract_file_out="BeaconProxyFactory.sol",
+        verbose=True,
     )
     time.sleep(forge_sync_delay)
     assert_transaction_success_with_explanation(web3, tx_hash)

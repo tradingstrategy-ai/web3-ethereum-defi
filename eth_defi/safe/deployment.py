@@ -144,6 +144,7 @@ def add_new_safe_owners(
         safe_tx.sign(deployer._private_key.hex())
         tx_hash, tx = safe_tx.execute(
             tx_sender_private_key=deployer._private_key.hex(),
+            tx_gas=1_000_000,
         )
         assert_transaction_success_with_explanation(web3, tx_hash)
 
@@ -156,6 +157,7 @@ def add_new_safe_owners(
     safe_tx.sign(deployer._private_key.hex())
     tx_hash, tx = safe_tx.execute(
         tx_sender_private_key=deployer._private_key.hex(),
+        tx_gas=1_000_000,
     )
     assert_transaction_success_with_explanation(web3, tx_hash)
     logger.info("Owners updated")

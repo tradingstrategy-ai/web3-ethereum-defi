@@ -28,6 +28,8 @@ To run:
 
 import logging
 import os
+from dataclasses import asdict
+from pprint import pformat
 from typing import cast
 
 from web3 import Web3
@@ -126,6 +128,9 @@ def main():
             erc_4626_vaults.append(vault)
     else:
         erc_4626_vaults = None
+
+    logger.info("Deployer account: %s", deployer_wallet.address)
+    logger.info("Deploying Lagoon vault with parameters: %s", pformat(asdict(parameters)))
 
     deploy_info = deploy_automated_lagoon_vault(
         web3=web3,
