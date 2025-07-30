@@ -37,6 +37,10 @@ jobs:
         with:
           submodules: true
 
+      # Setup Debug Session - Add this when you need to debug
+      - name: Setup Debug Session
+        uses: csexton/debugger-action@master
+
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
@@ -113,7 +117,7 @@ jobs:
       # We also work around race condition for setting up Aave NPM packages.
       - name: Build needed contracts
         run: |
-          pnpm --version 
+          pnpm --version
       # Broken with the latest foudry?
       # make guard in-house safe-integration
 
@@ -129,9 +133,18 @@ jobs:
         run: |
           poetry run python -c "import web3; print(f'Web3.py version: {web3.__version__}')"
 
+      # Setup Debug Session before tests - Enable this when you need to debug test issues
+      # - name: Setup Debug Session Before Tests
+      #   uses: csexton/debugger-action@master
+
       - name: Run tests (parallel)
         run: |
-          poetry run pytest --tb=native -n auto
+          # Enable verbose output if debugging is enabled
+          if [ "$ENABLE_VERBOSE_LOGGING" = "true" ]; then
+            poetry run pytest --tb=native -n auto -v -s --capture=no
+          else
+            poetry run pytest --tb=native -n auto
+          fi
         env:
           BNB_CHAIN_JSON_RPC: ${{ secrets.BNB_CHAIN_JSON_RPC }}
           JSON_RPC_POLYGON_ARCHIVE: ${{ secrets.JSON_RPC_POLYGON_ARCHIVE }}
@@ -146,6 +159,36 @@ jobs:
           KEY_NAME: ${{ secrets.KEY_NAME }}
           GCP_ADC_CREDENTIALS_STRING: ${{ secrets.GCP_ADC_CREDENTIALS_STRING }}
           TOKEN_RISK_API_KEY: ${{ secrets.TOKEN_RISK_API_KEY }}
+
+      # SSH Debug Step - Place after tests for debugging test results
+      - name: Setup SSH Debug Session (After Tests)
+        if: (env.ENABLE_SSH_DEBUG == 'true' && failure()) || (env.ENABLE_SSH_DEBUG == 'true' && success())
+        uses: mxschmitt/action-tmate@v3
+        with:
+          limit-access-to-actor: true
+          timeout-minutes: 30
+
+      # Debug: Test results analysis
+      - name: Debug - Analyze test results
+        if: always() && env.ENABLE_VERBOSE_LOGGING == 'true'
+        run: |
+          echo "=== Test Results Analysis ==="
+          echo "Test exit code: $?"
+          
+          # Look for pytest cache and logs
+          if [ -d ".pytest_cache" ]; then
+            echo "Pytest cache contents:"
+            find .pytest_cache -type f | head -10
+          fi
+          
+          # Look for any test output files
+          find . -name "*.log" -o -name "*test*.xml" -o -name "*coverage*" | head -10
+          
+          echo "=== Disk usage after tests ==="
+          df -h
+          
+          echo "=== Memory usage after tests ==="
+          free -h
 
       - name: Ruff lint check
         run: |
