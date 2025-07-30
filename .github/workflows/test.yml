@@ -156,6 +156,7 @@ jobs:
           GCP_ADC_CREDENTIALS_STRING: ${{ secrets.GCP_ADC_CREDENTIALS_STRING }}
           TOKEN_RISK_API_KEY: ${{ secrets.TOKEN_RISK_API_KEY }}
 
+
       # SSH Debug Step - Place after tests for debugging test results
       - name: Setup SSH Debug Session (After Tests)
         if: (env.ENABLE_SSH_DEBUG == 'true' && failure()) || (env.ENABLE_SSH_DEBUG == 'true' && success())
