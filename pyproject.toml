@@ -99,7 +99,7 @@ hypersync = {version = "^0.8.5", optional = true}
 # Conditional dependencies matrix based on extras
 web3 = [
     {version = "^7.12.0", markers = "extra != 'web3v6'"},
-    {version = "=6.14.0", markers = "extra == 'web3v6'"}
+    {version = "^6.14.0,<7", markers = "extra == 'web3v6'"}
 ]
 
 eth-tester = [
@@ -114,7 +114,7 @@ evm-trace = [
 
 safe-eth-py = [
     {version = "^7.8.0", markers = "extra != 'web3v6'"},
-    {version = "6.0.0b42", markers = "extra == 'web3v6'"}
+    {version = "^6.0.0b42", markers = "extra == 'web3v6'"}
 ]
 
 eth-pydantic-types = [
@@ -129,7 +129,7 @@ multicall = [
 # Have to pin it to make web3py v6/v7 compatible
 eth-account = [
     {version = "^0.13.7", markers = "extra != 'web3v6'"},
-    {version = "=0.11.3", markers = "extra == 'web3v6'"}
+    {version = "^0.11.3", markers = "extra == 'web3v6'"}
 ]
 eth-typing = [
     {version = "^5.2.1", markers = "extra != 'web3v6'"},
@@ -157,7 +157,7 @@ test = ["pytest-xdist"]
 hypersync = ["hypersync"]
 #tester = ["eth-tester"]
 # To install the web3py version based dependencies
-web3v6 = []
+web3v6 = ["eth-tester", "evm-trace", "safe-eth-py", "eth-pydantic-types", "multicall", "eth-account", "eth-typing"]
 web3v7 = ["eth-tester", "evm-trace", "safe-eth-py", "eth-pydantic-types", "multicall", "eth-account", "eth-typing"]
 
 

@@ -70,6 +70,7 @@ jobs:
           poetry env use '${{ matrix.python-version }}'
           # this will try to install both web3v6 & web3v7 deps eventually end up with web3v7 deps
           # poetry install --all-extras
+          poetry install
           poetry install -E docs -E data -E test -E hypersync
 
       - name: Install specific Web3.py version
@@ -156,36 +157,6 @@ jobs:
           GCP_ADC_CREDENTIALS_STRING: ${{ secrets.GCP_ADC_CREDENTIALS_STRING }}
           TOKEN_RISK_API_KEY: ${{ secrets.TOKEN_RISK_API_KEY }}
 
-
-      # SSH Debug Step - Place after tests for debugging test results
-      - name: Setup SSH Debug Session (After Tests)
-        if: (env.ENABLE_SSH_DEBUG == 'true' && failure()) || (env.ENABLE_SSH_DEBUG == 'true' && success())
-        uses: mxschmitt/action-tmate@v3
-        with:
-          limit-access-to-actor: true
-          timeout-minutes: 30
-
-      # Debug: Test results analysis
-      - name: Debug - Analyze test results
-        if: always() && env.ENABLE_VERBOSE_LOGGING == 'true'
-        run: |
-          echo "=== Test Results Analysis ==="
-          echo "Test exit code: $?"
-          
-          # Look for pytest cache and logs
-          if [ -d ".pytest_cache" ]; then
-            echo "Pytest cache contents:"
-            find .pytest_cache -type f | head -10
-          fi
-          
-          # Look for any test output files
-          find . -name "*.log" -o -name "*test*.xml" -o -name "*coverage*" | head -10
-          
-          echo "=== Disk usage after tests ==="
-          df -h
-          
-          echo "=== Memory usage after tests ==="
-          free -h
 
       - name: Ruff lint check
         run: |
