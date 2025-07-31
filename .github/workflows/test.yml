@@ -8,7 +8,6 @@ on:
 
 jobs:
   test-python:
-
     # Reserved multicore instance for running tests
     runs-on:
       group: Beefy runners
@@ -59,6 +58,9 @@ jobs:
       - name: Install poetry
         run: pipx install "poetry<2"
 
+      - name: Configure Poetry for in-project virtual environments
+        run: poetry config virtualenvs.in-project true
+
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
@@ -73,7 +75,7 @@ jobs:
         with:
           path: |
             ~/.cache/pypoetry
-            ~/.local/share/pypoetry/venv
+            .venv
           key: ${{ runner.os }}-poetry-${{ matrix.python-version }}-web3v${{ matrix.web3-version }}-${{ hashFiles('poetry.lock', 'pyproject.toml') }}
 
       - name: Install dependencies
@@ -86,9 +88,9 @@ jobs:
       - name: Install specific Web3.py version
         run: |
           if [ "${{ matrix.web3-version }}" = "6" ]; then
-             poetry install -E docs -E data -E test -E hypersync -E web3v6
+            poetry install -E docs -E data -E test -E hypersync -E web3v6
           else
-             poetry install -E docs -E data -E test -E hypersync -E web3v7
+            poetry install -E docs -E data -E test -E hypersync -E web3v7
           fi
 
       - name: Install Ganache
@@ -116,9 +118,9 @@ jobs:
 
       # Lagoon source deployment needs soldeer
       - name: Lagoon dependency issue smoke test
-        run: |          
+        run: |
           export PATH="$HOME/.cargo/bin:$PATH"
-          (cd contracts/lagoon-v0 && forge soldeer install) 
+          (cd contracts/lagoon-v0 && forge soldeer install)
           ls -lha contracts/lagoon-v0/dependencies/
           ls -lha contracts/lagoon-v0/dependencies/@openzeppelin-contracts-upgradeable-5.0.0/
 
