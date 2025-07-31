@@ -16,7 +16,7 @@ jobs:
     # Only run the action for the latest push
     # See https://docs.github.com/en/actions/using-jobs/using-concurrency#example-only-cancel-in-progress-jobs-or-runs-for-the-current-workflow
     concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}-${{ matrix.python-version }}-${{ matrix.web3-version }}-${{ matrix.extras }}
+      group: ${{ github.workflow }}-${{ github.ref }}-${{ matrix.python-version }}-${{ matrix.web3-version }}
       cancel-in-progress: true
 
     strategy:
@@ -26,10 +26,8 @@ jobs:
         # The project is developed using 3.12. 3.10 has some encoding issues which is causing some tests to fail
         python-version: ["3.11", "3.12"]
         web3-version: ["6", "7"]
-        # Test different combinations of extras to ensure compatibility
-        extras: ["docs data test hypersync"]
 
-    name: Python ${{ matrix.python-version }} - Web3.py v${{ matrix.web3-version }} - Extras [${{ matrix.extras }}]
+    name: Python ${{ matrix.python-version }} - Web3.py v${{ matrix.web3-version }}
 
     steps:
       # TODO: we only need contracts/aave-v3-deploy for tests
@@ -76,26 +74,25 @@ jobs:
           path: |
             ~/.cache/pypoetry
             ~/.local/share/pypoetry/venv
-          key: ${{ runner.os }}-poetry-${{ matrix.python-version }}-web3v${{ matrix.web3-version }}-${{ hashFiles(matrix.extras) }}-${{ hashFiles('poetry.lock', 'pyproject.toml') }}
+          key: ${{ runner.os }}-poetry-${{ matrix.python-version }}-web3v${{ matrix.web3-version }}-${{ hashFiles('poetry.lock', 'pyproject.toml') }}
           restore-keys: |
-            ${{ runner.os }}-poetry-${{ matrix.python-version }}-web3v${{ matrix.web3-version }}-${{ hashFiles(matrix.extras) }}-
+            ${{ runner.os }}-poetry-${{ matrix.python-version }}-web3v${{ matrix.web3-version }}
             ${{ runner.os }}-poetry-${{ matrix.python-version }}-web3v${{ matrix.web3-version }}-
             ${{ runner.os }}-poetry-${{ matrix.python-version }}-
 
       - name: Install dependencies
         run: |
           poetry env use '${{ matrix.python-version }}'
-          # Install base dependencies first
+          # this will try to install both web3v6 & web3v7 deps eventually end up with web3v7 deps
+          # poetry install --all-extras
           poetry install
-          # Install matrix-specific extras
-          poetry install -E ${{ matrix.extras }}
 
       - name: Install specific Web3.py version
         run: |
           if [ "${{ matrix.web3-version }}" = "6" ]; then
-             poetry install -E web3v6
+             poetry install -E docs -E data -E test -E hypersync -E web3v6
           else
-             poetry install -E web3v7
+             poetry install -E docs -E data -E test -E hypersync -E web3v7
           fi
 
       - name: Install Ganache
@@ -170,5 +167,5 @@ jobs:
       - name: Ruff lint check
         run: |
           poetry run ruff format --check --diff
-        # Only run linting once (on the newest Python with latest web3.py and full extras)
-        if: "matrix.python-version == '3.12' && matrix.web3-version == '7' && matrix.extras == 'docs data test hypersync'"
+        # Only run linting once (on the newest Python with latest web3.py)
+        if: "matrix.python-version == '3.12' && matrix.web3-version == '7'"
