@@ -1,10 +1,17 @@
-name: Debug test suits
+name: Debug test workflow
 
 on:
   push:
     branches: [ master ]
   pull_request:
     branches: [ master ]
+  workflow_dispatch:
+    inputs:
+      debug:
+        description: 'Enable debugging session'
+        required: false
+        default: 'false'
+        type: boolean
 
 jobs:
   test-python:
@@ -94,6 +101,24 @@ jobs:
       - name: Verify Web3.py version
         run: |
           poetry run python -c "import web3; print(f'Web3.py version: {web3.__version__}')"
+
+      - name: Debug environment
+        run: |
+          echo "=== Poetry environment info ==="
+          poetry env info
+          echo "=== Poetry show packages ==="
+          poetry show
+          echo "=== Python path and version ==="
+          poetry run python -c "import sys; print('Python version:', sys.version); print('Python path:', sys.path)"
+          echo "=== Current working directory ==="
+          pwd
+          ls -la
+
+      - name: Setup tmate session for debugging
+        uses: mxschmitt/action-tmate@v3
+        with:
+          limit-access-to-actor: true
+        if: ${{ failure() || github.event.inputs.debug == 'true' }}
 
       - name: Run tests (parallel)
         run: |
