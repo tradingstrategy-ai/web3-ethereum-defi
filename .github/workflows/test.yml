@@ -61,6 +61,14 @@ jobs:
       - name: Configure Poetry for in-project virtual environments
         run: poetry config virtualenvs.in-project true
 
+      # Set custom virtual environment name based on matrix configuration
+      - name: Configure custom Poetry virtual environment name
+        run: |
+          VENV_NAME="venv-py${{ matrix.python-version }}-web3v${{ matrix.web3-version }}"
+          echo "VENV_NAME=$VENV_NAME" >> $GITHUB_ENV
+          poetry config virtualenvs.path "$GITHUB_WORKSPACE/.venvs"
+          poetry config virtualenvs.prefer-active-python true
+
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
@@ -75,34 +83,30 @@ jobs:
         with:
           path: |
             ~/.cache/pypoetry
-            .venvs/${{ matrix.web3-version }}-${{ matrix.python-version }}
-          key: ${{ runner.os }}-poetry-${{ matrix.python-version }}-web3v${{ matrix.web3-version }}-${{ hashFiles('poetry.lock', 'pyproject.toml') }}
+            .venvs/${{ env.VENV_NAME }}
+          key: ${{ runner.os }}-poetry-${{ env.VENV_NAME }}-${{ hashFiles('poetry.lock', 'pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-poetry-${{ env.VENV_NAME }}-
 
-      - name: Create and activate named virtualenv
+      # Create virtual environment with custom name
+      - name: Create virtual environment with custom name
         run: |
-          # Create a uniquely named virtualenv based on the matrix values
-          export VENV_DIR="$(pwd)/.venvs/${{ matrix.web3-version }}-${{ matrix.python-version }}"
-          mkdir -p "$(dirname "$VENV_DIR")"
-          python -m venv "$VENV_DIR"
-          
-          # Force Poetry to use this exact venv path
-          echo "$VENV_DIR" > .venv-path.txt
-          poetry env use "$VENV_DIR/bin/python"
+          poetry env use '${{ matrix.python-version }}'
+          # Rename the created venv to our custom name
+          if [ -d ".venv" ]; then
+            mkdir -p .venvs
+            mv .venv ".venvs/${{ env.VENV_NAME }}"
+            ln -sf ".venvs/${{ env.VENV_NAME }}" .venv
+          fi
 
-          # Override the in-project .venv with a symlink to our named venv
-          rm -rf .venv
-          ln -s "$VENV_DIR" .venv
-
-          # Show the active environment path
+      - name: Install dependencies
+        run: |
+          # Verify we're using the correct virtual environment
+          echo "Using virtual environment: ${{ env.VENV_NAME }}"
           poetry env info
-
-
-      - name: Disable Poetry in-project venvs
-        run: poetry config virtualenvs.in-project false
-
-
-      - name: Install base dependencies
-        run: poetry install
+          # this will try to install both web3v6 & web3v7 deps eventually end up with web3v7 deps
+          # poetry install --all-extras
+          poetry install
 
       - name: Install specific Web3.py version
         run: |
@@ -145,6 +149,7 @@ jobs:
 
       - name: Verify Web3.py version
         run: |
+          echo "Virtual environment in use: ${{ env.VENV_NAME }}"
           poetry run python -c "import web3; print(f'Web3.py version: {web3.__version__}')"
 
       # Setup Debug Session before tests - Enable this when you need to debug test issues
