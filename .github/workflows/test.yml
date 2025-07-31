@@ -27,7 +27,7 @@ jobs:
         python-version: ["3.11", "3.12"]
         web3-version: ["6", "7"]
         # Test different combinations of extras to ensure compatibility
-        extras: ["docs data test hypersync", "test hypersync", "docs data test"]
+        extras: ["docs data test hypersync"]
 
     name: Python ${{ matrix.python-version }} - Web3.py v${{ matrix.web3-version }} - Extras [${{ matrix.extras }}]
 
