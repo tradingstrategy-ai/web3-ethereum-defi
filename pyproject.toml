@@ -157,7 +157,7 @@ test = ["pytest-xdist"]
 hypersync = ["hypersync"]
 #tester = ["eth-tester"]
 # To install the web3py version based dependencies
-web3v6 = ["eth-tester", "evm-trace", "safe-eth-py", "eth-pydantic-types", "multicall", "eth-account", "eth-typing"]
+web3v6 = []
 web3v7 = ["eth-tester", "evm-trace", "safe-eth-py", "eth-pydantic-types", "multicall", "eth-account", "eth-typing"]
 
 
