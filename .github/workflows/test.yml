@@ -81,11 +81,25 @@ jobs:
       - name: Create and activate named virtualenv
         run: |
           # Create a uniquely named virtualenv based on the matrix values
-          export VENV_DIR=".venvs/${{ matrix.web3-version }}-${{ matrix.python-version }}"
+          export VENV_DIR="$(pwd)/.venvs/${{ matrix.web3-version }}-${{ matrix.python-version }}"
+          mkdir -p "$(dirname "$VENV_DIR")"
           python -m venv "$VENV_DIR"
-          echo "VENV_DIR=$VENV_DIR" >> $GITHUB_ENV
+          
+          # Force Poetry to use this exact venv path
+          echo "$VENV_DIR" > .venv-path.txt
           poetry env use "$VENV_DIR/bin/python"
-          ln -sfn "$VENV_DIR" .venv  # symlink it to .venv so poetry commands work as expected
+
+          # Override the in-project .venv with a symlink to our named venv
+          rm -rf .venv
+          ln -s "$VENV_DIR" .venv
+
+          # Show the active environment path
+          poetry env info
+
+
+      - name: Disable Poetry in-project venvs
+        run: poetry config virtualenvs.in-project false
+
 
       - name: Install base dependencies
         run: poetry install
