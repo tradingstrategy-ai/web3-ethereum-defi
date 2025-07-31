@@ -63,16 +63,21 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          # Custom cache key to avoid conflicts between matrix combinations
-          cache: "poetry"
-          cache-dependency-path: |
-            poetry.lock
-            pyproject.toml
-          # Include matrix variables in cache key to separate caches
-          # This prevents cache conflicts between different Python/Web3 versions
-        env:
-          # This environment variable helps differentiate cache keys
-          CACHE_SUFFIX: py${{ matrix.python-version }}-web3v${{ matrix.web3-version }}
+          # Disable cache to force fresh installation when debugging
+          # cache: "poetry"
+
+      # Custom cache setup using actions/cache for better control over cache keys
+      # This prevents cache conflicts between different matrix combinations
+      - name: Cache Poetry dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pypoetry
+            ~/.local/share/pypoetry/venv
+          key: ${{ runner.os }}-poetry-${{ matrix.python-version }}-web3v${{ matrix.web3-version }}-${{ hashFiles('poetry.lock', 'pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-poetry-${{ matrix.python-version }}-web3v${{ matrix.web3-version }}-
+            ${{ runner.os }}-poetry-${{ matrix.python-version }}-
 
       - name: Install dependencies
         run: |
