@@ -75,15 +75,20 @@ jobs:
         with:
           path: |
             ~/.cache/pypoetry
-            .venv
+            .venvs/${{ matrix.web3-version }}-${{ matrix.python-version }}
           key: ${{ runner.os }}-poetry-${{ matrix.python-version }}-web3v${{ matrix.web3-version }}-${{ hashFiles('poetry.lock', 'pyproject.toml') }}
 
-      - name: Install dependencies
+      - name: Create and activate named virtualenv
         run: |
-          poetry env use '${{ matrix.python-version }}'
-          # this will try to install both web3v6 & web3v7 deps eventually end up with web3v7 deps
-          # poetry install --all-extras
-          poetry install
+          # Create a uniquely named virtualenv based on the matrix values
+          export VENV_DIR=".venvs/${{ matrix.web3-version }}-${{ matrix.python-version }}"
+          python -m venv "$VENV_DIR"
+          echo "VENV_DIR=$VENV_DIR" >> $GITHUB_ENV
+          poetry env use "$VENV_DIR/bin/python"
+          ln -sfn "$VENV_DIR" .venv  # symlink it to .venv so poetry commands work as expected
+
+      - name: Install base dependencies
+        run: poetry install
 
       - name: Install specific Web3.py version
         run: |
