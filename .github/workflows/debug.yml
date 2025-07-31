@@ -118,7 +118,7 @@ jobs:
         uses: mxschmitt/action-tmate@v3
         with:
           limit-access-to-actor: true
-          detached: true
+          detached: false
 #        if: ${{ failure() || github.event.inputs.debug == 'true' }}
 
       - name: Run tests (parallel)
