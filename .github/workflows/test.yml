@@ -115,6 +115,12 @@ jobs:
         run: |
           poetry run python -c "import web3; print(f'Web3.py version: {web3.__version__}')"
 
+      - name: Setup tmate session for debugging
+        uses: mxschmitt/action-tmate@v3
+        with:
+          limit-access-to-actor: true
+          detached: false
+
       - name: Run tests (parallel)
         run: |
           # Enable verbose output if debugging is enabled
