@@ -63,8 +63,16 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          # Disable cache to force fresh installation when debugging
-          # cache: "poetry"
+          # Custom cache key to avoid conflicts between matrix combinations
+          cache: "poetry"
+          cache-dependency-path: |
+            poetry.lock
+            pyproject.toml
+          # Include matrix variables in cache key to separate caches
+          # This prevents cache conflicts between different Python/Web3 versions
+        env:
+          # This environment variable helps differentiate cache keys
+          CACHE_SUFFIX: py${{ matrix.python-version }}-web3v${{ matrix.web3-version }}
 
       - name: Install dependencies
         run: |
