@@ -64,21 +64,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           # Disable cache to force fresh installation when debugging
-          cache: "poetry"
-
-      - name: Clear all caches
-        run: |
-          echo "=== Clearing pip cache ==="
-          pip cache purge || true
-          echo "=== Clearing poetry cache ==="
-          poetry cache clear --all pypi || true
-          echo "=== Removing poetry virtual environment ==="
-          poetry env remove --all || true
-          echo "=== Clearing any existing poetry.lock hash cache ==="
-          rm -rf ~/.cache/poetry* || true
-          rm -rf ~/.cache/pip* || true
-          echo "=== Cache clearing complete ==="
-        # if: ${{ github.event.inputs.debug == 'true' }}
+          # cache: "poetry"
 
       - name: Install dependencies
         run: |
