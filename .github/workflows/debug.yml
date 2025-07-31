@@ -73,6 +73,7 @@ jobs:
           else
              poetry install -E docs -E data -E test -E hypersync -E web3v7
              poetry run pip uninstall web3 -y
+             poetry run pip uninstall web3 -y
              poetry run pip install "web3>7"
              poetry run pip freeze
           fi
