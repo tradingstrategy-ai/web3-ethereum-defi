@@ -75,10 +75,6 @@ jobs:
             ~/.cache/pypoetry
             ~/.local/share/pypoetry/venv
           key: ${{ runner.os }}-poetry-${{ matrix.python-version }}-web3v${{ matrix.web3-version }}-${{ hashFiles('poetry.lock', 'pyproject.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-poetry-${{ matrix.python-version }}-web3v${{ matrix.web3-version }}
-            ${{ runner.os }}-poetry-${{ matrix.python-version }}-web3v${{ matrix.web3-version }}-
-            ${{ runner.os }}-poetry-${{ matrix.python-version }}-
 
       - name: Install dependencies
         run: |
