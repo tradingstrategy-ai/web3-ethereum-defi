@@ -65,9 +65,13 @@ jobs:
         run: |
           if [ "${{ matrix.web3-version }}" = "6" ]; then
              poetry install -E docs -E data -E test -E hypersync -E web3v6
+             poetry run pip uninstall web3 -y
+             poetry run pip install "web3==6.14"
              poetry run pip freeze
           else
              poetry install -E docs -E data -E test -E hypersync -E web3v7
+             poetry run pip uninstall web3 -y
+             poetry run pip install "web3>7"
              poetry run pip freeze
           fi
 
@@ -95,12 +99,6 @@ jobs:
           echo "=== Current working directory ==="
           pwd
           ls -la
-
-      - name: Setup tmate session for debugging
-        uses: mxschmitt/action-tmate@v3
-        with:
-          limit-access-to-actor: true
-          detached: false
 
       - name: Run tests (parallel)
         run: |
