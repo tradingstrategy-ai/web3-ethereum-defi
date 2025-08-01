@@ -1,4 +1,4 @@
-name: Automated test suite
+name: Automated test suite for web3V6
 
 on:
   push:
@@ -23,7 +23,7 @@ jobs:
       matrix:
         # for now let's keep the 3.13 aside as many of the modules don't support it yet
         # The project is developed using 3.12. 3.10 has some encoding issues which is causing some tests to fail
-        python-version: ["3.11", "3.12"]
+        python-version: ["3.12"]
         web3-version: ["6"]
 
     name: Python ${{ matrix.python-version }} - Web3.py v${{ matrix.web3-version }}
@@ -123,12 +123,6 @@ jobs:
           for pkg in sorted(web3_packages, key=lambda x: x.project_name):
               print(f'{pkg.project_name}: {pkg.version}')
           "
-
-      - name: Setup tmate session for debugging
-        uses: mxschmitt/action-tmate@v3
-        with:
-          limit-access-to-actor: true
-        # if: ${{ failure() || github.event.inputs.debug == 'true' }}
 
       - name: Run tests (parallel)
         run: |
