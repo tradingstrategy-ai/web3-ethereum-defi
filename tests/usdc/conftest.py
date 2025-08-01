@@ -1,4 +1,5 @@
 """USDC fixtures."""
+
 import logging
 
 import pytest
