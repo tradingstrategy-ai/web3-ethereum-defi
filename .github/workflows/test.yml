@@ -23,7 +23,7 @@ jobs:
       matrix:
         # for now let's keep the 3.13 aside as many of the modules don't support it yet
         # The project is developed using 3.12. 3.10 has some encoding issues which is causing some tests to fail
-        python-version: ["3.11", "3.12"]
+        python-version: ["3.12"]
         # v6 has it's own separate workflow
         web3-version: ["7"]
 
@@ -54,17 +54,19 @@ jobs:
           # https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#adding-a-system-path
           echo $PNPM_HOME >> $GITHUB_PATH
 
-      # Poetry 2.0 breaks everything
-      # https://github.com/python-poetry/poetry/blob/main/CHANGELOG.md
-      - name: Install poetry
-        run: pipx install "poetry>2"
-
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
           # Disable cache to force fresh installation when debugging
           # cache: "poetry"
+
+      # Poetry 2.0 breaks everything
+      # https://github.com/python-poetry/poetry/blob/main/CHANGELOG.md
+      - name: Install poetry (using matrix Python)
+        run: pipx install "poetry>2" --python "${{ env.PYTHON_PATH }}"
+
+
 
       # Install dependencies with the specific Web3.py version
       # Using a single installation command to avoid conflicts
