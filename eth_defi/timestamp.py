@@ -53,7 +53,7 @@ def get_latest_block_timestamp(web3: Web3) -> datetime.datetime:
     else:
         ts = ts_str
 
-    return datetime.datetime.fromtimestamp(ts, tz=datetime.timezone.utc)
+    return datetime.datetime.utcfromtimestamp(ts)
 
 
 def get_block_timestamp(web3: Web3, block_identifier: BlockIdentifier) -> datetime.datetime:
@@ -93,7 +93,7 @@ def get_block_timestamp(web3: Web3, block_identifier: BlockIdentifier) -> dateti
         else:
             ts = ts_str
 
-        return datetime.datetime.fromtimestamp(ts, tz=datetime.timezone.utc)
+        return datetime.datetime.utcfromtimestamp(ts)
     except Exception as e:
         raise RuntimeError(f"Failed to read timestamp for block {block_identifier}, chain: {web3.eth.chain_id}: {e}") from e
 
@@ -152,6 +152,6 @@ def estimate_block_number_for_timestamp_by_findblock(
     return FindBlockReply(
         block_number=int(data["number"]),
         hash=HexStr(data["hash"]),
-        block_timestamp=datetime.datetime.fromtimestamp(data["timestamp"], tz=datetime.timezone.utc),
+        block_timestamp=datetime.datetime.utcfromtimestamp(data["timestamp"]),
         searched_timestamp=timestamp,
     )

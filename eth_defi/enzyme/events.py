@@ -95,7 +95,7 @@ class EnzymeBalanceEvent:
     @property
     def timestamp(self) -> datetime.datetime:
         """Return the block mined at timestamp."""
-        return datetime.datetime.fromtimestamp(self.event_data["timestamp"], tz=datetime.timezone.utc)
+        return datetime.datetime.utcfromtimestamp(self.event_data["timestamp"])
 
     @property
     def web3(self) -> Web3:

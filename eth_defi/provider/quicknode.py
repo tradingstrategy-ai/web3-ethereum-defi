@@ -48,4 +48,8 @@ def estimate_block_number_for_timestamp_by_quicknode(
 
     result = reply["result"]
 
-    return QuickNodeEstimatedBlock(network=result["network"], block_number=result["blockNumber"], timestamp=datetime.datetime.fromtimestamp(result["timestamp"], tz=datetime.timezone.utc))
+    return QuickNodeEstimatedBlock(
+        network=result["network"],
+        block_number=result["blockNumber"],
+        timestamp=datetime.datetime.utcfromtimestamp(result["timestamp"]),
+    )
