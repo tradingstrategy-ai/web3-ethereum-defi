@@ -89,7 +89,7 @@ def get_event_mapping(web3: Web3) -> dict:
 
 
 def _decode_base(log: LogResult) -> dict:
-    block_time = datetime.datetime.utcfromtimestamp(log["timestamp"])
+    block_time = datetime.datetime.fromtimestamp(log["timestamp"], tz=datetime.timezone.utc)
 
     return {
         "block_number": convert_jsonrpc_value_to_int(log["blockNumber"]),
@@ -305,7 +305,7 @@ def _fetch_aave_events_to_csv(
 
             if last_timestamp:
                 # Display progress with the date information
-                d = datetime.datetime.utcfromtimestamp(last_timestamp)
+                d = datetime.datetime.fromtimestamp(last_timestamp, tz=datetime.timezone.utc)
                 formatted_time = d.strftime("%Y-%m-%d")
                 progress_bar.set_description(f"Block: {current_block:,}, events: {total_events:,}, time:{formatted_time}")
             else:

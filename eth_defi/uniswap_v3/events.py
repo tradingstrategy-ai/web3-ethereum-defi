@@ -63,11 +63,9 @@ class TokenCache(LogContext):
 
 
 def _decode_base(log: LogResult) -> dict:
-    block_time = datetime.datetime.utcfromtimestamp(log["timestamp"])
-
     return {
         "block_number": convert_jsonrpc_value_to_int(log["blockNumber"]),
-        "timestamp": datetime.datetime.utcfromtimestamp(log["timestamp"]),
+        "timestamp": datetime.datetime.fromtimestamp(log["timestamp"], tz=datetime.timezone.utc),
         "tx_hash": log["transactionHash"],
         "log_index": convert_jsonrpc_value_to_int(log["logIndex"]),
     }
@@ -416,7 +414,7 @@ def fetch_events_to_csv(
 
             if last_timestamp:
                 # Display progress with the date information
-                d = datetime.datetime.utcfromtimestamp(last_timestamp)
+                d = datetime.datetime.fromtimestamp(last_timestamp, tz=datetime.timezone.utc)
                 formatted_time = d.strftime("%Y-%m-%d")
                 progress_bar.set_description(f"Block: {current_block:,}, events: {total_events:,}, time:{formatted_time}, block headers: {header_count:,}")
             else:
