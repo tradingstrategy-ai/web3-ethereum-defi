@@ -49,13 +49,13 @@ from decimal import Decimal
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
 from web3 import HTTPProvider, Web3
-from web3.middleware import construct_sign_and_send_raw_middleware
 
 from eth_defi.chain import install_chain_middleware
+from eth_defi.compat import construct_sign_and_send_raw_middleware
+from eth_defi.confirmation import wait_transactions_to_complete
 from eth_defi.gas import node_default_gas_price_strategy
 from eth_defi.revert_reason import fetch_transaction_revert_reason
 from eth_defi.token import fetch_erc20_details
-from eth_defi.confirmation import wait_transactions_to_complete
 from eth_defi.uniswap_v2.deployment import fetch_deployment
 from eth_defi.uniswap_v2.swap import swap_with_slippage_protection
 

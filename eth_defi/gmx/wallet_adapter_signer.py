@@ -469,6 +469,8 @@ class WalletAdapterSigner(Signer):
         Example:
 
         .. code-block:: python
+            # support for both web3.py v6 & v7
+            from eth_defi.compat import encode_abi_compat
 
             # Universal transaction execution across wallet types
             adapter = WalletAdapterSigner(wallet, web3)
@@ -490,7 +492,7 @@ class WalletAdapterSigner(Signer):
             # Execute complex contract interaction
             contract_tx = {
                 "to": contract_address,
-                "data": contract.encodeABI(fn_name="complexOperation", args=[...]),
+                "data": encode_abi_compat(contract, "complexOperation", [...]),
                 "gas": 500000,
                 "gasPrice": web3.to_wei(50, "gwei"),
             }
