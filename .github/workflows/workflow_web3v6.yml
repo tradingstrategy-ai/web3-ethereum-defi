@@ -53,17 +53,27 @@ jobs:
           # https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#adding-a-system-path
           echo $PNPM_HOME >> $GITHUB_PATH
 
-      # Poetry 2.0 breaks everything
-      # https://github.com/python-poetry/poetry/blob/main/CHANGELOG.md
-      - name: Install poetry
-        run: pipx install "poetry>2"
-
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
+        id: setup-python
         with:
           python-version: ${{ matrix.python-version }}
-          # Disable cache to force fresh installation when debugging
-          # cache: "poetry"
+
+      - name: Set PYTHON_PATH environment variable
+        run: echo "PYTHON_PATH=${{ steps.setup-python.outputs.python-path }}" >> $GITHUB_ENV
+
+      - name: Install pipx (ensure it's available)
+        run: python -m pip install --upgrade pipx
+
+      - name: Install poetry (using matrix Python)
+        run: pipx install "poetry>2" --python "${{ env.PYTHON_PATH }}"
+
+      # Poetry 2.0 breaks everything
+      # https://github.com/python-poetry/poetry/blob/main/CHANGELOG.md
+      - name: Install poetry (using matrix Python)
+        run: pipx install "poetry>2" --python "${{ env.PYTHON_PATH }}"
+
+
 
       # Install dependencies with the specific Web3.py version
       # Using a single installation command to avoid conflicts
