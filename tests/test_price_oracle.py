@@ -47,6 +47,7 @@ def web3() -> Web3:
     # MIGRATED: Use compatibility functions instead of direct middleware injection
     if WEB3_PY_V7:
         from web3.middleware import ExtraDataToPOAMiddleware
+
         # v7: Use provider-level retry configuration instead of middleware
         install_retry_middleware_compat(web3)
         # v7: Use ExtraDataToPOAMiddleware
