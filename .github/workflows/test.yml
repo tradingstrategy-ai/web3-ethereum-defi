@@ -13,7 +13,7 @@ jobs:
       group: Beefy runners
 
     # Only run the action for the latest push
-    # Include web3-version in concurrency group to prevent cross-contamination
+    # See https://docs.github.com/en/actions/using-jobs/using-concurrency#example-only-cancel-in-progress-jobs-or-runs-for-the-current-workflow
     concurrency:
       group: ${{ github.workflow }}-${{ github.ref }}-${{ matrix.python-version }}-${{ matrix.web3-version }}
       cancel-in-progress: true
@@ -27,13 +27,6 @@ jobs:
         web3-version: ["6", "7"]
 
     name: Python ${{ matrix.python-version }} - Web3.py v${{ matrix.web3-version }}
-
-    # Set environment variables to create unique virtual environments
-    env:
-      # Create a unique virtual environment name for each matrix combination
-      POETRY_VENV_PATH: .venv-py${{ matrix.python-version }}-web3v${{ matrix.web3-version }}
-      # Alternative approach: use different cache directories
-      POETRY_CACHE_DIR: ~/.cache/pypoetry-py${{ matrix.python-version }}-web3v${{ matrix.web3-version }}
 
     steps:
       # TODO: we only need contracts/aave-v3-deploy for tests
@@ -69,54 +62,49 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          # Re-enable cache since we now have unique environments
-          cache: "poetry"
-          cache-dependency-path: poetry.lock
+          # Disable cache to force fresh installation when debugging
+          # cache: "poetry"
 
-      # Create completely separate project directories for each matrix combination
-      - name: Create isolated workspace for this matrix combination
+      # CRITICAL: Force Poetry to create virtual environments in the project directory
+      # This ensures complete isolation between matrix jobs
+      - name: Configure Poetry for isolated environments
         run: |
-          # Create a unique workspace directory for this specific combination
-          WORKSPACE_DIR="${GITHUB_WORKSPACE}_py${{ matrix.python-version }}_web3v${{ matrix.web3-version }}"
-          echo "Creating isolated workspace at: $WORKSPACE_DIR"
-          
-          # Copy the entire project to the new workspace
-          cp -r "$GITHUB_WORKSPACE" "$WORKSPACE_DIR"
-          
-          # Move into the isolated workspace
-          cd "$WORKSPACE_DIR"
-          
-          # Modify the project name to force Poetry to create a unique environment
-          sed -i 's/name = "web3-ethereum-defi"/name = "web3-ethereum-defi-py${{ matrix.python-version }}-web3v${{ matrix.web3-version }}"/' pyproject.toml
-          
-          # Store the workspace path for subsequent steps
-          echo "ISOLATED_WORKSPACE=$WORKSPACE_DIR" >> $GITHUB_ENV
-          
-          # Verify the modification worked
-          echo "Modified project name:"
-          grep '^name = ' pyproject.toml
-          
-          echo "Workspace isolation complete. All subsequent steps will run in: $WORKSPACE_DIR"
+          poetry config virtualenvs.create true
+          poetry config virtualenvs.in-project true
+          poetry config virtualenvs.prefer-active-python false
 
-      # Install dependencies in the isolated workspace
-      - name: Install dependencies
-        working-directory: ${{ env.ISOLATED_WORKSPACE }}
+      # CRITICAL: Remove any existing virtual environment to ensure clean slate
+      # This prevents any cross-contamination between Web3.py versions
+      - name: Remove existing virtual environment
         run: |
-          echo "Installing dependencies in isolated workspace for Python ${{ matrix.python-version }} with Web3.py v${{ matrix.web3-version }}"
-          echo "Current directory: $(pwd)"
-          echo "Project name from pyproject.toml:"
-          grep '^name = ' pyproject.toml
+          rm -rf .venv
+          # Also clean any cached environments that might exist
+          poetry env remove --all 2>/dev/null || true
+
+      # CRITICAL: Create a unique environment name based on matrix parameters
+      # This prevents Poetry from reusing environments across different configurations
+      - name: Create isolated virtual environment
+        run: |
+          # Create a unique environment identifier
+          ENV_SUFFIX="py${{ matrix.python-version }}-web3v${{ matrix.web3-version }}"
+          echo "ENV_SUFFIX=${ENV_SUFFIX}" >> $GITHUB_ENV
           
-          # Install base dependencies first
-          poetry install
+          # Force creation of new environment with Python version
+          poetry env use python${{ matrix.python-version }}
           
-          # Then install version-specific extras
+          # Verify we have a clean environment
+          poetry env info
+
+      # Install dependencies with the specific Web3.py version
+      # Using a single install command to avoid conflicts
+      - name: Install dependencies with specific Web3.py version
+        run: |
           if [ "${{ matrix.web3-version }}" = "6" ]; then
-            echo "Installing Web3.py v6 specific dependencies"
-            poetry install -E docs -E data -E test -E hypersync -E web3v6
+            echo "Installing Web3.py v6 dependencies..."
+            poetry install -E docs -E data -E test -E hypersync -E web3v6 --no-interaction --verbose
           else
-            echo "Installing Web3.py v7 specific dependencies"
-            poetry install -E docs -E data -E test -E hypersync -E web3v7
+            echo "Installing Web3.py v7 dependencies..."
+            poetry install -E docs -E data -E test -E hypersync -E web3v7 --no-interaction --verbose
           fi
 
       - name: Install Ganache
@@ -132,13 +120,11 @@ jobs:
 
       # We also work around race condition for setting up Aave NPM packages.
       - name: Setup Aave v3 for tests
-        working-directory: ${{ env.ISOLATED_WORKSPACE }}
         run: |
           poetry run install-aave-for-testing
 
       # We also work around race condition for setting up Aave NPM packages.
       - name: Build needed contracts
-        working-directory: ${{ env.ISOLATED_WORKSPACE }}
         run: |
           pnpm --version
       # Broken with the latest foudry?
@@ -146,32 +132,32 @@ jobs:
 
       # Lagoon source deployment needs soldeer
       - name: Lagoon dependency issue smoke test
-        working-directory: ${{ env.ISOLATED_WORKSPACE }}
         run: |
           export PATH="$HOME/.cargo/bin:$PATH"
           (cd contracts/lagoon-v0 && forge soldeer install)
           ls -lha contracts/lagoon-v0/dependencies/
           ls -lha contracts/lagoon-v0/dependencies/@openzeppelin-contracts-upgradeable-5.0.0/
 
-      # Verify we have the correct Web3.py version installed
-      - name: Verify Web3.py version and virtual environment
-        working-directory: ${{ env.ISOLATED_WORKSPACE }}
+      # CRITICAL: Verify the correct Web3.py version is installed
+      # This helps debug any remaining issues
+      - name: Verify Web3.py version and environment isolation
         run: |
-          echo "=== Workspace Information ==="
-          echo "Working directory: $(pwd)"
-          echo "Project name:"
-          grep '^name = ' pyproject.toml
-          echo "=== Virtual Environment Information ==="
+          echo "=== Environment Information ==="
           poetry env info
-          echo "=== Python Path ==="
-          poetry run python -c "import sys; print('Python executable:', sys.executable)"
+          echo ""
+          echo "=== Python Version ==="
+          poetry run python --version
+          echo ""
           echo "=== Web3.py Version ==="
           poetry run python -c "import web3; print(f'Web3.py version: {web3.__version__}')"
-          echo "=== Installed packages related to web3 ==="
-          poetry run pip list | grep -E "(web3|eth-)"
-          echo "=== Environment Uniqueness Check ==="
-          echo "This should be unique for each matrix combination:"
-          poetry run python -c "import os; print(f'Virtual environment: {os.environ.get(\"VIRTUAL_ENV\", \"Not set\")}')"
+          echo ""
+          echo "=== Installed Packages (Web3-related) ==="
+          poetry run python -c "
+          import pkg_resources
+          web3_packages = [pkg for pkg in pkg_resources.working_set if 'web3' in pkg.project_name.lower() or 'eth' in pkg.project_name.lower()]
+          for pkg in sorted(web3_packages, key=lambda x: x.project_name):
+              print(f'{pkg.project_name}: {pkg.version}')
+          "
 
       # Setup Debug Session before tests - Enable this when you need to debug test issues
       # - name: Setup Debug Session Before Tests
@@ -181,16 +167,10 @@ jobs:
         uses: mxschmitt/action-tmate@v3
         with:
           limit-access-to-actor: true
-        if: ${{ failure() || github.event.inputs.debug == 'true' }}
+        # if: ${{ failure() || github.event.inputs.debug == 'true' }}
 
       - name: Run tests (parallel)
-        working-directory: ${{ env.ISOLATED_WORKSPACE }}
         run: |
-          echo "Running tests in isolated workspace: $(pwd)"
-          echo "Testing Python ${{ matrix.python-version }} with Web3.py v${{ matrix.web3-version }}"
-          # Verify we're in the right environment before running tests
-          poetry run python -c "import web3; print(f'About to run tests with Web3.py version: {web3.__version__}')"
-          
           # Enable verbose output if debugging is enabled
           if [ "$ENABLE_VERBOSE_LOGGING" = "true" ]; then
             poetry run pytest --tb=native -n auto -v -s --capture=no
@@ -214,7 +194,6 @@ jobs:
 
 
       - name: Ruff lint check
-        working-directory: ${{ env.ISOLATED_WORKSPACE }}
         run: |
           poetry run ruff format --check --diff
         # Only run linting once (on the newest Python with latest web3.py)
