@@ -15,7 +15,7 @@ from eth_defi.compat import WEB3_PY_V7
 if WEB3_PY_V7:
     from web3.exceptions import BadFunctionCallOutput, BlockNumberOutOfRange
 else:
-    from web3.exceptions import BlockNumberOutofRange as BlockNumberOutOfRange
+    from web3.exceptions import BlockNumberOutofRange as BlockNumberOutOfRange, BadFunctionCallOutput
 
 from web3.types import BlockIdentifier
 
