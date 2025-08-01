@@ -70,13 +70,8 @@ jobs:
       # Using a single installation command to avoid conflicts
       - name: Install dependencies with specific Web3.py version
         run: |
-            # don't need to clear the cache anymore
-            rm -rf ~/.cache/pypoetry/artifacts
-            rm -rf ~/.cache/pypoetry/cache
-            echo "y\n" | poetry cache clear _default_cache --all
-            echo "y\n" | poetry cache clear PyPI --all
             poetry install
-            poetry install -E docs -E data -E test -E hypersync -E web3v7 --no-interaction --verbose
+            poetry install -E docs -E data -E test -E hypersync -E web3v7
 
       - name: Install Ganache
         run: yarn global add ganache
