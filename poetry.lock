@@ -1906,7 +1906,7 @@ description = "eth-pydantic-types: Pydantic Types for Ethereum"
 optional = true
 python-versions = "<4,>=3.9"
 groups = ["main"]
-markers = "extra != \"web3v6\" and extra == \"web3v7\""
+markers = "extra == \"web3v7\" and extra != \"web3v6\""
 files = [
     {file = "eth_pydantic_types-0.2.1-py3-none-any.whl", hash = "sha256:a30c59d6c3bec0a56dd2ef874a4ab6b4e3bc11461713c3985fd21a4f619f821d"},
     {file = "eth_pydantic_types-0.2.1.tar.gz", hash = "sha256:e68cd68682abf6713ed08008fbffe29fac806f4be9a5bec0e8aa2b5ab2f6736c"},
@@ -2166,7 +2166,7 @@ description = "evm-trace: Ethereum Virtual Machine transaction tracing tool"
 optional = true
 python-versions = "<4,>=3.9"
 groups = ["main"]
-markers = "extra != \"web3v6\" and extra == \"web3v7\""
+markers = "extra == \"web3v7\" and extra != \"web3v6\""
 files = [
     {file = "evm_trace-0.2.6-py3-none-any.whl", hash = "sha256:9a7302c82875f0fbc3208f6a29c30c2b2e239863ca18c12190337318b12dc305"},
     {file = "evm_trace-0.2.6.tar.gz", hash = "sha256:718159ddc630575d86affff5f79b5a1173fba0fa1c3b3dc91c1caaabb9e14276"},
@@ -3938,7 +3938,7 @@ description = "An Dict like LRU container."
 optional = true
 python-versions = ">=3.8"
 groups = ["main"]
-markers = "extra != \"web3v6\" and extra == \"web3v7\""
+markers = "extra == \"web3v7\" and extra != \"web3v6\""
 files = [
     {file = "lru-dict-1.3.0.tar.gz", hash = "sha256:54fd1966d6bd1fcde781596cb86068214edeebff1db13a2cea11079e3fd07b6b"},
     {file = "lru_dict-1.3.0-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:4073333894db9840f066226d50e6f914a2240711c87d60885d8c940b69a6673f"},
@@ -4326,7 +4326,7 @@ description = "aggregate results from multiple ethereum contract calls"
 optional = true
 python-versions = "<4,>=3.8"
 groups = ["main"]
-markers = "extra != \"web3v6\" and extra == \"web3v7\""
+markers = "extra == \"web3v7\" and extra != \"web3v6\""
 files = [
     {file = "multicall-0.12.3-py3-none-any.whl", hash = "sha256:573fa5411ca1c3ae618ec1150d840c30e622be60c36a34bad4ef49ce6d8dc29b"},
     {file = "multicall-0.12.3.tar.gz", hash = "sha256:9bd0229639e39dbb29fc6e7ee4e1af30a5b3bb390110a3584cdd99a8f77d8385"},
@@ -5478,7 +5478,7 @@ description = "Python implementation of the Ethereum Virtual Machine"
 optional = true
 python-versions = "<4,>=3.8"
 groups = ["main"]
-markers = "extra != \"web3v6\" and extra == \"web3v7\""
+markers = "extra == \"web3v7\" and extra != \"web3v6\""
 files = [
     {file = "py_evm-0.12.1b1-py3-none-any.whl", hash = "sha256:015ebc8dd95925030be87ce4b3fd31e3c70df626c5ad8665fb06cd611c73eb68"},
     {file = "py_evm-0.12.1b1.tar.gz", hash = "sha256:7bcd9935a3ac2989c8f068b2006f136189281ebc6e279663405cb2c5397ed890"},
@@ -6662,7 +6662,7 @@ description = "Safe Ecosystem Foundation utilities for Ethereum projects"
 optional = true
 python-versions = ">=3.10"
 groups = ["main"]
-markers = "extra != \"web3v6\" and extra == \"web3v7\""
+markers = "extra == \"web3v7\" and extra != \"web3v6\""
 files = [
     {file = "safe_eth_py-7.8.0-py3-none-any.whl", hash = "sha256:42c178b858ec3c9e7ec8b1a1db4c08a4c53fce09aa2d3f53a485fb6819e4f767"},
     {file = "safe_eth_py-7.8.0.tar.gz", hash = "sha256:2de8f01d45e289f9e8d0096cc8ef28212c93904403c3233953497066d06f477f"},
@@ -8405,10 +8405,10 @@ data = ["ffn", "gql", "jupyter", "kaleido", "matplotlib", "numpy", "pandas", "pl
 docs = ["Sphinx", "furo", "nbsphinx", "sphinx-autodoc-typehints", "sphinx-rtd-theme", "sphinx-rtd-theme", "sphinx-sitemap", "sphinx-sitemap", "zope-dottedname"]
 hypersync = ["hypersync"]
 test = ["pytest-xdist"]
-web3v6 = []
+web3v6 = ["eth-account", "eth-account", "eth-pydantic-types", "eth-pydantic-types", "eth-tester", "eth-tester", "eth-typing", "eth-typing", "evm-trace", "evm-trace", "multicall", "multicall", "safe-eth-py", "safe-eth-py"]
 web3v7 = ["eth-account", "eth-account", "eth-pydantic-types", "eth-pydantic-types", "eth-tester", "eth-tester", "eth-typing", "eth-typing", "evm-trace", "evm-trace", "multicall", "multicall", "safe-eth-py", "safe-eth-py"]
 
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<4"
-content-hash = "12af41ed8f4612daee564573b78cf3b8175594cac51e65772a58fa5eed90aebb"
+content-hash = "90cacd65dd2cdba27518079322b952b14cd70c0e288501807cf4edb721470be0"
