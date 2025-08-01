@@ -56,7 +56,7 @@ def convert_swap_event_to_price_entry(log: dict) -> PriceEntry:
         volume = abs(swap_info["amount0"]) / 10**context.pool.token0.decimals
 
     return PriceEntry(
-        timestamp=datetime.datetime.utcfromtimestamp(log["timestamp"]),
+        timestamp=datetime.datetime.fromtimestamp(log["timestamp"], tz=datetime.timezone.utc),
         price=Decimal(price),
         volume=volume,
         block_number=swap_info["block_number"],
@@ -317,7 +317,7 @@ def update_live_price_feed(
     # Get the last block timestamp
     timestamps = extract_timestamps_json_rpc(web3, end_block, end_block)
     unix_timestamp = next(iter(timestamps.values()))
-    last_timestamp = datetime.datetime.utcfromtimestamp(unix_timestamp)
+    last_timestamp = datetime.datetime.fromtimestamp(unix_timestamp, tz=datetime.timezone.utc)
     oracle.update_last_refresh(end_block, last_timestamp)
 
     # Clean old data
