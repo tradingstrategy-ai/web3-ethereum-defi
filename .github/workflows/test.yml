@@ -13,7 +13,7 @@ jobs:
       group: Beefy runners
 
     # Only run the action for the latest push
-    # See https://docs.github.com/en/actions/using-jobs/using-concurrency#example-only-cancel-in-progress-jobs-or-runs-for-the-current-workflow
+    # Include web3-version in concurrency group to prevent cross-contamination
     concurrency:
       group: ${{ github.workflow }}-${{ github.ref }}-${{ matrix.python-version }}-${{ matrix.web3-version }}
       cancel-in-progress: true
@@ -27,6 +27,13 @@ jobs:
         web3-version: ["6", "7"]
 
     name: Python ${{ matrix.python-version }} - Web3.py v${{ matrix.web3-version }}
+
+    # Set environment variables to create unique virtual environments
+    env:
+      # Create a unique virtual environment name for each matrix combination
+      POETRY_VENV_PATH: .venv-py${{ matrix.python-version }}-web3v${{ matrix.web3-version }}
+      # Alternative approach: use different cache directories
+      POETRY_CACHE_DIR: ~/.cache/pypoetry-py${{ matrix.python-version }}-web3v${{ matrix.web3-version }}
 
     steps:
       # TODO: we only need contracts/aave-v3-deploy for tests
@@ -58,77 +65,42 @@ jobs:
       - name: Install poetry
         run: pipx install "poetry<2"
 
-      # Set custom virtual environment name based on matrix configuration
-      - name: Configure custom Poetry virtual environment name
-        run: |
-          VENV_NAME="venv-py${{ matrix.python-version }}-web3v${{ matrix.web3-version }}"
-          echo "VENV_NAME=$VENV_NAME" >> $GITHUB_ENV
-          # Configure Poetry to use custom venv path and disable in-project venvs
-          poetry config virtualenvs.in-project false
-          poetry config virtualenvs.path "$GITHUB_WORKSPACE/.venvs"
-          poetry config virtualenvs.prefer-active-python true
-          echo "Custom venv will be created at: $GITHUB_WORKSPACE/.venvs/$VENV_NAME"
-
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          # Disable cache to force fresh installation when debugging
-          # cache: "poetry"
+          # Re-enable cache since we now have unique environments
+          cache: "poetry"
+          cache-dependency-path: poetry.lock
 
-      # Custom cache setup using actions/cache for better control over cache keys
-      # This prevents cache conflicts between different matrix combinations
-      - name: Cache Poetry dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/pypoetry
-            .venvs/${{ env.VENV_NAME }}
-          key: ${{ runner.os }}-poetry-${{ env.VENV_NAME }}-${{ hashFiles('poetry.lock', 'pyproject.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-poetry-${{ env.VENV_NAME }}-
-
-      # Create virtual environment with custom name
-      - name: Create and activate virtual environment with custom name
+      # Configure Poetry to use our custom virtual environment path
+      - name: Configure Poetry virtual environment
         run: |
-          # Create the custom-named virtual environment
+          # Tell Poetry to create virtual environments in the project directory with our custom name
+          poetry config virtualenvs.in-project true
+          poetry config virtualenvs.path ${{ env.POETRY_VENV_PATH }}
+          # Create the virtual environment explicitly with our custom name
           poetry env use python${{ matrix.python-version }}
-          
-          # Get the actual venv path that Poetry created
-          POETRY_VENV_PATH=$(poetry env info --path)
-          echo "Poetry created venv at: $POETRY_VENV_PATH"
-          
-          # Create our custom venvs directory
-          mkdir -p .venvs
-          
-          # Move and rename the venv to our custom location
-          if [ -d "$POETRY_VENV_PATH" ]; then
-            mv "$POETRY_VENV_PATH" ".venvs/${{ env.VENV_NAME }}"
-            echo "Moved venv to: .venvs/${{ env.VENV_NAME }}"
-          fi
-          
-          # Update Poetry to point to our custom-named venv
-          poetry config virtualenvs.path "$GITHUB_WORKSPACE/.venvs"
-          poetry env use ".venvs/${{ env.VENV_NAME }}/bin/python"
-          
-          # Verify the setup
-          echo "Final venv info:"
+          # Verify the virtual environment path
+          echo "Poetry virtual environment info:"
           poetry env info
+          echo "Virtual environment path: ${{ env.POETRY_VENV_PATH }}"
 
-      - name: Install dependencies
+      # First install base dependencies
+      - name: Install base dependencies
         run: |
-          # Verify we're using the correct virtual environment
-          echo "Using virtual environment: ${{ env.VENV_NAME }}"
-          poetry env info
-          # this will try to install both web3v6 & web3v7 deps eventually end up with web3v7 deps
-          # poetry install --all-extras
+          echo "Installing base dependencies for Python ${{ matrix.python-version }} with Web3.py v${{ matrix.web3-version }}"
           poetry install
 
-      - name: Install specific Web3.py version
+      # Then install version-specific extras
+      - name: Install specific Web3.py version and extras
         run: |
+          echo "Installing Web3.py v${{ matrix.web3-version }} specific dependencies"
           if [ "${{ matrix.web3-version }}" = "6" ]; then
+            echo "Installing Web3.py v6 dependencies"
             poetry install -E docs -E data -E test -E hypersync -E web3v6
           else
+            echo "Installing Web3.py v7 dependencies"
             poetry install -E docs -E data -E test -E hypersync -E web3v7
           fi
 
@@ -163,10 +135,20 @@ jobs:
           ls -lha contracts/lagoon-v0/dependencies/
           ls -lha contracts/lagoon-v0/dependencies/@openzeppelin-contracts-upgradeable-5.0.0/
 
-      - name: Verify Web3.py version
+      # Verify we have the correct Web3.py version installed
+      - name: Verify Web3.py version and virtual environment
         run: |
-          echo "Virtual environment in use: ${{ env.VENV_NAME }}"
+          echo "=== Virtual Environment Information ==="
+          poetry env info
+          echo "=== Python Path ==="
+          poetry run python -c "import sys; print('Python executable:', sys.executable)"
+          echo "=== Web3.py Version ==="
           poetry run python -c "import web3; print(f'Web3.py version: {web3.__version__}')"
+          echo "=== Installed packages related to web3 ==="
+          poetry run pip list | grep -E "(web3|eth-)"
+          echo "=== Virtual Environment Path ==="
+          echo "POETRY_VENV_PATH: ${{ env.POETRY_VENV_PATH }}"
+          echo "POETRY_CACHE_DIR: ${{ env.POETRY_CACHE_DIR }}"
 
       # Setup Debug Session before tests - Enable this when you need to debug test issues
       # - name: Setup Debug Session Before Tests
@@ -180,6 +162,7 @@ jobs:
 
       - name: Run tests (parallel)
         run: |
+          echo "Running tests with Python ${{ matrix.python-version }} and Web3.py v${{ matrix.web3-version }}"
           # Enable verbose output if debugging is enabled
           if [ "$ENABLE_VERBOSE_LOGGING" = "true" ]; then
             poetry run pytest --tb=native -n auto -v -s --capture=no
