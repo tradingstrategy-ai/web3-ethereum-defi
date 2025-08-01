@@ -422,10 +422,13 @@ def launch_anvil(
         cleaned_fork_url = fork_url
 
     # Check given RPC works
-    if rpc_smoke_test:
+    if fork_url and rpc_smoke_test:
         web3 = Web3(HTTPProvider(cleaned_fork_url, request_kwargs={"timeout": test_request_timeout}))
         # Will raise an exception if not working
-        web3.eth.block_number
+        try:
+            web3.eth.block_number
+        except Exception as e:
+            raise ValueError(f"RPC smoke test failed for {cleaned_fork_url}: {e}") from e
 
     # https://book.getfoundry.sh/reference/anvil/
     args = dict(
