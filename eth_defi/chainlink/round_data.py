@@ -63,7 +63,7 @@ class ChainLinkLatestRoundData:
 
         - Always UTC
         """
-        return datetime.datetime.utcfromtimestamp(self.updated_at)
+        return datetime.datetime.fromtimestamp(self.updated_at, tz=datetime.timezone.utc)
 
     @property
     def price(self) -> Decimal:
