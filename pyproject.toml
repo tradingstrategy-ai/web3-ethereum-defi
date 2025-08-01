@@ -99,7 +99,7 @@ hypersync = {version = "^0.8.5", optional = true}
 # Conditional dependencies matrix based on extras
 web3 = [
     {version = "^7.12.0", markers = "extra != 'web3v6'"},
-    {version = "^6.14.0,<7", markers = "extra == 'web3v6'"}
+    {version = "==6.14.0", markers = "extra == 'web3v6'"}
 ]
 
 eth-tester = [
