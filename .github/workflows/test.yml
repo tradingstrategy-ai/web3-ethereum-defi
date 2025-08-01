@@ -73,18 +73,30 @@ jobs:
           cache: "poetry"
           cache-dependency-path: poetry.lock
 
-      # Configure Poetry to use our custom virtual environment path
+      # Configure Poetry to use separate virtual environments for each matrix combination
       - name: Configure Poetry virtual environment
         run: |
-          # Tell Poetry to create virtual environments in the project directory with our custom name
-          poetry config virtualenvs.in-project true
-          poetry config virtualenvs.path ${{ env.POETRY_VENV_PATH }}
-          # Create the virtual environment explicitly with our custom name
-          poetry env use python${{ matrix.python-version }}
-          # Verify the virtual environment path
+          # Create a unique virtual environment directory for this matrix combination
+          VENV_DIR="/tmp/venvs/py${{ matrix.python-version }}-web3v${{ matrix.web3-version }}"
+          echo "Creating virtual environment at: $VENV_DIR"
+          
+          # Configure Poetry to store virtual environments in our custom location
+          poetry config virtualenvs.in-project false
+          poetry config virtualenvs.path "/tmp/venvs"
+          
+          # Create the virtual environment with a unique name
+          python${{ matrix.python-version }} -m venv "$VENV_DIR"
+          
+          # Tell Poetry to use this specific virtual environment
+          poetry env use "$VENV_DIR/bin/python"
+          
+          # Verify the configuration worked
           echo "Poetry virtual environment info:"
           poetry env info
-          echo "Virtual environment path: ${{ env.POETRY_VENV_PATH }}"
+          
+          # Double-check we're using the right Python and location
+          echo "Active virtual environment:"
+          poetry run python -c "import sys; print(f'Python: {sys.version}'); print(f'Executable: {sys.executable}')"
 
       # First install base dependencies
       - name: Install base dependencies
