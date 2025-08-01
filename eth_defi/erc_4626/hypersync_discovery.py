@@ -214,7 +214,7 @@ class HypersyncVaultDiscover:
                     if not lead:
                         # Fresh match
                         block = block_lookup[log.block_number]
-                        timestamp = datetime.datetime.utcfromtimestamp(int(block.timestamp, 16))
+                        timestamp = datetime.datetime.fromtimestamp(int(block.timestamp, 16), tz=datetime.timezone.utc)
                         lead = PotentialVaultMatch(
                             chain=chain,
                             address=log.address.lower(),

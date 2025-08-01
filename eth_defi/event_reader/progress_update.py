@@ -102,7 +102,7 @@ class TQDMProgressUpdate(ProgressUpdate):
             self.progress_bar = self.create_progress_bar(start_block, end_block)
 
         if last_timestamp:
-            friendly_time = datetime.datetime.utcfromtimestamp(last_timestamp).strftime("%Y-%m-%d %H:%M")
+            friendly_time = datetime.datetime.fromtimestamp(last_timestamp, tz=datetime.timezone.utc).strftime("%Y-%m-%d %H:%M")
         else:
             friendly_time = "NA"
 
