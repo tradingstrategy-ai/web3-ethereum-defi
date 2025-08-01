@@ -56,7 +56,7 @@ jobs:
       # Poetry 2.0 breaks everything
       # https://github.com/python-poetry/poetry/blob/main/CHANGELOG.md
       - name: Install poetry
-        run: pipx install "poetry<2"
+        run: pipx install "poetry>2"
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
