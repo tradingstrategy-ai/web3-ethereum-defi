@@ -10,6 +10,7 @@
 - Fix: `TradingStrategyModuleV0` Zodiac module contract size for deployment
 - Fix: Vault share price for gTrade and other vaults using non-standard formula which is not total assets / total supply  
 
+- Add: `get_tx_broadcast_data` is added to get raw transaction bytes using both versions web3py i.e. `v6` & `v7`
 # 0.31
 
 - Add: Lagoon vault guard re-deployment against an existing vault
