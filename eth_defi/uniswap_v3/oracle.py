@@ -9,6 +9,7 @@ from requests.adapters import HTTPAdapter
 from web3 import Web3
 
 from eth_defi.abi import get_contract
+from eth_defi.compat import native_datetime_utc_fromtimestamp
 from eth_defi.event_reader.logresult import LogContext
 from eth_defi.event_reader.reader import (
     Filter,
