@@ -19,6 +19,7 @@ from typing import Collection, Dict, List, Set, Union, cast
 from _decimal import Decimal
 from eth_account.datastructures import SignedTransaction
 
+from eth_defi.compat import native_datetime_utc_now
 from eth_defi.event_reader.fast_json_rpc import get_last_headers
 from eth_defi.provider.anvil import is_anvil
 from hexbytes import HexBytes
@@ -138,7 +139,7 @@ def wait_transactions_to_complete(
 
     logger.info("Waiting %d transactions to confirm in %d blocks, timeout is %s", len(txs), confirmation_block_count, max_timeout)
 
-    started_at = datetime.datetime.utcnow()
+    started_at = native_datetime_utc_now()
 
     receipts_received = {}
 
@@ -155,7 +156,7 @@ def wait_transactions_to_complete(
         confirmation_received = set()
 
         # Bump our verbosiveness levels for the last minutes of wait
-        if datetime.datetime.utcnow() > started_at + verbose_timeout:
+        if native_datetime_utc_now() > started_at + verbose_timeout:
             tx_log_level = logging.WARNING
         else:
             tx_log_level = logging.DEBUG
@@ -188,7 +189,7 @@ def wait_transactions_to_complete(
         if unconfirmed_txs:
             time.sleep(poll_delay.total_seconds())
 
-            if datetime.datetime.utcnow() > started_at + max_timeout:
+            if native_datetime_utc_now() > started_at + max_timeout:
                 for tx_hash in unconfirmed_txs:
                     try:
                         tx_data = web3.eth.get_transaction(tx_hash)
@@ -202,7 +203,7 @@ def wait_transactions_to_complete(
                 unconfirmed_tx_strs = ", ".join([tx_hash.hex() for tx_hash in unconfirmed_txs])
                 raise ConfirmationTimedOut(f"Transaction confirmation failed. Started: {started_at}, timed out after {max_timeout} ({max_timeout.total_seconds()}s). Poll delay: {poll_delay.total_seconds()}s. Still unconfirmed: {unconfirmed_tx_strs}")
 
-        if datetime.datetime.utcnow() >= next_node_switch:
+        if native_datetime_utc_now() >= next_node_switch:
             # Check if it time to try a better node provider
             if isinstance(web3.provider, FallbackProvider):
                 provider = cast(FallbackProvider, web3.provider)
@@ -218,7 +219,7 @@ def wait_transactions_to_complete(
                         unconfirmed_txs,
                     )
                 provider.switch_provider()
-                next_node_switch = datetime.datetime.utcnow() + node_switch_timeout
+                next_node_switch = native_datetime_utc_now() + node_switch_timeout
             else:
                 logger.warning("TX confirmation takes long time. No alternative node available: %s", web3.provider)
 
@@ -655,7 +656,7 @@ def wait_and_broadcast_multiple_nodes(
             assert nonce not in used_nonces, f"Nonce used twice: {nonce}"
             used_nonces.add(nonce)
 
-    started_at = datetime.datetime.utcnow()
+    started_at = native_datetime_utc_now()
 
     receipts_received = {}
 
@@ -703,7 +704,7 @@ def wait_and_broadcast_multiple_nodes(
         logger.debug("Starting confirmation cycle, unconfirmed txs are %s", unconfirmed_tx_hashes)
 
         # Bump our verbosiveness levels for the last minutes of wait
-        if datetime.datetime.utcnow() > started_at + verbose_timeout:
+        if native_datetime_utc_now() > started_at + verbose_timeout:
             tx_log_level = logging.WARNING
         else:
             tx_log_level = logging.DEBUG
@@ -755,7 +756,7 @@ def wait_and_broadcast_multiple_nodes(
                 mine(web3)
             time.sleep(poll_delay.total_seconds())
 
-            if datetime.datetime.utcnow() > started_at + max_timeout:
+            if native_datetime_utc_now() > started_at + max_timeout:
                 for tx_hash in unconfirmed_txs:
                     try:
                         tx_data = web3.eth.get_transaction(tx_hash)
@@ -770,7 +771,7 @@ def wait_and_broadcast_multiple_nodes(
                 unconfirmed_tx_strs = ", ".join([tx_hash.hex() for tx_hash in unconfirmed_txs])
                 raise ConfirmationTimedOut(f"Transaction confirmation failed. Started: {started_at}, timed out after {max_timeout} ({max_timeout.total_seconds()}s). Poll delay: {poll_delay.total_seconds()}s. Still unconfirmed: {unconfirmed_tx_strs}")
 
-        if datetime.datetime.utcnow() >= next_node_switch:
+        if native_datetime_utc_now() >= next_node_switch:
             if transact_provider:
                 logger.info(f"Broadcast failed with {transact_provider} - trying again")
             else:
@@ -785,7 +786,7 @@ def wait_and_broadcast_multiple_nodes(
                 else:
                     logger.warning(f"Unknown provider {provider} of {providers} - cannot switch. Not sure what's going on")
 
-            next_node_switch = datetime.datetime.utcnow() + node_switch_timeout
+            next_node_switch = native_datetime_utc_now() + node_switch_timeout
 
             # Rebroadcast txs again if we suspect a broadcast failed
             # This path starts to get extra hard to handle - needs to be cleaned up

@@ -30,7 +30,7 @@ import warnings
 from eth_account._utils.signing import to_bytes32
 from eth_account.signers.local import LocalAccount
 from web3.contract.contract import ContractFunction
-from eth_defi.compat import WEB3_PY_V7
+from eth_defi.compat import WEB3_PY_V7, native_datetime_utc_now
 
 from eth_defi.eip_712 import eip712_encode_hash
 from eth_defi.token import TokenDetails
@@ -111,7 +111,7 @@ def construct_eip_3009_authorization_message(
     if duration_seconds:
         assert not valid_before, "You cannot give valid_before with duration_seconds"
         assert duration_seconds > 0
-        valid_before = int(datetime.datetime.utcnow().timestamp() + duration_seconds)
+        valid_before = int(native_datetime_utc_now().timestamp() + duration_seconds)
 
     data = {
         "types": {

@@ -36,6 +36,7 @@ from web3.contract import Contract
 from web3.contract.contract import ContractFunction
 
 from eth_defi.abi import get_deployed_contract, ZERO_ADDRESS, encode_function_call, ZERO_ADDRESS_STR, format_debug_instructions
+from eth_defi.compat import native_datetime_utc_now
 from eth_defi.event_reader.fast_json_rpc import get_last_headers
 from eth_defi.event_reader.multicall_timestamp import fetch_block_timestamps_multiprocess
 from eth_defi.event_reader.web3factory import Web3Factory
@@ -137,7 +138,7 @@ def call_multicall(
 
     payload_size = sum(20 + len(c[1]) for c in encoded_calls)
 
-    start = datetime.datetime.utcnow()
+    start = native_datetime_utc_now()
 
     logger.info(
         f"Performing multicall, input payload total size %d bytes on %d functions, block is {block_identifier:,}",
@@ -162,7 +163,7 @@ def call_multicall(
         results[call.get_key()] = call.handle(succeed, output)
 
     # User friendly logging
-    duration = datetime.datetime.utcnow() - start
+    duration = native_datetime_utc_now() - start
     logger.info("Multicall result fetch and handling took %s, output was %d bytes", duration, out_size)
 
     return results
@@ -181,7 +182,7 @@ def call_multicall_encoded(
 
     payload_size = sum(20 + len(c[1]) for c in encoded_calls)
 
-    start = datetime.datetime.utcnow()
+    start = native_datetime_utc_now()
 
     logger.info(
         f"Performing multicall, input payload total size %d bytes on %d functions, block is {block_identifier:,}",
@@ -206,7 +207,7 @@ def call_multicall_encoded(
         results[call.get_key()] = call.handle(succeed, output)
 
     # User friendly logging
-    duration = datetime.datetime.utcnow() - start
+    duration = native_datetime_utc_now() - start
     logger.info("Multicall result fetch and handling took %s, output was %d bytes", duration, out_size)
 
     return results
@@ -266,7 +267,7 @@ def call_multicall_debug_single_thread(
             len(data),
             call.get_human_args(),
         )
-        started = datetime.datetime.utcnow()
+        started = native_datetime_utc_now()
 
         # 0xcdca1753000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000004c4b400000000000000000000000000000000000000000000000000000000000000042833589fcd6edb6e08f4c7c32d4f71b54bda029130001f44200000000000000000000000000000000000006000bb8ca73ed1815e5915489570014e024b7ebe65de67900000000000000000000000000000000000000000000000000000000000
         if len(data) >= 196:
@@ -289,7 +290,7 @@ def call_multicall_debug_single_thread(
 
         results[call.get_key()] = call.handle(success, output)
 
-        duration = datetime.datetime.utcnow() - started
+        duration = native_datetime_utc_now() - started
         logger.info("Success %s, took %s", success, duration)
 
     return results
@@ -979,7 +980,7 @@ class MultiprocessMulticallReader:
         filtered_in_calls = [c for c in calls if c.is_valid_for_block(block_identifier)]
         encoded_calls = [(Web3.to_checksum_address(c.address), c.data) for c in filtered_in_calls]
 
-        start = datetime.datetime.utcnow()
+        start = native_datetime_utc_now()
 
         if len(filtered_out_calls) > 0:
             filtered_out_call_block = f"{filtered_out_calls[0].first_block_number:,}"
@@ -1074,7 +1075,7 @@ class MultiprocessMulticallReader:
             )
 
         # User friendly logging
-        duration = datetime.datetime.utcnow() - start
+        duration = native_datetime_utc_now() - start
         logger.info("Multicall result fetch and handling took %s, output was %d bytes", duration, out_size)
 
         # Cycle back to our main provider and hope it has recovered from the errors

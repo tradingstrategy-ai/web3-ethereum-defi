@@ -24,7 +24,7 @@ from eth_defi.erc_4626.core import ERC4262VaultDetection
 from eth_defi.token import is_stablecoin_like
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.vaultdb import VaultDatabase, VaultLead
-
+from eth_defi.compat import native_datetime_utc_now
 from ffn.core import PerformanceStats
 from ffn.core import calc_stats
 from ffn.utils import fmtn, fmtp, fmtpn, get_freq_name
@@ -520,7 +520,7 @@ def format_vault_database(
     df["Total events"] = df["Deposit count"] + df["Redeem count"]
     df["Mgmt fee"] = df["Mgmt fee"].fillna("<unknown>")
     df["Perf fee"] = df["Mgmt fee"].fillna("<unknown>")
-    df["Age"] = datetime.datetime.utcnow() - df["First seen"]
+    df["Age"] = native_datetime_utc_now() - df["First seen"]
     df["NAV"] = df["NAV"].astype("float64")
     if index:
         df = df.sort_values(["Chain", "Address"])

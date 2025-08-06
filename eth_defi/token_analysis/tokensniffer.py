@@ -25,6 +25,7 @@ from eth_typing import HexAddress
 from requests import Session
 
 from eth_defi.sqlite_cache import PersistentKeyValueStore
+from eth_defi.compat import native_datetime_utc_now
 
 from .trusted_tokens import KNOWN_GOOD_TOKENS
 
@@ -457,7 +458,7 @@ class TokenSniffer:
 
         # Add timestamp when this was recorded,
         # so cache can have this also as a content value
-        data["data_fetched_at"] = datetime.datetime.utcnow().isoformat()
+        data["data_fetched_at"] = native_datetime_utc_now().isoformat()
 
         return data
 
