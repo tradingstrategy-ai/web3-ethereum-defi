@@ -58,7 +58,10 @@ def calculate_lifetime_metrics(
 
         # Extract vault metadata
         vault_spec = VaultSpec.parse_string(id_val, separator="-")
-        vault_metadata: VaultLead = vaults_by_id[vault_spec]
+        vault_metadata: VaultLead = vaults_by_id.get(vault_spec)
+
+        assert vault_metadata, f"Vault metadata not found for {id_val}. This vault is present in price data, but not in metadata entries. We have {len(vaults_by_id)} metadata entries."
+
         name = vault_metadata.get("Name")
         denomination = vault_metadata.get("Denomination")
 
@@ -224,11 +227,11 @@ def format_lifetime_table(df: pd.DataFrame) -> pd.DataFrame:
         columns={
             "lifetime_return": "Lifetime return",
             "cagr": "Lifetime return ann.",
-            "three_months_returns": "Last 3M return",
-            "three_months_cagr": "Last 3M return ann.",
-            "three_months_volatility": "Last 3M months volatility",
-            "one_month_returns": "Last 1M return",
-            "one_month_cagr": "Last 1M return ann.",
+            "three_months_returns": "3M return",
+            "three_months_cagr": "3M return ann.",
+            "three_months_volatility": "3M months volatility",
+            "one_month_returns": "1M return",
+            "one_month_cagr": "1M return ann.",
             "event_count": "Deposit/redeem count",
             "peak_nav": "Peak TVL USD",
             "current_nav": "Current TVL USD",

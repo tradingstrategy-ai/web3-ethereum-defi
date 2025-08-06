@@ -193,7 +193,13 @@ class HypersyncVaultDiscover:
         seen = set()
 
         while True:
-            res = await receiver.recv()
+
+            try:
+                res = await asyncio.wait_for(receiver.recv(), timeout=30.0)
+            except asyncio.TimeoutError:
+                logger.warning("HyperSync receiver timed out")
+                break  # or handle as appropriate
+
             # exit if the stream finished
             if res is None:
                 break
