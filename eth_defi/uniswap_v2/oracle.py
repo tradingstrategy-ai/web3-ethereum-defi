@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from web3 import Web3
 
 from eth_defi.abi import get_contract
+from eth_defi.compat import native_datetime_utc_fromtimestamp
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int, decode_data
 from eth_defi.event_reader.filter import Filter
 from eth_defi.event_reader.logresult import LogContext
@@ -39,7 +40,7 @@ def convert_sync_log_result_to_price_entry(log: dict) -> PriceEntry:
     # 'topics': ['0x1c411e9a96e071241c2f21f7726b17ae89e3cab4c78be50e062b03a9fffbbad1'],
     # 'data': '0x000000000000000000000000000000000000000001b298e4a3c23039f6762b3b00000000000000000000000000000000000000000000000fdf9c1b5944aaa9a2',
     # 'blockNumber': '0xd59f80', 'transactionHash': '0x45cac9ba3f7a3bc93efecfa56c1aadffb31b5099842070d054e7b6111f1ac9bc', 'transactionIndex': '0x1', 'blockHash': '0x83447948658a5ae2dd1295cce35a85b61623fb9611578bcca65c4c918cbe3985', 'logIndex': '0x3', 'removed': False, 'context': None, 'event': <class 'web3._utils.datatypes.Sync'>, 'timestamp': 1641086320}
-    timestamp = datetime.datetime.utcfromtimestamp(log["timestamp"])
+    timestamp = native_datetime_utc_fromtimestamp(log["timestamp"])
 
     # Chop data blob to byte32 entries
     data_entries = decode_data(log["data"])
@@ -270,7 +271,7 @@ def update_live_price_feed(
     # Get the last block timestamp
     timestamps = extract_timestamps_json_rpc(web3, end_block, end_block)
     unix_timestamp = next(iter(timestamps.values()))
-    last_timestamp = datetime.datetime.utcfromtimestamp(unix_timestamp)
+    last_timestamp = native_datetime_utc_fromtimestamp(unix_timestamp)
     oracle.update_last_refresh(end_block, last_timestamp)
 
     # Clean old data

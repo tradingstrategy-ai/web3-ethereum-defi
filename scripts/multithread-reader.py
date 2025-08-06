@@ -63,7 +63,7 @@ def main():
     # Loop over the events as the multihreaded reader pool is feeding them to us.
     # Events will always arrive in the order they happened on chain.
     decoded_events = []
-    start = datetime.datetime.utcnow()
+    start = native_datetime_utc_now()
     for event in reader(
         web3,
         start_block,
@@ -103,7 +103,7 @@ def main():
 
     reader.close()
 
-    duration = datetime.datetime.utcnow() - start
+    duration = native_datetime_utc_now() - start
 
     # Print out the results to the user at the end
     print(f"Found {len(decoded_events)}")

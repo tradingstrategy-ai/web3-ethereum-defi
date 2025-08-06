@@ -20,6 +20,7 @@ import warnings
 import cachetools
 from web3.contract.contract import ContractFunction, ContractFunctions
 
+from eth_defi.compat import native_datetime_utc_now
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int, convert_solidity_bytes_to_string
 from eth_defi.event_reader.multicall_batcher import EncodedCall, read_multicall_chunked, EncodedCallResult
 from eth_defi.event_reader.web3factory import Web3Factory
@@ -918,7 +919,7 @@ class TokenDiskCache(PersistentKeyValueStore):
         super().__init__(filename)
 
     def encode_value(self, value: dict) -> Any:
-        value["saved_at"] = datetime.datetime.utcnow().isoformat()
+        value["saved_at"] = native_datetime_utc_now().isoformat()
         return json.dumps(value)
 
     def decode_value(self, value: str) -> Any:

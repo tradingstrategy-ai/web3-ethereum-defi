@@ -18,7 +18,7 @@ from web3 import Web3
 from web3.contract import Contract
 
 from eth_defi.abi import get_deployed_contract
-from eth_defi.compat import construct_sign_and_send_raw_middleware
+from eth_defi.compat import construct_sign_and_send_raw_middleware, native_datetime_utc_now
 from eth_defi.deploy import deploy_contract
 from eth_defi.enzyme.deployment import EnzymeDeployment, RateAsset
 from eth_defi.enzyme.erc20 import prepare_approve
@@ -84,7 +84,7 @@ def acceptance_message(web3: Web3) -> str:
     # Generate the message user needs to sign in their wallet
     signing_content = generate_acceptance_message(
         1,
-        datetime.datetime.utcnow(),
+        native_datetime_utc_now(),
         "https://example.com/terms-of-service",
         random.randbytes(32),
     )

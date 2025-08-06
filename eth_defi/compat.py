@@ -3,6 +3,7 @@
 v6/v7 compatibility module
 """
 
+import datetime
 from importlib.metadata import version
 from packaging.version import Version
 import eth_abi
@@ -533,3 +534,42 @@ else:
 abi_to_signature = _abi_to_signature
 get_response_from_post_request = _get_response_from_post_request
 geth_poa_middleware = _geth_poa_middleware
+
+
+def native_datetime_utc_now() -> datetime.datetime:
+    """
+    Get current UTC time as a native datetime object.
+
+    Replacement for the deprecated datetime.datetime.utcnow().
+    Returns a native datetime object (no timezone info) representing UTC time.
+
+    This is optimized for blockchain contexts where:
+    - All timestamps are assumed to be UTC
+    - Timezone-aware objects add unnecessary overhead
+    - native datetimes are sufficient and faster
+
+    Returns:
+        datetime.datetime: Native datetime object in UTC
+    """
+    return datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+
+
+def native_datetime_utc_fromtimestamp(timestamp: float) -> datetime.datetime:
+    """
+    Convert timestamp to native UTC datetime object.
+
+    Replacement for the deprecated datetime.datetime.utcfromtimestamp().
+    Returns a native datetime object (no timezone info) representing UTC time.
+
+    This is optimized for blockchain contexts where:
+    - All timestamps are assumed to be UTC
+    - Timezone-aware objects add unnecessary overhead
+    - native datetimes are sufficient and faster
+
+    Args:
+        timestamp (float): Unix timestamp (seconds since epoch)
+
+    Returns:
+        datetime.datetime: native datetime object in UTC
+    """
+    return datetime.datetime.fromtimestamp(timestamp, tz=datetime.UTC).replace(tzinfo=None)
