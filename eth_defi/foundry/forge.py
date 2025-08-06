@@ -33,9 +33,9 @@ from eth_defi.trace import assert_transaction_success_with_explanation
 logger = logging.getLogger(__name__)
 
 
-#: Crash unless forge completes in 3 minutes
+#: Crash unless forge completes in 4 minutes
 #:
-DEFAULT_TIMEOUT = 3 * 60
+DEFAULT_TIMEOUT = 4 * 60
 
 
 class ForgeFailed(Exception):
@@ -108,6 +108,7 @@ def deploy_contract_with_forge(
     verify_delay=20,
     verify_retries=9,
     verbose=False,
+    contract_file_out: Path | str | None = None,
 ) -> Tuple[Contract, HexBytes]:
     """Deploy and verify smart contract with Forge.
 
@@ -196,8 +197,11 @@ def deploy_contract_with_forge(
         Contract and deployment tx hash.
 
     """
-    assert isinstance(project_folder, Path)
+    assert isinstance(project_folder, Path), f"Got non-Path project folder: {type(project_folder)} {project_folder}"
     assert type(contract_name) == str
+
+    if isinstance(deployer, HotWallet):
+        deployer.sync_nonce(web3)
 
     if constructor_args is None:
         constructor_args = []
@@ -233,6 +237,9 @@ def deploy_contract_with_forge(
         "--nonce",
         nonce,
     ]
+
+    if verbose:
+        cmd_line.append("-vvv")
 
     if etherscan_api_key:
         if is_anvil(web3):
@@ -292,9 +299,12 @@ def deploy_contract_with_forge(
         # Run forge
         contract_address, tx_hash = _exec_cmd(cmd_line, timeout=timeout, censored_command=censored_command, verbose=verbose)
 
+        if contract_file_out is None:
+            contract_file_out = contract_file
+
         # Check we produced an ABI file, or was created earlier
-        contract_abi = project_folder / "out" / contract_file / f"{contract_name}.json"
-        assert contract_abi.exists(), f"Forge did not produce ABI file: {contract_abi.absolute()}"
+        contract_abi = project_folder / "out" / contract_file_out / f"{contract_name}.json"
+        assert contract_abi.exists(), f"Forge did not produce ABI file: {contract_abi.resolve()}"
     finally:
         os.chdir(old_path)
 

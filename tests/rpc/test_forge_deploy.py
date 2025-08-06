@@ -28,7 +28,9 @@ from eth_defi.abi import ZERO_ADDRESS
 @pytest.fixture(scope="module")
 def anvil() -> AnvilLaunch:
     """Launch Anvil for the test backend."""
-    anvil = launch_anvil()
+    anvil = launch_anvil(
+        code_size_limit=99_999,
+    )
     try:
         yield anvil
     finally:

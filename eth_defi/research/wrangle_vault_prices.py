@@ -1,5 +1,7 @@
 """Clean vault price data.
 
+.. _wrangle vault:
+
 - Denormalise data to a single DataFrame
 - Remove abnormalities in the price data
 - Reduce data by removing hourly changes that are below our epsilon threshold
@@ -134,7 +136,7 @@ def calculate_vault_returns(prices_df: pd.DataFrame, logger=print):
     missing_share_price_mask = prices_df["share_price"].isna()
     bad_share_price_df = prices_df[missing_share_price_mask]
     if len(bad_share_price_df) > 0:
-        logger(f"We have NaN share prices for {len(bad_share_price_df):,} rows, these will be dropped")
+        logger(f"We have NaN share price for {len(bad_share_price_df):,} rows, these will be dropped")
         prices_df = prices_df[~missing_share_price_mask]
 
     assert prices_df["share_price"].isna().sum() == 0, "share_price column must not contain NaN values"
@@ -376,6 +378,81 @@ def filter_unneeded_row(
     return filtered_df
 
 
+def filter_outlier_share_prices(
+    prices_df: pd.DataFrame,
+    logger=print,
+    max_diff=0.33,
+) -> pd.DataFrame:
+    """Filter out rows with share price that is too high.
+
+    - Sometimes share price jump to an outlier value and back
+    - Not sure what is causing this, bad manual reporting, oracle issues?
+    - See ``check-share-price`` script for inspecting individual prices
+
+    Case Fluegel DAO:
+
+    +------------+-------+------------------------------------------+--------------+-------------+-------------+-------------+
+    | timestamp  | chain | address                                  | block_number | share_price | total_assets | total_supply |
+    +============+=======+==========================================+==============+=============+=============+=============+
+    | 2024-07-16 | 8453  | 0x277a3c57f3236a7d458576074d7c3d7046eb26c | 17176415     | 1.60        | 373,740.21  | 232,929.92  |
+    | 15:02:57   |       |                                          |              |             |             |             |
+    +------------+-------+------------------------------------------+--------------+-------------+-------------+-------------+
+    | 2024-07-16 | 8453  | 0x277a3c57f3236a7d458576074d7c3d7046eb26c | 17178215     | 1.63        | 379,832.59  | 232,929.92  |
+    | 16:02:57   |       |                                          |              |             |             |             |
+    +------------+-------+------------------------------------------+--------------+-------------+-------------+-------------+
+    | 2024-07-16 | 8453  | 0x277a3c57f3236a7d458576074d7c3d7046eb26c | 17180015     | 0.33        | 75,744.97   | 232,929.92  |
+    | 17:02:57   |       |                                          |              |             |             |             |
+    +------------+-------+------------------------------------------+--------------+-------------+-------------+-------------+
+    | 2024-07-16 | 8453  | 0x277a3c57f3236a7d458576074d7c3d7046eb26c | 17181815     | 1.64        | 382,282.78  | 232,929.92  |
+    | 18:02:57   |       |                                          |              |             |             |             |
+    +------------+-------+------------------------------------------+--------------+-------------+-------------+-------------+
+
+    Case
+    """
+
+    # Store unfiltered share prices for the later examination
+    prices_df["raw_share_price"] = prices_df["share_price"]
+
+    share_prices_fixed = 0
+
+    def _clean_share_price_for_pair(prices_df: pd.DataFrame) -> pd.DataFrame:
+        nonlocal share_prices_fixed
+
+        prices_df = prices_df.copy()
+
+        # Calculate forward and backward percentage change for each vault
+        prices_df["pct_change_prev"] = prices_df.groupby("id")["share_price"].pct_change(fill_method=None).abs()
+        prices_df["pct_change_next"] = prices_df.groupby("id")["share_price"].pct_change(-1, fill_method=None).abs()
+
+        # Mark rows where both changes exceed the threshold (spike and recovery)
+        abnormal_mask = (prices_df["pct_change_prev"] > max_diff) & (prices_df["pct_change_next"] > max_diff)
+
+        # Replace abnormal share_price with average of previous and next
+        for idx in prices_df[abnormal_mask].index:
+            prev_idx = prices_df.index.get_loc(idx) - 1
+            next_idx = prices_df.index.get_loc(idx) + 1
+            if prev_idx >= 0 and next_idx < len(prices_df):
+                prev_price = prices_df.iloc[prev_idx]["share_price"]
+                next_price = prices_df.iloc[next_idx]["share_price"]
+                prices_df.at[idx, "share_price"] = (prev_price + next_price) / 2
+                share_prices_fixed += 1
+
+        return prices_df
+
+    filtered_all_df = prices_df.groupby("id", group_keys=True, sort=False).apply(_clean_share_price_for_pair)
+
+    change_mask = (filtered_all_df["share_price"] != filtered_all_df["raw_share_price"]) & pd.notna(filtered_all_df["raw_share_price"])
+    change_count = len(change_mask[change_mask == True])
+
+    logger(f"Share prices fix count {share_prices_fixed}, filtered out {change_count:,} rows with abnormal share_price spikes (> {max_diff:.2%})")
+
+    # groupby() added id as an MultiIndex(id, timestamp), but unwind this change back,
+    # as other functions do not expect it
+    filtered_all_df = filtered_all_df.droplevel("id")
+
+    return filtered_all_df
+
+
 def sort_and_index_vault_prices(
     prices_df: pd.DataFrame,
     priority_ids: list[str],
@@ -415,8 +492,9 @@ def process_raw_vault_scan_data(
     prices_df = sort_and_index_vault_prices(prices_df, PRIORITY_SORT_IDS)
     prices_df = filter_vaults_by_stablecoin(vault_db, prices_df, logger)
     prices_df = filter_unneeded_row(prices_df, logger)
+    prices_df = filter_outlier_share_prices(prices_df, logger)
     prices_df = calculate_vault_returns(prices_df)
-    # prices_df = calculate_vault_performance_metrics(vault_db, prices_df, logger)
+
     prices_df = clean_returns(
         vault_db,
         prices_df,

@@ -206,6 +206,7 @@ def vault(
     aave_pool_address = aave_v3_deployment.pool.address
     note = "Allow 1delta"
     tx_hash = guard.functions.whitelistOnedelta(broker_proxy_address, aave_pool_address, note).transact({"from": owner})
+    assert_transaction_success_with_explanation(web3, tx_hash)
     receipt = web3.eth.get_transaction_receipt(tx_hash)
     assert len(receipt["logs"]) == 4
 

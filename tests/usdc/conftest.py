@@ -1,11 +1,12 @@
 """USDC fixtures."""
 
+import logging
+
 import pytest
 from eth_typing import ChecksumAddress
-from web3 import Web3, HTTPProvider
+from web3 import Web3
 
 from eth_defi.provider.anvil import AnvilLaunch, launch_anvil
-from eth_defi.chain import install_chain_middleware
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import TokenDetails, reset_default_token_cache
 from eth_defi.usdc.deployment import deploy_fiat_token
@@ -18,7 +19,7 @@ def anvil() -> AnvilLaunch:
     try:
         yield anvil
     finally:
-        anvil.close()
+        anvil.close(log_level=logging.INFO)
 
 
 @pytest.fixture()

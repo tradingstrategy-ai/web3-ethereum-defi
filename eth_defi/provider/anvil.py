@@ -76,6 +76,7 @@ CLI_FLAGS = {
     "gas_limit": "--gas-limit",
     "block_time": "--block-time",
     "steps_tracing": "--steps-tracing",
+    "code_size_limit": "--code-size-limit",
 }
 
 
@@ -107,7 +108,7 @@ def _launch(cmd: str, **kwargs) -> tuple[psutil.Popen, list[str]]:
     # USDC hack
     # Some contracts are too large to deploy when they are compiled unoptimized
     # TODO: Move to argument
-    cmd_list += ["--code-size-limit", "99999"]
+    # cmd_list += ["--code-size-limit", "99999"]
 
     final_cmd_str = " ".join(cmd_list)
     logger.info("Launching anvil: %s", final_cmd_str)
@@ -210,6 +211,8 @@ def launch_anvil(
     test_request_timeout=3.0,
     fork_block_number: Optional[int] = None,
     log_wait=False,
+    code_size_limit: int = None,
+    rpc_smoke_test=True,
 ) -> AnvilLaunch:
     """Creates Anvil unit test backend or mainnet fork.
 
@@ -378,8 +381,15 @@ def launch_anvil(
         If not given, fork at the latest block.
         Needs an archive node to work.
 
+    :parma code_size_limit:
+        Max smart contract size
+
+    :param rpc_smoke_test:
+        Check that the RPC is working before attempting to start Anvil
+
     :parma log_wait:
         Display info level logging while waiting for Anvil to start.
+
     """
 
     attempts_left = attempts
@@ -411,6 +421,15 @@ def launch_anvil(
     else:
         cleaned_fork_url = fork_url
 
+    # Check given RPC works
+    if fork_url and rpc_smoke_test:
+        web3 = Web3(HTTPProvider(cleaned_fork_url, request_kwargs={"timeout": test_request_timeout}))
+        # Will raise an exception if not working
+        try:
+            web3.eth.block_number
+        except Exception as e:
+            raise ValueError(f"RPC smoke test failed for {cleaned_fork_url}: {e}") from e
+
     # https://book.getfoundry.sh/reference/anvil/
     args = dict(
         port=port,
@@ -419,6 +438,9 @@ def launch_anvil(
         gas_limit=gas_limit,
         steps_tracing=steps_tracing,
     )
+
+    if code_size_limit:
+        args["code_size_limit"] = code_size_limit
 
     if fork_block_number:
         args["fork_block_number"] = fork_block_number

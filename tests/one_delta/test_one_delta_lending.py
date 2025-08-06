@@ -68,6 +68,8 @@ def test_one_delta_supply(
     assert ausdc.contract.functions.balanceOf(hot_wallet.address).call() == pytest.approx(usdc_supply_amount)
 
 
+# FAILED tests/one_delta/test_one_delta_lending.py::test_one_delta_withdraw - web3.exceptions.TimeExhausted: Transaction HexBytes('0x5efa744bd5dbd46c53d98276a657b69643be7c7157fd653c9f668c1ee3804d85') is not in the chain after 120.0 seconds
+@flaky.flaky()
 def test_one_delta_withdraw(
     web3,
     hot_wallet,

@@ -656,7 +656,7 @@ def fetch_erc20_details(
         symbol = sanitise_string(erc_20.functions.symbol().call()[0:max_str_length])
     except _call_missing_exceptions as e:
         if raise_on_error:
-            raise TokenDetailError(f"Token {token_address} missing symbol") from e
+            raise TokenDetailError(f"Token {token_address} missing symbol on chain {chain_id}") from e
         symbol = None
     except OverflowError:
         # OverflowError: Python int too large to convert to C ssize_t
