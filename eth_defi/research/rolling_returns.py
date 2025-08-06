@@ -254,8 +254,8 @@ def visualise_rolling_returns(
         labels={"rolling_1m_returns": "1-Month Rolling Returns (%)", "timestamp": "Date", "name": "Name"},
         hover_data=["id"],
         color_discrete_sequence=qualitative.Dark24,
-    )
 
+    )
     fig.update_layout(
         xaxis_title="Date",
         yaxis_title="1-Month Rolling Returns (%)",
@@ -263,6 +263,6 @@ def visualise_rolling_returns(
         hovermode="closest",
         template=pio.templates.default,
     )
-    fig.update_traces(line=dict(width=4))
+    fig.update_traces(line=dict(width=3))
 
     return fig

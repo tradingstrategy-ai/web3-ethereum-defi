@@ -45,6 +45,9 @@ def calculate_lifetime_metrics(
     assert isinstance(df.index, pd.DatetimeIndex)
     assert isinstance(vaults_by_id, dict), "vaults_by_id should be a dictionary of vault metadata"
 
+    key = next(iter(vaults_by_id.keys()))
+    assert isinstance(key, VaultSpec), f"Wrong kind of VaultDatabase detected: {type(key)}: {key}"
+
     month_ago = df.index.max() - pd.Timedelta(days=30)
     three_months_ago = df.index.max() - pd.Timedelta(days=90)
 
@@ -592,3 +595,86 @@ def format_ffn_performance_stats(
         return pd.concat([prefix_series, data_series])
     else:
         return data_series
+
+
+
+def cross_check_data(
+    vault_db: VaultDatabase,
+    prices_df: pd.DataFrame,
+    printer=print,
+) -> int:
+    """Check that VaultDatabase has metadata for all price_df vaults and vice versa.
+    
+    :return:
+        Number of problem entries.
+
+        Should be zero.
+    """
+
+    vault_db_entries = set(k.as_string_id() for k in vault_db.keys())
+
+    prices_df_ids = set(prices_df["chain"].astype(str) + "-" + prices_df["address"].astype(str))
+
+    errors = 0 
+    for entry in prices_df_ids:
+        if entry not in vault_db_entries:
+            printer(f"Price data has entry {entry} that is not in vault database")
+            errors += 1
+
+    return errors
+
+
+def calculate_daily_returns_for_all_vaults(df_work: pd.DataFrame) -> pd.DataFrame:
+    """Calculate daily returns for each vault in isolation"""
+
+    # Group by chain and address, then resample and forward fill
+
+    df_work = df_work.set_index("timestamp")
+
+    result_dfs = []
+    for (chain_val, addr_val), group in df_work.groupby(["chain", "address"]):
+        # Resample this group to daily frequency and forward fill
+        resampled = group.resample("D").last()
+
+        # Calculate daily returns
+        resampled["daily_returns"] = resampled["share_price"].pct_change(fill_method=None).fillna(0)
+
+        # Add back the groupby keys as they'll be dropped during resampling
+        resampled["chain"] = chain_val
+        resampled["address"] = addr_val
+
+        result_dfs.append(resampled)
+
+    # Concatenate all the processed groups
+    df_result = pd.concat(result_dfs)
+
+    return df_result
+
+
+def calculate_hourly_returns_for_all_vaults(df_work: pd.DataFrame) -> pd.DataFrame:
+    """Calculate hourly returns for each vault in isolation"""
+
+    # Group by chain and address, then resample and forward fill
+
+
+    assert isinstance(df_work, pd.DataFrame)
+    assert isinstance(df_work.index, pd.DatetimeIndex), "DataFrame index must be a DatetimeIndex"
+
+    result_dfs = []
+    for (chain_val, addr_val), group in df_work.groupby(["chain", "address"]):
+        # Resample this group to daily frequency and forward fill
+        resampled = group.resample("D").last()
+
+        # Calculate daily returns
+        resampled["returns_1h"] = resampled["share_price"].pct_change(fill_method=None).fillna(0)
+
+        # Add back the groupby keys as they'll be dropped during resampling
+        resampled["chain"] = chain_val
+        resampled["address"] = addr_val
+
+        result_dfs.append(resampled)
+
+    # Concatenate all the processed groups
+    df_result = pd.concat(result_dfs)
+
+    return df_result
