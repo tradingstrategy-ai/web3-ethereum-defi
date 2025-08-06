@@ -149,3 +149,35 @@ def calculate_rolling_returns(
     df = df.loc[df["timestamp"] >= (pd.Timestamp.now() - period)]
 
     return df
+
+
+def calculate_daily_returns_for_all_vaults(df_work: pd.DataFrame) -> pd.DataFrame:
+    """Calculate daily returns for each vault in isolation.
+    
+    :param df_work: 
+        DataFrame with hourly share price values.
+    """
+
+    df_work = df_work.set_index("timestamp")
+
+    result_dfs = []
+    
+    # Group by chain and address, then resample and forward fill
+    for (chain_val, addr_val), group in df_work.groupby(["chain", "address"]):
+        # Resample this group to daily frequency and forward fill
+        resampled = group
+        resampled["share_price_daily"] = group["share_price"].resample("D").ffill()
+
+        # Calculate daily returns
+        resampled["daily_returns"] = resampled["share_price_daily"].pct_change(fill_method=None).fillna(0)
+
+        # Add back the groupby keys as they'll be dropped during resampling
+        resampled["chain"] = chain_val
+        resampled["address"] = addr_val
+
+        result_dfs.append(resampled)
+
+    # Concatenate all the processed groups
+    df_result = pd.concat(result_dfs)
+
+    return df_result
