@@ -194,15 +194,15 @@ def calculate_rolling_returns(
 
 def calculate_daily_returns_for_all_vaults(df_work: pd.DataFrame) -> pd.DataFrame:
     """Calculate daily returns for each vault in isolation.
-    
-    :param df_work: 
+
+    :param df_work:
         DataFrame with hourly share price values.
     """
 
     df_work = df_work.set_index("timestamp")
 
     result_dfs = []
-    
+
     # Group by chain and address, then resample and forward fill
     for (chain_val, addr_val), group in df_work.groupby(["chain", "address"]):
         # Resample this group to daily frequency and forward fill
@@ -266,4 +266,3 @@ def visualise_rolling_returns(
     fig.update_traces(line=dict(width=4))
 
     return fig
-
