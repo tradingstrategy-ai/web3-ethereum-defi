@@ -25,32 +25,9 @@ from requests.sessions import HTTPAdapter
 from eth_defi.sqlite_cache import PersistentKeyValueStore
 from eth_defi.velvet.logging_retry import LoggingRetry
 
+from .trusted_tokens import KNOWN_GOOD_TOKENS
+
 logger = logging.getLogger(__name__)
-
-
-#: Manually whitelist some custodian tokens
-#:
-#: See :py:func:`is_tradeable_token`.
-#:
-KNOWN_GOOD_TOKENS = {
-    "USDC",
-    "USDT",
-    "USDS",  # Dai rebranded
-    "MKR",
-    "DAI",
-    "WBTC",
-    "NEXO",
-    "PEPE",
-    "NEXO",
-    "AAVE",
-    "SYN",
-    "SNX",
-    "FLOKI",
-    "WETH",
-    "cbBTC",
-    "ETH",
-    "WBNB",
-}
 
 
 DEFAULT_CACHE_PATH = Path.home() / ".cache" / "tradingstrategy" / "token-risk.sqlite"
@@ -292,6 +269,15 @@ class CachedTokenRisk(TokenRisk):
         assert data["score"] == 0
         assert not is_tradeable_token(data)
 
+    You can also pass your custom SQLite file for caching:
+
+    .. code-block:: python
+
+        path = Path("./cache/token_risk.sqlite")
+        token_risk = CachedTokenRisk(
+            api_key=os.environ["TOKEN_RISK_API_KEY"],
+            cache_file=path,
+        )
     """
 
     def __init__(

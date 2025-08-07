@@ -26,33 +26,10 @@ from requests import Session
 
 from eth_defi.sqlite_cache import PersistentKeyValueStore
 
+from .trusted_tokens import KNOWN_GOOD_TOKENS
+
 
 logger = logging.getLogger(__name__)
-
-
-#: Manually whitelist some custodian tokens
-#:
-#: See :py:func:`is_tradeable_token`.
-#:
-KNOWN_GOOD_TOKENS = {
-    "USDC",
-    "USDT",
-    "USDS",  # Dai rebranded
-    "MKR",
-    "DAI",
-    "WBTC",
-    "NEXO",
-    "PEPE",
-    "NEXO",
-    "AAVE",
-    "SYN",
-    "SNX",
-    "FLOKI",
-    "WETH",
-    "cbBTC",
-    "ETH",
-    "WBNB",
-}
 
 
 class TokenSnifferError(Exception):
