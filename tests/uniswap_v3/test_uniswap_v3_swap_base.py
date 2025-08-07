@@ -27,7 +27,7 @@ pytestmark = pytest.mark.skipif(not JSON_RPC_BASE, reason="No JSON_RPC_BASE envi
 @pytest.fixture()
 def usdc_holder() -> HexAddress:
     # https://basescan.org/token/0x833589fcd6edb6e08f4c7c32d4f71b54bda02913#balances
-    return "0x3304E22DDaa22bCdC5fCa2269b418046aE7b566A"
+    return "0x40EbC1Ac8d4Fedd2E144b75fe9C0420BE82750c6"
 
 
 @pytest.fixture()
@@ -94,6 +94,9 @@ def test_uniswap_v3_swap_on_base(
     output_token = fetch_erc20_details(web3, "0x4200000000000000000000000000000000000006")  # WETH
 
     amount = 5 * 10**6
+
+    assert input_token.fetch_raw_balance_of(usdc_holder) >= amount, "Not enough USDC in the holder account"
+
     tx_hash = input_token.contract.functions.approve(uniswap_v3.swap_router.address, amount).transact({"from": usdc_holder})
     assert_transaction_success_with_explanation(web3, tx_hash)
 

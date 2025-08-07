@@ -88,7 +88,6 @@ class TokenRiskSmartContractInfo(TypedDict):
 
 class TokenRiskFlags(TypedDict):
     """All evaluated flags are returned, value being true or false"""
-
     description: str
     key: str
     sub_title: str
@@ -136,6 +135,7 @@ class TokenRiskReply(TypedDict):
     #: ISO format of the orignal reply caching timestamp
     data_fetched_at: str
 
+    #: 0 - 100, but prefer flag checks in :py:attr:`results` yourself
     score: int
 
     info: TokenRiskSmartContractInfo
@@ -348,7 +348,7 @@ def is_tradeable_token(
     data: TokenRiskReply,
     symbol: str | None = None,
     whitelist=KNOWN_GOOD_TOKENS,
-    risk_score_threshold=0,
+    risk_score_threshold=5,
     avoid_risks: Collection[str] = AVOID_RISKS,
 ) -> bool:
     """Risk assessment for open-ended trade universe.
@@ -374,6 +374,8 @@ def is_tradeable_token(
         If the risk score is below this, we do not want to trade.
 
         Default is zero, so if the token has any risk flags set, we do not want to trade.
+
+        Between 0-100.
 
     :return:
         True if we want to trade
