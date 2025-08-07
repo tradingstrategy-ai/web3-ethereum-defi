@@ -12,13 +12,15 @@ class LoggingRetry(Retry):
 
     .. code-block:: python
 
+        from requests.sessions import HTTPAdapter
+
         # Set up dealing with network connectivity flakey
         if retry_policy is None:
             # https://stackoverflow.com/a/35504626/315168
             retry_policy = LoggingRetry(
                 total=5,
                 backoff_factor=0.1,
-                status_forcelist=[500, 502, 503, 504],
+                status_forcelist=[429, 500, 502, 503, 504],
             )
             session.mount("http://", HTTPAdapter(max_retries=retry_policy))
             session.mount("https://", HTTPAdapter(max_retries=retry_policy))

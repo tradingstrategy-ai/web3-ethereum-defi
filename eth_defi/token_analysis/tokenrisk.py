@@ -20,9 +20,10 @@ from typing import TypedDict, Collection
 import requests
 from eth_typing import HexAddress
 from requests import Session
+from requests.sessions import HTTPAdapter
 
 from eth_defi.sqlite_cache import PersistentKeyValueStore
-
+from eth_defi.velvet.logging_retry import LoggingRetry
 
 logger = logging.getLogger(__name__)
 
@@ -173,7 +174,27 @@ class TokenRiskReply(TypedDict):
 class TokenRisk:
     """Token Risk API."""
 
-    def __init__(self, api_key: str, session: Session = None):
+    def __init__(
+        self,
+        api_key: str,
+        session: Session = None,
+        retries: int | None=5,
+    ):
+        """
+
+        :param api_key:
+            From Glider
+
+        :param session:
+            Custom request session object
+
+        :param retries:
+            Set up retry policy.
+
+            Handle API throttling.
+
+            Set None to disable retries.
+        """
         assert api_key
         self.api_key = api_key
 
@@ -182,6 +203,18 @@ class TokenRisk:
 
         if session is None:
             session = requests.Session()
+
+            retry_policy = LoggingRetry(
+                total=retries,
+                backoff_factor=0.1,
+                status_forcelist=[429, 500, 502, 503, 504],
+            )
+            session.mount("http://", HTTPAdapter(max_retries=retry_policy))
+            session.mount("https://", HTTPAdapter(max_retries=retry_policy))
+
+        else:
+            assert retries is None, f"Cannot set retries with custom session: {session}"
+
 
         self.session = session
 
@@ -260,6 +293,7 @@ class CachedTokenRisk(TokenRisk):
         cache_file: Path | None = DEFAULT_CACHE_PATH,
         session: Session = None,
         cache: dict | None = None,
+        retries: int | None = 5,
     ):
         """
 
@@ -283,7 +317,7 @@ class CachedTokenRisk(TokenRisk):
             Cache values are JSON blobs as string.
 
         """
-        super().__init__(api_key, session)
+        super().__init__(api_key, session=session, retries=retries)
 
         assert isinstance(api_key, str), f"Got {api_key.__class__}"
         if cache_file:
