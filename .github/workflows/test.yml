@@ -129,17 +129,12 @@ jobs:
       # - name: Setup Debug Session Before Tests
       #   uses: csexton/debugger-action@master
 
-      - name: Setup tmate session for debugging
-        uses: mxschmitt/action-tmate@v3
-        with:
-          limit-access-to-actor: true
+      # - name: Setup tmate session for debugging
+      #   uses: mxschmitt/action-tmate@v3
+      #   with:
+      #     limit-access-to-actor: true
         # if: ${{ failure() || github.event.inputs.debug == 'true' }}
 
-      - name: Setup tmate session for debugging
-        uses: mxschmitt/action-tmate@v3
-        with:
-          limit-access-to-actor: true
-        # if: ${{ failure() || github.event.inputs.debug == 'true' }}
 
       - name: Run tests (parallel)
         run: |
