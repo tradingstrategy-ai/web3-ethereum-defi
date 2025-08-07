@@ -338,6 +338,8 @@ class CachedTokenRisk(TokenRisk):
             assert isinstance(cache_file, Path), f"Got {cache_file.__class__}"
             self.cache = PersistentKeyValueStore(cache_file)
 
+        logger.info("Starting with Token Risk cache at %s, we have %d entries cached", cache_file, len(self.cache))
+
     def fetch_token_info(self, chain_id: int, address: str | HexAddress) -> TokenRiskReply:
         """Get Token Risk info.
 
