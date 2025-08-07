@@ -1,0 +1,390 @@
+"""Token Rkisk API.
+
+- Python wrapper for `Token Risk API by Hexen <https://hexens.io/solutions/token-risks-api>`__
+
+- Allows to fetch  ERC-20 risk flags  and other automatically analysed metadata to determine if a token is some sort of a scam or not
+
+- For usage see :py:class:`CachedToken Risk` class
+
+- `Read Token Risk REST API documentation <https://glide.gitbook.io/main/glider-api/api-documentation>`__
+
+"""
+
+import datetime
+import logging
+import json
+from pathlib import Path
+from statistics import mean
+from typing import TypedDict, Collection
+
+import requests
+from eth_typing import HexAddress
+from requests import Session
+
+from eth_defi.sqlite_cache import PersistentKeyValueStore
+
+
+logger = logging.getLogger(__name__)
+
+
+#: Manually whitelist some custodian tokens
+#:
+#: See :py:func:`is_tradeable_token`.
+#:
+KNOWN_GOOD_TOKENS = {
+    "USDC",
+    "USDT",
+    "USDS",  # Dai rebranded
+    "MKR",
+    "DAI",
+    "WBTC",
+    "NEXO",
+    "PEPE",
+    "NEXO",
+    "AAVE",
+    "SYN",
+    "SNX",
+    "FLOKI",
+    "WETH",
+    "cbBTC",
+    "ETH",
+    "WBNB",
+}
+
+
+DEFAULT_CACHE_PATH = Path.home() / ".cache" / "tradingstrategy" / "token-risk.sqlite"
+
+
+#: List of Token Risk flags we do not want to trade by default
+AVOID_RISKS = [
+    # Hidden fee functionality included in transfers
+    # "risk_hidden_fees",
+    "risk_balance_manipulation_in_non_standard_functions",
+]
+
+
+class TokenRiskError(Exception):
+    """Wrap bad API replies from Token Risk.
+
+    - Has attribute `status_code`
+    """
+
+    def __init__(self, msg: str, status_code: int, address: str):
+        """
+        :param status_code:
+            to reflect the HTTP code (e.g. 404 if Token Risk does not have data)
+        """
+        super().__init__(msg)
+        self.status_code = status_code
+        self.address = address
+
+
+class TokenRiskSmartContractInfo(TypedDict):
+    implementation_address: str | None
+    is_proxy: bool
+    is_verified: bool
+    proxy_address: str | None
+
+
+class TokenRiskFlags(TypedDict):
+    """All evaluated flags are returned, value being true or false"""
+    description: str
+    key: str
+    sub_title: str
+    title: str
+    value: bool
+
+
+class TokenRiskReply(TypedDict):
+    """Token Risk JSON payload.
+
+    Example:
+
+    .. code-block:: none
+
+        {'address': '0x7aaaa5b10f97321345acd76945083141be1c5631',
+         'cached': False,
+         'cached_at': '2025-08-07T09:00:36.460660',
+         'chain_id': '56',
+         'data_fetched_at': '2025-08-07T09:00:36.460616',
+         'execution_time': 0.001073565,
+         'info': {'implementation_address': None,
+                  'is_proxy': False,
+                  'is_verified': True,
+                  'proxy_address': None},
+         'market_endorsed': False,
+         'results': [{'description': "The token contract's transfer or transferFrom "
+                                     'functions have a hidden fee functionality that '
+                                     'can be turned on. This may mean that the '
+                                     'receiver address can get fewer or a different '
+                                     'amount of tokens than passed within the transfer '
+                                     'functions.',
+                      'key': 'risk_hidden_fees',
+                      'severity': 'high',
+                      'sub_title': 'Hidden fee functionality included in transfers',
+                      'title': 'Hidden fees',
+                      'value': 'false'},
+
+         'score': 0}
+
+    """
+
+    #: Added to the response if it was locally cached
+    cached: bool
+
+    #: ISO format of the orignal reply caching timestamp
+    data_fetched_at: str
+
+    score: int
+
+    info: TokenRiskSmartContractInfo
+
+    chain_id: int
+
+    address: str
+
+    market_endorsed: bool
+
+    results: list[TokenRiskFlags]
+
+
+class TokenRisk:
+    """Token Risk API."""
+
+    def __init__(self, api_key: str, session: Session = None):
+        assert api_key
+        self.api_key = api_key
+
+        assert self.api_key.strip() == self.api_key, f"Got: {self.api_key}"
+        assert self.api_key
+
+        if session is None:
+            session = requests.Session()
+
+        self.session = session
+
+        self.api_url = f"https://data1.hexens.io/api/v1/contract/analyze-risk"
+
+    def fetch_token_info(self, chain_id: int, address: str | HexAddress) -> TokenRiskReply:
+        """Get Token Risk token data.
+
+        This is a synchronous method and may block long time if Token Risk does not have cached results.
+
+        https://Token Risk.com/api/v2/tokens/{chain_id}/{address}
+
+        :param chain_id:
+            Integer. Example for Ethereum mainnet is `1`.
+
+        :param address:
+            ERC-20 smart contract address.
+
+        :return:
+            Raw Token Risk JSON reply.
+
+        """
+        assert type(chain_id) == int
+        assert address.startswith("0x")
+
+        parameters = {
+            "token": self.api_key,
+            "chain_id": chain_id,
+            "address": address,
+        }
+
+        logger.info("Fetching Token Risk data %d: %s", chain_id, address)
+
+        resp = self.session.get(self.api_url, params=parameters)
+
+        if resp.status_code != 200:
+            raise TokenRiskError(
+                msg=f"Token Risk replied on address {address}: {resp}: {resp.text}\nFull URL is {resp.url}",
+                status_code=resp.status_code,
+                address=address,
+            )
+
+        data = resp.json()
+
+        # Add timestamp when this was recorded,
+        # so cache can have this also as a content value
+        data["data_fetched_at"] = datetime.datetime.utcnow().isoformat()
+
+        return data
+
+
+class CachedTokenRisk(TokenRisk):
+    """Add file-system based cache for Token Risk API."""
+
+    def __init__(
+        self,
+        api_key: str,
+        cache_file: Path | None =  DEFAULT_CACHE_PATH,
+        session: Session = None,
+        cache: dict | None = None,
+    ):
+        """
+
+        :param api_key:
+            Token Risk API key.
+
+        :param session:
+            requests.Session for persistent HTTP connections
+
+        :param cache_file:
+            Path to a local file system SQLite file used as a cached.
+
+            For simple local use cases.
+
+        :param cache:
+            Direct custom cache interface as a Python dict interface.
+
+            For your own database caching.
+
+            Cache keys are format: `cache_key = f"{chain_id}-{address}"`.
+            Cache values are JSON blobs as string.
+
+        """
+        super().__init__(api_key, session)
+
+        assert isinstance(api_key, str), f"Got {api_key.__class__}"
+        if cache_file:
+            assert isinstance(cache_file, Path), f"Got {cache_file.__class__}: {cache_file}"
+
+        if cache is not None:
+            assert cache_file is None, "Cannot give both cache interface and cache_path"
+            self.cache = cache
+        else:
+            assert isinstance(cache_file, Path), f"Got {cache_file.__class__}"
+            self.cache = PersistentKeyValueStore(cache_file)
+
+    def fetch_token_info(self, chain_id: int, address: str | HexAddress) -> TokenRiskReply:
+        """Get Token Risk info.
+
+        Use local file cache if available.
+
+        :return:
+            Data passed through Token Risk.
+
+            A special member `cached` is set depending on whether the reply was cached or not.
+        """
+        cache_key = f"{chain_id}-{address}"
+        cached = self.cache.get(cache_key)
+        if not cached:
+            decoded = super().fetch_token_info(chain_id, address)
+            decoded["cached_at"] = datetime.datetime.utcnow().isoformat()
+            self.cache[cache_key] = json.dumps(decoded)
+            decoded["cached"] = False
+        else:
+            decoded = json.loads(cached)
+            decoded["cached"] = True
+
+        return decoded
+
+    def get_diagnostics(self) -> str:
+        """Get a diagnostics message.
+
+        - Use for logging what kind of data we have collected
+
+        Example output:
+
+        .. code-block:: text
+
+            Token sniffer info is:
+
+                    Token Risk cache database /Users/moo/.cache/tradingstrategy/Token Risk.sqlite summary:
+
+                    Entries: 195
+                    Max score: 100
+                    Min score: 0
+                    Avg score: 56.6
+
+        :return:
+            Multi-line human readable string
+        """
+
+        scores = []
+        path = self.cache.filename
+
+        for key in self.cache.keys():
+            data = json.loads(self.cache[key])
+            scores.append(data["score"])
+
+        text = f"""
+        Token Risk cache database {path} summary:
+        
+        Entries: {len(scores)}
+        Max score: {max(scores)}
+        Min score: {min(scores)}
+        Avg score: {mean(scores)}        
+        """
+        return text
+
+
+def has_risk_flags(
+    data: TokenRiskReply,
+    avoid_risks: Collection[str] = AVOID_RISKS,
+) -> bool:
+    """Check if any of the risk flags are set in Token Risk reply.
+
+    :param data:
+        Token Risk reply data
+
+    :param avoid_risks:
+        List of risk flags to avoid, by their "key" value
+
+    :return:
+        True if any of the risks is set
+    """
+
+    for flag in data["results"]:
+        # Hexen API is broken returning "true" string instead of true value
+        if flag["value"] in (True, "true") and flag["key"] in avoid_risks:
+            return True
+
+    return False
+
+
+def is_tradeable_token(
+    data: TokenRiskReply,
+    symbol: str | None = None,
+    whitelist=KNOWN_GOOD_TOKENS,
+    risk_score_threshold=0,
+    avoid_risks: Collection[str] = AVOID_RISKS,
+) -> bool:
+    """Risk assessment for open-ended trade universe.
+
+    - Based on Token Risk reply, determine if we want to trade this token or not
+
+    .. note::
+
+        This will alert for USDT/USDC, etc. so be careful.
+
+    :param symbol:
+        For manual whitelist check.
+
+    :param whitelist:
+        Always whitelist these if the token symbol matches.
+
+        E.g. WBTC needs to be whitelisted, as its risk score is 45.
+
+    :param avoid_risks:
+        If any of these risk flags is set, short circuit to zero
+
+    :param risk_score_threshold:
+        If the risk score is below this, we do not want to trade.
+
+        Default is zero, so if the token has any risk flags set, we do not want to trade.
+
+    :return:
+        True if we want to trade
+    """
+
+    if symbol is not None:
+        if symbol in whitelist:
+            return True
+
+    if has_risk_flags(data, avoid_risks):
+        # If any of the risk flags are set, we do not want to trade
+        return False
+
+    # Trust on Token Risk heurestics
+    return data["score"] >= risk_score_threshold
