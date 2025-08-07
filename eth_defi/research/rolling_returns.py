@@ -7,6 +7,8 @@ import plotly.io as pio
 from plotly.colors import qualitative
 from plotly.graph_objects import Figure
 
+from eth_defi.chain import get_chain_name
+
 CHART_BENCHMARK_COUNT: int = 10
 
 RETURNS_ROLLING_WINDOW = 30  # Bars, 1M
@@ -113,6 +115,7 @@ def calculate_rolling_returns(
     drop_threshold: float = None,
     benchmark_count: int = CHART_BENCHMARK_COUNT,
     returns_column: str = "returns_1h",
+    chainify=True,
 ) -> pd.DataFrame:
     """Calculate rolling returns stats for vaults.
 
@@ -129,11 +132,22 @@ def calculate_rolling_returns(
 
         A list of chain id-address strings.
 
+    :param chainify:
+        Add the chain name in the title.
+
     :return:
         A DataFrame with MultiIndex(id, timestamp) and columns like rolling_1m_returns_annualized.
     """
 
     assert isinstance(returns_df.index, pd.DatetimeIndex)
+
+    # Add chain part of the name so it appears int he chart legend
+    if chainify:
+        returns_df = returns_df.copy()
+        returns_df["name"] = returns_df.apply(
+            lambda row: f"{row['name']} ({get_chain_name(row['chain'])})",
+            axis=1,
+        )
 
     # Pick N top vaults to show,
     # assume returns_df is sorted by wanted order

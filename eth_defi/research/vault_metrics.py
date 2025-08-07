@@ -117,6 +117,10 @@ def calculate_lifetime_metrics(
             one_month_returns = last_month.iloc[-1]["share_price"] / last_month.iloc[0]["share_price"] - 1
             one_month_cagr = (1 + one_month_returns) ** (1 / years) - 1 if years > 0 else np.nan
 
+            # if not printed:
+            #    print(f"Name: {name}, last month: {start_date} - {end_date}, years: {years}, exp. {1/years}, one month returns: {one_month_returns}, one month CAGR: {one_month_cagr}")
+            #    printed = True
+
         else:
             # We have not collected data for the last month,
             # because our stateful reader decided the vault is dead
