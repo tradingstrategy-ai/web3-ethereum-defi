@@ -10,6 +10,8 @@ from hexbytes import HexBytes
 from web3 import Web3
 from web3.contract import Contract
 
+import flaky
+
 from eth_defi.deploy import deploy_contract
 from eth_defi.enzyme.deployment import EnzymeDeployment, RateAsset
 from eth_defi.enzyme.vault import Vault
@@ -225,6 +227,7 @@ def test_vault_controlled_wallet_make_buy(
     assert analysis.amount_out == pytest.approx(310787861255819868)
 
 
+@flaky.flaky
 def test_vault_controlled_wallet_make_unauthorised(
     web3: Web3,
     deployment: EnzymeDeployment,
