@@ -174,13 +174,17 @@ class TokenRiskReply(TypedDict):
 
 
 class TokenRisk:
-    """Token Risk API."""
+    """Token Risk API.
+
+    - `Glider Token Risk API by Hexens <https://glide.gitbook.io/main/glider-api/risks-breakdown>`__.
+    - Intelligent support for API throttling, etc.
+    """
 
     def __init__(
         self,
         api_key: str,
         session: Session = None,
-        retries: int | None=10,
+        retries: int | None = 10,
     ):
         """
 
@@ -216,7 +220,6 @@ class TokenRisk:
 
         else:
             assert retries is None, f"Cannot set retries with custom session: {session}"
-
 
         self.session = session
 
