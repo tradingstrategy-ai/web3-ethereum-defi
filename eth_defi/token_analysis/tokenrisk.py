@@ -4,7 +4,7 @@
 
 - Allows to fetch  ERC-20 risk flags  and other automatically analysed metadata to determine if a token is some sort of a scam or not
 
-- For usage see :py:class:`CachedToken Risk` class
+- For usage see :py:class:`CachedTokenRisk` class
 
 - `Read Token Risk REST API documentation <https://glide.gitbook.io/main/glider-api/api-documentation>`__
 
@@ -56,7 +56,7 @@ DEFAULT_CACHE_PATH = Path.home() / ".cache" / "tradingstrategy" / "token-risk.sq
 
 
 #: List of Token Risk flags we do not want to trade by default
-AVOID_RISKS = [
+DEFAULT_AVOID_RISKS = [
     # Hidden fee functionality included in transfers
     # "risk_hidden_fees",
     "risk_balance_manipulation_in_non_standard_functions",
@@ -88,6 +88,7 @@ class TokenRiskSmartContractInfo(TypedDict):
 
 class TokenRiskFlags(TypedDict):
     """All evaluated flags are returned, value being true or false"""
+
     description: str
     key: str
     sub_title: str
@@ -213,7 +214,25 @@ class TokenRisk:
 
 
 class CachedTokenRisk(TokenRisk):
-    """Add file-system based cache for Token Risk API."""
+    """Add file-system based cache for Token Risk API.
+
+    Example:
+
+    .. code-block:: python
+
+        TOKEN_RISK_API_KEY = os.environ.get("TOKEN_RISK_API_KEY")
+
+        token_risk = CachedTokenRisk(
+            TOKEN_RISK_API_KEY,
+        )
+
+        # COW on BNB Chain
+        data = token_risk.fetch_token_info(56, "0x7aaaa5b10f97321345acd76945083141be1c5631")
+
+        assert data["score"] == 0
+        assert not is_tradeable_token(data)
+
+    """
 
     def __init__(
         self,
@@ -249,6 +268,7 @@ class CachedTokenRisk(TokenRisk):
         assert isinstance(api_key, str), f"Got {api_key.__class__}"
         if cache_file:
             assert isinstance(cache_file, Path), f"Got {cache_file.__class__}: {cache_file}"
+            cache_file.parent.mkdir(parents=True, exist_ok=True)
 
         if cache is not None:
             assert cache_file is None, "Cannot give both cache interface and cache_path"
@@ -322,7 +342,7 @@ class CachedTokenRisk(TokenRisk):
 
 def has_risk_flags(
     data: TokenRiskReply,
-    avoid_risks: Collection[str] = AVOID_RISKS,
+    avoid_risks: Collection[str] = DEFAULT_AVOID_RISKS,
 ) -> bool:
     """Check if any of the risk flags are set in Token Risk reply.
 
@@ -349,7 +369,7 @@ def is_tradeable_token(
     symbol: str | None = None,
     whitelist=KNOWN_GOOD_TOKENS,
     risk_score_threshold=5,
-    avoid_risks: Collection[str] = AVOID_RISKS,
+    avoid_risks: Collection[str] = DEFAULT_AVOID_RISKS,
 ) -> bool:
     """Risk assessment for open-ended trade universe.
 

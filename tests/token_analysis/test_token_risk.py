@@ -16,19 +16,20 @@ def test_token_risk_cached(tmp_path):
 
     db_file = tmp_path / "test.sqlite"
 
-    sniffer = CachedTokenRisk(
+    token_risk = CachedTokenRisk(
         TOKEN_RISK_API_KEY,
         db_file,
     )
 
     # COW
-    data = sniffer.fetch_token_info(56, "0x7aaaa5b10f97321345acd76945083141be1c5631")
+    data = token_risk.fetch_token_info(56, "0x7aaaa5b10f97321345acd76945083141be1c5631")
     assert data["cached"] is False
+    assert data["score"] == 0
 
     assert not is_tradeable_token(data)
-    info = sniffer.get_diagnostics()
+    info = token_risk.get_diagnostics()
     assert type(info) == str
 
     # Caching works
-    data = sniffer.fetch_token_info(56, "0x7aaaa5b10f97321345acd76945083141be1c5631")
+    data = token_risk.fetch_token_info(56, "0x7aaaa5b10f97321345acd76945083141be1c5631")
     assert data["cached"] is True
