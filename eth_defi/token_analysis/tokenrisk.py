@@ -63,6 +63,8 @@ DEFAULT_AVOID_RISKS = [
     "risk_balance_manipulation_in_non_standard_functions",
 ]
 
+DEFAULT_RETRIES = 15
+
 
 class TokenRiskError(Exception):
     """Wrap bad API replies from Token Risk.
@@ -184,7 +186,7 @@ class TokenRisk:
         self,
         api_key: str,
         session: Session = None,
-        retries: int | None = 10,
+        retries: int | None = DEFAULT_RETRIES,
     ):
         """
 
@@ -212,7 +214,7 @@ class TokenRisk:
 
             retry_policy = LoggingRetry(
                 total=retries,
-                backoff_factor=0.5,
+                backoff_factor=0.9,
                 status_forcelist=[429, 500, 502, 503, 504],
             )
             session.mount("http://", HTTPAdapter(max_retries=retry_policy))
@@ -298,7 +300,7 @@ class CachedTokenRisk(TokenRisk):
         cache_file: Path | None = DEFAULT_CACHE_PATH,
         session: Session = None,
         cache: dict | None = None,
-        retries: int | None = 5,
+        retries: int | None = DEFAULT_RETRIES,
     ):
         """
 
