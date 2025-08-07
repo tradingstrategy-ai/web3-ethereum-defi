@@ -88,6 +88,7 @@ class TokenRiskSmartContractInfo(TypedDict):
 
 class TokenRiskFlags(TypedDict):
     """All evaluated flags are returned, value being true or false"""
+
     description: str
     key: str
     sub_title: str
@@ -217,7 +218,7 @@ class CachedTokenRisk(TokenRisk):
     def __init__(
         self,
         api_key: str,
-        cache_file: Path | None =  DEFAULT_CACHE_PATH,
+        cache_file: Path | None = DEFAULT_CACHE_PATH,
         session: Session = None,
         cache: dict | None = None,
     ):

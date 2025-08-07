@@ -597,14 +597,13 @@ def format_ffn_performance_stats(
         return data_series
 
 
-
 def cross_check_data(
     vault_db: VaultDatabase,
     prices_df: pd.DataFrame,
     printer=print,
 ) -> int:
     """Check that VaultDatabase has metadata for all price_df vaults and vice versa.
-    
+
     :return:
         Number of problem entries.
 
@@ -615,7 +614,7 @@ def cross_check_data(
 
     prices_df_ids = set(prices_df["chain"].astype(str) + "-" + prices_df["address"].astype(str))
 
-    errors = 0 
+    errors = 0
     for entry in prices_df_ids:
         if entry not in vault_db_entries:
             printer(f"Price data has entry {entry} that is not in vault database")
@@ -655,7 +654,6 @@ def calculate_hourly_returns_for_all_vaults(df_work: pd.DataFrame) -> pd.DataFra
     """Calculate hourly returns for each vault in isolation"""
 
     # Group by chain and address, then resample and forward fill
-
 
     assert isinstance(df_work, pd.DataFrame)
     assert isinstance(df_work.index, pd.DatetimeIndex), "DataFrame index must be a DatetimeIndex"
