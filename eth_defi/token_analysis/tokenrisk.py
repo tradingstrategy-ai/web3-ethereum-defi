@@ -147,6 +147,8 @@ class TokenRiskReply(TypedDict):
                       'title': 'Hidden fees',
                       'value': 'false'},
 
+         ...
+
          'score': 0}
 
     """
@@ -178,7 +180,7 @@ class TokenRisk:
         self,
         api_key: str,
         session: Session = None,
-        retries: int | None=5,
+        retries: int | None=10,
     ):
         """
 
@@ -206,7 +208,7 @@ class TokenRisk:
 
             retry_policy = LoggingRetry(
                 total=retries,
-                backoff_factor=0.1,
+                backoff_factor=0.5,
                 status_forcelist=[429, 500, 502, 503, 504],
             )
             session.mount("http://", HTTPAdapter(max_retries=retry_policy))
