@@ -18,6 +18,6 @@ Supported analytic backends
 
    eth_defi.token_analysis.tokenrisk
    eth_defi.token_analysis.tokensniffer
-   eth_defi.token_analysis.base
    eth_defi.token_analysis.blacklist
+   eth_defi.token_analysis.trusted_tokens
 
