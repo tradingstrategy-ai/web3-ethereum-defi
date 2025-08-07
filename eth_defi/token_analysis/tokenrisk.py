@@ -1,6 +1,6 @@
 """Token Risk API.
 
-- Python wrapper for `Token Risk API by Hexen <https://hexens.io/solutions/token-risks-api>`__
+- Python wrapper for `Token Risk API by Hexens <https://hexens.io/solutions/token-risks-api>`__
 
 - Allows to fetch ERC-20 risk flags and other automatically analysed metadata to determine if a token is some sort of a scam or not
 
@@ -80,6 +80,8 @@ class TokenRiskError(Exception):
 
 
 class TokenRiskSmartContractInfo(TypedDict):
+    """Token Risk info about if a smart contract is proxy and verified"""
+
     implementation_address: str | None
     is_proxy: bool
     is_verified: bool
@@ -87,7 +89,25 @@ class TokenRiskSmartContractInfo(TypedDict):
 
 
 class TokenRiskFlags(TypedDict):
-    """All evaluated flags are returned, value being true or false"""
+    """All evaluated flags are returned, value being true or false.
+
+    Example:
+
+    .. code-block:: json
+
+        {
+        'description': "The token contract's transfer or transferFrom "
+                                     'functions have a hidden fee functionality that '
+                                     'can be turned on. This may mean that the '
+                                     'receiver address can get fewer or a different '
+                                     'amount of tokens than passed within the transfer '
+                                     'functions.',
+                      'key': 'risk_hidden_fees',
+                      'severity': 'high',
+                      'sub_title': 'Hidden fee functionality included in transfers',
+                      'title': 'Hidden fees',
+                      'value': 'false'}
+    """
 
     description: str
     key: str
