@@ -1,8 +1,8 @@
-"""Token Rkisk API.
+"""Token Risk API.
 
 - Python wrapper for `Token Risk API by Hexen <https://hexens.io/solutions/token-risks-api>`__
 
-- Allows to fetch  ERC-20 risk flags  and other automatically analysed metadata to determine if a token is some sort of a scam or not
+- Allows to fetch ERC-20 risk flags and other automatically analysed metadata to determine if a token is some sort of a scam or not
 
 - For usage see :py:class:`CachedTokenRisk` class
 
