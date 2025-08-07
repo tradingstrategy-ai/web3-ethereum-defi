@@ -1,6 +1,6 @@
-"""Token Risk API.
+"""Glider Token Risk API.
 
-- Python wrapper for `Token Risk API by Hexens <https://hexens.io/solutions/token-risks-api>`__
+- Python wrapper for `Token Risk API by Hexens <https://hexens.io/solutions/token-risks-api>`__, based on `Glider <https://glide.gitbook.io/main>`__
 
 - Allows to fetch ERC-20 risk flags and other automatically analysed metadata to determine if a token is some sort of a scam or not
 
