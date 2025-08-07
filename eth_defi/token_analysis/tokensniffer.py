@@ -427,6 +427,8 @@ class TokenSniffer:
         assert api_key
         self.api_key = api_key
 
+        assert self.api_key.strip() == self.api_key, f"Got: {self.api_key}"
+
         if session is None:
             session = requests.Session()
 
@@ -466,7 +468,7 @@ class TokenSniffer:
         resp = self.session.get(url, params=parameters)
         if resp.status_code != 200:
             raise TokenSnifferError(
-                msg=f"TokeSniffer replied on address {address}: {resp}: {resp.text}",
+                msg=f"TokeSniffer replied on address {address}: {resp}: {resp.text} API key is: {self.api_key[0:12]}...{self.api_key[-2:]}",
                 status_code=resp.status_code,
                 address=address,
             )

@@ -254,7 +254,6 @@ def visualise_rolling_returns(
         labels={"rolling_1m_returns": "1-Month Rolling Returns (%)", "timestamp": "Date", "name": "Name"},
         hover_data=["id"],
         color_discrete_sequence=qualitative.Dark24,
-
     )
     fig.update_layout(
         xaxis_title="Date",

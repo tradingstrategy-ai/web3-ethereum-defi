@@ -8,6 +8,8 @@ import os
 import pytest
 from web3 import Web3
 
+import flaky
+
 from eth_defi.erc_4626.classification import detect_vault_features
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.ipor.vault import IPORVault
@@ -49,6 +51,9 @@ def test_ipor_fee(
     assert vault.get_performance_fee(block_number) == 0.10
 
 
+# 500 Server Error: Internal Server Error for url:
+# dRPC being flaky
+@flaky.flaky
 def test_ipor_identify(
     web3: Web3,
     vault: IPORVault,

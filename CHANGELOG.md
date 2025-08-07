@@ -1,5 +1,6 @@
 # Current
 
+- Add: [Token Risk API by Hexen](https://hexens.io/solutions/token-risks-api/)
 - Add: Vault 1h price scanning and cleaning pipeline
 - Add: Move a lot of vault analysis functionality to their own Python modules, instead of copy-pasting in notebook to improve documentation and reusability
 - Add: Lagoon contract size fizes

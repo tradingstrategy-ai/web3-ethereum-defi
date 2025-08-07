@@ -193,7 +193,6 @@ class HypersyncVaultDiscover:
         seen = set()
 
         while True:
-
             try:
                 res = await asyncio.wait_for(receiver.recv(), timeout=30.0)
             except asyncio.TimeoutError:

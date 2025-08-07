@@ -85,6 +85,14 @@ USDC_NATIVE_TOKEN: dict[int, HexAddress | str] = {
 }
 
 
+#: Used in fork testing
+USDC_WHALE: dict[int, HexAddress | str] = {
+    # Base
+    #
+    8453: "0x40EbC1Ac8d4Fedd2E144b75fe9C0420BE82750c6",
+}
+
+
 #: Addresses USDT Tether of different chains
 USDT_NATIVE_TOKEN: dict[int, HexAddress] = {
     # Mainnet

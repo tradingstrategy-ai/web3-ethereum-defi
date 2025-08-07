@@ -17,7 +17,7 @@ from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.safe.safe_compat import create_safe_ethereum_client
 from eth_defi.simple_vault.transact import encode_simple_vault_transaction
-from eth_defi.token import TokenDetails, fetch_erc20_details
+from eth_defi.token import TokenDetails, fetch_erc20_details, USDC_WHALE
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.uniswap_v2.constants import UNISWAP_V2_DEPLOYMENTS
 from eth_defi.uniswap_v2.deployment import fetch_deployment, UniswapV2Deployment, FOREVER_DEADLINE
@@ -59,7 +59,7 @@ def safe_deployer_hot_wallet(web3) -> HotWallet:
 def usdc_whale() -> HexAddress:
     """Large USDC holder onchain, unlocked in Anvil for testing"""
     # https://basescan.org/token/0x833589fcd6edb6e08f4c7c32d4f71b54bda02913#balances
-    return "0x3304E22DDaa22bCdC5fCa2269b418046aE7b566A"
+    return USDC_WHALE[8453]
 
 
 @pytest.fixture()
