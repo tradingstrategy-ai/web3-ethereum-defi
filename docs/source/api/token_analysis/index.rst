@@ -9,7 +9,7 @@ Functionality includes:
 
 Supported analytic backends
 
-- Supports `Token Risk from Hexen <https://hexens.io/solutions/token-risks-api>`__
+- Supports `Glider Token Risk from Hexens <https://hexens.io/solutions/token-risks-api>`__
 - Supports TokenSniffer from Solidly
 
 .. autosummary::
