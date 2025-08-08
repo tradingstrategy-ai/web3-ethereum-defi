@@ -29,34 +29,39 @@ from eth_defi.event_reader.conversion import convert_jsonrpc_value_to_int
 #: Aave contracts we need to know about to read reserves data.
 #:
 #: Chain id -> labelled address mapping from Aave documentation
-#: https://docs.aave.com/developers/deployed-contracts/v3-mainnet
+#: https://aave.com/docs/resources/addresses#undefined-aave-protocol-deployed-contracts
 #:
 #:
 _addresses = {
     # Ethereum
     1: {
         "PoolAddressProvider": "0x2f39d218133AFaB8F2B819B1066c7E434Ad94E9e",
-        "UiPoolDataProviderV3": "0x91c0eA31b49B69Ea18607702c5d9aC360bf3dE7d",
+        "UiPoolDataProviderV3": "0x3F78BBD206e4D3c504Eb854232EdA7e47E9Fd8FC",
     },
     # Polygon
     137: {
         "PoolAddressProvider": "0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb",
-        "UiPoolDataProviderV3": "0xC69728f11E9E6127733751c8410432913123acf1",
+        "UiPoolDataProviderV3": "0x68100bD5345eA474D93577127C11F39FF8463e93",
     },
-    # Binance Smarrt Chain mainnet (not supported by AAVE v3)
-    # 56: {
-    #     "PoolAddressProvider": "",
-    #     "UiPoolDataProviderV3": "",
-    # },
+    # Binance Smart Chain
+    56: {
+        "PoolAddressProvider": "0xff75B6da14FfbbfD355Daf7a2731456b3562Ba6D",
+        "UiPoolDataProviderV3": "0xc0179321f0825c3e0F59Fe7Ca4E40557b97797a3",
+    },
     # Avalanche C-chain
     43114: {
         "PoolAddressProvider": "0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb",
-        "UiPoolDataProviderV3": "0xF71DBe0FAEF1473ffC607d4c555dfF0aEaDb878d",
+        "UiPoolDataProviderV3": "0x50B4a66bF4D41e6252540eA7427D7A933Bc3c088",
     },
     # Arbitrum One
     42161: {
         "PoolAddressProvider": "0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb",
-        "UiPoolDataProviderV3": "0x145dE30c929a065582da84Cf96F88460dB9745A7",
+        "UiPoolDataProviderV3": "0x5c5228aC8BC1528482514aF3e27E692495148717",
+    },
+    # Base
+    8453: {
+        "PoolAddressProvider": "0xe20fCBdBfFC4Dd138cE8b2E6FBb6CB49777ad64D",
+        "UiPoolDataProviderV3": "0x68100bD5345eA474D93577127C11F39FF8463e93",
     },
     # Ethereum Classic (not supported by AAVE v3)
     # 61: {
