@@ -8,6 +8,7 @@
 - Add: `check_etherscan_api_key()` to do a pre-flight check your Etherscan API key works
 - Add: Lagoon custom deployments for BNB Chain and Mode
 - Fix: `TradingStrategyModuleV0` Zodiac module contract size for deployment
+- Update: Aave v3 deployed addresses
 
 # 0.31
 
