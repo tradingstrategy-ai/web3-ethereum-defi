@@ -62,3 +62,6 @@
 [submodule "contracts/orderly-contract-evm"]
 	path = contracts/orderly-contract-evm
 	url = https://github.com/OrderlyNetwork/contract-evm.git
+[submodule "contracts/aave-v3-origin"]
+	path = contracts/aave-v3-origin
+	url = https://github.com/aave-dao/aave-v3-origin.git

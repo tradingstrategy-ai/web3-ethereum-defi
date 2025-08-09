@@ -1,0 +1,63 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "ValidationLogic",
+  "sourceName": "@aave/core-v3/contracts/protocol/libraries/logic/ValidationLogic.sol",
+  "abi": [
+    {
+      "inputs": [],
+      "name": "HEALTH_FACTOR_LIQUIDATION_THRESHOLD",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "ISOLATED_COLLATERAL_SUPPLIER_ROLE",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "MINIMUM_HEALTH_FACTOR_LIQUIDATION_THRESHOLD",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "REBALANCE_UP_LIQUIDITY_RATE_THRESHOLD",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x60e8610039600b82828239805160001a60731461002c57634e487b7160e01b600052600060045260246000fd5b30600052607381538281f3fe730000000000000000000000000000000000000000301460806040526004361060515760003560e01c80632b0139fa146056578063561cbec914608e578063abfcc86a14609c578063c3525c281460a4575b600080fd5b607c7fd1d2cf869016112a9af1107bcf43c3759daf22cf734aad47d0c9c726e33bc78281565b60405190815260200160405180910390f35b607c670d2f13f7789f000081565b607c61232881565b607c670de0b6b3a76400008156fea2646970667358221220e6391f912050f208ceeae04fb48b3c9dd068f08f05cf989c4a28fcee757eed2864736f6c634300080a0033",
+  "deployedBytecode": "0x730000000000000000000000000000000000000000301460806040526004361060515760003560e01c80632b0139fa146056578063561cbec914608e578063abfcc86a14609c578063c3525c281460a4575b600080fd5b607c7fd1d2cf869016112a9af1107bcf43c3759daf22cf734aad47d0c9c726e33bc78281565b60405190815260200160405180910390f35b607c670d2f13f7789f000081565b607c61232881565b607c670de0b6b3a76400008156fea2646970667358221220e6391f912050f208ceeae04fb48b3c9dd068f08f05cf989c4a28fcee757eed2864736f6c634300080a0033",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

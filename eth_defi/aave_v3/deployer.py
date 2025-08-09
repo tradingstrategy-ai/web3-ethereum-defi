@@ -325,7 +325,7 @@ from eth_typing import ChecksumAddress
 from web3 import Web3
 from web3.contract import Contract
 
-from eth_defi.abi import get_linked_contract
+from eth_defi.abi import get_contract, get_linked_contract
 
 logger = logging.getLogger(__name__)
 
@@ -546,7 +546,8 @@ class AaveDeployer:
         """
         path = self.abi_path / name
         assert path.exists(), f"No ABI file at: {path.absolute()}"
-        return get_linked_contract(web3, path, get_aave_hardhard_export())
+        # return get_linked_contract(web3, path, get_aave_hardhard_export())
+        return get_contract(web3, path)
 
     def get_contract_address(self, contract_name: str) -> ChecksumAddress:
         """Get a deployed contract address.
