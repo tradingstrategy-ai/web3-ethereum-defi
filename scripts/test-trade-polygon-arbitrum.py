@@ -3,16 +3,16 @@
 import os
 from dotenv import load_dotenv
 from web3 import Web3
-from web3.middleware import geth_poa_middleware
 
 from eth_account import Account
 
 from eth_defi.abi import get_deployed_contract, get_abi_by_filename, get_contract
+from eth_defi.tx import get_tx_broadcast_data
 from eth_defi.uniswap_v3.deployment import UniswapV3Deployment
 from eth_defi.uniswap_v3.swap import swap_with_slippage_protection
 from eth_defi.gas import estimate_gas_fees, apply_gas
 from eth_defi.hotwallet import HotWallet
-from web3._utils.transactions import fill_transaction_defaults
+from eth_defi.compat import install_poa_middleware
 
 # get user input for which blockchain to use
 user_input = input("Which blockchain do you want to use? Type `p` for polygon and `a` for arbitrum: ")
@@ -38,8 +38,9 @@ api_key = api_key_polygon if blockchain == "polygon" else api_key_arbitrum
 # web3 instance
 web3 = Web3(Web3.HTTPProvider(api_key))
 
+# MIGRATED: Use compat middleware installation
 # see https://web3py.readthedocs.io/en/stable/middleware.html#geth-style-proof-of-authority
-web3.middleware_onion.inject(geth_poa_middleware, layer=0)
+install_poa_middleware(web3, layer=0)
 
 # create hot wallet
 account = Account.from_key(private_key)
@@ -90,7 +91,8 @@ if allowance < 1:  # Check if the allowance is not enough
     apply_gas(tx, gas_fees)
 
     signed_tx = hot_wallet.sign_transaction_with_new_nonce(tx)
-    tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+    raw_bytes = get_tx_broadcast_data(signed_tx)
+    tx_hash = web3.eth.send_raw_transaction(raw_bytes)
     tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
     assert tx_receipt.status == 1, "approve usdc failed"
     print("Approved USDC successfully")
@@ -140,7 +142,8 @@ print("Max priority fee: ", tx["maxPriorityFeePerGas"])
 print("\nInitiating swap...\n")
 
 signed_tx = hot_wallet.sign_transaction_with_new_nonce(tx)
-tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+raw_bytes = get_tx_broadcast_data(signed_tx)
+tx_hash = web3.eth.send_raw_transaction(raw_bytes)
 tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
 assert tx_receipt.status == 1, f"Swap failed \n{Web3.to_hex(tx_receipt.transactionHash)}\n"
 print(f"Swap successful \n{Web3.to_hex(tx_receipt.transactionHash)}\n")

@@ -19,6 +19,7 @@ from typing import Collection, Dict, List, Set, Union, cast
 from _decimal import Decimal
 from eth_account.datastructures import SignedTransaction
 
+from eth_defi.compat import native_datetime_utc_now
 from eth_defi.event_reader.fast_json_rpc import get_last_headers
 from eth_defi.provider.anvil import is_anvil
 from hexbytes import HexBytes
@@ -32,7 +33,7 @@ from eth_defi.provider.fallback import FallbackProvider, get_fallback_provider
 from eth_defi.provider.mev_blocker import MEVBlockerProvider
 from eth_defi.provider.named import get_provider_name
 from eth_defi.timestamp import get_latest_block_timestamp
-from eth_defi.tx import decode_signed_transaction
+from eth_defi.tx import decode_signed_transaction, get_tx_broadcast_data
 from eth_defi.utils import to_unix_timestamp
 
 
@@ -97,8 +98,11 @@ def wait_transactions_to_complete(
 
     .. code-block:: python
 
-        tx_hash1 = web3.eth.send_raw_transaction(signed1.rawTransaction)
-        tx_hash2 = web3.eth.send_raw_transaction(signed2.rawTransaction)
+        raw_bytes1 = get_tx_broadcast_data(signed1)
+        tx_hash1 = web3.eth.send_raw_transaction(raw_bytes)
+
+        raw_bytes2 = get_tx_broadcast_data(signed2)
+        tx_hash2 = web3.eth.send_raw_transaction(raw_bytes2)
 
         complete = wait_transactions_to_complete(web3, [tx_hash1, tx_hash2])
 
@@ -135,7 +139,7 @@ def wait_transactions_to_complete(
 
     logger.info("Waiting %d transactions to confirm in %d blocks, timeout is %s", len(txs), confirmation_block_count, max_timeout)
 
-    started_at = datetime.datetime.utcnow()
+    started_at = native_datetime_utc_now()
 
     receipts_received = {}
 
@@ -152,7 +156,7 @@ def wait_transactions_to_complete(
         confirmation_received = set()
 
         # Bump our verbosiveness levels for the last minutes of wait
-        if datetime.datetime.utcnow() > started_at + verbose_timeout:
+        if native_datetime_utc_now() > started_at + verbose_timeout:
             tx_log_level = logging.WARNING
         else:
             tx_log_level = logging.DEBUG
@@ -185,7 +189,7 @@ def wait_transactions_to_complete(
         if unconfirmed_txs:
             time.sleep(poll_delay.total_seconds())
 
-            if datetime.datetime.utcnow() > started_at + max_timeout:
+            if native_datetime_utc_now() > started_at + max_timeout:
                 for tx_hash in unconfirmed_txs:
                     try:
                         tx_data = web3.eth.get_transaction(tx_hash)
@@ -199,7 +203,7 @@ def wait_transactions_to_complete(
                 unconfirmed_tx_strs = ", ".join([tx_hash.hex() for tx_hash in unconfirmed_txs])
                 raise ConfirmationTimedOut(f"Transaction confirmation failed. Started: {started_at}, timed out after {max_timeout} ({max_timeout.total_seconds()}s). Poll delay: {poll_delay.total_seconds()}s. Still unconfirmed: {unconfirmed_tx_strs}")
 
-        if datetime.datetime.utcnow() >= next_node_switch:
+        if native_datetime_utc_now() >= next_node_switch:
             # Check if it time to try a better node provider
             if isinstance(web3.provider, FallbackProvider):
                 provider = cast(FallbackProvider, web3.provider)
@@ -215,7 +219,7 @@ def wait_transactions_to_complete(
                         unconfirmed_txs,
                     )
                 provider.switch_provider()
-                next_node_switch = datetime.datetime.utcnow() + node_switch_timeout
+                next_node_switch = native_datetime_utc_now() + node_switch_timeout
             else:
                 logger.warning("TX confirmation takes long time. No alternative node available: %s", web3.provider)
 
@@ -266,13 +270,14 @@ def broadcast_transactions(
     hashes = []
     for tx in txs:
         assert isinstance(tx, SignedTransaction) or isinstance(tx, SignedTransactionWithNonce), f"Got {tx}"
+        raw_bytes = get_tx_broadcast_data(tx)
 
         try:
-            hash = web3.eth.send_raw_transaction(tx.rawTransaction)
+            hash = web3.eth.send_raw_transaction(raw_bytes)
         except ValueError as e:
             # Anvil/Ethereum tester immediately fail on the broadcast
             # ValueError: {'code': -32003, 'message': 'Insufficient funds for gas * price + value'}
-            decoded_tx = decode_signed_transaction(tx.rawTransaction)
+            decoded_tx = decode_signed_transaction(raw_bytes)
             raise BroadcastFailure(f"Could not broadcast transaction: {tx.hash.hex()}. Transaction data: {decoded_tx}. JSON-RPC error: {e}") from e
 
         assert hash
@@ -297,7 +302,7 @@ def broadcast_transactions(
 
                 time.sleep(broadcast_sleep)
                 logger.warning("Rebroadcasting %s, attempts left %d", hash.hex(), attempt)
-                hash = web3.eth.send_raw_transaction(tx.rawTransaction)
+                hash = web3.eth.send_raw_transaction(raw_bytes)
                 attempt -= 1
             assert tx_data, f"Could not read broadcasted transaction back from the node {hash.hex()}"
         else:
@@ -405,7 +410,8 @@ def _broadcast_multiple_nodes(
         # Does not use any middleware
         web3 = Web3(p)
         try:
-            web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+            raw_bytes = get_tx_broadcast_data(signed_tx)
+            web3.eth.send_raw_transaction(raw_bytes)
             success.add(p)
         except ValueError as e:
             headers = get_last_headers()
@@ -650,7 +656,7 @@ def wait_and_broadcast_multiple_nodes(
             assert nonce not in used_nonces, f"Nonce used twice: {nonce}"
             used_nonces.add(nonce)
 
-    started_at = datetime.datetime.utcnow()
+    started_at = native_datetime_utc_now()
 
     receipts_received = {}
 
@@ -698,7 +704,7 @@ def wait_and_broadcast_multiple_nodes(
         logger.debug("Starting confirmation cycle, unconfirmed txs are %s", unconfirmed_tx_hashes)
 
         # Bump our verbosiveness levels for the last minutes of wait
-        if datetime.datetime.utcnow() > started_at + verbose_timeout:
+        if native_datetime_utc_now() > started_at + verbose_timeout:
             tx_log_level = logging.WARNING
         else:
             tx_log_level = logging.DEBUG
@@ -750,7 +756,7 @@ def wait_and_broadcast_multiple_nodes(
                 mine(web3)
             time.sleep(poll_delay.total_seconds())
 
-            if datetime.datetime.utcnow() > started_at + max_timeout:
+            if native_datetime_utc_now() > started_at + max_timeout:
                 for tx_hash in unconfirmed_txs:
                     try:
                         tx_data = web3.eth.get_transaction(tx_hash)
@@ -765,7 +771,7 @@ def wait_and_broadcast_multiple_nodes(
                 unconfirmed_tx_strs = ", ".join([tx_hash.hex() for tx_hash in unconfirmed_txs])
                 raise ConfirmationTimedOut(f"Transaction confirmation failed. Started: {started_at}, timed out after {max_timeout} ({max_timeout.total_seconds()}s). Poll delay: {poll_delay.total_seconds()}s. Still unconfirmed: {unconfirmed_tx_strs}")
 
-        if datetime.datetime.utcnow() >= next_node_switch:
+        if native_datetime_utc_now() >= next_node_switch:
             if transact_provider:
                 logger.info(f"Broadcast failed with {transact_provider} - trying again")
             else:
@@ -780,7 +786,7 @@ def wait_and_broadcast_multiple_nodes(
                 else:
                     logger.warning(f"Unknown provider {provider} of {providers} - cannot switch. Not sure what's going on")
 
-            next_node_switch = datetime.datetime.utcnow() + node_switch_timeout
+            next_node_switch = native_datetime_utc_now() + node_switch_timeout
 
             # Rebroadcast txs again if we suspect a broadcast failed
             # This path starts to get extra hard to handle - needs to be cleaned up
@@ -944,7 +950,8 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
             try:
                 if not tx_hash:
                     # Can raise nonce too low if some node is behind
-                    tx_hash = web3.eth.send_raw_transaction(tx.rawTransaction)
+                    raw_bytes = get_tx_broadcast_data(tx)
+                    tx_hash = web3.eth.send_raw_transaction(raw_bytes)
 
                     if not anviled:
                         # Sleep between send and first read
@@ -965,7 +972,8 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
                             backup_provider,
                         )
                         try:
-                            tx_hash_2 = backup_web3.eth.send_raw_transaction(tx.rawTransaction)
+                            raw_bytes = get_tx_broadcast_data(tx)
+                            tx_hash_2 = web3.eth.send_raw_transaction(raw_bytes)
                             logger.info("Backup provider broadcast complete: %s", tx_hash.hex())
                         except ValueError as e:
                             logger.info("Backup broadcast failed: %s", e)

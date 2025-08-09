@@ -11,6 +11,7 @@ from web3 import Web3
 from web3.contract import Contract
 
 from eth_defi.abi import get_deployed_contract
+from eth_defi.compat import native_datetime_utc_fromtimestamp
 
 
 @dataclass
@@ -27,7 +28,7 @@ class ChainLinkLatestRoundData:
 
             aggregator = chainlink_aggregator  # Point to any Chainlink aggregator contract
             round_data = fetch_chainlink_round_data(web3, aggregator.address)
-            ago = datetime.datetime.utcnow() - round_data.update_time
+            ago = native_datetime_utc_now() - round_data.update_time
             print(f"   {feed.primitive_token.symbol}, current price is {round_data.price:,.4f} USDC, Chainlink feed is {round_data.description}, updated {ago} ago")
 
     """
@@ -63,7 +64,7 @@ class ChainLinkLatestRoundData:
 
         - Always UTC
         """
-        return datetime.datetime.utcfromtimestamp(self.updated_at)
+        return native_datetime_utc_fromtimestamp(self.updated_at)
 
     @property
     def price(self) -> Decimal:
