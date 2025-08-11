@@ -342,6 +342,10 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
         )
         yield total_supply
 
+        # A vault can have a non-standard formulas to calculate share price,
+        # and these may include dynamic variables.
+        # See
+        # https://medium.com/gains-network/introducing-gtoken-vaults-ea98f10a49d5
         convert_to_assets = EncodedCall.from_contract_call(
             self.vault.vault_contract.functions.convertToAssets(self.one_raw_share),
             extra_data={
