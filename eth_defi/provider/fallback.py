@@ -243,8 +243,8 @@ class FallbackProvider(BaseNamedProvider):
                     headers = get_last_headers()
                     error_json_payload = resp_data.get("error")
                     raise ExtraValueError(
-                        f"Error in JSON-RPC response:\n{resp_data['error']}\nignore_error: {ignore_error}\nMethod: {method}\nParams: {pformat(params)}\nReply headers: {pformat(headers)}",
-                        extra_help=error_json_payload,
+                        error_json_payload,
+                        extra_help=f"Error in JSON-RPC response:\n{resp_data['error']}\nignore_error: {ignore_error}\nMethod: {method}\nParams: {pformat(params)}\nReply headers: {pformat(headers)}",
                     )
 
                 _check_faulty_rpc_response(self, method, params, resp_data)
