@@ -230,13 +230,21 @@ class VaultReaderState(BatchCallState):
         total_assets: Decimal | None = None,
         share_price: Decimal | None = None,
     ):
+        """
+        :param result:
+            Result of convertToAssets() call
+        """
         assert result.timestamp, f"EncodedCallResult {result} has no timestamp, cannot update state"
 
-        if total_assets is None:
+        if share_price is None:
             assert result.revert_exception, f"EncodedCallResult {result} has no total assets, but no revert exception either"
             # Cannot read total assets from this vault for some reason as the call is failing.
             # We will mark these broken vaults with special -1 TVL value in the vault reader state.
-            total_assets = -1
+            share_price = -1
+
+        # Just in the case something breaks
+        if total_assets is None:
+            total_assets = Decimal(0)
 
         total_assets = total_assets * self.exchange_rate
 
@@ -392,17 +400,17 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
         if total_supply == 0:
             errors.append(f"total_supply zero: {call_by_name['total_supply']}")
 
-        convert_to_assets = call_by_name.get("convertToAssets")
-        if self.vault.denomination_token is not None and convert_to_assets.success:
+        convert_to_assets_call_result = call_by_name.get("convertToAssets")
+        if self.vault.denomination_token is not None and convert_to_assets_call_result.success:
             # Take one unit of assets
-            raw_total_assets = convert_int256_bytes_to_int(convert_to_assets.result)
+            raw_total_assets = convert_int256_bytes_to_int(convert_to_assets_call_result.result)
             share_price = self.vault.denomination_token.convert_to_decimals(raw_total_assets)
 
             # Handle dealing with the adaptive frequency
             state = total_assets_call_result.state
             if state:
                 state.on_called(
-                    total_assets_call_result,
+                    convert_to_assets_call_result,
                     total_assets=total_assets,
                     share_price=share_price,
                 )
