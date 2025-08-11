@@ -119,6 +119,9 @@ class VaultReaderState(BatchCallState):
         #: Start with zero TVL
         self.max_tvl: Decimal = Decimal(0)
 
+        #: Start with zero share price
+        self.last_share_price: Decimal = Decimal(0)
+
         #: When this vault received its last eth_call update
         self.last_call_at: datetime.datetime | None = None
 
@@ -225,6 +228,7 @@ class VaultReaderState(BatchCallState):
         self,
         result: "EncodedCallResult",
         total_assets: Decimal | None = None,
+        share_price: Decimal | None = None,
     ):
         assert result.timestamp, f"EncodedCallResult {result} has no timestamp, cannot update state"
 
@@ -250,6 +254,7 @@ class VaultReaderState(BatchCallState):
         self.last_block = result.block_identifier
         existing_max_tvl = self.max_tvl or 0
         self.max_tvl = max(existing_max_tvl, total_assets) if total_assets != -1 else total_assets
+        self.last_share_price = share_price
 
         # The vault TVL has fell too much, disable
         if self.max_tvl > self.peaked_tvl_threshold:
@@ -288,6 +293,11 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
     def construct_multicalls(self) -> Iterable[EncodedCall]:
         """Get the onchain calls that are needed to read the share price."""
         yield from self.construct_core_erc_4626_multicall()
+
+    @cached_property
+    def one_raw_share(self) -> int:
+        one_share = self.vault.share_token.convert_to_raw(Decimal(1))
+        return one_share
 
     def construct_core_erc_4626_multicall(self) -> Iterable[EncodedCall]:
         """Polling endpoints defined in ERC-4626 spec.
@@ -332,6 +342,20 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
         )
         yield total_supply
 
+        # A vault can have a non-standard formulas to calculate share price,
+        # and these may include dynamic variables.
+        # See
+        # https://medium.com/gains-network/introducing-gtoken-vaults-ea98f10a49d5
+        convert_to_assets = EncodedCall.from_contract_call(
+            self.vault.vault_contract.functions.convertToAssets(self.one_raw_share),
+            extra_data={
+                "function": "convertToAssets",
+                "vault": self.vault.address,
+            },
+            first_block_number=self.first_block,
+        )
+        yield convert_to_assets
+
     def process_core_erc_4626_result(
         self,
         call_by_name: dict[str, EncodedCallResult],
@@ -358,11 +382,6 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
             raw_total_assets = convert_int256_bytes_to_int(total_assets_call_result.result)
             total_assets = self.vault.denomination_token.convert_to_decimals(raw_total_assets)
 
-            # Handle dealing with the adaptive frequency
-            state = total_assets_call_result.state
-            if state:
-                state.on_called(total_assets_call_result, total_assets)
-
         else:
             errors.append("total_assets call failed")
             total_assets = None
@@ -373,8 +392,20 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
         if total_supply == 0:
             errors.append(f"total_supply zero: {call_by_name['total_supply']}")
 
-        if total_supply and total_assets:
-            share_price = Decimal(total_assets) / Decimal(total_supply)
+        convert_to_assets = call_by_name.get("convertToAssets")
+        if self.vault.denomination_token is not None and convert_to_assets.success:
+            # Take one unit of assets
+            raw_total_assets = convert_int256_bytes_to_int(convert_to_assets.result)
+            share_price = self.vault.denomination_token.convert_to_decimals(raw_total_assets)
+
+            # Handle dealing with the adaptive frequency
+            state = total_assets_call_result.state
+            if state:
+                state.on_called(
+                    total_assets_call_result,
+                    total_assets=total_assets,
+                    share_price=share_price,
+                )
         else:
             share_price = None
 

@@ -20,12 +20,12 @@ Or for dynamic 1h frequency scan for Polygon, delete existing data::
     export FREQUENCY=1h
     export JSON_RPC_URL=$JSON_RPC_GNOSIS
     python scripts/erc-4626/scan-vaults.py
-    python scripts/erc-4626/scan-prices.py
+    python scripts/erc-4626/scan-prices.pyH
 
 
 Re-run manual test::
 
-    export JSON_RPC_URL=$JSON_RPC_GNOSIS
+    export JSON_RPC_URL=$JSON_RPC_ARBITRUM
     python scripts/erc-4626/scan-vaults.py
     python scripts/erc-4626/scan-prices.py
 
