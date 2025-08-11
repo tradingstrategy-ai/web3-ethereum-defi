@@ -4,17 +4,17 @@
 """
 
 import enum
-import time
-from collections import defaultdict, Counter
-from pprint import pformat
-from typing import List, Any, cast, Dict
 import logging
+import time
+from collections import Counter, defaultdict
+from pprint import pformat
+from typing import Any, cast
 
 from web3 import Web3
 from web3.types import RPCEndpoint, RPCResponse
 
 from eth_defi.event_reader.fast_json_rpc import get_last_headers
-from eth_defi.middleware import is_retryable_http_exception, DEFAULT_RETRYABLE_EXCEPTIONS, DEFAULT_RETRYABLE_HTTP_STATUS_CODES, DEFAULT_RETRYABLE_RPC_ERROR_CODES, ProbablyNodeHasNoBlock
+from eth_defi.middleware import DEFAULT_RETRYABLE_EXCEPTIONS, DEFAULT_RETRYABLE_HTTP_STATUS_CODES, DEFAULT_RETRYABLE_RPC_ERROR_CODES, ProbablyNodeHasNoBlock, is_retryable_http_exception
 from eth_defi.provider.named import BaseNamedProvider, NamedProvider, get_provider_name
 
 logger = logging.getLogger(__name__)
@@ -26,9 +26,9 @@ class ExtraValueError(ValueError):
     Add extra debugging.
     """
 
-    def __init__(self, extra_help: str, *args, **kwargs):  # real signature unknown
+    def __init__(self, *args, **kwargs):  # real signature unknown
+        self.extra_help = kwargs.pop("extra_help", "")
         super().__init__(*args, **kwargs)
-        self.extra_help = extra_help
 
     def __repr__(self):
         return f"{super().__repr__()}\n{self.extra_help}"
@@ -63,7 +63,7 @@ class FallbackProvider(BaseNamedProvider):
 
     def __init__(
         self,
-        providers: List[NamedProvider],
+        providers: list[NamedProvider],
         strategy=FallbackStrategy.cycle_on_error,
         retryable_exceptions=DEFAULT_RETRYABLE_EXCEPTIONS,
         retryable_status_codes=DEFAULT_RETRYABLE_HTTP_STATUS_CODES,
@@ -193,7 +193,7 @@ class FallbackProvider(BaseNamedProvider):
         """
         return self.providers[self.currently_active_provider]
 
-    def get_total_api_call_counts(self) -> Dict[str, int]:
+    def get_total_api_call_counts(self) -> dict[str, int]:
         """Get API call coubst across all providers"""
         total = Counter()
         for provider, count_dict in self.api_call_counts.items():
@@ -243,8 +243,8 @@ class FallbackProvider(BaseNamedProvider):
                     headers = get_last_headers()
                     error_json_payload = resp_data.get("error")
                     raise ExtraValueError(
-                        f"Error in JSON-RPC response:\n{resp_data['error']}\nignore_error: {ignore_error}\nMethod: {method}\nParams: {pformat(params)}\nReply headers: {pformat(headers)}",
                         error_json_payload,
+                        extra_help=f"Error in JSON-RPC response:\n{resp_data['error']}\nignore_error: {ignore_error}\nMethod: {method}\nParams: {pformat(params)}\nReply headers: {pformat(headers)}",
                     )
 
                 _check_faulty_rpc_response(self, method, params, resp_data)
