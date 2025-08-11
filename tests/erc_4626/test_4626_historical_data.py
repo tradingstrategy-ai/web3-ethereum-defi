@@ -160,6 +160,7 @@ def test_4626_historical_vault_data_stateful(
     assert state.peaked_at is None
     assert state.faded_at is None
     assert state.get_frequency() == datetime.timedelta(hours=1)
+    assert state.last_share_price == Decimal(999)
 
     # Steak
     # Deployed at 26_598_326

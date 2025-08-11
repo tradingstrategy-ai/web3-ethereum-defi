@@ -263,6 +263,8 @@ def format_lifetime_table(df: pd.DataFrame) -> pd.DataFrame:
 class VaultReport:
     """One vault data analysed"""
 
+    vault_metadata: dict
+
     #: Rolling returns chart
     rolling_returns_chart: Figure
 
@@ -276,6 +278,8 @@ class VaultReport:
     daily_returns: pd.Series
     hourly_returns: pd.Series
 
+    #: All hourly columns
+    hourly_df: pd.DataFrame
 
 def analyse_vault(
     vault_db: VaultDatabase,
@@ -398,10 +402,12 @@ def analyse_vault(
     performance_stats.name = name
 
     return VaultReport(
+        vault_metadata=vault_metadata,
         rolling_returns_chart=fig,
         performance_stats=performance_stats,
         daily_returns=daily_returns,
-        hourly_returns=hourly_returns,
+        hourly_returns=hourly_returns,        
+        hourly_df=vault_df,
     )
 
 
