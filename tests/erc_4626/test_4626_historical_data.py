@@ -80,7 +80,7 @@ def test_4626_historical_vault_data_stateless(
     assert r.vault.name == "IPOR USDC Lending Optimizer Base"
     assert r.total_assets == 0
     assert r.total_supply == 0
-    assert r.share_price is None
+    assert r.share_price == Decimal(1)
 
     r = records[-1]
     assert r.block_number == 23998576
@@ -160,7 +160,7 @@ def test_4626_historical_vault_data_stateful(
     assert state.peaked_at is None
     assert state.faded_at is None
     assert state.get_frequency() == datetime.timedelta(hours=1)
-    assert state.last_share_price == Decimal(999)
+    assert state.last_share_price == pytest.approx(Decimal('1.012172'))
 
     # Steak
     # Deployed at 26_598_326

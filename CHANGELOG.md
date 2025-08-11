@@ -8,6 +8,7 @@
 - Add: `check_etherscan_api_key()` to do a pre-flight check your Etherscan API key works
 - Add: Lagoon custom deployments for BNB Chain and Mode
 - Fix: `TradingStrategyModuleV0` Zodiac module contract size for deployment
+- Fix: Vault share price for gTrade and other vaults using non-standard formula which is not total assets / total supply  
 
 # 0.31
 

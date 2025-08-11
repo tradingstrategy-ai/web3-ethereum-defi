@@ -388,7 +388,7 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
         if total_supply == 0:
             errors.append(f"total_supply zero: {call_by_name['total_supply']}")
 
-        convert_to_assets = call_by_name.get("convert_to_assets")
+        convert_to_assets = call_by_name.get("convertToAssets")
         if self.vault.denomination_token is not None and convert_to_assets.success:
 
             # Take one unit of assets
