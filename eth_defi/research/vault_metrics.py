@@ -281,6 +281,7 @@ class VaultReport:
     #: All hourly columns
     hourly_df: pd.DataFrame
 
+
 def analyse_vault(
     vault_db: VaultDatabase,
     prices_df: pd.DataFrame,
@@ -406,7 +407,7 @@ def analyse_vault(
         rolling_returns_chart=fig,
         performance_stats=performance_stats,
         daily_returns=daily_returns,
-        hourly_returns=hourly_returns,        
+        hourly_returns=hourly_returns,
         hourly_df=vault_df,
     )
 

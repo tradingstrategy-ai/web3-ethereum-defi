@@ -394,7 +394,6 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
 
         convert_to_assets = call_by_name.get("convertToAssets")
         if self.vault.denomination_token is not None and convert_to_assets.success:
-
             # Take one unit of assets
             raw_total_assets = convert_int256_bytes_to_int(convert_to_assets.result)
             share_price = self.vault.denomination_token.convert_to_decimals(raw_total_assets)
