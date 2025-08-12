@@ -922,7 +922,8 @@ class MultiprocessMulticallReader:
                    ("request timed out" in parsed_error) or \
                    ("intrinsic gas too low" in parsed_error) or \
                    ("intrinsic gas too high" in parsed_error) or \
-                   ("Non-hexadecimal digit found" in parsed_error) or \
+                   ("intrinsic gas too high" in parsed_error) or \
+                   ("incorrect response body" in parsed_error) or \
                    isinstance(e, ProbablyNodeHasNoBlock) or \
                    (isinstance(e, HTTPError) and e.response.status_code == 500):
                     raise MulticallRetryable(error_msg) from e
