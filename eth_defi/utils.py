@@ -212,6 +212,9 @@ def setup_console_logging(
 
     if log_file:
         assert isinstance(log_file, Path), "log_file must be a string path"
+
+        log_file.parent.mkdir(parents=True, exist_ok=True)
+
         logging.basicConfig(
             level=level,
             handlers=[
