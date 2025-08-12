@@ -82,10 +82,15 @@ copy-uniswapv3-abi: uniswapv3
 	@find contracts/uniswap-v3-core/artifacts/contracts -iname "*.json" -not -iname "*.dbg.json" -exec cp {} eth_defi/abi/uniswap_v3 \;
 	@find contracts/uniswap-v3-periphery/artifacts/contracts -iname "*.json" -not -iname "*.dbg.json" -exec cp {} eth_defi/abi/uniswap_v3 \;
 
-aavev3:
+aavev3_old:
 	@(cd contracts/aave-v3-deploy && npm ci && npm run compile) > /dev/null
+	@mkdir -p eth_defi/abi/aave_v3_old
+	@find contracts/aave-v3-deploy/artifacts/@aave -iname "*.json" -not -iname "*.dbg.json" -exec cp {} eth_defi/abi/aave_v3_old \;
+
+aavev3:
+	@(cd contracts/aave-v3-origin && forge clean && forge install && forge build) > /dev/null
 	@mkdir -p eth_defi/abi/aave_v3
-	@find contracts/aave-v3-deploy/artifacts/@aave -iname "*.json" -not -iname "*.dbg.json" -exec cp {} eth_defi/abi/aave_v3 \;
+	@find contracts/aave-v3-origin/out -iname "*.json" -exec cp {} eth_defi/abi/aave_v3 \;
 
 aavev2:
 	@(cd contracts/aave-v2 && npm ci && npm run compile) > /dev/null
