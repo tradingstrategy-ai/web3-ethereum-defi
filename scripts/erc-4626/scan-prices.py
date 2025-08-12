@@ -70,7 +70,7 @@ if JSON_RPC_URL is None:
 
 
 def main():
-    setup_console_logging()
+
 
     token_cache = TokenDiskCache()
 
@@ -82,6 +82,10 @@ def main():
     web3 = create_multi_provider_web3(JSON_RPC_URL)
     web3factory = MultiProviderWeb3Factory(JSON_RPC_URL, retries=5)
     name = get_chain_name(web3.eth.chain_id)
+
+    setup_console_logging(
+        log_file=Path(f"{name}-scan-prices.log")
+    )
 
     min_deposit_threshold = 5
 

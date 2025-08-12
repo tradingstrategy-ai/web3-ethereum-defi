@@ -8,6 +8,7 @@ import random
 import socket
 import time
 from itertools import islice
+from pathlib import Path
 from typing import Optional
 from urllib.parse import urlparse
 
@@ -178,11 +179,18 @@ def get_url_domain(url: str) -> str:
         return f"{parsed.hostname}:{parsed.port}"
 
 
-def setup_console_logging(default_log_level="warning", simplified_logging=False):
+def setup_console_logging(
+    default_log_level="warning",
+    simplified_logging=False,
+    log_file: str | Path=None,
+):
     """Set up coloured log output.
 
     - Helper function to have nicer logging output in tutorial scripts.
     - Tune down some noisy dependency library logging
+
+    :param log_file:
+        Output both console and this log file.
     """
 
     try:
@@ -202,7 +210,16 @@ def setup_console_logging(default_log_level="warning", simplified_logging=False)
 
     coloredlogs.install(level=level, fmt=fmt, date_fmt=date_fmt)
 
-    logging.basicConfig(level=level, handlers=[logging.StreamHandler()])
+    if log_file:
+        assert isinstance(log_file, Path), "log_file must be a string path"
+        logging.basicConfig(
+            level=level,
+            handlers=[
+                logging.StreamHandler(),
+                logging.FileHandler(log_file, mode='a', encoding='utf-8')
+            ])
+    else:
+        logging.basicConfig(level=level, handlers=[logging.StreamHandler()])
 
     # Mute noise
     logging.getLogger("web3.providers.HTTPProvider").setLevel(logging.WARNING)
