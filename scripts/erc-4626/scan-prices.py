@@ -84,7 +84,7 @@ def main():
     name = get_chain_name(web3.eth.chain_id)
 
     setup_console_logging(
-        log_file=Path(f"{name}-scan-prices.log")
+        log_file=Path(f"logs/{name}-scan-prices.log")
     )
 
     min_deposit_threshold = 5
