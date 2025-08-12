@@ -8,8 +8,8 @@ from web3 import Web3
 from web3.contract import Contract
 
 from eth_defi.aave_v3.deployer import get_aave_hardhard_export
-from eth_defi.abi import get_deployed_contract, get_linked_contract
-from eth_defi.token import fetch_erc20_details, TokenDetails
+from eth_defi.abi import get_contract, get_deployed_contract, get_linked_contract
+from eth_defi.token import TokenDetails, fetch_erc20_details
 
 
 class AaveV3ReserveConfiguration(NamedTuple):
@@ -110,15 +110,14 @@ def fetch_deployment(
     pool_address: HexAddress | str,
     data_provider_address: HexAddress | str,
     oracle_address: HexAddress | str,
-    ausdc_address: HexAddress | None | str = None,
+    ausdc_address: HexAddress | str | None = None,
 ) -> AaveV3Deployment:
     """Construct Aave v3 deployment based on on-chain data.
 
     :return:
         Data class representing Aave v3 exchange deployment
     """
-    pool_contract = get_linked_contract(web3, "aave_v3/Pool.json", get_aave_hardhard_export())
-    pool = pool_contract(address=pool_address)
+    pool = get_deployed_contract(web3, "aave_v3/Pool.json", pool_address)
     data_provider = get_deployed_contract(web3, "aave_v3/AaveProtocolDataProvider.json", data_provider_address)
     oracle = get_deployed_contract(web3, "aave_v3/AaveOracle.json", oracle_address)
 
