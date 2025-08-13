@@ -12,7 +12,7 @@ from eth_typing import HexAddress
 
 from tqdm_loggable.auto import tqdm
 
-from eth_defi.hotwallet import HotWallet
+from eth_defi.chain import get_chain_name
 from eth_defi.lagoon.vault import LagoonVault
 from eth_defi.provider.anvil import mine, launch_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
@@ -20,7 +20,8 @@ from eth_defi.token import fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation, TransactionAssertionError
 from eth_defi.trade import TradeSuccess
 from eth_defi.uniswap_v2.analysis import analyse_trade_by_receipt
-from eth_defi.uniswap_v2.deployment import UniswapV2Deployment
+from eth_defi.uniswap_v2.constants import UNISWAP_V2_DEPLOYMENTS
+from eth_defi.uniswap_v2.deployment import UniswapV2Deployment, fetch_deployment
 from eth_defi.uniswap_v2.fees import estimate_buy_price, estimate_sell_price
 from eth_defi.uniswap_v2.swap import swap_with_slippage_protection
 from web3.contract.contract import ContractFunction
@@ -280,14 +281,14 @@ class LagoonTokenCheckDatabase:
     report_by_token: dict[HexAddress, LagoonTokenCompatibilityResponse] = field(default=dict)
 
 
-def check_multiple_tokens(
+def check_lagoon_compatibility_with_database(
     web3: Web3,
     paths: list[list[str]],
-    reserve_token: str,
     vault_address: HexAddress,
     trading_strategy_module_address: HexAddress,
     asset_manager_address: HexAddress,
     database_file: Path = Path.home() / ".tradingstrategy" / "token-checks" / "lagoon_token_check.pickle",
+    fork_block_number=None,
 ) -> LagoonTokenCheckDatabase:
     """Check multiple tokens for compatibility with Lagoon Vault.
 
@@ -300,6 +301,7 @@ def check_multiple_tokens(
     anvil = launch_anvil(
         fork_url=json_rpc_url,
         unlocked_addresses=[asset_manager_address],
+        fork_block_number=fork_block_number,
     )
 
     if database_file.exists():
@@ -329,13 +331,23 @@ def check_multiple_tokens(
         trading_strategy_module_address=trading_strategy_module_address,
     )
 
+    chain_name = get_chain_name(anvil_web3.eth.chain_id).lower90
+
+    uniswap_v2 = fetch_deployment(
+        factory_address=UNISWAP_V2_DEPLOYMENTS[chain_name]["factory"],
+        router_address=UNISWAP_V2_DEPLOYMENTS[chain_name]["router"],
+        init_code_hash=UNISWAP_V2_DEPLOYMENTS[chain_name]["init_code_hash"],
+    )
+
+    logger.info("Checking with Uniswap v2 deployment: %s", uniswap_v2)
+
     for path in tqdm(unchecked_paths, desc="Checking Lagoon vault token swap compatibility", unit="token"):
         base_token_address = path[-1]
         report = check_compatibility(
             web3=anvil_web3,
             vault=vault,
             asset_manager=asset_manager_address,
-            uniswap_v2=UniswapV2Deployment(anvil_web3, reserve_token),
+            uniswap_v2=uniswap_v2,
             path=path,
         )
 
