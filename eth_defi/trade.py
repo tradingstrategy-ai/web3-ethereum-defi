@@ -109,6 +109,11 @@ class TradeSuccess(TradeResult):
     #: Set to ``None`` if could not be determined.
     untaxed_amount_out: int | None = None
 
+    #: Did we generate some excessive transfer events during the swap.
+    #:
+    #: Usually a sign of some rigging mechanism.
+    transfer_event_count: int = 0
+
     def __post_init__(self):
         if self.price is not None:
             assert isinstance(self.price, Decimal)

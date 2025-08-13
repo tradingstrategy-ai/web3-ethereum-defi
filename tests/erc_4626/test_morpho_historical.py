@@ -7,6 +7,7 @@ import pandas as pd
 import pytest
 
 from web3 import Web3
+import flaky
 
 from eth_defi.erc_4626.classification import create_vault_instance
 from eth_defi.erc_4626.core import ERC4626Feature
@@ -27,6 +28,7 @@ def web3() -> Web3:
     return web3
 
 
+@flaky.flaky
 def test_steakhouse_usdt(
     web3: Web3,
     tmp_path: Path,

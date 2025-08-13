@@ -1,5 +1,7 @@
 """Analyse price impact and slippage of executed Enso trades"""
 
+from pprint import pformat
+
 from web3 import Web3
 from web3.logs import DISCARD
 
@@ -12,7 +14,7 @@ from eth_defi.trade import TradeFail, TradeSuccess
 def analyse_trade_by_receipt_generic(
     web3: Web3,
     tx_hash: str | bytes,
-    tx_receipt: dict,
+    tx_receipt: dict | None,
     intent_based=True,
 ) -> TradeSuccess | TradeFail:
     """Analyse of any trade based on ERC-20 transfer events.
@@ -74,6 +76,11 @@ def analyse_trade_by_receipt_generic(
     """
 
     chain_id = web3.eth.chain_id
+
+    if tx_receipt is None:
+        tx_receipt = web3.eth.get_transaction_receipt(tx_hash)
+        assert tx_receipt, f"Transaction receipt for {tx_hash} not found"
+
     effective_gas_price = tx_receipt.get("effectiveGasPrice", 0)
     gas_used = tx_receipt["gasUsed"]
 
@@ -84,6 +91,11 @@ def analyse_trade_by_receipt_generic(
     ERC20 = get_contract(web3, "ERC20MockDecimals.json")
 
     transfer_events = ERC20.events.Transfer().process_receipt(tx_receipt, errors=DISCARD)
+
+    # WTF clean up.
+    # Some scam tokens generate extra Transfer events with value 0?
+    transfer_event_count = len(transfer_events)
+    transfer_events = [evt for evt in transfer_events if evt["args"]["value"] != 0]
 
     if len(transfer_events) < 2:
         return TradeFail(
@@ -104,6 +116,9 @@ def analyse_trade_by_receipt_generic(
 
     amount_out_cleaned = out_token_details.convert_to_decimals(amount_out)
     amount_in_cleaned = in_token_details.convert_to_decimals(amount_in)
+
+    assert amount_in_cleaned > 0, f"Swap amount in detected to be zero. Tx hash: {tx_hash.hex()}, amount_in_cleaned: {amount_in_cleaned}, events:\n{pformat(transfer_events)}"
+
     price = amount_out_cleaned / amount_in_cleaned
     lp_fee_paid = None
 
@@ -123,4 +138,5 @@ def analyse_trade_by_receipt_generic(
         token1=out_token_details,
         lp_fee_paid=lp_fee_paid,
         intent_based=intent_based,
+        transfer_event_count=transfer_event_count,
     )

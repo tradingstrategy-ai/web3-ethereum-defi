@@ -92,6 +92,12 @@ USDC_WHALE: dict[int, HexAddress | str] = {
     8453: "0x40EbC1Ac8d4Fedd2E144b75fe9C0420BE82750c6",
 }
 
+#: Used in fork testing
+USDT_WHALE: dict[int, HexAddress | str] = {
+    # BNB Chain
+    #
+    56: "0x55d398326f99059ff775485246999027b3197955",
+}
 
 #: Addresses USDT Tether of different chains
 USDT_NATIVE_TOKEN: dict[int, HexAddress] = {
@@ -274,6 +280,13 @@ LARGE_USDC_HOLDERS = {
 }
 
 
+@dataclass(frozen=True, slots=True)
+class DummyPickledContract:
+    """Contract placeholder making contract references pickable"""
+
+    address: str
+
+
 @dataclass
 class TokenDetails:
     """ERC-20 token Python presentation.
@@ -283,6 +296,8 @@ class TokenDetails:
     - Read on-chain data, deal with token value decimal conversions.
 
     - Any field can be ``None`` for non-well-formed tokens.
+
+    - Supports one-way pickling
 
     Example how to get USDC details on Polygon:
 
@@ -322,6 +337,16 @@ class TokenDetails:
 
     def __repr__(self):
         return f"<{self.name} ({self.symbol}) at {self.contract.address}, {self.decimals} decimals, on chain {self.chain_id}>"
+
+    def __getstate__(self):
+        """Contract cannot be pickled."""
+        state = self.__dict__.copy()
+        state["contract"] = DummyPickledContract(address=self.contract.address)
+        return state
+
+    def __setstate__(self, state):
+        """Contract cannot be pickled."""
+        self.__dict__.update(state)
 
     @cached_property
     def chain_id(self) -> int:
