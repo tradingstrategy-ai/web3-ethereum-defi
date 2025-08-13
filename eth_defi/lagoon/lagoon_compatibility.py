@@ -129,7 +129,7 @@ class LagoonTokenCheckDatabase:
 
 def _get_revert_reason(web3, tx_hash: str) -> str | None:
     try:
-        assert_transaction_success_with_explanation(web3, tx_hash)
+        assert_transaction_success_with_explanation(web3, tx_hash, timeout=180)
         return None
     except TransactionAssertionError as e:
         # If the transaction reverted, we try to get the revert reason
