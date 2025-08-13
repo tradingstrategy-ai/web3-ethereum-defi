@@ -52,6 +52,8 @@ class LagoonTokenCompatibilityData:
 
     estimate_buy_received: int
 
+    buy_amount_raw: int
+
     buy_result: TradeSuccess | None
 
     buy_real_received: int
@@ -79,6 +81,21 @@ class LagoonTokenCompatibilityData:
     def is_sell_success(self) -> bool:
         """Was the sell operation successful?"""
         return self.sell_result is not None
+
+    def get_round_trip_cost(self) -> float | None:
+        """Get round trip cost in percents.
+
+        E.g. 0.005 means we paid 50 bps
+
+        :return:
+            Round trip cost in percents or None if not avail
+        """
+        if not self.is_compatible():
+            return None
+
+        return abs(self.sell_result.amount_out - self.buy_amount_raw) / self.buy_amount_raw
+
+
 
 
 
@@ -308,6 +325,7 @@ def check_compatibility(
         token_address=base_token.address,
         path=path,
         tokens=tokens,
+        buy_amount_raw=quote_token_buy_raw_amount,
         buy_block_number=buy_block_number,
         estimate_buy_received=estimate_buy_received,
         buy_result=buy_result,

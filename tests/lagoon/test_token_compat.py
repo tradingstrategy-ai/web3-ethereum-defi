@@ -54,6 +54,7 @@ def test_token_compat_single(token_list, tmp_path):
 
     assert report.sell_result.amount_in == 1381835
     assert report.sell_result.amount_out == 995006197259589201  # Round tripped 50 bips
+    assert report.get_round_trip_cost() == pytest.approx(0)
 
     # Check caching
     compat_db = check_lagoon_compatibility_with_database(
