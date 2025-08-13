@@ -69,6 +69,7 @@ def test_token_compat_single(token_list, tmp_path):
     report = next(iter(compat_db.report_by_token.values()))
     assert report.cached
 
+
 @pytest.mark.skipif(os.environ.get("LONG_MANUAL_TEST") is None, reason="Long test designed for manual running")
 def test_token_compat_full(token_list, tmp_path):
     """Check BNB Chain compatibility for dozens of tokens.

@@ -1,4 +1,5 @@
 """Analyse price impact and slippage of executed Enso trades"""
+
 from pprint import pformat
 
 from web3 import Web3
@@ -138,5 +139,4 @@ def analyse_trade_by_receipt_generic(
         lp_fee_paid=lp_fee_paid,
         intent_based=intent_based,
         transfer_event_count=transfer_event_count,
-
     )

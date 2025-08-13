@@ -279,9 +279,11 @@ LARGE_USDC_HOLDERS = {
     8453: "0xBaeD383EDE0e5d9d72430661f3285DAa77E9439F",
 }
 
+
 @dataclass(frozen=True, slots=True)
 class DummyPickledContract:
     """Contract placeholder making contract references pickable"""
+
     address: str
 
 
@@ -339,7 +341,7 @@ class TokenDetails:
     def __getstate__(self):
         """Contract cannot be pickled."""
         state = self.__dict__.copy()
-        state['contract'] = DummyPickledContract(address=self.contract.address)
+        state["contract"] = DummyPickledContract(address=self.contract.address)
         return state
 
     def __setstate__(self, state):

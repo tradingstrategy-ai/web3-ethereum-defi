@@ -1,4 +1,5 @@
 """Uniswap v2 individual trade analysis."""
+
 import logging
 from decimal import Decimal
 from typing import Union
@@ -161,7 +162,9 @@ def analyse_trade_by_receipt(
 
     assert len(events) > 0, f"No swap events detected:{tx_receipt}"
 
-    import ipdb ; ipdb.set_trace()
+    import ipdb
+
+    ipdb.set_trace()
 
     # Reconstruct path
     path = []

@@ -296,7 +296,6 @@ def check_compatibility(
 
     # All good with buy, proceed to sell
     if not revert_reason:
-
         mine(
             web3,
             increase_timestamp=sell_delay.total_seconds(),
@@ -313,7 +312,6 @@ def check_compatibility(
             revert_reason = f"Token {base_token.symbol} {base_token.address}: balance is 0 after buy, cannot sell"
 
     if not revert_reason:
-
         func = base_token.approve(
             uniswap_v2.router.address,
             sell_amount,
@@ -430,7 +428,6 @@ def check_lagoon_compatibility_with_database(
     # Work around Anvil bugs by restart
     # https://ethereum.stackexchange.com/questions/170480/anvil-read-timeout
     def _setup_anvil():
-
         _anvil = launch_anvil(
             fork_url=json_rpc_url,
             unlocked_addresses=[asset_manager_address],
@@ -449,7 +446,6 @@ def check_lagoon_compatibility_with_database(
     spec = VaultSpec(web3.eth.chain_id, vault_address)
 
     for path in tqdm(unchecked_paths, desc="Checking Lagoon vault token swap compatibility", unit="token"):
-
         # Setup Anvil for each path to avoid issues with Anvil state
         anvil, anvil_web3 = _setup_anvil()
 
