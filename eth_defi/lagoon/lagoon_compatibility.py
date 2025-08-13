@@ -29,6 +29,9 @@ from eth_defi.uniswap_v2.liquidity import get_liquidity, LiquidityResult
 from eth_defi.uniswap_v2.swap import swap_with_slippage_protection
 from web3.contract.contract import ContractFunction
 from eth_defi.vault.base import VaultSpec
+from tests.lagoon.conftest import safe_address
+
+from eth_defi.velvet.analysis import analyse_trade_by_receipt_generic
 
 logger = logging.getLogger(__name__)
 
@@ -191,9 +194,8 @@ def check_compatibility(
         case _:
             raise NotImplementedError(f"Unsupported path length: {len(path)}. Expected 2 or 3 tokens.")
 
-    logger.info(f"Check Lagoon swap compatibility for {quote_token.symbol} -> {base_token.symbol} path: {path}")
-
     safe_address = vault.safe_address
+    logger.info(f"Check Lagoon swap compatibility for {quote_token.symbol} -> {base_token.symbol} path: {path}, vault {vault.vault_address}, safe {safe_address}, module {vault.trading_strategy_module_address}, asset manager {asset_manager}")
 
     quote_token_buy_amount = Decimal(1)
     quote_token_buy_raw_amount = quote_token.convert_to_raw(quote_token_buy_amount)
@@ -206,6 +208,8 @@ def check_compatibility(
     buy_result = None
     sell_result = None
     buy_real_received = None
+    buy_block_number = None
+    sell_block_number = None
 
     #
     # Check liquidity
@@ -231,7 +235,7 @@ def check_compatibility(
 
     revert_reason = None
     if available_liquidity < min_liquidity:
-        revert_reason = f"Not enough liquidity for {quote_token.symbol} in the pool, has: {avail_liquidity}, needs: {avail_liquidity}"
+        revert_reason = f"Not enough liquidity for {quote_token.symbol} in the pool, has: {available_liquidity}, needs: {available_liquidity}"
 
     if not revert_reason:
         #
@@ -280,31 +284,32 @@ def check_compatibility(
         )
 
     if not revert_reason:
-        buy_success = True
-        buy_result = analyse_trade_by_receipt(
+        buy_result = analyse_trade_by_receipt_generic(
             web3,
-            uniswap_v2,
-            tx=None,
             tx_hash=tx_hash,
             tx_receipt=None,
+            intent_based=False,
         )
 
     # All good with buy, proceed to sell
-
-    mine(
-        web3,
-        increase_timestamp=sell_delay.total_seconds(),
-    )
-
-    sell_block_number = web3.eth.block_number
-
     if not revert_reason:
+
+        mine(
+            web3,
+            increase_timestamp=sell_delay.total_seconds(),
+        )
+
+        sell_block_number = web3.eth.block_number
+
         sell_amount = base_token.fetch_balance_of(safe_address)
         sell_amount_raw = base_token.convert_to_raw(sell_amount)
 
         buy_real_received = sell_amount_raw
 
-        assert sell_amount > 0
+        if sell_amount == 0:
+            revert_reason = f"Token {base_token.symbol} {base_token.address}: balance is 0 after buy, cannot sell"
+
+    if not revert_reason:
 
         func = base_token.approve(
             uniswap_v2.router.address,
@@ -346,12 +351,11 @@ def check_compatibility(
         )
 
     if not revert_reason:
-        sell_result = analyse_trade_by_receipt(
+        sell_result = analyse_trade_by_receipt_generic(
             web3,
-            uniswap_v2,
-            tx=None,
             tx_hash=tx_hash,
             tx_receipt=None,
+            intent_based=False,
         )
 
     return LagoonTokenCompatibilityData(
@@ -389,14 +393,10 @@ def check_lagoon_compatibility_with_database(
     - Uses a local pickle-file database to remember previous checks
     """
 
+    chain_name = get_chain_name(web3.eth.chain_id).lower()
     logger.info("Checking token compatibility with Lagoon Vault, %d paths, database file: %s", len(paths), database_file)
 
     json_rpc_url = web3.provider.endpoint_uri
-    anvil = launch_anvil(
-        fork_url=json_rpc_url,
-        unlocked_addresses=[asset_manager_address],
-        fork_block_number=fork_block_number,
-    )
 
     database = None
     if database_file.exists():
@@ -424,35 +424,46 @@ def check_lagoon_compatibility_with_database(
 
     logger.info("Total %d unchecked paths", len(unchecked_paths))
 
-    anvil_web3 = create_multi_provider_web3(anvil.json_rpc_url, retries=retries)
+    # Work around Anvil bugs by restart
+    # https://ethereum.stackexchange.com/questions/170480/anvil-read-timeout
+    def _setup_anvil():
 
-    set_balance(
-        anvil_web3,
-        asset_manager_address,
-        99 * 10**18,
-    )
+        _anvil = launch_anvil(
+            fork_url=json_rpc_url,
+            unlocked_addresses=[asset_manager_address],
+            fork_block_number=fork_block_number,
+        )
+
+        _anvil_web3 = create_multi_provider_web3(_anvil.json_rpc_url, retries=retries)
+
+        set_balance(
+            _anvil_web3,
+            asset_manager_address,
+            99 * 10**18,
+        )
+        return _anvil, _anvil_web3
 
     spec = VaultSpec(web3.eth.chain_id, vault_address)
 
-    vault = LagoonVault(
-        anvil_web3,
-        spec=spec,
-        trading_strategy_module_address=trading_strategy_module_address,
-    )
-
-    chain_name = get_chain_name(anvil_web3.eth.chain_id).lower()
-
-    uniswap_v2 = fetch_deployment(
-        anvil_web3,
-        factory_address=UNISWAP_V2_DEPLOYMENTS[chain_name]["factory"],
-        router_address=UNISWAP_V2_DEPLOYMENTS[chain_name]["router"],
-        init_code_hash=UNISWAP_V2_DEPLOYMENTS[chain_name]["init_code_hash"],
-    )
-
-    logger.info("Checking with Uniswap v2 deployment: %s", uniswap_v2)
-
     for path in tqdm(unchecked_paths, desc="Checking Lagoon vault token swap compatibility", unit="token"):
+
+        # Setup Anvil for each path to avoid issues with Anvil state
+        anvil, anvil_web3 = _setup_anvil()
+
         base_token_address = path[-1]
+
+        vault = LagoonVault(
+            anvil_web3,
+            spec=spec,
+            trading_strategy_module_address=trading_strategy_module_address,
+        )
+
+        uniswap_v2 = fetch_deployment(
+            anvil_web3,
+            factory_address=UNISWAP_V2_DEPLOYMENTS[chain_name]["factory"],
+            router_address=UNISWAP_V2_DEPLOYMENTS[chain_name]["router"],
+            init_code_hash=UNISWAP_V2_DEPLOYMENTS[chain_name]["init_code_hash"],
+        )
 
         try:
             report = check_compatibility(
@@ -463,12 +474,20 @@ def check_lagoon_compatibility_with_database(
                 path=path,
             )
         except Exception as e:
+            # It's likely Anvil is timing out due to an internal error.
+            # Try to figure out why.
+            stdout, stderr = anvil.close(log_level=logging.ERROR)
+            stdout = stdout.decode("utf-8")
+            stderr = stderr.decode("utf-8")
+            logger.error("Anvil output:\n%s\n%s", stdout, stderr)
             raise RuntimeError(f"Failed to check Lagoon compatibility for path: {path} on chain {chain_name}: {e}") from e
 
         database.report_by_token[base_token_address.lower()] = report
 
         # Because the operation is so slow, we want to resave after each iteration
         pickle.dump(database, database_file.open("wb"))
+
+        anvil.close()
 
     pickle.dump(database, database_file.open("wb"))
     return database

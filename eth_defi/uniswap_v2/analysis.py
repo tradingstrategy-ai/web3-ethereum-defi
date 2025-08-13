@@ -1,5 +1,5 @@
 """Uniswap v2 individual trade analysis."""
-
+import logging
 from decimal import Decimal
 from typing import Union
 
@@ -10,9 +10,12 @@ from web3 import Web3
 from web3.logs import DISCARD
 
 from eth_defi.abi import get_deployed_contract
-from eth_defi.token import fetch_erc20_details, get_erc20_contract
+from eth_defi.token import fetch_erc20_details
 from eth_defi.uniswap_v2.deployment import UniswapV2Deployment
 from eth_defi.trade import TradeFail, TradeSuccess
+
+
+logger = logging.getLogger(__name__)
 
 
 def analyse_trade_by_hash(web3: Web3, uniswap: UniswapV2Deployment, tx_hash: str | HexBytes) -> Union[TradeSuccess, TradeFail]:
@@ -67,6 +70,7 @@ def analyse_trade_by_receipt(
     tx_hash: str,
     tx_receipt: dict | None,
     pair_fee: float = None,
+    sender_address: str | None = None,
 ) -> Union[TradeSuccess, TradeFail]:
     """Analyse details of a Uniswap trade based on already received receipt.
 
@@ -156,6 +160,8 @@ def analyse_trade_by_receipt(
     events = swap.process_receipt(tx_receipt, errors=DISCARD)
 
     assert len(events) > 0, f"No swap events detected:{tx_receipt}"
+
+    import ipdb ; ipdb.set_trace()
 
     # Reconstruct path
     path = []

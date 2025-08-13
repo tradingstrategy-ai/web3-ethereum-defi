@@ -279,6 +279,11 @@ LARGE_USDC_HOLDERS = {
     8453: "0xBaeD383EDE0e5d9d72430661f3285DAa77E9439F",
 }
 
+@dataclass(frozen=True, slots=True)
+class DummyPickledContract:
+    """Contract placeholder making contract references pickable"""
+    address: str
+
 
 @dataclass
 class TokenDetails:
@@ -289,6 +294,8 @@ class TokenDetails:
     - Read on-chain data, deal with token value decimal conversions.
 
     - Any field can be ``None`` for non-well-formed tokens.
+
+    - Supports one-way pickling
 
     Example how to get USDC details on Polygon:
 
@@ -328,6 +335,16 @@ class TokenDetails:
 
     def __repr__(self):
         return f"<{self.name} ({self.symbol}) at {self.contract.address}, {self.decimals} decimals, on chain {self.chain_id}>"
+
+    def __getstate__(self):
+        """Contract cannot be pickled."""
+        state = self.__dict__.copy()
+        state['contract'] = DummyPickledContract(address=self.contract.address)
+        return state
+
+    def __setstate__(self, state):
+        """Contract cannot be pickled."""
+        self.__dict__.update(state)
 
     @cached_property
     def chain_id(self) -> int:

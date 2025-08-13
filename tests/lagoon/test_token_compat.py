@@ -2,6 +2,7 @@
 
 import os
 from decimal import Decimal
+from pprint import pprint
 
 import pytest
 
@@ -68,11 +69,18 @@ def test_token_compat_single(token_list, tmp_path):
     report = next(iter(compat_db.report_by_token.values()))
     assert report.cached
 
-
+@pytest.mark.skipif(os.environ.get("LONG_MANUAL_TEST") is None, reason="Long test designed for manual running")
 def test_token_compat_full(token_list, tmp_path):
     """Check BNB Chain compatibility for dozens of tokens.
 
     - Extremely slow test
+
+    To run:
+
+    .. code-block:: shell
+
+        LONG_MANUAL_TEST=true pytest --log-cli-level=info -k test_token_compat_full
+
     """
     web3 = create_multi_provider_web3(JSON_RPC_BINANCE)
 
@@ -85,6 +93,8 @@ def test_token_compat_full(token_list, tmp_path):
         asset_manager_address=addr("0xc9EDbb9F5b3f55B7Cc87a8Af6A695f18200E47Af"),
         fork_block_number=57_446_737,
     )
+    stats = compat_db.calculate_stats()
+    pprint(stats)
 
 
 # Grabbed from the BNB backtest notebook
