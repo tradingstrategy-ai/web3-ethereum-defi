@@ -116,13 +116,14 @@ class LagoonTokenCheckDatabase:
 
     def calculate_stats(self) -> dict:
         stats = {
+            "count": self.get_count(),
             "compatible": sum(r.is_compatible() for r in self.report_by_token.values()),
             "not_compatible": sum(not r.is_compatible() for r in self.report_by_token.values()),
             "buy_success": sum(r.is_buy_success() for r in self.report_by_token.values()),
             "sell_success": sum(r.is_sell_success() for r in self.report_by_token.values()),
             "min_cost": min(r.get_round_trip_cost() for r in self.report_by_token.values() if r.get_round_trip_cost() is not None),
             "max_cost": max(r.get_round_trip_cost() for r in self.report_by_token.values() if r.get_round_trip_cost() is not None),
-            "meanx_cost": mean(r.get_round_trip_cost() for r in self.report_by_token.values() if r.get_round_trip_cost() is not None),
+            "mean_cost": mean(r.get_round_trip_cost() for r in self.report_by_token.values() if r.get_round_trip_cost() is not None),
         }
         return stats
 
