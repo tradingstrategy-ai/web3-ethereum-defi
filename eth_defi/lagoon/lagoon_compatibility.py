@@ -463,7 +463,7 @@ def check_lagoon_compatibility_with_database(
                 path=path,
             )
         except Exception as e:
-            raise RuntimeError(f"Failed to check Lagoon compatibility for path: {path} on chain {chain_name}") from e
+            raise RuntimeError(f"Failed to check Lagoon compatibility for path: {path} on chain {chain_name}: {e}") from e
 
         database.report_by_token[base_token_address.lower()] = report
 
