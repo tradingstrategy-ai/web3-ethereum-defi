@@ -92,6 +92,12 @@ USDC_WHALE: dict[int, HexAddress | str] = {
     8453: "0x40EbC1Ac8d4Fedd2E144b75fe9C0420BE82750c6",
 }
 
+#: Used in fork testing
+USDT_WHALE: dict[int, HexAddress | str] = {
+    # BNB Chain
+    #
+    56: "0x55d398326f99059ff775485246999027b3197955",
+}
 
 #: Addresses USDT Tether of different chains
 USDT_NATIVE_TOKEN: dict[int, HexAddress] = {
