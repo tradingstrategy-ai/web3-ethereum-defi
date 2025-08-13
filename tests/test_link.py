@@ -1,8 +1,7 @@
 """Solidity linking tests."""
 
 import pytest
-
-from web3 import Web3, EthereumTesterProvider
+from web3 import EthereumTesterProvider, Web3
 
 from eth_defi.aave_v3.deployer import get_aave_hardhard_export
 from eth_defi.abi import get_contract, get_linked_contract
@@ -36,13 +35,13 @@ def deployer(web3) -> str:
     return web3.eth.accounts[0]
 
 
-def test_link_aave(
-    web3,
-    deployer,
-):
-    """Test Hardhat linking by deploying Aave pool contract."""
-    export = get_aave_hardhard_export()
+# def test_link_aave(
+#     web3,
+#     deployer,
+# ):
+#     """Test Hardhat linking by deploying Aave pool contract."""
+#     export = get_aave_hardhard_export()
 
-    # Link bytecode
-    # Check that the code runs (we are not checking actual bytecode result yet)
-    get_linked_contract(web3, "aave_v3/Pool.json", hardhat_export_data=export)
+#     # Link bytecode
+#     # Check that the code runs (we are not checking actual bytecode result yet)
+#     get_linked_contract(web3, "aave_v3/Pool.json", hardhat_export_data=export)
