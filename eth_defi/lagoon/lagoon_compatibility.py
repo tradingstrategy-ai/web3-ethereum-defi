@@ -113,6 +113,9 @@ class LagoonTokenCheckDatabase:
     #: Base token address -> LagoonTokenCompatibilityResponse
     report_by_token: dict[HexAddress, LagoonTokenCompatibilityData] = field(default_factory=dict)
 
+    def get_count(self) -> int:
+        return len(self.report_by_token)
+
     def calculate_stats(self) -> dict:
         stats = {
             "compatible": sum(r.is_compatible() for r in self.report_by_token.values()),
