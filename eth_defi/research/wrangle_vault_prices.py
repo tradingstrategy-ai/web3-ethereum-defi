@@ -308,6 +308,11 @@ def filter_unneeded_row(
                 i += 1
                 continue
 
+            if start_total_supply == 0 or start_total_assets == 0:
+                invalid_share_price_entry_count += 1
+                i += 1
+                continue
+
             # assert not pd.isna(start_share_price), "Start share price should not be NaN"
 
             # Find the end of the sequence where all changes are below epsilon
