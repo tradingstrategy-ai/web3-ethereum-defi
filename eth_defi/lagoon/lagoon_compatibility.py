@@ -18,18 +18,16 @@ from eth_defi.chain import get_chain_name
 from eth_defi.lagoon.vault import LagoonVault
 from eth_defi.provider.anvil import mine, launch_anvil, set_balance
 from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.token import fetch_erc20_details, TokenDetails, is_stablecoin_like
+from eth_defi.token import fetch_erc20_details, is_stablecoin_like
 from eth_defi.trace import assert_transaction_success_with_explanation, TransactionAssertionError
 from eth_defi.trade import TradeSuccess
-from eth_defi.uniswap_v2.analysis import analyse_trade_by_receipt
 from eth_defi.uniswap_v2.constants import UNISWAP_V2_DEPLOYMENTS
 from eth_defi.uniswap_v2.deployment import UniswapV2Deployment, fetch_deployment
-from eth_defi.uniswap_v2.fees import estimate_buy_price, estimate_sell_price, estimate_buy_received_amount_raw, estimate_sell_received_amount_raw
-from eth_defi.uniswap_v2.liquidity import get_liquidity, LiquidityResult
+from eth_defi.uniswap_v2.fees import estimate_buy_received_amount_raw, estimate_sell_received_amount_raw
+from eth_defi.uniswap_v2.liquidity import get_liquidity
 from eth_defi.uniswap_v2.swap import swap_with_slippage_protection
 from web3.contract.contract import ContractFunction
 from eth_defi.vault.base import VaultSpec
-from tests.lagoon.conftest import safe_address
 
 from eth_defi.velvet.analysis import analyse_trade_by_receipt_generic
 

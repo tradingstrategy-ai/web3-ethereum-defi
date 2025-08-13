@@ -162,10 +162,6 @@ def analyse_trade_by_receipt(
 
     assert len(events) > 0, f"No swap events detected:{tx_receipt}"
 
-    import ipdb
-
-    ipdb.set_trace()
-
     # Reconstruct path
     path = []
     for evt in events:
