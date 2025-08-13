@@ -299,16 +299,11 @@ def filter_unneeded_row(
             start_idx = i
             current_idx = i + 1
 
-            start_total_assets = start_total_assets or group.iloc[start_idx]["total_assets"]
+            start_total_assets = start_total_assets or group.loc[start_idx]["total_assets"]
             start_total_supply = start_total_supply or group.iloc[start_idx]["total_supply"]
             start_share_price = start_share_price or group.iloc[start_idx]["share_price"]
 
             if pd.isna(start_share_price) or pd.isna(start_total_supply) or pd.isna(start_total_assets):
-                invalid_share_price_entry_count += 1
-                i += 1
-                continue
-
-            if start_total_supply == 0 or start_total_assets == 0:
                 invalid_share_price_entry_count += 1
                 i += 1
                 continue
@@ -318,6 +313,7 @@ def filter_unneeded_row(
             # Find the end of the sequence where all changes are below epsilon
             while current_idx < len(group):
                 # Calculate relative changes from the start position
+
                 total_assets_change = abs((group.iloc[current_idx]["total_assets"] - start_total_assets) / start_total_assets)
                 share_price_change = abs((group.iloc[current_idx]["share_price"] - start_share_price) / start_share_price)
                 total_supply_change = abs((group.iloc[current_idx]["total_supply"] - start_total_supply) / start_total_supply)
@@ -496,7 +492,8 @@ def process_raw_vault_scan_data(
 
     prices_df = sort_and_index_vault_prices(prices_df, PRIORITY_SORT_IDS)
     prices_df = filter_vaults_by_stablecoin(vault_db, prices_df, logger)
-    prices_df = filter_unneeded_row(prices_df, logger)
+    # Disabled as low and does not result to any savings
+    # prices_df = filter_unneeded_row(prices_df, logger)
     prices_df = filter_outlier_share_prices(prices_df, logger)
     prices_df = calculate_vault_returns(prices_df)
 
@@ -547,6 +544,10 @@ def generate_cleaned_vault_datasets(
         logger,
         display=display,
     )
+
+    # Sort for better compression
+    enhanced_prices_df = enhanced_prices_df.sort_values(by=["id", "timestamp"])
+
     enhanced_prices_df.to_parquet(
         cleaned_price_df_path,
         compression="zstd",
