@@ -382,6 +382,7 @@ def check_lagoon_compatibility_with_database(
     asset_manager_address: HexAddress,
     database_file: Path = Path.home() / ".tradingstrategy" / "token-checks" / "lagoon_token_check.pickle",
     fork_block_number=None,
+    retries=3,
 ) -> LagoonTokenCheckDatabase:
     """Check multiple tokens for compatibility with Lagoon Vault.
 
@@ -423,7 +424,7 @@ def check_lagoon_compatibility_with_database(
 
     logger.info("Total %d unchecked paths", len(unchecked_paths))
 
-    anvil_web3 = create_multi_provider_web3(anvil.json_rpc_url, retries=0)
+    anvil_web3 = create_multi_provider_web3(anvil.json_rpc_url, retries=retries)
 
     set_balance(
         anvil_web3,
@@ -452,13 +453,17 @@ def check_lagoon_compatibility_with_database(
 
     for path in tqdm(unchecked_paths, desc="Checking Lagoon vault token swap compatibility", unit="token"):
         base_token_address = path[-1]
-        report = check_compatibility(
-            web3=anvil_web3,
-            vault=vault,
-            asset_manager=asset_manager_address,
-            uniswap_v2=uniswap_v2,
-            path=path,
-        )
+
+        try:
+            report = check_compatibility(
+                web3=anvil_web3,
+                vault=vault,
+                asset_manager=asset_manager_address,
+                uniswap_v2=uniswap_v2,
+                path=path,
+            )
+        except Exception as e:
+            raise RuntimeError(f"Failed to check Lagoon compatibility for path: {path} on chain {chain_name}") from e
 
         database.report_by_token[base_token_address.lower()] = report
 
