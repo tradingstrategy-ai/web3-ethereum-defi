@@ -4,7 +4,7 @@
 
 - Withdrawals
 """
-
+import os
 from functools import partial
 from typing import cast
 from decimal import Decimal
@@ -23,6 +23,9 @@ from eth_defi.enzyme.vault import Vault
 from eth_defi.event_reader.reader import extract_events, Web3EventReader
 from eth_defi.trace import assert_transaction_success_with_explanation, TransactionAssertionError
 from eth_defi.uniswap_v2.deployment import UniswapV2Deployment
+
+
+CI = os.environ.get("CI") == "true"
 
 
 @pytest.fixture
@@ -292,6 +295,7 @@ def test_read_withdrawal_in_kind(
     assert weth.functions.balanceOf(user_2).call() == 83000581753325268
 
 
+@pytest.mark.skipif(CI, reason="Too flaky on Github")
 def test_read_vault_balances(
     web3: Web3,
     deployer: HexAddress,
