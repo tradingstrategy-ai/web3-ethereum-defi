@@ -60,7 +60,14 @@ def analyse_trade_by_hash(web3: Web3, uniswap: UniswapV2Deployment, tx_hash: str
     return analyse_trade_by_receipt(web3, uniswap, tx, tx_hash, tx_receipt)
 
 
-def analyse_trade_by_receipt(web3: Web3, uniswap: UniswapV2Deployment, tx: dict, tx_hash: str, tx_receipt: dict, pair_fee: float = None) -> Union[TradeSuccess, TradeFail]:
+def analyse_trade_by_receipt(
+    web3: Web3,
+    uniswap: UniswapV2Deployment,
+    tx: dict | None,
+    tx_hash: str,
+    tx_receipt: dict | None,
+    pair_fee: float = None,
+) -> Union[TradeSuccess, TradeFail]:
     """Analyse details of a Uniswap trade based on already received receipt.
 
     See also :py:func:`analyse_trade_by_hash`.
@@ -112,6 +119,12 @@ def analyse_trade_by_receipt(web3: Web3, uniswap: UniswapV2Deployment, tx: dict,
     # swapExactTokensForTokens
 
     router = uniswap.router
+
+    if tx is None:
+        tx = web3.eth.get_transaction(tx_hash)
+
+    if tx_receipt is None:
+        tx_receipt = web3.eth.get_transaction_receipt(tx_hash)
 
     # assert tx_receipt["to"] == router.address, f"For now, we can only analyze naive trades to the router. This tx was to {tx_receipt['to']}, router is {router.address}"
 

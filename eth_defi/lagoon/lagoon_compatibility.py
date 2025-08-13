@@ -16,30 +16,29 @@ from eth_defi.chain import get_chain_name
 from eth_defi.lagoon.vault import LagoonVault
 from eth_defi.provider.anvil import mine, launch_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.token import fetch_erc20_details
+from eth_defi.token import fetch_erc20_details, TokenDetails
 from eth_defi.trace import assert_transaction_success_with_explanation, TransactionAssertionError
 from eth_defi.trade import TradeSuccess
 from eth_defi.uniswap_v2.analysis import analyse_trade_by_receipt
 from eth_defi.uniswap_v2.constants import UNISWAP_V2_DEPLOYMENTS
 from eth_defi.uniswap_v2.deployment import UniswapV2Deployment, fetch_deployment
-from eth_defi.uniswap_v2.fees import estimate_buy_price, estimate_sell_price
+from eth_defi.uniswap_v2.fees import estimate_buy_price, estimate_sell_price, estimate_buy_received_amount_raw, estimate_sell_received_amount_raw
 from eth_defi.uniswap_v2.swap import swap_with_slippage_protection
 from web3.contract.contract import ContractFunction
-
-from tests.lagoon.test_token_compat import vault
-
 from eth_defi.vault.base import VaultSpec
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass
-class LagoonTokenCompatibilityResponse:
+class LagoonTokenCompatibilityData:
     """Was an ERC-20 compatible with Lagoon Vault?
 
     - Vault can buy and sell the token
     - Only applicable to Uniswap v2 kind AMMs
     """
+
+    created_at: datetime.datetime
 
     #: What was the base address of the token
     token_address: str
@@ -47,24 +46,31 @@ class LagoonTokenCompatibilityResponse:
     #: Used routing path
     path: list[str]
 
+    tokens: list[str]
+
     buy_block_number: int
 
-    buy_estimated_price: Decimal
+    estimate_buy_received: int
 
     buy_result: TradeSuccess | None
 
+    buy_real_received: int
+
     sell_block_number: int | None = None
 
-    sell_estimated_price: Decimal | None = None
+    estimate_sell_received: int | None = None
 
     sell_result: TradeSuccess | None = None
 
     #: Revert reason we captured
-    error: str | None = None
+    revert_reason: str | None = None
+
+    #: Did we res
+    cached: bool = False
 
     def is_compatible(self) -> bool:
         """Is the token compatible with Lagoon Vault?"""
-        return self.buy_success and self.sell_success
+        return self.is_buy_success() and self.is_sell_success()
 
     def is_buy_success(self) -> bool:
         """Was the buy operation successful?"""
@@ -73,6 +79,24 @@ class LagoonTokenCompatibilityResponse:
     def is_sell_success(self) -> bool:
         """Was the sell operation successful?"""
         return self.sell_result is not None
+
+
+
+@dataclass
+class LagoonTokenCheckDatabase:
+    """Database for storing Lagoon token compatibility checks."""
+
+    #: Base token address -> LagoonTokenCompatibilityResponse
+    report_by_token: dict[HexAddress, LagoonTokenCompatibilityData] = field(default_factory=dict)
+
+    def calculate_stats(self) -> dict:
+        stats = {
+            "compatible": sum(r.is_compatible() for r in self.report_by_token.values()),
+            "not_compatible": sum(not r.is_compatible() for r in self.report_by_token.values()),
+            "buy_success": sum(r.is_buy_success() for r in self.report_by_token.values()),
+            "sell_success": sum(r.is_sell_success() for r in self.report_by_token.values()),
+        }
+        return stats
 
 
 def _get_revert_reason(web3, tx_hash: str) -> str | None:
@@ -111,7 +135,7 @@ def check_compatibility(
     uniswap_v2: UniswapV2Deployment,
     path: list[str],
     sell_delay=datetime.timedelta(seconds=3600),
-) -> LagoonTokenCompatibilityResponse:
+) -> LagoonTokenCompatibilityData:
     """Check if the token is compatible with Lagoon Vault.
 
     - Attempt to buy and sell the token on Uniswap v2 like instance and see it works
@@ -131,11 +155,13 @@ def check_compatibility(
             quote_token = fetch_erc20_details(web3, path[0])
             base_token = fetch_erc20_details(web3, path[1])
             intermediate_token = None
+            tokens = [quote_token.symbol, base_token.symbol]
         case 3:
             # Uniswap V3
             quote_token = fetch_erc20_details(web3, path[0])
             base_token = fetch_erc20_details(web3, path[-1])
             intermediate_token = fetch_erc20_details(web3, path[1])
+            tokens = [quote_token.symbol, intermediate_token.symbol, base_token.symbol]
         case _:
             raise NotImplementedError(
                 f"Unsupported path length: {len(path)}. Expected 2 or 3 tokens."
@@ -143,16 +169,23 @@ def check_compatibility(
 
     logger.info(f"Check Lagoon swap compatibility for {quote_token.symbol} -> {base_token.symbol} path: {path}")
 
+    safe_address = vault.safe_address
+
     quote_token_buy_amount = Decimal(1)
     quote_token_buy_raw_amount = quote_token.convert_to_raw(quote_token_buy_amount)
 
-    balance = quote_token.fetch_balance_of(vault.vault_address)
-    assert balance > quote_token_buy_amount, f"Vault {vault.vault_address} does not have enough {quote_token.symbol} balance to buy {quote_token_buy_amount} {quote_token.symbol}, has: {balance} {quote_token.symbol}, needs: {quote_token_buy_amount} {quote_token.symbol}"
+    balance = quote_token.fetch_balance_of(safe_address)
+    assert balance > quote_token_buy_amount, f"Vault {vault.vault_address} (Safe {safe_address}) does not have enough {quote_token.symbol} balance to buy {quote_token_buy_amount} {quote_token.symbol}, has: {balance} {quote_token.symbol}, needs: {quote_token_buy_amount} {quote_token.symbol}"
 
-    buy_price = None
-    sell_price = None
+    estimate_buy_received = None
+    estimate_sell_received = None
     buy_result = None
     sell_result = None
+
+    #
+    # Start buy preparation
+    #
+
     buy_block_number = web3.eth.block_number
 
     func = quote_token.approve(
@@ -170,20 +203,20 @@ def check_compatibility(
     # Attempt to buy
     if not revert_reason:
 
-        buy_price = estimate_buy_price(
+        estimate_buy_received = estimate_buy_received_amount_raw(
             uniswap_v2,
-            base_token.contract,
-            quote_token.contract,
-            intermediate_token= intermediate_token.contract if intermediate_token else None,
-            quantity= quote_token_buy_raw_amount,
+            base_token_address=base_token.contract.address,
+            quote_token_address=quote_token.contract.address,
+            intermediate_token_address=intermediate_token.contract.address if intermediate_token else None,
+            quantity_raw=quote_token_buy_raw_amount,
         )
 
         contract_func = swap_with_slippage_protection(
             uniswap_v2,
-            quote_token.contract,
-            base_token.contract,
-            quote_token_buy_raw_amount,
-            recipient_address=vault.address,
+            base_token=base_token.contract,
+            quote_token=quote_token.contract,
+            amount_in=quote_token_buy_raw_amount,
+            recipient_address=safe_address,
             intermediate_token=intermediate_token.contract if intermediate_token else None,
             max_slippage=0.99,
         )
@@ -200,25 +233,31 @@ def check_compatibility(
         buy_result = analyse_trade_by_receipt(
             web3,
             uniswap_v2,
+            tx=None,
             tx_hash=tx_hash,
+            tx_receipt=None,
         )
 
     # All good with buy, proceed to sell
 
     mine(
         web3,
-        increase_timestamp=sell_delay,
+        increase_timestamp=sell_delay.total_seconds(),
     )
 
     sell_block_number = web3.eth.block_number
 
     if not revert_reason:
-        sell_amount = base_token.fetch_balance_of(vault.address)
+        sell_amount = base_token.fetch_balance_of(safe_address)
         sell_amount_raw = base_token.convert_to_raw(sell_amount)
+
+        buy_real_received = sell_amount_raw
+
+        assert sell_amount > 0
 
         func = base_token.approve(
             uniswap_v2.router.address,
-            sell_amount_raw,
+            sell_amount,
         )
         tx_hash, revert_reason = _perform_tx(
             web3,
@@ -228,20 +267,22 @@ def check_compatibility(
         )
 
     if not revert_reason:
-        sell_price = estimate_sell_price(
+        # Flip base/quote
+        estimate_sell_received = estimate_sell_received_amount_raw(
             uniswap_v2,
-            quote_token.contract,
-            base_token.contract,
-            intermediate_token=intermediate_token.contract if intermediate_token else None,
-            quantity=sell_amount_raw,
+            base_token_address=quote_token.address,
+            quote_token_address=base_token.address,
+            intermediate_token_address=intermediate_token.contract.address if intermediate_token else None,
+            quantity_raw=sell_amount_raw,
         )
 
+        # Flip base/quote
         contract_func = swap_with_slippage_protection(
             uniswap_v2,
-            base_token.contract,
-            quote_token.contract,
-            sell_amount_raw,
-            recipient_address=vault.address,
+            base_token=quote_token.contract,
+            quote_token=base_token.contract,
+            amount_in=sell_amount_raw,
+            recipient_address=safe_address,
             intermediate_token=intermediate_token.contract if intermediate_token else None,
             max_slippage=0.99,
         )
@@ -257,33 +298,31 @@ def check_compatibility(
         sell_result = analyse_trade_by_receipt(
             web3,
             uniswap_v2,
+            tx=None,
             tx_hash=tx_hash,
+            tx_receipt=None,
         )
 
-    return LagoonTokenCompatibilityResponse(
+    return LagoonTokenCompatibilityData(
+        created_at=datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None),
         token_address=base_token.address,
         path=path,
+        tokens=tokens,
         buy_block_number=buy_block_number,
-        buy_estimated_price=buy_price,
+        estimate_buy_received=estimate_buy_received,
         buy_result=buy_result,
+        buy_real_received=buy_real_received,
         sell_block_number=sell_block_number,
-        sell_estimated_price=sell_price,
+        estimate_sell_received=estimate_sell_received,
         sell_result=sell_result,
-        error=revert_reason,
+        revert_reason=revert_reason,
+        cached=False,
     )
-
-
-@dataclass
-class LagoonTokenCheckDatabase:
-    """Database for storing Lagoon token compatibility checks."""
-
-    #: Base token address -> LagoonTokenCompatibilityResponse
-    report_by_token: dict[HexAddress, LagoonTokenCompatibilityResponse] = field(default=dict)
 
 
 def check_lagoon_compatibility_with_database(
     web3: Web3,
-    paths: list[list[str]],
+    paths: list[list[HexAddress]],
     vault_address: HexAddress,
     trading_strategy_module_address: HexAddress,
     asset_manager_address: HexAddress,
@@ -307,16 +346,20 @@ def check_lagoon_compatibility_with_database(
     if database_file.exists():
         # Load cached data
         database: LagoonTokenCheckDatabase = pickle.load(database_file.open("rb"))
+        for entry in database.report_by_token.values():
+            entry.cached = True
     else:
         database = LagoonTokenCheckDatabase()
         database_file.parent.mkdir(parents=True, exist_ok=True)
         assert database_file.parent.exists(), f"Database directory {database_file.parent} does not exist"
 
     unchecked_paths = []
+
+    existing = set(key.lower() for key in database.report_by_token.keys())
     for path in paths:
         base_token_address = path[-1]
         base_token_address = base_token_address.lower()
-        if base_token_address not in database.tokens:
+        if base_token_address not in existing:
             unchecked_paths.append(path)
 
     logger.info("Total %d unchecked paths", len(unchecked_paths))
@@ -331,9 +374,10 @@ def check_lagoon_compatibility_with_database(
         trading_strategy_module_address=trading_strategy_module_address,
     )
 
-    chain_name = get_chain_name(anvil_web3.eth.chain_id).lower90
+    chain_name = get_chain_name(anvil_web3.eth.chain_id).lower()
 
     uniswap_v2 = fetch_deployment(
+        anvil_web3,
         factory_address=UNISWAP_V2_DEPLOYMENTS[chain_name]["factory"],
         router_address=UNISWAP_V2_DEPLOYMENTS[chain_name]["router"],
         init_code_hash=UNISWAP_V2_DEPLOYMENTS[chain_name]["init_code_hash"],
@@ -351,7 +395,7 @@ def check_lagoon_compatibility_with_database(
             path=path,
         )
 
-        database.report_by_token[base_token_address] = report
+        database.report_by_token[base_token_address.lower()] = report
 
     pickle.dump(database, database_file.open("wb"))
     return database
