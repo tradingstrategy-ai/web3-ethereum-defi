@@ -577,6 +577,18 @@ def load_state(web3: Web3, state: str) -> int:
     return make_anvil_custom_rpc_request(web3, "anvil_loadState", [state])
 
 
+def set_balance(web3: Web3, address: str, raw_amount: int) -> int:
+    """Call anvil_setBalance on Anvil"""
+
+    assert type(raw_amount) == int
+
+    # Call Anvil's custom RPC to set the balance
+    web3.provider.make_request(
+        "anvil_setBalance",
+        [address, hex(raw_amount)],
+    )
+
+
 def is_anvil(web3: Web3) -> bool:
     """Are we connected to Anvil node.
 

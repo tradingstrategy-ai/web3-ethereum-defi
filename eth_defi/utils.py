@@ -182,7 +182,7 @@ def get_url_domain(url: str) -> str:
 def setup_console_logging(
     default_log_level="warning",
     simplified_logging=False,
-    log_file: str | Path=None,
+    log_file: str | Path = None,
 ):
     """Set up coloured log output.
 
@@ -215,12 +215,7 @@ def setup_console_logging(
 
         log_file.parent.mkdir(parents=True, exist_ok=True)
 
-        logging.basicConfig(
-            level=level,
-            handlers=[
-                logging.StreamHandler(),
-                logging.FileHandler(log_file, mode='a', encoding='utf-8')
-            ])
+        logging.basicConfig(level=level, handlers=[logging.StreamHandler(), logging.FileHandler(log_file, mode="a", encoding="utf-8")])
     else:
         logging.basicConfig(level=level, handlers=[logging.StreamHandler()])
 

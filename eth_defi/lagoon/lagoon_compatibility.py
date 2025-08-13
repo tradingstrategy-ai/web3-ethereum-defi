@@ -1,4 +1,5 @@
 """Lagoon token compatibility checks."""
+
 import datetime
 import logging
 import pickle
@@ -15,15 +16,16 @@ from tqdm_loggable.auto import tqdm
 
 from eth_defi.chain import get_chain_name
 from eth_defi.lagoon.vault import LagoonVault
-from eth_defi.provider.anvil import mine, launch_anvil
+from eth_defi.provider.anvil import mine, launch_anvil, set_balance
 from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.token import fetch_erc20_details, TokenDetails
+from eth_defi.token import fetch_erc20_details, TokenDetails, is_stablecoin_like
 from eth_defi.trace import assert_transaction_success_with_explanation, TransactionAssertionError
 from eth_defi.trade import TradeSuccess
 from eth_defi.uniswap_v2.analysis import analyse_trade_by_receipt
 from eth_defi.uniswap_v2.constants import UNISWAP_V2_DEPLOYMENTS
 from eth_defi.uniswap_v2.deployment import UniswapV2Deployment, fetch_deployment
 from eth_defi.uniswap_v2.fees import estimate_buy_price, estimate_sell_price, estimate_buy_received_amount_raw, estimate_sell_received_amount_raw
+from eth_defi.uniswap_v2.liquidity import get_liquidity, LiquidityResult
 from eth_defi.uniswap_v2.swap import swap_with_slippage_protection
 from web3.contract.contract import ContractFunction
 from eth_defi.vault.base import VaultSpec
@@ -44,10 +46,14 @@ class LagoonTokenCompatibilityData:
     #: What was the base address of the token
     token_address: str
 
+    pair_address: str
+
     #: Used routing path
     path: list[str]
 
     tokens: list[str]
+
+    available_liquidity: Decimal
 
     buy_block_number: int
 
@@ -97,9 +103,6 @@ class LagoonTokenCompatibilityData:
         return abs(self.sell_result.amount_out - self.buy_amount_raw) / self.buy_amount_raw
 
 
-
-
-
 @dataclass
 class LagoonTokenCheckDatabase:
     """Database for storing Lagoon token compatibility checks."""
@@ -137,14 +140,14 @@ def _perform_tx(
 ) -> tuple[str, str | None]:
     """Perform a transaction and return the revert reason."""
 
-    vault_call = vault.transact_via_trading_strategy_module(
-        func
-    )
+    vault_call = vault.transact_via_trading_strategy_module(func)
 
     # Use unlocked Anvil account for the spoof
-    tx_hash = vault_call.transact({
-        "from": asset_manager,
-    })
+    tx_hash = vault_call.transact(
+        {
+            "from": asset_manager,
+        }
+    )
 
     return tx_hash, _get_revert_reason(web3, tx_hash)
 
@@ -172,21 +175,21 @@ def check_compatibility(
 
     match len(path):
         case 2:
-            # Uniswap V2
+            # quote, base
             quote_token = fetch_erc20_details(web3, path[0])
             base_token = fetch_erc20_details(web3, path[1])
             intermediate_token = None
             tokens = [quote_token.symbol, base_token.symbol]
+            pair_address = uniswap_v2.pair_for(quote_token.address, base_token.address)[0]
         case 3:
-            # Uniswap V3
+            # quote, interm, base
             quote_token = fetch_erc20_details(web3, path[0])
             base_token = fetch_erc20_details(web3, path[-1])
             intermediate_token = fetch_erc20_details(web3, path[1])
             tokens = [quote_token.symbol, intermediate_token.symbol, base_token.symbol]
+            pair_address = uniswap_v2.pair_for(intermediate_token.address, base_token.address)[0]
         case _:
-            raise NotImplementedError(
-                f"Unsupported path length: {len(path)}. Expected 2 or 3 tokens."
-            )
+            raise NotImplementedError(f"Unsupported path length: {len(path)}. Expected 2 or 3 tokens.")
 
     logger.info(f"Check Lagoon swap compatibility for {quote_token.symbol} -> {base_token.symbol} path: {path}")
 
@@ -202,28 +205,55 @@ def check_compatibility(
     estimate_sell_received = None
     buy_result = None
     sell_result = None
+    buy_real_received = None
 
     #
-    # Start buy preparation
+    # Check liquidity
     #
 
-    buy_block_number = web3.eth.block_number
-
-    func = quote_token.approve(
-        uniswap_v2.router.address,
-        quote_token_buy_amount,
-    )
-
-    tx_hash, revert_reason = _perform_tx(
+    liquidity_result = get_liquidity(
         web3,
-        vault,
-        func,
-        asset_manager,
+        pair_address,
     )
+
+    if intermediate_token:
+        liquidity_token = intermediate_token
+    else:
+        liquidity_token = quote_token
+
+    if is_stablecoin_like(liquidity_token.symbol):
+        min_liquidity = 10_000
+    else:
+        min_liquidity = 100
+
+    raw_available_liquidity = liquidity_result.get_liquidity_for_token(liquidity_token.address)
+    available_liquidity = liquidity_token.convert_to_decimals(raw_available_liquidity)
+
+    revert_reason = None
+    if available_liquidity < min_liquidity:
+        revert_reason = f"Not enough liquidity for {quote_token.symbol} in the pool, has: {avail_liquidity}, needs: {avail_liquidity}"
+
+    if not revert_reason:
+        #
+        # Start buy preparation
+        #
+
+        buy_block_number = web3.eth.block_number
+
+        func = quote_token.approve(
+            uniswap_v2.router.address,
+            quote_token_buy_amount,
+        )
+
+        tx_hash, revert_reason = _perform_tx(
+            web3,
+            vault,
+            func,
+            asset_manager,
+        )
 
     # Attempt to buy
     if not revert_reason:
-
         estimate_buy_received = estimate_buy_received_amount_raw(
             uniswap_v2,
             base_token_address=base_token.contract.address,
@@ -327,6 +357,8 @@ def check_compatibility(
     return LagoonTokenCompatibilityData(
         created_at=datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None),
         token_address=base_token.address,
+        pair_address=pair_address,
+        available_liquidity=available_liquidity,
         path=path,
         tokens=tokens,
         buy_amount_raw=quote_token_buy_raw_amount,
@@ -365,12 +397,17 @@ def check_lagoon_compatibility_with_database(
         fork_block_number=fork_block_number,
     )
 
+    database = None
     if database_file.exists():
         # Load cached data
-        database: LagoonTokenCheckDatabase = pickle.load(database_file.open("rb"))
-        for entry in database.report_by_token.values():
-            entry.cached = True
-    else:
+        try:
+            database: LagoonTokenCheckDatabase = pickle.load(database_file.open("rb"))
+            for entry in database.report_by_token.values():
+                entry.cached = True
+        except EOFError:
+            pass
+
+    if not database:
         database = LagoonTokenCheckDatabase()
         database_file.parent.mkdir(parents=True, exist_ok=True)
         assert database_file.parent.exists(), f"Database directory {database_file.parent} does not exist"
@@ -386,7 +423,13 @@ def check_lagoon_compatibility_with_database(
 
     logger.info("Total %d unchecked paths", len(unchecked_paths))
 
-    anvil_web3 = create_multi_provider_web3(anvil.json_rpc_url)
+    anvil_web3 = create_multi_provider_web3(anvil.json_rpc_url, retries=0)
+
+    set_balance(
+        anvil_web3,
+        asset_manager_address,
+        99 * 10**18,
+    )
 
     spec = VaultSpec(web3.eth.chain_id, vault_address)
 
@@ -418,6 +461,9 @@ def check_lagoon_compatibility_with_database(
         )
 
         database.report_by_token[base_token_address.lower()] = report
+
+        # Because the operation is so slow, we want to resave after each iteration
+        pickle.dump(database, database_file.open("wb"))
 
     pickle.dump(database, database_file.open("wb"))
     return database
