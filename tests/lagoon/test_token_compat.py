@@ -4,7 +4,9 @@ import os
 from decimal import Decimal
 from pprint import pprint
 
+import pandas as pd
 import pytest
+import tabulate
 
 from eth_typing import HexAddress
 
@@ -69,6 +71,9 @@ def test_token_compat_single(token_list, tmp_path):
     report = next(iter(compat_db.report_by_token.values()))
     assert report.cached
 
+    table = compat_db.get_diagnostics()
+    assert isinstance(table, list)
+
 
 @pytest.mark.skipif(os.environ.get("LONG_MANUAL_TEST") is None, reason="Long test designed for manual running")
 def test_token_compat_full(token_list, tmp_path):
@@ -81,6 +86,11 @@ def test_token_compat_full(token_list, tmp_path):
     .. code-block:: shell
 
         LONG_MANUAL_TEST=true pytest --log-cli-level=info -k test_token_compat_full
+
+    Database is stored at::
+
+         rm ~/.tradingstrategy/token-checks/lagoon_token_check.pickle
+
 
     """
     web3 = create_multi_provider_web3(JSON_RPC_BINANCE)
@@ -96,6 +106,15 @@ def test_token_compat_full(token_list, tmp_path):
     )
     stats = compat_db.calculate_stats()
     pprint(stats)
+
+    diagnostics = compat_db.get_diagnostics()
+    df = pd.DataFrame(diagnostics)
+    df = df.sort_values(by=["compatible", "base"])
+
+    df = df.round(4)
+    output = tabulate.tabulate(df, headers="keys", tablefmt="fancy_grid")
+    print(output)
+
 
 
 # Grabbed from the BNB backtest notebook
