@@ -14,7 +14,7 @@ from web3.exceptions import BadFunctionCallOutput, BlockNumberOutofRange
 from web3.types import BlockIdentifier
 
 from eth_defi.abi import ZERO_ADDRESS_STR
-from eth_defi.balances import fetch_erc20_balances_fallback
+from eth_defi.balances import fetch_erc20_balances_fallback, fetch_erc20_balances_multicall
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract, ERC4626Feature
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int, convert_uint256_bytes_to_address
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, BatchCallState
@@ -763,14 +763,26 @@ class ERC4626Vault(VaultBase):
         self,
         universe: TradingUniverse,
         block_identifier: BlockIdentifier | None = None,
+        allow_fallback: bool = True,
     ) -> VaultPortfolio:
-        erc20_balances = fetch_erc20_balances_fallback(
-            self.web3,
-            self.safe_address,
-            universe.spot_token_addresses,
-            block_identifier=block_identifier,
-            decimalise=True,
-        )
+
+        if allow_fallback:
+            erc20_balances = fetch_erc20_balances_fallback(
+                self.web3,
+                self.safe_address,
+                universe.spot_token_addresses,
+                block_identifier=block_identifier,
+                decimalise=True,
+            )
+        else:
+            # Test path - f@#$@#$ Anvil issues
+            erc20_balances = fetch_erc20_balances_multicall(
+                self.web3,
+                self.safe_address,
+                universe.spot_token_addresses,
+                block_identifier=block_identifier,
+                decimalise=True,
+            )
         return VaultPortfolio(
             spot_erc20=erc20_balances,
         )

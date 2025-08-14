@@ -132,7 +132,7 @@ class VaultPortfolio:
     dex_hints: dict[HexAddress, list[str]] = field(default_factory=dict)
 
     def __post_init__(self):
-        assert isinstance(self.spot_erc20, LowercaseDict)
+        assert isinstance(self.spot_erc20, LowercaseDict), f"Got: {type(self.spot_erc20)}"
 
         for token, value in self.spot_erc20.items():
             assert type(token) == str

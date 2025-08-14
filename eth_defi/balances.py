@@ -175,7 +175,7 @@ def fetch_erc20_balances_by_token_list(
 
     logger.info(f"Reading the latest token balances for {len(tokens)} tokens at block identifier {block_identifier}, last block is {last_block}, address is {owner}")
 
-    balances = {}
+    balances = LowercaseDict()
     for address in tokens:
         # Uses cached token ABI
         token = fetch_erc20_details(web3, address, chain_id=chain_id)

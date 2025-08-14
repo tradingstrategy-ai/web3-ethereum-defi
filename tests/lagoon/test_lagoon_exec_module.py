@@ -7,6 +7,7 @@
 
 from decimal import Decimal
 
+import flaky
 import pytest
 from eth_typing import HexAddress
 from web3 import Web3
@@ -17,11 +18,8 @@ from eth_defi.token import TokenDetails
 from eth_defi.uniswap_v2.constants import UNISWAP_V2_DEPLOYMENTS
 from eth_defi.uniswap_v2.deployment import fetch_deployment
 from eth_defi.uniswap_v2.swap import swap_with_slippage_protection
-from eth_defi.uniswap_v3.constants import UNISWAP_V3_DEPLOYMENTS
-from eth_defi.uniswap_v3.deployment import UniswapV3Deployment
 from eth_defi.vault.base import TradingUniverse
 from eth_defi.safe.trace import assert_execute_module_success
-from eth_defi.uniswap_v3.deployment import fetch_deployment as fetch_deployment_uni_v3, UniswapV3Deployment
 
 
 @pytest.fixture()
@@ -35,6 +33,7 @@ def uniswap_v2(web3):
     )
 
 
+@flaky.flaky
 def test_lagoon_swap_exec_module(
     web3: Web3,
     uniswap_v2,

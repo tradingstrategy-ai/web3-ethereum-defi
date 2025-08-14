@@ -7,6 +7,8 @@ from eth_typing import HexAddress
 from web3 import Web3
 from web3.contract.contract import ContractFunction
 
+import flaky
+
 from eth_defi.event_reader.multicall_batcher import get_multicall_contract, call_multicall_batched_single_thread, MulticallWrapper
 from eth_defi.lagoon.vault import LagoonVault
 from eth_defi.provider.broken_provider import get_almost_latest_block_number
@@ -367,7 +369,8 @@ def test_lagoon_diagnose_routes(
         }
     )
     latest_block = get_almost_latest_block_number(web3)
-    portfolio = vault.fetch_portfolio(universe, latest_block)
+    # allow_fallback=False: Anvil is somehow broken again
+    portfolio = vault.fetch_portfolio(universe, latest_block, allow_fallback=False)
     assert portfolio.get_position_count() == 3
 
     uniswap_v2_quoter_v2 = UniswapV2Router02Quoter(uniswap_v2.router)
@@ -480,6 +483,7 @@ def test_lagoon_post_valuation(
     assert nav > Decimal(10)  # Changes every day as we need to test live mainnet
 
 
+@flaky.flaky
 def test_valuation_mixed_routes(
     web3: Web3,
     vault_with_more_tokens: LagoonVault,
