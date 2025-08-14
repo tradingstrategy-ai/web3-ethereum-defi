@@ -1364,6 +1364,8 @@ def read_multicall_chunked(
 
             # Generated packed multicall for each token contract we want to query
             balance_of_signature = Web3.keccak(text="balanceOf(address)")[0:4]
+
+
             def _gen_calls(addresses: Iterable[str]) -> Iterable[EncodedCall]:
                 for _token_address in addresses:
                     yield EncodedCall.from_keccak_signature(
@@ -1374,6 +1376,7 @@ def read_multicall_chunked(
                         ignore_errors=True,
                         function="balanceOf",
                     )
+
 
             web3factory = MultiProviderWeb3Factory(web3.provider.endpoint_uri, hint="fetch_erc20_balances_multicall")
 
