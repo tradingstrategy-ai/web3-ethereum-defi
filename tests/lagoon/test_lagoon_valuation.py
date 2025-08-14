@@ -1,4 +1,5 @@
 """NAV calcualtion and valuation commitee tests."""
+
 import os
 from decimal import Decimal
 
