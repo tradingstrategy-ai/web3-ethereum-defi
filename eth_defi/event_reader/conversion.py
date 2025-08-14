@@ -129,4 +129,4 @@ def convert_address_to_bytes32(address: str | HexAddress) -> bytes:
     """
     assert address.startswith("0x")
     raw_20bytes = bytes.fromhex(address[2:])
-    return raw_20bytes.rjust(32, b'\x00')
+    return raw_20bytes.rjust(32, b"\x00")

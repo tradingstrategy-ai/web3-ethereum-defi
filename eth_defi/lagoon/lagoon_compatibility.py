@@ -149,18 +149,20 @@ class LagoonTokenCheckDatabase:
         """Prepare table output for manual output."""
         data = []
         for entry in self.report_by_token.values():
-            data.append({
-                "base": entry.get_base_token_symbol(),
-                "quote": entry.get_quote_token_symbol(),
-                "address": entry.get_base_token_address(),
-                "compatible": "yes" if entry.is_compatible() else "no",
-                "liquidity": "yes" if entry.has_liquidity() else "no",
-                "buy": "yes" if entry.is_buy_success() else "no",
-                "sell": "yes" if entry.is_sell_success() else "no",
-                "reason": entry.revert_reason[0:40] if entry.revert_reason else "-",
-                "cost": entry.get_round_trip_cost(),
-                "stablecoin_quoted": "yes" if entry.is_stablecoin_quoted() else "no",
-            })
+            data.append(
+                {
+                    "base": entry.get_base_token_symbol(),
+                    "quote": entry.get_quote_token_symbol(),
+                    "address": entry.get_base_token_address(),
+                    "compatible": "yes" if entry.is_compatible() else "no",
+                    "liquidity": "yes" if entry.has_liquidity() else "no",
+                    "buy": "yes" if entry.is_buy_success() else "no",
+                    "sell": "yes" if entry.is_sell_success() else "no",
+                    "reason": entry.revert_reason[0:40] if entry.revert_reason else "-",
+                    "cost": entry.get_round_trip_cost(),
+                    "stablecoin_quoted": "yes" if entry.is_stablecoin_quoted() else "no",
+                }
+            )
 
         return data
 

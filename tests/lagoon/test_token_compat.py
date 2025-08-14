@@ -116,7 +116,6 @@ def test_token_compat_full(token_list, tmp_path):
     print(output)
 
 
-
 # Grabbed from the BNB backtest notebook
 TEST_ROUTES_DATA = {
     "0xc9882def23bc42d53895b8361d0b1edc7570bc6a": ["0x55d398326f99059ff775485246999027b3197955", "0xc9882def23bc42d53895b8361d0b1edc7570bc6a"],
