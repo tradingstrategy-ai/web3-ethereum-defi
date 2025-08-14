@@ -32,7 +32,6 @@ from web3.contract.contract import ContractFunction
 from eth_defi.vault.base import VaultSpec
 
 from eth_defi.velvet.analysis import analyse_trade_by_receipt_generic
-from tests.manual_uniswapv3_data import json_rpc_url
 
 logger = logging.getLogger(__name__)
 
