@@ -765,7 +765,6 @@ class ERC4626Vault(VaultBase):
         block_identifier: BlockIdentifier | None = None,
         allow_fallback: bool = True,
     ) -> VaultPortfolio:
-
         if allow_fallback:
             erc20_balances = fetch_erc20_balances_fallback(
                 self.web3,

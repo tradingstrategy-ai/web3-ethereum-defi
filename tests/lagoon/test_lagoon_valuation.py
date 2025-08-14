@@ -483,6 +483,7 @@ def test_lagoon_post_valuation(
     assert nav > Decimal(10)  # Changes every day as we need to test live mainnet
 
 
+# FAILED tests/lagoon/test_lagoon_valuation.py::test_valuation_mixed_routes - eth_defi.vault.valuation.NoRouteFound: No single successful route for token <Simmi Token (SIMMI) at 0x161e113B8E9BBAEfb846F73F31624F6f9607bd44, 18 decimals, on chain 8453>
 @flaky.flaky
 def test_valuation_mixed_routes(
     web3: Web3,
@@ -529,7 +530,7 @@ def test_valuation_mixed_routes(
         spot_token_addresses=all_tokens,
     )
     latest_block = get_almost_latest_block_number(web3)
-    portfolio = vault.fetch_portfolio(universe, latest_block)
+    portfolio = vault.fetch_portfolio(universe, latest_block, allow_fallback=False)
     assert portfolio.get_position_count() == 7
 
     uniswap_v2_quoter = UniswapV2Router02Quoter(uniswap_v2.router)
