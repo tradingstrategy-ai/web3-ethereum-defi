@@ -1358,6 +1358,59 @@ def read_multicall_chunked(
     - All calls hit the same block number
     - Show a progress bar using :py:mod:`tqdm`
 
+    Example:
+
+    .. code-block:: python
+
+            # Generated packed multicall for each token contract we want to query
+            balance_of_signature = Web3.keccak(text="balanceOf(address)")[0:4]
+            def _gen_calls(addresses: Iterable[str]) -> Iterable[EncodedCall]:
+                for _token_address in addresses:
+                    yield EncodedCall.from_keccak_signature(
+                        address=_token_address.lower(),
+                        signature=balance_of_signature,
+                        data=convert_address_to_bytes32(out_address),
+                        extra_data={},
+                        ignore_errors=True,
+                        function="balanceOf",
+                    )
+
+            web3factory = MultiProviderWeb3Factory(web3.provider.endpoint_uri, hint="fetch_erc20_balances_multicall")
+
+            # Execute calls for all token balance reads at a specific block.
+            # read_multicall_chunked() will automatically split calls to multiple chunks
+            # if we are querying too many.
+            results = read_multicall_chunked(
+                chain_id=chain_id,
+                web3factory=web3factory,
+                calls=list(_gen_calls(tokens)),
+                block_identifier=block_identifier,
+                max_workers=max_workers,
+                timestamped_results=False,
+            )
+
+            results = list(results)
+
+            addr_to_balance = LowercaseDict()
+
+            for result in results:
+                token_address = result.call.address
+
+                if not result.result:
+                    if raise_on_error:
+                        raise BalanceFetchFailed(f"Could not read token balance for ERC-20: {token_address} for address {out_address}")
+                    value = None
+                else:
+                    raw_value = convert_int256_bytes_to_int(result.result)
+                    if decimalise:
+                        token = fetch_erc20_details(web3, token_address, cache=token_cache, chain_id=chain_id)
+                        value = token.convert_to_decimals(raw_value)
+                    else:
+                        value = raw_value
+
+                addr_to_balance[token_address] = value
+
+
     :param chain_id:
         Which EVM chain we are targeting with calls.
 
@@ -1388,6 +1441,13 @@ def read_multicall_chunked(
         Need timestamp of the block number in each result.
 
         Causes very slow eth_getBlock call, use only if needed.
+
+    :return:
+        Iterable of results.
+
+        One entry per each call.
+
+        Calls may be different order than originally given.
     """
 
     assert type(chain_id) == int, f"Got: {chain_id}"
@@ -1418,6 +1478,7 @@ def read_multicall_chunked(
             # Need timestamp of block number
             ts = None
         else:
+            # Prefill our current time, do not care about the real timestamp
             ts = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
         for i in range(0, len(calls), chunk_size):
             chunk = calls[i : i + chunk_size]
