@@ -12,7 +12,7 @@ from eth_typing import BlockNumber, HexAddress
 from multicall import Multicall, Call
 from web3 import Web3
 from web3.contract import Contract
-from web3.exceptions import BadFunctionCallOutput
+from web3.exceptions import BadFunctionCallOutput, InvalidAddress
 from web3.types import BlockIdentifier
 
 from eth_defi.abi import get_contract
@@ -225,7 +225,11 @@ def convert_balances_to_decimal(
     res = {}
 
     for address, raw_balance in raw_balances.items():
-        contract = ERC20(address)
+        address = web3.to_checksum_address(address)
+        try:
+            contract = ERC20(address)
+        except InvalidAddress as e:
+            raise RuntimeError(f"Could not handle address: {address}") from e
         decimals = contract.functions.decimals().call()
 
         if require_decimals:
