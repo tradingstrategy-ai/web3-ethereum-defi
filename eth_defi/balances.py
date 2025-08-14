@@ -374,6 +374,7 @@ def fetch_erc20_balances_multicall(
         calls=list(_gen_calls(tokens)),
         block_identifier=block_identifier,
         max_workers=max_workers,
+        timestamped_results=False,
     )
 
     results = list(results)

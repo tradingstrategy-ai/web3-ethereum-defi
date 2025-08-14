@@ -1351,6 +1351,7 @@ def read_multicall_chunked(
     timeout=1800,
     chunk_size: int = 40,
     progress_bar_desc: str | None = None,
+    timestamped_results=True,
 ) -> Iterable[EncodedCallResult]:
     """Read current data using multiple processes in parallel for speedup.
 
@@ -1382,6 +1383,11 @@ def read_multicall_chunked(
 
     :param progress_bar_desc:
         If set, display a TQDM progress bar for the process.
+
+    :param timestamped_results:
+        Need timestamp of the block number in each result.
+
+        Causes very slow eth_getBlock call, use only if needed.
     """
 
     assert type(chain_id) == int, f"Got: {chain_id}"
@@ -1408,9 +1414,14 @@ def read_multicall_chunked(
         progress_bar = None
 
     def _task_gen() -> Iterable[MulticallHistoricalTask]:
+        if timestamped_results:
+            # Need timestamp of block number
+            ts = None
+        else:
+            ts = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
         for i in range(0, len(calls), chunk_size):
             chunk = calls[i : i + chunk_size]
-            yield MulticallHistoricalTask(chain_id, web3factory, block_identifier, chunk)
+            yield MulticallHistoricalTask(chain_id, web3factory, block_identifier, chunk, timestamp=ts)
 
     performed_calls = success_calls = failed_calls = 0
     for completed_task in worker_processor(delayed(_execute_multicall_subprocess)(task) for task in _task_gen()):
