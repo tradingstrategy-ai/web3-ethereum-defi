@@ -56,6 +56,8 @@ class LagoonTokenCompatibilityData:
 
     available_liquidity: Decimal
 
+    minimum_liquidity_threshold: Decimal
+
     buy_block_number: int
 
     estimate_buy_received: int
@@ -78,9 +80,21 @@ class LagoonTokenCompatibilityData:
     #: Did we res
     cached: bool = False
 
+    def get_base_token_symbol(self) -> str:
+        return self.tokens[-1]
+
+    def get_quote_token_symbol(self) -> str:
+        return self.tokens[1] if len(self.tokens) >= 3 else self.tokens[0]
+
+    def get_base_token_address(self) -> HexAddress:
+        return self.path[-1]
+
     def is_compatible(self) -> bool:
         """Is the token compatible with Lagoon Vault?"""
-        return self.is_buy_success() and self.is_sell_success()
+        return self.has_liquidity() and self.is_buy_success() and self.is_sell_success()
+
+    def has_liquidity(self) -> bool:
+        return self.available_liquidity >= self.minimum_liquidity_threshold
 
     def is_buy_success(self) -> bool:
         """Was the buy operation successful?"""
@@ -103,6 +117,9 @@ class LagoonTokenCompatibilityData:
 
         return abs(self.sell_result.amount_out - self.buy_amount_raw) / self.buy_amount_raw
 
+    def is_stablecoin_quoted(self) -> bool:
+        return is_stablecoin_like(self.get_quote_token_symbol())
+
 
 @dataclass
 class LagoonTokenCheckDatabase:
@@ -119,6 +136,7 @@ class LagoonTokenCheckDatabase:
             "count": self.get_count(),
             "compatible": sum(r.is_compatible() for r in self.report_by_token.values()),
             "not_compatible": sum(not r.is_compatible() for r in self.report_by_token.values()),
+            "liquidity_success": sum(r.has_liquidity() for r in self.report_by_token.values()),
             "buy_success": sum(r.is_buy_success() for r in self.report_by_token.values()),
             "sell_success": sum(r.is_sell_success() for r in self.report_by_token.values()),
             "min_cost": min(r.get_round_trip_cost() for r in self.report_by_token.values() if r.get_round_trip_cost() is not None),
@@ -126,6 +144,27 @@ class LagoonTokenCheckDatabase:
             "mean_cost": mean(r.get_round_trip_cost() for r in self.report_by_token.values() if r.get_round_trip_cost() is not None),
         }
         return stats
+
+    def get_diagnostics(self) -> list[dict]:
+        """Prepare table output for manual output."""
+        data = []
+        for entry in self.report_by_token.values():
+            data.append(
+                {
+                    "base": entry.get_base_token_symbol(),
+                    "quote": entry.get_quote_token_symbol(),
+                    "address": entry.get_base_token_address(),
+                    "compatible": "yes" if entry.is_compatible() else "no",
+                    "liquidity": "yes" if entry.has_liquidity() else "no",
+                    "buy": "yes" if entry.is_buy_success() else "no",
+                    "sell": "yes" if entry.is_sell_success() else "no",
+                    "reason": entry.revert_reason[0:40] if entry.revert_reason else "-",
+                    "cost": entry.get_round_trip_cost(),
+                    "stablecoin_quoted": "yes" if entry.is_stablecoin_quoted() else "no",
+                }
+            )
+
+        return data
 
 
 def _get_revert_reason(web3, tx_hash: str) -> str | None:
@@ -228,16 +267,16 @@ def check_compatibility(
         liquidity_token = quote_token
 
     if is_stablecoin_like(liquidity_token.symbol):
-        min_liquidity = 10_000
+        minimum_liquidity_threshold = 10_000
     else:
-        min_liquidity = 100
+        minimum_liquidity_threshold = 100
 
     raw_available_liquidity = liquidity_result.get_liquidity_for_token(liquidity_token.address)
     available_liquidity = liquidity_token.convert_to_decimals(raw_available_liquidity)
 
     revert_reason = None
-    if available_liquidity < min_liquidity:
-        revert_reason = f"Not enough liquidity for {quote_token.symbol} in the pool, has: {available_liquidity}, needs: {available_liquidity}"
+    if available_liquidity < minimum_liquidity_threshold:
+        revert_reason = f"Not enough liquidity for {quote_token.symbol} in the pool, has: {available_liquidity}, needs: {minimum_liquidity_threshold}"
 
     if not revert_reason:
         #
@@ -363,6 +402,7 @@ def check_compatibility(
         token_address=base_token.address,
         pair_address=pair_address,
         available_liquidity=available_liquidity,
+        minimum_liquidity_threshold=minimum_liquidity_threshold,
         path=path,
         tokens=tokens,
         buy_amount_raw=quote_token_buy_raw_amount,

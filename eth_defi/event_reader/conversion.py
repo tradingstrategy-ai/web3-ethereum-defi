@@ -6,6 +6,7 @@ from hexbytes import HexBytes
 from web3 import Web3
 
 from eth_defi.utils import sanitise_string
+from eth_typing import HexAddress
 
 
 def decode_data(data: str) -> list[bytes]:
@@ -118,3 +119,14 @@ def convert_solidity_bytes_to_string(byte_data: bytes, max_length: int, errors="
     string_data = decode(["string"], byte_data)[0]
     sanitised = sanitise_string(string_data, max_length=max_length)
     return sanitised
+
+
+def convert_address_to_bytes32(address: str | HexAddress) -> bytes:
+    """Convert address to bytes32 for passing raw ABI packed payload.
+
+    :return:
+        E.g. `0x00000000000000000000000006af07097c9eeb7fd685c692751d5c66db49c215`
+    """
+    assert address.startswith("0x")
+    raw_20bytes = bytes.fromhex(address[2:])
+    return raw_20bytes.rjust(32, b"\x00")

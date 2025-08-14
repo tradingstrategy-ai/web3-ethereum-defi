@@ -109,7 +109,8 @@ def test_generic_adapter_uniswap_v2(
     # Buy shares for 500 USDC, receive min share
     usdc.functions.transfer(user_2, 500 * 10**6).transact({"from": deployer})
     usdc.functions.approve(comptroller.address, 500 * 10**6).transact({"from": user_2})
-    comptroller.functions.buyShares(500 * 10**6, 1).transact({"from": user_2})
+    tx_hash = comptroller.functions.buyShares(500 * 10**6, 1).transact({"from": user_2})
+    assert_transaction_success_with_explanation(web3, tx_hash)
 
     # Check that the vault has balance
     balance = usdc.functions.balanceOf(vault.address).call()
