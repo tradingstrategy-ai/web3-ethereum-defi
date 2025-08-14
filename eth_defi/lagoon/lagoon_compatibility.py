@@ -17,6 +17,8 @@ from tqdm_loggable.auto import tqdm
 from eth_defi.chain import get_chain_name
 from eth_defi.lagoon.vault import LagoonVault
 from eth_defi.provider.anvil import mine, launch_anvil, set_balance
+from eth_defi.provider.fallback import FallbackProvider
+from eth_defi.provider.mev_blocker import MEVBlockerProvider
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import fetch_erc20_details, is_stablecoin_like
 from eth_defi.trace import assert_transaction_success_with_explanation, TransactionAssertionError
@@ -30,6 +32,7 @@ from web3.contract.contract import ContractFunction
 from eth_defi.vault.base import VaultSpec
 
 from eth_defi.velvet.analysis import analyse_trade_by_receipt_generic
+from tests.manual_uniswapv3_data import json_rpc_url
 
 logger = logging.getLogger(__name__)
 
@@ -436,7 +439,19 @@ def check_lagoon_compatibility_with_database(
     chain_name = get_chain_name(web3.eth.chain_id).lower()
     logger.info("Checking token compatibility with Lagoon Vault, %d paths, database file: %s", len(paths), database_file)
 
-    json_rpc_url = web3.provider.endpoint_uri
+    provider = web3.provider
+
+    if isinstance(provider, MEVBlockerProvider):
+        # Anvil cannot run against broadcast-only endpoints
+        json_rpc_url = provider.call_provider.endpoint_uri
+    elif isinstance(provider, FallbackProvider):
+        # Pick randomly the active of many
+        json_rpc_url = provider.endpoint_uri
+    else:
+        # Normal path
+        json_rpc_url = provider.endpoint_uri
+
+    assert " " not in json_rpc_url, f"JSON-RPC URL must not contain spaces: {json_rpc_url}, provider is {provider}"
 
     database = None
     if database_file.exists():
