@@ -23,6 +23,7 @@ from eth_defi.aave_v3.constants import MAX_AMOUNT, AaveV3InterestRateMode
 from eth_defi.aave_v3.deployment import AaveV3Deployment
 from eth_defi.aave_v3.deployment import fetch_deployment as fetch_aave_deployment
 from eth_defi.abi import get_contract, get_deployed_contract, get_function_selector
+from eth_defi.compat import encode_abi_compat
 from eth_defi.deploy import deploy_contract
 from eth_defi.hotwallet import HotWallet
 from eth_defi.one_delta.constants import Exchange, TradeOperation, TradeType
@@ -451,7 +452,8 @@ def test_guard_unallowed_tokens(
         interest_mode=AaveV3InterestRateMode.VARIABLE,
     )
 
-    call_swap = one_delta_deployment.flash_aggregator.encodeABI(
+    call_swap = encode_abi_compat(
+        contract=one_delta_deployment.flash_aggregator,
         fn_name="flashSwapExactIn",
         args=[
             weth_amount_to_short,

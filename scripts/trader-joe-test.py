@@ -7,7 +7,7 @@ import os
 
 from eth_defi.uniswap_v2.deployment import fetch_deployment
 from web3 import HTTPProvider, Web3
-from web3.middleware import geth_poa_middleware
+from eth_defi.compat import geth_poa_middleware
 
 
 def main():

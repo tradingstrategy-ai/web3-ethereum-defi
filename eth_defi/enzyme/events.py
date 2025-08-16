@@ -19,6 +19,7 @@ from eth_typing import HexAddress
 from hexbytes import HexBytes
 from web3 import Web3
 
+from eth_defi.compat import native_datetime_utc_fromtimestamp
 from eth_defi.enzyme.vault import Vault
 from eth_defi.event_reader.conversion import convert_uint256_bytes_to_address, decode_data, convert_int256_bytes_to_int
 from eth_defi.event_reader.filter import Filter
@@ -95,7 +96,7 @@ class EnzymeBalanceEvent:
     @property
     def timestamp(self) -> datetime.datetime:
         """Return the block mined at timestamp."""
-        return datetime.datetime.utcfromtimestamp(self.event_data["timestamp"])
+        return native_datetime_utc_fromtimestamp(self.event_data["timestamp"])
 
     @property
     def web3(self) -> Web3:

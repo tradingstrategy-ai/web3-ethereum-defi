@@ -61,7 +61,7 @@ def main():
         if inverse:
             price = 1 / price
 
-        timestamp = datetime.datetime.utcnow().isoformat()
+        timestamp = native_datetime_utc_now().isoformat()
 
         print(f"[{timestamp}, block {block_num:,}] Price {pool.token0.symbol} / {pool.token1.symbol}: {price}")
 

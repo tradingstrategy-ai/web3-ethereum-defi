@@ -9,6 +9,7 @@ from requests.adapters import HTTPAdapter
 from web3 import Web3
 
 from eth_defi.abi import get_contract
+from eth_defi.compat import native_datetime_utc_fromtimestamp
 from eth_defi.event_reader.logresult import LogContext
 from eth_defi.event_reader.reader import (
     Filter,
@@ -56,7 +57,7 @@ def convert_swap_event_to_price_entry(log: dict) -> PriceEntry:
         volume = abs(swap_info["amount0"]) / 10**context.pool.token0.decimals
 
     return PriceEntry(
-        timestamp=datetime.datetime.utcfromtimestamp(log["timestamp"]),
+        timestamp=native_datetime_utc_fromtimestamp(log["timestamp"]),
         price=Decimal(price),
         volume=volume,
         block_number=swap_info["block_number"],
@@ -317,7 +318,7 @@ def update_live_price_feed(
     # Get the last block timestamp
     timestamps = extract_timestamps_json_rpc(web3, end_block, end_block)
     unix_timestamp = next(iter(timestamps.values()))
-    last_timestamp = datetime.datetime.utcfromtimestamp(unix_timestamp)
+    last_timestamp = native_datetime_utc_fromtimestamp(unix_timestamp)
     oracle.update_last_refresh(end_block, last_timestamp)
 
     # Clean old data

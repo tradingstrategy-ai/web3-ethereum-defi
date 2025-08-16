@@ -6,9 +6,10 @@
 
 from web3.contract.contract import Contract, ContractFunction
 
-from eth_defi.aave_v3.constants import MAX_AMOUNT, AaveV3InterestRateMode
-from eth_defi.aave_v3.deployment import AaveV3Deployment
+from eth_defi.aave_v3.constants import MAX_AMOUNT
 from eth_defi.one_delta.deployment import OneDeltaDeployment
+
+from eth_defi.compat import encode_abi_compat
 
 
 def supply(
@@ -51,7 +52,8 @@ def _build_supply_multicall(
     :param wallet_address: wallet address of the user
     :return: list of encoded ABI calls
     """
-    call_transfer = one_delta_deployment.flash_aggregator.encodeABI(
+    call_transfer = encode_abi_compat(
+        contract=one_delta_deployment.flash_aggregator,
         fn_name="transferERC20In",
         args=[
             token.address,
@@ -59,7 +61,8 @@ def _build_supply_multicall(
         ],
     )
 
-    call_deposit = one_delta_deployment.flash_aggregator.encodeABI(
+    call_deposit = encode_abi_compat(
+        contract=one_delta_deployment.flash_aggregator,
         fn_name="deposit",
         args=[
             token.address,
@@ -117,17 +120,20 @@ def _build_withdraw_multicall(
     """
     if amount == MAX_AMOUNT:
         # use MAX_AMOUNT to make sure the whole balance is swept
-        call_transfer = one_delta_deployment.flash_aggregator.encodeABI(
+        call_transfer = encode_abi_compat(
+            contract=one_delta_deployment.flash_aggregator,
             fn_name="transferERC20AllIn",
             args=[atoken.address],
         )
     else:
-        call_transfer = one_delta_deployment.flash_aggregator.encodeABI(
+        call_transfer = encode_abi_compat(
+            contract=one_delta_deployment.flash_aggregator,
             fn_name="transferERC20In",
             args=[atoken.address, amount],
         )
 
-    call_withdraw = one_delta_deployment.flash_aggregator.encodeABI(
+    call_withdraw = encode_abi_compat(
+        contract=one_delta_deployment.flash_aggregator,
         fn_name="withdraw",
         args=[
             token.address,
