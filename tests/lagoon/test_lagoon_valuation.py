@@ -354,6 +354,8 @@ def test_lagoon_calculate_portfolio_nav(
     assert portfolio_valuation.get_total_equity() > 0
 
 
+# FAILED tests/lagoon/test_lagoon_valuation.py::test_lagoon_diagnose_routes - requests.exceptions.ConnectionError: HTTPConnectionPool(host='localhost', port=28952): Max retries exceeded with url: / (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f9aed744da0>: Failed to establish a new connection: [Errno 111] Connection refused'))
+@flaky.flaky
 def test_lagoon_diagnose_routes(
     web3: Web3,
     lagoon_vault: LagoonVault,

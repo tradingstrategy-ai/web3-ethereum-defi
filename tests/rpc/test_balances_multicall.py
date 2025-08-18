@@ -5,6 +5,7 @@ from decimal import Decimal
 
 import pytest
 from web3 import Web3
+import flaky
 
 from eth_defi.balances import fetch_erc20_balances_multicall, BalanceFetchFailed
 from eth_defi.provider.broken_provider import get_almost_latest_block_number
@@ -71,6 +72,8 @@ def test_fetch_erc20_balances_multicall_failure(web3):
         )
 
 
+# FAILED tests/rpc/test_balances_multicall.py::test_fetch_erc20_balances_multicall_mev_blocker - requests.exceptions.ConnectionError: HTTPConnectionPool(host='localhost', port=25226): Max retries exceeded with url: / (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7fd1e2616300>: Failed to establish a new connection: [Errno 111] Connection refused'))
+@flaky.flaky
 def test_fetch_erc20_balances_multicall_mev_blocker():
     """See fetch_erc20_balances_multicall() works with MEV blocker configurations."""
 
