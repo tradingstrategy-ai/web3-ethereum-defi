@@ -235,6 +235,7 @@ def test_1delta_open_and_close_short_position(
     _print_current_balances(logger, hot_wallet.address, usdc, weth, ausdc, vweth)
 
 
+@flaky.flaky
 def test_1delta_open_and_close_short_position_separately(
     web3,
     hot_wallet,

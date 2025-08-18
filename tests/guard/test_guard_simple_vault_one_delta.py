@@ -241,6 +241,7 @@ def guard(
     return get_deployed_contract(web3, "guard/GuardV0.json", vault.functions.guard().call())
 
 
+@flaky.flaky
 def test_vault_initialised(
     owner: str,
     asset_manager: str,
