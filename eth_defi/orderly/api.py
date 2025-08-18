@@ -6,7 +6,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from eth_account import messages
 from eth_account.signers.local import LocalAccount
 
-from eth_defi.orderly.constants import MESSAGE_TYPES, OFF_CHAIN_DOMAIN
+from eth_defi.orderly.constants import MESSAGE_TYPES
 
 
 class OrderlyApiClient:
@@ -59,7 +59,7 @@ class OrderlyApiClient:
         }
 
         encoded_data = messages.encode_typed_data(
-            domain_data=OFF_CHAIN_DOMAIN,
+            domain_data=self._get_off_chain_domain(),
             message_types={"Registration": MESSAGE_TYPES["Registration"]},
             message_data=register_message,
         )
@@ -118,7 +118,7 @@ class OrderlyApiClient:
             api_url = f"{self.base_url}/v1/delegate_orderly_key"
 
         encoded_data = messages.encode_typed_data(
-            domain_data=OFF_CHAIN_DOMAIN,
+            domain_data=self._get_off_chain_domain(),
             message_types=message_types,
             message_data=add_key_message,
         )
@@ -166,8 +166,10 @@ class OrderlyApiClient:
             "txHash": delegate_tx_hash,
         }
 
+        print(delegate_message)
+
         encoded_data = messages.encode_typed_data(
-            domain_data=OFF_CHAIN_DOMAIN,
+            domain_data=self._get_off_chain_domain(),
             message_types={"DelegateSigner": MESSAGE_TYPES["DelegateSigner"]},
             message_data=delegate_message,
         )
@@ -196,3 +198,11 @@ class OrderlyApiClient:
 
     def _encode_key(self, key: bytes) -> str:
         return f"ed25519:{b58encode(key).decode('utf-8')}"
+
+    def _get_off_chain_domain(self) -> dict:
+        return {
+            "name": "Orderly",
+            "version": "1",
+            "chainId": self.chain_id,
+            "verifyingContract": "0xCcCCccccCCCCcCCCCCCcCcCccCcCCCcCcccccccC",
+        }

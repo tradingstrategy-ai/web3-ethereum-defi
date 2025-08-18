@@ -15,7 +15,7 @@ To run:
     python scripts/orderly/delegate.py delegate
 
     # If you have a delegate tx hash, you can confirm the signer:
-    python scripts/orderly/delegate.py confirm --tx-hash <tx_hash>
+    python scripts/orderly/delegate.py confirm <tx_hash>
 """
 
 import logging
@@ -37,8 +37,10 @@ app = typer.Typer()
 
 
 def get_orderly_vault_address(web3: Web3) -> str:
+    # https://orderly.network/docs/build-on-omnichain/addresses
     return {
         421614: "0x0EaC556c0C2321BA25b9DC01e4e3c95aD5CDCd2f",
+        8453: "0x816f722424B49Cf1275cc86DA9840Fbd5a6167e9",
     }[web3.eth.chain_id]
 
 
@@ -74,6 +76,7 @@ def delegate(
             "from": deployer_wallet.address,  # TODO: double check this
             "gas": 500_000,
             "chainId": web3.eth.chain_id,
+            "nonce": deployer_wallet.allocate_nonce(),
         }
     )
 
@@ -101,7 +104,7 @@ def confirm(
         account=signer_wallet.account,
         broker_id=broker_id,
         chain_id=web3.eth.chain_id,
-        is_testnet=True,
+        is_testnet=True if web3.eth.chain_id in (421614,) else False,
     )
 
     r = client.delegate_signer(
