@@ -521,7 +521,8 @@ def test_enzyme_enable_transfer(
     uniswap_v2_whitelisted: UniswapV2Deployment,
 ):
     """Enable transfer for an asset manager."""
-    usdc_token.contract.functions.approve(vault.comptroller.address, 500 * 10**6).transact({"from": deployer})
+    tx_hash = usdc_token.contract.functions.approve(vault.comptroller.address, 500 * 10**6).transact({"from": deployer})
+    assert_transaction_success_with_explanation(web3, tx_hash)
     tx_hash = vault.comptroller.functions.buyShares(500 * 10**6, 1).transact({"from": deployer})
     assert_transaction_success_with_explanation(web3, tx_hash)
 
