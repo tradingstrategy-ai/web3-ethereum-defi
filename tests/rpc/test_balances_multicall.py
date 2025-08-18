@@ -26,6 +26,7 @@ def web3() -> Web3:
     return web3
 
 
+@flaky.flaky
 def test_fetch_erc20_balances_multicall(web3):
     """Base mainnet based test to check multicall ERC-20 balance read works on base."""
 
@@ -53,6 +54,7 @@ def test_fetch_erc20_balances_multicall(web3):
     assert existing_usdc_balance > Decimal(1.0)
 
 
+@flaky.flaky
 def test_fetch_erc20_balances_multicall_failure(web3):
     """Multicall ERC-20 with a broken token."""
 
