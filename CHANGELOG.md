@@ -1,3 +1,8 @@
+# Current
+
+- Migrate to Web3.py 7.x with the optional Web3 6.x dependency available
+
+
 # 0.32
 
 - Last release before Web3.py 7.x update
