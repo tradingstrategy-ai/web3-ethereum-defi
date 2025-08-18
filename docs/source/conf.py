@@ -89,14 +89,8 @@ html_baseurl = "https://web3-ethereum-defi.readthedocs.io/"
 #
 nbsphinx_execute = "never"
 
-# Add MyBinder lnks
+# Do not offer "Launch Binder" or similar button
 nbsphinx_prolog = """
-
-.. raw:: html
-
-    <a style="display: block; margin-top: 1.5rem" href="https://mybinder.org/v2/gh/tradingstrategy-ai/binder-env/master?urlpath=git-pull%3Frepo%3Dhttps%253A%252F%252Fgithub.com%252Ftradingstrategy-ai%252Fweb3-ethereum-defi%26branch%3Dmaster%26urlpath%3Dlab%252Ftree%252Fweb3-ethereum-defi%252Fdocs%252Fsource%252F{{ env.doc2path(env.docname, base=None) }}">
-        <img src="https://mybinder.org/badge_logo.svg">
-    </a>    
 
 """
 
