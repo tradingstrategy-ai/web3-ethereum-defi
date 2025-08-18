@@ -1,5 +1,6 @@
-# Current
+# 0.32
 
+- Last release before Web3.py 7.x update
 - Add: [Token Risk API by Hexen](https://hexens.io/solutions/token-risks-api/)
 - Add: Vault 1h price scanning and cleaning pipeline
 - Add: Move a lot of vault analysis functionality to their own Python modules, instead of copy-pasting in notebook to improve documentation and reusability
@@ -8,7 +9,7 @@
 - Add: `check_etherscan_api_key()` to do a pre-flight check your Etherscan API key works
 - Add: Lagoon custom deployments for BNB Chain and Mode
 - Fix: `TradingStrategyModuleV0` Zodiac module contract size for deployment
-- Fix: Vault share price for gTrade and other vaults using non-standard formula which is not total assets / total supply  
+- Fix: [Vault share price for gTrade (Gains Network) and other vaults using non-standard formula which is not total assets / total supply](https://web3-ethereum-defi.readthedocs.io/tutorials/erc-4626-single-vault.html)  
 
 # 0.31
 

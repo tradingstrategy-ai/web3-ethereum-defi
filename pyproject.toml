@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "web3-ethereum-defi"
-version = "0.31"
+version = "0.32"
 description = "Integrate Ethereum Web3 and DeFi protocols into your Python application."
 authors = ["Mikko Ohtamaa <mikko@tradingstrategy.ai>"]
 license = "MIT"
