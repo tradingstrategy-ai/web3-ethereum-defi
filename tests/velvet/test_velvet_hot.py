@@ -16,6 +16,7 @@ from eth_defi.confirmation import wait_transactions_to_complete
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.broken_provider import get_almost_latest_block_number
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.tx import get_tx_broadcast_data
 from eth_defi.vault.base import VaultSpec, TradingUniverse
 from eth_defi.velvet import VelvetVault
 
@@ -93,7 +94,8 @@ def test_hot_vault_swap_partially(
     signed_tx = hot_wallet.sign_transaction_with_new_nonce(tx_data)
 
     logger.info("Broadcasting LIVE tx: https://basescan.org/tx/%s", signed_tx.hash.hex())
-    tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+    raw_bytes = get_tx_broadcast_data(signed_tx)
+    tx_hash = web3.eth.send_raw_transaction(raw_bytes)
 
     wait_transactions_to_complete(
         web3,

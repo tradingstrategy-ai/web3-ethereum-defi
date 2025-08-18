@@ -1,3 +1,8 @@
+# Current
+
+- Migrate to Web3.py 7.x with the optional Web3 6.x dependency available. See [README](github.com/tradingstrategy-ai/web3-ethereum-defi) for updated installation instruction details.
+
+
 # 0.32
 
 - Last release before Web3.py 7.x update
@@ -11,6 +16,7 @@
 - Fix: `TradingStrategyModuleV0` Zodiac module contract size for deployment
 - Fix: [Vault share price for gTrade (Gains Network) and other vaults using non-standard formula which is not total assets / total supply](https://web3-ethereum-defi.readthedocs.io/tutorials/erc-4626-single-vault.html)  
 
+- Add: `get_tx_broadcast_data` is added to get raw transaction bytes using both versions web3py i.e. `v6` & `v7`
 # 0.31
 
 - Add: Lagoon vault guard re-deployment against an existing vault

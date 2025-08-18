@@ -114,14 +114,22 @@ With `pip`:
 ```shell
 pip install "web3-ethereum-defi[data]"
 ```
+**N.B.** From relase `0.4` this project will use `v7` of `web3py` to keep using it with `v6` after the above setp run the following step as well.
+
+```shell
+pip install "web3-ethereum-defi[web3v6]"
+```
 
 With `poetry`:
 
-**N.B.** Currently poetry version `1.8.5` works perfectly. Poetry `>= 2` will be stuck in an infinite loop 
+[//]: # (**N.B.** Currently poetry version `1.8.5` works perfectly. Poetry `>= 2` will be stuck in an infinite loop )
 
 ```shell
-# Poetry version
+# Poetry version to use the latest web3py v7
 poetry add -E data web3-ethereum-defi
+
+# for web3py v6 
+TODO
 ```
 
 With `poetry` - master Git branch: 
@@ -131,6 +139,9 @@ git clone git@github.com:tradingstrategy-ai/web3-ethereum-defi.git
 cd web3-ethereum-defi
 poetry shell
 poetry install --all-extras
+
+# Additional step To force use web3py v6
+poetry install -E web3v6
 ```
 
 # Example code
@@ -154,7 +165,7 @@ from decimal import Decimal
 
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
-from web3.middleware import construct_sign_and_send_raw_middleware
+from eth_defi.compat import construct_sign_and_send_raw_middleware
 
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.revert_reason import fetch_transaction_revert_reason

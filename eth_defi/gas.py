@@ -126,7 +126,8 @@ def apply_gas(tx: dict, suggestion: GasPriceSuggestion) -> dict:
         apply_gas(tx, gas_fees)
 
         signed = hot_wallet.sign_transaction(tx)
-        tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
+        raw_bytes = get_tx_broadcast_data(signed)
+        tx_hash = web3.eth.send_raw_transaction(raw_bytes)
         receipt = web3.eth.get_transaction_receipt(tx_hash)
 
     :return:

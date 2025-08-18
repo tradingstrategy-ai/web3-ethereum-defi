@@ -13,6 +13,7 @@ from abc import abstractmethod
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Dict, List, Optional, Protocol, Tuple
+from eth_defi.compat import native_datetime_utc_now
 
 
 class PriceSource(enum.Enum):
@@ -292,7 +293,7 @@ class PriceOracle(BasePriceOracle):
         """
 
         if not now_:
-            now_ = datetime.datetime.utcnow()
+            now_ = native_datetime_utc_now()
 
         if len(self.buffer) < self.min_entries:
             raise NotEnoughData(f"The buffer has {len(self.buffer)} entries")

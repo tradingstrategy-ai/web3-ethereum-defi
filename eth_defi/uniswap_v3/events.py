@@ -19,6 +19,7 @@ import datetime
 import warnings
 from pathlib import Path
 
+from eth_defi.compat import native_datetime_utc_fromtimestamp
 from eth_defi.event_reader.filter import Filter
 from eth_defi.event_reader.lazy_timestamp_reader import extract_timestamps_json_rpc_lazy, TrackedLazyTimestampReader
 from eth_defi.event_reader.multithread import MultithreadEventReader
@@ -63,11 +64,11 @@ class TokenCache(LogContext):
 
 
 def _decode_base(log: LogResult) -> dict:
-    block_time = datetime.datetime.utcfromtimestamp(log["timestamp"])
+    block_time = native_datetime_utc_fromtimestamp(log["timestamp"])
 
     return {
         "block_number": convert_jsonrpc_value_to_int(log["blockNumber"]),
-        "timestamp": datetime.datetime.utcfromtimestamp(log["timestamp"]),
+        "timestamp": native_datetime_utc_fromtimestamp(log["timestamp"]),
         "tx_hash": log["transactionHash"],
         "log_index": convert_jsonrpc_value_to_int(log["logIndex"]),
     }
@@ -416,7 +417,7 @@ def fetch_events_to_csv(
 
             if last_timestamp:
                 # Display progress with the date information
-                d = datetime.datetime.utcfromtimestamp(last_timestamp)
+                d = native_datetime_utc_fromtimestamp(last_timestamp)
                 formatted_time = d.strftime("%Y-%m-%d")
                 progress_bar.set_description(f"Block: {current_block:,}, events: {total_events:,}, time:{formatted_time}, block headers: {header_count:,}")
             else:

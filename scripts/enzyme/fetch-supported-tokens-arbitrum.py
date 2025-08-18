@@ -58,7 +58,7 @@ def main():
     round_data = fetch_chainlink_round_data(web3, eth_usd_aggregator)
     print(f"Enzyme's WETH token is set to: {weth_token}")
     print(f"ETH-USD aggregator set to: {eth_usd_aggregator}")
-    print(f"ETH-USD price updated: {datetime.datetime.utcnow() - round_data.update_time} ago")
+    print(f"ETH-USD price updated: {native_datetime_utc_now() - round_data.update_time} ago")
     print(f"ETH-USD latest price: {round_data.price} by the feed {round_data.description}")
 
     # Check ETH chainlink price always at the start
@@ -66,7 +66,7 @@ def main():
     # feed = EnzymePriceFeed.fetch_price_feed(deployment, weth)
     # print(f"ETH Chainlink aggregator is at {feed.aggregator}")
     # round_data = feed.fetch_latest_round_data()
-    # update_ago = datetime.datetime.utcnow() - round_data.update_time
+    # update_ago = native_datetime_utc_now() - round_data.update_time
     # print(f"ETH price is {round_data}, updated {update_ago} ago")
     # import ipdb ; ipdb.set_trace()
 
@@ -93,7 +93,7 @@ def main():
             price = feed.calculate_current_onchain_price(usdc)
             aggregator = feed.chainlink_aggregator
             round_data = fetch_chainlink_round_data(web3, aggregator.address)
-            ago = datetime.datetime.utcnow() - round_data.update_time
+            ago = native_datetime_utc_now() - round_data.update_time
             print(f"   {feed.primitive_token.symbol}, current price is {price:,.4f} USDC, Chainlink feed is {round_data.description}, updated {ago} ago")
         except UnsupportedBaseAsset as e:
             print(f"   {feed.primitive_token.symbol} price feed not available: unsupported base asset")

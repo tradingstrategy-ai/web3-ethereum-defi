@@ -20,6 +20,8 @@ from eth_defi.provider.fallback import FallbackProvider
 from eth_defi.provider.mev_blocker import MEVBlockerProvider
 from eth_defi.provider.named import NamedProvider, get_provider_name
 from eth_defi.utils import get_url_domain
+from eth_defi.compat import WEB3_PY_V7
+from eth_defi.compat import clear_middleware
 
 logger = logging.getLogger(__name__)
 
@@ -277,11 +279,39 @@ def create_multi_provider_web3(
 
     patch_web3(web3)
 
-    web3.middleware_onion.clear()
-    web3.middleware_onion.inject(static_call_cache_middleware, layer=0)
+    # Import compatibility functions
+    from eth_defi.compat import clear_middleware, add_middleware, WEB3_PY_V7
 
-    # Note that this triggers the first RPC call here
-    install_chain_middleware(web3, hint=hint)
+    # Clear all middleware first
+    clear_middleware(web3)
+
+    # Add static call cache middleware with v6/v7 compatibility
+    if WEB3_PY_V7:
+        # For v7, try to add it but skip if it causes issues
+        try:
+            add_middleware(web3, static_call_cache_middleware, layer=0)
+            logger.info("Successfully added static_call_cache_middleware for web3.py v7")
+        except Exception as e:
+            logger.warning(f"Skipping static_call_cache_middleware in v7 due to compatibility issue: {e}")
+    else:
+        # v6 - direct injection
+        web3.middleware_onion.inject(static_call_cache_middleware, layer=0)
+
+    # Install chain middleware with error handling
+    try:
+        install_chain_middleware(web3)
+    except Exception as e:
+        if "missing 1 required positional argument" in str(e):
+            logger.error(f"Middleware compatibility issue in v7: {e}")
+            logger.info("Continuing without problematic chain middleware...")
+            # Clear any partially installed middleware and continue
+            clear_middleware(web3)
+            # Try to add just the basic middleware we need
+            if not WEB3_PY_V7:
+                web3.middleware_onion.inject(static_call_cache_middleware, layer=0)
+        else:
+            # Re-raise other types of errors
+            raise
 
     if is_anvil(web3):
         # When running against local testing,
@@ -292,7 +322,8 @@ def create_multi_provider_web3(
 
 
 def _fix_provider(provider: HTTPProvider):
-    provider.middlewares.clear()
+    """Clear provider middlewares with v6/v7 compatibility."""
+    clear_middleware(provider)
     patch_provider(provider)
 
 

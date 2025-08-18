@@ -1,22 +1,21 @@
 """A sample script to check that we get revert reason from BNB Chain JSON-RPC."""
 
-import logging
 import datetime
+import logging
 import os
 import sys
 from decimal import Decimal
 
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
-from eth_defi.revert_reason import fetch_transaction_revert_reason
-from web3 import Web3, HTTPProvider
+from web3 import HTTPProvider, Web3
 from web3.datastructures import AttributeDict
 
 from eth_defi.abi import get_deployed_contract
-from eth_defi.gas import node_default_gas_price_strategy
+from eth_defi.compat import construct_sign_and_send_raw_middleware
 from eth_defi.confirmation import wait_transactions_to_complete
-from web3.middleware import construct_sign_and_send_raw_middleware
-
+from eth_defi.gas import node_default_gas_price_strategy
+from eth_defi.revert_reason import fetch_transaction_revert_reason
 
 # Trace down to DEBUG level what the heck is going on
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)

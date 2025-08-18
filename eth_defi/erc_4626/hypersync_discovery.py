@@ -20,6 +20,7 @@ from web3 import Web3
 from tqdm_loggable.auto import tqdm
 
 from eth_defi.abi import get_topic_signature_from_event
+from eth_defi.compat import native_datetime_utc_now, native_datetime_utc_fromtimestamp
 from eth_defi.erc_4626.classification import probe_vaults
 from eth_defi.erc_4626.core import get_erc_4626_contract, ERC4626Feature, ERC4262VaultDetection
 from eth_defi.event_reader.web3factory import Web3Factory
@@ -214,7 +215,7 @@ class HypersyncVaultDiscover:
                     if not lead:
                         # Fresh match
                         block = block_lookup[log.block_number]
-                        timestamp = datetime.datetime.utcfromtimestamp(int(block.timestamp, 16))
+                        timestamp = native_datetime_utc_fromtimestamp(int(block.timestamp, 16))
                         lead = PotentialVaultMatch(
                             chain=chain,
                             address=log.address.lower(),
@@ -307,7 +308,7 @@ class HypersyncVaultDiscover:
                 features=feature_probe.features,
                 first_seen_at_block=lead.first_seen_at_block,
                 first_seen_at=lead.first_seen_at,
-                updated_at=datetime.datetime.utcnow(),
+                updated_at=native_datetime_utc_now(),
                 deposit_count=lead.deposit_count,
                 redeem_count=lead.withdrawal_count,
             )

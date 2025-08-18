@@ -5,6 +5,7 @@ import datetime
 
 from web3 import Web3
 
+from eth_defi.compat import native_datetime_utc_fromtimestamp
 from eth_defi.utils import to_unix_timestamp
 
 
@@ -51,5 +52,5 @@ def estimate_block_number_for_timestamp_by_quicknode(
     return QuickNodeEstimatedBlock(
         network=result["network"],
         block_number=result["blockNumber"],
-        timestamp=datetime.datetime.utcfromtimestamp(result["timestamp"]),
+        timestamp=native_datetime_utc_fromtimestamp(result["timestamp"]),
     )

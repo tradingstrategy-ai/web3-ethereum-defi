@@ -44,7 +44,10 @@ Example:
     }
 
     message_hash = eip712_encode_hash(data)
-    signed_message = local_account.signHash(message_hash)
+    if WEB3_PY_V7:
+        signed_message = local_account.unsafe_sign_hash(message_hash)
+    else:
+        signed_message = local_account.signHash(message_hash)
 
 Past copyright:
 
@@ -80,6 +83,8 @@ from eth_account import Account
 from eth_typing import Hash32, HexStr
 from hexbytes import HexBytes
 from web3 import Web3
+
+from eth_defi.compat import WEB3_PY_V7
 
 
 # from ..utils import fast_keccak
@@ -246,4 +251,10 @@ def eip712_signature(payload: Dict[str, Any], private_key: Union[HexStr, bytes])
 
     account = Account.from_key(private_key)
     hashed_payload = fast_keccak(payload)
-    return account.signHash(hashed_payload)["signature"]
+
+    if WEB3_PY_V7:
+        signed_message = account.unsafe_sign_hash(hashed_payload)
+    else:
+        signed_message = account.signHash(hashed_payload)
+
+    return signed_message["signature"]
