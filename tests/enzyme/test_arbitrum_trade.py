@@ -31,7 +31,7 @@ from eth_defi.enzyme.uniswap_v3 import prepare_swap
 from eth_defi.enzyme.vault import Vault
 from eth_defi.hotwallet import HotWallet
 from eth_defi.middleware import construct_sign_and_send_raw_middleware_anvil
-from eth_defi.token import TokenDetails, fetch_erc20_details
+from eth_defi.token import TokenDetails, fetch_erc20_details, USDT_WHALE
 from eth_defi.trace import (
     assert_transaction_success_with_explanation,
 )
@@ -50,8 +50,7 @@ pytestmark = pytest.mark.skipif(not JSON_RPC_ARBITRUM, reason="Set JSON_RPC_ARBI
 @pytest.fixture()
 def usdt_whale() -> HexAddress:
     """A random account picked, holds a lot of stablecoin"""
-    # https://arbiscan.io/token/0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9#balances
-    return HexAddress("0x8f9c79B9De8b0713dCAC3E535fc5A1A92DB6EA2D")
+    return USDT_WHALE[42161]
 
 
 @pytest.fixture()
@@ -61,6 +60,7 @@ def anvil(usdt_whale) -> AnvilLaunch:
     anvil = launch_anvil(
         fork_url=JSON_RPC_ARBITRUM,
         unlocked_addresses=[usdt_whale],
+        code_size_limit=99_999_999,  # Increase the code size limit to allow for larger contracts
     )
     try:
         yield anvil

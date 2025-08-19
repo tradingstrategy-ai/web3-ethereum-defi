@@ -101,6 +101,10 @@ USDT_WHALE: dict[int, HexAddress | str] = {
     # BNB Chain
     #
     56: "0x55d398326f99059ff775485246999027b3197955",
+
+    # Arbitrum
+    # https://arbiscan.io/token/0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9#balances
+    42161: "0x8f9c79B9De8b0713dCAC3E535fc5A1A92DB6EA2D",
 }
 
 #: Addresses USDT Tether of different chains

@@ -13,7 +13,7 @@ from web3 import HTTPProvider, Web3, EthereumTesterProvider
 
 from eth_defi.chain import install_chain_middleware, install_retry_middleware, install_api_call_counter_middleware
 from eth_defi.middleware import is_retryable_http_exception
-
+from eth_defi.provider.multi_provider import create_multi_provider_web3
 
 JSON_RPC_POLYGON = os.environ.get("JSON_RPC_POLYGON", "https://polygon-rpc.com")
 
@@ -21,12 +21,7 @@ JSON_RPC_POLYGON = os.environ.get("JSON_RPC_POLYGON", "https://polygon-rpc.com")
 @pytest.fixture()
 def web3():
     """Live Polygon web3 instance."""
-    # HTTP 1.1 keep-alive
-    session = requests.Session()
-    web3 = Web3(HTTPProvider(JSON_RPC_POLYGON, session=session))
-    web3.middleware_onion.clear()
-    install_chain_middleware(web3)
-    install_retry_middleware(web3)
+    web3 = create_multi_provider_web3(JSON_RPC_POLYGON)
     return web3
 
 
