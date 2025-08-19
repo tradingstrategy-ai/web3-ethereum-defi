@@ -313,6 +313,9 @@ def extract_events(
                     # the caller must do the timestamp resolution themselves
                     log["timestamp"] = None
 
+            if log["timestamp"] is not None:
+                assert log["timestamp"].tzinfo is None, f"Timestamp {log['timestamp']} for block {block_number} is not naive, but should be. Please use a naive timestamp extractor or reorg mon."
+
             yield log
 
 

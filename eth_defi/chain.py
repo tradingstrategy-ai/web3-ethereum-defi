@@ -20,7 +20,7 @@ from web3.types import RPCEndpoint, RPCResponse
 from eth_defi.event_reader.conversion import convert_jsonrpc_value_to_int
 from eth_defi.middleware import http_retry_request_with_sleep_middleware
 from eth_defi.provider.named import get_provider_name
-from eth_defi.compat import WEB3_PY_V7
+from eth_defi.compat import WEB3_PY_V7, native_datetime_utc_fromtimestamp
 from eth_defi.compat import install_poa_middleware, install_retry_middleware_compat, install_api_call_counter_middleware_compat, WEB3_PY_V7
 from eth_defi.middleware import http_retry_request_with_sleep_middleware
 from eth_defi.provider.named import get_provider_name
@@ -427,7 +427,7 @@ def fetch_block_timestamp(web3: Web3, block_number: int) -> datetime.datetime:
     """
     block = web3.eth.get_block(block_number)
     timestamp = convert_jsonrpc_value_to_int(block["timestamp"])
-    time = datetime.datetime.fromtimestamp(timestamp, tz=None)
+    time = native_datetime_utc_fromtimestamp(timestamp)
     return time
 
 
