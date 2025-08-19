@@ -7,7 +7,6 @@ Deploy ERC-20 tokens to be used within your test suite.
 
 import json
 import logging
-import datetime
 import os
 from collections import OrderedDict, defaultdict
 from dataclasses import dataclass, asdict, field
@@ -30,7 +29,13 @@ from eth_defi.sqlite_cache import PersistentKeyValueStore
 with warnings.catch_warnings():
     # DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html
     warnings.simplefilter("ignore")
-    from eth_tester.exceptions import TransactionFailed
+    try:
+        from eth_tester.exceptions import TransactionFailed
+    except ImportError:
+        # New Web3.py versions got rid of this?
+        # Mock here
+        class TransactionFailed(Exception):
+            pass
 
 from eth_typing import HexAddress
 from web3 import Web3
