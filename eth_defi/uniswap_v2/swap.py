@@ -166,8 +166,23 @@ def swap_with_slippage_protection(
         )
 
         if support_token_tax:
+            # https://docs.uniswap.org/contracts/v2/reference/smart-contracts/router-02#swapexacttokensfortokenssupportingfeeontransfertokens
+            # function swapExactTokensForTokensSupportingFeeOnTransferTokens(
+            #   uint amountIn,
+            #   uint amountOutMin,
+            #   address[] calldata path,
+            #   address to,
+            #   uint deadline
+            # ) external;
             function = router.functions.swapExactTokensForTokensSupportingFeeOnTransferTokens
         else:
+            # function swapExactTokensForTokens(
+            #   uint amountIn,
+            #   uint amountOutMin,
+            #   address[] calldata path,
+            #   address to,
+            #   uint deadline
+            # ) external returns (uint[] memory amounts);
             function = router.functions.swapExactTokensForTokens
 
         return function(

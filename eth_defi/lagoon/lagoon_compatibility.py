@@ -141,9 +141,9 @@ class LagoonTokenCheckDatabase:
             "liquidity_success": sum(r.has_liquidity() for r in self.report_by_token.values()),
             "buy_success": sum(r.is_buy_success() for r in self.report_by_token.values()),
             "sell_success": sum(r.is_sell_success() for r in self.report_by_token.values()),
-            "min_cost": min(r.get_round_trip_cost() for r in self.report_by_token.values() if r.get_round_trip_cost() is not None),
-            "max_cost": max(r.get_round_trip_cost() for r in self.report_by_token.values() if r.get_round_trip_cost() is not None),
-            "mean_cost": mean(r.get_round_trip_cost() for r in self.report_by_token.values() if r.get_round_trip_cost() is not None),
+            "min_cost": min((r.get_round_trip_cost() for r in self.report_by_token.values() if r.get_round_trip_cost() is not None), default=0),
+            "max_cost": max((r.get_round_trip_cost() for r in self.report_by_token.values() if r.get_round_trip_cost() is not None), default=0),
+            "mean_cost": mean([r.get_round_trip_cost() for r in self.report_by_token.values() if r.get_round_trip_cost() is not None] or [0]),
         }
         return stats
 
