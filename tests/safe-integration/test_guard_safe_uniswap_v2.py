@@ -133,7 +133,7 @@ def safe(
     tx_hash = guard.functions.whitelistUniswapV2Router(uniswap_v2.router.address, "Allow Uniswap v2").transact({"from": owner})
     receipt = web3.eth.get_transaction_receipt(tx_hash)
 
-    assert len(receipt["logs"]) == 2
+    assert len(receipt["logs"]) == 3
 
     # Enable Safe module
     tx_hash = safe.functions.enableModule(guard.address).transact({"from": owner})
@@ -157,7 +157,7 @@ def safe(
     assert guard.functions.isAllowedCallSite(uniswap_v2.router.address, get_function_selector(uniswap_v2.router.functions.swapExactTokensForTokens)).call()
     guard.functions.whitelistToken(usdc.address, "Allow USDC").transact({"from": owner})
     guard.functions.whitelistToken(weth.address, "Allow WETH").transact({"from": owner})
-    assert guard.functions.callSiteCount().call() == 5
+    assert guard.functions.callSiteCount().call() == 6
     return safe
 
 
