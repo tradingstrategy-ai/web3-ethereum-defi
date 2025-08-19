@@ -40,9 +40,6 @@ def test_token_compat_single(token_list, tmp_path):
         fork_block_number=57_446_737,
     )
 
-    stats = compat_db.calculate_stats()
-    assert stats["compatible"] == 1
-
     report = next(iter(compat_db.report_by_token.values()))
 
     assert report.created_at is not None
@@ -57,6 +54,9 @@ def test_token_compat_single(token_list, tmp_path):
     assert report.sell_result.amount_in == 1381835
     assert report.sell_result.amount_out == 995006197259589201  # Round tripped 50 bips
     assert report.get_round_trip_cost() == pytest.approx(0.004993802740410799)
+
+    stats = compat_db.calculate_stats()
+    assert stats["compatible"] == 1
 
     # Check caching
     compat_db = check_lagoon_compatibility_with_database(

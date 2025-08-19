@@ -330,6 +330,7 @@ abstract contract GuardV0Base is IGuard  {
 
     function whitelistUniswapV2Router(address router, string calldata notes) external {
         allowCallSite(router, getSelector("swapExactTokensForTokens(uint256,uint256,address[],address,uint256)"), notes);
+        allowCallSite(router, getSelector("swapExactTokensForTokensSupportingFeeOnTransferTokens(uint256,uint256,address[],address,uint256)"), notes);
         allowApprovalDestination(router, notes);
     }
 
@@ -382,6 +383,8 @@ abstract contract GuardV0Base is IGuard  {
         // Validate the function payaload.
         // Depends on the called protocol.
         if(selector == getSelector("swapExactTokensForTokens(uint256,uint256,address[],address,uint256)")) {
+            validate_swapExactTokensForTokens(callData);
+        } else if(selector == getSelector("swapExactTokensForTokensSupportingFeeOnTransferTokens(uint256,uint256,address[],address,uint256)")) {
             validate_swapExactTokensForTokens(callData);
         } else if(selector == getSelector("exactInput((bytes,address,uint256,uint256,uint256))")) {
             validate_exactInput(callData);
