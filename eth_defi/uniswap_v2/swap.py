@@ -27,6 +27,7 @@ def swap_with_slippage_protection(
     amount_out: Optional[int] = None,
     fee: int = 30,
     deadline: int = FOREVER_DEADLINE,
+    support_token_tax=True,
 ) -> ContractFunction:
     """Helper function to prepare a swap from quote token to base token (buy base token with quote token)
     with price estimation and slippage protection baked in.
@@ -164,7 +165,12 @@ def swap_with_slippage_protection(
             intermediate_token=intermediate_token,
         )
 
-        return router.functions.swapExactTokensForTokens(
+        if support_token_tax:
+            function = router.swapExactTokensForTokensSupportingFeeOnTransferTokens
+        else:
+            function = router.functions.swapExactTokensForTokens
+
+        return function(
             amount_in,
             estimated_min_amount_out,
             path,
