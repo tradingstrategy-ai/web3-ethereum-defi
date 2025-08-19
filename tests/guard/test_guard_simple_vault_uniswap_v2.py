@@ -472,7 +472,13 @@ def test_guard_can_trade_any_asset_uniswap_v2(
 ):
     """After whitelist removed, we can trade any asset."""
     weth = uniswap_v2.weth
-    vault = deploy_contract(web3, "guard/SimpleVaultV0.json", deployer, asset_manager)
+    vault = deploy_contract(
+        web3,
+        "guard/SimpleVaultV0.json",
+        deployer,
+        asset_manager,
+        gas=10_000_000,
+    )
     vault.functions.initialiseOwnership(owner).transact({"from": deployer})
 
     guard = get_deployed_contract(web3, "guard/GuardV0.json", vault.functions.guard().call())
