@@ -27,7 +27,7 @@ def swap_with_slippage_protection(
     amount_out: Optional[int] = None,
     fee: int = 30,
     deadline: int = FOREVER_DEADLINE,
-    support_token_tax=True,
+    support_token_tax=False,
 ) -> ContractFunction:
     """Helper function to prepare a swap from quote token to base token (buy base token with quote token)
     with price estimation and slippage protection baked in.

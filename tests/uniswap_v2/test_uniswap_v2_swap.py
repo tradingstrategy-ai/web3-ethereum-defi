@@ -173,6 +173,67 @@ def test_buy_with_slippage_when_you_know_quote_amount(
     assert tx_receipt.status == 1
 
 
+
+def test_buy_with_slippage_when_you_know_quote_amount_tax_supported(
+    web3: Web3,
+    deployer: str,
+    hot_wallet: LocalAccount,
+    uniswap_v2: UniswapV2Deployment,
+    weth: Contract,
+    usdc: Contract,
+):
+    """Use local hot wallet to buy as much as possible WETH on Uniswap v2 using
+    define amout of mock USDC."""
+
+    # Create the trading pair and add initial liquidity
+    deploy_trading_pair(
+        web3,
+        deployer,
+        uniswap_v2,
+        weth,
+        usdc,
+        10 * 10**18,  # 10 ETH liquidity
+        17_000 * 10**18,  # 17000 USDC liquidity
+    )
+
+    router = uniswap_v2.router
+    hw_address = hot_wallet.address
+
+    # Give hot wallet some USDC to buy ETH (also some ETH as well to send tx)
+    web3.eth.send_transaction({"from": deployer, "to": hw_address, "value": 1 * 10**18})
+    usdc_amount_to_pay = 500 * 10**18
+    usdc.functions.transfer(hw_address, usdc_amount_to_pay).transact({"from": deployer})
+    usdc.functions.approve(router.address, usdc_amount_to_pay).transact({"from": hw_address})
+
+    # build transaction
+    swap_func = swap_with_slippage_protection(
+        uniswap_v2_deployment=uniswap_v2,
+        recipient_address=hw_address,
+        base_token=weth,
+        quote_token=usdc,
+        amount_in=usdc_amount_to_pay,
+        max_slippage=50,  # 50 bps = 0.5%
+        support_token_tax=True,
+    )
+    tx = swap_func.build_transaction(
+        {
+            "from": hw_address,
+            "chainId": web3.eth.chain_id,
+            "gas": 350_000,  # estimate max 350k gas per swap
+        }
+    )
+    tx = fill_nonce(web3, tx)
+    gas_fees = estimate_gas_fees(web3)
+    apply_gas(tx, gas_fees)
+
+    # sign and broadcast
+    signed_tx = hot_wallet.sign_transaction(tx)
+    raw_bytes = get_tx_broadcast_data(signed_tx)
+    tx_hash = web3.eth.send_raw_transaction(raw_bytes)
+    tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
+    assert tx_receipt.status == 1
+
+
 @pytest.mark.skip("Unfinished code")
 def test_sell_with_slippage_when_you_know_base_amount(
     web3: Web3,
