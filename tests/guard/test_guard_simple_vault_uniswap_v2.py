@@ -109,7 +109,7 @@ def vault(
     tx_hash = guard.functions.whitelistUniswapV2Router(uniswap_v2.router.address, "Allow Uniswap v2").transact({"from": owner})
     receipt = web3.eth.get_transaction_receipt(tx_hash)
 
-    assert len(receipt["logs"]) == 2
+    assert len(receipt["logs"]) == 3
 
     # Check Uniswap router call sites was enabled in the receipt
     call_site_events = guard.events.CallSiteApproved().process_receipt(receipt, errors=EventLogErrorFlags.Ignore)
@@ -121,7 +121,7 @@ def vault(
     assert guard.functions.isAllowedCallSite(uniswap_v2.router.address, get_function_selector(uniswap_v2.router.functions.swapExactTokensForTokens)).call()
     guard.functions.whitelistToken(usdc.address, "Allow USDC").transact({"from": owner})
     guard.functions.whitelistToken(weth.address, "Allow WETH").transact({"from": owner})
-    assert guard.functions.callSiteCount().call() == 5
+    assert guard.functions.callSiteCount().call() == 6
     return vault
 
 
@@ -235,6 +235,47 @@ def test_guard_can_trade_uniswap_v2(
     vault.functions.performCall(target, call_data).transact({"from": asset_manager})
 
     assert weth.functions.balanceOf(vault.address).call() == 3696700037078235076
+
+
+
+def test_guard_can_trade_uniswap_v2_tax(
+    uniswap_v2: UniswapV2Deployment,
+    weth_usdc_pair: PairDetails,
+    owner: str,
+    asset_manager: str,
+    deployer: str,
+    weth: Contract,
+    usdc: Contract,
+    vault: Contract,
+    guard: Contract,
+):
+    """Asset manager can perform a swap w/tax support."""
+    usdc_amount = 10_000 * 10**6
+    usdc.functions.transfer(vault.address, usdc_amount).transact({"from": deployer})
+
+    path = [usdc.address, weth.address]
+
+    approve_call = usdc.functions.approve(
+        uniswap_v2.router.address,
+        usdc_amount,
+    )
+
+    target, call_data = encode_simple_vault_transaction(approve_call)
+    vault.functions.performCall(target, call_data).transact({"from": asset_manager})
+
+    trade_call = uniswap_v2.router.functions.swapExactTokensForTokensSupportingFeeOnTransferTokens(
+        usdc_amount,
+        0,
+        path,
+        vault.address,
+        FOREVER_DEADLINE,
+    )
+
+    target, call_data = encode_simple_vault_transaction(trade_call)
+    vault.functions.performCall(target, call_data).transact({"from": asset_manager})
+
+    assert weth.functions.balanceOf(vault.address).call() == 3696700037078235076
+
 
 
 def test_guard_token_in_not_approved(

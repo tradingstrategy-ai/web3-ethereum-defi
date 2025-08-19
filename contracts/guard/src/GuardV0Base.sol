@@ -384,6 +384,8 @@ abstract contract GuardV0Base is IGuard  {
         // Depends on the called protocol.
         if(selector == getSelector("swapExactTokensForTokens(uint256,uint256,address[],address,uint256)")) {
             validate_swapExactTokensForTokens(callData);
+        } else if(selector == getSelector("swapExactTokensForTokensSupportingFeeOnTransferTokens(uint256,uint256,address[],address,uint256)")) {
+            validate_swapExactTokensForTokens(callData);
         } else if(selector == getSelector("exactInput((bytes,address,uint256,uint256,uint256))")) {
             validate_exactInput(callData);
         } else if(selector == 0xb858183f) {
