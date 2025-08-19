@@ -9,7 +9,7 @@ from typing import Dict, Optional, Collection, Iterable, Hashable
 import cachetools
 import requests.exceptions
 from eth_typing import BlockNumber, HexAddress
-from multicall import Multicall, Call
+
 from web3 import Web3
 from web3.contract import Contract
 from web3.exceptions import BadFunctionCallOutput, InvalidAddress
