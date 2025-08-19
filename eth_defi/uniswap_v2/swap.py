@@ -166,7 +166,7 @@ def swap_with_slippage_protection(
         )
 
         if support_token_tax:
-            function = router.swapExactTokensForTokensSupportingFeeOnTransferTokens
+            function = router.functions.swapExactTokensForTokensSupportingFeeOnTransferTokens
         else:
             function = router.functions.swapExactTokensForTokens
 
