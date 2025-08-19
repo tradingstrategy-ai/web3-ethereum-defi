@@ -390,7 +390,7 @@ def test_enzyme_guarded_trade_singlehop_uniswap_v2(
     assert weth_token.contract.functions.balanceOf(vault.address).call() == pytest.approx(0.12450087262998791 * 10**18)
 
 
-@flaky.flaky
+@pytest.mark.skipif(CI, reason="Too flaky on Github CI")
 def test_enzyme_guarded_trade_multihops_uniswap_v2(
     web3: Web3,
     deployer: HexAddress,
