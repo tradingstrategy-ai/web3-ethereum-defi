@@ -4,7 +4,6 @@ import dataclasses
 import datetime
 import logging
 import time
-from dataclasses import dataclass
 
 import requests
 from eth_typing import HexStr
