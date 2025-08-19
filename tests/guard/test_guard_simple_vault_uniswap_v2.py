@@ -237,7 +237,6 @@ def test_guard_can_trade_uniswap_v2(
     assert weth.functions.balanceOf(vault.address).call() == 3696700037078235076
 
 
-
 def test_guard_can_trade_uniswap_v2_tax(
     uniswap_v2: UniswapV2Deployment,
     weth_usdc_pair: PairDetails,
@@ -275,7 +274,6 @@ def test_guard_can_trade_uniswap_v2_tax(
     vault.functions.performCall(target, call_data).transact({"from": asset_manager})
 
     assert weth.functions.balanceOf(vault.address).call() == 3696700037078235076
-
 
 
 def test_guard_token_in_not_approved(

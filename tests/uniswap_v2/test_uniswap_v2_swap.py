@@ -173,7 +173,6 @@ def test_buy_with_slippage_when_you_know_quote_amount(
     assert tx_receipt.status == 1
 
 
-
 def test_buy_with_slippage_when_you_know_quote_amount_tax_supported(
     web3: Web3,
     deployer: str,
