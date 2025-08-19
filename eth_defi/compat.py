@@ -488,12 +488,15 @@ def encode_abi_compat(contract: Contract, fn_name: str, args: list[Any]) -> str:
     :param args: Arguments for the function
     :return: Encoded ABI string
     """
-    # Check if v7 method exists
-    if hasattr(contract, "encode_abi"):
-        return contract.encode_abi(abi_element_identifier=fn_name, args=args)
+
+    # TODO: Web3 v6 can have both encodeABI and encode_abi
+
     # Fall back to v6 method
-    elif hasattr(contract, "encodeABI"):
+    if hasattr(contract, "encodeABI"):
         return contract.encodeABI(fn_name=fn_name, args=args)
+    # Check if v7 method exists
+    elif hasattr(contract, "encode_abi"):
+        return contract.encode_abi(abi_element_identifier=fn_name, args=args)
     else:
         raise AttributeError(f"Contract {contract} has neither encode_abi nor encodeABI methods")
 
