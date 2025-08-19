@@ -427,7 +427,7 @@ def fetch_block_timestamp(web3: Web3, block_number: int) -> datetime.datetime:
     """
     block = web3.eth.get_block(block_number)
     timestamp = convert_jsonrpc_value_to_int(block["timestamp"])
-    time = datetime.datetime.fromtimestamp(timestamp, tz=datetime.timezone.utc)
+    time = datetime.datetime.fromtimestamp(timestamp, tz=None)
     return time
 
 

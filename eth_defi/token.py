@@ -24,6 +24,7 @@ from eth_defi.compat import native_datetime_utc_now
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int, convert_solidity_bytes_to_string
 from eth_defi.event_reader.multicall_batcher import EncodedCall, read_multicall_chunked, EncodedCallResult
 from eth_defi.event_reader.web3factory import Web3Factory
+from eth_defi.provider.named import get_provider_name
 from eth_defi.sqlite_cache import PersistentKeyValueStore
 
 with warnings.catch_warnings():
@@ -39,6 +40,8 @@ from web3.exceptions import BadFunctionCallOutput, ContractLogicError
 from eth_defi.abi import get_deployed_contract
 from eth_defi.deploy import deploy_contract
 from eth_defi.utils import sanitise_string
+
+from requests.exceptions import ReadTimeout
 
 
 logger = logging.getLogger(__name__)
@@ -688,6 +691,11 @@ def fetch_erc20_details(
 
     try:
         symbol = sanitise_string(erc_20.functions.symbol().call()[0:max_str_length])
+    except ReadTimeout as e:
+        # Handle this specially because Anvil is piece of hanging shit
+        # and we need to manually clean up these all the time
+        provider_name = get_provider_name(web3.provider)
+        raise TokenDetailError(f"Token {token_address} timeout reading on chain {chain_id}: {e}, provider {provider_name}") from e
     except _call_missing_exceptions as e:
         if raise_on_error:
             raise TokenDetailError(f"Token {token_address} missing symbol on chain {chain_id}: {e}") from e
