@@ -114,7 +114,7 @@ With `pip`:
 ```shell
 pip install "web3-ethereum-defi[data]"
 ```
-**N.B.** From relase `0.4` this project will use `v7` of `web3py` to keep using it with `v6` after the above setp run the following step as well.
+**N.B.** From relase `0.32` this project will use `v7` of `web3py`. To keep using it with `v6` after the above setup run the following step as well.
 
 ```shell
 pip install "web3-ethereum-defi[web3v6]"
@@ -122,14 +122,15 @@ pip install "web3-ethereum-defi[web3v6]"
 
 With `poetry`:
 
-[//]: # (**N.B.** Currently poetry version `1.8.5` works perfectly. Poetry `>= 2` will be stuck in an infinite loop )
+<!-- This issue seems to be fixed now -->
+<!-- [//]: # (**N.B.** Currently poetry version `1.8.5` works perfectly. Poetry `>= 2` will be stuck in an infinite loop ) -->
 
 ```shell
 # Poetry version to use the latest web3py v7
 poetry add -E data web3-ethereum-defi
 
 # for web3py v6 
-TODO
+poetry add -E web3v6 web3-ethereum-defi
 ```
 
 With `poetry` - master Git branch: 
