@@ -151,11 +151,12 @@ def swap_with_slippage_protection(
         path = [quote_token.address, intermediate_token.address, base_token.address]
 
     logger.info(
-        "swap_with_slippage_protection()\npath: %s\nmax_slippage: %s (BPS)\nfee: %s\ndeadline: %s",
+        "swap_with_slippage_protection()\npath: %s\nmax_slippage: %s (BPS)\nfee: %s deadline: %s support_token_tax: %s",
         path,
         max_slippage,
         fee,
         deadline,
+        support_token_tax,
     )
 
     if amount_in:
