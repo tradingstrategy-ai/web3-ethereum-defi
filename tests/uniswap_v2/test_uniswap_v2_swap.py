@@ -332,7 +332,7 @@ def test_buy_with_slippage_when_you_know_base_amount(
     hw_address = hot_wallet.address
 
     # Give hot wallet some USDC to buy ETH (also some ETH as well to send tx)
-    tx_hash =  web3.eth.send_transaction({"from": deployer, "to": hw_address, "value": 1 * 10**18})
+    tx_hash = web3.eth.send_transaction({"from": deployer, "to": hw_address, "value": 1 * 10**18})
     assert_transaction_success_with_explanation(web3, tx_hash)
     max_usdc_amount = 500 * 10**18
     tx_hash = usdc.functions.transfer(hw_address, max_usdc_amount).transact({"from": deployer})

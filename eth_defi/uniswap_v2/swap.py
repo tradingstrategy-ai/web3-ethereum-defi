@@ -213,7 +213,6 @@ def swap_with_slippage_protection(
 
         assert not support_token_tax, f"Token tax swaps are not supported with amount_out estimations"
 
-
         # return function.swapTokensForExactTokens(
         #     amount_out,
         #     estimated_max_amount_in,

@@ -37,6 +37,7 @@ with warnings.catch_warnings():
         class TransactionFailed(Exception):
             pass
 
+
 from eth_typing import HexAddress
 from web3 import Web3
 from web3.contract import Contract

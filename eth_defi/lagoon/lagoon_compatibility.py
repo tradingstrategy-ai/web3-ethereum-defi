@@ -152,10 +152,9 @@ class LagoonTokenCheckDatabase:
         data = []
 
         for entry in self.report_by_token.values():
-
             revert_reason = entry.revert_reason
             if revert_reason:
-                revert_reason = '\n'.join(textwrap.wrap(revert_reason, width=max_cell_width))
+                revert_reason = "\n".join(textwrap.wrap(revert_reason, width=max_cell_width))
 
             data.append(
                 {
@@ -304,7 +303,6 @@ def check_compatibility(
 
     # Attempt to buy
     if not revert_reason:
-
         buy_block_number = web3.eth.block_number
 
         estimate_buy_received = estimate_buy_received_amount_raw(
