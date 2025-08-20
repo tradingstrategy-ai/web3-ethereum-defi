@@ -216,7 +216,7 @@ def swap_with_slippage_protection(
         else:
             function = router.functions.swapExactTokensForTokens
 
-        return function.swapTokensForExactTokens(
+        return function(
             amount_out,
             estimated_max_amount_in,
             path,
