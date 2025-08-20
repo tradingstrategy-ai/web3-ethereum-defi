@@ -284,9 +284,6 @@ def check_compatibility(
         #
         # Start buy preparation
         #
-
-        buy_block_number = web3.eth.block_number
-
         func = quote_token.approve(
             uniswap_v2.router.address,
             quote_token_buy_amount,
@@ -301,6 +298,9 @@ def check_compatibility(
 
     # Attempt to buy
     if not revert_reason:
+
+        buy_block_number = web3.eth.block_number
+
         estimate_buy_received = estimate_buy_received_amount_raw(
             uniswap_v2,
             base_token_address=base_token.contract.address,
@@ -317,6 +317,7 @@ def check_compatibility(
             recipient_address=safe_address,
             intermediate_token=intermediate_token.contract if intermediate_token else None,
             max_slippage=0.99,
+            support_token_tax=True,
         )
 
         tx_hash, revert_reason = _perform_tx(
@@ -382,6 +383,7 @@ def check_compatibility(
             recipient_address=safe_address,
             intermediate_token=intermediate_token.contract if intermediate_token else None,
             max_slippage=0.99,
+            support_token_tax=True,
         )
 
         tx_hash, revert_reason = _perform_tx(
