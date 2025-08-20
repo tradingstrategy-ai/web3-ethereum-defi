@@ -211,12 +211,18 @@ def swap_with_slippage_protection(
             intermediate_token=intermediate_token,
         )
 
-        if support_token_tax:
-            function = router.functions.swapExactTokensForTokensSupportingFeeOnTransferTokens
-        else:
-            function = router.functions.swapExactTokensForTokens
+        assert not support_token_tax, f"Token tax swaps are not supported with amount_out estimations"
 
-        return function(
+
+        # return function.swapTokensForExactTokens(
+        #     amount_out,
+        #     estimated_max_amount_in,
+        #     path,
+        #     recipient_address,
+        #     deadline,
+        # )
+
+        return router.functions.swapTokensForExactTokens(
             amount_out,
             estimated_max_amount_in,
             path,
