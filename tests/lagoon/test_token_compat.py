@@ -107,7 +107,7 @@ def test_token_compat_full(token_list, tmp_path):
         vault_address=addr("0x21DA913BA04D67af88E9F709022416834AaD8F54"),
         trading_strategy_module_address=addr("0x2Cd65deeb9a2Ef11fbB0a80c0Ffaf9B0C39bf959"),
         asset_manager_address=addr("0xc9EDbb9F5b3f55B7Cc87a8Af6A695f18200E47Af"),
-        fork_block_number=57_446_737,
+        fork_block_number=58_240_350,
     )
     stats = compat_db.calculate_stats()
     pprint(stats)
