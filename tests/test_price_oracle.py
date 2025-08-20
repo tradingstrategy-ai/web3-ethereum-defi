@@ -6,7 +6,7 @@ To run tests in this module:
 
 .. code-block:: shell
 
-    export BNB_CHAIN_JSON_RPC="https://bsc-dataseed.binance.org/"
+    export JSON_RPC_BINANCE="https://bsc-dataseed.binance.org/"
     pytest -k test_price_oracle
 
 """

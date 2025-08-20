@@ -12,6 +12,7 @@ from eth_typing import HexAddress
 
 from eth_defi.lagoon.lagoon_compatibility import check_lagoon_compatibility_with_database
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.trade import TradeSuccess
 from eth_defi.utils import addr
 
 JSON_RPC_BINANCE = os.environ.get("JSON_RPC_BINANCE", None)
@@ -34,27 +35,31 @@ def test_token_compat_single(token_list, tmp_path):
         web3=web3,
         paths=token_list[0:1],
         vault_address=addr("0x21DA913BA04D67af88E9F709022416834AaD8F54"),
-        trading_strategy_module_address=addr("0xe922ECC2596A97C4daB573e2057051022f35023f"),
+        trading_strategy_module_address=addr("0x2Cd65deeb9a2Ef11fbB0a80c0Ffaf9B0C39bf959"),
         asset_manager_address=addr("0xc9EDbb9F5b3f55B7Cc87a8Af6A695f18200E47Af"),
         database_file=database_file,
-        fork_block_number=57_446_737,
+        fork_block_number=58_240_350,
     )
 
     report = next(iter(compat_db.report_by_token.values()))
 
+    # Check details are filled correctly for a single token/route
     assert report.created_at is not None
     assert report.cached is False
     assert report.tokens == ["USDT", "FIST"]
-    assert report.buy_block_number == 57446737
-    assert report.sell_block_number == 57446740
-    assert report.buy_result.price == pytest.approx(Decimal("1.381835"))
-    assert report.buy_real_received == 1381835
-    assert report.estimate_buy_received == 1381142
+    assert report.buy_block_number == 58_240_351
+    assert report.sell_block_number == 58_240_353
+    assert isinstance(report.buy_result, TradeSuccess), f"Trade reverted: {report.buy_result.revert_reason}"
+    assert report.buy_result.price == pytest.approx(Decimal("1.395554"))
 
-    assert report.sell_result.amount_in == 1381835
-    assert report.sell_result.amount_out == 995006197259589201  # Round tripped 50 bips
-    assert report.get_round_trip_cost() == pytest.approx(0.004993802740410799)
+    assert report.buy_real_received == 1395554
+    assert report.estimate_buy_received == 1394855
 
+    assert report.sell_result.amount_in == 1395554
+    assert report.sell_result.amount_out == 995005869237675427  # Round tripped 50 bips
+    assert report.get_round_trip_cost() == pytest.approx(0.004994130762324573)
+
+    # Check we can calculate overall tstats
     stats = compat_db.calculate_stats()
     assert stats["compatible"] == 1
 
@@ -63,10 +68,10 @@ def test_token_compat_single(token_list, tmp_path):
         web3=web3,
         paths=token_list[0:1],
         vault_address=addr("0x21DA913BA04D67af88E9F709022416834AaD8F54"),
-        trading_strategy_module_address=addr("0xe922ECC2596A97C4daB573e2057051022f35023f"),
+        trading_strategy_module_address=addr("0x2Cd65deeb9a2Ef11fbB0a80c0Ffaf9B0C39bf959"),
         asset_manager_address=addr("0xc9EDbb9F5b3f55B7Cc87a8Af6A695f18200E47Af"),
         database_file=database_file,
-        fork_block_number=57_446_737,
+        fork_block_number=58_240_350,
     )
     report = next(iter(compat_db.report_by_token.values()))
     assert report.cached
@@ -100,9 +105,9 @@ def test_token_compat_full(token_list, tmp_path):
         web3=web3,
         paths=token_list,
         vault_address=addr("0x21DA913BA04D67af88E9F709022416834AaD8F54"),
-        trading_strategy_module_address=addr("0xe922ECC2596A97C4daB573e2057051022f35023f"),
+        trading_strategy_module_address=addr("0x2Cd65deeb9a2Ef11fbB0a80c0Ffaf9B0C39bf959"),
         asset_manager_address=addr("0xc9EDbb9F5b3f55B7Cc87a8Af6A695f18200E47Af"),
-        fork_block_number=57_446_737,
+        fork_block_number=58_240_350,
     )
     stats = compat_db.calculate_stats()
     pprint(stats)

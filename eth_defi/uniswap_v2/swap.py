@@ -1,7 +1,10 @@
-"""Uniswap v2 swap helper functions."""
+"""Uniswap v2 token swap API.
+
+- Safe Python functions to perform Uniswap swaps
+"""
 
 import warnings
-from typing import Callable, Optional
+from typing import Optional
 import logging
 
 from eth_typing import HexAddress
@@ -123,6 +126,9 @@ def swap_with_slippage_protection(
     :param deadline:
         Time limit of the swap transaction, by default = forever (no deadline)
 
+    :param support_token_tax:
+        Use `swapExactTokensForTokensSupportingFeeOnTransferTokens` from Uniswap Router02.
+
     :return:
         Bound ContractFunction that can be used to build a transaction
     """
@@ -204,6 +210,16 @@ def swap_with_slippage_protection(
             fee=fee,
             intermediate_token=intermediate_token,
         )
+
+        assert not support_token_tax, f"Token tax swaps are not supported with amount_out estimations"
+
+        # return function.swapTokensForExactTokens(
+        #     amount_out,
+        #     estimated_max_amount_in,
+        #     path,
+        #     recipient_address,
+        #     deadline,
+        # )
 
         return router.functions.swapTokensForExactTokens(
             amount_out,

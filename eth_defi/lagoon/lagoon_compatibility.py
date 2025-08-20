@@ -3,13 +3,14 @@
 import datetime
 import logging
 import pickle
+import textwrap
 from dataclasses import dataclass, field
 from decimal import Decimal
 from pathlib import Path
 from statistics import mean
 
 from web3 import Web3
-
+from web3.contract.contract import ContractFunction
 from eth_typing import HexAddress
 
 from tqdm_loggable.auto import tqdm
@@ -28,10 +29,9 @@ from eth_defi.uniswap_v2.deployment import UniswapV2Deployment, fetch_deployment
 from eth_defi.uniswap_v2.fees import estimate_buy_received_amount_raw, estimate_sell_received_amount_raw
 from eth_defi.uniswap_v2.liquidity import get_liquidity
 from eth_defi.uniswap_v2.swap import swap_with_slippage_protection
-from web3.contract.contract import ContractFunction
 from eth_defi.vault.base import VaultSpec
-
 from eth_defi.velvet.analysis import analyse_trade_by_receipt_generic
+
 
 logger = logging.getLogger(__name__)
 
@@ -100,11 +100,11 @@ class LagoonTokenCompatibilityData:
 
     def is_buy_success(self) -> bool:
         """Was the buy operation successful?"""
-        return self.buy_result is not None
+        return isinstance(self.buy_result, TradeSuccess)
 
     def is_sell_success(self) -> bool:
         """Was the sell operation successful?"""
-        return self.sell_result is not None
+        return isinstance(self.sell_result, TradeSuccess)
 
     def get_round_trip_cost(self) -> float | None:
         """Get round trip cost in percents.
@@ -147,10 +147,15 @@ class LagoonTokenCheckDatabase:
         }
         return stats
 
-    def get_diagnostics(self) -> list[dict]:
+    def get_diagnostics(self, max_cell_width=30) -> list[dict]:
         """Prepare table output for manual output."""
         data = []
+
         for entry in self.report_by_token.values():
+            revert_reason = entry.revert_reason
+            if revert_reason:
+                revert_reason = "\n".join(textwrap.wrap(revert_reason, width=max_cell_width))
+
             data.append(
                 {
                     "base": entry.get_base_token_symbol(),
@@ -160,7 +165,7 @@ class LagoonTokenCheckDatabase:
                     "liquidity": "yes" if entry.has_liquidity() else "no",
                     "buy": "yes" if entry.is_buy_success() else "no",
                     "sell": "yes" if entry.is_sell_success() else "no",
-                    "reason": entry.revert_reason[0:40] if entry.revert_reason else "-",
+                    "reason": revert_reason if revert_reason else "-",
                     "cost": entry.get_round_trip_cost(),
                     "stablecoin_quoted": "yes" if entry.is_stablecoin_quoted() else "no",
                 }
@@ -284,9 +289,6 @@ def check_compatibility(
         #
         # Start buy preparation
         #
-
-        buy_block_number = web3.eth.block_number
-
         func = quote_token.approve(
             uniswap_v2.router.address,
             quote_token_buy_amount,
@@ -301,6 +303,8 @@ def check_compatibility(
 
     # Attempt to buy
     if not revert_reason:
+        buy_block_number = web3.eth.block_number
+
         estimate_buy_received = estimate_buy_received_amount_raw(
             uniswap_v2,
             base_token_address=base_token.contract.address,
@@ -317,6 +321,7 @@ def check_compatibility(
             recipient_address=safe_address,
             intermediate_token=intermediate_token.contract if intermediate_token else None,
             max_slippage=0.99,
+            support_token_tax=True,
         )
 
         tx_hash, revert_reason = _perform_tx(
@@ -382,6 +387,7 @@ def check_compatibility(
             recipient_address=safe_address,
             intermediate_token=intermediate_token.contract if intermediate_token else None,
             max_slippage=0.99,
+            support_token_tax=True,
         )
 
         tx_hash, revert_reason = _perform_tx(

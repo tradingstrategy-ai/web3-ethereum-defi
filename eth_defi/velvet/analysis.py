@@ -98,11 +98,8 @@ def analyse_trade_by_receipt_generic(
     transfer_events = [evt for evt in transfer_events if evt["args"]["value"] != 0]
 
     if len(transfer_events) < 2:
-        return TradeFail(
-            gas_used,
-            effective_gas_price,
-            revert_reason=f"analyse_trade_by_receipt_generic() needs at least 2 transfer events, got {len(transfer_events)}",
-        )
+        tx = web3.eth.get_transaction(tx_hash)
+        return TradeFail(gas_used, effective_gas_price, revert_reason=f"analyse_trade_by_receipt_generic() needs at least 2 transfer events\nGot {len(transfer_events)}, the transaction status was {tx_receipt['status']}, tx hash: {tx_hash.hex()}\nto: {tx['to']}, input: {tx['input'].hex()}\nPotential reason: to contract does not exist")
 
     first_transfer_event = transfer_events[0]
     last_transfer_event = transfer_events[-1]

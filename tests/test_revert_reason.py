@@ -6,7 +6,7 @@ To run tests in this module:
 
 .. code-block:: shell
 
-    export BNB_CHAIN_JSON_RPC="https://bsc-dataseed.binance.org/"
+    export JSON_RPC_BINANCE="https://bsc-dataseed.binance.org/"
     pytest -k test_revert_reason
 
 """
@@ -31,8 +31,8 @@ from eth_defi.token import fetch_erc20_details
 
 # https://docs.pytest.org/en/latest/how-to/skipping.html#skip-all-test-functions-of-a-class-or-module
 pytestmark = pytest.mark.skipif(
-    (os.environ.get("BNB_CHAIN_JSON_RPC") is None) or (shutil.which("anvil") is None),
-    reason="Set BNB_CHAIN_JSON_RPC env install anvil command to run these tests",
+    (os.environ.get("JSON_RPC_BINANCE") is None) or (shutil.which("anvil") is None),
+    reason="Set JSON_RPC_BINANCE env install anvil command to run these tests",
 )
 
 
@@ -69,7 +69,7 @@ def anvil_bnb_chain_fork(request, large_busd_holder) -> str:
 
     :return: JSON-RPC URL for Web3
     """
-    mainnet_rpc = os.environ["BNB_CHAIN_JSON_RPC"]
+    mainnet_rpc = os.environ["JSON_RPC_BINANCE"]
     launch = fork_network_anvil(
         mainnet_rpc,
         unlocked_addresses=[large_busd_holder],
