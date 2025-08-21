@@ -1,6 +1,8 @@
 """Scan all supported HyperSync chains for potential breached EIP-1967 proxies.
 
 - See the Twitter thread for details https://x.com/moo9000/status/1958473690997236025
+- Resumable scanner that keeps scanning breaches proxies across all EVM chains
+-
 
 Some notes:
 
@@ -49,9 +51,11 @@ INITIALIZED_SIGNATURES = [
 
 @dataclass(slots=True)
 class SpottedEvent:
+    """One Initialized() event"""
     block_number: int
     block_timestamp: datetime.datetime
     tx_hash: str
+    from_address: str
 
 
 @dataclass(slots=True)
@@ -78,6 +82,15 @@ class Lead:
 
         if len(events) < 2:
             return False
+
+        seen_tx_hashes = set()
+        filtered_events = []
+        # Check for Initialized() twice in the same tx
+        for event in events:
+            if event.tx_hash in seen_tx_hashes:
+                continue
+            seen_tx_hashes.add(event.tx_hash)
+            filtered_events.append(event)
 
         double_init_window = events[1].block_timestamp - events[0].block_timestamp
         return double_init_window <= threshold
@@ -254,9 +267,10 @@ async def refresh_chain(
 
         last_synced = res.archive_height
 
-    interesting_leads = {k: v for k, v in leads.items() if len(v.events) > 0}
+    # Only save contracts that have seen at least two Initialized() events
+    interesting_leads = {k: v for k, v in leads.items() if len(v.events) >= 2}
 
-    logger.info("Total %d leads in this iteration", len(interesting_leads))
+    logger.info("Total %d double init leads in this iteration", len(interesting_leads))
 
     chain_state.leads.update(interesting_leads)
 
@@ -287,7 +301,8 @@ def scan_all_chains(
 
         chain_state = world_state.chain_states.get(chain_id, ChainState(chain_id=chain_id))
 
-        # Don't leak async colored interface, as it is an implementation detail
+        # HyperSync client is written in Rust, and wants us to force to use async functions.
+        # Encapsulate the madness here, we are not JavaScript.
         async def _hypersync_asyncio_wrapper() -> ChainState:
             return await refresh_chain(
                 client,
