@@ -310,16 +310,16 @@ def scan_all_chains(
             logger.info(f"No potential breaches found on {chain_name} chain.")
 
         # Because this is long running op, sync the state file between chains.
-        # Do atomic replacement so CTRL+C does not mess the file
+        # Do atomic replacement so CTRL+C does not mess the file.
+        # Allows us to continue scanning where our computer shut down.
         with tempfile.NamedTemporaryFile(
             mode="wb",
             dir=state_file.parent,
             suffix=".pickle",
             delete=False,
         ) as tmp:
-            # Initialize ParquetWriter with the schema
             temp_fname = tmp.name
-            with temp_fname.open("wb") as f:
+            with open(temp_fname, "wb") as f:
                 pickle.dump(world_state, f)
             os.replace(temp_fname, state_file)
 
