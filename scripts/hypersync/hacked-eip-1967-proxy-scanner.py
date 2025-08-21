@@ -6,10 +6,13 @@ Some notes:
 
 - Initialized() event may be used by some account abstracted wallets so we get a lot of events for some chains (Abstract
 """
+
 import csv
 import logging
 import asyncio
+import os
 import pickle
+import tempfile
 from dataclasses import dataclass, field
 import datetime
 from pathlib import Path
@@ -80,9 +83,10 @@ class Lead:
         return double_init_window <= threshold
 
 
-@dataclass
+@dataclass(slots=True)
 class ChainState:
     """Store scanned last block and leads for a specific chain."""
+
     #: Which chain this state is for
     chain_id: int
 
@@ -98,28 +102,21 @@ class ChainState:
         :return:
             Human readable table
         """
-        breaches = [
-            lead for lead in self.leads.values()
-            if lead.is_likely_breach(threshold)
-        ]
+        breaches = [lead for lead in self.leads.values() if lead.is_likely_breach(threshold)]
 
         data = []
         for breach in breaches:
-
             if with_chain:
-                entry = {
-                    "Chain": breach.chain_name,
-                    "Chain id": breach.chain_id
-                }
+                entry = {"Chain": breach.chain_name, "Chain id": breach.chain_id}
             else:
                 entry = {}
 
             entry.update(
                 {
                     "Address": breach.address,
-                    "First Event": breach.events[0].block_timestamp,
-                    "Second Event": breach.events[1].block_timestamp,
-                    "First tx": breach.events[0].tx_hash,
+                    "1st timestamp": breach.events[0].block_timestamp,
+                    "2nd timestamp": breach.events[1].block_timestamp,
+                    "1st tx": breach.events[0].tx_hash,
                 }
             )
             data.append(entry)
@@ -129,12 +126,12 @@ class ChainState:
 @dataclass(slots=True)
 class EVMWorldScanner:
     """Store the state for all chains."""
+
     chain_states: dict[int, ChainState] = field(default_factory=dict)
 
 
 def create_update_query(chain_state: ChainState):
     """Create a query that updates the last scanned chain state."""
-
 
     sigs = [Web3.keccak(text=s).hex() for s in INITIALIZED_SIGNATURES]
 
@@ -209,7 +206,6 @@ async def refresh_chain(
         current_block = res.next_block
 
         if res.data.logs:
-
             # HyperSync response has two parts:
             # Block: block timestamps
             # Logs: Logs in the query batch
@@ -285,7 +281,6 @@ def scan_all_chains(
     supported_chains = HYPERSYNC_SERVES
 
     for chain_id, hypersync_data in supported_chains.items():
-
         hypersync_url = hypersync_data["URL"].split(" ")[0]
         chain_name = hypersync_data["Network Name"]
         client = hypersync.HypersyncClient(hypersync.ClientConfig(url=hypersync_url))
@@ -314,9 +309,19 @@ def scan_all_chains(
         else:
             logger.info(f"No potential breaches found on {chain_name} chain.")
 
-        # Because this is long running op, sync the state file between chains
-        with state_file.open("wb") as f:
-            pickle.dump(world_state, f)
+        # Because this is long running op, sync the state file between chains.
+        # Do atomic replacement so CTRL+C does not mess the file
+        with tempfile.NamedTemporaryFile(
+            mode="wb",
+            dir=state_file.parent,
+            suffix=".pickle",
+            delete=False,
+        ) as tmp:
+            # Initialize ParquetWriter with the schema
+            temp_fname = tmp.name
+            with temp_fname.open("wb") as f:
+                pickle.dump(world_state, f)
+            os.replace(temp_fname, state_file)
 
 
 def main():
@@ -349,7 +354,7 @@ def main():
     writer.writeheader()
     writer.writerows(data)
 
-    print("All ok")
+    print(f"All ok, seeing total {len(data)} potential double inits across all chains currently")
 
 
 if __name__ == "__main__":
