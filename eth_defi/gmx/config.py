@@ -101,10 +101,51 @@ from typing import Optional, Any, Union
 from web3 import Web3
 
 from eth_defi.chain import get_chain_name
-from gmx_python_sdk.scripts.v2.gmx_utils import ConfigManager
 from eth_defi.basewallet import BaseWallet
 from eth_defi.gmx.wallet_adapter_signer import WalletAdapterSigner
 from eth_defi.hotwallet import HotWallet
+
+
+class GMXConfigManager:
+    """
+    GMX protocol configuration manager.
+
+    Manages configuration parameters for GMX protocol operations including
+    blockchain network details, wallet integration, and RPC connectivity.
+    The address is automatically extracted from the wallet during initialization.
+
+    :ivar chain: Blockchain network name
+    :ivar chain_id: Blockchain network ID
+    :ivar user_wallet_address: Wallet address for operations
+    :ivar wallet: Wallet instance for transaction signing
+    """
+
+    def __init__(
+        self,
+        chain: str,
+        chain_id: int,
+        wallet: Optional[Union[BaseWallet, HotWallet]] = None,
+        web3: Optional[Web3] = None,
+    ):
+        """
+        Initialize configuration manager.
+
+        :param chain: Blockchain network name (e.g., 'arbitrum', 'avalanche')
+        :param chain_id: Blockchain network ID
+        :param wallet: Wallet instance for signing operations
+        :param web3: Web3 instance for signer creation
+        """
+        self.chain = chain
+        self.chain_id = chain_id
+        self.wallet = wallet
+        self.web3 = web3
+
+        # Address is set automatically from wallet
+        self.user_wallet_address = wallet.get_main_address() if wallet else None
+
+        # Interface compatibility
+        self.private_key = None
+        self._signer = WalletAdapterSigner(wallet, web3) if wallet and web3 else None
 
 
 class GMXConfig:
@@ -158,7 +199,6 @@ class GMXConfig:
         web3: Web3,
         wallet: Optional[Union[BaseWallet, HotWallet]] = None,
         user_wallet_address: Optional[str] = None,
-        private_key: Optional[str] = None,
     ):
         """
         Initialize production GMX configuration with automatic network detection and secure wallet integration.
@@ -205,11 +245,6 @@ class GMXConfig:
             addresses are automatically derived from wallet implementations or
             the configuration operates in read-only mode
         :type user_wallet_address: Optional[str]
-        :param private_key:
-            Optional private key for backward compatibility with legacy systems.
-            Automatically creates secure HotWallet implementations when provided
-            without explicit wallet objects
-        :type private_key: Optional[str]
         :raises AssertionError:
             When the Web3 connection targets an unsupported blockchain network
             or automatic network detection fails due to connectivity issues
@@ -223,21 +258,6 @@ class GMXConfig:
 
         self._wallet = wallet
 
-        # For backward compatibility
-        self._private_key = private_key
-
-        # Create a HotWallet if private_key is provided but no wallet
-        if private_key and not wallet:
-            from eth_account import Account
-
-            account = Account.from_key(private_key)
-            self._wallet = HotWallet(account)
-            self._wallet.sync_nonce(web3)
-
-            # If no user_wallet_address is provided, derive it from the created wallet
-            if not user_wallet_address:
-                user_wallet_address = self._wallet.get_main_address()
-
         # Get the wallet address either from the provided address or the wallet
         if wallet and not user_wallet_address:
             user_wallet_address = wallet.get_main_address()
@@ -248,29 +268,23 @@ class GMXConfig:
         if hasattr(web3.provider, "endpoint_uri"):
             self._rpc_url = web3.provider.endpoint_uri
 
-        # Create base config dictionary without private key
-        self._base_config_dict = {
-            # "rpcs": {chain: self._rpc_url},
-            "chain_ids": {chain: web3.eth.chain_id},
-            "user_wallet_address": user_wallet_address,
-        }
-
-        # Initialize a read-only ConfigManager instance (no private key)
-        self._read_config = ConfigManager(chain=chain, chain_id=web3.eth.chain_id, user_wallet_address=user_wallet_address, config=self._base_config_dict, rpc=self.web3.provider.endpoint_uri)
+        # Initialize a read-only configuration manager
+        self._read_config = GMXConfigManager(
+            chain=chain,
+            chain_id=web3.eth.chain_id,
+            wallet=None,  # Read-only, no wallet
+            web3=web3,
+        )
+        # Set user wallet address manually for read config
+        self._read_config.user_wallet_address = user_wallet_address
 
         # Only initialize a write config if we have a wallet
         self._write_config = None
         if wallet:
-            # Create a ConfigManager for write operations
-            # We do NOT pass private key directly - instead we'll create a custom signer
+            # Create a configuration manager for write operations
             self._write_config = self._create_write_config()
-        elif private_key:
-            # For backward compatibility
-            write_config_dict = self._base_config_dict.copy()
-            write_config_dict["private_key"] = private_key
-            self._write_config = ConfigManager(chain=chain, chain_id=web3.eth.chain_id, user_wallet_address=user_wallet_address, private_key=private_key, config=write_config_dict, rpc=self.web3.provider.endpoint_uri)
 
-    def _create_write_config(self) -> ConfigManager:
+    def _create_write_config(self) -> GMXConfigManager:
         """
         Create production-grade ConfigManager with secure transaction signing capabilities.
 
@@ -294,26 +308,20 @@ class GMXConfig:
         failures could have significant operational and financial consequences.
 
         :return:
-            ConfigManager instance configured with secure wallet-based signing
+            GMXConfigManager instance configured with secure wallet-based signing
             through production-tested adapter interfaces
-        :rtype: ConfigManager
+        :rtype: GMXConfigManager
         """
-        # Create a copy of the base config
-        write_config_dict = self._base_config_dict.copy()
-
-        # Create the unified adapter for any wallet type
-        adapter_signer = WalletAdapterSigner(self._wallet, self.web3)
-
         # Ensure wallet nonce is synced with blockchain if it supports it
         if hasattr(self._wallet, "sync_nonce"):
             self._wallet.sync_nonce(self.web3)
 
-        # Create ConfigManager with the adapter signer
-        config_manager = ConfigManager(chain=self.chain, chain_id=self.web3.eth.chain_id, user_wallet_address=self._user_wallet_address, config=write_config_dict, signer=adapter_signer, rpc=self.web3.provider.endpoint_uri)
+        # Create configuration manager with wallet
+        config_manager = GMXConfigManager(chain=self.chain, chain_id=self.web3.eth.chain_id, wallet=self._wallet, web3=self.web3)
 
         return config_manager
 
-    def get_read_config(self) -> ConfigManager:
+    def get_read_config(self) -> GMXConfigManager:
         """
         Provide production-safe read-only configuration for data access operations.
 
@@ -338,13 +346,13 @@ class GMXConfig:
         analysis in production environments.
 
         :return:
-            ConfigManager instance configured for safe read-only operations
+            GMXConfigManager instance configured for safe read-only operations
             with comprehensive data access but no transaction capabilities
-        :rtype: ConfigManager
+        :rtype: GMXConfigManager
         """
         return self._read_config
 
-    def get_write_config(self) -> ConfigManager:
+    def get_write_config(self) -> GMXConfigManager:
         """
         Provide production-grade write-enabled configuration for transaction operations.
 
@@ -369,9 +377,9 @@ class GMXConfig:
         financial consequences.
 
         :return:
-            ConfigManager instance configured with secure transaction signing
+            GMXConfigManager instance configured with secure transaction signing
             capabilities suitable for production financial operations
-        :rtype: ConfigManager
+        :rtype: GMXConfigManager
         :raises ValueError:
             When the configuration was initialized without wallet credentials,
             preventing transaction operations and ensuring fail-safe behavior
@@ -408,7 +416,7 @@ class GMXConfig:
             read-only data access functionality
         :rtype: bool
         """
-        return self._write_config is not None and (self._wallet is not None or self._private_key is not None)
+        return self._write_config is not None and self._wallet is not None
 
     def get_chain(self) -> str:
         """
@@ -483,66 +491,16 @@ class GMXConfig:
         }
 
     @classmethod
-    def from_private_key(cls, web3: Web3, private_key: str, chain: str = "arbitrum"):
+    def from_private_key(cls, web3: Web3, private_key: str):
         """
-        Create production GMX configuration using legacy private key initialization pattern.
+        Create GMX configuration from private key by creating a HotWallet.
 
-        This class method provides a streamlined initialization pattern for
-        backward compatibility with existing systems while automatically
-        implementing modern security and reliability improvements. It creates
-        appropriate wallet abstractions and ensures proper operational setup
-        for production environments.
+        This convenience method creates a HotWallet from the private key
+        and initializes the configuration with it.
 
-        **Legacy Compatibility Strategy:**
-
-        The method automatically creates secure HotWallet instances from private
-        keys while implementing modern security patterns and operational reliability
-        improvements. This enables legacy systems to benefit from architectural
-        improvements without requiring code changes.
-
-        **Production Migration Path:**
-
-        While this method maintains compatibility with existing systems, new
-        implementations should prefer explicit wallet instantiation for better
-        security control and operational flexibility in production environments.
-
-        Example:
-
-        .. code-block:: python
-
-            # Legacy-compatible production initialization
-            config = GMXConfig.from_private_key(
-                web3=web3,
-                private_key="0x1234567890abcdef...",
-                chain="arbitrum",
-            )
-
-            # Modern production equivalent with explicit security control
-            wallet = HotWallet.from_private_key("0x1234567890abcdef...")
-            modern_config = GMXConfig(web3=web3, wallet=wallet)
-
-            # Both approaches provide identical production capabilities
-            assert config.has_write_capability()
-            assert modern_config.has_write_capability()
-
-        :param web3:
-            Web3 instance connected to the target blockchain network with
-            reliable connectivity for production operation
-        :type web3: Web3
-        :param private_key:
-            Private key for secure wallet creation and transaction signing.
-            Must be provided in proper hexadecimal format with secure handling
-        :type private_key: str
-        :param chain:
-            Optional network identifier for compatibility validation. When
-            provided, validates consistency with automatic network detection
-            to ensure operational reliability
-        :type chain: str
-        :return:
-            Fully configured GMXConfig instance with transaction signing
-            capabilities through secure HotWallet implementation suitable
-            for production deployment
-        :rtype: GMXConfig
+        :param web3: Web3 instance connected to the blockchain network
+        :param private_key: Private key in hexadecimal format
+        :return: GMXConfig instance with HotWallet
         """
         from eth_account import Account
 
