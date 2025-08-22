@@ -793,7 +793,7 @@ def deploy_automated_lagoon_vault(
     any_asset: bool = False,
     etherscan_api_key: str = None,
     use_forge=False,
-    between_contracts_delay_seconds=10.0,
+    between_contracts_delay_seconds=45.0,
     erc_4626_vaults: list[ERC4626Vault] | None = None,
     guard_only: bool = False,
     existing_vault_address: HexAddress | str | None = None,
