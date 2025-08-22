@@ -939,7 +939,7 @@ class MultiprocessMulticallReader:
                    ("intrinsic gas too high" in parsed_error) or \
                    ("incorrect response body" in parsed_error) or \
                    isinstance(e, ProbablyNodeHasNoBlock) or \
-                   (isinstance(e, HTTPError) and e.response.status_code == 500)
+                   (isinstance(e, HTTPError) and e.response.status_code == 500):
                     raise MulticallRetryable(error_msg) from e
                 # fmt: on
                 else:
