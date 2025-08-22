@@ -910,8 +910,6 @@ class MultiprocessMulticallReader:
                 # Perform multicall
                 received_block_number, received_block_hash, batch_results = bound_func.call(tx, block_identifier=block_identifier)
             except (ValueError, ProbablyNodeHasNoBlock, HTTPError) as e:
-
-
                 debug_data = format_debug_instructions(bound_func, block_identifier=block_identifier)
                 headers = get_last_headers()
                 name = get_provider_name(self.web3.provider)
