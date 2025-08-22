@@ -22,6 +22,7 @@ from web3.contract.contract import ContractFunction
 
 from eth_defi.compat import WEB3_PY_V7
 from eth_defi.gas import apply_gas, estimate_gas_fees, estimate_gas_price
+from eth_defi.provider.named import get_provider_name
 from eth_defi.tx import decode_signed_transaction
 from eth_defi.middleware import construct_sign_and_send_raw_middleware_anvil
 from eth_defi.tx import decode_signed_transaction, get_tx_broadcast_data
@@ -192,7 +193,11 @@ class HotWallet:
 
     def sync_nonce(self, web3: Web3):
         """Initialise the current nonce from the on-chain data."""
-        self.current_nonce = web3.eth.get_transaction_count(self.account.address)
+        new_nonce = web3.eth.get_transaction_count(self.account.address)
+        if self.current_nonce:
+            provider_name = get_provider_name(web3.provider)
+            assert new_nonce >= self.current_nonce, f"Nonce sync failed, read onchain nonce that is older than our current nonce: {self.current_nonce} < {new_nonce}. This may happen if you have not broadcasted the last transaction yet or if the node {provider_name} is crappy."
+        self.current_nonce = new_nonce
         logger.info("Synced nonce for %s to %d", self.account.address, self.current_nonce)
 
     def allocate_nonce(self) -> int:
