@@ -195,8 +195,11 @@ class HotWallet:
         """Initialise the current nonce from the on-chain data."""
         new_nonce = web3.eth.get_transaction_count(self.account.address)
         if self.current_nonce:
+            # Handle Alchemy sending us back old nonce
             provider_name = get_provider_name(web3.provider)
-            assert new_nonce >= self.current_nonce, f"Nonce sync failed, read onchain nonce that is older than our current nonce: {self.current_nonce} < {new_nonce}. This may happen if you have not broadcasted the last transaction yet or if the node {provider_name} is crappy."
+            if new_nonce < self.current_nonce:
+                logger.warning(f"Nonce sync failed, read onchain nonce {new_nonce} that is older than our current nonce: {self.current_nonce}. This may happen if you have not broadcasted the last transaction yet or if the node {provider_name} is crappy.")
+                return
         self.current_nonce = new_nonce
         logger.info("Synced nonce for %s to %d", self.account.address, self.current_nonce)
 
