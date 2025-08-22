@@ -17,6 +17,7 @@ import datetime
 import logging
 import os
 import threading
+import time
 import zlib
 
 from abc import abstractmethod
@@ -800,6 +801,7 @@ class MultiprocessMulticallReader:
         web3factory: Web3Factory | Web3,
         batch_size=40,
         backswitch_threshold=100,
+        too_many_requets_sleep=60.0,
     ):
         """Create subprocess worker instance.
 
@@ -837,6 +839,8 @@ class MultiprocessMulticallReader:
 
         #: Try to switch back from the fallback provider to the main provider after this many calls.
         self.backswitch_threshold = backswitch_threshold
+
+        self.too_many_requets_sleep = too_many_requets_sleep
 
     def __repr__(self):
         return f"<MultiprocessMulticallReader process: {os.getpid()}, thread: {threading.current_thread()}, chain: {self.web3.eth.chain_id}>"
@@ -906,6 +910,8 @@ class MultiprocessMulticallReader:
                 # Perform multicall
                 received_block_number, received_block_hash, batch_results = bound_func.call(tx, block_identifier=block_identifier)
             except (ValueError, ProbablyNodeHasNoBlock, HTTPError) as e:
+
+
                 debug_data = format_debug_instructions(bound_func, block_identifier=block_identifier)
                 headers = get_last_headers()
                 name = get_provider_name(self.web3.provider)
@@ -914,6 +920,13 @@ class MultiprocessMulticallReader:
                 addresses = [t[0] for t in batch_calls]
                 error_msg = f"Multicall failed for chain {chain_id}, block {block_identifier}, batch size: {len(batch_calls)}: {e}.\nUsing provider: {self.web3.provider.__class__}: {name}\nHTTP reply headers: {pformat(headers)}\nTo simulate:\n{debug_data}\nAddresses: {addresses}"
                 parsed_error = str(e)
+
+                if isinstance(e, HTTPError) and e.response.status_code == 429:
+                    # Alchemy throttling us
+                    logger.warning("Received HTTP 429: %s from %s, headers %s, sleeping %s", e, name, pformat(headers), self.too_many_requets_sleep)
+                    time.sleep(self.too_many_requets_sleep)
+                    raise MulticallRetryable(error_msg) from e
+
                 # F*cking hell Ethereum nodes, what unbearable mess.
                 # Need to maintain crappy retry rules and all node behaviour is totally random
                 # fmt: off
@@ -926,7 +939,7 @@ class MultiprocessMulticallReader:
                    ("intrinsic gas too high" in parsed_error) or \
                    ("incorrect response body" in parsed_error) or \
                    isinstance(e, ProbablyNodeHasNoBlock) or \
-                   (isinstance(e, HTTPError) and e.response.status_code == 500):
+                   (isinstance(e, HTTPError) and e.response.status_code == 500)
                     raise MulticallRetryable(error_msg) from e
                 # fmt: on
                 else:

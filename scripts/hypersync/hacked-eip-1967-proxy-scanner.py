@@ -52,10 +52,12 @@ INITIALIZED_SIGNATURES = [
 @dataclass(slots=True)
 class SpottedEvent:
     """One Initialized() event"""
+
     block_number: int
     block_timestamp: datetime.datetime
     tx_hash: str
-    from_address: str
+
+    # TODO: Add from address
 
 
 @dataclass(slots=True)
