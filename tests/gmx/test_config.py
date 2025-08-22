@@ -21,92 +21,59 @@ def test_init_basic(chain_name, web3_mainnet):
 
     # Check attributes
     assert config.chain == chain_name
-    assert config._wallet is None
     assert config._user_wallet_address is None
     assert config._rpc_url is not None
 
-    # Check configs
-    assert config._read_config is not None
-    assert config._write_config is None
+    # Check configuration
     assert not config.has_write_capability()
+    assert config.get_config() is not None
+    assert config.get_config().chain == chain_name
 
 
-def test_init_with_wallet_address(chain_name, web3_mainnet):
+def test_init_with_wallet_address_only(chain_name, web3_mainnet):
     """Test initialization with wallet address only."""
     wallet_address = "0x1234567890123456789012345678901234567890"
     config = GMXConfig(web3_mainnet, user_wallet_address=wallet_address)
 
     assert config._user_wallet_address == wallet_address
-    assert config._wallet is None
-    assert not config.has_write_capability()
+    assert config.has_write_capability()  # Should have write capability with address
 
 
-def test_init_with_hot_wallet(chain_name, web3_mainnet):
-    """Test initialization with HotWallet."""
-    # Create a hot wallet
-    private_key = "0x1234567890123456789012345678901234567890123456789012345678901234"
-    account = Account.from_key(private_key)
-    wallet = HotWallet(account)
-    wallet.sync_nonce(web3_mainnet)
+def test_init_with_wallet_address(chain_name, web3_mainnet):
+    """Test initialization with wallet address."""
+    wallet_address = "0x1234567890123456789012345678901234567890"
 
-    config = GMXConfig(web3_mainnet, wallet=wallet)
+    config = GMXConfig(web3_mainnet, user_wallet_address=wallet_address)
 
-    assert config._wallet is wallet
-    assert config._user_wallet_address == wallet.address
-    assert config._write_config is not None
+    assert config._user_wallet_address == wallet_address
     assert config.has_write_capability()
+    assert config.get_config().user_wallet_address == wallet_address
 
 
-def test_init_with_mock_provider_wallet(chain_name, web3_mainnet):
-    """Test initialization with a mock wallet that acts like Web3ProviderWallet."""
-    # Create a mock wallet that mimics Web3ProviderWallet
-    mock_wallet = MagicMock(spec=BaseWallet)
-    # Set up the main_address property to return a fixed address
-    mock_wallet.get_main_address.return_value = "0x1234567890123456789012345678901234567890"
-    mock_wallet.current_nonce = 0
+# def test_init_with_mock_provider_wallet(chain_name, web3_mainnet):
+#     """Test initialization with a mock wallet that acts like Web3ProviderWallet."""
+#     # Create a mock wallet that mimics Web3ProviderWallet
+#     mock_wallet = MagicMock(spec=BaseWallet)
+#     # Set up the main_address property to return a fixed address
+#     mock_wallet.get_main_address.return_value = "0x1234567890123456789012345678901234567890"
+#     mock_wallet.current_nonce = 0
 
-    config = GMXConfig(web3_mainnet, wallet=mock_wallet)
+#     config = GMXConfig(web3_mainnet, wallet=mock_wallet)
 
-    assert config._wallet is mock_wallet
-    assert config._user_wallet_address == "0x1234567890123456789012345678901234567890"
-    assert config._write_config is not None
-    assert config.has_write_capability()
-
-
-def test_init_with_wallet_and_address(chain_name, web3_mainnet):
-    """Test initialization with both wallet and explicit address."""
-    # Create a hot wallet
-    private_key = "0x1234567890123456789012345678901234567890123456789012345678901234"
-    account = Account.from_key(private_key)
-    wallet = HotWallet(account)
-    wallet.sync_nonce(web3_mainnet)
-
-    # Use a different address than the wallet's address
-    other_address = "0x9876543210987654321098765432109876543210"
-
-    config = GMXConfig(web3_mainnet, wallet=wallet, user_wallet_address=other_address)
-
-    # The explicitly provided address should be respected, but wallet should still be used for signing
-    assert config._wallet is wallet
-    assert config._user_wallet_address == other_address  # User-provided address is respected
-    assert config._write_config is not None
-    assert config.has_write_capability()
+#     assert config._wallet is mock_wallet
+#     assert config._user_wallet_address == "0x1234567890123456789012345678901234567890"
+#     assert config._write_config is not None
+#     assert config.has_write_capability()
 
 
-def test_from_private_key_legacy_support(chain_name, web3_mainnet):
-    """Test the from_private_key class method for backward compatibility."""
-    private_key = "0x1234567890123456789012345678901234567890123456789012345678901234"
+# def test_init_with_wallet_and_address(chain_name, web3_mainnet):
+#     """Test initialization with both wallet and explicit address."""
+#     # Wallet functionality removed - address is now passed directly
 
-    config = GMXConfig.from_private_key(web3_mainnet, private_key)
 
-    assert config._wallet is not None
-    assert isinstance(config._wallet, HotWallet)
-    assert config._user_wallet_address == config._wallet.address
-    assert config.has_write_capability()
-
-    # Check that write config was properly created
-    write_config = config.get_write_config()
-    assert write_config.chain == chain_name
+# def test_from_private_key_legacy_support(chain_name, web3_mainnet):
+#     """Test the from_private_key class method for backward compatibility."""
+#     # from_private_key method removed - use direct address initialization instead
 
 
 def test_get_read_config(chain_name, web3_mainnet):
@@ -119,47 +86,39 @@ def test_get_read_config(chain_name, web3_mainnet):
     assert isinstance(read_config, GMXConfigManager)
 
 
-def test_get_write_config_with_wallet(chain_name, web3_mainnet):
-    """Test get_write_config method with wallet."""
-    # Create a hot wallet
-    private_key = "0x1234567890123456789012345678901234567890123456789012345678901234"
-    account = Account.from_key(private_key)
-    wallet = HotWallet(account)
-    wallet.sync_nonce(web3_mainnet)
-
-    config = GMXConfig(web3_mainnet, wallet=wallet)
+def test_get_write_config_with_address(chain_name, web3_mainnet):
+    """Test get_write_config method with address."""
+    wallet_address = "0x1234567890123456789012345678901234567890"
+    config = GMXConfig(web3_mainnet, user_wallet_address=wallet_address)
 
     write_config = config.get_write_config()
     assert write_config.chain == chain_name
+    assert write_config.user_wallet_address == wallet_address
+    # No signer should be set as signing is handled separately
+    assert write_config._signer is None
 
-    # The wallet-adapter signer should be set on the ConfigManager
-    assert write_config._signer is not None
 
-
-def test_get_write_config_without_wallet(chain_name, web3_mainnet):
-    """Test get_write_config method without wallet should raise ValueError."""
+def test_get_write_config_without_address(chain_name, web3_mainnet):
+    """Test get_write_config method without address."""
     config = GMXConfig(web3_mainnet)
 
-    with pytest.raises(ValueError) as excinfo:
-        config.get_write_config()
-
-    assert "No wallet provided" in str(excinfo.value)
+    # Should return config without error since no signing is involved
+    write_config = config.get_write_config()
+    assert write_config.chain == chain_name
+    assert write_config.user_wallet_address is None
+    assert write_config._signer is None
 
 
 def test_has_write_capability(chain_name, web3_mainnet):
     """Test has_write_capability method."""
-    # Without wallet
+    # Without address
     config = GMXConfig(web3_mainnet)
     assert not config.has_write_capability()
 
-    # With wallet
-    private_key = "0x1234567890123456789012345678901234567890123456789012345678901234"
-    account = Account.from_key(private_key)
-    wallet = HotWallet(account)
-    wallet.sync_nonce(web3_mainnet)
-
-    config_with_wallet = GMXConfig(web3_mainnet, wallet=wallet)
-    assert config_with_wallet.has_write_capability()
+    # With address
+    wallet_address = "0x1234567890123456789012345678901234567890"
+    config_with_address = GMXConfig(web3_mainnet, user_wallet_address=wallet_address)
+    assert config_with_address.has_write_capability()
 
 
 def test_get_chain(chain_name, web3_mainnet):
@@ -179,14 +138,8 @@ def test_get_wallet_address(chain_name, web3_mainnet):
     config_with_address = GMXConfig(web3_mainnet, user_wallet_address=wallet_address)
     assert config_with_address.get_wallet_address() == wallet_address
 
-    # With wallet
-    private_key = "0x1234567890123456789012345678901234567890123456789012345678901234"
-    account = Account.from_key(private_key)
-    wallet = HotWallet(account)
-    wallet.sync_nonce(web3_mainnet)
 
-    config_with_wallet = GMXConfig(web3_mainnet, wallet=wallet)
-    assert config_with_wallet.get_wallet_address() == wallet.address
+# Wallet functionality removed - only address-based initialization supported
 
 
 def test_get_network_info(chain_name, web3_mainnet):
@@ -201,103 +154,24 @@ def test_get_network_info(chain_name, web3_mainnet):
     assert network_info["chain_id"] == CHAIN_CONFIG[chain_name]["chain_id"]
 
 
-def test_wallet_adapter_signer(chain_name, web3_mainnet):
-    """Test the WalletAdapterSigner works correctly."""
-    # Create a hot wallet with a known private key
-    private_key = "0x1234567890123456789012345678901234567890123456789012345678901234"
-    account = Account.from_key(private_key)
-    wallet = HotWallet(account)
-    wallet.sync_nonce(web3_mainnet)
-
-    # Create config with the wallet
-    config = GMXConfig(web3_mainnet, wallet=wallet)
-
-    # Get the write config with the adapter signer
-    write_config = config.get_write_config()
-
-    # Check that the adapter signer has the correct wallet address
-    assert write_config._signer.get_address() == wallet.address
+# def test_wallet_adapter_signer(chain_name, web3_mainnet):
+#     """Test removed - no signer functionality in configuration anymore."""
+#     # Signer functionality removed - signing handled separately during tx execution
 
 
-def test_private_key_auto_address_derivation(web3_fork, chain_name, anvil_private_key):
-    """Test that from_private_key method sets up the correct wallet address."""
-    # Determine expected address from this private key
-    account = Account.from_key(anvil_private_key)
-    expected_address = account.address
-
-    # Create GMXConfig using from_private_key method
-    config = GMXConfig.from_private_key(web3_fork, anvil_private_key)
-
-    # Check that the wallet was created
-    assert config._wallet is not None
-    assert isinstance(config._wallet, HotWallet)
-
-    # Verify that the address was derived correctly
-    assert config._user_wallet_address is not None
-    assert config._user_wallet_address == expected_address
-    assert config.get_wallet_address() == expected_address
-
-    # Verify write capability
-    assert config.has_write_capability()
-
-    # Check that read and write configs have the correct address
-    assert config.get_read_config().user_wallet_address == expected_address
-    assert config.get_write_config().user_wallet_address == expected_address
+# def test_private_key_auto_address_derivation(web3_fork, chain_name, anvil_private_key):
+#     """Test removed - from_private_key method no longer exists."""
+#     # Use direct address initialization: GMXConfig(web3, user_wallet_address="0x...")
 
 
-def test_private_key_with_explicit_address(web3_fork, chain_name, anvil_private_key):
-    """Test that when wallet and explicit address are provided, the explicit address is used."""
-    # Use an explicit address different from the private key's address
-    explicit_address = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"  # Second anvil address
-
-    # Create wallet from private key
-    from eth_account import Account
-
-    account = Account.from_key(anvil_private_key)
-    wallet = HotWallet(account)
-    wallet.sync_nonce(web3_fork)
-
-    # Create GMXConfig with both wallet and explicit address
-    config = GMXConfig(
-        web3_fork,
-        wallet=wallet,
-        user_wallet_address=explicit_address,
-    )
-
-    # Check that the wallet was created
-    assert config._wallet is not None
-    assert isinstance(config._wallet, HotWallet)
-
-    # Verify that the explicit address is used (not the derived one)
-    assert config._user_wallet_address == explicit_address
-    assert config.get_wallet_address() == explicit_address
-
-    # Verify write capability
-    assert config.has_write_capability()
+# def test_private_key_with_explicit_address(web3_fork, chain_name, anvil_private_key):
+#     """Test removed - wallet functionality no longer exists."""
+#     # Only address-based initialization supported now
 
 
-def test_comparison_with_different_initialization_methods(web3_fork, chain_name, anvil_private_key):
-    """Test that different initialization methods result in consistent addresses."""
-    # Create account and wallet
-    account = Account.from_key(anvil_private_key)
-    wallet = HotWallet(account)
-    wallet.sync_nonce(web3_fork)
-    expected_address = wallet.address
-
-    # Create GMXConfig in three different ways
-    config1 = GMXConfig.from_private_key(web3_fork, anvil_private_key)  # Factory method
-    config2 = GMXConfig(web3_fork, wallet=wallet)  # Wallet only
-    config3 = GMXConfig.from_private_key(web3_fork, anvil_private_key)  # Factory method (again)
-
-    # All three should result in the same address
-    assert config1.get_wallet_address() == expected_address
-    assert config2.get_wallet_address() == expected_address
-    assert config3.get_wallet_address() == expected_address
-
-    # All three should have write capability
-    assert config1.has_write_capability()
-    assert config2.has_write_capability()
-    assert config3.has_write_capability()
+# def test_comparison_with_different_initialization_methods(web3_fork, chain_name, anvil_private_key):
+#     """Test removed - only one initialization method now exists."""
+#     # Only address-based initialization: GMXConfig(web3, user_wallet_address="0x...")
 
 # TODO: Keep the other class tests commented out for now
 # def test_integration_with_trading(web3_fork, chain_name, wallet_with_usdc, anvil_private_key):
@@ -341,31 +215,26 @@ def test_comparison_with_different_initialization_methods(web3_fork, chain_name,
 
 def test_gmx_config_manager_basic():
     """Test GMXConfigManager basic functionality."""
-    config_manager = GMXConfigManager(chain="arbitrum", chain_id=42161, wallet=None, web3=None)
+    config_manager = GMXConfigManager(chain="arbitrum", chain_id=42161, user_wallet_address=None)
 
     assert config_manager.chain == "arbitrum"
     assert config_manager.chain_id == 42161
     assert config_manager.user_wallet_address is None
-    assert config_manager.wallet is None
     assert config_manager.private_key is None
     assert config_manager._signer is None
 
 
-def test_gmx_config_manager_with_wallet(web3_mainnet):
-    """Test GMXConfigManager with wallet."""
-    # Create a hot wallet
-    private_key = "0x1234567890123456789012345678901234567890123456789012345678901234"
-    account = Account.from_key(private_key)
-    wallet = HotWallet(account)
+def test_gmx_config_manager_with_address():
+    """Test GMXConfigManager with user address."""
+    wallet_address = "0x1234567890123456789012345678901234567890"
 
-    config_manager = GMXConfigManager(chain="arbitrum", chain_id=42161, wallet=wallet, web3=web3_mainnet)
+    config_manager = GMXConfigManager(chain="arbitrum", chain_id=42161, user_wallet_address=wallet_address)
 
     assert config_manager.chain == "arbitrum"
     assert config_manager.chain_id == 42161
-    assert config_manager.user_wallet_address == wallet.address
-    assert config_manager.wallet is wallet
+    assert config_manager.user_wallet_address == wallet_address
     assert config_manager.private_key is None
-    assert config_manager._signer is not None
+    assert config_manager._signer is None
 
 
 # def test_config_compatibility_with_gmx_classes(chain_name, web3_mainnet):
