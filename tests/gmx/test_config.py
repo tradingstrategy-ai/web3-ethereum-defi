@@ -5,13 +5,7 @@ This test suite verifies the configuration functionality across different chains
 and with various wallet implementations.
 """
 
-import pytest
-from eth_account import Account
-from unittest.mock import MagicMock
-
 from eth_defi.gmx.config import GMXConfig, GMXConfigManager
-from eth_defi.hotwallet import HotWallet
-from eth_defi.basewallet import BaseWallet
 from tests.gmx.conftest import CHAIN_CONFIG
 
 
@@ -64,16 +58,6 @@ def test_init_with_wallet_address(chain_name, web3_mainnet):
 #     assert config._user_wallet_address == "0x1234567890123456789012345678901234567890"
 #     assert config._write_config is not None
 #     assert config.has_write_capability()
-
-
-# def test_init_with_wallet_and_address(chain_name, web3_mainnet):
-#     """Test initialization with both wallet and explicit address."""
-#     # Wallet functionality removed - address is now passed directly
-
-
-# def test_from_private_key_legacy_support(chain_name, web3_mainnet):
-#     """Test the from_private_key class method for backward compatibility."""
-#     # from_private_key method removed - use direct address initialization instead
 
 
 def test_get_read_config(chain_name, web3_mainnet):
@@ -137,9 +121,6 @@ def test_get_wallet_address(chain_name, web3_mainnet):
     wallet_address = "0x1234567890123456789012345678901234567890"
     config_with_address = GMXConfig(web3_mainnet, user_wallet_address=wallet_address)
     assert config_with_address.get_wallet_address() == wallet_address
-
-
-# Wallet functionality removed - only address-based initialization supported
 
 
 def test_get_network_info(chain_name, web3_mainnet):

@@ -66,15 +66,15 @@ TODO:
 
 from typing import Any, Optional
 
-from gmx_python_sdk.scripts.v2.get.get_available_liquidity import GetAvailableLiquidity
+from eth_defi.gmx.core.available_liquidity import GetAvailableLiquidity
 from gmx_python_sdk.scripts.v2.get.get_borrow_apr import GetBorrowAPR
 from gmx_python_sdk.scripts.v2.get.get_claimable_fees import GetClaimableFees
 from gmx_python_sdk.scripts.v2.get.get_contract_balance import GetPoolTVL as ContractTVL
 from gmx_python_sdk.scripts.v2.get.get_funding_apr import GetFundingFee
 from gmx_python_sdk.scripts.v2.get.get_gm_prices import GMPrices
-from gmx_python_sdk.scripts.v2.get.get_markets import Markets
+from eth_defi.gmx.core.markets import Markets
 from gmx_python_sdk.scripts.v2.get.get_open_interest import OpenInterest
-from gmx_python_sdk.scripts.v2.get.get_oracle_prices import OraclePrices
+from eth_defi.gmx.core.oracle import OraclePrices
 from gmx_python_sdk.scripts.v2.get.get_pool_tvl import GetPoolTVL
 from gmx_python_sdk.scripts.v2.get.get_glv_stats import GlvStats
 from gmx_python_sdk.scripts.v2.get.get_open_positions import GetOpenPositions
@@ -163,7 +163,7 @@ class GMXMarketData:
             status for all available GMX trading markets
         :rtype: dict[str, Any]
         """
-        return Markets(self.config).get_available_markets()
+        return Markets(self.config).get_available_markets(self.gmx_config.web3)
 
     def get_available_liquidity(self) -> dict[str, dict[str, float]]:
         """
@@ -181,7 +181,7 @@ class GMXMarketData:
             assets and position types (long/short) within each market
         :rtype: dict[str, dict[str, float]]
         """
-        return GetAvailableLiquidity(self.config).get_data(to_csv=self.to_csv, to_json=self.to_json)
+        return GetAvailableLiquidity(self.config).get_data(to_csv=self.to_csv, to_json=self.to_json, web3=self.gmx_config.web3)
 
     def get_borrow_apr(self) -> dict[str, dict[str, float]]:
         """
@@ -307,7 +307,7 @@ class GMXMarketData:
             and other price feed quality indicators
         :rtype: dict[str, Any]
         """
-        return OraclePrices(self.config.chain).get_recent_prices()
+        return OraclePrices(self.config.chain).get_recent_prices(self.gmx_config.web3)
 
     def get_pool_tvl(self) -> dict[str, Any]:
         """
