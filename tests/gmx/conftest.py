@@ -297,6 +297,7 @@ def web3_fork(anvil_chain_fork: str) -> Web3:
     return web3
 
 
+# TODO: Rename it to web3_abitrum
 @pytest.fixture()
 def web3_mainnet(chain_name, chain_rpc_url):
     """Set up a Web3 connection to the mainnet chain."""
