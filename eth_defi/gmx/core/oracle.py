@@ -3,17 +3,32 @@ GMX Oracle Price Data Module
 
 This module provides access to GMX protocol oracle price feeds across supported networks.
 """
+from typing import Optional
 
 import requests
 import time
 import logging
 import random
 
+from requests import Response
+
 from eth_defi.gmx.contracts import _get_clean_api_urls, _get_clean_backup_urls
 
 
 class OraclePrices:
-    def __init__(self, chain: str):
+    """
+    GMX Oracle Prices API client.
+    
+    Provides access to GMX protocol oracle price feeds across supported networks.
+    Handles API requests with retry logic and exponential backoff.
+    
+    :param chain: Blockchain network name (e.g., 'arbitrum', 'avalanche')
+    :type chain: str
+    
+    :raises ValueError: If unsupported chain is provided
+    """
+    
+    def __init__(self, chain: str) -> None:
         self.chain = chain
 
         # Get API URLs from constants via helper functions
@@ -26,41 +41,29 @@ class OraclePrices:
         self.oracle_url = clean_api_urls[chain] + "/signed_prices/latest"
         self.backup_oracle_url = clean_backup_urls.get(chain, "") + "/signed_prices/latest" if clean_backup_urls.get(chain) else None
 
-    def get_recent_prices(self):
+    def get_recent_prices(self) -> dict:
         """
-        Get raw output of the GMX rest v2 api for signed prices
-
-        Returns
-        -------
-        dict
-            dictionary containing raw output for each token as its keys.
-
+        Get raw output of the GMX rest v2 api for signed prices.
+        
+        :return: Dictionary containing raw output for each token as its keys
+        :rtype: dict
         """
         raw_output = self._make_query().json()
         return self._process_output(raw_output)
 
-    def _make_query(self, max_retries=5, initial_backoff=1, max_backoff=60):
+    def _make_query(self, max_retries=5, initial_backoff=1, max_backoff=60) -> Optional[Response]:
         """
         Make request using oracle URL with retry mechanism.
-
-        Parameters
-        ----------
-        max_retries : int
-            Maximum number of retry attempts
-        initial_backoff : float
-            Initial backoff time in seconds
-        max_backoff : float
-            Maximum backoff time in seconds
-
-        Returns
-        -------
-        requests.models.Response
-            Raw request response.
-
-        Raises
-        ------
-        requests.exceptions.RequestException
-            If all retry attempts fail
+        
+        :param max_retries: Maximum number of retry attempts
+        :type max_retries: int
+        :param initial_backoff: Initial backoff time in seconds
+        :type initial_backoff: float
+        :param max_backoff: Maximum backoff time in seconds
+        :type max_backoff: float
+        :return: Raw request response
+        :rtype: requests.models.Response
+        :raises requests.exceptions.RequestException: If all retry attempts fail
         """
         url = self.oracle_url
         attempts = 0
@@ -68,7 +71,7 @@ class OraclePrices:
 
         while attempts < max_retries:
             try:
-                logging.info(f"Querying oracle at {url}")
+                logging.debug(f"Querying oracle at {url}")
                 response = requests.get(url, timeout=30)  # Added timeout for safety
                 response.raise_for_status()  # Raise exception for 4XX/5XX status codes
                 return response
@@ -90,23 +93,16 @@ class OraclePrices:
                 # Exponential backoff with capping
                 backoff = min(backoff * 2, max_backoff)
 
-    def _process_output(self, output: dict):
+    def _process_output(self, output: dict) -> dict:
         """
-        Take the API response and create a new dictionary where the index token
-        addresses are the keys
-
-        Parameters
-        ----------
-        output : dict
-            Dictionary of rest API response.
-
-        Returns
-        -------
-        processed : dict
-            Processed dictionary with token addresses as keys.
-
+        Take the API response and create a new dictionary where the index token addresses are the keys.
+        
+        :param output: Dictionary of rest API response
+        :type output: dict
+        :return: Processed dictionary with token addresses as keys
+        :rtype: dict
         """
-        processed = {}
+        processed: dict = {}
         for i in output["signedPrices"]:
             processed[i["tokenAddress"]] = i
 

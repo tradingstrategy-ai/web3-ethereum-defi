@@ -9,11 +9,10 @@ from dataclasses import dataclass
 from typing import Optional
 
 from eth_typing import HexAddress
-from web3 import Web3
 
 from cchecksum import to_checksum_address
 
-from eth_defi.gmx.config import GMXConfigManager
+from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.contracts import get_contract_addresses, get_reader_contract, get_tokens_address_dict
 from eth_defi.gmx.core.oracle import OraclePrices
 
@@ -58,11 +57,11 @@ class Markets:
     replacing the gmx_python_sdk Markets class functionality.
     """
 
-    def __init__(self, config: GMXConfigManager):
+    def __init__(self, config: GMXConfig):
         """
         Initialize markets data provider.
 
-        :param config: GMXConfigManager instance containing chain and network info
+        :param config: GMXConfig instance containing chain and network info
         """
         self.config = config
         self.info = self._process_markets()
