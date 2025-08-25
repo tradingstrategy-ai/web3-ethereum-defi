@@ -15,7 +15,6 @@ pragma solidity ^0.8.26;
 import "@gnosis.pm/zodiac/contracts/core/Module.sol";
 import "@guard/GuardV0Base.sol";
 
-
 /**
  * Trading Strategy integration as Zodiac Module.
  *
@@ -71,7 +70,7 @@ contract TradingStrategyModuleV0 is Module, GuardV0Base {
      * - Execute transaction on behalf of Safe
      *
      */
-    function performCall(address target, bytes calldata callData) external {
+    function performCall(address target, bytes calldata callData, uint256 value) public {
 
         bool success;
         bytes memory response;
@@ -84,7 +83,7 @@ contract TradingStrategyModuleV0 is Module, GuardV0Base {
         // execute a tx on behalf of Gnosis
         (success, response) = execAndReturnData(
             target,
-            0,
+            value,
             callData,
             Enum.Operation.Call
         );
@@ -96,6 +95,14 @@ contract TradingStrategyModuleV0 is Module, GuardV0Base {
             }
        }
     }
+
+    /**
+     * Keep backward compatibility with the old performCall
+     */
+    function performCall(address target, bytes calldata callData) external {
+        performCall(target, callData, 0);
+    }
+
 }
 
 

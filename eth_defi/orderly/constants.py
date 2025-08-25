@@ -69,10 +69,3 @@ MESSAGE_TYPES = {
         {"name": "timestamp", "type": "uint64"},
     ],
 }
-
-OFF_CHAIN_DOMAIN = {
-    "name": "Orderly",
-    "version": "1",
-    "chainId": 421614,
-    "verifyingContract": "0xCcCCccccCCCCcCCCCCCcCcCccCcCCCcCcccccccC",
-}

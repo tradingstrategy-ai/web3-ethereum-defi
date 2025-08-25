@@ -30,7 +30,7 @@ def anvil_base_fork(request, large_usdc_holder) -> AnvilLaunch:
     launch = fork_network_anvil(
         JSON_RPC_ARBITRUM_SEPOLIA,
         unlocked_addresses=[large_usdc_holder],
-        fork_block_number=171644830,
+        fork_block_number=178687280,
     )
     try:
         yield launch
@@ -71,10 +71,10 @@ def usdc(web3) -> TokenDetails:
 
 
 @pytest.fixture()
-def base_weth(web3) -> TokenDetails:
+def weth(web3) -> TokenDetails:
     return fetch_erc20_details(
         web3,
-        "0x4200000000000000000000000000000000000006",
+        "0x7b79995e5f793A07Bc00c21412e50Ecae098E7f9",
     )
 
 

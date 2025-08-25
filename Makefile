@@ -52,7 +52,7 @@ guard:
 # Guard as  a safe module
 safe-integration:
 	@mkdir -p eth_defi/abi/safe-integration
-	@(cd contracts/safe-integration && forge build)
+	@(cd contracts/safe-integration && forge clean && forge build)
 	@find contracts/safe-integration/out \
 		\(  \
 		-name "TradingStrategyModuleV0.json" \

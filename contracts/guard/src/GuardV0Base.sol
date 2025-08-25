@@ -419,6 +419,12 @@ abstract contract GuardV0Base is IGuard  {
             validate_ERC4626Withdraw(callData);
         } else if (selector == getSelector("redeem(uint256,address,address)")) {
             validate_ERC4626Redeem(callData);
+        } else if (selector == getSelector("delegateSigner((bytes32,address))")) {
+            validate_orderlyDelegateSigner(callData);
+        } else if (selector == getSelector("deposit((bytes32,bytes32,bytes32,uint128))")) {
+            validate_orderlyDeposit(callData);
+        } else if (selector == getSelector("withdraw((bytes32,bytes32,bytes32,uint128,uint128,address,address,uint64))")) {
+            validate_orderlyWithdraw(callData);
         } else {
             revert("Unknown function selector");
         }
@@ -651,4 +657,22 @@ abstract contract GuardV0Base is IGuard  {
         require(isAllowedLagoonVault(vault), "Vault not allowed");
     }
 
+    function whitelistOrderly(address orderlyVault, string calldata notes) external {
+        allowCallSite(orderlyVault, getSelector("delegateSigner((bytes32,address))"), notes);
+        allowCallSite(orderlyVault, getSelector("deposit((bytes32,bytes32,bytes32,uint128))"), notes);
+        allowCallSite(orderlyVault, getSelector("withdraw((bytes32,bytes32,bytes32,uint128,uint128,address,address,uint64))"), notes);
+        allowApprovalDestination(orderlyVault, notes);
+    }
+
+    function validate_orderlyDelegateSigner(bytes memory callData) public view {
+        // TODO: Implement validation
+    }
+
+    function validate_orderlyDeposit(bytes memory callData) public view {
+        // TODO: Implement validation
+    }
+
+    function validate_orderlyWithdraw(bytes memory callData) public view {
+        // TODO: Implement
+    }
 }
