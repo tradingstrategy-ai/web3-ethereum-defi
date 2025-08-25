@@ -1,10 +1,14 @@
+import json
+import urllib
+from base64 import urlsafe_b64encode
 from datetime import UTC, datetime
 
 import requests
-from base58 import b58encode
+from base58 import b58decode, b58encode
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from eth_account import messages
 from eth_account.signers.local import LocalAccount
+from requests import PreparedRequest, Request, Session
 
 from eth_defi.orderly.constants import MESSAGE_TYPES
 
@@ -13,10 +17,12 @@ class OrderlyApiClient:
     def __init__(
         self,
         *,
-        account: LocalAccount,
-        broker_id: str,
-        chain_id: int,
+        account: LocalAccount | None = None,
+        broker_id: str | None = None,
+        chain_id: int | None = None,
         is_testnet: bool = False,
+        orderly_account_id: str = "",
+        orderly_secret: str = "",
     ):
         """
         :param account:
@@ -32,6 +38,8 @@ class OrderlyApiClient:
         self.broker_id = broker_id
         self.chain_id = chain_id
         self.is_testnet = is_testnet
+        self.orderly_account_id = orderly_account_id
+        self.orderly_secret = orderly_secret
 
         if is_testnet:
             self.base_url = "https://testnet-api.orderly.org"
@@ -45,8 +53,9 @@ class OrderlyApiClient:
         Register a new orderly account for the given account.
 
         See also: https://orderly.network/docs/build-on-omnichain/user-flows/accounts
-
         """
+        self._validate_account_requests()
+
         registration_nonce = self._get_registration_nonce()
 
         timestamp = int(datetime.now(UTC).timestamp() * 1_000)
@@ -95,8 +104,11 @@ class OrderlyApiClient:
         :param delegate_contract:
             The contract (which delegated signing right to this account) to register the key for.
         """
+        self._validate_account_requests()
+
         orderly_key = Ed25519PrivateKey.generate()
-        encoded_public_key = self._encode_key(orderly_key.public_key().public_bytes_raw())
+        encoded_public_key = encode_key(orderly_key.public_key().public_bytes_raw())
+        encoded_secret = encode_key(orderly_key.private_bytes_raw(), with_prefix=False)
 
         timestamp = int(datetime.now(UTC).timestamp() * 1_000)
         expiration = timestamp + 1_000 * 60 * 60  # 1 hour
@@ -136,6 +148,7 @@ class OrderlyApiClient:
         r.raise_for_status()
         response = r.json()
 
+        response["data"]["secret"] = encoded_secret
         return response
 
     def delegate_signer(
@@ -152,10 +165,11 @@ class OrderlyApiClient:
         :param permissions:
             The permissions to register the key for.
         """
+        self._validate_account_requests()
+
         registration_nonce = self._get_registration_nonce()
 
         timestamp = int(datetime.now(UTC).timestamp() * 1_000)
-        expiration = timestamp + 1_000 * 60 * 60  # 1 hour
 
         delegate_message = {
             "delegateContract": delegate_contract,
@@ -165,8 +179,6 @@ class OrderlyApiClient:
             "registrationNonce": registration_nonce,
             "txHash": delegate_tx_hash,
         }
-
-        print(delegate_message)
 
         encoded_data = messages.encode_typed_data(
             domain_data=self._get_off_chain_domain(),
@@ -189,15 +201,25 @@ class OrderlyApiClient:
 
         return response
 
+    def get_balance(self) -> dict:
+        self._validate_secret_requests()
+
+        key = b58decode(self.orderly_secret)
+        orderly_key = Ed25519PrivateKey.from_private_bytes(key)
+
+        session = Session()
+        signer = Signer(self.orderly_account_id, orderly_key)
+
+        req = signer.sign_request(Request("GET", f"{self.base_url}/v1/client/holding"))
+        r = session.send(req)
+        return r.json()
+
     def _get_registration_nonce(self) -> int:
         r = requests.get(f"{self.base_url}/v1/registration_nonce", timeout=5)
         r.raise_for_status()
         response = r.json()
         registration_nonce = response["data"]["registration_nonce"]
         return registration_nonce
-
-    def _encode_key(self, key: bytes) -> str:
-        return f"ed25519:{b58encode(key).decode('utf-8')}"
 
     def _get_off_chain_domain(self) -> dict:
         return {
@@ -206,3 +228,58 @@ class OrderlyApiClient:
             "chainId": self.chain_id,
             "verifyingContract": "0xCcCCccccCCCCcCCCCCCcCcCccCcCCCcCcccccccC",
         }
+
+    def _validate_secret_requests(self) -> None:
+        if not self.orderly_account_id or not self.orderly_secret:
+            raise ValueError("Orderly account ID and secret are required")
+
+    def _validate_account_requests(self) -> None:
+        if not self.account or not self.broker_id or not self.chain_id:
+            raise ValueError("Account, broker ID, and chain ID are required")
+
+
+class Signer:
+    def __init__(
+        self,
+        account_id: str,
+        private_key: Ed25519PrivateKey,
+    ) -> None:
+        self._account_id = account_id
+        self._private_key = private_key
+
+    def sign_request(self, req: Request) -> PreparedRequest:
+        # d = datetime.utcnow()
+        # epoch = datetime(1970, 1, 1)
+        # timestamp = math.trunc((d - epoch).total_seconds() * 1_000)
+        timestamp = int(datetime.now(UTC).timestamp() * 1_000)
+
+        json_str = ""
+        if req.json is not None:
+            json_str = json.dumps(req.json)
+
+        url = urllib.parse.urlparse(req.url)
+        message = str(timestamp) + req.method + url.path + json_str
+        if len(url.query) > 0:
+            message += f"?{url.query}"
+
+        orderly_signature = urlsafe_b64encode(self._private_key.sign(message.encode())).decode("utf-8")
+
+        req.headers = {
+            "orderly-timestamp": str(timestamp),
+            "orderly-account-id": self._account_id,
+            "orderly-key": encode_key(self._private_key.public_key().public_bytes_raw()),
+            "orderly-signature": orderly_signature,
+        }
+        req.headers["Content-Type"] = "application/json"
+        # print(req.headers)
+        # if req.method in {"GET", "DELETE"}:
+        #     req.headers["Content-Type"] = "application/x-www-form-urlencoded"
+        # elif req.method in {"POST", "PUT"}:
+        #     req.headers["Content-Type"] = "application/json"
+
+        return req.prepare()
+
+
+def encode_key(key: bytes, with_prefix: bool = True) -> str:
+    encoded = b58encode(key).decode("utf-8")
+    return f"ed25519:{encoded}" if with_prefix else encoded
