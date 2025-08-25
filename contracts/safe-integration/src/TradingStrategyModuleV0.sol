@@ -14,8 +14,6 @@ pragma solidity ^0.8.26;
 
 import "@gnosis.pm/zodiac/contracts/core/Module.sol";
 import "@guard/GuardV0Base.sol";
-import "@guard/interface/IVault.sol";
-
 
 /**
  * Trading Strategy integration as Zodiac Module.
@@ -72,7 +70,7 @@ contract TradingStrategyModuleV0 is Module, GuardV0Base {
      * - Execute transaction on behalf of Safe
      *
      */
-    function performCall(address target, bytes calldata callData) external {
+    function performCall(address target, bytes calldata callData, uint256 value) public {
 
         bool success;
         bytes memory response;
@@ -85,7 +83,7 @@ contract TradingStrategyModuleV0 is Module, GuardV0Base {
         // execute a tx on behalf of Gnosis
         (success, response) = execAndReturnData(
             target,
-            0,
+            value,
             callData,
             Enum.Operation.Call
         );
@@ -99,31 +97,12 @@ contract TradingStrategyModuleV0 is Module, GuardV0Base {
     }
 
     /**
-     * Orderly integration: Delegate signer for the the vault to an EOA
-     *
-     * https://orderly.network/docs/build-on-omnichain/user-flows/delegate-signer
+     * Keep backward compatibility with the old performCall
      */
-    function orderlyDelegateSigner(address orderlyVault, VaultTypes.VaultDelegate calldata data) public {
-        IVault(orderlyVault).delegateSigner(data);
+    function performCall(address target, bytes calldata callData) external {
+        performCall(target, callData, 0);
     }
 
-    /**
-     * Orderly integration: Deposit to an Orderly vault
-     *
-     * https://orderly.network/docs/build-on-omnichain/user-flows/withdrawal-deposit
-     */
-    function orderlyDeposit(address orderlyVault, address receiver, VaultTypes.VaultDepositFE calldata data) public {
-        IVault(orderlyVault).depositTo(receiver, data);
-    }
-
-    /**
-     * Orderly integration: Withdraw from an Orderly vault
-     *
-     * https://orderly.network/docs/build-on-omnichain/user-flows/withdrawal-deposit
-     */
-    function orderlyWithdraw(address orderlyVault, VaultTypes.VaultWithdraw calldata data) public {
-        IVault(orderlyVault).withdraw(data);
-    }
 }
 
 
