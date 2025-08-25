@@ -3,6 +3,7 @@ GMX Oracle Price Data Module
 
 This module provides access to GMX protocol oracle price feeds across supported networks.
 """
+
 from typing import Optional
 
 import requests
@@ -18,16 +19,16 @@ from eth_defi.gmx.contracts import _get_clean_api_urls, _get_clean_backup_urls
 class OraclePrices:
     """
     GMX Oracle Prices API client.
-    
+
     Provides access to GMX protocol oracle price feeds across supported networks.
     Handles API requests with retry logic and exponential backoff.
-    
+
     :param chain: Blockchain network name (e.g., 'arbitrum', 'avalanche')
     :type chain: str
-    
+
     :raises ValueError: If unsupported chain is provided
     """
-    
+
     def __init__(self, chain: str) -> None:
         self.chain = chain
 
@@ -44,7 +45,7 @@ class OraclePrices:
     def get_recent_prices(self) -> dict:
         """
         Get raw output of the GMX rest v2 api for signed prices.
-        
+
         :return: Dictionary containing raw output for each token as its keys
         :rtype: dict
         """
@@ -54,7 +55,7 @@ class OraclePrices:
     def _make_query(self, max_retries=5, initial_backoff=1, max_backoff=60) -> Optional[Response]:
         """
         Make request using oracle URL with retry mechanism.
-        
+
         :param max_retries: Maximum number of retry attempts
         :type max_retries: int
         :param initial_backoff: Initial backoff time in seconds
@@ -96,7 +97,7 @@ class OraclePrices:
     def _process_output(self, output: dict) -> dict:
         """
         Take the API response and create a new dictionary where the index token addresses are the keys.
-        
+
         :param output: Dictionary of rest API response
         :type output: dict
         :return: Processed dictionary with token addresses as keys
