@@ -113,8 +113,6 @@ Warning:
     and test strategies thoroughly before live execution.
 """
 
-from typing import Any, Optional, Union
-
 from gmx_python_sdk.scripts.v2.get.get_open_positions import GetOpenPositions
 from gmx_python_sdk.scripts.v2.order.create_decrease_order import DecreaseOrder
 from gmx_python_sdk.scripts.v2.order.order_argument_parser import OrderArgumentParser
@@ -184,7 +182,7 @@ class GMXOrderManager:
         """
         self.config = config
 
-    def get_open_positions(self, address: Optional[Union[str, Address]] = None) -> dict[str, Any]:
+    def get_open_positions(self, address: str | Address | None = None) -> dict[str, any]:
         """
         Retrieve comprehensive information about all open trading positions for a specified address.
 
@@ -205,12 +203,12 @@ class GMXOrderManager:
             Ethereum wallet address to query positions for. If not provided,
             uses the wallet address from the GMX configuration. Must be a valid
             Ethereum address format (0x... or ENS name)
-        :type address: Optional[Union[str, Address]]
+        :type address: str | Address | None
         :return:
             Dictionary containing detailed position information with position
             keys as dictionary keys and comprehensive position data as values,
             including sizes, collateral, PnL, and risk metrics
-        :rtype: dict[str, Any]
+        :rtype: dict[str, any]
         :raises ValueError:
             When no wallet address is available either from parameter or
             configuration, making position queries impossible
@@ -277,7 +275,7 @@ class GMXOrderManager:
             Comprehensive dictionary containing all order execution parameters.
             Required keys include market identification, position direction,
             size adjustments, and risk controls. See example for complete structure
-        :type parameters: dict
+        :type parameters: dict[str, any]
         :param debug_mode:
             Whether to execute in debug mode without submitting real transactions.
             Debug mode validates all parameters and simulates execution without
@@ -334,7 +332,7 @@ class GMXOrderManager:
         amount_of_collateral_to_remove: float = 1.0,
         slippage_percent: float = 0.003,
         debug_mode: bool = False,
-        address: Optional[Union[str, Address]] = None,
+        address: str | Address | None = None,
     ) -> DecreaseOrder:
         """
         Execute strategic position closure using simplified position identification.
@@ -425,7 +423,7 @@ class GMXOrderManager:
         :param address:
             Specific wallet address containing the position to close. If not
             provided, uses the address from GMX configuration
-        :type address: Optional[Union[str, Address]]
+        :type address: str | Address | None
         :return:
             Configured decrease order object ready for execution with all
             strategic parameters applied and risk controls validated

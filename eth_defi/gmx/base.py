@@ -4,7 +4,7 @@ GMX Core Module
 This module provides the main GMXClient class that integrates all GMX functionality.
 """
 
-from typing import Optional, Any
+from typing import Optional
 
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.data import GMXMarketData
