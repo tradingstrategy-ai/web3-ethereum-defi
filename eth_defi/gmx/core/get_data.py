@@ -9,7 +9,7 @@ import logging
 import json
 import csv
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -48,17 +48,17 @@ class GetData(ABC):
         self.config = config
         self.filter_swap_markets = filter_swap_markets
         self.log = logging.getLogger(self.__class__.__name__)
-        
+
         # Lazy-loaded components
         self._markets_instance = None
         self._oracle_prices_cache = None
         self._reader_contract = None
         self._datastore_contract = None
-        
+
         # Token addresses for current market being processed
         self._long_token_address: Optional[HexAddress] = None
         self._short_token_address: Optional[HexAddress] = None
-        
+
         # Output structure for compatibility
         self.output = {"long": {}, "short": {}}
 
@@ -100,7 +100,7 @@ class GetData(ABC):
         :return: Dictionary containing processed data
         :rtype: Dict[str, Any]
         """
-        if not hasattr(self.config, 'web3') or self.config.web3 is None:
+        if not hasattr(self.config, "web3") or self.config.web3 is None:
             raise ValueError("Web3 connection required in config")
 
         try:
@@ -148,11 +148,8 @@ class GetData(ABC):
             market_key = to_checksum_address(market_key)
             self._long_token_address = self.markets.get_long_token_address(market_key)
             self._short_token_address = self.markets.get_short_token_address(market_key)
-            
-            self.log.debug(
-                f"Token addresses for {market_key}: "
-                f"Long: {self._long_token_address}, Short: {self._short_token_address}"
-            )
+
+            self.log.debug(f"Token addresses for {market_key}: Long: {self._long_token_address}, Short: {self._short_token_address}")
         except Exception as e:
             self.log.warning(f"Failed to get token addresses for {market_key}: {e}")
             self._long_token_address = None
@@ -161,24 +158,24 @@ class GetData(ABC):
     def _filter_swap_markets(self) -> None:
         """
         Filter out swap markets from the markets instance.
-        
+
         This modifies the markets.get_available_markets() result to exclude
         markets with 'SWAP' in their symbol.
         """
         try:
             available_markets = self.markets.get_available_markets()
             filtered_markets = {}
-            
+
             for market_key, market_data in available_markets.items():
                 market_symbol = market_data.get("market_symbol", "")
                 if not market_symbol.startswith("SWAP"):
                     filtered_markets[market_key] = market_data
-            
+
             # Update the markets cache with filtered results
             self.markets._markets_cache = filtered_markets
-            
+
             self.log.debug(f"Filtered markets: {len(filtered_markets)} from {len(available_markets)}")
-            
+
         except Exception as e:
             self.log.warning(f"Failed to filter swap markets: {e}")
 
@@ -198,13 +195,9 @@ class GetData(ABC):
         :rtype: Tuple[int, int]
         """
         try:
-            open_interest_pnl = self.reader_contract.functions.getOpenInterestWithPnl(
-                self.datastore_contract_address, market, prices_list, is_long, maximize
-            ).call()
+            open_interest_pnl = self.reader_contract.functions.getOpenInterestWithPnl(self.datastore_contract_address, market, prices_list, is_long, maximize).call()
 
-            pnl = self.reader_contract.functions.getPnl(
-                self.datastore_contract_address, market, prices_list, is_long, maximize
-            ).call()
+            pnl = self.reader_contract.functions.getPnl(self.datastore_contract_address, market, prices_list, is_long, maximize).call()
 
             return open_interest_pnl, pnl
 
@@ -212,8 +205,7 @@ class GetData(ABC):
             self.log.warning(f"Failed to get PnL for market {market[0]}: {e}")
             return 0, 0
 
-    def _get_oracle_prices(self, market_key: HexAddress, index_token_address: HexAddress, 
-                          return_tuple: bool = False) -> Any:
+    def _get_oracle_prices(self, market_key: HexAddress, index_token_address: HexAddress, return_tuple: bool = False) -> Any:
         """
         Get oracle prices for a market's tokens.
 
@@ -259,7 +251,7 @@ class GetData(ABC):
                 # Fallback for stablecoins not in signed price API
                 # Use $1.00 price (1 * 10^30 for GMX price format)
                 stable_price = (1000000000000000000000000, 1000000000000000000000000)
-                
+
                 prices = (
                     (
                         int(oracle_prices_dict[index_token_address]["minPriceFull"]),
@@ -276,9 +268,7 @@ class GetData(ABC):
                 return prices
 
             # Return market info from reader contract
-            return self.reader_contract.functions.getMarketInfo(
-                self.datastore_contract_address, prices, to_checksum_address(market_key)
-            )
+            return self.reader_contract.functions.getMarketInfo(self.datastore_contract_address, prices, to_checksum_address(market_key))
 
         except Exception as e:
             self.log.warning(f"Failed to get oracle prices for {market_key}: {e}")
@@ -344,13 +334,10 @@ class GetData(ABC):
         :rtype: list
         """
         results = [None] * len(contract_calls)
-        
+
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            future_to_index = {
-                executor.submit(call.call): index 
-                for index, call in enumerate(contract_calls)
-            }
-            
+            future_to_index = {executor.submit(call.call): index for index, call in enumerate(contract_calls)}
+
             for future in as_completed(future_to_index):
                 index = future_to_index[future]
                 try:
@@ -358,7 +345,7 @@ class GetData(ABC):
                 except Exception as e:
                     self.log.warning(f"Contract call {index} failed: {e}")
                     results[index] = None
-        
+
         return results
 
     def _save_to_json(self, data: dict[str, Any]) -> None:
@@ -373,11 +360,7 @@ class GetData(ABC):
             parameter = data.get("parameter", "data")
             filename = f"{self.config.chain}_{parameter}_data_{timestamp}.json"
 
-            json_data = {
-                "chain": self.config.chain,
-                "timestamp": timestamp,
-                "data": data
-            }
+            json_data = {"chain": self.config.chain, "timestamp": timestamp, "data": data}
 
             with open(filename, "w") as f:
                 json.dump(json_data, f, indent=2)
@@ -397,13 +380,13 @@ class GetData(ABC):
         try:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             parameter = data.get("parameter", "data")
-            
+
             # Handle long/short data structure
             if "long" in data and "short" in data and isinstance(data["long"], dict):
                 # Save long data
                 filename_long = f"{self.config.chain}_long_{parameter}_data_{timestamp}.csv"
                 self._save_dict_to_csv(data["long"], filename_long)
-                
+
                 # Save short data
                 filename_short = f"{self.config.chain}_short_{parameter}_data_{timestamp}.csv"
                 self._save_dict_to_csv(data["short"], filename_short)
@@ -429,11 +412,11 @@ class GetData(ABC):
 
         with open(filename, "w", newline="") as f:
             writer = csv.writer(f)
-            
+
             # Add timestamp column
             writer.writerow(["Timestamp", "Market", "Value"])
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            
+
             for market, value in data_dict.items():
                 writer.writerow([timestamp, market, value])
 
