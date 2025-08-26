@@ -9,7 +9,7 @@ implementation based on eth_defi patterns.
 from .available_liquidity import GetAvailableLiquidity, LiquidityInfo
 from .borrow_apr import GetBorrowAPR
 from .claimable_fees import GetClaimableFees
-from .funding_apr import GetFundingAPR
+from .funding_apr import GetFundingFee
 from .get_data import GetData
 from .gm_prices import GetGMPrices
 from .markets import Markets
@@ -22,7 +22,7 @@ __all__ = [
     "GetAvailableLiquidity",
     "GetBorrowAPR",
     "GetClaimableFees",
-    "GetFundingAPR",
+    "GetFundingFee",
     "GetData",
     "GetGMPrices",
     "GetOpenInterest",
