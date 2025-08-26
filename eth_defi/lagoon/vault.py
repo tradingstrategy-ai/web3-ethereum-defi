@@ -27,23 +27,20 @@ from dataclasses import asdict
 from decimal import Decimal
 from functools import cached_property
 
-from eth.typing import BlockRange
-from eth_typing import HexAddress, BlockIdentifier, ChecksumAddress
-
-
 import eth_abi
+from eth.typing import BlockRange
+from eth_typing import BlockIdentifier, ChecksumAddress, HexAddress
 from hexbytes import HexBytes
+from safe_eth.safe import Safe
+from safe_eth.safe.exceptions import CannotRetrieveSafeInfoException
 from web3 import Web3
 from web3.contract import Contract
 from web3.contract.contract import ContractFunction
 from web3.exceptions import ContractLogicError
 
-from eth_defi.vault.base import VaultSpec, VaultInfo, VaultFlowManager
+from eth_defi.vault.base import VaultFlowManager, VaultInfo, VaultSpec
 
-from safe_eth.safe import Safe
-from safe_eth.safe.exceptions import CannotRetrieveSafeInfoException
-
-from ..abi import get_deployed_contract, encode_function_call, present_solidity_args, get_function_selector, get_function_abi_by_name
+from ..abi import encode_function_call, get_deployed_contract, get_function_abi_by_name, get_function_selector, present_solidity_args
 from ..erc_4626.vault import ERC4626Vault
 from ..event_reader.multicall_batcher import EncodedCall
 from ..safe.safe_compat import create_safe_ethereum_client
@@ -421,6 +418,7 @@ class LagoonVault(ERC4626Vault):
     def transact_via_trading_strategy_module(
         self,
         func_call: ContractFunction,
+        value: int = 0,
     ) -> ContractFunction:
         """Create a Safe multisig transaction using TradingStrategyModuleV0.
 
@@ -447,6 +445,7 @@ class LagoonVault(ERC4626Vault):
         bound_func = self.trading_strategy_module.functions.performCall(
             contract_address,
             data_payload,
+            value,
         )
         return bound_func
 

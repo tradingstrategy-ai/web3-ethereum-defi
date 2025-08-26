@@ -5,23 +5,24 @@ Deploy ERC-20 tokens to be used within your test suite.
 `Read also unit test suite for tokens to see how ERC-20 can be manipulated in pytest <https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/tests/test_token.py>`_.
 """
 
+import datetime
 import json
 import logging
 import os
+import warnings
 from collections import OrderedDict, defaultdict
-from dataclasses import dataclass, asdict, field
+from dataclasses import asdict, dataclass, field
 from decimal import Decimal
 from functools import cached_property
 from pathlib import Path
-from typing import Optional, Union, TypeAlias, Any, Iterable, TypedDict
-import warnings
+from typing import Any, Iterable, Optional, TypeAlias, TypedDict, Union
 
 import cachetools
 from web3.contract.contract import ContractFunction, ContractFunctions
 
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int, convert_solidity_bytes_to_string
-from eth_defi.event_reader.multicall_batcher import EncodedCall, read_multicall_chunked, EncodedCallResult
+from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, read_multicall_chunked
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.provider.named import get_provider_name
 from eth_defi.sqlite_cache import PersistentKeyValueStore
@@ -39,6 +40,7 @@ with warnings.catch_warnings():
 
 
 from eth_typing import HexAddress
+from requests.exceptions import ReadTimeout
 from web3 import Web3
 from web3.contract import Contract
 from web3.exceptions import BadFunctionCallOutput, ContractLogicError
@@ -46,9 +48,6 @@ from web3.exceptions import BadFunctionCallOutput, ContractLogicError
 from eth_defi.abi import get_deployed_contract
 from eth_defi.deploy import deploy_contract
 from eth_defi.utils import sanitise_string
-
-from requests.exceptions import ReadTimeout
-
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +76,8 @@ WRAPPED_NATIVE_TOKEN: dict[int, HexAddress | str] = {
     42161: "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
     # WAVAX
     43114: "0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7",
+    # WETH: Arbitrum Sepolia
+    421614: "0x7b79995e5f793A07Bc00c21412e50Ecae098E7f9",
 }
 
 #: Addresses of wrapped native token (WETH9) of different chains
@@ -92,6 +93,8 @@ USDC_NATIVE_TOKEN: dict[int, HexAddress | str] = {
     # BNB
     # https://www.coingecko.com/en/coins/binance-bridged-usdc-bnb-smart-chain
     56: "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d",
+    # Arbitrum Sepolia
+    421614: "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d",
 }
 
 

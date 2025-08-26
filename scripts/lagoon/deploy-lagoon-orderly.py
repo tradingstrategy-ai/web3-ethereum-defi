@@ -46,6 +46,7 @@ from eth_defi.etherscan.validation import check_etherscan_api_key
 from eth_defi.hotwallet import HotWallet
 from eth_defi.lagoon.config import get_lagoon_chain_config
 from eth_defi.lagoon.deployment import LagoonDeploymentParameters, deploy_automated_lagoon_vault
+from eth_defi.orderly.vault import OrderlyVault
 from eth_defi.provider.anvil import fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import USDC_NATIVE_TOKEN, USDT_NATIVE_TOKEN
@@ -61,6 +62,14 @@ logger = logging.getLogger(__name__)
 RANDO1 = "0xa7208b5c92d4862b3f11c0047b57a00Dc304c0f8"
 RANDO2 = "0xbD35322AA7c7842bfE36a8CF49d0F063bf83a100"
 RANDO3 = "0xdadB0d80178819F2319190D340ce9A924f783711"
+
+
+def get_orderly_vault_address(web3: Web3) -> str:
+    # https://orderly.network/docs/build-on-omnichain/addresses
+    return {
+        421614: "0x0EaC556c0C2321BA25b9DC01e4e3c95aD5CDCd2f",
+        8453: "0x816f722424B49Cf1275cc86DA9840Fbd5a6167e9",
+    }[web3.eth.chain_id]
 
 
 def main():
@@ -85,7 +94,8 @@ def main():
     logger.info("Deployer balance at start: %s", Web3.from_wei(balance_at_start, "ether"))
 
     # Add some random multisig holders
-    multisig_owners = [deployer_wallet.address, RANDO1, RANDO2, RANDO3]
+    # multisig_owners = [deployer_wallet.address, RANDO1, RANDO2, RANDO3]
+    multisig_owners = [deployer_wallet.address]
 
     if SIMULATE:
         logger.info("Simulation deployment with Anvil")
@@ -133,6 +143,8 @@ def main():
     else:
         erc_4626_vaults = None
 
+    orderly_vault = OrderlyVault(web3, get_orderly_vault_address(web3))
+
     logger.info("Deployer account: %s", deployer_wallet.address)
     logger.info("Deploying Lagoon vault with parameters: %s", pformat(asdict(parameters)))
 
@@ -142,9 +154,10 @@ def main():
         asset_manager=asset_manager,
         parameters=parameters,
         safe_owners=multisig_owners,
-        safe_threshold=len(multisig_owners) - 1,
+        safe_threshold=1,
         uniswap_v2=uniswap_v2,
         uniswap_v3=None,
+        orderly_vault=orderly_vault,
         any_asset=True,
         erc_4626_vaults=erc_4626_vaults,
         factory_contract=config.factory_contract,
