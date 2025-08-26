@@ -102,7 +102,7 @@ Warning:
     using in production environments with significant value.
 """
 
-from typing import Union, Any, cast
+from typing import Any, cast
 
 from eth_account.messages import encode_defunct
 from eth_typing import ChecksumAddress
@@ -158,12 +158,12 @@ class WalletAdapterSigner(Signer):
     implementations can maintain their performance characteristics.
 
     :ivar wallet: The underlying wallet implementation being adapted
-    :vartype wallet: Union[BaseWallet, HotWallet, Web3ProviderWallet]
+    :vartype wallet: BaseWallet | HotWallet | Web3ProviderWallet
     :ivar web3: Web3 instance for blockchain interaction and transaction broadcasting
     :vartype web3: Web3
     """
 
-    def __init__(self, wallet: Union[BaseWallet, HotWallet, Web3ProviderWallet], web3: Web3) -> None:
+    def __init__(self, wallet: BaseWallet | HotWallet | Web3ProviderWallet, web3: Web3) -> None:
         """
         Initialize the universal wallet adapter with comprehensive compatibility validation.
 
@@ -184,7 +184,7 @@ class WalletAdapterSigner(Signer):
             specialized implementations like HotWallet and Web3ProviderWallet.
             The adapter will intelligently detect the wallet type and adapt its
             behavior accordingly
-        :type wallet: Union[BaseWallet, HotWallet, Web3ProviderWallet]
+        :type wallet: BaseWallet | HotWallet | Web3ProviderWallet
         :param web3:
             Web3 instance connected to the target blockchain network. Must be
             properly configured with an active RPC connection for transaction
@@ -219,7 +219,7 @@ class WalletAdapterSigner(Signer):
         """
         return to_checksum_address(self.wallet.get_main_address())
 
-    def sign_message(self, message: Union[str, bytes, int]) -> HexBytes:
+    def sign_message(self, message: str | bytes | int) -> HexBytes:
         """
         Sign arbitrary messages with universal compatibility across wallet types and message formats.
 
@@ -281,7 +281,7 @@ class WalletAdapterSigner(Signer):
             as UTF-8 unless they begin with "0x" (treated as hex). Binary data
             and integers are handled with appropriate encoding for signature
             generation
-        :type message: Union[str, bytes, int]
+        :type message: str | bytes | int
         :return:
             Cryptographic signature of the message in standard Ethereum format,
             suitable for verification and use in smart contract operations
@@ -328,7 +328,7 @@ class WalletAdapterSigner(Signer):
         except Exception as e:
             raise ValueError(f"Failed to sign message: {str(e)}") from e
 
-    def sign_transaction(self, unsigned_tx: TxParams) -> Union[SignedTransactionWithNonce, SignedTx]:
+    def sign_transaction(self, unsigned_tx: TxParams) -> SignedTransactionWithNonce | SignedTx:
         """
         Sign blockchain transactions with sophisticated nonce management and wallet-specific optimizations.
 
@@ -398,7 +398,7 @@ class WalletAdapterSigner(Signer):
             Signed transaction object ready for blockchain submission, with format
             determined by the underlying wallet implementation but compatible with
             standard Web3 transaction broadcasting
-        :rtype: Union[SignedTransactionWithNonce, SignedTx]
+        :rtype: SignedTransactionWithNonce | SignedTx
         :raises NotImplementedError:
             When the wallet type doesn't support the requested signing operation
             or nonce management approach

@@ -64,20 +64,20 @@ TODO:
     Handle the returned data better. Maybe with a class and add proper exceptions
 """
 
-from typing import Any, Optional
+from typing import Any, Dict, Optional
 
 from eth_defi.gmx.core.available_liquidity import GetAvailableLiquidity
-from gmx_python_sdk.scripts.v2.get.get_borrow_apr import GetBorrowAPR
-from gmx_python_sdk.scripts.v2.get.get_claimable_fees import GetClaimableFees
-from gmx_python_sdk.scripts.v2.get.get_contract_balance import GetPoolTVL as ContractTVL
-from gmx_python_sdk.scripts.v2.get.get_funding_apr import GetFundingFee
-from gmx_python_sdk.scripts.v2.get.get_gm_prices import GMPrices
+from eth_defi.gmx.core.borrow_apr import GetBorrowAPR
+from eth_defi.gmx.core.claimable_fees import GetClaimableFees
+from eth_defi.gmx.core.pool_tvl import GetPoolTVL as ContractTVL
+from eth_defi.gmx.core.funding_apr import GetFundingAPR as GetFundingFee
+from eth_defi.gmx.core.gm_prices import GetGMPrices as GMPrices
 from eth_defi.gmx.core.markets import Markets
-from gmx_python_sdk.scripts.v2.get.get_open_interest import OpenInterest
+from eth_defi.gmx.core.open_interest import GetOpenInterest
 from eth_defi.gmx.core.oracle import OraclePrices
-from gmx_python_sdk.scripts.v2.get.get_pool_tvl import GetPoolTVL
-from gmx_python_sdk.scripts.v2.get.get_glv_stats import GlvStats
-from gmx_python_sdk.scripts.v2.get.get_open_positions import GetOpenPositions
+from eth_defi.gmx.core.pool_tvl import GetPoolTVL
+from eth_defi.gmx.core.gm_prices import GetGMPrices as GlvStats
+from eth_defi.gmx.core.open_positions import GetOpenPositions
 
 from eth_defi.gmx.config import GMXConfig
 
@@ -199,7 +199,7 @@ class GMXMarketData:
             position types, expressed as decimal percentages
         :rtype: dict[str, dict[str, float]]
         """
-        return GetBorrowAPR(self.config).get_data(to_csv=self.to_csv, to_json=self.to_json)
+        return GetBorrowAPR(self.gmx_config).get_data(to_csv=self.to_csv, to_json=self.to_json)
 
     def get_claimable_fees(self) -> dict[str, Any]:
         """
@@ -217,7 +217,7 @@ class GMXMarketData:
             providers based on their LP token holdings
         :rtype: dict[str, Any]
         """
-        return GetClaimableFees(self.config).get_data(to_csv=self.to_csv, to_json=self.to_json)
+        return GetClaimableFees(self.gmx_config).get_data(to_csv=self.to_csv, to_json=self.to_json)
 
     def get_contract_tvl(self) -> dict[str, Any]:
         """
@@ -235,7 +235,7 @@ class GMXMarketData:
             in each component of the GMX protocol
         :rtype: dict[str, Any]
         """
-        return ContractTVL(self.config).get_pool_balances(to_json=self.to_json)
+        return ContractTVL(self.gmx_config).get_pool_balances(to_json=self.to_json)
 
     def get_funding_apr(self) -> dict[str, dict[str, float]]:
         """
@@ -253,7 +253,7 @@ class GMXMarketData:
             position types, with positive values indicating longs pay shorts
         :rtype: dict[str, dict[str, float]]
         """
-        return GetFundingFee(self.config).get_data(to_csv=self.to_csv, to_json=self.to_json)
+        return GetFundingFee(self.gmx_config).get_data(to_csv=self.to_csv, to_json=self.to_json)
 
     def get_gm_price(self) -> dict[str, Any]:
         """
@@ -271,7 +271,7 @@ class GMXMarketData:
             provider positions in various GMX pools
         :rtype: dict[str, Any]
         """
-        return GMPrices(self.config).get_price_traders(to_csv=self.to_csv, to_json=self.to_json)
+        return GMPrices(self.gmx_config).get_prices(to_csv=self.to_csv, to_json=self.to_json)
 
     def get_open_interest(self) -> dict[str, dict[str, float]]:
         """
@@ -289,7 +289,7 @@ class GMXMarketData:
             position types (long/short) and underlying assets
         :rtype: dict[str, dict[str, float]]
         """
-        return OpenInterest(self.config).get_data(to_csv=self.to_csv, to_json=self.to_json)
+        return GetOpenInterest(self.gmx_config).get_data(to_csv=self.to_csv, to_json=self.to_json)
 
     def get_oracle_prices(self) -> dict[str, Any]:
         """
@@ -325,7 +325,7 @@ class GMXMarketData:
             values across different asset types and markets
         :rtype: dict[str, Any]
         """
-        return GetPoolTVL(self.config).get_pool_balances(to_csv=self.to_csv, to_json=self.to_json)
+        return GetPoolTVL(self.gmx_config).get_pool_balances(to_csv=self.to_csv, to_json=self.to_json)
 
     def get_glv_stats(self) -> dict[str, Any]:
         """
@@ -343,7 +343,7 @@ class GMXMarketData:
             analytics for advanced liquidity provision strategies
         :rtype: dict[str, Any]
         """
-        return GlvStats(self.config).get_glv_stats()
+        return GlvStats(self.gmx_config).get_prices(to_csv=self.to_csv, to_json=self.to_json)
 
     def get_user_positions(self, address: Optional[str] = None) -> dict:
         """
@@ -367,9 +367,9 @@ class GMXMarketData:
         :rtype: dict
         """
         if address is None:
-            address = self.config.user_wallet_address
+            address = self.gmx_config.get_wallet_address()
 
-        return GetOpenPositions(self.config, address=address).get_data()
+        return GetOpenPositions(self.gmx_config, address=address).get_data()
 
 
 if __name__ == "__main__":
