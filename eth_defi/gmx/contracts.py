@@ -115,6 +115,7 @@ EXCHANGE_ROUTER_ABI: list = _load_abi("ExchangeRouter.json")
 ORACLE_ABI: list = _load_abi("Oracle.json")
 GLV_READER_ABI: list = _load_abi("GlvReader.json")
 
+# TODO: Replace this to fetch the addresses dynamically from https://raw.githubusercontent.com/gmx-io/gmx-synthetics/refs/heads/v2.2-branch/docs/contracts.json
 # Token addresses by network
 NETWORK_TOKENS = {
     "arbitrum": {"WETH": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1", "WBTC": "0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f", "USDC": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831", "USDT": "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9", "ARB": "0x912CE59144191C1204E64559FE8253a0e49E6548", "LINK": "0xf97f4df75117a78c1A5a0DBb814Af92458539FB4", "wstETH": "0x5979D7b546E38E414F7E9822514be443A4800529"},
