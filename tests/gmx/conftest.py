@@ -615,3 +615,68 @@ def account_with_positions(chain_name):
         "avalanche": addr("0x83806fe5D4166868498eB95e32c972E07A5C065D"),
     }
     return addresses[chain_name]
+
+
+# GMX Core test fixtures
+@pytest.fixture
+def get_available_liquidity(gmx_config):
+    """Create GetAvailableLiquidity instance."""
+    from eth_defi.gmx.core.available_liquidity import GetAvailableLiquidity
+
+    return GetAvailableLiquidity(gmx_config)
+
+
+@pytest.fixture
+def get_borrow_apr(gmx_config):
+    """Create GetBorrowAPR instance."""
+    from eth_defi.gmx.core.borrow_apr import GetBorrowAPR
+
+    return GetBorrowAPR(gmx_config)
+
+
+@pytest.fixture
+def get_claimable_fees(gmx_config):
+    """Create GetClaimableFees instance."""
+    from eth_defi.gmx.core.claimable_fees import GetClaimableFees
+
+    return GetClaimableFees(gmx_config)
+
+
+@pytest.fixture
+def get_funding_fee(gmx_config):
+    """Create GetFundingFee instance."""
+    from eth_defi.gmx.core.funding_apr import GetFundingFee
+
+    return GetFundingFee(gmx_config)
+
+
+@pytest.fixture
+def get_gm_prices(gmx_config):
+    """Create GetGMPrices instance."""
+    from eth_defi.gmx.core.gm_prices import GetGMPrices
+
+    return GetGMPrices(gmx_config)
+
+
+@pytest.fixture
+def get_open_interest(gmx_config):
+    """Create GetOpenInterest instance."""
+    from eth_defi.gmx.core.open_interest import GetOpenInterest
+
+    return GetOpenInterest(gmx_config)
+
+
+@pytest.fixture
+def get_open_positions(gmx_config):
+    """Create GetOpenPositions instance."""
+    from eth_defi.gmx.core.open_positions import GetOpenPositions
+
+    return GetOpenPositions(gmx_config)
+
+
+@pytest.fixture
+def get_pool_tvl(gmx_config):
+    """Create GetPoolTVL instance."""
+    from eth_defi.gmx.core.pool_tvl import GetPoolTVL
+
+    return GetPoolTVL(gmx_config)

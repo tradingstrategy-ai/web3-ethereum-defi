@@ -9,7 +9,7 @@ import logging
 import json
 import csv
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional
+from typing import Any, Optional
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -98,7 +98,7 @@ class GetData(ABC):
         :param to_csv: Whether to save data to CSV file
         :type to_csv: bool
         :return: Dictionary containing processed data
-        :rtype: Dict[str, Any]
+        :rtype: dict[str, Any]
         """
         if not hasattr(self.config, "web3") or self.config.web3 is None:
             raise ValueError("Web3 connection required in config")
@@ -133,7 +133,7 @@ class GetData(ABC):
         data retrieval and processing logic.
 
         :return: Dictionary containing processed data
-        :rtype: Dict[str, Any]
+        :rtype: dict[str, Any]
         """
         pass
 
@@ -284,7 +284,7 @@ class GetData(ABC):
         :param output: Raw output tuple from getMarketInfo contract call
         :type output: tuple
         :return: Formatted market information
-        :rtype: Dict[str, Any]
+        :rtype: dict[str, Any]
         """
         try:
             return {
@@ -335,16 +335,29 @@ class GetData(ABC):
         """
         results = [None] * len(contract_calls)
 
+        # Filter out None values, non-callable objects, and their indices
+        valid_calls = []
+        for index, call in enumerate(contract_calls):
+            # Check if it's not None and has a callable 'call' attribute
+            if call is not None and hasattr(call, 'call') and callable(getattr(call, 'call')):
+                valid_calls.append((index, call))
+            elif isinstance(call, (int, float)):
+                # If it's already a numeric value, use it directly
+                results[index] = call
+        
+        if not valid_calls:
+            return results
+
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            future_to_index = {executor.submit(call.call): index for index, call in enumerate(contract_calls)}
+            future_to_index = {executor.submit(call.call): index for index, call in valid_calls}
 
             for future in as_completed(future_to_index):
-                index = future_to_index[future]
+                original_index = future_to_index[future]
                 try:
-                    results[index] = future.result()
+                    results[original_index] = future.result()
                 except Exception as e:
-                    self.log.warning(f"Contract call {index} failed: {e}")
-                    results[index] = None
+                    self.log.warning(f"Contract call {original_index} failed: {e}")
+                    results[original_index] = None
 
         return results
 
@@ -353,7 +366,7 @@ class GetData(ABC):
         Save data to JSON file.
 
         :param data: Data to save
-        :type data: Dict[str, Any]
+        :type data: dict[str, Any]
         """
         try:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -375,7 +388,7 @@ class GetData(ABC):
         Save data to CSV file.
 
         :param data: Data to save
-        :type data: Dict[str, Any]
+        :type data: dict[str, Any]
         """
         try:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -403,7 +416,7 @@ class GetData(ABC):
         Save dictionary data to CSV file.
 
         :param data_dict: Dictionary to save
-        :type data_dict: Dict[str, Any]
+        :type data_dict: dict[str, Any]
         :param filename: Output filename
         :type filename: str
         """

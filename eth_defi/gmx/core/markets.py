@@ -6,7 +6,7 @@ This module provides access to GMX protocol market information and trading pairs
 
 import logging
 from dataclasses import dataclass
-from typing import Dict, Optional, Any
+from typing import Optional, Any
 
 from eth_typing import HexAddress
 
