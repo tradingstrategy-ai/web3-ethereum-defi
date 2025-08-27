@@ -61,16 +61,28 @@ class GetBorrowAPR(GetData):
                 index_token_address,
             )
 
-            output_list.append(output)
-            mapper.append(self.markets.get_market_symbol(market_key))
+            # Only add valid outputs to the list
+            if output is not None:
+                output_list.append(output)
+                mapper.append(self.markets.get_market_symbol(market_key))
+
+        # Handle case where no valid outputs were found
+        if not output_list:
+            self.output["parameter"] = "borrow_apr"
+            return self.output
 
         threaded_output = self._execute_threading(output_list)
 
         for key, output in zip(mapper, threaded_output):
-            self.output["long"][key] = (output[1] / 10**28) * 3600
-            self.output["short"][key] = (output[2] / 10**28) * 3600
+            if output is not None:  # Check that output is not None
+                self.output["long"][key] = (output[1] / 10**28) * 3600
+                self.output["short"][key] = (output[2] / 10**28) * 3600
 
-            self.log.debug("{}\nLong Borrow Hourly Rate: -{:.5f}%\nShort Borrow Hourly Rate: -{:.5f}%\n".format(key, self.output["long"][key], self.output["short"][key]))
+                self.log.debug("{}\nLong Borrow Hourly Rate: -{:.5f}%\nShort Borrow Hourly Rate: -{:.5f}%\n".format(key, self.output["long"][key], self.output["short"][key]))
+            else:
+                # Set default values for failed markets
+                self.output["long"][key] = 0.0
+                self.output["short"][key] = 0.0
 
         self.output["parameter"] = "borrow_apr"
 

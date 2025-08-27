@@ -141,15 +141,11 @@ class GetOpenInterest(GetData):
             short_pnl_output_list.append(short_pnl)
             mapper.append(self.markets.get_market_symbol(market_key))
 
-        # TODO - currently just waiting x amount of time to not hit rate limit,
-        # but needs a retry
-        long_oi_threaded_output = self._execute_threading(long_oi_output_list)
-        time.sleep(0.2)
-        short_oi_threaded_output = self._execute_threading(short_oi_output_list)
-        time.sleep(0.2)
-        long_pnl_threaded_output = self._execute_threading(long_pnl_output_list)
-        time.sleep(0.2)
-        short_pnl_threaded_output = self._execute_threading(short_pnl_output_list)
+        # The values are already computed by _get_pnl, so we can use them directly
+        long_oi_threaded_output = long_oi_output_list
+        short_oi_threaded_output = short_oi_output_list
+        long_pnl_threaded_output = long_pnl_output_list
+        short_pnl_threaded_output = short_pnl_output_list
 
         for (
             market_symbol,
