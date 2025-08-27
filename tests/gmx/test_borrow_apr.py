@@ -19,7 +19,7 @@ def test_initialization_with_custom_filter(gmx_config):
 
 def test_get_data_processing(get_borrow_apr):
     """Test _get_data_processing method."""
-    result = get_borrow_apr._get_data_processing()
+    result = get_borrow_apr.get_data()
 
     # Verify the result structure
     assert "parameter" in result
@@ -38,7 +38,7 @@ def test_get_data_processing_empty_markets(get_borrow_apr):
     original_markets_cache = get_borrow_apr.markets._markets_cache
     get_borrow_apr.markets._markets_cache = {}
 
-    result = get_borrow_apr._get_data_processing()
+    result = get_borrow_apr.get_data()
 
     # Should still return proper structure
     assert "parameter" in result
@@ -52,7 +52,7 @@ def test_get_data_processing_empty_markets(get_borrow_apr):
 
 def test_output_format(get_borrow_apr):
     """Test that the output format matches expected structure."""
-    result = get_borrow_apr._get_data_processing()
+    result = get_borrow_apr.get_data()
 
     # Check basic structure
     assert isinstance(result, dict)
