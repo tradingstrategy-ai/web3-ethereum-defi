@@ -9,13 +9,13 @@ import logging
 from typing import Any
 
 import numpy as np
+from numerize import numerize
 
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.core.get_data import GetData
 from eth_defi.gmx.core.oracle import OraclePrices
 from eth_defi.gmx.contracts import get_datastore_contract
-from eth_utils import keccak
-from eth_abi import encode
+from eth_defi.gmx.keys import claimable_fee_amount_key
 
 
 class GetClaimableFees(GetData):
@@ -124,12 +124,12 @@ class GetClaimableFees(GetData):
 
             self.log.debug(
                 f"""Long Claimable Fees:
-                 ${self._format_number(long_claimable_usd)}"""
+                 ${numerize.numerize(long_claimable_usd)}"""
             )
 
             self.log.debug(
                 f"""Short Claimable Fees:
-                 ${self._format_number(short_claimable_usd)}"""
+                 ${numerize.numerize(short_claimable_usd)}"""
             )
 
             total_fees += long_claimable_usd + short_claimable_usd
@@ -157,37 +157,8 @@ class GetClaimableFees(GetData):
         datastore = get_datastore_contract(self.config.web3, self.config.chain)
 
         # create hashed key to query the datastore
-        claimable_fees_amount_hash_data = self._claimable_fee_amount_key(market_address, token_address)
+        claimable_fees_amount_hash_data = claimable_fee_amount_key(market_address, token_address)
 
         claimable_fee = datastore.functions.getUint(claimable_fees_amount_hash_data)
 
         return claimable_fee
-
-    @staticmethod
-    def _claimable_fee_amount_key(market: str, token: str) -> bytes:
-        """Generate claimable fee amount key for datastore query."""
-
-        CLAIMABLE_FEE_AMOUNT = keccak(text="CLAIMABLE_FEE_AMOUNT")
-        return keccak(encode(["bytes32", "address", "address"], [CLAIMABLE_FEE_AMOUNT, market, token]))
-
-    @staticmethod
-    def _format_number(value: float) -> str:
-        """
-        Format number for display using numerize-like formatting.
-
-        :param value: Number to format
-        :type value: float
-        :return: Formatted string
-        :rtype: str
-        """
-        try:
-            if abs(value) >= 1_000_000_000:
-                return f"{value / 1_000_000_000:.2f}B"
-            elif abs(value) >= 1_000_000:
-                return f"{value / 1_000_000:.2f}M"
-            elif abs(value) >= 1_000:
-                return f"{value / 1_000:.2f}K"
-            else:
-                return f"{value:.2f}"
-        except Exception:
-            return str(value)

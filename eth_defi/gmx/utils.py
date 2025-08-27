@@ -118,6 +118,8 @@ import logging
 from typing import Any, Optional
 
 from decimal import Decimal
+from eth_abi import encode
+from eth_utils import keccak
 
 from gmx_python_sdk.scripts.v2.get.get_markets import Markets
 
@@ -522,6 +524,49 @@ def transform_open_position_to_order_parameters(
         }
     except KeyError:
         raise Exception(f"Couldn't find a {market_symbol} {direction} position for the given user!")
+
+def apply_factor(value, factor):
+    return value * factor / 10**30
+
+
+def create_hash(data_type_list: list, data_value_list: list):
+    """
+    Create a keccak hash using a list of strings corresponding to data types
+    and a list of the values the data types match
+
+    Parameters
+    ----------
+    data_type_list : list
+        list of data types as strings.
+    data_value_list : list
+        list of values as strings.
+
+    Returns
+    -------
+    bytes
+        encoded hashed key .
+
+    """
+    byte_data = encode(data_type_list, data_value_list)
+    return keccak(byte_data)
+
+
+def create_hash_string(string: str):
+    """
+    Value to hash
+
+    Parameters
+    ----------
+    string : str
+        string to hash.
+
+    Returns
+    -------
+    bytes
+        hashed string.
+
+    """
+    return create_hash(["string"], [string])
 
 
 if __name__ == "__main__":
