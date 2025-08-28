@@ -525,6 +525,7 @@ def transform_open_position_to_order_parameters(
     except KeyError:
         raise Exception(f"Couldn't find a {market_symbol} {direction} position for the given user!")
 
+
 def apply_factor(value, factor):
     return value * factor / 10**30
 
