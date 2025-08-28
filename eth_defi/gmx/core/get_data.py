@@ -339,12 +339,12 @@ class GetData(ABC):
         valid_calls = []
         for index, call in enumerate(contract_calls):
             # Check if it's not None and has a callable 'call' attribute
-            if call is not None and hasattr(call, 'call') and callable(getattr(call, 'call')):
+            if call is not None and hasattr(call, "call") and callable(getattr(call, "call")):
                 valid_calls.append((index, call))
             elif isinstance(call, (int, float)):
                 # If it's already a numeric value, use it directly
                 results[index] = call
-        
+
         if not valid_calls:
             return results
 

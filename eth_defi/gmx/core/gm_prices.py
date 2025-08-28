@@ -120,17 +120,18 @@ class GetGMPrices(GetData):
             # For now, we'll return placeholder data
             price_data = {
                 "market_symbol": market_symbol,
-                "price": 1.0,  # Placeholder
+                "price": 1.0,  # TODO: Placeholder
                 "price_type": price_type,
                 "timestamp": self._get_current_timestamp(),
             }
 
-            return (market_key, price_data)
+            return market_key, price_data
         except Exception as e:
             self.log.warning(f"Failed to process market price for {market_key}: {e}")
             return None
 
-    def _get_current_timestamp(self) -> int:
+    @staticmethod
+    def _get_current_timestamp() -> int:
         """
         Get current timestamp.
 
@@ -142,8 +143,8 @@ class GetGMPrices(GetData):
 
     def _get_data_processing(self) -> dict[str, Any]:
         """
-        Implementation of abstract method - not used in this class.
+        Get GM prices data using default parameters.
 
-        :return: Empty dictionary
+        :return: GM prices data dictionary
         """
-        return {}
+        return self.get_prices(price_type="traders")
