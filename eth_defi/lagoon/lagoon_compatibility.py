@@ -4,9 +4,10 @@ import datetime
 import logging
 import pickle
 import textwrap
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 from decimal import Decimal
 from pathlib import Path
+from pprint import pformat
 from statistics import mean
 
 from web3 import Web3
@@ -121,6 +122,11 @@ class LagoonTokenCompatibilityData:
 
     def is_stablecoin_quoted(self) -> bool:
         return is_stablecoin_like(self.get_quote_token_symbol())
+
+    def pformat(self) -> str:
+        """Diagnostics dump for debug"""
+        d = asdict(self)
+        return pformat(d)
 
 
 @dataclass
