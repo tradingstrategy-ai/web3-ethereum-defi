@@ -1,0 +1,59 @@
+"""
+Tests for GMX Open Positions functionality based on real API structure.
+"""
+
+from web3 import Web3, HTTPProvider
+
+from eth_defi.gmx.config import GMXConfig
+from eth_defi.gmx.core.open_positions import GetOpenPositions
+from eth_defi.provider.anvil import fork_network_anvil
+from tests.gmx.conftest import get_open_positions
+
+
+def test_initialization_and_basic_functionality(get_open_positions, gmx_config):
+    """Test GetOpenPositions initialization and basic functionality."""
+    # Test basic initialization
+    assert get_open_positions.config is not None
+    assert get_open_positions.filter_swap_markets is True
+
+    # Test initialization with custom filter setting
+    open_positions_custom = GetOpenPositions(gmx_config, filter_swap_markets=False)
+    assert open_positions_custom.filter_swap_markets is False
+
+    # Test inheritance from GetData
+    assert hasattr(get_open_positions, "get_data")
+    assert callable(get_open_positions.get_data)
+
+    # Test config dependency
+    assert hasattr(get_open_positions.config, "web3")
+    assert hasattr(get_open_positions.config, "chain")
+
+
+def test_data_processing_structure_and_methods(chain_rpc_url):
+    """Test data processing structure and method availability."""
+    launch = fork_network_anvil(
+        chain_rpc_url,
+        test_request_timeout=30,
+        fork_block_number=373279955,
+        launch_wait_seconds=40,
+    )
+    anvil_chain_fork = launch.json_rpc_url
+
+    web3 = Web3(
+        HTTPProvider(
+            anvil_chain_fork,
+            request_kwargs={"timeout": 30},
+        )
+    )
+    address_with_open_positions = "0x91666112b851E33D894288A95846d14781e86cad"
+    gmx_config = GMXConfig(web3)
+    get_open_positions = GetOpenPositions(gmx_config)
+
+    open_positions = get_open_positions.get_data(address_with_open_positions)
+
+    assert len(open_positions) > 0
+
+    assert open_positions["ETH_long"]["account"] == address_with_open_positions
+    assert open_positions["ETH_long"]["market_symbol"] == "ETH"
+    assert open_positions["ETH_long"]["collateral_token"] == "USDC"
+    assert isinstance(open_positions["ETH_long"]["position_size"], float)
