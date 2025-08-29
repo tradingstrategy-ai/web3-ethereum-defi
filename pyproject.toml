@@ -236,6 +236,8 @@ ignore = [
     "E203", # Whitespace before :, needed for black compatibility and also `ruff format`
     "ISC001", # causes unexpected behaviour with formatter,
     "COM812", # Trailing comma missing - conflicts with formatter
+    "S101", # Use of asserts
+    "EM102", # Exception must not use f-string literal
 ]
 
 [tool.ruff.lint.isort]
