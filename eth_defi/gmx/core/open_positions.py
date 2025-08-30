@@ -7,7 +7,7 @@ replacing the gmx_python_sdk GetOpenPositions functionality.
 """
 
 import logging
-from typing import Any, Optional, Dict
+from typing import Any
 
 import numpy as np
 from cchecksum import to_checksum_address
@@ -105,7 +105,7 @@ class GetOpenPositions(GetData):
             self.log.error(f"Failed to fetch open positions data: {e}")
             raise e
 
-    def _get_tokens_address_dict(self) -> Dict[str, Any]:
+    def _get_tokens_address_dict(self) -> dict[str, Any]:
         """
         Enhanced version of get_tokens_address_dict with fallback token data.
 
@@ -253,7 +253,7 @@ class GetOpenPositions(GetData):
             "mark_price": mark_price,
         }
 
-    def get_chain_tokens(self) -> Dict[str, Any]:
+    def get_chain_tokens(self) -> dict[str, Any]:
         """
         Get chain token information - for backward compatibility with tests.
 

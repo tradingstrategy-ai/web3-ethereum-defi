@@ -11,6 +11,7 @@ from eth_defi.chain import install_chain_middleware
 from eth_defi.gas import node_default_gas_price_strategy
 from eth_defi.gmx.api import GMXAPI
 from eth_defi.gmx.config import GMXConfig
+from eth_defi.gmx.core import GetOpenPositions
 from eth_defi.gmx.data import GMXMarketData
 from eth_defi.gmx.liquidity import GMXLiquidityManager
 from eth_defi.gmx.order import GMXOrderManager
@@ -680,3 +681,25 @@ def get_pool_tvl(gmx_config):
     from eth_defi.gmx.core.pool_tvl import GetPoolTVL
 
     return GetPoolTVL(gmx_config)
+
+
+@pytest.fixture
+def gmx_open_positions(chain_rpc_url) -> GetOpenPositions:
+    launch = fork_network_anvil(
+        chain_rpc_url,
+        test_request_timeout=30,
+        fork_block_number=373279955,
+        launch_wait_seconds=40,
+    )
+    anvil_chain_fork = launch.json_rpc_url
+
+    web3 = Web3(
+        HTTPProvider(
+            anvil_chain_fork,
+            request_kwargs={"timeout": 30},
+        )
+    )
+    gmx_config = GMXConfig(web3)
+    get_open_positions = GetOpenPositions(gmx_config)
+
+    return get_open_positions
