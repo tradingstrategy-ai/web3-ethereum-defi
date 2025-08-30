@@ -445,7 +445,7 @@ class LagoonVault(ERC4626Vault):
         bound_func = self.trading_strategy_module.functions.performCall(
             contract_address,
             data_payload,
-            value,
+            # value,
         )
         return bound_func
 
