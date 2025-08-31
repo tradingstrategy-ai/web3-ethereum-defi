@@ -1,24 +1,28 @@
 """
 GMX Available Liquidity Data Retrieval Module
 
-This module provides available liquidity data for GMX protocol markets,
-replacing the gmx_python_sdk GetAvailableLiquidity functionality with exact feature parity.
+This module provides available liquidity data for GMX protocol markets
+using efficient multicall batching instead of individual contract calls.
 """
 
 import logging
-import time
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Iterable
+from collections import defaultdict
 
 import numpy as np
 
 from eth_typing import HexAddress
+from web3 import Web3
 
+from eth_defi.event_reader.multicall_batcher import EncodedCall, read_multicall_chunked, EncodedCallResult
+from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.contracts import get_datastore_contract
 from eth_defi.gmx.core.get_data import GetData
 from eth_defi.gmx.core.open_interest import GetOpenInterest
 from eth_defi.gmx.core.oracle import OraclePrices
+from eth_defi.gmx.keys import pool_amount_key, open_interest_reserve_factor_key, reserve_factor_key
 
 
 @dataclass
@@ -53,10 +57,10 @@ class LiquidityInfo:
 
 class GetAvailableLiquidity(GetData):
     """
-    GMX available liquidity data retrieval class.
+    GMX available liquidity data retrieval class using efficient multicall batching.
 
     This class retrieves available liquidity information for all available GMX markets,
-    replacing the gmx_python_sdk GetAvailableLiquidity functionality with exact feature parity.
+    with efficient multicall batching for better performance and reduced RPC usage.
 
     :param config: GMXConfig instance containing chain and network info
     :type config: GMXConfig
@@ -76,255 +80,221 @@ class GetAvailableLiquidity(GetData):
         super().__init__(config, filter_swap_markets)
         self.log = logging.getLogger(__name__)
 
-    def _get_data_processing(self) -> dict[str, Any]:
+        # Get DataStore contract address for multicalls
+        self.datastore_address = get_datastore_contract(self.config.web3, self.config.chain).address
+
+    def encode_multicalls_for_market(self, market_key: str, long_token: str, short_token: str) -> Iterable[EncodedCall]:
         """
-        Generate the dictionary of available liquidity
+        Generate multicall requests for a single market.
 
-        Returns
-        -------
-        funding_apr: dict
-            dictionary of available liquidity
+        For each market we need 6 calls:
+        - pool_amount for long token
+        - pool_amount for short token
+        - reserve_factor for long
+        - reserve_factor for short
+        - open_interest_reserve_factor for long
+        - open_interest_reserve_factor for short
 
+        :param market_key: Market address
+        :param long_token: Long token address
+        :param short_token: Short token address
+        :return: Iterable of EncodedCall objects
         """
-        self.log.info("GMX v2 Available Liquidity")
+        # DataStore.getUint() function signature: getUint(bytes32)
+        get_uint_signature = Web3.keccak(text="getUint(bytes32)")[:4]
 
-        open_interest = GetOpenInterest(self.config).get_data()
+        # Generate keys for DataStore queries
+        long_pool_key = pool_amount_key(market_key, long_token)
+        short_pool_key = pool_amount_key(market_key, short_token)
+        long_reserve_key = reserve_factor_key(market_key, True)
+        short_reserve_key = reserve_factor_key(market_key, False)
+        long_oi_reserve_key = open_interest_reserve_factor_key(market_key, True)
+        short_oi_reserve_key = open_interest_reserve_factor_key(market_key, False)
 
-        reserved_long_list = []
-        reserved_short_list = []
-        token_price_list = []
-        mapper = []
-        long_pool_amount_list = []
-        long_reserve_factor_list = []
-        long_open_interest_reserve_factor_list = []
-        short_pool_amount_list = []
-        short_reserve_factor_list = []
-        short_open_interest_reserve_factor_list = []
-        long_precision_list = []
-        short_precision_list = []
+        # Create encoded calls for each data point
+        calls = [
+            ("long_pool_amount", long_pool_key),
+            ("short_pool_amount", short_pool_key),
+            ("long_reserve_factor", long_reserve_key),
+            ("short_reserve_factor", short_reserve_key),
+            ("long_oi_reserve_factor", long_oi_reserve_key),
+            ("short_oi_reserve_factor", short_oi_reserve_key),
+        ]
 
+        for func_name, key_bytes in calls:
+            yield EncodedCall.from_keccak_signature(
+                address=self.datastore_address,
+                signature=get_uint_signature,
+                function=func_name,
+                data=key_bytes,
+                extra_data={
+                    "market_key": market_key,
+                    "data_type": func_name
+                }
+            )
+
+    def generate_all_multicalls(self) -> Iterable[EncodedCall]:
+        """
+        Generate all multicall requests for all markets.
+
+        :return: Iterable of all EncodedCall objects needed
+        """
         available_markets = self.markets.get_available_markets()
 
         for market_key in available_markets:
             self._get_token_addresses(market_key)
-            market_symbol = self.markets.get_market_symbol(market_key)
-            long_decimal_factor = self.markets.get_decimal_factor(market_key=market_key, long=True)
-            short_decimal_factor = self.markets.get_decimal_factor(market_key=market_key, short=True)
-            long_precision = 10 ** (30 + long_decimal_factor)
-            short_precision = 10 ** (30 + short_decimal_factor)
-            oracle_precision = 10 ** (30 - long_decimal_factor)
-
-            # collate market symbol to map dictionary later
-            mapper.append(market_symbol)
-
-            # LONG POOL
-            (
-                long_pool_amount,
-                long_reserve_factor,
-                long_open_interest_reserve_factor,
-            ) = self.get_max_reserved_usd(market_key, self._long_token_address, True)
-            reserved_long_list.append(open_interest["long"][market_symbol])
-            long_pool_amount_list.append(long_pool_amount)
-            long_reserve_factor_list.append(long_reserve_factor)
-            long_open_interest_reserve_factor_list.append(long_open_interest_reserve_factor)
-            long_precision_list.append(long_precision)
-
-            # SHORT POOL
-            (
-                short_pool_amount,
-                short_reserve_factor,
-                short_open_interest_reserve_factor,
-            ) = self.get_max_reserved_usd(market_key, self._short_token_address, False)
-            reserved_short_list.append(open_interest["short"][market_symbol])
-            short_pool_amount_list.append(short_pool_amount)
-            short_reserve_factor_list.append(short_reserve_factor)
-            short_open_interest_reserve_factor_list.append(short_open_interest_reserve_factor)
-            short_precision_list.append(short_precision)
-
-            # Calculate token price
-            prices = OraclePrices(chain=self.config.chain).get_recent_prices()
-            token_price = np.median(
-                [
-                    float(prices[self._long_token_address]["maxPriceFull"]) / oracle_precision,
-                    float(prices[self._long_token_address]["minPriceFull"]) / oracle_precision,
-                ]
+            yield from self.encode_multicalls_for_market(
+                market_key,
+                self._long_token_address,
+                self._short_token_address
             )
-            token_price_list.append(token_price)
 
-        # TODO - Series of sleeps to stop ratelimit on the RPC, should have
-        # retry
-        long_pool_amount_output = self._execute_threading(long_pool_amount_list)
-        time.sleep(0.2)
-
-        short_pool_amount_output = self._execute_threading(short_pool_amount_list)
-        time.sleep(0.2)
-
-        long_reserve_factor_list_output = self._execute_threading(long_reserve_factor_list)
-        time.sleep(0.2)
-
-        short_reserve_factor_list_output = self._execute_threading(short_reserve_factor_list)
-        time.sleep(0.2)
-
-        long_open_interest_reserve_factor_list_output = self._execute_threading(long_open_interest_reserve_factor_list)
-        time.sleep(0.2)
-
-        short_open_interest_reserve_factor_list_output = self._execute_threading(short_open_interest_reserve_factor_list)
-
-        for (
-            long_pool_amount,
-            short_pool_amount,
-            long_reserve_factor,
-            short_reserve_factor,
-            long_open_interest_reserve_factor,
-            short_open_interest_reserve_factor,
-            reserved_long,
-            reserved_short,
-            token_price,
-            token_symbol,
-            long_precision,
-            short_precision,
-        ) in zip(
-            long_pool_amount_output,
-            short_pool_amount_output,
-            long_reserve_factor_list_output,
-            short_reserve_factor_list_output,
-            long_open_interest_reserve_factor_list_output,
-            short_open_interest_reserve_factor_list_output,
-            reserved_long_list,
-            reserved_short_list,
-            token_price_list,
-            mapper,
-            long_precision_list,
-            short_precision_list,
-        ):
-            self.log.info(f"Token: {token_symbol}")
-
-            # select the lesser of maximum value of pool reserves or open
-            # interest limit
-            long_reserve_factor = min(long_reserve_factor, long_open_interest_reserve_factor)
-
-            if "2" in token_symbol:
-                long_pool_amount = long_pool_amount / 2
-
-            long_max_reserved_tokens = long_pool_amount * long_reserve_factor
-
-            long_max_reserved_usd = long_max_reserved_tokens / long_precision * token_price
-
-            long_liquidity = long_max_reserved_usd - float(reserved_long)
-
-            self.log.info(f"Available Long Liquidity: ${self._format_number(long_liquidity)}")
-
-            # select the lesser of maximum value of pool reserves or open
-            # interest limit
-            short_reserve_factor = min(short_reserve_factor, short_open_interest_reserve_factor)
-
-            short_max_reserved_usd = short_pool_amount * short_reserve_factor
-
-            short_liquidity = short_max_reserved_usd / short_precision - float(reserved_short)
-
-            # If its a single side market need to calculate on token
-            # amount rather than $ value
-            if "2" in token_symbol:
-                short_pool_amount = short_pool_amount / 2
-
-                short_max_reserved_tokens = short_pool_amount * short_reserve_factor
-
-                short_max_reserved_usd = short_max_reserved_tokens / short_precision * token_price
-
-                short_liquidity = short_max_reserved_usd - float(reserved_short)
-
-            self.log.info(f"Available Short Liquidity: ${self._format_number(short_liquidity)}")
-
-            self.output["long"][token_symbol] = long_liquidity
-            self.output["short"][token_symbol] = short_liquidity
-
-        self.output["parameter"] = "available_liquidity"
-
-        return self.output
-
-    def _format_number(self, value: float) -> str:
+    def _get_data_processing(self) -> dict[str, Any]:
         """
-        Format number for display using numerize-like formatting.
-
-        :param value: Number to format
-        :type value: float
-        :return: Formatted string
-        :rtype: str
-        """
-        try:
-            if abs(value) >= 1_000_000_000:
-                return f"{value / 1_000_000_000:.2f}B"
-            elif abs(value) >= 1_000_000:
-                return f"{value / 1_000_000:.2f}M"
-            elif abs(value) >= 1_000:
-                return f"{value / 1_000:.2f}K"
-            else:
-                return f"{value:.2f}"
-        except Exception:
-            return str(value)
-
-    def get_max_reserved_usd(self, market: str, token: str, is_long: bool) -> tuple[Any, Any, Any]:
-        """
-        For a given market, long/short token and pool direction get the
-        uncalled web3 functions to calculate pool size, pool reserve factor
-        and open interest reserve factor
-
-        Parameters
-        ----------
-        market: str
-            contract address of GMX market.
-        token: str
-            contract address of long or short token.
-        is_long: bool
-            pass True for long pool or False for short.
+        Generate the dictionary of available liquidity using efficient multicall batching.
 
         Returns
         -------
-        pool_amount: web3.contract_obj
-            uncalled web3 contract object for pool amount.
-        reserve_factor: web3.contract_obj
-            uncalled web3 contract object for pool reserve factor.
-        open_interest_reserve_factor: web3.contract_obj
-            uncalled web3 contract object for open interest reserve factor.
-
+        available_liquidity: dict
+            dictionary of available liquidity data with structure:
+            {
+                "long": {market_symbol: liquidity_value, ...},
+                "short": {market_symbol: liquidity_value, ...},
+                "parameter": "available_liquidity"
+            }
         """
-        from web3 import Web3
-        from eth_abi import encode
+        self.log.debug("GMX v2 Available Liquidity using Multicall")
 
-        # get web3 datastore object
-        datastore = get_datastore_contract(self.config.web3, self.config.chain)
+        # Get open interest data
+        open_interest = GetOpenInterest(self.config).get_data()
 
-        # get hashed keys for datastore
-        pool_amount_hash_data = self._pool_amount_key(market, token)
-        reserve_factor_hash_data = self._reserve_factor_key(market, is_long)
-        open_interest_reserve_factor_hash_data = self._open_interest_reserve_factor_key(market, is_long)
+        # Generate all multicall requests
+        self.log.debug("Generating multicall requests...")
+        encoded_calls = list(self.generate_all_multicalls())
+        self.log.debug(f"Generated {len(encoded_calls)} multicall requests")
 
-        pool_amount = datastore.functions.getUint(pool_amount_hash_data)
-        reserve_factor = datastore.functions.getUint(reserve_factor_hash_data)
-        open_interest_reserve_factor = datastore.functions.getUint(open_interest_reserve_factor_hash_data)
+        # Create Web3Factory for multicall execution
+        web3_factory = Web3Factory(web3=self.config.web3)
 
-        return pool_amount, reserve_factor, open_interest_reserve_factor
+        # Execute all multicalls efficiently
+        self.log.debug("Executing multicalls...")
+        multicall_results: dict[str, dict[str, EncodedCallResult]] = defaultdict(dict)
 
-    def _pool_amount_key(self, market: str, token: str) -> bytes:
-        """Generate pool amount key for datastore query."""
-        from web3 import Web3
-        from eth_abi import encode
+        for call_result in read_multicall_chunked(
+            chain_id=self.config.web3.eth.chain_id,
+            web3factory=web3_factory,
+            encoded_calls=encoded_calls,
+            block_identifier="latest",
+            progress_bar_desc="Loading GMX liquidity data",
+            max_workers=8
+        ):
+            market_key = call_result.call.extra_data["market_key"]
+            data_type = call_result.call.extra_data["data_type"]
+            multicall_results[market_key][data_type] = call_result
 
-        POOL_AMOUNT = Web3.keccak(text="POOL_AMOUNT")
-        return Web3.keccak(encode(["bytes32", "address", "address"], [POOL_AMOUNT, market, token]))
+        self.log.debug(f"Processed multicalls for {len(multicall_results)} markets")
 
-    def _reserve_factor_key(self, market: str, is_long: bool) -> bytes:
-        """Generate reserve factor key for datastore query."""
-        from web3 import Web3
-        from eth_abi import encode
+        # Process results and calculate available liquidity
+        available_markets = self.markets.get_available_markets()
 
-        RESERVE_FACTOR = Web3.keccak(text="RESERVE_FACTOR")
-        return Web3.keccak(encode(["bytes32", "address", "bool"], [RESERVE_FACTOR, market, is_long]))
+        for market_key in available_markets:
+            if market_key not in multicall_results:
+                self.log.warning(f"No multicall results for market {market_key}")
+                continue
 
-    def _open_interest_reserve_factor_key(self, market: str, is_long: bool) -> bytes:
-        """Generate open interest reserve factor key for datastore query."""
-        from web3 import Web3
-        from eth_abi import encode
+            market_results = multicall_results[market_key]
 
-        OPEN_INTEREST_RESERVE_FACTOR = Web3.keccak(text="OPEN_INTEREST_RESERVE_FACTOR")
-        return Web3.keccak(encode(["bytes32", "address", "bool"], [OPEN_INTEREST_RESERVE_FACTOR, market, is_long]))
+            # Get market metadata
+            self._get_token_addresses(market_key)
+            market_symbol = self.markets.get_market_symbol(market_key)
+
+            try:
+                # Get decimal factors and precision values
+                long_decimal_factor = self.markets.get_decimal_factor(market_key=market_key, long=True)
+                short_decimal_factor = self.markets.get_decimal_factor(market_key=market_key, short=True)
+                long_precision = 10 ** (30 + long_decimal_factor)
+                short_precision = 10 ** (30 + short_decimal_factor)
+                oracle_precision = 10 ** (30 - long_decimal_factor)
+
+                # Extract multicall results with error handling
+                def safe_extract_uint(result_key: str) -> int:
+                    if result_key in market_results and market_results[result_key].success:
+                        # Convert bytes result to integer (uint256)
+                        result_bytes = market_results[result_key].result
+                        return int.from_bytes(result_bytes, byteorder='big') if result_bytes else 0
+                    else:
+                        self.log.warning(f"Failed to get {result_key} for {market_symbol}")
+                        return 0
+
+                long_pool_amount = safe_extract_uint("long_pool_amount")
+                short_pool_amount = safe_extract_uint("short_pool_amount")
+                long_reserve_factor = safe_extract_uint("long_reserve_factor")
+                short_reserve_factor = safe_extract_uint("short_reserve_factor")
+                long_oi_reserve_factor = safe_extract_uint("long_oi_reserve_factor")
+                short_oi_reserve_factor = safe_extract_uint("short_oi_reserve_factor")
+
+                # Get oracle prices
+                prices = OraclePrices(self.config.chain).get_recent_prices()
+                if self._long_token_address not in prices:
+                    self.log.warning(f"No oracle price for {self._long_token_address} in {market_symbol}")
+                    continue
+
+                token_price = np.median([
+                    float(prices[self._long_token_address]["maxPriceFull"]) / oracle_precision,
+                    float(prices[self._long_token_address]["minPriceFull"]) / oracle_precision,
+                ])
+
+                # Get reserved amounts from open interest
+                if market_symbol not in open_interest.get("long", {}) or market_symbol not in open_interest.get("short", {}):
+                    self.log.warning(f"No open interest data for {market_symbol}")
+                    continue
+
+                reserved_long = open_interest["long"][market_symbol]
+                reserved_short = open_interest["short"][market_symbol]
+
+                # Select the lesser of maximum value of pool reserves or open interest limit
+                effective_long_reserve_factor = min(long_reserve_factor, long_oi_reserve_factor)
+                effective_short_reserve_factor = min(short_reserve_factor, short_oi_reserve_factor)
+
+                # Special handling for certain market types
+                if "2" in market_symbol:
+                    long_pool_amount = long_pool_amount / 2
+                    short_pool_amount = short_pool_amount / 2
+
+                # Calculate available liquidity
+                # Long side calculation
+                long_reserved_usd = (long_pool_amount / long_precision) * effective_long_reserve_factor * token_price / 10**30
+                long_available_usd = max(0, long_reserved_usd - reserved_long)
+
+                # Short side calculation
+                short_reserved_usd = (short_pool_amount / short_precision) * effective_short_reserve_factor * token_price / 10**30
+                short_available_usd = max(0, short_reserved_usd - reserved_short)
+
+                # Store in output structure
+                self.output["long"][market_symbol] = long_available_usd
+                self.output["short"][market_symbol] = short_available_usd
+
+                self.log.debug(
+                    f"{market_symbol}: "
+                    f"Long=${long_available_usd:,.2f}, "
+                    f"Short=${short_available_usd:,.2f}"
+                )
+
+            except Exception as e:
+                self.log.error(f"Failed to process market {market_symbol}: {e}")
+                continue
+
+        # Add parameter identifier for compatibility
+        self.output["parameter"] = "available_liquidity"
+
+        total_long = sum(v for v in self.output["long"].values() if isinstance(v, (int, float)))
+        total_short = sum(v for v in self.output["short"].values() if isinstance(v, (int, float)))
+
+        self.log.debug(
+            f"Liquidity calculation complete: "
+            f"Total Long=${total_long:,.2f}, "
+            f"Total Short=${total_short:,.2f}, "
+            f"Markets processed: {len(self.output['long'])}"
+        )
+
+        return self.output
