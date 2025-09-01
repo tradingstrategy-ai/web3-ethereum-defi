@@ -320,7 +320,7 @@ def web3_mainnet(chain_name, chain_rpc_url):
 
 
 @pytest.fixture()
-def gmx_config(web3_mainnet, chain_name) -> GMXConfig:
+def gmx_config(web3_mainnet) -> GMXConfig:
     """Create a GMX configuration for the specified chain."""
     return GMXConfig(web3_mainnet)
 

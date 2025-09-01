@@ -16,13 +16,14 @@ from eth_typing import HexAddress
 from web3 import Web3
 
 from eth_defi.event_reader.multicall_batcher import EncodedCall, read_multicall_chunked, EncodedCallResult
-from eth_defi.event_reader.web3factory import Web3Factory
+from eth_defi.event_reader.web3factory import Web3Factory, TunedWeb3Factory
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.contracts import get_datastore_contract
 from eth_defi.gmx.core.get_data import GetData
 from eth_defi.gmx.core.open_interest import GetOpenInterest
 from eth_defi.gmx.core.oracle import OraclePrices
 from eth_defi.gmx.keys import pool_amount_key, open_interest_reserve_factor_key, reserve_factor_key
+from eth_defi.provider.multi_provider import MultiProviderWeb3
 
 
 @dataclass
@@ -122,16 +123,7 @@ class GetAvailableLiquidity(GetData):
         ]
 
         for func_name, key_bytes in calls:
-            yield EncodedCall.from_keccak_signature(
-                address=self.datastore_address,
-                signature=get_uint_signature,
-                function=func_name,
-                data=key_bytes,
-                extra_data={
-                    "market_key": market_key,
-                    "data_type": func_name
-                }
-            )
+            yield EncodedCall.from_keccak_signature(address=self.datastore_address, signature=get_uint_signature, function=func_name, data=key_bytes, extra_data={"market_key": market_key, "data_type": func_name})
 
     def generate_all_multicalls(self) -> Iterable[EncodedCall]:
         """
@@ -143,11 +135,7 @@ class GetAvailableLiquidity(GetData):
 
         for market_key in available_markets:
             self._get_token_addresses(market_key)
-            yield from self.encode_multicalls_for_market(
-                market_key,
-                self._long_token_address,
-                self._short_token_address
-            )
+            yield from self.encode_multicalls_for_market(market_key, self._long_token_address, self._short_token_address)
 
     def _get_data_processing(self) -> dict[str, Any]:
         """
@@ -174,7 +162,7 @@ class GetAvailableLiquidity(GetData):
         self.log.debug(f"Generated {len(encoded_calls)} multicall requests")
 
         # Create Web3Factory for multicall execution
-        web3_factory = Web3Factory(web3=self.config.web3)
+        web3_factory = TunedWeb3Factory(rpc_config_line=self.config.web3.provider.endpoint_uri)
 
         # Execute all multicalls efficiently
         self.log.debug("Executing multicalls...")
@@ -183,10 +171,10 @@ class GetAvailableLiquidity(GetData):
         for call_result in read_multicall_chunked(
             chain_id=self.config.web3.eth.chain_id,
             web3factory=web3_factory,
-            encoded_calls=encoded_calls,
+            calls=encoded_calls,
             block_identifier="latest",
             progress_bar_desc="Loading GMX liquidity data",
-            max_workers=8
+            max_workers=5,  # TODO: Make it dynamic
         ):
             market_key = call_result.call.extra_data["market_key"]
             data_type = call_result.call.extra_data["data_type"]
@@ -221,7 +209,7 @@ class GetAvailableLiquidity(GetData):
                     if result_key in market_results and market_results[result_key].success:
                         # Convert bytes result to integer (uint256)
                         result_bytes = market_results[result_key].result
-                        return int.from_bytes(result_bytes, byteorder='big') if result_bytes else 0
+                        return int.from_bytes(result_bytes, byteorder="big") if result_bytes else 0
                     else:
                         self.log.warning(f"Failed to get {result_key} for {market_symbol}")
                         return 0
@@ -239,10 +227,12 @@ class GetAvailableLiquidity(GetData):
                     self.log.warning(f"No oracle price for {self._long_token_address} in {market_symbol}")
                     continue
 
-                token_price = np.median([
-                    float(prices[self._long_token_address]["maxPriceFull"]) / oracle_precision,
-                    float(prices[self._long_token_address]["minPriceFull"]) / oracle_precision,
-                ])
+                token_price = np.median(
+                    [
+                        float(prices[self._long_token_address]["maxPriceFull"]) / oracle_precision,
+                        float(prices[self._long_token_address]["minPriceFull"]) / oracle_precision,
+                    ]
+                )
 
                 # Get reserved amounts from open interest
                 if market_symbol not in open_interest.get("long", {}) or market_symbol not in open_interest.get("short", {}):
@@ -274,11 +264,7 @@ class GetAvailableLiquidity(GetData):
                 self.output["long"][market_symbol] = long_available_usd
                 self.output["short"][market_symbol] = short_available_usd
 
-                self.log.debug(
-                    f"{market_symbol}: "
-                    f"Long=${long_available_usd:,.2f}, "
-                    f"Short=${short_available_usd:,.2f}"
-                )
+                self.log.debug(f"{market_symbol}: Long=${long_available_usd:,.2f}, Short=${short_available_usd:,.2f}")
 
             except Exception as e:
                 self.log.error(f"Failed to process market {market_symbol}: {e}")
@@ -290,11 +276,6 @@ class GetAvailableLiquidity(GetData):
         total_long = sum(v for v in self.output["long"].values() if isinstance(v, (int, float)))
         total_short = sum(v for v in self.output["short"].values() if isinstance(v, (int, float)))
 
-        self.log.debug(
-            f"Liquidity calculation complete: "
-            f"Total Long=${total_long:,.2f}, "
-            f"Total Short=${total_short:,.2f}, "
-            f"Markets processed: {len(self.output['long'])}"
-        )
+        self.log.debug(f"Liquidity calculation complete: Total Long=${total_long:,.2f}, Total Short=${total_short:,.2f}, Markets processed: {len(self.output['long'])}")
 
         return self.output
