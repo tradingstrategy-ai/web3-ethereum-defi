@@ -235,13 +235,19 @@ def create_multi_provider_web3(
 
     call_providers = []
     for url in call_endpoints:
-        provider = HTTPProvider(url, request_kwargs=request_kwargs, session=session)
+        provider = HTTPProvider(
+            url,
+            request_kwargs=request_kwargs,
+            session=session,
+            exception_retry_configuration=None,
+        )
         logger.info(
             "Created provider %s, using request args %s, headers %s",
             get_url_domain(url),
             provider.get_request_kwargs(),
             provider.get_request_headers(),
         )
+
         call_providers.append(provider)
 
     # Do uJSON patching
