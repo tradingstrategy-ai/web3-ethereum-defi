@@ -52,7 +52,9 @@ def _check_provider_middlewares_compat(provider):
     if WEB3_PY_V7:
         # v7: Check for provider-level retry configuration instead of middleware
         if hasattr(provider, "exception_retry_configuration") and provider.exception_retry_configuration is not None:
-            logger.warning(f"Provider {get_provider_name(provider)} has exception_retry_configuration enabled. This may interfere with FallbackProvider's retry logic.")
+            msg = f"Provider {get_provider_name(provider)} has exception_retry_configuration enabled. This may interfere with FallbackProvider's retry logic. Make sure you disable it before using FallbackProvider."
+            logger.warning(msg)
+            raise AssertionError(msg)
 
         # v7: Middleware checking is less relevant but we can still check if middlewares exist
         if hasattr(provider, "middlewares"):
@@ -75,8 +77,7 @@ def _check_provider_middlewares_compat(provider):
 
                         # Make sure this cannot happen in newer versions,
                         # and the code is set up properly
-                        if WEB3_PY_V7:
-                            raise AssertionError(msg)
+                        raise AssertionError(msg)
 
             except Exception as e:
                 # If we can't inspect middlewares, just log and continue
