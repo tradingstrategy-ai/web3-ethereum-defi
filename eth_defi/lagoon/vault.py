@@ -210,7 +210,7 @@ class LagoonVault(ERC4626Vault):
         return version
 
     def fetch_trading_strategy_module_version(self) -> str | None:
-        """"Perform deployed smart contract probing.
+        """ "Perform deployed smart contract probing.
 
         :return:
             v0.1.0 or v0.1.1.
@@ -477,7 +477,6 @@ class LagoonVault(ERC4626Vault):
         data_payload = encode_function_call(func_call, func_call.arguments)
 
         module_version = abi_version or self.trading_strategy_module_version
-
 
         logger.info(
             "Lagoon: Wrapping call to TradingStrategyModuleV0 %s. Target: %s, function: %s (0x%s), args: %s, payload is %d bytes",

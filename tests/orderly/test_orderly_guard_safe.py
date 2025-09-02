@@ -153,4 +153,3 @@ def test_safe_module_delegate(
     assert resp["data"]["account_id"]
     assert resp["data"]["valid_signer"]
     assert resp["data"]["account_id"] == "ed25519:123456"
-

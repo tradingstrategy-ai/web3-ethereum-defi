@@ -77,7 +77,6 @@ def _check_provider_middlewares_compat(provider):
                         if WEB3_PY_V7:
                             raise AssertionError(msg)
 
-
             except Exception as e:
                 # If we can't inspect middlewares, just log and continue
                 logger.debug(f"Could not inspect middlewares for provider {get_provider_name(provider)}: {e}")
