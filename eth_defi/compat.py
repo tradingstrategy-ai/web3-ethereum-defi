@@ -576,3 +576,14 @@ def native_datetime_utc_fromtimestamp(timestamp: float) -> datetime.datetime:
         datetime.datetime: native datetime object in UTC
     """
     return datetime.datetime.fromtimestamp(timestamp, tz=datetime.UTC).replace(tzinfo=None)
+
+
+def create_http_provider(**kwargs):
+    """Web3 6/7 compatible HTTPProvider constructor"""
+    if WEB3_PY_V7:
+        return HTTPProvider(**kwargs)
+    else:
+        if "exception_retry_configuration" in kwargs:
+          del kwargs["exception_retry_configuration"]
+
+    return HTTPProvider(**kwargs)

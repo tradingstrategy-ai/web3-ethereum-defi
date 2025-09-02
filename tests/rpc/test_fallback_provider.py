@@ -23,8 +23,7 @@ from eth_defi.token import fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.abi import ZERO_ADDRESS
 from eth_defi.tx import get_tx_broadcast_data
-from eth_defi.compat import WEB3_PY_V7, clear_middleware
-
+from eth_defi.compat import WEB3_PY_V7, clear_middleware, create_http_provider
 
 CI = os.environ.get("CI") == "true"
 
@@ -42,14 +41,14 @@ def anvil() -> AnvilLaunch:
 @pytest.fixture()
 def provider_1(anvil):
     """Create HTTPProvider - middleware cleared separately for v6/v7 compatibility"""
-    provider = HTTPProvider(anvil.json_rpc_url)
+    provider = create_http_provider(anvil.json_rpc_url, exception_retry_configuration=None)
     clear_middleware(provider)
     return provider
 
 
 @pytest.fixture()
 def provider_2(anvil):
-    provider = HTTPProvider(anvil.json_rpc_url)
+    provider = create_http_provider(anvil.json_rpc_url, exception_retry_configuration=None)
     clear_middleware(provider)
     return provider
 
