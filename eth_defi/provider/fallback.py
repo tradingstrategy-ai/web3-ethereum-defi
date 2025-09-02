@@ -73,7 +73,8 @@ def _check_provider_middlewares_compat(provider):
                         msg = f"Provider {get_provider_name(provider)} may have retry middleware '{name}' which could interfere with FallbackProvider. Please make sure the fallback provider is not installed on a provider having existing middleware"
                         logger.warning(msg)
 
-                        # Make sure this cannot happen in newer versions
+                        # Make sure this cannot happen in newer versions,
+                        # and the code is set up properly
                         if WEB3_PY_V7:
                             raise AssertionError(msg)
 
