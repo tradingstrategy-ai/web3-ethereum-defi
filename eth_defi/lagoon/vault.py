@@ -209,15 +209,21 @@ class LagoonVault(ERC4626Vault):
 
         return version
 
-    def fetch_trading_strategy_module_version(self) -> str:
-        """"
+    def fetch_trading_strategy_module_version(self) -> str | None:
+        """"Perform deployed smart contract probing.
 
         :return:
-            v0.1.0 or v0.1.1
+            v0.1.0 or v0.1.1.
+
+            None if not TS module associated.
         """
+
+        if not self.trading_strategy_module_version:
+            return None
+
         probe_call = EncodedCall.from_keccak_signature(
             function="getTradingStrategyModuleVersion",
-            address=Web3.to_checksum_address(self.spec.vault_address),
+            address=Web3.to_checksum_address(self.trading_strategy_module_address),
             signature=Web3.keccak(text="getTradingStrategyModuleVersion()")[0:4],
             data=b"",
             extra_data={},
@@ -227,6 +233,7 @@ class LagoonVault(ERC4626Vault):
             version_bytes = probe_call.call(self.web3, block_identifier="latest")
             return version_bytes.decode("utf-8")
         except (ValueError, ContractLogicError) as e:
+            # getTradingStrategyModuleVersion() was not yet created
             return "v0.1.0"
 
         return version
