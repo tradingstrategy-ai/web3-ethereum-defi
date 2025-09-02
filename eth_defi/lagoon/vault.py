@@ -209,6 +209,33 @@ class LagoonVault(ERC4626Vault):
 
         return version
 
+    def fetch_trading_strategy_module_version(self) -> str | None:
+        """ "Perform deployed smart contract probing.
+
+        :return:
+            v0.1.0 or v0.1.1.
+
+            None if not TS module associated.
+        """
+
+        if not self.trading_strategy_module_address:
+            return None
+
+        probe_call = EncodedCall.from_keccak_signature(
+            function="getTradingStrategyModuleVersion",
+            address=Web3.to_checksum_address(self.trading_strategy_module_address),
+            signature=Web3.keccak(text="getTradingStrategyModuleVersion()")[0:4],
+            data=b"",
+            extra_data={},
+        )
+
+        try:
+            version_bytes = probe_call.call(self.web3, block_identifier="latest")
+            return version_bytes.decode("utf-8")
+        except (ValueError, ContractLogicError) as e:
+            # getTradingStrategyModuleVersion() was not yet created
+            return "v0.1.0"
+
     def check_version_compatibility(self):
         """Throw if there is mismatch between ABI and contract exposed EVM calls"""
         if self.version != LagoonVersion.legacy:
@@ -226,6 +253,15 @@ class LagoonVault(ERC4626Vault):
         - Cached property to avoid multiple calls
         """
         version = self.fetch_version()
+        return version
+
+    @cached_property
+    def trading_strategy_module_version(self) -> str:
+        """Get TradingStrategyModuleV0 contract ABI version.
+
+        - Subject to change, development in progress
+        """
+        version = self.fetch_trading_strategy_module_version()
         return version
 
     @cached_property
@@ -419,6 +455,7 @@ class LagoonVault(ERC4626Vault):
         self,
         func_call: ContractFunction,
         value: int = 0,
+        abi_version: str = None,
     ) -> ContractFunction:
         """Create a Safe multisig transaction using TradingStrategyModuleV0.
 
@@ -428,25 +465,41 @@ class LagoonVault(ERC4626Vault):
         :param func_call:
             Bound smart contract function call
 
+        :param abi_version:
+            Use specific TradingStrategyModuleV0 ABI version.
+
         :return:
             Bound Solidity functionc all you need to turn to a transaction
 
         """
+        assert self.trading_strategy_module_address is not None, f"TradingStrategyModuleV0 address not set for vault {self.vault_address}"
         contract_address = func_call.address
         data_payload = encode_function_call(func_call, func_call.arguments)
+
+        module_version = abi_version or self.trading_strategy_module_version
+
         logger.info(
-            "Lagoon: Wrapping call to TradingStrategyModuleV0. Target: %s, function: %s (0x%s), args: %s, payload is %d bytes",
+            "Lagoon: Wrapping call to TradingStrategyModuleV0 %s. Target: %s, function: %s (0x%s), args: %s, payload is %d bytes",
+            module_version,
             contract_address,
             func_call.fn_name,
             get_function_selector(func_call).hex(),
             present_solidity_args(func_call.arguments),
             len(data_payload),
         )
-        bound_func = self.trading_strategy_module.functions.performCall(
-            contract_address,
-            data_payload,
-            # value,
-        )
+
+        if module_version == "v0.1.0":
+            bound_func = self.trading_strategy_module.functions.performCall(
+                contract_address,
+                data_payload,
+            )
+        else:
+            # Value parameter was added for Orderly
+            bound_func = self.trading_strategy_module.functions.performCall(
+                contract_address,
+                data_payload,
+                value,
+            )
         return bound_func
 
     def post_new_valuation(
@@ -476,7 +529,7 @@ class LagoonVault(ERC4626Vault):
         bound_func = self.vault_contract.functions.updateNewTotalAssets(raw_amount)
         return bound_func
 
-    def settle_via_trading_strategy_module(self, valuation: Decimal = None) -> ContractFunction:
+    def settle_via_trading_strategy_module(self, valuation: Decimal = None, abi_version: None = None) -> ContractFunction:
         """Settle the new valuation and deposits.
 
         - settleDeposit will also settle the redeems request if possible. If there are enough assets in the safe it will settleRedeem
@@ -485,6 +538,9 @@ class LagoonVault(ERC4626Vault):
         - if there is nothing to settle: no deposit and redeem requests you can still call settleDeposit/settleRedeem to validate the new nav
 
         - If there is not enough USDC to redeem, the transaction will revert
+
+        :param abi_version:
+            Use specific ABI version.
 
         :param raw_amount:
             Needed in Lagoon v0.5+
@@ -509,7 +565,7 @@ class LagoonVault(ERC4626Vault):
             bound_func = self.vault_contract.functions.settleDeposit(raw_amount)
         else:
             bound_func = self.vault_contract.functions.settleDeposit()
-        return self.transact_via_trading_strategy_module(bound_func)
+        return self.transact_via_trading_strategy_module(bound_func, abi_version=abi_version)
 
     def post_valuation_and_settle(
         self,

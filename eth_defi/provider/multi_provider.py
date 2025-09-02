@@ -20,7 +20,7 @@ from eth_defi.provider.fallback import FallbackProvider
 from eth_defi.provider.mev_blocker import MEVBlockerProvider
 from eth_defi.provider.named import NamedProvider, get_provider_name
 from eth_defi.utils import get_url_domain
-from eth_defi.compat import WEB3_PY_V7
+from eth_defi.compat import WEB3_PY_V7, create_http_provider
 from eth_defi.compat import clear_middleware
 
 logger = logging.getLogger(__name__)
@@ -235,13 +235,19 @@ def create_multi_provider_web3(
 
     call_providers = []
     for url in call_endpoints:
-        provider = HTTPProvider(url, request_kwargs=request_kwargs, session=session)
+        provider = create_http_provider(
+            url,
+            request_kwargs=request_kwargs,
+            session=session,
+            exception_retry_configuration=None,
+        )
         logger.info(
             "Created provider %s, using request args %s, headers %s",
             get_url_domain(url),
             provider.get_request_kwargs(),
             provider.get_request_headers(),
         )
+
         call_providers.append(provider)
 
     # Do uJSON patching

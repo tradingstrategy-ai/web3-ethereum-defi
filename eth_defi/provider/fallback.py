@@ -52,7 +52,9 @@ def _check_provider_middlewares_compat(provider):
     if WEB3_PY_V7:
         # v7: Check for provider-level retry configuration instead of middleware
         if hasattr(provider, "exception_retry_configuration") and provider.exception_retry_configuration is not None:
-            logger.warning(f"Provider {get_provider_name(provider)} has exception_retry_configuration enabled. This may interfere with FallbackProvider's retry logic.")
+            msg = f"Provider {get_provider_name(provider)} {type(provider)} has exception_retry_configuration enabled. This may interfere with FallbackProvider's retry logic. Make sure you disable it before using FallbackProvider."
+            logger.warning(msg)
+            raise AssertionError(msg)
 
         # v7: Middleware checking is less relevant but we can still check if middlewares exist
         if hasattr(provider, "middlewares"):
@@ -70,7 +72,13 @@ def _check_provider_middlewares_compat(provider):
                 problematic_names = ["http_retry_request", "exception_retry", "retry_middleware"]
                 for name in problematic_names:
                     if any(name in str(mw_name).lower() for mw_name in middleware_names):
-                        logger.warning(f"Provider {get_provider_name(provider)} may have retry middleware '{name}' which could interfere with FallbackProvider.")
+                        msg = f"Provider {get_provider_name(provider)} may have retry middleware '{name}' which could interfere with FallbackProvider. Please make sure the fallback provider is not installed on a provider having existing middleware"
+                        logger.warning(msg)
+
+                        # Make sure this cannot happen in newer versions,
+                        # and the code is set up properly
+                        raise AssertionError(msg)
+
             except Exception as e:
                 # If we can't inspect middlewares, just log and continue
                 logger.debug(f"Could not inspect middlewares for provider {get_provider_name(provider)}: {e}")

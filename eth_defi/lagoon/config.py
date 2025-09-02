@@ -9,6 +9,7 @@ from eth_typing import HexAddress
 
 from eth_defi.token import USDC_NATIVE_TOKEN, USDT_NATIVE_TOKEN
 
+
 @dataclass(slots=True, frozen=True)
 class LagoonChainConfig:
     #: The default denomination token

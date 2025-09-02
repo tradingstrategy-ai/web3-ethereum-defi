@@ -488,7 +488,8 @@ def test_enzyme_guarded_unauthorised_approve(
     - transfer() call site is blocked by default, but we need to test for approve()
 
     """
-    usdc_token.contract.functions.approve(vault.comptroller.address, 500 * 10**6).transact({"from": deployer})
+    tx_hash = usdc_token.contract.functions.approve(vault.comptroller.address, 500 * 10**6).transact({"from": deployer})
+    assert_transaction_success_with_explanation(web3, tx_hash)
     tx_hash = vault.comptroller.functions.buyShares(500 * 10**6, 1).transact({"from": deployer})
     assert_transaction_success_with_explanation(web3, tx_hash)
 
