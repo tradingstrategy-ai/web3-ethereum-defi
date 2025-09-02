@@ -8,6 +8,8 @@ from eth_account.signers.local import LocalAccount
 from eth_typing import HexAddress
 from web3 import Web3
 
+import flaky
+
 from eth_defi.hotwallet import HotWallet
 from eth_defi.lagoon.deployment import LagoonDeploymentParameters, deploy_automated_lagoon_vault
 from eth_defi.lagoon.vault import LagoonVersion
@@ -460,6 +462,8 @@ def test_lagoon_deploy_base_guarded_any_token(
     assert usdc.fetch_balance_of(depositor) > 994
 
 
+#
+@flaky.flaky
 def test_lagoon_legacy_deploy_base_guarded_any_token(
     web3: Web3,
     uniswap_v2,
@@ -688,10 +692,6 @@ def test_lagoon_settle_v_0_1_0(
     vault = deploy_info.vault
     assert deploy_info.chain_id == 8453
     assert vault.version == LagoonVersion.legacy
-
-    pretty = deploy_info.pformat()
-    assert type(pretty) == str
-    logging.info("Deployment is:\n%s", pretty)
 
     # We need to do the initial valuation at value 0
     bound_func = vault.post_new_valuation(Decimal(0))

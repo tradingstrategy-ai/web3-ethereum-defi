@@ -70,7 +70,14 @@ def _check_provider_middlewares_compat(provider):
                 problematic_names = ["http_retry_request", "exception_retry", "retry_middleware"]
                 for name in problematic_names:
                     if any(name in str(mw_name).lower() for mw_name in middleware_names):
-                        logger.warning(f"Provider {get_provider_name(provider)} may have retry middleware '{name}' which could interfere with FallbackProvider.")
+                        msg = f"Provider {get_provider_name(provider)} may have retry middleware '{name}' which could interfere with FallbackProvider. Please make sure the fallback provider is not installed on a provider having existing middleware"
+                        logger.warning(msg)
+
+                        # Make sure this cannot happen in newer versions
+                        if WEB3_PY_V7:
+                            raise AssertionError(msg)
+
+
             except Exception as e:
                 # If we can't inspect middlewares, just log and continue
                 logger.debug(f"Could not inspect middlewares for provider {get_provider_name(provider)}: {e}")
