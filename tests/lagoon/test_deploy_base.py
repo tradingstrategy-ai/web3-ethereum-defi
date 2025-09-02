@@ -120,6 +120,7 @@ def test_lagoon_deploy_base_guarded_any_token(
     assert deploy_info.trading_strategy_module.functions.isAllowedLagoonVault(deploy_info.vault.address).call()
     assert vault.underlying_token.address == usdc.address
     assert usdc.contract.functions.allowance(vault.safe.address, vault.address).call() > 0
+    assert vault.trading_strategy_module_version == "v0.1.1"
 
     assert vault.version == LagoonVersion.v_0_5_0
 
@@ -643,3 +644,82 @@ def test_lagoon_legacy_deploy_base_guarded_any_token(
     tx_hash = bound_func.transact({"from": depositor, "gas": 1_000_000})
     assert_transaction_success_with_explanation(web3, tx_hash)
     assert usdc.fetch_balance_of(depositor) > 994
+
+
+def test_lagoon_settle_v_0_1_0(
+    web3: Web3,
+    uniswap_v2,
+    base_weth: TokenDetails,
+    base_usdc: TokenDetails,
+    topped_up_asset_manager: HexAddress,
+    depositor: HexAddress,
+    usdc_holder: HexAddress,
+    deployer_hot_wallet: HotWallet,
+    multisig_owners: list[str],
+):
+    """Legacy settle path."""
+
+    chain_id = web3.eth.chain_id
+    asset_manager = topped_up_asset_manager
+    usdc = base_usdc
+
+    parameters = LagoonDeploymentParameters(
+        underlying=USDC_NATIVE_TOKEN[chain_id],
+        name="Example",
+        symbol="EXA",
+    )
+
+    deploy_info = deploy_automated_lagoon_vault(
+        web3=web3,
+        deployer=deployer_hot_wallet,
+        asset_manager=asset_manager,
+        parameters=parameters,
+        safe_owners=multisig_owners,
+        safe_threshold=2,
+        uniswap_v2=uniswap_v2,
+        uniswap_v3=None,
+        any_asset=True,
+        vault_abi="lagoon/Vault.json",  # Lagoon v0.1
+        factory_contract=False,  # Lagoon v0.1
+    )
+
+    # We look correctly initialised, and
+    # Safe it set to take the ownership
+    vault = deploy_info.vault
+    assert deploy_info.chain_id == 8453
+    assert vault.version == LagoonVersion.legacy
+
+    pretty = deploy_info.pformat()
+    assert type(pretty) == str
+    logging.info("Deployment is:\n%s", pretty)
+
+    # We need to do the initial valuation at value 0
+    bound_func = vault.post_new_valuation(Decimal(0))
+    tx_hash = bound_func.transact({"from": asset_manager})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # Deposit 9.00 USDC into the vault
+    usdc_amount = 9 * 10**6
+    tx_hash = usdc.contract.functions.approve(vault.address, usdc_amount).transact({"from": depositor})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+    deposit_func = vault.request_deposit(depositor, usdc_amount)
+    tx_hash = deposit_func.transact({"from": depositor})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # Deposit was registered
+    receipt = web3.eth.get_transaction_receipt(tx_hash)
+    # TODO: Why ABI signature mismatch
+    assert len(receipt["logs"]) == 2  # Transfer + Deposit
+
+    # We need to do the initial valuation at value 0
+    valuation = Decimal(0)
+
+    # Settle deposit queue 9 USDC -> 0 USDC
+    settle_func = vault.settle_via_trading_strategy_module(valuation, abi_version="v0.1.0")
+    tx_hash = settle_func.transact(
+        {
+            "from": asset_manager,
+            "gas": 1_000_000,
+        }
+    )
+    assert_transaction_success_with_explanation(web3, tx_hash)
