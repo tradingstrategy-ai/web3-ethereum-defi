@@ -578,7 +578,7 @@ def native_datetime_utc_fromtimestamp(timestamp: float) -> datetime.datetime:
     return datetime.datetime.fromtimestamp(timestamp, tz=datetime.UTC).replace(tzinfo=None)
 
 
-def create_http_provider(**kwargs) -> HTTPProvider:
+def create_http_provider(*args, **kwargs) -> HTTPProvider:
     """Web3 6/7 compatible HTTPProvider constructor.
 
     Example:
@@ -593,10 +593,10 @@ def create_http_provider(**kwargs) -> HTTPProvider:
 
     """
     if WEB3_PY_V7:
-        return HTTPProvider(**kwargs)
+        return HTTPProvider(*args, **kwargs)
     else:
         # v6 does not know about exception_retry_configuration
         if "exception_retry_configuration" in kwargs:
             del kwargs["exception_retry_configuration"]
 
-    return HTTPProvider(**kwargs)
+    return HTTPProvider(*args, **kwargs)
