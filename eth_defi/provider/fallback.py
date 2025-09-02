@@ -52,7 +52,7 @@ def _check_provider_middlewares_compat(provider):
     if WEB3_PY_V7:
         # v7: Check for provider-level retry configuration instead of middleware
         if hasattr(provider, "exception_retry_configuration") and provider.exception_retry_configuration is not None:
-            msg = f"Provider {get_provider_name(provider)} has exception_retry_configuration enabled. This may interfere with FallbackProvider's retry logic. Make sure you disable it before using FallbackProvider."
+            msg = f"Provider {get_provider_name(provider)} {type(provider)} has exception_retry_configuration enabled. This may interfere with FallbackProvider's retry logic. Make sure you disable it before using FallbackProvider."
             logger.warning(msg)
             raise AssertionError(msg)
 
