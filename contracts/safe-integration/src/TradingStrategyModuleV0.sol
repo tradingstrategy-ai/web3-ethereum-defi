@@ -42,6 +42,11 @@ contract TradingStrategyModuleV0 is Module, GuardV0Base {
         _;
     }
 
+    // Identify the deployed ABI
+    function getTradingStrategyModuleVersion() public pure returns (string memory) {
+        return "v0.1.1";
+    }
+
     /**
      * Get the address of the proto DAO.
      *
