@@ -2,13 +2,12 @@
 
 - This is compatible with Ostium, as Ostium seems to have copied the same approach
 
-gTrade on Arbitrum:
 
 - About epochs, fee and withdraw delays in gToken vaults https://medium.com/gains-network/introducing-gtoken-vaults-ea98f10a49d5
 
 - gTrade contracts v6.1 https://github.com/GainsNetwork/gTrade-v6.1
 
-- gUSDC vault implementation contract https://arbiscan.io/address/0xeb754588eff264793bb80be65866d1
+- gUSDC vault implementation contract https://arbiscan.io/address/0xeb754588eff264793bb80be65866d11bc8d6cbdd#code
 
 - gUSDC vault proxy contract https://arbiscan.io/address/0xd3443ee1e91af28e5fb858fbd0d72a63ba8046e0
 

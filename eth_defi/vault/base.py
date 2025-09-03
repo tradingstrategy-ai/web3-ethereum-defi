@@ -17,9 +17,11 @@ from decimal import Decimal
 from functools import cached_property
 from typing import Iterable, TypedDict, TypeAlias, Tuple
 
-from eth_typing import BlockIdentifier, HexAddress, BlockNumber, HexBytes
+from eth_typing import BlockIdentifier, HexAddress, BlockNumber
+from hexbytes import HexBytes
+
 from web3 import Web3
-from web3.contract import ContractFunction
+from web3.contract.contract import ContractFunction
 
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.token import DEFAULT_TOKEN_CACHE, TokenAddress, TokenDetails, fetch_erc20_details
@@ -370,41 +372,76 @@ class VaultFlowManager(ABC):
 
 
 @dataclass(slots=True)
-class RedemptionRequestTicket:
-    """Base class for async vault redemptions."""
+class RedemptionTicket:
+    """In-progress redemption request.
 
-    depositor: HexAddress
-    request_redemption_tx_hash: HexBytes
+    - Needs to wait until the epoch time is over or owner has settled
+    - Serialisable class
+    """
+
+    vault_address: HexAddress
+    owner: HexAddress
+    to: HexAddress
+    raw_shares: int
+    tx_hash: HexBytes
 
     def __post_init__(self):
-        assert self.depositor.startswith("0x"), f"Got {self.depositor}"
-        assert isinstance(self.request_redemption_tx_hash), f"Got {type(self.request_redemption_tx_hash)}: {self.request_redemption_tx_hash}"
+        assert self.owner.startswith("0x"), f"Got {self.owner}"
+        assert self.to.startswith("0x"), f"Got {self.to}"
+        assert type(self.raw_shares) == int, f"Got {type(self.raw_shares)}: {self.raw_shares}"
+        assert isinstance(self.tx_hash, HexBytes), f"Got {type(self.tx_hash)}: {self.tx_hash}"
 
     @abstractmethod
     def get_request_id(self) -> int:
         """Get the redemption request id.
 
+        - If vault uses some sort of request ids to track the withdrawals
         - Needed for settlement
         """
         raise NotImplementedError()
 
 
+class CannotParseRedemptionTransaction(Exception):
+    """We did no know how our redemption transaction went."""
+
+
 @dataclass(slots=True)
 class RedemptionRequest:
     """Wrap the different redeem functions async vaults implement."""
+
+    #: Vault we are dealing with
     vault: "VaultBase"
-    depositor: HexAddress
-    amount: Decimal
-    func: ContractFunction
+
+    #: Owner of the shares
+    owner: HexAddress
+
+    #: Receiver of underlying asset
+    to: HexAddress
+
+    #: Human-readable shares
+    shares: Decimal
+
+    #: Raw amount of shares
+    raw_shares: int
+
+    #: Transactions we need to perform in order to open a redemption
+    #:
+    #: It's a list because for Gains we need 2 tx
+    funcs: list[ContractFunction]
 
     @property
     def web3(self) -> Web3:
         return self.vault.web
 
-    def parse_redeem_transaction(self, tx_hash: HexBytes) -> RedemptionRequestTicket:
+    def parse_redeem_transaction(self, tx_hashes: list[HexBytes]) -> RedemptionTicket:
         """Parse the transaction receipt to get the actual shares redeemed.
 
         - Assumes only one redemption request per vault per transaction
+
+        - Most throw an
+
+        :raise CannotParseRedemptionTransaction:
+            If we did not know how to parse the transaction
         """
         raise NotImplementedError()
 
@@ -696,7 +733,12 @@ class VaultBase(ABC):
         """
         raise NotImplementedError(f"Class {self.__class__.__name__} does not implement get_performance_fee()")
 
-    def create_redemption_request(self) -> RedemptionRequest:
+    def create_redemption_request(
+        self,
+        owner: HexAddress,
+        amount: Decimal = None,
+        raw_amount: int = None,
+    ) -> RedemptionRequest:
         """Create a redemption request.
 
         Abstracts IPOR, Lagoon, Gains, other vault redemption flow.
@@ -713,3 +755,7 @@ class VaultBase(ABC):
             Redemption request dataclass
         """
         raise NotImplementedError(f"Class {self.__class__.__name__} does not implement create_redemption_request()")
+
+    def settle_redemption_request(self, request_ticket: RedemptionRequest) -> ContractFunction:
+        """Settle an existing redemption request"""
+
