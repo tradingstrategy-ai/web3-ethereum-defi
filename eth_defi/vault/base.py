@@ -17,8 +17,9 @@ from decimal import Decimal
 from functools import cached_property
 from typing import Iterable, TypedDict, TypeAlias, Tuple
 
-from eth_typing import BlockIdentifier, HexAddress, BlockNumber
+from eth_typing import BlockIdentifier, HexAddress, BlockNumber, HexBytes
 from web3 import Web3
+from web3.contract import ContractFunction
 
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.token import DEFAULT_TOKEN_CACHE, TokenAddress, TokenDetails, fetch_erc20_details
@@ -368,6 +369,46 @@ class VaultFlowManager(ABC):
         """Read outgoing pending withdraws."""
 
 
+@dataclass(slots=True)
+class RedemptionRequestTicket:
+    """Base class for async vault redemptions."""
+
+    depositor: HexAddress
+    request_redemption_tx_hash: HexBytes
+
+    def __post_init__(self):
+        assert self.depositor.startswith("0x"), f"Got {self.depositor}"
+        assert isinstance(self.request_redemption_tx_hash), f"Got {type(self.request_redemption_tx_hash)}: {self.request_redemption_tx_hash}"
+
+    @abstractmethod
+    def get_request_id(self) -> int:
+        """Get the redemption request id.
+
+        - Needed for settlement
+        """
+        raise NotImplementedError()
+
+
+@dataclass(slots=True)
+class RedemptionRequest:
+    """Wrap the different redeem functions async vaults implement."""
+    vault: "VaultBase"
+    depositor: HexAddress
+    amount: Decimal
+    func: ContractFunction
+
+    @property
+    def web3(self) -> Web3:
+        return self.vault.web
+
+    def parse_redeem_transaction(self, tx_hash: HexBytes) -> RedemptionRequestTicket:
+        """Parse the transaction receipt to get the actual shares redeemed.
+
+        - Assumes only one redemption request per vault per transaction
+        """
+        raise NotImplementedError()
+
+
 class VaultBase(ABC):
     """Base class for vault protocol adapters.
 
@@ -654,3 +695,21 @@ class VaultBase(ABC):
             0.1 = 10%
         """
         raise NotImplementedError(f"Class {self.__class__.__name__} does not implement get_performance_fee()")
+
+    def create_redemption_request(self) -> RedemptionRequest:
+        """Create a redemption request.
+
+        Abstracts IPOR, Lagoon, Gains, other vault redemption flow.
+
+        Flow
+
+        1. create_redemption_request
+        2. sign and broadcast the transaction
+        3. parse success and redemption request id from the transaction
+        4. wait until the redemption delay is over
+        5. settle the redemption request
+
+        :return:
+            Redemption request dataclass
+        """
+        raise NotImplementedError(f"Class {self.__class__.__name__} does not implement create_redemption_request()")

@@ -1,9 +1,9 @@
 """Morpho vault reading implementation."""
 
 import datetime
+import logging
 from functools import cached_property
 
-from eth_typing import BlockIdentifier
 from web3 import Web3
 from web3.contract import Contract
 
@@ -14,9 +14,27 @@ from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.event_reader.conversion import convert_bytes32_to_address, convert_string_to_bytes32
 from eth_defi.event_reader.multicall_batcher import EncodedCall
 from eth_defi.utils import from_unix_timestamp
-
+from eth_typing import BlockIdentifier, HexAddress, HexBytes
 
 from web3.exceptions import BadFunctionCallOutput
+
+from eth_defi.vault.base import RedemptionRequest, RedemptionRequestTicket
+
+logger = logging.getLogger(__name__)
+
+
+class GainsRedemptionTicket(RedemptionRequestTicket):
+    pass
+
+
+class GainsRedemptionRequest(RedemptionRequest):
+
+    def parse_redeem_transaction(self, tx_hash: HexBytes) -> RedemptionRequestTicket:
+        """Parse the transaction receipt to get the actual shares redeemed.
+
+        - Assumes only one redemption request per vault per transaction
+        """
+        raise NotImplementedError()
 
 
 class GainsVault(ERC4626Vault):
@@ -133,6 +151,34 @@ class GainsVault(ERC4626Vault):
         # How much the current epoch has passed
         gone = now_ - self.fetch_current_epoch_start()
         return now_ + (epochs * self.fetch_epoch_duration()) - gone
+
+
+    def request_redeem(self, depositor: HexAddress, raw_amount: int) -> ContractFunction:
+        """Build a redeem transction.
+
+        - Phase 1 of redemption, before settlement
+        - Used for testing
+        - Sets up a redemption request for X shares
+
+        :param raw_amount:
+            Raw amount in share token
+        """
+        assert type(raw_amount) == int, f"Got {raw_amount} {type(raw_amount)}"
+        shares = self.share_token
+        block_number = self.web3.eth.block_number
+
+        # Check we have shares
+        owned_raw_amount = shares.fetch_raw_balance_of(depositor, block_number)
+        assert owned_raw_amount >= raw_amount, f"Cannot redeem, has only {owned_raw_amount} shares when {raw_amount} needed"
+
+        human_amount = shares.convert_to_decimals(raw_amount)
+        total_shares = self.fetch_total_supply(block_number)
+        logger.info("Setting up redemption for %s %s shares out of %s, for %s", human_amount, shares.symbol, total_shares, depositor)
+        return self.vault_contract.functions.requestRedeem(
+            raw_amount,
+            depositor,
+            depositor,
+        )
 
 
 class OstiumVault(GainsVault):
