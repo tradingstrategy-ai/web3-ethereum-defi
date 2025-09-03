@@ -167,6 +167,12 @@ def to_unix_timestamp(dt: datetime.datetime) -> float:
     return calendar.timegm(dt.utctimetuple())
 
 
+def from_unix_timestamp(timestamp: float) -> datetime.datetime:
+    """Convert UNIX seconds since epoch to Python UTC datetime."""
+    assert type(timestamp) in (int, float)
+    return datetime.datetime.fromtimestamp(timestamp, tz=datetime.timezone.utc).replace(tzinfo=None)
+
+
 def get_url_domain(url: str) -> str:
     """Redact URL so that only domain is displayed.
 

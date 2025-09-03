@@ -122,10 +122,30 @@ def create_probe_calls(
         # https://basescan.org/address/0x944766f715b51967E56aFdE5f0Aa76cEaCc9E7f9#readProxyContract
         # https://basescan.org/address/0x2ac590a4a78298093e5bc7742685446af96d56e7#code
         # https://github.com/GainsNetwork/gTrade-v6.1/tree/main
-        gains_network_call = EncodedCall.from_keccak_signature(
+        gains_tranche_call = EncodedCall.from_keccak_signature(
             address=address,
             signature=Web3.keccak(text="depositCap()")[0:4],
             function="depositCap",
+            data=b"",
+            extra_data=None,
+        )
+
+        # gToken like vaults
+        # https://github.com/0xOstium/smart-contracts-public/blob/da3b944623bef814285b7f418d43e6a95f4ad4b1/src/OstiumVault.sol#L243
+        gains_call = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="maxDiscountP()")[0:4],
+            function="maxDiscountP",
+            data=b"",
+            extra_data=None,
+        )
+
+        # OstiumVault detector on the top of Gains
+        # https://github.com/0xOstium/smart-contracts-public/blob/da3b944623bef814285b7f418d43e6a95f4ad4b1/src/OstiumVault.sol
+        registry_call = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="registry()")[0:4],
+            function="registry",
             data=b"",
             extra_data=None,
         )
@@ -240,7 +260,8 @@ def create_probe_calls(
         yield erc_7540_call
         yield baklava_space
         yield astrolab_call
-        yield gains_network_call
+        yield gains_call
+        yield gains_tranche_call
         yield morpho_call
         yield erc_7575_call
         yield kiln_metavaut_call
@@ -251,6 +272,7 @@ def create_probe_calls(
         yield superform_call_2
         yield term_finance_call
         yield euler_call
+        yield registry_call
 
 
 def identify_vault_features(
@@ -314,7 +336,13 @@ def identify_vault_features(
         features.add(ERC4626Feature.astrolab_like)
 
     if calls["depositCap"].success:
-        features.add(ERC4626Feature.gains_like)
+        features.add(ERC4626Feature.gains_tranche_like)
+
+    if calls["maxDiscountP"].success:
+        if calls["registry"].success:
+            features.add(ERC4626Feature.ostium_like)
+        else:
+            features.add(ERC4626Feature.gains_like)
 
     if calls["MORPHO"].success:
         features.add(ERC4626Feature.morpho_like)
@@ -523,8 +551,34 @@ def create_vault_instance(
         from eth_defi.morpho.vault import MorphoVault
 
         return MorphoVault(web3, spec, token_cache=token_cache)
+    elif ERC4626Feature.gains_like in features:
+        # Lagoon instance
+        from eth_defi.gains.vault import GainsVault
+
+        return GainsVault(web3, spec, token_cache=token_cache)
+    elif ERC4626Feature.ostium_like in features:
+        # Lagoon instance
+        from eth_defi.gains.vault import OstiumVault
+
+        return OstiumVault(web3, spec, token_cache=token_cache)
     else:
         # Generic ERC-4626 without fee data
         from eth_defi.erc_4626.vault import ERC4626Vault
 
         return ERC4626Vault(web3, spec, token_cache=token_cache)
+
+
+def create_vault_instance_autodetect(
+    web3: Web3,
+    vault_address: HexAddress,
+) -> VaultBase:
+    """Create any vault instance.
+
+    - Probes smart contract call first to identify what kind of vault we are dealing with
+    """
+    features = detect_vault_features(web3, vault_address, verbose=False)
+    vault = create_vault_instance(web3, vault_address, features=features)
+    assert vault is not None, f"Could not create vault instance: {vault_address} with features {features}"
+    return vault
+
+
