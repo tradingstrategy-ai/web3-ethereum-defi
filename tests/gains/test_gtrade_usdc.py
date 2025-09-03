@@ -1,4 +1,5 @@
 """Gains (Gtrade) vault tests."""
+
 import datetime
 import os
 from decimal import Decimal
@@ -41,7 +42,7 @@ def test_gains_read_data(web3, vault: GainsVault):
     assert vault.fetch_epoch_duration() == datetime.timedelta(seconds=21600)
     assert vault.fetch_current_epoch_start() == datetime.datetime(2025, 8, 31, 21, 53, 55)
     assert vault.fetch_withdraw_epochs_time_lock() == 3
-    assert vault.estimate_withdraw_timeout() == datetime.datetime(2025, 9, 1, 15, 53, 55)
+    assert vault.estimate_redemption_ready() == datetime.datetime(2025, 9, 1, 15, 53, 55)
     assert vault.get_max_discount_percent() == 0.05
 
 
@@ -50,9 +51,7 @@ def test_gains_deposit_withdraw(
     test_user,
     usdc: TokenDetails,
 ):
-    """Do deposit/redeem cycle on Gains vault.
-
-    """
+    """Do deposit/redeem cycle on Gains vault."""
     web3 = web3_write
     vault: GainsVault = create_vault_instance_autodetect(web3, "0xd3443ee1e91af28e5fb858fbd0d72a63ba8046e0")
 
@@ -74,7 +73,7 @@ def test_gains_deposit_withdraw(
 
     share_token = vault.share_token
     shares = share_token.fetch_balance_of(test_user)
-    assert shares == pytest.approx(Decimal('81.54203'))
+    assert shares == pytest.approx(Decimal("81.54203"))
 
     # Withdrawals can be only executed on the first two days of an epoch.
     # We start in a state that is outside of this window, so we need to move to the next epoch first.

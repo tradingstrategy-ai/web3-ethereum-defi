@@ -580,5 +580,3 @@ def create_vault_instance_autodetect(
     vault = create_vault_instance(web3, vault_address, features=features)
     assert vault is not None, f"Could not create vault instance: {vault_address} with features {features}"
     return vault
-
-

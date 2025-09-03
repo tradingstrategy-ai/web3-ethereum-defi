@@ -1,4 +1,5 @@
 """Arbitrum test fixtures for Gains/Ostium testing."""
+
 import os
 from decimal import Decimal
 

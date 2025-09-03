@@ -103,7 +103,6 @@ USDC_WHALE: dict[int, HexAddress | str] = {
     # Base
     #
     8453: "0x40EbC1Ac8d4Fedd2E144b75fe9C0420BE82750c6",
-
     # Arbitrum
     # Coinbase 10
     # https://arbiscan.io/token/0xaf88d065e77c8cc2239327c5edb3a432268e5831#balances

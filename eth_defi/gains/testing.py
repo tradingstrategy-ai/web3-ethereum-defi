@@ -1,4 +1,5 @@
 """Gains vault testing helpers."""
+
 import logging
 import datetime
 
@@ -16,7 +17,7 @@ def force_next_gains_epoch(
     vault: GainsVault,
     any_account: HexAddress,
     padding_seconds: int = 1,
-    gas_limit = 3_000_000,
+    gas_limit=3_000_000,
 ):
     """Advance Gains vault to a next epoch by using Anvil hacks.
 
@@ -30,7 +31,7 @@ def force_next_gains_epoch(
 
     # Full delay
     current_epoch_start = vault.vault_contract.functions.currentEpochStart().call()
-    epoch_duration =  vault.open_pnl_contract.functions.requestsStart().call() + (vault.open_pnl_contract.functions.requestsEvery().call() * vault.open_pnl_contract.functions.requestsCount().call())
+    epoch_duration = vault.open_pnl_contract.functions.requestsStart().call() + (vault.open_pnl_contract.functions.requestsEvery().call() * vault.open_pnl_contract.functions.requestsCount().call())
     next_epoch = current_epoch_start + epoch_duration
 
     # How loong until the epoch is cooked

@@ -758,4 +758,3 @@ class VaultBase(ABC):
 
     def settle_redemption_request(self, request_ticket: RedemptionRequest) -> ContractFunction:
         """Settle an existing redemption request"""
-

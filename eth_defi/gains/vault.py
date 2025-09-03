@@ -1,4 +1,19 @@
-"""Morpho vault reading implementation."""
+"""Gains/Ostium vault reader and deposit implementation.
+
+- About epochs, fee and withdraw delays in gToken vaults https://medium.com/gains-network/introducing-gtoken-vaults-ea98f10a49d5
+
+- gTrade contracts v6.1 https://github.com/GainsNetwork/gTrade-v6.1
+
+- gUSDC vault implementation contract https://arbiscan.io/address/0xeb754588eff264793bb80be65866d11bc8d6cbdd#code
+
+- gUSDC vault proxy contract https://arbiscan.io/address/0xd3443ee1e91af28e5fb858fbd0d72a63ba8046e0
+
+- OstiumVault.sol https://github.com/0xOstium/smart-contracts-public/blob/da3b944623bef814285b7f418d43e6a95f4ad4b1/src/OstiumVault.sol#L243
+
+- Ostium vault on Arbitrum https://arbiscan.io/address/0x20d419a8e12c45f88fda7c5760bb6923cee27f98
+
+- Ostium implementation on Arbitrum https://arbiscan.io/address/0x738873f37b4b4bebe3545a277a27cdac77db99cd#code
+"""
 
 import datetime
 import logging
@@ -31,6 +46,7 @@ logger = logging.getLogger(__name__)
 @dataclass(slots=True)
 class GainsRedemptionTicket(RedemptionTicket):
     """Gains redemption ticket details."""
+
     current_epoch: int
     unlock_epoch: int
 
@@ -42,7 +58,8 @@ class GainsRedemptionRequest(RedemptionRequest):
 
     See errors at:
 
-    - https://www.codeslaw.app/contracts/arbitrum/0xeb754588eff264793bb80be65866d11bc8d6cbdd?tab=abi
+    - Gains: https://www.codeslaw.app/contracts/arbitrum/0xeb754588eff264793bb80be65866d11bc8d6cbdd?tab=abi
+    - Ostium: https://www.codeslaw.app/contracts/arbitrum/0x738873f37b4b4bebe3545a277a27cdac77db99cd?tab=abi
     """
 
     def parse_redeem_transaction(self, tx_hashes: list[HexBytes]) -> GainsRedemptionTicket:
@@ -122,7 +139,7 @@ class GainsVault(ERC4626Vault):
                 "gains/OstiumOpenPnl.json",
                 addr,
             )
-        except(ValueError, BadFunctionCallOutput):
+        except (ValueError, BadFunctionCallOutput):
             pass
 
         return None
@@ -181,7 +198,7 @@ class GainsVault(ERC4626Vault):
         unix_timestamp = self.vault_contract.functions.currentEpochStart().call()
         return from_unix_timestamp(unix_timestamp)
 
-    def estimate_withdraw_timeout(self, now_: datetime.datetime = None) -> datetime.datetime | None:
+    def estimate_redemption_ready(self, now_: datetime.datetime = None) -> datetime.datetime | None:
         """How long we need to wait for withdraw if we start now."""
         epochs = self.fetch_withdraw_epochs_time_lock()
         if now_ is None:
@@ -328,6 +345,15 @@ class OstiumVault(GainsVault):
     """
 
     @cached_property
+    def vault_contract(self) -> Contract:
+        """Get vault deployment."""
+        return get_deployed_erc_4626_contract(
+            self.web3,
+            self.spec.vault_address,
+            abi_fname="gains/OstiumVault.json",
+        )
+
+    @cached_property
     def ostium_registry(self) -> Contract | None:
         """Get Ostium registry contract.
 
@@ -355,7 +381,7 @@ class OstiumVault(GainsVault):
                 "gains/OstiumRegistry.json",
                 registry_address,
             )
-        except(ValueError, BadFunctionCallOutput):
+        except (ValueError, BadFunctionCallOutput):
             pass
 
         return None
