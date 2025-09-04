@@ -289,8 +289,20 @@ class VaultDepositManager(ABC):
         raise NotImplementedError(f"Class {self.__class__.__name__} does not implement create_redemption_request()")
 
     @abstractmethod
-    def is_redemption_in_progess(self, owner: HexAddress) -> bool:
+    def is_redemption_in_progress(self, owner: HexAddress) -> bool:
         """Check if the owner has an active redemption request.
+
+        :param owner:
+            Owner of the shares
+
+        :return:
+            True if there is an active redemption request
+        """
+        raise NotImplementedError(f"Class {self.__class__.__name__} does not implement is_redemption_in_proges()")
+
+    @abstractmethod
+    def is_deposit_in_progress(self, owner: HexAddress) -> bool:
+        """Check if the owner has an active deposit request.
 
         :param owner:
             Owner of the shares
@@ -344,6 +356,8 @@ class VaultDepositManager(ABC):
     @abstractmethod
     def estimate_redemption_delay(self) -> datetime.timedelta:
         """Get the redemption delay for this vault.
+
+        - What is overall redemption delay: not related to the current moment
 
         - How long it takes before a redemption request is allowed
 

@@ -17,7 +17,6 @@ logger = logging.getLogger(__name__)
 @dataclass(slots=True)
 class GainsRedemptionTicket(RedemptionTicket):
     """Gains redemption ticket details."""
-
     current_epoch: int
     unlock_epoch: int
 
@@ -181,3 +180,7 @@ class GainsDepositManager(ERC4626DepositManager):
         vault = self.vault
         epoch_duration_seconds = vault.open_pnl_contract.functions.requestsStart().call() + (vault.open_pnl_contract.functions.requestsEvery().call() * vault.open_pnl_contract.functions.requestsCount().call())
         return datetime.timedelta(seconds=epoch_duration_seconds)
+
+    def is_redemption_in_progress(self, owner: HexAddress) -> bool:
+        contract = self.vault.vault_contract
+        return contract.functions.totalSharesBeingWithdrawn(owner).call() > 0

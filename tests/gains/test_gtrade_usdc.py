@@ -89,7 +89,7 @@ def test_gains_deposit_withdraw(
     )
 
     # 1. Create a redemption request
-    assert deposit_manager.estimate_redemption_delay() == datetime.timedelta(days=1)
+    assert deposit_manager.estimate_redemption_delay() == datetime.timedelta(days=3)
     assert vault.open_pnl_contract.functions.nextEpochValuesRequestCount().call() == 0
     assert deposit_manager.can_create_redemption_request(test_user) is True, f"We have {vault.open_pnl_contract.functions.nextEpochValuesRequestCount().call()}"
     redemption_request = deposit_manager.create_redemption_request(
@@ -102,6 +102,7 @@ def test_gains_deposit_withdraw(
     assert redemption_request.shares == shares
 
     # 2.a) Broadcast and parse redemption request tx
+    assert deposit_manager.is_redemption_in_progress(test_user) is False
     assert vault.open_pnl_contract.functions.nextEpochValuesRequestCount().call() == 0
     tx_hashes = []
     funcs = redemption_request.funcs
@@ -116,6 +117,8 @@ def test_gains_deposit_withdraw(
     assert redemption_ticket.to == test_user
     assert redemption_ticket.current_epoch == 197
     assert redemption_ticket.unlock_epoch == 200
+    assert vault.vault_contract.functions.totalSharesBeingWithdrawn(test_user).call() == redemption_ticket.raw_shares
+    assert deposit_manager.is_redemption_in_progress(test_user) is True
 
     # Cannot redeem yet, need to wait for the next epoch
     assert deposit_manager.can_finish_redeem(redemption_ticket) is False

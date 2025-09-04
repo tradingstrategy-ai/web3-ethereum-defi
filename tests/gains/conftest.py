@@ -1,5 +1,5 @@
 """Arbitrum test fixtures for Gains/Ostium testing."""
-
+import logging
 import os
 from decimal import Decimal
 
@@ -45,7 +45,7 @@ def anvil_arbitrum_fork_write(request) -> AnvilLaunch:
         yield launch
     finally:
         # Wind down Anvil process after the test is complete
-        launch.close()
+        launch.close(log_level=logging.ERROR)
 
 
 @pytest.fixture()

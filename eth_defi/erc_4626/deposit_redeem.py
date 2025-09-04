@@ -130,7 +130,10 @@ class ERC4626DepositManager(VaultDepositManager):
     def get_redemption_delay_over(self, address: HexAddress | str) -> datetime.datetime:
         return datetime.datetime(1970, 1, 1)
 
-    def is_redemption_in_progess(self, owner: HexAddress) -> bool:
+    def is_redemption_in_progress(self, owner: HexAddress) -> bool:
+        return False
+
+    def is_deposit_in_progress(self, owner: HexAddress) -> bool:
         return False
 
     def settle_redemption(
