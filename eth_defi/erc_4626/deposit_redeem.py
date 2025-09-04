@@ -16,6 +16,8 @@ class ERC4626DepositTicket(DepositRequest):
     """
 
 
+
+
 class ERC4626DepositRequest(DepositRequest):
     """Synchronous deposit request for ERC-4626 vaults."""
 

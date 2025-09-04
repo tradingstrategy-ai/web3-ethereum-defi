@@ -621,7 +621,7 @@ class EncodedCall:
     ) -> bytes:
         """Return raw results of the call.
 
-        Example:
+        Example how to read:
 
         .. code-block:: python
 
@@ -687,6 +687,19 @@ class EncodedCall:
                     continue
 
                 raise e
+
+    def transact(
+        self,
+        from_: HexAddress,
+        gas_limit: int,
+    ) -> dict:
+        """Build a transaction payload for this call."""
+        return {
+            "to": self.address,
+            "data": self.data.hex(),
+            "from": from_,
+            "gas": gas_limit,
+        }
 
     def call_as_result(
         self,

@@ -20,6 +20,12 @@ def decode_data(data: str) -> list[bytes]:
     return entries
 
 
+def convert_uin256_to_bytes(value: int) -> bytes:
+    """Convert uint256 to bytes32."""
+    assert value >= 0
+    return value.to_bytes(32, "big")
+
+
 def convert_uint256_bytes_to_address(raw: bytes | HexBytes) -> ChecksumAddress:
     """Convert raw uin256 from log data to addresses.
 
@@ -95,6 +101,17 @@ def convert_bytes32_to_address(bytes32: bytes) -> ChecksumAddress:
     assert len(bytes32) == 32
     raw = bytes32[-20:]
     return Web3.to_checksum_address(raw)
+
+
+def convert_bytes32_to_uint(bytes32: bytes) -> int:
+    """Convert raw bytes32 blob to uint.
+
+
+    :param bytes32:
+        E.g. b`0x00000000000000000000000006af07097c9eeb7fd685c692751d5c66db49c215`
+    """
+    assert type(bytes32) in (bytes, HexBytes), f"Received: {type(bytes32)}"
+    return int.from_bytes(bytes32, "big")
 
 
 def convert_uint256_string_to_int(bytes32: str, *, signed: bool = False) -> int:

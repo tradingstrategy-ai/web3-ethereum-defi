@@ -7,11 +7,16 @@ from web3 import Web3
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
 from eth_defi.erc_4626.vault import ERC4626Vault
+from eth_defi.lagoon.deposit_redeem import ERC7540DepositManager, ERC7540DepositRequest, ERC7540DepositTicket
+from eth_defi.lagoon.testing import force_lagoon_settle
+from eth_defi.lagoon.vault import LagoonVault, LagoonVersion
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import fetch_erc20_details, TokenDetails, USDC_WHALE
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_typing import HexAddress
+
+from eth_defi.utils import addr
 
 JSON_RPC_BASE = os.environ.get("JSON_RPC_BASE")
 
@@ -21,7 +26,13 @@ pytestmark = pytest.mark.skipif(not JSON_RPC_BASE, reason="No JSON_RPC_BASE envi
 
 
 @pytest.fixture(scope="module")
-def anvil_base_fork(request) -> AnvilLaunch:
+def vault_manager() -> HexAddress:
+    # https://app.lagoon.finance/vault/8453/0xb09f761cb13baca8ec087ac476647361b6314f98
+    return addr("0x3B95C7cD4075B72ecbC4559AF99211C2B6591b2E")
+
+
+@pytest.fixture(scope="module")
+def anvil_base_fork(request, vault_manager) -> AnvilLaunch:
     """Create a testable fork of live BNB chain.
 
     :return: JSON-RPC URL for Web3
@@ -30,7 +41,7 @@ def anvil_base_fork(request) -> AnvilLaunch:
     launch = fork_network_anvil(
         JSON_RPC_BASE,
         fork_block_number=35_094_246,
-        unlocked_addresses=[USDC_WHALE[8453]],
+        unlocked_addresses=[USDC_WHALE[8453], vault_manager],
     )
     try:
         yield launch
@@ -70,15 +81,18 @@ def usdc(web3) -> TokenDetails:
     )
 
 @pytest.fixture(scope="module")
-def vault(web3) -> ERC4626Vault:
-    """Harvest USDC Autopilot on IPOR on Base"""
-    # https://app.ipor.io/fusion/base/0x0d877dc7c8fa3ad980dfdb18b48ec9f8768359c4
-    # (ChainId.base, "0x0d877Dc7C8Fa3aD980DfDb18B48eC9F8768359C4".lower()),
+def vault(web3) -> LagoonVault:
+    """722Capital-USDC on Base.
+
+    https://app.lagoon.finance/vault/8453/0xb09f761cb13baca8ec087ac476647361b6314f98
+    """
     vault = create_vault_instance_autodetect(
         web3,
-        vault_address="0x0d877Dc7C8Fa3aD980DfDb18B48eC9F8768359C4",
+        vault_address="0xb09f761cb13baca8ec087ac476647361b6314f98",
     )
-    return cast(ERC4626Vault, vault)
+    lagoon_vault = cast(LagoonVault, vault)
+    assert lagoon_vault.version == LagoonVersion.legacy
+    return lagoon_vault
 
 
 @pytest.fixture(scope="module")
@@ -90,30 +104,59 @@ def test_user(web3, usdc):
     return account
 
 
-def test_erc_4626_deposit(
+def test_erc_7540_deposit_722_capital(
     vault: ERC4626Vault,
     test_user: HexAddress,
     usdc: TokenDetails,
+    vault_manager: HexAddress,
 ):
-    """Use DepositManager interface to deposit into Morpho vault"""
+    """Use DepositManager interface to deposit into ERC-7540 vault on Lagoon run by 722 Capital"""
     deposit_manager = vault.get_deposit_manager()
-    assert isinstance(deposit_manager, ERC4626DepositManager)
-    assert deposit_manager.has_synchronous_deposit()
+    assert isinstance(deposit_manager, ERC7540DepositManager)
+    assert not deposit_manager.has_synchronous_deposit()
+    assert not deposit_manager.is_deposit_in_progress(test_user)
+
+    # Approve
     amount = Decimal(1_000)
     tx_hash = usdc.approve(
         vault.address,
         amount,
     ).transact({"from": test_user})
+
+    # Deposit
     assert_transaction_success_with_explanation(vault.web3, tx_hash)
     request = deposit_manager.create_deposit_request(
         test_user,
         amount=amount,
     )
-    request.broadcast()
+    assert isinstance(request, ERC7540DepositRequest)
+    deposit_ticket = request.broadcast()
+    assert isinstance(deposit_ticket, ERC7540DepositTicket)
+    assert deposit_ticket.request_id == 33
+    assert vault.share_token.fetch_balance_of(test_user) == 0
+    assert deposit_manager.is_deposit_in_progress(test_user)
+    assert not deposit_manager.can_finish_deposit(deposit_ticket)
+
+    # Settle
+    force_lagoon_settle(
+        vault,
+        vault_manager,
+    )
+
+    # Claim
+    assert deposit_manager.can_finish_deposit(deposit_ticket)
+    assert not deposit_manager.is_deposit_in_progress(test_user)
+    func = deposit_manager.finish_deposit(deposit_ticket)
+    tx_hash = func.transact({"from": test_user, "gas": 1_000_000})
+    assert_transaction_success_with_explanation(vault.web3, tx_hash)
+
+    # All clear
     assert vault.share_token.fetch_balance_of(test_user) > 0
+    assert not deposit_manager.can_finish_deposit(deposit_ticket)
+    assert not deposit_manager.is_deposit_in_progress(test_user)
 
 
-def test_erc_4626_redeem(
+def test_erc_7540_redeem(
     vault: ERC4626Vault,
     test_user: HexAddress,
     usdc: TokenDetails,

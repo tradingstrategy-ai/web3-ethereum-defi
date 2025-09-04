@@ -23,22 +23,14 @@ class DepositTicket:
     vault_address: HexAddress
     owner: HexAddress
     to: HexAddress
-    raw_shares: int
+    raw_amount: int
     tx_hash: HexBytes
 
     def __post_init__(self):
         assert self.owner.startswith("0x"), f"Got {self.owner}"
         assert self.to.startswith("0x"), f"Got {self.to}"
-        assert type(self.raw_shares) == int, f"Got {type(self.raw_shares)}: {self.raw_shares}"
+        assert type(self.raw_amount) == int, f"Got {type(self.raw_shares)}: {self.raw_shares}"
         assert isinstance(self.tx_hash, HexBytes), f"Got {type(self.tx_hash)}: {self.tx_hash}"
-
-    def get_request_id(self) -> int:
-        """Get the redemption request id.
-
-        - If vault uses some sort of request ids to track the withdrawals
-        - Needed for settlement
-        """
-        raise NotImplementedError()
 
 
 @dataclass(slots=True)
@@ -185,7 +177,7 @@ class DepositRequest:
         """
         raise NotImplementedError()
 
-    def broadcast(self, from_: HexAddress = None, gas: int = 1_000_000) -> list[HexBytes]:
+    def broadcast(self, from_: HexAddress = None, gas: int = 1_000_000) -> RedemptionTicket:
         """Broadcast all the transactions in this request.
 
         :param from_:
@@ -209,7 +201,7 @@ class DepositRequest:
             tx_hash = func.transact({"from": from_, "gas": gas})
             assert_transaction_success_with_explanation(self.web3, tx_hash)
             tx_hashes.append(tx_hash)
-        return tx_hashes
+        return self.parse_deposit_transaction(tx_hashes)
 
 
 class VaultDepositManager(ABC):
@@ -344,6 +336,17 @@ class VaultDepositManager(ABC):
         deposit_ticket: DepositTicket,
     ) -> bool:
         """Can we finish the deposit process in async reposits"""
+        raise NotImplementedError(f"Class {self.__class__.__name__} does not implement can_deposit()")
+
+    @abstractmethod
+    def finish_deposit(
+        self,
+        deposit_ticket: DepositTicket,
+    ) -> bool:
+        """Can we finish the deposit process in async vault.
+
+        - We can claim our shares from the vault now
+        """
         raise NotImplementedError(f"Class {self.__class__.__name__} does not implement can_deposit()")
 
     @abstractmethod

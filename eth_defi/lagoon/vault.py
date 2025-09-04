@@ -616,6 +616,10 @@ class LagoonVault(ERC4626Vault):
         - Must be approved() first
         - Uses the vault underlying token (USDC)
 
+        .. note::
+
+            Legacy. Use :py:meth:`get_deposit_manager` instead.
+
         :param raw_amount:
             Raw amount in underlying token
         """

@@ -1,28 +1,95 @@
 """Deposit/redemption flow."""
-from eth_defi.vault.deposit_redeem import DepositRequest, RedemptionTicket, RedemptionRequest, DepositTicket
-from eth_defi.vault.deposit_redeem import DepositRequest, RedemptionRequest, RedemptionTicket, VaultDepositManager
+from dataclasses import dataclass
+from pprint import pformat
+from typing import cast
+
+from eth_defi.event_reader.conversion import convert_bytes32_to_uint
+
+from eth_defi.vault.deposit_redeem import DepositTicket, CannotParseRedemptionTransaction
+from eth_defi.vault.deposit_redeem import DepositRequest, RedemptionRequest, RedemptionTicket
 
 import datetime
 from decimal import Decimal
 
 from web3.contract.contract import ContractFunction
 from eth_typing import HexAddress
+from hexbytes import HexBytes
+from web3._utils.events import EventLogErrorFlags
 
 
-class ERC7540DepositTicket(DepositRequest):
-    """Synchronous deposit request for ERC-7540 vaults.
+
+@dataclass(slots=True)
+class ERC7540DepositTicket(DepositTicket):
+    """Asynchronous deposit request for ERC-7540 vaults.
 
     - No-op as requests are synchronous
     """
 
+    request_id: int
 
-class ERC7540DepositRequest(DepositTicket):
-    """Synchronous deposit request for ERC-7540 vaults."""
+    # TODO
+    # referral: HexAddress
 
+
+class ERC7540DepositRequest(DepositRequest):
+    """Asynchronous deposit request for ERC-7540 vaults."""
+
+    def parse_deposit_transaction(self, tx_hashes: list[HexBytes]) -> ERC7540DepositTicket:
+        """Parse the transaction receipt to get the actual shares redeemed.
+
+        - Assumes only one redemption request per vault per transaction
+
+        - Most throw an
+
+        :raise CannotParseRedemptionTransaction:
+            If we did not know how to parse the transaction
+        """
+
+        from eth_defi.lagoon.vault import LagoonVault
+        from eth_defi.lagoon.vault import LagoonVersion
+
+        tx_hash = tx_hashes[-1]
+
+        receipt = self.vault.web3.eth.get_transaction_receipt(tx_hash)
+        assert receipt is not None, f"Transaction is not yet mined: {tx_hash.hex()}"
+
+        vault = cast(self.vault, LagoonVault)
+
+        logs = receipt["logs"]
+
+        if self.vault.version == LagoonVersion.legacy:
+            # Lagoon changed Referral event signature?
+            # https://basescan.org/address/0x45b6969152a186bafc524048f36a160fac096d50#code
+            referral_log = None
+            for log in logs:
+                if log["topics"][0].hex() == "bb58420bb8ce44e11b84e214cc0de10ce5e7c24d0355b2815c3d758b514cae72":
+                    referral_log = log
+
+            assert referral_log, f"Cannot find Referral event in logs: {logs} at {tx_hash.hex()}, receipt: {pformat(receipt)}"
+            topics = referral_log["topics"]
+            # event Referral(address indexed referral, address indexed owner, uint256 indexed requestId, uint256 assets);
+            request_id = convert_bytes32_to_uint(topics[-1])
+
+        else:
+            logs = vault.vault_contract.events.DepositRequested().process_receipt(receipt, errors=EventLogErrorFlags.Ignore)
+            if len(logs) != 1:
+                raise CannotParseRedemptionTransaction(f"Expected exactly one DepositRequested event, got logs: {logs} at {tx_hash.hex()}")
+
+            log = logs[0]
+            request_id = log["args"]["requestId"]
+
+        return ERC7540DepositTicket(
+            vault_address=self.vault.address,
+            owner=self.owner,
+            to=self.to,
+            raw_amount=self.raw_amount,
+            tx_hash=tx_hashes[-1],
+            request_id=request_id,
+        )
 
 
 class ERC7540RedemptionTicket(RedemptionTicket):
-    """Synchronous deposit request for ERC-7540 vaults.
+    """Asynchronous deposit request for ERC-7540 vaults.
 
     - No-op as requests are synchronous
     """
@@ -44,11 +111,6 @@ class ERC7540DepositManager:
         assert isinstance(vault, LagoonVault), f"Got {type(vault)}"
         self.vault = vault
 
-    def __init__(self, vault: "eth_defi.erc_7540.vault.ERC7540Vault"):
-        from eth_defi.erc_7540.vault import ERC7540Vault
-        assert isinstance(vault, ERC7540Vault), f"Got {type(vault)}"
-        self.vault = vault
-
     def create_deposit_request(
         self,
         owner: HexAddress,
@@ -58,14 +120,17 @@ class ERC7540DepositManager:
         check_max_deposit=True,
         check_enough_token=True,
     ) -> ERC7540DepositRequest:
-        func = deposit_7540(
-            self.vault,
+
+        assert not to, f"Unsupported to={to}"
+
+        if not raw_amount:
+            raw_amount = self.vault.denomination_token.convert_to_raw(amount)
+
+        func = self.vault.request_deposit(
             owner,
-            amount=amount,
-            raw_amount=raw_amount,
-            check_max_deposit=check_max_deposit,
-            check_enough_token=check_enough_token,
+            raw_amount,
         )
+
         return ERC7540DepositRequest(
             vault=self.vault,
             owner=owner,
@@ -102,12 +167,32 @@ class ERC7540DepositManager:
             raw_shares=raw_shares,
         )
 
+    def finish_deposit(
+        self,
+        deposit_ticket: DepositTicket,
+    ) -> ContractFunction:
+        """Return bound call to claim our shares"""
+        return self.vault.vault_contract.functions.deposit(
+            deposit_ticket.raw_amount,
+            deposit_ticket.to,
+            deposit_ticket.owner,
+        )
+
     def can_finish_deposit(
         self,
         deposit_ticket: ERC7540DepositTicket,
     ):
-        """Synchronous deposits can be finished immediately."""
-        return True
+        """Check if our ticket is ready do finish.
+
+        - Function signature: claimableDepositRequest(uint256 requestId, address controller)
+        - If the returned value is > 0, the request is settled and claimable.
+        """
+
+        assets = self.vault.vault_contract.functions.claimableDepositRequest(
+            deposit_ticket.request_id,
+            deposit_ticket.owner,
+        ).call()
+        return assets > 0
 
     def can_finish_redeem(
         self,
@@ -143,7 +228,12 @@ class ERC7540DepositManager:
         return False
 
     def is_deposit_in_progress(self, owner: HexAddress) -> bool:
-        return False
+        """Check pending ERC-7540 request.
+
+        - To check if an address has an unsettled deposit in progress on an ERC-7540 contract without knowing the specific request ID, query the pendingDepositRequest view function from the contract's interface (IERC7540Vault) using a request ID of 0. According to the ERC-7540 specification, passing requestId=0 aggregates the pending deposit amounts across all requests for the given controller (address), returning the total pending assets as a uint256. A value greater than 0 indicates one or more unsettled deposits in progress that have not yet been fulfilled by the vault operator.
+        """
+        raw_amount = self.vault.vault_contract.functions.pendingDepositRequest(0, owner).call()
+        return raw_amount > 0
 
     def settle_redemption(
         self,
