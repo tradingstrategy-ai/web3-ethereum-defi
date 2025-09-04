@@ -3,14 +3,9 @@ from eth_defi.erc_4626.flow import deposit_4626, redeem_4626
 from eth_defi.vault.deposit_redeem import DepositRequest, RedemptionRequest, RedemptionTicket, VaultDepositManager
 
 import datetime
-from abc import ABC, abstractmethod
-from dataclasses import dataclass
 from decimal import Decimal
 
-from web3 import Web3
 from web3.contract.contract import ContractFunction
-
-from hexbytes import HexBytes
 from eth_typing import HexAddress
 
 
@@ -48,6 +43,7 @@ class ERC4626DepositManager(VaultDepositManager):
     def create_deposit_request(
         self,
         owner: HexAddress,
+        to: HexAddress = None,
         amount: Decimal = None,
         raw_amount: int = None,
         check_max_deposit=True,
@@ -64,6 +60,7 @@ class ERC4626DepositManager(VaultDepositManager):
         return ERC4626DepositRequest(
             vault=self.vault,
             owner=owner,
+            to=owner,
             funcs=[func],
             amount=amount,
             raw_amount=raw_amount,
@@ -72,15 +69,16 @@ class ERC4626DepositManager(VaultDepositManager):
     def create_redemption_request(
         self,
         owner: HexAddress,
-        to: HexAddress,
+        to: HexAddress = None,
         shares: Decimal = None,
         raw_shares: int = None,
         check_max_deposit=True,
         check_enough_token=True,
     ) -> ERC4626RedemptionRequest:
         assert not raw_shares, f"Unsupported raw_shares={raw_shares}"
+        assert not to, f"Unsupported to={to}"
         func = redeem_4626(
-            self,
+            self.vault,
             owner,
             shares,
             check_enough_token=True,
@@ -89,6 +87,7 @@ class ERC4626DepositManager(VaultDepositManager):
         return ERC4626RedemptionRequest(
             vault=self.vault,
             owner=owner,
+            to=owner,
             funcs=[func],
             shares=shares,
             raw_shares=raw_shares,
@@ -124,3 +123,18 @@ class ERC4626DepositManager(VaultDepositManager):
         - E.g. ERC-4626 vaults
         """
         return True
+
+    def estimate_redemption_delay(self) -> datetime.timedelta:
+        return datetime.timedelta(seconds=0)
+
+    def get_redemption_delay_over(self, address: HexAddress | str) -> datetime.datetime:
+        return datetime.datetime(1970, 1, 1)
+
+    def is_redemption_in_progess(self, owner: HexAddress) -> bool:
+        return False
+
+    def settle_redemption(
+        self,
+        redemption_ticket: RedemptionTicket,
+    ) -> ContractFunction:
+        raise NotImplementedError("Redemptions are synchronous, nothing to settle")

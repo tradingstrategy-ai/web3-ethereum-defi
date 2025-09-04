@@ -8,9 +8,9 @@ from web3 import Web3
 
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.lagoon.vault import LagoonVault
-from eth_defi.provider.anvil import fork_network_anvil
+from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch
 from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.token import TokenDetails, USDC_NATIVE_TOKEN
+from eth_defi.token import TokenDetails, USDC_NATIVE_TOKEN, fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
 
 JSON_RPC_BASE = os.environ.get("JSON_RPC_BASE")
@@ -62,11 +62,12 @@ def web3(anvil_base_fork) -> Web3:
     assert web3.eth.chain_id == 8453
     return web3
 
+
 @pytest.fixture()
 def usdc(web3) -> TokenDetails:
     usdc = fetch_erc20_details(
         web3,
-        USDC_NATIVE_TOKEN[8453],
+        USDC_NATIVE_TOKEN[web3.eth.chain_id],
     )
     return usdc
 

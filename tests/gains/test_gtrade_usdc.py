@@ -12,7 +12,7 @@ from eth_defi.erc_4626.classification import create_vault_instance_autodetect, d
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.flow import deposit_4626
 from eth_defi.gains.testing import force_next_gains_epoch
-from eth_defi.gains.vault import GainsVault, GainsRedemptionRequest
+from eth_defi.gains.vault import GainsVault
 from eth_defi.token import TokenDetails
 from eth_defi.trace import assert_transaction_success_with_explanation
 

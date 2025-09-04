@@ -1,5 +1,5 @@
 """Deposit/redemption flow."""
-from eth_defi.vault.base import DepositRequest, RedemptionTicket, RedemptionRequest, DepositTicket
+from eth_defi.vault.deposit_redeem import DepositRequest, RedemptionTicket, RedemptionRequest, DepositTicket
 
 
 class ERC7540DepositTicket(DepositRequest):

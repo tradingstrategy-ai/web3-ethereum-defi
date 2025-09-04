@@ -10,6 +10,8 @@ from web3.contract.contract import ContractFunction
 from hexbytes import HexBytes
 from eth_typing import HexAddress
 
+from eth_defi.trace import assert_transaction_success_with_explanation
+
 
 @dataclass(slots=True)
 class DepositTicket:
@@ -99,7 +101,7 @@ class RedemptionRequest:
 
     @property
     def web3(self) -> Web3:
-        return self.vault.web
+        return self.vault.web3
 
     def parse_redeem_transaction(self, tx_hashes: list[HexBytes]) -> RedemptionTicket:
         """Parse the transaction receipt to get the actual shares redeemed.
@@ -113,6 +115,28 @@ class RedemptionRequest:
         """
         raise NotImplementedError()
 
+    def broadcast(self, from_: HexAddress = None, gas: int = 1_000_000) -> list[HexBytes]:
+        """Broadcast all the transactions in this request.
+
+        :param from_:
+            Address to send the transactions from
+
+        :param gas:
+            Gas limit to use for each transaction
+
+        :return:
+            List of transaction hashes
+        """
+
+        if from_ is None:
+            from_ = self.owner
+
+        tx_hashes = []
+        for func in self.funcs:
+            tx_hash = func.transact({"from": from_, "gas": gas})
+            assert_transaction_success_with_explanation(self.web3, tx_hash)
+            tx_hashes.append(tx_hash)
+        return tx_hashes
 
 
 @dataclass(slots=True)
@@ -129,10 +153,10 @@ class DepositRequest:
     to: HexAddress
 
     #: Human-readable shares
-    shares: Decimal
+    amount: Decimal
 
     #: Raw amount of shares
-    raw_shares: int
+    raw_amount: int
 
     #: Transactions we need to perform in order to open a redemption
     #:
@@ -141,7 +165,7 @@ class DepositRequest:
 
     @property
     def web3(self) -> Web3:
-        return self.vault.web
+        return self.vault.web3
 
     def parse_deposit_transaction(self, tx_hashes: list[HexBytes]) -> RedemptionTicket:
         """Parse the transaction receipt to get the actual shares redeemed.
@@ -154,6 +178,29 @@ class DepositRequest:
             If we did not know how to parse the transaction
         """
         raise NotImplementedError()
+
+    def broadcast(self, from_: HexAddress = None, gas: int = 1_000_000) -> list[HexBytes]:
+        """Broadcast all the transactions in this request.
+
+        :param from_:
+            Address to send the transactions from
+
+        :param gas:
+            Gas limit to use for each transaction
+
+        :return:
+            List of transaction hashes
+        """
+
+        if from_ is None:
+            from_ = self.owner
+
+        tx_hashes = []
+        for func in self.funcs:
+            tx_hash = func.transact({"from": from_, "gas": gas})
+            assert_transaction_success_with_explanation(self.web3, tx_hash)
+            tx_hashes.append(tx_hash)
+        return tx_hashes
 
 
 class VaultDepositManager(ABC):
@@ -180,7 +227,7 @@ class VaultDepositManager(ABC):
     def create_deposit_request(
         self,
         owner: HexAddress,
-        to: HexAddress,
+        to: HexAddress = None,
         amount: Decimal = None,
         raw_amount: int = None,
         check_max_deposit=True,
