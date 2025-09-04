@@ -701,61 +701,9 @@ class LagoonVault(ERC4626Vault):
         assert self.trading_strategy_module_address, "TradingStrategyModuleV0 address must be separately given in the configuration"
         return self.safe.contract.functions.isModuleEnabled(self.trading_strategy_module_address).call() == True
 
-    def create_deposit_request(
-        self,
-        owner: HexAddress,
-        amount: Decimal = None,
-        raw_amount: int = None,
-        check_max_deposit=True,
-        check_enough_token=True,
-    ) -> ERC7540DepositRequest:
-        """Create a deposit request object.
-
-        - Use :py:meth:`request_deposit` and :py:meth:`finalise_deposit` to build the actual transactions
-
-        :param owner:
-            The depositor address
-
-        :param amount:
-            Amount in decimals
-
-        :param raw_amount:
-            Amount in raw token units
-
-        :param check_max_deposit:
-            Check against maxDeposit() limit
-
-        :param check_enough_token:
-            Check if the depositor has enough tokens and allowance to do the deposit
-
-        :return:
-            Deposit request object
-        """
-
-        if not raw_amount:
-            assert amount is not None, "Either amount or raw_amount must be given"
-            raw_amount = self.underlying_token.convert_to_raw(amount)
-
-        func = self.request_deposit(
-            depositor=owner,
-            raw_amount=raw_amount,
-        )
-
-        request = ERC7540DepositRequest(
-            vault=self,
-            owner=owner,
-            to=owner,
-            raw_amount=raw_amount,
-            funcs=[func],
-        )
-        return request
-
-    def can_finish_deposit(
-        self,
-        deposit_ticket: ERC7540DepositRequest,
-    ):
-        """Can we get our share token now?"""
-        return
+    def get_deposit_manager(self) -> "eth_defi.lagoon.deposit_redeem.ERC7540DepositManager":
+        from eth_defi.lagoon.deposit_redeem import ERC7540DepositManager
+        return ERC7540DepositManager(self)
 
 
 class LagoonFlowManager(VaultFlowManager):
