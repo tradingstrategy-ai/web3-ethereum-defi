@@ -1,6 +1,4 @@
-"""Ostium vault tests."""
-
-import datetime
+"""Check Lagoon / ERC-7545 redemption cycle."""
 import os
 from decimal import Decimal
 
@@ -8,23 +6,32 @@ import pytest
 
 from web3 import Web3
 
-from eth_defi.erc_4626.classification import create_vault_instance_autodetect, detect_vault_features
-from eth_defi.erc_4626.core import ERC4626Feature
-from eth_defi.erc_4626.flow import deposit_4626
-from eth_defi.gains.testing import force_next_gains_epoch
-from eth_defi.gains.vault import GainsVault, OstiumVault, GainsRedemptionRequest
-from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch
+from eth_defi.erc_4626.classification import create_vault_instance_autodetect
+from eth_defi.lagoon.vault import LagoonVault
+from eth_defi.provider.anvil import fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.token import TokenDetails
+from eth_defi.token import TokenDetails, USDC_NATIVE_TOKEN
 from eth_defi.trace import assert_transaction_success_with_explanation
 
-JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
-pytestmark = pytest.mark.skipif(not JSON_RPC_ARBITRUM, reason="Set JSON_RPC_ARBITRUM to run this test")
+JSON_RPC_BASE = os.environ.get("JSON_RPC_BASE")
+
+CI = os.environ.get("CI", "true") == "true"
+
+pytestmark = pytest.mark.skipif(not JSON_RPC_BASE, reason="No JSON_RPC_BASE environment variable")
 
 
-@pytest.fixture(scope="module")
-def anvil_arbitrum_fork(request) -> AnvilLaunch:
-    launch = fork_network_anvil(JSON_RPC_ARBITRUM, fork_block_number=375_216_652)
+@pytest.fixture()
+def anvil_base_fork(request, vault_owner, usdc_holder, asset_manager, valuation_manager, test_block_number) -> AnvilLaunch:
+    """Create a testable fork of live BNB chain.
+
+    :return: JSON-RPC URL for Web3
+    """
+    assert JSON_RPC_BASE, "JSON_RPC_BASE not set"
+    launch = fork_network_anvil(
+        JSON_RPC_BASE,
+        unlocked_addresses=[vault_owner, usdc_holder, asset_manager, valuation_manager],
+        fork_block_number=test_block_number,
+    )
     try:
         yield launch
     finally:
@@ -32,47 +39,59 @@ def anvil_arbitrum_fork(request) -> AnvilLaunch:
         launch.close()
 
 
-@pytest.fixture(scope="module")
-def web3(anvil_arbitrum_fork):
-    web3 = create_multi_provider_web3(anvil_arbitrum_fork.json_rpc_url)
+@pytest.fixture()
+def web3(anvil_base_fork) -> Web3:
+    """Create a web3 connector.
+
+    - By default use Anvil forked Base
+
+    - Eanble Tenderly testnet with `JSON_RPC_TENDERLY` to debug
+      otherwise impossible to debug Gnosis Safe transactions
+    """
+
+    tenderly_fork_rpc = os.environ.get("JSON_RPC_TENDERLY", None)
+
+    if tenderly_fork_rpc:
+        web3 = create_multi_provider_web3(tenderly_fork_rpc)
+    else:
+        web3 = create_multi_provider_web3(
+            anvil_base_fork.json_rpc_url,
+            default_http_timeout=(3, 250.0),  # multicall slow, so allow improved timeout
+            retries=1,
+        )
+    assert web3.eth.chain_id == 8453
     return web3
 
-
-@pytest.fixture(scope="module")
-def vault(web3) -> GainsVault:
-    """ostiumLP vault on Arbitrum"""
-    vault_address = "0x20d419a8e12c45f88fda7c5760bb6923cee27f98"
-    vault = create_vault_instance_autodetect(web3, vault_address)
-    assert isinstance(vault, GainsVault)
-    assert isinstance(vault, OstiumVault)
-    return vault
+@pytest.fixture()
+def usdc(web3) -> TokenDetails:
+    usdc = fetch_erc20_details(
+        web3,
+        USDC_NATIVE_TOKEN[8453],
+    )
+    return usdc
 
 
-def test_ostium_features(web3):
-    vault_address = "0x20d419a8e12c45f88fda7c5760bb6923cee27f98"
-    features = detect_vault_features(web3, vault_address, verbose=True)
-    assert ERC4626Feature.ostium_like in features, f"Got features: {features}"
+@pytest.fixture()
+def test_user(web3, usdc):
+    account = web3.eth.accounts[0]
+    tx_hash = usdc.transfer(account, Decimal(10_000)).transact({"from": USDC_WHALE[8453]})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+    assert web3.eth.get_balance(account) > 10**18
+    return account
 
 
-def test_ostium_read_data(web3, vault: GainsVault):
-    assert vault.name == "ostiumLP"
-    # https://arbiscan.io/address/0x20d419a8e12c45f88fda7c5760bb6923cee27f98#readContract
-    assert vault.gains_open_trades_pnl_feed is None
-    assert vault.open_pnl_contract.address == "0xE607aC9FF58697c5978AfA1Fc1C5C437a6D1858c"
-    assert vault.fetch_epoch_duration() == datetime.timedelta(seconds=10800)
-    assert vault.fetch_current_epoch_start() == datetime.datetime(2025, 9, 2, 12, 44, 20)
-    assert vault.fetch_withdraw_epochs_time_lock() == 3
-    assert vault.estimate_redemption_ready() is None
-
-
-def test_ostium_deposit_withdraw(
-    web3_write: Web3,
+def test_lagoon_deposit_redeem(
+    web3: Web3,
     test_user,
     usdc: TokenDetails,
 ):
-    """Do deposit/redeem cycle on Ostium vault."""
-    web3 = web3_write
-    vault: GainsVault = create_vault_instance_autodetect(web3, "0x20d419a8e12c45f88fda7c5760bb6923cee27f98")
+    """Do deposit/redeem cycle on Lagoon vault.
+
+    - Use unified create_redemption_request() interface
+    """
+    web3 = web3
+    # https://app.lagoon.finance/vault/1/0x03d1ec0d01b659b89a87eabb56e4af5cb6e14bfc
+    vault: LagoonVault = create_vault_instance_autodetect(web3, "0x03d1ec0d01b659b89a87eabb56e4af5cb6e14bfc")
 
     amount = Decimal(100)
 
@@ -106,7 +125,7 @@ def test_ostium_deposit_withdraw(
         owner=test_user,
         shares=shares,
     )
-    assert isinstance(redemption_request, GainsRedemptionRequest)
+    assert isinstance(redemption_request, ERCRedemptionRequest)
     assert redemption_request.owner == test_user
     assert redemption_request.to == test_user
     assert redemption_request.shares == shares

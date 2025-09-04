@@ -570,7 +570,7 @@ def create_vault_instance(
 
 def create_vault_instance_autodetect(
     web3: Web3,
-    vault_address: HexAddress,
+    vault_address: HexAddress | str,
 ) -> VaultBase:
     """Create any vault instance.
 

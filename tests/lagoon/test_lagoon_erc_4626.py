@@ -1,4 +1,4 @@
-"""Lagoon deposit/withdrawal from ERC-4626 tests."""
+"""Lagoon deposit/withdrawal from other ERC-4626 vaults tests."""
 
 from decimal import Decimal
 from typing import cast

@@ -16,6 +16,7 @@ def deposit_4626(
     vault: ERC4626Vault,
     from_: HexAddress,
     amount: Decimal,
+    raw_amount: int | None = None,
     check_max_deposit=True,
     check_enough_token=True,
     receiver=None,
@@ -94,7 +95,8 @@ def deposit_4626(
 
     contract = vault.vault_contract
 
-    raw_amount = vault.denomination_token.convert_to_raw(amount)
+    if not raw_amount:
+        raw_amount = vault.denomination_token.convert_to_raw(amount)
 
     if check_enough_token:
         actual_balance_raw = vault.denomination_token.fetch_raw_balance_of(from_)
@@ -113,6 +115,7 @@ def redeem_4626(
     vault: ERC4626Vault,
     owner: HexAddress,
     amount: Decimal,
+    raw_amount: int | None = None,
     check_enough_token=True,
     check_max_redeem=True,
     receiver=None,
@@ -210,7 +213,8 @@ def redeem_4626(
 
     contract = vault.vault_contract
 
-    raw_amount = vault.share_token.convert_to_raw(amount)
+    if raw_amount is None:
+        raw_amount = vault.share_token.convert_to_raw(amount)
     raw_available = vault.share_token.fetch_raw_balance_of(owner)
 
     # Apply epsilon correction

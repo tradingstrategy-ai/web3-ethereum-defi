@@ -12,6 +12,7 @@ from web3 import Web3
 from web3.contract import Contract
 from eth_defi.compat import WEB3_PY_V7
 
+
 if WEB3_PY_V7:
     from web3.exceptions import BadFunctionCallOutput, BlockNumberOutOfRange
 else:
@@ -25,8 +26,7 @@ from eth_defi.erc_4626.core import get_deployed_erc_4626_contract, ERC4626Featur
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int, convert_uint256_bytes_to_address
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, BatchCallState
 from eth_defi.token import TokenDetails, fetch_erc20_details
-from eth_defi.vault.base import VaultBase, VaultSpec, VaultInfo, TradingUniverse, VaultPortfolio, VaultFlowManager, VaultHistoricalReader, VaultHistoricalRead
-
+from eth_defi.vault.base import VaultBase, VaultSpec, VaultInfo, TradingUniverse, VaultPortfolio, VaultFlowManager, VaultHistoricalReader, VaultHistoricalRead, DepositRequest
 
 logger = logging.getLogger(__name__)
 
@@ -827,3 +827,10 @@ class ERC4626Vault(VaultBase):
 
     def get_historical_reader(self, stateful) -> VaultHistoricalReader:
         return ERC4626HistoricalReader(self, stateful=stateful)
+
+    def has_synchronous_deposits(self) -> bool:
+        return True
+
+    def has_synchronous_redemption(self) -> bool:
+        return True
+

@@ -115,7 +115,7 @@ def test_gains_deposit_withdraw(
     assert redemption_ticket.unlock_epoch == 200
 
     # Cannot redeem yet, need to wait for the next epoch
-    assert vault.can_redeem(redemption_ticket) is False
+    assert vault.can_finish_redeem(redemption_ticket) is False
 
     # 3. Move forward few epochs where our request unlocks
     for i in range(0, 3):
@@ -127,7 +127,7 @@ def test_gains_deposit_withdraw(
     assert vault.fetch_current_epoch() >= 200
 
     # Cannot redeem yet, need to wait for the next epoch
-    assert vault.can_redeem(redemption_ticket) is True
+    assert vault.can_finish_redeem(redemption_ticket) is True
 
     # 4. Settle our redemption
     func = vault.settle_redemption(redemption_ticket)

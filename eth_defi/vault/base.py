@@ -25,6 +25,7 @@ from web3.contract.contract import ContractFunction
 
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.token import DEFAULT_TOKEN_CACHE, TokenAddress, TokenDetails, fetch_erc20_details
+from eth_defi.vault.deposit_redeem import VaultDepositManager
 from eth_defi.vault.lower_case_dict import LowercaseDict
 
 
@@ -371,81 +372,6 @@ class VaultFlowManager(ABC):
         """Read outgoing pending withdraws."""
 
 
-@dataclass(slots=True)
-class RedemptionTicket:
-    """In-progress redemption request.
-
-    - Needs to wait until the epoch time is over or owner has settled
-    - Serialisable class
-    """
-
-    vault_address: HexAddress
-    owner: HexAddress
-    to: HexAddress
-    raw_shares: int
-    tx_hash: HexBytes
-
-    def __post_init__(self):
-        assert self.owner.startswith("0x"), f"Got {self.owner}"
-        assert self.to.startswith("0x"), f"Got {self.to}"
-        assert type(self.raw_shares) == int, f"Got {type(self.raw_shares)}: {self.raw_shares}"
-        assert isinstance(self.tx_hash, HexBytes), f"Got {type(self.tx_hash)}: {self.tx_hash}"
-
-    @abstractmethod
-    def get_request_id(self) -> int:
-        """Get the redemption request id.
-
-        - If vault uses some sort of request ids to track the withdrawals
-        - Needed for settlement
-        """
-        raise NotImplementedError()
-
-
-class CannotParseRedemptionTransaction(Exception):
-    """We did no know how our redemption transaction went."""
-
-
-@dataclass(slots=True)
-class RedemptionRequest:
-    """Wrap the different redeem functions async vaults implement."""
-
-    #: Vault we are dealing with
-    vault: "VaultBase"
-
-    #: Owner of the shares
-    owner: HexAddress
-
-    #: Receiver of underlying asset
-    to: HexAddress
-
-    #: Human-readable shares
-    shares: Decimal
-
-    #: Raw amount of shares
-    raw_shares: int
-
-    #: Transactions we need to perform in order to open a redemption
-    #:
-    #: It's a list because for Gains we need 2 tx
-    funcs: list[ContractFunction]
-
-    @property
-    def web3(self) -> Web3:
-        return self.vault.web
-
-    def parse_redeem_transaction(self, tx_hashes: list[HexBytes]) -> RedemptionTicket:
-        """Parse the transaction receipt to get the actual shares redeemed.
-
-        - Assumes only one redemption request per vault per transaction
-
-        - Most throw an
-
-        :raise CannotParseRedemptionTransaction:
-            If we did not know how to parse the transaction
-        """
-        raise NotImplementedError()
-
-
 class VaultBase(ABC):
     """Base class for vault protocol adapters.
 
@@ -595,9 +521,14 @@ class VaultBase(ABC):
 
     @abstractmethod
     def get_flow_manager(self) -> VaultFlowManager:
-        """Get flow manager to read individial events.
+        """Get flow manager to read indiviaul settle events.
 
         - Only supported if :py:meth:`has_block_range_event_support` is True
+        """
+
+    @abstractmethod
+    def get_deposit_manager(self) -> VaultDepositManager:
+        """Get deposit manager to deposit/redeem from the vault.
         """
 
     @abstractmethod
@@ -679,44 +610,6 @@ class VaultBase(ABC):
         """
         return self.fetch_info()
 
-    def get_redemption_delay(self) -> datetime.timedelta:
-        """Get the redemption delay for this vault.
-
-        - How long it takes before a redemption request is allowed
-
-        - This is not specific for any address, but the general vault rule
-
-        - E.g. you get  0xa592703b is an IPOR Fusion error code AccountIsLocked,
-          if you `try to instantly redeem from IPOR vaults <https://ethereum.stackexchange.com/questions/170119/is-there-a-way-to-map-binary-solidity-custom-errors-to-their-symbolic-sources>`__
-
-        :return:
-            Redemption delay as a :py:class:`datetime.timedelta`
-
-        :raises NotImplementedError:
-            If not implemented for this vault protocoll.
-        """
-        raise NotImplementedError(f"Class {self.__class__.__name__} does not implement get_redemption_delay()")
-
-    def get_redemption_delay_over(self, address: HexAddress | str) -> datetime.datetime:
-        """Get the redemption timer left for an address.
-
-        - How long it takes before a redemption request is allowed
-
-        - This is not specific for any address, but the general vault rule
-
-        - E.g. you get  0xa592703b is an IPOR Fusion error code AccountIsLocked,
-          if you `try to instantly redeem from IPOR vaults <https://ethereum.stackexchange.com/questions/170119/is-there-a-way-to-map-binary-solidity-custom-errors-to-their-symbolic-sources>`__
-
-        :return:
-            UTC timestamp when the account can redeem.
-
-            Naive datetime.
-
-        :raises NotImplementedError:
-            If not implemented for this vault protocoll.
-        """
-        raise NotImplementedError(f"Class {self.__class__.__name__} does not implement get_redemption_delay_over()")
-
     def get_management_fee(self, block_identifier: BlockIdentifier) -> float:
         """Get the current management fee as a percent.
 
@@ -732,29 +625,3 @@ class VaultBase(ABC):
             0.1 = 10%
         """
         raise NotImplementedError(f"Class {self.__class__.__name__} does not implement get_performance_fee()")
-
-    def create_redemption_request(
-        self,
-        owner: HexAddress,
-        amount: Decimal = None,
-        raw_amount: int = None,
-    ) -> RedemptionRequest:
-        """Create a redemption request.
-
-        Abstracts IPOR, Lagoon, Gains, other vault redemption flow.
-
-        Flow
-
-        1. create_redemption_request
-        2. sign and broadcast the transaction
-        3. parse success and redemption request id from the transaction
-        4. wait until the redemption delay is over
-        5. settle the redemption request
-
-        :return:
-            Redemption request dataclass
-        """
-        raise NotImplementedError(f"Class {self.__class__.__name__} does not implement create_redemption_request()")
-
-    def settle_redemption_request(self, request_ticket: RedemptionRequest) -> ContractFunction:
-        """Settle an existing redemption request"""
