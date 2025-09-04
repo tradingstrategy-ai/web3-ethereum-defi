@@ -11,7 +11,7 @@ from eth_defi.chain import install_chain_middleware
 from eth_defi.gas import node_default_gas_price_strategy
 from eth_defi.gmx.api import GMXAPI
 from eth_defi.gmx.config import GMXConfig
-from eth_defi.gmx.core import GetOpenPositions
+from eth_defi.gmx.core import GetOpenPositions, GetPoolTVL
 from eth_defi.gmx.data import GMXMarketData
 from eth_defi.gmx.liquidity import GMXLiquidityManager
 from eth_defi.gmx.order import GMXOrderManager
@@ -329,6 +329,12 @@ def gmx_config(web3_mainnet) -> GMXConfig:
 def market_data(gmx_config) -> GMXMarketData:
     """Create a GMXMarketData instance for the specified chain."""
     return GMXMarketData(gmx_config)
+
+
+@pytest.fixture()
+def get_pool_tvl(gmx_config) -> GetPoolTVL:
+    """Create a GetPoolTVL instance for the specified chain."""
+    return GetPoolTVL(gmx_config)
 
 
 @pytest.fixture()
