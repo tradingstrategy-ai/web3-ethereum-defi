@@ -6,7 +6,7 @@ from web3 import Web3
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
 from eth_defi.erc_4626.vault import ERC4626Vault
-from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
+from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil, mine
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import fetch_erc20_details, TokenDetails, USDC_WHALE
 from eth_defi.trace import assert_transaction_success_with_explanation
@@ -134,6 +134,12 @@ def test_erc_4626_redeem(
     deposit_request.broadcast()
     shares = vault.share_token.fetch_balance_of(test_user)
     assert shares > 0
+
+    # Ipor lock
+    mine(
+        web3,
+        increase_timestamp=3600,
+    )
 
     redemption_request = deposit_manager.create_redemption_request(
         test_user,
