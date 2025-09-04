@@ -28,6 +28,7 @@ More info
    :recursive:
 
    eth_defi.erc_4626.vault
+   eth_defi.erc_4626.deposit_redeem
    eth_defi.erc_4626.flow
    eth_defi.erc_4626.analysis
    eth_defi.erc_4626.hypersync_discovery

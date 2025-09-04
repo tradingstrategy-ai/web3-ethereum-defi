@@ -25,11 +25,13 @@ CI = os.environ.get("CI", None) is not None
 pytestmark = pytest.mark.skipif(not JSON_RPC_BASE, reason="No JSON_RPC_BASE environment variable")
 
 
+@pytest.fixture()
 def vault_manager() -> HexAddress:
     # https://app.lagoon.finance/vault/8453/0xb09f761cb13baca8ec087ac476647361b6314f98
     return addr("0x3B95C7cD4075B72ecbC4559AF99211C2B6591b2E")
 
 
+@pytest.fixture()
 def anvil_base_fork(request, vault_manager) -> AnvilLaunch:
     """Create a testable fork of live BNB chain.
 
@@ -48,6 +50,7 @@ def anvil_base_fork(request, vault_manager) -> AnvilLaunch:
         launch.close()
 
 
+@pytest.fixture()
 def web3(anvil_base_fork) -> Web3:
     """Create a web3 connector.
 
@@ -70,6 +73,7 @@ def web3(anvil_base_fork) -> Web3:
     return web3
 
 
+@pytest.fixture()
 def usdc(web3) -> TokenDetails:
     return fetch_erc20_details(
         web3,
@@ -77,6 +81,7 @@ def usdc(web3) -> TokenDetails:
     )
 
 
+@pytest.fixture()
 def vault(web3) -> LagoonVault:
     """722Capital-USDC on Base.
 
@@ -91,7 +96,7 @@ def vault(web3) -> LagoonVault:
     return lagoon_vault
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture()
 def test_user(web3, usdc):
     account = web3.eth.accounts[0]
     tx_hash = usdc.transfer(account, Decimal(10_000)).transact({"from": USDC_WHALE[web3.eth.chain_id]})
