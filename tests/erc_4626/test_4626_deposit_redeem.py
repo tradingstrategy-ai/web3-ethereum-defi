@@ -114,6 +114,7 @@ def test_erc_4626_deposit(
 
 
 def test_erc_4626_redeem(
+    web3: Web3,
     vault: ERC4626Vault,
     test_user: HexAddress,
     usdc: TokenDetails,
