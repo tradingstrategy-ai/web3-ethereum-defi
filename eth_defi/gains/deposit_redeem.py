@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 @dataclass(slots=True)
 class GainsRedemptionTicket(RedemptionTicket):
     """Gains redemption ticket details."""
+
     current_epoch: int
     unlock_epoch: int
 
@@ -68,6 +69,7 @@ class GainsDepositManager(ERC4626DepositManager):
 
     def __init__(self, vault: "eth_defi.gains.vault.GainsVault"):
         from eth_defi.gains.vault import GainsVault
+
         assert isinstance(vault, GainsVault), f"Got {type(vault)}"
         self.vault = vault
 

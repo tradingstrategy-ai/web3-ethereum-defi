@@ -201,7 +201,6 @@ def redeem_4626(
 
     assert owner.startswith("0x")
 
-
     if receiver is None:
         receiver = owner
 

@@ -1,4 +1,5 @@
 """Check Lagoon / ERC-7545 redemption cycle."""
+
 import os
 from decimal import Decimal
 

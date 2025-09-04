@@ -43,7 +43,6 @@ from hexbytes import HexBytes
 logger = logging.getLogger(__name__)
 
 
-
 class GainsVault(ERC4626Vault):
     """Gains-like vault support.
 
@@ -274,7 +273,9 @@ class GainsVault(ERC4626Vault):
 
     def get_deposit_manager(self) -> "eth_defi.gains.deposit_redeem.GainsDepositManager":
         from eth_defi.gains.deposit_redeem import GainsDepositManager
+
         return GainsDepositManager(self)
+
 
 class OstiumVault(GainsVault):
     """Ostium vault is a Gains-like vault.

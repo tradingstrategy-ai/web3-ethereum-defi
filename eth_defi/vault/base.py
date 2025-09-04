@@ -528,8 +528,7 @@ class VaultBase(ABC):
 
     @abstractmethod
     def get_deposit_manager(self) -> VaultDepositManager:
-        """Get deposit manager to deposit/redeem from the vault.
-        """
+        """Get deposit manager to deposit/redeem from the vault."""
 
     @abstractmethod
     def get_historical_reader(self, stateful: bool) -> VaultHistoricalReader:

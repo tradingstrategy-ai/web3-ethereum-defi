@@ -68,6 +68,7 @@ def usdc(web3) -> TokenDetails:
         "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
     )
 
+
 @pytest.fixture(scope="module")
 def vault(web3) -> ERC4626Vault:
     """Harvest USDC Autopilot on IPOR on Base"""

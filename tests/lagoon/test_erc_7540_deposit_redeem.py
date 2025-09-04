@@ -1,4 +1,5 @@
 """ERC-7540 deposit/redeem tests."""
+
 import os
 from decimal import Decimal
 from typing import cast
@@ -78,6 +79,7 @@ def usdc(web3) -> TokenDetails:
         web3,
         "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
     )
+
 
 @pytest.fixture(scope="module")
 def vault(web3) -> LagoonVault:

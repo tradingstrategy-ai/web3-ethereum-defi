@@ -1,4 +1,5 @@
 """ERC-4626 deposit and redeem requests."""
+
 from eth_defi.erc_4626.flow import deposit_4626, redeem_4626
 from eth_defi.vault.deposit_redeem import DepositRequest, RedemptionRequest, RedemptionTicket, VaultDepositManager, DepositTicket
 
@@ -36,6 +37,7 @@ class ERC4626DepositManager(VaultDepositManager):
 
     def __init__(self, vault: "eth_defi.erc_4626.vault.ERC4626Vault"):
         from eth_defi.erc_4626.vault import ERC4626Vault
+
         assert isinstance(vault, ERC4626Vault), f"Got {type(vault)}"
         self.vault = vault
 
@@ -48,7 +50,6 @@ class ERC4626DepositManager(VaultDepositManager):
         check_max_deposit=True,
         check_enough_token=True,
     ) -> ERC4626DepositRequest:
-
         if not raw_amount:
             raw_amount = self.vault.denomination_token.convert_to_raw(amount)
 

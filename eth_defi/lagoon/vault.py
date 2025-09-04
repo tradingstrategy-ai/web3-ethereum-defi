@@ -707,6 +707,7 @@ class LagoonVault(ERC4626Vault):
 
     def get_deposit_manager(self) -> "eth_defi.lagoon.deposit_redeem.ERC7540DepositManager":
         from eth_defi.lagoon.deposit_redeem import ERC7540DepositManager
+
         return ERC7540DepositManager(self)
 
 

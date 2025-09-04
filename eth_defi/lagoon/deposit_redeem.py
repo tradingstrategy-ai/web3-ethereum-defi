@@ -1,4 +1,5 @@
 """Deposit/redemption flow for ERC-7540 vaults."""
+
 from dataclasses import dataclass
 from pprint import pformat
 from typing import cast
@@ -15,7 +16,6 @@ from web3.contract.contract import ContractFunction
 from eth_typing import HexAddress
 from hexbytes import HexBytes
 from web3._utils.events import EventLogErrorFlags
-
 
 
 @dataclass(slots=True)
@@ -97,7 +97,6 @@ class ERC7540RedemptionRequest(RedemptionRequest):
     """Synchronous deposit request for ERC-7540 vaults."""
 
     def parse_redeem_transaction(self, tx_hashes: list[HexBytes]) -> RedemptionTicket:
-
         from eth_defi.lagoon.vault import LagoonVault
         from eth_defi.lagoon.vault import LagoonVersion
 
@@ -140,6 +139,7 @@ class ERC7540DepositManager(VaultDepositManager):
 
     def __init__(self, vault: "eth_defi.erc_7540.vault.ERC7540Vault"):
         from eth_defi.lagoon.vault import LagoonVault
+
         assert isinstance(vault, LagoonVault), f"Got {type(vault)}"
         self.vault = vault
 
@@ -152,7 +152,6 @@ class ERC7540DepositManager(VaultDepositManager):
         check_max_deposit=True,
         check_enough_token=True,
     ) -> ERC7540DepositRequest:
-
         assert not to, f"Unsupported to={to}"
 
         if not raw_amount:
@@ -281,4 +280,3 @@ class ERC7540DepositManager(VaultDepositManager):
             redemption_ticket.to,
             redemption_ticket.owner,
         )
-

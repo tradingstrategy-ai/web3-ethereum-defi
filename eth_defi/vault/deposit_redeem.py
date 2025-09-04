@@ -1,4 +1,5 @@
 """Abstraction over different deposit/redeem flows of vaults."""
+
 import datetime
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -93,6 +94,7 @@ class RedemptionRequest:
 
     def __post_init__(self):
         from eth_defi.vault.base import VaultBase
+
         assert isinstance(self.vault, VaultBase), f"Got {type(self.vault)}"
         assert self.owner.startswith("0x"), f"Got {self.owner}"
         assert self.to.startswith("0x"), f"Got {self.to}"
@@ -169,6 +171,7 @@ class DepositRequest:
 
     def __post_init__(self):
         from eth_defi.vault.base import VaultBase
+
         assert isinstance(self.vault, VaultBase), f"Got {type(self.vault)}"
         assert self.owner.startswith("0x"), f"Got {self.owner}"
         assert self.to.startswith("0x"), f"Got {self.to}"
