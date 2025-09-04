@@ -1,11 +1,11 @@
-"""Deposit/redemption flow."""
+"""Deposit/redemption flow for ERC-7540 vaults."""
 from dataclasses import dataclass
 from pprint import pformat
 from typing import cast
 
 from eth_defi.event_reader.conversion import convert_bytes32_to_uint
 
-from eth_defi.vault.deposit_redeem import DepositTicket, CannotParseRedemptionTransaction
+from eth_defi.vault.deposit_redeem import DepositTicket, CannotParseRedemptionTransaction, VaultDepositManager
 from eth_defi.vault.deposit_redeem import DepositRequest, RedemptionRequest, RedemptionTicket
 
 import datetime
@@ -20,11 +20,9 @@ from web3._utils.events import EventLogErrorFlags
 
 @dataclass(slots=True)
 class ERC7540DepositTicket(DepositTicket):
-    """Asynchronous deposit request for ERC-7540 vaults.
+    """Asynchronous deposit request for ERC-7540 vaults."""
 
-    - No-op as requests are synchronous
-    """
-
+    #: Lagoon deposit request ID
     request_id: int
 
     # TODO
@@ -53,11 +51,11 @@ class ERC7540DepositRequest(DepositRequest):
         receipt = self.vault.web3.eth.get_transaction_receipt(tx_hash)
         assert receipt is not None, f"Transaction is not yet mined: {tx_hash.hex()}"
 
-        vault = cast(self.vault, LagoonVault)
+        vault = cast(LagoonVault, self.vault)
 
         logs = receipt["logs"]
 
-        if self.vault.version == LagoonVersion.legacy:
+        if vault.version == LagoonVersion.legacy:
             # Lagoon changed Referral event signature?
             # https://basescan.org/address/0x45b6969152a186bafc524048f36a160fac096d50#code
             referral_log = None
@@ -79,7 +77,7 @@ class ERC7540DepositRequest(DepositRequest):
             request_id = log["args"]["requestId"]
 
         return ERC7540DepositTicket(
-            vault_address=self.vault.address,
+            vault_address=vault.address,
             owner=self.owner,
             to=self.to,
             raw_amount=self.raw_amount,
@@ -88,22 +86,56 @@ class ERC7540DepositRequest(DepositRequest):
         )
 
 
+@dataclass(slots=True)
 class ERC7540RedemptionTicket(RedemptionTicket):
-    """Asynchronous deposit request for ERC-7540 vaults.
+    """Asynchronous deposit request for ERC-7540 vaults."""
 
-    - No-op as requests are synchronous
-    """
+    request_id: int
 
 
 class ERC7540RedemptionRequest(RedemptionRequest):
     """Synchronous deposit request for ERC-7540 vaults."""
 
+    def parse_redeem_transaction(self, tx_hashes: list[HexBytes]) -> RedemptionTicket:
+
+        from eth_defi.lagoon.vault import LagoonVault
+        from eth_defi.lagoon.vault import LagoonVersion
+
+        tx_hash = tx_hashes[-1]
+
+        receipt = self.vault.web3.eth.get_transaction_receipt(tx_hash)
+        assert receipt is not None, f"Transaction is not yet mined: {tx_hash.hex()}"
+
+        vault = cast(LagoonVault, self.vault)
+
+        logs = vault.vault_contract.events.RedeemRequest().process_receipt(receipt, errors=EventLogErrorFlags.Discard)
+
+        if len(logs) != 1:
+            raise CannotParseRedemptionTransaction(f"Expected exactly one DepositRequested event, got logs: {logs} at {tx_hash.hex()}")
+
+        log = logs[0]
+        request_id = log["args"]["requestId"]
+
+        return ERC7540RedemptionTicket(
+            vault_address=vault.address,
+            owner=self.owner,
+            to=self.to,
+            raw_shares=self.raw_shares,
+            tx_hash=tx_hashes[-1],
+            request_id=request_id,
+        )
 
 
-class ERC7540DepositManager:
+class ERC7540DepositManager(VaultDepositManager):
     """ERC-7540 async deposit/redeem flow.
 
-    - Currently coded for Lagoon, but should work with any vault
+    - Currently coded for Lagoon, but should work with any vault.
+
+    Example:
+
+    .. code-block:: python
+
+
     """
 
     def __init__(self, vault: "eth_defi.erc_7540.vault.ERC7540Vault"):
@@ -148,15 +180,17 @@ class ERC7540DepositManager:
         raw_shares: int = None,
         check_max_deposit=True,
         check_enough_token=True,
-    ) -> ERC7540DepositRequest:
+    ) -> ERC7540RedemptionRequest:
+        """Start the process to get shares to money"""
         assert not raw_shares, f"Unsupported raw_shares={raw_shares}"
         assert not to, f"Unsupported to={to}"
-        func = redeem_7540(
-            self.vault,
+
+        if not raw_shares:
+            raw_shares = self.vault.share_token.convert_to_raw(shares)
+
+        func = self.vault.request_redeem(
             owner,
-            shares,
-            check_enough_token=True,
-            check_max_redeem=True,
+            raw_shares,
         )
         return ERC7540RedemptionRequest(
             vault=self.vault,
@@ -187,7 +221,6 @@ class ERC7540DepositManager:
         - Function signature: claimableDepositRequest(uint256 requestId, address controller)
         - If the returned value is > 0, the request is settled and claimable.
         """
-
         assets = self.vault.vault_contract.functions.claimableDepositRequest(
             deposit_ticket.request_id,
             deposit_ticket.owner,
@@ -198,8 +231,11 @@ class ERC7540DepositManager:
         self,
         redemption_ticket: ERC7540RedemptionTicket,
     ):
-        """Synchronous redemptions can be finished immediately."""
-        return True
+        assets = self.vault.vault_contract.functions.claimableRedeemRequest(
+            redemption_ticket.request_id,
+            redemption_ticket.owner,
+        ).call()
+        return assets > 0
 
     def can_create_redemption_request(self, owner: HexAddress) -> bool:
         return True
@@ -225,7 +261,8 @@ class ERC7540DepositManager:
         return datetime.datetime(1970, 1, 1)
 
     def is_redemption_in_progress(self, owner: HexAddress) -> bool:
-        return False
+        raw_amount = self.vault.vault_contract.functions.pendingRedeemRequest(0, owner).call()
+        return raw_amount > 0
 
     def is_deposit_in_progress(self, owner: HexAddress) -> bool:
         """Check pending ERC-7540 request.
@@ -235,8 +272,13 @@ class ERC7540DepositManager:
         raw_amount = self.vault.vault_contract.functions.pendingDepositRequest(0, owner).call()
         return raw_amount > 0
 
-    def settle_redemption(
+    def finish_redemption(
         self,
         redemption_ticket: RedemptionTicket,
     ) -> ContractFunction:
-        raise NotImplementedError("Redemptions are synchronous, nothing to settle")
+        return self.vault.vault_contract.functions.redeem(
+            redemption_ticket.raw_shares,
+            redemption_ticket.to,
+            redemption_ticket.owner,
+        )
+

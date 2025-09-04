@@ -134,7 +134,7 @@ class RedemptionRequest:
             tx_hash = func.transact({"from": from_, "gas": gas})
             assert_transaction_success_with_explanation(self.web3, tx_hash)
             tx_hashes.append(tx_hash)
-        return tx_hashes
+        return self.parse_redeem_transaction(tx_hashes)
 
 
 @dataclass(slots=True)
@@ -350,7 +350,7 @@ class VaultDepositManager(ABC):
         raise NotImplementedError(f"Class {self.__class__.__name__} does not implement can_deposit()")
 
     @abstractmethod
-    def settle_redemption(
+    def finish_redemption(
         self,
         redemption_ticket: RedemptionTicket,
     ) -> ContractFunction:

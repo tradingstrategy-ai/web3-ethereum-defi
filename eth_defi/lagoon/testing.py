@@ -79,6 +79,8 @@ def force_lagoon_settle(
         Spoofed account in Anvil
     """
 
+    assert asset_manager.startswith("0x"), f"asset_manager should be an address, got: {asset_manager}"
+
     web3 = vault.web3
     balance = web3.eth.get_balance(asset_manager)
 

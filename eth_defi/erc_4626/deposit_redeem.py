@@ -138,7 +138,7 @@ class ERC4626DepositManager(VaultDepositManager):
     def is_deposit_in_progress(self, owner: HexAddress) -> bool:
         return False
 
-    def settle_redemption(
+    def finish_redemption(
         self,
         redemption_ticket: RedemptionTicket,
     ) -> ContractFunction:

@@ -7,7 +7,7 @@ from web3 import Web3
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
 from eth_defi.erc_4626.vault import ERC4626Vault
-from eth_defi.lagoon.deposit_redeem import ERC7540DepositManager, ERC7540DepositRequest, ERC7540DepositTicket
+from eth_defi.lagoon.deposit_redeem import ERC7540DepositManager, ERC7540DepositRequest, ERC7540DepositTicket, ERC7540RedemptionTicket
 from eth_defi.lagoon.testing import force_lagoon_settle
 from eth_defi.lagoon.vault import LagoonVault, LagoonVersion
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
@@ -160,28 +160,78 @@ def test_erc_7540_redeem(
     vault: ERC4626Vault,
     test_user: HexAddress,
     usdc: TokenDetails,
+    vault_manager: HexAddress,
 ):
-    """Use DepositManager interface to deposit into Morpho vault"""
+    """Use DepositManager interface to redeem into ERC-7540 vault on Lagoon run by 722 Capital"""
     deposit_manager = vault.get_deposit_manager()
-    assert isinstance(deposit_manager, ERC4626DepositManager)
+    assert isinstance(deposit_manager, ERC7540DepositManager)
+    assert not deposit_manager.has_synchronous_redemption()
+    assert not deposit_manager.is_deposit_in_progress(test_user)
+    assert not deposit_manager.is_redemption_in_progress(test_user)
+
+    # Approve
     amount = Decimal(1_000)
     tx_hash = usdc.approve(
         vault.address,
         amount,
     ).transact({"from": test_user})
     assert_transaction_success_with_explanation(vault.web3, tx_hash)
-    deposit_request = deposit_manager.create_deposit_request(
+
+    # Deposit
+    request = deposit_manager.create_deposit_request(
         test_user,
         amount=amount,
     )
-    deposit_request.broadcast()
-    shares = vault.share_token.fetch_balance_of(test_user)
-    assert shares > 0
+    deposit_ticket = request.broadcast()
 
-    redemption_request = deposit_manager.create_redemption_request(
-        test_user,
-        shares=shares,
+    # Settle
+    force_lagoon_settle(
+        vault,
+        vault_manager,
     )
-    redemption_request.broadcast()
-    shares = vault.share_token.fetch_balance_of(test_user)
-    assert shares == 0
+
+    # Claim
+    func = deposit_manager.finish_deposit(deposit_ticket)
+    tx_hash = func.transact({"from": test_user, "gas": 1_000_000})
+    assert_transaction_success_with_explanation(vault.web3, tx_hash)
+
+    # Got shares
+    share_count = vault.share_token.fetch_balance_of(test_user)
+
+    #
+    # Redeem
+    #
+
+    # Approve
+    tx_hash = vault.share_token.approve(
+        vault.address,
+        share_count,
+    ).transact({"from": test_user})
+    assert_transaction_success_with_explanation(vault.web3, tx_hash)
+
+    # Redeem
+    request = deposit_manager.create_redemption_request(
+        test_user,
+        shares=share_count,
+    )
+    redeem_ticket = request.broadcast()
+    assert isinstance(redeem_ticket, ERC7540RedemptionTicket)
+    assert redeem_ticket.request_id == 6
+    assert deposit_manager.is_redemption_in_progress(test_user)
+    assert not deposit_manager.can_finish_redeem(redeem_ticket)
+
+    # Settle
+    force_lagoon_settle(
+        vault,
+        vault_manager,
+    )
+
+    # Claim
+    assert deposit_manager.can_finish_redeem(redeem_ticket)
+    func = deposit_manager.finish_redemption(redeem_ticket)
+    tx_hash = func.transact({"from": test_user, "gas": 1_000_000})
+    assert_transaction_success_with_explanation(vault.web3, tx_hash)
+
+    # Shares gone
+    share_count = vault.share_token.fetch_balance_of(test_user)
+    assert share_count == 0

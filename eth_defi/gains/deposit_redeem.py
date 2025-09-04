@@ -161,7 +161,7 @@ class GainsDepositManager(ERC4626DepositManager):
         current_epoch = self.vault.fetch_current_epoch()
         return current_epoch >= redemption_ticket.unlock_epoch
 
-    def settle_redemption(
+    def finish_redemption(
         self,
         redemption_ticket: GainsRedemptionTicket,
     ) -> ContractFunction:

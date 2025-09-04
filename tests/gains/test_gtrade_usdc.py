@@ -136,7 +136,7 @@ def test_gains_deposit_withdraw(
     assert deposit_manager.can_finish_redeem(redemption_ticket) is True
 
     # 4. Settle our redemption
-    func = deposit_manager.settle_redemption(redemption_ticket)
+    func = deposit_manager.finish_redemption(redemption_ticket)
     tx_hash = func.transact({"from": test_user})
     assert_transaction_success_with_explanation(web3, tx_hash)
 
