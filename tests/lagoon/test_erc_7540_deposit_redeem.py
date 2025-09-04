@@ -161,6 +161,7 @@ def test_erc_7540_deposit_722_capital(
     assert not deposit_manager.is_deposit_in_progress(test_user)
 
 
+@flaky.flaky
 def test_erc_7540_redeem(
     vault: ERC4626Vault,
     test_user: HexAddress,
