@@ -89,6 +89,7 @@ def test_gains_deposit_withdraw(
     )
 
     # 1. Create a redemption request
+    assert deposit_manager.estimate_redemption_delay() == datetime.timedelta(days=1)
     assert vault.open_pnl_contract.functions.nextEpochValuesRequestCount().call() == 0
     assert deposit_manager.can_create_redemption_request(test_user) is True, f"We have {vault.open_pnl_contract.functions.nextEpochValuesRequestCount().call()}"
     redemption_request = deposit_manager.create_redemption_request(

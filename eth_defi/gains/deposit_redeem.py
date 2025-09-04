@@ -178,4 +178,6 @@ class GainsDepositManager(ERC4626DepositManager):
         return False
 
     def estimate_redemption_delay(self) -> datetime.timedelta:
-        pass
+        vault = self.vault
+        epoch_duration_seconds = vault.open_pnl_contract.functions.requestsStart().call() + (vault.open_pnl_contract.functions.requestsEvery().call() * vault.open_pnl_contract.functions.requestsCount().call())
+        return datetime.timedelta(seconds=epoch_duration_seconds)
