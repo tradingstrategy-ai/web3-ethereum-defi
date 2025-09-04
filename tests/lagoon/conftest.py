@@ -22,7 +22,7 @@ from eth_defi.lagoon.deployment import LagoonDeploymentParameters, deploy_automa
 from eth_defi.lagoon.vault import LagoonVault
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.token import TokenDetails, fetch_erc20_details, USDC_NATIVE_TOKEN
+from eth_defi.token import TokenDetails, fetch_erc20_details, USDC_NATIVE_TOKEN, USDC_WHALE
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.uniswap_v2.constants import UNISWAP_V2_DEPLOYMENTS
 from eth_defi.uniswap_v2.deployment import fetch_deployment
@@ -51,7 +51,7 @@ def depositor() -> HexAddress:
 @pytest.fixture()
 def usdc_holder() -> HexAddress:
     # https://basescan.org/token/0x833589fcd6edb6e08f4c7c32d4f71b54bda02913#balances
-    return addr("0x3304E22DDaa22bCdC5fCa2269b418046aE7b566A")
+    return USDC_WHALE[8453]
 
 
 @pytest.fixture()
