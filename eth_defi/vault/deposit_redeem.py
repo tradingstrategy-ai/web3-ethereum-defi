@@ -99,6 +99,12 @@ class RedemptionRequest:
     #: It's a list because for Gains we need 2 tx
     funcs: list[ContractFunction]
 
+    def __post_init__(self):
+        from eth_defi.vault.base import VaultBase
+        assert isinstance(self.vault, VaultBase), f"Got {type(self.vault)}"
+        assert self.owner.startswith("0x"), f"Got {self.owner}"
+        assert self.to.startswith("0x"), f"Got {self.to}"
+
     @property
     def web3(self) -> Web3:
         return self.vault.web3
@@ -190,6 +196,9 @@ class DepositRequest:
 
         :return:
             List of transaction hashes
+
+        :raise TransactionAssertionError:
+            If any of the transactions revert
         """
 
         if from_ is None:
@@ -208,6 +217,10 @@ class VaultDepositManager(ABC):
 
     def __init__(self, vault: "eth_defi.vault.base.VaultBase"):
         self.vault = vault
+
+    @property
+    def web3(self) -> Web3:
+        return self.vault.web3
 
     @abstractmethod
     def has_synchronous_deposit(self) -> bool:

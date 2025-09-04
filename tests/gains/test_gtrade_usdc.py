@@ -10,7 +10,7 @@ from web3 import Web3
 
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect, detect_vault_features
 from eth_defi.erc_4626.core import ERC4626Feature
-from eth_defi.erc_4626.flow import deposit_4626
+from eth_defi.gains.deposit_redeem import GainsDepositManager, GainsRedemptionRequest
 from eth_defi.gains.testing import force_next_gains_epoch
 from eth_defi.gains.vault import GainsVault
 from eth_defi.token import TokenDetails
@@ -63,13 +63,14 @@ def test_gains_deposit_withdraw(
     ).transact({"from": test_user})
     assert_transaction_success_with_explanation(web3, tx_hash)
 
-    bound_func = deposit_4626(
-        vault,
+    deposit_manager = vault.get_deposit_manager()
+    assert isinstance(deposit_manager, GainsDepositManager)
+
+    deposit_request = deposit_manager.create_deposit_request(
         test_user,
-        amount,
+        amount=amount,
     )
-    tx_hash = bound_func.transact({"from": test_user})
-    assert_transaction_success_with_explanation(web3, tx_hash)
+    deposit_request.broadcast()
 
     share_token = vault.share_token
     shares = share_token.fetch_balance_of(test_user)
@@ -78,7 +79,8 @@ def test_gains_deposit_withdraw(
     # Withdrawals can be only executed on the first two days of an epoch.
     # We start in a state that is outside of this window, so we need to move to the next epoch first.
     assert vault.open_pnl_contract.functions.nextEpochValuesRequestCount().call() == 2
-    assert vault.can_create_redemption_request(test_user) is False
+    assert deposit_manager.can_create_redemption_request(test_user) is False
+    assert not deposit_manager.has_synchronous_redemption()
 
     # 0. Clear epoch
     force_next_gains_epoch(
@@ -88,8 +90,8 @@ def test_gains_deposit_withdraw(
 
     # 1. Create a redemption request
     assert vault.open_pnl_contract.functions.nextEpochValuesRequestCount().call() == 0
-    assert vault.can_create_redemption_request(test_user) is True, f"We have {vault.open_pnl_contract.functions.nextEpochValuesRequestCount().call()}"
-    redemption_request = vault.create_redemption_request(
+    assert deposit_manager.can_create_redemption_request(test_user) is True, f"We have {vault.open_pnl_contract.functions.nextEpochValuesRequestCount().call()}"
+    redemption_request = deposit_manager.create_redemption_request(
         owner=test_user,
         shares=shares,
     )
@@ -115,7 +117,7 @@ def test_gains_deposit_withdraw(
     assert redemption_ticket.unlock_epoch == 200
 
     # Cannot redeem yet, need to wait for the next epoch
-    assert vault.can_finish_redeem(redemption_ticket) is False
+    assert deposit_manager.can_finish_redeem(redemption_ticket) is False
 
     # 3. Move forward few epochs where our request unlocks
     for i in range(0, 3):
@@ -127,10 +129,10 @@ def test_gains_deposit_withdraw(
     assert vault.fetch_current_epoch() >= 200
 
     # Cannot redeem yet, need to wait for the next epoch
-    assert vault.can_finish_redeem(redemption_ticket) is True
+    assert deposit_manager.can_finish_redeem(redemption_ticket) is True
 
     # 4. Settle our redemption
-    func = vault.settle_redemption(redemption_ticket)
+    func = deposit_manager.settle_redemption(redemption_ticket)
     tx_hash = func.transact({"from": test_user})
     assert_transaction_success_with_explanation(web3, tx_hash)
 

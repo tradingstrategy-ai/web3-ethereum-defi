@@ -272,6 +272,9 @@ class GainsVault(ERC4626Vault):
         """
         return self.vault_contract.functions.maxDiscountP().call() / 10**18 / 100
 
+    def get_deposit_manager(self) -> "eth_defi.gains.deposit_redeem.GainsDepositManager":
+        from eth_defi.gains.deposit_redeem import GainsDepositManager
+        return GainsDepositManager(self)
 
 class OstiumVault(GainsVault):
     """Ostium vault is a Gains-like vault.

@@ -1,11 +1,17 @@
+import datetime
+import logging
 from dataclasses import dataclass
+from decimal import Decimal
 
+from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
 from eth_defi.vault.deposit_redeem import RedemptionTicket, RedemptionRequest, CannotParseRedemptionTransaction
 from hexbytes import HexBytes
 from web3._utils.events import EventLogErrorFlags
 from eth_typing import HexAddress
 
 from web3.contract.contract import ContractFunction
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(slots=True)
@@ -58,14 +64,22 @@ class GainsRedemptionRequest(RedemptionRequest):
         )
 
 
-class GainsDepositManager(VaultDepositManager):
+class GainsDepositManager(ERC4626DepositManager):
+    """Add Gains-specific redemption logic."""
 
+    def __init__(self, vault: "eth_defi.gains.vault.GainsVault"):
+        from eth_defi.gains.vault import GainsVault
+        assert isinstance(vault, GainsVault), f"Got {type(vault)}"
+        self.vault = vault
 
     def create_redemption_request(
         self,
         owner: HexAddress,
+        to: HexAddress = None,
         shares: Decimal = None,
         raw_shares: int = None,
+        check_max_deposit=True,
+        check_enough_token=True,
     ) -> GainsRedemptionRequest:
         """Build a redeem transction.
 
@@ -88,14 +102,15 @@ class GainsDepositManager(VaultDepositManager):
         """
 
         assert raw_shares or shares
+        vault = self.vault
 
         if not raw_shares:
-            raw_amount = self.share_token.convert_to_raw(shares)
+            raw_amount = vault.share_token.convert_to_raw(shares)
         else:
             raw_amount = raw_shares
 
         assert type(raw_amount) == int, f"Got {raw_amount} {type(raw_amount)}"
-        shares = self.share_token
+        shares = vault.share_token
         block_number = self.web3.eth.block_number
 
         # Check we have shares
@@ -103,17 +118,17 @@ class GainsDepositManager(VaultDepositManager):
         assert owned_raw_amount >= raw_amount, f"Cannot redeem, has only {owned_raw_amount} shares when {raw_amount} needed"
 
         human_amount = shares.convert_to_decimals(raw_amount)
-        total_shares = self.fetch_total_supply(block_number)
+        total_shares = vault.fetch_total_supply(block_number)
         logger.info("Setting up redemption for %s %s shares out of %s, for %s", human_amount, shares.symbol, total_shares, owner)
 
         # This is the underlying withdrawal request.
         # It will revert unless there is an epoch in progress
-        func_1 = self.vault_contract.functions.makeWithdrawRequest(
+        func_1 = vault.vault_contract.functions.makeWithdrawRequest(
             raw_amount,
             owner,
         )
         return GainsRedemptionRequest(
-            vault=self,
+            vault=self.vault,
             owner=owner,
             to=owner,
             shares=human_amount,
@@ -127,7 +142,7 @@ class GainsDepositManager(VaultDepositManager):
         :return:
             True if can create a redemption request now
         """
-        return self.open_pnl_contract.functions.nextEpochValuesRequestCount().call() == 0
+        return self.vault.open_pnl_contract.functions.nextEpochValuesRequestCount().call() == 0
 
     def can_finish_redeem(
         self,
@@ -144,7 +159,7 @@ class GainsDepositManager(VaultDepositManager):
             True if can be redeemed now
         """
         assert isinstance(redemption_ticket, GainsRedemptionTicket)
-        current_epoch = self.fetch_current_epoch()
+        current_epoch = self.vault.fetch_current_epoch()
         return current_epoch >= redemption_ticket.unlock_epoch
 
     def settle_redemption(
@@ -153,8 +168,14 @@ class GainsDepositManager(VaultDepositManager):
     ) -> ContractFunction:
         assert redemption_ticket.owner is not None
         assert redemption_ticket.to is not None
-        return self.vault_contract.functions.redeem(
+        return self.vault.vault_contract.functions.redeem(
             redemption_ticket.raw_shares,
             redemption_ticket.owner,
             redemption_ticket.to,
         )
+
+    def has_synchronous_redemption(self) -> bool:
+        return False
+
+    def estimate_redemption_delay(self) -> datetime.timedelta:
+        pass
