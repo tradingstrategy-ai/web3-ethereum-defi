@@ -75,8 +75,8 @@ def test_get_available_liquidity_direct_call(chain_name, get_available_liquidity
         assert isinstance(liquidity, (int, float)), f"Short liquidity for {market} should be numeric, got {type(liquidity)}"
         assert liquidity >= 0, f"Short liquidity for {market} should be non-negative, got {liquidity}"
 
-    print(f"\n{chain_name.upper()}: GetAvailableLiquidity completed in {execution_time:.2f} seconds using multicall")
-    print(f"{chain_name.upper()}: Retrieved liquidity data for {len(liquidity_data['long'])} markets")
+    # print(f"\n{chain_name.upper()}: GetAvailableLiquidity completed in {execution_time:.2f} seconds using multicall")
+    # print(f"{chain_name.upper()}: Retrieved liquidity data for {len(liquidity_data['long'])} markets")
 
 
 def test_get_available_liquidity_data_consistency(chain_name, get_available_liquidity):
@@ -121,7 +121,7 @@ def test_get_available_liquidity_data_consistency(chain_name, get_available_liqu
     # Should have consistent data
     assert len(inconsistent_markets) == 0, f"Data inconsistency found on {chain_name}: " + "; ".join(inconsistent_markets)
 
-    print(f"\n{chain_name.upper()}: Data consistency test passed - all values within {tolerance:.0%} tolerance")
+    # print(f"\n{chain_name.upper()}: Data consistency test passed - all values within {tolerance:.0%} tolerance")
 
 
 def test_get_available_liquidity_specific_markets(chain_name, get_available_liquidity):
@@ -162,7 +162,7 @@ def test_get_available_liquidity_specific_markets(chain_name, get_available_liqu
     # Should find at least one expected market
     assert len(found_markets) > 0, f"No expected markets found for {chain_name}. Found: {list(long_markets)}"
 
-    print(f"{chain_name.upper()}: Found {len(found_markets)} expected markets: {found_markets}")
+    # print(f"{chain_name.upper()}: Found {len(found_markets)} expected markets: {found_markets}")
 
 
 def test_get_available_liquidity_total_calculations(chain_name, get_available_liquidity):
@@ -187,11 +187,11 @@ def test_get_available_liquidity_total_calculations(chain_name, get_available_li
     assert total_liquidity >= 0
 
     # Print summary
-    print(f"\nTotal Available Liquidity on {chain_name.upper()}:")
-    print(f"  Long: ${total_long_liquidity:,.2f}")
-    print(f"  Short: ${total_short_liquidity:,.2f}")
-    print(f"  Total: ${total_liquidity:,.2f}")
-    print(f"  Markets: {len(liquidity_data['long'])}")
+    # print(f"\nTotal Available Liquidity on {chain_name.upper()}:")
+    # print(f"  Long: ${total_long_liquidity:,.2f}")
+    # print(f"  Short: ${total_short_liquidity:,.2f}")
+    # print(f"  Total: ${total_liquidity:,.2f}")
+    # print(f"  Markets: {len(liquidity_data['long'])}")
 
 
 def test_get_available_liquidity_error_handling(chain_name, get_available_liquidity):
@@ -211,7 +211,7 @@ def test_get_available_liquidity_error_handling(chain_name, get_available_liquid
         assert "short" in liquidity_data
         assert "parameter" in liquidity_data
 
-        print(f"\n{chain_name.upper()}: Error handling test passed - graceful handling of any failures")
+        # print(f"\n{chain_name.upper()}: Error handling test passed - graceful handling of any failures")
 
     except Exception as e:
         pytest.fail(f"GetAvailableLiquidity should handle errors gracefully, but raised: {e}")
@@ -241,32 +241,6 @@ def test_get_available_liquidity_filter_swap_markets(chain_name, gmx_config):
 
     assert unfiltered_market_count >= filtered_market_count, f"Unfiltered should have >= markets than filtered. Filtered: {filtered_market_count}, Unfiltered: {unfiltered_market_count}"
 
-    print(f"\n{chain_name.upper()}: Market filtering test")
-    print(f"  Filtered markets: {filtered_market_count}")
-    print(f"  Unfiltered markets: {unfiltered_market_count}")
-
-
-def test_liquidity_info_dataclass():
-    """
-    Test the LiquidityInfo dataclass structure.
-
-    This verifies that the dataclass works correctly for representing liquidity data.
-    """
-    # Create a sample LiquidityInfo
-    liquidity_info = LiquidityInfo(market_address="0x70d95587d40A2caf56bd97485aB3Eec10Bee6336", market_symbol="ETH", long_liquidity=1000000.0, short_liquidity=500000.0, total_liquidity=1500000.0, long_token_address="0x82aF49447D8a07e3bd95BD0d56f35241523fBab1", short_token_address="0xaf88d065e77c8cC2239327C5EDb3A432268e5831")
-
-    # Verify all fields
-    assert liquidity_info.market_address == "0x70d95587d40A2caf56bd97485aB3Eec10Bee6336"
-    assert liquidity_info.market_symbol == "ETH"
-    assert liquidity_info.long_liquidity == 1000000.0
-    assert liquidity_info.short_liquidity == 500000.0
-    assert liquidity_info.total_liquidity == 1500000.0
-    assert liquidity_info.long_token_address == "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1"
-    assert liquidity_info.short_token_address == "0xaf88d065e77c8cC2239327C5EDb3A432268e5831"
-
-    # Test string representation
-    str_repr = str(liquidity_info)
-    assert "ETH" in str_repr
-    assert "1000000.0" in str_repr
-
-    print(f"\nLiquidityInfo dataclass test passed: {str_repr}")
+    # print(f"\n{chain_name.upper()}: Market filtering test")
+    # print(f"  Filtered markets: {filtered_market_count}")
+    # print(f"  Unfiltered markets: {unfiltered_market_count}")

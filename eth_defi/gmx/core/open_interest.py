@@ -162,7 +162,7 @@ class GetOpenInterest(GetData):
             short_pnl_threaded_output,
             long_precision_list,
         ):
-            precision = 10**30
+            precision = 10**30  # TODO: Why this value was used in the first place?
             long_value = (long_oi - long_pnl) / long_precision
             short_value = (short_oi - short_pnl) / precision
 
