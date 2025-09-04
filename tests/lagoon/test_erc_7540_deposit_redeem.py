@@ -5,7 +5,6 @@ from typing import cast
 import pytest
 from web3 import Web3
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
-from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.lagoon.deposit_redeem import ERC7540DepositManager, ERC7540DepositRequest, ERC7540DepositTicket, ERC7540RedemptionTicket
 from eth_defi.lagoon.testing import force_lagoon_settle

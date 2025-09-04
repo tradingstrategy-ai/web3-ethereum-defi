@@ -1,6 +1,6 @@
 """ERC-4626 deposit and redeem requests."""
 from eth_defi.erc_4626.flow import deposit_4626, redeem_4626
-from eth_defi.vault.deposit_redeem import DepositRequest, RedemptionRequest, RedemptionTicket, VaultDepositManager
+from eth_defi.vault.deposit_redeem import DepositRequest, RedemptionRequest, RedemptionTicket, VaultDepositManager, DepositTicket
 
 import datetime
 from decimal import Decimal
@@ -16,11 +16,8 @@ class ERC4626DepositTicket(DepositRequest):
     """
 
 
-
-
 class ERC4626DepositRequest(DepositRequest):
     """Synchronous deposit request for ERC-4626 vaults."""
-
 
 
 class ERC4626RedemptionTicket(RedemptionTicket):
@@ -51,10 +48,13 @@ class ERC4626DepositManager(VaultDepositManager):
         check_max_deposit=True,
         check_enough_token=True,
     ) -> ERC4626DepositRequest:
+
+        if not raw_amount:
+            raw_amount = self.vault.denomination_token.convert_to_raw(amount)
+
         func = deposit_4626(
             self.vault,
             owner,
-            amount=amount,
             raw_amount=raw_amount,
             check_max_deposit=check_max_deposit,
             check_enough_token=check_enough_token,
@@ -79,10 +79,14 @@ class ERC4626DepositManager(VaultDepositManager):
     ) -> ERC4626RedemptionRequest:
         assert not raw_shares, f"Unsupported raw_shares={raw_shares}"
         assert not to, f"Unsupported to={to}"
+
+        if not raw_shares:
+            raw_shares = self.vault.share_token.convert_to_raw(shares)
+
         func = redeem_4626(
             self.vault,
             owner,
-            shares,
+            raw_amount=raw_shares,
             check_enough_token=True,
             check_max_redeem=True,
         )
@@ -143,3 +147,9 @@ class ERC4626DepositManager(VaultDepositManager):
         redemption_ticket: RedemptionTicket,
     ) -> ContractFunction:
         raise NotImplementedError("Redemptions are synchronous, nothing to settle")
+
+    def finish_deposit(
+        self,
+        deposit_ticket: DepositTicket,
+    ) -> ContractFunction:
+        raise NotImplementedError("Deposits are synchronous, nothing to settle")

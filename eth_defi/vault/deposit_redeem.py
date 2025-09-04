@@ -29,7 +29,7 @@ class DepositTicket:
     def __post_init__(self):
         assert self.owner.startswith("0x"), f"Got {self.owner}"
         assert self.to.startswith("0x"), f"Got {self.to}"
-        assert type(self.raw_amount) == int, f"Got {type(self.raw_shares)}: {self.raw_shares}"
+        assert type(self.raw_amount) == int, f"Got {type(self.raw_amount)}: {self.raw_amount}"
         assert isinstance(self.tx_hash, HexBytes), f"Got {type(self.tx_hash)}: {self.tx_hash}"
 
 
@@ -96,6 +96,8 @@ class RedemptionRequest:
         assert isinstance(self.vault, VaultBase), f"Got {type(self.vault)}"
         assert self.owner.startswith("0x"), f"Got {self.owner}"
         assert self.to.startswith("0x"), f"Got {self.to}"
+        assert type(self.raw_shares) == int, f"Got {type(self.raw_shares)}"
+        assert self.raw_shares > 0
 
     @property
     def web3(self) -> Web3:
@@ -106,12 +108,16 @@ class RedemptionRequest:
 
         - Assumes only one redemption request per vault per transaction
 
-        - Most throw an
-
         :raise CannotParseRedemptionTransaction:
             If we did not know how to parse the transaction
         """
-        raise NotImplementedError()
+        return RedemptionTicket(
+            vault_address=self.vault.address,
+            owner=self.owner,
+            to=self.to,
+            raw_shares=self.raw_shares,
+            tx_hash=tx_hashes[-1],
+        )
 
     def broadcast(self, from_: HexAddress = None, gas: int = 1_000_000) -> list[HexBytes]:
         """Broadcast all the transactions in this request.
@@ -161,11 +167,19 @@ class DepositRequest:
     #: It's a list because for Gains we need 2 tx
     funcs: list[ContractFunction]
 
+    def __post_init__(self):
+        from eth_defi.vault.base import VaultBase
+        assert isinstance(self.vault, VaultBase), f"Got {type(self.vault)}"
+        assert self.owner.startswith("0x"), f"Got {self.owner}"
+        assert self.to.startswith("0x"), f"Got {self.to}"
+        assert self.raw_amount > 0
+        assert type(self.raw_amount) == int, f"Got {type(self.raw_amount)}"
+
     @property
     def web3(self) -> Web3:
         return self.vault.web3
 
-    def parse_deposit_transaction(self, tx_hashes: list[HexBytes]) -> RedemptionTicket:
+    def parse_deposit_transaction(self, tx_hashes: list[HexBytes]) -> DepositTicket:
         """Parse the transaction receipt to get the actual shares redeemed.
 
         - Assumes only one redemption request per vault per transaction
@@ -175,7 +189,13 @@ class DepositRequest:
         :raise CannotParseRedemptionTransaction:
             If we did not know how to parse the transaction
         """
-        raise NotImplementedError()
+        return DepositTicket(
+            vault_address=self.vault.address,
+            owner=self.owner,
+            to=self.to,
+            raw_amount=self.raw_amount,
+            tx_hash=tx_hashes[-1],
+        )
 
     def broadcast(self, from_: HexAddress = None, gas: int = 1_000_000) -> RedemptionTicket:
         """Broadcast all the transactions in this request.

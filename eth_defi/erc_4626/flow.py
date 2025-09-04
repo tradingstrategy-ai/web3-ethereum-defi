@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 def deposit_4626(
     vault: ERC4626Vault,
     from_: HexAddress,
-    amount: Decimal,
+    amount: Decimal | None = None,
     raw_amount: int | None = None,
     check_max_deposit=True,
     check_enough_token=True,
@@ -79,23 +79,24 @@ def deposit_4626(
     """
 
     assert isinstance(vault, ERC4626Vault)
-    assert isinstance(amount, Decimal)
     assert from_.startswith("0x")
-    assert amount > 0
 
     if receiver is None:
         receiver = from_
 
     logger.info(
-        "Depositing to vault %s, amount %s, from %s",
+        "Depositing to vault %s, amount %s, raw amount %s, from %s",
         vault.address,
         amount,
+        raw_amount,
         from_,
     )
 
     contract = vault.vault_contract
 
     if not raw_amount:
+        assert isinstance(amount, Decimal)
+        assert amount > 0
         raw_amount = vault.denomination_token.convert_to_raw(amount)
 
     if check_enough_token:
@@ -114,7 +115,7 @@ def deposit_4626(
 def redeem_4626(
     vault: ERC4626Vault,
     owner: HexAddress,
-    amount: Decimal,
+    amount: Decimal | None = None,
     raw_amount: int | None = None,
     check_enough_token=True,
     check_max_redeem=True,
@@ -197,9 +198,9 @@ def redeem_4626(
     """
 
     assert isinstance(vault, ERC4626Vault)
-    assert isinstance(amount, Decimal)
+
     assert owner.startswith("0x")
-    assert amount > 0
+
 
     if receiver is None:
         receiver = owner
@@ -214,7 +215,10 @@ def redeem_4626(
     contract = vault.vault_contract
 
     if raw_amount is None:
+        assert isinstance(amount, Decimal)
+        assert amount > 0
         raw_amount = vault.share_token.convert_to_raw(amount)
+
     raw_available = vault.share_token.fetch_raw_balance_of(owner)
 
     # Apply epsilon correction
