@@ -69,9 +69,17 @@ class ERC4626Feature(enum.Enum):
     #: https://astrolab.fi/
     astrolab_like = "astrolab_like"
 
-    #: Gains network
+    #: Gains network and Ostium
+    #: gToken vaults
     #: https://github.com/GainsNetwork
     gains_like = "gains_like"
+
+    #: ALmost like Gains, but Ostium LP
+    ostium_like = "ostium_like"
+
+    #: Gains tranche?
+    #: https://basescan.org/address/0x2ac590a4a78298093e5bc7742685446af96d56e7#code
+    gains_tranche_like = "gains_tranche_like"
 
     #: Return Finacne
     return_finance_like = "return_finance_like"
@@ -196,6 +204,10 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "Superform"
     elif ERC4626Feature.yearn_v3_like in features:
         return "Yearn v3"
+    elif ERC4626Feature.gains_like in features:
+        return "Gains"
+    elif ERC4626Feature.ostium_like in features:
+        return "Ostium"
     elif ERC4626Feature.erc_7540_like in features:
         return "<unknown ERC-7540>"
     return "<unknown ERC-4626>"
@@ -209,11 +221,15 @@ def get_erc_4626_contract(web3: Web3) -> Type[Contract]:
     )
 
 
-def get_deployed_erc_4626_contract(web3: Web3, address: HexAddress) -> Contract:
+def get_deployed_erc_4626_contract(
+    web3: Web3,
+    address: HexAddress,
+    abi_fname="lagoon/IERC4626.json",
+) -> Contract:
     """Get IERC4626 deployed at some address."""
     return get_deployed_contract(
         web3,
-        "lagoon/IERC4626.json",
+        abi_fname,
         address=address,
     )
 

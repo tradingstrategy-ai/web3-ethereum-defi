@@ -20,6 +20,12 @@ def decode_data(data: str) -> list[bytes]:
     return entries
 
 
+def convert_uin256_to_bytes(value: int) -> bytes:
+    """Convert uint256 to bytes32."""
+    assert value >= 0
+    return value.to_bytes(32, "big")
+
+
 def convert_uint256_bytes_to_address(raw: bytes | HexBytes) -> ChecksumAddress:
     """Convert raw uin256 from log data to addresses.
 
@@ -80,6 +86,34 @@ def convert_uint256_string_to_address(bytes32: str) -> ChecksumAddress:
     return Web3.to_checksum_address(raw[12:])
 
 
+def convert_bytes32_to_address(bytes32: bytes) -> ChecksumAddress:
+    """Convert raw uint256 from EncodedCall to address.
+
+    .. note ::
+
+        Ethereum address checksum might have a speed penalty for
+        high speed operations.
+
+    :param bytes32:
+        E.g. b`0x00000000000000000000000006af07097c9eeb7fd685c692751d5c66db49c215`
+    """
+    assert type(bytes32) in (bytes, HexBytes), f"Received: {type(bytes32)}"
+    assert len(bytes32) == 32
+    raw = bytes32[-20:]
+    return Web3.to_checksum_address(raw)
+
+
+def convert_bytes32_to_uint(bytes32: bytes) -> int:
+    """Convert raw bytes32 blob to uint.
+
+
+    :param bytes32:
+        E.g. b`0x00000000000000000000000006af07097c9eeb7fd685c692751d5c66db49c215`
+    """
+    assert type(bytes32) in (bytes, HexBytes), f"Received: {type(bytes32)}"
+    return int.from_bytes(bytes32, "big")
+
+
 def convert_uint256_string_to_int(bytes32: str, *, signed: bool = False) -> int:
     """Convert raw uint256 from log data to int.
 
@@ -119,6 +153,21 @@ def convert_solidity_bytes_to_string(byte_data: bytes, max_length: int, errors="
     string_data = decode(["string"], byte_data)[0]
     sanitised = sanitise_string(string_data, max_length=max_length)
     return sanitised
+
+
+def convert_string_to_bytes32(s: str) -> bytes:
+    """Convert string to bytes32 for passing raw ABI packed payload.
+
+    :param s:
+        Input string
+
+    :return:
+        E.g. `0x746573740
+    """
+    assert type(s) == str
+    assert len(s) <= 32, f"String too long {len(s)} > 32"
+    raw = s.encode("utf-8")
+    return raw.ljust(32, b"\x00")
 
 
 def convert_address_to_bytes32(address: str | HexAddress) -> bytes:

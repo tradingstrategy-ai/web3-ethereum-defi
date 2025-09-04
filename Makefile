@@ -196,9 +196,10 @@ all: clean-docs compile-projects-and-prepare-abi build-docs
 # See: https://github.com/readthedocs/readthedocs.org/issues/4912
 # terms_of_service is in-place dev dependency, only used for tests and must be removed for RTD
 rtd-dep-export:
-	@poetry export --without-hashes --with dev --extras docs --extras data --extras hypersync -f requirements.txt --output /tmp/requirements.txt
+	@pip freeze > /tmp/requirements.txt
 	@grep -v 'terms-of-service' < /tmp/requirements.txt > docs/requirements.txt
 	@echo "-e ." >> docs/requirements.txt
+
 
 # Build docs locally
 build-docs:

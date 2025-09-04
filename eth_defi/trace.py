@@ -329,6 +329,8 @@ def assert_transaction_success_with_explanation(
 
     if type(tx_hash) == str:
         tx_hash = HexBytes(tx_hash)
+    else:
+        assert isinstance(tx_hash, HexBytes), f"Expected HexBytes, got {type(tx_hash)}"
 
     receipt = web3.eth.wait_for_transaction_receipt(tx_hash, timeout=timeout)
     if receipt["status"] == 0:

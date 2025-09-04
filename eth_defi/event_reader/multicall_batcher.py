@@ -621,7 +621,7 @@ class EncodedCall:
     ) -> bytes:
         """Return raw results of the call.
 
-        Example:
+        Example how to read:
 
         .. code-block:: python
 
@@ -687,6 +687,41 @@ class EncodedCall:
                     continue
 
                 raise e
+
+    def transact(
+        self,
+        from_: HexAddress,
+        gas_limit: int,
+    ) -> dict:
+        """Build a transaction payload for this call.
+
+        Example:
+
+        .. code-block:: python
+
+            gas_limit = 15_000_000
+
+            # function settleDeposit(uint256 _newTotalAssets) public virtual;
+            call = EncodedCall.from_keccak_signature(
+                address=vault.address,
+                function="settleDeposit()",
+                signature=Web3.keccak(text="settleDeposit(uint256)")[0:4],
+                data=convert_uin256_to_bytes(raw_nav),
+                extra_data=None,
+            )
+            tx_data = call.transact(
+                from_=asset_manager,
+                gas_limit=gas_limit,
+            )
+            tx_hash = web3.eth.send_transaction(tx_data)
+            assert_transaction_success_with_explanation(web3, tx_hash)
+        """
+        return {
+            "to": self.address,
+            "data": self.data.hex(),
+            "from": from_,
+            "gas": gas_limit,
+        }
 
     def call_as_result(
         self,

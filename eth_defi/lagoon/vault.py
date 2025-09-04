@@ -39,8 +39,10 @@ from web3.contract.contract import ContractFunction
 from web3.exceptions import ContractLogicError
 
 from eth_defi.vault.base import VaultFlowManager, VaultInfo, VaultSpec
+from .deposit_redeem import ERC7540DepositRequest
 
 from ..abi import encode_function_call, get_deployed_contract, get_function_abi_by_name, get_function_selector, present_solidity_args
+from ..erc_4626.deposit_redeem import ERC4626DepositRequest, ERC4626DepositTicket
 from ..erc_4626.vault import ERC4626Vault
 from ..event_reader.multicall_batcher import EncodedCall
 from ..safe.safe_compat import create_safe_ethereum_client
@@ -614,6 +616,10 @@ class LagoonVault(ERC4626Vault):
         - Must be approved() first
         - Uses the vault underlying token (USDC)
 
+        .. note::
+
+            Legacy. Use :py:meth:`get_deposit_manager` instead.
+
         :param raw_amount:
             Raw amount in underlying token
         """
@@ -699,6 +705,11 @@ class LagoonVault(ERC4626Vault):
         assert self.trading_strategy_module_address, "TradingStrategyModuleV0 address must be separately given in the configuration"
         return self.safe.contract.functions.isModuleEnabled(self.trading_strategy_module_address).call() == True
 
+    def get_deposit_manager(self) -> "eth_defi.lagoon.deposit_redeem.ERC7540DepositManager":
+        from eth_defi.lagoon.deposit_redeem import ERC7540DepositManager
+
+        return ERC7540DepositManager(self)
+
 
 class LagoonFlowManager(VaultFlowManager):
     """Manage deposit/redemption queue for Lagoon.
@@ -737,7 +748,7 @@ class LagoonFlowManager(VaultFlowManager):
     def fetch_processed_redemption_event(self, vault: VaultSpec, range: BlockRange) -> None:
         raise NotImplementedError()
 
-    def calculate_underlying_neeeded_for_redemptions(self, block_identifier: BlockIdentifier) -> Decimal:
+    def calculate_underlying_needed_for_redemptions(self, block_identifier: BlockIdentifier) -> Decimal:
         """How much underlying token (USDC) we are going to need on the next redemption cycle.
 
         :return:

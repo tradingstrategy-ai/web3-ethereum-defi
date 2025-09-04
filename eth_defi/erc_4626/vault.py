@@ -27,7 +27,6 @@ from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResu
 from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.vault.base import VaultBase, VaultSpec, VaultInfo, TradingUniverse, VaultPortfolio, VaultFlowManager, VaultHistoricalReader, VaultHistoricalRead
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -818,6 +817,11 @@ class ERC4626Vault(VaultBase):
 
     def get_flow_manager(self) -> VaultFlowManager:
         return NotImplementedError()
+
+    def get_deposit_manager(self) -> "eth_defi.erc_4626.deposit_redeem.ERC4626DepositManager":
+        from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
+
+        return ERC4626DepositManager(self)
 
     def has_block_range_event_support(self):
         raise NotImplementedError()
