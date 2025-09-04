@@ -1,16 +1,21 @@
 """
 GMX GM Prices Data Module
 
-This module provides access to GM token prices data,
-replacing the gmx_python_sdk GMPrices functionality.
+This module provides access to GM token prices data.
 """
 
 import logging
-from typing import Any, Optional
-from concurrent.futures import ThreadPoolExecutor
+import time
+from typing import Any
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.core.get_data import GetData
+from eth_defi.gmx.keys import (
+    MAX_PNL_FACTOR_FOR_TRADERS,
+    MAX_PNL_FACTOR_FOR_DEPOSITS,
+    MAX_PNL_FACTOR_FOR_WITHDRAWALS,
+)
 
 
 class GetGMPrices(GetData):
@@ -22,6 +27,19 @@ class GetGMPrices(GetData):
     value of the pooled assets plus accumulated fees. This pricing information is essential
     for liquidity providers to understand the value of their holdings and calculate returns
     on their liquidity provision activities.
+
+    Supports three different pricing scenarios:
+    - **Traders**: Prices for trading scenarios (most commonly used)
+    - **Deposits**: Prices optimized for deposit operations
+    - **Withdrawals**: Prices optimized for withdrawal operations
+
+    Each pricing scenario uses different PNL (Profit and Loss) factor configurations
+    to account for the specific risk and fee structures associated with different
+    types of operations on the GMX protocol.
+
+    **Base Class Interface**: When using the base class `get_data()` method, this class
+    returns comprehensive data including all three price types in a single response,
+    making it easy to compare prices across different operation types.
 
     :param config: GMXConfig instance containing chain and network info
     :type config: GMXConfig
@@ -41,11 +59,70 @@ class GetGMPrices(GetData):
         super().__init__(config, filter_swap_markets)
         self.log = logging.getLogger(__name__)
 
+    def get_price_traders(self, to_json: bool = False, to_csv: bool = False) -> dict[str, Any]:
+        """
+        Get GM token prices for traders.
+
+        This method retrieves GM token prices optimized for trading scenarios,
+        using the MAX_PNL_FACTOR_FOR_TRADERS configuration. This is the most
+        commonly used price type for general trading operations.
+
+        :param to_json: Whether to save data to JSON file
+        :type to_json: bool
+        :param to_csv: Whether to save data to CSV file
+        :type to_csv: bool
+        :return: Dictionary containing GM prices for traders
+        :rtype: dict[str, Any]
+        """
+        self.log.debug("Getting GM prices for traders")
+        return self._process_gm_prices_data(MAX_PNL_FACTOR_FOR_TRADERS, to_json, to_csv)
+
+    def get_price_deposit(self, to_json: bool = False, to_csv: bool = False) -> dict[str, Any]:
+        """
+        Get GM token prices for deposits.
+
+        This method retrieves GM token prices optimized for deposit scenarios,
+        using the MAX_PNL_FACTOR_FOR_DEPOSITS configuration. These prices
+        account for the specific risks associated with adding liquidity to pools.
+
+        :param to_json: Whether to save data to JSON file
+        :type to_json: bool
+        :param to_csv: Whether to save data to CSV file
+        :type to_csv: bool
+        :return: Dictionary containing GM prices for deposits
+        :rtype: dict[str, Any]
+        """
+        self.log.debug("Getting GM prices for deposits")
+        return self._process_gm_prices_data(MAX_PNL_FACTOR_FOR_DEPOSITS, to_json, to_csv)
+
+    def get_price_withdraw(self, to_json: bool = False, to_csv: bool = False) -> dict[str, Any]:
+        """
+        Get GM token prices for withdrawals.
+
+        This method retrieves GM token prices optimized for withdrawal scenarios,
+        using the MAX_PNL_FACTOR_FOR_WITHDRAWALS configuration. These prices
+        account for the specific risks associated with removing liquidity from pools.
+
+        :param to_json: Whether to save data to JSON file
+        :type to_json: bool
+        :param to_csv: Whether to save data to CSV file
+        :type to_csv: bool
+        :return: Dictionary containing GM prices for withdrawals
+        :rtype: dict[str, Any]
+        """
+        self.log.debug("Getting GM prices for withdrawals")
+        return self._process_gm_prices_data(MAX_PNL_FACTOR_FOR_WITHDRAWALS, to_json, to_csv)
+
     def get_prices(self, price_type: str = "traders", to_json: bool = False, to_csv: bool = False) -> dict[str, Any]:
         """
-        Get GM token prices.
+        Get GM token prices with specified price type.
+
+        This is a unified method that calls the appropriate specific price method
+        based on the price_type parameter. This provides a convenient interface
+        when the price type needs to be determined dynamically.
 
         :param price_type: Type of price to retrieve ("traders", "deposits", "withdrawals")
+        :type price_type: str
         :param to_json: Whether to save data to JSON file
         :type to_json: bool
         :param to_csv: Whether to save data to CSV file
@@ -53,98 +130,377 @@ class GetGMPrices(GetData):
         :return: Dictionary containing GM prices data
         :rtype: dict[str, Any]
         """
-        try:
-            self.log.debug(f"GMX v2 GM Prices ({price_type})")
-
-            # Get available markets
-            available_markets = self.markets.get_available_markets()
-            if not available_markets:
-                self.log.warning("No markets available")
-                return {"prices": {}, "parameter": f"gm_prices_{price_type}"}
-
-            prices_dict = {"prices": {}, "parameter": f"gm_prices_{price_type}"}
-
-            # Process markets concurrently
-            market_results = []
-            with ThreadPoolExecutor(max_workers=5) as executor:
-                # Submit tasks for each market
-                future_to_market = {}
-                for market_key in available_markets:
-                    try:
-                        future = executor.submit(self._process_market_price, market_key, price_type)
-                        future_to_market[future] = market_key
-                    except Exception as e:
-                        self.log.warning(f"Failed to submit task for market {market_key}: {e}")
-                        continue
-
-                # Collect results
-                for future in future_to_market:
-                    try:
-                        result = future.result()
-                        if result:
-                            market_key, market_price_data = result
-                            market_symbol = available_markets[market_key]["market_symbol"]
-                            prices_dict["prices"][market_symbol] = market_price_data
-                    except Exception as e:
-                        self.log.warning(f"Failed to process market result: {e}")
-                        continue
-
-            # Export data if requested
-            if to_json:
-                self._save_to_json(prices_dict)
-
-            if to_csv:
-                self._save_to_csv(prices_dict)
-
-            return prices_dict
-
-        except Exception as e:
-            self.log.error(f"Failed to fetch GM prices data: {e}")
-            return {"prices": {}, "parameter": f"gm_prices_{price_type}"}
-
-    def _process_market_price(self, market_key: str, price_type: str) -> Optional[tuple]:
-        """
-        Process price data for a single market.
-
-        :param market_key: Market key
-        :param price_type: Type of price to retrieve
-        :return: Tuple of (market_key, price_data)
-        """
-        try:
-            market_data = self.markets.get_available_markets()[market_key]
-            market_symbol = market_data["market_symbol"]
-
-            self.log.debug(f"Processing GM price for {market_symbol}")
-
-            # In a real implementation, this would call the appropriate GM reader contract
-            # For now, we'll return placeholder data
-            price_data = {
-                "market_symbol": market_symbol,
-                "price": 1.0,  # TODO: Placeholder
-                "price_type": price_type,
-                "timestamp": self._get_current_timestamp(),
-            }
-
-            return market_key, price_data
-        except Exception as e:
-            self.log.warning(f"Failed to process market price for {market_key}: {e}")
-            return None
-
-    @staticmethod
-    def _get_current_timestamp() -> int:
-        """
-        Get current timestamp.
-
-        :return: Current timestamp in seconds
-        """
-        import time
-
-        return int(time.time())
+        if price_type == "traders":
+            return self.get_price_traders(to_json, to_csv)
+        elif price_type == "deposits":
+            return self.get_price_deposit(to_json, to_csv)
+        elif price_type == "withdrawals":
+            return self.get_price_withdraw(to_json, to_csv)
+        else:
+            self.log.debug(f"Unknown price type: {price_type}. Using 'traders' as default.")
+            return self.get_price_traders(to_json, to_csv)
 
     def _get_data_processing(self) -> dict[str, Any]:
         """
-        Get GM prices data using default parameters.
+        Override base class method to return comprehensive GM prices data.
 
-        :return: GM prices data dictionary
+        This method provides the base class interface and returns all three
+        GM price types (traders, deposits, withdrawals) in a single comprehensive
+        response. This is called when users use the base GetData interface
+        via the get_data() method.
+
+        :return: Comprehensive GM prices data dictionary with all price types
+        :rtype: dict[str, Any]
         """
-        return self.get_prices(price_type="traders")
+        try:
+            self.log.debug("Getting comprehensive GM prices data (all types)")
+
+            # Get all three price types
+            traders_data = self._process_gm_prices_data(MAX_PNL_FACTOR_FOR_TRADERS)
+            deposits_data = self._process_gm_prices_data(MAX_PNL_FACTOR_FOR_DEPOSITS)
+            withdrawals_data = self._process_gm_prices_data(MAX_PNL_FACTOR_FOR_WITHDRAWALS)
+
+            # Create comprehensive response
+            comprehensive_data = {
+                "parameter": "gm_prices_all_types",
+                "timestamp": int(time.time()),
+                "chain": self.config.chain,
+                "price_types": {
+                    "traders": traders_data.get("gm_prices", {}),
+                    "deposits": deposits_data.get("gm_prices", {}),
+                    "withdrawals": withdrawals_data.get("gm_prices", {}),
+                },
+                "metadata": {"total_markets_traders": len(traders_data.get("gm_prices", {})), "total_markets_deposits": len(deposits_data.get("gm_prices", {})), "total_markets_withdrawals": len(withdrawals_data.get("gm_prices", {})), "description": "Comprehensive GM prices including traders, deposits, and withdrawals"},
+            }
+
+            # Add market summary for easy access
+            all_markets = set()
+            all_markets.update(traders_data.get("gm_prices", {}).keys())
+            all_markets.update(deposits_data.get("gm_prices", {}).keys())
+            all_markets.update(withdrawals_data.get("gm_prices", {}).keys())
+
+            comprehensive_data["total_markets"] = len(all_markets)
+            comprehensive_data["markets"] = sorted(list(all_markets))
+
+            self.log.debug(f"Retrieved comprehensive GM prices for {len(all_markets)} markets")
+            return comprehensive_data
+
+        except Exception as e:
+            self.log.error(f"Failed to get comprehensive GM prices data: {e}")
+            # Return minimal structure on error
+            return {"parameter": "gm_prices_all_types", "timestamp": int(time.time()), "error": str(e), "price_types": {"traders": {}, "deposits": {}, "withdrawals": {}}, "total_markets": 0}
+
+    def _process_gm_prices_data(self, pnl_factor_type: bytes, to_json: bool = False, to_csv: bool = False) -> dict[str, Any]:
+        """
+        Core data processing method for GM pool prices.
+
+        This method orchestrates the entire GM price retrieval process:
+        1. Filter swap markets if enabled
+        2. Prepare contract queries for each market
+        3. Execute queries concurrently using threading
+        4. Process and format results
+        5. Optional export to JSON/CSV files
+
+        The method uses the GMX Reader contract's getMarketTokenPrice function
+        to retrieve raw price data, which is then converted from wei to USD
+        by dividing by 10^30.
+
+        :param pnl_factor_type: PNL factor type hash for datastore queries
+        :type pnl_factor_type: bytes
+        :param to_json: Whether to save data to JSON file
+        :type to_json: bool
+        :param to_csv: Whether to save data to CSV file
+        :type to_csv: bool
+        :return: Dictionary containing processed GM prices
+        :rtype: dict[str, Any]
+        """
+        try:
+            self.log.debug("Starting GM prices data processing")
+
+            # Apply swap market filtering if enabled
+            if self.filter_swap_markets:
+                self._filter_swap_markets()
+
+            # Get available markets after filtering
+            available_markets = self.markets.get_available_markets()
+
+            if not available_markets:
+                self.log.debug("No markets available after filtering")
+                return {"gm_prices": {}, "parameter": "gm_prices", "timestamp": int(time.time())}
+
+            # Prepare for concurrent processing
+            market_queries = []
+            market_symbols = []
+
+            # Build market queries
+            for market_key in available_markets:
+                try:
+                    # Get token addresses for this market
+                    self._get_token_addresses(market_key)
+
+                    if not self._long_token_address or not self._short_token_address:
+                        self.log.debug(f"Missing token addresses for market {market_key}")
+                        continue
+
+                    # Get index token address
+                    index_token_address = self.markets.get_index_token_address(market_key)
+
+                    # Get oracle prices as tuples
+                    oracle_prices = self._get_oracle_prices(market_key, index_token_address, return_tuple=True)
+
+                    if not oracle_prices or len(oracle_prices) < 3:
+                        self.log.debug(f"Missing or incomplete oracle prices for market {market_key}")
+                        continue
+
+                    # Build market info tuple
+                    market = [
+                        market_key,
+                        index_token_address,
+                        self._long_token_address,
+                        self._short_token_address,
+                    ]
+
+                    # Create contract query (not executed yet)
+                    query = self._make_market_token_price_query(
+                        market,
+                        oracle_prices[0],  # index price tuple
+                        oracle_prices[1],  # long price tuple
+                        oracle_prices[2],  # short price tuple
+                        pnl_factor_type,
+                    )
+
+                    market_queries.append(query)
+                    market_symbols.append(self.markets.get_market_symbol(market_key))
+
+                except Exception as e:
+                    self.log.debug(f"Failed to prepare query for market {market_key}: {e}")
+                    continue
+
+            if not market_queries:
+                self.log.debug("No valid market queries prepared")
+                return {"gm_prices": {}, "parameter": "gm_prices", "timestamp": int(time.time())}
+
+            # Execute queries concurrently using threading
+            self.log.debug(f"Executing {len(market_queries)} market price queries concurrently")
+            threaded_results = self._execute_threading(market_queries)
+
+            # Process results
+            prices_dict = {}
+            for symbol, result in zip(market_symbols, threaded_results):
+                try:
+                    if result and len(result) > 0:
+                        # Convert from wei to USD by dividing by 10^30
+                        price_usd = result[0] / 10**30
+                        prices_dict[symbol] = price_usd
+                        self.log.debug(f"Processed price for {symbol}: ${price_usd:.6f}")
+                    else:
+                        self.log.debug(f"Empty result for {symbol}")
+                except (TypeError, IndexError, ZeroDivisionError) as e:
+                    self.log.debug(f"Failed to process result for {symbol}: {e}")
+                    continue
+
+            # Prepare final output
+            output = {
+                "gm_prices": prices_dict,
+                "parameter": "gm_prices",
+                "timestamp": int(time.time()),
+                "chain": self.config.chain,
+                "total_markets": len(prices_dict),
+            }
+
+            # Export to files if requested
+            if to_json:
+                self._save_to_json(output)
+
+            if to_csv:
+                self._save_to_csv(output)
+
+            self.log.debug(f"Successfully processed GM prices for {len(prices_dict)} markets")
+            return output
+
+        except Exception as e:
+            self.log.error(f"Failed to process GM prices data: {e}")
+            return {"gm_prices": {}, "parameter": "gm_prices", "error": str(e), "timestamp": int(time.time())}
+
+    def _make_market_token_price_query(
+        self,
+        market: list,
+        index_price_tuple: tuple,
+        long_price_tuple: tuple,
+        short_price_tuple: tuple,
+        pnl_factor_type: bytes,
+    ):
+        """
+        Create a market token price query for the reader contract.
+
+        This method creates an unexecuted Web3 contract call that retrieves
+        the current GM token price for a specific market. The query uses the
+        GMX Reader contract's getMarketTokenPrice function with the provided
+        market information and oracle prices.
+
+        :param market: List containing market contract addresses [market, index, long, short]
+        :type market: list
+        :param index_price_tuple: Tuple of (min_price, max_price) for index token
+        :type index_price_tuple: tuple
+        :param long_price_tuple: Tuple of (min_price, max_price) for long token
+        :type long_price_tuple: tuple
+        :param short_price_tuple: Tuple of (min_price, max_price) for short token
+        :type short_price_tuple: tuple
+        :param pnl_factor_type: PNL factor type hash for calculations
+        :type pnl_factor_type: bytes
+        :return: Unexecuted Web3 contract call
+        """
+        try:
+            # Use maximize=True to get maximum prices in calculation
+            maximize = True
+
+            return self.reader_contract.functions.getMarketTokenPrice(
+                self.datastore_contract.address,  # datastore address
+                market,  # [market, index, long, short]
+                index_price_tuple,  # (min, max) for index
+                long_price_tuple,  # (min, max) for long
+                short_price_tuple,  # (min, max) for short
+                pnl_factor_type,  # pnl factor hash
+                maximize,  # maximize prices
+            )
+        except Exception as e:
+            self.log.error(f"Failed to create market token price query: {e}")
+            raise
+
+    def _execute_threading(self, queries: list) -> list:
+        """
+        Execute multiple contract queries concurrently using threading.
+
+        This method takes a list of unexecuted Web3 contract calls and
+        executes them concurrently to improve performance. It includes
+        timeout handling and fallback to sequential execution if needed.
+
+        :param queries: List of unexecuted Web3 contract calls
+        :type queries: list
+        :return: List of query results in the same order as input
+        :rtype: list
+        """
+        results = [None] * len(queries)
+
+        try:
+            with ThreadPoolExecutor(max_workers=min(10, len(queries))) as executor:
+                # Submit all queries
+                future_to_index = {}
+                for i, query in enumerate(queries):
+                    try:
+                        future = executor.submit(query.call)
+                        future_to_index[future] = i
+                    except Exception as e:
+                        self.log.debug(f"Failed to submit query {i}: {e}")
+                        continue
+
+                # Collect results as they complete with timeout
+                for future in as_completed(future_to_index, timeout=30):
+                    index = future_to_index[future]
+                    try:
+                        result = future.result()
+                        results[index] = result
+                        self.log.debug(f"Query {index} completed successfully")
+                    except Exception as e:
+                        self.log.debug(f"Query {index} failed: {e}")
+                        results[index] = None
+
+        except Exception as e:
+            self.log.error(f"Threading execution failed: {e}")
+            # Fallback to sequential execution
+            self.log.debug("Falling back to sequential execution")
+            for i, query in enumerate(queries):
+                try:
+                    results[i] = query.call()
+                except Exception as e:
+                    self.log.debug(f"Sequential query {i} failed: {e}")
+                    results[i] = None
+
+        return results
+
+    def _save_to_json(self, data: dict) -> None:
+        """
+        Save GM prices data to JSON file.
+
+        Creates a timestamped JSON file in the 'data' directory with
+        the GM prices information for later analysis or archival purposes.
+
+        :param data: Data to save
+        :type data: dict
+        """
+        try:
+            import json
+            import os
+            from datetime import datetime
+
+            # Create filename with chain and timestamp
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"{self.config.chain}_gm_prices_{timestamp}.json"
+
+            # Ensure directory exists
+            os.makedirs("data", exist_ok=True)
+            filepath = os.path.join("data", filename)
+
+            # Add metadata for context
+            export_data = {
+                **data,
+                "export_metadata": {
+                    "export_time": datetime.now().isoformat(),
+                    "eth_defi_version": "latest",
+                    "data_type": "gm_prices",
+                },
+            }
+
+            with open(filepath, "w") as f:
+                json.dump(export_data, f, indent=2, default=str)
+
+            self.log.debug(f"GM prices data saved to {filepath}")
+
+        except Exception as e:
+            self.log.error(f"Failed to save JSON file: {e}")
+
+    def _save_to_csv(self, data: dict) -> None:
+        """
+        Save GM prices data to CSV file.
+
+        Creates a timestamped CSV file in the 'data' directory with
+        GM prices information in tabular format for spreadsheet analysis.
+
+        :param data: Data to save
+        :type data: dict
+        """
+        try:
+            import pandas as pd
+            import os
+            from datetime import datetime
+
+            # Convert prices dict to DataFrame
+            if "gm_prices" in data and data["gm_prices"]:
+                df_data = []
+                for symbol, price in data["gm_prices"].items():
+                    df_data.append(
+                        {
+                            "symbol": symbol,
+                            "price_usd": price,
+                            "timestamp": data.get("timestamp", int(time.time())),
+                            "chain": data.get("chain", self.config.chain),
+                        }
+                    )
+
+                df = pd.DataFrame(df_data)
+
+                # Create filename with chain and timestamp
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                filename = f"{self.config.chain}_gm_prices_{timestamp}.csv"
+
+                # Ensure directory exists
+                os.makedirs("data", exist_ok=True)
+                filepath = os.path.join("data", filename)
+
+                df.to_csv(filepath, index=False)
+                self.log.debug(f"GM prices data saved to {filepath}")
+            else:
+                self.log.debug("No price data to save to CSV")
+
+        except Exception as e:
+            self.log.error(f"Failed to save CSV file: {e}")

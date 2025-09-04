@@ -209,7 +209,7 @@ class Markets:
             try:
                 self._oracle_prices_cache = OraclePrices(chain=self.config.chain).get_recent_prices()
             except Exception as e:
-                self.log.warning(f"Failed to fetch oracle prices: {e}")
+                self.log.debug(f"Failed to fetch oracle prices: {e}")
                 self._oracle_prices_cache = {}
 
         raw_markets = self._get_available_markets_raw()
@@ -251,7 +251,7 @@ class Markets:
 
             except Exception as e:
                 # If there's any other error processing this market, skip it and continue
-                self.log.warning(f"Skipping market {raw_market[0]}: {e}")
+                self.log.debug(f"Skipping market {raw_market[0]}: {e}")
                 continue
 
         return decoded_markets
