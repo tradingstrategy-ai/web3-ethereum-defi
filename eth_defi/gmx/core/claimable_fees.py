@@ -1,164 +1,208 @@
 """
 GMX Claimable Fees Data Retrieval Module
 
-This module provides claimable fees data for GMX protocol markets,
-replacing the gmx_python_sdk GetClaimableFees functionality with exact feature parity.
+This module provides claimable fees data for GMX protocol markets. Optimised performance using multicall batching.
 """
 
 import logging
-from typing import Any
-
 import numpy as np
-from numerize import numerize
+from typing import Any, Iterable
+from collections import defaultdict
 
+from eth_utils import keccak
+
+from eth_defi.event_reader.multicall_batcher import EncodedCall, read_multicall_chunked, EncodedCallResult
+from eth_defi.event_reader.web3factory import TunedWeb3Factory
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.core.get_data import GetData
-from eth_defi.gmx.core.oracle import OraclePrices
-from eth_defi.gmx.contracts import get_datastore_contract
 from eth_defi.gmx.keys import claimable_fee_amount_key
+from eth_defi.gmx.core.oracle import OraclePrices
 
 
 class GetClaimableFees(GetData):
     """
-    GMX claimable fees data retrieval class.
+    GMX claimable fees data retrieval class with multicall optimization.
 
-    This class retrieves claimable fees information for all available GMX markets,
-    replacing the gmx_python_sdk GetClaimableFees functionality with exact feature parity.
+    This class retrieves claimable fees information for all available GMX markets
+    using multicall batching for better performance while maintaining identical
+    results to the original implementation.
 
     :param config: GMXConfig instance containing chain and network info
     :type config: GMXConfig
-    :param filter_swap_markets: Whether to filter out swap markets from results
-    :type filter_swap_markets: bool
     """
 
-    def __init__(self, config: GMXConfig, filter_swap_markets: bool = True):
+    def __init__(self, config: GMXConfig):
         """
         Initialize claimable fees data retrieval.
 
         :param config: GMXConfig instance containing chain and network info
         :type config: GMXConfig
-        :param filter_swap_markets: Whether to filter out swap markets from results
-        :type filter_swap_markets: bool
         """
-        super().__init__(config, filter_swap_markets)
+        super().__init__(config)
         self.log = logging.getLogger(__name__)
+        self.oracle_prices = OraclePrices(chain=config.chain).get_recent_prices()
 
     def _get_data_processing(self) -> dict[str, Any]:
         """
-        Get total fees dictionary
+        Implementation of abstract method from GetData base class.
 
-        Returns
-        -------
-        funding_apr : dict
-            dictionary of total fees for week so far.
-
+        :return: Claimable fees data
+        :rtype: dict[str, Any]
         """
-        total_fees = 0
-        long_output_list = []
-        short_output_list = []
-        long_precision_list = []
-        long_token_price_list = []
-        mapper = []
+        return self.get_claimable_fees()
 
-        available_markets = self.markets.get_available_markets()
+    def get_claimable_fees(self) -> dict[str, Any]:
+        """
+        Get claimable fees data using multicall optimization.
 
-        for market_key in available_markets:
-            self._get_token_addresses(market_key)
-            market_symbol = self.markets.get_market_symbol(market_key)
-            long_decimal_factor = self.markets.get_decimal_factor(market_key=market_key, long=True)
-            long_precision = 10 ** (long_decimal_factor - 1)
-            oracle_precision = 10 ** (30 - long_decimal_factor)
+        This method uses multicall batching to query all claimable fee amounts in a single
+        RPC call, significantly improving performance compared to sequential calls.
 
-            # uncalled web3 object for long fees
-            long_output = self._get_claimable_fee_amount(market_key, self._long_token_address)
+        :return: Dictionary containing total claimable fees
+        :rtype: dict[str, Any]
+        """
+        market_fees = self.get_per_market_claimable_fees()
 
-            prices = OraclePrices(chain=self.config.chain).get_recent_prices()
-            long_token_price = np.median(
-                [
-                    float(prices[self._long_token_address]["maxPriceFull"]) / oracle_precision,
-                    float(prices[self._long_token_address]["minPriceFull"]) / oracle_precision,
-                ]
-            )
-
-            long_token_price_list.append(long_token_price)
-            long_precision_list.append(long_precision)
-
-            # uncalled web3 object for short fees
-            short_output = self._get_claimable_fee_amount(market_key, self._short_token_address)
-
-            # add the uncalled web3 objects to list
-            long_output_list = [*long_output_list, long_output]
-            short_output_list = [*short_output_list, short_output]
-
-            # add the market symbol to a list to use to map to dictionary later
-            mapper.append(market_symbol)
-
-        # feed the uncalled web3 objects into threading function
-        long_threaded_output = self._execute_threading(long_output_list)
-        short_threaded_output = self._execute_threading(short_output_list)
-
-        for (
-            long_claimable_fees,
-            short_claimable_fees,
-            long_precision,
-            long_token_price,
-            token_symbol,
-        ) in zip(
-            long_threaded_output,
-            short_threaded_output,
-            long_precision_list,
-            long_token_price_list,
-            mapper,
-        ):
-            # convert raw outputs into USD value
-            long_claimable_usd = (long_claimable_fees / long_precision) * long_token_price
-
-            # TODO - currently all short fees are collected in USDC which is
-            # 6 decimals
-            short_claimable_usd = short_claimable_fees / (10**6)
-
-            if "2" in token_symbol:
-                short_claimable_usd = 0
-
-            self.log.debug(f"Token: {token_symbol}")
-
-            self.log.debug(
-                f"""Long Claimable Fees:
-                 ${numerize.numerize(long_claimable_usd)}"""
-            )
-
-            self.log.debug(
-                f"""Short Claimable Fees:
-                 ${numerize.numerize(short_claimable_usd)}"""
-            )
-
-            total_fees += long_claimable_usd + short_claimable_usd
+        # Calculate total fees
+        total_fees = sum(fee_data["total"] for fee_data in market_fees.values())
 
         return {"total_fees": total_fees, "parameter": "total_fees"}
 
-    def _get_claimable_fee_amount(self, market_address: str, token_address: str):
+    def get_per_market_claimable_fees(self) -> dict[str, dict]:
         """
-        For a given market and long/short side of the pool get the raw output
-        for pending fees
+        Get detailed claimable fees data for each market.
 
-        Parameters
-        ----------
-        market_address : str
-            addess of the GMX market.
-        token_address : str
-            address of either long or short collateral token.
-
-        Returns
-        -------
-        claimable_fee : web3 datastore obj
-            uncalled obj of the datastore contract.
-
+        :return: Dictionary of market symbol to fee details
+        :rtype: dict[str, dict]
         """
-        datastore = get_datastore_contract(self.config.web3, self.config.chain)
+        self.log.debug("GMX v2 Claimable Fees using Multicall")
 
-        # create hashed key to query the datastore
-        claimable_fees_amount_hash_data = claimable_fee_amount_key(market_address, token_address)
+        # Get available markets
+        available_markets = self.markets.get_available_markets()
+        if not available_markets:
+            self.log.warning("No markets available")
+            return {}
 
-        claimable_fee = datastore.functions.getUint(claimable_fees_amount_hash_data)
+        # Generate all multicall requests
+        self.log.debug("Generating multicall requests...")
+        encoded_calls = list(self.generate_all_multicalls(available_markets))
+        self.log.debug(f"Generated {len(encoded_calls)} multicall requests")
 
-        return claimable_fee
+        # Create Web3Factory for multicall execution
+        web3_factory = TunedWeb3Factory(rpc_config_line=self.config.web3.provider.endpoint_uri)
+
+        # Execute all multicalls efficiently
+        self.log.debug("Executing multicalls...")
+        multicall_results: dict[str, dict[str, EncodedCallResult]] = defaultdict(dict)
+
+        for call_result in read_multicall_chunked(
+            chain_id=self.config.web3.eth.chain_id,
+            web3factory=web3_factory,
+            calls=encoded_calls,
+            block_identifier="latest",
+            progress_bar_desc="Loading claimable fees data",
+            max_workers=5,
+        ):
+            market_key = call_result.call.extra_data["market_key"]
+            token_type = call_result.call.extra_data["token_type"]
+            multicall_results[market_key][token_type] = call_result
+
+        self.log.debug(f"Processed multicalls for {len(multicall_results)} markets")
+
+        # Process results
+        market_fees = {}
+        for market_key in available_markets:
+            if market_key not in multicall_results:
+                self.log.warning(f"No multicall results for market {market_key}")
+                continue
+
+            self._get_token_addresses(market_key)
+            market_symbol = self.markets.get_market_symbol(market_key)
+
+            try:
+                # Extract fees with error handling
+                results = multicall_results[market_key]
+
+                def safe_extract_fee(token_type: str) -> int:
+                    if token_type in results and results[token_type].success:
+                        result_bytes = results[token_type].result
+                        return int.from_bytes(result_bytes, byteorder="big") if result_bytes else 0
+                    else:
+                        self.log.warning(f"Failed to get {token_type} fees for {market_symbol}")
+                        return 0
+
+                long_claimable_fees = safe_extract_fee("long")
+                short_claimable_fees = safe_extract_fee("short")
+
+                # Calculate USD values
+                long_decimal_factor = self.markets.get_decimal_factor(market_key=market_key, long=True)
+                long_precision = 10 ** (long_decimal_factor - 1)
+                oracle_precision = 10 ** (30 - long_decimal_factor)
+
+                # Get long token price
+                token_data = self.oracle_prices.get(self._long_token_address)
+                if token_data:
+                    long_token_price = np.median(
+                        [
+                            float(token_data["maxPriceFull"]) / oracle_precision,
+                            float(token_data["minPriceFull"]) / oracle_precision,
+                        ]
+                    )
+                else:
+                    self.log.warning(f"No oracle price data for token {self._long_token_address}")
+                    long_token_price = 1.0  # Fallback
+
+                # Convert to USD
+                long_claimable_usd = (long_claimable_fees / long_precision) * long_token_price
+
+                # Short fees are collected in USDC (6 decimals)
+                short_claimable_usd = short_claimable_fees / (10**6)
+
+                # Special handling for certain market types
+                if "2" in market_symbol:
+                    short_claimable_usd = 0
+
+                # Store market fees
+                market_fees[market_symbol] = {"long": long_claimable_usd, "short": short_claimable_usd, "total": long_claimable_usd + short_claimable_usd, "long_token": self._long_token_address, "short_token": self._short_token_address, "long_raw": long_claimable_fees, "short_raw": short_claimable_fees}
+
+                self.log.debug(f"{market_symbol} claimable fees: ${long_claimable_usd + short_claimable_usd:,.2f}")
+
+            except Exception as e:
+                self.log.error(f"Failed to process market {market_symbol}: {e}")
+                continue
+
+        return market_fees
+
+    def generate_all_multicalls(self, markets: dict) -> Iterable[EncodedCall]:
+        """
+        Generate all multicall requests for all markets.
+
+        :param markets: Dictionary of available markets
+        :return: Iterable of all EncodedCall objects needed
+        """
+        # DataStore.getUint() function signature: getUint(bytes32)
+        get_uint_signature = keccak(text="getUint(bytes32)")[:4]
+
+        for market_key in markets:
+            self._get_token_addresses(market_key)
+
+            # Create keys for DataStore queries
+            long_key = claimable_fee_amount_key(market_key, self._long_token_address)
+            short_key = claimable_fee_amount_key(market_key, self._short_token_address)
+
+            # Create encoded calls for each token fee amount
+            yield EncodedCall.from_keccak_signature(
+                address=self.datastore_contract.address,
+                signature=get_uint_signature,
+                function="long_fees",
+                data=long_key,
+                extra_data={"market_key": market_key, "token_type": "long"},
+            )
+
+            yield EncodedCall.from_keccak_signature(
+                address=self.datastore_contract.address,
+                signature=get_uint_signature,
+                function="short_fees",
+                data=short_key,
+                extra_data={"market_key": market_key, "token_type": "short"},
+            )

@@ -5,7 +5,6 @@ This test suite validates the GetPoolTVL class functionality
 across different chains using actual network calls.
 """
 
-import logging
 import pytest
 import time
 
