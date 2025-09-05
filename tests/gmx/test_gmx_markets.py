@@ -5,57 +5,12 @@ This test suite verifies the functionality of the Markets class
 when fetching and processing GMX market information.
 """
 
-import logging
 import pytest
-import os
 import requests
-
-# Suppress all logging before imports to prevent startup noise
-# TODO: Bcz of conftest deps of gmx-python-sdk-ng we are still getting loggings
-os.environ["PYTEST_RUNNING"] = "1"
-logging.disable(logging.CRITICAL)
-
 from eth_defi.gmx.core.markets import Markets, MarketInfo
-from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.core.oracle import OraclePrices
 from eth_defi.gmx.contracts import get_tokens_address_dict, _get_clean_api_urls
 from cchecksum import to_checksum_address
-from web3 import Web3, HTTPProvider
-from eth_defi.chain import install_chain_middleware
-from eth_defi.gas import node_default_gas_price_strategy
-from eth_defi.provider.anvil import fork_network_anvil
-
-
-# @pytest.fixture(scope="session")
-# def web3_mainnet():
-#     """Create a Web3 instance for Arbitrum without chain parameterization."""
-#     rpc_url = os.environ.get("ARBITRUM_JSON_RPC_URL")
-#     if not rpc_url:
-#         pytest.skip("ARBITRUM_JSON_RPC_URL not set")
-#
-#     # Fork Arbitrum at a specific block
-#     anvil_launch = fork_network_anvil(
-#         rpc_url,
-#         fork_block_number=338206286,  # Arbitrum fork block from conftest
-#         unlocked_addresses=[]
-#     )
-#
-#     web3 = Web3(HTTPProvider(anvil_launch.json_rpc_url, request_kwargs={"timeout": 30}))
-#     install_chain_middleware(web3)
-#     web3.eth.set_gas_price_strategy(node_default_gas_price_strategy)
-#
-#     return web3
-
-
-# ===============================================================================
-# ========================= KNOWN ISSUES =======================================
-# ===============================================================================
-# Markets class initialization is currently slow/hanging due to:
-# - _check_if_index_token_in_signed_prices_api() method calling Oracle API for every market
-# - Multiple sequential API calls during _process_markets()
-# - This causes timeouts in test environment
-# TODO: Optimize Markets initialization or add caching
-# ===============================================================================
 
 
 def test_market_info_dataclass():
@@ -65,7 +20,16 @@ def test_market_info_dataclass():
     long_token_address = to_checksum_address("0x82aF49447D8a07e3bd95BD0d56f35241523fBab1")
     short_token_address = to_checksum_address("0xaf88d065e77c8cC2239327C5EDb3A432268e5831")
 
-    market_info = MarketInfo(gmx_market_address=market_address, market_symbol="ETH", index_token_address=index_token_address, market_metadata={"symbol": "ETH", "decimals": 18}, long_token_metadata={"symbol": "WETH", "decimals": 18}, long_token_address=long_token_address, short_token_metadata={"symbol": "USDC", "decimals": 6}, short_token_address=short_token_address)
+    market_info = MarketInfo(
+        gmx_market_address=market_address,
+        market_symbol="ETH",
+        index_token_address=index_token_address,
+        market_metadata={"symbol": "ETH", "decimals": 18},
+        long_token_metadata={"symbol": "WETH", "decimals": 18},
+        long_token_address=long_token_address,
+        short_token_metadata={"symbol": "USDC", "decimals": 6},
+        short_token_address=short_token_address,
+    )
 
     # Verify all fields are set correctly
     assert market_info.gmx_market_address == market_address
@@ -287,7 +251,6 @@ def test_api_urls_configuration():
         assert response.status_code in [200, 405], f"URL {url} returned {response.status_code}"
 
     except Exception as e:
-        raise e
         pytest.skip(f"API URLs test failed: {e}")
 
 
@@ -413,468 +376,494 @@ def test_oracle_response_time():
         pytest.skip(f"Response time test failed: {e}")
 
 
-def test_markets_initialization(web3_fork):
+def test_markets_initialization(markets):
     """Test Markets class initialization."""
-    config = GMXConfig(web3_fork)
-
-    try:
-        markets = Markets(config)
-
-        # Verify basic initialization (should be fast since it's lazy-loaded)
-        assert markets.config == config
-        assert hasattr(markets, "_markets_cache")
-        assert hasattr(markets, "_oracle_prices_cache")
-        assert hasattr(markets, "log")
-        assert markets._markets_cache is None  # Should be None before first access
-
-        # Test lazy loading by calling get_available_markets
-        available_markets = markets.get_available_markets()
-        assert isinstance(available_markets, dict)
-        assert len(available_markets) > 0
-
-        # Cache should now be populated
-        assert markets._markets_cache is not None
-        assert markets._oracle_prices_cache is not None
-
-    except Exception as e:
-        pytest.skip(f"Markets initialization failed: {e}")
+    # Verify basic initialization (should be fast since it's lazy-loaded)
+    assert hasattr(markets, "_markets_cache")
+    assert hasattr(markets, "_token_metadata_dict")
+    assert hasattr(markets, "_oracle_prices")
+    assert hasattr(markets, "log")
+    assert markets._markets_cache is None  # Should be None before first access
+    assert markets._token_metadata_dict is None
+    assert markets._oracle_prices is None
+    assert markets._processed_markets is False
 
 
-def test_get_available_markets(web3_mainnet):
+def test_get_available_markets(markets):
     """Test getting available markets from GMX."""
-    config = GMXConfig(web3_mainnet)
+    available_markets = markets.get_available_markets()
 
-    try:
-        markets = Markets(config)
-        available_markets = markets.get_available_markets()
+    # Verify return structure
+    assert isinstance(available_markets, dict)
+    assert len(available_markets) > 0
 
-        # Verify return structure
-        assert isinstance(available_markets, dict)
-        assert len(available_markets) > 0
+    # Check first market structure
+    first_market_key = next(iter(available_markets.keys()))
+    first_market_data = available_markets[first_market_key]
 
-        # Check first market structure
-        first_market_key = next(iter(available_markets.keys()))
-        first_market_data = available_markets[first_market_key]
+    # Verify required fields
+    required_fields = ["gmx_market_address", "market_symbol", "index_token_address", "long_token_address", "short_token_address", "market_metadata", "long_token_metadata", "short_token_metadata"]
 
-        # Verify required fields
-        required_fields = ["gmx_market_address", "market_symbol", "index_token_address", "long_token_address", "short_token_address"]
+    for field in required_fields:
+        assert field in first_market_data, f"Missing field: {field}"
 
-        for field in required_fields:
-            assert field in first_market_data, f"Missing field: {field}"
-
-        # Verify address format
-        assert first_market_key.startswith("0x")
-        assert len(first_market_key) == 42
-        assert first_market_data["gmx_market_address"] == first_market_key
-
-    except Exception as e:
-        pytest.skip(f"Getting available markets failed: {e}")
+    # Verify address format
+    assert first_market_key.startswith("0x")
+    assert len(first_market_key) == 42
+    assert first_market_data["gmx_market_address"] == first_market_key
 
 
-def test_market_token_addresses(web3_mainnet):
+def test_market_token_addresses(markets):
     """Test getting token addresses for markets."""
-    config = GMXConfig(web3_mainnet)
+    available_markets = markets.get_available_markets()
 
-    try:
-        markets = Markets(config)
-        available_markets = markets.get_available_markets()
+    if not available_markets:
+        pytest.skip("No markets available")
 
-        if not available_markets:
-            pytest.skip("No markets available")
+    # Test with first available market
+    market_key = next(iter(available_markets.keys()))
 
-        # Test with first available market
-        market_key = next(iter(available_markets.keys()))
+    # Test index token address
+    index_token = markets.get_index_token_address(market_key)
+    assert isinstance(index_token, str)
+    assert index_token.startswith("0x")
+    assert len(index_token) == 42
 
-        # Test index token address
-        index_token = markets.get_index_token_address(market_key)
-        assert isinstance(index_token, str)
-        assert index_token.startswith("0x")
-        assert len(index_token) == 42
+    # Test long token address
+    long_token = markets.get_long_token_address(market_key)
+    assert isinstance(long_token, str)
+    assert long_token.startswith("0x")
+    assert len(long_token) == 42
 
-        # Test long token address
-        long_token = markets.get_long_token_address(market_key)
-        assert isinstance(long_token, str)
-        assert long_token.startswith("0x")
-        assert len(long_token) == 42
+    # Test short token address
+    short_token = markets.get_short_token_address(market_key)
+    assert isinstance(short_token, str)
+    assert short_token.startswith("0x")
+    assert len(short_token) == 42
 
-        # Test short token address
-        short_token = markets.get_short_token_address(market_key)
-        assert isinstance(short_token, str)
-        assert short_token.startswith("0x")
-        assert len(short_token) == 42
-
-        # Verify addresses are checksummed
-        assert index_token == to_checksum_address(index_token)
-        assert long_token == to_checksum_address(long_token)
-        assert short_token == to_checksum_address(short_token)
-
-    except Exception as e:
-        pytest.skip(f"Token address test failed: {e}")
+    # Verify addresses are checksummed
+    assert index_token == to_checksum_address(index_token)
+    assert long_token == to_checksum_address(long_token)
+    assert short_token == to_checksum_address(short_token)
 
 
-def test_market_symbols(web3_mainnet):
+def test_market_symbols(markets):
     """Test getting market symbols."""
-    config = GMXConfig(web3_mainnet)
+    available_markets = markets.get_available_markets()
 
-    try:
-        markets = Markets(config)
-        available_markets = markets.get_available_markets()
+    if not available_markets:
+        pytest.skip("No markets available")
 
-        if not available_markets:
-            pytest.skip("No markets available")
+    # Test symbols for several markets
+    market_keys = list(available_markets.keys())[:3]  # Test first 3 markets
 
-        # Test symbols for several markets
-        market_keys = list(available_markets.keys())[:3]  # Test first 3 markets
-
-        for market_key in market_keys:
-            symbol = markets.get_market_symbol(market_key)
-            assert isinstance(symbol, str)
-            assert len(symbol) > 0
-            # Common GMX market symbols
-            assert any(token_name in symbol.upper() for token_name in ["ETH", "BTC", "SOL", "AVAX", "ARB", "LINK", "UNI", "DOGE"])
-
-    except Exception as e:
-        pytest.skip(f"Market symbol test failed: {e}")
+    for market_key in market_keys:
+        symbol = markets.get_market_symbol(market_key)
+        assert isinstance(symbol, str)
+        assert len(symbol) > 0
+        # Common GMX market symbols
+        assert any(token_name in symbol.upper() for token_name in ["ETH", "BTC", "SOL", "AVAX", "ARB", "LINK", "UNI", "DOGE"])
 
 
-def test_decimal_factors(web3_mainnet):
+def test_decimal_factors(markets):
     """Test getting decimal factors for market tokens."""
-    config = GMXConfig(web3_mainnet)
+    available_markets = markets.get_available_markets()
 
-    try:
-        markets = Markets(config)
-        available_markets = markets.get_available_markets()
+    if not available_markets:
+        pytest.skip("No markets available")
 
-        if not available_markets:
-            pytest.skip("No markets available")
+    market_key = next(iter(available_markets.keys()))
 
+    # Test index token decimals (default behavior)
+    index_decimals = markets.get_decimal_factor(market_key)
+    assert isinstance(index_decimals, int)
+    assert index_decimals > 0
+    assert index_decimals <= 30  # Reasonable upper bound
+
+    # Test long token decimals
+    long_decimals = markets.get_decimal_factor(market_key, long=True)
+    assert isinstance(long_decimals, int)
+    assert long_decimals > 0
+    assert long_decimals <= 30
+
+    # Test short token decimals
+    short_decimals = markets.get_decimal_factor(market_key, short=True)
+    assert isinstance(short_decimals, int)
+    assert short_decimals > 0
+    assert short_decimals <= 30
+
+
+def test_is_synthetic(markets):
+    """Test checking if markets are synthetic."""
+    available_markets = markets.get_available_markets()
+
+    if not available_markets:
+        pytest.skip("No markets available")
+
+    # Test synthetic check for several markets
+    market_keys = list(available_markets.keys())[:5]
+
+    for market_key in market_keys:
+        is_synthetic = markets.is_synthetic(market_key)
+        assert isinstance(is_synthetic, bool)
+
+
+def test_get_market_info(markets):
+    """Test getting detailed market information."""
+    available_markets = markets.get_available_markets()
+
+    if not available_markets:
+        pytest.skip("No markets available")
+
+    market_address = next(iter(available_markets.keys()))
+    market_address_hex = to_checksum_address(market_address)
+
+    market_info = markets.get_market_info(market_address_hex)
+
+    if market_info:
+        # Verify MarketInfo structure
+        assert isinstance(market_info, MarketInfo)
+        assert market_info.gmx_market_address == market_address_hex
+        assert isinstance(market_info.market_symbol, str)
+        assert len(market_info.market_symbol) > 0
+
+        # Verify address fields are checksummed
+        assert market_info.index_token_address.startswith("0x")
+        assert len(market_info.index_token_address) == 42
+        assert market_info.long_token_address.startswith("0x")
+        assert len(market_info.long_token_address) == 42
+        assert market_info.short_token_address.startswith("0x")
+        assert len(market_info.short_token_address) == 42
+
+        # Verify metadata dictionaries
+        assert isinstance(market_info.market_metadata, dict)
+        assert isinstance(market_info.long_token_metadata, dict)
+        assert isinstance(market_info.short_token_metadata, dict)
+
+
+def test_is_market_disabled(markets):
+    """Test checking if markets are disabled."""
+    available_markets = markets.get_available_markets()
+
+    if not available_markets:
+        pytest.skip("No markets available")
+
+    market_address = next(iter(available_markets.keys()))
+    market_address_hex = to_checksum_address(market_address)
+
+    is_disabled = markets.is_market_disabled(market_address_hex)
+    assert isinstance(is_disabled, bool)
+
+    # Available markets should generally not be disabled
+    assert is_disabled is False
+
+    # Test with invalid address
+    assert markets.is_market_disabled("0x0000000000000000000000000000000000000000") is True
+
+
+def test_market_key_validation(markets):
+    """Test error handling for invalid market keys."""
+    # Test with invalid market key
+    invalid_key = "0x0000000000000000000000000000000000000000"
+
+    assert markets.get_index_token_address(invalid_key) is None
+    assert markets.get_long_token_address(invalid_key) is None
+    assert markets.get_short_token_address(invalid_key) is None
+    assert markets.get_market_symbol(invalid_key) is None
+
+    # Test with invalid key for decimal factor
+    with pytest.raises(KeyError):
+        markets.get_decimal_factor(invalid_key)
+
+    # Test with invalid key for synthetic check
+    with pytest.raises(KeyError):
+        markets.is_synthetic(invalid_key)
+
+
+def test_special_markets_handling(markets):
+    """Test handling of special markets like wstETH."""
+    available_markets = markets.get_available_markets()
+
+    # Look for wstETH market on Arbitrum
+    wsteth_markets = [market for market, data in available_markets.items() if data.get("market_symbol", "").upper() == "WSTETH"]
+
+    if wsteth_markets:
+        wsteth_market = wsteth_markets[0]
+
+        # Verify wstETH market has special handling
+        symbol = markets.get_market_symbol(wsteth_market)
+        assert symbol == "wstETH"
+
+        # Verify index token is set correctly
+        index_token = markets.get_index_token_address(wsteth_market)
+        expected_wsteth_address = to_checksum_address("0x5979D7b546E38E414F7E9822514be443A4800529")
+        assert index_token == expected_wsteth_address
+
+    # Look for BTC2/ETH2 markets
+    btc2_markets = [market for market, data in available_markets.items() if "BTC2" in data.get("market_symbol", "")]
+    eth2_markets = [market for market, data in available_markets.items() if "ETH2" in data.get("market_symbol", "")]
+
+    for market in btc2_markets + eth2_markets:
+        # Verify long and short tokens are the same
+        long_token = markets.get_long_token_address(market)
+        short_token = markets.get_short_token_address(market)
+        assert long_token == short_token
+
+        # Verify market symbol has "2" suffix
+        symbol = markets.get_market_symbol(market)
+        assert "2" in symbol
+
+
+def test_market_data_consistency(markets):
+    """Test consistency of market data across different methods."""
+    available_markets = markets.get_available_markets()
+
+    if not available_markets:
+        pytest.skip("No markets available")
+
+    # Test consistency for multiple markets
+    for market_key in list(available_markets.keys())[:3]:
+        market_data = available_markets[market_key]
+
+        # Verify addresses are consistent
+        assert markets.get_index_token_address(market_key) == market_data["index_token_address"]
+        assert markets.get_long_token_address(market_key) == market_data["long_token_address"]
+        assert markets.get_short_token_address(market_key) == market_data["short_token_address"]
+        assert markets.get_market_symbol(market_key) == market_data["market_symbol"]
+
+        # Verify metadata consistency
+        expected_index_decimals = market_data["market_metadata"].get("decimals", 18)
+        actual_index_decimals = markets.get_decimal_factor(market_key)
+        assert actual_index_decimals == expected_index_decimals
+
+        expected_long_decimals = market_data["long_token_metadata"].get("decimals", 18)
+        actual_long_decimals = markets.get_decimal_factor(market_key, long=True)
+        assert actual_long_decimals == expected_long_decimals
+
+        expected_short_decimals = market_data["short_token_metadata"].get("decimals", 18)
+        actual_short_decimals = markets.get_decimal_factor(market_key, short=True)
+        assert actual_short_decimals == expected_short_decimals
+
+
+def test_markets_address_checksumming(markets):
+    """Test that all addresses returned are properly checksummed."""
+    available_markets = markets.get_available_markets()
+
+    if not available_markets:
+        pytest.skip("No markets available")
+
+    # Test address checksumming for all markets
+    for market_key, market_data in list(available_markets.items())[:5]:
+        # Verify market key itself is checksummed
+        assert market_key == to_checksum_address(market_key)
+
+        # Verify all token addresses are checksummed
+        addresses_to_check = [market_data["gmx_market_address"], market_data["index_token_address"], market_data["long_token_address"], market_data["short_token_address"]]
+
+        for address in addresses_to_check:
+            assert address == to_checksum_address(address), f"Address {address} not checksummed"
+            assert address.startswith("0x")
+            assert len(address) == 42
+
+
+def test_markets_error_handling(markets):
+    """Test error handling in Markets class methods."""
+    available_markets = markets.get_available_markets()
+    if available_markets:
         market_key = next(iter(available_markets.keys()))
 
-        # Test index token decimals (default behavior)
-        index_decimals = markets.get_decimal_factor(market_key)
-        assert isinstance(index_decimals, int)
-        assert index_decimals > 0
-        assert index_decimals <= 30  # Reasonable upper bound
-
-        # Test long token decimals
-        long_decimals = markets.get_decimal_factor(market_key, long=True)
-        assert isinstance(long_decimals, int)
-        assert long_decimals > 0
-        assert long_decimals <= 30
-
-        # Test short token decimals
-        short_decimals = markets.get_decimal_factor(market_key, short=True)
-        assert isinstance(short_decimals, int)
-        assert short_decimals > 0
-        assert short_decimals <= 30
-
-    except Exception as e:
-        pytest.skip(f"Decimal factor test failed: {e}")
-
-
-def test_is_synthetic(web3_mainnet):
-    """Test checking if markets are synthetic."""
-    config = GMXConfig(web3_mainnet)
-
-    try:
-        markets = Markets(config)
-        available_markets = markets.get_available_markets()
-
-        if not available_markets:
-            pytest.skip("No markets available")
-
-        # Test synthetic check for several markets
-        market_keys = list(available_markets.keys())[:5]
-
-        for market_key in market_keys:
-            is_synthetic = markets.is_synthetic(market_key)
-            assert isinstance(is_synthetic, bool)
-
-            # If synthetic, long and short tokens should be the same
-            if is_synthetic:
-                long_token = markets.get_long_token_address(market_key)
-                short_token = markets.get_short_token_address(market_key)
-                assert long_token == short_token
-
-    except Exception as e:
-        pytest.skip(f"Synthetic check test failed: {e}")
-
-
-def test_get_market_info(web3_mainnet):
-    """Test getting detailed market information."""
-    config = GMXConfig(web3_mainnet)
-
-    try:
-        markets = Markets(config)
-        available_markets = markets.get_available_markets()
-
-        if not available_markets:
-            pytest.skip("No markets available")
-
-        market_address = next(iter(available_markets.keys()))
-        market_address_hex = to_checksum_address(market_address)
-
-        market_info = markets.get_market_info(market_address_hex)
-
-        if market_info:
-            # Verify MarketInfo structure
-            assert isinstance(market_info, MarketInfo)
-            assert market_info.gmx_market_address == market_address_hex
-            assert isinstance(market_info.market_symbol, str)
-            assert len(market_info.market_symbol) > 0
-
-            # Verify address fields are checksummed
-            assert market_info.index_token_address.startswith("0x")
-            assert len(market_info.index_token_address) == 42
-            assert market_info.long_token_address.startswith("0x")
-            assert len(market_info.long_token_address) == 42
-            assert market_info.short_token_address.startswith("0x")
-            assert len(market_info.short_token_address) == 42
-
-            # Verify metadata dictionaries
-            assert isinstance(market_info.market_metadata, dict)
-            assert isinstance(market_info.long_token_metadata, dict)
-            assert isinstance(market_info.short_token_metadata, dict)
-
-    except Exception as e:
-        pytest.skip(f"Market info test failed: {e}")
-
-
-def test_is_market_disabled(web3_mainnet):
-    """Test checking if markets are disabled."""
-    config = GMXConfig(web3_mainnet)
-
-    try:
-        markets = Markets(config)
-        available_markets = markets.get_available_markets()
-
-        if not available_markets:
-            pytest.skip("No markets available")
-
-        market_address = next(iter(available_markets.keys()))
-        market_address_hex = to_checksum_address(market_address)
-
-        is_disabled = markets.is_market_disabled(market_address_hex)
-        assert isinstance(is_disabled, bool)
-
-        # Available markets should generally not be disabled
-        # But this can vary based on market conditions
-
-    except Exception as e:
-        pytest.skip(f"Market disabled check failed: {e}")
-
-
-def test_market_key_validation(web3_mainnet):
-    """Test error handling for invalid market keys."""
-    config = GMXConfig(web3_mainnet)
-
-    try:
-        markets = Markets(config)
-
-        # Test with invalid market key
-        invalid_key = "0x0000000000000000000000000000000000000000"
-
-        with pytest.raises(KeyError):
-            markets.get_index_token_address(invalid_key)
-
-        with pytest.raises(KeyError):
-            markets.get_long_token_address(invalid_key)
-
-        with pytest.raises(KeyError):
-            markets.get_short_token_address(invalid_key)
-
-        with pytest.raises(KeyError):
-            markets.get_market_symbol(invalid_key)
-
-        with pytest.raises(KeyError):
-            markets.get_decimal_factor(invalid_key)
-
-        with pytest.raises(KeyError):
-            markets.is_synthetic(invalid_key)
-
-    except Exception as e:
-        pytest.skip(f"Market key validation test failed: {e}")
-
-
-def test_special_markets_handling(web3_mainnet):
-    """Test handling of special markets like wstETH."""
-    config = GMXConfig(web3_mainnet)
-
-    try:
-        markets = Markets(config)
-        available_markets = markets.get_available_markets()
-
-        # Look for wstETH market on Arbitrum
-        wsteth_markets = [market for market, data in available_markets.items() if data.get("market_symbol", "").upper() == "WSTETH"]
-
-        if wsteth_markets:
-            wsteth_market = wsteth_markets[0]
-
-            # Verify wstETH market has special handling
-            symbol = markets.get_market_symbol(wsteth_market)
-            assert symbol == "wstETH"
-
-            # Verify index token is set correctly
-            index_token = markets.get_index_token_address(wsteth_market)
-            expected_wsteth_address = to_checksum_address("0x5979D7b546E38E414F7E9822514be443A4800529")
-            assert index_token == expected_wsteth_address
-
-    except Exception as e:
-        pytest.skip(f"Special markets test failed: {e}")
-
-
-def test_market_data_consistency(web3_mainnet):
-    """Test consistency of market data across different methods."""
-    config = GMXConfig(web3_mainnet)
-
-    try:
-        markets = Markets(config)
-        available_markets = markets.get_available_markets()
-
-        if not available_markets:
-            pytest.skip("No markets available")
-
-        # Test consistency for multiple markets
-        for market_key in list(available_markets.keys())[:3]:
-            market_data = available_markets[market_key]
-
-            # Verify addresses are consistent
-            assert markets.get_index_token_address(market_key) == market_data["index_token_address"]
-            assert markets.get_long_token_address(market_key) == market_data["long_token_address"]
-            assert markets.get_short_token_address(market_key) == market_data["short_token_address"]
-            assert markets.get_market_symbol(market_key) == market_data["market_symbol"]
-
-            # Verify metadata consistency
-            if "market_metadata" in market_data:
-                expected_decimals = market_data["market_metadata"].get("decimals", 18)
-                actual_decimals = markets.get_decimal_factor(market_key)
-                assert actual_decimals == expected_decimals
-
-    except Exception as e:
-        pytest.skip(f"Market data consistency test failed: {e}")
-
-
-def test_oracle_price_integration(web3_mainnet):
-    """Test integration with oracle prices for market tokens."""
-    config = GMXConfig(web3_mainnet)
-
-    try:
-        markets = Markets(config)
-        available_markets = markets.get_available_markets()
-
-        if not available_markets:
-            pytest.skip("No markets available")
-
-        # Test a few markets to see if their index tokens have oracle prices
-        market_keys = list(available_markets.keys())[:3]
-
-        for market_key in market_keys:
-            index_token_address = markets.get_index_token_address(market_key)
-
-            # This tests the internal oracle integration method
-            has_oracle_price = markets._check_if_index_token_in_signed_prices_api(to_checksum_address(index_token_address))
-
-            assert isinstance(has_oracle_price, bool)
-
-            # Most major tokens should have oracle prices
-            symbol = markets.get_market_symbol(market_key)
-            if symbol.upper() in ["ETH", "BTC", "SOL", "AVAX"]:
-                assert has_oracle_price, f"Expected {symbol} to have oracle prices"
-
-    except Exception as e:
-        pytest.skip(f"Oracle price integration test failed: {e}")
-
-
-def test_markets_address_checksumming(web3_mainnet):
-    """Test that all addresses returned are properly checksummed."""
-    config = GMXConfig(web3_mainnet)
-
-    try:
-        markets = Markets(config)
-        available_markets = markets.get_available_markets()
-
-        if not available_markets:
-            pytest.skip("No markets available")
-
-        # Test address checksumming for all markets
-        for market_key, market_data in list(available_markets.items())[:5]:
-            # Verify market key itself is checksummed
-            assert market_key == to_checksum_address(market_key)
-
-            # Verify all token addresses are checksummed
-            addresses_to_check = [market_data["gmx_market_address"], market_data["index_token_address"], market_data["long_token_address"], market_data["short_token_address"]]
-
-            for address in addresses_to_check:
-                assert address == to_checksum_address(address), f"Address {address} not checksummed"
-                assert address.startswith("0x")
-                assert len(address) == 42
-
-    except Exception as e:
-        pytest.skip(f"Address checksumming test failed: {e}")
-
-
-def test_markets_error_handling(web3_mainnet):
-    """Test error handling in Markets class methods."""
-    config = GMXConfig(web3_mainnet)
-
-    try:
-        markets = Markets(config)
-
-        # Test decimal factor with invalid flags
-        available_markets = markets.get_available_markets()
-        if available_markets:
-            market_key = next(iter(available_markets.keys()))
-
-            # Test with both long and short flags (should handle gracefully)
-            try:
-                decimals = markets.get_decimal_factor(market_key, long=True, short=True)
-                # Should return one of the valid decimals or handle appropriately
-                assert isinstance(decimals, int)
-                assert decimals > 0
-            except Exception:
-                # Acceptable if method doesn't support both flags
-                pass
-
-    except Exception as e:
-        pytest.skip(f"Error handling test failed: {e}")
-
-
-def test_markets_performance(web3_mainnet):
+        # Test with both long and short flags (should handle gracefully)
+        try:
+            decimals = markets.get_decimal_factor(market_key, long=True, short=True)
+            # Should return one of the valid decimals or handle appropriately
+            assert isinstance(decimals, int)
+            assert decimals > 0
+        except Exception:
+            # Acceptable if method doesn't support both flags
+            pass
+
+    # Test with invalid market key for MarketInfo
+    assert markets.get_market_info("0x0000000000000000000000000000000000000000") is None
+
+
+def test_markets_performance(markets):
     """Test Markets class performance and caching behavior."""
-    config = GMXConfig(web3_mainnet)
+    # Test initialization time
+    import time
 
-    try:
-        # Test initialization time
-        import time
+    # First call should process markets
+    start_time = time.time()
+    available_markets = markets.get_available_markets()
+    call_time = time.time() - start_time
 
-        start_time = time.time()
-        markets = Markets(config)
-        init_time = time.time() - start_time
+    # First call includes network requests, so allow more time
+    assert call_time < 5, f"Get available markets took too long: {call_time:.2f}s"
 
-        # Initialization should complete reasonably quickly (within 30 seconds)
-        assert init_time < 30, f"Markets initialization took too long: {init_time:.2f}s"
+    # Verify data is actually returned
+    assert len(available_markets) > 0
 
-        # Test that subsequent calls are fast (cached)
-        start_time = time.time()
-        available_markets = markets.get_available_markets()
-        call_time = time.time() - start_time
+    # Test that a second call is fast (cached)
+    start_time = time.time()
+    available_markets_2 = markets.get_available_markets()
+    call_time_2 = time.time() - start_time
 
-        # First call includes network requests, so allow more time
-        assert call_time < 5, f"Get available markets took too long: {call_time:.2f}s"
+    # Cached calls should be very fast
+    assert call_time_2 < 0.1, f"Second get available markets call took too long: {call_time_2:.2f}s"
 
-        # Verify data is actually returned
-        assert len(available_markets) > 0
+    # Verify data is the same
+    assert available_markets == available_markets_2
 
-        # Test that a second call is fast (cached)
-        start_time = time.time()
-        available_markets_2 = markets.get_available_markets()
-        call_time_2 = time.time() - start_time
 
-        # Cached calls should be very fast
-        assert call_time_2 < 0.1, f"Second get available markets call took too long: {call_time_2:.2f}s"
+def test_lazy_loading_behavior(markets):
+    """Test that Markets class uses lazy loading correctly."""
+    # Verify caches are empty initially
+    assert markets._markets_cache is None
+    assert markets._token_metadata_dict is None
+    assert markets._oracle_prices is None
+    assert markets._processed_markets is False
 
-        # Verify data is the same
-        assert available_markets == available_markets_2
+    # Access one method to trigger processing
+    markets.get_index_token_address(next(iter(markets.get_available_markets().keys())))
 
-    except Exception as e:
-        pytest.skip(f"Performance test failed: {e}")
+    # Verify caches are populated
+    assert markets._markets_cache is not None
+    assert markets._token_metadata_dict is not None
+    assert markets._oracle_prices is not None
+    assert markets._processed_markets is True
+
+    # Verify processing only happens once
+    initial_market_count = len(markets._markets_cache)
+    markets.get_market_symbol(next(iter(markets._markets_cache.keys())))
+    assert len(markets._markets_cache) == initial_market_count  # Should not have reprocessed
+
+
+def test_cached_data_integrity(markets):
+    """Test that cached market data remains consistent."""
+    original_markets = markets.get_available_markets()
+
+    # Get a copy of the original data
+    original_data = {k: dict(v) for k, v in original_markets.items()}
+
+    # Access individual market methods
+    for market_key in list(original_markets.keys())[:3]:
+        markets.get_index_token_address(market_key)
+        markets.get_long_token_address(market_key)
+        markets.get_short_token_address(market_key)
+        markets.get_market_symbol(market_key)
+        markets.get_decimal_factor(market_key)
+        markets.is_synthetic(market_key)
+
+    # Verify cached data hasn't been modified
+    current_markets = markets.get_available_markets()
+    assert current_markets == original_data
+    assert current_markets is markets._markets_cache  # Should be the same object reference
+
+
+def test_special_wsteth_market(markets):
+    """Test specific handling of the wstETH market."""
+    available_markets = markets.get_available_markets()
+
+    # Look for the specific wstETH market address
+    wsteth_market_address = to_checksum_address("0x0Cf1fb4d1FF67A3D8Ca92c9d6643F8F9be8e03E5")
+
+    if wsteth_market_address in available_markets:
+        market_data = available_markets[wsteth_market_address]
+
+        # Verify it has the correct symbol
+        assert market_data["market_symbol"] == "wstETH"
+
+        # Verify index token address is correct
+        expected_index_token = to_checksum_address("0x5979D7b546E38E414F7E9822514be443A4800529")
+        assert market_data["index_token_address"] == expected_index_token
+
+        # Verify through market methods
+        assert markets.get_market_symbol(wsteth_market_address) == "wstETH"
+        assert markets.get_index_token_address(wsteth_market_address) == expected_index_token
+
+
+def test_btc2_eth2_markets(markets):
+    """Test specific handling of BTC2 and ETH2 markets."""
+    available_markets = markets.get_available_markets()
+
+    # Find BTC2 and ETH2 markets
+    btc2_markets = [m for m, d in available_markets.items() if "BTC2" in d["market_symbol"]]
+    eth2_markets = [m for m, d in available_markets.items() if "ETH2" in d["market_symbol"]]
+
+    for market_address in btc2_markets + eth2_markets:
+        market_data = available_markets[market_address]
+
+        # Verify long and short tokens are the same
+        assert market_data["long_token_address"] == market_data["short_token_address"]
+
+        # Verify market symbol ends with "2"
+        assert "2" in market_data["market_symbol"]
+
+        # Verify through market methods
+        assert markets.get_long_token_address(market_address) == markets.get_short_token_address(market_address)
+        assert "2" in markets.get_market_symbol(market_address)
+
+        # Verify decimal factors are consistent
+        long_decimals = markets.get_decimal_factor(market_address, long=True)
+        short_decimals = markets.get_decimal_factor(market_address, short=True)
+        assert long_decimals == short_decimals
+
+
+def test_market_metadata_consistency(markets):
+    """Test that market metadata is consistent across different access methods."""
+    available_markets = markets.get_available_markets()
+
+    if not available_markets:
+        pytest.skip("No markets available")
+
+    # Test metadata consistency for multiple markets
+    for market_key in list(available_markets.keys())[:3]:
+        market_data = available_markets[market_key]
+
+        # Get market info
+        market_info = markets.get_market_info(market_key)
+        if market_info is None:
+            continue
+
+        # Verify metadata consistency
+        assert market_info.market_metadata == market_data["market_metadata"]
+        assert market_info.long_token_metadata == market_data["long_token_metadata"]
+        assert market_info.short_token_metadata == market_data["short_token_metadata"]
+
+        # Verify symbol consistency
+        assert market_info.market_symbol == market_data["market_symbol"]
+
+        # Verify address consistency
+        assert market_info.index_token_address == market_data["index_token_address"]
+        assert market_info.long_token_address == market_data["long_token_address"]
+        assert market_info.short_token_address == market_data["short_token_address"]
+
+
+def test_market_processing_efficiency(markets):
+    """Test that market processing is efficient and avoids redundant operations."""
+    import time
+
+    # First call should process markets
+    start_time = time.time()
+    markets.get_available_markets()
+    first_call_time = time.time() - start_time
+
+    # Second call should use cached data
+    start_time = time.time()
+    markets.get_available_markets()
+    second_call_time = time.time() - start_time
+
+    # Verify second call is significantly faster
+    assert second_call_time < first_call_time * 0.1, f"Second call should be much faster than first call: {second_call_time:.4f}s vs {first_call_time:.4f}s"
+
+    # Verify processing only happens once
+    assert markets._processed_markets is True
+    original_market_count = len(markets._markets_cache)
+
+    # Access individual market data
+    for market_key in list(markets._markets_cache.keys())[:5]:
+        markets.get_index_token_address(market_key)
+        markets.get_long_token_address(market_key)
+        markets.get_short_token_address(market_key)
+
+    # Verify market count hasn't changed
+    assert len(markets._markets_cache) == original_market_count

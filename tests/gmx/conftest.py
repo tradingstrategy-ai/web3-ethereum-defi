@@ -11,7 +11,7 @@ from eth_defi.chain import install_chain_middleware
 from eth_defi.gas import node_default_gas_price_strategy
 from eth_defi.gmx.api import GMXAPI
 from eth_defi.gmx.config import GMXConfig
-from eth_defi.gmx.core import GetOpenPositions, GetPoolTVL
+from eth_defi.gmx.core import GetOpenPositions, GetPoolTVL, Markets
 from eth_defi.gmx.data import GMXMarketData
 from eth_defi.gmx.liquidity import GMXLiquidityManager
 from eth_defi.gmx.order import GMXOrderManager
@@ -652,9 +652,15 @@ def get_claimable_fees(gmx_config):
 @pytest.fixture
 def get_funding_fee(gmx_config):
     """Create GetFundingFee instance."""
-    from eth_defi.gmx.core.funding_apr import GetFundingFee
+    from eth_defi.gmx.core.funding_fee import GetFundingFee
 
     return GetFundingFee(gmx_config)
+
+
+@pytest.fixture
+def markets(gmx_config):
+    """Fixture to provide a Markets instance for testing."""
+    return Markets(gmx_config)
 
 
 @pytest.fixture

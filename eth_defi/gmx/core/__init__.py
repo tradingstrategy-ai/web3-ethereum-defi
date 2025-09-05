@@ -9,7 +9,7 @@ implementation based on eth_defi patterns.
 from eth_defi.gmx.core.available_liquidity import GetAvailableLiquidity, LiquidityInfo
 from eth_defi.gmx.core.borrow_apr import GetBorrowAPR
 from eth_defi.gmx.core.claimable_fees import GetClaimableFees
-from eth_defi.gmx.core.funding_apr import GetFundingFee
+from eth_defi.gmx.core.funding_fee import GetFundingFee
 from eth_defi.gmx.core.get_data import GetData
 from eth_defi.gmx.core.gm_prices import GetGMPrices
 from eth_defi.gmx.core.markets import Markets
