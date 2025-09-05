@@ -70,7 +70,7 @@ from eth_defi.gmx.core.available_liquidity import GetAvailableLiquidity
 from eth_defi.gmx.core.borrow_apr import GetBorrowAPR
 from eth_defi.gmx.core.claimable_fees import GetClaimableFees
 from eth_defi.gmx.core.pool_tvl import GetPoolTVL as ContractTVL
-from eth_defi.gmx.core.funding_apr import GetFundingFee
+from eth_defi.gmx.core.funding_fee import GetFundingFee
 from eth_defi.gmx.core.gm_prices import GetGMPrices as GMPrices
 from eth_defi.gmx.core.markets import Markets
 from eth_defi.gmx.core.open_interest import GetOpenInterest
