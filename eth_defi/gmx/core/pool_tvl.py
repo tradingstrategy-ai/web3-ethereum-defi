@@ -44,7 +44,6 @@ class GetPoolTVL(GetData):
         super().__init__(config)
         self.log = logging.getLogger(__name__)
         self.oracle_prices = OraclePrices(chain=config.chain).get_recent_prices()
-        # self.datastore_contract = get_datastore_contract(self.config.web3, self.config.chain)
 
     def _get_data_processing(self) -> dict[str, Any]:
         """
