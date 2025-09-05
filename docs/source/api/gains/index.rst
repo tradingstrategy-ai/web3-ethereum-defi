@@ -13,6 +13,8 @@ API allows to
 - Query your vault positions
 - Query vault redemption delays
 
+For the example usage, see :py:class:`~eth_defi.gains.vault.GainsVault` class.
+
 .. autosummary::
    :toctree: _autosummary_gains
    :recursive:
