@@ -1,6 +1,8 @@
-"""Gains/Ostium vault reader and deposit implementation.
+"""Gains/Ostium vault adapter.
 
-For example, see :py:class:`GainsVault`.
+For usage example ande details, see :py:class:`GainsVault`.
+
+Notes:
 
 - About epochs, fee and withdraw delays in gToken vaults https://medium.com/gains-network/introducing-gtoken-vaults-ea98f10a49d5
 
@@ -46,14 +48,18 @@ logger = logging.getLogger(__name__)
 class GainsVault(ERC4626Vault):
     """Gains-like vault support.
 
-    - GToken vaults
-    - Gains (gTrade) and Ostium LPs
-    - gUSDC vault implementation contract https://arbiscan.io/address/0xeb754588eff264793bb80be65866d1
+    This covers gToken smart contract based vaults:
 
-    Deposit/redeem
+    - Gains (gTrade) GToken vaults
+    - Ostium LPs
+    - For example see `gUSDC vault implementation contract <https://arbiscan.io/address/0xeb754588eff264793bb80be65866d1>`__
 
-    - Gains supports ERC-4626 deposit interface
+    GToken is an `ERC-4626 <https://tradingstrategy.ai/glossary/erc-4626>`__ compatible vault with a custom functions and logic
+    for redemptions. We provide a logic to handle this custom logic in :py:class:`eth_defi.gains.deposit_redeem.GainsDepositManager`.
+
     - `Gains has custom withdrawal and PnL mechanism to smooth out losses, based on epochs <https://medium.com/gains-network/introducing-gtoken-vaults-ea98f10a49d5>`__
+
+    For more examples see :ref:`tutorials`.
 
     Deposit and redeem example:
 
