@@ -1,7 +1,7 @@
 Gains and Ostium vault API
 --------------------------
 
-GToken-based vault smart contracts provide automated market making vaults for `perpetual futures <https://tradingstrategy.ai/glossary/perpetual-future>`__ purely `onchain <https://tradingstrategy.ai/glossary/onchain>`__
+GToken-based vault smart contracts provide automated market making vaults for `perpetual futures <https://tradingstrategy.ai/glossary/perpetual-future>`__ purely `onchain <https://tradingstrategy.ai/glossary/onchain>`__.
 
 Known implementations are:
 
