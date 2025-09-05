@@ -192,12 +192,15 @@ compile-projects-and-prepare-abi: clean-abi sushi in-house guard safe-integratio
 
 all: clean-docs compile-projects-and-prepare-abi build-docs
 
+# HACK: poetry export is broken
+# https://github.com/python-poetry/poetry-plugin-export/issues/176
 # Export the dependencies, so that Read the docs can build our API docs
 # See: https://github.com/readthedocs/readthedocs.org/issues/4912
 # terms_of_service is in-place dev dependency, only used for tests and must be removed for RTD
 rtd-dep-export:
 	@pip freeze > /tmp/requirements.txt
-	@grep -v 'terms-of-service' < /tmp/requirements.txt > docs/requirements.txt
+	@grep -v 'terms-of-service' < /tmp/requirements.txt > /tmp/requirements2.txt
+	@grep -v 'git+ssh' < /tmp/requirements2.txt > docs/requirements.txt
 	@echo "-e ." >> docs/requirements.txt
 
 

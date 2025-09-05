@@ -242,7 +242,6 @@ uri-template==1.3.0
 urllib3==2.5.0
 wcwidth==0.2.13
 web3==7.13.0
--e git+ssh://git@github.com/tradingstrategy-ai/web3-ethereum-defi.git@109bac4cb93d8fbbadf653f95a8d6969b2c94883#egg=web3_ethereum_defi&subdirectory=../../../deps/web3-ethereum-defi
 web3-google-hsm==0.1.0
 webcolors==24.11.1
 webencodings==0.5.1
