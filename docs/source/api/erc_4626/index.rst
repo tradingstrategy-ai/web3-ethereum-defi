@@ -35,6 +35,6 @@ More info
    eth_defi.erc_4626.core
    eth_defi.erc_4626.classification
    eth_defi.erc_4626.scan
-   eth_defi.erc_4626.price_scan
+   eth_defi.erc_4626.estimate
    eth_defi.erc_4626.profit_and_loss
 
