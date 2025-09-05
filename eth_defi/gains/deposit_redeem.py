@@ -1,3 +1,5 @@
+"""Deposit and redeem flow for GToken-like vaults."""
+
 import datetime
 import logging
 from dataclasses import dataclass
