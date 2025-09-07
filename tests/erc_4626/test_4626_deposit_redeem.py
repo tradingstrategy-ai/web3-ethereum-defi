@@ -96,7 +96,7 @@ def test_erc_4626_deposit(
     usdc: TokenDetails,
 ):
     """Use DepositManager interface to deposit into Morpho vault"""
-    deposit_manager = vault.get_deposit_manager()
+    deposit_manager = vault.deposit_manager
     assert isinstance(deposit_manager, ERC4626DepositManager)
     assert deposit_manager.has_synchronous_deposit()
     amount = Decimal(1_000)
@@ -124,7 +124,7 @@ def test_erc_4626_redeem(
     usdc: TokenDetails,
 ):
     """Use DepositManager interface to deposit into Morpho vault"""
-    deposit_manager = vault.get_deposit_manager()
+    deposit_manager = vault.deposit_manager
     assert isinstance(deposit_manager, ERC4626DepositManager)
     amount = Decimal(1_000)
     tx_hash = usdc.approve(

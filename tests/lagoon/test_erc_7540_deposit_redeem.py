@@ -4,7 +4,6 @@ import os
 from decimal import Decimal
 from typing import cast
 
-import flaky
 import pytest
 from web3 import Web3
 

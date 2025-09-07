@@ -483,6 +483,16 @@ class VaultBase(ABC):
         """Vault share token symbol"""
         pass
 
+    @cached_property
+    def flow_manager(self) -> VaultFlowManager:
+        """Flow manager associated with this vault"""
+        return self.get_flow_manager()
+
+    @cached_property
+    def deposit_manager(self) -> VaultDepositManager:
+        """Deposit manager assocaited with this vault"""
+        return self.get_deposit_manager()
+
     @abstractmethod
     def has_block_range_event_support(self) -> bool:
         """Does this vault support block range-based event queries for deposits and redemptions.
