@@ -16,6 +16,7 @@ from eth_defi.gmx.core.get_data import GetData
 from eth_defi.gmx.core.oracle import OraclePrices
 
 
+# TODO: too slow
 @dataclass
 class OpenInterestInfo:
     """
