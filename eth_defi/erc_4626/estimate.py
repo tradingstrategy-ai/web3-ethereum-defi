@@ -36,6 +36,7 @@ def estimate_4626_deposit(
     assert isinstance(denomination_token_amount, Decimal)
     assert denomination_token_amount > 0
 
+    # revert ERC7540PreviewDepositDisabled();
     assert not vault.erc_7540, f"previewDeposit() is not supported for ERC-7540 vaults: {vault}"
 
     contract = vault.vault_contract

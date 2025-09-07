@@ -280,3 +280,13 @@ class ERC7540DepositManager(VaultDepositManager):
             redemption_ticket.to,
             redemption_ticket.owner,
         )
+
+    def estimate_deposit(self, owner: HexAddress, amount: Decimal) -> Decimal:
+        raw_amount = self.vault.denomination_token.convert_to_raw(amount)
+        raw_shares = self.vault.vault_contract.functions.convertToShares(raw_amount).call()
+        return self.vault.share_token.convert_to_decimals(raw_shares)
+
+    def estimate_redeem(self, owner: HexAddress,  shares: Decimal) -> Decimal:
+        raw_shares = self.vault.share_token.convert_to_raw(shares)
+        raw_amount = self.vault.vault_contract.functions.convertToAssets(raw_shares).call()
+        return self.vault.denomination_token.convert_to_decimals(raw_amount)

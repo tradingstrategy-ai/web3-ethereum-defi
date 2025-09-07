@@ -540,32 +540,32 @@ def create_vault_instance(
         # IPOR instance
         from eth_defi.ipor.vault import IPORVault
 
-        return IPORVault(web3, spec, token_cache=token_cache)
+        return IPORVault(web3, spec, token_cache=token_cache, features=features)
     elif ERC4626Feature.lagoon_like in features:
         # Lagoon instance
         from eth_defi.lagoon.vault import LagoonVault
 
-        return LagoonVault(web3, spec, token_cache=token_cache)
+        return LagoonVault(web3, spec, token_cache=token_cache, features=features)
     elif ERC4626Feature.morpho_like in features:
         # Lagoon instance
         from eth_defi.morpho.vault import MorphoVault
 
-        return MorphoVault(web3, spec, token_cache=token_cache)
+        return MorphoVault(web3, spec, token_cache=token_cache, features=features)
     elif ERC4626Feature.gains_like in features:
         # Lagoon instance
         from eth_defi.gains.vault import GainsVault
 
-        return GainsVault(web3, spec, token_cache=token_cache)
+        return GainsVault(web3, spec, token_cache=token_cache, features=features)
     elif ERC4626Feature.ostium_like in features:
         # Lagoon instance
         from eth_defi.gains.vault import OstiumVault
 
-        return OstiumVault(web3, spec, token_cache=token_cache)
+        return OstiumVault(web3, spec, token_cache=token_cache, features=features)
     else:
         # Generic ERC-4626 without fee data
         from eth_defi.erc_4626.vault import ERC4626Vault
 
-        return ERC4626Vault(web3, spec, token_cache=token_cache)
+        return ERC4626Vault(web3, spec, token_cache=token_cache, features=features)
 
 
 def create_vault_instance_autodetect(

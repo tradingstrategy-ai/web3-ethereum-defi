@@ -129,6 +129,10 @@ def test_erc_7540_deposit_722_capital(
 
     # Approve
     amount = Decimal(1_000)
+
+    estimated = deposit_manager.estimate_deposit(test_user, amount)
+    assert estimated == pytest.approx(Decimal('960.645332554006509231'))
+
     tx_hash = usdc.approve(
         vault.address,
         amount,
@@ -220,6 +224,9 @@ def test_erc_7540_redeem(
         share_count,
     ).transact({"from": test_user})
     assert_transaction_success_with_explanation(vault.web3, tx_hash)
+
+    estimated = deposit_manager.estimate_redeem(test_user, share_count)
+    assert estimated == pytest.approx(Decimal('999.999657'))
 
     # Redeem
     request = deposit_manager.create_redemption_request(

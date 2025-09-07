@@ -66,6 +66,9 @@ def test_gains_deposit_withdraw(
     deposit_manager = vault.get_deposit_manager()
     assert isinstance(deposit_manager, GainsDepositManager)
 
+    estimated = deposit_manager.estimate_deposit(test_user, amount)
+    assert estimated == pytest.approx(Decimal('960.645332554006509231'))
+
     deposit_request = deposit_manager.create_deposit_request(
         test_user,
         amount=amount,

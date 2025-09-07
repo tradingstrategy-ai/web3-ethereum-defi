@@ -100,6 +100,10 @@ def test_erc_4626_deposit(
     assert isinstance(deposit_manager, ERC4626DepositManager)
     assert deposit_manager.has_synchronous_deposit()
     amount = Decimal(1_000)
+
+    estimated = deposit_manager.estimate_deposit(test_user, amount)
+    assert estimated == pytest.approx(Decimal('961.55736568'))
+
     tx_hash = usdc.approve(
         vault.address,
         amount,
@@ -141,6 +145,9 @@ def test_erc_4626_redeem(
         web3,
         increase_timestamp=3600,
     )
+
+    estimated = deposit_manager.estimate_redeem(test_user, shares)
+    assert estimated == pytest.approx(Decimal('999.999657'))
 
     redemption_request = deposit_manager.create_redemption_request(
         test_user,

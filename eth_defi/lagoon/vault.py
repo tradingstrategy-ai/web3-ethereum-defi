@@ -42,6 +42,7 @@ from eth_defi.vault.base import VaultFlowManager, VaultInfo, VaultSpec
 from .deposit_redeem import ERC7540DepositRequest
 
 from ..abi import encode_function_call, get_deployed_contract, get_function_abi_by_name, get_function_selector, present_solidity_args
+from ..erc_4626.core import ERC4626Feature
 from ..erc_4626.deposit_redeem import ERC4626DepositRequest, ERC4626DepositTicket
 from ..erc_4626.vault import ERC4626Vault
 from ..event_reader.multicall_batcher import EncodedCall
@@ -130,6 +131,7 @@ class LagoonVault(ERC4626Vault):
         trading_strategy_module_address: HexAddress | None = None,
         token_cache: dict | None = None,
         vault_abi: str | None = None,
+        features: set[ERC4626Feature] = None,
     ):
         """
         :param spec:
@@ -147,11 +149,7 @@ class LagoonVault(ERC4626Vault):
 
             None = autodetect.
         """
-        assert isinstance(web3, Web3)
-        assert isinstance(spec, VaultSpec)
-        super().__init__(web3, spec, token_cache=token_cache)
-        self.web3 = web3
-        self.spec = spec
+        super().__init__(web3, spec, features=features or {ERC4626Feature.lagoon_like, ERC4626Feature.erc_7540_like}, token_cache=token_cache)
         self.trading_strategy_module_address = trading_strategy_module_address
 
         if vault_abi is None:
