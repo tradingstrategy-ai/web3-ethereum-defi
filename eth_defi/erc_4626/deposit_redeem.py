@@ -1,5 +1,6 @@
 """ERC-4626 deposit and redeem requests."""
 
+from eth_defi.erc_4626.estimate import estimate_4626_deposit, estimate_4626_redeem
 from eth_defi.erc_4626.flow import deposit_4626, redeem_4626
 from eth_defi.vault.deposit_redeem import DepositRequest, RedemptionRequest, RedemptionTicket, VaultDepositManager, DepositTicket
 
@@ -7,7 +8,7 @@ import datetime
 from decimal import Decimal
 
 from web3.contract.contract import ContractFunction
-from eth_typing import HexAddress
+from eth_typing import HexAddress, BlockIdentifier
 
 
 class ERC4626DepositTicket(DepositRequest):
@@ -154,3 +155,9 @@ class ERC4626DepositManager(VaultDepositManager):
         deposit_ticket: DepositTicket,
     ) -> ContractFunction:
         raise NotImplementedError("Deposits are synchronous, nothing to settle")
+
+    def estimate_deposit(self, owner: HexAddress, amount: Decimal, block_identifier: BlockIdentifier = "latest") -> Decimal:
+        return estimate_4626_deposit(self.vault, amount, block_identifier=block_identifier)
+
+    def estimate_redeem(self, owner: HexAddress, shares: Decimal, block_identifier: BlockIdentifier = "latest") -> Decimal:
+        return estimate_4626_redeem(self.vault, owner, shares, block_identifier=block_identifier)

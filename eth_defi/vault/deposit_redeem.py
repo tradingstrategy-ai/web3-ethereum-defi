@@ -9,7 +9,7 @@ from web3 import Web3
 from web3.contract.contract import ContractFunction
 
 from hexbytes import HexBytes
-from eth_typing import HexAddress
+from eth_typing import HexAddress, BlockIdentifier
 
 from eth_defi.trace import assert_transaction_success_with_explanation
 
@@ -230,7 +230,10 @@ class DepositRequest:
 class VaultDepositManager(ABC):
     """Abstraction over different deposit/redeem flows of vaults."""
 
-    def __init__(self, vault: "eth_defi.vault.base.VaultBase"):
+    def __init__(
+        self,
+        vault: "eth_defi.vault.base.VaultBase",
+    ):
         self.vault = vault
 
     @property
@@ -250,6 +253,14 @@ class VaultDepositManager(ABC):
 
         - E.g. ERC-4626 vaults
         """
+
+    @abstractmethod
+    def estimate_deposit(self, owner: HexAddress | None, amount: Decimal, block_identifier: BlockIdentifier = "latest") -> Decimal:
+        """How many shares we get for a deposit."""
+
+    @abstractmethod
+    def estimate_redeem(self, owner: HexAddress | None, shares: Decimal, block_identifier: BlockIdentifier = "latest") -> Decimal:
+        """How many denomination tokens we get for a redeem."""
 
     @abstractmethod
     def create_deposit_request(
@@ -326,6 +337,17 @@ class VaultDepositManager(ABC):
             True if there is an active redemption request
         """
         raise NotImplementedError(f"Class {self.__class__.__name__} does not implement is_redemption_in_proges()")
+
+    def can_create_deposit_request(self, owner: HexAddress) -> bool:
+        """Can we start depositing now.
+
+        Vault can be full?
+        """
+        raise NotImplementedError(f"Class {self.__class__.__name__} does not implement can_create_redemption_request()")
+
+    def get_max_deposit(self, owner: HexAddress) -> Decimal | None:
+        """How much we can deposit"""
+        raise NotImplementedError(f"Class {self.__class__.__name__} does not implement can_create_redemption_request()")
 
     @abstractmethod
     def can_create_redemption_request(self, owner: HexAddress) -> bool:

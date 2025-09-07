@@ -19,7 +19,7 @@ CI = os.environ.get("CI", None) is not None
 pytestmark = pytest.mark.skipif(not JSON_RPC_BASE, reason="No JSON_RPC_BASE environment variable")
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture()
 def anvil_base_fork(request) -> AnvilLaunch:
     """Create a testable fork of live BNB chain.
 
@@ -38,7 +38,7 @@ def anvil_base_fork(request) -> AnvilLaunch:
         launch.close()
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture()
 def web3(anvil_base_fork) -> Web3:
     """Create a web3 connector.
 
@@ -61,7 +61,7 @@ def web3(anvil_base_fork) -> Web3:
     return web3
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture()
 def usdc(web3) -> TokenDetails:
     return fetch_erc20_details(
         web3,
@@ -69,7 +69,7 @@ def usdc(web3) -> TokenDetails:
     )
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture()
 def vault(web3) -> ERC4626Vault:
     """Harvest USDC Autopilot on IPOR on Base"""
     # https://app.ipor.io/fusion/base/0x0d877dc7c8fa3ad980dfdb18b48ec9f8768359c4
@@ -81,7 +81,7 @@ def vault(web3) -> ERC4626Vault:
     return cast(ERC4626Vault, vault)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture()
 def test_user(web3, usdc):
     account = web3.eth.accounts[0]
     tx_hash = usdc.transfer(account, Decimal(10_000)).transact({"from": USDC_WHALE[web3.eth.chain_id]})
@@ -96,10 +96,14 @@ def test_erc_4626_deposit(
     usdc: TokenDetails,
 ):
     """Use DepositManager interface to deposit into Morpho vault"""
-    deposit_manager = vault.get_deposit_manager()
+    deposit_manager = vault.deposit_manager
     assert isinstance(deposit_manager, ERC4626DepositManager)
     assert deposit_manager.has_synchronous_deposit()
     amount = Decimal(1_000)
+
+    estimated = deposit_manager.estimate_deposit(test_user, amount)
+    assert estimated == pytest.approx(Decimal("961.55736568"))
+
     tx_hash = usdc.approve(
         vault.address,
         amount,
@@ -120,7 +124,7 @@ def test_erc_4626_redeem(
     usdc: TokenDetails,
 ):
     """Use DepositManager interface to deposit into Morpho vault"""
-    deposit_manager = vault.get_deposit_manager()
+    deposit_manager = vault.deposit_manager
     assert isinstance(deposit_manager, ERC4626DepositManager)
     amount = Decimal(1_000)
     tx_hash = usdc.approve(
@@ -141,6 +145,9 @@ def test_erc_4626_redeem(
         web3,
         increase_timestamp=3600,
     )
+
+    estimated = deposit_manager.estimate_redeem(test_user, shares)
+    assert estimated == pytest.approx(Decimal("999.999657"))
 
     redemption_request = deposit_manager.create_redemption_request(
         test_user,
