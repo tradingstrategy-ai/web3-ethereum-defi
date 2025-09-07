@@ -7,7 +7,7 @@ import datetime
 from decimal import Decimal
 
 from web3.contract.contract import ContractFunction
-from eth_typing import HexAddress
+from eth_typing import HexAddress, BlockIdentifier
 
 
 class ERC4626DepositTicket(DepositRequest):
@@ -154,8 +154,8 @@ class ERC4626DepositManager(VaultDepositManager):
     ) -> ContractFunction:
         raise NotImplementedError("Deposits are synchronous, nothing to settle")
 
-    def estimate_deposit(self, owner: HexAddress, amount: Decimal) -> Decimal:
-        return estimate_4626_deposit(self.vault, amount)
+    def estimate_deposit(self, owner: HexAddress, amount: Decimal, block_identifier: BlockIdentifier="latest") -> Decimal:
+        return estimate_4626_deposit(self.vault, amount, block_identifier=block_identifier)
 
-    def estimate_redeem(self, owner: HexAddress,  shares: Decimal) -> Decimal:
-        return estimate_4626_redeem(self.vault, owner, shares)
+    def estimate_redeem(self, owner: HexAddress,  shares: Decimal, block_identifier: BlockIdentifier="latest") -> Decimal:
+        return estimate_4626_redeem(self.vault, owner, shares, block_identifier=block_identifier)

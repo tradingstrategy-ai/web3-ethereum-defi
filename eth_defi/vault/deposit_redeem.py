@@ -9,7 +9,7 @@ from web3 import Web3
 from web3.contract.contract import ContractFunction
 
 from hexbytes import HexBytes
-from eth_typing import HexAddress
+from eth_typing import HexAddress, BlockIdentifier
 
 from eth_defi.trace import assert_transaction_success_with_explanation
 
@@ -255,13 +255,13 @@ class VaultDepositManager(ABC):
         """
 
     @abstractmethod
-    def estimate_deposit(self, owner: HexAddress, amount: Decimal) -> Decimal:
+    def estimate_deposit(self, owner: HexAddress | None, amount: Decimal, block_identifier: BlockIdentifier="latest") -> Decimal:
         """How many shares we get for a deposit.
 
         """
 
     @abstractmethod
-    def estimate_redeem(self, owner: HexAddress, shares: Decimal) -> Decimal:
+    def estimate_redeem(self, owner: HexAddress | None, shares: Decimal, block_identifier: BlockIdentifier="latest") -> Decimal:
         """How many denomination tokens we get for a redeem.
 
         """
