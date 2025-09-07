@@ -182,7 +182,7 @@ def test_read_events_lazy_timestamp(web3):
 
     # API calls are less often than blocks we read
     assert lazy_timestamp_container.api_call_counter in (79, 80)  # Github flakiness
-    assert len(swaps) >= 203 # Flaky on Github, reason unknown
+    assert len(swaps) >= 203  # Flaky on Github, reason unknown
 
     for s in swaps:
         assert s["timestamp"] > 0
