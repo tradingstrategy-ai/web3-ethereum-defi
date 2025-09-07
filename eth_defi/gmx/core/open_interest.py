@@ -1,8 +1,7 @@
 """
 GMX Open Interest Data Retrieval Module
 
-This module provides open interest data for GMX protocol markets,
-replacing the gmx_python_sdk OpenInterest functionality with exact feature parity.
+This module provides open interest data for GMX protocol markets.
 """
 
 import logging
@@ -166,8 +165,8 @@ class GetOpenInterest(GetData):
             long_value = (long_oi - long_pnl) / long_precision
             short_value = (short_oi - short_pnl) / precision
 
-            self.log.info(f"{market_symbol} Long: ${self._format_number(long_value)}")
-            self.log.info(f"{market_symbol} Short: ${self._format_number(short_value)}")
+            self.log.debug(f"{market_symbol} Long: ${self._format_number(long_value)}")
+            self.log.debug(f"{market_symbol} Short: ${self._format_number(short_value)}")
 
             self.output["long"][market_symbol] = long_value
             self.output["short"][market_symbol] = short_value

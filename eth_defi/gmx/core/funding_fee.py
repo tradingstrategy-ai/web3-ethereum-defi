@@ -1,8 +1,7 @@
 """
 GMX Funding APR Data Retrieval Module
 
-This module provides funding APR data for GMX protocol markets,
-replacing the gmx_python_sdk GetFundingFee functionality with exact feature parity.
+This module provides funding APR data for GMX protocol markets.
 """
 
 from typing import Any
