@@ -67,7 +67,7 @@ def test_gains_deposit_withdraw(
     assert isinstance(deposit_manager, GainsDepositManager)
 
     estimated = deposit_manager.estimate_deposit(test_user, amount)
-    assert estimated == pytest.approx(Decimal('81.54203'))
+    assert estimated == pytest.approx(Decimal("81.54203"))
 
     deposit_request = deposit_manager.create_deposit_request(
         test_user,
@@ -92,7 +92,7 @@ def test_gains_deposit_withdraw(
     )
 
     estimated = deposit_manager.estimate_redeem(test_user, shares)
-    assert estimated == pytest.approx(Decimal('100'))
+    assert estimated == pytest.approx(Decimal("100"))
 
     # 1. Create a redemption request
     assert deposit_manager.estimate_redemption_delay() == datetime.timedelta(days=3)

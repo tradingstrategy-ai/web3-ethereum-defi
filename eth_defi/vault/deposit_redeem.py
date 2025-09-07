@@ -255,16 +255,12 @@ class VaultDepositManager(ABC):
         """
 
     @abstractmethod
-    def estimate_deposit(self, owner: HexAddress | None, amount: Decimal, block_identifier: BlockIdentifier="latest") -> Decimal:
-        """How many shares we get for a deposit.
-
-        """
+    def estimate_deposit(self, owner: HexAddress | None, amount: Decimal, block_identifier: BlockIdentifier = "latest") -> Decimal:
+        """How many shares we get for a deposit."""
 
     @abstractmethod
-    def estimate_redeem(self, owner: HexAddress | None, shares: Decimal, block_identifier: BlockIdentifier="latest") -> Decimal:
-        """How many denomination tokens we get for a redeem.
-
-        """
+    def estimate_redeem(self, owner: HexAddress | None, shares: Decimal, block_identifier: BlockIdentifier = "latest") -> Decimal:
+        """How many denomination tokens we get for a redeem."""
 
     @abstractmethod
     def create_deposit_request(

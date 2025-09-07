@@ -62,17 +62,16 @@ autodoc_typehints = "description"
 #    'special-members': "__init__, __call__"
 # }
 
-autoclass_content = 'both'  # Include class and __init__ docstrings
+autoclass_content = "both"  # Include class and __init__ docstrings
 autodoc_default_options = {
-    'members': True,
-    'show-inheritance': True,
-    'inherited-members': True,  # Include inherited members
+    "members": True,
+    "show-inheritance": True,
+    "inherited-members": True,  # Include inherited members
 }
 
 autosummary_generate = True
 
 add_module_names = False
-
 
 
 html_context = {
