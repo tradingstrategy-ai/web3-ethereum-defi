@@ -11,6 +11,7 @@ from eth_defi.gmx.core.borrow_apr import GetBorrowAPR
 from eth_defi.gmx.core.claimable_fees import GetClaimableFees
 from eth_defi.gmx.core.funding_fee import GetFundingFee
 from eth_defi.gmx.core.get_data import GetData
+from eth_defi.gmx.core.glv_stats import GlvStats
 from eth_defi.gmx.core.gm_prices import GetGMPrices
 from eth_defi.gmx.core.markets import Markets
 from eth_defi.gmx.core.open_interest import GetOpenInterest, OpenInterestInfo
@@ -28,6 +29,7 @@ __all__ = [
     "GetOpenInterest",
     "GetOpenPositions",
     "GetPoolTVL",
+    "GlvStats",
     "LiquidityInfo",
     "Markets",
     "OpenInterestInfo",
