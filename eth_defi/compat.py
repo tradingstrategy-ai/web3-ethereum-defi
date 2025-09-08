@@ -5,6 +5,8 @@ v6/v7 compatibility module
 
 import datetime
 from importlib.metadata import version
+
+from eth_typing import HexStr
 from packaging.version import Version
 import eth_abi
 from collections import Counter
@@ -477,7 +479,7 @@ def get_function_info_v7(*args, **kwargs):
         raise ValueError(f"Unsupported argument pattern for get_function_info: {len(args)} positional args, kwargs: {list(kwargs.keys())}")
 
 
-def encode_abi_compat(contract: Contract, fn_name: str, args: list[Any]) -> str:
+def encode_abi_compat(contract: Contract, fn_name: str, args: list[Any]) -> HexStr:
     """Encode ABI with v6/v7 compatibility.
 
     In v6: contract.encodeABI(fn_name="function_name", args=[...])

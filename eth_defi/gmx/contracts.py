@@ -95,7 +95,17 @@ NETWORK_CONTRACTS = {
         orderhandler=to_checksum_address("0xfc9Bc118fdDb89FF6fF720840446D73478dE4153"),
         oracle=to_checksum_address("0x918b60bA71bAdfaDA72EF3A6C6F71d0C41D4785C"),
     ),
-    "avalanche": ContractAddresses(datastore=to_checksum_address("0x2F0b22339414ADeD7D5F06f9D604c7fF5b2fe3f6"), eventemitter=to_checksum_address("0xDb17B211c34240B014ab6d61d4A31FA0C0e20c26"), exchangerouter=to_checksum_address("0x2b76df209E1343da5698AF0f8757f6170162e78b"), depositvault=to_checksum_address("0x90c670825d0C62ede1c5ee9571d6d9a17A722DFF"), withdrawalvault=to_checksum_address("0xf5F30B10141E1F63FC11eD772931A8294a591996"), ordervault=to_checksum_address("0xD3D60D22d415aD43b7e64b510D86A30f19B1B12C"), syntheticsreader=to_checksum_address("0x618fCEe30D9A26e8533C3B244CAd2D6486AFf655"), syntheticsrouter=to_checksum_address("0x820F5FfC5b525cD4d88Cd91aCf2c28F16530Cc68"), glvreader=to_checksum_address("0xae9596a1C438675AcC75f69d32E21Ac9c8fF99bD")),
+    "avalanche": ContractAddresses(
+        datastore=to_checksum_address("0x2F0b22339414ADeD7D5F06f9D604c7fF5b2fe3f6"),
+        eventemitter=to_checksum_address("0xDb17B211c34240B014ab6d61d4A31FA0C0e20c26"),
+        exchangerouter=to_checksum_address("0x2b76df209E1343da5698AF0f8757f6170162e78b"),
+        depositvault=to_checksum_address("0x90c670825d0C62ede1c5ee9571d6d9a17A722DFF"),
+        withdrawalvault=to_checksum_address("0xf5F30B10141E1F63FC11eD772931A8294a591996"),
+        ordervault=to_checksum_address("0xD3D60D22d415aD43b7e64b510D86A30f19B1B12C"),
+        syntheticsreader=to_checksum_address("0x618fCEe30D9A26e8533C3B244CAd2D6486AFf655"),
+        syntheticsrouter=to_checksum_address("0x820F5FfC5b525cD4d88Cd91aCf2c28F16530Cc68"),
+        glvreader=to_checksum_address("0xae9596a1C438675AcC75f69d32E21Ac9c8fF99bD"),
+    ),
 }
 
 
@@ -114,6 +124,7 @@ DATASTORE_ABI: list = _load_abi("DataStore.json")
 EXCHANGE_ROUTER_ABI: list = _load_abi("ExchangeRouter.json")
 ORACLE_ABI: list = _load_abi("Oracle.json")
 GLV_READER_ABI: list = _load_abi("GlvReader.json")
+BALANCE_ABI: list = _load_abi("balance.json")
 
 # TODO: Replace this to fetch the addresses dynamically from https://raw.githubusercontent.com/gmx-io/gmx-synthetics/refs/heads/v2.2-branch/docs/contracts.json
 # Token addresses by network
@@ -282,3 +293,7 @@ def get_glv_reader_contract(web3: Web3, chain: str) -> Contract:
     """
     addresses = get_contract_addresses(chain)
     return web3.eth.contract(address=addresses.glvreader, abi=GLV_READER_ABI)
+
+
+def get_token_balance_contract(web3: Web3, contract_address: HexAddress) -> Contract:
+    return web3.eth.contract(address=contract_address, abi=BALANCE_ABI)
