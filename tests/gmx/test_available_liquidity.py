@@ -1,19 +1,14 @@
 """
-Tests for GetAvailableLiquidity with parametrized chain testing.
+Tests for GetAvailableLiquidity with parametrised chain testing.
 
 This test suite validates the GetAvailableLiquidity class functionality
 using efficient multicall batching across different chains.
 """
 
-import logging
 import pytest
 import time
 
-from eth_defi.gmx.core.available_liquidity import GetAvailableLiquidity, LiquidityInfo
-
-# Suppress logs during testing
-logger = logging.getLogger()
-logger.setLevel(logging.WARN)
+from eth_defi.gmx.core.available_liquidity import GetAvailableLiquidity
 
 
 def test_get_available_liquidity_initialization(gmx_config):
@@ -75,8 +70,6 @@ def test_get_available_liquidity_direct_call(chain_name, get_available_liquidity
         assert isinstance(liquidity, (int, float)), f"Short liquidity for {market} should be numeric, got {type(liquidity)}"
         assert liquidity >= 0, f"Short liquidity for {market} should be non-negative, got {liquidity}"
 
-    # print(f"\n{chain_name.upper()}: GetAvailableLiquidity completed in {execution_time:.2f} seconds using multicall")
-    # print(f"{chain_name.upper()}: Retrieved liquidity data for {len(liquidity_data['long'])} markets")
 
 
 def test_get_available_liquidity_data_consistency(chain_name, get_available_liquidity):
@@ -121,9 +114,6 @@ def test_get_available_liquidity_data_consistency(chain_name, get_available_liqu
     # Should have consistent data
     assert len(inconsistent_markets) == 0, f"Data inconsistency found on {chain_name}: " + "; ".join(inconsistent_markets)
 
-    # print(f"\n{chain_name.upper()}: Data consistency test passed - all values within {tolerance:.0%} tolerance")
-
-
 def test_get_available_liquidity_specific_markets(chain_name, get_available_liquidity):
     """
     Test that specific expected markets have liquidity data.
@@ -162,7 +152,6 @@ def test_get_available_liquidity_specific_markets(chain_name, get_available_liqu
     # Should find at least one expected market
     assert len(found_markets) > 0, f"No expected markets found for {chain_name}. Found: {list(long_markets)}"
 
-    # print(f"{chain_name.upper()}: Found {len(found_markets)} expected markets: {found_markets}")
 
 
 def test_get_available_liquidity_total_calculations(chain_name, get_available_liquidity):
@@ -186,13 +175,6 @@ def test_get_available_liquidity_total_calculations(chain_name, get_available_li
     assert total_short_liquidity >= 0
     assert total_liquidity >= 0
 
-    # Print summary
-    # print(f"\nTotal Available Liquidity on {chain_name.upper()}:")
-    # print(f"  Long: ${total_long_liquidity:,.2f}")
-    # print(f"  Short: ${total_short_liquidity:,.2f}")
-    # print(f"  Total: ${total_liquidity:,.2f}")
-    # print(f"  Markets: {len(liquidity_data['long'])}")
-
 
 def test_get_available_liquidity_error_handling(chain_name, get_available_liquidity):
     """
@@ -210,8 +192,6 @@ def test_get_available_liquidity_error_handling(chain_name, get_available_liquid
         assert "long" in liquidity_data
         assert "short" in liquidity_data
         assert "parameter" in liquidity_data
-
-        # print(f"\n{chain_name.upper()}: Error handling test passed - graceful handling of any failures")
 
     except Exception as e:
         pytest.fail(f"GetAvailableLiquidity should handle errors gracefully, but raised: {e}")
@@ -240,7 +220,3 @@ def test_get_available_liquidity_filter_swap_markets(chain_name, gmx_config):
     unfiltered_market_count = len(unfiltered_data["long"])
 
     assert unfiltered_market_count >= filtered_market_count, f"Unfiltered should have >= markets than filtered. Filtered: {filtered_market_count}, Unfiltered: {unfiltered_market_count}"
-
-    # print(f"\n{chain_name.upper()}: Market filtering test")
-    # print(f"  Filtered markets: {filtered_market_count}")
-    # print(f"  Unfiltered markets: {unfiltered_market_count}")

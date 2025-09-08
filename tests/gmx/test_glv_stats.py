@@ -44,9 +44,7 @@ def test_glv_info_and_data_structures(get_glv_stats):
     # Verify structure for each GLV
     for glv_address, glv_data in results.items():
         assert isinstance(glv_data, dict)
-        required_fields = [
-            "glv_address", "long_address", "short_address", "glv_market_addresses"
-        ]
+        required_fields = ["glv_address", "long_address", "short_address", "glv_market_addresses"]
         for field in required_fields:
             assert field in glv_data, f"Missing field: {field} in GLV {glv_address}"
 
@@ -121,7 +119,7 @@ def test_glv_price_calculation(get_glv_stats):
             # Total value should be roughly in line with GLV price * some scale factor
             # (Note: GLV price is in 30 decimals, total_value is in 18 decimals)
             # So we need to adjust for the decimal difference
-            glv_value_estimate = glv_price * 10 ** 12  # Adjusting for decimal difference
+            glv_value_estimate = glv_price * 10**12  # Adjusting for decimal difference
             ratio = total_value / glv_value_estimate
             assert 0.1 < ratio < 10, f"Value ratio out of bounds: {ratio} for GLV {glv_data['glv_address']}"
 
@@ -236,12 +234,10 @@ def test_glv_price_bounds(get_glv_stats):
                 assert market_data["gm price"] > 0, f"GM price should be positive for {market_addr}"
 
                 # GM price should not be absurdly high
-                assert market_data[
-                           "gm price"] < 100_000_000, f"GM price too high: {market_data['gm price']} for {market_addr}"
+                assert market_data["gm price"] < 100_000_000, f"GM price too high: {market_data['gm price']} for {market_addr}"
 
                 # GM price should not be too low
-                assert market_data[
-                           "gm price"] > 0.000001, f"GM price too low: {market_data['gm price']} for {market_addr}"
+                assert market_data["gm price"] > 0.000001, f"GM price too low: {market_data['gm price']} for {market_addr}"
 
 
 def test_special_glv_handling(get_glv_stats):
@@ -328,19 +324,16 @@ def test_glv_market_consistency(get_glv_stats):
         # Verify market symbol is consistent
         glv_market_symbol = get_glv_stats.markets.get_market_symbol(market_address)
         available_market_symbol = available_markets[market_address]["market_symbol"]
-        assert glv_market_symbol == available_market_symbol, \
-            f"Market symbol mismatch for {market_address}: {glv_market_symbol} vs {available_market_symbol}"
+        assert glv_market_symbol == available_market_symbol, f"Market symbol mismatch for {market_address}: {glv_market_symbol} vs {available_market_symbol}"
 
         # Verify token addresses are consistent
         glv_long_token = get_glv_stats.markets.get_long_token_address(market_address)
         available_long_token = available_markets[market_address]["long_token_address"]
-        assert glv_long_token == available_long_token, \
-            f"Long token mismatch for {market_address}: {glv_long_token} vs {available_long_token}"
+        assert glv_long_token == available_long_token, f"Long token mismatch for {market_address}: {glv_long_token} vs {available_long_token}"
 
         glv_short_token = get_glv_stats.markets.get_short_token_address(market_address)
         available_short_token = available_markets[market_address]["short_token_address"]
-        assert glv_short_token == available_short_token, \
-            f"Short token mismatch for {market_address}: {glv_short_token} vs {available_short_token}"
+        assert glv_short_token == available_short_token, f"Short token mismatch for {market_address}: {glv_short_token} vs {available_short_token}"
 
     # If there are missing markets, we should handle them gracefully rather than failing the test
     # This can happen when the GLV markets list includes markets that are temporarily unavailable
@@ -348,8 +341,7 @@ def test_glv_market_consistency(get_glv_stats):
         # Log the missing markets but don't fail the test
         logging.warning(f"Found {len(missing_markets)} GLV markets not in available markets: {missing_markets}")
         # Only fail if all markets are missing (which would indicate a bigger issue)
-        assert len(missing_markets) < len(all_glv_markets), \
-            f"All GLV markets missing from available markets: {missing_markets}"
+        assert len(missing_markets) < len(all_glv_markets), f"All GLV markets missing from available markets: {missing_markets}"
 
 
 def test_glv_price_calculation_logic(get_glv_stats):
@@ -419,18 +411,15 @@ def test_glv_market_metadata_consistency(get_glv_stats):
             short_token = get_glv_stats.markets.get_short_token_address(market_addr)
 
             # Verify consistency with market metadata
-            assert market_symbol == market_data["market symbol"], \
-                f"Market symbol mismatch for {market_addr}: {market_symbol} vs {market_data['market symbol']}"
+            assert market_symbol == market_data["market symbol"], f"Market symbol mismatch for {market_addr}: {market_symbol} vs {market_data['market symbol']}"
 
             # Verify token addresses are consistent (we don't have them in market_data directly,
             # but we can check that the market exists and has consistent metadata)
             available_markets = get_glv_stats.markets.get_available_markets()
             if market_addr in available_markets:
                 available_market = available_markets[market_addr]
-                assert long_token == available_market["long_token_address"], \
-                    f"Long token mismatch for {market_addr}: {long_token} vs {available_market['long_token_address']}"
-                assert short_token == available_market["short_token_address"], \
-                    f"Short token mismatch for {market_addr}: {short_token} vs {available_market['short_token_address']}"
+                assert long_token == available_market["long_token_address"], f"Long token mismatch for {market_addr}: {long_token} vs {available_market['long_token_address']}"
+                assert short_token == available_market["short_token_address"], f"Short token mismatch for {market_addr}: {short_token} vs {available_market['short_token_address']}"
 
 
 def test_glv_data_structure_integrity(get_glv_stats):
@@ -458,8 +447,7 @@ def test_glv_data_structure_integrity(get_glv_stats):
 
         # Verify market addresses are unique
         market_addresses_set = set(glv_data["glv_market_addresses"])
-        assert len(market_addresses_set) == len(glv_data["glv_market_addresses"]), \
-            f"Duplicate market addresses in GLV {glv_address}"
+        assert len(market_addresses_set) == len(glv_data["glv_market_addresses"]), f"Duplicate market addresses in GLV {glv_address}"
 
         # Check market metadata if present
         if "markets_metadata" in glv_data:

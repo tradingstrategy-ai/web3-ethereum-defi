@@ -111,17 +111,17 @@ class GlvStats(GetData):
         multicall_results: dict[str, dict[str, EncodedCallResult]] = defaultdict(dict)
 
         for call_result in read_multicall_chunked(
-                chain_id=self.config.web3.eth.chain_id,
-                web3factory=web3_factory,
-                calls=encoded_calls,
-                block_identifier="latest",
-                progress_bar_desc="Loading GMX GLV statistics",
-                max_workers=5,
+            chain_id=self.config.web3.eth.chain_id,
+            web3factory=web3_factory,
+            calls=encoded_calls,
+            block_identifier="latest",
+            progress_bar_desc="Loading GMX GLV statistics",
+            max_workers=5,
         ):
             glv_address = call_result.call.extra_data["glv_address"]
             call_type = call_result.call.extra_data["call_type"]
             call_key = call_result.call.extra_data.get("call_key", "default")
-            
+
             # Enhanced debugging for failed calls
             if not call_result.success:
                 self.log.debug(f"Multicall failed - GLV: {glv_address}, Type: {call_type}, Key: {call_key}, Error: {getattr(call_result, 'error', 'Unknown')}")
@@ -152,7 +152,7 @@ class GlvStats(GetData):
         for glv_address, glv_info in glv_info_dict.items():
             try:
                 self.log.debug(f"Processing GLV {glv_address} with {len(glv_info['glv_market_addresses'])} markets")
-                
+
                 # Prepare price data for this GLV
                 index_token_prices = []
                 long_token_price = None
@@ -179,10 +179,7 @@ class GlvStats(GetData):
 
                 # Generate GLV token price call
                 if index_token_prices and long_token_price and short_token_price:
-                    glv_price_call = self.create_glv_token_price_call(
-                        glv_address, glv_info["glv_market_addresses"],
-                        index_token_prices, long_token_price, short_token_price
-                    )
+                    glv_price_call = self.create_glv_token_price_call(glv_address, glv_info["glv_market_addresses"], index_token_prices, long_token_price, short_token_price)
                     if glv_price_call:
                         encoded_calls.append(glv_price_call)
                         self.log.debug(f"Added GLV price call for {glv_address}")
@@ -225,14 +222,7 @@ class GlvStats(GetData):
 
         return encoded_calls, call_metadata
 
-    def create_glv_token_price_call(
-            self,
-            glv_address: str,
-            market_addresses: list,
-            index_token_prices: list,
-            long_token_price: tuple,
-            short_token_price: tuple
-    ) -> Optional[EncodedCall]:
+    def create_glv_token_price_call(self, glv_address: str, market_addresses: list, index_token_prices: list, long_token_price: tuple, short_token_price: tuple) -> Optional[EncodedCall]:
         """Create multicall for GLV token price."""
         try:
             # Use encode_abi_compat for getGlvTokenPrice
@@ -248,17 +238,17 @@ class GlvStats(GetData):
                     long_token_price,
                     short_token_price,
                     to_checksum_address(glv_address),
-                    True  # maximize
-                ]
+                    True,  # maximize
+                ],
             )
 
             # Handle both bytes and string returns from encode_abi_compat
             if isinstance(call_data, str):
                 # Remove '0x' prefix if present and convert to bytes
-                call_data = call_data.replace('0x', '')
-                data_bytes = bytes.fromhex(call_data) if call_data else b''
+                call_data = call_data.replace("0x", "")
+                data_bytes = bytes.fromhex(call_data) if call_data else b""
             else:
-                data_bytes = call_data if isinstance(call_data, bytes) else b''
+                data_bytes = call_data if isinstance(call_data, bytes) else b""
 
             return EncodedCall(
                 address=to_checksum_address(self.glv_reader_contract.address),
@@ -268,7 +258,7 @@ class GlvStats(GetData):
                     "glv_address": glv_address,
                     "call_type": "glv_price",
                     "call_key": "default",
-                }
+                },
             )
         except Exception as e:
             self.log.error(f"Failed to create GLV token price call for {glv_address}: {e}")
@@ -291,7 +281,7 @@ class GlvStats(GetData):
                     "glv_address": glv_address,
                     "call_type": "balance",
                     "call_key": market_address,
-                }
+                },
             )
         except Exception as e:
             self.log.error(f"Failed to create balance call for GLV {glv_address}, market {market_address}: {e}")
@@ -305,7 +295,7 @@ class GlvStats(GetData):
                 long_token_address = self.markets.get_long_token_address(market_address)
                 short_token_address = self.markets.get_short_token_address(market_address)
                 index_token_address = self.markets.get_index_token_address(market_address)
-                
+
                 # Validate that we have all required token addresses
                 if not long_token_address or not short_token_address or not index_token_address:
                     self.log.debug(f"Skipping GM price call for market {market_address} due to missing token addresses")
@@ -347,17 +337,17 @@ class GlvStats(GetData):
                     oracle_prices[1],  # long token price
                     oracle_prices[2],  # short token price
                     MAX_PNL_FACTOR_FOR_TRADERS,
-                    True  # maximize
-                ]
+                    True,  # maximize
+                ],
             )
 
             # Handle both bytes and string returns from encode_abi_compat
             if isinstance(call_data, str):
                 # Remove '0x' prefix if present and convert to bytes
-                call_data = call_data.replace('0x', '')
-                data_bytes = bytes.fromhex(call_data) if call_data else b''
+                call_data = call_data.replace("0x", "")
+                data_bytes = bytes.fromhex(call_data) if call_data else b""
             else:
-                data_bytes = call_data if isinstance(call_data, bytes) else b''
+                data_bytes = call_data if isinstance(call_data, bytes) else b""
 
             return EncodedCall(
                 address=to_checksum_address(self.reader_contract.address),
@@ -367,7 +357,7 @@ class GlvStats(GetData):
                     "glv_address": glv_address,
                     "call_type": "gm_price",
                     "call_key": market_address,
-                }
+                },
             )
         except Exception as e:
             self.log.debug(f"Failed to create GM price call for market {market_address}: {e}")
@@ -378,18 +368,18 @@ class GlvStats(GetData):
         try:
             oracle_prices_dict = self._oracle_prices_cache
             self.log.debug(f"Building oracle prices for market {market_address}, cached oracle tokens: {list(oracle_prices_dict.keys())}")
-            
+
             # Get token addresses directly from the market
             try:
                 long_token_address_raw = self.markets.get_long_token_address(market_address)
                 short_token_address_raw = self.markets.get_short_token_address(market_address)
-                
+
                 self.log.debug(f"Market {market_address} tokens - index: {index_token_address}, long: {long_token_address_raw}, short: {short_token_address_raw}")
-                
+
                 if not long_token_address_raw or not short_token_address_raw:
                     self.log.debug(f"Invalid token addresses for market {market_address}: long={long_token_address_raw}, short={short_token_address_raw}")
                     return None
-                
+
                 long_token_address = to_checksum_address(long_token_address_raw)
                 short_token_address = to_checksum_address(short_token_address_raw)
                 index_token_address = to_checksum_address(index_token_address)
@@ -443,7 +433,7 @@ class GlvStats(GetData):
                             return None
 
                 return prices
-                
+
             except (KeyError, ValueError, TypeError) as e:
                 self.log.debug(f"Failed to extract price data: {e}")
                 return None
@@ -452,12 +442,7 @@ class GlvStats(GetData):
             self.log.debug(f"Failed to build oracle prices tuple: {e}")
             return None
 
-    def process_multicall_results(
-            self,
-            glv_info_dict: dict,
-            multicall_results: dict,
-            call_metadata: dict
-    ) -> dict[str, Any]:
+    def process_multicall_results(self, glv_info_dict: dict, multicall_results: dict, call_metadata: dict) -> dict[str, Any]:
         """
         Process multicall results and build final GLV statistics.
 
@@ -474,7 +459,7 @@ class GlvStats(GetData):
             try:
                 results = multicall_results[glv_address]
                 metadata = call_metadata.get(glv_address, {})
-                
+
                 self.log.debug(f"Processing results for GLV {glv_address}: {list(results.keys())}")
 
                 # Extract GLV token price
@@ -523,13 +508,13 @@ class GlvStats(GetData):
                 if result_bytes and len(result_bytes) >= 32:
                     # First uint256 is the price
                     price_raw = int.from_bytes(result_bytes[:32], byteorder="big")
-                    price_float = price_raw * 10 ** -30
+                    price_float = price_raw * 10**-30
                     self.log.debug(f"Extracted GLV price: {price_raw} raw -> {price_float}")
                     return price_float
                 else:
                     self.log.debug(f"Invalid result bytes for GLV price: length={len(result_bytes) if result_bytes else 0}")
             elif glv_price_result:
-                error_msg = getattr(glv_price_result, 'error', 'Unknown error')
+                error_msg = getattr(glv_price_result, "error", "Unknown error")
                 self.log.debug(f"GLV price call failed: {error_msg}")
         except Exception as e:
             self.log.error(f"Failed to extract GLV price: {e}")
@@ -543,7 +528,7 @@ class GlvStats(GetData):
                 result_bytes = balance_result.result
                 if result_bytes:
                     balance_raw = int.from_bytes(result_bytes, byteorder="big")
-                    return balance_raw / 10 ** 18
+                    return balance_raw / 10**18
         except Exception as e:
             self.log.error(f"Failed to extract balance for {market_address}: {e}")
         return 0.0
@@ -553,23 +538,23 @@ class GlvStats(GetData):
         try:
             gm_price_key = f"gm_price_{market_address}"
             self.log.debug(f"Looking for GM price key: {gm_price_key} in results keys: {list(results.keys())}")
-            
+
             gm_price_result = results.get(gm_price_key)
             if gm_price_result:
                 self.log.debug(f"Found GM price result for {market_address}: success={gm_price_result.success}")
-                
+
                 if not gm_price_result.success:
-                    error_msg = getattr(gm_price_result, 'error', 'Unknown error')
+                    error_msg = getattr(gm_price_result, "error", "Unknown error")
                     self.log.debug(f"GM price call failed for {market_address}: {error_msg}")
                     return 0.0
-                
+
                 result_bytes = gm_price_result.result
                 self.log.debug(f"GM price result bytes length for {market_address}: {len(result_bytes) if result_bytes else 0}")
-                
+
                 if result_bytes and len(result_bytes) >= 32:
                     # getMarketTokenPrice returns (uint256, uint256) - we want the first one
                     price_raw = int.from_bytes(result_bytes[:32], byteorder="big")
-                    price_float = price_raw / 10 ** 30
+                    price_float = price_raw / 10**30
                     self.log.debug(f"GM price for {market_address}: {price_raw} raw -> {price_float}")
                     return price_float
                 else:
@@ -588,15 +573,7 @@ class GlvStats(GetData):
         :return: Dictionary of GLV info
         """
         try:
-            raw_output = (
-                self.glv_reader_contract
-                .functions.getGlvInfoList(
-                    to_checksum_address(self.datastore_contract.address),
-                    0,
-                    10
-                )
-                .call()
-            )
+            raw_output = self.glv_reader_contract.functions.getGlvInfoList(to_checksum_address(self.datastore_contract.address), 0, 10).call()
 
             glvs = {}
             for raw_glv in raw_output:

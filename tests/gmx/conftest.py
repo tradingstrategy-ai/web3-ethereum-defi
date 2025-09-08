@@ -709,9 +709,9 @@ def gmx_open_positions(chain_rpc_url) -> GetOpenPositions:
 
     return get_open_positions
 
+
 @pytest.fixture
 def get_glv_stats(gmx_config):
     """Create GlvStats instance."""
-
 
     return GlvStats(gmx_config)
