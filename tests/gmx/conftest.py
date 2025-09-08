@@ -12,6 +12,7 @@ from eth_defi.gas import node_default_gas_price_strategy
 from eth_defi.gmx.api import GMXAPI
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.core import GetOpenPositions, GetPoolTVL, Markets
+from eth_defi.gmx.core.glv_stats import GlvStats
 from eth_defi.gmx.data import GMXMarketData
 from eth_defi.gmx.liquidity import GMXLiquidityManager
 from eth_defi.gmx.order import GMXOrderManager
@@ -688,14 +689,6 @@ def get_open_positions(gmx_config):
 
 
 @pytest.fixture
-def get_pool_tvl(gmx_config):
-    """Create GetPoolTVL instance."""
-    from eth_defi.gmx.core.pool_tvl import GetPoolTVL
-
-    return GetPoolTVL(gmx_config)
-
-
-@pytest.fixture
 def gmx_open_positions(chain_rpc_url) -> GetOpenPositions:
     launch = fork_network_anvil(
         chain_rpc_url,
@@ -715,3 +708,10 @@ def gmx_open_positions(chain_rpc_url) -> GetOpenPositions:
     get_open_positions = GetOpenPositions(gmx_config)
 
     return get_open_positions
+
+@pytest.fixture
+def get_glv_stats(gmx_config):
+    """Create GlvStats instance."""
+
+
+    return GlvStats(gmx_config)
