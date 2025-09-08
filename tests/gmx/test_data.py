@@ -45,7 +45,7 @@ def test_get_available_liquidity(market_data):
 
     print(f"\nLiquidity type: {type(liquidity)}")
     print(f"Liquidity keys: {list(liquidity.keys()) if isinstance(liquidity, dict) else 'Not a dict'}")
-    
+
     # Check first few entries for zero values
     if isinstance(liquidity, dict):
         count = 0

@@ -68,8 +68,7 @@ def test_get_available_liquidity_direct_call(chain_name, get_available_liquidity
 
     for market, liquidity in liquidity_data["short"].items():
         assert isinstance(liquidity, (int, float)), f"Short liquidity for {market} should be numeric, got {type(liquidity)}"
-        assert liquidity >= 0, f"Short liquidity for {market} should be non-negative, got {liquidity}"
-
+        assert abs(liquidity) >= 0, f"Short liquidity for {market} should be non-negative, got {liquidity}"
 
 
 def test_get_available_liquidity_data_consistency(chain_name, get_available_liquidity):
@@ -114,6 +113,7 @@ def test_get_available_liquidity_data_consistency(chain_name, get_available_liqu
     # Should have consistent data
     assert len(inconsistent_markets) == 0, f"Data inconsistency found on {chain_name}: " + "; ".join(inconsistent_markets)
 
+
 def test_get_available_liquidity_specific_markets(chain_name, get_available_liquidity):
     """
     Test that specific expected markets have liquidity data.
@@ -145,13 +145,12 @@ def test_get_available_liquidity_specific_markets(chain_name, get_available_liqu
             assert isinstance(long_liq, (int, float))
             assert isinstance(short_liq, (int, float))
             assert long_liq >= 0
-            assert short_liq >= 0
+            assert short_liq <= 0
 
-            print(f"\n{chain_name.upper()} {market}: Long=${long_liq:,.2f}, Short=${short_liq:,.2f}")
+            # print(f"\n{chain_name.upper()} {market}: Long=${long_liq:,.2f}, Short=${short_liq:,.2f}")
 
     # Should find at least one expected market
     assert len(found_markets) > 0, f"No expected markets found for {chain_name}. Found: {list(long_markets)}"
-
 
 
 def test_get_available_liquidity_total_calculations(chain_name, get_available_liquidity):

@@ -156,107 +156,112 @@ class GetAvailableLiquidity(GetData):
                 continue
             yield from self.encode_multicalls_for_market(market_key, self._long_token_address, self._short_token_address)
 
+    # TODO: revove it
     def _get_data_processing_original_approach(self) -> dict[str, Any]:
         """
         Generate the dictionary of available liquidity using the original approach
         (individual web3 calls) for debugging comparison.
         """
         self.log.info("GMX v2 Available Liquidity (Original Approach)")
-        
+
         # Get open interest data like original
         from eth_defi.gmx.core.open_interest import GetOpenInterest
+
         open_interest = GetOpenInterest(self.config).get_data()
-        
-        # Get oracle prices once like original  
+
+        # Get oracle prices once like original
         from eth_defi.gmx.core.oracle import OraclePrices
+
         prices = OraclePrices(self.config.chain).get_recent_prices()
-        
+
         # Get available markets
         available_markets = self.markets.get_available_markets()
-        
+
         for market_key in available_markets:
             self._get_token_addresses(market_key)
             if self._long_token_address is None or self._short_token_address is None:
                 continue
-                
+
             market_symbol = self.markets.get_market_symbol(market_key)
-            
+
             # Skip if not in open interest data
             if market_symbol not in open_interest.get("long", {}) or market_symbol not in open_interest.get("short", {}):
                 self.log.warning(f"No open interest data for {market_symbol}")
                 continue
-            
+
             try:
                 # Get decimal factors and precision - same as original
                 long_decimal_factor = self.markets.get_decimal_factor(market_key=market_key, long=True)
-                short_decimal_factor = self.markets.get_decimal_factor(market_key=market_key, long=False) 
+                short_decimal_factor = self.markets.get_decimal_factor(market_key=market_key, long=False)
                 long_precision = 10 ** (30 + long_decimal_factor)
                 short_precision = 10 ** (30 + short_decimal_factor)
                 oracle_precision = 10 ** (30 - long_decimal_factor)
-                
+
                 # Get reserved amounts from open interest
                 reserved_long = open_interest["long"][market_symbol]
                 reserved_short = open_interest["short"][market_symbol]
-                
+
                 # Get pool data using individual calls (like original)
                 (long_pool_amount_call, long_reserve_factor_call, long_oi_reserve_factor_call) = self.get_max_reserved_usd(market_key, self._long_token_address, True)
                 (short_pool_amount_call, short_reserve_factor_call, short_oi_reserve_factor_call) = self.get_max_reserved_usd(market_key, self._short_token_address, False)
-                
+
                 # Execute the calls (like original does with execute_threading)
                 long_pool_amount = long_pool_amount_call.call()
                 long_reserve_factor = long_reserve_factor_call.call()
                 long_oi_reserve_factor = long_oi_reserve_factor_call.call()
-                
+
                 short_pool_amount = short_pool_amount_call.call()
                 short_reserve_factor = short_reserve_factor_call.call()
                 short_oi_reserve_factor = short_oi_reserve_factor_call.call()
-                
+
                 # Calculate token price exactly like original
                 if self._long_token_address not in prices:
                     self.log.warning(f"No oracle price for {self._long_token_address} in {market_symbol}")
                     continue
-                    
-                token_price = np.median([
-                    float(prices[self._long_token_address]["maxPriceFull"]) / oracle_precision,
-                    float(prices[self._long_token_address]["minPriceFull"]) / oracle_precision,
-                ])
-                
+
+                token_price = np.median(
+                    [
+                        float(prices[self._long_token_address]["maxPriceFull"]) / oracle_precision,
+                        float(prices[self._long_token_address]["minPriceFull"]) / oracle_precision,
+                    ]
+                )
+
                 self.log.info(f"Token: {market_symbol}")
-                
+
                 # LONG LIQUIDITY - exact same logic as original
                 long_reserve_factor = min(long_reserve_factor, long_oi_reserve_factor)
-                
+
                 if "2" in market_symbol:
                     long_pool_amount = long_pool_amount / 2
-                
+
                 long_max_reserved_tokens = long_pool_amount * long_reserve_factor
                 long_max_reserved_usd = long_max_reserved_tokens / long_precision * token_price
                 long_liquidity = long_max_reserved_usd - float(reserved_long)
-                
+
                 self.log.info(f"Available Long Liquidity: ${long_liquidity:,.2f}")
-                
+
                 # SHORT LIQUIDITY - exact same logic as original
                 short_reserve_factor = min(short_reserve_factor, short_oi_reserve_factor)
                 short_max_reserved_usd = short_pool_amount * short_reserve_factor
                 short_liquidity = short_max_reserved_usd / short_precision - float(reserved_short)
-                
+
                 # Special handling for single side markets
                 if "2" in market_symbol:
                     short_pool_amount = short_pool_amount / 2
                     short_max_reserved_tokens = short_pool_amount * short_reserve_factor
                     short_max_reserved_usd = short_max_reserved_tokens / short_precision * token_price
                     short_liquidity = short_max_reserved_usd - float(reserved_short)
-                
+
                 self.log.info(f"Available Short Liquidity: ${short_liquidity:,.2f}")
-                
+
                 # Store results
                 self.output["long"][market_symbol] = long_liquidity
                 self.output["short"][market_symbol] = short_liquidity
-                
+
             except Exception as e:
                 self.log.error(f"Failed to process market {market_symbol}: {e}")
                 continue
-        
+
         self.output["parameter"] = "available_liquidity"
         return self.output
 
@@ -308,7 +313,7 @@ class GetAvailableLiquidity(GetData):
         # Process results and calculate available liquidity
         available_markets = self.markets.get_available_markets()
         self.log.debug(f"Processing {len(available_markets)} available markets")
-        
+
         processed_count = 0
         for market_key in available_markets:
             if market_key not in multicall_results:
@@ -323,7 +328,7 @@ class GetAvailableLiquidity(GetData):
             if self._long_token_address is None or self._short_token_address is None:
                 self.log.warning(f"Skipping market {market_key} due to missing token addresses")
                 continue
-                
+
             market_symbol = self.markets.get_market_symbol(market_key)
             self.log.debug(f"Processing market symbol: {market_symbol}")
 
@@ -353,7 +358,7 @@ class GetAvailableLiquidity(GetData):
                 short_reserve_factor = safe_extract_uint("short_reserve_factor")
                 long_oi_reserve_factor = safe_extract_uint("long_oi_reserve_factor")
                 short_oi_reserve_factor = safe_extract_uint("short_oi_reserve_factor")
-                
+
                 self.log.debug(f"{market_symbol} extracted values:")
                 self.log.debug(f"  long_pool_amount={long_pool_amount}, short_pool_amount={short_pool_amount}")
                 self.log.debug(f"  long_reserve_factor={long_reserve_factor}, short_reserve_factor={short_reserve_factor}")
@@ -390,12 +395,12 @@ class GetAvailableLiquidity(GetData):
                 # Long side calculation - match original logic
                 if "2" in market_symbol:
                     long_pool_amount = long_pool_amount / 2
-                
+
                 long_max_reserved_tokens = long_pool_amount * effective_long_reserve_factor
                 long_max_reserved_usd = long_max_reserved_tokens / long_precision * token_price
                 long_available_usd = long_max_reserved_usd - reserved_long
 
-                # Short side calculation - match original logic  
+                # Short side calculation - match original logic
                 if "2" in market_symbol:
                     # For single side markets, calculate on token amount like original
                     short_pool_amount = short_pool_amount / 2
@@ -422,7 +427,7 @@ class GetAvailableLiquidity(GetData):
             except Exception as e:
                 self.log.error(f"Failed to process market {market_symbol}: {e}")
                 continue
-                
+
         self.log.info(f"Successfully processed {processed_count} markets out of {len(available_markets)}")
 
         # Add parameter identifier for compatibility
@@ -461,6 +466,7 @@ class GetAvailableLiquidity(GetData):
 
         """
         from typing import Any
+
         # get web3 datastore object
         datastore = get_datastore_contract(self.config.web3, self.config.chain)
 
