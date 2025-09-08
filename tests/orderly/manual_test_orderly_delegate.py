@@ -31,11 +31,13 @@ def vault_delegate(vault_address: str = SIMPLE_VAULT_ADDRESS, broker_id: str = "
     hw = HotWallet(Account.from_key(HOT_WALLET_PRIVATE_KEY))
     hw.sync_nonce(web3)
 
-    simple_vault = get_deployed_contract(web3, "guard/SimpleVaultV1.json", vault_address)
+    simple_vault = get_deployed_contract(web3, "guard/SimpleVaultV0.json", vault_address)
 
     assert simple_vault.functions.owner().call() == hw.address
 
     broker_hash = web3.keccak(text=broker_id)
+
+    # TODO: this should be fixed later
     tx = simple_vault.functions.delegate(ORDERLY_VAULT_ADDRESS, (broker_hash, hw.address)).build_transaction(
         {
             "from": hw.address,
