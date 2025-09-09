@@ -396,7 +396,7 @@ if __name__ == "__main__":
     # claimable_fees = market_data.get_claimable_fees()
     # contract_tvl = market_data.get_contract_tvl()
     # funding_apr = market_data.get_funding_apr()
-    # gm_prices = market_data.get_gm_price()
+        # gm_prices = market_data.get_gm_price()
     # open_interest = market_data.get_open_interest()
     # oracle_prices = market_data.get_oracle_prices()
     # pool_tvl = market_data.get_pool_tvl()
