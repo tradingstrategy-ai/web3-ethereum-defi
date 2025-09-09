@@ -33,7 +33,7 @@ Example:
 
     # Basic market data access
     web3 = Web3(Web3.HTTPProvider("https://arb1.arbitrum.io/rpc"))
-    config = GMXConfig(web3, chain="arbitrum")
+    config = GMXConfig(web3)
     market_data = GMXMarketData(config)
 
     # Get current market overview
@@ -59,9 +59,6 @@ Example:
 Note:
     This module uses read-only configuration to ensure safe data access without
     requiring wallet credentials or transaction signing capabilities.
-
-TODO:
-    Handle the returned data better. Maybe with a class and add proper exceptions
 """
 
 from typing import Any, Dict, Optional
