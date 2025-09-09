@@ -1,12 +1,13 @@
 """
-GMX Utilities Module
+GMX Utilities Module.
 
 This module provides the essential utility functions and computational foundations
 that power the GMX integration system. It implements the mathematical calculations,
 data transformations, and helper operations that form the backbone of all higher-level
 trading, position management, and risk assessment functionality.
 
-**Utility Layer Architecture:**
+Utility Layer Architecture
+--------------------------
 
 Professional trading systems are built on layers of abstraction, where sophisticated
 user interfaces depend on robust utility layers that handle the complex mathematics
@@ -14,7 +15,8 @@ and data processing behind the scenes. This module represents that crucial
 foundation layer, implementing the precise calculations and transformations needed
 for safe and accurate trading operations.
 
-**Key Computational Categories:**
+Key Computational Categories
+----------------------------
 
 - **Financial Mathematics**: Precise liquidation price calculations and risk metrics
 - **Data Transformation**: Converting between different data formats and representations
@@ -22,14 +24,16 @@ for safe and accurate trading operations.
 - **Parameter Validation**: Ensuring data integrity and operational safety
 - **Error Handling**: Graceful handling of edge cases and exceptional conditions
 
-**Mathematical Precision Philosophy:**
+Mathematical Precision Philosophy
+--------------------------------
 
 Financial calculations require absolute precision because small errors can compound
 into significant financial losses. The utility functions implement robust mathematical
 operations using appropriate data types and validation to ensure accuracy across
 all supported market conditions and position sizes.
 
-**Integration with Trading Operations:**
+Integration with Trading Operations
+----------------------------------
 
 These utilities serve as the computational engine for all higher-level operations.
 When you open a position through the trading interface, liquidation calculations
@@ -37,7 +41,8 @@ happen here. When you analyze your portfolio through the market data interface,
 position formatting occurs here. Understanding these utilities helps you understand
 how the entire system works at its core.
 
-**Error Prevention and Validation:**
+Error Prevention and Validation
+------------------------------
 
 The utility layer implements comprehensive validation and error handling to prevent
 invalid operations from propagating through the system. This defensive programming
@@ -96,22 +101,8 @@ Example:
                 amount_of_collateral_to_remove=0.2,  # Free some capital
             )
 
-**Design Philosophy:**
-
-The utilities are designed around principles of mathematical accuracy, operational
-safety, and educational transparency. Each function includes comprehensive validation
-and clear error messages to help developers understand both successful operations
-and failure modes. This approach builds confidence and competence in using
-sophisticated financial tools.
-
-Note:
-    All mathematical calculations use appropriate precision arithmetic to ensure
-    accuracy in financial contexts where rounding errors can have costly consequences.
-
-Warning:
-    Liquidation price calculations are estimates based on current parameters.
-    Actual liquidation prices may vary due to market volatility, funding costs,
-    and other dynamic factors not captured in simplified calculations.
+Design Philosophy
+-----------------
 """
 
 import logging

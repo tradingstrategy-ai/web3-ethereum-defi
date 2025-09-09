@@ -57,14 +57,7 @@ Note:
 
 from typing import Any, Dict, Optional
 
-from eth_defi.gmx.types import (
-    MarketData,
-    PositionSideData, 
-    LiquidityData,
-    PriceData,
-    TVLData,
-    InterestData
-)
+from eth_defi.gmx.types import MarketData, PositionSideData, LiquidityData, PriceData, TVLData, InterestData
 
 from eth_defi.gmx.core.available_liquidity import GetAvailableLiquidity
 from eth_defi.gmx.core.borrow_apr import GetBorrowAPR
@@ -84,11 +77,11 @@ from eth_defi.gmx.config import GMXConfig
 
 class GMXMarketData:
     """Comprehensive market data provider for the GMX protocol.
-    
+
     Provides unified access to all GMX protocol market data through a single,
     consistent interface. Uses read-only access to ensure safe data retrieval
     without requiring wallet credentials or transaction signing capabilities.
-    
+
     Attributes:
         gmx_config: Complete GMX configuration object for network settings
         config: Read-only configuration manager for safe data access operations
@@ -96,26 +89,25 @@ class GMXMarketData:
 
     def __init__(self, gmx_config: GMXConfig):
         """Initialize the market data service.
-        
+
         Sets up the market data provider by extracting a read-only configuration
         from the provided GMXConfig. The read-only configuration ensures that all
         data access operations are safe and cannot accidentally trigger transactions.
-        
-        Args:
-            gmx_config: Complete GMX configuration object containing network settings
-                and optional wallet information. Only the read-only configuration
-                component will be used for data access operations.
+
+        :param gmx_config: Complete GMX configuration object containing network settings
+            and optional wallet information. Only the read-only configuration
+            component will be used for data access operations.
         """
         self.gmx_config = gmx_config
         self.config = gmx_config.get_config()
 
     def get_available_markets(self) -> MarketData:
         """Retrieve comprehensive information about all trading markets available on GMX.
-        
+
         Returns detailed metadata about every trading pair and market supported by
         the GMX protocol on the configured network. The information includes market
         identifiers, supported assets, trading parameters, and current market status.
-        
+
         Returns:
             Dictionary containing complete market information including market names,
             supported tokens, trading parameters, fees, and current status for all
@@ -126,13 +118,13 @@ class GMXMarketData:
 
     def get_available_liquidity(self) -> PositionSideData:
         """Get current available liquidity across all GMX markets and trading pairs.
-        
+
         Retrieves real-time liquidity information showing how much capital is
         available for trading in each market. Available liquidity directly impacts
         the maximum position sizes that can be opened and the potential slippage
         for large trades, making this crucial information for trading strategy
         and risk management.
-        
+
         Returns:
             Nested dictionary structure where outer keys are position sides (long/short)
             and inner dictionaries contain liquidity amounts for different markets.
@@ -294,8 +286,7 @@ class GMXMarketData:
         return GlvStats(self.gmx_config).get_glv_stats()
 
     def get_user_positions(self, address: Optional[str] = None) -> MarketData:
-        """
-        Retrieve all open trading positions for a specific user address.
+        """Retrieve all open trading positions for a specific user address.
 
         This method provides detailed information about a user's current
         trading positions, including position sizes, entry prices, current
@@ -303,13 +294,10 @@ class GMXMarketData:
         information is essential for position management, risk assessment,
         and portfolio analysis.
 
-        Args:
-            address: Ethereum wallet address to query positions for. If not provided,
-                uses the wallet address from the GMX configuration. Must be a valid
-                Ethereum address format (0x...).
-        
-        Returns:
-            Dictionary containing detailed information about all open positions
+        :param address: Ethereum wallet address to query positions for. If not provided,
+            uses the wallet address from the GMX configuration. Must be a valid
+            Ethereum address format (0x...).
+        :return: Dictionary containing detailed information about all open positions
             for the specified address, including position metrics, PnL data,
             margin information, and risk parameters
         """
@@ -317,35 +305,3 @@ class GMXMarketData:
             address = self.gmx_config.get_wallet_address()
 
         return GetOpenPositions(self.gmx_config).get_data(address)
-
-
-if __name__ == "__main__":
-    from web3 import Web3
-    from dotenv import load_dotenv
-    import os
-
-    load_dotenv()
-    # rpc_url = os.environ["ARBITRUM"]
-    rpc_url = os.environ["AVALANCHE"]
-    # Set up web3 connection
-    web3 = Web3(Web3.HTTPProvider(rpc_url))
-
-    # Create GMX configuration
-    config = GMXConfig(web3)
-
-    # Initialize market data module
-    market_data = GMXMarketData(config)
-
-    # Access market data
-    # markets = market_data.get_available_markets()
-    # liquidity = market_data.get_available_liquidity()
-    borrow_apr = market_data.get_borrow_apr()
-    # claimable_fees = market_data.get_claimable_fees()
-    # contract_tvl = market_data.get_contract_tvl()
-    # funding_apr = market_data.get_funding_apr()
-        # gm_prices = market_data.get_gm_price()
-    # open_interest = market_data.get_open_interest()
-    # oracle_prices = market_data.get_oracle_prices()
-    # pool_tvl = market_data.get_pool_tvl()
-    # glv_price = market_data.get_glv_stats()
-    print(borrow_apr)

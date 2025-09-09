@@ -1,13 +1,12 @@
 """
-GMX Markets Data Module (Optimized)
+GMX Markets Data Module
 
-This module provides access to GMX protocol market information and trading pairs
-with optimized performance through efficient caching and streamlined processing.
+This module provides access to GMX protocol market information and trading pairs.
 """
 
 import logging
 from dataclasses import dataclass
-from typing import Optional, Any, Dict, List
+from typing import Optional, Any
 
 from eth_typing import HexAddress
 
@@ -16,13 +15,13 @@ from cchecksum import to_checksum_address
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.contracts import get_contract_addresses, get_reader_contract, get_tokens_address_dict
 from eth_defi.gmx.core.oracle import OraclePrices
-from eth_defi.gmx.types import MarketSymbol
+from eth_defi.gmx.types import MarketSymbol, MarketData
 
 
 @dataclass
 class MarketInfo:
     """Information about a GMX market."""
-    
+
     #: GMX market contract address
     gmx_market_address: HexAddress
     #: Symbol identifier for the market
@@ -70,7 +69,7 @@ class Markets:
             self._process_markets()
             self._processed_markets = True
 
-    def _get_token_metadata_dict(self) -> Dict[HexAddress, dict]:
+    def _get_token_metadata_dict(self) -> dict[HexAddress, dict]:
         """Get or create token metadata dictionary."""
         if self._token_metadata_dict is None:
             # Get token address mapping
@@ -88,7 +87,7 @@ class Markets:
 
         return self._token_metadata_dict
 
-    def _get_oracle_prices(self) -> Dict[str, dict]:
+    def _get_oracle_prices(self) -> dict[str, dict]:
         """Get or fetch oracle prices with caching."""
         if self._oracle_prices is None:
             try:
@@ -99,7 +98,7 @@ class Markets:
 
         return self._oracle_prices
 
-    def get_available_markets(self) -> Dict[str, dict]:
+    def get_available_markets(self) -> MarketData:
         """
         Get the available markets on a given chain.
 
@@ -219,7 +218,7 @@ class Markets:
         # For now, assume all markets in our processed list are enabled
         return market_address not in self._markets_cache
 
-    def _get_available_markets_raw(self) -> List[tuple]:
+    def _get_available_markets_raw(self) -> list[tuple]:
         """
         Get the available markets from the reader contract.
 

@@ -1,8 +1,7 @@
 """
-GMX Borrow APR Data Retrieval Module
+GMX Borrow APR Data Retrieval Module.
 
-This module provides borrow APR data for GMX protocol markets,
-replacing the gmx_python_sdk GetBorrowAPR functionality with exact feature parity.
+This module provides borrow APR data for GMX protocol markets.
 """
 
 import logging
@@ -15,26 +14,24 @@ from eth_defi.gmx.types import PositionSideData
 
 class GetBorrowAPR(GetData):
     """GMX borrow APR data retrieval class.
-    
+
     Retrieves borrow APR information for all available GMX markets,
     replacing the gmx_python_sdk GetBorrowAPR functionality.
     """
 
     def __init__(self, config: GMXConfig, filter_swap_markets: bool = True):
         """Initialize borrow APR data retrieval.
-        
-        Args:
-            config: GMXConfig instance containing chain and network info
-            filter_swap_markets: Whether to filter out swap markets from results
+
+        :param config: GMXConfig instance containing chain and network info
+        :param filter_swap_markets: Whether to filter out swap markets from results
         """
         super().__init__(config, filter_swap_markets)
         self.log = logging.getLogger(__name__)
 
     def _get_data_processing(self) -> PositionSideData:
         """Generate the dictionary of borrow APR data.
-        
-        Returns:
-            Dictionary of borrow APR data with long/short position data
+
+        :return: Dictionary of borrow APR data with long/short position data
         """
         output_list = []
         mapper = []

@@ -1,9 +1,7 @@
 """
-GMX Open Positions Data Module
+GMX Open Positions Data Module.
 
-This module provides access to open positions data for user addresses,
-replacing the gmx_python_sdk GetOpenPositions functionality.
-
+This module provides access to open positions data for user addresses.
 """
 
 import logging
@@ -15,13 +13,13 @@ from cchecksum import to_checksum_address
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.core.get_data import GetData
 from eth_defi.gmx.core.oracle import OraclePrices
-from eth_defi.gmx.contracts import get_reader_contract, get_datastore_contract, get_contract_addresses, get_tokens_address_dict, NETWORK_TOKENS
+from eth_defi.gmx.contracts import get_contract_addresses, get_tokens_address_dict, NETWORK_TOKENS
 from eth_defi.gmx.types import MarketData
 
 
 class GetOpenPositions(GetData):
     """Open positions data provider for GMX protocol.
-    
+
     Retrieves all open trading positions for a specific user address.
     Provides detailed information about current trading positions,
     including position sizes, entry prices, current profit/loss, margin requirements,
@@ -30,25 +28,19 @@ class GetOpenPositions(GetData):
 
     def __init__(self, config: GMXConfig, filter_swap_markets: bool = True):
         """Initialize open positions data provider.
-        
-        Args:
-            config: GMXConfig instance containing chain and network info
-            filter_swap_markets: Whether to filter out swap markets from results
+
+        :param config: GMXConfig instance containing chain and network info
+        :param filter_swap_markets: Whether to filter out swap markets from results
         """
         super().__init__(config, filter_swap_markets=filter_swap_markets)
         self.log = logging.getLogger(__name__)
 
     def get_data(self, address: str) -> MarketData:
         """Get all open positions for a given address on the configured chain.
-        
-        Args:
-            address: User wallet address to query positions for
-            
-        Returns:
-        processed_positions : dict
-            a dictionary containing the open positions, where asset and
-            direction are the keys.
 
+        :param address: User wallet address to query positions for
+        :returns: A dictionary containing the open positions, where asset and direction are the keys
+        :rtype: dict
         """
         # Convert address to checksum format
         checksum_address = to_checksum_address(address)
@@ -93,18 +85,15 @@ class GetOpenPositions(GetData):
             raise e
 
     def _get_tokens_address_dict(self) -> dict[str, Any]:
-        """
-        Enhanced version of get_tokens_address_dict with fallback token data.
+        """Enhanced version of get_tokens_address_dict with fallback token data.
 
         This method calls the original GMX API and supplements it with token data
         from NETWORK_TOKENS for commonly used tokens that might be missing from
         the API response.
 
-        Returns
-        -------
-        dict
-            Dictionary mapping token addresses to their information, enhanced
-            with fallback data from NETWORK_TOKENS
+        :returns: Dictionary mapping token addresses to their information, enhanced
+                  with fallback data from NETWORK_TOKENS
+        :rtype: dict
         """
         try:
             # Get tokens from GMX API using the original function
@@ -156,18 +145,12 @@ class GetOpenPositions(GetData):
                 raise Exception(f"No token data available for chain {chain}")
 
     def _get_data_processing(self, raw_position: tuple) -> dict[str, Any]:
-        """
-        Process raw position data from the reader contract query GetAccountPositions
+        """Process raw position data from the reader contract query GetAccountPositions.
 
-        Parameters
-        ----------
-        raw_position : tuple
-            Raw information returned from the reader contract.
-
-        Returns
-        -------
-        dict
-            A processed dictionary containing info on the positions.
+        :param raw_position: Raw information returned from the reader contract
+        :type raw_position: tuple
+        :returns: A processed dictionary containing info on the positions
+        :rtype: dict
         """
         # Get market information
         available_markets = self.markets.get_available_markets()
@@ -241,12 +224,9 @@ class GetOpenPositions(GetData):
         }
 
     def get_chain_tokens(self) -> dict[str, Any]:
-        """
-        Get chain token information - for backward compatibility with tests.
+        """Get chain token information - for backward compatibility with tests.
 
-        Returns
-        -------
-        dict
-            Dictionary mapping token addresses to their information
+        :returns: Dictionary mapping token addresses to their information
+        :rtype: dict
         """
         return self._get_tokens_address_dict()

@@ -1,9 +1,7 @@
 """
-GMX Pool TVL Data Retrieval Module (Optimized)
+GMX Pool TVL Data Retrieval Module
 
-This module provides pool TVL data for GMX protocol markets with exact feature
-parity to the original gmx-python-sdk implementation, but optimized for performance
-using multicall batching.
+This module provides pool TVL data for GMX protocol markets.
 """
 
 import logging
@@ -11,12 +9,11 @@ import numpy as np
 from typing import Any, Iterable, Optional
 from collections import defaultdict
 
-from web3 import Web3
+from eth_utils import keccak
 
 from eth_defi.event_reader.multicall_batcher import EncodedCall, read_multicall_chunked, EncodedCallResult
 from eth_defi.event_reader.web3factory import TunedWeb3Factory
 from eth_defi.gmx.config import GMXConfig
-from eth_defi.gmx.contracts import get_datastore_contract
 from eth_defi.gmx.core.get_data import GetData
 from eth_defi.gmx.keys import pool_amount_key
 from eth_defi.gmx.core.oracle import OraclePrices
@@ -25,7 +22,7 @@ from eth_defi.gmx.types import TVLData
 
 class GetPoolTVL(GetData):
     """GMX pool TVL data retrieval using multicall optimization.
-    
+
     Retrieves pool TVL information for all available GMX markets using
     multicall batching for better performance while maintaining identical results
     to the original gmx-python-sdk implementation.
@@ -33,9 +30,8 @@ class GetPoolTVL(GetData):
 
     def __init__(self, config: GMXConfig):
         """Initialize pool TVL data retrieval.
-        
-        Args:
-            config: GMXConfig instance containing chain and network info
+
+        :param config: GMXConfig instance containing chain and network info
         """
         super().__init__(config)
         self.log = logging.getLogger(__name__)
@@ -43,9 +39,8 @@ class GetPoolTVL(GetData):
 
     def _get_data_processing(self) -> TVLData:
         """Implementation of abstract method from GetData base class.
-        
-        Returns:
-            Pool TVL data dictionary
+
+        :return: Pool TVL data dictionary
         """
         return self.get_pool_balances()
 
@@ -55,8 +50,7 @@ class GetPoolTVL(GetData):
         This method uses multicall batching to query all pool amounts in a single
         RPC call, significantly improving performance compared to sequential calls.
 
-        Returns:
-            Dictionary of total USD value per pool with structure:
+        :return: Dictionary of total USD value per pool with structure:
             {
                 "MARKET_SYMBOL": {
                     "total_tvl": float,
@@ -149,14 +143,11 @@ class GetPoolTVL(GetData):
     def generate_all_multicalls(self, markets: dict) -> Iterable[EncodedCall]:
         """Generate all multicall requests for all markets.
 
-        Args:
-            markets: Dictionary of available markets
-
-        Returns:
-            Iterable of all EncodedCall objects needed
+        :param markets: Dictionary of available markets
+        :return: Iterable of all EncodedCall objects needed
         """
         # DataStore.getUint() function signature: getUint(bytes32)
-        get_uint_signature = Web3.keccak(text="getUint(bytes32)")[:4]
+        get_uint_signature = keccak(text="getUint(bytes32)")[:4]
 
         for market_key in markets:
             self._get_token_addresses(market_key)
@@ -192,22 +183,3 @@ class GetPoolTVL(GetData):
         except (KeyError, TypeError, ValueError) as e:
             self.log.debug(f"Error calculating USD value for {token_address}: {e}")
             return float(token_balance)
-
-    def _save_json_file_to_datastore(self, filename: str, data: dict):
-        """Save data to JSON file in data directory.
-
-        Creates a 'data' directory if it doesn't exist and saves the pool TVL
-        data as formatted JSON matching the original SDK behavior.
-
-        Args:
-            filename: Filename to save (e.g. "arbitrum_pool_tvl.json")
-            data: Pool TVL data dictionary to save
-        """
-        import json
-        import os
-
-        os.makedirs("data", exist_ok=True)
-        filepath = os.path.join("data", filename)
-        with open(filepath, "w") as f:
-            json.dump(data, f, indent=2)
-        self.log.info(f"Data saved to {filepath}")

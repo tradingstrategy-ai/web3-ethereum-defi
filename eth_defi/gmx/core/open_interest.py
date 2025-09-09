@@ -21,7 +21,7 @@ from eth_defi.gmx.types import MarketSymbol, USDAmount
 @dataclass
 class OpenInterestInfo:
     """Open interest information for a specific GMX market."""
-    
+
     #: GMX market contract address
     market_address: HexAddress
     #: Market symbol identifier
@@ -65,14 +65,10 @@ class GetOpenInterest(GetData):
         self.log = logging.getLogger(__name__)
 
     def _get_data_processing(self) -> dict[str, Any]:
-        """
-        Generate the dictionary of open interest data
+        """Generate the dictionary of open interest data.
 
-        Returns
-        -------
-        funding_apr: dict
-            dictionary of open interest data
-
+        :returns: Dictionary of open interest data
+        :rtype: dict
         """
         oracle_prices_dict = OraclePrices(self.config.chain).get_recent_prices()
 
@@ -167,7 +163,8 @@ class GetOpenInterest(GetData):
 
         return self.output
 
-    def _format_number(self, value: float) -> str:
+    @staticmethod
+    def _format_number(value: float) -> str:
         """
         Format number for display using numerize-like formatting.
 

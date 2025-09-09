@@ -39,5 +39,5 @@ PriceData: TypeAlias = dict[TokenSymbol, USDAmount]
 #: TVL data mapping
 TVLData: TypeAlias = dict[TokenSymbol, USDAmount]
 
-#: Interest data mapping  
+#: Interest data mapping
 InterestData: TypeAlias = dict[TokenSymbol, APRDecimal]

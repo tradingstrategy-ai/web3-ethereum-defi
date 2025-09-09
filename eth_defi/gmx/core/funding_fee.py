@@ -1,5 +1,5 @@
 """
-GMX Funding APR Data Retrieval Module
+GMX Funding APR Data Retrieval Module.
 
 This module provides funding APR data for GMX protocol markets.
 """
@@ -15,25 +15,23 @@ from eth_defi.gmx.utils import apply_factor
 
 class GetFundingFee(GetData):
     """GMX funding fee data retrieval class.
-    
+
     Retrieves funding fee information for all available GMX markets,
     replacing the gmx_python_sdk GetFundingFee functionality.
     """
 
     def __init__(self, config: GMXConfig, filter_swap_markets: bool = True):
         """Initialize funding fee data retrieval.
-        
-        Args:
-            config: GMXConfig instance containing chain and network info
-            filter_swap_markets: Whether to filter out swap markets from results
+
+        :param config: GMXConfig instance containing chain and network info
+        :param filter_swap_markets: Whether to filter out swap markets from results
         """
         super().__init__(config, filter_swap_markets)
 
     def _get_data_processing(self) -> PositionSideData:
         """Generate the dictionary of funding APR data.
-        
-        Returns:
-            Dictionary of funding APR data with long/short position data
+
+        :return: Dictionary of funding APR data with long/short position data
         """
         open_interest = GetOpenInterest(config=self.config).get_data()
 
@@ -114,24 +112,19 @@ class GetFundingFee(GetData):
         long_interest_usd: int,
         short_interest_usd: int,
     ):
+        """For a given market, calculate the funding factor for a given period.
+
+        :param market_info: market parameters returned from the reader contract
+        :type market_info: dict
+        :param is_long: direction of the position
+        :type is_long: bool
+        :param period_in_seconds: Want percentage rate we want to output to be in
+        :type period_in_seconds: int
+        :param long_interest_usd: expanded decimal long interest
+        :type long_interest_usd: int
+        :param short_interest_usd: expanded decimal short interest
+        :type short_interest_usd: int
         """
-        For a given market, calculate the funding factor for a given period
-
-        Parameters
-        ----------
-        market_info : dict
-            market parameters returned from the reader contract.
-        is_long : bool
-            direction of the position.
-        period_in_seconds : int
-            Want percentage rate we want to output to be in.
-        long_interest_usd : int
-            expanded decimal long interest.
-        short_interest_usd : int
-            expanded decimal short interest.
-
-        """
-
         funding_factor_per_second = market_info["funding_factor_per_second"] * 10**-28
 
         long_pays_shorts = market_info["is_long_pays_short"]

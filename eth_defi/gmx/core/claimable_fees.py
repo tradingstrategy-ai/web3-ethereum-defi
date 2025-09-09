@@ -1,5 +1,5 @@
 """
-GMX Claimable Fees Data Retrieval Module
+GMX Claimable Fees Data Retrieval Module.
 
 This module provides claimable fees data for GMX protocol markets. Optimised performance using multicall batching.
 """
@@ -22,16 +22,15 @@ from eth_defi.gmx.types import MarketData
 
 class GetClaimableFees(GetData):
     """GMX claimable fees data retrieval with multicall optimization.
-    
+
     Retrieves claimable fees information for all available GMX markets
     using multicall batching for better performance.
     """
 
     def __init__(self, config: GMXConfig):
         """Initialize claimable fees data retrieval.
-        
-        Args:
-            config: GMXConfig instance containing chain and network info
+
+        :param config: GMXConfig instance containing chain and network info
         """
         super().__init__(config)
         self.log = logging.getLogger(__name__)
@@ -39,20 +38,19 @@ class GetClaimableFees(GetData):
 
     def _get_data_processing(self) -> MarketData:
         """Implementation of abstract method from GetData base class.
-        
-        Returns:
-            Claimable fees data dictionary
+
+        :return: Claimable fees data dictionary
         """
         return self.get_claimable_fees()
 
     def get_claimable_fees(self) -> MarketData:
         """Get claimable fees data using multicall optimization.
-        
+
         Uses multicall batching to query all claimable fee amounts in a single
         RPC call, significantly improving performance compared to sequential calls.
-        
-        Returns:
-            Dictionary containing total claimable fees
+
+        :returns: Dictionary containing total claimable fees
+        :rtype: dict
         """
         market_fees = self.get_per_market_claimable_fees()
 
@@ -63,9 +61,9 @@ class GetClaimableFees(GetData):
 
     def get_per_market_claimable_fees(self) -> dict[str, dict[str, Any]]:
         """Get detailed claimable fees data for each market.
-        
-        Returns:
-            Dictionary of market symbol to fee details
+
+        :returns: Dictionary of market symbol to fee details
+        :rtype: dict
         """
         self.log.debug("GMX v2 Claimable Fees using Multicall")
 
@@ -167,12 +165,9 @@ class GetClaimableFees(GetData):
 
     def generate_all_multicalls(self, markets: dict[str, Any]) -> Iterable[EncodedCall]:
         """Generate all multicall requests for all markets.
-        
-        Args:
-            markets: Dictionary of available markets
-            
-        Returns:
-            Iterable of all EncodedCall objects needed
+
+        :param markets: Dictionary of available markets
+        :return: Iterable of all EncodedCall objects needed
         """
         # DataStore.getUint() function signature: getUint(bytes32)
         get_uint_signature = keccak(text="getUint(bytes32)")[:4]

@@ -1,5 +1,5 @@
 """
-GMX Configuration Module
+GMX Configuration Module.
 
 This module provides the production-ready configuration management system for
 GMX protocol integration, implementing automatic network detection, secure
@@ -7,7 +7,8 @@ wallet abstraction, and comprehensive authentication strategy support. It
 represents the mature, stable implementation used in production trading
 systems and financial applications.
 
-**Production Configuration Architecture:**
+Production Configuration Architecture
+------------------------------------
 
 This implementation focuses on reliability, security, and operational simplicity
 for production environments. Automatic network detection eliminates configuration
@@ -15,7 +16,8 @@ errors, while sophisticated wallet abstraction provides universal compatibility
 without compromising security or performance characteristics of individual
 wallet implementations.
 
-**Key Production Features:**
+Key Production Features
+-----------------------
 
 - **Automatic Chain Detection**: Eliminates network configuration errors
 - **Universal Wallet Support**: Compatible with all BaseWallet implementations
@@ -23,20 +25,23 @@ wallet implementations.
 - **Production Stability**: Thoroughly tested patterns for reliable operation
 - **Backward Compatibility**: Preserves legacy interfaces for existing systems
 
-**Security-First Design:**
+Security-First Design
+---------------------
 
 The production configuration implements defense-in-depth security patterns
 where sensitive operations are isolated into separate configuration contexts.
 Read-only configurations provide safe data access, while write configurations
 implement comprehensive validation and secure credential delegation.
 
-**Operational Reliability:**
+Operational Reliability
+-----------------------
 
 Production systems require configuration management that never fails unexpectedly.
 This implementation includes comprehensive error handling, automatic validation,
 and clear diagnostic information to prevent and resolve operational issues quickly.
 
-**Multi-Environment Support:**
+Multi-Environment Support
+-------------------------
 
 The configuration system automatically adapts to different blockchain networks
 while maintaining consistent interfaces and operational patterns. This enables
@@ -66,18 +71,19 @@ Example:
     gmx_config_manager = config.get_config()
     print(f"Connected to {gmx_config_manager.chain} (ID: {gmx_config_manager.chain_id})")
 
-**Design Philosophy:**
+Design Philosophy
+-----------------
 
 The production configuration embodies the principle of "secure by default"
 where the safest operational mode is also the most convenient. Automatic
 detection reduces human error, while security isolation prevents accidental
 exposure of sensitive operations.
 
-Note:
+.. note::
     This is the recommended configuration implementation for production
     deployments where reliability and security are paramount considerations.
 
-Warning:
+.. warning::
     Production configurations with write capabilities enable real financial
     transactions. Ensure proper security procedures and testing before
     deployment in environments with significant financial exposure.
@@ -90,8 +96,7 @@ from eth_defi.chain import get_chain_name
 
 
 class GMXConfigManager:
-    """
-    GMX protocol configuration manager.
+    """GMX protocol configuration manager.
 
     Manages configuration parameters for GMX protocol operations including
     blockchain network details and user addresses. Follows the transaction-building
@@ -108,8 +113,7 @@ class GMXConfigManager:
         chain_id: int,
         user_wallet_address: Optional[str] = None,
     ):
-        """
-        Initialize configuration manager.
+        """Initialize configuration manager.
 
         :param chain: Blockchain network name (e.g., 'arbitrum', 'avalanche')
         :param chain_id: Blockchain network ID
@@ -125,8 +129,7 @@ class GMXConfigManager:
 
 
 class GMXConfig:
-    """
-    Production-grade configuration management system for secure GMX protocol integration.
+    """Production-grade configuration management system for secure GMX protocol integration.
 
     This class provides the stable, production-ready implementation of configuration
     management that powers real trading systems and financial applications. It
@@ -134,7 +137,8 @@ class GMXConfig:
     comprehensive security controls while maintaining the simplicity and reliability
     required for production deployment.
 
-    **Production Architecture Principles:**
+    Production Architecture Principles
+    ----------------------------------
 
     The production implementation prioritizes operational reliability, security
     isolation, and automatic error prevention. Network parameters are detected
@@ -142,21 +146,24 @@ class GMXConfig:
     secure adapter patterns to preserve individual security models, and comprehensive
     validation prevents common operational pitfalls.
 
-    **Security Architecture:**
+    Security Architecture
+    ---------------------
 
     The configuration system implements strict security boundaries between read
     and write operations. Read configurations provide safe data access without
     any exposure to sensitive credentials, while write configurations implement
     secure credential delegation through validated adapter interfaces.
 
-    **Operational Reliability:**
+    Operational Reliability
+    -----------------------
 
     Production systems require configuration management that operates predictably
     under all conditions. This implementation includes comprehensive error handling,
     automatic parameter validation, and clear diagnostic information to enable
     rapid troubleshooting and reliable operation.
 
-    **Universal Wallet Compatibility:**
+    Universal Wallet Compatibility
+    ------------------------------
 
     Modern financial applications must support diverse wallet implementations
     to accommodate different security requirements and operational preferences.
@@ -175,8 +182,7 @@ class GMXConfig:
         web3: Web3,
         user_wallet_address: Optional[str] = None,
     ):
-        """
-        Initialize GMX configuration with automatic network detection.
+        """Initialize GMX configuration with automatic network detection.
 
         Automatically detects blockchain network parameters from Web3 connections.
         Follows the transaction-building pattern where transactions are prepared
@@ -210,8 +216,7 @@ class GMXConfig:
         )
 
     def get_config(self) -> GMXConfigManager:
-        """
-        Get the configuration manager for GMX operations.
+        """Get the configuration manager for GMX operations.
 
         Returns the configuration manager that can be used with GMX protocol
         classes for transaction preparation and data access.
@@ -222,8 +227,7 @@ class GMXConfig:
 
     # TODO: Get rid of these 2 config methods. Now they are merged into the `get_config` method
     def get_read_config(self) -> GMXConfigManager:
-        """
-        Get configuration manager for read operations.
+        """Get configuration manager for read operations.
 
         Returns the same configuration manager as get_config() for backward
         compatibility with existing code.
@@ -233,8 +237,7 @@ class GMXConfig:
         return self._config
 
     def get_write_config(self) -> GMXConfigManager:
-        """
-        Get configuration manager for write operations.
+        """Get configuration manager for write operations.
 
         Returns the same configuration manager as get_config() for backward
         compatibility. Transaction signing is handled separately during
@@ -245,8 +248,7 @@ class GMXConfig:
         return self._config
 
     def has_write_capability(self) -> bool:
-        """
-        Check if a wallet address is configured.
+        """Check if a wallet address is configured.
 
         Since transaction signing is handled separately, this simply checks
         if a user wallet address has been provided for transaction building.
@@ -256,15 +258,15 @@ class GMXConfig:
         return self._user_wallet_address is not None
 
     def get_chain(self) -> str:
-        """
-        Retrieve the automatically detected blockchain network identifier.
+        """Retrieve the automatically detected blockchain network identifier.
 
         This method returns the network name that was automatically detected
         from the Web3 connection during configuration initialization. Automatic
         detection ensures operational consistency and eliminates network
         configuration errors in production deployments.
 
-        **Production Reliability:**
+        Production Reliability
+        ----------------------
 
         Automatic network detection prevents configuration mismatches that
         could cause operational failures or financial losses in production
@@ -278,15 +280,15 @@ class GMXConfig:
         return self.chain
 
     def get_wallet_address(self) -> Optional[str]:
-        """
-        Retrieve the wallet address associated with this configuration.
+        """Retrieve the wallet address associated with this configuration.
 
         This method returns the Ethereum address that will be used for
         transaction operations when write capabilities are available. The
         address may be explicitly specified or automatically derived from
         wallet implementations using production-tested resolution logic.
 
-        **Production Address Management:**
+        Production Address Management
+        -----------------------------
 
         The configuration system implements reliable address resolution that
         prioritizes explicit specifications while providing secure fallbacks
@@ -301,15 +303,15 @@ class GMXConfig:
         return self._user_wallet_address
 
     def get_network_info(self) -> dict[str, Any]:
-        """
-        Provide comprehensive network configuration information for operational monitoring.
+        """Provide comprehensive network configuration information for operational monitoring.
 
         This method returns detailed information about blockchain network
         configuration including automatically detected parameters, connectivity
         details, and validation status. The information supports operational
         monitoring, debugging, and validation in production environments.
 
-        **Production Monitoring Support:**
+        Production Monitoring Support
+        -----------------------------
 
         The network information includes all parameters necessary for operational
         monitoring systems to validate connectivity, track network status,

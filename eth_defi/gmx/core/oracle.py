@@ -1,5 +1,5 @@
 """
-GMX Oracle Price Data Module
+GMX Oracle Price Data Module.
 
 This module provides access to GMX protocol oracle price feeds across supported networks.
 """
@@ -19,15 +19,12 @@ from eth_defi.gmx.types import PriceData
 
 class OraclePrices:
     """GMX Oracle Prices API client.
-    
+
     Provides access to GMX protocol oracle price feeds across supported networks.
     Handles API requests with retry logic and exponential backoff.
-    
-    Args:
-        chain: Blockchain network name (e.g., 'arbitrum', 'avalanche')
-        
-    Raises:
-        ValueError: If unsupported chain is provided
+
+    :param chain: Blockchain network name (e.g., 'arbitrum', 'avalanche')
+    :raises ValueError: If unsupported chain is provided
     """
 
     def __init__(self, chain: str) -> None:
@@ -45,18 +42,16 @@ class OraclePrices:
 
     def get_recent_prices(self) -> PriceData:
         """Get raw output of the GMX rest v2 api for signed prices.
-        
-        Returns:
-            Dictionary containing raw output for each token as its keys
+
+        :return: Dictionary containing raw output for each token as its keys
         """
         raw_output = self._make_query().json()
         return self._process_output(raw_output)
 
     def _make_query(self, max_retries=5, initial_backoff=1, max_backoff=60) -> Optional[Response]:
         """Make request using oracle URL with retry mechanism.
-        
-        Args:
-            max_retries: Maximum number of retry attempts
+
+        :param max_retries: Maximum number of retry attempts
         :param initial_backoff: Initial backoff time in seconds
         :type initial_backoff: float
         :param max_backoff: Maximum backoff time in seconds
@@ -92,8 +87,10 @@ class OraclePrices:
 
                 # Exponential backoff with capping
                 backoff = min(backoff * 2, max_backoff)
+        return None
 
-    def _process_output(self, output: dict) -> dict:
+    @staticmethod
+    def _process_output(output: dict) -> dict:
         """
         Take the API response and create a new dictionary where the index token addresses are the keys.
 

@@ -1,5 +1,5 @@
 """
-GMX Data Retrieval Base Class
+GMX Data Retrieval Base Class.
 
 This module provides the base class for retrieving various types of data from
 GMX protocol, replacing the gmx_python_sdk GetData functionality.
@@ -21,7 +21,6 @@ from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.contracts import get_reader_contract, get_datastore_contract, get_contract_addresses
 from eth_defi.gmx.core.markets import Markets
 from eth_defi.gmx.core.oracle import OraclePrices
-from eth_defi.gmx.types import PositionSideData
 
 
 class GetData(ABC):
@@ -40,10 +39,9 @@ class GetData(ABC):
 
     def __init__(self, config: GMXConfig, filter_swap_markets: bool = True):
         """Initialize data retrieval base class.
-        
-        Args:
-            config: GMXConfig instance containing chain and network info
-            filter_swap_markets: Whether to filter out swap markets from results
+
+        :param config: GMXConfig instance containing chain and network info
+        :param filter_swap_markets: Whether to filter out swap markets from results
         """
         self.config = config
         self.filter_swap_markets = filter_swap_markets

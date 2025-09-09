@@ -6,7 +6,6 @@ across different chains. Each test focuses on a specific method
 to ensure it returns properly structured data.
 """
 
-import logging
 import pytest
 
 

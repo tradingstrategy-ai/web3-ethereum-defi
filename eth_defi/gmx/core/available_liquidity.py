@@ -1,5 +1,5 @@
 """
-GMX Available Liquidity Data Retrieval Module
+GMX Available Liquidity Data Retrieval Module.
 
 This module provides available liquidity data for GMX protocol markets.
 """
@@ -12,7 +12,7 @@ from collections import defaultdict
 import numpy as np
 
 from eth_typing import HexAddress
-from web3 import Web3
+from eth_utils import keccak
 
 from eth_defi.event_reader.multicall_batcher import EncodedCall, read_multicall_chunked, EncodedCallResult
 from eth_defi.event_reader.web3factory import TunedWeb3Factory
@@ -28,7 +28,7 @@ from eth_defi.gmx.types import MarketSymbol, USDAmount, PositionSideData
 @dataclass
 class LiquidityInfo:
     """Liquidity information for a specific GMX market."""
-    
+
     #: GMX market contract address
     market_address: HexAddress
     #: Market symbol identifier
@@ -47,18 +47,17 @@ class LiquidityInfo:
 
 class GetAvailableLiquidity(GetData):
     """GMX available liquidity data retrieval using efficient multicall batching.
-    
+
     Retrieves available liquidity information for all GMX markets with
     efficient multicall batching for better performance and reduced RPC usage.
     """
 
     def __init__(self, config: GMXConfig, filter_swap_markets: bool = True, use_original_approach: bool = False):
         """Initialize available liquidity data retrieval.
-        
-        Args:
-            config: GMXConfig instance containing chain and network info
-            filter_swap_markets: Whether to filter out swap markets from results
-            use_original_approach: Whether to use original individual calls instead of multicall
+
+        :param config: GMXConfig instance containing chain and network info
+        :param filter_swap_markets: Whether to filter out swap markets from results
+        :param use_original_approach: Whether to use original individual calls instead of multicall
         """
         super().__init__(config, filter_swap_markets)
         self.log = logging.getLogger(__name__)
@@ -74,27 +73,24 @@ class GetAvailableLiquidity(GetData):
         else:
             return self._get_data_processing_multicall()
 
-    def encode_multicalls_for_market(self, market_key: str, long_token: str, short_token: str) -> Iterable[EncodedCall]:
-        """Generate multicall requests for a single market.
-        
-        For each market we need 6 calls:
-        - pool_amount for long token  
+    def generate_multicall_requests(self, market_key: str, long_token: str, short_token: str) -> Iterable[EncodedCall]:
+        """Generate multicall requests for liquidity data.
+
+        For each market we need to query:
+        - pool_amount for long token
         - pool_amount for short token
         - reserve_factor for long
         - reserve_factor for short
         - open_interest_reserve_factor for long
         - open_interest_reserve_factor for short
-        
-        Args:
-            market_key: Market address
-            long_token: Long token address  
-            short_token: Short token address
-            
-        Returns:
-            Iterable of EncodedCall objects
+
+        :param market_key: Market address
+        :param long_token: Long token address
+        :param short_token: Short token address
+        :return: Iterable of EncodedCall objects
         """
         # DataStore.getUint() function signature: getUint(bytes32)
-        get_uint_signature = Web3.keccak(text="getUint(bytes32)")[:4]
+        get_uint_signature = keccak(text="getUint(bytes32)")[:4]
 
         # Generate keys for DataStore queries
         long_pool_key = pool_amount_key(market_key, long_token)
@@ -136,6 +132,7 @@ class GetAvailableLiquidity(GetData):
             if self._long_token_address is None or self._short_token_address is None:
                 self.log.warning(f"Skipping market {market_key} due to missing token addresses")
                 continue
+            # TODO: fix this
             yield from self.encode_multicalls_for_market(market_key, self._long_token_address, self._short_token_address)
 
     # TODO: revove it
@@ -248,18 +245,15 @@ class GetAvailableLiquidity(GetData):
         return self.output
 
     def _get_data_processing_multicall(self) -> PositionSideData:
-        """
-        Generate the dictionary of available liquidity using efficient multicall batching.
+        """Generate the dictionary of available liquidity using efficient multicall batching.
 
-        Returns
-        -------
-        available_liquidity: dict
-            dictionary of available liquidity data with structure:
+        :returns: Dictionary of available liquidity data with structure:
             {
                 "long": {market_symbol: liquidity_value, ...},
                 "short": {market_symbol: liquidity_value, ...},
                 "parameter": "available_liquidity"
             }
+        :rtype: dict
         """
         self.log.debug("GMX v2 Available Liquidity using Multicall")
 
@@ -423,29 +417,21 @@ class GetAvailableLiquidity(GetData):
         return self.output
 
     def get_max_reserved_usd(self, market: str, token: str, is_long: bool) -> tuple:
-        """
-        For a given market, long/short token and pool direction get the
+        """For a given market, long/short token and pool direction get the
         uncalled web3 functions to calculate pool size, pool reserve factor
-        and open interest reserve factor
+        and open interest reserve factor.
 
-        Parameters
-        ----------
-        market: str
-            contract address of GMX market.
-        token: str
-            contract address of long or short token.
-        is_long: bool
-            pass True for long pool or False for short.
-
-        Returns
-        -------
-        pool_amount: web3.contract_obj
-            uncalled web3 contract object for pool amount.
-        reserve_factor: web3.contract_obj
-            uncalled web3 contract object for pool reserve factor.
-        open_interest_reserve_factor: web3.contract_obj
-            uncalled web3 contract object for open interest reserve factor.
-
+        :param market: contract address of GMX market
+        :type market: str
+        :param token: contract address of long or short token
+        :type token: str
+        :param is_long: pass True for long pool or False for short
+        :type is_long: bool
+        :returns: tuple containing:
+            - pool_amount: uncalled web3 contract object for pool amount
+            - reserve_factor: uncalled web3 contract object for pool reserve factor
+            - open_interest_reserve_factor: uncalled web3 contract object for open interest reserve factor
+        :rtype: tuple
         """
         from typing import Any
 
