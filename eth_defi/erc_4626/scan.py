@@ -109,12 +109,15 @@ def create_vault_scan_record(
         return data
     except Exception as e:
 
+        extra_message = ""
         if isinstance(e, HTTPError):
             # dRPC brokeness trap.
             # We should not try to process HTTP 400 entries
-            raise
+            if e.response is not None:
+                extra_message = e.response.text
 
-        import ipdb ; ipdb.set_trace()
+
+        # import ipdb ; ipdb.set_trace()
 
         # Probably caused by misdetecting a vault, then we try to call its functions and they return 0x (no data) instead of cleanly reverting
         # Not sure what is causing this
@@ -122,12 +125,13 @@ def create_vault_scan_record(
         record = empty_record.copy()
         record["Name"] = f"<broken: {e.__class__.__name__}>"
         logger.warning(
-            "Could not read %s %s (%s): %s",
+            "Could not read %s %s (%s): %s - %s",
             vault.__class__.__name__,
             detection.address,
             detection.features,
             str(e),
             exc_info=True,
+            extra_message,
         )
         return record
 
