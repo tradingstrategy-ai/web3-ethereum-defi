@@ -131,7 +131,7 @@ def decode_pair_created(web3: Web3, log: LogResult) -> dict:
     # Do additional lookup for the token data
     token_cache: TokenCache = log["context"]
 
-    block_time = datetime.datetime.utcfromtimestamp(log["timestamp"])
+    block_time = native_datetime_utc_fromtimestamp(log["timestamp"])
 
     # Any indexed Solidity event parameter will be in topics data.
     # The first topics (0) is always the event signature.
@@ -189,7 +189,7 @@ def decode_swap(log: LogResult) -> dict:
     # Raw example event
     # {'address': '0xb4e16d0168e52d35cacd2c6185b44281ec28c9dc', 'blockHash': '0x4ba33a650f9e3d8430f94b61a382e60490ec7a06c2f4441ecf225858ec748b78', 'blockNumber': '0x98b7f6', 'data': '0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000046ec814a2e900000000000000000000000000000000000000000000000000000000000003e80000000000000000000000000000000000000000000000000000000000000000', 'logIndex': '0x4', 'removed': False, 'topics': ['0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822', '0x000000000000000000000000f164fc0ec4e93095b804a4795bbe1e041497b92a', '0x0000000000000000000000008688a84fcfd84d8f78020d0fc0b35987cc58911f'], 'transactionHash': '0x932cb88306450d481a0e43365a3ed832625b68f036e9887684ef6da594891366', 'transactionIndex': '0x1', 'context': <__main__.TokenCache object at 0x104ab7e20>, 'event': <class 'web3._utils.datatypes.Swap'>, 'timestamp': 1588712972}
 
-    block_time = datetime.datetime.utcfromtimestamp(log["timestamp"])
+    block_time = native_datetime_utc_fromtimestamp(log["timestamp"])
 
     pair_contract_address = log["address"]
 
@@ -267,7 +267,7 @@ def main():
                 nonlocal swaps_event_buffer
                 if last_timestamp:
                     # Display progress with the date information
-                    d = datetime.datetime.utcfromtimestamp(last_timestamp)
+                    d = native_datetime_utc_fromtimestamp(last_timestamp)
                     formatted_time = d.strftime("%d-%m-%Y")
                     progress_bar.set_description(f"Block: {current_block:,}, events: {total_events:}, time:{formatted_time}")
                 else:

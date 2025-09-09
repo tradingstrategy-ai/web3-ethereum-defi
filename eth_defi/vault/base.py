@@ -15,15 +15,21 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from decimal import Decimal
 from functools import cached_property
-from typing import Iterable, TypedDict, TypeAlias
+from typing import Iterable, TypedDict, TypeAlias, Tuple
 
-from eth.typing import BlockRange
-from eth_typing import BlockIdentifier, HexAddress
+from eth_typing import BlockIdentifier, HexAddress, BlockNumber
+from hexbytes import HexBytes
+
 from web3 import Web3
+from web3.contract.contract import ContractFunction
 
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.token import DEFAULT_TOKEN_CACHE, TokenAddress, TokenDetails, fetch_erc20_details
+from eth_defi.vault.deposit_redeem import VaultDepositManager
 from eth_defi.vault.lower_case_dict import LowercaseDict
+
+
+BlockRange = Tuple[BlockNumber, BlockNumber]
 
 
 @dataclass(slots=True)
@@ -132,7 +138,7 @@ class VaultPortfolio:
     dex_hints: dict[HexAddress, list[str]] = field(default_factory=dict)
 
     def __post_init__(self):
-        assert isinstance(self.spot_erc20, LowercaseDict)
+        assert isinstance(self.spot_erc20, LowercaseDict), f"Got: {type(self.spot_erc20)}"
 
         for token, value in self.spot_erc20.items():
             assert type(token) == str
@@ -477,6 +483,16 @@ class VaultBase(ABC):
         """Vault share token symbol"""
         pass
 
+    @cached_property
+    def flow_manager(self) -> VaultFlowManager:
+        """Flow manager associated with this vault"""
+        return self.get_flow_manager()
+
+    @cached_property
+    def deposit_manager(self) -> VaultDepositManager:
+        """Deposit manager assocaited with this vault"""
+        return self.get_deposit_manager()
+
     @abstractmethod
     def has_block_range_event_support(self) -> bool:
         """Does this vault support block range-based event queries for deposits and redemptions.
@@ -515,10 +531,14 @@ class VaultBase(ABC):
 
     @abstractmethod
     def get_flow_manager(self) -> VaultFlowManager:
-        """Get flow manager to read individial events.
+        """Get flow manager to read indiviaul settle events.
 
         - Only supported if :py:meth:`has_block_range_event_support` is True
         """
+
+    @abstractmethod
+    def get_deposit_manager(self) -> VaultDepositManager:
+        """Get deposit manager to deposit/redeem from the vault."""
 
     @abstractmethod
     def get_historical_reader(self, stateful: bool) -> VaultHistoricalReader:
@@ -598,44 +618,6 @@ class VaultBase(ABC):
             Vault protocol specific information dictionary
         """
         return self.fetch_info()
-
-    def get_redemption_delay(self) -> datetime.timedelta:
-        """Get the redemption delay for this vault.
-
-        - How long it takes before a redemption request is allowed
-
-        - This is not specific for any address, but the general vault rule
-
-        - E.g. you get  0xa592703b is an IPOR Fusion error code AccountIsLocked,
-          if you `try to instantly redeem from IPOR vaults <https://ethereum.stackexchange.com/questions/170119/is-there-a-way-to-map-binary-solidity-custom-errors-to-their-symbolic-sources>`__
-
-        :return:
-            Redemption delay as a :py:class:`datetime.timedelta`
-
-        :raises NotImplementedError:
-            If not implemented for this vault protocoll.
-        """
-        raise NotImplementedError(f"Class {self.__class__.__name__} does not implement get_redemption_delay()")
-
-    def get_redemption_delay_over(self, address: HexAddress | str) -> datetime.datetime:
-        """Get the redemption timer left for an address.
-
-        - How long it takes before a redemption request is allowed
-
-        - This is not specific for any address, but the general vault rule
-
-        - E.g. you get  0xa592703b is an IPOR Fusion error code AccountIsLocked,
-          if you `try to instantly redeem from IPOR vaults <https://ethereum.stackexchange.com/questions/170119/is-there-a-way-to-map-binary-solidity-custom-errors-to-their-symbolic-sources>`__
-
-        :return:
-            UTC timestamp when the account can redeem.
-
-            Naive datetime.
-
-        :raises NotImplementedError:
-            If not implemented for this vault protocoll.
-        """
-        raise NotImplementedError(f"Class {self.__class__.__name__} does not implement get_redemption_delay_over()")
 
     def get_management_fee(self, block_identifier: BlockIdentifier) -> float:
         """Get the current management fee as a percent.

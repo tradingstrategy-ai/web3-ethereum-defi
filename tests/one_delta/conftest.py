@@ -57,7 +57,7 @@ def anvil_polygon_chain_fork(request, large_usdc_holder) -> str:
 @pytest.fixture
 def web3(anvil_polygon_chain_fork: str):
     """Set up a Web3 provider instance with a lot of workarounds for flaky nodes."""
-    web3 = create_multi_provider_web3(anvil_polygon_chain_fork)
+    web3 = create_multi_provider_web3(anvil_polygon_chain_fork, retries=2)
     return web3
 
 

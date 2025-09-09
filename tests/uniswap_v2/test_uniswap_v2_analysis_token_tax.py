@@ -187,6 +187,7 @@ def test_analyse_taxed_buy(
         quote_token=base_usdc.contract,
         intermediate_token=base_weth.contract,
         amount_in=raw_amount,
+        support_token_tax=False,
     ).transact({"from": hot_wallet_user.address})
     assert_transaction_success_with_explanation(web3, tx_hash)
 

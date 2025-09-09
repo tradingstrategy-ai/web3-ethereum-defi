@@ -44,15 +44,13 @@ guard:
 		-name "GuardV0.json" \
 		-o \
 		-name "SimpleVaultV0.json" \
-		-o \
-		-name "SimpleVaultV1.json" \
 		\) \
 		-exec cp {} eth_defi/abi/guard \;
 
 # Guard as  a safe module
 safe-integration:
 	@mkdir -p eth_defi/abi/safe-integration
-	@(cd contracts/safe-integration && forge build)
+	@(cd contracts/safe-integration && forge clean && forge build)
 	@find contracts/safe-integration/out \
 		\(  \
 		-name "TradingStrategyModuleV0.json" \
@@ -192,13 +190,17 @@ compile-projects-and-prepare-abi: clean-abi sushi in-house guard safe-integratio
 
 all: clean-docs compile-projects-and-prepare-abi build-docs
 
+# HACK: poetry export is broken
+# https://github.com/python-poetry/poetry-plugin-export/issues/176
 # Export the dependencies, so that Read the docs can build our API docs
 # See: https://github.com/readthedocs/readthedocs.org/issues/4912
 # terms_of_service is in-place dev dependency, only used for tests and must be removed for RTD
 rtd-dep-export:
-	@poetry export --without-hashes --with dev --extras docs --extras data --extras hypersync -f requirements.txt --output /tmp/requirements.txt
-	@grep -v 'terms-of-service' < /tmp/requirements.txt > docs/requirements.txt
+	@pip freeze > /tmp/requirements.txt
+	@grep -v 'terms-of-service' < /tmp/requirements.txt > /tmp/requirements2.txt
+	@grep -v 'git+ssh' < /tmp/requirements2.txt > docs/requirements.txt
 	@echo "-e ." >> docs/requirements.txt
+
 
 # Build docs locally
 build-docs:

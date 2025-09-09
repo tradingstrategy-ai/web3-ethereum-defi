@@ -15,6 +15,7 @@ from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.trading import GMXTrading
 from eth_defi.gmx.liquidity import GMXLiquidityManager
 from eth_defi.gmx.order import GMXOrderManager
+from eth_defi.tx import get_tx_broadcast_data
 
 
 def test_wallet_adapter_signer_initialization(web3_fork, chain_name):
@@ -214,6 +215,7 @@ def test_wallet_adapter_signer_get_address(web3_fork, chain_name):
 
 def test_wallet_adapter_sign_transaction(web3_fork, chain_name):
     """Test that the WalletAdapterSigner can sign transactions."""
+
     # Create a hot wallet with anvil private key
     anvil_private_key = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
     account = Account.from_key(anvil_private_key)
@@ -235,10 +237,20 @@ def test_wallet_adapter_sign_transaction(web3_fork, chain_name):
     # Sign transaction (without nonce)
     signed_tx = adapter.sign_transaction(tx)
 
+    # MIGRATED: Use compatibility function instead of direct attribute access
     # Verify it's a properly signed transaction
     assert signed_tx is not None
-    assert hasattr(signed_tx, "rawTransaction")
-    assert isinstance(signed_tx.rawTransaction, (bytes, HexBytes))
+
+    # Test that we can get raw transaction data (works with both rawTransaction and raw_transaction)
+    raw_tx_data = get_tx_broadcast_data(signed_tx)
+    assert raw_tx_data is not None
+    assert isinstance(raw_tx_data, (bytes, HexBytes))
+
+    # Additional compatibility checks
+    # Check that the signed transaction has at least one of the expected attributes
+    has_old_attr = hasattr(signed_tx, "rawTransaction")
+    has_new_attr = hasattr(signed_tx, "raw_transaction")
+    assert has_old_attr or has_new_attr, "SignedTransaction missing both rawTransaction and raw_transaction attributes"
 
     # Sign transaction with nonce
     tx_with_nonce = tx.copy()
@@ -246,10 +258,17 @@ def test_wallet_adapter_sign_transaction(web3_fork, chain_name):
 
     signed_tx2 = adapter.sign_transaction(tx_with_nonce)
 
+    # MIGRATED: Use compatibility function instead of direct attribute access
     # Verify it's a properly signed transaction
     assert signed_tx2 is not None
-    assert hasattr(signed_tx2, "rawTransaction")
-    assert isinstance(signed_tx2.rawTransaction, (bytes, HexBytes))
+
+    # Test that we can get raw transaction data (works with both rawTransaction and raw_transaction)
+    raw_tx_data2 = get_tx_broadcast_data(signed_tx2)
+    assert raw_tx_data2 is not None
+    assert isinstance(raw_tx_data2, (bytes, HexBytes))
+
+    # Verify both transactions have different raw data (different nonces)
+    assert raw_tx_data != raw_tx_data2, "Transactions with different nonces should have different raw data"
 
 
 def test_wallet_adapter_send_transaction(web3_fork, chain_name):

@@ -1,3 +1,5 @@
+# 1. Update your test file (test_enzyme_usdc_payment_forwarder.py):
+
 """Enzyme USDC EIP-3009 payment forwarder.
 
 - transferWithAuthorization() and receiveWithAuthorization() integration tests for Enzyme protocol
@@ -14,6 +16,9 @@ from web3.contract import Contract
 from eth_defi.deploy import deploy_contract
 from eth_defi.enzyme.deployment import EnzymeDeployment, RateAsset
 from eth_defi.enzyme.vault import Vault
+
+# UPDATED IMPORT - use compat layer instead
+from eth_defi.compat import add_middleware
 from eth_defi.middleware import construct_sign_and_send_raw_middleware_anvil
 from eth_defi.token import TokenDetails
 from eth_defi.trace import assert_transaction_success_with_explanation
@@ -44,11 +49,27 @@ def user(web3, deployer, usdc) -> LocalAccount:
         account.address,
         500 * 10**6,
     ).transact({"from": deployer})
-    web3.middleware_onion.add(construct_sign_and_send_raw_middleware_anvil(account))
+
+    # Use official patterns from web3.py docs
+    from eth_defi.compat import WEB3_PY_V7
+
+    if WEB3_PY_V7:
+        # v7 - official pattern from docs
+        from web3.middleware import SignAndSendRawMiddlewareBuilder
+
+        middleware = SignAndSendRawMiddlewareBuilder.build(account)
+        web3.middleware_onion.inject(middleware, layer=0)
+    else:
+        # v6 - use your existing function
+        from eth_defi.middleware import construct_sign_and_send_raw_middleware_anvil
+
+        middleware = construct_sign_and_send_raw_middleware_anvil(account)
+        web3.middleware_onion.inject(middleware, layer=0)
+
     return account
 
 
-# FAILED tests/enzyme/test_enzyme_usdc_payment_forwarder.py::test_enzyme_usdc_payment_forwarder_receive_with_authorization - eth_defi.trace.TransactionAssertionError: Revert reason: execution reverted
+# Rest of the test functions remain the same...
 @flaky.flaky
 def test_enzyme_usdc_payment_forwarder_receive_with_authorization(
     web3: Web3,
@@ -132,7 +153,6 @@ def test_enzyme_usdc_payment_forwarder_receive_with_authorization(
     assert vault.payment_forwarder.functions.amountProxied().call() == 500 * 10**6
 
 
-# No idea why flaky
 @flaky.flaky
 def test_enzyme_usdc_payment_forwarder_transfer_with_authorization(
     web3: Web3,

@@ -35,7 +35,7 @@ def simple_vault(
     asset_manager: str,
 ) -> Contract:
     """Mock vault."""
-    vault = deploy_contract(web3, "guard/SimpleVaultV1.json", deployer, asset_manager)
+    vault = deploy_contract(web3, "guard/SimpleVaultV0.json", deployer, asset_manager)
 
     assert vault.functions.owner().call() == deployer
     vault.functions.initialiseOwnership(owner).transact({"from": deployer})
@@ -81,10 +81,10 @@ def test_orderly_delegate_signer(
         )
 
     broker_hash = web3.keccak(text=broker_id)
-    tx = simple_vault.functions.delegate(
-        orderly_vault.address,
-        (broker_hash, hot_wallet.address),
-    ).transact({"from": deployer, "gas": 500_000})
+    delegate_call = orderly_vault.contract.functions.delegateSigner((broker_hash, hot_wallet.address))
+
+    # TODO: this should be fixed later so the delegate_call is invoked from SimpleVault contract
+    tx = delegate_call.transact({"from": deployer, "gas": 500_000})
     assert_transaction_success_with_explanation(web3, tx)
 
     resp = OrderlyApiClient(

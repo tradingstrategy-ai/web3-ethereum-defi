@@ -4,10 +4,10 @@ import os
 
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
-from web3.middleware import construct_sign_and_send_raw_middleware
 
-from eth_defi.abi import get_deployed_contract, encode_function_call
-from eth_defi.enzyme.deployment import EnzymeDeployment, POLYGON_DEPLOYMENT
+from eth_defi.abi import encode_function_call, get_deployed_contract
+from eth_defi.compat import construct_sign_and_send_raw_middleware
+from eth_defi.enzyme.deployment import POLYGON_DEPLOYMENT, EnzymeDeployment
 from eth_defi.enzyme.generic_adapter import execute_calls_for_generic_adapter
 from eth_defi.enzyme.vault import Vault
 from eth_defi.provider.multi_provider import create_multi_provider_web3

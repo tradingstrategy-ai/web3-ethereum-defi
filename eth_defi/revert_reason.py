@@ -10,7 +10,15 @@ import logging
 import pprint
 from typing import Union
 
-from eth_tester.exceptions import TransactionFailed
+try:
+    from eth_tester.exceptions import TransactionFailed
+except ImportError:
+    # New Web3.py versions got rid of this?
+    # Mock here
+    class TransactionFailed(Exception):
+        pass
+
+
 from hexbytes import HexBytes
 from web3 import Web3
 from web3.exceptions import ContractLogicError

@@ -30,7 +30,8 @@ from .trusted_tokens import KNOWN_GOOD_TOKENS
 logger = logging.getLogger(__name__)
 
 
-DEFAULT_CACHE_PATH = Path.home() / ".cache" / "tradingstrategy" / "token-risk.sqlite"
+#: The default location of SQLite cache of Token Risk replies
+DEFAULT_CACHE_PATH = Path.home() / ".cache" / "tradingstrategy" / "glide-token-risk.sqlite"
 
 
 #: List of Token Risk flags we do not want to trade by default
@@ -242,6 +243,18 @@ class TokenRisk:
             )
 
         data = resp.json()
+
+        # error_message {'cached': True,
+        #  'cached_at': '2025-08-18T10:26:16.911559',
+        #  'data_fetched_at': '2025-08-18T10:26:16.911525',
+        #  'error_message': 'The address could not be parsed due to an invalid or '
+        #                   'unrecognized format'}
+        if "error_message" in data:
+            raise TokenRiskError(
+                msg=f"Token Risk replied on address {address}: {data['error_message']}",
+                status_code=resp.status_code,
+                address=address,
+            )
 
         # Add timestamp when this was recorded,
         # so cache can have this also as a content value

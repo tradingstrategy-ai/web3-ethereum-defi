@@ -12,6 +12,7 @@ from eth_defi.provider.multi_provider import create_multi_provider_web3, MultiPr
 from eth_defi.provider.named import get_provider_name
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.abi import ZERO_ADDRESS
+from eth_defi.tx import get_tx_broadcast_data
 
 
 @pytest.fixture(scope="module")
@@ -118,7 +119,8 @@ def test_multi_provider_transact(anvil):
         }
     )
 
-    tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+    raw_bytes = get_tx_broadcast_data(signed_tx)
+    tx_hash = web3.eth.send_raw_transaction(raw_bytes)
     assert_transaction_success_with_explanation(anvil_web3, tx_hash)
 
     mev_blocker = web3.get_configured_transact_provider()

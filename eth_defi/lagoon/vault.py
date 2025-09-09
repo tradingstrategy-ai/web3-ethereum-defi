@@ -27,23 +27,23 @@ from dataclasses import asdict
 from decimal import Decimal
 from functools import cached_property
 
-from eth.typing import BlockRange
-from eth_typing import HexAddress, BlockIdentifier, ChecksumAddress
-
-
 import eth_abi
+from eth.typing import BlockRange
+from eth_typing import BlockIdentifier, ChecksumAddress, HexAddress
 from hexbytes import HexBytes
+from safe_eth.safe import Safe
+from safe_eth.safe.exceptions import CannotRetrieveSafeInfoException
 from web3 import Web3
 from web3.contract import Contract
 from web3.contract.contract import ContractFunction
 from web3.exceptions import ContractLogicError
 
-from eth_defi.vault.base import VaultSpec, VaultInfo, VaultFlowManager
+from eth_defi.vault.base import VaultFlowManager, VaultInfo, VaultSpec
+from .deposit_redeem import ERC7540DepositRequest
 
-from safe_eth.safe import Safe
-from safe_eth.safe.exceptions import CannotRetrieveSafeInfoException
-
-from ..abi import get_deployed_contract, encode_function_call, present_solidity_args, get_function_selector, get_function_abi_by_name
+from ..abi import encode_function_call, get_deployed_contract, get_function_abi_by_name, get_function_selector, present_solidity_args
+from ..erc_4626.core import ERC4626Feature
+from ..erc_4626.deposit_redeem import ERC4626DepositRequest, ERC4626DepositTicket
 from ..erc_4626.vault import ERC4626Vault
 from ..event_reader.multicall_batcher import EncodedCall
 from ..safe.safe_compat import create_safe_ethereum_client
@@ -131,6 +131,7 @@ class LagoonVault(ERC4626Vault):
         trading_strategy_module_address: HexAddress | None = None,
         token_cache: dict | None = None,
         vault_abi: str | None = None,
+        features: set[ERC4626Feature] = None,
     ):
         """
         :param spec:
@@ -148,11 +149,7 @@ class LagoonVault(ERC4626Vault):
 
             None = autodetect.
         """
-        assert isinstance(web3, Web3)
-        assert isinstance(spec, VaultSpec)
-        super().__init__(web3, spec, token_cache=token_cache)
-        self.web3 = web3
-        self.spec = spec
+        super().__init__(web3, spec, features=features or {ERC4626Feature.lagoon_like, ERC4626Feature.erc_7540_like}, token_cache=token_cache)
         self.trading_strategy_module_address = trading_strategy_module_address
 
         if vault_abi is None:
@@ -212,6 +209,33 @@ class LagoonVault(ERC4626Vault):
 
         return version
 
+    def fetch_trading_strategy_module_version(self) -> str | None:
+        """ "Perform deployed smart contract probing.
+
+        :return:
+            v0.1.0 or v0.1.1.
+
+            None if not TS module associated.
+        """
+
+        if not self.trading_strategy_module_address:
+            return None
+
+        probe_call = EncodedCall.from_keccak_signature(
+            function="getTradingStrategyModuleVersion",
+            address=Web3.to_checksum_address(self.trading_strategy_module_address),
+            signature=Web3.keccak(text="getTradingStrategyModuleVersion()")[0:4],
+            data=b"",
+            extra_data={},
+        )
+
+        try:
+            version_bytes = probe_call.call(self.web3, block_identifier="latest")
+            return version_bytes.decode("utf-8")
+        except (ValueError, ContractLogicError) as e:
+            # getTradingStrategyModuleVersion() was not yet created
+            return "v0.1.0"
+
     def check_version_compatibility(self):
         """Throw if there is mismatch between ABI and contract exposed EVM calls"""
         if self.version != LagoonVersion.legacy:
@@ -229,6 +253,15 @@ class LagoonVault(ERC4626Vault):
         - Cached property to avoid multiple calls
         """
         version = self.fetch_version()
+        return version
+
+    @cached_property
+    def trading_strategy_module_version(self) -> str:
+        """Get TradingStrategyModuleV0 contract ABI version.
+
+        - Subject to change, development in progress
+        """
+        version = self.fetch_trading_strategy_module_version()
         return version
 
     @cached_property
@@ -421,6 +454,8 @@ class LagoonVault(ERC4626Vault):
     def transact_via_trading_strategy_module(
         self,
         func_call: ContractFunction,
+        value: int = 0,
+        abi_version: str = None,
     ) -> ContractFunction:
         """Create a Safe multisig transaction using TradingStrategyModuleV0.
 
@@ -430,24 +465,41 @@ class LagoonVault(ERC4626Vault):
         :param func_call:
             Bound smart contract function call
 
+        :param abi_version:
+            Use specific TradingStrategyModuleV0 ABI version.
+
         :return:
             Bound Solidity functionc all you need to turn to a transaction
 
         """
+        assert self.trading_strategy_module_address is not None, f"TradingStrategyModuleV0 address not set for vault {self.vault_address}"
         contract_address = func_call.address
         data_payload = encode_function_call(func_call, func_call.arguments)
+
+        module_version = abi_version or self.trading_strategy_module_version
+
         logger.info(
-            "Lagoon: Wrapping call to TradingStrategyModuleV0. Target: %s, function: %s (0x%s), args: %s, payload is %d bytes",
+            "Lagoon: Wrapping call to TradingStrategyModuleV0 %s. Target: %s, function: %s (0x%s), args: %s, payload is %d bytes",
+            module_version,
             contract_address,
             func_call.fn_name,
             get_function_selector(func_call).hex(),
             present_solidity_args(func_call.arguments),
             len(data_payload),
         )
-        bound_func = self.trading_strategy_module.functions.performCall(
-            contract_address,
-            data_payload,
-        )
+
+        if module_version == "v0.1.0":
+            bound_func = self.trading_strategy_module.functions.performCall(
+                contract_address,
+                data_payload,
+            )
+        else:
+            # Value parameter was added for Orderly
+            bound_func = self.trading_strategy_module.functions.performCall(
+                contract_address,
+                data_payload,
+                value,
+            )
         return bound_func
 
     def post_new_valuation(
@@ -477,7 +529,7 @@ class LagoonVault(ERC4626Vault):
         bound_func = self.vault_contract.functions.updateNewTotalAssets(raw_amount)
         return bound_func
 
-    def settle_via_trading_strategy_module(self, valuation: Decimal = None) -> ContractFunction:
+    def settle_via_trading_strategy_module(self, valuation: Decimal = None, abi_version: None = None) -> ContractFunction:
         """Settle the new valuation and deposits.
 
         - settleDeposit will also settle the redeems request if possible. If there are enough assets in the safe it will settleRedeem
@@ -486,6 +538,9 @@ class LagoonVault(ERC4626Vault):
         - if there is nothing to settle: no deposit and redeem requests you can still call settleDeposit/settleRedeem to validate the new nav
 
         - If there is not enough USDC to redeem, the transaction will revert
+
+        :param abi_version:
+            Use specific ABI version.
 
         :param raw_amount:
             Needed in Lagoon v0.5+
@@ -510,7 +565,7 @@ class LagoonVault(ERC4626Vault):
             bound_func = self.vault_contract.functions.settleDeposit(raw_amount)
         else:
             bound_func = self.vault_contract.functions.settleDeposit()
-        return self.transact_via_trading_strategy_module(bound_func)
+        return self.transact_via_trading_strategy_module(bound_func, abi_version=abi_version)
 
     def post_valuation_and_settle(
         self,
@@ -558,6 +613,10 @@ class LagoonVault(ERC4626Vault):
         - Used for testing
         - Must be approved() first
         - Uses the vault underlying token (USDC)
+
+        .. note::
+
+            Legacy. Use :py:meth:`get_deposit_manager` instead.
 
         :param raw_amount:
             Raw amount in underlying token
@@ -644,6 +703,11 @@ class LagoonVault(ERC4626Vault):
         assert self.trading_strategy_module_address, "TradingStrategyModuleV0 address must be separately given in the configuration"
         return self.safe.contract.functions.isModuleEnabled(self.trading_strategy_module_address).call() == True
 
+    def get_deposit_manager(self) -> "eth_defi.lagoon.deposit_redeem.ERC7540DepositManager":
+        from eth_defi.lagoon.deposit_redeem import ERC7540DepositManager
+
+        return ERC7540DepositManager(self)
+
 
 class LagoonFlowManager(VaultFlowManager):
     """Manage deposit/redemption queue for Lagoon.
@@ -682,7 +746,7 @@ class LagoonFlowManager(VaultFlowManager):
     def fetch_processed_redemption_event(self, vault: VaultSpec, range: BlockRange) -> None:
         raise NotImplementedError()
 
-    def calculate_underlying_neeeded_for_redemptions(self, block_identifier: BlockIdentifier) -> Decimal:
+    def calculate_underlying_needed_for_redemptions(self, block_identifier: BlockIdentifier) -> Decimal:
         """How much underlying token (USDC) we are going to need on the next redemption cycle.
 
         :return:

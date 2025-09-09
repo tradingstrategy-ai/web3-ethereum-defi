@@ -4,13 +4,13 @@ import dataclasses
 import datetime
 import logging
 import time
-from dataclasses import dataclass
 
 import requests
 from eth_typing import HexStr
 from web3 import Web3
 from web3.types import BlockIdentifier
 
+from eth_defi.compat import native_datetime_utc_fromtimestamp
 from eth_defi.event_reader.conversion import convert_jsonrpc_value_to_int
 from eth_defi.utils import to_unix_timestamp
 
@@ -53,7 +53,7 @@ def get_latest_block_timestamp(web3: Web3) -> datetime.datetime:
     else:
         ts = ts_str
 
-    return datetime.datetime.utcfromtimestamp(ts)
+    return native_datetime_utc_fromtimestamp(ts)
 
 
 def get_block_timestamp(web3: Web3, block_identifier: BlockIdentifier) -> datetime.datetime:
@@ -93,7 +93,7 @@ def get_block_timestamp(web3: Web3, block_identifier: BlockIdentifier) -> dateti
         else:
             ts = ts_str
 
-        return datetime.datetime.utcfromtimestamp(ts)
+        return native_datetime_utc_fromtimestamp(ts)
     except Exception as e:
         raise RuntimeError(f"Failed to read timestamp for block {block_identifier}, chain: {web3.eth.chain_id}: {e}") from e
 
@@ -152,6 +152,6 @@ def estimate_block_number_for_timestamp_by_findblock(
     return FindBlockReply(
         block_number=int(data["number"]),
         hash=HexStr(data["hash"]),
-        block_timestamp=datetime.datetime.utcfromtimestamp(data["timestamp"]),
+        block_timestamp=native_datetime_utc_fromtimestamp(data["timestamp"]),
         searched_timestamp=timestamp,
     )

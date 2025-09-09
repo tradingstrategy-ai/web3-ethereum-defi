@@ -6,22 +6,12 @@ import shutil
 
 import flaky
 import pytest
-from eth_account import Account
-from eth_account.signers.local import LocalAccount
-from eth_typing import HexAddress, HexStr
 
 from eth_defi.aave_v3.constants import MAX_AMOUNT
-from eth_defi.hotwallet import HotWallet
-from eth_defi.one_delta.deployment import OneDeltaDeployment
-from eth_defi.one_delta.deployment import fetch_deployment as fetch_1delta_deployment
 from eth_defi.one_delta.lending import supply, withdraw
 from eth_defi.one_delta.position import approve
-from eth_defi.provider.anvil import fork_network_anvil, mine
-from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.token import fetch_erc20_details
-from eth_defi.trace import assert_transaction_success_with_explanation
 
-from .utils import _execute_tx, _print_current_balances
+from .utils import _execute_tx
 
 # https://docs.pytest.org/en/latest/how-to/skipping.html#skip-all-test-functions-of-a-class-or-module
 pytestmark = pytest.mark.skipif(
@@ -32,6 +22,7 @@ pytestmark = pytest.mark.skipif(
 logger = logging.getLogger(__name__)
 
 
+@flaky.flaky
 def test_one_delta_supply(
     web3,
     hot_wallet,

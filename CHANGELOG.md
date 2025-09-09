@@ -1,5 +1,14 @@
 # Current
 
+- Migrate to Web3.py 7.x with the optional Web3 6.x dependency available. See [README](github.com/tradingstrategy-ai/web3-ethereum-defi) for updated installation instruction details.
+- Add: Support `swapExactTokensForTokensSupportingFeeOnTransferTokens` in GuardV0 and `swap_with_slippage_protection()`
+- Add: `VaultDepositManager` interface which abstracts deposit/redeem process over different vaults: ERC-4626, ERC-7540, Gains-like
+- Add: Support Gains 
+- Add: Support Ostium 
+- 
+# 0.32
+
+- Last release before Web3.py 7.x update
 - Add: [Token Risk API by Hexen](https://hexens.io/solutions/token-risks-api/)
 - Add: Vault 1h price scanning and cleaning pipeline
 - Add: Move a lot of vault analysis functionality to their own Python modules, instead of copy-pasting in notebook to improve documentation and reusability
@@ -8,8 +17,9 @@
 - Add: `check_etherscan_api_key()` to do a pre-flight check your Etherscan API key works
 - Add: Lagoon custom deployments for BNB Chain and Mode
 - Fix: `TradingStrategyModuleV0` Zodiac module contract size for deployment
-- Fix: Vault share price for gTrade and other vaults using non-standard formula which is not total assets / total supply  
+- Fix: [Vault share price for gTrade (Gains Network) and other vaults using non-standard formula which is not total assets / total supply](https://web3-ethereum-defi.readthedocs.io/tutorials/erc-4626-single-vault.html)  
 
+- Add: `get_tx_broadcast_data` is added to get raw transaction bytes using both versions web3py i.e. `v6` & `v7`
 # 0.31
 
 - Add: Lagoon vault guard re-deployment against an existing vault

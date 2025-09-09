@@ -31,13 +31,15 @@ def supply(
         # approve
         tx = approve_fn.build_transaction({"from": hot_wallet.address})
         signed = hot_wallet.sign_transaction_with_new_nonce(tx)
-        tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
+        raw_bytes = get_tx_broadcast_data(signed_tx)
+        tx_hash = web3.eth.send_raw_transaction(raw_bytes)
         assert_transaction_success_with_explanation(web3, tx_hash)
 
         # supply
         tx = supply_fn.build_transaction({"from": hot_wallet.address})
         signed = hot_wallet_account.sign_transaction_with_new_nonce(tx)
-        tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
+        raw_bytes = get_tx_broadcast_data(signed_tx)
+        tx_hash = web3.eth.send_raw_transaction(raw_bytes)
         assert_transaction_success_with_explanation(web3, tx_hash)
 
     :param aave_v3_deployment:
@@ -93,7 +95,8 @@ def withdraw(
 
         tx = withdraw_fn.build_transaction({"from": hot_wallet.address})
         signed = hot_wallet_account.sign_transaction_with_new_nonce(tx)
-        tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
+        raw_bytes = get_tx_broadcast_data(signed_tx)
+        tx_hash = web3.eth.send_raw_transaction(raw_bytes)
         assert_transaction_success_with_explanation(web3, tx_hash)
 
     :param aave_v3_deployment:
@@ -142,7 +145,8 @@ def borrow(
 
         tx = borrow_fn.build_transaction({"from": hot_wallet.address})
         signed = hot_wallet_account.sign_transaction_with_new_nonce(tx)
-        tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
+        raw_bytes = get_tx_broadcast_data(signed_tx)
+        tx_hash = web3.eth.send_raw_transaction(raw_bytes)
         assert_transaction_success_with_explanation(web3, tx_hash)
 
     :param aave_v3_deployment:
@@ -195,13 +199,15 @@ def repay(
         # approve
         tx = approve_fn.build_transaction({"from": hot_wallet.address})
         signed = hot_wallet.sign_transaction_with_new_nonce(tx)
-        tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
+        raw_bytes = get_tx_broadcast_data(signed_tx)
+        tx_hash = web3.eth.send_raw_transaction(raw_bytes)
         assert_transaction_success_with_explanation(web3, tx_hash)
 
         # repay
         tx = repay_fn.build_transaction({"from": hot_wallet.address})
         signed = hot_wallet_account.sign_transaction_with_new_nonce(tx)
-        tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
+        raw_bytes = get_tx_broadcast_data(signed_tx)
+        tx_hash = web3.eth.send_raw_transaction(raw_bytes)
         assert_transaction_success_with_explanation(web3, tx_hash)
 
     :param aave_v3_deployment:

@@ -10,17 +10,22 @@ import eth_abi
 from eth_typing import HexAddress
 from web3 import Web3
 from web3.contract import Contract
-from web3.exceptions import BadFunctionCallOutput, BlockNumberOutofRange
+from eth_defi.compat import WEB3_PY_V7
+
+if WEB3_PY_V7:
+    from web3.exceptions import BadFunctionCallOutput, BlockNumberOutOfRange
+else:
+    from web3.exceptions import BlockNumberOutofRange as BlockNumberOutOfRange, BadFunctionCallOutput
+
 from web3.types import BlockIdentifier
 
 from eth_defi.abi import ZERO_ADDRESS_STR
-from eth_defi.balances import fetch_erc20_balances_fallback
+from eth_defi.balances import fetch_erc20_balances_fallback, fetch_erc20_balances_multicall
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract, ERC4626Feature
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int, convert_uint256_bytes_to_address
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, BatchCallState
 from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.vault.base import VaultBase, VaultSpec, VaultInfo, TradingUniverse, VaultPortfolio, VaultFlowManager, VaultHistoricalReader, VaultHistoricalRead
-
 
 logger = logging.getLogger(__name__)
 
@@ -725,7 +730,7 @@ class ERC4626Vault(VaultBase):
         assert isinstance(block_identifier, (int, str)), f"Block identifier should be int or str, got {type(block_identifier)}"
         try:
             raw_amount = self.share_token.contract.functions.totalSupply().call(block_identifier=block_identifier)
-        except BlockNumberOutofRange as e:
+        except BlockNumberOutOfRange as e:
             raise RuntimeError(f"Cannot fetch total supply for block number: {block_identifier} for vault {self}") from e
         return self.share_token.convert_to_decimals(raw_amount)
 
@@ -763,14 +768,25 @@ class ERC4626Vault(VaultBase):
         self,
         universe: TradingUniverse,
         block_identifier: BlockIdentifier | None = None,
+        allow_fallback: bool = True,
     ) -> VaultPortfolio:
-        erc20_balances = fetch_erc20_balances_fallback(
-            self.web3,
-            self.safe_address,
-            universe.spot_token_addresses,
-            block_identifier=block_identifier,
-            decimalise=True,
-        )
+        if allow_fallback:
+            erc20_balances = fetch_erc20_balances_fallback(
+                self.web3,
+                self.safe_address,
+                universe.spot_token_addresses,
+                block_identifier=block_identifier,
+                decimalise=True,
+            )
+        else:
+            # Test path - f@#$@#$ Anvil issues
+            erc20_balances = fetch_erc20_balances_multicall(
+                self.web3,
+                self.safe_address,
+                universe.spot_token_addresses,
+                block_identifier=block_identifier,
+                decimalise=True,
+            )
         return VaultPortfolio(
             spot_erc20=erc20_balances,
         )
@@ -801,6 +817,11 @@ class ERC4626Vault(VaultBase):
 
     def get_flow_manager(self) -> VaultFlowManager:
         return NotImplementedError()
+
+    def get_deposit_manager(self) -> "eth_defi.erc_4626.deposit_redeem.ERC4626DepositManager":
+        from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
+
+        return ERC4626DepositManager(self)
 
     def has_block_range_event_support(self):
         raise NotImplementedError()

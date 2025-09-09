@@ -5,32 +5,42 @@ Deploy ERC-20 tokens to be used within your test suite.
 `Read also unit test suite for tokens to see how ERC-20 can be manipulated in pytest <https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/tests/test_token.py>`_.
 """
 
+import datetime
 import json
 import logging
-import datetime
 import os
+import warnings
 from collections import OrderedDict, defaultdict
-from dataclasses import dataclass, asdict, field
+from dataclasses import asdict, dataclass, field
 from decimal import Decimal
 from functools import cached_property
 from pathlib import Path
-from typing import Optional, Union, TypeAlias, Any, Iterable, TypedDict
-import warnings
+from typing import Any, Iterable, Optional, TypeAlias, TypedDict, Union
 
 import cachetools
 from web3.contract.contract import ContractFunction, ContractFunctions
 
+from eth_defi.compat import native_datetime_utc_now
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int, convert_solidity_bytes_to_string
-from eth_defi.event_reader.multicall_batcher import EncodedCall, read_multicall_chunked, EncodedCallResult
+from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, read_multicall_chunked
 from eth_defi.event_reader.web3factory import Web3Factory
+from eth_defi.provider.named import get_provider_name
 from eth_defi.sqlite_cache import PersistentKeyValueStore
 
 with warnings.catch_warnings():
     # DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html
     warnings.simplefilter("ignore")
-    from eth_tester.exceptions import TransactionFailed
+    try:
+        from eth_tester.exceptions import TransactionFailed
+    except ImportError:
+        # New Web3.py versions got rid of this?
+        # Mock here
+        class TransactionFailed(Exception):
+            pass
+
 
 from eth_typing import HexAddress
+from requests.exceptions import ReadTimeout
 from web3 import Web3
 from web3.contract import Contract
 from web3.exceptions import BadFunctionCallOutput, ContractLogicError
@@ -38,7 +48,6 @@ from web3.exceptions import BadFunctionCallOutput, ContractLogicError
 from eth_defi.abi import get_deployed_contract
 from eth_defi.deploy import deploy_contract
 from eth_defi.utils import sanitise_string
-
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +76,8 @@ WRAPPED_NATIVE_TOKEN: dict[int, HexAddress | str] = {
     42161: "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
     # WAVAX
     43114: "0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7",
+    # WETH: Arbitrum Sepolia
+    421614: "0x7b79995e5f793A07Bc00c21412e50Ecae098E7f9",
 }
 
 #: Addresses of wrapped native token (WETH9) of different chains
@@ -82,6 +93,8 @@ USDC_NATIVE_TOKEN: dict[int, HexAddress | str] = {
     # BNB
     # https://www.coingecko.com/en/coins/binance-bridged-usdc-bnb-smart-chain
     56: "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d",
+    # Arbitrum Sepolia
+    421614: "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d",
 }
 
 
@@ -90,8 +103,21 @@ USDC_WHALE: dict[int, HexAddress | str] = {
     # Base
     #
     8453: "0x40EbC1Ac8d4Fedd2E144b75fe9C0420BE82750c6",
+    # Arbitrum
+    # Coinbase 10
+    # https://arbiscan.io/token/0xaf88d065e77c8cc2239327c5edb3a432268e5831#balances
+    42161: "0x3DD1D15b3c78d6aCFD75a254e857Cbe5b9fF0aF2",
 }
 
+#: Used in fork testing
+USDT_WHALE: dict[int, HexAddress | str] = {
+    # BNB Chain
+    #
+    56: "0x55d398326f99059ff775485246999027b3197955",
+    # Arbitrum
+    # https://arbiscan.io/token/0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9#balances
+    42161: "0x8f9c79B9De8b0713dCAC3E535fc5A1A92DB6EA2D",
+}
 
 #: Addresses USDT Tether of different chains
 USDT_NATIVE_TOKEN: dict[int, HexAddress] = {
@@ -274,6 +300,13 @@ LARGE_USDC_HOLDERS = {
 }
 
 
+@dataclass(frozen=True, slots=True)
+class DummyPickledContract:
+    """Contract placeholder making contract references pickable"""
+
+    address: str
+
+
 @dataclass
 class TokenDetails:
     """ERC-20 token Python presentation.
@@ -283,6 +316,8 @@ class TokenDetails:
     - Read on-chain data, deal with token value decimal conversions.
 
     - Any field can be ``None`` for non-well-formed tokens.
+
+    - Supports one-way pickling
 
     Example how to get USDC details on Polygon:
 
@@ -322,6 +357,16 @@ class TokenDetails:
 
     def __repr__(self):
         return f"<{self.name} ({self.symbol}) at {self.contract.address}, {self.decimals} decimals, on chain {self.chain_id}>"
+
+    def __getstate__(self):
+        """Contract cannot be pickled."""
+        state = self.__dict__.copy()
+        state["contract"] = DummyPickledContract(address=self.contract.address)
+        return state
+
+    def __setstate__(self, state):
+        """Contract cannot be pickled."""
+        self.__dict__.update(state)
 
     @cached_property
     def chain_id(self) -> int:
@@ -662,9 +707,14 @@ def fetch_erc20_details(
 
     try:
         symbol = sanitise_string(erc_20.functions.symbol().call()[0:max_str_length])
+    except ReadTimeout as e:
+        # Handle this specially because Anvil is piece of hanging shit
+        # and we need to manually clean up these all the time
+        provider_name = get_provider_name(web3.provider)
+        raise TokenDetailError(f"Token {token_address} timeout reading on chain {chain_id}: {e}, provider {provider_name}") from e
     except _call_missing_exceptions as e:
         if raise_on_error:
-            raise TokenDetailError(f"Token {token_address} missing symbol on chain {chain_id}") from e
+            raise TokenDetailError(f"Token {token_address} missing symbol on chain {chain_id}: {e}") from e
         symbol = None
     except OverflowError:
         # OverflowError: Python int too large to convert to C ssize_t
@@ -893,7 +943,7 @@ class TokenDiskCache(PersistentKeyValueStore):
         super().__init__(filename)
 
     def encode_value(self, value: dict) -> Any:
-        value["saved_at"] = datetime.datetime.utcnow().isoformat()
+        value["saved_at"] = native_datetime_utc_now().isoformat()
         return json.dumps(value)
 
     def decode_value(self, value: str) -> Any:

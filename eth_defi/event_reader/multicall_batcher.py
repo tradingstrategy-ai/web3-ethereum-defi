@@ -17,6 +17,7 @@ import datetime
 import logging
 import os
 import threading
+import time
 import zlib
 
 from abc import abstractmethod
@@ -36,6 +37,7 @@ from web3.contract import Contract
 from web3.contract.contract import ContractFunction
 
 from eth_defi.abi import get_deployed_contract, ZERO_ADDRESS, encode_function_call, ZERO_ADDRESS_STR, format_debug_instructions
+from eth_defi.compat import native_datetime_utc_now
 from eth_defi.event_reader.fast_json_rpc import get_last_headers
 from eth_defi.event_reader.multicall_timestamp import fetch_block_timestamps_multiprocess
 from eth_defi.event_reader.web3factory import Web3Factory
@@ -137,7 +139,7 @@ def call_multicall(
 
     payload_size = sum(20 + len(c[1]) for c in encoded_calls)
 
-    start = datetime.datetime.utcnow()
+    start = native_datetime_utc_now()
 
     logger.info(
         f"Performing multicall, input payload total size %d bytes on %d functions, block is {block_identifier:,}",
@@ -162,7 +164,7 @@ def call_multicall(
         results[call.get_key()] = call.handle(succeed, output)
 
     # User friendly logging
-    duration = datetime.datetime.utcnow() - start
+    duration = native_datetime_utc_now() - start
     logger.info("Multicall result fetch and handling took %s, output was %d bytes", duration, out_size)
 
     return results
@@ -181,7 +183,7 @@ def call_multicall_encoded(
 
     payload_size = sum(20 + len(c[1]) for c in encoded_calls)
 
-    start = datetime.datetime.utcnow()
+    start = native_datetime_utc_now()
 
     logger.info(
         f"Performing multicall, input payload total size %d bytes on %d functions, block is {block_identifier:,}",
@@ -206,7 +208,7 @@ def call_multicall_encoded(
         results[call.get_key()] = call.handle(succeed, output)
 
     # User friendly logging
-    duration = datetime.datetime.utcnow() - start
+    duration = native_datetime_utc_now() - start
     logger.info("Multicall result fetch and handling took %s, output was %d bytes", duration, out_size)
 
     return results
@@ -266,7 +268,7 @@ def call_multicall_debug_single_thread(
             len(data),
             call.get_human_args(),
         )
-        started = datetime.datetime.utcnow()
+        started = native_datetime_utc_now()
 
         # 0xcdca1753000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000004c4b400000000000000000000000000000000000000000000000000000000000000042833589fcd6edb6e08f4c7c32d4f71b54bda029130001f44200000000000000000000000000000000000006000bb8ca73ed1815e5915489570014e024b7ebe65de67900000000000000000000000000000000000000000000000000000000000
         if len(data) >= 196:
@@ -289,7 +291,7 @@ def call_multicall_debug_single_thread(
 
         results[call.get_key()] = call.handle(success, output)
 
-        duration = datetime.datetime.utcnow() - started
+        duration = native_datetime_utc_now() - started
         logger.info("Success %s, took %s", success, duration)
 
     return results
@@ -619,7 +621,7 @@ class EncodedCall:
     ) -> bytes:
         """Return raw results of the call.
 
-        Example:
+        Example how to read:
 
         .. code-block:: python
 
@@ -685,6 +687,41 @@ class EncodedCall:
                     continue
 
                 raise e
+
+    def transact(
+        self,
+        from_: HexAddress,
+        gas_limit: int,
+    ) -> dict:
+        """Build a transaction payload for this call.
+
+        Example:
+
+        .. code-block:: python
+
+            gas_limit = 15_000_000
+
+            # function settleDeposit(uint256 _newTotalAssets) public virtual;
+            call = EncodedCall.from_keccak_signature(
+                address=vault.address,
+                function="settleDeposit()",
+                signature=Web3.keccak(text="settleDeposit(uint256)")[0:4],
+                data=convert_uin256_to_bytes(raw_nav),
+                extra_data=None,
+            )
+            tx_data = call.transact(
+                from_=asset_manager,
+                gas_limit=gas_limit,
+            )
+            tx_hash = web3.eth.send_transaction(tx_data)
+            assert_transaction_success_with_explanation(web3, tx_hash)
+        """
+        return {
+            "to": self.address,
+            "data": self.data.hex(),
+            "from": from_,
+            "gas": gas_limit,
+        }
 
     def call_as_result(
         self,
@@ -799,6 +836,7 @@ class MultiprocessMulticallReader:
         web3factory: Web3Factory | Web3,
         batch_size=40,
         backswitch_threshold=100,
+        too_many_requets_sleep=60.0,
     ):
         """Create subprocess worker instance.
 
@@ -836,6 +874,8 @@ class MultiprocessMulticallReader:
 
         #: Try to switch back from the fallback provider to the main provider after this many calls.
         self.backswitch_threshold = backswitch_threshold
+
+        self.too_many_requets_sleep = too_many_requets_sleep
 
     def __repr__(self):
         return f"<MultiprocessMulticallReader process: {os.getpid()}, thread: {threading.current_thread()}, chain: {self.web3.eth.chain_id}>"
@@ -913,6 +953,13 @@ class MultiprocessMulticallReader:
                 addresses = [t[0] for t in batch_calls]
                 error_msg = f"Multicall failed for chain {chain_id}, block {block_identifier}, batch size: {len(batch_calls)}: {e}.\nUsing provider: {self.web3.provider.__class__}: {name}\nHTTP reply headers: {pformat(headers)}\nTo simulate:\n{debug_data}\nAddresses: {addresses}"
                 parsed_error = str(e)
+
+                if isinstance(e, HTTPError) and e.response.status_code == 429:
+                    # Alchemy throttling us
+                    logger.warning("Received HTTP 429: %s from %s, headers %s, sleeping %s", e, name, pformat(headers), self.too_many_requets_sleep)
+                    time.sleep(self.too_many_requets_sleep)
+                    raise MulticallRetryable(error_msg) from e
+
                 # F*cking hell Ethereum nodes, what unbearable mess.
                 # Need to maintain crappy retry rules and all node behaviour is totally random
                 # fmt: off
@@ -979,7 +1026,7 @@ class MultiprocessMulticallReader:
         filtered_in_calls = [c for c in calls if c.is_valid_for_block(block_identifier)]
         encoded_calls = [(Web3.to_checksum_address(c.address), c.data) for c in filtered_in_calls]
 
-        start = datetime.datetime.utcnow()
+        start = native_datetime_utc_now()
 
         if len(filtered_out_calls) > 0:
             filtered_out_call_block = f"{filtered_out_calls[0].first_block_number:,}"
@@ -1074,7 +1121,7 @@ class MultiprocessMulticallReader:
             )
 
         # User friendly logging
-        duration = datetime.datetime.utcnow() - start
+        duration = native_datetime_utc_now() - start
         logger.info("Multicall result fetch and handling took %s, output was %d bytes", duration, out_size)
 
         # Cycle back to our main provider and hope it has recovered from the errors
@@ -1351,11 +1398,68 @@ def read_multicall_chunked(
     timeout=1800,
     chunk_size: int = 40,
     progress_bar_desc: str | None = None,
+    timestamped_results=True,
 ) -> Iterable[EncodedCallResult]:
     """Read current data using multiple processes in parallel for speedup.
 
     - All calls hit the same block number
     - Show a progress bar using :py:mod:`tqdm`
+
+    Example:
+
+    .. code-block:: python
+
+            # Generated packed multicall for each token contract we want to query
+            balance_of_signature = Web3.keccak(text="balanceOf(address)")[0:4]
+
+
+            def _gen_calls(addresses: Iterable[str]) -> Iterable[EncodedCall]:
+                for _token_address in addresses:
+                    yield EncodedCall.from_keccak_signature(
+                        address=_token_address.lower(),
+                        signature=balance_of_signature,
+                        data=convert_address_to_bytes32(out_address),
+                        extra_data={},
+                        ignore_errors=True,
+                        function="balanceOf",
+                    )
+
+
+            web3factory = MultiProviderWeb3Factory(web3.provider.endpoint_uri, hint="fetch_erc20_balances_multicall")
+
+            # Execute calls for all token balance reads at a specific block.
+            # read_multicall_chunked() will automatically split calls to multiple chunks
+            # if we are querying too many.
+            results = read_multicall_chunked(
+                chain_id=chain_id,
+                web3factory=web3factory,
+                calls=list(_gen_calls(tokens)),
+                block_identifier=block_identifier,
+                max_workers=max_workers,
+                timestamped_results=False,
+            )
+
+            results = list(results)
+
+            addr_to_balance = LowercaseDict()
+
+            for result in results:
+                token_address = result.call.address
+
+                if not result.result:
+                    if raise_on_error:
+                        raise BalanceFetchFailed(f"Could not read token balance for ERC-20: {token_address} for address {out_address}")
+                    value = None
+                else:
+                    raw_value = convert_int256_bytes_to_int(result.result)
+                    if decimalise:
+                        token = fetch_erc20_details(web3, token_address, cache=token_cache, chain_id=chain_id)
+                        value = token.convert_to_decimals(raw_value)
+                    else:
+                        value = raw_value
+
+                addr_to_balance[token_address] = value
+
 
     :param chain_id:
         Which EVM chain we are targeting with calls.
@@ -1382,6 +1486,18 @@ def read_multicall_chunked(
 
     :param progress_bar_desc:
         If set, display a TQDM progress bar for the process.
+
+    :param timestamped_results:
+        Need timestamp of the block number in each result.
+
+        Causes very slow eth_getBlock call, use only if needed.
+
+    :return:
+        Iterable of results.
+
+        One entry per each call.
+
+        Calls may be different order than originally given.
     """
 
     assert type(chain_id) == int, f"Got: {chain_id}"
@@ -1408,9 +1524,15 @@ def read_multicall_chunked(
         progress_bar = None
 
     def _task_gen() -> Iterable[MulticallHistoricalTask]:
+        if timestamped_results:
+            # Need timestamp of block number
+            ts = None
+        else:
+            # Prefill our current time, do not care about the real timestamp
+            ts = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
         for i in range(0, len(calls), chunk_size):
             chunk = calls[i : i + chunk_size]
-            yield MulticallHistoricalTask(chain_id, web3factory, block_identifier, chunk)
+            yield MulticallHistoricalTask(chain_id, web3factory, block_identifier, chunk, timestamp=ts)
 
     performed_calls = success_calls = failed_calls = 0
     for completed_task in worker_processor(delayed(_execute_multicall_subprocess)(task) for task in _task_gen()):

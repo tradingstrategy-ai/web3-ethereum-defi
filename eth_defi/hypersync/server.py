@@ -90,8 +90,13 @@ HYPERSYNC_SERVES = {
 }
 
 
-def get_hypersync_server(web3: Web3) -> str:
-    chain_id = web3.eth.chain_id
+def get_hypersync_server(web3: Web3 | int) -> str:
+    """Get HyperSync server for Web3 instance or by chain id"""
+
+    if type(web3) == int:
+        chain_id = web3
+    else:
+        chain_id = web3.eth.chain_id
     server = HYPERSYNC_SERVES.get(chain_id)
     assert server, f"Does not know HyperSync server for chain: {chain_id}"
 

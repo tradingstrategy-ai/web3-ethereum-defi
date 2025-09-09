@@ -13,8 +13,8 @@ import os
 from decimal import Decimal
 
 from web3 import Web3
-from web3.middleware import construct_sign_and_send_raw_middleware
 
+from eth_defi.compat import construct_sign_and_send_raw_middleware
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.testing import emulate_keepers
 from eth_defi.gmx.trading import GMXTrading
@@ -25,7 +25,6 @@ from eth_defi.provider.named import get_provider_name
 from eth_defi.token import fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.utils import setup_console_logging
-
 
 #: Arbitrum address holding large USDC balance, used to seed accounts in simulation
 LARGE_USDC_HOLDER = "0xF977814e90dA44bFA03b6295A0616a897441aceC"

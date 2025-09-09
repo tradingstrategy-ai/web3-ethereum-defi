@@ -14,18 +14,17 @@ Any Safe must be deployed as 1-of-1 deployer address multisig and multisig holde
 import logging
 import os
 import time
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from io import StringIO
 from pathlib import Path
 from pprint import pformat
-from typing import Callable, Any
+from typing import Any, Callable
 
 import eth_abi
 from eth_account.signers.local import LocalAccount
-from eth_typing import HexAddress, BlockNumber
+from eth_typing import BlockNumber, HexAddress
 from hexbytes import HexBytes
 from safe_eth.safe.safe import Safe
-
 from web3 import Web3
 from web3.contract import Contract
 from web3.contract.contract import ContractFunction
@@ -38,10 +37,12 @@ from eth_defi.foundry.forge import deploy_contract_with_forge
 from eth_defi.hotwallet import HotWallet
 from eth_defi.lagoon.beacon_proxy import deploy_beacon_proxy
 from eth_defi.lagoon.vault import LagoonVault
+from eth_defi.orderly.vault import OrderlyVault
 from eth_defi.provider.anvil import is_anvil
-from eth_defi.safe.deployment import deploy_safe, add_new_safe_owners, fetch_safe_deployment
-from eth_defi.token import get_wrapped_native_token_address, fetch_erc20_details, WRAPPED_NATIVE_TOKEN
+from eth_defi.safe.deployment import add_new_safe_owners, deploy_safe, fetch_safe_deployment
+from eth_defi.token import WRAPPED_NATIVE_TOKEN, fetch_erc20_details, get_wrapped_native_token_address
 from eth_defi.trace import assert_transaction_success_with_explanation
+from eth_defi.tx import get_tx_broadcast_data
 from eth_defi.uniswap_v2.deployment import UniswapV2Deployment
 from eth_defi.uniswap_v3.deployment import UniswapV3Deployment
 from eth_defi.vault.base import VaultSpec
@@ -540,7 +541,8 @@ def deploy_lagoon(
         )
 
         signed_tx = deployer.sign_transaction(tx_params)
-        tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+        raw_bytes = get_tx_broadcast_data(signed_tx)
+        tx_hash = web3.eth.send_raw_transaction(raw_bytes)
         assert_transaction_success_with_explanation(web3, tx_hash)
     elif factory_contract:
         # Latest method
@@ -572,7 +574,8 @@ def deploy_lagoon(
         }
         tx_data = bound_func.build_transaction(tx_params)
         signed_tx = deployer.sign_transaction(tx_data)
-        tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+        raw_bytes = get_tx_broadcast_data(signed_tx)
+        tx_hash = web3.eth.send_raw_transaction(raw_bytes)
         assert_transaction_success_with_explanation(web3, tx_hash)
 
         receipt = web3.eth.get_transaction_receipt(tx_hash)
@@ -659,6 +662,7 @@ def deploy_safe_trading_strategy_module(
 
 
 def setup_guard(
+    *,
     web3: Web3,
     safe: Safe,
     deployer: HotWallet,
@@ -668,9 +672,10 @@ def setup_guard(
     module: Contract,
     broadcast_func: Callable[[ContractFunction], HexBytes],
     any_asset: bool = False,
-    uniswap_v2: UniswapV2Deployment = None,
-    uniswap_v3: UniswapV3Deployment = None,
-    aave_v3: AaveV3Deployment = None,
+    uniswap_v2: UniswapV2Deployment | None = None,
+    uniswap_v3: UniswapV3Deployment | None = None,
+    orderly_vault: OrderlyVault | None = None,
+    aave_v3: AaveV3Deployment | None = None,
     erc_4626_vaults: list[ERC4626Vault] | None = None,
 ):
     """Setups up TradingStrategyModuleV0 guard on the Lagoon vault.
@@ -682,7 +687,7 @@ def setup_guard(
     """
 
     assert isinstance(deployer, HotWallet), f"Got: {deployer}"
-    assert type(owner) == str
+    assert isinstance(owner, str), f"Got: {owner}"
     assert isinstance(module, Contract)
     assert isinstance(vault, Contract)
     assert callable(broadcast_func), "Must have a broadcast function for txs"
@@ -740,6 +745,13 @@ def setup_guard(
     else:
         logger.info("Not whitelisted: Aave v3")
 
+    if orderly_vault:
+        logger.info("Whitelisting Orderly vault: %s", orderly_vault.address)
+        tx_hash = _broadcast(module.functions.whitelistOrderly(orderly_vault.address, "Allow Orderly"))
+        assert_transaction_success_with_explanation(web3, tx_hash)
+    else:
+        logger.info("Not whitelisted: Orderly vault")
+
     # Whitelist all ERC-4626 vaults
     if erc_4626_vaults:
         for erc_4626_vault in erc_4626_vaults:
@@ -778,6 +790,7 @@ def setup_guard(
 
 
 def deploy_automated_lagoon_vault(
+    *,
     web3: Web3,
     deployer: LocalAccount | HotWallet,
     asset_manager: HexAddress,
@@ -786,11 +799,12 @@ def deploy_automated_lagoon_vault(
     safe_threshold: int,
     uniswap_v2: UniswapV2Deployment | None,
     uniswap_v3: UniswapV3Deployment | None,
+    orderly_vault: OrderlyVault | None = None,
     aave_v3: AaveV3Deployment | None = None,
     any_asset: bool = False,
     etherscan_api_key: str = None,
     use_forge=False,
-    between_contracts_delay_seconds=10.0,
+    between_contracts_delay_seconds=45.0,
     erc_4626_vaults: list[ERC4626Vault] | None = None,
     guard_only: bool = False,
     existing_vault_address: HexAddress | str | None = None,
@@ -852,7 +866,6 @@ def deploy_automated_lagoon_vault(
     existing_guard_module = None
     beacon_proxy_factory_address = None
 
-    #
     def _broadcast(bound_func: ContractFunction):
         """Hack together a nonce management helper.
 
@@ -864,9 +877,11 @@ def deploy_automated_lagoon_vault(
         assert bound_func.args is not None
         if isinstance(deployer, HotWallet):
             # Path must be taken with prod deployers
+            deployer.sync_nonce(web3)
             tx_hash = deployer.transact_and_broadcast_with_contract(bound_func)
             assert_transaction_success_with_explanation(web3, tx_hash)
-            deployer.sync_nonce(web3)
+            logger.info("Sleeping for 2 seconds to wait for nonce to propagate")
+            time.sleep(2)
             return tx_hash
         elif isinstance(deployer, LocalAccount):
             # Only for Anvil
@@ -989,6 +1004,7 @@ def deploy_automated_lagoon_vault(
         module=module,
         uniswap_v2=uniswap_v2,
         uniswap_v3=uniswap_v3,
+        orderly_vault=orderly_vault,
         aave_v3=aave_v3,
         erc_4626_vaults=erc_4626_vaults,
         any_asset=any_asset,

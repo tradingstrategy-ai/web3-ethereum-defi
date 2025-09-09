@@ -1,5 +1,6 @@
 """Uniswap v2 individual trade analysis."""
 
+import logging
 from decimal import Decimal
 from typing import Union
 
@@ -10,9 +11,12 @@ from web3 import Web3
 from web3.logs import DISCARD
 
 from eth_defi.abi import get_deployed_contract
-from eth_defi.token import fetch_erc20_details, get_erc20_contract
+from eth_defi.token import fetch_erc20_details
 from eth_defi.uniswap_v2.deployment import UniswapV2Deployment
 from eth_defi.trade import TradeFail, TradeSuccess
+
+
+logger = logging.getLogger(__name__)
 
 
 def analyse_trade_by_hash(web3: Web3, uniswap: UniswapV2Deployment, tx_hash: str | HexBytes) -> Union[TradeSuccess, TradeFail]:
@@ -60,7 +64,15 @@ def analyse_trade_by_hash(web3: Web3, uniswap: UniswapV2Deployment, tx_hash: str
     return analyse_trade_by_receipt(web3, uniswap, tx, tx_hash, tx_receipt)
 
 
-def analyse_trade_by_receipt(web3: Web3, uniswap: UniswapV2Deployment, tx: dict, tx_hash: str, tx_receipt: dict, pair_fee: float = None) -> Union[TradeSuccess, TradeFail]:
+def analyse_trade_by_receipt(
+    web3: Web3,
+    uniswap: UniswapV2Deployment,
+    tx: dict | None,
+    tx_hash: str,
+    tx_receipt: dict | None,
+    pair_fee: float = None,
+    sender_address: str | None = None,
+) -> Union[TradeSuccess, TradeFail]:
     """Analyse details of a Uniswap trade based on already received receipt.
 
     See also :py:func:`analyse_trade_by_hash`.
@@ -112,6 +124,12 @@ def analyse_trade_by_receipt(web3: Web3, uniswap: UniswapV2Deployment, tx: dict,
     # swapExactTokensForTokens
 
     router = uniswap.router
+
+    if tx is None:
+        tx = web3.eth.get_transaction(tx_hash)
+
+    if tx_receipt is None:
+        tx_receipt = web3.eth.get_transaction_receipt(tx_hash)
 
     # assert tx_receipt["to"] == router.address, f"For now, we can only analyze naive trades to the router. This tx was to {tx_receipt['to']}, router is {router.address}"
 

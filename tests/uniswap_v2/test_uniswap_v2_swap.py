@@ -11,6 +11,8 @@ from web3.contract import Contract
 from eth_defi.gas import apply_gas, estimate_gas_fees
 from eth_defi.revert_reason import fetch_transaction_revert_reason
 from eth_defi.token import create_token
+from eth_defi.trace import assert_transaction_success_with_explanation
+from eth_defi.tx import get_tx_broadcast_data
 from eth_defi.uniswap_v2.deployment import (
     FOREVER_DEADLINE,
     UniswapV2Deployment,
@@ -166,7 +168,68 @@ def test_buy_with_slippage_when_you_know_quote_amount(
 
     # sign and broadcast
     signed_tx = hot_wallet.sign_transaction(tx)
-    tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+    raw_bytes = get_tx_broadcast_data(signed_tx)
+    tx_hash = web3.eth.send_raw_transaction(raw_bytes)
+    tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
+    assert tx_receipt.status == 1
+
+
+def test_buy_with_slippage_when_you_know_quote_amount_tax_supported(
+    web3: Web3,
+    deployer: str,
+    hot_wallet: LocalAccount,
+    uniswap_v2: UniswapV2Deployment,
+    weth: Contract,
+    usdc: Contract,
+):
+    """Use local hot wallet to buy as much as possible WETH on Uniswap v2 using
+    define amout of mock USDC."""
+
+    # Create the trading pair and add initial liquidity
+    deploy_trading_pair(
+        web3,
+        deployer,
+        uniswap_v2,
+        weth,
+        usdc,
+        10 * 10**18,  # 10 ETH liquidity
+        17_000 * 10**18,  # 17000 USDC liquidity
+    )
+
+    router = uniswap_v2.router
+    hw_address = hot_wallet.address
+
+    # Give hot wallet some USDC to buy ETH (also some ETH as well to send tx)
+    web3.eth.send_transaction({"from": deployer, "to": hw_address, "value": 1 * 10**18})
+    usdc_amount_to_pay = 500 * 10**18
+    usdc.functions.transfer(hw_address, usdc_amount_to_pay).transact({"from": deployer})
+    usdc.functions.approve(router.address, usdc_amount_to_pay).transact({"from": hw_address})
+
+    # build transaction
+    swap_func = swap_with_slippage_protection(
+        uniswap_v2_deployment=uniswap_v2,
+        recipient_address=hw_address,
+        base_token=weth,
+        quote_token=usdc,
+        amount_in=usdc_amount_to_pay,
+        max_slippage=50,  # 50 bps = 0.5%
+        support_token_tax=True,
+    )
+    tx = swap_func.build_transaction(
+        {
+            "from": hw_address,
+            "chainId": web3.eth.chain_id,
+            "gas": 350_000,  # estimate max 350k gas per swap
+        }
+    )
+    tx = fill_nonce(web3, tx)
+    gas_fees = estimate_gas_fees(web3)
+    apply_gas(tx, gas_fees)
+
+    # sign and broadcast
+    signed_tx = hot_wallet.sign_transaction(tx)
+    raw_bytes = get_tx_broadcast_data(signed_tx)
+    tx_hash = web3.eth.send_raw_transaction(raw_bytes)
     tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
     assert tx_receipt.status == 1
 
@@ -230,7 +293,8 @@ def test_sell_with_slippage_when_you_know_base_amount(
 
     # sign and broadcast
     signed_tx = hot_wallet.sign_transaction(tx)
-    tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+    raw_bytes = get_tx_broadcast_data(signed_tx)
+    tx_hash = web3.eth.send_raw_transaction(raw_bytes)
     tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
     if tx_receipt.status == 0:
         revert_reason = fetch_transaction_revert_reason(web3, tx_hash)
@@ -268,10 +332,13 @@ def test_buy_with_slippage_when_you_know_base_amount(
     hw_address = hot_wallet.address
 
     # Give hot wallet some USDC to buy ETH (also some ETH as well to send tx)
-    web3.eth.send_transaction({"from": deployer, "to": hw_address, "value": 1 * 10**18})
+    tx_hash = web3.eth.send_transaction({"from": deployer, "to": hw_address, "value": 1 * 10**18})
+    assert_transaction_success_with_explanation(web3, tx_hash)
     max_usdc_amount = 500 * 10**18
-    usdc.functions.transfer(hw_address, max_usdc_amount).transact({"from": deployer})
-    usdc.functions.approve(router.address, max_usdc_amount).transact({"from": hw_address})
+    tx_hash = usdc.functions.transfer(hw_address, max_usdc_amount).transact({"from": deployer})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+    tx_hash = usdc.functions.approve(router.address, max_usdc_amount).transact({"from": hw_address})
+    assert_transaction_success_with_explanation(web3, tx_hash)
 
     # expect to get 0.1 ETH
     eth_amount_expected = int(0.1 * 10**18)
@@ -299,9 +366,9 @@ def test_buy_with_slippage_when_you_know_base_amount(
 
     # sign and broadcast
     signed_tx = hot_wallet.sign_transaction(tx)
-    tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
-    tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
-    assert tx_receipt.status == 1
+    raw_bytes = get_tx_broadcast_data(signed_tx)
+    tx_hash = web3.eth.send_raw_transaction(raw_bytes)
+    assert_transaction_success_with_explanation(web3, tx_hash)
 
     # confirm we get expected amount of ETH
     assert weth.functions.balanceOf(hw_address).call() == eth_amount_expected
@@ -396,7 +463,8 @@ def test_swap_revert_with_slippage_protection(
     # print(f"Price moved: {price_move_percent} %")
 
     # now the hot wallet finally manages to send the tx, it should fail
-    tx1_hash = web3.eth.send_raw_transaction(signed_tx1.rawTransaction)
+    raw_bytes = get_tx_broadcast_data(signed_tx1)
+    tx1_hash = web3.eth.send_raw_transaction(raw_bytes)
     tx1_receipt = web3.eth.wait_for_transaction_receipt(tx1_hash)
 
     assert tx1_receipt.status == 0  # failure
@@ -470,7 +538,8 @@ def test_sell_three_way_with_slippage_protection(
 
     # sign and broadcast
     signed_tx = hot_wallet.sign_transaction(tx)
-    tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+    raw_bytes = get_tx_broadcast_data(signed_tx)
+    tx_hash = web3.eth.send_raw_transaction(raw_bytes)
     tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
     assert tx_receipt.status == 1
 
@@ -498,7 +567,8 @@ def test_sell_three_way_with_slippage_protection(
 
     # sign and broadcast
     signed_tx = hot_wallet.sign_transaction(tx)
-    tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+    raw_bytes = get_tx_broadcast_data(signed_tx)
+    tx_hash = web3.eth.send_raw_transaction(raw_bytes)
     tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
     assert tx_receipt.status == 1
 
@@ -608,7 +678,8 @@ def test_swap_three_way_revert(
     # print(f"Price moved: {price_move_percent} %")
 
     # now the hot wallet finally manages to send the tx, it should fail
-    tx1_hash = web3.eth.send_raw_transaction(signed_tx1.rawTransaction)
+    raw1_bytes = get_tx_broadcast_data(signed_tx1)
+    tx1_hash = web3.eth.send_raw_transaction(raw1_bytes)
     tx1_receipt = web3.eth.wait_for_transaction_receipt(tx1_hash)
     assert tx1_receipt.status == 0  # failure
 

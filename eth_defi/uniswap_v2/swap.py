@@ -1,7 +1,10 @@
-"""Uniswap v2 swap helper functions."""
+"""Uniswap v2 token swap API.
+
+- Safe Python functions to perform Uniswap swaps
+"""
 
 import warnings
-from typing import Callable, Optional
+from typing import Optional
 import logging
 
 from eth_typing import HexAddress
@@ -27,6 +30,7 @@ def swap_with_slippage_protection(
     amount_out: Optional[int] = None,
     fee: int = 30,
     deadline: int = FOREVER_DEADLINE,
+    support_token_tax=False,
 ) -> ContractFunction:
     """Helper function to prepare a swap from quote token to base token (buy base token with quote token)
     with price estimation and slippage protection baked in.
@@ -57,7 +61,8 @@ def swap_with_slippage_protection(
 
         # sign and broadcast
         signed_tx = hot_wallet.sign_transaction(tx)
-        tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+        raw_bytes = get_tx_broadcast_data(signed_tx)
+        tx_hash = web3.eth.send_raw_transaction(raw_bytes)
         tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
         assert tx_receipt.status == 1
 
@@ -82,7 +87,8 @@ def swap_with_slippage_protection(
         gas_fees = estimate_gas_fees(web3)
         apply_gas(tx, gas_fees)
         signed_tx = hot_wallet.sign_transaction(tx)
-        tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+        raw_bytes = get_tx_broadcast_data(signed_tx)
+        tx_hash = web3.eth.send_raw_transaction(raw_bytes)
         tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
         assert tx_receipt.status == 1
 
@@ -120,6 +126,9 @@ def swap_with_slippage_protection(
     :param deadline:
         Time limit of the swap transaction, by default = forever (no deadline)
 
+    :param support_token_tax:
+        Use `swapExactTokensForTokensSupportingFeeOnTransferTokens` from Uniswap Router02.
+
     :return:
         Bound ContractFunction that can be used to build a transaction
     """
@@ -142,11 +151,12 @@ def swap_with_slippage_protection(
         path = [quote_token.address, intermediate_token.address, base_token.address]
 
     logger.info(
-        "swap_with_slippage_protection()\npath: %s\nmax_slippage: %s (BPS)\nfee: %s\ndeadline: %s",
+        "swap_with_slippage_protection()\npath: %s\nmax_slippage: %s (BPS)\nfee: %s deadline: %s support_token_tax: %s",
         path,
         max_slippage,
         fee,
         deadline,
+        support_token_tax,
     )
 
     if amount_in:
@@ -162,7 +172,27 @@ def swap_with_slippage_protection(
             intermediate_token=intermediate_token,
         )
 
-        return router.functions.swapExactTokensForTokens(
+        if support_token_tax:
+            # https://docs.uniswap.org/contracts/v2/reference/smart-contracts/router-02#swapexacttokensfortokenssupportingfeeontransfertokens
+            # function swapExactTokensForTokensSupportingFeeOnTransferTokens(
+            #   uint amountIn,
+            #   uint amountOutMin,
+            #   address[] calldata path,
+            #   address to,
+            #   uint deadline
+            # ) external;
+            function = router.functions.swapExactTokensForTokensSupportingFeeOnTransferTokens
+        else:
+            # function swapExactTokensForTokens(
+            #   uint amountIn,
+            #   uint amountOutMin,
+            #   address[] calldata path,
+            #   address to,
+            #   uint deadline
+            # ) external returns (uint[] memory amounts);
+            function = router.functions.swapExactTokensForTokens
+
+        return function(
             amount_in,
             estimated_min_amount_out,
             path,
@@ -181,6 +211,16 @@ def swap_with_slippage_protection(
             fee=fee,
             intermediate_token=intermediate_token,
         )
+
+        assert not support_token_tax, f"Token tax swaps are not supported with amount_out estimations"
+
+        # return function.swapTokensForExactTokens(
+        #     amount_out,
+        #     estimated_max_amount_in,
+        #     path,
+        #     recipient_address,
+        #     deadline,
+        # )
 
         return router.functions.swapTokensForExactTokens(
             amount_out,

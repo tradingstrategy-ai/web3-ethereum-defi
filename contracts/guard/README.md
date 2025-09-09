@@ -121,6 +121,13 @@ Because of complex the integrations, tests are part of `eth_defi` package
 test suite, which provides fixtures to ramp up various protocols (Enzyme, Uniswap, Aave, 1delta).
 Please refer to [eth_defi developer documentation]https://web3-ethereum-defi.readthedocs.io/) how to run tests.
 
+### Manual cast test
+
+```shell
+anvil &
+cast send src/GuardV0.sol:GuardV0 --create --rpc-url "http://localhost:8545" --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+```
+
 ## Deployment
 
 Example:

@@ -13,12 +13,12 @@ from decimal import Decimal
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
 from web3 import HTTPProvider, Web3
-from web3.middleware import construct_sign_and_send_raw_middleware
 
 from eth_defi.abi import get_deployed_contract
-from eth_defi.token import fetch_erc20_details
-from eth_defi.confirmation import wait_transactions_to_complete
 from eth_defi.chain import install_chain_middleware
+from eth_defi.compat import construct_sign_and_send_raw_middleware
+from eth_defi.confirmation import wait_transactions_to_complete
+from eth_defi.token import fetch_erc20_details
 
 # What is the token we are transferring.
 # Replace with your own token address.

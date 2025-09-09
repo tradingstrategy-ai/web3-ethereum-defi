@@ -1,4 +1,4 @@
-# JSON-RPC provider failure rate notes
+    # JSON-RPC provider failure rate notes
 
 Pokt / Ethereum: found 977 uncertain/failed blocks out of 1,000 with the failure rate of 97.7%
 

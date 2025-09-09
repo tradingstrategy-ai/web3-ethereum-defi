@@ -6,7 +6,9 @@ from eth_typing import HexAddress
 from web3 import Web3
 from web3.contract import Contract
 
-from eth_defi.abi import encode_function_args, encode_function_call
+from eth_defi.abi import encode_function_call
+
+# from eth_defi.compat import encode_function_args
 from eth_defi.deploy import deploy_contract, get_or_create_contract_registry
 from eth_defi.enzyme.deployment import EnzymeDeployment, RateAsset
 from eth_defi.enzyme.generic_adapter import execute_calls_for_generic_adapter
@@ -109,7 +111,8 @@ def test_generic_adapter_uniswap_v2(
     # Buy shares for 500 USDC, receive min share
     usdc.functions.transfer(user_2, 500 * 10**6).transact({"from": deployer})
     usdc.functions.approve(comptroller.address, 500 * 10**6).transact({"from": user_2})
-    comptroller.functions.buyShares(500 * 10**6, 1).transact({"from": user_2})
+    tx_hash = comptroller.functions.buyShares(500 * 10**6, 1).transact({"from": user_2})
+    assert_transaction_success_with_explanation(web3, tx_hash)
 
     # Check that the vault has balance
     balance = usdc.functions.balanceOf(vault.address).call()

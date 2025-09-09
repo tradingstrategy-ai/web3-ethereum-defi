@@ -33,6 +33,7 @@ API documentation
    ipor/index
    morpho/index
    chainlink/index
+   gains/index
    foundry/index
    etherscan/index
    hypersync/index
