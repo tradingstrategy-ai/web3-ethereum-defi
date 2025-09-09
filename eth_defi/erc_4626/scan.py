@@ -130,8 +130,8 @@ def create_vault_scan_record(
             detection.address,
             detection.features,
             str(e),
-            exc_info=True,
             extra_message,
+            exc_info=True,
         )
         return record
 
