@@ -88,6 +88,9 @@ DEFAULT_RETRYABLE_HTTP_STATUS_CODES = (
     # dRPC error
     # requests.exceptions.HTTPError: 403 Client Error: Forbidden for url: https://lb.drpc.org/ogrpc?network=polygon&dkey=x/
     403,
+    # 400 Client Error: Bad Request for url: https://lb.drpc.org/ogrpc?network=abstract&dkey=AiWA4TvYpkijvapnvFlyx_UuJsZmMjkR8JUBzoXPVSjK')
+    # '{"id":4,"jsonrpc":"2.0","error":{"message":"Can\'t route your request to suitable provider, if you specified certain providers revise the list","code":12}}'
+    400,
 )
 
 #: List of ValueError status codes we know we might want to retry after a timeout

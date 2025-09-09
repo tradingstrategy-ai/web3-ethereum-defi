@@ -16,9 +16,16 @@ set -u
 
 # Do 1h scan vs 1d scan
 export FREQUENCY=1h
-export MAX_WORKERS=50
 
 SCAN_PRICES=${SCAN_PRICES:-"false"}
+
+MAX_WORKERS=${MAX_WORKERS:-"50"}
+echo "Using $MAX_WORKERS workers"
+export MAX_WORKERS
+
+export JSON_RPC_URL=$JSON_RPC_ABSTRACT
+python scripts/erc-4626/scan-vaults.py
+if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
 
 # Currently: disabled - HyperSync for Hyperliquid is stuck
 export JSON_RPC_URL=$JSON_RPC_HYPERLIQUID
@@ -27,10 +34,6 @@ if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ;
 
 # Currently disabled: both dRPC and Alchemy broken for Optimism
 export JSON_RPC_URL=$JSON_RPC_OPTIMISM
-python scripts/erc-4626/scan-vaults.py
-if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
-
-export JSON_RPC_URL=$JSON_RPC_ABSTRACT
 python scripts/erc-4626/scan-vaults.py
 if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
 

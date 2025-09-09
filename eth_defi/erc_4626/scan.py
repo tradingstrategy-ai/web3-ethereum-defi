@@ -8,6 +8,8 @@ from typing import cast
 from web3 import Web3
 from web3.types import BlockIdentifier
 
+from requests.exceptions import HTTPError
+
 from eth_defi.erc_4626.classification import create_vault_instance
 from eth_defi.erc_4626.core import get_vault_protocol_name
 from eth_defi.erc_4626.hypersync_discovery import ERC4262VaultDetection
@@ -106,6 +108,14 @@ def create_vault_scan_record(
         }
         return data
     except Exception as e:
+
+        if isinstance(e, HTTPError):
+            # dRPC brokeness trap.
+            # We should not try to process HTTP 400 entries
+            raise
+
+        import ipdb ; ipdb.set_trace()
+
         # Probably caused by misdetecting a vault, then we try to call its functions and they return 0x (no data) instead of cleanly reverting
         # Not sure what is causing this
         #  When calling method: eth_call({'to': '0x463DE7D52bF7C6849ab3630Bb6F999eA0e03ED9F', 'from': '0x0000000000000000000000000000000000000000', 'data': '0x31ee80ca', 'gas': '0x1312d00'}, '0x15259fb')

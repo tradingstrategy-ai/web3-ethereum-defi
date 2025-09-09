@@ -635,7 +635,7 @@ class ERC4626Vault(VaultBase):
                 self.web3,
                 block_identifier="latest",
                 ignore_error=True,
-                attempts=0,
+                attempts=2,
             )
             if len(result) == 32:
                 erc_7575 = True

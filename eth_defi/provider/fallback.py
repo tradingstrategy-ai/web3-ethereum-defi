@@ -9,6 +9,7 @@ import time
 from collections import Counter, defaultdict
 from pprint import pformat
 from typing import Any, cast
+from requests.exceptions import HTTPError
 
 from web3 import Web3
 from web3.types import RPCEndpoint, RPCResponse
@@ -303,6 +304,16 @@ class FallbackProvider(BaseNamedProvider):
                 return resp_data
 
             except Exception as e:
+
+                # dRPC hack, as it is giving out it's custom error messages
+                if isinstance(e, HTTPError):
+                    if e.response is not None and e.response.status_code == 400:
+                        # Likely '{"id":4,"jsonrpc":"2.0","error":{"message":"Can\'t route your request to suitable provider, if you specified certain providers revise the list","code":12}}'
+                        # You need to de-select this RPC provider.
+                        # We will log this as an error, but the is_retryable_http_exception() should try another provider
+                        name = get_provider_name(provider)
+                        logger.error("Provider %s: %s", name, e.response.text)
+
                 # Honour eth eth_call() payload data and don't try retry, logging, etc.
                 if ignore_error:
                     raise

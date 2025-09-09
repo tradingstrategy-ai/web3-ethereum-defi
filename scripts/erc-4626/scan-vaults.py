@@ -65,7 +65,7 @@ def main():
     
 
     # How many CPUs / subprocess we use
-    max_workers = 16
+    max_workers = int(os.environ.get("MAX_WORKERS", "16"))
     # max_workers = 1  # To debug, set workers to 1
 
     web3 = create_multi_provider_web3(JSON_RPC_URL)
@@ -78,7 +78,7 @@ def main():
         log_file=Path(f"logs/{name}-scan-vaults.log")
     )
 
-    print(f"Scanning ERC-4626 vaults on chain {web3.eth.chain_id}: {name}, using rpcs: {rpcs}, using HyperSync: {hypersync_url}")
+    print(f"Scanning ERC-4626 vaults on chain {web3.eth.chain_id}: {name}, using rpcs: {rpcs}, using HyperSync: {hypersync_url}, and {max_workers} workers")
 
     client = hypersync.HypersyncClient(hypersync.ClientConfig(url=hypersync_url))
 
