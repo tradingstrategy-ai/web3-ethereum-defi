@@ -138,9 +138,7 @@ class GMXMarketData:
         :type to_csv: bool
         """
         self.gmx_config = gmx_config
-        self.config = gmx_config.get_read_config()
-        # These 2 are needed to support the base class because
-        # of whatever reason the devs decided to save the data at package level
+        self.config = gmx_config.get_config()
         self.to_json = to_json
         self.to_csv = to_csv
 
@@ -386,7 +384,7 @@ if __name__ == "__main__":
     web3 = Web3(Web3.HTTPProvider(rpc_url))
 
     # Create GMX configuration
-    config = GMXConfig(web3, chain="avalanche")
+    config = GMXConfig(web3)
 
     # Initialize market data module
     market_data = GMXMarketData(config)
