@@ -17,49 +17,42 @@ from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.core.get_data import GetData
 from eth_defi.gmx.keys import claimable_fee_amount_key
 from eth_defi.gmx.core.oracle import OraclePrices
+from eth_defi.gmx.types import MarketData
 
 
 class GetClaimableFees(GetData):
-    """
-    GMX claimable fees data retrieval class with multicall optimization.
-
-    This class retrieves claimable fees information for all available GMX markets
-    using multicall batching for better performance while maintaining identical
-    results to the original implementation.
-
-    :param config: GMXConfig instance containing chain and network info
-    :type config: GMXConfig
+    """GMX claimable fees data retrieval with multicall optimization.
+    
+    Retrieves claimable fees information for all available GMX markets
+    using multicall batching for better performance.
     """
 
     def __init__(self, config: GMXConfig):
-        """
-        Initialize claimable fees data retrieval.
-
-        :param config: GMXConfig instance containing chain and network info
-        :type config: GMXConfig
+        """Initialize claimable fees data retrieval.
+        
+        Args:
+            config: GMXConfig instance containing chain and network info
         """
         super().__init__(config)
         self.log = logging.getLogger(__name__)
         self.oracle_prices = OraclePrices(chain=config.chain).get_recent_prices()
 
-    def _get_data_processing(self) -> dict[str, Any]:
-        """
-        Implementation of abstract method from GetData base class.
-
-        :return: Claimable fees data
-        :rtype: dict[str, Any]
+    def _get_data_processing(self) -> MarketData:
+        """Implementation of abstract method from GetData base class.
+        
+        Returns:
+            Claimable fees data dictionary
         """
         return self.get_claimable_fees()
 
-    def get_claimable_fees(self) -> dict[str, Any]:
-        """
-        Get claimable fees data using multicall optimization.
-
-        This method uses multicall batching to query all claimable fee amounts in a single
+    def get_claimable_fees(self) -> MarketData:
+        """Get claimable fees data using multicall optimization.
+        
+        Uses multicall batching to query all claimable fee amounts in a single
         RPC call, significantly improving performance compared to sequential calls.
-
-        :return: Dictionary containing total claimable fees
-        :rtype: dict[str, Any]
+        
+        Returns:
+            Dictionary containing total claimable fees
         """
         market_fees = self.get_per_market_claimable_fees()
 
@@ -68,12 +61,11 @@ class GetClaimableFees(GetData):
 
         return {"total_fees": total_fees, "parameter": "total_fees"}
 
-    def get_per_market_claimable_fees(self) -> dict[str, dict]:
-        """
-        Get detailed claimable fees data for each market.
-
-        :return: Dictionary of market symbol to fee details
-        :rtype: dict[str, dict]
+    def get_per_market_claimable_fees(self) -> dict[str, dict[str, Any]]:
+        """Get detailed claimable fees data for each market.
+        
+        Returns:
+            Dictionary of market symbol to fee details
         """
         self.log.debug("GMX v2 Claimable Fees using Multicall")
 
@@ -173,12 +165,14 @@ class GetClaimableFees(GetData):
 
         return market_fees
 
-    def generate_all_multicalls(self, markets: dict) -> Iterable[EncodedCall]:
-        """
-        Generate all multicall requests for all markets.
-
-        :param markets: Dictionary of available markets
-        :return: Iterable of all EncodedCall objects needed
+    def generate_all_multicalls(self, markets: dict[str, Any]) -> Iterable[EncodedCall]:
+        """Generate all multicall requests for all markets.
+        
+        Args:
+            markets: Dictionary of available markets
+            
+        Returns:
+            Iterable of all EncodedCall objects needed
         """
         # DataStore.getUint() function signature: getUint(bytes32)
         get_uint_signature = keccak(text="getUint(bytes32)")[:4]

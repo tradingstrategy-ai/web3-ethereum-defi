@@ -9,6 +9,7 @@ import logging
 import json
 import csv
 from abc import ABC, abstractmethod
+from functools import cached_property
 from typing import Any, Optional
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -20,6 +21,7 @@ from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.contracts import get_reader_contract, get_datastore_contract, get_contract_addresses
 from eth_defi.gmx.core.markets import Markets
 from eth_defi.gmx.core.oracle import OraclePrices
+from eth_defi.gmx.types import PositionSideData
 
 
 class GetData(ABC):
@@ -37,23 +39,18 @@ class GetData(ABC):
     """
 
     def __init__(self, config: GMXConfig, filter_swap_markets: bool = True):
-        """
-        Initialize data retrieval base class.
-
-        :param config: GMXConfig instance containing chain and network info
-        :type config: GMXConfig
-        :param filter_swap_markets: Whether to filter out swap markets from results
-        :type filter_swap_markets: bool
+        """Initialize data retrieval base class.
+        
+        Args:
+            config: GMXConfig instance containing chain and network info
+            filter_swap_markets: Whether to filter out swap markets from results
         """
         self.config = config
         self.filter_swap_markets = filter_swap_markets
         self.log = logging.getLogger(self.__class__.__name__)
 
-        # Lazy-loaded components
-        self._markets_instance = None
+        # Oracle prices cache
         self._oracle_prices_cache = None
-        self._reader_contract = None
-        self._datastore_contract = None
 
         # Token addresses for current market being processed
         self._long_token_address: Optional[HexAddress] = None
@@ -62,30 +59,24 @@ class GetData(ABC):
         # Output structure for compatibility
         self.output = {"long": {}, "short": {}}
 
-    @property
+    @cached_property
     def markets(self) -> Markets:
-        """Lazy-loaded Markets instance."""
-        if self._markets_instance is None:
-            self._markets_instance = Markets(self.config)
-        return self._markets_instance
+        """Markets instance for retrieving market information."""
+        return Markets(self.config)
 
-    @property
+    @cached_property
     def reader_contract(self):
-        """Lazy-loaded Reader contract instance."""
-        if self._reader_contract is None:
-            self._reader_contract = get_reader_contract(self.config.web3, self.config.chain)
-        return self._reader_contract
+        """Reader contract instance for data queries."""
+        return get_reader_contract(self.config.web3, self.config.chain)
 
-    @property
+    @cached_property
     def datastore_contract(self):
-        """Lazy-loaded DataStore contract instance."""
-        if self._datastore_contract is None:
-            self._datastore_contract = get_datastore_contract(self.config.web3, self.config.chain)
-        return self._datastore_contract
+        """DataStore contract instance for blockchain data access."""
+        return get_datastore_contract(self.config.web3, self.config.chain)
 
-    @property
+    @cached_property
     def datastore_contract_address(self) -> HexAddress:
-        """Get DataStore contract address."""
+        """DataStore contract address."""
         contract_addresses = get_contract_addresses(self.config.chain)
         return contract_addresses.datastore
 

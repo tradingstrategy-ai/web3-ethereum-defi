@@ -16,48 +16,35 @@ from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.core.get_data import GetData
 from eth_defi.gmx.core.oracle import OraclePrices
 from eth_defi.gmx.contracts import get_reader_contract, get_datastore_contract, get_contract_addresses, get_tokens_address_dict, NETWORK_TOKENS
+from eth_defi.gmx.types import MarketData
 
 
 class GetOpenPositions(GetData):
-    """
-    Open positions data provider for GMX protocol.
-
-    This class retrieves all open trading positions for a specific user address.
-    It provides detailed information about a user's current trading positions,
+    """Open positions data provider for GMX protocol.
+    
+    Retrieves all open trading positions for a specific user address.
+    Provides detailed information about current trading positions,
     including position sizes, entry prices, current profit/loss, margin requirements,
-    and liquidation thresholds. This information is essential for position management,
-    risk assessment, and portfolio analysis.
-
-    :param config: GMXConfig instance containing chain and network info
-    :type config: GMXConfig
-    :param filter_swap_markets: Whether to filter out swap markets from results (default: True)
-    :type filter_swap_markets: bool
+    and liquidation thresholds.
     """
 
     def __init__(self, config: GMXConfig, filter_swap_markets: bool = True):
-        """
-        Initialize open positions data provider.
-
-        :param config: GMXConfig instance containing chain and network info
-        :type config: GMXConfig
-        :param filter_swap_markets: Whether to filter out swap markets from results (default: True)
-        :type filter_swap_markets: bool
+        """Initialize open positions data provider.
+        
+        Args:
+            config: GMXConfig instance containing chain and network info
+            filter_swap_markets: Whether to filter out swap markets from results
         """
         super().__init__(config, filter_swap_markets=filter_swap_markets)
         self.log = logging.getLogger(__name__)
 
-    def get_data(self, address: str) -> dict:
-        """
-        Get all open positions for a given address on the chain defined in
-        class init
-
-        Parameters
-        ----------
-        address : str
-            User wallet address to query positions for.
-
-        Returns
-        -------
+    def get_data(self, address: str) -> MarketData:
+        """Get all open positions for a given address on the configured chain.
+        
+        Args:
+            address: User wallet address to query positions for
+            
+        Returns:
         processed_positions : dict
             a dictionary containing the open positions, where asset and
             direction are the keys.

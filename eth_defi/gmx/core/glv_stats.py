@@ -6,6 +6,7 @@ multicall batching.
 """
 
 import logging
+from functools import cached_property
 from typing import Any, Optional
 from collections import defaultdict
 
@@ -20,54 +21,38 @@ from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.core.get_data import GetData
 from eth_defi.gmx.core.oracle import OraclePrices
 from eth_defi.gmx.contracts import get_glv_reader_contract
+from eth_defi.gmx.types import MarketData
 from eth_defi.compat import encode_abi_compat
 from eth_defi.gmx.keys import MAX_PNL_FACTOR_FOR_TRADERS
 
 
 class GlvStats(GetData):
-    """
-    GMX GLV statistics data retrieval class with multicall optimization.
-
-    This class retrieves GLV information including prices and composition
-    using multicall batching for better performance while maintaining identical
-    results to the original implementation.
-
-    :param config: GMXConfig instance containing chain and network info
-    :type config: GMXConfig
-    :param filter_swap_markets: Whether to filter out swap markets from results
-    :type filter_swap_markets: bool
+    """GMX GLV statistics data retrieval with multicall optimization.
+    
+    Retrieves GLV information including prices and composition
+    using multicall batching for better performance.
     """
 
     def __init__(self, config: GMXConfig, filter_swap_markets: bool = True):
-        """
-        Initialize GLV stats data retrieval.
-
-        :param config: GMXConfig instance containing chain and network info
-        :type config: GMXConfig
-        :param filter_swap_markets: Whether to filter out swap markets from results
-        :type filter_swap_markets: bool
+        """Initialize GLV stats data retrieval.
+        
+        Args:
+            config: GMXConfig instance containing chain and network info
+            filter_swap_markets: Whether to filter out swap markets from results
         """
         super().__init__(config, filter_swap_markets)
         self.log = logging.getLogger(__name__)
 
-        # Cache oracle prices and contracts
-        self._oracle_prices_cache = None
-        self._glv_reader_contract = None
-
-    @property
+    @cached_property
     def glv_reader_contract(self):
-        """Lazy-loaded GLV Reader contract instance."""
-        if self._glv_reader_contract is None:
-            self._glv_reader_contract = get_glv_reader_contract(self.config.web3, self.config.chain)
-        return self._glv_reader_contract
+        """GLV Reader contract instance for GLV data queries."""
+        return get_glv_reader_contract(self.config.web3, self.config.chain)
 
-    def get_glv_stats(self, to_json: bool = False, to_csv: bool = False) -> dict[str, Any]:
-        """
-        Get GLV statistics using multicall optimization.
-
-        :param to_json: Save output to JSON file
-        :param to_csv: Save output to CSV file
-        :return: Dictionary containing GLV statistics
+    def get_glv_stats(self) -> MarketData:
+        """Get GLV statistics using multicall optimization.
+        
+        Returns:
+            Dictionary containing GLV statistics
         """
         return self.get_glv_stats_multicall()
 

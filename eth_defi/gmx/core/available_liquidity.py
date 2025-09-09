@@ -1,8 +1,7 @@
 """
 GMX Available Liquidity Data Retrieval Module
 
-This module provides available liquidity data for GMX protocol markets
-using efficient multicall batching instead of individual contract calls.
+This module provides available liquidity data for GMX protocol markets.
 """
 
 import logging
@@ -16,69 +15,50 @@ from eth_typing import HexAddress
 from web3 import Web3
 
 from eth_defi.event_reader.multicall_batcher import EncodedCall, read_multicall_chunked, EncodedCallResult
-from eth_defi.event_reader.web3factory import Web3Factory, TunedWeb3Factory
+from eth_defi.event_reader.web3factory import TunedWeb3Factory
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.contracts import get_datastore_contract
 from eth_defi.gmx.core.get_data import GetData
 from eth_defi.gmx.core.open_interest import GetOpenInterest
 from eth_defi.gmx.core.oracle import OraclePrices
 from eth_defi.gmx.keys import pool_amount_key, open_interest_reserve_factor_key, reserve_factor_key
-from eth_defi.provider.multi_provider import MultiProviderWeb3
+from eth_defi.gmx.types import MarketSymbol, USDAmount, PositionSideData
 
 
 @dataclass
 class LiquidityInfo:
-    """
-    Liquidity information for a specific GMX market.
-
-    :param market_address: GMX market contract address
-    :type market_address: HexAddress
-    :param market_symbol: Market symbol identifier
-    :type market_symbol: str
-    :param long_liquidity: Available liquidity for long positions in USD
-    :type long_liquidity: float
-    :param short_liquidity: Available liquidity for short positions in USD
-    :type short_liquidity: float
-    :param total_liquidity: Total available liquidity in USD
-    :type total_liquidity: float
-    :param long_token_address: Address of the long token
-    :type long_token_address: HexAddress
-    :param short_token_address: Address of the short token
-    :type short_token_address: HexAddress
-    """
-
+    """Liquidity information for a specific GMX market."""
+    
+    #: GMX market contract address
     market_address: HexAddress
-    market_symbol: str
-    long_liquidity: float
-    short_liquidity: float
-    total_liquidity: float
+    #: Market symbol identifier
+    market_symbol: MarketSymbol
+    #: Available liquidity for long positions in USD
+    long_liquidity: USDAmount
+    #: Available liquidity for short positions in USD
+    short_liquidity: USDAmount
+    #: Total available liquidity in USD
+    total_liquidity: USDAmount
+    #: Address of the long token
     long_token_address: HexAddress
+    #: Address of the short token
     short_token_address: HexAddress
 
 
 class GetAvailableLiquidity(GetData):
-    """
-    GMX available liquidity data retrieval class using efficient multicall batching.
-
-    This class retrieves available liquidity information for all available GMX markets,
-    with efficient multicall batching for better performance and reduced RPC usage.
-
-    :param config: GMXConfig instance containing chain and network info
-    :type config: GMXConfig
-    :param filter_swap_markets: Whether to filter out swap markets from results
-    :type filter_swap_markets: bool
+    """GMX available liquidity data retrieval using efficient multicall batching.
+    
+    Retrieves available liquidity information for all GMX markets with
+    efficient multicall batching for better performance and reduced RPC usage.
     """
 
     def __init__(self, config: GMXConfig, filter_swap_markets: bool = True, use_original_approach: bool = False):
-        """
-        Initialize available liquidity data retrieval.
-
-        :param config: GMXConfig instance containing chain and network info
-        :type config: GMXConfig
-        :param filter_swap_markets: Whether to filter out swap markets from results
-        :type filter_swap_markets: bool
-        :param use_original_approach: Whether to use original individual calls instead of multicall
-        :type use_original_approach: bool
+        """Initialize available liquidity data retrieval.
+        
+        Args:
+            config: GMXConfig instance containing chain and network info
+            filter_swap_markets: Whether to filter out swap markets from results
+            use_original_approach: Whether to use original individual calls instead of multicall
         """
         super().__init__(config, filter_swap_markets)
         self.log = logging.getLogger(__name__)
@@ -87,7 +67,7 @@ class GetAvailableLiquidity(GetData):
         # Get DataStore contract address for multicalls
         self.datastore_address = get_datastore_contract(self.config.web3, self.config.chain).address
 
-    def _get_data_processing(self) -> dict[str, Any]:
+    def _get_data_processing(self) -> PositionSideData:
         """Route to the appropriate processing method based on configuration."""
         if self.use_original_approach:
             return self._get_data_processing_original_approach()
@@ -95,21 +75,23 @@ class GetAvailableLiquidity(GetData):
             return self._get_data_processing_multicall()
 
     def encode_multicalls_for_market(self, market_key: str, long_token: str, short_token: str) -> Iterable[EncodedCall]:
-        """
-        Generate multicall requests for a single market.
-
+        """Generate multicall requests for a single market.
+        
         For each market we need 6 calls:
-        - pool_amount for long token
+        - pool_amount for long token  
         - pool_amount for short token
         - reserve_factor for long
         - reserve_factor for short
         - open_interest_reserve_factor for long
         - open_interest_reserve_factor for short
-
-        :param market_key: Market address
-        :param long_token: Long token address
-        :param short_token: Short token address
-        :return: Iterable of EncodedCall objects
+        
+        Args:
+            market_key: Market address
+            long_token: Long token address  
+            short_token: Short token address
+            
+        Returns:
+            Iterable of EncodedCall objects
         """
         # DataStore.getUint() function signature: getUint(bytes32)
         get_uint_signature = Web3.keccak(text="getUint(bytes32)")[:4]
@@ -157,7 +139,7 @@ class GetAvailableLiquidity(GetData):
             yield from self.encode_multicalls_for_market(market_key, self._long_token_address, self._short_token_address)
 
     # TODO: revove it
-    def _get_data_processing_original_approach(self) -> dict[str, Any]:
+    def _get_data_processing_original_approach(self) -> PositionSideData:
         """
         Generate the dictionary of available liquidity using the original approach
         (individual web3 calls) for debugging comparison.
@@ -265,7 +247,7 @@ class GetAvailableLiquidity(GetData):
         self.output["parameter"] = "available_liquidity"
         return self.output
 
-    def _get_data_processing_multicall(self) -> dict[str, Any]:
+    def _get_data_processing_multicall(self) -> PositionSideData:
         """
         Generate the dictionary of available liquidity using efficient multicall batching.
 
@@ -440,7 +422,7 @@ class GetAvailableLiquidity(GetData):
 
         return self.output
 
-    def get_max_reserved_usd(self, market: str, token: str, is_long: bool) -> tuple[Any, Any, Any]:
+    def get_max_reserved_usd(self, market: str, token: str, is_long: bool) -> tuple:
         """
         For a given market, long/short token and pool direction get the
         uncalled web3 functions to calculate pool size, pool reserve factor

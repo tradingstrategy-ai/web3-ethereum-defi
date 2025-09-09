@@ -20,55 +20,42 @@ from eth_defi.gmx.contracts import get_datastore_contract
 from eth_defi.gmx.core.get_data import GetData
 from eth_defi.gmx.keys import pool_amount_key
 from eth_defi.gmx.core.oracle import OraclePrices
+from eth_defi.gmx.types import TVLData
 
 
 class GetPoolTVL(GetData):
-    """
-    GMX pool TVL data retrieval using DataStore contract with multicall optimization.
-
-    This class retrieves pool TVL information for all available GMX markets using
+    """GMX pool TVL data retrieval using multicall optimization.
+    
+    Retrieves pool TVL information for all available GMX markets using
     multicall batching for better performance while maintaining identical results
     to the original gmx-python-sdk implementation.
-
-    :param config: GMXConfig instance containing chain and network info
-    :type config: GMXConfig
     """
 
     def __init__(self, config: GMXConfig):
-        """
-        Initialize pool TVL data retrieval.
-
-        :param config: GMXConfig instance containing chain and network info
-        :type config: GMXConfig
+        """Initialize pool TVL data retrieval.
+        
+        Args:
+            config: GMXConfig instance containing chain and network info
         """
         super().__init__(config)
         self.log = logging.getLogger(__name__)
         self.oracle_prices = OraclePrices(chain=config.chain).get_recent_prices()
 
-    def _get_data_processing(self) -> dict[str, Any]:
-        """
-        Implementation of abstract method from GetData base class.
-
-        :return: Pool TVL data
-        :rtype: dict[str, Any]
+    def _get_data_processing(self) -> TVLData:
+        """Implementation of abstract method from GetData base class.
+        
+        Returns:
+            Pool TVL data dictionary
         """
         return self.get_pool_balances()
 
-    def get_pool_balances(self, to_json: bool = False) -> Optional[dict[str, Any]]:
-        """
-        Get pool balances using DataStore contract with multicall optimization.
+    def get_pool_balances(self) -> Optional[TVLData]:
+        """Get pool balances using DataStore contract with multicall optimization.
 
         This method uses multicall batching to query all pool amounts in a single
         RPC call, significantly improving performance compared to sequential calls.
 
-        Parameters
-        ----------
-        to_json : bool, optional
-            Save output to json file in data/ directory. The default is False.
-
-        Returns
-        -------
-        pool_tvl_dict : dict
+        Returns:
             Dictionary of total USD value per pool with structure:
             {
                 "MARKET_SYMBOL": {
@@ -157,18 +144,16 @@ class GetPoolTVL(GetData):
                 self.log.error(f"Failed to process market {market_symbol}: {e}")
                 continue
 
-        if to_json:
-            self._save_json_file_to_datastore(f"{self.config.chain}_pool_tvl.json", pool_tvl_dict)
-            return None
-        else:
-            return pool_tvl_dict
+        return pool_tvl_dict
 
     def generate_all_multicalls(self, markets: dict) -> Iterable[EncodedCall]:
-        """
-        Generate all multicall requests for all markets.
+        """Generate all multicall requests for all markets.
 
-        :param markets: Dictionary of available markets
-        :return: Iterable of all EncodedCall objects needed
+        Args:
+            markets: Dictionary of available markets
+
+        Returns:
+            Iterable of all EncodedCall objects needed
         """
         # DataStore.getUint() function signature: getUint(bytes32)
         get_uint_signature = Web3.keccak(text="getUint(bytes32)")[:4]
@@ -209,16 +194,14 @@ class GetPoolTVL(GetData):
             return float(token_balance)
 
     def _save_json_file_to_datastore(self, filename: str, data: dict):
-        """
-        Save data to JSON file in data directory.
+        """Save data to JSON file in data directory.
 
         Creates a 'data' directory if it doesn't exist and saves the pool TVL
         data as formatted JSON matching the original SDK behavior.
 
-        :param filename: Filename to save (e.g. "arbitrum_pool_tvl.json")
-        :type filename: str
-        :param data: Pool TVL data dictionary to save
-        :type data: dict
+        Args:
+            filename: Filename to save (e.g. "arbitrum_pool_tvl.json")
+            data: Pool TVL data dictionary to save
         """
         import json
         import os

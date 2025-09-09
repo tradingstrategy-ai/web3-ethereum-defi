@@ -8,43 +8,32 @@ from typing import Any
 
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.core.get_data import GetData
+from eth_defi.gmx.types import PositionSideData
 from eth_defi.gmx.core.open_interest import GetOpenInterest
 from eth_defi.gmx.utils import apply_factor
 
 
 class GetFundingFee(GetData):
-    """
-    GMX funding fee data retrieval class.
-
-    This class retrieves funding fee information for all available GMX markets,
-    replacing the gmx_python_sdk GetFundingFee functionality with exact feature parity.
-
-    :param config: GMXConfig instance containing chain and network info
-    :type config: GMXConfig
-    :param filter_swap_markets: Whether to filter out swap markets from results
-    :type filter_swap_markets: bool
+    """GMX funding fee data retrieval class.
+    
+    Retrieves funding fee information for all available GMX markets,
+    replacing the gmx_python_sdk GetFundingFee functionality.
     """
 
     def __init__(self, config: GMXConfig, filter_swap_markets: bool = True):
-        """
-        Initialize funding fee data retrieval.
-
-        :param config: GMXConfig instance containing chain and network info
-        :type config: GMXConfig
-        :param filter_swap_markets: Whether to filter out swap markets from results
-        :type filter_swap_markets: bool
+        """Initialize funding fee data retrieval.
+        
+        Args:
+            config: GMXConfig instance containing chain and network info
+            filter_swap_markets: Whether to filter out swap markets from results
         """
         super().__init__(config, filter_swap_markets)
 
-    def _get_data_processing(self) -> dict[str, Any]:
-        """
-        Generate the dictionary of funding APR data
-
-        Returns
-        -------
-        funding_apr : dict
-            dictionary of funding data.
-
+    def _get_data_processing(self) -> PositionSideData:
+        """Generate the dictionary of funding APR data.
+        
+        Returns:
+            Dictionary of funding APR data with long/short position data
         """
         open_interest = GetOpenInterest(config=self.config).get_data()
 

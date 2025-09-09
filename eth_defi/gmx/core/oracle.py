@@ -14,19 +14,20 @@ import random
 from requests import Response
 
 from eth_defi.gmx.contracts import _get_clean_api_urls, _get_clean_backup_urls
+from eth_defi.gmx.types import PriceData
 
 
 class OraclePrices:
-    """
-    GMX Oracle Prices API client.
-
+    """GMX Oracle Prices API client.
+    
     Provides access to GMX protocol oracle price feeds across supported networks.
     Handles API requests with retry logic and exponential backoff.
-
-    :param chain: Blockchain network name (e.g., 'arbitrum', 'avalanche')
-    :type chain: str
-
-    :raises ValueError: If unsupported chain is provided
+    
+    Args:
+        chain: Blockchain network name (e.g., 'arbitrum', 'avalanche')
+        
+    Raises:
+        ValueError: If unsupported chain is provided
     """
 
     def __init__(self, chain: str) -> None:
@@ -42,22 +43,20 @@ class OraclePrices:
         self.oracle_url = clean_api_urls[chain] + "/signed_prices/latest"
         self.backup_oracle_url = clean_backup_urls.get(chain, "") + "/signed_prices/latest" if clean_backup_urls.get(chain) else None
 
-    def get_recent_prices(self) -> dict:
-        """
-        Get raw output of the GMX rest v2 api for signed prices.
-
-        :return: Dictionary containing raw output for each token as its keys
-        :rtype: dict
+    def get_recent_prices(self) -> PriceData:
+        """Get raw output of the GMX rest v2 api for signed prices.
+        
+        Returns:
+            Dictionary containing raw output for each token as its keys
         """
         raw_output = self._make_query().json()
         return self._process_output(raw_output)
 
     def _make_query(self, max_retries=5, initial_backoff=1, max_backoff=60) -> Optional[Response]:
-        """
-        Make request using oracle URL with retry mechanism.
-
-        :param max_retries: Maximum number of retry attempts
-        :type max_retries: int
+        """Make request using oracle URL with retry mechanism.
+        
+        Args:
+            max_retries: Maximum number of retry attempts
         :param initial_backoff: Initial backoff time in seconds
         :type initial_backoff: float
         :param max_backoff: Maximum backoff time in seconds

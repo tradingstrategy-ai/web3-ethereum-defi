@@ -16,37 +16,28 @@ from cchecksum import to_checksum_address
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.contracts import get_contract_addresses, get_reader_contract, get_tokens_address_dict
 from eth_defi.gmx.core.oracle import OraclePrices
+from eth_defi.gmx.types import MarketSymbol
 
 
 @dataclass
 class MarketInfo:
-    """Information about a GMX market.
-
-    :param gmx_market_address: GMX market contract address
-    :type gmx_market_address: HexAddress
-    :param market_symbol: Symbol identifier for the market
-    :type market_symbol: str
-    :param index_token_address: Address of the index token
-    :type index_token_address: HexAddress
-    :param market_metadata: Metadata dictionary for the market token
-    :type market_metadata: dict
-    :param long_token_metadata: Metadata dictionary for the long token
-    :type long_token_metadata: dict
-    :param long_token_address: Address of the long token
-    :type long_token_address: HexAddress
-    :param short_token_metadata: Metadata dictionary for the short token
-    :type short_token_metadata: dict
-    :param short_token_address: Address of the short token
-    :type short_token_address: HexAddress
-    """
-
+    """Information about a GMX market."""
+    
+    #: GMX market contract address
     gmx_market_address: HexAddress
-    market_symbol: str
+    #: Symbol identifier for the market
+    market_symbol: MarketSymbol
+    #: Address of the index token
     index_token_address: HexAddress
-    market_metadata: dict
-    long_token_metadata: dict
+    #: Metadata dictionary for the market token
+    market_metadata: dict[str, Any]
+    #: Metadata dictionary for the long token
+    long_token_metadata: dict[str, Any]
+    #: Address of the long token
     long_token_address: HexAddress
-    short_token_metadata: dict
+    #: Metadata dictionary for the short token
+    short_token_metadata: dict[str, Any]
+    #: Address of the short token
     short_token_address: HexAddress
 
 

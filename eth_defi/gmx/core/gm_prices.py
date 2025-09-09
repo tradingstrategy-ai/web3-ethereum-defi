@@ -11,6 +11,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.core.get_data import GetData
+from eth_defi.gmx.types import PriceData
 from eth_defi.gmx.keys import (
     MAX_PNL_FACTOR_FOR_TRADERS,
     MAX_PNL_FACTOR_FOR_DEPOSITS,
@@ -19,138 +20,103 @@ from eth_defi.gmx.keys import (
 
 
 class GetGMPrices(GetData):
-    """
-    GM token prices data provider for GMX protocol.
-
-    This class retrieves current prices and valuation data for GM (liquidity provider) tokens.
+    """GM token prices data provider for GMX protocol.
+    
+    Retrieves current prices and valuation data for GM (liquidity provider) tokens.
     GM tokens represent shares in GMX liquidity pools and their prices reflect the underlying
-    value of the pooled assets plus accumulated fees. This pricing information is essential
-    for liquidity providers to understand the value of their holdings and calculate returns
-    on their liquidity provision activities.
-
+    value of the pooled assets plus accumulated fees.
+    
     Supports three different pricing scenarios:
     - **Traders**: Prices for trading scenarios (most commonly used)
-    - **Deposits**: Prices optimized for deposit operations
+    - **Deposits**: Prices optimized for deposit operations  
     - **Withdrawals**: Prices optimized for withdrawal operations
-
-    Each pricing scenario uses different PNL (Profit and Loss) factor configurations
-    to account for the specific risk and fee structures associated with different
-    types of operations on the GMX protocol.
-
-    **Base Class Interface**: When using the base class `get_data()` method, this class
-    returns comprehensive data including all three price types in a single response,
-    making it easy to compare prices across different operation types.
-
-    :param config: GMXConfig instance containing chain and network info
-    :type config: GMXConfig
-    :param filter_swap_markets: Whether to filter out swap markets from results
-    :type filter_swap_markets: bool
+    
+    Each pricing scenario uses different PNL factor configurations to account for
+    the specific risk and fee structures associated with different operation types.
     """
 
     def __init__(self, config: GMXConfig, filter_swap_markets: bool = True):
-        """
-        Initialize GM prices data provider.
-
-        :param config: GMXConfig instance containing chain and network info
-        :type config: GMXConfig
-        :param filter_swap_markets: Whether to filter out swap markets from results
-        :type filter_swap_markets: bool
+        """Initialize GM prices data provider.
+        
+        Args:
+            config: GMXConfig instance containing chain and network info
+            filter_swap_markets: Whether to filter out swap markets from results
         """
         super().__init__(config, filter_swap_markets)
         self.log = logging.getLogger(__name__)
 
-    def get_price_traders(self, to_json: bool = False, to_csv: bool = False) -> dict[str, Any]:
-        """
-        Get GM token prices for traders.
-
-        This method retrieves GM token prices optimized for trading scenarios,
+    def get_price_traders(self) -> PriceData:
+        """Get GM token prices for traders.
+        
+        Retrieves GM token prices optimized for trading scenarios,
         using the MAX_PNL_FACTOR_FOR_TRADERS configuration. This is the most
         commonly used price type for general trading operations.
-
-        :param to_json: Whether to save data to JSON file
-        :type to_json: bool
-        :param to_csv: Whether to save data to CSV file
-        :type to_csv: bool
-        :return: Dictionary containing GM prices for traders
-        :rtype: dict[str, Any]
+        
+        Returns:
+            Dictionary containing GM prices for traders
         """
         self.log.debug("Getting GM prices for traders")
-        return self._process_gm_prices_data(MAX_PNL_FACTOR_FOR_TRADERS, to_json, to_csv)
+        return self._process_gm_prices_data(MAX_PNL_FACTOR_FOR_TRADERS)
 
-    def get_price_deposit(self, to_json: bool = False, to_csv: bool = False) -> dict[str, Any]:
-        """
-        Get GM token prices for deposits.
+    def get_price_deposit(self) -> PriceData:
+        """Get GM token prices for deposits.
 
         This method retrieves GM token prices optimized for deposit scenarios,
         using the MAX_PNL_FACTOR_FOR_DEPOSITS configuration. These prices
         account for the specific risks associated with adding liquidity to pools.
 
-        :param to_json: Whether to save data to JSON file
-        :type to_json: bool
-        :param to_csv: Whether to save data to CSV file
-        :type to_csv: bool
-        :return: Dictionary containing GM prices for deposits
-        :rtype: dict[str, Any]
+        Returns:
+            Dictionary containing GM prices for deposits
         """
         self.log.debug("Getting GM prices for deposits")
-        return self._process_gm_prices_data(MAX_PNL_FACTOR_FOR_DEPOSITS, to_json, to_csv)
+        return self._process_gm_prices_data(MAX_PNL_FACTOR_FOR_DEPOSITS)
 
-    def get_price_withdraw(self, to_json: bool = False, to_csv: bool = False) -> dict[str, Any]:
-        """
-        Get GM token prices for withdrawals.
+    def get_price_withdraw(self) -> PriceData:
+        """Get GM token prices for withdrawals.
 
         This method retrieves GM token prices optimized for withdrawal scenarios,
         using the MAX_PNL_FACTOR_FOR_WITHDRAWALS configuration. These prices
         account for the specific risks associated with removing liquidity from pools.
 
-        :param to_json: Whether to save data to JSON file
-        :type to_json: bool
-        :param to_csv: Whether to save data to CSV file
-        :type to_csv: bool
-        :return: Dictionary containing GM prices for withdrawals
-        :rtype: dict[str, Any]
+        Returns:
+            Dictionary containing GM prices for withdrawals
         """
         self.log.debug("Getting GM prices for withdrawals")
-        return self._process_gm_prices_data(MAX_PNL_FACTOR_FOR_WITHDRAWALS, to_json, to_csv)
+        return self._process_gm_prices_data(MAX_PNL_FACTOR_FOR_WITHDRAWALS)
 
-    def get_prices(self, price_type: str = "traders", to_json: bool = False, to_csv: bool = False) -> dict[str, Any]:
-        """
-        Get GM token prices with specified price type.
+    def get_prices(self, price_type: str = "traders") -> PriceData:
+        """Get GM token prices with specified price type.
 
         This is a unified method that calls the appropriate specific price method
         based on the price_type parameter. This provides a convenient interface
         when the price type needs to be determined dynamically.
 
-        :param price_type: Type of price to retrieve ("traders", "deposits", "withdrawals")
-        :type price_type: str
-        :param to_json: Whether to save data to JSON file
-        :type to_json: bool
-        :param to_csv: Whether to save data to CSV file
-        :type to_csv: bool
-        :return: Dictionary containing GM prices data
-        :rtype: dict[str, Any]
+        Args:
+            price_type: Type of price to retrieve ("traders", "deposits", "withdrawals")
+
+        Returns:
+            Dictionary containing GM prices data
         """
         if price_type == "traders":
-            return self.get_price_traders(to_json, to_csv)
+            return self.get_price_traders()
         elif price_type == "deposits":
-            return self.get_price_deposit(to_json, to_csv)
+            return self.get_price_deposit()
         elif price_type == "withdrawals":
-            return self.get_price_withdraw(to_json, to_csv)
+            return self.get_price_withdraw()
         else:
             self.log.debug(f"Unknown price type: {price_type}. Using 'traders' as default.")
-            return self.get_price_traders(to_json, to_csv)
+            return self.get_price_traders()
 
-    def _get_data_processing(self) -> dict[str, Any]:
-        """
-        Override base class method to return comprehensive GM prices data.
+    def _get_data_processing(self) -> PriceData:
+        """Override base class method to return comprehensive GM prices data.
 
         This method provides the base class interface and returns all three
         GM price types (traders, deposits, withdrawals) in a single comprehensive
         response. This is called when users use the base GetData interface
         via the get_data() method.
 
-        :return: Comprehensive GM prices data dictionary with all price types
-        :rtype: dict[str, Any]
+        Returns:
+            Comprehensive GM prices data dictionary with all price types
         """
         try:
             self.log.debug("Getting comprehensive GM prices data (all types)")
@@ -190,29 +156,24 @@ class GetGMPrices(GetData):
             # Return minimal structure on error
             return {"parameter": "gm_prices_all_types", "timestamp": int(time.time()), "error": str(e), "price_types": {"traders": {}, "deposits": {}, "withdrawals": {}}, "total_markets": 0}
 
-    def _process_gm_prices_data(self, pnl_factor_type: bytes, to_json: bool = False, to_csv: bool = False) -> dict[str, Any]:
-        """
-        Core data processing method for GM pool prices.
+    def _process_gm_prices_data(self, pnl_factor_type: bytes) -> PriceData:
+        """Core data processing method for GM pool prices.
 
         This method orchestrates the entire GM price retrieval process:
         1. Filter swap markets if enabled
         2. Prepare contract queries for each market
         3. Execute queries concurrently using threading
         4. Process and format results
-        5. Optional export to JSON/CSV files
 
         The method uses the GMX Reader contract's getMarketTokenPrice function
         to retrieve raw price data, which is then converted from wei to USD
         by dividing by 10^30.
 
-        :param pnl_factor_type: PNL factor type hash for datastore queries
-        :type pnl_factor_type: bytes
-        :param to_json: Whether to save data to JSON file
-        :type to_json: bool
-        :param to_csv: Whether to save data to CSV file
-        :type to_csv: bool
-        :return: Dictionary containing processed GM prices
-        :rtype: dict[str, Any]
+        Args:
+            pnl_factor_type: PNL factor type hash for datastore queries
+
+        Returns:
+            Dictionary containing processed GM prices
         """
         try:
             self.log.debug("Starting GM prices data processing")
@@ -308,12 +269,7 @@ class GetGMPrices(GetData):
                 "total_markets": len(prices_dict),
             }
 
-            # Export to files if requested
-            if to_json:
-                self._save_to_json(output)
-
-            if to_csv:
-                self._save_to_csv(output)
+            # Files export functionality removed
 
             self.log.debug(f"Successfully processed GM prices for {len(prices_dict)} markets")
             return output
@@ -330,25 +286,22 @@ class GetGMPrices(GetData):
         short_price_tuple: tuple,
         pnl_factor_type: bytes,
     ):
-        """
-        Create a market token price query for the reader contract.
+        """Create a market token price query for the reader contract.
 
         This method creates an unexecuted Web3 contract call that retrieves
         the current GM token price for a specific market. The query uses the
         GMX Reader contract's getMarketTokenPrice function with the provided
         market information and oracle prices.
 
-        :param market: List containing market contract addresses [market, index, long, short]
-        :type market: list
-        :param index_price_tuple: Tuple of (min_price, max_price) for index token
-        :type index_price_tuple: tuple
-        :param long_price_tuple: Tuple of (min_price, max_price) for long token
-        :type long_price_tuple: tuple
-        :param short_price_tuple: Tuple of (min_price, max_price) for short token
-        :type short_price_tuple: tuple
-        :param pnl_factor_type: PNL factor type hash for calculations
-        :type pnl_factor_type: bytes
-        :return: Unexecuted Web3 contract call
+        Args:
+            market: List containing market contract addresses [market, index, long, short]
+            index_price_tuple: Tuple of (min_price, max_price) for index token
+            long_price_tuple: Tuple of (min_price, max_price) for long token
+            short_price_tuple: Tuple of (min_price, max_price) for short token
+            pnl_factor_type: PNL factor type hash for calculations
+
+        Returns:
+            Unexecuted Web3 contract call
         """
         try:
             # Use maximize=True to get maximum prices in calculation
@@ -368,17 +321,17 @@ class GetGMPrices(GetData):
             raise
 
     def _execute_threading(self, queries: list) -> list:
-        """
-        Execute multiple contract queries concurrently using threading.
+        """Execute multiple contract queries concurrently using threading.
 
         This method takes a list of unexecuted Web3 contract calls and
         executes them concurrently to improve performance. It includes
         timeout handling and fallback to sequential execution if needed.
 
-        :param queries: List of unexecuted Web3 contract calls
-        :type queries: list
-        :return: List of query results in the same order as input
-        :rtype: list
+        Args:
+            queries: List of unexecuted Web3 contract calls
+
+        Returns:
+            List of query results in the same order as input
         """
         results = [None] * len(queries)
 
@@ -419,14 +372,13 @@ class GetGMPrices(GetData):
         return results
 
     def _save_to_json(self, data: dict) -> None:
-        """
-        Save GM prices data to JSON file.
+        """Save GM prices data to JSON file.
 
         Creates a timestamped JSON file in the 'data' directory with
         the GM prices information for later analysis or archival purposes.
 
-        :param data: Data to save
-        :type data: dict
+        Args:
+            data: Data to save
         """
         try:
             import json
@@ -460,14 +412,13 @@ class GetGMPrices(GetData):
             self.log.error(f"Failed to save JSON file: {e}")
 
     def _save_to_csv(self, data: dict) -> None:
-        """
-        Save GM prices data to CSV file.
+        """Save GM prices data to CSV file.
 
         Creates a timestamped CSV file in the 'data' directory with
         GM prices information in tabular format for spreadsheet analysis.
 
-        :param data: Data to save
-        :type data: dict
+        Args:
+            data: Data to save
         """
         try:
             import pandas as pd

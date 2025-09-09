@@ -14,36 +14,27 @@ from eth_typing import HexAddress
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.core.get_data import GetData
 from eth_defi.gmx.core.oracle import OraclePrices
+from eth_defi.gmx.types import MarketSymbol, USDAmount
 
 
 # TODO: too slow
 @dataclass
 class OpenInterestInfo:
-    """
-    Open interest information for a specific GMX market.
-
-    :param market_address: GMX market contract address
-    :type market_address: HexAddress
-    :param market_symbol: Market symbol identifier
-    :type market_symbol: str
-    :param long_open_interest: Long open interest in USD
-    :type long_open_interest: float
-    :param short_open_interest: Short open interest in USD
-    :type short_open_interest: float
-    :param total_open_interest: Total open interest in USD
-    :type total_open_interest: float
-    :param long_token_address: Address of the long token
-    :type long_token_address: HexAddress
-    :param short_token_address: Address of the short token
-    :type short_token_address: HexAddress
-    """
-
+    """Open interest information for a specific GMX market."""
+    
+    #: GMX market contract address
     market_address: HexAddress
-    market_symbol: str
-    long_open_interest: float
-    short_open_interest: float
-    total_open_interest: float
+    #: Market symbol identifier
+    market_symbol: MarketSymbol
+    #: Long open interest in USD
+    long_open_interest: USDAmount
+    #: Short open interest in USD
+    short_open_interest: USDAmount
+    #: Total open interest in USD
+    total_open_interest: USDAmount
+    #: Address of the long token
     long_token_address: HexAddress
+    #: Address of the short token
     short_token_address: HexAddress
 
 
