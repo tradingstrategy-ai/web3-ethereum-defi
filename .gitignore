@@ -33,3 +33,5 @@ contracts/aave-v3-deploy/hardhat-deployment-export.json
 
 # environment files
 .env
+
+logs/
