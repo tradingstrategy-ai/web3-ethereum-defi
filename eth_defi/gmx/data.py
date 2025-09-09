@@ -180,7 +180,10 @@ class GMXMarketData:
         :rtype: dict[str, dict[str, float]]
         """
         # Use multicall approach for better performance (original max(0, ...) bug has been fixed)
-        return GetAvailableLiquidity(self.gmx_config, use_original_approach=False).get_data(to_csv=self.to_csv, to_json=self.to_json)
+        return GetAvailableLiquidity(self.gmx_config).get_data(
+            to_csv=self.to_csv,
+            to_json=self.to_json,
+        )
 
     def get_borrow_apr(self) -> dict[str, dict[str, float]]:
         """
