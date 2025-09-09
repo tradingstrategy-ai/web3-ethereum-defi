@@ -62,8 +62,6 @@ if JSON_RPC_URL is None:
 
 
 def main():
-    
-
     # How many CPUs / subprocess we use
     max_workers = int(os.environ.get("MAX_WORKERS", "16"))
     # max_workers = 1  # To debug, set workers to 1
@@ -74,9 +72,7 @@ def main():
     rpcs = get_provider_name(web3.provider)
     hypersync_url = get_hypersync_server(web3)
 
-    setup_console_logging(
-        log_file=Path(f"logs/{name}-scan-vaults.log")
-    )
+    setup_console_logging(log_file=Path(f"logs/{name}-scan-vaults.log"))
 
     print(f"Scanning ERC-4626 vaults on chain {web3.eth.chain_id}: {name}, using rpcs: {rpcs}, using HyperSync: {hypersync_url}, and {max_workers} workers")
 

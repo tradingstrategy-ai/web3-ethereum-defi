@@ -304,7 +304,6 @@ class FallbackProvider(BaseNamedProvider):
                 return resp_data
 
             except Exception as e:
-
                 # dRPC hack, as it is giving out it's custom error messages
                 if isinstance(e, HTTPError):
                     if e.response is not None and e.response.status_code == 400:
