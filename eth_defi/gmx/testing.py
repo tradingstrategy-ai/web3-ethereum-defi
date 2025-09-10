@@ -79,21 +79,17 @@ def set_opt_code(w3: Web3, bytecode=None, contract_address=None):
 
 
 def execute_order(config, connection, order_key, deployed_oracle_address, initial_token_address, target_token_address, logger=None, overrides=None):
-    """
-    Execute an order with oracle prices
+    """Execute an order with oracle prices
 
-    Args:
-        config: Configuration object containing chain and other settings
-        connection: Web3 connection object
-        order_key: Key of the order to execute
-        deployed_oracle_address: Address of the deployed oracle contract
-        initial_token_address: Address of the initial token
-        target_token_address: Address of the target token
-        logger: Logger object (optional)
-        overrides: Optional parameters to override defaults
-
-    Returns:
-        Result of the execute_with_oracle_params call
+    :param config: Configuration object containing chain and other settings
+    :param connection: Web3 connection object
+    :param order_key: Key of the order to execute
+    :param deployed_oracle_address: Address of the deployed oracle contract
+    :param initial_token_address: Address of the initial token
+    :param target_token_address: Address of the target token
+    :param logger: Optional logger instance
+    :param overrides: Optional transaction overrides
+    :return: Transaction receipt
     """
     if logger is None:
         import logging
@@ -324,20 +320,13 @@ def deploy_custom_oracle_provider(w3: Web3, account) -> str:
     return contract_address
 
 
-def override_storage_slot(
-    contract_address: str,
-    slot: str = "0x636d2c90aa7802b40e3b1937e91c5450211eefbc7d3e39192aeb14ee03e3a958",
-    value: int = 171323136489203020000000,
-    web3: Web3 = None,
-) -> dict:
-    """
-    Override a storage slot in an Anvil fork.
+def override_storage_slot(contract_address, slot, value, web3):
+    """Override a storage slot in an Anvil fork.
 
-    Args:
-        contract_address: The address of the contract
-        slot: The storage slot to override (as a hex string)
-        value: The value to set (as an integer)
-        web3: Web3 object
+    :param contract_address: The address of the contract
+    :param slot: The storage slot to override (as a hex string)
+    :param value: The value to set (as an integer)
+    :param web3: Web3 object
     """
 
     # Check connection

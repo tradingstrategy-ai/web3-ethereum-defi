@@ -32,7 +32,7 @@ DEFAULT_GMX_TOKEN_CACHE = cachetools.LRUCache(512)
 GMXTokenAddress: TypeAlias = str
 
 
-@dataclass
+@dataclass(slots=True)
 class GMXSyntheticTokenDetails:
     """GMX Synthetic token Python representation.
 
@@ -90,11 +90,8 @@ class GMXSyntheticTokenDetails:
     def convert_to_decimals(self, raw_amount: int) -> Decimal:
         """Convert raw token units to decimal representation.
 
-        Args:
-            raw_amount: Raw token amount as integer
-
-        Returns:
-            Decimal representation of the amount
+        :param raw_amount: Raw token amount as integer
+        :return: Decimal representation of the amount
 
         Example:
             If token has 6 decimals, converts 1000000 -> 1.0
@@ -104,13 +101,10 @@ class GMXSyntheticTokenDetails:
         return Decimal(raw_amount) / Decimal(10**self.decimals)
 
     def convert_to_raw(self, decimal_amount: Decimal) -> int:
-        """Convert decimal amount to raw token units.
+        """Convert decimal token amount to raw integer units.
 
-        Args:
-            decimal_amount: Decimal amount
-
-        Returns:
-            Raw token amount as integer
+        :param decimal_amount: Decimal amount
+        :return: Raw token amount as integer
 
         Example:
             If token has 6 decimals, converts 1.0 -> 1000000
@@ -126,12 +120,9 @@ class GMXSyntheticTokenDetails:
         We cache by (chain_id, symbol) since GMX API gives us symbol-based data.
         This is different from ERC-20 caching which uses address.
 
-        Args:
-            chain_id: Blockchain chain ID
-            symbol: Token symbol
-
-        Returns:
-            Cache key string in format "gmx-{chain_id}-{symbol_lower}"
+        :param chain_id: Blockchain chain ID
+        :param symbol: Token symbol
+        :return: Cache key string in format "gmx-{chain_id}-{symbol_lower}"
         """
         if not isinstance(chain_id, int):
             raise ValueError(f"Chain ID must be int, got {type(chain_id)}")
@@ -165,7 +156,7 @@ class GMXTokenFetchError(Exception):
 def fetch_gmx_synthetic_tokens(
     chain_id: int,
     cache: Optional[cachetools.Cache] = DEFAULT_GMX_TOKEN_CACHE,
-    timeout: int = 30,
+    timeout: float = 10.0,
     force_refresh: bool = False,
 ) -> list[GMXSyntheticTokenDetails]:
     """Fetch GMX synthetic token details from API with caching.
@@ -174,31 +165,19 @@ def fetch_gmx_synthetic_tokens(
     and caches the results to avoid repeated API calls. The caching strategy
     differs from ERC-20 tokens because GMX API returns all tokens at once.
 
-    Args:
-        chain_id: Blockchain chain ID (42161 for Arbitrum, 43114 for Avalanche)
-        cache: Cache instance to use. Set to None to disable caching
-        timeout: HTTP request timeout in seconds
-        force_refresh: If True, bypass cache and fetch fresh data
-
-    Returns:
-        list of GMXSyntheticTokenDetails objects
-
-    Raises:
-        GMXTokenFetchError: If API request fails or returns invalid data
-        ValueError: If chain_id is not supported
+    :param chain_id: Blockchain chain ID (42161 for Arbitrum, 43114 for Avalanche)
+    :param cache: Cache instance to use. Set to None to disable caching
+    :param timeout: HTTP request timeout in seconds
+    :param force_refresh: If True, bypass cache and fetch fresh data
+    :return: list of GMXSyntheticTokenDetails objects
+    :raises GMXTokenFetchError: If API request fails or returns invalid data
+    :raises ValueError: If chain_id is not supported
 
     Example:
 
     .. code-block:: python
 
         # Fetch Arbitrum GMX tokens
-        arbitrum_tokens = fetch_gmx_synthetic_tokens(42161)
-        print(f"Found {len(arbitrum_tokens)} GMX tokens on Arbitrum")
-
-        # Find specific token
-        eth_token = next((t for t in arbitrum_tokens if t.symbol == "ETH"), None)
-        if eth_token:
-            print(f"ETH address: {eth_token.address}")
     """
 
     # Validate chain ID is supported
@@ -293,13 +272,10 @@ def get_gmx_synthetic_token_by_symbol(
     This is a convenience function that fetches all tokens and filters by symbol.
     More efficient than fetching tokens repeatedly when you need just one.
 
-    Args:
-        chain_id: Blockchain chain ID
-        symbol: Token symbol to search for (case-insensitive)
-        cache: Cache instance to use
-
-    Returns:
-        GMXSyntheticTokenDetails if found, None otherwise
+    :param chain_id: Blockchain chain ID
+    :param symbol: Token symbol to search for (case-insensitive)
+    :param cache: Cache instance to use
+    :return: GMXSyntheticTokenDetails if found, None otherwise
 
     Example:
 
@@ -328,13 +304,10 @@ def get_gmx_synthetic_token_by_address(
 ) -> Optional[GMXSyntheticTokenDetails]:
     """Get a specific GMX token by address on a given chain.
 
-    Args:
-        chain_id: Blockchain chain ID
-        address: Token contract address
-        cache: Cache instance to use
-
-    Returns:
-        GMXSyntheticTokenDetails if found, None otherwise
+    :param chain_id: Blockchain chain ID
+    :param address: Token contract address
+    :param cache: Cache instance to use
+    :return: GMXSyntheticTokenDetails if found, None otherwise
     """
     tokens = fetch_gmx_synthetic_tokens(chain_id, cache=cache)
 
@@ -359,7 +332,6 @@ def reset_gmx_token_cache():
 def get_supported_gmx_chains() -> list[int]:
     """Get list of chain IDs that support GMX synthetic tokens.
 
-    Returns:
-        list of supported chain IDs
+    :return: list of supported chain IDs
     """
     return list(GMX_API_ENDPOINTS.keys())

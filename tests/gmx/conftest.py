@@ -11,6 +11,8 @@ from eth_defi.chain import install_chain_middleware
 from eth_defi.gas import node_default_gas_price_strategy
 from eth_defi.gmx.api import GMXAPI
 from eth_defi.gmx.config import GMXConfig
+from eth_defi.gmx.core import GetOpenPositions, GetPoolTVL, Markets
+from eth_defi.gmx.core.glv_stats import GlvStats
 from eth_defi.gmx.data import GMXMarketData
 from eth_defi.gmx.liquidity import GMXLiquidityManager
 from eth_defi.gmx.order import GMXOrderManager
@@ -297,6 +299,7 @@ def web3_fork(anvil_chain_fork: str) -> Web3:
     return web3
 
 
+# TODO: Rename it to web3_abitrum
 @pytest.fixture()
 def web3_mainnet(chain_name, chain_rpc_url):
     """Set up a Web3 connection to the mainnet chain."""
@@ -318,7 +321,7 @@ def web3_mainnet(chain_name, chain_rpc_url):
 
 
 @pytest.fixture()
-def gmx_config(web3_mainnet, chain_name) -> GMXConfig:
+def gmx_config(web3_mainnet) -> GMXConfig:
     """Create a GMX configuration for the specified chain."""
     return GMXConfig(web3_mainnet)
 
@@ -327,6 +330,12 @@ def gmx_config(web3_mainnet, chain_name) -> GMXConfig:
 def market_data(gmx_config) -> GMXMarketData:
     """Create a GMXMarketData instance for the specified chain."""
     return GMXMarketData(gmx_config)
+
+
+@pytest.fixture()
+def get_pool_tvl(gmx_config) -> GetPoolTVL:
+    """Create a GetPoolTVL instance for the specified chain."""
+    return GetPoolTVL(gmx_config)
 
 
 @pytest.fixture()
@@ -614,3 +623,95 @@ def account_with_positions(chain_name):
         "avalanche": addr("0x83806fe5D4166868498eB95e32c972E07A5C065D"),
     }
     return addresses[chain_name]
+
+
+# GMX Core test fixtures
+@pytest.fixture
+def get_available_liquidity(gmx_config):
+    """Create GetAvailableLiquidity instance."""
+    from eth_defi.gmx.core.available_liquidity import GetAvailableLiquidity
+
+    return GetAvailableLiquidity(gmx_config)
+
+
+@pytest.fixture
+def get_borrow_apr(gmx_config):
+    """Create GetBorrowAPR instance."""
+    from eth_defi.gmx.core.borrow_apr import GetBorrowAPR
+
+    return GetBorrowAPR(gmx_config)
+
+
+@pytest.fixture
+def get_claimable_fees(gmx_config):
+    """Create GetClaimableFees instance."""
+    from eth_defi.gmx.core.claimable_fees import GetClaimableFees
+
+    return GetClaimableFees(gmx_config)
+
+
+@pytest.fixture
+def get_funding_fee(gmx_config):
+    """Create GetFundingFee instance."""
+    from eth_defi.gmx.core.funding_fee import GetFundingFee
+
+    return GetFundingFee(gmx_config)
+
+
+@pytest.fixture
+def markets(gmx_config):
+    """Fixture to provide a Markets instance for testing."""
+    return Markets(gmx_config)
+
+
+@pytest.fixture
+def get_gm_prices(gmx_config):
+    """Create GetGMPrices instance."""
+    from eth_defi.gmx.core.gm_prices import GetGMPrices
+
+    return GetGMPrices(gmx_config)
+
+
+@pytest.fixture
+def get_open_interest(gmx_config):
+    """Create GetOpenInterest instance."""
+    from eth_defi.gmx.core.open_interest import GetOpenInterest
+
+    return GetOpenInterest(gmx_config)
+
+
+@pytest.fixture
+def get_open_positions(gmx_config):
+    """Create GetOpenPositions instance."""
+    from eth_defi.gmx.core.open_positions import GetOpenPositions
+
+    return GetOpenPositions(gmx_config)
+
+
+@pytest.fixture
+def gmx_open_positions(chain_rpc_url) -> GetOpenPositions:
+    launch = fork_network_anvil(
+        chain_rpc_url,
+        test_request_timeout=30,
+        fork_block_number=373279955,
+        launch_wait_seconds=40,
+    )
+    anvil_chain_fork = launch.json_rpc_url
+
+    web3 = Web3(
+        HTTPProvider(
+            anvil_chain_fork,
+            request_kwargs={"timeout": 30},
+        )
+    )
+    gmx_config = GMXConfig(web3)
+    get_open_positions = GetOpenPositions(gmx_config)
+
+    return get_open_positions
+
+
+@pytest.fixture
+def get_glv_stats(gmx_config):
+    """Create GlvStats instance."""
+
+    return GlvStats(gmx_config)
