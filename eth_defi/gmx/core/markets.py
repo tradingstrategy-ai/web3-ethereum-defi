@@ -6,6 +6,8 @@ This module provides access to GMX protocol market information and trading pairs
 
 import logging
 from dataclasses import dataclass
+
+logger = logging.getLogger(__name__)
 from typing import Optional, Any
 
 from eth_typing import HexAddress
@@ -18,7 +20,7 @@ from eth_defi.gmx.core.oracle import OraclePrices
 from eth_defi.gmx.types import MarketSymbol, MarketData
 
 
-@dataclass
+@dataclass(slots=True)
 class MarketInfo:
     """Information about a GMX market."""
 
@@ -56,7 +58,6 @@ class Markets:
         :param config: GMXConfig instance containing chain and network info
         """
         self.config = config
-        self.log = logging.getLogger(__name__)
         self._markets_cache = None
         self._token_metadata_dict = None
         self._oracle_prices = None
@@ -93,7 +94,7 @@ class Markets:
             try:
                 self._oracle_prices = OraclePrices(chain=self.config.chain).get_recent_prices()
             except Exception as e:
-                self.log.debug(f"Failed to fetch oracle prices: {e}")
+                logger.debug(f"Failed to fetch oracle prices: {e}")
                 self._oracle_prices = {}
 
         return self._oracle_prices
@@ -235,7 +236,7 @@ class Markets:
         """
         Process the raw market data and populate the cache.
         """
-        self.log.debug("Processing GMX markets data...")
+        logger.debug("Processing GMX markets data...")
 
         # Pre-load necessary data
         token_metadata_dict = self._get_token_metadata_dict()
@@ -243,7 +244,7 @@ class Markets:
 
         # Get raw market data
         raw_markets = self._get_available_markets_raw()
-        self.log.debug(f"Retrieved {len(raw_markets)} raw markets from contract")
+        logger.debug(f"Retrieved {len(raw_markets)} raw markets from contract")
 
         # Process markets in bulk
         processed_markets = {}
@@ -262,7 +263,7 @@ class Markets:
                     if market_address == self._special_wsteth_address:
                         index_token_address = to_checksum_address("0x5979D7b546E38E414F7E9822514be443A4800529")
                     else:
-                        self.log.debug(f"Skipping market {market_address} with zero index token address")
+                        logger.debug(f"Skipping market {market_address} with zero index token address")
                         continue
 
                 # Check if index token is available in oracle prices
@@ -271,7 +272,7 @@ class Markets:
                     if market_address == self._special_wsteth_address:
                         pass  # Continue processing
                     else:
-                        self.log.debug(f"Skipping market {market_address}: index token {index_token_address} not in oracle prices")
+                        logger.debug(f"Skipping market {market_address}: index token {index_token_address} not in oracle prices")
                         continue
 
                 # Get metadata for all tokens
@@ -323,8 +324,8 @@ class Markets:
                 }
 
             except Exception as e:
-                self.log.debug(f"Skipping market {raw_market[0]}: {e}")
+                logger.debug(f"Skipping market {raw_market[0]}: {e}")
                 continue
 
         self._markets_cache = processed_markets
-        self.log.debug(f"Processed {len(processed_markets)} markets successfully")
+        logger.debug(f"Processed {len(processed_markets)} markets successfully")

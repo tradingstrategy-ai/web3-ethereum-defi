@@ -5,6 +5,8 @@ This module provides open interest data for GMX protocol markets.
 """
 
 import logging
+
+logger = logging.getLogger(__name__)
 import time
 from dataclasses import dataclass
 from typing import Any
@@ -18,7 +20,7 @@ from eth_defi.gmx.types import MarketSymbol, USDAmount
 
 
 # TODO: too slow
-@dataclass
+@dataclass(slots=True)
 class OpenInterestInfo:
     """Open interest information for a specific GMX market."""
 
@@ -62,7 +64,6 @@ class GetOpenInterest(GetData):
         :type filter_swap_markets: bool
         """
         super().__init__(config, filter_swap_markets)
-        self.log = logging.getLogger(__name__)
 
     def _get_data_processing(self) -> dict[str, Any]:
         """Generate the dictionary of open interest data.
@@ -88,7 +89,7 @@ class GetOpenInterest(GetData):
 
             # Skip markets with invalid index token addresses
             if index_token_address == "0x0000000000000000000000000000000000000000":
-                self.log.warning(f"Skipping market {market_key} with zero index token address")
+                logger.warning(f"Skipping market {market_key} with zero index token address")
                 continue
 
             market = [
@@ -153,8 +154,8 @@ class GetOpenInterest(GetData):
             long_value = (long_oi - long_pnl) / long_precision
             short_value = (short_oi - short_pnl) / precision
 
-            self.log.debug(f"{market_symbol} Long: ${self._format_number(long_value)}")
-            self.log.debug(f"{market_symbol} Short: ${self._format_number(short_value)}")
+            logger.debug(f"{market_symbol} Long: ${self._format_number(long_value)}")
+            logger.debug(f"{market_symbol} Short: ${self._format_number(short_value)}")
 
             self.output["long"][market_symbol] = long_value
             self.output["short"][market_symbol] = short_value

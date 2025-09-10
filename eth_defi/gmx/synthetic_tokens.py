@@ -32,7 +32,7 @@ DEFAULT_GMX_TOKEN_CACHE = cachetools.LRUCache(512)
 GMXTokenAddress: TypeAlias = str
 
 
-@dataclass
+@dataclass(slots=True)
 class GMXSyntheticTokenDetails:
     """GMX Synthetic token Python representation.
 

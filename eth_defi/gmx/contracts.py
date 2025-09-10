@@ -17,6 +17,7 @@ from web3 import Web3
 from web3.contract import Contract
 from cchecksum import to_checksum_address
 
+from eth_defi.abi import get_contract, get_deployed_contract
 from eth_defi.gmx.constants import GMX_API_URLS, GMX_API_URLS_BACKUP
 
 
@@ -53,7 +54,7 @@ def _get_clean_backup_urls() -> dict[str, str]:
     return clean_urls
 
 
-@dataclass
+@dataclass(slots=True)
 class ContractAddresses:
     """GMX contract addresses for a specific network."""
 
@@ -118,14 +119,6 @@ def _load_abi(filename: str) -> list:
         return json.load(f)
 
 
-# Basic ABIs for essential contracts
-READER_ABI: list = _load_abi("Reader.json")
-DATASTORE_ABI: list = _load_abi("DataStore.json")
-EXCHANGE_ROUTER_ABI: list = _load_abi("ExchangeRouter.json")
-ORACLE_ABI: list = _load_abi("Oracle.json")
-GLV_READER_ABI: list = _load_abi("GlvReader.json")
-BALANCE_ABI: list = _load_abi("balance.json")
-
 # TODO: Replace this to fetch the addresses dynamically from https://raw.githubusercontent.com/gmx-io/gmx-synthetics/refs/heads/v2.2-branch/docs/contracts.json
 # Token addresses by network
 NETWORK_TOKENS = {
@@ -170,7 +163,7 @@ def get_reader_contract(web3: Web3, chain: str) -> Contract:
     :return: Web3 contract instance for SyntheticsReader
     """
     addresses = get_contract_addresses(chain)
-    return web3.eth.contract(address=addresses.syntheticsreader, abi=READER_ABI)
+    return get_deployed_contract(web3, "gmx/Reader.json", addresses.syntheticsreader)
 
 
 def get_datastore_contract(web3: Web3, chain: str) -> Contract:
@@ -182,7 +175,7 @@ def get_datastore_contract(web3: Web3, chain: str) -> Contract:
     :return: Web3 contract instance for DataStore
     """
     addresses = get_contract_addresses(chain)
-    return web3.eth.contract(address=addresses.datastore, abi=DATASTORE_ABI)
+    return get_deployed_contract(web3, "gmx/DataStore.json", addresses.datastore)
 
 
 def get_tokens_address_dict(chain: str) -> dict[str, str]:
@@ -266,7 +259,7 @@ def get_exchange_router_contract(web3: Web3, chain: str) -> Contract:
     :return: Web3 contract instance for ExchangeRouter
     """
     addresses = get_contract_addresses(chain)
-    return web3.eth.contract(address=addresses.exchangerouter, abi=EXCHANGE_ROUTER_ABI)
+    return get_deployed_contract(web3, "gmx/ExchangeRouter.json", addresses.exchangerouter)
 
 
 def get_oracle_contract(web3: Web3, chain: str) -> Optional[Contract]:
@@ -279,7 +272,7 @@ def get_oracle_contract(web3: Web3, chain: str) -> Optional[Contract]:
     """
     addresses = get_contract_addresses(chain)
     if addresses.oracle:
-        return web3.eth.contract(address=addresses.oracle, abi=ORACLE_ABI)
+        return get_deployed_contract(web3, "gmx/Oracle.json", addresses.oracle)
     return None
 
 
@@ -292,8 +285,8 @@ def get_glv_reader_contract(web3: Web3, chain: str) -> Contract:
     :return: Web3 contract instance for GLV Reader
     """
     addresses = get_contract_addresses(chain)
-    return web3.eth.contract(address=addresses.glvreader, abi=GLV_READER_ABI)
+    return get_deployed_contract(web3, "gmx/GlvReader.json", addresses.glvreader)
 
 
 def get_token_balance_contract(web3: Web3, contract_address: HexAddress) -> Contract:
-    return web3.eth.contract(address=contract_address, abi=BALANCE_ABI)
+    return get_deployed_contract(web3, "gmx/balance.json", contract_address)

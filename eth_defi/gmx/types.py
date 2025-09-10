@@ -4,7 +4,7 @@ GMX protocol type definitions.
 Common type aliases used throughout the GMX module for better type safety and documentation.
 """
 
-from typing import TypeAlias
+from typing import TypeAlias, Literal
 
 #: Token symbol (e.g., "BTC", "ETH", "USDC")
 TokenSymbol: TypeAlias = str
@@ -22,7 +22,7 @@ USDAmount: TypeAlias = float
 APRDecimal: TypeAlias = float
 
 #: Position side identifier ("long" or "short")
-PositionSide: TypeAlias = str
+PositionSide: TypeAlias = Literal["long", "short"]
 
 #: Liquidity data for a specific side/market
 LiquidityData: TypeAlias = dict[MarketSymbol, USDAmount]

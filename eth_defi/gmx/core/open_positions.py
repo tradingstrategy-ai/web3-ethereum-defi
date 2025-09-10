@@ -5,6 +5,8 @@ This module provides access to open positions data for user addresses.
 """
 
 import logging
+
+logger = logging.getLogger(__name__)
 from typing import Any
 
 import numpy as np
@@ -33,7 +35,6 @@ class GetOpenPositions(GetData):
         :param filter_swap_markets: Whether to filter out swap markets from results
         """
         super().__init__(config, filter_swap_markets=filter_swap_markets)
-        self.log = logging.getLogger(__name__)
 
     def get_data(self, address: str) -> MarketData:
         """Get all open positions for a given address on the configured chain.
@@ -81,7 +82,7 @@ class GetOpenPositions(GetData):
             return processed_positions
 
         except Exception as e:
-            self.log.error(f"Failed to fetch open positions data: {e}")
+            logger.error(f"Failed to fetch open positions data: {e}")
             raise e
 
     def _get_tokens_address_dict(self) -> dict[str, Any]:

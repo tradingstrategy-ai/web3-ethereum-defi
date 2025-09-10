@@ -5,6 +5,8 @@ This module provides borrow APR data for GMX protocol markets.
 """
 
 import logging
+
+logger = logging.getLogger(__name__)
 from typing import Any
 
 from eth_defi.gmx.config import GMXConfig
@@ -26,7 +28,6 @@ class GetBorrowAPR(GetData):
         :param filter_swap_markets: Whether to filter out swap markets from results
         """
         super().__init__(config, filter_swap_markets)
-        self.log = logging.getLogger(__name__)
 
     def _get_data_processing(self) -> PositionSideData:
         """Generate the dictionary of borrow APR data.
@@ -64,7 +65,7 @@ class GetBorrowAPR(GetData):
                 self.output["long"][key] = (output[1] / 10**28) * 3600
                 self.output["short"][key] = (output[2] / 10**28) * 3600
 
-                self.log.debug("{}\nLong Borrow Hourly Rate: -{:.5f}%\nShort Borrow Hourly Rate: -{:.5f}%\n".format(key, self.output["long"][key], self.output["short"][key]))
+                logger.debug("{}\nLong Borrow Hourly Rate: -{:.5f}%\nShort Borrow Hourly Rate: -{:.5f}%\n".format(key, self.output["long"][key], self.output["short"][key]))
             else:
                 # Set default values for failed markets
                 self.output["long"][key] = 0.0

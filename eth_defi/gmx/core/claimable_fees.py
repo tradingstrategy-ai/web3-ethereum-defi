@@ -5,6 +5,8 @@ This module provides claimable fees data for GMX protocol markets. Optimised per
 """
 
 import logging
+
+logger = logging.getLogger(__name__)
 import numpy as np
 from typing import Any, Iterable
 from collections import defaultdict
@@ -33,7 +35,6 @@ class GetClaimableFees(GetData):
         :param config: GMXConfig instance containing chain and network info
         """
         super().__init__(config)
-        self.log = logging.getLogger(__name__)
         self.oracle_prices = OraclePrices(chain=config.chain).get_recent_prices()
 
     def _get_data_processing(self) -> MarketData:
@@ -65,24 +66,24 @@ class GetClaimableFees(GetData):
         :returns: Dictionary of market symbol to fee details
         :rtype: dict
         """
-        self.log.debug("GMX v2 Claimable Fees using Multicall")
+        logger.debug("GMX v2 Claimable Fees using Multicall")
 
         # Get available markets
         available_markets = self.markets.get_available_markets()
         if not available_markets:
-            self.log.warning("No markets available")
+            logger.warning("No markets available")
             return {}
 
         # Generate all multicall requests
-        self.log.debug("Generating multicall requests...")
+        logger.debug("Generating multicall requests...")
         encoded_calls = list(self.generate_all_multicalls(available_markets))
-        self.log.debug(f"Generated {len(encoded_calls)} multicall requests")
+        logger.debug(f"Generated {len(encoded_calls)} multicall requests")
 
         # Create Web3Factory for multicall execution
         web3_factory = TunedWeb3Factory(rpc_config_line=self.config.web3.provider.endpoint_uri)
 
         # Execute all multicalls efficiently
-        self.log.debug("Executing multicalls...")
+        logger.debug("Executing multicalls...")
         multicall_results: dict[str, dict[str, EncodedCallResult]] = defaultdict(dict)
 
         for call_result in read_multicall_chunked(
@@ -97,13 +98,13 @@ class GetClaimableFees(GetData):
             token_type = call_result.call.extra_data["token_type"]
             multicall_results[market_key][token_type] = call_result
 
-        self.log.debug(f"Processed multicalls for {len(multicall_results)} markets")
+        logger.debug(f"Processed multicalls for {len(multicall_results)} markets")
 
         # Process results
         market_fees = {}
         for market_key in available_markets:
             if market_key not in multicall_results:
-                self.log.warning(f"No multicall results for market {market_key}")
+                logger.warning(f"No multicall results for market {market_key}")
                 continue
 
             self._get_token_addresses(market_key)
@@ -118,7 +119,7 @@ class GetClaimableFees(GetData):
                         result_bytes = results[token_type].result
                         return int.from_bytes(result_bytes, byteorder="big") if result_bytes else 0
                     else:
-                        self.log.warning(f"Failed to get {token_type} fees for {market_symbol}")
+                        logger.warning(f"Failed to get {token_type} fees for {market_symbol}")
                         return 0
 
                 long_claimable_fees = safe_extract_fee("long")
@@ -139,7 +140,7 @@ class GetClaimableFees(GetData):
                         ]
                     )
                 else:
-                    self.log.warning(f"No oracle price data for token {self._long_token_address}")
+                    logger.warning(f"No oracle price data for token {self._long_token_address}")
                     long_token_price = 1.0  # Fallback
 
                 # Convert to USD
@@ -155,10 +156,10 @@ class GetClaimableFees(GetData):
                 # Store market fees
                 market_fees[market_symbol] = {"long": long_claimable_usd, "short": short_claimable_usd, "total": long_claimable_usd + short_claimable_usd, "long_token": self._long_token_address, "short_token": self._short_token_address, "long_raw": long_claimable_fees, "short_raw": short_claimable_fees}
 
-                self.log.debug(f"{market_symbol} claimable fees: ${long_claimable_usd + short_claimable_usd:,.2f}")
+                logger.debug(f"{market_symbol} claimable fees: ${long_claimable_usd + short_claimable_usd:,.2f}")
 
             except Exception as e:
-                self.log.error(f"Failed to process market {market_symbol}: {e}")
+                logger.error(f"Failed to process market {market_symbol}: {e}")
                 continue
 
         return market_fees
