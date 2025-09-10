@@ -6,9 +6,8 @@ This module provides pool TVL data for GMX protocol markets.
 
 import logging
 
-logger = logging.getLogger(__name__)
 import numpy as np
-from typing import Any, Iterable, Optional
+from typing import Iterable, Optional
 from collections import defaultdict
 
 from eth_utils import keccak
@@ -20,6 +19,8 @@ from eth_defi.gmx.core.get_data import GetData
 from eth_defi.gmx.keys import pool_amount_key
 from eth_defi.gmx.core.oracle import OraclePrices
 from eth_defi.gmx.types import TVLData
+
+logger = logging.getLogger(__name__)
 
 
 class GetPoolTVL(GetData):
