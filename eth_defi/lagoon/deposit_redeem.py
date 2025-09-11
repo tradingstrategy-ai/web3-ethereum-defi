@@ -236,6 +236,9 @@ class ERC7540DepositManager(VaultDepositManager):
         ).call()
         return assets > 0
 
+    def can_create_deposit_request(self, owner: HexAddress) -> bool:
+        return True
+
     def can_create_redemption_request(self, owner: HexAddress) -> bool:
         return True
 
