@@ -54,92 +54,91 @@ import json
 # Define the base path relative to this script
 base_dir = Path(__file__).resolve().parent
 
-# GMX Is maintaining these APIs and the official documentation can be found here: https://gmx-docs.io/docs/api/rest-v2
+#: GMX Is maintaining these APIs and the official documentation can be found here: https://gmx-docs.io/docs/api/rest-v2
 GMX_API_URLS: dict = {
-    """
-    Primary API endpoint URLs for GMX protocol services by blockchain network.
-    
-    These endpoints provide access to GMX's REST API services, including market
-    data, price feeds, position information, and other off-chain data. Each
-    network maintains its own API infrastructure to ensure optimal performance
-    and reliability for network-specific operations.
-    
-    The APIs follow `REST`ful conventions and return JSON responses. They support
-    public endpoints (market data, prices).
-    
-    :type: dict[str, str]
-    :var arbitrum: Primary API endpoint for Arbitrum network operations
-    :var avalanche: Primary API endpoint for Avalanche network operations
-    """
+    # Primary API endpoint URLs for GMX protocol services by blockchain network.
+    #
+    # These endpoints provide access to GMX's REST API services, including market
+    # data, price feeds, position information, and other off-chain data. Each
+    # network maintains its own API infrastructure to ensure optimal performance
+    # and reliability for network-specific operations.
+    #
+    # The APIs follow `REST`ful conventions and return JSON responses. They support
+    # public endpoints (market data, prices).
+    #
+    # :type: dict[str, str]
+    # :var arbitrum: Primary API endpoint for Arbitrum network operations
+    # :var avalanche: Primary API endpoint for Avalanche network operations
+
     "arbitrum": "https://arbitrum-api.gmxinfra.io",
     "avalanche": "https://avalanche-api.gmxinfra.io",
 }
 
 GMX_API_URLS_BACKUP: dict = {
-    """
-    Backup API endpoint URLs for GMX protocol services by blockchain network.
-    
-    These backup endpoints provide redundancy and failover capability when
-    primary API endpoints are unavailable. The backup infrastructure mirrors
-    the functionality of the primary endpoints, ensuring continuous service
-    availability for critical trading and market data operations.
-    
-    The GMX client libraries automatically attempt backup endpoints when
-    primary endpoints fail, providing transparent failover without requiring
-    application-level retry logic.
-    
-    :type: dict[str, str]
-    :var arbitrum: Backup API endpoint for Arbitrum network operations
-    :var avalanche: Backup API endpoint for Avalanche network operations
-    """
+    # Backup API endpoint URLs for GMX protocol services by blockchain network.
+    #
+    # These backup endpoints provide redundancy and failover capability when
+    # primary API endpoints are unavailable. The backup infrastructure mirrors
+    # the functionality of the primary endpoints, ensuring continuous service
+    # availability for critical trading and market data operations.
+    #
+    # The GMX client libraries automatically attempt backup endpoints when
+    # primary endpoints fail, providing transparent failover without requiring
+    # application-level retry logic.
+    #
+    # :type: dict[str, str]
+    # :var arbitrum: Backup API endpoint for Arbitrum network operations
+    # :var avalanche: Backup API endpoint for Avalanche network operations
+
     "arbitrum": "https://arbitrum-api.gmxinfra2.io",
     "avalanche": "https://avalanche-api.gmxinfra2.io",
 }
 
+# TODO: get rid of the rest bcz they will be migrated soon.
 # Contract addresses by chain
 GMX_EVENT_EMITTER_ADDRESS = {
-    """
-    Smart contract addresses for GMX Event Emitter contracts by network.
-    
-    The Event Emitter contract serves as a central logging system for the GMX
-    protocol, recording important events such as position updates, liquidations,
-    funding rate changes, and other critical protocol activities. This contract
-    provides a standardized interface for monitoring and indexing GMX protocol
-    events across different blockchain networks.
-    
-    Event emitters are essential for building real-time monitoring systems,
-    analytics dashboards, and automated trading strategies that need to react
-    to protocol state changes. They emit structured events that can be efficiently
-    filtered and processed by off-chain systems.
-    
-    :type: dict[str, str]
-    :var arbitrum: Event Emitter contract address on Arbitrum network
-    :var avalanche: Event Emitter contract address on Avalanche network
-    """
+
+    # Smart contract addresses for GMX Event Emitter contracts by network.
+    #
+    # The Event Emitter contract serves as a central logging system for the GMX
+    # protocol, recording important events such as position updates, liquidations,
+    # funding rate changes, and other critical protocol activities. This contract
+    # provides a standardized interface for monitoring and indexing GMX protocol
+    # events across different blockchain networks.
+    #
+    # Event emitters are essential for building real-time monitoring systems,
+    # analytics dashboards, and automated trading strategies that need to react
+    # to protocol state changes. They emit structured events that can be efficiently
+    # filtered and processed by off-chain systems.
+    #
+    # :type: dict[str, str]
+    # :var arbitrum: Event Emitter contract address on Arbitrum network
+    # :var avalanche: Event Emitter contract address on Avalanche network
+
     "arbitrum": "0xC8ee91A54287DB53897056e12D9819156D3822Fb",
     "avalanche": "0xDb17B211c34240B014ab6d61d4A31FA0C0e20c26",
 }
 
 GMX_DATASTORE_ADDRESS = {
-    """
-    Smart contract addresses for GMX DataStore contracts by network.
-    
-    The DataStore contract acts as the primary data repository for the GMX
-    protocol, storing critical information such as market configurations,
-    position data, pricing parameters, and protocol settings. It serves as
-    the authoritative source for protocol state that other contracts query
-    to make trading and liquidation decisions.
-    
-    This contract implements a key-value storage pattern that allows efficient
-    storage and retrieval of complex protocol data. It's designed for high
-    read frequency with controlled write access, ensuring data integrity
-    while supporting the performance requirements of a high-frequency trading
-    protocol.
-    
-    :type: dict[str, str]
-    :var arbitrum: DataStore contract address on Arbitrum network
-    :var avalanche: DataStore contract address on Avalanche network
-    """
+
+    # Smart contract addresses for GMX DataStore contracts by network.
+    #
+    # The DataStore contract acts as the primary data repository for the GMX
+    # protocol, storing critical information such as market configurations,
+    # position data, pricing parameters, and protocol settings. It serves as
+    # the authoritative source for protocol state that other contracts query
+    # to make trading and liquidation decisions.
+    #
+    # This contract implements a key-value storage pattern that allows efficient
+    # storage and retrieval of complex protocol data. It's designed for high
+    # read frequency with controlled write access, ensuring data integrity
+    # while supporting the performance requirements of a high-frequency trading
+    # protocol.
+    #
+    # :type: dict[str, str]
+    # :var arbitrum: DataStore contract address on Arbitrum network
+    # :var avalanche: DataStore contract address on Avalanche network
+
     "arbitrum": "0xFD70de6b91282D8017aA4E741e9Ae325CAb992d8",
     "avalanche": "0x2F0b22339414ADeD7D5F06f9D604c7fF5b2fe3f6",
 }
@@ -169,24 +168,24 @@ GMX_READER_ADDRESS = {
 }
 
 GMX_EXCHANGE_ROUTER_ADDRESS = {
-    """
-    Smart contract addresses for GMX Exchange Router contracts by network.
-    
-    The Exchange Router contract serves as the main entry point for trading
-    operations on the GMX protocol. It handles position opening, closing,
-    order placement, and other trading-related transactions. The router
-    implements safety checks, fee calculations, and coordinates with other
-    protocol contracts to execute trades securely and efficiently.
-    
-    This contract is where users submit trading transactions, making it one
-    of the most critical components of the GMX protocol infrastructure. It
-    implements sophisticated validation logic to ensure trades comply with
-    protocol rules, risk parameters, and market conditions before execution.
-    
-    :type: dict[str, str]
-    :var arbitrum: Exchange Router contract address on Arbitrum network
-    :var avalanche: Exchange Router contract address on Avalanche network
-    """
+
+    # Smart contract addresses for GMX Exchange Router contracts by network.
+    #
+    # The Exchange Router contract serves as the main entry point for trading
+    # operations on the GMX protocol. It handles position opening, closing,
+    # order placement, and other trading-related transactions. The router
+    # implements safety checks, fee calculations, and coordinates with other
+    # protocol contracts to execute trades securely and efficiently.
+    #
+    # This contract is where users submit trading transactions, making it one
+    # of the most critical components of the GMX protocol infrastructure. It
+    # implements sophisticated validation logic to ensure trades comply with
+    # protocol rules, risk parameters, and market conditions before execution.
+    #
+    # :type: dict[str, str]
+    # :var arbitrum: Exchange Router contract address on Arbitrum network
+    # :var avalanche: Exchange Router contract address on Avalanche network
+
     "arbitrum": "0x900173A66dbD345006C51fA35fA3aB760FcD843b",
     "avalanche": "0x2b76df209E1343da5698AF0f8757f6170162e78b",
 }
