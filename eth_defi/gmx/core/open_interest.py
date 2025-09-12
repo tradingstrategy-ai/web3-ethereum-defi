@@ -7,7 +7,6 @@ This module provides open interest data for GMX protocol markets.
 import logging
 
 logger = logging.getLogger(__name__)
-import time
 from dataclasses import dataclass
 from typing import Any
 
