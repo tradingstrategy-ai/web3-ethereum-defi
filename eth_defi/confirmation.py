@@ -937,11 +937,10 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
 
     for tx in txs:
         logger.info(
-            "Broadcasting nonce: %d, hash: %s, endpoint: %s, gas %fM",
+            "Broadcasting nonce: %d, hash: %s, endpoint: %s",
             tx.nonce,
             tx.hash.hex(),
             get_provider_name(provider),
-            tx.
         )
 
         end = time.time() + max_timeout.total_seconds()
