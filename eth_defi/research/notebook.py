@@ -79,7 +79,7 @@ def setup_charting_and_output(
     import plotly.io as pio
 
     # Apply Plotly bug fixes
-    import tradeexecutor.monkeypatch.plotly
+    import eth_defi.monkeypatch.plotly
     from plotly.offline import init_notebook_mode
 
     # Get rid of findfont: Font family 'Arial' not found.
