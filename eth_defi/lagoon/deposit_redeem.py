@@ -17,6 +17,8 @@ from eth_typing import HexAddress, BlockIdentifier
 from hexbytes import HexBytes
 from web3._utils.events import EventLogErrorFlags
 
+from tradeexecutor.utils.blockchain import get_block_timestamp
+
 
 @dataclass(slots=True)
 class ERC7540DepositTicket(DepositTicket):
@@ -60,10 +62,11 @@ class ERC7540DepositRequest(DepositRequest):
             # https://basescan.org/address/0x45b6969152a186bafc524048f36a160fac096d50#code
             referral_log = None
             for log in logs:
-                if log["topics"][0].hex() == "bb58420bb8ce44e11b84e214cc0de10ce5e7c24d0355b2815c3d758b514cae72":
+                # There may or may not be 0x prefix here because web3.py madness
+                if log["topics"][0].hex().endswith("bb58420bb8ce44e11b84e214cc0de10ce5e7c24d0355b2815c3d758b514cae72"):
                     referral_log = log
 
-            assert referral_log, f"Cannot find Referral event in logs: {logs} at {tx_hash.hex()}, receipt: {pformat(receipt)}"
+            assert referral_log, f"Cannot find Referral event in logs: {logs} at {tx_hash}, receipt: {pformat(receipt)} for vault {vault}, version {vault.version.value}"
             topics = referral_log["topics"]
             # event Referral(address indexed referral, address indexed owner, uint256 indexed requestId, uint256 assets);
             request_id = convert_bytes32_to_uint(topics[-1])
@@ -76,13 +79,24 @@ class ERC7540DepositRequest(DepositRequest):
             log = logs[0]
             request_id = log["args"]["requestId"]
 
+        web3 = self.vault.web3
+        tx = web3.eth.get_transaction(tx_hash)
+
+
+        block_number = tx["blockNumber"]
+        block_timestamp = get_block_timestamp(web3, block_number)
+        gas_used = receipt["gasUsed"]
+
         return ERC7540DepositTicket(
             vault_address=vault.address,
             owner=self.owner,
             to=self.to,
             raw_amount=self.raw_amount,
-            tx_hash=tx_hashes[-1],
+            tx_hash=HexBytes(tx_hashes[-1]),
             request_id=request_id,
+            gas_used=gas_used,
+            block_number=block_number,
+            block_timestamp=block_timestamp,
         )
 
 
@@ -154,12 +168,16 @@ class ERC7540DepositManager(VaultDepositManager):
     ) -> ERC7540DepositRequest:
         assert not to, f"Unsupported to={to}"
 
+        # TODO: check_max_deposit
+        # TODO: check_enough_token
+
         if not raw_amount:
             raw_amount = self.vault.denomination_token.convert_to_raw(amount)
 
-        func = self.vault.request_deposit(
-            owner,
+        func = self.vault.vault_contract.functions.requestDeposit(
             raw_amount,
+            owner,
+            owner,
         )
 
         return ERC7540DepositRequest(
