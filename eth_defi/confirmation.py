@@ -401,10 +401,11 @@ def _broadcast_multiple_nodes(
     for p in providers:
         name = get_provider_name(p)
         logger.info(
-            "_broadcast_multiple_nodes(): Broadcasting nonce:%d hash:%s through %s",
+            "_broadcast_multiple_nodes(): Broadcasting nonce:%d, hash:%s, through %s, transaction source is %s",
             signed_tx.nonce,
             signed_tx.hash.hex(),
             name,
+            pformat(source or {})
         )
 
         # Does not use any middleware
@@ -936,10 +937,11 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
 
     for tx in txs:
         logger.info(
-            "Broadcasting nonce: %d, hash: %s, endpoint: %s",
+            "Broadcasting nonce: %d, hash: %s, endpoint: %s, gas %fM",
             tx.nonce,
             tx.hash.hex(),
             get_provider_name(provider),
+            tx.
         )
 
         end = time.time() + max_timeout.total_seconds()
