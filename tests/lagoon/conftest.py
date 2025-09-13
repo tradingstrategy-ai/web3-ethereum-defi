@@ -72,8 +72,17 @@ def test_block_number() -> int:
     return 30_659_990
 
 
+
 @pytest.fixture()
-def anvil_base_fork(request, vault_owner, usdc_holder, asset_manager, valuation_manager, test_block_number) -> AnvilLaunch:
+def anvil_base_fork(
+    request,
+    vault_owner,
+    usdc_holder,
+    asset_manager,
+    valuation_manager,
+    test_block_number,
+    lagoon_722_capital_manager,
+) -> AnvilLaunch:
     """Create a testable fork of live BNB chain.
 
     :return: JSON-RPC URL for Web3
@@ -81,7 +90,7 @@ def anvil_base_fork(request, vault_owner, usdc_holder, asset_manager, valuation_
     assert JSON_RPC_BASE, "JSON_RPC_BASE not set"
     launch = fork_network_anvil(
         JSON_RPC_BASE,
-        unlocked_addresses=[vault_owner, usdc_holder, asset_manager, valuation_manager],
+        unlocked_addresses=[vault_owner, usdc_holder, asset_manager, valuation_manager, lagoon_722_capital_manager],
         fork_block_number=test_block_number,
     )
     try:
