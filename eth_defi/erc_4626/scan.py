@@ -15,6 +15,7 @@ from eth_defi.erc_4626.core import get_vault_protocol_name
 from eth_defi.erc_4626.hypersync_discovery import ERC4262VaultDetection
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.event_reader.web3factory import Web3Factory
+from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.token import TokenDiskCache
 
 logger = logging.getLogger(__name__)
@@ -107,6 +108,9 @@ def create_vault_scan_record(
             "_share_token": vault.share_token.export() if vault.share_token else None,
         }
         return data
+    except ExtraValueError as e:
+        # No idea yet
+        raise
     except Exception as e:
         extra_message = ""
         if isinstance(e, HTTPError):
