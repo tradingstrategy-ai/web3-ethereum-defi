@@ -250,10 +250,10 @@ class DepositRequest:
             assert receipt is not None, f"Transaction was not yet mined: {tx_hash}"
             if receipt["status"] != 1:
                 raise VaultTransactionFailed(f"Vault {self.vault} tranasaction {tx_hash} failed {receipt}")
-            gas_used += receipt["gas"]
-            block_number = tx["block_number"]
+            gas_used += receipt["gasUsed"]
+            block_number = tx["blockNumber"]
 
-        block_timestamp = get_block_timestamp(block_number)
+        block_timestamp = get_block_timestamp(self.web3, block_number)
 
         return DepositTicket(vault_address=self.vault.address, owner=self.owner, to=self.to, raw_amount=self.raw_amount, tx_hash=tx_hash, gas_used=gas_used, block_timestamp=block_timestamp, block_number=block_number)
 
