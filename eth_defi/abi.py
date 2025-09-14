@@ -508,7 +508,11 @@ def get_function_selector(func: ContractFunction) -> bytes:
 
 
 def get_topic_signature_from_event(event: Type[ContractEvent]) -> HexStr:
-    """Get topic signature for an Event class."""
+    """Get topic signature for an Event class.
+
+    :return:
+        0x prefixed hex string
+    """
     abi = event._get_event_abi()
     event_topic = encode_hex(event_abi_to_log_topic(abi))  # type: ignore
     return event_topic

@@ -9,14 +9,45 @@ from web3 import Web3
 from web3.contract.contract import ContractFunction
 
 from hexbytes import HexBytes
-from eth_typing import HexAddress, BlockIdentifier
+from eth_typing import HexAddress, BlockIdentifier, BlockNumber
 
+from eth_defi.timestamp import get_block_timestamp
 from eth_defi.trace import assert_transaction_success_with_explanation
-from tradeexecutor.utils.blockchain import get_block_timestamp
 
 
 class VaultTransactionFailed(Exception):
     """One of vault deposit/redeem transactions reverted"""
+
+
+
+@dataclass(slots=True)
+class DepositRedeemEventFailure:
+    tx_hash: HexBytes
+    revert_reason: str | None
+
+@dataclass(slots=True)
+class DepositRedeemEventAnalysis:
+    """Analyse a vault deposit/settlement.
+
+    """
+    from_: HexAddress
+    to: HexAddress
+    denomination_amount: Decimal
+    share_count: Decimal
+    tx_hash: HexBytes
+    block_number: BlockNumber
+    block_timestamp: datetime.datetime
+
+    def __post_init__(self):
+        assert self.denomination_amount > 0
+        assert self.share_count > 0
+
+    def is_success(self):
+        return self.revert_reason is None
+
+    def get_share_price(self) -> Decimal:
+        return self.share_count / self.denomination_amount
+
 
 
 @dataclass(slots=True)
@@ -479,3 +510,25 @@ class VaultDepositManager(ABC):
             If not implemented for this vault protocoll.
         """
         raise NotImplementedError(f"Class {self.__class__.__name__} does not implement get_redemption_delay_over()")
+
+    @abstractmethod
+    def analyse_deposit(
+        self,
+        claim_tx_hash: HexBytes | str,
+        deposit_ticket: DepositTicket | None,
+    ) -> DepositRedeemEventAnalysis | DepositRedeemEventFailure:
+        """Analyse the transaction where we claim shares
+
+        - Return information of the actual executed price for which we got the shares for
+        """
+
+    @abstractmethod
+    def analyse_redemption(
+        self,
+        claim_tx_hash: HexBytes | str,
+        redemption_ticket: RedemptionTicket | None,
+    ) -> DepositRedeemEventAnalysis | DepositRedeemEventFailure:
+        """Analyse the transaction where we claim our capital back.
+
+        - Return information of the actual executed price for which we got the shares for
+        """
