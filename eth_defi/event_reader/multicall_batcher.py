@@ -37,6 +37,7 @@ from web3.contract import Contract
 from web3.contract.contract import ContractFunction
 
 from eth_defi.abi import get_deployed_contract, ZERO_ADDRESS, encode_function_call, ZERO_ADDRESS_STR, format_debug_instructions
+from eth_defi.chain import get_default_call_gas_limit
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.event_reader.fast_json_rpc import get_last_headers
 from eth_defi.event_reader.multicall_timestamp import fetch_block_timestamps_multiprocess
@@ -615,7 +616,7 @@ class EncodedCall:
         web3: Web3,
         block_identifier: BlockIdentifier,
         from_=ZERO_ADDRESS_STR,
-        gas=15_000_000,
+        gas=None,
         ignore_error=False,
         attempts: int = 3,
     ) -> bytes:
@@ -647,12 +648,21 @@ class EncodedCall:
 
             Cannot be used with ignore_errors.
 
+        :param gas:
+            Gas limit.
+
+            If not given, use 15M limit except for Mantle use 99M.
+
         :return:
             Raw call results as bytes
 
         :raise ValueError:
             If the call reverts
         """
+
+        if gas is None:
+            gas = get_default_call_gas_limit(web3.eth.chain_id)
+
         transaction = {
             "to": self.address,
             "from": from_,

@@ -139,6 +139,17 @@ def get_block_time(chain_id: int) -> float:
     return block_time
 
 
+def get_default_call_gas_limit(chain_id: int) -> int:
+    """Get the eth_call reasonable gas limit.
+
+    - 15M except for mantle 99M
+    """
+    if chain_id == 5000:
+        return 99_000_000
+    else:
+        return 15_000_000
+
+
 def install_chain_middleware(web3: Web3, poa_middleware=None, hint: str = ""):
     """Install any chain-specific middleware to Web3 instance.
 
