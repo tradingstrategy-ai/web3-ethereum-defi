@@ -9,9 +9,47 @@ from web3 import Web3
 from web3.contract.contract import ContractFunction
 
 from hexbytes import HexBytes
-from eth_typing import HexAddress, BlockIdentifier
+from eth_typing import HexAddress, BlockIdentifier, BlockNumber
 
+from eth_defi.timestamp import get_block_timestamp
 from eth_defi.trace import assert_transaction_success_with_explanation
+
+
+class VaultTransactionFailed(Exception):
+    """One of vault deposit/redeem transactions reverted"""
+
+
+@dataclass(slots=True)
+class DepositRedeemEventFailure:
+    tx_hash: HexBytes
+    revert_reason: str | None
+
+
+@dataclass(slots=True)
+class DepositRedeemEventAnalysis:
+    """Analyse a vault deposit/redeem event.
+
+    - Done for the transaction where we get our assets into our wallet,
+      so we can determine the actualy executed price of shares we received/sold
+    """
+
+    from_: HexAddress
+    to: HexAddress
+    denomination_amount: Decimal
+    share_count: Decimal
+    tx_hash: HexBytes
+    block_number: BlockNumber
+    block_timestamp: datetime.datetime
+
+    def __post_init__(self):
+        assert self.denomination_amount > 0
+        assert self.share_count > 0
+
+    def is_success(self):
+        return self.revert_reason is None
+
+    def get_share_price(self) -> Decimal:
+        return self.denomination_amount / self.share_count
 
 
 @dataclass(slots=True)
@@ -25,7 +63,16 @@ class DepositTicket:
     owner: HexAddress
     to: HexAddress
     raw_amount: int
+
+    #: Last of transaction hashes
     tx_hash: HexBytes
+    gas_used: int
+
+    #: Last tx block number
+    block_number: int
+
+    #: Last tx block timestamp
+    block_timestamp: datetime.datetime
 
     def __post_init__(self):
         assert self.owner.startswith("0x"), f"Got {self.owner}"
@@ -182,7 +229,10 @@ class DepositRequest:
     def web3(self) -> Web3:
         return self.vault.web3
 
-    def parse_deposit_transaction(self, tx_hashes: list[HexBytes]) -> DepositTicket:
+    def parse_deposit_transaction(
+        self,
+        tx_hashes: list[HexBytes],
+    ) -> DepositTicket:
         """Parse the transaction receipt to get the actual shares redeemed.
 
         - Assumes only one redemption request per vault per transaction
@@ -191,14 +241,25 @@ class DepositRequest:
 
         :raise CannotParseRedemptionTransaction:
             If we did not know how to parse the transaction
+
+        :raise VaultTransactionFailed:
+            One of transactions reverted
         """
-        return DepositTicket(
-            vault_address=self.vault.address,
-            owner=self.owner,
-            to=self.to,
-            raw_amount=self.raw_amount,
-            tx_hash=tx_hashes[-1],
-        )
+
+        gas_used = 0
+
+        for tx_hash in tx_hashes:
+            tx = self.web3.eth.get_transaction(tx_hash)
+            receipt = self.web3.eth.get_transaction_receipt(tx_hash)
+            assert receipt is not None, f"Transaction was not yet mined: {tx_hash}"
+            if receipt["status"] != 1:
+                raise VaultTransactionFailed(f"Vault {self.vault} tranasaction {tx_hash} failed {receipt}")
+            gas_used += receipt["gasUsed"]
+            block_number = tx["blockNumber"]
+
+        block_timestamp = get_block_timestamp(self.web3, block_number)
+
+        return DepositTicket(vault_address=self.vault.address, owner=self.owner, to=self.to, raw_amount=self.raw_amount, tx_hash=tx_hash, gas_used=gas_used, block_timestamp=block_timestamp, block_number=block_number)
 
     def broadcast(self, from_: HexAddress = None, gas: int = 1_000_000) -> RedemptionTicket:
         """Broadcast all the transactions in this request.
@@ -271,7 +332,7 @@ class VaultDepositManager(ABC):
         raw_amount: int = None,
         check_max_deposit=True,
         check_enough_token=True,
-    ) -> RedemptionRequest:
+    ) -> DepositRequest:
         pass
 
     @abstractmethod
@@ -343,7 +404,7 @@ class VaultDepositManager(ABC):
 
         Vault can be full?
         """
-        raise NotImplementedError(f"Class {self.__class__.__name__} does not implement can_create_redemption_request()")
+        raise NotImplementedError(f"Class {self.__class__.__name__} does not implement can_create_deposit_request()")
 
     def get_max_deposit(self, owner: HexAddress) -> Decimal | None:
         """How much we can deposit"""
@@ -442,3 +503,25 @@ class VaultDepositManager(ABC):
             If not implemented for this vault protocoll.
         """
         raise NotImplementedError(f"Class {self.__class__.__name__} does not implement get_redemption_delay_over()")
+
+    @abstractmethod
+    def analyse_deposit(
+        self,
+        claim_tx_hash: HexBytes | str,
+        deposit_ticket: DepositTicket | None,
+    ) -> DepositRedeemEventAnalysis | DepositRedeemEventFailure:
+        """Analyse the transaction where we claim shares
+
+        - Return information of the actual executed price for which we got the shares for
+        """
+
+    @abstractmethod
+    def analyse_redemption(
+        self,
+        claim_tx_hash: HexBytes | str,
+        redemption_ticket: RedemptionTicket | None,
+    ) -> DepositRedeemEventAnalysis | DepositRedeemEventFailure:
+        """Analyse the transaction where we claim our capital back.
+
+        - Return information of the actual executed price for which we got the shares for
+        """

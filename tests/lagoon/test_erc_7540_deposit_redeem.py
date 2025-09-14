@@ -1,6 +1,7 @@
 """ERC-7540 deposit/redeem tests."""
 
 import os
+import datetime
 from decimal import Decimal
 from typing import cast
 
@@ -20,6 +21,7 @@ from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_typing import HexAddress
 
 from eth_defi.utils import addr
+from eth_defi.vault.deposit_redeem import DepositRedeemEventAnalysis
 
 JSON_RPC_BASE = os.environ.get("JSON_RPC_BASE")
 
@@ -169,9 +171,25 @@ def test_erc_7540_deposit_722_capital(
     assert not deposit_manager.can_finish_deposit(deposit_ticket)
     assert not deposit_manager.is_deposit_in_progress(test_user)
 
+    # Parse result
+    deposit_result = deposit_manager.analyse_deposit(
+        tx_hash,
+        deposit_ticket=deposit_ticket,
+    )
+
+    assert isinstance(deposit_result, DepositRedeemEventAnalysis)
+    assert deposit_result.from_ == test_user
+    assert deposit_result.to == test_user
+    assert deposit_result.tx_hash == tx_hash
+    assert deposit_result.block_number >= 35094253
+    assert isinstance(deposit_result.block_timestamp, datetime.datetime)
+    assert deposit_result.share_count == pytest.approx(Decimal("960.645517122092231912"))
+    assert deposit_result.denomination_amount == pytest.approx(Decimal("1000"))
+    assert deposit_result.get_share_price() == pytest.approx(Decimal("1.040966706424453185124846464"))
+
 
 @pytest.mark.skipif(WEB3_PY_V6, reason="Web3.py v6 event log parsing is broken?")
-def test_erc_7540_redeem(
+def test_erc_7540_redeem_722_capital(
     vault: ERC4626Vault,
     test_user: HexAddress,
     usdc: TokenDetails,
@@ -253,3 +271,17 @@ def test_erc_7540_redeem(
     # Shares gone
     share_count = vault.share_token.fetch_balance_of(test_user)
     assert share_count == 0
+
+    redeem_result = deposit_manager.analyse_redemption(
+        tx_hash,
+        redeem_ticket,
+    )
+
+    assert isinstance(redeem_result, DepositRedeemEventAnalysis)
+    assert redeem_result.from_ == test_user
+    assert redeem_result.to == test_user
+    assert redeem_result.tx_hash == tx_hash
+    assert redeem_result.block_number >= 35094253
+    assert isinstance(redeem_result.block_timestamp, datetime.datetime)
+    assert redeem_result.share_count == pytest.approx(Decimal("960.645517122092231912"))
+    assert redeem_result.denomination_amount == pytest.approx(Decimal("1000"))

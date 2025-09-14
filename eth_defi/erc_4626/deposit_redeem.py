@@ -1,14 +1,18 @@
 """ERC-4626 deposit and redeem requests."""
 
+from eth_defi.erc_4626.analysis import analyse_4626_flow_transaction
 from eth_defi.erc_4626.estimate import estimate_4626_deposit, estimate_4626_redeem
 from eth_defi.erc_4626.flow import deposit_4626, redeem_4626
-from eth_defi.vault.deposit_redeem import DepositRequest, RedemptionRequest, RedemptionTicket, VaultDepositManager, DepositTicket
+from eth_defi.timestamp import get_block_timestamp
+from eth_defi.trade import TradeSuccess, TradeFail
+from eth_defi.vault.deposit_redeem import DepositRequest, RedemptionRequest, RedemptionTicket, VaultDepositManager, DepositTicket, DepositRedeemEventAnalysis, DepositRedeemEventFailure
 
 import datetime
 from decimal import Decimal
 
 from web3.contract.contract import ContractFunction
 from eth_typing import HexAddress, BlockIdentifier
+from hexbytes import HexBytes
 
 
 class ERC4626DepositTicket(DepositRequest):
@@ -161,3 +165,41 @@ class ERC4626DepositManager(VaultDepositManager):
 
     def estimate_redeem(self, owner: HexAddress, shares: Decimal, block_identifier: BlockIdentifier = "latest") -> Decimal:
         return estimate_4626_redeem(self.vault, owner, shares, block_identifier=block_identifier)
+
+    def analyse_deposit(
+        self,
+        claim_tx_hash: HexBytes | str,
+        deposit_ticket: DepositTicket | None,
+    ) -> DepositRedeemEventAnalysis | DepositRedeemEventFailure:
+        vault = self.vault
+        tx = vault.web3.eth.get_transaction(claim_tx_hash)
+        receipt = vault.web3.eth.get_transaction_receipt(claim_tx_hash)
+        analysis = analyse_4626_flow_transaction(
+            vault=vault,
+            tx_hash=claim_tx_hash,
+            tx_receipt=receipt,
+            direction="deposit",
+        )
+
+        match analysis:
+            case TradeSuccess():
+                return DepositRedeemEventAnalysis(
+                    from_=None,  # TODO
+                    to=None,  # TODO
+                    tx_hash=tx_hash,
+                    block_number=tx["blockNumber"],
+                    block_timestamp=get_block_timestamp(tx["blockNumber"]),
+                    share_count=vault.share_token.convert_to_decimals(vault.analysis.amount_out),
+                    denomination_amount=vault.denomination_token.convert_to_decimals(analysis.amount_in),
+                )
+            case TradeFail():
+                return DepositRedeemEventFailure(tx_hash=claim_tx_hash, revert_reason=analysis.revert_reason)
+            case _:
+                raise NotImplementedError(f"Unknown {type(analysis)}")
+
+    def analyse_redemption(
+        self,
+        claim_tx_hash: HexBytes | str,
+        redemption_ticket: RedemptionTicket | None,
+    ) -> DepositRedeemEventAnalysis | DepositRedeemEventFailure:
+        return self.analyse_deposit(claim_tx_hash, redemption_ticket=redemption_ticket)

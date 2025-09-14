@@ -20,7 +20,6 @@ from eth_defi.revert_reason import fetch_transaction_revert_reason
 # Trace down to DEBUG level what the heck is going on
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 
-
 node = os.environ["JSON_RPC_BINANCE"]
 private_key = os.environ["PRIVATE_KEY"]
 

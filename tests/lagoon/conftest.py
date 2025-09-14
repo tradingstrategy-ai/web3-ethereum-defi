@@ -73,7 +73,14 @@ def test_block_number() -> int:
 
 
 @pytest.fixture()
-def anvil_base_fork(request, vault_owner, usdc_holder, asset_manager, valuation_manager, test_block_number) -> AnvilLaunch:
+def anvil_base_fork(
+    request,
+    vault_owner,
+    usdc_holder,
+    asset_manager,
+    valuation_manager,
+    test_block_number,
+) -> AnvilLaunch:
     """Create a testable fork of live BNB chain.
 
     :return: JSON-RPC URL for Web3

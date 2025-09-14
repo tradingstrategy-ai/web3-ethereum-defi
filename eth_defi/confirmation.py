@@ -400,13 +400,7 @@ def _broadcast_multiple_nodes(
 
     for p in providers:
         name = get_provider_name(p)
-        logger.info(
-            "_broadcast_multiple_nodes(): Broadcasting nonce:%d, hash:%s, through %s, transaction source is %s",
-            signed_tx.nonce,
-            signed_tx.hash.hex(),
-            name,
-            pformat(source or {})
-        )
+        logger.info("_broadcast_multiple_nodes(): Broadcasting nonce:%d, hash:%s, through %s, transaction source is %s", signed_tx.nonce, signed_tx.hash.hex(), name, pformat(source or {}))
 
         # Does not use any middleware
         web3 = Web3(p)

@@ -4,9 +4,12 @@ from dataclasses import dataclass
 from pprint import pformat
 from typing import cast
 
-from eth_defi.event_reader.conversion import convert_bytes32_to_uint
+from eth_defi.abi import get_topic_signature_from_event, ZERO_ADDRESS_STR
+from eth_defi.event_reader.conversion import convert_bytes32_to_uint, convert_bytes32_to_address
+from eth_defi.timestamp import get_block_timestamp
+from eth_typing import HexAddress, HexStr
 
-from eth_defi.vault.deposit_redeem import DepositTicket, CannotParseRedemptionTransaction, VaultDepositManager
+from eth_defi.vault.deposit_redeem import DepositTicket, CannotParseRedemptionTransaction, VaultDepositManager, DepositRedeemEventAnalysis, DepositRedeemEventFailure
 from eth_defi.vault.deposit_redeem import DepositRequest, RedemptionRequest, RedemptionTicket
 
 import datetime
@@ -60,10 +63,11 @@ class ERC7540DepositRequest(DepositRequest):
             # https://basescan.org/address/0x45b6969152a186bafc524048f36a160fac096d50#code
             referral_log = None
             for log in logs:
-                if log["topics"][0].hex() == "bb58420bb8ce44e11b84e214cc0de10ce5e7c24d0355b2815c3d758b514cae72":
+                # There may or may not be 0x prefix here because web3.py madness
+                if log["topics"][0].hex().endswith("bb58420bb8ce44e11b84e214cc0de10ce5e7c24d0355b2815c3d758b514cae72"):
                     referral_log = log
 
-            assert referral_log, f"Cannot find Referral event in logs: {logs} at {tx_hash.hex()}, receipt: {pformat(receipt)}"
+            assert referral_log, f"Cannot find Referral event in logs: {logs} at {tx_hash}, receipt: {pformat(receipt)} for vault {vault}, version {vault.version.value}"
             topics = referral_log["topics"]
             # event Referral(address indexed referral, address indexed owner, uint256 indexed requestId, uint256 assets);
             request_id = convert_bytes32_to_uint(topics[-1])
@@ -76,13 +80,23 @@ class ERC7540DepositRequest(DepositRequest):
             log = logs[0]
             request_id = log["args"]["requestId"]
 
+        web3 = self.vault.web3
+        tx = web3.eth.get_transaction(tx_hash)
+
+        block_number = tx["blockNumber"]
+        block_timestamp = get_block_timestamp(web3, block_number)
+        gas_used = receipt["gasUsed"]
+
         return ERC7540DepositTicket(
             vault_address=vault.address,
             owner=self.owner,
             to=self.to,
             raw_amount=self.raw_amount,
-            tx_hash=tx_hashes[-1],
+            tx_hash=HexBytes(tx_hashes[-1]),
             request_id=request_id,
+            gas_used=gas_used,
+            block_number=block_number,
+            block_timestamp=block_timestamp,
         )
 
 
@@ -154,12 +168,16 @@ class ERC7540DepositManager(VaultDepositManager):
     ) -> ERC7540DepositRequest:
         assert not to, f"Unsupported to={to}"
 
+        # TODO: check_max_deposit
+        # TODO: check_enough_token
+
         if not raw_amount:
             raw_amount = self.vault.denomination_token.convert_to_raw(amount)
 
-        func = self.vault.request_deposit(
-            owner,
+        func = self.vault.vault_contract.functions.requestDeposit(
             raw_amount,
+            owner,
+            owner,
         )
 
         return ERC7540DepositRequest(
@@ -236,6 +254,9 @@ class ERC7540DepositManager(VaultDepositManager):
         ).call()
         return assets > 0
 
+    def can_create_deposit_request(self, owner: HexAddress) -> bool:
+        return True
+
     def can_create_redemption_request(self, owner: HexAddress) -> bool:
         return True
 
@@ -290,3 +311,124 @@ class ERC7540DepositManager(VaultDepositManager):
         raw_shares = self.vault.share_token.convert_to_raw(shares)
         raw_amount = self.vault.vault_contract.functions.convertToAssets(raw_shares).call(block_identifier=block_identifier)
         return self.vault.denomination_token.convert_to_decimals(raw_amount)
+
+    def analyse_deposit(
+        self,
+        claim_tx_hash: HexBytes | str,
+        deposit_ticket: DepositTicket | None,
+    ) -> DepositRedeemEventAnalysis | DepositRedeemEventFailure:
+        tx_hash = claim_tx_hash
+        assert isinstance(tx_hash, (HexBytes, str)), f"Got {type(claim_tx_hash)}"
+
+        assert deposit_ticket is not None, "DepositTicket must be given to analyse multi stage deposit"
+
+        vault = self.vault
+        web3 = self.web3
+
+        receipt = web3.eth.get_transaction_receipt(tx_hash)
+
+        if receipt["status"] != 1:
+            return DepositRedeemEventFailure(tx_hash=tx_hash, revert_reason=receipt["revert_"])
+
+        tx = web3.eth.get_transaction(tx_hash)
+
+        # function _deposit(uint256 assets, address receiver, address controller) internal virtual returns (uint256 shares) {
+        # emit Deposit(controller, receiver, assets, shares);
+
+        # Looks like ERC-7545 does not have standard events for this?
+        # We picked up from Lagoon.
+        # Deposit (index_topic_1 address sender, index_topic_2 address owner, uint256 assets, uint256 shares)
+        deposit_signatures: set[HexStr] = {
+            # Lagoon 0.5
+            get_topic_signature_from_event(vault.vault_contract.events.Deposit),
+            # Some legacy version?
+            # See test_erc_7540_deposit_722_capital
+            "0xdcbc1c05240f31ff3ad067ef1ee35ce4997762752e3a095284754544f4c709d7",
+        }
+
+        deposit_log = None
+        logs = receipt["logs"]
+        for log in receipt["logs"]:
+            sig = log["topics"][0].hex()
+            if not sig.startswith("0x"):
+                sig = "0x" + sig
+
+            if sig in deposit_signatures:
+                deposit_log = log
+                break
+
+        if deposit_log is None:
+            raise RuntimeError(f"Expected exactly one DepositRequested event, got logs: {logs} at {tx_hash.hex()}, our signatures are {deposit_signatures}")
+
+        raw_amount = convert_bytes32_to_uint(deposit_log["data"][0:32])
+        raw_share_count = convert_bytes32_to_uint(deposit_log["data"][32:64])
+
+        return DepositRedeemEventAnalysis(
+            from_=convert_bytes32_to_address(deposit_log["topics"][1]),
+            to=convert_bytes32_to_address(deposit_log["topics"][2]),
+            share_count=vault.share_token.convert_to_decimals(raw_share_count),
+            denomination_amount=vault.denomination_token.convert_to_decimals(raw_amount),
+            tx_hash=tx_hash,
+            block_number=tx["blockNumber"],
+            block_timestamp=get_block_timestamp(web3, tx["blockNumber"]),
+        )
+
+    def analyse_redemption(
+        self,
+        claim_tx_hash: HexBytes | str,
+        redemption_ticket: RedemptionTicket | None,
+    ) -> DepositRedeemEventAnalysis | DepositRedeemEventFailure:
+        tx_hash = claim_tx_hash
+        assert isinstance(tx_hash, (HexBytes, str)), f"Got {type(claim_tx_hash)}"
+
+        assert redemption_ticket is not None, "RedemptionTicket must be given to analyse multi stage deposit"
+
+        vault = self.vault
+        web3 = self.web3
+
+        receipt = web3.eth.get_transaction_receipt(tx_hash)
+
+        if receipt["status"] != 1:
+            return DepositRedeemEventFailure(tx_hash=tx_hash, revert_reason=receipt["revert_"])
+
+        tx = web3.eth.get_transaction(tx_hash)
+
+        # Looks like ERC-7545 does not have standard events for this?
+        # We picked up from Lagoon.
+        deposit_signatures: set[HexStr] = {
+            # Lagoon 0.5
+            # emit Withdraw(msg.sender, receiver, controller, assets, shares);
+            get_topic_signature_from_event(vault.vault_contract.events.Withdraw),
+            # Some legacy version?
+            # See test_erc_7540_deposit_722_capital
+            # Withdraw (index_topic_1 address caller, index_topic_2 address receiver, index_topic_3 address owner, uint256 assets, uint256 shares)View Source
+            "0xfbde797d201c681b91056529119e0b02407c7bb96a4a2c75c01fc9667232c8db",
+        }
+
+        deposit_log = None
+        logs = receipt["logs"]
+
+        for log in receipt["logs"]:
+            sig = log["topics"][0].hex()
+            if not sig.startswith("0x"):
+                sig = "0x" + sig
+
+            if sig in deposit_signatures:
+                deposit_log = log
+                break
+
+        if deposit_log is None:
+            raise RuntimeError(f"Expected exactly one DepositRequested event, got logs: {logs} at {tx_hash.hex()}, our signatures are {deposit_signatures}")
+
+        raw_amount = convert_bytes32_to_uint(deposit_log["data"][0:32])
+        raw_share_count = convert_bytes32_to_uint(deposit_log["data"][32:64])
+
+        return DepositRedeemEventAnalysis(
+            from_=convert_bytes32_to_address(deposit_log["topics"][2]),
+            to=convert_bytes32_to_address(deposit_log["topics"][3]),
+            share_count=vault.share_token.convert_to_decimals(raw_share_count),
+            denomination_amount=vault.denomination_token.convert_to_decimals(raw_amount),
+            tx_hash=tx_hash,
+            block_number=tx["blockNumber"],
+            block_timestamp=get_block_timestamp(web3, tx["blockNumber"]),
+        )
