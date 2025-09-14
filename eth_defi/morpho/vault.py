@@ -85,8 +85,12 @@ class MorphoVault(ERC4626Vault):
         """Morpho vaults have no management fee"""
         return 0.0
 
-    def get_performance_fee(self, block_identifier: BlockIdentifier) -> float:
-        """Get Morpho fee"""
+    def get_performance_fee(self, block_identifier: BlockIdentifier) -> float | None:
+        """Get Morpho fee.
+
+        :return:
+            None if fee reading is broken
+        """
         fee_call = EncodedCall.from_keccak_signature(
             address=self.address,
             signature=Web3.keccak(text="fee()")[0:4],
@@ -96,6 +100,10 @@ class MorphoVault(ERC4626Vault):
                 "vault": self.address,
             },
         )
-        data = fee_call.call(self.web3, block_identifier)
+        try:
+            data = fee_call.call(self.web3, block_identifier)
+        except ValueError:
+            return None
+
         performance_fee = int.from_bytes(data[0:32], byteorder="big") / (10**18)
         return performance_fee
