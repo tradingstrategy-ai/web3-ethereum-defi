@@ -19,17 +19,16 @@ class VaultTransactionFailed(Exception):
     """One of vault deposit/redeem transactions reverted"""
 
 
-
 @dataclass(slots=True)
 class DepositRedeemEventFailure:
     tx_hash: HexBytes
     revert_reason: str | None
 
+
 @dataclass(slots=True)
 class DepositRedeemEventAnalysis:
-    """Analyse a vault deposit/settlement.
+    """Analyse a vault deposit/settlement."""
 
-    """
     from_: HexAddress
     to: HexAddress
     denomination_amount: Decimal
@@ -47,7 +46,6 @@ class DepositRedeemEventAnalysis:
 
     def get_share_price(self) -> Decimal:
         return self.share_count / self.denomination_amount
-
 
 
 @dataclass(slots=True)
@@ -257,16 +255,7 @@ class DepositRequest:
 
         block_timestamp = get_block_timestamp(block_number)
 
-        return DepositTicket(
-            vault_address=self.vault.address,
-            owner=self.owner,
-            to=self.to,
-            raw_amount=self.raw_amount,
-            tx_hash=tx_hash,
-            gas_used=gas_used,
-            block_timestamp=block_timestamp,
-            block_number=block_number
-        )
+        return DepositTicket(vault_address=self.vault.address, owner=self.owner, to=self.to, raw_amount=self.raw_amount, tx_hash=tx_hash, gas_used=gas_used, block_timestamp=block_timestamp, block_number=block_number)
 
     def broadcast(self, from_: HexAddress = None, gas: int = 1_000_000) -> RedemptionTicket:
         """Broadcast all the transactions in this request.

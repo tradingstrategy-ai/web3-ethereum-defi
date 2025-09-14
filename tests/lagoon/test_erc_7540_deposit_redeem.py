@@ -183,8 +183,8 @@ def test_erc_7540_deposit_722_capital(
     assert deposit_result.tx_hash == tx_hash
     assert deposit_result.block_number >= 35094253
     assert isinstance(deposit_result.block_timestamp, datetime.datetime)
-    assert deposit_result.share_count == pytest.approx(Decimal('960.645517122092231912'))
-    assert deposit_result.denomination_amount == pytest.approx(Decimal('1000'))
+    assert deposit_result.share_count == pytest.approx(Decimal("960.645517122092231912"))
+    assert deposit_result.denomination_amount == pytest.approx(Decimal("1000"))
 
 
 @pytest.mark.skipif(WEB3_PY_V6, reason="Web3.py v6 event log parsing is broken?")
@@ -282,5 +282,5 @@ def test_erc_7540_redeem_722_capital(
     assert redeem_result.tx_hash == tx_hash
     assert redeem_result.block_number >= 35094253
     assert isinstance(redeem_result.block_timestamp, datetime.datetime)
-    assert redeem_result.share_count == pytest.approx(Decimal('960.645517122092231912'))
-    assert redeem_result.denomination_amount == pytest.approx(Decimal('1000'))
+    assert redeem_result.share_count == pytest.approx(Decimal("960.645517122092231912"))
+    assert redeem_result.denomination_amount == pytest.approx(Decimal("1000"))

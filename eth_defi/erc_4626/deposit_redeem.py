@@ -1,4 +1,5 @@
 """ERC-4626 deposit and redeem requests."""
+
 from eth_defi.erc_4626.analysis import analyse_4626_flow_transaction
 from eth_defi.erc_4626.estimate import estimate_4626_deposit, estimate_4626_redeem
 from eth_defi.erc_4626.flow import deposit_4626, redeem_4626
@@ -188,7 +189,7 @@ class ERC4626DepositManager(VaultDepositManager):
                     tx_hash=tx_hash,
                     block_number=tx["blockNumber"],
                     block_timestamp=get_block_timestamp(tx["blockNumber"]),
-                    share_count=vault.share_token.convert_to_decimals(vault. analysis.amount_out),
+                    share_count=vault.share_token.convert_to_decimals(vault.analysis.amount_out),
                     denomination_amount=vault.denomination_token.convert_to_decimals(analysis.amount_in),
                 )
             case TradeFail():

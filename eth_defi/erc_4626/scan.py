@@ -108,14 +108,12 @@ def create_vault_scan_record(
         }
         return data
     except Exception as e:
-
         extra_message = ""
         if isinstance(e, HTTPError):
             # dRPC brokeness trap.
             # We should not try to process HTTP 400 entries
             if e.response is not None:
                 extra_message = e.response.text
-
 
         # import ipdb ; ipdb.set_trace()
 

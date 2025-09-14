@@ -83,7 +83,6 @@ class ERC7540DepositRequest(DepositRequest):
         web3 = self.vault.web3
         tx = web3.eth.get_transaction(tx_hash)
 
-
         block_number = tx["blockNumber"]
         block_timestamp = get_block_timestamp(web3, block_number)
         gas_used = receipt["gasUsed"]
@@ -318,7 +317,6 @@ class ERC7540DepositManager(VaultDepositManager):
         claim_tx_hash: HexBytes | str,
         deposit_ticket: DepositTicket | None,
     ) -> DepositRedeemEventAnalysis | DepositRedeemEventFailure:
-
         tx_hash = claim_tx_hash
         assert isinstance(tx_hash, (HexBytes, str)), f"Got {type(claim_tx_hash)}"
 
@@ -330,10 +328,7 @@ class ERC7540DepositManager(VaultDepositManager):
         receipt = web3.eth.get_transaction_receipt(tx_hash)
 
         if receipt["status"] != 1:
-            return DepositRedeemEventFailure(
-                tx_hash=tx_hash,
-                revert_reason=receipt["revert_"]
-            )
+            return DepositRedeemEventFailure(tx_hash=tx_hash, revert_reason=receipt["revert_"])
 
         tx = web3.eth.get_transaction(tx_hash)
 
@@ -383,7 +378,6 @@ class ERC7540DepositManager(VaultDepositManager):
         claim_tx_hash: HexBytes | str,
         redemption_ticket: RedemptionTicket | None,
     ) -> DepositRedeemEventAnalysis | DepositRedeemEventFailure:
-
         tx_hash = claim_tx_hash
         assert isinstance(tx_hash, (HexBytes, str)), f"Got {type(claim_tx_hash)}"
 
@@ -395,10 +389,7 @@ class ERC7540DepositManager(VaultDepositManager):
         receipt = web3.eth.get_transaction_receipt(tx_hash)
 
         if receipt["status"] != 1:
-            return DepositRedeemEventFailure(
-                tx_hash=tx_hash,
-                revert_reason=receipt["revert_"]
-            )
+            return DepositRedeemEventFailure(tx_hash=tx_hash, revert_reason=receipt["revert_"])
 
         tx = web3.eth.get_transaction(tx_hash)
 

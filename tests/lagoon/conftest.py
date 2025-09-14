@@ -72,7 +72,6 @@ def test_block_number() -> int:
     return 30_659_990
 
 
-
 @pytest.fixture()
 def anvil_base_fork(
     request,
