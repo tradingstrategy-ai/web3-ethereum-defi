@@ -2,6 +2,7 @@
 
 import datetime
 from typing import Iterable
+import logging
 
 from eth_typing import BlockIdentifier
 from web3 import Web3
@@ -9,6 +10,9 @@ from web3 import Web3
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.vault.base import VaultHistoricalReader, VaultHistoricalRead
+
+
+logger = logging.getLogger(__name__)
 
 
 class MorphoVaultHistoricalReader(ERC4626HistoricalReader):
@@ -102,7 +106,12 @@ class MorphoVault(ERC4626Vault):
         )
         try:
             data = fee_call.call(self.web3, block_identifier)
-        except ValueError:
+        except ValueError as e:
+            logger.warning(
+                "Performance read reverted on Morpho vault %s: %s",
+                self,
+                str(e),
+            )
             return None
 
         performance_fee = int.from_bytes(data[0:32], byteorder="big") / (10**18)
