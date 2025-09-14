@@ -27,7 +27,11 @@ class DepositRedeemEventFailure:
 
 @dataclass(slots=True)
 class DepositRedeemEventAnalysis:
-    """Analyse a vault deposit/settlement."""
+    """Analyse a vault deposit/redeem event.
+
+    - Done for the transaction where we get our assets into our wallet,
+      so we can determine the actualy executed price of shares we received/sold
+    """
 
     from_: HexAddress
     to: HexAddress
