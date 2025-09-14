@@ -656,6 +656,8 @@ class ERC4626Vault(VaultBase):
                 raise
 
             share_token_address = self.vault_address
+        except Exception as e:
+            raise RuntimeError(f"Failed to poke vault: {self.vault_address}") from e
 
         # eth_defi.token.TokenDetailError: Token 0xDb7869Ffb1E46DD86746eA7403fa2Bb5Caf7FA46 missing symbol
         return fetch_erc20_details(
