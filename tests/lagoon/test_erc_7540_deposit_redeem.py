@@ -185,6 +185,7 @@ def test_erc_7540_deposit_722_capital(
     assert isinstance(deposit_result.block_timestamp, datetime.datetime)
     assert deposit_result.share_count == pytest.approx(Decimal("960.645517122092231912"))
     assert deposit_result.denomination_amount == pytest.approx(Decimal("1000"))
+    assert deposit_result.get_share_price() == pytest.approx(Decimal('1.040966706424453185124846464'))
 
 
 @pytest.mark.skipif(WEB3_PY_V6, reason="Web3.py v6 event log parsing is broken?")

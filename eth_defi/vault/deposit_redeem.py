@@ -45,7 +45,7 @@ class DepositRedeemEventAnalysis:
         return self.revert_reason is None
 
     def get_share_price(self) -> Decimal:
-        return self.share_count / self.denomination_amount
+        return self.denomination_amount / self.share_count
 
 
 @dataclass(slots=True)
