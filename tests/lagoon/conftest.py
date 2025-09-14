@@ -80,7 +80,6 @@ def anvil_base_fork(
     asset_manager,
     valuation_manager,
     test_block_number,
-    lagoon_722_capital_manager,
 ) -> AnvilLaunch:
     """Create a testable fork of live BNB chain.
 
@@ -89,7 +88,7 @@ def anvil_base_fork(
     assert JSON_RPC_BASE, "JSON_RPC_BASE not set"
     launch = fork_network_anvil(
         JSON_RPC_BASE,
-        unlocked_addresses=[vault_owner, usdc_holder, asset_manager, valuation_manager, lagoon_722_capital_manager],
+        unlocked_addresses=[vault_owner, usdc_holder, asset_manager, valuation_manager],
         fork_block_number=test_block_number,
     )
     try:
