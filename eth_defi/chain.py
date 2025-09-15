@@ -142,8 +142,10 @@ def get_block_time(chain_id: int) -> float:
 def get_default_call_gas_limit(chain_id: int) -> int:
     """Get the eth_call reasonable gas limit.
 
-    - 15M except for mantle 99M
+    - 15M except for Mantle 99M
+    - Mantle has weird policy and all transactions and calls cost much more than other chains
     """
+    assert type(chain_id) == int, f"Got: {chain_id}"
     if chain_id == 5000:
         return 99_000_000
     else:

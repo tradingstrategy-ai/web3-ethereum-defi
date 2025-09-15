@@ -616,7 +616,7 @@ class EncodedCall:
         web3: Web3,
         block_identifier: BlockIdentifier,
         from_=ZERO_ADDRESS_STR,
-        gas=None,
+        gas: int = None,
         ignore_error=False,
         attempts: int = 3,
     ) -> bytes:

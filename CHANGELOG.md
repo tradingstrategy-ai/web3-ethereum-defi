@@ -1,11 +1,12 @@
-# Current
+# 0.33
 
 - Migrate to Web3.py 7.x with the optional Web3 6.x dependency available. See [README](github.com/tradingstrategy-ai/web3-ethereum-defi) for updated installation instruction details.
 - Add: Support `swapExactTokensForTokensSupportingFeeOnTransferTokens` in GuardV0 and `swap_with_slippage_protection()`
 - Add: `VaultDepositManager` interface which abstracts deposit/redeem process over different vaults: ERC-4626, ERC-7540, Gains-like
-- Add: Support Gains 
-- Add: Support Ostium 
-- 
+- Add: [Initial support for Gains](https://web3-ethereum-defi.readthedocs.io/api/gains/index.html) 
+- Add: [Initial support for Ostium](https://web3-ethereum-defi.readthedocs.io/api/gains/index.html)  
+- Fix: Custom gas limit fixes needed for Base, Mantle
+
 # 0.32
 
 - Last release before Web3.py 7.x update
