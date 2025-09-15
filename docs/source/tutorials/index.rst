@@ -60,6 +60,7 @@ Tutorials and examples
    pancakeswap-live-minimal
    aave-v3-interest-analysis
    gmx-swap
+   gmx-v2-price-analysis
    erc-4626-read-apy
    erc-4626-historical-apy
    erc-4626-scan-prices
