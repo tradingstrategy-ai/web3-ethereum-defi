@@ -69,7 +69,6 @@ GMX_API_URLS: dict = {
     # :type: dict[str, str]
     # :var arbitrum: Primary API endpoint for Arbitrum network operations
     # :var avalanche: Primary API endpoint for Avalanche network operations
-
     "arbitrum": "https://arbitrum-api.gmxinfra.io",
     "avalanche": "https://avalanche-api.gmxinfra.io",
 }
@@ -89,7 +88,6 @@ GMX_API_URLS_BACKUP: dict = {
     # :type: dict[str, str]
     # :var arbitrum: Backup API endpoint for Arbitrum network operations
     # :var avalanche: Backup API endpoint for Avalanche network operations
-
     "arbitrum": "https://arbitrum-api.gmxinfra2.io",
     "avalanche": "https://avalanche-api.gmxinfra2.io",
 }
@@ -97,7 +95,6 @@ GMX_API_URLS_BACKUP: dict = {
 # TODO: get rid of the rest bcz they will be migrated soon.
 # Contract addresses by chain
 GMX_EVENT_EMITTER_ADDRESS = {
-
     # Smart contract addresses for GMX Event Emitter contracts by network.
     #
     # The Event Emitter contract serves as a central logging system for the GMX
@@ -114,13 +111,11 @@ GMX_EVENT_EMITTER_ADDRESS = {
     # :type: dict[str, str]
     # :var arbitrum: Event Emitter contract address on Arbitrum network
     # :var avalanche: Event Emitter contract address on Avalanche network
-
     "arbitrum": "0xC8ee91A54287DB53897056e12D9819156D3822Fb",
     "avalanche": "0xDb17B211c34240B014ab6d61d4A31FA0C0e20c26",
 }
 
 GMX_DATASTORE_ADDRESS = {
-
     # Smart contract addresses for GMX DataStore contracts by network.
     #
     # The DataStore contract acts as the primary data repository for the GMX
@@ -138,7 +133,6 @@ GMX_DATASTORE_ADDRESS = {
     # :type: dict[str, str]
     # :var arbitrum: DataStore contract address on Arbitrum network
     # :var avalanche: DataStore contract address on Avalanche network
-
     "arbitrum": "0xFD70de6b91282D8017aA4E741e9Ae325CAb992d8",
     "avalanche": "0x2F0b22339414ADeD7D5F06f9D604c7fF5b2fe3f6",
 }
@@ -168,7 +162,6 @@ GMX_READER_ADDRESS = {
 }
 
 GMX_EXCHANGE_ROUTER_ADDRESS = {
-
     # Smart contract addresses for GMX Exchange Router contracts by network.
     #
     # The Exchange Router contract serves as the main entry point for trading
@@ -185,7 +178,6 @@ GMX_EXCHANGE_ROUTER_ADDRESS = {
     # :type: dict[str, str]
     # :var arbitrum: Exchange Router contract address on Arbitrum network
     # :var avalanche: Exchange Router contract address on Avalanche network
-
     "arbitrum": "0x900173A66dbD345006C51fA35fA3aB760FcD843b",
     "avalanche": "0x2b76df209E1343da5698AF0f8757f6170162e78b",
 }
