@@ -116,6 +116,20 @@ EVM_BLOCK_TIMES = {
 }
 
 
+def get_chain_homepage(chain_id: int) -> tuple[str, str]:
+    """Translate Ethereum chain id to a link to its homepage.
+
+    :return:
+        name, homepage link tuple
+    """
+    name = CHAIN_NAMES.get(chain_id)
+    link = CHAIN_HOMEPAGES.get(chain_id)
+    if not name or not link:
+        return f"<Unknown chain , id {chain_id}>", "https://"
+
+    return name, link["homepage"]
+
+
 def get_chain_name(chain_id: int) -> str:
     """Translate Ethereum chain id to its name."""
     name = CHAIN_NAMES.get(chain_id)
