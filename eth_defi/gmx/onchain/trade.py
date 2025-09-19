@@ -53,6 +53,8 @@ Example how position events in GMX are emitted:
 from dataclasses import dataclass
 from typing import TypeAlias
 
+from eth_defi.gmx.onchain.event import EventLogType, query_gmx_events
+
 _event_structure = {
     "addressItems": {
         0: "account",
@@ -127,4 +129,21 @@ class PositionIncreaseEvent:
     position_key: HexBytes
     is_long: bool
 
+
+
+def fetch_position_events(
+    client: "HypersyncClient",
+    start_block: int,
+    end_block: int,
+):
+    for evt in query_gmx_events(
+        client,
+        start_block=start_block,
+        end_block=end_block,
+        gmx_event_name="PositionIncrease",
+        log_type=EventLogType.EventLog1,
+    ):
+        # Parse the event data according to the known structure
+        data = evt.log.data
+        import ipdb ; ipdb.set_trace()
 
