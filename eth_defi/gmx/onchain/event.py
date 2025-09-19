@@ -10,16 +10,35 @@ See
 - `EventUtils for packing data into the logs <https://github.com/gmx-io/gmx-synthetics/blob/e9c918135065001d44f24a2a329226cf62c55284/contracts/event/EventUtils.sol>`__
 
 """
+import asyncio
 import enum
+import logging
+from dataclasses import dataclass
+from typing import Iterable
 
 import hypersync
 from hypersync import HypersyncClient, ClientConfig
-from hypersync import BlockField, LogField
+from hypersync import BlockField, LogField, Log
+
+from tqdm_loggable.auto import tqdm
+
 
 from eth_defi.chain import get_chain_name
+from eth_defi.event_reader.block_header import BlockHeader
 from eth_defi.gmx.constants import GMX_EVENT_EMITTER_ADDRESS
 from eth_defi.gmx.onchain.trade import HexAddress, HexBytes
 from eth_defi.gmx.utils import create_hash_string
+from eth_defi.utils import from_unix_timestamp
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True, slots=True)
+class GMXEvent:
+    """Wrap raw HyperSync log to something with better DevEx"""
+    block: BlockHeader
+    log: Log
+
 
 class EventLogType(enum.Enum):
     """See EventEmitter.sol"""
@@ -28,23 +47,25 @@ class EventLogType(enum.Enum):
     EventLog1 = "EventLog1"
     EventLog2 = "EventLog2"
 
-    def get_hash(self) -> str:
+    def get_hash(self) -> HexBytes:
         # https://www.codeslaw.app/contracts/arbitrum/0xc8ee91a54287db53897056e12d9819156d3822fb
         # https://www.codeslaw.app/contracts/arbitrum/0xc8ee91a54287db53897056e12d9819156d3822fb?tab=abi
         match self:
             case EventLogType.EventLog:
-                return "0xc666579c261c0b272eeac102561fd381be4c18912e9bff98fafff43046dc3410"
+                s = "c666579c261c0b272eeac102561fd381be4c18912e9bff98fafff43046dc3410"
             case EventLogType.EventLog1:
-                return "0x23a65b039a8c7150257d1536d872dc2bc30ee565c7043c6971591708e13e8ca8"
+                s = "23a65b039a8c7150257d1536d872dc2bc30ee565c7043c6971591708e13e8ca8"
             case EventLogType.EventLog2:
-                return "0xd56ea9fb3c84ad093426d6d349a86fa45043ae6bf0083a61bb2be8dc9d2d3701
+                s = "d56ea9fb3c84ad093426d6d349a86fa45043ae6bf0083a61bb2be8dc9d2d3701"
             case _:
                 raise ValueError(f"Unknown EventLogType: {self}")
 
+        return HexBytes(bytes.fromhex(s))
 
-def get_gmx_event_hash(event_name: str) -> str:
+
+def get_gmx_event_hash(event_name: str) -> HexBytes:
     assert type(event_name) == str
-    return create_hash_string(event_name).hex()
+    return create_hash_string(event_name)
 
 
 def create_gmx_query(
@@ -67,7 +88,7 @@ def create_gmx_query(
     log_selections = [
         hypersync.LogSelection(
             address=[event_emitter_address],  # USDC contract
-            topics=[log_type_hash.hex(), event_name_hash.hex(0)],
+            topics=[["0x" + log_type_hash.hex(), "0x" + event_name_hash.hex()]],
         )
     ]
 
@@ -83,6 +104,7 @@ def create_gmx_query(
             block=[
                 BlockField.NUMBER,
                 BlockField.TIMESTAMP,
+                BlockField.HASH,
             ],
             log=[
                 LogField.BLOCK_NUMBER,
@@ -102,7 +124,8 @@ async def query_gmx_events_async(
     start_block: int,
     end_block: int,
     timeout: float = 30,
-):
+    display_progress=True,
+) -> Iterable[GMXEvent]:
     """Query GMX events emitted by EventEmitter from HyperSync client."""
 
     assert isinstance(client, HypersyncClient), f"Expected HypersyncClient, got {type(client)}"
@@ -110,11 +133,20 @@ async def query_gmx_events_async(
     assert isinstance(log_type, EventLogType), f"Expected EventLogType, got {type(log_type)}"
 
     chain_id = await client.get_chain_id()
+    chain_name = get_chain_name(chain_id)
 
-    event_emitter_address = GMX_EVENT_EMITTER_ADDRESS[get_chain_name(chain_id)]
+    event_emitter_address = GMX_EVENT_EMITTER_ADDRESS[chain_name.lower()]
 
     log_type_hash = log_type.get_hash()
     event_name_hash = get_gmx_event_hash(gmx_event_name)
+
+    if display_progress:
+        progress_bar = tqdm(
+            total=end_block - start_block,
+            desc=f"Scanning HyperSync even chain {chain_name}",
+        )
+    else:
+        progress_bar = None
 
     query = create_gmx_query(
         start_block=start_block,
@@ -124,5 +156,90 @@ async def query_gmx_events_async(
         event_name_hash=event_name_hash,
     )
 
+    logger.info(f"Starting HyperSync stream {start_block:,} to {end_block:,}, event {gmx_event_name}, chain {chain_name}, query is {query}")
+    # start the stream
+    receiver = await client.stream(query, hypersync.StreamConfig())
+
+    # Progress bar state
+    last_block = end_block
+    event_count = 0
+    timestamp = None
+
+    while True:
+        try:
+            res = await asyncio.wait_for(receiver.recv(), timeout=timeout)
+        except asyncio.TimeoutError:
+            logger.warning("HyperSync receiver timed out")
+            break  # or handle as appropriate
+
+        # exit if the stream finished
+        if res is None:
+            break
+
+        current_block = res.next_block
+
+        if res.data.logs:
+
+            block_lookup = {b.number: b for b in res.data.blocks}
+
+            for log in res.data.logs:
+                timestamp = int(block_lookup[log.block_number].timestamp, 16)
+                yield GMXEvent(
+                    block=BlockHeader(
+                        block_number=log.block_number,
+                        block_hash=block_lookup[log.block_number].hash,
+                        timestamp=timestamp,
+                    ),
+                    log=log,
+                )
+                event_count += 1
+
+        last_synced = res.archive_height
+
+        if progress_bar is not None:
+            progress_bar.update(current_block - last_block)
+            last_block = current_block
+
+            # Add extra data to the progress bar
+            if timestamp is not None:
+                progress_bar.set_postfix(
+                    {
+                        "At": from_unix_timestamp(timestamp),
+                        "Events": f"{event_count:,}",
+                    }
+                )
+
+    logger.info(f"HyperSync sees {last_synced} as the last block")
+
+    if progress_bar is not None:
+        progress_bar.close()
 
 
+def query_gmx_events(
+    client: HypersyncClient,
+    gmx_event_name: str,
+    log_type :EventLogType,
+    start_block: int,
+    end_block: int,
+    timeout: float = 30,
+    display_progress=True,
+) -> list[GMXEvent]:
+    """Sync version.
+
+    - See :py:func:`query_gmx_events_async` for documentation.
+    - Cannot do iterable because of colored functions
+    """
+
+    async def _wrapped():
+        _iter = query_gmx_events_async(
+            client=client,
+            gmx_event_name=gmx_event_name,
+            log_type=log_type,
+            start_block=start_block,
+            end_block=end_block,
+            timeout=timeout,
+            display_progress=display_progress,
+        )
+        return [e async for e in _iter]
+
+    return asyncio.run(_wrapped())
