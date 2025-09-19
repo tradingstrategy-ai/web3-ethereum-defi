@@ -8,7 +8,7 @@ from eth_defi.hypersync.server import get_hypersync_server
 
 from hypersync import HypersyncClient, ClientConfig
 
-from eth_defi.hypersync.timestamp import get_block_timestamps_using_hypersync
+from eth_defi.hypersync.timestamp import get_block_timestamps_using_hypersync, get_hypersync_block_height
 
 
 @pytest.fixture()
@@ -19,6 +19,10 @@ def hypersync_client() -> HypersyncClient:
 
 
 def test_get_block_timestamps_using_hypersync(hypersync_client: HypersyncClient):
+    """We get 100 historical blocks from Hypersync"""
+
+    assert get_hypersync_block_height(hypersync_client) > 10_000_000
+
     blocks = get_block_timestamps_using_hypersync(
         hypersync_client,
         chain_id=1,
