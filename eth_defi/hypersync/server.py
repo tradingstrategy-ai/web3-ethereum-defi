@@ -102,3 +102,16 @@ def get_hypersync_server(web3: Web3 | int) -> str:
 
     urls = server["URL"]
     return urls.split(" ")[0]
+
+
+def is_hypersync_supported_chain(web3: Web3 | int) -> bool:
+    """Is the chain supported by HyperSync?
+
+    Based on our internal server mapping.
+    """
+
+    if type(web3) == int:
+        chain_id = web3
+    else:
+        chain_id = web3.eth.chain_id
+    return chain_id in HYPERSYNC_SERVES
