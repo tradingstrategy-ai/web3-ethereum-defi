@@ -1,4 +1,29 @@
-"""Block timestamp and hash bulk loading using Hypersync API."""
+"""Block timestamp and hash bulk loading using Hypersync API.
+
+Replace slow and expensive ``eth_getBlockByNumber`` calls with Hypersync API.
+
+Example:
+
+.. code-block:: python
+
+    blocks = get_block_timestamps_using_hypersync(
+        hypersync_client,
+        chain_id=1,
+        start_block=10_000_000,
+        end_block=10_000_100,
+    )
+
+    # Blocks missing if they do not contain transactions
+    # E.g https://etherscan.io/block/10000007
+    assert len(blocks) == 101
+
+    block = blocks[10_000_100]
+
+    assert block.block_number == 10_000_100
+    assert block.block_hash == "0x427b4ae39316c0df7ba6cd61a96bf668eff6e3ec01213b0fbc74f9b7a0726e7b"
+    assert block.timestamp_as_datetime == datetime.datetime(2020, 5, 4, 13, 45, 31)
+
+"""
 
 import asyncio
 from typing import Iterable
