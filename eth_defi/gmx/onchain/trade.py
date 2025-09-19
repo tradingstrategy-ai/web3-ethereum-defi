@@ -2,8 +2,7 @@
 
 Example how position events in GMX are emitted:
 
-.. code-block:: plain
-
+.. code-block:: solidity
 
     function emitPositionIncrease(PositionIncreaseParams memory params) external {
         EventUtils.EventLogData memory eventData;
@@ -43,8 +42,16 @@ Example how position events in GMX are emitted:
         eventData.bytes32Items.setItem(0, "orderKey", params.orderKey);
         eventData.bytes32Items.setItem(1, "positionKey", params.positionKey);
 
-"""
+        params.eventEmitter.emitEventLog1(
+            "PositionIncrease",
+            Cast.toBytes32(params.position.account()),
+            eventData
+        );
+    }
 
+"""
+from dataclasses import dataclass
+from typing import TypeAlias
 
 _event_structure = {
     "addressItems": {
@@ -83,5 +90,41 @@ _event_structure = {
         0: "isLong"
     }
 }
+
+
+
+HexAddress: TypeAlias = str  # Assuming checksummed Ethereum address
+SolidityUint: TypeAlias = int  # Unsigned integer, but Python int is fine
+SolidityInt: TypeAlias = int   # Signed integer
+HexBytes: TypeAlias = bytes    # Hex-encoded bytes
+
+
+@dataclass(slots=True, frozen=True)
+class PositionIncreaseEvent:
+    account: HexAddress
+    market: HexAddress
+    collateral_token: HexAddress
+    size_in_usd: SolidityUint
+    size_in_tokens: SolidityUint
+    collateral_amount: SolidityUint
+    borrowing_factor: SolidityUint
+    funding_fee_amount_per_size: SolidityUint
+    long_token_claimable_funding_amount_per_size: SolidityUint
+    short_token_claimable_funding_amount_per_size: SolidityUint
+    execution_price: SolidityUint
+    index_token_price_max: SolidityUint
+    index_token_price_min: SolidityUint
+    collateral_token_price_max: SolidityUint
+    collateral_token_price_min: SolidityUint
+    size_delta_usd: SolidityUint
+    size_delta_in_tokens: SolidityUint
+    order_type: SolidityUint
+    increased_at_time: SolidityUint
+    collateral_delta_amount: SolidityInt
+    pending_price_impact_usd: SolidityInt
+    pending_price_impact_amount: SolidityInt
+    order_key: HexBytes
+    position_key: HexBytes
+    is_long: bool
 
 
