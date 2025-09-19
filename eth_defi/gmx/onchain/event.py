@@ -88,7 +88,8 @@ def create_gmx_query(
     log_selections = [
         hypersync.LogSelection(
             address=[event_emitter_address],  # USDC contract
-            topics=[["0x" + log_type_hash.hex(), "0x" + event_name_hash.hex()]],
+            # topics=[["0x" + log_type_hash.hex(), "0x" + event_name_hash.hex()]],
+            topics=[["0x" + log_type_hash.hex()]],
         )
     ]
 
