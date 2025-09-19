@@ -28,7 +28,7 @@ def test_get_block_timestamps_using_hypersync(hypersync_client: HypersyncClient)
 
     # Blocks missing if they do not contain transactions
     # E.g https://etherscan.io/block/10000007
-    assert len(blocks) == 95
+    assert len(blocks) == 101
 
     block = blocks[10_000_100]
 

@@ -25,10 +25,6 @@ async def get_block_timestamps_using_hypersync_async(
     Instead of hammering `eth_getBlockByNumber` JSON-RPC endpoint, we can
     get block timestamps using Hypersync API 1000x faster.
 
-    .. warning::
-
-        If the block does not contain transactions it will be skipped
-
     :param chain_id:
         Verify HyperSync client is connected to the correct chain ID.
 
@@ -58,6 +54,7 @@ async def get_block_timestamps_using_hypersync_async(
         from_block=start_block,
         to_block=end_block + 1,  # Inclusive
         logs=[{}],  # Empty log selection to ensure we get block data
+        include_all_blocks=True,
         field_selection=hypersync.FieldSelection(
             block=[
                 BlockField.NUMBER,
@@ -98,10 +95,6 @@ def get_block_timestamps_using_hypersync(
     """Quickly get block timestamps using Hypersync API.
 
     Wraps :py:func:`get_block_timestamps_using_hypersync_async`.
-
-    .. warning::
-
-        If the block does not contain transactions it will be skipped
 
     :return:
         Block number -> header mapping
