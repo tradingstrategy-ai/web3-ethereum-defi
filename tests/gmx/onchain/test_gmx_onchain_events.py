@@ -29,8 +29,8 @@ def test_gmx_event_reader(hypersync_client: HypersyncClient):
 
     events = query_gmx_events(
         client=hypersync_client,
-        start_block=deploy_block,
-        end_block=end_block,
+        start_block=380_891_095 - 10_000,
+        end_block=380_891_095,
         gmx_event_name="PositionIncrease",
         log_type=EventLogType.EventLog1,
     )

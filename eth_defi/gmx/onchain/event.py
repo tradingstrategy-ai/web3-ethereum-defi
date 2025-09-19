@@ -89,7 +89,7 @@ def create_gmx_query(
         hypersync.LogSelection(
             address=[event_emitter_address],  # USDC contract
             # topics=[["0x" + log_type_hash.hex(), "0x" + event_name_hash.hex()]],
-            topics=[["0x" + log_type_hash.hex()]],
+            topics=[["0x" + log_type_hash.hex(), "0x" + event_name_hash.hex()]],
         )
     ]
 
@@ -157,7 +157,8 @@ async def query_gmx_events_async(
         event_name_hash=event_name_hash,
     )
 
-    logger.info(f"Starting HyperSync stream {start_block:,} to {end_block:,}, event {gmx_event_name}, chain {chain_name}, query is {query}")
+    logger.info(f"Starting HyperSync stream {start_block:,} to {end_block:,}, event {gmx_event_name}, chain {chain_name}, emitter is {event_emitter_address}")
+
     # start the stream
     receiver = await client.stream(query, hypersync.StreamConfig())
 
