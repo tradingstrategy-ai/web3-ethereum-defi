@@ -30,6 +30,7 @@ from eth_defi.gmx.onchain.trade import HexAddress, HexBytes
 from eth_defi.gmx.utils import create_hash_string
 from eth_defi.utils import from_unix_timestamp
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -47,16 +48,23 @@ class EventLogType(enum.Enum):
     EventLog1 = "EventLog1"
     EventLog2 = "EventLog2"
 
+    # Eventlog2: https://arbiscan.io/tx/0x4ac7a74da910b2834eb3a90712eb4cf1efb31e6e3a23bfa0938682480a000af9
+    # EventLog1: https://arbiscan.io/tx/0xf98073aacd3cf22a8106035be40b0e96caadddb8c58346fc4fb90164f9ce5151
+    # 0x468a25a7ba624ceea6e540ad6f49171b52495b648417ae91bca21676d8a24dc5
+    # 0xf884901fabe4018defc05734811ffbea40165f97728a16c8b964ced8119e21c1
+    # https://dashboard.tenderly.co/miohtama/test-project/tx/0x4ac7a74da910b2834eb3a90712eb4cf1efb31e6e3a23bfa0938682480a000af9/logs
     def get_hash(self) -> HexBytes:
+        #
         # https://www.codeslaw.app/contracts/arbitrum/0xc8ee91a54287db53897056e12d9819156d3822fb
         # https://www.codeslaw.app/contracts/arbitrum/0xc8ee91a54287db53897056e12d9819156d3822fb?tab=abi
         match self:
             case EventLogType.EventLog:
-                s = "c666579c261c0b272eeac102561fd381be4c18912e9bff98fafff43046dc3410"
+                raise NotImplementedError()
+                # s = ""
             case EventLogType.EventLog1:
-                s = "23a65b039a8c7150257d1536d872dc2bc30ee565c7043c6971591708e13e8ca8"
+                s = "137a44067c8961cd7e1d876f4754a5a3a75989b4552f1843fc69c3b372def160"
             case EventLogType.EventLog2:
-                s = "d56ea9fb3c84ad093426d6d349a86fa45043ae6bf0083a61bb2be8dc9d2d3701"
+                s = "0x468a25a7ba624ceea6e540ad6f49171b52495b648417ae91bca21676d8a24dc5"
             case _:
                 raise ValueError(f"Unknown EventLogType: {self}")
 
@@ -87,9 +95,10 @@ def create_gmx_query(
     # [['0xdcbc1c05240f31ff3ad067ef1ee35ce4997762752e3a095284754544f4c709d7'], ['0xfbde797d201c681b91056529119e0b02407c7bb96a4a2c75c01fc9667232c8db']]
     log_selections = [
         hypersync.LogSelection(
-            address=[event_emitter_address],  # USDC contract
+            # address=[event_emitter_address],  # USDC contract
             # topics=[["0x" + log_type_hash.hex(), "0x" + event_name_hash.hex()]],
-            topics=[["0x" + log_type_hash.hex(), "0x" + event_name_hash.hex()]],
+            # topics=[["0x" + log_type_hash.hex(), "0x" + event_name_hash.hex()]],
+            topics=[["0x" + log_type_hash.hex()]],
         )
     ]
 
@@ -231,7 +240,7 @@ def query_gmx_events(
     - See :py:func:`query_gmx_events_async` for documentation.
     - Cannot do iterable because of colored functions
     """
-
+    logger.info("Go")
     async def _wrapped():
         _iter = query_gmx_events_async(
             client=client,

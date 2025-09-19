@@ -20,12 +20,12 @@ def hypersync_client() -> HypersyncClient:
 def test_gmx_event_reader(hypersync_client: HypersyncClient):
     """Extract some events from GMX v2 deployment."""
 
-    # https://arbiscan.io/address/0xc8ee91a54287db53897056e12d9819156d3822fb
+    # https://arbiscan.io/address/0xc8ee91a536674287db53897056e12d9819156d3822fb
     # https://www.codeslaw.app/contracts/arbitrum/0xc8ee91a54287db53897056e12d9819156d3822fb
     # https://www.codeslaw.app/contracts/arbitrum/0xc8ee91a54287db53897056e12d9819156d3822fb?tab=abi
 
-    deploy_block = 107_737_756
-    end_block = deploy_block + 10_000
+    # deploy_block = 107_737_756
+    # end_block = deploy_block + 10_000
 
     events = query_gmx_events(
         client=hypersync_client,
@@ -35,4 +35,4 @@ def test_gmx_event_reader(hypersync_client: HypersyncClient):
         log_type=EventLogType.EventLog1,
     )
 
-    assert len(events) == 10
+    assert len(events) == 3667

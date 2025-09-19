@@ -12,9 +12,10 @@ import time
 
 from eth_defi.gmx.core.gm_prices import GetGMPrices
 
+# TODO: Fix this
 # Suppress logs during testing
-logger = logging.getLogger()
-logger.setLevel(logging.WARN)
+# logger = logging.getLogger()
+# logger.setLevel(logging.WARN)
 
 
 def test_get_gm_prices_initialization(gmx_config):
