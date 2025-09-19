@@ -145,3 +145,17 @@ def get_block_timestamps_using_hypersync(
 
     # assert end_block in result, f"Did not get end block {end_block}, we got {result}"
     return result
+
+
+def get_hypersync_block_height(
+    client: hypersync.HypersyncClient,
+) -> int:
+    """Get the latest block known to Hypersync.
+
+    Wrapped around the async function.
+    """
+
+    async def _hypersync_asyncio_wrapper():
+        return await client.get_height()
+
+    return asyncio.run(_hypersync_asyncio_wrapper())
