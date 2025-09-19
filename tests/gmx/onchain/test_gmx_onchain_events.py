@@ -52,7 +52,7 @@ def test_read_position_events(hypersync_client: HypersyncClient):
 
     events = fetch_position_events(
         client=hypersync_client,
-        start_block=380_891_095 - 10_000,
+        start_block=380_891_095 - 100,
         end_block=380_891_095,
     )
 

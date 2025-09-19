@@ -16,6 +16,9 @@ import logging
 from dataclasses import dataclass
 from typing import Iterable
 
+from hexbytes import HexBytes
+from eth_typing import HexAddress
+
 import hypersync
 from hypersync import HypersyncClient, ClientConfig
 from hypersync import BlockField, LogField, Log
@@ -26,7 +29,6 @@ from tqdm_loggable.auto import tqdm
 from eth_defi.chain import get_chain_name
 from eth_defi.event_reader.block_header import BlockHeader
 from eth_defi.gmx.constants import GMX_EVENT_EMITTER_ADDRESS
-from eth_defi.gmx.onchain.trade import HexAddress, HexBytes
 from eth_defi.gmx.utils import create_hash_string
 from eth_defi.utils import from_unix_timestamp
 
@@ -39,6 +41,15 @@ class GMXEvent:
     """Wrap raw HyperSync log to something with better DevEx"""
     block: BlockHeader
     log: Log
+
+
+@dataclass(frozen=True, slots=True)
+class ParsedLog:
+    """Parsed GMX log data.
+
+    See EventUtils.sol for the packing logic.
+    """
+
 
 
 class EventLogType(enum.Enum):
@@ -73,7 +84,7 @@ class EventLogType(enum.Enum):
 
 def get_gmx_event_hash(event_name: str) -> HexBytes:
     assert type(event_name) == str
-    return create_hash_string(event_name)
+    return HexBytes(create_hash_string(event_name))
 
 
 def create_gmx_query(
@@ -121,6 +132,8 @@ def create_gmx_query(
                 LogField.ADDRESS,
                 LogField.TRANSACTION_HASH,
                 LogField.TOPIC0,
+                LogField.TOPIC1,
+                LogField.DATA,
             ],
         ),
     )
@@ -240,7 +253,7 @@ def query_gmx_events(
     - See :py:func:`query_gmx_events_async` for documentation.
     - Cannot do iterable because of colored functions
     """
-    logger.info("Go")
+    logger.info(f"query_gmx_events(gmx_event_name={gmx_event_name}, start_block={start_block:,}, end_block={end_block:,})")
     async def _wrapped():
         _iter = query_gmx_events_async(
             client=client,
@@ -254,3 +267,17 @@ def query_gmx_events(
         return [e async for e in _iter]
 
     return asyncio.run(_wrapped())
+
+
+
+def parse_event_log_data(data: str) -> dict:
+    """Parse GMX EventLog1 type log data.
+
+    See EventUtils.sol for the packing logic.
+
+    https://github.com/gmx-io/gmx-synthetics/blob/e9c918135065001d44f24a2a329226cf62c55284/contracts/event/EventUtils.sol#L17C12-L17C24
+    """
+    from eth_abi import decode_abi
+
+    # https://www.codeslaw.app/contracts/arbitrum/0xc8ee91a54287db53897056e12d9819156d3822fb?tab=abi
+    #
