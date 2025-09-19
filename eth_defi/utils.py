@@ -169,7 +169,7 @@ def to_unix_timestamp(dt: datetime.datetime) -> float:
 
 def from_unix_timestamp(timestamp: float) -> datetime.datetime:
     """Convert UNIX seconds since epoch to naive Python datetime."""
-    assert type(timestamp) in (int, float)
+    assert type(timestamp) in (int, float), f"Got {type(timestamp)}: {timestamp}"
     return datetime.datetime.fromtimestamp(timestamp, tz=datetime.timezone.utc).replace(tzinfo=None)
 
 

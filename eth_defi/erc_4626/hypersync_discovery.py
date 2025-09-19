@@ -27,10 +27,9 @@ from eth_defi.event_reader.web3factory import Web3Factory
 
 try:
     import hypersync
+    from hypersync import BlockField, LogField
 except ImportError as e:
     raise ImportError("Install the library with optional HyperSync dependency to use this module") from e
-
-from hypersync import BlockField, LogField
 
 
 logger = logging.getLogger(__name__)

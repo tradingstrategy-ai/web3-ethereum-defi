@@ -3,6 +3,7 @@
 Structures and helpers to maintain block header data.
 """
 
+import datetime
 import random
 from dataclasses import dataclass
 from typing import Dict, Optional, TypeAlias
@@ -12,6 +13,8 @@ from typing import Dict, Optional, TypeAlias
 #: TODO: We might need float because high throughput chains like
 #: Solana have subsecond timestamps
 from eth_typing import HexStr
+
+from eth_defi.utils import from_unix_timestamp
 
 Timestamp: TypeAlias = int
 
@@ -45,6 +48,11 @@ class BlockHeader:
         assert type(self.block_hash) == str, f"Got {type(self.block_hash)}"
         assert type(self.timestamp) == int
         assert self.block_hash.startswith("0x")
+
+    @property
+    def timestamp_as_datetime(self) -> datetime.datetime:
+        """Get the timestamp as float."""
+        return from_unix_timestamp(self.timestamp)
 
     @staticmethod
     def generate_headers(count: int, start_block: int = 1, start_time: float = 0, blocks_per_second: float = 12) -> Dict[str, list]:
