@@ -29,7 +29,7 @@ columns = ["open", "high", "low", "close", "volume_usd", "volume_unit", "symbol"
 
 fname = Path.home() / "Downloads" / "kline_his0527.csv"
 
-new_freq = "4h"  # 15 minutes
+new_freq = "1d"
 
 # Read CSV
 df = pd.read_csv(fname, names=columns)
@@ -40,6 +40,9 @@ df = df.set_index("timestamp")
 
 # Resample to 15-minute bars (example: OHLCV for each symbol)
 resampled = df.groupby("symbol").resample(new_freq).agg({"open": "first", "high": "max", "low": "min", "close": "last", "volume_usd": "sum", "volume_unit": "sum"}).dropna().reset_index()
+
+print(f"First entry at {resampled['timestamp'].min()}")
+print(f"Last entry at {resampled['timestamp'].max()}")
 
 print("Pairs:")
 pairs = list(resampled["symbol"].unique())

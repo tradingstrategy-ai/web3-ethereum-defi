@@ -448,7 +448,7 @@ class VaultDepositManager(ABC):
     def finish_deposit(
         self,
         deposit_ticket: DepositTicket,
-    ) -> bool:
+    ) -> ContractFunction:
         """Can we finish the deposit process in async vault.
 
         - We can claim our shares from the vault now
