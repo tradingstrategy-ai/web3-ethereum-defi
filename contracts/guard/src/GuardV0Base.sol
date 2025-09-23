@@ -413,12 +413,23 @@ abstract contract GuardV0Base is IGuard  {
         } else if (selector == getSelector("settleRedeem(uint256)")) {
             validate_lagoonSettle(target);
         } else if (selector == getSelector("deposit(uint256,address)")) {
-            // approve() based
+            // Guard logic in approve() whitelist - no further checks here needed
             // validate_ERC4626Deposit(target, callData);
         } else if (selector == getSelector("withdraw(uint256,address,address)")) {
             validate_ERC4626Withdraw(callData);
         } else if (selector == getSelector("redeem(uint256,address,address)")) {
             validate_ERC4626Redeem(callData);
+        } else if (selector == getSelector("requestRedeem(uint256,address,address)")) {
+            // See ERC7540DepositManager
+            // The signature parameters are the same as in ERC-4626
+            validate_ERC4626Redeem(callData);
+        } else if (selector == getSelector("requestWithdraw(uint256,address,address)")) {
+            // See ERC7540DepositManager
+            // The signature parameters are the same as in ERC-4626
+            validate_ERC4626Withdraw(callData);
+        } else if (selector == getSelector("requestDeposit(uint256,address,address)")) {
+            // Guard logic in approve() whitelist - no further checks here needed
+            // See ERC7540DepositManager
         } else if (selector == getSelector("delegateSigner((bytes32,address))")) {
             validate_orderlyDelegateSigner(callData);
         } else if (selector == getSelector("deposit((bytes32,bytes32,bytes32,uint128))")) {
