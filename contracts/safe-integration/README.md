@@ -4,7 +4,7 @@
 It enables automated trading, or "trading algorithms" or "AI-agent", for various use cases,
 where the algorithm has limited access rights to open and close trades with the capital secured in Gnosis Safe wallet.
 
-![Overview](./docs/overview.svg)
+![Overview](./documentation/overview.svg)
 
 The module enables making offchain trading decision by an asset manager, either automated (algorithm) or manual (discretional trading), and then verifying that these trades are within the given security rules. 
 The security rules are in onchain `TradingStrategyModuleV0` smart contract. When an asset manager initiates a trade,
