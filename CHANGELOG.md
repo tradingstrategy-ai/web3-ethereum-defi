@@ -1,6 +1,7 @@
 # Current
 
 - Add: `get_block_timestamps_using_hypersync()`
+- Add: Expand `TradingStrategyModuleV0` to cover ERC-7540 and Gains deposit/rdeem
 
 # 0.33
 
