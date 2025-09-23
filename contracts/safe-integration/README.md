@@ -58,5 +58,6 @@ This will regenerate ABI files to allow Python-based automation whitelist.
 ## How to test deployment
 
 ```shell
-
+# Runs all pytest-modules tagged for guard
+pytest -k guard
 ```
