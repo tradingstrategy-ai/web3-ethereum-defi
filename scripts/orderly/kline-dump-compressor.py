@@ -18,17 +18,18 @@ Example data:
 
 """
 
+import json
 from pathlib import Path
 
 import pandas as pd
 
 
 # Define column names
-columns = ["open", "high", "low", "close", "volume", "volume_2", "symbol", "interval", "start", "end"]
+columns = ["open", "high", "low", "close", "volume_usd", "volume_unit", "symbol", "interval", "start", "end"]
 
 fname = Path.home() / "Downloads" / "kline_his0527.csv"
 
-new_freq = "15min"  # 15 minutes
+new_freq = "4h"  # 15 minutes
 
 # Read CSV
 df = pd.read_csv(fname, names=columns)
@@ -38,13 +39,17 @@ df["timestamp"] = pd.to_datetime(df["start"], unit="ms")
 df = df.set_index("timestamp")
 
 # Resample to 15-minute bars (example: OHLCV for each symbol)
-resampled = df.groupby("symbol").resample(new_freq).agg({"open": "first", "high": "max", "low": "min", "close": "last", "volume": "sum", "volume_2": "sum"}).dropna().reset_index()
+resampled = df.groupby("symbol").resample(new_freq).agg({"open": "first", "high": "max", "low": "min", "close": "last", "volume_usd": "sum", "volume_unit": "sum"}).dropna().reset_index()
 
+print("Pairs:")
+pairs = list(resampled["symbol"].unique())
+print(json.dumps(pairs, indent=2))
 
 print("Resampled data:")
-print(resampled.head(3))
+print(resampled.loc[resampled.symbol == "PERP_BITCOIN_USDC"].head(3))
 
 print(f"Total {resampled['symbol'].nunique()} trading pairs")
+
 
 # Have data in logical order for better compression
 resampled = resampled.sort_values(by=["symbol", "timestamp"])
@@ -54,7 +59,7 @@ resampled = resampled.set_index("timestamp")
 
 # Write to Parquet
 resampled.to_parquet(
-    Path.home() / "Downloads" / "orderly-ohlcv.parquet",
+    Path.home() / "Downloads" / f"orderly-ohlcv-{new_freq}.parquet",
     compression="zstd",
     compression_level=22,
 )
