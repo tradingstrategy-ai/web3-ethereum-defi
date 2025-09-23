@@ -21,6 +21,8 @@ Even if the asset manager is compromised, they cannot withdraw the capital or do
 - This module is a guard-design pattern based smart contract, which has complex dynamic 
   logic to whitelist allowed trades (DEXes, trading pairs, lending protocols, assets and so on)
   limiting or eliminating the scope of the damage of what a compromised asset manager could do
+- The module has Python-bindings (see [eth-defi package](https://github.com/tradingstrategy-ai/web3-ethereum-defi) and high level interface to construct trades offchain, 
+  with a lot of developer experience and diagnostics tools, making it easy to use for offchain trading algorithms  
 - For more information see [Trading Strategy website](https://tradingstrategy.ai)
 
 **Note**: This code is not audited. The Zodiac-module smart contract is called [TradingStrategyModuleV0](./src/TradingStrategyModuleV0.sol) reflecting the Minimum Viable product nature of this work.
