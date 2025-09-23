@@ -206,5 +206,43 @@ def test_lagoon_erc_7540(
         tx_hash = moduled_tx.transact({"from": asset_manager, "gas": 1_000_000})
         assert_transaction_success_with_explanation(web3, tx_hash, func=fn_call)
 
-    share_amount = target_vault.share_token.fetch_balance_of(our_address)
+    # We got our shares
+    share_token = target_vault.share_token
+    share_amount = share_token.fetch_balance_of(our_address)
     assert share_amount > 0
+
+    #
+    # 5. Request redeem
+    #
+
+    assert deposit_manager.can_create_redemption_request(our_address)
+    redeem_ticket = deposit_manager.create_redemption_request(
+        our_address,
+        shares=share_amount,
+    )
+    fn_calls = [
+        share_token.approve(target_vault.vault_address, usdc_amount),
+        redeem_ticket.funcs[0],
+    ]
+    for fn_call in fn_calls:
+        moduled_tx = vault.transact_via_trading_strategy_module(fn_call)
+        tx_hash = moduled_tx.transact({"from": asset_manager, "gas": 1_000_000})
+        assert_transaction_success_with_explanation(web3, tx_hash, func=fn_call)
+
+    # Target vault settles
+    force_lagoon_settle(
+        target_vault,
+        target_vault_asset_manager,
+    )
+
+    #
+    # 7. Finish redeem
+    #
+
+    fn_calls = [
+        deposit_manager.finish_redemption(redeem_ticket)
+    ]
+    for fn_call in fn_calls:
+        moduled_tx = vault.transact_via_trading_strategy_module(fn_call)
+        tx_hash = moduled_tx.transact({"from": asset_manager, "gas": 1_000_000})
+        assert_transaction_success_with_explanation(web3, tx_hash, func=fn_call)

@@ -340,8 +340,8 @@ class VaultDepositManager(ABC):
         self,
         owner: HexAddress,
         to: HexAddress,
-        amount: Decimal = None,
-        raw_amount: int = None,
+        shares: Decimal = None,
+        raw_shares: int = None,
         check_max_deposit=True,
         check_enough_token=True,
     ) -> RedemptionRequest:
