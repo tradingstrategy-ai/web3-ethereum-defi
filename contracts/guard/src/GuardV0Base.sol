@@ -13,7 +13,7 @@ import "./lib/IERC4626.sol";
 /**
  * Prototype guard implementation.
  *
- * - Hardcoded actions for Uniswap v2, v3, 1delta, Aave
+ * - Hardcoded actions for Uniswap v2, v3, 1delta, Aave, etc.
  *
  * - Abstract base contract to deal with different ownership modifiers and initialisers (Safe, OpenZeppelin)
  *
