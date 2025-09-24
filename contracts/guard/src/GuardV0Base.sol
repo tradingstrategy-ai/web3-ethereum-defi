@@ -13,7 +13,7 @@ import "./lib/IERC4626.sol";
 /**
  * Prototype guard implementation.
  *
- * - Hardcoded actions for Uniswap v2, v3, 1delta, Aave
+ * - Hardcoded actions for Uniswap v2, v3, 1delta, Aave, etc.
  *
  * - Abstract base contract to deal with different ownership modifiers and initialisers (Safe, OpenZeppelin)
  *
@@ -412,13 +412,29 @@ abstract contract GuardV0Base is IGuard  {
             validate_lagoonSettle(target);
         } else if (selector == getSelector("settleRedeem(uint256)")) {
             validate_lagoonSettle(target);
-        } else if (selector == getSelector("deposit(uint256,address)")) {
-            // approve() based
+        } else if (selector == getSelector("deposit(uint256,address)") || selector == getSelector("deposit(uint256,address,address)")) {
+            // Guard logic in approve() whitelist - no further checks here needed
             // validate_ERC4626Deposit(target, callData);
+            // On ERC-7540 (Lagoon) - deposit takes extra adderss parameter?
         } else if (selector == getSelector("withdraw(uint256,address,address)")) {
             validate_ERC4626Withdraw(callData);
         } else if (selector == getSelector("redeem(uint256,address,address)")) {
             validate_ERC4626Redeem(callData);
+        } else if (selector == getSelector("requestRedeem(uint256,address,address)")) {
+            // See ERC7540DepositManager
+            // The signature parameters are the same as in ERC-4626
+            validate_ERC4626Redeem(callData);
+        } else if (selector == getSelector("requestWithdraw(uint256,address,address)")) {
+            // See ERC7540DepositManager
+            // The signature parameters are the same as in ERC-4626
+            validate_ERC4626Withdraw(callData);
+        } else if (selector == getSelector("requestDeposit(uint256,address,address)")) {
+            // Guard logic in approve() whitelist - no further checks here needed
+            // See ERC7540DepositManager
+        } else if (selector == getSelector("makeWithdrawRequest(uint256,address)")) {
+            // Gains/Ostium modified ERC-4626
+            // Check still subject to ERC-4626 redeem()
+            // See GainsDepositManager
         } else if (selector == getSelector("delegateSigner((bytes32,address))")) {
             validate_orderlyDelegateSigner(callData);
         } else if (selector == getSelector("deposit((bytes32,bytes32,bytes32,uint128))")) {
@@ -613,7 +629,7 @@ abstract contract GuardV0Base is IGuard  {
     }
 
     /**
-     * Whitelist an ERC-4626 vault.
+     * Whitelist an ERC-4626/ERC-7540 vault.
      *
      * - Callsites for deposits and redemptions
      * - Vault share and denomination tokens
@@ -624,9 +640,23 @@ abstract contract GuardV0Base is IGuard  {
         IERC4626 vault_ = IERC4626(vault);
         address denominationToken = vault_.asset();
         address shareToken = vault;
+
+        // ERC-4626
         allowCallSite(vault, getSelector("deposit(uint256,address)"), notes);
         allowCallSite(vault, getSelector("withdraw(uint256,address,address)"), notes);
         allowCallSite(vault, getSelector("redeem(uint256,address,address)"), notes);
+
+        // ERC-7540
+        // See ERC7540DepositManager
+        allowCallSite(vault, getSelector("deposit(uint256,address,address)"), notes);
+        allowCallSite(vault, getSelector("requestRedeem(uint256,address,address)"), notes);
+        allowCallSite(vault, getSelector("requestWithdraw(uint256,address,address)"), notes);
+        allowCallSite(vault, getSelector("requestDeposit(uint256,address,address)"), notes);
+
+        // Ostium/Gains
+        // See GainsDepositManager
+        allowCallSite(vault, getSelector("makeWithdrawRequest(uint256,address)"), notes);
+
         allowApprovalDestination(vault, notes);
         _whitelistToken(shareToken, notes);
         _whitelistToken(denominationToken, notes);

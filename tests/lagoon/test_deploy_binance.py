@@ -17,7 +17,7 @@ from eth_defi.lagoon.deployment import LagoonDeploymentParameters, deploy_automa
 from eth_defi.lagoon.vault import LagoonVersion
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.token import TokenDetails, USDT_NATIVE_TOKEN, fetch_erc20_details, WRAPPED_NATIVE_TOKEN
+from eth_defi.token import TokenDetails, USDT_NATIVE_TOKEN, fetch_erc20_details, WRAPPED_NATIVE_TOKEN, USDT_WHALE
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.uniswap_v2.constants import UNISWAP_V2_DEPLOYMENTS
 from eth_defi.uniswap_v2.deployment import fetch_deployment
@@ -33,9 +33,7 @@ pytestmark = pytest.mark.skipif(not JSON_RPC_BINANCE, reason="JSON_RPC_BINANCE n
 
 @pytest.fixture()
 def usdt_holder() -> HexAddress:
-    # https://bscscan.com/token/0x55d398326f99059ff775485246999027b3197955#readContract
-    # https://bscscan.com/token/0x55d398326f99059ff775485246999027b3197955#balances
-    return addr("0xF977814e90dA44bFA03b6295A0616a897441aceC")
+    return USDT_WHALE[56]
 
 
 @pytest.fixture()
@@ -83,7 +81,8 @@ def web3(anvil_binance_fork) -> Web3:
 
 @pytest.fixture()
 def usdt(web3) -> TokenDetails:
-    return fetch_erc20_details(web3, "0x55d398326f99059ff775485246999027b3197955")
+    usdt_address = USDT_NATIVE_TOKEN[web3.eth.chain_id]
+    return fetch_erc20_details(web3, usdt_address)
 
 
 @pytest.fixture()
@@ -119,6 +118,7 @@ def depositor(web3, usdt, usdt_holder) -> HexAddress:
     - Start with 999 USCC
     """
     address = web3.eth.accounts[5]
+    assert usdt.fetch_balance_of(usdt_holder) >= 999
     tx_hash = usdt.contract.functions.transfer(address, 999 * 10**18).transact({"from": usdt_holder, "gas": 100_000})
     assert_transaction_success_with_explanation(web3, tx_hash)
     return address

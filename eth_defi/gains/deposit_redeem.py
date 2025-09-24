@@ -49,7 +49,7 @@ class GainsRedemptionRequest(RedemptionRequest):
         receipt = self.vault.web3.eth.get_transaction_receipt(tx_hash)
         assert receipt is not None, f"Transaction is not yet mined: {tx_hash.hex()}"
 
-        logs = self.vault.vault_contract.events.WithdrawRequested().process_receipt(receipt, errors=EventLogErrorFlags.Ignore)
+        logs = self.vault.vault_contract.events.WithdrawRequested().process_receipt(receipt, errors=EventLogErrorFlags.Discard)
         if len(logs) != 1:
             raise CannotParseRedemptionTransaction(f"Expected exactly one WithdrawRequested event, got logs: {logs} at {tx_hash.hex()}")
 
@@ -74,6 +74,10 @@ class GainsDepositManager(ERC4626DepositManager):
 
         assert isinstance(vault, GainsVault), f"Got {type(vault)}"
         self.vault = vault
+
+    def can_create_deposit_request(self, owner: HexAddress) -> bool:
+        """Vault is always open for deposits."""
+        return True
 
     def create_redemption_request(
         self,

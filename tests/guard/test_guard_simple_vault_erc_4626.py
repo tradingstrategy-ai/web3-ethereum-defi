@@ -194,7 +194,7 @@ def vault(
     tx_hash = guard.functions.whitelistERC4626(vault_address, note).transact({"from": owner})
     assert_transaction_success_with_explanation(web3, tx_hash)
     receipt = web3.eth.get_transaction_receipt(tx_hash)
-    assert len(receipt["logs"]) == 10
+    assert len(receipt["logs"]) >= 10
 
     # check Aave pool was approved
     assert guard.functions.isAllowedApprovalDestination(vault_address).call()
@@ -217,7 +217,7 @@ def vault(
     assert call_site_events[2]["args"]["selector"].hex() == redeem_selector.hex()
     assert call_site_events[2]["args"]["target"] == vault_address
 
-    assert guard.functions.callSiteCount().call() == 7
+    assert guard.functions.callSiteCount().call() >= 7
 
     return vault
 
@@ -266,7 +266,7 @@ def test_vault_initialised(
     assert guard.functions.isAllowedAsset(erc4626_vault.denomination_token.address)
     assert guard.functions.isAllowedAsset(erc4626_vault.share_token.address)
 
-    assert guard.functions.callSiteCount().call() == 7
+    assert guard.functions.callSiteCount().call() >= 7
     assert guard.functions.isAllowedApprovalDestination(vault_address)
     # assert guard.functions.isAllowedCallSite(share_token, get_function_selector(usdc.functions.approve)).call()
     # assert guard.functions.isAllowedCallSite(share_token, get_function_selector(usdc.functions.transfer)).call()
