@@ -76,10 +76,6 @@ class ContractAddresses:
 
 # GMX contract addresses by network
 NETWORK_CONTRACTS = {
-    """
-    syntheticsreader is the Reader contract 
-    syntheticsrouter is the Router contract
-    """
     "arbitrum": ContractAddresses(
         datastore=to_checksum_address("0xFD70de6b91282D8017aA4E741e9Ae325CAb992d8"),
         eventemitter=to_checksum_address("0xC8ee91A54287DB53897056e12D9819156D3822Fb"),
