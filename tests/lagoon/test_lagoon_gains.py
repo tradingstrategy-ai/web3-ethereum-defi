@@ -22,7 +22,7 @@ from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import TokenDetails, USDC_NATIVE_TOKEN, USDC_WHALE, fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation, TransactionAssertionError
 
-JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_BASE")
+JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
 
 
 
@@ -65,8 +65,7 @@ def topped_up_asset_manager(web3, asset_manager) -> HexAddress:
 
 
 @pytest.fixture()
-def usdc(web3_write) -> TokenDetails:
-    web3 = web3_write
+def usdc(web3) -> TokenDetails:
     usdc = fetch_erc20_details(
         web3,
         USDC_NATIVE_TOKEN[42161],
@@ -83,6 +82,20 @@ def gains_vault(web3) -> GainsVault:
     return vault
 
 
+
+@pytest.fixture()
+def new_depositor(web3, usdc) -> HexAddress:
+    """User with some USDC ready to deposit.
+
+    - Start with 500 USDC
+    """
+    new_depositor = web3.eth.accounts[5]
+    usdc_holder = USDC_WHALE[42161]
+    tx_hash = usdc.transfer(new_depositor, Decimal(500)).transact({"from": usdc_holder, "gas": 100_000})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+    return new_depositor
+
+
 def test_lagoon_gains(
     web3: Web3,
     usdc: TokenDetails,
@@ -92,7 +105,6 @@ def test_lagoon_gains(
     multisig_owners: list[HexAddress],
     new_depositor: HexAddress,
     asset_manager: HexAddress,
-    target_vault_asset_manager: HexAddress,
 ):
     """Perform a deposit/withdrawal into another ERC-7540 vault from Lagoon vault.
 
@@ -108,8 +120,6 @@ def test_lagoon_gains(
     chain_id = web3.eth.chain_id
     asset_manager = topped_up_asset_manager
     assert asset_manager.startswith("0x")
-    assert target_vault_asset_manager.startswith("0x")
-    usdc = base_usdc
     depositor = new_depositor
     target_vault = gains_vault
 
@@ -130,6 +140,8 @@ def test_lagoon_gains(
         uniswap_v3=None,
         any_asset=False,
         erc_4626_vaults=[target_vault],
+        from_the_scratch=True,
+        use_forge=True,
     )
 
     #

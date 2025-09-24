@@ -125,7 +125,7 @@ def web3(anvil_base_fork) -> Web3:
 def base_usdc(web3) -> TokenDetails:
     return fetch_erc20_details(
         web3,
-        "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        USDC_NATIVE_TOKEN[8453],
     )
 
 
