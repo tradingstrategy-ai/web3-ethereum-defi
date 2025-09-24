@@ -20,6 +20,8 @@ from eth_defi.trace import assert_transaction_success_with_explanation
 
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
 
+CI = os.environ.get("CI") == "true"
+
 
 @pytest.fixture()
 def anvil_arbitrum_fork(request, asset_manager) -> AnvilLaunch:
@@ -91,7 +93,7 @@ def new_depositor(web3, usdc) -> HexAddress:
 
 
 #
-@flaky.flaky
+@pytest.mark.skipif(CI, reason="Too Flaky on CI because of RPC issues with Anvil")
 def test_lagoon_gains(
     web3: Web3,
     usdc: TokenDetails,
