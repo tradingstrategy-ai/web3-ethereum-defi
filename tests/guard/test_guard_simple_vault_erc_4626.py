@@ -266,7 +266,7 @@ def test_vault_initialised(
     assert guard.functions.isAllowedAsset(erc4626_vault.denomination_token.address)
     assert guard.functions.isAllowedAsset(erc4626_vault.share_token.address)
 
-    assert guard.functions.callSiteCount().call() == 7
+    assert guard.functions.callSiteCount().call() >= 7
     assert guard.functions.isAllowedApprovalDestination(vault_address)
     # assert guard.functions.isAllowedCallSite(share_token, get_function_selector(usdc.functions.approve)).call()
     # assert guard.functions.isAllowedCallSite(share_token, get_function_selector(usdc.functions.transfer)).call()

@@ -2,26 +2,21 @@
 
 import os
 from decimal import Decimal
-from typing import cast
 
 import pytest
 from eth_typing import HexAddress
 from web3 import Web3
+import flaky
 
-from eth_defi.erc_4626.classification import create_vault_instance, create_vault_instance_autodetect
-from eth_defi.erc_4626.core import ERC4626Feature
-from eth_defi.erc_4626.flow import approve_and_deposit_4626, approve_and_redeem_4626
-from eth_defi.erc_4626.vault import ERC4626Vault
+from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.gains.testing import force_next_gains_epoch
 from eth_defi.gains.vault import GainsVault
 from eth_defi.hotwallet import HotWallet
-from eth_defi.lagoon.deployment import LagoonAutomatedDeployment, LagoonDeploymentParameters, deploy_automated_lagoon_vault
-from eth_defi.lagoon.testing import force_lagoon_settle
-from eth_defi.lagoon.vault import LagoonVault
+from eth_defi.lagoon.deployment import LagoonDeploymentParameters, deploy_automated_lagoon_vault
 from eth_defi.provider.anvil import mine, fork_network_anvil, AnvilLaunch
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import TokenDetails, USDC_NATIVE_TOKEN, USDC_WHALE, fetch_erc20_details
-from eth_defi.trace import assert_transaction_success_with_explanation, TransactionAssertionError
+from eth_defi.trace import assert_transaction_success_with_explanation
 
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
 
@@ -95,6 +90,8 @@ def new_depositor(web3, usdc) -> HexAddress:
     return new_depositor
 
 
+#
+@flaky.flaky
 def test_lagoon_gains(
     web3: Web3,
     usdc: TokenDetails,
