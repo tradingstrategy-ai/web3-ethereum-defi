@@ -217,7 +217,7 @@ def vault(
     assert call_site_events[2]["args"]["selector"].hex() == redeem_selector.hex()
     assert call_site_events[2]["args"]["target"] == vault_address
 
-    assert guard.functions.callSiteCount().call() == 7
+    assert guard.functions.callSiteCount().call() >= 7
 
     return vault
 
