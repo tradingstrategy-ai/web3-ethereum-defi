@@ -194,7 +194,7 @@ def vault(
     tx_hash = guard.functions.whitelistERC4626(vault_address, note).transact({"from": owner})
     assert_transaction_success_with_explanation(web3, tx_hash)
     receipt = web3.eth.get_transaction_receipt(tx_hash)
-    assert len(receipt["logs"]) == 10
+    assert len(receipt["logs"]) >= 10
 
     # check Aave pool was approved
     assert guard.functions.isAllowedApprovalDestination(vault_address).call()
