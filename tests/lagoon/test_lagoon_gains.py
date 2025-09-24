@@ -1,4 +1,5 @@
 """Lagoon deposit/withdrawal from other ERC-7540 vaults tests."""
+
 import os
 from decimal import Decimal
 from typing import cast
@@ -23,7 +24,6 @@ from eth_defi.token import TokenDetails, USDC_NATIVE_TOKEN, USDC_WHALE, fetch_er
 from eth_defi.trace import assert_transaction_success_with_explanation, TransactionAssertionError
 
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
-
 
 
 @pytest.fixture()
@@ -80,7 +80,6 @@ def gains_vault(web3) -> GainsVault:
     vault = create_vault_instance_autodetect(web3, vault_address)
     assert isinstance(vault, GainsVault)
     return vault
-
 
 
 @pytest.fixture()
@@ -197,7 +196,7 @@ def test_lagoon_gains(
     # Request deposit to the target vault from our vault
     usdc_amount = Decimal(9)
 
-    deposit_request = deposit_manager.create_deposit_request()
+    deposit_request = deposit_manager.create_deposit_request(our_address, amount=usdc_amount)
     fn_calls = [
         usdc.approve(target_vault.vault_address, usdc_amount),
         deposit_request.funcs[0],
@@ -218,7 +217,7 @@ def test_lagoon_gains(
 
     # 0. Clear epoch
     force_next_gains_epoch(
-        vault,
+        target_vault,
         asset_manager,
     )
 
@@ -227,6 +226,7 @@ def test_lagoon_gains(
     #
 
     assert deposit_manager.can_create_redemption_request(our_address)
+
     redeem_request = deposit_manager.create_redemption_request(
         our_address,
         shares=share_amount,
@@ -248,11 +248,11 @@ def test_lagoon_gains(
     # 3. Move forward few epochs where our request unlocks
     for i in range(0, 3):
         force_next_gains_epoch(
-            vault,
+            target_vault,
             asset_manager,
         )
 
-    assert vault.fetch_current_epoch() >= 200
+    assert target_vault.fetch_current_epoch() >= 200
 
     # Cannot redeem yet, need to wait for the next epoch
     assert deposit_manager.can_finish_redeem(redemption_ticket) is True
@@ -260,11 +260,8 @@ def test_lagoon_gains(
     # 7. Finish redeem
     #
 
-    fn_calls = [
-        deposit_manager.finish_redemption(redemption_ticket)
-    ]
+    fn_calls = [deposit_manager.finish_redemption(redemption_ticket)]
     for fn_call in fn_calls:
         moduled_tx = vault.transact_via_trading_strategy_module(fn_call)
         tx_hash = moduled_tx.transact({"from": asset_manager, "gas": 1_000_000})
         assert_transaction_success_with_explanation(web3, tx_hash, func=fn_call)
-

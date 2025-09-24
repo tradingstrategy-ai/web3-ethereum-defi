@@ -25,6 +25,8 @@ def force_next_gains_epoch(
         Burn gas
     """
 
+    assert isinstance(vault, GainsVault), f"Expected GainsVault, got {type(vault)}"
+
     web3 = vault.web3
 
     current_epoch = vault.fetch_current_epoch()

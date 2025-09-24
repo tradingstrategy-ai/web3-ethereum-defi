@@ -1,4 +1,5 @@
 """Lagoon deposit/withdrawal from other ERC-7540 vaults tests."""
+
 import os
 from decimal import Decimal
 from typing import cast
@@ -58,8 +59,6 @@ def anvil_base_fork(
     finally:
         # Wind down Anvil process after the test is complete
         launch.close()
-
-
 
 
 @pytest.fixture
@@ -197,9 +196,7 @@ def test_lagoon_erc_7540(
     # 4. Finish deposit request
     #
 
-    fn_calls = [
-        deposit_manager.finish_deposit(deposit_ticket)
-    ]
+    fn_calls = [deposit_manager.finish_deposit(deposit_ticket)]
     for fn_call in fn_calls:
         moduled_tx = vault.transact_via_trading_strategy_module(fn_call)
         tx_hash = moduled_tx.transact({"from": asset_manager, "gas": 1_000_000})
@@ -238,14 +235,11 @@ def test_lagoon_erc_7540(
     # 7. Finish redeem
     #
 
-    fn_calls = [
-        deposit_manager.finish_redemption(redeem_ticket)
-    ]
+    fn_calls = [deposit_manager.finish_redemption(redeem_ticket)]
     for fn_call in fn_calls:
         moduled_tx = vault.transact_via_trading_strategy_module(fn_call)
         tx_hash = moduled_tx.transact({"from": asset_manager, "gas": 1_000_000})
         assert_transaction_success_with_explanation(web3, tx_hash, func=fn_call)
-
 
 
 def test_lagoon_erc_7540_malicious_redemption(
@@ -367,9 +361,7 @@ def test_lagoon_erc_7540_malicious_redemption(
     # 4. Finish deposit request
     #
 
-    fn_calls = [
-        deposit_manager.finish_deposit(deposit_ticket)
-    ]
+    fn_calls = [deposit_manager.finish_deposit(deposit_ticket)]
     for fn_call in fn_calls:
         moduled_tx = vault.transact_via_trading_strategy_module(fn_call)
         tx_hash = moduled_tx.transact({"from": asset_manager, "gas": 1_000_000})
@@ -406,13 +398,11 @@ def test_lagoon_erc_7540_malicious_redemption(
 
     #
     # 7. Finish redeem
-     #
+    #
 
     redeem_ticket.to = asset_manager  # Try to steal to the asset manager address
 
-    fn_calls = [
-        deposit_manager.finish_redemption(redeem_ticket)
-    ]
+    fn_calls = [deposit_manager.finish_redemption(redeem_ticket)]
     for fn_call in fn_calls:
         moduled_tx = vault.transact_via_trading_strategy_module(fn_call)
         with pytest.raises(TransactionAssertionError):
