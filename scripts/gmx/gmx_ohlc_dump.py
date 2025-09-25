@@ -19,10 +19,15 @@ from pathlib import Path
 import time
 from datetime import datetime
 
+from rich.console import Console
+from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, MofNCompleteColumn, TimeElapsedColumn
+
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.api import GMXAPI
 from eth_defi.gmx.data import GMXMarketData
+̦
+console = Console()
 
 # Available GMX timeframes: 1m, 5m, 15m, 1h, 4h, 1d
 TIMEFRAMES = ["1h", "4h", "1d"]
@@ -43,12 +48,12 @@ def get_gmx_ohlc_data(config: GMXConfig, token_symbol: str = "ETH", period: str 
     raw_data = gmx_api.get_candlesticks(token_symbol, period)
 
     if not raw_data or "candles" not in raw_data:
-        print(f"No candlestick data received for {token_symbol}")
+        console.print(f"No candlestick data received for {token_symbol}")
         return pd.DataFrame()
 
     candles = raw_data["candles"]
     if not candles:
-        print(f"Empty candles array for {token_symbol}")
+        console.print(f"Empty candles array for {token_symbol}")
         return pd.DataFrame()
 
     # Validate data structure - ensure we have at least OHLC data
@@ -62,10 +67,10 @@ def get_gmx_ohlc_data(config: GMXConfig, token_symbol: str = "ETH", period: str 
         # Convert Unix timestamps to Python datetime objects
         df["timestamp"] = pd.to_datetime(df["timestamp"], unit="s")
 
-        print(f"Successfully retrieved {len(df)} {period} candles for {token_symbol}")
+        console.print(f"Successfully retrieved {len(df)} {period} candles for {token_symbol}")
         return df
 
-    print(f"Insufficient data fields ({num_fields}) for {token_symbol}")
+    console.print(f"Insufficient data fields ({num_fields}) for {token_symbol}")
     return pd.DataFrame()
 
 
@@ -82,11 +87,11 @@ def get_available_symbols(config: GMXConfig) -> list:
             if not symbol.startswith("SWAP") and symbol not in ["", "UNKNOWN"]:
                 symbols.append(symbol)
 
-        print(f"Found {len(symbols)} available symbols: {symbols}")
+        console.print(f"Found {len(symbols)} available symbols: {symbols}")
         return symbols
 
     except Exception as e:
-        print(f"Error getting symbols: {e}")
+        console.print(f"Error getting symbols: {e}")
         # Fallback to known major symbols
         return ["ETH", "BTC", "LINK", "ARB", "AVAX", "SOL", "UNI"]
 
@@ -95,11 +100,11 @@ def combine_and_save_all_data(all_data: list, timeframe: str):
     """Combine all collected data and save as a single Parquet file with maximum compression."""
 
     if not all_data:
-        print(f"No data to save for {timeframe}")
+        console.print(f"No data to save for {timeframe}")
         return None
 
     # Combine all DataFrames
-    print(f"\nCombining {len(all_data)} datasets for {timeframe}...")
+    console.print(f"\nCombining {len(all_data)} datasets for {timeframe}...")
     combined_df = pd.concat(all_data, ignore_index=True)
 
     # Sort by symbol and timestamp for better compression
@@ -109,7 +114,7 @@ def combine_and_save_all_data(all_data: list, timeframe: str):
     filename = f"gmx-ohlc-{timeframe}.parquet"
     filepath = Path.home() / "Downloads" / filename
 
-    print(f"Saving {len(combined_df)} records to {filepath}...")
+    console.print(f"Saving {len(combined_df)} records to {filepath}...")
     combined_df.to_parquet(
         filepath,
         compression="zstd",
@@ -118,19 +123,19 @@ def combine_and_save_all_data(all_data: list, timeframe: str):
     )
 
     file_size = filepath.stat().st_size / 1024 / 1024
-    print(f"Saved {filename}: {len(combined_df):,} records, {file_size:.2f}MB")
+    console.print(f"Saved {filename}: {len(combined_df):,} records, {file_size:.2f}MB")
     return filepath
 
 
 def collect_chain_data(chain: str, rpc_url: str, timeframe: str) -> list:
     """Collect OHLC data for one chain and timeframe."""
-    print(f"\nProcessing {chain.upper()} {timeframe}")
+    console.print(f"\nProcessing {chain.upper()} {timeframe}")
 
     # Setup connection
     web3 = create_multi_provider_web3(rpc_url)
     config = GMXConfig(web3)
 
-    print(f"Connected to {chain} (Chain ID: {web3.eth.chain_id})")
+    console.print(f"Connected to {chain} (Chain ID: {web3.eth.chain_id})")
 
     # Get available symbols
     symbols = get_available_symbols(config)
@@ -141,55 +146,69 @@ def collect_chain_data(chain: str, rpc_url: str, timeframe: str) -> list:
 
     chain_data = []
 
-    # Collect data for each symbol
-    for symbol in symbols:
-        # Skip deprecated APE token
-        if symbol == "APE_DEPRECATED":
-            continue
-        try:
-            print(f"Fetching {chain} {symbol} {timeframe} data...")
+    # Collect data for each symbol with a fancy progress bar
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        MofNCompleteColumn(),
+        TimeElapsedColumn(),
+        console=console,
+    ) as progress:
+        task = progress.add_task(f"[cyan]Collecting {chain} {timeframe} data...", total=len(symbols))
 
-            # Get real OHLC data from GMX API
-            df = get_gmx_ohlc_data(config, symbol, timeframe)
+        for symbol in symbols:
+            # Skip deprecated APE token
+            if symbol == "APE_DEPRECATED":
+                progress.advance(task)
+                continue
 
-            if not df.empty:
-                # Add metadata columns
-                df = df.copy()
-                df["chain"] = chain
-                df["symbol"] = symbol
-                df["timeframe"] = timeframe
-                df["collected_at"] = datetime.now()
+            try:
+                progress.update(task, description=f"[cyan]Fetching {chain} {symbol} {timeframe}")
 
-                chain_data.append(df)
-                print(f"{symbol}: {len(df)} candles")
-            else:
-                print(f"{symbol}: No data returned")
+                # Get real OHLC data from GMX API
+                df = get_gmx_ohlc_data(config, symbol, timeframe)
 
-            # Rate limiting to be nice to the API
-            time.sleep(0.5)
+                if not df.empty:
+                    # Add metadata columns
+                    df = df.copy()
+                    df["chain"] = chain
+                    df["symbol"] = symbol
+                    df["timeframe"] = timeframe
+                    df["collected_at"] = datetime.now()
 
-        except Exception as e:
-            print(f"{symbol}: Error - {e}")
-            continue
+                    chain_data.append(df)
+                    # console.print(f"{symbol}: {len(df)} candles", style="green")
+                else:
+                    console.print(f"{symbol}: No data returned", style="yellow")
 
-    print(f"Completed {chain} {timeframe}: {len(chain_data)} symbols collected")
+                # Rate limiting to be nice to the API
+                time.sleep(0.5)
+                progress.advance(task)
+
+            except Exception as e:
+                console.print(f"{symbol}: Error - {e}", style="red")
+                progress.advance(task)
+                continue
+
+    console.print(f"Completed {chain} {timeframe}: {len(chain_data)} symbols collected")
     return chain_data
 
 
 def main():
-    print("Starting GMX OHLC data collection...")
-    print(f"Timeframes: {TIMEFRAMES}")
+    console.print("Starting GMX OHLC data collection...")
+    console.print(f"Timeframes: {TIMEFRAMES}")
 
-    # Check for RPC URL environment variable
-    arbitrum_rpc = os.environ.get("ARBITRUM_CHAIN_JSON_RPC")
+    # Check for RPC URL environment variables
+    arbitrum_rpc = os.environ.get("JSON_RPC_ARBITRUM")
     if not arbitrum_rpc:
-        print("ARBITRUM_CHAIN_JSON_RPC not found in environment")
+        console.print("JSON_RPC_ARBITRUM not found in environment")
         arbitrum_rpc = CHAINS["arbitrum"]
-        print(f"Using default RPC: {arbitrum_rpc}")
+        console.print(f"Using default RPC: {arbitrum_rpc}")
     else:
-        print("Using RPC from environment variable")
+        console.print("Using RPC from environment variable")
 
-    avalanche_rpc = os.environ.get("AVALANCHE_CHAIN_JSON_RPC", CHAINS["avalanche"])
+    avalanche_rpc = os.environ.get("JSON_RPC_AVALANCHE", CHAINS["avalanche"])
 
     created_files = []
 
@@ -206,14 +225,14 @@ def main():
             arbitrum_data = collect_chain_data("arbitrum", arbitrum_rpc, timeframe)
             all_timeframe_data.extend(arbitrum_data)
         except Exception as e:
-            print(f"Failed to process Arbitrum {timeframe}: {e}")
+            console.print(f"Failed to process Arbitrum {timeframe}: {e}")
 
         # Collect Avalanche data
         try:
             avalanche_data = collect_chain_data("avalanche", avalanche_rpc, timeframe)
             all_timeframe_data.extend(avalanche_data)
         except Exception as e:
-            print(f"Failed to process Avalanche {timeframe}: {e}")
+            console.print(f"Failed to process Avalanche {timeframe}: {e}")
 
         # Combine and save all data for this timeframe
         if all_timeframe_data:
@@ -221,9 +240,9 @@ def main():
             if filepath:
                 created_files.append(filepath)
         else:
-            print(f"No data collected for {timeframe}")
+            console.print(f"No data collected for {timeframe}")
 
-    print(f"Created {len(created_files)} files in ~/Downloads/:")
+    console.print(f"Created {len(created_files)} files in ~/Downloads/:")
 
     total_size = 0
     for filepath in created_files:
@@ -239,15 +258,15 @@ def main():
                 records = len(df)
                 date_range = f"{df['timestamp'].min().date()} to {df['timestamp'].max().date()}"
 
-                print(f"   {filepath.name}")
-                print(f"     {records:,} records, {symbols} symbols, {chains} chains")
-                print(f"     {date_range}, {size_mb:.1f}MB")
+                console.print(f"   {filepath.name}")
+                console.print(f"     {records:,} records, {symbols} symbols, {chains} chains")
+                console.print(f"     {date_range}, {size_mb:.1f}MB")
             except:
-                print(f"   {filepath.name} ({size_mb:.1f}MB)")
+                console.print(f"   {filepath.name} ({size_mb:.1f}MB)")
 
-    print(f"\nTotal size: {total_size:.1f}MB")
-    print(f"\nGMX OHLC data collection completed!")
-    print(f"Files ready to copy: ~/Downloads/gmx-ohlc-*.parquet")
+    console.print(f"\nTotal size: {total_size:.1f}MB")
+    console.print(f"\nGMX OHLC data collection completed!")
+    console.print(f"Files ready to copy: ~/Downloads/gmx-ohlc-*.parquet")
 
 
 if __name__ == "__main__":
