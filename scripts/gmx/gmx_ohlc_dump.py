@@ -20,13 +20,13 @@ import time
 from datetime import datetime
 
 from rich.console import Console
-from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, MofNCompleteColumn, TimeElapsedColumn
+from tqdm.rich import tqdm
 
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.api import GMXAPI
 from eth_defi.gmx.data import GMXMarketData
-̦
+
 console = Console()
 
 # Available GMX timeframes: 1m, 5m, 15m, 1h, 4h, 1d
@@ -67,7 +67,7 @@ def get_gmx_ohlc_data(config: GMXConfig, token_symbol: str = "ETH", period: str 
         # Convert Unix timestamps to Python datetime objects
         df["timestamp"] = pd.to_datetime(df["timestamp"], unit="s")
 
-        console.print(f"Successfully retrieved {len(df)} {period} candles for {token_symbol}")
+        # console.print(f"Successfully retrieved {len(df)} {period} candles for {token_symbol}")
         return df
 
     console.print(f"Insufficient data fields ({num_fields}) for {token_symbol}")
@@ -146,50 +146,35 @@ def collect_chain_data(chain: str, rpc_url: str, timeframe: str) -> list:
 
     chain_data = []
 
-    # Collect data for each symbol with a fancy progress bar
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        BarColumn(),
-        MofNCompleteColumn(),
-        TimeElapsedColumn(),
-        console=console,
-    ) as progress:
-        task = progress.add_task(f"[cyan]Collecting {chain} {timeframe} data...", total=len(symbols))
+    # Collect data for each symbol
+    for symbol in tqdm(symbols, desc=f"Collecting {chain} {timeframe}"):
+        # Skip deprecated APE token
+        if symbol == "APE_DEPRECATED":
+            continue
 
-        for symbol in symbols:
-            # Skip deprecated APE token
-            if symbol == "APE_DEPRECATED":
-                progress.advance(task)
-                continue
+        try:
+            # Get real OHLC data from GMX API
+            df = get_gmx_ohlc_data(config, symbol, timeframe)
 
-            try:
-                progress.update(task, description=f"[cyan]Fetching {chain} {symbol} {timeframe}")
+            if not df.empty:
+                # Add metadata columns
+                df = df.copy()
+                df["chain"] = chain
+                df["symbol"] = symbol
+                df["timeframe"] = timeframe
+                df["collected_at"] = datetime.now()
 
-                # Get real OHLC data from GMX API
-                df = get_gmx_ohlc_data(config, symbol, timeframe)
+                chain_data.append(df)
+                # console.print(f"{symbol}: {len(df)} candles", style="green")
+            else:
+                console.print(f"{symbol}: No data returned", style="yellow")
 
-                if not df.empty:
-                    # Add metadata columns
-                    df = df.copy()
-                    df["chain"] = chain
-                    df["symbol"] = symbol
-                    df["timeframe"] = timeframe
-                    df["collected_at"] = datetime.now()
+            # Rate limiting to be nice to the API
+            time.sleep(0.5)
 
-                    chain_data.append(df)
-                    # console.print(f"{symbol}: {len(df)} candles", style="green")
-                else:
-                    console.print(f"{symbol}: No data returned", style="yellow")
-
-                # Rate limiting to be nice to the API
-                time.sleep(0.5)
-                progress.advance(task)
-
-            except Exception as e:
-                console.print(f"{symbol}: Error - {e}", style="red")
-                progress.advance(task)
-                continue
+        except Exception as e:
+            console.print(f"{symbol}: Error - {e}", style="red")
+            continue
 
     console.print(f"Completed {chain} {timeframe}: {len(chain_data)} symbols collected")
     return chain_data
