@@ -9,7 +9,7 @@ Usage:
     python scripts/gmx_ohlc_dump.py
 
 Output:
-    - Creates data/gmx/ directory
+    - Creates ~/Downloads directory
     - Saves {chain}_{symbol}_{timeframe}.parquet files with real GMX data
 """
 
@@ -24,8 +24,8 @@ from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.api import GMXAPI
 from eth_defi.gmx.data import GMXMarketData
 
-# Configuration
-TIMEFRAMES = ["1h", "4h", "1d"]  # Available GMX timeframes: 1m, 5m, 15m, 1h, 4h, 1d
+# Available GMX timeframes: 1m, 5m, 15m, 1h, 4h, 1d
+TIMEFRAMES = ["1h", "4h", "1d"]
 CHAINS = {
     "arbitrum": "https://arb1.arbitrum.io/rpc",
     "avalanche": "https://api.avax.network/ext/bc/C/rpc",
@@ -124,7 +124,7 @@ def combine_and_save_all_data(all_data: list, timeframe: str):
 
 def collect_chain_data(chain: str, rpc_url: str, timeframe: str) -> list:
     """Collect OHLC data for one chain and timeframe."""
-    print(f"\n=== Processing {chain.upper()} {timeframe} ===")
+    print(f"\nProcessing {chain.upper()} {timeframe}")
 
     # Setup connection
     web3 = create_multi_provider_web3(rpc_url)
@@ -177,7 +177,6 @@ def collect_chain_data(chain: str, rpc_url: str, timeframe: str) -> list:
 
 
 def main():
-    """Main execution function."""
     print("Starting GMX OHLC data collection...")
     print(f"Timeframes: {TIMEFRAMES}")
 
@@ -224,10 +223,6 @@ def main():
         else:
             print(f"No data collected for {timeframe}")
 
-    # Final summary
-    print(f"\n{'=' * 60}")
-    print("COLLECTION COMPLETED")
-    print(f"{'=' * 60}")
     print(f"Created {len(created_files)} files in ~/Downloads/:")
 
     total_size = 0
