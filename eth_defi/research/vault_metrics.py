@@ -77,55 +77,60 @@ def calculate_lifetime_metrics(
         protocol = group["protocol"].iloc[-1]
 
         # Calculate lifetime return using cumulative product approach
-        lifetime_return = group.iloc[-1]["share_price"] / group.iloc[0]["share_price"] - 1
-        # Calculate CAGR
-        # Get the first and last date
-        start_date = group.index.min()
-        end_date = group.index.max()
-        age = years = (end_date - start_date).days / 365.25
-        cagr = (1 + lifetime_return) ** (1 / years) - 1 if years > 0 else np.nan
+        with warnings.catch_warnings():
+            # We may have severeal division by zero if the share price starts at 0
+            warnings.simplefilter("ignore", RuntimeWarning)
 
-        last_three_months = group.loc[three_months_ago:]
-        last_month = group.loc[month_ago:]
+            lifetime_return = group.iloc[-1]["share_price"] / group.iloc[0]["share_price"] - 1
 
-        # Calculate 3 months CAGR
-        # Get the first and last date
-        if len(last_three_months) >= 2:
-            start_date = last_three_months.index.min()
-            end_date = last_three_months.index.max()
-            years = (end_date - start_date).days / 365.25
-            three_month_returns = last_three_months.iloc[-1]["share_price"] / last_three_months.iloc[0]["share_price"] - 1
-            three_months_cagr = (1 + three_month_returns) ** (1 / years) - 1 if years > 0 else np.nan
-            # Calculate volatility so we can separate actively trading vaults (market making, such) from passive vaults (lending optimisaiton)
-            hourly_returns = last_three_months[returns_column]
+            # Calculate CAGR
+            # Get the first and last date
+            start_date = group.index.min()
+            end_date = group.index.max()
+            age = years = (end_date - start_date).days / 365.25
+            cagr = (1 + lifetime_return) ** (1 / years) - 1 if years > 0 else np.nan
 
-            # Daily-equivalent volatility from hourly returns (multiply by sqrt(24) to scale from hourly to daily)
-            three_months_volatility = hourly_returns.std() * np.sqrt(30)
-            # three_months_volatility = 0
+            last_three_months = group.loc[three_months_ago:]
+            last_month = group.loc[month_ago:]
 
-        else:
-            # We have not collected data for the last three months,
-            # because our stateful reader decided the vault is dead
-            three_months_cagr = 0
-            three_months_volatility = 0
-            three_month_returns = 0
+            # Calculate 3 months CAGR
+            # Get the first and last date
+            if len(last_three_months) >= 2:
+                start_date = last_three_months.index.min()
+                end_date = last_three_months.index.max()
+                years = (end_date - start_date).days / 365.25
+                three_month_returns = last_three_months.iloc[-1]["share_price"] / last_three_months.iloc[0]["share_price"] - 1
+                three_months_cagr = (1 + three_month_returns) ** (1 / years) - 1 if years > 0 else np.nan
+                # Calculate volatility so we can separate actively trading vaults (market making, such) from passive vaults (lending optimisaiton)
+                hourly_returns = last_three_months[returns_column]
 
-        if len(last_month) >= 2:
-            start_date = last_month.index.min()
-            end_date = last_month.index.max()
-            years = (end_date - start_date).days / 365.25
-            one_month_returns = last_month.iloc[-1]["share_price"] / last_month.iloc[0]["share_price"] - 1
-            one_month_cagr = (1 + one_month_returns) ** (1 / years) - 1 if years > 0 else np.nan
+                # Daily-equivalent volatility from hourly returns (multiply by sqrt(24) to scale from hourly to daily)
+                three_months_volatility = hourly_returns.std() * np.sqrt(30)
+                # three_months_volatility = 0
 
-            # if not printed:
-            #    print(f"Name: {name}, last month: {start_date} - {end_date}, years: {years}, exp. {1/years}, one month returns: {one_month_returns}, one month CAGR: {one_month_cagr}")
-            #    printed = True
+            else:
+                # We have not collected data for the last three months,
+                # because our stateful reader decided the vault is dead
+                three_months_cagr = 0
+                three_months_volatility = 0
+                three_month_returns = 0
 
-        else:
-            # We have not collected data for the last month,
-            # because our stateful reader decided the vault is dead
-            one_month_cagr = 0
-            one_month_returns = 0
+            if len(last_month) >= 2:
+                start_date = last_month.index.min()
+                end_date = last_month.index.max()
+                years = (end_date - start_date).days / 365.25
+                one_month_returns = last_month.iloc[-1]["share_price"] / last_month.iloc[0]["share_price"] - 1
+                one_month_cagr = (1 + one_month_returns) ** (1 / years) - 1 if years > 0 else np.nan
+
+                # if not printed:
+                #    print(f"Name: {name}, last month: {start_date} - {end_date}, years: {years}, exp. {1/years}, one month returns: {one_month_returns}, one month CAGR: {one_month_cagr}")
+                #    printed = True
+
+            else:
+                # We have not collected data for the last month,
+                # because our stateful reader decided the vault is dead
+                one_month_cagr = 0
+                one_month_returns = 0
 
         return pd.Series(
             {
@@ -212,10 +217,25 @@ def clean_lifetime_metrics(
     return lifetime_data_df
 
 
-def format_lifetime_table(df: pd.DataFrame) -> pd.DataFrame:
+def format_lifetime_table(
+    df: pd.DataFrame,
+    add_index=False,
+    add_address=False,
+) -> pd.DataFrame:
     """Format table for human readable output.
 
     See :py:func:`calculate_lifetime_metrics`
+
+    :param add_index:
+        Add 1, 2, 3... index column
+
+    :param add_address:
+        Add address as a separate column.
+
+        For vault address list copy-pasted.
+
+    :return:
+        Human readable data frame
     """
 
     df = df.copy()
@@ -254,7 +274,14 @@ def format_lifetime_table(df: pd.DataFrame) -> pd.DataFrame:
         }
     )
 
-    df = df.set_index("Name")
+    if add_index:
+        df.insert(0, "#", range(1, len(df) + 1))
+        df = df.set_index("#")
+    else:
+        df = df.set_index("Name")
+
+    if add_address:
+        df["Address"] = df["id"].apply(lambda x: x.split("-")[1])
 
     return df
 
@@ -339,7 +366,7 @@ def analyse_vault(
     hourly_prices = cleaned_price_series.resample("h").last()  # Take last price of each day
     hourly_returns = hourly_prices.dropna().pct_change().dropna()
 
-    logger(f"Examining vault {name}: {id}, having {len(returns_series):,} raw returns, {len(hourly_returns):,} hourly and {len(daily_returns):,} daily returns")
+    # logger(f"Examining vault {name}: {id}, having {len(returns_series):,} raw returns, {len(hourly_returns):,} hourly and {len(daily_returns):,} daily returns")
     nav_series = vault_df["total_assets"]
 
     # Uncleaned share price that may contain abnormal return values
