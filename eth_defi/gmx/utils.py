@@ -561,6 +561,85 @@ def create_hash_string(string: str):
     return create_hash(["string"], [string])
 
 
+def find_dictionary_by_key_value(outer_dict: dict, key: str, value: str):
+    """Find a dictionary within a nested structure by key-value pair.
+
+    :param outer_dict: Dictionary to search through
+    :type outer_dict: dict
+    :param key: Key to search for
+    :type key: str
+    :param value: Value that the key should match
+    :type value: str
+    :return: First matching dictionary or None if not found
+    :rtype: dict | None
+    """
+    for inner_dict in outer_dict.values():
+        if key in inner_dict and inner_dict[key] == value:
+            return inner_dict
+    return None
+
+
+def determine_swap_route(markets: dict, in_token: str, out_token: str, chain: str = "arbitrum") -> tuple[list, bool]:
+    """Determine the optimal swap route through available GMX markets.
+
+    Using the available markets, find the list of GMX markets required
+    to swap from token in to token out.
+
+    :param markets: Dictionary of markets output by getMarketInfo
+    :type markets: dict
+    :param in_token: Contract address of input token
+    :type in_token: str
+    :param out_token: Contract address of output token
+    :type out_token: str
+    :param chain: Blockchain network name
+    :type chain: str
+    :return: Tuple of (list of GMX markets to swap through, requires_multi_swap)
+    :rtype: tuple[list, bool]
+    """
+    from eth_defi.gmx.constants import TOKEN_ADDRESS_MAPPINGS
+    from eth_defi.gmx.contracts import NETWORK_TOKENS
+
+    # Apply token address mappings for routing
+    # Handle WBTC -> BTC.b mapping and similar
+    if chain in TOKEN_ADDRESS_MAPPINGS:
+        mappings = TOKEN_ADDRESS_MAPPINGS[chain]
+        if in_token in mappings:
+            in_token = mappings[in_token]
+        if out_token in mappings:
+            out_token = mappings[out_token]
+
+    # Get USDC address for routing based on chain
+    usdc_address = NETWORK_TOKENS.get(chain, {}).get("USDC")
+    if not usdc_address:
+        raise ValueError(f"USDC address not configured for chain: {chain}")
+
+    if in_token == usdc_address:
+        gmx_market_data = find_dictionary_by_key_value(markets, "index_token_address", out_token)
+        if gmx_market_data:
+            gmx_market_address = gmx_market_data["gmx_market_address"]
+        else:
+            raise ValueError(f"No market found for output token {out_token}")
+    else:
+        gmx_market_data = find_dictionary_by_key_value(markets, "index_token_address", in_token)
+        if gmx_market_data:
+            gmx_market_address = gmx_market_data["gmx_market_address"]
+        else:
+            raise ValueError(f"No market found for input token {in_token}")
+
+    is_requires_multi_swap = False
+
+    if out_token != usdc_address and in_token != usdc_address:
+        is_requires_multi_swap = True
+        second_gmx_market_data = find_dictionary_by_key_value(markets, "index_token_address", out_token)
+        if second_gmx_market_data:
+            second_gmx_market_address = second_gmx_market_data["gmx_market_address"]
+            return [gmx_market_address, second_gmx_market_address], is_requires_multi_swap
+        else:
+            raise ValueError(f"No market found for output token {out_token} in multi-swap")
+
+    return [gmx_market_address], is_requires_multi_swap
+
+
 if __name__ == "__main__":
     config = ConfigManager(chain="arbitrum")
     config.set_config()
