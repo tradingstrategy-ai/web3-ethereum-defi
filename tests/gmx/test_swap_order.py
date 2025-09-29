@@ -9,7 +9,7 @@ swap estimation, route determination, and actual transaction execution.
 import pytest
 from decimal import Decimal
 
-from eth_defi.gmx.order.base_order import TransactionResult, OrderType, OrderSide
+from eth_defi.gmx.order.base_order import OrderResult, OrderType
 from eth_defi.gmx.order.swap_order import SwapOrder
 from eth_defi.gmx.contracts import NETWORK_TOKENS
 from eth_defi.trace import assert_transaction_success_with_explanation
@@ -51,10 +51,8 @@ def test_swap_order_route_determination_single_hop(chain_name, swap_order_weth_u
         slippage_percent=0.01
     )
 
-    assert isinstance(result, TransactionResult)
+    assert isinstance(result, OrderResult)
     assert result.order_type == OrderType.MARKET_SWAP
-    assert result.side == OrderSide.BUY
-
 
 def test_swap_order_route_determination_multi_hop(chain_name, gmx_config):
     """Test swap route determination for multi-hop swaps."""
@@ -76,7 +74,7 @@ def test_swap_order_route_determination_multi_hop(chain_name, gmx_config):
         slippage_percent=0.015  # Higher slippage for multi-hop
     )
 
-    assert isinstance(result, TransactionResult)
+    assert isinstance(result, OrderResult)
     assert result.order_type == OrderType.MARKET_SWAP
 
 
@@ -138,11 +136,9 @@ def test_create_market_swap_ccxt_method(chain_name, swap_order_weth_usdc, wallet
         params={"min_output_amount": 0}
     )
 
-    assert isinstance(result, TransactionResult)
+    assert isinstance(result, OrderResult)
     assert result.order_type == OrderType.MARKET_SWAP
-    assert result.side == OrderSide.BUY
-    assert result.amount == amount_in
-
+    assert result.side == 
 
 def test_swap_execution_with_weth_to_usdc(chain_name, swap_order_weth_usdc, test_wallet, wallet_with_all_tokens):
     """Test actual swap execution from WETH to USDC."""
@@ -197,8 +193,11 @@ def test_swap_execution_with_weth_to_usdc(chain_name, swap_order_weth_usdc, test
         min_output_amount=0  # Accept any output for test
     )
 
-    # Sign and execute transaction
-    signed_txn = test_wallet.sign_transaction_with_new_nonce(result.transaction)
+    # Sign and execute transaction - remove nonce since sign_transaction_with_new_nonce will add it
+    tx_dict = result.transaction.copy()
+    if "nonce" in tx_dict:
+        del tx_dict["nonce"]
+    signed_txn = test_wallet.sign_transaction_with_new_nonce(tx_dict)
     tx_hash = web3.eth.send_raw_transaction(signed_txn.rawTransaction)
 
     # Wait for confirmation
@@ -271,7 +270,11 @@ def test_swap_execution_with_usdc_to_weth(chain_name, swap_order_usdc_weth, test
         slippage_percent=0.02
     )
 
-    signed_txn = test_wallet.sign_transaction_with_new_nonce(result.transaction)
+    # Sign and execute transaction - remove nonce since sign_transaction_with_new_nonce will add it
+    tx_dict = result.transaction.copy()
+    if "nonce" in tx_dict:
+        del tx_dict["nonce"]
+    signed_txn = test_wallet.sign_transaction_with_new_nonce(tx_dict)
     tx_hash = web3.eth.send_raw_transaction(signed_txn.rawTransaction)
     tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash, timeout=120)
 
@@ -322,8 +325,8 @@ def test_swap_with_custom_slippage(chain_name, swap_order_weth_usdc, wallet_with
     )
 
     # Both should succeed but with different acceptable prices
-    assert isinstance(result_low, TransactionResult)
-    assert isinstance(result_high, TransactionResult)
+    assert isinstance(result_low, OrderResult)
+    assert isinstance(result_high, OrderResult)
     assert result_low.slippage_percent == 0.001
     assert result_high.slippage_percent == 0.05
 
@@ -345,7 +348,7 @@ def test_swap_with_min_output_amount(chain_name, swap_order_weth_usdc, wallet_wi
         slippage_percent=0.02
     )
 
-    assert isinstance(result, TransactionResult)
+    assert isinstance(result, OrderResult)
     # The min_output_amount should be reflected in the order parameters
     # This is verified through successful transaction creation
 
@@ -362,7 +365,7 @@ def test_swap_order_different_token_pairs(chain_name, gmx_config):
                 amount_in=1000000000000000000,  # 1 ARB
                 slippage_percent=0.01
             )
-            assert isinstance(result, TransactionResult)
+            assert isinstance(result, OrderResult)
 
         # Test LINK -> USDC
         if "LINK" in tokens:
@@ -371,7 +374,7 @@ def test_swap_order_different_token_pairs(chain_name, gmx_config):
                 amount_in=1000000000000000000,  # 1 LINK
                 slippage_percent=0.01
             )
-            assert isinstance(result, TransactionResult)
+            assert isinstance(result, OrderResult)
 
     else:  # avalanche
         # Test WAVAX -> USDC
@@ -381,4 +384,4 @@ def test_swap_order_different_token_pairs(chain_name, gmx_config):
                 amount_in=1000000000000000000,  # 1 WAVAX
                 slippage_percent=0.01
             )
-            assert isinstance(result, TransactionResult)
+            assert isinstance(result, OrderResult)

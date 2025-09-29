@@ -24,19 +24,22 @@ from eth_defi.token import fetch_erc20_details
 
 
 class OrderType(Enum):
-    """GMX Order Types."""
-    MARKET_INCREASE = "market_increase"
-    MARKET_DECREASE = "market_decrease"
-    LIMIT_INCREASE = "limit_increase"
-    LIMIT_DECREASE = "limit_decrease"
-    MARKET_SWAP = "market_swap"
-    STOP_LOSS_DECREASE = "stop_loss_decrease"
+    """GMX Order Types with contract values."""
+
+    MARKET_SWAP = 0
+    LIMIT_SWAP = 1
+    MARKET_INCREASE = 2
+    LIMIT_INCREASE = 3
+    MARKET_DECREASE = 4
+    LIMIT_DECREASE = 5
+    STOP_LOSS_DECREASE = 6
+    LIQUIDATION = 7
 
 
 @dataclass
 class OrderParams:
-    """Order parameters for GMX orders.
-    """
+    """Order parameters for GMX orders."""
+
     # Market identification
     market_key: str
     collateral_address: str
@@ -67,6 +70,7 @@ class OrderResult:
     :param mark_price: Current mark price
     :param gas_limit: Gas limit for transaction
     """
+
     transaction: TxParams
     execution_fee: int
     acceptable_price: int
@@ -156,9 +160,7 @@ class BaseOrder:
 
         # Calculate prices with slippage (from original _get_prices)
         decimals = market_data["market_metadata"]["decimals"]
-        price, acceptable_price, acceptable_price_in_usd = self._get_prices(
-            decimals, prices, params, is_open, is_close, is_swap
-        )
+        price, acceptable_price, acceptable_price_in_usd = self._get_prices(decimals, prices, params, is_open, is_close, is_swap)
 
         # Build order arguments (from original _create_order)
         mark_price = int(price) if is_open else 0
@@ -167,20 +169,13 @@ class BaseOrder:
         # For swaps, market address not important
         market_address = params.market_key if not is_swap else "0x0000000000000000000000000000000000000000"
 
-        arguments = self._build_order_arguments(
-            params, execution_fee, order_type,
-            acceptable_price_val, mark_price
-        )
+        arguments = self._build_order_arguments(params, execution_fee, order_type, acceptable_price_val, mark_price)
 
         # Build multicall (from original)
-        multicall_args, value_amount = self._build_multicall_args(
-            params, arguments, execution_fee, is_close
-        )
+        multicall_args, value_amount = self._build_multicall_args(params, arguments, execution_fee, is_close)
 
         # Build final transaction (from original _submit_transaction)
-        transaction = self._build_transaction(
-            multicall_args, value_amount, gas_limits["total"]
-        )
+        transaction = self._build_transaction(multicall_args, value_amount, gas_limits["total"])
 
         return OrderResult(
             transaction=transaction,
@@ -190,9 +185,7 @@ class BaseOrder:
             gas_limit=gas_limits["total"],
         )
 
-    def _determine_gas_limits(
-        self, is_open: bool, is_close: bool, is_swap: bool
-    ) -> dict[str, int]:
+    def _determine_gas_limits(self, is_open: bool, is_close: bool, is_swap: bool) -> dict[str, int]:
         """Determine gas limits based on operation type."""
         if is_open:
             execution_gas = self._gas_limits["increase_order"]
@@ -228,10 +221,7 @@ class BaseOrder:
             raise ValueError(f"Price not available for token {params.index_token_address}")
 
         price_data = prices[params.index_token_address]
-        price = median([
-            float(price_data["maxPriceFull"]),
-            float(price_data["minPriceFull"])
-        ])
+        price = median([float(price_data["maxPriceFull"]), float(price_data["minPriceFull"])])
 
         # Calculate slippage based on position type and action
         if is_open:
@@ -291,30 +281,30 @@ class BaseOrder:
 
         return (
             (
-                user_checksum,               # receiver
-                user_checksum,               # cancellationReceiver
-                eth_zero_address,            # callbackContract
-                eth_zero_address,            # uiFeeReceiver
-                market_checksum,             # market
-                collateral_checksum,         # initialCollateralToken
-                swap_path_checksum,          # swapPath
+                user_checksum,  # receiver
+                user_checksum,  # cancellationReceiver
+                eth_zero_address,  # callbackContract
+                eth_zero_address,  # uiFeeReceiver
+                market_checksum,  # market
+                collateral_checksum,  # initialCollateralToken
+                swap_path_checksum,  # swapPath
             ),
             (
-                size_delta_usd,              # sizeDeltaUsd (30 decimals)
-                collateral_amount,           # initialCollateralDeltaAmount (token decimals)
-                mark_price,                  # triggerPrice
-                acceptable_price,            # acceptablePrice
-                execution_fee,               # executionFee
-                0,                           # callbackGasLimit
-                0,                           # minOutputAmount
-                0,                           # validFromTime
+                size_delta_usd,  # sizeDeltaUsd (30 decimals)
+                collateral_amount,  # initialCollateralDeltaAmount (token decimals)
+                mark_price,  # triggerPrice
+                acceptable_price,  # acceptablePrice
+                execution_fee,  # executionFee
+                0,  # callbackGasLimit
+                0,  # minOutputAmount
+                0,  # validFromTime
             ),
-            order_type,                      # orderType
+            order_type,  # orderType
             DECREASE_POSITION_SWAP_TYPES["no_swap"],  # decreasePositionSwapType
-            params.is_long,                  # isLong
-            True,                            # shouldUnwrapNativeToken
-            params.auto_cancel,              # autoCancel
-            referral_code,                   # referralCode
+            params.is_long,  # isLong
+            True,  # shouldUnwrapNativeToken
+            params.auto_cancel,  # autoCancel
+            referral_code,  # referralCode
         )
 
     def _build_multicall_args(
@@ -344,7 +334,7 @@ class BaseOrder:
             raise ValueError(f"Unsupported chain: {self.chain}")
 
         # Check if collateral is the native token
-        is_native = (params.collateral_address.lower() == native_token_address.lower())
+        is_native = params.collateral_address.lower() == native_token_address.lower()
 
         # Get collateral amount from params
         collateral_amount = int(params.initial_collateral_delta_amount)
@@ -389,11 +379,7 @@ class BaseOrder:
         transaction: TxParams = {
             "from": to_checksum_address(user_address),
             "to": self.contract_addresses.exchangerouter,
-            "data": encode_abi_compat(
-                self._exchange_router_contract,
-                "multicall",
-                [multicall_args]
-            ),
+            "data": encode_abi_compat(self._exchange_router_contract, "multicall", [multicall_args]),
             "value": value_amount,
             "gas": gas_limit,
             "chainId": self.chain_id,
@@ -411,33 +397,21 @@ class BaseOrder:
 
     def _create_order(self, arguments: tuple) -> bytes:
         """Encode createOrder function call."""
-        hex_data = encode_abi_compat(
-            self._exchange_router_contract,
-            "createOrder",
-            [arguments]
-        )
+        hex_data = encode_abi_compat(self._exchange_router_contract, "createOrder", [arguments])
         if hex_data.startswith("0x"):
             hex_data = hex_data[2:]
         return bytes.fromhex(hex_data)
 
     def _send_tokens(self, token_address: str, amount: int) -> bytes:
         """Encode sendTokens function call."""
-        hex_data = encode_abi_compat(
-            self._exchange_router_contract,
-            "sendTokens",
-            [token_address, self.contract_addresses.ordervault, amount]
-        )
+        hex_data = encode_abi_compat(self._exchange_router_contract, "sendTokens", [token_address, self.contract_addresses.ordervault, amount])
         if hex_data.startswith("0x"):
             hex_data = hex_data[2:]
         return bytes.fromhex(hex_data)
 
     def _send_wnt(self, amount: int) -> bytes:
         """Encode sendWnt function call."""
-        hex_data = encode_abi_compat(
-            self._exchange_router_contract,
-            "sendWnt",
-            [self.contract_addresses.ordervault, amount]
-        )
+        hex_data = encode_abi_compat(self._exchange_router_contract, "sendWnt", [self.contract_addresses.ordervault, amount])
         if hex_data.startswith("0x"):
             hex_data = hex_data[2:]
         return bytes.fromhex(hex_data)
@@ -462,26 +436,12 @@ class BaseOrder:
         user_address = self.config.get_wallet_address()
         token_details = fetch_erc20_details(self.web3, params.collateral_address)
 
-        allowance = token_details.contract.functions.allowance(
-            to_checksum_address(user_address),
-            to_checksum_address(spender)
-        ).call()
+        allowance = token_details.contract.functions.allowance(to_checksum_address(user_address), to_checksum_address(spender)).call()
 
         if allowance < collateral_amount:
-            raise ValueError(
-                f"Insufficient token approval. "
-                f"Need {collateral_amount}, have {allowance}. "
-                f"Please approve {params.collateral_address} for {spender}"
-            )
+            raise ValueError(f"Insufficient token approval. Need {collateral_amount}, have {allowance}. Please approve {params.collateral_address} for {spender}")
 
-    def check_if_approved(
-        self,
-        spender: str,
-        token_to_approve: str,
-        amount_of_tokens_to_spend: int,
-        approve: bool = True,
-        wallet=None
-    ) -> dict:
+    def check_if_approved(self, spender: str, token_to_approve: str, amount_of_tokens_to_spend: int, approve: bool = True, wallet=None) -> dict:
         """
         Check if tokens are approved and optionally create an approval transaction.
 
@@ -494,7 +454,7 @@ class BaseOrder:
         # Get the user address
         if wallet:
             user_address = wallet.address
-        elif hasattr(self.config, 'user_wallet_address') and self.config.user_wallet_address:
+        elif hasattr(self.config, "user_wallet_address") and self.config.user_wallet_address:
             user_address = self.config.user_wallet_address
         else:
             raise ValueError("No wallet address available")
@@ -514,40 +474,32 @@ class BaseOrder:
             balance_of = token_details.contract.functions.balanceOf(user_checksum).call()
 
         if balance_of < amount_of_tokens_to_spend:
-            raise ValueError(
-                f"Insufficient balance! Have {balance_of}, need {amount_of_tokens_to_spend}"
-            )
+            raise ValueError(f"Insufficient balance! Have {balance_of}, need {amount_of_tokens_to_spend}")
 
         if is_native:
             return {"approved": True, "needs_approval": False}
 
         # Check allowance
         token_details = fetch_erc20_details(self.web3, token_checksum)
-        current_allowance = token_details.contract.functions.allowance(
-            user_checksum, spender_checksum
-        ).call()
+        current_allowance = token_details.contract.functions.allowance(user_checksum, spender_checksum).call()
 
         if current_allowance >= amount_of_tokens_to_spend:
             return {"approved": True, "needs_approval": False}
 
         if not approve or not wallet:
-            return {
-                "approved": False,
-                "needs_approval": True,
-                "message": f"Need approval for {amount_of_tokens_to_spend} tokens"
-            }
+            return {"approved": False, "needs_approval": True, "message": f"Need approval for {amount_of_tokens_to_spend} tokens"}
 
         # Build approval transaction
         gas_fees = estimate_gas_fees(self.web3)
 
-        approval_txn = token_details.contract.functions.approve(
-            spender_checksum, amount_of_tokens_to_spend
-        ).build_transaction({
-            "from": user_checksum,
-            "value": 0,
-            "chainId": self.web3.eth.chain_id,
-            "gas": 100000,
-        })
+        approval_txn = token_details.contract.functions.approve(spender_checksum, amount_of_tokens_to_spend).build_transaction(
+            {
+                "from": user_checksum,
+                "value": 0,
+                "chainId": self.web3.eth.chain_id,
+                "gas": 100000,
+            }
+        )
 
         if gas_fees.max_fee_per_gas is not None:
             approval_txn["maxFeePerGas"] = gas_fees.max_fee_per_gas
@@ -563,9 +515,4 @@ class BaseOrder:
 
         signed_approval = wallet.sign_transaction_with_new_nonce(approval_txn)
 
-        return {
-            "approved": False,
-            "needs_approval": True,
-            "approval_transaction": signed_approval,
-            "message": f"Approval transaction created"
-        }
+        return {"approved": False, "needs_approval": True, "approval_transaction": signed_approval, "message": f"Approval transaction created"}
