@@ -1,13 +1,6 @@
 """
 Library for GMX-based order management including enums, data structures, and base
-order implementations. Provides CCXT-compatible interfaces for handling transactions
-in GMX decentralized trading.
-
-This module includes:
-- Order types and sides
-- Swap types for GMX
-- Dataclasses for order parameters and transaction results
-- A base order class for creating transactions
+order implementations. Provides transaction building for GMX decentralised trading.
 """
 
 import logging
@@ -15,12 +8,10 @@ from dataclasses import dataclass, field
 from typing import Optional, Any
 from decimal import Decimal
 from enum import Enum
-
 from statistics import median
 
-from cchecksum import to_checksum_address
+from eth_utils import to_checksum_address
 from web3.types import TxParams
-from eth_typing import ChecksumAddress
 
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.contracts import get_contract_addresses, get_exchange_router_contract, NETWORK_TOKENS
@@ -29,158 +20,62 @@ from eth_defi.gmx.core.markets import Markets
 from eth_defi.gmx.core.oracle import OraclePrices
 from eth_defi.gas import estimate_gas_fees
 from eth_defi.compat import encode_abi_compat
+from eth_defi.token import fetch_erc20_details
 
 
 class OrderType(Enum):
-    """GMX Order Types mapped to CCXT style."""
-
-    MARKET = "market"
-    LIMIT = "limit"
+    """GMX Order Types."""
     MARKET_INCREASE = "market_increase"
     MARKET_DECREASE = "market_decrease"
+    LIMIT_INCREASE = "limit_increase"
+    LIMIT_DECREASE = "limit_decrease"
     MARKET_SWAP = "market_swap"
-    DEPOSIT = "deposit"
-    WITHDRAWAL = "withdrawal"
-
-
-class OrderSide(Enum):
-    """Order side."""
-
-    BUY = "buy"
-    SELL = "sell"
-    LONG = "long"
-    SHORT = "short"
-
-
-class SwapType(Enum):
-    """Position swap types."""
-
-    NO_SWAP = 0
-    SWAP_PNL_TOKEN_TO_COLLATERAL_TOKEN = 1
-    SWAP_COLLATERAL_TOKEN_TO_PNL_TOKEN = 2
+    STOP_LOSS_DECREASE = "stop_loss_decrease"
 
 
 @dataclass
 class OrderParams:
-    """Order parameters structure.
-
-    :param symbol: Market symbol (e.g., "ETH/USD")
-    :type symbol: str
-    :param type: Order type
-    :type type: OrderType | str
-    :param side: Order side (buy/sell, long/short)
-    :type side: OrderSide | str
-    :param amount: Position size in USD
-    :type amount: Decimal | float | int
-    :param price: Limit price (if applicable)
-    :type price: Optional[Decimal | float]
-    :param market_key: Market address
-    :type market_key: Optional[str]
-    :param collateral_address: Collateral token address
-    :type collateral_address: Optional[str]
-    :param index_token_address: Index token address
-    :type index_token_address: Optional[str]
-    :param is_long: Position direction
-    :type is_long: bool
-    :param slippage_percent: Default 0.5% slippage
-    :type slippage_percent: float
-    :param swap_path: Swap path for multi-hop swaps
-    :type swap_path: list[ChecksumAddress]
-    :param execution_fee_buffer: Execution fee buffer multiplier
-    :type execution_fee_buffer: float
-    :param auto_cancel: Auto cancel orders
-    :type auto_cancel: bool
-    :param min_output_amount: Minimum output for swaps
-    :type min_output_amount: int
-    :param max_fee_per_gas: Maximum fee per gas
-    :type max_fee_per_gas: Optional[int]
-    :param max_priority_fee_per_gas: Maximum priority fee per gas
-    :type max_priority_fee_per_gas: Optional[int]
-    :param gas_limit: Gas limit for transaction
-    :type gas_limit: Optional[int]
-    :param client_order_id: Client order ID
-    :type client_order_id: Optional[str]
-    :param metadata: Additional metadata
-    :type metadata: dict[str, Any]
+    """Order parameters for GMX orders.
     """
+    # Market identification
+    market_key: str
+    collateral_address: str
+    index_token_address: str
 
-    symbol: str  # Market symbol (e.g., "ETH/USD")
-    type: OrderType | str  # Order type
-    side: OrderSide | str  # Order side (buy/sell, long/short)
-    amount: Decimal | float | int  # Position size in USD
-    price: Optional[Decimal | float] = None  # Limit price (if applicable)
-
-    # GMX-specific parameters
-    market_key: Optional[str] = None  # Market address
-    collateral_address: Optional[str] = None  # Collateral token address
-    index_token_address: Optional[str] = None  # Index token address
-    is_long: bool = True  # Position direction
-    slippage_percent: float = 0.005  # Default 0.5% slippage
-    swap_path: list[ChecksumAddress] = field(default_factory=list)
+    # Position parameters
+    is_long: bool
+    size_delta: float  # Position size in USD
+    initial_collateral_delta_amount: str  # Collateral in token's smallest unit (wei/satoshi)
 
     # Execution parameters
-    execution_fee_buffer: float = 1.3  # Execution fee buffer multiplier
-    auto_cancel: bool = False  # Auto cancel orders
-    min_output_amount: int = 0  # Minimum output for swaps
+    slippage_percent: float = 0.005
+    swap_path: list[str] = field(default_factory=list)
 
-    # Gas and fee parameters
+    # Optional parameters
     max_fee_per_gas: Optional[int] = None
-    max_priority_fee_per_gas: Optional[int] = None
-    gas_limit: Optional[int] = None
-
-    # Additional metadata
-    client_order_id: Optional[str] = None
-    metadata: dict[str, Any] = field(default_factory=dict)
+    auto_cancel: bool = False
+    execution_buffer: float = 1.3
 
 
 @dataclass
-class TransactionResult:
-    """Result of order creation containing unsigned transaction and metadata.
+class OrderResult:
+    """Result of order creation containing unsigned transaction.
 
     :param transaction: Unsigned transaction ready for signing
-    :type transaction: TxParams
-    :param order_type: Order type
-    :type order_type: OrderType
-    :param symbol: Market symbol
-    :type symbol: str
-    :param side: Order side
-    :type side: OrderSide
-    :param amount: Position size
-    :type amount: Decimal | float | int
-    :param estimated_execution_fee: Estimated execution fee
-    :type estimated_execution_fee: int
-    :param market_info: Market information
-    :type market_info: dict[str, Any]
-    :param gas_estimates: Gas estimates
-    :type gas_estimates: dict[str, int]
+    :param execution_fee: Estimated execution fee in wei
     :param acceptable_price: Acceptable price for execution
-    :type acceptable_price: int
     :param mark_price: Current mark price
-    :type mark_price: float
-    :param slippage_percent: Slippage percentage
-    :type slippage_percent: float
+    :param gas_limit: Gas limit for transaction
     """
-
-    # Unsigned transaction ready for signing
     transaction: TxParams
-
-    # Order metadata
-    order_type: OrderType
-    symbol: str
-    side: OrderSide
-    amount: Decimal | float | int
-    estimated_execution_fee: int
-    market_info: dict[str, Any] = field(default_factory=dict)
-    gas_estimates: dict[str, int] = field(default_factory=dict)
-
-    # Additional order details for reference
-    acceptable_price: int = 0
-    mark_price: float = 0
-    slippage_percent: float = 0.005
+    execution_fee: int
+    acceptable_price: int
+    mark_price: float
+    gas_limit: int
 
 
 class BaseOrder:
-    """Base GMX Order class migrated from gmx_python_sdk.
+    """Base GMX Order class.
 
     Creates unsigned transactions that can be signed later by the user.
     Compatible with CCXT trading interface patterns for easy migration.
@@ -190,7 +85,6 @@ class BaseOrder:
         """Initialize the base order with GMX configuration.
 
         :param config: GMX configuration containing Web3 instance and chain settings
-        :type config: GMXConfig
         """
         self.config = config
         self.web3 = config.web3
@@ -199,9 +93,10 @@ class BaseOrder:
 
         # Initialize logger
         self.logger = logging.getLogger(f"{self.__class__.__name__}")
+
         self.logger.info(f"Creating order manager for {self.chain}...")
 
-        # Core data providers
+        # Core data providers (same as original)
         self.markets = Markets(config)
         self.oracle_prices = OraclePrices(self.chain)
 
@@ -209,239 +104,29 @@ class BaseOrder:
         self.contract_addresses = get_contract_addresses(self.chain)
         self._exchange_router_contract = get_exchange_router_contract(self.web3, self.chain)
 
-        # Gas limit mappings for different order types
+        # Gas limits and constants
         self._gas_limits = GAS_LIMITS
-
-        # Order type mappings
         self._order_types = ORDER_TYPES
-
-        # Initialize execution fee buffer
-        self.execution_buffer = 1.3  # Anything less than this doesn't
 
         self.logger.info(f"Initialized order manager for {self.chain}")
 
-    # CCXT-compatible method names for easy migration
-    def create_market_buy_order(
-        self,
-        symbol: str,
-        amount: float | int,
-        price: Optional[float] = None,
-        params: Optional[dict] = None,
-    ) -> TransactionResult:
-        """Create market buy order (CCXT compatible).
-
-        :param symbol: Market symbol
-        :type symbol: str
-        :param amount: Position size
-        :type amount: float | int
-        :param price: Limit price (optional)
-        :type price: Optional[float]
-        :param params: Additional parameters
-        :type params: Optional[dict]
-        :return: Transaction result
-        :rtype: TransactionResult
-        """
-        order_params = OrderParams(
-            symbol=symbol,
-            type=OrderType.MARKET_INCREASE,
-            side=OrderSide.BUY,
-            amount=amount,
-            price=price,
-            is_long=True,
-            **(params or {}),
-        )
-        return self.create_order(order_params)
-
-    def create_market_sell_order(
-        self,
-        symbol: str,
-        amount: float | int,
-        price: Optional[float] = None,
-        params: Optional[dict] = None,
-    ) -> TransactionResult:
-        """Create market sell order (CCXT compatible).
-
-        :param symbol: Market symbol
-        :type symbol: str
-        :param amount: Position size
-        :type amount: float | int
-        :param price: Limit price (optional)
-        :type price: Optional[float]
-        :param params: Additional parameters
-        :type params: Optional[dict]
-        :return: Transaction result
-        :rtype: TransactionResult
-        """
-        order_params = OrderParams(
-            symbol=symbol,
-            type=OrderType.MARKET_DECREASE,
-            side=OrderSide.SELL,
-            amount=amount,
-            price=price,
-            is_long=True,
-            **(params or {}),
-        )
-        return self.create_order(order_params)
-
-    def create_limit_buy_order(
-        self,
-        symbol: str,
-        amount: float | int,
-        price: float,
-        params: Optional[dict] = None,
-    ) -> TransactionResult:
-        """Create limit buy order (CCXT compatible).
-
-        :param symbol: Market symbol
-        :type symbol: str
-        :param amount: Position size
-        :type amount: float | int
-        :param price: Limit price
-        :type price: float
-        :param params: Additional parameters
-        :type params: Optional[dict]
-        :return: Transaction result
-        :rtype: TransactionResult
-        """
-        order_params = OrderParams(
-            symbol=symbol,
-            type=OrderType.LIMIT,
-            side=OrderSide.BUY,
-            amount=amount,
-            price=price,
-            is_long=True,
-            **(params or {}),
-        )
-        return self.create_order(order_params)
-
-    def create_limit_sell_order(
-        self,
-        symbol: str,
-        amount: float | int,
-        price: float,
-        params: Optional[dict] = None,
-    ) -> TransactionResult:
-        """Create limit sell order (CCXT compatible).
-
-        :param symbol: Market symbol
-        :type symbol: str
-        :param amount: Position size
-        :type amount: float | int
-        :param price: Limit price
-        :type price: float
-        :param params: Additional parameters
-        :type params: Optional[dict]
-        :return: Transaction result
-        :rtype: TransactionResult
-        """
-        order_params = OrderParams(
-            symbol=symbol,
-            type=OrderType.LIMIT,
-            side=OrderSide.SELL,
-            amount=amount,
-            price=price,
-            is_long=True,
-            **(params or {}),
-        )
-        return self.create_order(order_params)
-
-    def create_order(self, params: OrderParams) -> TransactionResult:
-        """Create an order transaction (main method).
-
-        :param params: Order parameters
-        :type params: OrderParams
-        :return: TransactionResult with unsigned transaction and metadata
-        :rtype: TransactionResult
-        """
-        self.validate_params(params)
-
-        # Determine order characteristics
-        is_open = params.type in [OrderType.MARKET_INCREASE, OrderType.LIMIT]
-        is_close = params.type in [OrderType.MARKET_DECREASE]
-        is_swap = params.type == OrderType.MARKET_SWAP
-
-        return self._build_order_transaction(params, is_open, is_close, is_swap)
-
-    def validate_params(self, params: OrderParams) -> None:
-        """Validate order parameters.
-
-        :param params: Order parameters to validate
-        :type params: OrderParams
-        :raises ValueError: If parameters are invalid
-        """
-        if not params.symbol:
-            raise ValueError("Symbol is required")
-
-        if not params.type:
-            raise ValueError("Order type is required")
-
-        if not params.side:
-            raise ValueError("Order side is required")
-
-        if params.amount <= 0:
-            raise ValueError("Amount must be positive")
-
-        # Validate market exists
-        markets = self.markets.get_available_markets()
-        market_found = False
-        for market_addr, market_data in markets.items():
-            if market_data.get("market_symbol", "").upper() in params.symbol.upper():
-                params.market_key = market_addr
-                params.index_token_address = market_data.get("index_token_address")
-                market_found = True
-                break
-
-        if not market_found:
-            available_symbols = [data.get("market_symbol", "") for data in markets.values()]
-            raise ValueError(f"Invalid market symbol: {params.symbol}. Available: {available_symbols}")
-
-    def _build_order_transaction(
+    def create_order(
         self,
         params: OrderParams,
-        is_open: bool,
-        is_close: bool,
-        is_swap: bool,
-    ) -> TransactionResult:
-        """Build the order transaction (core logic from original gmx_python_sdk).
+        is_open: bool = False,
+        is_close: bool = False,
+        is_swap: bool = False,
+    ) -> OrderResult:
+        """
+        Create an order transaction.
 
         :param params: Order parameters
-        :type params: OrderParams
-        :param is_open: Whether this is an opening order
-        :type is_open: bool
-        :param is_close: Whether this is a closing order
-        :type is_close: bool
-        :param is_swap: Whether this is a swap order
-        :type is_swap: bool
-        :return: TransactionResult with transaction and metadata
-        :rtype: TransactionResult
+        :param is_open: Whether opening a position
+        :param is_close: Whether closing a position
+        :param is_swap: Whether performing a swap
+        :return: OrderResult with unsigned transaction
         """
-        # Get gas limits and execution fee
-        gas_limits = self._determine_gas_limits(params.type)
-
-        # Get the current gas price and estimate execution fee
-        gas_price = self.web3.eth.gas_price
-        execution_fee = int(gas_limits["execution"] * gas_price)
-        execution_fee = int(execution_fee * self.execution_buffer)
-
-        # Get market and price data
-        markets = self.markets.get_available_markets()
-        market_data = markets[params.market_key]
-        prices = self.oracle_prices.get_recent_prices()
-
-        # Set default collateral if not specified
-        if not params.collateral_address:
-            if is_close:
-                # For closing, use the market's long token as collateral
-                params.collateral_address = market_data["long_token_address"]
-            else:
-                # For opening, default to USDC
-                params.collateral_address = market_data["short_token_address"]  # Usually USDC
-
-        # Calculate prices and slippage
-        decimals = market_data["market_metadata"]["decimals"]
-        price, acceptable_price, acceptable_price_in_usd = self._get_prices(decimals, prices, params, is_open, is_close, is_swap)
-
-        # Determine order type code
+        # Determine gas limits (from original determine_gas_limits)
         if is_open:
             order_type = self._order_types["market_increase"]
         elif is_close:
@@ -449,58 +134,78 @@ class BaseOrder:
         elif is_swap:
             order_type = self._order_types["market_swap"]
         else:
-            order_type = self._order_types["limit_increase"]
+            order_type = self._order_types["market_increase"]
 
-        # Build transaction arguments (following original structure)
-        user_wallet_address = self.config.get_wallet_address()
-        if not user_wallet_address:
-            raise ValueError("User wallet address is required for transaction building")
+        # Get execution fee (from original)
+        gas_price = self.web3.eth.gas_price
+        gas_limits = self._determine_gas_limits(is_open, is_close, is_swap)
+        execution_fee = int(gas_limits["total"] * gas_price)
+        execution_fee = int(execution_fee * params.execution_buffer)
 
-        arguments = self._build_order_arguments(params, market_data, execution_fee, order_type, acceptable_price, price if is_open else 0, user_wallet_address)
+        # Check approval if not closing
+        if not is_close:
+            self._check_for_approval(params)
 
-        # Build multicall transaction
-        multicall_args, value_amount = self._build_multicall_args(params, arguments, execution_fee, is_close)
+        # Get market and price data (from original)
+        markets = self.markets.get_available_markets()
+        prices = self.oracle_prices.get_recent_prices()
 
-        # Create the transaction
-        transaction = self._build_transaction(multicall_args, value_amount, gas_limits["total"])
+        market_data = markets.get(params.market_key)
+        if not market_data:
+            raise ValueError(f"Market {params.market_key} not found")
 
-        return TransactionResult(
-            transaction=transaction,
-            order_type=params.type if isinstance(params.type, OrderType) else OrderType(params.type),
-            symbol=params.symbol,
-            side=params.side if isinstance(params.side, OrderSide) else OrderSide(params.side),
-            amount=params.amount,
-            estimated_execution_fee=execution_fee,
-            market_info=market_data,
-            gas_estimates=gas_limits,
-            acceptable_price=acceptable_price,
-            mark_price=price,
-            slippage_percent=params.slippage_percent,
+        # Calculate prices with slippage (from original _get_prices)
+        decimals = market_data["market_metadata"]["decimals"]
+        price, acceptable_price, acceptable_price_in_usd = self._get_prices(
+            decimals, prices, params, is_open, is_close, is_swap
         )
 
-    def _determine_gas_limits(self, order_type: OrderType | str) -> dict[str, int]:
-        """Determine gas limits for the order type.
+        # Build order arguments (from original _create_order)
+        mark_price = int(price) if is_open else 0
+        acceptable_price_val = acceptable_price if not is_swap else 0
 
-        :param order_type: Order type
-        :type order_type: OrderType | str
-        :return: Gas limits dictionary
-        :rtype: dict[str, int]
-        """
-        if isinstance(order_type, str):
-            order_type = OrderType(order_type)
+        # For swaps, market address not important
+        market_address = params.market_key if not is_swap else "0x0000000000000000000000000000000000000000"
 
-        if order_type == OrderType.MARKET_INCREASE:
+        arguments = self._build_order_arguments(
+            params, execution_fee, order_type,
+            acceptable_price_val, mark_price
+        )
+
+        # Build multicall (from original)
+        multicall_args, value_amount = self._build_multicall_args(
+            params, arguments, execution_fee, is_close
+        )
+
+        # Build final transaction (from original _submit_transaction)
+        transaction = self._build_transaction(
+            multicall_args, value_amount, gas_limits["total"]
+        )
+
+        return OrderResult(
+            transaction=transaction,
+            execution_fee=execution_fee,
+            acceptable_price=acceptable_price_val,
+            mark_price=price,
+            gas_limit=gas_limits["total"],
+        )
+
+    def _determine_gas_limits(
+        self, is_open: bool, is_close: bool, is_swap: bool
+    ) -> dict[str, int]:
+        """Determine gas limits based on operation type."""
+        if is_open:
             execution_gas = self._gas_limits["increase_order"]
-        elif order_type == OrderType.MARKET_DECREASE:
+        elif is_close:
             execution_gas = self._gas_limits["decrease_order"]
-        elif order_type == OrderType.MARKET_SWAP:
+        elif is_swap:
             execution_gas = self._gas_limits["swap_order"]
         else:
             execution_gas = self._gas_limits["increase_order"]
 
         return {
             "execution": execution_gas,
-            "total": execution_gas + 200000,  # Buffer for multicall overhead
+            "total": execution_gas + self._gas_limits.get("multicall_base", 200000),
         }
 
     def _get_prices(
@@ -512,22 +217,10 @@ class BaseOrder:
         is_close: bool,
         is_swap: bool,
     ) -> tuple[float, int, float]:
-        """Calculate prices with slippage.
+        """
+        Calculate prices with slippage
 
-        :param decimals: Token decimals
-        :type decimals: int
-        :param prices: Price data
-        :type prices: dict
-        :param params: Order parameters
-        :type params: OrderParams
-        :param is_open: Whether this is an opening order
-        :type is_open: bool
-        :param is_close: Whether this is a closing order
-        :type is_close: bool
-        :param is_swap: Whether this is a swap order
-        :type is_swap: bool
-        :return: Tuple of (price, acceptable_price, acceptable_price_in_usd)
-        :rtype: tuple[float, int, float]
+        Returns: (price, acceptable_price, acceptable_price_in_usd)
         """
         self.logger.info("Getting prices...")
 
@@ -535,7 +228,10 @@ class BaseOrder:
             raise ValueError(f"Price not available for token {params.index_token_address}")
 
         price_data = prices[params.index_token_address]
-        price = median([float(price_data["maxPriceFull"]), float(price_data["minPriceFull"])])
+        price = median([
+            float(price_data["maxPriceFull"]),
+            float(price_data["minPriceFull"])
+        ])
 
         # Calculate slippage based on position type and action
         if is_open:
@@ -549,80 +245,76 @@ class BaseOrder:
             else:
                 slippage_price = price + (price * params.slippage_percent)
         else:
-            slippage_price = price
+            slippage_price = 0
 
         acceptable_price = int(slippage_price)
-        acceptable_price_in_usd = acceptable_price * (10 ** (decimals - PRECISION))  # GMX precision
+        acceptable_price_in_usd = acceptable_price * (10 ** (decimals - PRECISION))
 
         self.logger.info(f"Mark Price: ${price * (10 ** (decimals - PRECISION)):.4f}")
-        if acceptable_price_in_usd != price * (10 ** (decimals - PRECISION)):
+        if acceptable_price_in_usd != 0:
             self.logger.info(f"Acceptable price: ${acceptable_price_in_usd:.4f}")
 
         return price, acceptable_price, acceptable_price_in_usd
 
-    @staticmethod
     def _build_order_arguments(
+        self,
         params: OrderParams,
-        market_data: dict,
         execution_fee: int,
         order_type: int,
         acceptable_price: int,
-        mark_price: float,
-        user_wallet_address: str,
+        mark_price: int,
     ) -> tuple:
-        """Build order arguments tuple (from original structure).
-
-        :param params: Order parameters
-        :type params: OrderParams
-        :param market_data: Market data
-        :type market_data: dict
-        :param execution_fee: Execution fee
-        :type execution_fee: int
-        :param order_type: Order type code
-        :type order_type: int
-        :param acceptable_price: Acceptable price
-        :type acceptable_price: int
-        :param mark_price: Mark price
-        :type mark_price: float
-        :param user_wallet_address: User wallet address
-        :type user_wallet_address: str
-        :return: Order arguments tuple
-        :rtype: tuple
         """
+        Build order arguments tuple.
 
-        eth_zero_address = "0x0000000000000000000000000000000000000000"
-        referral_code = bytes.fromhex("0000000000000000000000000000000000000000000000000000000000000000")
+        Critical: This matches the exact structure expected by GMX contracts.
+        """
+        user_wallet_address = self.config.get_wallet_address()
+        if not user_wallet_address:
+            raise ValueError("User wallet address is required")
 
-        # Convert addresses to checksum format
-        user_wallet_address = to_checksum_address(user_wallet_address)
-        collateral_address = to_checksum_address(params.collateral_address)
+        eth_zero_address = "0x" + "0" * 40
+        referral_code = bytes.fromhex("0" * 64)
+
+        user_checksum = to_checksum_address(user_wallet_address)
+        collateral_checksum = to_checksum_address(params.collateral_address)
+        market_checksum = to_checksum_address(params.market_key)
+
+        # Convert swap_path to checksum addresses
+        swap_path_checksum = [to_checksum_address(addr) for addr in params.swap_path]
+
+        # Size delta: position size in USD with 30 decimals of precision
+        size_delta_usd = int(Decimal(str(params.size_delta)) * Decimal(10**30))
+
+        # Collateral: already in token's smallest unit (from initial_collateral_delta_amount)
+        collateral_amount = int(params.initial_collateral_delta_amount)
 
         return (
             (
-                user_wallet_address,  # receiver
-                user_wallet_address,  # cancellation receiver
-                eth_zero_address,  # callback contract
-                eth_zero_address,  # ui fee receiver
-                params.market_key,  # market
-                collateral_address,  # initial collateral token
-                params.swap_path or [],  # swap path
+                user_checksum,               # receiver
+                user_checksum,               # cancellationReceiver
+                eth_zero_address,            # callbackContract
+                eth_zero_address,            # uiFeeReceiver
+                market_checksum,             # market
+                collateral_checksum,         # initialCollateralToken
+                swap_path_checksum,          # swapPath
             ),
             (
-                int(params.amount),  # size delta
-                int(params.amount) if not params.type == OrderType.MARKET_DECREASE else int(params.amount),  # initial collateral delta
-                int(mark_price),  # trigger price
-                acceptable_price,  # acceptable price
-                execution_fee,  # execution fee
-                0,  # callback gas limit
-                params.min_output_amount,  # min output amount
-                0,  # updated position size
+                size_delta_usd,              # sizeDeltaUsd (30 decimals)
+                collateral_amount,           # initialCollateralDeltaAmount (token decimals)
+                mark_price,                  # triggerPrice
+                acceptable_price,            # acceptablePrice
+                execution_fee,               # executionFee
+                0,                           # callbackGasLimit
+                0,                           # minOutputAmount
+                0,                           # validFromTime
             ),
-            order_type,  # order type
-            DECREASE_POSITION_SWAP_TYPES["no_swap"],  # decrease position swap type
-            params.is_long,  # is long
-            True,  # should unwrap native token
-            params.auto_cancel,  # auto cancel
-            referral_code,  # referral code
+            order_type,                      # orderType
+            DECREASE_POSITION_SWAP_TYPES["no_swap"],  # decreasePositionSwapType
+            params.is_long,                  # isLong
+            True,                            # shouldUnwrapNativeToken
+            params.auto_cancel,              # autoCancel
+            referral_code,                   # referralCode
         )
 
     def _build_multicall_args(
@@ -632,49 +324,47 @@ class BaseOrder:
         execution_fee: int,
         is_close: bool,
     ) -> tuple[list, int]:
-        """Build multicall arguments and determine value amount.
-
-        :param params: Order parameters
-        :type params: OrderParams
-        :param arguments: Order arguments tuple
-        :type arguments: tuple
-        :param execution_fee: Execution fee
-        :type execution_fee: int
-        :param is_close: Whether this is a closing order
-        :type is_close: bool
-        :return: Tuple of (multicall_args, value_amount)
-        :rtype: tuple[list, int]
         """
+        Build multicall arguments.
 
+        Critical: This determines which tokens to send and in what amounts.
+        """
         value_amount = execution_fee
 
-        # Get native token address from NETWORK_TOKENS
+        # Get the native token address for this chain
         chain_tokens = NETWORK_TOKENS.get(self.chain.lower())
         if not chain_tokens:
-            raise ValueError(f"Unsupported chain for native token lookup: {self.chain}")
+            raise ValueError(f"Unsupported chain: {self.chain}")
 
-        # Get native wrapped token (WETH for arbitrum, WAVAX for avalanche)
-        native_token_address = None
         if self.chain.lower() == "arbitrum":
             native_token_address = chain_tokens.get("WETH")
         elif self.chain.lower() == "avalanche":
             native_token_address = chain_tokens.get("WAVAX")
+        else:
+            raise ValueError(f"Unsupported chain: {self.chain}")
 
-        if not native_token_address:
-            raise ValueError(f"Native token not found for chain {self.chain}")
+        # Check if collateral is the native token
+        is_native = (params.collateral_address.lower() == native_token_address.lower())
 
-        if params.collateral_address != native_token_address and not is_close:
-            # Non-native token: send tokens separately
+        # Get collateral amount from params
+        collateral_amount = int(params.initial_collateral_delta_amount)
+
+        if is_native and not is_close:
+            # Native token: include collateral in value
+            value_amount = collateral_amount + execution_fee
+            multicall_args = [
+                self._send_wnt(value_amount),
+                self._create_order(arguments),
+            ]
+        elif not is_close:
+            # ERC20 token: send tokens separately
             multicall_args = [
                 self._send_wnt(execution_fee),
-                self._send_tokens(params.collateral_address, int(params.amount)),
+                self._send_tokens(params.collateral_address, collateral_amount),
                 self._create_order(arguments),
             ]
         else:
-            # Native token or closing position
-            if not is_close and params.type != OrderType.MARKET_DECREASE:
-                value_amount = int(params.amount) + execution_fee
-
+            # Closing position: only send execution fee
             multicall_args = [
                 self._send_wnt(value_amount),
                 self._create_order(arguments),
@@ -682,28 +372,32 @@ class BaseOrder:
 
         return multicall_args, value_amount
 
-    def _build_transaction(self, multicall_args: list, value_amount: int, gas_limit: int) -> TxParams:
-        """Build the final unsigned transaction.
+    def _build_transaction(
+        self,
+        multicall_args: list,
+        value_amount: int,
+        gas_limit: int,
+    ) -> TxParams:
+        """Build the final unsigned transaction."""
+        user_address = self.config.get_wallet_address()
+        if not user_address:
+            raise ValueError("User wallet address required")
 
-        :param multicall_args: Multicall arguments
-        :type multicall_args: list
-        :param value_amount: Value amount to send
-        :type value_amount: int
-        :param gas_limit: Gas limit
-        :type gas_limit: int
-        :return: Unsigned transaction parameters
-        :rtype: TxParams
-        """
-
-        # Get gas pricing
+        nonce = self.web3.eth.get_transaction_count(to_checksum_address(user_address))
         gas_fees = estimate_gas_fees(self.web3)
 
         transaction: TxParams = {
+            "from": to_checksum_address(user_address),
             "to": self.contract_addresses.exchangerouter,
-            "data": encode_abi_compat(self._exchange_router_contract, "multicall", [multicall_args]),
+            "data": encode_abi_compat(
+                self._exchange_router_contract,
+                "multicall",
+                [multicall_args]
+            ),
             "value": value_amount,
             "gas": gas_limit,
             "chainId": self.chain_id,
+            "nonce": nonce,
         }
 
         # Add EIP-1559 or legacy gas pricing
@@ -716,79 +410,162 @@ class BaseOrder:
         return transaction
 
     def _create_order(self, arguments: tuple) -> bytes:
-        """Encode createOrder function call.
-
-        :param arguments: Order arguments
-        :type arguments: tuple
-        :return: Encoded function call
-        :rtype: bytes
-        """
-        return bytes.fromhex(encode_abi_compat(self._exchange_router_contract, "createOrder", [arguments]))
+        """Encode createOrder function call."""
+        hex_data = encode_abi_compat(
+            self._exchange_router_contract,
+            "createOrder",
+            [arguments]
+        )
+        if hex_data.startswith("0x"):
+            hex_data = hex_data[2:]
+        return bytes.fromhex(hex_data)
 
     def _send_tokens(self, token_address: str, amount: int) -> bytes:
-        """Encode sendTokens function call.
-
-        :param token_address: Token address
-        :type token_address: str
-        :param amount: Token amount
-        :type amount: int
-        :return: Encoded function call
-        :rtype: bytes
-        """
-        return bytes.fromhex(encode_abi_compat(self._exchange_router_contract, "sendTokens", [token_address, self.contract_addresses.ordervault, amount]))
+        """Encode sendTokens function call."""
+        hex_data = encode_abi_compat(
+            self._exchange_router_contract,
+            "sendTokens",
+            [token_address, self.contract_addresses.ordervault, amount]
+        )
+        if hex_data.startswith("0x"):
+            hex_data = hex_data[2:]
+        return bytes.fromhex(hex_data)
 
     def _send_wnt(self, amount: int) -> bytes:
-        """Encode sendWnt function call.
+        """Encode sendWnt function call."""
+        hex_data = encode_abi_compat(
+            self._exchange_router_contract,
+            "sendWnt",
+            [self.contract_addresses.ordervault, amount]
+        )
+        if hex_data.startswith("0x"):
+            hex_data = hex_data[2:]
+        return bytes.fromhex(hex_data)
 
-        :param amount: Amount to send
-        :type amount: int
-        :return: Encoded function call
-        :rtype: bytes
+    def _check_for_approval(self, params: OrderParams) -> None:
+        """Check token approval (from original check_for_approval)."""
+        spender = self.contract_addresses.exchangerouter
+        collateral_amount = int(params.initial_collateral_delta_amount)
+
+        # Get the native token to check if approval needed
+        chain_tokens = NETWORK_TOKENS.get(self.chain.lower())
+        if self.chain.lower() == "arbitrum":
+            native_token = chain_tokens.get("WETH")
+        else:
+            native_token = chain_tokens.get("WAVAX")
+
+        # No approval needed for native token
+        if params.collateral_address.lower() == native_token.lower():
+            return
+
+        # Check ERC20 approval
+        user_address = self.config.get_wallet_address()
+        token_details = fetch_erc20_details(self.web3, params.collateral_address)
+
+        allowance = token_details.contract.functions.allowance(
+            to_checksum_address(user_address),
+            to_checksum_address(spender)
+        ).call()
+
+        if allowance < collateral_amount:
+            raise ValueError(
+                f"Insufficient token approval. "
+                f"Need {collateral_amount}, have {allowance}. "
+                f"Please approve {params.collateral_address} for {spender}"
+            )
+
+    def check_if_approved(
+        self,
+        spender: str,
+        token_to_approve: str,
+        amount_of_tokens_to_spend: int,
+        approve: bool = True,
+        wallet=None
+    ) -> dict:
         """
-        return bytes.fromhex(encode_abi_compat(self._exchange_router_contract, "sendWnt", [self.contract_addresses.ordervault, amount]))
+        Check if tokens are approved and optionally create an approval transaction.
 
-    # Additional utility methods for compatibility
-    def fetch_markets(self) -> dict[str, dict]:
-        """Fetch available markets (CCXT compatible).
-
-        :return: Dictionary of available markets
-        :rtype: dict[str, dict]
+        returns dict instead of raising errors.
         """
-        markets = self.markets.get_available_markets()
+        tokens = NETWORK_TOKENS.get(self.chain, {})
+        spender_checksum = to_checksum_address(spender)
+        token_checksum = to_checksum_address(token_to_approve)
 
-        # Convert to CCXT-like format
-        ccxt_markets = {}
-        for market_addr, market_data in markets.items():
-            symbol = market_data.get("market_symbol", "") + "/USD"
-            ccxt_markets[symbol] = {"id": market_addr, "symbol": symbol, "base": market_data.get("market_symbol", ""), "quote": "USD", "active": True, "type": "perpetual", "info": market_data}
+        # Get the user address
+        if wallet:
+            user_address = wallet.address
+        elif hasattr(self.config, 'user_wallet_address') and self.config.user_wallet_address:
+            user_address = self.config.user_wallet_address
+        else:
+            raise ValueError("No wallet address available")
 
-        return ccxt_markets
+        user_checksum = to_checksum_address(user_address)
 
-    def fetch_ticker(self, symbol: str) -> dict:
-        """Fetch ticker for symbol (CCXT compatible).
+        # Check if native token
+        native_symbols = {"arbitrum": "WETH", "avalanche": "WAVAX"}
+        native_symbol = native_symbols.get(self.chain.lower())
+        native_token_address = tokens.get(native_symbol) if native_symbol else None
+        is_native = native_token_address and token_checksum.lower() == native_token_address.lower()
 
-        :param symbol: Market symbol
-        :type symbol: str
-        :return: Ticker data
-        :rtype: dict
-        :raises ValueError: If market or price data not found
-        """
-        markets = self.markets.get_available_markets()
-        prices = self.oracle_prices.get_recent_prices()
+        if is_native:
+            balance_of = self.web3.eth.get_balance(user_checksum)
+        else:
+            token_details = fetch_erc20_details(self.web3, token_checksum)
+            balance_of = token_details.contract.functions.balanceOf(user_checksum).call()
 
-        # Find market by symbol
-        market_data = None
-        for addr, data in markets.items():
-            if data.get("market_symbol", "") + "/USD" == symbol:
-                market_data = data
-                break
+        if balance_of < amount_of_tokens_to_spend:
+            raise ValueError(
+                f"Insufficient balance! Have {balance_of}, need {amount_of_tokens_to_spend}"
+            )
 
-        if not market_data:
-            raise ValueError(f"Market {symbol} not found")
+        if is_native:
+            return {"approved": True, "needs_approval": False}
 
-        token_address = market_data["index_token_address"]
-        if token_address in prices:
-            price_data = prices[token_address]
-            return {"symbol": symbol, "high": float(price_data.get("maxPriceFull", 0)) / 1e30, "low": float(price_data.get("minPriceFull", 0)) / 1e30, "bid": float(price_data.get("minPriceFull", 0)) / 1e30, "ask": float(price_data.get("maxPriceFull", 0)) / 1e30, "last": median([float(price_data.get("maxPriceFull", 0)), float(price_data.get("minPriceFull", 0))]) / 1e30, "info": price_data}
+        # Check allowance
+        token_details = fetch_erc20_details(self.web3, token_checksum)
+        current_allowance = token_details.contract.functions.allowance(
+            user_checksum, spender_checksum
+        ).call()
 
-        raise ValueError(f"Price data not available for {symbol}")
+        if current_allowance >= amount_of_tokens_to_spend:
+            return {"approved": True, "needs_approval": False}
+
+        if not approve or not wallet:
+            return {
+                "approved": False,
+                "needs_approval": True,
+                "message": f"Need approval for {amount_of_tokens_to_spend} tokens"
+            }
+
+        # Build approval transaction
+        gas_fees = estimate_gas_fees(self.web3)
+
+        approval_txn = token_details.contract.functions.approve(
+            spender_checksum, amount_of_tokens_to_spend
+        ).build_transaction({
+            "from": user_checksum,
+            "value": 0,
+            "chainId": self.web3.eth.chain_id,
+            "gas": 100000,
+        })
+
+        if gas_fees.max_fee_per_gas is not None:
+            approval_txn["maxFeePerGas"] = gas_fees.max_fee_per_gas
+            approval_txn["maxPriorityFeePerGas"] = gas_fees.max_priority_fee_per_gas
+            if "gasPrice" in approval_txn:
+                del approval_txn["gasPrice"]
+        else:
+            approval_txn["gasPrice"] = gas_fees.legacy_gas_price
+            if "maxFeePerGas" in approval_txn:
+                del approval_txn["maxFeePerGas"]
+            if "maxPriorityFeePerGas" in approval_txn:
+                del approval_txn["maxPriorityFeePerGas"]
+
+        signed_approval = wallet.sign_transaction_with_new_nonce(approval_txn)
+
+        return {
+            "approved": False,
+            "needs_approval": True,
+            "approval_transaction": signed_approval,
+            "message": f"Approval transaction created"
+        }

@@ -15,11 +15,16 @@ from eth_defi.gmx.core import GetOpenPositions, GetPoolTVL, Markets
 from eth_defi.gmx.core.glv_stats import GlvStats
 from eth_defi.gmx.data import GMXMarketData
 from eth_defi.gmx.liquidity import GMXLiquidityManager
-from eth_defi.gmx.order import GMXOrderManager
+# from eth_defi.gmx.order import GMXOrderManager
+from eth_defi.gmx.order.base_order import BaseOrder
+# from eth_defi.gmx.order.swap_order import SwapOrder
+from eth_defi.gmx.contracts import NETWORK_TOKENS
 from eth_defi.gmx.synthetic_tokens import get_gmx_synthetic_token_by_symbol
 from eth_defi.gmx.trading import GMXTrading
 from eth_defi.provider.anvil import fork_network_anvil
 from eth_defi.token import fetch_erc20_details, TokenDetails
+from eth_account import Account
+from eth_defi.hotwallet import HotWallet
 
 import pytest
 from eth_typing import HexAddress
@@ -67,31 +72,73 @@ def get_gmx_address(chain_id: int, symbol: str) -> str:
 
 
 # Configure chain-specific parameters
+def get_chain_config(chain_name):
+    """Get chain configuration with lazy-loaded token addresses."""
+    base_config = {
+        "arbitrum": {
+            "rpc_env_var": "ARBITRUM_JSON_RPC_URL",
+            "chain_id": CHAIN_ID["arbitrum"],
+            "fork_block_number": 338206286,
+        },
+        "avalanche": {
+            "rpc_env_var": "AVALANCHE_JSON_RPC_URL",
+            "chain_id": CHAIN_ID["avalanche"],
+            "fork_block_number": 60491219,
+        },
+    }
+
+    config = base_config[chain_name].copy()
+
+    # Add token addresses lazily to avoid network calls at import time
+    if chain_name == "arbitrum":
+        config.update({
+            "wbtc_address": get_gmx_address(CHAIN_ID["arbitrum"], "WBTC"),
+            "usdc_address": get_gmx_address(CHAIN_ID["arbitrum"], "USDC"),
+            "usdt_address": get_gmx_address(CHAIN_ID["arbitrum"], "USDT"),
+            "link_address": get_gmx_address(CHAIN_ID["arbitrum"], "LINK"),
+            "wsol_address": get_gmx_address(CHAIN_ID["arbitrum"], "WSOL"),
+            "arb_address": get_gmx_address(CHAIN_ID["arbitrum"], "ARB"),
+            "native_token_address": get_gmx_address(CHAIN_ID["arbitrum"], "WETH"),
+            "aave_address": get_gmx_address(CHAIN_ID["arbitrum"], "AAVE"),
+        })
+    elif chain_name == "avalanche":
+        config.update({
+            "wbtc_address": get_gmx_address(CHAIN_ID["avalanche"], "WBTC"),
+            "usdc_address": get_gmx_address(CHAIN_ID["avalanche"], "USDC"),
+            "usdt_address": get_gmx_address(CHAIN_ID["avalanche"], "USDT"),
+            "wavax_address": get_gmx_address(CHAIN_ID["avalanche"], "WAVAX"),
+            "native_token_address": get_gmx_address(CHAIN_ID["avalanche"], "AVAX"),
+        })
+
+    return config
+
+# Keep the old CHAIN_CONFIG for backward compatibility with hardcoded addresses to avoid network calls
 CHAIN_CONFIG = {
     "arbitrum": {
         "rpc_env_var": "ARBITRUM_JSON_RPC_URL",
         "chain_id": CHAIN_ID["arbitrum"],
         "fork_block_number": 338206286,
-        # Dynamic token addresses - GMX API calls
-        "wbtc_address": get_gmx_address(CHAIN_ID["arbitrum"], "WBTC"),
-        "usdc_address": get_gmx_address(CHAIN_ID["arbitrum"], "USDC"),
-        "usdt_address": get_gmx_address(CHAIN_ID["arbitrum"], "USDT"),
-        "link_address": get_gmx_address(CHAIN_ID["arbitrum"], "LINK"),
-        "wsol_address": get_gmx_address(CHAIN_ID["arbitrum"], "WSOL"),
-        "arb_address": get_gmx_address(CHAIN_ID["arbitrum"], "ARB"),
-        "native_token_address": get_gmx_address(CHAIN_ID["arbitrum"], "WETH"),  # WETH as "ETH" in GMX
-        "aave_address": get_gmx_address(CHAIN_ID["arbitrum"], "AAVE"),
+        # Hardcoded token addresses to avoid network calls during test loading
+        "wbtc_address": "0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f",
+        "usdc_address": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+        "usdt_address": "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
+        "link_address": "0xf97f4df75117a78c1A5a0DBb814Af92458539FB4",
+        "wsol_address": "0x2bcC6D6CdBbDC0a4071e48bb3B969b06B3330c07",
+        "arb_address": "0x912CE59144191C1204E64559FE8253a0e49E6548",
+        "native_token_address": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
+        "aave_address": "0xba5DdD1f9d7F570dc94a51479a000E3BCE967196",
     },
     "avalanche": {
         "rpc_env_var": "AVALANCHE_JSON_RPC_URL",
         "chain_id": CHAIN_ID["avalanche"],
         "fork_block_number": 60491219,
-        # Avalanche dynamic lookups
-        "wbtc_address": get_gmx_address(CHAIN_ID["avalanche"], "WBTC"),
-        "usdc_address": get_gmx_address(CHAIN_ID["avalanche"], "USDC"),
-        "usdt_address": get_gmx_address(CHAIN_ID["avalanche"], "USDT"),
-        "wavax_address": get_gmx_address(CHAIN_ID["avalanche"], "WAVAX"),  # WAVAX as "AVAX" in GMX
-        "native_token_address": get_gmx_address(CHAIN_ID["avalanche"], "AVAX"),
+        # Hardcoded token addresses for Avalanche
+        "wbtc_address": "0x152b9d0FdC40C096757F570A51E494bd4b943E50",
+        "usdc_address": "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E",
+        "usdt_address": "0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7",
+        "wavax_address": "0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7",
+        "native_token_address": "0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7",
+        "link_address": "0x5947BB275c521040051D82396192181b413227A3",
     },
 }
 
@@ -580,16 +627,13 @@ def gmx_config_fork(
     wallet_with_all_tokens,
 ) -> GMXConfig:
     """Create a GMX configuration with a wallet for testing transactions."""
-    from eth_account import Account
-    from eth_defi.hotwallet import HotWallet
-
     # Create a hot wallet with the anvil private key
     account = Account.from_key(anvil_private_key)
     wallet = HotWallet(account)
     wallet.sync_nonce(web3_fork)
 
     # The wallet_with_all_tokens fixture ensures the wallet has all necessary tokens
-    return GMXConfig(web3_fork, wallet=wallet, user_wallet_address=test_address)
+    return GMXConfig(web3_fork, user_wallet_address=test_address)
 
 
 @pytest.fixture()
@@ -597,17 +641,49 @@ def liquidity_manager(gmx_config_fork):
     """Create a GMXLiquidityManager instance for the specified chain."""
     return GMXLiquidityManager(gmx_config_fork)
 
-
-@pytest.fixture()
-def order_manager(gmx_config_fork):
-    """Create a GMXOrderManager instance for the specified chain."""
-    return GMXOrderManager(gmx_config_fork)
+# TODO: Replace with the new Order class
+# @pytest.fixture()
+# def order_manager(gmx_config_fork):
+#     """Create a GMXOrderManager instance for the specified chain."""
+#     return GMXOrderManager(gmx_config_fork)
 
 
 @pytest.fixture()
 def trading_manager(gmx_config_fork):
     """Create a GMXTrading instance for the specified chain."""
     return GMXTrading(gmx_config_fork)
+
+
+@pytest.fixture()
+def test_wallet(web3_fork, anvil_private_key):
+    """Create a HotWallet for testing transactions."""
+    account = Account.from_key(anvil_private_key)
+    wallet = HotWallet(account)
+    wallet.sync_nonce(web3_fork)
+    return wallet
+
+
+@pytest.fixture()
+def base_order(gmx_config_fork):
+    """Create a BaseOrder instance for the specified chain."""
+    return BaseOrder(gmx_config_fork)
+
+
+
+@pytest.fixture()
+def swap_order_weth_usdc(gmx_config_fork, chain_name):
+    """Create a SwapOrder instance for WETH->USDC swap."""
+    tokens = NETWORK_TOKENS[chain_name]
+    return SwapOrder(gmx_config_fork, tokens["WETH"], tokens["USDC"])
+
+
+@pytest.fixture()
+def swap_order_usdc_weth(gmx_config_fork, chain_name):
+    """Create a SwapOrder instance for USDC->WETH swap."""
+    tokens = NETWORK_TOKENS[chain_name]
+    return SwapOrder(gmx_config_fork, tokens["USDC"], tokens["WETH"])
+
+
 
 
 @pytest.fixture
