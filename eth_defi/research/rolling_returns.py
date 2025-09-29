@@ -116,6 +116,7 @@ def calculate_rolling_returns(
     benchmark_count: int = CHART_BENCHMARK_COUNT,
     returns_column: str = "returns_1h",
     chainify=True,
+    logger=print,
 ) -> pd.DataFrame:
     """Calculate rolling returns stats for vaults.
 
