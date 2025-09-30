@@ -243,6 +243,7 @@ GAS_LIMITS = {
     "single_swap": 2000000,
     "deposit": 2500000,
     "withdrawal": 2000000,
+    "multicall_base": 200000,
 }
 
 # Token address mappings for routing and swaps
