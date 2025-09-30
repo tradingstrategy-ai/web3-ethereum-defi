@@ -41,6 +41,8 @@ UNISWAP_V3_DEPLOYMENTS = {
         "router": "0xE592427A0AEce92De3Edee1F18E0157C05861564",
         "position_manager": "0xC36442b4a4522E871399CD717aBDD847Ab11FE88",
         "quoter": "0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6",
+        "quoter_v2": False,
+        "router_v2": False,
     },
     # Base router is SwapRouter02 deployed by Mikko
     # https://github.com/tradingstrategy-ai/swap-router-contracts
