@@ -15,9 +15,10 @@ from eth_defi.gmx.core import GetOpenPositions, GetPoolTVL, Markets
 from eth_defi.gmx.core.glv_stats import GlvStats
 from eth_defi.gmx.data import GMXMarketData
 from eth_defi.gmx.liquidity import GMXLiquidityManager
+
 # from eth_defi.gmx.order import GMXOrderManager
 from eth_defi.gmx.order.base_order import BaseOrder
-# from eth_defi.gmx.order.swap_order import SwapOrder
+from eth_defi.gmx.order.swap_order import SwapOrder
 from eth_defi.gmx.contracts import NETWORK_TOKENS
 from eth_defi.gmx.synthetic_tokens import get_gmx_synthetic_token_by_symbol
 from eth_defi.gmx.trading import GMXTrading
@@ -91,26 +92,31 @@ def get_chain_config(chain_name):
 
     # Add token addresses lazily to avoid network calls at import time
     if chain_name == "arbitrum":
-        config.update({
-            "wbtc_address": get_gmx_address(CHAIN_ID["arbitrum"], "WBTC"),
-            "usdc_address": get_gmx_address(CHAIN_ID["arbitrum"], "USDC"),
-            "usdt_address": get_gmx_address(CHAIN_ID["arbitrum"], "USDT"),
-            "link_address": get_gmx_address(CHAIN_ID["arbitrum"], "LINK"),
-            "wsol_address": get_gmx_address(CHAIN_ID["arbitrum"], "WSOL"),
-            "arb_address": get_gmx_address(CHAIN_ID["arbitrum"], "ARB"),
-            "native_token_address": get_gmx_address(CHAIN_ID["arbitrum"], "WETH"),
-            "aave_address": get_gmx_address(CHAIN_ID["arbitrum"], "AAVE"),
-        })
+        config.update(
+            {
+                "wbtc_address": get_gmx_address(CHAIN_ID["arbitrum"], "WBTC"),
+                "usdc_address": get_gmx_address(CHAIN_ID["arbitrum"], "USDC"),
+                "usdt_address": get_gmx_address(CHAIN_ID["arbitrum"], "USDT"),
+                "link_address": get_gmx_address(CHAIN_ID["arbitrum"], "LINK"),
+                "wsol_address": get_gmx_address(CHAIN_ID["arbitrum"], "WSOL"),
+                "arb_address": get_gmx_address(CHAIN_ID["arbitrum"], "ARB"),
+                "native_token_address": get_gmx_address(CHAIN_ID["arbitrum"], "WETH"),
+                "aave_address": get_gmx_address(CHAIN_ID["arbitrum"], "AAVE"),
+            }
+        )
     elif chain_name == "avalanche":
-        config.update({
-            "wbtc_address": get_gmx_address(CHAIN_ID["avalanche"], "WBTC"),
-            "usdc_address": get_gmx_address(CHAIN_ID["avalanche"], "USDC"),
-            "usdt_address": get_gmx_address(CHAIN_ID["avalanche"], "USDT"),
-            "wavax_address": get_gmx_address(CHAIN_ID["avalanche"], "WAVAX"),
-            "native_token_address": get_gmx_address(CHAIN_ID["avalanche"], "AVAX"),
-        })
+        config.update(
+            {
+                "wbtc_address": get_gmx_address(CHAIN_ID["avalanche"], "WBTC"),
+                "usdc_address": get_gmx_address(CHAIN_ID["avalanche"], "USDC"),
+                "usdt_address": get_gmx_address(CHAIN_ID["avalanche"], "USDT"),
+                "wavax_address": get_gmx_address(CHAIN_ID["avalanche"], "WAVAX"),
+                "native_token_address": get_gmx_address(CHAIN_ID["avalanche"], "AVAX"),
+            }
+        )
 
     return config
+
 
 # Keep the old CHAIN_CONFIG for backward compatibility with hardcoded addresses to avoid network calls
 CHAIN_CONFIG = {
@@ -633,13 +639,56 @@ def gmx_config_fork(
     wallet.sync_nonce(web3_fork)
 
     # The wallet_with_all_tokens fixture ensures the wallet has all necessary tokens
-    return GMXConfig(web3_fork, user_wallet_address=test_address)
+    config = GMXConfig(web3_fork, user_wallet_address=test_address)
+
+    # Approve tokens for this config after creation
+    _approve_tokens_for_config(config, web3_fork, test_address)
+
+    return config
+
+
+def _approve_tokens_for_config(config: GMXConfig, web3_fork, test_address):
+    """Helper function to approve tokens for the GMX router."""
+    from eth_utils import to_checksum_address
+    from eth_defi.token import fetch_erc20_details
+    from eth_defi.gmx.contracts import NETWORK_TOKENS, get_contract_addresses
+
+    # Approve tokens for GMX router
+    chain_name = config.get_chain()
+    tokens = NETWORK_TOKENS[chain_name]
+
+    # Define tokens that need approval for swaps and trading
+    token_addresses = []
+    if chain_name == "arbitrum":
+        # Add all typical tokens for Arbitrum that might be used in swaps
+        token_addresses = [tokens["USDC"], tokens["WETH"], tokens["WBTC"], tokens["USDT"], tokens["LINK"]]
+    elif chain_name == "avalanche":
+        token_addresses = [tokens["USDC"], tokens["WAVAX"], tokens["WBTC"]]
+
+    # Get the GMX router address for approvals
+    contract_addresses = get_contract_addresses(chain_name)
+    router_address = contract_addresses.syntheticsrouter
+
+    # Approve each token for the router
+    test_address_checksum = to_checksum_address(test_address)
+
+    for token_addr in token_addresses:
+        try:
+            token_details = fetch_erc20_details(web3_fork, token_addr)
+            # Approve a large amount (effectively infinite)
+            large_amount = 2**256 - 1  # Maximum value for uint256
+            approve_tx = token_details.contract.functions.approve(router_address, large_amount)
+            approve_tx.transact({"from": test_address_checksum})
+        except Exception:
+            # If approval fails, that's ok - we'll handle that in tests that need approval
+            pass
 
 
 @pytest.fixture()
 def liquidity_manager(gmx_config_fork):
     """Create a GMXLiquidityManager instance for the specified chain."""
     return GMXLiquidityManager(gmx_config_fork)
+
 
 # TODO: Replace with the new Order class
 # @pytest.fixture()
@@ -669,7 +718,6 @@ def base_order(gmx_config_fork):
     return BaseOrder(gmx_config_fork)
 
 
-
 @pytest.fixture()
 def swap_order_weth_usdc(gmx_config_fork, chain_name):
     """Create a SwapOrder instance for WETH->USDC swap."""
@@ -682,8 +730,6 @@ def swap_order_usdc_weth(gmx_config_fork, chain_name):
     """Create a SwapOrder instance for USDC->WETH swap."""
     tokens = NETWORK_TOKENS[chain_name]
     return SwapOrder(gmx_config_fork, tokens["USDC"], tokens["WETH"])
-
-
 
 
 @pytest.fixture

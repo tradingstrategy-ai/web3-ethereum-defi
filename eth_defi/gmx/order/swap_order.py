@@ -5,9 +5,7 @@ Specialized order class for handling token swaps on GMX protocol.
 Extends BaseOrder to provide swap-specific functionality and returning unsigned transactions.
 """
 
-import logging
 from typing import Optional, Any
-from decimal import Decimal
 
 from eth_utils import to_checksum_address
 from eth_typing import ChecksumAddress
@@ -27,10 +25,7 @@ class SwapOrder(BaseOrder):
     external signing.
 
     Example:
-        >>> config = GMXConfig(web3, chain="arbitrum", private_key=key)
-        >>> swap_order = SwapOrder(config, start_token="0x...", out_token="0x...")
-        >>> result = swap_order.create_swap_order(amount_in=1000000, slippage_percent=0.005)
-        >>> # Sign and send result.transaction
+        >TODO: Add example usage
     """
 
     def __init__(self, config, start_token: ChecksumAddress, out_token: ChecksumAddress):
@@ -49,7 +44,7 @@ class SwapOrder(BaseOrder):
         self.start_token = to_checksum_address(start_token)
         self.out_token = to_checksum_address(out_token)
 
-        self.logger.info(f"Initialized swap order: {self.start_token} -> {self.out_token}")
+        self.logger.debug(f"Initialized swap order: {self.start_token} -> {self.out_token}")
 
     def create_swap_order(
         self,
@@ -77,6 +72,10 @@ class SwapOrder(BaseOrder):
         :return: Transaction result with unsigned transaction
         :rtype: OrderResult
         """
+        # Validate amount
+        if amount_in <= 0:
+            raise ValueError("Amount must be positive")
+
         # Determine swap route and market
         markets = self.markets.get_available_markets()
         swap_route, is_multi_swap = determine_swap_route(markets, self.start_token, self.out_token, self.chain)
@@ -84,9 +83,9 @@ class SwapOrder(BaseOrder):
         if not swap_route:
             raise ValueError(f"No swap route found from {self.start_token} to {self.out_token}")
 
-        self.logger.info(f"Swap route determined: {len(swap_route)} market(s)")
+        self.logger.debug(f"Swap route determined: {len(swap_route)} market(s)")
         if is_multi_swap:
-            self.logger.info("Multi-market swap required")
+            self.logger.debug("Multi-market swap required")
 
         # Use the last market in the route (final destination market)
         market_key = swap_route[-1]
