@@ -23,6 +23,7 @@ from eth_defi.token import fetch_erc20_details
 
 # ==================== Dataclass Tests ====================
 
+
 def test_order_params_dataclass():
     """Test OrderParams dataclass with all fields."""
     params = OrderParams(
@@ -119,6 +120,7 @@ def test_module_constants():
 
 # ==================== Initialization Tests ====================
 
+
 def test_base_order_initialization(chain_name, gmx_config_fork):
     """Test that BaseOrder initializes correctly with all required attributes."""
     base_order = BaseOrder(gmx_config_fork)
@@ -204,6 +206,7 @@ def test_oracle_prices_property(base_order):
 
 # ==================== Gas Limit Determination Tests ====================
 
+
 def test_determine_gas_limits_increase(base_order):
     """Test gas limit determination for increase orders."""
     gas_limits = base_order._determine_gas_limits(is_open=True, is_close=False, is_swap=False)
@@ -234,6 +237,7 @@ def test_determine_gas_limits_swap(base_order):
 
 # ==================== Price Calculation Tests ====================
 
+
 def test_get_prices_long_open(chain_name, base_order):
     """Test price calculation for opening a long position."""
     markets = base_order.markets.get_available_markets()
@@ -255,12 +259,17 @@ def test_get_prices_long_open(chain_name, base_order):
         is_long=True,
         size_delta=1000.0,
         initial_collateral_delta_amount="1000000000000000000",
-        slippage_percent=0.005
+        slippage_percent=0.005,
     )
 
     decimals = market_data["market_metadata"]["decimals"]
     price, acceptable_price, acceptable_price_in_usd = base_order._get_prices(
-        decimals, prices, params, is_open=True, is_close=False, is_swap=False
+        decimals,
+        prices,
+        params,
+        is_open=True,
+        is_close=False,
+        is_swap=False,
     )
 
     # For opening a long, acceptable price should be higher than mark price (allow slippage up)
@@ -281,19 +290,16 @@ def test_get_prices_long_close(chain_name, base_order):
     if index_token_address not in prices:
         pytest.skip(f"No price data for token {index_token_address}")
 
-    params = OrderParams(
-        market_key=market_key,
-        collateral_address=market_data["long_token_address"],
-        index_token_address=index_token_address,
-        is_long=True,
-        size_delta=1000.0,
-        initial_collateral_delta_amount="1000000000000000000",
-        slippage_percent=0.005
-    )
+    params = OrderParams(market_key=market_key, collateral_address=market_data["long_token_address"], index_token_address=index_token_address, is_long=True, size_delta=1000.0, initial_collateral_delta_amount="1000000000000000000", slippage_percent=0.005)
 
     decimals = market_data["market_metadata"]["decimals"]
     price, acceptable_price, acceptable_price_in_usd = base_order._get_prices(
-        decimals, prices, params, is_open=False, is_close=True, is_swap=False
+        decimals,
+        prices,
+        params,
+        is_open=False,
+        is_close=True,
+        is_swap=False,
     )
 
     # For closing a long, acceptable price should be lower than mark price (allow slippage down)
@@ -313,19 +319,16 @@ def test_get_prices_swap(chain_name, base_order):
     if index_token_address not in prices:
         pytest.skip(f"No price data for token {index_token_address}")
 
-    params = OrderParams(
-        market_key=market_key,
-        collateral_address=market_data["long_token_address"],
-        index_token_address=index_token_address,
-        is_long=False,
-        size_delta=0.0,
-        initial_collateral_delta_amount="1000000000000000000",
-        slippage_percent=0.005
-    )
+    params = OrderParams(market_key=market_key, collateral_address=market_data["long_token_address"], index_token_address=index_token_address, is_long=False, size_delta=0.0, initial_collateral_delta_amount="1000000000000000000", slippage_percent=0.005)
 
     decimals = market_data["market_metadata"]["decimals"]
     price, acceptable_price, acceptable_price_in_usd = base_order._get_prices(
-        decimals, prices, params, is_open=False, is_close=False, is_swap=True
+        decimals,
+        prices,
+        params,
+        is_open=False,
+        is_close=False,
+        is_swap=True,
     )
 
     # For swaps, acceptable price should be 0
@@ -335,6 +338,7 @@ def test_get_prices_swap(chain_name, base_order):
 
 
 # ==================== Order Arguments Tests ====================
+
 
 def test_build_order_arguments_structure(chain_name, base_order, gmx_config_fork):
     """Test the structure of built order arguments."""
@@ -362,9 +366,7 @@ def test_build_order_arguments_structure(chain_name, base_order, gmx_config_fork
     acceptable_price = 2000000000000000000
     mark_price = 1990000000000000000
 
-    arguments = base_order._build_order_arguments(
-        params, execution_fee, order_type, acceptable_price, mark_price
-    )
+    arguments = base_order._build_order_arguments(params, execution_fee, order_type, acceptable_price, mark_price)
 
     # Verify tuple structure (8 elements)
     assert len(arguments) == 8
@@ -421,6 +423,7 @@ def test_build_order_arguments_uses_constants(base_order, gmx_config_fork):
 
 # ==================== Multicall Args Tests ====================
 
+
 def test_build_multicall_args_native_token(chain_name, base_order):
     """Test building multicall arguments with native token (WETH/WAVAX)."""
     markets = base_order.markets.get_available_markets()
@@ -442,9 +445,7 @@ def test_build_multicall_args_native_token(chain_name, base_order):
     execution_fee = 1000000000000
     arguments = base_order._build_order_arguments(params, execution_fee, 2, 2000000, 1990000)
 
-    multicall_args, value_amount = base_order._build_multicall_args(
-        params, arguments, execution_fee, is_close=False
-    )
+    multicall_args, value_amount = base_order._build_multicall_args(params, arguments, execution_fee, is_close=False)
 
     # For native token, value should include both execution fee and collateral
     expected_value = int(params.initial_collateral_delta_amount) + execution_fee
@@ -472,9 +473,7 @@ def test_build_multicall_args_erc20_token(chain_name, base_order, usdc):
     execution_fee = 1000000000000
     arguments = base_order._build_order_arguments(params, execution_fee, 2, 2000000, 1990000)
 
-    multicall_args, value_amount = base_order._build_multicall_args(
-        params, arguments, execution_fee, is_close=False
-    )
+    multicall_args, value_amount = base_order._build_multicall_args(params, arguments, execution_fee, is_close=False)
 
     # For ERC20, value should only include execution fee
     assert value_amount == execution_fee
@@ -505,9 +504,7 @@ def test_build_multicall_args_close_position(chain_name, base_order):
     execution_fee = 1000000000000
     arguments = base_order._build_order_arguments(params, execution_fee, 4, 2000000, 0)
 
-    multicall_args, value_amount = base_order._build_multicall_args(
-        params, arguments, execution_fee, is_close=True
-    )
+    multicall_args, value_amount = base_order._build_multicall_args(params, arguments, execution_fee, is_close=True)
 
     # For close, value should only include execution fee
     assert value_amount == execution_fee
@@ -517,6 +514,7 @@ def test_build_multicall_args_close_position(chain_name, base_order):
 
 
 # ==================== Transaction Building Tests ====================
+
 
 def test_build_transaction_structure(chain_name, base_order):
     """Test that built transaction has correct structure."""
@@ -563,6 +561,7 @@ def test_build_transaction_structure(chain_name, base_order):
 
 # ==================== Token Approval Tests ====================
 
+
 def test_check_for_approval_native_token(chain_name, base_order):
     """Test that native tokens don't require approval."""
     markets = base_order.markets.get_available_markets()
@@ -606,6 +605,7 @@ def test_check_for_approval_insufficient_erc20(chain_name, base_order, usdc):
 
 
 # ==================== Full Order Creation Tests ====================
+
 
 def test_create_order_increase(chain_name, base_order):
     """Test creating an increase order end-to-end."""
@@ -703,6 +703,7 @@ def test_create_order_swap(chain_name, base_order):
 
 # ==================== Price Impact Tests ====================
 
+
 def test_estimate_price_impact_returns_value_or_none(chain_name, base_order):
     """Test that price impact estimation returns a value or None gracefully."""
     markets = base_order.markets.get_available_markets()
@@ -725,9 +726,7 @@ def test_estimate_price_impact_returns_value_or_none(chain_name, base_order):
     )
 
     # Updated: Test price impact estimation
-    price_impact = base_order._estimate_price_impact(
-        params, market_data, is_open=True, is_close=False, is_swap=False
-    )
+    price_impact = base_order._estimate_price_impact(params, market_data, is_open=True, is_close=False, is_swap=False)
 
     # Should return float or None
     assert price_impact is None or isinstance(price_impact, float)
@@ -749,14 +748,13 @@ def test_price_impact_none_for_swaps(chain_name, base_order):
     )
 
     # Updated: Swaps should return None for price impact
-    price_impact = base_order._estimate_price_impact(
-        params, market_data, is_open=False, is_close=False, is_swap=True
-    )
+    price_impact = base_order._estimate_price_impact(params, market_data, is_open=False, is_close=False, is_swap=True)
 
     assert price_impact is None
 
 
 # ==================== Error Handling Tests ====================
+
 
 def test_order_creation_invalid_market(base_order):
     """Test order creation with invalid market fails properly."""
