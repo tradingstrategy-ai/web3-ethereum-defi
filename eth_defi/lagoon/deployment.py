@@ -410,7 +410,7 @@ def deploy_lagoon(
     fee_registry_address: HexAddress | None = None,
     legacy: bool = False,
     salt=Web3.to_bytes(hexstr="0x" + "01" * 32),
-    optin_proxy_delay=3*24*3600,
+    optin_proxy_delay=3 * 24 * 3600,
 ) -> Contract:
     """Deploy a new Lagoon vault.
 
@@ -559,7 +559,6 @@ def deploy_lagoon(
             beacon_proxy_factory_abi,
             beacon_proxy_factory_address,
         )
-
 
         # Deal with unstable ABI madness
         match beacon_proxy_factory_abi:
@@ -1139,7 +1138,6 @@ LAGOON_BEACON_PROXY_FACTORIES = {
         "abi": "lagoon/protocol-v1/BeaconProxyFactory.json",
         "address": "0xC953Fd298FdfA8Ed0D38ee73772D3e21Bf19c61b",
     },
-
     # Arbitrum
     # 42161: "0x9De724B0efEe0FbA07FE21a16B9Bf9bBb5204Fb4",
     # Arbitrum new
@@ -1148,5 +1146,5 @@ LAGOON_BEACON_PROXY_FACTORIES = {
     42161: {
         "abi": "lagoon/OptinProxyFactory.json",
         "address": "0xb1ee4f77a1691696a737ab9852e389cf4cb1f1f5",
-    }
+    },
 }
