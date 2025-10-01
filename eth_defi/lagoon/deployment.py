@@ -404,6 +404,7 @@ def deploy_lagoon(
     factory_contract=True,
     beacon_address="0x652716FaD571f04D26a3c8fFd9E593F17123Ab20",
     beacon_proxy_factory_address=None,
+    beacon_proxy_factory_abi="lagoon/BeaconProxyFactory.json",
     vault_abi="lagoon/v0.5.0/Vault.json",
     deploy_fee_registry: bool = True,
     fee_registry_address: HexAddress | None = None,
@@ -554,7 +555,7 @@ def deploy_lagoon(
         assert beacon_proxy_factory_address, f"Cannot deploy Lagoon vault beacon proxy on chain {chain_id}, no factory address found. Registered factories: {pformat(LAGOON_BEACON_PROXY_FACTORIES)}"
         beacon_proxy_factory = get_deployed_contract(
             web3,
-            "lagoon/BeaconProxyFactory.json",
+            beacon_proxy_factory_abi,
             beacon_proxy_factory_address,
         )
 
@@ -954,7 +955,10 @@ def deploy_automated_lagoon_vault(
             )
             beacon_proxy_factory_address = beacon_proxy_factory_contract.address
         else:
-            beacon_proxy_factory_address = LAGOON_BEACON_PROXY_FACTORIES.get(chain_id)
+            beacon_factory = LAGOON_BEACON_PROXY_FACTORIES.get(chain_id)
+            assert beacon_factory, f"No beacon factory in LAGOON_BEACON_PROXY_FACTORIES for {chain_id}"
+            beacon_proxy_factory_address = beacon_factory["address"]
+            beacon_proxy_factory_abi = beacon_factory["abi"]
 
         assert beacon_proxy_factory_address, f"Cannot deploy Lagoon vault beacon proxy on chain {chain_id}, no factory address found. Registered factories: {pformat(LAGOON_BEACON_PROXY_FACTORIES)}"
 
@@ -971,6 +975,7 @@ def deploy_automated_lagoon_vault(
             factory_contract=factory_contract,
             legacy=legacy,
             beacon_proxy_factory_address=beacon_proxy_factory_address,
+            beacon_proxy_factory_abi=beacon_proxy_factory_abi,
         )
 
     if not is_anvil(web3):
@@ -1099,7 +1104,18 @@ LAGOON_FEE_REGISTRIES = {
 #: https://docs.lagoon.finance/vault/create-your-vault
 LAGOON_BEACON_PROXY_FACTORIES = {
     # Base
-    8453: "0xC953Fd298FdfA8Ed0D38ee73772D3e21Bf19c61b",
+    8453: {
+        "abi": "lagoon/protocol-v1/BeaconProxyFactory.json",
+        "address": "0xC953Fd298FdfA8Ed0D38ee73772D3e21Bf19c61b",
+    },
+
     # Arbitrum
-    42161: "0x9De724B0efEe0FbA07FE21a16B9Bf9bBb5204Fb4",
+    # 42161: "0x9De724B0efEe0FbA07FE21a16B9Bf9bBb5204Fb4",
+    # Arbitrum new
+    # Impl https://arbiscan.io/address/0xbb2de8e36eb36dbc20d71c503711763a4be3b1b2#readContract
+    # Proxy https://arbiscan.io/address/0xb1ee4f77a1691696a737ab9852e389cf4cb1f1f5#writeProxyContract#F1
+    42161: {
+        "abi": "lagoon/OptinProxyFactory.json",
+        "address": "0xb1ee4f77a1691696a737ab9852e389cf4cb1f1f5",
+    }
 }
