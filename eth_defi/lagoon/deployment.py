@@ -1135,7 +1135,7 @@ LAGOON_FEE_REGISTRIES = {
 LAGOON_BEACON_PROXY_FACTORIES = {
     # Base
     8453: {
-        "abi": "lagoon/protocol-v1/BeaconProxyFactory.json",
+        "abi": "lagoon/BeaconProxyFactory.json",
         "address": "0xC953Fd298FdfA8Ed0D38ee73772D3e21Bf19c61b",
     },
     # Arbitrum
