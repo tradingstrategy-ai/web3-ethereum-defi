@@ -4,7 +4,8 @@
 - Add: Expand `TradingStrategyModuleV0` to cover ERC-7540 and Gains deposit/rdeem
 - Add: Guard updates: Whitelist Lagoon vault deposits into other ERC-7540 vaults (Lagoon vaults)
 - Add: Guard updates: Whitelist Lagon vault deposits into Gains/Ostium
-- 
+- Fix: Lagoon has changed their vault factory ABI
+
 # 0.33
 
 - Migrate to Web3.py 7.x with the optional Web3 6.x dependency available. See [README](github.com/tradingstrategy-ai/web3-ethereum-defi) for updated installation instruction details.
