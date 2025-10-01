@@ -30,7 +30,7 @@ from web3.contract import Contract
 from web3.contract.contract import ContractFunction
 
 from eth_defi.aave_v3.deployment import AaveV3Deployment
-from eth_defi.abi import get_deployed_contract
+from eth_defi.abi import get_deployed_contract, ZERO_ADDRESS_STR
 from eth_defi.deploy import deploy_contract
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.foundry.forge import deploy_contract_with_forge
@@ -410,6 +410,7 @@ def deploy_lagoon(
     fee_registry_address: HexAddress | None = None,
     legacy: bool = False,
     salt=Web3.to_bytes(hexstr="0x" + "01" * 32),
+    optin_proxy_delay=3*24*3600,
 ) -> Contract:
     """Deploy a new Lagoon vault.
 
@@ -559,14 +560,38 @@ def deploy_lagoon(
             beacon_proxy_factory_address,
         )
 
-        args = [parameters.get_create_vault_proxy_arguments(), salt]
-        logger.info(
-            "Transacting with factory contract %s.createVaultProxy() with args %s",
-            beacon_proxy_factory_address,
-            args,
-        )
 
-        bound_func = beacon_proxy_factory.functions.createVaultProxy(*args)
+        # Deal with unstable ABI madness
+        match beacon_proxy_factory_abi:
+            case "lagoon/BeaconProxyFactory.json":
+                # Leacy
+                args = [parameters.get_create_vault_proxy_arguments(), salt]
+                logger.info(
+                    "Transacting with factory contract %s.createVaultProxy() with args %s",
+                    beacon_proxy_factory_address,
+                    args,
+                )
+                bound_func = beacon_proxy_factory.functions.createVaultProxy(*args)
+            case "lagoon/OptinProxyFactory.json":
+                # https://docs.lagoon.finance/vault/create-your-vault
+                assert len(salt) == 32
+                args = [
+                    ZERO_ADDRESS_STR,  # _logic
+                    safe.address,  # __initialOwner
+                    optin_proxy_delay,  # _initialDelay
+                    parameters.get_create_vault_proxy_arguments(),
+                    salt,
+                ]
+                logger.info(
+                    "Transacting with OptinBeaconFactory contract %s.createVaultProxy() with args %s",
+                    beacon_proxy_factory_address,
+                    args,
+                )
+                bound_func = beacon_proxy_factory.functions.createVaultProxy(
+                    *args,
+                )
+            case _:
+                raise NotImplementedError(f"Unknown Lagoon proxy factory ABI pattern: {beacon_proxy_factory_abi}")
 
         tx_params = {
             "gas": 2_000_000,
@@ -580,7 +605,13 @@ def deploy_lagoon(
         assert_transaction_success_with_explanation(web3, tx_hash)
 
         receipt = web3.eth.get_transaction_receipt(tx_hash)
-        events = beacon_proxy_factory.events.BeaconProxyDeployed().process_receipt(receipt)
+        match beacon_proxy_factory_abi:
+            case "lagoon/BeaconProxyFactory.json":
+                events = beacon_proxy_factory.events.BeaconProxyDeployed().process_receipt(receipt)
+            case "lagoon/OptinProxyFactory.json":
+                events = beacon_proxy_factory.events.ProxyDeployed().process_receipt(receipt)
+            case _:
+                raise NotImplementedError(f"Unknown Lagoon proxy factory ABI pattern: {beacon_proxy_factory_abi}")
         event = events[0]
         contract_address = event["args"]["proxy"]
         vault = get_deployed_contract(
