@@ -971,6 +971,7 @@ def deploy_automated_lagoon_vault(
         logger.info("Between contracts deployment delay: Sleeping %s for new nonce to propagade", between_contracts_delay_seconds)
         time.sleep(between_contracts_delay_seconds)
 
+    beacon_proxy_factory_abi = "lagoon/BeaconProxyFactory.json"  # Default ABI (legacy)
     if not existing_vault_address:
         if from_the_scratch:
             # Deploy the full Lagoon protocol with fee registry and beacon proxy factory,
