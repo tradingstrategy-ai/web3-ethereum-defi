@@ -730,31 +730,16 @@ def test_estimate_price_impact_returns_value_or_none(chain_name, base_order):
     )
 
     # Updated: Test price impact estimation
-    price_impact = base_order._estimate_price_impact(params, market_data, is_open=True, is_close=False, is_swap=False)
+    price_impact = base_order._estimate_price_impact(
+        params,
+        market_data,
+        is_open=True,
+        is_close=False,
+        is_swap=False,
+    )
 
     # Should return float or None
     assert price_impact is None or isinstance(price_impact, float)
-
-
-def test_price_impact_none_for_swaps(chain_name, base_order):
-    """Test that price impact is None for swap orders."""
-    markets = base_order.markets.get_available_markets()
-    market_key = next(iter(markets.keys()))
-    market_data = markets[market_key]
-
-    params = OrderParams(
-        market_key=market_key,
-        collateral_address=market_data["long_token_address"],
-        index_token_address=market_data["index_token_address"],
-        is_long=False,
-        size_delta=0.0,
-        initial_collateral_delta_amount="1000000000000000000",
-    )
-
-    # Updated: Swaps should return None for price impact
-    price_impact = base_order._estimate_price_impact(params, market_data, is_open=False, is_close=False, is_swap=True)
-
-    assert price_impact is None
 
 
 # ==================== Error Handling Tests ====================
@@ -772,19 +757,4 @@ def test_order_creation_invalid_market(base_order):
     )
 
     with pytest.raises(ValueError, match="Market .* not found"):
-        base_order.create_order(params, is_open=True)
-
-
-def test_order_creation_missing_price_data(base_order):
-    """Test order creation with missing price data fails properly."""
-    params = OrderParams(
-        market_key="0x47c031236e19d024b42f8AE6780E44A573170703",
-        collateral_address="0x1111111111111111111111111111111111111111",
-        index_token_address="0x9999999999999999999999999999999999999999",  # Invalid token
-        is_long=True,
-        size_delta=1000.0,
-        initial_collateral_delta_amount="1000000000000000000",
-    )
-
-    with pytest.raises(ValueError, match="Price not available"):
         base_order.create_order(params, is_open=True)

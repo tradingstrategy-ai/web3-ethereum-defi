@@ -75,7 +75,7 @@ class Deposit:
     Returns unsigned transactions for external signing.
 
     This is the base class that provides core deposit functionality.
-    Use DepositOrder for a simpler interface.
+    Use Deposit for a simpler interface.
 
     Example:
         >>> from eth_defi.gmx.order.deposit import Deposit, DepositParams

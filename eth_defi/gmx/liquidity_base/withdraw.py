@@ -73,7 +73,7 @@ class Withdraw:
     Returns unsigned transactions for external signing.
 
     This is the base class that provides core withdrawal functionality.
-    Use WithdrawOrder for a simpler interface.
+    Use Withdraw for a simpler interface.
 
     Example:
         >>> from eth_defi.gmx.order.withdraw import Withdraw, WithdrawParams
