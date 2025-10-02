@@ -76,18 +76,7 @@ class Withdraw:
     Use Withdraw for a simpler interface.
 
     Example:
-        >>> from eth_defi.gmx.order.withdraw import Withdraw, WithdrawParams
-        >>> from eth_defi.gmx.config import GMXConfig
-        >>>
-        >>> config = GMXConfig(...)
-        >>> params = WithdrawParams(
-        ...     market_key="0x...",
-        ...     gm_amount=1000000000000000000,  # 1 GM token
-        ...     out_token="0x...",  # Desired output token
-        ... )
-        >>> withdraw = Withdraw(config)
-        >>> result = withdraw.create_withdrawal(params)
-        >>> # Sign and broadcast result.transaction
+        TODO:
     """
 
     def __init__(self, config: GMXConfig):

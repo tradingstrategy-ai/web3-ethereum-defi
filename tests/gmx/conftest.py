@@ -150,7 +150,7 @@ CHAIN_CONFIG = {
 
 
 def pytest_generate_tests(metafunc):
-    """Generate parametrized tests for multiple chains if the test uses 'chain_name' parameter."""
+    """Generate parametrised tests for multiple chains if the test uses 'chain_name' parameter."""
     if "chain_name" in metafunc.fixturenames:
         # Check which chains have their environment variables set
         available_chains = []
@@ -301,6 +301,7 @@ def anvil_chain_fork(
     gmx_controller_arbitrum,
     large_weth_holder_arbitrum,
     gmx_keeper_arbitrum,
+    large_gm_eth_usdc_holder_arbitrum,
 ) -> Generator[str, Any, None]:
     """Create a testable fork of the live chain using Anvil."""
     unlocked_addresses = [large_eth_holder, large_wbtc_holder]
@@ -310,6 +311,7 @@ def anvil_chain_fork(
         unlocked_addresses.append(gmx_controller_arbitrum)
         unlocked_addresses.append(large_weth_holder_arbitrum)
         unlocked_addresses.append(gmx_keeper_arbitrum)
+        unlocked_addresses.append(large_gm_eth_usdc_holder_arbitrum)
     elif chain_name == "avalanche":
         unlocked_addresses.append(large_wavax_holder)
         unlocked_addresses.append(large_usdc_holder_avalanche)
@@ -578,6 +580,10 @@ def wallet_with_link(web3_fork, chain_name, test_address: HexAddress, large_link
     """Fund the test wallet with LINK."""
     amount = 10000 * 10**18
     if chain_name == "avalanche":
+        # First, fund the LINK holder with AVAX for gas
+        eth_amount_wei = 10 * 10**18  # 10 AVAX for gas
+        web3_fork.provider.make_request("anvil_setBalance", [large_link_holder_avalanche, hex(eth_amount_wei)])
+
         link_address = CHAIN_CONFIG[chain_name]["link_address"]
         link = fetch_erc20_details(web3_fork, link_address)
         # 10k LINK tokens
@@ -648,12 +654,13 @@ def gmx_config_fork(
 
 
 def _approve_tokens_for_config(config: GMXConfig, web3_fork, test_address):
-    """Helper function to approve tokens for the GMX router."""
+    """Helper function to approve tokens for the GMX routers."""
     from eth_utils import to_checksum_address
     from eth_defi.token import fetch_erc20_details
     from eth_defi.gmx.contracts import NETWORK_TOKENS, get_contract_addresses
+    from eth_defi.gmx.core.markets import Markets
 
-    # Approve tokens for GMX router
+    # Approve tokens for GMX routers
     chain_name = config.get_chain()
     tokens = NETWORK_TOKENS[chain_name]
 
@@ -665,23 +672,33 @@ def _approve_tokens_for_config(config: GMXConfig, web3_fork, test_address):
     elif chain_name == "avalanche":
         token_addresses = [tokens["USDC"], tokens["WAVAX"], tokens["WBTC"]]
 
-    # Get the GMX router address for approvals
+    # Get the GMX router addresses for approvals
     contract_addresses = get_contract_addresses(chain_name)
-    router_address = contract_addresses.syntheticsrouter
+    # Need to approve for BOTH routers:
+    # - syntheticsrouter: for trading orders (swaps, increase, decrease)
+    # - exchangerouter: for liquidity operations (deposits, withdrawals)
+    router_addresses = [contract_addresses.syntheticsrouter, contract_addresses.exchangerouter]
 
-    # Approve each token for the router
+    # Approve each token for both routers
     test_address_checksum = to_checksum_address(test_address)
+    large_amount = 2**256 - 1  # Maximum value for uint256
 
     for token_addr in token_addresses:
         try:
             token_details = fetch_erc20_details(web3_fork, token_addr)
-            # Approve a large amount (effectively infinite)
-            large_amount = 2**256 - 1  # Maximum value for uint256
-            approve_tx = token_details.contract.functions.approve(router_address, large_amount)
-            approve_tx.transact({"from": test_address_checksum})
+            for router_address in router_addresses:
+                try:
+                    approve_tx = token_details.contract.functions.approve(router_address, large_amount)
+                    approve_tx.transact({"from": test_address_checksum})
+                except Exception:
+                    pass
         except Exception:
             # If approval fails, that's ok - we'll handle that in tests that need approval
             pass
+
+    # Note: GM tokens (market tokens) need approval for withdrawals but we'll skip
+    # auto-approval here to avoid too many RPC calls during test setup.
+    # Individual tests that need GM token approvals should handle them explicitly.
 
 
 @pytest.fixture()
@@ -832,3 +849,80 @@ def get_glv_stats(gmx_config):
     """Create GlvStats instance."""
 
     return GlvStats(gmx_config)
+
+
+@pytest.fixture()
+def large_gm_eth_usdc_holder_arbitrum() -> HexAddress:
+    """A random account picked from Arbitrum that holds GM-ETH-USDC tokens.
+    
+    GM tokens are liquidity pool tokens on GMX. This account holds the ETH/USDC market token.
+    Found using arbiscan token holders page.
+    """
+    # Top holder of GM ETH/USDC (market: 0x70d95587d40A2caf56bd97485aB3Eec10Bee6336)
+    # https://arbiscan.io/token/0x70d95587d40A2caf56bd97485aB3Eec10Bee6336#balances
+    return to_checksum_address("0x0628D46b5D145f183AdB6Ef1f2c97eD1C4701C55")  # GMX FeeReceiver
+
+
+@pytest.fixture()
+def wallet_with_gm_tokens(
+    web3_fork,
+    chain_name,
+    test_address: HexAddress,
+) -> None:
+    """Fund the test wallet with GM tokens using Anvil storage manipulation.
+
+    GM tokens are GMX market/liquidity pool tokens needed for withdrawal operations.
+    We use anvil_setStorageAt to directly set the balance instead of transferring.
+    """
+    from eth_defi.token import fetch_erc20_details
+    from eth_defi.abi import get_deployed_contract
+
+    # Use different GM markets for different chains
+    if chain_name == "avalanche":
+        # GM AVAX/USDC market on Avalanche
+        gm_market = "0xB7e69749E3d2EDd90ea59A4932EFEa2D41E245d7"
+    else:
+        # GM ETH/USDC market on Arbitrum (fallback, though we're skipping Arbitrum)
+        gm_market = "0x70d95587d40A2caf56bd97485aB3Eec10Bee6336"
+
+    # Get GM token contract
+    gm_token = fetch_erc20_details(web3_fork, gm_market)
+
+    # Calculate storage slot for the balance
+    # For most ERC20 tokens, balances are stored in slot 0
+    # Storage slot = keccak256(abi.encode(address, uint256(slot)))
+    import eth_abi
+    from eth_utils import keccak
+
+    # Try slot 0 (common for ERC20 balances mapping)
+    slot = 0
+    storage_slot = keccak(
+        eth_abi.encode(["address", "uint256"], [test_address, slot])
+    )
+
+    # Set balance to 100 GM tokens (18 decimals)
+    balance = 100 * 10**18
+
+    # Use anvil_setStorageAt to set the balance
+    web3_fork.provider.make_request(
+        "anvil_setStorageAt",
+        [
+            gm_market,
+            "0x" + storage_slot.hex(),
+            "0x" + balance.to_bytes(32, byteorder="big").hex(),
+        ],
+    )
+
+    # Now approve GM tokens for the exchange router
+    from eth_defi.gmx.contracts import get_contract_addresses
+
+    contract_addresses = get_contract_addresses(chain_name)
+    exchange_router = contract_addresses.exchangerouter
+
+    # Approve a large amount of GM tokens
+    large_amount = 2**256 - 1  # Max uint256
+
+    gm_token.contract.functions.approve(
+        exchange_router,
+        large_amount
+    ).transact({"from": test_address, "gas": 100000})

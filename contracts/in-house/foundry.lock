@@ -1,0 +1,65 @@
+{
+  "../1delta": {
+    "rev": "a6aef1486b1038029af0aed661de0125373dad3f"
+  },
+  "../aave-v2": {
+    "rev": "ce53c4a8c8620125063168620eba0a8a92854eb8"
+  },
+  "../aave-v3-deploy": {
+    "rev": "e18e1e5e4e234403b95a8fdc2b1fbef9fbe3e9f7"
+  },
+  "../aave-v3-origin": {
+    "rev": "7c6023e64a1c462f138997ec122d49a97a3d4890"
+  },
+  "../centre": {
+    "rev": "0d3cab14ebd133a83fc834dbd48d0468bdf0b391"
+  },
+  "../dhedge": {
+    "rev": "ba2f06d40a87e18a150f4055def5e7a2d596c719"
+  },
+  "../enzyme": {
+    "rev": "c9621dd5f8234bd45126772fc626252a38d46eee"
+  },
+  "../guard/lib/forge-std": {
+    "rev": "36c303b7ffdd842d06b1ec2744c9b9b5fb3083f3"
+  },
+  "../guard/lib/openzeppelin-contracts": {
+    "rev": "0d5f54e69b2a2058bc98651a2e200f558c84a953"
+  },
+  "../lagoon-v0": {
+    "rev": "a1caf372b5894562ecb775cae4f186f6aefa1031"
+  },
+  "../orderly-contract-evm": {
+    "rev": "425cad49b4648d0d70fc2045a9fab22861a28e86"
+  },
+  "../safe-integration/lib/openzeppelin-contracts": {
+    "rev": "685136427d0f6fa4f4f1fe3d9975fa237ce59316"
+  },
+  "../safe-integration/lib/openzeppelin-contracts-upgradeable": {
+    "rev": "0d665b1d58581d153399158adc349410366061cd"
+  },
+  "../safe-integration/lib/safe-contracts": {
+    "rev": "f3af2a9a24aa47faea3dbd8ebcdf665694975a0f"
+  },
+  "../safe-integration/lib/zodiac": {
+    "rev": "18b7575bb342424537883f7ebe0a94cd7f3ec4f6"
+  },
+  "../sushiswap": {
+    "rev": "ae7fbfda2319be51ec29f261f4e3d8d524597d00"
+  },
+  "../terms-of-service": {
+    "rev": "1f7c807df0229ab3679d74bf5a2a5182fddf85da"
+  },
+  "../uniswap-v3-core": {
+    "rev": "e3589b192d0be27e100cd0daaf6c97204fdb1899"
+  },
+  "../uniswap-v3-periphery": {
+    "rev": "0682387198a24c7cd63566a2c58398533860a5d1"
+  },
+  "../velvet-core": {
+    "rev": "5c7e8c4ab68cb962453cb1546627cbe1735673e7"
+  },
+  "lib/openzeppelin-contracts": {
+    "rev": "7e7060e00e107460fc57c178859d3cf0c6ac64ef"
+  }
+}

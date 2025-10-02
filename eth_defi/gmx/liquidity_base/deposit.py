@@ -78,14 +78,7 @@ class Deposit:
     Use Deposit for a simpler interface.
 
     Example:
-        >>> from eth_defi.gmx.order.deposit import Deposit, DepositParams
-        >>> from eth_defi.gmx.config import GMXConfig
-        >>>
-        >>> config = GMXConfig(...)
-        >>> params = DepositParams(market_key="0x...", initial_long_token="0x...", initial_short_token="0x...", long_token_amount=1000000, short_token_amount=1000000)
-        >>> deposit = Deposit(config)
-        >>> result = deposit.create_deposit(params)
-        >>> # Sign and broadcast result.transaction
+        TODO
     """
 
     def __init__(self, config: GMXConfig):
@@ -102,10 +95,10 @@ class Deposit:
         self._exchange_router_contract = get_exchange_router_contract(self.web3, self.chain)
         self.logger = logging.getLogger(self.__class__.__name__)
 
-        # Initialize markets
+        # Initialise markets
         self.markets = Markets(self.config)
 
-        # Initialize gas limits
+        # Initialise gas limits
         self._initialize_gas_limits()
 
         self.logger.debug(f"Initialized {self.__class__.__name__} for {self.chain}")
@@ -183,7 +176,8 @@ class Deposit:
             min_market_tokens=min_market_tokens,
         )
 
-    def _determine_swap_paths(self, params: DepositParams, market_data: dict) -> tuple[list, list]:
+    @staticmethod
+    def _determine_swap_paths(params: DepositParams, market_data: dict) -> tuple[list, list]:
         """Determine swap paths for long and short tokens.
 
         :param params: Deposit parameters

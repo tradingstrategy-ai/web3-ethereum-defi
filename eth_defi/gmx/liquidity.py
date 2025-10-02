@@ -98,8 +98,8 @@ Warning:
     Never provide more liquidity than you can afford to lose completely.
 """
 
-from eth_defi.gmx.order.deposit import Deposit
-from eth_defi.gmx.order.withdraw import Withdraw
+from eth_defi.gmx.liquidity_base.deposit import Deposit
+from eth_defi.gmx.liquidity_base.withdraw import Withdraw
 from gmx_python_sdk.scripts.v2.order.liquidity_argument_parser import (
     LiquidityArgumentParser,
 )
