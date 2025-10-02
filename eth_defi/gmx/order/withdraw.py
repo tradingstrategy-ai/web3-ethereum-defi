@@ -40,8 +40,8 @@ class WithdrawResult:
     min_short_token_amount: int
 
 
-class WithdrawOrder:
-    """GMX Withdraw Order class for removing liquidity from markets.
+class Withdraw:
+    """GMX Withdraw class for removing liquidity from markets.
 
     Handles creation of withdrawal transactions for removing liquidity from GMX markets.
     Returns unsigned transactions for external signing.
@@ -106,7 +106,7 @@ class WithdrawOrder:
         Creates an unsigned transaction for removing liquidity from a GMX market.
         The transaction needs to be signed and sent by the user.
 
-        :param gm_amount: Amount of GM tokens to burn (in smallest unit, 18 decimals)
+        :param gm_amount: Amount of GM tokens to burn (in the smallest unit, 18 decimals)
         :type gm_amount: int
         :param execution_buffer: Gas buffer multiplier for execution fee
         :type execution_buffer: float
@@ -167,13 +167,13 @@ class WithdrawOrder:
             min_short_token_amount=min_short_token_amount,
         )
 
+    # TODO: implement this
     def _determine_swap_paths(self, market_data: dict) -> tuple[list, list]:
         """Determine swap paths for long and short tokens."""
         long_token_swap_path = []
         short_token_swap_path = []
 
         # If out_token doesn't match market's long/short tokens, would need swap path
-        # For now, simplified - assumes out_token is one of the market tokens
         return long_token_swap_path, short_token_swap_path
 
     def _build_withdraw_arguments(
@@ -214,13 +214,11 @@ class WithdrawOrder:
         arguments: tuple,
     ) -> tuple[list, int]:
         """Build multicall arguments for withdrawal transaction."""
-        multicall_args = []
-
-        # Send execution fee
-        multicall_args.append(self._send_wnt(execution_fee))
-
-        # Add create withdrawal call
-        multicall_args.append(self._create_withdrawal(arguments))
+        # Send execution fee & create withdrawal call
+        multicall_args: list = [
+            self._send_wnt(execution_fee),
+            self._create_withdrawal(arguments),
+        ]
 
         return multicall_args, execution_fee
 

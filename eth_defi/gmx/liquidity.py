@@ -98,8 +98,8 @@ Warning:
     Never provide more liquidity than you can afford to lose completely.
 """
 
-from gmx_python_sdk.scripts.v2.order.create_deposit_order import DepositOrder
-from gmx_python_sdk.scripts.v2.order.create_withdrawal_order import WithdrawOrder
+from eth_defi.gmx.order.deposit import Deposit
+from eth_defi.gmx.order.withdraw import Withdraw
 from gmx_python_sdk.scripts.v2.order.liquidity_argument_parser import (
     LiquidityArgumentParser,
 )
@@ -174,7 +174,7 @@ class GMXLiquidityManager:
         long_token_usd: float = 0,
         short_token_usd: float = 0,
         debug_mode: bool = False,
-    ) -> DepositOrder:
+    ) -> Deposit:
         """
         Add liquidity to a specified GMX pool with precise asset composition control.
 
@@ -253,9 +253,9 @@ class GMXLiquidityManager:
             spending gas or committing funds
         :type debug_mode: bool
         :return:
-            Configured deposit order object that can be executed to add
+            Configured deposit object that can be executed to add
             liquidity to the specified pool with the chosen asset composition
-        :rtype: DepositOrder
+        :rtype: Deposit
         :raises ValueError:
             When configuration lacks write capabilities or parameters are invalid
         """
@@ -276,7 +276,7 @@ class GMXLiquidityManager:
         output = LiquidityArgumentParser(write_config, is_deposit=True).process_parameters_dictionary(parameters)
 
         # Create deposit order
-        return DepositOrder(
+        return Deposit(
             config=write_config,
             market_key=output["market_key"],
             initial_long_token=output["long_token_address"],
@@ -292,7 +292,7 @@ class GMXLiquidityManager:
         out_token_symbol: str,
         gm_amount: float,
         debug_mode: bool = False,
-    ) -> WithdrawOrder:
+    ) -> Withdraw:
         """
         Remove liquidity from a GMX pool by redeeming GM tokens for underlying assets.
 
@@ -367,9 +367,9 @@ class GMXLiquidityManager:
             without spending gas or executing the withdrawal
         :type debug_mode: bool
         :return:
-            Configured withdrawal order object that can be executed to remove
+            Configured withdrawal object that can be executed to remove
             liquidity from the specified pool and receive chosen assets
-        :rtype: WithdrawOrder
+        :rtype: Withdraw
         :raises ValueError:
             When configuration lacks write capabilities, insufficient GM tokens,
             or invalid withdrawal parameters
@@ -389,7 +389,7 @@ class GMXLiquidityManager:
         output = LiquidityArgumentParser(write_config, is_withdrawal=True).process_parameters_dictionary(parameters)
 
         # Create withdrawal order
-        return WithdrawOrder(
+        return Withdraw(
             config=write_config,
             market_key=output["market_key"],
             out_token=output["out_token_address"],
