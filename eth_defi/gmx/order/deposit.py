@@ -1,7 +1,7 @@
 """
 GMX Deposit Order Implementation
 
-Specialized class for adding liquidity to GMX markets.
+Specialised class for adding liquidity to GMX markets.
 Provides deposit transaction building and returning unsigned transactions.
 """
 
@@ -41,8 +41,8 @@ class DepositResult:
     min_market_tokens: int
 
 
-class DepositOrder:
-    """GMX Deposit Order class for adding liquidity to markets.
+class Deposit:
+    """GMX Deposit class for adding liquidity to markets.
 
     Handles creation of deposit transactions for adding liquidity to GMX markets.
     Returns unsigned transactions for external signing.
@@ -58,7 +58,7 @@ class DepositOrder:
         initial_long_token: Optional[ChecksumAddress] = None,
         initial_short_token: Optional[ChecksumAddress] = None,
     ):
-        """Initialize deposit order with market and token configuration.
+        """Initialise deposit with market and token configuration.
 
         :param config: GMX configuration
         :type config: GMXConfig
@@ -87,7 +87,7 @@ class DepositOrder:
         # Initialize gas limits
         self._initialize_gas_limits()
 
-        self.logger.debug(f"Initialized deposit order for market {self.market_key}")
+        self.logger.debug(f"Initialized deposit for market {self.market_key}")
 
     def _initialize_gas_limits(self):
         """Load gas limits from GMX datastore contract."""

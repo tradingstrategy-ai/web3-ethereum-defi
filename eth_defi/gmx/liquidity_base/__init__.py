@@ -14,8 +14,8 @@ Classes:
     - WithdrawResult: Result of withdrawal operations
 
 For convenience wrappers, see:
-    - eth_defi.gmx.order.DepositOrder
-    - eth_defi.gmx.order.WithdrawOrder
+    - eth_defi.gmx.order.Deposit
+    - eth_defi.gmx.order.Withdraw
 """
 
 from eth_defi.gmx.liquidity_base.deposit import Deposit, DepositParams, DepositResult
