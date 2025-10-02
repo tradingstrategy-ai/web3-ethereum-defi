@@ -113,7 +113,13 @@ class IPORVault(ERC4626Vault):
     """IPOR vault support.
 
     - Add specialised reader with fees support
-    - Example vault: https://app.ipor.io/fusion/base/0x45aa96f0b3188d47a1dafdbefce1db6b37f58216
+
+    - `See Fusion vaults here <https://app.ipor.io/fusion>`__
+
+    - `Example contract <https://etherscan.io/address/0xabab980f0ecb232d52f422c6b68d25c3d0c18e3e#code>`__
+      and ` Example vault <https://app.ipor.io/fusion/base/0x45aa96f0b3188d47a1dafdbefce1db6b37f58216>`__
+
+    - `IPOR custom error codes <https://www.codeslaw.app/contracts/ethereum/0x1f8397de7c32cc7f042477326892953ca102ded0?tab=abi>`__ like `0x1425ea42` ABI-decoded
     """
 
     @cached_property
