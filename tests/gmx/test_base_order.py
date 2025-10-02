@@ -584,11 +584,15 @@ def test_check_for_approval_native_token(chain_name, base_order):
     base_order._check_for_approval(params)
 
 
-def test_check_for_approval_insufficient_erc20(chain_name, base_order, usdc):
+def test_check_for_approval_insufficient_erc20(chain_name, base_order, usdc, test_address):
     """Test approval check fails with insufficient allowance."""
     markets = base_order.markets.get_available_markets()
     market_key = next(iter(markets.keys()))
     market_data = markets[market_key]
+
+    # Set a low allowance (less than what we'll try to use)
+    low_allowance = 100  # Very small allowance
+    usdc.contract.functions.approve(base_order.contract_addresses.syntheticsrouter, low_allowance).transact({"from": test_address})
 
     params = OrderParams(
         market_key=market_key,
