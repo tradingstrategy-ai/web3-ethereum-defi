@@ -1,7 +1,7 @@
 """
-GMX Decrease Order Implementation
+GMX DecreaseOrder class Implementation
 
-Specialized order class for closing or reducing positions on GMX protocol.
+Special order class for closing or reducing positions on GMX protocol.
 Extends BaseOrder to provide decrease position functionality and returning unsigned transactions.
 """
 
