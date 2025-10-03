@@ -1,6 +1,7 @@
 version: "3.9"
 
 services:
+  # Run the ERC-4626 vault scanning script
   # See Dockerfile.vault-scanner for details
   vault-scanner:
     image: vault-scanner:local
@@ -31,5 +32,6 @@ services:
       JSON_RPC_INK: ${JSON_RPC_INK:-}
       JSON_RPC_BASE: ${JSON_RPC_BASE:-}
       SCAN_PRICES: ${SCAN_PRICES:-true}
+      LOG_LEVEL: ${LOG_LEVEL:-warning}
     volumes:
       - ${HOME}/.tradingstrategy:/root/.tradingstrategy:rw

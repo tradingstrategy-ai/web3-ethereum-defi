@@ -1,13 +1,21 @@
 # Wrap scripts/erc-4626/scan-vaults-all-chains.sh as Docker
 #
-# To run:
+# To run and update local ~/.tradingstrategy/vaults folder contents:
 #
-# source ../vault-rpc.env
-# docker compose run vault-scanner
+#   source ../vault-rpc.env
+#   docker compose run vault-scanner
+#
+# With console logging:
+#
+#   LOG_LEVEL=info docker compose run vault-scanner
+#
+# To debug:
+#
+#   docker compose run --entrypoint /bin/bash vault-scanner
 #
 #
 
-FROM python:3.11.10
+FROM python:3.11.11
 
 # Passed from Github Actions
 ARG GIT_VERSION_TAG=unspecifiedls
@@ -26,25 +34,30 @@ RUN apt-get update && apt-get install -y libmpfr-dev libmpc-dev && rm -rf /var/l
 # Install Python Poetry - pinned version
 RUN curl -sSL https://install.python-poetry.org | python - --version 2.2.1
 
-ENV PATH="/root/.local/bin:$PATH"
-
 WORKDIR /usr/src/web3-ethereum-defi
+ENV PATH="/usr/src/web3-ethereum-defi/.venv/bin:/root/.local/bin:$PATH"
 
-# package source code
-COPY . .
+# Copy over only the necesary minimal source code
+# (Exclude Solidity deps, etc.)
+COPY eth_defi eth_defi
+COPY scripts scripts
+COPY pyproject.toml pyproject.toml
+COPY poetry.lock poetry.lock
+COPY README.md README.md
 
-RUN poetry config virtualenvs.create false
+# Installing to System Python fails,
+# some setuptools issue, so we need to create a virtual env
+ENV POETRY_VIRTUALENVS_CREATE=true
+ENV POETRY_VIRTUALENVS_IN_PROJECT=true
 RUN poetry install -E data -E web3v6 -E hypersync --no-interaction --no-ansi --without=dev
 
 # Clean Poetry cache to reduce image size
 RUN poetry cache clear pypi --all --no-interaction
 
 # Speed up Python process startup
-RUN rm -rf ./tests
-RUN python -m compileall -q .
 RUN python -m compileall -q /usr/local/lib/python3.11
+RUN python -m compileall -q eth_defi
 
 ENV SCAN_PRICES=true
 CMD ["bash", "scripts/erc-4626/scan-vaults-all-chains.sh"]
-
 ENTRYPOINT ["/usr/src/web3-ethereum-defi/scripts/erc-4626/scan-vaults-all-chains.sh"]
