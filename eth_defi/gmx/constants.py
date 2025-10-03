@@ -216,6 +216,9 @@ EVENT_SIGNATURES = {
 # GMX Protocol Constants
 PRECISION = 30
 
+#: Ethereum zero address - used as a placeholder for native token (ETH/AVAX) in GMX protocol
+ETH_ZERO_ADDRESS = "0x" + "0" * 40
+
 # Order type mappings compatible with GMX protocol
 ORDER_TYPES = {
     "market_swap": 0,

@@ -20,14 +20,12 @@ from eth_defi.gmx.contracts import (
     NETWORK_TOKENS,
     get_datastore_contract,
 )
+from eth_defi.gmx.constants import ETH_ZERO_ADDRESS
 from eth_defi.gmx.core.markets import Markets
 from eth_defi.gmx.gas_utils import get_gas_limits
 from eth_defi.gas import estimate_gas_fees
 from eth_defi.compat import encode_abi_compat
 from eth_defi.token import fetch_erc20_details
-
-
-ETH_ZERO_ADDRESS = "0x" + "0" * 40
 
 
 @dataclass
@@ -161,13 +159,28 @@ class Deposit:
         min_market_tokens = 0  # TODO: Implement estimation
 
         # Build deposit arguments
-        arguments = self._build_deposit_arguments(params, long_swap_path, short_swap_path, min_market_tokens, execution_fee)
+        arguments = self._build_deposit_arguments(
+            params,
+            long_swap_path,
+            short_swap_path,
+            min_market_tokens,
+            execution_fee,
+        )
 
         # Build multicall
-        multicall_args, value_amount = self._build_multicall_args(params, arguments, execution_fee)
+        multicall_args, value_amount = self._build_multicall_args(
+            params,
+            arguments,
+            execution_fee,
+        )
 
         # Build transaction
-        transaction = self._build_transaction(multicall_args, value_amount, total_gas, gas_price)
+        transaction = self._build_transaction(
+            multicall_args,
+            value_amount,
+            total_gas,
+            gas_price,
+        )
 
         return DepositResult(
             transaction=transaction,
@@ -251,7 +264,12 @@ class Deposit:
             callback_gas_limit,  # callbackGasLimit
         )
 
-    def _build_multicall_args(self, params: DepositParams, arguments: tuple, execution_fee: int) -> tuple[list, int]:
+    def _build_multicall_args(
+        self,
+        params: DepositParams,
+        arguments: tuple,
+        execution_fee: int,
+    ) -> tuple[list, int]:
         """Build multicall arguments for deposit transaction.
 
         :param params: Deposit parameters
@@ -280,7 +298,12 @@ class Deposit:
                 multicall_args.append(self._send_wnt(params.long_token_amount))
             else:
                 # ERC20 token
-                multicall_args.append(self._send_tokens(params.initial_long_token, params.long_token_amount))
+                multicall_args.append(
+                    self._send_tokens(
+                        params.initial_long_token,
+                        params.long_token_amount,
+                    )
+                )
 
         # Send short tokens if amount > 0
         if params.short_token_amount > 0:
@@ -290,14 +313,25 @@ class Deposit:
                 multicall_args.append(self._send_wnt(params.short_token_amount))
             else:
                 # ERC20 token
-                multicall_args.append(self._send_tokens(params.initial_short_token, params.short_token_amount))
+                multicall_args.append(
+                    self._send_tokens(
+                        params.initial_short_token,
+                        params.short_token_amount,
+                    )
+                )
 
         # Create deposit order
         multicall_args.append(self._create_deposit(arguments))
 
         return multicall_args, value_amount
 
-    def _build_transaction(self, multicall_args: list, value_amount: int, gas_limit: int, gas_price: int) -> TxParams:
+    def _build_transaction(
+        self,
+        multicall_args: list,
+        value_amount: int,
+        gas_limit: int,
+        gas_price: int,
+    ) -> TxParams:
         """Build final unsigned transaction.
 
         :param multicall_args: List of encoded multicall arguments

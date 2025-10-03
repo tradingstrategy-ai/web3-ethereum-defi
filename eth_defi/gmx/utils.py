@@ -119,7 +119,6 @@ from gmx_python_sdk.scripts.v2.gmx_utils import (
     ConfigManager,
     find_dictionary_by_key_value,
     get_tokens_address_dict,
-    determine_swap_route,
 )
 
 # Can be done using the `GMXAPI` class if needed
