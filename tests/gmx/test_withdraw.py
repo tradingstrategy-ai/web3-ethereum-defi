@@ -1,30 +1,19 @@
 """
-Tests for Withdraw class with parametrized chain testing.
-
-This test suite verifies the functionality of the Withdraw base class
-when connected to different networks using Anvil forks. Tests include:
-- Withdraw initialization
-- Gas limits initialization
-- Withdrawal creation with different output tokens
-- Swap path determination
-- Transaction building
-- GM token approval checks
+Tests for Withdraw class
 """
 
 import pytest
-from decimal import Decimal
 from eth_utils import to_checksum_address
 
 from eth_defi.gmx.liquidity_base import Withdraw, WithdrawParams, WithdrawResult
 from eth_defi.gmx.contracts import NETWORK_TOKENS
-from eth_defi.token import fetch_erc20_details
 
 
 # ==================== Initialization Tests ====================
 
 
 def test_withdraw_initialization(chain_name, gmx_config_fork):
-    """Test that Withdraw class initializes correctly."""
+    """Test that Withdraw class initialises correctly."""
     withdraw = Withdraw(gmx_config_fork)
 
     assert withdraw.config == gmx_config_fork
@@ -35,7 +24,7 @@ def test_withdraw_initialization(chain_name, gmx_config_fork):
     assert withdraw._exchange_router_contract is not None
     assert withdraw.markets is not None
 
-    # Test gas limits initialization
+    # Test gas limits initialisation
     assert hasattr(withdraw, "_gas_limits")
     assert withdraw._gas_limits is not None
     assert isinstance(withdraw._gas_limits, dict)
@@ -78,7 +67,11 @@ def test_determine_swap_paths_to_long_token(chain_name, gmx_config_fork):
         out_token=market_data["long_token_address"],
     )
 
-    long_swap_path, short_swap_path = withdraw._determine_swap_paths(params, market_data)
+    long_swap_path, short_swap_path = withdraw._determine_swap_paths(
+        params,
+        market_data,
+        markets,
+    )
 
     # No swap needed for long token
     assert long_swap_path == []
@@ -104,7 +97,11 @@ def test_determine_swap_paths_to_short_token(chain_name, gmx_config_fork):
         out_token=market_data["short_token_address"],
     )
 
-    long_swap_path, short_swap_path = withdraw._determine_swap_paths(params, market_data)
+    long_swap_path, short_swap_path = withdraw._determine_swap_paths(
+        params,
+        market_data,
+        markets,
+    )
 
     # Swap needed for long token (to convert to short)
     assert len(long_swap_path) > 0
@@ -133,7 +130,11 @@ def test_determine_swap_paths_to_other_token(chain_name, gmx_config_fork):
         out_token=usdc_address,
     )
 
-    long_swap_path, short_swap_path = withdraw._determine_swap_paths(params, market_data)
+    long_swap_path, short_swap_path = withdraw._determine_swap_paths(
+        params,
+        market_data,
+        markets,
+    )
 
     # Both should have swap paths if USDC is not a market token
     assert isinstance(long_swap_path, list)
@@ -215,12 +216,27 @@ def test_build_multicall_args_withdrawal(chain_name, gmx_config_fork):
         out_token=market_data["long_token_address"],
     )
 
-    long_swap_path, short_swap_path = withdraw._determine_swap_paths(params, market_data)
+    long_swap_path, short_swap_path = withdraw._determine_swap_paths(
+        params,
+        market_data,
+        markets,
+    )
     execution_fee = 1000000000000000
 
-    arguments = withdraw._build_withdraw_arguments(params, long_swap_path, short_swap_path, 0, 0, execution_fee)
+    arguments = withdraw._build_withdraw_arguments(
+        params,
+        long_swap_path,
+        short_swap_path,
+        0,
+        0,
+        execution_fee,
+    )
 
-    multicall_args, value_amount = withdraw._build_multicall_args(params, arguments, execution_fee)
+    multicall_args, value_amount = withdraw._build_multicall_args(
+        params,
+        arguments,
+        execution_fee,
+    )
 
     # Should have: sendWnt (execution fee) + sendTokens (GM tokens) + createWithdrawal
     assert len(multicall_args) == 3
@@ -403,7 +419,14 @@ def test_create_withdrawal_encoding(chain_name, gmx_config_fork):
         out_token=market_data["long_token_address"],
     )
 
-    arguments = withdraw._build_withdraw_arguments(params, [], [], 0, 0, 1000000)
+    arguments = withdraw._build_withdraw_arguments(
+        params,
+        [],
+        [],
+        0,
+        0,
+        1000000,
+    )
     encoded = withdraw._create_withdrawal(arguments)
 
     assert isinstance(encoded, bytes)
