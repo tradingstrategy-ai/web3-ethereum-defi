@@ -20,14 +20,12 @@ from eth_defi.gmx.contracts import (
     NETWORK_TOKENS,
     get_datastore_contract,
 )
+from eth_defi.gmx.constants import ETH_ZERO_ADDRESS
 from eth_defi.gmx.core.markets import Markets
 from eth_defi.gmx.gas_utils import get_gas_limits
 from eth_defi.gas import estimate_gas_fees
 from eth_defi.compat import encode_abi_compat
 from eth_defi.token import fetch_erc20_details
-
-
-ETH_ZERO_ADDRESS = "0x" + "0" * 40
 
 
 @dataclass
