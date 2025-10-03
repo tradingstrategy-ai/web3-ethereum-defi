@@ -17,6 +17,7 @@ services:
       JSON_RPC_SONIC: ${JSON_RPC_SONIC:-}
       JSON_RPC_HYPERLIQUID: ${JSON_RPC_HYPERLIQUID:-}
       JSON_RPC_AVALANCHE: ${JSON_RPC_AVALANCHE:-}
+      JSON_RPC_ARBITRUM: ${JSON_RPC_ARBITRUM:-}
       JSON_RPC_MODE: ${JSON_RPC_MODE:-}
       JSON_RPC_MANTLE: ${JSON_RPC_MANTLE:-}
       JSON_RPC_MANTLE_2: ${JSON_RPC_MANTLE_2:-}
@@ -35,4 +36,8 @@ services:
       SCAN_PRICES: ${SCAN_PRICES:-true}
       LOG_LEVEL: ${LOG_LEVEL:-warning}
     volumes:
+      # Writing vault data files here
       - ${HOME}/.tradingstrategy:/root/.tradingstrategy:rw
+      # Expose hosts scan-all-chains.sh script to container,
+      # as we need to live-edit it for problematic RPCs all the time
+      - ./scripts:/usr/src/web3-ethereum-defi/scripts:ro
