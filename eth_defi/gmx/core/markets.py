@@ -282,7 +282,7 @@ class Markets:
 
                 # Handle swap markets (when index token metadata is missing)
                 if not index_token_meta:
-                    print(f"{index_token_meta=}")
+                    # print(f"{index_token_meta=}")
                     # For swap markets, create a custom symbol
                     long_symbol = long_token_meta["symbol"] if long_token_meta else "UNKNOWN"
                     short_symbol = short_token_meta["symbol"] if short_token_meta else "UNKNOWN"

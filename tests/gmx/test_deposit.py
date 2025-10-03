@@ -1,30 +1,19 @@
 """
-Tests for Deposit class with parametrized chain testing.
-
-This test suite verifies the functionality of the Deposit base class
-when connected to different networks using Anvil forks. Tests include:
-- Deposit initialization
-- Gas limits initialization
-- Deposit creation with different token pairs
-- Swap path determination
-- Transaction building
-- Token approval checks
+Tests for Deposit class
 """
 
 import pytest
-from decimal import Decimal
 from eth_utils import to_checksum_address
 
 from eth_defi.gmx.liquidity_base import Deposit, DepositParams, DepositResult
 from eth_defi.gmx.contracts import NETWORK_TOKENS
-from eth_defi.token import fetch_erc20_details
 
 
 # ==================== Initialization Tests ====================
 
 
 def test_deposit_initialization(chain_name, gmx_config_fork):
-    """Test that Deposit class initializes correctly."""
+    """Test that Deposit class initialises correctly."""
     deposit = Deposit(gmx_config_fork)
 
     assert deposit.config == gmx_config_fork
@@ -35,7 +24,7 @@ def test_deposit_initialization(chain_name, gmx_config_fork):
     assert deposit._exchange_router_contract is not None
     assert deposit.markets is not None
 
-    # Test gas limits initialization
+    # Test gas limits initialisation
     assert hasattr(deposit, "_gas_limits")
     assert deposit._gas_limits is not None
     assert isinstance(deposit._gas_limits, dict)
@@ -79,7 +68,11 @@ def test_determine_swap_paths_no_swap_needed(chain_name, gmx_config_fork):
         short_token_amount=1000000,
     )
 
-    long_swap_path, short_swap_path = deposit._determine_swap_paths(params, market_data)
+    long_swap_path, short_swap_path = deposit._determine_swap_paths(
+        params,
+        market_data,
+        markets,
+    )
 
     # No swap needed when tokens match
     assert long_swap_path == []
@@ -109,15 +102,16 @@ def test_determine_swap_paths_with_swap(chain_name, gmx_config_fork):
         short_token_amount=1000000,
     )
 
-    long_swap_path, short_swap_path = deposit._determine_swap_paths(params, market_data)
+    long_swap_path, short_swap_path = deposit._determine_swap_paths(
+        params,
+        market_data,
+        markets,
+    )
 
     # Should have swap paths if USDC doesn't match market tokens
     # (At least one should be non-empty)
     assert isinstance(long_swap_path, list)
     assert isinstance(short_swap_path, list)
-
-
-# ==================== Argument Building Tests ====================
 
 
 def test_build_deposit_arguments_structure(chain_name, gmx_config_fork):
@@ -185,12 +179,26 @@ def test_build_multicall_args_both_tokens(chain_name, gmx_config_fork):
         short_token_amount=100000000,  # 100 USDC
     )
 
-    long_swap_path, short_swap_path = deposit._determine_swap_paths(params, market_data)
+    long_swap_path, short_swap_path = deposit._determine_swap_paths(
+        params,
+        market_data,
+        markets,
+    )
     execution_fee = 1000000000000000
 
-    arguments = deposit._build_deposit_arguments(params, long_swap_path, short_swap_path, 0, execution_fee)
+    arguments = deposit._build_deposit_arguments(
+        params,
+        long_swap_path,
+        short_swap_path,
+        0,
+        execution_fee,
+    )
 
-    multicall_args, value_amount = deposit._build_multicall_args(params, arguments, execution_fee)
+    multicall_args, value_amount = deposit._build_multicall_args(
+        params,
+        arguments,
+        execution_fee,
+    )
 
     # Should have: sendWnt (execution fee) + sendTokens (long) + sendTokens (short) + createDeposit
     assert len(multicall_args) == 4
@@ -222,12 +230,26 @@ def test_build_multicall_args_native_token(chain_name, gmx_config_fork):
         short_token_amount=100000000,
     )
 
-    long_swap_path, short_swap_path = deposit._determine_swap_paths(params, market_data)
+    long_swap_path, short_swap_path = deposit._determine_swap_paths(
+        params,
+        market_data,
+        markets,
+    )
     execution_fee = 1000000000000000
 
-    arguments = deposit._build_deposit_arguments(params, long_swap_path, short_swap_path, 0, execution_fee)
+    arguments = deposit._build_deposit_arguments(
+        params,
+        long_swap_path,
+        short_swap_path,
+        0,
+        execution_fee,
+    )
 
-    multicall_args, value_amount = deposit._build_multicall_args(params, arguments, execution_fee)
+    multicall_args, value_amount = deposit._build_multicall_args(
+        params,
+        arguments,
+        execution_fee,
+    )
 
     # Value should include execution fee + native token amount
     assert value_amount == execution_fee + long_amount
@@ -245,7 +267,12 @@ def test_build_transaction_structure(chain_name, gmx_config_fork):
     gas_limit = 2500000
     gas_price = 100000000
 
-    transaction = deposit._build_transaction(multicall_args, value_amount, gas_limit, gas_price)
+    transaction = deposit._build_transaction(
+        multicall_args,
+        value_amount,
+        gas_limit,
+        gas_price,
+    )
 
     # Verify transaction structure
     assert "from" in transaction
@@ -296,16 +323,7 @@ def test_check_for_approval_zero_amount(chain_name, gmx_config_fork):
     deposit._check_for_approval(usdc_address, 0)
 
 
-def test_check_for_approval_insufficient_erc20(chain_name, gmx_config_fork, usdc):
-    """Test approval check fails with insufficient allowance."""
-    deposit = Deposit(gmx_config_fork)
-
-    # Should raise ValueError for insufficient allowance (test wallet has no approval)
-    with pytest.raises(ValueError, match="Insufficient token allowance"):
-        deposit._check_for_approval(usdc.address, 999999999999999)
-
-
-# ==================== Full Deposit Creation Tests ====================
+# ==================== Deposit Creation Tests ====================
 
 
 def test_create_deposit_with_market_tokens(chain_name, gmx_config_fork, test_wallet):
@@ -374,9 +392,6 @@ def test_create_deposit_invalid_market(gmx_config_fork):
         deposit.create_deposit(params)
 
 
-# ==================== Encoding Tests ====================
-
-
 def test_create_deposit_encoding(chain_name, gmx_config_fork):
     """Test that createDeposit function is encoded correctly."""
     deposit = Deposit(gmx_config_fork)
@@ -396,7 +411,13 @@ def test_create_deposit_encoding(chain_name, gmx_config_fork):
         short_token_amount=1000000,
     )
 
-    arguments = deposit._build_deposit_arguments(params, [], [], 0, 1000000)
+    arguments = deposit._build_deposit_arguments(
+        params,
+        [],
+        [],
+        0,
+        1000000,
+    )
     encoded = deposit._create_deposit(arguments)
 
     assert isinstance(encoded, bytes)

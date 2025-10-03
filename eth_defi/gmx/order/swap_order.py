@@ -29,7 +29,7 @@ class SwapOrder(BaseOrder):
     """
 
     def __init__(self, config, start_token: ChecksumAddress, out_token: ChecksumAddress):
-        """Initialize swap order with token addresses.
+        """Initialise swap order with token addresses.
 
         :param config: GMX configuration
         :type config: GMXConfig
@@ -142,7 +142,7 @@ class SwapOrder(BaseOrder):
             if not swap_route:
                 raise ValueError(f"No swap route found from {self.start_token} to {self.out_token}")
 
-            # Use first market in route for estimation
+            # Use the first market in route for estimation
             market_key = swap_route[0]
 
         market_data = markets.get(market_key)

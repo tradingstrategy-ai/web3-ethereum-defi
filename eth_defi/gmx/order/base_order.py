@@ -33,14 +33,12 @@ ZERO_REFERRAL_CODE = bytes.fromhex("0" * 64)
 class OrderType(Enum):
     """GMX Order Types with contract values."""
 
-    MARKET_SWAP = 0
-    LIMIT_SWAP = 1
-    MARKET_INCREASE = 2
-    LIMIT_INCREASE = 3
-    MARKET_DECREASE = 4
-    LIMIT_DECREASE = 5
-    STOP_LOSS_DECREASE = 6
-    LIQUIDATION = 7
+    SWAP = 0
+    SHIFT = 1
+    ATOMIC_WITHDRAWAL = 2
+    DEPOSIT = 3
+    WITHDRAWAL = 4
+    ATOMIC_SWAP = 5
 
 
 @dataclass
