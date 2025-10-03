@@ -4,6 +4,7 @@
 - Add: Expand `TradingStrategyModuleV0` to cover ERC-7540 and Gains deposit/rdeem
 - Add: Guard updates: Whitelist Lagoon vault deposits into other ERC-7540 vaults (Lagoon vaults)
 - Add: Guard updates: Whitelist Lagon vault deposits into Gains/Ostium
+- Add: Docker image to run the ERC-4626 vault scanner
 - Fix: Lagoon has changed their vault factory ABI
 
 # 0.33

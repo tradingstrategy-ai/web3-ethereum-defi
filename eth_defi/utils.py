@@ -199,11 +199,6 @@ def setup_console_logging(
         Output both console and this log file.
     """
 
-    try:
-        import coloredlogs
-    except ImportError as e:
-        raise RuntimeError("coloredlogs package missing - please install with pip first before running") from e
-
     level = os.environ.get("LOG_LEVEL", default_log_level).upper()
 
     if simplified_logging:
@@ -214,7 +209,16 @@ def setup_console_logging(
         fmt = "%(asctime)s %(name)-44s %(message)s"
         date_fmt = "%H:%M:%S"
 
-    coloredlogs.install(level=level, fmt=fmt, date_fmt=date_fmt)
+    try:
+        # Optional dev dependency
+        import coloredlogs
+
+        coloredlogs.install(level=level, fmt=fmt, date_fmt=date_fmt)
+    except ImportError as e:
+        # non-ANSI e.g. Docker
+        numeric_level = getattr(logging, level.upper(), None)
+        assert numeric_level, f"No level: {level}"
+        logging.basicConfig(level=numeric_level, format=fmt, datefmt=date_fmt)
 
     if log_file:
         assert isinstance(log_file, Path), "log_file must be a string path"

@@ -143,7 +143,6 @@ eth-typing = [
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.11.13"
-coloredlogs = "^15.0.1"
 pytest = "^7.4.3"
 pytest-mock = "^3.7.0"
 ipdb = "^0.13.9"
