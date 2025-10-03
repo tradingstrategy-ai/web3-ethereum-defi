@@ -44,7 +44,7 @@ class WithdrawOrder(Withdraw):
         self.out_token = to_checksum_address(out_token)
 
         self.logger.debug(
-            f"Initialized withdraw order for market {self.market_key}, out_token: {self.out_token}"
+            f"Initialized withdraw order for market {self.market_key}, out_token: {self.out_token}",
         )
 
     def create_withdraw_order(

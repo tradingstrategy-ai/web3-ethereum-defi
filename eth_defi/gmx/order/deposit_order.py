@@ -48,7 +48,7 @@ class DepositOrder(Deposit):
         self.initial_short_token = to_checksum_address(initial_short_token)
 
         self.logger.debug(
-            f"Initialized deposit order for market {self.market_key}, long_token: {self.initial_long_token}, short_token: {self.initial_short_token}"
+            f"Initialized deposit order for market {self.market_key}, long_token: {self.initial_long_token}, short_token: {self.initial_short_token}",
         )
 
     def create_deposit_order(

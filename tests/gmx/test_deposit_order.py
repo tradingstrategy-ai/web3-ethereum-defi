@@ -12,7 +12,6 @@ from eth_defi.gmx.liquidity_base.deposit import DepositResult
 from eth_defi.gmx.contracts import NETWORK_TOKENS
 
 
-
 def test_deposit_order_initialization(chain_name, gmx_config_fork):
     """Test that DepositOrder initializes correctly with market and token configuration."""
     # Get available markets
@@ -64,8 +63,7 @@ def test_deposit_order_create_with_both_tokens(chain_name, gmx_config_fork):
     market_key = None
     market_data = None
     for key, data in markets.items():
-        if data["long_token_address"].lower() == usdc_address.lower() or \
-           data["short_token_address"].lower() == usdc_address.lower():
+        if data["long_token_address"].lower() == usdc_address.lower() or data["short_token_address"].lower() == usdc_address.lower():
             market_key = key
             market_data = data
             break
@@ -117,8 +115,7 @@ def test_deposit_order_create_with_native_token(chain_name, gmx_config_fork):
     market_key = None
     market_data = None
     for key, data in markets.items():
-        if data["long_token_address"].lower() == native_token.lower() or \
-           data["short_token_address"].lower() == native_token.lower():
+        if data["long_token_address"].lower() == native_token.lower() or data["short_token_address"].lower() == native_token.lower():
             market_key = key
             market_data = data
             break
@@ -188,7 +185,6 @@ def test_deposit_order_transaction_structure(chain_name, gmx_config_fork):
     assert len(tx["data"]) > 2  # Should be a hex string like "0x..."
 
 
-
 def test_deposit_order_with_custom_execution_buffer(chain_name, gmx_config_fork):
     """Test deposit order with a custom execution buffer."""
     # Get available markets
@@ -248,8 +244,7 @@ def test_deposit_order_with_zero_amounts(chain_name, gmx_config_fork):
     market_key = None
     market_data = None
     for key, data in markets.items():
-        if data.get("long_token_address", "").lower() == usdc_address.lower() or \
-           data.get("short_token_address", "").lower() == usdc_address.lower():
+        if data.get("long_token_address", "").lower() == usdc_address.lower() or data.get("short_token_address", "").lower() == usdc_address.lower():
             market_key = key
             market_data = data
             break
