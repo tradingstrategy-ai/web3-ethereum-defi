@@ -1,8 +1,8 @@
 """
 GMX Increase Order Implementation
 
-Specialized order class for opening or increasing positions on GMX protocol.
-Extends BaseOrder to provide increase position functionality and returning unsigned transactions.
+Specialised order class for opening or increasing positions on GMX protocol.
+Extends BaseOrder to provide increased position functionality and returning unsigned transactions.
 """
 
 from typing import Optional
