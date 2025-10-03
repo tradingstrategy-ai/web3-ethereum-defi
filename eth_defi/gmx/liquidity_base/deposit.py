@@ -19,10 +19,13 @@ from eth_defi.gmx.contracts import (
     get_exchange_router_contract,
     NETWORK_TOKENS,
     get_datastore_contract,
+    get_reader_contract,
 )
-from eth_defi.gmx.constants import ETH_ZERO_ADDRESS
+from eth_defi.gmx.constants import ETH_ZERO_ADDRESS, ORDER_TYPES
 from eth_defi.gmx.core.markets import Markets
+from eth_defi.gmx.core.oracle import OraclePrices
 from eth_defi.gmx.gas_utils import get_gas_limits
+from eth_defi.gmx.utils import determine_swap_route, apply_factor
 from eth_defi.gas import estimate_gas_fees
 from eth_defi.compat import encode_abi_compat
 from eth_defi.token import fetch_erc20_details
@@ -73,10 +76,19 @@ class Deposit:
     Returns unsigned transactions for external signing.
 
     This is the base class that provides core deposit functionality.
-    Use Deposit for a simpler interface.
 
     Example:
-        TODO
+        from eth_defi.gmx.liquidity_base.deposit import Deposit, DepositParams
+
+        deposit = Deposit(config)
+        params = DepositParams(
+            market_key="0x...",
+            initial_long_token="0x...",
+            initial_short_token="0x...",
+            long_token_amount=1000000,
+            short_token_amount=1000000,
+        )
+        result = deposit.create_deposit(params)
     """
 
     def __init__(self, config: GMXConfig):
@@ -91,12 +103,16 @@ class Deposit:
         self.chain_id = config.web3.eth.chain_id
         self.contract_addresses = get_contract_addresses(self.chain)
         self._exchange_router_contract = get_exchange_router_contract(self.web3, self.chain)
+        self._reader_contract = get_reader_contract(self.web3, self.chain)
         self.logger = logging.getLogger(self.__class__.__name__)
 
-        # Initialise markets
+        # Initialize markets
         self.markets = Markets(self.config)
 
-        # Initialise gas limits
+        # Initialize oracle prices
+        self.oracle_prices = OraclePrices(chain=self.chain)
+
+        # Initialize gas limits
         self._initialize_gas_limits()
 
         self.logger.debug(f"Initialized {self.__class__.__name__} for {self.chain}")
@@ -105,9 +121,11 @@ class Deposit:
         """Load gas limits from GMX datastore contract.
 
         Falls back to default constants if datastore query fails.
+        The gas limits are returned as integers (already called).
         """
         try:
             datastore = get_datastore_contract(self.web3, self.chain)
+            # get_gas_limits returns a dict with integer values (already .call()'ed)
             self._gas_limits = get_gas_limits(datastore)
             self.logger.debug("Gas limits loaded from datastore contract")
         except Exception as e:
@@ -117,6 +135,8 @@ class Deposit:
                 "deposit": 2500000,
                 "multicall_base": 200000,
                 "single_swap": 2000000,
+                "estimated_fee_base_gas_limit": 500000,
+                "estimated_fee_multiplier_factor": 1300000000000000000000000000000,  # 1.3 * 10^30
             }
             self.logger.debug("Using fallback gas limits from constants")
 
@@ -130,33 +150,41 @@ class Deposit:
         :raises ValueError: If market not found or invalid parameters
         """
         # Validate market exists
-        markets = self.markets.get_available_markets()
-        market_data = markets.get(params.market_key)
+        markets_data = self.markets.get_available_markets()
+        market_data = markets_data.get(params.market_key)
         if not market_data:
             raise ValueError(f"Market {params.market_key} not found")
 
+        # Check and set initial tokens for single-sided deposits
+        params = self._check_initial_tokens(params, market_data)
+
         # Get gas price
-        gas_price = self.web3.eth.gas_price
-        if params.max_fee_per_gas:
-            gas_price = params.max_fee_per_gas
+        gas_price = params.max_fee_per_gas if params.max_fee_per_gas else self.web3.eth.gas_price
 
-        # Calculate gas limits
-        gas_limit = self._gas_limits.get("deposit", 2500000)
-        multicall_base = self._gas_limits.get("multicall_base", 200000)
-        total_gas = gas_limit + multicall_base
+        # Calculate execution fee using original formula
+        execution_fee = self._calculate_execution_fee(gas_price)
 
-        # Calculate execution fee with buffer
-        execution_fee = int(total_gas * gas_price * params.execution_buffer)
+        # Apply execution buffer
+        execution_fee = int(execution_fee * params.execution_buffer)
 
-        # Check approvals
+        # Check approvals (raises error if insufficient)
         self._check_for_approval(params.initial_long_token, params.long_token_amount)
         self._check_for_approval(params.initial_short_token, params.short_token_amount)
 
-        # Determine swap paths
-        long_swap_path, short_swap_path = self._determine_swap_paths(params, market_data)
+        # Determine swap paths using the helper function
+        long_swap_path, short_swap_path = self._determine_swap_paths(
+            params,
+            market_data,
+            markets_data,
+        )
 
         # Estimate output (minimum market tokens)
-        min_market_tokens = 0  # TODO: Implement estimation
+        min_market_tokens = self._estimate_deposit(
+            params,
+            market_data,
+            long_swap_path,
+            short_swap_path,
+        )
 
         # Build deposit arguments
         arguments = self._build_deposit_arguments(
@@ -167,12 +195,13 @@ class Deposit:
             execution_fee,
         )
 
-        # Build multicall
-        multicall_args, value_amount = self._build_multicall_args(
-            params,
-            arguments,
-            execution_fee,
-        )
+        # Build multicall (ORDER MATTERS - must match original)
+        multicall_args, value_amount = self._build_multicall_args(params, arguments, execution_fee)
+
+        # Calculate total gas limit
+        gas_limit = self._gas_limits.get("deposit", 2500000)
+        multicall_base = self._gas_limits.get("multicall_base", 200000)
+        total_gas = gas_limit + multicall_base
 
         # Build transaction
         transaction = self._build_transaction(
@@ -190,14 +219,73 @@ class Deposit:
         )
 
     @staticmethod
-    def _determine_swap_paths(params: DepositParams, market_data: dict) -> tuple[list, list]:
-        """Determine swap paths for long and short tokens.
+    def _check_initial_tokens(params: DepositParams, market_data: dict) -> DepositParams:
+        """Check and set initial tokens for single-sided deposits.
+
+        If depositing 0 of long or short tokens, use the market's default token.
+        This allows single-sided deposits.
 
         :param params: Deposit parameters
         :param market_data: Market information
+        :return: Updated deposit parameters
+        """
+        # Create a copy to avoid mutating the input
+        if params.long_token_amount == 0:
+            params = DepositParams(
+                market_key=params.market_key,
+                initial_long_token=to_checksum_address(market_data["long_token_address"]),
+                initial_short_token=params.initial_short_token,
+                long_token_amount=params.long_token_amount,
+                short_token_amount=params.short_token_amount,
+                execution_buffer=params.execution_buffer,
+                max_fee_per_gas=params.max_fee_per_gas,
+            )
+
+        if params.short_token_amount == 0:
+            params = DepositParams(
+                market_key=params.market_key,
+                initial_long_token=params.initial_long_token,
+                initial_short_token=to_checksum_address(market_data["short_token_address"]),
+                long_token_amount=params.long_token_amount,
+                short_token_amount=params.short_token_amount,
+                execution_buffer=params.execution_buffer,
+                max_fee_per_gas=params.max_fee_per_gas,
+            )
+
+        return params
+
+    def _calculate_execution_fee(self, gas_price: int) -> int:
+        """Calculate execution fee using GMX's formula.
+
+        Original formula:
+        base_gas_limit = gas_limits["estimated_fee_base_gas_limit"].call()
+        multiplier_factor = gas_limits["estimated_fee_multiplier_factor"].call()
+        adjusted_gas_limit = base_gas_limit + apply_factor(estimated_gas_limit.call(), multiplier_factor)
+        return adjusted_gas_limit * gas_price
+
+        :param gas_price: Current gas price in wei
+        :return: Execution fee in wei
+        """
+        base_gas_limit = self._gas_limits.get("estimated_fee_base_gas_limit", 500000)
+        multiplier_factor = self._gas_limits.get(
+            "estimated_fee_multiplier_factor",
+            1300000000000000000000000000000,
+        )
+        estimated_gas_limit = self._gas_limits.get("deposit", 2500000)
+
+        # Apply the factor: value * factor / 10^30
+        adjusted_gas_limit = base_gas_limit + apply_factor(estimated_gas_limit, multiplier_factor)
+
+        return int(adjusted_gas_limit * gas_price)
+
+    def _determine_swap_paths(self, params: DepositParams, market_data: dict, markets_data: dict) -> tuple[list, list]:
+        """Determine swap paths for long and short tokens using the helper function.
+
+        :param params: Deposit parameters
+        :param market_data: Market information
+        :param markets_data: All markets data
         :return: Tuple of (long_swap_path, short_swap_path)
         """
-        # If tokens match market tokens, no swap needed
         long_swap_path = []
         short_swap_path = []
 
@@ -206,13 +294,101 @@ class Deposit:
 
         # Build swap path for long token if needed
         if params.initial_long_token.lower() != market_long_token.lower():
-            long_swap_path = [params.market_key]
+            try:
+                long_swap_path, requires_multi_swap = determine_swap_route(
+                    markets_data,
+                    params.initial_long_token,
+                    market_long_token,
+                    self.chain,
+                )
+                self.logger.debug(f"Long token swap path: {long_swap_path}, multi-swap: {requires_multi_swap}")
+            except Exception as e:
+                self.logger.warning(f"Could not determine long token swap route: {e}")
+                long_swap_path = []
 
         # Build swap path for short token if needed
         if params.initial_short_token.lower() != market_short_token.lower():
-            short_swap_path = [params.market_key]
+            try:
+                short_swap_path, requires_multi_swap = determine_swap_route(
+                    markets_data,
+                    params.initial_short_token,
+                    market_short_token,
+                    self.chain,
+                )
+                self.logger.debug(f"Short token swap path: {short_swap_path}, multi-swap: {requires_multi_swap}")
+            except Exception as e:
+                self.logger.warning(f"Could not determine short token swap route: {e}")
+                short_swap_path = []
 
         return long_swap_path, short_swap_path
+
+    def _estimate_deposit(
+        self,
+        params: DepositParams,
+        market_data: dict,
+        long_swap_path: list,
+        short_swap_path: list,
+    ) -> int:
+        """Estimate the amount of GM tokens expected from deposit.
+
+        :param params: Deposit parameters
+        :param market_data: Market information
+        :param long_swap_path: Swap path for long token
+        :param short_swap_path: Swap path for short token
+        :return: Minimum expected GM tokens (in wei)
+        """
+        try:
+            # Get oracle prices
+            oracle_prices = self.oracle_prices.get_recent_prices()
+
+            # Get token addresses
+            index_token_address = market_data["index_token_address"]
+            long_token_address = market_data["long_token_address"]
+            short_token_address = market_data["short_token_address"]
+
+            # Build market addresses tuple
+            market_addresses = [
+                params.market_key,
+                index_token_address,
+                long_token_address,
+                short_token_address,
+            ]
+
+            # Build prices tuple (minPrice, maxPrice) for each token
+            # Note: The order in the original is (min, max)
+            prices = (
+                (
+                    int(oracle_prices[index_token_address]["minPriceFull"]),
+                    int(oracle_prices[index_token_address]["maxPriceFull"]),
+                ),
+                (
+                    int(oracle_prices[long_token_address]["minPriceFull"]),
+                    int(oracle_prices[long_token_address]["maxPriceFull"]),
+                ),
+                (
+                    int(oracle_prices[short_token_address]["minPriceFull"]),
+                    int(oracle_prices[short_token_address]["maxPriceFull"]),
+                ),
+            )
+
+            # Call reader contract
+            estimated_output = self._reader_contract.functions.getDepositAmountOut(
+                self.contract_addresses.datastore,
+                market_addresses,
+                prices,
+                params.long_token_amount,
+                params.short_token_amount,
+                ETH_ZERO_ADDRESS,  # ui_fee_receiver
+                ORDER_TYPES.DEPOSIT,  # swap_pricing_type: 3 = deposit
+                False,  # include_virtual_inventory_impact
+            ).call()
+
+            self.logger.debug(f"Estimated deposit output: {estimated_output} GM tokens")
+            return estimated_output
+
+        except Exception as e:
+            self.logger.warning(f"Failed to estimate deposit output: {e}. Using 0 as min output.")
+            return 0
 
     def _build_deposit_arguments(
         self,
@@ -272,66 +448,56 @@ class Deposit:
     ) -> tuple[list, int]:
         """Build multicall arguments for deposit transaction.
 
+        1. Send long tokens (if > 0 and not native)
+        2. Send short tokens (if > 0 and not native)
+        3. Send WNT (native tokens + execution fee)
+        4. Create a deposit order
+
         :param params: Deposit parameters
         :param arguments: Deposit arguments tuple
         :param execution_fee: Execution fee in wei
         :return: Tuple of (multicall_args, value_amount)
         """
         multicall_args = []
-        value_amount = execution_fee
+        wnt_amount = 0
 
-        # Get native token address
+        # Get a native token address
         tokens = NETWORK_TOKENS.get(self.chain.lower())
         if not tokens:
             raise ValueError(f"Unsupported chain: {self.chain}")
 
         native_token = tokens.get("WETH") if self.chain.lower() == "arbitrum" else tokens.get("WAVAX")
 
-        # Send execution fee
-        multicall_args.append(self._send_wnt(execution_fee))
-
-        # Send long tokens if amount > 0
+        # 1. Send long tokens if amount > 0 AND not native token
         if params.long_token_amount > 0:
-            if params.initial_long_token.lower() == native_token.lower():
-                # Native token - send as WNT and include in value
-                value_amount += params.long_token_amount
-                multicall_args.append(self._send_wnt(params.long_token_amount))
-            else:
+            if params.initial_long_token.lower() != native_token.lower():
                 # ERC20 token
-                multicall_args.append(
-                    self._send_tokens(
-                        params.initial_long_token,
-                        params.long_token_amount,
-                    )
-                )
+                multicall_args.append(self._send_tokens(params.initial_long_token, params.long_token_amount))
+            else:
+                # Native token - will be sent as WNT
+                wnt_amount += params.long_token_amount
 
-        # Send short tokens if amount > 0
+        # 2. Send short tokens if amount > 0 AND not native token
         if params.short_token_amount > 0:
-            if params.initial_short_token.lower() == native_token.lower():
-                # Native token - send as WNT and include in value
-                value_amount += params.short_token_amount
-                multicall_args.append(self._send_wnt(params.short_token_amount))
-            else:
+            if params.initial_short_token.lower() != native_token.lower():
                 # ERC20 token
-                multicall_args.append(
-                    self._send_tokens(
-                        params.initial_short_token,
-                        params.short_token_amount,
-                    )
-                )
+                multicall_args.append(self._send_tokens(params.initial_short_token, params.short_token_amount))
+            else:
+                # Native token - will be sent as WNT
+                wnt_amount += params.short_token_amount
 
-        # Create deposit order
+        # 3. Send WNT (native tokens + execution fee)
+        multicall_args.append(self._send_wnt(int(wnt_amount + execution_fee)))
+
+        # 4. Create a deposit order
         multicall_args.append(self._create_deposit(arguments))
+
+        # Total value to send with transaction
+        value_amount = int(wnt_amount + execution_fee)
 
         return multicall_args, value_amount
 
-    def _build_transaction(
-        self,
-        multicall_args: list,
-        value_amount: int,
-        gas_limit: int,
-        gas_price: int,
-    ) -> TxParams:
+    def _build_transaction(self, multicall_args: list, value_amount: int, gas_limit: int, gas_price: int) -> TxParams:
         """Build final unsigned transaction.
 
         :param multicall_args: List of encoded multicall arguments
@@ -436,8 +602,6 @@ class Deposit:
         token_details = fetch_erc20_details(self.web3, token_address)
 
         # Create ERC20 contract instance
-        from web3 import Web3
-
         erc20_abi = [
             {
                 "constant": True,
