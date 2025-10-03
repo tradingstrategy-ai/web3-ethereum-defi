@@ -2,9 +2,9 @@ import logging
 import os
 from typing import Generator, Any
 
-from eth_account import Account
+import eth_abi
 from eth_pydantic_types import HexStr
-from eth_utils import to_checksum_address
+from eth_utils import to_checksum_address, keccak
 from web3 import Web3, HTTPProvider
 
 from eth_defi.chain import install_chain_middleware
@@ -19,7 +19,7 @@ from eth_defi.gmx.liquidity import GMXLiquidityManager
 # from eth_defi.gmx.order import GMXOrderManager
 from eth_defi.gmx.order.base_order import BaseOrder
 from eth_defi.gmx.order.swap_order import SwapOrder
-from eth_defi.gmx.contracts import NETWORK_TOKENS
+from eth_defi.gmx.contracts import NETWORK_TOKENS, get_contract_addresses
 from eth_defi.gmx.synthetic_tokens import get_gmx_synthetic_token_by_symbol
 from eth_defi.gmx.trading import GMXTrading
 from eth_defi.provider.anvil import fork_network_anvil
@@ -854,7 +854,7 @@ def get_glv_stats(gmx_config):
 @pytest.fixture()
 def large_gm_eth_usdc_holder_arbitrum() -> HexAddress:
     """A random account picked from Arbitrum that holds GM-ETH-USDC tokens.
-    
+
     GM tokens are liquidity pool tokens on GMX. This account holds the ETH/USDC market token.
     Found using arbiscan token holders page.
     """
@@ -875,7 +875,6 @@ def wallet_with_gm_tokens(
     We use anvil_setStorageAt to directly set the balance instead of transferring.
     """
     from eth_defi.token import fetch_erc20_details
-    from eth_defi.abi import get_deployed_contract
 
     # Use different GM markets for different chains
     if chain_name == "avalanche":
@@ -891,13 +890,11 @@ def wallet_with_gm_tokens(
     # Calculate storage slot for the balance
     # For most ERC20 tokens, balances are stored in slot 0
     # Storage slot = keccak256(abi.encode(address, uint256(slot)))
-    import eth_abi
-    from eth_utils import keccak
 
     # Try slot 0 (common for ERC20 balances mapping)
     slot = 0
     storage_slot = keccak(
-        eth_abi.encode(["address", "uint256"], [test_address, slot])
+        eth_abi.encode(["address", "uint256"], [test_address, slot]),
     )
 
     # Set balance to 100 GM tokens (18 decimals)
@@ -914,8 +911,6 @@ def wallet_with_gm_tokens(
     )
 
     # Now approve GM tokens for the exchange router
-    from eth_defi.gmx.contracts import get_contract_addresses
-
     contract_addresses = get_contract_addresses(chain_name)
     exchange_router = contract_addresses.exchangerouter
 
@@ -924,5 +919,5 @@ def wallet_with_gm_tokens(
 
     gm_token.contract.functions.approve(
         exchange_router,
-        large_amount
+        large_amount,
     ).transact({"from": test_address, "gas": 100000})

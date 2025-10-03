@@ -11,13 +11,15 @@ from eth_defi.gmx.contracts import NETWORK_TOKENS
 from eth_defi.token import fetch_erc20_details
 
 
-# Helper function to get the appropriate GM market for each chain
-def get_gm_market(chain_name):
+@pytest.fixture
+def gm_market(chain_name):
     """Get GM market address for the specified chain."""
     if chain_name == "avalanche":
         return "0xB7e69749E3d2EDd90ea59A4932EFEa2D41E245d7"  # GM AVAX/USDC
+    elif chain_name == "arbitrum":
+        return "0x70d95587d40A2caf56bd97485aB3Eec10Bee6336"  # GM ETH/USDC
     else:
-        raise ValueError(f"No GM market configured for chain: {chain_name}")
+        pytest.skip(f"GM market not configured for chain: {chain_name}")
 
 
 def test_withdraw_order_initialization(chain_name, gmx_config_fork):
@@ -51,10 +53,8 @@ def test_withdraw_order_initialization(chain_name, gmx_config_fork):
     assert withdraw_order.markets is not None
 
 
-def test_withdraw_order_create_to_long_token(chain_name, gmx_config_fork, wallet_with_gm_tokens):
+def test_withdraw_order_create_to_long_token(gmx_config_fork, wallet_with_gm_tokens, gm_market):
     """Test creating a withdrawal order to receive long token."""
-    GM_MARKET = get_gm_market(chain_name)
-
     # Get available markets
     from eth_defi.gmx.core.markets import Markets
 
@@ -64,12 +64,12 @@ def test_withdraw_order_create_to_long_token(chain_name, gmx_config_fork, wallet
     if not markets:
         pytest.skip("No markets available")
 
-    market_data = markets[GM_MARKET]
+    market_data = markets[gm_market]
 
     # Create WithdrawOrder with long token as output
     withdraw_order = WithdrawOrder(
         gmx_config_fork,
-        market_key=GM_MARKET,
+        market_key=gm_market,
         out_token=market_data["long_token_address"],
     )
 
@@ -87,10 +87,8 @@ def test_withdraw_order_create_to_long_token(chain_name, gmx_config_fork, wallet
     assert result.gas_limit > 0
 
 
-def test_withdraw_order_create_to_short_token(chain_name, gmx_config_fork, wallet_with_gm_tokens):
+def test_withdraw_order_create_to_short_token(gmx_config_fork, wallet_with_gm_tokens, gm_market):
     """Test creating a withdrawal order to receive short token."""
-    GM_MARKET = get_gm_market(chain_name)
-
     # Get available markets
     from eth_defi.gmx.core.markets import Markets
 
@@ -100,12 +98,12 @@ def test_withdraw_order_create_to_short_token(chain_name, gmx_config_fork, walle
     if not markets:
         pytest.skip("No markets available")
 
-    market_data = markets[GM_MARKET]
+    market_data = markets[gm_market]
 
     # Create WithdrawOrder with short token as output
     withdraw_order = WithdrawOrder(
         gmx_config_fork,
-        market_key=GM_MARKET,
+        market_key=gm_market,
         out_token=market_data["short_token_address"],
     )
 
@@ -120,10 +118,8 @@ def test_withdraw_order_create_to_short_token(chain_name, gmx_config_fork, walle
     assert result.execution_fee > 0
 
 
-def test_withdraw_order_create_with_native_token(chain_name, gmx_config_fork, wallet_with_gm_tokens):
+def test_withdraw_order_create_with_native_token(chain_name, gmx_config_fork, wallet_with_gm_tokens, gm_market):
     """Test creating a withdrawal order to receive native token (WAVAX)."""
-    GM_MARKET = get_gm_market(chain_name)
-
     # Get available markets
     from eth_defi.gmx.core.markets import Markets
 
@@ -133,7 +129,7 @@ def test_withdraw_order_create_with_native_token(chain_name, gmx_config_fork, wa
     if not markets:
         pytest.skip("No markets available")
 
-    market_data = markets[GM_MARKET]
+    market_data = markets[gm_market]
 
     # For Avalanche, WAVAX is the native token (long token in this market)
     tokens = NETWORK_TOKENS[chain_name]
@@ -142,7 +138,7 @@ def test_withdraw_order_create_with_native_token(chain_name, gmx_config_fork, wa
     # Create WithdrawOrder with native token (WAVAX) as output
     withdraw_order = WithdrawOrder(
         gmx_config_fork,
-        market_key=GM_MARKET,
+        market_key=gm_market,
         out_token=market_data["long_token_address"],  # WAVAX
     )
 
@@ -157,10 +153,8 @@ def test_withdraw_order_create_with_native_token(chain_name, gmx_config_fork, wa
     assert result.execution_fee > 0
 
 
-def test_withdraw_order_transaction_structure(chain_name, gmx_config_fork, wallet_with_gm_tokens):
+def test_withdraw_order_transaction_structure(gmx_config_fork, wallet_with_gm_tokens, gm_market):
     """Test that withdrawal order creates valid unsigned transaction structure."""
-    GM_MARKET = get_gm_market(chain_name)
-
     # Get available markets
     from eth_defi.gmx.core.markets import Markets
 
@@ -170,12 +164,12 @@ def test_withdraw_order_transaction_structure(chain_name, gmx_config_fork, walle
     if not markets:
         pytest.skip("No markets available")
 
-    market_data = markets[GM_MARKET]
+    market_data = markets[gm_market]
 
     # Create WithdrawOrder
     withdraw_order = WithdrawOrder(
         gmx_config_fork,
-        market_key=GM_MARKET,
+        market_key=gm_market,
         out_token=market_data["long_token_address"],
     )
 
@@ -204,10 +198,8 @@ def test_withdraw_order_transaction_structure(chain_name, gmx_config_fork, walle
     print(f"  Execution fee: {result.execution_fee}")
 
 
-def test_withdraw_order_with_custom_execution_buffer(chain_name, gmx_config_fork, wallet_with_gm_tokens):
+def test_withdraw_order_with_custom_execution_buffer(gmx_config_fork, wallet_with_gm_tokens, gm_market):
     """Test withdrawal order with custom execution buffer."""
-    GM_MARKET = get_gm_market(chain_name)
-
     # Get available markets
     from eth_defi.gmx.core.markets import Markets
 
@@ -217,12 +209,12 @@ def test_withdraw_order_with_custom_execution_buffer(chain_name, gmx_config_fork
     if not markets:
         pytest.skip("No markets available")
 
-    market_data = markets[GM_MARKET]
+    market_data = markets[gm_market]
 
     # Create WithdrawOrder
     withdraw_order = WithdrawOrder(
         gmx_config_fork,
-        market_key=GM_MARKET,
+        market_key=gm_market,
         out_token=market_data["long_token_address"],
     )
 
@@ -243,10 +235,8 @@ def test_withdraw_order_with_custom_execution_buffer(chain_name, gmx_config_fork
     assert isinstance(result_high, WithdrawResult)
 
 
-def test_withdraw_order_with_small_amount(chain_name, gmx_config_fork, wallet_with_gm_tokens):
+def test_withdraw_order_with_small_amount(gmx_config_fork, wallet_with_gm_tokens, gm_market):
     """Test withdrawal order with very small GM token amount."""
-    GM_MARKET = get_gm_market(chain_name)
-
     # Get available markets
     from eth_defi.gmx.core.markets import Markets
 
@@ -256,12 +246,12 @@ def test_withdraw_order_with_small_amount(chain_name, gmx_config_fork, wallet_wi
     if not markets:
         pytest.skip("No markets available")
 
-    market_data = markets[GM_MARKET]
+    market_data = markets[gm_market]
 
     # Create WithdrawOrder
     withdraw_order = WithdrawOrder(
         gmx_config_fork,
-        market_key=GM_MARKET,
+        market_key=gm_market,
         out_token=market_data["long_token_address"],
     )
 
@@ -291,10 +281,8 @@ def test_withdraw_order_with_invalid_market(chain_name, gmx_config_fork):
         )
 
 
-def test_withdraw_order_with_custom_gas_price(chain_name, gmx_config_fork, wallet_with_gm_tokens):
+def test_withdraw_order_with_custom_gas_price(gmx_config_fork, wallet_with_gm_tokens, gm_market):
     """Test withdrawal order with custom max fee per gas."""
-    GM_MARKET = get_gm_market(chain_name)
-
     # Get available markets
     from eth_defi.gmx.core.markets import Markets
 
@@ -304,12 +292,12 @@ def test_withdraw_order_with_custom_gas_price(chain_name, gmx_config_fork, walle
     if not markets:
         pytest.skip("No markets available")
 
-    market_data = markets[GM_MARKET]
+    market_data = markets[gm_market]
 
     # Create WithdrawOrder
     withdraw_order = WithdrawOrder(
         gmx_config_fork,
-        market_key=GM_MARKET,
+        market_key=gm_market,
         out_token=market_data["long_token_address"],
     )
 
@@ -361,10 +349,8 @@ def test_withdraw_order_attributes_accessible(chain_name, gmx_config_fork):
     assert withdraw_order.markets is not None
 
 
-def test_withdraw_order_different_output_tokens(chain_name, gmx_config_fork, wallet_with_gm_tokens):
+def test_withdraw_order_different_output_tokens(gmx_config_fork, wallet_with_gm_tokens, gm_market):
     """Test withdrawal orders with different output tokens for the same market."""
-    GM_MARKET = get_gm_market(chain_name)
-
     # Get available markets
     from eth_defi.gmx.core.markets import Markets
 
@@ -374,19 +360,19 @@ def test_withdraw_order_different_output_tokens(chain_name, gmx_config_fork, wal
     if not markets:
         pytest.skip("No markets available")
 
-    market_data = markets[GM_MARKET]
+    market_data = markets[gm_market]
 
     # Create WithdrawOrder for long token
     withdraw_to_long = WithdrawOrder(
         gmx_config_fork,
-        market_key=GM_MARKET,
+        market_key=gm_market,
         out_token=market_data["long_token_address"],
     )
 
     # Create WithdrawOrder for short token
     withdraw_to_short = WithdrawOrder(
         gmx_config_fork,
-        market_key=GM_MARKET,
+        market_key=gm_market,
         out_token=market_data["short_token_address"],
     )
 
@@ -402,10 +388,8 @@ def test_withdraw_order_different_output_tokens(chain_name, gmx_config_fork, wal
     assert withdraw_to_long.out_token != withdraw_to_short.out_token
 
 
-def test_withdraw_order_to_usdc(chain_name, gmx_config_fork, wallet_with_gm_tokens):
+def test_withdraw_order_to_usdc(chain_name, gmx_config_fork, wallet_with_gm_tokens, gm_market):
     """Test withdrawal order to USDC specifically."""
-    GM_MARKET = get_gm_market(chain_name)
-
     # Get available markets
     from eth_defi.gmx.core.markets import Markets
 
@@ -415,7 +399,7 @@ def test_withdraw_order_to_usdc(chain_name, gmx_config_fork, wallet_with_gm_toke
     if not markets:
         pytest.skip("No markets available")
 
-    market_data = markets[GM_MARKET]
+    market_data = markets[gm_market]
 
     # Get USDC address
     tokens = NETWORK_TOKENS[chain_name]
@@ -424,7 +408,7 @@ def test_withdraw_order_to_usdc(chain_name, gmx_config_fork, wallet_with_gm_toke
     # Create WithdrawOrder to USDC (short token)
     withdraw_order = WithdrawOrder(
         gmx_config_fork,
-        market_key=GM_MARKET,
+        market_key=gm_market,
         out_token=market_data["short_token_address"],  # USDC
     )
 
