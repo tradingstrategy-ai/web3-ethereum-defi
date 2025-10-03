@@ -17,7 +17,7 @@ from web3.types import TxParams
 
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.contracts import get_contract_addresses, get_exchange_router_contract, NETWORK_TOKENS, get_datastore_contract
-from eth_defi.gmx.constants import PRECISION, ORDER_TYPES, DECREASE_POSITION_SWAP_TYPES, GAS_LIMITS
+from eth_defi.gmx.constants import PRECISION, ORDER_TYPES, DECREASE_POSITION_SWAP_TYPES, GAS_LIMITS, ETH_ZERO_ADDRESS
 from eth_defi.gmx.core.markets import Markets
 from eth_defi.gmx.core.oracle import OraclePrices
 from eth_defi.gas import estimate_gas_fees
@@ -27,7 +27,6 @@ from eth_defi.token import fetch_erc20_details
 
 
 # Module-level constants
-ETH_ZERO_ADDRESS = "0x" + "0" * 40
 ZERO_REFERRAL_CODE = bytes.fromhex("0" * 64)
 
 
