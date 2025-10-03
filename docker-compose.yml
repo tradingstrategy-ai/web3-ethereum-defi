@@ -1,0 +1,35 @@
+version: "3.9"
+
+services:
+  # See Dockerfile.vault-scanner for details
+  vault-scanner:
+    image: vault-scanner:local
+    build:
+      context: .
+      dockerfile: Dockerfile.vault-scanner
+    container_name: vault-scanner
+    restart: unless-stopped
+    environment:
+      JSON_RPC_ETHEREUM: ${JSON_RPC_ETHEREUM:-}
+      JSON_RPC_BERACHAIN: ${JSON_RPC_BERACHAIN:-}
+      JSON_RPC_UNICHAIN: ${JSON_RPC_UNICHAIN:-}
+      JSON_RPC_SONIC: ${JSON_RPC_SONIC:-}
+      JSON_RPC_HYPERLIQUID: ${JSON_RPC_HYPERLIQUID:-}
+      JSON_RPC_AVALANCHE: ${JSON_RPC_AVALANCHE:-}
+      JSON_RPC_MODE: ${JSON_RPC_MODE:-}
+      JSON_RPC_MANTLE: ${JSON_RPC_MANTLE:-}
+      JSON_RPC_MANTLE_2: ${JSON_RPC_MANTLE_2:-}
+      JSON_RPC_BINANCE: ${JSON_RPC_BINANCE:-}
+      JSON_RPC_OPTIMISM: ${JSON_RPC_OPTIMISM:-}
+      JSON_RPC_ABSTRACT: ${JSON_RPC_ABSTRACT:-}
+      JSON_RPC_CELO: ${JSON_RPC_CELO:-}
+      JSON_RPC_SONEIUM: ${JSON_RPC_SONEIUM:-}
+      JSON_RPC_ZKSYNC: ${JSON_RPC_ZKSYNC:-}
+      JSON_RPC_GNOSIS: ${JSON_RPC_GNOSIS:-}
+      JSON_RPC_BLAST: ${JSON_RPC_BLAST:-}
+      JSON_RPC_ZORA: ${JSON_RPC_ZORA:-}
+      JSON_RPC_INK: ${JSON_RPC_INK:-}
+      JSON_RPC_BASE: ${JSON_RPC_BASE:-}
+      SCAN_PRICES: ${SCAN_PRICES:-true}
+    volumes:
+      - ${HOME}/.tradingstrategy:/root/.tradingstrategy:rw

@@ -1,0 +1,50 @@
+# Wrap scripts/erc-4626/scan-vaults-all-chains.sh as Docker
+#
+# To run:
+#
+# source ../vault-rpc.env
+# docker compose run vault-scanner
+#
+#
+
+FROM python:3.11.10
+
+# Passed from Github Actions
+ARG GIT_VERSION_TAG=unspecifiedls
+
+ARG GIT_COMMIT_MESSAGE=unspecified
+ARG GIT_VERSION_HASH=unspecified
+
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# Needed for Pandas, etc.
+# 25.57     | src/gmpy2.h:77:10: fatal error: mpfr.h: No such file or directory
+# 25.57     |    77 | #include <mpfr.h>
+RUN apt-get update && apt-get install -y libmpfr-dev libmpc-dev && rm -rf /var/lib/apt/lists/*
+
+# Install Python Poetry - pinned version
+RUN curl -sSL https://install.python-poetry.org | python - --version 2.2.1
+
+ENV PATH="/root/.local/bin:$PATH"
+
+WORKDIR /usr/src/web3-ethereum-defi
+
+# package source code
+COPY . .
+
+RUN poetry config virtualenvs.create false
+RUN poetry install -E data -E web3v6 -E hypersync --no-interaction --no-ansi --without=dev
+
+# Clean Poetry cache to reduce image size
+RUN poetry cache clear pypi --all --no-interaction
+
+# Speed up Python process startup
+RUN rm -rf ./tests
+RUN python -m compileall -q .
+RUN python -m compileall -q /usr/local/lib/python3.11
+
+ENV SCAN_PRICES=true
+CMD ["bash", "scripts/erc-4626/scan-vaults-all-chains.sh"]
+
+ENTRYPOINT ["/usr/src/web3-ethereum-defi/scripts/erc-4626/scan-vaults-all-chains.sh"]
