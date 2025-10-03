@@ -31,6 +31,7 @@ services:
       JSON_RPC_ZORA: ${JSON_RPC_ZORA:-}
       JSON_RPC_INK: ${JSON_RPC_INK:-}
       JSON_RPC_BASE: ${JSON_RPC_BASE:-}
+      JSON_RPC_POLYGON: ${JSON_RPC_POLYGON:-}
       SCAN_PRICES: ${SCAN_PRICES:-true}
       LOG_LEVEL: ${LOG_LEVEL:-warning}
     volumes:
