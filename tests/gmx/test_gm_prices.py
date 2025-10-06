@@ -6,15 +6,10 @@ across different chains and price types, with tests updated to match
 the actual output structure of the get_data() method.
 """
 
-import logging
 import pytest
 import time
 
 from eth_defi.gmx.core.gm_prices import GetGMPrices
-
-# Suppress logs during testing
-logger = logging.getLogger()
-logger.setLevel(logging.WARN)
 
 
 def test_get_gm_prices_initialization(gmx_config):

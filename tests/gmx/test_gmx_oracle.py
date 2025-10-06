@@ -10,11 +10,6 @@ import pytest
 import requests
 import os
 
-# Suppress all logging before imports to prevent startup noise
-# TODO: Bcz of conftest deps of gmx-python-sdk-ng we are still getting loggings
-os.environ["PYTEST_RUNNING"] = "1"
-logging.disable(logging.CRITICAL)
-
 from eth_defi.gmx.core.oracle import OraclePrices
 
 

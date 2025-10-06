@@ -93,11 +93,15 @@ class VaultDiscoveryBase(abc.ABC):
 
         chain = self.web3.eth.chain_id
 
+        logger.info("%s.scan_vaults(%d, %d)", self.__class__.__name__, start_block, end_block)
+
         leads = self.fetch_leads(
             start_block,
             end_block,
             display_progress,
         )
+
+        assert type(leads) == dict, f"Expected dict, got {type(leads)}"
 
         logger.info("Found %d leads", len(leads))
         addresses = list(leads.keys())

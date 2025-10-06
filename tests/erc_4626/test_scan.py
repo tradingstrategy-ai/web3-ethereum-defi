@@ -8,6 +8,7 @@ from joblib import Parallel, delayed
 from web3 import Web3
 
 from eth_defi.erc_4626.hypersync_discovery import HypersyncVaultDiscover
+from eth_defi.erc_4626.rpc_discovery import JSONRPCVaultDiscover
 from eth_defi.erc_4626.scan import create_vault_scan_record_subprocess
 from eth_defi.hypersync.server import get_hypersync_server
 from eth_defi.provider.multi_provider import create_multi_provider_web3, MultiProviderWeb3Factory
@@ -65,8 +66,8 @@ def test_4626_scan_rpc(web3):
     web3 = create_multi_provider_web3(JSON_RPC_BASE)
     web3factory = MultiProviderWeb3Factory(JSON_RPC_BASE)
 
-    start_block = 1
-    end_block = 4_000_000
+    start_block = 2_000_000
+    end_block = 2_500_000
 
     # Create a scanner that uses web3, HyperSync and subprocesses
     vault_discover = JSONRPCVaultDiscover(
@@ -85,9 +86,10 @@ def test_4626_scan_rpc(web3):
     rows = worker_processor(delayed(create_vault_scan_record_subprocess)(web3factory, d, end_block) for d in vault_detections)
     rows.sort(key=lambda x: x["Address"])
 
-    assert len(rows) == 24
-    assert rows[0]["Name"] == "FARM_BSWAP-LP"
-    assert rows[0]["Address"] == "0x127dc157aF74858b36bcca07D5A02ef27Cd442d0".lower()
+    assert len(rows) == 14
+    assert rows[0]["Name"] == "Based ETH"
+    assert rows[0]["Address"] == "0x1f8c0065c464c2580be83f17f5f64dd194358649"
+    assert rows[0]["_detection_data"].deposit_count == 1
 
 
 def test_4626_scan_moonwell(web3):

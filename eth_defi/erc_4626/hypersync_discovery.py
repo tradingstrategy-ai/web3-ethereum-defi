@@ -9,10 +9,9 @@
 
 import asyncio
 import logging
-import dataclasses
 
-import datetime
-from typing import AsyncIterable, Iterable
+
+from typing import AsyncIterable
 
 from eth_typing import HexAddress, HexStr
 from web3 import Web3
@@ -20,10 +19,8 @@ from web3 import Web3
 from tqdm_loggable.auto import tqdm
 
 from eth_defi.abi import get_topic_signature_from_event
-from eth_defi.compat import native_datetime_utc_now, native_datetime_utc_fromtimestamp
-from eth_defi.erc_4626.classification import probe_vaults
-from eth_defi.erc_4626.core import get_erc_4626_contract, ERC4626Feature, ERC4262VaultDetection
-from eth_defi.erc_4626.discovery_base import PotentialVaultMatch
+from eth_defi.compat import native_datetime_utc_fromtimestamp
+from eth_defi.erc_4626.discovery_base import PotentialVaultMatch, VaultDiscoveryBase
 from eth_defi.event_reader.web3factory import Web3Factory
 
 try:

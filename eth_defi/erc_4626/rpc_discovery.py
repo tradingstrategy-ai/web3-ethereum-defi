@@ -7,21 +7,22 @@
 import logging
 
 from concurrent.futures.thread import ThreadPoolExecutor
+from pprint import pformat
 
 from eth_typing import HexAddress
 from web3 import Web3
 
 from tqdm_loggable.auto import tqdm
 
-from eth_defi.erc_4626.discovery_events import get_vault_discovery_events
-
+from eth_defi.erc_4626.discovery_base import get_vault_discovery_events
 from eth_defi.erc_4626.discovery_base import VaultDiscoveryBase, PotentialVaultMatch
 from eth_defi.event_reader.reader import read_events_concurrent
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.event_reader.web3worker import create_thread_pool_executor
-from eth_defi.provider.log_block_range import get_max_block_range
+from eth_defi.provider.log_block_range import get_logs_max_block_range
+from eth_defi.timestamp import get_block_timestamp
 from eth_defi.utils import addr
-from tradeexecutor.utils.blockchain import get_block_timestamp
+
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +73,7 @@ class JSONRPCVaultDiscover(VaultDiscoveryBase):
             "start_block": start_block,
             "end_block": end_block,
             "events": get_vault_discovery_events(self.web3),
-            "batch_size": get_max_block_range(self.web3),
+            "chunk_size": get_logs_max_block_range(self.web3),
             "extract_timestamps": None,  # We only need timestamps for first event per vault
         }
 
@@ -90,6 +91,8 @@ class JSONRPCVaultDiscover(VaultDiscoveryBase):
         """
         assert end_block > start_block
 
+        logger.info("Starting JSONRPCVaultDiscover.fetch_leads() on chain %d from block %d to %d", self.web3.eth.chain_id, start_block, end_block)
+
         chain = self.web3.eth.chain_id
 
         executor = create_thread_pool_executor(
@@ -98,8 +101,9 @@ class JSONRPCVaultDiscover(VaultDiscoveryBase):
             max_workers=self.max_workers,
         )
 
-        logger.info("Building JSON-RPC query")
         query = self.build_query(executor, start_block, end_block)
+
+        logger.info("Building eth_getLogs JSON-RPC query using read_events_concurrent(): %s", pformat(query))
 
         if display_progress:
             progress_bar = tqdm(
@@ -112,15 +116,12 @@ class JSONRPCVaultDiscover(VaultDiscoveryBase):
         last_block = start_block
         timestamp = None
 
-        last_synced = None
-
         leads: dict[HexAddress, PotentialVaultMatch] = {}
         matches = 0
         seen = set()
 
         for event in read_events_concurrent(**query):
-
-            current_block = int(event["blockNumber"], 16)
+            current_block = event["blockNumber"]
             address = addr(event["address"].lower())
             lead = leads.get(address)
 
@@ -138,7 +139,8 @@ class JSONRPCVaultDiscover(VaultDiscoveryBase):
                 leads[address] = lead
 
             # Hardcoded for now
-            deposit_kind = log.topics[0] == "0xdcbc1c05240f31ff3ad067ef1ee35ce4997762752e3a095284754544f4c709d7"
+            assert event["topics"][0].startswith("0x")
+            deposit_kind = event["topics"][0] == "0xdcbc1c05240f31ff3ad067ef1ee35ce4997762752e3a095284754544f4c709d7"
             if deposit_kind:
                 lead.deposit_count += 1
             else:
@@ -147,7 +149,6 @@ class JSONRPCVaultDiscover(VaultDiscoveryBase):
             if address not in seen:
                 if lead.is_candidate():
                     # Return leads early, even if we still accumulate deposit and withdraw matches for them
-                    yield lead
                     matches += 1
                     seen.add(address)
 

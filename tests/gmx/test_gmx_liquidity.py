@@ -11,12 +11,6 @@ import pytest
 from gmx_python_sdk.scripts.v2.order.create_deposit_order import DepositOrder
 
 
-# Suppress logging to keep test output clean
-original_log_handlers = logging.getLogger().handlers[:]
-for handler in original_log_handlers:
-    logging.getLogger().removeHandler(handler)
-
-
 def test_initialization(chain_name, gmx_config_fork):
     """
     Test that the liquidity manager initializes correctly with chain-specific config.

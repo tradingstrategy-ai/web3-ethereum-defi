@@ -12,7 +12,7 @@ from requests.exceptions import HTTPError
 
 from eth_defi.erc_4626.classification import create_vault_instance
 from eth_defi.erc_4626.core import get_vault_protocol_name
-from eth_defi.erc_4626.hypersync_discovery import ERC4262VaultDetection
+from eth_defi.erc_4626.discovery_base import ERC4262VaultDetection
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.provider.fallback import ExtraValueError
