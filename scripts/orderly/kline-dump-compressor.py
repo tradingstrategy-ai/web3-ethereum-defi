@@ -29,7 +29,7 @@ columns = ["open", "high", "low", "close", "volume_usd", "volume_unit", "symbol"
 
 fname = Path.home() / "Downloads" / "kline_his0527.csv"
 
-new_freq = "1d"
+new_freq = "15min"
 
 # Read CSV
 df = pd.read_csv(fname, names=columns)
@@ -61,8 +61,11 @@ resampled = resampled.sort_values(by=["symbol", "timestamp"])
 resampled = resampled.set_index("timestamp")
 
 # Write to Parquet
+target_file = Path.home() / "Downloads" / f"orderly-ohlcv-{new_freq}.parquet"
 resampled.to_parquet(
-    Path.home() / "Downloads" / f"orderly-ohlcv-{new_freq}.parquet",
+    target_file,
     compression="zstd",
     compression_level=22,
 )
+
+print(f"Wrote {target_file}, size {target_file.stat().st_size / 1024**2:.2f} MiB")

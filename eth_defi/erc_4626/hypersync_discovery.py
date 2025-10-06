@@ -23,6 +23,7 @@ from eth_defi.abi import get_topic_signature_from_event
 from eth_defi.compat import native_datetime_utc_now, native_datetime_utc_fromtimestamp
 from eth_defi.erc_4626.classification import probe_vaults
 from eth_defi.erc_4626.core import get_erc_4626_contract, ERC4626Feature, ERC4262VaultDetection
+from eth_defi.erc_4626.discovery_base import PotentialVaultMatch
 from eth_defi.event_reader.web3factory import Web3Factory
 
 try:
@@ -35,23 +36,7 @@ except ImportError as e:
 logger = logging.getLogger(__name__)
 
 
-@dataclasses.dataclass(slots=True, frozen=False)
-class PotentialVaultMatch:
-    """Categorise contracts that emit ERC-4626 like events."""
-
-    chain: int
-    address: HexAddress
-    first_seen_at_block: int
-    first_seen_at: datetime.datetime
-    first_log_clue: hypersync.Log
-    deposit_count: int = 0
-    withdrawal_count: int = 0
-
-    def is_candidate(self) -> bool:
-        return self.deposit_count > 0 and self.withdrawal_count > 0
-
-
-class HypersyncVaultDiscover:
+class HypersyncVaultDiscover(VaultDiscoveryBase):
     """Autoscan the chain for 4626 vaults.
 
     - First build map of potential contracts using :py:meth:`scan_potential_vaults`
@@ -81,10 +66,10 @@ class HypersyncVaultDiscover:
         :param max_workers:
             How many worker processes use in multicall probing
         """
+        super().__init__(max_workers=max_workers)
         self.web3 = web3
         self.web3factory = web3factory
         self.client = client
-        self.max_workers = max_workers
 
     def get_topic_signatures(self) -> list[HexStr]:
         """Contracts must have at least one event of both these signatures
@@ -94,29 +79,7 @@ class HypersyncVaultDiscover:
         - We are likely having a real ERC-4262 contract if both events match,
           ``Deposit`` evnet might have few similar contracts
         """
-
-        # event Deposit(
-        #     address indexed sender,
-        #     address indexed owner,
-        #     uint256 assets,
-        #     uint256 shares
-        #
-        # )
-
-        # event Withdraw(
-        #     address indexed sender,
-        #     address indexed receiver,
-        #     address indexed owner,
-        #     uint256 assets,
-        #     uint256 shares
-        # )
-
-        IERC4626 = get_erc_4626_contract(self.web3)
-        return [
-            # Example tx https://basescan.org/tx/0x7d5e4b42e6e5f2c819683f3b3d4d883c7a6ee9f2d5abf56ac8b742528a5d9c80#eventlog
-            get_topic_signature_from_event(IERC4626.events.Deposit),
-            get_topic_signature_from_event(IERC4626.events.Withdraw),
-        ]
+        return [get_topic_signature_from_event(e) for e in self.get_vault_discovery_events(self.web3)]
 
     def build_query(self, start_block: int, end_block: int) -> hypersync.Query:
         """Create HyperSync query that extracts all potential lead events from the chain.
@@ -149,6 +112,18 @@ class HypersyncVaultDiscover:
             ),
         )
         return query
+
+    def fetch_leads(self, start_block: int, end_block: int, display_progress=True) -> dict[HexAddress, PotentialVaultMatch]:
+        # Don't leak async colored interface, as it is an implementation detail
+        async def _hypersync_asyncio_wrapper():
+            leads = {}
+            async for x in self.scan_potential_vaults(start_block, end_block, display_progress):
+                leads[x.address] = x
+            return leads
+
+        leads: dict[HexAddress, PotentialVaultMatch]
+        leads = asyncio.run(_hypersync_asyncio_wrapper())
+        return leads
 
     async def scan_potential_vaults(
         self,
@@ -257,68 +232,3 @@ class HypersyncVaultDiscover:
 
         if progress_bar is not None:
             progress_bar.close()
-
-    def scan_vaults(
-        self,
-        start_block: int,
-        end_block: int,
-        display_progress=True,
-    ) -> Iterable[ERC4262VaultDetection]:
-        """Scan vaults.
-
-        - Detect vault leads by events using :py:meth:`scan_potential_vaults`
-        - Then perform multicall probing for each vault smart contract to detect protocol
-        """
-
-        chain = self.web3.eth.chain_id
-
-        # Don't leak async colored interface, as it is an implementation detail
-        async def _hypersync_asyncio_wrapper():
-            leads = {}
-            async for x in self.scan_potential_vaults(start_block, end_block, display_progress):
-                leads[x.address] = x
-            return leads
-
-        leads: dict[HexAddress, PotentialVaultMatch]
-        leads = asyncio.run(_hypersync_asyncio_wrapper())
-
-        logger.info("Found %d leads", len(leads))
-        addresses = list(leads.keys())
-        good_vaults = broken_vaults = 0
-
-        if display_progress:
-            progress_bar_desc = f"Identifying vaults, using {self.max_workers} workers"
-        else:
-            progress_bar_desc = None
-
-        for feature_probe in probe_vaults(
-            chain,
-            self.web3factory,
-            addresses,
-            block_identifier=end_block,
-            max_workers=self.max_workers,
-            progress_bar_desc=progress_bar_desc,
-        ):
-            lead = leads[feature_probe.address]
-
-            yield ERC4262VaultDetection(
-                chain=chain,
-                address=feature_probe.address,
-                features=feature_probe.features,
-                first_seen_at_block=lead.first_seen_at_block,
-                first_seen_at=lead.first_seen_at,
-                updated_at=native_datetime_utc_now(),
-                deposit_count=lead.deposit_count,
-                redeem_count=lead.withdrawal_count,
-            )
-
-            if ERC4626Feature.broken in feature_probe.features:
-                broken_vaults += 1
-            else:
-                good_vaults += 1
-
-        logger.info(
-            "Found %d good ERC-4626 vaults, %d broken vaults",
-            good_vaults,
-            broken_vaults,
-        )

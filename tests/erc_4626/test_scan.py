@@ -23,7 +23,7 @@ def web3() -> Web3:
     return web3
 
 
-def test_4626_scan(web3):
+def test_4626_scan_hypersync(web3):
     """Read vaults of early Base chain"""
 
     web3 = create_multi_provider_web3(JSON_RPC_BASE)
@@ -40,6 +40,38 @@ def test_4626_scan(web3):
         web3,
         web3factory,
         client,
+    )
+
+    # Perform vault discovery and categorisation,
+    # so we get information which address contains which kind of a vault
+    vault_detections = list(vault_discover.scan_vaults(start_block, end_block, display_progress=False))
+
+    # Prepare data export by reading further per-vault data using multiprocessing
+    worker_processor = Parallel(n_jobs=vault_discover.max_workers)
+
+    # Quite a mouthful line to create a row of output for each vault detection using subproces pool
+    rows = worker_processor(delayed(create_vault_scan_record_subprocess)(web3factory, d, end_block) for d in vault_detections)
+    rows.sort(key=lambda x: x["Address"])
+
+    assert len(rows) == 24
+    assert rows[0]["Name"] == "FARM_BSWAP-LP"
+    assert rows[0]["Address"] == "0x127dc157aF74858b36bcca07D5A02ef27Cd442d0".lower()
+
+
+
+def test_4626_scan_rpc(web3):
+    """Read vaults of early Base chain using raw RPC calls"""
+
+    web3 = create_multi_provider_web3(JSON_RPC_BASE)
+    web3factory = MultiProviderWeb3Factory(JSON_RPC_BASE)
+
+    start_block = 1
+    end_block = 4_000_000
+
+    # Create a scanner that uses web3, HyperSync and subprocesses
+    vault_discover = JSONRPCVaultDiscover(
+        web3,
+        web3factory,
     )
 
     # Perform vault discovery and categorisation,
