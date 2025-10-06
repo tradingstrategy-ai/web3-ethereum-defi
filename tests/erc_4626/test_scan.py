@@ -59,7 +59,6 @@ def test_4626_scan_hypersync(web3):
     assert rows[0]["Address"] == "0x127dc157aF74858b36bcca07D5A02ef27Cd442d0".lower()
 
 
-
 def test_4626_scan_rpc(web3):
     """Read vaults of early Base chain using raw RPC calls"""
 

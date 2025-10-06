@@ -95,6 +95,7 @@ CHAIN_CONFIG = {
     },
 }
 
+
 def pytest_generate_tests(metafunc):
     """Generate parametrized tests for multiple chains if the test uses 'chain_name' parameter."""
     if "chain_name" in metafunc.fixturenames:

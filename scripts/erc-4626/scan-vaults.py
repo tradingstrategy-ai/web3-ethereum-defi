@@ -68,13 +68,9 @@ def main():
 
     web3 = create_multi_provider_web3(JSON_RPC_URL)
     web3factory = MultiProviderWeb3Factory(JSON_RPC_URL, retries=5)
-    name = get_chain_name(web3.eth.chain_id)
-    rpcs = get_provider_name(web3.provider)
-    hypersync_url = get_hypersync_server(web3)
+
 
     setup_console_logging(log_file=Path(f"logs/{name}-scan-vaults.log"))
-
-    print(f"Scanning ERC-4626 vaults on chain {web3.eth.chain_id}: {name}, using rpcs: {rpcs}, using HyperSync: {hypersync_url}, and {max_workers} workers")
 
     client = hypersync.HypersyncClient(hypersync.ClientConfig(url=hypersync_url))
 

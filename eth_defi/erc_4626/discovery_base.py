@@ -2,6 +2,7 @@
 
 - Shard across RPC/Hypersync discovery
 """
+
 import abc
 import dataclasses
 import datetime
@@ -36,7 +37,6 @@ class PotentialVaultMatch:
         return self.deposit_count > 0 and self.withdrawal_count > 0
 
 
-
 def get_vault_discovery_events(web3) -> list[Type[ContractEvent]]:
     """Get list of events we use in ERC-4626 vault discovery."""
     # event Deposit(
@@ -63,7 +63,6 @@ def get_vault_discovery_events(web3) -> list[Type[ContractEvent]]:
 
 
 class VaultDiscoveryBase(abc.ABC):
-
     def __init__(
         self,
         max_workers: int,
