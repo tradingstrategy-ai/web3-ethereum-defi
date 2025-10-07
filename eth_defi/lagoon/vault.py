@@ -244,7 +244,8 @@ class LagoonVault(ERC4626Vault):
             # function settleDeposit(uint256 _newTotalAssets) public override onlySafe onlyOpen {
             assert len(settle_deposit_abi["inputs"]) == 1, f"Wrong old Lagoon ABI file loaded for {self.vault_address}"
 
-        assert self.safe is not None, f"Safe multisig address is not set for {self.vault_address}"
+        # We have one broken Lagoon deployment on Arbitrum with 0x0 as Safe address
+        # assert self.safe is not None, f"Safe multisig address is not set for {self.vault_address}"
 
     @cached_property
     def version(self) -> LagoonVersion:
@@ -332,10 +333,12 @@ class LagoonVault(ERC4626Vault):
         """
         vault_info = self.fetch_vault_info()
         safe_address = vault_info["safe"]
-        safe = self.fetch_safe(safe_address)
+
         safe_info_dict = {}
+        # We have broken Lagoon contract on Arbitrum with 0x0 as Safe address
         if safe_address:
             try:
+                safe = self.fetch_safe(safe_address)
                 safe_info_dict = asdict(safe.retrieve_all_info())
                 del safe_info_dict["address"]  # Key conflict
             except CannotRetrieveSafeInfoException as e:
