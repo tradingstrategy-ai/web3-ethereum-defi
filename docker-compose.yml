@@ -33,6 +33,10 @@ services:
       JSON_RPC_INK: ${JSON_RPC_INK:-}
       JSON_RPC_BASE: ${JSON_RPC_BASE:-}
       JSON_RPC_POLYGON: ${JSON_RPC_POLYGON:-}
+      JSON_RPC_HEMI: ${JSON_RPC_HEMI:-}
+      JSON_RPC_LINEA: ${JSON_RPC_LINEA:-}
+      JSON_RPC_TAC: ${JSON_RPC_TAC:-}
+      JSON_RPC_PLASMA: ${JSON_RPC_PLASMA:-}
       SCAN_PRICES: ${SCAN_PRICES:-true}
       LOG_LEVEL: ${LOG_LEVEL:-warning}
     volumes:
