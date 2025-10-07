@@ -32,6 +32,7 @@ from urllib.parse import urlparse
 
 from eth_defi.erc_4626.lead_scan_core import scan_leads
 from eth_defi.utils import setup_console_logging
+from eth_defi.vault.vaultdb import DEFAULT_VAULT_DATABASE
 
 try:
     import hypersync
@@ -59,15 +60,8 @@ def main():
 
     end_block = os.environ.get("END_BLOCK")
 
-    output_folder = os.environ.get("OUTPUT_FOLDER")
-    if output_folder is None:
-        output_folder = Path("~/.tradingstrategy/vaults").expanduser()
-    else:
-        output_folder = Path(output_folder).expanduser()
-
-    os.makedirs(output_folder, exist_ok=True)
-
-    vault_db_file = output_folder / f"vault-metadata-db.pickle"
+    os.makedirs(DEFAULT_VAULT_DATABASE.parent, exist_ok=True)
+    vault_db_file = DEFAULT_VAULT_DATABASE
 
     max_getlogs_range = os.environ.get("MAX_GETLOGS_RANGE", None)
     if max_getlogs_range:

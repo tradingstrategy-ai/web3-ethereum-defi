@@ -117,6 +117,11 @@ EVM_BLOCK_TIMES = {
     42220: 5,  # Celo, ~5s block time
     7777777: 2,  # Zora L2
     57073: 2,  # Ink (Optimism)
+    # New batch
+    9745: 1,  # Plasma is "subsecond" but there is no stable blockchain, so this is just workaround https://www.plasma.to/chain
+    239: 1.5,  # TAC, ~1.5s averaged
+    43111: 12,  # Hemi aims for sub-15 second block times on its Layer 2 network
+    59144: 2,  # Block Time: Approximately 2 seconds soft finality
 }
 
 

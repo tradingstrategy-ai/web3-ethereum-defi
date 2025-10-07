@@ -14,6 +14,10 @@ from eth_defi.erc_4626.discovery_base import PotentialVaultMatch
 from eth_defi.vault.base import VaultSpec
 
 
+#: Where we store the vault metadata database by default
+DEFAULT_VAULT_DATABASE = Path.home() / ".tradingstrategy" / "vaults" / "vault-metadata-db.pickle"
+
+
 class VaultLead(TypedDict):
     """Vault info gathered during the vault discovery from the chain.
 
