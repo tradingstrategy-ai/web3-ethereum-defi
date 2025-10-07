@@ -33,6 +33,7 @@ Re-run manual test::
 
     export JSON_RPC_URL=$JSON_RPC_TAC
     python scripts/erc-4626/scan-vaults.py
+    python scripts/erc-4626/scan-prices.py
 
     export JSON_RPC_URL=$JSON_RPC_ARBITRUM
     python scripts/erc-4626/scan-vaults.py

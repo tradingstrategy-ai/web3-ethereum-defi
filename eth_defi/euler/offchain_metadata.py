@@ -37,7 +37,14 @@ def fetch_euler_vaults_file_for_chain(
     now_=None,
     max_cache_duration=datetime.timedelta(days=2),
 ) -> dict:
-    """Fetch and cache Euler offchain vault metadata for a given chain."""
+    """Fetch and cache Euler offchain vault metadata for a given chain.
+
+    - One JSON file per chain
+    """
+
+    assert type(chain_id) is int, "chain_id must be integer"
+    assert isinstance(cache_path, Path), "cache_path must be Path instance"
+
     cache_path.mkdir(parents=True, exist_ok=True)
     file = cache_path / f"euler_vaults_chain_{chain_id}.json"
 
