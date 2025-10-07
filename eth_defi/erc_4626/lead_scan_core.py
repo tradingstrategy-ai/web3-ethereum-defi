@@ -7,18 +7,21 @@ import logging
 import pickle
 from decimal import Decimal
 from pathlib import Path
+from typing import Literal
 
 import pandas as pd
 
 from joblib import Parallel, delayed
+from IPython.core.display_functions import display
 
-from eth_defi import hypersync
+from tqdm_loggable.auto import tqdm
+
 from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.core import ERC4626Feature
-from eth_defi.erc_4626.hypersync_discovery import HypersyncVaultDiscover
+from eth_defi.erc_4626.discovery_base import LeadScanReport
 from eth_defi.erc_4626.rpc_discovery import JSONRPCVaultDiscover
 from eth_defi.erc_4626.scan import create_vault_scan_record_subprocess
-from eth_defi.hypersync.server import get_hypersync_server
+from eth_defi.hypersync.timestamp import get_hypersync_block_height
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
 from eth_defi.provider.named import get_provider_name
 from eth_defi.vault.vaultdb import VaultDatabase
@@ -76,41 +79,57 @@ def scan_leads(
     json_rpc_urls: str,
     vault_db_file: Path,
     max_workers: int = 16,
-    start_block: int = 1,
+    start_block: int | None = None,
     end_block: int | None = None,
-):
+    printer=print,
+    backend: Literal["auto", "hypersync", "rpc"] = "auto",
+) -> LeadScanReport:
     """Core loop to discover new vaults on a chain.
 
     - Use Hypersync if available, otherwise fall back to JSON-RPC only scanning
     - Resume for the last known block
     """
 
+    # Avoid hard dependency
+    import hypersync
+    from eth_defi.hypersync.server import get_hypersync_server
+    from eth_defi.erc_4626.hypersync_discovery import HypersyncVaultDiscover
+
     assert isinstance(vault_db_file, Path)
 
     web3 = create_multi_provider_web3(json_rpc_urls)
     web3factory = MultiProviderWeb3Factory(json_rpc_urls, retries=5)
 
-    name = get_chain_name(web3.eth.chain_id)
+    chain_id = web3.eth.chain_id
+    name = get_chain_name(chain_id)
     rpcs = get_provider_name(web3.provider)
 
-    hypersync_url = get_hypersync_server(web3)
+    match backend:
+        case "auto":
+            hypersync_url = get_hypersync_server(web3)
+            if hypersync_url:
+                hypersync_client = hypersync.HypersyncClient(hypersync.ClientConfig(url=hypersync_url))
+            else:
+                hypersync_client = None
+        case "hypersync":
+            hypersync_url = get_hypersync_server(web3)
+            assert hypersync_url, f"No HyperSync server available for chain {web3.eth.chain_id}"
+            hypersync_client = hypersync.HypersyncClient(hypersync.ClientConfig(url=hypersync_url))
+        case "rpc":
+            hypersync_client = None
 
-    if hypersync_url:
-        hypersync_client = hypersync.HypersyncClient(hypersync.ClientConfig(url=hypersync_url))
-    else:
-        hypersync_client = None
-
-    print(f"Scanning ERC-4626 vaults on chain {web3.eth.chain_id}: {name}, using rpcs: {rpcs}, using HyperSync: {hypersync_url or '<not avail>'}, and {max_workers} workers")
+    printer(f"Scanning ERC-4626 vaults on chain {web3.eth.chain_id}: {name}, using rpcs: {rpcs}, using HyperSync: {hypersync_url or '<not avail>'}, and {max_workers} workers")
 
     if not vault_db_file.exists():
         logger.info("Starting vault lead scan, created new database at %s", vault_db_file)
         existing_db = VaultDatabase()
     else:
         logger.info("Starting vault lead scan, using database at %s", vault_db_file)
-        existing_db = pickle.load(vault_db_file.open("rb"))
+        existing_db = VaultDatabase.read(vault_db_file)
         assert type(existing_db) == VaultDatabase, f"Got: {type(existing_db)}: {existing_db}"
 
-    start_block = existing_db.get_chain_start_block(web3.eth.chain_id, start_block)
+    if start_block is None:
+        start_block = existing_db.get_chain_start_block(web3.eth.chain_id)
 
     if end_block is None:
         end_block = web3.eth.block_number
@@ -125,6 +144,10 @@ def scan_leads(
             hypersync_client,
             max_workers=max_workers,
         )
+
+        if not end_block:
+            end_block = get_hypersync_block_height(hypersync_client)
+
     else:
         # Create a scanner that uses web3 and subprocesses
         vault_discover = JSONRPCVaultDiscover(
@@ -132,10 +155,15 @@ def scan_leads(
             web3factory,
             max_workers=max_workers,
         )
+        if not end_block:
+            end_block = web3.eth.block_number
+
+    vault_discover.seed_existing_leads(existing_db.get_existing_leads_by_chain(chain_id))
 
     # Perform vault discovery and categorisation,
     # so we get information which address contains which kind of a vault
-    vault_detections = list(vault_discover.scan_vaults(start_block, end_block))
+    report = vault_discover.scan_vaults(start_block, end_block)
+    vault_detections = list(report.detections.values())
 
     # Prepare data export by reading further per-vault data using multiprocessing
     worker_processor = Parallel(n_jobs=max_workers)
@@ -145,13 +173,13 @@ def scan_leads(
     desc = f"Extracting vault metadata using {max_workers} workers"
     rows = worker_processor(delayed(create_vault_scan_record_subprocess)(web3factory, d, end_block) for d in tqdm(vault_detections, desc=desc))
 
-    print(f"Total {len(rows)} vaults detected")
+    printer(f"Total {len(rows)} vaults detected")
 
     chain = web3.eth.chain_id
 
     if len(rows) == 0:
-        print(f"No vaults found on chain {chain}, not generating any database updates")
-        return
+        printer(f"No vaults found on chain {chain}, not generating any database updates")
+        return LeadScanReport()
 
     df = pd.DataFrame(rows)
     # Parquet cannot export the raw Python objects,
@@ -183,15 +211,25 @@ def scan_leads(
     # This will preserve raw vault detection objects.
     # Keyed by (chain id, address)
     data_dict = {r["_detection_data"].get_spec(): r for r in rows}
-    print(f"Saving vault pickled database to {vault_db_file}")
+    report.rows = data_dict
+
+
+    printer(f"Saving vault pickled database to {vault_db_file}")
     # Merge new results
-    existing_db.update_leads(data_dict)
-    pickle.dump(existing_db, vault_db_file.open("wb"))
-    print(f"Vault database has {len(existing_db)} entries")
+    existing_db.update_leads_and_rows(
+        chain_id=chain_id,
+        last_scanned_block=end_block,
+        leads=report.leads,
+        rows=data_dict,
+    )
+    existing_db.write(vault_db_file)
+    printer(f"Vault database has {existing_db.get_lead_count()} entries")
 
     erc_7540s = [v for v in rows if ERC4626Feature.erc_7540_like in v["_detection_data"].features]
-    print(f"Total: {len(df)} vaults detected")
-    print(f"ERC-7540: {len(erc_7540s)} vaults detected")
+    printer(f"Total: {len(df)} vaults detected, last block is now {report.end_block:,}")
+    # printer(f"ERC-7540: {len(erc_7540s)} vaults detected")
 
     display_vaults_table(df)
+
+    return report
 

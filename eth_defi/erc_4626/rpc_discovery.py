@@ -14,7 +14,7 @@ from web3 import Web3
 
 from tqdm_loggable.auto import tqdm
 
-from eth_defi.erc_4626.discovery_base import get_vault_discovery_events
+from eth_defi.erc_4626.discovery_base import get_vault_discovery_events, LeadScanReport
 from eth_defi.erc_4626.discovery_base import VaultDiscoveryBase, PotentialVaultMatch
 from eth_defi.event_reader.reader import read_events_concurrent
 from eth_defi.event_reader.web3factory import Web3Factory
@@ -82,7 +82,7 @@ class JSONRPCVaultDiscover(VaultDiscoveryBase):
         start_block: int,
         end_block: int,
         display_progress=True,
-    ) -> dict[HexAddress, PotentialVaultMatch]:
+    ) -> LeadScanReport:
         """Identify smart contracts emitting 4626 like events.
 
         - Scan all event matches using HyperSync
@@ -116,9 +116,14 @@ class JSONRPCVaultDiscover(VaultDiscoveryBase):
         last_block = start_block
         timestamp = None
 
-        leads: dict[HexAddress, PotentialVaultMatch] = {}
+
         matches = 0
         seen = set()
+
+        report = LeadScanReport(backend=self)
+        report.old_leads = len(self.existing_leads)
+
+        leads: dict[HexAddress, PotentialVaultMatch] = self.existing_leads.copy()
 
         for event in read_events_concurrent(**query):
             current_block = event["blockNumber"]
@@ -134,17 +139,19 @@ class JSONRPCVaultDiscover(VaultDiscoveryBase):
                     address=address,
                     first_seen_at_block=block_number,
                     first_seen_at=timestamp,
-                    first_log_clue=event,
                 )
                 leads[address] = lead
+                report.new_leads += 1
 
             # Hardcoded for now
             assert event["topics"][0].startswith("0x")
             deposit_kind = event["topics"][0] == "0xdcbc1c05240f31ff3ad067ef1ee35ce4997762752e3a095284754544f4c709d7"
             if deposit_kind:
                 lead.deposit_count += 1
+                report.deposits += 1
             else:
                 lead.withdrawal_count += 1
+                report.withdrawals += 1
 
             if address not in seen:
                 if lead.is_candidate():
@@ -168,4 +175,7 @@ class JSONRPCVaultDiscover(VaultDiscoveryBase):
         if progress_bar is not None:
             progress_bar.close()
 
-        return leads
+
+        report.leads = leads
+
+        return report

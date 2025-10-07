@@ -8,6 +8,7 @@ import dataclasses
 import datetime
 import logging
 from abc import abstractmethod
+from dataclasses import dataclass
 from typing import Type, Iterable
 
 from web3.contract.contract import ContractEvent
@@ -17,6 +18,7 @@ from eth_defi.erc_4626.classification import probe_vaults
 from eth_defi.erc_4626.core import get_erc_4626_contract, ERC4626Feature, ERC4262VaultDetection
 from eth_typing import HexAddress
 
+from eth_defi.vault.base import VaultSpec
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +31,6 @@ class PotentialVaultMatch:
     address: HexAddress
     first_seen_at_block: int
     first_seen_at: datetime.datetime
-    first_log_clue: "hypersync.Log | eth_defi.event_reader.logresult.LogResult"
     deposit_count: int = 0
     withdrawal_count: int = 0
 
@@ -62,12 +63,47 @@ def get_vault_discovery_events(web3) -> list[Type[ContractEvent]]:
     ]
 
 
+@dataclass(slots=True)
+class LeadScanReport:
+    """ERC-4626 vault detection data we extract in one duty cycle."""
+
+    #: Any vault-like smart contracts
+    leads: dict[HexAddress, PotentialVaultMatch] = dataclasses.field(default_factory=dict)
+
+    #: Confirmed ERC-4626 vaults by smart contract probing calls
+    detections: dict[HexAddress, ERC4262VaultDetection] = dataclasses.field(default_factory=dict)
+
+    #: Exported vault-data as rows
+    rows: dict[VaultSpec, dict] = dataclasses.field(default_factory=dict)
+
+    #: Accounting / diagnostics
+    old_leads: int = 0
+    #: Accounting / diagnostics
+    new_leads: int = 0
+    #: Accounting / diagnostics
+    deposits: int = 0
+    #: Accounting / diagnostics
+    withdrawals: int = 0
+    #: Accounting / diagnostics
+    backend: "VaultDiscoveryBase | None" = None
+    #: Accounting / diagnostics
+    start_block: int = 0
+    #: Accounting / diagnostics
+    end_block: int = 0
+
+
+
 class VaultDiscoveryBase(abc.ABC):
     def __init__(
         self,
         max_workers: int,
     ):
         self.max_workers = max_workers
+        self.existing_leads = {}
+
+    def seed_existing_leads(self, leads: dict[HexAddress, PotentialVaultMatch]):
+        """Seed existing leads to continue the scan where we were left last time."""
+        self.existing_leads = leads
 
     @abstractmethod
     def fetch_leads(
@@ -75,7 +111,7 @@ class VaultDiscoveryBase(abc.ABC):
         start_block: int,
         end_block: int,
         display_progress=True,
-    ) -> dict[HexAddress, PotentialVaultMatch]:
+    ) -> LeadScanReport:
         pass
 
     def scan_vaults(
@@ -83,7 +119,7 @@ class VaultDiscoveryBase(abc.ABC):
         start_block: int,
         end_block: int,
         display_progress=True,
-    ) -> Iterable[ERC4262VaultDetection]:
+    ) -> LeadScanReport:
         """Scan vaults.
 
         - Detect vault leads by events using :py:meth:`scan_potential_vaults`
@@ -94,11 +130,16 @@ class VaultDiscoveryBase(abc.ABC):
 
         logger.info("%s.scan_vaults(%d, %d)", self.__class__.__name__, start_block, end_block)
 
-        leads = self.fetch_leads(
+        report = self.fetch_leads(
             start_block,
             end_block,
             display_progress,
         )
+        report.start_block = start_block
+        report.end_block = end_block
+        assert isinstance(report, LeadScanReport), f"Expected LeadScanReport, got {type(report)}"
+
+        leads = report.leads
 
         assert type(leads) == dict, f"Expected dict, got {type(leads)}"
 
@@ -121,7 +162,7 @@ class VaultDiscoveryBase(abc.ABC):
         ):
             lead = leads[feature_probe.address]
 
-            yield ERC4262VaultDetection(
+            detection = ERC4262VaultDetection(
                 chain=chain,
                 address=feature_probe.address,
                 features=feature_probe.features,
@@ -131,6 +172,7 @@ class VaultDiscoveryBase(abc.ABC):
                 deposit_count=lead.deposit_count,
                 redeem_count=lead.withdrawal_count,
             )
+            report.detections[feature_probe.address] = detection
 
             if ERC4626Feature.broken in feature_probe.features:
                 broken_vaults += 1
@@ -142,3 +184,5 @@ class VaultDiscoveryBase(abc.ABC):
             good_vaults,
             broken_vaults,
         )
+
+        return report

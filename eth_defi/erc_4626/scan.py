@@ -155,6 +155,8 @@ def create_vault_scan_record_subprocess(
       we want to speed up by doing many vaults parallel
     """
 
+    assert isinstance(detection, ERC4262VaultDetection), f"Expected ERC4262VaultDetection, got {type(detection)}"
+
     # We need to build JSON-RPC connection separately in every thread/process
     web3 = getattr(_subprocess_web3_cache, "web3", None)
     if web3 is None:
