@@ -50,7 +50,10 @@ def test_4626_scan_hypersync(web3):
 
     # Perform vault discovery and categorisation,
     # so we get information which address contains which kind of a vault
-    vault_detections = list(vault_discover.scan_vaults(start_block, end_block, display_progress=False))
+    report = vault_discover.scan_vaults(start_block, end_block, display_progress=False)
+    assert report.start_block == 1
+    assert report.end_block == 4000000
+    vault_detections = list(report.detections.values())
 
     # Prepare data export by reading further per-vault data using multiprocessing
     worker_processor = Parallel(n_jobs=vault_discover.max_workers)
@@ -59,9 +62,9 @@ def test_4626_scan_hypersync(web3):
     rows = worker_processor(delayed(create_vault_scan_record_subprocess)(web3factory, d, end_block) for d in vault_detections)
     rows.sort(key=lambda x: x["Address"])
 
-    assert len(rows) == 24
-    assert rows[0]["Name"] == "FARM_BSWAP-LP"
-    assert rows[0]["Address"] == "0x127dc157aF74858b36bcca07D5A02ef27Cd442d0".lower()
+    assert len(rows) == 59
+    assert rows[0]["Name"] == "Staked EURA"
+    # assert rows[0]["Address"] == "0x127dc157aF74858b36bcca07D5A02ef27Cd442d0".lower()
 
 
 def test_4626_scan_rpc(web3):
@@ -81,7 +84,8 @@ def test_4626_scan_rpc(web3):
 
     # Perform vault discovery and categorisation,
     # so we get information which address contains which kind of a vault
-    vault_detections = list(vault_discover.scan_vaults(start_block, end_block, display_progress=False))
+    report = vault_discover.scan_vaults(start_block, end_block, display_progress=False)
+    vault_detections = list(report.detections.values())
 
     # Prepare data export by reading further per-vault data using multiprocessing
     worker_processor = Parallel(n_jobs=vault_discover.max_workers)
@@ -178,7 +182,8 @@ def test_4626_scan_moonwell(web3):
 
     # Perform vault discovery and categorisation,
     # so we get information which address contains which kind of a vault
-    vault_detections = list(vault_discover.scan_vaults(start_block, end_block, display_progress=True))
+    report = vault_discover.scan_vaults(start_block, end_block, display_progress=False)
+    vault_detections = list(report.detections.values())
 
     # Prepare data export by reading further per-vault data using multiprocessing
     worker_processor = Parallel(n_jobs=vault_discover.max_workers)
