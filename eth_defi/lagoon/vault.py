@@ -305,9 +305,11 @@ class LagoonVault(ERC4626Vault):
         try:
             roles_tuple = vault.functions.getRolesStorage().call()
             whitelistManager, feeReceiver, safe, feeRegistry, valuationManager = roles_tuple
+            broken = False
         except (ValueError, BadFunctionCallOutput) as e:
             logger.error("Failed to fetch Lagoon roles for vault %s, error: %s", self.vault_address, e, exc_info=e)
             whitelistManager = feeReceiver = safe = feeRegistry = valuationManager = None
+            broken = True
 
         asset = vault.functions.asset().call()
         return {
@@ -319,6 +321,7 @@ class LagoonVault(ERC4626Vault):
             "safe": safe,
             "asset": asset,
             "tradingStrategyModuleAddress": self.trading_strategy_module_address,
+            "broken": broken,
         }
 
     def fetch_info(self) -> LagoonVaultInfo:
@@ -328,15 +331,17 @@ class LagoonVault(ERC4626Vault):
             See :py:class:`LagoonVaultInfo`
         """
         vault_info = self.fetch_vault_info()
-        safe = self.fetch_safe(vault_info["safe"])
-        try:
-            safe_info_dict = asdict(safe.retrieve_all_info())
-            del safe_info_dict["address"]  # Key conflict
-        except CannotRetrieveSafeInfoException as e:
-            # Safe is not a safe but EOA address
-            # https://arbiscan.io/address/0xb03EdA433d5bB1ef76b63087D4042A92C02822bD
-            logger.error(f"Lagoon Safe info fetch failed for Safe {safe}, vault {self.vault_address}, vault info is {vault_info}: {e}", exc_info=e)
-            safe_info_dict = {}
+        safe_address = vault_info["safe"]
+        safe = self.fetch_safe(safe_address)
+        safe_info_dict = {}
+        if safe_address:
+            try:
+                safe_info_dict = asdict(safe.retrieve_all_info())
+                del safe_info_dict["address"]  # Key conflict
+            except CannotRetrieveSafeInfoException as e:
+                # Safe is not a safe but EOA address
+                # https://arbiscan.io/address/0xb03EdA433d5bB1ef76b63087D4042A92C02822bD
+                logger.error(f"Lagoon Safe info fetch failed for Safe {safe}, vault {self.vault_address}, vault info is {vault_info}: {e}", exc_info=e)
 
         return vault_info | safe_info_dict
 
