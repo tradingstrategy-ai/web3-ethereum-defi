@@ -28,7 +28,7 @@ Re-run manual test::
     export JSON_RPC_URL=$JSON_RPC_PLASMA
     python scripts/erc-4626/scan-vaults.py
 
-    export JSON_RPC_URL=$JSON_RPC_HEMI
+    export JSON_RPC_URL=$JSON_RPC_LINEA
     python scripts/erc-4626/scan-vaults.py
     python scripts/erc-4626/scan-prices.py
 
