@@ -278,6 +278,10 @@ STABLECOIN_LIKE = set(
         "satUSD",
         "mUSD",
         "meUSDT",
+        "msUSD",
+        "xUSD",
+        "USDT0",
+        "USDai",
     ]
 )
 
