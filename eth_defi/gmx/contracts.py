@@ -9,6 +9,8 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
+from datetime import datetime, timedelta
+import threading
 
 import requests
 
@@ -18,7 +20,16 @@ from web3.contract import Contract
 from cchecksum import to_checksum_address
 
 from eth_defi.abi import get_deployed_contract
-from eth_defi.gmx.constants import GMX_API_URLS, GMX_API_URLS_BACKUP
+from eth_defi.gmx.constants import GMX_API_URLS, GMX_API_URLS_BACKUP, GMX_CONTRACTS_JSON_URL
+from eth_defi.gmx.api import GMXAPI
+from eth_defi.gmx.config import GMXConfig
+
+
+# Cache for contract addresses fetched from external URL
+_CONTRACT_ADDRESSES_CACHE = {}
+_TOKENS_CACHE = {}  # Cache for token addresses fetched from GMX API
+_CACHE_LOCK = threading.Lock()
+_CACHE_TIMEOUT = timedelta(hours=1)  # Cache timeout of 1 hour
 
 
 # Helper function to extract actual API URLs (filtering out docstring keys)
@@ -74,35 +85,8 @@ class ContractAddresses:
     oracle: Optional[HexAddress] = None
 
 
-# GMX contract addresses by network
+# Keep only networks that won't be fetched dynamically
 NETWORK_CONTRACTS = {
-    "arbitrum": ContractAddresses(
-        datastore=to_checksum_address("0xFD70de6b91282D8017aA4E741e9Ae325CAb992d8"),
-        eventemitter=to_checksum_address("0xC8ee91A54287DB53897056e12D9819156D3822Fb"),
-        exchangerouter=to_checksum_address("0x602b805EedddBbD9ddff44A7dcBD46cb07849685"),
-        depositvault=to_checksum_address("0xF89e77e8Dc11691C9e8757e84aaFbCD8A67d7A55"),
-        withdrawalvault=to_checksum_address("0x0628D46b5D145f183AdB6Ef1f2c97eD1C4701C55"),
-        ordervault=to_checksum_address("0x31eF83a530Fde1B38EE9A18093A333D8Bbbc40D5"),
-        syntheticsreader=to_checksum_address("0x0537C767cDAC0726c76Bb89e92904fe28fd02fE1"),
-        syntheticsrouter=to_checksum_address("0x7452c558d45f8afC8c83dAe62C3f8A5BE19c71f6"),
-        glvreader=to_checksum_address("0xd4f522c4339Ae0A90a156bd716715547e44Bed65"),
-        chainlinkpricefeedprovider=to_checksum_address("0x527FB0bCfF63C47761039bB386cFE181A92a4701"),
-        chainlinkdatastreamprovider=to_checksum_address("0xF4122dF7Be4Ccd46D7397dAf2387B3A14e53d967"),
-        gmoracleprovider=to_checksum_address("0x5d6B84086DA6d4B0b6C0dF7E02f8a6A039226530"),
-        orderhandler=to_checksum_address("0xfc9Bc118fdDb89FF6fF720840446D73478dE4153"),
-        oracle=to_checksum_address("0x918b60bA71bAdfaDA72EF3A6C6F71d0C41D4785C"),
-    ),
-    "avalanche": ContractAddresses(
-        datastore=to_checksum_address("0x2F0b22339414ADeD7D5F06f9D604c7fF5b2fe3f6"),
-        eventemitter=to_checksum_address("0xDb17B211c34240B014ab6d61d4A31FA0C0e20c26"),
-        exchangerouter=to_checksum_address("0x2b76df209E1343da5698AF0f8757f6170162e78b"),
-        depositvault=to_checksum_address("0x90c670825d0C62ede1c5ee9571d6d9a17A722DFF"),
-        withdrawalvault=to_checksum_address("0xf5F30B10141E1F63FC11eD772931A8294a591996"),
-        ordervault=to_checksum_address("0xD3D60D22d415aD43b7e64b510D86A30f19B1B12C"),
-        syntheticsreader=to_checksum_address("0x618fCEe30D9A26e8533C3B244CAd2D6486AFf655"),
-        syntheticsrouter=to_checksum_address("0x820F5FfC5b525cD4d88Cd91aCf2c28F16530Cc68"),
-        glvreader=to_checksum_address("0xae9596a1C438675AcC75f69d32E21Ac9c8fF99bD"),
-    ),
     "arbitrum_sepolia": ContractAddresses(
         datastore=to_checksum_address("0xCF4c2C4c53157BcC01A596e3788fFF69cBBCD201"),
         eventemitter=to_checksum_address("0xa973c2692C1556E1a3d478e745e9a75624AEDc73"),
@@ -121,6 +105,153 @@ NETWORK_CONTRACTS = {
     ),
 }
 
+# Hardcoded fallback for arbitrum addresses (used when API fetch fails)
+ARBITRUM_FALLBACK_ADDRESSES = ContractAddresses(
+    datastore=to_checksum_address("0xFD70de6b91282D8017aA4E741e9Ae325CAb992d8"),
+    eventemitter=to_checksum_address("0xC8ee91A54287DB53897056e12D9819156D3822Fb"),
+    exchangerouter=to_checksum_address("0x602b805EedddBbD9ddff44A7dcBD46cb07849685"),
+    depositvault=to_checksum_address("0xF89e77e8Dc11691C9e8757e84aaFbCD8A67d7A55"),
+    withdrawalvault=to_checksum_address("0x0628D46b5D145f183AdB6Ef1f2c97eD1C4701C55"),
+    ordervault=to_checksum_address("0x31eF83a530Fde1B38EE9A18093A333D8Bbbc40D5"),
+    syntheticsreader=to_checksum_address("0x0537C767cDAC0726c76Bb89e92904fe28fd02fE1"),
+    syntheticsrouter=to_checksum_address("0x7452c558d45f8afC8c83dAe62C3f8A5BE19c71f6"),
+    glvreader=to_checksum_address("0xd4f522c4339Ae0A90a156bd716715547e44Bed65"),
+    chainlinkpricefeedprovider=to_checksum_address("0x527FB0bCfF63C47761039bB386cFE181A92a4701"),
+    chainlinkdatastreamprovider=to_checksum_address("0xF4122dF7Be4Ccd46D7397dAf2387B3A14e53d967"),
+    gmoracleprovider=to_checksum_address("0x5d6B84086DA6d4B0b6C0dF7E02f8a6A039226530"),
+    orderhandler=to_checksum_address("0xfc9Bc118fdDb89FF6fF720840446D73478dE4153"),
+    oracle=to_checksum_address("0x918b60bA71bAdfaDA72EF3A6C6F71d0C41D4785C"),
+)
+
+# Hardcoded fallback for avalanche addresses (used when API fetch fails)
+AVALANCHE_FALLBACK_ADDRESSES = ContractAddresses(
+    datastore=to_checksum_address("0x2F0b22339414ADeD7D5F06f9D604c7fF5b2fe3f6"),
+    eventemitter=to_checksum_address("0xDb17B211c34240B014ab6d61d4A31FA0C0e20c26"),
+    exchangerouter=to_checksum_address("0x2b76df209E1343da5698AF0f8757f6170162e78b"),
+    depositvault=to_checksum_address("0x90c670825d0C62ede1c5ee9571d6d9a17A722DFF"),
+    withdrawalvault=to_checksum_address("0xf5F30B10141E1F63FC11eD772931A8294a591996"),
+    ordervault=to_checksum_address("0xD3D60D22d415aD43b7e64b510D86A30f19B1B12C"),
+    syntheticsreader=to_checksum_address("0x618fCEe30D9A26e8533C3B244CAd2D6486AFf655"),
+    syntheticsrouter=to_checksum_address("0x820F5FfC5b525cD4d88Cd91aCf2c28F16530Cc68"),
+    glvreader=to_checksum_address("0xae9596a1C438675AcC75f69d32E21Ac9c8fF99bD"),
+)
+
+
+def _fetch_contract_addresses_from_url(chain: str) -> Optional[ContractAddresses]:
+    """Fetch contract addresses for a chain from the GMX contracts.json URL with caching."""
+    with _CACHE_LOCK:
+        now = datetime.now()
+
+        # Check if we have a cached result that is still valid
+        if chain in _CONTRACT_ADDRESSES_CACHE:
+            cached_result, cache_time = _CONTRACT_ADDRESSES_CACHE[chain]
+            if now - cache_time < _CACHE_TIMEOUT:
+                return cached_result
+
+    # Fetch from URL
+    url = GMX_CONTRACTS_JSON_URL
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        contracts_data = response.json()
+
+        # Get contracts for the specified chain
+        if chain not in contracts_data:
+            return None
+
+        contracts_list = contracts_data[chain]
+
+        # Map contract names to addresses
+        contract_map = {}
+        for contract_info in contracts_list:
+            name = contract_info.get("contractName", "")
+            address = contract_info.get("contractAddress", "")
+            if name and address:
+                contract_map[name.lower()] = to_checksum_address(address)
+
+        # Create ContractAddresses instance based on available contracts
+        # Map the exact contract names to field names in ContractAddresses
+        field_mappings = {
+            "datastore": "datastore",
+            "eventemitter": "eventemitter",
+            "exchangerouter": "exchangerouter",
+            "depositvault": "depositvault",
+            "withdrawalvault": "withdrawalvault",
+            "ordervault": "ordervault",
+            "syntheticsreader": "reader",  # The synthetics reader is called "Reader" in the JSON
+            "syntheticsrouter": "router",  # The synthetics router is called "Router" in the JSON
+            "glvreader": "glvreader",
+        }
+
+        # Additional optional fields
+        optional_field_mappings = {"chainlinkpricefeedprovider": "chainlinkpricefeedprovider", "chainlinkdatastreamprovider": "chainlinkdatastreamprovider", "gmoracleprovider": "gmoracleprovider", "orderhandler": "orderhandler", "oracle": "oracle"}
+
+        # Build the contract addresses dict
+        addresses_dict = {}
+
+        # Map the required fields
+        for field_name, contract_name in field_mappings.items():
+            if contract_name.lower() in contract_map:
+                addresses_dict[field_name] = contract_map[contract_name.lower()]
+            else:
+                # If we can't find the specific contract, we can't return a valid ContractAddresses
+                return None
+
+        # Map the optional fields
+        for field_name, contract_name in optional_field_mappings.items():
+            if contract_name.lower() in contract_map:
+                addresses_dict[field_name] = contract_map[contract_name.lower()]
+
+        # Create the ContractAddresses object
+        contract_addresses = ContractAddresses(**addresses_dict)
+
+        # Cache the result
+        with _CACHE_LOCK:
+            _CONTRACT_ADDRESSES_CACHE[chain] = (contract_addresses, now)
+
+        return contract_addresses
+    except (requests.RequestException, json.JSONDecodeError, KeyError, ValueError) as e:
+        # Return None if there's an error fetching or parsing
+        return None
+
+
+def _fetch_tokens_from_gmx_api(chain: str, web3: Optional[Web3] = None) -> Optional[dict[str, str]]:
+    """Fetch token addresses for a chain from GMX API with caching."""
+    with _CACHE_LOCK:
+        now = datetime.now()
+
+        # Check if we have a cached result that is still valid
+        if chain in _TOKENS_CACHE:
+            cached_result, cache_time = _TOKENS_CACHE[chain]
+            if now - cache_time < _CACHE_TIMEOUT:
+                return cached_result
+
+    try:
+        # Use the updated GMXAPI constructor that accepts chain directly
+        api = GMXAPI(chain=chain)
+
+        # Fetch tokens from GMX API
+        token_data = api.get_tokens()
+        token_infos = token_data.get("tokens", [])
+
+        # Convert to symbol -> address mapping
+        tokens_dict = {}
+        for token_info in token_infos:
+            symbol = token_info.get("symbol", "").upper()
+            address = token_info.get("address", "")
+            if symbol and address:
+                tokens_dict[symbol] = to_checksum_address(address)
+
+        # Cache the result
+        with _CACHE_LOCK:
+            _TOKENS_CACHE[chain] = (tokens_dict, now)
+
+        return tokens_dict
+
+    except Exception as e:
+        # If API fetch fails, return the fallback tokens
+        return NETWORK_TOKENS_FALLBACK.get(chain)
+
 
 # ABI loading function
 def _load_abi(filename: str) -> list:
@@ -131,9 +262,8 @@ def _load_abi(filename: str) -> list:
         return json.load(f)
 
 
-# TODO: Replace this to fetch the addresses dynamically from https://raw.githubusercontent.com/gmx-io/gmx-synthetics/refs/heads/v2.2-branch/docs/contracts.json
-# Token addresses by network
-NETWORK_TOKENS = {
+# Token addresses by network - fallback values when API calls fail
+NETWORK_TOKENS_FALLBACK = {
     "arbitrum": {
         "WETH": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
         "WBTC": "0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f",
@@ -157,6 +287,9 @@ NETWORK_TOKENS = {
     },
 }
 
+# Maintain backward compatibility with old NETWORK_TOKENS name
+NETWORK_TOKENS = NETWORK_TOKENS_FALLBACK
+
 
 def get_contract_addresses(chain: str) -> ContractAddresses:
     """
@@ -179,10 +312,27 @@ def get_contract_addresses(chain: str) -> ContractAddresses:
                 # Regular key
                 clean_contracts[key] = value
 
-    if chain not in clean_contracts:
-        raise ValueError(f"Unsupported chain: {chain}. Supported: {list(clean_contracts.keys())}")
-
-    return clean_contracts[chain]
+    # For arbitrum and avalanche, try to fetch from URL first with fallback to hardcoded addresses
+    if chain == "arbitrum":
+        # Try to fetch from URL
+        dynamic_addresses = _fetch_contract_addresses_from_url("arbitrum")
+        if dynamic_addresses is not None:
+            return dynamic_addresses
+        else:
+            # Fallback to hardcoded addresses
+            return ARBITRUM_FALLBACK_ADDRESSES
+    elif chain == "avalanche":
+        # Try to fetch from URL
+        dynamic_addresses = _fetch_contract_addresses_from_url("avalanche")
+        if dynamic_addresses is not None:
+            return dynamic_addresses
+        else:
+            # Fallback to hardcoded addresses
+            return AVALANCHE_FALLBACK_ADDRESSES
+    elif chain in clean_contracts:
+        return clean_contracts[chain]
+    else:
+        raise ValueError(f"Unsupported chain: {chain}. Supported: {list(clean_contracts.keys()) + ['arbitrum', 'avalanche']}")
 
 
 def get_reader_contract(web3: Web3, chain: str) -> Contract:
@@ -209,78 +359,34 @@ def get_datastore_contract(web3: Web3, chain: str) -> Contract:
     return get_deployed_contract(web3, "gmx/DataStore.json", addresses.datastore)
 
 
-def get_tokens_address_dict(chain: str) -> dict[str, str]:
+def get_tokens_address_dict(chain: str, web3: Optional[Web3] = None) -> dict[str, str]:
     """
     Get token address mapping for a specific network from GMX API.
 
     :param chain: Network name
+    :param web3: Web3 connection instance (optional, not required for API calls)
     :return: Dictionary mapping token symbols to addresses
     :raises ValueError: If chain is not supported or API request fails
     """
-    clean_api_urls = _get_clean_api_urls()
-    clean_backup_urls = _get_clean_backup_urls()
+    # Fetch tokens using GMXAPI with caching
+    tokens_dict = _fetch_tokens_from_gmx_api(chain, web3)
 
-    # If chain has no API URL, check if we have hardcoded tokens
-    if chain not in clean_api_urls:
-        if chain in NETWORK_TOKENS:
-            return NETWORK_TOKENS[chain]
-        raise ValueError(f"Unsupported chain: {chain}. Supported: {list(clean_api_urls.keys()) + list(NETWORK_TOKENS.keys())}")
-
-    base_url = clean_api_urls[chain]
-
-    try:
-        # Try primary API endpoint
-        response = requests.get(f"{base_url}/tokens", timeout=10)
-        response.raise_for_status()
-
-        token_infos = response.json()["tokens"]
-
-        # Convert to symbol -> address mapping
-        tokens_dict = {}
-        for token_info in token_infos:
-            symbol = token_info.get("symbol", "").upper()
-            address = token_info.get("address", "")
-            if symbol and address:
-                tokens_dict[symbol] = to_checksum_address(address)
-
+    if tokens_dict is not None:
         return tokens_dict
-
-    except (requests.RequestException, KeyError, ValueError) as e:
-        # Try backup API endpoint
-        try:
-            backup_url = clean_backup_urls[chain]
-            response = requests.get(f"{backup_url}/tokens", timeout=10)
-            response.raise_for_status()
-
-            token_infos = response.json()["tokens"]
-
-            # Convert to symbol -> address mapping
-            tokens_dict = {}
-            for token_info in token_infos:
-                symbol = token_info.get("symbol", "").upper()
-                address = token_info.get("address", "")
-                if symbol and address:
-                    tokens_dict[symbol] = to_checksum_address(address)
-
-            return tokens_dict
-
-        except (requests.RequestException, KeyError, ValueError):
-            # Fall back to hardcoded tokens if API fails
-            if chain in NETWORK_TOKENS:
-                return NETWORK_TOKENS[chain]
-            else:
-                raise ValueError(f"Failed to fetch tokens for {chain} and no fallback available")
+    else:
+        raise ValueError(f"Failed to fetch tokens for {chain} and no fallback available")
 
 
-def get_token_address(chain: str, symbol: str) -> Optional[str]:
+def get_token_address(chain: str, symbol: str, web3: Optional[Web3] = None) -> Optional[str]:
     """
     Get address for a specific token on a network.
 
     :param chain: Network name
     :param symbol: Token symbol
+    :param web3: Web3 connection instance (optional, not required for API calls)
     :return: Token address or None if not found
     """
-    tokens = get_tokens_address_dict(chain)
+    tokens = get_tokens_address_dict(chain, web3)
     return tokens.get(symbol.upper())
 
 

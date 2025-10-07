@@ -98,7 +98,8 @@ Warning:
     Never provide more liquidity than you can afford to lose completely.
 """
 
-from eth_defi.gmx.liquidity_base.deposit import Deposit
+from eth_defi.gmx.liquidity_base import DepositResult
+from eth_defi.gmx.liquidity_base.deposit import Deposit, DepositParams
 from eth_defi.gmx.liquidity_base.withdraw import Withdraw
 from eth_defi.gmx.liquidity_base.liquidity_argument_parser import LiquidityArgumentParser
 from eth_defi.gmx.config import GMXConfig
@@ -170,8 +171,7 @@ class GMXLiquidityManager:
         short_token_symbol: str,
         long_token_usd: float = 0,
         short_token_usd: float = 0,
-        debug_mode: bool = False,
-    ) -> Deposit:
+    ) -> DepositResult:
         """
         Add liquidity to a specified GMX pool with precise asset composition control.
 
@@ -272,10 +272,7 @@ class GMXLiquidityManager:
         # Process parameters
         output = LiquidityArgumentParser(write_config, is_deposit=True).process_parameters_dictionary(parameters)
 
-        # Create deposit instance (deposit class needs GMXConfig, not GMXConfigManager)
-        from eth_defi.gmx.liquidity_base.deposit import Deposit, DepositParams
-
-        deposit = Deposit(config=self.config)  # Pass GMXConfig, not GMXConfigManager
+        deposit = Deposit(config=self.config)
 
         # Create deposit params
         params = DepositParams(
