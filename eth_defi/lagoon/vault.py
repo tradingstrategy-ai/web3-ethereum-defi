@@ -36,7 +36,7 @@ from safe_eth.safe.exceptions import CannotRetrieveSafeInfoException
 from web3 import Web3
 from web3.contract import Contract
 from web3.contract.contract import ContractFunction
-from web3.exceptions import ContractLogicError
+from web3.exceptions import ContractLogicError, BadFunctionCallOutput
 
 from eth_defi.vault.base import VaultFlowManager, VaultInfo, VaultSpec
 from .deposit_redeem import ERC7540DepositRequest
@@ -302,8 +302,13 @@ class LagoonVault(ERC4626Vault):
     def fetch_vault_info(self) -> dict:
         """Get all information we can extract from the vault smart contracts."""
         vault = self.vault_contract
-        roles_tuple = vault.functions.getRolesStorage().call()
-        whitelistManager, feeReceiver, safe, feeRegistry, valuationManager = roles_tuple
+        try:
+            roles_tuple = vault.functions.getRolesStorage().call()
+            whitelistManager, feeReceiver, safe, feeRegistry, valuationManager = roles_tuple
+        except (ValueError, BadFunctionCallOutput) as e:
+            logger.error("Failed to fetch Lagoon roles for vault %s, error: %s", self.vault_address, e, exc_info=e)
+            whitelistManager = feeReceiver = safe = feeRegistry = valuationManager = None
+
         asset = vault.functions.asset().call()
         return {
             "address": vault.address,
