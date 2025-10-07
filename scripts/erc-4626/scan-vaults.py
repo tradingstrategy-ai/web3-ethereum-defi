@@ -69,7 +69,6 @@ def main():
     web3 = create_multi_provider_web3(JSON_RPC_URL)
     web3factory = MultiProviderWeb3Factory(JSON_RPC_URL, retries=5)
 
-
     setup_console_logging(log_file=Path(f"logs/{name}-scan-vaults.log"))
 
     client = hypersync.HypersyncClient(hypersync.ClientConfig(url=hypersync_url))

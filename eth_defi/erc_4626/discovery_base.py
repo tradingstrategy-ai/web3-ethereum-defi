@@ -92,7 +92,6 @@ class LeadScanReport:
     end_block: int = 0
 
 
-
 class VaultDiscoveryBase(abc.ABC):
     def __init__(
         self,

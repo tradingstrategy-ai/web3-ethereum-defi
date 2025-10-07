@@ -1,4 +1,5 @@
 """Scan all ERC-4626 vaults onchain"""
+
 import logging
 import os
 
@@ -134,7 +135,7 @@ def test_lead_scan_core_hypersync(tmp_path, backend):
     # Pick one row
     # Drop.sol - not a real vault
     # https://basescan.org/address/0x65fca4426a3dbbafe2b28354ab03821d29b35045#code
-    spec = VaultSpec(chain_id=8453, vault_address='0x65fca4426a3dbbafe2b28354ab03821d29b35045')
+    spec = VaultSpec(chain_id=8453, vault_address="0x65fca4426a3dbbafe2b28354ab03821d29b35045")
     row = report.rows[spec]
     assert row["_detection_data"].deposit_count == 1276
 

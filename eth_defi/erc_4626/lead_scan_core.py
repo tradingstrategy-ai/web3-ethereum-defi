@@ -2,6 +2,7 @@
 
 - Does not scan historical prices, but only discovers vaults
 """
+
 import decimal
 import logging
 import pickle
@@ -30,7 +31,6 @@ logger = logging.getLogger(__name__)
 
 
 def display_vaults_table(df: pd.DataFrame):
-
     #
     # Display in terminal
     #
@@ -72,7 +72,6 @@ def display_vaults_table(df: pd.DataFrame):
 
     with pd.option_context("display.max_rows", None):
         display(df)
-
 
 
 def scan_leads(
@@ -213,7 +212,6 @@ def scan_leads(
     data_dict = {r["_detection_data"].get_spec(): r for r in rows}
     report.rows = data_dict
 
-
     printer(f"Saving vault pickled database to {vault_db_file}")
     # Merge new results
     existing_db.update_leads_and_rows(
@@ -232,4 +230,3 @@ def scan_leads(
     display_vaults_table(df)
 
     return report
-

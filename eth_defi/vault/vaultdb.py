@@ -14,7 +14,6 @@ from eth_defi.erc_4626.discovery_base import PotentialVaultMatch
 from eth_defi.vault.base import VaultSpec
 
 
-
 class VaultLead(TypedDict):
     """Vault info gathered during the vault discovery from the chain.
 

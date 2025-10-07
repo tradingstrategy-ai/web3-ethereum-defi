@@ -116,7 +116,6 @@ class JSONRPCVaultDiscover(VaultDiscoveryBase):
         last_block = start_block
         timestamp = None
 
-
         matches = 0
         seen = set()
 
@@ -174,7 +173,6 @@ class JSONRPCVaultDiscover(VaultDiscoveryBase):
 
         if progress_bar is not None:
             progress_bar.close()
-
 
         report.leads = leads
 
