@@ -73,7 +73,7 @@ class LogResult(TypedDict):
     blockHash: str
 
     #: Block number as hex string
-    blockNumber: str
+    blockNumber: int
 
     #: UNIX timestamp of the block number.
     #: Synthesized by block reader code, not present in the receipt.

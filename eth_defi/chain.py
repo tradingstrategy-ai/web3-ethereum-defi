@@ -58,6 +58,11 @@ CHAIN_NAMES = {
     42220: "Celo",
     7777777: "Zora",
     57073: "Ink",
+    #
+    9745: "Plasma",
+    239: "TAC",
+    43111: "Hemi",
+    59144: "Linea",
 }
 
 #: For linking on reports
@@ -84,7 +89,6 @@ CHAIN_HOMEPAGES = {
     42220: {"name": "Celo", "homepage": "https://celo.org"},
     7777777: {"name": "Zora", "homepage": "https://zora.co"},
     57073: {"name": "Ink", "homepage": "https://inkonchain.com/"},
-    421614: {"name": "ArbitrumSepolia", "homepage": "https://arbitrum.io"},
 }
 
 #: Chain avg block times.

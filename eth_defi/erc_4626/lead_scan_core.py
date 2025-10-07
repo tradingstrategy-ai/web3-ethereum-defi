@@ -82,6 +82,7 @@ def scan_leads(
     end_block: int | None = None,
     printer=print,
     backend: Literal["auto", "hypersync", "rpc"] = "auto",
+    max_getlogs_range: int | None = None,
 ) -> LeadScanReport:
     """Core loop to discover new vaults on a chain.
 
@@ -105,7 +106,7 @@ def scan_leads(
 
     match backend:
         case "auto":
-            hypersync_url = get_hypersync_server(web3)
+            hypersync_url = get_hypersync_server(web3, allow_missing=True)
             if hypersync_url:
                 hypersync_client = hypersync.HypersyncClient(hypersync.ClientConfig(url=hypersync_url))
             else:
@@ -153,6 +154,7 @@ def scan_leads(
             web3,
             web3factory,
             max_workers=max_workers,
+            max_getlogs_range=max_getlogs_range,
         )
         if not end_block:
             end_block = web3.eth.block_number

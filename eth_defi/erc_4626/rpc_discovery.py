@@ -41,6 +41,7 @@ class JSONRPCVaultDiscover(VaultDiscoveryBase):
         web3: Web3,
         web3factory: Web3Factory,
         max_workers: int = 8,
+        max_getlogs_range: int | None = None,
     ):
         """Create vault discover.
 
@@ -58,6 +59,7 @@ class JSONRPCVaultDiscover(VaultDiscoveryBase):
 
         self.web3 = web3
         self.web3factory = web3factory
+        self.max_getlogs_range = max_getlogs_range
 
     def build_query(self, executor: ThreadPoolExecutor, start_block: int, end_block: int) -> dict:
         """Create a read_events_concurrent arguments to discover new vaults.
@@ -70,7 +72,7 @@ class JSONRPCVaultDiscover(VaultDiscoveryBase):
             "start_block": start_block,
             "end_block": end_block,
             "events": get_vault_discovery_events(self.web3),
-            "chunk_size": get_logs_max_block_range(self.web3),
+            "chunk_size": self.max_getlogs_range or get_logs_max_block_range(self.web3),  # Allow command line override for crappy supported chains like TAC
             "extract_timestamps": None,  # We only need timestamps for first event per vault
         }
 
@@ -86,7 +88,13 @@ class JSONRPCVaultDiscover(VaultDiscoveryBase):
         """
         assert end_block > start_block
 
-        logger.info("Starting JSONRPCVaultDiscover.fetch_leads() on chain %d from block %d to %d", self.web3.eth.chain_id, start_block, end_block)
+        logger.info(
+            "Starting JSONRPCVaultDiscover.fetch_leads() on chain %d from block %d to %d, progress is %s",
+            self.web3.eth.chain_id,
+            start_block,
+            end_block,
+            display_progress,
+        )
 
         chain = self.web3.eth.chain_id
 
@@ -152,19 +160,21 @@ class JSONRPCVaultDiscover(VaultDiscoveryBase):
                     # Return leads early, even if we still accumulate deposit and withdraw matches for them
                     matches += 1
                     seen.add(address)
+                    logger.info("Found lead %s", address)
 
-        if progress_bar is not None:
-            progress_bar.update(current_block - last_block)
-            last_block = current_block
+            if progress_bar is not None:
+                progress_bar.update(current_block - last_block)
+                last_block = current_block
 
-            # Add extra data to the progress bar
-            if timestamp is not None:
-                progress_bar.set_postfix(
-                    {
-                        "At": timestamp,
-                        "Matches": f"{matches:,}",
-                    }
-                )
+                # Add extra data to the progress bar
+                if timestamp is not None:
+                    progress_bar.set_postfix(
+                        {
+                            "At": timestamp,
+                            "Block": f"{last_block:,}",
+                            "Matches": f"{matches:,}",
+                        }
+                    )
 
         if progress_bar is not None:
             progress_bar.close()

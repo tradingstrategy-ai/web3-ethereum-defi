@@ -10,6 +10,7 @@ For further reading see:
 
 import logging
 import threading
+import time
 from typing import Callable, Dict, Iterable, List, Optional, Protocol, Set, Any, TypeAlias, Union
 
 import futureproof
@@ -27,7 +28,7 @@ from eth_defi.event_reader.reorganisation_monitor import ReorganisationMonitor
 from eth_defi.event_reader.web3factory import TunedWeb3Factory
 from eth_defi.event_reader.web3worker import get_worker_web3, create_thread_pool_executor
 from eth_defi.event_reader.conversion import convert_jsonrpc_value_to_int
-
+from eth_defi.middleware import is_retryable_http_exception
 
 logger = logging.getLogger(__name__)
 
@@ -198,6 +199,8 @@ def extract_events(
     context: Optional[LogContext] = None,
     extract_timestamps: Optional[Callable] = extract_timestamps_json_rpc,
     reorg_mon: Optional[ReorganisationMonitor] = None,
+    attempts=5,
+    throttle_sleep=15,
 ) -> Iterable[LogResult]:
     """Perform eth_getLogs call over a block range.
 
@@ -253,7 +256,23 @@ def extract_events(
     # logging.info("Log range %d - %d", start_block, end_block)
 
     try:
-        logs = web3.manager.request_blocking("eth_getLogs", (filter_params,))
+        # Bypass all middleware so it does not slow us down
+        for attempt in range(attempts, 0, -1):
+            try:
+                logs = web3.manager.request_blocking("eth_getLogs", (filter_params,))
+                break
+            except Exception as e:
+                if is_retryable_http_exception(e) and attempt > 0:
+                    logger.warning(
+                        "Throttling extract_events(): %s, sleeping %s",
+                        e,
+                        throttle_sleep,
+                    )
+                    time.sleep(throttle_sleep)
+                    continue
+                else:
+                    raise
+
     except Exception as e:
         block_count = end_block - start_block
         raise ReadingLogsFailed(f"eth_getLogs failed for {start_block:,} - {end_block:,} (total {block_count:,} with filter {filter}") from e

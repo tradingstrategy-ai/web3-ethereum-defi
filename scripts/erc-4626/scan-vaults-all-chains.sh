@@ -27,6 +27,21 @@ export MAX_WORKERS
 # python scripts/erc-4626/scan-vaults.py
 # if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
 
+export JSON_RPC_URL=$JSON_RPC_HEMI
+python scripts/erc-4626/scan-vaults.py
+if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
+
+export JSON_RPC_URL=$JSON_RPC_TAC
+python scripts/erc-4626/scan-vaults.py
+if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
+
+export JSON_RPC_URL=$JSON_RPC_LINEA
+python scripts/erc-4626/scan-vaults.py
+if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
+
+export JSON_RPC_URL=$JSON_RPC_PLASMA
+python scripts/erc-4626/scan-vaults.py
+if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
 
 export JSON_RPC_URL=$JSON_RPC_ARBITRUM
 python scripts/erc-4626/scan-vaults.py
@@ -61,10 +76,6 @@ python scripts/erc-4626/scan-vaults.py
 if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
 
 export JSON_RPC_URL=$JSON_RPC_SONEIUM
-python scripts/erc-4626/scan-vaults.py
-if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
-
-export JSON_RPC_URL=$JSON_RPC_CELO
 python scripts/erc-4626/scan-vaults.py
 if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
 
@@ -112,6 +123,5 @@ if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ;
 
 echo "Cleaning vault data"
 python scripts/erc-4626/clean-prices.py
-
 
 echo "All done"

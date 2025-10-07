@@ -25,6 +25,15 @@ Or for dynamic 1h frequency scan for Polygon, delete existing data::
 
 Re-run manual test::
 
+    export JSON_RPC_URL=$JSON_RPC_PLASMA
+    python scripts/erc-4626/scan-vaults.py
+
+    export JSON_RPC_URL=$JSON_RPC_HEMI
+    python scripts/erc-4626/scan-vaults.py
+
+    export JSON_RPC_URL=$JSON_RPC_TAC
+    python scripts/erc-4626/scan-vaults.py
+
     export JSON_RPC_URL=$JSON_RPC_ARBITRUM
     python scripts/erc-4626/scan-vaults.py
     python scripts/erc-4626/scan-prices.py
@@ -85,7 +94,6 @@ def main():
 
     min_deposit_threshold = 5
 
-    start_block = 1
     end_block = os.environ.get("END_BLOCK")
     if end_block is None:
         end_block = web3.eth.block_number

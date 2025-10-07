@@ -15,7 +15,7 @@ from web3 import Web3
 from web3.types import RPCEndpoint, RPCResponse
 
 from eth_defi.event_reader.fast_json_rpc import get_last_headers
-from eth_defi.middleware import DEFAULT_RETRYABLE_EXCEPTIONS, DEFAULT_RETRYABLE_HTTP_STATUS_CODES, DEFAULT_RETRYABLE_RPC_ERROR_CODES, ProbablyNodeHasNoBlock, is_retryable_http_exception
+from eth_defi.middleware import DEFAULT_RETRYABLE_EXCEPTIONS, DEFAULT_RETRYABLE_HTTP_STATUS_CODES, DEFAULT_RETRYABLE_RPC_ERROR_CODES, ProbablyNodeHasNoBlock, is_retryable_http_exception, SomeCrappyRPCProviderException
 from eth_defi.provider.named import BaseNamedProvider, NamedProvider, get_provider_name
 from eth_defi.compat import WEB3_PY_V7
 
@@ -87,6 +87,17 @@ def _check_provider_middlewares_compat(provider):
         # v6: Original behavior
         if hasattr(provider, "middlewares") and "http_retry_request" in provider.middlewares:
             raise AssertionError("http_retry_request middleware cannot be used with FallbackProvider")
+
+
+def _is_tac_provider_madness(error_json_payload: dict) -> bool:
+    """F**king RPC providers and their shit"""
+    # TAC WTF
+    if error_json_payload:
+        if "reason: call rate limit exhausted" in str(error_json_payload):
+            # Uses HTTP 200 to throttle, not behaving sane
+            return True
+
+    return False
 
 
 class FallbackProvider(BaseNamedProvider):
@@ -283,13 +294,21 @@ class FallbackProvider(BaseNamedProvider):
                 # If this behavior is some legacy Web3.py behavior and not present anymore,
                 # we should replace this with a custom exception.
                 # Might be also related to EthereumTester only code paths.
-                if "error" in resp_data:
+                error_json_payload = resp_data.get("error")
+
+                if _is_tac_provider_madness(error_json_payload):
+                    raise SomeCrappyRPCProviderException(str(error_json_payload))
+
+                if error_json_payload:
+
+                    # eth_defi.provider.fallback.ExtraValueError: {'code': -32090, 'message': 'Too many requests, reason: call rate limit exhausted, retry in 10s', 'data': {'trace_id': '442bbec5e0e72f6ead9472c52ee9ddb6'}}
+
                     # {'jsonrpc': '2.0', 'id': 23, 'error': {'code': -32003, 'message': 'nonce too low'}}
                     # This will trigger exception that will be handled by is_retryable_http_exception().
                     # We add extra error message payload to make the exception more understandable in common error situations,
                     # while still maintaining the compatibility with vanilla ValueError()
                     headers = get_last_headers()
-                    error_json_payload = resp_data.get("error")
+
                     raise ExtraValueError(
                         error_json_payload,
                         extra_help=f"Error in JSON-RPC response:\n{resp_data['error']}\nignore_error: {ignore_error}\nMethod: {method}\nParams: {pformat(params)}\nReply headers: {pformat(headers)}",

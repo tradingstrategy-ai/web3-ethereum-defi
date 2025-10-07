@@ -11,6 +11,13 @@ Usage:
     export JSON_RPC_URL=...
     python scripts/erc-4626/scan-vaults.py
 
+Or:
+
+.. code-block:: shell
+
+    LOG_LEVEL=info JSON_RPC_URL=$JSON_RPC_TAC MAX_GETLOGS_RANGE=1000 python scripts/erc-4626/scan-vaults.py
+
+
 Or for faster small sample scan limit the end block:
 
     END_BLOCK=5555721 python scripts/erc-4626/scan-vaults.py
@@ -62,6 +69,10 @@ def main():
 
     vault_db_file = output_folder / f"vault-metadata-db.pickle"
 
+    max_getlogs_range = os.environ.get("MAX_GETLOGS_RANGE", None)
+    if max_getlogs_range:
+        max_getlogs_range = int(max_getlogs_range)
+
     scan_leads(
         json_rpc_urls=JSON_RPC_URL,
         vault_db_file=vault_db_file,
@@ -70,6 +81,7 @@ def main():
         end_block=end_block,
         printer=print,
         backend="auto",
+        max_getlogs_range=max_getlogs_range,
     )
 
 
