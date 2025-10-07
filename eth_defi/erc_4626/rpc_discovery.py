@@ -50,9 +50,6 @@ class JSONRPCVaultDiscover(VaultDiscoveryBase):
         :param web3factory:
             Used to initialise connection in created worker threads/processes
 
-        :param client:
-            HyperSync client used to scan lead event data
-
         :param max_workers:
             How many worker processes use in multicall probing
         """
@@ -85,9 +82,7 @@ class JSONRPCVaultDiscover(VaultDiscoveryBase):
     ) -> LeadScanReport:
         """Identify smart contracts emitting 4626 like events.
 
-        - Scan all event matches using HyperSync
-
-        - See stream() example here: https://github.com/enviodev/hypersync-client-python/blob/main/examples/all-erc20-transfers.py
+        - Scan all event matches using RPC
         """
         assert end_block > start_block
 
