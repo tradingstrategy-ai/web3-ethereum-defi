@@ -300,7 +300,6 @@ class FallbackProvider(BaseNamedProvider):
                     raise SomeCrappyRPCProviderException(str(error_json_payload))
 
                 if error_json_payload:
-
                     # eth_defi.provider.fallback.ExtraValueError: {'code': -32090, 'message': 'Too many requests, reason: call rate limit exhausted, retry in 10s', 'data': {'trace_id': '442bbec5e0e72f6ead9472c52ee9ddb6'}}
 
                     # {'jsonrpc': '2.0', 'id': 23, 'error': {'code': -32003, 'message': 'nonce too low'}}

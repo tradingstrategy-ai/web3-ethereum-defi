@@ -1,4 +1,5 @@
 """safe-eth-py RPC compatibility layer."""
+
 import logging
 import time
 
@@ -31,12 +32,12 @@ def create_safe_ethereum_client(web3: Web3, retry_count=10, creation_problem_sle
         try:
             # this bastard fails inside the constructor sometimes,
             # so we just try to brute force our way around the problem here
-            client =  EthereumClient(url, retry_count=retry_count)
+            client = EthereumClient(url, retry_count=retry_count)
         except Exception as e:
             if attempt == 0:
                 raise
             # web3.exceptions.Web3RPCError: {'code': -32090, 'message': 'Too many requests, reason: call rate limit exhausted, retry in 10m0s', 'data': {'trace_id': 'c589c8fec713e6153a6df5d44ff5ab42'}}
-            logger.warning(f"Failed to connect to Safe RPC {url}, attempts left {attempt-1}, error: {e}")
+            logger.warning(f"Failed to connect to Safe RPC {url}, attempts left {attempt - 1}, error: {e}")
             time.sleep(creation_problem_sleep)
 
     # Force Safe library to use our better middlewares

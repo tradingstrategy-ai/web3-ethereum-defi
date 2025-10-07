@@ -47,10 +47,8 @@ from eth_defi.tx import get_tx_broadcast_data
 logger = logging.getLogger(__name__)
 
 
-
 class SomeCrappyRPCProviderException(Exception):
     """Deal with non-standard RPC providers and whatever shitty logic they have invented for error codes"""
-
 
 
 #: List of Web3 exceptions we know we should retry after some timeout
