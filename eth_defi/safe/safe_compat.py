@@ -33,6 +33,7 @@ def create_safe_ethereum_client(web3: Web3, retry_count=10, creation_problem_sle
             # this bastard fails inside the constructor sometimes,
             # so we just try to brute force our way around the problem here
             client = EthereumClient(url, retry_count=retry_count)
+            break
         except Exception as e:
             if attempt == 0:
                 raise
@@ -41,6 +42,7 @@ def create_safe_ethereum_client(web3: Web3, retry_count=10, creation_problem_sle
             time.sleep(creation_problem_sleep)
 
     # Force Safe library to use our better middlewares
-    client.w3 = web3
-    client.slow_w3 = web3
+    # TODO: Breaks something - see test_lagoon_swap_exec_module
+    # client.w3 = web3
+    # client.slow_w3 = web3
     return client
