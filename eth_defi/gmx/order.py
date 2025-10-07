@@ -113,11 +113,11 @@ Warning:
     and test strategies thoroughly before live execution.
 """
 
-from gmx_python_sdk.scripts.v2.get.get_open_positions import GetOpenPositions
-from gmx_python_sdk.scripts.v2.order.create_decrease_order import DecreaseOrder
-from gmx_python_sdk.scripts.v2.order.order_argument_parser import OrderArgumentParser
 from eth_typing import ChecksumAddress as Address
 
+from eth_defi.gmx.core.open_positions import GetOpenPositions
+from eth_defi.gmx.order.decrease_order import DecreaseOrder
+from eth_defi.gmx.order.order_argument_parser import OrderArgumentParser
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.utils import transform_open_position_to_order_parameters
 
@@ -310,18 +310,21 @@ class GMXOrderManager:
         # Process parameters through the OrderArgumentParser
         order_parameters = OrderArgumentParser(write_config, is_decrease=True).process_parameters_dictionary(parameters)
 
-        # Create decrease order
-        return DecreaseOrder(
+        # Create order instance with position identification
+        order = DecreaseOrder(
             config=write_config,
             market_key=order_parameters["market_key"],
             collateral_address=order_parameters["collateral_address"],
             index_token_address=order_parameters["index_token_address"],
             is_long=order_parameters["is_long"],
+        )
+
+        # Create the actual decrease order transaction
+        return order.create_decrease_order(
             size_delta=order_parameters["size_delta"],
             initial_collateral_delta_amount=order_parameters["initial_collateral_delta"],
             slippage_percent=order_parameters["slippage_percent"],
             swap_path=order_parameters.get("swap_path", []),
-            debug_mode=debug_mode,
         )
 
     def close_position_by_key(
@@ -467,16 +470,19 @@ class GMXOrderManager:
             amount_of_collateral_to_remove=amount_of_collateral_to_remove,
         )
 
-        # Create decrease order
-        return DecreaseOrder(
+        # Create order instance with position identification
+        order = DecreaseOrder(
             config=write_config,
             market_key=order_parameters["market_key"],
             collateral_address=order_parameters["collateral_address"],
             index_token_address=order_parameters["index_token_address"],
             is_long=order_parameters["is_long"],
+        )
+
+        # Create the actual decrease order transaction
+        return order.create_decrease_order(
             size_delta=order_parameters["size_delta"],
             initial_collateral_delta_amount=order_parameters["initial_collateral_delta"],
             slippage_percent=order_parameters["slippage_percent"],
             swap_path=order_parameters.get("swap_path", []),
-            debug_mode=debug_mode,
         )

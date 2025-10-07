@@ -112,14 +112,9 @@ from decimal import Decimal
 from eth_abi import encode
 from eth_utils import keccak
 
-from gmx_python_sdk.scripts.v2.get.get_markets import Markets
-
-from gmx_python_sdk.scripts.v2.get.get_open_positions import GetOpenPositions
-from gmx_python_sdk.scripts.v2.gmx_utils import (
-    ConfigManager,
-    find_dictionary_by_key_value,
-    get_tokens_address_dict,
-)
+from eth_defi.gmx.core.markets import Markets
+from eth_defi.gmx.core.open_positions import GetOpenPositions
+from eth_defi.gmx.contracts import get_tokens_address_dict
 
 # Can be done using the `GMXAPI` class if needed
 # def token_symbol_to_address(chain: str, symbol: str) -> Optional[str]:
@@ -332,7 +327,7 @@ def get_positions(config, address: str = None) -> dict[str, Any]:
     :param config:
         GMX configuration object containing network settings and optional
         wallet information for position queries
-    :type config: ConfigManager
+    :type config: GMXConfigManager
     :param address:
         Specific Ethereum address to query positions for. If None, attempts
         to use the address from the provided configuration object
@@ -351,7 +346,17 @@ def get_positions(config, address: str = None) -> dict[str, Any]:
         if address is None:
             raise Exception("No address passed in function or config!")
 
-    positions = GetOpenPositions(config=config, address=address).get_data()
+    # GetOpenPositions expects GMXConfig, so create one if we have GMXConfigManager
+    if hasattr(config, "get_web3_connection"):
+        # This is GMXConfigManager
+        from eth_defi.gmx.config import GMXConfig
+
+        web3 = config.get_web3_connection()
+        gmx_config = GMXConfig(web3, user_wallet_address=config.user_wallet_address)
+        positions = GetOpenPositions(config=gmx_config).get_data(address=address)
+    else:
+        # This is already GMXConfig
+        positions = GetOpenPositions(config=config).get_data(address=address)
 
     if len(positions) > 0:
         logging.info(f"Open Positions for {address}:")
@@ -434,7 +439,7 @@ def transform_open_position_to_order_parameters(
     :param config:
         GMX configuration object containing network settings and token
         information required for address resolution and market data access
-    :type config: ConfigManager
+    :type config: GMXConfigManager
     :param positions:
         Dictionary containing all current open positions with human-readable
         keys and comprehensive position data for transformation
@@ -640,7 +645,7 @@ def determine_swap_route(markets: dict, in_token: str, out_token: str, chain: st
 
 
 if __name__ == "__main__":
-    config = ConfigManager(chain="arbitrum")
+    # Example removed - use GMXConfig instead in production code
     config.set_config()
 
     positions = get_positions(config=config, address="0x0e9E19E7489E5F13a0940b3b6FcB84B25dc68177")

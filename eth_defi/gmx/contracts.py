@@ -17,7 +17,7 @@ from web3 import Web3
 from web3.contract import Contract
 from cchecksum import to_checksum_address
 
-from eth_defi.abi import get_contract, get_deployed_contract
+from eth_defi.abi import get_deployed_contract
 from eth_defi.gmx.constants import GMX_API_URLS, GMX_API_URLS_BACKUP
 
 
@@ -103,6 +103,22 @@ NETWORK_CONTRACTS = {
         syntheticsrouter=to_checksum_address("0x820F5FfC5b525cD4d88Cd91aCf2c28F16530Cc68"),
         glvreader=to_checksum_address("0xae9596a1C438675AcC75f69d32E21Ac9c8fF99bD"),
     ),
+    "arbitrum_sepolia": ContractAddresses(
+        datastore=to_checksum_address("0xCF4c2C4c53157BcC01A596e3788fFF69cBBCD201"),
+        eventemitter=to_checksum_address("0xa973c2692C1556E1a3d478e745e9a75624AEDc73"),
+        exchangerouter=to_checksum_address("0x657F9215FA1e839FbA15cF44B1C00D95cF71ed10"),
+        depositvault=to_checksum_address("0x809Ea82C394beB993c2b6B0d73b8FD07ab92DE5A"),
+        withdrawalvault=to_checksum_address("0x7601c9dBbDCf1f5ED1E7Adba4EFd9f2cADa037A5"),
+        ordervault=to_checksum_address("0x1b8AC606de71686fd2a1AEDEcb6E0EFba28909a2"),
+        syntheticsreader=to_checksum_address("0x37a0A165389B2f959a04685aC8fc126739e86926"),
+        syntheticsrouter=to_checksum_address("0x72F13a44C8ba16a678CAD549F17bc9e06d2B8bD2"),
+        glvreader=to_checksum_address("0x4843D570c726cFb44574c1769f721a49c7e9c350"),
+        chainlinkpricefeedprovider=to_checksum_address("0xa76BF7f977E80ac0bff49BDC98a27b7b070a937d"),
+        chainlinkdatastreamprovider=to_checksum_address("0x13d6133F9ceE27B6C9A4559849553F10A45Bd9a4"),
+        gmoracleprovider=to_checksum_address("0xFcE6f3D7a312C16ddA64dB049610f3fa4a477627"),
+        orderhandler=to_checksum_address("0x96332063e9dAACF93A7379CCa13BC2C8Ff5809cb"),
+        oracle=to_checksum_address("0x0dC4e24C63C24fE898Dda574C962Ba7Fbb146964"),
+    ),
 }
 
 
@@ -118,8 +134,27 @@ def _load_abi(filename: str) -> list:
 # TODO: Replace this to fetch the addresses dynamically from https://raw.githubusercontent.com/gmx-io/gmx-synthetics/refs/heads/v2.2-branch/docs/contracts.json
 # Token addresses by network
 NETWORK_TOKENS = {
-    "arbitrum": {"WETH": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1", "WBTC": "0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f", "USDC": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831", "USDT": "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9", "ARB": "0x912CE59144191C1204E64559FE8253a0e49E6548", "LINK": "0xf97f4df75117a78c1A5a0DBb814Af92458539FB4", "wstETH": "0x5979D7b546E38E414F7E9822514be443A4800529"},
-    "avalanche": {"WAVAX": "0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7", "WETH": "0x49D5c2BdFfac6CE2BFdB6640F4F80f226bc10bAB", "WBTC": "0x50b7545627a5162F82A992c33b87aDc75187B218", "USDC": "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E", "USDT": "0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7"},
+    "arbitrum": {
+        "WETH": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
+        "WBTC": "0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f",
+        "USDC": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+        "USDT": "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
+        "ARB": "0x912CE59144191C1204E64559FE8253a0e49E6548",
+        "LINK": "0xf97f4df75117a78c1A5a0DBb814Af92458539FB4",
+        "wstETH": "0x5979D7b546E38E414F7E9822514be443A4800529",
+    },
+    "avalanche": {
+        "WAVAX": "0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7",
+        "WETH": "0x49D5c2BdFfac6CE2BFdB6640F4F80f226bc10bAB",
+        "WBTC": "0x50b7545627a5162F82A992c33b87aDc75187B218",
+        "USDC": "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E",
+        "USDT": "0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7",
+    },
+    "arbitrum_sepolia": {
+        "WETH": "0x980B62Da83eFf3D4576C647993b0c1D7faf17c73",
+        "BTC": "0xF79cE1Cf38A09D572b021B4C5548b75A14082F12",
+        "USDC": "0x3253a335E7bFfB4790Aa4C25C4250d206E9b9773",
+    },
 }
 
 
@@ -185,8 +220,11 @@ def get_tokens_address_dict(chain: str) -> dict[str, str]:
     clean_api_urls = _get_clean_api_urls()
     clean_backup_urls = _get_clean_backup_urls()
 
+    # If chain has no API URL, check if we have hardcoded tokens
     if chain not in clean_api_urls:
-        raise ValueError(f"Unsupported chain: {chain}. Supported: {list(clean_api_urls.keys())}")
+        if chain in NETWORK_TOKENS:
+            return NETWORK_TOKENS[chain]
+        raise ValueError(f"Unsupported chain: {chain}. Supported: {list(clean_api_urls.keys()) + list(NETWORK_TOKENS.keys())}")
 
     base_url = clean_api_urls[chain]
 

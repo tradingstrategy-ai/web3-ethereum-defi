@@ -321,10 +321,24 @@ class BaseOrder:
         """
         self.logger.debug("Getting prices...")
 
-        if params.index_token_address not in prices:
-            raise ValueError(f"Price not available for token {params.index_token_address}")
+        # Map testnet token addresses to mainnet for oracle lookup
+        testnet_to_mainnet_tokens = {
+            # Arbitrum Sepolia → Arbitrum mainnet
+            "0x980B62Da83eFf3D4576C647993b0c1D7faf17c73": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",  # WETH
+            "0xF79cE1Cf38A09D572b021B4C5548b75A14082F12": "0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f",  # BTC
+            "0x3253a335E7bFfB4790Aa4C25C4250d206E9b9773": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",  # USDC
+            "0xD5DdAED48B09fa1D7944bd662CB05265FCD7077C": "0x2bcC6D6CdBbDC0a4071e48bb3B969b06B3330c07",  # SOL
+        }
 
-        price_data = prices[params.index_token_address]
+        # Get oracle address (map testnet to mainnet if needed)
+        oracle_address = params.index_token_address
+        if self.chain in ["arbitrum_sepolia", "avalanche_fuji"]:
+            oracle_address = testnet_to_mainnet_tokens.get(params.index_token_address, params.index_token_address)
+
+        if oracle_address not in prices:
+            raise ValueError(f"Price not available for token {params.index_token_address} (oracle: {oracle_address})")
+
+        price_data = prices[oracle_address]
         price = median([float(price_data["maxPriceFull"]), float(price_data["minPriceFull"])])
 
         # Calculate slippage based on position type and action
@@ -442,9 +456,9 @@ class BaseOrder:
         if not chain_tokens:
             raise ValueError(f"Unsupported chain: {self.chain}")
 
-        if self.chain.lower() == "arbitrum":
+        if self.chain.lower() in ["arbitrum", "arbitrum_sepolia"]:
             native_token_address = chain_tokens.get("WETH")
-        elif self.chain.lower() == "avalanche":
+        elif self.chain.lower() in ["avalanche", "avalanche_fuji"]:
             native_token_address = chain_tokens.get("WAVAX")
         else:
             raise ValueError(f"Unsupported chain: {self.chain}")
@@ -577,9 +591,9 @@ class BaseOrder:
         if not chain_tokens:
             raise ValueError(f"Unsupported chain: {self.chain}")
 
-        if self.chain.lower() == "arbitrum":
+        if self.chain.lower() in ["arbitrum", "arbitrum_sepolia"]:
             native_token_address = chain_tokens.get("WETH")
-        elif self.chain.lower() == "avalanche":
+        elif self.chain.lower() in ["avalanche", "avalanche_fuji"]:
             native_token_address = chain_tokens.get("WAVAX")
         else:
             raise ValueError(f"Unsupported chain: {self.chain}")
@@ -607,13 +621,15 @@ class BaseOrder:
         required_amount = int(params.initial_collateral_delta_amount)
 
         if allowance < required_amount:
-            raise ValueError(
-                f"Insufficient token allowance for {token_details.symbol}. Required: {required_amount / (10**token_details.decimals):.4f}, Current allowance: {allowance / (10**token_details.decimals):.4f}. Please approve tokens first using: token.approve('{self.contract_addresses.syntheticsrouter}', amount)",
-            )
+            required = required_amount / (10**token_details.decimals)
+            current = allowance / (10**token_details.decimals)
 
-        self.logger.debug(
-            f"Token approval check passed: {allowance / (10**token_details.decimals):.4f} {token_details.symbol} approved",
-        )
+            # Just log a warning - don't block transaction creation
+            self.logger.warning(f"Insufficient token allowance for {token_details.symbol}. Required: {required:.4f}, Current allowance: {current:.4f}. User needs to approve tokens using: token.approve('{self.contract_addresses.syntheticsrouter}', amount) before submitting the transaction.")
+        else:
+            self.logger.debug(
+                f"Token approval check passed: {allowance / (10**token_details.decimals):.4f} {token_details.symbol} approved",
+            )
 
     # New method to estimate price impact
     def _estimate_price_impact(

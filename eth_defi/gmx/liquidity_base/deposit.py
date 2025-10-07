@@ -479,12 +479,12 @@ class Deposit:
 
         # 2. Send short tokens if amount > 0 AND not native token
         if params.short_token_amount > 0:
-            if params.initial_short_token.lower() != native_token.lower():
-                # ERC20 token
-                multicall_args.append(self._send_tokens(params.initial_short_token, params.short_token_amount))
-            else:
+            if native_token and params.initial_short_token.lower() == native_token.lower():
                 # Native token - will be sent as WNT
                 wnt_amount += params.short_token_amount
+            else:
+                # ERC20 token
+                multicall_args.append(self._send_tokens(params.initial_short_token, params.short_token_amount))
 
         # 3. Send WNT (native tokens + execution fee)
         multicall_args.append(self._send_wnt(int(wnt_amount + execution_fee)))
@@ -588,10 +588,15 @@ class Deposit:
         if not tokens:
             raise ValueError(f"Unsupported chain: {self.chain}")
 
-        native_token = tokens.get("WETH") if self.chain.lower() == "arbitrum" else tokens.get("WAVAX")
+        if self.chain.lower() in ["arbitrum", "arbitrum_sepolia"]:
+            native_token = tokens.get("WETH")
+        elif self.chain.lower() in ["avalanche", "avalanche_fuji"]:
+            native_token = tokens.get("WAVAX")
+        else:
+            native_token = None
 
         # Skip approval for native token (will be wrapped)
-        if token_address.lower() == native_token.lower():
+        if native_token and token_address.lower() == native_token.lower():
             return
 
         user_wallet_address = self.config.get_wallet_address()
@@ -612,7 +617,17 @@ class Deposit:
                 "name": "allowance",
                 "outputs": [{"name": "", "type": "uint256"}],
                 "type": "function",
-            }
+            },
+            {
+                "constant": False,
+                "inputs": [
+                    {"name": "spender", "type": "address"},
+                    {"name": "amount", "type": "uint256"},
+                ],
+                "name": "approve",
+                "outputs": [{"name": "", "type": "bool"}],
+                "type": "function",
+            },
         ]
 
         token_contract = self.web3.eth.contract(address=to_checksum_address(token_address), abi=erc20_abi)
@@ -627,4 +642,9 @@ class Deposit:
         if allowance < amount:
             required = amount / (10**token_details.decimals)
             current = allowance / (10**token_details.decimals)
-            raise ValueError(f"Insufficient token allowance for {token_details.symbol}. Required: {required:.4f}, Current allowance: {current:.4f}. Please approve tokens first.")
+
+            # Just log a warning - don't block transaction creation
+            import logging
+
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Insufficient token allowance for {token_details.symbol}. Required: {required:.4f}, Current allowance: {current:.4f}. User needs to approve tokens before submitting the transaction.")

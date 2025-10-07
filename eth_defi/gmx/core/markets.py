@@ -242,6 +242,9 @@ class Markets:
         token_metadata_dict = self._get_token_metadata_dict()
         oracle_prices = self._get_oracle_prices()
 
+        # Testnets use different token addresses, so skip oracle validation for them
+        is_testnet = self.config.chain in ["arbitrum_sepolia", "avalanche_fuji"]
+
         # Get raw market data
         raw_markets = self._get_available_markets_raw()
         logger.debug(f"Retrieved {len(raw_markets)} raw markets from contract")
@@ -266,8 +269,8 @@ class Markets:
                         logger.debug(f"Skipping market {market_address} with zero index token address")
                         continue
 
-                # Check if index token is available in oracle prices
-                if index_token_address not in oracle_prices:
+                # Check if index token is available in oracle prices (skip for testnets due to address mismatch)
+                if not is_testnet and oracle_prices and index_token_address not in oracle_prices:
                     # Special case for wstETH market
                     if market_address == self._special_wsteth_address:
                         pass  # Continue processing
