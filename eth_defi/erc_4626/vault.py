@@ -11,6 +11,7 @@ from eth_typing import HexAddress
 from web3 import Web3
 from web3.contract import Contract
 from eth_defi.compat import WEB3_PY_V7
+from eth_defi.provider.fallback import ExtraValueError
 
 if WEB3_PY_V7:
     from web3.exceptions import BadFunctionCallOutput, BlockNumberOutOfRange
@@ -644,7 +645,7 @@ class ERC4626Vault(VaultBase):
                 # Could not read ERC4626Vault 0x0271353E642708517A07985eA6276944A708dDd1 (set()):
                 share_token_address = self.vault_address
 
-        except (ValueError, BadFunctionCallOutput) as e:
+        except (ValueError, BadFunctionCallOutput, ExtraValueError) as e:
             parsed_error = str(e)
             # Try to figure out broken ERC-4626 contract and have all conditions
             # to gracefully handle failed erc_7575_call()
@@ -652,7 +653,8 @@ class ERC4626Vault(VaultBase):
             # Could not read ERC4626Vault 0x32F6D2c91FF3C3d2f1fC2cCAb4Afcf2b6ecF24Ef (set()): {'message': 'out of gas', 'code': -32000}
             # Hyperliquid
             # ValueError: Call failed: 400 Client Error: Bad Request for url: https://lb.drpc.org/ogrpc?network=hyperliquid&dkey=AiWA4TvYpkijvapnvFlyx_WBfO5CICoR76hArr3WfgV4
-            if not (("execution reverted" in parsed_error) or ("out of gas" in parsed_error) or ("Bad Request" in parsed_error) or ("VM execution error" in parsed_error)):
+            if not (("Execution reverted" in parsed_error) or ("execution reverted" in parsed_error) or ("out of gas" in parsed_error) or ("Bad Request" in parsed_error) or ("VM execution error" in parsed_error)):
+                logger.error(f"fetch_share_token(): Not sure about exception %s", e)
                 raise
 
             share_token_address = self.vault_address

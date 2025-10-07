@@ -63,9 +63,13 @@ def main():
     os.makedirs(DEFAULT_VAULT_DATABASE.parent, exist_ok=True)
     vault_db_file = DEFAULT_VAULT_DATABASE
 
+    # Debug bad RPCs
     max_getlogs_range = os.environ.get("MAX_GETLOGS_RANGE", None)
     if max_getlogs_range:
         max_getlogs_range = int(max_getlogs_range)
+
+    # Rescan all leads
+    reset_leads = os.environ.get("RESET_LEADS", None)
 
     scan_leads(
         json_rpc_urls=JSON_RPC_URL,
@@ -76,6 +80,7 @@ def main():
         printer=print,
         backend="auto",
         max_getlogs_range=max_getlogs_range,
+        reset_leads=reset_leads,
     )
 
 

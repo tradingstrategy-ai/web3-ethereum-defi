@@ -83,6 +83,7 @@ def scan_leads(
     printer=print,
     backend: Literal["auto", "hypersync", "rpc"] = "auto",
     max_getlogs_range: int | None = None,
+    reset_leads=False,
 ) -> LeadScanReport:
     """Core loop to discover new vaults on a chain.
 
@@ -159,7 +160,11 @@ def scan_leads(
         if not end_block:
             end_block = web3.eth.block_number
 
-    vault_discover.seed_existing_leads(existing_db.get_existing_leads_by_chain(chain_id))
+    if not reset_leads:
+        vault_discover.seed_existing_leads(existing_db.get_existing_leads_by_chain(chain_id))
+    else:
+        # Rescan all vaults since the beginning of the chat
+        start_block = 1
 
     # Perform vault discovery and categorisation,
     # so we get information which address contains which kind of a vault
