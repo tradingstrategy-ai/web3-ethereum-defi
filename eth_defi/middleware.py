@@ -47,6 +47,10 @@ from eth_defi.tx import get_tx_broadcast_data
 logger = logging.getLogger(__name__)
 
 
+class SomeCrappyRPCProviderException(Exception):
+    """Deal with non-standard RPC providers and whatever shitty logic they have invented for error codes"""
+
+
 #: List of Web3 exceptions we know we should retry after some timeout
 #:
 #: For ``BlockNotFound`` see also :py:mod:`eth_defi.rpc.broken_provider`.
@@ -71,6 +75,7 @@ DEFAULT_RETRYABLE_EXCEPTIONS: Tuple[BaseException] = (
     ChunkedEncodingError,
     # urllib3.exceptions.ProtocolError: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
     RemoteDisconnected,
+    SomeCrappyRPCProviderException,
 )
 
 #: List of HTTP status codes we know we might want to retry after a timeout

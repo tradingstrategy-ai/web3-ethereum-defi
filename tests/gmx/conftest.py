@@ -95,11 +95,6 @@ CHAIN_CONFIG = {
     },
 }
 
-# Suppress logs to avoid anvil logs cluttering test output
-original_log_handlers = logging.getLogger().handlers[:]
-for handler in original_log_handlers:
-    logging.getLogger().removeHandler(handler)
-
 
 def pytest_generate_tests(metafunc):
     """Generate parametrized tests for multiple chains if the test uses 'chain_name' parameter."""

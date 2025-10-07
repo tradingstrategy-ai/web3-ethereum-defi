@@ -551,6 +551,12 @@ def create_vault_instance(
         from eth_defi.morpho.vault import MorphoVault
 
         return MorphoVault(web3, spec, token_cache=token_cache, features=features)
+    elif ERC4626Feature.euler_like in features:
+        # Lagoon instance
+        from eth_defi.euler.vault import EulerVault
+
+        return EulerVault(web3, spec, token_cache=token_cache, features=features)
+
     elif ERC4626Feature.gains_like in features:
         # Lagoon instance
         from eth_defi.gains.vault import GainsVault

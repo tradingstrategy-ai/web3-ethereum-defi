@@ -58,6 +58,11 @@ CHAIN_NAMES = {
     42220: "Celo",
     7777777: "Zora",
     57073: "Ink",
+    #
+    9745: "Plasma",
+    239: "TAC",
+    43111: "Hemi",
+    59144: "Linea",
 }
 
 #: For linking on reports
@@ -84,7 +89,6 @@ CHAIN_HOMEPAGES = {
     42220: {"name": "Celo", "homepage": "https://celo.org"},
     7777777: {"name": "Zora", "homepage": "https://zora.co"},
     57073: {"name": "Ink", "homepage": "https://inkonchain.com/"},
-    421614: {"name": "ArbitrumSepolia", "homepage": "https://arbitrum.io"},
 }
 
 #: Chain avg block times.
@@ -113,6 +117,11 @@ EVM_BLOCK_TIMES = {
     42220: 5,  # Celo, ~5s block time
     7777777: 2,  # Zora L2
     57073: 2,  # Ink (Optimism)
+    # New batch
+    9745: 1,  # Plasma is "subsecond" but there is no stable blockchain, so this is just workaround https://www.plasma.to/chain
+    239: 1.5,  # TAC, ~1.5s averaged
+    43111: 12,  # Hemi aims for sub-15 second block times on its Layer 2 network
+    59144: 2,  # Block Time: Approximately 2 seconds soft finality
 }
 
 

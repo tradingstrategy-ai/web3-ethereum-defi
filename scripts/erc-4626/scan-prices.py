@@ -25,6 +25,17 @@ Or for dynamic 1h frequency scan for Polygon, delete existing data::
 
 Re-run manual test::
 
+    export JSON_RPC_URL=$JSON_RPC_PLASMA
+    python scripts/erc-4626/scan-vaults.py
+
+    export JSON_RPC_URL=$JSON_RPC_HEMI
+    python scripts/erc-4626/scan-vaults.py
+    python scripts/erc-4626/scan-prices.py
+
+    export JSON_RPC_URL=$JSON_RPC_TAC
+    python scripts/erc-4626/scan-vaults.py
+    python scripts/erc-4626/scan-prices.py
+
     export JSON_RPC_URL=$JSON_RPC_ARBITRUM
     python scripts/erc-4626/scan-vaults.py
     python scripts/erc-4626/scan-prices.py
@@ -57,6 +68,7 @@ from eth_defi.provider.multi_provider import create_multi_provider_web3, MultiPr
 from eth_defi.token import TokenDiskCache
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.historical import scan_historical_prices_to_parquet, pformat_scan_result
+from eth_defi.vault.vaultdb import DEFAULT_VAULT_DATABASE
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +97,6 @@ def main():
 
     min_deposit_threshold = 5
 
-    start_block = 1
     end_block = os.environ.get("END_BLOCK")
     if end_block is None:
         end_block = web3.eth.block_number
@@ -104,7 +115,7 @@ def main():
 
     assert frequency in ["1h", "1d"], f"Unsupported frequency: {frequency}"
 
-    vault_db_fname = Path(f"{output_folder}/vault-db.pickle")
+    vault_db_fname = DEFAULT_VAULT_DATABASE
     price_parquet_fname = output_folder / f"vault-prices-{frequency}.parquet"
 
     reader_state_db = output_folder / f"vault-reader-state-{frequency}.pickle"
@@ -122,7 +133,7 @@ def main():
         # Start with empty reader states:g first chain. first scan
         reader_states = {}
 
-    chain_vaults = [v for v in vault_db.values() if v["_detection_data"].chain == chain_id]
+    chain_vaults = [v for v in vault_db.rows.values() if v["_detection_data"].chain == chain_id]
     print(f"Chain {name} has {len(chain_vaults):,} vaults in the vault detection database")
 
     if len(chain_vaults) == 0:
