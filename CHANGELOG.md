@@ -6,6 +6,9 @@
 - Add: Guard updates: Whitelist Lagon vault deposits into Gains/Ostium
 - Add: Docker image to run the ERC-4626 vault scanner
 - Fix: Lagoon has changed their vault factory ABI
+- Add: Use normal JSON-RPC eth_getLogs to discover vaults for chains not supported by Hypersync
+- Add: Rearchitecture the vault discovery logic a bit, add resuming the scan
+- Add: Euler offchain vault metadata support
 
 # 0.33
 
