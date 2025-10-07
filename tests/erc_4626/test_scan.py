@@ -193,6 +193,6 @@ def test_4626_scan_moonwell(web3):
     rows = worker_processor(delayed(create_vault_scan_record_subprocess)(web3factory, d, scan_block) for d in vault_detections)
     rows.sort(key=lambda x: x["Address"])
 
-    assert len(rows) == 73
+    assert len(rows) == 155
     moonwell = [r for r in rows if r["Name"] == "Moonwell Flagship USDC"][0]
     assert 29_000_000 < moonwell["NAV"] < 31_000_000
