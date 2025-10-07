@@ -125,11 +125,10 @@ Warning:
 
 from typing import Optional
 
-from gmx_python_sdk.scripts.v2.order.create_increase_order import IncreaseOrder
-from gmx_python_sdk.scripts.v2.order.create_decrease_order import DecreaseOrder
-from gmx_python_sdk.scripts.v2.order.create_swap_order import SwapOrder
-from gmx_python_sdk.scripts.v2.order.order_argument_parser import OrderArgumentParser
-
+from eth_defi.gmx.order.increase_order import IncreaseOrder
+from eth_defi.gmx.order.decrease_order import DecreaseOrder
+from eth_defi.gmx.order.swap_order import SwapOrder
+from eth_defi.gmx.order.order_argument_parser import OrderArgumentParser
 from eth_defi.gmx.config import GMXConfig
 
 
@@ -331,18 +330,21 @@ class GMXTrading:
         # Process parameters
         order_parameters = OrderArgumentParser(write_config, is_increase=True).process_parameters_dictionary(parameters)
 
-        # Create order with any additional parameters
-        return IncreaseOrder(
-            config=write_config,
+        # Create order instance with position identification (order classes need GMXConfig, not GMXConfigManager)
+        order = IncreaseOrder(
+            config=self.config,  # Pass GMXConfig, not GMXConfigManager
             market_key=order_parameters["market_key"],
             collateral_address=order_parameters["collateral_address"],
             index_token_address=order_parameters["index_token_address"],
             is_long=order_parameters["is_long"],
+        )
+
+        # Create the actual increase order transaction
+        return order.create_increase_order(
             size_delta=order_parameters["size_delta"],
             initial_collateral_delta_amount=order_parameters["initial_collateral_delta"],
             slippage_percent=order_parameters["slippage_percent"],
             swap_path=order_parameters["swap_path"],
-            debug_mode=debug_mode,
             **kwargs,
         )
 
@@ -483,18 +485,21 @@ class GMXTrading:
         # Process parameters
         order_parameters = OrderArgumentParser(write_config, is_decrease=True).process_parameters_dictionary(parameters)
 
-        # Create order with any additional parameters
-        return DecreaseOrder(
-            config=write_config,
+        # Create order instance with position identification (order classes need GMXConfig, not GMXConfigManager)
+        order = DecreaseOrder(
+            config=self.config,  # Pass GMXConfig, not GMXConfigManager
             market_key=order_parameters["market_key"],
             collateral_address=order_parameters["collateral_address"],
             index_token_address=order_parameters["index_token_address"],
             is_long=order_parameters["is_long"],
+        )
+
+        # Create the actual decrease order transaction
+        return order.create_decrease_order(
             size_delta=order_parameters["size_delta"],
             initial_collateral_delta_amount=order_parameters["initial_collateral_delta"],
             slippage_percent=order_parameters["slippage_percent"],
             swap_path=order_parameters.get("swap_path", []),
-            debug_mode=debug_mode,
             **kwargs,
         )
 

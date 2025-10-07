@@ -100,10 +100,7 @@ Warning:
 
 from eth_defi.gmx.liquidity_base.deposit import Deposit
 from eth_defi.gmx.liquidity_base.withdraw import Withdraw
-from gmx_python_sdk.scripts.v2.order.liquidity_argument_parser import (
-    LiquidityArgumentParser,
-)
-
+from eth_defi.gmx.liquidity_base.liquidity_argument_parser import LiquidityArgumentParser
 from eth_defi.gmx.config import GMXConfig
 
 
@@ -275,16 +272,22 @@ class GMXLiquidityManager:
         # Process parameters
         output = LiquidityArgumentParser(write_config, is_deposit=True).process_parameters_dictionary(parameters)
 
-        # Create deposit order
-        return Deposit(
-            config=write_config,
+        # Create deposit instance (deposit class needs GMXConfig, not GMXConfigManager)
+        from eth_defi.gmx.liquidity_base.deposit import Deposit, DepositParams
+
+        deposit = Deposit(config=self.config)  # Pass GMXConfig, not GMXConfigManager
+
+        # Create deposit params
+        params = DepositParams(
             market_key=output["market_key"],
             initial_long_token=output["long_token_address"],
             initial_short_token=output["short_token_address"],
             long_token_amount=output["long_token_amount"],
             short_token_amount=output["short_token_amount"],
-            debug_mode=debug_mode,
         )
+
+        # Create the actual deposit transaction
+        return deposit.create_deposit(params)
 
     def remove_liquidity(
         self,
@@ -388,14 +391,20 @@ class GMXLiquidityManager:
         # Process parameters
         output = LiquidityArgumentParser(write_config, is_withdrawal=True).process_parameters_dictionary(parameters)
 
-        # Create withdrawal order
-        return Withdraw(
-            config=write_config,
+        # Create withdrawal instance (withdraw class needs GMXConfig, not GMXConfigManager)
+        from eth_defi.gmx.liquidity_base.withdraw import Withdraw, WithdrawParams
+
+        withdraw = Withdraw(config=self.config)  # Pass GMXConfig, not GMXConfigManager
+
+        # Create withdrawal params
+        params = WithdrawParams(
             market_key=output["market_key"],
             out_token=output["out_token_address"],
             gm_amount=output["gm_amount"],
-            debug_mode=debug_mode,
         )
+
+        # Create the actual withdrawal transaction
+        return withdraw.create_withdrawal(params)
 
 
 if __name__ == "__main__":
