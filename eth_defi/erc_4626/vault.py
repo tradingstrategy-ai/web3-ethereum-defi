@@ -13,6 +13,8 @@ from web3.contract import Contract
 from eth_defi.compat import WEB3_PY_V7
 from eth_defi.provider.fallback import ExtraValueError
 
+from requests.exceptions import HTTPError
+
 if WEB3_PY_V7:
     from web3.exceptions import BadFunctionCallOutput, BlockNumberOutOfRange
 else:
@@ -632,11 +634,14 @@ class ERC4626Vault(VaultBase):
                 extra_data=None,
             )
 
+            # Would hope to use ignore_errors here
+            # but we cannot make distinction between broken smart contract and broken RPC gateway
+            # because of how shitty EVM is
             result = erc_7575_call.call(
                 self.web3,
                 block_identifier="latest",
-                ignore_error=True,
-                attempts=2,
+                ignore_error=False,
+                attempts=4,
             )
             if len(result) == 32:
                 erc_7575 = True
@@ -656,6 +661,13 @@ class ERC4626Vault(VaultBase):
             if not (("Execution reverted" in parsed_error) or ("execution reverted" in parsed_error) or ("out of gas" in parsed_error) or ("Bad Request" in parsed_error) or ("VM execution error" in parsed_error)):
                 logger.error(f"fetch_share_token(): Not sure about exception %s", e)
                 raise
+
+            if isinstance(e, HTTPError):
+                # eRPC brokeness trap.
+                # requests.exceptions.HTTPError: 502 Server Error: Bad Gateway for url: https://edge.goldsky.com/standard/base?secret=x
+                if e.response and e.response.status_code in (502,):
+                    logger.warning(f"fetch_share_token(): Ignoring HTTPError from RPC for vault {self.vault_address}: {e}")
+                    pass
 
             share_token_address = self.vault_address
         except Exception as e:
