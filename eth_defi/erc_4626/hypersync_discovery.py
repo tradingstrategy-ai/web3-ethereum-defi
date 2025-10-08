@@ -9,9 +9,7 @@
 
 import asyncio
 import logging
-
-
-from typing import AsyncIterable
+import time
 
 from eth_typing import HexAddress, HexStr
 from web3 import Web3
@@ -48,6 +46,7 @@ class HypersyncVaultDiscover(VaultDiscoveryBase):
         web3factory: Web3Factory,
         client: hypersync.HypersyncClient,
         max_workers: int = 8,
+        recv_timeout: float = 90.0,
     ):
         """Create vault discover.
 
@@ -60,6 +59,9 @@ class HypersyncVaultDiscover(VaultDiscoveryBase):
         :param client:
             HyperSync client used to scan lead event data
 
+        :parma recv_timeout:
+            Hypersync core reading loop timeout.
+
         :param max_workers:
             How many worker processes use in multicall probing
         """
@@ -67,6 +69,7 @@ class HypersyncVaultDiscover(VaultDiscoveryBase):
         self.web3 = web3
         self.web3factory = web3factory
         self.client = client
+        self.recv_timeout = recv_timeout
 
     def get_topic_signatures(self) -> list[HexStr]:
         """Contracts must have at least one event of both these signatures
@@ -165,10 +168,12 @@ class HypersyncVaultDiscover(VaultDiscoveryBase):
 
         while True:
             try:
-                res = await asyncio.wait_for(receiver.recv(), timeout=30.0)
-            except asyncio.TimeoutError:
-                logger.warning("HyperSync receiver timed out")
-                break  # or handle as appropriate
+                res = await asyncio.wait_for(receiver.recv(), timeout=self.recv_timeout)
+            except asyncio.TimeoutError as e:
+                retry_sleep = 60
+                logger.error("HyperSync receiver timed out, sleeping %f", retry_sleep)
+                time.sleep(retry_sleep)
+                continue
 
             # exit if the stream finished
             if res is None:

@@ -2,6 +2,7 @@
 
 - Track error rate
 """
+
 import asyncio
 import time
 
@@ -12,8 +13,8 @@ TESTED_CHAINS = [
     8533,
     56,
     1,
-
 ]
+
 
 def get_hypersync_block_height(
     client: hypersync.HypersyncClient,
@@ -29,9 +30,7 @@ def get_hypersync_block_height(
     return asyncio.run(_hypersync_asyncio_wrapper())
 
 
-
 def main():
-
     started = datetime.datetime.utcnow()
 
     while True:
@@ -45,7 +44,6 @@ def main():
 
 if __name__ == "__main__":
     main()
-
 
 
 #: Converted with Grok.
