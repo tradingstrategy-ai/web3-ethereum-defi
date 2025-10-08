@@ -22,6 +22,7 @@ class EulerVault(ERC4626Vault):
 
     - Handle special offchain metadata
     - Example vault https://etherscan.io/address/0x1e548CfcE5FCF17247E024eF06d32A01841fF404#code
+    - Euler ABIs https://github.com/euler-xyz/euler-interfaces
 
     TODO: Fees
     """
