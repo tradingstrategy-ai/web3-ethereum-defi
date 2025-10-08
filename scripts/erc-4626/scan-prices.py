@@ -93,7 +93,7 @@ def main():
     web3factory = MultiProviderWeb3Factory(JSON_RPC_URL, retries=5)
     name = get_chain_name(web3.eth.chain_id)
 
-    setup_console_logging(log_file=Path(f"logs/{name}-scan-prices.log"))
+    setup_console_logging(log_file=Path(f"logs/{name.lower()}-vault-price-scan.log"))
 
     min_deposit_threshold = 5
 

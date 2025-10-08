@@ -402,7 +402,11 @@ def scan_historical_prices_to_parquet(
     assert all(v.first_seen_at_block for v in vaults), f"You need to set vault.first_seen_at_block hint in order to run this reader"
     assert all(v.chain_id == chain_id for v in vaults), f"All vaults must be on the same chain"
 
-    first_detect_block = min(v.first_seen_at_block for v in vaults)
+    if vaults:
+        first_detect_block = min(v.first_seen_at_block for v in vaults)
+    else:
+        first_detect_block = 0
+
     logger.info(f"First vault lead detection at block {first_detect_block:,} on chain {chain_id} ({get_chain_name(chain_id)})")
     if start_block is None:
         if stateful:

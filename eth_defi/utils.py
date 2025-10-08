@@ -225,7 +225,14 @@ def setup_console_logging(
 
         log_file.parent.mkdir(parents=True, exist_ok=True)
 
-        logging.basicConfig(level=level, handlers=[logging.StreamHandler(), logging.FileHandler(log_file, mode="a", encoding="utf-8")])
+        # When using a file, the file is always logged with INFO level and
+        # env var controls only terminal output
+        min_level = logging.INFO
+        file_handler = logging.FileHandler(log_file, mode="a", encoding="utf-8")
+        file_handler.setLevel(min_level)
+        stream_handler = logging.StreamHandler()
+        stream_handler.setLevel(level)
+        logging.basicConfig(level=min_level, handlers=[stream_handler, file_handler])
     else:
         logging.basicConfig(level=level, handlers=[logging.StreamHandler()])
 
