@@ -619,6 +619,7 @@ class EncodedCall:
         gas: int = None,
         ignore_error=False,
         attempts: int = 3,
+        retry_sleep=30.0,
     ) -> bytes:
         """Return raw results of the call.
 
@@ -694,6 +695,7 @@ class EncodedCall:
                         attempts,
                         msg,
                     )
+                    time.sleep(retry_sleep)
                     continue
 
                 raise e
