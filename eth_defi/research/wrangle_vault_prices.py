@@ -14,11 +14,11 @@ from pathlib import Path
 from typing import Callable
 
 import pandas as pd
+from eth_typing import HexAddress
 
 from eth_defi.chain import get_chain_name
 from eth_defi.token import is_stablecoin_like
-
-from eth_defi.vault.vaultdb import VaultDatabase, DEFAULT_VAULT_DATABASE
+from eth_defi.vault.vaultdb import VaultDatabase, DEFAULT_VAULT_DATABASE, VaultRow
 
 from tqdm.auto import tqdm
 
@@ -31,35 +31,64 @@ PRIORITY_SORT_IDS = [
 ]
 
 
+def get_vaults_by_id(rows: dict[HexAddress, VaultRow]) -> dict[str, VaultRow]:
+    """Build a dictionary of vaults by their chain-address id.
+
+    :param rows:
+        Metadata rows from vault database
+    :return:
+        Dictionary of vaults by their chain-address id
+    """
+    vaults_by_id = {f"{vault['_detection_data'].chain}-{vault['_detection_data'].address}": vault for vault in rows.values()}
+    return vaults_by_id
+
+
 def assign_unique_names(
-    vault_db: VaultDatabase,
+    rows: dict[HexAddress, VaultRow],
     prices_df: pd.DataFrame,
     logger=print,
+    duplicate_nav_threshold=1000,
 ) -> pd.DataFrame:
     """Ensure all vaults have unique human-readable name.
 
+    - Rerwrite metadata rows
     - Find duplicate vault names
     - Add a running counter to the name to make it unique
     """
-    vaults_by_id = {f"{vault['_detection_data'].chain}-{vault['_detection_data'].address}": vault for vault in vault_db.values()}
+    vaults_by_id = get_vaults_by_id(rows)
 
     # We use name later as DF index, so we need to make sure they are unique
     counter = 1
+    duplicate_names_with_nav = 0
     used_names = set()
+    empty_names = set()
+
     for id, vault in vaults_by_id.items():
         # TODO: hack
         # 40acres forgot to name their vault
         if vault["Name"] == "Vault":
             vault["Name"] == "40acres"
 
+        if vault["Name"] in (None, ""):
+            empty_names.add(id)
+
         if vault["Name"] in used_names:
             chain_name = get_chain_name(vault["_detection_data"].chain)
-            vault["Name"] = f"{vault['Name']} ({chain_name}) #{counter}"
+
+            if (vault.get("NAV") or 0) > duplicate_nav_threshold:
+                duplicate_names_with_nav += 1
+
+            vault["Name"] = f"{vault['Name']} ({chain_name}) #{counter}".strip()
             counter += 1
 
         used_names.add(vault["Name"])
 
-    logger(f"Fixed {counter} duplicate vault names")
+    logger(f"Fixed {counter} duplicate vault names, {len(empty_names)} vaults had empty names, duplicate names with NAV: {duplicate_names_with_nav}")
+
+    if empty_names:
+        example_id = list(empty_names)[0]
+        example = vaults_by_id[example_id]
+        logger(f"Example vault with empty name: {example}")
 
     # Vaults are identified by their chain and address tuple, make this one human-readable column
     # to make DataFrame wrangling easier
@@ -71,8 +100,8 @@ def assign_unique_names(
     prices_df["name"] = prices_df["name"].fillna("<unknown>")
 
 
-def add_denormalised_vaut_data(
-    vault_db: VaultDatabase,
+def add_denormalised_vault_data(
+    rows: dict[HexAddress, VaultRow],
     prices_df: pd.DataFrame,
     logger=print,
 ) -> pd.DataFrame:
@@ -82,14 +111,19 @@ def add_denormalised_vaut_data(
     - Add protocol name and event count columns
     """
 
-    vaults_by_id = {f"{vault['_detection_data'].chain}-{vault['_detection_data'].address}": vault for vault in vault_db.values()}
-    prices_df["event_count"] = prices_df["id"].apply(lambda x: vaults_by_id[x]["_detection_data"].deposit_count + vaults_by_id[x]["_detection_data"].redeem_count)
-    prices_df["protocol"] = prices_df["id"].apply(lambda x: vaults_by_id[x]["Protocol"] if x in vaults_by_id else None)
+    vaults_by_id = get_vaults_by_id(rows)
+    try:
+        prices_df["event_count"] = prices_df["id"].apply(lambda x: vaults_by_id[x]["_detection_data"].deposit_count + vaults_by_id[x]["_detection_data"].redeem_count)
+        prices_df["protocol"] = prices_df["id"].apply(lambda x: vaults_by_id[x]["Protocol"] if x in vaults_by_id else None)
+    except KeyError as e:
+        logger(f"Likely metadata issue: {e}")
+        raise
+
     return prices_df
 
 
 def filter_vaults_by_stablecoin(
-    vault_db: VaultDatabase,
+    rows: dict[HexAddress, VaultRow],
     prices_df: pd.DataFrame,
     logger=print,
 ) -> pd.DataFrame:
@@ -104,8 +138,8 @@ def filter_vaults_by_stablecoin(
 
     """
 
-    usd_vaults = [v for v in vault_db.values() if is_stablecoin_like(v["Denomination"])]
-    logger(f"We have {len(usd_vaults)} stablecoin-nominated vaults out of {len(vault_db)} total vaults")
+    usd_vaults = [v for v in rows.values() if is_stablecoin_like(v["Denomination"])]
+    logger(f"We have {len(usd_vaults)} stablecoin-nominated vaults out of {len(rows)} total vaults")
 
     # Build chain-address strings for vaults we are interested in
     allowed_vault_ids = set(str(v["_detection_data"].chain) + "-" + v["_detection_data"].address for v in usd_vaults)
@@ -146,7 +180,7 @@ def calculate_vault_returns(prices_df: pd.DataFrame, logger=print):
 
 
 def clean_returns(
-    vault_db: VaultDatabase,
+    rows: dict[HexAddress, VaultRow],
     prices_df: pd.DataFrame,
     logger=print,
     outlier_threshold=0.50,  # Set threshold we suspect not valid returns for one day
@@ -193,7 +227,7 @@ def clean_returns(
 
 
 def clean_by_tvl(
-    vault_db: VaultDatabase,
+    rows: dict[HexAddress, VaultRow],
     prices_df: pd.DataFrame,
     logger=print,
     tvl_threshold_min=1000.00,
@@ -473,7 +507,7 @@ def sort_and_index_vault_prices(
 
 
 def process_raw_vault_scan_data(
-    vault_db: VaultDatabase,
+    rows: dict[HexAddress, VaultRow],
     prices_df: pd.DataFrame,
     logger=print,
     display: Callable = lambda x: None,
@@ -484,31 +518,72 @@ def process_raw_vault_scan_data(
     - Add denormalised vault data to prices DataFrame
     - Filter out non-stablecoin vaults
     - Calculate returns, rolling metrics
+
+    :param rows:
+        Metadata rows from vault database
     """
 
-    assign_unique_names(vault_db, prices_df, logger)
+    assign_unique_names(rows, prices_df, logger)
 
-    prices_df = add_denormalised_vaut_data(vault_db, prices_df, logger)
+    check_missing_metadata(rows, prices_df["id"], logger)
+
+    prices_df = add_denormalised_vault_data(rows, prices_df, logger)
 
     prices_df = sort_and_index_vault_prices(prices_df, PRIORITY_SORT_IDS)
-    prices_df = filter_vaults_by_stablecoin(vault_db, prices_df, logger)
+    prices_df = filter_vaults_by_stablecoin(rows, prices_df, logger)
     # Disabled as low and does not result to any savings
     # prices_df = filter_unneeded_row(prices_df, logger)
     prices_df = filter_outlier_share_prices(prices_df, logger)
     prices_df = calculate_vault_returns(prices_df)
 
     prices_df = clean_returns(
-        vault_db,
+        rows,
         prices_df,
         logger=logger,
         display=display,
     )
     prices_df = clean_by_tvl(
-        vault_db,
+        rows,
         prices_df,
         logger,
     )
     return prices_df
+
+
+def check_missing_metadata(
+    rows: dict,
+    price_ids: pd.Series,
+    logger=print,
+):
+    """Check that we have metadata for all vaults in the prices DataFrame.
+
+    Vault id is in format: 56-0x10c90bfcfb3d2a7ae814da1548ae3a7fc31c35a0'
+
+    :param rows:
+        Metadata rows from vault database
+    """
+
+    assert isinstance(price_ids, pd.Series)
+
+    price_ids = sorted(list(price_ids.unique()))
+
+    vaults_by_id = get_vaults_by_id(rows)
+
+    # assert "56-0x10c90bfcfb3d2a7ae814da1548ae3a7fc31c35a0" in price_ids
+    # assert "56-0x10c90bfcfb3d2a7ae814da1548ae3a7fc31c35a0" in vaults_by_id
+
+    logger(f"Price data has {len(price_ids):,} unique vault ids, vault database has {len(vaults_by_id):,} vault ids")
+
+    assert len(price_ids) > 0, "No vault ids in price data"
+
+    missing_count = 0
+
+    for vault_id in price_ids:
+        if vault_id not in vaults_by_id:
+            missing_count += 1
+            logger(f"Missing metadata for vault id {vault_id}")
+
+    assert missing_count, f"Missing vault metadata for {missing_count:,} vault ids, cannot continue"
 
 
 def generate_cleaned_vault_datasets(
@@ -536,10 +611,12 @@ def generate_cleaned_vault_datasets(
     vault_db: VaultDatabase = pickle.load(vault_db_path.open("rb"))
     prices_df = pd.read_parquet(price_df_path)
 
-    logger(f"We have {len(vault_db):,} vaults in the vault database and {len(prices_df):,} price rows in the raw prices DataFrame")
+    logger(f"We have {vault_db.get_lead_count():,} vault leads in the vault database and {len(prices_df):,} price rows in the raw prices DataFrame")
+
+    rows = vault_db.rows
 
     enhanced_prices_df = process_raw_vault_scan_data(
-        vault_db,
+        rows,
         prices_df,
         logger,
         display=display,

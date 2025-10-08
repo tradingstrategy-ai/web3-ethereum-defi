@@ -83,6 +83,8 @@ def main():
         reset_leads=reset_leads,
     )
 
+    print("All ok")
+
 
 if __name__ == "__main__":
     try:

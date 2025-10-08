@@ -23,7 +23,7 @@ from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.core import ERC4262VaultDetection
 from eth_defi.token import is_stablecoin_like
 from eth_defi.vault.base import VaultSpec
-from eth_defi.vault.vaultdb import VaultDatabase, VaultLead
+from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
 from eth_defi.compat import native_datetime_utc_now
 from ffn.core import PerformanceStats
 from ffn.core import calc_stats
@@ -92,7 +92,7 @@ def calculate_lifetime_metrics(
 
         # Extract vault metadata
         vault_spec = VaultSpec.parse_string(id_val, separator="-")
-        vault_metadata: VaultLead = vaults_by_id.get(vault_spec)
+        vault_metadata: VaultRow = vaults_by_id.get(vault_spec)
 
         assert vault_metadata, f"Vault metadata not found for {id_val}. This vault is present in price data, but not in metadata entries. We have {len(vaults_by_id)} metadata entries."
 

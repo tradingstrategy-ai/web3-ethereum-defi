@@ -234,6 +234,8 @@ def scan_leads(
     data_dict = {r["_detection_data"].get_spec(): r for r in rows}
     report.rows = data_dict
 
+    display_vaults_table(df)
+
     printer(f"Saving vault pickled database to {vault_db_file}")
     # Merge new results
     existing_db.update_leads_and_rows(
@@ -244,11 +246,6 @@ def scan_leads(
     )
     existing_db.write(vault_db_file)
     printer(f"Vault database has {existing_db.get_lead_count()} entries")
-
-    erc_7540s = [v for v in rows if ERC4626Feature.erc_7540_like in v["_detection_data"].features]
     printer(f"Total: {len(df)} vaults detected, last block is now {report.end_block:,}")
-    # printer(f"ERC-7540: {len(erc_7540s)} vaults detected")
-
-    display_vaults_table(df)
 
     return report

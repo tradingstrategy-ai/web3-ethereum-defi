@@ -18,7 +18,7 @@ from eth_defi.vault.base import VaultSpec
 DEFAULT_VAULT_DATABASE = Path.home() / ".tradingstrategy" / "vaults" / "vault-metadata-db.pickle"
 
 
-class VaultLead(TypedDict):
+class VaultRow(TypedDict):
     """Vault info gathered during the vault discovery from the chain.
 
     - Avaulable as VaultDb pickle
@@ -54,7 +54,7 @@ class VaultLead(TypedDict):
 
 
 #: Legacy pickle format
-VaultDatabaseOld: TypeAlias = dict[VaultSpec, VaultLead]
+VaultDatabaseOld: TypeAlias = dict[VaultSpec, VaultRow]
 
 
 @dataclass(slots=True)
@@ -68,7 +68,7 @@ class VaultDatabase:
     #: Correctly detected vaults.
     #:
     #: (chain id, address)  -> vault info mapping for detected vaults
-    rows: dict[VaultSpec, VaultLead] = field(default_factory=dict)
+    rows: dict[VaultSpec, VaultRow] = field(default_factory=dict)
 
     #: (chain id, address)  -> vault info mapping for ongoing scans on which we are still unsure
     #:
@@ -111,7 +111,7 @@ class VaultDatabase:
         chain_id: int,
         last_scanned_block: int,
         leads: dict[HexAddress, PotentialVaultMatch],
-        rows: dict[VaultSpec, VaultLead],
+        rows: dict[VaultSpec, VaultRow],
     ):
         assert type(chain_id) == int
         assert type(last_scanned_block) == int
