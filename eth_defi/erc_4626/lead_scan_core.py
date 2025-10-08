@@ -5,6 +5,7 @@
 
 import decimal
 import logging
+import os
 import pickle
 from decimal import Decimal
 from pathlib import Path
@@ -42,8 +43,10 @@ def display_vaults_table(df: pd.DataFrame):
 
     df = df.copy()
 
-    # Skip trash entries
-    df = df[df["NAV"] > 1_000]
+    # Skip trash entries,
+    # or pass env var for debug
+    if not os.environ.get("PRINT_ALL_VAULTS"):
+        df = df[df["NAV"] > 1_000]
 
     del df["First seen"]
     del df["Symbol"]
