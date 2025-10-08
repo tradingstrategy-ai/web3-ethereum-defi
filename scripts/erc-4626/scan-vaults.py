@@ -71,6 +71,9 @@ def main():
     # Rescan all leads
     reset_leads = os.environ.get("RESET_LEADS", None)
 
+    # Choose a different scan mode
+    scan_backend = os.environ.get("SCAN_BACKEND", "auto")
+
     scan_leads(
         json_rpc_urls=JSON_RPC_URL,
         vault_db_file=vault_db_file,
@@ -78,7 +81,7 @@ def main():
         start_block=None,
         end_block=end_block,
         printer=print,
-        backend="auto",
+        backend=scan_backend,
         max_getlogs_range=max_getlogs_range,
         reset_leads=reset_leads,
     )

@@ -45,3 +45,5 @@ services:
       # Expose hosts scan-all-chains.sh script to container,
       # as we need to live-edit it for problematic RPCs all the time
       - ./scripts:/usr/src/web3-ethereum-defi/scripts:ro
+      # Expose log file output to host
+      - ./logs:/usr/src/web3-ethereum-defi/logs:rw
