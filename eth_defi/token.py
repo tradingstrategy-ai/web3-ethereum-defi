@@ -291,6 +291,7 @@ STABLECOIN_LIKE = set(
         "dUSD",
         "scUSD",
         "frxUSD",
+        "USDbC",
     ]
 )
 
