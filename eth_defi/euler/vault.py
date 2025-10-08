@@ -6,10 +6,13 @@
 from functools import cached_property
 import logging
 
+from web3 import Web3
+
+from eth_typing import BlockIdentifier
 
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.euler.offchain_metadata import EulerVaultMetadata, fetch_euler_vault_metadata
-
+from eth_defi.event_reader.multicall_batcher import EncodedCall
 
 logger = logging.getLogger(__name__)
 
@@ -40,3 +43,36 @@ class EulerVault(ERC4626Vault):
     @property
     def entity(self) -> str | None:
         return self.euler_metadata.get("entity")
+
+    def get_performance_fee(self, block_identifier: BlockIdentifier) -> float | None:
+        """Get Euler fee.
+
+        - Euler vaults have only fee called "interest fee"
+        - This is further split to "governor fee" and "protocol fee" but this distinction is not relevant for the vault user
+        - See https://github.com/euler-xyz/euler-vault-kit/blob/5b98b42048ba11ae82fb62dfec06d1010c8e41e6/src/EVault/EVault.sol
+
+        :return:
+            None if fee reading is broken
+        """
+
+        # https://github.com/euler-xyz/euler-vault-kit/blob/5b98b42048ba11ae82fb62dfec06d1010c8e41e6/src/EVault/IEVault.sol#L378
+        fee_call = EncodedCall.from_keccak_signature(
+            address=self.address,
+            signature=Web3.keccak(text="interestFee()")[0:4],
+            function="interestFee",
+            data=b"",
+            extra_data=None,
+        )
+        try:
+            data = fee_call.call(self.web3, block_identifier)
+        except ValueError as e:
+            logger.warning(
+                "interestFee() read reverted on Euler vault %s: %s",
+                self,
+                str(e),
+                exc_info=e,
+            )
+            return None
+
+        performance_fee = float(int.from_bytes(data[0:32], byteorder="big") / (10**4))
+        return performance_fee

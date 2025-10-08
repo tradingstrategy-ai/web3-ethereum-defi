@@ -30,6 +30,33 @@ from ffn.core import calc_stats
 from ffn.utils import fmtn, fmtp, fmtpn, get_freq_name
 
 
+def calculate_sharpe_ratio_from_hourly(hourly_returns: pd.Series, risk_free_rate: float = 0.00) -> float:
+    """
+    Calculate annualized Sharpe ratio from hourly returns.
+
+    :param hourly_returns: Pandas Series of hourly percentage returns.
+    :param risk_free_rate: Annualized risk-free rate (default 2%).
+    :return: Sharpe ratio as a float.
+    """
+    if len(hourly_returns) < 2:
+        return np.nan  # Not enough data
+
+    # Annualize mean return (assuming compounding)
+    mean_hourly_return = hourly_returns.mean()
+    annualized_return = mean_hourly_return * 8760  # ~8760 hours/year
+
+    # Annualize volatility
+    std_hourly_return = hourly_returns.std()
+    annualized_volatility = std_hourly_return * np.sqrt(8760)
+
+    # Sharpe ratio
+    if annualized_volatility == 0:
+        return np.nan  # Avoid division by zero
+    sharpe = (annualized_return - risk_free_rate) / annualized_volatility
+
+    return sharpe
+
+
 def calculate_lifetime_metrics(
     df: pd.DataFrame,
     vaults_by_id: VaultDatabase,
@@ -52,7 +79,11 @@ def calculate_lifetime_metrics(
     three_months_ago = df.index.max() - pd.Timedelta(days=90)
 
     def process_vault_group(group):
-        """Process a single vault group to calculate metrics."""
+        """Process a single vault group to calculate metrics
+
+        :param group:
+            Price DataFrame for a single vault
+        ."""
         # Extract the group name (id_val)
         id_val = group["id"].iloc[0]
 
@@ -108,6 +139,8 @@ def calculate_lifetime_metrics(
                 three_months_volatility = hourly_returns.std() * np.sqrt(30)
                 # three_months_volatility = 0
 
+                three_months_sharpe = calculate_sharpe_ratio_from_hourly(three_month_returns)
+
             else:
                 # We have not collected data for the last three months,
                 # because our stateful reader decided the vault is dead
@@ -139,6 +172,7 @@ def calculate_lifetime_metrics(
                 "cagr": cagr,
                 "three_months_returns": three_month_returns,
                 "three_months_cagr": three_months_cagr,
+                "three_months_sharpe": three_months_sharpe,
                 "one_month_returns": one_month_returns,
                 "one_month_cagr": one_month_cagr,
                 "three_months_volatility": three_months_volatility,
@@ -256,7 +290,8 @@ def format_lifetime_table(
             "cagr": "Lifetime return ann.",
             "three_months_returns": "3M return",
             "three_months_cagr": "3M return ann.",
-            "three_months_volatility": "3M months volatility",
+            "three_months_volatility": "3M volatility",
+            "three_months_volatility": "3M sharpe",
             "one_month_returns": "1M return",
             "one_month_cagr": "1M return ann.",
             "event_count": "Deposit/redeem count",

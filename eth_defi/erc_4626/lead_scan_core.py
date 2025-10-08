@@ -31,12 +31,24 @@ logger = logging.getLogger(__name__)
 
 
 def display_vaults_table(df: pd.DataFrame):
-    #
-    # Display in terminal
-    #
+    """Diplay scanned vault leads in the terminal
+
+    - Only used for local diagnostics
+    - See :py:func:`eth_defi.erc_4626.scan.create_vault_scan_record` for rows
+    """
 
     # Format DataFrame output for terminal
-    df["First seen"] = df["First seen"].dt.strftime("%Y-%b-%d")
+    # df["First seen"] = df["First seen"].dt.strftime("%Y-%b-%d")
+
+    df = df.copy()
+
+    # Skip trash entries
+    df = df[df["NAV"] > 1_000]
+
+    del df["First seen"]
+    del df["Symbol"]
+    del df["Shares"]
+
     df["Mgmt fee"] = df["Mgmt fee"].apply(lambda x: f"{x:.1%}" if type(x) == float else "-")
     df["Perf fee"] = df["Perf fee"].apply(lambda x: f"{x:.1%}" if type(x) == float else "-")
     # df["Address"] = df["Address"].apply(lambda x: x[0:8])  # Address is too wide in terminal

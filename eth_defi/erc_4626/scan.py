@@ -72,7 +72,7 @@ def create_vault_scan_record(
 
         try:
             performance_fee = vault.get_performance_fee(block_identifier)
-            assert type(performance_fee) == float
+            assert type(performance_fee) == float, f"Expected float as performance fee, got {performance_fee} {type(performance_fee)} from {vault}"
         except NotImplementedError:
             performance_fee = None
 
