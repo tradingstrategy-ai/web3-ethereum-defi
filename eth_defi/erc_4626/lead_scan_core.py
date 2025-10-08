@@ -6,7 +6,6 @@
 import decimal
 import logging
 import os
-import pickle
 from decimal import Decimal
 from pathlib import Path
 from typing import Literal
@@ -19,7 +18,6 @@ from IPython.core.display_functions import display
 from tqdm_loggable.auto import tqdm
 
 from eth_defi.chain import get_chain_name
-from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.discovery_base import LeadScanReport
 from eth_defi.erc_4626.rpc_discovery import JSONRPCVaultDiscover
 from eth_defi.erc_4626.scan import create_vault_scan_record_subprocess
