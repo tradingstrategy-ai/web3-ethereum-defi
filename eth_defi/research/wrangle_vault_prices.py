@@ -583,7 +583,7 @@ def check_missing_metadata(
             missing_count += 1
             logger(f"Missing metadata for vault id {vault_id}")
 
-    assert missing_count, f"Missing vault metadata for {missing_count:,} vault ids, cannot continue"
+    assert not missing_count, f"Missing vault metadata for {missing_count:,} vault ids, cannot continue"
 
 
 def generate_cleaned_vault_datasets(
