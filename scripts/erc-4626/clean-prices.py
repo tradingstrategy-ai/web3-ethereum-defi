@@ -8,6 +8,13 @@
 
     Drops non-stablecoin vaults. The cleaning is currently applicable
     for stable vaults only.
+
+To test:
+
+.. code-block:: shell
+
+    python scripts/erc-4626/clean-prices.py
+
 """
 
 from eth_defi.research.wrangle_vault_prices import generate_cleaned_vault_datasets
