@@ -162,6 +162,10 @@ def main():
 
     print(f"After filtering vaults for non-interesting entries, we have {len(vaults):,} vaults left")
 
+    if len(vaults) == 0:
+        print(f"No vaults to scan on {name} after filtering, exiting")
+        sys.exit(0)
+
     scan_result = scan_historical_prices_to_parquet(
         output_fname=price_parquet_fname,
         web3=web3,
