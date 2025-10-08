@@ -18,7 +18,7 @@ import pandas as pd
 from eth_defi.chain import get_chain_name
 from eth_defi.token import is_stablecoin_like
 
-from eth_defi.vault.vaultdb import VaultDatabase
+from eth_defi.vault.vaultdb import VaultDatabase, DEFAULT_VAULT_DATABASE
 
 from tqdm.auto import tqdm
 
@@ -512,7 +512,7 @@ def process_raw_vault_scan_data(
 
 
 def generate_cleaned_vault_datasets(
-    vault_db_path=Path.home() / ".tradingstrategy" / "vaults" / "vault-db.pickle",
+    vault_db_path=DEFAULT_VAULT_DATABASE,
     price_df_path=Path.home() / ".tradingstrategy" / "vaults" / "vault-prices-1h.parquet",
     cleaned_price_df_path=Path.home() / ".tradingstrategy" / "vaults" / "cleaned-vault-prices-1h.parquet",
     logger=print,
