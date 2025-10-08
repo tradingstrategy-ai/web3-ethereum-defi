@@ -179,6 +179,8 @@ def scan_leads(
         # Rescan all vaults since the beginning of the chat
         start_block = 1
 
+    printer(f"Chain: {name}: scan range {start_block:,} - {end_block:,}")
+
     # Perform vault discovery and categorisation,
     # so we get information which address contains which kind of a vault
     report = vault_discover.scan_vaults(start_block, end_block)
@@ -243,6 +245,7 @@ def scan_leads(
         rows=data_dict,
     )
     existing_db.write(vault_db_file)
+    printer(f"Chain: {name}: {len(report.leads)} leads, {len(report.detections)} detections, {len(report.rows)} metadata rows")
     printer(f"Vault database has {existing_db.get_lead_count()} entries")
     printer(f"Total: {len(df)} vaults detected, last block is now {report.end_block:,}")
 
