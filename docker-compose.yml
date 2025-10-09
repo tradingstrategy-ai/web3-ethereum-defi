@@ -37,7 +37,7 @@ services:
       JSON_RPC_LINEA: ${JSON_RPC_LINEA:-}
       JSON_RPC_TAC: ${JSON_RPC_TAC:-}
       JSON_RPC_PLASMA: ${JSON_RPC_PLASMA:-}
-      JSON_RPC_PLASMA: ${JSON_RPC_KATAN:-}
+      JSON_RPC_KATANA: ${JSON_RPC_KATANA:-}
       SCAN_PRICES: ${SCAN_PRICES:-true}
       LOG_LEVEL: ${LOG_LEVEL:-warning}
     volumes:
