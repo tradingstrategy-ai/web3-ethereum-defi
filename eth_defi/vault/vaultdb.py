@@ -5,7 +5,7 @@ import pickle
 from dataclasses import dataclass, field
 from decimal import Decimal
 from pathlib import Path
-from typing import TypedDict, TypeAlias
+from typing import TypedDict, TypeAlias, Iterable
 
 from eth_typing import HexAddress
 
@@ -75,7 +75,9 @@ class VaultDatabase:
     #: Persistent to continue scan
     leads: dict[VaultSpec, PotentialVaultMatch] = field(default_factory=dict)
 
-    #: Keep the track of the last scanned block for each chain so we do not start from the beginning
+    #: Keep the track of the last scanned block for each chain so we do not start from the beginning,
+    #
+    #: Chain id -> block number.
     last_scanned_block: dict[int, int] = field(default_factory=dict)
 
     @staticmethod
@@ -134,3 +136,18 @@ class VaultDatabase:
         self.last_scanned_block[chain_id] = last_scanned_block
         self.leads.update({VaultSpec(chain_id, addr): lead for addr, lead in leads.items()})
         self.rows.update(rows)
+
+    #
+    # Backwards compatibility methods, do not use in the future
+    #
+
+    def values(self) -> Iterable[VaultRow]:
+        """Iterable human readable rows."""
+        return self.rows.values()
+
+    def items(self) -> Iterable[tuple[HexAddress, VaultRow]]:
+        """Iterable human readable rows."""
+        return self.rows.items()
+
+    def __len__(self):
+        return len(self.rows)

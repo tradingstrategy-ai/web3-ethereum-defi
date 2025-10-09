@@ -38,6 +38,9 @@ def calculate_sharpe_ratio_from_hourly(hourly_returns: pd.Series, risk_free_rate
     :param risk_free_rate: Annualized risk-free rate (default 2%).
     :return: Sharpe ratio as a float.
     """
+
+    assert isinstance(hourly_returns, pd.Series), f"hourly_returns must be a pandas Series, got {type(hourly_returns)}"
+
     if len(hourly_returns) < 2:
         return np.nan  # Not enough data
 
@@ -59,22 +62,27 @@ def calculate_sharpe_ratio_from_hourly(hourly_returns: pd.Series, risk_free_rate
 
 def calculate_lifetime_metrics(
     df: pd.DataFrame,
-    vaults_by_id: VaultDatabase,
+    vault_db: VaultDatabase,
     returns_column: str = "returns_1h",
-):
+) -> pd.DataFrame:
     """Calculate lifetime metrics for each vault in the provided DataFrame.
 
     - All-time returns
     - 3M returns, latest
     - 1M returns, latest
     - Volatility (3M)
+
+    Lookback based on the last entry.
+
+    :return:
+        DataFrame, one row per vault.
     """
+    assert isinstance(vault_db, VaultDatabase)
     assert isinstance(df.index, pd.DatetimeIndex)
+
+    vaults_by_id = vault_db.rows
     assert isinstance(vaults_by_id, dict), "vaults_by_id should be a dictionary of vault metadata"
-
-    key = next(iter(vaults_by_id.keys()))
-    assert isinstance(key, VaultSpec), f"Wrong kind of VaultDatabase detected: {type(key)}: {key}"
-
+ 
     month_ago = df.index.max() - pd.Timedelta(days=30)
     three_months_ago = df.index.max() - pd.Timedelta(days=90)
 
@@ -139,7 +147,7 @@ def calculate_lifetime_metrics(
                 three_months_volatility = hourly_returns.std() * np.sqrt(30)
                 # three_months_volatility = 0
 
-                three_months_sharpe = calculate_sharpe_ratio_from_hourly(three_month_returns)
+                three_months_sharpe = calculate_sharpe_ratio_from_hourly(hourly_returns)
 
             else:
                 # We have not collected data for the last three months,
@@ -147,6 +155,7 @@ def calculate_lifetime_metrics(
                 three_months_cagr = 0
                 three_months_volatility = 0
                 three_month_returns = 0
+                three_months_sharpe = 0
 
             if len(last_month) >= 2:
                 start_date = last_month.index.min()
@@ -280,6 +289,7 @@ def format_lifetime_table(
     df["one_month_cagr"] = df["one_month_cagr"].apply(lambda x: f"{x:.2%}")
     df["one_month_returns"] = df["one_month_returns"].apply(lambda x: f"{x:.2%}")
     df["three_months_volatility"] = df["three_months_volatility"].apply(lambda x: f"{x:.4f}")
+    df["three_months_sharpe"] = df["three_months_sharpe"].apply(lambda x: f"{x:.1f}")
     df["event_count"] = df["event_count"].apply(lambda x: f"{x:,}")
     df["mgmt_fee"] = df["mgmt_fee"].apply(lambda x: f"{x:.2%}" if pd.notna(x) else "unknown")
     df["perf_fee"] = df["perf_fee"].apply(lambda x: f"{x:.2%}" if pd.notna(x) else "unknown")
@@ -291,7 +301,7 @@ def format_lifetime_table(
             "three_months_returns": "3M return",
             "three_months_cagr": "3M return ann.",
             "three_months_volatility": "3M volatility",
-            "three_months_volatility": "3M sharpe",
+            "three_months_sharpe": "3M sharpe",
             "one_month_returns": "1M return",
             "one_month_cagr": "1M return ann.",
             "event_count": "Deposit/redeem count",
