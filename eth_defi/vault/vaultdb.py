@@ -79,7 +79,21 @@ class VaultDatabase:
     last_scanned_block: dict[int, int] = field(default_factory=dict)
 
     @staticmethod
-    def read(path: Path) -> "VaultDatabase":
+    def read(path: Path = DEFAULT_VAULT_DATABASE) -> "VaultDatabase":
+        """Load the picked file.
+
+        Example:
+
+        .. code-block:: python
+
+            from eth_defi.vault.vaultdb import VaultDatabase
+
+            # Load from the default location on local filesystem
+            vault_db = VaultDatabase.read()
+
+            print(f"We have data for {vault_db.get_lead_count()} potential vaults")
+
+        """
         existing_db = pickle.load(path.open("rb"))
         return existing_db
 

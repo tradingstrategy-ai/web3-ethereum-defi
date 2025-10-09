@@ -564,7 +564,9 @@ def format_vault_database(
     :return:
         DataFrame with vault metadata, with human readable columns
     """
-    data = list(vault_db.values())
+
+    rows = vault_db.rows
+    data = list(rows.values())
     df = pd.DataFrame(data)
 
     # Build useful columns out of raw pickled Python data
