@@ -111,7 +111,7 @@ class JSONRPCVaultDiscover(VaultDiscoveryBase):
         if display_progress:
             progress_bar = tqdm(
                 total=end_block - start_block,
-                desc=f"Scanning potential vault leads on chain {self.web3.eth.chain_id}",
+                desc=f"JSONRPCVaultDiscover: Scanning leads on chain {self.web3.eth.chain_id}",
             )
         else:
             progress_bar = None

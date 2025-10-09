@@ -17,6 +17,7 @@ from web3 import Web3
 from tqdm_loggable.auto import tqdm
 
 from eth_defi.abi import get_topic_signature_from_event
+from eth_defi.chain import get_chain_name
 from eth_defi.compat import native_datetime_utc_fromtimestamp
 from eth_defi.erc_4626.discovery_base import PotentialVaultMatch, VaultDiscoveryBase, LeadScanReport, get_vault_discovery_events
 from eth_defi.event_reader.web3factory import Web3Factory
@@ -145,9 +146,10 @@ class HypersyncVaultDiscover(VaultDiscoveryBase):
         receiver = await self.client.stream(query, hypersync.StreamConfig())
 
         if display_progress:
+            chain_name = get_chain_name(self.web3.eth.chain_id)
             progress_bar = tqdm(
                 total=end_block - start_block,
-                desc=f"Scanning potential vault leads on chain {self.web3.eth.chain_id}",
+                desc=f"HypersyncVaultDiscover: scanning vault leads on {chain_name}",
             )
         else:
             progress_bar = None

@@ -63,6 +63,7 @@ CHAIN_NAMES = {
     239: "TAC",
     43111: "Hemi",
     59144: "Linea",
+    747474: "Katana",
 }
 
 #: For linking on reports
@@ -93,7 +94,8 @@ CHAIN_HOMEPAGES = {
 
 #: Chain avg block times.
 #:
-#: By Grok, not verified.
+#: Note that for many chains these are approximate and can vary based on network conditions and upgrades.
+#:
 EVM_BLOCK_TIMES = {
     1: 12,  # Ethereum (post-Merge, ~12 seconds)
     56: 3,  # Binance Smart Chain (~3 seconds)
@@ -122,6 +124,7 @@ EVM_BLOCK_TIMES = {
     239: 1.5,  # TAC, ~1.5s averaged
     43111: 12,  # Hemi aims for sub-15 second block times on its Layer 2 network
     59144: 2,  # Block Time: Approximately 2 seconds soft finality
+    747474: 1,  # Katana, ~1s block time avg
 }
 
 
