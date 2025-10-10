@@ -21,6 +21,7 @@ def _move_columns_to_front(df: pd.DataFrame, cols: list[str]) -> pd.DataFrame:
 def format_markdown_table(
     df: pd.DataFrame,
     columns: list[str] | None = None,
+    preferred_columns: list[str] | None = None,
 ) -> pd.DataFrame:
     """Format a DataFrame as a Markdown table.
 
@@ -75,6 +76,9 @@ def format_markdown_table(
     df.index = df.index + 1  # Start index at 1 for Markdown table
 
     df = _move_columns_to_front(df, ["Vault", "Chain"])
+
+    if preferred_columns:
+        df = _move_columns_to_front(df, ["Vault", "Chain"])
 
     if columns:
         df = df[columns]
