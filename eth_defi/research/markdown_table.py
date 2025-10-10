@@ -37,10 +37,14 @@ def format_markdown_table(
         else:
             index = row.name
             vault_name = index
+
+        if not vault_name:
+            vault_name = "<unnamed>"
+
         vault_id = row["id"]
         chain_id, address = vault_id.split("-")
         vault_link = get_address_link(chain_id, address)
-        return f"[{vault_name}]({vault_link})"
+        return f"[{vault_name.strip()}]({vault_link})"
 
     def _format_chain_name(row: pd.Series) -> pd.Series:
         index = row.name
