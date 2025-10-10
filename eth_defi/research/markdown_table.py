@@ -54,6 +54,9 @@ def format_markdown_table(
         name, link = get_chain_homepage(int(chain_id))
         return f"[{name}]({link})"
 
+    def _format_tvl(row: pd.Series) -> pd.Series:
+        return f"${row['Current TVL USD'] / 1_000_000:,.3f}M"
+
     df = df.copy()
 
     # Remove newlines in column names
@@ -65,6 +68,9 @@ def format_markdown_table(
 
     # Fix "<Unknown protocol" breaking HTML tags
     df = df.map(lambda x: "" if isinstance(x, str) and "<unknown" in x.lower() else x)
+
+    # Format TVL
+    df["Current TVL USD"] = df.apply(_format_tvl, axis=1)
 
     # Format all float values to 2 decimal places
     df = df.map(lambda x: f"{x:.2f}" if isinstance(x, float) else x)
