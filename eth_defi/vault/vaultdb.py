@@ -141,6 +141,10 @@ class VaultDatabase:
     # Backwards compatibility methods, do not use in the future
     #
 
+    def keys(self) -> Iterable[VaultSpec]:
+        """Iterable human readable vault (chain, address) tuples."""
+        return self.rows.keys()
+
     def values(self) -> Iterable[VaultRow]:
         """Iterable human readable rows."""
         return self.rows.values()

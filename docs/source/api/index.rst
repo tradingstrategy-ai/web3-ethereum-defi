@@ -31,6 +31,7 @@ API documentation
    lagoon/index
    velvet/index
    ipor/index
+   euler/index
    morpho/index
    chainlink/index
    gains/index

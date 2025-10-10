@@ -142,11 +142,19 @@ def calculate_rolling_returns(
 
     assert isinstance(returns_df.index, pd.DatetimeIndex)
 
+    def _apply_chain_name(name: str, chain_id: int) -> str:
+        if not name:
+            name = ""
+        chain_name = get_chain_name(chain_id)
+        if chain_name in name:
+            return name
+        return f"{name} ({chain_name})"
+
     # Add chain part of the name so it appears int he chart legend
     if chainify:
         returns_df = returns_df.copy()
         returns_df["name"] = returns_df.apply(
-            lambda row: f"{row['name']} ({get_chain_name(row['chain'])})",
+            lambda row: _apply_chain_name(row["name"], row["chain"]),
             axis=1,
         )
 
@@ -169,7 +177,9 @@ def calculate_rolling_returns(
 
     def _calc_returns(df):
         # Calculate rollling returns
+
         df["rolling_1m_returns"] = df["share_price"].transform(_calculate_1m_rolling_returns_from_prices)
+
         # df["rolling_1m_returns_annualized"] = ((1 + df["rolling_1m_returns"] / 100) ** 12 - 1) * 100
         return df
 

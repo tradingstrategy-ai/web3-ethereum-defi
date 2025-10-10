@@ -90,6 +90,11 @@ CHAIN_HOMEPAGES = {
     42220: {"name": "Celo", "homepage": "https://celo.org"},
     7777777: {"name": "Zora", "homepage": "https://zora.co"},
     57073: {"name": "Ink", "homepage": "https://inkonchain.com/"},
+    9745: {"name": "Plasma", "homepage": "https://www.plasma.to/"},
+    239: {"name": "TAC", "homepage": "https://tac.build/"},
+    43111: {"name": "Hemi", "homepage": "https://hemi.xyz/"},
+    59144: {"name": "Linea", "homepage": "https://linea.build/"},
+    747474: {"name": "Katana", "homepage": "https://katana.network/"},
 }
 
 #: Chain avg block times.

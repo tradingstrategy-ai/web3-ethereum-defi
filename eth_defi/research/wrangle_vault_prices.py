@@ -78,7 +78,12 @@ def assign_unique_names(
             if (vault.get("NAV") or 0) > duplicate_nav_threshold:
                 duplicate_names_with_nav += 1
 
-            vault["Name"] = f"{vault['Name']} ({chain_name}) #{counter}".strip()
+            if chain_name not in vault["Name"]:
+                # Don't duplicate Ethereum in Peapod vault names
+                vault["Name"] = f"{vault['Name']} ({chain_name}) #{counter}".strip()
+            else:
+                vault["Name"] = f"{vault['Name']} #{counter}".strip()
+
             counter += 1
 
         used_names.add(vault["Name"])
