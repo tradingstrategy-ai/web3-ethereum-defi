@@ -63,6 +63,8 @@ class OrderParams:
     max_fee_per_gas: Optional[int] = None
     auto_cancel: bool = False
     execution_buffer: float = 1.3
+    # GMX v2.2 new dataList field
+    data_list: Optional[list[str]] = field(default_factory=list)
 
     # Additional optional parameters
     callback_gas_limit: int = 0
@@ -430,6 +432,7 @@ class BaseOrder:
             True,  # shouldUnwrapNativeToken
             params.auto_cancel,  # autoCancel
             referral_code,  # referralCode
+            params.data_list,  # dataList
         )
 
     def _build_multicall_args(

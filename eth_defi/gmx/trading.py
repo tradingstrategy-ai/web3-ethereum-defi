@@ -125,6 +125,7 @@ Warning:
 
 from typing import Optional
 
+from eth_defi.gmx.order import OrderResult
 from eth_defi.gmx.order.increase_order import IncreaseOrder
 from eth_defi.gmx.order.decrease_order import DecreaseOrder
 from eth_defi.gmx.order.swap_order import SwapOrder
@@ -198,9 +199,8 @@ class GMXTrading:
         size_delta_usd: float,
         leverage: float,
         slippage_percent: Optional[float] = 0.003,
-        debug_mode: Optional[bool] = False,
         **kwargs,
-    ) -> IncreaseOrder:
+    ) -> OrderResult:
         """
         Execute sophisticated position opening with comprehensive risk and execution control.
 
@@ -246,7 +246,6 @@ class GMXTrading:
                 size_delta_usd=1000,  # $1000 position
                 leverage=2.0,  # Conservative 2x leverage
                 slippage_percent=0.005,  # 0.5% slippage
-                debug_mode=True,  # Test first
                 auto_cancel=True,  # Cancel if execution fails
             )
 
@@ -259,7 +258,6 @@ class GMXTrading:
                 size_delta_usd=5000,  # $5000 position
                 leverage=5.0,  # Aggressive 5x leverage
                 slippage_percent=0.01,  # 1% slippage for speed
-                debug_mode=False,  # Execute real order
                 execution_buffer=2.0,  # Higher execution buffer
             )
 
@@ -294,11 +292,6 @@ class GMXTrading:
             values enable faster execution in volatile markets at the cost
             of potentially worse prices
         :type slippage_percent: Optional[float]
-        :param debug_mode:
-            Whether to execute in debug mode for testing and validation.
-            Debug mode simulates complete execution without spending gas
-            or opening actual positions
-        :type debug_mode: Optional[bool]
         :param kwargs:
             Additional advanced parameters for execution control including
             auto_cancel, execution_buffer, max_fee_per_gas, and other
@@ -330,9 +323,9 @@ class GMXTrading:
         # Process parameters
         order_parameters = OrderArgumentParser(write_config, is_increase=True).process_parameters_dictionary(parameters)
 
-        # Create order instance with position identification (order classes need GMXConfig, not GMXConfigManager)
+        # Create order instance with position identification (order classes need GMXConfig)
         order = IncreaseOrder(
-            config=self.config,  # Pass GMXConfig, not GMXConfigManager
+            config=self.config,
             market_key=order_parameters["market_key"],
             collateral_address=order_parameters["collateral_address"],
             index_token_address=order_parameters["index_token_address"],
@@ -357,7 +350,6 @@ class GMXTrading:
         size_delta_usd: float,
         initial_collateral_delta: float,
         slippage_percent: Optional[float] = 0.003,
-        debug_mode: Optional[bool] = False,
         **kwargs,
     ) -> DecreaseOrder:
         """
@@ -510,8 +502,7 @@ class GMXTrading:
         amount: float,
         position_usd: Optional[float] = 0,
         slippage_percent: Optional[float] = 0.02,
-        execution_buffer=2.5,  # this is needed to pass the gas usage
-        debug_mode: Optional[bool] = False,
+        execution_buffer=1.3,  # this is needed to pass the gas usage
         **kwargs,
     ) -> SwapOrder:
         """
@@ -646,7 +637,6 @@ class GMXTrading:
             initial_collateral_delta_amount=order_parameters["initial_collateral_delta"],
             slippage_percent=order_parameters["slippage_percent"],
             swap_path=order_parameters["swap_path"],
-            debug_mode=debug_mode,
             execution_buffer=execution_buffer,
             **kwargs,
         )

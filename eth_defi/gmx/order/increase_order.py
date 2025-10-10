@@ -61,6 +61,7 @@ class IncreaseOrder(BaseOrder):
         swap_path: Optional[list[str]] = None,
         execution_buffer: float = 1.3,
         auto_cancel: bool = False,
+        data_list: Optional[list[str]] = None,
         callback_gas_limit: int = 0,
         min_output_amount: int = 0,
         valid_from_time: int = 0,
@@ -82,6 +83,8 @@ class IncreaseOrder(BaseOrder):
         :type execution_buffer: float
         :param auto_cancel: Whether to auto-cancel the order if it can't execute
         :type auto_cancel: bool
+        :param data_list:
+        :type data_list: list
         :param callback_gas_limit: Gas limit for callback execution
         :type callback_gas_limit: int
         :param min_output_amount: Minimum output amount for swaps
@@ -94,6 +97,8 @@ class IncreaseOrder(BaseOrder):
         """
         if swap_path is None:
             swap_path = []
+        if data_list is None:
+            data_list = []
 
         params = OrderParams(
             market_key=self.market_key,
@@ -106,6 +111,7 @@ class IncreaseOrder(BaseOrder):
             swap_path=swap_path,
             execution_buffer=execution_buffer,
             auto_cancel=auto_cancel,
+            data_list=data_list,
             callback_gas_limit=callback_gas_limit,
             min_output_amount=min_output_amount,
             valid_from_time=valid_from_time,

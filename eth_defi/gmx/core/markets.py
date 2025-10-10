@@ -5,6 +5,7 @@ This module provides access to GMX protocol market information and trading pairs
 """
 
 import logging
+import os
 from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
@@ -15,7 +16,7 @@ from eth_typing import HexAddress
 from cchecksum import to_checksum_address
 
 from eth_defi.gmx.config import GMXConfig
-from eth_defi.gmx.contracts import get_contract_addresses, get_reader_contract, get_tokens_address_dict
+from eth_defi.gmx.contracts import get_contract_addresses, get_reader_contract, get_tokens_address_dict, get_tokens_metadata_dict
 from eth_defi.gmx.core.oracle import OraclePrices
 from eth_defi.gmx.types import MarketSymbol, MarketData
 
@@ -44,60 +45,47 @@ class MarketInfo:
 
 class Markets:
     """
-    GMX markets data provider with optimized performance.
+    GMX markets data provider.
 
     This class retrieves information about all trading markets available on GMX,
-    replacing the gmx_python_sdk Markets class functionality with improved
-    performance through efficient caching and streamlined processing.
+    replacing the gmx_python_sdk Markets class functionality.
     """
 
     def __init__(self, config: GMXConfig):
         """
-        Initialize markets data provider.
+        Initialise markets data provider.
 
         :param config: GMXConfig instance containing chain and network info
         """
         self.config = config
-        self._markets_cache = None
-        self._token_metadata_dict = None
-        self._oracle_prices = None
-        self._processed_markets = False
         self._special_wsteth_address = to_checksum_address("0x0Cf1fb4d1FF67A3D8Ca92c9d6643F8F9be8e03E5")
 
-    def _ensure_markets_processed(self):
-        """Ensure markets are processed and cache is populated."""
-        if not self._processed_markets:
-            self._process_markets()
-            self._processed_markets = True
-
     def _get_token_metadata_dict(self) -> dict[HexAddress, dict]:
-        """Get or create token metadata dictionary."""
-        if self._token_metadata_dict is None:
-            # Get token address mapping
-            token_address_dict = get_tokens_address_dict(self.config.chain)
+        """Get token metadata dictionary for mainnet."""
+        # Get token address mapping
+        token_address_dict = get_tokens_address_dict(self.config.chain)
 
-            # Create reverse lookup: address -> metadata
-            self._token_metadata_dict = {}
-            for symbol, address in token_address_dict.items():
-                # Add synthetic flag to metadata
-                self._token_metadata_dict[address] = {
-                    "symbol": symbol,
-                    "decimals": 18,  # Default, will be updated if we have more info
-                    "synthetic": False,  # Default value
-                }
+        # Create reverse lookup: address -> metadata
+        token_metadata_dict = {}
+        for symbol, address in token_address_dict.items():
+            # Add synthetic flag to metadata
+            token_metadata_dict[address] = {
+                "symbol": symbol,
+                "decimals": 18,  # Default, will be updated if we have more info
+                "synthetic": False,  # Default value
+            }
 
-        return self._token_metadata_dict
+        return token_metadata_dict
 
     def _get_oracle_prices(self) -> dict[str, dict]:
-        """Get or fetch oracle prices with caching."""
-        if self._oracle_prices is None:
-            try:
-                self._oracle_prices = OraclePrices(chain=self.config.chain).get_recent_prices()
-            except Exception as e:
-                logger.debug(f"Failed to fetch oracle prices: {e}")
-                self._oracle_prices = {}
+        """Get or fetch oracle prices."""
+        try:
+            oracle_prices = OraclePrices(chain=self.config.chain).get_recent_prices()
+        except Exception as e:
+            logger.debug(f"Failed to fetch oracle prices: {e}")
+            oracle_prices = {}
 
-        return self._oracle_prices
+        return oracle_prices
 
     def get_available_markets(self) -> MarketData:
         """
@@ -106,8 +94,7 @@ class Markets:
         :return: Dictionary of the available markets
         :rtype: dict
         """
-        self._ensure_markets_processed()
-        return self._markets_cache
+        return self._process_markets()
 
     def get_index_token_address(self, market_key: str) -> HexAddress:
         """
@@ -118,8 +105,8 @@ class Markets:
         :return: Index token address
         :rtype: HexAddress
         """
-        self._ensure_markets_processed()
-        return self._markets_cache.get(market_key, {}).get("index_token_address", None)
+        markets = self._process_markets()
+        return markets.get(market_key, {}).get("index_token_address", None)
 
     def get_long_token_address(self, market_key: str) -> HexAddress:
         """
@@ -130,8 +117,8 @@ class Markets:
         :return: Long token address
         :rtype: HexAddress
         """
-        self._ensure_markets_processed()
-        return self._markets_cache.get(market_key, {}).get("long_token_address", None)
+        markets = self._process_markets()
+        return markets.get(market_key, {}).get("long_token_address", None)
 
     def get_short_token_address(self, market_key: str) -> HexAddress:
         """
@@ -142,8 +129,8 @@ class Markets:
         :return: Short token address
         :rtype: HexAddress
         """
-        self._ensure_markets_processed()
-        return self._markets_cache.get(market_key, {}).get("short_token_address", None)
+        markets = self._process_markets()
+        return markets.get(market_key, {}).get("short_token_address", None)
 
     def get_market_symbol(self, market_key: str) -> str:
         """
@@ -154,8 +141,8 @@ class Markets:
         :return: Market symbol
         :rtype: str
         """
-        self._ensure_markets_processed()
-        return self._markets_cache.get(market_key, {}).get("market_symbol", None)
+        markets = self._process_markets()
+        return markets.get(market_key, {}).get("market_symbol", None)
 
     def get_decimal_factor(self, market_key: str, long: bool = False, short: bool = False) -> int:
         """
@@ -170,13 +157,13 @@ class Markets:
         :return: Token decimal factor
         :rtype: int
         """
-        self._ensure_markets_processed()
+        markets = self._process_markets()
         if long:
-            return self._markets_cache[market_key]["long_token_metadata"]["decimals"]
+            return markets[market_key]["long_token_metadata"]["decimals"]
         elif short:
-            return self._markets_cache[market_key]["short_token_metadata"]["decimals"]
+            return markets[market_key]["short_token_metadata"]["decimals"]
         else:
-            return self._markets_cache[market_key]["market_metadata"]["decimals"]
+            return markets[market_key]["market_metadata"]["decimals"]
 
     def is_synthetic(self, market_key: str) -> bool:
         """
@@ -187,8 +174,8 @@ class Markets:
         :return: True if market is synthetic, False otherwise
         :rtype: bool
         """
-        self._ensure_markets_processed()
-        return self._markets_cache[market_key]["market_metadata"].get("synthetic", False)
+        markets = self._process_markets()
+        return markets[market_key]["market_metadata"].get("synthetic", False)
 
     def get_market_info(self, market_address: HexAddress) -> Optional[MarketInfo]:
         """
@@ -199,9 +186,9 @@ class Markets:
         :return: Market information or None if not found
         :rtype: Optional[MarketInfo]
         """
-        self._ensure_markets_processed()
-        if market_address in self._markets_cache:
-            market_data = self._markets_cache[market_address]
+        markets = self._process_markets()
+        if market_address in markets:
+            market_data = markets[market_address]
             return MarketInfo(gmx_market_address=market_data["gmx_market_address"], market_symbol=market_data["market_symbol"], index_token_address=market_data["index_token_address"], market_metadata=market_data["market_metadata"], long_token_metadata=market_data["long_token_metadata"], long_token_address=market_data["long_token_address"], short_token_metadata=market_data["short_token_metadata"], short_token_address=market_data["short_token_address"])
         else:
             return None
@@ -215,9 +202,8 @@ class Markets:
         :return: True if market is disabled, False otherwise
         :rtype: bool
         """
-        self._ensure_markets_processed()
         # For now, assume all markets in our processed list are enabled
-        return market_address not in self._markets_cache
+        return market_address not in self._process_markets()
 
     def _get_available_markets_raw(self) -> list[tuple]:
         """
@@ -232,9 +218,12 @@ class Markets:
 
         return reader_contract.functions.getMarkets(data_store_contract_address, 0, 50).call()
 
-    def _process_markets(self) -> None:
+    def _process_markets(self) -> dict:
         """
-        Process the raw market data and populate the cache.
+        Process the raw market data and return the results.
+
+        :return: Dictionary of processed markets
+        :rtype: dict
         """
         logger.debug("Processing GMX markets data...")
 
@@ -244,6 +233,12 @@ class Markets:
 
         # Testnets use different token addresses, so skip oracle validation for them
         is_testnet = self.config.chain in ["arbitrum_sepolia", "avalanche_fuji"]
+
+        # Use token metadata for testnets from contracts module
+        if self.config.chain == "arbitrum_sepolia":
+            # Get token metadata from contracts module
+            arbitrum_sepolia_token_metadata = get_tokens_metadata_dict(self.config.chain)
+            token_metadata_dict.update(arbitrum_sepolia_token_metadata)
 
         # Get raw market data
         raw_markets = self._get_available_markets_raw()
@@ -285,7 +280,6 @@ class Markets:
 
                 # Handle swap markets (when index token metadata is missing)
                 if not index_token_meta:
-                    # print(f"{index_token_meta=}")
                     # For swap markets, create a custom symbol
                     long_symbol = long_token_meta["symbol"] if long_token_meta else "UNKNOWN"
                     short_symbol = short_token_meta["symbol"] if short_token_meta else "UNKNOWN"
@@ -330,5 +324,5 @@ class Markets:
                 logger.debug(f"Skipping market {raw_market[0]}: {e}")
                 continue
 
-        self._markets_cache = processed_markets
         logger.debug(f"Processed {len(processed_markets)} markets successfully")
+        return processed_markets
