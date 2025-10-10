@@ -3,7 +3,6 @@ GMX Order Argument Parser
 
 This module provides parameter parsing and validation for GMX orders.
 Converts user-friendly parameters (symbols, USD amounts) into contract-ready format.
-Migrated from gmx-python-sdk to support all chains including testnets.
 """
 
 import numpy as np
@@ -12,7 +11,7 @@ from web3 import Web3
 from eth_defi.gmx.core.markets import Markets
 from eth_defi.gmx.core.oracle import OraclePrices
 from eth_defi.gmx.utils import determine_swap_route
-from eth_defi.gmx.contracts import get_tokens_address_dict, NETWORK_TOKENS
+from eth_defi.gmx.contracts import get_tokens_address_dict
 from eth_defi.token import fetch_erc20_details
 
 

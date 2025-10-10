@@ -58,12 +58,17 @@ class GMXAPI:
             raise ValueError("Either config or chain must be provided")
 
         # Set base URLs based on the chain
+        # Handle mainnet and testnet chains by mapping to appropriate API
         if self.chain.lower() == "arbitrum":
             self.base_url = GMX_API_URLS["arbitrum"]
             self.backup_url = GMX_API_URLS_BACKUP["arbitrum"]
-        else:
+        elif self.chain.lower() in ["avalanche", "avalanche_fuji"]:
             self.base_url = GMX_API_URLS["avalanche"]
             self.backup_url = GMX_API_URLS_BACKUP["avalanche"]
+        elif self.chain.lower() == "arbitrum_sepolia":
+            self.base_url = GMX_API_URLS["arbitrum_sepolia"]
+        else:
+            raise ValueError(f"Unsupported chain: {self.chain}. Supported: arbitrum, arbitrum_sepolia, avalanche")
 
     def _make_request(self, endpoint: str, params: Optional[dict[str, Any]] = None) -> dict[str, Any]:
         """

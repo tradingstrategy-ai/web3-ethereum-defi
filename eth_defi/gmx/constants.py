@@ -71,6 +71,7 @@ GMX_API_URLS: dict = {
     # :var avalanche: Primary API endpoint for Avalanche network operations
     "arbitrum": "https://arbitrum-api.gmxinfra.io",
     "avalanche": "https://avalanche-api.gmxinfra.io",
+    "arbitrum_sepolia": "https://dolphin-app-a2dup.ondigitalocean.app",
 }
 
 GMX_API_URLS_BACKUP: dict = {
@@ -90,6 +91,7 @@ GMX_API_URLS_BACKUP: dict = {
     # :var avalanche: Backup API endpoint for Avalanche network operations
     "arbitrum": "https://arbitrum-api.gmxinfra2.io",
     "avalanche": "https://avalanche-api.gmxinfra2.io",
+    "arbitrum_sepolia": "https://dolphin-app-a2dup.ondigitalocean.app",
 }
 
 # TODO: get rid of the rest bcz they will be migrated soon.
@@ -257,8 +259,16 @@ TOKEN_ADDRESS_MAPPINGS = {
     "arbitrum": {
         # WBTC -> BTC.b mapping for routing
         "0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f": "0x47904963fc8b2340414262125aF798B9655E58Cd",
+        # ETH (zero address) -> WETH mapping for routing
+        "0x0000000000000000000000000000000000000000": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
     },
     "avalanche": {
         # Add avalanche specific mappings if needed
+        # ETH (zero address) -> WAVAX mapping for routing
+        "0x0000000000000000000000000000000000000000": "0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7",
+    },
+    "arbitrum_sepolia": {
+        # ETH (zero address) -> WETH mapping for routing (testnet equivalent)
+        "0x0000000000000000000000000000000000000000": "0x980B62Da83eFf3D4576C647993b0c1D7faf17c73",
     },
 }
