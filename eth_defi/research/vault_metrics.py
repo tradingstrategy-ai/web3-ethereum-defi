@@ -17,6 +17,7 @@ from plotly.subplots import make_subplots
 from plotly.graph_objects import Figure
 import plotly.io as pio
 from tqdm.auto import tqdm
+from eth_typing import HexAddress
 
 
 from eth_defi.chain import get_chain_name
@@ -62,7 +63,7 @@ def calculate_sharpe_ratio_from_hourly(hourly_returns: pd.Series, risk_free_rate
 
 def calculate_lifetime_metrics(
     df: pd.DataFrame,
-    vault_db: VaultDatabase,
+    vault_db: VaultDatabase | dict[VaultSpec, VaultRow],
     returns_column: str = "returns_1h",
 ) -> pd.DataFrame:
     """Calculate lifetime metrics for each vault in the provided DataFrame.
@@ -74,15 +75,22 @@ def calculate_lifetime_metrics(
 
     Lookback based on the last entry.
 
+    :param vault_db:
+        Pass all vaults or subset of vaults as VaultRows, or full VaultDatabase
+
     :return:
         DataFrame, one row per vault.
     """
-    assert isinstance(vault_db, VaultDatabase)
+    assert isinstance(vault_db, (VaultDatabase, dict)), f"Expected vault_db to be VaultDatabase, got {type(vault_db)}"
     assert isinstance(df.index, pd.DatetimeIndex)
 
-    vaults_by_id = vault_db.rows
+    if isinstance(vault_db, VaultDatabase):
+        vaults_by_id = vault_db.rows
+    else:
+        vaults_by_id = vault_db
+
     assert isinstance(vaults_by_id, dict), "vaults_by_id should be a dictionary of vault metadata"
- 
+
     month_ago = df.index.max() - pd.Timedelta(days=30)
     three_months_ago = df.index.max() - pd.Timedelta(days=90)
 
