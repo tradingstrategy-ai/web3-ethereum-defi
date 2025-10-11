@@ -415,9 +415,17 @@ class OrderArgumentParser:
             # USD amounts need 10**30 precision
             self.parameters_dict["size_delta"] = int(self.parameters_dict["size_delta_usd"] * 10**30)
 
-        # Apply token-specific decimal factor
+        # Apply token-specific decimal factor - use start token for swaps, collateral token for positions
         tokens = _get_token_metadata_dict(self.web3, self.parameters_dict["chain"])
-        decimal = tokens[self.parameters_dict["start_token_address"]]["decimals"]
+
+        if self.is_swap:
+            # For swaps, use start token decimals
+            decimal = tokens[self.parameters_dict["start_token_address"]]["decimals"]
+        else:
+            # For positions, collateral is in start_token initially, then swapped to collateral_token
+            # So we need to use start_token decimals since initial_collateral_delta is in start_token
+            decimal = tokens[self.parameters_dict["start_token_address"]]["decimals"]
+
         self.parameters_dict["initial_collateral_delta"] = int(self.parameters_dict["initial_collateral_delta"] * 10**decimal)
 
     def _check_if_max_leverage_exceeded(self):

@@ -117,7 +117,7 @@ class IncreaseOrder(BaseOrder):
             valid_from_time=valid_from_time,
         )
 
-        self.logger.debug(
+        print(
             f"Creating increase order: size_delta=${size_delta}, collateral_delta={initial_collateral_delta_amount}",
         )
 

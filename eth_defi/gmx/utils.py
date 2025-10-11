@@ -502,8 +502,8 @@ def transform_open_position_to_order_parameters(
         if collateral_address != out_token_address:
             swap_path = determine_swap_route(markets, collateral_address, out_token_address)[0]
 
-        # Calculate size delta based on position size and close amount
-        size_delta = int((Decimal(raw_position_data["position_size"]) * (Decimal(10) ** 30)) * Decimal(amount_of_position_to_close))
+        # Calculate size delta based on position size and close amount (in USD units, will be scaled in base_order)
+        size_delta = float(Decimal(raw_position_data["position_size"]) * Decimal(amount_of_position_to_close))
 
         # Return formatted parameters
         return {
