@@ -112,20 +112,35 @@ class GMXConfigManager:
         chain: str,
         chain_id: int,
         user_wallet_address: Optional[str] = None,
+        web3: Optional[Web3] = None,
     ):
         """Initialize configuration manager.
 
         :param chain: Blockchain network name (e.g., 'arbitrum', 'avalanche')
         :param chain_id: Blockchain network ID
         :param user_wallet_address: Wallet address for operations
+        :param web3: Web3 instance for blockchain connectivity
         """
         self.chain = chain
         self.chain_id = chain_id
         self.user_wallet_address = user_wallet_address
+        self._web3 = web3
 
         # TODO: Interface compatibility for existing gmx_python_sdk classes. Needed for some tests. Remove before production
         self.private_key = None
         self._signer = None
+
+    def get_web3_connection(self) -> Web3:
+        """Get Web3 connection instance.
+
+        Required for gmx_python_sdk compatibility.
+
+        :return: Web3 instance
+        :raises ValueError: If Web3 instance is not configured
+        """
+        if self._web3 is None:
+            raise ValueError("Web3 connection not configured")
+        return self._web3
 
 
 class GMXConfig:
@@ -213,6 +228,7 @@ class GMXConfig:
             chain=chain,
             chain_id=web3.eth.chain_id,
             user_wallet_address=user_wallet_address,
+            web3=web3,
         )
 
     def get_config(self) -> GMXConfigManager:

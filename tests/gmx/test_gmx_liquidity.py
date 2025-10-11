@@ -8,7 +8,7 @@ when connected to different networks.
 import logging
 
 import pytest
-from gmx_python_sdk.scripts.v2.order.create_deposit_order import DepositOrder
+from eth_defi.gmx.order.deposit import Deposit
 
 
 def test_initialization(chain_name, gmx_config_fork):
@@ -48,7 +48,7 @@ def test_add_liquidity_native_token(chain_name, liquidity_manager, wallet_with_n
     )
 
     # Verify the order was created with the right type
-    assert isinstance(deposit_order, DepositOrder)
+    assert isinstance(deposit_order, Deposit)
 
     # Verify key properties of the order
     assert hasattr(deposit_order, "config")
@@ -105,7 +105,7 @@ def test_add_liquidity_btc_usdc(chain_name, web3_fork, large_wbtc_holder, wbtc):
     )
 
     # Verify the order was created with the right type
-    assert isinstance(deposit_order, DepositOrder)
+    assert isinstance(deposit_order, Deposit)
 
     # Verify the order has appropriate parameters
     assert hasattr(deposit_order, "market_key")
@@ -178,8 +178,8 @@ def test_remove_liquidity_to_long_token(chain_name, liquidity_manager):
     )
 
     # Verify the order was created with the right type
-    from gmx_python_sdk.scripts.v2.order.create_withdrawal_order import WithdrawOrder
-    assert isinstance(withdraw_order, WithdrawOrder)
+    from eth_defi.gmx.order.withdraw import Withdraw
+    assert isinstance(withdraw_order, Withdraw)
 
     # Verify key properties of the order
     assert hasattr(withdraw_order, "config")

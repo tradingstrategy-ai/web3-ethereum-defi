@@ -98,12 +98,10 @@ Warning:
     Never provide more liquidity than you can afford to lose completely.
 """
 
-from gmx_python_sdk.scripts.v2.order.create_deposit_order import DepositOrder
-from gmx_python_sdk.scripts.v2.order.create_withdrawal_order import WithdrawOrder
-from gmx_python_sdk.scripts.v2.order.liquidity_argument_parser import (
-    LiquidityArgumentParser,
-)
-
+from eth_defi.gmx.liquidity_base import DepositResult
+from eth_defi.gmx.liquidity_base.deposit import Deposit, DepositParams
+from eth_defi.gmx.liquidity_base.withdraw import Withdraw
+from eth_defi.gmx.liquidity_base.liquidity_argument_parser import LiquidityArgumentParser
 from eth_defi.gmx.config import GMXConfig
 
 
@@ -173,8 +171,7 @@ class GMXLiquidityManager:
         short_token_symbol: str,
         long_token_usd: float = 0,
         short_token_usd: float = 0,
-        debug_mode: bool = False,
-    ) -> DepositOrder:
+    ) -> DepositResult:
         """
         Add liquidity to a specified GMX pool with precise asset composition control.
 
@@ -253,9 +250,9 @@ class GMXLiquidityManager:
             spending gas or committing funds
         :type debug_mode: bool
         :return:
-            Configured deposit order object that can be executed to add
+            Configured deposit object that can be executed to add
             liquidity to the specified pool with the chosen asset composition
-        :rtype: DepositOrder
+        :rtype: Deposit
         :raises ValueError:
             When configuration lacks write capabilities or parameters are invalid
         """
@@ -275,16 +272,19 @@ class GMXLiquidityManager:
         # Process parameters
         output = LiquidityArgumentParser(write_config, is_deposit=True).process_parameters_dictionary(parameters)
 
-        # Create deposit order
-        return DepositOrder(
-            config=write_config,
+        deposit = Deposit(config=self.config)
+
+        # Create deposit params
+        params = DepositParams(
             market_key=output["market_key"],
             initial_long_token=output["long_token_address"],
             initial_short_token=output["short_token_address"],
             long_token_amount=output["long_token_amount"],
             short_token_amount=output["short_token_amount"],
-            debug_mode=debug_mode,
         )
+
+        # Create the actual deposit transaction
+        return deposit.create_deposit(params)
 
     def remove_liquidity(
         self,
@@ -292,7 +292,7 @@ class GMXLiquidityManager:
         out_token_symbol: str,
         gm_amount: float,
         debug_mode: bool = False,
-    ) -> WithdrawOrder:
+    ) -> Withdraw:
         """
         Remove liquidity from a GMX pool by redeeming GM tokens for underlying assets.
 
@@ -367,9 +367,9 @@ class GMXLiquidityManager:
             without spending gas or executing the withdrawal
         :type debug_mode: bool
         :return:
-            Configured withdrawal order object that can be executed to remove
+            Configured withdrawal object that can be executed to remove
             liquidity from the specified pool and receive chosen assets
-        :rtype: WithdrawOrder
+        :rtype: Withdraw
         :raises ValueError:
             When configuration lacks write capabilities, insufficient GM tokens,
             or invalid withdrawal parameters
@@ -388,14 +388,20 @@ class GMXLiquidityManager:
         # Process parameters
         output = LiquidityArgumentParser(write_config, is_withdrawal=True).process_parameters_dictionary(parameters)
 
-        # Create withdrawal order
-        return WithdrawOrder(
-            config=write_config,
+        # Create withdrawal instance (withdraw class needs GMXConfig, not GMXConfigManager)
+        from eth_defi.gmx.liquidity_base.withdraw import Withdraw, WithdrawParams
+
+        withdraw = Withdraw(config=self.config)  # Pass GMXConfig, not GMXConfigManager
+
+        # Create withdrawal params
+        params = WithdrawParams(
             market_key=output["market_key"],
             out_token=output["out_token_address"],
             gm_amount=output["gm_amount"],
-            debug_mode=debug_mode,
         )
+
+        # Create the actual withdrawal transaction
+        return withdraw.create_withdrawal(params)
 
 
 if __name__ == "__main__":

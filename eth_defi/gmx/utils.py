@@ -112,15 +112,9 @@ from decimal import Decimal
 from eth_abi import encode
 from eth_utils import keccak
 
-from gmx_python_sdk.scripts.v2.get.get_markets import Markets
-
-from gmx_python_sdk.scripts.v2.get.get_open_positions import GetOpenPositions
-from gmx_python_sdk.scripts.v2.gmx_utils import (
-    ConfigManager,
-    find_dictionary_by_key_value,
-    get_tokens_address_dict,
-    determine_swap_route,
-)
+from eth_defi.gmx.core.markets import Markets
+from eth_defi.gmx.core.open_positions import GetOpenPositions
+from eth_defi.gmx.contracts import get_tokens_address_dict
 
 # Can be done using the `GMXAPI` class if needed
 # def token_symbol_to_address(chain: str, symbol: str) -> Optional[str]:
@@ -333,7 +327,7 @@ def get_positions(config, address: str = None) -> dict[str, Any]:
     :param config:
         GMX configuration object containing network settings and optional
         wallet information for position queries
-    :type config: ConfigManager
+    :type config: GMXConfigManager
     :param address:
         Specific Ethereum address to query positions for. If None, attempts
         to use the address from the provided configuration object
@@ -352,7 +346,17 @@ def get_positions(config, address: str = None) -> dict[str, Any]:
         if address is None:
             raise Exception("No address passed in function or config!")
 
-    positions = GetOpenPositions(config=config, address=address).get_data()
+    # GetOpenPositions expects GMXConfig, so create one if we have GMXConfigManager
+    if hasattr(config, "get_web3_connection"):
+        # This is GMXConfigManager
+        from eth_defi.gmx.config import GMXConfig
+
+        web3 = config.get_web3_connection()
+        gmx_config = GMXConfig(web3, user_wallet_address=config.user_wallet_address)
+        positions = GetOpenPositions(config=gmx_config).get_data(address=address)
+    else:
+        # This is already GMXConfig
+        positions = GetOpenPositions(config=config).get_data(address=address)
 
     if len(positions) > 0:
         logging.info(f"Open Positions for {address}:")
@@ -435,7 +439,7 @@ def transform_open_position_to_order_parameters(
     :param config:
         GMX configuration object containing network settings and token
         information required for address resolution and market data access
-    :type config: ConfigManager
+    :type config: GMXConfigManager
     :param positions:
         Dictionary containing all current open positions with human-readable
         keys and comprehensive position data for transformation
@@ -498,8 +502,8 @@ def transform_open_position_to_order_parameters(
         if collateral_address != out_token_address:
             swap_path = determine_swap_route(markets, collateral_address, out_token_address)[0]
 
-        # Calculate size delta based on position size and close amount
-        size_delta = int((Decimal(raw_position_data["position_size"]) * (Decimal(10) ** 30)) * Decimal(amount_of_position_to_close))
+        # Calculate size delta based on position size and close amount (in USD units, will be scaled in base_order)
+        size_delta = float(Decimal(raw_position_data["position_size"]) * Decimal(amount_of_position_to_close))
 
         # Return formatted parameters
         return {
@@ -561,8 +565,87 @@ def create_hash_string(string: str):
     return create_hash(["string"], [string])
 
 
+def find_dictionary_by_key_value(outer_dict: dict, key: str, value: str):
+    """Find a dictionary within a nested structure by key-value pair.
+
+    :param outer_dict: Dictionary to search through
+    :type outer_dict: dict
+    :param key: Key to search for
+    :type key: str
+    :param value: Value that the key should match
+    :type value: str
+    :return: First matching dictionary or None if not found
+    :rtype: dict | None
+    """
+    for inner_dict in outer_dict.values():
+        if key in inner_dict and inner_dict[key] == value:
+            return inner_dict
+    return None
+
+
+def determine_swap_route(markets: dict, in_token: str, out_token: str, chain: str = "arbitrum") -> tuple[list, bool]:
+    """Determine the optimal swap route through available GMX markets.
+
+    Using the available markets, find the list of GMX markets required
+    to swap from token in to token out.
+
+    :param markets: Dictionary of markets output by getMarketInfo
+    :type markets: dict
+    :param in_token: Contract address of input token
+    :type in_token: str
+    :param out_token: Contract address of output token
+    :type out_token: str
+    :param chain: Blockchain network name
+    :type chain: str
+    :return: Tuple of (list of GMX markets to swap through, requires_multi_swap)
+    :rtype: tuple[list, bool]
+    """
+    from eth_defi.gmx.constants import TOKEN_ADDRESS_MAPPINGS
+    from eth_defi.gmx.contracts import NETWORK_TOKENS
+
+    # Apply token address mappings for routing
+    # Handle WBTC -> BTC.b mapping and similar
+    if chain in TOKEN_ADDRESS_MAPPINGS:
+        mappings = TOKEN_ADDRESS_MAPPINGS[chain]
+        if in_token in mappings:
+            in_token = mappings[in_token]
+        if out_token in mappings:
+            out_token = mappings[out_token]
+
+    # Get USDC address for routing based on chain
+    usdc_address = NETWORK_TOKENS.get(chain, {}).get("USDC")
+    if not usdc_address:
+        raise ValueError(f"USDC address not configured for chain: {chain}")
+
+    if in_token == usdc_address:
+        gmx_market_data = find_dictionary_by_key_value(markets, "index_token_address", out_token)
+        if gmx_market_data:
+            gmx_market_address = gmx_market_data["gmx_market_address"]
+        else:
+            raise ValueError(f"No market found for output token {out_token}")
+    else:
+        gmx_market_data = find_dictionary_by_key_value(markets, "index_token_address", in_token)
+        if gmx_market_data:
+            gmx_market_address = gmx_market_data["gmx_market_address"]
+        else:
+            raise ValueError(f"No market found for input token {in_token}")
+
+    is_requires_multi_swap = False
+
+    if out_token != usdc_address and in_token != usdc_address:
+        is_requires_multi_swap = True
+        second_gmx_market_data = find_dictionary_by_key_value(markets, "index_token_address", out_token)
+        if second_gmx_market_data:
+            second_gmx_market_address = second_gmx_market_data["gmx_market_address"]
+            return [gmx_market_address, second_gmx_market_address], is_requires_multi_swap
+        else:
+            raise ValueError(f"No market found for output token {out_token} in multi-swap")
+
+    return [gmx_market_address], is_requires_multi_swap
+
+
 if __name__ == "__main__":
-    config = ConfigManager(chain="arbitrum")
+    # Example removed - use GMXConfig instead in production code
     config.set_config()
 
     positions = get_positions(config=config, address="0x0e9E19E7489E5F13a0940b3b6FcB84B25dc68177")
