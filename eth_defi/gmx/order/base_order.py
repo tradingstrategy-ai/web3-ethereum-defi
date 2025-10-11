@@ -400,8 +400,9 @@ class BaseOrder:
         # Convert swap_path to checksum addresses
         swap_path_checksum = [to_checksum_address(addr) for addr in params.swap_path]
 
-        # Size delta: position size in USD with 30 decimals of precision
-        size_delta_usd = int(Decimal(str(params.size_delta)) * Decimal(10**30))
+        # Size delta: already in GMX format (10^30 precision) from OrderArgumentParser
+        # DO NOT multiply again - OrderArgumentParser already applied 10^30
+        size_delta_usd = int(params.size_delta)
 
         # Collateral: already in token's smallest unit (from initial_collateral_delta_amount)
         collateral_amount = int(params.initial_collateral_delta_amount)
@@ -680,8 +681,9 @@ class BaseOrder:
             decimals = market_data["market_metadata"]["decimals"]
             median_price = median([float(price_data["maxPriceFull"]), float(price_data["minPriceFull"])])
 
-            size_delta_usd = int(Decimal(str(params.size_delta)) * Decimal(10**PRECISION))
-            position_size_in_tokens = int((params.size_delta * (10**PRECISION)) / median_price)
+            # size_delta is already in 10^30 format from OrderArgumentParser
+            size_delta_usd = int(params.size_delta)
+            position_size_in_tokens = int(params.size_delta / median_price)
 
             # Query reader contract for execution price and impact
             result = reader.functions.getExecutionPrice(

@@ -105,17 +105,17 @@ def main():
         "WETH.B": "BTC",  # In case of different variations
         # Add other aliases as needed
     }
-    
+
     # Apply mapping only if the symbol exists in the alias map, otherwise use as is
     market_symbol = symbol_alias_mapping.get(user_market_symbol.upper(), user_market_symbol.upper())
     collateral_symbol = symbol_alias_mapping.get(user_collateral_symbol.upper(), user_collateral_symbol.upper())
     start_token_symbol = symbol_alias_mapping.get(user_start_token_symbol.upper(), user_start_token_symbol.upper())
     
-    size_usd = 10.0  # Position size in USD (smaller for testing)
-    leverage = 2.0  # Leverage to use
+    size_usd = 10  # Position size in USD (smaller for testing)
+    leverage = 1.0  # Leverage to use
     
     print(f"\nUsing corrected token symbols for {config.get_chain()}:")
-    print(f"  Market Symbol: {market_symbol} (user specified WETH, auto-mapped to ETH)")
+    print(f"  Market Symbol: {market_symbol}")
     print(f"  Collateral Symbol: {collateral_symbol}")
     print(f"  Start Token Symbol: {start_token_symbol}")
     
