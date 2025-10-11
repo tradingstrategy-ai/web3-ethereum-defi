@@ -34,7 +34,8 @@ class EulerVault(ERC4626Vault):
     @property
     def name(self) -> str:
         if self.euler_metadata:
-            return self.euler_metadata["name"]
+            # Euler metadata might not have an entry for this vault yet
+            return self.euler_metadata.get("name", super().name)
         return super().name
 
     @property
