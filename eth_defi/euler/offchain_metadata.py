@@ -8,6 +8,8 @@ import datetime
 import json
 from pathlib import Path
 from typing import TypedDict
+import logging
+from urllib.error import HTTPError
 
 import requests
 
@@ -17,6 +19,9 @@ from eth_defi.compat import native_datetime_utc_now, native_datetime_utc_fromtim
 
 #: Where we copy files from Euelr Github repo
 DEFAULT_CACHE_PATH = Path.home() / ".cache" / "euler"
+
+
+logger = logging.getLogger(__name__)
 
 
 class EulerVaultMetadata(TypedDict):
@@ -55,13 +60,25 @@ def fetch_euler_vaults_file_for_chain(
         url = f"{github_base_url}/{chain_id}/vaults.json"
 
         # Fetch and save the file
+
         response = requests.get(url)
-        response.raise_for_status()  # Raises exception for HTTP errors
 
-        with open(file, "w", encoding="utf-8") as f:
-            f.write(response.text)
+        try:
+            response.raise_for_status()  # Raises exception for HTTP errors
 
-    return json.load(open(file, "r", encoding="utf-8"))
+            with open(file, "w", encoding="utf-8") as f:
+                # Check Github file looks valud
+                if json.load(open(file, "rt")):
+                    f.write(response.text)
+                else:
+                    # TODO: Not sure what happened here, added more logs
+                    logger.warning("Euler vaults file for chain %d is empty, writing empty JSON object", chain_id)
+                    f.write("{}")
+        except HTTPError as e:
+            logger.warning("Euler vault file missing for chain %d is empty, writing empty JSON object, url %s, error %s", chain_id, url, e)
+            f.write("{}")
+
+        return json.load(open(file, "rt"))
 
 
 def fetch_euler_vault_metadata(web3: Web3, vault_address: HexAddress) -> EulerVaultMetadata | None:
