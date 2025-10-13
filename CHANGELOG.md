@@ -9,7 +9,9 @@
 - Add: Use normal JSON-RPC eth_getLogs to discover vaults for chains not supported by Hypersync
 - Add: Rearchitecture the vault discovery logic a bit, add resuming the scan
 - Add: Euler offchain vault metadata support
-
+- Add: Get Aave v3 liquidations across multiple chains using HyperSync
+- Add: Example tutorial how to analyse Aave liquidations
+- 
 # 0.33
 
 - Migrate to Web3.py 7.x with the optional Web3 6.x dependency available. See [README](github.com/tradingstrategy-ai/web3-ethereum-defi) for updated installation instruction details.

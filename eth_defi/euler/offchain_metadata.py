@@ -58,34 +58,55 @@ def fetch_euler_vaults_file_for_chain(
         now_ = native_datetime_utc_now()
 
     if not file.exists() or (now_ - native_datetime_utc_fromtimestamp(file.stat().st_mtime)) > max_cache_duration:
-        url = f"{github_base_url}/{chain_id}/vaults.json"
+        logger.info(f"Re-fetching cached Euler vaults file for chain {chain_id} from {github_base_url}")
+        with file.open("wt") as f:
+            url = f"{github_base_url}/{chain_id}/vaults.json"
 
-        # Fetch and save the file
+            # Fetch and save the file
+            response = requests.get(url)
 
-        response = requests.get(url)
+            logger.info(f"Got response code {response.status_code} for Euler vaults file for chain {chain_id} from {url}")
 
+            try:
+                response.raise_for_status()  # Raises exception for HTTP errors
+
+                # Check Github file looks valuew
+                logger.info("Fetched Euler vaults file for chain %d from %s, size %d bytes", chain_id, url, len(response.text))
+                content = json.loads(response.text)
+                f.write(response.text)
+
+                logger.info(f"Wrote {file.resolve()}")
+
+            except (HTTPError, JSONDecodeError) as e:
+                logger.warning(
+                    "Euler vault file missing for chain %d is empty, writing empty JSON object, url %s, error %s, content %s",
+                    chain_id,
+                    url,
+                    e,
+                    response.text,
+                )
+                f.write("{}")
+                content = {}
+
+        assert file.stat().st_size > 0, f"File {file} is empty after writing"
+        return content
+
+    else:
+        timestamp = datetime.datetime.fromtimestamp(file.stat().st_mtime, tz=None)
+        ago = now_ - timestamp
+        logger.info(f"Using cached Euler vaults file for chain {chain_id} from {file}, last fetched at {timestamp.isoformat()}. ago {ago}")
         try:
-            response.raise_for_status()  # Raises exception for HTTP errors
-
-            with open(file, "w", encoding="utf-8") as f:
-                # Check Github file looks valud
-                if json.load(open(file, "rt")):
-                    f.write(response.text)
-                else:
-                    # TODO: Not sure what happened here, added more logs
-                    logger.warning("Euler vaults file for chain %d is empty, writing empty JSON object", chain_id)
-                    f.write("{}")
-        except (HTTPError, JSONDecodeError) as e:
-            logger.warning("Euler vault file missing for chain %d is empty, writing empty JSON object, url %s, error %s", chain_id, url, e)
-            f.write("{}")
-
-        return json.load(open(file, "rt"))
+            return json.load(open(file, "rt"))
+        except JSONDecodeError as e:
+            content = open(file, "rt").read()
+            raise RuntimeError(f"Could not parse Euler vaults file for chain {chain_id} at {file}, length {len(content)} content starts with {content[:100]!r}") from e
 
 
 def fetch_euler_vault_metadata(web3: Web3, vault_address: HexAddress) -> EulerVaultMetadata | None:
     """Fetch vault metadata from offchain source."""
     chain_id = web3.eth.chain_id
     vaults = fetch_euler_vaults_file_for_chain(chain_id)
-
-    vault_address = web3.to_checksum_address(vault_address)
-    return vaults.get(vault_address)
+    if vaults:
+        vault_address = web3.to_checksum_address(vault_address)
+        return vaults.get(vault_address)
+    return None

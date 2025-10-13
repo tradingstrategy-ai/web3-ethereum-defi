@@ -730,7 +730,23 @@ def fetch_erc20_details(
     )
 
     try:
-        symbol = sanitise_string(erc_20.functions.symbol().call()[0:max_str_length])
+        try:
+            raw_resp = erc_20.functions.symbol().call()
+            symbol = sanitise_string(raw_resp[0:max_str_length])
+        except BadFunctionCallOutput as e:
+            # ABI mismatch
+            # MakerDAO f*** yeah
+            # *** web3.exceptions.BadFunctionCallOutput: Could not decode contract function call to symbol() with return data: b'MKR\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00', output_types: ['string']
+            msg = str(e)
+
+            start = msg.find("b'") + 2
+            end = msg.find("\\x00", start)
+            if end != -1:
+                value = msg[start:end]
+                symbol = value
+            else:
+                raise
+
     except ReadTimeout as e:
         # Handle this specially because Anvil is piece of hanging shit
         # and we need to manually clean up these all the time
@@ -749,9 +765,25 @@ def fetch_erc20_details(
 
     try:
         name = sanitise_string(erc_20.functions.name().call()[0:max_str_length])
+    except BadFunctionCallOutput as e:
+        # ABI mismatch
+        # MakerDAO f*** yeah
+        # *** web3.exceptions.BadFunctionCallOutput: Could not decode contract function call to symbol() with return data: b'MKR\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00', output_types: ['string']
+        msg = str(e)
+
+        start = msg.find("b'") + 2
+        end = msg.find("\\x00", start)
+        if end != -1:
+            value = msg[start:end]
+            name = value
+        else:
+            if raise_on_error:
+                raise
+            else:
+                name = None
     except _call_missing_exceptions as e:
         if raise_on_error:
-            raise TokenDetailError(f"Token {token_address} missing name") from e
+            raise TokenDetailError(f"Token {token_address} missing name: {e}") from e
         name = None
     except OverflowError:
         # OverflowError: Python int too large to convert to C ssize_t
