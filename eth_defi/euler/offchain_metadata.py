@@ -72,7 +72,7 @@ def fetch_euler_vaults_file_for_chain(
 
                 # Check Github file looks valuew
                 logger.info("Fetched Euler vaults file for chain %d from %s, size %d bytes", chain_id, url, len(response.text))
-                content = json.loads(response.text)
+                content = json.loads(response.text)  # Validate
                 f.write(response.text)
 
                 logger.info(f"Wrote {file.resolve()}")
@@ -88,6 +88,7 @@ def fetch_euler_vaults_file_for_chain(
                 f.write("{}")
                 content = {}
 
+        # Strange Things happening here
         assert file.stat().st_size > 0, f"File {file} is empty after writing"
         return content
 
