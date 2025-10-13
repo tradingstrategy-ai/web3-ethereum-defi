@@ -1,7 +1,76 @@
-#!/usr/bin/env python3
 """
-GMX Position Opening Test Script for Arbitrum Sepolia
-This script tests opening positions on GMX using the eth_defi framework
+GMX Position Opening Test Script
+
+This script demonstrates how to open leveraged positions on GMX protocol
+using the eth_defi framework. It supports both mainnet and testnet deployments.
+
+The script performs the following operations:
+
+1. Connects to the specified blockchain network via RPC
+2. Detects the chain from the RPC URL
+3. Loads GMX contract addresses and token information
+4. Creates a trading client with the provided wallet
+5. Opens a leveraged position on a specified market
+6. Handles token approvals automatically
+7. Signs and submits the transaction
+
+Usage
+-----
+
+Basic usage with environment variables::
+
+    python scripts/gmx/gmx_open_position.py --private-key $PRIVATE_KEY --rpc-url $ARBITRUM_SEPOLIA_RPC_URL
+
+For Arbitrum mainnet::
+
+    python scripts/gmx/gmx_open_position.py --private-key $PRIVATE_KEY --rpc-url $ARBITRUM_RPC_URL
+
+For Avalanche mainnet::
+
+    python scripts/gmx/gmx_open_position.py --private-key $PRIVATE_KEY --rpc-url $AVALANCHE_RPC_URL
+
+Command-Line Arguments
+----------------------
+
+:param --private-key: Wallet private key (with or without 0x prefix)
+:type --private-key: str
+:param --rpc-url: Blockchain RPC URL (e.g., Infura, Alchemy, or custom node)
+:type --rpc-url: str
+
+Environment Variables
+---------------------
+
+The script uses the following environment variables for configuration:
+
+- ``PRIVATE_KEY``: Your wallet's private key
+- ``ARBITRUM_SEPOLIA_RPC_URL``: Arbitrum Sepolia testnet RPC endpoint
+- ``ARBITRUM_RPC_URL``: Arbitrum mainnet RPC endpoint
+- ``AVALANCHE_RPC_URL``: Avalanche C-Chain mainnet RPC endpoint
+
+Example
+-------
+
+Open a $10 USD long position on CRV market with 1x leverage on Arbitrum Sepolia::
+
+    export PRIVATE_KEY="0x1234..."
+    export ARBITRUM_SEPOLIA_RPC_URL="https://arbitrum-sepolia.infura.io/v3/YOUR_KEY"
+    python scripts/gmx/gmx_open_position.py --private-key $PRIVATE_KEY --rpc-url $ARBITRUM_SEPOLIA_RPC_URL
+
+Notes
+-----
+
+- The script automatically detects the chain from the RPC URL
+- Token approvals are handled automatically if needed
+- Position parameters (market, size, leverage) can be modified in the script
+- Ensure your wallet has sufficient collateral tokens and ETH for gas fees
+
+See Also
+--------
+
+- :mod:`eth_defi.gmx.trading` - GMX trading module
+- :mod:`eth_defi.gmx.config` - GMX configuration
+- :class:`eth_defi.hotwallet.HotWallet` - Hot wallet implementation
+
 """
 
 import argparse
@@ -90,20 +159,17 @@ def main():
     config = GMXConfig(web3, user_wallet_address=wallet_address)
     trading_client = GMXTrading(config)
     
-    # Map user-friendly symbols to the ones expected by GMX v2
-    # This handles the token mapping issue where "WETH"/"ETH" both refer to same address
-    # but only "ETH" is kept in the final metadata dict (same for "WBTC"/"BTC")
-    # Only map the specific tokens that have this issue, not all tokens
-    user_market_symbol = "ETH"  # Allow users to use familiar symbol (WETH), gets mapped to ETH
+    # Market symbol where we want to trade
+    user_market_symbol = "CRV" 
+    
     user_collateral_symbol = "USDC.SG"  # Using USDC.SG as collateral
-    user_start_token_symbol = "USDC.SG"  # Start with the same token as collateral
+    # WETH is not supported by GMX yet. If start & collateral symbols are different then it'll be swapped to collateral token
+    user_start_token_symbol = "USDC.SG"
     
     # Define the mapping for tokens that have this specific issue
     symbol_alias_mapping = {
         # "ETH": "WETH",
         "WBTC": "BTC",
-        "WETH.B": "BTC",  # In case of different variations
-        # Add other aliases as needed
     }
 
     # Apply mapping only if the symbol exists in the alias map, otherwise use as is
@@ -130,10 +196,10 @@ def main():
             size_delta_usd=size_usd,
             leverage=leverage,
             slippage_percent=0.005,  # 0.5% slippage
-            execution_buffer=1.9,
+            execution_buffer=1.9, # less than this is reverting
         )
         
-        print(f"\n✅ Position order created successfully!")
+        print(f"\nPosition order created successfully!")
         print(f"Order type: {type(order)}")
         
         # Import token functionality
@@ -167,7 +233,7 @@ def main():
             print(f"Required amount: {required_amount / (10 ** token_decimals)} {collateral_symbol}")
             
             if current_allowance < required_amount:
-                print(f"⏳ Approving {collateral_symbol} tokens for GMX contract...")
+                print(f"Approving {collateral_symbol} tokens for GMX contract...")
                 
                 # Build the transaction
                 approve_tx = token_contract.functions.approve(spender_address, required_amount).build_transaction({
@@ -177,29 +243,29 @@ def main():
                 })
                 
                 # Remove the nonce field so wallet can handle it
-                if 'nonce' in approve_tx:
-                    del approve_tx['nonce']
+                if "nonce" in approve_tx:
+                    del approve_tx["nonce"]
                 
                 try:
                     # Sign and send approval transaction using wallet's nonce management
                     signed_approve_tx = wallet.sign_transaction_with_new_nonce(approve_tx)
                     approve_tx_hash = web3.eth.send_raw_transaction(signed_approve_tx.rawTransaction)
                     
-                    print(f"✅ Approval transaction sent! Hash: {approve_tx_hash.hex()}")
+                    print(f"Approval transaction sent! Hash: {approve_tx_hash.hex()}")
                     
                     # Wait for approval confirmation
-                    print("⏳ Waiting for approval confirmation...")
+                    print("Waiting for approval confirmation...")
                     approve_receipt = web3.eth.wait_for_transaction_receipt(approve_tx_hash)
-                    print(f"✅ Approval confirmed! Status: {approve_receipt.status}")
+                    print(f"Approval confirmed! Status: {approve_receipt.status}")
                     print(f"Approval block number: {approve_receipt.blockNumber}")
                 except Exception as approval_error:
-                    print(f"⚠️ Approval transaction failed: {approval_error}")
+                    print(f"Approval transaction failed: {approval_error}")
                     print("This is expected if using a test wallet without sufficient ETH for gas fees")
             else:
-                print(f"✅ Sufficient allowance already exists for {collateral_symbol}")
+                print(f"Sufficient allowance already exists for {collateral_symbol}")
         
         except Exception as e:
-            print(f"⚠️ Token approval failed: {str(e)}")
+            print(f"Token approval failed: {str(e)}")
             print("Continuing with position creation (approval may be needed for actual execution)")
             import traceback
             traceback.print_exc()
@@ -215,36 +281,28 @@ def main():
             signed_tx = wallet.sign_transaction_with_new_nonce(transaction)
             tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
             
-            print(f"✅ Position transaction signed and sent!")
+            print(f"Position transaction signed and sent!")
             print(f"Transaction hash: {tx_hash.hex()}")
             
             # Wait for transaction receipt
-            print("⏳ Waiting for transaction confirmation...")
+            print("Waiting for transaction confirmation...")
             receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
-            print(f"✅ Position transaction confirmed! Status: {receipt.status}")
+            print(f"Position transaction confirmed! Status: {receipt.status}")
             print(f"Block number: {receipt.blockNumber}")
             
         except Exception as e:
-            print(f"⚠️ Position transaction submission failed: {str(e)}")
+            print(f"Position transaction submission failed: {str(e)}")
             print("This is expected if using a test wallet without sufficient ETH for gas fees or tokens for collateral")
-            print("\n📝 To successfully execute transactions, ensure:")
+            print("\nTo successfully execute transactions, ensure:")
             print("   - Sufficient token balance in wallet")
             print("   - Token approval for GMX contracts (allowance set)")
             print("   - Sufficient native token (ETH) for gas fees")
             raise e
         
-        # Print order details if available
-        if hasattr(order, '__dict__'):
-            print(f"Order attributes: {list(order.__dict__.keys())}")
-        
-        print("\n🎉 GMX Position Opening Test completed successfully!")
-        print("📝 Notes:")
-        print("   - Script auto-maps 'WETH' to 'ETH' and 'WBTC' to 'BTC' for Arbitrum Sepolia")
-        print("   - You can use familiar symbols like 'WETH', they'll be converted automatically") 
-        print("   - The eth_defi wrapper handles complex configuration automatically")
-        
+        print("\nGMX Position Opening Test completed successfully!")
+
     except Exception as e:
-        print(f"❌ Error during execution: {str(e)}")
+        print(f"Error during execution: {str(e)}")
         import traceback
         traceback.print_exc()
         sys.exit(1)

@@ -282,11 +282,13 @@ class OrderArgumentParser:
                 chain=self.parameters_dict["chain"],
             )[0]
 
+    @staticmethod
     def _handle_missing_is_long(self):
         """is_long must be supplied by user."""
         msg = "Please indicate if position is_long!"
         raise Exception(msg)
 
+    @staticmethod
     def _handle_missing_slippage_percent(self):
         """slippage_percent must be supplied by user."""
         msg = "Please indicate slippage!"
