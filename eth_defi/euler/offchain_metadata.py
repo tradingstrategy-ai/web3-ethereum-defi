@@ -86,6 +86,7 @@ def fetch_euler_vault_metadata(web3: Web3, vault_address: HexAddress) -> EulerVa
     """Fetch vault metadata from offchain source."""
     chain_id = web3.eth.chain_id
     vaults = fetch_euler_vaults_file_for_chain(chain_id)
-
-    vault_address = web3.to_checksum_address(vault_address)
-    return vaults.get(vault_address)
+    if vaults:
+        vault_address = web3.to_checksum_address(vault_address)
+        return vaults.get(vault_address)
+    return None
