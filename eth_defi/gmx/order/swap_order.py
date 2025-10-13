@@ -5,6 +5,7 @@ Specialized order class for handling token swaps on GMX protocol.
 Extends BaseOrder to provide swap-specific functionality and returning unsigned transactions.
 """
 
+import logging
 from typing import Optional, Any
 
 from eth_utils import to_checksum_address
@@ -15,6 +16,9 @@ from eth_defi.gmx.constants import PRECISION
 from eth_defi.gmx.contracts import get_contract_addresses, get_reader_contract
 from eth_defi.gmx.utils import determine_swap_route
 from eth_defi.token import fetch_erc20_details
+
+
+logger = logging.getLogger(__name__)
 
 
 class SwapOrder(BaseOrder):
@@ -44,7 +48,7 @@ class SwapOrder(BaseOrder):
         self.start_token = to_checksum_address(start_token)
         self.out_token = to_checksum_address(out_token)
 
-        self.logger.debug(f"Initialized swap order: {self.start_token} -> {self.out_token}")
+        logger.debug("Initialized swap order: %s -> %s", self.start_token, self.out_token)
 
     def create_swap_order(
         self,
@@ -83,9 +87,9 @@ class SwapOrder(BaseOrder):
         if not swap_route:
             raise ValueError(f"No swap route found from {self.start_token} to {self.out_token}")
 
-        self.logger.debug(f"Swap route determined: {len(swap_route)} market(s)")
+        logger.debug("Swap route determined: %d market(s)", len(swap_route))
         if is_multi_swap:
-            self.logger.debug("Multi-market swap required")
+            logger.debug("Multi-market swap required")
 
         # Use the last market in the route (final destination market)
         market_key = swap_route[-1]
@@ -204,7 +208,7 @@ class SwapOrder(BaseOrder):
             }
 
         except Exception as e:
-            self.logger.error(f"Failed to estimate swap output: {e}")
+            logger.error("Failed to estimate swap output: %s", e)
             raise ValueError(f"Could not estimate swap output: {e}")
 
     # CCXT-compatible convenience methods

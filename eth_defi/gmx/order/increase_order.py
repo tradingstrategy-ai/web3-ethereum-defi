@@ -5,12 +5,16 @@ Specialised order class for opening or increasing positions on GMX protocol.
 Extends BaseOrder to provide increased position functionality and returning unsigned transactions.
 """
 
+import logging
 from typing import Optional
 
 from eth_utils import to_checksum_address
 from eth_typing import ChecksumAddress
 
 from eth_defi.gmx.order.base_order import BaseOrder, OrderParams, OrderResult
+
+
+logger = logging.getLogger(__name__)
 
 
 class IncreaseOrder(BaseOrder):
@@ -51,7 +55,7 @@ class IncreaseOrder(BaseOrder):
         self.index_token_address = to_checksum_address(index_token_address)
         self.is_long = is_long
 
-        self.logger.debug(f"Initialized increase order for market {self.market_key}, {'LONG' if self.is_long else 'SHORT'} position")
+        logger.debug("Initialized increase order for market %s, %s position", self.market_key, "LONG" if self.is_long else "SHORT")
 
     def create_increase_order(
         self,

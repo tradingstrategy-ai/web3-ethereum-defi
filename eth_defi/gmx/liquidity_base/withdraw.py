@@ -99,7 +99,6 @@ class Withdraw:
         self.contract_addresses = get_contract_addresses(self.chain)
         self._exchange_router_contract = get_exchange_router_contract(self.web3, self.chain)
         self._reader_contract = get_reader_contract(self.web3, self.chain)
-        self.logger = logging.getLogger(self.__class__.__name__)
 
         # Initialise markets
         self.markets = Markets(self.config)
@@ -110,7 +109,7 @@ class Withdraw:
         # Initialise gas limits
         self._initialize_gas_limits()
 
-        self.logger.debug(f"Initialized {self.__class__.__name__} for {self.chain}")
+        logger.debug("Initialized %s for %s", self.__class__.__name__, self.chain)
 
     def _initialize_gas_limits(self):
         """Load gas limits from GMX datastore contract.
@@ -122,9 +121,9 @@ class Withdraw:
             datastore = get_datastore_contract(self.web3, self.chain)
             # get_gas_limits returns a dict with integer values (already .call()'ed)
             self._gas_limits = get_gas_limits(datastore)
-            self.logger.debug("Gas limits loaded from datastore contract")
+            logger.debug("Gas limits loaded from datastore contract")
         except Exception as e:
-            self.logger.warning(f"Failed to load gas limits from datastore: {e}")
+            logger.warning("Failed to load gas limits from datastore: %s", e)
             # Fallback to default gas limits
             self._gas_limits = {
                 "withdraw": 2000000,
@@ -133,7 +132,7 @@ class Withdraw:
                 "estimated_fee_base_gas_limit": 500000,
                 "estimated_fee_multiplier_factor": 1300000000000000000000000000000,  # 1.3 * 10^30 # just a fallback value scaled with GMX's decimals
             }
-            self.logger.debug("Using fallback gas limits from constants")
+            logger.debug("Using fallback gas limits from constants")
 
     def create_withdrawal(self, params: WithdrawParams) -> WithdrawResult:
         """Create a withdrawal transaction.
@@ -261,9 +260,9 @@ class Withdraw:
                     market_long_token,
                     self.chain,
                 )
-                self.logger.debug(f"Long token swap path: {long_swap_path}, multi-swap: {requires_multi_swap}")
+                logger.debug("Long token swap path: %s, multi-swap: %s", long_swap_path, requires_multi_swap)
             except Exception as e:
-                self.logger.debug(f"Could not determine long token swap route: {e}")
+                logger.debug("Could not determine long token swap route: %s", e)
                 long_swap_path = []
 
         # Build swap path for short token if needed
@@ -276,9 +275,9 @@ class Withdraw:
                     market_short_token,
                     self.chain,
                 )
-                self.logger.debug(f"Short token swap path: {short_swap_path}, multi-swap: {requires_multi_swap}")
+                logger.debug("Short token swap path: %s, multi-swap: %s", short_swap_path, requires_multi_swap)
             except Exception as e:
-                self.logger.debug(f"Could not determine short token swap route: {e}")
+                logger.debug("Could not determine short token swap route: %s", e)
                 short_swap_path = []
 
         return long_swap_path, short_swap_path
@@ -344,14 +343,14 @@ class Withdraw:
             min_long_token_amount = estimated_output[0]
             min_short_token_amount = estimated_output[1]
 
-            self.logger.debug(
+            logger.debug(
                 f"Estimated withdrawal output: {min_long_token_amount} long tokens, {min_short_token_amount} short tokens",
             )
 
             return min_long_token_amount, min_short_token_amount
 
         except Exception as e:
-            self.logger.warning(f"Failed to estimate withdrawal output: {e}. Using 0 as min output.")
+            logger.warning("Failed to estimate withdrawal output: %s. Using 0 as min output.", e)
             return 0, 0
 
     def _build_withdraw_arguments(

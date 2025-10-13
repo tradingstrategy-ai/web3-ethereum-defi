@@ -26,7 +26,8 @@ from eth_defi.gmx.gas_utils import get_gas_limits
 from eth_defi.token import fetch_erc20_details
 
 
-# Module-level constants
+# Module-level constants and logger
+logger = logging.getLogger(__name__)
 ZERO_REFERRAL_CODE = bytes.fromhex("0" * 64)
 
 
@@ -113,7 +114,6 @@ class BaseOrder:
         self.chain_id = config.web3.eth.chain_id
         self.contract_addresses = get_contract_addresses(self.chain)
         self._exchange_router_contract = get_exchange_router_contract(self.web3, self.chain)
-        self.logger = logging.getLogger(self.__class__.__name__)
 
         # Initialize order type constants
         self._order_types = ORDER_TYPES
@@ -121,7 +121,7 @@ class BaseOrder:
         # Initialize gas limits from datastore
         self._initialize_gas_limits()
 
-        self.logger.debug(f"Initialized {self.__class__.__name__} for {self.chain}")
+        logger.debug("Initialized %s for %s", self.__class__.__name__, self.chain)
 
     # New method to initialize gas limits
     def _initialize_gas_limits(self):
@@ -132,12 +132,12 @@ class BaseOrder:
         try:
             datastore = get_datastore_contract(self.web3, self.chain)
             self._gas_limits = get_gas_limits(datastore)
-            self.logger.debug("Gas limits loaded from datastore contract")
+            logger.debug("Gas limits loaded from datastore contract")
         except Exception as e:
-            self.logger.warning(f"Failed to load gas limits from datastore: {e}")
+            logger.warning("Failed to load gas limits from datastore: %s", e)
             # Fallback to default gas limits from constants
             self._gas_limits = GAS_LIMITS.copy()
-            self.logger.debug("Using fallback gas limits from constants")
+            logger.debug("Using fallback gas limits from constants")
 
     @property
     def markets(self) -> Markets:
@@ -216,7 +216,7 @@ class BaseOrder:
 
         # Calculate prices with slippage (validate prices exist before other operations)
         decimals = market_data["market_metadata"]["decimals"]
-        price, acceptable_price, acceptable_price_in_usd = self._get_prices(
+        price_usd, raw_price, acceptable_price, acceptable_price_in_usd = self._get_prices(
             decimals,
             prices,
             params,
@@ -236,7 +236,8 @@ class BaseOrder:
             self._check_for_approval(params)
 
         # Build order arguments (from original _create_order)
-        mark_price = int(price) if is_open else 0
+        # Use raw_price (in contract format) for mark_price, not the USD price
+        mark_price = raw_price if is_open else 0
         acceptable_price_val = acceptable_price if not is_swap else 0
 
         arguments = self._build_order_arguments(
@@ -275,7 +276,7 @@ class BaseOrder:
             transaction=transaction,
             execution_fee=execution_fee,
             acceptable_price=acceptable_price_val,
-            mark_price=price,
+            mark_price=price_usd,
             gas_limit=gas_limits["total"],
             estimated_price_impact=price_impact,
         )
@@ -310,7 +311,7 @@ class BaseOrder:
         is_open: bool,
         is_close: bool,
         is_swap: bool,
-    ) -> tuple[float, int, float]:
+    ) -> tuple[float, int, int, float]:
         """Calculate prices with slippage.
 
         :param decimals: Token decimals
@@ -319,23 +320,25 @@ class BaseOrder:
         :param is_open: Whether opening a position
         :param is_close: Whether closing a position
         :param is_swap: Whether performing a swap
-        :return: Tuple of (price, acceptable_price, acceptable_price_in_usd)
+        :return: Tuple of (price_usd, raw_price, acceptable_price, acceptable_price_in_usd)
         """
-        self.logger.debug("Getting prices...")
+        logger.debug("Getting prices...")
 
-        # Map testnet token addresses to mainnet for oracle lookup
-        testnet_to_mainnet_tokens = {
-            # Arbitrum Sepolia → Arbitrum mainnet
-            "0x980B62Da83eFf3D4576C647993b0c1D7faf17c73": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",  # WETH
-            "0xF79cE1Cf38A09D572b021B4C5548b75A14082F12": "0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f",  # BTC
-            "0x3253a335E7bFfB4790Aa4C25C4250d206E9b9773": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",  # USDC
-            "0xD5DdAED48B09fa1D7944bd662CB05265FCD7077C": "0x2bcC6D6CdBbDC0a4071e48bb3B969b06B3330c07",  # SOL
+        # Map testnet token addresses to their corresponding oracle addresses for lookup
+        # This maps token contract addresses to their oracle data lookup keys
+        testnet_token_to_oracle = {
+            # Arbitrum Sepolia
+            "0xD5DdAED48B09fa1D7944bd662CB05265FCD7077C": "0xe5f01aeAcc8288E9838A60016AB00d7b6675900b",  # CRV testnet token → CRV oracle
+            # For other tokens, use the mainnet mapping approach
+            "0x980B62Da83eFf3D4576C647993b0c1D7faf17c73": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",  # WETH testnet → WETH mainnet oracle
+            "0xF79cE1Cf38A09D572b021B4C5548b75A14082F12": "0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f",  # BTC testnet → BTC mainnet oracle
+            "0x3253a335E7bFfB4790Aa4C25C4250d206E9b9773": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",  # USDC testnet → USDC mainnet oracle
         }
 
-        # Get oracle address (map testnet to mainnet if needed)
+        # Get oracle address (map testnet token to oracle address if needed)
         oracle_address = params.index_token_address
         if self.chain in ["arbitrum_sepolia", "avalanche_fuji"]:
-            oracle_address = testnet_to_mainnet_tokens.get(params.index_token_address, params.index_token_address)
+            oracle_address = testnet_token_to_oracle.get(params.index_token_address, params.index_token_address)
 
         if oracle_address not in prices:
             raise ValueError(f"Price not available for token {params.index_token_address} (oracle: {oracle_address})")
@@ -343,28 +346,41 @@ class BaseOrder:
         price_data = prices[oracle_address]
         price = median([float(price_data["maxPriceFull"]), float(price_data["minPriceFull"])])
 
+        # According to GMX standard, all prices are scaled in 30 decimals
+        # The human-readable price is calculated as: human_price = raw / (10 ** (30 - token_decimals))
+        price_usd = price / (10 ** (PRECISION - decimals))  # PRECISION = 30
+
         # Calculate slippage based on position type and action
         if is_open:
             if params.is_long:
-                slippage_price = price + (price * params.slippage_percent)
+                slippage_price = price_usd + (price_usd * params.slippage_percent)
             else:
-                slippage_price = price - (price * params.slippage_percent)
+                slippage_price = price_usd - (price_usd * params.slippage_percent)
         elif is_close:
             if params.is_long:
-                slippage_price = price - (price * params.slippage_percent)
+                slippage_price = price_usd - (price_usd * params.slippage_percent)
             else:
-                slippage_price = price + (price * params.slippage_percent)
+                slippage_price = price_usd + (price_usd * params.slippage_percent)
         else:
             slippage_price = 0
 
-        acceptable_price = int(slippage_price)
-        acceptable_price_in_usd = acceptable_price * (10 ** (decimals - PRECISION))
+        # Convert acceptable price back to contract format: raw_price = human_price * (10 ** (30 - token_decimals))
+        acceptable_price = int(slippage_price * (10 ** (PRECISION - decimals)))  # Scale to GMX format (30 - token_decimals)
 
-        self.logger.debug(f"Mark Price: ${price * (10 ** (decimals - PRECISION)):.4f}")
+        acceptable_price_in_usd = slippage_price if slippage_price != 0 else 0
+
+        # Use Decimal for raw_price to avoid precision loss
+        raw_price = int(Decimal(str(price)))
+
+        logger.debug("Oracle Address: %s", oracle_address)
+        logger.debug("Token Decimals: %d", decimals)
+        logger.debug("Raw price (contract format): %s", raw_price)
+        logger.debug("Mark Price (USD): $%.8f", price_usd)
         if acceptable_price_in_usd != 0:
-            self.logger.debug(f"Acceptable price: ${acceptable_price_in_usd:.4f}")
+            logger.debug("Acceptable price (USD): $%.8f", acceptable_price_in_usd)
+            logger.debug("Acceptable price (contract format): %d", acceptable_price)
 
-        return price, acceptable_price, acceptable_price_in_usd
+        return price_usd, raw_price, acceptable_price, acceptable_price_in_usd
 
     def _build_order_arguments(
         self,
@@ -604,14 +620,14 @@ class BaseOrder:
 
         # Skip approval check for native token
         if params.collateral_address.lower() == native_token_address.lower():
-            self.logger.debug("Native token - no approval needed")
+            logger.debug("Native token - no approval needed")
             return
 
         # Check ERC20 approval
         user_address = self.config.get_wallet_address()
         # Skip approval check if no wallet is configured (for unit tests)
         if not user_address:
-            self.logger.debug("No wallet address configured, skipping approval check")
+            logger.debug("No wallet address configured, skipping approval check")
             return
 
         token_details = fetch_erc20_details(self.web3, params.collateral_address)
@@ -629,11 +645,9 @@ class BaseOrder:
             current = allowance / (10**token_details.decimals)
 
             # Just log a warning - don't block transaction creation
-            self.logger.warning(f"Insufficient token allowance for {token_details.symbol}. Required: {required:.4f}, Current allowance: {current:.4f}. User needs to approve tokens using: token.approve('{self.contract_addresses.syntheticsrouter}', amount) before submitting the transaction.")
+            logger.warning("Insufficient token allowance for %s. Required: %.4f, Current allowance: %.4f. User needs to approve tokens using: token.approve('%s', amount) before submitting the transaction.", token_details.symbol, required, current, self.contract_addresses.syntheticsrouter)
         else:
-            self.logger.debug(
-                f"Token approval check passed: {allowance / (10**token_details.decimals):.4f} {token_details.symbol} approved",
-            )
+            logger.debug("Token approval check passed: %.4f %s approved", allowance / (10**token_details.decimals), token_details.symbol)
 
     # New method to estimate price impact
     def _estimate_price_impact(
@@ -702,5 +716,5 @@ class BaseOrder:
             return price_impact_usd
 
         except Exception as e:
-            self.logger.warning(f"Could not estimate price impact: {e}")
+            logger.warning("Could not estimate price impact: %s", e)
             return None

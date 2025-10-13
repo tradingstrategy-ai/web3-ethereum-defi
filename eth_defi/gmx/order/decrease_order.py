@@ -5,12 +5,16 @@ Special order class for closing or reducing positions on GMX protocol.
 Extends BaseOrder to provide decrease position functionality and returning unsigned transactions.
 """
 
+import logging
 from typing import Optional
 
 from eth_utils import to_checksum_address
 from eth_typing import ChecksumAddress
 
 from eth_defi.gmx.order.base_order import BaseOrder, OrderParams, OrderResult
+
+
+logger = logging.getLogger(__name__)
 
 
 class DecreaseOrder(BaseOrder):
@@ -51,7 +55,7 @@ class DecreaseOrder(BaseOrder):
         self.index_token_address = to_checksum_address(index_token_address)
         self.is_long = is_long
 
-        self.logger.debug(f"Initialized decrease order for market {self.market_key}, {'LONG' if self.is_long else 'SHORT'} position")
+        logger.debug("Initialized decrease order for market %s, %s position", self.market_key, "LONG" if self.is_long else "SHORT")
 
     def create_decrease_order(
         self,
@@ -111,6 +115,6 @@ class DecreaseOrder(BaseOrder):
             valid_from_time=valid_from_time,
         )
 
-        self.logger.debug(f"Creating decrease order: size_delta=${size_delta}, collateral_delta={initial_collateral_delta_amount}")
+        logger.debug("Creating decrease order: size_delta=$%s, collateral_delta=%s", size_delta, initial_collateral_delta_amount)
 
         return self.order_builder(params, is_open=False, is_close=True, is_swap=False)

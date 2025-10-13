@@ -104,7 +104,6 @@ class Deposit:
         self.contract_addresses = get_contract_addresses(self.chain)
         self._exchange_router_contract = get_exchange_router_contract(self.web3, self.chain)
         self._reader_contract = get_reader_contract(self.web3, self.chain)
-        self.logger = logging.getLogger(self.__class__.__name__)
 
         # Initialize markets
         self.markets = Markets(self.config)
@@ -115,7 +114,7 @@ class Deposit:
         # Initialize gas limits
         self._initialize_gas_limits()
 
-        self.logger.debug(f"Initialized {self.__class__.__name__} for {self.chain}")
+        logger.debug("Initialized %s for %s", self.__class__.__name__, self.chain)
 
     def _initialize_gas_limits(self):
         """Load gas limits from GMX datastore contract.
@@ -127,9 +126,9 @@ class Deposit:
             datastore = get_datastore_contract(self.web3, self.chain)
             # get_gas_limits returns a dict with integer values (already .call()'ed)
             self._gas_limits = get_gas_limits(datastore)
-            self.logger.debug("Gas limits loaded from datastore contract")
+            logger.debug("Gas limits loaded from datastore contract")
         except Exception as e:
-            self.logger.warning(f"Failed to load gas limits from datastore: {e}")
+            logger.warning("Failed to load gas limits from datastore: %s", e)
             # Fallback to default gas limits
             self._gas_limits = {
                 "deposit": 2500000,
@@ -138,7 +137,7 @@ class Deposit:
                 "estimated_fee_base_gas_limit": 500000,
                 "estimated_fee_multiplier_factor": 1300000000000000000000000000000,  # 1.3 * 10^30
             }
-            self.logger.debug("Using fallback gas limits from constants")
+            logger.debug("Using fallback gas limits from constants")
 
     def create_deposit(self, params: DepositParams) -> DepositResult:
         """Create a deposit transaction.
@@ -301,9 +300,9 @@ class Deposit:
                     market_long_token,
                     self.chain,
                 )
-                self.logger.debug(f"Long token swap path: {long_swap_path}, multi-swap: {requires_multi_swap}")
+                logger.debug("Long token swap path: %s, multi-swap: %s", long_swap_path, requires_multi_swap)
             except Exception as e:
-                self.logger.warning(f"Could not determine long token swap route: {e}")
+                logger.warning("Could not determine long token swap route: %s", e)
                 long_swap_path = []
 
         # Build swap path for short token if needed
@@ -315,9 +314,9 @@ class Deposit:
                     market_short_token,
                     self.chain,
                 )
-                self.logger.debug(f"Short token swap path: {short_swap_path}, multi-swap: {requires_multi_swap}")
+                logger.debug("Short token swap path: %s, multi-swap: %s", short_swap_path, requires_multi_swap)
             except Exception as e:
-                self.logger.warning(f"Could not determine short token swap route: {e}")
+                logger.warning("Could not determine short token swap route: %s", e)
                 short_swap_path = []
 
         return long_swap_path, short_swap_path
@@ -383,11 +382,11 @@ class Deposit:
                 False,  # include_virtual_inventory_impact
             ).call()
 
-            self.logger.debug(f"Estimated deposit output: {estimated_output} GM tokens")
+            logger.debug("Estimated deposit output: %s GM tokens", estimated_output)
             return estimated_output
 
         except Exception as e:
-            self.logger.warning(f"Failed to estimate deposit output: {e}. Using 0 as min output.")
+            logger.warning("Failed to estimate deposit output: %s. Using 0 as min output.", e)
             return 0
 
     def _build_deposit_arguments(
@@ -647,4 +646,4 @@ class Deposit:
             import logging
 
             logger = logging.getLogger(__name__)
-            logger.warning(f"Insufficient token allowance for {token_details.symbol}. Required: {required:.4f}, Current allowance: {current:.4f}. User needs to approve tokens before submitting the transaction.")
+            logger.warning("Insufficient token allowance for %s. Required: %.4f, Current allowance: %.4f. User needs to approve tokens before submitting the transaction.", token_details.symbol, required, current)

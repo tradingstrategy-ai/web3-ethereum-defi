@@ -192,7 +192,7 @@ def fetch_gmx_synthetic_tokens(
     if cache is not None and not force_refresh:
         cached_tokens = cache.get(cache_key)
         if cached_tokens is not None:
-            logger.debug(f"Returning {len(cached_tokens)} cached GMX tokens for chain {chain_id}")
+            logger.debug("Returning %s cached GMX tokens for chain %s", len(cached_tokens), chain_id)
             return [
                 GMXSyntheticTokenDetails(
                     symbol=token_data["symbol"],
@@ -206,7 +206,7 @@ def fetch_gmx_synthetic_tokens(
 
     # Fetch fresh data from API
     api_url = GMX_API_ENDPOINTS[chain_id]
-    logger.info(f"Fetching GMX tokens from API: {api_url}")
+    logger.info("Fetching GMX tokens from API: %s", api_url)
 
     try:
         response = requests.get(api_url, timeout=timeout)
@@ -235,7 +235,7 @@ def fetch_gmx_synthetic_tokens(
             required_fields = ["symbol", "address", "decimals"]
             for field in required_fields:
                 if field not in token_data:
-                    logger.warning(f"Skipping token missing '{field}': {token_data}")
+                    logger.warning("Skipping token missing '%s': %s", field, token_data)
                     continue
 
             # Create token details object
@@ -249,16 +249,16 @@ def fetch_gmx_synthetic_tokens(
             tokens.append(token)
 
         except (KeyError, ValueError, TypeError) as e:
-            logger.warning(f"Skipping invalid token data {token_data}: {e}")
+            logger.warning("Skipping invalid token data %s: %s", token_data, e)
             continue
 
     # Cache the results for future use
     if cache is not None:
         cache_data = [token.export() for token in tokens]
         cache[cache_key] = cache_data
-        logger.debug(f"Cached {len(tokens)} GMX tokens for chain {chain_id}")
+        logger.debug("Cached %s GMX tokens for chain %s", len(tokens), chain_id)
 
-    logger.info(f"Successfully fetched {len(tokens)} GMX tokens for chain {chain_id}")
+    logger.info("Successfully fetched %s GMX tokens for chain %s", len(tokens), chain_id)
     return tokens
 
 
