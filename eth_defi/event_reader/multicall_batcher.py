@@ -983,6 +983,7 @@ class MultiprocessMulticallReader:
                    ("intrinsic gas too high" in parsed_error) or \
                    ("intrinsic gas too high" in parsed_error) or \
                    ("incorrect response body" in parsed_error) or \
+                   ("state histories haven't been fully indexed yet" in parsed_error) or \
                    isinstance(e, ProbablyNodeHasNoBlock) or \
                    (isinstance(e, HTTPError) and e.response.status_code == 500):
                     raise MulticallRetryable(error_msg) from e
