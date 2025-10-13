@@ -61,6 +61,8 @@ class AaveLiquidationEvent:
         for field in fields(self):
             value = getattr(self, field.name)
             match value:
+                case Decimal():
+                    value = float(value)
                 case TokenDetails():
                     value = value.symbol
             result[field.name] = value
@@ -88,6 +90,8 @@ class AaveLiquidationReader:
         return fetch_erc20_details(
             self.web3,
             address,
+            # Deal with scam deployments
+            raise_on_error=False,
         )
 
     def build_query(
@@ -239,10 +243,12 @@ class AaveLiquidationReader:
 
             current_block = res.next_block
 
-            last_block = res.data.blocks[-1].number if res.data.blocks else last_block
+            block_lookup = {b.number: b for b in res.data.blocks}
+            batch_last_block = res.data.blocks[-1] if res.data.blocks else None
+            if batch_last_block:
+                timestamp = native_datetime_utc_fromtimestamp(int(batch_last_block.timestamp, 16))
 
             if res.data.logs:
-                block_lookup = {b.number: b for b in res.data.blocks}
                 log: hypersync.Log
                 for log in res.data.logs:
                     event = self.decode_event(
@@ -252,6 +258,7 @@ class AaveLiquidationReader:
                         block_lookup,
                     )
                     yield event
+                    matches += 1
 
             last_synced = res.archive_height
 

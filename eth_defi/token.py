@@ -754,9 +754,6 @@ def fetch_erc20_details(
         raise TokenDetailError(f"Token {token_address} timeout reading on chain {chain_id}: {e}, provider {provider_name}") from e
     except _call_missing_exceptions as e:
         if raise_on_error:
-            import ipdb
-
-            ipdb.set_trace()
             raise TokenDetailError(f"Token {token_address} missing symbol on chain {chain_id}: {e}") from e
         symbol = None
     except OverflowError:
@@ -780,7 +777,10 @@ def fetch_erc20_details(
             value = msg[start:end]
             name = value
         else:
-            raise
+            if raise_on_error:
+                raise
+            else:
+                name = None
     except _call_missing_exceptions as e:
         if raise_on_error:
             raise TokenDetailError(f"Token {token_address} missing name: {e}") from e
