@@ -6,6 +6,7 @@
 
 import datetime
 import json
+from json import JSONDecodeError
 from pathlib import Path
 from typing import TypedDict
 import logging
@@ -74,7 +75,7 @@ def fetch_euler_vaults_file_for_chain(
                     # TODO: Not sure what happened here, added more logs
                     logger.warning("Euler vaults file for chain %d is empty, writing empty JSON object", chain_id)
                     f.write("{}")
-        except HTTPError as e:
+        except (HTTPError, JSONDecodeError) as e:
             logger.warning("Euler vault file missing for chain %d is empty, writing empty JSON object, url %s, error %s", chain_id, url, e)
             f.write("{}")
 
