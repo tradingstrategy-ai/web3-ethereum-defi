@@ -19,7 +19,7 @@ EVENT_THRESHOLD = int(os.getenv("EVENT_THRESHOLD", "5"))
 MAX_ANNUALISED_RETURN = float(os.getenv("MAX_ANNUALISED_RETURN", "0.5"))  # 50% yearly cap
 MIN_TVL = float(os.getenv("MIN_TVL", "50000"))
 TOP_PER_CHAIN = int(os.getenv("TOP_PER_CHAIN", "30"))
-OUTPUT_JSON = os.getenv("OUTPUT_JSON", "vaults_raw_normalized.json")
+OUTPUT_JSON = os.getenv("OUTPUT_JSON", "~/.tradingstrategy/vaults_analysis.json")
 DATA_DIR = Path(os.getenv("DATA_DIR", "~/.tradingstrategy/vaults")).expanduser()
 PARQUET_FILE = DATA_DIR / "cleaned-vault-prices-1h.parquet"
 
