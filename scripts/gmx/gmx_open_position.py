@@ -19,30 +19,28 @@ Usage
 
 Basic usage with environment variables::
 
-    python scripts/gmx/gmx_open_position.py --private-key $PRIVATE_KEY --rpc-url $ARBITRUM_SEPOLIA_RPC_URL
+    export PRIVATE_KEY="0x1234..."
+    export ARBITRUM_SEPOLIA_RPC_URL="https://arbitrum-sepolia.infura.io/v3/YOUR_KEY"
+    python scripts/gmx/gmx_open_position.py
 
 For Arbitrum mainnet::
 
-    python scripts/gmx/gmx_open_position.py --private-key $PRIVATE_KEY --rpc-url $ARBITRUM_RPC_URL
+    export PRIVATE_KEY="0x1234..."
+    export ARBITRUM_RPC_URL="https://arbitrum-mainnet.infura.io/v3/YOUR_KEY"
+    python scripts/gmx/gmx_open_position.py
 
 For Avalanche mainnet::
 
-    python scripts/gmx/gmx_open_position.py --private-key $PRIVATE_KEY --rpc-url $AVALANCHE_RPC_URL
-
-Command-Line Arguments
-----------------------
-
-:param --private-key: Wallet private key (with or without 0x prefix)
-:type --private-key: str
-:param --rpc-url: Blockchain RPC URL (e.g., Infura, Alchemy, or custom node)
-:type --rpc-url: str
+    export PRIVATE_KEY="0x1234..."
+    export AVALANCHE_RPC_URL="https://avalanche-mainnet.infura.io/v3/YOUR_KEY"
+    python scripts/gmx/gmx_open_position.py
 
 Environment Variables
 ---------------------
 
-The script uses the following environment variables for configuration:
+The script requires the following environment variables:
 
-- ``PRIVATE_KEY``: Your wallet's private key
+- ``PRIVATE_KEY``: Your wallet's private key (required)
 - ``ARBITRUM_SEPOLIA_RPC_URL``: Arbitrum Sepolia testnet RPC endpoint
 - ``ARBITRUM_RPC_URL``: Arbitrum mainnet RPC endpoint
 - ``AVALANCHE_RPC_URL``: Avalanche C-Chain mainnet RPC endpoint
@@ -54,7 +52,7 @@ Open a $10 USD long position on CRV market with 1x leverage on Arbitrum Sepolia:
 
     export PRIVATE_KEY="0x1234..."
     export ARBITRUM_SEPOLIA_RPC_URL="https://arbitrum-sepolia.infura.io/v3/YOUR_KEY"
-    python scripts/gmx/gmx_open_position.py --private-key $PRIVATE_KEY --rpc-url $ARBITRUM_SEPOLIA_RPC_URL
+    python scripts/gmx/gmx_open_position.py
 
 Notes
 -----
@@ -96,7 +94,7 @@ def main():
 
     console.print("Starting GMX Position Opening Test...")
 
-    # Connect to the blockchain
+    # create a web3 provider
     web3 = create_multi_provider_web3(rpc_url)
 
     # Verify connection
@@ -110,14 +108,6 @@ def main():
     # Get chain from web3 object
     chain = get_chain_name(web3.eth.chain_id).lower()
     console.print(f"Detected chain: [blue]{chain}[/blue]")
-
-    # Get contract addresses
-    try:
-        contract_addresses = get_contract_addresses(chain)
-        console.print(f"Retrieved contract addresses for {chain}")
-    except Exception as e:
-        console.print(f"Could not retrieve contract addresses for {chain}: {e}")
-        sys.exit(1)
 
     # Get token addresses
     try:
@@ -133,10 +123,10 @@ def main():
 
     # Sync the nonce from the blockchain
     wallet.sync_nonce(web3)
-    current_nonce = web3.eth.get_transaction_count(wallet_address)
+    # current_nonce = web3.eth.get_transaction_count(wallet_address)
 
     console.print(f"Wallet address: {wallet_address}")
-    console.print(f"Current nonce: {current_nonce}")
+    # console.print(f"Current nonce: {current_nonce}")
 
     # Create GMX config
     config = GMXConfig(web3, user_wallet_address=wallet_address)
