@@ -64,11 +64,7 @@ for chain_id in chain_ids:
     print(f"\n🔍 Examining chain {chain_name} ({chain_id})")
 
     # ✅ Filter price data by time and chain_id
-    chain_prices_df = prices_df[
-        (prices_df["chain"] == chain_id) &
-        (prices_df.index >= PERIOD[0]) &
-        (prices_df.index <= PERIOD[1])
-    ]
+    chain_prices_df = prices_df[(prices_df["chain"] == chain_id) & (prices_df.index >= PERIOD[0]) & (prices_df.index <= PERIOD[1])]
 
     print(f"✅ Trimmed period: {PERIOD[0]} → {PERIOD[1]}")
     print(f"📈 Trimmed price rows: {len(chain_prices_df):,} for chain {chain_name}")
@@ -89,11 +85,7 @@ for selected_chain_id in chain_ids:
     chain_name = get_chain_name(selected_chain_id)
 
     # ✅ Keep the original logic
-    vault_db_filtered = {
-        spec: vault
-        for spec, vault in vault_db.items()
-        if spec.chain_id == selected_chain_id
-    }
+    vault_db_filtered = {spec: vault for spec, vault in vault_db.items() if spec.chain_id == selected_chain_id}
 
     vault_df = prices_df[prices_df["chain"] == selected_chain_id]
 
@@ -111,11 +103,7 @@ for selected_chain_id in chain_ids:
     print(f"\n📊 Calculating lifetime metrics for {chain_name} ({selected_chain_id})")
 
     # ✅ Filter vaults and prices for the selected chain
-    vault_db_filtered = {
-        spec: vault
-        for spec, vault in vault_db.items()
-        if spec.chain_id == selected_chain_id
-    }
+    vault_db_filtered = {spec: vault for spec, vault in vault_db.items() if spec.chain_id == selected_chain_id}
 
     vault_df = prices_df[prices_df["chain"] == selected_chain_id]
 
@@ -153,7 +141,7 @@ if combined_lifetime_dfs:
     print(all_lifetime_df.head(5))
 else:
     print("❌ No metrics were calculated. Check input data.")
-    all_lifetime_df = pd.DataFrame() # Initialize an empty DataFrame to avoid errors in subsequent steps
+    all_lifetime_df = pd.DataFrame()  # Initialize an empty DataFrame to avoid errors in subsequent steps
 
 
 # --- Cell 7: Filter by TVL and format the results table ---
@@ -167,11 +155,7 @@ if not all_lifetime_df.empty:
     print(f"\n✅ Vaults filtered by min TVL of ${int(min_tvl):,}: {len(filtered_df):,} vaults remaining.")
 
     # ✅ Group by chain and get top N vaults per chain by 1M annualised return
-    top_vaults_per_chain = (
-        filtered_df.sort_values("one_month_cagr", ascending=False)
-        .groupby("chain", group_keys=False)
-        .head(TOP_PER_CHAIN)
-    )
+    top_vaults_per_chain = filtered_df.sort_values("one_month_cagr", ascending=False).groupby("chain", group_keys=False).head(TOP_PER_CHAIN)
 
     # ✅ Format the filtered DataFrame for display
     formatted_df = format_lifetime_table(
@@ -187,11 +171,12 @@ if not all_lifetime_df.empty:
         print(", ".join(chain_df.head(5)["Name"]))  # Optional: show 5 vault names
 else:
     print("Skipping TVL filtering as no metrics were calculated.")
-    formatted_df = pd.DataFrame() # Initialize an empty DataFrame
+    formatted_df = pd.DataFrame()  # Initialize an empty DataFrame
 
 
 # --- Cell 8: Export data to JSON file ---
 if not formatted_df.empty:
+
     def normalize_key(col_name: str) -> str:
         """Convert column names like 'Lifetime return ann.' → 'lifetime_return_ann'"""
         col_name = col_name.strip().lower()
@@ -237,10 +222,7 @@ if not formatted_df.empty:
         vaults.append(vault)
 
     # ✅ Add export timestamp
-    output_data = {
-        "generated_at": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "vaults": vaults
-    }
+    output_data = {"generated_at": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"), "vaults": vaults}
 
     # ✅ Save to JSON file
     output_path = OUTPUT_JSON  # "vaults_raw_normalized.json"
