@@ -16,7 +16,7 @@ from eth_utils import to_checksum_address
 from web3.types import TxParams
 
 from eth_defi.gmx.config import GMXConfig
-from eth_defi.gmx.contracts import get_contract_addresses, get_exchange_router_contract, NETWORK_TOKENS, get_datastore_contract
+from eth_defi.gmx.contracts import get_contract_addresses, get_exchange_router_contract, NETWORK_TOKENS, get_datastore_contract, TESTNET_TO_MAINNET_ORACLE_TOKENS
 from eth_defi.gmx.constants import PRECISION, ORDER_TYPES, DECREASE_POSITION_SWAP_TYPES, GAS_LIMITS, ETH_ZERO_ADDRESS
 from eth_defi.gmx.core.markets import Markets
 from eth_defi.gmx.core.oracle import OraclePrices
@@ -324,21 +324,10 @@ class BaseOrder:
         """
         logger.debug("Getting prices...")
 
-        # Map testnet token addresses to their corresponding oracle addresses for lookup
-        # This maps token contract addresses to their oracle data lookup keys
-        testnet_token_to_oracle = {
-            # Arbitrum Sepolia
-            "0xD5DdAED48B09fa1D7944bd662CB05265FCD7077C": "0xe5f01aeAcc8288E9838A60016AB00d7b6675900b",  # CRV testnet token → CRV oracle
-            # For other tokens, use the mainnet mapping approach
-            "0x980B62Da83eFf3D4576C647993b0c1D7faf17c73": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",  # WETH testnet → WETH mainnet oracle
-            "0xF79cE1Cf38A09D572b021B4C5548b75A14082F12": "0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f",  # BTC testnet → BTC mainnet oracle
-            "0x3253a335E7bFfB4790Aa4C25C4250d206E9b9773": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",  # USDC testnet → USDC mainnet oracle
-        }
-
         # Get oracle address (map testnet token to oracle address if needed)
         oracle_address = params.index_token_address
         if self.chain in ["arbitrum_sepolia", "avalanche_fuji"]:
-            oracle_address = testnet_token_to_oracle.get(params.index_token_address, params.index_token_address)
+            oracle_address = TESTNET_TO_MAINNET_ORACLE_TOKENS.get(params.index_token_address, params.index_token_address)
 
         if oracle_address not in prices:
             raise ValueError(f"Price not available for token {params.index_token_address} (oracle: {oracle_address})")

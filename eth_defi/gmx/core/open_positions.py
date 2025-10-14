@@ -15,8 +15,14 @@ from cchecksum import to_checksum_address
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.core.get_data import GetData
 from eth_defi.gmx.core.oracle import OraclePrices
-from eth_defi.gmx.contracts import get_contract_addresses, get_tokens_address_dict, NETWORK_TOKENS
+from eth_defi.gmx.contracts import (
+    get_contract_addresses,
+    get_tokens_address_dict,
+    NETWORK_TOKENS,
+    TESTNET_TO_MAINNET_ORACLE_TOKENS,
+)
 from eth_defi.gmx.types import MarketData
+from eth_defi.token import fetch_erc20_details
 
 
 class GetOpenPositions(GetData):
@@ -85,65 +91,78 @@ class GetOpenPositions(GetData):
             logger.error(f"Failed to fetch open positions data: {e}")
             raise e
 
+    def _fetch_token_details_from_chain(self, token_address: str) -> dict[str, Any]:
+        """Fetch token details directly from the blockchain.
+
+        :param token_address: Token contract address
+        :returns: Dictionary with token symbol, address, and decimals
+        :rtype: dict
+        """
+        try:
+            token_details = fetch_erc20_details(self.config.web3, token_address)
+            return {
+                "symbol": token_details.symbol,
+                "address": token_address,
+                "decimals": token_details.decimals,
+            }
+        except Exception as e:
+            logging.warning(f"Failed to fetch token details for {token_address}: {e}")
+            # Return default assuming 18 decimals
+            return {
+                "symbol": "UNKNOWN",
+                "address": token_address,
+                "decimals": 18,
+            }
+
     def _get_tokens_address_dict(self) -> dict[str, Any]:
-        """Enhanced version of get_tokens_address_dict with fallback token data.
+        """Enhanced version of get_tokens_address_dict that fetches token data from blockchain.
 
-        This method calls the original GMX API and supplements it with token data
-        from NETWORK_TOKENS for commonly used tokens that might be missing from
-        the API response.
+        This method fetches token details (including decimals) directly from the blockchain
+        contracts, ensuring accurate data for all tokens without maintaining hardcoded lists.
 
-        :returns: Dictionary mapping token addresses to their information, enhanced
-                  with fallback data from NETWORK_TOKENS
+        :returns: Dictionary mapping token addresses to their information
         :rtype: dict
         """
         try:
             # Get tokens from GMX API using the original function
             chain_tokens = get_tokens_address_dict(self.config.chain)
 
-            # Convert to address -> metadata format if needed
+            # If chain_tokens is symbol -> address mapping, we need to fetch details
             if chain_tokens and isinstance(list(chain_tokens.values())[0], str):
-                # If it's symbol -> address format, we need the reverse lookup from API
-                # Let's get the full token data from API directly
-                pass
+                # Fetch token details from blockchain for each address
+                enhanced_tokens = {}
+                for symbol, address in chain_tokens.items():
+                    token_details = self._fetch_token_details_from_chain(address)
+                    enhanced_tokens[address] = token_details
+                    logging.debug(f"Fetched token details for {symbol}: {token_details['decimals']} decimals")
 
-            # Create fallback token metadata from NETWORK_TOKENS
+                return enhanced_tokens
+
+            # If it's already address -> metadata format, verify/enhance with blockchain data
+            enhanced_tokens = {}
+            for address, token_info in chain_tokens.items():
+                if isinstance(token_info, dict):
+                    # Already has metadata, but we can verify decimals from chain if needed
+                    enhanced_tokens[address] = token_info
+                else:
+                    # Fetch from chain
+                    enhanced_tokens[address] = self._fetch_token_details_from_chain(address)
+
+            # Add missing tokens from NETWORK_TOKENS if needed
             chain = self.config.chain
             if chain in NETWORK_TOKENS:
                 network_tokens = NETWORK_TOKENS[chain]
-
-                # Define token decimals for NETWORK_TOKENS (standard decimals)
-                token_decimals = {"WETH": 18, "ETH": 18, "WBTC": 8, "WBTC.b": 8, "USDC": 6, "USDT": 6, "ARB": 18, "LINK": 18, "wstETH": 18, "WAVAX": 18, "AVAX": 18}
-
                 for symbol, address in network_tokens.items():
-                    if address not in chain_tokens:
-                        # Add missing token with metadata
-                        chain_tokens[address] = {
-                            "symbol": symbol,
-                            "address": address,
-                            "decimals": token_decimals.get(symbol, 18),  # Default to 18 decimals
-                        }
-                        logging.info(f"Added fallback token data for {symbol} ({address})")
+                    if address not in enhanced_tokens:
+                        token_details = self._fetch_token_details_from_chain(address)
+                        enhanced_tokens[address] = token_details
+                        logging.info(f"Added token from NETWORK_TOKENS: {symbol} ({address}) with {token_details['decimals']} decimals")
 
-            return chain_tokens
+            return enhanced_tokens
 
         except Exception as e:
             logging.error(f"Failed to get enhanced tokens: {e}")
-
-            # If everything fails, create basic token data from NETWORK_TOKENS
-            chain = self.config.chain
-            if chain in NETWORK_TOKENS:
-                logging.warning(f"Using only NETWORK_TOKENS fallback data for {chain}")
-                network_tokens = NETWORK_TOKENS[chain]
-
-                fallback_tokens = {}
-                token_decimals = {"WETH": 18, "ETH": 18, "WBTC": 8, "WBTC.b": 8, "USDC": 6, "USDT": 6, "ARB": 18, "LINK": 18, "wstETH": 18, "WAVAX": 18, "AVAX": 18}
-
-                for symbol, address in network_tokens.items():
-                    fallback_tokens[address] = {"symbol": symbol, "address": address, "decimals": token_decimals.get(symbol, 18)}
-
-                return fallback_tokens
-            else:
-                raise Exception(f"No token data available for chain {chain}")
+            raise e
 
     def _get_data_processing(self, raw_position: tuple) -> dict[str, Any]:
         """Process raw position data from the reader contract query GetAccountPositions.
@@ -183,14 +202,39 @@ class GetOpenPositions(GetData):
         try:
             prices = OraclePrices(chain=self.config.chain).get_recent_prices()
 
-            # Calculate mark price
-            mark_price = np.median(
-                [
-                    float(prices[index_token_address]["maxPriceFull"]),
-                    float(prices[index_token_address]["minPriceFull"]),
-                ]
-            ) / 10 ** (30 - index_token_decimals)
-        except (KeyError, TypeError) as e:
+            # Map testnet token addresses to mainnet for oracle lookups
+            # Testnets don't have their own oracles, so we use mainnet prices
+            oracle_token_address = TESTNET_TO_MAINNET_ORACLE_TOKENS.get(index_token_address, index_token_address)
+
+            # Try to find the price
+            price_data = None
+
+            # Try exact match first
+            if oracle_token_address in prices:
+                price_data = prices[oracle_token_address]
+            else:
+                # Try case-insensitive match
+                oracle_token_lower = oracle_token_address.lower()
+                for addr, data in prices.items():
+                    if addr.lower() == oracle_token_lower:
+                        price_data = data
+                        break
+
+            if price_data and "maxPriceFull" in price_data and "minPriceFull" in price_data:
+                # Calculate mark price from oracle data
+                mark_price = np.median(
+                    [
+                        float(price_data["maxPriceFull"]),
+                        float(price_data["minPriceFull"]),
+                    ]
+                ) / 10 ** (30 - index_token_decimals)
+                logging.debug(f"Got oracle price for {index_token_address}: ${mark_price:.4f}")
+            else:
+                # Price not found in oracle, use entry price
+                logging.debug(f"Oracle price not found for {index_token_address} (oracle address: {oracle_token_address}), using entry price")
+                mark_price = entry_price
+
+        except (KeyError, TypeError, ValueError) as e:
             logging.warning(f"Could not get oracle price for {index_token_address}: {e}")
             mark_price = entry_price  # Fallback to entry price
 

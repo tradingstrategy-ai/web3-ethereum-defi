@@ -296,6 +296,19 @@ NETWORK_TOKENS_METADATA = {
 }
 
 
+# Testnet token to mainnet oracle address mapping
+# Testnets don't have their own oracles, so we map testnet token addresses to mainnet
+# token addresses for oracle price lookups
+TESTNET_TO_MAINNET_ORACLE_TOKENS = {
+    # Arbitrum Sepolia testnet → Arbitrum mainnet oracle addresses
+    "0xD5DdAED48B09fa1D7944bd662CB05265FCD7077C": "0xe5f01aeAcc8288E9838A60016AB00d7b6675900b",  # CRV
+    "0x980B62Da83eFf3D4576C647993b0c1D7faf17c73": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",  # WETH
+    "0xF79cE1Cf38A09D572b021B4C5548b75A14082F12": "0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f",  # BTC/WBTC
+    "0x3253a335E7bFfB4790Aa4C25C4250d206E9b9773": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",  # USDC
+    "0x3321Fd36aEaB0d5CdfD26f4A3A93E2D2aAcCB99f": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",  # USDC.SG
+}
+
+
 def get_contract_addresses(chain: str) -> ContractAddresses:
     """
     Get GMX contract addresses for a specific network.
