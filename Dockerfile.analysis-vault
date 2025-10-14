@@ -1,0 +1,52 @@
+# Base image
+FROM python:3.11.11
+
+# Build args
+ARG GIT_VERSION_TAG=unspecified
+ARG GIT_COMMIT_MESSAGE=unspecified
+ARG GIT_VERSION_HASH=unspecified
+
+# Python settings
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# Dependencies for some Python libs (e.g., pandas, gspread)
+RUN apt-get update && apt-get install -y \
+    libmpfr-dev libmpc-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Poetry
+RUN curl -sSL https://install.python-poetry.org | python - --version 2.2.1
+
+# Set working directory
+WORKDIR /usr/src/web3-ethereum-defi
+ENV PATH="/usr/src/web3-ethereum-defi/.venv/bin:/root/.local/bin:$PATH"
+
+# Copy only required files
+COPY eth_defi eth_defi
+COPY scripts scripts
+COPY pyproject.toml pyproject.toml
+COPY poetry.lock poetry.lock
+COPY README.md README.md
+
+# Enable in-project virtualenv
+ENV POETRY_VIRTUALENVS_CREATE=true
+ENV POETRY_VIRTUALENVS_IN_PROJECT=true
+
+# Install base dependencies with Poetry (your current ones)
+RUN poetry install -E data -E web3v6 -E hypersync --no-interaction --no-ansi --without=dev
+
+# Add Google Sheets dependencies
+RUN poetry add gspread gspread-dataframe google-auth google-auth-oauthlib google-auth-httplib2 --no-interaction
+
+# Optional: Clean up cache
+RUN poetry cache clear pypi --all --no-interaction
+
+# Speed up Python
+RUN python -m compileall -q /usr/local/lib/python3.11
+RUN python -m compileall -q eth_defi
+
+
+# Entrypoint
+CMD ["bash", "scripts/erc-4626/vault-analysis.sh"]
+ENTRYPOINT ["/usr/src/web3-ethereum-defi/scripts/erc-4626/vault-analysis.sh"]
