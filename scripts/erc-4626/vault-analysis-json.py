@@ -35,14 +35,15 @@ from eth_defi.research.vault_metrics import (
 # --------------------------------------------------------------------
 # Configuration via environment variables
 # --------------------------------------------------------------------
-MONTHS = int(os.getenv("MONTHS", "3"))                   # Time window in months
+MONTHS = int(os.getenv("MONTHS", "3"))  # Time window in months
 EVENT_THRESHOLD = int(os.getenv("EVENT_THRESHOLD", "5"))  # Min event count
 MAX_ANNUALISED_RETURN = float(os.getenv("MAX_ANNUALISED_RETURN", "0.5"))  # Cap annualized return at 50%
-MIN_TVL = float(os.getenv("MIN_TVL", "50000"))            # Minimum TVL filter
-TOP_PER_CHAIN = int(os.getenv("TOP_PER_CHAIN", "30"))     # Top N vaults per chain
+MIN_TVL = float(os.getenv("MIN_TVL", "50000"))  # Minimum TVL filter
+TOP_PER_CHAIN = int(os.getenv("TOP_PER_CHAIN", "30"))  # Top N vaults per chain
 OUTPUT_JSON = os.getenv("OUTPUT_JSON", "/root/top_vaults_analysis.json")
 DATA_DIR = Path(os.getenv("DATA_DIR", "~/.tradingstrategy/vaults")).expanduser()
 PARQUET_FILE = DATA_DIR / "cleaned-vault-prices-1h.parquet"
+
 
 # --------------------------------------------------------------------
 # Helper functions for JSON export
@@ -50,9 +51,10 @@ PARQUET_FILE = DATA_DIR / "cleaned-vault-prices-1h.parquet"
 def normalize_key(col_name: str) -> str:
     """Convert column headers to normalized snake_case keys."""
     col_name = col_name.strip().lower()
-    col_name = re.sub(r"[^a-z0-9]+", "_", col_name)   # Replace spaces and special chars with underscores
-    col_name = re.sub(r"_+", "_", col_name)           # Collapse multiple underscores
+    col_name = re.sub(r"[^a-z0-9]+", "_", col_name)  # Replace spaces and special chars with underscores
+    col_name = re.sub(r"_+", "_", col_name)  # Collapse multiple underscores
     return col_name.strip("_")
+
 
 def parse_value(val):
     """Safely convert cell values to JSON-compliant Python types."""
@@ -110,6 +112,7 @@ def parse_value(val):
     # Fallback: return the value as-is
     return val
 
+
 def sanitize(o):
     """
     Recursively replace NaN/Inf with None for any nested dict/list/scalar.
@@ -130,6 +133,7 @@ def sanitize(o):
         return [sanitize(v) for v in o]
     return o
 
+
 # --------------------------------------------------------------------
 # Step 2: Load database and parquet price data
 # --------------------------------------------------------------------
@@ -143,7 +147,7 @@ print(f"We have {len(vault_db):,} vaults in the database and {len(prices_df):,} 
 # --------------------------------------------------------------------
 # Step 3: Filter data for the last N months
 # --------------------------------------------------------------------
-last_sample_at = prices_df.index[-1]                      # Latest timestamp
+last_sample_at = prices_df.index[-1]  # Latest timestamp
 three_months_ago = last_sample_at - pd.DateOffset(months=MONTHS)
 PERIOD = [three_months_ago, last_sample_at]
 
@@ -158,11 +162,7 @@ chain_ids = sorted(prices_df["chain"].unique())
 for chain_id in chain_ids:
     chain_name = get_chain_name(chain_id)
     print(f"\n🔍 Examining chain {chain_name} ({chain_id})")
-    chain_prices_df = prices_df[
-        (prices_df["chain"] == chain_id) &
-        (prices_df.index >= PERIOD[0]) &
-        (prices_df.index <= PERIOD[1])
-    ]
+    chain_prices_df = prices_df[(prices_df["chain"] == chain_id) & (prices_df.index >= PERIOD[0]) & (prices_df.index <= PERIOD[1])]
     print(f"📈 Rows: {len(chain_prices_df):,} for chain {chain_name}")
     if not chain_prices_df.empty:
         print(chain_prices_df.head(1))
@@ -208,8 +208,7 @@ for selected_chain_id in chain_ids:
     # Filter out vaults with too few events
     original_count = len(lifetime_data_df)
     lifetime_data_df = lifetime_data_df[lifetime_data_df["event_count"] >= EVENT_THRESHOLD]
-    print(f"✅ Filtered event count >= {EVENT_THRESHOLD}: {len(lifetime_data_df):,} vaults "
-          f"(removed {original_count - len(lifetime_data_df):,})")
+    print(f"✅ Filtered event count >= {EVENT_THRESHOLD}: {len(lifetime_data_df):,} vaults (removed {original_count - len(lifetime_data_df):,})")
 
     # Tag with chain ID and append to combined list
     lifetime_data_df["chain"] = selected_chain_id
@@ -234,11 +233,7 @@ if not all_lifetime_df.empty:
     print(f"\n✅ Vaults filtered by min TVL ${int(min_tvl):,}: {len(filtered_df):,} remaining.")
 
     # Select top N vaults per chain by 1M CAGR
-    top_vaults_per_chain = (
-        filtered_df.sort_values("one_month_cagr", ascending=False)
-        .groupby("chain", group_keys=False)
-        .head(TOP_PER_CHAIN)
-    )
+    top_vaults_per_chain = filtered_df.sort_values("one_month_cagr", ascending=False).groupby("chain", group_keys=False).head(TOP_PER_CHAIN)
 
     # Format output table for readability
     formatted_df = format_lifetime_table(
