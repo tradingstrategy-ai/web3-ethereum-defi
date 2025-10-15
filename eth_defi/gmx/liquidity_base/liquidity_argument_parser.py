@@ -73,8 +73,13 @@ class LiquidityArgumentParser:
         self.is_withdrawal = is_withdrawal
         self.config = config
 
-        # Get web3 connection - config is GMXConfigManager, so use get_web3_connection()
-        self.web3 = config.get_web3_connection()
+        # Get web3 connection - support both GMXConfig and GMXConfigManager
+        if hasattr(config, 'get_web3_connection'):
+            self.web3 = config.get_web3_connection()
+        elif hasattr(config, 'web3'):
+            self.web3 = config.web3
+        else:
+            raise ValueError("Config must have either get_web3_connection() method or web3 attribute")
 
         if is_deposit:
             self.required_keys = [
@@ -155,7 +160,15 @@ class LiquidityArgumentParser:
         # Import GMXConfig to create proper config for Markets
         from eth_defi.gmx.config import GMXConfig
 
-        gmx_config = GMXConfig(self.web3, user_wallet_address=self.config.user_wallet_address)
+        # Get user wallet address - support both GMXConfig and GMXConfigManager
+        if hasattr(self.config, 'get_user_wallet_address'):
+            user_address = self.config.get_user_wallet_address()
+        elif hasattr(self.config, 'user_wallet_address'):
+            user_address = self.config.user_wallet_address
+        else:
+            user_address = None
+
+        gmx_config = GMXConfig(self.web3, user_wallet_address=user_address)
 
         # Use index token address to find market key from available markets
         self.parameters_dict["market_key"] = self.find_market_key_by_index_address(Markets(gmx_config).get_available_markets(), index_token_address)
@@ -210,7 +223,15 @@ class LiquidityArgumentParser:
         # Import GMXConfig to create proper config for Markets
         from eth_defi.gmx.config import GMXConfig
 
-        gmx_config = GMXConfig(self.web3, user_wallet_address=self.config.user_wallet_address)
+        # Get user wallet address - support both GMXConfig and GMXConfigManager
+        if hasattr(self.config, 'get_user_wallet_address'):
+            user_address = self.config.get_user_wallet_address()
+        elif hasattr(self.config, 'user_wallet_address'):
+            user_address = self.config.user_wallet_address
+        else:
+            user_address = None
+
+        gmx_config = GMXConfig(self.web3, user_wallet_address=user_address)
 
         # Get market info to validate token is valid for this market
         markets = Markets(gmx_config).get_available_markets()

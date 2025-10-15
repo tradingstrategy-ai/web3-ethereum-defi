@@ -5,12 +5,15 @@ Specialised class for adding liquidity to GMX markets.
 Extends base Deposit class to provide a convenient interface for deposit operations.
 """
 
+import logging
 from typing import Optional
 
 from eth_utils import to_checksum_address
 from eth_typing import ChecksumAddress
 
 from eth_defi.gmx.liquidity_base.deposit import Deposit, DepositParams, DepositResult
+
+logger = logging.getLogger(__name__)
 
 
 class DepositOrder(Deposit):
@@ -47,7 +50,7 @@ class DepositOrder(Deposit):
         self.initial_long_token = to_checksum_address(initial_long_token)
         self.initial_short_token = to_checksum_address(initial_short_token)
 
-        self.logger.debug(
+        logger.debug(
             f"Initialized deposit order for market {self.market_key}, long_token: {self.initial_long_token}, short_token: {self.initial_short_token}",
         )
 
@@ -85,7 +88,7 @@ class DepositOrder(Deposit):
             max_fee_per_gas=max_fee_per_gas,
         )
 
-        self.logger.debug(
+        logger.debug(
             f"Creating deposit order: long_amount={long_token_amount}, short_amount={short_token_amount}",
         )
 

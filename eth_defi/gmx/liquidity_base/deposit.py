@@ -30,6 +30,7 @@ from eth_defi.gas import estimate_gas_fees
 from eth_defi.compat import encode_abi_compat
 from eth_defi.token import fetch_erc20_details
 
+logger = logging.getLogger(__name__)
 
 @dataclass
 class DepositParams:
@@ -465,7 +466,7 @@ class Deposit:
         if not tokens:
             raise ValueError(f"Unsupported chain: {self.chain}")
 
-        native_token = tokens.get("WETH") if self.chain.lower() == "arbitrum" else tokens.get("WAVAX")
+        native_token = tokens.get("WETH") if self.chain.lower() == "arbitrum" or "arbitrum_sepolia" else tokens.get("WAVAX")
 
         # 1. Send long tokens if amount > 0 AND not native token
         if params.long_token_amount > 0:

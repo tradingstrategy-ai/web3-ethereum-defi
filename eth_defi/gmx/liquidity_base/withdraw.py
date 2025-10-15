@@ -27,8 +27,8 @@ from eth_defi.gmx.gas_utils import get_gas_limits
 from eth_defi.gmx.utils import determine_swap_route, apply_factor
 from eth_defi.gas import estimate_gas_fees
 from eth_defi.compat import encode_abi_compat
-from eth_defi.token import fetch_erc20_details
 
+logger = logging.getLogger(__name__)
 
 @dataclass
 class WithdrawParams:
