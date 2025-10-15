@@ -74,9 +74,9 @@ class LiquidityArgumentParser:
         self.config = config
 
         # Get web3 connection - support both GMXConfig and GMXConfigManager
-        if hasattr(config, 'get_web3_connection'):
+        if hasattr(config, "get_web3_connection"):
             self.web3 = config.get_web3_connection()
-        elif hasattr(config, 'web3'):
+        elif hasattr(config, "web3"):
             self.web3 = config.web3
         else:
             raise ValueError("Config must have either get_web3_connection() method or web3 attribute")
@@ -161,9 +161,9 @@ class LiquidityArgumentParser:
         from eth_defi.gmx.config import GMXConfig
 
         # Get user wallet address - support both GMXConfig and GMXConfigManager
-        if hasattr(self.config, 'get_user_wallet_address'):
+        if hasattr(self.config, "get_user_wallet_address"):
             user_address = self.config.get_user_wallet_address()
-        elif hasattr(self.config, 'user_wallet_address'):
+        elif hasattr(self.config, "user_wallet_address"):
             user_address = self.config.user_wallet_address
         else:
             user_address = None
@@ -224,9 +224,9 @@ class LiquidityArgumentParser:
         from eth_defi.gmx.config import GMXConfig
 
         # Get user wallet address - support both GMXConfig and GMXConfigManager
-        if hasattr(self.config, 'get_user_wallet_address'):
+        if hasattr(self.config, "get_user_wallet_address"):
             user_address = self.config.get_user_wallet_address()
-        elif hasattr(self.config, 'user_wallet_address'):
+        elif hasattr(self.config, "user_wallet_address"):
             user_address = self.config.user_wallet_address
         else:
             user_address = None

@@ -30,6 +30,7 @@ from eth_defi.compat import encode_abi_compat
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class WithdrawParams:
     """Parameters for withdrawal operations.

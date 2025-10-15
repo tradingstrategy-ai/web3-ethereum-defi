@@ -32,6 +32,7 @@ from eth_defi.token import fetch_erc20_details
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class DepositParams:
     """Parameters for deposit operations.
