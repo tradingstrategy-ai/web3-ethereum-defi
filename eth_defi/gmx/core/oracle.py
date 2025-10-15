@@ -34,11 +34,21 @@ class OraclePrices:
         clean_api_urls = _get_clean_api_urls()
         clean_backup_urls = _get_clean_backup_urls()
 
-        if chain not in clean_api_urls:
-            raise ValueError(f"Unsupported chain: {chain}. Supported: {list(clean_api_urls.keys())}")
+        # Testnet fallback mapping - use mainnet oracles for testnets
+        testnet_to_mainnet = {
+            "arbitrum_sepolia": "arbitrum",
+            "avalanche_fuji": "avalanche",
+        }
 
-        self.oracle_url = clean_api_urls[chain] + "/signed_prices/latest"
-        self.backup_oracle_url = clean_backup_urls.get(chain, "") + "/signed_prices/latest" if clean_backup_urls.get(chain) else None
+        # Use mainnet oracle for testnets that don't have their own
+        oracle_chain = testnet_to_mainnet.get(chain, chain)
+
+        if oracle_chain not in clean_api_urls:
+            raise ValueError(f"Unsupported chain: {chain}. Supported: {list(clean_api_urls.keys()) + list(testnet_to_mainnet.keys())}")
+
+        logging.info(f"Using oracle for chain '{oracle_chain}' (requested chain: '{chain}')")
+        self.oracle_url = clean_api_urls[oracle_chain] + "/signed_prices/latest"
+        self.backup_oracle_url = clean_backup_urls.get(oracle_chain, "") + "/signed_prices/latest" if clean_backup_urls.get(oracle_chain) else None
 
     def get_recent_prices(self) -> PriceData:
         """Get raw output of the GMX rest v2 api for signed prices.

@@ -71,6 +71,7 @@ GMX_API_URLS: dict = {
     # :var avalanche: Primary API endpoint for Avalanche network operations
     "arbitrum": "https://arbitrum-api.gmxinfra.io",
     "avalanche": "https://avalanche-api.gmxinfra.io",
+    "arbitrum_sepolia": "https://dolphin-app-a2dup.ondigitalocean.app",
 }
 
 GMX_API_URLS_BACKUP: dict = {
@@ -90,6 +91,7 @@ GMX_API_URLS_BACKUP: dict = {
     # :var avalanche: Backup API endpoint for Avalanche network operations
     "arbitrum": "https://arbitrum-api.gmxinfra2.io",
     "avalanche": "https://avalanche-api.gmxinfra2.io",
+    "arbitrum_sepolia": "https://dolphin-app-a2dup.ondigitalocean.app",
 }
 
 # TODO: get rid of the rest bcz they will be migrated soon.
@@ -206,39 +208,67 @@ monitoring systems that react to protocol state changes.
 
 # Event signatures for GMX contracts
 EVENT_SIGNATURES = {
-    """
-    Cryptographic event signatures for important GMX protocol events.
-    
-    These hexadecimal signatures represent the keccak256 hash of event
-    signatures, which are used for efficient event filtering when monitoring
-    blockchain logs. Each signature corresponds to a specific event type
-    emitted by GMX protocol contracts, allowing applications to selectively
-    listen for events of interest.
-    
-    Event signatures are calculated as keccak256(event_signature) where
-    event_signature follows the format "EventName(type1,type2,...)". These
-    signatures are used in eth_getLogs RPC calls to filter for specific
-    event types without downloading all contract events.
-    
-    Understanding these signatures is crucial for building real-time monitoring
-    systems, automated trading strategies, and analytics platforms that need
-    to react to specific protocol events as they occur on-chain.
-    
-    :type: dict[str, str]
-    :var UpdateFundingRate: Signature for funding rate update events, emitted
-        when the protocol adjusts funding rates for perpetual positions
-    :var IncreasePosition: Signature for position increase events, emitted
-        when users open new positions or add size to existing positions
-    :var DecreasePosition: Signature for position decrease events, emitted
-        when users close positions or reduce position size
-    :var LiquidatePosition: Signature for liquidation events, emitted when
-        positions are automatically closed due to insufficient margin
-    :var SetPrice: Signature for price update events, emitted when oracle
-        prices are updated for protocol calculations
-    """
     "UpdateFundingRate": "0xaa58a1c124fe8c67db114d6a19c3ef5b564f4ef3bd820f71e94473e846e3bb12",
     "IncreasePosition": "0x2fe68525253654c21998f35787a8d0f361bd444120e6c65920e8f7e9e4c26930",
     "DecreasePosition": "0xca28a6b76a3f6dc9124d60540e577c6adbd1e3ba0b52e013908b9ad5f15a4464",
     "LiquidatePosition": "0x2e1f85a5194ea85aa10539a6e819c82b7244e0a61ab25bd09627a29e2f7b996b",
     "SetPrice": "0x42b65f4eb3437d54b4e320a5863c8a1c28e539af1226161b7602ef73f567da5c",
+}
+
+# GMX Protocol Constants
+PRECISION = 30
+
+#: Ethereum zero address - used as a placeholder for native token (ETH/AVAX) in GMX protocol
+ETH_ZERO_ADDRESS = "0x" + "0" * 40
+
+# GMX Contracts JSON URL for dynamic contract address fetching
+GMX_CONTRACTS_JSON_URL = "https://raw.githubusercontent.com/gmx-io/gmx-synthetics/refs/heads/main/docs/contracts.json"
+
+# Order type mappings compatible with GMX protocol
+ORDER_TYPES = {
+    "market_swap": 0,
+    "limit_swap": 1,
+    "market_increase": 2,
+    "limit_increase": 3,
+    "market_decrease": 4,
+    "limit_decrease": 5,
+    "stop_loss_decrease": 6,
+    "liquidation": 7,
+}
+
+# Decrease position swap type mappings
+DECREASE_POSITION_SWAP_TYPES = {
+    "no_swap": 0,
+    "swap_pnl_token_to_collateral_token": 1,
+    "swap_collateral_token_to_pnl_token": 2,
+}
+
+# Gas limit constants for different order types
+GAS_LIMITS = {
+    "increase_order": 2500000,
+    "decrease_order": 2000000,
+    "swap_order": 2500000,
+    "single_swap": 2000000,
+    "deposit": 2500000,
+    "withdrawal": 2000000,
+    "multicall_base": 200000,
+}
+
+# Token address mappings for routing and swaps
+TOKEN_ADDRESS_MAPPINGS = {
+    "arbitrum": {
+        # WBTC -> BTC.b mapping for routing
+        "0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f": "0x47904963fc8b2340414262125aF798B9655E58Cd",
+        # ETH (zero address) -> WETH mapping for routing
+        "0x0000000000000000000000000000000000000000": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
+    },
+    "avalanche": {
+        # Add avalanche specific mappings if needed
+        # ETH (zero address) -> WAVAX mapping for routing
+        "0x0000000000000000000000000000000000000000": "0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7",
+    },
+    "arbitrum_sepolia": {
+        # ETH (zero address) -> WETH mapping for routing (testnet equivalent)
+        "0x0000000000000000000000000000000000000000": "0x980B62Da83eFf3D4576C647993b0c1D7faf17c73",
+    },
 }

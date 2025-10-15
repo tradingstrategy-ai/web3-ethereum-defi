@@ -36,24 +36,39 @@ class GMXAPI:
         df = gmx_api.get_candlesticks_dataframe("ETH", period="1h")
     """
 
-    def __init__(self, config: GMXConfig):
+    def __init__(self, config: Optional[GMXConfig] = None, chain: Optional[str] = None):
         """
-        Initialize GMX API client with the provided configuration.
+        Initialise the GMX API client with the provided configuration.
 
         :param config:
-            GMX configuration object containing chain and other settings
-        :type config: GMXConfig
+            GMX configuration object containing chain and other settings (optional if chain is provided)
+        :type config: Optional[GMXConfig]
+        :param chain:
+            Chain name (arbitrum or avalanche) as an alternative to config (optional if config is provided)
+        :type chain: Optional[str]
+        :raises ValueError: If neither config nor chain is provided
         """
-        self.config = config
-        self.chain = config.get_chain()
+        if config is not None:
+            self.config = config
+            self.chain = config.get_chain()
+        elif chain is not None:
+            self.config = None
+            self.chain = chain
+        else:
+            raise ValueError("Either config or chain must be provided")
 
-        # Set base URLs based on chain
+        # Set base URLs based on the chain
+        # Handle mainnet and testnet chains by mapping to appropriate API
         if self.chain.lower() == "arbitrum":
             self.base_url = GMX_API_URLS["arbitrum"]
             self.backup_url = GMX_API_URLS_BACKUP["arbitrum"]
-        else:
+        elif self.chain.lower() in ["avalanche", "avalanche_fuji"]:
             self.base_url = GMX_API_URLS["avalanche"]
             self.backup_url = GMX_API_URLS_BACKUP["avalanche"]
+        elif self.chain.lower() == "arbitrum_sepolia":
+            self.base_url = GMX_API_URLS["arbitrum_sepolia"]
+        else:
+            raise ValueError(f"Unsupported chain: {self.chain}. Supported: arbitrum, arbitrum_sepolia, avalanche")
 
     def _make_request(self, endpoint: str, params: Optional[dict[str, Any]] = None) -> dict[str, Any]:
         """
