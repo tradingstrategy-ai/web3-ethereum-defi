@@ -14,7 +14,6 @@ from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.core import GetOpenPositions, GetPoolTVL, Markets
 from eth_defi.gmx.core.glv_stats import GlvStats
 from eth_defi.gmx.data import GMXMarketData
-from eth_defi.gmx.liquidity import GMXLiquidityManager
 
 # from eth_defi.gmx.order import GMXOrderManager
 from eth_defi.gmx.order.base_order import BaseOrder
@@ -699,12 +698,6 @@ def _approve_tokens_for_config(config: GMXConfig, web3_fork, test_address):
     # Note: GM tokens (market tokens) need approval for withdrawals but we'll skip
     # auto-approval here to avoid too many RPC calls during test setup.
     # Individual tests that need GM token approvals should handle them explicitly.
-
-
-@pytest.fixture()
-def liquidity_manager(gmx_config_fork):
-    """Create a GMXLiquidityManager instance for the specified chain."""
-    return GMXLiquidityManager(gmx_config_fork)
 
 
 # TODO: Replace with the new Order class

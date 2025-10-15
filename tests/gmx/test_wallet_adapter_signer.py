@@ -13,7 +13,6 @@ from eth_defi.hotwallet import HotWallet
 from eth_defi.gmx.wallet_adapter_signer import WalletAdapterSigner
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.trading import GMXTrading
-from eth_defi.gmx.liquidity import GMXLiquidityManager
 from eth_defi.tx import get_tx_broadcast_data
 
 
@@ -94,34 +93,35 @@ def test_trading_with_hotwallet(gmx_config_fork, chain_name, wallet_with_usdc):
     assert order.config == gmx_config_fork.get_write_config()
 
 
-def test_liquidity_with_hotwallet(gmx_config_fork, chain_name, wallet_with_native_token):
-    """Test liquidity operations using a HotWallet through the adapter."""
-    # Create the liquidity manager with our config
-    liquidity_manager = GMXLiquidityManager(gmx_config_fork)
-
-    # Select appropriate market parameters based on the chain
-    if chain_name == "arbitrum":
-        market_token_symbol = "ETH"
-        long_token_symbol = "ETH"
-    else:  # avalanche
-        market_token_symbol = "AVAX"
-        long_token_symbol = "AVAX"
-
-    # Add liquidity in debug mode
-    order = liquidity_manager.add_liquidity(
-        market_token_symbol=market_token_symbol,
-        long_token_symbol=long_token_symbol,
-        short_token_symbol="USDC",
-        long_token_usd=10,
-        short_token_usd=0,
-        debug_mode=True,
-    )  # Debug mode to avoid actual transaction
-
-    # Verify the order was created
-    assert order is not None
-    assert order.debug_mode is True
-    assert hasattr(order, "config")
-    assert order.config == gmx_config_fork.get_write_config()
+# TODO: Update this
+# def test_liquidity_with_hotwallet(gmx_config_fork, chain_name, wallet_with_native_token):
+#     """Test liquidity operations using a HotWallet through the adapter."""
+#     # Create the liquidity manager with our config
+#     liquidity_manager = GMXLiquidityManager(gmx_config_fork)
+#
+#     # Select appropriate market parameters based on the chain
+#     if chain_name == "arbitrum":
+#         market_token_symbol = "ETH"
+#         long_token_symbol = "ETH"
+#     else:  # avalanche
+#         market_token_symbol = "AVAX"
+#         long_token_symbol = "AVAX"
+#
+#     # Add liquidity in debug mode
+#     order = liquidity_manager.add_liquidity(
+#         market_token_symbol=market_token_symbol,
+#         long_token_symbol=long_token_symbol,
+#         short_token_symbol="USDC",
+#         long_token_usd=10,
+#         short_token_usd=0,
+#         debug_mode=True,
+#     )  # Debug mode to avoid actual transaction
+#
+#     # Verify the order was created
+#     assert order is not None
+#     assert order.debug_mode is True
+#     assert hasattr(order, "config")
+#     assert order.config == gmx_config_fork.get_write_config()
 
 
 # def test_order_manager_with_hotwallet(gmx_config_fork, chain_name):

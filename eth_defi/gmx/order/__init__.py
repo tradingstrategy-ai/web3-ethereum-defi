@@ -24,8 +24,6 @@ from eth_defi.gmx.order.base_order import BaseOrder, OrderParams, OrderType, Ord
 from eth_defi.gmx.order.increase_order import IncreaseOrder
 from eth_defi.gmx.order.decrease_order import DecreaseOrder
 from eth_defi.gmx.order.swap_order import SwapOrder
-from eth_defi.gmx.liquidity_base.deposit import Deposit, DepositParams, DepositResult
-from eth_defi.gmx.liquidity_base.withdraw import Withdraw, WithdrawParams, WithdrawResult
 
 __all__ = [
     # Base classes
@@ -37,12 +35,4 @@ __all__ = [
     "IncreaseOrder",
     "DecreaseOrder",
     "SwapOrder",
-    # Liquidity base classes
-    "Deposit",
-    "DepositParams",
-    "DepositResult",
-    "Withdraw",
-    "WithdrawParams",
-    "WithdrawResult",
-    # Liquidity order wrappers
 ]

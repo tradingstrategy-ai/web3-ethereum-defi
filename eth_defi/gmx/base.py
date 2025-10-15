@@ -4,13 +4,11 @@ GMX Core Module
 This module provides the main GMXClient class that integrates all GMX functionality.
 """
 
-from typing import Optional
+from typing import Optional, Any
 
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.data import GMXMarketData
 from eth_defi.gmx.trading import GMXTrading
-from eth_defi.gmx.order import GMXOrderManager
-from eth_defi.gmx.liquidity import GMXLiquidityManager
 
 # from eth_defi.gmx.events import GMXEvents
 from eth_defi.gmx.api import GMXAPI
@@ -87,8 +85,8 @@ class GMXClient:
         # Initialize sub-modules
         self.market_data = GMXMarketData(config)
         self.trading = GMXTrading(config)
-        self.order_manager = GMXOrderManager(config)
-        self.liquidity_manager = GMXLiquidityManager(config)
+        # TODO: Make the new OrderManager
+        # self.order_manager = GMXOrderManager(config)
         # self.events = GMXEvents(config)
         self.api = GMXAPI(config)
 
