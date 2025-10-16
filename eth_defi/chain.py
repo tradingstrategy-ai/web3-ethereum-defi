@@ -158,6 +158,22 @@ def get_chain_name(chain_id: int) -> str:
     return f"<Unknown chain, id {chain_id}>"
 
 
+def get_chain_id_by_name(name: str) -> Optional[int]:
+    """Get chain id by its name.
+
+    :param name:
+        Case-insensitive chain name, e.g. "Ethereum", "Polygon", "BNB Chain"
+
+    :return:
+        Chain id or None if not found
+    """
+    name_lower = name.lower()
+    for chain_id, chain_name in CHAIN_NAMES.items():
+        if chain_name.lower() == name_lower:
+            return chain_id
+    return None
+
+
 def get_block_time(chain_id: int) -> float:
     """Get average block time for a chain.
 
