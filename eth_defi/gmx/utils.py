@@ -65,7 +65,7 @@ Example:
     config = GMXConfig.from_private_key(web3, "0x...", "arbitrum")
 
     # Retrieve and analyze current positions
-    positions = get_positions(config.get_read_config())
+    positions = get_positions(config.get_config())
 
     for position_key, position_data in positions.items():
         # Format position for human-readable analysis
@@ -91,7 +91,7 @@ Example:
         # Transform position for strategic closure if high risk
         if risk_distance < 0.10:  # Less than 10% safety margin
             close_params = transform_open_position_to_order_parameters(
-                config=config.get_write_config(),
+                config=config.get_config(),
                 positions=positions,
                 market_symbol=display_info["market"],
                 is_long=position_data["is_long"],
@@ -114,7 +114,8 @@ from eth_utils import keccak
 
 from eth_defi.gmx.core.markets import Markets
 from eth_defi.gmx.core.open_positions import GetOpenPositions
-from eth_defi.gmx.contracts import get_tokens_address_dict
+from eth_defi.gmx.contracts import get_tokens_address_dict, TESTNET_TO_MAINNET_ORACLE_TOKENS
+
 
 # Can be done using the `GMXAPI` class if needed
 # def token_symbol_to_address(chain: str, symbol: str) -> Optional[str]:
@@ -434,7 +435,7 @@ def transform_open_position_to_order_parameters(
         )
 
         # Parameters ready for order execution
-        order = DecreaseOrder(**close_params, debug_mode=True)
+        order = DecreaseOrder(**close_params)
 
     :param config:
         GMX configuration object containing network settings and token
@@ -644,26 +645,8 @@ def determine_swap_route(markets: dict, in_token: str, out_token: str, chain: st
     return [gmx_market_address], is_requires_multi_swap
 
 
-if __name__ == "__main__":
-    # Example removed - use GMXConfig instead in production code
-    config.set_config()
-
-    positions = get_positions(config=config, address="0x0e9E19E7489E5F13a0940b3b6FcB84B25dc68177")
-
-    # market_symbol = "ETH"
-    # is_long = True
-
-    # out_token = "USDC"
-    # amount_of_position_to_close = 1
-    # amount_of_collateral_to_remove = 1
-
-    # order_params = transform_open_position_to_order_parameters(
-    #     config=config,
-    #     positions=positions,
-    #     market_symbol=market_symbol,
-    #     is_long=is_long,
-    #     slippage_percent=0.003,
-    #     out_token="USDC",
-    #     amount_of_position_to_close=amount_of_position_to_close,
-    #     amount_of_collateral_to_remove=amount_of_collateral_to_remove
-    # )
+def get_oracle_address(chain: str, token_address: str) -> str:
+    """Map testnet address to oracle address if on testnet"""
+    if chain in ["arbitrum_sepolia", "avalanche_fuji"]:
+        return TESTNET_TO_MAINNET_ORACLE_TOKENS.get(token_address, token_address)
+    return token_address

@@ -11,10 +11,11 @@ from typing import Optional, Any
 from eth_utils import to_checksum_address
 from eth_typing import ChecksumAddress
 
+from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.order.base_order import BaseOrder, OrderParams, OrderResult
-from eth_defi.gmx.constants import PRECISION
+from eth_defi.gmx.constants import PRECISION, ETH_ZERO_ADDRESS
 from eth_defi.gmx.contracts import get_contract_addresses, get_reader_contract
-from eth_defi.gmx.utils import determine_swap_route
+from eth_defi.gmx.utils import determine_swap_route, get_oracle_address
 from eth_defi.token import fetch_erc20_details
 
 
@@ -32,7 +33,7 @@ class SwapOrder(BaseOrder):
         >TODO: Add example usage
     """
 
-    def __init__(self, config, start_token: ChecksumAddress, out_token: ChecksumAddress):
+    def __init__(self, config: GMXConfig, start_token: ChecksumAddress, out_token: ChecksumAddress):
         """Initialise swap order with token addresses.
 
         :param config: GMX configuration
@@ -91,18 +92,40 @@ class SwapOrder(BaseOrder):
         if is_multi_swap:
             logger.debug("Multi-market swap required")
 
-        # Use the last market in the route (final destination market)
-        market_key = swap_route[-1]
-        market_data = markets.get(market_key)
+        # For swaps, we need any market to get a valid index token, but the actual market in order will be zero address
+        first_market_key = swap_route[0]
+        market_data = markets.get(first_market_key)
         if not market_data:
-            raise ValueError(f"Market {market_key} not found")
+            raise ValueError(f"Market {first_market_key} not found")
 
         # Convert amount_in to string (in token's smallest unit)
         amount_str = str(int(amount_in))
 
+        # Calculate min_output_amount if not provided (auto-calculation)
+        if min_output_amount == 0:
+            try:
+                # Estimate swap output to calculate minimum
+                estimation = self.estimate_swap_output(int(amount_in), market_key=first_market_key)
+                estimated_output = estimation["out_token_amount"]
+
+                # Apply slippage to get minimum acceptable output
+                # For swaps, we reduce expected output by slippage percentage
+                min_output_amount = int(estimated_output * (1 - slippage_percent))
+
+                logger.debug(
+                    "Auto-calculated min_output_amount: %d (from estimated %d with %.2f%% slippage)",
+                    min_output_amount,
+                    estimated_output,
+                    slippage_percent * 100,
+                )
+            except Exception as e:
+                logger.warning("Could not estimate swap output, using min_output_amount=0: %s", e)
+                min_output_amount = 0
+
         # Create order parameters for swap
+        # Note: For swaps, market_key is zero address
         order_params = OrderParams(
-            market_key=market_key,
+            market_key=ETH_ZERO_ADDRESS,  # Zero address for swaps (not a real market)
             collateral_address=self.start_token,
             index_token_address=market_data["index_token_address"],
             is_long=False,  # Not relevant for swaps
@@ -112,7 +135,7 @@ class SwapOrder(BaseOrder):
             swap_path=swap_route,
             execution_buffer=execution_buffer,
             auto_cancel=auto_cancel,
-            min_output_amount=min_output_amount,  # Updated: Pass min_output_amount
+            min_output_amount=min_output_amount,
         )
 
         # Build and return unsigned transaction
@@ -133,7 +156,7 @@ class SwapOrder(BaseOrder):
 
         Example return value:
             {
-                "out_token_amount": 950000000,  # Output amount in smallest unit
+                "out_token_amount": 950000000,  # Output amount in the smallest unit
                 "price_impact_usd": -0.0025,  # Price impact in USD
                 "estimated_output_formatted": 950.0  # Formatted output amount
             }
@@ -157,6 +180,11 @@ class SwapOrder(BaseOrder):
         prices = self.oracle_prices.get_recent_prices()
         contract_addresses = get_contract_addresses(self.chain)
 
+        # Get oracle addresses for price lookup
+        index_oracle = get_oracle_address(self.chain, market_data["index_token_address"])
+        long_oracle = get_oracle_address(self.chain, market_data["long_token_address"])
+        short_oracle = get_oracle_address(self.chain, market_data["short_token_address"])
+
         # Build parameters for swap estimation
         estimation_params = {
             "data_store_address": contract_addresses.datastore,
@@ -168,21 +196,21 @@ class SwapOrder(BaseOrder):
             ],
             "token_prices_tuple": [
                 [
-                    int(prices[market_data["index_token_address"]]["maxPriceFull"]),
-                    int(prices[market_data["index_token_address"]]["minPriceFull"]),
+                    int(prices[index_oracle]["maxPriceFull"]),
+                    int(prices[index_oracle]["minPriceFull"]),
                 ],
                 [
-                    int(prices[market_data["long_token_address"]]["maxPriceFull"]),
-                    int(prices[market_data["long_token_address"]]["minPriceFull"]),
+                    int(prices[long_oracle]["maxPriceFull"]),
+                    int(prices[long_oracle]["minPriceFull"]),
                 ],
                 [
-                    int(prices[market_data["short_token_address"]]["maxPriceFull"]),
-                    int(prices[market_data["short_token_address"]]["minPriceFull"]),
+                    int(prices[short_oracle]["maxPriceFull"]),
+                    int(prices[short_oracle]["minPriceFull"]),
                 ],
             ],
             "token_in": self.start_token,
             "token_amount_in": int(amount_in),
-            "ui_fee_receiver": "0x0000000000000000000000000000000000000000",
+            "ui_fee_receiver": ETH_ZERO_ADDRESS,
         }
 
         # Call the reader contract for estimation

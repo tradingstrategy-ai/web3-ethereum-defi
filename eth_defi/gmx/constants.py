@@ -270,5 +270,7 @@ TOKEN_ADDRESS_MAPPINGS = {
     "arbitrum_sepolia": {
         # ETH (zero address) -> WETH mapping for routing (testnet equivalent)
         "0x0000000000000000000000000000000000000000": "0x980B62Da83eFf3D4576C647993b0c1D7faf17c73",
+        # USDC.SG -> USDC mapping for routing (synthetic USDC treated as regular USDC)
+        "0x3253a335E7bFfB4790Aa4C25C4250d206E9b9773": "0x3321Fd36aEaB0d5CdfD26f4A3A93E2D2aAcCB99f",
     },
 }

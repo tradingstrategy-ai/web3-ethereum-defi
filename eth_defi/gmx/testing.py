@@ -470,7 +470,7 @@ def emulate_keepers(
         custom_oracle_contract_address = deployed[1]
 
     try:
-        config = gmx_config.get_write_config()
+        config = gmx_config.get_config()
         # order_key = order.create_order_and_get_key()
 
         data_store = get_datastore_contract(config)
