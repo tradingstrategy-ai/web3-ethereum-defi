@@ -146,7 +146,6 @@ def main():
         out_token_symbol=out_token.symbol,
         amount=usd_amount,
         slippage_percent=0.02,  # 0.2% slippage tolerance
-        debug_mode=False,
     )
 
     tx_hash = swap_order.tx_info.hex()

@@ -241,28 +241,6 @@ class GMXConfig:
         """
         return self._config
 
-    # TODO: Get rid of these 2 config methods. Now they are merged into the `get_config` method
-    def get_read_config(self) -> GMXConfigManager:
-        """Get configuration manager for read operations.
-
-        Returns the same configuration manager as get_config() for backward
-        compatibility with existing code.
-
-        :return: GMXConfigManager instance
-        """
-        return self._config
-
-    def get_write_config(self) -> GMXConfigManager:
-        """Get configuration manager for write operations.
-
-        Returns the same configuration manager as get_config() for backward
-        compatibility. Transaction signing is handled separately during
-        transaction building and execution.
-
-        :return: GMXConfigManager instance
-        """
-        return self._config
-
     def has_write_capability(self) -> bool:
         """Check if a wallet address is configured.
 

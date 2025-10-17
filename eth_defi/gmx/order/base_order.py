@@ -210,9 +210,15 @@ class BaseOrder:
         markets = self.markets.get_available_markets()
         prices = self.oracle_prices.get_recent_prices()
 
-        market_data = markets.get(params.market_key)
+        # For swaps, market_key is zero address - use first swap_path market instead
+        if is_swap and params.swap_path:
+            market_key_for_lookup = params.swap_path[0]
+        else:
+            market_key_for_lookup = params.market_key
+
+        market_data = markets.get(market_key_for_lookup)
         if not market_data:
-            raise ValueError(f"Market {params.market_key} not found")
+            raise ValueError(f"Market {market_key_for_lookup} not found")
 
         # Calculate prices with slippage (validate prices exist before other operations)
         decimals = market_data["market_metadata"]["decimals"]

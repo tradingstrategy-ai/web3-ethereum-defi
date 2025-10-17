@@ -49,7 +49,6 @@ The module supports multiple trading patterns including:
 
 **Advanced Execution Features:**
 
-- **Debug Mode Testing**: Validate all strategies without financial commitment
 - **Flexible Parameter Control**: Precise control over execution timing and costs
 - **Multi-Asset Support**: Trade across all GMX-supported markets and tokens
 - **Slippage Management**: Dynamic slippage adjustment based on market conditions
@@ -72,14 +71,12 @@ Example:
         size_delta_usd=5000,  # $5000 position size
         leverage=3.0,  # 3x leverage
         slippage_percent=0.005,  # 0.5% slippage tolerance
-        debug_mode=True,  # Test execution first
         auto_cancel=True,  # Cancel if execution fails
     )
 
-    # Execute if debug validation passes
-    if not debug_mode:
-        tx_receipt = long_eth_order.submit()
-        print(f"Position opened: {tx_receipt.transactionHash.hex()}")
+    # Execute the order
+    tx_receipt = long_eth_order.submit()
+    print(f"Position opened: {tx_receipt.transactionHash.hex()}")
 
     # Strategic token swap for portfolio rebalancing
     swap_order = trader.swap_tokens(
@@ -88,7 +85,6 @@ Example:
         amount=1.5,  # Swap 1.5 ETH
         slippage_percent=0.01,  # 1% slippage for volatile swap
         execution_buffer=3.0,  # Higher execution buffer
-        debug_mode=False,  # Execute real swap
     )
 
     # Risk management: Close position with strategic asset selection
@@ -100,7 +96,6 @@ Example:
         size_delta_usd=2500,  # Close half the position
         initial_collateral_delta=800,  # Remove $800 collateral
         slippage_percent=0.003,  # Tight slippage for profit taking
-        debug_mode=False,
     )
 
 **Integration with Trading Strategies:**
@@ -113,9 +108,6 @@ trading and systematic strategy implementation.
 Note:
     All trading operations require wallet configuration with transaction signing
     capabilities and sufficient collateral for the intended operations.
-
-TODO:
-    Add option to return tx_hash from all of the on-chain operations
 
 Warning:
     Leveraged trading involves substantial risk of loss. Positions can be
@@ -146,7 +138,7 @@ class GMXTrading:
 
     The design follows professional trading system principles where execution
     quality is paramount. Every method provides comprehensive parameter control,
-    extensive validation, and safety features including debug mode testing.
+    extensive validation, and safety features.
     The architecture supports both manual trading workflows and algorithmic
     strategy implementation.
 
@@ -305,14 +297,14 @@ class GMXTrading:
             When parameters are invalid, insufficient collateral, or
             leverage exceeds protocol limits for the specified market
         """
-        # Ensure we have write access
-        write_config = self.config.get_write_config()
+        # Get configuration
+        config = self.config.get_config()
 
         # Prepare parameters dictionary
         parameters = {
             "chain": self.config.get_chain(),
             "index_token_symbol": market_symbol,
-            "collateral_token_symbol": collateral_symbol,
+            "collateral_symbol": collateral_symbol,
             "start_token_symbol": start_token_symbol,
             "is_long": is_long,
             "size_delta_usd": size_delta_usd,
@@ -321,7 +313,7 @@ class GMXTrading:
         }
 
         # Process parameters
-        order_parameters = OrderArgumentParser(write_config, is_increase=True).process_parameters_dictionary(parameters)
+        order_parameters = OrderArgumentParser(config, is_increase=True).process_parameters_dictionary(parameters)
 
         # Create order instance with position identification (order classes need GMXConfig)
         order = IncreaseOrder(
@@ -351,7 +343,7 @@ class GMXTrading:
         initial_collateral_delta: float,
         slippage_percent: Optional[float] = 0.003,
         **kwargs,
-    ) -> DecreaseOrder:
+    ) -> OrderResult:
         """
         Execute strategic position closure with precise size and collateral control.
 
@@ -395,7 +387,6 @@ class GMXTrading:
                 size_delta_usd=2000,  # Close $2000 of position
                 initial_collateral_delta=500,  # Remove $500 collateral
                 slippage_percent=0.003,  # Tight slippage for profits
-                debug_mode=True,  # Validate execution
                 auto_cancel=True,
             )
 
@@ -408,7 +399,6 @@ class GMXTrading:
                 size_delta_usd=10000,  # Close entire $10k position
                 initial_collateral_delta=2000,  # Withdraw all collateral
                 slippage_percent=0.02,  # Higher slippage for speed
-                debug_mode=False,  # Execute immediately
                 execution_buffer=3.0,  # Higher execution buffer
             )
 
@@ -441,11 +431,6 @@ class GMXTrading:
             better price protection, higher values enable faster execution
             in volatile conditions
         :type slippage_percent: Optional[float]
-        :param debug_mode:
-            Whether to execute in debug mode for testing and validation.
-            Debug mode simulates execution without spending gas or modifying
-            actual positions
-        :type debug_mode: Optional[bool]
         :param kwargs:
             Additional advanced parameters for execution control including
             auto_cancel, execution_buffer, max_fee_per_gas, and other
@@ -459,8 +444,8 @@ class GMXTrading:
             When parameters don't match existing position, insufficient
             position size, or invalid collateral withdrawal amounts
         """
-        # Ensure we have write access
-        write_config = self.config.get_write_config()
+        # Get configuration
+        config = self.config.get_config()
 
         # Prepare parameters dictionary
         parameters = {
@@ -475,7 +460,7 @@ class GMXTrading:
         }
 
         # Process parameters
-        order_parameters = OrderArgumentParser(write_config, is_decrease=True).process_parameters_dictionary(parameters)
+        order_parameters = OrderArgumentParser(config, is_decrease=True).process_parameters_dictionary(parameters)
 
         # Create order instance with position identification (order classes need GMXConfig, not GMXConfigManager)
         order = DecreaseOrder(
@@ -504,7 +489,7 @@ class GMXTrading:
         slippage_percent: Optional[float] = 0.02,
         execution_buffer=1.3,  # this is needed to pass the gas usage
         **kwargs,
-    ) -> SwapOrder:
+    ) -> OrderResult:
         """
         Execute sophisticated token swaps for portfolio management and strategy implementation.
 
@@ -546,7 +531,6 @@ class GMXTrading:
                 amount=2.5,  # Swap 2.5 ETH
                 slippage_percent=0.01,  # 1% slippage tolerance
                 execution_buffer=2.0,  # Standard execution buffer
-                debug_mode=True,  # Test execution
                 auto_cancel=True,
             )
 
@@ -557,7 +541,6 @@ class GMXTrading:
                 amount=5000,  # Swap $5000 USDC
                 slippage_percent=0.015,  # 1.5% slippage for large swap
                 execution_buffer=3.0,  # Higher buffer for complex swap
-                debug_mode=False,  # Execute real swap
                 max_fee_per_gas=50000000000,  # Custom gas price
             )
 
@@ -590,11 +573,6 @@ class GMXTrading:
             transaction processing. Higher values reduce execution failure
             risk but increase transaction costs
         :type execution_buffer: float
-        :param debug_mode:
-            Whether to execute in debug mode for testing and validation.
-            Debug mode simulates complete swap execution without spending
-            gas or converting actual assets
-        :type debug_mode: Optional[bool]
         :param kwargs:
             Additional advanced parameters for swap control including
             auto_cancel, max_fee_per_gas, and other swap-specific settings
@@ -607,8 +585,8 @@ class GMXTrading:
             When insufficient balance, invalid token pairs, or swap
             amount exceeds available liquidity in the target market
         """
-        # Ensure we have write access
-        write_config = self.config.get_write_config()
+        # Get configuration
+        config = self.config.get_config()
 
         # Prepare parameters dictionary
         parameters = {
@@ -622,21 +600,19 @@ class GMXTrading:
         }
 
         # Process parameters
-        order_parameters = OrderArgumentParser(write_config, is_swap=True).process_parameters_dictionary(parameters)
+        order_parameters = OrderArgumentParser(config, is_swap=True).process_parameters_dictionary(parameters)
 
-        # Create order with any additional parameters
-        return SwapOrder(
-            config=write_config,
-            market_key=order_parameters["swap_path"][-1],
+        # Create SwapOrder instance (order classes need GMXConfig, not GMXConfigManager)
+        swap_order = SwapOrder(
+            config=self.config,
             start_token=order_parameters["start_token_address"],
             out_token=order_parameters["out_token_address"],
-            collateral_address=order_parameters["start_token_address"],
-            index_token_address=order_parameters["out_token_address"],
-            is_long=order_parameters["is_long"],
-            size_delta=order_parameters["size_delta_usd"],
-            initial_collateral_delta_amount=order_parameters["initial_collateral_delta"],
+        )
+
+        # Create the actual swap order transaction
+        return swap_order.create_swap_order(
+            amount_in=order_parameters["initial_collateral_delta"],
             slippage_percent=order_parameters["slippage_percent"],
-            swap_path=order_parameters["swap_path"],
             execution_buffer=execution_buffer,
             **kwargs,
         )

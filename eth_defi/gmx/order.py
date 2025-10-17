@@ -20,7 +20,6 @@ and risk management requirements.
 - **Position Lifecycle Management**: Complete control over position opening, monitoring, and closing
 - **Risk Parameter Control**: Precise slippage, size, and collateral management
 - **Multi-Strategy Support**: Different closing methods for different trading strategies
-- **Debug-First Development**: Safe testing environment for strategy development
 - **Flexible Asset Handling**: Choose exactly which assets to receive upon position closure
 
 **Order Execution Strategies:**
@@ -70,7 +69,6 @@ Example:
             amount_of_position_to_close=0.5,  # Close half the position
             amount_of_collateral_to_remove=0.3,  # Remove some collateral
             slippage_percent=0.005,  # 0.5% slippage tolerance
-            debug_mode=True,  # Test execution first
         )
 
     # Step 3: Algorithmic position management with precise parameters
@@ -87,13 +85,11 @@ Example:
 
     algorithmic_order = order_manager.close_position(
         parameters=risk_parameters,
-        debug_mode=False,  # Execute real order
     )
 
     # Step 4: Monitor and execute orders
-    if not debug_mode:
-        tx_receipt = algorithmic_order.submit()
-        print(f"Position closed: {tx_receipt.transactionHash.hex()}")
+    tx_receipt = algorithmic_order.submit()
+    print(f"Position closed: {tx_receipt.transactionHash.hex()}")
 
 **Integration with Trading Strategies:**
 
@@ -104,8 +100,7 @@ for both manual trading and systematic strategy implementation.
 
 Note:
     All order operations require wallet configuration with transaction signing
-    capabilities. Use debug mode extensively during strategy development to
-    avoid costly execution errors in live markets.
+    capabilities. Test your strategies thoroughly before live execution.
 
 Warning:
     Position management involves significant financial risk. Improper order
@@ -113,9 +108,12 @@ Warning:
     and test strategies thoroughly before live execution.
 """
 
+from typing import Any
+
 from eth_typing import ChecksumAddress as Address
 
 from eth_defi.gmx.core.open_positions import GetOpenPositions
+from eth_defi.gmx.order import OrderResult
 from eth_defi.gmx.order.decrease_order import DecreaseOrder
 from eth_defi.gmx.order.order_argument_parser import OrderArgumentParser
 from eth_defi.gmx.config import GMXConfig
@@ -182,7 +180,7 @@ class GMXOrderManager:
         """
         self.config = config
 
-    def get_open_positions(self, address: str | Address | None = None) -> dict[str, any]:
+    def get_open_positions(self, address: str | Address | None = None) -> dict[str, Any]:
         """
         Retrieve comprehensive information about all open trading positions for a specified address.
 
@@ -219,10 +217,10 @@ class GMXOrderManager:
         if not address:
             raise ValueError("No wallet address provided")
 
-        read_config = self.config.get_read_config()
-        return GetOpenPositions(read_config, address=address).get_data()
+        config = self.config.get_config()
+        return GetOpenPositions(config).get_data(address)
 
-    def close_position(self, parameters: dict, debug_mode: bool = False) -> DecreaseOrder:
+    def close_position(self, parameters: dict) -> OrderResult:
         """
         Execute sophisticated position closure using comprehensive parameter control.
 
@@ -268,7 +266,6 @@ class GMXOrderManager:
 
             order = order_manager.close_position(
                 parameters=risk_parameters,
-                debug_mode=True,  # Validate before execution
             )
 
         :param parameters:
@@ -276,11 +273,6 @@ class GMXOrderManager:
             Required keys include market identification, position direction,
             size adjustments, and risk controls. See example for complete structure
         :type parameters: dict[str, any]
-        :param debug_mode:
-            Whether to execute in debug mode without submitting real transactions.
-            Debug mode validates all parameters and simulates execution without
-            spending gas or modifying actual positions
-        :type debug_mode: bool
         :return:
             Configured decrease order object ready for execution with all
             specified parameters and risk controls applied
@@ -289,8 +281,8 @@ class GMXOrderManager:
             When required parameters are missing, invalid, or inconsistent
             with current position state and market conditions
         """
-        # Ensure we have write access
-        write_config = self.config.get_write_config()
+        # Get configuration
+        config = self.config.get_config()
 
         # Validate required parameters
         required_params = [
@@ -308,11 +300,11 @@ class GMXOrderManager:
             parameters["chain"] = self.config.get_chain()
 
         # Process parameters through the OrderArgumentParser
-        order_parameters = OrderArgumentParser(write_config, is_decrease=True).process_parameters_dictionary(parameters)
+        order_parameters = OrderArgumentParser(config, is_decrease=True).process_parameters_dictionary(parameters)
 
         # Create order instance with position identification
         order = DecreaseOrder(
-            config=write_config,
+            config=config,
             market_key=order_parameters["market_key"],
             collateral_address=order_parameters["collateral_address"],
             index_token_address=order_parameters["index_token_address"],
@@ -334,9 +326,8 @@ class GMXOrderManager:
         amount_of_position_to_close: float = 1.0,
         amount_of_collateral_to_remove: float = 1.0,
         slippage_percent: float = 0.003,
-        debug_mode: bool = False,
         address: str | Address | None = None,
-    ) -> DecreaseOrder:
+    ) -> OrderResult:
         """
         Execute strategic position closure using simplified position identification.
 
@@ -380,7 +371,6 @@ class GMXOrderManager:
                 amount_of_position_to_close=0.25,  # Take 25% profits
                 amount_of_collateral_to_remove=0.1,  # Remove minimal collateral
                 slippage_percent=0.005,  # Tight slippage for profits
-                debug_mode=False,
             )
 
             # Risk management: Full position closure during market stress
@@ -390,7 +380,6 @@ class GMXOrderManager:
                 amount_of_position_to_close=1.0,  # Close entire position
                 amount_of_collateral_to_remove=1.0,  # Withdraw all collateral
                 slippage_percent=0.02,  # Higher slippage for speed
-                debug_mode=True,  # Test emergency procedure
             )
 
         :param position_key:
@@ -418,11 +407,6 @@ class GMXOrderManager:
             enable faster execution in volatile markets, lower values provide
             better price protection in stable conditions
         :type slippage_percent: float
-        :param debug_mode:
-            Whether to execute in debug mode for testing and validation.
-            Debug mode simulates the complete execution without spending gas
-            or modifying actual positions
-        :type debug_mode: bool
         :param address:
             Specific wallet address containing the position to close. If not
             provided, uses the address from GMX configuration
@@ -435,8 +419,8 @@ class GMXOrderManager:
             When position key is not found, invalid format, or position
             parameters are inconsistent with current market conditions
         """
-        # Ensure we have write access
-        write_config = self.config.get_write_config()
+        # Get configuration
+        config = self.config.get_config()
 
         # Get positions
         if address:
@@ -460,7 +444,7 @@ class GMXOrderManager:
 
         # Transform position to order parameters
         order_parameters = transform_open_position_to_order_parameters(
-            config=write_config,
+            config=config,
             positions=positions,
             market_symbol=market_symbol,
             is_long=is_long,
@@ -472,7 +456,7 @@ class GMXOrderManager:
 
         # Create order instance with position identification
         order = DecreaseOrder(
-            config=write_config,
+            config=config,
             market_key=order_parameters["market_key"],
             collateral_address=order_parameters["collateral_address"],
             index_token_address=order_parameters["index_token_address"],
