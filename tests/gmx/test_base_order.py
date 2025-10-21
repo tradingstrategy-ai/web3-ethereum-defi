@@ -261,7 +261,7 @@ def test_get_prices_long_open(chain_name, base_order):
     )
 
     decimals = market_data["market_metadata"]["decimals"]
-    price, acceptable_price, acceptable_price_in_usd = base_order._get_prices(
+    price_usd, raw_price, acceptable_price, acceptable_price_in_usd = base_order._get_prices(
         decimals,
         prices,
         params,
@@ -271,8 +271,8 @@ def test_get_prices_long_open(chain_name, base_order):
     )
 
     # For opening a long, acceptable price should be higher than mark price (allow slippage up)
-    assert price > 0
-    assert acceptable_price > int(price)
+    assert price_usd > 0
+    assert acceptable_price > raw_price
     assert acceptable_price_in_usd > 0
 
 
@@ -291,7 +291,7 @@ def test_get_prices_long_close(chain_name, base_order):
     params = OrderParams(market_key=market_key, collateral_address=market_data["long_token_address"], index_token_address=index_token_address, is_long=True, size_delta=1000.0, initial_collateral_delta_amount="1000000000000000000", slippage_percent=0.005)
 
     decimals = market_data["market_metadata"]["decimals"]
-    price, acceptable_price, acceptable_price_in_usd = base_order._get_prices(
+    price_usd, raw_price, acceptable_price, acceptable_price_in_usd = base_order._get_prices(
         decimals,
         prices,
         params,
@@ -301,8 +301,8 @@ def test_get_prices_long_close(chain_name, base_order):
     )
 
     # For closing a long, acceptable price should be lower than mark price (allow slippage down)
-    if int(price) != 0:
-        assert acceptable_price < int(price)
+    if raw_price != 0:
+        assert acceptable_price < raw_price
 
 
 def test_get_prices_swap(chain_name, base_order):
@@ -320,7 +320,7 @@ def test_get_prices_swap(chain_name, base_order):
     params = OrderParams(market_key=market_key, collateral_address=market_data["long_token_address"], index_token_address=index_token_address, is_long=False, size_delta=0.0, initial_collateral_delta_amount="1000000000000000000", slippage_percent=0.005)
 
     decimals = market_data["market_metadata"]["decimals"]
-    price, acceptable_price, acceptable_price_in_usd = base_order._get_prices(
+    price_usd, raw_price, acceptable_price, acceptable_price_in_usd = base_order._get_prices(
         decimals,
         prices,
         params,
@@ -330,7 +330,7 @@ def test_get_prices_swap(chain_name, base_order):
     )
 
     # For swaps, acceptable price should be 0
-    assert price > 0
+    assert price_usd > 0
     assert acceptable_price == 0
     assert acceptable_price_in_usd == 0
 
@@ -344,12 +344,17 @@ def test_build_order_arguments_structure(chain_name, base_order, gmx_config_fork
     market_key = next(iter(markets.keys()))
     market_data = markets[market_key]
 
+    # Note: size_delta must be in GMX format (10^30 precision)
+    # when creating OrderParams directly (bypassing OrderArgumentParser)
+    size_delta_raw = 5000.0
+    size_delta_gmx_format = int(Decimal(str(size_delta_raw)) * Decimal(10**30))
+
     params = OrderParams(
         market_key=market_key,
         collateral_address=market_data["long_token_address"],
         index_token_address=market_data["index_token_address"],
         is_long=True,
-        size_delta=5000.0,
+        size_delta=size_delta_gmx_format,
         initial_collateral_delta_amount="2000000000000000000",
         slippage_percent=0.005,
         swap_path=[market_data["long_token_address"]],
@@ -366,8 +371,8 @@ def test_build_order_arguments_structure(chain_name, base_order, gmx_config_fork
 
     arguments = base_order._build_order_arguments(params, execution_fee, order_type, acceptable_price, mark_price)
 
-    # Verify tuple structure (8 elements)
-    assert len(arguments) == 8
+    # Verify tuple structure (9 elements)
+    assert len(arguments) == 9
     assert len(arguments[0]) == 7  # Addresses tuple
     assert len(arguments[1]) == 8  # Numbers tuple
     assert arguments[2] == order_type  # Order type
@@ -382,7 +387,8 @@ def test_build_order_arguments_structure(chain_name, base_order, gmx_config_fork
     # Verify numbers
     numbers = arguments[1]
     size_delta_usd = numbers[0]
-    expected_size = int(Decimal(str(params.size_delta)) * Decimal(10**30))
+    # params.size_delta is already in 10^30 format, so no need to multiply again
+    expected_size = int(params.size_delta)
     assert size_delta_usd == expected_size
     assert numbers[1] == int(params.initial_collateral_delta_amount)
     assert numbers[4] == execution_fee
@@ -582,8 +588,10 @@ def test_check_for_approval_native_token(chain_name, base_order):
     base_order._check_for_approval(params)
 
 
-def test_check_for_approval_insufficient_erc20(chain_name, base_order, usdc, test_address):
-    """Test approval check fails with insufficient allowance."""
+def test_check_for_approval_insufficient_erc20(chain_name, base_order, usdc, test_address, caplog):
+    """Test approval check logs warning with insufficient allowance."""
+    import logging
+
     markets = base_order.markets.get_available_markets()
     market_key = next(iter(markets.keys()))
     market_data = markets[market_key]
@@ -601,9 +609,11 @@ def test_check_for_approval_insufficient_erc20(chain_name, base_order, usdc, tes
         initial_collateral_delta_amount="999999999999999",  # Very large amount
     )
 
-    # Should raise ValueError for insufficient allowance
-    with pytest.raises(ValueError, match="Insufficient token allowance"):
+    # Should log warning for insufficient allowance (no longer raises)
+    with caplog.at_level(logging.WARNING):
         base_order._check_for_approval(params)
+
+    assert "Insufficient token allowance" in caplog.text
 
 
 # ==================== Full Order Creation Tests ====================

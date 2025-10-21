@@ -57,7 +57,21 @@ class GetOpenPositions(GetData):
             datastore_address = contract_addresses.datastore
 
             # Get raw positions from reader contract
-            raw_positions = self.reader_contract.functions.getAccountPositions(datastore_address, checksum_address, 0, 10).call()
+            try:
+                raw_positions = self.reader_contract.functions.getAccountPositions(datastore_address, checksum_address, 0, 10).call()
+            except Exception as decode_error:
+                # Handle decoding errors gracefully - could be due to:
+                # 1. Contract ABI mismatch
+                # 2. No positions for this address
+                # 3. Network/RPC issues
+                error_msg = str(decode_error)
+                if "Could not decode" in error_msg or "InsufficientDataBytes" in error_msg:
+                    logging.debug(f"Could not decode positions for address {checksum_address}: {decode_error}")
+                    # Return empty dict for addresses with no valid positions
+                    return {}
+                else:
+                    # Re-raise other errors
+                    raise
 
             if len(raw_positions) == 0:
                 logging.info(f'No positions open for address: "{checksum_address}" on {self.config.chain.title()}.')

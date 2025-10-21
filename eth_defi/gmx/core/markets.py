@@ -59,6 +59,7 @@ class Markets:
         """
         self.config = config
         self._special_wsteth_address = to_checksum_address("0x0Cf1fb4d1FF67A3D8Ca92c9d6643F8F9be8e03E5")
+        self._markets_cache: Optional[dict] = None  # Cache for processed markets
 
     def _get_token_metadata_dict(self) -> dict[HexAddress, dict]:
         """Get token metadata dictionary for mainnet."""
@@ -225,6 +226,11 @@ class Markets:
         :return: Dictionary of processed markets
         :rtype: dict
         """
+        # Return cached data if available
+        if self._markets_cache is not None:
+            logger.debug("Returning cached markets data")
+            return self._markets_cache
+
         logger.debug("Processing GMX markets data...")
 
         # Pre-load necessary data
@@ -325,4 +331,8 @@ class Markets:
                 continue
 
         logger.debug(f"Processed {len(processed_markets)} markets successfully")
+
+        # Cache the results for future calls
+        self._markets_cache = processed_markets
+
         return processed_markets

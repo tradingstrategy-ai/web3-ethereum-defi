@@ -50,6 +50,9 @@ class GetData(ABC):
         # Oracle prices cache
         self._oracle_prices_cache = None
 
+        # Data processing result cache to avoid redundant calls
+        self._data_cache: Optional[dict[str, Any]] = None
+
         # Token addresses for current market being processed
         self._long_token_address: Optional[HexAddress] = None
         self._short_token_address: Optional[HexAddress] = None
@@ -159,9 +162,6 @@ class GetData(ABC):
                 market_symbol = market_data.get("market_symbol", "")
                 if not market_symbol.startswith("SWAP"):
                     filtered_markets[market_key] = market_data
-
-            # Update the markets cache with filtered results
-            self.markets._markets_cache = filtered_markets
 
             self.log.debug(f"Filtered markets: {len(filtered_markets)} from {len(available_markets)}")
 

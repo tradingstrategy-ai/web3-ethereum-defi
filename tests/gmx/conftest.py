@@ -920,16 +920,16 @@ def arbitrum_sepolia_config() -> GMXConfig:
     Create GMX config for Arbitrum Sepolia testnet using real wallet from env vars.
 
     Requires:
-    - PRIVATE_KEY: Wallet private key
+    - ARBITRUM_GMX_TEST_SEPOLIA_PRIVATE_KEY: Wallet private key
     - ARBITRUM_SEPOLIA_RPC_URL: RPC endpoint URL
 
     Skips tests if these environment variables are not set.
     """
-    private_key = os.environ.get("PRIVATE_KEY")
+    private_key = os.environ.get("ARBITRUM_GMX_TEST_SEPOLIA_PRIVATE_KEY")
     rpc_url = os.environ.get("ARBITRUM_SEPOLIA_RPC_URL")
 
     if not private_key:
-        pytest.skip("PRIVATE_KEY environment variable not set")
+        pytest.skip("ARBITRUM_GMX_TEST_SEPOLIA_PRIVATE_KEY environment variable not set")
     if not rpc_url:
         pytest.skip("ARBITRUM_SEPOLIA_RPC_URL environment variable not set")
 
