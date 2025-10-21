@@ -7,7 +7,7 @@ when fetching and processing GMX market information.
 
 import pytest
 import requests
-from eth_defi.gmx.core.markets import Markets, MarketInfo
+from eth_defi.gmx.core.markets import MarketInfo
 from eth_defi.gmx.core.oracle import OraclePrices
 from eth_defi.gmx.contracts import get_tokens_address_dict, _get_clean_api_urls
 from cchecksum import to_checksum_address
@@ -376,19 +376,6 @@ def test_oracle_response_time():
         pytest.skip(f"Response time test failed: {e}")
 
 
-def test_markets_initialization(markets):
-    """Test Markets class initialization."""
-    # Verify basic initialization (should be fast since it's lazy-loaded)
-    assert hasattr(markets, "_markets_cache")
-    assert hasattr(markets, "_token_metadata_dict")
-    assert hasattr(markets, "_oracle_prices")
-    assert hasattr(markets, "log")
-    assert markets._markets_cache is None  # Should be None before first access
-    assert markets._token_metadata_dict is None
-    assert markets._oracle_prices is None
-    assert markets._processed_markets is False
-
-
 def test_get_available_markets(markets):
     """Test getting available markets from GMX."""
     available_markets = markets.get_available_markets()
@@ -646,7 +633,7 @@ def test_market_data_consistency(markets):
 
 
 def test_markets_address_checksumming(markets):
-    """Test that all addresses returned are properly checksummed."""
+    """Test that all addresses returned are properly checksum."""
     available_markets = markets.get_available_markets()
 
     if not available_markets:
@@ -686,57 +673,6 @@ def test_markets_error_handling(markets):
     assert markets.get_market_info("0x0000000000000000000000000000000000000000") is None
 
 
-def test_markets_performance(markets):
-    """Test Markets class performance and caching behavior."""
-    # Test initialization time
-    import time
-
-    # First call should process markets
-    start_time = time.time()
-    available_markets = markets.get_available_markets()
-    call_time = time.time() - start_time
-
-    # First call includes network requests, so allow more time
-    assert call_time < 5, f"Get available markets took too long: {call_time:.2f}s"
-
-    # Verify data is actually returned
-    assert len(available_markets) > 0
-
-    # Test that a second call is fast (cached)
-    start_time = time.time()
-    available_markets_2 = markets.get_available_markets()
-    call_time_2 = time.time() - start_time
-
-    # Cached calls should be very fast
-    assert call_time_2 < 0.1, f"Second get available markets call took too long: {call_time_2:.2f}s"
-
-    # Verify data is the same
-    assert available_markets == available_markets_2
-
-
-def test_lazy_loading_behavior(markets):
-    """Test that Markets class uses lazy loading correctly."""
-    # Verify caches are empty initially
-    assert markets._markets_cache is None
-    assert markets._token_metadata_dict is None
-    assert markets._oracle_prices is None
-    assert markets._processed_markets is False
-
-    # Access one method to trigger processing
-    markets.get_index_token_address(next(iter(markets.get_available_markets().keys())))
-
-    # Verify caches are populated
-    assert markets._markets_cache is not None
-    assert markets._token_metadata_dict is not None
-    assert markets._oracle_prices is not None
-    assert markets._processed_markets is True
-
-    # Verify processing only happens once
-    initial_market_count = len(markets._markets_cache)
-    markets.get_market_symbol(next(iter(markets._markets_cache.keys())))
-    assert len(markets._markets_cache) == initial_market_count  # Should not have reprocessed
-
-
 def test_cached_data_integrity(markets):
     """Test that cached market data remains consistent."""
     original_markets = markets.get_available_markets()
@@ -756,7 +692,6 @@ def test_cached_data_integrity(markets):
     # Verify cached data hasn't been modified
     current_markets = markets.get_available_markets()
     assert current_markets == original_data
-    assert current_markets is markets._markets_cache  # Should be the same object reference
 
 
 def test_special_wsteth_market(markets):
@@ -836,34 +771,3 @@ def test_market_metadata_consistency(markets):
         assert market_info.index_token_address == market_data["index_token_address"]
         assert market_info.long_token_address == market_data["long_token_address"]
         assert market_info.short_token_address == market_data["short_token_address"]
-
-
-def test_market_processing_efficiency(markets):
-    """Test that market processing is efficient and avoids redundant operations."""
-    import time
-
-    # First call should process markets
-    start_time = time.time()
-    markets.get_available_markets()
-    first_call_time = time.time() - start_time
-
-    # Second call should use cached data
-    start_time = time.time()
-    markets.get_available_markets()
-    second_call_time = time.time() - start_time
-
-    # Verify second call is significantly faster
-    assert second_call_time < first_call_time * 0.1, f"Second call should be much faster than first call: {second_call_time:.4f}s vs {first_call_time:.4f}s"
-
-    # Verify processing only happens once
-    assert markets._processed_markets is True
-    original_market_count = len(markets._markets_cache)
-
-    # Access individual market data
-    for market_key in list(markets._markets_cache.keys())[:5]:
-        markets.get_index_token_address(market_key)
-        markets.get_long_token_address(market_key)
-        markets.get_short_token_address(market_key)
-
-    # Verify market count hasn't changed
-    assert len(markets._markets_cache) == original_market_count

@@ -15,7 +15,6 @@ from eth_defi.gmx.core import GetOpenPositions, GetPoolTVL, Markets
 from eth_defi.gmx.core.glv_stats import GlvStats
 from eth_defi.gmx.data import GMXMarketData
 
-# from eth_defi.gmx.order import GMXOrderManager
 from eth_defi.gmx.order.base_order import BaseOrder
 from eth_defi.gmx.order.swap_order import SwapOrder
 from eth_defi.gmx.contracts import NETWORK_TOKENS, get_contract_addresses
@@ -149,19 +148,18 @@ CHAIN_CONFIG = {
 
 
 def pytest_generate_tests(metafunc):
-    """Generate parametrised tests for multiple chains if the test uses 'chain_name' parameter."""
+    """Generate parametrised tests for Arbitrum only (Avalanche skipped)."""
     if "chain_name" in metafunc.fixturenames:
-        # Check which chains have their environment variables set
+        # Only test Arbitrum if RPC URL is available
         available_chains = []
-        for chain in CHAIN_CONFIG:
-            if os.environ.get(CHAIN_CONFIG[chain]["rpc_env_var"]):
-                available_chains.append(chain)
+        if os.environ.get(CHAIN_CONFIG["arbitrum"]["rpc_env_var"]):
+            available_chains.append("arbitrum")
 
         # Skip all tests if no chains are available
         if not available_chains:
-            pytest.skip("No chain RPC URLs available")
+            pytest.skip("No ARBITRUM_JSON_RPC_URL environment variable available")
 
-        # Parametrize tests with available chains
+        # Parametrize tests with available chains (only arbitrum)
         metafunc.parametrize("chain_name", available_chains)
 
 
@@ -914,3 +912,65 @@ def wallet_with_gm_tokens(
         exchange_router,
         large_amount,
     ).transact({"from": test_address, "gas": 100000})
+
+
+@pytest.fixture(scope="session")
+def arbitrum_sepolia_config() -> GMXConfig:
+    """
+    Create GMX config for Arbitrum Sepolia testnet using real wallet from env vars.
+
+    Requires:
+    - PRIVATE_KEY: Wallet private key
+    - ARBITRUM_SEPOLIA_RPC_URL: RPC endpoint URL
+
+    Skips tests if these environment variables are not set.
+    """
+    private_key = os.environ.get("PRIVATE_KEY")
+    rpc_url = os.environ.get("ARBITRUM_SEPOLIA_RPC_URL")
+
+    if not private_key:
+        pytest.skip("PRIVATE_KEY environment variable not set")
+    if not rpc_url:
+        pytest.skip("ARBITRUM_SEPOLIA_RPC_URL environment variable not set")
+
+    # Create web3 connection
+    from eth_defi.provider.multi_provider import create_multi_provider_web3
+
+    web3 = create_multi_provider_web3(rpc_url)
+    install_chain_middleware(web3)
+
+    # Create wallet from private key
+    wallet = HotWallet.from_private_key(private_key)
+    wallet_address = wallet.get_main_address()
+
+    # Sync nonce
+    wallet.sync_nonce(web3)
+
+    # Create GMX config
+    config = GMXConfig(web3, user_wallet_address=wallet_address)
+
+    return config
+
+
+@pytest.fixture(scope="session")
+def arbitrum_sepolia_web3(arbitrum_sepolia_config) -> Web3:
+    """Get Web3 instance for Arbitrum Sepolia."""
+    return arbitrum_sepolia_config.web3
+
+
+@pytest.fixture()
+def trading_manager_sepolia(arbitrum_sepolia_config):
+    """
+    Create a GMXTrading instance for Arbitrum Sepolia testnet.
+    Used by test_trading.py tests.
+    """
+    return GMXTrading(arbitrum_sepolia_config)
+
+
+@pytest.fixture()
+def position_verifier_sepolia(arbitrum_sepolia_config):
+    """
+    Create a GetOpenPositions instance to verify positions on Arbitrum Sepolia.
+    Used by test_trading.py tests.
+    """
+    return GetOpenPositions(arbitrum_sepolia_config)

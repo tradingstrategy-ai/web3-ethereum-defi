@@ -304,7 +304,7 @@ class GMXTrading:
         parameters = {
             "chain": self.config.get_chain(),
             "index_token_symbol": market_symbol,
-            "collateral_symbol": collateral_symbol,
+            "collateral_token_symbol": collateral_symbol,
             "start_token_symbol": start_token_symbol,
             "is_long": is_long,
             "size_delta_usd": size_delta_usd,
