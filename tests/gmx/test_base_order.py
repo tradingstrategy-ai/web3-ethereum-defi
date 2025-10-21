@@ -101,14 +101,12 @@ def test_order_result_dataclass():
 
 def test_order_type_enum():
     """Test OrderType enum values."""
-    assert OrderType.MARKET_SWAP.value == 0
-    assert OrderType.LIMIT_SWAP.value == 1
-    assert OrderType.MARKET_INCREASE.value == 2
-    assert OrderType.LIMIT_INCREASE.value == 3
-    assert OrderType.MARKET_DECREASE.value == 4
-    assert OrderType.LIMIT_DECREASE.value == 5
-    assert OrderType.STOP_LOSS_DECREASE.value == 6
-    assert OrderType.LIQUIDATION.value == 7
+    assert OrderType.SWAP.value == 0
+    assert OrderType.SHIFT.value == 1
+    assert OrderType.ATOMIC_WITHDRAWAL.value == 2
+    assert OrderType.DEPOSIT.value == 3
+    assert OrderType.WITHDRAWAL.value == 4
+    assert OrderType.ATOMIC_SWAP.value == 5
 
 
 def test_module_constants():
