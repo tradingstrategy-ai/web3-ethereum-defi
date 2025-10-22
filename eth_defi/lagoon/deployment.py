@@ -819,9 +819,11 @@ def setup_guard(
                 logger.info("Enforce vault tx readback lag on mainnet, sleeping 10 seconds")
                 time.sleep(hack_sleep)
 
+        logger.info("Total %d ERC-4626 vaults whitelisted", len(erc_4626_vaults))
+
+        # Double check we really whitelisted the vault,
+        # e.g. not a bad contract version
         for idx, erc_4626_vault in enumerate(erc_4626_vaults, start=1):
-            # Check we really whitelisted the vault,
-            # e.g. not a bad contract version
             result = module.functions.isAllowedApprovalDestination(erc_4626_vault.vault_address).call()
             assert result == True, f"Guard {module.address} approval check for ERC-4626 vault failed, attempted to whitelist: {erc_4626_vault.vault_address}, isAllowedApprovalDestination(): {result}"
     else:
