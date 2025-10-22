@@ -65,6 +65,11 @@ class GlvStats(GetData):
         :return: Dictionary containing GLV statistics
         :rtype: dict[str, Any]
         """
+        # Return cached data if available
+        if self._data_cache is not None:
+            logger.debug("Returning cached GLV stats data")
+            return self._data_cache
+
         logger.debug("GMX v2 GLV Stats using Multicall")
 
         # Get oracle prices once for all markets
@@ -116,7 +121,12 @@ class GlvStats(GetData):
         logger.debug(f"Processed multicalls for {len(multicall_results)} GLVs")
 
         # Process results and build final GLV statistics
-        return self.process_multicall_results(glv_info_dict, multicall_results, call_metadata)
+        result = self.process_multicall_results(glv_info_dict, multicall_results, call_metadata)
+
+        # Cache the result for future calls
+        self._data_cache = result
+
+        return result
 
     def generate_all_multicalls(self, glv_info_dict: dict) -> tuple[list[EncodedCall], dict]:
         """
