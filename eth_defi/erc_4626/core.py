@@ -148,6 +148,15 @@ class ERC4626Feature(enum.Enum):
     #: https://basescan.org/address/0x30a9a9654804f1e5b3291a86e83eded7cf281618#code
     euler_like = "euler_like"
 
+    #: Umami DAO
+    #:
+    #: gmUSDC vault - ERC-4626 custom in-house, no Github repo
+    #: https://arbiscan.io/address/0x5f851f67d24419982ecd7b7765defd64fbb50a97#readContract
+    #:
+    #:
+    #: deposit() custom signature
+    umami_like = "umami_like"
+
 
 def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     """Deduct vault protocol name based on Vault smart contract features.

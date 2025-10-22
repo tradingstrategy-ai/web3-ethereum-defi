@@ -252,6 +252,15 @@ def create_probe_calls(
             extra_data=None,
         )
 
+        # https://arbiscan.io/address/0x5f851f67d24419982ecd7b7765defd64fbb50a97#readContract
+        umami_call = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="aggregateVault()")[0:4],
+            function="aggregateVault",
+            data=b"",
+            extra_data=None,
+        )
+
         yield bad_probe_call
         yield name_call
         yield share_price_call
@@ -273,6 +282,7 @@ def create_probe_calls(
         yield term_finance_call
         yield euler_call
         yield registry_call
+        yield umami_call
 
 
 def identify_vault_features(
@@ -372,6 +382,10 @@ def identify_vault_features(
 
     if calls["MODULE_VAULT"].success:
         features.add(ERC4626Feature.euler_like)
+
+    # https://arbiscan.io/address/0x5f851f67d24419982ecd7b7765defd64fbb50a97#readContract
+    if calls["aggregateVault"].success:
+        features.add(ERC4626Feature.umami_like)
 
     if len(features) > 4:
         # This contract somehow responses to all calls with success.
@@ -567,6 +581,11 @@ def create_vault_instance(
         from eth_defi.gains.vault import OstiumVault
 
         return OstiumVault(web3, spec, token_cache=token_cache, features=features)
+    elif ERC4626Feature.umami_like in features:
+        # Lagoon instance
+        from eth_defi.umami.vault import UmamiVault
+        return UmamiVault(web3, spec, token_cache=token_cache, features=features)
+
     else:
         # Generic ERC-4626 without fee data
         from eth_defi.erc_4626.vault import ERC4626Vault
