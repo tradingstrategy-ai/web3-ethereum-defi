@@ -601,7 +601,7 @@ def format_debug_instructions(bound_call: ContractFunction, block_identifier="la
     return debug_template
 
 
-def encode_multicalls(funcs: ContractFunction) -> list[bytes]:
+def encode_multicalls(funcs: list[ContractFunction]) -> list[bytes]:
     """Encode multiple contract function calls into a single multicall payload for contract built-in multicall functionality.
 
     `See Uniswap V3 multicall documentation <hhttps://docs.uniswap.org/contracts/v3/reference/periphery/base/Multicall>`__.

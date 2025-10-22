@@ -709,6 +709,7 @@ def setup_guard(
     orderly_vault: OrderlyVault | None = None,
     aave_v3: AaveV3Deployment | None = None,
     erc_4626_vaults: list[ERC4626Vault] | None = None,
+    hack_sleep=20.0,
 ):
     """Setups up TradingStrategyModuleV0 guard on the Lagoon vault.
 
@@ -792,11 +793,10 @@ def setup_guard(
 
         # Do N vaults per one multicall
         for chunk_id, chunk in enumerate(chunked(erc_4626_vaults, vault_chunk_size), start=1):
-
             multicalls = []
             logger.info("Processing ERC-4626 vaults chunk #%d, size %d", chunk_id, len(chunk))
 
-            for idx, erc_4626_vault in enumerate(chunk_id, start=1):
+            for idx, erc_4626_vault in enumerate(chunk, start=1):
                 assert isinstance(erc_4626_vault, ERC4626Vault), f"Expected ERC4626Vault, got {type(erc_4626_vault)}: {erc_4626_vault}"
                 # This will whitelist vault deposit/withdraw and its share and denomination token.
                 # USDC may be whitelisted twice because denomination tokens are shared.
@@ -809,17 +809,15 @@ def setup_guard(
                 note = f"Whitelisting {erc_4626_vault.name}"
                 partial_cal = module.functions.whitelistERC4626(erc_4626_vault.vault_address, note)
                 multicalls.append(partial_cal)
-                # tx_hash = _broadcast()
-                # assert_transaction_success_with_explanation(web3, tx_hash)
 
-            call = module.multicall(encode_multicalls(multicalls))
+            call = module.functions.multicall(encode_multicalls(multicalls))
             tx_hash = _broadcast(call)
             assert_transaction_success_with_explanation(web3, tx_hash)
 
             if not anvil:
                 # TODO: A hack on Base mainnet inconsitency
                 logger.info("Enforce vault tx readback lag on mainnet, sleeping 10 seconds")
-                time.sleep(20)
+                time.sleep(hack_sleep)
 
         for idx, erc_4626_vault in enumerate(erc_4626_vaults, start=1):
             # Check we really whitelisted the vault,
