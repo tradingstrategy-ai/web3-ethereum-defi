@@ -44,7 +44,7 @@ contract TradingStrategyModuleV0 is Module, GuardV0Base {
 
     // Identify the deployed ABI
     function getTradingStrategyModuleVersion() public pure returns (string memory) {
-        return "v0.1.1";
+        return "v0.1.2";
     }
 
     /**

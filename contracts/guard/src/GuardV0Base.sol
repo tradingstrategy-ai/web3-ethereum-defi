@@ -9,16 +9,19 @@ import "./lib/Path.sol";
 import "./IGuard.sol";
 
 import "./lib/IERC4626.sol";
+import "./lib/Multicall.sol";
 
 /**
  * Prototype guard implementation.
  *
  * - Hardcoded actions for Uniswap v2, v3, 1delta, Aave, etc.
  *
- * - Abstract base contract to deal with different ownership modifiers and initialisers (Safe, OpenZeppelin)
+ * - Abstract base contract to deal with different ownership modifiers and initialisers (Safe, OpenZeppelin).@author
+ *
+ * - We include native multicall support so you can whitelist multiple assets in the same tx
  *
  */
-abstract contract GuardV0Base is IGuard  {
+abstract contract GuardV0Base is IGuard,  Multicall  {
 
     using Path for bytes;
     using BytesLib for bytes;
@@ -705,4 +708,5 @@ abstract contract GuardV0Base is IGuard  {
     function validate_orderlyWithdraw(bytes memory callData) public view {
         // TODO: Implement
     }
+
 }

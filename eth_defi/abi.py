@@ -599,3 +599,11 @@ def format_debug_instructions(bound_call: ContractFunction, block_identifier="la
     }}' \\
     $JSON_RPC_URL"""
     return debug_template
+
+
+def encode_multicalls(funcs: ContractFunction) -> list[bytes]:
+    """Encode multiple contract function calls into a single multicall payload for contract built-in multicall functionality.
+
+    `See Uniswap V3 multicall documentation <hhttps://docs.uniswap.org/contracts/v3/reference/periphery/base/Multicall>`__.
+    """
+    return [encode_function_call(func) for func in funcs]

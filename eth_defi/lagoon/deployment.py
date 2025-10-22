@@ -30,7 +30,7 @@ from web3.contract import Contract
 from web3.contract.contract import ContractFunction
 
 from eth_defi.aave_v3.deployment import AaveV3Deployment
-from eth_defi.abi import get_deployed_contract, ZERO_ADDRESS_STR
+from eth_defi.abi import get_deployed_contract, ZERO_ADDRESS_STR, encode_multicalls
 from eth_defi.deploy import deploy_contract
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.foundry.forge import deploy_contract_with_forge
@@ -785,6 +785,8 @@ def setup_guard(
 
     # Whitelist all ERC-4626 vaults
     if erc_4626_vaults:
+        # Because we may list large number, do multicall bundling using built=in GuardV0Base.multicall()
+        multicalls = []
         for idx, erc_4626_vault in enumerate(erc_4626_vaults, start=1):
             assert isinstance(erc_4626_vault, ERC4626Vault), f"Expected ERC4626Vault, got {type(erc_4626_vault)}: {erc_4626_vault}"
             # This will whitelist vault deposit/withdraw and its share and denomination token.
@@ -796,14 +798,21 @@ def setup_guard(
                 erc_4626_vault.vault_address,
             )
             note = f"Whitelisting {erc_4626_vault.name}"
-            tx_hash = _broadcast(module.functions.whitelistERC4626(erc_4626_vault.vault_address, note))
-            assert_transaction_success_with_explanation(web3, tx_hash)
+            partial_cal = module.functions.whitelistERC4626(erc_4626_vault.vault_address, note)
+            multicalls.append(partial_cal)
+            # tx_hash = _broadcast()
+            # assert_transaction_success_with_explanation(web3, tx_hash)
 
-            if not anvil:
-                # TODO: A hack on Base mainnet inconsitency
-                logger.info("Enforce vault tx readback lag on mainnet, sleeping 10 seconds")
-                time.sleep(20)
+        call = module.multicall(encode_multicalls(multicalls))
+        tx_hash = _broadcast(call)
+        assert_transaction_success_with_explanation(web3, tx_hash)
 
+        if not anvil:
+            # TODO: A hack on Base mainnet inconsitency
+            logger.info("Enforce vault tx readback lag on mainnet, sleeping 10 seconds")
+            time.sleep(20)
+
+        for idx, erc_4626_vault in enumerate(erc_4626_vaults, start=1):
             # Check we really whitelisted the vault,
             # e.g. not a bad contract version
             result = module.functions.isAllowedApprovalDestination(erc_4626_vault.vault_address).call()

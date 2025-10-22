@@ -1,5 +1,7 @@
 """Build a Gnosis Safe transaction for a guard smart contract to whitelist multiple vaults.
 
+TODO: Unfinished code
+
 - Creates multiple Safe transactions that co-signers need to sign and execute in the Safe UI
 
 Example usage:
