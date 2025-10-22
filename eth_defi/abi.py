@@ -316,7 +316,7 @@ def decode_function_output(func: ContractFunction, data: bytes) -> Any:
 
 def encode_function_call(
     func: ContractFunction,
-    args: Sequence,
+    args: Sequence | None = None,
 ) -> HexBytes:
     """Encode function selector + its arguments as data payload.
 
@@ -324,11 +324,16 @@ def encode_function_call(
 
     See also :py:func:`encode_function_args`.
 
+    Example:
+
+
     :param func:
         Function which arguments we are going to encode.
 
     :param args:
         Argument values to be encoded.
+
+        If not given, take bound args from the function.
 
     :return:
         Solidity's function selector + argument payload.
@@ -337,6 +342,10 @@ def encode_function_call(
     w3 = func.w3
     contract_abi = func.contract_abi
     fn_abi = func.abi
+
+    if args is None:
+        args = func.args
+        assert args is not None, f"Function {func.fn_name} has no bound arguments, please provide args explicitly or bind them to ContractFunction object"
 
     if WEB3_PY_V7:
         fn_identifier = func.abi_element_identifier
