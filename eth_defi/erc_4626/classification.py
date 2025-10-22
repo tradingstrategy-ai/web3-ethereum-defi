@@ -486,7 +486,7 @@ def detect_vault_features(
         result = call.call_as_result(
             web3,
             block_identifier=block_number,
-            ignore_error=True,
+            ignore_error=False,
         )
         if verbose:
             logger.info("Result for %s: %s, error: %s", call.func_name, result.success, str(result.revert_exception))
@@ -577,12 +577,13 @@ def create_vault_instance(
 def create_vault_instance_autodetect(
     web3: Web3,
     vault_address: HexAddress | str,
+    token_cache: dict | None = None,
 ) -> VaultBase:
     """Create any vault instance.
 
     - Probes smart contract call first to identify what kind of vault we are dealing with
     """
     features = detect_vault_features(web3, vault_address, verbose=False)
-    vault = create_vault_instance(web3, vault_address, features=features)
+    vault = create_vault_instance(web3, vault_address, features=features, token_cache=token_cache)
     assert vault is not None, f"Could not create vault instance: {vault_address} with features {features}"
     return vault

@@ -30,7 +30,7 @@ from web3.contract import Contract
 from web3.contract.contract import ContractFunction
 
 from eth_defi.aave_v3.deployment import AaveV3Deployment
-from eth_defi.abi import get_deployed_contract, ZERO_ADDRESS_STR
+from eth_defi.abi import get_deployed_contract, ZERO_ADDRESS_STR, encode_multicalls
 from eth_defi.deploy import deploy_contract
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.foundry.forge import deploy_contract_with_forge
@@ -45,6 +45,7 @@ from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.tx import get_tx_broadcast_data
 from eth_defi.uniswap_v2.deployment import UniswapV2Deployment
 from eth_defi.uniswap_v3.deployment import UniswapV3Deployment
+from eth_defi.utils import chunked
 from eth_defi.vault.base import VaultSpec
 
 logger = logging.getLogger(__name__)
@@ -708,6 +709,7 @@ def setup_guard(
     orderly_vault: OrderlyVault | None = None,
     aave_v3: AaveV3Deployment | None = None,
     erc_4626_vaults: list[ERC4626Vault] | None = None,
+    hack_sleep=20.0,
 ):
     """Setups up TradingStrategyModuleV0 guard on the Lagoon vault.
 
@@ -785,25 +787,39 @@ def setup_guard(
 
     # Whitelist all ERC-4626 vaults
     if erc_4626_vaults:
-        for idx, erc_4626_vault in enumerate(erc_4626_vaults, start=1):
-            assert isinstance(erc_4626_vault, ERC4626Vault), f"Expected ERC4626Vault, got {type(erc_4626_vault)}: {erc_4626_vault}"
-            # This will whitelist vault deposit/withdraw and its share and denomination token.
-            # USDC may be whitelisted twice because denomination tokens are shared.
-            logger.info(
-                "Whitelisting #%d ERC-4626 vault %s: %s",
-                idx,
-                erc_4626_vault.name,
-                erc_4626_vault.vault_address,
-            )
-            note = f"Whitelisting {erc_4626_vault.name}"
-            tx_hash = _broadcast(module.functions.whitelistERC4626(erc_4626_vault.vault_address, note))
+        # Because we may list large number, do multicall bundling using built=in GuardV0Base.multicall()
+
+        vault_chunk_size = 40
+
+        # Do N vaults per one multicall
+        for chunk_id, chunk in enumerate(chunked(erc_4626_vaults, vault_chunk_size), start=1):
+            multicalls = []
+            logger.info("Processing ERC-4626 vaults chunk #%d, size %d", chunk_id, len(chunk))
+
+            for idx, erc_4626_vault in enumerate(chunk, start=1):
+                assert isinstance(erc_4626_vault, ERC4626Vault), f"Expected ERC4626Vault, got {type(erc_4626_vault)}: {erc_4626_vault}"
+                # This will whitelist vault deposit/withdraw and its share and denomination token.
+                # USDC may be whitelisted twice because denomination tokens are shared.
+                logger.info(
+                    "Whitelisting #%d ERC-4626 vault %s: %s",
+                    idx,
+                    erc_4626_vault.name,
+                    erc_4626_vault.vault_address,
+                )
+                note = f"Whitelisting {erc_4626_vault.name}"
+                partial_cal = module.functions.whitelistERC4626(erc_4626_vault.vault_address, note)
+                multicalls.append(partial_cal)
+
+            call = module.functions.multicall(encode_multicalls(multicalls))
+            tx_hash = _broadcast(call)
             assert_transaction_success_with_explanation(web3, tx_hash)
 
             if not anvil:
                 # TODO: A hack on Base mainnet inconsitency
                 logger.info("Enforce vault tx readback lag on mainnet, sleeping 10 seconds")
-                time.sleep(20)
+                time.sleep(hack_sleep)
 
+        for idx, erc_4626_vault in enumerate(erc_4626_vaults, start=1):
             # Check we really whitelisted the vault,
             # e.g. not a bad contract version
             result = module.functions.isAllowedApprovalDestination(erc_4626_vault.vault_address).call()
