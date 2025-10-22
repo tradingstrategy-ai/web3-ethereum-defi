@@ -7,7 +7,7 @@ from eth_pydantic_types import HexStr
 from eth_utils import to_checksum_address, keccak
 from web3 import Web3, HTTPProvider
 
-from eth_defi.chain import install_chain_middleware
+from eth_defi.chain import install_chain_middleware, get_chain_id_by_name
 from eth_defi.gas import node_default_gas_price_strategy
 from eth_defi.gmx.api import GMXAPI
 from eth_defi.gmx.config import GMXConfig
@@ -21,6 +21,7 @@ from eth_defi.gmx.contracts import NETWORK_TOKENS, get_contract_addresses
 from eth_defi.gmx.synthetic_tokens import get_gmx_synthetic_token_by_symbol
 from eth_defi.gmx.trading import GMXTrading
 from eth_defi.provider.anvil import fork_network_anvil
+from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import fetch_erc20_details, TokenDetails
 from eth_account import Account
 from eth_defi.hotwallet import HotWallet
@@ -29,8 +30,6 @@ import pytest
 from eth_typing import HexAddress
 
 from eth_defi.utils import addr
-
-CHAIN_ID: dict[str, int] = {"arbitrum": 42161, "avalanche": 43114}
 
 
 def get_gmx_address(chain_id: int, symbol: str) -> str:
@@ -56,7 +55,8 @@ def get_gmx_address(chain_id: int, symbol: str) -> str:
     if symbol == "WETH":
         symbol = "ETH"
     if symbol == "WBTC":
-        if chain_id == CHAIN_ID["avalanche"]:
+        avalanche_chain_id = get_chain_id_by_name("avalanche")
+        if chain_id == avalanche_chain_id:
             symbol = "BTC"  # For Avalanche, it's BTC, Address: 0x152b9d0FdC40C096757F570A51E494bd4b943E50
         else:
             symbol = "WBTC.b"
@@ -76,12 +76,12 @@ def get_chain_config(chain_name):
     base_config = {
         "arbitrum": {
             "rpc_env_var": "ARBITRUM_JSON_RPC_URL",
-            "chain_id": CHAIN_ID["arbitrum"],
+            "chain_id": get_chain_id_by_name("arbitrum"),
             "fork_block_number": 338206286,
         },
         "avalanche": {
             "rpc_env_var": "AVALANCHE_JSON_RPC_URL",
-            "chain_id": CHAIN_ID["avalanche"],
+            "chain_id": get_chain_id_by_name("avalanche"),
             "fork_block_number": 60491219,
         },
     }
@@ -89,27 +89,29 @@ def get_chain_config(chain_name):
     config = base_config[chain_name].copy()
 
     # Add token addresses lazily to avoid network calls at import time
+    chain_id = get_chain_id_by_name(chain_name)
+
     if chain_name == "arbitrum":
         config.update(
             {
-                "wbtc_address": get_gmx_address(CHAIN_ID["arbitrum"], "WBTC"),
-                "usdc_address": get_gmx_address(CHAIN_ID["arbitrum"], "USDC"),
-                "usdt_address": get_gmx_address(CHAIN_ID["arbitrum"], "USDT"),
-                "link_address": get_gmx_address(CHAIN_ID["arbitrum"], "LINK"),
-                "wsol_address": get_gmx_address(CHAIN_ID["arbitrum"], "WSOL"),
-                "arb_address": get_gmx_address(CHAIN_ID["arbitrum"], "ARB"),
-                "native_token_address": get_gmx_address(CHAIN_ID["arbitrum"], "WETH"),
-                "aave_address": get_gmx_address(CHAIN_ID["arbitrum"], "AAVE"),
+                "wbtc_address": get_gmx_address(chain_id, "WBTC"),
+                "usdc_address": get_gmx_address(chain_id, "USDC"),
+                "usdt_address": get_gmx_address(chain_id, "USDT"),
+                "link_address": get_gmx_address(chain_id, "LINK"),
+                "wsol_address": get_gmx_address(chain_id, "WSOL"),
+                "arb_address": get_gmx_address(chain_id, "ARB"),
+                "native_token_address": get_gmx_address(chain_id, "WETH"),
+                "aave_address": get_gmx_address(chain_id, "AAVE"),
             }
         )
     elif chain_name == "avalanche":
         config.update(
             {
-                "wbtc_address": get_gmx_address(CHAIN_ID["avalanche"], "WBTC"),
-                "usdc_address": get_gmx_address(CHAIN_ID["avalanche"], "USDC"),
-                "usdt_address": get_gmx_address(CHAIN_ID["avalanche"], "USDT"),
-                "wavax_address": get_gmx_address(CHAIN_ID["avalanche"], "WAVAX"),
-                "native_token_address": get_gmx_address(CHAIN_ID["avalanche"], "AVAX"),
+                "wbtc_address": get_gmx_address(chain_id, "WBTC"),
+                "usdc_address": get_gmx_address(chain_id, "USDC"),
+                "usdt_address": get_gmx_address(chain_id, "USDT"),
+                "wavax_address": get_gmx_address(chain_id, "WAVAX"),
+                "native_token_address": get_gmx_address(chain_id, "AVAX"),
             }
         )
 
@@ -120,7 +122,7 @@ def get_chain_config(chain_name):
 CHAIN_CONFIG = {
     "arbitrum": {
         "rpc_env_var": "ARBITRUM_JSON_RPC_URL",
-        "chain_id": CHAIN_ID["arbitrum"],
+        "chain_id": get_chain_id_by_name("arbitrum"),
         "fork_block_number": 338206286,
         # Hardcoded token addresses to avoid network calls during test loading
         "wbtc_address": "0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f",
@@ -134,7 +136,7 @@ CHAIN_CONFIG = {
     },
     "avalanche": {
         "rpc_env_var": "AVALANCHE_JSON_RPC_URL",
-        "chain_id": CHAIN_ID["avalanche"],
+        "chain_id": get_chain_id_by_name("avalanche"),
         "fork_block_number": 60491219,
         # Hardcoded token addresses for Avalanche
         "wbtc_address": "0x152b9d0FdC40C096757F570A51E494bd4b943E50",
@@ -177,7 +179,7 @@ def large_eth_holder() -> HexAddress:
 
     This account is unlocked on Anvil, so you have access to good ETH stash.
 
-    `To find large holder accounts, use bscscan <https://arbiscan.io/accounts>`_.
+    `To find large holder accounts, use arbiscan <https://arbiscan.io/accounts>`_.
     """
     # Binance Hot Wallet 20
     return addr("0xF977814e90dA44bFA03b6295A0616a897441aceC")
@@ -201,7 +203,7 @@ def large_wavax_holder() -> HexAddress:
 
     This account is unlocked on Anvil, so you have access to good WAVAX stash.
 
-    `To find large holder accounts, use bscscan <https://snowtrace.io/accounts>`_.
+    `To find large holder accounts, use arbiscan <https://snowtrace.io/accounts>`_.
     """
     # https://snowtrace.io/address/0xefdc8FC1145ea88e3f5698eE7b7b432F083B4246
     # Upbit: Hot Wallet 1
@@ -933,9 +935,6 @@ def arbitrum_sepolia_config() -> GMXConfig:
     if not rpc_url:
         pytest.skip("ARBITRUM_SEPOLIA_RPC_URL environment variable not set")
 
-    # Create web3 connection
-    from eth_defi.provider.multi_provider import create_multi_provider_web3
-
     web3 = create_multi_provider_web3(rpc_url)
     install_chain_middleware(web3)
 
@@ -974,3 +973,17 @@ def position_verifier_sepolia(arbitrum_sepolia_config):
     Used by test_trading.py tests.
     """
     return GetOpenPositions(arbitrum_sepolia_config)
+
+
+@pytest.fixture(scope="session")
+def test_wallet_sepolia(arbitrum_sepolia_config):
+    """Create a HotWallet for signing transactions on Sepolia."""
+    private_key = os.environ.get("ARBITRUM_GMX_TEST_SEPOLIA_PRIVATE_KEY")
+
+    if not private_key:
+        pytest.skip("ARBITRUM_GMX_TEST_SEPOLIA_PRIVATE_KEY environment variable not set")
+
+    wallet = HotWallet.from_private_key(private_key)
+    wallet.sync_nonce(arbitrum_sepolia_config.web3)
+
+    return wallet

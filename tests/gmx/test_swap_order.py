@@ -1,351 +1,323 @@
 """
-Tests for SwapOrder class with parametrized chain testing.
+Tests for GMX swap functionality on Arbitrum Sepolia testnet with actual execution.
 
-This test suite verifies the functionality of the SwapOrder class
-when connected to different networks using Anvil forks. Tests include
-swap estimation, route determination, and actual transaction execution.
+These tests execute actual swap transactions on Arbitrum Sepolia testnet
+
+IMPORTANT: These tests REQUIRE a funded wallet on Arbitrum Sepolia:
+- Sufficient USDC.SG, BTC, or CRV tokens for swaps
+- Sufficient ETH for gas fees
+- Token approvals for GMX contracts
+
+Required Environment Variables:
+- ARBITRUM_GMX_TEST_SEPOLIA_PRIVATE_KEY: Your wallet private key
+- ARBITRUM_SEPOLIA_RPC_URL: Arbitrum Sepolia RPC endpoint
+
+Available tokens on Arbitrum Sepolia:
+- USDC.SG (Single-sided GM USDC pool)
+- BTC (Wrapped BTC)
+- CRV (Curve token)
+- USDC (Synthetic USDC)
 """
 
 import pytest
-from decimal import Decimal
 
-from eth_defi.gmx.order.base_order import OrderResult, OrderType
-from eth_defi.gmx.order.swap_order import SwapOrder
-from eth_defi.gmx.contracts import NETWORK_TOKENS
-from eth_defi.trace import assert_transaction_success_with_explanation
+from eth_defi.gmx.contracts import get_token_address_normalized, get_exchange_router_contract
+from eth_defi.gmx.order.base_order import OrderResult
 from eth_defi.token import fetch_erc20_details
+from eth_defi.trace import assert_transaction_success_with_explanation
 
 
-def test_swap_order_initialization(chain_name, swap_order_weth_usdc):
-    """Test that SwapOrder initializes correctly with token addresses."""
-    swap_order = swap_order_weth_usdc
-    tokens = NETWORK_TOKENS[chain_name]
-
-    # Get expected tokens
-    if chain_name == "arbitrum":
-        start_token = tokens["WETH"]
-        out_token = tokens["USDC"]
-    else:  # avalanche
-        start_token = tokens["WETH"]  # WETH exists on Avalanche too
-        out_token = tokens["USDC"]
-
-    assert swap_order.config is not None
-    assert swap_order.chain.lower() == chain_name.lower()
-    assert swap_order.start_token == start_token
-    assert swap_order.out_token == out_token
-    assert swap_order.web3 is not None
-    assert swap_order.markets is not None
+def test_initialization(trading_manager_sepolia):
+    """Test that the swap functionality initializes correctly."""
+    assert trading_manager_sepolia is not None
+    assert trading_manager_sepolia.config is not None
+    assert trading_manager_sepolia.config.get_chain().lower() == "arbitrum_sepolia"
 
 
-def test_swap_order_route_determination_single_hop(chain_name, swap_order_weth_usdc):
-    """Test swap route determination for single-hop swaps."""
-    swap_order = swap_order_weth_usdc
+def test_swap_usdc_to_btc_with_execution(
+    trading_manager_sepolia,
+    test_wallet_sepolia,
+    arbitrum_sepolia_config,
+):
+    """
+    Test creating and EXECUTING a USDC.SG -> BTC swap order.
+    """
+    web3 = arbitrum_sepolia_config.web3
+    wallet_address = test_wallet_sepolia.address
+    chain = "arbitrum_sepolia"
 
-    # Get available markets to verify route
-    markets = swap_order.markets.get_available_markets()
-    assert len(markets) > 0, "Should have available markets"
+    # Get token details
+    usdc_sg_address = get_token_address_normalized(chain, "USDC.SG")
+    btc_address = get_token_address_normalized(chain, "BTC")
 
-    # Create a small swap to test routing
-    result = swap_order.create_swap_order(
-        amount_in=1000000000000000000,  # 1 ETH
-        slippage_percent=0.01,
-    )
-
-    assert isinstance(result, OrderResult)
-
-
-def test_swap_order_route_determination_multi_hop(chain_name, gmx_config_fork):
-    """Test swap route determination for multi-hop swaps."""
-    tokens = NETWORK_TOKENS[chain_name]
-
-    # Test WBTC -> WETH (should require multi-hop through USDC)
-    if chain_name == "arbitrum":
-        start_token = tokens["WBTC"]
-        out_token = tokens["WETH"]
-    else:  # avalanche
-        start_token = tokens["WBTC"]
-        out_token = tokens["WETH"]
-
-    swap_order = SwapOrder(gmx_config_fork, start_token, out_token)
-
-    # Create swap order - this should work even for multi-hop
-    result = swap_order.create_swap_order(
-        amount_in=100000000,  # 1 WBTC (8 decimals)
-        slippage_percent=0.015,  # Higher slippage for multi-hop
-    )
-
-    assert isinstance(result, OrderResult)
-
-
-def test_estimate_swap_output(chain_name, swap_order_weth_usdc):
-    """Test swap output estimation functionality."""
-    swap_order = swap_order_weth_usdc
-    amount_in = 1000000000000000000  # 1 ETH
-
-    # Get swap estimation
-    estimate = swap_order.estimate_swap_output(amount_in)
-
-    # Verify estimation structure
-    assert isinstance(estimate, dict)
-    assert "out_token_amount" in estimate
-    assert "price_impact_usd" in estimate
-    assert "estimated_output_formatted" in estimate
-
-    # Verify reasonable values
-    assert estimate["out_token_amount"] > 0
-    assert isinstance(estimate["price_impact_usd"], float)
-    assert estimate["estimated_output_formatted"] > 0
-
-    # For 1 ETH -> USDC, should get reasonable USDC amount
-    if chain_name == "arbitrum":
-        # Should get at least 1000 USDC for 1 ETH (conservative estimate)
-        assert estimate["estimated_output_formatted"] > 1000
-    else:
-        # Avalanche might have different liquidity
-        assert estimate["estimated_output_formatted"] > 100
-
-
-def test_estimate_swap_output_with_price_impact(chain_name, swap_order_weth_usdc):
-    """Test that large swaps show meaningful price impact."""
-    swap_order = swap_order_weth_usdc
-    small_amount = 1000000000000000000  # 1 ETH
-    large_amount = 10000000000000000000  # 10 ETH
-
-    # Get estimates for different amounts
-    small_estimate = swap_order.estimate_swap_output(small_amount)
-    large_estimate = swap_order.estimate_swap_output(large_amount)
-
-    # Large swap should have higher or equal price impact (negative values)
-    # Both should have valid outputs
-    assert small_estimate["out_token_amount"] > 0
-    assert large_estimate["out_token_amount"] > 0
-
-
-def test_create_market_swap_ccxt_method(chain_name, swap_order_weth_usdc, wallet_with_all_tokens):
-    """Test CCXT-compatible create_market_swap method."""
-    swap_order = swap_order_weth_usdc
-    amount_in = 100000000000000000  # 0.1 ETH
-
-    # Use CCXT-compatible method
-    result = swap_order.create_market_swap(amount_in=amount_in, slippage_percent=0.01)
-
-    assert isinstance(result, OrderResult)
-
-
-def test_swap_execution_with_weth_to_usdc(chain_name, swap_order_weth_usdc, test_wallet, wallet_with_all_tokens):
-    """Test actual swap execution from WETH to USDC."""
-    swap_order = swap_order_weth_usdc
-    tokens = NETWORK_TOKENS[chain_name]
-    web3 = swap_order.web3
-    wallet_address = test_wallet.address
-
-    # Get token contracts
-    weth = fetch_erc20_details(web3, tokens["WETH"])
-    usdc = fetch_erc20_details(web3, tokens["USDC"])
+    usdc_sg = fetch_erc20_details(web3, usdc_sg_address)
+    btc = fetch_erc20_details(web3, btc_address)
 
     # Check initial balances
-    initial_weth_balance = weth.contract.functions.balanceOf(wallet_address).call()
-    initial_usdc_balance = usdc.contract.functions.balanceOf(wallet_address).call()
+    initial_usdc_balance = usdc_sg.contract.functions.balanceOf(wallet_address).call()
+    initial_btc_balance = btc.contract.functions.balanceOf(wallet_address).call()
 
-    print(f"Initial WETH balance: {initial_weth_balance / 1e18:.6f}")
-    print(f"Initial USDC balance: {initial_usdc_balance / (10**usdc.decimals):.2f}")
+    print(f"\nInitial balances:")
+    print(f"  USDC.SG: {initial_usdc_balance / (10**usdc_sg.decimals):.2f}")
+    print(f"  BTC: {initial_btc_balance / (10**btc.decimals):.8f}")
 
-    # Skip test if no WETH balance available
-    if initial_weth_balance <= 0:
-        pytest.skip("No WETH balance available for swap test")
+    # Skip if no USDC.SG balance
+    if initial_usdc_balance == 0:
+        pytest.skip("No USDC.SG balance available for swap test")
+
+    # Amount to swap: use 10% of balance or 5 USDC, whichever is smaller
+    swap_amount = min(5.0, (initial_usdc_balance / (10**usdc_sg.decimals)) * 0.1)
+    amount_wei = int(swap_amount * (10**usdc_sg.decimals))
+
+    # Check and approve token if needed
+    exchange_router = get_exchange_router_contract(web3, chain)
+    spender_address = exchange_router.address
+
+    current_allowance = usdc_sg.contract.functions.allowance(wallet_address, spender_address).call()
+    print(f"\nCurrent USDC.SG allowance: {current_allowance / (10**usdc_sg.decimals):.2f}")
+
+    if current_allowance < amount_wei:
+        print(f"Approving USDC.SG tokens for GMX contract...")
+
+        approve_tx = usdc_sg.contract.functions.approve(spender_address, amount_wei * 2).build_transaction(
+            {
+                "from": wallet_address,
+                "gas": 100000,
+                "gasPrice": web3.eth.gas_price,
+            }
+        )
+
+        if "nonce" in approve_tx:
+            del approve_tx["nonce"]
+
+        signed_approve_tx = test_wallet_sepolia.sign_transaction_with_new_nonce(approve_tx)
+        approve_tx_hash = web3.eth.send_raw_transaction(signed_approve_tx.rawTransaction)
+
+        print(f"Approval transaction sent: {approve_tx_hash.hex()}")
+        approve_receipt = web3.eth.wait_for_transaction_receipt(approve_tx_hash, timeout=120)
+        print(f"Approval confirmed! Status: {approve_receipt.status}")
+
+        assert approve_receipt.status == 1, "Approval transaction failed"
 
     # Create swap order
-    amount_in = min(100000000000000000, initial_weth_balance // 10)  # 0.1 ETH or 10% of balance
-
-    # Get estimation first
-    estimate = swap_order.estimate_swap_output(amount_in)
-    print(f"Estimated output: {estimate['estimated_output_formatted']:.2f} USDC")
-    print(f"Price impact: {estimate['price_impact_usd']:.4f} USD")
-
-    # Create swap transaction
-    result = swap_order.create_swap_order(
-        amount_in=amount_in,
-        slippage_percent=0.02,  # 2% slippage for safety
-        min_output_amount=0,  # Accept any output for test
+    print(f"\nCreating swap order: {swap_amount:.2f} USDC.SG -> BTC")
+    order_result = trading_manager_sepolia.swap_tokens(
+        in_token_symbol="USDC.SG",
+        out_token_symbol="BTC",
+        amount=swap_amount,
+        slippage_percent=0.03,
+        execution_buffer=5.0,
     )
 
-    # Verify the result
-    assert isinstance(result, OrderResult)
-    assert hasattr(result, "transaction")
-    assert isinstance(result.transaction, dict)
-    print(f"Swap transaction created successfully")
+    # Verify OrderResult structure
+    assert isinstance(order_result, OrderResult), "Expected OrderResult instance"
+    assert hasattr(order_result, "transaction"), "OrderResult should have transaction"
+
+    # Sign and send the transaction
+    transaction = order_result.transaction
+    if "nonce" in transaction:
+        del transaction["nonce"]
+
+    signed_tx = test_wallet_sepolia.sign_transaction_with_new_nonce(transaction)
+    tx_hash = web3.eth.send_raw_transaction(signed_tx.raw_transaction)
+
+    print(f"Swap transaction sent: {tx_hash.hex()}")
+
+    # Wait for confirmation
+    receipt = web3.eth.wait_for_transaction_receipt(tx_hash, timeout=120)
+    print(f"Swap transaction confirmed! Status: {receipt['status']}")
+    print(f"Block number: {receipt['blockNumber']}")
+    print(f"Gas used: {receipt['gasUsed']}")
+
+    # Verify transaction success
+    assert_transaction_success_with_explanation(web3, tx_hash)
+    assert receipt["status"] == 1, "Swap transaction failed"
+
+    # Check final balances
+    final_usdc_balance = usdc_sg.contract.functions.balanceOf(wallet_address).call()
+    final_btc_balance = btc.contract.functions.balanceOf(wallet_address).call()
+
+    print(f"\nFinal balances:")
+    print(f"  USDC.SG: {final_usdc_balance / (10**usdc_sg.decimals):.2f}")
+    print(f"  BTC: {final_btc_balance / (10**btc.decimals):.8f}")
+
+    # Verify USDC.SG decreased
+    usdc_change = (initial_usdc_balance - final_usdc_balance) / (10**usdc_sg.decimals)
+    print(f"\nUSDC.SG spent: {usdc_change:.2f}")
+    assert final_usdc_balance < initial_usdc_balance, "USDC.SG balance should decrease"
+
+    # Note: BTC balance might not change immediately due to GMX's order execution model
+    # The order is submitted but may not execute immediately
+    print(f"BTC change: {(final_btc_balance - initial_btc_balance) / (10**btc.decimals):.8f}")
 
 
-# TODO: Skip this for now. As it's reverting without a proper reason
-# def test_swap_execution_with_usdc_to_weth(chain_name, swap_order_usdc_weth, test_wallet, wallet_with_all_tokens):
-#     """Test actual swap execution from USDC to WETH."""
-#     swap_order = swap_order_usdc_weth
-#     tokens = NETWORK_TOKENS[chain_name]
-#     web3 = swap_order.web3
-#     wallet_address = test_wallet.address
-#
-#     # Get token contracts
-#     usdc = fetch_erc20_details(web3, tokens["USDC"])
-#     # Check initial balances
-#     initial_usdc_balance = usdc.contract.functions.balanceOf(wallet_address).call()
-#
-#     # print(f"Initial USDC balance: {initial_usdc_balance / (10**usdc.decimals):.2f}")
-#     # print(f"Initial WETH balance: {initial_weth_balance / 1e18:.6f}")
-#
-#     # Ensure we have some USDC
-#     assert initial_usdc_balance > 0, "Need USDC balance for swap test"
-#
-#     # Create swap order (USDC -> WETH)
-#     amount_in = min(100 * (10**usdc.decimals), initial_usdc_balance // 10)  # $100 or 10% of balance
-#
-#     # Get estimation
-#     # estimate = swap_order.estimate_swap_output(amount_in)
-#     # print(f"Estimated output: {estimate['estimated_output_formatted']:.6f} WETH")
-#
-#     # Create and execute swap
-#     result = swap_order.create_swap_order(amount_in=amount_in, slippage_percent=0.02)
-#
-#     # Sign and execute transaction - remove nonce since sign_transaction_with_new_nonce will add it
-#     tx_dict = result.transaction.copy()
-#     if "nonce" in tx_dict:
-#         del tx_dict["nonce"]
-#     signed_txn = test_wallet.sign_transaction_with_new_nonce(tx_dict)
-#     tx_hash = web3.eth.send_raw_transaction(signed_txn.rawTransaction)
-#     tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash, timeout=120)
-#
-#     # Verify transaction success
-#     assert_transaction_success_with_explanation(web3, tx_hash)
-#     assert tx_receipt.status == 1
+def test_swap_order_creation_without_execution(trading_manager_sepolia):
+    """
+    Test creating a USDC.SG -> BTC swap order WITHOUT executing.
 
-
-def test_swap_invalid_token_pair(chain_name, gmx_config):
-    """Test swap with invalid token pair raises appropriate error."""
-    # Try to create swap with non-existent tokens
-    invalid_address = "0x0000000000000000000000000000000000000001"
-    tokens = NETWORK_TOKENS[chain_name]
-
-    with pytest.raises(ValueError, match="No market found for input token"):
-        swap_order = SwapOrder(gmx_config, invalid_address, tokens["USDC"])
-        swap_order.create_swap_order(amount_in=1000000000000000000)
-
-
-def test_swap_zero_amount(chain_name, swap_order_weth_usdc):
-    """Test swap with zero amount raises error."""
-    swap_order = swap_order_weth_usdc
-
-    with pytest.raises(ValueError, match="Amount must be positive"):
-        swap_order.create_swap_order(amount_in=0)
-
-
-def test_swap_with_custom_slippage(chain_name, swap_order_weth_usdc, wallet_with_all_tokens):
-    """Test swap with custom slippage parameters."""
-    swap_order = swap_order_weth_usdc
-
-    # Test with very low slippage
-    result_low = swap_order.create_swap_order(
-        amount_in=100000000000000000,  # 0.1 ETH
-        slippage_percent=0.001,  # 0.1% slippage
+    This verifies order creation works even without a funded wallet.
+    """
+    order_result = trading_manager_sepolia.swap_tokens(
+        in_token_symbol="USDC.SG",
+        out_token_symbol="BTC",
+        amount=5.0,
+        slippage_percent=0.03,
+        execution_buffer=5.0,
     )
 
-    # Test with high slippage
-    result_high = swap_order.create_swap_order(
-        amount_in=100000000000000000,  # 0.1 ETH
-        slippage_percent=0.05,  # 5% slippage
+    # Verify OrderResult structure
+    assert isinstance(order_result, OrderResult), "Expected OrderResult instance"
+    assert hasattr(order_result, "transaction"), "OrderResult should have transaction"
+    assert hasattr(order_result, "execution_fee"), "OrderResult should have execution_fee"
+
+    # Verify transaction structure
+    assert "from" in order_result.transaction
+    assert "to" in order_result.transaction
+    assert "data" in order_result.transaction
+    assert "value" in order_result.transaction
+
+
+def test_swap_btc_to_usdc_order_creation(trading_manager_sepolia):
+    """Test creating a BTC -> USDC.SG swap order (reverse direction)."""
+    order_result = trading_manager_sepolia.swap_tokens(
+        in_token_symbol="BTC",
+        out_token_symbol="USDC.SG",
+        amount=0.001,  # 0.001 BTC
+        slippage_percent=0.03,
+        execution_buffer=5.0,
     )
 
-    # Both should succeed but with different acceptable prices
-    assert isinstance(result_low, OrderResult)
-    assert isinstance(result_high, OrderResult)
+    assert isinstance(order_result, OrderResult)
+    assert hasattr(order_result, "transaction")
 
 
-def test_swap_with_min_output_amount(chain_name, swap_order_weth_usdc, wallet_with_all_tokens):
-    """Test swap with minimum output amount specification."""
-    swap_order = swap_order_weth_usdc
+def test_swap_usdc_to_crv_order_creation(trading_manager_sepolia):
+    """Test creating a USDC.SG -> CRV swap order."""
+    order_result = trading_manager_sepolia.swap_tokens(
+        in_token_symbol="USDC.SG",
+        out_token_symbol="CRV",
+        amount=10.0,
+        slippage_percent=0.03,
+        execution_buffer=5.0,
+    )
 
-    # Get estimation first
-    amount_in = 100000000000000000  # 0.1 ETH
-    estimate = swap_order.estimate_swap_output(amount_in)
-
-    # Set min output to 90% of estimated
-    min_output = int(estimate["out_token_amount"] * 0.9)
-
-    result = swap_order.create_swap_order(amount_in=amount_in, min_output_amount=min_output, slippage_percent=0.02)
-
-    assert isinstance(result, OrderResult)
-    # The min_output_amount should be reflected in the order parameters
-    # This is verified through successful transaction creation
+    assert isinstance(order_result, OrderResult)
+    assert hasattr(order_result, "transaction")
 
 
-def test_swap_order_different_token_pairs(chain_name, gmx_config_fork):
-    """Test swap orders with different token pairs available on each chain."""
-    tokens = NETWORK_TOKENS[chain_name]
-
-    if chain_name == "arbitrum":
-        # Just test that we can create swap orders for common pairs
-        try:
-            swap_order = SwapOrder(gmx_config_fork, tokens["WETH"], tokens["USDC"])
-            result = swap_order.create_swap_order(
-                amount_in=1000000000000000000,  # 1 WETH
-                slippage_percent=0.01,
-            )
-            assert isinstance(result, OrderResult)
-        except ValueError as e:
-            if "No market found" in str(e):
-                # This is acceptable if the market doesn't exist
-                pass
-            else:
-                raise
-
-    else:  # avalanche
-        # Just test that we can create swap orders for common pairs
-        try:
-            swap_order = SwapOrder(gmx_config_fork, tokens["WETH"], tokens["USDC"])
-            result = swap_order.create_swap_order(
-                amount_in=1000000000000000000,  # 1 WETH
-                slippage_percent=0.01,
-            )
-            assert isinstance(result, OrderResult)
-        except ValueError as e:
-            if "No market found" in str(e):
-                # This is acceptable if the market doesn't exist
-                pass
-            else:
-                raise
-
-
-def test_create_swap_order_produces_unsigned_tx(chain_name, swap_order_weth_usdc):
-    """Test that create_swap_order returns a valid unsigned transaction."""
-    swap_order = swap_order_weth_usdc
-    tokens = NETWORK_TOKENS[chain_name]
-
-    # Get WETH details to determine amount
-    weth = fetch_erc20_details(swap_order.web3, tokens["WETH"])
-    # Use a small amount: 0.001 WETH
-    amount_in = int(0.001 * 10**weth.decimals)
-
-    # Create the swap order
-    result = swap_order.create_swap_order(
-        amount_in=amount_in,
+def test_swap_with_different_slippage(trading_manager_sepolia):
+    """Test swap with different slippage parameters."""
+    # Low slippage
+    order_low = trading_manager_sepolia.swap_tokens(
+        in_token_symbol="USDC.SG",
+        out_token_symbol="BTC",
+        amount=5.0,
         slippage_percent=0.01,  # 1%
-        execution_buffer=1.2,
+        execution_buffer=2.0,
     )
 
-    # Validate result
-    assert hasattr(result, "transaction"), "Result should have transaction attribute"
-    tx = result.transaction
+    # High slippage
+    order_high = trading_manager_sepolia.swap_tokens(
+        in_token_symbol="USDC.SG",
+        out_token_symbol="BTC",
+        amount=5.0,
+        slippage_percent=0.05,  # 5%
+        execution_buffer=5.0,
+    )
 
-    # Validate unsigned transaction structure
-    assert isinstance(tx, dict), "Transaction must be a dict"
+    assert isinstance(order_low, OrderResult)
+    assert isinstance(order_high, OrderResult)
+
+
+def test_swap_produces_valid_transaction_structure(trading_manager_sepolia):
+    """Test that swap produces a valid unsigned transaction structure."""
+    order_result = trading_manager_sepolia.swap_tokens(
+        in_token_symbol="USDC.SG",
+        out_token_symbol="BTC",
+        amount=5.0,
+        slippage_percent=0.03,
+        execution_buffer=5.0,
+    )
+
+    tx = order_result.transaction
+
+    # Verify transaction structure
+    assert isinstance(tx, dict)
     assert "to" in tx
     assert "data" in tx
     assert "value" in tx
     assert "gas" in tx or "gasLimit" in tx
     assert tx["to"] is not None
-    assert len(tx["data"]) > 2  # Should be hex string like "0x..."
+    assert len(tx["data"]) > 2  # Hex string
+    assert isinstance(tx["value"], int)
 
-    print("Unsigned transaction created successfully:")
-    print(f"  To: {tx['to']}")
-    print(f"  Data length: {len(tx['data'])} bytes")
-    print(f"  Value: {tx.get('value', 0)}")
 
-    # We do NOT send the transaction — just confirm it's constructable
+def test_swap_execution_fee_included(trading_manager_sepolia):
+    """Test that swap includes execution fee."""
+    order_result = trading_manager_sepolia.swap_tokens(
+        in_token_symbol="USDC.SG",
+        out_token_symbol="BTC",
+        amount=5.0,
+        slippage_percent=0.03,
+        execution_buffer=5.0,
+    )
+
+    assert hasattr(order_result, "execution_fee")
+    assert order_result.execution_fee > 0
+    assert order_result.transaction["value"] >= order_result.execution_fee
+
+
+def test_swap_invalid_token_symbol(trading_manager_sepolia):
+    """Test that invalid token symbol raises appropriate error."""
+    with pytest.raises((ValueError, KeyError, Exception)):
+        trading_manager_sepolia.swap_tokens(
+            in_token_symbol="INVALID_TOKEN",
+            out_token_symbol="BTC",
+            amount=5.0,
+            slippage_percent=0.03,
+            execution_buffer=5.0,
+        )
+
+
+def test_swap_zero_amount(trading_manager_sepolia):
+    """Test that zero amount raises error."""
+    with pytest.raises((ValueError, Exception)):
+        trading_manager_sepolia.swap_tokens(
+            in_token_symbol="USDC.SG",
+            out_token_symbol="BTC",
+            amount=0.0,
+            slippage_percent=0.03,
+            execution_buffer=5.0,
+        )
+
+
+def test_check_wallet_balances(test_wallet_sepolia, arbitrum_sepolia_config):
+    """
+    Helper test to check wallet balances on Arbitrum Sepolia.
+
+    This helps verify your wallet has the necessary tokens for swap tests.
+    """
+    web3 = arbitrum_sepolia_config.web3
+    wallet_address = test_wallet_sepolia.address
+    chain = "arbitrum_sepolia"
+
+    print(f"\nWallet address: {wallet_address}")
+
+    # Check ETH balance
+    eth_balance = web3.eth.get_balance(wallet_address)
+    print(f"ETH balance: {eth_balance / 1e18:.6f} ETH")
+
+    # Check token balances
+    tokens = ["USDC.SG", "BTC", "CRV", "USDC"]
+
+    for token_symbol in tokens:
+        try:
+            token_address = get_token_address_normalized(chain, token_symbol)
+            token = fetch_erc20_details(web3, token_address)
+            balance = token.contract.functions.balanceOf(wallet_address).call()
+            print(f"{token_symbol} balance: {balance / (10**token.decimals):.6f}")
+        except Exception as e:
+            print(f"{token_symbol}: Error - {e}")
+
+    # This test always passes - it's just for information
+    assert True

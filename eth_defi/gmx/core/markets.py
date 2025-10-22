@@ -5,7 +5,6 @@ This module provides access to GMX protocol market information and trading pairs
 """
 
 import logging
-import os
 from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
@@ -190,7 +189,16 @@ class Markets:
         markets = self._process_markets()
         if market_address in markets:
             market_data = markets[market_address]
-            return MarketInfo(gmx_market_address=market_data["gmx_market_address"], market_symbol=market_data["market_symbol"], index_token_address=market_data["index_token_address"], market_metadata=market_data["market_metadata"], long_token_metadata=market_data["long_token_metadata"], long_token_address=market_data["long_token_address"], short_token_metadata=market_data["short_token_metadata"], short_token_address=market_data["short_token_address"])
+            return MarketInfo(
+                gmx_market_address=market_data["gmx_market_address"],
+                market_symbol=market_data["market_symbol"],
+                index_token_address=market_data["index_token_address"],
+                market_metadata=market_data["market_metadata"],
+                long_token_metadata=market_data["long_token_metadata"],
+                long_token_address=market_data["long_token_address"],
+                short_token_metadata=market_data["short_token_metadata"],
+                short_token_address=market_data["short_token_address"],
+            )
         else:
             return None
 
