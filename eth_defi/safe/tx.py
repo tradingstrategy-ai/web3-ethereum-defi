@@ -1,4 +1,9 @@
-"""Gnosis Safe multisignature transaction handling"""
+"""Gnosis Safe multisignature transaction handling.
+
+.. note ::
+
+    This code may be unfinished and untested.
+"""
 
 import logging
 
