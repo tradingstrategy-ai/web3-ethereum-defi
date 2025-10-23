@@ -57,13 +57,15 @@ def fetch_euler_vaults_file_for_chain(
     file = cache_path / f"euler_vaults_chain_{chain_id}.json"
     file = file.resolve()
 
+    file_size = file.stat().st_size if file.exists() else 0
+
     if not now_:
         now_ = native_datetime_utc_now()
 
     # When running multiprocess vault scan, we have competition over this file write and
     # if we do not wait the race condition may try to read zero-bytes file
     with wait_other_writers(file):
-        if not file.exists() or (now_ - native_datetime_utc_fromtimestamp(file.stat().st_mtime)) > max_cache_duration:
+        if not file.exists() or (now_ - native_datetime_utc_fromtimestamp(file.stat().st_mtime)) > max_cache_duration or file_size == 0:
             logger.info(f"Re-fetching cached Euler vaults file for chain {chain_id} from {github_base_url}")
             with file.open("wt") as f:
                 url = f"{github_base_url}/{chain_id}/vaults.json"
@@ -102,6 +104,12 @@ def fetch_euler_vaults_file_for_chain(
             timestamp = datetime.datetime.fromtimestamp(file.stat().st_mtime, tz=None)
             ago = now_ - timestamp
             logger.info(f"Using cached Euler vaults file for chain {chain_id} from {file}, last fetched at {timestamp.isoformat()}. ago {ago}")
+
+            if file_size == 0:
+                # Some sort of race condition I could not figure out with failed downloads
+                # on HyperEVM chain 999
+                return {}
+
             try:
                 return json.load(open(file, "rt"))
             except JSONDecodeError as e:

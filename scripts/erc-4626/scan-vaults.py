@@ -21,6 +21,9 @@ Or:
     # Arbitrum
     LOG_LEVEL=info JSON_RPC_URL=$JSON_RPC_ARBITRUM python scripts/erc-4626/scan-vaults.py
 
+    # Hyperliquid
+    LOG_LEVEL=info JSON_RPC_URL=$JSON_RPC_HYPERLIQUID python scripts/erc-4626/scan-vaults.py
+
 
 Or for faster small sample scan limit the end block:
 
