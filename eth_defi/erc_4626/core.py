@@ -157,6 +157,12 @@ class ERC4626Feature(enum.Enum):
     #: deposit() custom signature
     umami_like = "umami_like"
 
+    #: Plutus
+    #:
+    #: https://plutus.fi/Vaults
+    #:
+    plutus_like = "plutus_like"
+
 
 def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     """Deduct vault protocol name based on Vault smart contract features.
@@ -221,6 +227,8 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "<unknown ERC-7540>"
     elif ERC4626Feature.umami_like in features:
         return "Umami"
+    elif ERC4626Feature.plutus_like in features:
+        return "Plutus"
 
     return "<unknown ERC-4626>"
 

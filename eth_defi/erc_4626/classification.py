@@ -261,6 +261,14 @@ def create_probe_calls(
             extra_data=None,
         )
 
+        plutus_call = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="SAY_TRADER_ROLE()")[0:4],
+            function="SAY_TRADER_ROLE",
+            data=b"",
+            extra_data=None,
+        )
+
         yield bad_probe_call
         yield name_call
         yield share_price_call
@@ -283,6 +291,7 @@ def create_probe_calls(
         yield euler_call
         yield registry_call
         yield umami_call
+        yield plutus_call
 
 
 def identify_vault_features(
@@ -386,6 +395,10 @@ def identify_vault_features(
     # https://arbiscan.io/address/0x5f851f67d24419982ecd7b7765defd64fbb50a97#readContract
     if calls["aggregateVault"].success:
         features.add(ERC4626Feature.umami_like)
+
+    # https://arbiscan.io/address/0x0f49730bc6ba3a3024d32131c1da7168d226e737#code
+    if calls["SAY_TRADER_ROLE"]:
+        features.add(ERC4626Feature.plutus_like)
 
     if len(features) > 4:
         # This contract somehow responses to all calls with success.
@@ -582,10 +595,13 @@ def create_vault_instance(
 
         return OstiumVault(web3, spec, token_cache=token_cache, features=features)
     elif ERC4626Feature.umami_like in features:
-        # Lagoon instance
         from eth_defi.umami.vault import UmamiVault
 
         return UmamiVault(web3, spec, token_cache=token_cache, features=features)
+    elif ERC4626Feature.plutus_like in features:
+        from eth_defi.plutus.vault import PlutusVault
+
+        return PlutusVault(web3, spec, token_cache=token_cache, features=features)
 
     else:
         # Generic ERC-4626 without fee data

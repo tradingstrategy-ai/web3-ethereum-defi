@@ -2,6 +2,8 @@
 
 import enum
 
+from eth_typing import HexAddress
+
 
 class VaultRisk(enum.Enum):
     """Vault risk profile enum.
@@ -52,5 +54,51 @@ class VaultRisk(enum.Enum):
     #:
     dangerous = 50
 
+    #: This vault is blacklisted because it is known not to be "real" in a sense
+    #: it is a developer test, using fake stablecoins or tokens, etc.
+    #:
+    #: By blacklisting vaults, we get them off the reports.
+    #:
+    blacklisted = 999
+
     def get_risk_level_name(self) -> str:
         return self.name.replace("_", " ").title()
+
+
+#: Default classification of vault protocols by their risk profile.
+#:
+#: See :py:func:`eth_defi.erc_4626.core.get_vault_protocol_name` for the names list.
+#:
+VAULT_PROTOCOL_RISK_MATRIX = {
+    "Euler": VaultRisk.low,
+    "Morpho": VaultRisk.low,
+    "Enzyme": VaultRisk.low,
+    "Lagoon": VaultRisk.lowish,
+    "Velvet Capital": VaultRisk.extra_high,
+    "Umami": VaultRisk.extra_high,
+    "Peapods": VaultRisk.dangerous,
+    "Ostium": VaultRisk.high,
+    "Gains": VaultRisk.high,
+    "Plutus": VaultRisk.dangerous,
+}
+
+#: Lower case address mapping to problem vaults
+VAULT_SPECIFIC_RISK = {
+    # Kitsune
+    # https://arbiscan.io/address/0xe5a4f22fcb8893ba0831babf9a15558b5e83446f#code
+    "0xe5a4f22fcb8893ba0831babf9a15558b5e83446f": VaultRisk.blacklisted,
+}
+
+
+def get_vault_risk(
+    protocol_name: str,
+    vault_address: HexAddress | str | None = None,
+):
+    """Get technical and developer risk associated with a particular vault"""
+
+    if vault_address:
+        risk = VAULT_SPECIFIC_RISK.get(vault_address.lower())
+        if risk:
+            return risk
+
+    return VAULT_PROTOCOL_RISK_MATRIX.get(protocol_name)

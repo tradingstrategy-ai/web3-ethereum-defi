@@ -29,8 +29,7 @@ from eth_defi.token import DEFAULT_TOKEN_CACHE, TokenAddress, TokenDetails, fetc
 from eth_defi.vault.deposit_redeem import VaultDepositManager
 from eth_defi.vault.lower_case_dict import LowercaseDict
 
-from .risk import VaultRisk
-
+from .risk import VaultRisk, get_vault_risk
 
 BlockRange = Tuple[BlockNumber, BlockNumber]
 
@@ -622,6 +621,17 @@ class VaultBase(ABC):
         """
         return self.fetch_info()
 
+    def get_protocol_name(self) -> str:
+        """Return the name of the vault protocol."""
+
+        # TODO: Refactor modules
+        from ..erc_4626.core import get_vault_protocol_name, ERC4626Feature
+
+        features = getattr(self, "features", None)
+        if features is None:
+            features = {ERC4626Feature.broken}
+        return get_vault_protocol_name(features)
+
     def get_management_fee(self, block_identifier: BlockIdentifier) -> float:
         """Get the current management fee as a percent.
 
@@ -654,4 +664,8 @@ class VaultBase(ABC):
 
     def get_risk(self) -> VaultRisk | None:
         """Get risk profile of this vault."""
-        return None
+
+        address = self.address
+        protocol = self.get_protocol_name()
+
+        return get_vault_risk(protocol, address)

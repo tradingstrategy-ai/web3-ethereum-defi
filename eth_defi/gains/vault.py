@@ -21,15 +21,11 @@ Notes:
 
 import datetime
 import logging
-from dataclasses import dataclass
-
-from decimal import Decimal
 from functools import cached_property
 
 from web3 import Web3
-from web3.contract.contract import Contract, ContractFunction
+from web3.contract.contract import Contract
 from web3.exceptions import BadFunctionCallOutput
-from web3._utils.events import EventLogErrorFlags
 
 from eth_defi.abi import get_deployed_contract
 from eth_defi.compat import native_datetime_utc_now
@@ -38,9 +34,9 @@ from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.event_reader.conversion import convert_bytes32_to_address, convert_string_to_bytes32
 from eth_defi.event_reader.multicall_batcher import EncodedCall
 from eth_defi.utils import from_unix_timestamp
-from eth_typing import BlockIdentifier, HexAddress
-from hexbytes import HexBytes
+from eth_typing import BlockIdentifier
 
+from eth_defi.vault.risk import VaultRisk
 
 logger = logging.getLogger(__name__)
 

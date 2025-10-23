@@ -33,6 +33,7 @@ API documentation
    ipor/index
    euler/index
    morpho/index
+   umami/index
    chainlink/index
    gains/index
    foundry/index
