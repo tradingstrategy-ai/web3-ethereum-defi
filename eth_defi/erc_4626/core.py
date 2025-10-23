@@ -125,6 +125,12 @@ class ERC4626Feature(enum.Enum):
     #: https://etherscan.io/address/0xa10c40f9e318b0ed67ecc3499d702d8db9437228#readProxyContract
     yearn_v3_like = "yearn_v3_like"
 
+    #: Yearn silo strategy
+    #: By
+    #:
+    #: https://github.com/johnnyonline/yearn-v3-silo-lender/blob/34b35bd1649f746020f972844cc27cd6f2916374/src/strategies/silo/SiloStrategy.sol#L35
+    yearn_tokenised_strategy = "yearn_tokenised_strategy"
+
     #: Superform
     #: Metavault - cross-chain yield.
     #: https://www.superform.xyz/vault/BB5FPH0VNwM1AxdvVnhn8/
@@ -233,6 +239,8 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "Superform"
     elif ERC4626Feature.yearn_v3_like in features:
         return "Yearn v3"
+    elif ERC4626Feature.yearn_tokenised_strategy in features:
+        return "Yearn tokenised strategy"
     elif ERC4626Feature.gains_like in features:
         return "Gains"
     elif ERC4626Feature.ostium_like in features:
@@ -247,6 +255,8 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "D2 Finance"
     elif ERC4626Feature.untangled_like in features:
         return "Untangle Finance"
+    elif ERC4626Feature.yearn_tokenised_strategy in features:
+        return "Yearn tokenised strategy"
 
     return "<unknown ERC-4626>"
 

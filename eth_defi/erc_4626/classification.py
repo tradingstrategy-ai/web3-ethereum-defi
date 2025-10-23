@@ -289,6 +289,15 @@ def create_probe_calls(
             extra_data=None,
         )
 
+        # https://arbiscan.io/address/0xb739ae19620f7ecb4fb84727f205453aa5bc1ad2#code
+        tokenised_strategy_call = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="tokenizedStrategyAddress()")[0:4],
+            function="tokenizedStrategyAddress",
+            data=b"",
+            extra_data=None,
+        )
+
         yield bad_probe_call
         yield name_call
         yield share_price_call
@@ -314,6 +323,7 @@ def create_probe_calls(
         yield plutus_call
         yield d2_call
         yield untangled_call
+        yield tokenised_strategy_call
 
 
 def identify_vault_features(
@@ -426,7 +436,10 @@ def identify_vault_features(
         features.add(ERC4626Feature.d2_like)
 
     if calls["claimableKeeper"].success:
-        features.add(ERC4626Feature.untangled_like)
+        features.add({ERC4626Feature.untangled_like, ERC4626Feature.erc_7540_like})
+
+    if calls["tokenizedStrategyAddress"].success:
+        features.add(ERC4626Feature.yearn_tokenised_strategy)
 
     if len(features) > 4:
         # This contract somehow responses to all calls with success.
