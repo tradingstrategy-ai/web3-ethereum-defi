@@ -52,6 +52,10 @@ def test_harvest(
 
     assert vault.get_risk() == VaultRisk.lowish
     assert vault.get_management_fee("latest") == 0.00
-    assert vault.get_performance_fee("latest") == 0.12
+    assert vault.get_performance_fee("latest") == 0.00
     assert vault.has_custom_fees() is False
-    assert vault.get_protocol_name() == "Plutus"
+    assert vault.get_protocol_name() == "Harvest Finance"
+    assert vault.fetch_pending_fee() == 0
+
+    ftoken = vault.fetch_ftoken()
+    assert ftoken.name == "Varlamore USDC Growth"

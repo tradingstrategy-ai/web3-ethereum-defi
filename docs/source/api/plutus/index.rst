@@ -1,7 +1,7 @@
 Plutus API
 ----------
 
-`Plutus protocol <https://plutus.fi//>`__ protocol integration.
+`Plutus protocol <https://plutus.fi//>`__ integration.
 
 PLUTUS is the cross-chain yield- and governance layer backing the Plutus protocol and ecosystem.
 

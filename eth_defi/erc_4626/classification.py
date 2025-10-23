@@ -397,7 +397,7 @@ def identify_vault_features(
         features.add(ERC4626Feature.umami_like)
 
     # https://arbiscan.io/address/0x0f49730bc6ba3a3024d32131c1da7168d226e737#code
-    if calls["SAY_TRADER_ROLE"]:
+    if calls["SAY_TRADER_ROLE"].success:
         features.add(ERC4626Feature.plutus_like)
 
     if len(features) > 4:
@@ -602,6 +602,10 @@ def create_vault_instance(
         from eth_defi.plutus.vault import PlutusVault
 
         return PlutusVault(web3, spec, token_cache=token_cache, features=features)
+    elif ERC4626Feature.harvest_finance in features:
+        from eth_defi.harvest.vault import HarvestVault
+
+        return HarvestVault(web3, spec, token_cache=token_cache, features=features)
 
     else:
         # Generic ERC-4626 without fee data

@@ -34,8 +34,10 @@ API documentation
    euler/index
    morpho/index
    umami/index
-   chainlink/index
    gains/index
+   plutus/index
+   harvest/index
+   chainlink/index
    foundry/index
    etherscan/index
    hypersync/index

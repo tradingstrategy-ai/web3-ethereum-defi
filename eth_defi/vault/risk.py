@@ -80,6 +80,7 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Ostium": VaultRisk.high,
     "Gains": VaultRisk.high,
     "Plutus": VaultRisk.dangerous,
+    "Harvest Finance": VaultRisk.lowish,
 }
 
 #: Lower case address mapping to problem vaults
