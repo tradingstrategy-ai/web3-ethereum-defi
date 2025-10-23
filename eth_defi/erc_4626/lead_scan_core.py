@@ -29,7 +29,7 @@ from eth_defi.vault.vaultdb import VaultDatabase
 logger = logging.getLogger(__name__)
 
 
-def display_vaults_table(df: pd.DataFrame):
+def display_vaults_table(df: pd.DataFrame, nav_threshold=Decimal(0.1)) -> None:
     """Diplay scanned vault leads in the terminal
 
     - Only used for local diagnostics
@@ -49,6 +49,9 @@ def display_vaults_table(df: pd.DataFrame):
     del df["First seen"]
     del df["Symbol"]
     del df["Shares"]
+
+    # Remove zero entries
+    df = df.loc[df["NAV"] >= nav_threshold]
 
     df["Mgmt fee"] = df["Mgmt fee"].apply(lambda x: f"{x:.1%}" if type(x) == float else "-")
     df["Perf fee"] = df["Perf fee"].apply(lambda x: f"{x:.1%}" if type(x) == float else "-")

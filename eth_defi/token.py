@@ -298,6 +298,11 @@ STABLECOIN_LIKE = set(
         "ftUSD",
         "vbUSDC",
         "vbUSDT",
+        "bvUSD",
+        "USDH",
+        "USD₮0",
+        "USDHL",
+        "AUDT",
     ]
 )
 
