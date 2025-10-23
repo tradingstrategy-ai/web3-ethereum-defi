@@ -68,6 +68,14 @@ class HarvestVault(ERC4626Vault):
             abi_fname="harvest/VaultV2.json",
         )
 
+    @property
+    def name(self) -> str:
+        """Fix broken Harvest vault names."""
+        name = super().name
+        if name == "FARM_USDC":
+            return f"Harvest: USDC Vault ({self.vault_address[0:6]})"
+        return name
+
     def has_custom_fees(self) -> bool:
         """Deposit/withdrawal fees."""
         return False

@@ -38,6 +38,7 @@ API documentation
    plutus/index
    harvest/index
    d2_finance/index
+   untangle/index
    chainlink/index
    foundry/index
    etherscan/index

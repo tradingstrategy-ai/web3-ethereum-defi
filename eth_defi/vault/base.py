@@ -651,21 +651,27 @@ class VaultBase(ABC):
     def has_custom_fees(self) -> bool:
         """Does this vault have custom fee structure reading methods.
 
-        Causes risk in the vault comparison.
+                Causes risk in the vault comparison.
 
-        -E.g.
-        - Withdraw fee
-        - Deposit fee
-
-        :return:
-            True if custom fee reading methods are implemented
+                -E.g.
+                - Withdraw fee
+                - Deposit fee
+        s
+                :return:
+                    True if custom fee reading methods are implemented
         """
         return False
 
+    def get_deposit_fee(self) -> float:
+        """Deposit fee is set to zero by default as vaults usually do not have deposit fees."""
+        raise 0.0
+
+    def get_withdraw_fee(self) -> float:
+        """Withdraw fee is set to zero by default as vaults usually do not have withdraw fees."""
+        raise 0.0
+
     def get_risk(self) -> VaultTechnicalRisk | None:
         """Get risk profile of this vault."""
-
         address = self.address
         protocol = self.get_protocol_name()
-
         return get_vault_risk(protocol, address)

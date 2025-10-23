@@ -49,7 +49,7 @@ def test_harvest(
     )
 
     assert isinstance(vault, HarvestVault)
-
+    assert vault.name == "Harvest: USDC Vault (0x5E77)"
     assert vault.get_risk() == VaultTechnicalRisk.lowish
     assert vault.get_management_fee("latest") == 0.00
     assert vault.get_performance_fee("latest") == 0.00
