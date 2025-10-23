@@ -38,7 +38,7 @@ from web3.contract import Contract
 from web3.contract.contract import ContractFunction
 from web3.exceptions import ContractLogicError, BadFunctionCallOutput
 
-from eth_defi.vault.base import VaultFlowManager, VaultInfo, VaultSpec
+from eth_defi.vault.base import VaultFlowManager, VaultInfo, VaultSpec, VaultRisk
 from .deposit_redeem import ERC7540DepositRequest
 
 from ..abi import encode_function_call, get_deployed_contract, get_function_abi_by_name, get_function_selector, present_solidity_args
@@ -123,6 +123,9 @@ class LagoonVault(ERC4626Vault):
     - Vault: pending redemptions (USDC)
     - User wallets: after `deposit()` have been called share tokens are moved to the user wallet
     """
+
+    def get_risk(self) -> VaultRisk | None:
+        return VaultRisk.lowish
 
     def __init__(
         self,

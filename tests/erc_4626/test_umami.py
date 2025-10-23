@@ -9,10 +9,11 @@ from web3 import Web3
 import flaky
 
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
-from eth_defi.euler.vault import EulerVault
+from eth_defi.erc_4626.core import get_vault_protocol_name
 from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.umami.vault import UmamiVault
+from eth_defi.vault.base import VaultRisk
 
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
 
@@ -43,6 +44,9 @@ def test_umami(
 ):
     """Read Euler vault metadata offchain"""
 
+    # 0xca11bde05977b3631167028862be2a173976ca11
+    # 0x76054B318785b588A3164B2A6eA5476F7cBA51e0
+    # 0xca11bde05977b3631167028862be2a173976ca11
     gmusdc = create_vault_instance_autodetect(
         web3,
         vault_address="0x5f851f67d24419982ecd7b7765defd64fbb50a97",
@@ -50,6 +54,11 @@ def test_umami(
 
     assert isinstance(gmusdc, UmamiVault)
     aggregate_vault_contract = gmusdc.fetch_aggregate_vault()
+    # https://arbiscan.io/address/0x1E914730B4Cd343aE14530F0BBF6b350d83B833d
     assert aggregate_vault_contract.address == "0x1E914730B4Cd343aE14530F0BBF6b350d83B833d"
 
-    import ipdb ; ipdb.set_trace()
+    assert gmusdc.get_risk() == VaultRisk.extra_high
+    assert gmusdc.get_management_fee("latest") == 0.02
+    assert gmusdc.get_performance_fee("latest") == 0.20
+    assert gmusdc.has_custom_fees() is True
+    assert get_vault_protocol_name(gmusdc.features) == "Umami"

@@ -584,6 +584,7 @@ def create_vault_instance(
     elif ERC4626Feature.umami_like in features:
         # Lagoon instance
         from eth_defi.umami.vault import UmamiVault
+
         return UmamiVault(web3, spec, token_cache=token_cache, features=features)
 
     else:

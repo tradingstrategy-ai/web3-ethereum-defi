@@ -11,22 +11,25 @@
 
 import dataclasses
 import datetime
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from decimal import Decimal
 from functools import cached_property
-from typing import Iterable, TypedDict, TypeAlias, Tuple
+from typing import Iterable, TypedDict, Tuple
+
 
 from eth_typing import BlockIdentifier, HexAddress, BlockNumber
-from hexbytes import HexBytes
 
 from web3 import Web3
-from web3.contract.contract import ContractFunction
+
 
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.token import DEFAULT_TOKEN_CACHE, TokenAddress, TokenDetails, fetch_erc20_details
 from eth_defi.vault.deposit_redeem import VaultDepositManager
 from eth_defi.vault.lower_case_dict import LowercaseDict
+
+from .risk import VaultRisk
 
 
 BlockRange = Tuple[BlockNumber, BlockNumber]
@@ -634,3 +637,21 @@ class VaultBase(ABC):
             0.1 = 10%
         """
         raise NotImplementedError(f"Class {self.__class__.__name__} does not implement get_performance_fee()")
+
+    def has_custom_fees(self) -> bool:
+        """Does this vault have custom fee structure reading methods.
+
+        Causes risk in the vault comparison.
+
+        -E.g.
+        - Withdraw fee
+        - Deposit fee
+
+        :return:
+            True if custom fee reading methods are implemented
+        """
+        return False
+
+    def get_risk(self) -> VaultRisk | None:
+        """Get risk profile of this vault."""
+        return None

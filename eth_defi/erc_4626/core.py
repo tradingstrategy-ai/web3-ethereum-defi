@@ -219,6 +219,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "Ostium"
     elif ERC4626Feature.erc_7540_like in features:
         return "<unknown ERC-7540>"
+    elif ERC4626Feature.umami_like in features:
+        return "Umami"
+
     return "<unknown ERC-4626>"
 
 

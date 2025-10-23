@@ -10,7 +10,7 @@ from web3 import Web3
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.vault.base import VaultHistoricalReader, VaultHistoricalRead
-
+from eth_defi.vault.risk import VaultRisk
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +81,9 @@ class MorphoVault(ERC4626Vault):
     - `See an example vault here <https://app.gauntlet.xyz/vaults/eth:0x4881ef0bf6d2365d3dd6499ccd7532bcdbce0658>`__
     - `Example contract <https://basescan.org/address/0x6b13c060F13Af1fdB319F52315BbbF3fb1D88844#readContract>`__
     """
+
+    def get_risk(self) -> VaultRisk | None:
+        return VaultRisk.low
 
     def get_historical_reader(self, stateful) -> VaultHistoricalReader:
         return MorphoVaultHistoricalReader(self, stateful)
