@@ -118,13 +118,18 @@ def fetch_euler_vault_metadata(web3: Web3, vault_address: HexAddress) -> EulerVa
 
     chain_id = web3.eth.chain_id
 
+    # Get per-chain copy of vault data into in-process cache
     if chain_id not in _cached_vaults:
         vaults = fetch_euler_vaults_file_for_chain(chain_id)
-        if vaults:
-            vault_address = web3.to_checksum_address(vault_address)
-            _cached_vaults[chain_id] = vaults.get(vault_address)
+        _cached_vaults[chain_id] = vaults
 
-    return _cached_vaults[chain_id]
+    # Extract vault from Euler blob
+    vaults = _cached_vaults[chain_id]
+    if vaults:
+        vault_address = web3.to_checksum_address(vault_address)
+        return vaults.get(vault_address)
+
+    return None
 
 
 #: In-process cache of fetched vaults
