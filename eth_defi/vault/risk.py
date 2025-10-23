@@ -71,7 +71,23 @@ class VaultTechnicalRisk(enum.Enum):
 #:
 #: See :py:func:`eth_defi.erc_4626.core.get_vault_protocol_name` for the names list.
 #:
-VAULT_PROTOCOL_RISK_MATRIX = {"Euler": VaultTechnicalRisk.low, "Morpho": VaultTechnicalRisk.low, "Enzyme": VaultTechnicalRisk.low, "Lagoon": VaultTechnicalRisk.lowish, "Velvet Capital": VaultTechnicalRisk.extra_high, "Umami": VaultTechnicalRisk.extra_high, "Peapods": VaultTechnicalRisk.dangerous, "Ostium": VaultTechnicalRisk.high, "Gains": VaultTechnicalRisk.high, "Plutus": VaultTechnicalRisk.dangerous, "Harvest Finance": VaultTechnicalRisk.lowish, "D2 Finance": VaultTechnicalRisk.extra_high, "Untangle Finance": VaultTechnicalRisk.lowish}
+VAULT_PROTOCOL_RISK_MATRIX = {
+    "Euler": VaultTechnicalRisk.low,
+    "Morpho": VaultTechnicalRisk.low,
+    "Enzyme": VaultTechnicalRisk.low,
+    "Lagoon": VaultTechnicalRisk.lowish,
+    "Velvet Capital": VaultTechnicalRisk.extra_high,
+    "Umami": VaultTechnicalRisk.extra_high,
+    "Peapods": VaultTechnicalRisk.dangerous,
+    "Ostium": VaultTechnicalRisk.high,
+    "Gains": VaultTechnicalRisk.high,
+    "Plutus": VaultTechnicalRisk.dangerous,
+    "Harvest Finance": VaultTechnicalRisk.lowish,
+    "D2 Finance": VaultTechnicalRisk.extra_high,
+    "Untangle Finance": VaultTechnicalRisk.lowish,
+    "Yearn v3": VaultTechnicalRisk.lowish,
+    "Yearn tokenised strategy": VaultTechnicalRisk.lowish,
+}
 
 #: Particular vaults that are broken, misleading or otherwise problematic.
 #: Users do not want to interact with these and they cause confusion, so we just drop them from reports.

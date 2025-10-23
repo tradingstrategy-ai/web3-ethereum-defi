@@ -303,6 +303,7 @@ STABLECOIN_LIKE = set(
         "USD₮0",
         "USDHL",
         "AUDT",
+        "plUSD",
     ]
 )
 

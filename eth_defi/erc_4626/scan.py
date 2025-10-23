@@ -18,6 +18,7 @@ from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.token import TokenDiskCache
+from eth_defi.vault.risk import get_vault_risk
 
 logger = logging.getLogger(__name__)
 
@@ -93,13 +94,15 @@ def create_vault_scan_record(
         else:
             denomination_token = None
 
+        protocol_name = get_vault_protocol_name(detection.features)
+
         data = {
             "Symbol": vault.symbol,
             "Name": vault.name,
             "Address": detection.address,
             "Denomination": vault.denomination_token.symbol if vault.denomination_token else None,
             "NAV": total_assets,
-            "Protocol": get_vault_protocol_name(detection.features),
+            "Protocol": protocol_name,
             "Mgmt fee": management_fee,
             "Perf fee": performance_fee,
             "Shares": total_supply,

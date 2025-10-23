@@ -245,8 +245,6 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "Gains"
     elif ERC4626Feature.ostium_like in features:
         return "Ostium"
-    elif ERC4626Feature.erc_7540_like in features:
-        return "<unknown ERC-7540>"
     elif ERC4626Feature.umami_like in features:
         return "Umami"
     elif ERC4626Feature.plutus_like in features:
@@ -258,7 +256,11 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     elif ERC4626Feature.yearn_tokenised_strategy in features:
         return "Yearn tokenised strategy"
 
-    return "<unknown ERC-4626>"
+    # No idea
+    if ERC4626Feature.erc_7540_like in features:
+        return "<unknown ERC-7540>"
+    else:
+        return "<unknown ERC-4626>"
 
 
 def get_erc_4626_contract(web3: Web3) -> Type[Contract]:

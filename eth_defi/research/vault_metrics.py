@@ -18,6 +18,9 @@ from plotly.graph_objects import Figure
 import plotly.io as pio
 from tqdm.auto import tqdm
 from eth_typing import HexAddress
+from ffn.core import PerformanceStats
+from ffn.core import calc_stats
+from ffn.utils import fmtn, fmtp, fmtpn, get_freq_name
 
 
 from eth_defi.chain import get_chain_name
@@ -25,10 +28,8 @@ from eth_defi.erc_4626.core import ERC4262VaultDetection
 from eth_defi.token import is_stablecoin_like
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
+from eth_defi.vault.risk import get_vault_risk, VaultTechnicalRisk
 from eth_defi.compat import native_datetime_utc_now
-from ffn.core import PerformanceStats
-from ffn.core import calc_stats
-from ffn.utils import fmtn, fmtp, fmtpn, get_freq_name
 
 
 def calculate_sharpe_ratio_from_hourly(hourly_returns: pd.Series, risk_free_rate: float = 0.00) -> float:
@@ -114,6 +115,7 @@ def calculate_lifetime_metrics(
 
         name = vault_metadata.get("Name")
         denomination = vault_metadata.get("Denomination")
+        risk = vault_metadata.get("risk")
 
         max_nav = group["total_assets"].max()
         current_nav = group["total_assets"].iloc[-1]
@@ -122,6 +124,7 @@ def calculate_lifetime_metrics(
         perf_fee = group["performance_fee"].iloc[-1]
         event_count = group["event_count"].iloc[-1]
         protocol = group["protocol"].iloc[-1]
+        risk = get_vault_risk(protocol, vault_metadata["Address"])
 
         # Calculate lifetime return using cumulative product approach
         with warnings.catch_warnings():
@@ -202,6 +205,7 @@ def calculate_lifetime_metrics(
                 "perf_fee": perf_fee,
                 "event_count": event_count,
                 "protocol": protocol,
+                "risk": risk,
                 "id": id_val,
                 "start_date": start_date,
                 "end_date": end_date,
@@ -272,6 +276,7 @@ def format_lifetime_table(
     df: pd.DataFrame,
     add_index=False,
     add_address=False,
+    drop_blacklisted=True,
 ) -> pd.DataFrame:
     """Format table for human readable output.
 
@@ -285,11 +290,19 @@ def format_lifetime_table(
 
         For vault address list copy-pasted.
 
+    :param drop_blacklisted:
+        Remove vaults we have manually flagged as troublesome.
+
     :return:
         Human readable data frame
     """
 
     df = df.copy()
+
+    if drop_blacklisted:
+        df = df.loc[df["risk"] != VaultTechnicalRisk.blacklisted]
+
+    del df["start_date"]  # We have Age
     df["cagr"] = df["cagr"].apply(lambda x: f"{x:.2%}")
     df["lifetime_return"] = df["lifetime_return"].apply(lambda x: f"{x:.2%}")
     df["three_months_cagr"] = df["three_months_cagr"].apply(lambda x: f"{x:.2%}")
@@ -299,8 +312,9 @@ def format_lifetime_table(
     df["three_months_volatility"] = df["three_months_volatility"].apply(lambda x: f"{x:.4f}")
     df["three_months_sharpe"] = df["three_months_sharpe"].apply(lambda x: f"{x:.1f}")
     df["event_count"] = df["event_count"].apply(lambda x: f"{x:,}")
-    df["mgmt_fee"] = df["mgmt_fee"].apply(lambda x: f"{x:.2%}" if pd.notna(x) else "unknown")
-    df["perf_fee"] = df["perf_fee"].apply(lambda x: f"{x:.2%}" if pd.notna(x) else "unknown")
+    df["mgmt_fee"] = df["mgmt_fee"].apply(lambda x: f"{x:.2%}" if pd.notna(x) else "?")
+    df["perf_fee"] = df["perf_fee"].apply(lambda x: f"{x:.2%}" if pd.notna(x) else "?")
+    df["risk"] = df["risk"].apply(lambda x: x.get_risk_level_name() if x is not None else "Unknown")
 
     df = df.rename(
         columns={
@@ -312,16 +326,17 @@ def format_lifetime_table(
             "three_months_sharpe": "3M sharpe",
             "one_month_returns": "1M return",
             "one_month_cagr": "1M return ann.",
-            "event_count": "Deposit/redeem count",
+            "event_count": "Deposit events",
             "peak_nav": "Peak TVL USD",
             "current_nav": "Current TVL USD",
             "years": "Age (years)",
-            "mgmt_fee": "Management fee",
-            "perf_fee": "Performance fee",
+            "mgmt_fee": "Mgmt fee %",
+            "perf_fee": "Perf fee %",
             "denomination": "Denomination",
             "chain": "Chain",
             "protocol": "Protocol",
-            "start_date": "First deposit",
+            "risk": "Risk",
+            # "start_date": "First deposit",
             "end_date": "Last deposit",
             "name": "Name",
         }

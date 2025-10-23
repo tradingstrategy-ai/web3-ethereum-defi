@@ -9,6 +9,7 @@ from web3 import Web3
 import flaky
 
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
+from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.untangle.vault import UntangleVault
@@ -48,6 +49,7 @@ def test_untangle(
     )
 
     assert isinstance(vault, UntangleVault)
+    assert vault.features == {ERC4626Feature.erc_7540_like, ERC4626Feature.untangled_like}
     assert vault.get_protocol_name() == "Untangle Finance"
     assert vault.get_risk() == VaultTechnicalRisk.lowish
     assert vault.get_management_fee("latest") == 0.00
