@@ -137,6 +137,7 @@ eth-typing = [
 #    {version = "^0.12.1b1", markers = "extra != 'web3v6'"},
 #    {version = "^v0.10.1-beta.2", markers = "extra == 'web3v6'"}
 #]
+filelock = "^3.20.0"
 
 
 [tool.poetry.group.dev.dependencies]
