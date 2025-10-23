@@ -1,4 +1,4 @@
-"""YVault token symbol tests"""
+"""Goat protocol tests"""
 
 import os
 from pathlib import Path
@@ -38,38 +38,20 @@ def web3(anvil_arbitrum_fork):
 
 
 @flaky.flaky
-def test_yvault_usdce_symbol(
+def test_goat_protocol(
     web3: Web3,
     tmp_path: Path,
 ):
-    """Make sure we can separate USDC/USDC.e from each other on Arbitrum vault output"""
+    """Bwaaa"""
 
     vault = create_vault_instance_autodetect(
         web3,
-        vault_address="0x9fa306b1f4a6a83fec98d8ebbabedff78c407f6b",
+        vault_address="0x8a1eF3066553275829d1c0F64EE8D5871D5ce9d3",
     )
 
     assert isinstance(vault, ERC4626Vault)
-    assert vault.get_protocol_name() == "Yearn v3"
-    assert vault.denomination_token.address == "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8"
-    assert vault.denomination_token.symbol == "USDC.e"
-
-
-@flaky.flaky
-def test_yearn_tokenised_strategy(
-    web3: Web3,
-    tmp_path: Path,
-):
-    """Make sure we can separate USDC/USDC.e from each other on Arbitrum vault output"""
-
-    vault = create_vault_instance_autodetect(
-        web3,
-        vault_address="0x8a1ef3066553275829d1c0f64ee8d5871d5ce9d3",
-    )
-
-    assert isinstance(vault, ERC4626Vault)
-    assert vault.features == {ERC4626Feature.yearn_tokenised_strategy}
-    assert vault.get_protocol_name() == "Yearn v3"
+    assert vault.features == {ERC4626Feature.goat_like}
+    assert vault.get_protocol_name() == "Goat Protocol"
     assert vault.name == "Yield Chasing Silo USDC"
     assert vault.denomination_token.address == "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8"
     assert vault.denomination_token.symbol == "USDC.e"

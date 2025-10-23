@@ -298,6 +298,18 @@ def create_probe_calls(
             extra_data=None,
         )
 
+        # Goat protocol
+        # https://github.com/goatfi/contracts
+        # https://arbiscan.io/address/0x8a1ef3066553275829d1c0f64ee8d5871d5ce9d3#readContract
+        # https://github.com/goatfi/contracts/blob/main/src/infra/multistrategy/Multistrategy.sol
+        goat_call = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="DEGRADATION_COEFFICIENT()")[0:4],
+            function="DEGRADATION_COEFFICIENT",
+            data=b"",
+            extra_data=None,
+        )
+
         yield bad_probe_call
         yield name_call
         yield share_price_call
@@ -324,6 +336,7 @@ def create_probe_calls(
         yield d2_call
         yield untangled_call
         yield tokenised_strategy_call
+        yield goat_call
 
 
 def identify_vault_features(
@@ -442,6 +455,9 @@ def identify_vault_features(
 
     if calls["tokenizedStrategyAddress"].success:
         features.add(ERC4626Feature.yearn_tokenised_strategy)
+
+    if calls["DEGRADATION_COEFFICIENT"].success:
+        features.add(ERC4626Feature.goat_like)
 
     if len(features) > 4:
         # This contract somehow responses to all calls with success.

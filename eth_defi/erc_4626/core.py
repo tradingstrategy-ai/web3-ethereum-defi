@@ -183,6 +183,12 @@ class ERC4626Feature(enum.Enum):
     #:
     untangled_like = "untangled_like"
 
+    #: Goat protocol
+    #:
+    #:
+    #: https://github.com/goatfi/contracts/blob/main/src/infra/multistrategy/Multistrategy.sol
+    goat_like = "goat_like"
+
 
 def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     """Deduct vault protocol name based on Vault smart contract features.
@@ -255,6 +261,8 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "Untangle Finance"
     elif ERC4626Feature.yearn_tokenised_strategy in features:
         return "Yearn tokenised strategy"
+    elif ERC4626Feature.goat_like in features:
+        return "Goat Protocol"
 
     # No idea
     if ERC4626Feature.erc_7540_like in features:

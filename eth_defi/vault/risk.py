@@ -15,6 +15,9 @@ class VaultTechnicalRisk(enum.Enum):
     - How this vault risk compares to other vaults (All vaults are high risk compared to the traditional finance)
     - Having a point of time technical audit does not meaningfully lower the risk, because all systems should be evaluated as a whole
       and have continuous transparency and open source development to be considered low risk.
+
+    The unverified smart contracts are the biggest red flag, because
+    we cannot verify if they match what the audit says (if there is any).
     """
 
     #: Fully open sourced and audited vaults with transparent strategies,
@@ -78,15 +81,19 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Lagoon": VaultTechnicalRisk.lowish,
     "Velvet Capital": VaultTechnicalRisk.extra_high,
     "Umami": VaultTechnicalRisk.extra_high,
+    # Unverified contracts, no open source repo
+    # https://arbiscan.io/address/0xd15a07a4150b0c057912fe883f7ad22b97161591#code
     "Peapods": VaultTechnicalRisk.dangerous,
     "Ostium": VaultTechnicalRisk.high,
     "Gains": VaultTechnicalRisk.high,
-    "Plutus": VaultTechnicalRisk.dangerous,
+    # No audits
+    "Plutus": VaultTechnicalRisk.extra_high,
     "Harvest Finance": VaultTechnicalRisk.lowish,
     "D2 Finance": VaultTechnicalRisk.extra_high,
     "Untangle Finance": VaultTechnicalRisk.lowish,
     "Yearn v3": VaultTechnicalRisk.lowish,
     "Yearn tokenised strategy": VaultTechnicalRisk.lowish,
+    "Goat Protocol": VaultTechnicalRisk.lowish,
 }
 
 #: Particular vaults that are broken, misleading or otherwise problematic.
