@@ -365,6 +365,7 @@ def identify_vault_features(
         # Not ERC-4626 vault
         return {ERC4626Feature.broken}
 
+    # If a call to an function which cannot exist succeeds, the contract is broken
     if calls["EVM IS BROKEN SHIT"].success:
         return {ERC4626Feature.broken}
 
@@ -436,7 +437,8 @@ def identify_vault_features(
         features.add(ERC4626Feature.d2_like)
 
     if calls["claimableKeeper"].success:
-        features.add({ERC4626Feature.untangled_like, ERC4626Feature.erc_7540_like})
+        features.add(ERC4626Feature.untangled_like)
+        features.add(ERC4626Feature.erc_7540_like)
 
     if calls["tokenizedStrategyAddress"].success:
         features.add(ERC4626Feature.yearn_tokenised_strategy)

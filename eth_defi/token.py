@@ -731,7 +731,7 @@ def fetch_erc20_details(
 
     try:
         try:
-            if chain_id == 42161 and token_address.lower() == "0xaf88d065e77c8cC2239327C5EDb3A432268e5831":
+            if chain_id == 42161 and token_address.lower() == "0xff970a61a04b1ca14834a43f5de4533ebddb5cc8":
                 # Legacy USDC on Arbitrum.
                 # The contract still returns the old symbol, but Arbiscan and others show USDC.e,
                 # and because this is widespread we do this hack override here.
