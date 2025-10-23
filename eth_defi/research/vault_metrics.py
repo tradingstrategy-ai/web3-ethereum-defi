@@ -120,10 +120,10 @@ def calculate_lifetime_metrics(
         max_nav = group["total_assets"].max()
         current_nav = group["total_assets"].iloc[-1]
         chain_id = group["chain"].iloc[-1]
-        mgmt_fee = group["management_fee"].iloc[-1]
-        perf_fee = group["performance_fee"].iloc[-1]
+        mgmt_fee = vault_metadata["Mgmt fee"]
+        perf_fee = vault_metadata["Perf fee"]
         event_count = group["event_count"].iloc[-1]
-        protocol = group["protocol"].iloc[-1]
+        protocol = vault_metadata["Protocol"]
         risk = get_vault_risk(protocol, vault_metadata["Address"])
 
         # Calculate lifetime return using cumulative product approach
