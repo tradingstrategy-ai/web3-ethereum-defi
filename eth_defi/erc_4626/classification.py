@@ -278,6 +278,17 @@ def create_probe_calls(
             extra_data=None,
         )
 
+        # Untangled finance
+        # https://app.untangled.finance/
+        # https://arbiscan.io/address/0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9#code
+        untangled_call = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="claimableKeeper()")[0:4],
+            function="claimableKeeper",
+            data=b"",
+            extra_data=None,
+        )
+
         yield bad_probe_call
         yield name_call
         yield share_price_call
@@ -302,6 +313,7 @@ def create_probe_calls(
         yield umami_call
         yield plutus_call
         yield d2_call
+        yield untangled_call
 
 
 def identify_vault_features(
@@ -412,6 +424,9 @@ def identify_vault_features(
 
     if calls["getCurrentEpochInfo"].success:
         features.add(ERC4626Feature.d2_like)
+
+    if calls["claimableKeeper"].success:
+        features.add(ERC4626Feature.untangled_like)
 
     if len(features) > 4:
         # This contract somehow responses to all calls with success.
@@ -625,6 +640,10 @@ def create_vault_instance(
         from eth_defi.d2.vault import D2Vault
 
         return D2Vault(web3, spec, token_cache=token_cache, features=features)
+    elif ERC4626Feature.untangled_like in features:
+        from eth_defi.untangle.vault import UntangleVault
+
+        return UntangleVault(web3, spec, token_cache=token_cache, features=features)
 
     else:
         # Generic ERC-4626 without fee data

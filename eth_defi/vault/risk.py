@@ -31,10 +31,6 @@ class VaultTechnicalRisk(enum.Enum):
     #:
     lowish = 5
 
-    #: Has Github repository with strategy code, you can follow the development transparently,
-    #: but no transparency on the dev team, no meaningful communications.
-    medium = 10
-
     #: No public Github repository to follow the development, but still publishes full source and providers integrator documentation and transparency
     #:
     #:
@@ -48,7 +44,13 @@ class VaultTechnicalRisk(enum.Enum):
     #:
     extra_high = 40
 
-    #: Not audited, degen, not following blockchain development best practices.
+    #: The contracts of the protocol do not follow any best practices.
+    #:
+    #: Example dangerous level red flags include:
+    #: - Smart contracts are unverified on blockchain explorers: in the case of website goes down, it's difficult for users to get their funds out or known what's happening
+    #: - Not following blockchain development best practices
+    #: - Unaudited code
+    #: - No Github repository of open development
     #:
     #: E.g. Peapods.
     #:
@@ -69,21 +71,11 @@ class VaultTechnicalRisk(enum.Enum):
 #:
 #: See :py:func:`eth_defi.erc_4626.core.get_vault_protocol_name` for the names list.
 #:
-VAULT_PROTOCOL_RISK_MATRIX = {
-    "Euler": VaultTechnicalRisk.low,
-    "Morpho": VaultTechnicalRisk.low,
-    "Enzyme": VaultTechnicalRisk.low,
-    "Lagoon": VaultTechnicalRisk.lowish,
-    "Velvet Capital": VaultTechnicalRisk.extra_high,
-    "Umami": VaultTechnicalRisk.extra_high,
-    "Peapods": VaultTechnicalRisk.dangerous,
-    "Ostium": VaultTechnicalRisk.high,
-    "Gains": VaultTechnicalRisk.high,
-    "Plutus": VaultTechnicalRisk.dangerous,
-    "Harvest Finance": VaultTechnicalRisk.lowish,
-    "D2 Finance": VaultTechnicalRisk.extra_high,
-}
+VAULT_PROTOCOL_RISK_MATRIX = {"Euler": VaultTechnicalRisk.low, "Morpho": VaultTechnicalRisk.low, "Enzyme": VaultTechnicalRisk.low, "Lagoon": VaultTechnicalRisk.lowish, "Velvet Capital": VaultTechnicalRisk.extra_high, "Umami": VaultTechnicalRisk.extra_high, "Peapods": VaultTechnicalRisk.dangerous, "Ostium": VaultTechnicalRisk.high, "Gains": VaultTechnicalRisk.high, "Plutus": VaultTechnicalRisk.dangerous, "Harvest Finance": VaultTechnicalRisk.lowish, "D2 Finance": VaultTechnicalRisk.extra_high, "Untangle Finance": VaultTechnicalRisk.lowish}
 
+#: Particular vaults that are broken, misleading or otherwise problematic.
+#: Users do not want to interact with these and they cause confusion, so we just drop them from reports.
+#:
 #: Lower case address mapping to problem vaults
 VAULT_SPECIFIC_RISK = {
     # Kitsune
@@ -95,6 +87,7 @@ VAULT_SPECIFIC_RISK = {
 def get_vault_risk(
     protocol_name: str,
     vault_address: HexAddress | str | None = None,
+    default=None,
 ):
     """Get technical and developer risk associated with a particular vault"""
 
@@ -103,4 +96,4 @@ def get_vault_risk(
         if risk:
             return risk
 
-    return VAULT_PROTOCOL_RISK_MATRIX.get(protocol_name)
+    return VAULT_PROTOCOL_RISK_MATRIX.get(protocol_name, default)

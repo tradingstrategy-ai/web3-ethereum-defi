@@ -37,6 +37,7 @@ API documentation
    gains/index
    plutus/index
    harvest/index
+   d2_finance/index
    chainlink/index
    foundry/index
    etherscan/index

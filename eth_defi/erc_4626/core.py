@@ -170,6 +170,13 @@ class ERC4626Feature(enum.Enum):
     #:
     d2_like = "d2_like"
 
+    #: Untangled Finance
+    #:
+    #:
+    #: https://arbiscan.io/address/0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9#readContract
+    #:
+    untangled_like = "untangled_like"
+
 
 def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     """Deduct vault protocol name based on Vault smart contract features.
@@ -238,6 +245,8 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "Plutus"
     elif ERC4626Feature.d2_like in features:
         return "D2 Finance"
+    elif ERC4626Feature.untangled_like in features:
+        return "Untangle Finance"
 
     return "<unknown ERC-4626>"
 
