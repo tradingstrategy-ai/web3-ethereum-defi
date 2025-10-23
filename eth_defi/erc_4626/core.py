@@ -125,6 +125,12 @@ class ERC4626Feature(enum.Enum):
     #: https://etherscan.io/address/0xa10c40f9e318b0ed67ecc3499d702d8db9437228#readProxyContract
     yearn_v3_like = "yearn_v3_like"
 
+    #: Yearn silo strategy
+    #: By
+    #:
+    #: https://github.com/johnnyonline/yearn-v3-silo-lender/blob/34b35bd1649f746020f972844cc27cd6f2916374/src/strategies/silo/SiloStrategy.sol#L35
+    yearn_tokenised_strategy = "yearn_tokenised_strategy"
+
     #: Superform
     #: Metavault - cross-chain yield.
     #: https://www.superform.xyz/vault/BB5FPH0VNwM1AxdvVnhn8/
@@ -147,6 +153,35 @@ class ERC4626Feature(enum.Enum):
     #: https://app.euler.finance/vault/0xC063C3b3625DF5F362F60f35B0bcd98e0fa650fb?network=base
     #: https://basescan.org/address/0x30a9a9654804f1e5b3291a86e83eded7cf281618#code
     euler_like = "euler_like"
+
+    #: Umami DAO
+    #:
+    #: gmUSDC vault - ERC-4626 custom in-house, no Github repo
+    #: https://arbiscan.io/address/0x5f851f67d24419982ecd7b7765defd64fbb50a97#readContract
+    #:
+    #:
+    #: deposit() custom signature
+    umami_like = "umami_like"
+
+    #: Plutus
+    #:
+    #: https://plutus.fi/Vaults
+    #:
+    plutus_like = "plutus_like"
+
+    #: D2 Finance
+    #:
+    #:
+    #: https://arbiscan.io/address/0x75288264fdfea8ce68e6d852696ab1ce2f3e5004#code
+    #:
+    d2_like = "d2_like"
+
+    #: Untangled Finance
+    #:
+    #:
+    #: https://arbiscan.io/address/0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9#readContract
+    #:
+    untangled_like = "untangled_like"
 
 
 def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
@@ -204,12 +239,25 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "Superform"
     elif ERC4626Feature.yearn_v3_like in features:
         return "Yearn v3"
+    elif ERC4626Feature.yearn_tokenised_strategy in features:
+        return "Yearn tokenised strategy"
     elif ERC4626Feature.gains_like in features:
         return "Gains"
     elif ERC4626Feature.ostium_like in features:
         return "Ostium"
     elif ERC4626Feature.erc_7540_like in features:
         return "<unknown ERC-7540>"
+    elif ERC4626Feature.umami_like in features:
+        return "Umami"
+    elif ERC4626Feature.plutus_like in features:
+        return "Plutus"
+    elif ERC4626Feature.d2_like in features:
+        return "D2 Finance"
+    elif ERC4626Feature.untangled_like in features:
+        return "Untangle Finance"
+    elif ERC4626Feature.yearn_tokenised_strategy in features:
+        return "Yearn tokenised strategy"
+
     return "<unknown ERC-4626>"
 
 

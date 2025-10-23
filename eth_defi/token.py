@@ -731,8 +731,14 @@ def fetch_erc20_details(
 
     try:
         try:
-            raw_resp = erc_20.functions.symbol().call()
-            symbol = sanitise_string(raw_resp[0:max_str_length])
+            if chain_id == 42161 and token_address.lower() == "0xff970a61a04b1ca14834a43f5de4533ebddb5cc8":
+                # Legacy USDC on Arbitrum.
+                # The contract still returns the old symbol, but Arbiscan and others show USDC.e,
+                # and because this is widespread we do this hack override here.
+                symbol = "USDC.e"
+            else:
+                raw_resp = erc_20.functions.symbol().call()
+                symbol = sanitise_string(raw_resp[0:max_str_length])
         except BadFunctionCallOutput as e:
             # ABI mismatch
             # MakerDAO f*** yeah

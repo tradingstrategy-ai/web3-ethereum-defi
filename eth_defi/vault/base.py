@@ -11,23 +11,25 @@
 
 import dataclasses
 import datetime
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from decimal import Decimal
 from functools import cached_property
-from typing import Iterable, TypedDict, TypeAlias, Tuple
+from typing import Iterable, TypedDict, Tuple
+
 
 from eth_typing import BlockIdentifier, HexAddress, BlockNumber
-from hexbytes import HexBytes
 
 from web3 import Web3
-from web3.contract.contract import ContractFunction
+
 
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.token import DEFAULT_TOKEN_CACHE, TokenAddress, TokenDetails, fetch_erc20_details
 from eth_defi.vault.deposit_redeem import VaultDepositManager
 from eth_defi.vault.lower_case_dict import LowercaseDict
 
+from .risk import VaultTechnicalRisk, get_vault_risk
 
 BlockRange = Tuple[BlockNumber, BlockNumber]
 
@@ -619,6 +621,17 @@ class VaultBase(ABC):
         """
         return self.fetch_info()
 
+    def get_protocol_name(self) -> str:
+        """Return the name of the vault protocol."""
+
+        # TODO: Refactor modules
+        from ..erc_4626.core import get_vault_protocol_name, ERC4626Feature
+
+        features = getattr(self, "features", None)
+        if features is None:
+            features = {ERC4626Feature.broken}
+        return get_vault_protocol_name(features)
+
     def get_management_fee(self, block_identifier: BlockIdentifier) -> float:
         """Get the current management fee as a percent.
 
@@ -634,3 +647,31 @@ class VaultBase(ABC):
             0.1 = 10%
         """
         raise NotImplementedError(f"Class {self.__class__.__name__} does not implement get_performance_fee()")
+
+    def has_custom_fees(self) -> bool:
+        """Does this vault have custom fee structure reading methods.
+
+                Causes risk in the vault comparison.
+
+                -E.g.
+                - Withdraw fee
+                - Deposit fee
+        s
+                :return:
+                    True if custom fee reading methods are implemented
+        """
+        return False
+
+    def get_deposit_fee(self) -> float:
+        """Deposit fee is set to zero by default as vaults usually do not have deposit fees."""
+        raise 0.0
+
+    def get_withdraw_fee(self) -> float:
+        """Withdraw fee is set to zero by default as vaults usually do not have withdraw fees."""
+        raise 0.0
+
+    def get_risk(self) -> VaultTechnicalRisk | None:
+        """Get risk profile of this vault."""
+        address = self.address
+        protocol = self.get_protocol_name()
+        return get_vault_risk(protocol, address)

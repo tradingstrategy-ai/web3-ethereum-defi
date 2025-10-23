@@ -39,12 +39,10 @@ from web3.contract.contract import ContractFunction
 from web3.exceptions import ContractLogicError, BadFunctionCallOutput
 
 from eth_defi.vault.base import VaultFlowManager, VaultInfo, VaultSpec
-from .deposit_redeem import ERC7540DepositRequest
+from eth_defi.erc_7540.vault import ERC7540Vault
 
 from ..abi import encode_function_call, get_deployed_contract, get_function_abi_by_name, get_function_selector, present_solidity_args
 from ..erc_4626.core import ERC4626Feature
-from ..erc_4626.deposit_redeem import ERC4626DepositRequest, ERC4626DepositTicket
-from ..erc_4626.vault import ERC4626Vault
 from ..event_reader.multicall_batcher import EncodedCall
 from ..safe.safe_compat import create_safe_ethereum_client
 from ..trace import assert_transaction_success_with_explanation
@@ -103,7 +101,7 @@ class LagoonVersion(enum.Enum):
     v_0_4_0 = "v0.4.0"
 
 
-class LagoonVault(ERC4626Vault):
+class LagoonVault(ERC7540Vault):
     """Python interface for interacting with Lagoon Finance vaults.
 
     For information see :py:class:`~eth_defi.vault.base.VaultBase` base class documentation.

@@ -15,7 +15,11 @@ Or:
 
 .. code-block:: shell
 
+    # TAC
     LOG_LEVEL=info JSON_RPC_URL=$JSON_RPC_TAC MAX_GETLOGS_RANGE=1000 python scripts/erc-4626/scan-vaults.py
+
+    # Arbitrum
+    LOG_LEVEL=info JSON_RPC_URL=$JSON_RPC_ARBITRUM python scripts/erc-4626/scan-vaults.py
 
 
 Or for faster small sample scan limit the end block:

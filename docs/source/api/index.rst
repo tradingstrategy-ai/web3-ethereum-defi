@@ -33,8 +33,13 @@ API documentation
    ipor/index
    euler/index
    morpho/index
-   chainlink/index
+   umami/index
    gains/index
+   plutus/index
+   harvest/index
+   d2_finance/index
+   untangle/index
+   chainlink/index
    foundry/index
    etherscan/index
    hypersync/index

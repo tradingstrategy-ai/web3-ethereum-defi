@@ -13,6 +13,7 @@ from eth_typing import BlockIdentifier
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.euler.offchain_metadata import EulerVaultMetadata, fetch_euler_vault_metadata
 from eth_defi.event_reader.multicall_batcher import EncodedCall
+from eth_defi.vault.base import VaultTechnicalRisk
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,9 @@ class EulerVault(ERC4626Vault):
 
     TODO: Fees
     """
+
+    def get_risk(self) -> VaultTechnicalRisk | None:
+        return VaultTechnicalRisk.low
 
     @cached_property
     def euler_metadata(self) -> EulerVaultMetadata:

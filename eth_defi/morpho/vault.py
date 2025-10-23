@@ -10,7 +10,7 @@ from web3 import Web3
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.vault.base import VaultHistoricalReader, VaultHistoricalRead
-
+from eth_defi.vault.risk import VaultTechnicalRisk
 
 logger = logging.getLogger(__name__)
 
