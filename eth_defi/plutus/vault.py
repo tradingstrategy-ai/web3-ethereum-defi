@@ -8,7 +8,7 @@ from eth_typing import BlockIdentifier
 
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
 from eth_defi.erc_4626.vault import ERC4626Vault
-from eth_defi.vault.base import VaultRisk
+from eth_defi.vault.base import VaultTechnicalRisk
 
 logger = logging.getLogger(__name__)
 

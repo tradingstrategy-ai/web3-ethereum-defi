@@ -163,6 +163,13 @@ class ERC4626Feature(enum.Enum):
     #:
     plutus_like = "plutus_like"
 
+    #: D2 Finance
+    #:
+    #:
+    #: https://arbiscan.io/address/0x75288264fdfea8ce68e6d852696ab1ce2f3e5004#code
+    #:
+    d2_like = "d2_like"
+
 
 def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     """Deduct vault protocol name based on Vault smart contract features.
@@ -229,6 +236,8 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "Umami"
     elif ERC4626Feature.plutus_like in features:
         return "Plutus"
+    elif ERC4626Feature.d2_like in features:
+        return "D2 Finance"
 
     return "<unknown ERC-4626>"
 

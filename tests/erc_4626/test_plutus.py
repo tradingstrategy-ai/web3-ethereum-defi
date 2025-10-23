@@ -14,7 +14,7 @@ from eth_defi.plutus.vault import PlutusVault
 from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.umami.vault import UmamiVault
-from eth_defi.vault.base import VaultRisk
+from eth_defi.vault.base import VaultTechnicalRisk
 
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
 
@@ -52,7 +52,7 @@ def test_plutus(
 
     assert isinstance(vault, PlutusVault)
 
-    assert vault.get_risk() == VaultRisk.dangerous
+    assert vault.get_risk() == VaultTechnicalRisk.dangerous
     assert vault.get_management_fee("latest") == 0.00
     assert vault.get_performance_fee("latest") == 0.12
     assert vault.has_custom_fees() is False

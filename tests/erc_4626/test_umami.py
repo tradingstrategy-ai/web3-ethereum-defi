@@ -13,7 +13,7 @@ from eth_defi.erc_4626.core import get_vault_protocol_name
 from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.umami.vault import UmamiVault
-from eth_defi.vault.base import VaultRisk
+from eth_defi.vault.base import VaultTechnicalRisk
 
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
 
@@ -57,7 +57,7 @@ def test_umami(
     # https://arbiscan.io/address/0x1E914730B4Cd343aE14530F0BBF6b350d83B833d
     assert aggregate_vault_contract.address == "0x1E914730B4Cd343aE14530F0BBF6b350d83B833d"
 
-    assert gmusdc.get_risk() == VaultRisk.extra_high
+    assert gmusdc.get_risk() == VaultTechnicalRisk.extra_high
     assert gmusdc.get_management_fee("latest") == 0.02
     assert gmusdc.get_performance_fee("latest") == 0.20
     assert gmusdc.has_custom_fees() is True

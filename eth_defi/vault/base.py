@@ -29,7 +29,7 @@ from eth_defi.token import DEFAULT_TOKEN_CACHE, TokenAddress, TokenDetails, fetc
 from eth_defi.vault.deposit_redeem import VaultDepositManager
 from eth_defi.vault.lower_case_dict import LowercaseDict
 
-from .risk import VaultRisk, get_vault_risk
+from .risk import VaultTechnicalRisk, get_vault_risk
 
 BlockRange = Tuple[BlockNumber, BlockNumber]
 
@@ -662,7 +662,7 @@ class VaultBase(ABC):
         """
         return False
 
-    def get_risk(self) -> VaultRisk | None:
+    def get_risk(self) -> VaultTechnicalRisk | None:
         """Get risk profile of this vault."""
 
         address = self.address

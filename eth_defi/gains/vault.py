@@ -36,7 +36,7 @@ from eth_defi.event_reader.multicall_batcher import EncodedCall
 from eth_defi.utils import from_unix_timestamp
 from eth_typing import BlockIdentifier
 
-from eth_defi.vault.risk import VaultRisk
+from eth_defi.vault.risk import VaultTechnicalRisk
 
 logger = logging.getLogger(__name__)
 

@@ -269,6 +269,15 @@ def create_probe_calls(
             extra_data=None,
         )
 
+        # https://arbiscan.io/address/0x75288264fdfea8ce68e6d852696ab1ce2f3e5004#code
+        d2_call = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="getCurrentEpochInfo()")[0:4],
+            function="getCurrentEpochInfo",
+            data=b"",
+            extra_data=None,
+        )
+
         yield bad_probe_call
         yield name_call
         yield share_price_call
@@ -292,6 +301,7 @@ def create_probe_calls(
         yield registry_call
         yield umami_call
         yield plutus_call
+        yield d2_call
 
 
 def identify_vault_features(
@@ -399,6 +409,9 @@ def identify_vault_features(
     # https://arbiscan.io/address/0x0f49730bc6ba3a3024d32131c1da7168d226e737#code
     if calls["SAY_TRADER_ROLE"].success:
         features.add(ERC4626Feature.plutus_like)
+
+    if calls["getCurrentEpochInfo"].success:
+        features.add(ERC4626Feature.d2_like)
 
     if len(features) > 4:
         # This contract somehow responses to all calls with success.
@@ -602,10 +615,16 @@ def create_vault_instance(
         from eth_defi.plutus.vault import PlutusVault
 
         return PlutusVault(web3, spec, token_cache=token_cache, features=features)
+
     elif ERC4626Feature.harvest_finance in features:
         from eth_defi.harvest.vault import HarvestVault
 
         return HarvestVault(web3, spec, token_cache=token_cache, features=features)
+
+    elif ERC4626Feature.d2_like in features:
+        from eth_defi.d2.vault import D2Vault
+
+        return D2Vault(web3, spec, token_cache=token_cache, features=features)
 
     else:
         # Generic ERC-4626 without fee data

@@ -5,7 +5,7 @@ import enum
 from eth_typing import HexAddress
 
 
-class VaultRisk(enum.Enum):
+class VaultTechnicalRisk(enum.Enum):
     """Vault risk profile enum.
 
     This risk profile classification is about the technical risk of the vault.
@@ -70,24 +70,25 @@ class VaultRisk(enum.Enum):
 #: See :py:func:`eth_defi.erc_4626.core.get_vault_protocol_name` for the names list.
 #:
 VAULT_PROTOCOL_RISK_MATRIX = {
-    "Euler": VaultRisk.low,
-    "Morpho": VaultRisk.low,
-    "Enzyme": VaultRisk.low,
-    "Lagoon": VaultRisk.lowish,
-    "Velvet Capital": VaultRisk.extra_high,
-    "Umami": VaultRisk.extra_high,
-    "Peapods": VaultRisk.dangerous,
-    "Ostium": VaultRisk.high,
-    "Gains": VaultRisk.high,
-    "Plutus": VaultRisk.dangerous,
-    "Harvest Finance": VaultRisk.lowish,
+    "Euler": VaultTechnicalRisk.low,
+    "Morpho": VaultTechnicalRisk.low,
+    "Enzyme": VaultTechnicalRisk.low,
+    "Lagoon": VaultTechnicalRisk.lowish,
+    "Velvet Capital": VaultTechnicalRisk.extra_high,
+    "Umami": VaultTechnicalRisk.extra_high,
+    "Peapods": VaultTechnicalRisk.dangerous,
+    "Ostium": VaultTechnicalRisk.high,
+    "Gains": VaultTechnicalRisk.high,
+    "Plutus": VaultTechnicalRisk.dangerous,
+    "Harvest Finance": VaultTechnicalRisk.lowish,
+    "D2 Finance": VaultTechnicalRisk.extra_high,
 }
 
 #: Lower case address mapping to problem vaults
 VAULT_SPECIFIC_RISK = {
     # Kitsune
     # https://arbiscan.io/address/0xe5a4f22fcb8893ba0831babf9a15558b5e83446f#code
-    "0xe5a4f22fcb8893ba0831babf9a15558b5e83446f": VaultRisk.blacklisted,
+    "0xe5a4f22fcb8893ba0831babf9a15558b5e83446f": VaultTechnicalRisk.blacklisted,
 }
 
 

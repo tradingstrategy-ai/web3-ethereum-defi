@@ -1,5 +1,6 @@
-"""Harvest vault tests"""
+"""D2 Finance vault tests"""
 
+import datetime
 import os
 from pathlib import Path
 
@@ -9,7 +10,7 @@ from web3 import Web3
 import flaky
 
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
-from eth_defi.harvest.vault import HarvestVault
+from eth_defi.d2.vault import D2Vault, Epoch
 from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.vault.base import VaultTechnicalRisk
@@ -37,25 +38,26 @@ def web3(anvil_arbitrum_fork):
 
 
 @flaky.flaky
-def test_harvest(
+def test_d2(
     web3: Web3,
     tmp_path: Path,
 ):
-    """Read Harvest vault metadata"""
+    """Read D2 vault metadata"""
 
     vault = create_vault_instance_autodetect(
         web3,
-        vault_address="0x5e777587d6f9261a85d7f062790d4cee71081ba1",
+        vault_address="0x75288264FDFEA8ce68e6D852696aB1cE2f3E5004",
     )
 
-    assert isinstance(vault, HarvestVault)
-
-    assert vault.get_risk() == VaultTechnicalRisk.lowish
+    assert isinstance(vault, D2Vault)
+    assert vault.get_protocol_name() == "D2 Finance"
+    assert vault.get_risk() == VaultTechnicalRisk.extra_high
     assert vault.get_management_fee("latest") == 0.00
-    assert vault.get_performance_fee("latest") == 0.00
+    assert vault.get_performance_fee("latest") == 0.20
     assert vault.has_custom_fees() is False
-    assert vault.get_protocol_name() == "Harvest Finance"
-    assert vault.fetch_pending_fee() == 0
 
-    ftoken = vault.fetch_ftoken()
-    assert ftoken.name == "Varlamore USDC Growth"
+    epoch_id = vault.fetch_current_epoch_id()
+    assert epoch_id == 12
+
+    epoch = vault.fetch_current_epoch_info()
+    assert epoch == Epoch(funding_start=datetime.datetime(2025, 10, 6, 16, 0), epoch_start=datetime.datetime(2025, 10, 7, 16, 0), epoch_end=datetime.datetime(2025, 11, 7, 8, 0))

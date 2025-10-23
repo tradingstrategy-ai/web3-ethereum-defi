@@ -14,7 +14,7 @@ from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, MultiprocessMulticallReader
 from eth_defi.vault.base import VaultHistoricalReader, VaultHistoricalRead
-from eth_defi.vault.risk import VaultRisk
+from eth_defi.vault.risk import VaultTechnicalRisk
 
 #: function getPerformanceFeeData() external view returns (PlasmaVaultStorageLib.PerformanceFeeData memory feeData);
 #: PlasmaVaultLib.sol
@@ -30,8 +30,8 @@ MANAGEGEMENT_FEE_CALL_SIGNATURE = Web3.keccak(text="getManagementFeeData()")[0:4
 class IPORVaultHistoricalReader(ERC4626HistoricalReader):
     """Read IPOR vault core data + fees"""
 
-    def get_risk(self) -> VaultRisk | None:
-        return VaultRisk.low
+    def get_risk(self) -> VaultTechnicalRisk | None:
+        return VaultTechnicalRisk.low
 
     def construct_multicalls(self) -> Iterable[EncodedCall]:
         yield from self.construct_core_erc_4626_multicall()
