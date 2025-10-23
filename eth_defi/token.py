@@ -297,6 +297,7 @@ STABLECOIN_LIKE = set(
         "EURCV",
         "ftUSD",
         "vbUSDC",
+        "vbUSDT",
     ]
 )
 
