@@ -80,7 +80,7 @@ WRAPPED_NATIVE_TOKEN: dict[int, HexAddress | str] = {
     421614: "0x7b79995e5f793A07Bc00c21412e50Ecae098E7f9",
 }
 
-#: Addresses of wrapped native token (WETH9) of different chains
+#: Addresses of USDC of different chains
 USDC_NATIVE_TOKEN: dict[int, HexAddress | str] = {
     # Mainnet
     1: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
