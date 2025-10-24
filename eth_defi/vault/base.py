@@ -662,11 +662,11 @@ class VaultBase(ABC):
         """
         return False
 
-    def get_deposit_fee(self) -> float:
+    def get_deposit_fee(self, block_identifier: BlockIdentifier) -> float:
         """Deposit fee is set to zero by default as vaults usually do not have deposit fees."""
         raise 0.0
 
-    def get_withdraw_fee(self) -> float:
+    def get_withdraw_fee(self, block_identifier: BlockIdentifier) -> float:
         """Withdraw fee is set to zero by default as vaults usually do not have withdraw fees."""
         raise 0.0
 
@@ -675,3 +675,12 @@ class VaultBase(ABC):
         address = self.address
         protocol = self.get_protocol_name()
         return get_vault_risk(protocol, address)
+
+    def get_estimated_lock_up(self) -> datetime.timedelta | None:
+        """What is the estimated lock-up period for this vault.
+
+        :return:
+            None if not know
+        """
+        return None
+
