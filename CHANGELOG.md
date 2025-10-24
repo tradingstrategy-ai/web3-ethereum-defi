@@ -5,7 +5,8 @@
 - Add: New protocol: Umami Finance
 - Add: New protocol: Untangled Finance
 - Add: New protocol: Harvest Finance
-- Add: New protocol: Yearn tokenised strategies
+- Add: New protocol: Yearn Finance
+- Add: New protocol: Goat protocol 
 - Add: `get_block_timestamps_using_hypersync()`
 - Add: Expand `TradingStrategyModuleV0` to cover ERC-7540 and Gains deposit/rdeem
 - Add: Guard updates: Whitelist Lagoon vault deposits into other ERC-7540 vaults (Lagoon vaults)
