@@ -16,6 +16,7 @@ from web3.types import BlockIdentifier
 
 from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.core import ERC4626Feature
+from eth_defi.erc_7540.vault import ERC7540Vault
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, read_multicall_chunked
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.vault.base import VaultBase, VaultSpec
@@ -675,7 +676,16 @@ def create_vault_instance(
         from eth_defi.untangle.vault import UntangleVault
 
         return UntangleVault(web3, spec, token_cache=token_cache, features=features)
+    elif ERC4626Feature.yearn_v3_like in features or ERC4626Feature.yearn_tokenised_strategy in features:
+        # Both of these have fees internatilised
+        from eth_defi.yearn.vault import YearnV3Vault
 
+        return YearnV3Vault(web3, spec, token_cache=token_cache, features=features)
+    elif ERC4626Feature.goat_like in features:
+        # Both of these have fees internatilised
+        from eth_defi.goat.vault import GoatVault
+
+        return GoatVault(web3, spec, token_cache=token_cache, features=features)
     else:
         # Generic ERC-4626 without fee data
         from eth_defi.erc_4626.vault import ERC4626Vault

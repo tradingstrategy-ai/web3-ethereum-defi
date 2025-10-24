@@ -1,6 +1,7 @@
 """Goat protocol tests"""
 
 import os
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -11,6 +12,7 @@ import flaky
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault import ERC4626Vault
+from eth_defi.goat.vault import GoatVault
 from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.untangle.vault import UntangleVault
@@ -49,9 +51,13 @@ def test_goat_protocol(
         vault_address="0x8a1eF3066553275829d1c0F64EE8D5871D5ce9d3",
     )
 
-    assert isinstance(vault, ERC4626Vault)
     assert vault.features == {ERC4626Feature.goat_like}
+    assert isinstance(vault, GoatVault)
     assert vault.get_protocol_name() == "Goat Protocol"
     assert vault.name == "Yield Chasing Silo USDC"
     assert vault.denomination_token.address == "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8"
     assert vault.denomination_token.symbol == "USDC.e"
+
+    profit, loss = vault.fetch_pnl()
+    assert profit == Decimal("5.310608")
+    assert loss == 0

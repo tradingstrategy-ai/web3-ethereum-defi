@@ -39,6 +39,8 @@ API documentation
    harvest/index
    d2_finance/index
    untangle/index
+   yearn/index
+   goat/index
    chainlink/index
    foundry/index
    etherscan/index
