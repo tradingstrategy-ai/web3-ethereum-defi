@@ -97,3 +97,7 @@ class D2Vault(ERC4626Vault):
         https://d2.finance/strategies/0x195eb4d088f222c982282b5dd495e76dba4bc7d1
         """
         return 0.20
+
+    def get_estimated_lock_up(self) -> datetime.timedelta:
+        epoch = self.fetch_current_epoch_info()
+        return epoch.epoch_end - epoch.epoch_start

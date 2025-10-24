@@ -116,3 +116,6 @@ class MorphoVault(ERC4626Vault):
 
         performance_fee = int.from_bytes(data[0:32], byteorder="big") / (10**18)
         return performance_fee
+
+    def get_estimated_lock_up(self) -> datetime.timedelta | None:
+        return datetime.timedelta(days=0)

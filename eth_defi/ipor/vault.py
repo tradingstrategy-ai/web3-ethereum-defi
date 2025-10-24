@@ -209,3 +209,6 @@ class IPORVault(ERC4626Vault):
         access_manager = self.access_manager
         unix_timestamp = access_manager.functions.getAccountLockTime(address).call()
         return datetime.datetime.fromtimestamp(unix_timestamp, tz=datetime.timezone.utc).replace(tzinfo=None)
+
+    def get_estimated_lock_up(self) -> datetime.timedelta | None:
+        return self.get_redemption_delay()

@@ -3,6 +3,7 @@
 - Metadata repo https://github.com/euler-xyz/euler-labels/blob/master/130/vaults.json
 """
 
+import datetime
 from functools import cached_property
 import logging
 
@@ -86,3 +87,6 @@ class EulerVault(ERC4626Vault):
 
         performance_fee = float(int.from_bytes(data[0:32], byteorder="big") / (10**4))
         return performance_fee
+
+    def get_estimated_lock_up(self) -> datetime.timedelta | None:
+        return datetime.timedelta(days=0)

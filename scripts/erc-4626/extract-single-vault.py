@@ -1,4 +1,4 @@
-"""Extract single vault price data out of the bundled data file.
+"""Extract single chain price data out of the bundled data file.
 
 - Resample to any timeframe
 """
@@ -10,13 +10,13 @@ from eth_defi.vault.base import VaultSpec
 
 chain_id = get_chain_id_by_name("ethereum")
 address = "0xd63070114470f685b75b74d60eec7c1113d33a3d"
-resample_period = "4h"
+resample_period = None
 
-spec = VaultSpec(chain_id, address)
-id = spec.as_string_id()
+chain_name = "hemi"
+chain_id = get_chain_id_by_name(chain_name)
 
 path = Path.home() / ".tradingstrategy" / "vaults" / "cleaned-vault-prices-1h.parquet"
-price_df = pd.read_parquet(path, filters=[("id", "==", id)])
+price_df = pd.read_parquet(path, filters=[("chain", "==", chain_id)])
 
 print(f"price_df is")
 #  0   chain                  0 non-null      uint32
@@ -43,8 +43,9 @@ price_df.info()
 
 assert len(price_df) > 0, f"No data found: {id} in {path}"
 
-price_df = price_df.resample(resample_period).last()
+if resample_period:
+    price_df = price_df.resample(resample_period).last()
 
 print(f"Data is {price_df.index.min()} - {price_df.index.max()}, {len(price_df)} rows")
 
-price_df.to_parquet(Path.home() / "Downloads" / f"vault-{id}-prices-{resample_period}.parquet")
+price_df.to_parquet(Path.home() / "Downloads" / f"chain-{chain_name}-prices-{resample_period}.parquet")

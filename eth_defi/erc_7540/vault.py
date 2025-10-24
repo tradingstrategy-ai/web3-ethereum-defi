@@ -3,6 +3,7 @@
 - Generic ERC-7540 request/redeem interface
 """
 
+import datetime
 import logging
 
 from eth_typing import HexAddress
@@ -106,3 +107,7 @@ class ERC7540Vault(ERC4626Vault):
         from eth_defi.lagoon.deposit_redeem import ERC7540DepositManager
 
         return ERC7540DepositManager(self)
+
+    def get_estimated_lock_up(self) -> datetime.timedelta | None:
+        """ERC-7540 vaults have always a lock up."""
+        return None

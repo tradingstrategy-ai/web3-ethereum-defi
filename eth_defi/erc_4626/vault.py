@@ -847,3 +847,7 @@ class ERC4626Vault(VaultBase):
 
     def get_historical_reader(self, stateful) -> VaultHistoricalReader:
         return ERC4626HistoricalReader(self, stateful=stateful)
+
+    def get_estimated_lock_up(self) -> datetime.timedelta:
+        """ERC-4626 vaults do not have a lock up by fault."""
+        return datetime.timedelta(days=0)
