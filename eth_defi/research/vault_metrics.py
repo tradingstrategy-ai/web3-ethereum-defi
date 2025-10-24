@@ -5,6 +5,7 @@
 """
 
 import datetime
+import logging
 from typing import Literal, TypeAlias
 import warnings
 from dataclasses import dataclass
@@ -17,10 +18,9 @@ from plotly.subplots import make_subplots
 from plotly.graph_objects import Figure
 import plotly.io as pio
 from tqdm.auto import tqdm
-from eth_typing import HexAddress
 from ffn.core import PerformanceStats
 from ffn.core import calc_stats
-from ffn.utils import fmtn, fmtp, fmtpn, get_freq_name
+from ffn.utils import fmtn, fmtp
 
 
 from eth_defi.chain import get_chain_name
@@ -31,6 +31,8 @@ from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
 from eth_defi.vault.risk import get_vault_risk, VaultTechnicalRisk
 from eth_defi.compat import native_datetime_utc_now
 
+
+logger = logging.getLogger(__name__)
 
 #: Percent as the floating point.
 #:
@@ -47,6 +49,7 @@ def calculate_net_profit(
     performance_fee: Percent,
     deposit_fee: Percent | None,
     withdrawal_fee: Percent | None,
+    seconds_in_year=365.25 * 86400,
 ) -> Percent:
     """Calculate profit after external fees have been reduced from the share price change.
 
@@ -83,7 +86,11 @@ def calculate_net_profit(
     assert end > start, "End datetime must be after start datetime"
     assert share_price_start > 0, "Start share price must be positive"
     assert share_price_end >= 0, "End share price must be non-negative"
+    if management_fee_annual is None:
+        management_fee_annual = 0.0
     assert 0 <= management_fee_annual < 1, "Management fee must be between 0 and 1"
+    if performance_fee is None:
+        performance_fee = 0.0
     assert 0 <= performance_fee < 1, "Performance fee must be between 0 and 1"
     if deposit_fee is None:
         deposit_fee = 0.0
@@ -92,8 +99,97 @@ def calculate_net_profit(
     assert 0 <= deposit_fee < 1, "Deposit fee must be between 0 and 1"
     assert 0 <= withdrawal_fee < 1, "Withdrawal fee must be between 0 and 1"
 
+    delta = end - start
+    years = delta.total_seconds() / seconds_in_year
+    gross_return = (share_price_end / share_price_start) - 1.0
+    return_after_management = gross_return - (management_fee_annual * years)
+    if return_after_management > 0:
+        net_fund_return = return_after_management * (1 - performance_fee)
+    else:
+        net_fund_return = return_after_management
+    net_profit = (1 - deposit_fee) * (1 + net_fund_return) * (1 - withdrawal_fee) - 1
+    return net_profit
 
-def calculate_sharpe_ratio_from_hourly(hourly_returns: pd.Series, risk_free_rate: float = 0.00) -> float:
+
+def convert_to_net_return_series(
+    share_price: pd.Series,
+    management_fee_annual: Percent,
+    performance_fee: Percent,
+    deposit_fee: Percent | None,
+    withdrawal_fee: Percent | None,
+    seconds_in_year=365.25 * 86400,
+    freq="h",
+) -> pd.Series:
+    """Convert a share price series to net return series after fees.
+
+    :param share_price:
+        Share price series with datetime index.
+
+    :param management_fee_annual:
+        Annual management fee as a percent (0.02 = 2% per year).
+
+    :param performance_fee:
+        Performance fee as a percent (0.20 = 20% of profits).
+
+    :param deposit_fee:
+        Deposit fee as a percent (0.01 = 1% fee), or None if no fee.
+
+    :param withdrawal_fee:
+        Withdrawal fee as a percent (0.01 = 1% fee), or None if no fee.
+
+    :param freq:
+        The time series frequency (hourly, daily, etc) for management fee calculation.
+
+    :return:
+        Net profit as a floating point (0.10 = 10% profit).
+    """
+
+    assert isinstance(share_price, pd.Series), f"share_price must be pandas Series, got {type(share_price)}"
+    assert isinstance(share_price.index, pd.DatetimeIndex), "share_price must have DatetimeIndex"
+
+    if management_fee_annual is None:
+        management_fee_annual = 0.0
+    assert 0 <= management_fee_annual < 1, "Management fee must be between 0 and 1"
+    if performance_fee is None:
+        performance_fee = 0.0
+    assert 0 <= performance_fee < 1, "Performance fee must be between 0 and 1"
+    if deposit_fee is None:
+        deposit_fee = 0.0
+    if withdrawal_fee is None:
+        withdrawal_fee = 0.0
+    assert 0 <= deposit_fee < 1, "Deposit fee must be between 0 and 1"
+    assert 0 <= withdrawal_fee < 1, "Withdrawal fee must be between 0 and 1"
+    if deposit_fee is None:
+        deposit_fee = 0.0
+    if withdrawal_fee is None:
+        withdrawal_fee = 0.0
+    assert 0 <= deposit_fee < 1, "Deposit fee must be between 0 and 1"
+    assert 0 <= withdrawal_fee < 1, "Withdrawal fee must be between 0 and 1"
+
+    if len(share_price) == 0:
+        return share_price
+
+    if len(share_price) == 1:
+        return pd.Series([0], index=share_price.index)
+
+    start_time = share_price.index[0]
+    share_price_start = share_price.iloc[0]
+    deltas = share_price.index - start_time
+    years = deltas.total_seconds() / seconds_in_year
+    gross_returns = (share_price / share_price_start) - 1
+    return_after_management = gross_returns - management_fee_annual * years
+    net_fund_returns = return_after_management.copy()
+    mask = return_after_management > 0
+    net_fund_returns[mask] = net_fund_returns[mask] * (1 - performance_fee)
+    net_profits = (1 - deposit_fee) * (1 + net_fund_returns) * (1 - withdrawal_fee) - 1
+    return pd.Series(net_profits, index=share_price.index)
+
+
+
+def calculate_sharpe_ratio_from_hourly(
+    hourly_returns: pd.Series,
+    risk_free_rate: float = 0.00,
+) -> float:
     """
     Calculate annualized Sharpe ratio from hourly returns.
 
@@ -176,13 +272,14 @@ def calculate_lifetime_metrics(
 
         name = vault_metadata.get("Name")
         denomination = vault_metadata.get("Denomination")
-        risk = vault_metadata.get("risk")
 
         max_nav = group["total_assets"].max()
         current_nav = group["total_assets"].iloc[-1]
         chain_id = group["chain"].iloc[-1]
         mgmt_fee = vault_metadata["Mgmt fee"]
         perf_fee = vault_metadata["Perf fee"]
+        deposit_fee = vault_metadata.get("Deposit fee")
+        withdrawal_fee = vault_metadata.get("Withdraw fee")
         event_count = group["event_count"].iloc[-1]
         protocol = vault_metadata["Protocol"]
         risk = get_vault_risk(protocol, vault_metadata["Address"])
@@ -210,23 +307,48 @@ def calculate_lifetime_metrics(
                 start_date = last_three_months.index.min()
                 end_date = last_three_months.index.max()
                 years = (end_date - start_date).days / 365.25
+
                 three_month_returns = last_three_months.iloc[-1]["share_price"] / last_three_months.iloc[0]["share_price"] - 1
                 three_months_cagr = (1 + three_month_returns) ** (1 / years) - 1 if years > 0 else np.nan
+
+                three_months_return_net = calculate_net_profit(
+                    start=start_date,
+                    end=end_date,
+                    share_price_start=last_three_months.iloc[0]["share_price"],
+                    share_price_end=last_three_months.iloc[-1]["share_price"],
+                    management_fee_annual=mgmt_fee,
+                    performance_fee=perf_fee,
+                    deposit_fee=deposit_fee,
+                    withdrawal_fee=withdrawal_fee,
+                )
+                three_months_cagr_net = (1 + three_months_return_net) ** (1 / years) - 1 if years > 0 else np.nan
+
                 # Calculate volatility so we can separate actively trading vaults (market making, such) from passive vaults (lending optimisaiton)
                 hourly_returns = last_three_months[returns_column]
+                hourly_returns_net = convert_to_net_return_series(
+                    hourly_returns,
+                    management_fee_annual=mgmt_fee,
+                    performance_fee=perf_fee,
+                    deposit_fee=deposit_fee,
+                    withdrawal_fee=withdrawal_fee,
+                )
 
                 # Daily-equivalent volatility from hourly returns (multiply by sqrt(24) to scale from hourly to daily)
                 three_months_volatility = hourly_returns.std() * np.sqrt(30)
                 # three_months_volatility = 0
 
                 three_months_sharpe = calculate_sharpe_ratio_from_hourly(hourly_returns)
+                three_months_sharpe_net = calculate_sharpe_ratio_from_hourly(hourly_returns_net)
 
             else:
                 # We have not collected data for the last three months,
                 # because our stateful reader decided the vault is dead
                 three_months_cagr = 0
+                three_months_cagr_net = 0
                 three_months_volatility = 0
                 three_month_returns = 0
+                three_months_return_net = 0
+                three_months_sharpe_net = 0
                 three_months_sharpe = 0
 
             if len(last_month) >= 2:
@@ -252,8 +374,11 @@ def calculate_lifetime_metrics(
                 "lifetime_return": lifetime_return,
                 "cagr": cagr,
                 "three_months_returns": three_month_returns,
+                "three_months_return_net": three_months_return_net,
                 "three_months_cagr": three_months_cagr,
+                "three_months_cagr_net": three_months_cagr_net,
                 "three_months_sharpe": three_months_sharpe,
+                "three_months_sharpe_net": three_months_sharpe_net,
                 "one_month_returns": one_month_returns,
                 "one_month_cagr": one_month_cagr,
                 "three_months_volatility": three_months_volatility,
@@ -273,11 +398,19 @@ def calculate_lifetime_metrics(
             }
         )
 
+    def process_vault_group_wrapped(group):
+        try:
+            process_vault_group(group)
+        except Exception as e:
+            logger.error("Error processing vault group %s: %s", group.name, e)
+            raise RuntimeError(f"Error processing vault group {group.name}: {e}") from e
+
     # Enable tqdm progress bar for pandas
     tqdm.pandas(desc="Calculating vault performance metrics")
 
     # Use progress_apply instead of the for loop
-    results_df = df.groupby("id").progress_apply(process_vault_group)
+    # results_df = df.groupby("id").progress_apply(process_vault_group)
+    results_df = df.groupby("id", group_keys=False).progress_apply(process_vault_group)
 
     # Reset index to convert the grouped results to a regular DataFrame
     results_df = results_df.reset_index(drop=True)

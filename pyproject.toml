@@ -139,6 +139,7 @@ eth-typing = [
 #]
 filelock = "^3.20.0"
 atomicwrites = "^1.4.1"
+zstandard = "^0.25.0"
 
 
 [tool.poetry.group.dev.dependencies]

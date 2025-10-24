@@ -10,7 +10,7 @@ from eth_defi.vault.base import VaultSpec
 
 chain_id = get_chain_id_by_name("ethereum")
 address = "0xd63070114470f685b75b74d60eec7c1113d33a3d"
-resample_period = None
+resample_period = "1h"
 
 chain_name = "hemi"
 chain_id = get_chain_id_by_name(chain_name)
@@ -43,9 +43,12 @@ price_df.info()
 
 assert len(price_df) > 0, f"No data found: {id} in {path}"
 
-if resample_period:
+if resample_period != "1h":
     price_df = price_df.resample(resample_period).last()
 
 print(f"Data is {price_df.index.min()} - {price_df.index.max()}, {len(price_df)} rows")
 
-price_df.to_parquet(Path.home() / "Downloads" / f"chain-{chain_name}-prices-{resample_period}.parquet")
+out_file = Path.home() / "Downloads" / f"chain-{chain_name}-prices-{resample_period}.parquet"
+price_df.to_parquet(out_file)
+
+print(f"Wrote output to {out_file}, size is {out_file.stat().st_size / 1024:.2f} KB")

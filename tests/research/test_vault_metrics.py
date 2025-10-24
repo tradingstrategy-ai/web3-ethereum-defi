@@ -1,0 +1,59 @@
+"""Test vault metrics calculations and charts."""
+import os.path
+import pickle
+from pathlib import Path
+
+import pandas as pd
+import pytest
+
+import zstandard as zstd
+
+from eth_defi.vault.vaultdb import VaultDatabase
+from eth_defi.research.vault_metrics import calculate_lifetime_metrics
+
+
+@pytest.fixture(scope="module")
+def vault_db() -> VaultDatabase:
+    """Load sample vault database for testing.
+
+    To generate:
+
+    .. code-block:: shell
+
+        zstd -22 --ultra -f -o tests/research/vault-metadata-db.pickle.zstd ~/.tradingstrategy/vaults/vault-metadata-db.pickle
+
+    """
+    path = Path(os.path.dirname(__file__))  / "vault-metadata-db.pickle.zstd"
+    with zstd.open(path, 'rb') as f:
+        return pickle.load(f)
+
+
+@pytest.fixture(scope="module")
+def price_df() -> pd.DataFrame:
+    """Load price data for testing.
+
+    - Use a small sample of Hemi chain data
+    """
+
+    path = Path(os.path.dirname(__file__))  / "chain-hemi-prices-1h.parquet"
+    return pd.read_parquet(path)
+
+
+def test_calculate_lifetime_metrics(
+    vault_db: VaultDatabase,
+    price_df: pd.DataFrame,
+):
+    """Test lifetime metrics calculation."""
+
+    hemi_vaults = [row for row in vault_db.values() if row["_detection_data"].chain == 43111]
+    assert len(hemi_vaults) > 0, "No Hemi vaults found in test data"
+
+    ids = price_df["id"].unique()
+    assert set(ids) == {'43111-0x05c2e246156d37b39a825a25dd08d5589e3fd883', '43111-0x614eb485de3c6c49701b40806ac1b985ad6f0a2f', '43111-0x1324285bb2ddadfc9bebc2f8fc5049d7985312c0'}
+
+    metrics = calculate_lifetime_metrics(
+        price_df,
+        vault_db,
+    )
+
+
