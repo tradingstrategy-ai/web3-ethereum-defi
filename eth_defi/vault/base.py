@@ -664,11 +664,11 @@ class VaultBase(ABC):
 
     def get_deposit_fee(self, block_identifier: BlockIdentifier) -> float:
         """Deposit fee is set to zero by default as vaults usually do not have deposit fees."""
-        raise 0.0
+        return 0.0
 
     def get_withdraw_fee(self, block_identifier: BlockIdentifier) -> float:
         """Withdraw fee is set to zero by default as vaults usually do not have withdraw fees."""
-        raise 0.0
+        return 0.0
 
     def get_risk(self) -> VaultTechnicalRisk | None:
         """Get risk profile of this vault."""
@@ -683,4 +683,3 @@ class VaultBase(ABC):
             None if not know
         """
         return None
-

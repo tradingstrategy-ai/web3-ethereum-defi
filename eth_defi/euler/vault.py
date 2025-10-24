@@ -2,6 +2,7 @@
 
 - Metadata repo https://github.com/euler-xyz/euler-labels/blob/master/130/vaults.json
 """
+
 import datetime
 from functools import cached_property
 import logging

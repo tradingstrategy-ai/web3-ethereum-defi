@@ -2,6 +2,7 @@
 
 - Generic ERC-7540 request/redeem interface
 """
+
 import datetime
 import logging
 

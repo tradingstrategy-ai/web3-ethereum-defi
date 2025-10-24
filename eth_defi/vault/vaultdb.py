@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from pathlib import Path
 from typing import TypedDict, TypeAlias, Iterable
+from atomicwrites import atomic_write
 
 from eth_typing import HexAddress
 
@@ -96,11 +97,17 @@ class VaultDatabase:
             print(f"We have data for {vault_db.get_lead_count()} potential vaults")
 
         """
-        existing_db = pickle.load(path.open("rb"))
+        try:
+            existing_db = pickle.load(path.open("rb"))
+        except Exception as e:
+            raise RuntimeError(f"Could not read vault database from {path}: {e}") from e
         return existing_db
 
     def write(self, path: Path):
-        pickle.dump(self, path.open("wb"))
+        """Do an atomic write to avoid corrupted data."""
+
+        with atomic_write(path, mode="wb", overwrite=True) as f:
+            pickle.dump(self, f)
 
     def get_lead_count(self) -> int:
         return len(self.leads)

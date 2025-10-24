@@ -212,4 +212,3 @@ class IPORVault(ERC4626Vault):
 
     def get_estimated_lock_up(self) -> datetime.timedelta | None:
         return self.get_redemption_delay()
-

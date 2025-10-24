@@ -5,7 +5,7 @@
 """
 
 import datetime
-from typing import Literal
+from typing import Literal, TypeAlias
 import warnings
 from dataclasses import dataclass
 
@@ -30,6 +30,67 @@ from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
 from eth_defi.vault.risk import get_vault_risk, VaultTechnicalRisk
 from eth_defi.compat import native_datetime_utc_now
+
+
+#: Percent as the floating point.
+#:
+#: 0.01 = 1%
+Percent: TypeAlias = float
+
+
+def calculate_net_profit(
+    start: datetime.datetime,
+    end: datetime.datetime,
+    share_price_start: float,
+    share_price_end: float,
+    management_fee_annual: Percent,
+    performance_fee: Percent,
+    deposit_fee: Percent | None,
+    withdrawal_fee: Percent | None,
+) -> Percent:
+    """Calculate profit after external fees have been reduced from the share price change.
+
+    :param start:
+        Start datetime of the investment period.
+
+    :param end:
+        End datetime of the investment period.
+
+    :param share_price_start:
+        Share price at the start of the investment period.
+
+    :param share_price_end:
+        Share price at the end of the investment period.
+
+    :param management_fee_annual:
+        Annual management fee as a percent (0.02 = 2% per year).
+
+    :param performance_fee:
+        Performance fee as a percent (0.20 = 20% of profits).
+
+    :param deposit_fee:
+        Deposit fee as a percent (0.01 = 1% fee), or None if no fee.
+
+    :param withdrawal_fee:
+        Withdrawal fee as a percent (0.01 = 1% fee), or None if no fee.
+
+    :return:
+        Net profit as a floating point (0.10 = 10% profit).
+    """
+
+    assert isinstance(start, datetime.datetime), f"start must be datetime, got {type(start)}"
+    assert isinstance(end, datetime.datetime), f"end must be datetime, got {type(end)}"
+    assert end > start, "End datetime must be after start datetime"
+    assert share_price_start > 0, "Start share price must be positive"
+    assert share_price_end >= 0, "End share price must be non-negative"
+    assert 0 <= management_fee_annual < 1, "Management fee must be between 0 and 1"
+    assert 0 <= performance_fee < 1, "Performance fee must be between 0 and 1"
+    if deposit_fee is None:
+        deposit_fee = 0.0
+    if withdrawal_fee is None:
+        withdrawal_fee = 0.0
+    assert 0 <= deposit_fee < 1, "Deposit fee must be between 0 and 1"
+    assert 0 <= withdrawal_fee < 1, "Withdrawal fee must be between 0 and 1"
 
 
 def calculate_sharpe_ratio_from_hourly(hourly_returns: pd.Series, risk_free_rate: float = 0.00) -> float:

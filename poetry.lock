@@ -323,6 +323,17 @@ files = [
 ]
 
 [[package]]
+name = "atomicwrites"
+version = "1.4.1"
+description = "Atomic file writes."
+optional = false
+python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
+groups = ["main"]
+files = [
+    {file = "atomicwrites-1.4.1.tar.gz", hash = "sha256:81b2c9071a49367a7f770170e5eec8cb66567cfbbc8c73d20ce5ca4a8d71cf11"},
+]
+
+[[package]]
 name = "attrs"
 version = "25.3.0"
 description = "Classes Without Boilerplate"
@@ -8434,4 +8445,4 @@ web3v7 = ["eth-account", "eth-account", "eth-pydantic-types", "eth-pydantic-type
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<4"
-content-hash = "12c1c493d827df020e072b9b4b772607db3244f3bb48aa98f49ec7fcb5d49e64"
+content-hash = "7b8178d1fdaccd64f2a93cfb2992a9d526e86b976aaaf898a27965cd61d5fa4c"
