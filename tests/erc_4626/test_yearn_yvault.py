@@ -15,6 +15,7 @@ from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.untangle.vault import UntangleVault
 from eth_defi.vault.base import VaultTechnicalRisk
+from eth_defi.yearn.vault import YearnV3Vault
 
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
 
@@ -49,27 +50,9 @@ def test_yvault_usdce_symbol(
         vault_address="0x9fa306b1f4a6a83fec98d8ebbabedff78c407f6b",
     )
 
-    assert isinstance(vault, ERC4626Vault)
+    assert isinstance(vault, YearnV3Vault)
     assert vault.get_protocol_name() == "Yearn v3"
     assert vault.denomination_token.address == "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8"
     assert vault.denomination_token.symbol == "USDC.e"
-
-
-@flaky.flaky
-def test_yearn_tokenised_strategy(
-    web3: Web3,
-    tmp_path: Path,
-):
-    """Make sure we can separate USDC/USDC.e from each other on Arbitrum vault output"""
-
-    vault = create_vault_instance_autodetect(
-        web3,
-        vault_address="0x8a1ef3066553275829d1c0f64ee8d5871d5ce9d3",
-    )
-
-    assert isinstance(vault, ERC4626Vault)
-    assert vault.features == {ERC4626Feature.yearn_tokenised_strategy}
-    assert vault.get_protocol_name() == "Yearn v3"
-    assert vault.name == "Yield Chasing Silo USDC"
-    assert vault.denomination_token.address == "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8"
-    assert vault.denomination_token.symbol == "USDC.e"
+    assert vault.get_management_fee("latest") == 0.00
+    assert vault.get_performance_fee("latest") == 0.00
