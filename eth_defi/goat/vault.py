@@ -1,21 +1,20 @@
 """Goat vault support."""
 
-from dataclasses import dataclass
 from decimal import Decimal
 from functools import cached_property
 import logging
 
 from web3.contract import Contract
-from eth_typing import BlockIdentifier, HexAddress
+from eth_typing import BlockIdentifier
 
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
+from eth_defi.erc_4626.vault import ERC4626Vault
 
-from eth_defi.erc_7540.vault import ERC7540Vault
 
 logger = logging.getLogger(__name__)
 
 
-class GoatVault(ERC7540Vault):
+class GoatVault(ERC4626Vault):
     """Goat protocol vaults.
 
     - An `example vault <https://arbiscan.io/address/0x8a1ef3066553275829d1c0f64ee8d5871d5ce9d3#code>`__
@@ -194,7 +193,9 @@ class GoatVault(ERC7540Vault):
         return False
 
     def get_management_fee(self, block_identifier: BlockIdentifier) -> float:
+        """Internalised to the share price"""
         return 0.0
 
     def get_performance_fee(self, block_identifier: BlockIdentifier) -> float | None:
+        """Internalised to the share price"""
         return 0.0

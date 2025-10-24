@@ -1,6 +1,5 @@
 """Yearn vault support."""
 
-from dataclasses import dataclass
 from functools import cached_property
 import logging
 
@@ -8,13 +7,12 @@ from web3.contract import Contract
 from eth_typing import BlockIdentifier, HexAddress
 
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
-
-from eth_defi.erc_7540.vault import ERC7540Vault
+from eth_defi.erc_4626.vault import ERC4626Vault
 
 logger = logging.getLogger(__name__)
 
 
-class YearnV3Vault(ERC7540Vault):
+class YearnV3Vault(ERC4626Vault):
     """Yearn V3 vaults.
 
     - Yearn v3 vaults are ERC-4626 compliant vaults with multiple strategies, built wit Vyper (not Solidity)
