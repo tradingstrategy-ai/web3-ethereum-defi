@@ -1,4 +1,5 @@
 """Goat vault support."""
+
 import datetime
 from decimal import Decimal
 from functools import cached_property

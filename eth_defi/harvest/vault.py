@@ -1,4 +1,5 @@
 """Harvest Finance vault support."""
+
 import datetime
 from functools import cached_property
 import logging

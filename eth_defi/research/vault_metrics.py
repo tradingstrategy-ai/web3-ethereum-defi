@@ -6,7 +6,7 @@
 
 import datetime
 import logging
-from typing import Literal, TypeAlias
+from typing import Literal, TypeAlias, Optional
 import warnings
 from dataclasses import dataclass
 
@@ -47,7 +47,7 @@ def fmt_one_decimal_or_int(x: float) -> str:
         return "?"
 
     y = round(float(x), 1)
-    return f"{y}%" if y.is_integer() else f"{y:.1f}%"
+    return f"{y * 100}%" if y.is_integer() else f"{y * 100:.1f}%"
 
 
 def create_fee_label(
@@ -73,13 +73,41 @@ def create_fee_label(
 
 def calculate_returns(
     share_price: pd.Series,
-    freq="D",   
+    freq="D",
 ) -> pd.Series:
     """Calculate returns from resampled share price series."""
 
     share_price = share_price.resample(freq).last()
     returns = share_price.dropna().pct_change().fillna(0.0)
     return returns
+
+
+def calculate_cumulative_returns(
+    cleaned_returns: pd.Series,
+    freq="D",
+):
+    """Takes a returns series and calculates cumulative returns.
+
+    - The cleaned returns series is created by :py:mod:`eth_defi.research.wrangle_vault_prices`.
+    """
+    assert isinstance(cleaned_returns, pd.Series)
+    assert isinstance(cleaned_returns.index, pd.DatetimeIndex), "returns must have DatetimeIndex"
+
+    s = cleaned_returns
+
+    # Wealth index and cumulative returns
+    wealth = (1.0 + s).cumprod()
+    if freq is None:
+        cum = wealth - 1.0
+    else:
+        # Resample the wealth index correctly, then convert to cumulative returns
+        wealth_resampled = wealth.resample(freq).last()
+        cum = wealth_resampled - 1.0
+
+    # Make the first point baseline 0.0
+    if len(cum) > 0:
+        cum.iloc[0] = 0.0
+    return cum
 
 
 def zero_out_near_zero_prices(s: pd.Series, eps: float = 1e-9, clip_negatives: bool = True) -> pd.Series:
@@ -167,11 +195,11 @@ def calculate_net_profit(
     return net_profit
 
 
-def convert_to_net_return_series(
+def calculate_net_returns_from_price(
     name: str,
     share_price: pd.Series,
-    management_fee_annual: Percent,
-    performance_fee: Percent,
+    management_fee_annual: Percent | None,
+    performance_fee: Percent | None,
     deposit_fee: Percent | None,
     withdrawal_fee: Percent | None,
     seconds_in_year=365.25 * 86400,
@@ -202,7 +230,7 @@ def convert_to_net_return_series(
         The time series frequency (hourly, daily, etc) for management fee calculation.
 
     :return:
-        Net profit as a floating point (0.10 = 10% profit).
+        Cumulative net profit as a floating point (0.10 = 10% profit).
     """
 
     assert isinstance(share_price, pd.Series), f"share_price must be pandas Series, got {type(share_price)}"
@@ -233,7 +261,7 @@ def convert_to_net_return_series(
     if len(share_price) == 1:
         return pd.Series([0], index=share_price.index)
 
-    sp = share_price.astype(float).copy()
+    sp = share_price
 
     # Epsilon issues
     #
@@ -281,6 +309,58 @@ def convert_to_net_return_series(
     out.loc[net_profits_slice.index] = net_profits_slice
 
     return out
+
+
+def calculate_net_returns_from_gross(
+    name: str,
+    cumulative_returns: pd.Series,
+    management_fee_annual: Optional[Percent],
+    performance_fee: Optional[Percent],
+    deposit_fee: Optional[Percent],
+    withdrawal_fee: Optional[Percent],
+    seconds_in_year=365.25 * 86400,
+) -> pd.Series:
+    """Convert a cumulative gross return series to a cumulative net return series after fees.
+
+    This function correctly models a High-Water Mark (HWM) for performance fees,
+    which requires an iterative calculation (a loop). This loop operates on
+    Numpy arrays for maximum speed.
+
+    - Management fees are accrued based on the time delta of each period.
+    - Performance fees are charged only on profits above the highest *net* value.
+    - Deposit fees are applied once at the start (t=0).
+    - Withdrawal fees are applied once at the end (t=T).
+
+    :param name:
+        Name for the returned pandas Series.
+    :param cumulative_returns:
+        A pandas Series with a DatetimeIndex representing the
+        cumulative *gross* return index (e.g., 1.0, 1.02, 1.05) OR
+        cumulative *gross* profit (e.g., 0.0, 0.02, 0.05).
+    :param management_fee_annual:
+        Annual management fee as a decimal (e.g., 0.02 for 2%).
+    :param performance_fee:
+        Performance fee as a decimal (e.g., 0.20 for 20% of profits
+        above the High-Water Mark).
+    :param deposit_fee:
+        Fee applied to the initial deposit as a decimal (e.g., 0.01 for 1%).
+    :param withdrawal_fee:
+        Fee applied to the final withdrawal as a decimal (e.g., 0.01 for 1%).
+    :param seconds_in_year:
+        The number of seconds in a year for precise management fee accrual.
+    :return:
+        A pandas Series of the cumulative *net profit* (e.g., 0.10 for 10%).
+    """
+    virtual_share_price = cumulative_returns + 1.0
+
+    return calculate_net_returns_from_price(
+        name=name,
+        share_price=virtual_share_price,
+        management_fee_annual=management_fee_annual,
+        performance_fee=performance_fee,
+        deposit_fee=deposit_fee,
+        withdrawal_fee=withdrawal_fee,
+    )
 
 
 def calculate_sharpe_ratio_from_returns(
@@ -384,7 +464,7 @@ def calculate_lifetime_metrics(
         lockup = vault_metadata.get("Lock up", datetime.timedelta(0))
 
         # Do we know fees for this vault
-        known_fee = mgmt_fee is not None and perf_fee is not None 
+        known_fee = mgmt_fee is not None and perf_fee is not None
 
         # Calculate lifetime return using cumulative product approach
         with warnings.catch_warnings():
@@ -529,7 +609,7 @@ def calculate_lifetime_metrics(
                 "one_month_returns": one_month_returns,
                 "one_month_returns_net": one_month_returns_net,
                 "one_month_cagr": one_month_cagr,
-                "one_month_cagr_net": one_month_cagr_net,                
+                "one_month_cagr_net": one_month_cagr_net,
                 "denomination": denomination,
                 "chain": get_chain_name(chain_id),
                 "peak_nav": max_nav,
@@ -539,14 +619,14 @@ def calculate_lifetime_metrics(
                 "perf_fee": perf_fee,
                 "deposit_fee": deposit_fee,
                 "withdraw_fee": withdrawal_fee,
-                "fee_label": fee_label,                
+                "fee_label": fee_label,
                 "lockup": lockup,
                 "event_count": event_count,
                 "protocol": protocol,
                 "risk": risk,
                 "id": id_val,
                 "start_date": start_date,
-                "end_date": end_date,                
+                "end_date": end_date,
             }
         )
 
@@ -618,7 +698,6 @@ def clean_lifetime_metrics(
     return lifetime_data_df
 
 
-
 def combine_return_columns(
     gross: pd.Series,
     net: pd.Series,
@@ -658,11 +737,7 @@ def combine_return_columns(
     else:
         _format_combined = _format_combined_usd
 
-    return pd.Series(
-        [_format_combined(g, n) for g, n in zip(gross, net)],
-        index=gross.index
-    )
-
+    return pd.Series([_format_combined(g, n) for g, n in zip(gross, net)], index=gross.index)
 
 
 def format_lifetime_table(
@@ -710,33 +785,33 @@ def format_lifetime_table(
     df["three_months_cagr"] = combine_return_columns(
         gross=df["three_months_cagr"],
         net=df["three_months_cagr_net"],
-    )    
+    )
 
     df["three_months_returns"] = combine_return_columns(
         gross=df["three_months_returns"],
         net=df["three_months_returns_net"],
-    )        
+    )
 
     df["one_month_cagr"] = combine_return_columns(
         gross=df["one_month_cagr"],
         net=df["one_month_cagr_net"],
-    )        
+    )
 
     df["one_month_returns"] = combine_return_columns(
         gross=df["one_month_returns"],
         net=df["one_month_returns_net"],
-    )         
+    )
 
     df["current_nav"] = combine_return_columns(
         gross=df["current_nav"],
         net=df["peak_nav"],
         mode="usd",
-    )         
+    )
 
     # df["three_months_sharpe"] = combine_return_columns(
     #    gross=df["three_months_sharpe"],
     #    net=df["three_months_sharpe_net"],
-    # )         
+    # )
 
     # df["cagr"] = df["cagr"].apply(lambda x: f"{x:.2%}")
     # df["lifetime_return"] = df["lifetime_return"].apply(lambda x: f"{x:.2%}")
@@ -749,7 +824,7 @@ def format_lifetime_table(
     df["event_count"] = df["event_count"].apply(lambda x: f"{x:,}")
     df["risk"] = df["risk"].apply(lambda x: x.get_risk_level_name() if x is not None else "Unknown")
 
-    df["lockup"] = df["lockup"].apply(lambda x: f"{x.days} days" if pd.notna(x) else "-")
+    df["lockup"] = df["lockup"].apply(lambda x: f"{x.days}" if pd.notna(x) else "unk.")
 
     # df["mgmt_fee"] = df["mgmt_fee"].apply(lambda x: f"{x:.2%}" if pd.notna(x) else "?")
     # df["perf_fee"] = df["perf_fee"].apply(lambda x: f"{x:.2%}" if pd.notna(x) else "?")
@@ -767,11 +842,11 @@ def format_lifetime_table(
     del df["one_month_returns_net"]
     del df["three_months_sharpe_net"]
     del df["peak_nav"]
-    
+
     df = df.rename(
         columns={
             "cagr": "Lifetime return ann. (net / gross)",
-            "lifetime_return": "Lifetime return abs. (net / gross)",            
+            "lifetime_return": "Lifetime return abs. (net / gross)",
             "three_months_returns": "3M return abs. (net / gross)",
             "three_months_cagr": "3M return ann. (net / gross)",
             "three_months_volatility": "3M volatility",
@@ -788,7 +863,7 @@ def format_lifetime_table(
             "risk": "Risk",
             "end_date": "Latest deposit",
             "name": "Name",
-            "lockup": "Lock up",
+            "lockup": "Lock up est. days",
             "fee_label": "Fees (mgmt / perf / dep / with    )",
         }
     )
@@ -994,7 +1069,7 @@ def calculate_performance_metrics_for_all_vaults(
 
     lifetime_data_df = lifetime_data_df.sort_values(by="cagr", ascending=False)
     lifetime_data_df = lifetime_data_df.set_index("name")
-    
+
     assert not lifetime_data_df.index.duplicated().any(), f"There are duplicate ids in the index: {lifetime_data_df.index}"
 
     # Verify we no longer have duplicates

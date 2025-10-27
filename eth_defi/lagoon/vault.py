@@ -20,6 +20,7 @@ Lagoon error code translation.
 
 - `See Codeslaw page to translate custome errors to human readable <https://www.codeslaw.app/contracts/base/0xe50554ec802375c9c3f9c087a8a7bb8c26d3dedf?tab=abi>`__
 """
+
 import datetime
 import enum
 import logging

@@ -1,5 +1,6 @@
 """Yearn vault support."""
-from datetime import datetime
+
+import datetime
 from functools import cached_property
 import logging
 

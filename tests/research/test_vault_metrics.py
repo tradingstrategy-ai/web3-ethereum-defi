@@ -7,8 +7,10 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+from plotly.graph_objects import Figure
 import zstandard as zstd
 
+from eth_defi.research.vault_benchmark import visualise_vault_return_benchmark
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.risk import VaultTechnicalRisk
 from eth_defi.vault.vaultdb import VaultDatabase
@@ -110,3 +112,21 @@ def test_vault_charts(
         vault_db=vault_db,
         render=False,
     )
+
+
+def test_vault_benchmark(
+    vault_db: VaultDatabase,
+    price_df: pd.DataFrame,
+):
+    """Draw the vault chart benchmark chart.
+
+    - Only 1 vault to benchmark
+    """
+
+    spec = VaultSpec.parse_string("43111-0x05c2e246156d37b39a825a25dd08d5589e3fd883")
+    fig = visualise_vault_return_benchmark(
+        [spec],
+        prices_df=price_df,
+        vault_db=vault_db,
+    )
+    assert isinstance(fig, Figure)

@@ -1,4 +1,5 @@
 """Umami gmUSDC vault support."""
+
 import datetime
 from functools import cached_property
 import logging

@@ -51,11 +51,22 @@ class VaultRow(TypedDict):
         "First seen at": datetime.datetime,
         "Mgmt fee": float,
         "Perf fee": float,
+        "Deposit fee": float,
+        "Withdrawal fee": float,
     }
 
 
 #: Legacy pickle format
 VaultDatabaseOld: TypeAlias = dict[VaultSpec, VaultRow]
+
+
+def has_good_fee_data(vault_row: VaultRow) -> bool:
+    """Check if the vault row has good fee data."""
+    mgmt_fee = vault_row.get("Mgmt fee")
+    perf_fee = vault_row.get("Perf fee")
+    if mgmt_fee is None or perf_fee is None:
+        return False
+    return True
 
 
 @dataclass(slots=True)
