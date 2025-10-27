@@ -138,6 +138,7 @@ eth-typing = [
 #    {version = "^v0.10.1-beta.2", markers = "extra == 'web3v6'"}
 #]
 filelock = "^3.20.0"
+ostium-python-sdk = "^3.0.0"
 
 
 [tool.poetry.group.dev.dependencies]

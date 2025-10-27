@@ -17,9 +17,7 @@ import "./GuardV0Base.sol";
  *
  */
 contract GuardV0 is GuardV0Base, Ownable {
-
-    constructor() Ownable() {
-    }
+    constructor() Ownable() {}
 
     /**
      * Specify a modifier for guard owner
@@ -32,8 +30,7 @@ contract GuardV0 is GuardV0Base, Ownable {
     /**
      * Get the address of the proto DAO
      */
-    function getGovernanceAddress() override public view returns (address) {
+    function getGovernanceAddress() public view override returns (address) {
         return owner();
     }
-
 }
