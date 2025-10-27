@@ -40,6 +40,20 @@ logger = logging.getLogger(__name__)
 Percent: TypeAlias = float
 
 
+def zero_out_near_zero_prices(s: pd.Series, eps: float = 1e-9, clip_negatives: bool = True) -> pd.Series:
+    """
+    Replace values with \|x\| < eps by 0. Optionally clip negatives to 0.
+    Keeps NaN as-is, turns \{+/-\}inf into NaN.
+    """
+    s = pd.Series(s, dtype="float64").copy()
+    s[~np.isfinite(s)] = np.nan
+    if clip_negatives:
+        s = s.clip(lower=0.0)
+    # Zero-out tiny magnitudes
+    s = s.where(~np.isclose(s, 0.0, atol=eps), 0.0)
+    return s
+
+
 def calculate_net_profit(
     start: datetime.datetime,
     end: datetime.datetime,
@@ -112,15 +126,20 @@ def calculate_net_profit(
 
 
 def convert_to_net_return_series(
+    name: str,
     share_price: pd.Series,
     management_fee_annual: Percent,
     performance_fee: Percent,
     deposit_fee: Percent | None,
     withdrawal_fee: Percent | None,
     seconds_in_year=365.25 * 86400,
+    zero_epsilon=0.001,
     freq="h",
 ) -> pd.Series:
     """Convert a share price series to net return series after fees.
+
+    :param name:
+        For debugging
 
     :param share_price:
         Share price series with datetime index.
@@ -172,18 +191,58 @@ def convert_to_net_return_series(
     if len(share_price) == 1:
         return pd.Series([0], index=share_price.index)
 
-    start_time = share_price.index[0]
-    share_price_start = share_price.iloc[0]
-    deltas = share_price.index - start_time
-    years = deltas.total_seconds() / seconds_in_year
-    gross_returns = (share_price / share_price_start) - 1
-    return_after_management = gross_returns - management_fee_annual * years
-    net_fund_returns = return_after_management.copy()
-    mask = return_after_management > 0
-    net_fund_returns[mask] = net_fund_returns[mask] * (1 - performance_fee)
-    net_profits = (1 - deposit_fee) * (1 + net_fund_returns) * (1 - withdrawal_fee) - 1
-    return pd.Series(net_profits, index=share_price.index)
+    sp = share_price.astype(float).copy()
 
+    # Epsilon issues
+    #
+    # array([0.00000000e+00, 2.99184722e-06, 1.99455884e-06, 9.97277433e-07,
+    #        9.97276438e-07, 9.97275444e-07, 9.97274449e-07, 9.97273454e-07,
+    #        9.97272460e-07, 9.97271465e-07, 9.97270471e-07, 9.97269476e-07,
+    #        9.97268482e-07, 9.97267487e-07, 9.97266492e-07, 9.97265498e-07,
+    #        9.97264504e-07, 9.97263509e-07, 9.97262514e-07, 9.97261520e-07,
+    #        9.97260525e-07, 9.97259531e-07, 9.97258536e-07, 9.97257542e-07,
+    #        9.97256547e-07, 9.97255553e-07, 9.97254558e-07, 9.97253564e-07,
+    #        9.97252569e-07, 9.97251575e-07, 9.97250580e-07])
+    sp = zero_out_near_zero_prices(sp, eps=zero_epsilon)
+
+    # Find first strictly positive, finite price to avoid division by zero
+    valid = np.isfinite(sp.values) & (sp.values > 0.0)
+    if not valid.any():
+        # No valid start price -> return zeros
+        return pd.Series(0.0, index=sp.index)
+
+    first_pos_idx = sp.index[np.argmax(valid)]
+    sp_slice = sp.loc[first_pos_idx:]
+
+    start_time = sp_slice.index[0]
+    share_price_start = sp_slice.iloc[0]
+
+    deltas = sp_slice.index - start_time
+    years = deltas.total_seconds() / seconds_in_year
+
+    gross_returns = (sp_slice / share_price_start) - 1.0
+    return_after_management = gross_returns - (management_fee_annual * years)
+
+    # Apply performance fee only on positive returns
+    net_fund_returns = return_after_management.where(
+        return_after_management <= 0.0,
+        return_after_management * (1.0 - performance_fee),
+    )
+
+    net_profits_slice = (1.0 - deposit_fee) * (1.0 + net_fund_returns) * (1.0 - withdrawal_fee) - 1.0
+
+    # Ensure t0 is 0 return
+    net_profits_slice.iloc[0] = 0.0
+
+    # Pre-start values are 0
+    out = pd.Series(0.0, index=sp.index, dtype=float)
+    out.loc[net_profits_slice.index] = net_profits_slice
+
+    import ipdb
+
+    ipdb.set_trace()
+
+    return out
 
 
 def calculate_sharpe_ratio_from_hourly(
@@ -289,14 +348,26 @@ def calculate_lifetime_metrics(
             # We may have severeal division by zero if the share price starts at 0
             warnings.simplefilter("ignore", RuntimeWarning)
 
+            start_date = group.index.min()
+            end_date = group.index.max()
+
             lifetime_return = group.iloc[-1]["share_price"] / group.iloc[0]["share_price"] - 1
+            lifetime_return_net = calculate_net_profit(
+                start=start_date,
+                end=end_date,
+                share_price_start=group.iloc[0]["share_price"],
+                share_price_end=group.iloc[-1]["share_price"],
+                management_fee_annual=mgmt_fee,
+                performance_fee=perf_fee,
+                deposit_fee=deposit_fee,
+                withdrawal_fee=withdrawal_fee,
+            )
 
             # Calculate CAGR
             # Get the first and last date
-            start_date = group.index.min()
-            end_date = group.index.max()
             age = years = (end_date - start_date).days / 365.25
             cagr = (1 + lifetime_return) ** (1 / years) - 1 if years > 0 else np.nan
+            cagr_net = (1 + lifetime_return_net) ** (1 / years) - 1 if years > 0 else np.nan
 
             last_three_months = group.loc[three_months_ago:]
             last_month = group.loc[month_ago:]
@@ -326,12 +397,16 @@ def calculate_lifetime_metrics(
                 # Calculate volatility so we can separate actively trading vaults (market making, such) from passive vaults (lending optimisaiton)
                 hourly_returns = last_three_months[returns_column]
                 hourly_returns_net = convert_to_net_return_series(
+                    name,
                     hourly_returns,
                     management_fee_annual=mgmt_fee,
                     performance_fee=perf_fee,
                     deposit_fee=deposit_fee,
                     withdrawal_fee=withdrawal_fee,
                 )
+                import ipdb
+
+                ipdb.set_trace()
 
                 # Daily-equivalent volatility from hourly returns (multiply by sqrt(24) to scale from hourly to daily)
                 three_months_volatility = hourly_returns.std() * np.sqrt(30)
@@ -358,6 +433,18 @@ def calculate_lifetime_metrics(
                 one_month_returns = last_month.iloc[-1]["share_price"] / last_month.iloc[0]["share_price"] - 1
                 one_month_cagr = (1 + one_month_returns) ** (1 / years) - 1 if years > 0 else np.nan
 
+                one_month_return_net = calculate_net_profit(
+                    start=start_date,
+                    end=end_date,
+                    share_price_start=last_month.iloc[0]["share_price"],
+                    share_price_end=last_month.iloc[-1]["share_price"],
+                    management_fee_annual=mgmt_fee,
+                    performance_fee=perf_fee,
+                    deposit_fee=deposit_fee,
+                    withdrawal_fee=withdrawal_fee,
+                )
+                one_month_cagr_net = (1 + one_month_return_net) ** (1 / years) - 1 if years > 0 else np.nan
+
                 # if not printed:
                 #    print(f"Name: {name}, last month: {start_date} - {end_date}, years: {years}, exp. {1/years}, one month returns: {one_month_returns}, one month CAGR: {one_month_cagr}")
                 #    printed = True
@@ -367,12 +454,16 @@ def calculate_lifetime_metrics(
                 # because our stateful reader decided the vault is dead
                 one_month_cagr = 0
                 one_month_returns = 0
+                one_month_return_net = 0
+                one_month_cagr_net = 0
 
         return pd.Series(
             {
                 "name": name,
                 "lifetime_return": lifetime_return,
+                "lifetime_return_net": lifetime_return_net,
                 "cagr": cagr,
+                "cagr_net": cagr_net,
                 "three_months_returns": three_month_returns,
                 "three_months_return_net": three_months_return_net,
                 "three_months_cagr": three_months_cagr,
@@ -380,7 +471,9 @@ def calculate_lifetime_metrics(
                 "three_months_sharpe": three_months_sharpe,
                 "three_months_sharpe_net": three_months_sharpe_net,
                 "one_month_returns": one_month_returns,
+                "one_month_return_net": one_month_return_net,
                 "one_month_cagr": one_month_cagr,
+                "one_month_cagr_net": one_month_cagr_net,
                 "three_months_volatility": three_months_volatility,
                 "denomination": denomination,
                 "chain": get_chain_name(chain_id),
@@ -389,6 +482,8 @@ def calculate_lifetime_metrics(
                 "years": age,
                 "mgmt_fee": mgmt_fee,
                 "perf_fee": perf_fee,
+                "deposit_fee": deposit_fee,
+                "withdraw_fee": withdrawal_fee,
                 "event_count": event_count,
                 "protocol": protocol,
                 "risk": risk,

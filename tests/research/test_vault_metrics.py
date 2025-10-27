@@ -1,4 +1,5 @@
 """Test vault metrics calculations and charts."""
+
 import os.path
 import pickle
 from pathlib import Path
@@ -8,6 +9,7 @@ import pytest
 
 import zstandard as zstd
 
+from eth_defi.vault.risk import VaultTechnicalRisk
 from eth_defi.vault.vaultdb import VaultDatabase
 from eth_defi.research.vault_metrics import calculate_lifetime_metrics
 
@@ -23,8 +25,8 @@ def vault_db() -> VaultDatabase:
         zstd -22 --ultra -f -o tests/research/vault-metadata-db.pickle.zstd ~/.tradingstrategy/vaults/vault-metadata-db.pickle
 
     """
-    path = Path(os.path.dirname(__file__))  / "vault-metadata-db.pickle.zstd"
-    with zstd.open(path, 'rb') as f:
+    path = Path(os.path.dirname(__file__)) / "vault-metadata-db.pickle.zstd"
+    with zstd.open(path, "rb") as f:
         return pickle.load(f)
 
 
@@ -32,10 +34,10 @@ def vault_db() -> VaultDatabase:
 def price_df() -> pd.DataFrame:
     """Load price data for testing.
 
-    - Use a small sample of Hemi chain data
+    - Use a small sample of Hemi chain data taken with extract-single-chain.py
     """
 
-    path = Path(os.path.dirname(__file__))  / "chain-hemi-prices-1h.parquet"
+    path = Path(os.path.dirname(__file__)) / "chain-hemi-prices-1h.parquet"
     return pd.read_parquet(path)
 
 
@@ -49,11 +51,39 @@ def test_calculate_lifetime_metrics(
     assert len(hemi_vaults) > 0, "No Hemi vaults found in test data"
 
     ids = price_df["id"].unique()
-    assert set(ids) == {'43111-0x05c2e246156d37b39a825a25dd08d5589e3fd883', '43111-0x614eb485de3c6c49701b40806ac1b985ad6f0a2f', '43111-0x1324285bb2ddadfc9bebc2f8fc5049d7985312c0'}
+    assert set(ids) == {"43111-0x05c2e246156d37b39a825a25dd08d5589e3fd883", "43111-0x614eb485de3c6c49701b40806ac1b985ad6f0a2f", "43111-0x1324285bb2ddadfc9bebc2f8fc5049d7985312c0"}
 
     metrics = calculate_lifetime_metrics(
         price_df,
         vault_db,
     )
 
+    # We should get data for 4 vaults
+    assert len(metrics) == 3
 
+    sample_row = metrics.set_index("id").loc["43111-0x05c2e246156d37b39a825a25dd08d5589e3fd883"]
+    assert sample_row["chain"] == "Hemi"
+    assert sample_row["years"] == pytest.approx(0.11225188227241616)
+    assert sample_row["name"] == "Clearstar USDC.e"
+    assert sample_row["perf_fee"] == 0.15
+    assert sample_row["mgmt_fee"] == 0
+    assert sample_row["deposit_fee"] == 0
+    assert sample_row["withdraw_fee"] == 0
+    assert sample_row["risk"] == VaultTechnicalRisk.low
+    assert sample_row["current_nav"] == pytest.approx(2345373.103418)
+
+    assert sample_row["lifetime_return"] == pytest.approx(0.002758)
+    assert sample_row["cagr"] == pytest.approx(0.02483940718068034)
+    assert sample_row["cagr_net"] == pytest.approx(0.02107892820280277)
+
+    assert sample_row["three_months_cagr"] == pytest.approx(0.02483940718068034)
+    assert sample_row["three_months_cagr_net"] == pytest.approx(0.02107892820280277)
+    assert sample_row["three_months_sharpe"] == pytest.approx(18.755993)
+    import ipdb
+
+    ipdb.set_trace()
+
+    assert sample_row["one_month_returns"] == pytest.approx(0.001749)
+    assert sample_row["one_month_returns_net"] == pytest.approx(0.001487)
+    assert sample_row["one_month_cagr"] == pytest.approx(0.022256)
+    assert sample_row["one_month_cagr_net"] == pytest.approx(0.018889)
