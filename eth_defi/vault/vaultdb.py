@@ -148,6 +148,9 @@ class VaultDatabase:
     # Backwards compatibility methods, do not use in the future
     #
 
+    def __len__(self):
+        return len(self.rows)
+
     def keys(self) -> Iterable[VaultSpec]:
         """Iterable human readable vault (chain, address) tuples."""
         return self.rows.keys()
@@ -159,9 +162,6 @@ class VaultDatabase:
     def items(self) -> Iterable[tuple[HexAddress, VaultRow]]:
         """Iterable human readable rows."""
         return self.rows.items()
-
-    def __len__(self):
-        return len(self.rows)
 
     def get(self, key: VaultSpec, default=None) -> VaultRow | None:
         """Get vault row by spec."""

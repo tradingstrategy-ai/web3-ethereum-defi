@@ -12,7 +12,7 @@ import zstandard as zstd
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.risk import VaultTechnicalRisk
 from eth_defi.vault.vaultdb import VaultDatabase
-from eth_defi.research.vault_metrics import calculate_lifetime_metrics, display_vault_chart_and_tearsheet
+from eth_defi.research.vault_metrics import calculate_lifetime_metrics, display_vault_chart_and_tearsheet, format_lifetime_table
 
 
 @pytest.fixture(scope="module")
@@ -87,6 +87,14 @@ def test_calculate_lifetime_metrics(
     assert sample_row["one_month_returns_net"] == pytest.approx(0.0014868527392914999)
     assert sample_row["one_month_cagr"] == pytest.approx(0.02225616485623605)
     assert sample_row["one_month_cagr_net"] == pytest.approx(0.018888926446635645)
+
+    # We can get human readable output
+    formatted = format_lifetime_table(
+        metrics,
+        add_index=True,
+        add_address=True,
+    )
+    assert len(formatted) == 3
 
 
 def test_vault_charts(

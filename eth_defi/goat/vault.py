@@ -1,5 +1,5 @@
 """Goat vault support."""
-
+import datetime
 from decimal import Decimal
 from functools import cached_property
 import logging
@@ -199,3 +199,6 @@ class GoatVault(ERC4626Vault):
     def get_performance_fee(self, block_identifier: BlockIdentifier) -> float | None:
         """Internalised to the share price"""
         return 0.0
+
+    def get_estimated_lock_up(self) -> datetime.timedelta:
+        return datetime.timedelta(days=0)

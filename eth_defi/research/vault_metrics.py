@@ -40,10 +40,14 @@ logger = logging.getLogger(__name__)
 Percent: TypeAlias = float
 
 
-def fmt_one_decimal_or_int(x) -> str:
+def fmt_one_decimal_or_int(x: float) -> str:
     """Display fees to .1 accuracy if there are .1 fractions, otherwise as int."""
+
+    if x is None:
+        return "?"
+
     y = round(float(x), 1)
-    return str(int(y)) if y.is_integer() else f"{y:.1f}"
+    return f"{y}%" if y.is_integer() else f"{y:.1f}%"
 
 
 def create_fee_label(
@@ -56,44 +60,32 @@ def create_fee_label(
 
     Order is: management / performance / deposit / withdrawal fees.
     """
-    if management_fee_annual is None:
-        management_fee_annual = 0.0
-    assert 0 <= management_fee_annual < 1, "Management fee must be between 0 and 1"
-    if performance_fee is None:
-        performance_fee = 0.0
-    assert 0 <= performance_fee < 1, "Performance fee must be between 0 and 1"
-    if deposit_fee is None:
-        deposit_fee = 0.0
-    if withdrawal_fee is None:
-        withdrawal_fee = 0.0
-    assert 0 <= deposit_fee < 1, "Deposit fee must be between 0 and 1"
-    assert 0 <= withdrawal_fee < 1, "Withdrawal fee must be between 0 and 1"
 
     # All fees zero
     if management_fee_annual == 0 and performance_fee == 0 and deposit_fee == 0 and withdrawal_fee == 0:
         return "0%"
 
-    if deposit_fee == 0 and withdrawal_fee == 0:
-        return f"{fmt_one_decimal_or_int(management_fee_annual * 100)}% / {fmt_one_decimal_or_int(performance_fee * 100)}%"
+    if deposit_fee in (0, None) and withdrawal_fee in (0, None):
+        return f"{fmt_one_decimal_or_int(management_fee_annual)} / {fmt_one_decimal_or_int(performance_fee)}"
 
-    return f"{fmt_one_decimal_or_int(management_fee_annual * 100)}% / {fmt_one_decimal_or_int(performance_fee * 100)}% / {fmt_one_decimal_or_int(deposit_fee * 100)}% / {fmt_one_decimal_or_int(withdrawal_fee * 100)}%"
+    return f"{fmt_one_decimal_or_int(management_fee_annual)} / {fmt_one_decimal_or_int(performance_fee)} / {fmt_one_decimal_or_int(deposit_fee)} / {fmt_one_decimal_or_int(withdrawal_fee)}"
 
 
 def calculate_returns(
     share_price: pd.Series,
-    freq="D",
+    freq="D",   
 ) -> pd.Series:
     """Calculate returns from resampled share price series."""
 
     share_price = share_price.resample(freq).last()
-    returns = share_price.pct_change().fillna(0.0)
+    returns = share_price.dropna().pct_change().fillna(0.0)
     return returns
 
 
 def zero_out_near_zero_prices(s: pd.Series, eps: float = 1e-9, clip_negatives: bool = True) -> pd.Series:
     """
-    Replace values with \|x\| < eps by 0. Optionally clip negatives to 0.
-    Keeps NaN as-is, turns \{+/-\}inf into NaN.
+    Replace values with |x| < eps by 0. Optionally clip negatives to 0.
+    Keeps NaN as-is, turns {+/-} inf into NaN.
     """
     s = pd.Series(s, dtype="float64").copy()
     s[~np.isfinite(s)] = np.nan
@@ -389,6 +381,10 @@ def calculate_lifetime_metrics(
         event_count = group["event_count"].iloc[-1]
         protocol = vault_metadata["Protocol"]
         risk = get_vault_risk(protocol, vault_metadata["Address"])
+        lockup = vault_metadata.get("Lock up", datetime.timedelta(0))
+
+        # Do we know fees for this vault
+        known_fee = mgmt_fee is not None and perf_fee is not None 
 
         # Calculate lifetime return using cumulative product approach
         with warnings.catch_warnings():
@@ -399,22 +395,30 @@ def calculate_lifetime_metrics(
             end_date = group.index.max()
 
             lifetime_return = group.iloc[-1]["share_price"] / group.iloc[0]["share_price"] - 1
-            lifetime_return_net = calculate_net_profit(
-                start=start_date,
-                end=end_date,
-                share_price_start=group.iloc[0]["share_price"],
-                share_price_end=group.iloc[-1]["share_price"],
-                management_fee_annual=mgmt_fee,
-                performance_fee=perf_fee,
-                deposit_fee=deposit_fee,
-                withdrawal_fee=withdrawal_fee,
-            )
+
+            if known_fee:
+                lifetime_return_net = calculate_net_profit(
+                    start=start_date,
+                    end=end_date,
+                    share_price_start=group.iloc[0]["share_price"],
+                    share_price_end=group.iloc[-1]["share_price"],
+                    management_fee_annual=mgmt_fee,
+                    performance_fee=perf_fee,
+                    deposit_fee=deposit_fee,
+                    withdrawal_fee=withdrawal_fee,
+                )
+            else:
+                lifetime_return_net = None
 
             # Calculate CAGR
             # Get the first and last date
             age = years = (end_date - start_date).days / 365.25
             cagr = (1 + lifetime_return) ** (1 / years) - 1 if years > 0 else np.nan
-            cagr_net = (1 + lifetime_return_net) ** (1 / years) - 1 if years > 0 else np.nan
+
+            if known_fee:
+                cagr_net = (1 + lifetime_return_net) ** (1 / years) - 1 if years > 0 else np.nan
+            else:
+                cagr_net = None
 
             last_three_months = group.loc[three_months_ago:]
             last_month = group.loc[month_ago:]
@@ -435,17 +439,21 @@ def calculate_lifetime_metrics(
 
                 three_months_cagr = (1 + three_month_returns) ** (1 / years) - 1 if years > 0 else np.nan
 
-                three_months_return_net = calculate_net_profit(
-                    start=start_date,
-                    end=end_date,
-                    share_price_start=last_three_months.iloc[0]["share_price"],
-                    share_price_end=last_three_months.iloc[-1]["share_price"],
-                    management_fee_annual=mgmt_fee,
-                    performance_fee=perf_fee,
-                    deposit_fee=deposit_fee,
-                    withdrawal_fee=withdrawal_fee,
-                )
-                three_months_cagr_net = (1 + three_months_return_net) ** (1 / years) - 1 if years > 0 else np.nan
+                if known_fee:
+                    three_months_return_net = calculate_net_profit(
+                        start=start_date,
+                        end=end_date,
+                        share_price_start=last_three_months.iloc[0]["share_price"],
+                        share_price_end=last_three_months.iloc[-1]["share_price"],
+                        management_fee_annual=mgmt_fee,
+                        performance_fee=perf_fee,
+                        deposit_fee=deposit_fee,
+                        withdrawal_fee=withdrawal_fee,
+                    )
+                    three_months_cagr_net = (1 + three_months_return_net) ** (1 / years) - 1 if years > 0 else np.nan
+                else:
+                    three_months_return_net = None
+                    three_months_cagr_net = None
 
                 # Daily-equivalent volatility from hourly returns (multiply by sqrt(24) to scale from hourly to daily)
                 three_months_volatility = returns_series.std() * np.sqrt(30)
@@ -473,17 +481,21 @@ def calculate_lifetime_metrics(
                 one_month_returns = last_month.iloc[-1]["share_price"] / last_month.iloc[0]["share_price"] - 1
                 one_month_cagr = (1 + one_month_returns) ** (1 / years) - 1 if years > 0 else np.nan
 
-                one_month_returns_net = calculate_net_profit(
-                    start=start_date,
-                    end=end_date,
-                    share_price_start=last_month.iloc[0]["share_price"],
-                    share_price_end=last_month.iloc[-1]["share_price"],
-                    management_fee_annual=mgmt_fee,
-                    performance_fee=perf_fee,
-                    deposit_fee=deposit_fee,
-                    withdrawal_fee=withdrawal_fee,
-                )
-                one_month_cagr_net = (1 + one_month_returns_net) ** (1 / years) - 1 if years > 0 else np.nan
+                if known_fee:
+                    one_month_returns_net = calculate_net_profit(
+                        start=start_date,
+                        end=end_date,
+                        share_price_start=last_month.iloc[0]["share_price"],
+                        share_price_end=last_month.iloc[-1]["share_price"],
+                        management_fee_annual=mgmt_fee,
+                        performance_fee=perf_fee,
+                        deposit_fee=deposit_fee,
+                        withdrawal_fee=withdrawal_fee,
+                    )
+                    one_month_cagr_net = (1 + one_month_returns_net) ** (1 / years) - 1 if years > 0 else np.nan
+                else:
+                    one_month_returns_net = None
+                    one_month_cagr_net = None
 
             else:
                 # We have not collected data for the last month,
@@ -508,16 +520,16 @@ def calculate_lifetime_metrics(
                 "cagr": cagr,
                 "cagr_net": cagr_net,
                 "three_months_returns": three_month_returns,
-                "three_months_return_net": three_months_return_net,
+                "three_months_returns_net": three_months_return_net,
                 "three_months_cagr": three_months_cagr,
                 "three_months_cagr_net": three_months_cagr_net,
                 "three_months_sharpe": three_months_sharpe,
                 "three_months_sharpe_net": three_months_sharpe_net,
+                "three_months_volatility": three_months_volatility,
                 "one_month_returns": one_month_returns,
                 "one_month_returns_net": one_month_returns_net,
                 "one_month_cagr": one_month_cagr,
-                "one_month_cagr_net": one_month_cagr_net,
-                "three_months_volatility": three_months_volatility,
+                "one_month_cagr_net": one_month_cagr_net,                
                 "denomination": denomination,
                 "chain": get_chain_name(chain_id),
                 "peak_nav": max_nav,
@@ -527,13 +539,14 @@ def calculate_lifetime_metrics(
                 "perf_fee": perf_fee,
                 "deposit_fee": deposit_fee,
                 "withdraw_fee": withdrawal_fee,
+                "fee_label": fee_label,                
+                "lockup": lockup,
                 "event_count": event_count,
                 "protocol": protocol,
                 "risk": risk,
                 "id": id_val,
                 "start_date": start_date,
-                "end_date": end_date,
-                "fee_label": fee_label,
+                "end_date": end_date,                
             }
         )
 
@@ -605,6 +618,53 @@ def clean_lifetime_metrics(
     return lifetime_data_df
 
 
+
+def combine_return_columns(
+    gross: pd.Series,
+    net: pd.Series,
+    new_line=" ",
+    mode: Literal["percent", "usd"] = "percent",
+):
+    """Create combined net / (gross) returns column for display.
+
+    E.g. 8.3% (10.5%)
+
+    :param gross:
+        Gross returns series
+
+    :param net:
+        Net returns series
+
+    :return:
+        Combined string series
+    """
+
+    assert gross.index.equals(net.index), f"Gross and net series must have the same index {len(gross)} != {len(net)}"
+
+    def _format_combined_percent(g, n):
+        if n is not None and pd.isna(n) == False:
+            return f"{n:.1%}{new_line}({g:.1%})"
+        else:
+            return f"unk.{new_line}({g:.1%})"
+
+    def _format_combined_usd(g, n):
+        if n:
+            return f"{n:,.0f}{new_line}({g:,.0f})"
+        else:
+            return f"unk.{new_line}({g:.0f})"
+
+    if mode == "percent":
+        _format_combined = _format_combined_percent
+    else:
+        _format_combined = _format_combined_usd
+
+    return pd.Series(
+        [_format_combined(g, n) for g, n in zip(gross, net)],
+        index=gross.index
+    )
+
+
+
 def format_lifetime_table(
     df: pd.DataFrame,
     add_index=False,
@@ -636,42 +696,100 @@ def format_lifetime_table(
         df = df.loc[df["risk"] != VaultTechnicalRisk.blacklisted]
 
     del df["start_date"]  # We have Age
-    df["cagr"] = df["cagr"].apply(lambda x: f"{x:.2%}")
-    df["lifetime_return"] = df["lifetime_return"].apply(lambda x: f"{x:.2%}")
-    df["three_months_cagr"] = df["three_months_cagr"].apply(lambda x: f"{x:.2%}")
-    df["three_months_returns"] = df["three_months_returns"].apply(lambda x: f"{x:.2%}")
-    df["one_month_cagr"] = df["one_month_cagr"].apply(lambda x: f"{x:.2%}")
-    df["one_month_returns"] = df["one_month_returns"].apply(lambda x: f"{x:.2%}")
+
+    df["cagr"] = combine_return_columns(
+        gross=df["cagr"],
+        net=df["cagr_net"],
+    )
+
+    df["lifetime_return"] = combine_return_columns(
+        gross=df["lifetime_return"],
+        net=df["lifetime_return_net"],
+    )
+
+    df["three_months_cagr"] = combine_return_columns(
+        gross=df["three_months_cagr"],
+        net=df["three_months_cagr_net"],
+    )    
+
+    df["three_months_returns"] = combine_return_columns(
+        gross=df["three_months_returns"],
+        net=df["three_months_returns_net"],
+    )        
+
+    df["one_month_cagr"] = combine_return_columns(
+        gross=df["one_month_cagr"],
+        net=df["one_month_cagr_net"],
+    )        
+
+    df["one_month_returns"] = combine_return_columns(
+        gross=df["one_month_returns"],
+        net=df["one_month_returns_net"],
+    )         
+
+    df["current_nav"] = combine_return_columns(
+        gross=df["current_nav"],
+        net=df["peak_nav"],
+        mode="usd",
+    )         
+
+    # df["three_months_sharpe"] = combine_return_columns(
+    #    gross=df["three_months_sharpe"],
+    #    net=df["three_months_sharpe_net"],
+    # )         
+
+    # df["cagr"] = df["cagr"].apply(lambda x: f"{x:.2%}")
+    # df["lifetime_return"] = df["lifetime_return"].apply(lambda x: f"{x:.2%}")
+    # df["three_months_cagr"] = df["three_months_cagr"].apply(lambda x: f"{x:.2%}")
+    # df["three_months_returns"] = df["three_months_returns"].apply(lambda x: f"{x:.2%}")
+    # df["one_month_cagr"] = df["one_month_cagr"].apply(lambda x: f"{x:.2%}")
+    # df["one_month_returns"] = df["one_month_returns"].apply(lambda x: f"{x:.2%}")
     df["three_months_volatility"] = df["three_months_volatility"].apply(lambda x: f"{x:.4f}")
     df["three_months_sharpe"] = df["three_months_sharpe"].apply(lambda x: f"{x:.1f}")
     df["event_count"] = df["event_count"].apply(lambda x: f"{x:,}")
-    df["mgmt_fee"] = df["mgmt_fee"].apply(lambda x: f"{x:.2%}" if pd.notna(x) else "?")
-    df["perf_fee"] = df["perf_fee"].apply(lambda x: f"{x:.2%}" if pd.notna(x) else "?")
     df["risk"] = df["risk"].apply(lambda x: x.get_risk_level_name() if x is not None else "Unknown")
 
+    df["lockup"] = df["lockup"].apply(lambda x: f"{x.days} days" if pd.notna(x) else "-")
+
+    # df["mgmt_fee"] = df["mgmt_fee"].apply(lambda x: f"{x:.2%}" if pd.notna(x) else "?")
+    # df["perf_fee"] = df["perf_fee"].apply(lambda x: f"{x:.2%}" if pd.notna(x) else "?")
+    del df["mgmt_fee"]
+    del df["perf_fee"]
+    del df["deposit_fee"]
+    del df["withdraw_fee"]
+
+    # Combined
+    del df["cagr_net"]
+    del df["lifetime_return_net"]
+    del df["three_months_cagr_net"]
+    del df["three_months_returns_net"]
+    del df["one_month_cagr_net"]
+    del df["one_month_returns_net"]
+    del df["three_months_sharpe_net"]
+    del df["peak_nav"]
+    
     df = df.rename(
         columns={
-            "lifetime_return": "Lifetime return",
-            "cagr": "Lifetime return ann.",
-            "three_months_returns": "3M return",
-            "three_months_cagr": "3M return ann.",
+            "cagr": "Lifetime return ann. (net / gross)",
+            "lifetime_return": "Lifetime return abs. (net / gross)",            
+            "three_months_returns": "3M return abs. (net / gross)",
+            "three_months_cagr": "3M return ann. (net / gross)",
             "three_months_volatility": "3M volatility",
             "three_months_sharpe": "3M sharpe",
-            "one_month_returns": "1M return",
-            "one_month_cagr": "1M return ann.",
+            "one_month_returns": "1M return abs. (net / gross)",
+            "one_month_cagr": "1M return ann. (net / gross)",
             "event_count": "Deposit events",
-            "peak_nav": "Peak TVL USD",
-            "current_nav": "Current TVL USD",
+            # "peak_nav": "Peak TVL USD",
+            "current_nav": "TVL USD (current / peak)",
             "years": "Age (years)",
-            "mgmt_fee": "Mgmt fee %",
-            "perf_fee": "Perf fee %",
             "denomination": "Denomination",
             "chain": "Chain",
             "protocol": "Protocol",
             "risk": "Risk",
-            # "start_date": "First deposit",
-            "end_date": "Last deposit",
+            "end_date": "Latest deposit",
             "name": "Name",
+            "lockup": "Lock up",
+            "fee_label": "Fees (mgmt / perf / dep / with    )",
         }
     )
 
@@ -876,7 +994,7 @@ def calculate_performance_metrics_for_all_vaults(
 
     lifetime_data_df = lifetime_data_df.sort_values(by="cagr", ascending=False)
     lifetime_data_df = lifetime_data_df.set_index("name")
-
+    
     assert not lifetime_data_df.index.duplicated().any(), f"There are duplicate ids in the index: {lifetime_data_df.index}"
 
     # Verify we no longer have duplicates
