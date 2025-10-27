@@ -72,18 +72,27 @@ class VaultSpec:
         return f"{self.chain_id}-{self.vault_address}"
 
     @staticmethod
-    def parse_string(spec: str, separator=",") -> "VaultSpec":
+    def parse_string(spec: str, separator="auto") -> "VaultSpec":
         """Parse vault spec from a string.
 
         :param spec:
             String in the format of "chain_id,address" or "chain_id-address"
 
         :param separator:
-            Either "-" or ","
+            Either "auto" or "-" or ","
 
         :return:
             :py:class:`VaultSpec` instance
         """
+
+        if separator == "auto":
+            if "-" in spec:
+                separator = "-"
+            elif "," in spec:
+                separator = ","
+            else:
+                raise ValueError(f"Cannot parse vault spec from string: {spec}. No separator found.")
+
         try:
             chain_id, address = spec.split(separator)
             chain_id = chain_id.strip()

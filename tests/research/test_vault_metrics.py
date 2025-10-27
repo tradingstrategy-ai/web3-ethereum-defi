@@ -9,9 +9,10 @@ import pytest
 
 import zstandard as zstd
 
+from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.risk import VaultTechnicalRisk
 from eth_defi.vault.vaultdb import VaultDatabase
-from eth_defi.research.vault_metrics import calculate_lifetime_metrics
+from eth_defi.research.vault_metrics import calculate_lifetime_metrics, display_vault_chart_and_tearsheet
 
 
 @pytest.fixture(scope="module")
@@ -86,3 +87,19 @@ def test_calculate_lifetime_metrics(
     assert sample_row["one_month_returns_net"] == pytest.approx(0.0014868527392914999)
     assert sample_row["one_month_cagr"] == pytest.approx(0.02225616485623605)
     assert sample_row["one_month_cagr_net"] == pytest.approx(0.018888926446635645)
+
+
+def test_vault_charts(
+    vault_db: VaultDatabase,
+    price_df: pd.DataFrame,
+):
+    """Draw vault chart figures."""
+
+    spec = VaultSpec.parse_string("43111-0x05c2e246156d37b39a825a25dd08d5589e3fd883")
+    display_vault_chart_and_tearsheet(
+        spec,
+        prices_df=price_df,
+        vault_db=vault_db,
+        render=False,
+    )
+

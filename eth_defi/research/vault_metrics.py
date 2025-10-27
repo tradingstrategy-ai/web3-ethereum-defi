@@ -24,6 +24,7 @@ from ffn.utils import fmtn, fmtp
 
 from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.core import ERC4262VaultDetection
+from eth_defi.research.value_table import format_series_as_multi_column_grid
 from eth_defi.token import is_stablecoin_like
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
@@ -1116,3 +1117,85 @@ def calculate_hourly_returns_for_all_vaults(df_work: pd.DataFrame) -> pd.DataFra
     df_result = pd.concat(result_dfs)
 
     return df_result
+
+
+
+
+def display_vault_chart_and_tearsheet(
+    vault_spec: VaultSpec,
+    vault_db: VaultDatabase,
+    prices_df: pd.DataFrame,
+    render=True,
+):
+    """Render a chart and tearsheet for a single vault.
+
+    - Use in notebooks
+
+    :param render;
+        Disable rendering in tests
+    """
+
+    from IPython.display import display, HTML
+
+    vault_report = analyse_vault(
+        vault_db=vault_db,
+        prices_df=prices_df,
+        spec=vault_spec,
+        chart_frequency="daily",
+        logger=lambda x: None,
+    )
+
+    chain_name = get_chain_name(vault_spec.chain_id)
+    vault_name = vault_report.vault_metadata["Name"]
+
+    title = HTML(f"<h2>Vault {vault_name} ({chain_name}): {vault_spec.vault_address})</h2><br>")
+
+    if render:
+        display(title)
+
+    # Display returns figur
+    returns_chart_fig = vault_report.rolling_returns_chart
+
+    if render:
+        returns_chart_fig.show()
+
+    # Check raw montly share price numbers for each vault
+    hourly_price_df = vault_report.hourly_df
+    last_price_at = hourly_price_df.index[-1]
+    last_price = hourly_price_df["share_price"].asof(last_price_at)
+    last_block = hourly_price_df["block_number"].asof(last_price_at)
+    month_ago = last_price_at - pd.DateOffset(months=1)
+    month_ago_price = hourly_price_df["share_price"].asof(month_ago)
+    month_ago_block = hourly_price_df["block_number"].asof(month_ago)
+
+    # Price may be NA if vault is less than month old
+    # assert not pd.isna(month_ago_price), f"Vault {vault_spec.chain_id}-{vault_spec.vault_address}: no price data for month ago {month_ago} found, last price at {last_price_at} is {last_price}"
+
+    data = {
+        "Vault": f"{vault_name} ({chain_name})",
+        "Last price at": last_price_at,
+        "Last price": last_price,
+        "Block last price": f"{month_ago_block:,}",
+        "Month ago": month_ago,
+        "Block month ago": f"{month_ago_block:,}",
+        "Month ago price": month_ago_price,
+        "Monthly change %": (last_price - month_ago_price) / month_ago_price * 100,
+    }
+
+    df = pd.Series(data)
+    # display(df)
+
+    # Display FFN stats
+    performance_stats = vault_report.performance_stats
+    if performance_stats is not None:
+        stats_df = format_ffn_performance_stats(performance_stats)
+
+        multi_column_df = format_series_as_multi_column_grid(stats_df)
+
+        # display(stats_df)
+        out_table = HTML(multi_column_df.to_html(float_format='{:,.2f}'.format, index=True))
+        if render:
+            display(out_table)
+    else:
+        if render:
+            print(f"Vault {vault_spec.chain_id}-{vault_spec.vault_address}: performance metrics not available, is quantstats library installed?")
