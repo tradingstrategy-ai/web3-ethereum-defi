@@ -71,6 +71,7 @@ def test_calculate_lifetime_metrics(
     assert sample_row["withdraw_fee"] == 0
     assert sample_row["risk"] == VaultTechnicalRisk.low
     assert sample_row["current_nav"] == pytest.approx(2345373.103418)
+    assert sample_row["fee_label"] == "0% / 15%"
 
     assert sample_row["lifetime_return"] == pytest.approx(0.002758)
     assert sample_row["cagr"] == pytest.approx(0.02483940718068034)
@@ -78,12 +79,10 @@ def test_calculate_lifetime_metrics(
 
     assert sample_row["three_months_cagr"] == pytest.approx(0.02483940718068034)
     assert sample_row["three_months_cagr_net"] == pytest.approx(0.02107892820280277)
-    assert sample_row["three_months_sharpe"] == pytest.approx(18.755993)
-    import ipdb
+    assert sample_row["three_months_sharpe"] == pytest.approx(16.179159820274062)
+    assert sample_row["three_months_sharpe_net"] == pytest.approx(16.179159820274062)
 
-    ipdb.set_trace()
-
-    assert sample_row["one_month_returns"] == pytest.approx(0.001749)
-    assert sample_row["one_month_returns_net"] == pytest.approx(0.001487)
-    assert sample_row["one_month_cagr"] == pytest.approx(0.022256)
-    assert sample_row["one_month_cagr_net"] == pytest.approx(0.018889)
+    assert sample_row["one_month_returns"] == pytest.approx(0.0017492385168136337)
+    assert sample_row["one_month_returns_net"] == pytest.approx(0.0014868527392914999)
+    assert sample_row["one_month_cagr"] == pytest.approx(0.02225616485623605)
+    assert sample_row["one_month_cagr_net"] == pytest.approx(0.018888926446635645)

@@ -22,7 +22,6 @@ from ffn.core import PerformanceStats
 from ffn.core import calc_stats
 from ffn.utils import fmtn, fmtp
 
-
 from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.core import ERC4262VaultDetection
 from eth_defi.token import is_stablecoin_like
@@ -38,6 +37,56 @@ logger = logging.getLogger(__name__)
 #:
 #: 0.01 = 1%
 Percent: TypeAlias = float
+
+
+def fmt_one_decimal_or_int(x) -> str:
+    """Display fees to .1 accuracy if there are .1 fractions, otherwise as int."""
+    y = round(float(x), 1)
+    return str(int(y)) if y.is_integer() else f"{y:.1f}"
+
+
+def create_fee_label(
+    management_fee_annual: Percent,
+    performance_fee: Percent,
+    deposit_fee: Percent | None,
+    withdrawal_fee: Percent | None,
+):
+    """Create 2% / 20% style labels to display variosu kinds of vault fees.
+
+    Order is: management / performance / deposit / withdrawal fees.
+    """
+    if management_fee_annual is None:
+        management_fee_annual = 0.0
+    assert 0 <= management_fee_annual < 1, "Management fee must be between 0 and 1"
+    if performance_fee is None:
+        performance_fee = 0.0
+    assert 0 <= performance_fee < 1, "Performance fee must be between 0 and 1"
+    if deposit_fee is None:
+        deposit_fee = 0.0
+    if withdrawal_fee is None:
+        withdrawal_fee = 0.0
+    assert 0 <= deposit_fee < 1, "Deposit fee must be between 0 and 1"
+    assert 0 <= withdrawal_fee < 1, "Withdrawal fee must be between 0 and 1"
+
+    # All fees zero
+    if management_fee_annual == 0 and performance_fee == 0 and deposit_fee == 0 and withdrawal_fee == 0:
+        return "0%"
+
+    if deposit_fee == 0 and withdrawal_fee == 0:
+        return f"{fmt_one_decimal_or_int(management_fee_annual * 100)}% / {fmt_one_decimal_or_int(performance_fee * 100)}%"
+
+    return f"{fmt_one_decimal_or_int(management_fee_annual * 100)}% / {fmt_one_decimal_or_int(performance_fee * 100)}% / {fmt_one_decimal_or_int(deposit_fee * 100)}% / {fmt_one_decimal_or_int(withdrawal_fee * 100)}%"
+
+
+def calculate_returns(
+    share_price: pd.Series,
+    freq="D",
+) -> pd.Series:
+    """Calculate returns from resampled share price series."""
+
+    share_price = share_price.resample(freq).last()
+    returns = share_price.pct_change().fillna(0.0)
+    return returns
 
 
 def zero_out_near_zero_prices(s: pd.Series, eps: float = 1e-9, clip_negatives: bool = True) -> pd.Series:
@@ -238,16 +287,13 @@ def convert_to_net_return_series(
     out = pd.Series(0.0, index=sp.index, dtype=float)
     out.loc[net_profits_slice.index] = net_profits_slice
 
-    import ipdb
-
-    ipdb.set_trace()
-
     return out
 
 
-def calculate_sharpe_ratio_from_hourly(
+def calculate_sharpe_ratio_from_returns(
     hourly_returns: pd.Series,
     risk_free_rate: float = 0.00,
+    year_multiplier: float = 365,
 ) -> float:
     """
     Calculate annualized Sharpe ratio from hourly returns.
@@ -264,11 +310,11 @@ def calculate_sharpe_ratio_from_hourly(
 
     # Annualize mean return (assuming compounding)
     mean_hourly_return = hourly_returns.mean()
-    annualized_return = mean_hourly_return * 8760  # ~8760 hours/year
+    annualized_return = mean_hourly_return * year_multiplier  # ~8760 hours/year
 
     # Annualize volatility
     std_hourly_return = hourly_returns.std()
-    annualized_volatility = std_hourly_return * np.sqrt(8760)
+    annualized_volatility = std_hourly_return * np.sqrt(year_multiplier)
 
     # Sharpe ratio
     if annualized_volatility == 0:
@@ -379,7 +425,13 @@ def calculate_lifetime_metrics(
                 end_date = last_three_months.index.max()
                 years = (end_date - start_date).days / 365.25
 
+                returns_series = calculate_returns(
+                    last_three_months["share_price"],
+                    freq="D",
+                )
+
                 three_month_returns = last_three_months.iloc[-1]["share_price"] / last_three_months.iloc[0]["share_price"] - 1
+
                 three_months_cagr = (1 + three_month_returns) ** (1 / years) - 1 if years > 0 else np.nan
 
                 three_months_return_net = calculate_net_profit(
@@ -394,26 +446,12 @@ def calculate_lifetime_metrics(
                 )
                 three_months_cagr_net = (1 + three_months_return_net) ** (1 / years) - 1 if years > 0 else np.nan
 
-                # Calculate volatility so we can separate actively trading vaults (market making, such) from passive vaults (lending optimisaiton)
-                hourly_returns = last_three_months[returns_column]
-                hourly_returns_net = convert_to_net_return_series(
-                    name,
-                    hourly_returns,
-                    management_fee_annual=mgmt_fee,
-                    performance_fee=perf_fee,
-                    deposit_fee=deposit_fee,
-                    withdrawal_fee=withdrawal_fee,
-                )
-                import ipdb
-
-                ipdb.set_trace()
-
                 # Daily-equivalent volatility from hourly returns (multiply by sqrt(24) to scale from hourly to daily)
-                three_months_volatility = hourly_returns.std() * np.sqrt(30)
+                three_months_volatility = returns_series.std() * np.sqrt(30)
                 # three_months_volatility = 0
 
-                three_months_sharpe = calculate_sharpe_ratio_from_hourly(hourly_returns)
-                three_months_sharpe_net = calculate_sharpe_ratio_from_hourly(hourly_returns_net)
+                three_months_sharpe = calculate_sharpe_ratio_from_returns(returns_series)
+                three_months_sharpe_net = calculate_sharpe_ratio_from_returns(returns_series)
 
             else:
                 # We have not collected data for the last three months,
@@ -430,10 +468,11 @@ def calculate_lifetime_metrics(
                 start_date = last_month.index.min()
                 end_date = last_month.index.max()
                 years = (end_date - start_date).days / 365.25
+
                 one_month_returns = last_month.iloc[-1]["share_price"] / last_month.iloc[0]["share_price"] - 1
                 one_month_cagr = (1 + one_month_returns) ** (1 / years) - 1 if years > 0 else np.nan
 
-                one_month_return_net = calculate_net_profit(
+                one_month_returns_net = calculate_net_profit(
                     start=start_date,
                     end=end_date,
                     share_price_start=last_month.iloc[0]["share_price"],
@@ -443,19 +482,22 @@ def calculate_lifetime_metrics(
                     deposit_fee=deposit_fee,
                     withdrawal_fee=withdrawal_fee,
                 )
-                one_month_cagr_net = (1 + one_month_return_net) ** (1 / years) - 1 if years > 0 else np.nan
-
-                # if not printed:
-                #    print(f"Name: {name}, last month: {start_date} - {end_date}, years: {years}, exp. {1/years}, one month returns: {one_month_returns}, one month CAGR: {one_month_cagr}")
-                #    printed = True
+                one_month_cagr_net = (1 + one_month_returns_net) ** (1 / years) - 1 if years > 0 else np.nan
 
             else:
                 # We have not collected data for the last month,
                 # because our stateful reader decided the vault is dead
                 one_month_cagr = 0
                 one_month_returns = 0
-                one_month_return_net = 0
+                one_month_returns_net = 0
                 one_month_cagr_net = 0
+
+        fee_label = create_fee_label(
+            management_fee_annual=mgmt_fee,
+            performance_fee=perf_fee,
+            deposit_fee=deposit_fee,
+            withdrawal_fee=withdrawal_fee,
+        )
 
         return pd.Series(
             {
@@ -471,7 +513,7 @@ def calculate_lifetime_metrics(
                 "three_months_sharpe": three_months_sharpe,
                 "three_months_sharpe_net": three_months_sharpe_net,
                 "one_month_returns": one_month_returns,
-                "one_month_return_net": one_month_return_net,
+                "one_month_returns_net": one_month_returns_net,
                 "one_month_cagr": one_month_cagr,
                 "one_month_cagr_net": one_month_cagr_net,
                 "three_months_volatility": three_months_volatility,
@@ -490,6 +532,7 @@ def calculate_lifetime_metrics(
                 "id": id_val,
                 "start_date": start_date,
                 "end_date": end_date,
+                "fee_label": fee_label,
             }
         )
 
