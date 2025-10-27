@@ -162,3 +162,7 @@ class VaultDatabase:
 
     def __len__(self):
         return len(self.rows)
+
+    def get(self, key: VaultSpec, default=None) -> VaultRow | None:
+        """Get vault row by spec."""
+        return self.rows.get(key, default)

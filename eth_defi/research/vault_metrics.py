@@ -1119,8 +1119,6 @@ def calculate_hourly_returns_for_all_vaults(df_work: pd.DataFrame) -> pd.DataFra
     return df_result
 
 
-
-
 def display_vault_chart_and_tearsheet(
     vault_spec: VaultSpec,
     vault_db: VaultDatabase,
@@ -1193,7 +1191,7 @@ def display_vault_chart_and_tearsheet(
         multi_column_df = format_series_as_multi_column_grid(stats_df)
 
         # display(stats_df)
-        out_table = HTML(multi_column_df.to_html(float_format='{:,.2f}'.format, index=True))
+        out_table = HTML(multi_column_df.to_html(float_format="{:,.2f}".format, index=True))
         if render:
             display(out_table)
     else:

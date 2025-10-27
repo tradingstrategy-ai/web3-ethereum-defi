@@ -102,4 +102,3 @@ def test_vault_charts(
         vault_db=vault_db,
         render=False,
     )
-
