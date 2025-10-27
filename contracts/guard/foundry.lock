@@ -57,9 +57,15 @@
     "rev": "5c7e8c4ab68cb962453cb1546627cbe1735673e7"
   },
   "lib/forge-std": {
-    "rev": "36c303b7ffdd842d06b1ec2744c9b9b5fb3083f3"
+    "tag": {
+      "name": "v1.10.0",
+      "rev": "8bbcf6e3f8f62f419e5429a0bd89331c85c37824"
+    }
   },
   "lib/openzeppelin-contracts": {
-    "rev": "0d5f54e69b2a2058bc98651a2e200f558c84a953"
+    "tag": {
+      "name": "v5.4.0",
+      "rev": "c64a1edb67b6e3f4a15cca8909c9482ad33a02b0"
+    }
   }
 }

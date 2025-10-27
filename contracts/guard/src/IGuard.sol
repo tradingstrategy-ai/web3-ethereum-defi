@@ -6,7 +6,6 @@ pragma solidity ^0.8.0;
  * - Check that we cannot do trades for which we do not have permission for
  */
 interface IGuard {
-
     /**
      * Revert if the smart contract call is not allowed
      */

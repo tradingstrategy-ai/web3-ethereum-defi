@@ -2,7 +2,6 @@
  * Check for legit trade execution actions.
  *
  */
-
 pragma solidity ^0.8.0;
 
 import "./lib/Path.sol";
@@ -21,14 +20,13 @@ import "./lib/Multicall.sol";
  * - We include native multicall support so you can whitelist multiple assets in the same tx
  *
  */
-abstract contract GuardV0Base is IGuard,  Multicall  {
-
+abstract contract GuardV0Base is IGuard, Multicall {
     using Path for bytes;
     using BytesLib for bytes;
 
     /**
      * Constants for 1delta path decoding using similar approach as Uniswap v3 `Path.sol`
-     * 
+     *
      * Check our implementation at: `validate1deltaPath()`
      */
     /// @dev The length of the bytes encoded address
@@ -40,7 +38,8 @@ abstract contract GuardV0Base is IGuard,  Multicall  {
     /// @dev The length of the bytes encoded action
     uint256 private constant ONEDELTA_ACTION_SIZE = 1;
     /// @dev The offset of a single token address, fee, pid and action
-    uint256 private constant ONEDELTA_NEXT_OFFSET = ADDR_SIZE + ONEDELTA_FEE_SIZE + ONEDELTA_PID_SIZE + ONEDELTA_ACTION_SIZE;
+    uint256 private constant ONEDELTA_NEXT_OFFSET =
+        ADDR_SIZE + ONEDELTA_FEE_SIZE + ONEDELTA_PID_SIZE + ONEDELTA_ACTION_SIZE;
     /// @dev The offset of an encoded pool key
     uint256 private constant ONEDELTA_POP_OFFSET = ONEDELTA_NEXT_OFFSET + ADDR_SIZE;
     /// @dev The minimum length of an encoding that contains 2 or more pools
@@ -76,7 +75,7 @@ abstract contract GuardV0Base is IGuard,  Multicall  {
     //
     // Used for diagnostics/debugging.
     //
-    uint public callSiteCount;
+    uint256 public callSiteCount;
 
     // Allowed ERC-20 tokens we may receive or send in a trade
     mapping(address token => bool allowed) public allowedAssets;
@@ -108,6 +107,20 @@ abstract contract GuardV0Base is IGuard,  Multicall  {
     //
     bool public anyAsset;
 
+    // Ostium-specific whitelisted pairs (pair_id => allowed)
+    mapping(uint256 => bool) public allowedOstiumPairs;
+
+    // Maximum leverage allowed (e.g., 50 = 50x)
+    uint256 public maxOstiumLeverage;
+
+    // Maximum collateral per single trade (in USDC decimals, e.g., 1000 * 1e6 = 1000 USDC)
+    uint256 public maxOstiumCollateralPerTrade;
+
+    // Track Ostium/Gains contracts
+    address public ostiumTradingContract;
+    address public ostiumStorageContract;
+    address public ostiumVaultContract;
+
     event CallSiteApproved(address target, bytes4 selector, string notes);
     event CallSiteRemoved(address target, bytes4 selector, string notes);
 
@@ -132,13 +145,26 @@ abstract contract GuardV0Base is IGuard,  Multicall  {
     event AnyAssetSet(bool value, string notes);
     event AnyVaultSet(bool value, string notes);
 
+    // OSTIUM EVENTS
+    event OstiumTradingWhitelisted(
+        address tradingContract,
+        address storageContract,
+        address vaultContract,
+        uint256 maxLeverage,
+        uint256 maxCollateralPerTrade,
+        string notes
+    );
+    event OstiumPairWhitelisted(uint256 pairId, string notes);
+    event OstiumPairRemoved(uint256 pairId, string notes);
+    event OstiumConstraintsUpdated(uint256 maxLeverage, uint256 maxCollateral, string notes);
+
     event LagoonVaultApproved(address vault, string notes);
 
     // Implementation needs to provide its own ownership policy hooks
     modifier onlyGuardOwner() virtual;
 
     // Implementation needs to provide its own ownership policy hooks
-    function getGovernanceAddress() virtual public view returns (address);
+    function getGovernanceAddress() public view virtual returns (address);
 
     /**
      * Calculate Solidity 4-byte function selector from a string.
@@ -154,7 +180,7 @@ abstract contract GuardV0Base is IGuard,  Multicall  {
      * We bump up when new whitelistings added.
      */
     function getInternalVersion() public pure returns (uint8) {
-        return 1;
+        return 2; // Ostium/Gains Support
     }
 
     function allowCallSite(address target, bytes4 selector, string calldata notes) public onlyGuardOwner {
@@ -284,19 +310,29 @@ abstract contract GuardV0Base is IGuard,  Multicall  {
         return allowedLagoonVaults[vault] == true;
     }
 
+    /**
+     * Check if an Ostium/Gains trading pair is whitelisted
+     */
+    function isOstiumPairAllowed(uint256 pairId) public view returns (bool) {
+        return allowedOstiumPairs[pairId];
+    }
+
     function validate_transfer(bytes memory callData) public view {
-        (address to, ) = abi.decode(callData, (address, uint));
+        (address to,) = abi.decode(callData, (address, uint256));
         require(isAllowedWithdrawDestination(to), "validate_transfer: Receiver address not whitelisted by Guard");
     }
 
     function validate_approve(bytes memory callData) public view {
-        (address to, ) = abi.decode(callData, (address, uint));
+        (address to,) = abi.decode(callData, (address, uint256));
         require(isAllowedApprovalDestination(to), "validate_approve: Approve address does not match");
     }
 
     function validate_approveDelegation(bytes memory callData) public view {
-        (address to, ) = abi.decode(callData, (address, uint));
-        require(isAllowedDelegationApprovalDestination(to), "validate_approveDelegation: Approve delegation address does not match");
+        (address to,) = abi.decode(callData, (address, uint256));
+        require(
+            isAllowedDelegationApprovalDestination(to),
+            "validate_approveDelegation: Approve delegation address does not match"
+        );
     }
 
     function _whitelistToken(address token, string calldata notes) internal {
@@ -317,7 +353,6 @@ abstract contract GuardV0Base is IGuard,  Multicall  {
     // Whitelist SwapRouter or SwapRouter02
     // The selector doesn't really matter as long as router address is correct
     function whitelistUniswapV3Router(address router, string calldata notes) external {
-
         // Original SwapRouter
         allowCallSite(router, getSelector("exactInput((bytes,address,uint256,uint256,uint256))"), notes);
         allowCallSite(router, getSelector("exactOutput((bytes,address,uint256,uint256,uint256))"), notes);
@@ -333,7 +368,13 @@ abstract contract GuardV0Base is IGuard,  Multicall  {
 
     function whitelistUniswapV2Router(address router, string calldata notes) external {
         allowCallSite(router, getSelector("swapExactTokensForTokens(uint256,uint256,address[],address,uint256)"), notes);
-        allowCallSite(router, getSelector("swapExactTokensForTokensSupportingFeeOnTransferTokens(uint256,uint256,address[],address,uint256)"), notes);
+        allowCallSite(
+            router,
+            getSelector(
+                "swapExactTokensForTokensSupportingFeeOnTransferTokens(uint256,uint256,address[],address,uint256)"
+            ),
+            notes
+        );
         allowApprovalDestination(router, notes);
     }
 
@@ -344,22 +385,13 @@ abstract contract GuardV0Base is IGuard,  Multicall  {
     }
 
     // Satisfy IGuard
-    function validateCall(
-        address sender,
-        address target,
-        bytes calldata callDataWithSelector
-    ) external view {
+    function validateCall(address sender, address target, bytes calldata callDataWithSelector) external view {
         _validateCallInternal(sender, target, callDataWithSelector);
     }
 
-    function _validateCallInternal(
-        address sender,
-        address target,
-        bytes calldata callDataWithSelector
-    ) internal view {
-
+    function _validateCallInternal(address sender, address target, bytes calldata callDataWithSelector) internal view {
         // Governance can always perform any action through guard
-        if(sender == getGovernanceAddress()) {
+        if (sender == getGovernanceAddress()) {
             return;
         }
 
@@ -369,14 +401,57 @@ abstract contract GuardV0Base is IGuard,  Multicall  {
         bytes4 selector = bytes4(callDataWithSelector[:4]);
         bytes calldata callData = callDataWithSelector[4:];
 
+        // OSTIUM/GAINS VALIDATION
+        // Check Ostium trading first since it has custom validators
+        if (target == ostiumTradingContract) {
+            if (
+                selector
+                    == getSelector("openTrade((address,uint256,uint256,uint256,uint256,bool,uint256,uint256,uint256))")
+            ) {
+                validate_ostiumOpenTrade(callData);
+                return; // Skip other validations
+            } else if (
+                selector
+                    == getSelector(
+                        "openLimitOrder((address,uint256,uint256,uint256,uint256,bool,uint256,uint256,uint256,uint256))"
+                    )
+            ) {
+                validate_ostiumOpenLimitOrder(callData);
+                return;
+            } else if (
+                selector
+                    == getSelector(
+                        "openStopOrder((address,uint256,uint256,uint256,uint256,bool,uint256,uint256,uint256,uint256))"
+                    )
+            ) {
+                validate_ostiumOpenLimitOrder(callData); // Same validation as limit order
+                return;
+            } else if (selector == getSelector("updateCollateral(uint256,uint256,int256)")) {
+                validate_ostiumUpdateCollateral(callData);
+                return;
+            } else if (selector == getSelector("updateTp(uint256,uint256,uint256)")) {
+                validate_ostiumUpdateTp(callData);
+                return;
+            } else if (selector == getSelector("updateSl(uint256,uint256,uint256)")) {
+                validate_ostiumUpdateSl(callData);
+                return;
+            } else if (selector == getSelector("closeTrade(uint256,uint256)")) {
+                validate_ostiumCloseTrade(callData);
+                return;
+            } else if (selector == getSelector("cancelOpenLimitOrder(uint256,uint256)")) {
+                validate_ostiumCancelLimitOrder(callData);
+                return;
+            }
+        }
+
         // If we have dynamic whitelist/any token, we cannot check approve() call sites of
         // individual tokens
         bool anyTokenCheck = anyAsset && isAnyTokenApprove(selector);
 
         // With anyToken, we cannot check approve() call site because we do not whitelist
         // individual token addresses
-        if(!anyTokenCheck) {
-            if(!isAllowedCallSite(target, selector)) {
+        if (!anyTokenCheck) {
+            if (!isAllowedCallSite(target, selector)) {
                 // Do dual check for better error message
                 require(isAllowedTarget(target), "validateCall: target not allowed");
                 require(isAllowedCallSite(target, selector), "validateCall: selector not allowed on the target");
@@ -385,27 +460,32 @@ abstract contract GuardV0Base is IGuard,  Multicall  {
 
         // Validate the function payaload.
         // Depends on the called protocol.
-        if(selector == getSelector("swapExactTokensForTokens(uint256,uint256,address[],address,uint256)")) {
+        if (selector == getSelector("swapExactTokensForTokens(uint256,uint256,address[],address,uint256)")) {
             validate_swapExactTokensForTokens(callData);
-        } else if(selector == getSelector("swapExactTokensForTokensSupportingFeeOnTransferTokens(uint256,uint256,address[],address,uint256)")) {
+        } else if (
+            selector
+                == getSelector(
+                    "swapExactTokensForTokensSupportingFeeOnTransferTokens(uint256,uint256,address[],address,uint256)"
+                )
+        ) {
             validate_swapExactTokensForTokens(callData);
-        } else if(selector == getSelector("exactInput((bytes,address,uint256,uint256,uint256))")) {
+        } else if (selector == getSelector("exactInput((bytes,address,uint256,uint256,uint256))")) {
             validate_exactInput(callData);
-        } else if(selector == 0xb858183f) {
+        } else if (selector == 0xb858183f) {
             // See whitelistUniswapV3Router
             // TODO: Build logic later if needed
             require(anyAsset, "validateCall: SwapRouter02 is currently supported only with anyAsset whitelist");
-        } else if(selector == getSelector("multicall(bytes[])")) {
+        } else if (selector == getSelector("multicall(bytes[])")) {
             validate_1deltaMulticall(callData);
-        } else if(selector == getSelector("transfer(address,uint256)")) {
+        } else if (selector == getSelector("transfer(address,uint256)")) {
             validate_transfer(callData);
-        } else if(selector == getSelector("approve(address,uint256)")) {
+        } else if (selector == getSelector("approve(address,uint256)")) {
             validate_approve(callData);
-        } else if(selector == getSelector("approveDelegation(address,uint256)")) {
+        } else if (selector == getSelector("approveDelegation(address,uint256)")) {
             validate_approveDelegation(callData);
-        } else if(selector == getSelector("supply(address,uint256,address,uint16)")) {
+        } else if (selector == getSelector("supply(address,uint256,address,uint16)")) {
             validate_aaveSupply(callData);
-        } else if(selector == getSelector("withdraw(address,uint256,address)")) {
+        } else if (selector == getSelector("withdraw(address,uint256,address)")) {
             validate_aaveWithdraw(callData);
         } else if (selector == getSelector("settleDeposit()")) {
             validate_lagoonSettle(target);
@@ -415,7 +495,10 @@ abstract contract GuardV0Base is IGuard,  Multicall  {
             validate_lagoonSettle(target);
         } else if (selector == getSelector("settleRedeem(uint256)")) {
             validate_lagoonSettle(target);
-        } else if (selector == getSelector("deposit(uint256,address)") || selector == getSelector("deposit(uint256,address,address)")) {
+        } else if (
+            selector == getSelector("deposit(uint256,address)")
+                || selector == getSelector("deposit(uint256,address,address)")
+        ) {
             // Guard logic in approve() whitelist - no further checks here needed
             // validate_ERC4626Deposit(target, callData);
             // On ERC-7540 (Lagoon) - deposit takes extra adderss parameter?
@@ -442,7 +525,9 @@ abstract contract GuardV0Base is IGuard,  Multicall  {
             validate_orderlyDelegateSigner(callData);
         } else if (selector == getSelector("deposit((bytes32,bytes32,bytes32,uint128))")) {
             validate_orderlyDeposit(callData);
-        } else if (selector == getSelector("withdraw((bytes32,bytes32,bytes32,uint128,uint128,address,address,uint64))")) {
+        } else if (
+            selector == getSelector("withdraw((bytes32,bytes32,bytes32,uint128,uint128,address,address,uint64))")
+        ) {
             validate_orderlyWithdraw(callData);
         } else {
             revert("Unknown function selector");
@@ -451,7 +536,7 @@ abstract contract GuardV0Base is IGuard,  Multicall  {
 
     // Validate Uniswap v2 trade
     function validate_swapExactTokensForTokens(bytes memory callData) public view {
-        (, , address[] memory path, address to, ) = abi.decode(callData, (uint, uint, address[], address, uint));
+        (,, address[] memory path, address to,) = abi.decode(callData, (uint256, uint256, address[], address, uint256));
 
         require(isAllowedReceiver(to), "validate_swapExactTokensForTokens: Receiver address not whitelisted by Guard");
 
@@ -459,20 +544,20 @@ abstract contract GuardV0Base is IGuard,  Multicall  {
         for (uint256 i = 0; i < path.length; i++) {
             token = path[i];
             require(isAllowedAsset(token), "Token not allowed");
-        }        
+        }
     }
 
     // validate Uniswap v3 trade
     function validate_exactInput(bytes memory callData) public view {
         (ExactInputParams memory params) = abi.decode(callData, (ExactInputParams));
-        
+
         require(isAllowedReceiver(params.recipient), "validate_exactInput: Receiver address not whitelisted by Guard");
         validateUniswapV3Path(params.path);
     }
 
     function validate_exactOutput(bytes memory callData) public view {
         (ExactOutputParams memory params) = abi.decode(callData, (ExactOutputParams));
-        
+
         require(isAllowedReceiver(params.recipient), "validate_exactOutput: Receiver address not whitelisted by Guard");
         validateUniswapV3Path(params.path);
     }
@@ -482,7 +567,7 @@ abstract contract GuardV0Base is IGuard,  Multicall  {
         address tokenOut;
 
         while (true) {
-            (tokenOut, tokenIn, ) = path.decodeFirstPool();
+            (tokenOut, tokenIn,) = path.decodeFirstPool();
 
             require(isAllowedAsset(tokenIn), "validateUniswapV3Path: Token not allowed");
             require(isAllowedAsset(tokenOut), "validateUniswapV3Path: Token not allowed");
@@ -500,7 +585,7 @@ abstract contract GuardV0Base is IGuard,  Multicall  {
         (bytes[] memory callArr) = abi.decode(callData, (bytes[]));
 
         // loop through all sub-calls and validate
-        for (uint i; i < callArr.length; i++) {
+        for (uint256 i; i < callArr.length; i++) {
             bytes memory callDataWithSelector = callArr[i];
 
             // bytes memory has to be sliced using BytesLib
@@ -530,7 +615,7 @@ abstract contract GuardV0Base is IGuard,  Multicall  {
 
     // 1delta implementation: https://github.com/1delta-DAO/contracts-delegation/blob/4f27e1593c564c419ff042cdd932ed52d04216bf/contracts/1delta/modules/aave/FlashAggregator.sol#L78-L81
     function validate_transferERC20In(bytes memory callData) public view {
-        (address token, ) = abi.decode(callData, (address, uint256));
+        (address token,) = abi.decode(callData, (address, uint256));
         require(isAllowedAsset(token), "validate_transferERC20In: Token not allowed");
     }
 
@@ -540,7 +625,7 @@ abstract contract GuardV0Base is IGuard,  Multicall  {
 
         require(isAllowedAsset(token), "validate_transferERC20AllIn: Token not allowed");
     }
-    
+
     // 1delta implementation: https://github.com/1delta-DAO/contracts-delegation/blob/4f27e1593c564c419ff042cdd932ed52d04216bf/contracts/1delta/modules/aave/FlashAggregator.sol#L34-L39
     function validate_1deltaDeposit(bytes memory callData) public view {
         (address token, address receiver) = abi.decode(callData, (address, address));
@@ -564,26 +649,26 @@ abstract contract GuardV0Base is IGuard,  Multicall  {
     // ERC-4626 trading: Check we are allowed to withdraw from a vault to ourselves only
     function validate_ERC4626Withdraw(bytes memory callData) public view {
         // We can only receive from ERC-4626 to ourselves
-        (, address receiver, ) = abi.decode(callData, (uint256, address, address));
+        (, address receiver,) = abi.decode(callData, (uint256, address, address));
         require(isAllowedReceiver(receiver), "validate_ERC4626Withdrawal: Receiver address not whitelisted by Guard");
     }
 
     // ERC-4626 trading: Check we are allowed to withdraw from a vault to ourselves only
     function validate_ERC4626Redeem(bytes memory callData) public view {
         // We can only receive from ERC-4626 to ourselves
-        (, address receiver, ) = abi.decode(callData, (uint256, address, address));
+        (, address receiver,) = abi.decode(callData, (uint256, address, address));
         require(isAllowedReceiver(receiver), "validate_ERC4626Redeem: Receiver address not whitelisted by Guard");
     }
 
     // 1delta implementation: https://github.com/1delta-DAO/contracts-delegation/blob/4f27e1593c564c419ff042cdd932ed52d04216bf/contracts/1delta/modules/aave/MarginTrading.sol#L43-L89
     function validate_flashSwapExactInt(bytes memory callData) public view {
-        (, , bytes memory path) = abi.decode(callData, (uint256, uint256, bytes));
+        (,, bytes memory path) = abi.decode(callData, (uint256, uint256, bytes));
         validate1deltaPath(path);
     }
 
     // Reference in 1delta: https://github.com/1delta-DAO/contracts-delegation/blob/4f27e1593c564c419ff042cdd932ed52d04216bf/contracts/1delta/modules/aave/MarginTrading.sol#L91-L103
     function validate_flashSwapExactOut(bytes memory callData) public view {
-        (, , bytes memory path) = abi.decode(callData, (uint256, uint256, bytes));
+        (,, bytes memory path) = abi.decode(callData, (uint256, uint256, bytes));
         validate1deltaPath(path);
     }
 
@@ -594,7 +679,7 @@ abstract contract GuardV0Base is IGuard,  Multicall  {
     }
 
     /**
-     * Our implementation of 1delta path decoding and validation using similar 
+     * Our implementation of 1delta path decoding and validation using similar
      * approach as Uniswap v3 `Path.sol`
      *
      * Read more:
@@ -667,7 +752,7 @@ abstract contract GuardV0Base is IGuard,  Multicall  {
 
     // Aave V3 implementation: https://github.com/aave/aave-v3-core/blob/e0bfed13240adeb7f05cb6cbe5e7ce78657f0621/contracts/protocol/pool/Pool.sol#L145
     function validate_aaveSupply(bytes memory callData) public view {
-        (address token, , , ) = abi.decode(callData, (address, uint, address, uint));
+        (address token,,,) = abi.decode(callData, (address, uint256, address, uint256));
 
         require(isAllowedAsset(token), "Token not allowed");
         // require(isAllowedReceiver(wallet), "Receiver address not whitelisted by Guard");
@@ -675,7 +760,7 @@ abstract contract GuardV0Base is IGuard,  Multicall  {
 
     // Aave V3 implementation: https://github.com/aave/aave-v3-core/blob/e0bfed13240adeb7f05cb6cbe5e7ce78657f0621/contracts/protocol/pool/Pool.sol#L198
     function validate_aaveWithdraw(bytes memory callData) public view {
-        (address token, , address to) = abi.decode(callData, (address, uint, address));
+        (address token,, address to) = abi.decode(callData, (address, uint256, address));
         require(isAllowedAsset(token), "Token not allowed");
         require(isAllowedReceiver(to), "Receiver address not whitelisted by Guard");
     }
@@ -693,8 +778,142 @@ abstract contract GuardV0Base is IGuard,  Multicall  {
     function whitelistOrderly(address orderlyVault, string calldata notes) external {
         allowCallSite(orderlyVault, getSelector("delegateSigner((bytes32,address))"), notes);
         allowCallSite(orderlyVault, getSelector("deposit((bytes32,bytes32,bytes32,uint128))"), notes);
-        allowCallSite(orderlyVault, getSelector("withdraw((bytes32,bytes32,bytes32,uint128,uint128,address,address,uint64))"), notes);
+        allowCallSite(
+            orderlyVault,
+            getSelector("withdraw((bytes32,bytes32,bytes32,uint128,uint128,address,address,uint64))"),
+            notes
+        );
         allowApprovalDestination(orderlyVault, notes);
+    }
+
+    /**
+     * @param _tradingContract Main trading contract (GNSTradingV6, OstiumTrading, etc.)
+     * @param _storageContract Storage contract (holds positions)
+     * @param _vaultContract Vault/LP contract (ERC-4626 compatible) - can be address(0)
+     * @param _usdcToken USDC token address for collateral
+     * @param _allowedPairIds Array of whitelisted pair IDs (e.g., [0, 1, 5] for BTC, ETH, Gold)
+     * @param _maxLeverage Maximum leverage allowed (e.g., 50 for 50x)
+     * @param _maxCollateralPerTrade Maximum collateral per trade (e.g., 1000 * 1e6 for 1000 USDC)
+     * @param notes Human-readable notes for this whitelisting
+     */
+    function whitelistOstiumTrading(
+        address _tradingContract,
+        address _storageContract,
+        address _vaultContract,
+        address _usdcToken,
+        uint256[] calldata _allowedPairIds,
+        uint256 _maxLeverage,
+        uint256 _maxCollateralPerTrade,
+        string calldata notes
+    ) external onlyGuardOwner {
+        require(_tradingContract != address(0), "Invalid trading contract");
+        require(_usdcToken != address(0), "Invalid USDC address");
+        require(_maxLeverage > 0 && _maxLeverage <= 200, "Leverage must be 1-200");
+        require(_maxCollateralPerTrade > 0, "Max collateral must be > 0");
+
+        // Store contract addresses
+        ostiumTradingContract = _tradingContract;
+        ostiumStorageContract = _storageContract;
+        ostiumVaultContract = _vaultContract;
+
+        // Store constraints
+        maxOstiumLeverage = _maxLeverage;
+        maxOstiumCollateralPerTrade = _maxCollateralPerTrade;
+
+        uint256 allowedPairIdsLen = _allowedPairIds.length;
+        // Whitelist trading pair IDs
+        for (uint256 i = 0; i < allowedPairIdsLen; i++) {
+            allowedOstiumPairs[_allowedPairIds[i]] = true;
+            emit OstiumPairWhitelisted(_allowedPairIds[i], notes);
+        }
+
+        // WHITELIST USDC TOKEN OPERATIONS
+        _whitelistToken(_usdcToken, notes);
+
+        // WHITELIST TRADING CONTRACT METHODS
+
+        // Market orders - openTrade with struct parameter
+        allowCallSite(
+            _tradingContract,
+            getSelector("openTrade((address,uint256,uint256,uint256,uint256,bool,uint256,uint256,uint256))"),
+            notes
+        );
+
+        // Limit orders
+        allowCallSite(
+            _tradingContract,
+            getSelector(
+                "openLimitOrder((address,uint256,uint256,uint256,uint256,bool,uint256,uint256,uint256,uint256))"
+            ),
+            notes
+        );
+
+        // Stop orders
+        allowCallSite(
+            _tradingContract,
+            getSelector(
+                "openStopOrder((address,uint256,uint256,uint256,uint256,bool,uint256,uint256,uint256,uint256))"
+            ),
+            notes
+        );
+
+        // Update position
+        allowCallSite(_tradingContract, getSelector("updateTp(uint256,uint256,uint256)"), notes);
+        allowCallSite(_tradingContract, getSelector("updateSl(uint256,uint256,uint256)"), notes);
+        allowCallSite(
+            _tradingContract, getSelector("updateOpenLimitOrder(uint256,uint256,uint256,uint256,uint256)"), notes
+        );
+
+        // Manage collateral
+        allowCallSite(_tradingContract, getSelector("updateCollateral(uint256,uint256,int256)"), notes);
+
+        // Close positions
+        allowCallSite(_tradingContract, getSelector("closeTrade(uint256,uint256)"), notes);
+        allowCallSite(_tradingContract, getSelector("cancelOpenLimitOrder(uint256,uint256)"), notes);
+
+        // WHITELIST VAULT OPERATIONS (ERC-4626 + Gains extensions)
+        if (_vaultContract != address(0)) {
+            this.whitelistERC4626(_vaultContract, notes);
+        }
+
+        // APPROVE TRADING CONTRACT FOR USDC
+        allowApprovalDestination(_tradingContract, notes);
+
+        emit OstiumTradingWhitelisted(
+            _tradingContract, _storageContract, _vaultContract, _maxLeverage, _maxCollateralPerTrade, notes
+        );
+    }
+
+    /**
+     * @notice Update Ostium trading constraints
+     */
+    function updateOstiumConstraints(uint256 _maxLeverage, uint256 _maxCollateralPerTrade, string calldata notes)
+        external
+        onlyGuardOwner
+    {
+        require(_maxLeverage > 0 && _maxLeverage <= 200, "Leverage must be 1-200");
+        require(_maxCollateralPerTrade > 0, "Max collateral must be > 0");
+
+        maxOstiumLeverage = _maxLeverage;
+        maxOstiumCollateralPerTrade = _maxCollateralPerTrade;
+
+        emit OstiumConstraintsUpdated(_maxLeverage, _maxCollateralPerTrade, notes);
+    }
+
+    /**
+     * @notice Add a whitelisted Ostium trading pair
+     */
+    function addOstiumPair(uint256 pairId, string calldata notes) external onlyGuardOwner {
+        allowedOstiumPairs[pairId] = true;
+        emit OstiumPairWhitelisted(pairId, notes);
+    }
+
+    /**
+     * @notice Remove a whitelisted Ostium trading pair
+     */
+    function removeOstiumPair(uint256 pairId, string calldata notes) external onlyGuardOwner {
+        delete allowedOstiumPairs[pairId];
+        emit OstiumPairRemoved(pairId, notes);
     }
 
     function validate_orderlyDelegateSigner(bytes memory callData) public view {
@@ -709,4 +928,119 @@ abstract contract GuardV0Base is IGuard,  Multicall  {
         // TODO: Implement
     }
 
+    // OSTIUM/GAINS VALIDATORS
+
+    /**
+     * @notice Validate openTrade call for Ostium/Gains
+     * @dev Checks pair whitelist, leverage limit, collateral limit
+     */
+    function validate_ostiumOpenTrade(bytes memory callData) public view {
+        // Decode parameters from openTrade call
+        // OpenTrade struct: (trader, pairIndex, collateral, leverage, index, long, tp, sl, slippageP)
+        (, // address trader
+            uint256 pairIndex,
+            uint256 collateral,
+            uint256 leverage,, // uint256 index
+            , // bool long
+            , // uint256 tp
+            , // uint256 sl
+            // uint256 slippageP
+        ) = abi.decode(callData, (address, uint256, uint256, uint256, uint256, bool, uint256, uint256, uint256));
+
+        // Validate pair is whitelisted
+        require(isOstiumPairAllowed(pairIndex), "Ostium: Trading pair not whitelisted");
+
+        // Validate leverage
+        require(leverage > 0 && leverage <= maxOstiumLeverage, "Ostium: Leverage exceeds maximum");
+
+        // Validate collateral amount
+        require(collateral > 0 && collateral <= maxOstiumCollateralPerTrade, "Ostium: Collateral exceeds maximum");
+    }
+
+    /**
+     * @notice Validate openLimitOrder call for Ostium/Gains
+     */
+    function validate_ostiumOpenLimitOrder(bytes memory callData) public view {
+        (, // address trader
+            uint256 pairIndex,
+            uint256 collateral,
+            uint256 leverage,, // uint256 index
+            , // bool long
+            , // uint256 tp
+            , // uint256 sl
+            , // uint256 slippageP
+            // uint256 limitPrice
+        ) = abi.decode(
+            callData, (address, uint256, uint256, uint256, uint256, bool, uint256, uint256, uint256, uint256)
+        );
+
+        require(isOstiumPairAllowed(pairIndex), "Ostium: Trading pair not whitelisted");
+        require(leverage > 0 && leverage <= maxOstiumLeverage, "Ostium: Leverage exceeds maximum");
+        require(collateral > 0 && collateral <= maxOstiumCollateralPerTrade, "Ostium: Collateral exceeds maximum");
+    }
+
+    /**
+     * @notice Validate updateCollateral call for Ostium/Gains
+     */
+    function validate_ostiumUpdateCollateral(bytes memory callData) public view {
+        (
+            uint256 pairIndex,, // uint256 index
+            int256 collateralDelta
+        ) = abi.decode(callData, (uint256, uint256, int256));
+
+        require(isOstiumPairAllowed(pairIndex), "Ostium: Trading pair not whitelisted");
+
+        // If adding collateral, check max limit
+        if (collateralDelta > 0) {
+            require(uint256(collateralDelta) <= maxOstiumCollateralPerTrade, "Ostium: Collateral delta exceeds maximum");
+        }
+    }
+
+    /**
+     * @notice Validate updateTp call for Ostium/Gains
+     */
+    function validate_ostiumUpdateTp(bytes memory callData) public view {
+        (
+            uint256 pairIndex,, // uint256 index
+            // uint256 newTp
+        ) = abi.decode(callData, (uint256, uint256, uint256));
+
+        require(isOstiumPairAllowed(pairIndex), "Ostium: Trading pair not whitelisted");
+    }
+
+    /**
+     * @notice Validate updateSl call for Ostium/Gains
+     */
+    function validate_ostiumUpdateSl(bytes memory callData) public view {
+        (
+            uint256 pairIndex,, // uint256 index
+            // uint256 newSl
+        ) = abi.decode(callData, (uint256, uint256, uint256));
+
+        require(isOstiumPairAllowed(pairIndex), "Ostium: Trading pair not whitelisted");
+    }
+
+    /**
+     * @notice Validate closeTrade call for Ostium/Gains
+     */
+    function validate_ostiumCloseTrade(bytes memory callData) public view {
+        (
+            uint256 pairIndex,
+            // uint256 index
+        ) = abi.decode(callData, (uint256, uint256));
+
+        require(isOstiumPairAllowed(pairIndex), "Ostium: Trading pair not whitelisted");
+    }
+
+    /**
+     * @notice Validate cancelOpenLimitOrder call for Ostium/Gains
+     */
+    function validate_ostiumCancelLimitOrder(bytes memory callData) public view {
+        (
+            uint256 pairIndex,
+            // uint256 index
+        ) = abi.decode(callData, (uint256, uint256));
+
+        require(isOstiumPairAllowed(pairIndex), "Ostium: Trading pair not whitelisted");
+    }
 }
