@@ -18,7 +18,6 @@ from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.token import TokenDiskCache
-from eth_defi.vault.risk import get_vault_risk
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +78,18 @@ def create_vault_scan_record(
             performance_fee = None
 
         try:
+            deposit_fee = vault.get_deposit_fee(block_identifier)
+            assert type(deposit_fee) in (float, NoneType)
+        except NotImplementedError:
+            deposit_fee = None
+
+        try:
+            withdraw_fee = vault.get_withdraw_fee(block_identifier)
+            assert type(deposit_fee) in (float, NoneType)
+        except NotImplementedError:
+            withdraw_fee = None
+
+        try:
             total_assets = vault.fetch_total_assets(block_identifier)
         except ValueError:
             total_assets = None
@@ -105,8 +116,11 @@ def create_vault_scan_record(
             "Protocol": protocol_name,
             "Mgmt fee": management_fee,
             "Perf fee": performance_fee,
+            "Deposit fee": deposit_fee,
+            "Withdraw fee": withdraw_fee,
             "Shares": total_supply,
             "First seen": detection.first_seen_at,
+            "Lock up": vault.get_estimated_lock_up(),
             "_detection_data": detection,
             "_denomination_token": denomination_token,
             "_share_token": vault.share_token.export() if vault.share_token else None,

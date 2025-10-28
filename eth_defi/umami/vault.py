@@ -1,5 +1,6 @@
 """Umami gmUSDC vault support."""
 
+import datetime
 from functools import cached_property
 import logging
 
@@ -59,3 +60,6 @@ class UmamiVault(ERC4626Vault):
         https://umami.finance/vaults/arbitrum/gm/gmusdc
         """
         return 0.20
+
+    def get_estimated_lock_up(self) -> datetime.timedelta:
+        return datetime.timedelta(days=3)

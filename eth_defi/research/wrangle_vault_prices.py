@@ -13,12 +13,14 @@ import warnings
 from pathlib import Path
 from typing import Callable
 
+import numpy as np
 import pandas as pd
 from eth_typing import HexAddress
 
 from eth_defi.chain import get_chain_name
 from eth_defi.token import is_stablecoin_like
-from eth_defi.vault.vaultdb import VaultDatabase, DEFAULT_VAULT_DATABASE, VaultRow
+from eth_defi.vault.base import VaultSpec
+from eth_defi.vault.vaultdb import VaultDatabase, DEFAULT_VAULT_DATABASE, VaultRow, DEFAULT_RAW_PRICE_DATABASE
 
 from tqdm.auto import tqdm
 
@@ -418,15 +420,19 @@ def filter_unneeded_row(
     return filtered_df
 
 
-def filter_outlier_share_prices(
+def fix_outlier_share_prices(
     prices_df: pd.DataFrame,
     logger=print,
     max_diff=0.33,
+    look_back=24,
+    look_ahead=24,
 ) -> pd.DataFrame:
-    """Filter out rows with share price that is too high.
+    """Fix out rows with share price that is too high.
 
     - Sometimes share price jump to an outlier value and back
-    - Not sure what is causing this, bad manual reporting, oracle issues?
+    - This caused abnormal returns in returns calculations, messing all volatility numbers, sharpe,
+      charts, etc.
+    - The root cause is bad oracles, fat fingers, MEV trades, etc.
     - See ``check-share-price`` script for inspecting individual prices
 
     Case Fluegel DAO:
@@ -447,7 +453,53 @@ def filter_outlier_share_prices(
     | 18:02:57   |       |                                          |              |             |             |             |
     +------------+-------+------------------------------------------+--------------+-------------+-------------+-------------+
 
-    Case
+    Case Untangle Finance:
+
+    .. code-block:: none
+
+        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-12 23:14:19 (3206): fixing: 1.038721 -> 1.038721, prev: 1.038827, next: 0.444865
+        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-13 00:14:13 (3207): fixing: 1.038931 -> 1.038931, prev: 1.038801, next: 0.444865
+        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-13 01:14:09 (3208): fixing: 1.038931 -> 1.038931, prev: 1.038801, next: 0.444865
+        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-13 02:14:03 (3209): fixing: 1.038931 -> 1.038931, prev: 1.038801, next: 0.444865
+        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-13 03:14:01 (3210): fixing: 1.038931 -> 1.038931, prev: 1.038801, next: 0.444865
+        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-13 04:13:56 (3211): fixing: 1.038931 -> 1.038931, prev: 1.038801, next: 0.444865
+        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-13 05:13:53 (3212): fixing: 1.038931 -> 1.038931, prev: 1.038801, next: 0.468629
+        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-13 06:13:51 (3213): fixing: 1.039134 -> 1.039134, prev: 1.038439, next: 0.468629
+        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-13 07:13:45 (3214): fixing: 1.039134 -> 1.039134, prev: 1.038439, next: 0.468629
+        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-13 08:13:40 (3215): fixing: 1.039134 -> 1.039134, prev: 1.038439, next: 0.468629
+        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-13 09:13:37 (3216): fixing: 1.039134 -> 1.039134, prev: 1.038439, next: 0.482511
+        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-13 10:13:27 (3217): fixing: 1.039134 -> 1.039134, prev: 1.038439, next: 0.482511
+        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-13 11:13:21 (3218): fixing: 1.039134 -> 1.039134, prev: 1.038439, next: 0.482511
+        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-14 00:11:51 (3230): fixing: 0.444865 -> 1.0405275, prev: 1.038721, next: 1.042334
+        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-14 01:11:42 (3231): fixing: 0.444865 -> 1.0406325, prev: 1.038931, next: 1.042334
+        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-14 02:11:33 (3232): fixing: 0.444865 -> 1.0407335, prev: 1.038931, next: 1.042536
+        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-14 03:11:36 (3233): fixing: 0.444865 -> 1.0407335, prev: 1.038931, next: 1.042536
+        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-14 04:11:26 (3234): fixing: 0.444865 -> 1.0407335, prev: 1.038931, next: 1.042536
+        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-14 05:11:17 (3235): fixing: 0.444865 -> 1.0407335, prev: 1.038931, next: 1.042536
+        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-14 06:11:10 (3236): fixing: 0.468629 -> 1.0407335, prev: 1.038931, next: 1.042536
+        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-14 07:11:01 (3237): fixing: 0.468629 -> 1.040835, prev: 1.039134, next: 1.042536
+        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-14 08:10:52 (3238): fixing: 0.468629 -> 1.0406445, prev: 1.039134, next: 1.042155
+        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-14 11:10:26 (3239): fixing: 0.468629 -> 1.0406445, prev: 1.039134, next: 1.042155
+        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-14 12:10:18 (3240): fixing: 0.482511 -> 1.0406445, prev: 1.039134, next: 1.042155
+        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-14 13:10:09 (3241): fixing: 0.482511 -> 1.0406445, prev: 1.039134, next: 1.042155
+        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-14 14:10:01 (3242): fixing: 0.482511 -> 1.0406445, prev: 1.039134, next: 1.042155
+        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-15 04:08:39 (3254): fixing: 1.042334 -> 1.042334, prev: 0.444865, next: 1.04251
+        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-15 05:08:33 (3255): fixing: 1.042334 -> 1.042334, prev: 0.444865, next: 1.04251
+        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-15 06:08:29 (3256): fixing: 1.042536 -> 1.042536, prev: 0.444865, next: 1.04251
+        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-15 07:08:24 (3257): fixing: 1.042536 -> 1.042536, prev: 0.444865, next: 1.04251
+        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-15 08:08:20 (3258): fixing: 1.042536 -> 1.042536, prev: 0.444865, next: 1.04251
+        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-15 09:08:12 (3259): fixing: 1.042536 -> 1.042536, prev: 0.444865, next: 1.04251
+        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-15 10:08:07 (3260): fixing: 1.042536 -> 1.042536, prev: 0.468629, next: 1.042519
+        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-15 11:08:03 (3261): fixing: 1.042536 -> 1.042536, prev: 0.468629, next: 1.042519
+        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-15 12:07:55 (3262): fixing: 1.042155 -> 1.042155, prev: 0.468629, next: 1.042519
+        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-15 13:07:51 (3263): fixing: 1.042155 -> 1.042155, prev: 0.468629, next: 1.042519
+        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-15 14:07:49 (3264): fixing: 1.042155 -> 1.042155, prev: 0.482511, next: 1.042519
+        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-15 15:07:42 (3265): fixing: 1.042155 -> 1.042155, prev: 0.482511, next: 1.042519
+        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-15 16:07:36 (3266): fixing: 1.042155 -> 1.042155, prev: 0.482511, next: 1.042354
+        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-23 02:04:05 (3433): fixing: 1.036482 -> 1.036482, prev: 1.126302, next: 0.487429
+        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-24 06:01:21 (3457): fixing: 0.487429 -> 1.041995, prev: 1.036482, next: 1.047508
+
+
     """
 
     # Store unfiltered share prices for the later examination
@@ -455,40 +507,81 @@ def filter_outlier_share_prices(
 
     share_prices_fixed = 0
 
-    def _clean_share_price_for_pair(prices_df: pd.DataFrame) -> pd.DataFrame:
+    def _clean_share_price_for_pair(group: pd.DataFrame) -> pd.DataFrame:
+        """Apply rolling window clean up technique that checks if 24h past and future prices are aligned, but the current price is not,
+        then overwrite with the avg of past and future prices."""
         nonlocal share_prices_fixed
 
-        prices_df = prices_df.copy()
+        # group = group.copy()
+
+        if len(prices_df) == 0:
+            return prices_df
+
+        vault_id = prices_df.iloc[0]["id"]
+
+        group["next_price_candidate"] = group["share_price"].shift(-look_ahead).ffill()
+        group["prev_price_candidate"] = group["share_price"].shift(look_back).bfill()
 
         # Calculate forward and backward percentage change for each vault
-        prices_df["pct_change_prev"] = prices_df.groupby("id")["share_price"].pct_change(fill_method=None).abs()
-        prices_df["pct_change_next"] = prices_df.groupby("id")["share_price"].pct_change(-1, fill_method=None).abs()
+        group["pct_change_prev"] = (group["prev_price_candidate"] / group["share_price"] - 1).abs()
+        group["pct_change_next"] = (group["next_price_candidate"] / group["share_price"] - 1).abs()
+
+        # 2025-10-24 05:01:27  42161  0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9     392792321     1.046227  144437.368503  138055.399019              NaN             NaN         42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9  USDn2           60  Untangle Finance         1.046227
+        # 2025-10-24 06:01:21  42161  0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9     392806721     0.487429   67292.321607  138055.399019              NaN             NaN         42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9  USDn2           60  Untangle Finance         0.487429
+        # 2025-10-24 07:01:10  42161  0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9     392821121     1.047508  144614.157347  138055.399019              NaN             NaN         42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9  USDn2           60  Untangle Finance         1.047508
 
         # Mark rows where both changes exceed the threshold (spike and recovery)
-        abnormal_mask = (prices_df["pct_change_prev"] > max_diff) & (prices_df["pct_change_next"] > max_diff)
+        abnormal_mask = (group["pct_change_prev"] > max_diff) | (group["pct_change_next"] > max_diff)
 
-        # Replace abnormal share_price with average of previous and next
-        for idx in prices_df[abnormal_mask].index:
-            prev_idx = prices_df.index.get_loc(idx) - 1
-            next_idx = prices_df.index.get_loc(idx) + 1
-            if prev_idx >= 0 and next_idx < len(prices_df):
-                prev_price = prices_df.iloc[prev_idx]["share_price"]
-                next_price = prices_df.iloc[next_idx]["share_price"]
-                prices_df.at[idx, "share_price"] = (prev_price + next_price) / 2
+        group["fixed_share_price"] = np.NaN
+
+        # Print pass, figure out damanged entries
+        for idx in group[abnormal_mask].index:
+            idx_loc = group.index.get_loc(idx)
+            current_price = group.iloc[idx_loc]["share_price"]
+            next_price = group.iloc[idx_loc]["next_price_candidate"]
+            prev_price = group.iloc[idx_loc]["prev_price_candidate"]
+            # Start and end of the group
+            if pd.isna(next_price) or pd.isna(prev_price):
+                continue
+
+            # The next 24h and prev 24h price are less than max diff apart from each other,
+            # but the current price is an outlier, fix it
+            if abs((next_price - prev_price) / prev_price) < max_diff:
+                fixed_price = (next_price + prev_price) / 2
                 share_prices_fixed += 1
+            else:
+                # Maybe a genuine crash
+                fixed_price = current_price
 
-        return prices_df
+            # logger(f"Abnormal share price detected for {vault_id} at index {idx} ({idx_loc}): fixing: {current_price} -> {fixed_price}, prev: {prev_price}, next: {next_price}")
+            group.loc[idx, "fixed_share_price"] = fixed_price
 
-    filtered_all_df = prices_df.groupby("id", group_keys=True, sort=False).apply(_clean_share_price_for_pair)
+        # Apply the fixes
+        group.loc[pd.notna(group["fixed_share_price"]), "share_price"] = group["fixed_share_price"]
+        # group["id"] = vault_id
+
+        # Don't export extra columns, only needed for calculations and debugging
+        del group["prev_price_candidate"]
+        del group["next_price_candidate"]
+        del group["pct_change_prev"]
+        del group["pct_change_next"]
+        del group["fixed_share_price"]
+
+        return group
+
+    # TODO: How to fix warning here so that id column is retained?
+    # /Users/moo/code/trade-executor/deps/web3-ethereum-defi/eth_defi/research/wrangle_vault_prices.py:575: FutureWarning: DataFrameGroupBy.apply operated on the grouping columns. This behavior is deprecated, and in a future version of pandas the grouping columns will be excluded from the operation. Either pass `include_groups=False` to exclude the groupings or explicitly select the grouping columns after groupby to silence this warning.
+    filtered_all_df = prices_df.groupby("id", group_keys=True, sort=False).apply(_clean_share_price_for_pair, include_groups=False)
 
     change_mask = (filtered_all_df["share_price"] != filtered_all_df["raw_share_price"]) & pd.notna(filtered_all_df["raw_share_price"])
     change_count = len(change_mask[change_mask == True])
 
-    logger(f"Share prices fix count {share_prices_fixed}, filtered out {change_count:,} rows with abnormal share_price spikes (> {max_diff:.2%})")
+    logger(f"Share prices fix count {share_prices_fixed}, updated {change_count:,} / {len(filtered_all_df):,} rows with abnormal share_price spikes (> {max_diff:.2%})")
 
     # groupby() added id as an MultiIndex(id, timestamp), but unwind this change back,
     # as other functions do not expect it
-    filtered_all_df = filtered_all_df.droplevel("id")
+    filtered_all_df = filtered_all_df.reset_index().set_index("timestamp")
 
     return filtered_all_df
 
@@ -512,7 +605,7 @@ def sort_and_index_vault_prices(
 
 
 def process_raw_vault_scan_data(
-    rows: dict[HexAddress, VaultRow],
+    rows: dict[VaultSpec, VaultRow] | VaultDatabase,
     prices_df: pd.DataFrame,
     logger=print,
     display: Callable = lambda x: None,
@@ -526,6 +619,12 @@ def process_raw_vault_scan_data(
 
     :param rows:
         Metadata rows from vault database
+
+    :param logger:
+        Notebook / console printer function
+
+    :param display:
+        Display Pandas DataFrame function
     """
 
     assign_unique_names(rows, prices_df, logger)
@@ -538,7 +637,7 @@ def process_raw_vault_scan_data(
     prices_df = filter_vaults_by_stablecoin(rows, prices_df, logger)
     # Disabled as low and does not result to any savings
     # prices_df = filter_unneeded_row(prices_df, logger)
-    prices_df = filter_outlier_share_prices(prices_df, logger)
+    prices_df = fix_outlier_share_prices(prices_df, logger)
     prices_df = calculate_vault_returns(prices_df)
 
     prices_df = clean_returns(
@@ -593,7 +692,7 @@ def check_missing_metadata(
 
 def generate_cleaned_vault_datasets(
     vault_db_path=DEFAULT_VAULT_DATABASE,
-    price_df_path=Path.home() / ".tradingstrategy" / "vaults" / "vault-prices-1h.parquet",
+    price_df_path=DEFAULT_RAW_PRICE_DATABASE,
     cleaned_price_df_path=Path.home() / ".tradingstrategy" / "vaults" / "cleaned-vault-prices-1h.parquet",
     logger=print,
     display=display,

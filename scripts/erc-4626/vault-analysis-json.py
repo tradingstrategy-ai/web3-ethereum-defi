@@ -30,6 +30,7 @@ from eth_defi.research.vault_metrics import (
     calculate_lifetime_metrics,
     clean_lifetime_metrics,
     format_lifetime_table,
+    export_lifetime_row,
 )
 
 # --------------------------------------------------------------------
@@ -284,7 +285,8 @@ if not formatted_df.empty:
         df = df.sort_values(by=sort_keys, ascending=asc)
 
     # 5️⃣ Convert DataFrame → list of dicts
-    vaults = df.to_dict(orient="records")
+    # vaults = df.to_dict(orient="records")
+    vaults = [export_lifetime_row(r) for _, r in dfiterrows()]
 
     # 6️⃣ Add metadata and deep sanitize
     output_data = {

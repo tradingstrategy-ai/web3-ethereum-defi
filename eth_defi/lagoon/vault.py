@@ -21,6 +21,7 @@ Lagoon error code translation.
 - `See Codeslaw page to translate custome errors to human readable <https://www.codeslaw.app/contracts/base/0xe50554ec802375c9c3f9c087a8a7bb8c26d3dedf?tab=abi>`__
 """
 
+import datetime
 import enum
 import logging
 from dataclasses import asdict
@@ -775,3 +776,7 @@ class LagoonFlowManager(VaultFlowManager):
         shares_pending = self.fetch_pending_redemption(block_identifier)
         share_price = self.vault.fetch_share_price(block_identifier)
         return shares_pending * share_price
+
+    def get_estimated_lock_up(self) -> datetime.timedelta:
+        """TODO: Add vault specific lock up period retrieval."""
+        return datetime.timedelta(days=3)

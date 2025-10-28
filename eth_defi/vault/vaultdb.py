@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from pathlib import Path
 from typing import TypedDict, TypeAlias, Iterable
+from atomicwrites import atomic_write
 
 from eth_typing import HexAddress
 
@@ -16,6 +17,9 @@ from eth_defi.vault.base import VaultSpec
 
 #: Where we store the vault metadata database by default
 DEFAULT_VAULT_DATABASE = Path.home() / ".tradingstrategy" / "vaults" / "vault-metadata-db.pickle"
+
+#: Where we store uncleaned prices
+DEFAULT_RAW_PRICE_DATABASE = Path.home() / ".tradingstrategy" / "vaults" / "vault-prices-1h.parquet"
 
 
 class VaultRow(TypedDict):
@@ -50,11 +54,22 @@ class VaultRow(TypedDict):
         "First seen at": datetime.datetime,
         "Mgmt fee": float,
         "Perf fee": float,
+        "Deposit fee": float,
+        "Withdrawal fee": float,
     }
 
 
 #: Legacy pickle format
 VaultDatabaseOld: TypeAlias = dict[VaultSpec, VaultRow]
+
+
+def has_good_fee_data(vault_row: VaultRow) -> bool:
+    """Check if the vault row has good fee data."""
+    mgmt_fee = vault_row.get("Mgmt fee")
+    perf_fee = vault_row.get("Perf fee")
+    if mgmt_fee is None or perf_fee is None:
+        return False
+    return True
 
 
 @dataclass(slots=True)
@@ -96,11 +111,17 @@ class VaultDatabase:
             print(f"We have data for {vault_db.get_lead_count()} potential vaults")
 
         """
-        existing_db = pickle.load(path.open("rb"))
+        try:
+            existing_db = pickle.load(path.open("rb"))
+        except Exception as e:
+            raise RuntimeError(f"Could not read vault database from {path}: {e}") from e
         return existing_db
 
     def write(self, path: Path):
-        pickle.dump(self, path.open("wb"))
+        """Do an atomic write to avoid corrupted data."""
+
+        with atomic_write(path, mode="wb", overwrite=True) as f:
+            pickle.dump(self, f)
 
     def get_lead_count(self) -> int:
         return len(self.leads)
@@ -137,9 +158,24 @@ class VaultDatabase:
         self.leads.update({VaultSpec(chain_id, addr): lead for addr, lead in leads.items()})
         self.rows.update(rows)
 
+    def limit_to_single_vault(self, vault_spec: VaultSpec) -> "VaultDatabase":
+        """Limit results to a single vault.
+
+        Used for diagnostics.
+        """
+        rows = {spec: value for spec, value in self.rows.items() if spec == vault_spec}
+        return VaultDatabase(
+            rows=rows,
+            leads={},
+            last_scanned_block={},
+        )
+
     #
     # Backwards compatibility methods, do not use in the future
     #
+
+    def __len__(self):
+        return len(self.rows)
 
     def keys(self) -> Iterable[VaultSpec]:
         """Iterable human readable vault (chain, address) tuples."""
@@ -153,5 +189,6 @@ class VaultDatabase:
         """Iterable human readable rows."""
         return self.rows.items()
 
-    def __len__(self):
-        return len(self.rows)
+    def get(self, key: VaultSpec, default=None) -> VaultRow | None:
+        """Get vault row by spec."""
+        return self.rows.get(key, default)

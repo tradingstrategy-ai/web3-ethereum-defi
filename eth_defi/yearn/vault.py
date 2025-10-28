@@ -1,5 +1,6 @@
 """Yearn vault support."""
 
+import datetime
 from functools import cached_property
 import logging
 
@@ -128,3 +129,6 @@ class YearnV3Vault(ERC4626Vault):
 
     def get_performance_fee(self, block_identifier: BlockIdentifier) -> float | None:
         return 0.0
+
+    def get_estimated_lock_up(self) -> datetime.timedelta:
+        return datetime.timedelta(0)

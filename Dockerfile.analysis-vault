@@ -46,7 +46,6 @@ RUN poetry cache clear pypi --all --no-interaction
 RUN python -m compileall -q /usr/local/lib/python3.11
 RUN python -m compileall -q eth_defi
 
-
 # Entrypoint
 CMD ["bash", "scripts/erc-4626/vault-analysis.sh"]
 ENTRYPOINT ["/usr/src/web3-ethereum-defi/scripts/erc-4626/vault-analysis.sh"]
