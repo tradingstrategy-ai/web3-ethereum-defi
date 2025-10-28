@@ -11,6 +11,13 @@ Features:
 - Normalizes column keys into snake_case.
 - Uses column-wise .map(parse_value) to comply with modern pandas.
 - Uses allow_nan=False to guarantee strict JSON validity.
+
+To test out:
+
+.. code-block:: shell
+
+    OUTPUT_JSON=/tmp/top-vaults.json python scripts/erc-4626/vault-analysis-json.py
+
 """
 
 import os
@@ -133,6 +140,49 @@ def sanitize(o):
     if isinstance(o, list):
         return [sanitize(v) for v in o]
     return o
+
+
+def find_non_serializable_paths(obj, path=None, results=None):
+    """
+    Recursively traverses a Python object (dict or list) and collects paths to non-serializable values or invalid keys.
+
+    Args:
+        obj: The object to check (dict, list, or nested combination).
+        path: Current path (list of keys/indices; internal use).
+        results: List to collect issues (internal use).
+
+    Returns:
+        List of tuples: (path_list, issue_description) for each problem found.
+        Empty list if everything is serializable.
+    """
+    if path is None:
+        path = []
+    if results is None:
+        results = []
+
+    # Valid primitive types
+    if isinstance(obj, (str, int, float, bool, type(None))):
+        return results
+
+    # Handle lists: recurse on each element
+    elif isinstance(obj, list):
+        for i, item in enumerate(obj):
+            new_path = path + [i]
+            find_non_serializable_paths(item, new_path, results)
+
+    # Handle dicts: check keys are strings, then recurse on values
+    elif isinstance(obj, dict):
+        for key, value in obj.items():
+            if not isinstance(key, str):
+                results.append((path + [key], f"Non-string key: {type(key).__name__}"))
+            new_path = path + [key]
+            find_non_serializable_paths(value, new_path, results)
+
+    # Anything else is non-serializable
+    else:
+        results.append((path, f"Non-serializable type: {type(obj).__name__}"))
+
+    return results
 
 
 # --------------------------------------------------------------------
@@ -259,30 +309,7 @@ if not formatted_df.empty:
     sort_col_norm = normalize_key(SORT_COLUMN)  # Normalize to match column names, e.g. "1M return ann." -> "1m_return_ann"
 
     # 1️⃣ Replace ±Inf -> NA, then NA -> None
-    df = formatted_df.copy()
-    df = df.replace([np.inf, -np.inf], pd.NA)
-    df = df.where(pd.notna(df), None)
-
-    # 2️⃣ Normalize column names
-    df.columns = [normalize_key(c) for c in df.columns]
-
-    # 3️⃣ Parse each column to JSON-safe values
-    for c in df.columns:
-        df[c] = df[c].map(parse_value)
-
-    # 4️⃣ Sort by chain (asc) then by chosen metric (desc)
-    sort_keys, asc = [], []
-    if "chain" in df.columns:
-        sort_keys.append("chain")
-        asc.append(True)
-    if sort_col_norm in df.columns:
-        sort_keys.append(sort_col_norm)
-        asc.append(False)
-    else:
-        print(f"⚠️ Sort column '{SORT_COLUMN}' (->{sort_col_norm}) not found; sorting by chain only.")
-
-    if sort_keys:
-        df = df.sort_values(by=sort_keys, ascending=asc)
+    df = top_vaults_per_chain.copy()
 
     # 5️⃣ Convert DataFrame → list of dicts
     # vaults = df.to_dict(orient="records")
@@ -294,10 +321,18 @@ if not formatted_df.empty:
         "vaults": sanitize(vaults),
     }
 
+    results = find_non_serializable_paths(output_data)
+    if results:
+        print("❌ Found non-serializable values in output data:")
+        for path, issue in results:
+            path_str = " -> ".join(str(p) for p in path)
+            print(f" - Path: {path_str}: {issue}")
+        raise ValueError("Non-serializable values found; aborting JSON export.")
+
     # 7️⃣ Write to JSON file (strict mode)
     with open(OUTPUT_JSON, "w", encoding="utf-8") as f:
         json.dump(output_data, f, indent=2, ensure_ascii=False, allow_nan=False)
 
-    print(f"✅ Exported {len(vaults):,} vaults sorted by {sort_keys} → {OUTPUT_JSON}")
+    print(f"✅ Exported {len(vaults):,} to {OUTPUT_JSON}")
 else:
     print("Skipping JSON export as there is no formatted data.")

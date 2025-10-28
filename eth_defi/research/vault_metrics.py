@@ -1419,6 +1419,8 @@ def export_lifetime_row(row: pd.Series) -> dict:
             out[key] = value.total_seconds()
         elif isinstance(value, VaultTechnicalRisk):
             out[key] = value.get_risk_level_name()
+        elif pd.isna(value):
+            out[key] = None
 
     # Map some legacy names
     # TODO: Remove after confirmed frontend does not need these
