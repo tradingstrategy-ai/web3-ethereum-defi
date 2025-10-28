@@ -1,5 +1,6 @@
 """Test vault metrics calculations and charts."""
 
+import json
 import os.path
 import pickle
 from pathlib import Path
@@ -14,7 +15,7 @@ from eth_defi.research.vault_benchmark import visualise_vault_return_benchmark
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.risk import VaultTechnicalRisk
 from eth_defi.vault.vaultdb import VaultDatabase
-from eth_defi.research.vault_metrics import calculate_lifetime_metrics, display_vault_chart_and_tearsheet, format_lifetime_table
+from eth_defi.research.vault_metrics import calculate_lifetime_metrics, display_vault_chart_and_tearsheet, format_lifetime_table, export_lifetime_row
 
 
 @pytest.fixture(scope="module")
@@ -124,9 +125,25 @@ def test_vault_benchmark(
     """
 
     spec = VaultSpec.parse_string("43111-0x05c2e246156d37b39a825a25dd08d5589e3fd883")
-    fig = visualise_vault_return_benchmark(
+    fig, df = visualise_vault_return_benchmark(
         [spec],
         prices_df=price_df,
         vault_db=vault_db,
     )
     assert isinstance(fig, Figure)
+    assert isinstance(df, pd.DataFrame)
+
+
+def test_export_lifetime_metrics(
+    vault_db: VaultDatabase,
+    price_df: pd.DataFrame,
+):
+    """Export lifetimemetrics for the frontend"""
+
+    metrics = calculate_lifetime_metrics(
+        price_df,
+        vault_db,
+    )
+    rows = [export_lifetime_row(r) for _, r in metrics.iterrows()]
+    # Ensure everything is JSON serializable
+    json.dumps(rows)

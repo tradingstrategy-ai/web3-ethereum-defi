@@ -1390,3 +1390,36 @@ def display_vault_chart_and_tearsheet(
     else:
         if render:
             print(f"Vault {vault_spec.chain_id}-{vault_spec.vault_address}: performance metrics not available, is quantstats library installed?")
+
+
+def export_lifetime_row(row: pd.Series) -> dict:
+    """Export lifetime row to JSON serializable dict.
+
+    :param row:
+        Lifetime metrics row
+
+    :return:
+        JSON serializable dict
+    """
+
+    out = row.to_dict()
+
+    # Convert any non-serializable values
+    for key, value in out.items():
+        if isinstance(value, (np.floating, np.integer)):
+            out[key] = value.item()
+        elif isinstance(value, pd.Timestamp):
+            out[key] = value.isoformat()
+        elif isinstance(value, pd.Timedelta):
+            out[key] = value.total_seconds()
+        elif isinstance(value, datetime.timedelta):
+            out[key] = value.total_seconds()
+        elif isinstance(value, VaultTechnicalRisk):
+            out[key] = value.get_risk_level_name()
+
+    # Map some legacy names
+    # TODO: Remove after confirmed frontend does not need these
+    out["management_fee"] = out["mgmt_fee"]
+    out["performance_fee"] = out["perf_fee"]
+
+    return out
