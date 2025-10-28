@@ -1422,7 +1422,7 @@ def export_lifetime_row(row: pd.Series) -> dict:
 
     # Map some legacy names
     # TODO: Remove after confirmed frontend does not need these
-    out["management_fee"] = out["mgmt_fee"]
-    out["performance_fee"] = out["perf_fee"]
+    out["management_fee"] = out.get("mgmt_fee", None)
+    out["performance_fee"] = out.get("perf_fee", None)
 
     return out
