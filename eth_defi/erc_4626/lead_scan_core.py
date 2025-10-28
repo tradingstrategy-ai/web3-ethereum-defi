@@ -39,6 +39,10 @@ def display_vaults_table(df: pd.DataFrame, nav_threshold=Decimal(1.1)) -> None:
     # Format DataFrame output for terminal
     # df["First seen"] = df["First seen"].dt.strftime("%Y-%b-%d")
 
+    if len(df) == 0:
+        print("No data")
+        return
+
     df = df.copy()
 
     # Skip trash entries,
