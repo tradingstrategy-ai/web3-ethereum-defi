@@ -40,10 +40,11 @@ logger = logging.getLogger(__name__)
 Percent: TypeAlias = float
 
 
-def fmt_one_decimal_or_int(x: float) -> str:
+def fmt_one_decimal_or_int(x: float | None) -> str:
     """Display fees to .1 accuracy if there are .1 fractions, otherwise as int."""
 
-    if x is None:
+    if x is None or x == "-":
+        # "-" is legacy data, should not be used anymore
         return "?"
 
     y = round(float(x * 100), 1)
