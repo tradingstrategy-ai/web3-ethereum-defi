@@ -105,6 +105,12 @@ def create_vault_scan_record(
         else:
             denomination_token = None
 
+        try:
+            lockup = vault.get_estimated_lock_up()
+        except ValueError as e:
+            logger.error(f"Failed to read lockup for vault {vault} at {detection.address}: {e}", exc_info=e)
+            lockup = None
+
         protocol_name = get_vault_protocol_name(detection.features)
 
         data = {
@@ -120,7 +126,7 @@ def create_vault_scan_record(
             "Withdraw fee": withdraw_fee,
             "Shares": total_supply,
             "First seen": detection.first_seen_at,
-            "Lock up": vault.get_estimated_lock_up(),
+            "Lock up": lockup,
             "_detection_data": detection,
             "_denomination_token": denomination_token,
             "_share_token": vault.share_token.export() if vault.share_token else None,
