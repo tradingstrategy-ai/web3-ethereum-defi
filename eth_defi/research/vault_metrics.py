@@ -811,26 +811,13 @@ def format_lifetime_table(
         mode="usd",
     )
 
-    # df["three_months_sharpe"] = combine_return_columns(
-    #    gross=df["three_months_sharpe"],
-    #    net=df["three_months_sharpe_net"],
-    # )
-
-    # df["cagr"] = df["cagr"].apply(lambda x: f"{x:.2%}")
-    # df["lifetime_return"] = df["lifetime_return"].apply(lambda x: f"{x:.2%}")
-    # df["three_months_cagr"] = df["three_months_cagr"].apply(lambda x: f"{x:.2%}")
-    # df["three_months_returns"] = df["three_months_returns"].apply(lambda x: f"{x:.2%}")
-    # df["one_month_cagr"] = df["one_month_cagr"].apply(lambda x: f"{x:.2%}")
-    # df["one_month_returns"] = df["one_month_returns"].apply(lambda x: f"{x:.2%}")
     df["three_months_volatility"] = df["three_months_volatility"].apply(lambda x: f"{x:.4f}")
     df["three_months_sharpe"] = df["three_months_sharpe"].apply(lambda x: f"{x:.1f}")
     df["event_count"] = df["event_count"].apply(lambda x: f"{x:,}")
     df["risk"] = df["risk"].apply(lambda x: x.get_risk_level_name() if x is not None else "Unknown")
-
     df["lockup"] = df["lockup"].apply(lambda x: f"{x.days}" if pd.notna(x) else "unk.")
 
-    # df["mgmt_fee"] = df["mgmt_fee"].apply(lambda x: f"{x:.2%}" if pd.notna(x) else "?")
-    # df["perf_fee"] = df["perf_fee"].apply(lambda x: f"{x:.2%}" if pd.notna(x) else "?")
+    # Combined to fee_label
     del df["mgmt_fee"]
     del df["perf_fee"]
     del df["deposit_fee"]
