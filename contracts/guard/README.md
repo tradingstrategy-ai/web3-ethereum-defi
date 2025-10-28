@@ -110,6 +110,12 @@ as besides the vault Enzyme has comptroller and integration manager smart contra
 
 ## Development
 
+### Installing the dependencies
+
+```shell
+forge soldeer install --config-location foundry
+```
+
 Compiling
 
 ```shell
