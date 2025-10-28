@@ -67,7 +67,10 @@ def has_good_fee_data(vault_row: VaultRow) -> bool:
     """Check if the vault row has good fee data."""
     mgmt_fee = vault_row.get("Mgmt fee")
     perf_fee = vault_row.get("Perf fee")
-    if mgmt_fee is None or perf_fee is None:
+
+    # "-" is legacy dat string, should not be used anymore
+
+    if mgmt_fee in (None, "-") or perf_fee in ("-", None):
         return False
     return True
 

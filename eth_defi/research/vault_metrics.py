@@ -170,10 +170,12 @@ def calculate_net_profit(
     assert end > start, "End datetime must be after start datetime"
     assert share_price_start > 0, "Start share price must be positive"
     assert share_price_end >= 0, "End share price must be non-negative"
-    if management_fee_annual is None:
+    if management_fee_annual in (None, "-"):
+        # - is legacy
         management_fee_annual = 0.0
     assert 0 <= management_fee_annual < 1, "Management fee must be between 0 and 1"
-    if performance_fee is None:
+    if performance_fee in (None, "-"):
+        # - is legacy
         performance_fee = 0.0
     assert 0 <= performance_fee < 1, "Performance fee must be between 0 and 1"
     if deposit_fee is None:
@@ -236,10 +238,10 @@ def calculate_net_returns_from_price(
     assert isinstance(share_price, pd.Series), f"share_price must be pandas Series, got {type(share_price)}"
     assert isinstance(share_price.index, pd.DatetimeIndex), "share_price must have DatetimeIndex"
 
-    if management_fee_annual is None:
+    if management_fee_annual in (None, "-"):
         management_fee_annual = 0.0
     assert 0 <= management_fee_annual < 1, "Management fee must be between 0 and 1"
-    if performance_fee is None:
+    if performance_fee in (None, "-"):
         performance_fee = 0.0
     assert 0 <= performance_fee < 1, "Performance fee must be between 0 and 1"
     if deposit_fee is None:
