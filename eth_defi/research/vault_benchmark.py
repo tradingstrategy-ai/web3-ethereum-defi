@@ -16,10 +16,10 @@ def visualise_vault_return_benchmark(
     vault_db: VaultDatabase,
     prices_df: pd.DataFrame,
     lookback=pd.Timedelta("90 days"),
-    title="Vault returns benchmark (net)",
+    title="Vault benchmark (returns after fees)",
     color_discrete_sequence=qualitative.Dark24,
     printer=print,
-) -> Figure:
+) -> tuple[Figure, pd.DataFrame]:
     """Plot the net returns benchmark chart for multiple vaults.
 
     - Ues net returns
@@ -31,6 +31,9 @@ def visualise_vault_return_benchmark(
 
     :param printer:
         Echo missing vault fee data warnings
+
+    :return:
+        tuple (Figure, net returns for all assets as DF)
     """
 
     ids = {spec.as_string_id() for spec in vault_spec}
@@ -48,8 +51,9 @@ def visualise_vault_return_benchmark(
 
         if not has_good_fee_data(vault):
             printer(f"Skipping vault {vault_id}: {name} due to missing fee data")
-            name = name + " (fees unk.)"
-            net_returns_series = pd.Series([], dtype="float64", index=pd.DatetimeIndex([]))
+            # name = name + " (fees unk.)"
+            # net_returns_series = pd.Series([], dtype="float64", index=pd.DatetimeIndex([]))
+            continue
         else:
             cleaned_returns_series = calculate_cumulative_returns(
                 cleaned_returns=group["returns_1h"],
@@ -67,8 +71,10 @@ def visualise_vault_return_benchmark(
         net_returns_data[name] = net_returns_series
 
         # Catch some bad data
-        assert isinstance(net_returns_series.index, pd.DatetimeIndex)
-        assert net_returns_series.index.max() < pd.Timestamp("2100-01-01"), f"Future date in returns series: {name}: {net_returns_data}"
+        if len(net_returns_series) > 0:
+            assert isinstance(net_returns_series.index, pd.DatetimeIndex)
+            final_date = net_returns_series.index.max()
+            assert final_date < pd.Timestamp("2100-01-01"), f"Future date in returns series: {name}: {net_returns_data}: {final_date}"
 
     net_returns_df = pd.DataFrame(net_returns_data)
 
@@ -85,7 +91,7 @@ def visualise_vault_return_benchmark(
     net_returns_df = net_returns_df.dropna(how="all")
 
     # Time series might not be aligned if some vaults start in the middle of the period
-    net_returns_df = net_returns_df.fillna(0)
+    # net_returns_df = net_returns_df.fillna(0)
 
     # Turn returns to cumulative returns
     # cleaned_returns_df = (1 + cleaned_returns_df).cumprod() - 1

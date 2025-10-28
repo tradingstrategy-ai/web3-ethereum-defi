@@ -430,8 +430,9 @@ def fix_outlier_share_prices(
     """Fix out rows with share price that is too high.
 
     - Sometimes share price jump to an outlier value and back
-    - Caused by bad oracles, fat fingers, etc.
-    - Not sure what is causing this, bad manual reporting, oracle issues?
+    - This caused abnormal returns in returns calculations, messing all volatility numbers, sharpe,
+      charts, etc.
+    - The root cause is bad oracles, fat fingers, MEV trades, etc.
     - See ``check-share-price`` script for inspecting individual prices
 
     Case Fluegel DAO:
@@ -553,12 +554,12 @@ def fix_outlier_share_prices(
                 # Maybe a genuine crash
                 fixed_price = current_price
 
-            logger(f"Abnormal share price detected for {vault_id} at index {idx} ({idx_loc}): fixing: {current_price} -> {fixed_price}, prev: {prev_price}, next: {next_price}")
+            # logger(f"Abnormal share price detected for {vault_id} at index {idx} ({idx_loc}): fixing: {current_price} -> {fixed_price}, prev: {prev_price}, next: {next_price}")
             group.loc[idx, "fixed_share_price"] = fixed_price
 
         # Apply the fixes
         group.loc[pd.notna(group["fixed_share_price"]), "share_price"] = group["fixed_share_price"]
-        group["id"] = vault_id
+        # group["id"] = vault_id
 
         # Don't export extra columns, only needed for calculations and debugging
         del group["prev_price_candidate"]
@@ -569,16 +570,18 @@ def fix_outlier_share_prices(
 
         return group
 
+    # TODO: How to fix warning here so that id column is retained?
+    # /Users/moo/code/trade-executor/deps/web3-ethereum-defi/eth_defi/research/wrangle_vault_prices.py:575: FutureWarning: DataFrameGroupBy.apply operated on the grouping columns. This behavior is deprecated, and in a future version of pandas the grouping columns will be excluded from the operation. Either pass `include_groups=False` to exclude the groupings or explicitly select the grouping columns after groupby to silence this warning.
     filtered_all_df = prices_df.groupby("id", group_keys=True, sort=False).apply(_clean_share_price_for_pair, include_groups=False)
 
     change_mask = (filtered_all_df["share_price"] != filtered_all_df["raw_share_price"]) & pd.notna(filtered_all_df["raw_share_price"])
     change_count = len(change_mask[change_mask == True])
 
-    logger(f"Share prices fix count {share_prices_fixed}, filtered out {change_count:,} rows with abnormal share_price spikes (> {max_diff:.2%})")
+    logger(f"Share prices fix count {share_prices_fixed}, updated {change_count:,} / {len(filtered_all_df):,} rows with abnormal share_price spikes (> {max_diff:.2%})")
 
     # groupby() added id as an MultiIndex(id, timestamp), but unwind this change back,
     # as other functions do not expect it
-    filtered_all_df = filtered_all_df.droplevel("id")
+    filtered_all_df = filtered_all_df.reset_index().set_index("timestamp")
 
     return filtered_all_df
 

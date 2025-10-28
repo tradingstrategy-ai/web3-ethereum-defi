@@ -46,8 +46,8 @@ def fmt_one_decimal_or_int(x: float) -> str:
     if x is None:
         return "?"
 
-    y = round(float(x), 1)
-    return f"{y * 100}%" if y.is_integer() else f"{y * 100:.1f}%"
+    y = round(float(x * 100), 1)
+    return f"{y:.0f}%" if y.is_integer() else f"{y:.1f}%"
 
 
 def create_fee_label(
