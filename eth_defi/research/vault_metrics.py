@@ -867,7 +867,7 @@ def format_lifetime_table(
             "end_date": "Latest deposit",
             "name": "Name",
             "lockup": "Lock up est. days",
-            "fee_label": "Fees (mgmt / perf / dep / with    )",
+            "fee_label": "Fees (mgmt / perf / dep / with)",
         }
     )
 

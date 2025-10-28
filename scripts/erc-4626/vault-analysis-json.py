@@ -286,7 +286,7 @@ if not formatted_df.empty:
 
     # 5️⃣ Convert DataFrame → list of dicts
     # vaults = df.to_dict(orient="records")
-    vaults = [export_lifetime_row(r) for _, r in dfiterrows()]
+    vaults = [export_lifetime_row(r) for _, r in df.iterrows()]
 
     # 6️⃣ Add metadata and deep sanitize
     output_data = {
