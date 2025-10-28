@@ -184,7 +184,6 @@ STABLECOIN_LIKE = set(
         "FDUSD",
         "FEI",
         "FLEXUSD",
-        "FRAX",
         "FXD",
         "FXUSD",
         "GBPT",
@@ -193,6 +192,7 @@ STABLECOIN_LIKE = set(
         "GUSD",
         "GYD",
         "GYEN",
+        "HAI",
         "HUSD",
         "IRON",
         "JCHF",
@@ -212,6 +212,7 @@ STABLECOIN_LIKE = set(
         "RAI",
         "RLUSD",
         "RUSD",
+        "SAI",
         "SDAI",
         "SEUR",
         "SFRAX",
@@ -307,6 +308,12 @@ STABLECOIN_LIKE = set(
     ]
 )
 
+
+#: Stablecoins which can be used as collateral, but which also have built-in yield bearing function
+#: with rebasing.
+YIELD_BEARING_STABLES = [
+    "sfrxUSD",
+]
 
 #: Stablecoins plus their interest wrapped counterparts on Compound and Aave.
 #: Also contains other derivates.
