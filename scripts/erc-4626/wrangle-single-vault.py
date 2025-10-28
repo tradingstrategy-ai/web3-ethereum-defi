@@ -35,6 +35,8 @@ def main():
 
     enhanced_prices_df = enhanced_prices_df.sort_values(by=["id", "timestamp"])
 
+    # Manually check if we remove bad onchain share prices
+
     min_price = enhanced_prices_df["share_price"].min()
     max_price = enhanced_prices_df["share_price"].max()
 
