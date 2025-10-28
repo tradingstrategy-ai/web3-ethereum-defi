@@ -37,7 +37,7 @@ ENV POETRY_VIRTUALENVS_IN_PROJECT=true
 RUN poetry install -E data -E web3v6 -E hypersync --no-interaction --no-ansi --without=dev
 
 # Add Google Sheets dependencies
-RUN poetry add gspread gspread-dataframe google-auth google-auth-oauthlib google-auth-httplib2 --no-interaction
+RUN .venv/bin/pip install gspread gspread-dataframe google-auth google-auth-oauthlib google-auth-httplib2
 
 # Optional: Clean up cache
 RUN poetry cache clear pypi --all --no-interaction
