@@ -18,6 +18,9 @@ from eth_defi.vault.base import VaultSpec
 #: Where we store the vault metadata database by default
 DEFAULT_VAULT_DATABASE = Path.home() / ".tradingstrategy" / "vaults" / "vault-metadata-db.pickle"
 
+#: Where we store uncleaned prices
+DEFAULT_RAW_PRICE_DATABASE = Path.home() / ".tradingstrategy" / "vaults" / "vault-prices-1h.parquet"
+
 
 class VaultRow(TypedDict):
     """Vault info gathered during the vault discovery from the chain.
@@ -154,6 +157,18 @@ class VaultDatabase:
         self.last_scanned_block[chain_id] = last_scanned_block
         self.leads.update({VaultSpec(chain_id, addr): lead for addr, lead in leads.items()})
         self.rows.update(rows)
+
+    def limit_to_single_vault(self, vault_spec: VaultSpec) -> "VaultDatabase":
+        """Limit results to a single vault.
+
+        Used for diagnostics.
+        """
+        rows = {spec: value for spec, value in self.rows.items() if spec == vault_spec}
+        return VaultDatabase(
+            rows=rows,
+            leads={},
+            last_scanned_block={},
+        )
 
     #
     # Backwards compatibility methods, do not use in the future

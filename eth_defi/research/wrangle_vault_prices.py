@@ -18,7 +18,8 @@ from eth_typing import HexAddress
 
 from eth_defi.chain import get_chain_name
 from eth_defi.token import is_stablecoin_like
-from eth_defi.vault.vaultdb import VaultDatabase, DEFAULT_VAULT_DATABASE, VaultRow
+from eth_defi.vault.base import VaultSpec
+from eth_defi.vault.vaultdb import VaultDatabase, DEFAULT_VAULT_DATABASE, VaultRow, DEFAULT_RAW_PRICE_DATABASE
 
 from tqdm.auto import tqdm
 
@@ -512,7 +513,7 @@ def sort_and_index_vault_prices(
 
 
 def process_raw_vault_scan_data(
-    rows: dict[HexAddress, VaultRow],
+    rows: dict[VaultSpec, VaultRow] | VaultDatabase,
     prices_df: pd.DataFrame,
     logger=print,
     display: Callable = lambda x: None,
@@ -526,6 +527,12 @@ def process_raw_vault_scan_data(
 
     :param rows:
         Metadata rows from vault database
+
+    :param logger:
+        Notebook / console printer function
+
+    :param display:
+        Display Pandas DataFrame function
     """
 
     assign_unique_names(rows, prices_df, logger)
@@ -593,7 +600,7 @@ def check_missing_metadata(
 
 def generate_cleaned_vault_datasets(
     vault_db_path=DEFAULT_VAULT_DATABASE,
-    price_df_path=Path.home() / ".tradingstrategy" / "vaults" / "vault-prices-1h.parquet",
+    price_df_path=DEFAULT_RAW_PRICE_DATABASE,
     cleaned_price_df_path=Path.home() / ".tradingstrategy" / "vaults" / "cleaned-vault-prices-1h.parquet",
     logger=print,
     display=display,
