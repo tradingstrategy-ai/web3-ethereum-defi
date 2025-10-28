@@ -7,6 +7,7 @@
 - Add: New protocol: Harvest Finance
 - Add: New protocol: Yearn Finance
 - Add: New protocol: Goat protocol 
+- Add: Vault fees and net profit calculations 
 - Add: `get_block_timestamps_using_hypersync()`
 - Add: Expand `TradingStrategyModuleV0` to cover ERC-7540 and Gains deposit/rdeem
 - Add: Guard updates: Whitelist Lagoon vault deposits into other ERC-7540 vaults (Lagoon vaults)
