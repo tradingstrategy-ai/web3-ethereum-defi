@@ -34,6 +34,7 @@ from requests.exceptions import (
     HTTPError,
     Timeout,
     TooManyRedirects,
+    ContentDecodingError,
 )
 from web3 import Web3
 from web3._utils.transactions import get_buffered_gas_estimate
@@ -76,6 +77,11 @@ DEFAULT_RETRYABLE_EXCEPTIONS: Tuple[BaseException] = (
     # urllib3.exceptions.ProtocolError: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
     RemoteDisconnected,
     SomeCrappyRPCProviderException,
+    # Why in the world a node is serving us broken zstd encoding
+    # ContentDecodingError
+    # requests.exceptions.ContentDecodingError: ('Received response with content-encoding: zstd, but failed to decode it.', ZstdError('cannot use a decompressobj multiple times'))
+    # Hyperliquid
+    ContentDecodingError,
 )
 
 #: List of HTTP status codes we know we might want to retry after a timeout
