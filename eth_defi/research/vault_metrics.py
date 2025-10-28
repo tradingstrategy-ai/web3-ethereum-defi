@@ -630,6 +630,8 @@ def calculate_lifetime_metrics(
                 "id": id_val,
                 "start_date": start_date,
                 "end_date": end_date,
+                "address": vault_spec.vault_address,
+                "chain_id": vault_spec.chain_id,
             }
         )
 
@@ -817,21 +819,28 @@ def format_lifetime_table(
     df["risk"] = df["risk"].apply(lambda x: x.get_risk_level_name() if x is not None else "Unknown")
     df["lockup"] = df["lockup"].apply(lambda x: f"{x.days}" if pd.notna(x) else "unk.")
 
+    def _del(x):
+        if x in df.columns:
+            del df[x]
+        return x
+
     # Combined to fee_label
-    del df["mgmt_fee"]
-    del df["perf_fee"]
-    del df["deposit_fee"]
-    del df["withdraw_fee"]
+    _del("mgmt_fee")
+    _del("perf_fee")
+    _del("deposit_fee")
+    _del("withdraw_fee")
 
     # Combined
-    del df["cagr_net"]
-    del df["lifetime_return_net"]
-    del df["three_months_cagr_net"]
-    del df["three_months_returns_net"]
-    del df["one_month_cagr_net"]
-    del df["one_month_returns_net"]
-    del df["three_months_sharpe_net"]
-    del df["peak_nav"]
+    _del("cagr_net")
+    _del("lifetime_return_net")
+    _del("three_months_cagr_net")
+    _del("three_months_returns_net")
+    _del("one_month_cagr_net")
+    _del("one_month_returns_net")
+    _del("three_months_sharpe_net")
+    _del("peak_nav")
+    _del("address")
+    _del("chain_id")
 
     df = df.rename(
         columns={
@@ -855,8 +864,14 @@ def format_lifetime_table(
             "name": "Name",
             "lockup": "Lock up est. days",
             "fee_label": "Fees (mgmt / perf / dep / with)",
+            "id": "id",
         }
     )
+
+    # Check for manual humbling
+    for c in df.columns:
+        if c != "id":
+            assert c[0].isupper() or c[0].isdigit(), f"Did not properly human label lifetime table column: {c}"
 
     if add_index:
         df.insert(0, "#", range(1, len(df) + 1))

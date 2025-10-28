@@ -311,16 +311,14 @@ STABLECOIN_LIKE = set(
 
 #: Stablecoins which can be used as collateral, but which also have built-in yield bearing function
 #: with rebasing.
-YIELD_BEARING_STABLES = [
-    "sfrxUSD",
-]
+YIELD_BEARING_STABLES = {"sfrxUSD", "sUSDe"}
 
 #: Stablecoins plus their interest wrapped counterparts on Compound and Aave.
 #: Also contains other derivates.
 WRAPPED_STABLECOIN_LIKE = {"cUSDC", "cUSDT", "sUSD", "aDAI", "cDAI", "tfUSDC", "alUSD", "agEUR", "gmdUSDC", "gDAI", "blUSD"}
 
 #: All stablecoin likes - both interested bearing and non interest bearing.
-ALL_STABLECOIN_LIKE = STABLECOIN_LIKE | WRAPPED_STABLECOIN_LIKE
+ALL_STABLECOIN_LIKE = STABLECOIN_LIKE | WRAPPED_STABLECOIN_LIKE | YIELD_BEARING_STABLES
 
 
 #: Some test accounts with funded USDC for Anvil mainnet forking

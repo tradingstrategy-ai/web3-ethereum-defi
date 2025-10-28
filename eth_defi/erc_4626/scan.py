@@ -27,19 +27,6 @@ def create_vault_scan_record(
     detection: ERC4262VaultDetection,
     block_identifier: BlockIdentifier,
     token_cache: TokenDiskCache,
-    detection_={
-        "Symbol": "",
-        "Name": "",
-        "Address": detection.address,
-        "Protocol": "<unknown>",
-        "Denomination": "",
-        "NAV": 0,
-        "Mgmt fee": None,
-        "Perf fee": None,
-        "Shares": 0,
-        "First seen": detection.first_seen_at,
-        "_detection_data": detection,
-    },
 ) -> dict:
     """Create a row in the result table.
 
@@ -56,7 +43,19 @@ def create_vault_scan_record(
         token_cache=token_cache,
     )
 
-    empty_record = detection_
+    empty_record = {
+        "Symbol": "",
+        "Name": "",
+        "Address": detection.address,
+        "Protocol": "<unknown>",
+        "Denomination": "",
+        "NAV": 0,
+        "Mgmt fee": None,
+        "Perf fee": None,
+        "Shares": 0,
+        "First seen": detection.first_seen_at,
+        "_detection_data": detection,
+    }
 
     if vault is None:
         # Probably not ERC-4626
