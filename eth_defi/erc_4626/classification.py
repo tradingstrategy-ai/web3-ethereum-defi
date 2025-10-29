@@ -311,6 +311,16 @@ def create_probe_calls(
             extra_data=None,
         )
 
+        # USDai
+        # https://arbiscan.io/address/0xc0540184de0e42eab2b0a4fc35f4817041001e85#code
+        usdai_call = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="bridgedSupply()")[0:4],
+            function="bridgedSupply",
+            data=b"",
+            extra_data=None,
+        )
+
         yield bad_probe_call
         yield name_call
         yield share_price_call
@@ -338,6 +348,7 @@ def create_probe_calls(
         yield untangled_call
         yield tokenised_strategy_call
         yield goat_call
+        yield usdai_call
 
 
 def identify_vault_features(
@@ -413,6 +424,8 @@ def identify_vault_features(
     if calls["MORPHO"].success:
         features.add(ERC4626Feature.morpho_like)
 
+    # Triggered by USDai
+    # TODO: Any better ways to check this?
     if calls["share"].success:
         features.add(ERC4626Feature.erc_7575_like)
 
@@ -459,6 +472,11 @@ def identify_vault_features(
 
     if calls["DEGRADATION_COEFFICIENT"].success:
         features.add(ERC4626Feature.goat_like)
+
+    if calls["bridgedSupply"].success:
+        features.add(ERC4626Feature.usdai_like)
+        features.add(ERC4626Feature.erc_7540_like)
+        features.add(ERC4626Feature.erc_7575_like)
 
     if len(features) > 4:
         # This contract somehow responses to all calls with success.
@@ -686,6 +704,11 @@ def create_vault_instance(
         from eth_defi.goat.vault import GoatVault
 
         return GoatVault(web3, spec, token_cache=token_cache, features=features)
+    elif ERC4626Feature.usdai_like in features:
+        # Both of these have fees internatilised
+        from eth_defi.usdai.vault import StakedUSDaiVault
+
+        return StakedUSDaiVault(web3, spec, token_cache=token_cache, features=features)
     else:
         # Generic ERC-4626 without fee data
         from eth_defi.erc_4626.vault import ERC4626Vault

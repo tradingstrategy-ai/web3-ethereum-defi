@@ -41,6 +41,7 @@ API documentation
    untangle/index
    yearn/index
    goat/index
+   usdai/index
    chainlink/index
    foundry/index
    etherscan/index
