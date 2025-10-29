@@ -33,7 +33,6 @@ class UntangleVault(ERC7540Vault):
 
     More information:
 
-    - `Docs <https://gitbook.d2.finance/>`__
     - `Github <https://github.com/untangledfinance/untangled-vault/blob/dev/contracts/Vault.sol>`__
     - `Example vault <https://arbiscan.io/address/0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9#code.`__
     - `Web app vault <<https://app.untangled.finance/vault/arbitrum/0x4a3F7Dd63077cDe8D7eFf3C958EB69A3dD7d31a9>`__
