@@ -184,6 +184,7 @@ STABLECOIN_LIKE = set(
         "FDUSD",
         "FEI",
         "FLEXUSD",
+        "FUSD",
         "FXD",
         "FXUSD",
         "GBPT",
