@@ -7,6 +7,7 @@ from pprint import pprint
 import pandas as pd
 import pytest
 import tabulate
+import flaky
 
 from eth_typing import HexAddress
 
@@ -25,6 +26,9 @@ def token_list(web3) -> list[list[HexAddress]]:
     return list(TEST_ROUTES_DATA.values())
 
 
+# Github CI:
+#  FAILED tests/lagoon/test_token_compat.py::test_token_compat_single - AssertionError: Could not read block number from Anvil after the launch anvil: at http://localhost:21832, stdout is 0 bytes, stderr is 223 bytes
+@flaky.flaky()
 def test_token_compat_single(token_list, tmp_path):
     """Check single token compatibility with Lagoon."""
     database_file = tmp_path / "test_lagoon_compat.pickle"
