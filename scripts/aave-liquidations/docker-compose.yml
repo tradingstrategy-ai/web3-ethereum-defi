@@ -1,0 +1,20 @@
+services:
+  aave-liquidation-ws:
+    build:
+      context: ../..
+      dockerfile: scripts/aave-liquidations/Dockerfile
+    image: aave-liquidation-ws
+    container_name: aave-liquidation-ws
+    ports:
+      - "8001:8001"
+    env_file:
+      - ../../.env
+    environment:
+      - PORT=8001
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import socket; s = socket.socket(); s.connect(('localhost', 8001)); s.close()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
