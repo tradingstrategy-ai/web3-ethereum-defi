@@ -331,6 +331,16 @@ def create_probe_calls(
             extra_data=None,
         )
 
+        # NashPoint
+        # https://arbiscan.io/address/0x6ca200319a0d4127a7a473d6891b86f34e312f42#readContract
+        nashpoint_call = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="validateComponentRatios()")[0:4],
+            function="validateComponentRatios",
+            data=b"",
+            extra_data=None,
+        )
+
         yield bad_probe_call
         yield name_call
         yield share_price_call
@@ -360,6 +370,7 @@ def create_probe_calls(
         yield goat_call
         yield usdai_call
         yield autopool_call
+        yield nashpoint_call
 
 
 def identify_vault_features(
@@ -491,6 +502,9 @@ def identify_vault_features(
 
     if calls["autoPoolStrategy"].success:
         features.add(ERC4626Feature.autopool_like)
+
+    if calls["validateComponentRatios"].success:
+        features.add(ERC4626Feature.nashpoint_like)
 
     if len(features) > 4:
         # This contract somehow responses to all calls with success.
@@ -728,6 +742,11 @@ def create_vault_instance(
         from eth_defi.autopool.vault import AutoPoolVault
 
         return AutoPoolVault(web3, spec, token_cache=token_cache, features=features)
+    elif ERC4626Feature.nashpoint_like in features:
+        # Both of these have fees internatilised
+        from eth_defi.nashpoint.vault import NashpointNodeVault
+
+        return NashpointNodeVault(web3, spec, token_cache=token_cache, features=features)
 
     else:
         # Generic ERC-4626 without fee data

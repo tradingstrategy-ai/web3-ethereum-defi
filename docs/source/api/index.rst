@@ -43,6 +43,7 @@ API documentation
    goat/index
    usdai/index
    auto_finance/index
+   nashpoint/index
    chainlink/index
    foundry/index
    etherscan/index

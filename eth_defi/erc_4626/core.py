@@ -201,6 +201,11 @@ class ERC4626Feature(enum.Enum):
     #: https://github.com/Tokemak/v2-core-pub?tab=readme-ov-file
     autopool_like = "autopool_like"
 
+    #: NashPoint
+    #:
+    #: https://nashpoint.gitbook.io/nashpoint
+    nashpoint_like = "nashpoint_like"
+
 
 def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     """Deduct vault protocol name based on Vault smart contract features.
@@ -279,6 +284,8 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "USDai"
     elif ERC4626Feature.autopool_like in features:
         return "AUTO Finance"
+    elif ERC4626Feature.nashpoint_like in features:
+        return "NashPoint"
 
     # No idea
     if ERC4626Feature.erc_7540_like in features:

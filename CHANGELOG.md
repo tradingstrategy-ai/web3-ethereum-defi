@@ -8,6 +8,8 @@
 - Add: New protocol: Yearn Finance
 - Add: New protocol: Goat protocol 
 - Add: New protocol: USDai protocol and StakedUSDai vault
+- Add: New protocol: AUTO Finance (prev. Tokemak)
+- Add: New protocol: NashPoint
 - Add: Vault protocol fee classification (internal/external/feeless) 
 - Add: Vault fees and net profit calculations 
 - Add: `get_block_timestamps_using_hypersync()`

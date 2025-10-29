@@ -6,7 +6,12 @@ from eth_typing import HexAddress
 
 
 class VaultFeeMode(enum.Enum):
-    """How vault protocol account its fees."""
+    """How vault protocol account its fees.
+
+    - Externalised fees: fees are deducted from the redemption amount when user withdraws.
+    - Internalised fees: fees are baked into the share price (asset amount) and continuously taken from the profit.
+      There are no fees on withdraw.
+    """
 
     #: Vault fees are baked into the share price (asset amount).
     #:
@@ -58,6 +63,7 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "Goat Protocol": VaultFeeMode.internalised_skimming,
     "USDai": VaultFeeMode.internalised_skimming,
     "AUTO Finance": VaultFeeMode.internalised_minting,
+    "NashPoint": VaultFeeMode.internalised_skimming,
 }
 
 
