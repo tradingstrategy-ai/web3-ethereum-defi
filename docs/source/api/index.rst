@@ -42,6 +42,7 @@ API documentation
    yearn/index
    goat/index
    usdai/index
+   auto_finance/index
    chainlink/index
    foundry/index
    etherscan/index

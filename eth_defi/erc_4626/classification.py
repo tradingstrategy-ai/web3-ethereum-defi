@@ -16,7 +16,6 @@ from web3.types import BlockIdentifier
 
 from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.core import ERC4626Feature
-from eth_defi.erc_7540.vault import ERC7540Vault
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, read_multicall_chunked
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.vault.base import VaultBase, VaultSpec
@@ -321,6 +320,17 @@ def create_probe_calls(
             extra_data=None,
         )
 
+        # Autopool
+        # https://arbiscan.io/address/0xf63b7f49b4f5dc5d0e7e583cfd79dc64e646320c#readProxyContract
+        # https://github.com/Tokemak/v2-core-pub?tab=readme-ov-file
+        autopool_call = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="autoPoolStrategy()")[0:4],
+            function="autoPoolStrategy",
+            data=b"",
+            extra_data=None,
+        )
+
         yield bad_probe_call
         yield name_call
         yield share_price_call
@@ -349,6 +359,7 @@ def create_probe_calls(
         yield tokenised_strategy_call
         yield goat_call
         yield usdai_call
+        yield autopool_call
 
 
 def identify_vault_features(
@@ -477,6 +488,9 @@ def identify_vault_features(
         features.add(ERC4626Feature.usdai_like)
         features.add(ERC4626Feature.erc_7540_like)
         features.add(ERC4626Feature.erc_7575_like)
+
+    if calls["autoPoolStrategy"].success:
+        features.add(ERC4626Feature.autopool_like)
 
     if len(features) > 4:
         # This contract somehow responses to all calls with success.
@@ -709,6 +723,12 @@ def create_vault_instance(
         from eth_defi.usdai.vault import StakedUSDaiVault
 
         return StakedUSDaiVault(web3, spec, token_cache=token_cache, features=features)
+    elif ERC4626Feature.autopool_like in features:
+        # Both of these have fees internatilised
+        from eth_defi.autopool.vault import AutoPoolVault
+
+        return AutoPoolVault(web3, spec, token_cache=token_cache, features=features)
+
     else:
         # Generic ERC-4626 without fee data
         from eth_defi.erc_4626.vault import ERC4626Vault

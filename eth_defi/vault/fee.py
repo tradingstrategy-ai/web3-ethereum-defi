@@ -10,8 +10,19 @@ class VaultFeeMode(enum.Enum):
 
     #: Vault fees are baked into the share price (asset amount).
     #:
+    #: Fees are taken from the profit at the moment profit is made,
+    #: and send to another address.
+    #:
     #: Example protocols: Yearn, Harvest Finance, USDAi.
-    internalised = "internalised"
+    internalised_skimming = "internalised_skimming"
+
+    #: Vault fees are baked into the share price (asset amount).
+    #:
+    #: Fees are taken from the profit at the moment profit is made.
+    #: and corresponding number of shares is minted to the vault owner.
+    #:
+    #: Example protocols: AUTO Finance
+    internalised_minting = "internalised_minting"
 
     #: Vault fees are taken from the user explicitly at the redemption time.
     #:
@@ -27,11 +38,11 @@ class VaultFeeMode(enum.Enum):
 #: See :py:func:`eth_defi.erc_4626.core.get_vault_protocol_name` for the names list.
 #:
 VAULT_PROTOCOL_FEE_MATRIX = {
-    "Euler": VaultFeeMode.internalised,
-    "Morpho": VaultFeeMode.internalised,
-    "Enzyme": VaultFeeMode.internalised,
+    "Euler": VaultFeeMode.internalised_skimming,
+    "Morpho": VaultFeeMode.internalised_skimming,
+    "Enzyme": VaultFeeMode.internalised_skimming,
     "Lagoon": VaultFeeMode.externalised,
-    "Velvet Capital": VaultFeeMode.internalised,
+    "Velvet Capital": VaultFeeMode.internalised_skimming,
     "Umami": VaultFeeMode.externalised,
     # Unverified contracts, no open source repo
     # https://arbiscan.io/address/0xd15a07a4150b0c057912fe883f7ad22b97161591#code
@@ -39,13 +50,14 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "Ostium": VaultFeeMode.feeless,
     "Gains": VaultFeeMode.feeless,
     "Plutus": VaultFeeMode.externalised,
-    "Harvest Finance": VaultFeeMode.internalised,
+    "Harvest Finance": VaultFeeMode.internalised_skimming,
     "D2 Finance": VaultFeeMode.externalised,
     "Untangle Finance": VaultFeeMode.externalised,
-    "Yearn v3": VaultFeeMode.internalised,
-    "Yearn tokenised strategy": VaultFeeMode.internalised,
-    "Goat Protocol": VaultFeeMode.internalised,
-    "USDai": VaultFeeMode.internalised,
+    "Yearn v3": VaultFeeMode.internalised_skimming,
+    "Yearn tokenised strategy": VaultFeeMode.internalised_skimming,
+    "Goat Protocol": VaultFeeMode.internalised_skimming,
+    "USDai": VaultFeeMode.internalised_skimming,
+    "AUTO Finance": VaultFeeMode.internalised_minting,
 }
 
 

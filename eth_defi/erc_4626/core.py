@@ -194,6 +194,13 @@ class ERC4626Feature(enum.Enum):
     #: https://usd.ai/
     usdai_like = "usdai_like"
 
+    #: AUTO Finance
+    #: Prev. Tokemak Autopilot
+    #:
+    #: https://app.auto.finance/
+    #: https://github.com/Tokemak/v2-core-pub?tab=readme-ov-file
+    autopool_like = "autopool_like"
+
 
 def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     """Deduct vault protocol name based on Vault smart contract features.
@@ -270,6 +277,8 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "Goat Protocol"
     elif ERC4626Feature.usdai_like in features:
         return "USDai"
+    elif ERC4626Feature.autopool_like in features:
+        return "AUTO Finance"
 
     # No idea
     if ERC4626Feature.erc_7540_like in features:

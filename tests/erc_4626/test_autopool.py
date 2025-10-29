@@ -1,4 +1,4 @@
-"USDai vault tests"
+"Autopool vault tests"
 
 import os
 from pathlib import Path
@@ -8,6 +8,7 @@ import pytest
 from web3 import Web3
 import flaky
 
+from eth_defi.autopool.vault import AutoPoolVault
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch
@@ -38,21 +39,21 @@ def web3(anvil_arbitrum_fork):
     return web3
 
 
-def test_usdai(
+def test_autopool(
     web3: Web3,
     tmp_path: Path,
 ):
-    """Read Untangle vault metadata"""
+    """Read Autopool metadata"""
 
     vault = create_vault_instance_autodetect(
         web3,
-        vault_address="0x0B2b2B2076d95dda7817e785989fE353fe955ef9",
+        vault_address="0xf63b7f49b4f5dc5d0e7e583cfd79dc64e646320c",
     )
 
-    assert vault.features == {ERC4626Feature.usdai_like, ERC4626Feature.erc_7540_like, ERC4626Feature.erc_7575_like}
-    assert isinstance(vault, StakedUSDaiVault)
-    assert vault.get_protocol_name() == "USDai"
+    assert vault.features == {ERC4626Feature.autopool_like}
+    assert isinstance(vault, AutoPoolVault)
+    assert vault.get_protocol_name() == "AUTO Finance"
     assert vault.get_risk() == VaultTechnicalRisk.lowish
     assert vault.get_management_fee("latest") == 0.00
     assert vault.get_performance_fee("latest") == 0.00
-    assert vault.get_fee_mode() == VaultFeeMode.internalised_skimming
+    assert vault.get_fee_mode() == VaultFeeMode.internalised_minting

@@ -95,6 +95,7 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Yearn tokenised strategy": VaultTechnicalRisk.lowish,
     "Goat Protocol": VaultTechnicalRisk.lowish,
     "USDai": VaultTechnicalRisk.lowish,
+    "AUTO Finance": VaultTechnicalRisk.lowish,
 }
 
 #: Particular vaults that are broken, misleading or otherwise problematic.

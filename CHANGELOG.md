@@ -7,6 +7,8 @@
 - Add: New protocol: Harvest Finance
 - Add: New protocol: Yearn Finance
 - Add: New protocol: Goat protocol 
+- Add: New protocol: USDai protocol and StakedUSDai vault
+- Add: Vault protocol fee classification (internal/external/feeless) 
 - Add: Vault fees and net profit calculations 
 - Add: `get_block_timestamps_using_hypersync()`
 - Add: Expand `TradingStrategyModuleV0` to cover ERC-7540 and Gains deposit/rdeem
