@@ -12,42 +12,66 @@ from eth_defi.gmx.core.markets import Markets
 from eth_defi.gmx.core.oracle import OraclePrices
 from eth_defi.gmx.utils import determine_swap_route
 from eth_defi.gmx.contracts import get_tokens_address_dict
-from eth_defi.token import fetch_erc20_details
+from eth_defi.gmx.synthetic_tokens import fetch_gmx_synthetic_tokens
 
 
 def _get_token_metadata_dict(web3: Web3, chain: str) -> dict:
     """
-    Get token metadata in SDK-compatible format.
+    Get token metadata in SDK-compatible format from GMX API.
 
-    Converts our eth_defi format (symbol -> address) into SDK format
-    (address -> {symbol, address, decimals}) required by ArgumentParser.
+    Fetches token details from the official GMX API, which provides accurate
+    symbol and decimal information for all GMX-supported tokens.
 
-    :param web3: Web3 connection instance
+    :param web3: Web3 connection instance (used to determine chain ID)
     :param chain: Network name
     :return: Dictionary mapping addresses to token metadata
     """
-    # Get our format: {symbol: address}
-    tokens_by_symbol = get_tokens_address_dict(chain)
+    # Get chain ID directly from web3 connection
+    try:
+        chain_id = web3.eth.chain_id
+    except Exception as e:
+        raise ValueError(f"Could not determine chain ID from web3 connection: {e}")
 
-    # Convert to SDK format: {address: {symbol, address, decimals}}
-    result = {}
-    for symbol, address in tokens_by_symbol.items():
-        try:
-            token_details = fetch_erc20_details(web3, address)
+    # Fetch tokens from GMX API
+    try:
+        gmx_tokens = fetch_gmx_synthetic_tokens(chain_id=chain_id)
+
+        # Convert to SDK format: {address: {symbol, address, decimals}}
+        result = {}
+        for token in gmx_tokens:
+            result[token.address] = {
+                "symbol": token.symbol,
+                "address": token.address,
+                "decimals": token.decimals,
+            }
+        return result
+    except Exception as e:
+        # Fallback to getting from local tokens dict if API fails
+        import logging
+
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Failed to fetch tokens from GMX API: {e}. Using local token list as fallback.")
+
+        tokens_by_symbol = get_tokens_address_dict(chain)
+        result = {}
+        # Use sensible defaults for fallback
+        decimals_map = {
+            "USDC": 6,
+            "USDT": 6,
+            "USDC.e": 6,
+            "ETH": 18,
+            "WETH": 18,
+            "BTC": 8,
+            "WBTC": 8,
+            "WBTC.b": 8,
+        }
+        for symbol, address in tokens_by_symbol.items():
             result[address] = {
                 "symbol": symbol,
                 "address": address,
-                "decimals": token_details.decimals,
+                "decimals": decimals_map.get(symbol, 18),  # Default to 18 if not found
             }
-        except Exception as e:
-            # Fallback for tokens that might not be standard ERC20
-            result[address] = {
-                "symbol": symbol,
-                "address": address,
-                "decimals": 18,  # Default to 18 decimals
-            }
-
-    return result
+        return result
 
 
 class OrderArgumentParser:
@@ -175,7 +199,8 @@ class OrderArgumentParser:
         """Compare keys in dictionary to required keys for order type."""
         return [key for key in self.required_keys if key not in parameters_dict]
 
-    def _handle_missing_chain(self):
+    @staticmethod
+    def _handle_missing_chain():
         """Chain must be supplied by user."""
         msg = "Please pass chain name in parameters dictionary!"
         raise Exception(msg)
@@ -354,7 +379,8 @@ class OrderArgumentParser:
             msg = f"Required keys are missing or provided incorrectly, please check: {potential_missing_keys}"
             raise Exception(msg)
 
-    def _get_oracle_address_for_token(self, token_address: str, chain: str) -> str:
+    @staticmethod
+    def _get_oracle_address_for_token(token_address: str, chain: str) -> str:
         """Map testnet token addresses to mainnet equivalents for oracle lookups."""
         # Testnet to mainnet token address mapping
         testnet_to_mainnet_tokens = {
@@ -424,9 +450,9 @@ class OrderArgumentParser:
             # For swaps, use start token decimals
             decimal = tokens[self.parameters_dict["start_token_address"]]["decimals"]
         else:
-            # For positions, collateral is in start_token initially, then swapped to collateral_token
-            # So we need to use start_token decimals since initial_collateral_delta is in start_token
-            decimal = tokens[self.parameters_dict["start_token_address"]]["decimals"]
+            # For positions, initial_collateral_delta is in collateral_token's smallest unit
+            # Use collateral token decimals (e.g., USDC = 6 decimals)
+            decimal = tokens[self.parameters_dict["collateral_address"]]["decimals"]
 
         self.parameters_dict["initial_collateral_delta"] = int(self.parameters_dict["initial_collateral_delta"] * 10**decimal)
 

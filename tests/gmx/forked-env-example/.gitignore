@@ -1,0 +1,32 @@
+# Compiler files
+cache/
+out/
+
+# Dependencies
+lib/
+.gitmodules
+
+# Environment variables
+.env
+
+# Ignores development broadcast logs
+!/broadcast
+/broadcast/*/31337/
+/broadcast/**/dry-run/
+
+# Dotenv file
+.env
+.env.test
+
+# Node.js (if using Hardhat/TypeScript tooling)
+node_modules/
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~

@@ -55,8 +55,26 @@ class OraclePrices:
 
         :return: Dictionary containing raw output for each token as its keys
         """
+        logging.debug("Fetching recent prices from GMX oracle API")
         raw_output = self._make_query().json()
-        return self._process_output(raw_output)
+
+        # Log the raw response structure
+        if "signedPrices" in raw_output:
+            num_prices = len(raw_output["signedPrices"])
+            logging.debug(f"Oracle API returned prices for {num_prices} tokens")
+
+            # Log first few token addresses and their min/max prices
+            for i, price_data in enumerate(raw_output["signedPrices"][:5]):
+                token_addr = price_data.get("tokenAddress", "N/A")
+                min_price = price_data.get("minPrice", "N/A")
+                max_price = price_data.get("maxPrice", "N/A")
+                logging.debug(f"  Token {i + 1}: {token_addr} - Min: {min_price}, Max: {max_price}")
+        else:
+            logging.warning(f"Oracle API response missing 'signedPrices' key. Keys: {list(raw_output.keys())}")
+
+        result = self._process_output(raw_output)
+        logging.debug(f"Processed oracle prices: {len(result)} tokens available for trading")
+        return result
 
     def _make_query(self, max_retries=5, initial_backoff=1, max_backoff=60) -> Optional[Response]:
         """Make request using oracle URL with retry mechanism.
@@ -110,7 +128,19 @@ class OraclePrices:
         :rtype: dict
         """
         processed: dict = {}
-        for i in output["signedPrices"]:
-            processed[i["tokenAddress"]] = i
+        try:
+            logging.debug(f"Processing oracle output with {len(output.get('signedPrices', []))} prices")
+            for i in output["signedPrices"]:
+                token_addr = i.get("tokenAddress", "unknown")
+                processed[token_addr] = i
+                logging.debug(f"  Added price for token: {token_addr}")
+
+            logging.debug(f"Successfully processed {len(processed)} token prices")
+        except KeyError as e:
+            logging.error(f"Error processing oracle output - missing key: {e}. Output keys: {list(output.keys())}")
+            raise
+        except Exception as e:
+            logging.error(f"Unexpected error processing oracle output: {e}", exc_info=True)
+            raise
 
         return processed

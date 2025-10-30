@@ -234,8 +234,10 @@ class BaseOrder:
         # Get execution fee
         gas_price = self.web3.eth.gas_price
         gas_limits = self._determine_gas_limits(is_open, is_close, is_swap)
-        execution_fee = int(gas_limits["total"] * gas_price)
-        execution_fee = int(execution_fee * params.execution_buffer)
+        base_execution_fee = int(gas_limits["total"] * gas_price)
+        execution_fee = int(base_execution_fee * params.execution_buffer)
+
+        logger.debug("Execution fee calculation: gas_price=%s wei, gas_limit=%s, base_fee=%s wei, buffer=%.2fx, final_fee=%s wei (%.8f ETH)", gas_price, gas_limits["total"], base_execution_fee, params.execution_buffer, execution_fee, execution_fee / 1e18)
 
         # Check approval if not closing (after market and price validation)
         if not is_close:
@@ -644,7 +646,7 @@ class BaseOrder:
         else:
             logger.debug("Token approval check passed: %.4f %s approved", allowance / (10**token_details.decimals), token_details.symbol)
 
-    # New method to estimate price impact
+    # method to estimate price impact
     def _estimate_price_impact(
         self,
         params: OrderParams,
@@ -670,44 +672,106 @@ class BaseOrder:
             return None
 
         try:
+            logger.debug("Starting price impact estimation for %s position", "long" if params.is_long else "short")
             reader = get_reader_contract(self.web3, self.chain)
-            prices = self.oracle_prices.get_recent_prices()
+            logger.debug("Reader contract loaded: %s", reader.address)
 
-            # Get index token price
+            prices = self.oracle_prices.get_recent_prices()
+            logger.debug("Oracle prices fetched, total tokens: %d", len(prices))
+
+            # Get token prices for MarketUtils.MarketPrices struct
             index_token_address = params.index_token_address
+            long_token_address = market_data.get("long_token_address")
+            short_token_address = market_data.get("short_token_address")
+
+            # Check if we have all required prices
+            logger.debug("Checking price availability - index: %s, long: %s, short: %s", index_token_address, long_token_address, short_token_address)
+
             if index_token_address not in prices:
+                logger.warning("Index token price not available: %s", index_token_address)
+                logger.debug("Available tokens in prices: %s", list(prices.keys())[:5])  # Show first 5
+                return None
+            if long_token_address not in prices:
+                logger.warning("Long token price not available: %s", long_token_address)
+                logger.debug("Available tokens in prices: %s", list(prices.keys())[:5])  # Show first 5
+                return None
+            if short_token_address not in prices:
+                logger.warning("Short token price not available: %s", short_token_address)
+                logger.debug("Available tokens in prices: %s", list(prices.keys())[:5])  # Show first 5
                 return None
 
-            price_data = prices[index_token_address]
+            logger.debug("All required prices available")
+
+            # Build price tuples (min, max) for each token
+            index_price_data = prices[index_token_address]
             index_token_price = (
-                int(price_data["maxPriceFull"]),
-                int(price_data["minPriceFull"]),
+                int(index_price_data["minPriceFull"]),
+                int(index_price_data["maxPriceFull"]),
+            )
+            logger.debug("Index token price: min=%s, max=%s", index_token_price[0], index_token_price[1])
+
+            long_price_data = prices[long_token_address]
+            long_token_price = (
+                int(long_price_data["minPriceFull"]),
+                int(long_price_data["maxPriceFull"]),
+            )
+            logger.debug("Long token price: min=%s, max=%s", long_token_price[0], long_token_price[1])
+
+            short_price_data = prices[short_token_address]
+            short_token_price = (
+                int(short_price_data["minPriceFull"]),
+                int(short_price_data["maxPriceFull"]),
+            )
+            logger.debug("Short token price: min=%s, max=%s", short_token_price[0], short_token_price[1])
+
+            # Construct MarketUtils.MarketPrices struct (nested tuple structure)
+            market_prices = (
+                index_token_price,  # indexTokenPrice: Price.Props
+                long_token_price,  # longTokenPrice: Price.Props
+                short_token_price,  # shortTokenPrice: Price.Props
             )
 
             # Calculate position size in tokens
             decimals = market_data["market_metadata"]["decimals"]
-            median_price = median([float(price_data["maxPriceFull"]), float(price_data["minPriceFull"])])
+            median_price = median([float(index_price_data["maxPriceFull"]), float(index_price_data["minPriceFull"])])
 
             # size_delta is already in 10^30 format from OrderArgumentParser
             size_delta_usd = int(params.size_delta)
-            position_size_in_tokens = int(params.size_delta / median_price)
+            # For a new position, the current position size in tokens is 0
+            # The sizeDeltaUsd parameter handles the increase amount
+            position_size_in_tokens = 0
 
             # Query reader contract for execution price and impact
-            result = reader.functions.getExecutionPrice(
-                self.contract_addresses.datastore,
-                params.market_key,
-                index_token_price,
-                0,  # positionSizeInUsd (we use sizeDeltaUsd)
-                position_size_in_tokens,
-                size_delta_usd,
-                params.is_long,
-            ).call()
+            # Note: getExecutionPrice signature expects (dataStore, marketKey, prices, positionSizeInUsd,
+            #       positionSizeInTokens, sizeDeltaUsd, pendingImpactAmount, isLong)
+            logger.debug("Calling getExecutionPrice with: datastore=%s, market=%s, positionSizeInTokens=%s, sizeDeltaUsd=%s, isLong=%s", self.contract_addresses.datastore, params.market_key, position_size_in_tokens, size_delta_usd, params.is_long)
 
-            # Result is tuple: (priceImpactUsd, priceImpactDiffUsd, executionPrice)
-            price_impact_usd = result[0] / (10**PRECISION)
+            try:
+                result = reader.functions.getExecutionPrice(
+                    self.contract_addresses.datastore,
+                    params.market_key,
+                    market_prices,  # MarketUtils.MarketPrices struct
+                    0,  # positionSizeInUsd
+                    position_size_in_tokens,
+                    size_delta_usd,
+                    0,  # pendingImpactAmount (no pending impact for new orders)
+                    params.is_long,
+                ).call()
 
-            return price_impact_usd
+                logger.debug("getExecutionPrice returned: %s", result)
+
+                # Result is ExecutionPriceResult tuple with fields:
+                # (priceImpactUsd, executionPrice, balanceWasImproved, proportionalPendingImpactUsd, totalImpactUsd, priceImpactDiffUsd)
+                price_impact_usd = result[0] / (10**PRECISION)
+                logger.debug("Price impact: %.6f USD", price_impact_usd)
+
+                return price_impact_usd
+            except Exception as call_error:
+                logger.debug("getExecutionPrice call failed with error: %s", call_error)
+                logger.debug("Error type: %s", type(call_error).__name__)
+                raise
 
         except Exception as e:
             logger.warning("Could not estimate price impact: %s", e)
+            logger.debug("Exception details", exc_info=True)
             return None
