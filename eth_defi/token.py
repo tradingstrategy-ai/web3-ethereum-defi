@@ -929,6 +929,30 @@ def is_stablecoin_like(token_symbol: str | None, symbol_list=ALL_STABLECOIN_LIKE
     return token_symbol in symbol_list
 
 
+def get_weth_contract(web3: Web3, name: str = "1delta/IWETH9.json") -> Contract:
+    """Get WETH9 contract for the chain
+
+    - `See WETH9 contract <https://www.contractreader.io/contract/mainnet/0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2>`__
+    - WETH9 is different contract with different functions on different chain
+
+    :param web3:
+        Web3 instance
+
+    :param name:
+        Alternative implementation.
+
+    :return:
+        WETH token details
+    """
+    chain_id = web3.eth.chain_id
+    weth_address = get_wrapped_native_token_address(chain_id)
+    return get_deployed_contract(
+        web3,
+        name,
+        weth_address,
+    )
+
+
 class TokenCacheWarmupResult(TypedDict):
     tokens_read: int
     multicalls_done: int

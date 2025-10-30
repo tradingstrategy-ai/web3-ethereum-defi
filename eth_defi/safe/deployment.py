@@ -18,7 +18,9 @@ from web3 import Web3
 from web3.contract.contract import ContractFunction
 
 from eth_defi.abi import ONE_ADDRESS_STR
+from eth_defi.gas import estimate_gas_price, apply_gas
 from eth_defi.provider.anvil import is_anvil
+from eth_defi.safe.execute import execute_safe_tx
 from eth_defi.safe.safe_compat import create_safe_ethereum_client
 from eth_defi.trace import assert_transaction_success_with_explanation
 
@@ -130,6 +132,8 @@ def add_new_safe_owners(
         threshold,
     )
 
+    gas_estimate = estimate_gas_price(web3)
+
     # Add all owners
     for owner in owners:
         assert isinstance(owner, str), f"Owner must be hex addresses, got {type(owner)}"
@@ -143,11 +147,14 @@ def add_new_safe_owners(
         tx = safe.contract.functions.addOwnerWithThreshold(owner, 1).build_transaction(
             {"from": deployer.address, "gas": gas_per_tx, "gasPrice": 0},
         )
+
         safe_tx = safe.build_multisig_tx(safe.address, 0, tx["data"])
         safe_tx.sign(deployer._private_key.hex())
-        tx_hash, tx = safe_tx.execute(
+        tx_hash, tx = execute_safe_tx(
+            safe_tx,
             tx_sender_private_key=deployer._private_key.hex(),
             tx_gas=1_000_000,
+            gas_fee=gas_estimate,
         )
         assert_transaction_success_with_explanation(web3, tx_hash)
 
@@ -158,15 +165,17 @@ def add_new_safe_owners(
             time.sleep(gnosis_safe_state_safety_sleep)
 
     # Change the threshold
-    logger.info("Changing signign threhold to: %d", threshold)
+    logger.info("Changing signing threshold to: %d", threshold)
     tx = safe.contract.functions.changeThreshold(threshold).build_transaction(
         {"from": deployer.address, "gas": gas_per_tx, "gasPrice": 0},
     )
     safe_tx = safe.build_multisig_tx(safe.address, 0, tx["data"])
     safe_tx.sign(deployer._private_key.hex())
-    tx_hash, tx = safe_tx.execute(
+    tx_hash, tx = execute_safe_tx(
+        safe_tx,
         tx_sender_private_key=deployer._private_key.hex(),
         tx_gas=1_000_000,
+        gas_fee=gas_estimate,
     )
     assert_transaction_success_with_explanation(web3, tx_hash)
     logger.info("Owners updated")

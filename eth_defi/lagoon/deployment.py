@@ -15,6 +15,7 @@ import logging
 import os
 import time
 from dataclasses import asdict, dataclass
+from decimal import Decimal
 from io import StringIO
 from pathlib import Path
 from pprint import pformat
@@ -24,10 +25,12 @@ import eth_abi
 from eth_account.signers.local import LocalAccount
 from eth_typing import BlockNumber, HexAddress
 from hexbytes import HexBytes
-from safe_eth.safe.safe import Safe
 from web3 import Web3
 from web3.contract import Contract
 from web3.contract.contract import ContractFunction
+from web3._utils.events import EventLogErrorFlags
+from safe_eth.eth.ethereum_client import TxSpeed
+from safe_eth.safe.safe import Safe
 
 from eth_defi.aave_v3.deployment import AaveV3Deployment
 from eth_defi.abi import get_deployed_contract, ZERO_ADDRESS_STR, encode_multicalls
@@ -35,12 +38,14 @@ from eth_defi.cow.constants import COWSWAP_SETTLEMENT
 from eth_defi.deploy import deploy_contract
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.foundry.forge import deploy_contract_with_forge
+from eth_defi.gas import estimate_gas_price, apply_gas
 from eth_defi.hotwallet import HotWallet
 from eth_defi.lagoon.beacon_proxy import deploy_beacon_proxy
 from eth_defi.lagoon.vault import LagoonVault
 from eth_defi.orderly.vault import OrderlyVault
 from eth_defi.provider.anvil import is_anvil
 from eth_defi.safe.deployment import add_new_safe_owners, deploy_safe, fetch_safe_deployment
+from eth_defi.safe.execute import execute_safe_tx
 from eth_defi.token import WRAPPED_NATIVE_TOKEN, fetch_erc20_details, get_wrapped_native_token_address
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.tx import get_tx_broadcast_data
@@ -48,6 +53,7 @@ from eth_defi.uniswap_v2.deployment import UniswapV2Deployment
 from eth_defi.uniswap_v3.deployment import UniswapV3Deployment
 from eth_defi.utils import chunked
 from eth_defi.vault.base import VaultSpec
+
 
 logger = logging.getLogger(__name__)
 
@@ -213,6 +219,9 @@ class LagoonAutomatedDeployment:
     #: Address of beacon proxy factory
     beacon_proxy_factory: HexAddress | None = None
 
+    #: How much ETH deployment used
+    gas_used: Decimal | None = None
+
     @property
     def safe(self) -> Safe:
         return self.vault.safe
@@ -243,6 +252,7 @@ class LagoonAutomatedDeployment:
             "Performance fee": f"{self.parameters.performanceRate / 100:,} %",
             "Management fee": f"{self.parameters.managementRate / 100:,} %",
             "ABI": self.vault_abi,
+            "Gas used": self.gas_used,
         }
 
         return fields
@@ -608,9 +618,9 @@ def deploy_lagoon(
         receipt = web3.eth.get_transaction_receipt(tx_hash)
         match beacon_proxy_factory_abi:
             case "lagoon/BeaconProxyFactory.json":
-                events = beacon_proxy_factory.events.BeaconProxyDeployed().process_receipt(receipt)
+                events = beacon_proxy_factory.events.BeaconProxyDeployed().process_receipt(receipt, EventLogErrorFlags.Discard)
             case "lagoon/OptinProxyFactory.json":
-                events = beacon_proxy_factory.events.ProxyDeployed().process_receipt(receipt)
+                events = beacon_proxy_factory.events.ProxyDeployed().process_receipt(receipt, EventLogErrorFlags.Discard)
             case _:
                 raise NotImplementedError(f"Unknown Lagoon proxy factory ABI pattern: {beacon_proxy_factory_abi}")
         event = events[0]
@@ -679,15 +689,23 @@ def deploy_safe_trading_strategy_module(
         )
 
     if enable_on_safe:
+        gas_estimate = estimate_gas_price(web3)
+
         # Enable TradingStrategyModuleV0 as Safe module
         # Multisig owners can enable the module
         tx = safe.contract.functions.enableModule(module.address).build_transaction(
-            {"from": deployer.address, "gas": 0, "gasPrice": 0},
+            {"from": deployer.address, "gas": 1_500_000},
         )
+        tx = apply_gas(tx, gas_estimate)
+
         safe_tx = safe.build_multisig_tx(safe.address, 0, tx["data"])
         safe_tx.sign(deployer._private_key.hex())
-        tx_hash, tx = safe_tx.execute(
+        tx_hash, tx = execute_safe_tx(
+            safe_tx,
             tx_sender_private_key=deployer._private_key.hex(),
+            tx_gas=1_500_000,
+            # eip1559_speed=TxSpeed.NORMAL,
+            gas_fee=gas_estimate,
         )
         assert_transaction_success_with_explanation(web3, tx_hash)
 
@@ -948,6 +966,8 @@ def deploy_automated_lagoon_vault(
 
     logger.info("Beginning Lagoon vault deployment, legacy mode: %s, ABI is %s", legacy, vault_abi)
 
+    start_balance = web3.eth.get_balance(deployer.address)
+
     if existing_vault_address:
         assert guard_only, "You cannot pass existing vault address without guard_only=True"
     else:
@@ -1129,20 +1149,28 @@ def deploy_automated_lagoon_vault(
     tx_hash = _broadcast(module.functions.transferOwnership(safe.address))
     assert_transaction_success_with_explanation(web3, tx_hash)
 
+    gas_estimate = estimate_gas_price(web3)
+
     if not guard_only:
         # 2. USDC.approve() for redemptions on Safe
         underlying = fetch_erc20_details(web3, parameters.underlying, chain_id=chain_id)
         tx_data = underlying.contract.functions.approve(vault_contract.address, 2**256 - 1).build_transaction(
             {
                 "from": deployer.address,
-                "gas": 0,
-                "gasPrice": 0,
+                # "gas": 0,
+                # "gasPrice": 0,
             }
         )
+
+        gas_estimate = estimate_gas_price(web3)
+        tx_data = apply_gas(tx_data, gas_estimate)
         safe_tx = safe.build_multisig_tx(underlying.address, 0, tx_data["data"])
         safe_tx.sign(deployer_local_account._private_key.hex())
-        tx_hash, tx = safe_tx.execute(
+        tx_hash, tx = execute_safe_tx(
+            safe_tx,
             tx_sender_private_key=deployer_local_account._private_key.hex(),
+            tx_gas=1_500_000,
+            gas_fee=gas_estimate,
         )
         assert_transaction_success_with_explanation(web3, tx_hash)
 
@@ -1168,6 +1196,8 @@ def deploy_automated_lagoon_vault(
         vault_abi=vault_abi,
     )
 
+    end_balance = web3.eth.get_balance(deployer.address)
+
     return LagoonAutomatedDeployment(
         chain_id=chain_id,
         vault=vault,
@@ -1180,6 +1210,7 @@ def deploy_automated_lagoon_vault(
         old_trading_strategy_module=existing_guard_module,
         vault_abi=vault_abi,
         beacon_proxy_factory=beacon_proxy_factory_address,
+        gas_used=Decimal((start_balance - end_balance) / 10**18),
     )
 
 

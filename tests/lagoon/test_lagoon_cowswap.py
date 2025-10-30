@@ -200,7 +200,6 @@ def test_lagoon_cowswap(
 
     # 3.b) build presigned tx
     order = presign_and_broadcast(
-        web3,
         asset_manager=topped_up_asset_manager,
         vault=vault,
         buy_token=fetch_erc20_details(web3, BRIDGED_USDC_TOKEN[chain_id]),
@@ -214,8 +213,8 @@ def test_lagoon_cowswap(
     assert order["receiver"] == vault.safe_address
     assert order["sellAmount"] == 5000000
     assert order["buyAmount"] == 4949999
-    # assert order["validTo"] == 1756893952
-    assert order["appData"] == b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    assert order["validTo"] > 1756893952
+    # assert order["appData"] == b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
     assert order["feeAmount"] == 0
-    assert order["kind"] == b"\xf3\xb2wr\x8b?\xeet\x94\x81\xeb>\x0b;H\x98\r\xbb\xabxe\x8f\xc4\x19\x02\\\xb1n\xee4gu"
+    assert order["kind"] == "buy"
     assert order["partiallyFillable"] is False

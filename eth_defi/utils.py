@@ -193,7 +193,7 @@ def setup_console_logging(
     default_log_level="warning",
     simplified_logging=False,
     log_file: str | Path = None,
-):
+) -> logging.Logger:
     """Set up coloured log output.
 
     - Helper function to have nicer logging output in tutorial scripts.
@@ -201,6 +201,9 @@ def setup_console_logging(
 
     :param log_file:
         Output both console and this log file.
+
+    :return:
+        Root logger
     """
 
     level = os.environ.get("LOG_LEVEL", default_log_level).upper()
@@ -245,6 +248,7 @@ def setup_console_logging(
     logging.getLogger("web3.RequestManager").setLevel(logging.WARNING)
     logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
     logging.getLogger("eth_defi.token").setLevel(logging.WARNING)
+    return logging.getLogger()
 
 
 def chunked(iterable, chunk_size):

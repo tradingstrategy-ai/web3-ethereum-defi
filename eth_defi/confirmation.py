@@ -32,6 +32,7 @@ from eth_defi.provider.anvil import mine
 from eth_defi.provider.fallback import FallbackProvider, get_fallback_provider
 from eth_defi.provider.mev_blocker import MEVBlockerProvider
 from eth_defi.provider.named import get_provider_name
+from eth_defi.revert_reason import fetch_transaction_revert_reason
 from eth_defi.timestamp import get_latest_block_timestamp
 from eth_defi.tx import decode_signed_transaction, get_tx_broadcast_data
 from eth_defi.utils import to_unix_timestamp
@@ -66,6 +67,10 @@ class NonceTooLow(NonRetryableBroadcastException):
 
 class BadChainId(NonRetryableBroadcastException):
     """Out of gas funds for an executor."""
+
+
+class Reverted(Exception):
+    """Transaction reverted on-chain."""
 
 
 def is_out_of_gas(eth_rpc_error_messag: str) -> bool:
@@ -339,6 +344,9 @@ def broadcast_and_wait_transactions_to_complete(
         How many blocks wait for the transaction receipt to settle.
         Set to zero to return as soon as we see the first transaction receipt.
     :return: Map transaction hash -> receipt
+
+    :raise Reverted:
+        If the transaction did not go through and `confirm_ok` is set.
     """
 
     hashes = broadcast_transactions(
@@ -353,8 +361,9 @@ def broadcast_and_wait_transactions_to_complete(
 
     if confirm_ok:
         for tx_hash, receipt in receipts.items():
-            if receipt.status != 1:
-                raise RuntimeError(f"Transaction {tx_hash} failed {receipt}")
+            if receipt["status"] != 1:
+                revert_reason = fetch_transaction_revert_reason(web3, tx_hash)
+                raise Reverted(f"Transaction {tx_hash.hex()} failed. Reverted: {revert_reason}\n{pformat(receipt)}")
 
     return receipts
 
