@@ -2,11 +2,7 @@
 Tests for GMX Open Positions functionality based on real API structure.
 """
 
-from web3 import Web3, HTTPProvider
-
-from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.core.open_positions import GetOpenPositions
-from eth_defi.provider.anvil import fork_network_anvil
 from tests.gmx.conftest import get_open_positions
 
 

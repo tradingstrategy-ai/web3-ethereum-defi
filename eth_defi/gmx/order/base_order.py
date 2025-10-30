@@ -16,7 +16,7 @@ from eth_utils import to_checksum_address
 from web3.types import TxParams
 
 from eth_defi.gmx.config import GMXConfig
-from eth_defi.gmx.contracts import get_contract_addresses, get_exchange_router_contract, NETWORK_TOKENS, get_datastore_contract, TESTNET_TO_MAINNET_ORACLE_TOKENS
+from eth_defi.gmx.contracts import get_contract_addresses, get_exchange_router_contract, NETWORK_TOKENS, get_datastore_contract, TESTNET_TO_MAINNET_ORACLE_TOKENS, get_reader_contract
 from eth_defi.gmx.constants import PRECISION, ORDER_TYPES, DECREASE_POSITION_SWAP_TYPES, GAS_LIMITS, ETH_ZERO_ADDRESS
 from eth_defi.gmx.core.markets import Markets
 from eth_defi.gmx.core.oracle import OraclePrices
@@ -670,8 +670,6 @@ class BaseOrder:
             return None
 
         try:
-            from eth_defi.gmx.contracts import get_reader_contract
-
             reader = get_reader_contract(self.web3, self.chain)
             prices = self.oracle_prices.get_recent_prices()
 
