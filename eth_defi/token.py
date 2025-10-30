@@ -170,7 +170,7 @@ STABLECOIN_LIKE = set(
         "CUSD",
         "DAI",
         "DJED",
-        "DOLA",
+        "DOLA"
         "DUSD",
         "EOSDT",
         "EURA",

@@ -44,7 +44,7 @@ contract TradingStrategyModuleV0 is Module, GuardV0Base {
 
     // Identify the deployed ABI
     function getTradingStrategyModuleVersion() public pure returns (string memory) {
-        return "v0.1.2";
+        return "v0.1.3";
     }
 
     /**
@@ -106,6 +106,27 @@ contract TradingStrategyModuleV0 is Module, GuardV0Base {
      */
     function performCall(address target, bytes calldata callData) external {
         performCall(target, callData, 0);
+    }
+
+    // Expose CowSwap swap function pre-signer to asset managers
+    function swapAndValidateCowSwap(
+        address settlementContract,
+        address receiver,
+        bytes32 appData,
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn,
+        uint256 minAmountOut
+    ) external returns (bytes memory) {
+        return _swapAndValidateCowSwap(
+            settlementContract,
+            receiver,
+            appData,
+            tokenIn,
+            tokenOut,
+            amountIn,
+            minAmountOut
+        );
     }
 
 }
