@@ -852,7 +852,7 @@ def setup_guard(
                 # USDC may be whitelisted twice because denomination tokens are shared.
                 logger.info("Whitelisting #%d token %s:", idx, token)
                 note = f"Whitelisting {token.name}"
-                partial_cal = module.functions.allowAsset(Web3.to_checksum_address(asset), note)
+                partial_cal = module.functions.whitelistToken(Web3.to_checksum_address(asset), note)
                 multicalls.append(partial_cal)
 
             call = module.functions.multicall(encode_multicalls(multicalls))

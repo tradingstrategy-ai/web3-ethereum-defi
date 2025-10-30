@@ -252,7 +252,7 @@ abstract contract GuardV0Base is IGuard,  Multicall, SwapCowSwap  {
         emit LagoonVaultApproved(vault, notes);
     }
 
-    function isAnyTokenApprove(bytes4 selector) internal pure returns (bool) {
+    function isAnyTokenApproveSelector(bytes4 selector) internal pure returns (bool) {
         return selector == getSelector("approve(address,uint256)");
     }
 
@@ -316,12 +316,14 @@ abstract contract GuardV0Base is IGuard,  Multicall, SwapCowSwap  {
         require(isAllowedDelegationApprovalDestination(to), "validate_approveDelegation: Approve delegation address does not match");
     }
 
+    // Make this callable both internally and externally
     function _whitelistToken(address token, string calldata notes) internal {
         allowCallSite(token, getSelector("transfer(address,uint256)"), notes);
         allowCallSite(token, getSelector("approve(address,uint256)"), notes);
         allowAsset(token, notes);
     }
 
+    // Allow ERC-20.approve() to a specific asset and this asset used as the part of path of swaps
     function whitelistToken(address token, string calldata notes) external {
         _whitelistToken(token, notes);
     }
@@ -388,7 +390,7 @@ abstract contract GuardV0Base is IGuard,  Multicall, SwapCowSwap  {
 
         // If we have dynamic whitelist/any token, we cannot check approve() call sites of
         // individual tokens
-        bool anyTokenCheck = anyAsset && isAnyTokenApprove(selector);
+        bool anyTokenCheck = anyAsset && isAnyTokenApproveSelector(selector);
 
         // With anyToken, we cannot check approve() call site because we do not whitelist
         // individual token addresses

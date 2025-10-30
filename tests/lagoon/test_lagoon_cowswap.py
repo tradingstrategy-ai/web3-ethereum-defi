@@ -6,12 +6,12 @@ from decimal import Decimal
 import pytest
 from eth_typing import HexAddress
 from web3 import Web3
-import flaky
 
+from eth_defi.cow.constants import COWSWAP_SETTLEMENT
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
-from eth_defi.gains.testing import force_next_gains_epoch
 from eth_defi.gains.vault import GainsVault
 from eth_defi.hotwallet import HotWallet
+from eth_defi.lagoon.cowswap import presign_and_broadcast, unpack_cow_order_data
 from eth_defi.lagoon.deployment import LagoonDeploymentParameters, deploy_automated_lagoon_vault
 from eth_defi.provider.anvil import mine, fork_network_anvil, AnvilLaunch
 from eth_defi.provider.multi_provider import create_multi_provider_web3
@@ -96,11 +96,9 @@ def test_lagoon_cowswap(
     web3: Web3,
     usdc: TokenDetails,
     topped_up_asset_manager: HexAddress,
-    gains_vault: GainsVault,
     deployer_hot_wallet: HotWallet,
     multisig_owners: list[HexAddress],
     new_depositor: HexAddress,
-    asset_manager: HexAddress,
 ):
     """Perform a USDC->USDC.e swap on Lagoon vault using CowSwap via TradingStrategyModuleV0."""
 
@@ -112,7 +110,6 @@ def test_lagoon_cowswap(
     asset_manager = topped_up_asset_manager
     assert asset_manager.startswith("0x")
     depositor = new_depositor
-    target_vault = gains_vault
 
     parameters = LagoonDeploymentParameters(
         underlying=USDC_NATIVE_TOKEN[chain_id],
@@ -143,13 +140,18 @@ def test_lagoon_cowswap(
         assets=assets,
     )
 
+    # Check CowSwap and all assets are whitelisted
+    vault = deploy_info.vault
+    trading_strategy_module = vault.trading_strategy_module
+    assert trading_strategy_module.functions.isAllowedCowSwap(COWSWAP_SETTLEMENT).call() == True
+    assert trading_strategy_module.functions.isAllowedApprovalDestination(COWSWAP_SETTLEMENT).call() == True
+    for a in assets:
+        assert trading_strategy_module.functions.isAllowedAsset(Web3.to_checksum_address(a)).call() == True
+    assert not vault.trading_strategy_module.functions.anyAsset().call()
+
     #
     # 2. Fund our vault
     #
-
-    vault = deploy_info.vault
-    our_address = vault.safe_address
-    assert not vault.trading_strategy_module.functions.anyAsset().call()
 
     # We need to do the initial valuation at value 0
     bound_func = vault.post_new_valuation(Decimal(0))
@@ -188,3 +190,32 @@ def test_lagoon_cowswap(
     #
     # 3. Perform CowSwap swap USDC -> USDC.e
     #
+
+    # 3.a) approve
+    usdc_amount = Decimal(5)
+    func = usdc.approve(COWSWAP_SETTLEMENT, usdc_amount)
+    moduled_tx = vault.transact_via_trading_strategy_module(func)
+    tx_hash = moduled_tx.transact({"from": asset_manager, "gas": 1_000_000})
+    assert_transaction_success_with_explanation(web3, tx_hash, func=func)
+
+    # 3.b) build presigned tx
+    order = presign_and_broadcast(
+        web3,
+        asset_manager=topped_up_asset_manager,
+        vault=vault,
+        buy_token=fetch_erc20_details(web3, BRIDGED_USDC_TOKEN[chain_id]),
+        sell_token=fetch_erc20_details(web3, USDC_NATIVE_TOKEN[chain_id]),
+        amount_in=usdc_amount,
+        min_amount_out=usdc_amount * Decimal(0.99),
+    )
+
+    assert order["sellToken"] == "0xaf88d065e77c8cC2239327C5EDb3A432268e5831"
+    assert order["buyToken"] == "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8"
+    assert order["receiver"] == vault.safe_address
+    assert order["sellAmount"] == 5000000
+    assert order["buyAmount"] == 4949999
+    # assert order["validTo"] == 1756893952
+    assert order["appData"] == b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    assert order["feeAmount"] == 0
+    assert order["kind"] == b"\xf3\xb2wr\x8b?\xeet\x94\x81\xeb>\x0b;H\x98\r\xbb\xabxe\x8f\xc4\x19\x02\\\xb1n\xee4gu"
+    assert order["partiallyFillable"] is False
