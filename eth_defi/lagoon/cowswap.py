@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from enum import IntEnum
 from pprint import pformat
-from typing import TypeAlias, Callable, TypedDict, Any
+from typing import TypeAlias, Callable, TypedDict, Any, Literal
 
 import requests
 from web3 import Web3
@@ -397,3 +397,47 @@ def presign_and_execute_cowswap(
         order=order,
         status=final_status,
     )
+
+
+def fetch_quote(
+    from_: HexAddress | str,
+    buy_token: TokenDetails,
+    sell_token: TokenDetails,
+    amount_in: Decimal,
+    min_amount_out: Decimal,
+    api_timeout: datetime.timedelta = datetime.timedelta(seconds=30),
+    price_quality: Literal["fast", "verified", "optional"] = "fast",
+) -> dict:
+    """Fetch a CowSwap quote for a given token pair and amounts.
+
+    https://docs.cow.fi/cow-protocol/reference/apis/quote
+    """
+
+    chain_id = buy_token.chain_id
+    base_url = get_cowswap_api(chain_id)
+    final_url = f"{base_url}/api/v1/quote"
+
+    # See OrderQuoteRequest
+    # https://docs.cow.fi/cow-protocol/reference/apis/orderbook
+    params = {
+        "from": from_,
+        "buyToken": buy_token.address,
+        "sellToken": sell_token.address,
+        "sellAmountBeforeFee": str(sell_token.convert_to_raw(amount_in)),
+        "kind": "sell",
+        "buyTokenBalance": "erc20",
+        "sellTokenBalance": "erc20",
+        "priceQuality": price_quality,
+        "onchainOrder": True,
+        "signingScheme": "presign",
+    }
+    response = requests.post(final_url, json=params, timeout=api_timeout.total_seconds())
+
+    try:
+        response.raise_for_status()
+    except requests.HTTPError as e:
+        error_message = response.text
+        logger.error(f"Error posting CowSwap order: {error_message}")
+        raise CowAPIError(f"Error posting CowSwap order: {response.status_code} {error_message}\nData was:{pformat(params)}\nEndpoint: {final_url}") from e
+
+    return response.json()

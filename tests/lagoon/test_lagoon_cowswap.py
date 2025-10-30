@@ -11,11 +11,11 @@ from eth_defi.cow.constants import COWSWAP_SETTLEMENT
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.gains.vault import GainsVault
 from eth_defi.hotwallet import HotWallet
-from eth_defi.lagoon.cowswap import presign_and_broadcast, unpack_cow_order_data
+from eth_defi.lagoon.cowswap import presign_and_broadcast, unpack_cow_order_data, fetch_quote
 from eth_defi.lagoon.deployment import LagoonDeploymentParameters, deploy_automated_lagoon_vault
 from eth_defi.provider.anvil import mine, fork_network_anvil, AnvilLaunch
 from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.token import TokenDetails, USDC_NATIVE_TOKEN, USDC_WHALE, fetch_erc20_details, BRIDGED_USDC_TOKEN, USDT_NATIVE_TOKEN
+from eth_defi.token import TokenDetails, USDC_NATIVE_TOKEN, USDC_WHALE, fetch_erc20_details, BRIDGED_USDC_TOKEN, USDT_NATIVE_TOKEN, WRAPPED_NATIVE_TOKEN
 from eth_defi.trace import assert_transaction_success_with_explanation
 
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
@@ -218,3 +218,43 @@ def test_lagoon_cowswap(
     assert order["feeAmount"] == 0
     assert order["kind"] == "buy"
     assert order["partiallyFillable"] is False
+
+
+def test_cowswap_quote(
+    web3: Web3,
+):
+    """See we can quote CowSwap order data unpacking correctly."""
+
+    chain_id = web3.eth.chain_id
+    weth = fetch_erc20_details(
+        web3,
+        WRAPPED_NATIVE_TOKEN[chain_id],
+    )
+
+    usdce = fetch_erc20_details(web3, BRIDGED_USDC_TOKEN[chain_id])
+
+    quoted_data = fetch_quote(
+        from_="0xdcc6D3A3C006bb4a10B448b1Ee750966395622c6",  # Dummy address
+        buy_token=usdce,
+        sell_token=weth,
+        amount_in=Decimal("0.1"),
+        min_amount_out=Decimal("0.01"),
+    )
+
+    assert quoted_data["from"].startswith("0x")
+    # assert quoted_data["expiration"] == "1970-01-01T00:00:00Z"
+    assert quoted_data["id"] is None
+    assert quoted_data["verified"] is False
+    assert quoted_data["quote"]["sellToken"] == "0x82af49447d8a07e3bd95bd0d56f35241523fbab1"
+    assert quoted_data["quote"]["buyToken"] == "0xff970a61a04b1ca14834a43f5de4533ebddb5cc8"
+    assert quoted_data["quote"]["receiver"] is None
+    assert int(quoted_data["quote"]["sellAmount"]) > 1
+    assert int(quoted_data["quote"]["buyAmount"]) > 1
+    assert quoted_data["quote"]["validTo"] > 1761863893
+    assert quoted_data["quote"]["appData"] == "0x0000000000000000000000000000000000000000000000000000000000000000"
+    assert int(quoted_data["quote"]["feeAmount"]) > 1
+    assert quoted_data["quote"]["kind"] == "sell"
+    assert quoted_data["quote"]["partiallyFillable"] is False
+    assert quoted_data["quote"]["sellTokenBalance"] == "erc20"
+    assert quoted_data["quote"]["buyTokenBalance"] == "erc20"
+    assert quoted_data["quote"]["signingScheme"] == "presign"

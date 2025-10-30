@@ -20,7 +20,7 @@ from eth_defi.chain import get_chain_name
 from eth_defi.confirmation import broadcast_and_wait_transactions_to_complete
 from eth_defi.gas import estimate_gas_price, apply_gas
 from eth_defi.hotwallet import HotWallet, SignedTransactionWithNonce
-from eth_defi.lagoon.cowswap import presign_and_execute_cowswap
+from eth_defi.lagoon.cowswap import presign_and_execute_cowswap, fetch_quote
 from eth_defi.lagoon.deployment import deploy_automated_lagoon_vault, LagoonDeploymentParameters
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import BRIDGED_USDC_TOKEN, USDC_NATIVE_TOKEN, USDT_NATIVE_TOKEN, WRAPPED_NATIVE_TOKEN, get_weth_contract, fetch_erc20_details
@@ -143,16 +143,30 @@ def main():
     print(f"Hot wallet address: {hot_wallet.address}, ETH balance: {web3.from_wei(balance, 'ether')} ETH, current nonce is {hot_wallet.current_nonce}")
 
     weth_contract = get_weth_contract(web3)
+    weth = fetch_erc20_details(web3, WRAPPED_NATIVE_TOKEN[chain_id])
 
     # Check "Ethereum weather"
     gas_estimate = estimate_gas_price(web3)
     print(f"Current gas price estimate:\n{gas_estimate.pformat()}")
 
     #
+    # Before we start let's ask for a quote so we know CowSwap can fulfill
+    # our swap before starting.
+    #
+    quoted_data = fetch_quote(
+        buy_token=fetch_erc20_details(web3, BRIDGED_USDC_TOKEN[chain_id]),
+        sell_token=weth,
+        amount_in=Decimal("0.1"),
+        min_amount_out=Decimal("0.01"),
+    )
+    import ipdb
+
+    ipdb.set_trace()
+
+    #
     # 1. Wrap some WETH which we use as the initial deposit to the vault
     #
     test_amount = Decimal(0.0001)
-    weth = fetch_erc20_details(web3, WRAPPED_NATIVE_TOKEN[chain_id])
     weth_balance = weth.fetch_balance_of(hot_wallet.address)
 
     if weth_balance < test_amount:
