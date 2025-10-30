@@ -31,6 +31,7 @@ from web3.contract.contract import ContractFunction
 
 from eth_defi.aave_v3.deployment import AaveV3Deployment
 from eth_defi.abi import get_deployed_contract, ZERO_ADDRESS_STR, encode_multicalls
+from eth_defi.cow.constants import COWSWAP_SETTLEMENT
 from eth_defi.deploy import deploy_contract
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.foundry.forge import deploy_contract_with_forge
@@ -709,7 +710,10 @@ def setup_guard(
     orderly_vault: OrderlyVault | None = None,
     aave_v3: AaveV3Deployment | None = None,
     erc_4626_vaults: list[ERC4626Vault] | None = None,
+    cowswap: bool = False,
     hack_sleep=20.0,
+    assets: list[HexAddress | str] | None = None,
+    multicall_chunk_size=40,
 ):
     """Setups up TradingStrategyModuleV0 guard on the Lagoon vault.
 
@@ -740,6 +744,9 @@ def setup_guard(
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     anvil = is_anvil(web3)
+
+    if any_asset:
+        assert not assets, f"Cannot use any_asset with specific assets whitelist, got: {assets}"
 
     # Whitelist Uniswap v2
     if uniswap_v2:
@@ -789,10 +796,8 @@ def setup_guard(
     if erc_4626_vaults:
         # Because we may list large number, do multicall bundling using built=in GuardV0Base.multicall()
 
-        vault_chunk_size = 40
-
         # Do N vaults per one multicall
-        for chunk_id, chunk in enumerate(chunked(erc_4626_vaults, vault_chunk_size), start=1):
+        for chunk_id, chunk in enumerate(chunked(erc_4626_vaults, multicall_chunk_size), start=1):
             multicalls = []
             logger.info("Processing ERC-4626 vaults chunk #%d, size %d", chunk_id, len(chunk))
 
@@ -829,6 +834,46 @@ def setup_guard(
     else:
         logger.info("Not whitelisted: any ERC-4626 vaults")
 
+    # Whitelist all ERC-4626 vaults
+    if assets:
+        # Because we may list large number, do multicall bundling using built=in GuardV0Base.multicall()
+
+        # Do N vaults per one multicall
+        for chunk_id, chunk in enumerate(chunked(assets, multicall_chunk_size), start=1):
+            multicalls = []
+            logger.info("Processing assets chunk #%d, size %d", chunk_id, len(chunk))
+
+            for idx, asset in enumerate(chunk, start=1):
+                assert asset.startswith("0x"), f"Expected hex address, got: {asset}"
+
+                token = fetch_erc20_details(web3, asset)
+
+                # This will whitelist vault deposit/withdraw and its share and denomination token.
+                # USDC may be whitelisted twice because denomination tokens are shared.
+                logger.info("Whitelisting #%d token %s:", idx, token)
+                note = f"Whitelisting {token.name}"
+                partial_cal = module.functions.allowAsset(Web3.to_checksum_address(asset), note)
+                multicalls.append(partial_cal)
+
+            call = module.functions.multicall(encode_multicalls(multicalls))
+            tx_hash = _broadcast(call)
+            assert_transaction_success_with_explanation(web3, tx_hash)
+
+            if not anvil:
+                # TODO: A hack on Base mainnet inconsitency
+                logger.info("Enforce vault tx readback lag on mainnet, sleeping 10 seconds")
+                time.sleep(hack_sleep)
+
+        logger.info("Total %d assets whitelisted", len(assets))
+
+    else:
+        logger.info("Not whitelisting specific ERC-20 tokens")
+
+    if cowswap:
+        logger.info("Whitelisting CowSwap: %s", COWSWAP_SETTLEMENT)
+        tx_hash = _broadcast(module.functions.whitelistCowSwap(COWSWAP_SETTLEMENT, "Allow CowSwap"))
+        assert_transaction_success_with_explanation(web3, tx_hash)
+
     # Whitelist all assets
     if any_asset:
         logger.info("Allow any asset whitelist")
@@ -855,6 +900,7 @@ def deploy_automated_lagoon_vault(
     uniswap_v3: UniswapV3Deployment | None,
     orderly_vault: OrderlyVault | None = None,
     aave_v3: AaveV3Deployment | None = None,
+    cowswap: bool = False,
     any_asset: bool = False,
     etherscan_api_key: str = None,
     use_forge=False,
@@ -866,6 +912,7 @@ def deploy_automated_lagoon_vault(
     vault_abi="lagoon/v0.5.0/Vault.json",
     factory_contract=True,
     from_the_scratch: bool = False,
+    assets: list[HexAddress | str] | None = None,
 ) -> LagoonAutomatedDeployment:
     """Deploy a full Lagoon setup with a guard.
 
@@ -1065,9 +1112,11 @@ def deploy_automated_lagoon_vault(
         uniswap_v3=uniswap_v3,
         orderly_vault=orderly_vault,
         aave_v3=aave_v3,
+        cowswap=cowswap,
         erc_4626_vaults=erc_4626_vaults,
         any_asset=any_asset,
         broadcast_func=_broadcast,
+        assets=assets,
     )
 
     # After everything is deployed, fix ownership

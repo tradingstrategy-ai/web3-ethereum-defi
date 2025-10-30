@@ -97,6 +97,12 @@ USDC_NATIVE_TOKEN: dict[int, HexAddress | str] = {
     421614: "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d",
 }
 
+#: Bridged USDC of different chains
+BRIDGED_USDC_TOKEN: dict[int, HexAddress | str] = {
+    # Arbitrum
+    42161: "0xff970a61a04b1ca14834a43f5de4533ebddb5cc8",
+}
+
 
 #: Used in fork testing
 USDC_WHALE: dict[int, HexAddress | str] = {
@@ -170,8 +176,7 @@ STABLECOIN_LIKE = set(
         "CUSD",
         "DAI",
         "DJED",
-        "DOLA"
-        "DUSD",
+        "DOLADUSD",
         "EOSDT",
         "EURA",
         "EURCV",
