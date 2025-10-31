@@ -54,7 +54,7 @@ def test_nashpoint(
     assert vault.features == {ERC4626Feature.nashpoint_like, ERC4626Feature.erc_7540_like, ERC4626Feature.erc_7575_like}
     assert isinstance(vault, NashpointNodeVault)
     assert vault.get_protocol_name() == "NashPoint"
-    assert vault.get_risk() == VaultTechnicalRisk.lowish
+    assert vault.get_risk() == VaultTechnicalRisk.minimal
     assert vault.get_management_fee("latest") == 0.00
     assert vault.get_performance_fee("latest") == 0.00
     assert vault.get_fee_mode() == VaultFeeMode.internalised_skimming

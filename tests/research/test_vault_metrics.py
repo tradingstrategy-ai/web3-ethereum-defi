@@ -73,7 +73,7 @@ def test_calculate_lifetime_metrics(
     assert sample_row["mgmt_fee"] == 0
     assert sample_row["deposit_fee"] == 0
     assert sample_row["withdraw_fee"] == 0
-    assert sample_row["risk"] == VaultTechnicalRisk.low
+    assert sample_row["risk"] == VaultTechnicalRisk.negligible
     assert sample_row["current_nav"] == pytest.approx(2345373.103418)
     assert sample_row["fee_label"] == "0% / 15%"
 

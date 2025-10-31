@@ -53,7 +53,7 @@ def test_autopool(
     assert vault.features == {ERC4626Feature.autopool_like}
     assert isinstance(vault, AutoPoolVault)
     assert vault.get_protocol_name() == "AUTO Finance"
-    assert vault.get_risk() == VaultTechnicalRisk.lowish
+    assert vault.get_risk() == VaultTechnicalRisk.minimal
     assert vault.get_management_fee("latest") == 0.00
     assert vault.get_performance_fee("latest") == 0.00
     assert vault.get_fee_mode() == VaultFeeMode.internalised_minting

@@ -24,7 +24,7 @@ class UmamiVault(ERC4626Vault):
     """
 
     def get_risk(self) -> VaultTechnicalRisk | None:
-        return VaultTechnicalRisk.extra_high
+        return VaultTechnicalRisk.elevated
 
     @cached_property
     def vault_contract(self) -> Contract:

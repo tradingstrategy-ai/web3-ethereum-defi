@@ -20,43 +20,22 @@ class VaultTechnicalRisk(enum.Enum):
     we cannot verify if they match what the audit says (if there is any).
     """
 
-    #: Fully open sourced and audited vaults with transparent strategies,
-    #: all data easily readable onchain. Vouched and promoted by reputable people in the space.
-    #: Vaults have robust developer documentation and explanation of APIs, mechanisms and risks.
-    #:
-    #: E.g. Euler, Morpho, Enzyme, vaults.
-    low = 1
+    #: See vault technicak risk matrix documentation.
+    negligible = 1
 
-    #: The vault is built on the good known protocol like Lagoon and Enzyme, but
-    #: includes manual execution, custom smart contracts and permissions by the curator that add to the risk.
-    #:
-    #: E.g. Lagoon.
-    #:
-    lowish = 5
+    #: See vault technicak risk matrix documentation.
+    minimal = 10
 
-    #: No public Github repository to follow the development, but still publishes full source and providers integrator documentation and transparency
-    #:
-    #:
-    high = 20
+    #: See vault technicak risk matrix documentation.
+    low = 20
 
-    #: Only partial source code published.
-    #:
-    #: No Github repository, not all contracts have been verified.
-    #:
-    #: E.g. Velvet Capital, Umami.
-    #:
-    extra_high = 40
+    #: See vault technicak risk matrix documentation.
+    high = 30
 
-    #: The contracts of the protocol do not follow any best practices.
-    #:
-    #: Example dangerous level red flags include:
-    #: - Smart contracts are unverified on blockchain explorers: in the case of website goes down, it's difficult for users to get their funds out or known what's happening
-    #: - Not following blockchain development best practices
-    #: - Unaudited code
-    #: - No Github repository of open development
-    #:
-    #: E.g. Peapods.
-    #:
+    #: See vault technicak risk matrix documentation.
+    severe = 40
+
+    #: See vault technicak risk matrix documentation.
     dangerous = 50
 
     #: This vault is blacklisted because it is known not to be "real" in a sense
@@ -75,28 +54,28 @@ class VaultTechnicalRisk(enum.Enum):
 #: See :py:func:`eth_defi.erc_4626.core.get_vault_protocol_name` for the names list.
 #:
 VAULT_PROTOCOL_RISK_MATRIX = {
-    "Euler": VaultTechnicalRisk.low,
-    "Morpho": VaultTechnicalRisk.low,
-    "Enzyme": VaultTechnicalRisk.low,
-    "Lagoon": VaultTechnicalRisk.lowish,
-    "Velvet Capital": VaultTechnicalRisk.extra_high,
-    "Umami": VaultTechnicalRisk.extra_high,
+    "Euler": VaultTechnicalRisk.negligible,
+    "Morpho": VaultTechnicalRisk.negligible,
+    "Enzyme": VaultTechnicalRisk.negligible,
+    "Lagoon": VaultTechnicalRisk.minimal,
+    "Velvet Capital": VaultTechnicalRisk.high,
+    "Umami": VaultTechnicalRisk.severe,
     # Unverified contracts, no open source repo
     # https://arbiscan.io/address/0xd15a07a4150b0c057912fe883f7ad22b97161591#code
     "Peapods": VaultTechnicalRisk.dangerous,
     "Ostium": VaultTechnicalRisk.high,
     "Gains": VaultTechnicalRisk.high,
     # No audits
-    "Plutus": VaultTechnicalRisk.extra_high,
-    "Harvest Finance": VaultTechnicalRisk.lowish,
-    "D2 Finance": VaultTechnicalRisk.extra_high,
-    "Untangle Finance": VaultTechnicalRisk.lowish,
-    "Yearn v3": VaultTechnicalRisk.lowish,
-    "Yearn tokenised strategy": VaultTechnicalRisk.lowish,
-    "Goat Protocol": VaultTechnicalRisk.lowish,
-    "USDai": VaultTechnicalRisk.lowish,
-    "AUTO Finance": VaultTechnicalRisk.lowish,
-    "NashPoint": VaultTechnicalRisk.lowish,
+    "Plutus": VaultTechnicalRisk.severe,
+    "Harvest Finance": VaultTechnicalRisk.low,
+    "D2 Finance": VaultTechnicalRisk.high,
+    "Untangle Finance": VaultTechnicalRisk.low,
+    "Yearn v3": VaultTechnicalRisk.minimal,
+    "Yearn tokenised strategy": VaultTechnicalRisk.minimal,
+    "Goat Protocol": VaultTechnicalRisk.low,
+    "USDai": VaultTechnicalRisk.low,
+    "AUTO Finance": VaultTechnicalRisk.low,
+    "NashPoint": VaultTechnicalRisk.low,
 }
 
 #: Particular vaults that are broken, misleading or otherwise problematic.
