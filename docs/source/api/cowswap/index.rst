@@ -1,6 +1,9 @@
 CowW Swap API
 -------------
 
+Introduction
+============
+
 CoW Protocol is a meta-DEX aggregation protocol that leverages trade intents and fair combinatorial batch auctions to find users better prices for trading crypto assets.
 
 The protocol relies on third parties known as "solvers" to find the best execution paths for trade intents — signed messages that specify conditions for executing transaction on Ethereum and EVM-compatible chains.
@@ -13,6 +16,12 @@ Liquidity sources include:
 - Private Market Makers
 
 The wide range of liquidity that solvers tap into makes CoW Protocol a meta-DEX aggregator, or an aggregator of aggregators.
+
+Technicals
+==========
+
+`eth_defi` provides CoW Swap integration for smart contracts and vaults through Cow Swap's "Presigned" scheme.
+See :py:mod:`eth_defi.lagoon.cowswap` for details how to perform `Lagoon vault <https://tradingstrategy.ai/glossary/lagoon>`__ automated trading with CoW Swap.
 
 - :ref:`Read tutorial <lagoon-cowswap>`
 - `CoW Swap docs <https://docs.cow.fi/cow-protocol/r>`__
