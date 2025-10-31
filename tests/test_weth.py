@@ -41,6 +41,9 @@ def web3(anvil_arbitrum_fork):
     return web3
 
 
+# Anvil is piece of crap
+# ERROR tests/lagoon/test_lagoon_cowswap.py::test_cowswap_quote - AssertionError: Could not read block number from Anvil after the launch anvil: at http://localhost:27496, stdout is 0 bytes, stderr is 209 bytes
+@pytest.mark.skipif(CI, reason="Flaky on CI")
 def test_weth9(web3):
     """Test WETH9 wrapping on Arbitrum."""
     # https://arbiscan.io/address/0x82af49447d8a07e3bd95bd0d56f35241523fbab1
