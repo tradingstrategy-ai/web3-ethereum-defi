@@ -273,6 +273,7 @@ class HotWallet:
         tx_params: dict | None = None,
         web3: Web3 | None = None,
         fill_gas_price=False,
+        value: int | None = None,
     ) -> SignedTransactionWithNonce:
         """Signs a bound Web3 Contract call.
 
@@ -367,6 +368,9 @@ class HotWallet:
                     fn_args=func.args,
                     fn_kwargs=func.kwargs,
                 )
+
+        if value:
+            tx["value"] = value
 
         return self.sign_transaction_with_new_nonce(tx)
 

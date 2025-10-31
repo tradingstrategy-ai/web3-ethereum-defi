@@ -62,6 +62,7 @@ Tutorials and examples
    aave-v3-liquidations
    gmx-swap
    gmx-v2-price-analysis
+   lagoon-cowswap
    erc-4626-read-apy
    erc-4626-historical-apy
    erc-4626-scan-prices

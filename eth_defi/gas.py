@@ -5,6 +5,7 @@
 
 import enum
 from dataclasses import dataclass
+from pprint import pformat
 from typing import Optional
 
 from web3 import Web3
@@ -56,6 +57,21 @@ class GasPriceSuggestion:
             return {"maxPriorityFeePerGas": self.max_priority_fee_per_gas, "maxFeePerGas": self.max_fee_per_gas}
         else:
             return {"gasPrice": self.legacy_gas_price}
+
+    def pformat(self) -> str:
+        """Pretty format for logging."""
+
+        def _format(value: Optional[int]) -> str:
+            if value is None:
+                return "-"
+            return f"{value / 10**9:.2f}G ({value:,})"
+
+        data = {
+            "Base Fee": _format(self.base_fee),
+            "Max priority fee per gas": _format(self.max_priority_fee_per_gas),
+            "Max fee per gas": _format(self.max_fee_per_gas),
+        }
+        return pformat(data)
 
 
 def estimate_gas_price(web3: Web3, method=None) -> GasPriceSuggestion:
@@ -134,6 +150,9 @@ def apply_gas(tx: dict, suggestion: GasPriceSuggestion) -> dict:
         Mutated dict
 
     """
+
+    assert isinstance(tx, dict), f"Expected tx to be dict, got {type(tx)}"
+
     if suggestion.method == GasPriceMethod.london:
         tx["maxFeePerGas"] = suggestion.max_fee_per_gas
         tx["maxPriorityFeePerGas"] = suggestion.max_priority_fee_per_gas

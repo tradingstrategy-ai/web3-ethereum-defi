@@ -7,10 +7,10 @@
 
 from decimal import Decimal
 
-import flaky
 import pytest
 from eth_typing import HexAddress
 from web3 import Web3
+import os
 
 
 from eth_defi.lagoon.vault import LagoonVault
@@ -20,6 +20,9 @@ from eth_defi.uniswap_v2.deployment import fetch_deployment
 from eth_defi.uniswap_v2.swap import swap_with_slippage_protection
 from eth_defi.vault.base import TradingUniverse
 from eth_defi.safe.trace import assert_execute_module_success
+
+
+CI = os.environ.get("CI") == "true"
 
 
 @pytest.fixture()
@@ -33,7 +36,7 @@ def uniswap_v2(web3):
     )
 
 
-@flaky.flaky
+@pytest.mark.skipif(CI, reason="Too Flaky on CI")
 def test_lagoon_swap_exec_module(
     web3: Web3,
     uniswap_v2,

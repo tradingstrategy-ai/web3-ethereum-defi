@@ -22,6 +22,7 @@ API documentation
    uniswap_v3/index
    aave_v2/index
    aave_v3/index
+   cowswap/index
    gmx/index
    one_delta/index
    safe/index

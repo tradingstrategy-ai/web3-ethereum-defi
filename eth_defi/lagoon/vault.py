@@ -639,7 +639,7 @@ class LagoonVault(ERC7540Vault):
         :param raw_amount:
             Raw amount in underlying token
         """
-        assert type(raw_amount) == int
+        assert type(raw_amount) == int, f"Deposit amount must be int, got {raw_amount} {type(raw_amount)}"
         underlying = self.underlying_token
         existing_balance = underlying.fetch_raw_balance_of(depositor)
         if check_balance:

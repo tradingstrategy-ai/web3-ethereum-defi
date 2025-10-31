@@ -73,7 +73,7 @@ class ERC7540DepositRequest(DepositRequest):
             request_id = convert_bytes32_to_uint(topics[-1])
 
         else:
-            logs = vault.vault_contract.events.DepositRequested().process_receipt(receipt, errors=EventLogErrorFlags.Ignore)
+            logs = vault.vault_contract.events.DepositRequested().process_receipt(receipt, errors=EventLogErrorFlags.Discard)
             if len(logs) != 1:
                 raise CannotParseRedemptionTransaction(f"Expected exactly one DepositRequested event, got logs: {logs} at {tx_hash.hex()}")
 

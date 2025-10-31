@@ -10,6 +10,7 @@ import "./IGuard.sol";
 
 import "./lib/IERC4626.sol";
 import "./lib/Multicall.sol";
+import "./lib/SwapCowSwap.sol";
 
 /**
  * Prototype guard implementation.
@@ -21,7 +22,7 @@ import "./lib/Multicall.sol";
  * - We include native multicall support so you can whitelist multiple assets in the same tx
  *
  */
-abstract contract GuardV0Base is IGuard,  Multicall  {
+abstract contract GuardV0Base is IGuard,  Multicall, SwapCowSwap  {
 
     using Path for bytes;
     using BytesLib for bytes;
@@ -102,6 +103,14 @@ abstract contract GuardV0Base is IGuard,  Multicall  {
     //
     mapping(address destination => bool allowed) public allowedLagoonVaults;
 
+    // Allowed cow swap instances.
+    //
+    // The deployed address of GPv2 settlement contract.
+    //
+    // https://etherscan.io/address/0x9008d19f58aabd9ed0d60971565aa8510560ab41
+    //
+    mapping(address destination => bool allowed) public allowedCowSwaps;
+
     // Allow trading any token
     //
     // Dangerous, as malicious/compromised trade-executor can drain all assets through creating fake tokens
@@ -132,7 +141,11 @@ abstract contract GuardV0Base is IGuard,  Multicall  {
     event AnyAssetSet(bool value, string notes);
     event AnyVaultSet(bool value, string notes);
 
+
     event LagoonVaultApproved(address vault, string notes);
+
+    event CowSwapApproved(address settlementContract, string notes);
+    event ERC4626Approved(address vault, string notes);
 
     // Implementation needs to provide its own ownership policy hooks
     modifier onlyGuardOwner() virtual;
@@ -239,7 +252,7 @@ abstract contract GuardV0Base is IGuard,  Multicall  {
         emit LagoonVaultApproved(vault, notes);
     }
 
-    function isAnyTokenApprove(bytes4 selector) internal pure returns (bool) {
+    function isAnyTokenApproveSelector(bytes4 selector) internal pure returns (bool) {
         return selector == getSelector("approve(address,uint256)");
     }
 
@@ -284,6 +297,10 @@ abstract contract GuardV0Base is IGuard,  Multicall  {
         return allowedLagoonVaults[vault] == true;
     }
 
+    function isAllowedCowSwap(address settlement) public view returns (bool) {
+        return allowedCowSwaps[settlement] == true;
+    }
+
     function validate_transfer(bytes memory callData) public view {
         (address to, ) = abi.decode(callData, (address, uint));
         require(isAllowedWithdrawDestination(to), "validate_transfer: Receiver address not whitelisted by Guard");
@@ -299,12 +316,14 @@ abstract contract GuardV0Base is IGuard,  Multicall  {
         require(isAllowedDelegationApprovalDestination(to), "validate_approveDelegation: Approve delegation address does not match");
     }
 
+    // Make this callable both internally and externally
     function _whitelistToken(address token, string calldata notes) internal {
         allowCallSite(token, getSelector("transfer(address,uint256)"), notes);
         allowCallSite(token, getSelector("approve(address,uint256)"), notes);
         allowAsset(token, notes);
     }
 
+    // Allow ERC-20.approve() to a specific asset and this asset used as the part of path of swaps
     function whitelistToken(address token, string calldata notes) external {
         _whitelistToken(token, notes);
     }
@@ -371,7 +390,7 @@ abstract contract GuardV0Base is IGuard,  Multicall  {
 
         // If we have dynamic whitelist/any token, we cannot check approve() call sites of
         // individual tokens
-        bool anyTokenCheck = anyAsset && isAnyTokenApprove(selector);
+        bool anyTokenCheck = anyAsset && isAnyTokenApproveSelector(selector);
 
         // With anyToken, we cannot check approve() call site because we do not whitelist
         // individual token addresses
@@ -575,6 +594,13 @@ abstract contract GuardV0Base is IGuard,  Multicall  {
         require(isAllowedReceiver(receiver), "validate_ERC4626Redeem: Receiver address not whitelisted by Guard");
     }
 
+    // Validate cow swap settlement
+    function validate_cowSwapSettlement(bytes memory callData) public view {
+        // We can only receive from ERC-4626 to ourselves
+        (, address receiver, ) = abi.decode(callData, (uint256, address, address));
+        require(isAllowedReceiver(receiver), "validate_ERC4626Withdrawal: Receiver address not whitelisted by Guard");
+    }
+
     // 1delta implementation: https://github.com/1delta-DAO/contracts-delegation/blob/4f27e1593c564c419ff042cdd932ed52d04216bf/contracts/1delta/modules/aave/MarginTrading.sol#L43-L89
     function validate_flashSwapExactInt(bytes memory callData) public view {
         (, , bytes memory path) = abi.decode(callData, (uint256, uint256, bytes));
@@ -621,6 +647,8 @@ abstract contract GuardV0Base is IGuard,  Multicall  {
         }
     }
 
+
+
     function whitelistOnedelta(address brokerProxy, address lendingPool, string calldata notes) external {
         allowCallSite(brokerProxy, getSelector("multicall(bytes[])"), notes);
         allowApprovalDestination(brokerProxy, notes);
@@ -663,6 +691,8 @@ abstract contract GuardV0Base is IGuard,  Multicall  {
         allowApprovalDestination(vault, notes);
         _whitelistToken(shareToken, notes);
         _whitelistToken(denominationToken, notes);
+
+        emit ERC4626Approved(vault, notes);
     }
 
     // Aave V3 implementation: https://github.com/aave/aave-v3-core/blob/e0bfed13240adeb7f05cb6cbe5e7ce78657f0621/contracts/protocol/pool/Pool.sol#L145
@@ -695,6 +725,57 @@ abstract contract GuardV0Base is IGuard,  Multicall  {
         allowCallSite(orderlyVault, getSelector("deposit((bytes32,bytes32,bytes32,uint128))"), notes);
         allowCallSite(orderlyVault, getSelector("withdraw((bytes32,bytes32,bytes32,uint128,uint128,address,address,uint64))"), notes);
         allowApprovalDestination(orderlyVault, notes);
+    }
+
+    // https://github.com/cowprotocol/contracts/tree/main/deployments
+    function whitelistCowSwap(address settlementContract, string calldata notes) external {
+        // Interaction by special _swapAndValidateCowSwap() internal function
+        allowApprovalDestination(settlementContract, notes);
+        allowedCowSwaps[settlementContract] = true;
+        emit CowSwapApproved(settlementContract, notes);
+    }
+
+    /**
+     * Swap and validate a CowSwap order.
+     *
+     * Checks that an asset manager tries to perform a legit CowSwap swap.
+     *
+     * 1. Create a Order instance
+     * 2. Calculate its hash, also known as orderUi
+     * 3. Call setPreSignature(orderUid, True) on CowSwap
+     * 4. Offchain logic can now take over to fill the order
+     *     4.a) Read the emitted order data from OrderSigned event
+     *     4.b) Submit to CowSwap offchain settlement system
+     *     4.c) Wait for order to be filled
+     *
+     */
+    function _swapAndValidateCowSwap(
+        address settlementContract,
+        address receiver,
+        bytes32 appData,
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn,
+        uint256 minAmountOut
+    ) internal returns (bytes memory) {
+        // Assume sender is trade-executor hot wallet
+        require(isAllowedCowSwap(settlementContract), "swapAndValidateCowSwap: Cow Swap not enabled");
+        require(isAllowedSender(msg.sender), "swapAndValidateCowSwap: Sender not asset manager");
+        require(isAllowedAsset(tokenIn), "swapAndValidateCowSwap: tokenIn not allowed");
+        require(isAllowedAsset(tokenOut), "swapAndValidateCowSwap: tokenOut not allowed");
+        require(isAllowedReceiver(receiver), "swapAndValidateCowSwap: receiver not allowed");
+        GPv2Order.Data memory order = _createCowSwapOrder(
+            appData,
+            receiver,
+            tokenIn,
+            tokenOut,
+            amountIn,
+            minAmountOut
+        );
+        return _signCowSwapOrder(
+            settlementContract,
+            order
+        );
     }
 
     function validate_orderlyDelegateSigner(bytes memory callData) public view {
