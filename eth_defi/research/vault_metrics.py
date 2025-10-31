@@ -72,6 +72,24 @@ def create_fee_label(
     return f"{fmt_one_decimal_or_int(management_fee_annual)} / {fmt_one_decimal_or_int(performance_fee)} / {fmt_one_decimal_or_int(deposit_fee)} / {fmt_one_decimal_or_int(withdrawal_fee)}"
 
 
+def resample_returns(
+    returns_1h: pd.Series,
+    freq="D",
+) -> pd.Series:
+    """Calculate returns from resampled returns series.
+
+    :param returns_1h:
+        The original returns series.
+    """
+
+    # Wealth index from hourly returns
+    wealth = (1.0 + returns_1h).cumprod()
+    # Take last wealth per period and compute period-over-period returns
+    wealth_resampled = wealth.resample(freq).last()
+    returns = wealth_resampled.dropna().pct_change().fillna(0.0)
+    return returns
+
+
 def calculate_returns(
     share_price: pd.Series,
     freq="D",
@@ -513,8 +531,8 @@ def calculate_lifetime_metrics(
                 end_date = last_three_months.index.max()
                 years = (end_date - start_date).days / 365.25
 
-                returns_series = calculate_returns(
-                    last_three_months["share_price"],
+                returns_series = resample_returns(
+                    last_three_months["returns_1h"],
                     freq="D",
                 )
 
@@ -729,13 +747,13 @@ def combine_return_columns(
         if n is not None and pd.isna(n) == False:
             return f"{n:.1%}{new_line}({g:.1%})"
         else:
-            return f"unk.{new_line}({g:.1%})"
+            return f"---{new_line}({g:.1%})"
 
     def _format_combined_usd(g, n):
         if n:
             return f"{n:,.0f}{new_line}({g:,.0f})"
         else:
-            return f"unk.{new_line}({g:.0f})"
+            return f"---{new_line}({g:.0f})"
 
     if mode == "percent":
         _format_combined = _format_combined_percent
@@ -792,24 +810,24 @@ def format_lifetime_table(
         net=df["three_months_cagr_net"],
     )
 
-    df["three_months_returns"] = combine_return_columns(
-        gross=df["three_months_returns"],
-        net=df["three_months_returns_net"],
-    )
+    # df["three_months_returns"] = combine_return_columns(
+    #    gross=df["three_months_returns"],
+    #    net=df["three_months_returns_net"],
+    # )
 
     df["one_month_cagr"] = combine_return_columns(
         gross=df["one_month_cagr"],
         net=df["one_month_cagr_net"],
     )
 
-    df["one_month_returns"] = combine_return_columns(
-        gross=df["one_month_returns"],
-        net=df["one_month_returns_net"],
-    )
+    # df["one_month_returns"] = combine_return_columns(
+    #    gross=df["one_month_returns"],
+    #    net=df["one_month_returns_net"],
+    # )
 
     df["current_nav"] = combine_return_columns(
-        gross=df["current_nav"],
-        net=df["peak_nav"],
+        gross=df["peak_nav"],
+        net=df["current_nav"],
         mode="usd",
     )
 
@@ -817,7 +835,7 @@ def format_lifetime_table(
     df["three_months_sharpe"] = df["three_months_sharpe"].apply(lambda x: f"{x:.1f}")
     df["event_count"] = df["event_count"].apply(lambda x: f"{x:,}")
     df["risk"] = df["risk"].apply(lambda x: x.get_risk_level_name() if x is not None else "Unknown")
-    df["lockup"] = df["lockup"].apply(lambda x: f"{x.days}" if pd.notna(x) else "unk.")
+    df["lockup"] = df["lockup"].apply(lambda x: f"{x.days}" if pd.notna(x) else "---")
 
     def _del(x):
         if x in df.columns:
@@ -835,32 +853,34 @@ def format_lifetime_table(
     _del("lifetime_return_net")
     _del("three_months_cagr_net")
     _del("three_months_returns_net")
+    _del("one_month_returns")
     _del("one_month_cagr_net")
     _del("one_month_returns_net")
     _del("three_months_sharpe_net")
+    _del("three_months_returns")
     _del("peak_nav")
     _del("address")
     _del("chain_id")
+    _del("end_date")
 
     df = df.rename(
         columns={
             "cagr": "Lifetime return ann. (net / gross)",
             "lifetime_return": "Lifetime return abs. (net / gross)",
-            "three_months_returns": "3M return abs. (net / gross)",
+            # "three_months_returns": "3M return abs. (net / gross)",
             "three_months_cagr": "3M return ann. (net / gross)",
             "three_months_volatility": "3M volatility",
             "three_months_sharpe": "3M sharpe",
-            "one_month_returns": "1M return abs. (net / gross)",
+            # "one_month_returns": "1M return abs. (net / gross)",
             "one_month_cagr": "1M return ann. (net / gross)",
             "event_count": "Deposit events",
-            # "peak_nav": "Peak TVL USD",
             "current_nav": "TVL USD (current / peak)",
             "years": "Age (years)",
             "denomination": "Denomination",
             "chain": "Chain",
             "protocol": "Protocol",
             "risk": "Risk",
-            "end_date": "Latest deposit",
+            # "end_date": "Latest deposit",
             "name": "Name",
             "lockup": "Lock up est. days",
             "fee_label": "Fees (mgmt / perf / dep / with)",

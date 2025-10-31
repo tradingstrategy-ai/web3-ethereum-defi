@@ -23,7 +23,7 @@ Technicals
 `eth_defi` provides CoW Swap integration for smart contracts and vaults through Cow Swap's "Presigned" scheme.
 See :py:mod:`eth_defi.lagoon.cowswap` for details how to perform `Lagoon vault <https://tradingstrategy.ai/glossary/lagoon>`__ automated trading with CoW Swap.
 
-- :ref:`Read tutorial <lagoon-cowswap>`open
+- :ref:`Read tutorial <lagoon-cowswap>`
 - `CoW Swap docs <https://docs.cow.fi/cow-protocol/r>`__
 - `Twitter <https://x.com/CoWSwap>`__.
 
