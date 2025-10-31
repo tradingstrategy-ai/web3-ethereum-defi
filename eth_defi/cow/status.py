@@ -1,3 +1,5 @@
+"""CoW swap order status monitoring."""
+
 import datetime
 import time
 from dataclasses import dataclass
