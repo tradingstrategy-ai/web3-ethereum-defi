@@ -147,3 +147,8 @@ def test_export_lifetime_metrics(
     rows = [export_lifetime_row(r) for _, r in metrics.iterrows()]
     # Ensure everything is JSON serializable
     json.dumps(rows)
+
+    r = rows[0]
+    assert r["name"]  == "Clearstar USDC.e"
+    assert r["chain"] == "Hemi"
+

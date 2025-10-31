@@ -1435,6 +1435,7 @@ def export_lifetime_row(row: pd.Series) -> dict:
 
     # Convert any non-serializable values
     for key, value in out.items():
+
         if isinstance(value, (np.floating, np.integer)):
             out[key] = value.item()
         elif isinstance(value, pd.Timestamp):

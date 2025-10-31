@@ -262,7 +262,6 @@ for selected_chain_id in chain_ids:
     print(f"✅ Filtered event count >= {EVENT_THRESHOLD}: {len(lifetime_data_df):,} vaults (removed {original_count - len(lifetime_data_df):,})")
 
     # Tag with chain ID and append to combined list
-    lifetime_data_df["chain"] = selected_chain_id
     combined_lifetime_dfs.append(lifetime_data_df)
 
 # Combine results from all chains
@@ -318,7 +317,7 @@ if not formatted_df.empty:
     # 6️⃣ Add metadata and deep sanitize
     output_data = {
         "generated_at": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "vaults": sanitize(vaults),
+        "vaults": vaults,
     }
 
     results = find_non_serializable_paths(output_data)
