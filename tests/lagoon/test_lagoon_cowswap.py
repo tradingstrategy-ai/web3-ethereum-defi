@@ -93,6 +93,9 @@ def new_depositor(web3, usdc) -> HexAddress:
     return new_depositor
 
 
+# Anvil is piece of crap
+# ERROR tests/lagoon/test_lagoon_cowswap.py::test_cowswap_quote - AssertionError: Could not read block number from Anvil after the launch anvil: at http://localhost:27496, stdout is 0 bytes, stderr is 209 bytes
+@pytest.mark.skipif(CI, reason="Flaky on CI")
 def test_lagoon_cowswap(
     web3: Web3,
     usdc: TokenDetails,
@@ -221,6 +224,9 @@ def test_lagoon_cowswap(
     assert order["partiallyFillable"] is False
 
 
+# Anvil is piece of crap
+# ERROR tests/lagoon/test_lagoon_cowswap.py::test_cowswap_quote - AssertionError: Could not read block number from Anvil after the launch anvil: at http://localhost:27496, stdout is 0 bytes, stderr is 209 bytes
+@pytest.mark.skipif(CI, reason="Flaky on CI")
 def test_cowswap_quote(
     web3: Web3,
 ):
