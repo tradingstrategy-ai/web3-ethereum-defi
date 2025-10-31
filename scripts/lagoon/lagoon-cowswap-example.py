@@ -14,13 +14,13 @@ from pprint import pformat
 
 from web3 import Web3
 from web3.contract.contract import ContractFunction
-from hexbytes import HexBytes
 
 from eth_defi.chain import get_chain_name
 from eth_defi.confirmation import broadcast_and_wait_transactions_to_complete
 from eth_defi.gas import estimate_gas_price, apply_gas
 from eth_defi.hotwallet import HotWallet, SignedTransactionWithNonce
-from eth_defi.lagoon.cowswap import presign_and_execute_cowswap, fetch_quote
+from eth_defi.lagoon.cowswap import presign_and_broadcast, execute_presigned_cowswap_order
+from eth_defi.cow.quote import fetch_quote
 from eth_defi.lagoon.deployment import deploy_automated_lagoon_vault, LagoonDeploymentParameters
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import BRIDGED_USDC_TOKEN, USDC_NATIVE_TOKEN, USDT_NATIVE_TOKEN, WRAPPED_NATIVE_TOKEN, get_weth_contract, fetch_erc20_details
@@ -130,6 +130,9 @@ def main():
     etherscan_api_key = os.environ.get("ETHERSCAN_API_KEY")
     assert etherscan_api_key, f"You need to give ETHERSCAN_API_KEY environment variable to verify the deployed contracts"
 
+    # How much ETH we convert to WETH and deposit to the vault for trading
+    test_amount = Decimal(0.0001)
+
     web3 = create_multi_provider_web3(json_rpc_url)
 
     chain_id = web3.eth.chain_id
@@ -151,22 +154,22 @@ def main():
 
     #
     # Before we start let's ask for a quote so we know CowSwap can fulfill
-    # our swap before starting.
+    # our swap before starting swapping, and we know there is a route
+    # available.
     #
-    quoted_data = fetch_quote(
+    quote = fetch_quote(
+        from_=hot_wallet.address,  # Not deployed vault address yet, so use our hot wallet as a placeholder
         buy_token=fetch_erc20_details(web3, BRIDGED_USDC_TOKEN[chain_id]),
         sell_token=weth,
-        amount_in=Decimal("0.1"),
-        min_amount_out=Decimal("0.01"),
+        amount_in=test_amount,
+        min_amount_out=test_amount / 2,
+        price_quality="verified",
     )
-    import ipdb
-
-    ipdb.set_trace()
+    print(f"Out initial CowSwap quote is:\n{quote.pformat()}")
 
     #
     # 1. Wrap some WETH which we use as the initial deposit to the vault
     #
-    test_amount = Decimal(0.0001)
     weth_balance = weth.fetch_balance_of(hot_wallet.address)
 
     if weth_balance < test_amount:
@@ -238,8 +241,10 @@ def main():
     # massive cost impact because fees are proportional to the swap size.
     max_slippage = 0.10
 
-    cowswap_result = presign_and_execute_cowswap(
-        asset_manager_wallet=hot_wallet,
+    # The order is createad onchain using SwapCowSwap._signCowSwapOrder() contract call.
+    # We print the results to see what kind of order data we have created.
+    order_data = presign_and_broadcast(
+        asset_manager=hot_wallet,
         vault=vault,
         buy_token=fetch_erc20_details(web3, BRIDGED_USDC_TOKEN[chain_id]),
         sell_token=weth,
@@ -247,8 +252,20 @@ def main():
         min_amount_out=weth_balance * Decimal(1 - max_slippage),
         broadcast_callback=_cowswap_broadcast_callback,
     )
+    print(f"Our CowSwap presigned order is:\n{pformat(order_data)}")
 
-    print(f"Cowswap order executed, order UID: {cowswap_result.order_uid.hex()}")
+    logger.setLevel(logging.INFO)
+    cowswap_result = execute_presigned_cowswap_order(
+        chain_id=chain_id,
+        order=order_data,
+    )
+    logger.setLevel(logging.WARNING)
+
+    if cowswap_result.get_status() == "completed":
+        # Make CowSwap sound effect
+        print("Moooooo 🐮")
+
+    print(f"Cowswap order completed, order UID: {cowswap_result.order_uid.hex()}, status: {cowswap_result.get_status()}")
     print(f"Order status:\n{pformat(cowswap_result.order_status)}")
 
     print(f"All ok, check the vault at https://routescan.io/{vault.address}")

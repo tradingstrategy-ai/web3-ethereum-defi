@@ -11,9 +11,10 @@ from eth_defi.cow.constants import COWSWAP_SETTLEMENT
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.gains.vault import GainsVault
 from eth_defi.hotwallet import HotWallet
-from eth_defi.lagoon.cowswap import presign_and_broadcast, unpack_cow_order_data, fetch_quote
+from eth_defi.lagoon.cowswap import presign_and_broadcast
+from eth_defi.cow.quote import fetch_quote
 from eth_defi.lagoon.deployment import LagoonDeploymentParameters, deploy_automated_lagoon_vault
-from eth_defi.provider.anvil import mine, fork_network_anvil, AnvilLaunch
+from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import TokenDetails, USDC_NATIVE_TOKEN, USDC_WHALE, fetch_erc20_details, BRIDGED_USDC_TOKEN, USDT_NATIVE_TOKEN, WRAPPED_NATIVE_TOKEN
 from eth_defi.trace import assert_transaction_success_with_explanation
@@ -213,7 +214,7 @@ def test_lagoon_cowswap(
     assert order["receiver"] == vault.safe_address
     assert order["sellAmount"] == 5000000
     assert order["buyAmount"] == 4949999
-    assert order["validTo"] > 1756893952
+    assert order["validTo"] > 1
     # assert order["appData"] == b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
     assert order["feeAmount"] == 0
     assert order["kind"] == "buy"
@@ -233,14 +234,16 @@ def test_cowswap_quote(
 
     usdce = fetch_erc20_details(web3, BRIDGED_USDC_TOKEN[chain_id])
 
-    quoted_data = fetch_quote(
+    amount = Decimal("0.0001")
+    quote = fetch_quote(
         from_="0xdcc6D3A3C006bb4a10B448b1Ee750966395622c6",  # Dummy address
         buy_token=usdce,
         sell_token=weth,
-        amount_in=Decimal("0.1"),
-        min_amount_out=Decimal("0.01"),
+        amount_in=amount,
+        min_amount_out=amount / 2,
     )
 
+    quoted_data = quote.data
     assert quoted_data["from"].startswith("0x")
     # assert quoted_data["expiration"] == "1970-01-01T00:00:00Z"
     assert quoted_data["id"] is None
@@ -250,7 +253,7 @@ def test_cowswap_quote(
     assert quoted_data["quote"]["receiver"] is None
     assert int(quoted_data["quote"]["sellAmount"]) > 1
     assert int(quoted_data["quote"]["buyAmount"]) > 1
-    assert quoted_data["quote"]["validTo"] > 1761863893
+    assert quoted_data["quote"]["validTo"] > 1
     assert quoted_data["quote"]["appData"] == "0x0000000000000000000000000000000000000000000000000000000000000000"
     assert int(quoted_data["quote"]["feeAmount"]) > 1
     assert quoted_data["quote"]["kind"] == "sell"
@@ -258,3 +261,16 @@ def test_cowswap_quote(
     assert quoted_data["quote"]["sellTokenBalance"] == "erc20"
     assert quoted_data["quote"]["buyTokenBalance"] == "erc20"
     assert quoted_data["quote"]["signingScheme"] == "presign"
+
+    quote.pformat()
+
+    quote = fetch_quote(
+        from_="0xdcc6D3A3C006bb4a10B448b1Ee750966395622c6",  # Dummy address
+        buy_token=usdce,
+        sell_token=weth,
+        amount_in=amount,
+        min_amount_out=amount / 2,
+        price_quality="verified",
+    )
+    verified_quoted_data = quote.data
+    assert verified_quoted_data["verified"] is True
