@@ -13,3 +13,11 @@ COWSWAP_API_ENDPOINTS = {
     137: "https://api.cow.fi/polygon",
     43114: "https://api.cow.fi/avalanche",
 }
+
+#: CowSwap explorer URLs per chain id
+CHAIN_TO_EXPLORER = {
+    1: "https://explorer.cow.fi/ethereum",
+    42161: "https://explorer.cow.fi/arb1",
+    8453: "https://explorer.cow.fi/base",
+    100: "https://explorer.cow.fi/gc",
+}

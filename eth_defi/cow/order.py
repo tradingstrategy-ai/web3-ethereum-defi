@@ -10,7 +10,7 @@ from typing import TypedDict
 import requests
 
 from eth_defi.cow.api import get_cowswap_api, CowAPIError
-
+from eth_defi.cow.constants import CHAIN_TO_EXPLORER
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +39,8 @@ class GPv2OrderData(TypedDict):
 
     #: Order UID (hash)
     uid: str | None
+
+    chain_id: int | None
 
 
 class SigningScheme(IntEnum):
@@ -69,6 +71,11 @@ class PostOrderResponse:
     def get_order_uid(self) -> str:
         """Get the order UID from the response data"""
         return self.order_data["uid"]
+
+    def get_explorer_link(self) -> str:
+        """Get CowSwap explorer link for the order."""
+        base_url = CHAIN_TO_EXPLORER.get(self).order_data["chain_id"]
+        return f"{base_url}/orders/{self.order_uid}"
 
 
 def post_order(
@@ -127,6 +134,11 @@ def post_order(
     posted_order_uid = response.json()
 
     logger.info("Received posted order UID from Cow backend: %s", posted_order_uid)
+
+    if order.get("uid") is not None:
+        # Cow Swap backend and SwapCowSwap compute the signed order UID differently.
+        # Cow Swap will never see the onchain presigned order and the trade cannot ever complete.
+        assert posted_order_uid == order["uid"], f"Posted order UID {posted_order_uid} does not match local order UID {order['uid']} for data:\n{pformat(order)}"
 
     return PostOrderResponse(
         order_uid=posted_order_uid,
