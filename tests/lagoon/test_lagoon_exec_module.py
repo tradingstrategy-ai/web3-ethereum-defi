@@ -10,6 +10,7 @@ from decimal import Decimal
 import pytest
 from eth_typing import HexAddress
 from web3 import Web3
+import os
 
 
 from eth_defi.lagoon.vault import LagoonVault
