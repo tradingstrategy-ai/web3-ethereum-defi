@@ -3,6 +3,8 @@
 
 set -e
 
+source .venv/bin/activate
+
 # Run Arbitrum
 echo "Running Arbitrum analysis..."
 export CHAIN_ID=42161

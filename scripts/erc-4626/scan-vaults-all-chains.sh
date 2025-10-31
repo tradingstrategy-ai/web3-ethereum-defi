@@ -27,29 +27,16 @@ export MAX_WORKERS
 # python scripts/erc-4626/scan-vaults.py
 # if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
 
-export JSON_RPC_URL=$JSON_RPC_KATANA
-python scripts/erc-4626/scan-vaults.py
-if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
+# No quality RPC available
+# export JSON_RPC_URL=$JSON_RPC_TAC
+# python scripts/erc-4626/scan-vaults.py
+# if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
 
+# export JSON_RPC_URL=$JSON_RPC_ZKSYNC
+# python scripts/erc-4626/scan-vaults.py
+# if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
 
-export JSON_RPC_URL=$JSON_RPC_BASE
-python scripts/erc-4626/scan-vaults.py
-if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
-
-export JSON_RPC_URL=$JSON_RPC_INK
-python scripts/erc-4626/scan-vaults.py
-if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
-
-export JSON_RPC_URL=$JSON_RPC_BLAST
-python scripts/erc-4626/scan-vaults.py
-if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
-
-export JSON_RPC_URL=$JSON_RPC_SONEIUM
-python scripts/erc-4626/scan-vaults.py
-if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
-
-# Currently: disabled - HyperSync for Hyperliquid is stuck
-export JSON_RPC_URL=$JSON_RPC_HYPERLIQUID
+export JSON_RPC_URL=$JSON_RPC_LINEA
 python scripts/erc-4626/scan-vaults.py
 if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
 
@@ -57,10 +44,6 @@ if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ;
 export JSON_RPC_URL=$JSON_RPC_OPTIMISM
 python scripts/erc-4626/scan-vaults.py
 if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
-
-# export JSON_RPC_URL=$JSON_RPC_ZKSYNC
-# python scripts/erc-4626/scan-vaults.py
-# if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
 
 export JSON_RPC_URL=$JSON_RPC_GNOSIS
 python scripts/erc-4626/scan-vaults.py
@@ -89,17 +72,7 @@ export JSON_RPC_URL=$JSON_RPC_SONIC
 python scripts/erc-4626/scan-vaults.py
 if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
 
-
 export JSON_RPC_URL=$JSON_RPC_HEMI
-python scripts/erc-4626/scan-vaults.py
-if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
-
-# No quality RPC available
-# export JSON_RPC_URL=$JSON_RPC_TAC
-# python scripts/erc-4626/scan-vaults.py
-# if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
-
-export JSON_RPC_URL=$JSON_RPC_LINEA
 python scripts/erc-4626/scan-vaults.py
 if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
 
@@ -126,6 +99,34 @@ if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ;
 export JSON_RPC_URL=$JSON_RPC_MANTLE
 python scripts/erc-4626/scan-vaults.py
 if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
+
+export JSON_RPC_URL=$JSON_RPC_KATANA
+python scripts/erc-4626/scan-vaults.py
+if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
+
+export JSON_RPC_URL=$JSON_RPC_BASE
+python scripts/erc-4626/scan-vaults.py
+if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
+
+export JSON_RPC_URL=$JSON_RPC_INK
+python scripts/erc-4626/scan-vaults.py
+if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
+
+export JSON_RPC_URL=$JSON_RPC_BLAST
+python scripts/erc-4626/scan-vaults.py
+if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
+
+export JSON_RPC_URL=$JSON_RPC_SONEIUM
+python scripts/erc-4626/scan-vaults.py
+if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
+
+# Currently: disabled - HyperSync for Hyperliquid is stuck
+export JSON_RPC_URL=$JSON_RPC_HYPERLIQUID
+python scripts/erc-4626/scan-vaults.py
+if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
+
+
+
 
 
 echo "Cleaning vault data"
