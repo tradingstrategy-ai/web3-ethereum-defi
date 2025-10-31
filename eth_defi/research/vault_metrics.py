@@ -482,6 +482,8 @@ def calculate_lifetime_metrics(
         event_count = group["event_count"].iloc[-1]
         protocol = vault_metadata["Protocol"]
         risk = get_vault_risk(protocol, vault_metadata["Address"])
+        risk_numeric = risk.value if isinstance(risk, VaultTechnicalRisk) else None
+
         lockup = vault_metadata.get("Lock up", datetime.timedelta(0))
 
         # Do we know fees for this vault
@@ -645,6 +647,7 @@ def calculate_lifetime_metrics(
                 "event_count": event_count,
                 "protocol": protocol,
                 "risk": risk,
+                "risk_numeric": risk_numeric,
                 "id": id_val,
                 "start_date": start_date,
                 "end_date": end_date,
@@ -862,6 +865,7 @@ def format_lifetime_table(
     _del("address")
     _del("chain_id")
     _del("end_date")
+    _del("risk_numeric")
 
     df = df.rename(
         columns={

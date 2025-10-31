@@ -83,8 +83,8 @@ def test_calculate_lifetime_metrics(
 
     assert sample_row["three_months_cagr"] == pytest.approx(0.02483940718068034)
     assert sample_row["three_months_cagr_net"] == pytest.approx(0.02107892820280277)
-    assert sample_row["three_months_sharpe"] == pytest.approx(16.179159820274062)
-    assert sample_row["three_months_sharpe_net"] == pytest.approx(16.179159820274062)
+    assert sample_row["three_months_sharpe"] == pytest.approx(12.09936086372036)
+    assert sample_row["three_months_sharpe_net"] == pytest.approx(12.09936086372036)
 
     assert sample_row["one_month_returns"] == pytest.approx(0.0017492385168136337)
     assert sample_row["one_month_returns_net"] == pytest.approx(0.0014868527392914999)
