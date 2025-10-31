@@ -6,11 +6,9 @@
 API documentation
 =================
 
-`web3-ethereum-defi <https://pypi.org/project/web3-ethereum-defi/>`__ Python package comes with 100% API documentation coverage.
+`eth_defi` Python package providers integration APIs for multiple DeFi protocols.
 
-- Most APIs have inline code examples for functions and classes
-
-- For more code examples check out `tests folder <https://github.com/tradingstrategy-ai/web3-ethereum-defi/tree/master/tests>`__
+See :ref:`tutorials <tutorials>` for guides and examples on how to use the library.
 
 .. toctree::
    :maxdepth: 1

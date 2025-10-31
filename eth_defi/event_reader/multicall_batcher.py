@@ -975,6 +975,9 @@ class MultiprocessMulticallReader:
                 # F*cking hell Ethereum nodes, what unbearable mess.
                 # Need to maintain crappy retry rules and all node behaviour is totally random
                 # fmt: off
+
+                #  {'message': 'historical state 403577f4153c080830e4b964d013aa20179f9175c89b54a6d9f10188709c7662 is not available', 'code': -32000}.
+
                 if ("out of gas" in parsed_error) or \
                    ("evm timeout" in parsed_error) or \
                    ("request timeout" in parsed_error) or \
@@ -984,6 +987,7 @@ class MultiprocessMulticallReader:
                    ("intrinsic gas too high" in parsed_error) or \
                    ("incorrect response body" in parsed_error) or \
                    ("exceeds block gas limit" in parsed_error) or \
+                   ("historical state" in parsed_error) or \
                    ("state histories haven't been fully indexed yet" in parsed_error) or \
                    isinstance(e, ProbablyNodeHasNoBlock) or \
                    (isinstance(e, HTTPError) and e.response.status_code == 500):
