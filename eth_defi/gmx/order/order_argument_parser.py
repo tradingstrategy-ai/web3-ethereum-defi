@@ -14,18 +14,32 @@ from eth_defi.gmx.utils import determine_swap_route
 from eth_defi.gmx.contracts import get_tokens_address_dict
 from eth_defi.token import fetch_erc20_details
 
+# Module-level caches to avoid repeated expensive calls
+_MARKETS_CACHE: dict[str, dict] = {}  # Key: chain name
+_TOKEN_METADATA_CACHE: dict[tuple[int, str], dict] = {}  # Key: (chain_id, chain_name)
 
-def _get_token_metadata_dict(web3: Web3, chain: str) -> dict:
+
+def _get_token_metadata_dict(web3: Web3, chain: str, use_cache: bool = True) -> dict:
     """
-    Get token metadata in SDK-compatible format.
+    Get token metadata in SDK-compatible format with caching.
 
     Converts our eth_defi format (symbol -> address) into SDK format
     (address -> {symbol, address, decimals}) required by ArgumentParser.
 
+    Uses module-level caching to avoid repeated RPC calls for token metadata.
+
     :param web3: Web3 connection instance
     :param chain: Network name
+    :param use_cache: Whether to use cached values. Default is True.
     :return: Dictionary mapping addresses to token metadata
     """
+    # Check cache first
+    chain_id = web3.eth.chain_id
+    cache_key = (chain_id, chain)
+
+    if use_cache and cache_key in _TOKEN_METADATA_CACHE:
+        return _TOKEN_METADATA_CACHE[cache_key].copy()
+
     # Get our format: {symbol: address}
     tokens_by_symbol = get_tokens_address_dict(chain)
 
@@ -46,6 +60,10 @@ def _get_token_metadata_dict(web3: Web3, chain: str) -> dict:
                 "address": address,
                 "decimals": 18,  # Default to 18 decimals
             }
+
+    # Cache the result
+    if use_cache:
+        _TOKEN_METADATA_CACHE[cache_key] = result.copy()
 
     return result
 
@@ -83,16 +101,35 @@ class OrderArgumentParser:
         self.is_decrease = is_decrease
         self.is_swap = is_swap
 
-        # Get web3 connection - config is GMXConfigManager, so use get_web3_connection()
-        self.web3 = config.get_web3_connection()
+        # Get web3 connection - config could be GMXConfig or GMXConfigManager
+        if hasattr(config, "get_web3_connection"):
+            self.web3 = config.get_web3_connection()
+        else:
+            # GMXConfig has web3 attribute directly
+            self.web3 = config.web3
 
-        # Import GMXConfig to create proper config for Markets
-        from eth_defi.gmx.config import GMXConfig
+        # Get chain name for caching - handle both GMXConfig and GMXConfigManager
+        if hasattr(config, "chain"):
+            # GMXConfig has chain attribute
+            chain = config.chain
+        else:
+            # GMXConfigManager has get_chain() method
+            chain = config.get_chain()
 
-        gmx_config = GMXConfig(self.web3, user_wallet_address=config.user_wallet_address)
+        # Check if markets are cached
+        if chain not in _MARKETS_CACHE:
+            # Import GMXConfig to create proper config for Markets
+            from eth_defi.gmx.config import GMXConfig
 
-        # Get markets info - Markets expects GMXConfig, not GMXConfigManager
-        self.markets = Markets(gmx_config).get_available_markets()
+            # Get user wallet address - handle both types
+            user_wallet_address = getattr(config, "user_wallet_address", None) or getattr(config, "_user_wallet_address", None)
+
+            gmx_config = GMXConfig(self.web3, user_wallet_address=user_wallet_address)
+
+            # Get markets info - Markets expects GMXConfig, not GMXConfigManager
+            _MARKETS_CACHE[chain] = Markets(gmx_config).get_available_markets()
+
+        self.markets = _MARKETS_CACHE[chain]
 
         if is_increase:
             self.required_keys = [

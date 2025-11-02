@@ -108,6 +108,8 @@ class BaseOrder:
         """
         self._oracle_prices = None
         self._markets = None
+        self._cached_prices = None  # Cache for oracle prices
+        self._cached_markets = None  # Cache for markets data
         self.config = config
         self.chain = config.get_chain()
         self.web3 = config.web3
@@ -159,6 +161,16 @@ class BaseOrder:
             self._oracle_prices = OraclePrices(self.config.chain)
         return self._oracle_prices
 
+    def refresh_cache(self) -> None:
+        """Refresh cached markets and oracle prices data.
+
+        Call this method to force a refresh of the cached data if you need
+        the latest market information and prices.
+        """
+        logger.debug("Refreshing markets and oracle prices cache")
+        self._cached_markets = None
+        self._cached_prices = None
+
     def create_order(
         self,
         params: OrderParams,
@@ -207,8 +219,16 @@ class BaseOrder:
             order_type = self._order_types["market_increase"]
 
         # Get market and price data first (validate market exists before other operations)
-        markets = self.markets.get_available_markets()
-        prices = self.oracle_prices.get_recent_prices()
+        # Use cached data to avoid repeated expensive API calls
+        if self._cached_markets is None:
+            self._cached_markets = self.markets.get_available_markets()
+            logger.debug("Markets data cached")
+        markets = self._cached_markets
+
+        if self._cached_prices is None:
+            self._cached_prices = self.oracle_prices.get_recent_prices()
+            logger.debug("Oracle prices cached")
+        prices = self._cached_prices
 
         # For swaps, market_key is zero address - use first swap_path market instead
         if is_swap and params.swap_path:
@@ -658,6 +678,13 @@ class BaseOrder:
         This is an optional estimation that queries the GMX Reader contract.
         Returns None if estimation fails.
 
+        GMX v2.2 Price Impact Changes:
+        - Price impact is stored on position increase (pendingImpactAmount field)
+        - Net price impact charged on position decrease = (decrease impact) + (stored impact * order.size / position.size)
+        - Full uncapped price impact applied to executionPrice for acceptablePrice validation
+        - Positive impact capped by position impact pool only on decrease (not increase)
+        - Lendable impact configuration helps when pool insufficient to pay positive impact
+
         :param params: Order parameters
         :param market_data: Market data dictionary
         :param is_open: Whether opening a position
@@ -673,7 +700,8 @@ class BaseOrder:
             from eth_defi.gmx.contracts import get_reader_contract
 
             reader = get_reader_contract(self.web3, self.chain)
-            prices = self.oracle_prices.get_recent_prices()
+            # Use cached prices instead of fetching again
+            prices = self._cached_prices if self._cached_prices is not None else self.oracle_prices.get_recent_prices()
 
             # Get index token price
             index_token_address = params.index_token_address
@@ -686,6 +714,39 @@ class BaseOrder:
                 int(price_data["minPriceFull"]),
             )
 
+            # Get long and short token prices for MarketUtils.MarketPrices
+            long_token_address = market_data["long_token_address"]
+            short_token_address = market_data["short_token_address"]
+
+            # Get long token price
+            if long_token_address in prices:
+                long_price_data = prices[long_token_address]
+                long_token_price = (
+                    int(long_price_data["maxPriceFull"]),
+                    int(long_price_data["minPriceFull"]),
+                )
+            else:
+                # Fallback to index token price if long token price not available
+                long_token_price = index_token_price
+
+            # Get short token price
+            if short_token_address in prices:
+                short_price_data = prices[short_token_address]
+                short_token_price = (
+                    int(short_price_data["maxPriceFull"]),
+                    int(short_price_data["minPriceFull"]),
+                )
+            else:
+                # Fallback to index token price if short token price not available
+                short_token_price = index_token_price
+
+            # Build MarketUtils.MarketPrices struct for v2.2
+            market_prices = (
+                index_token_price,  # indexTokenPrice
+                long_token_price,  # longTokenPrice
+                short_token_price,  # shortTokenPrice
+            )
+
             # Calculate position size in tokens
             decimals = market_data["market_metadata"]["decimals"]
             median_price = median([float(price_data["maxPriceFull"]), float(price_data["minPriceFull"])])
@@ -694,18 +755,21 @@ class BaseOrder:
             size_delta_usd = int(params.size_delta)
             position_size_in_tokens = int(params.size_delta / median_price)
 
-            # Query reader contract for execution price and impact
+            # Query reader contract for execution price and impact (v2.2 format)
+            # New signature: getExecutionPrice(dataStore, market, prices, positionSizeInUsd, positionSizeInTokens, sizeDeltaUsd, pendingImpactAmount, isLong)
             result = reader.functions.getExecutionPrice(
                 self.contract_addresses.datastore,
                 params.market_key,
-                index_token_price,
+                market_prices,  # MarketUtils.MarketPrices (v2.2 change)
                 0,  # positionSizeInUsd (we use sizeDeltaUsd)
                 position_size_in_tokens,
                 size_delta_usd,
+                0,  # pendingImpactAmount (v2.2 new parameter - 0 for new positions)
                 params.is_long,
             ).call()
 
-            # Result is tuple: (priceImpactUsd, priceImpactDiffUsd, executionPrice)
+            # Result is ExecutionPriceResult struct (v2.2):
+            # (priceImpactUsd, executionPrice, balanceWasImproved, proportionalPendingImpactUsd, totalImpactUsd, priceImpactDiffUsd)
             price_impact_usd = result[0] / (10**PRECISION)
 
             return price_impact_usd

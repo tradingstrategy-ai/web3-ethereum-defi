@@ -261,6 +261,21 @@ class GetOpenPositions(GetData):
         else:
             percent_profit = 0
 
+        # Position struct indices (GMX v2.2):
+        # raw_position[0] = Addresses (account, market, collateralToken)
+        # raw_position[1] = Numbers:
+        #   [0] sizeInUsd
+        #   [1] sizeInTokens
+        #   [2] collateralAmount
+        #   [3] pendingImpactAmount (NEW in v2.2)
+        #   [4] borrowingFactor
+        #   [5] fundingFeeAmountPerSize
+        #   [6] longTokenClaimableFundingAmountPerSize
+        #   [7] shortTokenClaimableFundingAmountPerSize
+        #   [8] increasedAtTime
+        #   [9] decreasedAtTime
+        # raw_position[2] = Flags (isLong)
+
         return {
             "account": raw_position[0][0],
             "market": raw_position[0][1],
@@ -272,11 +287,14 @@ class GetOpenPositions(GetData):
             "initial_collateral_amount": raw_position[1][2],
             "initial_collateral_amount_usd": raw_position[1][2] / 10**collateral_token_decimals,
             "leverage": leverage,
-            "borrowing_factor": raw_position[1][3],
-            "funding_fee_amount_per_size": raw_position[1][4],
-            "long_token_claimable_funding_amount_per_size": raw_position[1][5],
-            "short_token_claimable_funding_amount_per_size": raw_position[1][6],
-            "position_modified_at": "",
+            "pending_impact_amount": raw_position[1][3],  # NEW in v2.2
+            "borrowing_factor": raw_position[1][4],  # Shifted from [3] to [4]
+            "funding_fee_amount_per_size": raw_position[1][5],  # Shifted from [4] to [5]
+            "long_token_claimable_funding_amount_per_size": raw_position[1][6],  # Shifted from [5] to [6]
+            "short_token_claimable_funding_amount_per_size": raw_position[1][7],  # Shifted from [6] to [7]
+            "increased_at_time": raw_position[1][8],  # NEW in v2.2
+            "decreased_at_time": raw_position[1][9],  # NEW in v2.2
+            "position_modified_at": "",  # Deprecated, keeping for backward compatibility
             "is_long": raw_position[2][0],
             "percent_profit": percent_profit,
             "mark_price": mark_price,

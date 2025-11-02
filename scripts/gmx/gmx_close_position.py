@@ -253,7 +253,7 @@ def main():
             size_delta_usd=size_usd,
             initial_collateral_delta=initial_collateral_delta,
             slippage_percent=0.005,  # 0.5% slippage
-            execution_buffer=1.9,
+            execution_buffer=2.2,
         )
 
         console.print(f"\n[green]Close Position Order object created successfully![/green]")

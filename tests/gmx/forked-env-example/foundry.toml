@@ -1,0 +1,31 @@
+[profile.default]
+src = "contracts"
+out = "out"
+libs = ["lib"]
+solc_version = "0.8.20"
+evm_version = "paris"  # Arbitrum uses Paris EVM (not Cancun yet)
+optimizer = true
+optimizer_runs = 200
+via_ir = false
+
+[profile.default.fuzz]
+runs = 256
+
+[profile.default.invariant]
+runs = 256
+depth = 15
+fail_on_revert = true
+
+# RPC endpoints for forking
+[rpc_endpoints]
+arbitrum = "${ARBITRUM_RPC_URL}"
+
+# Etherscan API keys for contract verification (optional)
+[etherscan]
+arbitrum = { key = "${ARBISCAN_API_KEY}", url = "https://api.arbiscan.io/api" }
+
+# Formatter settings
+[fmt]
+line_length = 120
+tab_width = 4
+bracket_spacing = true

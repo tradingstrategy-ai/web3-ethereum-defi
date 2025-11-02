@@ -567,6 +567,7 @@ def wallet_with_wbtc(
         #     large_holder = large_wbtc_holder_avalanche
         #     amount = 5 * 10 ** 8  # 1 WBTC (8 decimals)
         try:
+            # TODO: This is incorrect
             web3_fork.provider.make_request("anvil_addErc20Balance", [wbtc_address, [test_address], hex(amount)])
             # wbtc.contract.functions.transfer(test_address, amount).transact({"from": large_holder})
         except Exception as e:
