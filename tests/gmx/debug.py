@@ -52,10 +52,10 @@ from tests.gmx.fork_helpers import execute_order_as_keeper, setup_mock_oracle
 import logging
 from rich.logging import RichHandler
 
-FORMAT = "%(message)s"
-logging.basicConfig(level="INFO", format=FORMAT, datefmt="[%X]", handlers=[RichHandler()])
-
-logger = logging.getLogger("rich")
+# FORMAT = "%(message)s"
+# logging.basicConfig(level="INFO", format=FORMAT, datefmt="[%X]", handlers=[RichHandler()])
+#
+# logger = logging.getLogger("rich")
 
 console = Console()
 

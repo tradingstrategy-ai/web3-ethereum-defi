@@ -39,6 +39,14 @@ def set_code(web3: Web3, address: str, bytecode: str):
     """Set bytecode at address (works with Anvil and Tenderly)."""
     provider_type = detect_provider_type(web3)
 
+    # Ensure bytecode has 0x prefix
+    if isinstance(bytecode, bytes):
+        bytecode = bytecode.hex()
+    if not bytecode.startswith("0x"):
+        bytecode = "0x" + bytecode
+
+    address = to_checksum_address(address)
+
     if provider_type == "anvil":
         logger.info(f"Using anvil_setCode for {address}")
         result = web3.provider.make_request("anvil_setCode", [address, bytecode])
@@ -46,13 +54,8 @@ def set_code(web3: Web3, address: str, bytecode: str):
     elif provider_type == "tenderly":
         # Tenderly uses tenderly_setCode
         logger.info(f"Using tenderly_setCode for {address} (Tenderly)")
-        try:
-            result = web3.provider.make_request("tenderly_setCode", [address, bytecode])
-            logger.debug(f"tenderly_setCode result: {result}")
-        except Exception as e:
-            logger.warning(f"tenderly_setCode failed: {e}, trying tenderly_setCode")
-            result = web3.provider.make_request("tenderly_setCode", [address, bytecode])
-            logger.debug(f"tenderly_setCode result: {result}")
+        result = web3.provider.make_request("tenderly_setCode", [address, bytecode])
+        logger.debug(f"tenderly_setCode result: {result}")
     else:
         # Fallback - try common methods
         logger.info(f"Unknown provider, trying tenderly_setCode for {address}")
@@ -161,7 +164,7 @@ def setup_mock_oracle(web3: Web3, eth_price_usd: int = 3892, usdc_price_usd: int
     logger.info(f"Verification - new bytecode length at {provider_address}: {len(new_code)} chars")
 
     if new_code == bytecode:
-        logger.info("✓ Bytecode replacement verified - codes match!")
+        print("✓ Bytecode replacement verified - codes match!")
     else:
         logger.warning(f"⚠ Bytecode mismatch! Expected {len(bytecode)} chars, got {len(new_code)} chars")
         logger.warning("The code replacement may have failed. Oracle prices might not work correctly.")
@@ -173,7 +176,12 @@ def setup_mock_oracle(web3: Web3, eth_price_usd: int = 3892, usdc_price_usd: int
     weth_address = to_checksum_address("0x82aF49447D8a07e3bd95BD0d56f35241523fBab1")
     weth_price = int(eth_price_usd * (10**12))
     logger.info(f"Setting WETH price to {weth_price}...")
-    weth_tx = mock.functions.setPrice(weth_address, weth_price, weth_price).transact({"from": deployer, "gas": 500_000})
+    weth_tx = mock.functions.setPrice(weth_address, weth_price, weth_price).transact(
+        {
+            "from": deployer,
+            "gas": 500_000,
+        }
+    )
     assert_transaction_success_with_explanation(
         web3,
         weth_tx,
@@ -184,7 +192,9 @@ def setup_mock_oracle(web3: Web3, eth_price_usd: int = 3892, usdc_price_usd: int
     usdc_address = to_checksum_address("0xaf88d065e77c8cC2239327C5EDb3A432268e5831")
     usdc_price = int(usdc_price_usd * (10**24))
     logger.info(f"Setting USDC price to {usdc_price}...")
-    usdc_tx = mock.functions.setPrice(usdc_address, usdc_price, usdc_price).transact({"from": deployer, "gas": 500_000})
+    usdc_tx = mock.functions.setPrice(usdc_address, usdc_price, usdc_price).transact(
+        {"from": deployer, "gas": 500_000},
+    )
     assert_transaction_success_with_explanation(
         web3,
         usdc_tx,

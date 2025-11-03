@@ -45,6 +45,13 @@ ABIS_PATH = os.path.dirname(os.path.abspath(__file__))
 def set_opt_code(w3: Web3, bytecode=None, contract_address=None):
     """Replace contract code with mock bytecode on Anvil or Tenderly."""
 
+    # Ensure bytecode has 0x prefix and contract address is checksummed
+    if isinstance(bytecode, bytes):
+        bytecode = bytecode.hex()
+    if not bytecode.startswith("0x"):
+        bytecode = "0x" + bytecode
+    contract_address = to_checksum_address(contract_address)
+
     # Use Anvil's RPC to set the contract's bytecode
     if is_tenderly(w3):
         # https://docs.tenderly.co/virtual-testnets/admin-rpc#tenderly_setcode
@@ -54,9 +61,9 @@ def set_opt_code(w3: Web3, bytecode=None, contract_address=None):
     else:
         raise NotImplementedError(f"Unsupported RPC backend: {get_provider_name(w3.provider)}")
 
-    # Verify the response from anvil
+    # Verify the response from the provider
     if response.get("result"):
-        logger.info("Code successfully set via anvil")
+        logger.info("Code successfully set")
     else:
         logger.info(f"Failed to set code: {response.get('error', {}).get('message', 'Unknown error')}")
 
@@ -64,18 +71,19 @@ def set_opt_code(w3: Web3, bytecode=None, contract_address=None):
     deployed_code = w3.eth.get_code(contract_address).hex()
 
     # Compare the deployed code with the mock bytecode
-    if deployed_code == bytecode.hex():
+    expected_code = bytecode[2:] if bytecode.startswith("0x") else bytecode  # Remove 0x prefix for comparison
+    if deployed_code == expected_code:
         logger.info("✅ Code verification successful: Deployed bytecode matches mock bytecode")
     else:
         logger.info("❌ Code verification failed: Deployed bytecode does not match mock bytecode")
-        logger.info(f"Expected: {bytecode.hex()}")
+        logger.info(f"Expected: {expected_code}")
         logger.info(f"Actual: {deployed_code}")
 
         # You can also check if the length at least matches
-        if len(deployed_code) == len(bytecode) or len(deployed_code) == len("0x" + bytecode.lstrip("0x")):
+        if len(deployed_code) == len(expected_code) or len(deployed_code) == len(expected_code.lstrip("0x")):
             logger.info("Lengths match but content differs")
         else:
-            logger.info(f"Length mismatch - Expected: {len(bytecode)}, Got: {len(deployed_code)}")
+            logger.info(f"Length mismatch - Expected: {len(expected_code)}, Got: {len(deployed_code)}")
 
 
 def execute_order(config, connection, order_key, deployed_oracle_address, initial_token_address, target_token_address, logger=None, overrides=None):
