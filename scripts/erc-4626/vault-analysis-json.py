@@ -192,19 +192,7 @@ data_folder = DATA_DIR
 vault_db = VaultDatabase.read()
 cleaned_data_parquet_file = PARQUET_FILE
 prices_df = pd.read_parquet(cleaned_data_parquet_file)
-
 print(f"We have {len(vault_db):,} vaults in the database and {len(prices_df):,} price rows.")
-
-# --------------------------------------------------------------------
-# Step 3: Filter data for the last N months
-# --------------------------------------------------------------------
-last_sample_at = prices_df.index[-1]  # Latest timestamp
-three_months_ago = last_sample_at - pd.DateOffset(months=MONTHS)
-PERIOD = [three_months_ago, last_sample_at]
-
-mask = (prices_df.index >= PERIOD[0]) & (prices_df.index <= PERIOD[1])
-prices_df = prices_df[mask]
-print(f"✅ Trimmed to {len(prices_df):,} rows from {PERIOD[0]} to {PERIOD[1]}")
 
 # --------------------------------------------------------------------
 # Step 4: Examine per-chain data availability
@@ -213,7 +201,7 @@ chain_ids = sorted(prices_df["chain"].unique())
 for chain_id in chain_ids:
     chain_name = get_chain_name(chain_id)
     print(f"\n🔍 Examining chain {chain_name} ({chain_id})")
-    chain_prices_df = prices_df[(prices_df["chain"] == chain_id) & (prices_df.index >= PERIOD[0]) & (prices_df.index <= PERIOD[1])]
+    chain_prices_df = prices_df[(prices_df["chain"] == chain_id)]
     print(f"📈 Rows: {len(chain_prices_df):,} for chain {chain_name}")
     if not chain_prices_df.empty:
         print(chain_prices_df.head(1))

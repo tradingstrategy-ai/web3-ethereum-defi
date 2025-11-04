@@ -497,8 +497,11 @@ def calculate_lifetime_metrics(
             # We may have severeal division by zero if the share price starts at 0
             warnings.simplefilter("ignore", RuntimeWarning)
 
-            lifetime_start_date = start_date = group.index.min()
-            lifetime_end_date = end_date = group.index.max()
+            # 2) Ensure group index is monotonic and clean
+            group = group.loc[~group.index.isna()].sort_index(kind="stable")
+
+            lifetime_start_date = start_date = group.index[0]
+            lifetime_end_date = end_date = group.index[-1]
 
             lifetime_return = group.iloc[-1]["share_price"] / group.iloc[0]["share_price"] - 1
 
