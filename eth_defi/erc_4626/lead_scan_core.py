@@ -147,7 +147,7 @@ def scan_leads(
             hypersync_client = None
             hypersync_url = None
 
-    printer(f"Scanning ERC-4626 vaults on chain {web3.eth.chain_id}: {name}, using rpcs: {rpcs}, using HyperSync: {hypersync_url or '<not avail>'}, and {max_workers} workers")
+    printer(f"Scanning ERC-4626 vaults on chain {web3.eth.chain_id}: {name}, using rpcs: {rpcs}, using event backend {backend}, HyperSync: {hypersync_url or '<not avail>'}, and {max_workers} workers")
 
     if not vault_db_file.exists():
         logger.info("Starting vault lead scan, created new database at %s", vault_db_file)
