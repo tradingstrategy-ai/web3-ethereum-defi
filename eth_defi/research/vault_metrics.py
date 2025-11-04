@@ -497,8 +497,8 @@ def calculate_lifetime_metrics(
             # We may have severeal division by zero if the share price starts at 0
             warnings.simplefilter("ignore", RuntimeWarning)
 
-            start_date = group.index.min()
-            end_date = group.index.max()
+            lifetime_start_date = start_date = group.index.min()
+            lifetime_end_date = end_date = group.index.max()
 
             lifetime_return = group.iloc[-1]["share_price"] / group.iloc[0]["share_price"] - 1
 
@@ -561,9 +561,9 @@ def calculate_lifetime_metrics(
                     three_months_return_net = None
                     three_months_cagr_net = None
 
-                # Daily-equivalent volatility from hourly returns (multiply by sqrt(24) to scale from hourly to daily)
-                three_months_volatility = returns_series.std() * np.sqrt(30)
-                # three_months_volatility = 0
+                # Three months daily volatility, annualised
+                daily_vol = returns_series.std()
+                three_months_volatility = daily_vol * np.sqrt(365)
 
                 three_months_sharpe = calculate_sharpe_ratio_from_returns(returns_series)
                 three_months_sharpe_net = calculate_sharpe_ratio_from_returns(returns_series)
@@ -655,8 +655,8 @@ def calculate_lifetime_metrics(
                 "risk": risk,
                 "risk_numeric": risk_numeric,
                 "id": id_val,
-                "start_date": start_date,
-                "end_date": end_date,
+                "start_date": lifetime_start_date,
+                "end_date": lifetime_end_date,
                 "address": vault_spec.vault_address,
                 "chain_id": vault_spec.chain_id,
                 "stablecoinish": is_stablecoin_like(denomination),
@@ -844,7 +844,7 @@ def format_lifetime_table(
         mode="usd",
     )
 
-    df["three_months_volatility"] = df["three_months_volatility"].apply(lambda x: f"{x:.4f}")
+    df["three_months_volatility"] = df["three_months_volatility"].apply(lambda x: f"{x:.1%}")
     df["three_months_sharpe"] = df["three_months_sharpe"].apply(lambda x: f"{x:.1f}")
     df["event_count"] = df["event_count"].apply(lambda x: f"{x:,}")
     df["risk"] = df["risk"].apply(lambda x: x.get_risk_level_name() if x is not None else "Unknown")
