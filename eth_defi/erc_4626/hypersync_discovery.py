@@ -172,10 +172,10 @@ class HypersyncVaultDiscover(VaultDiscoveryBase):
             try:
                 res = await asyncio.wait_for(receiver.recv(), timeout=self.recv_timeout)
             except asyncio.TimeoutError as e:
-                retry_sleep = 60
+                # TODO: Not sure if we can recover from a timeout like this
+                retry_sleep = 10
                 logger.error("HyperSync receiver timed out, sleeping %f", retry_sleep)
-                time.sleep(retry_sleep)
-                continue
+                raise
 
             # exit if the stream finished
             if res is None:

@@ -57,7 +57,8 @@ def display_vaults_table(df: pd.DataFrame, nav_threshold=Decimal(1.1)) -> None:
         del df["Deposit fee"]
     if "Withdraw fee" in df.columns:
         del df["Withdraw fee"]
-    # del df["Lock up"]
+
+    del df["Lock up"]
 
     # Remove zero entries
     df = df.loc[df["NAV"] >= nav_threshold]
