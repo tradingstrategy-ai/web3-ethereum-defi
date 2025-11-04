@@ -1457,11 +1457,6 @@ def export_lifetime_row(row: pd.Series) -> dict:
         elif pd.isna(value):
             out[key] = None
 
-    if row["address"] == "0x00c8a649c9837523ebb406ceb17a6378ab5c74cf":
-        import ipdb
-
-        ipdb.set_trace()
-
     # Map some legacy names
     # TODO: Remove after confirmed frontend does not need these
     out["management_fee"] = out.get("mgmt_fee", None)
