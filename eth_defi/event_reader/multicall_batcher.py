@@ -1020,6 +1020,7 @@ class MultiprocessMulticallReader:
                    ("exceeds block gas limit" in parsed_error) or \
                    ("historical state" in parsed_error) or \
                    ("state histories haven't been fully indexed yet" in parsed_error) or \
+                   ("Failed to call: InvalidTransaction" in parsed_error) or \
                    isinstance(e, ProbablyNodeHasNoBlock) or \
                    isinstance(e, (ReadTimeout, RemoteDisconnected, ConnectionError)) or \
                    (isinstance(e, HTTPError) and e.response.status_code == 500):
