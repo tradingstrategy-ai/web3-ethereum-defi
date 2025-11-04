@@ -168,9 +168,12 @@ def test_vault_controlled_wallet_make_buy(
     swap_amount = 500 * 10**6
 
     # Buy in to the vault
-    usdc.functions.transfer(user_1, swap_amount).transact({"from": deployer})
-    usdc.functions.approve(vault.comptroller.address, swap_amount).transact({"from": user_1})
-    vault.comptroller.functions.buyShares(swap_amount, 1).transact({"from": user_1})
+    tx_hash = usdc.functions.transfer(user_1, swap_amount).transact({"from": deployer})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+    tx_hash = usdc.functions.approve(vault.comptroller.address, swap_amount).transact({"from": user_1})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+    tx_hash = vault.comptroller.functions.buyShares(swap_amount, 1).transact({"from": user_1})
+    assert_transaction_success_with_explanation(web3, tx_hash)
     assert usdc.functions.balanceOf(vault.address).call() == swap_amount
 
     # First approve tokens from the vault
