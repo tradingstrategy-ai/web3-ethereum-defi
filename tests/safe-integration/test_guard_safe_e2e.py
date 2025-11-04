@@ -2,6 +2,7 @@
 
 import os
 
+import flaky
 import pytest
 from eth_typing import HexAddress
 from safe_eth.safe import Safe
@@ -350,6 +351,9 @@ def test_swap_through_module_revert(
     assert "TRANSFER_FROM_FAILED" in formatted, f"Failed: {exc_info.e}\n{exc_info}"
 
 
+# Flaky because of Anvil
+# ERROR tests/safe-integration/test_guard_safe_e2e.py::test_swap_through_module_unauthorised - ValueError: RPC smoke test failed for ***: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+@flaky.flaky
 def test_swap_through_module_unauthorised(
     web3: Web3,
     safe: Safe,

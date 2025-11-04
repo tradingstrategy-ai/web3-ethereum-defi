@@ -91,7 +91,7 @@ def test_calculate_lifetime_metrics(
     assert sample_row["one_month_cagr"] == pytest.approx(0.02225616485623605)
     assert sample_row["one_month_cagr_net"] == pytest.approx(0.018888926446635645)
 
-    assert sample_row["last_updated_at"] == pd.Timestamp('2025-10-24 06:34:11')
+    assert sample_row["last_updated_at"] == pd.Timestamp("2025-10-24 06:34:11")
     assert sample_row["last_updated_block"] == 2_951_745
 
     # We can get human readable output
@@ -152,6 +152,5 @@ def test_export_lifetime_metrics(
     json.dumps(rows)
 
     r = rows[0]
-    assert r["name"]  == "Clearstar USDC.e"
+    assert r["name"] == "Clearstar USDC.e"
     assert r["chain"] == "Hemi"
-

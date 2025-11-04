@@ -22,6 +22,7 @@ import zlib
 
 from abc import abstractmethod
 from dataclasses import dataclass, field
+from http.client import RemoteDisconnected
 from itertools import islice
 from pprint import pformat
 from typing import TypeAlias, Iterable, Generator, Hashable, Any, Final, Callable
@@ -29,7 +30,7 @@ from typing import TypeAlias, Iterable, Generator, Hashable, Any, Final, Callabl
 from hexbytes import HexBytes
 from requests import HTTPError
 from tqdm_loggable.auto import tqdm
-from requests.exceptions import ReadTimeout
+from requests.exceptions import ReadTimeout, ConnectionError
 
 from eth_typing import HexAddress, BlockIdentifier, BlockNumber
 from joblib import Parallel, delayed
@@ -47,6 +48,7 @@ from eth_defi.middleware import ProbablyNodeHasNoBlock, is_retryable_http_except
 from eth_defi.provider.fallback import FallbackProvider
 from eth_defi.provider.named import get_provider_name
 from eth_defi.timestamp import get_block_timestamp
+
 
 logger = logging.getLogger(__name__)
 
@@ -925,8 +927,8 @@ class MultiprocessMulticallReader:
             # Gnosis chain argh
             return 16
         elif chain_id == 1:
-            # Encountered JSON-RPC retryable error {'message': 'out of gas: gas required exceeds: 1000000000', 'code': -32003}
-            return 16
+            # Boost mainnet scan
+            return 60
         else:
             return self.batch_size
 
@@ -945,6 +947,7 @@ class MultiprocessMulticallReader:
         payload_size = 0
         calls_results = []
         chain_id = self.web3.eth.chain_id
+        batch_calls = []
         for i in range(0, len(encoded_calls), batch_size):
             batch_calls = encoded_calls[i : i + batch_size]
             # Calculate how many bytes we are going to use
@@ -964,18 +967,35 @@ class MultiprocessMulticallReader:
                 if gas:
                     tx = {"gas": gas}
                 else:
-                    tx = None
+                    tx = {}
+
+                # See make_request() in fallback.py
+                tx["ignore_error"] = True
+
                 # Perform multicall
                 received_block_number, received_block_hash, batch_results = bound_func.call(tx, block_identifier=block_identifier)
-            except (ValueError, ProbablyNodeHasNoBlock, HTTPError) as e:
+            except (ValueError, ProbablyNodeHasNoBlock, HTTPError, ReadTimeout, ConnectionError, RemoteDisconnected) as e:
                 debug_data = format_debug_instructions(bound_func, block_identifier=block_identifier)
                 headers = get_last_headers()
                 name = get_provider_name(self.web3.provider)
                 if type(block_identifier) == int:
                     block_identifier = f"{block_identifier:,}"
                 addresses = [t[0] for t in batch_calls]
+
+                #
+                # When
+                #
+
                 error_msg = f"Multicall failed for chain {chain_id}, block {block_identifier}, batch size: {len(batch_calls)}: {e}.\nUsing provider: {self.web3.provider.__class__}: {name}\nHTTP reply headers: {pformat(headers)}\nTo simulate:\n{debug_data}\nAddresses: {addresses}"
                 parsed_error = str(e)
+
+                for address, data in batch_calls:
+                    logger.info(
+                        "Failed: Multicall batch call to %s with data %s: %s",
+                        address,
+                        data.hex(),
+                        str(e),
+                    )
 
                 if isinstance(e, HTTPError) and e.response.status_code == 429:
                     # Alchemy throttling us
@@ -1001,7 +1021,7 @@ class MultiprocessMulticallReader:
                    ("historical state" in parsed_error) or \
                    ("state histories haven't been fully indexed yet" in parsed_error) or \
                    isinstance(e, ProbablyNodeHasNoBlock) or \
-                   isinstance(e, ReadTimeout) or \
+                   isinstance(e, (ReadTimeout, RemoteDisconnected, ConnectionError)) or \
                    (isinstance(e, HTTPError) and e.response.status_code == 500):
                     raise MulticallRetryable(error_msg) from e
                 # fmt: on
@@ -1117,6 +1137,9 @@ class MultiprocessMulticallReader:
             if isinstance(provider, FallbackProvider):
                 self.last_switch = self.calls
                 provider.switch_provider()
+                fallback_provider = provider.get_active_provider()
+            else:
+                fallback_provider = None
 
             # Set batch size to 1 and give it one more go
             try:
@@ -1129,7 +1152,9 @@ class MultiprocessMulticallReader:
                 )
 
             except MulticallRetryable as e:
-                raise RuntimeError("Encountered a contract that cannot be called, bailing out. Manually update blacklist.") from e
+                fallback_provider_name = get_provider_name(fallback_provider) if fallback_provider else "N/A"
+                provider_name = get_provider_name(provider)
+                raise RuntimeError(f"Encountered a contract that cannot be called even after dropping multicall batch size to 1 and switching providers, bailing out.\nManually figure out how to work around / change RPC providers.\nOriginal provider: {provider} ({provider_name}), fallback provider: {fallback_provider} ({fallback_provider_name}), chain {chain_id}, block {block_identifier_str}, batch size: 1.\nException: {e}.\n") from e
 
         self.calls += 1
 
