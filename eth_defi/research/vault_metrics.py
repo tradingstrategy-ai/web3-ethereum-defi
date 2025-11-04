@@ -1459,6 +1459,8 @@ def export_lifetime_row(row: pd.Series) -> dict:
             out[key] = value.total_seconds()
         elif isinstance(value, VaultTechnicalRisk):
             out[key] = value.get_risk_level_name()
+        elif isinstance(value, (list, tuple, set)):
+            out[key] = list(value)
         elif pd.isna(value):
             out[key] = None
 
