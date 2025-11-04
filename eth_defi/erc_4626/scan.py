@@ -53,6 +53,7 @@ def create_vault_scan_record(
         "Mgmt fee": None,
         "Perf fee": None,
         "Shares": 0,
+        "Features": "",
         "First seen": detection.first_seen_at,
         "_detection_data": detection,
     }
@@ -126,6 +127,7 @@ def create_vault_scan_record(
             "Withdraw fee": withdraw_fee,
             "Shares": total_supply,
             "First seen": detection.first_seen_at,
+            "Features": ", ".join(sorted([f.name for f in detection.features])),
             "Lock up": lockup,
             "_detection_data": detection,
             "_denomination_token": denomination_token,

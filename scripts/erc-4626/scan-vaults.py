@@ -66,7 +66,10 @@ def main():
     max_workers = int(os.environ.get("MAX_WORKERS", "16"))
     # max_workers = 1  # To debug, set workers to 1
 
-    setup_console_logging(log_file=Path(f"logs/scan-vaults.log"))
+    setup_console_logging(
+        default_log_level=os.environ.get("LOG_LEVEL", "warning"),
+        log_file=Path(f"logs/scan-vaults.log")
+    )
 
     end_block = os.environ.get("END_BLOCK")
 

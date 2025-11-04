@@ -290,10 +290,11 @@ def create_probe_calls(
         )
 
         # https://arbiscan.io/address/0xb739ae19620f7ecb4fb84727f205453aa5bc1ad2#code
-        tokenised_strategy_call = EncodedCall.from_keccak_signature(
+        # Fluid conflicting https://etherscan.io/address/0x00c8a649c9837523ebb406ceb17a6378ab5c74cf#readContract
+        trade_factory_call = EncodedCall.from_keccak_signature(
             address=address,
-            signature=Web3.keccak(text="tokenizedStrategyAddress()")[0:4],
-            function="tokenizedStrategyAddress",
+            signature=Web3.keccak(text="tradeFactory()")[0:4],
+            function="tradeFactory",
             data=b"",
             extra_data=None,
         )
@@ -366,7 +367,7 @@ def create_probe_calls(
         yield plutus_call
         yield d2_call
         yield untangled_call
-        yield tokenised_strategy_call
+        yield trade_factory_call
         yield goat_call
         yield usdai_call
         yield autopool_call
@@ -489,7 +490,7 @@ def identify_vault_features(
         features.add(ERC4626Feature.untangled_like)
         features.add(ERC4626Feature.erc_7540_like)
 
-    if calls["tokenizedStrategyAddress"].success:
+    if calls["tradeFactory"].success:
         features.add(ERC4626Feature.yearn_tokenised_strategy)
 
     if calls["DEGRADATION_COEFFICIENT"].success:
