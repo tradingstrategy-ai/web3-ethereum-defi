@@ -29,6 +29,7 @@ from typing import TypeAlias, Iterable, Generator, Hashable, Any, Final, Callabl
 from hexbytes import HexBytes
 from requests import HTTPError
 from tqdm_loggable.auto import tqdm
+from requests.exceptions import ReadTimeout
 
 from eth_typing import HexAddress, BlockIdentifier, BlockNumber
 from joblib import Parallel, delayed
@@ -908,13 +909,23 @@ class MultiprocessMulticallReader:
         else:
             return None
 
-    def get_batch_size(self, chain_id) -> int | None:
+    def get_batch_size(self, web3: Web3, chain_id) -> int | None:
         """Fix non-standard out of gas issues"""
+
+        provider = web3.provider
+        if isinstance(provider, FallbackProvider):
+            provider = provider.get_active_provider()
+
+        # name = get_provider_name(provider)
+
         if chain_id == 5000:
             # Mantle argh
             return 16
         elif chain_id == 100:
             # Gnosis chain argh
+            return 16
+        elif chain_id == 1:
+            # Encountered JSON-RPC retryable error {'message': 'out of gas: gas required exceeds: 1000000000', 'code': -32003}
             return 16
         else:
             return self.batch_size
@@ -990,6 +1001,7 @@ class MultiprocessMulticallReader:
                    ("historical state" in parsed_error) or \
                    ("state histories haven't been fully indexed yet" in parsed_error) or \
                    isinstance(e, ProbablyNodeHasNoBlock) or \
+                   isinstance(e, ReadTimeout) or \
                    (isinstance(e, HTTPError) and e.response.status_code == 500):
                     raise MulticallRetryable(error_msg) from e
                 # fmt: on
@@ -1080,7 +1092,7 @@ class MultiprocessMulticallReader:
         # we need to break it to smaller multicall call chunks
         # or we get RPC timeout
         chain_id = self.web3.eth.chain_id
-        batch_size = self.get_batch_size(chain_id)
+        batch_size = self.get_batch_size(self.web3, chain_id)
 
         try:
             # Happy path

@@ -109,6 +109,7 @@ def scan_leads(
     backend: Literal["auto", "hypersync", "rpc"] = "auto",
     max_getlogs_range: int | None = None,
     reset_leads=False,
+    hypersync_api_key: str | None = None,
 ) -> LeadScanReport:
     """Core loop to discover new vaults on a chain.
 
@@ -134,7 +135,7 @@ def scan_leads(
         case "auto":
             hypersync_url = get_hypersync_server(web3, allow_missing=True)
             if hypersync_url:
-                hypersync_client = hypersync.HypersyncClient(hypersync.ClientConfig(url=hypersync_url))
+                hypersync_client = hypersync.HypersyncClient(hypersync.ClientConfig(url=hypersync_url, bearer_token=hypersync_api_key))
             else:
                 hypersync_client = None
         case "hypersync":
@@ -143,6 +144,7 @@ def scan_leads(
             hypersync_client = hypersync.HypersyncClient(hypersync.ClientConfig(url=hypersync_url))
         case "rpc":
             hypersync_client = None
+            hypersync_url = None
 
     printer(f"Scanning ERC-4626 vaults on chain {web3.eth.chain_id}: {name}, using rpcs: {rpcs}, using HyperSync: {hypersync_url or '<not avail>'}, and {max_workers} workers")
 

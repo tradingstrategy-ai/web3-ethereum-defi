@@ -24,6 +24,9 @@ Or:
     # Hyperliquid
     LOG_LEVEL=info JSON_RPC_URL=$JSON_RPC_HYPERLIQUID python scripts/erc-4626/scan-vaults.py
 
+    # Mainnet
+    SCAN_BACKEND=rpc LOG_LEVEL=info JSON_RPC_URL=$JSON_RPC_ETHEREUM python scripts/erc-4626/scan-vaults.py
+
 
 Or for faster small sample scan limit the end block:
 
@@ -81,6 +84,8 @@ def main():
     # Choose a different scan mode
     scan_backend = os.environ.get("SCAN_BACKEND", "auto")
 
+    hypersync_api_key = os.environ.get("HYPERSYNC_API_KEY", None)
+
     scan_leads(
         json_rpc_urls=JSON_RPC_URL,
         vault_db_file=vault_db_file,
@@ -91,6 +96,7 @@ def main():
         backend=scan_backend,
         max_getlogs_range=max_getlogs_range,
         reset_leads=reset_leads,
+        hypersync_api_key=hypersync_api_key,
     )
 
     print("All ok")

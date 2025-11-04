@@ -672,7 +672,7 @@ class VaultBase(ABC):
         """
         return False
 
-    def get_deposit_fee(self, block_identifier: BlockIdentifier) -> float:
+    def get_deposit_fee(self, block_identifier: BlockIdentifier) -> float | None:
         """Deposit fee is set to zero by default as vaults usually do not have deposit fees."""
         return 0.0
 

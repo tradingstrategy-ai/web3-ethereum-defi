@@ -64,7 +64,7 @@ def create_fee_label(
 
     # All fees zero
     if management_fee_annual == 0 and performance_fee == 0 and deposit_fee == 0 and withdrawal_fee == 0:
-        return "0%"
+        return "0% / 0%"
 
     if deposit_fee in (0, None) and withdrawal_fee in (0, None):
         return f"{fmt_one_decimal_or_int(management_fee_annual)} / {fmt_one_decimal_or_int(performance_fee)}"
@@ -615,6 +615,9 @@ def calculate_lifetime_metrics(
             withdrawal_fee=withdrawal_fee,
         )
 
+        last_updated_at = group.index.max()
+        last_updated_block = group.loc[last_updated_at]["block_number"]
+
         return pd.Series(
             {
                 "name": name,
@@ -653,6 +656,9 @@ def calculate_lifetime_metrics(
                 "end_date": end_date,
                 "address": vault_spec.vault_address,
                 "chain_id": vault_spec.chain_id,
+                "stablecoinish": is_stablecoin_like(denomination),
+                "last_updated_at": last_updated_at,
+                "last_updated_block": last_updated_block,
             }
         )
 
@@ -866,6 +872,9 @@ def format_lifetime_table(
     _del("chain_id")
     _del("end_date")
     _del("risk_numeric")
+    _del("stablecoinish")
+    _del("last_updated_at")
+    _del("last_updated_block")
 
     df = df.rename(
         columns={
@@ -1448,6 +1457,9 @@ def export_lifetime_row(row: pd.Series) -> dict:
             out[key] = value.get_risk_level_name()
         elif pd.isna(value):
             out[key] = None
+
+    if row["address"] == "0x00c8a649c9837523ebb406ceb17a6378ab5c74cf":
+        import ipdb ; ipdb.set_trace()
 
     # Map some legacy names
     # TODO: Remove after confirmed frontend does not need these

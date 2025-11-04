@@ -1,4 +1,8 @@
-"""Vaukt risk classification."""
+"""Vault risk classification.
+
+- What are the vault risk levels and how they are classified
+- The current data of known protocols
+"""
 
 import enum
 
@@ -86,6 +90,10 @@ VAULT_SPECIFIC_RISK = {
     # Kitsune
     # https://arbiscan.io/address/0xe5a4f22fcb8893ba0831babf9a15558b5e83446f#code
     "0xe5a4f22fcb8893ba0831babf9a15558b5e83446f": VaultTechnicalRisk.blacklisted,
+
+    # kUSDC
+    # https://basescan.org/address/0x43e3e6ffb2e363e64cd480cbb7cd0cf47bc6b477
+    "0x43E3E6FFb2E363E64cD480Cbb7cd0CF47bc6b477": VaultTechnicalRisk.blacklisted,
 }
 
 

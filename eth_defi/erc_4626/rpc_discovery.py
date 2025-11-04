@@ -160,7 +160,7 @@ class JSONRPCVaultDiscover(VaultDiscoveryBase):
                     # Return leads early, even if we still accumulate deposit and withdraw matches for them
                     matches += 1
                     seen.add(address)
-                    logger.info("Found lead %s", address)
+                    logger.debug("Found lead %s", address)
 
             if progress_bar is not None:
                 progress_bar.update(current_block - last_block)
