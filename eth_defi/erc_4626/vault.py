@@ -836,6 +836,7 @@ class ERC4626Vault(VaultBase):
 
     def get_deposit_manager(self) -> "eth_defi.erc_4626.deposit_redeem.ERC4626DepositManager":
         from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
+
         return ERC4626DepositManager(self)
 
     def has_block_range_event_support(self):

@@ -1444,7 +1444,6 @@ def export_lifetime_row(row: pd.Series) -> dict:
 
     # Convert any non-serializable values
     for key, value in out.items():
-
         if isinstance(value, (np.floating, np.integer)):
             out[key] = value.item()
         elif isinstance(value, pd.Timestamp):
@@ -1459,7 +1458,9 @@ def export_lifetime_row(row: pd.Series) -> dict:
             out[key] = None
 
     if row["address"] == "0x00c8a649c9837523ebb406ceb17a6378ab5c74cf":
-        import ipdb ; ipdb.set_trace()
+        import ipdb
+
+        ipdb.set_trace()
 
     # Map some legacy names
     # TODO: Remove after confirmed frontend does not need these

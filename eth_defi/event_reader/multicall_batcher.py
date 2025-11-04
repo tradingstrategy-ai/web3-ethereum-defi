@@ -49,6 +49,7 @@ from eth_defi.provider.fallback import FallbackProvider
 from eth_defi.provider.named import get_provider_name
 from eth_defi.timestamp import get_block_timestamp
 
+
 logger = logging.getLogger(__name__)
 
 #: Address, arguments tuples
@@ -1136,6 +1137,9 @@ class MultiprocessMulticallReader:
             if isinstance(provider, FallbackProvider):
                 self.last_switch = self.calls
                 provider.switch_provider()
+                fallback_provider = provider.get_active_provider()
+            else:
+                fallback_provider = None
 
             # Set batch size to 1 and give it one more go
             try:
@@ -1148,7 +1152,9 @@ class MultiprocessMulticallReader:
                 )
 
             except MulticallRetryable as e:
-                raise RuntimeError("Encountered a contract that cannot be called even after dropping multicall batch size to 1 and switching providers, bailing out. Manually figure out how to work around / change RPC providers.") from e
+                fallback_provider_name = get_provider_name(fallback_provider) if fallback_provider else "N/A"
+                provider_name = get_provider_name(provider)
+                raise RuntimeError(f"Encountered a contract that cannot be called even after dropping multicall batch size to 1 and switching providers, bailing out.\nManually figure out how to work around / change RPC providers.\nOriginal provider: {provider} ({provider_name}), fallback provider: {fallback_provider} ({fallback_provider_name}), chain {chain_id}, block {block_identifier_str}, batch size: 1.\nException: {e}.\n") from e
 
         self.calls += 1
 
