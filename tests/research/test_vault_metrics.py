@@ -94,6 +94,8 @@ def test_calculate_lifetime_metrics(
     assert sample_row["last_updated_at"] == pd.Timestamp("2025-10-24 06:34:11")
     assert sample_row["last_updated_block"] == 2_951_745
 
+    assert sample_row["features"] == ["morpho_like"]
+
     # We can get human readable output
     formatted = format_lifetime_table(
         metrics,

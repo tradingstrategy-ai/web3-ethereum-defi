@@ -486,6 +486,9 @@ def calculate_lifetime_metrics(
 
         lockup = vault_metadata.get("Lock up", datetime.timedelta(0))
 
+        detection: ERC4262VaultDetection = vault_metadata["_detection_data"]
+        features = sorted([f.name for f in detection.features])
+
         # Do we know fees for this vault
         known_fee = mgmt_fee is not None and perf_fee is not None
 
@@ -659,6 +662,7 @@ def calculate_lifetime_metrics(
                 "stablecoinish": is_stablecoin_like(denomination),
                 "last_updated_at": last_updated_at,
                 "last_updated_block": last_updated_block,
+                "features": features,
             }
         )
 
@@ -875,6 +879,7 @@ def format_lifetime_table(
     _del("stablecoinish")
     _del("last_updated_at")
     _del("last_updated_block")
+    _del("features")
 
     df = df.rename(
         columns={
