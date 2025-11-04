@@ -141,7 +141,8 @@ def scan_leads(
         case "hypersync":
             hypersync_url = get_hypersync_server(web3)
             assert hypersync_url, f"No HyperSync server available for chain {web3.eth.chain_id}"
-            hypersync_client = hypersync.HypersyncClient(hypersync.ClientConfig(url=hypersync_url))
+            assert hypersync_api_key, "HYPERSYNC_API_KEY must be set to use HyperSync backend"
+            hypersync_client = hypersync.HypersyncClient(hypersync.ClientConfig(url=hypersync_url, bearer_token=hypersync_api_key))
         case "rpc":
             hypersync_client = None
             hypersync_url = None

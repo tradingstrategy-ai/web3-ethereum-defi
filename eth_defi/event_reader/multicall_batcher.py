@@ -1136,25 +1136,38 @@ class MultiprocessMulticallReader:
             provider = self.web3.provider
             if isinstance(provider, FallbackProvider):
                 self.last_switch = self.calls
-                provider.switch_provider()
-                fallback_provider = provider.get_active_provider()
+                fallback_provider = provider
+                # If we have only one fallback provider configured, try it twice
+                fallback_attempts = len(provider.providers)
+
             else:
                 fallback_provider = None
+                fallback_attempts = 0
 
             # Set batch size to 1 and give it one more go
-            try:
-                calls_results = self.call_multicall_with_batch_size(
-                    multicall_contract,
-                    block_identifier=block_identifier,
-                    batch_size=1,
-                    encoded_calls=encoded_calls,
-                    require_multicall_result=require_multicall_result,
-                )
+            if fallback_attempts > 0:
+                logger.info("Attempting %d fallbacks", fallback_attempts)
+                for i in range(fallback_attempts):
+                    fallback_provider.switch_provider()
+                    active_provider = fallback_provider.get_active_provider()
+                    active_provider_name = get_provider_name(active_provider)
 
-            except MulticallRetryable as e:
-                fallback_provider_name = get_provider_name(fallback_provider) if fallback_provider else "N/A"
-                provider_name = get_provider_name(provider)
-                raise RuntimeError(f"Encountered a contract that cannot be called even after dropping multicall batch size to 1 and switching providers, bailing out.\nManually figure out how to work around / change RPC providers.\nOriginal provider: {provider} ({provider_name}), fallback provider: {fallback_provider} ({fallback_provider_name}), chain {chain_id}, block {block_identifier_str}, batch size: 1.\nException: {e}.\n") from e
+                    try:
+                        calls_results = self.call_multicall_with_batch_size(
+                            multicall_contract,
+                            block_identifier=block_identifier,
+                            batch_size=1,
+                            encoded_calls=encoded_calls,
+                            require_multicall_result=require_multicall_result,
+                        )
+
+                    except MulticallRetryable as e:
+                        provider_name = get_provider_name(provider)
+                        if i < (fallback_attempts - 1):
+                            logger.warning(f"Multicall with batch size 1 still failed at chain {chain_id}, block {block_identifier_str}. Switching provider and retrying. Current provider: {active_provider =} ({active_provider_name}). Exception: {e}.")
+                            continue
+
+                        raise RuntimeError(f"Encountered a contract that cannot be called even after dropping multicall batch size to 1 and switching providers, bailing out.\nManually figure out how to work around / change RPC providers.\nOriginal provider: {provider} ({provider_name}), fallback provider: {fallback_provider} ({fallback_provider_name}), chain {chain_id}, block {block_identifier_str}, batch size: 1.\nException: {e}.\n") from e
 
         self.calls += 1
 
