@@ -64,7 +64,7 @@ def presign_cowswap(
     sell_token: TokenDetails,
     amount_in: Decimal,
     min_amount_out: Decimal,
-    app_data=HexBytes("0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d"),
+    app_data=HexBytes("0x0000000000000000000000000000000000000000000000000000000000000000"),
 ) -> ContractFunction:
     """Construct a pre-signed CowSwap order for the offchain order book to execute using TradingStrategyModuleV0.
 
@@ -150,7 +150,8 @@ def presign_and_broadcast(
     data = events[0]["args"]["order"]
     uid = events[0]["args"]["orderUid"]
     # TODO: appData unsupported for now
-    del data["appData"]
+    data["appData"] = "0x0000000000000000000000000000000000000000000000000000000000000000"
+    # data["appDataHash"] = "0x0000000000000000000000000000000000000000000000000000000000000000"
     data["sellTokenBalance"] = "erc20"
     data["buyTokenBalance"] = "erc20"
     data["kind"] = "buy"

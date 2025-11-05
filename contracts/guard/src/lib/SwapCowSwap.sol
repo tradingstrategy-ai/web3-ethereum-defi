@@ -44,10 +44,9 @@ contract SwapCowSwap {
             sellAmount: _amountIn,
             buyAmount: _minAmountOut,
             validTo: uint32(block.timestamp + _SIGN_COOLDOWN),
-            // keccak256 {"appCode":"infiniFi","version":"1.0.0","metadata":{}}
             appData: appdata,
             feeAmount: 0,
-            kind: GPv2Order.KIND_SELL,
+            kind: GPv2Order.KIND_BUY,
             partiallyFillable: false,
             sellTokenBalance: GPv2Order.BALANCE_ERC20,
             buyTokenBalance: GPv2Order.BALANCE_ERC20
