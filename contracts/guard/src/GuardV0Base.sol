@@ -728,9 +728,10 @@ abstract contract GuardV0Base is IGuard,  Multicall, SwapCowSwap  {
     }
 
     // https://github.com/cowprotocol/contracts/tree/main/deployments
-    function whitelistCowSwap(address settlementContract, string calldata notes) external {
+    function whitelistCowSwap(address settlementContract, address relayerContract, string calldata notes) external {
         // Interaction by special _swapAndValidateCowSwap() internal function
         allowApprovalDestination(settlementContract, notes);
+        allowApprovalDestination(relayerContract, notes);
         allowedCowSwaps[settlementContract] = true;
         emit CowSwapApproved(settlementContract, notes);
     }
@@ -740,14 +741,17 @@ abstract contract GuardV0Base is IGuard,  Multicall, SwapCowSwap  {
      *
      * Checks that an asset manager tries to perform a legit CowSwap swap.
      *
-     * 1. Create a Order instance
-     * 2. Calculate its hash, also known as orderUi
-     * 3. Call setPreSignature(orderUid, True) on CowSwap
-     * 4. Offchain logic can now take over to fill the order
-     *     4.a) Read the emitted order data from OrderSigned event
-     *     4.b) Submit to CowSwap offchain settlement system
-     *     4.c) Wait for order to be filled
+     * 1. Validate the swap is within our allowed whitelists
+     * 2. Create a Order structure
+     * 3. Calculate order data hash and prefix with additional information to create order UID
+     * 4. Set up data needed to call ICowSettlement.setPreSignature(orderUid, True) from Gnosis Safe as a
+     * 5. Return data to call setPreSignature(orderUid, True) on CowSwap by Safe
+     * 6. Offchain logic can now take over to fill the order
+     *     6.a) Read the emitted order data from OrderSigned event
+     *     6.b) Submit to CowSwap offchain settlement system
+     *     6.c) Wait for order to be filled
      *
+     * Assume receiver is the same as owner that is the same as the Gnosis Safe address.
      */
     function _swapAndValidateCowSwap(
         address settlementContract,
@@ -757,7 +761,7 @@ abstract contract GuardV0Base is IGuard,  Multicall, SwapCowSwap  {
         address tokenOut,
         uint256 amountIn,
         uint256 minAmountOut
-    ) internal returns (bytes memory) {
+    ) internal returns (PresignDeletaCallData memory) {
         // Assume sender is trade-executor hot wallet
         require(isAllowedCowSwap(settlementContract), "swapAndValidateCowSwap: Cow Swap not enabled");
         require(isAllowedSender(msg.sender), "swapAndValidateCowSwap: Sender not asset manager");
@@ -774,6 +778,7 @@ abstract contract GuardV0Base is IGuard,  Multicall, SwapCowSwap  {
         );
         return _signCowSwapOrder(
             settlementContract,
+            receiver,
             order
         );
     }

@@ -29,7 +29,7 @@ from hexbytes import HexBytes
 from eth_typing import HexAddress
 
 from eth_defi.abi import get_contract
-from eth_defi.cow.constants import COWSWAP_SETTLEMENT
+from eth_defi.cow.constants import COWSWAP_SETTLEMENT, COWSWAP_VAULT_RELAYER
 from eth_defi.cow.order import GPv2OrderData, post_order
 from eth_defi.cow.status import wait_order_complete, CowSwapResult
 from eth_defi.hotwallet import HotWallet
@@ -58,6 +58,22 @@ def _default_broadcast_callback(web3: Web3, asset_manager: HexAddress | HotWalle
     return tx_hash
 
 
+def approve_cow_swap(
+    vault: LagoonVault,
+    token: TokenDetails,
+    amount: Decimal,
+) -> ContractFunction:
+    """Approve cowswap settlement contract to spend tokens on the behalf of Lagoon vault.
+
+    See https://github.com/cowprotocol/cow-sdk/blob/5dd3bf5659852590d5d46317bfc19c56e125ca59/packages/trading/src/tradingSdk.ts#L290
+    """
+
+    assert isinstance(token, TokenDetails), f"Not a TokenDetails: {type(token)}"
+
+    func = token.approve(COWSWAP_VAULT_RELAYER, amount)
+    return vault.transact_via_trading_strategy_module(func)
+
+
 def presign_cowswap(
     vault: LagoonVault,
     buy_token: TokenDetails,
@@ -78,6 +94,8 @@ def presign_cowswap(
     assert isinstance(sell_token, TokenDetails), f"Not a TokenDetails: {type(sell_token)}"
     assert isinstance(amount_in, Decimal), f"Not a Decimal: {type(amount_in)}"
     assert isinstance(min_amount_out, Decimal), f"Not a Decimal: {type(min_amount_out)}"
+
+    assert vault.safe_address is not None, f"Vault has no safe address: {vault}"
 
     amount_in_raw = sell_token.convert_to_raw(amount_in)
     min_amount_out_raw = buy_token.convert_to_raw(min_amount_out)
@@ -120,6 +138,10 @@ def presign_and_broadcast(
     - Broadcast the onchain transaction
     - Extract the order data from the event log after the transaction is confirmed
 
+    .. note ::
+
+        You need to approve the correct amount from the vault on CoW Swap settlemetn contract before executing this.
+
     :return:
         Order data
     """
@@ -154,7 +176,7 @@ def presign_and_broadcast(
     # data["appDataHash"] = "0x0000000000000000000000000000000000000000000000000000000000000000"
     data["sellTokenBalance"] = "erc20"
     data["buyTokenBalance"] = "erc20"
-    data["kind"] = "buy"
+    data["kind"] = "sell"  # TODO: Currently hardcoded to sell only
     data["from"] = vault.safe_address
     data["receiver"] = vault.safe_address
 
@@ -197,7 +219,7 @@ def execute_presigned_cowswap_order(
     return CowSwapResult(
         order_uid=HexBytes(posted_order_uid),
         order=order,
-        status=final_status,
+        final_status_reply=final_status,
     )
 
 
@@ -212,8 +234,13 @@ def presign_and_execute_cowswap(
     api_timeout=datetime.timedelta(seconds=60),
     trade_timeout: datetime.timedelta = datetime.timedelta(minutes=10),
 ) -> CowSwapResult:
-    chain_id = vault.web3.eth.chain_id
+    """Creates a sell order from the vault and executes it on CowSwap.
 
+    Blocks until the order is completed or failed or timed out.
+
+    :raise:
+        Various exceptions from broadcasting and order execution fails/timeouts..
+    """
     order = presign_and_broadcast(
         asset_manager=asset_manager_wallet,
         vault=vault,
@@ -223,4 +250,8 @@ def presign_and_execute_cowswap(
         min_amount_out=min_amount_out,
         broadcast_callback=broadcast_callback,
     )
-    return execute_presigned_cowswap_order(order)
+    return execute_presigned_cowswap_order(
+        order,
+        api_timeout=api_timeout,
+        trade_timeout=trade_timeout,
+    )

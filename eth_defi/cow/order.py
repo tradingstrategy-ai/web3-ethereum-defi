@@ -1,4 +1,45 @@
-"""Order data structures"""
+"""Order data structures for CoW Swap.
+
+How the order UID is computed:
+
+.. code-block:: solidity
+
+    function packOrderUidParams(
+        bytes memory orderUid,
+        bytes32 orderDigest,
+        address owner,
+        uint32 validTo
+    ) internal pure {
+        require(orderUid.length == UID_LENGTH, "GPv2: uid buffer overflow");
+
+        // NOTE: Write the order UID to the allocated memory buffer. The order
+        // parameters are written to memory in **reverse order** as memory
+        // operations write 32-bytes at a time and we want to use a packed
+        // encoding. This means, for example, that after writing the value of
+        // `owner` to bytes `20:52`, writing the `orderDigest` to bytes `0:32`
+        // will **overwrite** bytes `20:32`. This is desirable as addresses are
+        // only 20 bytes and `20:32` should be `0`s:
+        //
+        //        |           1111111111222222222233333333334444444444555555
+        //   byte | 01234567890123456789012345678901234567890123456789012345
+        // -------+---------------------------------------------------------
+        //  field | [.........orderDigest..........][......owner.......][vT]
+        // -------+---------------------------------------------------------
+        // mstore |                         [000000000000000000000000000.vT]
+        //        |                     [00000000000.......owner.......]
+        //        | [.........orderDigest..........]
+        //
+        // Additionally, since Solidity `bytes memory` are length prefixed,
+        // 32 needs to be added to all the offsets.
+        //
+        // solhint-disable-next-line no-inline-assembly
+        assembly {
+            mstore(add(orderUid, 56), validTo)
+            mstore(add(orderUid, 52), owner)
+            mstore(add(orderUid, 32), orderDigest)
+        }
+    }
+"""
 
 import datetime
 import logging
@@ -103,7 +144,8 @@ def post_order(
     base_url = get_cowswap_api(chain_id)
     final_url = f"{base_url}/api/v1/orders"
 
-    # Javascript cannot  handle ints, so...
+    # Javascript cannot handle certain types, so
+    # we transform them for CoW REST API.
     crap_json = order.copy()
     crap_json["buyAmount"] = str(crap_json["buyAmount"])
     crap_json["sellAmount"] = str(crap_json["sellAmount"])
@@ -112,8 +154,8 @@ def post_order(
     # https://github.com/cowdao-grants/cow-py/blob/fd055fd647f56cf92ad0917c08b108a41d2a7e6c/cowdao_cowpy/cow/swap.py#L140
     crap_json["signature"] = "0x"
     crap_json["signingScheme"] = SigningScheme.PRESIGN.name.lower()
-    # Short: If you do not care about appData, set this field to "{}" and make sure that the order you signed for this request had its appData field set to 0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d.
-    # crap_json["appData"] = "{}"
+
+    # TODO: appData not supported
 
     logger.info(f"Posting CowSwap order to {final_url}: %s", pformat(crap_json))
 
@@ -137,7 +179,7 @@ def post_order(
     if order.get("uid") is not None:
         # Cow Swap backend and SwapCowSwap compute the signed order UID differently.
         # Cow Swap will never see the onchain presigned order and the trade cannot ever complete.
-        assert posted_order_uid == order["uid"], f"Posted order UID {posted_order_uid} does not match local order UID {order['uid']} for data:\n{pformat(order)}"
+        assert str(posted_order_uid) == str(order["uid"]), f"Posted order UID {posted_order_uid} does not match local order UID {order['uid']} for data:\n{pformat(order)}"
 
     return PostOrderResponse(
         order_uid=posted_order_uid,

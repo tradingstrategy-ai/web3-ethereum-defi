@@ -34,7 +34,7 @@ from safe_eth.safe.safe import Safe
 
 from eth_defi.aave_v3.deployment import AaveV3Deployment
 from eth_defi.abi import get_deployed_contract, ZERO_ADDRESS_STR, encode_multicalls
-from eth_defi.cow.constants import COWSWAP_SETTLEMENT
+from eth_defi.cow.constants import COWSWAP_SETTLEMENT, COWSWAP_VAULT_RELAYER
 from eth_defi.deploy import deploy_contract
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.foundry.forge import deploy_contract_with_forge
@@ -889,7 +889,7 @@ def setup_guard(
 
     if cowswap:
         logger.info("Whitelisting CowSwap: %s", COWSWAP_SETTLEMENT)
-        tx_hash = _broadcast(module.functions.whitelistCowSwap(COWSWAP_SETTLEMENT, "Allow CowSwap"))
+        tx_hash = _broadcast(module.functions.whitelistCowSwap(COWSWAP_SETTLEMENT, COWSWAP_VAULT_RELAYER, "Allow CowSwap"))
         assert_transaction_success_with_explanation(web3, tx_hash)
 
     # Whitelist all assets

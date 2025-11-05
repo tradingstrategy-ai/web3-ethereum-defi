@@ -220,7 +220,7 @@ def test_lagoon_cowswap(
     assert order["validTo"] > 1
     # assert order["appData"] == b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
     assert order["feeAmount"] == 0
-    assert order["kind"] == "buy"
+    assert order["kind"] == "sell"
     assert order["partiallyFillable"] is False
 
 

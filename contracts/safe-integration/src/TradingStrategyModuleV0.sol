@@ -117,8 +117,12 @@ contract TradingStrategyModuleV0 is Module, GuardV0Base {
         address tokenOut,
         uint256 amountIn,
         uint256 minAmountOut
-    ) external returns (bytes memory) {
-        return _swapAndValidateCowSwap(
+    ) public {
+        bool success;
+        bytes memory response;
+
+        // Checks for asset manager (msg.sender), receiver, etc.
+        PresignDeletaCallData memory presignDeletaCallData = _swapAndValidateCowSwap(
             settlementContract,
             receiver,
             appData,
@@ -127,6 +131,20 @@ contract TradingStrategyModuleV0 is Module, GuardV0Base {
             amountIn,
             minAmountOut
         );
+        // Perform ICowSettlement.setPresigned() call on the behalf of the Safe
+        (success, response) = execAndReturnData(
+            presignDeletaCallData.targetAddress,
+            0,
+            presignDeletaCallData.data,
+            Enum.Operation.Call
+        );
+
+        // Bubble up the revert reason
+        if (!success) {
+            assembly {
+                revert(add(response, 0x20), mload(response))
+            }
+       }
     }
 
 }

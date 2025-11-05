@@ -19,6 +19,8 @@ import {GPv2Order} from "./GPv2Order.sol";
 //
 // Construct order structure and does it "pre-sign" on CowSwap settlement contract
 //
+// Currently does the minimal sell order support only.
+//
 contract SwapCowSwap {
 
     // How long are our CowSwap orders valid for
@@ -31,6 +33,14 @@ contract SwapCowSwap {
         uint256 indexed timestamp, bytes orderUid, GPv2Order.Data order, uint32 validTo, uint256 buyAmount, uint256 sellAmount
     );
 
+    // Gnosis Safe delegatecall information to presign CowSwap order
+    struct PresignDeletaCallData {
+        bytes orderUid;
+        address targetAddress;
+        bytes data;
+    }
+
+    // Perform sell (exact in) order creation with a max slippage limit
     // Copied from https://github.com/InfiniFi-Labs/infinifi-protocol/blob/888c147c4d0f1848577463bc74680c86b7a5c0ff/src/integrations/farms/CoWSwapFarmBase.sol#L71
     function _createCowSwapOrder(bytes32 appdata, address receiver, address _tokenIn, address _tokenOut, uint256 _amountIn, uint256 _minAmountOut)
         internal
@@ -46,7 +56,7 @@ contract SwapCowSwap {
             validTo: uint32(block.timestamp + _SIGN_COOLDOWN),
             appData: appdata,
             feeAmount: 0,
-            kind: GPv2Order.KIND_BUY,
+            kind: GPv2Order.KIND_SELL,
             partiallyFillable: false,
             sellTokenBalance: GPv2Order.BALANCE_ERC20,
             buyTokenBalance: GPv2Order.BALANCE_ERC20
@@ -54,15 +64,29 @@ contract SwapCowSwap {
     }
 
     // Copied from https://github.com/InfiniFi-Labs/infinifi-protocol/blob/888c147c4d0f1848577463bc74680c86b7a5c0ff/src/integrations/farms/CoWSwapFarmBase.sol#L93C1-L102C6
-    // The main entry point for performing a swap via CowSwap
-    function _signCowSwapOrder(address settlementContract, GPv2Order.Data memory order) internal returns (bytes memory) {
+    // Takes the order structure and prepares order UID.
+    // This order UID must be passed to Gnosis Safe delegatecall to be called at ICowSettlement.setPreSignature(orderUid, true)
+    function _signCowSwapOrder(address settlementContract, address owner, GPv2Order.Data memory order) internal returns (PresignDeletaCallData memory) {
         ICowSettlement settlement = ICowSettlement(payable(settlementContract));
         bytes32 orderDigest = GPv2Order.hash(order, settlement.domainSeparator());
+
+        // Fill in order UID bytes
         bytes memory orderUid = new bytes(GPv2Order.UID_LENGTH);
-        GPv2Order.packOrderUidParams(orderUid, orderDigest, address(this), order.validTo);
-        settlement.setPreSignature(orderUid, true);
+        GPv2Order.packOrderUidParams(orderUid, orderDigest, owner, order.validTo);
+
+        // Notify our offchain logic about the created order UID
         emit OrderSigned(block.timestamp, orderUid, order, order.validTo, order.buyAmount, order.sellAmount);
-        return orderUid;
+
+        return PresignDeletaCallData({
+            orderUid: orderUid,
+            targetAddress: settlementContract,
+            data: abi.encodeWithSelector(
+                ICowSettlement.setPreSignature.selector,
+                orderUid,
+                true
+            )
+        });
+
     }
 
 }

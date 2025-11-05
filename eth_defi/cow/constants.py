@@ -3,6 +3,9 @@
 #: Assume the same across all chains
 COWSWAP_SETTLEMENT = "0x9008D19f58AAbD9eD0D60971565AA8510560ab41"
 
+#: Where do we need to approve tokens to trade via CowSwap
+COWSWAP_VAULT_RELAYER = "0xC92E8bdf79f0507f65a392b0ab4667716BFE0110"
+
 #: CowSwap has API endpoint per chain
 COWSWAP_API_ENDPOINTS = {
     1: "https://api.cow.fi/mainnet",

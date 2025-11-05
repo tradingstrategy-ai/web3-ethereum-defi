@@ -17,19 +17,25 @@ from eth_defi.cow.api import CowAPIError, get_cowswap_api
 logger = logging.getLogger(__name__)
 
 
-CowSwapOrderStatus = Literal["scheduled", "open", "fulfilled", "cancelled", "expired"]
+#: What status words a CowSwap order have?
+#:
+#: See CompletionOrderStatus in https://docs.cow.fi/cow-protocol/reference/apis/orderbook
+#:
+#: [ open, scheduled, active, solved, executing, traded, cancelled ]
+CowSwapOrderStatus = Literal["scheduled", "open", "active", "solved", "executing", "traded", "cancelled"]
 
 
 @dataclass(slots=True, frozen=True)
 class CowSwapResult:
     """A full result of a CowSwap order posting and status."""
 
+    #: Our order UID.
     order_uid: HexBytes
 
-    #: Order data we constructed for the swap
+    #: Order data we submitted for the swap.
     order: GPv2OrderData
 
-    #: The final result of the status endpoint
+    #: The final JSON data result of the status endpoint after we switched away from open status.
     #:
     #: See https://docs.cow.fi/cow-protocol/reference/apis/orderbook
     final_status_reply: dict
@@ -93,7 +99,7 @@ def wait_order_complete(
         data = response.json()
 
         type_ = data["type"]
-        if type_ not in ("open", "scheduled"):
+        if type_ in ("cancelled", "traded"):
             logger.info(f"CowSwap order {uid} completed with status {type_} in {duration}")
             return data
 
