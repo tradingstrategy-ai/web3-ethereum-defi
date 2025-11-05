@@ -198,6 +198,73 @@ def deal_tokens(web3: Web3, token_address: str, recipient: str, amount: int):
         logger.debug(f"Could not verify balance: {e}")
 
 
+def set_next_block_timestamp(web3: Web3, timestamp: int):
+    """Set the timestamp for the next block to be mined.
+
+    This is useful for preventing oracle price staleness on Anvil forks.
+    When you fork at a specific block, subsequent transactions mine new blocks
+    with newer timestamps, which can make hardcoded oracle prices stale.
+
+    Args:
+        web3: Web3 instance
+        timestamp: Unix timestamp for the next block (in seconds)
+    """
+    provider_type = detect_provider_type(web3)
+
+    if provider_type == "anvil":
+        web3.provider.make_request("evm_setNextBlockTimestamp", [timestamp])
+        logger.info(f"Set next block timestamp to {timestamp}")
+    elif provider_type == "tenderly":
+        # Tenderly may support this, try it
+        try:
+            web3.provider.make_request("evm_setNextBlockTimestamp", [timestamp])
+            logger.info(f"Set next block timestamp to {timestamp} (Tenderly)")
+        except Exception as e:
+            logger.warning(f"Tenderly does not support evm_setNextBlockTimestamp: {e}")
+    else:
+        # Try anyway as fallback
+        try:
+            web3.provider.make_request("evm_setNextBlockTimestamp", [timestamp])
+            logger.info(f"Set next block timestamp to {timestamp}")
+        except Exception as e:
+            logger.warning(f"Could not set next block timestamp: {e}")
+
+
+def mine_block(web3: Web3):
+    """Manually mine a block.
+
+    This is used when Anvil is started with --no-mining flag.
+    After sending transactions, you must call this to mine them into a block.
+
+    Args:
+        web3: Web3 instance
+    """
+    provider_type = detect_provider_type(web3)
+
+    if provider_type == "anvil":
+        result = web3.provider.make_request("evm_mine", [])
+        logger.info(f"Manually mined block")
+        return result
+    elif provider_type == "tenderly":
+        # Tenderly may support this, try it
+        try:
+            result = web3.provider.make_request("evm_mine", [])
+            logger.info(f"Manually mined block (Tenderly)")
+            return result
+        except Exception as e:
+            logger.warning(f"Tenderly does not support evm_mine: {e}")
+            return None
+    else:
+        # Try anyway as fallback
+        try:
+            result = web3.provider.make_request("evm_mine", [])
+            logger.info(f"Manually mined block")
+            return result
+        except Exception as e:
+            logger.warning(f"Could not mine block: {e}")
+            return None
+
+
 def impersonate_account(web3: Web3, address: str):
     """Start impersonating account (works with Anvil and Tenderly)."""
     provider_type = detect_provider_type(web3)

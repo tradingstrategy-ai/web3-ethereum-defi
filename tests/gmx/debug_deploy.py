@@ -59,16 +59,24 @@ from eth_defi.provider.anvil import fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
-from tests.gmx.fork_helpers import extract_order_key_from_receipt
+from tests.gmx.fork_helpers import extract_order_key_from_receipt, set_next_block_timestamp, mine_block
 import logging
 from rich.logging import RichHandler
 from pathlib import Path
+from eth_abi import decode
 
-# Configure logging to show detailed output
+# Configure logging - suppress verbose library logs
 FORMAT = "%(message)s"
-logging.basicConfig(level="INFO", format=FORMAT, datefmt="[%X]", handlers=[RichHandler()])
+logging.basicConfig(level="WARNING", format=FORMAT, datefmt="[%X]", handlers=[RichHandler()])
 
+# Only show our logs
 logger = logging.getLogger("rich")
+logger.setLevel(logging.INFO)
+
+# Suppress noisy loggers
+logging.getLogger("eth_defi").setLevel(logging.WARNING)
+logging.getLogger("web3").setLevel(logging.WARNING)
+logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 console = Console()
 
@@ -150,6 +158,10 @@ def parse_arguments():
     fork_group.add_argument("--anvil-rpc", type=str, help="Connect to existing Anvil RPC (e.g., http://127.0.0.1:8545)")
 
     parser.add_argument("--size", type=float, default=10.0, help="Position size in USD (default: 10)")
+    parser.add_argument("--target-block", type=int, default=392496384, help="Target block number for executeOrder (default: 392496384)")
+    parser.add_argument("--estimate-setup-blocks", action="store_true", help="Run in estimation mode to count setup blocks")
+    parser.add_argument("--eth-price", type=int, default=None, help="ETH price in USD for oracle (e.g., 3892). If not set, attempts to fetch from chain.")
+    parser.add_argument("--usdc-price", type=int, default=None, help="USDC price in USD for oracle (default: 1)")
 
     return parser.parse_args()
 
@@ -213,16 +225,120 @@ def deploy_gmx_order_executor(web3: Web3, wallet: HotWallet) -> tuple:
         raise Exception("Contract deployment failed")
 
 
+def get_actual_oracle_prices_at_block(web3: Web3, block_number: int) -> dict:
+    """Query what prices the actual production oracle has at a specific block.
+    
+    This helps debug price staleness issues by showing what the real oracle provider has.
+    """
+    console.print(f"\n[bold cyan]Querying actual oracle prices at block {block_number}...[/bold cyan]")
+    
+    # Production oracle provider address
+    oracle_provider = to_checksum_address("0xE1d5a068c5b75E0c7Ea1A9Fe8EA056f9356C6fFD")
+    
+    # Token addresses
+    weth_address = to_checksum_address("0x82aF49447D8a07e3bd95BD0d56f35241523fBab1")
+    usdc_address = to_checksum_address("0xaf88d065e77c8cC2239327C5EDb3A432268e5831")
+    
+    # Try to call getOraclePrice on the actual oracle
+    # This requires the IOracleProvider interface
+    abi = [
+        {
+            "inputs": [
+                {"internalType": "address", "name": "token", "type": "address"},
+                {"internalType": "bytes", "name": "data", "type": "bytes"}
+            ],
+            "name": "getOraclePrice",
+            "outputs": [
+                {
+                    "components": [
+                        {"internalType": "address", "name": "token", "type": "address"},
+                        {"internalType": "uint256", "name": "min", "type": "uint256"},
+                        {"internalType": "uint256", "name": "max", "type": "uint256"},
+                        {"internalType": "uint256", "name": "timestamp", "type": "uint256"},
+                        {"internalType": "address", "name": "provider", "type": "address"}
+                    ],
+                    "internalType": "struct OracleUtils.ValidatedPrice",
+                    "name": "validatedPrice",
+                    "type": "tuple"
+                }
+            ],
+            "stateMutability": "view",
+            "type": "function"
+        }
+    ]
+    
+    provider_contract = web3.eth.contract(address=oracle_provider, abi=abi)
+    block_info = web3.eth.get_block(block_number)
+    block_timestamp = block_info["timestamp"]
+    
+    console.print(f"  Block {block_number} timestamp: {block_timestamp}")
+    
+    prices = {}
+    
+    # Query WETH price
+    try:
+        result = provider_contract.functions.getOraclePrice(weth_address, b"").call(block_identifier=block_number)
+        token, min_price, max_price, timestamp, provider = result
+        price_usd = min_price / (10 ** 30)  # GMX uses 30 decimals
+        age_seconds = block_timestamp - timestamp
+        
+        prices['WETH'] = {
+            'min': min_price,
+            'max': max_price,
+            'timestamp': timestamp,
+            'age_seconds': age_seconds,
+            'price_usd': price_usd
+        }
+        console.print(f"  [cyan]WETH actual oracle: ${price_usd:.2f} | timestamp: {timestamp} | age: {age_seconds}s[/cyan]")
+    except Exception as e:
+        console.print(f"  [yellow]Could not query WETH from actual oracle: {e}[/yellow]")
+    
+    # Query USDC price
+    try:
+        result = provider_contract.functions.getOraclePrice(usdc_address, b"").call(block_identifier=block_number)
+        token, min_price, max_price, timestamp, provider = result
+        price_usd = min_price / (10 ** 30)  # GMX uses 30 decimals
+        age_seconds = block_timestamp - timestamp
+        
+        prices['USDC'] = {
+            'min': min_price,
+            'max': max_price,
+            'timestamp': timestamp,
+            'age_seconds': age_seconds,
+            'price_usd': price_usd
+        }
+        console.print(f"  [cyan]USDC actual oracle: ${price_usd:.6f} | timestamp: {timestamp} | age: {age_seconds}s[/cyan]")
+    except Exception as e:
+        console.print(f"  [yellow]Could not query USDC from actual oracle: {e}[/yellow]")
+    
+    return prices
+
+
 def setup_mock_oracle_with_contract(
     web3: Web3,
     wallet: HotWallet,
     executor_contract,
-    eth_price_usd: int = 3892,
-    usdc_price_usd: int = 1,
+    eth_price_usd: int = None,
+    usdc_price_usd: int = None,
+    fork_block: int = None,
 ):
     """Setup mock oracle using GmxOrderExecutor contract methods."""
     console.print("\n[bold]Setting up mock oracle via GmxOrderExecutor...[/bold]")
     wallet_address = wallet.get_main_address()
+    
+    # Query what the actual oracle has at the fork block
+    if fork_block:
+        actual_prices = get_actual_oracle_prices_at_block(web3, fork_block)
+    
+    # Fallback to defaults if not provided
+    if eth_price_usd is None:
+        eth_price_usd = 3892
+    if usdc_price_usd is None:
+        usdc_price_usd = 1
+    
+    console.print(f"\n[bold green]Prices we are setting in mock oracle:[/bold green]")
+    console.print(f"  ETH: ${eth_price_usd}")
+    console.print(f"  USDC: ${usdc_price_usd}")
 
     # Step 1: Call getMockByteCodeAndAddress() on the executor contract
     console.print("  [dim]Calling getMockByteCodeAndAddress()...[/dim]")
@@ -236,8 +352,7 @@ def setup_mock_oracle_with_contract(
     set_code(web3, provider_address, mock_bytecode)
 
     # Step 3: Call configureMockOracleProvider() on the executor contract with prices
-    console.print("  [dim]Calling configureMockOracleProvider() on executor contract...[/dim]")
-    console.print(f"  Prices: ETH=${eth_price_usd}, USDC=${usdc_price_usd}")
+    console.print("\n[dim]Calling configureMockOracleProvider() on executor contract...[/dim]")
 
     setup_tx = executor_contract.functions.configureMockOracleProvider(eth_price_usd, usdc_price_usd,).build_transaction(
         {
@@ -258,7 +373,33 @@ def setup_mock_oracle_with_contract(
     receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
 
     if receipt["status"] == 1:
-        console.print(f"  [green]✓ Mock oracle configured: ETH=${eth_price_usd}, USDC=${usdc_price_usd}[/green]")
+        console.print(f"  [green]✓ Mock oracle configured successfully[/green]")
+        
+        # Verify mock oracle by querying it
+        console.print(f"\n[bold cyan]Verifying mock oracle prices:[/bold cyan]")
+        MockOracle = get_contract(web3, "gmx/MockOracleProvider.json")
+        mock_oracle = MockOracle(address=provider_address)
+        
+        weth_address = to_checksum_address("0x82aF49447D8a07e3bd95BD0d56f35241523fBab1")
+        usdc_address = to_checksum_address("0xaf88d065e77c8cC2239327C5EDb3A432268e5831")
+        
+        # Query WETH price from mock
+        try:
+            result = mock_oracle.functions.getOraclePrice(weth_address, b"").call()
+            token, min_price, max_price, timestamp, provider = result
+            price_usd = min_price / (10 ** 30)
+            console.print(f"  [cyan]Mock oracle WETH: ${price_usd:.2f} | timestamp: {timestamp}[/cyan]")
+        except Exception as e:
+            console.print(f"  [yellow]Could not query WETH from mock: {e}[/yellow]")
+        
+        # Query USDC price from mock
+        try:
+            result = mock_oracle.functions.getOraclePrice(usdc_address, b"").call()
+            token, min_price, max_price, timestamp, provider = result
+            price_usd = min_price / (10 ** 30)
+            console.print(f"  [cyan]Mock oracle USDC: ${price_usd:.6f} | timestamp: {timestamp}[/cyan]")
+        except Exception as e:
+            console.print(f"  [yellow]Could not query USDC from mock: {e}[/yellow]")
     else:
         raise Exception("setupMockOracleProvider failed")
 
@@ -324,6 +465,21 @@ def execute_order_with_contract(web3: Web3, wallet: HotWallet, executor_contract
 
     try:
         console.print(f"  [dim]Calling orderHandler.executeOrder() from keeper...[/dim]")
+        console.print(f"  Current block number: {web3.eth.block_number}")
+
+        # Get the fork block's timestamp to keep oracle prices valid
+        # When we fork at block 392496384, oracle prices are set with that block's timestamp
+        # If we mine new blocks without controlling timestamp, prices become stale
+        fork_block = 392496384
+        fork_block_info = web3.eth.get_block(fork_block)
+        fork_timestamp = fork_block_info["timestamp"]
+
+        console.print(f"  Fork block {fork_block} timestamp: {fork_timestamp}")
+
+        # Set next block timestamp to match fork block (keeps oracle prices fresh)
+        # This prevents ChainlinkPriceFeedNotUpdated errors
+        set_next_block_timestamp(web3, fork_timestamp)
+        console.print(f"  [green]Set next block timestamp to {fork_timestamp} to prevent stale oracle prices[/green]")
 
         tx_hash = order_handler.functions.executeOrder(
             order_key,
@@ -338,12 +494,21 @@ def execute_order_with_contract(web3: Web3, wallet: HotWallet, executor_contract
 
         console.print(f"  TX Hash: {tx_hash.hex()}")
 
+        # If using --no-mining mode, manually mine the block
+        console.print(f"  [dim]Manually mining block (for --no-mining mode)...[/dim]")
+        mine_block(web3)
+
         receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
 
         if receipt["status"] == 1:
             console.print(f"[green]✓ Order executed successfully![/green]")
             console.print(f"  Block: {receipt['blockNumber']}")
             console.print(f"  Gas used: {receipt['gasUsed']}")
+            
+            # Check logs for events
+            console.print(f"\n[dim]Transaction logs: {len(receipt['logs'])} events emitted[/dim]")
+            for i, log in enumerate(receipt['logs'][:5]):  # Show first 5 events
+                console.print(f"  [dim]Event {i+1}: {log['address'][:10]}... topics: {len(log['topics'])}[/dim]")
             return receipt
         else:
             console.print(f"[red]Transaction reverted[/red]")
@@ -372,9 +537,17 @@ def main():
         sys.exit(1)
 
     launch = None
+    
+    # Block tracking
+    target_block = args.target_block
+    setup_block_count = 0
+    estimation_mode = args.estimate_setup_blocks
 
     try:
         console.print("\n[bold green]=== GMX Fork Test with Contract Deployment ===[/bold green]\n")
+        
+        if estimation_mode:
+            console.print(f"[yellow]ESTIMATION MODE: Will count blocks needed for setup[/yellow]\n")
 
         # ========================================================================
         # STEP 1: Connect to Network (3 modes)
@@ -424,7 +597,18 @@ def main():
                 console.print("[red]Error: ARBITRUM_CHAIN_JSON_RPC environment variable not set[/red]")
                 sys.exit(1)
 
-            fork_block = 392496384
+            # Calculate fork block: if in estimation mode, use target block directly
+            # Otherwise, estimate we need 5 blocks for setup (this will be refined)
+            if estimation_mode:
+                fork_block = target_block
+            else:
+                # Estimated setup blocks: deploy(1) + configure(1) + usdc_transfer(1) + weth_transfer(1) + submit_order(1) = 5
+                estimated_setup_blocks = 5
+                fork_block = target_block - estimated_setup_blocks
+                console.print(f"[yellow]Target block for executeOrder: {target_block}[/yellow]")
+                console.print(f"[yellow]Estimated setup blocks: {estimated_setup_blocks}[/yellow]")
+                console.print(f"[yellow]Calculated fork block: {fork_block}[/yellow]\n")
+
             console.print(f"Creating Anvil fork at block {fork_block}...")
 
             launch = fork_network_anvil(
@@ -491,30 +675,64 @@ def main():
             # Set USDC balance via transfer from unlocked whale
             usdc_address = tokens.get("USDC")
             if usdc_address:
+                block_before = web3.eth.block_number
                 usdc_amount = 100_000 * (10**6)  # 100k USDC
                 usdc_token = fetch_erc20_details(web3, usdc_address)
                 usdc_token.contract.functions.transfer(wallet_address, usdc_amount).transact({"from": large_usdc_holder_arbitrum})
                 balance = usdc_token.contract.functions.balanceOf(wallet_address).call()
                 console.print(f"  [green]Set USDC balance: {balance / 10**6:.2f} USDC[/green]")
+                block_after = web3.eth.block_number
+                blocks_mined = block_after - block_before
+                setup_block_count += blocks_mined
+                console.print(f"[dim]  Blocks mined: {blocks_mined} | Total setup blocks: {setup_block_count} | Current block: {block_after}[/dim]")
 
             # Set WETH balance via transfer from unlocked whale
             weth_address = tokens.get("WETH")
             if weth_address:
+                block_before = web3.eth.block_number
                 weth_amount = 1000 * (10**18)  # 1000 WETH
                 weth_token = fetch_erc20_details(web3, weth_address)
                 weth_token.contract.functions.transfer(wallet_address, weth_amount).transact({"from": large_weth_holder_arbitrum})
                 balance = weth_token.contract.functions.balanceOf(wallet_address).call()
                 console.print(f"  [green]Set WETH balance: {balance / 10**18:.2f} WETH[/green]")
+                block_after = web3.eth.block_number
+                blocks_mined = block_after - block_before
+                setup_block_count += blocks_mined
+                console.print(f"[dim]  Blocks mined: {blocks_mined} | Total setup blocks: {setup_block_count} | Current block: {block_after}[/dim]")
 
         # ========================================================================
         # STEP 2.7: Deploy GmxOrderExecutor Contract
         # ========================================================================
+        block_before = web3.eth.block_number
         executor_contract, executor_address = deploy_gmx_order_executor(web3, wallet)
+        block_after = web3.eth.block_number
+        blocks_mined = block_after - block_before
+        setup_block_count += blocks_mined
+        console.print(f"[dim]  Blocks mined: {blocks_mined} | Total setup blocks: {setup_block_count} | Current block: {block_after}[/dim]")
 
         # ========================================================================
-        # STEP 2.8: Setup Mock Oracle via GmxOrderExecutor
+        # STEP 2.8: Setup Mock Oracle via GmxOrderExecutor  
         # ========================================================================
-        setup_mock_oracle_with_contract(web3, wallet, executor_contract, eth_price_usd=3892, usdc_price_usd=1)
+        block_before = web3.eth.block_number
+        
+        # Get the fork block number for fetching real prices
+        # If using Anvil fork, use the stored fork_block variable
+        if not args.td and not args.anvil_rpc:
+            fetch_fork_block = fork_block if 'fork_block' in locals() else target_block
+        else:
+            # For Tenderly or custom Anvil, use current block as reference
+            fetch_fork_block = web3.eth.block_number
+        
+        setup_mock_oracle_with_contract(
+            web3, wallet, executor_contract, 
+            eth_price_usd=args.eth_price,
+            usdc_price_usd=args.usdc_price,
+            fork_block=fetch_fork_block
+        )
+        block_after = web3.eth.block_number
+        blocks_mined = block_after - block_before
+        setup_block_count += blocks_mined
+        console.print(f"[dim]  Blocks mined: {blocks_mined} | Total setup blocks: {setup_block_count} | Current block: {block_after}[/dim]")
 
         # ========================================================================
         # STEP 3: Configure Position Parameters
@@ -595,11 +813,20 @@ def main():
                     del approve_tx["nonce"]
 
                 signed_approve_tx = wallet.sign_transaction_with_new_nonce(approve_tx)
+                block_before = web3.eth.block_number
                 approve_tx_hash = web3.eth.send_raw_transaction(signed_approve_tx.rawTransaction)
 
                 console.print(f"    TX: {approve_tx_hash.hex()}")
+
+                # If using --no-mining mode, manually mine the block
+                mine_block(web3)
+
                 approve_receipt = web3.eth.wait_for_transaction_receipt(approve_tx_hash)
                 console.print(f"  [green]Approval successful[/green]")
+                block_after = web3.eth.block_number
+                blocks_mined = block_after - block_before
+                setup_block_count += blocks_mined
+                console.print(f"[dim]  Blocks mined: {blocks_mined} | Total setup blocks: {setup_block_count} | Current block: {block_after}[/dim]")
             else:
                 console.print(f"  [green]Sufficient allowance exists[/green]")
 
@@ -619,13 +846,21 @@ def main():
         console.print(f"  Value: {transaction['value'] / 1e18:.6f} ETH")
         console.print(f"  Data size: {len(transaction['data'])} bytes")
 
+        block_before = web3.eth.block_number
         signed_tx = wallet.sign_transaction_with_new_nonce(transaction)
         tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
 
         console.print(f"\n  TX Hash: {tx_hash.hex()}")
 
+        # If using --no-mining mode, manually mine the block
+        console.print(f"  [dim]Manually mining block (for --no-mining mode)...[/dim]")
+        mine_block(web3)
+
         # Wait for confirmation
         receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
+        block_after = web3.eth.block_number
+        blocks_mined = block_after - block_before
+        setup_block_count += blocks_mined
 
         console.print(f"\n[bold]Transaction Status: {receipt['status']}[/bold]")
 
@@ -633,6 +868,20 @@ def main():
             console.print(f"[green]✓ Order submitted successfully![/green]")
             console.print(f"  Block: {receipt['blockNumber']}")
             console.print(f"  Gas used: {receipt['gasUsed']}")
+            console.print(f"[dim]  Blocks mined: {blocks_mined} | Total setup blocks: {setup_block_count} | Current block: {block_after}[/dim]")
+            
+            # Display block status before executeOrder
+            console.print(f"\n[bold yellow]Ready to execute order:[/bold yellow]")
+            console.print(f"  Current block: {block_after}")
+            console.print(f"  Target block: {target_block}")
+            console.print(f"  Difference: {target_block - block_after}")
+            
+            if estimation_mode:
+                console.print(f"\n[bold green]ESTIMATION COMPLETE:[/bold green]")
+                console.print(f"  Total setup blocks needed: {setup_block_count}")
+                console.print(f"  Recommended fork block: {target_block - setup_block_count}")
+                console.print(f"\n[yellow]Run again without --estimate-setup-blocks to execute with correct fork block[/yellow]")
+                return
 
             # ========================================================================
             # STEP 6.5: Extract Order Key from Receipt
