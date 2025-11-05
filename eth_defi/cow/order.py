@@ -113,8 +113,7 @@ def post_order(
     crap_json["signature"] = "0x"
     crap_json["signingScheme"] = SigningScheme.PRESIGN.name.lower()
     # Short: If you do not care about appData, set this field to "{}" and make sure that the order you signed for this request had its appData field set to 0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d.
-    crap_json["appData"] = "{}"  #
-    crap_json["appDataHash"] = "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d"  #
+    # crap_json["appData"] = "{}"
 
     logger.info(f"Posting CowSwap order to {final_url}: %s", pformat(crap_json))
 
