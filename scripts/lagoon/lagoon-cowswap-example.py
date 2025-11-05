@@ -297,7 +297,7 @@ def main():
     if status == "traded":
         # Make CowSwap sound effect
         print("Moooooo 🐮")
-        print(f"Order final result:\n{pformat(cowswap_result.get_status())}")
+        print(f"Order final result:\n{pformat(cowswap_result.final_status_reply)}")
         print(f"All ok, check the vault at https://routescan.io/{vault.address}")
     else:
         print(f"Order failed - not sure why:\n{pformat(cowswap_result.final_status_reply)}")

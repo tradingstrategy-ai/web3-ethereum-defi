@@ -20,7 +20,9 @@ from eth_defi.vault.vaultdb import VaultDatabase
 
 JSON_RPC_BASE = os.environ.get("JSON_RPC_BASE")
 
-pytestmark = pytest.mark.skipif(JSON_RPC_BASE is None, reason="JSON_RPC_BASE needed to run these tests")
+HYPERSYNC_API_KEY = os.environ.get("HYPERSYNC_API_KEY")
+
+pytestmark = pytest.mark.skipif(JSON_RPC_BASE is None or HYPERSYNC_API_KEY is None, reason="JSON_RPC_BASE needed to run these tests")
 
 
 @pytest.fixture(scope="module")
@@ -116,6 +118,7 @@ def test_lead_scan_core_hypersync(tmp_path, backend):
         start_block=2_000_000,
         end_block=2_500_000,
         backend=backend,
+        hypersync_api_key=HYPERSYNC_API_KEY,
     )
     assert isinstance(report, LeadScanReport)
     match backend:
