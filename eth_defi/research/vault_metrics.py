@@ -471,6 +471,7 @@ def calculate_lifetime_metrics(
 
         name = vault_metadata.get("Name")
         denomination = vault_metadata.get("Denomination")
+        share_token = vault_metadata.get("Share token")
 
         max_nav = group["total_assets"].max()
         current_nav = group["total_assets"].iloc[-1]
@@ -643,6 +644,7 @@ def calculate_lifetime_metrics(
                 "one_month_cagr": one_month_cagr,
                 "one_month_cagr_net": one_month_cagr_net,
                 "denomination": denomination,
+                "share_token": share_token,
                 "chain": get_chain_name(chain_id),
                 "peak_nav": max_nav,
                 "current_nav": current_nav,
@@ -783,6 +785,7 @@ def format_lifetime_table(
     df: pd.DataFrame,
     add_index=False,
     add_address=False,
+    add_share_token=False,
     drop_blacklisted=True,
 ) -> pd.DataFrame:
     """Format table for human readable output.
@@ -883,6 +886,11 @@ def format_lifetime_table(
     _del("last_updated_at")
     _del("last_updated_block")
     _del("features")
+
+    if not add_share_token:
+        _del("share_token")
+    else:
+        df = df.rename(columns={"share_token": "Share token"})
 
     df = df.rename(
         columns={
