@@ -11,7 +11,7 @@ from eth_typing import HexAddress
 from web3 import Web3
 
 from eth_defi.erc_4626.analysis import analyse_4626_flow_transaction
-from eth_defi.erc_4626.estimate import estimate_4626_redeem, estimate_4626_deposit
+from eth_defi.erc_4626.estimate import estimate_4626_redeem, estimate_4626_deposit, estimate_value_by_share_price
 from eth_defi.erc_4626.flow import deposit_4626, redeem_4626
 from eth_defi.ipor.vault import IPORVault
 from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch, mine
@@ -200,12 +200,14 @@ def test_ipor_redeem(
     assert shares == pytest.approx(Decimal("96.7523176"))
 
     # See how much we get after all this time
-    estimated_usdc = estimate_4626_redeem(
+    estimated_usdc = estimate_4626_redeem(vault, depositor, shares, fallback_using_share_price=False)
+    assert estimated_usdc == pytest.approx(Decimal("99.084206"))
+
+    estimate_usdc_share_price = estimate_value_by_share_price(
         vault,
-        depositor,
         shares,
     )
-    assert estimated_usdc == pytest.approx(Decimal("99.084206"))
+    assert estimate_usdc_share_price == pytest.approx(Decimal("99.084206"))
 
     tx_hash = vault.share_token.approve(vault.address, shares).transact({"from": depositor})
     assert_transaction_success_with_explanation(web3, tx_hash)

@@ -54,12 +54,28 @@ def estimate_4626_deposit(
     return vault.share_token.convert_to_decimals(raw_amount)
 
 
+def estimate_value_by_share_price(
+    vault: ERC4626Vault,
+    share_amount: Decimal,
+    block_identifier: BlockIdentifier = "latest",
+):
+    """Estimate ownership value by the share price."""
+
+    assert isinstance(vault, ERC4626Vault)
+    assert isinstance(share_amount, Decimal)
+    assert share_amount > 0, f"Got non-positive amount as a share price estimate for {vault.name} ({vault.vault_address}): {share_amount}"
+
+    share_price = vault.fetch_share_price(block_identifier=block_identifier)
+    return share_amount * share_price
+
+
 def estimate_4626_redeem(
     vault: ERC4626Vault,
     owner: HexAddress | None,
     share_amount: Decimal,
     receiver: HexAddress | None = None,
     block_identifier: BlockIdentifier = "latest",
+    fallback_using_share_price=True,
 ) -> Decimal:
     """Estimate how much denomination token (USDC) we get if we cash out the shares.
 
@@ -70,6 +86,14 @@ def estimate_4626_redeem(
     See also
 
     - :py:func:`eth_defi.erc_4626.flow.redeem_4626` for the transaction crafting and notes.
+
+    :param fallback_using_share_price:
+        If `previewRedeem()` fails (some vaults may not implement it properly),
+        fall back to estimating the value using the share price.
+
+        This will also happen if the vault has lockups (Plutus) and shares cannot be redeemed at the moment.
+
+        See :py:func:`estimate_value_by_share_price`.
 
     :return:
         Amount of USDC we get when existing the vault with the shares.
@@ -95,6 +119,14 @@ def estimate_4626_redeem(
     )
 
     raw_amount = redeem_call.call(block_identifier=block_identifier)
+
+    if raw_amount == 0 and fallback_using_share_price:
+        logger.info(f"previewRedeem() returned 0 for vault {vault.name} {vault.vault_address}, falling back to share price estimation.")
+        return estimate_value_by_share_price(
+            vault,
+            share_amount,
+            block_identifier=block_identifier,
+        )
 
     if raw_amount == 0:
         total_assets = vault.vault_contract.functions.totalAssets().call(block_identifier=block_identifier)
