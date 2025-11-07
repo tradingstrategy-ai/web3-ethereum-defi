@@ -10,11 +10,16 @@ import "../contracts/constants/GmxArbitrumAddresses.sol";
 import "../contracts/mock/MockOracleProvider.sol";
 
 /**
+ * Create and Execute GMX Order on Tenderly
  *
  * Usage:
  *   forge script script/CreateGmxOrder.s.sol --rpc-url $TENDERLY_RPC_URL --broadcast -vv
  *
- * Broadcasts 2 transactions to Tenderly (sendWnt + createOrder) in our case it's multicall
+ * Broadcasts 2 transactions to Tenderly:
+ *   1. ExchangeRouter.sendWnt() (as user)
+ *   2. ExchangeRouter.createOrder() (as user)
+ *
+ * Order execution runs locally (requires keeper role & mock oracle setup via vm.etch)
  */
 contract CreateGmxOrder is Script {
     // GMX contracts
@@ -32,7 +37,7 @@ contract CreateGmxOrder is Script {
     uint256 constant ETH_PRICE_USD = 3292;
     uint256 constant USDC_PRICE_USD = 1;
     uint256 constant COLLATERAL_AMOUNT = 0.001 ether;
-    uint256 constant EXECUTION_FEE = 0.0002 ether;
+    uint256 constant EXECUTION_FEE = 0.0003 ether;  // Increased to cover GMX gas estimates
     uint256 constant LEVERAGE = 2.5e30;
 
     function run() external {
@@ -55,6 +60,21 @@ contract CreateGmxOrder is Script {
 
         console.log("User:", user);
         console.log("User balance:", user.balance / 1e18, "ETH");
+
+        // Check if user has enough ETH for transaction
+        uint256 requiredEth = COLLATERAL_AMOUNT + EXECUTION_FEE + 0.001 ether; // collateral + fee + gas buffer
+        if (user.balance < requiredEth) {
+            console.log("\n[ERROR] Insufficient balance!");
+            console.log("Required:", requiredEth / 1e18, "ETH");
+            console.log("Available:", user.balance / 1e18, "ETH");
+            console.log("\nPlease fund this account on Tenderly:");
+            console.log("  1. Go to Tenderly Dashboard");
+            console.log("  2. Navigate to your Virtual Testnet");
+            console.log("  3. Use 'Fund Account' to add ETH to:", user);
+            console.log("  4. Add at least", requiredEth / 1e18, "ETH\n");
+            revert("Insufficient ETH balance - please fund account on Tenderly first");
+        }
+
         console.log("Keeper:", keeper);
 
         // Calculate position size
@@ -91,10 +111,11 @@ contract CreateGmxOrder is Script {
 
         console.log("\n=== SUCCESS ===");
         console.log("Order created AND executed successfully!");
-        console.log("Check Tenderly dashboard for 2 transactions:");
+        console.log("\nCheck Tenderly dashboard for 2 transactions:");
         console.log("  1. ExchangeRouter.sendWnt()");
         console.log("  2. ExchangeRouter.createOrder()");
-        console.log("\nPosition key:", vm.toString(positionKey));
+        console.log("\nNote: Order execution runs locally (requires keeper role & mock oracle)");
+        console.log("Position key:", vm.toString(positionKey));
     }
 
     /// Create order (broadcasts to Tenderly)
@@ -149,9 +170,10 @@ contract CreateGmxOrder is Script {
         vm.stopBroadcast();
     }
 
-    /// Execute order as keeper (local execution)
+    /// Execute order as keeper (local execution only)
+    /// Note: Cannot broadcast this because it requires keeper private key and mock oracle setup
     function executeOrder(bytes32 orderKey, address keeper) internal returns (bytes32 positionKey) {
-        // Setup mock oracle
+        // Setup mock oracle (local only - uses vm.etch)
         console.log("  Setting up mock oracle...");
         setupMockOracleProvider(ETH_PRICE_USD, USDC_PRICE_USD);
         console.log("  [OK] Mock oracle deployed");
@@ -166,11 +188,11 @@ contract CreateGmxOrder is Script {
         oracleParams.providers[1] = GmxArbitrumAddresses.CHAINLINK_DATA_STREAM_PROVIDER;
         oracleParams.data = new bytes[](2);
 
-        // Execute as keeper
-        console.log("  Executing order as keeper...");
+        // Execute as keeper (local simulation only)
+        console.log("  Executing order as keeper (local simulation)...");
         vm.prank(keeper);
         orderHandler.executeOrder(orderKey, oracleParams);
-        console.log("  [OK] Order executed");
+        console.log("  [OK] Order executed locally");
 
         // Return position key
         positionKey = getPositionKey(
