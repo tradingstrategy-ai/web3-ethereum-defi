@@ -43,6 +43,7 @@ console = Console()
 # Helper utilities for time + block control
 # ============================================================
 
+
 def _detect_provider_type(web3):
     try:
         web3.provider.make_request("anvil_nodeInfo", [])
@@ -98,6 +99,7 @@ def _mine_block(web3):
 # Contract loading + deployment
 # ============================================================
 
+
 def load_gmx_order_executor_contract():
     path = Path(__file__).parent / "forked-env-example" / "out" / "GmxOrderExecutor.sol" / "GmxOrderExecutor.json"
     if not path.exists():
@@ -125,11 +127,13 @@ def set_code(web3, address: str, bytecode: str):
 def deploy_gmx_order_executor(web3, wallet):
     abi, bytecode = load_gmx_order_executor_contract()
     Contract = web3.eth.contract(abi=abi, bytecode=bytecode)
-    tx = Contract.constructor().build_transaction({
-        "from": wallet.get_main_address(),
-        "gas": 5_000_000,
-        "gasPrice": web3.eth.gas_price,
-    })
+    tx = Contract.constructor().build_transaction(
+        {
+            "from": wallet.get_main_address(),
+            "gas": 5_000_000,
+            "gasPrice": web3.eth.gas_price,
+        }
+    )
     signed = wallet.sign_transaction_with_new_nonce(tx)
     tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
     receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
@@ -152,11 +156,13 @@ def setup_mock_oracle(web3, wallet, executor_contract, eth_price=3892, usdc_pric
     _set_next_block_timestamp(web3, ts)
     _mine_block(web3)
 
-    tx = executor_contract.functions.configureMockOracleProvider(eth_price, usdc_price).build_transaction({
-        "from": wallet_addr,
-        "gas": 1_000_000,
-        "gasPrice": web3.eth.gas_price,
-    })
+    tx = executor_contract.functions.configureMockOracleProvider(eth_price, usdc_price).build_transaction(
+        {
+            "from": wallet_addr,
+            "gas": 1_000_000,
+            "gasPrice": web3.eth.gas_price,
+        }
+    )
     signed = wallet.sign_transaction_with_new_nonce(tx)
     tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
     receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
@@ -171,6 +177,7 @@ def setup_mock_oracle(web3, wallet, executor_contract, eth_price=3892, usdc_pric
 # ============================================================
 # CLI Arguments
 # ============================================================
+
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
@@ -188,6 +195,7 @@ def parse_arguments():
 # ============================================================
 # Main
 # ============================================================
+
 
 def main():
     args = parse_arguments()
@@ -260,13 +268,12 @@ def main():
 
     # Extract key + execute
     from tests.gmx.fork_helpers import extract_order_key_from_receipt
+
     order_key = extract_order_key_from_receipt(receipt)
     console.print(f"Order key: {order_key.hex()}")
 
     # Execute order (as keeper)
-    order_handler = get_contract(web3, "gmx/OrderHandler.json")(
-        address=to_checksum_address("0x04315E233C1c6FfA61080B76E29d5e8a1f7B4A35")
-    )
+    order_handler = get_contract(web3, "gmx/OrderHandler.json")(address=to_checksum_address("0x04315E233C1c6FfA61080B76E29d5e8a1f7B4A35"))
 
     fork_block = args.target_block
     ts = web3.eth.get_block(fork_block)["timestamp"]
@@ -274,17 +281,18 @@ def main():
     _mine_block(web3)
 
     oracle_params = (
-        [to_checksum_address("0x82aF49447D8a07e3bd95BD0d56f35241523fBab1"),
-         to_checksum_address("0xaf88d065e77c8cC2239327C5EDb3A432268e5831")],
+        [to_checksum_address("0x82aF49447D8a07e3bd95BD0d56f35241523fBab1"), to_checksum_address("0xaf88d065e77c8cC2239327C5EDb3A432268e5831")],
         [to_checksum_address("0xE1d5a068c5b75E0c7Ea1A9Fe8EA056f9356C6fFD")] * 2,
         [b"", b""],
     )
 
-    tx = order_handler.functions.executeOrder(order_key, oracle_params).build_transaction({
-        "from": wallet_addr,
-        "gas": 5_000_000,
-        "gasPrice": web3.eth.gas_price,
-    })
+    tx = order_handler.functions.executeOrder(order_key, oracle_params).build_transaction(
+        {
+            "from": wallet_addr,
+            "gas": 5_000_000,
+            "gasPrice": web3.eth.gas_price,
+        }
+    )
     signed = wallet.sign_transaction_with_new_nonce(tx)
     tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
     _mine_block(web3)

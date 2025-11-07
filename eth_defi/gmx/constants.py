@@ -222,6 +222,8 @@ PRECISION = 30
 ETH_ZERO_ADDRESS = "0x" + "0" * 40
 
 # GMX Contracts JSON URL for dynamic contract address fetching
+# Try updates branch first (has latest addresses), fall back to main if 404
+GMX_CONTRACTS_JSON_URL_UPDATES = "https://raw.githubusercontent.com/gmx-io/gmx-synthetics/refs/heads/updates/docs/contracts.json"
 GMX_CONTRACTS_JSON_URL = "https://raw.githubusercontent.com/gmx-io/gmx-synthetics/refs/heads/main/docs/contracts.json"
 
 # Order type mappings compatible with GMX protocol

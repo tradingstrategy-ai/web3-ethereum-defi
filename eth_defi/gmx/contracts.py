@@ -18,7 +18,7 @@ from web3.contract import Contract
 from cchecksum import to_checksum_address
 
 from eth_defi.abi import get_deployed_contract
-from eth_defi.gmx.constants import GMX_API_URLS, GMX_API_URLS_BACKUP, GMX_CONTRACTS_JSON_URL
+from eth_defi.gmx.constants import GMX_API_URLS, GMX_API_URLS_BACKUP, GMX_CONTRACTS_JSON_URL, GMX_CONTRACTS_JSON_URL_UPDATES
 from eth_defi.gmx.api import GMXAPI
 
 
@@ -97,14 +97,42 @@ NETWORK_CONTRACTS = {
 
 
 def _fetch_contract_addresses_from_url(chain: str) -> Optional[ContractAddresses]:
-    """Fetch contract addresses for a chain from the GMX contracts.json URL."""
-    # Fetch from URL
-    url = GMX_CONTRACTS_JSON_URL
-    try:
-        response = requests.get(url, timeout=10)
-        response.raise_for_status()
-        contracts_data = response.json()
+    """Fetch contract addresses for a chain from the GMX contracts.json URL.
 
+    Tries the updates branch first (which has the latest addresses), then falls back
+    to main branch if updates returns 404 (branch merged/deleted).
+    """
+    # Try updates branch first (has latest Reader and other contract addresses)
+    urls_to_try = [
+        (GMX_CONTRACTS_JSON_URL_UPDATES, "updates branch"),
+        (GMX_CONTRACTS_JSON_URL, "main branch"),
+    ]
+
+    contracts_data = None
+    for url, branch_name in urls_to_try:
+        try:
+            response = requests.get(url, timeout=10)
+            response.raise_for_status()
+            contracts_data = response.json()
+            break  # Success! Stop trying other URLs
+        except requests.HTTPError as e:
+            if e.response.status_code == 404 and branch_name == "updates branch":
+                # Updates branch not found (merged to main), try main branch
+                continue
+            else:
+                # Other error, re-raise
+                raise
+        except (requests.RequestException, json.JSONDecodeError) as e:
+            # Network or JSON error, try next URL
+            if branch_name == "main branch":
+                # Last URL failed, re-raise
+                raise
+            continue
+
+    if contracts_data is None:
+        return None
+
+    try:
         # Get contracts for the specified chain
         if chain not in contracts_data:
             return None
@@ -161,14 +189,8 @@ def _fetch_contract_addresses_from_url(chain: str) -> Optional[ContractAddresses
         # Create the ContractAddresses object
         contract_addresses = ContractAddresses(**addresses_dict)
 
-        # Apply chain-specific overrides
-        # Arbitrum: Use the latest ExchangeRouter from arbitrum-deployments.md
-        # The contracts.json still contains the old ExchangeRouter (0x602b805...) which requires
-        # ROUTER_PLUGIN authorization. The new ExchangeRouter (0x87d66368...) works without it.
-        # Source: https://raw.githubusercontent.com/gmx-io/gmx-synthetics/refs/heads/main/docs/arbitrum-deployments.md
-        if chain == "arbitrum":
-            contract_addresses.exchangerouter = to_checksum_address("0x87d66368cD08a7Ca42252f5ab44B2fb6d1Fb8d15")
-
+        # Note: We now fetch from the 'updates' branch first which has the latest contract addresses.
+        # When GMX merges updates to main, this will automatically switch to main branch.
         return contract_addresses
     except (requests.RequestException, json.JSONDecodeError, KeyError, ValueError) as e:
         # Return None if there's an error fetching or parsing

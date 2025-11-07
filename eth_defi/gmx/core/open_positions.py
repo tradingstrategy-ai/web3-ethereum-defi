@@ -66,7 +66,7 @@ class GetOpenPositions(GetData):
                 # 3. Network/RPC issues
                 error_msg = str(decode_error)
                 if "Could not decode" in error_msg or "InsufficientDataBytes" in error_msg:
-                    logging.debug(f"Could not decode positions for address {checksum_address}: {decode_error}")
+                    print(f"Could not decode positions for address {checksum_address}: {decode_error}")
                     # Return empty dict for addresses with no valid positions
                     return {}
                 else:

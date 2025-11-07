@@ -63,6 +63,46 @@ logger = logging.getLogger("rich")
 console = Console()
 
 
+def fetch_chainlink_eth_price(web3: Web3, chainlink_feed_address: str = "0x639fe6ab55c921f74e7fac1ee960c0b6293ba612") -> float:
+    """Fetch current ETH price from Chainlink oracle.
+
+    Args:
+        web3: Web3 instance
+        chainlink_feed_address: Chainlink ETH/USD price feed address on Arbitrum
+
+    Returns:
+        ETH price in USD (converted from 8 decimals)
+    """
+    console.print(f"\n[bold cyan]Fetching ETH price from Chainlink oracle...[/bold cyan]")
+    console.print(f"  Oracle address: {chainlink_feed_address}")
+
+    # Chainlink AggregatorV3Interface ABI (only latestRoundData function)
+    chainlink_abi = [{"inputs": [], "name": "latestRoundData", "outputs": [{"name": "roundId", "type": "uint80"}, {"name": "answer", "type": "int256"}, {"name": "startedAt", "type": "uint256"}, {"name": "updatedAt", "type": "uint256"}, {"name": "answeredInRound", "type": "uint80"}], "stateMutability": "view", "type": "function"}]
+
+    # Create contract instance
+    price_feed = web3.eth.contract(address=to_checksum_address(chainlink_feed_address), abi=chainlink_abi)
+
+    # Fetch latest round data
+    round_data = price_feed.functions.latestRoundData().call()
+    round_id, answer, started_at, updated_at, answered_in_round = round_data
+
+    console.print(f"  Round ID: {round_id}")
+    console.print(f"  Answer (raw): {answer}")
+    console.print(f"  Updated At: {updated_at}")
+
+    # Chainlink ETH/USD uses 8 decimals
+    # Example: 323165051034 / (10 ** 8) = 3231.65051034
+    eth_price_usd = answer / (10**8)
+
+    console.print(f"  [bold green]ETH Price: ${eth_price_usd:,.2f}[/bold green]")
+
+    # Add 10% buffer for acceptable price (so orders go through)
+    acceptable_price = eth_price_usd * 1.10
+    console.print(f"  [bold yellow]Acceptable Price (with 10% buffer): ${acceptable_price:,.2f}[/bold yellow]")
+
+    return eth_price_usd
+
+
 def tenderly_set_balance(web3: Web3, wallet_address: str, amount_eth: float):
     """Set ETH balance on Tenderly fork using tenderly_setBalance."""
     amount_wei = int(amount_eth * 1e18)
@@ -138,9 +178,12 @@ def main():
             console.print(f"  Chain ID: {chain_id}")
             console.print(f"  Chain: {chain}")
 
+            # Fetch ETH price from Chainlink
+            eth_price = fetch_chainlink_eth_price(web3)
+
             # Setup mock oracle provider
-            console.print("[dim]Setting up mock oracle provider...[/dim]")
-            setup_mock_oracle(web3, eth_price_usd=3892, usdc_price_usd=1)
+            console.print("\n[dim]Setting up mock oracle provider...[/dim]")
+            setup_mock_oracle(web3, eth_price_usd=eth_price, usdc_price_usd=1)
             console.print("[dim]✓ Mock oracle configured[/dim]\n")
 
         # Mode 2: Custom Anvil RPC
@@ -159,11 +202,14 @@ def main():
 
             console.print(f"  Block: {block_number}")
             console.print(f"  Chain ID: {chain_id}")
-            console.print(f"  Chain: {chain}\n")
+            console.print(f"  Chain: {chain}")
+
+            # Fetch ETH price from Chainlink
+            eth_price = fetch_chainlink_eth_price(web3)
 
             # Setup mock oracle provider
-            console.print("[dim]Setting up mock oracle provider...[/dim]")
-            setup_mock_oracle(web3, eth_price_usd=3892, usdc_price_usd=1)
+            console.print("\n[dim]Setting up mock oracle provider...[/dim]")
+            setup_mock_oracle(web3, eth_price_usd=eth_price, usdc_price_usd=1)
             console.print("[dim]✓ Mock oracle configured[/dim]\n")
 
         # Mode 3: Anvil fork (default - script creates fork)
@@ -195,9 +241,12 @@ def main():
             console.print(f"  Chain ID: {chain_id}")
             console.print(f"  Chain: {chain}")
 
+            # Fetch ETH price from Chainlink
+            eth_price = fetch_chainlink_eth_price(web3)
+
             # Setup mock oracle provider
-            console.print("[dim]Setting up mock oracle provider...[/dim]")
-            setup_mock_oracle(web3, eth_price_usd=3892, usdc_price_usd=1)
+            console.print("\n[dim]Setting up mock oracle provider...[/dim]")
+            setup_mock_oracle(web3, eth_price_usd=eth_price, usdc_price_usd=1)
             console.print("[dim]✓ Mock oracle configured[/dim]\n")
 
         # ========================================================================
