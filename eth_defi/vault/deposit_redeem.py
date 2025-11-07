@@ -4,6 +4,8 @@ import datetime
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from decimal import Decimal
+import logging
+from pprint import pformat
 
 from web3 import Web3
 from web3.contract.contract import ContractFunction
@@ -13,6 +15,9 @@ from eth_typing import HexAddress, BlockIdentifier, BlockNumber
 
 from eth_defi.timestamp import get_block_timestamp
 from eth_defi.trace import assert_transaction_success_with_explanation
+
+
+logger = logging.getLogger(__name__)
 
 
 class VaultTransactionFailed(Exception):
@@ -216,6 +221,12 @@ class DepositRequest:
     #: It's a list because for Gains we need 2 tx
     funcs: list[ContractFunction]
 
+    #: Set transaction gas limit
+    gas: int | None = None
+
+    #: Attached ETH value to the tx
+    value: Decimal | None = None
+
     def __post_init__(self):
         from eth_defi.vault.base import VaultBase
 
@@ -261,7 +272,7 @@ class DepositRequest:
 
         return DepositTicket(vault_address=self.vault.address, owner=self.owner, to=self.to, raw_amount=self.raw_amount, tx_hash=tx_hash, gas_used=gas_used, block_timestamp=block_timestamp, block_number=block_number)
 
-    def broadcast(self, from_: HexAddress = None, gas: int = 1_000_000) -> RedemptionTicket:
+    def broadcast(self, from_: HexAddress = None, gas: int | None = None) -> RedemptionTicket:
         """Broadcast all the transactions in this request.
 
         :param from_:
@@ -280,11 +291,34 @@ class DepositRequest:
         if from_ is None:
             from_ = self.owner
 
+        if gas is None:
+            if self.gas:
+                gas = self.gas
+            else:
+                # Default to 1M
+                gas = 1_000_000
+
+        tx_data = {"from": from_, "gas": gas}
+        if self.value:
+            tx_data["value"] = Web3.to_wei(self.value, "ether")
+
+        logger.info(
+            "Broadcasting deposit request to vault %s from %s with gas %s and tx params:\n%s",
+                    self.vault.address,
+            from_,
+            gas,
+            pformat(tx_data),
+        )
+
         tx_hashes = []
         for func in self.funcs:
-            tx_hash = func.transact({"from": from_, "gas": gas})
+
+            tx_hash = func.transact(tx_data)
+
             assert_transaction_success_with_explanation(self.web3, tx_hash)
             tx_hashes.append(tx_hash)
+
+
         return self.parse_deposit_transaction(tx_hashes)
 
 
