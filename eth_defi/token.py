@@ -166,6 +166,7 @@ STABLECOIN_LIKE = set(
         "BDO",
         "BEAN",
         "BOB",
+        "BOLD",
         "BUSD",
         "BYUSD",
         "CADC",
