@@ -665,7 +665,8 @@ abstract contract GuardV0Base is IGuard,  Multicall, SwapCowSwap  {
      * - Callsites for deposits and redemptions
      * - Vault share and denomination tokens
      * - Any ERC-4626 extensions are not supported by this function, like special share tokens
-     * - ERC-4626 withdrawal address must be always
+     * - ERC-4626 withdrawal address must be always the Safe
+     * - Because of non-standardisation the whitelisted function list is long
      */
     function whitelistERC4626(address vault, string calldata notes) external {
         IERC4626 vault_ = IERC4626(vault);
@@ -676,6 +677,12 @@ abstract contract GuardV0Base is IGuard,  Multicall, SwapCowSwap  {
         allowCallSite(vault, getSelector("deposit(uint256,address)"), notes);
         allowCallSite(vault, getSelector("withdraw(uint256,address,address)"), notes);
         allowCallSite(vault, getSelector("redeem(uint256,address,address)"), notes);
+
+        // Umami non-standard ERC-4626
+        // See UmamiDepositManager()
+        // https://arbiscan.io/address/0x959f3807f0aa7921e18c78b00b2819ba91e52fef#code
+        allowCallSite(vault, getSelector("deposit(uint256,uint256,address)"), notes);
+        allowCallSite(vault, getSelector("redeem(uint256,uint256,address,address)"), notes);
 
         // ERC-7540
         // See ERC7540DepositManager
