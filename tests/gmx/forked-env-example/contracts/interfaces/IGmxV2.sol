@@ -34,32 +34,32 @@ interface IExchangeRouter {
     }
 
     struct CreateOrderParamsNumbers {
-        uint256 sizeDeltaUsd;              // Position size change in USD (scaled by 1e30)
+        uint256 sizeDeltaUsd; // Position size change in USD (scaled by 1e30)
         uint256 initialCollateralDeltaAmount; // Collateral amount in token decimals
-        uint256 triggerPrice;              // Trigger price for limit/stop orders (scaled by 1e30)
-        uint256 acceptablePrice;           // Max price for longs, min price for shorts (scaled by 1e12)
-        uint256 executionFee;              // Fee for keepers in native token
-        uint256 callbackGasLimit;          // Gas limit for callback contract
-        uint256 minOutputAmount;           // Min output for decrease orders/swaps
-        uint256 validFromTime;             // Order valid from timestamp
+        uint256 triggerPrice; // Trigger price for limit/stop orders (scaled by 1e30)
+        uint256 acceptablePrice; // Max price for longs, min price for shorts (scaled by 1e12)
+        uint256 executionFee; // Fee for keepers in native token
+        uint256 callbackGasLimit; // Gas limit for callback contract
+        uint256 minOutputAmount; // Min output for decrease orders/swaps
+        uint256 validFromTime; // Order valid from timestamp
     }
 
     enum OrderType {
-        MarketSwap,         // 0: Swap at market price
-        LimitSwap,          // 1: Swap when price reaches trigger
-        MarketIncrease,     // 2: Open/increase position at market price
-        LimitIncrease,      // 3: Open/increase position at limit price
-        MarketDecrease,     // 4: Close/decrease position at market price
-        LimitDecrease,      // 5: Close/decrease position at limit price
-        StopLossDecrease,   // 6: Stop loss order
-        Liquidation,        // 7: Liquidation order (keeper only)
-        StopIncrease        // 8: Stop order to increase position
+        MarketSwap, // 0: Swap at market price
+        LimitSwap, // 1: Swap when price reaches trigger
+        MarketIncrease, // 2: Open/increase position at market price
+        LimitIncrease, // 3: Open/increase position at limit price
+        MarketDecrease, // 4: Close/decrease position at market price
+        LimitDecrease, // 5: Close/decrease position at limit price
+        StopLossDecrease, // 6: Stop loss order
+        Liquidation, // 7: Liquidation order (keeper only)
+        StopIncrease // 8: Stop order to increase position
     }
 
     enum DecreasePositionSwapType {
-        NoSwap,                             // 0: No swap
-        SwapPnlTokenToCollateralToken,      // 1: Swap PnL to collateral
-        SwapCollateralTokenToPnlToken       // 2: Swap collateral to PnL token
+        NoSwap, // 0: No swap
+        SwapPnlTokenToCollateralToken, // 1: Swap PnL to collateral
+        SwapCollateralTokenToPnlToken // 2: Swap collateral to PnL token
     }
 
     /// Create a new order
@@ -88,9 +88,9 @@ interface IOrderHandler {
 
 library OracleUtils {
     struct SetPricesParams {
-        address[] tokens;           // Token addresses
-        address[] providers;        // Price providers
-        bytes[] data;              // Signed price data
+        address[] tokens; // Token addresses
+        address[] providers; // Price providers
+        bytes[] data; // Signed price data
     }
 
     struct ValidatedPrice {
@@ -190,17 +190,17 @@ library Position {
     }
 
     struct Numbers {
-        uint256 sizeInUsd;           // Position size in USD (1e30)
-        uint256 sizeInTokens;        // Position size in index tokens
-        uint256 collateralAmount;    // Collateral amount
-        uint256 borrowingFactor;     // Borrowing factor at open
+        uint256 sizeInUsd; // Position size in USD (1e30)
+        uint256 sizeInTokens; // Position size in index tokens
+        uint256 collateralAmount; // Collateral amount
+        uint256 borrowingFactor; // Borrowing factor at open
         uint256 fundingFeeAmountPerSize; // Funding fee per size
         uint256 longTokenClaimableFundingAmountPerSize;
         uint256 shortTokenClaimableFundingAmountPerSize;
-        uint256 increasedAtBlock;    // Block number position was increased
-        uint256 decreasedAtBlock;    // Block number position was decreased
-        uint256 increasedAtTime;     // Timestamp position was increased
-        uint256 decreasedAtTime;     // Timestamp position was decreased
+        uint256 increasedAtBlock; // Block number position was increased
+        uint256 decreasedAtBlock; // Block number position was decreased
+        uint256 increasedAtTime; // Timestamp position was increased
+        uint256 decreasedAtTime; // Timestamp position was decreased
     }
 
     struct Flags {
@@ -256,6 +256,7 @@ library Keys {
     function accountOrderListKey(address account) internal pure returns (bytes32) {
         return keccak256(abi.encode(ACCOUNT_ORDER_LIST, account));
     }
+
     /// @dev Uses double-hash
     function accountPositionListKey(address account) internal pure returns (bytes32) {
         return keccak256(abi.encode(ACCOUNT_POSITION_LIST, account));

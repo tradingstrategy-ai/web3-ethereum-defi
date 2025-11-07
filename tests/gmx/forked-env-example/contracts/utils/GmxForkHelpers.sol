@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
-import {IERC20} from "forge-std/interfaces/IERC20.sol";
+import { IERC20 } from "forge-std/interfaces/IERC20.sol";
 
 import "../interfaces/IGmxV2.sol";
 import "../constants/GmxArbitrumAddresses.sol";
@@ -129,12 +129,11 @@ abstract contract GmxForkHelpers is Test {
     /// @param collateralToken Collateral token of the position
     /// @param sizeDeltaUsd Position size to decrease in USD (scaled by 1e30)
     /// @param isLong true for long, false for short
-    function createDecreaseOrderParams(
-        address market,
-        address collateralToken,
-        uint256 sizeDeltaUsd,
-        bool isLong
-    ) internal view returns (IExchangeRouter.CreateOrderParams memory params) {
+    function createDecreaseOrderParams(address market, address collateralToken, uint256 sizeDeltaUsd, bool isLong)
+        internal
+        view
+        returns (IExchangeRouter.CreateOrderParams memory params)
+    {
         address[] memory emptySwapPath = new address[](0);
 
         params.addresses = IExchangeRouter.CreateOrderParamsAddresses({
@@ -197,7 +196,10 @@ abstract contract GmxForkHelpers is Test {
     /// @param wethPrice WETH price in USD (e.g., 5000 for $5000/ETH)
     /// @param usdcPrice USDC price in USD (e.g., 1 for $1/USDC)
     /// @return mockProviderAddress The address of the actual provider being mocked
-    function setupMockOracleProvider(uint256 wethPrice, uint256 usdcPrice) internal returns (address mockProviderAddress) {
+    function setupMockOracleProvider(uint256 wethPrice, uint256 usdcPrice)
+        internal
+        returns (address mockProviderAddress)
+    {
         // GMX price format: price * 10^30 / 10^tokenDecimals
         // For WETH (18 decimals): $5000 = 5000 * 10^30 / 10^18 = 5000 * 10^12
         // For USDC (6 decimals): $1 = 1 * 10^30 / 10^6 = 1 * 10^24
@@ -215,17 +217,9 @@ abstract contract GmxForkHelpers is Test {
         vm.etch(providerAddress, address(mockImpl).code);
 
         // Configure prices in the mock (now at the production address)
-        MockOracleProvider(providerAddress).setPrice(
-            GmxArbitrumAddresses.WETH,
-            wethPriceFormatted,
-            wethPriceFormatted
-        );
+        MockOracleProvider(providerAddress).setPrice(GmxArbitrumAddresses.WETH, wethPriceFormatted, wethPriceFormatted);
 
-        MockOracleProvider(providerAddress).setPrice(
-            GmxArbitrumAddresses.USDC,
-            usdcPriceFormatted,
-            usdcPriceFormatted
-        );
+        MockOracleProvider(providerAddress).setPrice(GmxArbitrumAddresses.USDC, usdcPriceFormatted, usdcPriceFormatted);
 
         console.log("Replaced oracle provider bytecode at:", providerAddress);
         console.log("WETH price set to:", wethPriceFormatted);
@@ -261,12 +255,11 @@ abstract contract GmxForkHelpers is Test {
     /// @param market Market address
     /// @param collateralToken Collateral token
     /// @param isLong Long or short position
-    function getPosition(
-        address account,
-        address market,
-        address collateralToken,
-        bool isLong
-    ) internal view returns (Position.Props memory) {
+    function getPosition(address account, address market, address collateralToken, bool isLong)
+        internal
+        view
+        returns (Position.Props memory)
+    {
         bytes32 positionKey = getPositionKey(account, market, collateralToken, isLong);
         return reader.getPosition(address(dataStore), positionKey);
     }
@@ -298,7 +291,11 @@ abstract contract GmxForkHelpers is Test {
     /// @param start Starting index
     /// @param end Ending index
     /// @return Position keys for the account in the specified range
-    function getAccountPositionKeys(address account, uint256 start, uint256 end) internal view returns (bytes32[] memory) {
+    function getAccountPositionKeys(address account, uint256 start, uint256 end)
+        internal
+        view
+        returns (bytes32[] memory)
+    {
         bytes32 accountPositionListKey = Keys.accountPositionListKey(account);
         return dataStore.getBytes32ValuesAt(accountPositionListKey, start, end);
     }
@@ -319,12 +316,11 @@ abstract contract GmxForkHelpers is Test {
     /// @param collateralToken Collateral token address
     /// @param isLong True for long, false for short
     /// @return Position key (keccak256 hash of parameters)
-    function getPositionKey(
-        address account,
-        address market,
-        address collateralToken,
-        bool isLong
-    ) internal pure returns (bytes32) {
+    function getPositionKey(address account, address market, address collateralToken, bool isLong)
+        internal
+        pure
+        returns (bytes32)
+    {
         return keccak256(abi.encodePacked(account, market, collateralToken, isLong));
     }
 }

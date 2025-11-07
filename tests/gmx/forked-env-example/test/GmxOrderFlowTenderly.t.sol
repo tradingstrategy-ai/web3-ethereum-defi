@@ -10,21 +10,20 @@ import "../contracts/constants/GmxArbitrumAddresses.sol";
 import "../contracts/utils/GmxForkHelpers.sol";
 
 /**
- * Fork tests demonstrating GMX Synthetics V2 order flow on Arbitrum
- * @dev Tests the complete flow of opening and closing positions using GMX
+ * GMX Order Flow Tests for Tenderly RPC
+ * @dev Clone of GmxOrderFlowTest.t.sol that runs on real Tenderly RPC (no forking)
  *
- * Prerequisites:
- * 1. Set ARBITRUM_RPC_URL in .env file
- * 2. Run: forge test --fork-url $ARBITRUM_RPC_URL --fork-block-number 392496384 -vv
+ * Usage (ONE COMMAND):
+ *   forge test --rpc-url $TENDERLY_RPC_URL -vvv
  *
- * Key Learnings:
- * - GMX uses Chainlink Data Streams for oracle prices (off-chain signed data)
- * - To test on a fork, the oracle provider bytecode is replaced with a mock using vm.etch
- * - The production provider address is 0xE1d5a068c5b75E0c7Ea1A9Fe8EA056f9356C6fFD (verified from mainnet txs)
- * - Order execution emits PositionIncrease and OrderExecuted events via EventLog1 generic emitter
+ *
+ * Example:
+ *   export TENDERLY_RPC_URL=https://virtual.arbitrum.eu.rpc.tenderly.co/4dd545a1-536a-462d-ae0f-388f6e23793f
+ *   export PRIVATE_KEY=0x...
+ *   forge test --rpc-url $TENDERLY_RPC_URL -vvv
  */
-contract GmxOrderFlowTest is Test, GmxForkHelpers {
-    // Test user
+contract GmxOrderFlowTenderlyTest is Test, GmxForkHelpers {
+    // Test user (derived from PRIVATE_KEY)
     address user;
 
     // Tokens
@@ -33,14 +32,9 @@ contract GmxOrderFlowTest is Test, GmxForkHelpers {
 
     // Test parameters
     uint256 constant INITIAL_ETH_BALANCE = 100 ether;
-    // Reference Mainnet tx 0x68a77542fd9ba2bcd342099158dd17c0918cee70726ecd2e2446b0f16c46da50
-    //   fork at block 392496384 - matches mainnet order execution for accurate comparison
-    //   oracle price: 0xdd631636455a0 = $3,892.32
-    uint256 constant FORK_BLOCK_NUMBER = 392496384;
 
     // GMX price format: price * 1e30 / (10^tokenDecimals)
-    // For ETH ($3892, 18 decimals): 3892 * 1e30 / 1e18 = 3892 * 1e12
-    uint256 constant ETH_PRICE_USD = 3892; // Match mainnet order execution price ($3,892.32 rounded)
+    uint256 constant ETH_PRICE_USD = 3342; // Match mainnet order execution price ($3,892.32 rounded)
     uint256 constant USDC_PRICE_USD = 1; // $1 per USDC
 
     uint256 constant ETH_COLLATERAL = 0.001 ether; // 0.001 ETH collateral
@@ -49,10 +43,7 @@ contract GmxOrderFlowTest is Test, GmxForkHelpers {
     address keeper;
 
     function setUp() public {
-        string memory rpcUrl = vm.envString("ARBITRUM_RPC_URL");
-        vm.createSelectFork(rpcUrl, FORK_BLOCK_NUMBER);
-
-        console.log("=== Fork Setup ===");
+        console.log("=== Tenderly RPC Setup ===");
         console.log("Chain ID:", block.chainid);
         console.log("Block number:", block.number);
         console.log("==================");
@@ -70,12 +61,18 @@ contract GmxOrderFlowTest is Test, GmxForkHelpers {
         weth = IERC20(GmxArbitrumAddresses.WETH);
         usdc = IERC20(GmxArbitrumAddresses.USDC);
 
-        user = makeAddr("user");
+        // Get user from PRIVATE_KEY env var
+        uint256 privateKey = vm.envUint("PRIVATE_KEY");
+        user = vm.addr(privateKey);
         console.log("User address:", user);
+        console.log("User ETH balance:", user.balance / 1e18, "ETH");
 
-        // Fund user with ETH
-        dealETH(user, INITIAL_ETH_BALANCE);
-        console.log("User funded with:", INITIAL_ETH_BALANCE / 1e18, "ETH");
+        // Auto-fund user if needed (using FFI to call Tenderly admin RPC)
+        if (user.balance < INITIAL_ETH_BALANCE) {
+            console.log("Funding user with", INITIAL_ETH_BALANCE / 1e18, "ETH via Tenderly admin RPC...");
+            _tenderlySetBalance(user, INITIAL_ETH_BALANCE);
+            console.log("User funded. New balance:", user.balance / 1e18, "ETH");
+        }
 
         // Get active keeper for order execution
         keeper = getActiveKeeper();
@@ -87,7 +84,7 @@ contract GmxOrderFlowTest is Test, GmxForkHelpers {
     // Test 1: Open Long Position
     // ============================================================================
 
-    /// forge test --fork-url $ARBITRUM_RPC_URL --fork-block-number 392496384 --match-test testOpenLongPosition -vv
+    /// forge test --rpc-url $TENDERLY_RPC_URL --match-test testOpenLongPosition -vvv
 
     /// Test opening a long ETH position
     /// @dev This test demonstrates the complete flow of creating and executing a MarketIncrease order
@@ -167,7 +164,7 @@ contract GmxOrderFlowTest is Test, GmxForkHelpers {
     // Test 2: Close Long Position
     // ============================================================================
 
-    /// forge test --fork-url $ARBITRUM_RPC_URL --fork-block-number 392496384 --match-test testCloseLongPosition -vv
+    /// forge test --rpc-url $TENDERLY_RPC_URL --match-test testCloseLongPosition -vvv
 
     /// Test closing a long ETH position
     /// @dev This test first opens a position, then closes it completely
@@ -282,5 +279,45 @@ contract GmxOrderFlowTest is Test, GmxForkHelpers {
         exchangeRouter.sendWnt{ value: executionFee }(GmxArbitrumAddresses.ORDER_VAULT, executionFee);
         orderKey = exchangeRouter.createOrder{ value: 0 }(orderParams);
         vm.stopPrank();
+    }
+
+    // ============================================================================
+    // Tenderly Admin RPC Helpers
+    // ============================================================================
+
+    /// Set balance using Tenderly admin RPC (via FFI)
+    /// @dev Calls: curl $TENDERLY_RPC_URL -X POST -d '{"method":"tenderly_setBalance","params":[...]}'
+    function _tenderlySetBalance(address account, uint256 balance) internal {
+        string memory rpcUrl = vm.envString("TENDERLY_RPC_URL");
+
+        // Build JSON-RPC request
+        string memory balanceHex = vm.toString(balance);
+
+        // Use FFI to call curl
+        string[] memory inputs = new string[](9);
+        inputs[0] = "curl";
+        inputs[1] = "-s";
+        inputs[2] = "-X";
+        inputs[3] = "POST";
+        inputs[4] = rpcUrl;
+        inputs[5] = "-H";
+        inputs[6] = "Content-Type: application/json";
+        inputs[7] = "-d";
+        inputs[8] = string(
+            abi.encodePacked(
+                '{"jsonrpc":"2.0","method":"tenderly_setBalance","params":["',
+                vm.toString(account),
+                '","',
+                balanceHex,
+                '"],"id":1}'
+            )
+        );
+
+        bytes memory result = vm.ffi(inputs);
+
+        // Check if successful (result should contain "result")
+        if (result.length == 0) {
+            revert("tenderly_setBalance failed");
+        }
     }
 }

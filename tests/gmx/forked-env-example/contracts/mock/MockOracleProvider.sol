@@ -10,7 +10,8 @@ import "../interfaces/IGmxV2.sol";
  * @dev Implements IOracleProvider interface as expected by GMX
  */
 
-contract MockOracleProvider /* is IOracleProvider */ {
+contract MockOracleProvider {
+    /* is IOracleProvider */
     mapping(address => Price.Props) public tokenPrices;
 
     /// Set price for a token
@@ -25,7 +26,10 @@ contract MockOracleProvider /* is IOracleProvider */ {
     function getOraclePrice(
         address token,
         bytes memory /* data */
-    ) external returns (OracleUtils.ValidatedPrice memory validatedPrice) {
+    )
+        external
+        returns (OracleUtils.ValidatedPrice memory validatedPrice)
+    {
         Price.Props memory price = tokenPrices[token];
 
         validatedPrice.token = token;
