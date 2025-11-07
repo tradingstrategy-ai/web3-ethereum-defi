@@ -252,7 +252,7 @@ class LagoonAutomatedDeployment:
             "Performance fee": f"{self.parameters.performanceRate / 100:,} %",
             "Management fee": f"{self.parameters.managementRate / 100:,} %",
             "ABI": self.vault_abi,
-            "Gas used": self.gas_used,
+            "Gas used": float(self.gas_used),
         }
 
         return fields

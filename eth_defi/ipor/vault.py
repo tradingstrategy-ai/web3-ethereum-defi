@@ -137,13 +137,17 @@ class IPORVault(ERC4626Vault):
         )
 
     @cached_property
-    def access_manager(self) -> Contract:
+    def access_manager(self) -> Contract | None:
         """Get IPOR's contract managing vault access rules.
 
         - Redemption delay, and such
         """
         plasma_vault = self.plasma_vault
-        access_manager = plasma_vault.functions.getAccessManagerAddress().call()
+
+        try:
+            access_manager = plasma_vault.functions.getAccessManagerAddress().call()
+        except ValueError:
+            return None
 
         return get_deployed_contract(
             self.web3,
@@ -188,7 +192,7 @@ class IPORVault(ERC4626Vault):
         performance_fee = int.from_bytes(data[32:64], byteorder="big") / 10_000
         return performance_fee
 
-    def get_redemption_delay(self) -> datetime.timedelta:
+    def get_redemption_delay(self) -> datetime.timedelta | None:
         """Get the redemption delay for the vault.
 
         :return: Redemption delay as a timedelta.
@@ -196,10 +200,13 @@ class IPORVault(ERC4626Vault):
         # IPOR vaults do not have a redemption delay
         # https://basescan.org/address/0x187937aab9b2d57D606D0C3fB98816301fcE0d1f#readContract
         access_manager = self.access_manager
+        if not access_manager:
+            # Buggy vault without access manager
+            return None
         seconds = access_manager.functions.REDEMPTION_DELAY_IN_SECONDS().call()
         return datetime.timedelta(seconds=seconds)
 
-    def get_redemption_delay_over(self, address: str) -> datetime.datetime:
+    def get_redemption_delay_over(self, address: str) -> datetime.datetime | None:
         """Get the redemption delay left for an account.
 
         :return: When the account can redeem.
@@ -207,6 +214,9 @@ class IPORVault(ERC4626Vault):
         # IPOR vaults do not have a redemption delay
         # https://basescan.org/address/0x187937aab9b2d57D606D0C3fB98816301fcE0d1f#readContract
         access_manager = self.access_manager
+        if not access_manager:
+            # Buggy vault without access manager
+            return None
         unix_timestamp = access_manager.functions.getAccountLockTime(address).call()
         return datetime.datetime.fromtimestamp(unix_timestamp, tz=datetime.timezone.utc).replace(tzinfo=None)
 

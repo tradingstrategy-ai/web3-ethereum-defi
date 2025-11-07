@@ -82,6 +82,20 @@ class VaultDatabase:
 
     - The pickle format dump for vault-db.pickle
     - Does not include share price/TVL data, only metadata
+
+    Manually checking the contents:
+
+    .. code-block:: python
+
+        from eth_defi.vault.vaultdb import VaultDatabase
+        from eth_defi.vault.base import VaultSpec
+
+        vault_db = VaultDatabase.read()
+        # Choose D2 HYPE++ on Arbitrum
+        spec = VaultSpec(chain_id=42161, vault_address="0x75288264FDFEA8ce68e6D852696aB1cE2f3E5004")
+        vault_metadata = vault_db.rows[spec]
+        print(vault_metadata)
+
     """
 
     #: Correctly detected vaults.
