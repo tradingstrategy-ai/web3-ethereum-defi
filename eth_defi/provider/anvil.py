@@ -77,6 +77,7 @@ CLI_FLAGS = {
     "block_time": "--block-time",
     "steps_tracing": "--steps-tracing",
     "code_size_limit": "--code-size-limit",
+    "verbose": "-vvvvv",
 }
 
 
@@ -213,6 +214,7 @@ def launch_anvil(
     log_wait=False,
     code_size_limit: int = None,
     rpc_smoke_test=True,
+    verbose=False,
 ) -> AnvilLaunch:
     """Creates Anvil unit test backend or mainnet fork.
 
@@ -390,6 +392,10 @@ def launch_anvil(
     :parma log_wait:
         Display info level logging while waiting for Anvil to start.
 
+    :param verbose:
+        Make Anvil the proces to dump a lot of stuff to stdout/stderr.
+
+        See -vvvv https://getfoundry.sh/anvil/reference/anvil
     """
 
     attempts_left = attempts
@@ -437,6 +443,7 @@ def launch_anvil(
         hardfork=hardfork,
         gas_limit=gas_limit,
         steps_tracing=steps_tracing,
+        verbose=verbose,
     )
 
     if code_size_limit:

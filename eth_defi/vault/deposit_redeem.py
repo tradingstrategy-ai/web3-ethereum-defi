@@ -272,7 +272,7 @@ class DepositRequest:
 
         return DepositTicket(vault_address=self.vault.address, owner=self.owner, to=self.to, raw_amount=self.raw_amount, tx_hash=tx_hash, gas_used=gas_used, block_timestamp=block_timestamp, block_number=block_number)
 
-    def broadcast(self, from_: HexAddress = None, gas: int | None = None) -> RedemptionTicket:
+    def broadcast(self, from_: HexAddress = None, gas: int | None = None, check_value=True) -> RedemptionTicket:
         """Broadcast all the transactions in this request.
 
         :param from_:
@@ -302,9 +302,14 @@ class DepositRequest:
         if self.value:
             tx_data["value"] = Web3.to_wei(self.value, "ether")
 
+            # If we ask for value, make sure our account is topped up
+            if check_value:
+                balance = self.web3.eth.get_balance(from_)
+                assert balance >= tx_data["value"], f"Not enough ETH balance in {from_} to cover value {self.value} ETH, has {Web3.from_wei(balance, 'ether')} ETH"
+
         logger.info(
             "Broadcasting deposit request to vault %s from %s with gas %s and tx params:\n%s",
-                    self.vault.address,
+            self.vault.address,
             from_,
             gas,
             pformat(tx_data),
@@ -312,12 +317,10 @@ class DepositRequest:
 
         tx_hashes = []
         for func in self.funcs:
-
             tx_hash = func.transact(tx_data)
 
             assert_transaction_success_with_explanation(self.web3, tx_hash)
             tx_hashes.append(tx_hash)
-
 
         return self.parse_deposit_transaction(tx_hashes)
 

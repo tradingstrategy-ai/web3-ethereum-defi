@@ -75,7 +75,6 @@ class UmamiVault(ERC4626Vault):
         return UmamiDepositManager(self)
 
 
-
 class UmamiDepositManager(ERC4626DepositManager):
     """Umami deposit manager with custom logic."""
 
@@ -88,7 +87,7 @@ class UmamiDepositManager(ERC4626DepositManager):
         check_max_deposit=True,
         check_enough_token=True,
         max_slippage=0.01,
-        gas=10_000_000,
+        gas=30_000_000,
     ) -> ERC4626DepositRequest:
         """Umami has a slippage tolerance on deposits.
 
@@ -181,13 +180,7 @@ class UmamiDepositManager(ERC4626DepositManager):
 
         min_shares = int(preview_amount * (1 - max_slippage))
 
-        logger.info(
-            "Estimated %s shares before slippage: %s, slippage set to %s, min amount out %s",
-            vault.share_token.symbol,
-            estimated_shares,
-            max_slippage,
-            min_shares
-        )
+        logger.info("Estimated %s shares before slippage: %s, slippage set to %s, min amount out %s", vault.share_token.symbol, estimated_shares, max_slippage, min_shares)
 
         contract = vault.vault_contract
 
@@ -215,7 +208,5 @@ class UmamiDepositManager(ERC4626DepositManager):
             amount=amount,
             raw_amount=raw_amount,
             gas=gas,
-            value=Decimal(0.001),
+            value=Decimal(0.1),
         )
-
-
