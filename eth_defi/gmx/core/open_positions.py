@@ -17,12 +17,11 @@ from eth_defi.gmx.core.get_data import GetData
 from eth_defi.gmx.core.oracle import OraclePrices
 from eth_defi.gmx.contracts import (
     get_contract_addresses,
-    get_tokens_address_dict,
-    NETWORK_TOKENS,
+    get_tokens_metadata_dict,
+    NETWORK_TOKENS_METADATA,
     TESTNET_TO_MAINNET_ORACLE_TOKENS,
 )
 from eth_defi.gmx.types import MarketData
-from eth_defi.token import fetch_erc20_details
 
 
 class GetOpenPositions(GetData):
@@ -105,77 +104,35 @@ class GetOpenPositions(GetData):
             logger.error(f"Failed to fetch open positions data: {e}")
             raise e
 
-    def _fetch_token_details_from_chain(self, token_address: str) -> dict[str, Any]:
-        """Fetch token details directly from the blockchain.
-
-        :param token_address: Token contract address
-        :returns: Dictionary with token symbol, address, and decimals
-        :rtype: dict
-        """
-        try:
-            token_details = fetch_erc20_details(self.config.web3, token_address)
-            return {
-                "symbol": token_details.symbol,
-                "address": token_address,
-                "decimals": token_details.decimals,
-            }
-        except Exception as e:
-            logging.warning(f"Failed to fetch token details for {token_address}: {e}")
-            # Return default assuming 18 decimals
-            return {
-                "symbol": "UNKNOWN",
-                "address": token_address,
-                "decimals": 18,
-            }
-
     def _get_tokens_address_dict(self) -> dict[str, Any]:
-        """Enhanced version of get_tokens_address_dict that fetches token data from blockchain.
+        """Get token metadata from GMX API.
 
-        This method fetches token details (including decimals) directly from the blockchain
-        contracts, ensuring accurate data for all tokens without maintaining hardcoded lists.
+        Fetches token data (symbol, decimals, synthetic flag) from GMX API,
+        avoiding expensive smart contract calls for each token.
 
-        :returns: Dictionary mapping token addresses to their information
+        Falls back to NETWORK_TOKENS_METADATA for tokens missing from API.
+
+        :returns: Dictionary mapping token addresses to their metadata
         :rtype: dict
         """
         try:
-            # Get tokens from GMX API using the original function
-            chain_tokens = get_tokens_address_dict(self.config.chain)
+            # Get tokens metadata from GMX API (includes decimals - no contract calls needed!)
+            chain_tokens = get_tokens_metadata_dict(self.config.chain)
+            logging.debug(f"Fetched {len(chain_tokens)} tokens from GMX API for {self.config.chain}")
 
-            # If chain_tokens is symbol -> address mapping, we need to fetch details
-            if chain_tokens and isinstance(list(chain_tokens.values())[0], str):
-                # Fetch token details from blockchain for each address
-                enhanced_tokens = {}
-                for symbol, address in chain_tokens.items():
-                    token_details = self._fetch_token_details_from_chain(address)
-                    enhanced_tokens[address] = token_details
-                    logging.debug(f"Fetched token details for {symbol}: {token_details['decimals']} decimals")
-
-                return enhanced_tokens
-
-            # If it's already address -> metadata format, verify/enhance with blockchain data
-            enhanced_tokens = {}
-            for address, token_info in chain_tokens.items():
-                if isinstance(token_info, dict):
-                    # Already has metadata, but we can verify decimals from chain if needed
-                    enhanced_tokens[address] = token_info
-                else:
-                    # Fetch from chain
-                    enhanced_tokens[address] = self._fetch_token_details_from_chain(address)
-
-            # Add missing tokens from NETWORK_TOKENS if needed
+            # Add missing tokens from NETWORK_TOKENS_METADATA if needed
             chain = self.config.chain
-            if chain in NETWORK_TOKENS:
-                network_tokens = NETWORK_TOKENS[chain]
-                for symbol, address in network_tokens.items():
-                    if address not in enhanced_tokens:
-                        token_details = self._fetch_token_details_from_chain(address)
-                        enhanced_tokens[address] = token_details
-                        logging.info(f"Added token from NETWORK_TOKENS: {symbol} ({address}) with {token_details['decimals']} decimals")
+            if chain in NETWORK_TOKENS_METADATA:
+                network_tokens_meta = NETWORK_TOKENS_METADATA[chain]
+                for address, metadata in network_tokens_meta.items():
+                    if address not in chain_tokens:
+                        chain_tokens[address] = metadata
+                        logging.info(f"Added token from NETWORK_TOKENS_METADATA: {metadata['symbol']} ({address})")
 
-            return enhanced_tokens
+            return chain_tokens
 
         except Exception as e:
-            logging.error(f"Failed to get enhanced tokens: {e}")
+            logging.error(f"Failed to get token metadata: {e}")
             raise e
 
     def _get_data_processing(self, raw_position: tuple) -> dict[str, Any]:

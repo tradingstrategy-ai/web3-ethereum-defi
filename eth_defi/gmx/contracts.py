@@ -197,8 +197,12 @@ def _fetch_contract_addresses_from_url(chain: str) -> Optional[ContractAddresses
         return None
 
 
-def _fetch_tokens_from_gmx_api(chain: str) -> Optional[dict[str, str]]:
-    """Fetch token addresses for a chain from GMX API."""
+def _fetch_tokens_from_gmx_api(chain: str) -> Optional[dict[str, dict]]:
+    """Fetch token data for a chain from GMX API.
+
+    Returns address -> {symbol, decimals, synthetic} mapping to avoid
+    expensive contract calls for each token.
+    """
     try:
         # Use the updated GMXAPI constructor that accepts chain directly
         api = GMXAPI(chain=chain)
@@ -207,19 +211,27 @@ def _fetch_tokens_from_gmx_api(chain: str) -> Optional[dict[str, str]]:
         token_data = api.get_tokens()
         token_infos = token_data.get("tokens", [])
 
-        # Convert to symbol -> address mapping
+        # Convert to address -> metadata mapping (includes decimals from API)
         tokens_dict = {}
         for token_info in token_infos:
-            symbol = token_info.get("symbol", "").upper()
+            symbol = token_info.get("symbol", "")
             address = token_info.get("address", "")
+            decimals = token_info.get("decimals", 18)  # Default to 18 if not specified
+            synthetic = token_info.get("synthetic", False)
+
             if symbol and address:
-                tokens_dict[symbol] = to_checksum_address(address)
+                checksum_address = to_checksum_address(address)
+                tokens_dict[checksum_address] = {
+                    "symbol": symbol,
+                    "decimals": decimals,
+                    "synthetic": synthetic,
+                }
 
         return tokens_dict
 
     except Exception as e:
         # No fallback - raise error with helpful message
-        raise ValueError(f"Failed to fetch token addresses for {chain} from GMX API. Error: {str(e)}. Please check your internet connection and try again.")
+        raise ValueError(f"Failed to fetch token data for {chain} from GMX API. Error: {str(e)}. Please check your internet connection and try again.")
 
 
 # ABI loading function
@@ -379,20 +391,44 @@ def get_datastore_contract(web3: Web3, chain: str) -> Contract:
     return get_deployed_contract(web3, "gmx/DataStore.json", addresses.datastore)
 
 
+def get_tokens_metadata_dict(chain: str) -> dict[str, dict]:
+    """
+    Get full token metadata for a specific network from GMX API.
+
+    Returns address -> {symbol, decimals, synthetic} mapping.
+    This avoids expensive contract calls for each token.
+
+    :param chain: Network name
+    :return: Dictionary mapping token addresses to metadata
+    :raises ValueError: If chain is not supported or API request fails
+    """
+    tokens_metadata = _fetch_tokens_from_gmx_api(chain)
+    if tokens_metadata is not None:
+        return tokens_metadata
+    else:
+        raise ValueError(f"Failed to fetch token metadata for {chain} from GMX API. Please check your internet connection and try again.")
+
+
 def get_tokens_address_dict(chain: str) -> dict[str, str]:
     """
     Get token address mapping for a specific network from GMX API.
+
+    Returns symbol -> address mapping for backward compatibility.
 
     :param chain: Network name
     :return: Dictionary mapping token symbols to addresses
     :raises ValueError: If chain is not supported or API request fails
     """
-    # Fetch tokens using GMXAPI - always from API, no fallback
-    tokens_dict = _fetch_tokens_from_gmx_api(chain)
-    if tokens_dict is not None:
-        return tokens_dict
-    else:
-        raise ValueError(f"Failed to fetch token addresses for {chain} from GMX API. Please check your internet connection and try again.")
+    # Get full metadata
+    tokens_metadata = get_tokens_metadata_dict(chain)
+
+    # Convert to symbol -> address mapping for backward compatibility
+    symbol_to_address = {}
+    for address, metadata in tokens_metadata.items():
+        symbol = metadata["symbol"].upper()
+        symbol_to_address[symbol] = address
+
+    return symbol_to_address
 
 
 def get_token_address(chain: str, symbol: str, web3: Optional[Web3] = None) -> Optional[str]:
@@ -447,16 +483,6 @@ def get_glv_reader_contract(web3: Web3, chain: str) -> Contract:
 
 def get_token_balance_contract(web3: Web3, contract_address: HexAddress) -> Contract:
     return get_deployed_contract(web3, "gmx/balance.json", contract_address)
-
-
-def get_tokens_metadata_dict(chain: str) -> dict[str, dict]:
-    """
-    Get token metadata mapping for a specific network.
-
-    :param chain: Network name
-    :return: Dictionary mapping token addresses to metadata (symbol, decimals, synthetic)
-    """
-    return NETWORK_TOKENS_METADATA.get(chain, {})
 
 
 def get_token_metadata(chain: str, address: str) -> Optional[dict]:
