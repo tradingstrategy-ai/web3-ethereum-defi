@@ -300,7 +300,10 @@ class GMXOrderManager:
             parameters["chain"] = self.config.get_chain()
 
         # Process parameters through the OrderArgumentParser
-        order_parameters = OrderArgumentParser(config, is_decrease=True).process_parameters_dictionary(parameters)
+        order_parameters = OrderArgumentParser(
+            config,
+            is_decrease=True,
+        ).process_parameters_dictionary(parameters)
 
         # Create order instance with position identification
         order = DecreaseOrder(

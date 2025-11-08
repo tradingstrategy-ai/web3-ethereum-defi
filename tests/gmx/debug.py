@@ -27,7 +27,6 @@ from eth_defi.gmx.core.open_positions import GetOpenPositions
 from eth_defi.hotwallet import HotWallet
 from eth_defi.gmx.contracts import (
     get_token_address_normalized,
-    get_contract_addresses,
 )
 from rich.console import Console
 from web3 import Web3

@@ -55,9 +55,9 @@ Note:
     requiring wallet credentials or transaction signing capabilities.
 """
 
-from typing import Any, Dict, Optional
+from typing import Optional
 
-from eth_defi.gmx.types import MarketData, PositionSideData, LiquidityData, PriceData, TVLData, InterestData
+from eth_defi.gmx.types import MarketData, PositionSideData, PriceData, TVLData
 
 from eth_defi.gmx.core.available_liquidity import GetAvailableLiquidity
 from eth_defi.gmx.core.borrow_apr import GetBorrowAPR

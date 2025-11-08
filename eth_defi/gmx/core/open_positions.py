@@ -5,8 +5,6 @@ This module provides access to open positions data for user addresses.
 """
 
 import logging
-
-logger = logging.getLogger(__name__)
 from typing import Any
 
 import numpy as np
@@ -22,6 +20,8 @@ from eth_defi.gmx.contracts import (
     TESTNET_TO_MAINNET_ORACLE_TOKENS,
 )
 from eth_defi.gmx.types import MarketData
+
+logger = logging.getLogger(__name__)
 
 
 class GetOpenPositions(GetData):
@@ -64,16 +64,16 @@ class GetOpenPositions(GetData):
                 # 2. No positions for this address
                 # 3. Network/RPC issues
                 error_msg = str(decode_error)
-                if "Could not decode" in error_msg or "InsufficientDataBytes" in error_msg:
-                    print(f"Could not decode positions for address {checksum_address}: {decode_error}")
-                    # Return empty dict for addresses with no valid positions
-                    return {}
-                else:
-                    # Re-raise other errors
-                    raise
+                logger.error(
+                    f"Could not decode positions for address {checksum_address}: {decode_error}",
+                )
+                # Return empty dict for addresses with no valid positions
+                raise decode_error
 
             if len(raw_positions) == 0:
-                logging.info(f'No positions open for address: "{checksum_address}" on {self.config.chain.title()}.')
+                print(
+                    f'No positions open for address: "{checksum_address}" on {self.config.chain.title()}.',
+                )
                 return {}
 
             processed_positions = {}
@@ -118,7 +118,9 @@ class GetOpenPositions(GetData):
         try:
             # Get tokens metadata from GMX API (includes decimals - no contract calls needed!)
             chain_tokens = get_tokens_metadata_dict(self.config.chain)
-            logging.debug(f"Fetched {len(chain_tokens)} tokens from GMX API for {self.config.chain}")
+            logging.debug(
+                f"Fetched {len(chain_tokens)} tokens from GMX API for {self.config.chain}",
+            )
 
             # Add missing tokens from NETWORK_TOKENS_METADATA if needed
             chain = self.config.chain
@@ -127,7 +129,9 @@ class GetOpenPositions(GetData):
                 for address, metadata in network_tokens_meta.items():
                     if address not in chain_tokens:
                         chain_tokens[address] = metadata
-                        logging.info(f"Added token from NETWORK_TOKENS_METADATA: {metadata['symbol']} ({address})")
+                        logging.info(
+                            f"Added token from NETWORK_TOKENS_METADATA: {metadata['symbol']} ({address})",
+                        )
 
             return chain_tokens
 
@@ -175,7 +179,10 @@ class GetOpenPositions(GetData):
 
             # Map testnet token addresses to mainnet for oracle lookups
             # Testnets don't have their own oracles, so we use mainnet prices
-            oracle_token_address = TESTNET_TO_MAINNET_ORACLE_TOKENS.get(index_token_address, index_token_address)
+            oracle_token_address = TESTNET_TO_MAINNET_ORACLE_TOKENS.get(
+                index_token_address,
+                index_token_address,
+            )
 
             # Try to find the price
             price_data = None
@@ -202,7 +209,9 @@ class GetOpenPositions(GetData):
                 logging.debug(f"Got oracle price for {index_token_address}: ${mark_price:.4f}")
             else:
                 # Price not found in oracle, use entry price
-                logging.debug(f"Oracle price not found for {index_token_address} (oracle address: {oracle_token_address}), using entry price")
+                logging.debug(
+                    f"Oracle price not found for {index_token_address} (oracle address: {oracle_token_address}), using entry price",
+                )
                 mark_price = entry_price
 
         except (KeyError, TypeError, ValueError) as e:
@@ -244,13 +253,13 @@ class GetOpenPositions(GetData):
             "initial_collateral_amount": raw_position[1][2],
             "initial_collateral_amount_usd": raw_position[1][2] / 10**collateral_token_decimals,
             "leverage": leverage,
-            "pending_impact_amount": raw_position[1][3],  # NEW in v2.2
-            "borrowing_factor": raw_position[1][4],  # Shifted from [3] to [4]
-            "funding_fee_amount_per_size": raw_position[1][5],  # Shifted from [4] to [5]
-            "long_token_claimable_funding_amount_per_size": raw_position[1][6],  # Shifted from [5] to [6]
-            "short_token_claimable_funding_amount_per_size": raw_position[1][7],  # Shifted from [6] to [7]
-            "increased_at_time": raw_position[1][8],  # NEW in v2.2
-            "decreased_at_time": raw_position[1][9],  # NEW in v2.2
+            "pending_impact_amount": raw_position[1][3],
+            "borrowing_factor": raw_position[1][4],
+            "funding_fee_amount_per_size": raw_position[1][5],
+            "long_token_claimable_funding_amount_per_size": raw_position[1][6],
+            "short_token_claimable_funding_amount_per_size": raw_position[1][7],
+            "increased_at_time": raw_position[1][8],
+            "decreased_at_time": raw_position[1][9],
             "position_modified_at": "",  # Deprecated, keeping for backward compatibility
             "is_long": raw_position[2][0],
             "percent_profit": percent_profit,

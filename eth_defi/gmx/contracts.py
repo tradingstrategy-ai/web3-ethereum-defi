@@ -244,7 +244,6 @@ def _load_abi(filename: str) -> list:
 
 
 # Token addresses by network - fallback values when API calls fail
-# Token addresses by network - fallback values when API calls fail
 NETWORK_TOKENS = {
     "arbitrum": {
         "WETH": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",

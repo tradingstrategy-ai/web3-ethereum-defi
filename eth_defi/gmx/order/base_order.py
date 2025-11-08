@@ -16,7 +16,7 @@ from eth_utils import to_checksum_address
 from web3.types import TxParams
 
 from eth_defi.gmx.config import GMXConfig
-from eth_defi.gmx.contracts import get_contract_addresses, get_exchange_router_contract, NETWORK_TOKENS, get_datastore_contract, TESTNET_TO_MAINNET_ORACLE_TOKENS
+from eth_defi.gmx.contracts import get_contract_addresses, get_exchange_router_contract, NETWORK_TOKENS, get_datastore_contract, TESTNET_TO_MAINNET_ORACLE_TOKENS, get_reader_contract
 from eth_defi.gmx.constants import PRECISION, ORDER_TYPES, DECREASE_POSITION_SWAP_TYPES, GAS_LIMITS, ETH_ZERO_ADDRESS
 from eth_defi.gmx.core.markets import Markets
 from eth_defi.gmx.core.oracle import OraclePrices
@@ -115,7 +115,10 @@ class BaseOrder:
         self.web3 = config.web3
         self.chain_id = config.web3.eth.chain_id
         self.contract_addresses = get_contract_addresses(self.chain)
-        self._exchange_router_contract = get_exchange_router_contract(self.web3, self.chain)
+        self._exchange_router_contract = get_exchange_router_contract(
+            self.web3,
+            self.chain,
+        )
 
         # Initialize order type constants
         self._order_types = ORDER_TYPES
@@ -123,7 +126,11 @@ class BaseOrder:
         # Initialize gas limits from datastore
         self._initialize_gas_limits()
 
-        logger.debug("Initialized %s for %s", self.__class__.__name__, self.chain)
+        logger.debug(
+            "Initialized %s for %s",
+            self.__class__.__name__,
+            self.chain,
+        )
 
     # New method to initialize gas limits
     def _initialize_gas_limits(self):
@@ -289,7 +296,7 @@ class BaseOrder:
             gas_limits["total"],
         )
 
-        # Estimate price impact (optional, may return None)
+        # Estimate price impact (optional, may return None). Mostly fails on arbitrum
         price_impact = self._estimate_price_impact(
             params,
             market_data,
@@ -356,10 +363,14 @@ class BaseOrder:
             oracle_address = TESTNET_TO_MAINNET_ORACLE_TOKENS.get(params.index_token_address, params.index_token_address)
 
         if oracle_address not in prices:
-            raise ValueError(f"Price not available for token {params.index_token_address} (oracle: {oracle_address})")
+            raise ValueError(
+                f"Price not available for token {params.index_token_address} (oracle: {oracle_address})",
+            )
 
         price_data = prices[oracle_address]
-        price = median([float(price_data["maxPriceFull"]), float(price_data["minPriceFull"])])
+        price = median(
+            [float(price_data["maxPriceFull"]), float(price_data["minPriceFull"])],
+        )
 
         # According to GMX standard, all prices are scaled in 30 decimals
         # The human-readable price is calculated as: human_price = raw / (10 ** (30 - token_decimals))
@@ -660,7 +671,13 @@ class BaseOrder:
             current = allowance / (10**token_details.decimals)
 
             # Just log a warning - don't block transaction creation
-            logger.warning("Insufficient token allowance for %s. Required: %.4f, Current allowance: %.4f. User needs to approve tokens using: token.approve('%s', amount) before submitting the transaction.", token_details.symbol, required, current, self.contract_addresses.syntheticsrouter)
+            logger.warning(
+                "Insufficient token allowance for %s. Required: %.4f, Current allowance: %.4f. User needs to approve tokens using: token.approve('%s', amount) before submitting the transaction.",
+                token_details.symbol,
+                required,
+                current,
+                self.contract_addresses.syntheticsrouter,
+            )
         else:
             logger.debug("Token approval check passed: %.4f %s approved", allowance / (10**token_details.decimals), token_details.symbol)
 
@@ -697,8 +714,6 @@ class BaseOrder:
             return None
 
         try:
-            from eth_defi.gmx.contracts import get_reader_contract
-
             reader = get_reader_contract(self.web3, self.chain)
             # Use cached prices instead of fetching again
             prices = self._cached_prices if self._cached_prices is not None else self.oracle_prices.get_recent_prices()
@@ -749,7 +764,9 @@ class BaseOrder:
 
             # Calculate position size in tokens
             decimals = market_data["market_metadata"]["decimals"]
-            median_price = median([float(price_data["maxPriceFull"]), float(price_data["minPriceFull"])])
+            median_price = median(
+                [float(price_data["maxPriceFull"]), float(price_data["minPriceFull"])],
+            )
 
             # size_delta is already in 10^30 format from OrderArgumentParser
             size_delta_usd = int(params.size_delta)
