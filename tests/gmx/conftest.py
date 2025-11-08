@@ -567,6 +567,7 @@ def wallet_with_wbtc(
         #     large_holder = large_wbtc_holder_avalanche
         #     amount = 5 * 10 ** 8  # 1 WBTC (8 decimals)
         try:
+            # TODO: This is incorrect
             web3_fork.provider.make_request("anvil_addErc20Balance", [wbtc_address, [test_address], hex(amount)])
             # wbtc.contract.functions.transfer(test_address, amount).transact({"from": large_holder})
         except Exception as e:
@@ -986,4 +987,146 @@ def test_wallet_sepolia(arbitrum_sepolia_config):
     wallet = HotWallet.from_private_key(private_key)
     wallet.sync_nonce(arbitrum_sepolia_config.web3)
 
+    return wallet
+
+
+# ============================================================================
+# Arbitrum Mainnet Fork Fixtures (for fork testing with mock oracle)
+# ============================================================================
+
+# Fork configuration constants
+FORK_BLOCK_ARBITRUM = 392496384
+LARGE_USDC_HOLDER_FORK = to_checksum_address("0xEe7aE85f2Fe2239E27D9c1E23fFFe168D63b4055")
+LARGE_WETH_HOLDER_FORK = to_checksum_address("0x70d95587d40A2caf56bd97485aB3Eec10Bee6336")
+MOCK_ETH_PRICE = 3450  # USD
+MOCK_USDC_PRICE = 1  # USD
+
+
+@pytest.fixture(scope="session")
+def arbitrum_mainnet_fork():
+    """
+    Create an Anvil fork of Arbitrum mainnet for testing.
+
+    This fork:
+    - Starts at block 392496384
+    - Unlocks whale addresses for funding test wallets
+    - Uses ARBITRUM_JSON_RPC_URL environment variable
+    """
+    from tests.gmx.fork_helpers import setup_mock_oracle
+
+    rpc_url = os.environ.get("ARBITRUM_JSON_RPC_URL")
+    if not rpc_url:
+        pytest.skip("ARBITRUM_JSON_RPC_URL environment variable not set")
+
+    # Create Anvil fork
+    launch = fork_network_anvil(
+        rpc_url,
+        unlocked_addresses=[LARGE_USDC_HOLDER_FORK, LARGE_WETH_HOLDER_FORK],
+        fork_block_number=FORK_BLOCK_ARBITRUM,
+        test_request_timeout=30,
+        launch_wait_seconds=40,
+    )
+
+    try:
+        yield launch
+    finally:
+        # Wind down Anvil process after tests complete
+        launch.close(log_level=logging.ERROR)
+
+
+@pytest.fixture()
+def web3_arbitrum_fork(arbitrum_mainnet_fork):
+    """
+    Web3 instance connected to Arbitrum mainnet fork.
+
+    This fixture:
+    - Connects to the forked network
+    - Sets up mock oracle with fixed prices
+    - Returns ready-to-use Web3 instance
+    """
+    from tests.gmx.fork_helpers import setup_mock_oracle
+    from web3 import Web3, HTTPProvider
+
+    web3 = Web3(
+        HTTPProvider(
+            arbitrum_mainnet_fork.json_rpc_url,
+            request_kwargs={"timeout": 30},
+        )
+    )
+    install_chain_middleware(web3)
+    web3.eth.set_gas_price_strategy(node_default_gas_price_strategy)
+
+    # Setup mock oracle with fixed prices
+    setup_mock_oracle(web3, eth_price_usd=MOCK_ETH_PRICE, usdc_price_usd=MOCK_USDC_PRICE)
+
+    return web3
+
+
+@pytest.fixture()
+def arbitrum_fork_config(web3_arbitrum_fork, anvil_private_key):
+    """
+    GMX config for Arbitrum mainnet fork with funded wallet.
+
+    This fixture:
+    - Creates a HotWallet from anvil default private key
+    - Funds wallet with ETH, USDC, and WETH
+    - Approves tokens for GMX routers
+    - Returns configured GMXConfig
+    """
+    from tests.gmx.fork_helpers import deal_eth, deal_tokens
+
+    # Create wallet from anvil private key
+    account = Account.from_key(anvil_private_key)
+    wallet = HotWallet(account)
+    wallet.sync_nonce(web3_arbitrum_fork)
+    wallet_address = wallet.get_main_address()
+
+    # Fund wallet with native ETH
+    deal_eth(web3_arbitrum_fork, wallet_address, 100 * 10**18)  # 100 ETH
+
+    # Fund wallet with USDC
+    usdc_address = to_checksum_address("0xaf88d065e77c8cC2239327C5EDb3A432268e5831")
+    usdc_amount = 100_000 * (10**6)  # 100k USDC
+    usdc_token = fetch_erc20_details(web3_arbitrum_fork, usdc_address)
+    usdc_token.contract.functions.transfer(wallet_address, usdc_amount).transact({"from": LARGE_USDC_HOLDER_FORK})
+
+    # Fund wallet with WETH
+    weth_address = to_checksum_address("0x82aF49447D8a07e3bd95BD0d56f35241523fBab1")
+    weth_amount = 1000 * (10**18)  # 1000 WETH
+    weth_token = fetch_erc20_details(web3_arbitrum_fork, weth_address)
+    weth_token.contract.functions.transfer(wallet_address, weth_amount).transact({"from": LARGE_WETH_HOLDER_FORK})
+
+    # Create GMX config
+    config = GMXConfig(web3_arbitrum_fork, user_wallet_address=wallet_address)
+
+    # Approve tokens for GMX routers
+    _approve_tokens_for_config(config, web3_arbitrum_fork, wallet_address)
+
+    return config
+
+
+@pytest.fixture()
+def trading_manager_fork(arbitrum_fork_config):
+    """
+    GMXTrading instance for Arbitrum mainnet fork.
+    Used by test_trading.py tests.
+    """
+    return GMXTrading(arbitrum_fork_config)
+
+
+@pytest.fixture()
+def position_verifier_fork(arbitrum_fork_config):
+    """
+    GetOpenPositions instance for Arbitrum mainnet fork.
+    Used by test_trading.py tests to verify positions.
+    """
+    return GetOpenPositions(arbitrum_fork_config)
+
+
+@pytest.fixture()
+def test_wallet_fork(web3_arbitrum_fork, anvil_private_key):
+    """Create a HotWallet for signing transactions on forked network."""
+    account = Account.from_key(anvil_private_key)
+    wallet = HotWallet(account)
+    wallet.sync_nonce(web3_arbitrum_fork)
     return wallet
