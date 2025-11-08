@@ -1,123 +1,261 @@
 """
-Tests for GMXTrading on Arbitrum Sepolia testnet.
+Tests for GMXTrading on Arbitrum mainnet fork.
 
-These tests verify GMX trading functionality on Arbitrum Sepolia testnet.
-All tests run in debug mode to test functionality without requiring pre-funded wallets.
+These tests verify GMX trading functionality on Arbitrum mainnet fork with mock oracle.
+All tests run on an Anvil fork with a mock oracle to enable testing without live price feeds.
+
+Tests follow the complete order lifecycle:
+1. Create order (sign and submit transaction)
+2. Execute order as keeper (using mock oracle)
+3. Verify position was created with assertions
 
 Required Environment Variables:
-- PRIVATE_KEY: Your wallet private key
-- ARBITRUM_SEPOLIA_RPC_URL: Arbitrum Sepolia RPC endpoint
+- ARBITRUM_JSON_RPC_URL: Arbitrum mainnet RPC endpoint for forking
 
 All fixtures are defined in conftest.py:
-- arbitrum_sepolia_config: GMX config for Sepolia
-- trading_manager_sepolia: GMXTrading instance
-- position_verifier_sepolia: GetOpenPositions instance
+- arbitrum_fork_config: GMX config for mainnet fork
+- trading_manager_fork: GMXTrading instance
+- position_verifier_fork: GetOpenPositions instance
+- web3_arbitrum_fork: Web3 instance with mock oracle setup
+- test_wallet: HotWallet for signing transactions
 """
 
 from eth_defi.gmx.order.base_order import OrderResult
 from eth_defi.gmx.trading import GMXTrading
+from tests.gmx.fork_helpers import execute_order_as_keeper, extract_order_key_from_receipt
 
 
-def test_initialization(arbitrum_sepolia_config):
-    """Test that the trading module initializes correctly on Arbitrum Sepolia."""
-    trading = GMXTrading(arbitrum_sepolia_config)
-    assert trading.config == arbitrum_sepolia_config
-    assert trading.config.get_chain().lower() == "arbitrum_sepolia"
+def test_initialization(arbitrum_fork_config):
+    """Test that the trading module initializes correctly on Arbitrum mainnet fork."""
+    trading = GMXTrading(arbitrum_fork_config)
+    assert trading.config == arbitrum_fork_config
+    assert trading.config.get_chain().lower() == "arbitrum"
 
 
-def test_create_long_position_order(trading_manager_sepolia):
+def test_open_long_position(
+    web3_arbitrum_fork,
+    trading_manager_fork,
+    position_verifier_fork,
+    arbitrum_fork_config,
+    test_wallet,
+):
     """
-    Test creating a long position order (without executing).
+    Test opening a long ETH position with full execution.
 
-    This verifies OrderResult is returned with proper structure.
-    Uses CRV market with USDC.SG collateral (available on Arbitrum Sepolia).
+    Flow:
+    1. Create order (ETH market, ETH collateral, 2.5x leverage)
+    2. Submit transaction to blockchain
+    3. Execute order as keeper
+    4. Verify position was created
     """
-    # Create order (doesn't execute without signing)
-    # Using CRV market and USDC.SG as these are available on Arbitrum Sepolia testnet
-    order_result = trading_manager_sepolia.open_position(
-        market_symbol="CRV",
-        collateral_symbol="USDC.SG",
-        start_token_symbol="USDC.SG",
+    wallet_address = arbitrum_fork_config.get_wallet_address()
+
+    # Record initial state
+    initial_positions = position_verifier_fork.get_data(wallet_address)
+    initial_position_count = len(initial_positions)
+
+    # === Step 1: Create order ===
+    order_result = trading_manager_fork.open_position(
+        market_symbol="ETH",
+        collateral_symbol="ETH",
+        start_token_symbol="ETH",
         is_long=True,
         size_delta_usd=10,
-        leverage=1,
-        slippage_percent=0.003,
+        leverage=2.5,
+        slippage_percent=0.005,
         execution_buffer=2.2,
     )
 
     # Verify OrderResult structure
     assert isinstance(order_result, OrderResult), "Expected OrderResult instance"
     assert hasattr(order_result, "transaction"), "OrderResult should have transaction"
-    assert hasattr(order_result, "execution_fee"), "OrderResult should have execution_fee"
-    assert hasattr(order_result, "acceptable_price"), "OrderResult should have acceptable_price"
-    assert hasattr(order_result, "mark_price"), "OrderResult should have mark_price"
-    assert hasattr(order_result, "gas_limit"), "OrderResult should have gas_limit"
+    assert order_result.execution_fee > 0, "Execution fee should be > 0"
 
-    # Verify transaction structure
-    assert "from" in order_result.transaction, "Transaction should have 'from' field"
-    assert "to" in order_result.transaction, "Transaction should have 'to' field"
-    assert "data" in order_result.transaction, "Transaction should have 'data' field"
+    # === Step 2: Submit order transaction ===
+    transaction = order_result.transaction.copy()
+    if "nonce" in transaction:
+        del transaction["nonce"]
+
+    signed_tx = test_wallet.sign_transaction_with_new_nonce(transaction)
+    tx_hash = web3_arbitrum_fork.eth.send_raw_transaction(signed_tx.rawTransaction)
+    receipt = web3_arbitrum_fork.eth.wait_for_transaction_receipt(tx_hash)
+
+    assert receipt["status"] == 1, "Order transaction should succeed"
+
+    # Extract order key from receipt
+    order_key = extract_order_key_from_receipt(receipt)
+    assert order_key is not None, "Should extract order key from receipt"
+
+    # === Step 3: Execute order as keeper ===
+    exec_receipt, keeper_address = execute_order_as_keeper(web3_arbitrum_fork, order_key)
+    assert exec_receipt["status"] == 1, "Order execution should succeed"
+
+    # === Step 4: Verify position was created ===
+    final_positions = position_verifier_fork.get_data(wallet_address)
+    final_position_count = len(final_positions)
+
+    assert final_position_count == initial_position_count + 1, "Should have 1 more position"
+
+    # Verify position details
+    assert len(final_positions) > 0, "Should have at least one position"
+    position_key, position = list(final_positions.items())[0]
+
+    assert position["market_symbol"] == "ETH", "Position should be for ETH market"
+    assert position["is_long"] is True, "Position should be long"
+    assert position["position_size"] > 0, "Position size should be > 0"
+    assert position["leverage"] > 0, "Leverage should be > 0"
 
 
-def test_create_short_position_order(trading_manager_sepolia):
+def test_open_short_position(
+    web3_arbitrum_fork,
+    trading_manager_fork,
+    position_verifier_fork,
+    arbitrum_fork_config,
+    test_wallet,
+):
     """
-    Test creating a short position order (without executing).
+    Test opening a short ETH position with full execution.
 
-    This verifies OrderResult is returned for short positions.
-    Uses CRV market with USDC.SG collateral (available on Arbitrum Sepolia).
+    Flow:
+    1. Create order (ETH market, USDC collateral, 2.5x leverage)
+    2. Submit transaction to blockchain
+    3. Execute order as keeper
+    4. Verify position was created
     """
-    # Create order (doesn't execute without signing)
-    # Using CRV market and USDC.SG as these are available on Arbitrum Sepolia testnet
-    order_result = trading_manager_sepolia.open_position(
-        market_symbol="CRV",
-        collateral_symbol="USDC.SG",
-        start_token_symbol="USDC.SG",
+    wallet_address = arbitrum_fork_config.get_wallet_address()
+
+    # Record initial state
+    initial_positions = position_verifier_fork.get_data(wallet_address)
+    initial_position_count = len(initial_positions)
+
+    # === Step 1: Create order ===
+    order_result = trading_manager_fork.open_position(
+        market_symbol="ETH",
+        collateral_symbol="USDC",
+        start_token_symbol="USDC",
         is_long=False,
         size_delta_usd=10,
-        leverage=1,
-        slippage_percent=0.003,
+        leverage=2.5,
+        slippage_percent=0.005,
         execution_buffer=2.2,
     )
 
-    # Verify OrderResult structure
     assert isinstance(order_result, OrderResult), "Expected OrderResult instance"
-    assert hasattr(order_result, "transaction"), "OrderResult should have transaction"
-    assert hasattr(order_result, "execution_fee"), "OrderResult should have execution_fee"
+
+    # === Step 2: Submit order transaction ===
+    transaction = order_result.transaction.copy()
+    if "nonce" in transaction:
+        del transaction["nonce"]
+
+    signed_tx = test_wallet.sign_transaction_with_new_nonce(transaction)
+    tx_hash = web3_arbitrum_fork.eth.send_raw_transaction(signed_tx.rawTransaction)
+    receipt = web3_arbitrum_fork.eth.wait_for_transaction_receipt(tx_hash)
+
+    assert receipt["status"] == 1, "Order transaction should succeed"
+
+    # Extract order key
+    order_key = extract_order_key_from_receipt(receipt)
+    assert order_key is not None, "Should extract order key from receipt"
+
+    # === Step 3: Execute order as keeper ===
+    exec_receipt, keeper_address = execute_order_as_keeper(web3_arbitrum_fork, order_key)
+    assert exec_receipt["status"] == 1, "Order execution should succeed"
+
+    # === Step 4: Verify position was created ===
+    final_positions = position_verifier_fork.get_data(wallet_address)
+    final_position_count = len(final_positions)
+
+    assert final_position_count == initial_position_count + 1, "Should have 1 more position"
+
+    # Verify position details
+    position_key, position = list(final_positions.items())[0]
+    assert position["market_symbol"] == "ETH", "Position should be for ETH market"
+    assert position["is_long"] is False, "Position should be short"
+    assert position["position_size"] > 0, "Position size should be > 0"
 
 
-def test_get_open_positions(position_verifier_sepolia, arbitrum_sepolia_config):
+def test_open_and_close_position(
+    web3_arbitrum_fork,
+    trading_manager_fork,
+    position_verifier_fork,
+    arbitrum_fork_config,
+    test_wallet,
+):
     """
-    Test fetching open positions.
+    Test full position lifecycle: open then close.
 
-    This verifies GetOpenPositions works on Sepolia.
+    Flow:
+    1. Open position (long ETH)
+    2. Verify position was created
+    3. Close position (decrease to 0)
+    4. Verify position was closed
     """
-    wallet_address = arbitrum_sepolia_config.get_wallet_address()
+    wallet_address = arbitrum_fork_config.get_wallet_address()
 
-    # Fetch open positions (may be empty)
-    open_positions = position_verifier_sepolia.get_data(wallet_address)
+    # Record initial state
+    initial_positions = position_verifier_fork.get_data(wallet_address)
+    initial_position_count = len(initial_positions)
 
-    # Should return a dict (even if empty)
-    assert isinstance(open_positions, dict), "Should return dict of positions"
-
-
-def test_create_swap_order(trading_manager_sepolia):
-    """
-    Test creating a swap order (without executing).
-
-    This verifies swap orders return proper OrderResult.
-    Uses USDC.SG → BTC swap (tokens available on Arbitrum Sepolia).
-    """
-    # Create swap order (doesn't execute without signing)
-    # Using USDC.SG → BTC as these tokens are available on Arbitrum Sepolia testnet
-    order_result = trading_manager_sepolia.swap_tokens(
-        out_token_symbol="BTC",
-        in_token_symbol="USDC.SG",
-        amount=5,
-        slippage_percent=0.02,
-        execution_buffer=2.5,
+    # === Step 1: Open position ===
+    order_result = trading_manager_fork.open_position(
+        market_symbol="ETH",
+        collateral_symbol="ETH",
+        start_token_symbol="ETH",
+        is_long=True,
+        size_delta_usd=10,
+        leverage=2.5,
+        slippage_percent=0.005,
+        execution_buffer=2.2,
     )
 
-    # Verify OrderResult structure
-    assert isinstance(order_result, OrderResult), "Expected OrderResult instance"
-    assert hasattr(order_result, "transaction"), "OrderResult should have transaction"
-    assert hasattr(order_result, "execution_fee"), "OrderResult should have execution_fee"
+    # Submit and execute open order
+    transaction = order_result.transaction.copy()
+    if "nonce" in transaction:
+        del transaction["nonce"]
+
+    signed_tx = test_wallet.sign_transaction_with_new_nonce(transaction)
+    tx_hash = web3_arbitrum_fork.eth.send_raw_transaction(signed_tx.rawTransaction)
+    receipt = web3_arbitrum_fork.eth.wait_for_transaction_receipt(tx_hash)
+
+    assert receipt["status"] == 1, "Open order transaction should succeed"
+
+    order_key = extract_order_key_from_receipt(receipt)
+    exec_receipt, _ = execute_order_as_keeper(web3_arbitrum_fork, order_key)
+    assert exec_receipt["status"] == 1, "Open order execution should succeed"
+
+    # === Step 2: Verify position was created ===
+    positions_after_open = position_verifier_fork.get_data(wallet_address)
+    assert len(positions_after_open) == initial_position_count + 1, "Should have 1 position after opening"
+
+    position_key, position = list(positions_after_open.items())[0]
+    position_size_usd = position["position_size"]
+    assert position_size_usd > 0, "Position size should be > 0"
+
+    # === Step 3: Close position ===
+    close_order_result = trading_manager_fork.close_position(
+        market_symbol="ETH",
+        collateral_symbol="ETH",
+        is_long=True,
+        size_delta_usd=position_size_usd,  # Close full position
+        slippage_percent=0.005,
+        execution_buffer=2.2,
+    )
+
+    # Submit and execute close order
+    close_transaction = close_order_result.transaction.copy()
+    if "nonce" in close_transaction:
+        del close_transaction["nonce"]
+
+    signed_close_tx = test_wallet.sign_transaction_with_new_nonce(close_transaction)
+    close_tx_hash = web3_arbitrum_fork.eth.send_raw_transaction(signed_close_tx.rawTransaction)
+    close_receipt = web3_arbitrum_fork.eth.wait_for_transaction_receipt(close_tx_hash)
+
+    assert close_receipt["status"] == 1, "Close order transaction should succeed"
+
+    close_order_key = extract_order_key_from_receipt(close_receipt)
+    close_exec_receipt, _ = execute_order_as_keeper(web3_arbitrum_fork, close_order_key)
+    assert close_exec_receipt["status"] == 1, "Close order execution should succeed"
+
+    # === Step 4: Verify position was closed ===
+    positions_after_close = position_verifier_fork.get_data(wallet_address)
+    assert len(positions_after_close) == initial_position_count, "Should have no positions after closing"

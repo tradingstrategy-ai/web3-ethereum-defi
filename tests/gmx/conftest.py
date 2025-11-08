@@ -11,7 +11,7 @@ from eth_defi.chain import install_chain_middleware, get_chain_id_by_name
 from eth_defi.gas import node_default_gas_price_strategy
 from eth_defi.gmx.api import GMXAPI
 from eth_defi.gmx.config import GMXConfig
-from eth_defi.gmx.core import GetOpenPositions, GetPoolTVL, Markets
+from eth_defi.gmx.core import GetOpenPositions, GetPoolTVL, Markets, GetFundingFee, GetClaimableFees, GetBorrowAPR, GetAvailableLiquidity
 from eth_defi.gmx.core.glv_stats import GlvStats
 from eth_defi.gmx.data import GMXMarketData
 
@@ -30,6 +30,11 @@ import pytest
 from eth_typing import HexAddress
 
 from eth_defi.utils import addr
+
+# Fork configuration constants
+FORK_BLOCK_ARBITRUM = 392496384
+MOCK_ETH_PRICE = 3450  # USD
+MOCK_USDC_PRICE = 1  # USD
 
 
 def get_gmx_address(chain_id: int, symbol: str) -> str:
@@ -317,13 +322,11 @@ def anvil_chain_fork(
         unlocked_addresses.append(large_wbtc_holder_avalanche)
         unlocked_addresses.append(large_link_holder_avalanche)
 
-    fork_block = CHAIN_CONFIG[chain_name]["fork_block_number"]
-
     launch = fork_network_anvil(
         chain_rpc_url,
         unlocked_addresses=unlocked_addresses,
         test_request_timeout=30,
-        fork_block_number=fork_block,
+        fork_block_number=FORK_BLOCK_ARBITRUM,
         launch_wait_seconds=40,
     )
 
@@ -335,7 +338,7 @@ def anvil_chain_fork(
 
 
 @pytest.fixture()
-def web3_fork(anvil_chain_fork: str) -> Web3:
+def web3_arbitrum_fork(anvil_chain_fork: str) -> Web3:
     """Set up a local unit testing blockchain with the forked chain."""
     web3 = Web3(
         HTTPProvider(
@@ -364,7 +367,9 @@ def web3_mainnet(chain_name, chain_rpc_url):
     chain_id = web3.eth.chain_id
     expected_chain_id = CHAIN_CONFIG[chain_name]["chain_id"]
     if chain_id != expected_chain_id:
-        pytest.skip(f"Connected to chain ID {chain_id}, but expected {chain_name.upper()} ({expected_chain_id})")
+        pytest.skip(
+            f"Connected to chain ID {chain_id}, but expected {chain_name.upper()} ({expected_chain_id})",
+        )
 
     return web3
 
@@ -395,44 +400,56 @@ def api(gmx_config):
 
 # Token fixtures for specific chains
 @pytest.fixture()
-def wbtc_arbitrum(web3_fork: Web3, chain_name) -> TokenDetails:
+def wbtc_arbitrum(web3_arbitrum_fork: Web3, chain_name) -> TokenDetails:
     """WBTC token on Arbitrum."""
     if chain_name != "arbitrum":
         pytest.skip("This fixture is for Arbitrum only")
-    return fetch_erc20_details(web3_fork, CHAIN_CONFIG["arbitrum"]["wbtc_address"])
+    return fetch_erc20_details(
+        web3_arbitrum_fork,
+        CHAIN_CONFIG["arbitrum"]["wbtc_address"],
+    )
 
 
 @pytest.fixture()
-def usdc_arbitrum(web3_fork: Web3, chain_name) -> TokenDetails:
+def usdc_arbitrum(web3_arbitrum_fork: Web3, chain_name) -> TokenDetails:
     """USDC token on Arbitrum."""
     if chain_name != "arbitrum":
         pytest.skip("This fixture is for Arbitrum only")
-    return fetch_erc20_details(web3_fork, CHAIN_CONFIG["arbitrum"]["usdc_address"])
+    return fetch_erc20_details(
+        web3_arbitrum_fork,
+        CHAIN_CONFIG["arbitrum"]["usdc_address"],
+    )
 
 
 @pytest.fixture()
-def usdt_arbitrum(web3_fork: Web3, chain_name) -> TokenDetails:
+def usdt_arbitrum(web3_arbitrum_fork: Web3, chain_name) -> TokenDetails:
     """USDT token on Arbitrum."""
     if chain_name != "arbitrum":
         pytest.skip("This fixture is for Arbitrum only")
-    return fetch_erc20_details(web3_fork, CHAIN_CONFIG["arbitrum"]["usdt_address"])
+    return fetch_erc20_details(
+        web3_arbitrum_fork,
+        CHAIN_CONFIG["arbitrum"]["usdt_address"],
+    )
 
 
 @pytest.fixture()
-def wbtc_avalanche(web3_fork: Web3, chain_name) -> TokenDetails:
+def wbtc_avalanche(web3_arbitrum_fork: Web3, chain_name) -> TokenDetails:
     """WBTC token on Avalanche."""
     if chain_name != "avalanche":
         pytest.skip("This fixture is for Avalanche only")
-    return fetch_erc20_details(web3_fork, CHAIN_CONFIG["avalanche"]["wbtc_address"])
+    return fetch_erc20_details(
+        web3_arbitrum_fork,
+        CHAIN_CONFIG["avalanche"]["wbtc_address"],
+    )
 
 
 @pytest.fixture()
-def wavax_avalanche(web3_fork: Web3, chain_name) -> TokenDetails:
+def wavax_avalanche(web3_arbitrum_fork: Web3, chain_name) -> TokenDetails:
     """WAVAX token on Avalanche."""
     if chain_name != "avalanche":
         pytest.skip("This fixture is for Avalanche only")
     return fetch_erc20_details(
-        web3_fork,
+        web3_arbitrum_fork,
         CHAIN_CONFIG["avalanche"]["wavax_address"],
         contract_name="./WAVAX.json",
     )
@@ -440,66 +457,70 @@ def wavax_avalanche(web3_fork: Web3, chain_name) -> TokenDetails:
 
 # Generic token fixtures that adapt to the current chain
 @pytest.fixture()
-def wbtc(web3_fork: Web3, chain_name) -> TokenDetails:
+def wbtc(web3_arbitrum_fork: Web3, chain_name) -> TokenDetails:
     """WBTC token details for the specified chain."""
     wbtc_address = CHAIN_CONFIG[chain_name]["wbtc_address"]
-    return fetch_erc20_details(web3_fork, wbtc_address)
+    return fetch_erc20_details(web3_arbitrum_fork, wbtc_address)
 
 
 @pytest.fixture()
-def usdc(web3_fork: Web3, chain_name) -> TokenDetails:
+def usdc(web3_arbitrum_fork: Web3, chain_name) -> TokenDetails:
     """USDC token details for the specified chain."""
     usdc_address = CHAIN_CONFIG[chain_name]["usdc_address"]
-    return fetch_erc20_details(web3_fork, usdc_address)
+    return fetch_erc20_details(web3_arbitrum_fork, usdc_address)
 
 
 @pytest.fixture()
-def wsol(web3_fork: Web3, chain_name) -> TokenDetails:
+def wsol(web3_arbitrum_fork: Web3, chain_name) -> TokenDetails:
     """WSOL token details for the specified chain."""
     wsol_address = CHAIN_CONFIG[chain_name]["wsol_address"]
-    return fetch_erc20_details(web3_fork, wsol_address)
+    return fetch_erc20_details(web3_arbitrum_fork, wsol_address)
 
 
 @pytest.fixture()
-def link(web3_fork: Web3, chain_name) -> TokenDetails:
+def link(web3_arbitrum_fork: Web3, chain_name) -> TokenDetails:
     """LINK token details for the specified chain."""
     link_address = CHAIN_CONFIG[chain_name]["link_address"]
-    return fetch_erc20_details(web3_fork, link_address)
+    return fetch_erc20_details(web3_arbitrum_fork, link_address)
 
 
 @pytest.fixture()
-def arb(web3_fork: Web3, chain_name) -> TokenDetails:
+def arb(web3_arbitrum_fork: Web3, chain_name) -> TokenDetails:
     """ARB token details for the specified chain."""
     arb_address = CHAIN_CONFIG[chain_name]["arb_address"]
-    return fetch_erc20_details(web3_fork, arb_address)
+    return fetch_erc20_details(web3_arbitrum_fork, arb_address)
 
 
 @pytest.fixture()
-def usdt(web3_fork: Web3, chain_name) -> TokenDetails:
+def usdt(web3_arbitrum_fork: Web3, chain_name) -> TokenDetails:
     """USDT token details for the specified chain."""
     usdt_address = CHAIN_CONFIG[chain_name]["usdt_address"]
-    return fetch_erc20_details(web3_fork, usdt_address)
+    return fetch_erc20_details(web3_arbitrum_fork, usdt_address)
 
 
 @pytest.fixture()
-def aave(web3_fork: Web3, chain_name) -> TokenDetails:
+def aave(web3_arbitrum_fork: Web3, chain_name) -> TokenDetails:
     """AAVE token details for the specified chain."""
     aave_address = CHAIN_CONFIG[chain_name]["aave_address"]
-    return fetch_erc20_details(web3_fork, aave_address)
+    return fetch_erc20_details(web3_arbitrum_fork, aave_address)
 
 
 @pytest.fixture()
-def wrapped_native_token(web3_fork: Web3, chain_name) -> TokenDetails:
+def wrapped_native_token(web3_arbitrum_fork: Web3, chain_name) -> TokenDetails:
     """Get the native wrapped token (WETH for Arbitrum, WAVAX for Avalanche)."""
     native_address = CHAIN_CONFIG[chain_name]["native_token_address"]
     contract_name = "./WAVAX.json" if chain_name == "avalanche" else "ERC20MockDecimals.json"
-    return fetch_erc20_details(web3_fork, native_address, contract_name=contract_name)
+    return fetch_erc20_details(
+        web3_arbitrum_fork,
+        native_address,
+        contract_name=contract_name,
+    )
 
 
 # Wallet funding fixtures
 @pytest.fixture()
 def wallet_with_native_token(
-    web3_fork: Web3,
+    web3_arbitrum_fork: Web3,
     chain_name,
     test_address: HexAddress,
     gmx_controller_arbitrum: HexAddress,
@@ -513,18 +534,30 @@ def wallet_with_native_token(
     if chain_name == "avalanche":
         # For Avalanche, we need to wrap AVAX
         wavax_address = CHAIN_CONFIG["avalanche"]["native_token_address"]
-        wavax = fetch_erc20_details(web3_fork, wavax_address, contract_name="./WAVAX.json")
-        wavax.contract.functions.deposit().transact({"from": test_address, "value": amount})
+        wavax = fetch_erc20_details(
+            web3_arbitrum_fork,
+            wavax_address,
+            contract_name="./WAVAX.json",
+        )
+        wavax.contract.functions.deposit().transact(
+            {"from": test_address, "value": amount},
+        )
     else:
         # Fund the account with native gas tokens of arbitrum
         amount_wei = 5000000 * 10**18
-        web3_fork.provider.make_request("anvil_setBalance", [gmx_controller_arbitrum, hex(amount_wei)])
-        web3_fork.provider.make_request("anvil_setBalance", [test_address, hex(amount_wei)])
+        web3_arbitrum_fork.provider.make_request(
+            "anvil_setBalance",
+            [gmx_controller_arbitrum, hex(amount_wei)],
+        )
+        web3_arbitrum_fork.provider.make_request(
+            "anvil_setBalance",
+            [test_address, hex(amount_wei)],
+        )
 
 
 @pytest.fixture()
 def wallet_with_usdc(
-    web3_fork: Web3,
+    web3_arbitrum_fork: Web3,
     chain_name,
     test_address: HexAddress,
     large_usdc_holder_arbitrum,
@@ -533,17 +566,19 @@ def wallet_with_usdc(
     """Fund the test wallet with USDC."""
     if chain_name == "arbitrum":
         usdc_address = CHAIN_CONFIG["arbitrum"]["usdc_address"]
-        usdc = fetch_erc20_details(web3_fork, usdc_address)
+        usdc = fetch_erc20_details(web3_arbitrum_fork, usdc_address)
         large_holder = large_usdc_holder_arbitrum
         amount = 100_000 * 10**6  # 100,000 USDC (6 decimals)
     else:  # avalanche
         usdc_address = CHAIN_CONFIG["avalanche"]["usdc_address"]
-        usdc = fetch_erc20_details(web3_fork, usdc_address)
+        usdc = fetch_erc20_details(web3_arbitrum_fork, usdc_address)
         large_holder = large_usdc_holder_avalanche
         amount = 100_000 * 10**6  # 100,000 USDC (6 decimals)
 
     try:
-        usdc.contract.functions.transfer(test_address, amount).transact({"from": large_holder})
+        usdc.contract.functions.transfer(test_address, amount).transact(
+            {"from": large_holder},
+        )
     except Exception as e:
         # If the transfer fails, skip the test instead of failing
         pytest.skip(f"Could not transfer USDC to test wallet: {str(e)}")
@@ -551,7 +586,7 @@ def wallet_with_usdc(
 
 @pytest.fixture()
 def wallet_with_wbtc(
-    web3_fork: Web3,
+    web3_arbitrum_fork: Web3,
     chain_name,
     test_address: HexAddress,
     large_wbtc_holder,
@@ -563,12 +598,15 @@ def wallet_with_wbtc(
         amount = 5 * 10**8  # 5 WBTC (8 decimals)
         # else:  # avalanche
         #     wbtc_address = CHAIN_CONFIG["avalanche"]["wbtc_address"]
-        #     wbtc = fetch_erc20_details(web3_fork, wbtc_address)
+        #     wbtc = fetch_erc20_details(web3_arbitrum_fork, wbtc_address)
         #     large_holder = large_wbtc_holder_avalanche
         #     amount = 5 * 10 ** 8  # 1 WBTC (8 decimals)
         try:
             # TODO: This is incorrect
-            web3_fork.provider.make_request("anvil_addErc20Balance", [wbtc_address, [test_address], hex(amount)])
+            web3_arbitrum_fork.provider.make_request(
+                "anvil_addErc20Balance",
+                [wbtc_address, [test_address], hex(amount)],
+            )
             # wbtc.contract.functions.transfer(test_address, amount).transact({"from": large_holder})
         except Exception as e:
             # If the transfer fails, skip the test instead of failing
@@ -576,36 +614,51 @@ def wallet_with_wbtc(
 
 
 @pytest.fixture()
-def wallet_with_link(web3_fork, chain_name, test_address: HexAddress, large_link_holder_avalanche) -> None:
+def wallet_with_link(
+    web3_arbitrum_fork,
+    chain_name,
+    test_address: HexAddress,
+    large_link_holder_avalanche,
+) -> None:
     """Fund the test wallet with LINK."""
     amount = 10000 * 10**18
     if chain_name == "avalanche":
         # First, fund the LINK holder with AVAX for gas
         eth_amount_wei = 10 * 10**18  # 10 AVAX for gas
-        web3_fork.provider.make_request("anvil_setBalance", [large_link_holder_avalanche, hex(eth_amount_wei)])
+        web3_arbitrum_fork.provider.make_request(
+            "anvil_setBalance",
+            [large_link_holder_avalanche, hex(eth_amount_wei)],
+        )
 
         link_address = CHAIN_CONFIG[chain_name]["link_address"]
-        link = fetch_erc20_details(web3_fork, link_address)
+        link = fetch_erc20_details(web3_arbitrum_fork, link_address)
         # 10k LINK tokens
         try:
-            link.contract.functions.transfer(test_address, amount).transact({"from": large_link_holder_avalanche})
+            link.contract.functions.transfer(test_address, amount).transact(
+                {"from": large_link_holder_avalanche},
+            )
         except Exception as e:
             # If the transfer fails, skip the test instead of failing
             pytest.skip(f"Could not transfer LINK to test wallet: {str(e)}")
     # else:
     #     link_address = to_checksum_address(CHAIN_CONFIG[chain_name]["link_address"])
     #
-    #     web3_fork.provider.make_request("anvil_addErc20Balance", [link_address, [test_address], hex(amount)])
+    #     web3_arbitrum_fork.provider.make_request("anvil_addErc20Balance", [link_address, [test_address], hex(amount)])
 
 
 @pytest.fixture()
-def wallet_with_arb(web3_fork, chain_name, test_address: HexAddress, large_arb_holder_arbitrum: HexAddress) -> None:
+def wallet_with_arb(
+    web3_arbitrum_fork,
+    chain_name,
+    test_address: HexAddress,
+    large_arb_holder_arbitrum: HexAddress,
+) -> None:
     """Fund the test wallet with LINK."""
     amount = 1000000 * 10**18
     if chain_name == "arbitrum":
         try:
             arb_address = to_checksum_address(CHAIN_CONFIG[chain_name]["arb_address"])
-            arb = fetch_erc20_details(web3_fork, arb_address)
+            arb = fetch_erc20_details(web3_arbitrum_fork, arb_address)
             arb.contract.functions.transfer(test_address, amount).transact({"from": large_arb_holder_arbitrum})
         except Exception as e:
             # If the transfer fails, skip the test instead of failing
@@ -631,34 +684,12 @@ def anvil_private_key() -> HexAddress:
     return HexAddress(HexStr("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"))
 
 
-@pytest.fixture()
-def gmx_config_fork(
-    web3_fork: Web3,
-    test_address: HexAddress,
-    anvil_private_key: HexAddress,
-    wallet_with_all_tokens,
-) -> GMXConfig:
-    """Create a GMX configuration with a wallet for testing transactions."""
-    # Create a hot wallet with the anvil private key
-    account = Account.from_key(anvil_private_key)
-    wallet = HotWallet(account)
-    wallet.sync_nonce(web3_fork)
-
-    # The wallet_with_all_tokens fixture ensures the wallet has all necessary tokens
-    config = GMXConfig(web3_fork, user_wallet_address=test_address)
-
-    # Approve tokens for this config after creation
-    _approve_tokens_for_config(config, web3_fork, test_address)
-
-    return config
-
-
-def _approve_tokens_for_config(config: GMXConfig, web3_fork, test_address):
+def _approve_tokens_for_config(
+    config: GMXConfig,
+    web3_arbitrum_fork,
+    test_address,
+):
     """Helper function to approve tokens for the GMX routers."""
-    from eth_utils import to_checksum_address
-    from eth_defi.token import fetch_erc20_details
-    from eth_defi.gmx.contracts import NETWORK_TOKENS, get_contract_addresses
-    from eth_defi.gmx.core.markets import Markets
 
     # Approve tokens for GMX routers
     chain_name = config.get_chain()
@@ -685,7 +716,7 @@ def _approve_tokens_for_config(config: GMXConfig, web3_fork, test_address):
 
     for token_addr in token_addresses:
         try:
-            token_details = fetch_erc20_details(web3_fork, token_addr)
+            token_details = fetch_erc20_details(web3_arbitrum_fork, token_addr)
             for router_address in router_addresses:
                 try:
                     approve_tx = token_details.contract.functions.approve(router_address, large_amount)
@@ -715,11 +746,11 @@ def trading_manager(gmx_config_fork):
 
 
 @pytest.fixture()
-def test_wallet(web3_fork, anvil_private_key):
+def test_wallet(web3_arbitrum_fork, anvil_private_key):
     """Create a HotWallet for testing transactions."""
     account = Account.from_key(anvil_private_key)
     wallet = HotWallet(account)
-    wallet.sync_nonce(web3_fork)
+    wallet.sync_nonce(web3_arbitrum_fork)
     return wallet
 
 
@@ -757,23 +788,18 @@ def account_with_positions(chain_name):
 @pytest.fixture
 def get_available_liquidity(gmx_config):
     """Create GetAvailableLiquidity instance."""
-    from eth_defi.gmx.core.available_liquidity import GetAvailableLiquidity
-
     return GetAvailableLiquidity(gmx_config)
 
 
 @pytest.fixture
 def get_borrow_apr(gmx_config):
     """Create GetBorrowAPR instance."""
-    from eth_defi.gmx.core.borrow_apr import GetBorrowAPR
-
     return GetBorrowAPR(gmx_config)
 
 
 @pytest.fixture
 def get_claimable_fees(gmx_config):
     """Create GetClaimableFees instance."""
-    from eth_defi.gmx.core.claimable_fees import GetClaimableFees
 
     return GetClaimableFees(gmx_config)
 
@@ -781,7 +807,6 @@ def get_claimable_fees(gmx_config):
 @pytest.fixture
 def get_funding_fee(gmx_config):
     """Create GetFundingFee instance."""
-    from eth_defi.gmx.core.funding_fee import GetFundingFee
 
     return GetFundingFee(gmx_config)
 
@@ -859,7 +884,7 @@ def large_gm_eth_usdc_holder_arbitrum() -> HexAddress:
 
 @pytest.fixture()
 def wallet_with_gm_tokens(
-    web3_fork,
+    web3_arbitrum_fork,
     chain_name,
     test_address: HexAddress,
 ) -> None:
@@ -868,7 +893,6 @@ def wallet_with_gm_tokens(
     GM tokens are GMX market/liquidity pool tokens needed for withdrawal operations.
     We use anvil_setStorageAt to directly set the balance instead of transferring.
     """
-    from eth_defi.token import fetch_erc20_details
 
     # Use different GM markets for different chains
     if chain_name == "avalanche":
@@ -879,7 +903,7 @@ def wallet_with_gm_tokens(
         gm_market = "0x70d95587d40A2caf56bd97485aB3Eec10Bee6336"
 
     # Get GM token contract
-    gm_token = fetch_erc20_details(web3_fork, gm_market)
+    gm_token = fetch_erc20_details(web3_arbitrum_fork, gm_market)
 
     # Calculate storage slot for the balance
     # For most ERC20 tokens, balances are stored in slot 0
@@ -895,7 +919,7 @@ def wallet_with_gm_tokens(
     balance = 100 * 10**18
 
     # Use anvil_setStorageAt to set the balance
-    web3_fork.provider.make_request(
+    web3_arbitrum_fork.provider.make_request(
         "anvil_setStorageAt",
         [
             gm_market,
@@ -988,3 +1012,73 @@ def test_wallet_sepolia(arbitrum_sepolia_config):
     wallet.sync_nonce(arbitrum_sepolia_config.web3)
 
     return wallet
+
+
+@pytest.fixture()
+def arbitrum_fork_config(
+    web3_arbitrum_fork,
+    anvil_private_key,
+    large_weth_holder_arbitrum,
+    large_usdc_holder_arbitrum,
+    wallet_with_all_tokens,
+) -> GMXConfig:
+    """
+    GMX config for Arbitrum mainnet fork with funded wallet.
+
+    This fixture:
+    - Creates a HotWallet from anvil default private key
+    - Funds wallet with ETH, USDC, and WETH
+    - Approves tokens for GMX routers
+    - Returns configured GMXConfig
+    """
+
+    # Create wallet from anvil private key
+    account = Account.from_key(anvil_private_key)
+    wallet = HotWallet(account)
+    wallet.sync_nonce(web3_arbitrum_fork)
+    wallet_address = wallet.get_main_address()
+
+    # Fund wallet with native ETH
+    # deal_eth(web3_arbitrum_fork, wallet_address, 100 * 10**18)  # 100 ETH
+
+    # Fund wallet with USDC
+    usdc_address = CHAIN_CONFIG["arbitrum"]["usdc_address"]
+    usdc_amount = 100_000 * (10**6)  # 100k USDC
+    usdc_token = fetch_erc20_details(web3_arbitrum_fork, usdc_address)
+    usdc_token.contract.functions.transfer(wallet_address, usdc_amount).transact(
+        {"from": large_usdc_holder_arbitrum},
+    )
+
+    # Fund wallet with WETH
+    weth_address = CHAIN_CONFIG["arbitrum"]["native_token_address"]
+    weth_amount = 1000 * (10**18)  # 1000 WETH
+    weth_token = fetch_erc20_details(web3_arbitrum_fork, weth_address)
+    weth_token.contract.functions.transfer(wallet_address, weth_amount).transact(
+        {"from": large_weth_holder_arbitrum},
+    )
+
+    # Create GMX config
+    config = GMXConfig(web3_arbitrum_fork, user_wallet_address=wallet_address)
+
+    # Approve tokens for GMX routers
+    _approve_tokens_for_config(config, web3_arbitrum_fork, wallet_address)
+
+    return config
+
+
+@pytest.fixture()
+def trading_manager_fork(arbitrum_fork_config) -> GMXTrading:
+    """
+    GMXTrading instance for Arbitrum mainnet fork.
+    Used by test_trading.py tests.
+    """
+    return GMXTrading(arbitrum_fork_config)
+
+
+@pytest.fixture()
+def position_verifier_fork(arbitrum_fork_config) -> GetOpenPositions:
+    """
+    GetOpenPositions instance for Arbitrum mainnet fork.
+    Used by test_trading.py tests to verify positions.
+    """
+    return GetOpenPositions(arbitrum_fork_config)

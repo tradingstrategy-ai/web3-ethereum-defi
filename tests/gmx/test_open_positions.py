@@ -2,6 +2,8 @@
 Tests for GMX Open Positions functionality based on real API structure.
 """
 
+import pytest
+
 from eth_defi.gmx.core.open_positions import GetOpenPositions
 from tests.gmx.conftest import get_open_positions
 
@@ -27,7 +29,6 @@ def test_initialization_and_basic_functionality(get_open_positions, gmx_config):
 
 def test_open_positions_1(gmx_open_positions):
     """Test data processing structure and method availability."""
-    import pytest
 
     address_with_open_positions = "0x91666112b851E33D894288A95846d14781e86cad"
 
@@ -51,7 +52,6 @@ def test_open_positions_1(gmx_open_positions):
 
 def test_open_positions_2(gmx_open_positions):
     """Test data processing structure and method availability."""
-    import pytest
 
     address_with_open_positions = "0xe2823659bE02E0F48a4660e4Da008b5E1aBFdF29"
 
