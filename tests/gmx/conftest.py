@@ -123,22 +123,28 @@ def get_chain_config(chain_name):
     return config
 
 
-# Keep the old CHAIN_CONFIG for backward compatibility with hardcoded addresses to avoid network calls
-CHAIN_CONFIG = {
-    "arbitrum": {
+# CHAIN_CONFIG with dynamic address fetching for Arbitrum using GMX API
+def _get_arbitrum_config():
+    """Get Arbitrum config with addresses from GMX API."""
+    chain_id = get_chain_id_by_name("arbitrum")
+    return {
         "rpc_env_var": "ARBITRUM_JSON_RPC_URL",
-        "chain_id": get_chain_id_by_name("arbitrum"),
+        "chain_id": chain_id,
         "fork_block_number": 338206286,
-        # Hardcoded token addresses to avoid network calls during test loading
-        "wbtc_address": "0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f",
-        "usdc_address": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
-        "usdt_address": "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
-        "link_address": "0xf97f4df75117a78c1A5a0DBb814Af92458539FB4",
-        "wsol_address": "0x2bcC6D6CdBbDC0a4071e48bb3B969b06B3330c07",
-        "arb_address": "0x912CE59144191C1204E64559FE8253a0e49E6548",
-        "native_token_address": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
-        "aave_address": "0xba5DdD1f9d7F570dc94a51479a000E3BCE967196",
-    },
+        # Fetch token addresses from GMX API instead of hardcoding
+        "wbtc_address": get_gmx_address(chain_id, "WBTC"),
+        "usdc_address": get_gmx_address(chain_id, "USDC"),
+        "usdt_address": get_gmx_address(chain_id, "USDT"),
+        "link_address": get_gmx_address(chain_id, "LINK"),
+        "wsol_address": get_gmx_address(chain_id, "WSOL"),
+        "arb_address": get_gmx_address(chain_id, "ARB"),
+        "native_token_address": get_gmx_address(chain_id, "WETH"),
+        "aave_address": get_gmx_address(chain_id, "AAVE"),
+    }
+
+
+CHAIN_CONFIG = {
+    "arbitrum": _get_arbitrum_config(),
     "avalanche": {
         "rpc_env_var": "AVALANCHE_JSON_RPC_URL",
         "chain_id": get_chain_id_by_name("avalanche"),
@@ -233,8 +239,8 @@ def large_usdc_holder_arbitrum() -> HexAddress:
 
     This account is unlocked on Anvil, so you have access to good USDC stash.
     """
-    # https://arbiscan.io/address/0xb38e8c17e38363af6ebdcb3dae12e0243582891d#asset-multichain
-    return addr("0xB38e8c17e38363aF6EbdCb3dAE12e0243582891D")
+    # This address has consistent USDC balance across different blocks
+    return to_checksum_address("0xEe7aE85f2Fe2239E27D9c1E23fFFe168D63b4055")
 
 
 @pytest.fixture()
@@ -575,6 +581,13 @@ def wallet_with_usdc(
         large_holder = large_usdc_holder_avalanche
         amount = 100_000 * 10**6  # 100,000 USDC (6 decimals)
 
+    # Fund the whale holder with ETH for gas
+    eth_amount_wei = 10 * 10**18  # 10 ETH for gas
+    web3_arbitrum_fork.provider.make_request(
+        "anvil_setBalance",
+        [large_holder, hex(eth_amount_wei)],
+    )
+
     try:
         usdc.contract.functions.transfer(test_address, amount).transact(
             {"from": large_holder},
@@ -594,23 +607,28 @@ def wallet_with_wbtc(
 ) -> None:
     """Fund the test wallet with WBTC."""
     if chain_name == "arbitrum":
-        wbtc_address = to_checksum_address(CHAIN_CONFIG["arbitrum"]["link_address"])
+        wbtc_address = CHAIN_CONFIG["arbitrum"]["wbtc_address"]
+        wbtc = fetch_erc20_details(web3_arbitrum_fork, wbtc_address)
+        large_holder = large_wbtc_holder
         amount = 5 * 10**8  # 5 WBTC (8 decimals)
-        # else:  # avalanche
-        #     wbtc_address = CHAIN_CONFIG["avalanche"]["wbtc_address"]
-        #     wbtc = fetch_erc20_details(web3_arbitrum_fork, wbtc_address)
-        #     large_holder = large_wbtc_holder_avalanche
-        #     amount = 5 * 10 ** 8  # 1 WBTC (8 decimals)
-        try:
-            # TODO: This is incorrect
-            web3_arbitrum_fork.provider.make_request(
-                "anvil_addErc20Balance",
-                [wbtc_address, [test_address], hex(amount)],
-            )
-            # wbtc.contract.functions.transfer(test_address, amount).transact({"from": large_holder})
-        except Exception as e:
-            # If the transfer fails, skip the test instead of failing
-            pytest.skip(f"Could not transfer WBTC to test wallet: {str(e)}")
+    else:  # avalanche
+        wbtc_address = CHAIN_CONFIG["avalanche"]["wbtc_address"]
+        wbtc = fetch_erc20_details(web3_arbitrum_fork, wbtc_address)
+        large_holder = large_wbtc_holder_avalanche
+        amount = 5 * 10**8  # 5 WBTC (8 decimals)
+
+    # Fund the whale holder with ETH for gas
+    eth_amount_wei = 10 * 10**18  # 10 ETH for gas
+    web3_arbitrum_fork.provider.make_request(
+        "anvil_setBalance",
+        [large_holder, hex(eth_amount_wei)],
+    )
+
+    try:
+        wbtc.contract.functions.transfer(test_address, amount).transact({"from": large_holder})
+    except Exception as e:
+        # If the transfer fails, skip the test instead of failing
+        pytest.skip(f"Could not transfer WBTC to test wallet: {str(e)}")
 
 
 @pytest.fixture()
@@ -653,9 +671,16 @@ def wallet_with_arb(
     test_address: HexAddress,
     large_arb_holder_arbitrum: HexAddress,
 ) -> None:
-    """Fund the test wallet with LINK."""
+    """Fund the test wallet with ARB."""
     amount = 1000000 * 10**18
     if chain_name == "arbitrum":
+        # Fund the whale holder with ETH for gas
+        eth_amount_wei = 10 * 10**18  # 10 ETH for gas
+        web3_arbitrum_fork.provider.make_request(
+            "anvil_setBalance",
+            [large_arb_holder_arbitrum, hex(eth_amount_wei)],
+        )
+
         try:
             arb_address = to_checksum_address(CHAIN_CONFIG[chain_name]["arb_address"])
             arb = fetch_erc20_details(web3_arbitrum_fork, arb_address)
@@ -1018,8 +1043,6 @@ def test_wallet_sepolia(arbitrum_sepolia_config):
 def arbitrum_fork_config(
     web3_arbitrum_fork,
     anvil_private_key,
-    large_weth_holder_arbitrum,
-    large_usdc_holder_arbitrum,
     wallet_with_all_tokens,
 ) -> GMXConfig:
     """
@@ -1027,7 +1050,7 @@ def arbitrum_fork_config(
 
     This fixture:
     - Creates a HotWallet from anvil default private key
-    - Funds wallet with ETH, USDC, and WETH
+    - wallet_with_all_tokens already funds the wallet with all needed tokens
     - Approves tokens for GMX routers
     - Returns configured GMXConfig
     """
@@ -1038,24 +1061,9 @@ def arbitrum_fork_config(
     wallet.sync_nonce(web3_arbitrum_fork)
     wallet_address = wallet.get_main_address()
 
-    # Fund wallet with native ETH
-    # deal_eth(web3_arbitrum_fork, wallet_address, 100 * 10**18)  # 100 ETH
-
-    # Fund wallet with USDC
-    usdc_address = CHAIN_CONFIG["arbitrum"]["usdc_address"]
-    usdc_amount = 100_000 * (10**6)  # 100k USDC
-    usdc_token = fetch_erc20_details(web3_arbitrum_fork, usdc_address)
-    usdc_token.contract.functions.transfer(wallet_address, usdc_amount).transact(
-        {"from": large_usdc_holder_arbitrum},
-    )
-
-    # Fund wallet with WETH
-    weth_address = CHAIN_CONFIG["arbitrum"]["native_token_address"]
-    weth_amount = 1000 * (10**18)  # 1000 WETH
-    weth_token = fetch_erc20_details(web3_arbitrum_fork, weth_address)
-    weth_token.contract.functions.transfer(wallet_address, weth_amount).transact(
-        {"from": large_weth_holder_arbitrum},
-    )
+    # Note: wallet_with_all_tokens dependency already funded the wallet with:
+    # - Native ETH, USDC, WETH, WBTC, LINK, ARB
+    # No need to manually transfer tokens again
 
     # Create GMX config
     config = GMXConfig(web3_arbitrum_fork, user_wallet_address=wallet_address)
