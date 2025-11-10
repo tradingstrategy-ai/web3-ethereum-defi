@@ -108,13 +108,12 @@ def test_open_long_position(
 
 def test_open_short_position(
     web3_arbitrum_fork,
-    trading_manager_fork,
-    position_verifier_fork,
-    arbitrum_fork_config,
+    arbitrum_fork_config_short,
     test_wallet,
 ):
     """
     Test opening a short ETH position with full execution.
+    Uses ETH price of 3550 USD.
 
     Flow:
     1. Create order (ETH market, USDC collateral, 2.5x leverage)
@@ -122,7 +121,13 @@ def test_open_short_position(
     3. Execute order as keeper
     4. Verify position was created
     """
-    wallet_address = arbitrum_fork_config.get_wallet_address()
+    from eth_defi.gmx.trading import GMXTrading
+    from eth_defi.gmx.core import GetOpenPositions
+
+    # Create instances with short position config
+    trading_manager_fork = GMXTrading(arbitrum_fork_config_short)
+    position_verifier_fork = GetOpenPositions(arbitrum_fork_config_short)
+    wallet_address = arbitrum_fork_config_short.get_wallet_address()
 
     # Record initial state
     initial_positions = position_verifier_fork.get_data(wallet_address)
@@ -176,13 +181,12 @@ def test_open_short_position(
 
 def test_open_and_close_position(
     web3_arbitrum_fork,
-    trading_manager_fork,
-    position_verifier_fork,
-    arbitrum_fork_config,
+    arbitrum_fork_config_open_close,
     test_wallet,
 ):
     """
     Test full position lifecycle: open then close.
+    Uses fresh oracle setup with ETH price of 3450 USD.
 
     Flow:
     1. Open position (long ETH)
@@ -190,7 +194,13 @@ def test_open_and_close_position(
     3. Close position (decrease to 0)
     4. Verify position was closed
     """
-    wallet_address = arbitrum_fork_config.get_wallet_address()
+    from eth_defi.gmx.trading import GMXTrading
+    from eth_defi.gmx.core import GetOpenPositions
+
+    # Create instances with open/close position config
+    trading_manager_fork = GMXTrading(arbitrum_fork_config_open_close)
+    position_verifier_fork = GetOpenPositions(arbitrum_fork_config_open_close)
+    wallet_address = arbitrum_fork_config_open_close.get_wallet_address()
 
     # Record initial state
     initial_positions = position_verifier_fork.get_data(wallet_address)

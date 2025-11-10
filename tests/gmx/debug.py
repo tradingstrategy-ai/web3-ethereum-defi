@@ -51,7 +51,45 @@ console = Console()
 FORK_BLOCK = 392496384
 LARGE_USDC_HOLDER = to_checksum_address("0xEe7aE85f2Fe2239E27D9c1E23fFFe168D63b4055")
 LARGE_WETH_HOLDER = to_checksum_address("0x70d95587d40A2caf56bd97485aB3Eec10Bee6336")
-MOCK_ETH_PRICE = 3450  # USD
+#
+# # Fetch prices from GMX API
+# console.print("\n[dim]Fetching prices from GMX API...[/dim]")
+# response = requests.get("https://arbitrum-api.gmxinfra.io/signed_prices/latest", timeout=10)
+# response.raise_for_status()
+# api_data = response.json()
+#
+# # Parse prices
+# prices_by_address = {}
+# for price_data in api_data["signedPrices"]:
+#     token_addr = to_checksum_address(price_data["tokenAddress"])
+#     max_price_str = price_data["maxPriceFull"]
+#     min_price_str = price_data["minPriceFull"]
+#
+#     if max_price_str and min_price_str:
+#         max_price = int(max_price_str)
+#         min_price = int(min_price_str)
+#         prices_by_address[token_addr] = {
+#             "max": max_price,
+#             "min": min_price,
+#             "median": (max_price + min_price) // 2
+#         }
+#
+# weth_address = to_checksum_address("0x82aF49447D8a07e3bd95BD0d56f35241523fBab1")
+# usdc_address = to_checksum_address("0xaf88d065e77c8cC2239327C5EDb3A432268e5831")
+#
+# weth_api_price = prices_by_address[weth_address]["median"]
+# usdc_api_price = prices_by_address[usdc_address]["median"]
+#
+# # Apply buffers: +10% for longs, -10% for shorts on volatile assets
+# # No buffers for stablecoins
+# weth_price_long = int(weth_api_price + 100.05)
+# weth_price_short = int(weth_api_price - 100.95)
+# usdc_price_plain = int(usdc_api_price)
+#
+# console.print(f"[dim]  WETH: ${weth_api_price / 10**12:.2f} (Long: ${weth_price_long / 10**12:.2f}, Short: ${weth_price_short / 10**12:.2f})[/dim]")
+# console.print(f"[dim]  USDC: ${usdc_api_price / 10**24:.6f} (no buffer)[/dim]")
+
+MOCK_ETH_PRICE = 3200  # weth_price_long // 10**12 # 3450  # USD
 MOCK_USDC_PRICE = 1  # USD
 
 
@@ -247,7 +285,7 @@ def main():
             market_symbol=market_symbol,
             collateral_symbol=collateral_symbol,
             start_token_symbol=start_token_symbol,
-            is_long=True,
+            is_long=False,
             size_delta_usd=size_usd,
             leverage=leverage,
             slippage_percent=0.005,

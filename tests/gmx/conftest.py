@@ -357,23 +357,19 @@ def web3_arbitrum_fork(anvil_chain_fork: str) -> Web3:
     return web3
 
 
-@pytest.fixture()
-def mock_oracle_fork(web3_arbitrum_fork: Web3) -> str:
-    """Set up mock oracle for fork testing.
+def _setup_mock_oracle(web3: Web3, eth_price: int) -> str:
+    """Helper function to set up mock oracle with custom ETH price.
 
-    Replaces the production Chainlink oracle with a mock oracle that allows
-    setting custom prices for testing. This is required for fork testing since
-    the real Chainlink oracle may not work on forked chains.
+    Args:
+        web3: Web3 instance
+        eth_price: ETH price in USD
 
     Returns:
         Address of the mock oracle provider
     """
     import json
     from pathlib import Path
-    from eth_defi.abi import get_contract
     from eth_defi.trace import assert_transaction_success_with_explanation
-
-    web3 = web3_arbitrum_fork
 
     # Production oracle provider address
     production_provider_address = to_checksum_address("0xE1d5a068c5b75E0c7Ea1A9Fe8EA056f9356C6fFD")
@@ -402,7 +398,7 @@ def mock_oracle_fork(web3_arbitrum_fork: Web3) -> str:
 
     # WETH: 18 decimals -> price * 10^12
     weth_address = to_checksum_address("0x82aF49447D8a07e3bd95BD0d56f35241523fBab1")
-    weth_price = int(MOCK_ETH_PRICE * (10**12))
+    weth_price = int(eth_price * (10**12))
 
     weth_tx = mock.functions.setPrice(weth_address, weth_price, weth_price).build_transaction(
         {
@@ -429,6 +425,40 @@ def mock_oracle_fork(web3_arbitrum_fork: Web3) -> str:
     assert_transaction_success_with_explanation(web3, usdc_tx_hash, "Set USDC price on mock oracle")
 
     return production_provider_address
+
+
+@pytest.fixture()
+def mock_oracle_fork(web3_arbitrum_fork: Web3) -> str:
+    """Set up mock oracle for fork testing with default ETH price (3450).
+
+    Replaces the production Chainlink oracle with a mock oracle that allows
+    setting custom prices for testing. This is required for fork testing since
+    the real Chainlink oracle may not work on forked chains.
+
+    Returns:
+        Address of the mock oracle provider
+    """
+    return _setup_mock_oracle(web3_arbitrum_fork, MOCK_ETH_PRICE)
+
+
+@pytest.fixture()
+def mock_oracle_fork_short(web3_arbitrum_fork: Web3) -> str:
+    """Set up mock oracle for short position testing with ETH price at 3550.
+
+    Returns:
+        Address of the mock oracle provider
+    """
+    return _setup_mock_oracle(web3_arbitrum_fork, 3550)
+
+
+@pytest.fixture()
+def mock_oracle_fork_open_close(web3_arbitrum_fork: Web3) -> str:
+    """Set up fresh mock oracle for open/close position testing with ETH price at 3450.
+
+    Returns:
+        Address of the mock oracle provider
+    """
+    return _setup_mock_oracle(web3_arbitrum_fork, MOCK_ETH_PRICE)
 
 
 # TODO: Rename it to web3_abitrum
@@ -1113,24 +1143,21 @@ def test_wallet_sepolia(arbitrum_sepolia_config):
     return wallet
 
 
-@pytest.fixture()
-def arbitrum_fork_config(
+def _create_fork_config(
     web3_arbitrum_fork,
     anvil_private_key,
     wallet_with_all_tokens,
-    mock_oracle_fork,
 ) -> GMXConfig:
-    """
-    GMX config for Arbitrum mainnet fork with funded wallet and mock oracle.
+    """Helper to create GMX config for Arbitrum mainnet fork.
 
-    This fixture:
-    - Sets up mock oracle for price feeds (via mock_oracle_fork dependency)
-    - Creates a HotWallet from anvil default private key
-    - Funds the wallet with all needed tokens (via wallet_with_all_tokens)
-    - Approves tokens for GMX routers
-    - Returns configured GMXConfig
-    """
+    Args:
+        web3_arbitrum_fork: Web3 instance with mock oracle already set up
+        anvil_private_key: Private key for test wallet
+        wallet_with_all_tokens: Fixture dependency to fund wallet
 
+    Returns:
+        Configured GMXConfig
+    """
     # Create wallet from anvil private key
     account = Account.from_key(anvil_private_key)
     wallet = HotWallet(account)
@@ -1151,10 +1178,58 @@ def arbitrum_fork_config(
 
 
 @pytest.fixture()
+def arbitrum_fork_config(
+    web3_arbitrum_fork,
+    anvil_private_key,
+    wallet_with_all_tokens,
+    mock_oracle_fork,
+) -> GMXConfig:
+    """
+    GMX config for Arbitrum mainnet fork with funded wallet and mock oracle (ETH price: 3450).
+    Used for long position tests.
+
+    This fixture:
+    - Sets up mock oracle for price feeds with ETH at 3450
+    - Creates a HotWallet from anvil default private key
+    - Funds the wallet with all needed tokens (via wallet_with_all_tokens)
+    - Approves tokens for GMX routers
+    - Returns configured GMXConfig
+    """
+    return _create_fork_config(web3_arbitrum_fork, anvil_private_key, wallet_with_all_tokens)
+
+
+@pytest.fixture()
+def arbitrum_fork_config_short(
+    web3_arbitrum_fork,
+    anvil_private_key,
+    wallet_with_all_tokens,
+    mock_oracle_fork_short,
+) -> GMXConfig:
+    """
+    GMX config for Arbitrum mainnet fork with mock oracle set to ETH price 3550.
+    Used for short position tests.
+    """
+    return _create_fork_config(web3_arbitrum_fork, anvil_private_key, wallet_with_all_tokens)
+
+
+@pytest.fixture()
+def arbitrum_fork_config_open_close(
+    web3_arbitrum_fork,
+    anvil_private_key,
+    wallet_with_all_tokens,
+    mock_oracle_fork_open_close,
+) -> GMXConfig:
+    """
+    GMX config for Arbitrum mainnet fork with fresh mock oracle (ETH price: 3450).
+    Used for open/close position tests.
+    """
+    return _create_fork_config(web3_arbitrum_fork, anvil_private_key, wallet_with_all_tokens)
+
+
+@pytest.fixture()
 def trading_manager_fork(arbitrum_fork_config) -> GMXTrading:
     """
-    GMXTrading instance for Arbitrum mainnet fork.
-    Used by test_trading.py tests.
+    GMXTrading instance for Arbitrum mainnet fork (long position tests).
     """
     return GMXTrading(arbitrum_fork_config)
 
@@ -1162,7 +1237,6 @@ def trading_manager_fork(arbitrum_fork_config) -> GMXTrading:
 @pytest.fixture()
 def position_verifier_fork(arbitrum_fork_config) -> GetOpenPositions:
     """
-    GetOpenPositions instance for Arbitrum mainnet fork.
-    Used by test_trading.py tests to verify positions.
+    GetOpenPositions instance for Arbitrum mainnet fork (long position tests).
     """
     return GetOpenPositions(arbitrum_fork_config)
