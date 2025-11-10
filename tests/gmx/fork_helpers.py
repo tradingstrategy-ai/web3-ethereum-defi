@@ -333,7 +333,7 @@ def setup_mock_oracle(
         bytecode = contract_data["deployedBytecode"]
         if isinstance(bytecode, dict) and "object" in bytecode:
             bytecode = bytecode["object"]
-            print(f"{bytecode=}")
+            # print(f"{bytecode=}")
     # NOTE: Only use deployedBytecode
     # elif "bytecode" in contract_data:
     #     # Fallback: try bytecode field (though this is constructor bytecode)

@@ -131,8 +131,8 @@ def test_open_short_position(
     # === Step 1: Create order ===
     order_result = trading_manager_fork.open_position(
         market_symbol="ETH",
-        collateral_symbol="USDC",
-        start_token_symbol="USDC",
+        collateral_symbol="ETH",
+        start_token_symbol="ETH",
         is_long=False,
         size_delta_usd=10,
         leverage=2.5,
@@ -229,14 +229,17 @@ def test_open_and_close_position(
 
     position_key, position = list(positions_after_open.items())[0]
     position_size_usd = position["position_size"]
+    collateral_amount_usd = position["initial_collateral_amount_usd"]
     assert position_size_usd > 0, "Position size should be > 0"
 
     # === Step 3: Close position ===
     close_order_result = trading_manager_fork.close_position(
         market_symbol="ETH",
         collateral_symbol="ETH",
+        start_token_symbol="ETH",  # Receive ETH when closing
         is_long=True,
         size_delta_usd=position_size_usd,  # Close full position
+        initial_collateral_delta=collateral_amount_usd,  # Withdraw all collateral
         slippage_percent=0.005,
         execution_buffer=2.2,
     )

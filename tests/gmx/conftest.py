@@ -357,6 +357,80 @@ def web3_arbitrum_fork(anvil_chain_fork: str) -> Web3:
     return web3
 
 
+@pytest.fixture()
+def mock_oracle_fork(web3_arbitrum_fork: Web3) -> str:
+    """Set up mock oracle for fork testing.
+
+    Replaces the production Chainlink oracle with a mock oracle that allows
+    setting custom prices for testing. This is required for fork testing since
+    the real Chainlink oracle may not work on forked chains.
+
+    Returns:
+        Address of the mock oracle provider
+    """
+    import json
+    from pathlib import Path
+    from eth_defi.abi import get_contract
+    from eth_defi.trace import assert_transaction_success_with_explanation
+
+    web3 = web3_arbitrum_fork
+
+    # Production oracle provider address
+    production_provider_address = to_checksum_address("0xE1d5a068c5b75E0c7Ea1A9Fe8EA056f9356C6fFD")
+
+    # Load MockOracleProvider contract
+    contract_path = Path(__file__).parent.parent.parent / "eth_defi" / "abi" / "gmx" / "MockOracleProvider.json"
+    with open(contract_path) as f:
+        contract_data = json.load(f)
+
+    abi = contract_data["abi"]
+    bytecode = contract_data["deployedBytecode"]
+    if isinstance(bytecode, dict) and "object" in bytecode:
+        bytecode = bytecode["object"]
+
+    if not bytecode.startswith("0x"):
+        bytecode = "0x" + bytecode
+
+    # Replace production oracle bytecode with mock
+    web3.provider.make_request("anvil_setCode", [production_provider_address, bytecode])
+
+    # Load contract instance
+    mock = web3.eth.contract(address=production_provider_address, abi=abi)
+
+    # Configure prices
+    account = web3.eth.accounts[0]
+
+    # WETH: 18 decimals -> price * 10^12
+    weth_address = to_checksum_address("0x82aF49447D8a07e3bd95BD0d56f35241523fBab1")
+    weth_price = int(MOCK_ETH_PRICE * (10**12))
+
+    weth_tx = mock.functions.setPrice(weth_address, weth_price, weth_price).build_transaction(
+        {
+            "from": account,
+            "gas": 500_000,
+            "gasPrice": web3.eth.gas_price,
+        }
+    )
+    weth_tx_hash = web3.eth.send_transaction(weth_tx)
+    assert_transaction_success_with_explanation(web3, weth_tx_hash, "Set WETH price on mock oracle")
+
+    # USDC: 6 decimals -> price * 10^24
+    usdc_address = to_checksum_address("0xaf88d065e77c8cC2239327C5EDb3A432268e5831")
+    usdc_price = int(MOCK_USDC_PRICE * (10**24))
+
+    usdc_tx = mock.functions.setPrice(usdc_address, usdc_price, usdc_price).build_transaction(
+        {
+            "from": account,
+            "gas": 500_000,
+            "gasPrice": web3.eth.gas_price,
+        }
+    )
+    usdc_tx_hash = web3.eth.send_transaction(usdc_tx)
+    assert_transaction_success_with_explanation(web3, usdc_tx_hash, "Set USDC price on mock oracle")
+
+    return production_provider_address
+
+
 # TODO: Rename it to web3_abitrum
 @pytest.fixture()
 def web3_mainnet(chain_name, chain_rpc_url):
@@ -1044,13 +1118,15 @@ def arbitrum_fork_config(
     web3_arbitrum_fork,
     anvil_private_key,
     wallet_with_all_tokens,
+    mock_oracle_fork,
 ) -> GMXConfig:
     """
-    GMX config for Arbitrum mainnet fork with funded wallet.
+    GMX config for Arbitrum mainnet fork with funded wallet and mock oracle.
 
     This fixture:
+    - Sets up mock oracle for price feeds (via mock_oracle_fork dependency)
     - Creates a HotWallet from anvil default private key
-    - wallet_with_all_tokens already funds the wallet with all needed tokens
+    - Funds the wallet with all needed tokens (via wallet_with_all_tokens)
     - Approves tokens for GMX routers
     - Returns configured GMXConfig
     """

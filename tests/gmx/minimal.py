@@ -267,8 +267,6 @@ def main():
     console.print(f"Order submit status: {receipt['status']}")
 
     # Extract key + execute
-    from tests.gmx.fork_helpers import extract_order_key_from_receipt
-
     order_key = extract_order_key_from_receipt(receipt)
     console.print(f"Order key: {order_key.hex()}")
 
