@@ -68,7 +68,7 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     # https://arbiscan.io/address/0xd15a07a4150b0c057912fe883f7ad22b97161591#code
     "Peapods": VaultTechnicalRisk.dangerous,
     "Ostium": VaultTechnicalRisk.high,
-    "Gains": VaultTechnicalRisk.high,
+    "gTrade": VaultTechnicalRisk.high,
     # No audits
     "Plutus": VaultTechnicalRisk.severe,
     "Harvest Finance": VaultTechnicalRisk.low,

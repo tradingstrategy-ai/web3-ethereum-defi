@@ -265,7 +265,7 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     elif ERC4626Feature.yearn_tokenised_strategy in features:
         return "Yearn tokenised strategy"
     elif ERC4626Feature.gains_like in features:
-        return "Gains"
+        return "gTrade"
     elif ERC4626Feature.ostium_like in features:
         return "Ostium"
     elif ERC4626Feature.umami_like in features:

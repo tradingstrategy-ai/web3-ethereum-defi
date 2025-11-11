@@ -451,6 +451,7 @@ def launch_anvil(
 
     if fork_block_number:
         args["fork_block_number"] = fork_block_number
+        assert cleaned_fork_url, f"launch_anvil(): passed fork_block_number {fork_url} without JSON-RPC URL. Did you configure environment variables correctly?"
 
     if block_time not in (0, None):
         assert block_time > 0, f"Got bad block time {block_time}"
@@ -497,7 +498,7 @@ def launch_anvil(
                     logger.info("anvil did not start properly, try again, attempts left %d", attempts_left)
                     continue
 
-            raise AssertionError(f"Could not read block number from Anvil after the launch {cmd}: at {url}, stdout is {len(stdout)} bytes, stderr is {len(stderr)} bytes")
+            raise AssertionError(f"Could not read block number from Anvil after the launch with command '{cmd}': at {url}, stdout is {len(stdout)} bytes, stderr is {len(stderr)} bytes")
         else:
             # We have a successful launch
             break
