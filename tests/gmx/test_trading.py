@@ -249,7 +249,11 @@ def test_open_and_close_position(
     # For short positions: price goes DOWN (-1000) to create profit
     MOCK_ETH_PRICE = 3450
     MOCK_USDC_PRICE = 1
-    setup_mock_oracle(web3_arbitrum_fork, eth_price_usd=MOCK_ETH_PRICE + 1000, usdc_price_usd=MOCK_USDC_PRICE)
+    setup_mock_oracle(
+        web3_arbitrum_fork,
+        eth_price_usd=MOCK_ETH_PRICE + 1000,
+        usdc_price_usd=MOCK_USDC_PRICE,
+    )
 
     # Sync wallet nonce after oracle setup (which sends transactions)
     test_wallet.sync_nonce(web3_arbitrum_fork)
