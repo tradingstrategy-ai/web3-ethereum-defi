@@ -146,6 +146,10 @@ class GainsVault(ERC4626Vault):
         assert shares == 0
     """
 
+    @property
+    def name(self) -> str:
+        return f"gTrade ({super().name})"
+
     @cached_property
     def vault_contract(self) -> Contract:
         """Get vault deployment."""
@@ -290,6 +294,10 @@ class OstiumVault(GainsVault):
 
         This repository is adapted from the Gains v5 open-source codebase. We credit the Gains Network contributors for their work, which served as a starting point for this implementation. Significant modifications and new functionality have been introduced to align with Ostium’s protocol architecture and design objectives. This includes integrations and components specific to our system. For reference, please consult the original Gains v5 repository for upstream logic and licensing information.
     """
+
+    @property
+    def name(self) -> str:
+        return f"Ostium Liquidity Pool Vault"
 
     @cached_property
     def vault_contract(self) -> Contract:

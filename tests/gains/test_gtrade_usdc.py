@@ -36,13 +36,14 @@ def test_gains_features(web3):
 
 
 def test_gains_read_data(web3, vault: GainsVault):
-    assert vault.name == "Gains Network USDC"
+    assert vault.name == "gTrade (Gains Network USDC)"
     # https://arbiscan.io/address/0xBF55C78132ab06a2B217040b7A7F20B5cBD47982#readContract
     assert vault.gains_open_trades_pnl_feed.address == "0xBF55C78132ab06a2B217040b7A7F20B5cBD47982"
     assert vault.fetch_epoch_duration() == datetime.timedelta(seconds=21600)
     assert vault.fetch_current_epoch_start() == datetime.datetime(2025, 8, 31, 21, 53, 55)
     assert vault.fetch_withdraw_epochs_time_lock() == 3
-    assert vault.estimate_redemption_ready() == datetime.datetime(2025, 9, 1, 15, 53, 55)
+    now_ = datetime.datetime(2025, 9, 1)
+    assert vault.estimate_redemption_ready(now_) == datetime.datetime(2025, 9, 1, 15, 53, 55)
     assert vault.get_max_discount_percent() == 0.05
 
 
