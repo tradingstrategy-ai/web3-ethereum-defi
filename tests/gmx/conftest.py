@@ -14,6 +14,7 @@ from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.core import GetOpenPositions, GetPoolTVL, Markets, GetFundingFee, GetClaimableFees, GetBorrowAPR, GetAvailableLiquidity
 from eth_defi.gmx.core.glv_stats import GlvStats
 from eth_defi.gmx.data import GMXMarketData
+from eth_defi.gmx.graphql.client import GMXSubsquidClient
 
 from eth_defi.gmx.order.base_order import BaseOrder
 from eth_defi.gmx.order.swap_order import SwapOrder
@@ -1240,3 +1241,18 @@ def position_verifier_fork(arbitrum_fork_config) -> GetOpenPositions:
     GetOpenPositions instance for Arbitrum mainnet fork (long position tests).
     """
     return GetOpenPositions(arbitrum_fork_config)
+
+
+@pytest.fixture
+def graphql_client():
+    """Create a GMXSubsquidClient instance for testing."""
+    return GMXSubsquidClient(chain="arbitrum")
+
+
+@pytest.fixture
+def account_with_positions():
+    """Test account address that has historical positions.
+
+    This is a public address used in the demo script.
+    """
+    return "0x1640e916e10610Ba39aAC5Cd8a08acF3cCae1A4c"

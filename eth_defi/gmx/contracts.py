@@ -22,6 +22,13 @@ from eth_defi.gmx.constants import GMX_API_URLS, GMX_API_URLS_BACKUP, GMX_CONTRA
 from eth_defi.gmx.api import GMXAPI
 
 
+# Subsquid GraphQL endpoints by chain
+GMX_SUBSQUID_ENDPOINTS = {
+    "arbitrum": "https://gmx.squids.live/gmx-synthetics-arbitrum:prod/api/graphql",
+    "avalanche": "https://gmx.squids.live/gmx-synthetics-avalanche:prod/api/graphql",
+}
+
+
 # Helper function to extract actual API URLs (filtering out docstring keys)
 def _get_clean_api_urls() -> dict[str, str]:
     """Extract actual API URLs, filtering out docstring keys."""

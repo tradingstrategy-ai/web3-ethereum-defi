@@ -238,7 +238,7 @@ def test_open_and_close_position(
 
     position_key, position = list(positions_after_open.items())[0]
     position_size_usd = position["position_size"]
-    # CRITICAL: Use raw position size (exact on-chain value with 30 decimals) for closing
+    # Use raw position size (exact on-chain value with 30 decimals) for closing
     # GMX requires EXACT matching - even 1 wei difference will cause failure
     position_size_usd_raw = position["position_size_usd_raw"]
     collateral_amount_usd = position["initial_collateral_amount_usd"]
