@@ -23,7 +23,7 @@ All fixtures are defined in conftest.py:
 from eth_defi.gmx.core import GetOpenPositions
 from eth_defi.gmx.order.base_order import OrderResult
 from eth_defi.gmx.trading import GMXTrading
-from tests.gmx.fork_helpers import execute_order_as_keeper, extract_order_key_from_receipt, setup_mock_oracle, mine_block
+from tests.gmx.fork_helpers import execute_order_as_keeper, extract_order_key_from_receipt, setup_mock_oracle
 
 
 def test_initialization(arbitrum_fork_config):
@@ -251,6 +251,9 @@ def test_open_and_close_position(
     MOCK_USDC_PRICE = 1
     setup_mock_oracle(web3_arbitrum_fork, eth_price_usd=MOCK_ETH_PRICE + 1000, usdc_price_usd=MOCK_USDC_PRICE)
 
+    # Sync wallet nonce after oracle setup (which sends transactions)
+    test_wallet.sync_nonce(web3_arbitrum_fork)
+
     # === Step 3: Close position ===
     close_order_result = trading_manager_fork.close_position(
         market_symbol="ETH",
@@ -262,7 +265,6 @@ def test_open_and_close_position(
         slippage_percent=0.005,
         execution_buffer=2.2,
     )
-    mine_block(web3_arbitrum_fork)
 
     # Submit and execute close order
     close_transaction = close_order_result.transaction.copy()

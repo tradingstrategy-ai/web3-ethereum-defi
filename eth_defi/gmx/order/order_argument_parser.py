@@ -197,7 +197,9 @@ class OrderArgumentParser:
 
         if not self.is_swap:
             self.calculate_missing_position_size_info_keys()
-            self._check_if_max_leverage_exceeded()
+            # Only check leverage for increase orders, not decrease orders
+            if self.is_increase:
+                self._check_if_max_leverage_exceeded()
 
         if self.is_increase:
             if self._calculate_initial_collateral_usd() < 2:
@@ -452,7 +454,15 @@ class OrderArgumentParser:
         """Convert amounts to wei with proper decimal precision."""
         if not self.is_swap:
             # USD amounts need 10**30 precision
-            self.parameters_dict["size_delta"] = int(self.parameters_dict["size_delta_usd"] * 10**30)
+            # If size_delta_usd is already a large int (> 10^20), it's in raw format (30 decimals)
+            # This happens when closing positions using the exact on-chain position size
+            size_delta_value = self.parameters_dict["size_delta_usd"]
+            if isinstance(size_delta_value, int) and size_delta_value > 10**20:
+                # Already in raw format with 30 decimals, use as-is
+                self.parameters_dict["size_delta"] = size_delta_value
+            else:
+                # Human-readable format, multiply by 10^30
+                self.parameters_dict["size_delta"] = int(size_delta_value * 10**30)
 
         # Apply token-specific decimal factor - use start token for swaps, collateral token for positions
         tokens = _get_token_metadata_dict(self.web3, self.parameters_dict["chain"])
