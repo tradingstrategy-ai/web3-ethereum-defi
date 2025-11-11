@@ -89,7 +89,7 @@ LARGE_WETH_HOLDER = to_checksum_address("0x70d95587d40A2caf56bd97485aB3Eec10Bee6
 # console.print(f"[dim]  WETH: ${weth_api_price / 10**12:.2f} (Long: ${weth_price_long / 10**12:.2f}, Short: ${weth_price_short / 10**12:.2f})[/dim]")
 # console.print(f"[dim]  USDC: ${usdc_api_price / 10**24:.6f} (no buffer)[/dim]")
 
-MOCK_ETH_PRICE = 3200  # weth_price_long // 10**12 # 3450  # USD
+MOCK_ETH_PRICE = 3450  # weth_price_long // 10**12 # 3450  # USD
 MOCK_USDC_PRICE = 1  # USD
 
 
@@ -231,7 +231,10 @@ def main():
                 fork_block_number=FORK_BLOCK,
             )
 
-            web3 = create_multi_provider_web3(launch.json_rpc_url, default_http_timeout=(3.0, 180.0))
+            web3 = create_multi_provider_web3(
+                launch.json_rpc_url,
+                default_http_timeout=(3.0, 180.0),
+            )
             console.print(f"  Anvil fork started on {launch.json_rpc_url}")
 
         # Setup network and oracle
@@ -285,7 +288,7 @@ def main():
             market_symbol=market_symbol,
             collateral_symbol=collateral_symbol,
             start_token_symbol=start_token_symbol,
-            is_long=False,
+            is_long=True,
             size_delta_usd=size_usd,
             leverage=leverage,
             slippage_percent=0.005,
@@ -355,6 +358,7 @@ def main():
                     collateral_token = position.get("collateral_token", "Unknown")
 
                     position_size = position.get("position_size", 0)
+                    position_size_usd_raw = position.get("position_size_usd_raw", 0)  # Raw value with 30 decimals
                     size_in_tokens = position.get("size_in_tokens", 0) / 1e18
                     initial_collateral_amount = position.get("initial_collateral_amount", 0)
                     initial_collateral_amount_usd = position.get("initial_collateral_amount_usd", 0)
@@ -371,6 +375,7 @@ def main():
                     console.print(f"    Direction:        {direction}")
                     console.print(f"    Collateral Token: {collateral_token}")
                     console.print(f"    Position Size:    ${position_size:,.2f}")
+                    console.print(f"    Position Size Raw: {position_size_usd_raw} (30 decimals)")
                     console.print(f"    Collateral:       {collateral_amount:.6f} {collateral_token}")
                     console.print(f"    Collateral Value: ${initial_collateral_amount_usd:,.2f}")
                     console.print(f"    Leverage:         {leverage:.2f}x")
@@ -380,6 +385,90 @@ def main():
                     if percent_profit != 0:
                         pnl_color = "green" if percent_profit > 0 else "red"
                         console.print(f"    PnL:              [{pnl_color}]{percent_profit:+.2f}%[/{pnl_color}]")
+
+                # ========================================================================
+                # STEP 7: Close Position (using first position found)
+                # ========================================================================
+                console.print("\n[bold]Closing position...[/bold]")
+
+                first_position_key, first_position = list(open_positions.items())[0]
+
+                # CRITICAL: Use raw position size for exact match (GMX requirement)
+                position_size_usd_raw = first_position["position_size_usd_raw"]
+                collateral_amount_usd = first_position["initial_collateral_amount_usd"]
+                is_long = first_position["is_long"]
+
+                console.print(f"  Closing {first_position['market_symbol']} {'LONG' if is_long else 'SHORT'}")
+                console.print(f"  Position size (raw): {position_size_usd_raw}")
+                console.print(f"  Collateral to withdraw: ${collateral_amount_usd:.2f}")
+
+                console.print("\n[dim]Setting up mock oracle for closing position...[/dim]")
+                setup_mock_oracle(web3, eth_price_usd=MOCK_ETH_PRICE + 1000, usdc_price_usd=MOCK_USDC_PRICE)
+                console.print(f"[dim]✓ Mock oracle configured (ETH=${MOCK_ETH_PRICE + 1000}, USDC=${MOCK_USDC_PRICE})[/dim]\n")
+
+                try:
+                    close_order = trading_client.close_position(
+                        market_symbol=market_symbol,
+                        collateral_symbol=collateral_symbol,
+                        start_token_symbol=start_token_symbol,
+                        is_long=is_long,
+                        size_delta_usd=position_size_usd_raw,  # Use raw value for exact match
+                        initial_collateral_delta=collateral_amount_usd,
+                        slippage_percent=0.005,
+                        execution_buffer=2.2,
+                    )
+
+                    console.print(f"\n[green]✓ Close order created[/green]")
+                    console.print(f"  Execution Fee: {close_order.execution_fee / 1e18:.6f} ETH")
+
+                    console.print("\n[bold]Submitting close order...[/bold]")
+                    close_transaction = close_order.transaction
+                    if "nonce" in close_transaction:
+                        del close_transaction["nonce"]
+
+                    signed_close_tx = wallet.sign_transaction_with_new_nonce(close_transaction)
+                    close_tx_hash = web3.eth.send_raw_transaction(signed_close_tx.rawTransaction)
+                    console.print(f"  TX Hash: {close_tx_hash.hex()}")
+
+                    close_receipt = web3.eth.wait_for_transaction_receipt(close_tx_hash)
+
+                    if close_receipt["status"] == 1:
+                        console.print(f"[green]✓ Close order submitted[/green]")
+                        console.print(f"  Block: {close_receipt['blockNumber']}")
+                        console.print(f"  Gas used: {close_receipt['gasUsed']}")
+
+                        # Execute close order as keeper
+                        close_order_key = extract_order_key_from_receipt(close_receipt)
+                        console.print(f"\n[green]✓ Close Order Key: {close_order_key.hex()}[/green]")
+
+                        console.print("\n[bold]Executing close order as keeper...[/bold]")
+                        close_exec_receipt, keeper_address = execute_order_as_keeper(web3, close_order_key)
+
+                        console.print(f"[green]✓ Close order executed[/green]")
+                        console.print(f"  Keeper: {keeper_address}")
+                        console.print(f"  Block: {close_exec_receipt['blockNumber']}")
+                        console.print(f"  Gas used: {close_exec_receipt['gasUsed']}")
+
+                        # Verify position was closed
+                        console.print("\n[bold]Verifying position closure...[/bold]")
+                        time.sleep(2)
+
+                        final_positions = position_verifier.get_data(wallet_address)
+                        if len(final_positions) == 0:
+                            console.print(f"[green]✓ Position successfully closed![/green]")
+                        else:
+                            console.print(f"[yellow]⚠ Warning: {len(final_positions)} position(s) still open[/yellow]")
+                            for pos_key, pos in final_positions.items():
+                                console.print(f"    {pos['market_symbol']} {'LONG' if pos['is_long'] else 'SHORT'}: ${pos['position_size']:.2f}")
+                    else:
+                        console.print(f"[red]✗ Close order failed[/red]")
+
+                except Exception as e:
+                    console.print(f"[red]✗ Close position failed: {e}[/red]")
+                    import traceback
+
+                    traceback.print_exc()
+
             else:
                 console.print(f"[yellow]⚠ No positions found[/yellow]")
 

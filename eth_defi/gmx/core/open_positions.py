@@ -169,9 +169,8 @@ class GetOpenPositions(GetData):
         index_token_decimals = chain_tokens[index_token_address]["decimals"]
         entry_price = (raw_position[1][0] / raw_position[1][1]) / 10 ** (30 - index_token_decimals)
 
-        # Calculate leverage
+        # Get token decimals
         collateral_token_decimals = chain_tokens[collateral_token_address]["decimals"]
-        leverage = (raw_position[1][0] / 10**30) / (raw_position[1][2] / 10**collateral_token_decimals)
 
         # Get oracle prices with error handling
         try:
@@ -179,44 +178,89 @@ class GetOpenPositions(GetData):
 
             # Map testnet token addresses to mainnet for oracle lookups
             # Testnets don't have their own oracles, so we use mainnet prices
-            oracle_token_address = TESTNET_TO_MAINNET_ORACLE_TOKENS.get(
+            oracle_index_token_address = TESTNET_TO_MAINNET_ORACLE_TOKENS.get(
                 index_token_address,
                 index_token_address,
             )
+            oracle_collateral_token_address = TESTNET_TO_MAINNET_ORACLE_TOKENS.get(
+                collateral_token_address,
+                collateral_token_address,
+            )
 
-            # Try to find the price
-            price_data = None
-
-            # Try exact match first
-            if oracle_token_address in prices:
-                price_data = prices[oracle_token_address]
-            else:
+            # Helper function to find price data (case-insensitive)
+            def find_price_data(token_address: str):
+                """Find price data for a token address (case-insensitive)."""
+                # Try exact match first
+                if token_address in prices:
+                    return prices[token_address]
                 # Try case-insensitive match
-                oracle_token_lower = oracle_token_address.lower()
+                token_lower = token_address.lower()
                 for addr, data in prices.items():
-                    if addr.lower() == oracle_token_lower:
-                        price_data = data
-                        break
+                    if addr.lower() == token_lower:
+                        return data
+                return None
 
-            if price_data and "maxPriceFull" in price_data and "minPriceFull" in price_data:
+            # Get index token price (mark price)
+            index_price_data = find_price_data(oracle_index_token_address)
+
+            if index_price_data and "maxPriceFull" in index_price_data and "minPriceFull" in index_price_data:
                 # Calculate mark price from oracle data
                 mark_price = np.median(
                     [
-                        float(price_data["maxPriceFull"]),
-                        float(price_data["minPriceFull"]),
+                        float(index_price_data["maxPriceFull"]),
+                        float(index_price_data["minPriceFull"]),
                     ]
                 ) / 10 ** (30 - index_token_decimals)
-                logging.debug(f"Got oracle price for {index_token_address}: ${mark_price:.4f}")
+                logging.debug(f"Got oracle price for index token {index_token_address}: ${mark_price:.4f},")
             else:
                 # Price not found in oracle, use entry price
                 logging.debug(
-                    f"Oracle price not found for {index_token_address} (oracle address: {oracle_token_address}), using entry price",
+                    f"Oracle price not found for index token {index_token_address} (oracle address: {oracle_index_token_address}), using entry price",
                 )
                 mark_price = entry_price
 
+            # Get collateral token price for leverage calculation
+            collateral_price_data = find_price_data(oracle_collateral_token_address)
+
+            if collateral_price_data and "maxPriceFull" in collateral_price_data and "minPriceFull" in collateral_price_data:
+                # Calculate collateral price from oracle data
+                collateral_price = np.median(
+                    [
+                        float(collateral_price_data["maxPriceFull"]),
+                        float(collateral_price_data["minPriceFull"]),
+                    ]
+                ) / 10 ** (30 - collateral_token_decimals)
+                logging.debug(f"Got oracle price for collateral token {collateral_token_address}: ${collateral_price:.4f},")
+            else:
+                # Collateral price not found, assume $1 (for stablecoins) or use mark price (for same-asset collateral)
+                if index_token_address.lower() == collateral_token_address.lower():
+                    collateral_price = mark_price
+                    logging.debug(f"Using mark price for collateral (same as index token): ${collateral_price:.4f},")
+                else:
+                    collateral_price = 1.0
+                    logging.debug(
+                        f"Oracle price not found for collateral token {collateral_token_address}, assuming $1 (stablecoin)",
+                    )
+
         except (KeyError, TypeError, ValueError) as e:
-            logging.warning(f"Could not get oracle price for {index_token_address}: {e}")
+            logging.warning(f"Could not get oracle prices: {e}")
             mark_price = entry_price  # Fallback to entry price
+            # For collateral, assume $1 for stablecoins or use entry price for same-asset
+            if index_token_address.lower() == collateral_token_address.lower():
+                collateral_price = entry_price
+            else:
+                collateral_price = 1.0
+
+        # Calculate leverage with correct formula: leverage = position_size_usd / collateral_usd
+        # where collateral_usd = collateral_amount * collateral_price
+        position_size_usd = raw_position[1][0] / 10**30
+        collateral_amount_tokens = raw_position[1][2] / 10**collateral_token_decimals
+        collateral_amount_usd = collateral_amount_tokens * collateral_price
+
+        if collateral_amount_usd > 0:
+            leverage = position_size_usd / collateral_amount_usd
+        else:
+            leverage = 0
 
         # Calculate profit percentage with proper long/short logic
         if entry_price > 0:
@@ -248,10 +292,11 @@ class GetOpenPositions(GetData):
             "market_symbol": market_info["market_symbol"],
             "collateral_token": chain_tokens[collateral_token_address]["symbol"],
             "position_size": raw_position[1][0] / 10**30,
+            "position_size_usd_raw": raw_position[1][0],  # Raw value with 30 decimals - needed for exact position closing
             "size_in_tokens": raw_position[1][1],
             "entry_price": entry_price,
             "initial_collateral_amount": raw_position[1][2],
-            "initial_collateral_amount_usd": raw_position[1][2] / 10**collateral_token_decimals,
+            "initial_collateral_amount_usd": collateral_amount_usd,  # in USD
             "leverage": leverage,
             "pending_impact_amount": raw_position[1][3],
             "borrowing_factor": raw_position[1][4],

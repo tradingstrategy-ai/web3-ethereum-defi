@@ -20,9 +20,10 @@ All fixtures are defined in conftest.py:
 - test_wallet: HotWallet for signing transactions
 """
 
+from eth_defi.gmx.core import GetOpenPositions
 from eth_defi.gmx.order.base_order import OrderResult
 from eth_defi.gmx.trading import GMXTrading
-from tests.gmx.fork_helpers import execute_order_as_keeper, extract_order_key_from_receipt
+from tests.gmx.fork_helpers import execute_order_as_keeper, extract_order_key_from_receipt, setup_mock_oracle, mine_block
 
 
 def test_initialization(arbitrum_fork_config):
@@ -194,8 +195,6 @@ def test_open_and_close_position(
     3. Close position (decrease to 0)
     4. Verify position was closed
     """
-    from eth_defi.gmx.trading import GMXTrading
-    from eth_defi.gmx.core import GetOpenPositions
 
     # Create instances with open/close position config
     trading_manager_fork = GMXTrading(arbitrum_fork_config_open_close)
@@ -239,8 +238,18 @@ def test_open_and_close_position(
 
     position_key, position = list(positions_after_open.items())[0]
     position_size_usd = position["position_size"]
+    # CRITICAL: Use raw position size (exact on-chain value with 30 decimals) for closing
+    # GMX requires EXACT matching - even 1 wei difference will cause failure
+    position_size_usd_raw = position["position_size_usd_raw"]
     collateral_amount_usd = position["initial_collateral_amount_usd"]
     assert position_size_usd > 0, "Position size should be > 0"
+
+    # Update mock oracle price before closing to simulate price movement
+    # For long positions: price goes UP (+1000) to create profit
+    # For short positions: price goes DOWN (-1000) to create profit
+    MOCK_ETH_PRICE = 3450
+    MOCK_USDC_PRICE = 1
+    setup_mock_oracle(web3_arbitrum_fork, eth_price_usd=MOCK_ETH_PRICE + 1000, usdc_price_usd=MOCK_USDC_PRICE)
 
     # === Step 3: Close position ===
     close_order_result = trading_manager_fork.close_position(
@@ -248,11 +257,12 @@ def test_open_and_close_position(
         collateral_symbol="ETH",
         start_token_symbol="ETH",  # Receive ETH when closing
         is_long=True,
-        size_delta_usd=position_size_usd,  # Close full position
+        size_delta_usd=position_size_usd_raw,  # Use raw value for exact match
         initial_collateral_delta=collateral_amount_usd,  # Withdraw all collateral
         slippage_percent=0.005,
         execution_buffer=2.2,
     )
+    mine_block(web3_arbitrum_fork)
 
     # Submit and execute close order
     close_transaction = close_order_result.transaction.copy()
