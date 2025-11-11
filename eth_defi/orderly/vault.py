@@ -1,3 +1,5 @@
+"""Orderly deposit vault handling"""
+
 from eth_typing import HexAddress
 from web3 import Web3
 from web3.contract.contract import Contract, ContractFunction
@@ -6,6 +8,12 @@ from eth_defi.abi import get_deployed_contract
 
 
 class OrderlyVault:
+    """Orderly deposit vault instance.
+
+    Orderly handles deposits as "vaults" that can be used to deposit and withdraw tokens.
+    Vautls also have "settle" functionality to reflect the balances back onchain.
+    """
+
     def __init__(self, web3: Web3, address: str):
         self.web3 = web3
         self.address = address

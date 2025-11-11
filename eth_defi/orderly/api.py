@@ -1,3 +1,5 @@
+"""Orderly API client implementation."""
+
 import json
 import urllib
 from base64 import urlsafe_b64encode
@@ -14,6 +16,12 @@ from eth_defi.orderly.constants import MESSAGE_TYPES
 
 
 class OrderlyApiClient:
+    """Orderly API client for deposit/withdrawals.
+
+    - This client is responsible for registering accounts and keys with Orderly,
+      so that we can delegate a vault to be a trading account on Orderly.
+    """
+
     def __init__(
         self,
         *,

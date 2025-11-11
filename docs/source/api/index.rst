@@ -22,6 +22,7 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    aave_v3/index
    cowswap/index
    gmx/index
+   orderly/index
    one_delta/index
    safe/index
    vault/index

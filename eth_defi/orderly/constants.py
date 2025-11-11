@@ -1,3 +1,6 @@
+"""Constants for Orderly Protocol EIP-712 typed data messages."""
+
+#: EIP-712 message types for Orderly Protocol operations so we can setup a trading account
 MESSAGE_TYPES = {
     "EIP712Domain": [
         {"name": "name", "type": "string"},

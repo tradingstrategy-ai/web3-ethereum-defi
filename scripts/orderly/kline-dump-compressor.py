@@ -6,6 +6,12 @@
 - We take only one of the timeframes
 - Kline data doesn't contain open interest
 
+To run:
+
+.. code-block:: shell
+
+    python scripts/orderly/kline-dump-compressor.py
+
 Example data:
 
 .. code-block:: csv
@@ -29,7 +35,7 @@ columns = ["open", "high", "low", "close", "volume_usd", "volume_unit", "symbol"
 
 fname = Path.home() / "Downloads" / "kline_his0527.csv"
 
-new_freq = "15min"
+new_freq = "5min"
 
 # Read CSV
 df = pd.read_csv(fname, names=columns)
