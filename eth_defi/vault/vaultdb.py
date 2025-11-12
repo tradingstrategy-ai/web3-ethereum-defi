@@ -4,6 +4,7 @@ import datetime
 import pickle
 from dataclasses import dataclass, field
 from decimal import Decimal
+from io import BufferedIOBase
 from pathlib import Path
 from typing import TypedDict, TypeAlias, Iterable
 from atomicwrites import atomic_write
@@ -114,7 +115,7 @@ class VaultDatabase:
     last_scanned_block: dict[int, int] = field(default_factory=dict)
 
     @staticmethod
-    def read(path: Path = DEFAULT_VAULT_DATABASE) -> "VaultDatabase":
+    def read(path: Path | BufferedIOBase = DEFAULT_VAULT_DATABASE) -> "VaultDatabase":
         """Load the picked file.
 
         Example:
@@ -130,7 +131,10 @@ class VaultDatabase:
 
         """
         try:
-            existing_db = pickle.load(path.open("rb"))
+            if isinstance(path, BufferedIOBase):
+                existing_db = pickle.load(path)
+            else:
+                existing_db = pickle.load(path.open("rb"))
         except Exception as e:
             raise RuntimeError(f"Could not read vault database from {path}: {e}") from e
         return existing_db
@@ -139,7 +143,7 @@ class VaultDatabase:
         """Do an atomic write to avoid corrupted data."""
 
         with atomic_write(path, mode="wb", overwrite=True) as f:
-            pickle.dump(self, f)
+            pickle.dump(self, f, protocol=4)
 
     def get_lead_count(self) -> int:
         return len(self.leads)
