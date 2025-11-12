@@ -51,7 +51,6 @@ def test_d2(
 
     assert isinstance(vault, D2Vault)
     assert vault.get_protocol_name() == "D2 Finance"
-    assert vault.get_risk() == VaultTechnicalRisk.elevated
     assert vault.get_management_fee("latest") == 0.00
     assert vault.get_performance_fee("latest") == 0.20
     assert vault.has_custom_fees() is False

@@ -122,7 +122,7 @@ USDT_WHALE: dict[int, HexAddress | str] = {
     56: Web3.to_checksum_address("0x128463A60784c4D3f46c23Af3f65Ed859Ba87974"),
     # Arbitrum
     # https://arbiscan.io/token/0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9#balances
-    42161: "0x8f9c79B9De8b0713dCAC3E535fc5A1A92DB6EA2D",
+    42161: "0x9E36CB86a159d479cEd94Fa05036f235Ac40E1d5",
 }
 
 #: Addresses USDT Tether of different chains

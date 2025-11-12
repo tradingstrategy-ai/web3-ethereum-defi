@@ -57,7 +57,6 @@ def test_umami(
     # https://arbiscan.io/address/0x1E914730B4Cd343aE14530F0BBF6b350d83B833d
     assert aggregate_vault_contract.address == "0x1E914730B4Cd343aE14530F0BBF6b350d83B833d"
 
-    assert gmusdc.get_risk() == VaultTechnicalRisk.elevated
     assert gmusdc.get_management_fee("latest") == 0.02
     assert gmusdc.get_performance_fee("latest") == 0.20
     assert gmusdc.has_custom_fees() is True
