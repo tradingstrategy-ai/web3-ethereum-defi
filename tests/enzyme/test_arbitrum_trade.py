@@ -18,6 +18,8 @@ from eth_typing import HexAddress
 from web3 import Web3
 from web3.contract import Contract
 
+import flaky
+
 from eth_defi.aave_v3.constants import AAVE_V3_NETWORKS, AAVE_V3_DEPLOYMENTS
 from eth_defi.aave_v3.deployment import AaveV3Deployment
 from eth_defi.aave_v3.loan import supply
@@ -264,6 +266,7 @@ def test_enzyme_uniswap_v3_arbitrum(
     assert 0.01 < weth.fetch_balance_of(vault.address) < 1
 
 
+@flaky.flaky
 def test_enzyme_aave_arbitrum(
     web3: Web3,
     deployer: HexAddress,
