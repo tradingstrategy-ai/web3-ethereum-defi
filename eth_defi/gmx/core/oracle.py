@@ -16,6 +16,11 @@ from requests import Response
 from eth_defi.gmx.contracts import _get_clean_api_urls, _get_clean_backup_urls
 from eth_defi.gmx.types import PriceData
 
+# Module-level cache for oracle prices with timestamps
+# Key: chain name, Value: (prices dict, timestamp)
+_ORACLE_PRICES_CACHE: dict[str, tuple[dict, float]] = {}
+_CACHE_TTL_SECONDS = 10  # Cache oracle prices for 10 seconds
+
 
 class OraclePrices:
     """GMX Oracle Prices API client.
@@ -50,13 +55,37 @@ class OraclePrices:
         self.oracle_url = clean_api_urls[oracle_chain] + "/signed_prices/latest"
         self.backup_oracle_url = clean_backup_urls.get(oracle_chain, "") + "/signed_prices/latest" if clean_backup_urls.get(oracle_chain) else None
 
-    def get_recent_prices(self) -> PriceData:
+    def get_recent_prices(self, use_cache: bool = True, cache_ttl: float = None) -> PriceData:
         """Get raw output of the GMX rest v2 api for signed prices.
 
+        Uses module-level caching with TTL to avoid repeated API calls.
+        Oracle prices change frequently but not every second, so short-term
+        caching (10s default) provides significant performance improvement.
+
+        :param use_cache: Whether to use cached values. Default is True.
+        :param cache_ttl: Cache TTL in seconds. If None, uses module default (10s).
         :return: Dictionary containing raw output for each token as its keys
         """
+        ttl = cache_ttl if cache_ttl is not None else _CACHE_TTL_SECONDS
+
+        # Check cache if enabled
+        if use_cache and self.chain in _ORACLE_PRICES_CACHE:
+            cached_prices, cached_time = _ORACLE_PRICES_CACHE[self.chain]
+            age = time.time() - cached_time
+
+            if age < ttl:
+                logging.debug(f"Using cached oracle prices (age: {age:.1f}s)")
+                return cached_prices
+
+        # Fetch fresh prices
         raw_output = self._make_query().json()
-        return self._process_output(raw_output)
+        prices = self._process_output(raw_output)
+
+        # Cache the result
+        if use_cache:
+            _ORACLE_PRICES_CACHE[self.chain] = (prices, time.time())
+
+        return prices
 
     def _make_query(self, max_retries=5, initial_backoff=1, max_backoff=60) -> Optional[Response]:
         """Make request using oracle URL with retry mechanism.
@@ -114,3 +143,12 @@ class OraclePrices:
             processed[i["tokenAddress"]] = i
 
         return processed
+
+
+def clear_oracle_prices_cache():
+    """Clear the module-level oracle prices cache.
+
+    Call this if you need to force refresh of oracle prices.
+    """
+    global _ORACLE_PRICES_CACHE
+    _ORACLE_PRICES_CACHE.clear()

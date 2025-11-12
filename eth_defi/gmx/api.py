@@ -36,7 +36,11 @@ class GMXAPI:
         df = gmx_api.get_candlesticks_dataframe("ETH", period="1h")
     """
 
-    def __init__(self, config: Optional[GMXConfig] = None, chain: Optional[str] = None):
+    def __init__(
+        self,
+        config: Optional[GMXConfig] = None,
+        chain: Optional[str] = None,
+    ):
         """
         Initialise the GMX API client with the provided configuration.
 
@@ -70,7 +74,11 @@ class GMXAPI:
         else:
             raise ValueError(f"Unsupported chain: {self.chain}. Supported: arbitrum, arbitrum_sepolia, avalanche")
 
-    def _make_request(self, endpoint: str, params: Optional[dict[str, Any]] = None) -> dict[str, Any]:
+    def _make_request(
+        self,
+        endpoint: str,
+        params: Optional[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
         """
         Make a request to the GMX API with automatic failover to backup URL.
 
@@ -104,7 +112,9 @@ class GMXAPI:
                 response.raise_for_status()
                 return response.json()
             except requests.RequestException as backup_e:
-                raise RuntimeError(f"Failed to connect to GMX API: {str(backup_e)}") from e
+                raise RuntimeError(
+                    f"Failed to connect to GMX API: {str(backup_e)}",
+                ) from e
 
     def get_tickers(self) -> dict[str, Any]:
         """
@@ -150,7 +160,11 @@ class GMXAPI:
         """
         return self._make_request("/tokens")
 
-    def get_candlesticks(self, token_symbol: str, period: str = "1h") -> dict[str, Any]:
+    def get_candlesticks(
+        self,
+        token_symbol: str,
+        period: str = "1h",
+    ) -> dict[str, Any]:
         """
         Get historical price data in candlestick format for a specific token.
 
@@ -171,7 +185,11 @@ class GMXAPI:
         params = {"tokenSymbol": token_symbol, "period": period}
         return self._make_request("/prices/candles", params=params)
 
-    def get_candlesticks_dataframe(self, token_symbol: str, period: str = "1h") -> pd.DataFrame:
+    def get_candlesticks_dataframe(
+        self,
+        token_symbol: str,
+        period: str = "1h",
+    ) -> pd.DataFrame:
         """
         Get historical price data as a pandas DataFrame for easy analysis.
 
@@ -207,7 +225,10 @@ class GMXAPI:
         data = self.get_candlesticks(token_symbol, period)
 
         # Convert to DataFrame
-        df = pd.DataFrame(data["candles"], columns=["timestamp", "open", "high", "low", "close"])
+        df = pd.DataFrame(
+            data["candles"],
+            columns=["timestamp", "open", "high", "low", "close"],
+        )
         df["timestamp"] = pd.to_datetime(df["timestamp"], unit="s")
 
         return df

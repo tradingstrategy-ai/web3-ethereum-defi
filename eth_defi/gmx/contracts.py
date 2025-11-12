@@ -18,8 +18,15 @@ from web3.contract import Contract
 from cchecksum import to_checksum_address
 
 from eth_defi.abi import get_deployed_contract
-from eth_defi.gmx.constants import GMX_API_URLS, GMX_API_URLS_BACKUP, GMX_CONTRACTS_JSON_URL
+from eth_defi.gmx.constants import GMX_API_URLS, GMX_API_URLS_BACKUP, GMX_CONTRACTS_JSON_URL, GMX_CONTRACTS_JSON_URL_UPDATES
 from eth_defi.gmx.api import GMXAPI
+
+
+# Subsquid GraphQL endpoints by chain
+GMX_SUBSQUID_ENDPOINTS = {
+    "arbitrum": "https://gmx.squids.live/gmx-synthetics-arbitrum:prod/api/graphql",
+    "avalanche": "https://gmx.squids.live/gmx-synthetics-avalanche:prod/api/graphql",
+}
 
 
 # Helper function to extract actual API URLs (filtering out docstring keys)
@@ -95,47 +102,44 @@ NETWORK_CONTRACTS = {
     ),
 }
 
-# Hardcoded fallback for arbitrum addresses (used when API fetch fails)
-ARBITRUM_FALLBACK_ADDRESSES = ContractAddresses(
-    datastore=to_checksum_address("0xFD70de6b91282D8017aA4E741e9Ae325CAb992d8"),
-    eventemitter=to_checksum_address("0xC8ee91A54287DB53897056e12D9819156D3822Fb"),
-    exchangerouter=to_checksum_address("0x602b805EedddBbD9ddff44A7dcBD46cb07849685"),
-    depositvault=to_checksum_address("0xF89e77e8Dc11691C9e8757e84aaFbCD8A67d7A55"),
-    withdrawalvault=to_checksum_address("0x0628D46b5D145f183AdB6Ef1f2c97eD1C4701C55"),
-    ordervault=to_checksum_address("0x31eF83a530Fde1B38EE9A18093A333D8Bbbc40D5"),
-    syntheticsreader=to_checksum_address("0x0537C767cDAC0726c76Bb89e92904fe28fd02fE1"),
-    syntheticsrouter=to_checksum_address("0x7452c558d45f8afC8c83dAe62C3f8A5BE19c71f6"),
-    glvreader=to_checksum_address("0xd4f522c4339Ae0A90a156bd716715547e44Bed65"),
-    chainlinkpricefeedprovider=to_checksum_address("0x527FB0bCfF63C47761039bB386cFE181A92a4701"),
-    chainlinkdatastreamprovider=to_checksum_address("0xF4122dF7Be4Ccd46D7397dAf2387B3A14e53d967"),
-    gmoracleprovider=to_checksum_address("0x5d6B84086DA6d4B0b6C0dF7E02f8a6A039226530"),
-    orderhandler=to_checksum_address("0xfc9Bc118fdDb89FF6fF720840446D73478dE4153"),
-    oracle=to_checksum_address("0x918b60bA71bAdfaDA72EF3A6C6F71d0C41D4785C"),
-)
-
-# Hardcoded fallback for avalanche addresses (used when API fetch fails)
-AVALANCHE_FALLBACK_ADDRESSES = ContractAddresses(
-    datastore=to_checksum_address("0x2F0b22339414ADeD7D5F06f9D604c7fF5b2fe3f6"),
-    eventemitter=to_checksum_address("0xDb17B211c34240B014ab6d61d4A31FA0C0e20c26"),
-    exchangerouter=to_checksum_address("0x2b76df209E1343da5698AF0f8757f6170162e78b"),
-    depositvault=to_checksum_address("0x90c670825d0C62ede1c5ee9571d6d9a17A722DFF"),
-    withdrawalvault=to_checksum_address("0xf5F30B10141E1F63FC11eD772931A8294a591996"),
-    ordervault=to_checksum_address("0xD3D60D22d415aD43b7e64b510D86A30f19B1B12C"),
-    syntheticsreader=to_checksum_address("0x618fCEe30D9A26e8533C3B244CAd2D6486AFf655"),
-    syntheticsrouter=to_checksum_address("0x820F5FfC5b525cD4d88Cd91aCf2c28F16530Cc68"),
-    glvreader=to_checksum_address("0xae9596a1C438675AcC75f69d32E21Ac9c8fF99bD"),
-)
-
 
 def _fetch_contract_addresses_from_url(chain: str) -> Optional[ContractAddresses]:
-    """Fetch contract addresses for a chain from the GMX contracts.json URL."""
-    # Fetch from URL
-    url = GMX_CONTRACTS_JSON_URL
-    try:
-        response = requests.get(url, timeout=10)
-        response.raise_for_status()
-        contracts_data = response.json()
+    """Fetch contract addresses for a chain from the GMX contracts.json URL.
 
+    Tries the updates branch first (which has the latest addresses), then falls back
+    to main branch if updates returns 404 (branch merged/deleted).
+    """
+    # Try updates branch first (has latest Reader and other contract addresses)
+    urls_to_try = [
+        (GMX_CONTRACTS_JSON_URL_UPDATES, "updates branch"),
+        (GMX_CONTRACTS_JSON_URL, "main branch"),
+    ]
+
+    contracts_data = None
+    for url, branch_name in urls_to_try:
+        try:
+            response = requests.get(url, timeout=10)
+            response.raise_for_status()
+            contracts_data = response.json()
+            break  # Success! Stop trying other URLs
+        except requests.HTTPError as e:
+            if e.response.status_code == 404 and branch_name == "updates branch":
+                # Updates branch not found (merged to main), try main branch
+                continue
+            else:
+                # Other error, re-raise
+                raise
+        except (requests.RequestException, json.JSONDecodeError) as e:
+            # Network or JSON error, try next URL
+            if branch_name == "main branch":
+                # Last URL failed, re-raise
+                raise
+            continue
+
+    if contracts_data is None:
+        return None
+
+    try:
         # Get contracts for the specified chain
         if chain not in contracts_data:
             return None
@@ -192,14 +196,20 @@ def _fetch_contract_addresses_from_url(chain: str) -> Optional[ContractAddresses
         # Create the ContractAddresses object
         contract_addresses = ContractAddresses(**addresses_dict)
 
+        # Note: We now fetch from the 'updates' branch first which has the latest contract addresses.
+        # When GMX merges updates to main, this will automatically switch to main branch.
         return contract_addresses
     except (requests.RequestException, json.JSONDecodeError, KeyError, ValueError) as e:
         # Return None if there's an error fetching or parsing
         return None
 
 
-def _fetch_tokens_from_gmx_api(chain: str) -> Optional[dict[str, str]]:
-    """Fetch token addresses for a chain from GMX API."""
+def _fetch_tokens_from_gmx_api(chain: str) -> Optional[dict[str, dict]]:
+    """Fetch token data for a chain from GMX API.
+
+    Returns address -> {symbol, decimals, synthetic} mapping to avoid
+    expensive contract calls for each token.
+    """
     try:
         # Use the updated GMXAPI constructor that accepts chain directly
         api = GMXAPI(chain=chain)
@@ -208,19 +218,27 @@ def _fetch_tokens_from_gmx_api(chain: str) -> Optional[dict[str, str]]:
         token_data = api.get_tokens()
         token_infos = token_data.get("tokens", [])
 
-        # Convert to symbol -> address mapping
+        # Convert to address -> metadata mapping (includes decimals from API)
         tokens_dict = {}
         for token_info in token_infos:
-            symbol = token_info.get("symbol", "").upper()
+            symbol = token_info.get("symbol", "")
             address = token_info.get("address", "")
+            decimals = token_info.get("decimals", 18)  # Default to 18 if not specified
+            synthetic = token_info.get("synthetic", False)
+
             if symbol and address:
-                tokens_dict[symbol] = to_checksum_address(address)
+                checksum_address = to_checksum_address(address)
+                tokens_dict[checksum_address] = {
+                    "symbol": symbol,
+                    "decimals": decimals,
+                    "synthetic": synthetic,
+                }
 
         return tokens_dict
 
     except Exception as e:
-        # If API fetch fails, return the fallback tokens
-        return NETWORK_TOKENS.get(chain)
+        # No fallback - raise error with helpful message
+        raise ValueError(f"Failed to fetch token data for {chain} from GMX API. Error: {str(e)}. Please check your internet connection and try again.")
 
 
 # ABI loading function
@@ -232,7 +250,6 @@ def _load_abi(filename: str) -> list:
         return json.load(f)
 
 
-# Token addresses by network - fallback values when API calls fail
 # Token addresses by network - fallback values when API calls fail
 NETWORK_TOKENS = {
     "arbitrum": {
@@ -330,23 +347,23 @@ def get_contract_addresses(chain: str) -> ContractAddresses:
                 # Regular key (like arbitrum_sepolia)
                 clean_contracts[key] = value
 
-    # For arbitrum and avalanche, try to fetch from URL first with fallback to hardcoded addresses
+    # For arbitrum and avalanche, always fetch from GMX API (no fallback)
     if chain == "arbitrum":
-        # Try to fetch from URL
+        # Fetch from GMX contracts.json URL
         dynamic_addresses = _fetch_contract_addresses_from_url("arbitrum")
         if dynamic_addresses is not None:
             return dynamic_addresses
         else:
-            # Fallback to hardcoded addresses
-            return ARBITRUM_FALLBACK_ADDRESSES
+            # No fallback - raise error
+            raise ValueError(f"Failed to fetch contract addresses for {chain} from GMX API ({GMX_CONTRACTS_JSON_URL}). Please check your internet connection and try again. The API may be temporarily unavailable.")
     elif chain == "avalanche":
-        # Try to fetch from URL
+        # Fetch from GMX contracts.json URL
         dynamic_addresses = _fetch_contract_addresses_from_url("avalanche")
         if dynamic_addresses is not None:
             return dynamic_addresses
         else:
-            # Fallback to hardcoded addresses
-            return AVALANCHE_FALLBACK_ADDRESSES
+            # No fallback - raise error
+            raise ValueError(f"Failed to fetch contract addresses for {chain} from GMX API ({GMX_CONTRACTS_JSON_URL}). Please check your internet connection and try again. The API may be temporarily unavailable.")
     elif chain in clean_contracts:
         # This will now properly handle arbitrum_sepolia and other non-dynamic networks
         return clean_contracts[chain]
@@ -380,20 +397,44 @@ def get_datastore_contract(web3: Web3, chain: str) -> Contract:
     return get_deployed_contract(web3, "gmx/DataStore.json", addresses.datastore)
 
 
+def get_tokens_metadata_dict(chain: str) -> dict[str, dict]:
+    """
+    Get full token metadata for a specific network from GMX API.
+
+    Returns address -> {symbol, decimals, synthetic} mapping.
+    This avoids expensive contract calls for each token.
+
+    :param chain: Network name
+    :return: Dictionary mapping token addresses to metadata
+    :raises ValueError: If chain is not supported or API request fails
+    """
+    tokens_metadata = _fetch_tokens_from_gmx_api(chain)
+    if tokens_metadata is not None:
+        return tokens_metadata
+    else:
+        raise ValueError(f"Failed to fetch token metadata for {chain} from GMX API. Please check your internet connection and try again.")
+
+
 def get_tokens_address_dict(chain: str) -> dict[str, str]:
     """
     Get token address mapping for a specific network from GMX API.
+
+    Returns symbol -> address mapping for backward compatibility.
 
     :param chain: Network name
     :return: Dictionary mapping token symbols to addresses
     :raises ValueError: If chain is not supported or API request fails
     """
-    # Fetch tokens using GMXAPI
-    tokens_dict = _fetch_tokens_from_gmx_api(chain)
-    if tokens_dict is not None:
-        return tokens_dict
-    else:
-        raise ValueError(f"Failed to fetch tokens for {chain} and no fallback available")
+    # Get full metadata
+    tokens_metadata = get_tokens_metadata_dict(chain)
+
+    # Convert to symbol -> address mapping for backward compatibility
+    symbol_to_address = {}
+    for address, metadata in tokens_metadata.items():
+        symbol = metadata["symbol"].upper()
+        symbol_to_address[symbol] = address
+
+    return symbol_to_address
 
 
 def get_token_address(chain: str, symbol: str, web3: Optional[Web3] = None) -> Optional[str]:
@@ -448,16 +489,6 @@ def get_glv_reader_contract(web3: Web3, chain: str) -> Contract:
 
 def get_token_balance_contract(web3: Web3, contract_address: HexAddress) -> Contract:
     return get_deployed_contract(web3, "gmx/balance.json", contract_address)
-
-
-def get_tokens_metadata_dict(chain: str) -> dict[str, dict]:
-    """
-    Get token metadata mapping for a specific network.
-
-    :param chain: Network name
-    :return: Dictionary mapping token addresses to metadata (symbol, decimals, synthetic)
-    """
-    return NETWORK_TOKENS_METADATA.get(chain, {})
 
 
 def get_token_metadata(chain: str, address: str) -> Optional[dict]:

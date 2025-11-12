@@ -77,8 +77,9 @@ import sys
 from eth_defi.chain import get_chain_name
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.trading import GMXTrading
+from eth_defi.gmx.order.order_argument_parser import OrderArgumentParser
 from eth_defi.hotwallet import HotWallet
-from eth_defi.gmx.contracts import get_tokens_address_dict, get_contract_addresses, get_token_address_normalized, get_exchange_router_contract
+from eth_defi.gmx.contracts import get_tokens_address_dict, get_contract_addresses, get_token_address_normalized
 from rich.console import Console
 
 from eth_defi.provider.multi_provider import create_multi_provider_web3
@@ -161,7 +162,8 @@ def main():
     try:
         console.print(f"\nOpening position: {size_usd} USD of {user_market_symbol} (mapped to {market_symbol}) with {leverage}x leverage")
 
-        # Creating the open position Order object which needs to be signed & send
+        # Create the order FIRST - it will parse arguments and check approval
+        console.print(f"\nCreating position order...")
         order = trading_client.open_position(
             market_symbol=market_symbol,
             collateral_symbol=collateral_symbol,
@@ -170,12 +172,13 @@ def main():
             size_delta_usd=size_usd,
             leverage=leverage,
             slippage_percent=0.005,  # 0.5% slippage
-            execution_buffer=1.9,  # less than this is reverting
+            execution_buffer=2.2,  # less than this is reverting
         )
 
         console.print(f"\n[green]Position Order object created successfully![/green]")
 
-        # Get token contract and approve if needed
+        # Now handle token approval using the warning message info
+        # We get the collateral amount from the order's initial_collateral_delta_amount parameter
         try:
             # Get the collateral token address
             collateral_token_address = get_token_address_normalized(chain, collateral_symbol)
@@ -185,21 +188,23 @@ def main():
             token_contract = token_details.contract
             console.print(f"Collateral token contract: {collateral_token_address}")
 
-            # Get the spender address (GMX exchange router)
-            exchange_router = get_exchange_router_contract(web3, chain)
-            spender_address = exchange_router.address
-            console.print(f"Spender (GMX contract): {spender_address}")
+            # Get the spender address (GMX SyntheticsRouter, not ExchangeRouter)
+            contract_addresses = get_contract_addresses(chain)
+            spender_address = contract_addresses.syntheticsrouter
+            console.print(f"Spender (GMX SyntheticsRouter): {spender_address}")
 
             # Check current allowance
             current_allowance = token_contract.functions.allowance(wallet_address, spender_address).call()
 
-            # Estimate required amount based on position size (smaller for testing)
-            # Using 100 tokens as example for testing (adjust based on position)
+            # Get the required amount from the order transaction value
+            # The order already calculated the exact collateral needed
+            # We can use a large approval amount since the contract will only pull what's needed
             token_decimals = token_details.decimals
-            required_amount = int(100 * (10**token_decimals))  # Example: 100 tokens in smallest units
+            # Approve a large amount (1 billion tokens) - contract will only use what's needed
+            required_amount = 1_000_000_000 * (10**token_decimals)
 
             console.print(f"Current allowance: {current_allowance / (10**token_decimals)} {collateral_symbol}")
-            console.print(f"Required amount: {required_amount / (10**token_decimals)} {collateral_symbol}")
+            console.print(f"Approving: {required_amount / (10**token_decimals)} {collateral_symbol} (large amount for convenience)")
 
             if current_allowance < required_amount:
                 console.print(f"Approving {collateral_symbol} tokens for GMX contract...")
@@ -227,8 +232,8 @@ def main():
                     # Wait for approval confirmation
                     console.print("Waiting for approval confirmation...")
                     approve_receipt = web3.eth.wait_for_transaction_receipt(approve_tx_hash)
-                    console.print(f"Approval confirmed! Status: {approve_receipt.status}")
-                    console.print(f"Approval block number: {approve_receipt.blockNumber}")
+                    console.print(f"Approval confirmed! Status: {approve_receipt['status']}")
+                    console.print(f"Approval block number: {approve_receipt['blockNumber']}")
                 except Exception as approval_error:
                     console.print(f"Approval transaction failed: {approval_error}")
                     console.print("This is expected if using a test wallet without sufficient ETH for gas fees")
@@ -237,7 +242,7 @@ def main():
 
         except Exception as e:
             console.print(f"Token approval failed: {str(e)}")
-            console.print("Continuing with position creation (approval may be needed for actual execution)")
+            console.print("You may need to approve tokens manually before submitting the transaction")
             import traceback
 
             traceback.print_exc()

@@ -3,6 +3,8 @@
 Fetch GMX synthetic token data from APIs and cache results for efficient access.
 """
 
+# TODO: We might not this anymore
+
 import json
 import logging
 import requests

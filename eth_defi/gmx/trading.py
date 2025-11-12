@@ -460,7 +460,10 @@ class GMXTrading:
         }
 
         # Process parameters
-        order_parameters = OrderArgumentParser(config, is_decrease=True).process_parameters_dictionary(parameters)
+        order_parameters = OrderArgumentParser(
+            config,
+            is_decrease=True,
+        ).process_parameters_dictionary(parameters)
 
         # Create order instance with position identification (order classes need GMXConfig, not GMXConfigManager)
         order = DecreaseOrder(
@@ -600,7 +603,10 @@ class GMXTrading:
         }
 
         # Process parameters
-        order_parameters = OrderArgumentParser(config, is_swap=True).process_parameters_dictionary(parameters)
+        order_parameters = OrderArgumentParser(
+            config,
+            is_swap=True,
+        ).process_parameters_dictionary(parameters)
 
         # Create SwapOrder instance (order classes need GMXConfig, not GMXConfigManager)
         swap_order = SwapOrder(

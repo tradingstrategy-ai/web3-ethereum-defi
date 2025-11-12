@@ -556,7 +556,7 @@ def native_datetime_utc_now() -> datetime.datetime:
     Returns:
         datetime.datetime: Native datetime object in UTC
     """
-    return datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+    return datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
 
 
 def native_datetime_utc_fromtimestamp(timestamp: float) -> datetime.datetime:
@@ -577,7 +577,7 @@ def native_datetime_utc_fromtimestamp(timestamp: float) -> datetime.datetime:
     Returns:
         datetime.datetime: native datetime object in UTC
     """
-    return datetime.datetime.fromtimestamp(timestamp, tz=datetime.UTC).replace(tzinfo=None)
+    return datetime.datetime.fromtimestamp(timestamp, tz=datetime.timezone.utc).replace(tzinfo=None)
 
 
 def create_http_provider(*args, **kwargs) -> HTTPProvider:
