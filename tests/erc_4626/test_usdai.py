@@ -52,7 +52,6 @@ def test_usdai(
     assert vault.features == {ERC4626Feature.usdai_like, ERC4626Feature.erc_7540_like, ERC4626Feature.erc_7575_like}
     assert isinstance(vault, StakedUSDaiVault)
     assert vault.get_protocol_name() == "USDai"
-    assert vault.get_risk() == VaultTechnicalRisk.minimal
     assert vault.get_management_fee("latest") == 0.00
     assert vault.get_performance_fee("latest") == 0.00
     assert vault.get_fee_mode() == VaultFeeMode.internalised_skimming

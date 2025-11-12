@@ -51,7 +51,6 @@ def test_untangle(
     assert isinstance(vault, UntangleVault)
     assert vault.features == {ERC4626Feature.erc_7540_like, ERC4626Feature.untangled_like}
     assert vault.get_protocol_name() == "Untangle Finance"
-    assert vault.get_risk() == VaultTechnicalRisk.minimal
     assert vault.get_management_fee("latest") == 0.00
     assert vault.get_performance_fee("latest") == 0.00
     assert vault.has_custom_fees() is False

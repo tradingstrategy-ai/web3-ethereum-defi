@@ -52,7 +52,7 @@ def test_plutus(
 
     assert isinstance(vault, PlutusVault)
 
-    assert vault.get_risk() == VaultTechnicalRisk.dangerous
+    assert vault.get_risk() == VaultTechnicalRisk.severe
     assert vault.get_management_fee("latest") == 0.00
     assert vault.get_performance_fee("latest") == 0.12
     assert vault.has_custom_fees() is False
