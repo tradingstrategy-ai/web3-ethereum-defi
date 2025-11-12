@@ -81,7 +81,7 @@ def get_chain_config(chain_name):
     """Get chain configuration with lazy-loaded token addresses."""
     base_config = {
         "arbitrum": {
-            "rpc_env_var": "ARBITRUM_JSON_RPC_URL",
+            "rpc_env_var": "JSON_RPC_ARBITRUM",
             "chain_id": get_chain_id_by_name("arbitrum"),
             "fork_block_number": 338206286,
         },
@@ -129,7 +129,7 @@ def _get_arbitrum_config():
     """Get Arbitrum config with addresses from GMX API."""
     chain_id = get_chain_id_by_name("arbitrum")
     return {
-        "rpc_env_var": "ARBITRUM_JSON_RPC_URL",
+        "rpc_env_var": "JSON_RPC_ARBITRUM",
         "chain_id": chain_id,
         "fork_block_number": 338206286,
         # Fetch token addresses from GMX API instead of hardcoding
@@ -171,7 +171,7 @@ def pytest_generate_tests(metafunc):
 
         # Skip all tests if no chains are available
         if not available_chains:
-            pytest.skip("No ARBITRUM_JSON_RPC_URL environment variable available")
+            pytest.skip("No JSON_RPC_ARBITRUM environment variable available")
 
         # Parametrize tests with available chains (only arbitrum)
         metafunc.parametrize("chain_name", available_chains)

@@ -10,7 +10,7 @@ Tests follow the complete order lifecycle:
 3. Verify position was created with assertions
 
 Required Environment Variables:
-- ARBITRUM_JSON_RPC_URL: Arbitrum mainnet RPC endpoint for forking
+- JSON_RPC_ARBITRUM: Arbitrum mainnet RPC endpoint for forking
 
 All fixtures are defined in conftest.py:
 - arbitrum_fork_config: GMX config for mainnet fork

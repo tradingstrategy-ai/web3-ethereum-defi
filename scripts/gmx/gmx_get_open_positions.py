@@ -35,7 +35,7 @@ def display_positions(positions: dict):
 
 
 if __name__ == "__main__":
-    rpc = os.environ["ARBITRUM_JSON_RPC_URL"]
+    rpc = os.environ["JSON_RPC_ARBITRUM"]
     web3 = Web3(Web3.HTTPProvider(rpc))
     config = GMXConfig(web3)
 
