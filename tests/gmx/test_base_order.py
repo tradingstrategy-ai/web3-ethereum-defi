@@ -119,15 +119,15 @@ def test_module_constants():
 # ==================== Initialization Tests ====================
 
 
-def test_base_order_initialization(chain_name, gmx_config_fork):
+def test_base_order_initialization(chain_name, arbitrum_fork_config):
     """Test that BaseOrder initializes correctly with all required attributes."""
-    base_order = BaseOrder(gmx_config_fork)
+    base_order = BaseOrder(arbitrum_fork_config)
 
     # Basic attributes
-    assert base_order.config == gmx_config_fork
+    assert base_order.config == arbitrum_fork_config
     assert base_order.chain.lower() == chain_name.lower()
     assert base_order.web3 is not None
-    assert base_order.chain_id == gmx_config_fork.web3.eth.chain_id
+    assert base_order.chain_id == arbitrum_fork_config.web3.eth.chain_id
     assert base_order.contract_addresses is not None
     assert base_order._exchange_router_contract is not None
 
@@ -338,7 +338,7 @@ def test_get_prices_swap(chain_name, base_order):
 # ==================== Order Arguments Tests ====================
 
 
-def test_build_order_arguments_structure(chain_name, base_order, gmx_config_fork):
+def test_build_order_arguments_structure(chain_name, base_order, arbitrum_fork_config):
     """Test the structure of built order arguments."""
     markets = base_order.markets.get_available_markets()
     market_key = next(iter(markets.keys()))
@@ -380,7 +380,7 @@ def test_build_order_arguments_structure(chain_name, base_order, gmx_config_fork
 
     # Verify addresses are checksummed
     addresses = arguments[0]
-    assert addresses[0] == to_checksum_address(gmx_config_fork.get_wallet_address())
+    assert addresses[0] == to_checksum_address(arbitrum_fork_config.get_wallet_address())
     assert addresses[4] == to_checksum_address(market_key)
     assert addresses[5] == to_checksum_address(params.collateral_address)
 
@@ -399,7 +399,7 @@ def test_build_order_arguments_structure(chain_name, base_order, gmx_config_fork
     assert numbers[7] == params.valid_from_time
 
 
-def test_build_order_arguments_uses_constants(base_order, gmx_config_fork):
+def test_build_order_arguments_uses_constants(base_order, arbitrum_fork_config):
     """Test that order arguments use module constants."""
     markets = base_order.markets.get_available_markets()
     market_key = next(iter(markets.keys()))

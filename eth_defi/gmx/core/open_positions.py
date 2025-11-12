@@ -59,19 +59,19 @@ class GetOpenPositions(GetData):
             try:
                 raw_positions = self.reader_contract.functions.getAccountPositions(datastore_address, checksum_address, 0, 10).call()
             except Exception as decode_error:
-                # Handle decoding errors gracefully - could be due to:
+                # Handle decoding errors - could be due to:
                 # 1. Contract ABI mismatch
                 # 2. No positions for this address
                 # 3. Network/RPC issues
                 error_msg = str(decode_error)
                 logger.error(
-                    f"Could not decode positions for address {checksum_address}: {decode_error}",
+                    f"Could not decode positions for address {checksum_address}: {error_msg}",
                 )
                 # Return empty dict for addresses with no valid positions
                 raise decode_error
 
             if len(raw_positions) == 0:
-                print(
+                logger.info(
                     f'No positions open for address: "{checksum_address}" on {self.config.chain.title()}.',
                 )
                 return {}

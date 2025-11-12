@@ -864,15 +864,15 @@ def _approve_tokens_for_config(
 
 # TODO: Replace with the new Order class
 # @pytest.fixture()
-# def order_manager(gmx_config_fork):
+# def order_manager(arbitrum_fork_config):
 #     """Create a GMXOrderManager instance for the specified chain."""
-#     return GMXOrderManager(gmx_config_fork)
+#     return GMXOrderManager(arbitrum_fork_config)
 
 
 @pytest.fixture()
-def trading_manager(gmx_config_fork):
+def trading_manager(arbitrum_fork_config):
     """Create a GMXTrading instance for the specified chain."""
-    return GMXTrading(gmx_config_fork)
+    return GMXTrading(arbitrum_fork_config)
 
 
 @pytest.fixture()
@@ -885,23 +885,23 @@ def test_wallet(web3_arbitrum_fork, anvil_private_key):
 
 
 @pytest.fixture()
-def base_order(gmx_config_fork):
+def base_order(arbitrum_fork_config):
     """Create a BaseOrder instance for the specified chain."""
-    return BaseOrder(gmx_config_fork)
+    return BaseOrder(arbitrum_fork_config)
 
 
 @pytest.fixture()
-def swap_order_weth_usdc(gmx_config_fork, chain_name):
+def swap_order_weth_usdc(arbitrum_fork_config, chain_name):
     """Create a SwapOrder instance for WETH->USDC swap."""
     tokens = NETWORK_TOKENS[chain_name]
-    return SwapOrder(gmx_config_fork, tokens["WETH"], tokens["USDC"])
+    return SwapOrder(arbitrum_fork_config, tokens["WETH"], tokens["USDC"])
 
 
 @pytest.fixture()
-def swap_order_usdc_weth(gmx_config_fork, chain_name):
+def swap_order_usdc_weth(arbitrum_fork_config, chain_name):
     """Create a SwapOrder instance for USDC->WETH swap."""
     tokens = NETWORK_TOKENS[chain_name]
-    return SwapOrder(gmx_config_fork, tokens["USDC"], tokens["WETH"])
+    return SwapOrder(arbitrum_fork_config, tokens["USDC"], tokens["WETH"])
 
 
 @pytest.fixture
