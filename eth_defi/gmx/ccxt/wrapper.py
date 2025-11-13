@@ -7,15 +7,15 @@ Example usage::
 
     from web3 import Web3
     from eth_defi.gmx.config import GMXConfig
-    from eth_defi.gmx.ccxt import GMXCCXTWrapper
+    from eth_defi.gmx.ccxt import GMXCCXT
 
     # Initialize
     web3 = Web3(Web3.HTTPProvider("https://arb1.arbitrum.io/rpc"))
     config = GMXConfig(web3)
-    exchange = GMXCCXTWrapper(config)
+    gmx = GMXCCXT(config)
 
     # Fetch OHLCV data (CCXT-style)
-    ohlcv = exchange.fetch_ohlcv("ETH/USD", "1h", limit=100)
+    ohlcv = gmx.fetch_ohlcv("ETH/USD", "1h", limit=100)
 
 .. note::
     GMX protocol does not provide volume data in candlesticks, so volume
@@ -79,7 +79,7 @@ class GMXCCXT:
 
         Example::
 
-            markets = exchange.load_markets()
+            markets = gmx.load_markets()
             print(markets["ETH/USD"])
         """
         if self.markets_loaded and not reload:
@@ -178,17 +178,18 @@ class GMXCCXT:
         Example::
 
             # Fetch last 100 hourly candles for ETH
-            candles = exchange.fetch_ohlcv("ETH/USD", "1h", limit=100)
+            candles = gmx.fetch_ohlcv("ETH/USD", "1h", limit=100)
 
             # Fetch candles since specific time
             since = int(time.time() * 1000) - 86400000
-            candles = exchange.fetch_ohlcv("ETH/USD", "1h", since=since)
+            candles = gmx.fetch_ohlcv("ETH/USD", "1h", since=since)
 
             # Each candle: [timestamp, open, high, low, close, volume]
             for candle in candles:
                 timestamp, o, h, l, c, v = candle
                 print(f"{timestamp}: O:{o} H:{h} L:{l} C:{c} V:{v}")
         """
+        # TODO: Keeping fot CCXT compatibility. Not using this parameter for now
         if params is None:
             params = {}
 
@@ -220,7 +221,7 @@ class GMXCCXT:
         self,
         ohlcvs: list[list],
         market: Optional[dict[str, Any]] = None,
-        timeframe: str = "1m",
+        timeframe: str = "1m",  # CCXT uses this format so adding this for interface compatibility
         since: Optional[int] = None,
         limit: Optional[int] = None,
         use_tail: bool = True,
@@ -268,7 +269,7 @@ class GMXCCXT:
     def parse_ohlcv(
         self,
         ohlcv: list,
-        market: Optional[dict[str, Any]] = None,
+        market: Optional[dict[str, Any]] = None,  # CCXT uses this format so adding this for interface compatibility
     ) -> list:
         """Parse a single OHLCV candle from GMX format to CCXT format.
 
@@ -313,8 +314,8 @@ class GMXCCXT:
 
         Example::
 
-            seconds = exchange.parse_timeframe("1h")  # Returns 3600
-            seconds = exchange.parse_timeframe("1d")  # Returns 86400
+            seconds = gmx.parse_timeframe("1h")  # Returns 3600
+            seconds = gmx.parse_timeframe("1d")  # Returns 86400
         """
         timeframe_mapping = {
             "1m": 60,
@@ -338,7 +339,7 @@ class GMXCCXT:
 
         Example::
 
-            now = exchange.milliseconds()
+            now = gmx.milliseconds()
             print(f"Current time: {now} ms")
         """
         return int(time.time() * 1000)
