@@ -12,10 +12,10 @@ Example usage::
     # Setup
     web3 = Web3(Web3.HTTPProvider("https://arb1.arbitrum.io/rpc"))
     config = GMXConfig(web3, user_wallet_address="0x...")
-    exchange = GMXCCXT(config)
+    gmx = GMXCCXT(config)
 
     # Create orders using familiar CCXT methods
-    result = exchange.create_market_buy_order("ETH/USD", 100.0)
+    result = gmx.create_market_buy_order("ETH/USD", 100.0)
 """
 
 from eth_defi.gmx.ccxt.wrapper import GMXCCXT
