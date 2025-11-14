@@ -381,6 +381,9 @@ class GMXCCXT:
         This method returns the current open interest data for both long and short
         positions on GMX protocol using the fast Subsquid GraphQL endpoint.
 
+        Follows CCXT standard by aggregating long + short into openInterestValue,
+        while preserving granular long/short breakdown in info field.
+
         :param symbol: Unified symbol (e.g., "ETH/USD", "BTC/USD")
         :type symbol: str
         :param params: Additional parameters - can include "market_address" to query specific market
@@ -389,15 +392,17 @@ class GMXCCXT:
 
             {
                 "symbol": "ETH/USD",
-                "baseVolume": 0,  # Not provided by GMX
-                "quoteVolume": 0,  # Not provided by GMX
-                "openInterestAmount": 0,  # Not provided by GMX
-                "openInterestValue": 123456789.0,  # Total OI in USD
-                "longOpenInterest": 62000000.0,  # Long positions in USD
-                "shortOpenInterest": 61456789.0,  # Short positions in USD
+                "baseVolume": None,
+                "quoteVolume": None,
+                "openInterestAmount": None,  # GMX doesn't provide OI in contracts
+                "openInterestValue": 123456789.0,  # Aggregated long + short OI in USD
                 "timestamp": 1234567890000,
                 "datetime": "2021-01-01T00:00:00.000Z",
-                "info": {...},  # Raw Subsquid data
+                "info": {
+                    "longOpenInterest": 62000000.0,  # Long positions in USD
+                    "shortOpenInterest": 61456789.0,  # Short positions in USD
+                    ...  # Raw Subsquid data
+                }
             }
 
         :rtype: dict[str, Any]
@@ -406,14 +411,16 @@ class GMXCCXT:
         Example::
 
             # Get current open interest for ETH
-            oi = exchange.fetch_open_interest("ETH/USD")
+            oi = gmx.fetch_open_interest("ETH/USD")
             print(f"Total OI: ${oi['openInterestValue']:,.0f}")
-            print(f"Long OI: ${oi['longOpenInterest']:,.0f}")
-            print(f"Short OI: ${oi['shortOpenInterest']:,.0f}")
+
+            # Access long/short breakdown from info field
+            print(f"Long OI: ${oi['info']['longOpenInterest']:,.0f}")
+            print(f"Short OI: ${oi['info']['shortOpenInterest']:,.0f}")
 
         .. note::
             Data is fetched from Subsquid GraphQL endpoint for fast access.
-            GMX provides open interest in USD value only.
+            Long/short breakdown is available in the info field.
         """
         if params is None:
             params = {}
@@ -435,27 +442,10 @@ class GMXCCXT:
         if not market_infos:
             raise ValueError(f"No market info found for {symbol}")
 
-        info = market_infos[0]
+        raw_info = market_infos[0]
 
-        # Parse 30-decimal USD values
-        long_oi = float(info.get("longOpenInterestUsd", 0)) / 1e30
-        short_oi = float(info.get("shortOpenInterestUsd", 0)) / 1e30
-        total_oi = long_oi + short_oi
-
-        timestamp = self.milliseconds()
-
-        return {
-            "symbol": symbol,
-            "baseVolume": 0,  # GMX doesn't provide volume
-            "quoteVolume": 0,  # GMX doesn't provide volume
-            "openInterestAmount": 0,  # GMX doesn't provide this (contracts)
-            "openInterestValue": total_oi,  # Total in USD
-            "longOpenInterest": long_oi,  # GMX-specific field
-            "shortOpenInterest": short_oi,  # GMX-specific field
-            "timestamp": timestamp,
-            "datetime": datetime.fromtimestamp(timestamp / 1000).isoformat() + "Z",
-            "info": info,
-        }
+        # Parse using helper method (pass market for symbol)
+        return self.parse_open_interest(raw_info, market_info)
 
     def fetch_open_interest_history(
         self,
@@ -502,7 +492,14 @@ class GMXCCXT:
         if limit is None:
             limit = 100
 
+        # Ensure markets are loaded for market info
+        self.load_markets()
+
+        # Get market info for symbol
+        market_info = self.market(symbol) if symbol else None
         market_address = params.get("market_address")
+        if market_info and not market_address:
+            market_address = market_info["info"]["market_token"]
 
         market_infos = self.subsquid.get_market_infos(
             market_address=market_address,
@@ -511,35 +508,128 @@ class GMXCCXT:
 
         result = []
         for info in market_infos:
-            long_oi = float(info.get("longOpenInterestUsd", 0)) / 1e30
-            short_oi = float(info.get("shortOpenInterestUsd", 0)) / 1e30
-            total_oi = long_oi + short_oi
-
-            # Try to extract timestamp from ID (format: "blockNumber-index" or similar)
-            # If not available, use current time
-            timestamp_ms = None
-            try:
-                info_id = info.get("id", "")
-                # Subsquid IDs often contain block number or timestamp
-                # For now, we'll use current time if no explicit timestamp field
-                timestamp_ms = self.milliseconds()
-            except Exception:
-                timestamp_ms = self.milliseconds()
-
-            result.append(
-                {
-                    "symbol": symbol,
-                    "openInterestAmount": 0,  # GMX doesn't provide this in contracts
-                    "openInterestValue": total_oi,
-                    "longOpenInterest": long_oi,
-                    "shortOpenInterest": short_oi,
-                    "timestamp": timestamp_ms,
-                    "datetime": datetime.fromtimestamp(timestamp_ms / 1000).isoformat() + "Z",
-                    "info": info,
-                }
-            )
+            parsed = self.parse_open_interest(info, market_info)
+            result.append(parsed)
 
         return result
+
+    def fetch_open_interests(
+        self,
+        symbols: Optional[list[str]] = None,
+        params: Optional[dict[str, Any]] = None,
+    ) -> dict[str, dict[str, Any]]:
+        """
+        Fetch open interest for multiple symbols at once.
+
+        :param symbols: List of symbols (e.g., ["ETH/USD", "BTC/USD"]). If None, fetch all markets.
+        :type symbols: Optional[list[str]]
+        :param params: Additional parameters
+        :type params: Optional[dict[str, Any]]
+        :return: Dictionary mapping symbols to open interest data
+        :rtype: dict[str, dict[str, Any]]
+
+        Example::
+
+            # Fetch OI for multiple markets
+            ois = gmx.fetch_open_interests(["ETH/USD", "BTC/USD", "ARB/USD"])
+            for symbol, oi in ois.items():
+                print(f"{symbol}: ${oi['openInterestValue']:,.0f}")
+
+            # Fetch OI for all markets
+            all_ois = gmx.fetch_open_interests()
+        """
+        if params is None:
+            params = {}
+
+        self.load_markets()
+
+        # If no symbols specified, use all markets
+        if symbols is None:
+            symbols = list(self.markets.keys())
+
+        result = {}
+        for symbol in symbols:
+            try:
+                oi = self.fetch_open_interest(symbol, params)
+                result[symbol] = oi
+            except Exception as e:
+                # Skip symbols that fail (e.g., swap-only markets without OI data)
+                continue
+
+        return result
+
+    def parse_open_interest(
+        self,
+        interest: dict[str, Any],
+        market: Optional[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
+        """
+        Parse raw open interest data to CCXT format.
+
+        Follows CCXT pattern: aggregates long + short into standard fields,
+        preserves granular breakdown in info field.
+
+        :param interest: Raw market info from Subsquid with fields:
+            - longOpenInterestUsd: Long OI in USD (30 decimals)
+            - shortOpenInterestUsd: Short OI in USD (30 decimals)
+            - longOpenInterestInTokens: Long OI in tokens (token decimals)
+            - shortOpenInterestInTokens: Short OI in tokens (token decimals)
+        :type interest: dict[str, Any]
+        :param market: Market information (CCXT market structure)
+        :type market: Optional[dict[str, Any]]
+        :return: Parsed open interest in CCXT format
+        :rtype: dict[str, Any]
+
+        Example::
+
+            raw_data = subsquid.get_market_infos(market_address, limit=1)[0]
+            market_info = gmx.market("ETH/USD")
+            parsed = gmx.parse_open_interest(raw_data, market_info)
+        """
+        # Parse 30-decimal USD values
+        long_oi_usd_raw = interest.get("longOpenInterestUsd", 0)
+        short_oi_usd_raw = interest.get("shortOpenInterestUsd", 0)
+
+        # Convert from 30 decimals to float
+        long_oi_usd = float(long_oi_usd_raw) / 1e30 if long_oi_usd_raw else 0.0
+        short_oi_usd = float(short_oi_usd_raw) / 1e30 if short_oi_usd_raw else 0.0
+        total_oi_usd = long_oi_usd + short_oi_usd
+
+        # Parse token amounts (if available)
+        long_oi_tokens_raw = interest.get("longOpenInterestInTokens", 0)
+        short_oi_tokens_raw = interest.get("shortOpenInterestInTokens", 0)
+
+        # Total token amount (need to convert based on token decimals)
+        # For now, use raw value - caller can convert with proper decimals
+        total_oi_tokens = None
+        if long_oi_tokens_raw and short_oi_tokens_raw:
+            # Store raw values - conversion depends on token decimals
+            total_oi_tokens = float(long_oi_tokens_raw) + float(short_oi_tokens_raw)
+
+        # Get timestamp (use current time as Subsquid doesn't provide snapshot timestamp)
+        timestamp = self.milliseconds()
+
+        # Build enriched info dict with parsed values
+        info_dict = {
+            "longOpenInterest": long_oi_usd,
+            "shortOpenInterest": short_oi_usd,
+            "longOpenInterestUsd": long_oi_usd_raw,
+            "shortOpenInterestUsd": short_oi_usd_raw,
+            "longOpenInterestInTokens": long_oi_tokens_raw,
+            "shortOpenInterestInTokens": short_oi_tokens_raw,
+            **interest,  # Include all raw Subsquid data
+        }
+
+        return {
+            "symbol": self.safe_string(market, "symbol"),
+            "baseVolume": None,  # GMX doesn't provide volume data
+            "quoteVolume": None,  # GMX doesn't provide volume data
+            "openInterestAmount": total_oi_tokens,  # Total in tokens (raw)
+            "openInterestValue": total_oi_usd,  # Total in USD
+            "timestamp": timestamp,
+            "datetime": self.iso8601(timestamp),
+            "info": info_dict,
+        }
 
     def fetch_funding_rate(
         self,
@@ -844,6 +934,76 @@ class GMXCCXT:
         if value is None:
             return default
         return str(value)
+
+    def safe_number(
+        self,
+        dictionary: dict[str, Any],
+        key: str,
+        default: Optional[float] = None,
+    ) -> Optional[float]:
+        """Safely extract a numeric value from a dictionary.
+
+        :param dictionary: dictionary to extract from
+        :type dictionary: dict[str, Any]
+        :param key: Key to look up
+        :type key: str
+        :param default: Default value if key not found
+        :type default: Optional[float]
+        :return: Float value or default
+        :rtype: Optional[float]
+        """
+        value = dictionary.get(key, default)
+        if value is None:
+            return default
+        try:
+            return float(value)
+        except (ValueError, TypeError):
+            return default
+
+    def safe_timestamp(
+        self,
+        dictionary: dict[str, Any],
+        key: str,
+        default: Optional[int] = None,
+    ) -> Optional[int]:
+        """Safely extract a timestamp and convert to milliseconds.
+
+        :param dictionary: dictionary to extract from
+        :type dictionary: dict[str, Any]
+        :param key: Key to look up
+        :type key: str
+        :param default: Default value if key not found
+        :type default: Optional[int]
+        :return: Timestamp in milliseconds or default
+        :rtype: Optional[int]
+        """
+        value = dictionary.get(key, default)
+        if value is None:
+            return default
+        try:
+            # Convert to int and ensure it's in milliseconds
+            timestamp = int(value)
+            # If timestamp is in seconds (< year 2100 in seconds), convert to ms
+            if timestamp < 4102444800:
+                timestamp = timestamp * 1000
+            return timestamp
+        except (ValueError, TypeError):
+            return default
+
+    def iso8601(self, timestamp: Optional[int]) -> Optional[str]:
+        """Convert timestamp in milliseconds to ISO8601 string.
+
+        :param timestamp: Timestamp in milliseconds
+        :type timestamp: Optional[int]
+        :return: ISO8601 formatted datetime string
+        :rtype: Optional[str]
+        """
+        if timestamp is None:
+            return None
+        try:
+            return datetime.fromtimestamp(timestamp / 1000).isoformat() + "Z"
+        except (ValueError, OSError):
+            return None
 
     def sum(self, a: float, b: float) -> float:
         """Add two numbers safely.
