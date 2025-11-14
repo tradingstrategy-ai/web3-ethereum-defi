@@ -361,6 +361,143 @@ class GMXSubsquidClient:
 
         return stats[0] if stats else None
 
+    def get_market_infos(
+        self,
+        market_address: Optional[str] = None,
+        limit: int = 100,
+        order_by: str = "id_DESC",
+    ) -> list[dict[str, Any]]:
+        """Get market information snapshots.
+
+        Retrieves historical market data including open interest, funding rates,
+        and borrowing rates.
+
+        :param market_address: Filter by specific market address
+        :param limit: Maximum number of records to return
+        :param order_by: Sort order (e.g., "id_DESC")
+        :return: List of market info snapshots with fields:
+
+            - id: Market info ID
+            - marketTokenAddress: Market token address
+            - indexTokenAddress: Index token address
+            - longTokenAddress: Long token address
+            - shortTokenAddress: Short token address
+            - longOpenInterestUsd: Long open interest in USD (30 decimals)
+            - shortOpenInterestUsd: Short open interest in USD (30 decimals)
+            - longOpenInterestInTokens: Long open interest in tokens
+            - shortOpenInterestInTokens: Short open interest in tokens
+            - fundingFactorPerSecond: Funding rate per second (30 decimals)
+            - longsPayShorts: Direction of funding (True if longs pay shorts)
+            - borrowingFactorPerSecondForLongs: Borrowing rate for longs (30 decimals)
+            - borrowingFactorPerSecondForShorts: Borrowing rate for shorts (30 decimals)
+        """
+        where_clause = ""
+        if market_address:
+            where_clause = f'where: {{ marketTokenAddress_eq: "{market_address}" }}'
+
+        query = f"""
+        query {{
+          marketInfos(
+            {where_clause}
+            orderBy: [{order_by}]
+            limit: {limit}
+          ) {{
+            id
+            marketTokenAddress
+            indexTokenAddress
+            longTokenAddress
+            shortTokenAddress
+            longOpenInterestUsd
+            shortOpenInterestUsd
+            longOpenInterestInTokens
+            shortOpenInterestInTokens
+            fundingFactorPerSecond
+            longsPayShorts
+            borrowingFactorPerSecondForLongs
+            borrowingFactorPerSecondForShorts
+          }}
+        }}
+        """
+
+        result = self._query(query)
+        return result.get("marketInfos", [])
+
+    def get_borrowing_rate_snapshots(
+        self,
+        market_address: Optional[str] = None,
+        is_long: Optional[bool] = None,
+        since_timestamp: Optional[int] = None,
+        limit: int = 100,
+    ) -> list[dict[str, Any]]:
+        """Get historical borrowing rate snapshots.
+
+        :param market_address: Filter by market address
+        :param is_long: Filter by long (True) or short (False) positions
+        :param since_timestamp: Filter records after this timestamp (seconds)
+        :param limit: Maximum number of records
+        :return: List of borrowing rate snapshots with fields:
+
+            - id: Snapshot ID
+            - marketAddress: Market address
+            - isLong: True for long positions, False for short
+            - borrowingRate: Borrowing rate (30 decimals)
+            - timestamp: Timestamp in seconds
+        """
+        where_conditions = []
+        if market_address:
+            where_conditions.append(f'marketAddress_eq: "{market_address}"')
+        if is_long is not None:
+            where_conditions.append(f"isLong_eq: {str(is_long).lower()}")
+        if since_timestamp:
+            where_conditions.append(f"timestamp_gte: {since_timestamp}")
+
+        where_clause = ""
+        if where_conditions:
+            where_clause = f"where: {{ {', '.join(where_conditions)} }}"
+
+        query = f"""
+        query {{
+          borrowingRateSnapshots(
+            {where_clause}
+            orderBy: [timestamp_DESC]
+            limit: {limit}
+          ) {{
+            id
+            marketAddress
+            isLong
+            borrowingRate
+            timestamp
+          }}
+        }}
+        """
+
+        result = self._query(query)
+        return result.get("borrowingRateSnapshots", [])
+
+    def get_markets(self) -> list[dict[str, Any]]:
+        """Get all available markets.
+
+        :return: List of markets with fields:
+
+            - id: Market address
+            - indexToken: Index token address
+            - longToken: Long token address
+            - shortToken: Short token address
+        """
+        query = """
+        query {
+          markets {
+            id
+            indexToken
+            longToken
+            shortToken
+          }
+        }
+        """
+
+        result = self._query(query)
+        return result.get("markets", [])
+
     def is_large_account(self, account: str) -> bool:
         """Determine if an account qualifies as a "large" account.
 
