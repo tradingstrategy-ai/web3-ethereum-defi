@@ -14,13 +14,8 @@ Requirements:
 """
 
 import sys
-from pathlib import Path
 import time
-from datetime import datetime
 
-# Add the project root to the path
-project_root = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(project_root))
 
 from web3 import Web3
 from eth_defi.gmx.config import GMXConfig
@@ -47,7 +42,10 @@ def ohlcv_to_dataframe(ohlcv, symbol):
     :return: DataFrame with OHLCV data
     :rtype: pandas.DataFrame
     """
-    df = pd.DataFrame(ohlcv, columns=["timestamp", "open", "high", "low", "close", "volume"])
+    df = pd.DataFrame(
+        ohlcv,
+        columns=["timestamp", "open", "high", "low", "close", "volume"],
+    )
     df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
     df["symbol"] = symbol
     return df
@@ -220,7 +218,9 @@ def fetch_with_since_parameter():
     timestamp and calculating performance metrics over a time period.
     """
     console.print("\n\n")
-    console.print(Panel.fit("[bold cyan]Example 3: Historical Analysis with 'since' Parameter[/bold cyan]", border_style="cyan"))
+    console.print(
+        Panel.fit("[bold cyan]Example 3: Historical Analysis with 'since' Parameter[/bold cyan]", border_style="cyan"),
+    )
 
     web3 = Web3(Web3.HTTPProvider("https://arb1.arbitrum.io/rpc"))
     config = GMXConfig(web3)
