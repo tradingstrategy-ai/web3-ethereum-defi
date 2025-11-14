@@ -394,14 +394,16 @@ class GMXCCXT:
                 "symbol": "ETH/USD",
                 "baseVolume": None,
                 "quoteVolume": None,
-                "openInterestAmount": None,  # GMX doesn't provide OI in contracts
-                "openInterestValue": 123456789.0,  # Aggregated long + short OI in USD
+                "openInterestAmount": 12345.67,  # Total OI in tokens (ETH)
+                "openInterestValue": 37615898.78,  # Aggregated long + short OI in USD
                 "timestamp": 1234567890000,
                 "datetime": "2021-01-01T00:00:00.000Z",
                 "info": {
-                    "longOpenInterest": 62000000.0,  # Long positions in USD
-                    "shortOpenInterest": 61456789.0,  # Short positions in USD
-                    ...  # Raw Subsquid data
+                    "longOpenInterest": 18807949.39,  # Long OI in USD (parsed)
+                    "shortOpenInterest": 18807949.39,  # Short OI in USD (parsed)
+                    "longOpenInterestTokens": 6172.835,  # Long OI in ETH (parsed)
+                    "shortOpenInterestTokens": 6172.835,  # Short OI in ETH (parsed)
+                    ...  # Raw Subsquid data + raw USD/token values
                 }
             }
 
@@ -412,11 +414,14 @@ class GMXCCXT:
 
             # Get current open interest for ETH
             oi = gmx.fetch_open_interest("ETH/USD")
+            print(f"Total OI: {oi['openInterestAmount']:.2f} ETH")
             print(f"Total OI: ${oi['openInterestValue']:,.0f}")
 
             # Access long/short breakdown from info field
-            print(f"Long OI: ${oi['info']['longOpenInterest']:,.0f}")
-            print(f"Short OI: ${oi['info']['shortOpenInterest']:,.0f}")
+            print(f"Long: {oi['info']['longOpenInterestTokens']:.2f} ETH")
+            print(f"Short: {oi['info']['shortOpenInterestTokens']:.2f} ETH")
+            print(f"Long: ${oi['info']['longOpenInterest']:,.0f}")
+            print(f"Short: ${oi['info']['shortOpenInterest']:,.0f}")
 
         .. note::
             Data is fetched from Subsquid GraphQL endpoint for fast access.
@@ -577,7 +582,27 @@ class GMXCCXT:
         :type interest: dict[str, Any]
         :param market: Market information (CCXT market structure)
         :type market: Optional[dict[str, Any]]
-        :return: Parsed open interest in CCXT format
+        :return: Parsed open interest in CCXT format with structure::
+
+            {
+                "symbol": "ETH/USD",
+                "openInterestAmount": 12345.67,  # Total OI in tokens (ETH)
+                "openInterestValue": 37615898.78,  # Total OI in USD
+                "timestamp": 1234567890000,
+                "datetime": "2021-01-01T00:00:00.000Z",
+                "info": {
+                    "longOpenInterest": 18807949.39,  # Long OI in USD (parsed)
+                    "shortOpenInterest": 18807949.39,  # Short OI in USD (parsed)
+                    "longOpenInterestUsd": "...",  # Long OI in USD (raw 30 decimals)
+                    "shortOpenInterestUsd": "...",  # Short OI in USD (raw 30 decimals)
+                    "longOpenInterestTokens": 6172.835,  # Long OI in ETH (parsed)
+                    "shortOpenInterestTokens": 6172.835,  # Short OI in ETH (parsed)
+                    "longOpenInterestInTokens": "...",  # Long OI (raw with decimals)
+                    "shortOpenInterestInTokens": "...",  # Short OI (raw with decimals)
+                    ...  # Additional Subsquid fields
+                }
+            }
+
         :rtype: dict[str, Any]
 
         Example::
@@ -585,6 +610,14 @@ class GMXCCXT:
             raw_data = subsquid.get_market_infos(market_address, limit=1)[0]
             market_info = gmx.market("ETH/USD")
             parsed = gmx.parse_open_interest(raw_data, market_info)
+
+            # Access aggregated values
+            print(f"Total OI: {parsed['openInterestAmount']:.2f} ETH")
+            print(f"Total OI: ${parsed['openInterestValue']:,.2f} USD")
+
+            # Access long/short breakdown
+            print(f"Long: {parsed['info']['longOpenInterestTokens']:.2f} ETH")
+            print(f"Short: {parsed['info']['shortOpenInterestTokens']:.2f} ETH")
         """
         # Parse 30-decimal USD values
         long_oi_usd_raw = interest.get("longOpenInterestUsd", 0)
@@ -599,22 +632,40 @@ class GMXCCXT:
         long_oi_tokens_raw = interest.get("longOpenInterestInTokens", 0)
         short_oi_tokens_raw = interest.get("shortOpenInterestInTokens", 0)
 
-        # Total token amount (need to convert based on token decimals)
-        # For now, use raw value - caller can convert with proper decimals
+        # Convert token amounts to human-readable (need decimals from market info)
+        long_oi_tokens = 0.0
+        short_oi_tokens = 0.0
         total_oi_tokens = None
-        if long_oi_tokens_raw and short_oi_tokens_raw:
-            # Store raw values - conversion depends on token decimals
-            total_oi_tokens = float(long_oi_tokens_raw) + float(short_oi_tokens_raw)
+
+        if market and (long_oi_tokens_raw or short_oi_tokens_raw):
+            try:
+                # Get index token address and decimals
+                index_token_address = market["info"]["index_token"]
+                decimals = self.subsquid.get_token_decimals(index_token_address)
+
+                # Convert to human-readable amounts
+                long_oi_tokens = float(long_oi_tokens_raw) / (10**decimals) if long_oi_tokens_raw else 0.0
+                short_oi_tokens = float(short_oi_tokens_raw) / (10**decimals) if short_oi_tokens_raw else 0.0
+                total_oi_tokens = long_oi_tokens + short_oi_tokens
+            except (KeyError, TypeError, ValueError):
+                # If we can't get decimals, leave as None
+                pass
 
         # Get timestamp (use current time as Subsquid doesn't provide snapshot timestamp)
         timestamp = self.milliseconds()
 
-        # Build enriched info dict with parsed values
+        # Build enriched info dict with both parsed and raw values
         info_dict = {
+            # USD values (parsed from 30 decimals)
             "longOpenInterest": long_oi_usd,
             "shortOpenInterest": short_oi_usd,
+            # USD values (raw 30 decimals)
             "longOpenInterestUsd": long_oi_usd_raw,
             "shortOpenInterestUsd": short_oi_usd_raw,
+            # Token amounts (parsed, human-readable)
+            "longOpenInterestTokens": long_oi_tokens,
+            "shortOpenInterestTokens": short_oi_tokens,
+            # Token amounts (raw with decimals)
             "longOpenInterestInTokens": long_oi_tokens_raw,
             "shortOpenInterestInTokens": short_oi_tokens_raw,
             **interest,  # Include all raw Subsquid data
