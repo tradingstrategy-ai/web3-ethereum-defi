@@ -5,11 +5,10 @@ This module provides functionality for interacting with GMX APIs.
 """
 
 from typing import Optional, Any
-import requests
 import pandas as pd
 
 from eth_defi.gmx.config import GMXConfig
-from eth_defi.gmx.constants import GMX_API_URLS, GMX_API_URLS_BACKUP
+from eth_defi.gmx.retry import make_gmx_api_request
 
 
 class GMXAPI:
@@ -61,60 +60,40 @@ class GMXAPI:
         else:
             raise ValueError("Either config or chain must be provided")
 
-        # Set base URLs based on the chain
-        # Handle mainnet and testnet chains by mapping to appropriate API
-        if self.chain.lower() == "arbitrum":
-            self.base_url = GMX_API_URLS["arbitrum"]
-            self.backup_url = GMX_API_URLS_BACKUP["arbitrum"]
-        elif self.chain.lower() in ["avalanche", "avalanche_fuji"]:
-            self.base_url = GMX_API_URLS["avalanche"]
-            self.backup_url = GMX_API_URLS_BACKUP["avalanche"]
-        elif self.chain.lower() == "arbitrum_sepolia":
-            self.base_url = GMX_API_URLS["arbitrum_sepolia"]
-        else:
-            raise ValueError(f"Unsupported chain: {self.chain}. Supported: arbitrum, arbitrum_sepolia, avalanche")
+        # Validate chain is supported
+        supported_chains = ["arbitrum", "arbitrum_sepolia", "avalanche", "avalanche_fuji"]
+        if self.chain.lower() not in supported_chains:
+            raise ValueError(f"Unsupported chain: {self.chain}. Supported: {', '.join(supported_chains)}")
 
     def _make_request(
         self,
         endpoint: str,
         params: Optional[dict[str, Any]] = None,
+        timeout: float = 10.0,
+        max_retries: int = 2,
+        retry_delay: float = 0.1,
     ) -> dict[str, Any]:
         """
-        Make a request to the GMX API with automatic failover to backup URL.
+        Make a request to the GMX API with retry logic and automatic failover to backup URL.
 
-        This method first attempts to connect to the primary API URL. If that fails,
-        it automatically tries the backup URL. If both attempts fail, it raises a
-        RuntimeError with details about the connection failure.
+        This method uses the centralized retry logic from eth_defi.gmx.retry module.
 
-        :param endpoint:
-            API endpoint path (e.g., "/prices/tickers")
-        :type endpoint: str
-        :param params:
-            Optional dictionary of query parameters to include in the request
-        :type params: Optional[dict[str, Any]]
-        :return:
-            API response parsed as a dictionary
-        :rtype: dict[str, Any]
-        :raises RuntimeError:
-            When both primary and backup API URLs fail to respond
+        :param endpoint: API endpoint path (e.g., "/prices/tickers", "/signed_prices/latest")
+        :param params: Optional query parameters
+        :param timeout: HTTP request timeout in seconds
+        :param max_retries: Maximum retry attempts per URL
+        :param retry_delay: Initial delay between retries (exponential backoff)
+        :return: API response parsed as a dictionary
+        :raises RuntimeError: When all retry and backup attempts fail
         """
-        try:
-            # Try primary URL
-            url = f"{self.base_url}{endpoint}"
-            response = requests.get(url, params=params)
-            response.raise_for_status()
-            return response.json()
-        except requests.RequestException as e:
-            # Try backup URL on failure
-            try:
-                url = f"{self.backup_url}{endpoint}"
-                response = requests.get(url, params=params)
-                response.raise_for_status()
-                return response.json()
-            except requests.RequestException as backup_e:
-                raise RuntimeError(
-                    f"Failed to connect to GMX API: {str(backup_e)}",
-                ) from e
+        return make_gmx_api_request(
+            chain=self.chain,
+            endpoint=endpoint,
+            params=params,
+            timeout=timeout,
+            max_retries=max_retries,
+            retry_delay=retry_delay,
+        )
 
     def get_tickers(self) -> dict[str, Any]:
         """

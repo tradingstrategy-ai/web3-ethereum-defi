@@ -7,25 +7,18 @@ Fetch GMX synthetic token data from APIs and cache results for efficient access.
 
 import json
 import logging
-import requests
 from dataclasses import dataclass, field
 from decimal import Decimal
 from functools import cached_property
 from typing import Optional, Any, TypeAlias
-import cachetools
 
+import cachetools
 from eth_typing import HexAddress
 
-logger = logging.getLogger(__name__)
+from eth_defi.chain import get_chain_name
+from eth_defi.gmx.retry import make_gmx_api_request
 
-#: GMX API endpoints for different chains
-GMX_API_ENDPOINTS: dict[int, str] = {
-    # API source: https://gmx-docs.io/docs/api/rest-v2
-    # Arbitrum
-    42161: "https://arbitrum-api.gmxinfra.io/tokens",
-    # Avalanche
-    43114: "https://avalanche-api.gmxinfra.io/tokens",
-}
+logger = logging.getLogger(__name__)
 
 #: Default cache for GMX token details
 DEFAULT_GMX_TOKEN_CACHE = cachetools.LRUCache(512)
@@ -160,32 +153,37 @@ def fetch_gmx_synthetic_tokens(
     cache: Optional[cachetools.Cache] = DEFAULT_GMX_TOKEN_CACHE,
     timeout: float = 10.0,
     force_refresh: bool = False,
+    max_retries: int = 2,
+    retry_delay: float = 0.1,
 ) -> list[GMXSyntheticTokenDetails]:
-    """Fetch GMX synthetic token details from API with caching.
+    """Fetch GMX synthetic token details from API with caching and retry logic.
 
     This function fetches all available GMX synthetic tokens for a given chain
-    and caches the results to avoid repeated API calls. The caching strategy
-    differs from ERC-20 tokens because GMX API returns all tokens at once.
+    and caches the results to avoid repeated API calls. It implements retry logic
+    with exponential backoff and automatic failover to backup API endpoints.
 
     :param chain_id: Blockchain chain ID (42161 for Arbitrum, 43114 for Avalanche)
     :param cache: Cache instance to use. Set to None to disable caching
     :param timeout: HTTP request timeout in seconds
     :param force_refresh: If True, bypass cache and fetch fresh data
+    :param max_retries: Maximum number of retry attempts per endpoint (default: 2)
+    :param retry_delay: Initial delay between retries in seconds with exponential backoff (default: 0.1s, resulting in 0.1s, 0.2s delays)
     :return: list of GMXSyntheticTokenDetails objects
-    :raises GMXTokenFetchError: If API request fails or returns invalid data
+    :raises GMXTokenFetchError: If API request fails on both primary and backup
     :raises ValueError: If chain_id is not supported
 
     Example:
 
     .. code-block:: python
 
-        # Fetch Arbitrum GMX tokens
+        # Fetch Arbitrum GMX tokens with automatic retry and failover
+        tokens = fetch_gmx_synthetic_tokens(chain_id=42161)
     """
-
-    # Validate chain ID is supported
-    if chain_id not in GMX_API_ENDPOINTS:
-        supported_chains = list(GMX_API_ENDPOINTS.keys())
-        raise ValueError(f"Unsupported chain ID {chain_id}. Supported: {supported_chains}")
+    # Get chain name from chain ID
+    try:
+        chain_name = get_chain_name(chain_id).lower()  # Lowercase for as the dict keys are in lowercase
+    except Exception:
+        raise ValueError(f"Unsupported chain ID {chain_id}")
 
     # Generate cache key for the entire chain's token list
     cache_key = f"gmx-tokens-{chain_id}"
@@ -206,28 +204,25 @@ def fetch_gmx_synthetic_tokens(
                 for token_data in cached_tokens
             ]
 
-    # Fetch fresh data from API
-    api_url = GMX_API_ENDPOINTS[chain_id]
-    logger.info("Fetching GMX tokens from API: %s", api_url)
-
+    # Use centralized retry + backup logic
     try:
-        response = requests.get(api_url, timeout=timeout)
-        response.raise_for_status()
+        api_data = make_gmx_api_request(
+            chain=chain_name,
+            endpoint="/tokens",
+            timeout=timeout,
+            max_retries=max_retries,
+            retry_delay=retry_delay,
+        )
+    except RuntimeError as e:
+        raise GMXTokenFetchError(f"Failed to fetch GMX tokens for chain {chain_name} (chain_id: {chain_id})") from e
 
-        api_data = response.json()
+    # Validate API response structure
+    if "tokens" not in api_data:
+        raise GMXTokenFetchError(f"Invalid API response: missing 'tokens' field")
 
-        # Validate API response structure
-        if "tokens" not in api_data:
-            raise GMXTokenFetchError(f"Invalid API response: missing 'tokens' field")
-
-        tokens_data = api_data["tokens"]
-        if not isinstance(tokens_data, list):
-            raise GMXTokenFetchError(f"Invalid API response: 'tokens' should be a list")
-
-    except requests.RequestException as e:
-        raise GMXTokenFetchError(f"Failed to fetch GMX tokens from {api_url}: {e}") from e
-    except json.JSONDecodeError as e:
-        raise GMXTokenFetchError(f"Invalid JSON response from {api_url}: {e}") from e
+    tokens_data = api_data["tokens"]
+    if not isinstance(tokens_data, list):
+        raise GMXTokenFetchError(f"Invalid API response: 'tokens' should be a list")
 
     # Parse and validate token data
     tokens = []
@@ -235,10 +230,9 @@ def fetch_gmx_synthetic_tokens(
         try:
             # Validate required fields
             required_fields = ["symbol", "address", "decimals"]
-            for field in required_fields:
-                if field not in token_data:
-                    logger.warning("Skipping token missing '%s': %s", field, token_data)
-                    continue
+            if not all(field in token_data for field in required_fields):
+                logger.warning("Skipping token missing required fields: %s", token_data)
+                continue
 
             # Create token details object
             token = GMXSyntheticTokenDetails(
@@ -246,7 +240,7 @@ def fetch_gmx_synthetic_tokens(
                 address=token_data["address"],
                 decimals=int(token_data["decimals"]),
                 chain_id=chain_id,
-                extra_data={"cached": False, "api_source": api_url},
+                extra_data={"cached": False},
             )
             tokens.append(token)
 

@@ -6,6 +6,8 @@ with GMX protocol contracts across supported networks.
 """
 
 import json
+import logging
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -20,6 +22,8 @@ from cchecksum import to_checksum_address
 from eth_defi.abi import get_deployed_contract
 from eth_defi.gmx.constants import GMX_API_URLS, GMX_API_URLS_BACKUP, GMX_CONTRACTS_JSON_URL, GMX_CONTRACTS_JSON_URL_UPDATES
 from eth_defi.gmx.api import GMXAPI
+
+logger = logging.getLogger(__name__)
 
 
 # Subsquid GraphQL endpoints by chain
@@ -103,11 +107,23 @@ NETWORK_CONTRACTS = {
 }
 
 
-def _fetch_contract_addresses_from_url(chain: str) -> Optional[ContractAddresses]:
-    """Fetch contract addresses for a chain from the GMX contracts.json URL.
+def _fetch_contract_addresses_from_url(
+    chain: str,
+    timeout: float = 10.0,
+    max_retries: int = 2,
+    retry_delay: float = 0.1,
+) -> Optional[ContractAddresses]:
+    """Fetch contract addresses for a chain from the GMX contracts.json URL with retry logic.
 
     Tries the updates branch first (which has the latest addresses), then falls back
-    to main branch if updates returns 404 (branch merged/deleted).
+    to main branch if updates returns 404 (branch merged/deleted). Each URL is retried
+    with exponential backoff on failure.
+
+    :param chain: Chain name (arbitrum, avalanche, etc.)
+    :param timeout: HTTP request timeout in seconds (default: 10.0)
+    :param max_retries: Maximum number of retry attempts per URL (default: 2)
+    :param retry_delay: Initial delay between retries with exponential backoff (default: 0.1s)
+    :return: ContractAddresses object or None if fetching failed
     """
     # Try updates branch first (has latest Reader and other contract addresses)
     urls_to_try = [
@@ -116,25 +132,60 @@ def _fetch_contract_addresses_from_url(chain: str) -> Optional[ContractAddresses
     ]
 
     contracts_data = None
+    last_error = None
+
     for url, branch_name in urls_to_try:
-        try:
-            response = requests.get(url, timeout=10)
-            response.raise_for_status()
-            contracts_data = response.json()
-            break  # Success! Stop trying other URLs
-        except requests.HTTPError as e:
-            if e.response.status_code == 404 and branch_name == "updates branch":
-                # Updates branch not found (merged to main), try main branch
-                continue
-            else:
-                # Other error, re-raise
-                raise
-        except (requests.RequestException, json.JSONDecodeError) as e:
-            # Network or JSON error, try next URL
-            if branch_name == "main branch":
-                # Last URL failed, re-raise
-                raise
-            continue
+        for attempt in range(max_retries):
+            try:
+                response = requests.get(url, timeout=timeout)
+                response.raise_for_status()
+                contracts_data = response.json()
+                logger.debug("Successfully fetched contracts.json from %s", branch_name)
+                break  # Success! Stop retrying this URL
+            except requests.HTTPError as e:
+                if e.response.status_code == 404 and branch_name == "updates branch":
+                    # Updates branch not found (merged to main), try main branch
+                    logger.debug("Updates branch not found (404), trying main branch")
+                    break  # Break inner retry loop, continue to next URL
+                else:
+                    # Other HTTP error
+                    last_error = e
+                    if attempt < max_retries - 1:
+                        delay = retry_delay * (2**attempt)
+                        logger.warning(
+                            "Attempt %d/%d failed for %s: %s. Retrying in %.1f seconds...",
+                            attempt + 1,
+                            max_retries,
+                            branch_name,
+                            e,
+                            delay,
+                        )
+                        time.sleep(delay)
+                    else:
+                        logger.warning("All %d attempts failed for %s", max_retries, branch_name)
+            except (requests.RequestException, json.JSONDecodeError) as e:
+                # Network or JSON error
+                last_error = e
+                if attempt < max_retries - 1:
+                    delay = retry_delay * (2**attempt)
+                    logger.warning(
+                        "Attempt %d/%d failed for %s: %s. Retrying in %.1f seconds...",
+                        attempt + 1,
+                        max_retries,
+                        branch_name,
+                        e,
+                        delay,
+                    )
+                    time.sleep(delay)
+                else:
+                    logger.warning("All %d attempts failed for %s", max_retries, branch_name)
+                    if branch_name == "main branch":
+                        # Last URL failed after all retries, re-raise
+                        raise
+
+        # If we got data from this URL, stop trying other URLs
+        if contracts_data is not None:
+            break
 
     if contracts_data is None:
         return None
