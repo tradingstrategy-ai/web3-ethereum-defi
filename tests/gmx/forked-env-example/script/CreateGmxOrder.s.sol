@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import "forge-std/Script.sol";
 import "forge-std/console.sol";
-import { IERC20 } from "forge-std/interfaces/IERC20.sol";
+import {IERC20} from "forge-std/interfaces/IERC20.sol";
 
 import "../contracts/interfaces/IGmxV2.sol";
 import "../contracts/constants/GmxArbitrumAddresses.sol";
@@ -124,12 +124,12 @@ contract CreateGmxOrder is Script {
         // Transaction 1: Send WETH to OrderVault
         console.log("  Sending WETH to OrderVault...");
         uint256 totalEth = COLLATERAL_AMOUNT + EXECUTION_FEE;
-        exchangeRouter.sendWnt{ value: totalEth }(GmxArbitrumAddresses.ORDER_VAULT, totalEth);
+        exchangeRouter.sendWnt{value: totalEth}(GmxArbitrumAddresses.ORDER_VAULT, totalEth);
         console.log("  [OK] WETH sent (transaction #1)");
 
         // Transaction 2: Create order
         console.log("  Creating order...");
-        orderKey = exchangeRouter.createOrder{ value: 0 }(orderParams);
+        orderKey = exchangeRouter.createOrder{value: 0}(orderParams);
         console.log("  [OK] Order created (transaction #2)");
 
         vm.stopBroadcast();

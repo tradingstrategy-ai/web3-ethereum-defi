@@ -1,8 +1,11 @@
+import json
 import logging
 import os
+from pathlib import Path
 from typing import Generator, Any
 
 import eth_abi
+from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_pydantic_types import HexStr
 from eth_utils import to_checksum_address, keccak
 from web3 import Web3, HTTPProvider
@@ -31,11 +34,10 @@ import pytest
 from eth_typing import HexAddress
 
 from eth_defi.utils import addr
+from tests.gmx.fork_helpers import setup_mock_oracle
 
 # Fork configuration constants
 FORK_BLOCK_ARBITRUM = 392496384
-MOCK_ETH_PRICE = 3450  # USD
-MOCK_USDC_PRICE = 1  # USD
 
 # Set up logging for debugging
 logger = logging.getLogger(__name__)
@@ -395,88 +397,21 @@ def web3_arbitrum_fork(anvil_chain_fork: str) -> Web3:
     return web3
 
 
-def _setup_mock_oracle(web3: Web3, eth_price: int) -> str:
-    """Helper function to set up mock oracle with custom ETH price.
-
-    Args:
-        web3: Web3 instance
-        eth_price: ETH price in USD
-
-    Returns:
-        Address of the mock oracle provider
-    """
-    import json
-    from pathlib import Path
-    from eth_defi.trace import assert_transaction_success_with_explanation
-
-    # Production oracle provider address
-    production_provider_address = to_checksum_address("0xE1d5a068c5b75E0c7Ea1A9Fe8EA056f9356C6fFD")
-
-    # Load MockOracleProvider contract
-    contract_path = Path(__file__).parent.parent.parent / "eth_defi" / "abi" / "gmx" / "MockOracleProvider.json"
-    with open(contract_path) as f:
-        contract_data = json.load(f)
-
-    abi = contract_data["abi"]
-    bytecode = contract_data["deployedBytecode"]
-    if isinstance(bytecode, dict) and "object" in bytecode:
-        bytecode = bytecode["object"]
-
-    if not bytecode.startswith("0x"):
-        bytecode = "0x" + bytecode
-
-    # Replace production oracle bytecode with mock
-    web3.provider.make_request("anvil_setCode", [production_provider_address, bytecode])
-
-    # Load contract instance
-    mock = web3.eth.contract(address=production_provider_address, abi=abi)
-
-    # Configure prices
-    account = web3.eth.accounts[0]
-
-    # WETH: 18 decimals -> price * 10^12
-    weth_address = to_checksum_address("0x82aF49447D8a07e3bd95BD0d56f35241523fBab1")
-    weth_price = int(eth_price * (10**12))
-
-    weth_tx = mock.functions.setPrice(weth_address, weth_price, weth_price).build_transaction(
-        {
-            "from": account,
-            "gas": 500_000,
-            "gasPrice": web3.eth.gas_price,
-        }
-    )
-    weth_tx_hash = web3.eth.send_transaction(weth_tx)
-    assert_transaction_success_with_explanation(web3, weth_tx_hash, "Set WETH price on mock oracle")
-
-    # USDC: 6 decimals -> price * 10^24
-    usdc_address = to_checksum_address("0xaf88d065e77c8cC2239327C5EDb3A432268e5831")
-    usdc_price = int(MOCK_USDC_PRICE * (10**24))
-
-    usdc_tx = mock.functions.setPrice(usdc_address, usdc_price, usdc_price).build_transaction(
-        {
-            "from": account,
-            "gas": 500_000,
-            "gasPrice": web3.eth.gas_price,
-        }
-    )
-    usdc_tx_hash = web3.eth.send_transaction(usdc_tx)
-    assert_transaction_success_with_explanation(web3, usdc_tx_hash, "Set USDC price on mock oracle")
-
-    return production_provider_address
-
-
 @pytest.fixture()
 def mock_oracle_fork(web3_arbitrum_fork: Web3) -> str:
-    """Set up mock oracle for fork testing with default ETH price (3450).
+    """Set up mock oracle for fork testing with dynamic price fetching.
 
     Replaces the production Chainlink oracle with a mock oracle that allows
     setting custom prices for testing. This is required for fork testing since
     the real Chainlink oracle may not work on forked chains.
 
+    Prices are fetched dynamically from on-chain oracle to match GMX validation.
+
     Returns:
         Address of the mock oracle provider
     """
-    return _setup_mock_oracle(web3_arbitrum_fork, MOCK_ETH_PRICE)
+    setup_mock_oracle(web3_arbitrum_fork)
+    return to_checksum_address("0xE1d5a068c5b75E0c7Ea1A9Fe8EA056f9356C6fFD")
 
 
 @pytest.fixture()
@@ -486,17 +421,21 @@ def mock_oracle_fork_short(web3_arbitrum_fork: Web3) -> str:
     Returns:
         Address of the mock oracle provider
     """
-    return _setup_mock_oracle(web3_arbitrum_fork, 3550)
+    setup_mock_oracle(web3_arbitrum_fork, eth_price_usd=3550)
+    return to_checksum_address("0xE1d5a068c5b75E0c7Ea1A9Fe8EA056f9356C6fFD")
 
 
 @pytest.fixture()
 def mock_oracle_fork_open_close(web3_arbitrum_fork: Web3) -> str:
-    """Set up fresh mock oracle for open/close position testing with ETH price at 3450.
+    """Set up fresh mock oracle for open/close position testing with dynamic prices.
+
+    Prices are fetched dynamically from on-chain oracle to match GMX validation.
 
     Returns:
         Address of the mock oracle provider
     """
-    return _setup_mock_oracle(web3_arbitrum_fork, MOCK_ETH_PRICE)
+    setup_mock_oracle(web3_arbitrum_fork)
+    return to_checksum_address("0xE1d5a068c5b75E0c7Ea1A9Fe8EA056f9356C6fFD")
 
 
 # TODO: Rename it to web3_abitrum

@@ -140,25 +140,35 @@ def test_api_retry_mechanism(chain_name, gmx_config, monkeypatch):
     """
     Test that the API retries with backup URL on failure.
 
-    This test deliberately breaks the primary URL to trigger the fallback.
+    This test mocks requests to simulate primary URL failure and backup URL success.
     """
+    import requests
+    from unittest.mock import Mock, patch
+
     api = GMXAPI(gmx_config)
 
-    # Save original URLs
-    original_base_url = api.base_url
+    # Create a mock that fails on first call (primary URL) and succeeds on second (backup URL)
+    call_count = 0
 
-    # Set primary URL to something invalid to force fallback
-    monkeypatch.setattr(api, "base_url", "https://invalid-url-that-will-fail.example")
+    def mock_get(url, **kwargs):
+        nonlocal call_count
+        call_count += 1
 
-    try:
-        # This should use the backup URL and succeed
+        mock_response = Mock()
+
+        if call_count <= 2:  # First URL with retries (max_retries=2)
+            # Simulate primary URL failure
+            raise requests.exceptions.ConnectionError("Primary URL failed")
+        else:
+            # Backup URL succeeds
+            mock_response.status_code = 200
+            mock_response.json.return_value = []
+            return mock_response
+
+    with patch("requests.get", side_effect=mock_get):
+        # This should fail on primary, then succeed on backup
         tickers = api.get_tickers()
         assert tickers is not None
         assert isinstance(tickers, list)
-    except RuntimeError:
-        # If both URLs fail, it's still acceptable for this test
-        # as long as it tried the backup (which we can't easily verify)
-        pytest.skip("Both primary and backup URLs failed, can't test retry mechanism")
-    finally:
-        # Restore original URL
-        monkeypatch.setattr(api, "base_url", original_base_url)
+        # Verify that we tried primary (2 attempts) then backup
+        assert call_count >= 3

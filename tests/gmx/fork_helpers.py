@@ -300,23 +300,83 @@ def stop_impersonating_account(web3: Web3, address: str):
             pass
 
 
+def fetch_on_chain_oracle_prices(web3: Web3) -> tuple[int, int]:
+    """Fetch current oracle prices from GMX before replacing with mock.
+
+    This queries the actual on-chain oracle to get prices that will pass
+    GMX's validation, since GMX validates mock prices against actual chain state.
+
+    Returns:
+        tuple: (eth_price_usd, usdc_price_usd) as integers in USD
+    """
+    from eth_defi.gmx.core.oracle import OraclePrices
+    from eth_defi.chain import get_chain_name
+
+    try:
+        chain = get_chain_name(web3.eth.chain_id).lower()
+        oracle = OraclePrices(chain)
+        prices = oracle.get_recent_prices()
+
+        # Token addresses
+        weth_address = to_checksum_address("0x82aF49447D8a07e3bd95BD0d56f35241523fBab1")
+        usdc_address = to_checksum_address("0xaf88d065e77c8cC2239327C5EDb3A432268e5831")
+
+        # Get prices (they come in GMX's 30-decimal format)
+        # WETH: 18 decimals -> stored as price * 10^12
+        # USDC: 6 decimals -> stored as price * 10^24
+        if weth_address in prices:
+            weth_price_formatted = prices[weth_address]["maxPriceFull"]
+            # Convert from GMX format (price * 10^12) to USD
+            eth_price_usd = int(weth_price_formatted / (10**12))
+        else:
+            logger.warning(f"WETH price not found in oracle, using default 3000")
+            eth_price_usd = 3000
+
+        if usdc_address in prices:
+            usdc_price_formatted = prices[usdc_address]["maxPriceFull"]
+            # Convert from GMX format (price * 10^24) to USD
+            usdc_price_usd = int(usdc_price_formatted / (10**24))
+        else:
+            usdc_price_usd = 1
+
+        logger.info(f"Fetched on-chain oracle prices: ETH=${eth_price_usd}, USDC=${usdc_price_usd}")
+        return eth_price_usd, usdc_price_usd
+
+    except Exception as e:
+        logger.warning(f"Could not fetch on-chain prices: {e}, using defaults")
+        return 3000, 1
+
+
 def setup_mock_oracle(
     web3: Web3,
-    eth_price_usd: int = 3892,
-    usdc_price_usd: int = 1,
+    eth_price_usd: int | None = None,
+    usdc_price_usd: int | None = None,
 ):
     """Setup mock oracle by replacing bytecode at production address.
 
-    Works with both Anvil and Tenderly.
+    Follows GMX's pattern from forked-env-example:
+    1. Fetch current on-chain prices (if not provided)
+    2. Deploy MockOracleProvider and get its bytecode
+    3. Replace production oracle bytecode using anvil_setCode
+    4. Configure prices on the mock at production address
 
-    This follows the pattern:
-    1. Load deployedBytecode from MockOracleProvider.json
-    2. Replace production provider bytecode with mock bytecode
-    3. Load contract instance at production address
-    4. Test and configure prices
+    This ensures mock prices match on-chain state for GMX validation.
+
+    Args:
+        web3: Web3 instance
+        eth_price_usd: ETH price in USD (if None, fetches from chain)
+        usdc_price_usd: USDC price in USD (if None, fetches from chain)
     """
     provider_type = detect_provider_type(web3)
     logger.info(f"Setting up mock oracle (provider: {provider_type})")
+
+    # Fetch on-chain prices if not provided (matches GMX's approach of using actual chain state)
+    if eth_price_usd is None or usdc_price_usd is None:
+        fetched_eth, fetched_usdc = fetch_on_chain_oracle_prices(web3)
+        eth_price_usd = eth_price_usd or fetched_eth
+        usdc_price_usd = usdc_price_usd or fetched_usdc
+
+    logger.info(f"Using prices: ETH=${eth_price_usd}, USDC=${usdc_price_usd}")
 
     # Production oracle provider address (verified from mainnet)
     production_provider_address = to_checksum_address("0xE1d5a068c5b75E0c7Ea1A9Fe8EA056f9356C6fFD")
