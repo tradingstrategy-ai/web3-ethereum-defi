@@ -134,6 +134,7 @@ def test_vault_sparkline(
         width=128,
         height=32,
     )
+    assert type(png_data) == bytes
 
 
 def test_vault_benchmark(
