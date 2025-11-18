@@ -31,7 +31,7 @@ from eth_defi.vault.fee import FeeData
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
 from eth_defi.vault.risk import get_vault_risk, VaultTechnicalRisk
 from eth_defi.compat import native_datetime_utc_now
-from freqtrade.rpc.api_server.api_v1 import performance
+
 
 logger = logging.getLogger(__name__)
 
