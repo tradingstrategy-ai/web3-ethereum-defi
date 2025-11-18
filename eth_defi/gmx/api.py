@@ -8,6 +8,7 @@ from typing import Optional, Any
 import pandas as pd
 
 from eth_defi.gmx.config import GMXConfig
+from eth_defi.gmx.constants import GMX_API_URLS, GMX_API_URLS_BACKUP
 from eth_defi.gmx.retry import make_gmx_api_request
 
 
@@ -64,6 +65,26 @@ class GMXAPI:
         supported_chains = ["arbitrum", "arbitrum_sepolia", "avalanche", "avalanche_fuji"]
         if self.chain.lower() not in supported_chains:
             raise ValueError(f"Unsupported chain: {self.chain}. Supported: {', '.join(supported_chains)}")
+
+    @property
+    def base_url(self) -> str:
+        """
+        Get the primary API URL for the configured chain.
+
+        :return: Primary GMX API URL for the current chain
+        :rtype: str
+        """
+        return GMX_API_URLS.get(self.chain.lower(), "")
+
+    @property
+    def backup_url(self) -> str:
+        """
+        Get the backup API URL for the configured chain.
+
+        :return: Backup GMX API URL for the current chain
+        :rtype: str
+        """
+        return GMX_API_URLS_BACKUP.get(self.chain.lower(), "")
 
     def _make_request(
         self,
