@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
-import { IERC20 } from "forge-std/interfaces/IERC20.sol";
+import {IERC20} from "forge-std/interfaces/IERC20.sol";
 
 import "../interfaces/IGmxV2.sol";
 import "../constants/GmxArbitrumAddresses.sol";

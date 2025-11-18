@@ -35,7 +35,7 @@ from eth_defi.provider.anvil import fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
-from tests.gmx.fork_helpers import execute_order_as_keeper, setup_mock_oracle, extract_order_key_from_receipt
+from tests.gmx.fork_helpers import execute_order_as_keeper, setup_mock_oracle, extract_order_key_from_receipt, fetch_on_chain_oracle_prices
 import logging
 from rich.logging import RichHandler
 
@@ -89,12 +89,14 @@ LARGE_WETH_HOLDER = to_checksum_address("0x70d95587d40A2caf56bd97485aB3Eec10Bee6
 # console.print(f"[dim]  WETH: ${weth_api_price / 10**12:.2f} (Long: ${weth_price_long / 10**12:.2f}, Short: ${weth_price_short / 10**12:.2f})[/dim]")
 # console.print(f"[dim]  USDC: ${usdc_api_price / 10**24:.6f} (no buffer)[/dim]")
 
-MOCK_ETH_PRICE = 3450  # weth_price_long // 10**12 # 3450  # USD
-MOCK_USDC_PRICE = 1  # USD
-
 
 def setup_fork_network(web3: Web3):
-    """Setup mock oracle and display network info."""
+    """Setup mock oracle and display network info.
+
+    Follows GMX forked-env-example pattern:
+    - Fetches actual on-chain oracle prices before mocking
+    - This ensures prices pass GMX's validation
+    """
     block_number = web3.eth.block_number
     chain_id = web3.eth.chain_id
     chain = get_chain_name(chain_id).lower()
@@ -103,10 +105,10 @@ def setup_fork_network(web3: Web3):
     console.print(f"  Chain ID: {chain_id}")
     console.print(f"  Chain: {chain}")
 
-    # Setup mock oracle with fixed prices
-    console.print("\n[dim]Setting up mock oracle...[/dim]")
-    setup_mock_oracle(web3, eth_price_usd=MOCK_ETH_PRICE, usdc_price_usd=MOCK_USDC_PRICE)
-    console.print(f"[dim]✓ Mock oracle configured (ETH=${MOCK_ETH_PRICE}, USDC=${MOCK_USDC_PRICE})[/dim]\n")
+    # Setup mock oracle - prices fetched dynamically from chain
+    console.print("\n[dim]Setting up mock oracle (fetching on-chain prices)...[/dim]")
+    setup_mock_oracle(web3)  # No hardcoded prices - fetches from chain automatically
+    console.print(f"[dim]✓ Mock oracle configured with on-chain prices[/dim]\n")
 
     return chain
 
@@ -402,9 +404,16 @@ def main():
                 console.print(f"  Position size (raw): {position_size_usd_raw}")
                 console.print(f"  Collateral to withdraw: ${collateral_amount_usd:.2f}")
 
-                console.print("\n[dim]Setting up mock oracle for closing position...[/dim]")
-                setup_mock_oracle(web3, eth_price_usd=MOCK_ETH_PRICE + 1000, usdc_price_usd=MOCK_USDC_PRICE)
-                console.print(f"[dim]✓ Mock oracle configured (ETH=${MOCK_ETH_PRICE + 1000}, USDC=${MOCK_USDC_PRICE})[/dim]\n")
+                # Fetch current on-chain price and increase it for profit scenario
+                console.print("\n[dim]Fetching current on-chain prices for close position...[/dim]")
+                current_eth_price, current_usdc_price = fetch_on_chain_oracle_prices(web3)
+                # For long positions: price goes UP (+1000) to create profit
+                # For short positions: price goes DOWN (-1000) to create profit
+                new_eth_price = current_eth_price + 1000 if is_long else current_eth_price - 1000
+
+                console.print(f"[dim]Setting up mock oracle for closing position (ETH=${new_eth_price}, USDC=${current_usdc_price})...[/dim]")
+                setup_mock_oracle(web3, eth_price_usd=new_eth_price, usdc_price_usd=current_usdc_price)
+                console.print(f"[dim]✓ Mock oracle configured[/dim]\n")
 
                 try:
                     close_order = trading_client.close_position(
