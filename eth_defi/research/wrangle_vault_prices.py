@@ -547,7 +547,7 @@ def fix_outlier_share_prices(
 
             # The next 24h and prev 24h price are less than max diff apart from each other,
             # but the current price is an outlier, fix it
-            if abs((next_price - prev_price) / prev_price) < max_diff:
+            if prev_price != 0 and abs((next_price - prev_price) / prev_price) < max_diff:
                 fixed_price = (next_price + prev_price) / 2
                 share_prices_fixed += 1
             else:
@@ -596,10 +596,13 @@ def sort_and_index_vault_prices(
       as the pipeline takes several minutes to run
     """
 
+    assert isinstance(prices_df.index, pd.DatetimeIndex), f"Got: {type(prices_df.index)}"
+
     # Create a priority column for sorting
     prices_df["sort_priority"] = prices_df["id"].apply(lambda x: 0 if x in priority_ids else 1)
 
     # Sort by priority first, then by id and timestamp
+    prices_df = prices_df.reset_index()
     prices_df = prices_df.sort_values(by=["sort_priority", "id", "timestamp"]).drop("sort_priority", axis=1).set_index("timestamp")
     return prices_df
 
