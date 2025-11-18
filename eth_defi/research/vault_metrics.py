@@ -673,7 +673,7 @@ def calculate_lifetime_metrics(
                 "deposit_fee": deposit_fee,
                 "withdraw_fee": withdrawal_fee,
                 "fee_mode": fee_mode,
-                "fee_internalised": fee_mode.is_internalised(),
+                "fee_internalised": fee_mode.is_internalised() if fee_mode else None,
                 "fee_label": fee_label,
                 "lockup": lockup,
                 "event_count": event_count,
