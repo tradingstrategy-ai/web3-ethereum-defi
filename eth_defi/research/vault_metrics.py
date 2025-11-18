@@ -484,6 +484,7 @@ def calculate_lifetime_metrics(
         chain_id = group["chain"].iloc[-1]
 
         fee_data: FeeData = vault_metadata.get("_fees")
+        gross_fee_data = fee_data
 
         if fee_data is None:
             # Legacy, unit tests,etc.
@@ -674,6 +675,8 @@ def calculate_lifetime_metrics(
                 "withdraw_fee": withdrawal_fee,
                 "fee_mode": fee_mode,
                 "fee_internalised": fee_mode.is_internalised() if fee_mode else None,
+                "gross_fees": gross_fee_data,
+                "net_fees": net_fee_data,
                 "fee_label": fee_label,
                 "lockup": lockup,
                 "event_count": event_count,
@@ -909,6 +912,8 @@ def format_lifetime_table(
     _del("features")
     _del("fee_mode")
     _del("fee_internalised")
+    _del("gross_fees")
+    _del("net_fees")
 
     if not add_share_token:
         _del("share_token")
