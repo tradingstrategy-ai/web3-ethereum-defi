@@ -1,4 +1,7 @@
-"""Test rendering a sparkline for a single file."""
+"""Test rendering a sparkline for a single vault.
+
+- Open the result in a browser
+"""
 
 import base64
 import os
@@ -6,7 +9,7 @@ import tempfile
 import webbrowser
 
 from eth_defi.vault.base import VaultSpec
-from eth_defi.research.sparkline import render_sparkline_as_png
+from eth_defi.research.sparkline import render_sparkline_as_png, extract_vault_price_data
 from eth_defi.vault.vaultdb import VaultDatabase, read_default_vault_prices
 
 
@@ -52,9 +55,15 @@ def main():
 
     assert vault is not None, f"Vault not found in metadata: {vault_id}"
 
-    png_bytes = render_sparkline_as_png(
+    vault_prices_df = extract_vault_price_data(
         spec=spec,
         prices_df=prices_df,
+    )
+
+    vault_prices_df = vault_prices_df.set_index("timestamp")
+
+    png_bytes = render_sparkline_as_png(
+        vault_prices_df,
         width=512,
         height=128,
     )

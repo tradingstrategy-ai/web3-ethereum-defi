@@ -13,9 +13,31 @@ import matplotlib.pyplot as plt
 from eth_defi.vault.base import VaultSpec
 
 
-def render_sparkline(
+def extract_vault_price_data(
     spec: VaultSpec,
     prices_df: pd.DataFrame,
+) -> pd.DataFrame:
+    """Extract price data for a specific vault from a DataFrame.
+
+    :param spec:
+        chain-vault address identifier
+    :param prices_df:
+        DataFrame containing price data
+    :return:
+        Filtered DataFrame for the specified vault
+    """
+    assert isinstance(spec, VaultSpec), f"spec must be VaultSpec: {type(spec)}"
+
+    # Filter data for the specific vault
+    vault_data = prices_df.loc[(prices_df["chain"] == spec.chain_id) & (prices_df["address"] == spec.vault_address)]
+
+    assert len(vault_data) > 0, f"No data for vault: {spec}"
+
+    return vault_data
+
+
+def render_sparkline(
+    vault_prices_df: pd.DataFrame,
     width: int = 256,
     height: int = 64,
 ) -> plt.Figure:
@@ -25,15 +47,11 @@ def render_sparkline(
         chain-vault address identifier
     """
 
-    assert isinstance(spec, VaultSpec), f"spec must be VaultSpec: {type(spec)}"
-
-    # Filter data for the specific vault
-    vault_data = prices_df.loc[(prices_df["chain"] == spec.chain_id) & (prices_df["address"] == spec.vault_address)]
+    vault_data = vault_prices_df
 
     assert len(vault_data) > 0, f"No data for vault: {id}"
 
-    # Sort by timestamp to ensure proper plotting
-    vault_data = vault_data.sort_values("timestamp")
+    assert isinstance(vault_data.index, pd.DatetimeIndex), f"Expected DatetimeIndex, got: {type(vault_data.index)}"
 
     # Convert pixels to inches (matplotlib uses inches)
     dpi = 100
@@ -43,11 +61,11 @@ def render_sparkline(
     # Full-extent axis (no margins)
     ax1 = fig.add_axes([0, 0, 1, 1])
     ax1.set_facecolor("black")
-    ax1.plot(vault_data["timestamp"], vault_data["share_price"], color="lime", linewidth=1)
+    ax1.plot(vault_data.index, vault_data["share_price"], color="lime", linewidth=1)
 
     ax2 = ax1.twinx()
     ax2.set_facecolor("black")
-    ax2.plot(vault_data["timestamp"], vault_data["total_assets"], color="lightgray", linewidth=1)
+    ax2.plot(vault_data.index, vault_data["total_assets"], color="lightgray", linewidth=1)
 
     # Remove all spines, ticks, labels
     for ax in (ax1, ax2):
@@ -69,8 +87,7 @@ def render_sparkline(
 
 
 def render_sparkline_as_png(
-    spec: VaultSpec,
-    prices_df: pd.DataFrame,
+    vault_prices_df: pd.DataFrame,
     width: int = 256,
     height: int = 64,
 ) -> bytes:
@@ -88,7 +105,7 @@ def render_sparkline_as_png(
         PNG image as bytes
     """
     # Generate the matplotlib figure
-    fig = render_sparkline(spec, prices_df, width, height)
+    fig = render_sparkline(vault_prices_df, width, height)
 
     # Create a BytesIO buffer to save the PNG
     buffer = BytesIO()
