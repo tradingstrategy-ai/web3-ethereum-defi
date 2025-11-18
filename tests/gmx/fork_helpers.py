@@ -9,9 +9,11 @@ import sys
 from pathlib import Path
 
 from eth_abi import encode
+from eth_defi.chain import get_chain_name
 from eth_utils import to_checksum_address
 from web3 import Web3
 from eth_defi.abi import get_contract
+from eth_defi.gmx.core import OraclePrices
 from eth_defi.trace import assert_transaction_success_with_explanation
 
 # Configure logger to show detailed output
@@ -309,8 +311,6 @@ def fetch_on_chain_oracle_prices(web3: Web3) -> tuple[int, int]:
     Returns:
         tuple: (eth_price_usd, usdc_price_usd) as integers in USD
     """
-    from eth_defi.gmx.core.oracle import OraclePrices
-    from eth_defi.chain import get_chain_name
 
     try:
         chain = get_chain_name(web3.eth.chain_id).lower()
