@@ -1168,7 +1168,7 @@ class MultiprocessMulticallReader:
                             logger.warning(f"Multicall with batch size 1 still failed at chain {chain_id}, block {block_identifier_str}. Switching provider and retrying. Current provider: {active_provider =} ({active_provider_name}). Exception: {e}.")
                             continue
 
-                        raise RuntimeError(f"Encountered a contract that cannot be called even after dropping multicall batch size to 1 and switching providers, bailing out.\nManually figure out how to work around / change RPC providers.\nOriginal provider: {provider} ({provider_name}), fallback provider: {fallback_provider} ({fallback_provider_name}), chain {chain_id}, block {block_identifier_str}, batch size: 1.\nException: {e}.\n") from e
+                        raise RuntimeError(f"Encountered a contract that cannot be called even after dropping multicall batch size to 1 and switching providers, bailing out.\nManually figure out how to work around / change RPC providers.\nOriginal provider: {provider} ({provider_name}), fallback provider: {fallback_provider} ({active_provider_name}), chain {chain_id}, block {block_identifier_str}, batch size: 1.\nException: {e}.\n") from e
 
         self.calls += 1
 
