@@ -168,6 +168,7 @@ def test_upload_vault_sparkline(
     secret_access_key = os.environ.get("R2_SPARKLINE_SECRET_ACCESS_KEY")
 
     from eth_defi.research.sparkline import upload_to_r2
+
     upload_to_r2(
         payload=png_data,
         bucket_name=bucket_name,

@@ -65,7 +65,7 @@ def render_sparkline(
 
     ax2 = ax1.twinx()
     ax2.set_facecolor("black")
-    ax2.plot(vault_data.index, vault_data["total_assets"], color="lightgray", linewidth=1)
+    ax2.plot(vault_data.index, vault_data["total_assets"], color="#666666", linewidth=1)
 
     # Remove all spines, ticks, labels
     for ax in (ax1, ax2):
@@ -119,11 +119,12 @@ def export_sparkline_as_svg(
 
     return svg_bytes
 
+
 def upload_to_r2(
     payload: bytes,
     bucket_name: str,
     object_name: str,
-    account_id: str,
+    endpoint_url: str,
     access_key_id: str,
     secret_access_key: str,
     content_type: str,
@@ -143,8 +144,6 @@ def upload_to_r2(
 
     import boto3
 
-    endpoint_url = f"https://{account_id}.r2.cloudflarestorage.com/vault-sparklines"
-
     s3_client = boto3.client(
         "s3",
         endpoint_url=endpoint_url,
@@ -153,11 +152,9 @@ def upload_to_r2(
         region_name="auto",  # Must be "auto"
     )
 
-    import ipdb ; ipdb.set_trace()
     s3_client.put_object(
         Bucket=bucket_name,
         Key=object_name,
         Body=payload,
         ContentType=content_type,
     )
-

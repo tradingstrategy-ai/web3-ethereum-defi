@@ -73,6 +73,7 @@ def display_svg_in_browser(title: str, svg_bytes: bytes):
     # Open in browser
     webbrowser.open(f"file://{temp_path}")
 
+
 def main():
     vault_db = VaultDatabase.read()
     prices_df = read_default_vault_prices()
@@ -105,11 +106,14 @@ def main():
         svg_bytes,
     )
 
+    # Special filename for unit testing
     object_name = f"test-{spec.as_string_id()}.png"
+
     bucket_name = os.environ.get("R2_SPARKLINE_BUCKET_NAME")
     account_id = os.environ.get("R2_SPARKLINE_ACCOUNT_ID")
     access_key_id = os.environ.get("R2_SPARKLINE_ACCESS_KEY_ID")
     secret_access_key = os.environ.get("R2_SPARKLINE_SECRET_ACCESS_KEY")
+    endpoint_url = os.environ.get("R2_SPARKLINE_ENDPOINT_URL")
 
     if bucket_name:
         from eth_defi.research.sparkline import upload_to_r2
@@ -120,7 +124,7 @@ def main():
             payload=svg_bytes,
             bucket_name=bucket_name,
             object_name=object_name,
-            account_id=account_id,
+            endpoint_url=endpoint_url,
             access_key_id=access_key_id,
             secret_access_key=secret_access_key,
             content_type="image/svg+xml",

@@ -163,7 +163,6 @@ jobs:
           ARBITRUM_GMX_TEST_SEPOLIA_PRIVATE_KEY: ${{ secrets.ARBITRUM_GMX_TEST_SEPOLIA_PRIVATE_KEY }}
           HYPERSYNC_API_KEY: ${{ secrets.HYPERSYNC_API_KEY }}
 
-
       - name: Ruff lint check
         run: |
           poetry run ruff format --check --diff
