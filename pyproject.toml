@@ -141,6 +141,9 @@ filelock = "^3.20.0"
 atomicwrites = "^1.4.1"
 zstandard = "^0.25.0"
 
+# Cloudflare R2 uploads
+boto3 = {version = "^1.40.75", optional = true}
+
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.11.13"
@@ -160,7 +163,7 @@ hypersync = ["hypersync"]
 # To install the web3py version based dependencies
 web3v6 = ["eth-tester", "evm-trace", "safe-eth-py", "eth-pydantic-types", "multicall", "eth-account", "eth-typing"]
 web3v7 = ["eth-tester", "evm-trace", "safe-eth-py", "eth-pydantic-types", "multicall", "eth-account", "eth-typing"]
-
+cloudflare_r2 = ["boto3"]
 
 
 [build-system]

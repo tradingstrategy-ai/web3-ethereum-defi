@@ -117,3 +117,46 @@ def render_sparkline_as_png(
     png_bytes = buffer.read()
 
     return png_bytes
+
+
+
+def upload_to_r2(
+    payload: bytes,
+    bucket_name: str,
+    object_name: str,
+    account_id: str,
+    access_key_id: str,
+    secret_access_key: str,
+    content_type: str = "image/png",
+):
+    """Uploads a bytes payload to a Cloudflare R2 bucket.
+
+    :param payload: The bytes data to upload.
+    :param bucket_name: The name of the R2 bucket.
+    :param object_name: The destination object name (e.g., "my-image.png").
+    :param account_id: Your Cloudflare R2 account ID.
+    :param access_key_id: Your R2 access key ID.
+    :param secret_access_key: Your R2 secret access key.
+    :param content_type: The MIME type of the file.
+    """
+
+    import boto3
+
+    endpoint_url = f"https://{account_id}.r2.cloudflarestorage.com"
+
+    s3_client = boto3.client(
+        "s3",
+        endpoint_url=endpoint_url,
+        aws_access_key_id=access_key_id,
+        aws_secret_access_key=secret_access_key,
+        region_name="auto",  # Must be "auto"
+    )
+
+    s3_client.put_object(
+        Bucket=bucket_name,
+        Key=object_name,
+        Body=payload,
+        ContentType=content_type,
+    )
+
+
