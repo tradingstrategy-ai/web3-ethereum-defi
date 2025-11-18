@@ -22,7 +22,7 @@ JSON_RPC_BASE = os.environ.get("JSON_RPC_BASE")
 
 HYPERSYNC_API_KEY = os.environ.get("HYPERSYNC_API_KEY")
 
-pytestmark = pytest.mark.skipif(JSON_RPC_BASE is None or HYPERSYNC_API_KEY is None, reason="JSON_RPC_BASE needed to run these tests")
+pytestmark = pytest.mark.skipif(JSON_RPC_BASE is None or HYPERSYNC_API_KEY is None, reason="JSON_RPC_BASE and HYPERSYNC_API_KEY needed to run these tests")
 
 
 @pytest.fixture(scope="module")
@@ -38,7 +38,7 @@ def test_4626_scan_hypersync(web3):
     web3factory = MultiProviderWeb3Factory(JSON_RPC_BASE)
 
     hypersync_url = get_hypersync_server(web3)
-    client = hypersync.HypersyncClient(hypersync.ClientConfig(url=hypersync_url))
+    client = hypersync.HypersyncClient(hypersync.ClientConfig(url=hypersync_url, bearer_token=HYPERSYNC_API_KEY))
 
     start_block = 1
     end_block = 4_000_000
@@ -152,6 +152,7 @@ def test_lead_scan_core_hypersync(tmp_path, backend):
         vault_db_file=db_path,
         printer=logger.info,
         end_block=2_800_000,
+        hypersync_api_key=HYPERSYNC_API_KEY,
     )
     assert updated_report.start_block == 2_500_001
     assert updated_report.end_block == 2_800_000
@@ -172,7 +173,7 @@ def test_4626_scan_moonwell(web3):
     web3factory = MultiProviderWeb3Factory(JSON_RPC_BASE)
 
     hypersync_url = get_hypersync_server(web3)
-    client = hypersync.HypersyncClient(hypersync.ClientConfig(url=hypersync_url))
+    client = hypersync.HypersyncClient(hypersync.ClientConfig(url=hypersync_url, bearer_token=HYPERSYNC_API_KEY))
 
     start_block = 15_620_448
     end_block = 15_968_629

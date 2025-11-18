@@ -36,7 +36,7 @@ class PlutusVault(ERC4626Vault):
         - Fees are internalized in the share price, no explicit performance fee as per discussion in Plutus Discord
         - https://docs.plutusdao.io/plutus-docs/protocol-fees
         """
-        return 0
+        return 0.12
 
     def get_estimated_lock_up(self) -> datetime.timedelta:
         """Currently Plutus vaults are manually opened/closed/"""

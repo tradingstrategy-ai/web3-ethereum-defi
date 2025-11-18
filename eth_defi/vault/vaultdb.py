@@ -7,6 +7,8 @@ from decimal import Decimal
 from io import BufferedIOBase
 from pathlib import Path
 from typing import TypedDict, TypeAlias, Iterable
+
+import pandas as pd
 from atomicwrites import atomic_write
 
 from eth_typing import HexAddress
@@ -20,7 +22,7 @@ from eth_defi.vault.base import VaultSpec
 DEFAULT_VAULT_DATABASE = Path.home() / ".tradingstrategy" / "vaults" / "vault-metadata-db.pickle"
 
 #: Where we store uncleaned prices
-DEFAULT_RAW_PRICE_DATABASE = Path.home() / ".tradingstrategy" / "vaults" / "vault-prices-1h.parquet"
+DEFAULT_RAW_PRICE_DATABASE = Path.home() / ".tradingstrategy" / "vaults" / "cleaned-vault-prices-1h.parquet"
 
 
 class VaultRow(TypedDict):
@@ -214,3 +216,11 @@ class VaultDatabase:
     def get(self, key: VaultSpec, default=None) -> VaultRow | None:
         """Get vault row by spec."""
         return self.rows.get(key, default)
+
+
+def read_default_vault_prices() -> pd.DataFrame:
+    """Read the default raw vault prices database.
+
+    - Use the default cleaned price data file
+    """
+    return pd.read_parquet(DEFAULT_RAW_PRICE_DATABASE)

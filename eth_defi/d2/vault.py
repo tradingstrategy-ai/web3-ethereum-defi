@@ -96,7 +96,7 @@ class D2Vault(ERC4626Vault):
 
         - D2 share price is fees-inclusive per them: https://x.com/D2_Finance/status/1988624499588116979
         """
-        return 0
+        return 0.20
 
     def get_estimated_lock_up(self) -> datetime.timedelta:
         epoch = self.fetch_current_epoch_info()

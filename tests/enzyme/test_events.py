@@ -139,6 +139,7 @@ def test_read_deposit(
     assert deposit.shares_issued == Decimal(500)
 
 
+@flaky.flaky
 def test_read_withdrawal(
     web3: Web3,
     deployer: HexAddress,

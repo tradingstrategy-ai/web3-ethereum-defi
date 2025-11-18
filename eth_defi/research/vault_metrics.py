@@ -6,9 +6,10 @@
 
 import datetime
 import logging
+from enum import Enum
 from typing import Literal, TypeAlias, Optional
 import warnings
-from dataclasses import dataclass
+from dataclasses import dataclass, is_dataclass, asdict
 
 import numpy as np
 import pandas as pd
@@ -27,6 +28,7 @@ from eth_defi.erc_4626.core import ERC4262VaultDetection
 from eth_defi.research.value_table import format_series_as_multi_column_grid
 from eth_defi.token import is_stablecoin_like
 from eth_defi.vault.base import VaultSpec
+from eth_defi.vault.fee import FeeData, VaultFeeMode
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
 from eth_defi.vault.risk import get_vault_risk, VaultTechnicalRisk
 from eth_defi.compat import native_datetime_utc_now
@@ -52,24 +54,28 @@ def fmt_one_decimal_or_int(x: float | None) -> str:
 
 
 def create_fee_label(
-    management_fee_annual: Percent,
-    performance_fee: Percent,
-    deposit_fee: Percent | None,
-    withdrawal_fee: Percent | None,
+    fee_data: FeeData,
 ):
     """Create 2% / 20% style labels to display variosu kinds of vault fees.
 
     Order is: management / performance / deposit / withdrawal fees.
     """
 
+    management_fee_annual = fee_data.management
+    performance_fee: Percent = fee_data.performance
+    deposit_fee: Percent = fee_data.deposit
+    withdrawal_fee: Percent = fee_data.withdraw
+
+    internalised_label = " (int.)" if fee_data.internalised else ""
+
     # All fees zero
     if management_fee_annual == 0 and performance_fee == 0 and deposit_fee == 0 and withdrawal_fee == 0:
         return "0% / 0%"
 
     if deposit_fee in (0, None) and withdrawal_fee in (0, None):
-        return f"{fmt_one_decimal_or_int(management_fee_annual)} / {fmt_one_decimal_or_int(performance_fee)}"
+        return f"{fmt_one_decimal_or_int(management_fee_annual)} / {fmt_one_decimal_or_int(performance_fee)}{internalised_label}"
 
-    return f"{fmt_one_decimal_or_int(management_fee_annual)} / {fmt_one_decimal_or_int(performance_fee)} / {fmt_one_decimal_or_int(deposit_fee)} / {fmt_one_decimal_or_int(withdrawal_fee)}"
+    return f"{fmt_one_decimal_or_int(management_fee_annual)} / {fmt_one_decimal_or_int(performance_fee)} / {fmt_one_decimal_or_int(deposit_fee)} / {fmt_one_decimal_or_int(withdrawal_fee)}{internalised_label}"
 
 
 def resample_returns(
@@ -476,10 +482,28 @@ def calculate_lifetime_metrics(
         max_nav = group["total_assets"].max()
         current_nav = group["total_assets"].iloc[-1]
         chain_id = group["chain"].iloc[-1]
-        mgmt_fee = vault_metadata["Mgmt fee"]
-        perf_fee = vault_metadata["Perf fee"]
-        deposit_fee = vault_metadata.get("Deposit fee")
-        withdrawal_fee = vault_metadata.get("Withdraw fee")
+
+        fee_data: FeeData = vault_metadata.get("_fees")
+
+        if fee_data is None:
+            # Legacy, unit tests,etc.
+            # _fees not in the exported pickle we use for testing
+            fee_data = FeeData(
+                fee_mode=VaultFeeMode.externalised,
+                management=vault_metadata["Mgmt fee"],
+                performance=vault_metadata["Perf fee"],
+                deposit=vault_metadata.get("Deposit fee", 0),  # Rare: assume 0 if not explicitly set
+                withdraw=vault_metadata.get("Withdrawal fee", 0),  # Rare: assume 0 if not explicitly set
+            )
+
+        fee_mode = fee_data.fee_mode
+        net_fee_data = fee_data.get_net_fees()
+
+        mgmt_fee = fee_data.management
+        perf_fee = fee_data.performance
+        deposit_fee = fee_data.deposit
+        withdrawal_fee = fee_data.withdraw
+
         event_count = group["event_count"].iloc[-1]
         protocol = vault_metadata["Protocol"]
         risk = get_vault_risk(protocol, vault_metadata["Address"])
@@ -555,10 +579,10 @@ def calculate_lifetime_metrics(
                         end=end_date,
                         share_price_start=last_three_months.iloc[0]["share_price"],
                         share_price_end=last_three_months.iloc[-1]["share_price"],
-                        management_fee_annual=mgmt_fee,
-                        performance_fee=perf_fee,
-                        deposit_fee=deposit_fee,
-                        withdrawal_fee=withdrawal_fee,
+                        management_fee_annual=net_fee_data.management,
+                        performance_fee=net_fee_data.performance,
+                        deposit_fee=net_fee_data.deposit,
+                        withdrawal_fee=net_fee_data.withdraw,
                     )
                     three_months_cagr_net = (1 + three_months_return_net) ** (1 / years) - 1 if years > 0 else np.nan
                 else:
@@ -597,10 +621,10 @@ def calculate_lifetime_metrics(
                         end=end_date,
                         share_price_start=last_month.iloc[0]["share_price"],
                         share_price_end=last_month.iloc[-1]["share_price"],
-                        management_fee_annual=mgmt_fee,
-                        performance_fee=perf_fee,
-                        deposit_fee=deposit_fee,
-                        withdrawal_fee=withdrawal_fee,
+                        management_fee_annual=net_fee_data.management,
+                        performance_fee=net_fee_data.performance,
+                        deposit_fee=net_fee_data.deposit,
+                        withdrawal_fee=net_fee_data.withdraw,
                     )
                     one_month_cagr_net = (1 + one_month_returns_net) ** (1 / years) - 1 if years > 0 else np.nan
                 else:
@@ -615,12 +639,7 @@ def calculate_lifetime_metrics(
                 one_month_returns_net = 0
                 one_month_cagr_net = 0
 
-        fee_label = create_fee_label(
-            management_fee_annual=mgmt_fee,
-            performance_fee=perf_fee,
-            deposit_fee=deposit_fee,
-            withdrawal_fee=withdrawal_fee,
-        )
+        fee_label = create_fee_label(fee_data)
 
         last_updated_at = group.index.max()
         last_updated_block = group.loc[last_updated_at]["block_number"]
@@ -653,6 +672,8 @@ def calculate_lifetime_metrics(
                 "perf_fee": perf_fee,
                 "deposit_fee": deposit_fee,
                 "withdraw_fee": withdrawal_fee,
+                "fee_mode": fee_mode,
+                "fee_internalised": fee_mode.is_internalised(),
                 "fee_label": fee_label,
                 "lockup": lockup,
                 "event_count": event_count,
@@ -886,6 +907,8 @@ def format_lifetime_table(
     _del("last_updated_at")
     _del("last_updated_block")
     _del("features")
+    _del("fee_mode")
+    _del("fee_internalised")
 
     if not add_share_token:
         _del("share_token")
@@ -1447,41 +1470,65 @@ def display_vault_chart_and_tearsheet(
 
 
 def export_lifetime_row(row: pd.Series) -> dict:
-    """Export lifetime row to JSON serializable dict.
+    """Export lifetime metrics row to a fully JSON-serializable dict.
 
-    :param row:
-        Lifetime metrics row
-
-    :return:
-        JSON serializable dict
+    - Recursively handles nested dicts, lists, tuples, sets, and dataclasses.
+    - Normalizes pandas, numpy, datetime, and custom types.
+    - Preserves legacy fee field names.
     """
 
-    out = row.to_dict()
+    def _is_na_scalar(v) -> bool:
+        # Robust NaN / NA detection for scalar types
+        try:
+            return pd.isna(v) and not isinstance(v, (list, tuple, set, dict))
+        except Exception:
+            return False
 
-    # Convert any non-serializable values
-    for key, value in out.items():
+    def _serialize(value):
+        # Numpy scalar
         if isinstance(value, (np.floating, np.integer)):
-            out[key] = value.item()
-        elif isinstance(value, pd.Timestamp):
-            out[key] = value.isoformat()
-        elif isinstance(value, pd.Timedelta):
-            out[key] = value.total_seconds()
-        elif isinstance(value, datetime.timedelta):
-            out[key] = value.total_seconds()
-        elif isinstance(value, VaultTechnicalRisk):
-            out[key] = value.get_risk_level_name()
-        elif isinstance(value, (list, tuple, set)):
-            out[key] = list(value)
-        elif pd.isna(value):
-            out[key] = None
+            return value.item()
+        # Pandas timestamp
+        if isinstance(value, pd.Timestamp):
+            return value.isoformat()
+        # Datetime (naive or aware)
+        if isinstance(value, datetime.datetime):
+            return value.isoformat()
+        # Timedelta types
+        if isinstance(value, (pd.Timedelta, datetime.timedelta)):
+            return value.total_seconds()
+        if isinstance(value, Enum):
+            return value.value
+        # Custom enum-like risk object
+        if isinstance(value, VaultTechnicalRisk):
+            return value.get_risk_level_name()
+        # Dataclass -> dict then recurse
+        if is_dataclass(value):
+            return {k: _serialize(v) for k, v in asdict(value).items()}
+        # Mapping types
+        if isinstance(value, dict):
+            return {str(k): _serialize(v) for k, v in value.items()}
+        # Sequence / set types (exclude strings/bytes)
+        if isinstance(value, (list, tuple, set)):
+            return [_serialize(v) for v in value]
+        # Pandas Series/DataFrame: convert to dict or list
+        if isinstance(value, pd.Series):
+            return _serialize(value.to_dict())
+        if isinstance(value, pd.DataFrame):
+            return [_serialize(rec) for rec in value.to_dict(orient="records")]
+        # Na-like scalar
+        if _is_na_scalar(value):
+            return None
+        return value
 
-    # Map some legacy names
-    # TODO: Remove after confirmed frontend does not need these
-    out["management_fee"] = out.get("mgmt_fee", None)
-    out["performance_fee"] = out.get("perf_fee", None)
+    out = {k: _serialize(v) for k, v in row.to_dict().items()}
 
-    # Fix some legacy data which did not use these values yet
-    if out.get("mgmt_fee", None) is None:
+    # Legacy field mappings
+    out["management_fee"] = out.get("mgmt_fee")
+    out["performance_fee"] = out.get("perf_fee")
+
+    # Legacy compatibility: if mgmt fee missing, nullify deposit/withdraw fees
+    if out.get("mgmt_fee") is None:
         out["deposit_fee"] = None
         out["withdraw_fee"] = None
 

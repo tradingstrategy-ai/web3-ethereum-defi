@@ -2,7 +2,6 @@
 
 import threading
 import logging
-from types import NoneType
 
 from typing import cast
 
@@ -18,6 +17,7 @@ from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.token import TokenDiskCache
+from eth_defi.vault.fee import FeeData, BROKEN_FEE_DATA
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +57,7 @@ def create_vault_scan_record(
         "Features": "",
         "First seen": detection.first_seen_at,
         "_detection_data": detection,
+        "_fees": None,
     }
 
     if vault is None:
@@ -67,29 +68,18 @@ def create_vault_scan_record(
         # Try to figure out the correct vault subclass
         # to pull out the data like fees
         vault = cast(ERC4626Vault, vault)
-        try:
-            management_fee = vault.get_management_fee(block_identifier)
-            assert type(management_fee) == float, f"Vault {vault} gave {management_fee}"
-        except NotImplementedError:
-            management_fee = None
 
         try:
-            performance_fee = vault.get_performance_fee(block_identifier)
-            assert type(performance_fee) in (float, NoneType), f"Expected float as performance fee, got {performance_fee} {type(performance_fee)} from {vault}"
-        except NotImplementedError:
-            performance_fee = None
+            fees = vault.get_fee_data()
+        except (NotImplementedError, ValueError) as e:
+            fees = BROKEN_FEE_DATA
 
-        try:
-            deposit_fee = vault.get_deposit_fee(block_identifier)
-            assert type(deposit_fee) in (float, NoneType)
-        except NotImplementedError:
-            deposit_fee = None
+        assert isinstance(fees, FeeData), f"Got {type(fees)}: {fees}"
 
-        try:
-            withdraw_fee = vault.get_withdraw_fee(block_identifier)
-            assert type(deposit_fee) in (float, NoneType)
-        except NotImplementedError:
-            withdraw_fee = None
+        management_fee = fees.management
+        performance_fee = fees.performance
+        deposit_fee = fees.deposit
+        withdraw_fee = fees.withdraw
 
         try:
             total_assets = vault.fetch_total_assets(block_identifier)
@@ -134,6 +124,7 @@ def create_vault_scan_record(
             "_detection_data": detection,
             "_denomination_token": denomination_token,
             "_share_token": vault.share_token.export() if vault.share_token else None,
+            "_fees": fees,
         }
         return data
     except ExtraValueError as e:

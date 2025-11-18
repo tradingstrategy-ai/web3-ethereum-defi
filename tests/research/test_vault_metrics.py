@@ -11,6 +11,7 @@ import pytest
 from plotly.graph_objects import Figure
 import zstandard as zstd
 
+from eth_defi.research.sparkline import export_sparkline_as_png, extract_vault_price_data, render_sparkline, export_sparkline_as_svg
 from eth_defi.research.vault_benchmark import visualise_vault_return_benchmark
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.risk import VaultTechnicalRisk
@@ -117,6 +118,64 @@ def test_vault_charts(
         prices_df=price_df,
         vault_db=vault_db,
         render=False,
+    )
+
+
+def test_render_vault_sparkline(
+    vault_db: VaultDatabase,
+    price_df: pd.DataFrame,
+):
+    """Render spark line chart."""
+
+    spec = VaultSpec.parse_string("43111-0x05c2e246156d37b39a825a25dd08d5589e3fd883")
+    vault_prices_df = extract_vault_price_data(spec, price_df)
+    fig = render_sparkline(
+        vault_prices_df,
+        width=128,
+        height=32,
+    )
+    png_data = export_sparkline_as_png(
+        fig,
+    )
+    assert type(png_data) == bytes
+
+    svg_data = export_sparkline_as_svg(
+        fig,
+    )
+    assert type(svg_data) == bytes
+
+
+@pytest.mark.skipif(os.environ.get("R2_SPARKLINE_BUCKET_NAME") is None, reason="R2_SPARKLINE_BUCKET_NAME not set")
+def test_upload_vault_sparkline(
+    vault_db: VaultDatabase,
+    price_df: pd.DataFrame,
+):
+    """Render spark line chart."""
+
+    spec = VaultSpec.parse_string("43111-0x05c2e246156d37b39a825a25dd08d5589e3fd883")
+    vault_prices_df = extract_vault_price_data(spec, price_df)
+    png_data = export_sparkline_as_png(
+        vault_prices_df,
+        width=128,
+        height=32,
+    )
+    assert type(png_data) == bytes
+
+    object_name = f"test-{spec.as_string_id()}.png"
+    bucket_name = os.environ.get("R2_SPARKLINE_BUCKET_NAME")
+    account_id = os.environ.get("R2_SPARKLINE_ACCOUNT_ID")
+    access_key_id = os.environ.get("R2_SPARKLINE_ACCESS_KEY_ID")
+    secret_access_key = os.environ.get("R2_SPARKLINE_SECRET_ACCESS_KEY")
+
+    from eth_defi.research.sparkline import upload_to_r2_compressed
+
+    upload_to_r2_compressed(
+        payload=png_data,
+        bucket_name=bucket_name,
+        object_name=object_name,
+        account_id=account_id,
+        access_key_id=access_key_id,
+        secret_access_key=secret_access_key,
     )
 
 

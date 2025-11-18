@@ -1,6 +1,7 @@
 """Vault fee modes."""
 
 import enum
+from dataclasses import dataclass
 
 from eth_typing import HexAddress
 
@@ -37,6 +38,10 @@ class VaultFeeMode(enum.Enum):
     #: This protocol has no fees.
     feeless = "feeless"
 
+    def is_internalised(self) -> bool:
+        """Are the fees internalised in the share price?"""
+        return self != VaultFeeMode.externalised
+
 
 #: Different vault fee extraction methods by different protocols
 #:
@@ -65,6 +70,63 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "AUTO Finance": VaultFeeMode.internalised_minting,
     "NashPoint": VaultFeeMode.internalised_skimming,
 }
+
+
+@dataclass
+class FeeData:
+    """Track vault fee parameters.
+
+    - Offer methods to calculate gross/net fees based on the vault fee mode
+    - `None` means fee unknown: protocol not recognized, or fee data not available
+    """
+
+    #: Determines is the vault share price is fees-net or fees-gross
+    fee_mode: VaultFeeMode | None
+
+    #: Fee for this class
+    management: float | None
+
+    #: Fee for this class
+    performance: float | None
+
+    #: Fee for this class
+    deposit: float | None
+
+    #: Fee for this class
+    withdraw: float | None
+
+    @property
+    def internalised(self) -> bool | None:
+        if self.fee_mode is None:
+            return None
+
+        return self.fee_mode.is_internalised() if self.fee_mode else None
+
+    def get_net_fees(self) -> "FeeData":
+        """Get net fees paid by the user on deposit/withdraw.
+
+        - Determined by the vault fee mode
+        """
+        if self.internalised:
+            return FeeData(
+                fee_mode=self.fee_mode,
+                management=0,
+                performance=0,
+                deposit=0.0,
+                withdraw=0.0,
+            )
+        else:
+            return self
+
+
+#: Could not read fee data from the smart contract / unsupported protocol
+BROKEN_FEE_DATA = FeeData(
+    fee_mode=None,
+    management=None,
+    performance=None,
+    deposit=None,
+    withdraw=None,
+)
 
 
 def get_vault_fee_mode(vault_protocol_name: str, address: HexAddress | str) -> VaultFeeMode | None:

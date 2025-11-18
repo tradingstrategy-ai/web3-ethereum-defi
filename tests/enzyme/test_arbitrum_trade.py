@@ -46,6 +46,7 @@ from eth_defi.uniswap_v3.pool import PoolDetails, fetch_pool_details
 from eth_defi.aave_v3.deployment import fetch_deployment as fetch_aave_v3_deployment
 
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
+CI = os.environ.get("CI") == "true"
 pytestmark = pytest.mark.skipif(not JSON_RPC_ARBITRUM, reason="Set JSON_RPC_ARBITRUM to run this test")
 
 
@@ -266,7 +267,7 @@ def test_enzyme_uniswap_v3_arbitrum(
     assert 0.01 < weth.fetch_balance_of(vault.address) < 1
 
 
-@flaky.flaky
+@pytest.mark.skipif(CI, reason="Broken on Github CI")
 def test_enzyme_aave_arbitrum(
     web3: Web3,
     deployer: HexAddress,

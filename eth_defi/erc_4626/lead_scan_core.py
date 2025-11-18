@@ -136,6 +136,7 @@ def scan_leads(
     match backend:
         case "auto":
             hypersync_url = get_hypersync_server(web3, allow_missing=True)
+            assert hypersync_api_key, "HYPERSYNC_API_KEY must be set to use HyperSync backend"
             if hypersync_url:
                 hypersync_client = hypersync.HypersyncClient(hypersync.ClientConfig(url=hypersync_url, bearer_token=hypersync_api_key))
             else:
