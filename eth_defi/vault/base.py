@@ -699,7 +699,6 @@ class VaultBase(ABC):
 
         fees = FeeData(
             fee_mode=fee_mode,
-            internalised=fee_mode.is_internalised(),
             management=self.get_management_fee(block_identifier="latest"),
             performance=self.get_performance_fee(block_identifier="latest"),
             deposit=self.get_deposit_fee(block_identifier="latest"),
