@@ -25,16 +25,18 @@ class PlutusVault(ERC4626Vault):
     def get_management_fee(self, block_identifier: BlockIdentifier) -> float:
         """Hardcoded PLutus fees.
 
-        https://docs.plutusdao.io/plutus-docs/protocol-fees
+        - Fees are internalized in the share price, no explicit performance fee as per discussion in Plutus Discord
+        - https://docs.plutusdao.io/plutus-docs/protocol-fees
         """
         return 0.0
 
     def get_performance_fee(self, block_identifier: BlockIdentifier) -> float | None:
         """Hardcoded PLutus fees.
 
-        https://docs.plutusdao.io/plutus-docs/protocol-fees
+        - Fees are internalized in the share price, no explicit performance fee as per discussion in Plutus Discord
+        - https://docs.plutusdao.io/plutus-docs/protocol-fees
         """
-        return 0.12
+        return 0
 
     def get_estimated_lock_up(self) -> datetime.timedelta:
         """Currently Plutus vaults are manually opened/closed/"""

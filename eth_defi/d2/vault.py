@@ -87,16 +87,16 @@ class D2Vault(ERC4626Vault):
     def get_management_fee(self, block_identifier: BlockIdentifier) -> float:
         """Non on-chain fee information available.
 
-        https://d2.finance/strategies/0x195eb4d088f222c982282b5dd495e76dba4bc7d1
+        - D2 share price is fees-inclusive per them: https://x.com/D2_Finance/status/1988624499588116979
         """
         return 0.0
 
     def get_performance_fee(self, block_identifier: BlockIdentifier) -> float | None:
-        """No on-chain fee information available.
+        """Fees are internalized in the share price.
 
-        https://d2.finance/strategies/0x195eb4d088f222c982282b5dd495e76dba4bc7d1
+        - D2 share price is fees-inclusive per them: https://x.com/D2_Finance/status/1988624499588116979
         """
-        return 0.20
+        return 0
 
     def get_estimated_lock_up(self) -> datetime.timedelta:
         epoch = self.fetch_current_epoch_info()
