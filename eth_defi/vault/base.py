@@ -28,7 +28,7 @@ from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResu
 from eth_defi.token import DEFAULT_TOKEN_CACHE, TokenAddress, TokenDetails, fetch_erc20_details
 from eth_defi.vault.deposit_redeem import VaultDepositManager
 from eth_defi.vault.lower_case_dict import LowercaseDict
-from .fee import VaultFeeMode, get_vault_fee_mode
+from .fee import VaultFeeMode, get_vault_fee_mode, FeeData
 
 from .risk import VaultTechnicalRisk, get_vault_risk
 
@@ -691,6 +691,21 @@ class VaultBase(ABC):
         address = self.address
         protocol = self.get_protocol_name()
         return get_vault_fee_mode(protocol, address)
+
+    def get_fee_data(self) -> FeeData:
+        """Get fee data structure for this vault."""
+
+        fee_mode = self.get_fee_mode()
+
+        fees = FeeData(
+            fee_mode=fee_mode,
+            internalised=fee_mode.is_internalised(),
+            management=self.get_management_fee(block_identifier="latest"),
+            performance=self.get_performance_fee(block_identifier="latest"),
+            deposit=self.get_deposit_fee(block_identifier="latest"),
+            withdraw=self.get_withdraw_fee(block_identifier="latest"),
+        )
+        return fees
 
     def get_estimated_lock_up(self) -> datetime.timedelta | None:
         """What is the estimated lock-up period for this vault.

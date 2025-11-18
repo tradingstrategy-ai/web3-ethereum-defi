@@ -1,6 +1,7 @@
 """Vault fee modes."""
 
 import enum
+from dataclasses import dataclass
 
 from eth_typing import HexAddress
 
@@ -37,6 +38,11 @@ class VaultFeeMode(enum.Enum):
     #: This protocol has no fees.
     feeless = "feeless"
 
+    def is_internalised(self) -> bool:
+        """Are the fees internalised in the share price?"""
+        return self != VaultFeeMode.externalised
+
+
 
 #: Different vault fee extraction methods by different protocols
 #:
@@ -65,6 +71,58 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "AUTO Finance": VaultFeeMode.internalised_minting,
     "NashPoint": VaultFeeMode.internalised_skimming,
 }
+
+
+@dataclass
+class FeeData:
+    """Track vault fee parameters.
+
+    - `None` meens fee unknown
+    """
+
+    fee_mode: VaultFeeMode | None
+
+    #: Is the vault going to reduce the fees from the redeemed share price at withdrawal time
+    internalised: bool | None
+
+    #: Fee for this class
+    management: float | None
+
+    #: Fee for this class
+    performance: float | None
+
+    #: Fee for this class
+    deposit: float | None
+
+    #: Fee for this class
+    withdraw: float | None
+
+    def get_net_fees(self) -> "FeeData":
+        """Get net fees paid by the user on deposit/withdraw."""
+        if self.internalised:
+            return FeeData(
+                fee_mode=self.fee_mode,
+                internalised=True,
+                management=0,
+                performance=0,
+                deposit=0.0,
+                withdraw=0.0,
+            )
+        else:
+            return self
+
+    @staticmethod
+    @property
+    def broken_fee() -> "FeeData":
+        """A placeholder for broken/unknown fee mode."""
+        return FeeData(
+            fee_mode=None,
+            internalised=None,
+            management=None,
+            performance=None,
+            deposit=None,
+            withdraw=None,
+        )
 
 
 def get_vault_fee_mode(vault_protocol_name: str, address: HexAddress | str) -> VaultFeeMode | None:
