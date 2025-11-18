@@ -61,13 +61,13 @@ def render_sparkline(
 
     # Full-extent axis (no margins)
     ax1 = fig.add_axes([0, 0, 1, 1])
-    ax1.set_facecolor("black")
-    ax1.plot(vault_data.index, vault_data["share_price"], color="lime", linewidth=2)
+    ax1.patch.set_alpha(0.0)
+    ax1.plot(vault_data.index, vault_data["share_price"], color="#a6a4a0", linewidth=2)
 
     # Alpha = 0 = hidden for now
     ax2 = ax1.twinx()
-    ax2.set_facecolor("black")
-    ax2.plot(vault_data.index, vault_data["total_assets"], color="#999999", linewidth=2, alpha=0.0)
+    # ax2.patch.set_alpha(0.0)
+    # ax2.plot(vault_data.index, vault_data["total_assets"], color="#999999", linewidth=2, alpha=0.0)
 
     # Remove all spines, ticks, labels
     for ax in (ax1, ax2):
@@ -95,7 +95,7 @@ def export_sparkline_as_png(
 
     # Create a BytesIO buffer to save the PNG
     buffer = BytesIO()
-    fig.savefig(buffer, format="png", dpi=100)
+    fig.savefig(buffer, format="png", dpi=100, transparent=True)
     plt.close(fig)
 
     # Get the PNG bytes
@@ -112,7 +112,7 @@ def export_sparkline_as_svg(
 
     # Create a BytesIO buffer to save the SVG
     buffer = BytesIO()
-    fig.savefig(buffer, format="svg")
+    fig.savefig(buffer, format="svg", transparent=True)
     plt.close(fig)
 
     # Get the SVG bytes
