@@ -218,7 +218,6 @@ class VaultDatabase:
         return self.rows.get(key, default)
 
 
-
 def read_default_vault_prices() -> pd.DataFrame:
     """Read the default raw vault prices database.
 

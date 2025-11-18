@@ -17,7 +17,7 @@ from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.token import TokenDiskCache
-from eth_defi.vault.fee import FeeData
+from eth_defi.vault.fee import FeeData, BROKEN_FEE_DATA
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +72,9 @@ def create_vault_scan_record(
         try:
             fees = vault.get_fee_data()
         except (NotImplementedError, ValueError) as e:
-            fees = FeeData.broken_fee
+            fees = BROKEN_FEE_DATA
+
+        assert isinstance(fees, FeeData), f"Got {type(fees)}: {fees}"
 
         management_fee = fees.management
         performance_fee = fees.performance

@@ -645,6 +645,8 @@ class VaultBase(ABC):
     def get_management_fee(self, block_identifier: BlockIdentifier) -> float:
         """Get the current management fee as a percent.
 
+        Internal: Use :py:meth:`get_fee_data`.
+
         :return:
             0.1 = 10%
         """
@@ -652,6 +654,8 @@ class VaultBase(ABC):
 
     def get_performance_fee(self, block_identifier: BlockIdentifier) -> float:
         """Get the current performance fee as a percent.
+
+        Internal: Use :py:meth:`get_fee_data`.
 
         :return:
             0.1 = 10%
@@ -673,11 +677,17 @@ class VaultBase(ABC):
         return False
 
     def get_deposit_fee(self, block_identifier: BlockIdentifier) -> float | None:
-        """Deposit fee is set to zero by default as vaults usually do not have deposit fees."""
+        """Deposit fee is set to zero by default as vaults usually do not have deposit fees.
+
+        Internal: Use :py:meth:`get_fee_data`.
+        """
         return 0.0
 
     def get_withdraw_fee(self, block_identifier: BlockIdentifier) -> float:
-        """Withdraw fee is set to zero by default as vaults usually do not have withdraw fees."""
+        """Withdraw fee is set to zero by default as vaults usually do not have withdraw fees.
+
+        Internal: Use :py:meth:`get_fee_data`.
+        """
         return 0.0
 
     def get_risk(self) -> VaultTechnicalRisk | None:
@@ -693,7 +703,11 @@ class VaultBase(ABC):
         return get_vault_fee_mode(protocol, address)
 
     def get_fee_data(self) -> FeeData:
-        """Get fee data structure for this vault."""
+        """Get fee data structure for this vault.
+
+        :raise ValueError:
+            In the case of broken or unimplemented fee reading methods in the smart contract
+        """
 
         fee_mode = self.get_fee_mode()
 

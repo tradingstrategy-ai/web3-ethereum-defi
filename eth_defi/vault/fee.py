@@ -43,7 +43,6 @@ class VaultFeeMode(enum.Enum):
         return self != VaultFeeMode.externalised
 
 
-
 #: Different vault fee extraction methods by different protocols
 #:
 #: See :py:func:`eth_defi.erc_4626.core.get_vault_protocol_name` for the names list.
@@ -77,6 +76,7 @@ VAULT_PROTOCOL_FEE_MATRIX = {
 class FeeData:
     """Track vault fee parameters.
 
+    - Offer methods to calculate gross/net fees based on the vault fee mode
     - `None` means fee unknown: protocol not recognized, or fee data not available
     """
 
@@ -97,7 +97,6 @@ class FeeData:
 
     @property
     def internalised(self) -> bool | None:
-
         if self.fee_mode is None:
             return None
 
@@ -119,17 +118,15 @@ class FeeData:
         else:
             return self
 
-    @property
-    @staticmethod
-    def broken_fee() -> "FeeData":
-        """A placeholder for broken/unknown fee mode."""
-        return FeeData(
-            fee_mode=None,
-            management=None,
-            performance=None,
-            deposit=None,
-            withdraw=None,
-        )
+
+#: Could not read fee data from the smart contract / unsupported protocol
+BROKEN_FEE_DATA = FeeData(
+    fee_mode=None,
+    management=None,
+    performance=None,
+    deposit=None,
+    withdraw=None,
+)
 
 
 def get_vault_fee_mode(vault_protocol_name: str, address: HexAddress | str) -> VaultFeeMode | None:

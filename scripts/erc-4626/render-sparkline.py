@@ -1,4 +1,5 @@
 """Test rendering a sparkline for a single file."""
+
 import base64
 import os
 import tempfile
@@ -15,7 +16,7 @@ def display_png_in_browser(title: str, png_bytes: bytes):
     :param png_bytes: PNG image as bytes
     """
     # Encode PNG bytes as base64
-    base64_png = base64.b64encode(png_bytes).decode('utf-8')
+    base64_png = base64.b64encode(png_bytes).decode("utf-8")
 
     # Create HTML with embedded image
     html_content = f"""
@@ -31,16 +32,15 @@ def display_png_in_browser(title: str, png_bytes: bytes):
     """
 
     # Write to temporary file
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".html", delete=False) as f:
         f.write(html_content)
         temp_path = f.name
 
     # Open in browser
-    webbrowser.open(f'file://{temp_path}')
+    webbrowser.open(f"file://{temp_path}")
 
 
 def main():
-
     vault_db = VaultDatabase.read()
     prices_df = read_default_vault_prices()
 

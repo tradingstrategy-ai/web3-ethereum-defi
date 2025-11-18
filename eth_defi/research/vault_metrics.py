@@ -491,7 +491,6 @@ def calculate_lifetime_metrics(
         deposit_fee = fee_data.deposit
         withdrawal_fee = fee_data.withdraw
 
-
         event_count = group["event_count"].iloc[-1]
         protocol = vault_metadata["Protocol"]
         risk = get_vault_risk(protocol, vault_metadata["Address"])
@@ -627,9 +626,7 @@ def calculate_lifetime_metrics(
                 one_month_returns_net = 0
                 one_month_cagr_net = 0
 
-        fee_label = create_fee_label(
-            fee_data
-        )
+        fee_label = create_fee_label(fee_data)
 
         last_updated_at = group.index.max()
         last_updated_block = group.loc[last_updated_at]["block_number"]
