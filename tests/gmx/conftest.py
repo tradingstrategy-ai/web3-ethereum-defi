@@ -124,11 +124,22 @@ def get_chain_config(chain_name):
     return config
 
 
-# CHAIN_CONFIG with dynamic address fetching for Arbitrum using GMX API
+# Cache for lazily-loaded chain configs
+_CHAIN_CONFIG_CACHE = {}
+
+
 def _get_arbitrum_config():
-    """Get Arbitrum config with addresses from GMX API."""
+    """Get Arbitrum config with addresses from GMX API.
+
+    This is called lazily only when GMX tests actually run, not at import time.
+    Results are cached to avoid multiple API calls.
+    """
+    # Return cached config if available
+    if "arbitrum" in _CHAIN_CONFIG_CACHE:
+        return _CHAIN_CONFIG_CACHE["arbitrum"]
+
     chain_id = get_chain_id_by_name("arbitrum")
-    return {
+    config = {
         "rpc_env_var": "JSON_RPC_ARBITRUM",
         "chain_id": chain_id,
         "fork_block_number": 338206286,
@@ -143,9 +154,19 @@ def _get_arbitrum_config():
         "aave_address": get_gmx_address(chain_id, "AAVE"),
     }
 
+    # Cache the result
+    _CHAIN_CONFIG_CACHE["arbitrum"] = config
+    return config
 
+
+# Static chain config - token addresses are loaded lazily for Arbitrum
 CHAIN_CONFIG = {
-    "arbitrum": _get_arbitrum_config(),
+    "arbitrum": {
+        "rpc_env_var": "JSON_RPC_ARBITRUM",
+        "chain_id": get_chain_id_by_name("arbitrum"),
+        "fork_block_number": 338206286,
+        # Token addresses will be fetched lazily when GMX tests run
+    },
     "avalanche": {
         "rpc_env_var": "AVALANCHE_JSON_RPC_URL",
         "chain_id": get_chain_id_by_name("avalanche"),
@@ -159,6 +180,18 @@ CHAIN_CONFIG = {
         "link_address": "0x5947BB275c521040051D82396192181b413227A3",
     },
 }
+
+
+def _get_chain_config_with_tokens(chain_name: str) -> dict:
+    """Get chain config with token addresses, lazily loading them if needed.
+
+    For Arbitrum, this will fetch from GMX API on first access and cache results.
+    For other chains, returns static config.
+    """
+    if chain_name == "arbitrum":
+        return _get_arbitrum_config()
+    else:
+        return CHAIN_CONFIG[chain_name]
 
 
 def pytest_generate_tests(metafunc):
@@ -515,9 +548,10 @@ def wbtc_arbitrum(web3_arbitrum_fork: Web3, chain_name) -> TokenDetails:
     """WBTC token on Arbitrum."""
     if chain_name != "arbitrum":
         pytest.skip("This fixture is for Arbitrum only")
+    config = _get_chain_config_with_tokens("arbitrum")
     return fetch_erc20_details(
         web3_arbitrum_fork,
-        CHAIN_CONFIG["arbitrum"]["wbtc_address"],
+        config["wbtc_address"],
     )
 
 
@@ -526,9 +560,10 @@ def usdc_arbitrum(web3_arbitrum_fork: Web3, chain_name) -> TokenDetails:
     """USDC token on Arbitrum."""
     if chain_name != "arbitrum":
         pytest.skip("This fixture is for Arbitrum only")
+    config = _get_chain_config_with_tokens("arbitrum")
     return fetch_erc20_details(
         web3_arbitrum_fork,
-        CHAIN_CONFIG["arbitrum"]["usdc_address"],
+        config["usdc_address"],
     )
 
 
@@ -537,9 +572,10 @@ def usdt_arbitrum(web3_arbitrum_fork: Web3, chain_name) -> TokenDetails:
     """USDT token on Arbitrum."""
     if chain_name != "arbitrum":
         pytest.skip("This fixture is for Arbitrum only")
+    config = _get_chain_config_with_tokens("arbitrum")
     return fetch_erc20_details(
         web3_arbitrum_fork,
-        CHAIN_CONFIG["arbitrum"]["usdt_address"],
+        config["usdt_address"],
     )
 
 
@@ -570,56 +606,64 @@ def wavax_avalanche(web3_arbitrum_fork: Web3, chain_name) -> TokenDetails:
 @pytest.fixture()
 def wbtc(web3_arbitrum_fork: Web3, chain_name) -> TokenDetails:
     """WBTC token details for the specified chain."""
-    wbtc_address = CHAIN_CONFIG[chain_name]["wbtc_address"]
+    config = _get_chain_config_with_tokens(chain_name)
+    wbtc_address = config["wbtc_address"]
     return fetch_erc20_details(web3_arbitrum_fork, wbtc_address)
 
 
 @pytest.fixture()
 def usdc(web3_arbitrum_fork: Web3, chain_name) -> TokenDetails:
     """USDC token details for the specified chain."""
-    usdc_address = CHAIN_CONFIG[chain_name]["usdc_address"]
+    config = _get_chain_config_with_tokens(chain_name)
+    usdc_address = config["usdc_address"]
     return fetch_erc20_details(web3_arbitrum_fork, usdc_address)
 
 
 @pytest.fixture()
 def wsol(web3_arbitrum_fork: Web3, chain_name) -> TokenDetails:
     """WSOL token details for the specified chain."""
-    wsol_address = CHAIN_CONFIG[chain_name]["wsol_address"]
+    config = _get_chain_config_with_tokens(chain_name)
+    wsol_address = config["wsol_address"]
     return fetch_erc20_details(web3_arbitrum_fork, wsol_address)
 
 
 @pytest.fixture()
 def link(web3_arbitrum_fork: Web3, chain_name) -> TokenDetails:
     """LINK token details for the specified chain."""
-    link_address = CHAIN_CONFIG[chain_name]["link_address"]
+    config = _get_chain_config_with_tokens(chain_name)
+    link_address = config["link_address"]
     return fetch_erc20_details(web3_arbitrum_fork, link_address)
 
 
 @pytest.fixture()
 def arb(web3_arbitrum_fork: Web3, chain_name) -> TokenDetails:
     """ARB token details for the specified chain."""
-    arb_address = CHAIN_CONFIG[chain_name]["arb_address"]
+    config = _get_chain_config_with_tokens(chain_name)
+    arb_address = config["arb_address"]
     return fetch_erc20_details(web3_arbitrum_fork, arb_address)
 
 
 @pytest.fixture()
 def usdt(web3_arbitrum_fork: Web3, chain_name) -> TokenDetails:
     """USDT token details for the specified chain."""
-    usdt_address = CHAIN_CONFIG[chain_name]["usdt_address"]
+    config = _get_chain_config_with_tokens(chain_name)
+    usdt_address = config["usdt_address"]
     return fetch_erc20_details(web3_arbitrum_fork, usdt_address)
 
 
 @pytest.fixture()
 def aave(web3_arbitrum_fork: Web3, chain_name) -> TokenDetails:
     """AAVE token details for the specified chain."""
-    aave_address = CHAIN_CONFIG[chain_name]["aave_address"]
+    config = _get_chain_config_with_tokens(chain_name)
+    aave_address = config["aave_address"]
     return fetch_erc20_details(web3_arbitrum_fork, aave_address)
 
 
 @pytest.fixture()
 def wrapped_native_token(web3_arbitrum_fork: Web3, chain_name) -> TokenDetails:
     """Get the native wrapped token (WETH for Arbitrum, WAVAX for Avalanche)."""
-    native_address = CHAIN_CONFIG[chain_name]["native_token_address"]
+    config = _get_chain_config_with_tokens(chain_name)
+    native_address = config["native_token_address"]
     contract_name = "./WAVAX.json" if chain_name == "avalanche" else "ERC20MockDecimals.json"
     return fetch_erc20_details(
         web3_arbitrum_fork,
@@ -644,7 +688,8 @@ def wallet_with_native_token(
     # Wrap some native token if needed
     if chain_name == "avalanche":
         # For Avalanche, we need to wrap AVAX
-        wavax_address = CHAIN_CONFIG["avalanche"]["native_token_address"]
+        config = _get_chain_config_with_tokens(chain_name)
+        wavax_address = config["native_token_address"]
         wavax = fetch_erc20_details(
             web3_arbitrum_fork,
             wavax_address,
@@ -675,13 +720,14 @@ def wallet_with_usdc(
     large_usdc_holder_avalanche,
 ) -> None:
     """Fund the test wallet with USDC."""
+    config = _get_chain_config_with_tokens(chain_name)
     if chain_name == "arbitrum":
-        usdc_address = CHAIN_CONFIG["arbitrum"]["usdc_address"]
+        usdc_address = config["usdc_address"]
         usdc = fetch_erc20_details(web3_arbitrum_fork, usdc_address)
         large_holder = large_usdc_holder_arbitrum
         amount = 100_000 * 10**6  # 100,000 USDC (6 decimals)
     else:  # avalanche
-        usdc_address = CHAIN_CONFIG["avalanche"]["usdc_address"]
+        usdc_address = config["usdc_address"]
         usdc = fetch_erc20_details(web3_arbitrum_fork, usdc_address)
         large_holder = large_usdc_holder_avalanche
         amount = 100_000 * 10**6  # 100,000 USDC (6 decimals)
@@ -711,13 +757,14 @@ def wallet_with_wbtc(
     large_wbtc_holder_avalanche,
 ) -> None:
     """Fund the test wallet with WBTC."""
+    config = _get_chain_config_with_tokens(chain_name)
     if chain_name == "arbitrum":
-        wbtc_address = CHAIN_CONFIG["arbitrum"]["wbtc_address"]
+        wbtc_address = config["wbtc_address"]
         wbtc = fetch_erc20_details(web3_arbitrum_fork, wbtc_address)
         large_holder = large_wbtc_holder
         amount = 5 * 10**8  # 5 WBTC (8 decimals)
     else:  # avalanche
-        wbtc_address = CHAIN_CONFIG["avalanche"]["wbtc_address"]
+        wbtc_address = config["wbtc_address"]
         wbtc = fetch_erc20_details(web3_arbitrum_fork, wbtc_address)
         large_holder = large_wbtc_holder_avalanche
         amount = 5 * 10**8  # 5 WBTC (8 decimals)
@@ -753,7 +800,8 @@ def wallet_with_link(
             [large_link_holder_avalanche, hex(eth_amount_wei)],
         )
 
-        link_address = CHAIN_CONFIG[chain_name]["link_address"]
+        config = _get_chain_config_with_tokens(chain_name)
+        link_address = config["link_address"]
         link = fetch_erc20_details(web3_arbitrum_fork, link_address)
         # 10k LINK tokens
         try:
@@ -763,10 +811,6 @@ def wallet_with_link(
         except Exception as e:
             # If the transfer fails, skip the test instead of failing
             pytest.skip(f"Could not transfer LINK to test wallet: {str(e)}")
-    # else:
-    #     link_address = to_checksum_address(CHAIN_CONFIG[chain_name]["link_address"])
-    #
-    #     web3_arbitrum_fork.provider.make_request("anvil_addErc20Balance", [link_address, [test_address], hex(amount)])
 
 
 @pytest.fixture()
@@ -787,7 +831,8 @@ def wallet_with_arb(
         )
 
         try:
-            arb_address = to_checksum_address(CHAIN_CONFIG[chain_name]["arb_address"])
+            config = _get_chain_config_with_tokens(chain_name)
+            arb_address = to_checksum_address(config["arb_address"])
             arb = fetch_erc20_details(web3_arbitrum_fork, arb_address)
             arb.contract.functions.transfer(test_address, amount).transact({"from": large_arb_holder_arbitrum})
         except Exception as e:

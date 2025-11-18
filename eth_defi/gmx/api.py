@@ -5,11 +5,15 @@ This module provides functionality for interacting with GMX APIs.
 """
 
 from typing import Optional, Any
+import logging
+import time
 import requests
 import pandas as pd
 
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.constants import GMX_API_URLS, GMX_API_URLS_BACKUP
+
+logger = logging.getLogger(__name__)
 
 
 class GMXAPI:
@@ -78,43 +82,87 @@ class GMXAPI:
         self,
         endpoint: str,
         params: Optional[dict[str, Any]] = None,
+        timeout: float = 10.0,
+        max_retries: int = 2,
+        retry_delay: float = 0.1,
     ) -> dict[str, Any]:
         """
-        Make a request to the GMX API with automatic failover to backup URL.
+        Make a request to the GMX API with retry logic and automatic failover to backup URL.
 
-        This method first attempts to connect to the primary API URL. If that fails,
-        it automatically tries the backup URL. If both attempts fail, it raises a
-        RuntimeError with details about the connection failure.
+        This method implements a robust retry strategy with exponential backoff. It first
+        attempts to connect to the primary API URL with retries. If all primary attempts fail,
+        it automatically fails over to the backup URL with the same retry logic. This ensures
+        maximum reliability for API requests.
 
         :param endpoint:
-            API endpoint path (e.g., "/prices/tickers")
+            API endpoint path (e.g., "/prices/tickers", "/signed_prices/latest")
         :type endpoint: str
         :param params:
             Optional dictionary of query parameters to include in the request
         :type params: Optional[dict[str, Any]]
+        :param timeout:
+            HTTP request timeout in seconds (default: 10.0)
+        :type timeout: float
+        :param max_retries:
+            Maximum number of retry attempts per endpoint (default: 2)
+        :type max_retries: int
+        :param retry_delay:
+            Initial delay between retries in seconds with exponential backoff (default: 0.1s)
+        :type retry_delay: float
         :return:
             API response parsed as a dictionary
         :rtype: dict[str, Any]
         :raises RuntimeError:
-            When both primary and backup API URLs fail to respond
+            When both primary and backup API URLs fail after all retry attempts
         """
-        try:
-            # Try primary URL
-            url = f"{self.base_url}{endpoint}"
-            response = requests.get(url, params=params)
-            response.raise_for_status()
-            return response.json()
-        except requests.RequestException as e:
-            # Try backup URL on failure
-            try:
-                url = f"{self.backup_url}{endpoint}"
-                response = requests.get(url, params=params)
-                response.raise_for_status()
-                return response.json()
-            except requests.RequestException as backup_e:
-                raise RuntimeError(
-                    f"Failed to connect to GMX API: {str(backup_e)}",
-                ) from e
+        # Build list of URLs to try (primary first, then backup if available)
+        urls_to_try = [(f"{self.base_url}{endpoint}", "primary")]
+        if hasattr(self, "backup_url") and self.backup_url:
+            urls_to_try.append((f"{self.backup_url}{endpoint}", "backup"))
+
+        last_error = None
+
+        # Try each URL with retries
+        for url, url_type in urls_to_try:
+            for attempt in range(max_retries):
+                try:
+                    response = requests.get(url, params=params, timeout=timeout)
+                    response.raise_for_status()
+
+                    if url_type == "backup" and attempt == 0:
+                        logger.info("Successfully connected to %s GMX API for %s", url_type, endpoint)
+
+                    return response.json()
+
+                except requests.RequestException as e:
+                    last_error = e
+                    if attempt < max_retries - 1:
+                        # Exponential backoff: 0.1s, 0.2s
+                        delay = retry_delay * (2**attempt)
+                        logger.warning(
+                            "Attempt %d/%d failed for %s API %s: %s. Retrying in %.1f seconds...",
+                            attempt + 1,
+                            max_retries,
+                            url_type,
+                            url,
+                            e,
+                            delay,
+                        )
+                        time.sleep(delay)
+                    else:
+                        logger.warning(
+                            "All %d attempts failed for %s API %s: %s",
+                            max_retries,
+                            url_type,
+                            url,
+                            e,
+                        )
+
+        # If we get here, all URLs and retries failed
+        error_msg = f"Failed to connect to GMX API endpoint {endpoint} after trying all available URLs"
+        if last_error:
+            error_msg += f". Last error: {last_error}"
+        raise RuntimeError(error_msg) from last_error
 
     def get_tickers(self) -> dict[str, Any]:
         """
