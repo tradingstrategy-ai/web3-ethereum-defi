@@ -93,8 +93,8 @@ def main():
 
     fig = render_sparkline(
         vault_prices_df,
-        width=512,
-        height=128,
+        width=100,
+        height=25,
     )
 
     svg_bytes = export_sparkline_as_svg(
@@ -116,11 +116,11 @@ def main():
     endpoint_url = os.environ.get("R2_SPARKLINE_ENDPOINT_URL")
 
     if bucket_name:
-        from eth_defi.research.sparkline import upload_to_r2
+        from eth_defi.research.sparkline import upload_to_r2_compressed
 
         print(f"Uploading sparkline to R2 bucket '{bucket_name}' as '{object_name}', access key is {access_key_id}, account is {account_id}")
 
-        upload_to_r2(
+        upload_to_r2_compressed(
             payload=svg_bytes,
             bucket_name=bucket_name,
             object_name=object_name,

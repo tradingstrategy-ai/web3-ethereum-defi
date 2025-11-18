@@ -16,7 +16,7 @@ from joblib import Parallel, delayed
 from eth_defi.token import is_stablecoin_like
 from eth_defi.research.sparkline import render_sparkline, export_sparkline_as_svg
 from eth_defi.vault.vaultdb import VaultDatabase, read_default_vault_prices, VaultRow
-from eth_defi.research.sparkline import upload_to_r2
+from eth_defi.research.sparkline import upload_to_r2_compressed
 
 
 @dataclass(slots=True)
@@ -67,10 +67,13 @@ def main():
             # print(f"Skipping vault {vault_id}, no price data")
             return None
 
+        # Do daily data points
+        vault_prices_df = vault_prices_df.resample("D").last()[["share_price", "total_assets"]]
+
         fig = render_sparkline(
             vault_prices_df,
-            width=128,
-            height=32,
+            width=100,
+            height=25,
         )
 
         svg_bytes = export_sparkline_as_svg(
@@ -85,7 +88,7 @@ def main():
         vault_id = render_data.vault_id
         svg_bytes = render_data.svg_bytes
         object_name = f"sparkline-90d-{vault_id}.svg"
-        upload_to_r2(
+        upload_to_r2_compressed(
             payload=svg_bytes,
             bucket_name=bucket_name,
             object_name=object_name,
@@ -96,6 +99,8 @@ def main():
         )
         # print(f"Uploaded sparkline to R2 bucket '{bucket_name}' as '{object_name}'")
 
+    # Matplotlib segfaults if run outside main thread, so we first render all in main thread
+    # NSWindow should only be instantiated on the main thread!
     render_data = []
     for row in tqdm(vault_rows, desc="Rendering sparklines"):
         data = _render_row(row)

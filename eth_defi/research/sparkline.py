@@ -4,6 +4,7 @@
 - Charts contain share price and TVL
 """
 
+import gzip
 from io import BytesIO
 
 import pandas as pd
@@ -61,11 +62,12 @@ def render_sparkline(
     # Full-extent axis (no margins)
     ax1 = fig.add_axes([0, 0, 1, 1])
     ax1.set_facecolor("black")
-    ax1.plot(vault_data.index, vault_data["share_price"], color="lime", linewidth=1)
+    ax1.plot(vault_data.index, vault_data["share_price"], color="lime", linewidth=2)
 
+    # Alpha = 0 = hidden for now
     ax2 = ax1.twinx()
     ax2.set_facecolor("black")
-    ax2.plot(vault_data.index, vault_data["total_assets"], color="#666666", linewidth=1)
+    ax2.plot(vault_data.index, vault_data["total_assets"], color="#999999", linewidth=2, alpha=0.0)
 
     # Remove all spines, ticks, labels
     for ax in (ax1, ax2):
@@ -120,7 +122,7 @@ def export_sparkline_as_svg(
     return svg_bytes
 
 
-def upload_to_r2(
+def upload_to_r2_compressed(
     payload: bytes,
     bucket_name: str,
     object_name: str,
@@ -132,6 +134,7 @@ def upload_to_r2(
     """Uploads a the vault sparklines payload to a Cloudflare R2 bucket.
 
     - Exported to the frontend listings
+    - Compress SVGs with gzip
 
     :param payload: The bytes data to upload.
     :param bucket_name: The name of the R2 bucket.
@@ -155,6 +158,7 @@ def upload_to_r2(
     s3_client.put_object(
         Bucket=bucket_name,
         Key=object_name,
-        Body=payload,
+        Body=gzip.compress(payload),
         ContentType=content_type,
+        ContentEncoding="gzip",
     )
