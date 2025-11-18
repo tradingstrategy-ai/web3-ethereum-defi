@@ -86,6 +86,9 @@ def main():
 
     hypersync_api_key = os.environ.get("HYPERSYNC_API_KEY", None)
 
+    if scan_backend == "auto":
+        assert hypersync_api_key, f"HYPERSYNC_API_KEY must be set to use auto scan backend"
+
     scan_leads(
         json_rpc_urls=JSON_RPC_URL,
         vault_db_file=vault_db_file,
