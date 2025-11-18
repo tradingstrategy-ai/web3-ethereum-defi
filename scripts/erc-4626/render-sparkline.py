@@ -73,6 +73,28 @@ def main():
         png_bytes,
     )
 
+    object_name = f"test-{spec.as_string_id()}.png"
+    bucket_name = os.environ.get("R2_SPARKLINE_BUCKET_NAME")
+    account_id = os.environ.get("R2_SPARKLINE_ACCOUNT_ID")
+    access_key_id = os.environ.get("R2_SPARKLINE_ACCESS_KEY_ID")
+    secret_access_key = os.environ.get("R2_SPARKLINE_SECRET_ACCESS_KEY")
+
+    if bucket_name:
+        from eth_defi.research.sparkline import upload_to_r2
+
+        upload_to_r2(
+            payload=png_bytes,
+            bucket_name=bucket_name,
+            object_name=object_name,
+            account_id=account_id,
+            access_key_id=access_key_id,
+            secret_access_key=secret_access_key,
+            content_type="image/png",
+        )
+        print(f"Uploaded sparkline to R2 bucket '{bucket_name}' as '{object_name}'")
+    else:
+        print(f"R2_SPARKLINE_BUCKET_NAME not set, skipping upload")
+
 
 if __name__ == "__main__":
     main()

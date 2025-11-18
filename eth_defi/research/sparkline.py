@@ -129,7 +129,9 @@ def upload_to_r2(
     secret_access_key: str,
     content_type: str = "image/png",
 ):
-    """Uploads a bytes payload to a Cloudflare R2 bucket.
+    """Uploads a the vault sparklines payload to a Cloudflare R2 bucket.
+
+    - Exported to the frontend listings
 
     :param payload: The bytes data to upload.
     :param bucket_name: The name of the R2 bucket.
