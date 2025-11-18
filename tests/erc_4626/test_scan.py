@@ -152,6 +152,7 @@ def test_lead_scan_core_hypersync(tmp_path, backend):
         vault_db_file=db_path,
         printer=logger.info,
         end_block=2_800_000,
+        hypersync_api_key=HYPERSYNC_API_KEY,
     )
     assert updated_report.start_block == 2_500_001
     assert updated_report.end_block == 2_800_000
