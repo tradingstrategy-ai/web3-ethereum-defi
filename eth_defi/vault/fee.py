@@ -77,13 +77,11 @@ VAULT_PROTOCOL_FEE_MATRIX = {
 class FeeData:
     """Track vault fee parameters.
 
-    - `None` meens fee unknown
+    - `None` means fee unknown: protocol not recognized, or fee data not available
     """
 
+    #: Determines is the vault share price is fees-net or fees-gross
     fee_mode: VaultFeeMode | None
-
-    #: Is the vault going to reduce the fees from the redeemed share price at withdrawal time
-    internalised: bool | None
 
     #: Fee for this class
     management: float | None
@@ -97,12 +95,22 @@ class FeeData:
     #: Fee for this class
     withdraw: float | None
 
+    @property
+    def internalised(self) -> bool | None:
+
+        if self.fee_mode is None:
+            return None
+
+        return self.fee_mode.is_internalised() if self.fee_mode else None
+
     def get_net_fees(self) -> "FeeData":
-        """Get net fees paid by the user on deposit/withdraw."""
+        """Get net fees paid by the user on deposit/withdraw.
+
+        - Determined by the vault fee mode
+        """
         if self.internalised:
             return FeeData(
                 fee_mode=self.fee_mode,
-                internalised=True,
                 management=0,
                 performance=0,
                 deposit=0.0,
@@ -111,13 +119,12 @@ class FeeData:
         else:
             return self
 
-    @staticmethod
     @property
+    @staticmethod
     def broken_fee() -> "FeeData":
         """A placeholder for broken/unknown fee mode."""
         return FeeData(
             fee_mode=None,
-            internalised=None,
             management=None,
             performance=None,
             deposit=None,
