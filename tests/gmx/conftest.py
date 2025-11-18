@@ -37,6 +37,9 @@ FORK_BLOCK_ARBITRUM = 392496384
 MOCK_ETH_PRICE = 3450  # USD
 MOCK_USDC_PRICE = 1  # USD
 
+# Set up logging for debugging
+logger = logging.getLogger(__name__)
+
 
 def get_gmx_address(chain_id: int, symbol: str) -> str:
     """
@@ -70,6 +73,7 @@ def get_gmx_address(chain_id: int, symbol: str) -> str:
         symbol = "SOL"
     elif symbol == "WAVAX":
         symbol = "AVAX"
+
     token = get_gmx_synthetic_token_by_symbol(chain_id, symbol)
     if token is None:
         raise ValueError(f"Token '{symbol}' not found on chain {chain_id}")

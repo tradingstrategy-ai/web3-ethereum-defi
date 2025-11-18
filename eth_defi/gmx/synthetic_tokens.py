@@ -7,8 +7,6 @@ Fetch GMX synthetic token data from APIs and cache results for efficient access.
 
 import json
 import logging
-import requests
-import time
 from dataclasses import dataclass, field
 from decimal import Decimal
 from functools import cached_property
@@ -18,8 +16,7 @@ import cachetools
 from eth_typing import HexAddress
 
 from eth_defi.chain import get_chain_name
-from eth_defi.gmx.constants import GMX_API_URLS, GMX_API_URLS_BACKUP
-from eth_defi.gmx.contracts import _get_clean_api_urls, _get_clean_backup_urls
+from eth_defi.gmx.retry import make_gmx_api_request
 
 logger = logging.getLogger(__name__)
 
@@ -207,102 +204,58 @@ def fetch_gmx_synthetic_tokens(
                 for token_data in cached_tokens
             ]
 
-    # Get primary and backup API URLs
-    primary_urls = _get_clean_api_urls()
-    backup_urls = _get_clean_backup_urls()
+    # Use centralized retry + backup logic
+    try:
+        api_data = make_gmx_api_request(
+            chain=chain_name,
+            endpoint="/tokens",
+            timeout=timeout,
+            max_retries=max_retries,
+            retry_delay=retry_delay,
+        )
+    except RuntimeError as e:
+        raise GMXTokenFetchError(f"Failed to fetch GMX tokens for chain {chain_name} (chain_id: {chain_id})") from e
 
-    # Build list of API endpoints to try (primary first, then backup)
-    api_endpoints = []
-    if chain_name in primary_urls:
-        api_endpoints.append((primary_urls[chain_name] + "/tokens", "primary"))
-    if chain_name in backup_urls:
-        api_endpoints.append((backup_urls[chain_name] + "/tokens", "backup"))
+    # Validate API response structure
+    if "tokens" not in api_data:
+        raise GMXTokenFetchError(f"Invalid API response: missing 'tokens' field")
 
-    if not api_endpoints:
-        raise ValueError(f"No API endpoints configured for chain {chain_name} (chain_id: {chain_id})")
+    tokens_data = api_data["tokens"]
+    if not isinstance(tokens_data, list):
+        raise GMXTokenFetchError(f"Invalid API response: 'tokens' should be a list")
 
-    # Try each endpoint with retries
-    last_error = None
-    for api_url, endpoint_type in api_endpoints:
-        logger.info("Fetching GMX tokens from %s API: %s", endpoint_type, api_url)
+    # Parse and validate token data
+    tokens = []
+    for token_data in tokens_data:
+        try:
+            # Validate required fields
+            required_fields = ["symbol", "address", "decimals"]
+            if not all(field in token_data for field in required_fields):
+                logger.warning("Skipping token missing required fields: %s", token_data)
+                continue
 
-        for attempt in range(max_retries):
-            try:
-                response = requests.get(api_url, timeout=timeout)
-                response.raise_for_status()
+            # Create token details object
+            token = GMXSyntheticTokenDetails(
+                symbol=token_data["symbol"],
+                address=token_data["address"],
+                decimals=int(token_data["decimals"]),
+                chain_id=chain_id,
+                extra_data={"cached": False},
+            )
+            tokens.append(token)
 
-                api_data = response.json()
+        except (KeyError, ValueError, TypeError) as e:
+            logger.warning("Skipping invalid token data %s: %s", token_data, e)
+            continue
 
-                # Validate API response structure
-                if "tokens" not in api_data:
-                    raise GMXTokenFetchError(f"Invalid API response: missing 'tokens' field")
+    # Cache the results for future use
+    if cache is not None:
+        cache_data = [token.export() for token in tokens]
+        cache[cache_key] = cache_data
+        logger.debug("Cached %s GMX tokens for chain %s", len(tokens), chain_id)
 
-                tokens_data = api_data["tokens"]
-                if not isinstance(tokens_data, list):
-                    raise GMXTokenFetchError(f"Invalid API response: 'tokens' should be a list")
-
-                # Parse and validate token data
-                tokens = []
-                for token_data in tokens_data:
-                    try:
-                        # Validate required fields
-                        required_fields = ["symbol", "address", "decimals"]
-                        if not all(field in token_data for field in required_fields):
-                            logger.warning("Skipping token missing required fields: %s", token_data)
-                            continue
-
-                        # Create token details object
-                        token = GMXSyntheticTokenDetails(
-                            symbol=token_data["symbol"],
-                            address=token_data["address"],
-                            decimals=int(token_data["decimals"]),
-                            chain_id=chain_id,
-                            extra_data={"cached": False, "api_source": api_url, "endpoint_type": endpoint_type},
-                        )
-                        tokens.append(token)
-
-                    except (KeyError, ValueError, TypeError) as e:
-                        logger.warning("Skipping invalid token data %s: %s", token_data, e)
-                        continue
-
-                # Cache the results for future use
-                if cache is not None:
-                    cache_data = [token.export() for token in tokens]
-                    cache[cache_key] = cache_data
-                    logger.debug("Cached %s GMX tokens for chain %s", len(tokens), chain_id)
-
-                logger.info("Successfully fetched %s GMX tokens for chain %s from %s API", len(tokens), chain_id, endpoint_type)
-                return tokens
-
-            except (requests.RequestException, json.JSONDecodeError) as e:
-                last_error = e
-                if attempt < max_retries - 1:
-                    # Exponential backoff
-                    delay = retry_delay * (2**attempt)
-                    logger.warning(
-                        "Attempt %d/%d failed for %s API %s: %s. Retrying in %.1f seconds...",
-                        attempt + 1,
-                        max_retries,
-                        endpoint_type,
-                        api_url,
-                        e,
-                        delay,
-                    )
-                    time.sleep(delay)
-                else:
-                    logger.warning(
-                        "All %d attempts failed for %s API %s: %s",
-                        max_retries,
-                        endpoint_type,
-                        api_url,
-                        e,
-                    )
-
-    # If we get here, all endpoints and retries failed
-    error_msg = f"Failed to fetch GMX tokens for chain {chain_name} (chain_id: {chain_id}) from all available endpoints"
-    if last_error:
-        error_msg += f". Last error: {last_error}"
-    raise GMXTokenFetchError(error_msg) from last_error
+    logger.info("Successfully fetched %s GMX tokens for chain %s", len(tokens), chain_id)
+    return tokens
 
 
 def get_gmx_synthetic_token_by_symbol(
