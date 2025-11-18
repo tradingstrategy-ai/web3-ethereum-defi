@@ -73,9 +73,9 @@ def create_fee_label(
         return "0% / 0%"
 
     if deposit_fee in (0, None) and withdrawal_fee in (0, None):
-        return f"{fmt_one_decimal_or_int(management_fee_annual)} / {fmt_one_decimal_or_int(performance_fee)} {internalised_label}"
+        return f"{fmt_one_decimal_or_int(management_fee_annual)} / {fmt_one_decimal_or_int(performance_fee)}{internalised_label}"
 
-    return f"{fmt_one_decimal_or_int(management_fee_annual)} / {fmt_one_decimal_or_int(performance_fee)} / {fmt_one_decimal_or_int(deposit_fee)} / {fmt_one_decimal_or_int(withdrawal_fee)} {internalised_label}"
+    return f"{fmt_one_decimal_or_int(management_fee_annual)} / {fmt_one_decimal_or_int(performance_fee)} / {fmt_one_decimal_or_int(deposit_fee)} / {fmt_one_decimal_or_int(withdrawal_fee)}{internalised_label}"
 
 
 def resample_returns(
@@ -492,8 +492,8 @@ def calculate_lifetime_metrics(
                 fee_mode=VaultFeeMode.externalised,
                 management=vault_metadata["Mgmt fee"],
                 performance=vault_metadata["Perf fee"],
-                deposit=vault_metadata.get("Deposit fee"),
-                withdraw=vault_metadata.get("Withdrawal fee"),
+                deposit=vault_metadata.get("Deposit fee", 0),  # Rare: assume 0 if not explicitly set
+                withdraw=vault_metadata.get("Withdrawal fee", 0),  # Rare: assume 0 if not explicitly set
             )
 
         fee_mode = fee_data.fee_mode
@@ -907,6 +907,8 @@ def format_lifetime_table(
     _del("last_updated_at")
     _del("last_updated_block")
     _del("features")
+    _del("fee_mode")
+    _del("fee_internalised")
 
     if not add_share_token:
         _del("share_token")
@@ -1465,6 +1467,7 @@ def display_vault_chart_and_tearsheet(
     else:
         if render:
             print(f"Vault {vault_spec.chain_id}-{vault_spec.vault_address}: performance metrics not available, is quantstats library installed?")
+
 
 def export_lifetime_row(row: pd.Series) -> dict:
     """Export lifetime metrics row to a fully JSON-serializable dict.
