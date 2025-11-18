@@ -193,6 +193,9 @@ def setup_console_logging(
     default_log_level="warning",
     simplified_logging=False,
     log_file: str | Path = None,
+    std_out_log_level: Optional[int] = None,
+    only_log_file=False,
+    clear_log_file=True,
 ) -> logging.Logger:
     """Set up coloured log output.
 
@@ -207,6 +210,10 @@ def setup_console_logging(
     """
 
     level = os.environ.get("LOG_LEVEL", default_log_level).upper()
+    numeric_level = getattr(logging, level.upper(), None)
+
+    if not std_out_log_level:
+        std_out_log_level = numeric_level
 
     if simplified_logging:
         # Simplified logging format for tutorials
@@ -220,12 +227,12 @@ def setup_console_logging(
         # Optional dev dependency
         import coloredlogs
 
-        coloredlogs.install(level=level, fmt=fmt, date_fmt=date_fmt)
+        coloredlogs.install(level=std_out_log_level, fmt=fmt, date_fmt=date_fmt)
     except ImportError as e:
         # non-ANSI e.g. Docker
-        numeric_level = getattr(logging, level.upper(), None)
+
         assert numeric_level, f"No level: {level}"
-        logging.basicConfig(level=numeric_level, format=fmt, datefmt=date_fmt)
+        logging.basicConfig(level=std_out_log_level, format=fmt, datefmt=date_fmt)
 
     if log_file:
         assert isinstance(log_file, Path), "log_file must be a string path"
@@ -235,11 +242,26 @@ def setup_console_logging(
         # When using a file, the file is always logged with INFO level and
         # env var controls only terminal output
         min_level = logging.INFO
-        file_handler = logging.FileHandler(log_file, mode="a", encoding="utf-8")
+        if clear_log_file:
+            mode = "w"
+        else:
+            mode = "a"
+
+        file_handler = logging.FileHandler(log_file, mode=mode, encoding="utf-8")
         file_handler.setLevel(min_level)
-        stream_handler = logging.StreamHandler()
-        stream_handler.setLevel(level)
-        logging.basicConfig(level=min_level, handlers=[stream_handler, file_handler])
+        file_handler.setFormatter(logging.Formatter(fmt, date_fmt))
+
+        root = logging.getLogger()
+        root.handlers.clear()
+        root.setLevel(min_level)
+        root.addHandler(file_handler)
+
+        if not only_log_file:
+            stream_handler = logging.StreamHandler()
+            stream_handler.setLevel(numeric_level)
+            stream_handler.setFormatter(logging.Formatter(fmt, date_fmt))
+            root.addHandler(stream_handler)
+
     else:
         logging.basicConfig(level=level, handlers=[logging.StreamHandler()])
 

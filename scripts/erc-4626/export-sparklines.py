@@ -6,6 +6,7 @@
 
 import os
 from dataclasses import dataclass
+from pathlib import Path
 
 import pandas as pd
 
@@ -15,8 +16,13 @@ from joblib import Parallel, delayed
 
 from eth_defi.token import is_stablecoin_like
 from eth_defi.research.sparkline import render_sparkline, export_sparkline_as_svg
+from eth_defi.utils import setup_console_logging
 from eth_defi.vault.vaultdb import VaultDatabase, read_default_vault_prices, VaultRow
 from eth_defi.research.sparkline import upload_to_r2_compressed
+
+
+#: What's the threshold to render the spark line for the vault
+MIN_TVL = 25_000
 
 
 @dataclass(slots=True)
@@ -28,10 +34,16 @@ class RenderData:
 def is_vault_included(row: VaultRow):
     nav = row.get("NAV") or 0
     denomination = row.get("Denomination") or ""
-    return nav > 40_000 and is_stablecoin_like(denomination)
+    return nav > MIN_TVL and is_stablecoin_like(denomination)
 
 
 def main():
+    logger = setup_console_logging(
+        log_file=Path(f"logs/export-spark-lines.log"),
+        only_log_file=False,
+        clear_log_file=False,
+    )
+
     bucket_name = os.environ.get("R2_SPARKLINE_BUCKET_NAME")
     access_key_id = os.environ.get("R2_SPARKLINE_ACCESS_KEY_ID")
     secret_access_key = os.environ.get("R2_SPARKLINE_SECRET_ACCESS_KEY")
@@ -47,7 +59,7 @@ def main():
 
     vault_rows = [r for r in vault_db.rows.values() if is_vault_included(r)]
 
-    print(f"Exporting sparklines for {len(vault_rows)} vaults to R2 bucket '{bucket_name}'")
+    logger.info(f"Exporting sparklines for {len(vault_rows)} vaults to R2 bucket '{bucket_name}'")
 
     # Export last 90 days
 
@@ -61,10 +73,22 @@ def main():
         spec = detection_data.get_spec()
         vault_id = spec.as_string_id()
 
+        nav = row.get("NAV") or 0
+        denomination = row.get("Denomination") or ""
+
+        logger.info(
+            "Exporting sparkline for vault %s: %s, NAV: %s, denomination: %s",
+            vault_id,
+            row.get("Name", "<unknown>"),
+            nav,
+            denomination,
+        )
+
         try:
             vault_prices_df = prices_df.loc[vault_id]
         except KeyError:
             # print(f"Skipping vault {vault_id}, no price data")
+            logger.info("Skipping vault %s, no price data", vault_id)
             return None
 
         # Do daily data points
@@ -88,6 +112,9 @@ def main():
         vault_id = render_data.vault_id
         svg_bytes = render_data.svg_bytes
         object_name = f"sparkline-90d-{vault_id}.svg"
+
+        logger.info("Uploading vault %s, no price data", vault_id)
+
         upload_to_r2_compressed(
             payload=svg_bytes,
             bucket_name=bucket_name,
@@ -110,6 +137,8 @@ def main():
     # Use joblib to run uploads in parallel
     tasks = (delayed(_upload_row)(row) for row in render_data)
     Parallel(n_jobs=max_workers, prefer="threads")(tqdm(tasks, total=len(render_data), desc="Uploading sparklines to R2"))
+
+    print("Sparkline export complete")
 
 
 if __name__ == "__main__":
