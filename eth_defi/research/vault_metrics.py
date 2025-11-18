@@ -53,24 +53,28 @@ def fmt_one_decimal_or_int(x: float | None) -> str:
 
 
 def create_fee_label(
-    management_fee_annual: Percent,
-    performance_fee: Percent,
-    deposit_fee: Percent | None,
-    withdrawal_fee: Percent | None,
+    fee_data: FeeData,
 ):
     """Create 2% / 20% style labels to display variosu kinds of vault fees.
 
     Order is: management / performance / deposit / withdrawal fees.
     """
 
+    management_fee_annual = fee_data.management
+    performance_fee: Percent = fee_data.performance
+    deposit_fee: Percent = fee_data.deposit
+    withdrawal_fee: Percent = fee_data.withdraw
+
+    internalised_label = " (int.)" if fee_data.internalised else ""
+
     # All fees zero
     if management_fee_annual == 0 and performance_fee == 0 and deposit_fee == 0 and withdrawal_fee == 0:
         return "0% / 0%"
 
     if deposit_fee in (0, None) and withdrawal_fee in (0, None):
-        return f"{fmt_one_decimal_or_int(management_fee_annual)} / {fmt_one_decimal_or_int(performance_fee)}"
+        return f"{fmt_one_decimal_or_int(management_fee_annual)} / {fmt_one_decimal_or_int(performance_fee)} {internalised_label}"
 
-    return f"{fmt_one_decimal_or_int(management_fee_annual)} / {fmt_one_decimal_or_int(performance_fee)} / {fmt_one_decimal_or_int(deposit_fee)} / {fmt_one_decimal_or_int(withdrawal_fee)}"
+    return f"{fmt_one_decimal_or_int(management_fee_annual)} / {fmt_one_decimal_or_int(performance_fee)} / {fmt_one_decimal_or_int(deposit_fee)} / {fmt_one_decimal_or_int(withdrawal_fee)} {internalised_label}"
 
 
 def resample_returns(
@@ -624,10 +628,7 @@ def calculate_lifetime_metrics(
                 one_month_cagr_net = 0
 
         fee_label = create_fee_label(
-            management_fee_annual=mgmt_fee,
-            performance_fee=perf_fee,
-            deposit_fee=deposit_fee,
-            withdrawal_fee=withdrawal_fee,
+            fee_data
         )
 
         last_updated_at = group.index.max()
