@@ -27,10 +27,11 @@ from eth_defi.erc_4626.core import ERC4262VaultDetection
 from eth_defi.research.value_table import format_series_as_multi_column_grid
 from eth_defi.token import is_stablecoin_like
 from eth_defi.vault.base import VaultSpec
+from eth_defi.vault.fee import FeeData
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
 from eth_defi.vault.risk import get_vault_risk, VaultTechnicalRisk
 from eth_defi.compat import native_datetime_utc_now
-
+from freqtrade.rpc.api_server.api_v1 import performance
 
 logger = logging.getLogger(__name__)
 
@@ -476,10 +477,17 @@ def calculate_lifetime_metrics(
         max_nav = group["total_assets"].max()
         current_nav = group["total_assets"].iloc[-1]
         chain_id = group["chain"].iloc[-1]
-        mgmt_fee = vault_metadata["Mgmt fee"]
-        perf_fee = vault_metadata["Perf fee"]
-        deposit_fee = vault_metadata.get("Deposit fee")
-        withdrawal_fee = vault_metadata.get("Withdraw fee")
+
+        fee_data: FeeData = vault_metadata["_fees"]
+        fee_mode = fee_data.fee_mode
+        net_fee_data = fee_data.get_net_fees()
+
+        mgmt_fee = fee_data.management
+        perf_fee = fee_data.performance
+        deposit_fee = fee_data.deposit
+        withdrawal_fee = fee_data.withdraw
+
+
         event_count = group["event_count"].iloc[-1]
         protocol = vault_metadata["Protocol"]
         risk = get_vault_risk(protocol, vault_metadata["Address"])
@@ -555,10 +563,10 @@ def calculate_lifetime_metrics(
                         end=end_date,
                         share_price_start=last_three_months.iloc[0]["share_price"],
                         share_price_end=last_three_months.iloc[-1]["share_price"],
-                        management_fee_annual=mgmt_fee,
-                        performance_fee=perf_fee,
-                        deposit_fee=deposit_fee,
-                        withdrawal_fee=withdrawal_fee,
+                        management_fee_annual=net_fee_data.management,
+                        performance_fee=net_fee_data.performance,
+                        deposit_fee=net_fee_data.deposit,
+                        withdrawal_fee=net_fee_data.withdraw,
                     )
                     three_months_cagr_net = (1 + three_months_return_net) ** (1 / years) - 1 if years > 0 else np.nan
                 else:
@@ -597,10 +605,10 @@ def calculate_lifetime_metrics(
                         end=end_date,
                         share_price_start=last_month.iloc[0]["share_price"],
                         share_price_end=last_month.iloc[-1]["share_price"],
-                        management_fee_annual=mgmt_fee,
-                        performance_fee=perf_fee,
-                        deposit_fee=deposit_fee,
-                        withdrawal_fee=withdrawal_fee,
+                        management_fee_annual=net_fee_data.management,
+                        performance_fee=net_fee_data.performance,
+                        deposit_fee=net_fee_data.deposit,
+                        withdrawal_fee=net_fee_data.withdraw,
                     )
                     one_month_cagr_net = (1 + one_month_returns_net) ** (1 / years) - 1 if years > 0 else np.nan
                 else:
@@ -653,6 +661,8 @@ def calculate_lifetime_metrics(
                 "perf_fee": perf_fee,
                 "deposit_fee": deposit_fee,
                 "withdraw_fee": withdrawal_fee,
+                "fee_mode": fee_mode,
+                "fee_internalised": fee_mode.is_internalised(),
                 "fee_label": fee_label,
                 "lockup": lockup,
                 "event_count": event_count,
