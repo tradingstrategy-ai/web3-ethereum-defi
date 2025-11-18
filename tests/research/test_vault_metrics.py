@@ -11,7 +11,7 @@ import pytest
 from plotly.graph_objects import Figure
 import zstandard as zstd
 
-from eth_defi.research.sparkline import render_sparkline_as_png, extract_vault_price_data
+from eth_defi.research.sparkline import export_sparkline_as_png, extract_vault_price_data, render_sparkline, export_sparkline_as_svg
 from eth_defi.research.vault_benchmark import visualise_vault_return_benchmark
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.risk import VaultTechnicalRisk
@@ -129,12 +129,20 @@ def test_render_vault_sparkline(
 
     spec = VaultSpec.parse_string("43111-0x05c2e246156d37b39a825a25dd08d5589e3fd883")
     vault_prices_df = extract_vault_price_data(spec, price_df)
-    png_data = render_sparkline_as_png(
+    fig = render_sparkline(
         vault_prices_df,
         width=128,
         height=32,
     )
+    png_data = export_sparkline_as_png(
+        fig,
+    )
     assert type(png_data) == bytes
+
+    svg_data = export_sparkline_as_svg(
+        fig,
+    )
+    assert type(svg_data) == bytes
 
 
 @pytest.mark.skipif(os.environ.get("R2_SPARKLINE_BUCKET_NAME") is None, reason="R2_SPARKLINE_BUCKET_NAME not set")
@@ -146,7 +154,7 @@ def test_upload_vault_sparkline(
 
     spec = VaultSpec.parse_string("43111-0x05c2e246156d37b39a825a25dd08d5589e3fd883")
     vault_prices_df = extract_vault_price_data(spec, price_df)
-    png_data = render_sparkline_as_png(
+    png_data = export_sparkline_as_png(
         vault_prices_df,
         width=128,
         height=32,

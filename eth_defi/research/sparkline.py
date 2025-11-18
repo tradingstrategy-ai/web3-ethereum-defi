@@ -86,26 +86,10 @@ def render_sparkline(
     return fig
 
 
-def render_sparkline_as_png(
-    vault_prices_df: pd.DataFrame,
-    width: int = 256,
-    height: int = 64,
+def export_sparkline_as_png(
+    fig: plt.Figure,
 ) -> bytes:
-    """Render a sparkline chart and return as PNG bytes.
-
-    :param id:
-        chain-vault address identifier
-    :param prices_df:
-        DataFrame containing price data
-    :param width:
-        Width of the chart in pixels
-    :param height:
-        Height of the chart in pixels
-    :return:
-        PNG image as bytes
-    """
-    # Generate the matplotlib figure
-    fig = render_sparkline(vault_prices_df, width, height)
+    """Render a sparkline chart and return as PNG bytes."""
 
     # Create a BytesIO buffer to save the PNG
     buffer = BytesIO()
@@ -119,6 +103,21 @@ def render_sparkline_as_png(
     return png_bytes
 
 
+def export_sparkline_as_svg(
+    fig: plt.Figure,
+) -> bytes:
+    """Render a sparkline chart and return as SVG bytes."""
+
+    # Create a BytesIO buffer to save the SVG
+    buffer = BytesIO()
+    fig.savefig(buffer, format="svg")
+    plt.close(fig)
+
+    # Get the SVG bytes
+    buffer.seek(0)
+    svg_bytes = buffer.read()
+
+    return svg_bytes
 
 def upload_to_r2(
     payload: bytes,
@@ -127,7 +126,7 @@ def upload_to_r2(
     account_id: str,
     access_key_id: str,
     secret_access_key: str,
-    content_type: str = "image/png",
+    content_type: str,
 ):
     """Uploads a the vault sparklines payload to a Cloudflare R2 bucket.
 
@@ -144,7 +143,7 @@ def upload_to_r2(
 
     import boto3
 
-    endpoint_url = f"https://{account_id}.r2.cloudflarestorage.com"
+    endpoint_url = f"https://{account_id}.r2.cloudflarestorage.com/vault-sparklines"
 
     s3_client = boto3.client(
         "s3",
@@ -154,11 +153,11 @@ def upload_to_r2(
         region_name="auto",  # Must be "auto"
     )
 
+    import ipdb ; ipdb.set_trace()
     s3_client.put_object(
         Bucket=bucket_name,
         Key=object_name,
         Body=payload,
         ContentType=content_type,
     )
-
 

@@ -9,7 +9,7 @@ import os
 import pandas as pd
 
 from eth_defi.vault.base import VaultSpec
-from eth_defi.research.sparkline import render_sparkline_as_png, extract_vault_price_data
+from eth_defi.research.sparkline import export_sparkline_as_png, extract_vault_price_data
 from eth_defi.vault.vaultdb import VaultDatabase, read_default_vault_prices, VaultRow
 from eth_defi.research.sparkline import upload_to_r2
 
@@ -59,7 +59,7 @@ def main():
 
         vault_prices_df = vault_prices_df.set_index("timestamp")
 
-        png_bytes = render_sparkline_as_png(
+        png_bytes = export_sparkline_as_png(
             vault_prices_df,
             width=512,
             height=128,
