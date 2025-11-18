@@ -1,6 +1,7 @@
 """Fetch block timestamp from hypersync."""
 
 import datetime
+import os
 
 import pytest
 
@@ -10,11 +11,15 @@ from hypersync import HypersyncClient, ClientConfig
 
 from eth_defi.hypersync.timestamp import get_block_timestamps_using_hypersync, get_hypersync_block_height
 
+HYPERSYNC_API_KEY = os.environ.get("HYPERSYNC_API_KEY")
+
+pytestmark = pytest.mark.skipif(not HYPERSYNC_API_KEY, reason="Set HYPERSYNC_API_KEY environment variable to run this test")
+
 
 @pytest.fixture()
 def hypersync_client() -> HypersyncClient:
     hypersync_url = get_hypersync_server(1)  # Mainnet
-    client = HypersyncClient(ClientConfig(url=hypersync_url))
+    client = HypersyncClient(ClientConfig(url=hypersync_url, bearer_token=HYPERSYNC_API_KEY))
     return client
 
 

@@ -13,10 +13,11 @@ from eth_defi.hypersync.server import get_hypersync_server
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
+HYPERSYNC_API_KEY = os.environ.get("HYPERSYNC_API_KEY")
 
 pytestmark = pytest.mark.skipif(
-    JSON_RPC_ETHEREUM is None,
-    reason="Set JSON_RPC_ETHEREUM environment variable to Ethereum mainnet node to run this test",
+    (JSON_RPC_ETHEREUM is None) or (HYPERSYNC_API_KEY is None),
+    reason="Set JSON_RPC_ETHEREUM and HYPERSYNC_API_KEY environment variable to Ethereum mainnet node to run this test",
 )
 
 
@@ -28,7 +29,7 @@ def web3() -> Web3:
 @pytest.fixture()
 def hypersync_client() -> hypersync.HypersyncClient:
     hypersync_url = get_hypersync_server(1)  # Mainnet
-    client = hypersync.HypersyncClient(hypersync.ClientConfig(url=hypersync_url))
+    client = hypersync.HypersyncClient(hypersync.ClientConfig(url=hypersync_url, bearer_token=HYPERSYNC_API_KEY))
     return client
 
 
