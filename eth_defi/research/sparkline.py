@@ -21,7 +21,7 @@ def render_sparkline(
 ) -> plt.Figure:
     """Render a sparkline chart for a single vault.
 
-    :param id:
+    :param spec::
         chain-vault address identifier
     """
 
