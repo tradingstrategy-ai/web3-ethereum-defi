@@ -2,7 +2,6 @@
 
 - Calculate various performance reports and charts for vaults.
 - `For performance stats see FFN <https://pmorissette.github.io/ffn/quick.html>`__.
-
 """
 
 import datetime
