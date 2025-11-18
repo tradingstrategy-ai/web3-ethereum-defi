@@ -11,6 +11,7 @@ import pytest
 from plotly.graph_objects import Figure
 import zstandard as zstd
 
+from eth_defi.research.sparkline import render_sparkline_as_png
 from eth_defi.research.vault_benchmark import visualise_vault_return_benchmark
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.risk import VaultTechnicalRisk
@@ -117,6 +118,21 @@ def test_vault_charts(
         prices_df=price_df,
         vault_db=vault_db,
         render=False,
+    )
+
+
+def test_vault_sparkline(
+    vault_db: VaultDatabase,
+    price_df: pd.DataFrame,
+):
+    """Render spark line chart."""
+
+    spec = VaultSpec.parse_string("43111-0x05c2e246156d37b39a825a25dd08d5589e3fd883")
+    png_data = render_sparkline_as_png(
+        spec,
+        prices_df=price_df,
+        width=128,
+        height=32,
     )
 
 

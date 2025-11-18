@@ -6,7 +6,7 @@ import tempfile
 import webbrowser
 
 from eth_defi.vault.base import VaultSpec
-from eth_defi.vault.sparkline import render_sparkline_as_png
+from eth_defi.research.sparkline import render_sparkline_as_png
 from eth_defi.vault.vaultdb import VaultDatabase, read_default_vault_prices
 
 
@@ -47,12 +47,13 @@ def main():
     # plHEDGE on Arbitrum
     vault_id = os.environ.get("VAULT_ID", "42161-0x58BfC95a864e18E8F3041D2FCD3418f48393fE6A")
 
-    spec = VaultSpec.from_id(vault_id)
+    spec = VaultSpec.parse_string(vault_id)
     vault = vault_db.rows.get(spec)
 
     assert vault is not None, f"Vault not found in metadata: {vault_id}"
 
     png_bytes = render_sparkline_as_png(
+        spec=spec,
         prices_df=prices_df,
         width=512,
         height=128,

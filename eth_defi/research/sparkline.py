@@ -10,9 +10,11 @@ import pandas as pd
 
 import matplotlib.pyplot as plt
 
+from eth_defi.vault.base import VaultSpec
+
 
 def render_sparkline(
-    id: str,
+    spec: VaultSpec,
     prices_df: pd.DataFrame,
     width: int = 256,
     height: int = 64,
@@ -23,10 +25,10 @@ def render_sparkline(
         chain-vault address identifier
     """
 
-    assert type(id) == str, f"id must be str: {id}"
+    assert isinstance(spec, VaultSpec), f"spec must be VaultSpec: {type(spec)}"
 
     # Filter data for the specific vault
-    vault_data = prices_df[prices_df["id"] == id :].copy()
+    vault_data = prices_df.loc[(prices_df["chain"] == spec.chain_id) & (prices_df["address"] == spec.vault_address)]
 
     assert len(vault_data) > 0, f"No data for vault: {id}"
 
@@ -35,29 +37,39 @@ def render_sparkline(
 
     # Convert pixels to inches (matplotlib uses inches)
     dpi = 100
-    width_inches = width / dpi
-    height_inches = height / dpi
+    fig = plt.figure(figsize=(width / dpi, height / dpi), dpi=dpi)
+    fig.patch.set_facecolor("black")
 
-    # Create figure and primary axis
-    fig, ax1 = plt.subplots(figsize=(width_inches, height_inches), dpi=dpi)
+    # Full-extent axis (no margins)
+    ax1 = fig.add_axes([0, 0, 1, 1])
+    ax1.set_facecolor("black")
+    ax1.plot(vault_data["timestamp"], vault_data["share_price"], color="lime", linewidth=1)
 
-    # Plot share price on primary y-axis in green
-    ax1.plot(vault_data["timestamp"], vault_data["share_price"], color="green")
-    # x1.tick_params(axis='y', labelcolor='green')
-
-    # Create secondary y-axis for TVL
     ax2 = ax1.twinx()
-    ax2.plot(vault_data["timestamp"], vault_data["tvl"], color="gray")
-    # ax2.tick_params(axis='y', labelcolor='gray')
+    ax2.set_facecolor("black")
+    ax2.plot(vault_data["timestamp"], vault_data["total_assets"], color="lightgray", linewidth=1)
 
-    plt.xticks(rotation=45)
-    plt.tight_layout()
+    # Remove all spines, ticks, labels
+    for ax in (ax1, ax2):
+        for spine in ax.spines.values():
+            spine.set_visible(False)
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.get_xaxis().set_visible(False)
+        ax.get_yaxis().set_visible(False)
+        ax.margins(x=0, y=0)  # eliminate data padding
+
+    # Fill entire canvas
+    fig.subplots_adjust(left=0, right=1, top=1, bottom=0)
+
+    fig.patch.set_facecolor("black")
+    ax1.patch.set_facecolor("black")
 
     return fig
 
 
 def render_sparkline_as_png(
-    id: str,
+    spec: VaultSpec,
     prices_df: pd.DataFrame,
     width: int = 256,
     height: int = 64,
@@ -76,7 +88,7 @@ def render_sparkline_as_png(
         PNG image as bytes
     """
     # Generate the matplotlib figure
-    fig = render_sparkline(id, prices_df, width, height)
+    fig = render_sparkline(spec, prices_df, width, height)
 
     # Create a BytesIO buffer to save the PNG
     buffer = BytesIO()
