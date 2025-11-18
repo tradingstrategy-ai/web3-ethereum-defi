@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
-import { IERC20 } from "forge-std/interfaces/IERC20.sol";
+import {IERC20} from "forge-std/interfaces/IERC20.sol";
 
 import "../contracts/interfaces/IGmxV2.sol";
 import "../contracts/constants/GmxArbitrumAddresses.sol";
@@ -236,8 +236,8 @@ contract GmxOrderFlowTest is Test, GmxForkHelpers {
 
         vm.startPrank(user);
         uint256 totalEthNeeded = orderParams.numbers.initialCollateralDeltaAmount;
-        exchangeRouter.sendWnt{ value: totalEthNeeded }(GmxArbitrumAddresses.ORDER_VAULT, totalEthNeeded);
-        orderKey = exchangeRouter.createOrder{ value: 0 }(orderParams);
+        exchangeRouter.sendWnt{value: totalEthNeeded}(GmxArbitrumAddresses.ORDER_VAULT, totalEthNeeded);
+        orderKey = exchangeRouter.createOrder{value: 0}(orderParams);
         vm.stopPrank();
     }
 
@@ -279,8 +279,8 @@ contract GmxOrderFlowTest is Test, GmxForkHelpers {
         orderParams.numbers.executionFee = executionFee;
 
         vm.startPrank(user);
-        exchangeRouter.sendWnt{ value: executionFee }(GmxArbitrumAddresses.ORDER_VAULT, executionFee);
-        orderKey = exchangeRouter.createOrder{ value: 0 }(orderParams);
+        exchangeRouter.sendWnt{value: executionFee}(GmxArbitrumAddresses.ORDER_VAULT, executionFee);
+        orderKey = exchangeRouter.createOrder{value: 0}(orderParams);
         vm.stopPrank();
     }
 }

@@ -23,7 +23,7 @@ All fixtures are defined in conftest.py:
 from eth_defi.gmx.core import GetOpenPositions
 from eth_defi.gmx.order.base_order import OrderResult
 from eth_defi.gmx.trading import GMXTrading
-from tests.gmx.fork_helpers import execute_order_as_keeper, extract_order_key_from_receipt, setup_mock_oracle
+from tests.gmx.fork_helpers import execute_order_as_keeper, extract_order_key_from_receipt, setup_mock_oracle, fetch_on_chain_oracle_prices
 
 
 def test_initialization(arbitrum_fork_config):
@@ -247,12 +247,12 @@ def test_open_and_close_position(
     # Update mock oracle price before closing to simulate price movement
     # For long positions: price goes UP (+1000) to create profit
     # For short positions: price goes DOWN (-1000) to create profit
-    MOCK_ETH_PRICE = 3450
-    MOCK_USDC_PRICE = 1
+    current_eth_price, current_usdc_price = fetch_on_chain_oracle_prices(web3_arbitrum_fork)
+    new_eth_price = current_eth_price + 1000  # Increase price for long position profit
     setup_mock_oracle(
         web3_arbitrum_fork,
-        eth_price_usd=MOCK_ETH_PRICE + 1000,
-        usdc_price_usd=MOCK_USDC_PRICE,
+        eth_price_usd=new_eth_price,
+        usdc_price_usd=current_usdc_price,
     )
 
     # Sync wallet nonce after oracle setup (which sends transactions)
