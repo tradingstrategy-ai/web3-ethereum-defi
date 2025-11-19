@@ -1482,13 +1482,6 @@ def export_lifetime_row(row: pd.Series) -> dict:
     - Preserves legacy fee field names.
     """
 
-    def _is_na_scalar(v) -> bool:
-        # Robust NaN / NA detection for scalar types
-        try:
-            return pd.isna(v) and not isinstance(v, (list, tuple, set, dict))
-        except Exception:
-            return False
-
     def _serialize(value):
         # Numpy scalar
         if isinstance(value, (np.floating, np.integer)):
@@ -1500,10 +1493,10 @@ def export_lifetime_row(row: pd.Series) -> dict:
         if isinstance(value, datetime.datetime):
             return value.isoformat()
         # Timedelta types
+        if value is pd.NaT:
+            return None
         if isinstance(value, (pd.Timedelta, datetime.timedelta)):
             return value.total_seconds()
-        if isinstance(value, Enum):
-            return value.value
         # Custom enum-like risk object
         if isinstance(value, VaultTechnicalRisk):
             return value.get_risk_level_name()
@@ -1521,8 +1514,10 @@ def export_lifetime_row(row: pd.Series) -> dict:
             return _serialize(value.to_dict())
         if isinstance(value, pd.DataFrame):
             return [_serialize(rec) for rec in value.to_dict(orient="records")]
+        if isinstance(value, Enum):
+            return value.value
         # Na-like scalar
-        if _is_na_scalar(value):
+        if pd.isna(value):
             return None
         return value
 
