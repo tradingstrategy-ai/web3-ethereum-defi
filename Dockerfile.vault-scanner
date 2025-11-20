@@ -9,6 +9,13 @@
 #
 #   LOG_LEVEL=info docker compose run vault-scanner
 #
+# 
+# To scan a single chain:
+#
+#   source ~/vault-scanner/vault-rpc.env  # Load RPC URLS as envs
+#   (cd web3-ethereum-defi && docker compose run -e LOG_LEVEL=info -e JSON_RPC_URL=$JSON_RPC_ETHEREUM --entrypoint python3 vault-scanner -- scripts/erc-4626/scan-vaults.py)
+#
+#
 # To debug:
 #
 #   docker compose run --entrypoint /bin/bash vault-scanner
@@ -49,7 +56,7 @@ COPY README.md README.md
 # some setuptools issue, so we need to create a virtual env
 ENV POETRY_VIRTUALENVS_CREATE=true
 ENV POETRY_VIRTUALENVS_IN_PROJECT=true
-RUN poetry install -E data -E web3v6 -E hypersync --no-interaction --no-ansi --without=dev
+RUN poetry install -E data -E web3v6 -E hypersync -E cloudflare_r2 --no-interaction --no-ansi --without=dev
 
 # Clean Poetry cache to reduce image size
 RUN poetry cache clear pypi --all --no-interaction
