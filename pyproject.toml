@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "web3-ethereum-defi"
-version = "0.34"
-description = "Ethereum Web3 and DeFi protocols integration for Python applications"
+version = "0.33"
+description = "Integrate Ethereum Web3 and DeFi protocols into your Python application."
 authors = ["Mikko Ohtamaa <mikko@tradingstrategy.ai>"]
 license = "MIT"
 
@@ -141,8 +141,11 @@ filelock = "^3.20.0"
 atomicwrites = "^1.4.1"
 zstandard = "^0.25.0"
 
-# Cloudflare R2 uploads
-boto3 = {version = "^1.40.75", optional = true}
+# CCXT
+#
+# Needed only for GMX CCXT API.
+# Very large dependency.
+ccxt = {version = "^4.5.16", optional = true}
 
 
 [tool.poetry.group.dev.dependencies]
@@ -159,11 +162,12 @@ docs = ["Sphinx", "sphinx-rtd-theme", "sphinx-sitemap", "sphinx-autodoc-typehint
 data = ["jupyter", "tqdm", "pandas", "gql", "matplotlib", "plotly", "pyarrow", "numpy", "tenacity", "kaleido", "ffn"]
 test = ["pytest-xdist"]
 hypersync = ["hypersync"]
+ccxt = ["ccxt"]
 #tester = ["eth-tester"]
 # To install the web3py version based dependencies
 web3v6 = ["eth-tester", "evm-trace", "safe-eth-py", "eth-pydantic-types", "multicall", "eth-account", "eth-typing"]
 web3v7 = ["eth-tester", "evm-trace", "safe-eth-py", "eth-pydantic-types", "multicall", "eth-account", "eth-typing"]
-cloudflare_r2 = ["boto3"]
+
 
 
 [build-system]

@@ -395,7 +395,7 @@ def main():
 
                 first_position_key, first_position = list(open_positions.items())[0]
 
-                # CRITICAL: Use raw position size for exact match (GMX requirement)
+                # Use raw position size for exact match (GMX requirement)
                 position_size_usd_raw = first_position["position_size_usd_raw"]
                 collateral_amount_usd = first_position["initial_collateral_amount_usd"]
                 is_long = first_position["is_long"]
