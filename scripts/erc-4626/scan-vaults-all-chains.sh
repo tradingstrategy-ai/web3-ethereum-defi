@@ -37,9 +37,9 @@ export MAX_WORKERS
 # if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
 
 # Currently: disabled - HyperSync for Hyperliquid is stuck
-export JSON_RPC_URL=$JSON_RPC_HYPERLIQUID
-python scripts/erc-4626/scan-vaults.py
-if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
+# export JSON_RPC_URL=$JSON_RPC_HYPERLIQUID
+# python scripts/erc-4626/scan-vaults.py
+# if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
 
 export JSON_RPC_URL=$JSON_RPC_OPTIMISM
 python scripts/erc-4626/scan-vaults.py
@@ -130,5 +130,8 @@ if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ;
 
 echo "Cleaning vault data"
 python scripts/erc-4626/clean-prices.py
+
+echo "Creating sparkline images"
+python scripts/erc-4626/export-sparklines.py
 
 echo "All done"

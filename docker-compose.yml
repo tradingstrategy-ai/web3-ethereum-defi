@@ -11,6 +11,7 @@ services:
     container_name: vault-scanner
     restart: unless-stopped
     environment:
+      HYPERSYNC_API_KEY: ${HYPERSYNC_API_KEY:-}
       JSON_RPC_ETHEREUM: ${JSON_RPC_ETHEREUM:-}
       JSON_RPC_BERACHAIN: ${JSON_RPC_BERACHAIN:-}
       JSON_RPC_UNICHAIN: ${JSON_RPC_UNICHAIN:-}
@@ -41,6 +42,14 @@ services:
       SCAN_PRICES: ${SCAN_PRICES:-true}
       LOG_LEVEL: ${LOG_LEVEL:-warning}
       MAX_WORKERS: ${MAX_WORKERS:-50}
+
+      # Export vault sparkline images to the frontend
+      R2_SPARKLINE_BUCKET_NAME: ${R2_SPARKLINE_BUCKET_NAME:-}
+      R2_SPARKLINE_ENDPOINT_URL: ${R2_SPARKLINE_ENDPOINT_URL:-}
+      R2_SPARKLINE_ACCOUNT_ID: ${R2_SPARKLINE_ACCOUNT_ID:-}
+      R2_SPARKLINE_ACCESS_KEY_ID: ${R2_SPARKLINE_ACCESS_KEY_ID:-}
+      R2_SPARKLINE_SECRET_ACCESS_KEY: ${R2_SPARKLINE_SECRET_ACCESS_KEY:-}
+
     volumes:
       # Writing vault data files here
       - ${HOME}/.tradingstrategy:/root/.tradingstrategy:rw
