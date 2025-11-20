@@ -274,11 +274,16 @@ class FallbackProvider(BaseNamedProvider):
 
         # The caller has requested not to retry.
         # Set in EncodedCall.call(ignore_error=True)
-        ignore_error = False
+        ignore_error = silent_error = False
         param_1 = params[0] if isinstance(params, (tuple, list)) and len(params) > 0 else None
         if param_1 and isinstance(param_1, dict):
             ignore_error = param_1.pop("ignore_error", False)
             if ignore_error:
+                # Don't pass the flag to RPC
+                params = [param_1, *params[1:]]
+
+            silent_error = param_1.pop("silent_error", False)
+            if silent_error:
                 # Don't pass the flag to RPC
                 params = [param_1, *params[1:]]
 
@@ -368,7 +373,10 @@ class FallbackProvider(BaseNamedProvider):
                         continue
                     else:
                         raise  # Out of retries
-                logger.info("Will not retry, method %s, as not a retryable exception %s: %s", method, e.__class__, e)
+
+                if not silent_error:
+                    logger.info("Will not retry, method %s, as not a retryable exception %s: %s, params %s", method, e.__class__, e, params)
+
                 raise  # Not retryable exception
 
         raise AssertionError("Should never be reached")

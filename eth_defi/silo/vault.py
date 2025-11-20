@@ -32,6 +32,12 @@ class SiloVault(ERC4626Vault):
     - `Docs <https://devdocs.silo.finance/smart-contracts-overview/core-protocol/silo>`__
     """
 
+    @cached_property
+    def name(self) -> str:
+        """Truncate protocol repeat in the name."""
+        orig_name = super().name
+        return orig_name.replace("Silo Finance ", "")
+
     def get_risk(self) -> VaultTechnicalRisk | None:
         return VaultTechnicalRisk.low
 

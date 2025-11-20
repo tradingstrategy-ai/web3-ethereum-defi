@@ -1,6 +1,7 @@
 """Raw log event data conversion helpers."""
 
 from eth_abi import decode
+from eth_abi.exceptions import InvalidPointer
 from eth_typing import ChecksumAddress
 from hexbytes import HexBytes
 from web3 import Web3
@@ -146,11 +147,18 @@ def convert_solidity_bytes_to_string(byte_data: bytes, max_length: int, errors="
     """Load string from contract function call.
 
     - Decodes UTF-8, sanitise input and chops to max length
+
+    :return:
+        Empty string if the string cannot be decoded
     """
 
     assert type(byte_data) in (bytes, HexBytes), f"Received: {type(byte_data)}"
 
-    string_data = decode(["string"], byte_data)[0]
+    try:
+        string_data = decode(["string"], byte_data)[0]
+    except InvalidPointer:
+        return ""
+
     sanitised = sanitise_string(string_data, max_length=max_length)
     return sanitised
 

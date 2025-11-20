@@ -2,6 +2,7 @@
 
 import datetime
 import logging
+from codecs import ignore_errors
 from decimal import Decimal
 from functools import cached_property
 from typing import Iterable
@@ -595,9 +596,18 @@ class ERC4626Vault(VaultBase):
             return False
 
     def fetch_denomination_token_address(self) -> HexAddress | None:
+        # Try to check if we are ERC-7575 first
+        # https://eips.ethereum.org/EIPS/eip-7575
+        call = EncodedCall.from_contract_call(
+            self.vault_contract.functions.asset(),
+        )
         try:
-            asset = self.vault_contract.functions.asset().call()
-            return asset
+            result = call.call(
+                self.web3,
+                block_identifier="latest",
+                silent_error=True,
+            )
+            return convert_uint256_bytes_to_address(result)
         except (ValueError, BadFunctionCallOutput):
             pass
         return None
@@ -641,6 +651,7 @@ class ERC4626Vault(VaultBase):
                 self.web3,
                 block_identifier="latest",
                 ignore_error=False,
+                silent_error=True,
                 attempts=4,
             )
             if len(result) == 32:
