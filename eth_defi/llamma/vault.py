@@ -23,12 +23,11 @@ class LLAMMAVault(ERC4626Vault):
 
     This vault wraps LLAMMA AMM.
 
-    By convex?
-
     LLAMMA (Lending Liquidating Automated Market Maker Algorithm) is the market-making contract that rebalances the collateral of a loan. It is an algorithm implemented into a smart contract which is responsible for liquidating and de-liquidating collateral based on market conditions through arbitrage traders. Each individual market has its own AMM containing the collateral and borrowable asset. E.g. the AMM of the ETH<>crvUSD contains of ETH and crvUSD.
 
-    - https://docs.curve.finance/crvUSD/amm/
-    - Vault smart contract code: https://arbiscan.io/address/0xe296ee7f83d1d95b3f7827ff1d08fe1e4cf09d8d#code
+    - `LLAMMA explained <https://docs.curve.finance/crvUSD/amm/>__
+    - `Vault smart contract code: <https://arbiscan.io/address/0xe296ee7f83d1d95b3f7827ff1d08fe1e4cf09d8d#code>`__
+    - `LLAMMA markets <https://www.curve.finance/llamalend/ethereum/markets>`__
     """
 
     @cached_property

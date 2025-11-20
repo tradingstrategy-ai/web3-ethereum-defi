@@ -74,12 +74,14 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Harvest Finance": VaultTechnicalRisk.low,
     "D2 Finance": VaultTechnicalRisk.high,
     "Untangle Finance": VaultTechnicalRisk.low,
-    "Yearn v3": VaultTechnicalRisk.minimal,
-    "Yearn tokenised strategy": VaultTechnicalRisk.minimal,
+    "Yearn": VaultTechnicalRisk.minimal,
     "Goat Protocol": VaultTechnicalRisk.low,
     "USDai": VaultTechnicalRisk.low,
     "AUTO Finance": VaultTechnicalRisk.low,
     "NashPoint": VaultTechnicalRisk.low,
+    "Silo Finance": VaultTechnicalRisk.low,
+    "Summer.fi": VaultTechnicalRisk.low,
+    "LLAMMA": VaultTechnicalRisk.low,
 }
 
 #: Particular vaults that are broken, misleading or otherwise problematic.
