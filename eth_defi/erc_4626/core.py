@@ -206,10 +206,20 @@ class ERC4626Feature(enum.Enum):
     #: https://nashpoint.gitbook.io/nashpoint
     nashpoint_like = "nashpoint_like"
 
-    #: LLAMMA / Convex?
+    #: LLAMMA
     #:
     #: https://nashpoint.gitbook.io/nashpoint
     llamma_like = "llamma_like"
+
+    #: Summer Earn
+    #:
+    #: "FleerCommander" contract https://github.com/OasisDEX/summer-earn-protocol/blob/8a0eaa6e0ff420f4e574042855514590e0cc610e/packages/core-contracts/src/contracts/FleetCommander.sol
+    summer_like = "summer_like"
+
+    #: Silo Finance
+    #:
+    #: https://arbiscan.io/address/0xacb7432a4bb15402ce2afe0a7c9d5b738604f6f9#readContract
+    silo_like = "silo_like"
 
 
 def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
@@ -294,6 +304,12 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.llamma_like in features:
         return "LLAMMA"
+
+    elif ERC4626Feature.summer_like in features:
+        return "Summer.fi"
+
+    elif ERC4626Feature.silo_like in features:
+        return "Silo Finance"
 
     # No idea
     if ERC4626Feature.erc_7540_like in features:

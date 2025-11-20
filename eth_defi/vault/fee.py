@@ -70,6 +70,8 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "AUTO Finance": VaultFeeMode.internalised_minting,
     "NashPoint": VaultFeeMode.internalised_skimming,
     "LLAMMA": VaultFeeMode.internalised_skimming,
+    "Summer.fi": VaultFeeMode.internalised_minting,
+    "Silo Finance": VaultFeeMode.internalised_minting,
 }
 
 
