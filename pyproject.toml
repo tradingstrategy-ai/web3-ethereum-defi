@@ -146,6 +146,7 @@ zstandard = "^0.25.0"
 # Needed only for GMX CCXT API.
 # Very large dependency.
 ccxt = {version = "^4.5.16", optional = true}
+boto3 = {version = "^1.41.0", optional = true}
 
 
 [tool.poetry.group.dev.dependencies]
@@ -168,6 +169,7 @@ test = ["pytest-xdist"]
 
 hypersync = ["hypersync"]
 ccxt = ["ccxt"]
+cloudflare_r2 = ["boto3"]
 #tester = ["eth-tester"]
 
 [build-system]
