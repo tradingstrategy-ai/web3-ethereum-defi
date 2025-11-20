@@ -189,11 +189,14 @@ def calculate_net_profit(
     :return:
         Net profit as a floating point (0.10 = 10% profit).
     """
-
     assert isinstance(start, datetime.datetime), f"start must be datetime, got {type(start)}"
     assert isinstance(end, datetime.datetime), f"end must be datetime, got {type(end)}"
     assert end > start, "End datetime must be after start datetime"
-    assert share_price_start > 0, "Start share price must be positive"
+
+    if share_price_start == 0:
+        # Some broken vaults give zero share price periods
+        return 0
+
     assert share_price_end >= 0, "End share price must be non-negative"
     if management_fee_annual in (None, "-"):
         # - is legacy
