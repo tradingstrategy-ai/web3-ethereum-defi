@@ -39,6 +39,8 @@ class PlutusVault(ERC4626Vault):
         return 0.12
 
     def get_estimated_lock_up(self) -> datetime.timedelta:
-        """Currently Plutus vaults are manually opened/closed/"""
-        # if !withdrawalsPaused && fundsInTrading==0: contract open
-        return None
+        """Currently Plutus vaults are manually opened/closed.
+
+        We estimate one month lock-up for modelling purposes based on the discussion with Plutus in Discord.
+        """
+        return datetime.timedelta(days=30)

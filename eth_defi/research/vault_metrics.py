@@ -537,10 +537,10 @@ def calculate_lifetime_metrics(
                     end=end_date,
                     share_price_start=group.iloc[0]["share_price"],
                     share_price_end=group.iloc[-1]["share_price"],
-                    management_fee_annual=mgmt_fee,
-                    performance_fee=perf_fee,
-                    deposit_fee=deposit_fee,
-                    withdrawal_fee=withdrawal_fee,
+                    management_fee_annual=net_fee_data.management,
+                    performance_fee=net_fee_data.performance,
+                    deposit_fee=net_fee_data.deposit,
+                    withdrawal_fee=net_fee_data.withdraw,
                 )
             else:
                 lifetime_return_net = None

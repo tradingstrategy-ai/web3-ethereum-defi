@@ -63,12 +63,14 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "Harvest Finance": VaultFeeMode.internalised_skimming,
     "D2 Finance": VaultFeeMode.internalised_skimming,
     "Untangle Finance": VaultFeeMode.externalised,
-    "Yearn v3": VaultFeeMode.internalised_skimming,
-    "Yearn tokenised strategy": VaultFeeMode.internalised_skimming,
+    "Yearn": VaultFeeMode.internalised_skimming,
     "Goat Protocol": VaultFeeMode.internalised_skimming,
     "USDai": VaultFeeMode.internalised_skimming,
     "AUTO Finance": VaultFeeMode.internalised_minting,
     "NashPoint": VaultFeeMode.internalised_skimming,
+    "LLAMMA": VaultFeeMode.internalised_skimming,
+    "Summer.fi": VaultFeeMode.internalised_minting,
+    "Silo Finance": VaultFeeMode.internalised_minting,
 }
 
 

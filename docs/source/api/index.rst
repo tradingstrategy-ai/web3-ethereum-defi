@@ -44,6 +44,9 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    usdai/index
    auto_finance/index
    nashpoint/index
+   llamma/index
+   summer/index
+   silo/index
    chainlink/index
    foundry/index
    etherscan/index

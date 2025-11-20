@@ -342,6 +342,36 @@ def create_probe_calls(
             extra_data=None,
         )
 
+        # LLAMMA
+        # https://arbiscan.io/address/0xe296ee7f83d1d95b3f7827ff1d08fe1e4cf09d8d#code
+        llamma_call = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="borrowed_token()")[0:4],
+            function="borrowed_token",
+            data=b"",
+            extra_data=None,
+        )
+
+        # Summer Earn
+        # https://arbiscan.io/address/0xe296ee7f83d1d95b3f7827ff1d08fe1e4cf09d8d#code
+        summer_call = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="ADMIRALS_QUARTERS_ROLE()")[0:4],
+            function="ADMIRALS_QUARTERS_ROLE",
+            data=b"",
+            extra_data=None,
+        )
+
+        # Silo Finance
+        # https://arbiscan.io/address/0xacb7432a4bb15402ce2afe0a7c9d5b738604f6f9#readContract
+        silo_call = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="utilizationData()")[0:4],
+            function="utilizationData",
+            data=b"",
+            extra_data=None,
+        )
+
         yield bad_probe_call
         yield name_call
         yield share_price_call
@@ -372,6 +402,9 @@ def create_probe_calls(
         yield usdai_call
         yield autopool_call
         yield nashpoint_call
+        yield llamma_call
+        yield summer_call
+        yield silo_call
 
 
 def identify_vault_features(
@@ -506,6 +539,15 @@ def identify_vault_features(
 
     if calls["validateComponentRatios"].success:
         features.add(ERC4626Feature.nashpoint_like)
+
+    if calls["borrowed_token"].success:
+        features.add(ERC4626Feature.llamma_like)
+
+    if calls["ADMIRALS_QUARTERS_ROLE"].success:
+        features.add(ERC4626Feature.summer_like)
+
+    if calls["utilizationData"].success:
+        features.add(ERC4626Feature.silo_like)
 
     if len(features) > 4:
         # This contract somehow responses to all calls with success.
@@ -748,6 +790,24 @@ def create_vault_instance(
         from eth_defi.nashpoint.vault import NashpointNodeVault
 
         return NashpointNodeVault(web3, spec, token_cache=token_cache, features=features)
+
+    elif ERC4626Feature.llamma_like in features:
+        # Both of these have fees internatilised
+        from eth_defi.llamma.vault import LLAMMAVault
+
+        return LLAMMAVault(web3, spec, token_cache=token_cache, features=features)
+
+    elif ERC4626Feature.summer_like in features:
+        # Both of these have fees internatilised
+        from eth_defi.summer.vault import SummerVault
+
+        return SummerVault(web3, spec, token_cache=token_cache, features=features)
+
+    elif ERC4626Feature.silo_like in features:
+        # Both of these have fees internatilised
+        from eth_defi.silo.vault import SiloVault
+
+        return SiloVault(web3, spec, token_cache=token_cache, features=features)
 
     else:
         # Generic ERC-4626 without fee data

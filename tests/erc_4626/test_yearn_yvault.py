@@ -51,7 +51,7 @@ def test_yvault_usdce_symbol(
     )
 
     assert isinstance(vault, YearnV3Vault)
-    assert vault.get_protocol_name() == "Yearn v3"
+    assert vault.get_protocol_name() == "Yearn"
     assert vault.denomination_token.address == "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8"
     assert vault.denomination_token.symbol == "USDC.e"
     assert vault.get_management_fee("latest") == 0.00

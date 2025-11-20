@@ -154,21 +154,21 @@ pytest = "^7.4.3"
 pytest-mock = "^3.7.0"
 ipdb = "^0.13.9"
 flaky = "^3.7.0"
-
 # See discussion https://github.com/python-poetry/poetry/issues/3348#issuecomment-726534462
 anyio = "^4.11.0"
+
+
 [tool.poetry.extras]
-docs = ["Sphinx", "sphinx-rtd-theme", "sphinx-sitemap", "sphinx-autodoc-typehints", "furo", "nbsphinx", "zope.dottedname", "sphinx-sitemap", "sphinx-rtd-theme"]
-data = ["jupyter", "tqdm", "pandas", "gql", "matplotlib", "plotly", "pyarrow", "numpy", "tenacity", "kaleido", "ffn"]
-test = ["pytest-xdist"]
-hypersync = ["hypersync"]
-ccxt = ["ccxt"]
-#tester = ["eth-tester"]
 # To install the web3py version based dependencies
 web3v6 = ["eth-tester", "evm-trace", "safe-eth-py", "eth-pydantic-types", "multicall", "eth-account", "eth-typing"]
 web3v7 = ["eth-tester", "evm-trace", "safe-eth-py", "eth-pydantic-types", "multicall", "eth-account", "eth-typing"]
+docs = ["Sphinx", "sphinx-rtd-theme", "sphinx-sitemap", "sphinx-autodoc-typehints", "furo", "nbsphinx", "zope.dottedname", "sphinx-sitemap", "sphinx-rtd-theme"]
+data = ["jupyter", "tqdm", "pandas", "gql", "matplotlib", "plotly", "pyarrow", "numpy", "tenacity", "kaleido", "ffn"]
+test = ["pytest-xdist"]
 
-
+hypersync = ["hypersync"]
+ccxt = ["ccxt"]
+#tester = ["eth-tester"]
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

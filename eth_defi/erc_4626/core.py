@@ -206,6 +206,21 @@ class ERC4626Feature(enum.Enum):
     #: https://nashpoint.gitbook.io/nashpoint
     nashpoint_like = "nashpoint_like"
 
+    #: LLAMMA
+    #:
+    #: https://nashpoint.gitbook.io/nashpoint
+    llamma_like = "llamma_like"
+
+    #: Summer Earn
+    #:
+    #: "FleerCommander" contract https://github.com/OasisDEX/summer-earn-protocol/blob/8a0eaa6e0ff420f4e574042855514590e0cc610e/packages/core-contracts/src/contracts/FleetCommander.sol
+    summer_like = "summer_like"
+
+    #: Silo Finance
+    #:
+    #: https://arbiscan.io/address/0xacb7432a4bb15402ce2afe0a7c9d5b738604f6f9#readContract
+    silo_like = "silo_like"
+
 
 def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     """Deduct vault protocol name based on Vault smart contract features.
@@ -261,9 +276,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     elif ERC4626Feature.superform_like in features:
         return "Superform"
     elif ERC4626Feature.yearn_v3_like in features:
-        return "Yearn v3"
+        return "Yearn"
     elif ERC4626Feature.yearn_tokenised_strategy in features:
-        return "Yearn tokenised strategy"
+        return "Yearn"
     elif ERC4626Feature.gains_like in features:
         return "gTrade"
     elif ERC4626Feature.ostium_like in features:
@@ -286,6 +301,15 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "AUTO Finance"
     elif ERC4626Feature.nashpoint_like in features:
         return "NashPoint"
+
+    elif ERC4626Feature.llamma_like in features:
+        return "LLAMMA"
+
+    elif ERC4626Feature.summer_like in features:
+        return "Summer.fi"
+
+    elif ERC4626Feature.silo_like in features:
+        return "Silo Finance"
 
     # No idea
     if ERC4626Feature.erc_7540_like in features:
