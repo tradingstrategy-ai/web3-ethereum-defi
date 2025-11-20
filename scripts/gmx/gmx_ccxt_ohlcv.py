@@ -19,7 +19,7 @@ import time
 
 from web3 import Web3
 from eth_defi.gmx.config import GMXConfig
-from eth_defi.gmx.ccxt import GMXCCXT
+from eth_defi.gmx.ccxt import GMX
 
 import pandas as pd
 import numpy as np
@@ -89,7 +89,7 @@ def fetch_ohlcv_example():
     config = GMXConfig(web3)
 
     # Create CCXT-compatible wrapper
-    gmx = GMXCCXT(config)
+    gmx = GMX(config)
 
     # Load available markets
     console.print("\n[yellow]Loading markets...[/yellow]")
@@ -168,7 +168,7 @@ def fetch_multiple_timeframes():
 
     web3 = Web3(Web3.HTTPProvider("https://arb1.arbitrum.io/rpc"))
     config = GMXConfig(web3)
-    exchange = GMXCCXT(config)
+    exchange = GMX(config)
 
     exchange.load_markets()
 
@@ -224,7 +224,7 @@ def fetch_with_since_parameter():
 
     web3 = Web3(Web3.HTTPProvider("https://arb1.arbitrum.io/rpc"))
     config = GMXConfig(web3)
-    exchange = GMXCCXT(config)
+    exchange = GMX(config)
 
     exchange.load_markets()
 
@@ -293,7 +293,7 @@ def compare_multiple_tokens():
 
     web3 = Web3(Web3.HTTPProvider("https://arb1.arbitrum.io/rpc"))
     config = GMXConfig(web3)
-    exchange = GMXCCXT(config)
+    exchange = GMX(config)
 
     exchange.load_markets()
 

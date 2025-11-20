@@ -16,10 +16,10 @@ import os
 from datetime import datetime, timedelta
 from web3 import Web3
 from eth_defi.gmx.config import GMXConfig
-from eth_defi.gmx.ccxt import GMXCCXT
+from eth_defi.gmx.ccxt import GMX
 
 
-def example_fetch_balance(gmx: GMXCCXT):
+def example_fetch_balance(gmx: GMX):
     """Example: fetch_balance() - Account token balances"""
     print("\n" + "=" * 60)
     print("1. fetch_balance() - Account Token Balances")
@@ -58,7 +58,7 @@ def example_fetch_balance(gmx: GMXCCXT):
         print(f"Error: {e}")
 
 
-def example_fetch_open_orders(gmx: GMXCCXT):
+def example_fetch_open_orders(gmx: GMX):
     """Example: fetch_open_orders() - Open positions as orders"""
     print("\n" + "=" * 60)
     print("2. fetch_open_orders() - Open Positions")
@@ -95,7 +95,7 @@ def example_fetch_open_orders(gmx: GMXCCXT):
         print(f"Error: {e}")
 
 
-def example_fetch_my_trades(gmx: GMXCCXT):
+def example_fetch_my_trades(gmx: GMX):
     """Example: fetch_my_trades() - User trade history"""
     print("\n" + "=" * 60)
     print("3. fetch_my_trades() - User Trade History")
@@ -145,7 +145,7 @@ def main():
     try:
         web3 = Web3(Web3.HTTPProvider(rpc))
         config = GMXConfig(web3, user_wallet_address=wallet_address)
-        gmx = GMXCCXT(config)
+        gmx = GMX(config)
 
         print(f"Chain ID: {web3.eth.chain_id}")
         print("Connected successfully")

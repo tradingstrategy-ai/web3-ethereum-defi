@@ -15,10 +15,10 @@ Usage:
 import os
 from web3 import Web3
 from eth_defi.gmx.config import GMXConfig
-from eth_defi.gmx.ccxt import GMXCCXT
+from eth_defi.gmx.ccxt import GMX
 
 
-def example_fetch_positions(gmx: GMXCCXT):
+def example_fetch_positions(gmx: GMX):
     """Example: fetch_positions() - Detailed position information"""
     print("\n" + "=" * 60)
     print("1. fetch_positions() - Detailed Position Information")
@@ -83,7 +83,7 @@ def example_fetch_positions(gmx: GMXCCXT):
         print(f"Error: {e}")
 
 
-def example_set_leverage(gmx: GMXCCXT):
+def example_set_leverage(gmx: GMX):
     """Example: set_leverage() - Configure leverage settings"""
     print("\n" + "=" * 60)
     print("2. set_leverage() - Configure Leverage Settings")
@@ -113,7 +113,7 @@ def example_set_leverage(gmx: GMXCCXT):
         print(f"Error: {e}")
 
 
-def example_fetch_leverage(gmx: GMXCCXT):
+def example_fetch_leverage(gmx: GMX):
     """Example: fetch_leverage() - Query leverage configuration"""
     print("\n" + "=" * 60)
     print("3. fetch_leverage() - Query Leverage Configuration")
@@ -159,7 +159,7 @@ def main():
     try:
         web3 = Web3(Web3.HTTPProvider(rpc))
         config = GMXConfig(web3, user_wallet_address=wallet_address)
-        gmx = GMXCCXT(config)
+        gmx = GMX(config)
 
         print(f"Chain ID: {web3.eth.chain_id}")
         print("Connected successfully")

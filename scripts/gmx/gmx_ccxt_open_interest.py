@@ -10,7 +10,7 @@ CCXT standard:
 
 from web3 import Web3
 from eth_defi.gmx.config import GMXConfig
-from eth_defi.gmx.ccxt import GMXCCXT
+from eth_defi.gmx.ccxt import GMX
 from rich.console import Console
 
 print = Console().print
@@ -19,7 +19,7 @@ print = Console().print
 def main():
     web3 = Web3(Web3.HTTPProvider("https://arb1.arbitrum.io/rpc"))
     config = GMXConfig(web3)
-    gmx = GMXCCXT(config)
+    gmx = GMX(config)
 
     gmx.load_markets()
 

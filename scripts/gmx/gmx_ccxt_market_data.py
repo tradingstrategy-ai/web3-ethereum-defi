@@ -17,7 +17,7 @@ import os
 from datetime import datetime, timedelta
 from web3 import Web3
 from eth_defi.gmx.config import GMXConfig
-from eth_defi.gmx.ccxt import GMXCCXT
+from eth_defi.gmx.ccxt import GMX
 
 
 def format_price(price):
@@ -34,7 +34,7 @@ def format_price(price):
         return f"${price:,.8f}"
 
 
-def example_fetch_ticker(gmx: GMXCCXT):
+def example_fetch_ticker(gmx: GMX):
     """Example: fetch_ticker() - Single market ticker"""
     print("\n" + "=" * 60)
     print("1. fetch_ticker() - Single Market Ticker")
@@ -50,7 +50,7 @@ def example_fetch_ticker(gmx: GMXCCXT):
     print(f"Time: {ticker['datetime']}")
 
 
-def example_fetch_tickers(gmx: GMXCCXT):
+def example_fetch_tickers(gmx: GMX):
     """Example: fetch_tickers() - Multiple market tickers"""
     print("\n" + "=" * 60)
     print("2. fetch_tickers() - Multiple Market Tickers")
@@ -70,7 +70,7 @@ def example_fetch_tickers(gmx: GMXCCXT):
         print(f"  {symbol}: {format_price(ticker['last'])}")
 
 
-def example_fetch_currencies(gmx: GMXCCXT):
+def example_fetch_currencies(gmx: GMX):
     """Example: fetch_currencies() - Token metadata"""
     print("\n" + "=" * 60)
     print("3. fetch_currencies() - Token Metadata")
@@ -85,7 +85,7 @@ def example_fetch_currencies(gmx: GMXCCXT):
         print(f"{code:8} {currency['name'][:20]:20} Decimals: {currency['precision']:2}  Address: {address}")
 
 
-def example_fetch_trades(gmx: GMXCCXT):
+def example_fetch_trades(gmx: GMX):
     """Example: fetch_trades() - Recent public trades"""
     print("\n" + "=" * 60)
     print("4. fetch_trades() - Recent Public Trades")
@@ -108,7 +108,7 @@ def example_fetch_trades(gmx: GMXCCXT):
         print("No trades found in the last 24 hours")
 
 
-def example_fetch_time(gmx: GMXCCXT):
+def example_fetch_time(gmx: GMX):
     """Example: fetch_time() - Server/blockchain time"""
     print("\n" + "=" * 60)
     print("5. fetch_time() - Server/Blockchain Time")
@@ -125,7 +125,7 @@ def example_fetch_time(gmx: GMXCCXT):
     print(f"Difference: {diff_seconds:.2f} seconds")
 
 
-def example_fetch_status(gmx: GMXCCXT):
+def example_fetch_status(gmx: GMX):
     """Example: fetch_status() - API health status"""
     print("\n" + "=" * 60)
     print("6. fetch_status() - API Health Status")
@@ -154,7 +154,7 @@ def main():
 
     web3 = Web3(Web3.HTTPProvider(rpc))
     config = GMXConfig(web3)
-    gmx = GMXCCXT(config)
+    gmx = GMX(config)
 
     print(f"\nChain ID: {web3.eth.chain_id}")
     print("Connected successfully")

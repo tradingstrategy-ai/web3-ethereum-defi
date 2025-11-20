@@ -1184,7 +1184,11 @@ def arbitrum_fork_config(
     - Approves tokens for GMX routers
     - Returns configured GMXConfig
     """
-    return _create_fork_config(web3_arbitrum_fork, anvil_private_key, wallet_with_all_tokens)
+    return _create_fork_config(
+        web3_arbitrum_fork,
+        anvil_private_key,
+        wallet_with_all_tokens,
+    )
 
 
 @pytest.fixture()
