@@ -1,5 +1,11 @@
 # Current
 
+- Add: New protocol: Silo Finance
+- Add: New protocol: Summer.fi Earn
+- Add: New protocol: Curve LLAMMA
+
+# 0.33
+
 - Add: New protocol: Plutus
 - Add: New protocol: D2 Finance
 - Add: New protocol: Umami Finance
