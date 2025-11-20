@@ -315,7 +315,7 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     if ERC4626Feature.erc_7540_like in features:
         return "<unknown ERC-7540>"
     else:
-        return "<unknown ERC-4626>"
+        return "<protocol not yet identified>"
 
 
 def get_erc_4626_contract(web3: Web3) -> Type[Contract]:

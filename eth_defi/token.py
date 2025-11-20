@@ -1131,6 +1131,17 @@ class TokenDiskCache(PersistentKeyValueStore):
         else:
             entry["supply"] = None
 
+        # A poisoned token that blows up stuff and
+        # makes JSON serialisation impossible
+
+        def _cap(x, _max=2**256):
+            if type(x) == int:
+                return min(x, _max)
+            return x
+
+        entry["decimals"] = _cap(entry["decimals"], _max=99)
+        entry["supply"] = _cap(entry["supply"])
+
         return entry
 
     def load_token_details_with_multicall(
@@ -1178,7 +1189,10 @@ class TokenDiskCache(PersistentKeyValueStore):
             cache_entry = self.create_cache_entry(result_per_address)
             key = TokenDetails.generate_cache_key(chain_id, address)
             cache_entry["chain_id"] = chain_id
-            self[key] = cache_entry
+            try:
+                self[key] = cache_entry
+            except ValueError as e:
+                raise ValueError(f"Could not cache token {address} on chain {chain_id}: {e}, data: {cache_entry}") from e
             tokens_read += 1
 
             if tokens_read % checkpoint == 0:

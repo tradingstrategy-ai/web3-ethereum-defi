@@ -621,6 +621,7 @@ class EncodedCall:
         from_=ZERO_ADDRESS_STR,
         gas: int = None,
         ignore_error=False,
+        silent_error=False,
         attempts: int = 3,
         retry_sleep=30.0,
     ) -> bytes:
@@ -673,6 +674,7 @@ class EncodedCall:
             "data": self.data.hex(),
             "gas": gas,
             "ignore_error": ignore_error,  # Hint logging middleware that we should not care about if this fails
+            "silent_error": silent_error,  # Hint logging middleware that we should not care about if this fails
         }
 
         attempt = 0

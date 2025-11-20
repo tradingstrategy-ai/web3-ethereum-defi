@@ -50,7 +50,7 @@ def test_silo(
 
     assert vault.features == {ERC4626Feature.silo_like}
     assert isinstance(vault, SiloVault)
-    assert vault.name == "Silo Finance Borrowable USDC Deposit, SiloId: 146"
+    assert vault.name == "Borrowable USDC Deposit, SiloId: 146"
     assert vault.get_protocol_name() == "Silo Finance"
     assert vault.get_management_fee("latest") == 0.00
     assert vault.get_performance_fee("latest") == 0.00
