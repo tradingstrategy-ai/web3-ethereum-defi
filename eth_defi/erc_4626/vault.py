@@ -77,6 +77,7 @@ class VaultReaderState(BatchCallState):
         "last_call_at",
         "last_block",
         "peaked_at",
+        "peaked_tvl",
         "faded_at",
         "entry_count",
         "chain_id",
@@ -139,6 +140,9 @@ class VaultReaderState(BatchCallState):
 
         #: Disable reading if the vault has peaked (TVL too much down) and is no longer active
         self.peaked_at: datetime.datetime = None
+
+        #: What was TVL when we disabled reading due to peaking
+        self.peaked_tvl: float = None
 
         #: Disable reading if the vault has never gotten any traction
         self.faded_at: datetime.datetime = None
@@ -224,7 +228,7 @@ class VaultReaderState(BatchCallState):
         return False
 
     def get_frequency(self) -> datetime.timedelta | None:
-        """How fast we are reading this vault."""
+        """How fast we are reading this vault or should the further reading be skipped."""
         if self.peaked_at or self.faded_at:
             # Disabled due to either of reasons
             return None
@@ -278,6 +282,12 @@ class VaultReaderState(BatchCallState):
             if self.last_tvl < self.max_tvl * Decimal(1 - self.down_hard):
                 logger.debug(f"{self.last_call_at}: Vault {self.vault} peaked at {self.max_tvl}, now TVL is {self.last_tvl}, no longer reading it")
                 self.peaked_at = timestamp
+                self.peaked_tvl = self.last_tvl
+            else:
+                # Reset peaked condition,
+                # see first_read
+                self.peaked_at = None
+                self.peaked_tvl = None
 
         # The vault never got any traction, disable
         if self.last_call_at - self.first_read_at > self.traction_period:

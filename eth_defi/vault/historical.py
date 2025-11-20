@@ -216,6 +216,9 @@ class VaultHistoricalReadMulticaller:
             Unordered results
         """
 
+        # Debug debug
+        # vaults = [v for v in vaults if v.vault_address.lower() == "0x00c8a649c9837523ebb406ceb17a6378ab5c74cf"]
+
         # TODO: Clean up as an arg
         stateful = reader_func != read_multicall_historical
         readers = self.prepare_readers(vaults, stateful=stateful)
@@ -235,9 +238,6 @@ class VaultHistoricalReadMulticaller:
 
         logger.info("Prepared %d readers, loaded %d states", len(readers), loaded_state_count)
 
-
-        # Debug debug
-        readers = {a: r for a, r in readers.items() if a.lower() == "0x00c8a649c9837523ebb406ceb17a6378ab5c74cf"}
         for address, reader in readers.items():
             state: VaultReaderState = reader.reader_state
             logger.info(
@@ -288,7 +288,6 @@ class VaultHistoricalReadMulticaller:
             progress_suffix=_progress_bar_suffix,
             require_multicall_result=self.require_multicall_result,
         ):
-
             total_combined_results += 1
 
             active_vault_set.clear()
@@ -305,9 +304,6 @@ class VaultHistoricalReadMulticaller:
             )
             for call_result in combined_result.results:
                 vault: HexAddress = call_result.call.extra_data["vault"]
-                if vault.lower() == "0x00c8a649c9837523ebb406ceb17a6378ab5c74cf":
-                    logger.info("Result from: %s: %s", vault, call_result)
-
                 vault_data[vault].append(call_result)
                 active_vault_set.add(vault)
                 total_results += 1
