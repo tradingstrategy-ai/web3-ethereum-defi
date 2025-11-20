@@ -1274,6 +1274,8 @@ def read_multicall_historical(
     iter_count = (end_block - start_block + 1) // step
     total = iter_count
 
+    logger.info("Doing %d historical multicall tasks for blocks %d to %d with step %d", total, start_block, end_block, step)
+
     if display_progress:
         if type(display_progress) == str:
             desc = display_progress
@@ -1300,7 +1302,10 @@ def read_multicall_historical(
             )
             yield task
 
+    completed_task_count = 0
+
     for completed_task in worker_processor(delayed(_execute_multicall_subprocess)(task) for task in _task_gen()):
+        completed_task_count += 1
         if progress_bar:
             progress_bar.update(1)
 
@@ -1309,6 +1314,8 @@ def read_multicall_historical(
                 progress_bar.set_postfix(suffixes)
 
         yield completed_task
+
+    logger.info("Completed %d historical reading tasks", completed_task_count)
 
     if progress_bar:
         progress_bar.close()
@@ -1361,6 +1368,8 @@ def read_multicall_historical_stateful(
     iter_count = end_block - start_block + 1
     total = iter_count
 
+    logger.info("Doing %d historical multicall block polls for blocks %d to %d with step %d", total, start_block, end_block, step)
+
     if display_progress:
         if type(display_progress) == str:
             desc = display_progress
@@ -1411,13 +1420,27 @@ def read_multicall_historical_stateful(
             yield combined_result
 
     last_block = start_block
+    total_accepted_calls = total_blocks = 0
+    first_read = True
     for block_number in range(start_block, end_block, step):
         # Map prefetch timestamp
         timestamp = timestamps[block_number]
 
         # Get the list of calls that are effective for this block and the blocks in the next multicall batch.
         # Drop vaults that have peaked/dysfunctional
-        accepted_calls = [c for c, state in calls.items() if state.should_invoke(c, block_number, timestamp)]
+        if first_read:
+            # Force reading of every item at the first cycle,
+            # to refresh should_invoke() conditions caused
+            # by broken peak_tvl read. If we get one TVL that is down to zero because of error,
+            # the vault reader might stuck. By forcing the read at every program run at least once,
+            # we hope to mitigate these issues.
+            accepted_calls = list(calls.keys())
+            first_read = False
+        else:
+            accepted_calls = [c for c, state in calls.items() if state.should_invoke(c, block_number, timestamp)]
+
+        total_blocks += 1
+        total_accepted_calls += len(accepted_calls)
 
         logger.debug(f"Compiling calls for {block_number:,}, {timestamp}, total calls {len(all_calls):,}, accepted calls {len(accepted_calls):,}")
 
@@ -1452,6 +1475,12 @@ def read_multicall_historical_stateful(
                 yield combined_result
 
             chunk = []
+
+    logger.info(
+        "Total blocks %d, total accepted calls over the period: %d",
+        total_blocks,
+        total_accepted_calls,
+    )
 
     # Process the remaning uneven chunk
     yield from _flush_chunk(chunk)

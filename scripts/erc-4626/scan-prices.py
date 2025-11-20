@@ -93,7 +93,10 @@ def main():
     web3factory = MultiProviderWeb3Factory(JSON_RPC_URL, retries=5)
     name = get_chain_name(web3.eth.chain_id)
 
-    setup_console_logging(log_file=Path(f"logs/{name.lower()}-vault-price-scan.log"))
+    setup_console_logging(
+        default_log_level=os.environ.get("LOG_LEVEL", "info"),
+        log_file=Path(f"logs/{name.lower()}-vault-price-scan.log"),
+    )
 
     min_deposit_threshold = 5
 
@@ -111,7 +114,7 @@ def main():
     else:
         output_folder = Path(output_folder).expanduser()
 
-    frequency = os.environ.get("FREQUENCY", "1d")
+    frequency = os.environ.get("FREQUENCY", "1h")
 
     assert frequency in ["1h", "1d"], f"Unsupported frequency: {frequency}"
 
@@ -131,6 +134,7 @@ def main():
         print(f"Loaded {len(reader_states)} reader states from {reader_state_db}, contains {len(unique_chains)} chains")
     else:
         # Start with empty reader states:g first chain. first scan
+        print(f"No existing reader states found at {reader_state_db}, starting fresh")
         reader_states = {}
 
     chain_vaults = [v for v in vault_db.rows.values() if v["_detection_data"].chain == chain_id]
@@ -184,8 +188,8 @@ def main():
     states = scan_result["reader_states"]
     if states:
         print(f"Saving {len(states)} reader states to {reader_state_db}")
-        example_state = next(iter(states.values()))
-        print("Example state:\n", pformat(example_state))
+        # example_state = next(iter(states.values()))
+        # print("Example state:\n", pformat(example_state))
         pickle.dump(states, reader_state_db.open("wb"))
 
         unique_chains = set(spec.chain_id for spec in states.keys())

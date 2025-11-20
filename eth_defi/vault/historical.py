@@ -216,6 +216,9 @@ class VaultHistoricalReadMulticaller:
             Unordered results
         """
 
+        # Debug debug
+        # vaults = [v for v in vaults if v.vault_address.lower() == "0x00c8a649c9837523ebb406ceb17a6378ab5c74cf"]
+
         # TODO: Clean up as an arg
         stateful = reader_func != read_multicall_historical
         readers = self.prepare_readers(vaults, stateful=stateful)
@@ -234,6 +237,14 @@ class VaultHistoricalReadMulticaller:
                     loaded_state_count += 1
 
         logger.info("Prepared %d readers, loaded %d states", len(readers), loaded_state_count)
+
+        for address, reader in readers.items():
+            state: VaultReaderState = reader.reader_state
+            logger.debug(
+                "Prepared reader for vault %s: state:\n%s",
+                address,
+                state.pformat() if state else "-",
+            )
 
         # Dealing with legacy shit here
         calls = {c: state for c, state in self.generate_vault_historical_calls(readers)}
@@ -262,6 +273,9 @@ class VaultHistoricalReadMulticaller:
 
         chain_name = get_chain_name(chain_id)
 
+        total_results = 0
+        total_combined_results = 0
+
         for combined_result in reader_func(
             chain_id=chain_id,
             web3factory=self.web3factory,
@@ -274,6 +288,8 @@ class VaultHistoricalReadMulticaller:
             progress_suffix=_progress_bar_suffix,
             require_multicall_result=self.require_multicall_result,
         ):
+            total_combined_results += 1
+
             active_vault_set.clear()
             vault_data: dict[HexAddress, list[EncodedCallResult]] = defaultdict(list)
 
@@ -290,6 +306,7 @@ class VaultHistoricalReadMulticaller:
                 vault: HexAddress = call_result.call.extra_data["vault"]
                 vault_data[vault].append(call_result)
                 active_vault_set.add(vault)
+                total_results += 1
 
             last_block_num = combined_result.block_number
             last_block_at = combined_result.timestamp
@@ -297,6 +314,13 @@ class VaultHistoricalReadMulticaller:
             for vault_address, results in vault_data.items():
                 reader = readers[vault_address]
                 yield reader.process_result(block_number, timestamp, results)
+
+        logger.info(
+            "Processed total %d results, total %d combined results, for %d vaults",
+            total_results,
+            total_combined_results,
+            len(vaults),
+        )
 
     def save_reader_state(self) -> dict[VaultSpec, dict]:
         """Save the state of all readers.
