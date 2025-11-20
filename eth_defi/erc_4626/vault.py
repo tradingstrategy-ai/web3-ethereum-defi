@@ -287,6 +287,14 @@ class VaultReaderState(BatchCallState):
 
         self.entry_count += 1
 
+    def pformat(self) -> str:
+        """Pretty print the current state."""
+        lines = []
+        for attr in self.SERIALISABLE_ATTRIBUTES:
+            value = getattr(self, attr)
+            lines.append(f"{attr}: {value}")
+        return "\n".join(lines)
+
 
 class ERC4626HistoricalReader(VaultHistoricalReader):
     """A reader that reads the historcal state of one specific vaults.
