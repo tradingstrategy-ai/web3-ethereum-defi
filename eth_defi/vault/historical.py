@@ -240,10 +240,10 @@ class VaultHistoricalReadMulticaller:
 
         for address, reader in readers.items():
             state: VaultReaderState = reader.reader_state
-            logger.info(
+            logger.debug(
                 "Prepared reader for vault %s: state:\n%s",
                 address,
-                state.pformat(),
+                state.pformat() if state else "-",
             )
 
         # Dealing with legacy shit here

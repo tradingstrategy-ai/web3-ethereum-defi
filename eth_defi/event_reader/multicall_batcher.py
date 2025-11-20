@@ -1430,7 +1430,10 @@ def read_multicall_historical_stateful(
         # Drop vaults that have peaked/dysfunctional
         if first_read:
             # Force reading of every item at the first cycle,
-            # to refresh should invoke conditions
+            # to refresh should_invoke() conditions caused
+            # by broken peak_tvl read. If we get one TVL that is down to zero because of error,
+            # the vault reader might stuck. By forcing the read at every program run at least once,
+            # we hope to mitigate these issues.
             accepted_calls = list(calls.keys())
             first_read = False
         else:
