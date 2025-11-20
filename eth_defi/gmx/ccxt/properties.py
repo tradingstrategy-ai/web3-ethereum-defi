@@ -29,8 +29,8 @@ def describe_gmx() -> dict:
     timeout = 30
 
     return {
-        "id": None,
-        "name": None,
+        "id": "gmx",
+        "name": "GMX",
         "countries": None,
         "enableRateLimit": True,
         "rateLimit": 2000,  # milliseconds = seconds * 1000

@@ -7,12 +7,12 @@ Example usage::
 
     from web3 import Web3
     from eth_defi.gmx.config import GMXConfig
-    from eth_defi.gmx.ccxt import GMXCCXT
+    from eth_defi.gmx.ccxt import GMX
 
     # Initialize
     web3 = Web3(Web3.HTTPProvider("https://arb1.arbitrum.io/rpc"))
     config = GMXConfig(web3)
-    gmx = GMXCCXT(config)
+    gmx = GMX(config)
 
     # Fetch OHLCV data (CCXT-style)
     ohlcv = gmx.fetch_ohlcv("ETH/USD", "1h", limit=100)
@@ -23,7 +23,7 @@ Example usage::
 """
 
 from datetime import datetime
-from typing import Optional, Any
+from typing import Any
 import time
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.api import GMXAPI
@@ -32,7 +32,7 @@ from eth_defi.gmx.graphql.client import GMXSubsquidClient
 from eth_defi.gmx.core.markets import Markets
 
 
-class GMXCCXT:
+class GMXCCXTWrapper(object):
     """
     CCXT-compatible wrapper for GMX protocol market data and trading.
 
@@ -99,52 +99,56 @@ class GMXCCXT:
     :vartype markets_loaded: bool
     """
 
-    def __init__(
-        self,
-        config: GMXConfig,
-        subsquid_endpoint: Optional[str] = None,
-    ):
+    def __init__(self, config: GMXConfig | None = None, subsquid_endpoint: str | None = None, *args, **kwargs):
         """
         Initialize the CCXT wrapper with GMX configuration.
 
         :param config: GMX configuration object containing network settings and optional wallet information
-        :type config: GMXConfig
+        :type config: GMXConfig | None
         :param subsquid_endpoint: Optional Subsquid GraphQL endpoint URL
-        :type subsquid_endpoint: Optional[str]
+        :type subsquid_endpoint: str | None
         """
-        self.config = config
-        self.api = GMXAPI(config)
-        self.web3 = config.web3  # Store web3 instance for fetch_time
+        # Cooperative inheritance: pass along to next in MRO
+        super().__init__(*args, **kwargs)
 
-        # Store wallet address from config if provided
-        # This is used by trading methods (fetch_balance, fetch_open_orders, etc.)
-        self.wallet_address = config.get_wallet_address() if hasattr(config, "get_wallet_address") else None
+        # Extract config from kwargs if not passed as positional arg
+        if config is None:
+            config = kwargs.get("config")
 
-        # Initialize Subsquid client with chain from config
-        chain = config.get_chain()
-        self.subsquid = GMXSubsquidClient(chain=chain, custom_endpoint=subsquid_endpoint)
+        if config is not None:
+            self.config = config
+            self.api = GMXAPI(config)
+            self.web3 = config.web3  # Store web3 instance for fetch_time
 
-        self.markets: dict[str, Any] = {}
-        self.markets_loaded = False
+            # Store wallet address from config if provided
+            # This is used by trading methods (fetch_balance, fetch_open_orders, etc.)
+            self.wallet_address = config.get_wallet_address() if hasattr(config, "get_wallet_address") else None
 
-        # Timeframes supported by GMX API
-        # Maps CCXT-style timeframe strings to GMX API periods
-        self.timeframes = {
-            "1m": "1m",
-            "5m": "5m",
-            "15m": "15m",
-            "1h": "1h",
-            "4h": "4h",
-            "1d": "1d",
-        }
+            # Initialize Subsquid client with chain from config
+            chain = config.get_chain()
+            self.subsquid = GMXSubsquidClient(chain=chain, custom_endpoint=subsquid_endpoint)
 
-        # Leverage storage for position management
-        # Maps symbol to leverage multiplier (e.g., {"ETH/USD": 5.0})
-        self.leverage: dict[str, float] = {}
+            self.markets: dict[str, Any] = {}
+            self.markets_loaded = False
 
-        # Token metadata cache for price decimal conversion
-        # Maps token address (lowercase) to token metadata (decimals, synthetic flag)
-        self._token_metadata: dict[str, dict] = {}
+            # Timeframes supported by GMX API
+            # Maps CCXT-style timeframe strings to GMX API periods
+            self.timeframes = {
+                "1m": "1m",
+                "5m": "5m",
+                "15m": "15m",
+                "1h": "1h",
+                "4h": "4h",
+                "1d": "1d",
+            }
+
+            # Leverage storage for position management
+            # Maps symbol to leverage multiplier (e.g., {"ETH/USD": 5.0})
+            self.leverage: dict[str, float] = {}
+
+            # Token metadata cache for price decimal conversion
+            # Maps token address (lowercase) to token metadata (decimals, synthetic flag)
+            self._token_metadata: dict[str, dict] = {}
 
     def _load_token_metadata(self):
         """Load token metadata for price decimal conversion.
@@ -241,7 +245,7 @@ class GMXCCXT:
 
     def fetch_markets(
         self,
-        params: Optional[dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
         """
         Fetch all available markets from GMX protocol.
@@ -250,7 +254,7 @@ class GMXCCXT:
         Unlike load_markets(), this method does not cache the results and always fetches fresh data.
 
         :param params: Additional parameters (not used currently)
-        :type params: Optional[Dict[str, Any]]
+        :type params: Dict[str, Any | None]
         :returns: List of market structures
         :rtype: List[Dict[str, Any]]
 
@@ -334,9 +338,9 @@ class GMXCCXT:
         self,
         symbol: str,
         timeframe: str = "1m",
-        since: Optional[int] = None,
-        limit: Optional[int] = None,
-        params: Optional[dict[str, Any]] = None,
+        since: int | None = None,
+        limit: int | None = None,
+        params: dict[str, Any] | None = None,
     ) -> list[list]:
         """Fetch historical OHLCV (Open, High, Low, Close, Volume) candlestick data.
 
@@ -349,11 +353,11 @@ class GMXCCXT:
         :param timeframe: Candlestick interval - "1m", "5m", "15m", "1h", "4h", "1d"
         :type timeframe: str
         :param since: Unix timestamp in milliseconds for the earliest candle to fetch (GMX API returns recent candles, filtering is done client-side)
-        :type since: Optional[int]
+        :type since: int | None
         :param limit: Maximum number of candles to return
-        :type limit: Optional[int]
+        :type limit: int | None
         :param params: Additional parameters (e.g., {"until": timestamp_ms})
-        :type params: Optional[dict[str, Any]]
+        :type params: dict[str, Any] | None
         :return: list of OHLCV candles, each as [timestamp_ms, open, high, low, close, volume]
         :rtype: list[list]
         :raises ValueError: If invalid symbol or timeframe
@@ -406,10 +410,10 @@ class GMXCCXT:
     def parse_ohlcvs(
         self,
         ohlcvs: list[list],
-        market: Optional[dict[str, Any]] = None,
+        market: dict[str, Any] | None = None,
         timeframe: str = "1m",  # CCXT uses this format so adding this for interface compatibility
-        since: Optional[int] = None,
-        limit: Optional[int] = None,
+        since: int | None = None,
+        limit: int | None = None,
         use_tail: bool = True,
     ) -> list[list]:
         """Parse multiple OHLCV candles from GMX format to CCXT format.
@@ -420,13 +424,13 @@ class GMXCCXT:
         :param ohlcvs: list of raw OHLCV data from GMX API
         :type ohlcvs: list[list]
         :param market: Market information dictionary (optional)
-        :type market: Optional[dict[str, Any]]
+        :type market: dict[str, Any] | None
         :param timeframe: Candlestick interval
         :type timeframe: str
         :param since: Filter candles after this timestamp (ms)
-        :type since: Optional[int]
+        :type since: int | None
         :param limit: Maximum number of candles to return
-        :type limit: Optional[int]
+        :type limit: int | None
         :param use_tail: If True, return the most recent candles when limiting
         :type use_tail: bool
         :return: list of parsed OHLCV candles in CCXT format
@@ -545,7 +549,7 @@ class GMXCCXT:
     def fetch_open_interest(
         self,
         symbol: str,
-        params: Optional[dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """
         Fetch current open interest for a symbol.
@@ -559,7 +563,7 @@ class GMXCCXT:
         :param symbol: Unified symbol (e.g., "ETH/USD", "BTC/USD")
         :type symbol: str
         :param params: Additional parameters - can include "market_address" to query specific market
-        :type params: Optional[dict[str, Any]]
+        :type params: dict[str, Any] | None
         :returns: dictionary with open interest information::
 
             {
@@ -628,9 +632,9 @@ class GMXCCXT:
         self,
         symbol: str,
         timeframe: str = "1h",
-        since: Optional[int] = None,
-        limit: Optional[int] = None,
-        params: Optional[dict[str, Any]] = None,
+        since: int | None = None,
+        limit: int | None = None,
+        params: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
         """
         Fetch historical open interest data from Subsquid.
@@ -643,11 +647,11 @@ class GMXCCXT:
         :param timeframe: Time interval (note: data is snapshot-based, not aggregated)
         :type timeframe: str
         :param since: Start timestamp in milliseconds
-        :type since: Optional[int]
+        :type since: int | None
         :param limit: Maximum number of records (default: 100)
-        :type limit: Optional[int]
+        :type limit: int | None
         :param params: Additional parameters (e.g., {"market_address": "0x..."})
-        :type params: Optional[dict[str, Any]]
+        :type params: dict[str, Any] | None
         :returns: list of historical open interest snapshots
         :rtype: list[dict[str, Any]]
         :raises ValueError: If invalid symbol or markets not loaded
@@ -692,16 +696,16 @@ class GMXCCXT:
 
     def fetch_open_interests(
         self,
-        symbols: Optional[list[str]] = None,
-        params: Optional[dict[str, Any]] = None,
+        symbols: list[str] | None = None,
+        params: dict[str, Any] | None = None,
     ) -> dict[str, dict[str, Any]]:
         """
         Fetch open interest for multiple symbols at once.
 
         :param symbols: List of symbols (e.g., ["ETH/USD", "BTC/USD"]). If None, fetch all markets.
-        :type symbols: Optional[list[str]]
+        :type symbols: list[str] | None
         :param params: Additional parameters
-        :type params: Optional[dict[str, Any]]
+        :type params: dict[str, Any] | None
         :return: Dictionary mapping symbols to open interest data
         :rtype: dict[str, dict[str, Any]]
 
@@ -738,7 +742,7 @@ class GMXCCXT:
     def parse_open_interest(
         self,
         interest: dict[str, Any],
-        market: Optional[dict[str, Any]] = None,
+        market: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """
         Parse raw open interest data to CCXT format.
@@ -753,7 +757,7 @@ class GMXCCXT:
             - shortOpenInterestInTokens: Short OI in tokens (token decimals)
         :type interest: dict[str, Any]
         :param market: Market information (CCXT market structure)
-        :type market: Optional[dict[str, Any]]
+        :type market: dict[str, Any] | None
         :return: Parsed open interest in CCXT format with structure::
 
             {
@@ -857,7 +861,7 @@ class GMXCCXT:
     def fetch_funding_rate(
         self,
         symbol: str,
-        params: Optional[dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """
         Fetch current funding rate for a symbol.
@@ -868,7 +872,7 @@ class GMXCCXT:
         :param symbol: Unified symbol (e.g., "ETH/USD", "BTC/USD")
         :type symbol: str
         :param params: Additional parameters - can include "market_address" to query specific market
-        :type params: Optional[dict[str, Any]]
+        :type params: dict[str, Any] | None
         :returns: dictionary with funding rate information::
 
             {
@@ -952,9 +956,9 @@ class GMXCCXT:
     def fetch_funding_rate_history(
         self,
         symbol: str,
-        since: Optional[int] = None,
-        limit: Optional[int] = None,
-        params: Optional[dict[str, Any]] = None,
+        since: int | None = None,
+        limit: int | None = None,
+        params: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
         """
         Fetch historical funding rate data from Subsquid.
@@ -965,11 +969,11 @@ class GMXCCXT:
         :param symbol: Unified symbol (e.g., "ETH/USD")
         :type symbol: str
         :param since: Start timestamp in milliseconds
-        :type since: Optional[int]
+        :type since: int | None
         :param limit: Maximum number of records (default: 100)
-        :type limit: Optional[int]
+        :type limit: int | None
         :param params: Additional parameters (e.g., {"market_address": "0x..."})
-        :type params: Optional[dict[str, Any]]
+        :type params: dict[str, Any] | None
         :returns: list of historical funding rate snapshots
         :rtype: list[dict[str, Any]]
         :raises ValueError: If invalid symbol or markets not loaded
@@ -2074,7 +2078,7 @@ class GMXCCXT:
     def parse_ohlcv(
         self,
         ohlcv: list,
-        market: Optional[dict[str, Any]] = None,  # CCXT uses this format so adding this for interface compatibility
+        market: dict[str, Any] | None = None,  # CCXT uses this format so adding this for interface compatibility
     ) -> list:
         """Parse a single OHLCV candle from GMX format to CCXT format.
 
@@ -2084,7 +2088,7 @@ class GMXCCXT:
         :param ohlcv: Single candle data from GMX [timestamp_s, open, high, low, close]
         :type ohlcv: list
         :param market: Market information dictionary (optional)
-        :type market: Optional[dict[str, Any]]
+        :type market: dict[str, Any] | None
         :return: Parsed candle in CCXT format [timestamp_ms, open, high, low, close, volume]
         :rtype: list
 
@@ -2153,8 +2157,8 @@ class GMXCCXT:
         self,
         dictionary: dict[str, Any],
         key: str,
-        default: Optional[int] = None,
-    ) -> Optional[int]:
+        default: int | None = None,
+    ) -> int | None:
         """Safely extract an integer value from a dictionary.
 
         :param dictionary: dictionary to extract from
@@ -2162,9 +2166,9 @@ class GMXCCXT:
         :param key: Key to look up
         :type key: str
         :param default: Default value if key not found
-        :type default: Optional[int]
+        :type default: int | None
         :return: Integer value or default
-        :rtype: Optional[int]
+        :rtype: int | None
         """
         value = dictionary.get(key, default)
         if value is None:
@@ -2178,8 +2182,8 @@ class GMXCCXT:
         self,
         dictionary: dict[str, Any],
         key: str,
-        default: Optional[str] = None,
-    ) -> Optional[str]:
+        default: str | None = None,
+    ) -> str | None:
         """Safely extract a string value from a dictionary.
 
         :param dictionary: dictionary to extract from
@@ -2187,9 +2191,9 @@ class GMXCCXT:
         :param key: Key to look up
         :type key: str
         :param default: Default value if key not found
-        :type default: Optional[str]
+        :type default: str | None
         :return: String value or default
-        :rtype: Optional[str]
+        :rtype: str | None
         """
         value = dictionary.get(key, default)
         if value is None:
@@ -2200,8 +2204,8 @@ class GMXCCXT:
         self,
         dictionary: dict[str, Any],
         key: str,
-        default: Optional[float] = None,
-    ) -> Optional[float]:
+        default: float | None = None,
+    ) -> float | None:
         """Safely extract a numeric value from a dictionary.
 
         :param dictionary: dictionary to extract from
@@ -2209,9 +2213,9 @@ class GMXCCXT:
         :param key: Key to look up
         :type key: str
         :param default: Default value if key not found
-        :type default: Optional[float]
+        :type default: float | None
         :return: Float value or default
-        :rtype: Optional[float]
+        :rtype: float | None
         """
         value = dictionary.get(key, default)
         if value is None:
@@ -2225,8 +2229,8 @@ class GMXCCXT:
         self,
         dictionary: dict[str, Any],
         key: str,
-        default: Optional[int] = None,
-    ) -> Optional[int]:
+        default: int | None = None,
+    ) -> int | None:
         """Safely extract a timestamp and convert to milliseconds.
 
         :param dictionary: dictionary to extract from
@@ -2234,9 +2238,9 @@ class GMXCCXT:
         :param key: Key to look up
         :type key: str
         :param default: Default value if key not found
-        :type default: Optional[int]
+        :type default: int | None
         :return: Timestamp in milliseconds or default
-        :rtype: Optional[int]
+        :rtype: int | None
         """
         value = dictionary.get(key, default)
         if value is None:
@@ -2251,13 +2255,13 @@ class GMXCCXT:
         except (ValueError, TypeError):
             return default
 
-    def iso8601(self, timestamp: Optional[int]) -> Optional[str]:
+    def iso8601(self, timestamp: int | None) -> str | None:
         """Convert timestamp in milliseconds to ISO8601 string.
 
         :param timestamp: Timestamp in milliseconds
-        :type timestamp: Optional[int]
+        :type timestamp: int | None
         :return: ISO8601 formatted datetime string
-        :rtype: Optional[str]
+        :rtype: str | None
         """
         if timestamp is None:
             return None
