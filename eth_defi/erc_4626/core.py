@@ -206,6 +206,11 @@ class ERC4626Feature(enum.Enum):
     #: https://nashpoint.gitbook.io/nashpoint
     nashpoint_like = "nashpoint_like"
 
+    #: LLAMMA / Convex?
+    #:
+    #: https://nashpoint.gitbook.io/nashpoint
+    llamma_like = "llamma_like"
+
 
 def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     """Deduct vault protocol name based on Vault smart contract features.
@@ -286,6 +291,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "AUTO Finance"
     elif ERC4626Feature.nashpoint_like in features:
         return "NashPoint"
+
+    elif ERC4626Feature.llamma_like in features:
+        return "LLAMMA"
 
     # No idea
     if ERC4626Feature.erc_7540_like in features:

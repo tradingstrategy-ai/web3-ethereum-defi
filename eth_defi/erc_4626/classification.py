@@ -342,6 +342,16 @@ def create_probe_calls(
             extra_data=None,
         )
 
+        # LLAMMA
+        # https://arbiscan.io/address/0xe296ee7f83d1d95b3f7827ff1d08fe1e4cf09d8d#code
+        llamma_call = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="borrowed_token()")[0:4],
+            function="borrowed_token",
+            data=b"",
+            extra_data=None,
+        )
+
         yield bad_probe_call
         yield name_call
         yield share_price_call
@@ -372,6 +382,7 @@ def create_probe_calls(
         yield usdai_call
         yield autopool_call
         yield nashpoint_call
+        yield llamma_call
 
 
 def identify_vault_features(
@@ -506,6 +517,9 @@ def identify_vault_features(
 
     if calls["validateComponentRatios"].success:
         features.add(ERC4626Feature.nashpoint_like)
+
+    if calls["borrowed_token"].success:
+        features.add(ERC4626Feature.llamma_like)
 
     if len(features) > 4:
         # This contract somehow responses to all calls with success.
@@ -748,6 +762,11 @@ def create_vault_instance(
         from eth_defi.nashpoint.vault import NashpointNodeVault
 
         return NashpointNodeVault(web3, spec, token_cache=token_cache, features=features)
+
+    elif ERC4626Feature.llamma_like in features:
+        # Both of these have fees internatilised
+        from eth_defi.llamma.vault import LLAMMAVault
+        return LLAMMAVault(web3, spec, token_cache=token_cache, features=features)
 
     else:
         # Generic ERC-4626 without fee data
