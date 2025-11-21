@@ -92,6 +92,8 @@ def main():
         "Last price (raw)": vault_prices_df["raw_share_price"].iloc[-1],
         "Last TVL": vault_prices_df["total_assets"].iloc[-1],
         "Price count": len(vault_prices_df),
+        "Rows (all)": f"{len(prices_df):,}",
+        "Last timestamp (all)": prices_df.index.max(),
     }
     pprint(data)
 
@@ -99,7 +101,7 @@ def main():
     vault_db = VaultDatabase.read()
     print(f"Checking uncleaned price data {DEFAULT_UNCLEANED_PRICE_DATABASE}")
     prices_df = pd.read_parquet(DEFAULT_UNCLEANED_PRICE_DATABASE)
-    prices_df = assign_unique_names(vault_db.rows, prices_df)
+    prices_df = assign_unique_names(vault_db.rows, prices_df, logger=lambda x: None)
     vault_prices_df = prices_df.loc[prices_df["id"] == vault_id]
     vault_prices_df = vault_prices_df.set_index("timestamp")
 
@@ -115,6 +117,7 @@ def main():
         "Max TVL": f"${vault_prices_df['total_assets'].max():,.0f}",
         "Last TVL": vault_prices_df["total_assets"].iloc[-1],
         "Price count": len(vault_prices_df),
+        "Rows (all)": f"{len(prices_df):,}",
     }
     pprint(data)
 

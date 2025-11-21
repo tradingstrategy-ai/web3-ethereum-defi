@@ -27,6 +27,14 @@ DEFAULT_RAW_PRICE_DATABASE = Path.home() / ".tradingstrategy" / "vaults" / "clea
 #: Where we store the raw scan data prior to cleaning
 DEFAULT_UNCLEANED_PRICE_DATABASE = Path.home() / ".tradingstrategy" / "vaults" / "vault-prices-1h.parquet"
 
+#: The state per vault for reading vault prices, and disabled vaults
+#:
+#: See
+DEFAULT_READER_STATE_DATABASE = Path.home() / ".tradingstrategy" / "vaults" / f"vault-reader-state-1h.pickle"
+
+#: See :py:attr:`eth_defi.erc_4626.vault.VaultReaderState`
+VaultReaderData: TypeAlias = dict[VaultSpec, dict]
+
 
 class VaultRow(TypedDict):
     """Vault info gathered during the vault discovery from the chain.
