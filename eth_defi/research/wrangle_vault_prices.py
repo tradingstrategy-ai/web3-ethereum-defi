@@ -644,6 +644,8 @@ def process_raw_vault_scan_data(
         logger("After add_denormalised_vault_data():")
         display(vault_prices_df)
 
+    prices_df = prices_df.set_index("timestamp")
+
     prices_df = sort_and_index_vault_prices(prices_df, PRIORITY_SORT_IDS)
     prices_df = filter_vaults_by_stablecoin(rows, prices_df, logger)
     # Disabled as low and does not result to any savings
