@@ -20,7 +20,7 @@ from eth_typing import HexAddress
 from eth_defi.chain import get_chain_name
 from eth_defi.token import is_stablecoin_like
 from eth_defi.vault.base import VaultSpec
-from eth_defi.vault.vaultdb import VaultDatabase, DEFAULT_VAULT_DATABASE, VaultRow, DEFAULT_RAW_PRICE_DATABASE
+from eth_defi.vault.vaultdb import VaultDatabase, DEFAULT_VAULT_DATABASE, VaultRow, DEFAULT_RAW_PRICE_DATABASE, DEFAULT_UNCLEANED_PRICE_DATABASE
 
 from tqdm.auto import tqdm
 
@@ -716,7 +716,7 @@ def check_missing_metadata(
 
 def generate_cleaned_vault_datasets(
     vault_db_path=DEFAULT_VAULT_DATABASE,
-    price_df_path=DEFAULT_RAW_PRICE_DATABASE,
+    price_df_path=DEFAULT_UNCLEANED_PRICE_DATABASE,
     cleaned_price_df_path=Path.home() / ".tradingstrategy" / "vaults" / "cleaned-vault-prices-1h.parquet",
     logger=print,
     display=display,
