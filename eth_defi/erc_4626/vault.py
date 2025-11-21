@@ -70,6 +70,7 @@ class VaultReaderState(BatchCallState):
     #: All attributes we store when we serialise the read state between runs
     SERIALISABLE_ATTRIBUTES = (
         "last_tvl",
+        "last_share_price",
         "max_tvl",
         "first_seen_at_block",
         "first_block",
@@ -121,6 +122,7 @@ class VaultReaderState(BatchCallState):
 
         #: TVL from the last read
         self.last_tvl: Decimal = None
+        self.last_price: Decimal = None
 
         #: Timestamp of the block of the first successful read of this vault.
         self.first_read_at: datetime.datetime = None
@@ -253,7 +255,7 @@ class VaultReaderState(BatchCallState):
             assert result.revert_exception, f"EncodedCallResult {result} has no total assets, but no revert exception either"
             # Cannot read total assets from this vault for some reason as the call is failing.
             # We will mark these broken vaults with special -1 TVL value in the vault reader state.
-            share_price = -1
+            share_price = Decimal(-1)
 
         # Just in the case something breaks
         if total_assets is None:

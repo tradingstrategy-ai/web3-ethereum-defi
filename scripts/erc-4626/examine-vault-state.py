@@ -1,5 +1,7 @@
 """Examine a scan state for a single vault.
 
+- Pull out vault reader state from the pickled statea database and print it.
+
 Usage:
 
 .. code-block:: shell
