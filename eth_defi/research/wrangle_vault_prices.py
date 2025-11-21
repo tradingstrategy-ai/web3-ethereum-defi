@@ -33,7 +33,7 @@ PRIORITY_SORT_IDS = [
 ]
 
 
-def get_vaults_by_id(rows: dict[HexAddress, VaultRow]) -> dict[str, VaultRow]:
+def get_vaults_by_id(rows: dict[VaultSpec, VaultRow]) -> dict[str, VaultRow]:
     """Build a dictionary of vaults by their chain-address id.
 
     :param rows:
@@ -46,7 +46,7 @@ def get_vaults_by_id(rows: dict[HexAddress, VaultRow]) -> dict[str, VaultRow]:
 
 
 def assign_unique_names(
-    rows: dict[HexAddress, VaultRow],
+    rows: dict[VaultSpec, VaultRow],
     prices_df: pd.DataFrame,
     logger=print,
     duplicate_nav_threshold=1000,
@@ -105,6 +105,8 @@ def assign_unique_names(
     # 40acres fix - they did not name their vault,
     # More about this later
     prices_df["name"] = prices_df["name"].fillna("<unknown>")
+
+    return prices_df
 
 
 def add_denormalised_vault_data(

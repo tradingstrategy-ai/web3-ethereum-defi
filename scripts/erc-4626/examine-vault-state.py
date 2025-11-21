@@ -33,10 +33,14 @@ import logging
 import os
 import pickle
 from pathlib import Path
+from pprint import pprint
 
+import pandas as pd
 
+from eth_defi.research.wrangle_vault_prices import assign_unique_names
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.base import VaultSpec
+from eth_defi.vault.vaultdb import read_default_vault_prices, DEFAULT_RAW_PRICE_DATABASE, DEFAULT_UNCLEANED_PRICE_DATABASE, VaultDatabase
 
 try:
     import hypersync
@@ -70,6 +74,42 @@ def main():
     print(f"Vault {spec} state:")
     for key, value in state.items():
         print(f"  {key}: {value}")
+
+    # Check price data
+    print(f"Checking cleaned price data {DEFAULT_RAW_PRICE_DATABASE}")
+    prices_df = read_default_vault_prices()
+    vault_prices_df = prices_df.loc[prices_df["id"] == vault_id]
+
+    data = {
+        "First timestamp": vault_prices_df.index.min(),
+        "Last timestamp": vault_prices_df.index.max(),
+        "Last block": f"{vault_prices_df['block_number'].iloc[-1]:,}",
+        "First price": vault_prices_df["share_price"].iloc[0],
+        "Last price": vault_prices_df["share_price"].iloc[-1],
+        "Last price (raw)": vault_prices_df["raw_share_price"].iloc[-1],
+        "Last TVL": vault_prices_df["total_assets"].iloc[-1],
+        "Price count": len(vault_prices_df),
+    }
+    pprint(data)
+
+    # Check raw price data
+    vault_db = VaultDatabase.read()
+    print(f"Checking uncleaned price data {DEFAULT_UNCLEANED_PRICE_DATABASE}")
+    prices_df = pd.read_parquet(DEFAULT_UNCLEANED_PRICE_DATABASE)
+    prices_df = assign_unique_names(vault_db.rows, prices_df)
+    vault_prices_df = prices_df.loc[prices_df["id"] == vault_id]
+    vault_prices_df = vault_prices_df.set_index("timestamp")
+
+    data = {
+        "First timestamp": vault_prices_df.index.min(),
+        "Last timestamp": vault_prices_df.index.max(),
+        "Last block": f"{vault_prices_df['block_number'].iloc[-1]:,}",
+        "First raw share price": vault_prices_df["share_price"].iloc[0],
+        "Last raw share price": vault_prices_df["share_price"].iloc[-1],
+        "Last TVL": vault_prices_df["total_assets"].iloc[-1],
+        "Price count": len(vault_prices_df),
+    }
+    pprint(data)
 
     print("All ok")
 

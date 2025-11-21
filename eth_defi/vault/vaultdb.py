@@ -21,8 +21,11 @@ from eth_defi.vault.base import VaultSpec
 #: Where we store the vault metadata database by default
 DEFAULT_VAULT_DATABASE = Path.home() / ".tradingstrategy" / "vaults" / "vault-metadata-db.pickle"
 
-#: Where we store uncleaned prices
+#: Where we store cleaned prices - with columns share_price and raw_share_prcie
 DEFAULT_RAW_PRICE_DATABASE = Path.home() / ".tradingstrategy" / "vaults" / "cleaned-vault-prices-1h.parquet"
+
+#: Where we store the raw scan data prior to cleaning
+DEFAULT_UNCLEANED_PRICE_DATABASE = Path.home() / ".tradingstrategy" / "vaults" / "vault-prices-1h.parquet"
 
 
 class VaultRow(TypedDict):
