@@ -1,6 +1,6 @@
-"""Examine a scan state for a single vault.
+"""Purge vault share price data for a particular chain.
 
-To diagnose why data is incorrect for a particular vault.
+- Next time the scanning will start from the scrath
 
 - Pull out vault reader state from the pickled statea database and print it.
 - Check both uncleaned and cleaned price data for the vault.
@@ -109,8 +109,6 @@ def main():
         "Last block": f"{vault_prices_df['block_number'].iloc[-1]:,}",
         "First raw share price": vault_prices_df["share_price"].iloc[0],
         "Last raw share price": vault_prices_df["share_price"].iloc[-1],
-        "Min raw share price": vault_prices_df["share_price"].min(),
-        "Max raw share price": vault_prices_df["share_price"].max(),
         "Last TVL": vault_prices_df["total_assets"].iloc[-1],
         "Price count": len(vault_prices_df),
     }
