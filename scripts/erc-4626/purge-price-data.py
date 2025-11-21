@@ -43,17 +43,17 @@ def main():
 
     # Replace reader states
     new_reader_states = {spec: state for spec, state in reader_states.items() if spec.chain_id != chain_id}
-    new_prices_df = prices_df[prices_df["chain_id"] != chain_id]
+    new_prices_df = prices_df[prices_df["chain"] != chain_id]
 
     print(f"Vault price data purge for chain {chain_id}: {chain_name}")
 
-    print(f"Old reader states: {len(reader_states)}")
-    print(f"New reader states: {len(new_reader_states)}")
-    print(f"To be deleted: {len(reader_states) - len(new_reader_states)}")
+    print(f"Old reader states: {len(reader_states):,}")
+    print(f"New reader states: {len(new_reader_states):,}")
+    print(f"Reader states to be deleted: {len(reader_states) - len(new_reader_states):,}")
 
-    print(f"Old rows: {len(prices_df)}")
-    print(f"New rows: {len(new_prices_df)}")
-    print(f"To be deleted: {len(prices_df) - len(new_prices_df)}")
+    print(f"Old rows: {len(prices_df):,}")
+    print(f"New rows: {len(new_prices_df):,}")
+    print(f"Rows to be deleted: {len(prices_df) - len(new_prices_df):,}")
 
     confirmation = input("Proceed: [y/N]? ")
     if confirmation.lower() != "y":
@@ -62,8 +62,13 @@ def main():
 
     vault_db.last_scanned_block[chain_id] = 0
     vault_db.write()
+    print(f"Wrote {DEFAULT_VAULT_DATABASE}")
+
     new_prices_df.to_parquet(price_parquet_fname)
+    print(f"Wrote {price_parquet_fname}")
+
     pickle.dump(new_reader_states, DEFAULT_READER_STATE_DATABASE.open("wb"))
+    print(f"Wrote {DEFAULT_READER_STATE_DATABASE}")
 
     print("All ok")
 

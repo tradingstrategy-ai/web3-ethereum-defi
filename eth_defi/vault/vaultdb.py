@@ -152,7 +152,7 @@ class VaultDatabase:
             raise RuntimeError(f"Could not read vault database from {path}: {e}") from e
         return existing_db
 
-    def write(self, path: Path):
+    def write(self, path: Path = DEFAULT_VAULT_DATABASE):
         """Do an atomic write to avoid corrupted data."""
 
         with atomic_write(path, mode="wb", overwrite=True) as f:
