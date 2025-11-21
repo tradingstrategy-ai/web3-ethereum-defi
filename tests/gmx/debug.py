@@ -117,10 +117,15 @@ def fund_wallet_anvil(web3: Web3, wallet_address: str, tokens: dict):
     """Fund wallet on Anvil fork using anvil_setBalance and whale transfers."""
     console.print("\n[bold]Funding wallet (Anvil mode)...[/bold]")
 
-    # Set ETH balance
+    # Set ETH balance for wallet
     eth_amount_wei = 100 * 10**18
     web3.provider.make_request("anvil_setBalance", [wallet_address, hex(eth_amount_wei)])
     console.print(f"  [green]✓ ETH balance: 100 ETH[/green]")
+
+    # Give whales some ETH for gas
+    gas_eth = 1 * 10**18
+    web3.provider.make_request("anvil_setBalance", [LARGE_USDC_HOLDER, hex(gas_eth)])
+    web3.provider.make_request("anvil_setBalance", [LARGE_WETH_HOLDER, hex(gas_eth)])
 
     # Transfer USDC from whale
     usdc_address = tokens.get("USDC")

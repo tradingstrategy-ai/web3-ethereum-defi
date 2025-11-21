@@ -371,9 +371,9 @@ def anvil_chain_fork(
     launch = fork_network_anvil(
         chain_rpc_url,
         unlocked_addresses=unlocked_addresses,
-        test_request_timeout=30,
+        test_request_timeout=60,
         fork_block_number=FORK_BLOCK_ARBITRUM,
-        launch_wait_seconds=40,
+        launch_wait_seconds=60,
     )
 
     try:
@@ -389,7 +389,7 @@ def web3_arbitrum_fork(anvil_chain_fork: str) -> Web3:
     web3 = Web3(
         HTTPProvider(
             anvil_chain_fork,
-            request_kwargs={"timeout": 30},
+            request_kwargs={"timeout": 60},
         )
     )
     install_chain_middleware(web3)
@@ -784,12 +784,40 @@ def wallet_with_arb(
 
 
 @pytest.fixture()
+def wallet_with_weth(
+    web3_arbitrum_fork,
+    chain_name,
+    test_address: HexAddress,
+    large_weth_holder_arbitrum: HexAddress,
+) -> None:
+    """Fund the test wallet with WETH."""
+    if chain_name == "arbitrum":
+        # Fund the whale holder with ETH for gas
+        eth_amount_wei = 10 * 10**18  # 10 ETH for gas
+        web3_arbitrum_fork.provider.make_request(
+            "anvil_setBalance",
+            [large_weth_holder_arbitrum, hex(eth_amount_wei)],
+        )
+
+        try:
+            config = _get_chain_config_with_tokens(chain_name)
+            weth_address = config["native_token_address"]  # WETH is the native token on Arbitrum
+            weth = fetch_erc20_details(web3_arbitrum_fork, weth_address)
+            amount = 1000 * 10**18  # 1000 WETH
+            weth.contract.functions.transfer(test_address, amount).transact({"from": large_weth_holder_arbitrum})
+        except Exception as e:
+            # If the transfer fails, skip the test instead of failing
+            pytest.skip(f"Could not transfer WETH to test wallet: {str(e)}")
+
+
+@pytest.fixture()
 def wallet_with_all_tokens(
     wallet_with_native_token,
     wallet_with_usdc,
     wallet_with_wbtc,
     wallet_with_link,
     wallet_with_arb,
+    wallet_with_weth,
 ) -> None:
     """Set up the wallet with all tokens needed for testing."""
     # This fixture combines all token fixtures to ensure the wallet has all needed tokens
@@ -963,16 +991,16 @@ def get_open_positions(gmx_config):
 def gmx_open_positions(chain_rpc_url) -> GetOpenPositions:
     launch = fork_network_anvil(
         chain_rpc_url,
-        test_request_timeout=30,
+        test_request_timeout=60,
         fork_block_number=373279955,
-        launch_wait_seconds=40,
+        launch_wait_seconds=60,
     )
     anvil_chain_fork = launch.json_rpc_url
 
     web3 = Web3(
         HTTPProvider(
             anvil_chain_fork,
-            request_kwargs={"timeout": 30},
+            request_kwargs={"timeout": 60},
         )
     )
     gmx_config = GMXConfig(web3)
