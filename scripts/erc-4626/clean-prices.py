@@ -15,7 +15,16 @@ To test:
 
     python scripts/erc-4626/clean-prices.py
 
+Debug run:
+
+.. code-block:: shell
+
+    VAULT_ID=1-"0x00c8a649c9837523ebb406ceb17a6378ab5c74cf" python scripts/erc-4626/clean-prices.py
+
 """
+
+import os
+from pathlib import Path
 
 from eth_defi.research.wrangle_vault_prices import generate_cleaned_vault_datasets
 from eth_defi.utils import setup_console_logging
@@ -23,8 +32,24 @@ from eth_defi.utils import setup_console_logging
 
 def main():
     print("Starting to clean vault prices data")
-    setup_console_logging()
-    generate_cleaned_vault_datasets()
+
+    # Print more information about which vault is being debugged
+    diagnose_vault_id = os.environ.get("VAULT_ID")
+
+    if diagnose_vault_id:
+        # Enable debug prints for a particular vault
+        logger = setup_console_logging(
+            default_log_level="info",
+        )
+        logger.info("Diagnosing vault ID: %s", diagnose_vault_id)
+    else:
+        # Normal logging
+        setup_console_logging(
+            log_file=Path("logs") / "clean-prices.log",
+            clear_log_file=True,
+        )
+
+    generate_cleaned_vault_datasets(diagnose_vault_id=diagnose_vault_id)
 
 
 if __name__ == "__main__":

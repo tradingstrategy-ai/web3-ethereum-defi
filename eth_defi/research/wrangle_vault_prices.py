@@ -614,6 +614,7 @@ def process_raw_vault_scan_data(
     prices_df: pd.DataFrame,
     logger=print,
     display: Callable = lambda x: None,
+    diagnose_vault_id: str | None = None,
 ) -> pd.DataFrame:
     """Preprocess vault data for further analysis.
 
@@ -638,11 +639,23 @@ def process_raw_vault_scan_data(
 
     prices_df = add_denormalised_vault_data(rows, prices_df, logger)
 
+    if diagnose_vault_id:
+        vault_prices_df = prices_df[prices_df["id"] == diagnose_vault_id]
+        logger("After add_denormalised_vault_data():")
+        display(vault_prices_df)
+
     prices_df = sort_and_index_vault_prices(prices_df, PRIORITY_SORT_IDS)
     prices_df = filter_vaults_by_stablecoin(rows, prices_df, logger)
     # Disabled as low and does not result to any savings
     # prices_df = filter_unneeded_row(prices_df, logger)
+
     prices_df = fix_outlier_share_prices(prices_df, logger)
+
+    if diagnose_vault_id:
+        vault_prices_df = prices_df[prices_df["id"] == diagnose_vault_id]
+        logger("After fix_outlier_share_prices():")
+        display(vault_prices_df)
+
     prices_df = calculate_vault_returns(prices_df)
 
     prices_df = clean_returns(
@@ -651,6 +664,12 @@ def process_raw_vault_scan_data(
         logger=logger,
         display=display,
     )
+
+    if diagnose_vault_id:
+        vault_prices_df = prices_df[prices_df["id"] == diagnose_vault_id]
+        print("After clean_returns():")
+        display(vault_prices_df)
+
     prices_df = clean_by_tvl(
         rows,
         prices_df,
@@ -701,6 +720,7 @@ def generate_cleaned_vault_datasets(
     cleaned_price_df_path=Path.home() / ".tradingstrategy" / "vaults" / "cleaned-vault-prices-1h.parquet",
     logger=print,
     display=display,
+    diagnose_vault_id: str | None = None,
 ):
     """A command line script entry point to take raw scanned vault price data and clean it up to a format that can be analysed.
 
@@ -729,6 +749,7 @@ def generate_cleaned_vault_datasets(
         prices_df,
         logger,
         display=display,
+        diagnose_vault_id=diagnose_vault_id,
     )
 
     # Sort for better compression

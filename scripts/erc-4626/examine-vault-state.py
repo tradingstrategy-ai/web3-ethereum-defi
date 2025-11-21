@@ -111,6 +111,8 @@ def main():
         "Last raw share price": vault_prices_df["share_price"].iloc[-1],
         "Min raw share price": vault_prices_df["share_price"].min(),
         "Max raw share price": vault_prices_df["share_price"].max(),
+        "Min TVL": f"${vault_prices_df['total_assets'].min():,.0f}",
+        "Max TVL": f"${vault_prices_df['total_assets'].max():,.0f}",
         "Last TVL": vault_prices_df["total_assets"].iloc[-1],
         "Price count": len(vault_prices_df),
     }
