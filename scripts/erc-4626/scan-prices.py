@@ -68,7 +68,7 @@ from eth_defi.provider.multi_provider import create_multi_provider_web3, MultiPr
 from eth_defi.token import TokenDiskCache
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.historical import scan_historical_prices_to_parquet, pformat_scan_result
-from eth_defi.vault.vaultdb import DEFAULT_VAULT_DATABASE
+from eth_defi.vault.vaultdb import DEFAULT_VAULT_DATABASE, DEFAULT_UNCLEANED_PRICE_DATABASE, DEFAULT_READER_STATE_DATABASE
 
 logger = logging.getLogger(__name__)
 
@@ -119,9 +119,8 @@ def main():
     assert frequency in ["1h", "1d"], f"Unsupported frequency: {frequency}"
 
     vault_db_fname = DEFAULT_VAULT_DATABASE
-    price_parquet_fname = output_folder / f"vault-prices-{frequency}.parquet"
-
-    reader_state_db = output_folder / f"vault-reader-state-{frequency}.pickle"
+    price_parquet_fname = DEFAULT_UNCLEANED_PRICE_DATABASE
+    reader_state_db = DEFAULT_READER_STATE_DATABASE
 
     print(f"Scanning vault historical prices on chain {web3.eth.chain_id}: {name}")
 

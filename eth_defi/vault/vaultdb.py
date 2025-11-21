@@ -27,6 +27,14 @@ DEFAULT_RAW_PRICE_DATABASE = Path.home() / ".tradingstrategy" / "vaults" / "clea
 #: Where we store the raw scan data prior to cleaning
 DEFAULT_UNCLEANED_PRICE_DATABASE = Path.home() / ".tradingstrategy" / "vaults" / "vault-prices-1h.parquet"
 
+#: The state per vault for reading vault prices, and disabled vaults
+#:
+#: See
+DEFAULT_READER_STATE_DATABASE = Path.home() / ".tradingstrategy" / "vaults" / f"vault-reader-state-1h.pickle"
+
+#: See :py:attr:`eth_defi.erc_4626.vault.VaultReaderState`
+VaultReaderData: TypeAlias = dict[VaultSpec, dict]
+
 
 class VaultRow(TypedDict):
     """Vault info gathered during the vault discovery from the chain.
@@ -144,7 +152,7 @@ class VaultDatabase:
             raise RuntimeError(f"Could not read vault database from {path}: {e}") from e
         return existing_db
 
-    def write(self, path: Path):
+    def write(self, path: Path = DEFAULT_VAULT_DATABASE):
         """Do an atomic write to avoid corrupted data."""
 
         with atomic_write(path, mode="wb", overwrite=True) as f:
