@@ -555,22 +555,21 @@ def get_token_metadata(chain: str, address: str) -> Optional[dict]:
 
 
 def normalize_gmx_token_symbol(chain: str, token_symbol: str) -> str:
-    """Normalize token symbol to the canonical form used by GMX for a given chain.
+    """Normalize token symbol to the canonical form used by GMX API for a given chain.
 
     On GMX, ETH and WETH are treated as the same token, as are AVAX and WAVAX.
-    This function returns the canonical symbol that should be used to look up
-    the token address.
+    This function returns the canonical symbol that GMX API uses.
 
     :param chain: Network name
     :param token_symbol: Original token symbol (e.g., "ETH", "WETH")
-    :return: Canonical token symbol (e.g., always "WETH" for ETH/WETH on Arbitrum)
+    :return: Canonical token symbol (e.g., always "ETH" for ETH/WETH on Arbitrum)
     """
     token_symbol_upper = token_symbol.upper()
 
     if chain in ["arbitrum", "arbitrum_sepolia"] and token_symbol_upper in ["ETH", "WETH"]:
-        return "WETH"  # On Arbitrum chains, both ETH and WETH map to WETH
+        return "ETH"  # GMX API uses "ETH" for wrapped ETH on Arbitrum
     elif chain in ["avalanche", "avalanche_fuji"] and token_symbol_upper in ["AVAX", "WAVAX"]:
-        return "WAVAX"  # On Avalanche chains, both AVAX and WAVAX map to WAVAX
+        return "AVAX"  # GMX API uses "AVAX" for wrapped AVAX on Avalanche
     else:
         return token_symbol_upper
 

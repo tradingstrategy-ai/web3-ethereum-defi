@@ -325,17 +325,18 @@ def fetch_on_chain_oracle_prices(web3: Web3) -> tuple[int, int]:
         # WETH: 18 decimals -> stored as price * 10^12
         # USDC: 6 decimals -> stored as price * 10^24
         if weth_address in prices:
-            weth_price_formatted = prices[weth_address]["maxPriceFull"]
+            weth_price_formatted = int(prices[weth_address]["maxPriceFull"])
             # Convert from GMX format (price * 10^12) to USD
-            eth_price_usd = int(weth_price_formatted / (10**12))
+            eth_price_usd = weth_price_formatted // (10**12)
         else:
             logger.warning(f"WETH price not found in oracle, using default 3000")
             eth_price_usd = 3000
 
         if usdc_address in prices:
-            usdc_price_formatted = prices[usdc_address]["maxPriceFull"]
+            usdc_price_formatted = int(prices[usdc_address]["maxPriceFull"])
             # Convert from GMX format (price * 10^24) to USD
-            usdc_price_usd = int(usdc_price_formatted / (10**24))
+            # USDC is always ~$1, so round to nearest integer (minimum 1)
+            usdc_price_usd = max(1, round(usdc_price_formatted / (10**24)))
         else:
             usdc_price_usd = 1
 
