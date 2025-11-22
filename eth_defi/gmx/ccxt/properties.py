@@ -44,18 +44,18 @@ def describe_gmx() -> dict:
             "privateAPI": True,
             "CORS": None,
             "sandbox": None,
-            "spot": None,
-            "margin": None,
-            "swap": None,
-            "future": None,
-            "option": None,
-            "addMargin": None,
+            "spot": False,
+            "margin": True,  # GMX uses cross margin
+            "swap": True,  # GMX provides perpetual swaps
+            "future": False,
+            "option": False,
+            "addMargin": False,  # Not yet implemented
             "borrowCrossMargin": None,
             "borrowIsolatedMargin": None,
             "borrowMargin": None,
-            "cancelAllOrders": None,
+            "cancelAllOrders": False,
             "cancelAllOrdersWs": None,
-            "cancelOrder": True,
+            "cancelOrder": False,  # Requires contract integration
             "cancelOrderWithClientOrderId": None,
             "cancelOrderWs": None,
             "cancelOrders": None,
@@ -64,25 +64,25 @@ def describe_gmx() -> dict:
             "closeAllPositions": None,
             "closePosition": None,
             "createDepositAddress": None,
-            "createLimitBuyOrder": None,
+            "createLimitBuyOrder": False,
             "createLimitBuyOrderWs": None,
-            "createLimitOrder": True,
+            "createLimitOrder": True,  # Implemented (returns unsigned tx or auto-signs)
             "createLimitOrderWs": None,
-            "createLimitSellOrder": None,
+            "createLimitSellOrder": False,
             "createLimitSellOrderWs": None,
-            "createMarketBuyOrder": None,
+            "createMarketBuyOrder": True,  # Implemented (returns unsigned tx or auto-signs)
             "createMarketBuyOrderWs": None,
             "createMarketBuyOrderWithCost": None,
             "createMarketBuyOrderWithCostWs": None,
-            "createMarketOrder": True,
-            "createMarketOrderWs": True,
+            "createMarketOrder": True,  # Implemented (returns unsigned tx or auto-signs)
+            "createMarketOrderWs": False,
             "createMarketOrderWithCost": None,
             "createMarketOrderWithCostWs": None,
-            "createMarketSellOrder": None,
+            "createMarketSellOrder": True,  # Implemented (returns unsigned tx or auto-signs)
             "createMarketSellOrderWs": None,
             "createMarketSellOrderWithCost": None,
             "createMarketSellOrderWithCostWs": None,
-            "createOrder": True,
+            "createOrder": True,  # Implemented (returns unsigned tx or auto-signs)
             "createOrderWs": None,
             "createOrders": None,
             "createOrderWithTakeProfitAndStopLoss": None,
@@ -108,7 +108,7 @@ def describe_gmx() -> dict:
             "createTriggerOrder": None,
             "createTriggerOrderWs": None,
             "deposit": None,
-            "editOrder": "emulated",
+            "editOrder": False,
             "editOrderWithClientOrderId": None,
             "editOrders": None,
             "editOrderWs": None,
@@ -133,8 +133,8 @@ def describe_gmx() -> dict:
             "fetchConvertTradeHistory": None,
             "fetchCrossBorrowRate": None,
             "fetchCrossBorrowRates": None,
-            "fetchCurrencies": "emulated",
-            "fetchCurrenciesWs": "emulated",
+            "fetchCurrencies": True,
+            "fetchCurrenciesWs": None,
             "fetchDeposit": None,
             "fetchDepositAddress": None,
             "fetchDepositAddresses": None,
@@ -145,8 +145,8 @@ def describe_gmx() -> dict:
             "fetchDepositWithdrawFee": None,
             "fetchDepositWithdrawFees": None,
             "fetchFundingHistory": None,
-            "fetchFundingRate": None,
-            "fetchFundingRateHistory": None,
+            "fetchFundingRate": True,  # Implemented
+            "fetchFundingRateHistory": True,  # Implemented
             "fetchFundingInterval": None,
             "fetchFundingIntervals": None,
             "fetchFundingRates": None,
@@ -156,40 +156,40 @@ def describe_gmx() -> dict:
             "fetchIsolatedBorrowRates": None,
             "fetchMarginAdjustmentHistory": None,
             "fetchIsolatedPositions": None,
-            "fetchL2OrderBook": True,
+            "fetchL2OrderBook": False,  # GMX uses liquidity pools, not order books
             "fetchL3OrderBook": None,
             "fetchLastPrices": None,
             "fetchLedger": None,
             "fetchLedgerEntry": None,
-            "fetchLeverage": None,
+            "fetchLeverage": True,  # Implemented (local storage)
             "fetchLeverages": None,
-            "fetchLeverageTiers": None,
+            "fetchLeverageTiers": False,  # GMX doesn't provide leverage tier data
             "fetchLiquidations": None,
             "fetchLongShortRatio": None,
             "fetchLongShortRatioHistory": None,
             "fetchMarginMode": None,
             "fetchMarginModes": None,
-            "fetchMarketLeverageTiers": None,
+            "fetchMarketLeverageTiers": False,
             "fetchMarkets": True,
             "fetchMarketsWs": None,
             "fetchMarkOHLCV": None,
             "fetchMyLiquidations": None,
             "fetchMySettlementHistory": None,
-            "fetchMyTrades": None,
+            "fetchMyTrades": True,  # Implemented
             "fetchMyTradesWs": None,
-            "fetchOHLCV": None,
+            "fetchOHLCV": True,  # Implemented
             "fetchOHLCVWs": None,
-            "fetchOpenInterest": None,
-            "fetchOpenInterests": None,
-            "fetchOpenInterestHistory": None,
+            "fetchOpenInterest": True,  # Implemented
+            "fetchOpenInterests": True,  # Implemented
+            "fetchOpenInterestHistory": True,  # Implemented
             "fetchOpenOrder": None,
-            "fetchOpenOrders": None,
+            "fetchOpenOrders": True,  # Implemented (returns positions)
             "fetchOpenOrdersWs": None,
             "fetchOption": None,
             "fetchOptionChain": None,
-            "fetchOrder": None,
+            "fetchOrder": False,  # Requires contract integration
             "fetchOrderWithClientOrderId": None,
-            "fetchOrderBook": True,
+            "fetchOrderBook": False,  # GMX uses liquidity pools, not order books
             "fetchOrderBooks": None,
             "fetchOrderBookWs": None,
             "fetchOrders": None,
@@ -202,20 +202,20 @@ def describe_gmx() -> dict:
             "fetchPositionsHistory": None,
             "fetchPositionWs": None,
             "fetchPositionMode": None,
-            "fetchPositions": None,
+            "fetchPositions": True,  # Implemented
             "fetchPositionsWs": None,
             "fetchPositionsForSymbol": None,
             "fetchPositionsForSymbolWs": None,
             "fetchPositionsRisk": None,
             "fetchPremiumIndexOHLCV": None,
             "fetchSettlementHistory": None,
-            "fetchStatus": None,
+            "fetchStatus": True,  # Implemented
             "fetchTicker": True,
             "fetchTickerWs": None,
-            "fetchTickers": None,
+            "fetchTickers": True,  # Implemented
             "fetchMarkPrices": None,
             "fetchTickersWs": None,
-            "fetchTime": None,
+            "fetchTime": True,  # Implemented
             "fetchTrades": True,
             "fetchTradesWs": None,
             "fetchTradingFee": None,
@@ -234,12 +234,12 @@ def describe_gmx() -> dict:
             "fetchWithdrawals": None,
             "fetchWithdrawalsWs": None,
             "fetchWithdrawalWhitelist": None,
-            "reduceMargin": None,
+            "reduceMargin": False,  # Not yet implemented
             "repayCrossMargin": None,
             "repayIsolatedMargin": None,
-            "setLeverage": None,
+            "setLeverage": True,  # Implemented (local storage)
             "setMargin": None,
-            "setMarginMode": None,
+            "setMarginMode": False,  # GMX uses cross margin only
             "setPositionMode": None,
             "signIn": None,
             "transfer": None,
