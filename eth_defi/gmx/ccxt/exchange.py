@@ -23,15 +23,21 @@ Example usage::
 """
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Optional
 import time
+
+from ccxt.base.errors import NotSupported
+
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.api import GMXAPI
 from eth_defi.gmx.core import GetOpenPositions
 from eth_defi.gmx.graphql.client import GMXSubsquidClient
 from eth_defi.gmx.core.markets import Markets
+from eth_defi.gmx.trading import GMXTrading
 from eth_defi.ccxt.exchange_compatible import ExchangeCompatible
 from eth_defi.gmx.ccxt.properties import describe_gmx
+from eth_defi.hotwallet import HotWallet
+from eth_defi.token import fetch_erc20_details
 
 
 class GMX(ExchangeCompatible):
@@ -67,23 +73,27 @@ class GMX(ExchangeCompatible):
     - ``fetch_balance()`` - Get account token balances
     - ``fetch_open_orders(symbol)`` - List open positions as orders
     - ``fetch_my_trades(symbol, since, limit)`` - User trade history
+    - ``create_order(symbol, type, side, amount, price, params)`` - Create and execute order (requires wallet)
+    - ``create_market_buy_order(symbol, amount, params)`` - Open long position
+    - ``create_market_sell_order(symbol, amount, params)`` - Open short position
+    - ``create_limit_order(symbol, side, amount, price, params)`` - Create limit order (behaves as market)
 
     **Position Management:**
 
     - ``fetch_positions(symbols)`` - Get detailed position information with metrics
     - ``set_leverage(leverage, symbol)`` - Configure leverage settings
     - ``fetch_leverage(symbol)`` - Query leverage configuration
-    - ``add_margin(symbol, amount)`` - Add collateral to position (not implemented)
-    - ``reduce_margin(symbol, amount)`` - Remove collateral from position (not implemented)
 
     **GMX Limitations:**
 
     - No ``fetch_order_book()`` - GMX uses liquidity pools, not order books
-    - No ``create_order()`` / ``cancel_order()`` - Requires private key, not included yet
+    - No ``cancel_order()`` - GMX orders execute immediately or revert
+    - No ``fetch_order()`` - Orders execute immediately via keeper system
     - Volume data not available in OHLCV
     - 24h high/low calculated from recent OHLCV data
     - Trades derived from position change events
     - Balance "used" amount not calculated (shown as 0.0)
+    - Order creation requires wallet parameter during initialization
 
     :ivar config: GMX configuration object
     :vartype config: GMXConfig
@@ -105,6 +115,7 @@ class GMX(ExchangeCompatible):
         self,
         config: GMXConfig | None = None,
         subsquid_endpoint: str | None = None,
+        wallet: Optional[HotWallet] = None,
         **kwargs,
     ):
         """
@@ -114,14 +125,20 @@ class GMX(ExchangeCompatible):
         :type config: GMXConfig | None
         :param subsquid_endpoint: Optional Subsquid GraphQL endpoint URL
         :type subsquid_endpoint: str | None
+        :param wallet: HotWallet for transaction signing. Required for order creation methods (create_order, create_market_buy_order, etc.). If not provided, order creation will raise an error.
+        :type wallet: Optional[HotWallet]
         """
-        # Initialize CCXT base class
+        # Initialise CCXT base class
         super().__init__(**kwargs)
 
         if config is not None:
             self.config = config
             self.api = GMXAPI(config)
             self.web3 = config.web3  # Store web3 instance for fetch_time
+            self.wallet = wallet  # Wallet for transaction signing (required for orders)
+
+            # Initialize trading manager for order creation (only if wallet provided)
+            self.trader = GMXTrading(config) if wallet else None
 
             # Store wallet address from config if provided
             # This is used by trading methods (fetch_balance, fetch_open_orders, etc.)
@@ -143,6 +160,7 @@ class GMX(ExchangeCompatible):
 
             self.markets: dict[str, Any] = {}
             self.markets_loaded = False
+            self.symbols: list[str] = []  # Will be populated by load_markets()
 
             # Timeframes supported by GMX API
             # Maps CCXT-style timeframe strings to GMX API periods
@@ -258,6 +276,10 @@ class GMX(ExchangeCompatible):
             }
 
         self.markets_loaded = True
+
+        # Update symbols list (CCXT compatibility)
+        self.symbols = list(self.markets.keys())
+
         return self.markets
 
     def fetch_markets(
@@ -347,7 +369,9 @@ class GMX(ExchangeCompatible):
             raise ValueError("Markets not loaded. Call load_markets() first.")
 
         if symbol not in self.markets:
-            raise ValueError(f"Market {symbol} not found. Available markets: {list(self.markets.keys())}")
+            raise ValueError(
+                f"Market {symbol} not found. Available markets: {list(self.markets.keys())}",
+            )
 
         return self.markets[symbol]
 
@@ -409,7 +433,9 @@ class GMX(ExchangeCompatible):
 
         # Validate timeframe
         if timeframe not in self.timeframes:
-            raise ValueError(f"Invalid timeframe: {timeframe}. Supported: {list(self.timeframes.keys())}")
+            raise ValueError(
+                f"Invalid timeframe: {timeframe}. Supported: {list(self.timeframes.keys())}",
+            )
 
         gmx_period = self.timeframes[timeframe]
 
@@ -473,7 +499,11 @@ class GMX(ExchangeCompatible):
 
         return parsed
 
-    def parse_ticker(self, ticker: dict, market: dict = None) -> dict:
+    def parse_ticker(
+        self,
+        ticker: dict,
+        market: dict = None,
+    ) -> dict:
         """
         Parse GMX ticker data to CCXT format.
 
@@ -628,7 +658,10 @@ class GMX(ExchangeCompatible):
 
         # Get market info
         market_info = self.market(symbol)
-        market_address = params.get("market_address", market_info["info"]["market_token"])
+        market_address = params.get(
+            "market_address",
+            market_info["info"]["market_token"],
+        )
 
         # Fetch latest market info from Subsquid (fast)
         market_infos = self.subsquid.get_market_infos(
@@ -930,7 +963,10 @@ class GMX(ExchangeCompatible):
 
         # Get market info
         market_info = self.market(symbol)
-        market_address = params.get("market_address", market_info["info"]["market_token"])
+        market_address = params.get(
+            "market_address",
+            market_info["info"]["market_token"],
+        )
 
         # Fetch latest market info from Subsquid (fast)
         market_infos = self.subsquid.get_market_infos(
@@ -1054,7 +1090,11 @@ class GMX(ExchangeCompatible):
 
         return result
 
-    def fetch_ticker(self, symbol: str, params: dict = None) -> dict:
+    def fetch_ticker(
+        self,
+        symbol: str,
+        params: dict = None,
+    ) -> dict:
         """
         Fetch ticker data for a single market.
 
@@ -1117,7 +1157,11 @@ class GMX(ExchangeCompatible):
 
         return result
 
-    def fetch_tickers(self, symbols: list[str] = None, params: dict = None) -> dict:
+    def fetch_tickers(
+        self,
+        symbols: list[str] = None,
+        params: dict = None,
+    ) -> dict:
         """
         Fetch ticker data for multiple markets at once.
 
@@ -1189,7 +1233,10 @@ class GMX(ExchangeCompatible):
 
         return result
 
-    def fetch_currencies(self, params: dict = None) -> dict:
+    def fetch_currencies(
+        self,
+        params: dict = None,
+    ) -> dict:
         """
         Fetch currency/token metadata.
 
@@ -1251,7 +1298,11 @@ class GMX(ExchangeCompatible):
 
         return result
 
-    def parse_trade(self, trade: dict, market: dict = None) -> dict:
+    def parse_trade(
+        self,
+        trade: dict,
+        market: dict = None,
+    ) -> dict:
         """
         Parse trade data to CCXT format.
 
@@ -1315,9 +1366,29 @@ class GMX(ExchangeCompatible):
         if fee_amount:
             fee = {"cost": abs(fee_amount), "currency": "USD"}
 
-        return {"id": self.safe_string(trade, "id"), "order": None, "timestamp": timestamp, "datetime": self.iso8601(timestamp), "symbol": self.safe_string(market, "symbol"), "type": None, "side": side, "takerOrMaker": None, "price": price, "amount": amount, "cost": cost, "fee": fee, "info": trade}
+        return {
+            "id": self.safe_string(trade, "id"),
+            "order": None,
+            "timestamp": timestamp,
+            "datetime": self.iso8601(timestamp),
+            "symbol": self.safe_string(market, "symbol"),
+            "type": None,
+            "side": side,
+            "takerOrMaker": None,
+            "price": price,
+            "amount": amount,
+            "cost": cost,
+            "fee": fee,
+            "info": trade,
+        }
 
-    def fetch_trades(self, symbol: str, since: int = None, limit: int = None, params: dict = None) -> list[dict]:
+    def fetch_trades(
+        self,
+        symbol: str,
+        since: int = None,
+        limit: int = None,
+        params: dict = None,
+    ) -> list[dict]:
         """
         Fetch recent public trades for a market.
 
@@ -1381,7 +1452,10 @@ class GMX(ExchangeCompatible):
 
         return trades
 
-    def fetch_time(self, params: dict = None) -> int:
+    def fetch_time(
+        self,
+        params: dict = None,
+    ) -> int:
         """
         Fetch current server time.
 
@@ -1405,7 +1479,10 @@ class GMX(ExchangeCompatible):
         # Convert to milliseconds
         return timestamp_seconds * 1000
 
-    def fetch_status(self, params: dict = None) -> dict:
+    def fetch_status(
+        self,
+        params: dict = None,
+    ) -> dict:
         """
         Fetch API operational status.
 
@@ -1462,9 +1539,19 @@ class GMX(ExchangeCompatible):
             status_result = "maintenance"
             info["web3"] = f"error: {str(e)}"
 
-        return {"status": status_result, "updated": timestamp, "datetime": self.iso8601(timestamp), "eta": None, "url": None, "info": info}
+        return {
+            "status": status_result,
+            "updated": timestamp,
+            "datetime": self.iso8601(timestamp),
+            "eta": None,
+            "url": None,
+            "info": info,
+        }
 
-    def fetch_balance(self, params: dict = None) -> dict:
+    def fetch_balance(
+        self,
+        params: dict = None,
+    ) -> dict:
         """
         Fetch account token balances.
 
@@ -1541,20 +1628,17 @@ class GMX(ExchangeCompatible):
         # Build balance dict
         result = {"free": {}, "used": {}, "total": {}, "info": {}}
 
-        # Standard ERC20 balanceOf ABI
-        balance_of_abi = [{"constant": True, "inputs": [{"name": "_owner", "type": "address"}], "name": "balanceOf", "outputs": [{"name": "balance", "type": "uint256"}], "type": "function"}]
-
         # Query balance for each token
         for code, currency in currencies.items():
             token_address = currency["id"]
             decimals = currency["precision"]
 
             try:
-                # Create token contract
-                token_contract = self.web3.eth.contract(address=self.web3.to_checksum_address(token_address), abi=balance_of_abi)
+                # Fetch token details and contract
+                token_details = fetch_erc20_details(self.web3, token_address)
 
                 # Get balance
-                balance_raw = token_contract.functions.balanceOf(wallet).call()
+                balance_raw = token_details.contract.functions.balanceOf(wallet).call()
                 balance_float = float(balance_raw) / (10**decimals)
 
                 # Calculate used (locked in positions) and free amounts
@@ -1576,7 +1660,11 @@ class GMX(ExchangeCompatible):
 
         return result
 
-    def parse_order(self, order: dict, market: dict = None) -> dict:
+    def parse_order(
+        self,
+        order: dict,
+        market: dict = None,
+    ) -> dict:
         """
         Parse order/position data to CCXT format.
 
@@ -1630,7 +1718,11 @@ class GMX(ExchangeCompatible):
             "info": order,
         }
 
-    def parse_position(self, position: dict, market: dict = None) -> dict:
+    def parse_position(
+        self,
+        position: dict,
+        market: dict = None,
+    ) -> dict:
         """
         Parse position data to CCXT format.
 
@@ -1651,7 +1743,10 @@ class GMX(ExchangeCompatible):
         position_size_usd = self.safe_number(position, "position_size")
         entry_price = self.safe_number(position, "entry_price")
         mark_price = self.safe_number(position, "mark_price")
-        collateral_amount = self.safe_number(position, "initial_collateral_amount_usd")
+        collateral_amount = self.safe_number(
+            position,
+            "initial_collateral_amount_usd",
+        )
 
         # Calculate contracts (amount in base currency)
         contracts = None
@@ -1741,7 +1836,13 @@ class GMX(ExchangeCompatible):
             "info": position,
         }
 
-    def fetch_open_orders(self, symbol: str = None, since: int = None, limit: int = None, params: dict = None) -> list[dict]:
+    def fetch_open_orders(
+        self,
+        symbol: str = None,
+        since: int = None,
+        limit: int = None,
+        params: dict = None,
+    ) -> list[dict]:
         """
         Fetch open orders (positions) for the account.
 
@@ -1814,7 +1915,13 @@ class GMX(ExchangeCompatible):
 
         return result
 
-    def fetch_my_trades(self, symbol: str = None, since: int = None, limit: int = None, params: dict = None) -> list[dict]:
+    def fetch_my_trades(
+        self,
+        symbol: str = None,
+        since: int = None,
+        limit: int = None,
+        params: dict = None,
+    ) -> list[dict]:
         """
         Fetch user's trade history.
 
@@ -1848,7 +1955,10 @@ class GMX(ExchangeCompatible):
         # Fetch position changes from Subsquid
         # NOTE: get_position_changes() only accepts account, position_key, and limit parameters
         # We need to filter by timestamp manually
-        position_changes = self.subsquid.get_position_changes(account=wallet, limit=limit or 100)
+        position_changes = self.subsquid.get_position_changes(
+            account=wallet,
+            limit=limit or 100,
+        )
 
         # Parse each position change as a trade
         trades = []
@@ -1894,7 +2004,11 @@ class GMX(ExchangeCompatible):
 
         return trades
 
-    def fetch_positions(self, symbols: list[str] = None, params: dict = None) -> list[dict]:
+    def fetch_positions(
+        self,
+        symbols: list[str] = None,
+        params: dict = None,
+    ) -> list[dict]:
         """
         Fetch all open positions for the account.
 
@@ -2010,9 +2124,17 @@ class GMX(ExchangeCompatible):
         else:
             # Set default leverage (stored with key '*')
             self.leverage["*"] = leverage
-            return {"symbol": "*", "leverage": leverage, "info": {"message": f"Default leverage set to {leverage}x for all symbols"}}
+            return {
+                "symbol": "*",
+                "leverage": leverage,
+                "info": {"message": f"Default leverage set to {leverage}x for all symbols"},
+            }
 
-    def fetch_leverage(self, symbol: str = None, params: dict = None) -> dict | list[dict]:
+    def fetch_leverage(
+        self,
+        symbol: str = None,
+        params: dict = None,
+    ) -> dict | list[dict]:
         """
         Get current leverage setting(s).
 
@@ -2052,11 +2174,18 @@ class GMX(ExchangeCompatible):
 
             # If no settings, return default
             if not result:
-                result.append({"symbol": "*", "leverage": 1.0, "info": {"message": "No leverage settings configured, using default 1.0x"}})
+                result.append(
+                    {"symbol": "*", "leverage": 1.0, "info": {"message": "No leverage settings configured, using default 1.0x"}},
+                )
 
             return result
 
-    def add_margin(self, symbol: str, amount: float, params: dict = None) -> dict:
+    def add_margin(
+        self,
+        symbol: str,
+        amount: float,
+        params: dict = None,
+    ) -> dict:
         """
         Add margin to an existing position.
 
@@ -2072,9 +2201,16 @@ class GMX(ExchangeCompatible):
             # This will raise NotImplementedError
             gmx.add_margin("ETH/USD", 1000.0)
         """
-        raise NotImplementedError("add_margin() requires GMX smart contract integration. This method will be implemented in a future update when GMX trading contract methods are added to the library.")
+        raise NotImplementedError(
+            "add_margin() requires GMX smart contract integration. This method will be implemented in a future update when GMX trading contract methods are added to the library.",
+        )
 
-    def reduce_margin(self, symbol: str, amount: float, params: dict = None) -> dict:
+    def reduce_margin(
+        self,
+        symbol: str,
+        amount: float,
+        params: dict = None,
+    ) -> dict:
         """
         Remove margin from an existing position.
 
@@ -2090,7 +2226,9 @@ class GMX(ExchangeCompatible):
             # This will raise NotImplementedError
             gmx.reduce_margin("ETH/USD", 500.0)
         """
-        raise NotImplementedError("reduce_margin() requires GMX smart contract integration. This method will be implemented in a future update when GMX trading contract methods are added to the library.")
+        raise NotImplementedError(
+            "reduce_margin() requires GMX smart contract integration. This method will be implemented in a future update when GMX trading contract methods are added to the library.",
+        )
 
     def parse_ohlcv(
         self,
@@ -2272,7 +2410,10 @@ class GMX(ExchangeCompatible):
         except (ValueError, TypeError):
             return default
 
-    def iso8601(self, timestamp: int | None) -> str | None:
+    def iso8601(
+        self,
+        timestamp: int | None,
+    ) -> str | None:
         """Convert timestamp in milliseconds to ISO8601 string.
 
         :param timestamp: Timestamp in milliseconds
@@ -2310,3 +2451,418 @@ class GMX(ExchangeCompatible):
         :rtype: dict[str, Any]
         """
         return {k: v for k, v in dictionary.items() if k not in keys}
+
+    # Order Creation Methods
+    def _convert_ccxt_to_gmx_params(
+        self,
+        symbol: str,
+        type: str,
+        side: str,
+        amount: float,
+        price: float | None,
+        params: dict,
+    ) -> dict:
+        """Convert CCXT order parameters to GMX trading parameters.
+
+        Maps standard CCXT order creation parameters to the GMX protocol's
+        parameter structure for position opening/closing.
+
+        :param symbol: CCXT symbol (e.g., 'ETH/USD')
+        :type symbol: str
+        :param type: Order type ('market' or 'limit')
+        :type type: str
+        :param side: Order side ('buy' or 'sell')
+        :type side: str
+        :param amount: Order size in USD
+        :type amount: float
+        :param price: Limit price (unused for market orders)
+        :type price: float | None
+        :param params: Additional parameters (leverage, collateral_symbol, etc.)
+        :type params: dict
+        :return: GMX-compatible parameter dictionary
+        :rtype: dict
+        :raises ValueError: If symbol is invalid or parameters are incompatible
+        """
+        # Validate symbol exists
+        if symbol not in self.markets:
+            raise ValueError(f"Market {symbol} not found. Call load_markets() first.")
+
+        market = self.markets[symbol]
+        base_currency = market["base"]  # e.g., 'ETH' from 'ETH/USD'
+
+        # Extract GMX-specific parameters from params
+        collateral_symbol = params.get("collateral_symbol", "USDC")  # Default to USDC
+        leverage = params.get("leverage", self.leverage.get(symbol, 1.0))
+        slippage_percent = params.get("slippage_percent", 0.003)  # 0.3% default
+
+        # Determine if this is opening or closing a position
+        # Check if user has an existing position
+        is_long = side == "buy"
+
+        gmx_params = {
+            "market_symbol": base_currency,
+            "collateral_symbol": collateral_symbol,
+            "start_token_symbol": collateral_symbol,
+            "is_long": is_long,
+            "size_delta_usd": amount,
+            "leverage": leverage,
+            "slippage_percent": slippage_percent,
+        }
+
+        # Add any additional parameters
+        if "execution_buffer" in params:
+            gmx_params["execution_buffer"] = params["execution_buffer"]
+        if "auto_cancel" in params:
+            gmx_params["auto_cancel"] = params["auto_cancel"]
+
+        return gmx_params
+
+    def _parse_order_result_to_ccxt(
+        self,
+        order_result,
+        symbol: str,
+        side: str,
+        type: str,
+        amount: float,
+        tx_hash: str,
+        receipt: dict,
+    ) -> dict:
+        """Convert GMX OrderResult to CCXT order structure.
+
+        :param order_result: GMX OrderResult from trading module
+        :param symbol: CCXT symbol
+        :type symbol: str
+        :param side: Order side ('buy' or 'sell')
+        :type side: str
+        :param type: Order type ('market' or 'limit')
+        :type type: str
+        :param amount: Order size in USD
+        :type amount: float
+        :param tx_hash: Transaction hash
+        :type tx_hash: str
+        :param receipt: Transaction receipt
+        :type receipt: dict
+        :return: CCXT-compatible order structure
+        :rtype: dict
+        """
+        timestamp = self.milliseconds()
+
+        # Determine status from receipt
+        status = "open" if receipt.get("status") == 1 else "failed"
+
+        # Build info dict with all GMX-specific data
+        info = {
+            "tx_hash": tx_hash,
+            "receipt": receipt,
+            "block_number": receipt.get("blockNumber"),
+            "gas_used": receipt.get("gasUsed"),
+            "execution_fee": order_result.execution_fee,
+            "acceptable_price": order_result.acceptable_price,
+            "mark_price": order_result.mark_price,
+            "gas_limit": order_result.gas_limit,
+        }
+
+        if order_result.estimated_price_impact is not None:
+            info["estimated_price_impact"] = order_result.estimated_price_impact
+
+        # Calculate fee in ETH
+        fee_cost = order_result.execution_fee / 1e18
+
+        return {
+            "id": tx_hash,
+            "clientOrderId": None,
+            "timestamp": timestamp,
+            "datetime": self.iso8601(timestamp),
+            "lastTradeTimestamp": None,
+            "symbol": symbol,
+            "type": type,
+            "side": side,
+            "price": order_result.mark_price if type == "market" else None,
+            "amount": amount,
+            "cost": None,  # Will be known after keeper execution
+            "average": None,  # Will be known after keeper execution
+            "filled": 0.0,  # Not filled yet (order just created)
+            "remaining": amount,
+            "status": status,
+            "fee": {
+                "cost": fee_cost,
+                "currency": "ETH",
+            },
+            "trades": [],
+            "info": info,
+        }
+
+    def create_order(
+        self,
+        symbol: str,
+        type: str,
+        side: str,
+        amount: float,
+        price: float | None = None,
+        params: dict | None = None,
+    ) -> dict:
+        """Create and execute a GMX order.
+
+        This method creates orders on GMX protocol with CCXT-compatible interface.
+        Orders are automatically signed with the wallet provided during initialization
+        and submitted to the Arbitrum blockchain.
+
+        **Example Usage:**
+
+        .. code-block:: python
+
+            from eth_defi.hotwallet import HotWallet
+            from eth_defi.gmx.ccxt import GMX
+            from eth_defi.gmx.config import GMXConfig
+            from web3 import Web3
+
+            # Initialize with wallet
+            web3 = Web3(Web3.HTTPProvider("https://arb1.arbitrum.io/rpc"))
+            config = GMXConfig(web3=web3)
+            wallet = HotWallet.from_private_key("0x...")
+            gmx = GMX(config, wallet=wallet)
+
+            # Create market buy order (long position)
+            order = gmx.create_order(
+                "ETH/USD",
+                "market",
+                "buy",
+                1000,
+                params={
+                    "leverage": 3.0,
+                    "collateral_symbol": "USDC",
+                },
+            )
+
+            print(f"Order created: {order['id']}")  # Transaction hash
+            print(f"Status: {order['status']}")  # 'open' or 'failed'
+
+        :param symbol: Market symbol (e.g., 'ETH/USD', 'BTC/USD')
+        :type symbol: str
+        :param type: Order type ('market' or 'limit')
+        :type type: str
+        :param side: Order side ('buy' for long, 'sell' for short)
+        :type side: str
+        :param amount: Order size in USD
+        :type amount: float
+        :param price: Limit price (currently unused, GMX uses market orders)
+        :type price: float | None
+        :param params: Additional parameters:
+            - leverage (float): Leverage multiplier (default: 1.0)
+            - collateral_symbol (str): Collateral token (default: 'USDC')
+            - slippage_percent (float): Slippage tolerance (default: 0.003)
+            - execution_buffer (float): Gas buffer multiplier (default: 1.3)
+            - auto_cancel (bool): Auto-cancel if execution fails (default: False)
+        :type params: dict | None
+        :return: CCXT-compatible order structure with transaction hash and status
+        :rtype: dict
+        :raises ValueError: If wallet not provided, parameters invalid, or market doesn't exist
+        """
+        if params is None:
+            params = {}
+
+        # Require wallet for order creation
+        if not self.wallet:
+            raise ValueError("Wallet required for order creation. Initialize GMX with wallet parameter: GMX(config, wallet=wallet)")
+
+        # Ensure markets are loaded
+        if not self.markets_loaded:
+            self.load_markets()
+
+        # Convert CCXT parameters to GMX parameters
+        gmx_params = self._convert_ccxt_to_gmx_params(symbol, type, side, amount, price, params)
+
+        # Create the order using GMXTrading
+        order_result = self.trader.open_position(**gmx_params)
+
+        # Sign transaction (remove nonce if present, wallet will manage it)
+        transaction = order_result.transaction
+        if "nonce" in transaction:
+            del transaction["nonce"]
+        signed_tx = self.wallet.sign_transaction_with_new_nonce(transaction)
+
+        # Submit to blockchain
+        tx_hash_bytes = self.web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+        tx_hash = tx_hash_bytes.hex()
+
+        # Wait for confirmation
+        receipt = self.web3.eth.wait_for_transaction_receipt(tx_hash_bytes)
+
+        # Convert to CCXT format
+        return self._parse_order_result_to_ccxt(
+            order_result,
+            symbol,
+            side,
+            type,
+            amount,
+            tx_hash,
+            receipt,
+        )
+
+    def create_market_buy_order(
+        self,
+        symbol: str,
+        amount: float,
+        params: dict | None = None,
+    ) -> dict:
+        """Create a market buy order (long position).
+
+        Convenience wrapper around create_order() for market buy orders.
+
+        :param symbol: Market symbol (e.g., 'ETH/USD')
+        :type symbol: str
+        :param amount: Order size in USD
+        :type amount: float
+        :param params: Additional parameters (see create_order)
+        :type params: dict | None
+        :return: CCXT-compatible order structure
+        :rtype: dict
+        """
+        return self.create_order(
+            symbol,
+            "market",
+            "buy",
+            amount,
+            None,
+            params,
+        )
+
+    def create_market_sell_order(
+        self,
+        symbol: str,
+        amount: float,
+        params: dict | None = None,
+    ) -> dict:
+        """Create a market sell order (short position).
+
+        Convenience wrapper around create_order() for market sell orders.
+
+        :param symbol: Market symbol (e.g., 'ETH/USD')
+        :type symbol: str
+        :param amount: Order size in USD
+        :type amount: float
+        :param params: Additional parameters (see create_order)
+        :type params: dict | None
+        :return: CCXT-compatible order structure
+        :rtype: dict
+        """
+        return self.create_order(
+            symbol,
+            "market",
+            "sell",
+            amount,
+            None,
+            params,
+        )
+
+    def create_limit_order(
+        self,
+        symbol: str,
+        side: str,
+        amount: float,
+        price: float,
+        params: dict | None = None,
+    ) -> dict:
+        """Create a limit order.
+
+        Note: GMX currently uses market orders with acceptable price limits.
+        This method exists for CCXT compatibility but behaves like a market order.
+
+        :param symbol: Market symbol (e.g., 'ETH/USD')
+        :type symbol: str
+        :param side: Order side ('buy' or 'sell')
+        :type side: str
+        :param amount: Order size in USD
+        :type amount: float
+        :param price: Limit price (informational, GMX uses market orders)
+        :type price: float
+        :param params: Additional parameters (see create_order)
+        :type params: dict | None
+        :return: CCXT-compatible order structure
+        :rtype: dict
+        """
+        return self.create_order(symbol, "limit", side, amount, price, params)
+
+    # Unsupported methods (GMX protocol limitations)
+
+    def cancel_order(
+        self,
+        id: str,
+        symbol: str | None = None,
+        params: dict | None = None,
+    ):
+        """Cancel an order.
+
+        Not supported by GMX - orders execute immediately via keeper system.
+
+        :raises NotSupported: GMX doesn't support order cancellation
+        """
+        raise NotSupported(
+            self.id + " cancel_order() is not supported - GMX orders are executed immediately by keepers and cannot be cancelled. Orders either execute or revert if conditions aren't met.",
+        )
+
+    def fetch_order(
+        self,
+        id: str,
+        symbol: str | None = None,
+        params: dict | None = None,
+    ):
+        """Fetch order by ID.
+
+        Not supported by GMX - orders execute immediately.
+
+        :raises NotSupported: GMX doesn't support fetching individual orders
+        """
+        raise NotSupported(
+            self.id + " fetch_order() is not supported - GMX orders execute immediately via the keeper system. Use fetch_positions() to see open positions or fetch_my_trades() for execution history.",
+        )
+
+    def fetch_order_book(
+        self,
+        symbol: str,
+        limit: int | None = None,
+        params: dict | None = None,
+    ):
+        """Fetch order book.
+
+        Not supported by GMX - uses liquidity pools instead of order books.
+
+        :raises NotSupported: GMX uses liquidity pools, not order books
+        """
+        raise NotSupported(
+            self.id + " fetch_order_book() is not supported - GMX uses liquidity pools instead of traditional order books. Use fetch_ticker() for current prices or fetch_open_interest() for market depth.",
+        )
+
+    def fetch_closed_orders(
+        self,
+        symbol: str | None = None,
+        since: int | None = None,
+        limit: int | None = None,
+        params: dict | None = None,
+    ):
+        """Fetch closed orders.
+
+        Not supported by GMX - use fetch_my_trades() instead.
+
+        :raises NotSupported: GMX doesn't track closed orders
+        """
+        raise NotSupported(
+            self.id + " fetch_closed_orders() is not supported - Use fetch_my_trades() to see your trading history or fetch_positions() for current positions.",
+        )
+
+    def fetch_orders(
+        self,
+        symbol: str | None = None,
+        since: int | None = None,
+        limit: int | None = None,
+        params: dict | None = None,
+    ):
+        """Fetch all orders.
+
+        Not supported by GMX - use fetch_positions() and fetch_my_trades() instead.
+
+        :raises NotSupported: GMX doesn't track pending orders
+        """
+        raise NotSupported(
+            self.id + " fetch_orders() is not supported - GMX orders execute immediately. Use fetch_positions() for open positions.",
+        )
