@@ -23,7 +23,7 @@ Example usage::
 """
 
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 import time
 
 from ccxt.base.errors import NotSupported
@@ -115,7 +115,7 @@ class GMX(ExchangeCompatible):
         self,
         config: GMXConfig | None = None,
         subsquid_endpoint: str | None = None,
-        wallet: Optional[HotWallet] = None,
+        wallet: HotWallet | None = None,
         **kwargs,
     ):
         """
@@ -126,7 +126,7 @@ class GMX(ExchangeCompatible):
         :param subsquid_endpoint: Optional Subsquid GraphQL endpoint URL
         :type subsquid_endpoint: str | None
         :param wallet: HotWallet for transaction signing. Required for order creation methods (create_order, create_market_buy_order, etc.). If not provided, order creation will raise an error.
-        :type wallet: Optional[HotWallet]
+        :type wallet: HotWallet | None
         """
         # Initialise CCXT base class
         super().__init__(**kwargs)
