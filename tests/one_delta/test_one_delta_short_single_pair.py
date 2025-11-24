@@ -6,27 +6,15 @@ import shutil
 
 import flaky
 import pytest
-from eth_account import Account
-from eth_account.signers.local import LocalAccount
-from eth_typing import HexAddress, HexStr
 
 from eth_defi.aave_v3.constants import MAX_AMOUNT
-from eth_defi.aave_v3.deployment import fetch_deployment as fetch_aave_deployment
 from eth_defi.aave_v3.loan import supply, withdraw
-from eth_defi.hotwallet import HotWallet
-from eth_defi.one_delta.deployment import OneDeltaDeployment
-from eth_defi.one_delta.deployment import fetch_deployment as fetch_1delta_deployment
 from eth_defi.one_delta.position import (
     approve,
     close_short_position,
     open_short_position,
     reduce_short_position,
 )
-from eth_defi.provider.anvil import fork_network_anvil, mine
-from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.token import fetch_erc20_details
-from eth_defi.trace import assert_transaction_success_with_explanation
-from scripts.velvet.manual_bnb_chain_check_revert_reason import reason
 
 from .utils import _execute_tx, _print_current_balances
 
