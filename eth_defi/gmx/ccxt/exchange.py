@@ -116,7 +116,8 @@ class GMX(ExchangeCompatible):
 
     def __init__(
         self,
-        config_or_params: GMXConfig | dict | None = None,
+        config: GMXConfig | None = None,
+        params: dict | None = None,
         subsquid_endpoint: str | None = None,
         wallet: HotWallet | None = None,
         **kwargs,
@@ -129,7 +130,7 @@ class GMX(ExchangeCompatible):
         1. CCXT-style (recommended)::
 
             gmx = GMX(
-                {
+                params={
                     "rpcUrl": "https://arb1.arbitrum.io/rpc",
                     "privateKey": "0x...",  # Optional - for trading
                     "chainId": 42161,  # Optional - auto-detected from RPC
@@ -143,23 +144,38 @@ class GMX(ExchangeCompatible):
 
             gmx = GMX(config=config, wallet=wallet, subsquid_endpoint="...")
 
-        :param config_or_params: Either a GMXConfig object (legacy) or a parameters dict (CCXT-style)
-        :type config_or_params: GMXConfig | dict | None
+        :param config: GMXConfig object (legacy) or parameters dict (if passed as first arg)
+        :type config: GMXConfig | dict | None
+        :param params: CCXT-style parameters dictionary
+        :type params: dict | None
         :param subsquid_endpoint: Optional Subsquid GraphQL endpoint URL (legacy only)
         :type subsquid_endpoint: str | None
         :param wallet: HotWallet for transaction signing (legacy only)
         :type wallet: HotWallet | None
         """
+        # Handle positional arguments and mixed usage
+        # If the first argument 'config' is actually a dict, treat it as params
+        if isinstance(config, dict):
+            params = config
+            config = None
+
+        # Prepare kwargs for CCXT base class
+        # CCXT expects 'config' to be a dict of parameters if provided
+        ccxt_kwargs = kwargs.copy()
+        if params:
+            ccxt_kwargs.update(params)
+
         # Initialize CCXT base class
-        super().__init__(**kwargs)
+        # We do NOT pass GMXConfig object to super().__init__ as it expects a dict
+        super().__init__(config=ccxt_kwargs)
 
         # Detect initialization style and route to appropriate method
-        if isinstance(config_or_params, dict):
+        if params:
             # CCXT-style: dictionary parameters
-            self._init_from_parameters(config_or_params)
-        elif config_or_params is not None:
+            self._init_from_parameters(params)
+        elif config is not None:
             # Legacy style: GMXConfig object
-            self._init_from_config(config_or_params, subsquid_endpoint, wallet)
+            self._init_from_config(config, subsquid_endpoint, wallet)
         else:
             # No parameters - minimal initialization
             self._init_empty()
