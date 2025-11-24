@@ -1302,7 +1302,10 @@ class GMX(ExchangeCompatible):
                     "active": True,  # Assume all GMX tokens are active
                     "fee": None,
                     "precision": decimals,
-                    "limits": {"amount": {"min": None, "max": None}, "withdraw": {"min": None, "max": None}},
+                    "limits": {
+                        "amount": {"min": None, "max": None},
+                        "withdraw": {"min": None, "max": None},
+                    },
                     "info": token,
                 }
 
