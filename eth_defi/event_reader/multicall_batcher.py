@@ -1445,14 +1445,13 @@ def read_multicall_historical_stateful(
             # the vault reader might stuck. By forcing the read at every program run at least once,
             # we hope to mitigate these issues.
             accepted_calls = list(calls.keys())
-            first_read = False
         else:
             accepted_calls = [c for c, state in calls.items() if state.should_invoke(c, block_number, timestamp)]
 
         total_blocks += 1
         total_accepted_calls += len(accepted_calls)
 
-        logger.debug(f"Compiling calls for {block_number:,}, {timestamp}, total calls {len(all_calls):,}, accepted calls {len(accepted_calls):,}")
+        logger.debug(f"Compiling calls for {block_number:,}, {timestamp}, total calls {len(all_calls):,}, accepted calls {len(accepted_calls):,}, first batch {first_read}")
 
         if len(accepted_calls) == 0:
             logger.debug("Block %d has no calls to perform, skipping", block_number)
@@ -1485,6 +1484,8 @@ def read_multicall_historical_stateful(
                 yield combined_result
 
             chunk = []
+
+        first_read = False
 
     logger.info(
         "Total blocks %d, total accepted calls over the period: %d",

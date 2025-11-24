@@ -83,6 +83,7 @@ class VaultReaderState(BatchCallState):
         "entry_count",
         "chain_id",
         "vault_address",
+        "denomination_token_address",
     )
 
     def __init__(
@@ -157,6 +158,9 @@ class VaultReaderState(BatchCallState):
 
         #: Events read, used for testing
         self.entry_count = 0
+
+        #: Cache denomination token address when preparing readers
+        self.denomination_token_address = None
 
         #: Copy for state debuggin
         self.chain_id = vault.spec.chain_id
@@ -282,7 +286,8 @@ class VaultReaderState(BatchCallState):
         # The vault TVL has fell too much, disable
         if self.max_tvl > self.peaked_tvl_threshold:
             #  The vault TVL drops so low we should actively stopp tracking it
-            if self.last_tvl < self.max_tvl * Decimal(1 - self.down_hard):
+            threshold = self.max_tvl * Decimal(1 - self.down_hard)
+            if self.last_tvl < threshold:
                 logger.debug(f"{self.last_call_at}: Vault {self.vault} peaked at {self.max_tvl}, now TVL is {self.last_tvl}, no longer reading it")
                 if not self.peaked_at:
                     self.peaked_at = timestamp
@@ -290,6 +295,7 @@ class VaultReaderState(BatchCallState):
             else:
                 # Reset peaked condition,
                 # see first_read comments in read historical
+                logger.debug(f"{self.last_call_at}: Vault {self.vault} un-peaked. Max TVL is {self.max_tvl}, TVL not is {self.last_tvl}, threshold is {threshold}, starting to read again")
                 self.peaked_at = None
                 self.peaked_tvl = None
 

@@ -241,7 +241,7 @@ def setup_console_logging(
 
         # When using a file, the file is always logged with INFO level and
         # env var controls only terminal output
-        min_level = logging.INFO
+        min_level = min(logging.INFO, numeric_level)
         if clear_log_file:
             mode = "w"
         else:

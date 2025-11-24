@@ -122,9 +122,21 @@ class VaultHistoricalReadMulticaller:
         """Run in subprocess"""
         return vault.get_historical_reader(stateful=stateful)
 
-    def _prepare_denomination_token(self, vault: VaultBase) -> HexAddress:
+    def _prepare_denomination_token(self, reader: "eth_defi.erc_4626.vault.ERC4626HistoricalReader") -> HexAddress:
         """Run in subprocess"""
-        return vault.fetch_denomination_token_address()
+
+        state = reader.reader_state
+        if state:
+            if state.denomination_token_address is not None:
+                return state.denomination_token_address
+
+        address = reader.vault.fetch_denomination_token_address()
+
+        # Save for the next run as this is slow to fetch
+        if state:
+            state.denomination_token_address = address
+
+        return address
 
     def _prepare_multicalls(self, reader: VaultHistoricalReader, stateful=False) -> Iterable[tuple[EncodedCall, BatchCallState]]:
         """Run in subprocess"""
@@ -135,6 +147,7 @@ class VaultHistoricalReadMulticaller:
         self,
         vaults: list[VaultBase],
         stateful=False,
+        saved_states: dict[VaultReaderState, dict] | None = None,
     ) -> dict[HexAddress, VaultHistoricalReader]:
         """Create readrs for vaults."""
         logger.info(
@@ -148,20 +161,47 @@ class VaultHistoricalReadMulticaller:
 
         chain_id = vaults[0].chain_id
 
+        # Each vault reader creation causes ~5 RPC call as it initialises the token information.
+        # We do parallel to cut down the time here.
+        logger.info("Preparing readers %d vaults", len(vaults))
+        results = Parallel(n_jobs=self.max_workers, backend="threading")(delayed(self._prepare_reader)(v, stateful) for v in vaults)
+        readers = {r.address: r for r in results}
+
+        # Hydrate states from the previous run
+        loaded_state_count = 0
+        cached_denomination_tokens = 0
+        if saved_states:
+            for reader in readers.values():
+                spec = reader.vault.get_spec()
+                existing_state = saved_states.get(spec)
+                if existing_state:
+                    reader.reader_state.load(existing_state)
+                    loaded_state_count += 1
+
+                    if existing_state.get("denomination_token_address") is not None:
+                        # Ensure we have denomination token address loaded
+                        cached_denomination_tokens += 1
+
+        logger.info(
+            "Prepared %d readers, loaded %d states, had %d cached denomination tokens",
+            len(readers),
+            loaded_state_count,
+            cached_denomination_tokens,
+        )
+
         # Warm up token disk cache for denomination tokens.
         # We need to load this up before because we need to calculate share price for amount 1 in denomination token (USDC)
-        token_addresses = Parallel(n_jobs=self.max_workers, backend="threading")(delayed(self._prepare_denomination_token)(v) for v in vaults)
+        logger.info("Preparing denomination tokens for %d vaults", len(vaults))
+        token_load_max_workers = 16
+        token_addresses = Parallel(n_jobs=token_load_max_workers, backend="threading")(delayed(self._prepare_denomination_token)(r) for r in readers.values())
         token_addresses = [a for a in token_addresses if a is not None]
+
         self.token_cache.load_token_details_with_multicall(
             chain_id=chain_id,
             web3factory=self.web3factory,
             addresses=token_addresses,
         )
 
-        # Each vault reader creation causes ~5 RPC call as it initialises the token information.
-        # We do parallel to cut down the time here.
-        results = Parallel(n_jobs=self.max_workers, backend="threading")(delayed(self._prepare_reader)(v, stateful) for v in vaults)
-        readers = {r.address: r for r in results}
         return readers
 
     def generate_vault_historical_calls(
@@ -183,7 +223,8 @@ class VaultHistoricalReadMulticaller:
         else:
             progress_bar = None
 
-        results = Parallel(n_jobs=self.max_workers, backend="threading")(delayed(self._prepare_multicalls)(r) for r in readers.values())
+        results = [self._prepare_multicalls(r) for r in readers.values()]
+        # results = Parallel(n_jobs=self.max_workers, backend="threading")(delayed(self._prepare_multicalls)(r) for r in readers.values())
 
         for r in results:
             if progress_bar is not None:
@@ -221,30 +262,26 @@ class VaultHistoricalReadMulticaller:
 
         # TODO: Clean up as an arg
         stateful = reader_func != read_multicall_historical
-        readers = self.prepare_readers(vaults, stateful=stateful)
+
+        logger.info(f"Prpearing readers for %d vaults, stateful is %s", len(vaults), stateful)
+
+        readers = self.prepare_readers(
+            vaults,
+            stateful=stateful,
+            saved_states=saved_states,
+        )
 
         # Expose for testing purposes
         self.readers = readers
 
-        # Hydrate states from the previous run
-        loaded_state_count = 0
-        if saved_states:
-            for reader in readers.values():
-                spec = reader.vault.get_spec()
-                existing_state = saved_states.get(spec)
-                if existing_state:
-                    reader.reader_state.load(existing_state)
-                    loaded_state_count += 1
 
-        logger.info("Prepared %d readers, loaded %d states", len(readers), loaded_state_count)
-
-        for address, reader in readers.items():
-            state: VaultReaderState = reader.reader_state
-            logger.debug(
-                "Prepared reader for vault %s: state:\n%s",
-                address,
-                state.pformat() if state else "-",
-            )
+        # for address, reader in readers.items():
+        #     state: VaultReaderState = reader.reader_state
+        #     logger.debug(
+        #         "Prepared reader for vault %s: state:\n%s",
+        #         address,
+        #         state.pformat() if state else "-",
+        #     )
 
         # Dealing with legacy shit here
         calls = {c: state for c, state in self.generate_vault_historical_calls(readers)}
@@ -501,6 +538,7 @@ def scan_historical_prices_to_parquet(
 
     if output_fname.exists():
         try:
+            logger.info("Reading existing Parquet file %s", output_fname)
             existing_table = pq.read_table(output_fname)
             schema = existing_table.schema
         except pa.lib.ArrowInvalid as e:
@@ -511,6 +549,7 @@ def scan_historical_prices_to_parquet(
             )
             existing_table = None
     else:
+        logger.info("Creating Parquet from the scratch %s", output_fname)
         existing_table = None
         schema = VaultHistoricalRead.to_pyarrow_schema()
 
