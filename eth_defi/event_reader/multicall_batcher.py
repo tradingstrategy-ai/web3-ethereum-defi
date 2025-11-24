@@ -1167,10 +1167,20 @@ class MultiprocessMulticallReader:
                     except MulticallRetryable as e:
                         provider_name = get_provider_name(provider)
                         if i < (fallback_attempts - 1):
+                            logger.warning(f"Attempts: {i}, max attempts: {fallback_attempts}.")
                             logger.warning(f"Multicall with batch size 1 still failed at chain {chain_id}, block {block_identifier_str}. Switching provider and retrying. Current provider: {active_provider =} ({active_provider_name}). Exception: {e}.")
                             continue
 
-                        raise RuntimeError(f"Encountered a contract that cannot be called even after dropping multicall batch size to 1 and switching providers, bailing out.\nManually figure out how to work around / change RPC providers.\nOriginal provider: {provider} ({provider_name}), fallback provider: {fallback_provider} ({active_provider_name}), chain {chain_id}, block {block_identifier_str}, batch size: 1.\nException: {e}.\n") from e
+                        raise RuntimeError(
+                            f"Multicall retry failed\n"
+                            # Ruff piece of crap hack
+                            # https://github.com/astral-sh/ruff/pull/8822
+                            f"Encountered a contract that cannot be called even after dropping multicall batch size to 1 and switching providers, bailing out.\n"
+                            f"Fallback attempts {i}, max attempts {fallback_attempts}.\n"
+                            f"Manually figure out how to work around / change RPC providers.\n"
+                            f"Original provider: {provider} ({provider_name}), fallback provider: {fallback_provider} ({active_provider_name}), chain {chain_id}, block {block_identifier_str}, batch size: 1.\n"
+                            f"Exception: {e}.\n"
+                        ) from e
 
         self.calls += 1
 

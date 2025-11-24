@@ -265,6 +265,8 @@ skip-magic-trailing-comma = false  # Respect trailing commas to force multi-line
 docstring-code-format = true       # Format code blocks in docstrings
 indent-style = "space"
 
+# This disables the specific normalization rule
+# skip-string-normalization = true   # Available since Ruff 0.5+
 # NOTE: Still under development. Ref: https://github.com/astral-sh/ruff/issues/6606
 #[tool.ruff.lint.pydocstyle]
 ## Use Sphinx docstring convention
