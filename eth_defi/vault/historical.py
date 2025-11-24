@@ -235,7 +235,6 @@ class VaultHistoricalReadMulticaller:
 
         # Because of JSON-RPC eth_call asset() call in fetch_denomination_token()
         # slowing down everything, we need to populate these
-
         populated_tokens = 0
         if saved_states:
             for reader in readers.values():

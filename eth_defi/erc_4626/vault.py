@@ -303,22 +303,24 @@ class VaultReaderState(BatchCallState):
             #  The vault TVL drops so low we should actively stopp tracking it
             threshold = self.max_tvl * Decimal(1 - self.down_hard)
             if self.last_tvl < threshold:
-                logger.debug(f"{self.last_call_at}: Vault {self.vault} peaked at {self.max_tvl}, now TVL is {self.last_tvl}, no longer reading it")
                 if not self.peaked_at:
+                    logger.debug(f"{self.last_call_at}: Vault {self.vault} peaked at {self.max_tvl}, now TVL is {self.last_tvl}, no longer reading it")
                     self.peaked_at = timestamp
                     self.peaked_tvl = self.last_tvl
             else:
                 # Reset peaked condition,
                 # see first_read comments in read historical
-                logger.debug(f"{self.last_call_at}: Vault {self.vault} un-peaked. Max TVL is {self.max_tvl}, TVL not is {self.last_tvl}, threshold is {threshold}, starting to read again")
-                self.peaked_at = None
-                self.peaked_tvl = None
+                if self.peaked_at:
+                    logger.debug(f"{self.last_call_at}: Vault {self.vault} un-peaked. Max TVL is {self.max_tvl}, TVL now is {self.last_tvl}, threshold is {threshold}, starting to read again, peaked at was {self.peaked_at} at TVL {self.peaked_tvl}")
+                    self.peaked_at = None
+                    self.peaked_tvl = None
 
         # The vault never got any traction, disable
         if self.last_call_at - self.first_read_at > self.traction_period:
             if self.max_tvl < self.min_tvl_threshold:
-                logger.debug(f"{self.last_call_at}:  Vault {self.vault} disabled at {self.max_tvl}, never reached min TVL {self.min_tvl_threshold}, no longer reading it")
-                self.faded_at = timestamp
+                if not self.faded_at:
+                    logger.debug(f"{self.last_call_at}:  Vault {self.vault} disabled at {self.max_tvl}, never reached min TVL {self.min_tvl_threshold}, no longer reading it, first read at {self.first_read_at}, last call at {self.last_call_at}, traction period was {self.traction_period}")
+                    self.faded_at = timestamp
 
         self.entry_count += 1
 
