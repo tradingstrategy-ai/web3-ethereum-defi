@@ -93,10 +93,16 @@ def main():
     web3factory = MultiProviderWeb3Factory(JSON_RPC_URL, retries=5)
     name = get_chain_name(web3.eth.chain_id)
 
+    default_log_level = os.environ.get("LOG_LEVEL", "info")
+
+    profile = os.environ.get("PROFILE", "false") == "true"
+
     setup_console_logging(
-        default_log_level=os.environ.get("LOG_LEVEL", "info"),
+        default_log_level=default_log_level,
         log_file=Path(f"logs/{name.lower()}-vault-price-scan.log"),
     )
+
+    logger.debug("Using log level: %s", default_log_level)
 
     min_deposit_threshold = 5
 
@@ -169,19 +175,35 @@ def main():
         print(f"No vaults to scan on {name} after filtering, exiting")
         sys.exit(0)
 
-    scan_result = scan_historical_prices_to_parquet(
-        output_fname=price_parquet_fname,
-        web3=web3,
-        web3factory=web3factory,
-        vaults=vaults,
-        start_block=None,
-        end_block=end_block,
-        max_workers=max_workers,
-        chunk_size=32,
-        token_cache=token_cache,
-        frequency=frequency,
-        reader_states=reader_states,
-    )
+    if profile:
+        # cProfiler hook, as we want to make some stuff faster
+        import cProfile
+
+        pr = cProfile.Profile()
+        pr.enable()
+        profiler_file = Path("logs/scan-prices-profile.cprof")
+        print(f"Profiling, output file: {profiler_file.resolve()}")
+    else:
+        pr = None
+
+    try:
+        scan_result = scan_historical_prices_to_parquet(
+            output_fname=price_parquet_fname,
+            web3=web3,
+            web3factory=web3factory,
+            vaults=vaults,
+            start_block=None,
+            end_block=end_block,
+            max_workers=max_workers,
+            chunk_size=32,
+            token_cache=token_cache,
+            frequency=frequency,
+            reader_states=reader_states,
+        )
+    finally:
+        if pr:
+            pr.disable()
+            pr.dump_stats(profiler_file)
 
     # Save states
     states = scan_result["reader_states"]

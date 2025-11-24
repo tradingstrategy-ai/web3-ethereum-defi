@@ -1048,6 +1048,9 @@ class TokenDiskCache(PersistentKeyValueStore):
         self.max_str_length = max_str_length
         super().__init__(filename)
 
+    def __repr__(self):
+        return f"<TokenDiskCache file={self.filename} entries={len(self)}>"
+
     def encode_value(self, value: dict) -> Any:
         value["saved_at"] = native_datetime_utc_now().isoformat()
         return json.dumps(value)

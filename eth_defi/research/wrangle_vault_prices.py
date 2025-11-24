@@ -635,6 +635,10 @@ def process_raw_vault_scan_data(
 
     assign_unique_names(rows, prices_df, logger)
 
+    import ipdb
+
+    ipdb.set_trace()
+
     check_missing_metadata(rows, prices_df["id"], logger)
 
     prices_df = add_denormalised_vault_data(rows, prices_df, logger)
@@ -739,7 +743,10 @@ def generate_cleaned_vault_datasets(
     assert vault_db_path.exists()
     assert price_df_path.exists()
 
+    logger(f"Loading vault database {vault_db_path}")
     vault_db: VaultDatabase = pickle.load(vault_db_path.open("rb"))
+
+    logger(f"Loading prices {price_df_path}")
     prices_df = pd.read_parquet(price_df_path)
 
     logger(f"We have {vault_db.get_lead_count():,} vault leads in the vault database and {len(prices_df):,} price rows in the raw prices DataFrame")

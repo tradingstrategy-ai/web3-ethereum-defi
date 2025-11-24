@@ -44,9 +44,15 @@ def main():
         logger.info("Diagnosing vault ID: %s", diagnose_vault_id)
     else:
         # Normal logging
-        setup_console_logging(
+        default_log_level = os.environ.get("LOG_LEVEL", "warning")
+        logger = setup_console_logging(
             log_file=Path("logs") / "clean-prices.log",
             clear_log_file=True,
+            default_log_level=default_log_level,
+        )
+        logger.info(
+            "Using console log level: %s",
+            default_log_level,
         )
 
     generate_cleaned_vault_datasets(diagnose_vault_id=diagnose_vault_id)

@@ -16,6 +16,8 @@ from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.trade import TradeSuccess
 from eth_defi.utils import addr
 
+CI = os.environ.get("CI", None) == "true"
+
 JSON_RPC_BINANCE = os.environ.get("JSON_RPC_BINANCE", None)
 pytestmark = pytest.mark.skipif(not JSON_RPC_BINANCE, reason="JSON_RPC_BINANCE not set, skipping BNB smart chain tests")
 
@@ -28,7 +30,7 @@ def token_list(web3) -> list[list[HexAddress]]:
 
 # Github CI:
 #  FAILED tests/lagoon/test_token_compat.py::test_token_compat_single - AssertionError: Could not read block number from Anvil after the launch anvil: at http://localhost:21832, stdout is 0 bytes, stderr is 223 bytes
-@flaky.flaky()
+@pytest.mark.skipif(CI, reason="Too flaky on Github - Anvil is busted")
 def test_token_compat_single(token_list, tmp_path):
     """Check single token compatibility with Lagoon."""
     database_file = tmp_path / "test_lagoon_compat.pickle"

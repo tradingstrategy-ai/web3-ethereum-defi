@@ -12,6 +12,7 @@ from eth_typing import HexAddress
 from web3 import Web3
 from web3.contract import Contract
 from eth_defi.compat import WEB3_PY_V7
+from eth_defi.etherscan.validation import EtherscanConfigurationError
 from eth_defi.provider.fallback import ExtraValueError
 
 from requests.exceptions import HTTPError
@@ -83,6 +84,10 @@ class VaultReaderState(BatchCallState):
         "entry_count",
         "chain_id",
         "vault_address",
+        "denomination_token_address",
+        "share_token_address",
+        "one_raw_share",
+        "reading_restarted_count",
     )
 
     def __init__(
@@ -158,9 +163,26 @@ class VaultReaderState(BatchCallState):
         #: Events read, used for testing
         self.entry_count = 0
 
+        #: Cache denomination token address when preparing readers
+        self.denomination_token_address = None
+
+        #: Cache share token address when preparing readers
+        self.share_token_address = None
+
+        #: One share in its raw units
+        self.one_raw_share = None
+
+        self.reading_restarted_count = 0
+
+        #: Cache denomination token address when preparing readers
+        self.one = None
+
         #: Copy for state debuggin
         self.chain_id = vault.spec.chain_id
         self.vault_address = vault.vault_address
+
+    def __repr__(self):
+        return f"<{self.__class__.__name__} vault={self.vault} last_tvl={self.last_tvl} last_share_price={self.last_share_price} max_tvl={self.max_tvl} last_call_at={self.last_call_at} peaked_at={self.peaked_at} faded_at={self.faded_at} denomination_token={self.denomination_token_address}>"
 
     def save(self) -> dict:
         return {k: getattr(self, k) for k in self.SERIALISABLE_ATTRIBUTES}
@@ -282,22 +304,27 @@ class VaultReaderState(BatchCallState):
         # The vault TVL has fell too much, disable
         if self.max_tvl > self.peaked_tvl_threshold:
             #  The vault TVL drops so low we should actively stopp tracking it
-            if self.last_tvl < self.max_tvl * Decimal(1 - self.down_hard):
-                logger.debug(f"{self.last_call_at}: Vault {self.vault} peaked at {self.max_tvl}, now TVL is {self.last_tvl}, no longer reading it")
+            threshold = self.max_tvl * Decimal(1 - self.down_hard)
+            if self.last_tvl < threshold:
                 if not self.peaked_at:
+                    logger.debug(f"{self.last_call_at}: Vault {self.vault} peaked at {self.max_tvl}, now TVL is {self.last_tvl}, no longer reading it")
                     self.peaked_at = timestamp
                     self.peaked_tvl = self.last_tvl
             else:
                 # Reset peaked condition,
                 # see first_read comments in read historical
-                self.peaked_at = None
-                self.peaked_tvl = None
+                if self.peaked_at:
+                    logger.debug(f"{self.last_call_at}: Vault {self.vault} un-peaked. Max TVL is {self.max_tvl}, TVL now is {self.last_tvl}, threshold is {threshold}, starting to read again, peaked at was {self.peaked_at} at TVL {self.peaked_tvl}")
+                    self.peaked_at = None
+                    self.peaked_tvl = None
+                    self.reading_restarted_count += 1
 
         # The vault never got any traction, disable
         if self.last_call_at - self.first_read_at > self.traction_period:
             if self.max_tvl < self.min_tvl_threshold:
-                logger.debug(f"{self.last_call_at}:  Vault {self.vault} disabled at {self.max_tvl}, never reached min TVL {self.min_tvl_threshold}, no longer reading it")
-                self.faded_at = timestamp
+                if not self.faded_at:
+                    logger.debug(f"{self.last_call_at}:  Vault {self.vault} disabled at {self.max_tvl}, never reached min TVL {self.min_tvl_threshold}, no longer reading it, first read at {self.first_read_at}, last call at {self.last_call_at}, traction period was {self.traction_period}")
+                    self.faded_at = timestamp
 
         self.entry_count += 1
 
@@ -331,17 +358,22 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
 
     def construct_multicalls(self) -> Iterable[EncodedCall]:
         """Get the onchain calls that are needed to read the share price."""
-        yield from self.construct_core_erc_4626_multicall()
+        try:
+            yield from self.construct_core_erc_4626_multicall()
+        except Exception as e:
+            raise RuntimeError(f"Could not construct multicalls for vault {self.vault}, share token is {self.vault.share_token}, share is {self.one_raw_share}") from e
 
     @cached_property
     def one_raw_share(self) -> int:
+        # 99 marks a broken read on fetch_erc20_details()
+        assert self.vault.share_token.decimals != 99, f"Vault {self.vault}, {self.vault.name} has busted share token {self.vault.share_token} with broken decimals. Clear token cache?"
         one_share = self.vault.share_token.convert_to_raw(Decimal(1))
         return one_share
 
     def construct_core_erc_4626_multicall(self) -> Iterable[EncodedCall]:
         """Polling endpoints defined in ERC-4626 spec.
 
-        Does not include fees.
+        - Does not include fee calls which do not have standard
         """
 
         # TODO: use asset / supply as it is more reliable
@@ -385,6 +417,7 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
         # and these may include dynamic variables.
         # See
         # https://medium.com/gains-network/introducing-gtoken-vaults-ea98f10a49d5
+
         convert_to_assets = EncodedCall.from_contract_call(
             self.vault.vault_contract.functions.convertToAssets(self.one_raw_share),
             extra_data={
@@ -649,7 +682,7 @@ class ERC4626Vault(VaultBase):
         else:
             return None
 
-    def fetch_share_token(self) -> TokenDetails:
+    def fetch_share_token_address(self) -> HexAddress:
         """Get share token of this vault.
 
         - Vault itself (ERC-4626)
@@ -706,29 +739,29 @@ class ERC4626Vault(VaultBase):
         except Exception as e:
             raise RuntimeError(f"Failed to poke vault: {self.vault_address}") from e
 
+        return share_token_address
+
+    def fetch_share_token(self) -> TokenDetails:
         # eth_defi.token.TokenDetailError: Token 0xDb7869Ffb1E46DD86746eA7403fa2Bb5Caf7FA46 missing symbol
         return fetch_erc20_details(
             self.web3,
-            share_token_address,
+            self.fetch_share_token_address(),
             raise_on_error=False,
             chain_id=self.spec.chain_id,
             cache=self.token_cache,
-            cause_diagnostics_message=f"Share token for vault {self.address}, ERC-7575 is {erc_7575}",
+            cause_diagnostics_message=f"Share token for vault {self.address}",
         )
 
     def fetch_vault_info(self) -> ERC4626VaultInfo:
         """Get all information we can extract from the vault smart contracts."""
         vault = self.vault_contract
+
         # roles_tuple = vault.functions.getRolesStorage().call()
         # whitelistManager, feeReceiver, safe, feeRegistry, valuationManager = roles_tuple
-        try:
-            asset = vault.functions.asset().call()
-        except ValueError as e:
-            asset = None
 
         return {
             "address": vault.address,
-            "asset": asset,
+            # "asset": asset,
         }
 
     def fetch_total_assets(self, block_identifier: BlockIdentifier) -> Decimal | None:
