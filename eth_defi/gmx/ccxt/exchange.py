@@ -2120,14 +2120,20 @@ class GMX(ExchangeCompatible):
         if symbol:
             # Set leverage for specific symbol
             self.leverage[symbol] = leverage
-            return {"symbol": symbol, "leverage": leverage, "info": {"message": f"Leverage set to {leverage}x for {symbol}"}}
+            return {
+                "symbol": symbol,
+                "leverage": leverage,
+                "info": {"message": f"Leverage set to {leverage}x for {symbol}"},
+            }
         else:
             # Set default leverage (stored with key '*')
             self.leverage["*"] = leverage
             return {
                 "symbol": "*",
                 "leverage": leverage,
-                "info": {"message": f"Default leverage set to {leverage}x for all symbols"},
+                "info": {
+                    "message": f"Default leverage set to {leverage}x for all symbols",
+                },
             }
 
     def fetch_leverage(
@@ -2175,7 +2181,11 @@ class GMX(ExchangeCompatible):
             # If no settings, return default
             if not result:
                 result.append(
-                    {"symbol": "*", "leverage": 1.0, "info": {"message": "No leverage settings configured, using default 1.0x"}},
+                    {
+                        "symbol": "*",
+                        "leverage": 1.0,
+                        "info": {"message": "No leverage settings configured, using default 1.0x"},
+                    },
                 )
 
             return result
@@ -2670,7 +2680,14 @@ class GMX(ExchangeCompatible):
             self.load_markets()
 
         # Convert CCXT parameters to GMX parameters
-        gmx_params = self._convert_ccxt_to_gmx_params(symbol, type, side, amount, price, params)
+        gmx_params = self._convert_ccxt_to_gmx_params(
+            symbol,
+            type,
+            side,
+            amount,
+            price,
+            params,
+        )
 
         # Create the order using GMXTrading
         order_result = self.trader.open_position(**gmx_params)
@@ -2784,7 +2801,6 @@ class GMX(ExchangeCompatible):
         return self.create_order(symbol, "limit", side, amount, price, params)
 
     # Unsupported methods (GMX protocol limitations)
-
     def cancel_order(
         self,
         id: str,

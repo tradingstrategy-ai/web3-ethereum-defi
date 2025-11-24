@@ -163,16 +163,15 @@ def test_order_creation_with_wallet(web3: Web3, wallet: HotWallet):
 
     # Create market buy order
     print("\nCreating market buy order for ETH/USD...")
-    print("Using parameters similar to debug.py for compatibility...")
     try:
         order = gmx.create_market_buy_order(
             "ETH/USD",
-            10.0,  # $10 USD position size (same as debug.py)
+            10.0,  # $10 USD position size
             {
-                "leverage": 2.5,  # Same as debug.py
-                "collateral_symbol": "ETH",  # Same as debug.py (using ETH not USDC)
-                "slippage_percent": 0.005,  # Same as debug.py
-                "execution_buffer": 2.2,  # Same as debug.py
+                "leverage": 2.5,
+                "collateral_symbol": "ETH",
+                "slippage_percent": 0.005,
+                "execution_buffer": 2.2,
             },
         )
 
@@ -268,7 +267,7 @@ def test_order_creation_with_wallet(web3: Web3, wallet: HotWallet):
 def test_parameter_conversion(web3: Web3, wallet: HotWallet):
     """Test that CCXT parameters are correctly converted to GMX parameters.
 
-    Verifies that CCXT adapter produces the same GMX parameters as debug.py uses:
+    Verifies that CCXT adapter produces the same GMX parameters as  uses:
     - market_symbol="ETH"
     - collateral_symbol="ETH"
     - start_token_symbol="ETH"
