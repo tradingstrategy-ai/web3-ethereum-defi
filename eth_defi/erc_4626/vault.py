@@ -12,6 +12,7 @@ from eth_typing import HexAddress
 from web3 import Web3
 from web3.contract import Contract
 from eth_defi.compat import WEB3_PY_V7
+from eth_defi.etherscan.validation import EtherscanConfigurationError
 from eth_defi.provider.fallback import ExtraValueError
 
 from requests.exceptions import HTTPError
@@ -337,10 +338,15 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
 
     def construct_multicalls(self) -> Iterable[EncodedCall]:
         """Get the onchain calls that are needed to read the share price."""
-        yield from self.construct_core_erc_4626_multicall()
+        try:
+            yield from self.construct_core_erc_4626_multicall()
+        except Exception as e:
+            raise RuntimeError(f"Could not construct multicalls for vault {self.vault}, share token is {self.vault.share_token}, share is {self.one_raw_share}") from e
 
     @cached_property
     def one_raw_share(self) -> int:
+        # 99 marks a broken read on fetch_erc20_details()
+        assert self.vault.share_token.decimals != 99, f"Vault {self.vault}, {self.vault.name} has busted share token {self.vault.share_token} with broken decimals. Clear token cache?"
         one_share = self.vault.share_token.convert_to_raw(Decimal(1))
         return one_share
 

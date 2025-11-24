@@ -192,7 +192,7 @@ class VaultHistoricalReadMulticaller:
         # Warm up token disk cache for denomination tokens.
         # We need to load this up before because we need to calculate share price for amount 1 in denomination token (USDC)
         logger.info("Preparing denomination tokens for %d vaults", len(vaults))
-        token_load_max_workers = 16
+        token_load_max_workers = self.max_workers
         token_addresses = Parallel(n_jobs=token_load_max_workers, backend="threading")(delayed(self._prepare_denomination_token)(r) for r in readers.values())
         token_addresses = [a for a in token_addresses if a is not None]
 
@@ -273,7 +273,6 @@ class VaultHistoricalReadMulticaller:
 
         # Expose for testing purposes
         self.readers = readers
-
 
         # for address, reader in readers.items():
         #     state: VaultReaderState = reader.reader_state

@@ -175,10 +175,10 @@ def main():
         print(f"No vaults to scan on {name} after filtering, exiting")
         sys.exit(0)
 
-
     if profile:
         # cProfiler hook, as we want to make some stuff faster
         import cProfile
+
         pr = cProfile.Profile()
         pr.enable()
         profiler_file = Path("logs/scan-prices-profile.cprof")
