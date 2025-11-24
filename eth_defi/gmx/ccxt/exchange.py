@@ -40,16 +40,6 @@ from eth_defi.hotwallet import HotWallet
 from eth_defi.token import fetch_erc20_details
 
 
-ACTION_TO_SIDE = {
-    "PositionIncrease": "buy",
-    "PositionDecrease": "sell",
-    "IncreaseLong": "buy",
-    "IncreaseShort": "sell",
-    "DecreaseLong": "sell",  # Closing long = selling
-    "DecreaseShort": "buy",  # Closing short = buying
-}
-
-
 class GMX(ExchangeCompatible):
     """
     CCXT-compatible wrapper for GMX protocol market data and trading.
@@ -474,7 +464,7 @@ class GMX(ExchangeCompatible):
         Converts GMX candlestick data (5 fields) to CCXT format (6 fields with volume).
         Applies filtering based on 'since' timestamp and 'limit' parameters.
 
-        :param ohlcvs: list of raw OHLCV data from GMX API
+        :param ohlcvs: list of raw OHLCV data from GMX API (V will be always 0 for GMX)
         :type ohlcvs: list[list]
         :param market: Market information dictionary (optional)
         :type market: dict[str, Any] | None
@@ -1302,10 +1292,7 @@ class GMX(ExchangeCompatible):
                     "active": True,  # Assume all GMX tokens are active
                     "fee": None,
                     "precision": decimals,
-                    "limits": {
-                        "amount": {"min": None, "max": None},
-                        "withdraw": {"min": None, "max": None},
-                    },
+                    "limits": {"amount": {"min": None, "max": None}, "withdraw": {"min": None, "max": None}},
                     "info": token,
                 }
 
@@ -1352,6 +1339,14 @@ class GMX(ExchangeCompatible):
         # Determine side from position change action
         # Use explicit mapping for robustness
         action = self.safe_string(trade, "action")
+        ACTION_TO_SIDE = {
+            "PositionIncrease": "buy",
+            "PositionDecrease": "sell",
+            "IncreaseLong": "buy",
+            "IncreaseShort": "sell",
+            "DecreaseLong": "sell",  # Closing long = selling
+            "DecreaseShort": "buy",  # Closing short = buying
+        }
         side = ACTION_TO_SIDE.get(action, "buy" if "Increase" in str(action) else "sell")
 
         # Get price and amount
@@ -1651,21 +1646,13 @@ class GMX(ExchangeCompatible):
                 free_amount = max(0.0, balance_float - used_amount)  # Ensure non-negative
                 total_amount = balance_float
 
-                result[code] = {
-                    "free": free_amount,
-                    "used": used_amount,
-                    "total": total_amount,
-                }
+                result[code] = {"free": free_amount, "used": used_amount, "total": total_amount}
 
                 result["free"][code] = free_amount
                 result["used"][code] = used_amount
                 result["total"][code] = total_amount
 
-                result["info"][code] = {
-                    "address": token_address,
-                    "raw_balance": str(balance_raw),
-                    "decimals": decimals,
-                }
+                result["info"][code] = {"address": token_address, "raw_balance": str(balance_raw), "decimals": decimals}
 
             except Exception as e:
                 # Skip tokens we can't query
@@ -2133,20 +2120,14 @@ class GMX(ExchangeCompatible):
         if symbol:
             # Set leverage for specific symbol
             self.leverage[symbol] = leverage
-            return {
-                "symbol": symbol,
-                "leverage": leverage,
-                "info": {"message": f"Leverage set to {leverage}x for {symbol}"},
-            }
+            return {"symbol": symbol, "leverage": leverage, "info": {"message": f"Leverage set to {leverage}x for {symbol}"}}
         else:
             # Set default leverage (stored with key '*')
             self.leverage["*"] = leverage
             return {
                 "symbol": "*",
                 "leverage": leverage,
-                "info": {
-                    "message": f"Default leverage set to {leverage}x for all symbols",
-                },
+                "info": {"message": f"Default leverage set to {leverage}x for all symbols"},
             }
 
     def fetch_leverage(
@@ -2194,11 +2175,7 @@ class GMX(ExchangeCompatible):
             # If no settings, return default
             if not result:
                 result.append(
-                    {
-                        "symbol": "*",
-                        "leverage": 1.0,
-                        "info": {"message": "No leverage settings configured, using default 1.0x"},
-                    },
+                    {"symbol": "*", "leverage": 1.0, "info": {"message": "No leverage settings configured, using default 1.0x"}},
                 )
 
             return result
@@ -2702,8 +2679,61 @@ class GMX(ExchangeCompatible):
             params,
         )
 
-        # Create the order using GMXTrading
-        order_result = self.trader.open_position(**gmx_params)
+        if side == "buy":
+            # Create the order using GMXTrading
+            order_result = self.trader.open_position(**gmx_params)
+        elif side == "sell":
+            # For closing positions, need to check existing position and calculate initial_collateral_delta
+            market = self.markets[symbol]
+            base_currency = market["base"]
+
+            # Get existing positions to determine the position we're closing
+            positions_manager = GetOpenPositions(self.config)
+            existing_positions = positions_manager.get_data(self.wallet.address)
+
+            # Find the matching long position
+            position_to_close = None
+            for position_key, position_data in existing_positions.items():
+                position_market = position_data.get("market_symbol", "")
+                position_is_long = position_data.get("is_long", None)
+                position_collateral = position_data.get("collateral_token", "")
+
+                # Match market, collateral, and must be a long position
+                if position_market == base_currency and position_collateral == gmx_params["collateral_symbol"] and position_is_long:
+                    position_to_close = position_data
+                    break
+
+            if not position_to_close:
+                raise ValueError(f"No long position found for {symbol} with collateral {gmx_params['collateral_symbol']} to close")
+
+            # Calculate initial_collateral_delta based on size and leverage
+            size_delta_usd = gmx_params["size_delta_usd"]
+            leverage = position_to_close.get("leverage", 1.0)
+
+            # Handle abnormal leverage values (from gmx_close_position.py)
+            if leverage > 100 or leverage < 0.1:
+                initial_collateral_delta = size_delta_usd / 10
+            else:
+                initial_collateral_delta = size_delta_usd / leverage
+
+            # Ensure minimum reasonable collateral value
+            if initial_collateral_delta < 0.1:
+                initial_collateral_delta = size_delta_usd
+
+            # Call close_position with the required initial_collateral_delta
+            order_result = self.trader.close_position(
+                market_symbol=gmx_params["market_symbol"],
+                collateral_symbol=gmx_params["collateral_symbol"],
+                start_token_symbol=gmx_params["start_token_symbol"],
+                is_long=True,  # We're closing a long position
+                size_delta_usd=size_delta_usd,
+                initial_collateral_delta=initial_collateral_delta,
+                slippage_percent=gmx_params.get("slippage_percent", 0.003),
+                execution_buffer=gmx_params.get("execution_buffer", 1.3),
+                auto_cancel=gmx_params.get("auto_cancel", False),
+            )
+        else:
+            raise ValueError("Side must be 'buy' or 'sell'")
 
         # Sign transaction (remove nonce if present, wallet will manage it)
         transaction = order_result.transaction
@@ -2814,6 +2844,7 @@ class GMX(ExchangeCompatible):
         return self.create_order(symbol, "limit", side, amount, price, params)
 
     # Unsupported methods (GMX protocol limitations)
+
     def cancel_order(
         self,
         id: str,
