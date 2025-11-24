@@ -40,6 +40,16 @@ from eth_defi.hotwallet import HotWallet
 from eth_defi.token import fetch_erc20_details
 
 
+ACTION_TO_SIDE = {
+    "PositionIncrease": "buy",
+    "PositionDecrease": "sell",
+    "IncreaseLong": "buy",
+    "IncreaseShort": "sell",
+    "DecreaseLong": "sell",  # Closing long = selling
+    "DecreaseShort": "buy",  # Closing short = buying
+}
+
+
 class GMX(ExchangeCompatible):
     """
     CCXT-compatible wrapper for GMX protocol market data and trading.
@@ -1339,14 +1349,6 @@ class GMX(ExchangeCompatible):
         # Determine side from position change action
         # Use explicit mapping for robustness
         action = self.safe_string(trade, "action")
-        ACTION_TO_SIDE = {
-            "PositionIncrease": "buy",
-            "PositionDecrease": "sell",
-            "IncreaseLong": "buy",
-            "IncreaseShort": "sell",
-            "DecreaseLong": "sell",  # Closing long = selling
-            "DecreaseShort": "buy",  # Closing short = buying
-        }
         side = ACTION_TO_SIDE.get(action, "buy" if "Increase" in str(action) else "sell")
 
         # Get price and amount
@@ -1646,13 +1648,21 @@ class GMX(ExchangeCompatible):
                 free_amount = max(0.0, balance_float - used_amount)  # Ensure non-negative
                 total_amount = balance_float
 
-                result[code] = {"free": free_amount, "used": used_amount, "total": total_amount}
+                result[code] = {
+                    "free": free_amount,
+                    "used": used_amount,
+                    "total": total_amount,
+                }
 
                 result["free"][code] = free_amount
                 result["used"][code] = used_amount
                 result["total"][code] = total_amount
 
-                result["info"][code] = {"address": token_address, "raw_balance": str(balance_raw), "decimals": decimals}
+                result["info"][code] = {
+                    "address": token_address,
+                    "raw_balance": str(balance_raw),
+                    "decimals": decimals,
+                }
 
             except Exception as e:
                 # Skip tokens we can't query
