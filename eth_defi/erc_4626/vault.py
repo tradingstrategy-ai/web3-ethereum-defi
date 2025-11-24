@@ -87,6 +87,7 @@ class VaultReaderState(BatchCallState):
         "denomination_token_address",
         "share_token_address",
         "one_raw_share",
+        "reading_restarted_count",
     )
 
     def __init__(
@@ -170,6 +171,8 @@ class VaultReaderState(BatchCallState):
 
         #: One share in its raw units
         self.one_raw_share = None
+
+        self.reading_restarted_count = 0
 
         #: Cache denomination token address when preparing readers
         self.one = None
@@ -314,6 +317,7 @@ class VaultReaderState(BatchCallState):
                     logger.debug(f"{self.last_call_at}: Vault {self.vault} un-peaked. Max TVL is {self.max_tvl}, TVL now is {self.last_tvl}, threshold is {threshold}, starting to read again, peaked at was {self.peaked_at} at TVL {self.peaked_tvl}")
                     self.peaked_at = None
                     self.peaked_tvl = None
+                    self.reading_restarted_count += 1
 
         # The vault never got any traction, disable
         if self.last_call_at - self.first_read_at > self.traction_period:
