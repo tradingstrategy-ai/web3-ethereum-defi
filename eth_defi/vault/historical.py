@@ -28,7 +28,7 @@ from eth_defi.erc_4626.vault import VaultReaderState
 from eth_defi.event_reader.multicall_batcher import EncodedCall, read_multicall_historical, EncodedCallResult, read_multicall_historical_stateful, BatchCallState
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.provider.broken_provider import get_almost_latest_block_number
-from eth_defi.token import TokenDetails, TokenDiskCache
+from eth_defi.token import TokenDetails, TokenDiskCache, fetch_erc20_details
 from eth_defi.utils import chunked
 from eth_defi.vault.base import VaultBase, VaultHistoricalReader, VaultHistoricalRead, VaultSpec
 
@@ -138,6 +138,22 @@ class VaultHistoricalReadMulticaller:
 
         return address
 
+    def _prepare_share_token(self, reader: "eth_defi.erc_4626.vault.ERC4626HistoricalReader") -> HexAddress:
+        """Run in subprocess"""
+
+        state = reader.reader_state
+        if state:
+            if state.share_token_address is not None:
+                return state.share_token_address
+
+        address = reader.vault.fetch_share_token_address()
+
+        # Save for the next run as this is slow to fetch
+        if state:
+            state.share_token_address = address
+
+        return address
+
     def _prepare_multicalls(self, reader: VaultHistoricalReader, stateful=False) -> Iterable[tuple[EncodedCall, BatchCallState]]:
         """Run in subprocess"""
         for call in reader.construct_multicalls():
@@ -170,6 +186,7 @@ class VaultHistoricalReadMulticaller:
         # Hydrate states from the previous run
         loaded_state_count = 0
         cached_denomination_tokens = 0
+        cached_share_tokens = 0
         if saved_states:
             for reader in readers.values():
                 spec = reader.vault.get_spec()
@@ -182,25 +199,69 @@ class VaultHistoricalReadMulticaller:
                         # Ensure we have denomination token address loaded
                         cached_denomination_tokens += 1
 
+                    if existing_state.get("share_token_address") is not None:
+                        # Ensure we have share token address loaded
+                        cached_share_tokens += 1
+
         logger.info(
-            "Prepared %d readers, loaded %d states, had %d cached denomination tokens",
+            "Prepared %d readers, loaded %d states, had %d cached denomination tokens, %s cached share tokens",
             len(readers),
             loaded_state_count,
             cached_denomination_tokens,
+            cached_share_tokens,
         )
 
         # Warm up token disk cache for denomination tokens.
         # We need to load this up before because we need to calculate share price for amount 1 in denomination token (USDC)
-        logger.info("Preparing denomination tokens for %d vaults", len(vaults))
+        logger.info("Preparing denomination/share tokens for %d vaults", len(vaults))
         token_load_max_workers = self.max_workers
         token_addresses = Parallel(n_jobs=token_load_max_workers, backend="threading")(delayed(self._prepare_denomination_token)(r) for r in readers.values())
-        token_addresses = [a for a in token_addresses if a is not None]
+        denomination_token_addresses = [a for a in token_addresses if a is not None]
+        token_addresses = Parallel(n_jobs=token_load_max_workers, backend="threading")(delayed(self._prepare_share_token)(r) for r in readers.values())
+        share_token_addresses = [a for a in token_addresses if a is not None]
 
+        addresses = denomination_token_addresses + share_token_addresses
+
+        logger.info(
+            "Warmin up token cache for %d tokens, cache is %s",
+            len(addresses),
+            self.token_cache,
+        )
         self.token_cache.load_token_details_with_multicall(
             chain_id=chain_id,
             web3factory=self.web3factory,
-            addresses=token_addresses,
+            addresses=addresses,
         )
+
+        # Because of JSON-RPC eth_call asset() call in fetch_denomination_token()
+        # slowing down everything, we need to populate these
+
+        populated_tokens = 0
+        if saved_states:
+            for reader in readers.values():
+                denomination_token_address = reader.reader_state.denomination_token_address
+                if denomination_token_address is not None:
+                    vault = reader.vault
+                    vault.__dict__["denomination_token"] = fetch_erc20_details(
+                        vault.web3,
+                        token_address=denomination_token_address,
+                        chain_id=vault.chain_id,
+                        cache=self.token_cache,
+                    )
+                    populated_tokens += 1
+
+                share_token_address = reader.reader_state.share_token_address
+                if share_token_address is not None:
+                    vault = reader.vault
+                    vault.__dict__["share_token"] = fetch_erc20_details(
+                        vault.web3,
+                        token_address=share_token_address,
+                        chain_id=vault.chain_id,
+                        cache=self.token_cache,
+                    )
+                    populated_tokens += 1
+
+        logger.info("Populated cache warmed up denomination tokens for %d vaults", populated_tokens)
 
         return readers
 
