@@ -22,21 +22,24 @@ Example usage::
     will always be 0 in the returned OHLCV arrays.
 """
 
+import logging
+import time
 from datetime import datetime
 from typing import Any
-import time
 
 from ccxt.base.errors import NotSupported
 
-from eth_defi.gmx.config import GMXConfig
-from eth_defi.gmx.api import GMXAPI
-from eth_defi.gmx.core import GetOpenPositions
-from eth_defi.gmx.graphql.client import GMXSubsquidClient
-from eth_defi.gmx.core.markets import Markets
-from eth_defi.gmx.trading import GMXTrading
+from eth_defi.chain import get_chain_name
 from eth_defi.ccxt.exchange_compatible import ExchangeCompatible
+from eth_defi.gmx.api import GMXAPI
 from eth_defi.gmx.ccxt.properties import describe_gmx
+from eth_defi.gmx.config import GMXConfig
+from eth_defi.gmx.core import GetOpenPositions
+from eth_defi.gmx.core.markets import Markets
+from eth_defi.gmx.graphql.client import GMXSubsquidClient
+from eth_defi.gmx.trading import GMXTrading
 from eth_defi.hotwallet import HotWallet
+from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import fetch_erc20_details
 
 
@@ -113,7 +116,7 @@ class GMX(ExchangeCompatible):
 
     def __init__(
         self,
-        config: GMXConfig | None = None,
+        config_or_params: GMXConfig | dict | None = None,
         subsquid_endpoint: str | None = None,
         wallet: HotWallet | None = None,
         **kwargs,
@@ -121,65 +124,216 @@ class GMX(ExchangeCompatible):
         """
         Initialize the CCXT wrapper with GMX configuration.
 
-        :param config: GMX configuration object containing network settings and optional wallet information
-        :type config: GMXConfig | None
-        :param subsquid_endpoint: Optional Subsquid GraphQL endpoint URL
+        Supports two initialization styles:
+
+        1. CCXT-style (recommended)::
+
+            gmx = GMX(
+                {
+                    "rpcUrl": "https://arb1.arbitrum.io/rpc",
+                    "privateKey": "0x...",  # Optional - for trading
+                    "chainId": 42161,  # Optional - auto-detected from RPC
+                    "subsquidEndpoint": "...",  # Optional
+                    "wallet": wallet_object,  # Optional - alternative to privateKey
+                    "verbose": True,  # Optional - enable debug logging
+                }
+            )
+
+        2. Legacy-style (backward compatible)::
+
+            gmx = GMX(config=config, wallet=wallet, subsquid_endpoint="...")
+
+        :param config_or_params: Either a GMXConfig object (legacy) or a parameters dict (CCXT-style)
+        :type config_or_params: GMXConfig | dict | None
+        :param subsquid_endpoint: Optional Subsquid GraphQL endpoint URL (legacy only)
         :type subsquid_endpoint: str | None
-        :param wallet: HotWallet for transaction signing. Required for order creation methods (create_order, create_market_buy_order, etc.). If not provided, order creation will raise an error.
+        :param wallet: HotWallet for transaction signing (legacy only)
         :type wallet: HotWallet | None
         """
-        # Initialise CCXT base class
+        # Initialize CCXT base class
         super().__init__(**kwargs)
 
-        if config is not None:
-            self.config = config
-            self.api = GMXAPI(config)
-            self.web3 = config.web3  # Store web3 instance for fetch_time
-            self.wallet = wallet  # Wallet for transaction signing (required for orders)
+        # Detect initialization style and route to appropriate method
+        if isinstance(config_or_params, dict):
+            # CCXT-style: dictionary parameters
+            self._init_from_parameters(config_or_params)
+        elif config_or_params is not None:
+            # Legacy style: GMXConfig object
+            self._init_from_config(config_or_params, subsquid_endpoint, wallet)
+        else:
+            # No parameters - minimal initialization
+            self._init_empty()
 
-            # Initialize trading manager for order creation (only if wallet provided)
-            self.trader = GMXTrading(config) if wallet else None
+    def _init_from_parameters(self, parameters: dict):
+        """Initialize from CCXT-style parameters dictionary.
 
-            # Store wallet address from config if provided
-            # This is used by trading methods (fetch_balance, fetch_open_orders, etc.)
-            self.wallet_address = (
-                config.get_wallet_address()
-                if hasattr(
-                    config,
-                    "get_wallet_address",
+        :param parameters: Dictionary with rpcUrl, privateKey, chainId, etc.
+        :type parameters: dict
+        """
+        # Extract parameters
+        self._rpc_url = parameters.get("rpcUrl", "")
+        self._private_key = parameters.get("privateKey", "")
+        self._subsquid_endpoint = parameters.get("subsquidEndpoint")
+        self._chain_id_override = parameters.get("chainId")
+        self._wallet = parameters.get("wallet")
+        self._verbose = parameters.get("verbose", False)
+
+        # Configure verbose logging if requested
+        if self._verbose:
+            self._configure_verbose_logging()
+
+        # Create web3 instance from RPC URL
+        if not self._rpc_url:
+            raise ValueError("rpcUrl is required in parameters")
+
+        self.web3 = create_multi_provider_web3(self._rpc_url)
+
+        # Detect chain from web3 or use override
+        if self._chain_id_override:
+            chain_id = self._chain_id_override
+        else:
+            chain_id = self.web3.eth.chain_id
+
+        chain_name = get_chain_name(chain_id).lower()
+
+        # Validate that GMX is supported on this chain
+        supported_chains = ["arbitrum", "arbitrum_sepolia", "avalanche"]
+        if chain_name not in supported_chains:
+            raise ValueError(
+                f"GMX not supported on chain {chain_name} (chain_id: {chain_id}). Supported chains: {supported_chains}",
+            )
+
+        # Create wallet if private key provided
+        if self._private_key and not self._wallet:
+            self._wallet = HotWallet.from_private_key(self._private_key)
+            self._wallet.sync_nonce(self.web3)
+
+        self.wallet = self._wallet
+        wallet_address = self.wallet.address if self.wallet else None
+
+        # Warn if no wallet (view-only mode)
+        if not self.wallet:
+            logger = logging.getLogger(__name__)
+            logger.warning(
+                "GMX initialized without wallet or privateKey. Running in VIEW-ONLY mode. Order creation methods will fail.",
+            )
+
+        # Create GMX config from web3 and wallet
+        self.config = GMXConfig(self.web3, user_wallet_address=wallet_address)
+
+        # Initialize API and trader
+        self.api = GMXAPI(self.config)
+        self.trader = GMXTrading(self.config) if self.wallet else None
+
+        # Store wallet address
+        self.wallet_address = wallet_address
+
+        # Initialize Subsquid client
+        chain = self.config.get_chain()
+        self.subsquid = GMXSubsquidClient(
+            chain=chain,
+            custom_endpoint=self._subsquid_endpoint,
+        )
+
+        # Common initialization
+        self._init_common()
+
+    def _configure_verbose_logging(self):
+        """Enable verbose logging for GMX SDK components."""
+        # Set DEBUG level for all GMX-related loggers
+        loggers_to_configure = [
+            "eth_defi.gmx",
+            "eth_defi.gmx.ccxt",
+            "eth_defi.gmx.trading",
+            "eth_defi.gmx.api",
+            "eth_defi.gmx.config",
+        ]
+
+        for logger_name in loggers_to_configure:
+            logger = logging.getLogger(logger_name)
+            logger.setLevel(logging.DEBUG)
+
+            # Add console handler if none exists
+            if not logger.handlers:
+                handler = logging.StreamHandler()
+                handler.setLevel(logging.DEBUG)
+                formatter = logging.Formatter(
+                    "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
                 )
-                else None
+                handler.setFormatter(formatter)
+                logger.addHandler(handler)
+
+    def _init_from_config(
+        self,
+        config: GMXConfig,
+        subsquid_endpoint: str | None,
+        wallet: HotWallet | None,
+    ):
+        """Initialize from legacy GMXConfig object.
+
+        :param config: GMX configuration object
+        :type config: GMXConfig
+        :param subsquid_endpoint: Optional Subsquid endpoint
+        :type subsquid_endpoint: str | None
+        :param wallet: Optional wallet for trading
+        :type wallet: HotWallet | None
+        """
+        self.config = config
+        self.api = GMXAPI(config)
+        self.web3 = config.web3
+        self.wallet = wallet
+
+        # Initialize trading manager
+        self.trader = GMXTrading(config) if wallet else None
+
+        # Store wallet address
+        self.wallet_address = (
+            config.get_wallet_address()
+            if hasattr(
+                config,
+                "get_wallet_address",
             )
+            else None
+        )
 
-            # Initialize Subsquid client with chain from config
-            chain = config.get_chain()
-            self.subsquid = GMXSubsquidClient(
-                chain=chain,
-                custom_endpoint=subsquid_endpoint,
-            )
+        # Initialize Subsquid client
+        chain = config.get_chain()
+        self.subsquid = GMXSubsquidClient(
+            chain=chain,
+            custom_endpoint=subsquid_endpoint,
+        )
 
-            self.markets: dict[str, Any] = {}
-            self.markets_loaded = False
-            self.symbols: list[str] = []  # Will be populated by load_markets()
+        # Common initialization
+        self._init_common()
 
-            # Timeframes supported by GMX API
-            # Maps CCXT-style timeframe strings to GMX API periods
-            self.timeframes = {
-                "1m": "1m",
-                "5m": "5m",
-                "15m": "15m",
-                "1h": "1h",
-                "4h": "4h",
-                "1d": "1d",
-            }
+    def _init_common(self):
+        """Initialize common attributes regardless of init method."""
+        self.markets = {}
+        self.markets_loaded = False
+        self.symbols = []
 
-            # Leverage storage for position management
-            # Maps symbol to leverage multiplier (e.g., {"ETH/USD": 5.0})
-            self.leverage: dict[str, float] = {}
+        self.timeframes = {
+            "1m": "1m",
+            "5m": "5m",
+            "15m": "15m",
+            "1h": "1h",
+            "4h": "4h",
+            "1d": "1d",
+        }
 
-            # Token metadata cache for price decimal conversion
-            # Maps token address (lowercase) to token metadata (decimals, synthetic flag)
-            self._token_metadata: dict[str, dict] = {}
+        self.leverage = {}
+        self._token_metadata = {}
+
+    def _init_empty(self):
+        """Initialize with minimal functionality (no RPC/config)."""
+        self.config = None
+        self.api = None
+        self.web3 = None
+        self.wallet = None
+        self.trader = None
+        self.subsquid = None
+        self.wallet_address = None
+        self._init_common()
 
     def describe(self):
         """Get CCXT exchange description."""
@@ -2663,7 +2817,9 @@ class GMX(ExchangeCompatible):
 
         # Require wallet for order creation
         if not self.wallet:
-            raise ValueError("Wallet required for order creation. Initialize GMX with wallet parameter: GMX(config, wallet=wallet)")
+            raise ValueError(
+                "Wallet required for order creation. GMX is running in VIEW-ONLY mode. Provide 'privateKey' or 'wallet' in constructor parameters. Example: GMX({'rpcUrl': '...', 'privateKey': '0x...'})",
+            )
 
         # Ensure markets are loaded
         if not self.markets_loaded:
