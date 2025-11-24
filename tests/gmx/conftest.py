@@ -37,7 +37,7 @@ from eth_defi.utils import addr
 from tests.gmx.fork_helpers import setup_mock_oracle
 
 # Fork configuration constants
-FORK_BLOCK_ARBITRUM = 392496384
+FORK_BLOCK_ARBITRUM = 401729535  # Updated: old block 392496384 had empty getMarkets() data
 
 # Set up logging for debugging
 logger = logging.getLogger(__name__)

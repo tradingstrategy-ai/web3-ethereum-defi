@@ -6,6 +6,9 @@ This module provides access to GMX protocol market information and trading pairs
 
 import logging
 from dataclasses import dataclass
+from time import sleep
+
+from web3.exceptions import BadFunctionCallOutput
 
 logger = logging.getLogger(__name__)
 from typing import Optional, Any
