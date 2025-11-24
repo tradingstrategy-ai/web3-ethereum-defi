@@ -284,11 +284,12 @@ class VaultReaderState(BatchCallState):
             #  The vault TVL drops so low we should actively stopp tracking it
             if self.last_tvl < self.max_tvl * Decimal(1 - self.down_hard):
                 logger.debug(f"{self.last_call_at}: Vault {self.vault} peaked at {self.max_tvl}, now TVL is {self.last_tvl}, no longer reading it")
-                self.peaked_at = timestamp
-                self.peaked_tvl = self.last_tvl
+                if not self.peaked_at:
+                    self.peaked_at = timestamp
+                    self.peaked_tvl = self.last_tvl
             else:
                 # Reset peaked condition,
-                # see first_read
+                # see first_read comments in read historical
                 self.peaked_at = None
                 self.peaked_tvl = None
 
