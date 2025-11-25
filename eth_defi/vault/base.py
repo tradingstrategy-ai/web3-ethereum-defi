@@ -241,7 +241,7 @@ class VaultHistoricalRead:
             return False
 
         # Cannot do relative comparison as some values are zero or missing
-        if (not self.share_price) or (not self.total_assets) or (not self.total_supply):
+        if (not self.share_price) or (not self.total_assets) or (not self.total_supply) or (not other.share_price) or (not other.total_assets) or (not other.total_supply):
             return self.share_price == other.share_price and self.total_assets == other.total_assets and self.total_supply == other.total_supply
 
         share_price_diff = (other.share_price - self.share_price) / self.share_price
