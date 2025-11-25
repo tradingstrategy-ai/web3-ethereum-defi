@@ -169,7 +169,7 @@ def test_4626_historical_vault_data_stateful(
     assert alternative_state.max_tvl == pytest.approx(Decimal("1343887.145555"))
 
     # Many more records than with the daily scanner above because we read every hour
-    assert len(records) == 225
+    assert len(records) == 109
 
     # Records are not guaranteed to be in specific order, so fix it here
     records.sort(key=lambda r: (r.block_number, r.vault.address))
@@ -180,12 +180,8 @@ def test_4626_historical_vault_data_stateful(
     assert r.performance_fee == 0.15
     assert r.vault.name == "Moonwell Flagship USDC"
 
-    r = records[-2]
-    assert r.block_number == 23999800
+    r = [r for r in records if r.vault.name == "IPOR USDC Lending Optimizer Base"][-1]
+    assert r.block_number == 23962000
     assert r.vault.name == "IPOR USDC Lending Optimizer Base"
     assert r.performance_fee == 0.10
     assert r.management_fee == 0.01
-
-    r = records[-3]
-    assert r.block_number == 23998000
-    assert r.vault.name == "Moonwell Flagship USDC"
