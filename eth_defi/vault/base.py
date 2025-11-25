@@ -216,7 +216,7 @@ class VaultHistoricalRead:
     #: Exported as empty string in Parquet if no errors, otherwise concat strings
     errors: list[str] | None
 
-    def __eq__(self, other: "VaultHistoricalRead" | None) -> bool:
+    def __eq__(self, other: "VaultHistoricalRead | None") -> bool:
         """Check if the read statistics match.
 
         - Used in read_historical()
