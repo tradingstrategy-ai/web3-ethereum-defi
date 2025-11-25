@@ -414,7 +414,7 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
             #     first_block_number=self.first_block,
             # )
             # yield share_price_call
-            passs
+            pass
 
         total_assets = EncodedCall.from_contract_call(
             self.vault.vault_contract.functions.totalAssets(),

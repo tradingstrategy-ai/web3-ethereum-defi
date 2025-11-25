@@ -1436,17 +1436,7 @@ def read_multicall_historical_stateful(
         # Map prefetch timestamp
         timestamp = timestamps[block_number]
 
-        # Get the list of calls that are effective for this block and the blocks in the next multicall batch.
-        # Drop vaults that have peaked/dysfunctional
-        if first_read:
-            # Force reading of every item at the first cycle,
-            # to refresh should_invoke() conditions caused
-            # by broken peak_tvl read. If we get one TVL that is down to zero because of error,
-            # the vault reader might stuck. By forcing the read at every program run at least once,
-            # we hope to mitigate these issues.
-            accepted_calls = list(calls.keys())
-        else:
-            accepted_calls = [c for c, state in calls.items() if state.should_invoke(c, block_number, timestamp)]
+        accepted_calls = [c for c, state in calls.items() if state.should_invoke(c, block_number, timestamp)]
 
         total_blocks += 1
         total_accepted_calls += len(accepted_calls)
