@@ -372,7 +372,7 @@ def anvil_chain_fork(
         chain_rpc_url,
         unlocked_addresses=unlocked_addresses,
         test_request_timeout=60,
-        fork_block_number=FORK_BLOCK_ARBITRUM,
+        # fork_block_number=FORK_BLOCK_ARBITRUM,
         launch_wait_seconds=60,
     )
 
@@ -989,10 +989,11 @@ def get_open_positions(gmx_config):
 
 @pytest.fixture
 def gmx_open_positions(chain_rpc_url) -> GetOpenPositions:
+    # Fork at latest block (no fork_block_number specified)
+    # This ensures RPC has all state data available
     launch = fork_network_anvil(
         chain_rpc_url,
         test_request_timeout=60,
-        fork_block_number=373279955,
         launch_wait_seconds=60,
     )
     anvil_chain_fork = launch.json_rpc_url
