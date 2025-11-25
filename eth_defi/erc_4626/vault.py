@@ -1,11 +1,12 @@
 """Generic ECR-4626 vault reader implementation."""
 
 import datetime
+import enum
 import logging
 from codecs import ignore_errors
 from decimal import Decimal
 from functools import cached_property
-from typing import Iterable
+from typing import Iterable, TypeAlias, Literal
 
 import eth_abi
 from eth_typing import HexAddress
@@ -51,6 +52,10 @@ class ERC4626VaultInfo(VaultInfo):
     asset: HexAddress | None
 
 
+#: What is the reason how often we poll this
+VaultPollFrequency: TypeAlias = Literal["peaked", "faded", "large_tvl", "small_tvl"]
+
+
 class VaultReaderState(BatchCallState):
     """Adaptive reading frequency for vaults.
 
@@ -88,6 +93,8 @@ class VaultReaderState(BatchCallState):
         "share_token_address",
         "one_raw_share",
         "reading_restarted_count",
+        "vault_poll_frequency",
+        "token_symbol",
     )
 
     def __init__(
@@ -181,6 +188,12 @@ class VaultReaderState(BatchCallState):
         self.chain_id = vault.spec.chain_id
         self.vault_address = vault.vault_address
 
+        #: Cache for how often we are polling this vault
+        self.vault_poll_frequency = None
+
+        #: Cache for debuggin
+        self.token_symbol = None
+
     def __repr__(self):
         return f"<{self.__class__.__name__} vault={self.vault} last_tvl={self.last_tvl} last_share_price={self.last_share_price} max_tvl={self.max_tvl} last_call_at={self.last_call_at} peaked_at={self.peaked_at} faded_at={self.faded_at} denomination_token={self.denomination_token_address}>"
 
@@ -239,7 +252,8 @@ class VaultReaderState(BatchCallState):
             # First read, we always read it
             return True
 
-        freq = self.get_frequency()
+        vault_poll_frequency, freq = self.get_frequency()
+        self.vault_poll_frequency = vault_poll_frequency
 
         if freq is None:
             # Further reads disabled
@@ -251,15 +265,20 @@ class VaultReaderState(BatchCallState):
 
         return False
 
-    def get_frequency(self) -> datetime.timedelta | None:
+    def get_frequency(self) -> tuple[VaultPollFrequency, datetime.timedelta | None]:
         """How fast we are reading this vault or should the further reading be skipped."""
-        if self.peaked_at or self.faded_at:
-            # Disabled due to either of reasons
-            return None
+        if self.peaked_at:
+            # For peaked vaults, only poll each 7 days
+            return "peaked", datetime.timedelta(days=7)
+        elif self.faded_at:
+            # For faded vaults, only poll each 7 days
+            return "faded", datetime.timedelta(days=7)
         elif self.last_tvl < self.tvl_threshold_1d_read:
-            return datetime.timedelta(days=1)
+            # o small vaults daily
+            return "small_tvl", datetime.timedelta(days=1)
         else:
-            return datetime.timedelta(hours=1)
+            # Do large vaults hourly
+            return "large_tvl", datetime.timedelta(hours=1)
 
     def on_called(
         self,
@@ -326,6 +345,10 @@ class VaultReaderState(BatchCallState):
                     logger.debug(f"{self.last_call_at}:  Vault {self.vault} disabled at {self.max_tvl}, never reached min TVL {self.min_tvl_threshold}, no longer reading it, first read at {self.first_read_at}, last call at {self.last_call_at}, traction period was {self.traction_period}")
                     self.faded_at = timestamp
 
+        # Cache for debugging
+        self.token_symbol = self.vault.denomination_token.symbol if self.vault.denomination_token else "-"
+
+        # Diagnostics counter
         self.entry_count += 1
 
     def pformat(self) -> str:
@@ -391,7 +414,7 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
             #     first_block_number=self.first_block,
             # )
             # yield share_price_call
-            pass
+            passs
 
         total_assets = EncodedCall.from_contract_call(
             self.vault.vault_contract.functions.totalAssets(),
