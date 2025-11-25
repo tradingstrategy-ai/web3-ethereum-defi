@@ -53,7 +53,7 @@ class ERC4626VaultInfo(VaultInfo):
 
 
 #: What is the reason how often we poll this
-VaultPollFrequency: TypeAlias = Literal["peaked", "faded", "large_tvl", "small_tvl", "tiny_tvl"]
+VaultPollFrequency: TypeAlias = Literal["peaked", "faded", "large_tvl", "small_tvl", "tiny_tvl", "first_read", "not_started"]
 
 
 class VaultReaderState(BatchCallState):
@@ -251,10 +251,12 @@ class VaultReaderState(BatchCallState):
         if self.first_seen_at_block:
             if block_identifier < self.first_seen_at_block:
                 # We do not read historical data before the first seen block
+                self.vault_poll_frequency = "not_started"
                 return False
 
         if self.last_call_at is None:
             # First read, we always read it
+            self.vault_poll_frequency = "first_read"
             return True
 
         vault_poll_frequency, freq = self.get_frequency()
