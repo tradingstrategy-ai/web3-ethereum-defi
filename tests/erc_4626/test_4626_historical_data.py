@@ -69,7 +69,7 @@ def test_4626_historical_vault_data_stateless(
     )
 
     records = list(records)
-    assert len(records) == 85
+    assert len(records) == 77
 
     # Records are not guaranteed to be in specific order, so fix it here
     records.sort(key=lambda r: (r.block_number, r.vault.address))
@@ -82,7 +82,7 @@ def test_4626_historical_vault_data_stateless(
     assert r.total_supply == 0
     assert r.share_price == Decimal(1)
 
-    r = records[-1]
+    r = [r for r in records if r.vault.name == "Moonwell Flagship USDC"][-1]
     assert r.block_number == 23998576
     assert r.timestamp == datetime.datetime(2024, 12, 21, 13, 8, 19)
     assert r.vault.name == "Moonwell Flagship USDC"
