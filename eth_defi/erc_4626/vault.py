@@ -30,10 +30,14 @@ from eth_defi.balances import fetch_erc20_balances_fallback, fetch_erc20_balance
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract, ERC4626Feature
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int, convert_uint256_bytes_to_address
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, BatchCallState
-from eth_defi.token import TokenDetails, fetch_erc20_details
+from eth_defi.token import TokenDetails, fetch_erc20_details, is_stablecoin_like
 from eth_defi.vault.base import VaultBase, VaultSpec, VaultInfo, TradingUniverse, VaultPortfolio, VaultFlowManager, VaultHistoricalReader, VaultHistoricalRead
 
 logger = logging.getLogger(__name__)
+
+
+#: The exchange rate we use for all unknown denomination tokens
+UNKNOWN_EXCHANGE_RATE = Decimal(0.99)
 
 
 class ERC4626VaultInfo(VaultInfo):
@@ -95,6 +99,7 @@ class VaultReaderState(BatchCallState):
         "reading_restarted_count",
         "vault_poll_frequency",
         "token_symbol",
+        "unsupported_token",
     )
 
     def __init__(
@@ -199,6 +204,9 @@ class VaultReaderState(BatchCallState):
         #: Cache for debuggin
         self.token_symbol = None
 
+        #: Cache for debuggin
+        self.unsupported_token = None
+
     def __repr__(self):
         return f"<{self.__class__.__name__} vault={self.vault} last_tvl={self.last_tvl} last_share_price={self.last_share_price} max_tvl={self.max_tvl} last_call_at={self.last_call_at} peaked_at={self.peaked_at} faded_at={self.faded_at} denomination_token={self.denomination_token_address}>"
 
@@ -213,11 +221,12 @@ class VaultReaderState(BatchCallState):
 
     @cached_property
     def exchange_rate(self) -> Decimal:
+        """Get the exchange rate for TVL estimation"""
         # TODO: Approx hardcoded rules for now for TVL conversion.
         # Latest add exchange rate orcale.
         token = self.vault.denomination_token.symbol or ""
 
-        # Try to cover common case
+        # Try to cover common case ~approx
         if "BTC" in token:
             return Decimal(100_000)
         elif "ETH" in token:
@@ -238,9 +247,12 @@ class VaultReaderState(BatchCallState):
             return Decimal(0.5)
         elif "MNT" in token:
             return Decimal(0.5)
-        else:
+        elif is_stablecoin_like(token):
             # Assume stablecoin / some non-supported token
             return Decimal(1)
+        else:
+            # Marker value
+            return UNKNOWN_EXCHANGE_RATE
 
     def should_invoke(
         self,
@@ -312,7 +324,11 @@ class VaultReaderState(BatchCallState):
         if total_assets is None:
             total_assets = Decimal(0)
 
-        total_assets = total_assets * self.exchange_rate
+        exchange_rate = self.exchange_rate
+        if self.exchange_rate == UNKNOWN_EXCHANGE_RATE:
+            self.unsupported_token = True
+
+        total_assets = total_assets * exchange_rate
 
         timestamp = result.timestamp
         self.last_call_at = timestamp

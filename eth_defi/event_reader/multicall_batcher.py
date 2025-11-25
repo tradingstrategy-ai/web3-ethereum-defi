@@ -1452,6 +1452,8 @@ def read_multicall_historical_stateful(
         state: VaultReaderState
         for state in calls.values():
             freq_type = state.vault_poll_frequency or "unknown"
+            if state.unsupported_token:
+                metrics["unsupported_token"] += 1
             metrics[freq_type] += 1
             metrics["total"] += 1
 
