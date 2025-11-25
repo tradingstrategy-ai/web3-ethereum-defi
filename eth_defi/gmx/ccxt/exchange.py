@@ -27,6 +27,7 @@ import time
 from datetime import datetime
 from typing import Any
 
+from cchecksum import to_checksum_address
 from ccxt.base.errors import NotSupported
 
 from eth_defi.chain import get_chain_name
@@ -157,6 +158,7 @@ class GMX(ExchangeCompatible):
         """
         # Handle positional arguments and mixed usage
         # If the first argument 'config' is actually a dict, treat it as params
+        self.markets_loaded = None
         if isinstance(config, dict):
             params = config
             config = None
@@ -231,7 +233,6 @@ class GMX(ExchangeCompatible):
 
         # Warn if no wallet (view-only mode)
         if not self.wallet:
-            logger = logging.getLogger(__name__)
             logger.warning(
                 "GMX initialized without wallet or privateKey. Running in VIEW-ONLY mode. Order creation methods will fail.",
             )
@@ -487,8 +488,6 @@ class GMX(ExchangeCompatible):
         min_collateral_by_market = {}
         if self.subsquid:
             try:
-                from cchecksum import to_checksum_address
-
                 market_infos = self.subsquid.get_market_infos(limit=100)
                 for market_info in market_infos:
                     market_addr = market_info.get("marketTokenAddress")
@@ -496,7 +495,9 @@ class GMX(ExchangeCompatible):
                     if market_addr and min_collateral_factor:
                         # Normalize address to checksum format to match available_markets keys
                         market_addr = to_checksum_address(market_addr)
-                        max_leverage = GMXSubsquidClient.calculate_max_leverage(min_collateral_factor)
+                        max_leverage = GMXSubsquidClient.calculate_max_leverage(
+                            min_collateral_factor,
+                        )
                         if max_leverage is not None:
                             leverage_by_market[market_addr] = max_leverage
                             min_collateral_by_market[market_addr] = min_collateral_factor
