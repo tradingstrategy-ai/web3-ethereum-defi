@@ -635,10 +635,6 @@ def process_raw_vault_scan_data(
 
     assign_unique_names(rows, prices_df, logger)
 
-    import ipdb
-
-    ipdb.set_trace()
-
     check_missing_metadata(rows, prices_df["id"], logger)
 
     prices_df = add_denormalised_vault_data(rows, prices_df, logger)

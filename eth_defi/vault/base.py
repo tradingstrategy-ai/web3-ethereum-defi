@@ -225,9 +225,30 @@ class VaultHistoricalRead:
         if other is None:
             return False
 
-        assert isinstance(other, VaultHistoricalRead)
         assert self.vault.address == other.vault.address
         return self.share_price == other.share_price and self.total_assets == other.total_assets and self.total_supply == other.total_supply and self.performance_fee == other.performance_fee and self.management_fee == other.management_fee
+
+    def is_almost_equal(
+        self,
+        other: "VaultHistoricalRead | None",
+        epsilon: float = 1e-4,
+    ) -> bool:
+        """Check if the read statistics match.
+
+        - Throttle with epsilon relative difference to get rid of small increment rows
+        """
+        if other is None:
+            return False
+
+        # Cannot do relative comparison as some values are zero or missing
+        if (not self.share_price) or (not self.total_assets) or (not self.total_supply):
+            return self.share_price == other.share_price and self.total_assets == other.total_assets and self.total_supply == other.total_supply
+
+        share_price_diff = (other.share_price - self.share_price) / self.share_price
+        total_assets_diff = (other.total_assets - self.total_assets) / self.total_assets
+        total_supply_diff = (other.total_supply - self.total_supply) / self.total_supply
+
+        return abs(share_price_diff) <= epsilon and abs(total_assets_diff) <= epsilon or abs(total_supply_diff) <= epsilon
 
     def export(self) -> dict:
         """Convert historical read for a Parquet/DataFrame export."""
@@ -258,7 +279,7 @@ class VaultHistoricalRead:
             [
                 ("chain", pa.uint32()),
                 ("address", pa.string()),  # Lowercase
-                ("block_number", pa.uint32()),
+                ("block_number", pa.uint64()),
                 ("timestamp", pa.timestamp("ms")),  # s accuracy does not seem to work on rewrite
                 ("share_price", pa.float64()),
                 ("total_assets", pa.float64()),

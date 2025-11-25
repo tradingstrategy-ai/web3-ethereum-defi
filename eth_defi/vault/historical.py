@@ -323,7 +323,7 @@ class VaultHistoricalReadMulticaller:
         # TODO: Clean up as an arg
         stateful = reader_func != read_multicall_historical
 
-        logger.info(f"Prpearing readers for %d vaults, stateful is %s", len(vaults), stateful)
+        logger.info(f"Preparing readers for %d vaults, stateful is %s", len(vaults), stateful)
 
         readers = self.prepare_readers(
             vaults,
@@ -412,24 +412,31 @@ class VaultHistoricalReadMulticaller:
             last_block_num = combined_result.block_number
             last_block_at = combined_result.timestamp
 
+            error_count = 0
             for vault_address, results in vault_data.items():
                 reader = readers[vault_address]
 
                 last_result: VaultHistoricalRead = last_results.get(vault_address)
                 current_result: VaultHistoricalRead = reader.process_result(block_number, timestamp, results)
-                if last_result != current_result:
+
+                if current_result.errors:
+                    error_count += 1
+
+                if current_result.is_almost_equal(last_result):
                     # Only yield a new row if the vault state has changed,
                     # to not to unnecessary bloat the dataset
-                    last_results[vault_address] = current_result
                     skipped_results += 1
+                else:
+                    last_results[vault_address] = current_result
                     yield current_result
 
         logger.info(
-            "Processed total %d results, total %d combined results, for %d vaults, skipped %d new rows",
+            "Processed total %d results, total %d combined results, for %d vaults, skipped %d new rows, error count %d",
             total_results,
             total_combined_results,
             len(vaults),
             skipped_results,
+            error_count
         )
 
     def save_reader_state(self) -> dict[VaultSpec, dict]:
