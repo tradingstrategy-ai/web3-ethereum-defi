@@ -1437,6 +1437,7 @@ def read_multicall_historical_stateful(
     # Debug
     from eth_defi.erc_4626.vault import VaultReaderState
 
+    metrics = {}
     for block_number in range(start_block, end_block, step):
         # Map prefetch timestamp
         timestamp = timestamps[block_number]
@@ -1500,6 +1501,8 @@ def read_multicall_historical_stateful(
         total_blocks,
         total_accepted_calls,
     )
+
+    logger.info("Last metrics: %s", pformat(dict(metrics)))
 
     # Process the remaning uneven chunk
     yield from _flush_chunk(chunk)
