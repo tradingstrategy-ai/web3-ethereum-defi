@@ -6,11 +6,6 @@ This module provides access to GMX protocol market information and trading pairs
 
 import logging
 from dataclasses import dataclass
-from time import sleep
-
-from web3.exceptions import BadFunctionCallOutput
-
-logger = logging.getLogger(__name__)
 from typing import Optional, Any
 
 from eth_typing import HexAddress
@@ -21,6 +16,8 @@ from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.contracts import get_contract_addresses, get_reader_contract, get_tokens_address_dict, get_tokens_metadata_dict
 from eth_defi.gmx.core.oracle import OraclePrices
 from eth_defi.gmx.types import MarketSymbol, MarketData
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(slots=True)
