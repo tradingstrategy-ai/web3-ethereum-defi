@@ -430,14 +430,7 @@ class VaultHistoricalReadMulticaller:
                     last_results[vault_address] = current_result
                     yield current_result
 
-        logger.info(
-            "Processed total %d results, total %d combined results, for %d vaults, skipped %d new rows, error count %d",
-            total_results,
-            total_combined_results,
-            len(vaults),
-            skipped_results,
-            error_count
-        )
+        logger.info("Processed total %d results, total %d combined results, for %d vaults, skipped %d new rows, error count %d", total_results, total_combined_results, len(vaults), skipped_results, error_count)
 
     def save_reader_state(self) -> dict[VaultSpec, dict]:
         """Save the state of all readers.
