@@ -372,6 +372,11 @@ class VaultHistoricalReadMulticaller:
         total_results = 0
         total_combined_results = 0
 
+        # Cache the last result per vault to detect changes
+        last_results: dict[HexAddress, VaultHistoricalRead] = {}
+
+        skipped_results = 0
+
         for combined_result in reader_func(
             chain_id=chain_id,
             web3factory=self.web3factory,
@@ -409,13 +414,22 @@ class VaultHistoricalReadMulticaller:
 
             for vault_address, results in vault_data.items():
                 reader = readers[vault_address]
-                yield reader.process_result(block_number, timestamp, results)
+
+                last_result: VaultHistoricalRead = last_results.get(vault_address)
+                current_result: VaultHistoricalRead = reader.process_result(block_number, timestamp, results)
+                if last_result != current_result:
+                    # Only yield a new row if the vault state has changed,
+                    # to not to unnecessary bloat the dataset
+                    last_results[vault_address] = current_result
+                    skipped_results += 1
+                    yield current_result
 
         logger.info(
-            "Processed total %d results, total %d combined results, for %d vaults",
+            "Processed total %d results, total %d combined results, for %d vaults, skipped %d new rows",
             total_results,
             total_combined_results,
             len(vaults),
+            skipped_results,
         )
 
     def save_reader_state(self) -> dict[VaultSpec, dict]:
@@ -550,11 +564,13 @@ def scan_historical_prices_to_parquet(
         require_multicall_result=require_multicall_result,
     )
 
+    # TODO: Do not use - all is dynamic frequency with stateful reading now
     reader_func = read_multicall_historical_stateful
     match frequency:
         case "1d":
             step_duration = datetime.timedelta(hours=24)
         case "1h":
+            # TODO: This is a dynamic frequency.
             step_duration = datetime.timedelta(hours=1)
         case _:
             raise ValueError(f"Unsupported frequency: {frequency}")

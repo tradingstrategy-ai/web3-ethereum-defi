@@ -216,6 +216,19 @@ class VaultHistoricalRead:
     #: Exported as empty string in Parquet if no errors, otherwise concat strings
     errors: list[str] | None
 
+    def __eq__(self, other: "VaultHistoricalRead | None") -> bool:
+        """Check if the read statistics match.
+
+        - Used in read_historical()
+        """
+
+        if other is None:
+            return False
+
+        assert isinstance(other, VaultHistoricalRead)
+        assert self.vault.address == other.vault.address
+        return self.share_price == other.share_price and self.total_assets == other.total_assets and self.total_supply == other.total_supply and self.performance_fee == other.performance_fee and self.management_fee == other.management_fee
+
     def export(self) -> dict:
         """Convert historical read for a Parquet/DataFrame export."""
         error_msgs = ", ".join(self.errors) if self.errors else None
