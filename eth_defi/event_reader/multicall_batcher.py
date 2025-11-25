@@ -1441,7 +1441,17 @@ def read_multicall_historical_stateful(
         total_blocks += 1
         total_accepted_calls += len(accepted_calls)
 
-        logger.debug(f"Compiling calls for {block_number:,}, {timestamp}, total calls {len(all_calls):,}, accepted calls {len(accepted_calls):,}, first batch {first_read}")
+        # TODO+: Temporary debug, remove later
+        peaked = faded = total = 0
+        # state: VaultReaderState
+        for state in calls.values():
+            if state.peaked_at:
+                peaked += 1
+            if state.faded_at:
+                faded += 1
+            total += 1
+
+        logger.debug(f"Compiling calls for {block_number:,}, {timestamp}, total calls {len(all_calls):,}, accepted calls {len(accepted_calls):,}, first batch {first_read}, peaked {peaked}, faded {faded}, total {total}")
 
         if len(accepted_calls) == 0:
             logger.debug("Block %d has no calls to perform, skipping", block_number)
