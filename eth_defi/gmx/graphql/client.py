@@ -390,6 +390,11 @@ class GMXSubsquidClient:
             - longsPayShorts: Direction of funding (True if longs pay shorts)
             - borrowingFactorPerSecondForLongs: Borrowing rate for longs (30 decimals)
             - borrowingFactorPerSecondForShorts: Borrowing rate for shorts (30 decimals)
+            - minCollateralFactor: Minimum collateral factor (30 decimals)
+            - minCollateralFactorForOpenInterestLong: Multiplier for long OI-based collateral (30 decimals)
+            - minCollateralFactorForOpenInterestShort: Multiplier for short OI-based collateral (30 decimals)
+            - maxOpenInterestLong: Maximum allowed long open interest (30 decimals)
+            - maxOpenInterestShort: Maximum allowed short open interest (30 decimals)
         """
         where_clause = ""
         if market_address:
@@ -415,6 +420,11 @@ class GMXSubsquidClient:
             longsPayShorts
             borrowingFactorPerSecondForLongs
             borrowingFactorPerSecondForShorts
+            minCollateralFactor
+            minCollateralFactorForOpenInterestLong
+            minCollateralFactorForOpenInterestShort
+            maxOpenInterestLong
+            maxOpenInterestShort
           }}
         }}
         """
@@ -555,6 +565,130 @@ class GMXSubsquidClient:
             Decimal('8.625')
         """
         return Decimal(value) / Decimal(10**decimals)
+
+    @staticmethod
+    def calculate_max_leverage(min_collateral_factor: str) -> float | None:
+        """Calculate maximum UI leverage from minCollateralFactor.
+
+        Positions are liquidated when collateral factor falls below minCollateralFactor.
+        The theoretical max leverage is 1 / minCollateralFactor, but we apply a 2x buffer
+        to prevent positions from being liquidated immediately upon opening.
+
+        :param min_collateral_factor: Minimum collateral factor (30 decimals, as string)
+        :return: Maximum leverage to display in UI (e.g., 100.0 for 100x), or None if invalid
+
+        Example::
+
+            >>> # minCollateralFactor = 0.5% = "5000000000000000000000000000"
+            >>> calculate_max_leverage("5000000000000000000000000000")
+            100.0
+            >>> # minCollateralFactor = 1% = "10000000000000000000000000000"
+            >>> calculate_max_leverage("10000000000000000000000000000")
+            50.0
+            >>> # minCollateralFactor = 0 (invalid)
+            >>> calculate_max_leverage("0")
+            None
+        """
+        # Parse the 30-decimal value to get decimal representation
+        min_collateral_decimal = Decimal(min_collateral_factor) / Decimal(10**30)
+
+        # Handle zero or negative values
+        if min_collateral_decimal <= 0:
+            return None
+
+        # Max theoretical leverage = 1 / minCollateralFactor
+        # UI leverage = theoretical / 2 (to provide liquidation buffer)
+        # Simplified: max_ui_leverage = 1 / minCollateralFactor / 2
+        max_ui_leverage = Decimal(1) / min_collateral_decimal / Decimal(2)
+
+        return float(max_ui_leverage)
+
+    @staticmethod
+    def calculate_leverage_tiers(
+        market_info: dict[str, Any],
+        is_long: bool,
+        num_tiers: int = 5,
+    ) -> list[dict[str, Any]]:
+        """Calculate leverage tiers for a market based on open interest.
+
+        GMX uses a continuous leverage model where minimum collateral requirements increase
+        with open interest. This method approximates the continuous model as discrete tiers
+        for CCXT compatibility.
+
+        :param market_info: Market info dictionary from get_market_infos()
+        :param is_long: True for long positions, False for short positions
+        :param num_tiers: Number of discrete tiers to generate (default 5)
+        :return: List of leverage tier dictionaries in CCXT format with fields:
+
+            - tier: Tier number (1-indexed)
+            - minNotional: Minimum position size in USD for this tier
+            - maxNotional: Maximum position size in USD for this tier
+            - maxLeverage: Maximum allowed leverage for this tier
+            - minCollateralFactor: Actual min collateral factor at this OI level (decimal)
+
+        Example::
+
+            >>> market_info = {
+            ...     "minCollateralFactor": "5000000000000000000000000000",
+            ...     "minCollateralFactorForOpenInterestLong": "10000000000000000",
+            ...     "longOpenInterestUsd": "50000000000000000000000000000000",
+            ...     "maxOpenInterestLong": "100000000000000000000000000000000"
+            ... }
+            >>> tiers = calculate_leverage_tiers(market_info, is_long=True)
+            >>> # Returns tiers showing leverage decreasing as position size increases
+        """
+        PRECISION = Decimal(10**30)
+
+        # Extract relevant fields
+        base_min_collateral = Decimal(market_info.get("minCollateralFactor", "0"))
+        multiplier_key = "minCollateralFactorForOpenInterestLong" if is_long else "minCollateralFactorForOpenInterestShort"
+        oi_multiplier = Decimal(market_info.get(multiplier_key, "0"))
+
+        max_oi_key = "maxOpenInterestLong" if is_long else "maxOpenInterestShort"
+        max_open_interest = Decimal(market_info.get(max_oi_key, "0"))
+
+        current_oi_key = "longOpenInterestUsd" if is_long else "shortOpenInterestUsd"
+        current_oi = Decimal(market_info.get(current_oi_key, "0"))
+
+        # Handle invalid data
+        if base_min_collateral <= 0 or max_open_interest <= 0:
+            return []
+
+        # Calculate tiers based on open interest levels
+        tiers = []
+        tier_size = max_open_interest / num_tiers
+
+        for i in range(num_tiers):
+            # Calculate OI range for this tier
+            tier_start_oi = tier_size * i
+            tier_end_oi = tier_size * (i + 1) if i < num_tiers - 1 else max_open_interest
+
+            # Calculate min collateral factor at the END of this tier (most restrictive)
+            oi_based_collateral = (tier_end_oi * oi_multiplier) / PRECISION
+            actual_min_collateral = max(base_min_collateral, oi_based_collateral)
+
+            # Skip if collateral factor is zero
+            if actual_min_collateral <= 0:
+                continue
+
+            # Calculate max leverage for this tier (with 2x buffer)
+            max_leverage = PRECISION / actual_min_collateral / Decimal(2)
+
+            # Convert to USD notional (from 30 decimals)
+            min_notional = float(tier_start_oi / PRECISION)
+            max_notional = float(tier_end_oi / PRECISION)
+
+            tiers.append(
+                {
+                    "tier": i + 1,
+                    "minNotional": min_notional,
+                    "maxNotional": max_notional,
+                    "maxLeverage": float(max_leverage),
+                    "minCollateralFactor": float(actual_min_collateral / PRECISION),
+                }
+            )
+
+        return tiers
 
     def get_token_decimals(self, token_address: str) -> int:
         """Get decimals for a token address from GMX API.
