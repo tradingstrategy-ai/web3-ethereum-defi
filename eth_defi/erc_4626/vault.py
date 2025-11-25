@@ -268,11 +268,11 @@ class VaultReaderState(BatchCallState):
     def get_frequency(self) -> tuple[VaultPollFrequency, datetime.timedelta | None]:
         """How fast we are reading this vault or should the further reading be skipped."""
         if self.peaked_at:
-            # For peaked vaults, only poll each 7 days
-            return "peaked", datetime.timedelta(days=7)
+            # For peaked vaults, only poll each 14 days
+            return "peaked", datetime.timedelta(days=14)
         elif self.faded_at:
-            # For faded vaults, only poll each 7 days
-            return "faded", datetime.timedelta(days=7)
+            # For faded vaults, only poll each 14 days
+            return "faded", datetime.timedelta(days=14)
         elif self.last_tvl < self.tvl_threshold_1d_read:
             # o small vaults daily
             return "small_tvl", datetime.timedelta(days=1)
