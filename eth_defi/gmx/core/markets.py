@@ -6,8 +6,6 @@ This module provides access to GMX protocol market information and trading pairs
 
 import logging
 from dataclasses import dataclass
-
-logger = logging.getLogger(__name__)
 from typing import Optional, Any
 
 from eth_typing import HexAddress
@@ -18,6 +16,8 @@ from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.contracts import get_contract_addresses, get_reader_contract, get_tokens_address_dict, get_tokens_metadata_dict
 from eth_defi.gmx.core.oracle import OraclePrices
 from eth_defi.gmx.types import MarketSymbol, MarketData
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(slots=True)
@@ -225,7 +225,11 @@ class Markets:
         contract_addresses = get_contract_addresses(self.config.chain)
         data_store_contract_address = contract_addresses.datastore
 
-        return reader_contract.functions.getMarkets(data_store_contract_address, 0, 50).call()
+        return reader_contract.functions.getMarkets(
+            data_store_contract_address,
+            0,
+            50,
+        ).call()
 
     def _process_markets(self) -> dict:
         """

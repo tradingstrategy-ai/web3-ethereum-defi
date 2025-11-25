@@ -231,11 +231,12 @@ def main():
                 console.print("[red]Error: ARBITRUM_CHAIN_JSON_RPC environment variable not set[/red]")
                 sys.exit(1)
 
-            console.print(f"Creating Anvil fork at block {FORK_BLOCK}...")
+            # console.print(f"Creating Anvil fork at block {FORK_BLOCK}...")
             launch = fork_network_anvil(
                 fork_rpc,
                 unlocked_addresses=[LARGE_USDC_HOLDER, LARGE_WETH_HOLDER],
-                fork_block_number=FORK_BLOCK,
+                #! NOTE: forking at an older block is throwing error while retrieving data empty market data
+                # fork_block_number=FORK_BLOCK,
             )
 
             web3 = create_multi_provider_web3(
