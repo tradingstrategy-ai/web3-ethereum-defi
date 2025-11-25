@@ -69,7 +69,7 @@ def test_4626_historical_vault_data_stateless(
     )
 
     records = list(records)
-    assert len(records) == 85
+    assert len(records) == 77
 
     # Records are not guaranteed to be in specific order, so fix it here
     records.sort(key=lambda r: (r.block_number, r.vault.address))
@@ -82,7 +82,7 @@ def test_4626_historical_vault_data_stateless(
     assert r.total_supply == 0
     assert r.share_price == Decimal(1)
 
-    r = records[-1]
+    r = [r for r in records if r.vault.name == "Moonwell Flagship USDC"][-1]
     assert r.block_number == 23998576
     assert r.timestamp == datetime.datetime(2024, 12, 21, 13, 8, 19)
     assert r.vault.name == "Moonwell Flagship USDC"
@@ -156,9 +156,9 @@ def test_4626_historical_vault_data_stateful(
     # Deployed at 26_598_326
     # No data
     state = vault_readers["0xB17B070A56043e1a5a1AB7443AfAFDEbcc1168D7"].reader_state
-    assert state.entry_count == 75
+    assert state.entry_count == 49
     assert state.vault.name == "Steakhouse sUSDS"
-    assert state.get_frequency() == ("small_tvl", datetime.timedelta(days=1))
+    assert state.get_frequency() == ("tiny_tvl", datetime.timedelta(days=14))
 
     # Test serialisation: IPOR
     state = vault_readers["0x45aa96f0b3188D47a1DaFdbefCE1db6B37f58216"].reader_state
@@ -169,23 +169,19 @@ def test_4626_historical_vault_data_stateful(
     assert alternative_state.max_tvl == pytest.approx(Decimal("1343887.145555"))
 
     # Many more records than with the daily scanner above because we read every hour
-    assert len(records) == 225
+    assert len(records) == 70
 
     # Records are not guaranteed to be in specific order, so fix it here
     records.sort(key=lambda r: (r.block_number, r.vault.address))
 
-    r = records[-1]
-    assert r.block_number == 23999800
+    r = [r for r in records if r.vault.name == "Moonwell Flagship USDC"][-1]
+    assert r.block_number == 23998000
     assert r.management_fee == 0
     assert r.performance_fee == 0.15
     assert r.vault.name == "Moonwell Flagship USDC"
 
-    r = records[-2]
-    assert r.block_number == 23999800
+    r = [r for r in records if r.vault.name == "IPOR USDC Lending Optimizer Base"][-1]
+    assert r.block_number == 23962000
     assert r.vault.name == "IPOR USDC Lending Optimizer Base"
     assert r.performance_fee == 0.10
     assert r.management_fee == 0.01
-
-    r = records[-3]
-    assert r.block_number == 23998000
-    assert r.vault.name == "Moonwell Flagship USDC"

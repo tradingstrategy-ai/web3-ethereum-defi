@@ -21,6 +21,7 @@ import time
 import zlib
 
 from abc import abstractmethod
+from collections import Counter
 from dataclasses import dataclass, field
 from http.client import RemoteDisconnected
 from itertools import islice
@@ -1432,6 +1433,10 @@ def read_multicall_historical_stateful(
     last_block = start_block
     total_accepted_calls = total_blocks = 0
     first_read = True
+
+    # Debug
+    from eth_defi.erc_4626.vault import VaultReaderState
+
     for block_number in range(start_block, end_block, step):
         # Map prefetch timestamp
         timestamp = timestamps[block_number]
@@ -1442,16 +1447,19 @@ def read_multicall_historical_stateful(
         total_accepted_calls += len(accepted_calls)
 
         # TODO+: Temporary debug, remove later
-        peaked = faded = total = 0
-        # state: VaultReaderState
+        metrics = Counter()
+        state: VaultReaderState
         for state in calls.values():
-            if state.peaked_at:
-                peaked += 1
-            if state.faded_at:
-                faded += 1
-            total += 1
+            freq_type = state.vault_poll_frequency or "unknown"
+            metrics[freq_type] += 1
+            metrics["total"] += 1
 
-        logger.debug(f"Compiling calls for {block_number:,}, {timestamp}, total calls {len(all_calls):,}, accepted calls {len(accepted_calls):,}, first batch {first_read}, peaked {peaked}, faded {faded}, total {total}")
+        logger.debug(
+            f"Compiling calls for {block_number:,}, {timestamp}, total calls {len(all_calls):,}\n"
+            # ruff workaround comment
+            f"accepted calls {len(accepted_calls):,}, first batch {first_read}\n"
+            f"state metrics: {pformat(dict(metrics))}"
+        )
 
         if len(accepted_calls) == 0:
             logger.debug("Block %d has no calls to perform, skipping", block_number)

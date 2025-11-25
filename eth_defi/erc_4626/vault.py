@@ -53,7 +53,7 @@ class ERC4626VaultInfo(VaultInfo):
 
 
 #: What is the reason how often we poll this
-VaultPollFrequency: TypeAlias = Literal["peaked", "faded", "large_tvl", "small_tvl"]
+VaultPollFrequency: TypeAlias = Literal["peaked", "faded", "large_tvl", "small_tvl", "tiny_tvl"]
 
 
 class VaultReaderState(BatchCallState):
@@ -101,6 +101,7 @@ class VaultReaderState(BatchCallState):
         self,
         vault: "ERC4626Vault",
         tvl_threshold_1d_read=Decimal(10_000),
+        tiny_tvl_threshold_rare_read=Decimal(1000),
         peaked_tvl_threshold=Decimal(200_000),
         min_tvl_threshold=Decimal(1_500),
         down_hard=0.98,
@@ -125,6 +126,7 @@ class VaultReaderState(BatchCallState):
         self.vault = vault
 
         self.tvl_threshold_1d_read = tvl_threshold_1d_read
+        self.tiny_tvl_threshold_rare_read = tiny_tvl_threshold_rare_read
         self.peaked_tvl_threshold = peaked_tvl_threshold
         self.down_hard = down_hard
 
@@ -166,6 +168,9 @@ class VaultReaderState(BatchCallState):
 
         #: Minimum TVL traction threshold to start reading the vault
         self.min_tvl_threshold = min_tvl_threshold
+
+        #: Vaults we do no really care about
+        self.tiny_tvl_threshold_rare_read = tiny_tvl_threshold_rare_read
 
         #: Events read, used for testing
         self.entry_count = 0
@@ -273,8 +278,11 @@ class VaultReaderState(BatchCallState):
         elif self.faded_at:
             # For faded vaults, only poll each 14 days
             return "faded", datetime.timedelta(days=14)
+        elif self.last_tvl < self.tiny_tvl_threshold_rare_read:
+            # Trash vaults
+            return "tiny_tvl", datetime.timedelta(days=14)
         elif self.last_tvl < self.tvl_threshold_1d_read:
-            # o small vaults daily
+            # Small vaults daily
             return "small_tvl", datetime.timedelta(days=1)
         else:
             # Do large vaults hourly
