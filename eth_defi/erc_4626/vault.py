@@ -1,9 +1,9 @@
 """Generic ECR-4626 vault reader implementation."""
 
 import datetime
-import enum
+
 import logging
-from codecs import ignore_errors
+
 from decimal import Decimal
 from functools import cached_property
 from typing import Iterable, TypeAlias, Literal
@@ -13,12 +13,10 @@ from eth_typing import HexAddress
 from web3 import Web3
 from web3.contract import Contract
 from eth_defi.compat import WEB3_PY_V7
-from eth_defi.etherscan.validation import EtherscanConfigurationError
 from eth_defi.provider.fallback import ExtraValueError
 
 from requests.exceptions import HTTPError
 
-from example_scripts.test import run_mock_swap_test
 
 if WEB3_PY_V7:
     from web3.exceptions import BadFunctionCallOutput, BlockNumberOutOfRange
