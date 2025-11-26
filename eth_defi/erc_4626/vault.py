@@ -198,7 +198,8 @@ class VaultReaderState(BatchCallState):
         self.chain_id = vault.spec.chain_id
         self.vault_address = vault.vault_address
 
-        #: Cache for how often we are polling this vault
+        #: Cache for how often we are polling this vault,
+        #: the mode name
         self.vault_poll_frequency = None
 
         #: Cache for debuggin
@@ -566,7 +567,6 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
         block_number: int,
         timestamp: datetime.datetime,
         call_results: list[EncodedCallResult],
-        state: VaultReaderState,
     ) -> VaultHistoricalRead:
         call_by_name = self.dictify_multicall_results(block_number, call_results)
 
@@ -580,9 +580,6 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
         # Decode common variables
         share_price, total_supply, total_assets, errors = self.process_core_erc_4626_result(call_by_name)
 
-        read_frequency_mode = state.vault_poll_frequency
-
-        # Subclass
         return VaultHistoricalRead(
             vault=self.vault,
             block_number=block_number,
@@ -593,7 +590,6 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
             performance_fee=None,
             management_fee=None,
             errors=errors or None,
-            read_frequency_mode=read_frequency_mode,
         )
 
 

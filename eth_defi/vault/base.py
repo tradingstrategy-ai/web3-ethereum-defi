@@ -177,7 +177,7 @@ class VaultPortfolio:
 _nan = float("nan")
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=False)
 class VaultHistoricalRead:
     """Vault share price and fee structure at the point of time."""
 
@@ -219,7 +219,7 @@ class VaultHistoricalRead:
     #: What dynamic read frequency was used at the time of taking this sample
     #:
     #: Useful for diagnostics of scanning process
-    read_frequency_mode: str | None = None
+    vault_poll_frequency: str | None = None
 
     def __eq__(self, other: "VaultHistoricalRead | None") -> bool:
         """Check if the read statistics match.
@@ -344,7 +344,6 @@ class VaultHistoricalReader(ABC):
         block_number: int,
         timestamp: datetime.datetime,
         call_results: list[EncodedCallResult],
-        state: "eth_defi.erc_4626.vault.VaultReaderState",
     ) -> VaultHistoricalRead:
         """Process the result of mult
 
