@@ -11,11 +11,8 @@ import shutil
 
 import flaky
 import pytest
-from eth_account import Account
-from eth_account.signers.local import LocalAccount
-from eth_tester.exceptions import TransactionFailed
 from eth_typing import HexAddress, HexStr
-from web3 import EthereumTesterProvider, Web3
+from web3 import Web3
 from web3._utils.events import EventLogErrorFlags
 from web3.contract import Contract
 
@@ -25,7 +22,6 @@ from eth_defi.aave_v3.deployment import fetch_deployment as fetch_aave_deploymen
 from eth_defi.abi import get_contract, get_deployed_contract, get_function_selector
 from eth_defi.compat import encode_abi_compat
 from eth_defi.deploy import deploy_contract
-from eth_defi.hotwallet import HotWallet
 from eth_defi.one_delta.constants import Exchange, TradeOperation, TradeType
 from eth_defi.one_delta.deployment import OneDeltaDeployment
 from eth_defi.one_delta.deployment import fetch_deployment as fetch_1delta_deployment
@@ -46,10 +42,15 @@ from eth_defi.trace import (
     assert_transaction_success_with_explanation,
 )
 
-pytestmark = pytest.mark.skipif(
-    (os.environ.get("JSON_RPC_POLYGON") is None) or (shutil.which("anvil") is None),
-    reason="Set JSON_RPC_POLYGON env install anvil command to run these tests",
-)
+# Too flaky on Github
+CI = os.environ.get("CI") == "true"
+
+pytestmark = pytest.mark.skip(reason="These tests need to be rewritten as Polygon is no longer working here")
+
+# pytestmark = pytest.mark.skipif(
+#     (os.environ.get("JSON_RPC_POLYGON") is None) or (shutil.which("anvil") is None) or CI,
+#     reason="Set JSON_RPC_POLYGON env install anvil command to run these tests",
+# )
 
 POOL_FEE_RAW = 3000
 

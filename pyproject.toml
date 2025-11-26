@@ -1,3 +1,8 @@
+# To install:
+#
+# poetry install -E web3v6 -E data -E test -E docs -E data -E hypersync -E ccxt -E cloudflare_r2
+#
+
 [tool.poetry]
 name = "web3-ethereum-defi"
 version = "0.35"
