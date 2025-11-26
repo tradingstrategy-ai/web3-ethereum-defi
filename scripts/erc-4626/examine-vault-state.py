@@ -21,7 +21,8 @@ Usage:
     # Ipor Base
     VAULT_ID="8453-0x45aa96f0b3188d47a1dafdbefce1db6b37f58216" python scripts/erc-4626/examine-vault-state.py
 
-
+    # Hype++
+    VAULT_ID="42161-0x75288264fdfea8ce68e6d852696ab1ce2f3e5004" python scripts/erc-4626/examine-vault-state.py
 
 
 Example output:

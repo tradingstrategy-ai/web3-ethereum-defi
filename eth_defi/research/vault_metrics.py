@@ -1074,7 +1074,7 @@ def analyse_vault(
     price_series = vault_df["share_price"]
 
     # Calculate cumulative returns (what $1 would grow to)
-    cumulative_returns = (1 + hourly_returns).cumprod()
+    # cumulative_returns = (1 + hourly_returns).cumprod()
 
     if len(price_series) < 2:
         # f"Price data must have at least two rows: {vault_df}"
