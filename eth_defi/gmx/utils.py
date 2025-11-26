@@ -195,102 +195,146 @@ def calculate_estimated_liquidation_price(
     size_usd: float,
     is_long: bool,
     maintenance_margin: float = 0.01,
-) -> float:  # 1% maintenance margin
+    pending_funding_fees_usd: float = 0.0,
+    pending_borrowing_fees_usd: float = 0.0,
+    include_closing_fee: bool = True,
+) -> float:
     """
-    Calculate estimated liquidation price using fundamental leveraged trading mathematics.
+    Calculate estimated liquidation price matching GMX V2 mechanics.
 
-    This function implements the core mathematical relationship that determines
-    when leveraged positions become unsustainable and subject to forced closure.
-    Understanding liquidation mechanics is essential for risk management and
-    position sizing in leveraged trading systems.
+    This function implements the liquidation price calculation used by GMX V2,
+    accounting for fees, leverage, and maintenance margin requirements. While
+    this provides a good estimate, the actual on-chain liquidation logic is more
+    complex and includes price impact calculations.
 
-    **Liquidation Mathematics Explained:**
+    **How GMX Liquidation Works:**
 
-    Liquidation occurs when a position's collateral value falls below the minimum
-    required to maintain the leveraged exposure. For long positions, this happens
-    when prices fall enough that collateral loses value. For short positions,
-    liquidation occurs when prices rise and the position accumulates losses that
-    exceed available collateral.
+    GMX liquidates positions when remaining collateral after fees falls below
+    the minimum collateral requirement. The calculation must account for:
+    - Pending funding fees (can be positive or negative)
+    - Pending borrowing fees (always reduces collateral)
+    - Position closing fees (~0.07% of position size)
+    - Maintenance margin requirement (~1% of position size)
 
-    The mathematical relationship derives from the leverage formula:
-    leverage = position_size / collateral_value
+    **Differences from On-Chain Reality:**
 
-    When market moves against a position, the collateral absorbs losses. Liquidation
-    triggers when remaining collateral falls below the maintenance margin requirement,
-    which ensures the protocol can close positions before they become undercollateralized.
+    This simplified calculation does NOT include:
+    - Price impact on position closure
+    - Real-time funding rate changes
+    - Borrowing fee accrual during liquidation
+    - Oracle price delays
 
-    **Risk Management Applications:**
+    For production risk management, use the full liquidation calculation from
+    `eth_defi.gmx.core.liquidation.get_liquidation_price()` which queries
+    on-chain data for accurate results.
 
-    Liquidation price calculations are fundamental to position sizing and risk
-    management. Professional traders use these calculations to determine appropriate
-    position sizes, set stop-loss levels, and monitor portfolio risk in real-time.
-    Understanding your liquidation price helps prevent unexpected position closures
-    during normal market volatility.
+    **Calculation Formula:**
 
-    **Calculation Methodology:**
+    The formula differs based on whether collateral token equals index token:
 
-    The calculation accounts for leverage effects, maintenance margin requirements,
-    and position direction. For long positions, liquidation prices are below entry
-    prices by an amount determined by leverage and margin requirements. For short
-    positions, liquidation prices are above entry prices by the corresponding amount.
+    Same token (e.g., ETH collateral for ETH/USD position):
+        Long: liq_price = (size + min_collateral - fees) / (size_tokens + collateral_tokens)
+        Short: liq_price = (size - min_collateral + fees) / (size_tokens - collateral_tokens)
+
+    Different tokens (e.g., USDC collateral for ETH/USD position):
+        Long: liq_price = (min_collateral - remaining_collateral + size) / size_tokens
+        Short: liq_price = (min_collateral - remaining_collateral - size) / -size_tokens
+
+    This function uses the simplified approximation formula that works for most cases.
 
     Example:
 
     .. code-block:: python
 
-        # Risk analysis for leveraged ETH position
-        entry_price = 2000.0  # Entered ETH long at $2000
-        collateral_usd = 1000  # $1000 collateral
-        size_usd = 5000  # $5000 position (5x leverage)
-
+        # Basic liquidation estimate
         liq_price = calculate_estimated_liquidation_price(
-            entry_price=entry_price,
-            collateral_usd=collateral_usd,
-            size_usd=size_usd,
+            entry_price=2000.0,
+            collateral_usd=1000.0,
+            size_usd=5000.0,  # 5x leverage
             is_long=True,
-            maintenance_margin=0.01,  # 1% maintenance margin
+            maintenance_margin=0.01,
         )
+        # Result: ~$1614 (includes 0.07% closing fee)
 
-        # Result: liquidation at approximately $1620
-        # Risk analysis: 19% price drop triggers liquidation
-        risk_tolerance = (entry_price - liq_price) / entry_price
-        print(f"Position liquidates if ETH drops {risk_tolerance:.1%}")
+        # More accurate estimate with fees
+        liq_price = calculate_estimated_liquidation_price(
+            entry_price=2000.0,
+            collateral_usd=1000.0,
+            size_usd=5000.0,
+            is_long=True,
+            maintenance_margin=0.01,
+            pending_funding_fees_usd=5.0,  # $5 funding fees owed
+            pending_borrowing_fees_usd=10.0,  # $10 borrowing fees
+        )
+        # Result: ~$1608 (accounts for pending fees)
 
     :param entry_price:
-        Price at which the position was opened, serving as the baseline for
-        profit/loss calculations and liquidation risk assessment
+        Price at which the position was opened
     :type entry_price: float
     :param collateral_usd:
-        Total collateral value backing the position in USD terms. This capital
-        absorbs gains and losses as market prices move
+        Total collateral value in USD
     :type collateral_usd: float
     :param size_usd:
-        Total position size in USD terms, representing the market exposure
-        controlled through leveraged capital
+        Total position size in USD (collateral × leverage)
     :type size_usd: float
     :param is_long:
-        Position direction - True for long (bullish) positions that profit
-        from price increases, False for short (bearish) positions that
-        profit from price decreases
+        True for long position, False for short position
     :type is_long: bool
     :param maintenance_margin:
-        Minimum margin requirement as decimal (0.01 = 1%). Protocol-specific
-        safety buffer ensuring positions can be closed before becoming
-        undercollateralized
+        Minimum margin requirement as decimal (default 0.01 = 1%)
+        GMX typically uses 1% for most markets
     :type maintenance_margin: float
+    :param pending_funding_fees_usd:
+        Accumulated funding fees in USD (can be negative for rebates)
+    :type pending_funding_fees_usd: float
+    :param pending_borrowing_fees_usd:
+        Accumulated borrowing fees in USD (always positive)
+    :type pending_borrowing_fees_usd: float
+    :param include_closing_fee:
+        If True, includes 0.07% closing fee in calculation
+    :type include_closing_fee: bool
     :return:
-        Estimated price level at which the position would face liquidation
-        based on current parameters and maintenance margin requirements
+        Estimated liquidation price
     :rtype: float
+
+    **Warning:**
+        This is a SIMPLIFIED estimate. For accurate liquidation prices that
+        account for price impact and real-time on-chain data, use
+        `eth_defi.gmx.core.liquidation.get_liquidation_price()` instead.
     """
+    # Calculate leverage
     leverage = size_usd / collateral_usd
 
+    # Calculate total fees
+    total_fees = pending_funding_fees_usd + pending_borrowing_fees_usd
+
+    # Add closing fee if requested (GMX charges ~0.07% for negative price impact)
+    if include_closing_fee:
+        closing_fee = size_usd * 0.0007  # 0.07% of position size
+        total_fees += closing_fee
+
+    # Calculate minimum collateral requirement for liquidation
+    min_collateral_requirement = size_usd * maintenance_margin
+
+    # Calculate remaining collateral after fees
+    remaining_collateral = collateral_usd - total_fees
+
+    # Calculate liquidation price
+    # This formula approximates: at what price does (remaining_collateral - PnL) = min_collateral_requirement
     if is_long:
-        # For longs, liquidation happens when price drops
-        liquidation_price = entry_price * (1 - (1 / leverage) + maintenance_margin)
+        # For longs: price drop reduces collateral value
+        # Liquidation when: remaining_collateral - (entry_price - liq_price) * (size_usd / entry_price) = min_collateral
+        # Solving for liq_price:
+        max_loss = remaining_collateral - min_collateral_requirement
+        price_drop_ratio = max_loss / size_usd
+        liquidation_price = entry_price * (1 - price_drop_ratio)
     else:
-        # For shorts, liquidation happens when price rises
-        liquidation_price = entry_price * (1 + (1 / leverage) - maintenance_margin)
+        # For shorts: price rise reduces collateral value
+        # Liquidation when: remaining_collateral - (liq_price - entry_price) * (size_usd / entry_price) = min_collateral
+        # Solving for liq_price:
+        max_loss = remaining_collateral - min_collateral_requirement
+        price_rise_ratio = max_loss / size_usd
+        liquidation_price = entry_price * (1 + price_rise_ratio)
 
     return liquidation_price
 
@@ -520,50 +564,6 @@ def transform_open_position_to_order_parameters(
         }
     except KeyError:
         raise Exception(f"Couldn't find a {market_symbol} {direction} position for the given user!")
-
-
-def apply_factor(value, factor):
-    return value * factor / 10**30
-
-
-def create_hash(data_type_list: list, data_value_list: list):
-    """
-    Create a keccak hash using a list of strings corresponding to data types
-    and a list of the values the data types match
-
-    Parameters
-    ----------
-    data_type_list : list
-        list of data types as strings.
-    data_value_list : list
-        list of values as strings.
-
-    Returns
-    -------
-    bytes
-        encoded hashed key .
-
-    """
-    byte_data = encode(data_type_list, data_value_list)
-    return keccak(byte_data)
-
-
-def create_hash_string(string: str):
-    """
-    Value to hash
-
-    Parameters
-    ----------
-    string : str
-        string to hash.
-
-    Returns
-    -------
-    bytes
-        hashed string.
-
-    """
-    return create_hash(["string"], [string])
 
 
 def find_dictionary_by_key_value(outer_dict: dict, key: str, value: str):

@@ -39,6 +39,7 @@ from eth_defi.gmx.core import GetOpenPositions
 from eth_defi.gmx.core.markets import Markets
 from eth_defi.gmx.graphql.client import GMXSubsquidClient
 from eth_defi.gmx.trading import GMXTrading
+from eth_defi.gmx.utils import calculate_estimated_liquidation_price
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import fetch_erc20_details
@@ -2087,23 +2088,17 @@ class GMX(ExchangeCompatible):
         if position_size_usd and percentage is not None:
             unrealized_pnl = position_size_usd * (percentage / 100)
 
-        # Estimate liquidation price
-        # NOTE: This is a SIMPLIFIED ESTIMATE. The actual GMX liquidation logic is more complex
-        # and accounts for borrowing fees, funding rates, price impact, and other factors.
-        # This calculation assumes liquidation happens when losses exceed ~90% of collateral,
-        # which is approximate. Use for reference only, not for risk management decisions.
+        # Calculate liquidation price including fees
         liquidation_price = None
         if entry_price and collateral_amount and position_size_usd and position_size_usd > 0:
-            # Calculate max loss before liquidation (90% of collateral - simplified)
-            max_loss = collateral_amount * 0.9
-            # Calculate price change that causes max loss
-            price_change_ratio = max_loss / position_size_usd
-            if is_long:
-                # For long: liquidation when price drops
-                liquidation_price = entry_price * (1 - price_change_ratio)
-            else:
-                # For short: liquidation when price rises
-                liquidation_price = entry_price * (1 + price_change_ratio)
+            liquidation_price = calculate_estimated_liquidation_price(
+                entry_price=entry_price,
+                collateral_usd=collateral_amount,
+                size_usd=position_size_usd,
+                is_long=is_long,
+                maintenance_margin=0.01,  # GMX typically uses 1%
+                include_closing_fee=True,  # Include 0.07% closing fee
+            )
 
         # Calculate margin ratio (used margin / total position value)
         margin_ratio = None
