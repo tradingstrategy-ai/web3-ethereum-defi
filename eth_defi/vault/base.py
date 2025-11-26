@@ -269,7 +269,7 @@ class VaultHistoricalRead:
             "performance_fee": float(self.performance_fee) if self.performance_fee is not None else _nan,
             "management_fee": float(self.management_fee) if self.management_fee is not None else _nan,
             "errors": error_msgs if error_msgs else "",
-            "read_frequency_mode": self.read_frequency_mode if self.read_frequency_mode else "",
+            "vault_poll_frequency": self.vault_poll_frequency if self.vault_poll_frequency else "",
         }
         return data
 
@@ -293,7 +293,7 @@ class VaultHistoricalRead:
                 ("performance_fee", pa.float32()),
                 ("management_fee", pa.float32()),
                 ("errors", pa.string()),
-                ("read_frequency_mode", pa.string()),
+                ("vault_poll_frequency", pa.string()),
             ]
         )
         return schema
