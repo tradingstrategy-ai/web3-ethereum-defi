@@ -10,6 +10,10 @@ from eth_defi.utils import sanitise_string
 from eth_typing import HexAddress
 
 
+class BadAddressError(Exception):
+    """Cannot convert to address."""
+
+
 def decode_data(data: str) -> list[bytes]:
     """Split data of a log to uin256 results"""
 
@@ -40,9 +44,14 @@ def convert_uint256_bytes_to_address(raw: bytes | HexBytes) -> ChecksumAddress:
 
     :return:
         Checksummed Ethereum address
+
+    :raise BadAddressError:
+        If the returned data does not lot look like an address.
     """
     assert type(raw) in (bytes, HexBytes), f"Received: {type(raw)}"
-    assert len(raw) == 32
+    # assert len(raw) == 32
+    if len(raw) != 32:
+        raise BadAddressError(f"Expected 32 bytes for uint256 to convert to address, got {len(raw)} bytes: {raw.hex()}")
     return Web3.to_checksum_address(raw[12:])
 
 
