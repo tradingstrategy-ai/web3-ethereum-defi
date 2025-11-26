@@ -216,6 +216,11 @@ class VaultHistoricalRead:
     #: Exported as empty string in Parquet if no errors, otherwise concat strings
     errors: list[str] | None
 
+    #: What dynamic read frequency was used at the time of taking this sample
+    #:
+    #: Useful for diagnostics of scanning process
+    read_frequency_mode: str | None = None
+
     def __eq__(self, other: "VaultHistoricalRead | None") -> bool:
         """Check if the read statistics match.
 
@@ -264,6 +269,7 @@ class VaultHistoricalRead:
             "performance_fee": float(self.performance_fee) if self.performance_fee is not None else _nan,
             "management_fee": float(self.management_fee) if self.management_fee is not None else _nan,
             "errors": error_msgs if error_msgs else "",
+            "read_frequency_mode": self.read_frequency_mode if self.read_frequency_mode else "",
         }
         return data
 
@@ -287,6 +293,7 @@ class VaultHistoricalRead:
                 ("performance_fee", pa.float32()),
                 ("management_fee", pa.float32()),
                 ("errors", pa.string()),
+                ("read_frequency_mode", pa.string()),
             ]
         )
         return schema
@@ -337,6 +344,7 @@ class VaultHistoricalReader(ABC):
         block_number: int,
         timestamp: datetime.datetime,
         call_results: list[EncodedCallResult],
+        state: "eth_defi.erc_4626.vault.VaultReaderState",
     ) -> VaultHistoricalRead:
         """Process the result of mult
 

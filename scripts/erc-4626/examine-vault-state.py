@@ -9,7 +9,11 @@ Usage:
 
 .. code-block:: shell
 
+    # Fluid
     VAULT_ID=1-"0x00c8a649c9837523ebb406ceb17a6378ab5c74cf" python scripts/erc-4626/examine-vault-state.py
+
+    # Plutus
+    VAULT_ID="42161-0x58bfc95a864e18e8f3041d2fcd3418f48393fe6a" python scripts/erc-4626/examine-vault-state.py
 
 Example output:
 
@@ -39,6 +43,8 @@ from pathlib import Path
 from pprint import pprint
 
 import pandas as pd
+
+from IPython.display import display
 
 from eth_defi.research.wrangle_vault_prices import assign_unique_names
 from eth_defi.utils import setup_console_logging
@@ -81,7 +87,7 @@ def main():
     # Check price data
     print(f"Checking cleaned price data {DEFAULT_RAW_PRICE_DATABASE}")
     prices_df = read_default_vault_prices()
-    vault_prices_df = prices_df.loc[prices_df["id"] == vault_id]
+    cleaned_df = vault_prices_df = prices_df.loc[prices_df["id"] == vault_id]
 
     data = {
         "First timestamp": vault_prices_df.index.min(),
@@ -91,7 +97,7 @@ def main():
         "Last price": vault_prices_df["share_price"].iloc[-1],
         "Last price (raw)": vault_prices_df["raw_share_price"].iloc[-1],
         "Last TVL": vault_prices_df["total_assets"].iloc[-1],
-        "Price count": len(vault_prices_df),
+        "Rows (vault)": len(vault_prices_df),
         "Rows (all)": f"{len(prices_df):,}",
         "Last timestamp (all)": prices_df.index.max(),
     }
@@ -116,10 +122,13 @@ def main():
         "Min TVL": f"${vault_prices_df['total_assets'].min():,.0f}",
         "Max TVL": f"${vault_prices_df['total_assets'].max():,.0f}",
         "Last TVL": vault_prices_df["total_assets"].iloc[-1],
-        "Price count": len(vault_prices_df),
+        "Rows (vault)": len(vault_prices_df),
         "Rows (all)": f"{len(prices_df):,}",
     }
     pprint(data)
+
+    print("Last 50 rows of cleaned price data:")
+    display(cleaned_df.tail(50))
 
     print("All ok")
 
