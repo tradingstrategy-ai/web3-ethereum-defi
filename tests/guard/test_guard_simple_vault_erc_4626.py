@@ -182,7 +182,8 @@ def vault(
     vault = deploy_contract(web3, "guard/SimpleVaultV0.json", deployer, asset_manager)
 
     assert vault.functions.owner().call() == deployer
-    vault.functions.initialiseOwnership(owner).transact({"from": deployer})
+    tx_hash = vault.functions.initialiseOwnership(owner).transact({"from": deployer})
+    assert_transaction_success_with_explanation(web3, tx_hash)
     assert vault.functions.owner().call() == owner
     assert vault.functions.assetManager().call() == asset_manager
 
