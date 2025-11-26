@@ -519,7 +519,7 @@ def fix_outlier_share_prices(
         if len(prices_df) == 0:
             return prices_df
 
-        vault_id = prices_df.iloc[0]["id"]
+        group = group.ffill()
 
         group["next_price_candidate"] = group["share_price"].shift(-look_ahead).ffill()
         group["prev_price_candidate"] = group["share_price"].shift(look_back).bfill()
