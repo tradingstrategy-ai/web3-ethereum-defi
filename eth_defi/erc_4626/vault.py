@@ -295,7 +295,6 @@ class VaultReaderState(BatchCallState):
             return "faded", datetime.timedelta(days=7)
 
         if self.last_tvl < self.tiny_tvl_threshold_rare_read:
-
             if self.last_call_at - self.first_read_at < datetime.timedelta(days=14):
                 # For start of each vault, sample daily for two weeks
                 # despite tiny TVL to avoid early breakage

@@ -795,18 +795,17 @@ def combine_return_columns(
     assert gross.index.equals(net.index), f"Gross and net series must have the same index {len(gross)} != {len(net)}"
 
     def _format_combined_percent(g, n):
-
         match profit_presentation:
             case "split":
-                if n is not None and pd.isna(n) == False:            
+                if n is not None and pd.isna(n) == False:
                     return f"{n:.1%}{new_line}({g:.1%})"
                 else:
                     return f"---{new_line}({g:.1%})"
             case "net_only":
-                if n is not None and pd.isna(n) == False:            
+                if n is not None and pd.isna(n) == False:
                     return f"{n:.1%} (n)"
                 else:
-                    if n and pd.isna(n) == False:                        
+                    if n and pd.isna(n) == False:
                         return f"{n:.1%} (g)"
                     else:
                         return "---"
@@ -1057,7 +1056,7 @@ def analyse_vault(
 
     # Use cleaned returns data and resample it to something useful
     vault_df = returns_df.loc[returns_df["id"] == id]
-    
+
     vault_df = vault_df.resample("h").last().ffill()
 
     cleaned_price_series = vault_df["share_price"]
