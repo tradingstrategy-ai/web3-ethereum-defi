@@ -376,6 +376,7 @@ class VaultHistoricalReadMulticaller:
         last_results: dict[HexAddress, VaultHistoricalRead] = {}
 
         skipped_results = 0
+        error_count = 0
 
         for combined_result in reader_func(
             chain_id=chain_id,
@@ -412,7 +413,6 @@ class VaultHistoricalReadMulticaller:
             last_block_num = combined_result.block_number
             last_block_at = combined_result.timestamp
 
-            error_count = 0
             for vault_address, results in vault_data.items():
                 reader = readers[vault_address]
 

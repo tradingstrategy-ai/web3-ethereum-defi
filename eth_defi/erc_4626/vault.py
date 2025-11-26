@@ -18,6 +18,8 @@ from eth_defi.provider.fallback import ExtraValueError
 
 from requests.exceptions import HTTPError
 
+from example_scripts.test import run_mock_swap_test
+
 if WEB3_PY_V7:
     from web3.exceptions import BadFunctionCallOutput, BlockNumberOutOfRange
 else:
@@ -715,7 +717,7 @@ class ERC4626Vault(VaultBase):
         except (ValueError, BadFunctionCallOutput, BadAddressError):
             pass
         return None
-
+run_mock_swap_test()
     def fetch_denomination_token(self) -> TokenDetails | None:
         token_address = self.fetch_denomination_token_address()
         # eth_defi.token.TokenDetailError: Token 0x4C36388bE6F416A29C8d8Eee81C771cE6bE14B18 missing symbol
