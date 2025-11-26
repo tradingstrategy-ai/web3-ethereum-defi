@@ -108,7 +108,7 @@ def setup_fork_network(web3: Web3):
     # Setup mock oracle - prices fetched dynamically from chain
     console.print("\n[dim]Setting up mock oracle (fetching on-chain prices)...[/dim]")
     setup_mock_oracle(web3)  # No hardcoded prices - fetches from chain automatically
-    console.print(f"[dim]✓ Mock oracle configured with on-chain prices[/dim]\n")
+    console.print(f"[dim]Mock oracle configured with on-chain prices[/dim]\n")
 
     return chain
 
@@ -120,7 +120,7 @@ def fund_wallet_anvil(web3: Web3, wallet_address: str, tokens: dict):
     # Set ETH balance for wallet
     eth_amount_wei = 100 * 10**18
     web3.provider.make_request("anvil_setBalance", [wallet_address, hex(eth_amount_wei)])
-    console.print(f"  [green]✓ ETH balance: 100 ETH[/green]")
+    console.print(f"  [green]ETH balance: 100 ETH[/green]")
 
     # Give whales some ETH for gas
     gas_eth = 1 * 10**18
@@ -134,7 +134,7 @@ def fund_wallet_anvil(web3: Web3, wallet_address: str, tokens: dict):
         usdc_token = fetch_erc20_details(web3, usdc_address)
         usdc_token.contract.functions.transfer(wallet_address, usdc_amount).transact({"from": LARGE_USDC_HOLDER})
         balance = usdc_token.contract.functions.balanceOf(wallet_address).call()
-        console.print(f"  [green]✓ USDC balance: {balance / 10**6:.2f} USDC[/green]")
+        console.print(f"  [green]USDC balance: {balance / 10**6:.2f} USDC[/green]")
 
     # Transfer WETH from whale
     weth_address = tokens.get("WETH")
@@ -143,7 +143,7 @@ def fund_wallet_anvil(web3: Web3, wallet_address: str, tokens: dict):
         weth_token = fetch_erc20_details(web3, weth_address)
         weth_token.contract.functions.transfer(wallet_address, weth_amount).transact({"from": LARGE_WETH_HOLDER})
         balance = weth_token.contract.functions.balanceOf(wallet_address).call()
-        console.print(f"  [green]✓ WETH balance: {balance / 10**18:.2f} WETH[/green]")
+        console.print(f"  [green]WETH balance: {balance / 10**18:.2f} WETH[/green]")
 
 
 def fund_wallet_tenderly(web3: Web3, wallet_address: str, tokens: dict):
@@ -153,21 +153,21 @@ def fund_wallet_tenderly(web3: Web3, wallet_address: str, tokens: dict):
     # Set ETH balance
     eth_amount_wei = 100 * 10**18
     web3.provider.make_request("tenderly_setBalance", [wallet_address, hex(eth_amount_wei)])
-    console.print(f"  [green]✓ ETH balance: 100 ETH[/green]")
+    console.print(f"  [green]ETH balance: 100 ETH[/green]")
 
     # Set USDC balance
     usdc_address = tokens.get("USDC")
     if usdc_address:
         usdc_amount = 100_000 * (10**6)
         web3.provider.make_request("tenderly_setErc20Balance", [usdc_address, wallet_address, hex(usdc_amount)])
-        console.print(f"  [green]✓ USDC balance: 100,000 USDC[/green]")
+        console.print(f"  [green]USDC balance: 100,000 USDC[/green]")
 
     # Set WETH balance
     weth_address = tokens.get("WETH")
     if weth_address:
         weth_amount = 1000 * (10**18)
         web3.provider.make_request("tenderly_setErc20Balance", [weth_address, wallet_address, hex(weth_amount)])
-        console.print(f"  [green]✓ WETH balance: 1,000 WETH[/green]")
+        console.print(f"  [green]WETH balance: 1,000 WETH[/green]")
 
 
 def parse_arguments():
@@ -303,7 +303,7 @@ def main():
             execution_buffer=2.2,
         )
 
-        console.print(f"\n[green]✓ Order created[/green]")
+        console.print(f"\n[green]Order created[/green]")
         console.print(f"  Execution Fee: {order.execution_fee / 1e18:.6f} ETH")
         console.print(f"  Mark Price: {order.mark_price}")
 
@@ -320,7 +320,7 @@ def main():
         receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
 
         if receipt["status"] == 1:
-            console.print(f"[green]✓ Order submitted[/green]")
+            console.print(f"[green]Order submitted[/green]")
             console.print(f"  Block: {receipt['blockNumber']}")
             console.print(f"  Gas used: {receipt['gasUsed']}")
 
@@ -330,22 +330,22 @@ def main():
             order_key = None
             try:
                 order_key = extract_order_key_from_receipt(receipt)
-                console.print(f"\n[green]✓ Order Key: {order_key.hex()}[/green]")
+                console.print(f"\n[green]Order Key: {order_key.hex()}[/green]")
             except Exception as e:
-                console.print(f"\n[yellow]⚠ Could not extract order key: {e}[/yellow]")
+                console.print(f"\n[yellow]Could not extract order key: {e}[/yellow]")
 
             if order_key:
                 console.print("\n[bold]Executing order as keeper...[/bold]")
                 try:
                     exec_receipt, keeper_address = execute_order_as_keeper(web3, order_key)
 
-                    console.print(f"[green]✓ Order executed[/green]")
+                    console.print(f"[green]Order executed[/green]")
                     console.print(f"  Keeper: {keeper_address}")
                     console.print(f"  Block: {exec_receipt['blockNumber']}")
                     console.print(f"  Gas used: {exec_receipt['gasUsed']}")
 
                 except Exception as e:
-                    console.print(f"[red]✗ Keeper execution failed: {e}[/red]")
+                    console.print(f"[red]Keeper execution failed: {e}[/red]")
 
             # ========================================================================
             # STEP 6: Verify Position
@@ -357,12 +357,12 @@ def main():
             open_positions = position_verifier.get_data(wallet_address)
 
             if open_positions:
-                console.print(f"[green]✓ Found {len(open_positions)} position(s)[/green]\n")
+                console.print(f"[green]Found {len(open_positions)} position(s)[/green]\n")
 
                 for idx, (position_key, position) in enumerate(open_positions.items(), 1):
                     market_symbol = position.get("market_symbol", "Unknown")
                     is_long = position.get("is_long", False)
-                    direction = "LONG 🟢" if is_long else "SHORT 🔴"
+                    direction = "LONG" if is_long else "SHORT"
                     collateral_token = position.get("collateral_token", "Unknown")
 
                     position_size = position.get("position_size", 0)
@@ -419,7 +419,7 @@ def main():
 
                 console.print(f"[dim]Setting up mock oracle for closing position (ETH=${new_eth_price}, USDC=${current_usdc_price})...[/dim]")
                 setup_mock_oracle(web3, eth_price_usd=new_eth_price, usdc_price_usd=current_usdc_price)
-                console.print(f"[dim]✓ Mock oracle configured[/dim]\n")
+                console.print(f"[dim]Mock oracle configured[/dim]\n")
 
                 try:
                     close_order = trading_client.close_position(
@@ -433,7 +433,7 @@ def main():
                         execution_buffer=2.2,
                     )
 
-                    console.print(f"\n[green]✓ Close order created[/green]")
+                    console.print(f"\n[green]Close order created[/green]")
                     console.print(f"  Execution Fee: {close_order.execution_fee / 1e18:.6f} ETH")
 
                     console.print("\n[bold]Submitting close order...[/bold]")
@@ -448,18 +448,18 @@ def main():
                     close_receipt = web3.eth.wait_for_transaction_receipt(close_tx_hash)
 
                     if close_receipt["status"] == 1:
-                        console.print(f"[green]✓ Close order submitted[/green]")
+                        console.print(f"[green]Close order submitted[/green]")
                         console.print(f"  Block: {close_receipt['blockNumber']}")
                         console.print(f"  Gas used: {close_receipt['gasUsed']}")
 
                         # Execute close order as keeper
                         close_order_key = extract_order_key_from_receipt(close_receipt)
-                        console.print(f"\n[green]✓ Close Order Key: {close_order_key.hex()}[/green]")
+                        console.print(f"\n[green]Close Order Key: {close_order_key.hex()}[/green]")
 
                         console.print("\n[bold]Executing close order as keeper...[/bold]")
                         close_exec_receipt, keeper_address = execute_order_as_keeper(web3, close_order_key)
 
-                        console.print(f"[green]✓ Close order executed[/green]")
+                        console.print(f"[green]Close order executed[/green]")
                         console.print(f"  Keeper: {keeper_address}")
                         console.print(f"  Block: {close_exec_receipt['blockNumber']}")
                         console.print(f"  Gas used: {close_exec_receipt['gasUsed']}")
@@ -470,25 +470,25 @@ def main():
 
                         final_positions = position_verifier.get_data(wallet_address)
                         if len(final_positions) == 0:
-                            console.print(f"[green]✓ Position successfully closed![/green]")
+                            console.print(f"[green]Position successfully closed![/green]")
                         else:
-                            console.print(f"[yellow]⚠ Warning: {len(final_positions)} position(s) still open[/yellow]")
+                            console.print(f"[yellow]Warning: {len(final_positions)} position(s) still open[/yellow]")
                             for pos_key, pos in final_positions.items():
                                 console.print(f"    {pos['market_symbol']} {'LONG' if pos['is_long'] else 'SHORT'}: ${pos['position_size']:.2f}")
                     else:
-                        console.print(f"[red]✗ Close order failed[/red]")
+                        console.print(f"[red]Close order failed[/red]")
 
                 except Exception as e:
-                    console.print(f"[red]✗ Close position failed: {e}[/red]")
+                    console.print(f"[red]Close position failed: {e}[/red]")
                     import traceback
 
                     traceback.print_exc()
 
             else:
-                console.print(f"[yellow]⚠ No positions found[/yellow]")
+                console.print(f"[yellow]No positions found[/yellow]")
 
         else:
-            console.print(f"\n[red]✗ Order failed[/red]")
+            console.print(f"\n[red]Order failed[/red]")
             try:
                 assert_transaction_success_with_explanation(web3, tx_hash)
             except Exception as e:

@@ -65,7 +65,7 @@ def make_gmx_api_request(
 
                 # Log success if using backup or after retries
                 if url_type == "backup" or attempt > 0:
-                    logger.info("✓ Successfully connected to %s GMX API for %s", url_type, endpoint)
+                    logger.info("Successfully connected to %s GMX API for %s", url_type, endpoint)
 
                 return response.json()
 

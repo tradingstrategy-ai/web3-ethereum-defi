@@ -62,7 +62,7 @@ def setup_fork_environment(
     # Setup mock oracle
     print("\nSetting up mock oracle...")
     setup_mock_oracle(web3)
-    print("  ✓ Mock oracle configured")
+    print("  Mock oracle configured")
 
     # Determine which RPC method to use for setting balance
     # Try Tenderly first, fall back to Anvil
@@ -77,7 +77,7 @@ def setup_fork_environment(
             set_balance_method = "anvil_setBalance"
             print("  Using Anvil for balance manipulation")
         except Exception:
-            print("  ⚠ Warning: Cannot manipulate balances (not on fork)")
+            print("  Warning: Cannot manipulate balances (not on fork)")
             set_balance_method = None
 
     # Fund wallet with ETH
@@ -85,14 +85,14 @@ def setup_fork_environment(
     eth_amount_wei = 100 * 10**18
     if set_balance_method:
         web3.provider.make_request(set_balance_method, [wallet_address, hex(eth_amount_wei)])
-        print(f"  ✓ ETH balance: 100 ETH")
+        print(f"  ETH balance: 100 ETH")
 
         # Give whales some ETH for gas
         gas_eth = 1 * 10**18
         web3.provider.make_request(set_balance_method, [LARGE_USDC_HOLDER, hex(gas_eth)])
         web3.provider.make_request(set_balance_method, [LARGE_WETH_HOLDER, hex(gas_eth)])
     else:
-        print("  ⚠ Skipping ETH funding (not available on this fork)")
+        print("  Skipping ETH funding (not available on this fork)")
 
     # Transfer USDC from whale
     usdc_address = get_token_address_normalized(chain, "USDC")
@@ -100,7 +100,7 @@ def setup_fork_environment(
     usdc_token = fetch_erc20_details(web3, usdc_address)
     usdc_token.contract.functions.transfer(wallet_address, usdc_amount).transact({"from": LARGE_USDC_HOLDER})
     balance = usdc_token.contract.functions.balanceOf(wallet_address).call()
-    print(f"  ✓ USDC balance: {balance / 10**6:,.2f} USDC")
+    print(f"  USDC balance: {balance / 10**6:,.2f} USDC")
 
     # Transfer WETH from whale
     weth_address = get_token_address_normalized(chain, "ETH")  # GMX uses "ETH" for WETH
@@ -108,7 +108,7 @@ def setup_fork_environment(
     weth_token = fetch_erc20_details(web3, weth_address)
     weth_token.contract.functions.transfer(wallet_address, weth_amount).transact({"from": LARGE_WETH_HOLDER})
     balance = weth_token.contract.functions.balanceOf(wallet_address).call()
-    print(f"  ✓ WETH balance: {balance / 10**18:.6f} WETH")
+    print(f"  WETH balance: {balance / 10**18:.6f} WETH")
 
     # Sync wallet nonce before approvals (whale transfers may have advanced block)
     wallet.sync_nonce(web3)
@@ -141,9 +141,9 @@ def setup_fork_environment(
                 assert approve_receipt["status"] == 1, f"{token_symbol} approval failed for {router_address}"
                 approved_count += 1
         if approved_count > 0:
-            print(f"  ✓ {token_symbol} approved for {approved_count} router(s)")
+            print(f"  {token_symbol} approved for {approved_count} router(s)")
         else:
-            print(f"  ✓ {token_symbol} already approved")
+            print(f"  {token_symbol} already approved")
 
     return chain
 
@@ -189,7 +189,7 @@ def test_order_creation_with_wallet(web3: Web3, wallet: HotWallet):
         # Check if transaction was successful
         receipt = order["info"]["receipt"]
         if receipt["status"] != 1:
-            print("\n✗ Transaction reverted! Checking reason...")
+            print("\nTransaction reverted! Checking reason...")
             try:
                 assert_transaction_success_with_explanation(web3, order["id"])
             except Exception as trace_error:
@@ -207,7 +207,7 @@ def test_order_creation_with_wallet(web3: Web3, wallet: HotWallet):
         print("\nExecuting order as keeper...")
         order_key = extract_order_key_from_receipt(order["info"]["receipt"])
         exec_receipt, keeper_address = execute_order_as_keeper(web3, order_key)
-        print(f"  ✓ Order executed by keeper in block {exec_receipt['blockNumber']}")
+        print(f"  Order executed by keeper in block {exec_receipt['blockNumber']}")
 
         # Verify position was created
         print("\nVerifying position was created...")
@@ -216,7 +216,7 @@ def test_order_creation_with_wallet(web3: Web3, wallet: HotWallet):
         open_positions = position_verifier.get_data(wallet.address)
 
         if open_positions:
-            print(f"  ✓ Found {len(open_positions)} position(s)")
+            print(f"  Found {len(open_positions)} position(s)")
 
             for idx, (position_key, position) in enumerate(open_positions.items(), 1):
                 market_symbol = position.get("market_symbol", "Unknown")
@@ -249,16 +249,16 @@ def test_order_creation_with_wallet(web3: Web3, wallet: HotWallet):
                 assert position["market_symbol"] == "ETH", "Position market should be ETH"
                 assert position["is_long"] is True, "Position should be long"
                 assert position["leverage"] > 0, "Leverage should be > 0"
-                print(f"\n  ✓ Position details verified")
+                print(f"\n  Position details verified")
         else:
-            print("  ✗ No positions found - order may not have been executed properly")
+            print("  No positions found - order may not have been executed properly")
             return False
 
-        print("\n✓ Order creation with wallet works correctly")
+        print("\nOrder creation with wallet works correctly")
         return True
 
     except Exception as e:
-        print(f"\n✗ Error creating order: {e}")
+        print(f"\nError creating order: {e}")
         import traceback
 
         traceback.print_exc()
@@ -312,7 +312,7 @@ def test_parameter_conversion(web3: Web3, wallet: HotWallet):
     assert gmx_params["slippage_percent"] == 0.005, "Slippage should match"
     assert gmx_params["execution_buffer"] == 2.2, "Execution buffer should match"
 
-    print("\n✓ Parameter conversion works correctly")
+    print("\nParameter conversion works correctly")
     return True
 
 
@@ -328,10 +328,10 @@ def test_error_handling(web3: Web3):
 
     try:
         order = gmx_no_wallet.create_market_buy_order("ETH/USD", 100.0)
-        print("✗ Should have raised ValueError")
+        print("Should have raised ValueError")
         return False
     except ValueError as e:
-        print(f"✓ Correctly raised ValueError: {e}")
+        print(f"Correctly raised ValueError: {e}")
         return True
 
 
@@ -370,24 +370,24 @@ def test_unsupported_methods(web3: Web3, wallet: HotWallet):
     for name, func, expected_error in protocol_unsupported:
         try:
             func()
-            print(f"  ✗ {name} should raise {expected_error.__name__}")
+            print(f"  {name} should raise {expected_error.__name__}")
             all_passed = False
         except expected_error as e:
-            print(f"  ✓ {name}: {str(e)[:60]}...")
+            print(f"  {name}: {str(e)[:60]}...")
         except Exception as e:
-            print(f"  ✗ {name} raised {type(e).__name__} instead of {expected_error.__name__}")
+            print(f"  {name} raised {type(e).__name__} instead of {expected_error.__name__}")
             all_passed = False
 
     print("\nNot yet implemented (NotImplementedError):")
     for name, func, expected_error in not_implemented:
         try:
             func()
-            print(f"  ✗ {name} should raise {expected_error.__name__}")
+            print(f"  {name} should raise {expected_error.__name__}")
             all_passed = False
         except expected_error as e:
-            print(f"  ✓ {name}: {str(e)[:60]}...")
+            print(f"  {name}: {str(e)[:60]}...")
         except Exception as e:
-            print(f"  ✗ {name} raised {type(e).__name__} instead of {expected_error.__name__}")
+            print(f"  {name} raised {type(e).__name__} instead of {expected_error.__name__}")
             all_passed = False
 
     return all_passed
@@ -408,7 +408,7 @@ def main():
     if args.tenderly:
         rpc_url = os.environ.get("TD_ARB")
         if not rpc_url:
-            print("✗ Error: TD_ARB environment variable not set")
+            print("Error: TD_ARB environment variable not set")
             print("Set it to your Tenderly fork URL:")
             print("  export TD_ARB=https://rpc.tenderly.co/fork/...")
             return 1
@@ -442,7 +442,7 @@ def main():
                 fork_block_number=FORK_BLOCK,
             )
             rpc_url = launch.json_rpc_url
-            print(f"  ✓ Anvil fork started on {rpc_url}")
+            print(f"  Anvil fork started on {rpc_url}")
         else:
             print(f"\nConnecting to: {rpc_url}")
 
@@ -453,15 +453,15 @@ def main():
         )
 
         if not web3.is_connected():
-            print("✗ Failed to connect to RPC")
+            print("Failed to connect to RPC")
             return 1
 
-        print(f"  ✓ Connected (block: {web3.eth.block_number})")
+        print(f"  Connected (block: {web3.eth.block_number})")
 
         # Create wallet
         wallet = HotWallet.from_private_key(private_key)
         wallet.sync_nonce(web3)
-        print(f"  ✓ Wallet: {wallet.address}")
+        print(f"  Wallet: {wallet.address}")
 
         # Setup fork environment
         setup_fork_environment(web3, wallet.address, wallet)
@@ -480,20 +480,20 @@ def main():
         print("=" * 80)
 
         for test_name, passed in results:
-            status = "✓ PASSED" if passed else "✗ FAILED"
+            status = "[PASS]" if passed else "[FAIL]"
             print(f"  {test_name}: {status}")
 
         all_passed = all(result[1] for result in results)
 
         if all_passed:
-            print("\n✓ All tests PASSED")
+            print("\nAll tests PASSED")
             return 0
         else:
-            print("\n✗ Some tests FAILED")
+            print("\nSome tests FAILED")
             return 1
 
     except Exception as e:
-        print(f"\n✗ Error: {e}")
+        print(f"\nError: {e}")
         import traceback
 
         traceback.print_exc()

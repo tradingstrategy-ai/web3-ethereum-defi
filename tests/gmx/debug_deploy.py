@@ -140,7 +140,7 @@ def set_code(web3: Web3, address: str, bytecode: str):
     expected_bytecode = bytes.fromhex(bytecode[2:]) if bytecode.startswith("0x") else bytes.fromhex(bytecode)
 
     if deployed_code == expected_bytecode:
-        logger.info("✅ Code verification successful")
+        logger.info("Code verification successful")
     else:
         raise Exception("Bytecode verification failed")
 
@@ -215,7 +215,7 @@ def deploy_gmx_order_executor(web3: Web3, wallet: HotWallet) -> tuple:
 
     if receipt["status"] == 1:
         contract_address = receipt["contractAddress"]
-        console.print(f"  [green]✓ Contract deployed at: {contract_address}[/green]")
+        console.print(f"  [green]Contract deployed at: {contract_address}[/green]")
         console.print(f"  Gas used: {receipt['gasUsed']}")
 
         # Return contract instance
@@ -340,7 +340,7 @@ def setup_mock_oracle_with_contract(
     receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
 
     if receipt["status"] == 1:
-        console.print(f"  [green]✓ Mock oracle configured successfully[/green]")
+        console.print(f"  [green]Mock oracle configured successfully[/green]")
 
         # Verify mock oracle by querying it
         console.print(f"\n[bold cyan]Verifying mock oracle prices:[/bold cyan]")
@@ -468,7 +468,7 @@ def execute_order_with_contract(web3: Web3, wallet: HotWallet, executor_contract
         receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
 
         if receipt["status"] == 1:
-            console.print(f"[green]✓ Order executed successfully![/green]")
+            console.print(f"[green]Order executed successfully![/green]")
             console.print(f"  Block: {receipt['blockNumber']}")
             console.print(f"  Gas used: {receipt['gasUsed']}")
 
@@ -830,7 +830,7 @@ def main():
         console.print(f"\n[bold]Transaction Status: {receipt['status']}[/bold]")
 
         if receipt["status"] == 1:
-            console.print(f"[green]✓ Order submitted successfully![/green]")
+            console.print(f"[green]Order submitted successfully![/green]")
             console.print(f"  Block: {receipt['blockNumber']}")
             console.print(f"  Gas used: {receipt['gasUsed']}")
             console.print(f"[dim]  Blocks mined: {blocks_mined} | Total setup blocks: {setup_block_count} | Current block: {block_after}[/dim]")
@@ -854,7 +854,7 @@ def main():
             order_key = None
             try:
                 order_key = extract_order_key_from_receipt(receipt)
-                console.print(f"\n[green]✓ Order Key: {order_key.hex()}[/green]")
+                console.print(f"\n[green]Order Key: {order_key.hex()}[/green]")
             except Exception as e:
                 console.print(f"\n[yellow]Warning: Could not extract order key: {e}[/yellow]")
 
@@ -865,7 +865,7 @@ def main():
                 try:
                     exec_receipt = execute_order_with_contract(web3, wallet, executor_contract, order_key)
                 except Exception as e:
-                    console.print(f"[red]✗ Contract execution failed: {e}[/red]")
+                    console.print(f"[red]Contract execution failed: {e}[/red]")
                     import traceback
 
                     console.print(f"[dim]{traceback.format_exc()}[/dim]")
@@ -882,7 +882,7 @@ def main():
             open_positions = position_verifier.get_data(wallet_address)
 
             if open_positions:
-                console.print(f"[green]✓ Position opened successfully![/green]")
+                console.print(f"[green]Position opened successfully![/green]")
                 console.print(f"  Found {len(open_positions)} open position(s):")
 
                 for position_key, position in open_positions.items():
@@ -899,11 +899,11 @@ def main():
                         pnl_color = "green" if pnl > 0 else "red"
                         console.print(f"    PnL: [{pnl_color}]${pnl:,.2f}[/{pnl_color}]")
             else:
-                console.print(f"[yellow]⚠ No open positions found for wallet {wallet_address}[/yellow]")
+                console.print(f"[yellow]No open positions found for wallet {wallet_address}[/yellow]")
                 console.print("[dim]Order may not have been executed by keeper yet.[/dim]")
 
         else:
-            console.print(f"\n[red]✗ Order transaction failed[/red]")
+            console.print(f"\n[red]Order transaction failed[/red]")
             console.print(f"  Status: {receipt['status']}")
 
             # Try to get revert reason

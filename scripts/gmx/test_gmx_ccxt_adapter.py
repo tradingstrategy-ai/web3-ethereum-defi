@@ -89,7 +89,7 @@ def validate_exchange_api(exchange: GMX):
     print("GMX-specific features:")
     for feat in gmx_features:
         supported = exchange.has.get(feat, False)
-        status = "✓" if supported else "✗"
+        status = "[PASS]" if supported else "[FAIL]"
         print(f"  {status} {feat}")
 
     # Test 3: Fetch ticker
@@ -199,11 +199,11 @@ def validate_exchange_api(exchange: GMX):
     }
     for feature, reason in limitations.items():
         has_feature = exchange.has.get(feature, False)
-        status = "✗" if not has_feature else "✓"
+        status = "[FAIL]" if not has_feature else "[PASS]"
         print(f"  {status} {feature}: {reason}")
 
     print(f"\n{'=' * 80}")
-    print(f"✓ All tests completed successfully for {name}")
+    print(f"All tests completed successfully for {name}")
     print(f"{'=' * 80}\n")
 
 
@@ -223,10 +223,10 @@ def main():
 
     try:
         validate_exchange_api(gmx)
-        print("\n✓ All tests PASSED")
+        print("\nAll tests PASSED")
         return 0
     except Exception as e:
-        print(f"\n✗ Tests FAILED: {e}")
+        print(f"\nTests FAILED: {e}")
         logger.error("Test suite failed", exc_info=e)
         return 1
 

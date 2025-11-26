@@ -139,7 +139,7 @@ def deploy_gmx_order_executor(web3, wallet):
     receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
     if receipt["status"] != 1:
         raise RuntimeError("Contract deployment failed")
-    console.print(f"[green]✓ Deployed GmxOrderExecutor at {receipt.contractAddress}[/green]")
+    console.print(f"[green]Deployed GmxOrderExecutor at {receipt.contractAddress}[/green]")
     return web3.eth.contract(address=receipt.contractAddress, abi=abi)
 
 
@@ -149,7 +149,7 @@ def setup_mock_oracle(web3, wallet, executor_contract, eth_price=3892, usdc_pric
 
     provider_addr, mock_bytecode = executor_contract.functions.getMockByteCodeAndAddress().call()
     set_code(web3, provider_addr, mock_bytecode)
-    console.print(f"[green]✓ Mock provider bytecode set at {provider_addr}[/green]")
+    console.print(f"[green]Mock provider bytecode set at {provider_addr}[/green]")
 
     # --- Timestamp fix ---
     ts = web3.eth.get_block("latest")["timestamp"]
@@ -168,7 +168,7 @@ def setup_mock_oracle(web3, wallet, executor_contract, eth_price=3892, usdc_pric
     receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
     if receipt["status"] != 1:
         raise RuntimeError("configureMockOracleProvider failed")
-    console.print(f"[green]✓ Mock oracle configured: ETH=${eth_price}, USDC=${usdc_price}[/green]")
+    console.print(f"[green]Mock oracle configured: ETH=${eth_price}, USDC=${usdc_price}[/green]")
 
     _mine_block(web3)
     console.print("[dim]Mined block after oracle configuration[/dim]")

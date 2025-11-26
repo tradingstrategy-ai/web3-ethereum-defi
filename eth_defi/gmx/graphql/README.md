@@ -170,13 +170,13 @@ python tests/gmx/test_graphql_client.py
 
 ### Address Case Sensitivity
 
-⚠️ **The Subsquid GraphQL endpoint is case-sensitive for addresses!**
+**WARNING: The Subsquid GraphQL endpoint is case-sensitive for addresses!**
 
 ```python
-# This works ✓
+# This works
 positions = client.get_positions("0x6fa415E36Ac2a20499956C1CCe8a361a3E419a4D")
 
-# This returns 0 results ✗
+# This returns 0 results
 positions = client.get_positions("0x6fa415e36ac2a20499956c1cce8a361a3e419a4d")
 ```
 

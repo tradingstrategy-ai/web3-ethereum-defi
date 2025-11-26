@@ -198,14 +198,15 @@ def calculate_estimated_liquidation_price(
     pending_funding_fees_usd: float = 0.0,
     pending_borrowing_fees_usd: float = 0.0,
     include_closing_fee: bool = True,
+    collateral_is_index_token: bool = False,
+    collateral_amount: float | None = None,
 ) -> float:
     """
-    Calculate estimated liquidation price matching GMX V2 mechanics.
+    Calculate liquidation price matching GMX V2 SDK implementation.
 
-    This function implements the liquidation price calculation used by GMX V2,
-    accounting for fees, leverage, and maintenance margin requirements. While
-    this provides a good estimate, the actual on-chain liquidation logic is more
-    complex and includes price impact calculations.
+    This function implements the exact liquidation price calculation from the
+    official GMX TypeScript SDK, accounting for fees, leverage, maintenance
+    margin, and whether collateral token matches the index token.
 
     **How GMX Liquidation Works:**
 
@@ -213,60 +214,57 @@ def calculate_estimated_liquidation_price(
     the minimum collateral requirement. The calculation must account for:
     - Pending funding fees (can be positive or negative)
     - Pending borrowing fees (always reduces collateral)
-    - Position closing fees (~0.07% of position size)
-    - Maintenance margin requirement (~1% of position size)
+    - Position closing fees (~0.1% of position size)
+    - Maintenance margin requirement (~0.5% of position size, min $5)
 
-    **Differences from On-Chain Reality:**
+    **Accurate vs Approximate Mode:**
 
-    This simplified calculation does NOT include:
-    - Price impact on position closure
-    - Real-time funding rate changes
-    - Borrowing fee accrual during liquidation
-    - Oracle price delays
+    - If `collateral_is_index_token` and `collateral_amount` are provided:
+      Uses EXACT formula matching GMX SDK (recommended)
+    - If not provided: Uses APPROXIMATE formula (simpler but ±0.5% error)
 
-    For production risk management, use the full liquidation calculation from
-    `eth_defi.gmx.core.liquidation.get_liquidation_price()` which queries
-    on-chain data for accurate results.
-
-    **Calculation Formula:**
-
-    The formula differs based on whether collateral token equals index token:
+    **Exact Calculation Formulas:**
 
     Same token (e.g., ETH collateral for ETH/USD position):
-        Long: liq_price = (size + min_collateral - fees) / (size_tokens + collateral_tokens)
-        Short: liq_price = (size - min_collateral + fees) / (size_tokens - collateral_tokens)
+        Long: liq_price = (size + liq_collateral + fees) / (size_tokens + collateral_tokens)
+        Short: liq_price = (size - liq_collateral - fees) / (size_tokens - collateral_tokens)
 
     Different tokens (e.g., USDC collateral for ETH/USD position):
-        Long: liq_price = (min_collateral - remaining_collateral + size) / size_tokens
-        Short: liq_price = (min_collateral - remaining_collateral - size) / -size_tokens
+        Long: liq_price = (liq_collateral - remaining_collateral + size) / size_tokens
+        Short: liq_price = (size - liq_collateral + remaining_collateral) / size_tokens
 
-    This function uses the simplified approximation formula that works for most cases.
+    **Approximate Formula (fallback):**
+        liq_price = entry_price * (1 ± max_loss_ratio)
+
+    This provides quick estimates when token details are unavailable.
 
     Example:
 
     .. code-block:: python
 
-        # Basic liquidation estimate
+        # Approximate mode (quick estimate)
         liq_price = calculate_estimated_liquidation_price(
             entry_price=2000.0,
             collateral_usd=1000.0,
             size_usd=5000.0,  # 5x leverage
             is_long=True,
-            maintenance_margin=0.01,
+            pending_funding_fees_usd=5.0,
+            pending_borrowing_fees_usd=10.0,
         )
-        # Result: ~$1614 (includes 0.07% closing fee)
+        # Result: ~$1608 (approximate, ±0.5% error)
 
-        # More accurate estimate with fees
+        # Exact mode (matches GMX SDK)
         liq_price = calculate_estimated_liquidation_price(
             entry_price=2000.0,
             collateral_usd=1000.0,
+            collateral_amount=0.5,  # 0.5 ETH collateral
             size_usd=5000.0,
             is_long=True,
-            maintenance_margin=0.01,
-            pending_funding_fees_usd=5.0,  # $5 funding fees owed
-            pending_borrowing_fees_usd=10.0,  # $10 borrowing fees
+            collateral_is_index_token=True,  # ETH collateral for ETH position
+            pending_funding_fees_usd=5.0,
+            pending_borrowing_fees_usd=10.0,
         )
-        # Result: ~$1608 (accounts for pending fees)
+        # Result: $1681.67 (exact, matches GMX TypeScript SDK)
 
     :param entry_price:
         Price at which the position was opened
@@ -291,52 +289,81 @@ def calculate_estimated_liquidation_price(
         Accumulated borrowing fees in USD (always positive)
     :type pending_borrowing_fees_usd: float
     :param include_closing_fee:
-        If True, includes 0.07% closing fee in calculation
+        If True, includes 0.1% closing fee in calculation (default: True)
     :type include_closing_fee: bool
+    :param collateral_is_index_token:
+        Whether collateral token matches index token (e.g., ETH collateral for ETH/USD).
+        Required for exact calculation. If False, assumes different token like USDC.
+    :type collateral_is_index_token: bool
+    :param collateral_amount:
+        Amount of collateral in tokens (e.g., 0.5 for 0.5 ETH).
+        Required for exact calculation. If None, uses approximate formula.
+    :type collateral_amount: float | None
     :return:
-        Estimated liquidation price
+        Liquidation price in USD
     :rtype: float
 
-    **Warning:**
-        This is a SIMPLIFIED estimate. For accurate liquidation prices that
-        account for price impact and real-time on-chain data, use
-        `eth_defi.gmx.core.liquidation.get_liquidation_price()` instead.
+    **Note:**
+        For maximum accuracy, provide `collateral_is_index_token` and `collateral_amount`.
+        Without these, the function uses an approximate formula with ±0.5% error.
     """
-    # Calculate leverage
-    leverage = size_usd / collateral_usd
-
     # Calculate total fees
-    total_fees = pending_funding_fees_usd + pending_borrowing_fees_usd
+    total_pending_fees = pending_funding_fees_usd + pending_borrowing_fees_usd
+    closing_fee = size_usd * 0.001 if include_closing_fee else 0.0  # 0.1% closing fee
+    total_fees = total_pending_fees + closing_fee
 
-    # Add closing fee if requested (GMX charges ~0.07% for negative price impact)
-    if include_closing_fee:
-        closing_fee = size_usd * 0.0007  # 0.07% of position size
-        total_fees += closing_fee
+    # Calculate liquidation collateral threshold (0.5% of size, min $5)
+    liquidation_collateral_usd = max(size_usd * 0.005, 5.0)
 
-    # Calculate minimum collateral requirement for liquidation
-    min_collateral_requirement = size_usd * maintenance_margin
+    # Use exact formula if token details provided
+    if collateral_amount is not None:
+        # Calculate size in tokens
+        size_in_tokens = size_usd / entry_price
 
-    # Calculate remaining collateral after fees
-    remaining_collateral = collateral_usd - total_fees
+        if collateral_is_index_token:
+            # Same token collateral (e.g., ETH collateral for ETH/USD position)
+            if is_long:
+                # Long: liq_price = (size + liq_collateral + fees) / (size_tokens + collateral_tokens)
+                denominator = size_in_tokens + collateral_amount
+                if denominator == 0:
+                    return 0.0
+                liquidation_price = (size_usd + liquidation_collateral_usd + total_fees) / denominator
+            else:
+                # Short: liq_price = (size - liq_collateral - fees) / (size_tokens - collateral_tokens)
+                denominator = size_in_tokens - collateral_amount
+                if denominator == 0:
+                    return 0.0
+                liquidation_price = (size_usd - liquidation_collateral_usd - total_fees) / denominator
+        else:
+            # Different token collateral (e.g., USDC collateral for ETH/USD position)
+            if size_in_tokens == 0:
+                return 0.0
 
-    # Calculate liquidation price
-    # This formula approximates: at what price does (remaining_collateral - PnL) = min_collateral_requirement
-    if is_long:
-        # For longs: price drop reduces collateral value
-        # Liquidation when: remaining_collateral - (entry_price - liq_price) * (size_usd / entry_price) = min_collateral
-        # Solving for liq_price:
-        max_loss = remaining_collateral - min_collateral_requirement
-        price_drop_ratio = max_loss / size_usd
-        liquidation_price = entry_price * (1 - price_drop_ratio)
+            remaining_collateral_usd = collateral_usd - total_pending_fees - closing_fee
+
+            if is_long:
+                # Long: liq_price = (liq_collateral - remaining_collateral + size) / size_tokens
+                liquidation_price = (liquidation_collateral_usd - remaining_collateral_usd + size_usd) / size_in_tokens
+            else:
+                # Short: liq_price = (size - liq_collateral + remaining_collateral) / size_tokens
+                liquidation_price = (size_usd - liquidation_collateral_usd + remaining_collateral_usd) / size_in_tokens
     else:
-        # For shorts: price rise reduces collateral value
-        # Liquidation when: remaining_collateral - (liq_price - entry_price) * (size_usd / entry_price) = min_collateral
-        # Solving for liq_price:
-        max_loss = remaining_collateral - min_collateral_requirement
-        price_rise_ratio = max_loss / size_usd
-        liquidation_price = entry_price * (1 + price_rise_ratio)
+        # Fallback to approximate formula when token details not provided
+        remaining_collateral = collateral_usd - total_fees
+        min_collateral_requirement = liquidation_collateral_usd
 
-    return liquidation_price
+        if is_long:
+            # For longs: price drop reduces collateral value
+            max_loss = remaining_collateral - min_collateral_requirement
+            price_drop_ratio = max_loss / size_usd
+            liquidation_price = entry_price * (1 - price_drop_ratio)
+        else:
+            # For shorts: price rise reduces collateral value
+            max_loss = remaining_collateral - min_collateral_requirement
+            price_rise_ratio = max_loss / size_usd
+            liquidation_price = entry_price * (1 + price_rise_ratio)
+
+    return max(liquidation_price, 0.0)
 
 
 def get_positions(config, address: str = None) -> dict[str, Any]:

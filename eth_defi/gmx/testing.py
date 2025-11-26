@@ -73,9 +73,9 @@
 #     # Compare the deployed code with the mock bytecode
 #     expected_code = bytecode[2:] if bytecode.startswith("0x") else bytecode  # Remove 0x prefix for comparison
 #     if deployed_code == expected_code:
-#         logger.info("✅ Code verification successful: Deployed bytecode matches mock bytecode")
+#         logger.info("Code verification successful: Deployed bytecode matches mock bytecode")
 #     else:
-#         logger.info("❌ Code verification failed: Deployed bytecode does not match mock bytecode")
+#         logger.info("Code verification failed: Deployed bytecode does not match mock bytecode")
 #         logger.info(f"Expected: {expected_code}")
 #         logger.info(f"Actual: {deployed_code}")
 #
