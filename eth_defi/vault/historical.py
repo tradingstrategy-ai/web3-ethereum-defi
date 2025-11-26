@@ -417,7 +417,14 @@ class VaultHistoricalReadMulticaller:
                 reader = readers[vault_address]
 
                 last_result: VaultHistoricalRead = last_results.get(vault_address)
-                current_result: VaultHistoricalRead = reader.process_result(block_number, timestamp, results)
+                current_result: VaultHistoricalRead = reader.process_result(
+                    block_number,
+                    timestamp,
+                    results,
+                )
+
+                if reader.reader_state:
+                    current_result.vault_poll_frequency = reader.reader_state.vault_poll_frequency
 
                 if current_result.errors:
                     error_count += 1

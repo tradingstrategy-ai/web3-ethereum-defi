@@ -22,6 +22,7 @@ def format_markdown_table(
     df: pd.DataFrame,
     columns: list[str] | None = None,
     preferred_columns: list[str] | None = None,
+    current_tvl_column: str | None = "TVL USD (current / peak)",
 ) -> pd.DataFrame:
     """Format a DataFrame as a Markdown table.
 
@@ -55,7 +56,9 @@ def format_markdown_table(
         return f"[{name}]({link})"
 
     def _format_tvl(row: pd.Series) -> pd.Series:
-        return f"${row['Current TVL USD'] / 1_000_000:,.3f}M"
+        # return f"${row[current_tvl_column] / 1_000_000:,.3f}M"
+        # Preformatted string
+        return row[current_tvl_column]
 
     df = df.copy()
 
@@ -70,7 +73,8 @@ def format_markdown_table(
     df = df.map(lambda x: "" if isinstance(x, str) and "<unknown" in x.lower() else x)
 
     # Format TVL
-    df["Current TVL USD"] = df.apply(_format_tvl, axis=1)
+    if current_tvl_column:
+        df[current_tvl_column] = df.apply(_format_tvl, axis=1)
 
     # Format all float values to 2 decimal places
     df = df.map(lambda x: f"{x:.2f}" if isinstance(x, float) else x)

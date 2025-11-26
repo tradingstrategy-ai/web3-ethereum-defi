@@ -191,7 +191,12 @@ def calculate_net_profit(
     """
     assert isinstance(start, datetime.datetime), f"start must be datetime, got {type(start)}"
     assert isinstance(end, datetime.datetime), f"end must be datetime, got {type(end)}"
-    assert end > start, "End datetime must be after start datetime"
+
+    assert end >= start, f"End datetime must be after start datetime: {start} - {end}"
+
+    if start == end:
+        # Only 1 sample
+        return 0
 
     if share_price_start == 0:
         # Some broken vaults give zero share price periods
@@ -771,6 +776,7 @@ def combine_return_columns(
     net: pd.Series,
     new_line=" ",
     mode: Literal["percent", "usd"] = "percent",
+    profit_presentation: Literal["split", "net_only"] = "split",
 ):
     """Create combined net / (gross) returns column for display.
 
@@ -789,10 +795,20 @@ def combine_return_columns(
     assert gross.index.equals(net.index), f"Gross and net series must have the same index {len(gross)} != {len(net)}"
 
     def _format_combined_percent(g, n):
-        if n is not None and pd.isna(n) == False:
-            return f"{n:.1%}{new_line}({g:.1%})"
-        else:
-            return f"---{new_line}({g:.1%})"
+        match profit_presentation:
+            case "split":
+                if n is not None and pd.isna(n) == False:
+                    return f"{n:.1%}{new_line}({g:.1%})"
+                else:
+                    return f"---{new_line}({g:.1%})"
+            case "net_only":
+                if n is not None and pd.isna(n) == False:
+                    return f"{n:.1%} (n)"
+                else:
+                    if n and pd.isna(n) == False:
+                        return f"{n:.1%} (g)"
+                    else:
+                        return "---"
 
     def _format_combined_usd(g, n):
         if n:
@@ -814,6 +830,7 @@ def format_lifetime_table(
     add_address=False,
     add_share_token=False,
     drop_blacklisted=True,
+    profit_presentation: Literal["split", "net_only"] = "split",
 ) -> pd.DataFrame:
     """Format table for human readable output.
 
@@ -844,16 +861,19 @@ def format_lifetime_table(
     df["cagr"] = combine_return_columns(
         gross=df["cagr"],
         net=df["cagr_net"],
+        profit_presentation=profit_presentation,
     )
 
     df["lifetime_return"] = combine_return_columns(
         gross=df["lifetime_return"],
         net=df["lifetime_return_net"],
+        profit_presentation=profit_presentation,
     )
 
     df["three_months_cagr"] = combine_return_columns(
         gross=df["three_months_cagr"],
         net=df["three_months_cagr_net"],
+        profit_presentation=profit_presentation,
     )
 
     # df["three_months_returns"] = combine_return_columns(
@@ -864,6 +884,7 @@ def format_lifetime_table(
     df["one_month_cagr"] = combine_return_columns(
         gross=df["one_month_cagr"],
         net=df["one_month_cagr_net"],
+        profit_presentation=profit_presentation,
     )
 
     # df["one_month_returns"] = combine_return_columns(
@@ -1035,7 +1056,8 @@ def analyse_vault(
 
     # Use cleaned returns data and resample it to something useful
     vault_df = returns_df.loc[returns_df["id"] == id]
-    returns_series = returns_df.loc[returns_df["id"] == id][returns_col]
+
+    vault_df = vault_df.resample("h").last().ffill()
 
     cleaned_price_series = vault_df["share_price"]
     cleaned_price_series = cleaned_price_series
@@ -1052,7 +1074,7 @@ def analyse_vault(
     price_series = vault_df["share_price"]
 
     # Calculate cumulative returns (what $1 would grow to)
-    cumulative_returns = (1 + hourly_returns).cumprod()
+    # cumulative_returns = (1 + hourly_returns).cumprod()
 
     if len(price_series) < 2:
         # f"Price data must have at least two rows: {vault_df}"
