@@ -526,7 +526,7 @@ class GMXSubsquidClient:
         if not stats:
             return False
 
-        all_time_volume = float(self.parse_bigint(stats["volume"]))
+        all_time_volume = float(self.from_fixed_point(stats["volume"]))
 
         # Check all-time volume threshold
         if all_time_volume > ALL_TIME_VOLUME:
@@ -538,30 +538,30 @@ class GMXSubsquidClient:
         # Check 14-day volume (week bucket includes last 7 days, we approximate with month data)
         for bucket in pnl_summary:
             if bucket["bucketLabel"] == "week":
-                week_volume = float(self.parse_bigint(bucket["volume"]))
+                week_volume = float(self.from_fixed_point(bucket["volume"]))
                 # Approximate 14-day as 2x weekly volume
                 if week_volume * 2 > ROLLING_14_DAY_VOLUME:
                     return True
 
             # Check for high daily volume in recent activity
             if bucket["bucketLabel"] in ["today", "yesterday"]:
-                daily_volume = float(self.parse_bigint(bucket["volume"]))
+                daily_volume = float(self.from_fixed_point(bucket["volume"]))
                 if daily_volume > MAX_DAILY_VOLUME:
                     return True
 
         return False
 
     @staticmethod
-    def parse_bigint(value: str, decimals: int = 30) -> Decimal:
-        """Parse a BigInt string value to Decimal with proper scaling.
+    def from_fixed_point(value: str, decimals: int = 30) -> Decimal:
+        """Convert fixed-point integer string to Decimal with proper scaling.
 
-        :param value: BigInt value as string
+        :param value: Fixed-point integer value as string
         :param decimals: Number of decimals (default 30 for USD values)
         :return: Decimal value scaled by decimals
 
         Example::
 
-            >>> parse_bigint("8625000000000000000000000000000", 30)
+            >>> from_fixed_point("8625000000000000000000000000000", 30)
             Decimal('8.625')
         """
         return Decimal(value) / Decimal(10**decimals)
@@ -735,14 +735,14 @@ class GMXSubsquidClient:
             "market": position["market"],
             "collateral_token": position["collateralToken"],
             "is_long": position["isLong"],
-            "collateral_amount": float(self.parse_bigint(position["collateralAmount"], decimals=collateral_decimals)),
-            "size_usd": float(self.parse_bigint(position["sizeInUsd"])),
-            "size_tokens": float(self.parse_bigint(position["sizeInTokens"])),
-            "entry_price": float(self.parse_bigint(position["entryPrice"], decimals=18)),
-            "realized_pnl": float(self.parse_bigint(position["realizedPnl"])),
-            "unrealized_pnl": float(self.parse_bigint(position["unrealizedPnl"])),
-            "realized_fees": float(self.parse_bigint(position["realizedFees"])),
-            "unrealized_fees": float(self.parse_bigint(position["unrealizedFees"])),
-            "leverage": float(self.parse_bigint(position["leverage"], decimals=4)),
+            "collateral_amount": float(self.from_fixed_point(position["collateralAmount"], decimals=collateral_decimals)),
+            "size_usd": float(self.from_fixed_point(position["sizeInUsd"])),
+            "size_tokens": float(self.from_fixed_point(position["sizeInTokens"])),
+            "entry_price": float(self.from_fixed_point(position["entryPrice"], decimals=18)),
+            "realized_pnl": float(self.from_fixed_point(position["realizedPnl"])),
+            "unrealized_pnl": float(self.from_fixed_point(position["unrealizedPnl"])),
+            "realized_fees": float(self.from_fixed_point(position["realizedFees"])),
+            "unrealized_fees": float(self.from_fixed_point(position["unrealizedFees"])),
+            "leverage": float(self.from_fixed_point(position["leverage"], decimals=4)),
             "opened_at": position["openedAt"],
         }

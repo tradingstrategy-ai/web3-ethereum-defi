@@ -488,7 +488,7 @@ class GMX(ExchangeCompatible):
         min_collateral_by_market = {}
         if self.subsquid:
             try:
-                market_infos = self.subsquid.get_market_infos(limit=100)
+                market_infos = self.subsquid.get_market_infos(limit=200)
                 for market_info in market_infos:
                     market_addr = market_info.get("marketTokenAddress")
                     min_collateral_factor = market_info.get("minCollateralFactor")

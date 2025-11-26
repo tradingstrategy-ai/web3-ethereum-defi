@@ -53,7 +53,7 @@ pnl_summary = client.get_pnl_summary(
 
 for period in pnl_summary:
     period_name = period["bucketLabel"]  # "today", "week", "month", "year", "all"
-    total_pnl = float(GMXSubsquidClient.parse_bigint(period["pnlUsd"]))
+    total_pnl = float(GMXSubsquidClient.from_fixed_point(period["pnlUsd"]))
     wins = period["wins"]
     losses = period["losses"]
 
@@ -70,7 +70,7 @@ changes = client.get_position_changes(
 )
 
 for change in changes:
-    size = float(GMXSubsquidClient.parse_bigint(change["sizeInUsd"]))
+    size = float(GMXSubsquidClient.from_fixed_point(change["sizeInUsd"]))
     print(f"Position change: ${size:,.2f}")
 ```
 
@@ -83,10 +83,10 @@ stats = client.get_account_stats(
 )
 
 if stats:
-    volume = float(GMXSubsquidClient.parse_bigint(stats["volume"]))
-    realized_pnl = float(GMXSubsquidClient.parse_bigint(stats["realizedPnl"]))
-    max_capital = float(GMXSubsquidClient.parse_bigint(stats["maxCapital"]))
-    net_capital = float(GMXSubsquidClient.parse_bigint(stats["netCapital"]))
+    volume = float(GMXSubsquidClient.from_fixed_point(stats["volume"]))
+    realized_pnl = float(GMXSubsquidClient.from_fixed_point(stats["realizedPnl"]))
+    max_capital = float(GMXSubsquidClient.from_fixed_point(stats["maxCapital"]))
+    net_capital = float(GMXSubsquidClient.from_fixed_point(stats["netCapital"]))
 
     print(f"Total Volume: ${volume:,.2f}")
     print(f"Realized PnL: ${realized_pnl:,.2f}")
@@ -121,7 +121,7 @@ Values in the GraphQL API use different decimal precisions depending on the fiel
 ```python
 # USD values: 30 decimals
 raw_size = "8625000000000000000000000000000"  # This is $8.625
-size = GMXSubsquidClient.parse_bigint(raw_size, decimals=30)
+size = GMXSubsquidClient.from_fixed_point(raw_size, decimals=30)
 print(f"${float(size):.2f}")  # $8.63
 
 # Collateral amounts: Depends on token
@@ -132,12 +132,12 @@ print(f"${float(size):.2f}")  # $8.63
 
 # Entry price: 18 decimals
 raw_entry_price = "3941148315941020859138"
-entry_price = GMXSubsquidClient.parse_bigint(raw_entry_price, decimals=18)
+entry_price = GMXSubsquidClient.from_fixed_point(raw_entry_price, decimals=18)
 print(f"${float(entry_price):.2f}")  # $3941.15
 
 # Leverage: 4 decimals (10000 = 1x leverage)
 raw_leverage = "72480"
-leverage = GMXSubsquidClient.parse_bigint(raw_leverage, decimals=4)
+leverage = GMXSubsquidClient.from_fixed_point(raw_leverage, decimals=4)
 print(f"{float(leverage):.2f}x")  # 7.25x
 ```
 
