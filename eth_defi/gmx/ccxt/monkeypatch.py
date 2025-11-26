@@ -122,6 +122,10 @@ def patch_ccxt(force: bool = False) -> bool:
 
     try:
         import ccxt
+
+        # Force import of async_support and pro modules so they exist before we patch them
+        import ccxt.async_support
+        import ccxt.pro
     except ImportError as e:
         raise ImportError("CCXT library is not installed. Install it with: pip install ccxt") from e
 
@@ -151,6 +155,24 @@ def patch_ccxt(force: bool = False) -> bool:
     if hasattr(ccxt, "__all__"):
         if "gmx" not in ccxt.__all__:
             ccxt.__all__.append("gmx")
+
+    # Patch ccxt.async_support
+    if hasattr(ccxt, "async_support"):
+        ccxt.async_support.gmx = GMX
+        if hasattr(ccxt.async_support, "exchanges"):
+            if "gmx" not in ccxt.async_support.exchanges:
+                ccxt.async_support.exchanges.append("gmx")
+                ccxt.async_support.exchanges.sort()
+        logger.debug("Patched ccxt.async_support with GMX")
+
+    # Patch ccxt.pro
+    if hasattr(ccxt, "pro"):
+        ccxt.pro.gmx = GMX
+        if hasattr(ccxt.pro, "exchanges"):
+            if "gmx" not in ccxt.pro.exchanges:
+                ccxt.pro.exchanges.append("gmx")
+                ccxt.pro.exchanges.sort()
+        logger.debug("Patched ccxt.pro with GMX")
 
     # Mark as patched
     _PATCHED = True
@@ -216,6 +238,22 @@ def unpatch_ccxt() -> bool:
     # Remove from __all__ if it exists
     if hasattr(ccxt, "__all__") and "gmx" in ccxt.__all__:
         ccxt.__all__.remove("gmx")
+
+    # Unpatch ccxt.async_support
+    if hasattr(ccxt, "async_support"):
+        if hasattr(ccxt.async_support, "gmx"):
+            delattr(ccxt.async_support, "gmx")
+        if hasattr(ccxt.async_support, "exchanges") and "gmx" in ccxt.async_support.exchanges:
+            ccxt.async_support.exchanges.remove("gmx")
+        logger.debug("Unpatched ccxt.async_support")
+
+    # Unpatch ccxt.pro
+    if hasattr(ccxt, "pro"):
+        if hasattr(ccxt.pro, "gmx"):
+            delattr(ccxt.pro, "gmx")
+        if hasattr(ccxt.pro, "exchanges") and "gmx" in ccxt.pro.exchanges:
+            ccxt.pro.exchanges.remove("gmx")
+        logger.debug("Unpatched ccxt.pro")
 
     # Mark as unpatched
     _PATCHED = False
