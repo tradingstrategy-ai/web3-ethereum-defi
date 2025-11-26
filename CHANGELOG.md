@@ -1,10 +1,13 @@
-# Current
+# 0.35
 
+- Add: Initial skeleton for GMX CCXT adapter
 - Add: New protocol: Silo Finance
 - Add: New protocol: Summer.fi Earn
 - Add: New protocol: Curve LLAMMA
+- Add: Net/gross vault fee analysis
+- Fixes: Multiple RPC and workaround fixes for reading vault onchain data
 
-# 0.33
+# 0.34
 
 - Add: New protocol: Plutus
 - Add: New protocol: D2 Finance

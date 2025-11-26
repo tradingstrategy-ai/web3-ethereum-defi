@@ -7,7 +7,6 @@ from eth_defi.vault.vaultdb import read_default_vault_prices, DEFAULT_UNCLEANED_
 
 
 def main():
-
     print(f"Reading vault prices from {DEFAULT_UNCLEANED_PRICE_DATABASE}, file size is {DEFAULT_UNCLEANED_PRICE_DATABASE.stat().st_size / 1_000_000:.2f} MB")
     df = pd.read_parquet(DEFAULT_UNCLEANED_PRICE_DATABASE)
 
@@ -32,8 +31,6 @@ def main():
     for chain_id, count in chain_couns.head(100).items():
         chain_name = get_chain_name(chain_id)
         print(f"{chain_name} ({chain_id}): {count:,}")
-
-
 
 
 if __name__ == "__main__":
