@@ -15,6 +15,15 @@ Usage:
     # Plutus
     VAULT_ID="42161-0x58bfc95a864e18e8f3041d2fcd3418f48393fe6a" python scripts/erc-4626/examine-vault-state.py
 
+    # Summer
+    VAULT_ID="42161-0x4f63cfea7458221cb3a0eee2f31f7424ad34bb58" python scripts/erc-4626/examine-vault-state.py
+
+    # Ipor Base
+    VAULT_ID="8453-0x45aa96f0b3188d47a1dafdbefce1db6b37f58216" python scripts/erc-4626/examine-vault-state.py
+
+
+
+
 Example output:
 
 .. code-block:: none

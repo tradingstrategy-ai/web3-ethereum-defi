@@ -1057,7 +1057,8 @@ def analyse_vault(
 
     # Use cleaned returns data and resample it to something useful
     vault_df = returns_df.loc[returns_df["id"] == id]
-    returns_series = returns_df.loc[returns_df["id"] == id][returns_col]
+    
+    vault_df = vault_df.ffill()
 
     cleaned_price_series = vault_df["share_price"]
     cleaned_price_series = cleaned_price_series
