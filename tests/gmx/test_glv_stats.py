@@ -107,21 +107,24 @@ def test_glv_price_calculation(get_glv_stats):
         # Check market composition
         if "markets_metadata" in glv_data:
             total_value = 0
+            gm_prices = []
             for market_data in glv_data["markets_metadata"].values():
                 balance = market_data["balance"]
                 gm_price = market_data["gm price"]
                 market_value = balance * gm_price
                 total_value += market_value
+                if gm_price > 0:
+                    gm_prices.append(gm_price)
 
             # Total value should be positive
             assert total_value > 0, f"Total market value should be positive for GLV {glv_data['glv_address']}"
 
-            # Total value should be roughly in line with GLV price * some scale factor
-            # (Note: GLV price is in 30 decimals, total_value is in 18 decimals)
-            # So we need to adjust for the decimal difference
-            glv_value_estimate = glv_price * 10**12  # Adjusting for decimal difference
-            ratio = total_value / glv_value_estimate
-            assert 0.1 < ratio < 10, f"Value ratio out of bounds: {ratio} for GLV {glv_data['glv_address']}"
+            # GLV price should be in the same order of magnitude as average GM price
+            # GLVs are baskets of GM tokens, so prices should be comparable
+            if gm_prices:
+                avg_gm_price = sum(gm_prices) / len(gm_prices)
+                price_ratio = glv_price / avg_gm_price
+                assert 0.1 < price_ratio < 10, f"GLV price ratio out of bounds: {price_ratio} (glv_price={glv_price}, avg_gm_price={avg_gm_price}) for GLV {glv_data['glv_address']}"
 
 
 def test_market_composition_data(get_glv_stats):

@@ -13,7 +13,7 @@ This module provides GraphQL-based data access for GMX positions and analytics u
 from eth_defi.gmx.graphql.client import GMXSubsquidClient
 
 # Initialize client
-client = GMXSubsquidClient(chain="arbitrum")  # or "avalanche"
+client = GMXSubsquidClient(chain="arbitrum")  # or "avalanche" or "arbitrum_sepolia"
 
 # Optional: Use custom endpoint
 client = GMXSubsquidClient(custom_endpoint="https://your-endpoint.com/graphql")
@@ -53,7 +53,7 @@ pnl_summary = client.get_pnl_summary(
 
 for period in pnl_summary:
     period_name = period["bucketLabel"]  # "today", "week", "month", "year", "all"
-    total_pnl = float(GMXSubsquidClient.parse_bigint(period["pnlUsd"]))
+    total_pnl = float(GMXSubsquidClient.from_fixed_point(period["pnlUsd"]))
     wins = period["wins"]
     losses = period["losses"]
 
@@ -70,7 +70,7 @@ changes = client.get_position_changes(
 )
 
 for change in changes:
-    size = float(GMXSubsquidClient.parse_bigint(change["sizeInUsd"]))
+    size = float(GMXSubsquidClient.from_fixed_point(change["sizeInUsd"]))
     print(f"Position change: ${size:,.2f}")
 ```
 
@@ -83,10 +83,10 @@ stats = client.get_account_stats(
 )
 
 if stats:
-    volume = float(GMXSubsquidClient.parse_bigint(stats["volume"]))
-    realized_pnl = float(GMXSubsquidClient.parse_bigint(stats["realizedPnl"]))
-    max_capital = float(GMXSubsquidClient.parse_bigint(stats["maxCapital"]))
-    net_capital = float(GMXSubsquidClient.parse_bigint(stats["netCapital"]))
+    volume = float(GMXSubsquidClient.from_fixed_point(stats["volume"]))
+    realized_pnl = float(GMXSubsquidClient.from_fixed_point(stats["realizedPnl"]))
+    max_capital = float(GMXSubsquidClient.from_fixed_point(stats["maxCapital"]))
+    net_capital = float(GMXSubsquidClient.from_fixed_point(stats["netCapital"]))
 
     print(f"Total Volume: ${volume:,.2f}")
     print(f"Realized PnL: ${realized_pnl:,.2f}")
@@ -121,7 +121,7 @@ Values in the GraphQL API use different decimal precisions depending on the fiel
 ```python
 # USD values: 30 decimals
 raw_size = "8625000000000000000000000000000"  # This is $8.625
-size = GMXSubsquidClient.parse_bigint(raw_size, decimals=30)
+size = GMXSubsquidClient.from_fixed_point(raw_size, decimals=30)
 print(f"${float(size):.2f}")  # $8.63
 
 # Collateral amounts: Depends on token
@@ -132,12 +132,12 @@ print(f"${float(size):.2f}")  # $8.63
 
 # Entry price: 18 decimals
 raw_entry_price = "3941148315941020859138"
-entry_price = GMXSubsquidClient.parse_bigint(raw_entry_price, decimals=18)
+entry_price = GMXSubsquidClient.from_fixed_point(raw_entry_price, decimals=18)
 print(f"${float(entry_price):.2f}")  # $3941.15
 
 # Leverage: 4 decimals (10000 = 1x leverage)
 raw_leverage = "72480"
-leverage = GMXSubsquidClient.parse_bigint(raw_leverage, decimals=4)
+leverage = GMXSubsquidClient.from_fixed_point(raw_leverage, decimals=4)
 print(f"{float(leverage):.2f}x")  # 7.25x
 ```
 
@@ -170,13 +170,13 @@ python tests/gmx/test_graphql_client.py
 
 ### Address Case Sensitivity
 
-⚠️ **The Subsquid GraphQL endpoint is case-sensitive for addresses!**
+**WARNING: The Subsquid GraphQL endpoint is case-sensitive for addresses!**
 
 ```python
-# This works ✓
+# This works
 positions = client.get_positions("0x6fa415E36Ac2a20499956C1CCe8a361a3E419a4D")
 
-# This returns 0 results ✗
+# This returns 0 results
 positions = client.get_positions("0x6fa415e36ac2a20499956c1cce8a361a3e419a4d")
 ```
 
@@ -212,6 +212,7 @@ trading.close_position(
 
 - **Arbitrum**: https://gmx.squids.live/gmx-synthetics-arbitrum:prod/api/graphql
 - **Avalanche**: https://gmx.squids.live/gmx-synthetics-avalanche:prod/api/graphql
+- **Arbitrum Sepolia**: https://gmx.squids.live/gmx-synthetics-arb-sepolia:prod/api/graphql
 
 ## Available Data
 

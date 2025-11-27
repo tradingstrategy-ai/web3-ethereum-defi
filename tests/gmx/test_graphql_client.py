@@ -20,6 +20,11 @@ def test_client_initialization():
     assert client_avax.chain == "avalanche"
     assert "avalanche" in client_avax.endpoint
 
+    # Test Arbitrum Sepolia
+    client_arb_sepolia = GMXSubsquidClient(chain="arbitrum_sepolia")
+    assert client_arb_sepolia.chain == "arbitrum_sepolia"
+    assert "arb-sepolia" in client_arb_sepolia.endpoint
+
     # Test custom endpoint
     custom_endpoint = "https://custom-endpoint.example/graphql"
     client_custom = GMXSubsquidClient(custom_endpoint=custom_endpoint)
@@ -160,26 +165,26 @@ def test_is_large_account(graphql_client, account_with_positions):
     assert isinstance(is_large, bool)
 
 
-def test_parse_bigint():
+def test_from_fixed_point():
     """Test BigInt parsing with different decimal precisions."""
     # Test with 30 decimals (USD values)
     value_30 = "8625000000000000000000000000000"
-    result_30 = GMXSubsquidClient.parse_bigint(value_30, decimals=30)
+    result_30 = GMXSubsquidClient.from_fixed_point(value_30, decimals=30)
     assert result_30 == Decimal("8.625")
 
     # Test with 18 decimals (entry price)
     value_18 = "3941148315941020859138"
-    result_18 = GMXSubsquidClient.parse_bigint(value_18, decimals=18)
+    result_18 = GMXSubsquidClient.from_fixed_point(value_18, decimals=18)
     assert abs(result_18 - Decimal("3941.148315941020859138")) < Decimal("0.000001")
 
     # Test with 4 decimals (leverage)
     value_4 = "72480"
-    result_4 = GMXSubsquidClient.parse_bigint(value_4, decimals=4)
+    result_4 = GMXSubsquidClient.from_fixed_point(value_4, decimals=4)
     assert result_4 == Decimal("7.248")
 
     # Test with 6 decimals (USDC)
     value_6 = "1000000"
-    result_6 = GMXSubsquidClient.parse_bigint(value_6, decimals=6)
+    result_6 = GMXSubsquidClient.from_fixed_point(value_6, decimals=6)
     assert result_6 == Decimal("1")
 
 

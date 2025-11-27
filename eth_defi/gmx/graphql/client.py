@@ -47,7 +47,7 @@ class GMXSubsquidClient:
     def __init__(self, chain: str = "arbitrum", custom_endpoint: Optional[str] = None):
         """Initialize the Subsquid client.
 
-        :param chain: Chain name ("arbitrum" or "avalanche")
+        :param chain: Chain name ("arbitrum", "avalanche", or "arbitrum_sepolia")
         :param custom_endpoint: Optional custom GraphQL endpoint URL
         """
         self.chain = chain.lower()
@@ -390,6 +390,11 @@ class GMXSubsquidClient:
             - longsPayShorts: Direction of funding (True if longs pay shorts)
             - borrowingFactorPerSecondForLongs: Borrowing rate for longs (30 decimals)
             - borrowingFactorPerSecondForShorts: Borrowing rate for shorts (30 decimals)
+            - minCollateralFactor: Minimum collateral factor (30 decimals)
+            - minCollateralFactorForOpenInterestLong: Multiplier for long OI-based collateral (30 decimals)
+            - minCollateralFactorForOpenInterestShort: Multiplier for short OI-based collateral (30 decimals)
+            - maxOpenInterestLong: Maximum allowed long open interest (30 decimals)
+            - maxOpenInterestShort: Maximum allowed short open interest (30 decimals)
         """
         where_clause = ""
         if market_address:
@@ -415,6 +420,11 @@ class GMXSubsquidClient:
             longsPayShorts
             borrowingFactorPerSecondForLongs
             borrowingFactorPerSecondForShorts
+            minCollateralFactor
+            minCollateralFactorForOpenInterestLong
+            minCollateralFactorForOpenInterestShort
+            maxOpenInterestLong
+            maxOpenInterestShort
           }}
         }}
         """
@@ -474,9 +484,10 @@ class GMXSubsquidClient:
         result = self._query(query)
         return result.get("borrowingRateSnapshots", [])
 
-    def get_markets(self) -> list[dict[str, Any]]:
+    def get_markets(self, limit: int = 100) -> list[dict[str, Any]]:
         """Get all available markets.
 
+        :param limit: Maximum number of markets to return (default 100)
         :return: List of markets with fields:
 
             - id: Market address
@@ -484,15 +495,15 @@ class GMXSubsquidClient:
             - longToken: Long token address
             - shortToken: Short token address
         """
-        query = """
-        query {
-          markets {
+        query = f"""
+        query {{
+          markets(limit: {limit}) {{
             id
             indexToken
             longToken
             shortToken
-          }
-        }
+          }}
+        }}
         """
 
         result = self._query(query)
@@ -516,7 +527,7 @@ class GMXSubsquidClient:
         if not stats:
             return False
 
-        all_time_volume = float(self.parse_bigint(stats["volume"]))
+        all_time_volume = float(self.from_fixed_point(stats["volume"]))
 
         # Check all-time volume threshold
         if all_time_volume > ALL_TIME_VOLUME:
@@ -528,33 +539,157 @@ class GMXSubsquidClient:
         # Check 14-day volume (week bucket includes last 7 days, we approximate with month data)
         for bucket in pnl_summary:
             if bucket["bucketLabel"] == "week":
-                week_volume = float(self.parse_bigint(bucket["volume"]))
+                week_volume = float(self.from_fixed_point(bucket["volume"]))
                 # Approximate 14-day as 2x weekly volume
                 if week_volume * 2 > ROLLING_14_DAY_VOLUME:
                     return True
 
             # Check for high daily volume in recent activity
             if bucket["bucketLabel"] in ["today", "yesterday"]:
-                daily_volume = float(self.parse_bigint(bucket["volume"]))
+                daily_volume = float(self.from_fixed_point(bucket["volume"]))
                 if daily_volume > MAX_DAILY_VOLUME:
                     return True
 
         return False
 
     @staticmethod
-    def parse_bigint(value: str, decimals: int = 30) -> Decimal:
-        """Parse a BigInt string value to Decimal with proper scaling.
+    def from_fixed_point(value: str, decimals: int = 30) -> Decimal:
+        """Convert fixed-point integer string to Decimal with proper scaling.
 
-        :param value: BigInt value as string
+        :param value: Fixed-point integer value as string
         :param decimals: Number of decimals (default 30 for USD values)
         :return: Decimal value scaled by decimals
 
         Example::
 
-            >>> parse_bigint("8625000000000000000000000000000", 30)
+            >>> from_fixed_point("8625000000000000000000000000000", 30)
             Decimal('8.625')
         """
         return Decimal(value) / Decimal(10**decimals)
+
+    @staticmethod
+    def calculate_max_leverage(min_collateral_factor: str) -> float | None:
+        """Calculate maximum UI leverage from minCollateralFactor.
+
+        Positions are liquidated when collateral factor falls below minCollateralFactor.
+        The theoretical max leverage is 1 / minCollateralFactor, but we apply a 2x buffer
+        to prevent positions from being liquidated immediately upon opening.
+
+        :param min_collateral_factor: Minimum collateral factor (30 decimals, as string)
+        :return: Maximum leverage to display in UI (e.g., 100.0 for 100x), or None if invalid
+
+        Example::
+
+            >>> # minCollateralFactor = 0.5% = "5000000000000000000000000000"
+            >>> calculate_max_leverage("5000000000000000000000000000")
+            100.0
+            >>> # minCollateralFactor = 1% = "10000000000000000000000000000"
+            >>> calculate_max_leverage("10000000000000000000000000000")
+            50.0
+            >>> # minCollateralFactor = 0 (invalid)
+            >>> calculate_max_leverage("0")
+            None
+        """
+        # Parse the 30-decimal value to get decimal representation
+        min_collateral_decimal = Decimal(min_collateral_factor) / Decimal(10**30)
+
+        # Handle zero or negative values
+        if min_collateral_decimal <= 0:
+            return None
+
+        # Max theoretical leverage = 1 / minCollateralFactor
+        # UI leverage = theoretical / 2 (to provide liquidation buffer)
+        # Simplified: max_ui_leverage = 1 / minCollateralFactor / 2
+        max_ui_leverage = Decimal(1) / min_collateral_decimal / Decimal(2)
+
+        return float(max_ui_leverage)
+
+    @staticmethod
+    def calculate_leverage_tiers(
+        market_info: dict[str, Any],
+        is_long: bool,
+        num_tiers: int = 5,
+    ) -> list[dict[str, Any]]:
+        """Calculate leverage tiers for a market based on open interest.
+
+        GMX uses a continuous leverage model where minimum collateral requirements increase
+        with open interest. This method approximates the continuous model as discrete tiers
+        for CCXT compatibility.
+
+        :param market_info: Market info dictionary from get_market_infos()
+        :param is_long: True for long positions, False for short positions
+        :param num_tiers: Number of discrete tiers to generate (default 5)
+        :return: List of leverage tier dictionaries in CCXT format with fields:
+
+            - tier: Tier number (1-indexed)
+            - minNotional: Minimum position size in USD for this tier
+            - maxNotional: Maximum position size in USD for this tier
+            - maxLeverage: Maximum allowed leverage for this tier
+            - minCollateralFactor: Actual min collateral factor at this OI level (decimal)
+
+        Example::
+
+            >>> market_info = {
+            ...     "minCollateralFactor": "5000000000000000000000000000",
+            ...     "minCollateralFactorForOpenInterestLong": "10000000000000000",
+            ...     "longOpenInterestUsd": "50000000000000000000000000000000",
+            ...     "maxOpenInterestLong": "100000000000000000000000000000000"
+            ... }
+            >>> tiers = calculate_leverage_tiers(market_info, is_long=True)
+            >>> # Returns tiers showing leverage decreasing as position size increases
+        """
+        PRECISION = Decimal(10**30)
+
+        # Extract relevant fields
+        base_min_collateral = Decimal(market_info.get("minCollateralFactor", "0"))
+        multiplier_key = "minCollateralFactorForOpenInterestLong" if is_long else "minCollateralFactorForOpenInterestShort"
+        oi_multiplier = Decimal(market_info.get(multiplier_key, "0"))
+
+        max_oi_key = "maxOpenInterestLong" if is_long else "maxOpenInterestShort"
+        max_open_interest = Decimal(market_info.get(max_oi_key, "0"))
+
+        current_oi_key = "longOpenInterestUsd" if is_long else "shortOpenInterestUsd"
+        current_oi = Decimal(market_info.get(current_oi_key, "0"))
+
+        # Handle invalid data
+        if base_min_collateral <= 0 or max_open_interest <= 0:
+            return []
+
+        # Calculate tiers based on open interest levels
+        tiers = []
+        tier_size = max_open_interest / num_tiers
+
+        for i in range(num_tiers):
+            # Calculate OI range for this tier
+            tier_start_oi = tier_size * i
+            tier_end_oi = tier_size * (i + 1) if i < num_tiers - 1 else max_open_interest
+
+            # Calculate min collateral factor at the END of this tier (most restrictive)
+            oi_based_collateral = (tier_end_oi * oi_multiplier) / PRECISION
+            actual_min_collateral = max(base_min_collateral, oi_based_collateral)
+
+            # Skip if collateral factor is zero
+            if actual_min_collateral <= 0:
+                continue
+
+            # Calculate max leverage for this tier (with 2x buffer)
+            max_leverage = PRECISION / actual_min_collateral / Decimal(2)
+
+            # Convert to USD notional (from 30 decimals)
+            min_notional = float(tier_start_oi / PRECISION)
+            max_notional = float(tier_end_oi / PRECISION)
+
+            tiers.append(
+                {
+                    "tier": i + 1,
+                    "minNotional": min_notional,
+                    "maxNotional": max_notional,
+                    "maxLeverage": float(max_leverage),
+                    "minCollateralFactor": float(actual_min_collateral / PRECISION),
+                }
+            )
+
+        return tiers
 
     def get_token_decimals(self, token_address: str) -> int:
         """Get decimals for a token address from GMX API.
@@ -601,14 +736,14 @@ class GMXSubsquidClient:
             "market": position["market"],
             "collateral_token": position["collateralToken"],
             "is_long": position["isLong"],
-            "collateral_amount": float(self.parse_bigint(position["collateralAmount"], decimals=collateral_decimals)),
-            "size_usd": float(self.parse_bigint(position["sizeInUsd"])),
-            "size_tokens": float(self.parse_bigint(position["sizeInTokens"])),
-            "entry_price": float(self.parse_bigint(position["entryPrice"], decimals=18)),
-            "realized_pnl": float(self.parse_bigint(position["realizedPnl"])),
-            "unrealized_pnl": float(self.parse_bigint(position["unrealizedPnl"])),
-            "realized_fees": float(self.parse_bigint(position["realizedFees"])),
-            "unrealized_fees": float(self.parse_bigint(position["unrealizedFees"])),
-            "leverage": float(self.parse_bigint(position["leverage"], decimals=4)),
+            "collateral_amount": float(self.from_fixed_point(position["collateralAmount"], decimals=collateral_decimals)),
+            "size_usd": float(self.from_fixed_point(position["sizeInUsd"])),
+            "size_tokens": float(self.from_fixed_point(position["sizeInTokens"])),
+            "entry_price": float(self.from_fixed_point(position["entryPrice"], decimals=18)),
+            "realized_pnl": float(self.from_fixed_point(position["realizedPnl"])),
+            "unrealized_pnl": float(self.from_fixed_point(position["unrealizedPnl"])),
+            "realized_fees": float(self.from_fixed_point(position["realizedFees"])),
+            "unrealized_fees": float(self.from_fixed_point(position["unrealizedFees"])),
+            "leverage": float(self.from_fixed_point(position["leverage"], decimals=4)),
             "opened_at": position["openedAt"],
         }

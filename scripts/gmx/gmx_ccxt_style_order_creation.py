@@ -105,14 +105,14 @@ def main():
         }
     )
 
-    console.print(f"[green]✓[/green] GMX initialized successfully")
+    console.print(f"[green]GMX initialized successfully[/green]")
     console.print(f"  Wallet address: {gmx.wallet.address}")
     console.print(f"  Chain ID: {gmx.web3.eth.chain_id}")
 
     # Load markets
     console.print("\n[blue]Step 2: Loading available markets...[/blue]")
     gmx.load_markets()
-    console.print(f"[green]✓[/green] Loaded {len(gmx.markets)} markets")
+    console.print(f"[green]Loaded {len(gmx.markets)} markets[/green]")
 
     # Display available markets
     market_table = Table(title="Available Markets")
@@ -149,7 +149,7 @@ def main():
             },
         )
 
-        console.print(f"[green]✓[/green] Buy order created successfully")
+        console.print(f"[green]Buy order created successfully[/green]")
         console.print(f"  Order ID: {buy_order['id']}")
         console.print(f"  Status: {buy_order['status']}")
         console.print(f"  Symbol: {buy_order['symbol']}")
@@ -159,7 +159,7 @@ def main():
         console.print(f"  TX Hash: {buy_order['info']['tx_hash']}")
 
     except Exception as e:
-        console.print(f"[red]✗[/red] Failed to create buy order: {e}")
+        console.print(f"[red]Failed to create buy order: {e}[/red]")
         import traceback
 
         traceback.print_exc()
@@ -218,16 +218,16 @@ def main():
             },
         )
 
-        console.print(f"[green]✓[/green] Sell order created successfully")
+        console.print(f"[green]Sell order created successfully[/green]")
         console.print(f"  Order ID: {sell_order['id']}")
         console.print(f"  Status: {sell_order['status']}")
         console.print(f"  TX Hash: {sell_order['info']['tx_hash']}")
 
     except Exception as e:
-        console.print(f"[red]✗[/red] Failed to create sell order: {e}")
+        console.print(f"[red]Failed to create sell order: {e}[/red]")
     """
 
-    console.print("\n[bold green]✓ CCXT-Style Order Creation Example Completed![/bold green]")
+    console.print("\n[bold green]CCXT-Style Order Creation Example Completed![/bold green]")
 
 
 if __name__ == "__main__":

@@ -10,7 +10,7 @@ from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.core.get_data import GetData
 from eth_defi.gmx.types import PositionSideData
 from eth_defi.gmx.core.open_interest import GetOpenInterest
-from eth_defi.gmx.utils import apply_factor
+from eth_defi.gmx.keys import apply_factor
 
 
 class GetFundingFee(GetData):

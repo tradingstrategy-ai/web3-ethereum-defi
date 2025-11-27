@@ -6,7 +6,65 @@ These functions generate the proper keccak hashes used for accessing data
 from the GMX datastore contract.
 """
 
-from eth_defi.gmx.utils import create_hash, create_hash_string
+from eth_abi import encode
+from eth_utils import keccak
+
+
+def apply_factor(value, factor):
+    """Apply a 30-decimal factor to a value.
+
+    GMX uses 30-decimal fixed-point arithmetic for many values.
+    This function applies a factor stored as an integer with 30 decimals.
+
+    Parameters
+    ----------
+    value : numeric
+        Value to apply factor to
+    factor : int
+        Factor in 30-decimal format (e.g., 10^30 = 1.0)
+
+    Returns
+    -------
+    numeric
+        Result of (value * factor) / 10^30
+    """
+    return value * factor / 10**30
+
+
+def create_hash(data_type_list: list, data_value_list: list) -> bytes:
+    """Create a keccak hash using ABI encoding.
+
+    Parameters
+    ----------
+    data_type_list : list
+        List of data types as strings (e.g., ["string", "address"])
+    data_value_list : list
+        List of values matching the data types
+
+    Returns
+    -------
+    bytes
+        Keccak-256 hashed key
+    """
+    byte_data = encode(data_type_list, data_value_list)
+    return keccak(byte_data)
+
+
+def create_hash_string(string: str) -> bytes:
+    """Hash a string value using keccak-256.
+
+    Parameters
+    ----------
+    string : str
+        String to hash
+
+    Returns
+    -------
+    bytes
+        Keccak-256 hashed string
+    """
+    return create_hash(["string"], [string])
+
 
 # Protocol key constants
 ACCOUNT_POSITION_LIST = create_hash_string("ACCOUNT_POSITION_LIST")
