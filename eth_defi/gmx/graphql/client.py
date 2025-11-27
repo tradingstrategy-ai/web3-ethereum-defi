@@ -484,9 +484,10 @@ class GMXSubsquidClient:
         result = self._query(query)
         return result.get("borrowingRateSnapshots", [])
 
-    def get_markets(self) -> list[dict[str, Any]]:
+    def get_markets(self, limit: int = 100) -> list[dict[str, Any]]:
         """Get all available markets.
 
+        :param limit: Maximum number of markets to return (default 100)
         :return: List of markets with fields:
 
             - id: Market address
@@ -494,15 +495,15 @@ class GMXSubsquidClient:
             - longToken: Long token address
             - shortToken: Short token address
         """
-        query = """
-        query {
-          markets {
+        query = f"""
+        query {{
+          markets(limit: {limit}) {{
             id
             indexToken
             longToken
             shortToken
-          }
-        }
+          }}
+        }}
         """
 
         result = self._query(query)
