@@ -13,7 +13,7 @@ This module provides GraphQL-based data access for GMX positions and analytics u
 from eth_defi.gmx.graphql.client import GMXSubsquidClient
 
 # Initialize client
-client = GMXSubsquidClient(chain="arbitrum")  # or "avalanche"
+client = GMXSubsquidClient(chain="arbitrum")  # or "avalanche" or "arbitrum_sepolia"
 
 # Optional: Use custom endpoint
 client = GMXSubsquidClient(custom_endpoint="https://your-endpoint.com/graphql")
@@ -212,6 +212,7 @@ trading.close_position(
 
 - **Arbitrum**: https://gmx.squids.live/gmx-synthetics-arbitrum:prod/api/graphql
 - **Avalanche**: https://gmx.squids.live/gmx-synthetics-avalanche:prod/api/graphql
+- **Arbitrum Sepolia**: https://gmx.squids.live/gmx-synthetics-arb-sepolia:prod/api/graphql
 
 ## Available Data
 

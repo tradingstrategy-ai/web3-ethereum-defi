@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 GMX_SUBSQUID_ENDPOINTS = {
     "arbitrum": "https://gmx.squids.live/gmx-synthetics-arbitrum:prod/api/graphql",
     "avalanche": "https://gmx.squids.live/gmx-synthetics-avalanche:prod/api/graphql",
+    "arbitrum_sepolia": "https://gmx.squids.live/gmx-synthetics-arb-sepolia:prod/api/graphql",
 }
 
 

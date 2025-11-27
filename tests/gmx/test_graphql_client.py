@@ -20,6 +20,11 @@ def test_client_initialization():
     assert client_avax.chain == "avalanche"
     assert "avalanche" in client_avax.endpoint
 
+    # Test Arbitrum Sepolia
+    client_arb_sepolia = GMXSubsquidClient(chain="arbitrum_sepolia")
+    assert client_arb_sepolia.chain == "arbitrum_sepolia"
+    assert "arb-sepolia" in client_arb_sepolia.endpoint
+
     # Test custom endpoint
     custom_endpoint = "https://custom-endpoint.example/graphql"
     client_custom = GMXSubsquidClient(custom_endpoint=custom_endpoint)

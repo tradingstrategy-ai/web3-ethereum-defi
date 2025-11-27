@@ -47,7 +47,7 @@ class GMXSubsquidClient:
     def __init__(self, chain: str = "arbitrum", custom_endpoint: Optional[str] = None):
         """Initialize the Subsquid client.
 
-        :param chain: Chain name ("arbitrum" or "avalanche")
+        :param chain: Chain name ("arbitrum", "avalanche", or "arbitrum_sepolia")
         :param custom_endpoint: Optional custom GraphQL endpoint URL
         """
         self.chain = chain.lower()
