@@ -23,6 +23,7 @@ def format_markdown_table(
     columns: list[str] | None = None,
     preferred_columns: list[str] | None = None,
     current_tvl_column: str | None = "TVL USD (current / peak)",
+    hide_index: bool = False,
 ) -> pd.DataFrame:
     """Format a DataFrame as a Markdown table.
 
@@ -57,7 +58,7 @@ def format_markdown_table(
 
     def _format_tvl(row: pd.Series) -> pd.Series:
         # return f"${row[current_tvl_column] / 1_000_000:,.3f}M"
-        # Preformatted string
+        # Preformatted
         return row[current_tvl_column]
 
     df = df.copy()
@@ -92,5 +93,10 @@ def format_markdown_table(
 
     if columns:
         df = df[columns]
+
+    if hide_index:
+        # Just do a new index
+        # df = df.reset_index(drop=True)
+        pass
 
     return df
