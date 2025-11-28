@@ -383,7 +383,11 @@ class GMX(ExchangeCompatible):
             # If we can't load metadata, will fall back to default behavior
             pass
 
-    def load_markets(self, reload: bool = False) -> dict[str, Any]:
+    def load_markets(
+        self,
+        reload: bool = False,
+        params: dict | None = None,
+    ) -> dict[str, Any]:
         """Load available markets from GMX protocol.
 
         This method fetches the list of supported markets from GMX and constructs
@@ -394,6 +398,8 @@ class GMX(ExchangeCompatible):
         :type reload: bool
         :return: dictionary mapping unified symbols (e.g., "ETH/USD") to market info
         :rtype: dict[str, Any]
+        :param params: Nothing it's expected by CCXT & freqtrade. Even in the main CCXT method it does nothing
+        :type params: dict | None
 
         Example::
 
@@ -1330,7 +1336,7 @@ class GMX(ExchangeCompatible):
         symbol: str,
         since: int | None = None,
         limit: int | None = None,
-        params: dict[str, Any] | None = None,
+        params: dict | None = None,
     ) -> list[dict[str, Any]]:
         """
         Fetch historical funding rate data from Subsquid.
@@ -1345,7 +1351,7 @@ class GMX(ExchangeCompatible):
         :param limit: Maximum number of records (default: 100)
         :type limit: int | None
         :param params: Additional parameters (e.g., {"market_address": "0x..."})
-        :type params: dict[str, Any] | None
+        :type params: dict | None
         :returns: list of historical funding rate snapshots
         :rtype: list[dict[str, Any]]
         :raises ValueError: If invalid symbol or markets not loaded
