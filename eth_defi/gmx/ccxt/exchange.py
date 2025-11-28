@@ -395,15 +395,15 @@ class GMX(ExchangeCompatible):
             # If we can't load metadata, will fall back to default behavior
             pass
 
-    async def load_markets(
+    def load_markets(
         self,
         reload: bool = False,
         params: dict | None = None,
     ) -> dict[str, Any]:
-        """Load available markets from GMX protocol (async version).
+        """Load available markets from GMX protocol (synchronous version).
 
-        This async method wraps the synchronous load_markets to make it awaitable,
-        matching the interface expected by async CCXT consumers like Freqtrade.
+        This is the synchronous implementation for the sync GMX class.
+        For async support, use the GMX class from eth_defi.gmx.ccxt.async_support.
 
         :param reload: If True, force reload markets even if already loaded
         :type reload: bool
@@ -411,36 +411,7 @@ class GMX(ExchangeCompatible):
         :type params: dict | None
         :return: dictionary mapping unified symbols (e.g., "ETH/USD") to market info
         :rtype: dict[str, Any]
-
-        Note:
-            Running the sync method in a thread pool to ensure it doesn't block
-            the event loop, even though GMX market loading is relatively fast.
         """
-        print(f"[ASYNC GMX] load_markets called - reload={reload}, params={params}", flush=True)
-        # Run the sync method in a thread pool to make it truly async
-        loop = asyncio.get_event_loop()
-
-        # Call the parent class method explicitly to avoid recursion
-        # We need to call the sync version which is defined above
-        sync_load = super(GMX, self).load_markets if hasattr(super(GMX, self), "load_markets") else self._sync_load_markets
-
-        result = await loop.run_in_executor(
-            None,  # Use default ThreadPoolExecutor
-            lambda: self._sync_load_markets(reload=reload, params=params),
-        )
-        print(f"[ASYNC GMX] load_markets returning {type(result)} with {len(result)} markets", flush=True)
-        return result
-
-    def _sync_load_markets(
-        self,
-        reload: bool = False,
-        params: dict | None = None,
-    ) -> dict[str, Any]:
-        """Internal synchronous implementation of load_markets.
-
-        This is the actual implementation that both sync and async versions call.
-        """
-        print("[GMX SYNC] _sync_load_markets called", flush=True)
         if self.markets_loaded and not reload:
             return self.markets
 
@@ -537,14 +508,6 @@ class GMX(ExchangeCompatible):
 
         # Update symbols list (CCXT compatibility)
         self.symbols = list(self.markets.keys())
-
-        # Debug: Verify maintenanceMarginRate is in all markets
-        for symbol, market in self.markets.items():
-            if "maintenanceMarginRate" not in market:
-                print(f"[GMX ERROR] Market {symbol} missing maintenanceMarginRate!", flush=True)
-            else:
-                print(f"[GMX DEBUG] Market {symbol} has maintenanceMarginRate={market['maintenanceMarginRate']}", flush=True)
-                break  # Only log first market to avoid spam
 
         return self.markets
 
@@ -723,7 +686,7 @@ class GMX(ExchangeCompatible):
             raise NotSupported("Subsquid client not initialized - leverage tiers unavailable")
 
         # Ensure markets are loaded
-        self._sync_load_markets()
+        self.load_markets()
 
         # Get market info
         market_info_ccxt = self.market(symbol)
@@ -778,7 +741,7 @@ class GMX(ExchangeCompatible):
             params = {}
 
         # Ensure markets are loaded
-        self._sync_load_markets()
+        self.load_markets()
 
         # If no symbols specified, use all available markets
         if symbols is None:
@@ -846,7 +809,7 @@ class GMX(ExchangeCompatible):
             params = {}
 
         # Ensure markets are loaded
-        self._sync_load_markets()
+        self.load_markets()
 
         # Get market info and extract GMX token symbol
         market_info = self.market(symbol)
@@ -1075,7 +1038,7 @@ class GMX(ExchangeCompatible):
             params = {}
 
         # Ensure markets are loaded
-        self._sync_load_markets()
+        self.load_markets()
 
         # Get market info
         market_info = self.market(symbol)
@@ -1145,7 +1108,7 @@ class GMX(ExchangeCompatible):
             limit = 100
 
         # Ensure markets are loaded for market info
-        self._sync_load_markets()
+        self.load_markets()
 
         # Get market info for symbol
         market_info = self.market(symbol) if symbol else None
@@ -1193,7 +1156,7 @@ class GMX(ExchangeCompatible):
         if params is None:
             params = {}
 
-        self._sync_load_markets()
+        self.load_markets()
 
         # If no symbols specified, use all markets
         if symbols is None:
@@ -1380,7 +1343,7 @@ class GMX(ExchangeCompatible):
             params = {}
 
         # Ensure markets are loaded
-        self._sync_load_markets()
+        self.load_markets()
 
         # Get market info
         market_info = self.market(symbol)
@@ -1533,7 +1496,7 @@ class GMX(ExchangeCompatible):
             print(f"24h high: ${ticker['high']}")
         """
         params = params or {}
-        self._sync_load_markets()
+        self.load_markets()
 
         # Get market info
         market = self.market(symbol)
@@ -1605,7 +1568,7 @@ class GMX(ExchangeCompatible):
             tickers = gmx.fetch_tickers(["ETH/USD", "BTC/USD"])
         """
         params = params or {}
-        self._sync_load_markets()
+        self.load_markets()
 
         # Fetch all tickers from GMX API once
         all_tickers = self.api.get_tickers()
@@ -1832,7 +1795,7 @@ class GMX(ExchangeCompatible):
             trades = gmx.fetch_trades("ETH/USD", since=since)
         """
         params = params or {}
-        self._sync_load_markets()
+        self.load_markets()
 
         # Get market info
         market = self.market(symbol)
@@ -2280,7 +2243,7 @@ class GMX(ExchangeCompatible):
             eth_orders = gmx.fetch_open_orders(symbol="ETH/USD")
         """
         params = params or {}
-        self._sync_load_markets()
+        self.load_markets()
 
         # Get wallet address
         wallet = params.get("wallet_address", self.wallet_address)
@@ -2360,7 +2323,7 @@ class GMX(ExchangeCompatible):
             eth_trades = gmx.fetch_my_trades(symbol="ETH/USD")
         """
         params = params or {}
-        self._sync_load_markets()
+        self.load_markets()
 
         # Get wallet address
         wallet = params.get("wallet_address", self.wallet_address)
@@ -2454,7 +2417,7 @@ class GMX(ExchangeCompatible):
                 print(f"  Liquidation: ${pos['liquidationPrice']:.2f}")
         """
         params = params or {}
-        self._sync_load_markets()
+        self.load_markets()
 
         # Get wallet address
         wallet = params.get("wallet_address", self.wallet_address)
@@ -3084,7 +3047,7 @@ class GMX(ExchangeCompatible):
 
         # Ensure markets are loaded
         if not self.markets_loaded:
-            self._sync_load_markets()
+            self.load_markets()
 
         # Convert CCXT parameters to GMX parameters
         gmx_params = self._convert_ccxt_to_gmx_params(
@@ -3353,7 +3316,6 @@ class GMX(ExchangeCompatible):
 
         This method can be called in async cleanup code or context managers.
         """
-        print("[ASYNC GMX] close() called", flush=True)
         # GMX doesn't maintain persistent connections, so this is a no-op
         # If future implementations add connection pooling or caching,
         # cleanup logic should be added here

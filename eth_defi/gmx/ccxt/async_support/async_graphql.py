@@ -97,14 +97,27 @@ class AsyncGMXSubsquidClient:
         query = f"""
         query {{
             marketInfos(
-                orderBy: [id_ASC]
+                orderBy: [id_DESC]
                 limit: {limit}
             ) {{
                 id
                 marketTokenAddress
+                indexTokenAddress
+                longTokenAddress
+                shortTokenAddress
+                longOpenInterestUsd
+                shortOpenInterestUsd
+                longOpenInterestInTokens
+                shortOpenInterestInTokens
+                fundingFactorPerSecond
+                longsPayShorts
+                borrowingFactorPerSecondForLongs
+                borrowingFactorPerSecondForShorts
                 minCollateralFactor
-                maxLongTokenPoolAmount
-                maxShortTokenPoolAmount
+                minCollateralFactorForOpenInterestLong
+                minCollateralFactorForOpenInterestShort
+                maxOpenInterestLong
+                maxOpenInterestShort
             }}
         }}
         """
