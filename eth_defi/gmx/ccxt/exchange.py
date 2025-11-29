@@ -28,7 +28,7 @@ import time
 from datetime import datetime
 from typing import Any
 
-from cchecksum import to_checksum_address
+from eth_utils import to_checksum_address
 from ccxt.base.errors import NotSupported
 
 from eth_defi.chain import get_chain_name
@@ -447,7 +447,7 @@ class GMX(ExchangeCompatible):
                 continue
 
             if symbol_name in self.EXCLUDED_SYMBOLS:
-                logger.info(
+                logger.debug(
                     "Skipping excluded GMX market %s (address %s)",
                     symbol_name,
                     market_address,
