@@ -6,8 +6,13 @@
 import pytest
 from web3 import Web3
 
-from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.ccxt.exchange import GMX
+from eth_defi.gmx.config import GMXConfig
+
+
+@pytest.fixture
+def web3():
+    return Web3(Web3.HTTPProvider("https://arb1.arbitrum.io/rpc"))
 
 
 @pytest.fixture
@@ -21,11 +26,10 @@ def ccxt_gmx_arbitrum(arbitrum_fork_config) -> GMX:
 
 
 @pytest.fixture
-def gmx_arbitrum() -> GMX:
+def gmx_arbitrum(web3) -> GMX:
     """Create GMX exchange instance connected to Arbitrum mainnet.
 
     Uses live Arbitrum RPC for real API calls.
     """
-    web3 = Web3(Web3.HTTPProvider("https://arb1.arbitrum.io/rpc"))
     config = GMXConfig(web3)
     return GMX(config)
