@@ -201,22 +201,22 @@ class Gmx(Exchange):
         try:
             # Get market info from CCXT
             market = self.markets.get(pair)
-            
+
             if not market:
                 # If markets not loaded, return default
                 logger.warning(f"Market {pair} not found, returning default leverage of 50x")
                 return 50.0
-            
+
             # Get max leverage from market limits
             max_leverage = market.get("limits", {}).get("leverage", {}).get("max")
-            
+
             if max_leverage and max_leverage > 0:
                 return float(max_leverage)
-            
+
             # Fallback to default GMX leverage
             logger.debug(f"No leverage limit found for {pair}, using default 50x")
             return 50.0
-            
+
         except Exception as e:
             logger.warning(f"Error getting max leverage for {pair}: {e}, returning default 50x")
             return 50.0

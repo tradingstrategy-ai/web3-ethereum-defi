@@ -28,7 +28,7 @@ import time
 from datetime import datetime
 from typing import Any
 
-from eth_utils import to_checksum_address
+from cchecksum import to_checksum_address
 from ccxt.base.errors import NotSupported
 
 from eth_defi.chain import get_chain_name

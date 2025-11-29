@@ -101,10 +101,10 @@ class GMX(Exchange):
             "4h": "4h",
             "1d": "1d",
         }
-        
+
         # Initialize markets dict (required by CCXT)
         # Will be populated by load_markets()
-        if not hasattr(self, 'markets') or self.markets is None:
+        if not hasattr(self, "markets") or self.markets is None:
             self.markets = {}
 
     def describe(self):
@@ -229,7 +229,7 @@ class GMX(Exchange):
             symbol_name = market_data.get("market_symbol", "")
             if not symbol_name or symbol_name == "UNKNOWN":
                 continue
-            
+
             # Skip excluded symbols
             if symbol_name in self.EXCLUDED_SYMBOLS:
                 logger.debug(
@@ -238,7 +238,7 @@ class GMX(Exchange):
                     market_addr,
                 )
                 continue
-                
+
             symbol = f"{symbol_name}/USD"
 
             self.markets[symbol] = {
@@ -300,29 +300,25 @@ class GMX(Exchange):
 
     def market(self, symbol: str) -> dict:
         """Get market structure for symbol.
-        
+
         This is a sync method (not async) following CCXT patterns.
         Markets must be loaded before calling this.
-        
+
         Args:
             symbol: Market symbol (e.g., "ETH/USD")
-            
+
         Returns:
             Market structure dict
-            
+
         Raises:
             ValueError: If markets not loaded or symbol not found
         """
         if not self.markets:
-            raise ValueError(
-                f"Markets not loaded for {symbol}. Call 'await exchange.load_markets()' first."
-            )
-        
+            raise ValueError(f"Markets not loaded for {symbol}. Call 'await exchange.load_markets()' first.")
+
         if symbol not in self.markets:
-            raise ValueError(
-                f"Market {symbol} not found. Available: {list(self.markets.keys())}"
-            )
-        
+            raise ValueError(f"Market {symbol} not found. Available: {list(self.markets.keys())}")
+
         return self.markets[symbol]
 
     async def fetch_ticker(self, symbol: str, params: dict | None = None) -> dict:
@@ -651,14 +647,16 @@ class GMX(Exchange):
 
             timestamp = self.milliseconds()
 
-            result.append({
-                "symbol": symbol,
-                "openInterestAmount": None,
-                "openInterestValue": total_oi_usd,
-                "timestamp": timestamp,
-                "datetime": self.iso8601(timestamp),
-                "info": info,
-            })
+            result.append(
+                {
+                    "symbol": symbol,
+                    "openInterestAmount": None,
+                    "openInterestValue": total_oi_usd,
+                    "timestamp": timestamp,
+                    "datetime": self.iso8601(timestamp),
+                    "info": info,
+                }
+            )
 
         return result
 
@@ -798,17 +796,19 @@ class GMX(Exchange):
 
             timestamp = self.milliseconds()
 
-            result.append({
-                "symbol": symbol,
-                "fundingRate": funding_per_second,
-                "longFundingRate": funding_per_second if longs_pay_shorts else -funding_per_second,
-                "shortFundingRate": -funding_per_second if longs_pay_shorts else funding_per_second,
-                "fundingTimestamp": timestamp,
-                "fundingDatetime": datetime.fromtimestamp(timestamp / 1000).isoformat() + "Z",
-                "timestamp": timestamp,
-                "datetime": datetime.fromtimestamp(timestamp / 1000).isoformat() + "Z",
-                "info": info,
-            })
+            result.append(
+                {
+                    "symbol": symbol,
+                    "fundingRate": funding_per_second,
+                    "longFundingRate": funding_per_second if longs_pay_shorts else -funding_per_second,
+                    "shortFundingRate": -funding_per_second if longs_pay_shorts else funding_per_second,
+                    "fundingTimestamp": timestamp,
+                    "fundingDatetime": datetime.fromtimestamp(timestamp / 1000).isoformat() + "Z",
+                    "timestamp": timestamp,
+                    "datetime": datetime.fromtimestamp(timestamp / 1000).isoformat() + "Z",
+                    "info": info,
+                }
+            )
 
         return result
 
