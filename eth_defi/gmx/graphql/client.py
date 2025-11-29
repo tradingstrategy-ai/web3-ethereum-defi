@@ -44,6 +44,8 @@ class GMXSubsquidClient:
         history = client.get_position_changes(account="0x1234...", limit=50)
     """
 
+    MIN_DISPLAY_STAKE = 20.0
+
     def __init__(self, chain: str = "arbitrum", custom_endpoint: Optional[str] = None):
         """Initialize the Subsquid client.
 
@@ -679,15 +681,38 @@ class GMXSubsquidClient:
             min_notional = float(tier_start_oi / PRECISION)
             max_notional = float(tier_end_oi / PRECISION)
 
+            maintenance_margin_rate = float(actual_min_collateral / PRECISION)
+
             tiers.append(
                 {
                     "tier": i + 1,
                     "minNotional": min_notional,
                     "maxNotional": max_notional,
                     "maxLeverage": float(max_leverage),
-                    "minCollateralFactor": float(actual_min_collateral / PRECISION),
+                    "minCollateralFactor": maintenance_margin_rate,
+                    "maintenanceMarginRate": maintenance_margin_rate,
+                    "info": {
+                        "tier": i + 1,
+                        "minCollateralFactor": maintenance_margin_rate,
+                        "maxOpenInterest": float(max_open_interest / PRECISION),
+                        "openInterestRange": [min_notional, max_notional],
+                    },
                 }
             )
+
+        if tiers:
+            last_tier = tiers[-1]
+            max_leverage_value = last_tier.get("maxLeverage")
+            if max_leverage_value:
+                min_required_notional = GMXSubsquidClient.MIN_DISPLAY_STAKE * max_leverage_value
+                if last_tier["maxNotional"] < min_required_notional:
+                    last_tier["maxNotional"] = min_required_notional
+                    info = last_tier.get("info") or {}
+                    info["openInterestRange"] = [
+                        info.get("openInterestRange", [0.0, 0.0])[0],
+                        min_required_notional,
+                    ]
+                    last_tier["info"] = info
 
         return tiers
 
