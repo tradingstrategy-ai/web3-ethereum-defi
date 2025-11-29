@@ -447,7 +447,7 @@ class GMX(ExchangeCompatible):
                 continue
 
             if symbol_name in self.EXCLUDED_SYMBOLS:
-                logger.info(
+                logger.debug(
                     "Skipping excluded GMX market %s (address %s)",
                     symbol_name,
                     market_address,
