@@ -26,13 +26,13 @@ from ffn.utils import fmtn, fmtp
 from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.core import ERC4262VaultDetection
 from eth_defi.research.value_table import format_series_as_multi_column_grid
+from eth_defi.research.wrangle_vault_prices import forward_fill_vault
 from eth_defi.token import is_stablecoin_like
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.fee import FeeData, VaultFeeMode
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
 from eth_defi.vault.risk import get_vault_risk, VaultTechnicalRisk
 from eth_defi.compat import native_datetime_utc_now
-
 
 logger = logging.getLogger(__name__)
 
@@ -159,6 +159,7 @@ def calculate_net_profit(
     deposit_fee: Percent | None,
     withdrawal_fee: Percent | None,
     seconds_in_year=365.25 * 86400,
+    sample_count: int | None = None,
 ) -> Percent:
     """Calculate profit after external fees have been reduced from the share price change.
 
@@ -186,6 +187,9 @@ def calculate_net_profit(
     :param withdrawal_fee:
         Withdrawal fee as a percent (0.01 = 1% fee), or None if no fee.
 
+    :param sample_count:
+        If we have not enough returns data, do not try to calculate profit.
+
     :return:
         Net profit as a floating point (0.10 = 10% profit).
     """
@@ -200,6 +204,10 @@ def calculate_net_profit(
 
     if share_price_start == 0:
         # Some broken vaults give zero share price periods
+        return 0
+
+    # Min 2 day
+    if sample_count is not None and sample_count < 2:
         return 0
 
     assert share_price_end >= 0, "End share price must be non-negative"
@@ -536,6 +544,7 @@ def calculate_lifetime_metrics(
 
             lifetime_start_date = start_date = group.index[0]
             lifetime_end_date = end_date = group.index[-1]
+            lifetime_samples = len(group)
 
             lifetime_return = group.iloc[-1]["share_price"] / group.iloc[0]["share_price"] - 1
 
@@ -549,6 +558,7 @@ def calculate_lifetime_metrics(
                     performance_fee=net_fee_data.performance,
                     deposit_fee=net_fee_data.deposit,
                     withdrawal_fee=net_fee_data.withdraw,
+                    sample_count=len(group),
                 )
             else:
                 lifetime_return_net = None
@@ -563,14 +573,19 @@ def calculate_lifetime_metrics(
             else:
                 cagr_net = None
 
-            last_three_months = group.loc[three_months_ago:]
-            last_month = group.loc[month_ago:]
+            three_months_start = group.index.asof(three_months_ago)
+            last_three_months = group.loc[three_months_start:]
+
+            one_month_start = group.index.asof(month_ago)
+            last_month = group.loc[one_month_start:]
 
             # Calculate 3 months CAGR
             # Get the first and last date
-            if len(last_three_months) >= 2:
-                start_date = last_three_months.index.min()
-                end_date = last_three_months.index.max()
+            three_months_start = start_date = last_three_months.index.min()
+            three_months_end = end_date = last_three_months.index.max()
+            three_months_samples = len(last_three_months)
+
+            if len(last_three_months) >= 2 and (end_date - start_date) < pd.Timedelta(days=120):
                 years = (end_date - start_date).days / 365.25
 
                 returns_series = resample_returns(
@@ -592,6 +607,7 @@ def calculate_lifetime_metrics(
                         performance_fee=net_fee_data.performance,
                         deposit_fee=net_fee_data.deposit,
                         withdrawal_fee=net_fee_data.withdraw,
+                        sample_count=len(last_three_months),
                     )
                     three_months_cagr_net = (1 + three_months_return_net) ** (1 / years) - 1 if years > 0 else np.nan
                 else:
@@ -616,13 +632,18 @@ def calculate_lifetime_metrics(
                 three_months_sharpe_net = 0
                 three_months_sharpe = 0
 
-            if len(last_month) >= 2:
-                start_date = last_month.index.min()
-                end_date = last_month.index.max()
+            start_date = last_month.index.min()
+            end_date = last_month.index.max()
+
+            if len(last_month) >= 2 and (end_date - start_date) < pd.Timedelta(days=60):
                 years = (end_date - start_date).days / 365.25
 
                 one_month_returns = last_month.iloc[-1]["share_price"] / last_month.iloc[0]["share_price"] - 1
                 one_month_cagr = (1 + one_month_returns) ** (1 / years) - 1 if years > 0 else np.nan
+
+                one_month_start = start_date
+                one_month_end = end_date
+                one_month_samples = len(last_month)
 
                 if known_fee:
                     one_month_returns_net = calculate_net_profit(
@@ -634,11 +655,13 @@ def calculate_lifetime_metrics(
                         performance_fee=net_fee_data.performance,
                         deposit_fee=net_fee_data.deposit,
                         withdrawal_fee=net_fee_data.withdraw,
+                        sample_count=len(last_month),
                     )
                     one_month_cagr_net = (1 + one_month_returns_net) ** (1 / years) - 1 if years > 0 else np.nan
                 else:
                     one_month_returns_net = None
                     one_month_cagr_net = None
+                    one_month_start = one_month_end = one_month_samples = None
 
             else:
                 # We have not collected data for the last month,
@@ -647,6 +670,7 @@ def calculate_lifetime_metrics(
                 one_month_returns = 0
                 one_month_returns_net = 0
                 one_month_cagr_net = 0
+                one_month_start = one_month_end = one_month_samples = None
 
         fee_label = create_fee_label(fee_data)
 
@@ -700,6 +724,16 @@ def calculate_lifetime_metrics(
                 "last_updated_at": last_updated_at,
                 "last_updated_block": last_updated_block,
                 "features": features,
+                # Debug and diagnostics for sparse data
+                "one_month_start": one_month_start,
+                "one_month_end": one_month_end,
+                "one_month_samples": one_month_samples,
+                "three_months_start": three_months_start,
+                "three_months_end": three_months_end,
+                "three_months_samples": three_months_samples,
+                "lifetime_start": lifetime_start_date,
+                "lifetime_end": lifetime_end_date,
+                "lifetime_samples": lifetime_samples,
             }
         )
 
@@ -805,8 +839,8 @@ def combine_return_columns(
                 if n is not None and pd.isna(n) == False:
                     return f"{n:.1%} (n)"
                 else:
-                    if n and pd.isna(n) == False:
-                        return f"{n:.1%} (g)"
+                    if g and pd.isna(g) == False:
+                        return f"{g:.1%} (g)"
                     else:
                         return "---"
 
@@ -938,6 +972,18 @@ def format_lifetime_table(
     _del("fee_internalised")
     _del("gross_fees")
     _del("net_fees")
+    _del("index")
+
+    # Time range diagnostics variables
+    _del("one_month_start")
+    _del("one_month_end")
+    _del("one_month_samples")
+    _del("three_months_start")
+    _del("three_months_end")
+    _del("three_months_samples")
+    _del("lifetime_start")
+    _del("lifetime_end")
+    _del("lifetime_samples")
 
     if not add_share_token:
         _del("share_token")
@@ -1057,7 +1103,7 @@ def analyse_vault(
     # Use cleaned returns data and resample it to something useful
     vault_df = returns_df.loc[returns_df["id"] == id]
 
-    vault_df = vault_df.resample("h").last().ffill()
+    vault_df = forward_fill_vault(vault_df)
 
     cleaned_price_series = vault_df["share_price"]
     cleaned_price_series = cleaned_price_series
@@ -1089,7 +1135,6 @@ def analyse_vault(
 
     if chart_frequency == "daily":
         price_series = price_series.resample("D").last()  # Resample to daily prices
-        cumulative_returns = (1 + daily_returns).cumprod()
         nav_series = nav_series.resample("D").last()  # Resample NAV to daily
     else:
         # Assume default data is hourly
