@@ -31,17 +31,6 @@ logger = logging.getLogger(__name__)
 ZERO_REFERRAL_CODE = bytes.fromhex("0" * 64)
 
 
-class OrderType(Enum):
-    """GMX Order Types with contract values."""
-
-    SWAP = 0
-    SHIFT = 1
-    ATOMIC_WITHDRAWAL = 2
-    DEPOSIT = 3
-    WITHDRAWAL = 4
-    ATOMIC_SWAP = 5
-
-
 @dataclass
 class OrderParams:
     """Order parameters for GMX orders."""
