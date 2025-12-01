@@ -11,6 +11,7 @@ import pandas as pd
 
 import matplotlib.pyplot as plt
 
+from eth_defi.research.wrangle_vault_prices import forward_fill_vault
 from eth_defi.vault.base import VaultSpec
 
 
@@ -41,12 +42,18 @@ def render_sparkline(
     vault_prices_df: pd.DataFrame,
     width: int = 256,
     height: int = 64,
+    ffill=True,
 ) -> plt.Figure:
     """Render a sparkline chart for a single vault.
 
-    :param spec::
+    :param spec:
         chain-vault address identifier
+
+    :param ffill:
+        Forward-fill the sparse source data
     """
+
+    vault_prices_df = forward_fill_vault(vault_prices_df)
 
     vault_data = vault_prices_df
 

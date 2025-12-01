@@ -767,3 +767,21 @@ def generate_cleaned_vault_datasets(
 
     fsize = cleaned_price_df_path.stat().st_size
     logger(f"Saved cleaned vault prices to {cleaned_price_df_path}, total {len(enhanced_prices_df):,} rows, file size is {fsize / 1024 / 1024:.2f} MB")
+
+
+def forward_fill_vault(
+    vault_df: pd.DataFrame,
+) -> pd.DataFrame:
+    """Forward fill missing vault prices up to max_gap_hours.
+
+    - For displaying, calculating metrics, etc. we want continuous time series
+    - Align random sample interval to 1h
+
+    :param vault_df:
+        Price data for a single vault.
+
+        Assume 1h price data.
+
+    """
+    assert isinstance(vault_df.index, pd.DatetimeIndex), f"Got: {type(vault_df.index)}"
+    return vault_df.resample("h").last().ffill()

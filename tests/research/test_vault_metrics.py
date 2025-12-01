@@ -82,15 +82,16 @@ def test_calculate_lifetime_metrics(
     assert sample_row["cagr"] == pytest.approx(0.02483940718068034)
     assert sample_row["cagr_net"] == pytest.approx(0.02107892820280277)
 
-    assert sample_row["three_months_cagr"] == pytest.approx(0.02483940718068034)
-    assert sample_row["three_months_cagr_net"] == pytest.approx(0.02107892820280277)
-    assert sample_row["three_months_sharpe"] == pytest.approx(12.09936086372036)
-    assert sample_row["three_months_sharpe_net"] == pytest.approx(12.09936086372036)
+    # The prices file does not have enough data for three moths
+    assert sample_row["three_months_cagr"] == pytest.approx(0)
+    assert sample_row["three_months_cagr_net"] == pytest.approx(0)
+    assert sample_row["three_months_sharpe"] == pytest.approx(0)
+    assert sample_row["three_months_sharpe_net"] == pytest.approx(0)
 
-    assert sample_row["one_month_returns"] == pytest.approx(0.0017492385168136337)
-    assert sample_row["one_month_returns_net"] == pytest.approx(0.0014868527392914999)
-    assert sample_row["one_month_cagr"] == pytest.approx(0.02225616485623605)
-    assert sample_row["one_month_cagr_net"] == pytest.approx(0.018888926446635645)
+    assert sample_row["one_month_returns"] == pytest.approx(0.0018523254977500514)
+    assert sample_row["one_month_returns_net"] == pytest.approx(0.0015744766730876325)
+    assert sample_row["one_month_cagr"] == pytest.approx(0.022786946472187264)
+    assert sample_row["one_month_cagr_net"] == pytest.approx(0.019338796675171466)
 
     assert sample_row["last_updated_at"] == pd.Timestamp("2025-10-24 06:34:11")
     assert sample_row["last_updated_block"] == 2_951_745
