@@ -135,10 +135,14 @@ def patch_freqtrade(force: bool = False) -> bool:
             raise ImportError("Could not import GMX Freqtrade exchange class. Make sure eth_defi is properly installed.") from e
 
         # Add GMX class to freqtrade.exchange module
-        ft_exchange.Gmx = Gmx
+        # Freqtrade's ExchangeResolver looks for lowercase name
+        ft_exchange.gmx = Gmx
+        ft_exchange.Gmx = Gmx  # Also add capitalized for backwards compatibility
 
         # Try to add to __all__ if it exists
         if hasattr(ft_exchange, "__all__"):
+            if "gmx" not in ft_exchange.__all__:
+                ft_exchange.__all__.append("gmx")
             if "Gmx" not in ft_exchange.__all__:
                 ft_exchange.__all__.append("Gmx")
 

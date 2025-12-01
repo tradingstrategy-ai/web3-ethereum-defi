@@ -262,14 +262,18 @@ class GMX(Exchange):
                 "quote": "USDC",  # Quote currency (always USD for GMX)
                 "baseId": symbol_name,
                 "quoteId": "USD",
+                "settle": "USDC",  # Settlement currency
+                "settleId": "USDC",  # Settlement currency ID
                 "active": True,
                 "type": "swap",  # GMX provides perpetual swaps
                 "spot": False,
+                "margin": False,  # Not spot margin, it's futures
                 "swap": True,
                 "future": False,
                 "option": False,
                 "contract": True,
                 "linear": True,
+                "inverse": False,
                 "precision": {
                     "amount": 8,
                     "price": 8,
