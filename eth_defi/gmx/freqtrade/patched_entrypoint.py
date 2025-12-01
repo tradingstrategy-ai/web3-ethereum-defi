@@ -62,7 +62,9 @@ def main():
         apply_patch()
 
     if len(sys.argv) > 1:
-        # Import and run freqtrade CLI
+        # CRITICAL: Import freqtrade AFTER patching to ensure resolvers see our GMX class
+        # The patch must be applied before freqtrade.resolvers.exchange_resolver is imported
+        # because it caches the reference to freqtrade.exchange at module load time
         from freqtrade.main import main as freqtrade_main
 
         # Remove this script name from argv so freqtrade gets clean arguments
