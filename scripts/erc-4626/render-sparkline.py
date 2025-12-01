@@ -9,7 +9,7 @@ import tempfile
 import webbrowser
 
 from eth_defi.vault.base import VaultSpec
-from eth_defi.research.sparkline import export_sparkline_as_png, extract_vault_price_data, render_sparkline, export_sparkline_as_svg
+from eth_defi.research.sparkline import extract_vault_price_data, render_sparkline, export_sparkline_as_svg
 from eth_defi.vault.vaultdb import VaultDatabase, read_default_vault_prices
 
 

@@ -53,13 +53,13 @@ def render_sparkline(
         Forward-fill the sparse source data
     """
 
-
     vault_data = vault_prices_df
 
     assert len(vault_data) > 0, f"No data for vault: {id}"
     assert isinstance(vault_data.index, pd.DatetimeIndex), f"Expected DatetimeIndex, got: {type(vault_data.index)}"
 
     if ffill:
+        # old_data = vault_data.copy()
         vault_data = forward_fill_vault(vault_data)
 
     # Convert pixels to inches (matplotlib uses inches)

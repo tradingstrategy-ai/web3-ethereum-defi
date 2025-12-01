@@ -784,4 +784,5 @@ def forward_fill_vault(
 
     """
     assert isinstance(vault_df.index, pd.DatetimeIndex), f"Got: {type(vault_df.index)}"
-    return vault_df.resample("h").last().ffill()
+    resampled = vault_df.resample("h").last().ffill()
+    return resampled
