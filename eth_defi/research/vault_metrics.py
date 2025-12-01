@@ -26,6 +26,7 @@ from ffn.utils import fmtn, fmtp
 from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.core import ERC4262VaultDetection
 from eth_defi.research.value_table import format_series_as_multi_column_grid
+from eth_defi.research.wrangle_vault_prices import forward_fill_vault
 from eth_defi.token import is_stablecoin_like
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.fee import FeeData, VaultFeeMode
@@ -579,9 +580,10 @@ def calculate_lifetime_metrics(
 
             # Calculate 3 months CAGR
             # Get the first and last date
-            if len(last_three_months) >= 2:
-                start_date = last_three_months.index.min()
-                end_date = last_three_months.index.max()
+            start_date = last_three_months.index.min()
+            end_date = last_three_months.index.max()
+
+            if len(last_three_months) >= 2 and (end_date - start_date) < pd.Timedelta(days=120):
                 years = (end_date - start_date).days / 365.25
 
                 returns_series = resample_returns(
@@ -628,13 +630,18 @@ def calculate_lifetime_metrics(
                 three_months_sharpe_net = 0
                 three_months_sharpe = 0
 
-            if len(last_month) >= 2:
-                start_date = last_month.index.min()
-                end_date = last_month.index.max()
+            start_date = last_month.index.min()
+            end_date = last_month.index.max()
+
+            if len(last_month) >= 2 and (end_date - start_date) < pd.Timedelta(days=60):
                 years = (end_date - start_date).days / 365.25
 
                 one_month_returns = last_month.iloc[-1]["share_price"] / last_month.iloc[0]["share_price"] - 1
                 one_month_cagr = (1 + one_month_returns) ** (1 / years) - 1 if years > 0 else np.nan
+
+                one_month_start = start_date
+                one_month_end = end_date
+                one_month_samples = len(last_month)
 
                 if known_fee:
                     one_month_returns_net = calculate_net_profit(
@@ -652,6 +659,7 @@ def calculate_lifetime_metrics(
                 else:
                     one_month_returns_net = None
                     one_month_cagr_net = None
+                    one_month_start = one_month_end = one_month_samples = None
 
             else:
                 # We have not collected data for the last month,
@@ -660,6 +668,7 @@ def calculate_lifetime_metrics(
                 one_month_returns = 0
                 one_month_returns_net = 0
                 one_month_cagr_net = 0
+                one_month_start = one_month_end = one_month_samples = None
 
         fee_label = create_fee_label(fee_data)
 
@@ -713,6 +722,10 @@ def calculate_lifetime_metrics(
                 "last_updated_at": last_updated_at,
                 "last_updated_block": last_updated_block,
                 "features": features,
+                # Debug
+                "one_month_start": one_month_start,
+                "one_month_end": one_month_end,
+                "one_month_samples": one_month_samples,
             }
         )
 
@@ -953,6 +966,10 @@ def format_lifetime_table(
     _del("net_fees")
     _del("index")
 
+    _del("one_month_start")
+    _del("one_month_end")
+    _del("one_month_samples")
+
     if not add_share_token:
         _del("share_token")
     else:
@@ -1071,7 +1088,7 @@ def analyse_vault(
     # Use cleaned returns data and resample it to something useful
     vault_df = returns_df.loc[returns_df["id"] == id]
 
-    vault_df = vault_df.resample("h").last().ffill()
+    vault_df = forward_fill_vault(vault_df)
 
     cleaned_price_series = vault_df["share_price"]
     cleaned_price_series = cleaned_price_series

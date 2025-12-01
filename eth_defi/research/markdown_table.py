@@ -24,6 +24,7 @@ def format_markdown_table(
     preferred_columns: list[str] | None = None,
     current_tvl_column: str | None = "TVL USD (current / peak)",
     hide_index: bool = False,
+    reset_index: bool = True,
 ) -> pd.DataFrame:
     """Format a DataFrame as a Markdown table.
 
