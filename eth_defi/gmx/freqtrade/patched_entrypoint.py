@@ -31,6 +31,7 @@ def apply_patch():
     global _patched_at_module_level
     print("Applying GMX monkeypatch to Freqtrade...", flush=True)
     from eth_defi.gmx.freqtrade.monkeypatch import patch_freqtrade
+
     patch_freqtrade()
     print("GMX support enabled successfully!", flush=True)
     _patched_at_module_level = True

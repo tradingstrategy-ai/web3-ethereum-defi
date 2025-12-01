@@ -775,12 +775,13 @@ def forward_fill_vault(
     """Forward fill missing vault prices up to max_gap_hours.
 
     - For displaying, calculating metrics, etc. we want continuous time series
+    - Align random sample interval to 1h
 
     :param vault_df:
-        Price data for a single vault
+        Price data for a single vault.
+
+        Assume 1h price data.
 
     """
     assert isinstance(vault_df.index, pd.DatetimeIndex), f"Got: {type(vault_df.index)}"
-    vault_df.resample("h").last().ffill()
-    return vault_df
-
+    return vault_df.resample("h").last().ffill()

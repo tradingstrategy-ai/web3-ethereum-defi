@@ -54,7 +54,7 @@ def fmt_one_decimal_or_int(x: float | None) -> str:
 
 
 def create_fee_label(
-        fee_data: FeeData,
+    fee_data: FeeData,
 ):
     """Create 2% / 20% style labels to display variosu kinds of vault fees.
 
@@ -79,8 +79,8 @@ def create_fee_label(
 
 
 def resample_returns(
-        returns_1h: pd.Series,
-        freq="D",
+    returns_1h: pd.Series,
+    freq="D",
 ) -> pd.Series:
     """Calculate returns from resampled returns series.
 
@@ -97,8 +97,8 @@ def resample_returns(
 
 
 def calculate_returns(
-        share_price: pd.Series,
-        freq="D",
+    share_price: pd.Series,
+    freq="D",
 ) -> pd.Series:
     """Calculate returns from resampled share price series."""
 
@@ -108,8 +108,8 @@ def calculate_returns(
 
 
 def calculate_cumulative_returns(
-        cleaned_returns: pd.Series,
-        freq="D",
+    cleaned_returns: pd.Series,
+    freq="D",
 ):
     """Takes a returns series and calculates cumulative returns.
 
@@ -150,16 +150,16 @@ def zero_out_near_zero_prices(s: pd.Series, eps: float = 1e-9, clip_negatives: b
 
 
 def calculate_net_profit(
-        start: datetime.datetime,
-        end: datetime.datetime,
-        share_price_start: float,
-        share_price_end: float,
-        management_fee_annual: Percent,
-        performance_fee: Percent,
-        deposit_fee: Percent | None,
-        withdrawal_fee: Percent | None,
-        seconds_in_year=365.25 * 86400,
-        sample_count: int | None = None,
+    start: datetime.datetime,
+    end: datetime.datetime,
+    share_price_start: float,
+    share_price_end: float,
+    management_fee_annual: Percent,
+    performance_fee: Percent,
+    deposit_fee: Percent | None,
+    withdrawal_fee: Percent | None,
+    seconds_in_year=365.25 * 86400,
+    sample_count: int | None = None,
 ) -> Percent:
     """Calculate profit after external fees have been reduced from the share price change.
 
@@ -239,15 +239,15 @@ def calculate_net_profit(
 
 
 def calculate_net_returns_from_price(
-        name: str,
-        share_price: pd.Series,
-        management_fee_annual: Percent | None,
-        performance_fee: Percent | None,
-        deposit_fee: Percent | None,
-        withdrawal_fee: Percent | None,
-        seconds_in_year=365.25 * 86400,
-        zero_epsilon=0.001,
-        freq="h",
+    name: str,
+    share_price: pd.Series,
+    management_fee_annual: Percent | None,
+    performance_fee: Percent | None,
+    deposit_fee: Percent | None,
+    withdrawal_fee: Percent | None,
+    seconds_in_year=365.25 * 86400,
+    zero_epsilon=0.001,
+    freq="h",
 ) -> pd.Series:
     """Convert a share price series to net return series after fees.
 
@@ -355,13 +355,13 @@ def calculate_net_returns_from_price(
 
 
 def calculate_net_returns_from_gross(
-        name: str,
-        cumulative_returns: pd.Series,
-        management_fee_annual: Optional[Percent],
-        performance_fee: Optional[Percent],
-        deposit_fee: Optional[Percent],
-        withdrawal_fee: Optional[Percent],
-        seconds_in_year=365.25 * 86400,
+    name: str,
+    cumulative_returns: pd.Series,
+    management_fee_annual: Optional[Percent],
+    performance_fee: Optional[Percent],
+    deposit_fee: Optional[Percent],
+    withdrawal_fee: Optional[Percent],
+    seconds_in_year=365.25 * 86400,
 ) -> pd.Series:
     """Convert a cumulative gross return series to a cumulative net return series after fees.
 
@@ -407,9 +407,9 @@ def calculate_net_returns_from_gross(
 
 
 def calculate_sharpe_ratio_from_returns(
-        hourly_returns: pd.Series,
-        risk_free_rate: float = 0.00,
-        year_multiplier: float = 365,
+    hourly_returns: pd.Series,
+    risk_free_rate: float = 0.00,
+    year_multiplier: float = 365,
 ) -> float:
     """
     Calculate annualized Sharpe ratio from hourly returns.
@@ -544,6 +544,7 @@ def calculate_lifetime_metrics(
 
             lifetime_start_date = start_date = group.index[0]
             lifetime_end_date = end_date = group.index[-1]
+            lifetime_samples = len(group)
 
             lifetime_return = group.iloc[-1]["share_price"] / group.iloc[0]["share_price"] - 1
 
@@ -580,8 +581,9 @@ def calculate_lifetime_metrics(
 
             # Calculate 3 months CAGR
             # Get the first and last date
-            start_date = last_three_months.index.min()
-            end_date = last_three_months.index.max()
+            three_months_start = start_date = last_three_months.index.min()
+            three_months_end = end_date = last_three_months.index.max()
+            three_months_samples = len(last_three_months)
 
             if len(last_three_months) >= 2 and (end_date - start_date) < pd.Timedelta(days=120):
                 years = (end_date - start_date).days / 365.25
@@ -722,10 +724,16 @@ def calculate_lifetime_metrics(
                 "last_updated_at": last_updated_at,
                 "last_updated_block": last_updated_block,
                 "features": features,
-                # Debug
+                # Debug and diagnostics for sparse data
                 "one_month_start": one_month_start,
                 "one_month_end": one_month_end,
                 "one_month_samples": one_month_samples,
+                "three_months_start": three_months_start,
+                "three_months_end": three_months_end,
+                "three_months_samples": three_months_samples,
+                "lifetime_start": lifetime_start_date,
+                "lifetime_end": lifetime_end_date,
+                "lifetime_samples": lifetime_samples,
             }
         )
 
@@ -750,12 +758,12 @@ def calculate_lifetime_metrics(
 
 
 def clean_lifetime_metrics(
-        lifetime_data_df: pd.DataFrame,
-        broken_max_nav_value=99_000_000_000,
-        lifetime_min_nav_threshold=100.00,
-        max_annualised_return=3.0,  # 300% max return
-        min_events=25,
-        logger=print,
+    lifetime_data_df: pd.DataFrame,
+    broken_max_nav_value=99_000_000_000,
+    lifetime_min_nav_threshold=100.00,
+    max_annualised_return=3.0,  # 300% max return
+    min_events=25,
+    logger=print,
 ) -> pd.DataFrame:
     """Clean lifetime data so we have only valid vaults.
 
@@ -798,11 +806,11 @@ def clean_lifetime_metrics(
 
 
 def combine_return_columns(
-        gross: pd.Series,
-        net: pd.Series,
-        new_line=" ",
-        mode: Literal["percent", "usd"] = "percent",
-        profit_presentation: Literal["split", "net_only"] = "split",
+    gross: pd.Series,
+    net: pd.Series,
+    new_line=" ",
+    mode: Literal["percent", "usd"] = "percent",
+    profit_presentation: Literal["split", "net_only"] = "split",
 ):
     """Create combined net / (gross) returns column for display.
 
@@ -851,12 +859,12 @@ def combine_return_columns(
 
 
 def format_lifetime_table(
-        df: pd.DataFrame,
-        add_index=False,
-        add_address=False,
-        add_share_token=False,
-        drop_blacklisted=True,
-        profit_presentation: Literal["split", "net_only"] = "split",
+    df: pd.DataFrame,
+    add_index=False,
+    add_address=False,
+    add_share_token=False,
+    drop_blacklisted=True,
+    profit_presentation: Literal["split", "net_only"] = "split",
 ) -> pd.DataFrame:
     """Format table for human readable output.
 
@@ -966,9 +974,16 @@ def format_lifetime_table(
     _del("net_fees")
     _del("index")
 
+    # Time range diagnostics variables
     _del("one_month_start")
     _del("one_month_end")
     _del("one_month_samples")
+    _del("three_months_start")
+    _del("three_months_end")
+    _del("three_months_samples")
+    _del("lifetime_start")
+    _del("lifetime_end")
+    _del("lifetime_samples")
 
     if not add_share_token:
         _del("share_token")
@@ -1041,12 +1056,12 @@ class VaultReport:
 
 
 def analyse_vault(
-        vault_db: VaultDatabase,
-        prices_df: pd.DataFrame,
-        spec: VaultSpec,
-        returns_col: str = "returns_1h",
-        logger=print,
-        chart_frequency: Literal["hourly", "daily"] = "daily",
+    vault_db: VaultDatabase,
+    prices_df: pd.DataFrame,
+    spec: VaultSpec,
+    returns_col: str = "returns_1h",
+    logger=print,
+    chart_frequency: Literal["hourly", "daily"] = "daily",
 ) -> VaultReport | None:
     """Create charts and tables to analyse a vault performance.
 
@@ -1120,7 +1135,6 @@ def analyse_vault(
 
     if chart_frequency == "daily":
         price_series = price_series.resample("D").last()  # Resample to daily prices
-        cumulative_returns = (1 + daily_returns).cumprod()
         nav_series = nav_series.resample("D").last()  # Resample NAV to daily
     else:
         # Assume default data is hourly
@@ -1172,13 +1186,13 @@ def analyse_vault(
 
 
 def calculate_performance_metrics_for_all_vaults(
-        vault_db: VaultDatabase,
-        prices_df: pd.DataFrame,
-        logger=print,
-        lifetime_min_nav_threshold=100.00,
-        broken_max_nav_value=99_000_000_000,
-        cagr_too_high=10_000,
-        min_events=25,
+    vault_db: VaultDatabase,
+    prices_df: pd.DataFrame,
+    logger=print,
+    lifetime_min_nav_threshold=100.00,
+    broken_max_nav_value=99_000_000_000,
+    cagr_too_high=10_000,
+    min_events=25,
 ) -> pd.DataFrame:
     """Calculate performance metrics for each vault.
 
@@ -1250,8 +1264,8 @@ def calculate_performance_metrics_for_all_vaults(
 
 
 def format_vault_database(
-        vault_db: VaultDatabase,
-        index=True,
+    vault_db: VaultDatabase,
+    index=True,
 ) -> pd.DataFrame:
     """Format vault database for human readable output.
 
@@ -1315,8 +1329,8 @@ def format_vault_header(vault_row: pd.Series) -> pd.Series:
 
 
 def format_ffn_performance_stats(
-        report: PerformanceStats,
-        prefix_series: pd.Series | None = None,
+    report: PerformanceStats,
+    prefix_series: pd.Series | None = None,
 ) -> pd.Series:
     """Format FFN report for human readable output.
 
@@ -1370,9 +1384,9 @@ def format_ffn_performance_stats(
 
 
 def cross_check_data(
-        vault_db: VaultDatabase,
-        prices_df: pd.DataFrame,
-        printer=print,
+    vault_db: VaultDatabase,
+    prices_df: pd.DataFrame,
+    printer=print,
 ) -> int:
     """Check that VaultDatabase has metadata for all price_df vaults and vice versa.
 
@@ -1451,10 +1465,10 @@ def calculate_hourly_returns_for_all_vaults(df_work: pd.DataFrame) -> pd.DataFra
 
 
 def display_vault_chart_and_tearsheet(
-        vault_spec: VaultSpec,
-        vault_db: VaultDatabase,
-        prices_df: pd.DataFrame,
-        render=True,
+    vault_spec: VaultSpec,
+    vault_db: VaultDatabase,
+    prices_df: pd.DataFrame,
+    render=True,
 ):
     """Render a chart and tearsheet for a single vault.
 
