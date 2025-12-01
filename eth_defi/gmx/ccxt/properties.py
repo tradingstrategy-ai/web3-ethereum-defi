@@ -360,4 +360,26 @@ def describe_gmx() -> dict:
             "price": {"min": None, "max": None},
             "cost": {"min": None, "max": None},
         },
+        "features": {
+            "spot": {
+                "fetchOHLCV": {
+                    "limit": 5000,
+                },
+            },
+            "swap": {
+                "linear": {
+                    "fetchOHLCV": {
+                        "limit": 5000,
+                    },
+                },
+                "inverse": {},  # GMX doesn't have inverse contracts, but CCXT requires this key
+            },
+            "futures": {  # Freqtrade might look for "futures" instead of "swap"
+                "linear": {
+                    "fetchOHLCV": {
+                        "limit": 5000,
+                    },
+                },
+            },
+        },
     }
