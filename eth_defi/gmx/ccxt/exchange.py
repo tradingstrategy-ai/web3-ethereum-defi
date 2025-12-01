@@ -471,7 +471,7 @@ class GMX(ExchangeCompatible):
                 "id": symbol_name,  # GMX market symbol
                 "symbol": unified_symbol,  # CCXT unified symbol
                 "base": symbol_name,  # Base currency (e.g., ETH)
-                "quote": "USD",  # Quote currency (always USD for GMX)
+                "quote": "USDC",  # Quote currency (always USD for GMX)
                 "baseId": symbol_name,
                 "quoteId": "USD",
                 "active": True,

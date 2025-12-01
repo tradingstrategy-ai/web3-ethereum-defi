@@ -208,81 +208,92 @@ class GMX(Exchange):
         markets_instance = Markets(self.config)
         available_markets = await loop.run_in_executor(None, markets_instance.get_available_markets)
 
-        # Fetch leverage data from Subsquid
-        market_infos = await self.subsquid.get_market_infos(limit=200)
-
+        # Fetch leverage data from subsquid if available
         leverage_by_market = {}
-        for info in market_infos:
-            addr = info.get("marketTokenAddress")
-            min_collateral = info.get("minCollateralFactor")
-            if addr and min_collateral:
-                from eth_utils import to_checksum_address
+        min_collateral_by_market = {}
+        if self.subsquid:
+            try:
+                market_infos = await self.subsquid.get_market_infos(limit=200)
+                for market_info in market_infos:
+                    market_addr = market_info.get("marketTokenAddress")
+                    min_collateral_factor = market_info.get("minCollateralFactor")
+                    if market_addr and min_collateral_factor:
+                        from eth_utils import to_checksum_address
 
-                addr = to_checksum_address(addr)
-                max_leverage = AsyncGMXSubsquidClient.calculate_max_leverage(min_collateral)
-                if max_leverage:
-                    leverage_by_market[addr] = max_leverage
+                        market_addr = to_checksum_address(market_addr)
+                        max_leverage = AsyncGMXSubsquidClient.calculate_max_leverage(min_collateral_factor)
+                        if max_leverage is not None:
+                            leverage_by_market[market_addr] = max_leverage
+                            min_collateral_by_market[market_addr] = min_collateral_factor
+            except Exception as e:
+                logger.warning(f"Failed to fetch leverage data from subsquid: {e}")
 
-        # Convert to CCXT format (reuse parsing logic from sync version)
-        self.markets = {}
-        for market_addr, market_data in available_markets.items():
+        # Process markets into CCXT-style format (matching sync version exactly)
+        for market_address, market_data in available_markets.items():
             symbol_name = market_data.get("market_symbol", "")
             if not symbol_name or symbol_name == "UNKNOWN":
                 continue
 
-            # Skip excluded symbols
             if symbol_name in self.EXCLUDED_SYMBOLS:
                 logger.debug(
                     "Skipping excluded GMX market %s (address %s)",
                     symbol_name,
-                    market_addr,
+                    market_address,
                 )
                 continue
 
-            symbol = f"{symbol_name}/USD"
+            # Create unified symbol (e.g., ETH/USD)
+            unified_symbol = f"{symbol_name}/USD"
 
-            self.markets[symbol] = {
-                "id": symbol_name,
-                "symbol": symbol,
-                "base": symbol_name,
-                "quote": "USD",
+            # Get max leverage for this market
+            max_leverage = leverage_by_market.get(market_address)
+            min_collateral_factor = min_collateral_by_market.get(market_address)
+
+            # Calculate maintenance margin rate from min collateral factor
+            # maintenanceMarginRate = 1 / max_leverage (approximately)
+            # If max_leverage is 50x, maintenance margin is ~2%
+            # Default to 0.02 (2%, equivalent to 50x leverage) if not available
+            maintenance_margin_rate = (1.0 / max_leverage) if max_leverage else 0.02
+
+            self.markets[unified_symbol] = {
+                "id": symbol_name,  # GMX market symbol
+                "symbol": unified_symbol,  # CCXT unified symbol
+                "base": symbol_name,  # Base currency (e.g., ETH)
+                "quote": "USDC",  # Quote currency (always USD for GMX)
+                "baseId": symbol_name,
+                "quoteId": "USD",
                 "active": True,
-                "type": "swap",
+                "type": "swap",  # GMX provides perpetual swaps
                 "spot": False,
-                "margin": True,
                 "swap": True,
                 "future": False,
                 "option": False,
                 "contract": True,
-                "settle": "USD",
-                "settleId": "USD",
-                "contractSize": 1,
                 "linear": True,
-                "inverse": False,
-                "info": market_data,
                 "precision": {
                     "amount": 8,
                     "price": 8,
                 },
                 "limits": {
-                    "leverage": {
-                        "min": 1.1,
-                        "max": leverage_by_market.get(market_addr, 50),
-                    },
-                    "amount": {
-                        "min": 0.00000001,
-                        "max": None,
-                    },
-                    "price": {
-                        "min": None,
-                        "max": None,
-                    },
-                    "cost": {
-                        "min": None,
-                        "max": None,
-                    },
+                    "amount": {"min": None, "max": None},
+                    "price": {"min": None, "max": None},
+                    "cost": {"min": None, "max": None},
+                    "leverage": {"min": 1.1, "max": max_leverage},
+                },
+                "maintenanceMarginRate": maintenance_margin_rate,
+                "info": {
+                    "market_token": market_address,  # Market contract address
+                    "index_token": market_data.get("index_token_address"),
+                    "long_token": market_data.get("long_token_address"),
+                    "short_token": market_data.get("short_token_address"),
+                    "min_collateral_factor": min_collateral_factor,
+                    "max_leverage": max_leverage,
+                    **market_data,
                 },
             }
+
+        # Update symbols list (CCXT compatibility)
+        self.symbols = list(self.markets.keys())
 
         return self.markets
 
