@@ -150,18 +150,6 @@ def zero_out_near_zero_prices(s: pd.Series, eps: float = 1e-9, clip_negatives: b
 
 
 def calculate_net_profit(
-<<<<<<< HEAD
-        start: datetime.datetime,
-        end: datetime.datetime,
-        share_price_start: float,
-        share_price_end: float,
-        management_fee_annual: Percent,
-        performance_fee: Percent,
-        deposit_fee: Percent | None,
-        withdrawal_fee: Percent | None,
-        seconds_in_year=365.25 * 86400,
-        sample_count: int | None = None,
-=======
     start: datetime.datetime,
     end: datetime.datetime,
     share_price_start: float,
@@ -172,7 +160,6 @@ def calculate_net_profit(
     withdrawal_fee: Percent | None,
     seconds_in_year=365.25 * 86400,
     sample_count: int | None = None,
->>>>>>> 83e61385d0f3856b6ba87fca4c81613521c2207c
 ) -> Percent:
     """Calculate profit after external fees have been reduced from the share price change.
 
