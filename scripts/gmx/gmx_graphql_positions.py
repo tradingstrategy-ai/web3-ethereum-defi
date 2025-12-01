@@ -74,10 +74,10 @@ def display_pnl_summary(pnl_data: list):
     table.add_column("Win Rate", justify="right")
 
     for stat in pnl_data:
-        total_pnl = float(GMXSubsquidClient.parse_bigint(stat["pnlUsd"]))
-        realized_pnl = float(GMXSubsquidClient.parse_bigint(stat["realizedPnlUsd"]))
-        unrealized_pnl = float(GMXSubsquidClient.parse_bigint(stat["unrealizedPnlUsd"]))
-        volume = float(GMXSubsquidClient.parse_bigint(stat["volume"]))
+        total_pnl = float(GMXSubsquidClient.from_fixed_point(stat["pnlUsd"]))
+        realized_pnl = float(GMXSubsquidClient.from_fixed_point(stat["realizedPnlUsd"]))
+        unrealized_pnl = float(GMXSubsquidClient.from_fixed_point(stat["unrealizedPnlUsd"]))
+        volume = float(GMXSubsquidClient.from_fixed_point(stat["volume"]))
 
         wins = stat["wins"]
         losses = stat["losses"]
@@ -110,14 +110,14 @@ def display_account_stats(stats: dict):
     console.print("\n[bold cyan]Account Statistics[/bold cyan]")
     console.print(f"  Account ID: {stats['id']}")
     console.print(
-        f"  Total Volume: ${float(GMXSubsquidClient.parse_bigint(stats['volume'])):,.2f}",
+        f"  Total Volume: ${float(GMXSubsquidClient.from_fixed_point(stats['volume'])):,.2f}",
     )
     console.print(f"  Closed Positions: {stats['closedCount']}")
     console.print(
-        f"  Realized PnL: ${float(GMXSubsquidClient.parse_bigint(stats['realizedPnl'])):,.2f}",
+        f"  Realized PnL: ${float(GMXSubsquidClient.from_fixed_point(stats['realizedPnl'])):,.2f}",
     )
     console.print(
-        f"  Realized Fees: ${float(GMXSubsquidClient.parse_bigint(stats['realizedFees'])):,.2f}",
+        f"  Realized Fees: ${float(GMXSubsquidClient.from_fixed_point(stats['realizedFees'])):,.2f}",
     )
 
 

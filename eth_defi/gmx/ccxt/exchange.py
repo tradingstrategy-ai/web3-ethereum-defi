@@ -22,11 +22,13 @@ Example usage::
     will always be 0 in the returned OHLCV arrays.
 """
 
+import asyncio
 import logging
 import time
 from datetime import datetime
 from typing import Any
 
+from cchecksum import to_checksum_address
 from ccxt.base.errors import NotSupported
 
 from eth_defi.chain import get_chain_name
@@ -38,9 +40,12 @@ from eth_defi.gmx.core import GetOpenPositions
 from eth_defi.gmx.core.markets import Markets
 from eth_defi.gmx.graphql.client import GMXSubsquidClient
 from eth_defi.gmx.trading import GMXTrading
+from eth_defi.gmx.utils import calculate_estimated_liquidation_price
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import fetch_erc20_details
+
+logger = logging.getLogger(__name__)
 
 
 class GMX(ExchangeCompatible):
@@ -114,6 +119,17 @@ class GMX(ExchangeCompatible):
     :vartype markets_loaded: bool
     """
 
+    # GMX markets that should be skipped due to deprecated or unsupported feeds
+    EXCLUDED_SYMBOLS: set[str] = {
+        "AI16Z",
+        "BTC2",
+        "ETH2",
+        "GMX2",
+        "SOL2",
+        "ARB2",
+        "APE_DEPRECATED",
+    }
+
     def __init__(
         self,
         config: GMXConfig | None = None,
@@ -155,6 +171,7 @@ class GMX(ExchangeCompatible):
         """
         # Handle positional arguments and mixed usage
         # If the first argument 'config' is actually a dict, treat it as params
+        self.markets_loaded = None
         if isinstance(config, dict):
             params = config
             config = None
@@ -229,7 +246,6 @@ class GMX(ExchangeCompatible):
 
         # Warn if no wallet (view-only mode)
         if not self.wallet:
-            logger = logging.getLogger(__name__)
             logger.warning(
                 "GMX initialized without wallet or privateKey. Running in VIEW-ONLY mode. Order creation methods will fail.",
             )
@@ -379,22 +395,22 @@ class GMX(ExchangeCompatible):
             # If we can't load metadata, will fall back to default behavior
             pass
 
-    def load_markets(self, reload: bool = False) -> dict[str, Any]:
-        """Load available markets from GMX protocol.
+    def load_markets(
+        self,
+        reload: bool = False,
+        params: dict | None = None,
+    ) -> dict[str, Any]:
+        """Load available markets from GMX protocol (synchronous version).
 
-        This method fetches the list of supported markets from GMX and constructs
-        CCXT-compatible market structures. Markets are cached after the first load
-        to improve performance.
+        This is the synchronous implementation for the sync GMX class.
+        For async support, use the GMX class from eth_defi.gmx.ccxt.async_support.
 
         :param reload: If True, force reload markets even if already loaded
         :type reload: bool
+        :param params: Additional parameters (for CCXT compatibility, not currently used)
+        :type params: dict | None
         :return: dictionary mapping unified symbols (e.g., "ETH/USD") to market info
         :rtype: dict[str, Any]
-
-        Example::
-
-            markets = gmx.load_markets()
-            print(markets["ETH/USD"])
         """
         if self.markets_loaded and not reload:
             return self.markets
@@ -403,14 +419,53 @@ class GMX(ExchangeCompatible):
         markets_instance = Markets(self.config)
         available_markets = markets_instance.get_available_markets()
 
+        # Fetch leverage data from subsquid if available
+        leverage_by_market = {}
+        min_collateral_by_market = {}
+        if self.subsquid:
+            try:
+                market_infos = self.subsquid.get_market_infos(limit=200)
+                for market_info in market_infos:
+                    market_addr = market_info.get("marketTokenAddress")
+                    min_collateral_factor = market_info.get("minCollateralFactor")
+                    if market_addr and min_collateral_factor:
+                        # Normalize address to checksum format to match available_markets keys
+                        market_addr = to_checksum_address(market_addr)
+                        max_leverage = GMXSubsquidClient.calculate_max_leverage(
+                            min_collateral_factor,
+                        )
+                        if max_leverage is not None:
+                            leverage_by_market[market_addr] = max_leverage
+                            min_collateral_by_market[market_addr] = min_collateral_factor
+            except Exception as e:
+                logger.warning(f"Failed to fetch leverage data from subsquid: {e}")
+
         # Process markets into CCXT-style format
         for market_address, market_data in available_markets.items():
             symbol_name = market_data.get("market_symbol", "")
             if not symbol_name or symbol_name == "UNKNOWN":
                 continue
 
+            if symbol_name in self.EXCLUDED_SYMBOLS:
+                logger.debug(
+                    "Skipping excluded GMX market %s (address %s)",
+                    symbol_name,
+                    market_address,
+                )
+                continue
+
             # Create unified symbol (e.g., ETH/USD)
             unified_symbol = f"{symbol_name}/USD"
+
+            # Get max leverage for this market
+            max_leverage = leverage_by_market.get(market_address)
+            min_collateral_factor = min_collateral_by_market.get(market_address)
+
+            # Calculate maintenance margin rate from min collateral factor
+            # maintenanceMarginRate = 1 / max_leverage (approximately)
+            # If max_leverage is 50x, maintenance margin is ~2%
+            # Default to 0.02 (2%, equivalent to 50x leverage) if not available
+            maintenance_margin_rate = (1.0 / max_leverage) if max_leverage else 0.02
 
             self.markets[unified_symbol] = {
                 "id": symbol_name,  # GMX market symbol
@@ -435,12 +490,16 @@ class GMX(ExchangeCompatible):
                     "amount": {"min": None, "max": None},
                     "price": {"min": None, "max": None},
                     "cost": {"min": None, "max": None},
+                    "leverage": {"min": 1.1, "max": max_leverage},
                 },
+                "maintenanceMarginRate": maintenance_margin_rate,
                 "info": {
                     "market_token": market_address,  # Market contract address
                     "index_token": market_data.get("index_token_address"),
                     "long_token": market_data.get("long_token_address"),
                     "short_token": market_data.get("short_token_address"),
+                    "min_collateral_factor": min_collateral_factor,
+                    "max_leverage": max_leverage,
                     **market_data,
                 },
             }
@@ -480,6 +539,27 @@ class GMX(ExchangeCompatible):
         markets_instance = Markets(self.config)
         available_markets = markets_instance.get_available_markets()
 
+        # Fetch leverage data from subsquid
+        leverage_by_market = {}
+        min_collateral_by_market = {}
+        if self.subsquid:
+            try:
+                market_infos = self.subsquid.get_market_infos(limit=200)
+                for market_info in market_infos:
+                    market_addr = market_info.get("marketTokenAddress")
+                    min_collateral_factor = market_info.get("minCollateralFactor")
+                    if market_addr and min_collateral_factor:
+                        # Normalize address to checksum format to match available_markets keys
+                        market_addr = to_checksum_address(market_addr)
+                        max_leverage = GMXSubsquidClient.calculate_max_leverage(
+                            min_collateral_factor,
+                        )
+                        if max_leverage is not None:
+                            leverage_by_market[market_addr] = max_leverage
+                            min_collateral_by_market[market_addr] = min_collateral_factor
+            except Exception as e:
+                logger.warning(f"Failed to fetch leverage data from subsquid: {e}")
+
         markets = []
 
         # Process markets into CCXT-style format
@@ -488,7 +568,20 @@ class GMX(ExchangeCompatible):
             if not symbol_name or symbol_name == "UNKNOWN":
                 continue
 
+            if symbol_name in self.EXCLUDED_SYMBOLS:
+                continue
+
             unified_symbol = f"{symbol_name}/USD"
+
+            # Get max leverage for this market
+            max_leverage = leverage_by_market.get(market_address)
+            min_collateral_factor = min_collateral_by_market.get(market_address)
+
+            # Calculate maintenance margin rate from min collateral factor
+            # maintenanceMarginRate = 1 / max_leverage (approximately)
+            # If max_leverage is 50x, maintenance margin is ~2%
+            # Default to 0.02 (2%, equivalent to 50x leverage) if not available
+            maintenance_margin_rate = (1.0 / max_leverage) if max_leverage else 0.02
 
             market = {
                 "id": symbol_name,
@@ -513,12 +606,16 @@ class GMX(ExchangeCompatible):
                     "amount": {"min": None, "max": None},
                     "price": {"min": None, "max": None},
                     "cost": {"min": None, "max": None},
+                    "leverage": {"min": 1.1, "max": max_leverage},
                 },
+                "maintenanceMarginRate": maintenance_margin_rate,
                 "info": {
                     "market_token": market_address,  # Market contract address
                     "index_token": market_data.get("index_token_address"),
                     "long_token": market_data.get("long_token_address"),
                     "short_token": market_data.get("short_token_address"),
+                    "min_collateral_factor": min_collateral_factor,
+                    "max_leverage": max_leverage,
                     **market_data,
                 },
             }
@@ -544,6 +641,123 @@ class GMX(ExchangeCompatible):
             )
 
         return self.markets[symbol]
+
+    def fetch_market_leverage_tiers(
+        self,
+        symbol: str,
+        params: dict[str, Any] | None = None,
+    ) -> list[dict[str, Any]]:
+        """Fetch leverage tiers for a specific market.
+
+        GMX uses a dynamic leverage system where minimum collateral requirements
+        increase with open interest. This method returns discrete tiers approximating
+        the continuous leverage model.
+
+        :param symbol: Unified symbol (e.g., "ETH/USD", "BTC/USD")
+        :type symbol: str
+        :param params: Optional parameters:
+
+            - side: "long" or "short" (default: "long")
+            - num_tiers: Number of tiers to generate (default: 5)
+
+        :type params: dict[str, Any] | None
+        :return: List of leverage tier dictionaries with fields:
+
+            - tier: Tier number
+            - minNotional: Minimum position size in USD
+            - maxNotional: Maximum position size in USD
+            - maxLeverage: Maximum leverage for this tier
+            - minCollateralFactor: Required collateral factor
+
+        :rtype: list[dict[str, Any]]
+
+        Example::
+
+            # Get leverage tiers for ETH/USD longs
+            tiers = gmx.fetch_market_leverage_tiers("ETH/USD")
+
+            # Get tiers for shorts
+            tiers = gmx.fetch_market_leverage_tiers("ETH/USD", {"side": "short"})
+        """
+        if params is None:
+            params = {}
+
+        if not self.subsquid:
+            raise NotSupported("Subsquid client not initialized - leverage tiers unavailable")
+
+        # Ensure markets are loaded
+        self.load_markets()
+
+        # Get market info
+        market_info_ccxt = self.market(symbol)
+        market_address = market_info_ccxt["info"]["market_token"]
+
+        # Get leverage tier parameters
+        side = params.get("side", "long")
+        is_long = side.lower() == "long"
+        num_tiers = params.get("num_tiers", 5)
+
+        # Fetch market info from subsquid
+        market_infos = self.subsquid.get_market_infos(
+            market_address=market_address,
+            limit=1,
+        )
+
+        if not market_infos:
+            return []
+
+        market_info = market_infos[0]
+
+        # Calculate tiers
+        return GMXSubsquidClient.calculate_leverage_tiers(
+            market_info,
+            is_long=is_long,
+            num_tiers=num_tiers,
+        )
+
+    def fetch_leverage_tiers(
+        self,
+        symbols: list[str] | None = None,
+        params: dict[str, Any] | None = None,
+    ) -> dict[str, list[dict[str, Any]]]:
+        """Fetch leverage tiers for multiple markets.
+
+        :param symbols: List of symbols (e.g., ["ETH/USD", "BTC/USD"]). If None, fetches for all markets.
+        :type symbols: list[str] | None
+        :param params: Optional parameters (passed to fetch_market_leverage_tiers)
+        :type params: dict[str, Any] | None
+        :return: Dictionary mapping symbols to their leverage tiers
+        :rtype: dict[str, list[dict[str, Any]]]
+
+        Example::
+
+            # Get leverage tiers for all markets
+            all_tiers = gmx.fetch_leverage_tiers()
+
+            # Get tiers for specific markets
+            tiers = gmx.fetch_leverage_tiers(["ETH/USD", "BTC/USD"])
+        """
+        if params is None:
+            params = {}
+
+        # Ensure markets are loaded
+        self.load_markets()
+
+        # If no symbols specified, use all available markets
+        if symbols is None:
+            symbols = list(self.markets.keys())
+
+        # Fetch tiers for each symbol
+        result = {}
+        for symbol in symbols:
+            try:
+                tiers = self.fetch_market_leverage_tiers(symbol, params)
+                result[symbol] = tiers
+            except Exception as e:
+                logger.warning(f"Failed to fetch leverage tiers for {symbol}: {e}")
+                result[symbol] = []
+
+        return result
 
     def fetch_ohlcv(
         self,
@@ -1181,7 +1395,7 @@ class GMX(ExchangeCompatible):
         symbol: str,
         since: int | None = None,
         limit: int | None = None,
-        params: dict[str, Any] | None = None,
+        params: dict | None = None,
     ) -> list[dict[str, Any]]:
         """
         Fetch historical funding rate data from Subsquid.
@@ -1196,7 +1410,7 @@ class GMX(ExchangeCompatible):
         :param limit: Maximum number of records (default: 100)
         :type limit: int | None
         :param params: Additional parameters (e.g., {"market_address": "0x..."})
-        :type params: dict[str, Any] | None
+        :type params: dict | None
         :returns: list of historical funding rate snapshots
         :rtype: list[dict[str, Any]]
         :raises ValueError: If invalid symbol or markets not loaded
@@ -1939,23 +2153,17 @@ class GMX(ExchangeCompatible):
         if position_size_usd and percentage is not None:
             unrealized_pnl = position_size_usd * (percentage / 100)
 
-        # Estimate liquidation price
-        # NOTE: This is a SIMPLIFIED ESTIMATE. The actual GMX liquidation logic is more complex
-        # and accounts for borrowing fees, funding rates, price impact, and other factors.
-        # This calculation assumes liquidation happens when losses exceed ~90% of collateral,
-        # which is approximate. Use for reference only, not for risk management decisions.
+        # Calculate liquidation price including fees
         liquidation_price = None
         if entry_price and collateral_amount and position_size_usd and position_size_usd > 0:
-            # Calculate max loss before liquidation (90% of collateral - simplified)
-            max_loss = collateral_amount * 0.9
-            # Calculate price change that causes max loss
-            price_change_ratio = max_loss / position_size_usd
-            if is_long:
-                # For long: liquidation when price drops
-                liquidation_price = entry_price * (1 - price_change_ratio)
-            else:
-                # For short: liquidation when price rises
-                liquidation_price = entry_price * (1 + price_change_ratio)
+            liquidation_price = calculate_estimated_liquidation_price(
+                entry_price=entry_price,
+                collateral_usd=collateral_amount,
+                size_usd=position_size_usd,
+                is_long=is_long,
+                maintenance_margin=0.01,  # GMX typically uses 1%
+                include_closing_fee=True,  # Include 0.07% closing fee
+            )
 
         # Calculate margin ratio (used margin / total position value)
         margin_ratio = None
@@ -3098,3 +3306,17 @@ class GMX(ExchangeCompatible):
         raise NotSupported(
             self.id + " fetch_orders() is not supported - GMX orders execute immediately. Use fetch_positions() for open positions.",
         )
+
+    async def close(self) -> None:
+        """Close exchange connection and clean up resources.
+
+        GMX exchange doesn't maintain persistent WebSocket connections or
+        HTTP sessions that need cleanup, but this method is provided for
+        compatibility with the async CCXT exchange interface.
+
+        This method can be called in async cleanup code or context managers.
+        """
+        # GMX doesn't maintain persistent connections, so this is a no-op
+        # If future implementations add connection pooling or caching,
+        # cleanup logic should be added here
+        pass

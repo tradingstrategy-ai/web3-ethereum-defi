@@ -108,23 +108,23 @@ def main():
         install_chain_middleware(web3)
 
         if not web3.is_connected():
-            console.print("[red]✗ Failed to connect to RPC[/red]")
+            console.print("[red]Failed to connect to RPC[/red]")
             sys.exit(1)
 
-        console.print(f"[green]✓[/green] Connected to chain ID: {web3.eth.chain_id}")
+        console.print(f"[green]Connected to chain ID: {web3.eth.chain_id}[/green]")
 
         # Initialize GMX config (no wallet needed for read-only)
         console.print("[blue]Initializing GMX configuration...[/blue]")
         config = GMXConfig(web3=web3)
 
-        console.print(f"[green]✓[/green] Chain: {config.get_chain()}")
+        console.print(f"[green]Chain: {config.get_chain()}[/green]")
 
         # Fetch markets
         console.print("\n[blue]Fetching available markets...[/blue]")
         markets_fetcher = Markets(config)
         markets_data = markets_fetcher.get_available_markets()
 
-        console.print(f"[green]✓[/green] Found {len(markets_data)} markets\n")
+        console.print(f"[green]Found {len(markets_data)} markets[/green]\n")
 
         # Prepare table
         table = Table(title=f"GMX Markets on {network_name}", show_header=True, header_style="bold magenta", border_style="blue")
@@ -180,14 +180,14 @@ def main():
         console.print(f"  Swap markets: {swap_count}")
 
     except Exception as e:
-        console.print(f"\n[red]✗[/red] Error: {e}")
+        console.print(f"\n[red]Error: {e}[/red]")
         import traceback
 
         console.print("\n[dim]Full traceback:[/dim]")
         console.print(traceback.format_exc())
         sys.exit(1)
 
-    console.print("\n[bold green]✓ Markets fetched successfully![/bold green]")
+    console.print("\n[bold green]Markets fetched successfully![/bold green]")
 
 
 if __name__ == "__main__":

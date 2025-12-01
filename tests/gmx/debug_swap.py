@@ -68,7 +68,7 @@ def setup_fork_network(web3: Web3):
     # Setup mock oracle - prices fetched dynamically from chain
     console.print("\n[dim]Setting up mock oracle (fetching on-chain prices)...[/dim]")
     setup_mock_oracle(web3)  # No hardcoded prices - fetches from chain automatically
-    console.print(f"[dim]✓ Mock oracle configured with on-chain prices[/dim]\n")
+    console.print(f"[dim]Mock oracle configured with on-chain prices[/dim]\n")
 
     return chain
 
@@ -80,7 +80,7 @@ def fund_wallet_anvil(web3: Web3, wallet_address: str, tokens: dict):
     # Set ETH balance for wallet
     eth_amount_wei = 100 * 10**18
     web3.provider.make_request("anvil_setBalance", [wallet_address, hex(eth_amount_wei)])
-    console.print(f"  [green]✓ ETH balance: 100 ETH[/green]")
+    console.print(f"  [green]ETH balance: 100 ETH[/green]")
 
     # Give whales some ETH for gas
     gas_eth = 1 * 10**18
@@ -94,7 +94,7 @@ def fund_wallet_anvil(web3: Web3, wallet_address: str, tokens: dict):
         usdc_token = fetch_erc20_details(web3, usdc_address)
         usdc_token.contract.functions.transfer(wallet_address, usdc_amount).transact({"from": LARGE_USDC_HOLDER})
         balance = usdc_token.contract.functions.balanceOf(wallet_address).call()
-        console.print(f"  [green]✓ USDC balance: {balance / 10**6:.2f} USDC[/green]")
+        console.print(f"  [green]USDC balance: {balance / 10**6:.2f} USDC[/green]")
 
     # Transfer WETH from whale
     weth_address = tokens.get("WETH")
@@ -103,7 +103,7 @@ def fund_wallet_anvil(web3: Web3, wallet_address: str, tokens: dict):
         weth_token = fetch_erc20_details(web3, weth_address)
         weth_token.contract.functions.transfer(wallet_address, weth_amount).transact({"from": LARGE_WETH_HOLDER})
         balance = weth_token.contract.functions.balanceOf(wallet_address).call()
-        console.print(f"  [green]✓ WETH balance: {balance / 10**18:.2f} WETH[/green]")
+        console.print(f"  [green]WETH balance: {balance / 10**18:.2f} WETH[/green]")
 
 
 def fund_wallet_tenderly(web3: Web3, wallet_address: str, tokens: dict):
@@ -113,21 +113,21 @@ def fund_wallet_tenderly(web3: Web3, wallet_address: str, tokens: dict):
     # Set ETH balance
     eth_amount_wei = 100 * 10**18
     web3.provider.make_request("tenderly_setBalance", [wallet_address, hex(eth_amount_wei)])
-    console.print(f"  [green]✓ ETH balance: 100 ETH[/green]")
+    console.print(f"  [green]ETH balance: 100 ETH[/green]")
 
     # Set USDC balance
     usdc_address = tokens.get("USDC")
     if usdc_address:
         usdc_amount = 100_000 * (10**6)
         web3.provider.make_request("tenderly_setErc20Balance", [usdc_address, wallet_address, hex(usdc_amount)])
-        console.print(f"  [green]✓ USDC balance: 100,000 USDC[/green]")
+        console.print(f"  [green]USDC balance: 100,000 USDC[/green]")
 
     # Set WETH balance
     weth_address = tokens.get("WETH")
     if weth_address:
         weth_amount = 1000 * (10**18)
         web3.provider.make_request("tenderly_setErc20Balance", [weth_address, wallet_address, hex(weth_amount)])
-        console.print(f"  [green]✓ WETH balance: 1,000 WETH[/green]")
+        console.print(f"  [green]WETH balance: 1,000 WETH[/green]")
 
 
 def parse_arguments():
@@ -276,7 +276,7 @@ def main():
             approve_hash = web3.eth.send_raw_transaction(signed_approve.rawTransaction)
             approve_receipt = web3.eth.wait_for_transaction_receipt(approve_hash)
             assert approve_receipt["status"] == 1, "USDC approval failed"
-            console.print(f"  [green]✓ USDC approved[/green]")
+            console.print(f"  [green]USDC approved[/green]")
         else:
             console.print(f"  [dim]USDC already approved[/dim]")
 
@@ -296,7 +296,7 @@ def main():
             approve_hash = web3.eth.send_raw_transaction(signed_approve.rawTransaction)
             approve_receipt = web3.eth.wait_for_transaction_receipt(approve_hash)
             assert approve_receipt["status"] == 1, "WETH approval failed"
-            console.print(f"  [green]✓ WETH approved[/green]")
+            console.print(f"  [green]WETH approved[/green]")
         else:
             console.print(f"  [dim]WETH already approved[/dim]")
 
@@ -327,7 +327,7 @@ def main():
             execution_buffer=5.0,
         )
 
-        console.print(f"\n[green]✓ Swap order created[/green]")
+        console.print(f"\n[green]Swap order created[/green]")
         console.print(f"  Execution Fee: {order.execution_fee / 1e18:.6f} ETH")
         if hasattr(order, "mark_price"):
             console.print(f"  Mark Price: {order.mark_price}")
@@ -347,7 +347,7 @@ def main():
         receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
 
         if receipt["status"] == 1:
-            console.print(f"[green]✓ Swap order submitted[/green]")
+            console.print(f"[green]Swap order submitted[/green]")
             console.print(f"  Block: {receipt['blockNumber']}")
             console.print(f"  Gas used: {receipt['gasUsed']}")
 
@@ -357,7 +357,7 @@ def main():
             order_key = None
             try:
                 order_key = extract_order_key_from_receipt(receipt)
-                console.print(f"\n[green]✓ Order Key: {order_key.hex()}[/green]")
+                console.print(f"\n[green]Order Key: {order_key.hex()}[/green]")
                 # Debug: Show all logs with OrderCreated events
                 for i, log in enumerate(receipt.get("logs", [])):
                     topics = log.get("topics", [])
@@ -367,14 +367,14 @@ def main():
                             topic2 = topics[2].hex() if isinstance(topics[2], bytes) else topics[2]
                             console.print(f"  [dim]Log {i} OrderCreated key: {topic2}[/dim]")
             except Exception as e:
-                console.print(f"\n[yellow]⚠ Could not extract order key: {e}[/yellow]")
+                console.print(f"\n[yellow]Could not extract order key: {e}[/yellow]")
 
             if order_key:
                 console.print("\n[bold]Executing swap order as keeper...[/bold]")
                 try:
                     exec_receipt, keeper_address = execute_order_as_keeper(web3, order_key)
 
-                    console.print(f"[green]✓ Swap order executed[/green]")
+                    console.print(f"[green]Swap order executed[/green]")
                     console.print(f"  Keeper: {keeper_address}")
                     console.print(f"  Block: {exec_receipt['blockNumber']}")
                     console.print(f"  Gas used: {exec_receipt['gasUsed']}")
@@ -397,15 +397,15 @@ def main():
                             if topic1_clean not in seen_topics:
                                 seen_topics.add(topic1_clean)
                                 if topic1_clean == ORDER_EXECUTED:
-                                    console.print(f"  [green]✓ Found OrderExecuted event[/green]")
+                                    console.print(f"  [green]Found OrderExecuted event[/green]")
                                 elif topic1_clean == ORDER_CANCELLED:
-                                    console.print(f"  [red]✗ Found OrderCancelled event![/red]")
+                                    console.print(f"  [red]Found OrderCancelled event![/red]")
                                 elif "cancelled" in topic1_clean.lower() or "cancel" in topic1_clean.lower():
-                                    console.print(f"  [red]✗ Possible cancel event: {topic1_clean[:20]}...[/red]")
+                                    console.print(f"  [red]Possible cancel event: {topic1_clean[:20]}...[/red]")
                     console.print(f"  Unique event types: {len(seen_topics)}")
 
                 except Exception as e:
-                    console.print(f"[red]✗ Keeper execution failed: {e}[/red]")
+                    console.print(f"[red]Keeper execution failed: {e}[/red]")
                     import traceback
 
                     traceback.print_exc()
@@ -463,29 +463,29 @@ def main():
                 eth_gain_net = eth_change + 0.02  # Add back estimated gas costs
 
                 if usdc_change < 0 and weth_change > 0:
-                    console.print(f"\n[green]✓ Swap successful! Received {weth_change:.6f} WETH for {-usdc_change:.2f} USDC[/green]")
+                    console.print(f"\n[green]Swap successful! Received {weth_change:.6f} WETH for {-usdc_change:.2f} USDC[/green]")
                 elif usdc_change < 0 and eth_gain_net > 0:
                     # Native ETH received (unwrapped)
-                    console.print(f"\n[green]✓ Swap successful! Received ~{eth_gain_net:.6f} ETH for {-usdc_change:.2f} USDC[/green]")
+                    console.print(f"\n[green]Swap successful! Received ~{eth_gain_net:.6f} ETH for {-usdc_change:.2f} USDC[/green]")
                     console.print(f"  [dim](ETH change includes gas costs)[/dim]")
                 elif usdc_change < 0:
-                    console.print(f"\n[yellow]⚠ USDC was spent ({-usdc_change:.2f}) but no ETH/WETH received[/yellow]")
+                    console.print(f"\n[yellow]USDC was spent ({-usdc_change:.2f}) but no ETH/WETH received[/yellow]")
                 else:
-                    console.print(f"\n[red]✗ Swap failed - no balance changes detected[/red]")
+                    console.print(f"\n[red]Swap failed - no balance changes detected[/red]")
             else:
                 # ETH->USDC swap
                 if (weth_change < 0 or eth_change < -0.02) and usdc_change > 0:
                     if weth_change < 0:
-                        console.print(f"\n[green]✓ Swap successful! Received {usdc_change:.2f} USDC for {-weth_change:.6f} WETH[/green]")
+                        console.print(f"\n[green]Swap successful! Received {usdc_change:.2f} USDC for {-weth_change:.6f} WETH[/green]")
                     else:
                         # Native ETH was spent (accounting for gas)
                         eth_spent = -eth_change - 0.015  # Subtract estimated gas
-                        console.print(f"\n[green]✓ Swap successful! Received {usdc_change:.2f} USDC for ~{eth_spent:.6f} ETH[/green]")
+                        console.print(f"\n[green]Swap successful! Received {usdc_change:.2f} USDC for ~{eth_spent:.6f} ETH[/green]")
                 else:
-                    console.print(f"\n[yellow]⚠ Swap may not have completed as expected[/yellow]")
+                    console.print(f"\n[yellow]Swap may not have completed as expected[/yellow]")
 
         else:
-            console.print(f"\n[red]✗ Swap order failed[/red]")
+            console.print(f"\n[red]Swap order failed[/red]")
             try:
                 assert_transaction_success_with_explanation(web3, tx_hash)
             except Exception as e:

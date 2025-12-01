@@ -162,6 +162,7 @@ ipdb = "^0.13.9"
 flaky = "^3.7.0"
 # See discussion https://github.com/python-poetry/poetry/issues/3348#issuecomment-726534462
 anyio = "^4.11.0"
+pytest-asyncio = ">=0.21,<0.23"
 
 
 [tool.poetry.extras]
@@ -188,6 +189,9 @@ addopts = "--capture=no --tb=native"
 # that contain tests and are independent from us
 # https://stackoverflow.com/a/58306308/315168
 norecursedirs="contracts/*"
+
+# Configure pytest-asyncio mode
+asyncio_mode = "auto"
 
 filterwarnings = [
     "ignore::DeprecationWarning:pkg_resources.*:",

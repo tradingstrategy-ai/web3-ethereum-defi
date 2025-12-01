@@ -56,7 +56,7 @@ def make_gmx_api_request(
 
     # Try each URL with retries
     for url, url_type in urls_to_try:
-        logger.info("Trying %s GMX API: %s", url_type, url)
+        logger.debug("Trying %s GMX API: %s", url_type, url)
 
         for attempt in range(max_retries):
             try:
@@ -65,7 +65,7 @@ def make_gmx_api_request(
 
                 # Log success if using backup or after retries
                 if url_type == "backup" or attempt > 0:
-                    logger.info("✓ Successfully connected to %s GMX API for %s", url_type, endpoint)
+                    logger.debug("Successfully connected to %s GMX API for %s", url_type, endpoint)
 
                 return response.json()
 
