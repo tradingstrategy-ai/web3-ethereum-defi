@@ -352,15 +352,28 @@ class GMX(ExchangeCompatible):
 
             # Fetch token data from GMX API
             tokens_data = self.api.get_tokens()
-            logger.info(f"Fetched {len(tokens_data)} tokens from GMX API")
+            logger.info(f"Fetched tokens from GMX API, type: {type(tokens_data)}")
 
             # Build address->symbol mapping (lowercase addresses for matching)
             address_to_symbol = {}
-            for token in tokens_data:
+            if isinstance(tokens_data, dict):
+                # If tokens_data is a dict, extract the list of tokens
+                tokens_list = tokens_data.get("tokens", [])
+            elif isinstance(tokens_data, list):
+                tokens_list = tokens_data
+            else:
+                logger.error(f"Unexpected tokens_data format: {type(tokens_data)}")
+                tokens_list = []
+
+            for token in tokens_list:
+                if not isinstance(token, dict):
+                    continue
                 address = token.get("address", "").lower()
                 symbol = token.get("symbol", "")
                 if address and symbol:
                     address_to_symbol[address] = symbol
+
+            logger.info(f"Built address mapping for {len(address_to_symbol)} tokens")
 
             markets_dict = {}
             for market_info in market_infos:

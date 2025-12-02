@@ -67,7 +67,7 @@ class Gmx(Exchange):
         "trades_pagination": None,  # No pagination support
         "trades_has_history": True,  # Can fetch historical trades
         "l2_limit_range": None,  # No order book
-        "ohlcv_candle_limit": 1000,  # Max candles per request
+        "ohlcv_candle_limit": 10000,  # Max candles per request
         "ohlcv_has_history": True,  # Historical OHLCV available
         "mark_ohlcv_price": "index",  # Use index price for mark price
         "mark_ohlcv_timeframe": "1h",  # Default mark price timeframe
@@ -79,7 +79,7 @@ class Gmx(Exchange):
     }
 
     _ft_has_futures: FtHas = {
-        "funding_fee_candle_limit": 1000,  # Max funding fee candles
+        "funding_fee_candle_limit": 10000,  # Max funding fee candles
         "stoploss_order_types": {},  # No stop-loss order types
         "order_time_in_force": ["GTC"],  # Only immediate execution
         "tickers_have_price": True,  # Tickers include bid/ask

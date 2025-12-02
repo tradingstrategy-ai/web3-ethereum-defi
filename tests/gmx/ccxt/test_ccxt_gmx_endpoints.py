@@ -37,8 +37,8 @@ def test_load_markets(gmx_arbitrum):
     assert isinstance(markets, dict)
     assert len(markets) > 0
 
-    # Check markets are keyed by symbol
-    assert "ETH/USD" in markets or "BTC/USD" in markets
+    # Check markets are keyed by symbol (GMX uses USDC as quote currency)
+    assert "ETH/USDC" in markets or "BTC/USDC" in markets
 
     # Verify caching
     assert gmx_arbitrum.markets_loaded is True
@@ -49,10 +49,10 @@ def test_fetch_ticker(gmx_arbitrum):
     """Test fetch_ticker returns ticker data for a symbol."""
     gmx_arbitrum.load_markets()
 
-    ticker = gmx_arbitrum.fetch_ticker("ETH/USD")
+    ticker = gmx_arbitrum.fetch_ticker("ETH/USDC")
 
     assert isinstance(ticker, dict)
-    assert ticker["symbol"] == "ETH/USD"
+    assert ticker["symbol"] == "ETH/USDC"
     assert "last" in ticker
     assert "bid" in ticker
     assert "ask" in ticker
@@ -70,19 +70,19 @@ def test_fetch_tickers(gmx_arbitrum):
     """Test fetch_tickers returns multiple ticker data."""
     gmx_arbitrum.load_markets()
 
-    symbols = ["ETH/USD", "BTC/USD"]
+    symbols = ["ETH/USDC", "BTC/USDC"]
     tickers = gmx_arbitrum.fetch_tickers(symbols)
 
     assert isinstance(tickers, dict)
     assert len(tickers) >= 2
 
     # Check both symbols are present
-    assert "ETH/USD" in tickers
-    assert "BTC/USD" in tickers
+    assert "ETH/USDC" in tickers
+    assert "BTC/USDC" in tickers
 
     # Verify ticker structure
-    eth_ticker = tickers["ETH/USD"]
-    assert eth_ticker["symbol"] == "ETH/USD"
+    eth_ticker = tickers["ETH/USDC"]
+    assert eth_ticker["symbol"] == "ETH/USDC"
     assert isinstance(eth_ticker["last"], (int, float))
 
 
@@ -90,7 +90,7 @@ def test_fetch_ohlcv(gmx_arbitrum):
     """Test fetch_ohlcv returns candlestick data."""
     gmx_arbitrum.load_markets()
 
-    ohlcv = gmx_arbitrum.fetch_ohlcv("ETH/USD", timeframe="1h", limit=10)
+    ohlcv = gmx_arbitrum.fetch_ohlcv("ETH/USDC", timeframe="1h", limit=10)
 
     assert isinstance(ohlcv, list)
     assert len(ohlcv) > 0
@@ -122,10 +122,10 @@ def test_fetch_funding_rate(gmx_arbitrum):
     """Test fetch_funding_rate returns current funding rate."""
     gmx_arbitrum.load_markets()
 
-    funding = gmx_arbitrum.fetch_funding_rate("ETH/USD")
+    funding = gmx_arbitrum.fetch_funding_rate("ETH/USDC")
 
     assert isinstance(funding, dict)
-    assert funding["symbol"] == "ETH/USD"
+    assert funding["symbol"] == "ETH/USDC"
     assert "fundingRate" in funding
     assert "longFundingRate" in funding
     assert "shortFundingRate" in funding
@@ -142,7 +142,7 @@ def test_fetch_funding_rate_history(gmx_arbitrum):
     """Test fetch_funding_rate_history returns historical funding rates."""
     gmx_arbitrum.load_markets()
 
-    history = gmx_arbitrum.fetch_funding_rate_history("ETH/USD", limit=5)
+    history = gmx_arbitrum.fetch_funding_rate_history("ETH/USDC", limit=5)
 
     assert isinstance(history, list)
     assert len(history) > 0
