@@ -371,6 +371,62 @@ class GMX(ExchangeCompatible):
         """Get CCXT exchange description."""
         return describe_gmx()
 
+    def calculate_fee(
+        self,
+        symbol: str,
+        type: str,
+        side: str,
+        amount: float,
+        price: float,
+        takerOrMaker: str = "taker",
+        params: dict = None,
+    ) -> dict:
+        """Calculate trading fee for GMX positions.
+
+        GMX uses dynamic fees based on pool balancing:
+        - Position open/close: 0.04% (balanced) or 0.06% (imbalanced)
+        - Normal swaps: 0.05% (balanced) or 0.07% (imbalanced)
+        - Stablecoin swaps: 0.005% (balanced) or 0.02% (imbalanced)
+
+        For backtesting, we use a fixed 0.06% (0.0006) which represents
+        a realistic middle ground for position trading.
+
+        Args:
+            symbol: Trading pair symbol (e.g., "ETH/USD")
+            type: Order type (e.g., "market", "limit")
+            side: Order side ("buy" or "sell")
+            amount: Order amount in base currency
+            price: Order price
+            takerOrMaker: "taker" or "maker" (not used for GMX)
+            params: Additional parameters
+
+        Returns:
+            Fee dictionary with rate and cost
+        """
+        if params is None:
+            params = {}
+
+        # GMX fee rate: 0.06% (0.0006) for positions
+        rate = 0.0006
+
+        # Get market to determine fee currency
+        market = None
+        if self.markets_loaded and symbol in self.markets:
+            market = self.markets[symbol]
+
+        # Fee currency is the settlement currency (USDC for GMX)
+        currency = market.get("settle", "USDC") if market else "USDC"
+
+        # Calculate fee cost based on position notional value
+        cost = amount * price * rate if price and amount else None
+
+        return {
+            "type": takerOrMaker,
+            "currency": currency,
+            "rate": rate,
+            "cost": cost,
+        }
+
     def _load_token_metadata(self):
         """Load token metadata for price decimal conversion.
 
@@ -474,6 +530,8 @@ class GMX(ExchangeCompatible):
                 "quote": "USDC",  # Quote currency (always USD for GMX)
                 "baseId": symbol_name,
                 "quoteId": "USD",
+                "settle": "USDC",  # Settlement currency
+                "settleId": "USDC",  # Settlement currency ID
                 "active": True,
                 "type": "swap",  # GMX provides perpetual swaps
                 "spot": False,
@@ -590,6 +648,8 @@ class GMX(ExchangeCompatible):
                 "quote": "USD",
                 "baseId": symbol_name,
                 "quoteId": "USD",
+                "settle": "USDC",  # Settlement currency
+                "settleId": "USDC",  # Settlement currency ID
                 "active": True,
                 "type": "swap",  # GMX provides perpetual swaps
                 "spot": False,
