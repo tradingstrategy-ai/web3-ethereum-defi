@@ -164,6 +164,7 @@ class GMXAPI:
         self,
         token_symbol: str,
         period: str = "1h",
+        limit: int = 10000,
     ) -> dict[str, Any]:
         """
         Get historical price data in candlestick format for a specific token.
@@ -178,17 +179,21 @@ class GMXAPI:
             Time period for each candlestick. Supported values are:
             '1m', '5m', '15m', '1h', '4h', '1d'. Default is '1h'
         :type period: str
+        :param limit:
+            Maximum number of candles to retrieve. Default is 10000
+        :type limit: int
         :return:
             Dictionary containing candlestick data with timestamps and OHLCV values
         :rtype: dict[str, Any]
         """
-        params = {"tokenSymbol": token_symbol, "period": period}
+        params = {"tokenSymbol": token_symbol, "period": period, "limit": limit}
         return self._make_request("/prices/candles", params=params)
 
     def get_candlesticks_dataframe(
         self,
         token_symbol: str,
         period: str = "1h",
+        limit: int = 10000,
     ) -> pd.DataFrame:
         """
         Get historical price data as a pandas DataFrame for easy analysis.
@@ -217,12 +222,15 @@ class GMXAPI:
             Time period for each candlestick. Supported values are:
             '1m', '5m', '15m', '1h', '4h', '1d'. Default is '1h'
         :type period: str
+        :param limit:
+            Maximum number of candles to retrieve. Default is 10000
+        :type limit: int
         :return:
             pandas DataFrame with columns: timestamp (datetime), open (float),
             high (float), low (float), close (float)
         :rtype: pd.DataFrame
         """
-        data = self.get_candlesticks(token_symbol, period)
+        data = self.get_candlesticks(token_symbol, period, limit)
 
         # Convert to DataFrame
         df = pd.DataFrame(

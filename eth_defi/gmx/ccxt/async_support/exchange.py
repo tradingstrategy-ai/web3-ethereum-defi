@@ -645,11 +645,15 @@ class GMX(Exchange):
 
         gmx_period = self.timeframes[timeframe]
 
+        # Default limit if not provided
+        if limit is None:
+            limit = 10000
+
         # Fetch from GMX API
         data = await async_make_gmx_api_request(
             chain=self.chain,
             endpoint="/prices/candles",
-            params={"tokenSymbol": token_symbol, "period": gmx_period},
+            params={"tokenSymbol": token_symbol, "period": gmx_period, "limit": limit},
             session=self.session,
         )
 
