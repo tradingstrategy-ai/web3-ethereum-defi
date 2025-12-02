@@ -241,6 +241,139 @@ class GMX(Exchange):
         """Async context manager exit."""
         await self.close()
 
+    async def _load_markets_from_graphql(self) -> dict:
+        """Load markets from GraphQL only (for backtesting - no RPC calls).
+
+        Uses GMX API /tokens endpoint to fetch token metadata instead of hardcoding.
+
+        :return: dictionary mapping unified symbols to market info
+        :rtype: dict
+        """
+        try:
+            market_infos = await self.subsquid.get_market_infos(limit=200)
+            logger.info(f"Fetched {len(market_infos)} markets from GraphQL")
+
+            # Fetch token data from GMX API using async HTTP
+            tokens_data = await self._fetch_tokens_async()
+            logger.info(f"Fetched tokens from GMX API, type: {type(tokens_data)}, length: {len(tokens_data) if isinstance(tokens_data, (list, dict)) else 'N/A'}")
+
+            # Build address->symbol mapping (lowercase addresses for matching)
+            address_to_symbol = {}
+            if isinstance(tokens_data, dict):
+                # If tokens_data is a dict, extract the list of tokens
+                tokens_list = tokens_data.get("tokens", [])
+            elif isinstance(tokens_data, list):
+                tokens_list = tokens_data
+            else:
+                logger.error(f"Unexpected tokens_data format: {type(tokens_data)}")
+                tokens_list = []
+
+            for token in tokens_list:
+                if not isinstance(token, dict):
+                    continue
+                address = token.get("address", "").lower()
+                symbol = token.get("symbol", "")
+                if address and symbol:
+                    address_to_symbol[address] = symbol
+
+            logger.info(f"Built address mapping for {len(address_to_symbol)} tokens")
+
+            markets_dict = {}
+            for market_info in market_infos:
+                try:
+                    index_token_addr = market_info.get("indexTokenAddress", "").lower()
+                    market_token_addr = market_info.get("marketTokenAddress", "")
+
+                    # Look up symbol from GMX API tokens data
+                    symbol_name = address_to_symbol.get(index_token_addr)
+
+                    if not symbol_name:
+                        logger.debug(f"Skipping market with unknown index token: {index_token_addr}")
+                        continue  # Skip unknown tokens
+
+                    # Skip excluded symbols
+                    if symbol_name in self.EXCLUDED_SYMBOLS:
+                        continue
+
+                    unified_symbol = f"{symbol_name}/USDC"
+
+                    # Calculate max leverage from minCollateralFactor
+                    min_collateral_factor = market_info.get("minCollateralFactor")
+                    max_leverage = 50.0  # Default
+                    if min_collateral_factor:
+                        max_leverage = AsyncGMXSubsquidClient.calculate_max_leverage(min_collateral_factor) or 50.0
+
+                    maintenance_margin_rate = 1.0 / max_leverage if max_leverage > 0 else 0.02
+
+                    markets_dict[unified_symbol] = {
+                        "id": symbol_name,
+                        "symbol": unified_symbol,
+                        "base": symbol_name,
+                        "quote": "USDC",
+                        "baseId": symbol_name,
+                        "quoteId": "USDC",
+                        "settle": "USDC",
+                        "settleId": "USDC",
+                        "active": True,
+                        "type": "swap",
+                        "spot": False,
+                        "swap": True,
+                        "future": True,
+                        "option": False,
+                        "contract": True,
+                        "linear": True,
+                        "precision": {
+                            "amount": 8,
+                            "price": 8,
+                        },
+                        "limits": {
+                            "amount": {"min": None, "max": None},
+                            "price": {"min": None, "max": None},
+                            "cost": {"min": None, "max": None},
+                            "leverage": {"min": 1.1, "max": max_leverage},
+                        },
+                        "maintenanceMarginRate": maintenance_margin_rate,
+                        "info": {
+                            "market_token": market_token_addr,
+                            "index_token": market_info.get("indexTokenAddress"),
+                            "long_token": market_info.get("longTokenAddress"),
+                            "short_token": market_info.get("shortTokenAddress"),
+                            "graphql_only": True,  # Flag to indicate this was loaded from GraphQL
+                        },
+                    }
+                except Exception as e:
+                    logger.debug(f"Failed to process market {market_info.get('marketTokenAddress')}: {e}")
+                    continue
+
+            self.markets = markets_dict
+            self.symbols = list(self.markets.keys())
+
+            logger.info(f"Loaded {len(self.markets)} markets from GraphQL: {self.symbols}")
+            return self.markets
+
+        except Exception as e:
+            logger.error(f"Failed to load markets from GraphQL: {e}")
+            # Return empty markets rather than failing completely
+            self.markets = {}
+            self.symbols = []
+            return self.markets
+
+    async def _fetch_tokens_async(self) -> list[dict]:
+        """Fetch token data from GMX API asynchronously."""
+        from eth_defi.gmx.ccxt.async_support.async_http import async_make_gmx_api_request
+
+        try:
+            tokens_data = await async_make_gmx_api_request(
+                chain=self.chain,
+                endpoint="/tokens",
+                session=self.session,
+                timeout=10.0,
+            )
+            return tokens_data
+        except Exception as e:
+            logger.error(f"Failed to fetch tokens from GMX API: {e}")
+            return []
+
     async def load_markets(self, reload: bool = False, params: dict | None = None) -> dict:
         """Load markets asynchronously.
 
@@ -255,6 +388,14 @@ class GMX(Exchange):
             return self.markets
 
         await self._ensure_session()
+
+        # For backtesting or when wallet is not provided, use GraphQL-only mode to avoid slow RPC calls
+        # Also check if graphql_only is set in exchange config
+        use_graphql_only = not self.wallet or (params and params.get("graphql_only", False)) or self.options.get("graphql_only", False)
+
+        if use_graphql_only and self.subsquid:
+            logger.info("Loading markets from GraphQL (backtesting mode - skipping RPC calls)")
+            return await self._load_markets_from_graphql()
 
         # Fetch markets list (this will need async version of Markets class)
         # For now, we'll call the sync method in executor as a bridge
@@ -323,9 +464,9 @@ class GMX(Exchange):
                 "active": True,
                 "type": "swap",  # GMX provides perpetual swaps
                 "spot": False,
-                "margin": False,  # Not spot margin, it's futures
+                "margin": True,  # Futures margin trading
                 "swap": True,
-                "future": False,
+                "future": True,
                 "option": False,
                 "contract": True,
                 "linear": True,

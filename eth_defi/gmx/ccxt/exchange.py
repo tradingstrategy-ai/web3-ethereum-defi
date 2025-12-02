@@ -338,11 +338,118 @@ class GMX(ExchangeCompatible):
         # Common initialization
         self._init_common()
 
+    def _load_markets_from_graphql(self) -> dict[str, Any]:
+        """Load markets from GraphQL only (for backtesting - no RPC calls).
+
+        Uses GMX API /tokens endpoint to fetch token metadata instead of hardcoding.
+
+        :return: dictionary mapping unified symbols to market info
+        :rtype: dict[str, Any]
+        """
+        try:
+            market_infos = self.subsquid.get_market_infos(limit=200)
+            logger.info(f"Fetched {len(market_infos)} markets from GraphQL")
+
+            # Fetch token data from GMX API
+            tokens_data = self.api.get_tokens()
+            logger.info(f"Fetched {len(tokens_data)} tokens from GMX API")
+
+            # Build address->symbol mapping (lowercase addresses for matching)
+            address_to_symbol = {}
+            for token in tokens_data:
+                address = token.get("address", "").lower()
+                symbol = token.get("symbol", "")
+                if address and symbol:
+                    address_to_symbol[address] = symbol
+
+            markets_dict = {}
+            for market_info in market_infos:
+                try:
+                    index_token_addr = market_info.get("indexTokenAddress", "").lower()
+                    market_token_addr = market_info.get("marketTokenAddress", "")
+
+                    # Look up symbol from GMX API tokens data
+                    symbol_name = address_to_symbol.get(index_token_addr)
+
+                    if not symbol_name:
+                        logger.debug(f"Skipping market with unknown index token: {index_token_addr}")
+                        continue  # Skip unknown tokens
+
+                    # Skip excluded symbols
+                    if symbol_name in self.EXCLUDED_SYMBOLS:
+                        continue
+
+                    unified_symbol = f"{symbol_name}/USDC"
+
+                    # Calculate max leverage from minCollateralFactor
+                    min_collateral_factor = market_info.get("minCollateralFactor")
+                    max_leverage = 50.0  # Default
+                    if min_collateral_factor:
+                        max_leverage = GMXSubsquidClient.calculate_max_leverage(min_collateral_factor) or 50.0
+
+                    maintenance_margin_rate = 1.0 / max_leverage if max_leverage > 0 else 0.02
+
+                    markets_dict[unified_symbol] = {
+                        "id": symbol_name,
+                        "symbol": unified_symbol,
+                        "base": symbol_name,
+                        "quote": "USDC",
+                        "baseId": symbol_name,
+                        "quoteId": "USDC",
+                        "settle": "USDC",
+                        "settleId": "USDC",
+                        "active": True,
+                        "type": "swap",
+                        "spot": False,
+                        "swap": True,
+                        "future": True,
+                        "option": False,
+                        "contract": True,
+                        "linear": True,
+                        "precision": {
+                            "amount": 8,
+                            "price": 8,
+                        },
+                        "limits": {
+                            "amount": {"min": None, "max": None},
+                            "price": {"min": None, "max": None},
+                            "cost": {"min": None, "max": None},
+                            "leverage": {"min": 1.1, "max": max_leverage},
+                        },
+                        "maintenanceMarginRate": maintenance_margin_rate,
+                        "info": {
+                            "market_token": market_token_addr,
+                            "index_token": market_info.get("indexTokenAddress"),
+                            "long_token": market_info.get("longTokenAddress"),
+                            "short_token": market_info.get("shortTokenAddress"),
+                            "graphql_only": True,  # Flag to indicate this was loaded from GraphQL
+                        },
+                    }
+                except Exception as e:
+                    logger.debug(f"Failed to process market {market_info.get('marketTokenAddress')}: {e}")
+                    continue
+
+            self.markets = markets_dict
+            self.markets_loaded = True
+            self.symbols = list(self.markets.keys())
+
+            logger.info(f"Loaded {len(self.markets)} markets from GraphQL: {self.symbols}")
+            return self.markets
+
+        except Exception as e:
+            logger.error(f"Failed to load markets from GraphQL: {e}")
+            # Return empty markets rather than failing completely
+            self.markets = {}
+            self.markets_loaded = True
+            self.symbols = []
+            return self.markets
+
     def _init_common(self):
         """Initialize common attributes regardless of init method."""
         self.markets = {}
         self.markets_loaded = False
         self.symbols = []
+        self._orders = {}  # Store orders for backtesting
 
         self.timeframes = {
             "1m": "1m",
@@ -351,6 +458,23 @@ class GMX(ExchangeCompatible):
             "1h": "1h",
             "4h": "4h",
             "1d": "1d",
+        }
+
+        # GMX trading fees (approximately 0.07% for most markets)
+        # GMX uses perpetual swaps, so fees are defined under 'swap'
+        self.fees = {
+            "trading": {
+                "tierBased": False,
+                "percentage": True,
+                "maker": 0.0007,  # 0.07% maker fee
+                "taker": 0.0007,  # 0.07% taker fee
+            },
+            "swap": {
+                "tierBased": False,
+                "percentage": True,
+                "maker": 0.0007,  # 0.07% maker fee
+                "taker": 0.0007,  # 0.07% taker fee
+            },
         }
 
         self.leverage = {}
@@ -366,10 +490,6 @@ class GMX(ExchangeCompatible):
         self.subsquid = None
         self.wallet_address = None
         self._init_common()
-
-    def describe(self):
-        """Get CCXT exchange description."""
-        return describe_gmx()
 
     def calculate_fee(
         self,
@@ -427,6 +547,10 @@ class GMX(ExchangeCompatible):
             "cost": cost,
         }
 
+    def describe(self):
+        """Get CCXT exchange description."""
+        return describe_gmx()
+
     def _load_token_metadata(self):
         """Load token metadata for price decimal conversion.
 
@@ -465,13 +589,21 @@ class GMX(ExchangeCompatible):
         :type reload: bool
         :param params: Additional parameters (for CCXT compatibility, not currently used)
         :type params: dict | None
-        :return: dictionary mapping unified symbols (e.g., "ETH/USD") to market info
+        :return: dictionary mapping unified symbols (e.g., "ETH/USDC") to market info
         :rtype: dict[str, Any]
         """
         if self.markets_loaded and not reload:
             return self.markets
 
-        # Fetch available markets from GMX using Markets class
+        # For backtesting or when wallet is not provided, use GraphQL-only mode to avoid slow RPC calls
+        # Also check if graphql_only is set in exchange config
+        use_graphql_only = not self.wallet or (params and params.get("graphql_only", False)) or self.options.get("graphql_only", False)
+
+        if use_graphql_only and self.subsquid:
+            logger.info("Loading markets from GraphQL (backtesting mode - skipping RPC calls)")
+            return self._load_markets_from_graphql()
+
+        # Fetch available markets from GMX using Markets class (makes RPC calls)
         markets_instance = Markets(self.config)
         available_markets = markets_instance.get_available_markets()
 
@@ -510,8 +642,8 @@ class GMX(ExchangeCompatible):
                 )
                 continue
 
-            # Create unified symbol (e.g., ETH/USD)
-            unified_symbol = f"{symbol_name}/USD"
+            # Create unified symbol (e.g., ETH/USDC)
+            unified_symbol = f"{symbol_name}/USDC"
 
             # Get max leverage for this market
             max_leverage = leverage_by_market.get(market_address)
@@ -527,16 +659,16 @@ class GMX(ExchangeCompatible):
                 "id": symbol_name,  # GMX market symbol
                 "symbol": unified_symbol,  # CCXT unified symbol
                 "base": symbol_name,  # Base currency (e.g., ETH)
-                "quote": "USDC",  # Quote currency (always USD for GMX)
+                "quote": "USDC",  # Quote currency (settlement in USDC)
                 "baseId": symbol_name,
-                "quoteId": "USD",
+                "quoteId": "USDC",
                 "settle": "USDC",  # Settlement currency
                 "settleId": "USDC",  # Settlement currency ID
                 "active": True,
                 "type": "swap",  # GMX provides perpetual swaps
                 "spot": False,
                 "swap": True,
-                "future": False,
+                "future": True,  # Enable for Freqtrade futures backtesting
                 "option": False,
                 "contract": True,
                 "linear": True,
@@ -629,7 +761,7 @@ class GMX(ExchangeCompatible):
             if symbol_name in self.EXCLUDED_SYMBOLS:
                 continue
 
-            unified_symbol = f"{symbol_name}/USD"
+            unified_symbol = f"{symbol_name}/USDC"
 
             # Get max leverage for this market
             max_leverage = leverage_by_market.get(market_address)
@@ -645,16 +777,16 @@ class GMX(ExchangeCompatible):
                 "id": symbol_name,
                 "symbol": unified_symbol,
                 "base": symbol_name,
-                "quote": "USD",
+                "quote": "USDC",
                 "baseId": symbol_name,
-                "quoteId": "USD",
+                "quoteId": "USDC",
                 "settle": "USDC",  # Settlement currency
                 "settleId": "USDC",  # Settlement currency ID
                 "active": True,
                 "type": "swap",  # GMX provides perpetual swaps
                 "spot": False,
                 "swap": True,
-                "future": False,
+                "future": True,  # Enable for Freqtrade futures backtesting
                 "option": False,
                 "contract": True,
                 "linear": True,
@@ -3006,7 +3138,7 @@ class GMX(ExchangeCompatible):
         # Calculate fee in ETH
         fee_cost = order_result.execution_fee / 1e18
 
-        return {
+        order = {
             "id": tx_hash,
             "clientOrderId": None,
             "timestamp": timestamp,
@@ -3029,6 +3161,11 @@ class GMX(ExchangeCompatible):
             "trades": [],
             "info": info,
         }
+
+        # Store order for backtesting
+        self._orders[tx_hash] = order
+
+        return order
 
     def create_order(
         self,
@@ -3307,15 +3444,8 @@ class GMX(ExchangeCompatible):
         symbol: str | None = None,
         params: dict | None = None,
     ):
-        """Fetch order by ID.
-
-        Not supported by GMX - orders execute immediately.
-
-        :raises NotSupported: GMX doesn't support fetching individual orders
-        """
-        raise NotSupported(
-            self.id + " fetch_order() is not supported - GMX orders execute immediately via the keeper system. Use fetch_positions() to see open positions or fetch_my_trades() for execution history.",
-        )
+        """Not supported - GMX orders execute immediately."""
+        raise NotSupported(f"{self.id} fetch_order() not supported - GMX orders execute immediately")
 
     def fetch_order_book(
         self,
