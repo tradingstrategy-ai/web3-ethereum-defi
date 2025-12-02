@@ -459,18 +459,20 @@ class GMX(Exchange):
         candles_data = data.get("candles", [])
 
         # Parse candles
+        # API returns candles as arrays: [timestamp, open, high, low, close]
         ohlcv = []
         for candle in candles_data:
-            timestamp = candle.get("timestamp", 0) * 1000  # Convert to ms
+            # candle is an array: [timestamp, open, high, low, close]
+            timestamp = int(candle[0]) * 1000  # Convert to ms
 
             # Filter by since if provided
             if since and timestamp < since:
                 continue
 
-            o = float(candle.get("open", 0)) / 1e30
-            h = float(candle.get("high", 0)) / 1e30
-            l = float(candle.get("low", 0)) / 1e30
-            c = float(candle.get("close", 0)) / 1e30
+            o = float(candle[1])  # open
+            h = float(candle[2])  # high
+            l = float(candle[3])  # low
+            c = float(candle[4])  # close
             v = 0  # GMX doesn't provide volume
 
             ohlcv.append([timestamp, o, h, l, c, v])
@@ -792,7 +794,11 @@ class GMX(Exchange):
             params = {}
 
         if limit is None:
-            limit = 120
+            limit = 10
+
+        # Cap limit to avoid GraphQL response size limits with 115 markets
+        # Each marketInfo has many fields, Subsquid can't handle large responses
+        limit = min(limit, 10)
 
         market = self.market(symbol)
         market_address = params.get("market_address", market["info"]["market_token"])
