@@ -105,6 +105,10 @@ class AsyncGMXSubsquidClient:
         if market_address:
             where_clause = f'where: {{ marketTokenAddress_eq: "{market_address}" }}'
 
+        # Debug logging
+        logger.info(f"Querying marketInfos with market_address={market_address}, limit={limit}")
+        logger.info(f"Where clause: {where_clause}")
+
         query = f"""
         query {{
             marketInfos(
