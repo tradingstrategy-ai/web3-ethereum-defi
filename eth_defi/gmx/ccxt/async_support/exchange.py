@@ -451,8 +451,8 @@ class GMX(Exchange):
         # Fetch from GMX API
         data = await async_make_gmx_api_request(
             chain=self.chain,
-            endpoint=f"/prices/candles/{token_symbol}",
-            params={"period": gmx_period},
+            endpoint="/prices/candles",
+            params={"tokenSymbol": token_symbol, "period": gmx_period},
             session=self.session,
         )
 
