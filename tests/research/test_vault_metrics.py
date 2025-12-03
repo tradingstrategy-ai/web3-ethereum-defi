@@ -155,11 +155,12 @@ def test_upload_vault_sparkline(
 
     spec = VaultSpec.parse_string("43111-0x05c2e246156d37b39a825a25dd08d5589e3fd883")
     vault_prices_df = extract_vault_price_data(spec, price_df)
-    png_data = export_sparkline_as_png(
+    fig = render_sparkline(
         vault_prices_df,
         width=128,
         height=32,
     )
+    png_data = export_sparkline_as_png(fig)
     assert type(png_data) == bytes
 
     object_name = f"test-{spec.as_string_id()}.png"
@@ -167,6 +168,7 @@ def test_upload_vault_sparkline(
     account_id = os.environ.get("R2_SPARKLINE_ACCOUNT_ID")
     access_key_id = os.environ.get("R2_SPARKLINE_ACCESS_KEY_ID")
     secret_access_key = os.environ.get("R2_SPARKLINE_SECRET_ACCESS_KEY")
+    endpoint_url = os.environ.get("R2_SPARKLINE_ENDPOINT_URL")
 
     from eth_defi.research.sparkline import upload_to_r2_compressed
 
@@ -174,9 +176,10 @@ def test_upload_vault_sparkline(
         payload=png_data,
         bucket_name=bucket_name,
         object_name=object_name,
-        account_id=account_id,
+        endpoint_url=endpoint_url,
         access_key_id=access_key_id,
         secret_access_key=secret_access_key,
+        content_type="image/png",
     )
 
 

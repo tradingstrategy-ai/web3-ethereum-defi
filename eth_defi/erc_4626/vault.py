@@ -981,10 +981,10 @@ class ERC4626Vault(VaultBase):
         return None
 
     def get_flags(self) -> set[VaultFlag]:
-        flags = super.get_flags()
+        flags = super().get_flags()
 
         # OpenZeppelin pausable
-        # https://docs.openzeppelin.com/stellar-contracts/utils/pausable
+        # https://docs.openzeppelin.com/contracts/4.x/api/security#Pausable
         paused_call = EncodedCall.from_keccak_signature(
             address=self.vault_address,
             signature=Web3.keccak(text="paused()")[0:4],
