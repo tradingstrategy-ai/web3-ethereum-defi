@@ -30,6 +30,7 @@ from eth_defi.research.wrangle_vault_prices import forward_fill_vault
 from eth_defi.token import is_stablecoin_like
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.fee import FeeData, VaultFeeMode
+from eth_defi.vault.flag import get_notes
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
 from eth_defi.vault.risk import get_vault_risk, VaultTechnicalRisk
 from eth_defi.compat import native_datetime_utc_now
@@ -521,10 +522,14 @@ def calculate_lifetime_metrics(
         deposit_fee = fee_data.deposit
         withdrawal_fee = fee_data.withdraw
 
+        vault_address = vault_metadata["Address"]
         event_count = group["event_count"].iloc[-1]
         protocol = vault_metadata["Protocol"]
-        risk = get_vault_risk(protocol, vault_metadata["Address"])
+        risk = get_vault_risk(protocol, vault_address)
         risk_numeric = risk.value if isinstance(risk, VaultTechnicalRisk) else None
+
+        notes = get_notes(vault_address)
+        flags = vault_metadata.get("_flags", {})
 
         lockup = vault_metadata.get("Lock up", datetime.timedelta(0))
 
@@ -724,6 +729,8 @@ def calculate_lifetime_metrics(
                 "last_updated_at": last_updated_at,
                 "last_updated_block": last_updated_block,
                 "features": features,
+                "flags": flags,
+                "notes": notes,
                 # Debug and diagnostics for sparse data
                 "one_month_start": one_month_start,
                 "one_month_end": one_month_end,

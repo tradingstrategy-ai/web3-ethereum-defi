@@ -18,6 +18,7 @@ from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.token import TokenDiskCache
 from eth_defi.vault.fee import FeeData, BROKEN_FEE_DATA
+from eth_defi.vault.flag import get_vault_special_flags, get_notes
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +59,7 @@ def create_vault_scan_record(
         "First seen": detection.first_seen_at,
         "_detection_data": detection,
         "_fees": None,
+        "_flags": {},
     }
 
     if vault is None:
@@ -103,6 +105,13 @@ def create_vault_scan_record(
             logger.error(f"Failed to read lockup for vault {vault} at {detection.address}: {e}", exc_info=e)
             lockup = None
 
+        # Resolve vault flags from the smart contract state
+        try:
+            flags = vault.get_flags()
+        except ValueError as e:
+            logger.error(f"Failed to read flags for vault {vault} at {detection.address}: {e}", exc_info=e)
+            flags = {}
+
         protocol_name = get_vault_protocol_name(detection.features)
 
         data = {
@@ -125,6 +134,7 @@ def create_vault_scan_record(
             "_denomination_token": denomination_token,
             "_share_token": vault.share_token.export() if vault.share_token else None,
             "_fees": fees,
+            "_flags": flags,
         }
         return data
     except ExtraValueError as e:

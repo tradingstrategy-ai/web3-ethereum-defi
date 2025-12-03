@@ -17,6 +17,7 @@ from eth_defi.provider.fallback import ExtraValueError
 
 from requests.exceptions import HTTPError
 
+from eth_defi.vault.flag import VaultFlag
 
 if WEB3_PY_V7:
     from web3.exceptions import BadFunctionCallOutput, BlockNumberOutOfRange
@@ -978,3 +979,31 @@ class ERC4626Vault(VaultBase):
             Because of so many protocol specific lockups, this must be explicitly set to zero.
         """
         return None
+
+    def get_flags(self) -> set[VaultFlag]:
+        flags = super.get_flags()
+
+        # OpenZeppelin pausable
+        # https://docs.openzeppelin.com/stellar-contracts/utils/pausable
+        paused_call = EncodedCall.from_keccak_signature(
+            address=self.vault_address,
+            signature=Web3.keccak(text="paused()")[0:4],
+            function="paused",
+            data=b"",
+            extra_data=None,
+        )
+        try:
+            result = paused_call.call(
+                self.web3,
+                block_identifier="latest",
+                silent_error=True,
+            )
+            paused = convert_int256_bytes_to_int(result) != 0
+        except (ValueError, BadFunctionCallOutput, BadAddressError):
+            paused = False
+
+        if paused:
+            flags = flags | {VaultFlag.PAUSED}
+
+        return flags
+
