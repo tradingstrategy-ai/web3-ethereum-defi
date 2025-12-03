@@ -1006,4 +1006,3 @@ class ERC4626Vault(VaultBase):
             flags = flags | {VaultFlag.PAUSED}
 
         return flags
-

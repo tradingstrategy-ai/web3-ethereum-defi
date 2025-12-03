@@ -1,4 +1,5 @@
 """Vault status flags."""
+
 import enum
 
 from eth_typing import HexAddress
@@ -8,10 +9,10 @@ class VaultFlag(str, enum.Enum):
     """Flags indicating the status of a vault."""
 
     #: We can deposit now
-    open_for_deposits = "open_for_deposits"
+    deposit = "deposit"
 
     #: We can redeem now
-    open_for_redemptions = "open_for_redemptions"
+    redeem = "redeem"
 
     #: Vault is paused
     paused = "paused"
@@ -27,7 +28,6 @@ class VaultFlag(str, enum.Enum):
     #: E.g. Stream xUSD episode
     #:
     illiquid = "illiquid"
-
 
 
 _empty_set = set()

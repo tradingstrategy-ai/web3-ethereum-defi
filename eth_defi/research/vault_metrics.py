@@ -30,7 +30,7 @@ from eth_defi.research.wrangle_vault_prices import forward_fill_vault
 from eth_defi.token import is_stablecoin_like
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.fee import FeeData, VaultFeeMode
-from eth_defi.vault.flag import get_notes
+from eth_defi.vault.flag import get_notes, VaultFlag
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
 from eth_defi.vault.risk import get_vault_risk, VaultTechnicalRisk
 from eth_defi.compat import native_datetime_utc_now
@@ -939,11 +939,17 @@ def format_lifetime_table(
         mode="usd",
     )
 
+    def _str_enum_set(v: set[VaultFlag] | list[VaultFlag] | None) -> str:
+        if v is None or pd.isna(v):
+            return ""
+        return ", ".join(str(val) for val in v)
+
     df["three_months_volatility"] = df["three_months_volatility"].apply(lambda x: f"{x:.1%}")
     df["three_months_sharpe"] = df["three_months_sharpe"].apply(lambda x: f"{x:.1f}")
     df["event_count"] = df["event_count"].apply(lambda x: f"{x:,}")
     df["risk"] = df["risk"].apply(lambda x: x.get_risk_level_name() if x is not None else "Unknown")
     df["lockup"] = df["lockup"].apply(lambda x: f"{x.days}" if pd.notna(x) else "---")
+    df["flags"] = df["flags"].apply(_str_enum_set)
 
     def _del(x):
         if x in df.columns:
@@ -1018,6 +1024,8 @@ def format_lifetime_table(
             "name": "Name",
             "lockup": "Lock up est. days",
             "fee_label": "Fees (mgmt / perf / dep / with)",
+            "flags": "Flags",
+            "notes": "Notes",
             "id": "id",
         }
     )

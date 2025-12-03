@@ -784,6 +784,5 @@ class VaultBase(ABC):
         return get_vault_special_flags(self.address)
 
     def get_notes(self) -> str | None:
-        """Get a human readable message if we know somethign special is going on with this vault.
-        """
+        """Get a human readable message if we know somethign special is going on with this vault."""
         return get_notes(self.address)
