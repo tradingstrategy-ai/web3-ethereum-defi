@@ -2,6 +2,12 @@
 
 - Run after cleaned prices 1h is generated
 
+Example:
+
+.. code-block:: shell
+
+    python scripts/erc-4626/export-sparklines.py
+
 """
 
 import os

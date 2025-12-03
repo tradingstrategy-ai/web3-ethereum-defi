@@ -29,6 +29,7 @@ from eth_defi.token import DEFAULT_TOKEN_CACHE, TokenAddress, TokenDetails, fetc
 from eth_defi.vault.deposit_redeem import VaultDepositManager
 from eth_defi.vault.lower_case_dict import LowercaseDict
 from .fee import VaultFeeMode, get_vault_fee_mode, FeeData
+from .flag import VaultFlag, get_vault_special_flags, get_notes
 
 from .risk import VaultTechnicalRisk, get_vault_risk
 
@@ -768,3 +769,20 @@ class VaultBase(ABC):
             None if not know
         """
         return None
+
+    def get_flags(self) -> set[VaultFlag]:
+        """Get various vault state flags from the smart contract.
+
+        - Override to add status flags
+        - Also add flags from our manual flag list in :py:mod:`eth_defi.vault.flag`
+
+        :return:
+            Flag set.
+
+            Do not modify in place.
+        """
+        return get_vault_special_flags(self.address)
+
+    def get_notes(self) -> str | None:
+        """Get a human readable message if we know somethign special is going on with this vault."""
+        return get_notes(self.address)

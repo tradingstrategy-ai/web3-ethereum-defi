@@ -62,6 +62,7 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Morpho": VaultTechnicalRisk.negligible,
     "Enzyme": VaultTechnicalRisk.negligible,
     "Lagoon": VaultTechnicalRisk.minimal,
+    "IPOR": VaultTechnicalRisk.minimal,
     "Velvet Capital": VaultTechnicalRisk.high,
     "Umami": VaultTechnicalRisk.severe,
     # Unverified contracts, no open source repo
@@ -104,6 +105,13 @@ def get_vault_risk(
     default=None,
 ):
     """Get technical and developer risk associated with a particular vault"""
+
+    from eth_defi.vault.flag import get_vault_special_flags, VaultFlag
+
+    # Check for xUSD incidents
+    flags = get_vault_special_flags(vault_address)
+    if VaultFlag.illiquid in flags:
+        return VaultTechnicalRisk.blacklisted
 
     if vault_address:
         risk = VAULT_SPECIFIC_RISK.get(vault_address.lower())
