@@ -38,7 +38,7 @@ def test_load_markets(gmx_arbitrum):
     assert len(markets) > 0
 
     # Check markets are keyed by symbol (GMX uses USDC as quote currency)
-    assert "ETH/USDC" in markets or "BTC/USDC" in markets
+    assert "ETH/USDC:USDC" in markets or "BTC/USDC:USDC" in markets
 
     # Verify caching
     assert gmx_arbitrum.markets_loaded is True
@@ -52,7 +52,7 @@ def test_fetch_ticker(gmx_arbitrum):
     ticker = gmx_arbitrum.fetch_ticker("ETH/USDC")
 
     assert isinstance(ticker, dict)
-    assert ticker["symbol"] == "ETH/USDC"
+    assert ticker["symbol"] == "ETH/USDC:USDC"
     assert "last" in ticker
     assert "bid" in ticker
     assert "ask" in ticker
@@ -77,12 +77,12 @@ def test_fetch_tickers(gmx_arbitrum):
     assert len(tickers) >= 2
 
     # Check both symbols are present
-    assert "ETH/USDC" in tickers
-    assert "BTC/USDC" in tickers
+    assert "ETH/USDC:USDC" in tickers
+    assert "BTC/USDC:USDC" in tickers
 
     # Verify ticker structure
-    eth_ticker = tickers["ETH/USDC"]
-    assert eth_ticker["symbol"] == "ETH/USDC"
+    eth_ticker = tickers["ETH/USDC:USDC"]
+    assert eth_ticker["symbol"] == "ETH/USDC:USDC"
     assert isinstance(eth_ticker["last"], (int, float))
 
 
@@ -125,7 +125,7 @@ def test_fetch_funding_rate(gmx_arbitrum):
     funding = gmx_arbitrum.fetch_funding_rate("ETH/USDC")
 
     assert isinstance(funding, dict)
-    assert funding["symbol"] == "ETH/USDC"
+    assert funding["symbol"] == "ETH/USDC:USDC"
     assert "fundingRate" in funding
     assert "longFundingRate" in funding
     assert "shortFundingRate" in funding
@@ -150,7 +150,7 @@ def test_fetch_funding_rate_history(gmx_arbitrum):
 
     # Check structure of each snapshot
     snapshot = history[0]
-    assert snapshot["symbol"] == "ETH/USD"
+    assert snapshot["symbol"] == "ETH/USDC:USDC"
     assert "fundingRate" in snapshot
     assert "longFundingRate" in snapshot
     assert "shortFundingRate" in snapshot
@@ -161,10 +161,10 @@ def test_fetch_open_interest(gmx_arbitrum):
     """Test fetch_open_interest returns current OI data."""
     gmx_arbitrum.load_markets()
 
-    oi = gmx_arbitrum.fetch_open_interest("ETH/USD")
+    oi = gmx_arbitrum.fetch_open_interest("ETH/USDC")
 
     assert isinstance(oi, dict)
-    assert oi["symbol"] == "ETH/USD"
+    assert oi["symbol"] == "ETH/USDC:USDC"
     assert "openInterestAmount" in oi
     assert "openInterestValue" in oi
     assert "timestamp" in oi
@@ -179,7 +179,7 @@ def test_fetch_open_interest_history(gmx_arbitrum):
     """Test fetch_open_interest_history returns historical OI."""
     gmx_arbitrum.load_markets()
 
-    history = gmx_arbitrum.fetch_open_interest_history("BTC/USD", limit=5)
+    history = gmx_arbitrum.fetch_open_interest_history("BTC/USDC", limit=5)
 
     assert isinstance(history, list)
     assert len(history) > 0
@@ -187,7 +187,7 @@ def test_fetch_open_interest_history(gmx_arbitrum):
 
     # Check structure
     snapshot = history[0]
-    assert snapshot["symbol"] == "BTC/USD"
+    assert snapshot["symbol"] == "BTC/USDC:USDC"
     assert "openInterestAmount" in snapshot
     assert "openInterestValue" in snapshot
     assert "timestamp" in snapshot
@@ -197,16 +197,17 @@ def test_fetch_open_interests_multiple_symbols(gmx_arbitrum):
     """Test fetch_open_interests for multiple symbols."""
     gmx_arbitrum.load_markets()
 
-    symbols = ["ETH/USD", "BTC/USD"]
+    symbols = ["ETH/USDC", "BTC/USDC"]
     ois = gmx_arbitrum.fetch_open_interests(symbols)
 
     assert isinstance(ois, dict)
 
-    # Should have data for requested symbols
-    for symbol in symbols:
-        if symbol in ois:  # Some markets may not have OI data
-            assert ois[symbol]["symbol"] == symbol
-            assert "openInterestValue" in ois[symbol]
+    # Should have data for requested symbols (using canonical format)
+    canonical_symbols = ["ETH/USDC:USDC", "BTC/USDC:USDC"]
+    for canonical_symbol in canonical_symbols:
+        if canonical_symbol in ois:  # Some markets may not have OI data
+            assert ois[canonical_symbol]["symbol"] == canonical_symbol
+            assert "openInterestValue" in ois[canonical_symbol]
 
 
 def test_fetch_currencies(gmx_arbitrum):

@@ -9,7 +9,6 @@ import logging
 from dataclasses import dataclass, field
 from typing import Optional
 from decimal import Decimal
-from enum import Enum
 from statistics import median
 
 from eth_utils import to_checksum_address

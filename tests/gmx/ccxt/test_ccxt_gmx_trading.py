@@ -24,7 +24,7 @@ def test_create_market_buy_order(arbitrum_fork_config, test_wallet):
 
     # Create market buy order
     order = gmx.create_market_buy_order(
-        "ETH/USD",
+        "ETH/USDC",
         10.0,  # $10 position size
         {
             "leverage": 2.5,
@@ -38,7 +38,7 @@ def test_create_market_buy_order(arbitrum_fork_config, test_wallet):
     assert isinstance(order, dict)
     assert order["status"] == "open"
     assert order["id"] is not None
-    assert order["symbol"] == "ETH/USD"
+    assert order["symbol"] == "ETH/USDC"
     assert order["side"] == "buy"
     assert order["amount"] == 10.0
     assert "fee" in order
@@ -83,7 +83,7 @@ def test_create_market_sell_order(arbitrum_fork_config, test_wallet):
 
     # First, open a long position
     buy_order = gmx.create_market_buy_order(
-        "ETH/USD",
+        "ETH/USDC",
         10.0,
         {
             "leverage": 2.5,
@@ -105,7 +105,7 @@ def test_create_market_sell_order(arbitrum_fork_config, test_wallet):
 
     # Now close the position with market sell
     sell_order = gmx.create_market_sell_order(
-        "ETH/USD",
+        "ETH/USDC",
         10.0,
         {
             "collateral_symbol": "ETH",
@@ -117,7 +117,7 @@ def test_create_market_sell_order(arbitrum_fork_config, test_wallet):
     # Verify sell order structure
     assert isinstance(sell_order, dict)
     assert sell_order["status"] == "open"
-    assert sell_order["symbol"] == "ETH/USD"
+    assert sell_order["symbol"] == "ETH/USDC"
     assert sell_order["side"] == "sell"
     assert sell_order["amount"] == 10.0
     assert sell_order["info"]["receipt"]["status"] == 1
@@ -144,7 +144,7 @@ def test_create_order(arbitrum_fork_config, test_wallet):
 
     # Create order using generic method
     order = gmx.create_order(
-        symbol="ETH/USD",
+        symbol="ETH/USDC",
         type="market",
         side="buy",
         amount=10.0,
@@ -160,7 +160,7 @@ def test_create_order(arbitrum_fork_config, test_wallet):
     # Verify order structure
     assert isinstance(order, dict)
     assert order["status"] == "open"
-    assert order["symbol"] == "ETH/USD"
+    assert order["symbol"] == "ETH/USDC"
     assert order["type"] == "market"
     assert order["side"] == "buy"
     assert order["amount"] == 10.0
@@ -185,7 +185,7 @@ def test_create_order_without_wallet(arbitrum_fork_config):
     gmx.load_markets()
 
     with pytest.raises(ValueError, match="Wallet required for order creation"):
-        gmx.create_market_buy_order("ETH/USD", 10.0)
+        gmx.create_market_buy_order("ETH/USDC", 10.0)
 
 
 def test_cancel_order_not_supported(arbitrum_fork_config, test_wallet):

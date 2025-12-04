@@ -37,7 +37,7 @@ def test_ccxt_style_create_market_buy_order(arbitrum_fork_config, test_wallet):
 
     # Create market buy order
     order = gmx.create_market_buy_order(
-        "ETH/USD",
+        "ETH/USDC",
         10.0,  # $10 position size
         {
             "leverage": 2.5,
@@ -51,7 +51,7 @@ def test_ccxt_style_create_market_buy_order(arbitrum_fork_config, test_wallet):
     assert isinstance(order, dict)
     assert order["status"] == "open"
     assert order["id"] is not None
-    assert order["symbol"] == "ETH/USD"
+    assert order["symbol"] == "ETH/USDC"
     assert order["side"] == "buy"
     assert order["amount"] == 10.0
     assert "fee" in order
@@ -107,7 +107,7 @@ def test_ccxt_style_create_market_sell_order(arbitrum_fork_config, test_wallet):
 
     # First, open a long position
     buy_order = gmx.create_market_buy_order(
-        "ETH/USD",
+        "ETH/USDC",
         10.0,
         {
             "leverage": 2.5,
@@ -129,7 +129,7 @@ def test_ccxt_style_create_market_sell_order(arbitrum_fork_config, test_wallet):
 
     # Now close the position with market sell
     sell_order = gmx.create_market_sell_order(
-        "ETH/USD",
+        "ETH/USDC",
         10.0,
         {
             "collateral_symbol": "ETH",
@@ -141,7 +141,7 @@ def test_ccxt_style_create_market_sell_order(arbitrum_fork_config, test_wallet):
     # Verify sell order structure
     assert isinstance(sell_order, dict)
     assert sell_order["status"] == "open"
-    assert sell_order["symbol"] == "ETH/USD"
+    assert sell_order["symbol"] == "ETH/USDC"
     assert sell_order["side"] == "sell"
     assert sell_order["amount"] == 10.0
     assert sell_order["info"]["receipt"]["status"] == 1
@@ -178,7 +178,7 @@ def test_ccxt_style_create_order_generic(arbitrum_fork_config, test_wallet):
 
     # Create order using generic method
     order = gmx.create_order(
-        symbol="ETH/USD",
+        symbol="ETH/USDC",
         type="market",
         side="buy",
         amount=10.0,
@@ -194,7 +194,7 @@ def test_ccxt_style_create_order_generic(arbitrum_fork_config, test_wallet):
     # Verify order structure
     assert isinstance(order, dict)
     assert order["status"] == "open"
-    assert order["symbol"] == "ETH/USD"
+    assert order["symbol"] == "ETH/USDC"
     assert order["type"] == "market"
     assert order["side"] == "buy"
     assert order["amount"] == 10.0
@@ -232,7 +232,7 @@ def test_ccxt_style_open_and_close_complete_flow(arbitrum_fork_config, test_wall
 
     # Open position
     buy_order = gmx.create_market_buy_order(
-        "ETH/USD",
+        "ETH/USDC",
         15.0,  # $15 position
         {
             "leverage": 3.0,
@@ -258,7 +258,7 @@ def test_ccxt_style_open_and_close_complete_flow(arbitrum_fork_config, test_wall
 
     # Close position
     sell_order = gmx.create_market_sell_order(
-        "ETH/USD",
+        "ETH/USDC",
         15.0,  # Close full position
         {
             "collateral_symbol": "ETH",
@@ -298,7 +298,7 @@ def test_ccxt_style_with_wallet_object(arbitrum_fork_config, test_wallet):
 
     # Create order
     order = gmx.create_market_buy_order(
-        "ETH/USD",
+        "ETH/USDC",
         10.0,
         {
             "leverage": 2.5,
@@ -338,4 +338,4 @@ def test_ccxt_style_view_only_mode_fails_on_orders(arbitrum_fork_config):
 
     # Verify order creation fails with clear message
     with pytest.raises(ValueError, match="VIEW-ONLY mode"):
-        gmx.create_market_buy_order("ETH/USD", 10.0)
+        gmx.create_market_buy_order("ETH/USDC", 10.0)

@@ -105,8 +105,8 @@ def test_fetch_market_leverage_tiers(gmx_config):
 
     gmx = GMX(gmx_config)
 
-    # Fetch tiers for BTC/USD
-    tiers = gmx.fetch_market_leverage_tiers("BTC/USD", {"side": "long"})
+    # Fetch tiers for BTC/USDC
+    tiers = gmx.fetch_market_leverage_tiers("BTC/USDC", {"side": "long"})
 
     # Should return tiers if data is available
     assert isinstance(tiers, list)
@@ -128,12 +128,12 @@ def test_fetch_leverage_tiers_bulk(gmx_config):
     gmx = GMX(gmx_config)
 
     # Fetch tiers for multiple markets
-    symbols = ["BTC/USD", "ETH/USD"]
+    symbols = ["BTC/USDC", "ETH/USDC"]
     all_tiers = gmx.fetch_leverage_tiers(symbols, {"side": "long"})
 
     assert isinstance(all_tiers, dict)
-    assert "BTC/USD" in all_tiers
-    assert "ETH/USD" in all_tiers
+    assert "BTC/USDC" in all_tiers
+    assert "ETH/USDC" in all_tiers
 
     # Each symbol should have a list (may be empty)
     for symbol in symbols:
