@@ -317,19 +317,22 @@ class GMX(Exchange):
                         "active": True,
                         "type": "swap",
                         "spot": False,
+                        "margin": True,
                         "swap": True,
                         "future": True,
                         "option": False,
                         "contract": True,
                         "linear": True,
+                        "inverse": False,
+                        "contractSize": self.parse_number('1'),
                         "precision": {
-                            "amount": 8,
-                            "price": 8,
+                            "amount": self.parse_number(self.parse_precision('8')),
+                            "price": self.parse_number(self.parse_precision('8')),
                         },
                         "limits": {
                             "amount": {"min": None, "max": None},
                             "price": {"min": None, "max": None},
-                            "cost": {"min": None, "max": None},
+                            "cost": {"min": 10, "max": None},
                             "leverage": {"min": 1.1, "max": max_leverage},
                         },
                         "maintenanceMarginRate": maintenance_margin_rate,
@@ -439,8 +442,8 @@ class GMX(Exchange):
                 )
                 continue
 
-            # Create unified symbol (e.g., ETH/USD)
-            unified_symbol = f"{symbol_name}/USD"
+            # Create unified symbol for Freqtrade futures (e.g., ETH/USDC:USDC)
+            unified_symbol = f"{symbol_name}/USDC:USDC"
 
             # Get max leverage for this market
             max_leverage = leverage_by_market.get(market_address)
@@ -456,29 +459,32 @@ class GMX(Exchange):
                 "id": symbol_name,  # GMX market symbol
                 "symbol": unified_symbol,  # CCXT unified symbol
                 "base": symbol_name,  # Base currency (e.g., ETH)
-                "quote": "USDC",  # Quote currency (always USD for GMX)
+                "quote": "USDC",  # Quote currency (settlement in USDC)
                 "baseId": symbol_name,
-                "quoteId": "USD",
+                "quoteId": "USDC",
                 "settle": "USDC",  # Settlement currency
                 "settleId": "USDC",  # Settlement currency ID
                 "active": True,
                 "type": "swap",  # GMX provides perpetual swaps
                 "spot": False,
-                "margin": True,  # Futures margin trading
+                "margin": True,
                 "swap": True,
                 "future": True,
                 "option": False,
                 "contract": True,
                 "linear": True,
                 "inverse": False,
+                "contractSize": self.parse_number('1'),
+                "maker": 0.0003,
+                "taker": 0.0006,
                 "precision": {
-                    "amount": 8,
-                    "price": 8,
+                    "amount": self.parse_number(self.parse_precision('8')),
+                    "price": self.parse_number(self.parse_precision('8')),
                 },
                 "limits": {
                     "amount": {"min": None, "max": None},
                     "price": {"min": None, "max": None},
-                    "cost": {"min": None, "max": None},
+                    "cost": {"min": 10, "max": None},
                     "leverage": {"min": 1.1, "max": max_leverage},
                 },
                 "maintenanceMarginRate": maintenance_margin_rate,
@@ -674,7 +680,7 @@ class GMX(Exchange):
             h = float(candle[2])  # high
             l = float(candle[3])  # low
             c = float(candle[4])  # close
-            v = 0  # GMX doesn't provide volume
+            v = 1.0  # GMX doesn't provide volume, use dummy value to avoid Freqtrade filtering
 
             ohlcv.append([timestamp, o, h, l, c, v])
 

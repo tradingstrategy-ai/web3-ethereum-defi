@@ -419,14 +419,15 @@ class GMX(ExchangeCompatible):
                         "option": False,
                         "contract": True,
                         "linear": True,
+                        "contractSize": self.parse_number('1'),
                         "precision": {
-                            "amount": 8,
-                            "price": 8,
+                            "amount": self.parse_number(self.parse_precision('8')),
+                            "price": self.parse_number(self.parse_precision('8')),
                         },
                         "limits": {
                             "amount": {"min": None, "max": None},
                             "price": {"min": None, "max": None},
-                            "cost": {"min": None, "max": None},
+                            "cost": {"min": 10, "max": None},
                             "leverage": {"min": 1.1, "max": max_leverage},
                         },
                         "maintenanceMarginRate": maintenance_margin_rate,
@@ -655,8 +656,8 @@ class GMX(ExchangeCompatible):
                 )
                 continue
 
-            # Create unified symbol (e.g., ETH/USDC)
-            unified_symbol = f"{symbol_name}/USDC"
+            # Create unified symbol for Freqtrade futures (e.g., ETH/USDC:USDC)
+            unified_symbol = f"{symbol_name}/USDC:USDC"
 
             # Get max leverage for this market
             max_leverage = leverage_by_market.get(market_address)
@@ -680,19 +681,24 @@ class GMX(ExchangeCompatible):
                 "active": True,
                 "type": "swap",  # GMX provides perpetual swaps
                 "spot": False,
+                "margin": True,
                 "swap": True,
                 "future": True,  # Enable for Freqtrade futures backtesting
                 "option": False,
                 "contract": True,
                 "linear": True,
+                "inverse": False,
+                "contractSize": self.parse_number('1'),
+                "maker": 0.0003,
+                "taker": 0.0006,
                 "precision": {
-                    "amount": 8,
-                    "price": 8,
+                    "amount": self.parse_number(self.parse_precision('8')),
+                    "price": self.parse_number(self.parse_precision('8')),
                 },
                 "limits": {
                     "amount": {"min": None, "max": None},
                     "price": {"min": None, "max": None},
-                    "cost": {"min": None, "max": None},
+                    "cost": {"min": 10, "max": None},
                     "leverage": {"min": 1.1, "max": max_leverage},
                 },
                 "maintenanceMarginRate": maintenance_margin_rate,
@@ -798,19 +804,24 @@ class GMX(ExchangeCompatible):
                 "active": True,
                 "type": "swap",  # GMX provides perpetual swaps
                 "spot": False,
+                "margin": True,
                 "swap": True,
                 "future": True,  # Enable for Freqtrade futures backtesting
                 "option": False,
                 "contract": True,
                 "linear": True,
+                "inverse": False,
+                "contractSize": self.parse_number('1'),
+                "maker": 0.0003,
+                "taker": 0.0006,
                 "precision": {
-                    "amount": 8,
-                    "price": 8,
+                    "amount": self.parse_number(self.parse_precision('8')),
+                    "price": self.parse_number(self.parse_precision('8')),
                 },
                 "limits": {
                     "amount": {"min": None, "max": None},
                     "price": {"min": None, "max": None},
-                    "cost": {"min": None, "max": None},
+                    "cost": {"min": 10, "max": None},
                     "leverage": {"min": 1.1, "max": max_leverage},
                 },
                 "maintenanceMarginRate": maintenance_margin_rate,
@@ -2402,7 +2413,7 @@ class GMX(ExchangeCompatible):
             "hedged": False,  # GMX doesn't support hedging mode
             "side": side,
             "contracts": contracts,
-            "contractSize": 1,  # 1 contract = 1 unit of base currency
+            "contractSize": self.parse_number('1'),
             "entryPrice": entry_price,
             "markPrice": mark_price,
             "notional": notional,
@@ -2848,7 +2859,7 @@ class GMX(ExchangeCompatible):
             float(ohlcv[2]),  # High
             float(ohlcv[3]),  # Low
             float(ohlcv[4]),  # Close
-            0,  # Volume (GMX doesn't provide volume data)
+            1.0,  # Volume (GMX doesn't provide volume data, use dummy value to avoid Freqtrade filtering)
         ]
 
     def parse_timeframe(self, timeframe: str) -> int:
