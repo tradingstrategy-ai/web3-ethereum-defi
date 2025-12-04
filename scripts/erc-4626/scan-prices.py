@@ -76,6 +76,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from eth_defi.hypersync.utils import configure_hypersync_from_env
+from eth_defi.provider.named import get_provider_name
 
 try:
     import hypersync
@@ -125,6 +126,7 @@ def main():
     )
 
     logger.debug("Using log level: %s", default_log_level)
+    logger.info("Using RPC: %s", get_provider_name(web3.provider))
 
     min_deposit_threshold = 5
 

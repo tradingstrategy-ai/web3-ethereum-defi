@@ -45,7 +45,7 @@ from eth_defi.chain import get_default_call_gas_limit
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.event_reader.fast_json_rpc import get_last_headers
 from eth_defi.event_reader.multicall_timestamp import fetch_block_timestamps_multiprocess_auto_backend
-from eth_defi.event_reader.timestamp_cache import DEFAULT_TIMESTAMP_CACHE_FILE
+from eth_defi.event_reader.timestamp_cache import DEFAULT_TIMESTAMP_CACHE_FOLDER
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.middleware import ProbablyNodeHasNoBlock, is_retryable_http_exception
 from eth_defi.provider.fallback import FallbackProvider
@@ -1235,7 +1235,7 @@ def read_multicall_historical(
     progress_suffix: Callable | None = None,
     require_multicall_result=False,
     hypersync_client: "HypersyncClient | None" = None,
-    timestamp_cache_file: Path = DEFAULT_TIMESTAMP_CACHE_FILE,
+    timestamp_cache_file: Path = DEFAULT_TIMESTAMP_CACHE_FOLDER,
 ) -> Iterable[CombinedEncodedCallResult]:
     """Read historical data using multiple threads in parallel for speedup.
 
@@ -1354,7 +1354,7 @@ def read_multicall_historical_stateful(
     require_multicall_result=False,
     chunk_size=48,
     hypersync_client: "HypersyncClient | None" = None,
-    timestamp_cache_file: Path = DEFAULT_TIMESTAMP_CACHE_FILE,
+    timestamp_cache_file: Path = DEFAULT_TIMESTAMP_CACHE_FOLDER,
 ) -> Iterable[CombinedEncodedCallResult]:
     """Read historical data using multicall with reading state and adaptive frequency filtering.
 
@@ -1421,7 +1421,7 @@ def read_multicall_historical_stateful(
         timeout=timeout,
         display_progress=display_progress,
         hypersync_client=hypersync_client,
-        cache_file=timestamp_cache_file,
+        cache_path=timestamp_cache_file,
     )
 
     chunk = []

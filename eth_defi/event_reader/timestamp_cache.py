@@ -12,7 +12,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 # Default path constant (assumed from context)
-DEFAULT_TIMESTAMP_CACHE_FILE = Path.home() / ".tradingstrategy" / Path("block-timestamps.duckdb")
+DEFAULT_TIMESTAMP_CACHE_FOLDER = Path.home() / ".tradingstrategy" / "block-timestamp"
 
 
 class BlockTimestampDatabase:
@@ -25,16 +25,29 @@ class BlockTimestampDatabase:
     For usage see `eth_defi.event_reader.multicall_timestamp.fetch_block_timestamps_multiprocess_auto_backend`
     """
 
-    def __init__(self, path: Path | str = DEFAULT_TIMESTAMP_CACHE_FILE):
+    def __init__(
+        self,
+        chain_id: int,
+        path: Path,
+    ):
         """Initialize the database connection.
 
         :param path: Path to the DuckDB file. Use ':memory:' for transient storage.
         """
 
+        assert type(chain_id) is int, f"Expected int chain_id, got {type(chain_id)}"
+        assert isinstance(path, Path), f"Expected str or Path for path, got {type(path)}"
+
+        assert not path.is_dir(), f"Expected file path, got directory: {path}"
+
+        # Create cache folder if needed
+        path.parent.mkdir(parents=True, exist_ok=True)
+
         # Be lazy about this so we do not mess imports
         import duckdb
 
-        self.path = str(path)
+        self.chain_id = chain_id
+        self.path = path
         self.con = duckdb.connect(self.path)
         self._init_schema()
 
@@ -46,10 +59,8 @@ class BlockTimestampDatabase:
         """
         self.con.execute("""
             CREATE TABLE IF NOT EXISTS block_timestamps (
-                chain_id UINT32,
-                block_number UINT64,
+                block_number UINT64 PRIMARY KEY,
                 timestamp UINT32,
-                PRIMARY KEY (chain_id, block_number)
             )
         """)
 
@@ -66,6 +77,8 @@ class BlockTimestampDatabase:
             Give block number -> unix timestamp pd.Series for max speed.
         """
 
+        assert chain_id == self.chain_id, f"Import chain_id {chain_id} does not match database chain_id {self.chain_id}"
+
         # 1. Convert dict to a temporary DataFrame for easy bulk insertion
         # Note: We use a DataFrame here as an intermediate transport buffer,
         # not as the persistent store.
@@ -77,10 +90,9 @@ class BlockTimestampDatabase:
                 }
             )
             df_new["timestamp"] = df_new["timestamp"].astype("uint32")
-            df_new["chain_id"] = chain_id
         else:
             # Legacy path
-            df_new = pd.DataFrame([{"chain_id": chain_id, "block_number": k, "timestamp": v} for k, v in data.items()])
+            df_new = pd.DataFrame([{"block_number": k, "timestamp": v} for k, v in data.items()])
             # Convert to 32-bit unix timestamp
             df_new["timestamp"] = (df_new["timestamp"].astype("int64") // 10**9).astype("uint32")
 
@@ -89,33 +101,31 @@ class BlockTimestampDatabase:
 
         # 3. Perform Insert / On Conflict Replace
         self.con.execute("""
-            INSERT INTO block_timestamps (chain_id, block_number, timestamp)
-            SELECT chain_id, block_number, timestamp FROM df_view
-            ON CONFLICT (chain_id, block_number) DO UPDATE SET timestamp = EXCLUDED.timestamp
+            INSERT INTO block_timestamps (block_number, timestamp)
+            SELECT block_number, timestamp FROM df_view
+            ON CONFLICT (block_number) DO UPDATE SET timestamp = EXCLUDED.timestamp
         """)
 
         # Cleanup view
         self.con.unregister("df_view")
 
     @staticmethod
-    def load(path: Path, read_only: bool = False) -> "BlockTimestampDatabase":
-        """Load the database from disk.
+    def get_database_file_chain(chain_id: int, path=DEFAULT_TIMESTAMP_CACHE_FOLDER) -> Path:
+        """Get the default database file path for a given chain ID."""
+        assert path.is_dir(), f"Expected directory path, got {path}"
+        return path / f"{chain_id}-timestamps.duckdb"
 
-        :param read_only: If True, opens the connection in read-only mode (good for multiprocess readers).
-        """
-        import duckdb
-
-        db = BlockTimestampDatabase(path)
-        if read_only:
-            # Re-connect in read_only mode specifically
-            db.con.close()
-            db.con = duckdb.connect(str(path), read_only=True)
+    @staticmethod
+    def load(chain_id: int, path: Path) -> "BlockTimestampDatabase":
+        """Load the database from disk."""
+        db = BlockTimestampDatabase(chain_id, path)
         return db
 
     @staticmethod
-    def create(path: Path) -> "BlockTimestampDatabase":
+    def create(chain_id: int, path: Path) -> "BlockTimestampDatabase":
         """Create an in-memory instance."""
-        return BlockTimestampDatabase(path)
+        file = BlockTimestampDatabase.get_database_file_chain(chain_id, path)
+        return BlockTimestampDatabase(chain_id, file)
 
     def save(self):
         """Force a checkpoint.
@@ -127,7 +137,7 @@ class BlockTimestampDatabase:
         # Just ensure WAL is flushed
         self.con.commit()
 
-    def get_first_and_last_block(self, chain_id: int) -> tuple[int, int]:
+    def get_first_and_last_block(self) -> tuple[int, int]:
         """Get the first and last block numbers we have for a given chain ID.
 
         :return: 0,0 if no data
@@ -136,16 +146,14 @@ class BlockTimestampDatabase:
             """
             SELECT MIN(block_number), MAX(block_number) 
             FROM block_timestamps 
-            WHERE chain_id = ?
-        """,
-            [chain_id],
+        """
         ).fetchone()
 
         if res is None or res[0] is None:
             return 0, 0
         return res[0], res[1]
 
-    def __getitem__(self, chain_id: int) -> pd.Series | None:
+    def to_series(self) -> pd.Series | None:
         """Get timestamps for a single chain.
 
         Returns a Pandas Series to maintain compatibility with the original API.
@@ -159,10 +167,8 @@ class BlockTimestampDatabase:
             """
             SELECT block_number, timestamp 
             FROM block_timestamps 
-            WHERE chain_id = ? 
             ORDER BY block_number ASC
-        """,
-            [chain_id],
+        """
         ).df()
 
         if df.empty:
@@ -172,7 +178,7 @@ class BlockTimestampDatabase:
         df.set_index("block_number", inplace=True)
         return self.transform_time_values(df["timestamp"])
 
-    def query(self, chain_id: int, start_block: int, end_block: int) -> pd.Series | None:
+    def query(self, start_block: int, end_block: int) -> pd.Series | None:
         """Get timestamps for a single chain in an inclusive block range.
 
         Returns a Pandas Series to maintain compatibility with the original API.
@@ -189,11 +195,10 @@ class BlockTimestampDatabase:
             """
             SELECT block_number, timestamp
             FROM block_timestamps
-            WHERE chain_id = ?
-              AND block_number BETWEEN ? AND ?
+            WHERE block_number BETWEEN ? AND ?
             ORDER BY block_number ASC
             """,
-            [chain_id, start_block, end_block],
+            [start_block, end_block],
         ).df()
 
         if df.empty:
@@ -215,12 +220,13 @@ class BlockTimestampDatabase:
         self.con.close()
 
 
-def load_timestamp_cache(cache_file: Path = DEFAULT_TIMESTAMP_CACHE_FILE) -> BlockTimestampDatabase:
+def load_timestamp_cache(chain_id: int, cache_folder: Path = DEFAULT_TIMESTAMP_CACHE_FOLDER) -> BlockTimestampDatabase:
+    cache_file = BlockTimestampDatabase.get_database_file_chain(chain_id, cache_folder)
     logger.info(f"Loading block timestamps from {cache_file}")
-    return BlockTimestampDatabase.load(cache_file)
+    return BlockTimestampDatabase.load(chain_id, cache_file)
 
 
-def save_timestamp_cache(timestamps: BlockTimestampDatabase, cache_file: Path = DEFAULT_TIMESTAMP_CACHE_FILE):
+def save_timestamp_cache(timestamps: BlockTimestampDatabase, cache_file: Path = DEFAULT_TIMESTAMP_CACHE_FOLDER):
     assert isinstance(timestamps, BlockTimestampDatabase), f"Expected BlockTimestampDatabase, got {type(timestamps)}"
 
     # In DuckDB, data is persisted immediately on insert/update if connected to a file.

@@ -14,7 +14,7 @@ import hypersync
 
 from eth_defi.chain import get_chain_name
 from eth_defi.event_reader.multicall_timestamp import fetch_block_timestamps_multiprocess_auto_backend
-from eth_defi.event_reader.timestamp_cache import DEFAULT_TIMESTAMP_CACHE_FILE
+from eth_defi.event_reader.timestamp_cache import DEFAULT_TIMESTAMP_CACHE_FOLDER
 from eth_defi.hypersync.server import get_hypersync_server
 from eth_defi.hypersync.timestamp import get_hypersync_block_height
 from eth_defi.provider.multi_provider import create_multi_provider_web3, MultiProviderWeb3Factory
@@ -89,7 +89,7 @@ def create_and_populate_hypersync_timestamp_db_for_rpc(rpc_name: str):
 
 
 def main():
-    print(f"Prepopulating timestamp cache file {DEFAULT_TIMESTAMP_CACHE_FILE}")
+    print(f"Prepopulating timestamp cache file {DEFAULT_TIMESTAMP_CACHE_FOLDER}")
 
     rpc_names = os.environ.get("RPC_NAMES")
     if rpc_names:
