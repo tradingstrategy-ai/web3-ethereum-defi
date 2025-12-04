@@ -39,7 +39,7 @@ class BlockTimestampDatabase:
             CREATE TABLE IF NOT EXISTS block_timestamps (
                 chain_id UINTEGER,
                 block_number UINTEGER,
-                timestamp TIMESTAMP_S,
+                timestamp TIMESTAMP_MS,
                 PRIMARY KEY (chain_id, block_number)
             )
         """)
@@ -61,6 +61,9 @@ class BlockTimestampDatabase:
         # not as the persistent store.
         df_new = pd.DataFrame([{"chain_id": chain_id, "block_number": k, "timestamp": v} for k, v in data.items()])
 
+        # Need to force MS
+        df_new["timestamp"] = df_new["timestamp"].astype("datetime64[ms]")
+
         # 2. Register df as a view so DuckDB can query it
         self.con.register("df_view", df_new)
 
@@ -81,6 +84,7 @@ class BlockTimestampDatabase:
         :param read_only: If True, opens the connection in read-only mode (good for multiprocess readers).
         """
         import duckdb
+
         db = BlockTimestampDatabase(path)
         if read_only:
             # Re-connect in read_only mode specifically
@@ -128,7 +132,9 @@ class BlockTimestampDatabase:
 
         :return: Pandas series block number (int) -> block timestamp (pd.Timestamp)
         """
+
         # Selectively load only the specific chain ID
+        # We also need ORDER or
         df = self.con.execute(
             """
             SELECT block_number, timestamp 
@@ -143,6 +149,36 @@ class BlockTimestampDatabase:
             return None
 
         # Set index to match original behavior
+        df.set_index("block_number", inplace=True)
+        return df["timestamp"]
+
+    def query(self, chain_id: int, start_block: int, end_block: int) -> pd.Series | None:
+        """Get timestamps for a single chain in an inclusive block range.
+
+        Returns a Pandas Series to maintain compatibility with the original API.
+
+        :param chain_id: EVM chain id
+        :param start_block: Inclusive start block
+        :param end_block: Inclusive end block
+        :return: Pandas series block number (int) -> block timestamp (pd.Timestamp), or None if empty
+        """
+        if start_block > end_block:
+            raise ValueError("start_block must be <= end_block")
+
+        df = self.con.execute(
+            """
+            SELECT block_number, timestamp
+            FROM block_timestamps
+            WHERE chain_id = ?
+              AND block_number BETWEEN ? AND ?
+            ORDER BY block_number ASC
+            """,
+            [chain_id, start_block, end_block],
+        ).df()
+
+        if df.empty:
+            return None
+
         df.set_index("block_number", inplace=True)
         return df["timestamp"]
 

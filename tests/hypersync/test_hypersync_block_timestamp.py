@@ -172,6 +172,53 @@ def test_get_block_timestamps_using_hypersync_continue_cache(hypersync_client: H
         cache_file=cache_file,
     )
 
+    # CHeck we wrote data
+    assert cache_file.exists()
+    db = duckdb.connect(cache_file)
+    assert len(db.sql("SHOW TABLES")) == 1
+    df = db.sql("SELECT * FROM block_timestamps").df()
+    assert len(df) == 101  # 101 per chain
+
+    # Blocks missing if they do not contain transactions
+    # E.g https://etherscan.io/block/10000007
+    assert len(blocks_ethereum) == 101
+
+    # Read More than we have, after
+    blocks_ethereum_again = fetch_block_timestamps_using_hypersync_cached(
+        hypersync_client,
+        chain_id=1,
+        start_block=10_000_000,
+        end_block=10_000_200,
+        cache_file=cache_file,
+    )
+    assert len(blocks_ethereum_again) == 201
+
+    # Read More than we have, before
+    blocks_ethereum_again = fetch_block_timestamps_using_hypersync_cached(
+        hypersync_client,
+        chain_id=1,
+        start_block=9_999_900,
+        end_block=10_000_200,
+        cache_file=cache_file,
+    )
+    assert len(blocks_ethereum_again) == 301
+
+
+def test_timestamp_multi_save(hypersync_client: HypersyncClient, hypersync_polygon_client: HypersyncClient, tmp_path):
+    """Get blocks and then get some more blocks, do several saves"""
+
+    assert get_hypersync_block_height(hypersync_client) > 10_000_000
+
+    cache_file = tmp_path / "timestamp_cache.duckdb"
+
+    blocks_ethereum = fetch_block_timestamps_using_hypersync_cached(
+        hypersync_client,
+        chain_id=1,
+        start_block=10_000_000,
+        end_block=10_000_100,
+        cache_file=cache_file,
+    )
+
     # Blocks missing if they do not contain transactions
     # E.g https://etherscan.io/block/10000007
     assert len(blocks_ethereum) == 101
