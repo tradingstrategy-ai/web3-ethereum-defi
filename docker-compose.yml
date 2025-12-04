@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   # Run the ERC-4626 vault scanning script
   # See Dockerfile.vault-scanner for details
@@ -49,6 +47,16 @@ services:
       R2_SPARKLINE_ACCOUNT_ID: ${R2_SPARKLINE_ACCOUNT_ID:-}
       R2_SPARKLINE_ACCESS_KEY_ID: ${R2_SPARKLINE_ACCESS_KEY_ID:-}
       R2_SPARKLINE_SECRET_ACCESS_KEY: ${R2_SPARKLINE_SECRET_ACCESS_KEY:-}
+
+    # Try with 8gb RAM, 32G limit
+    # The bottleneck seems to be the data cleaning script.
+    mem_limit: ${MEM_LIMIT:-32g}
+    mem_reservation: ${MEM_RESERVATION:-8g}
+    memswap_limit: ${MEMSWAP_LIMIT:-32g} # Total memory + swap limit
+    shm_size: ${SHM_SIZE:-2g} # Shared memory size
+
+    # OOM kill disable (use with caution)
+    oom_kill_disable: ${OOM_KILL_DISABLE:-false}
 
     volumes:
       # Writing vault data files here
