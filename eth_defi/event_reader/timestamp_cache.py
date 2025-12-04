@@ -41,6 +41,7 @@ class BlockTimestampDatabase:
     def _init_schema(self):
         """Ensure the table exists with the correct schema and primary key.
 
+        - Disk/speed optimised, because we are mostly using this for vault events
         - We have plenty of time before year 2038, and I won't be around
         """
         self.con.execute("""
@@ -55,7 +56,7 @@ class BlockTimestampDatabase:
     def import_chain_data(self, chain_id: int, data: dict[int, datetime.datetime] | pd.Series):
         """Import data from raw dictionary format to the database.
 
-        Uses an upsert strategy (ON CONFLICT REPLACE) to ensure latest data is kept.
+        - Uses an upsert strategy (ON CONFLICT REPLACE) to ensure latest data is kept.
 
         :param chain_id: Chain ID for the data being imported.
 
