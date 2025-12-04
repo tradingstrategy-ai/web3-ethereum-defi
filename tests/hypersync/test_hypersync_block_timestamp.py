@@ -57,13 +57,17 @@ def test_get_block_timestamps_using_hypersync_cached(
 
     assert get_hypersync_block_height(hypersync_client) > 10_000_000
 
+    cache_file = tmp_path / "timestamp_cache.json"
+
     blocks = fetch_block_timestamps_using_hypersync_cached(
         hypersync_client,
         chain_id=1,
         start_block=10_000_000,
         end_block=10_000_100,
-        cache_file=tmp_path / "timestamp_cache.json"
+        cache_file=cache_file,
     )
+
+    assert cache_file.exists()
 
     # Blocks missing if they do not contain transactions
     # E.g https://etherscan.io/block/10000007
@@ -77,7 +81,7 @@ def test_get_block_timestamps_using_hypersync_cached(
         chain_id=1,
         start_block=10_000_000,
         end_block=10_000_100,
-        cache_file=tmp_path / "timestamp_cache.json"
+        cache_file=cache_file
     )
 
     assert len(blocks) == 101
@@ -90,7 +94,7 @@ def test_get_block_timestamps_using_hypersync_cached(
         chain_id=1,
         start_block=10_000_000,
         end_block=10_000_100,
-        cache_file=tmp_path / "timestamp_cache.json",
+        cache_file=cache_file,
         web3factory=SimpleWeb3Factory(None),
         step=10,
     )
