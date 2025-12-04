@@ -1,10 +1,12 @@
 """Turn vault discoveries to human-readable and machine-readable tables."""
 
+import datetime
 import threading
 import logging
 
 from typing import cast
 
+import pandas as pd
 from web3 import Web3
 from web3.types import BlockIdentifier
 
@@ -106,6 +108,9 @@ def create_vault_scan_record(
             logger.error(f"Failed to read lockup for vault {vault} at {detection.address}: {e}", exc_info=e)
             lockup = None
 
+        if lockup is not None:
+            assert isinstance(lockup, datetime.timedelta), f"Expected timedelta, got {type(lockup)}: {lockup}"
+
         # Resolve vault flags from the smart contract state
         try:
             flags = vault.get_flags()
@@ -133,7 +138,7 @@ def create_vault_scan_record(
             "Shares": total_supply,
             "First seen": detection.first_seen_at,
             "Features": ", ".join(sorted([f.name for f in detection.features])),
-            "Lock up": lockup,
+            "Lock up": lockup if lockup is not None and not pd.isna(lockup) else None,
             "Link": link,
             "_detection_data": detection,
             "_denomination_token": denomination_token,

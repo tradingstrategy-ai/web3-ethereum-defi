@@ -532,7 +532,7 @@ def calculate_lifetime_metrics(
         notes = get_notes(vault_address)
         flags = vault_metadata.get("_flags", {})
 
-        lockup = vault_metadata.get("Lock up", datetime.timedelta(0))
+        lockup = vault_metadata.get("Lock up", None)
 
         detection: ERC4262VaultDetection = vault_metadata["_detection_data"]
         features = sorted([f.name for f in detection.features])
