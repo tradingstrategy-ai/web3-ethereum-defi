@@ -15,6 +15,7 @@ from web3.providers.rpc import HTTPProvider
 from web3.types import RPCEndpoint, RPCResponse
 
 from eth_defi.compat import get_response_from_post_request
+from eth_defi.utils import get_url_domain
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +54,8 @@ def _make_request(self, method: RPCEndpoint, params: Any) -> RPCResponse:
         decoded = _fast_decode_rpc_response(raw_response.content)
         # Pass dRPC / etc upstream RPC headers all along for debug
         last_headers_storage.headers = {k: v for k, v in raw_response.headers.items()}
+        last_headers_storage.headers["method"] = method
+        last_headers_storage.headers["endpoint_uri"] = get_url_domain(self.endpoint_uri)
         return decoded
     except Exception as e:
         logger.error(

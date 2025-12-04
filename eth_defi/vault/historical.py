@@ -27,7 +27,7 @@ from eth_defi import hypersync
 from eth_defi.chain import EVM_BLOCK_TIMES, get_chain_name
 from eth_defi.erc_4626.vault import VaultReaderState
 from eth_defi.event_reader.multicall_batcher import EncodedCall, read_multicall_historical, EncodedCallResult, read_multicall_historical_stateful, BatchCallState
-from eth_defi.event_reader.timestamp_cache import DEFAULT_TIMESTAMP_CACHE_FILE
+from eth_defi.event_reader.timestamp_cache import DEFAULT_TIMESTAMP_CACHE_FOLDER
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.provider.broken_provider import get_almost_latest_block_number
 from eth_defi.token import TokenDetails, TokenDiskCache, fetch_erc20_details
@@ -82,7 +82,7 @@ class VaultHistoricalReadMulticaller:
         token_cache=None,
         require_multicall_result=False,
         hypersync_client: "hypersync.HypersyncClient | None" = None,
-        timestamp_cache_file: Path = DEFAULT_TIMESTAMP_CACHE_FILE,
+        timestamp_cache_file: Path = DEFAULT_TIMESTAMP_CACHE_FOLDER,
     ):
         """
         :param supported_quote_tokens:
@@ -474,7 +474,7 @@ def scan_historical_prices_to_parquet(
     frequency: Literal["1d", "1h"] = "1d",
     reader_states: dict[VaultSpec, dict] | None = None,
     hypersync_client=None,
-    timestamp_cache_file=DEFAULT_TIMESTAMP_CACHE_FILE,
+    timestamp_cache_file=DEFAULT_TIMESTAMP_CACHE_FOLDER,
 ) -> ParquetScanResult:
     """Scan all historical vault share prices of vaults and save them in to Parquet file.
 

@@ -38,7 +38,7 @@ from hypersync import BlockField
 from tqdm_loggable.auto import tqdm
 
 from eth_defi.event_reader.block_header import BlockHeader
-from eth_defi.event_reader.timestamp_cache import load_timestamp_cache, BlockTimestampDatabase, DEFAULT_TIMESTAMP_CACHE_FILE
+from eth_defi.event_reader.timestamp_cache import load_timestamp_cache, BlockTimestampDatabase, DEFAULT_TIMESTAMP_CACHE_FOLDER
 from eth_defi.utils import from_unix_timestamp
 
 logger = logging.getLogger(__name__)
@@ -200,9 +200,9 @@ async def fetch_block_timestamps_using_hypersync_cached_async(
     chain_id: int,
     start_block: int,
     end_block: int,
-    cache_file=DEFAULT_TIMESTAMP_CACHE_FILE,
+    cache_path=DEFAULT_TIMESTAMP_CACHE_FOLDER,
     display_progress: bool = True,
-    checkpoint_freq: int = 256_000,
+    checkpoint_freq: int = 768_000,
 ) -> pd.Series:
     """Quickly get block timestamps using Hypersync API and a local cache file.
 
@@ -212,14 +212,14 @@ async def fetch_block_timestamps_using_hypersync_cached_async(
         Block number -> datetime mapping
     """
 
-    if cache_file.exists():
-        timestamp_db = load_timestamp_cache(cache_file)
+    if cache_path.exists():
+        timestamp_db = load_timestamp_cache(chain_id, cache_path)
     else:
-        timestamp_db = BlockTimestampDatabase.create(cache_file)
+        timestamp_db = BlockTimestampDatabase.create(chain_id, cache_path)
 
-    first_read_block, last_read_block = timestamp_db.get_first_and_last_block(chain_id)
+    first_read_block, last_read_block = timestamp_db.get_first_and_last_block()
 
-    logger.info(f"Timestamp cache {cache_file} for chain {chain_id}: blocks {first_read_block} - {last_read_block}")
+    logger.info(f"Timestamp cache {cache_path} for chain {chain_id}: blocks {first_read_block} - {last_read_block}")
 
     if last_read_block:
         # Check the range we need to map out, we might ask earlier blocks than before
@@ -271,7 +271,7 @@ async def fetch_block_timestamps_using_hypersync_cached_async(
 
     # Drop unnecessary blocks from memory
     try:
-        return timestamp_db.query(chain_id, start_block, end_block)
+        return timestamp_db.query(start_block, end_block)
     finally:
         # DuckDB save
         timestamp_db.close()
@@ -282,7 +282,7 @@ def fetch_block_timestamps_using_hypersync_cached(
     chain_id: int,
     start_block: int,
     end_block: int,
-    cache_file=DEFAULT_TIMESTAMP_CACHE_FILE,
+    cache_path=DEFAULT_TIMESTAMP_CACHE_FOLDER,
     display_progress: bool = True,
 ) -> pd.Series:
     """Sync wrapper.
@@ -296,7 +296,7 @@ def fetch_block_timestamps_using_hypersync_cached(
             chain_id=chain_id,
             start_block=start_block,
             end_block=end_block,
-            cache_file=cache_file,
+            cache_path=cache_path,
             display_progress=display_progress,
         )
 

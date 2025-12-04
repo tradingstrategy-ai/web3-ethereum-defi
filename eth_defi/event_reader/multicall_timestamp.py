@@ -10,7 +10,7 @@ from joblib import Parallel, delayed
 from tqdm_loggable.auto import tqdm
 
 from eth_defi.chain import get_chain_name
-from eth_defi.event_reader.timestamp_cache import load_timestamp_cache, save_timestamp_cache, BlockTimestampDatabase, DEFAULT_TIMESTAMP_CACHE_FILE
+from eth_defi.event_reader.timestamp_cache import load_timestamp_cache, save_timestamp_cache, BlockTimestampDatabase, DEFAULT_TIMESTAMP_CACHE_FOLDER
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.timestamp import get_block_timestamp
 
@@ -51,7 +51,7 @@ def fetch_block_timestamps_multiprocess(
     display_progress=True,
     max_workers=8,
     timeout=120,
-    cache_file: Path | None = DEFAULT_TIMESTAMP_CACHE_FILE,
+    cache_path: Path | None = DEFAULT_TIMESTAMP_CACHE_FOLDER,
     checkpoint_freq: int = 20_000,
 ) -> pd.Series:
     """Extract timestamps using fast multiprocessing.
@@ -62,7 +62,7 @@ def fetch_block_timestamps_multiprocess(
     - We cache reader Web3 connections between batch jobs
     - joblib never shuts down this process
 
-    :param cache_file
+    :param cache_path
         Cache timestamps across runs and commands.
 
         Set to ``None`` to disable, or remove the file.
@@ -93,13 +93,13 @@ def fetch_block_timestamps_multiprocess(
         progress_bar = None
 
     timestamp_db = None  # Allow operating without caching
-    if cache_file:
-        if cache_file.exists():
-            timestamp_db: BlockTimestampDatabase = load_timestamp_cache(cache_file)
+    if cache_path:
+        if cache_path.exists():
+            timestamp_db: BlockTimestampDatabase = load_timestamp_cache(chain_id, cache_path)
         else:
-            timestamp_db = BlockTimestampDatabase.create(cache_file)
+            timestamp_db = BlockTimestampDatabase.create(chain_id, cache_path)
 
-        series = timestamp_db[chain_id]
+        series = timestamp_db.to_series()
 
         if series is not None:
             result = series.to_dict()
@@ -155,8 +155,8 @@ def fetch_block_timestamps_multiprocess(
 
     if timestamp_db:
         try:
-            series = timestamp_db[chain_id]
-            return series.loc[start_block:end_block]
+            series = timestamp_db.query(start_block, end_block)
+            return series
         finally:
             # DuckDB save
             timestamp_db.close()
@@ -174,7 +174,7 @@ def fetch_block_timestamps_multiprocess_auto_backend(
     display_progress=True,
     max_workers=8,
     timeout=120,
-    cache_file: Path | None = DEFAULT_TIMESTAMP_CACHE_FILE,
+    cache_path: Path | None = DEFAULT_TIMESTAMP_CACHE_FOLDER,
     checkpoint_freq: int = 20_000,
     hypersync_client: "hypersync.HypersyncClient | None" = None,
 ) -> pd.Series:
@@ -199,7 +199,7 @@ def fetch_block_timestamps_multiprocess_auto_backend(
             chain_id=chain_id,
             start_block=start_block,
             end_block=end_block,
-            cache_file=cache_file,
+            cache_path=cache_path,
             display_progress=display_progress,
         )
     else:
@@ -212,6 +212,6 @@ def fetch_block_timestamps_multiprocess_auto_backend(
             display_progress=display_progress,
             max_workers=max_workers,
             timeout=timeout,
-            cache_file=cache_file,
+            cache_path=cache_path,
             checkpoint_freq=checkpoint_freq,
         )

@@ -5,6 +5,7 @@ import pytest
 import os
 
 from eth_defi.event_reader.multicall_timestamp import fetch_block_timestamps_multiprocess_auto_backend
+from eth_defi.event_reader.timestamp_cache import BlockTimestampDatabase
 from eth_defi.event_reader.web3factory import SimpleWeb3Factory, Web3Factory
 from eth_defi.provider.multi_provider import create_multi_provider_web3, MultiProviderWeb3Factory
 
@@ -27,17 +28,18 @@ def web3_polygon_factory() -> Web3Factory:
 def test_get_block_timestamps_using_multiprocess_cached(web3_ethereum_factory, web3_polygon_factory, tmp_path):
     """We get 100 historical blocks using our poor multiprocess reader"""
 
-    cache_file = tmp_path / "timestamp_cache.duckdb"
+    cache_path = tmp_path
 
     blocks = fetch_block_timestamps_multiprocess_auto_backend(
         chain_id=1,
         start_block=10_000_000,
         end_block=10_000_100,
-        cache_file=cache_file,
+        cache_path=cache_path,
         web3factory=web3_ethereum_factory,
         step=1,
     )
 
+    cache_file = BlockTimestampDatabase.get_database_file_chain(1, cache_path)
     assert cache_file.exists()
 
     # Blocks missing if they do not contain transactions
@@ -51,7 +53,7 @@ def test_get_block_timestamps_using_multiprocess_cached(web3_ethereum_factory, w
         chain_id=1,
         start_block=10_000_000,
         end_block=10_000_100,
-        cache_file=cache_file,
+        cache_path=cache_path,
         web3factory=web3_ethereum_factory,
         step=1,
     )
@@ -65,7 +67,7 @@ def test_get_block_timestamps_using_multiprocess_cached(web3_ethereum_factory, w
         chain_id=1,
         start_block=10_000_000,
         end_block=10_000_100,
-        cache_file=cache_file,
+        cache_path=cache_path,
         web3factory=web3_polygon_factory,
         step=10,
     )
