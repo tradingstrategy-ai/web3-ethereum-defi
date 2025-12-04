@@ -39,7 +39,7 @@ class BlockTimestampDatabase:
             CREATE TABLE IF NOT EXISTS block_timestamps (
                 chain_id UINTEGER,
                 block_number UINTEGER,
-                timestamp TIMESTAMP,
+                timestamp TIMESTAMP_S,
                 PRIMARY KEY (chain_id, block_number)
             )
         """)
