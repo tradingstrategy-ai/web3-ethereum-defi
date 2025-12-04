@@ -1028,7 +1028,8 @@ class MultiprocessMulticallReader:
                    ("Failed to call: InvalidTransaction" in parsed_error) or \
                    isinstance(e, ProbablyNodeHasNoBlock) or \
                    isinstance(e, (ReadTimeout, RemoteDisconnected, ConnectionError)) or \
-                   (isinstance(e, HTTPError) and e.response.status_code == 500):
+                   (isinstance(e, HTTPError) and e.response.status_code == 500) or \
+                   (isinstance(e, HTTPError) and e.response.status_code == 502):
                     raise MulticallRetryable(error_msg) from e
                 # fmt: on
                 else:
