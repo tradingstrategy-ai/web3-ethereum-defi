@@ -17,10 +17,23 @@ class HypersyncBackendConfig:
     scan_backend: str
 
 
-def configure_hypersync_from_env(web3: Web3) -> HypersyncBackendConfig:
-    """Helper for scan-vaults and scan-prices scripts to configure Hypersync client from environment variables."""
+def configure_hypersync_from_env(
+    web3: Web3,
+    hypersync_api_key: str | None = None,
+) -> HypersyncBackendConfig:
+    """Helper for scan-vaults and scan-prices scripts to configure Hypersync client from environment variables.
 
-    hypersync_api_key = os.environ.get("HYPERSYNC_API_KEY", None)
+    - Some chains support HyperSync, others don't - autodetect support
+
+    :param hypersync_api_key:
+        Use given API key, instead of reading from env.\
+
+    :return:
+        A valid Hypersync config if the chain supports HyperSync
+    """
+
+    if not hypersync_api_key:
+        hypersync_api_key = os.environ.get("HYPERSYNC_API_KEY", None)
 
     scan_backend = os.environ.get("SCAN_BACKEND", "auto")
     if scan_backend == "auto":

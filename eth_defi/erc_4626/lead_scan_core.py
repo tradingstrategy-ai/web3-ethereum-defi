@@ -112,6 +112,7 @@ def scan_leads(
     backend: Literal["auto", "hypersync", "rpc"] = "auto",
     max_getlogs_range: int | None = None,
     reset_leads=False,
+    hypersync_api_key: str | None = None,
 ) -> LeadScanReport:
     """Core loop to discover new vaults on a chain.
 
@@ -130,9 +131,9 @@ def scan_leads(
     name = get_chain_name(chain_id)
     rpcs = get_provider_name(web3.provider)
 
-    hypersync_config = configure_hypersync_from_env(web3)
+    hypersync_config = configure_hypersync_from_env(web3, hypersync_api_key=hypersync_api_key)
 
-    printer(f"Scanning ERC-4626 vaults on chain {web3.eth.chain_id}: {name}, using rpcs: {rpcs}, using event backend {backend}, HyperSync: {hypersync_url or '<not avail>'}, and {max_workers} workers")
+    printer(f"Scanning ERC-4626 vaults on chain {web3.eth.chain_id}: {name}, using rpcs: {rpcs}, using event backend {backend}, HyperSync: {hypersync_config.hypersync_url or '<not avail>'}, and {max_workers} workers")
 
     if not vault_db_file.exists():
         logger.info("Starting vault lead scan, created new database at %s", vault_db_file)

@@ -256,8 +256,7 @@ async def fetch_block_timestamps_using_hypersync_cached_async(
 
         _save()
 
-    existing_samples = timestamp_db[chain_id]\
-
+    existing_samples = timestamp_db[chain_id]
     # DuckDB save
     timestamp_db.close()
 
@@ -273,9 +272,7 @@ def fetch_block_timestamps_using_hypersync_cached(
     cache_file=DEFAULT_TIMESTAMP_CACHE_FILE,
     display_progress: bool = True,
 ) -> pd.Series:
-    """Sync wrapper.
-
-    """
+    """Sync wrapper."""
 
     async def _hypersync_asyncio_wrapper():
         return await fetch_block_timestamps_using_hypersync_cached_async(
