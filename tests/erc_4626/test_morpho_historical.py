@@ -39,7 +39,7 @@ def test_steakhouse_usdt(
     """
     token_cache = TokenDiskCache(tmp_path / "tokens.sqlite")
     parquet_file = tmp_path / "prices.parquet"
-    timestamp_cache_file = tmp_path / "timestamps.duckdb"
+    timestamp_cache_path = tmp_path / "timestamps"
 
     assert not parquet_file.exists()
 
@@ -93,7 +93,7 @@ def test_steakhouse_usdt(
         step=24 * 3600 // 12,
         token_cache=token_cache,
         require_multicall_result=True,
-        timestamp_cache_file=timestamp_cache_file,
+        timestamp_cache_file=timestamp_cache_path,
     )
     assert scan_report["rows_written"] == 283
 

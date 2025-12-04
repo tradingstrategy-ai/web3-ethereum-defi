@@ -202,7 +202,7 @@ async def fetch_block_timestamps_using_hypersync_cached_async(
     end_block: int,
     cache_path=DEFAULT_TIMESTAMP_CACHE_FOLDER,
     display_progress: bool = True,
-    checkpoint_freq: int = 256_000,
+    checkpoint_freq: int = 768_000,
 ) -> pd.Series:
     """Quickly get block timestamps using Hypersync API and a local cache file.
 

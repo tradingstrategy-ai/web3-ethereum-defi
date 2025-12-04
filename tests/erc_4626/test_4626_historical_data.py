@@ -122,12 +122,12 @@ def test_4626_historical_vault_data_stateful(
     usdc = fetch_erc20_details(web3, USDC_NATIVE_TOKEN[web3.eth.chain_id])
     susds = fetch_erc20_details(web3, SUSDS_NATIVE_TOKEN[web3.eth.chain_id])
 
-    timestamp_cache_file = tmp_path / "timestamp_cache.duckdb"
+    timestamp_cache_path = tmp_path / "timestamp_cache"
 
     reader = VaultHistoricalReadMulticaller(
         web3factory=MultiProviderWeb3Factory(JSON_RPC_BASE),
         supported_quote_tokens={usdc, susds},
-        timestamp_cache_file=timestamp_cache_file,
+        timestamp_cache_file=timestamp_cache_path,
     )
 
     records = reader.read_historical(

@@ -112,7 +112,8 @@ class BlockTimestampDatabase:
     @staticmethod
     def get_database_file_chain(chain_id: int, path=DEFAULT_TIMESTAMP_CACHE_FOLDER) -> Path:
         """Get the default database file path for a given chain ID."""
-        assert path.is_dir(), f"Expected directory path, got {path}"
+        if path.exists():
+            assert path.is_dir(), f"Expected directory path, got {path}"
         return path / f"{chain_id}-timestamps.duckdb"
 
     @staticmethod
