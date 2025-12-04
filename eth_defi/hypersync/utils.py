@@ -1,4 +1,5 @@
 """Hypersync configuration utils."""
+
 import os
 from dataclasses import dataclass
 

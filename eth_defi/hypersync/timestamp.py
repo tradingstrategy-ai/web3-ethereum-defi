@@ -30,6 +30,7 @@ import datetime
 from typing import Iterable
 import logging
 
+import pandas as pd
 from eth_typing import BlockNumber
 
 import hypersync
@@ -38,7 +39,7 @@ from hypersync import BlockField
 from tqdm_loggable.auto import tqdm
 
 from eth_defi.event_reader.block_header import BlockHeader
-from eth_defi.event_reader.multicall_timestamp import load_timestamp_cache, DEFAULT_TIMESTAMP_CACHE_FILE, ChainBlockTimestampMap, save_timestamp_cache
+from eth_defi.event_reader.timestamp_cache import load_timestamp_cache, save_timestamp_cache, BlockTimestampDatabase, DEFAULT_TIMESTAMP_CACHE_FILE
 from eth_defi.utils import from_unix_timestamp
 
 logger = logging.getLogger(__name__)
@@ -141,7 +142,6 @@ async def get_block_timestamps_using_hypersync_async(
         progress_bar.close()
 
 
-
 def get_block_timestamps_using_hypersync(
     client: hypersync.HypersyncClient,
     chain_id: int,
@@ -201,20 +201,24 @@ def fetch_block_timestamps_using_hypersync_cached(
     end_block: int,
     cache_file=DEFAULT_TIMESTAMP_CACHE_FILE,
     display_progress: bool = True,
-) -> dict[int, datetime.datetime]:
+) -> pd.Series:
     """Quickly get block timestamps using Hypersync API and a local cache file.
 
     :return:
         Block number -> datetime mapping
     """
 
-    existing_data = load_timestamp_cache(cache_file)
+    last_read_block = 0
+    first_read_block = 0
 
-    result: ChainBlockTimestampMap = existing_data
-    result[chain_id] = result.get(chain_id, {})
+    if cache_file.exists():
+        timestamp_db = load_timestamp_cache(cache_file)
+        chain_blocks = timestamp_db[chain_id]
 
-    last_read_block = max(result[chain_id].keys(), default=None)
-    first_read_block = min(result[chain_id].keys(), default=None)
+    else:
+        timestamp_db = BlockTimestampDatabase.create()
+
+    first_read_block, last_read_block = timestamp_db.get_first_and_last_block(chain_id)
 
     logger.info(f"Timestamp cache {cache_file} for chain {chain_id}: blocks {first_read_block} - {last_read_block}")
 
@@ -230,9 +234,9 @@ def fetch_block_timestamps_using_hypersync_cached(
     logger.info(f"Adjusted timestamp scan range for chain {chain_id}: blocks {scan_start} - {end_block}")
 
     # Check if we have anything to read
+    result = {}
     if end_block > last_read_block or start_block < first_read_block:
-
-        block_to_timestamp = get_block_timestamps_using_hypersync(
+        block_to_header = get_block_timestamps_using_hypersync(
             client,
             chain_id,
             start_block=scan_start,
@@ -240,9 +244,15 @@ def fetch_block_timestamps_using_hypersync_cached(
             display_progress=display_progress,
         )
 
-        for block_number, block_header in block_to_timestamp.items():
-            result[chain_id][block_number] = block_header.timestamp_as_datetime
+        for block_number, block_header in block_to_header.items():
+            result[block_number] = block_header.timestamp_as_datetime
 
-        save_timestamp_cache(result, cache_file)
+        timestamp_db.import_chain_data(
+            chain_id,
+            result,
+        )
+        save_timestamp_cache(timestamp_db, cache_file)
 
-    return result[chain_id]
+    existing_samples = timestamp_db[chain_id]
+
+    return existing_samples

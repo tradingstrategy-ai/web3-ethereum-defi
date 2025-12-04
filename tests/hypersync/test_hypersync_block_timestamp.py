@@ -3,6 +3,7 @@
 import datetime
 import os
 
+import pandas as pd
 import pytest
 
 from eth_defi.event_reader.multicall_timestamp import fetch_block_timestamps_multiprocess_auto_backend
@@ -21,6 +22,13 @@ pytestmark = pytest.mark.skipif(not HYPERSYNC_API_KEY, reason="Set HYPERSYNC_API
 @pytest.fixture()
 def hypersync_client() -> HypersyncClient:
     hypersync_url = get_hypersync_server(1)  # Mainnet
+    client = HypersyncClient(ClientConfig(url=hypersync_url, bearer_token=HYPERSYNC_API_KEY))
+    return client
+
+
+@pytest.fixture()
+def hypersync_polygon_client() -> HypersyncClient:
+    hypersync_url = get_hypersync_server(137)
     client = HypersyncClient(ClientConfig(url=hypersync_url, bearer_token=HYPERSYNC_API_KEY))
     return client
 
@@ -48,11 +56,7 @@ def test_get_block_timestamps_using_hypersync(hypersync_client: HypersyncClient)
     assert block.timestamp_as_datetime == datetime.datetime(2020, 5, 4, 13, 45, 31)
 
 
-
-def test_get_block_timestamps_using_hypersync_cached(
-    hypersync_client: HypersyncClient,
-    tmp_path
-):
+def test_get_block_timestamps_using_hypersync_cached(hypersync_client: HypersyncClient, tmp_path):
     """We get 100 historical blocks from Hypersync"""
 
     assert get_hypersync_block_height(hypersync_client) > 10_000_000
@@ -76,13 +80,7 @@ def test_get_block_timestamps_using_hypersync_cached(
     assert timestamp == datetime.datetime(2020, 5, 4, 13, 45, 31)
 
     # Run again with warm cache
-    blocks = fetch_block_timestamps_using_hypersync_cached(
-        hypersync_client,
-        chain_id=1,
-        start_block=10_000_000,
-        end_block=10_000_100,
-        cache_file=cache_file
-    )
+    blocks = fetch_block_timestamps_using_hypersync_cached(hypersync_client, chain_id=1, start_block=10_000_000, end_block=10_000_100, cache_file=cache_file)
 
     assert len(blocks) == 101
     timestamp = blocks[10_000_100]
@@ -102,3 +100,53 @@ def test_get_block_timestamps_using_hypersync_cached(
     timestamp = blocks[10_000_100]
     assert timestamp == datetime.datetime(2020, 5, 4, 13, 45, 31)
 
+
+def test_get_block_timestamps_using_hypersync_cached_multichain(hypersync_client: HypersyncClient, hypersync_polygon_client: HypersyncClient, tmp_path):
+    """We get 100 historical blocks from Hypersync"""
+
+    assert get_hypersync_block_height(hypersync_client) > 10_000_000
+
+    cache_file = tmp_path / "timestamp_cache.parquet"
+
+    blocks_ethereum = fetch_block_timestamps_using_hypersync_cached(
+        hypersync_client,
+        chain_id=1,
+        start_block=10_000_000,
+        end_block=10_000_100,
+        cache_file=cache_file,
+    )
+
+    assert cache_file.exists()
+
+    # Blocks missing if they do not contain transactions
+    # E.g https://etherscan.io/block/10000007
+    assert len(blocks_ethereum) == 101
+    timestamp = blocks_ethereum[10_000_100]
+    assert timestamp == datetime.datetime(2020, 5, 4, 13, 45, 31)
+
+    # Read cached
+    blocks_ethereum_again = fetch_block_timestamps_using_hypersync_cached(
+        hypersync_client,
+        chain_id=1,
+        start_block=10_000_000,
+        end_block=10_000_100,
+        cache_file=cache_file,
+    )
+    assert len(blocks_ethereum_again) == 101
+    timestamp = blocks_ethereum_again[10_000_100]
+    assert timestamp == datetime.datetime(2020, 5, 4, 13, 45, 31)
+
+    # Read another chain to the same database
+    blocks_polygon = fetch_block_timestamps_using_hypersync_cached(
+        hypersync_polygon_client,
+        chain_id=137,
+        start_block=10_000_000,
+        end_block=10_000_100,
+        cache_file=cache_file,
+    )
+    assert len(blocks_polygon) == 101
+    timestamp = blocks_polygon[10_000_100]
+    assert timestamp == pd.Timestamp("2021-01-24 22:32:30")
+
+    df = pd.read_parquet(cache_file)
+    assert len(df) == 202  # 101 per chain
