@@ -23,6 +23,7 @@ from joblib import Parallel, delayed
 from tqdm_loggable.auto import tqdm
 from web3 import Web3
 
+from eth_defi import hypersync
 from eth_defi.chain import EVM_BLOCK_TIMES, get_chain_name
 from eth_defi.erc_4626.vault import VaultReaderState
 from eth_defi.event_reader.multicall_batcher import EncodedCall, read_multicall_historical, EncodedCallResult, read_multicall_historical_stateful, BatchCallState
@@ -79,6 +80,7 @@ class VaultHistoricalReadMulticaller:
         max_workers=8,
         token_cache=None,
         require_multicall_result=False,
+        hypersync_client: "hypersync.HypersyncClient | None" = None,
     ):
         """
         :param supported_quote_tokens:
@@ -92,6 +94,7 @@ class VaultHistoricalReadMulticaller:
         self.supported_quote_tokens = supported_quote_tokens
         self.web3factory = web3factory
         self.max_workers = max_workers
+        self.hypersync_client = hypersync_client
 
         if token_cache is None:
             token_cache = TokenDiskCache()
@@ -389,6 +392,7 @@ class VaultHistoricalReadMulticaller:
             max_workers=self.max_workers,
             progress_suffix=_progress_bar_suffix,
             require_multicall_result=self.require_multicall_result,
+            hypersync_client=self.hypersync_client,
         ):
             total_combined_results += 1
 
@@ -465,6 +469,7 @@ def scan_historical_prices_to_parquet(
     require_multicall_result=False,
     frequency: Literal["1d", "1h"] = "1d",
     reader_states: dict[VaultSpec, dict] | None = None,
+    hypersync_client=None,
 ) -> ParquetScanResult:
     """Scan all historical vault share prices of vaults and save them in to Parquet file.
 
@@ -512,6 +517,9 @@ def scan_historical_prices_to_parquet(
 
     :param max_workers:
         Number of subprocesses to use for multicall
+
+    :param hypersync_client:
+        Speed up the discovery of timestamps
 
     :return:
         Scan report.
@@ -569,6 +577,7 @@ def scan_historical_prices_to_parquet(
         max_workers=max_workers,
         token_cache=token_cache,
         require_multicall_result=require_multicall_result,
+        hypersync_client=hypersync_client,
     )
 
     # TODO: Do not use - all is dynamic frequency with stateful reading now

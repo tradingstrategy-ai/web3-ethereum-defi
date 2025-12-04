@@ -581,8 +581,12 @@ def calculate_lifetime_metrics(
             three_months_start = group.index.asof(three_months_ago)
             last_three_months = group.loc[three_months_start:]
 
+            if vault_address == "0x75288264fdfea8ce68e6d852696ab1ce2f3e5004":
+                import ipdb ; ipdb.set_trace()
+
             one_month_start = group.index.asof(month_ago)
             last_month = group.loc[one_month_start:]
+            one_month_end = last_month.index.max()
 
             # Calculate 3 months CAGR
             # Get the first and last date
@@ -590,7 +594,8 @@ def calculate_lifetime_metrics(
             three_months_end = end_date = last_three_months.index.max()
             three_months_samples = len(last_three_months)
 
-            if len(last_three_months) >= 2 and (end_date - start_date) < pd.Timedelta(days=120):
+            # We need at least two data points and the start sample must fit into 90 days + buffer time range
+            if len(last_three_months) >= 2 and (three_months_end - three_months_start) < pd.Timedelta(days=120):
                 years = (end_date - start_date).days / 365.25
 
                 returns_series = resample_returns(
@@ -640,7 +645,8 @@ def calculate_lifetime_metrics(
             start_date = last_month.index.min()
             end_date = last_month.index.max()
 
-            if len(last_month) >= 2 and (end_date - start_date) < pd.Timedelta(days=60):
+            # We need at least two data points and the start sample must fit into 90 days + buffer time range
+            if len(last_month) >= 2 and (one_month_end - one_month_start) < pd.Timedelta(days=60):
                 years = (end_date - start_date).days / 365.25
 
                 one_month_returns = last_month.iloc[-1]["share_price"] / last_month.iloc[0]["share_price"] - 1

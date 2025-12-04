@@ -26,6 +26,7 @@ Example:
 """
 
 import asyncio
+import datetime
 from typing import Iterable
 import logging
 
@@ -35,6 +36,7 @@ import hypersync
 from hypersync import BlockField
 
 from eth_defi.event_reader.block_header import BlockHeader
+from eth_defi.event_reader.multicall_timestamp import load_timestamp_cache, DEFAULT_TIMESTAMP_CACHE_FILE, ChainBlockTimestampMap, save_timestamp_cache
 from eth_defi.utils import from_unix_timestamp
 
 logger = logging.getLogger(__name__)
@@ -123,6 +125,8 @@ def get_block_timestamps_using_hypersync(
 
     Wraps :py:func:`get_block_timestamps_using_hypersync_async`.
 
+    You want to use :py:func:`fetch_block_timestamps_using_hypersync_cached` cached version.
+
     :return:
         Block number -> header mapping
     """
@@ -159,3 +163,38 @@ def get_hypersync_block_height(
         return await client.get_height()
 
     return asyncio.run(_hypersync_asyncio_wrapper())
+
+
+def fetch_block_timestamps_using_hypersync_cached(
+    client: hypersync.HypersyncClient,
+    chain_id: int,
+    start_block: int,
+    end_block: int,
+    cache_file=DEFAULT_TIMESTAMP_CACHE_FILE,
+) -> dict[int, datetime.datetime]:
+    """Quickly get block timestamps using Hypersync API and a local cache file.
+
+    :return:
+        Block number -> datetime mapping
+    """
+
+    existing_data = load_timestamp_cache(cache_file)
+
+    result: ChainBlockTimestampMap = existing_data
+    result[chain_id] = result.get(chain_id, {})
+
+    last_read_block = max(result[chain_id].keys(), default=start_block)
+
+    block_to_timestamp = get_block_timestamps_using_hypersync(
+        client,
+        chain_id,
+        start_block=last_read_block,
+        end_block=end_block,
+    )
+
+    for block_number, block_header in block_to_timestamp.items():
+        result[chain_id][block_number] = block_header.timestamp_as_datetime
+
+    save_timestamp_cache(result, cache_file)
+
+    return result[chain_id]

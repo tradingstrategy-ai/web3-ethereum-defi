@@ -1,48 +1,6 @@
 """Examine a scan state for a single vault.
 
-To diagnose why data is incorrect for a particular vault.
-
-- Pull out vault reader state from the pickled statea database and print it.
-- Check both uncleaned and cleaned price data for the vault.
-
-Usage:
-
-.. code-block:: shell
-
-    # Fluid
-    VAULT_ID=1-"0x00c8a649c9837523ebb406ceb17a6378ab5c74cf" python scripts/erc-4626/examine-vault-state.py
-
-    # Plutus
-    VAULT_ID="42161-0x58bfc95a864e18e8f3041d2fcd3418f48393fe6a" python scripts/erc-4626/examine-vault-state.py
-
-    # Summer
-    VAULT_ID="42161-0x4f63cfea7458221cb3a0eee2f31f7424ad34bb58" python scripts/erc-4626/examine-vault-state.py
-
-    # Ipor Base
-    VAULT_ID="8453-0x45aa96f0b3188d47a1dafdbefce1db6b37f58216" python scripts/erc-4626/examine-vault-state.py
-
-    # Hype++
-    VAULT_ID="42161-0x75288264fdfea8ce68e6d852696ab1ce2f3e5004" python scripts/erc-4626/examine-vault-state.py
-
-
-Example output:
-
-.. code-block:: none
-
-    Vault VaultSpec(chain_id=1, vault_address='0x00c8a649c9837523ebb406ceb17a6378ab5c74cf') state:
-      last_tvl: 11747340.777844
-      max_tvl: 22979214.227838
-      first_seen_at_block: 23180703
-      first_block: 23180899
-      first_read_at: 2025-08-20 07:48:59
-      last_call_at: 2025-10-21 14:01:23
-      last_block: 23626399
-      peaked_at: 2025-10-20 06:41:35
-      faded_at: None
-      entry_count: 1486
-      chain_id: 1
-      vault_address: 0x00C8a649C9837523ebb406Ceb17a6378Ab5C74cF
-    All ok
+Moved to: `erc-4626-examine-vault-reader-state.ipynb`
 
 """
 

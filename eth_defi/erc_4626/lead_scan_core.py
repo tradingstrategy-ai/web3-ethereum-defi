@@ -22,6 +22,7 @@ from eth_defi.erc_4626.discovery_base import LeadScanReport
 from eth_defi.erc_4626.rpc_discovery import JSONRPCVaultDiscover
 from eth_defi.erc_4626.scan import create_vault_scan_record_subprocess
 from eth_defi.hypersync.timestamp import get_hypersync_block_height
+from eth_defi.hypersync.utils import configure_hypersync_from_env
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
 from eth_defi.provider.named import get_provider_name
 from eth_defi.vault.vaultdb import VaultDatabase
@@ -111,7 +112,6 @@ def scan_leads(
     backend: Literal["auto", "hypersync", "rpc"] = "auto",
     max_getlogs_range: int | None = None,
     reset_leads=False,
-    hypersync_api_key: str | None = None,
 ) -> LeadScanReport:
     """Core loop to discover new vaults on a chain.
 
@@ -119,9 +119,6 @@ def scan_leads(
     - Resume for the last known block
     """
 
-    # Avoid hard dependency
-    import hypersync
-    from eth_defi.hypersync.server import get_hypersync_server
     from eth_defi.erc_4626.hypersync_discovery import HypersyncVaultDiscover
 
     assert isinstance(vault_db_file, Path)
@@ -133,22 +130,7 @@ def scan_leads(
     name = get_chain_name(chain_id)
     rpcs = get_provider_name(web3.provider)
 
-    match backend:
-        case "auto":
-            hypersync_url = get_hypersync_server(web3, allow_missing=True)
-            assert hypersync_api_key, "HYPERSYNC_API_KEY must be set to use HyperSync backend"
-            if hypersync_url:
-                hypersync_client = hypersync.HypersyncClient(hypersync.ClientConfig(url=hypersync_url, bearer_token=hypersync_api_key))
-            else:
-                hypersync_client = None
-        case "hypersync":
-            hypersync_url = get_hypersync_server(web3)
-            assert hypersync_url, f"No HyperSync server available for chain {web3.eth.chain_id}"
-            assert hypersync_api_key, "HYPERSYNC_API_KEY must be set to use HyperSync backend"
-            hypersync_client = hypersync.HypersyncClient(hypersync.ClientConfig(url=hypersync_url, bearer_token=hypersync_api_key))
-        case "rpc":
-            hypersync_client = None
-            hypersync_url = None
+    hypersync_config = configure_hypersync_from_env(web3)
 
     printer(f"Scanning ERC-4626 vaults on chain {web3.eth.chain_id}: {name}, using rpcs: {rpcs}, using event backend {backend}, HyperSync: {hypersync_url or '<not avail>'}, and {max_workers} workers")
 
@@ -168,17 +150,17 @@ def scan_leads(
     else:
         assert type(end_block) == int
 
-    if hypersync_client:
+    if hypersync_config.hypersync_client:
         # Create a scanner that uses web3, HyperSync and subprocesses
         vault_discover = HypersyncVaultDiscover(
             web3,
             web3factory,
-            hypersync_client,
+            hypersync_config.hypersync_client,
             max_workers=max_workers,
         )
 
         if not end_block:
-            end_block = get_hypersync_block_height(hypersync_client)
+            end_block = get_hypersync_block_height(hypersync_config.hypersync_client)
 
     else:
         # Create a scanner that uses web3 and subprocesses

@@ -1345,6 +1345,7 @@ def read_multicall_historical_stateful(
     progress_suffix: Callable | None = None,
     require_multicall_result=False,
     chunk_size=48,
+    hypersync_client: "HypersyncClient | None" = None,
 ) -> Iterable[CombinedEncodedCallResult]:
     """Read historical data using multicall with reading state and adaptive frequency filtering.
 

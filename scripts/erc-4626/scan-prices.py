@@ -47,9 +47,22 @@ Re-run manual test::
     export JSON_RPC_URL=$JSON_RPC_GNOSIS
     python scripts/erc-4626/scan-prices.py
 
-Copy server-side run results back to the local machine::
+Copy server-side run results back to the local machine:
+
+.. code-block:: shell
 
     rsync -av --inplace --progress --exclude="tmp*" "vitalik7-tailscale:.tradingstrategy/vaults/*" ~/.tradingstrategy/vaults/
+
+Debug scan of a single vault:
+
+.. code-block:: shell
+
+    # Hype++ on Arbitrum
+    VAULT_ID="42161-0x75288264fdfea8ce68e6d852696ab1ce2f3e5004"  \
+    JSON_RPC_URL=$JSON_RPC_ARBITRUM \
+    READER_STATE_DATABASE=/tmp/reader-state.pickle \
+    UNCLEANED_PRICE_DATABASE=/tmp/prices.parquet \
+    python scripts/erc-4626/scan-prices.py
 
 """
 
@@ -58,8 +71,16 @@ import os
 import pickle
 import sys
 from pathlib import Path
-from pprint import pformat
+
 from urllib.parse import urlparse
+
+from eth_defi.hypersync.server import get_hypersync_server
+from eth_defi.hypersync.utils import configure_hypersync_from_env
+
+try:
+    import hypersync
+except ImportError as e:
+    raise ImportError("Install the library with optional HyperSync dependency to use this module") from e
 
 from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.classification import create_vault_instance
@@ -67,6 +88,7 @@ from eth_defi.erc_4626.core import ERC4262VaultDetection
 from eth_defi.provider.multi_provider import create_multi_provider_web3, MultiProviderWeb3Factory
 from eth_defi.token import TokenDiskCache
 from eth_defi.utils import setup_console_logging
+from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.historical import scan_historical_prices_to_parquet, pformat_scan_result
 from eth_defi.vault.vaultdb import DEFAULT_VAULT_DATABASE, DEFAULT_UNCLEANED_PRICE_DATABASE, DEFAULT_READER_STATE_DATABASE
 
@@ -120,13 +142,27 @@ def main():
     else:
         output_folder = Path(output_folder).expanduser()
 
+    # Scan a single vault
+    vault_id = os.environ.get("VAULT_ID")
+    if vault_id is not None:
+        vault_spec = VaultSpec.parse_string(vault_id)
+    else:
+        vault_spec = None
+
     frequency = os.environ.get("FREQUENCY", "1h")
 
     assert frequency in ["1h", "1d"], f"Unsupported frequency: {frequency}"
 
+    hypersync_config = configure_hypersync_from_env(web3)
+
+    print(f"Using scan backend: {hypersync_config.scan_backend}, HyperSync URL: {hypersync_config/hypersync_url}")
+
+    reader_state_database = os.environ.get("READER_STATE_DATABASE")
+    price_parquet_fname = os.environ.get("UNCLEANED_PRICE_DATABASE")
+
     vault_db_fname = DEFAULT_VAULT_DATABASE
-    price_parquet_fname = DEFAULT_UNCLEANED_PRICE_DATABASE
-    reader_state_db = DEFAULT_READER_STATE_DATABASE
+    price_parquet_fname = Path(price_parquet_fname) or DEFAULT_UNCLEANED_PRICE_DATABASE
+    reader_state_db = Path(reader_state_database) or DEFAULT_READER_STATE_DATABASE
 
     print(f"Scanning vault historical prices on chain {web3.eth.chain_id}: {name}")
 
@@ -159,6 +195,12 @@ def main():
         if detection.deposit_count < min_deposit_threshold:
             # print(f"Vault does not have enough deposits: {address}, has: {detection.deposit_count}, threshold {min_deposit_threshold}")
             continue
+
+        if vault_spec is not None:
+            # Skip
+            if vault_spec.vault_address != address:
+                continue
+            print(f"Scanning single vault: {vault_spec}")
 
         vault = create_vault_instance(web3, address, detection.features, token_cache=token_cache)
         if vault is not None:
@@ -199,6 +241,7 @@ def main():
             token_cache=token_cache,
             frequency=frequency,
             reader_states=reader_states,
+            hypersync_client=hypersync_config.hypersync_client,
         )
     finally:
         if pr:

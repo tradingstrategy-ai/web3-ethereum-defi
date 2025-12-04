@@ -13,6 +13,7 @@ from tqdm_loggable.auto import tqdm
 
 from eth_defi.chain import get_chain_name
 from eth_defi.event_reader.web3factory import Web3Factory
+from eth_defi.hypersync.timestamp import fetch_block_timestamps_using_hypersync_cached
 from eth_defi.timestamp import get_block_timestamp
 
 
@@ -22,6 +23,10 @@ logger = logging.getLogger(__name__)
 ChainBlockTimestampMap: TypeAlias = dict[int, dict[int, datetime.datetime]]
 
 _timestamp_instance = threading.local()
+
+
+#: Where we store our block header timestamps cache by default
+DEFAULT_TIMESTAMP_CACHE_FILE = Path.home() / ".cache" / "tradingstrategy" / "block-timestamps.pickle"
 
 
 def _read_timestamp_subprocess(
@@ -45,11 +50,11 @@ def _read_timestamp_subprocess(
     return block_number, get_block_timestamp(web3, block_number)
 
 
-def _load_data(cache_file: Path) -> ChainBlockTimestampMap:
+def load_timestamp_cache(cache_file: Path) -> ChainBlockTimestampMap:
     return pickle.load(cache_file.open("rb")) if cache_file.exists() else {}
 
 
-def _save_data(timestamps: ChainBlockTimestampMap, cache_file: Path):
+def save_timestamp_cache(timestamps: ChainBlockTimestampMap, cache_file: Path):
     assert isinstance(timestamps, dict), "Timestamps must be a dictionary"
     cache_file.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = cache_file.with_suffix(cache_file.suffix + ".tmp")
@@ -108,12 +113,12 @@ def fetch_block_timestamps_multiprocess(
     if display_progress:
         progress_bar = tqdm(
             total=(end_block - start_block) // step,
-            desc=f"Reading timestamps for chain {chain_name}: {start_block:,} - {end_block:,}, {max_workers} workers",
+            desc=f"Reading timestamps (slow) for chain {chain_name}: {start_block:,} - {end_block:,}, {max_workers} workers",
         )
     else:
         progress_bar = None
 
-    existing_data = _load_data(cache_file)
+    existing_data = load_timestamp_cache(cache_file)
 
     result: ChainBlockTimestampMap = existing_data
     result[chain_id] = result.get(chain_id, {})
@@ -142,9 +147,49 @@ def fetch_block_timestamps_multiprocess(
             # Save the current state to the cache file
             last_save = block_number
             if cache_file:
-                _save_data(result, cache_file)
+                save_timestamp_cache(result, cache_file)
 
     if progress_bar:
         progress_bar.close()
 
     return result[chain_id]
+
+
+def fetch_block_timestamps_multiprocess_multi_backend(
+    chain_id: int,
+    web3factory: Web3Factory,
+    start_block: int,
+    end_block: int,
+    step: int,
+    display_progress=True,
+    max_workers=8,
+    timeout=120,
+    cache_file: Path | None = DEFAULT_TIMESTAMP_CACHE_FILE,
+    checkpoint_freq: int = 20_000,
+    hypersync_client: "hypersync.HypersyncClient | None" = None,
+) -> dict[int, datetime.datetime]:
+    """Fetch block timestamps, choose backend.
+
+    - If Hypersync is available, use the optimised code path
+    """
+
+    if hypersync_client:
+        return fetch_block_timestamps_using_hypersync_cached(
+            client=hypersync_client,
+            chain_id=chain_id,
+            start_block=start_block,
+            end_block=end_block,
+        )
+    else:
+        return fetch_block_timestamps_multiprocess(
+            chain_id=chain_id,
+            web3factory=web3factory,
+            start_block=start_block,
+            end_block=end_block,
+            step=step,
+            display_progress=display_progress,
+            max_workers=max_workers,
+            timeout=timeout,
+            cache_file=cache_file,
+            checkpoint_freq=checkpoint_freq,
+        )
