@@ -232,14 +232,19 @@ async def fetch_block_timestamps_using_hypersync_cached_async(
     logger.info(f"Adjusted timestamp scan range for chain {chain_id}: blocks {scan_start} - {end_block}")
 
     def _save():
+        series = pd.Series(data=values, index=index)
         timestamp_db.import_chain_data(
             chain_id,
-            result,
+            series,
         )
 
     # Check if we have anything to read
     result = {}
     checkpoint_count = 0
+
+    index = []
+    values = []
+
     if end_block > last_read_block or start_block < first_read_block:
         iter = get_block_timestamps_using_hypersync_async(
             client,
@@ -250,13 +255,17 @@ async def fetch_block_timestamps_using_hypersync_cached_async(
         )
 
         async for block_header in iter:
-            result[block_header.block_number] = pd.to_datetime(block_header.timestamp, unit="s")
+            index.append(block_header.block_number)
+            values.append(block_header.timestamp)
+
+            # result[block_header.block_number] = pd.to_datetime(block_header.timestamp, unit="s")
             checkpoint_count += 1
 
             if checkpoint_count % checkpoint_freq == 0:
                 _save()
                 # Reset buffer
-                result = {}
+                index = []
+                values = []
 
         _save()
 

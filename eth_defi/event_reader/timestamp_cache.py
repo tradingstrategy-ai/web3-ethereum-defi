@@ -1,4 +1,8 @@
-"""DuckDB-based cache for block number -> timestamp mapping."""
+"""DuckDB-based cache for block number -> timestamp mapping.
+
+By default, we manage a database file at ~/.tradingstrategy/block-timestamps.duckdb` where we have chain -> block -> timestamp mapping.
+Getting block numbers and timestamps is a common expensive operation when scanning historical events.
+"""
 
 import pandas as pd
 import datetime
@@ -45,25 +49,35 @@ class BlockTimestampDatabase:
             )
         """)
 
-    def import_chain_data(self, chain_id: int, data: dict[int, datetime.datetime]):
+    def import_chain_data(self, chain_id: int, data: dict[int, datetime.datetime] | pd.Series):
         """Import data from raw dictionary format to the database.
 
         Uses an upsert strategy (ON CONFLICT REPLACE) to ensure latest data is kept.
 
         :param chain_id: Chain ID for the data being imported.
 
-        :param data: Mapping of block number (int) to timestamp (datetime).
+        :param data:
+            Mapping of block number (int) to timestamp (datetime).
+
+            Give block number -> unix timestamp pd.Series for max speed.
         """
-        if not data:
-            return
 
         # 1. Convert dict to a temporary DataFrame for easy bulk insertion
         # Note: We use a DataFrame here as an intermediate transport buffer,
         # not as the persistent store.
-        df_new = pd.DataFrame([{"chain_id": chain_id, "block_number": k, "timestamp": v} for k, v in data.items()])
-
-        # Need to force MS
-        df_new["timestamp"] = df_new["timestamp"].astype("datetime64[ms]")
+        if isinstance(data, pd.Series):
+            df_new = pd.DataFrame(
+                {
+                    "block_number": data.index,
+                    "timestamp": data.values,
+                }
+            )
+            df_new["timestamp"] = pd.to_datetime(df_new["timestamp"], unit="s").astype("datetime64[ms]")
+            df_new["chain_id"] = chain_id
+        else:
+            df_new = pd.DataFrame([{"chain_id": chain_id, "block_number": k, "timestamp": v} for k, v in data.items()])
+            # Need to force MS
+            df_new["timestamp"] = df_new["timestamp"].astype("datetime64[ms]")
 
         # 2. Register df as a view so DuckDB can query it
         self.con.register("df_view", df_new)
