@@ -1,6 +1,5 @@
 """DuckDB-based cache for block number -> timestamp mapping."""
 
-import duckdb
 import pandas as pd
 import datetime
 import logging
@@ -26,6 +25,10 @@ class BlockTimestampDatabase:
 
         :param path: Path to the DuckDB file. Use ':memory:' for transient storage.
         """
+
+        # Be lazy about this so we do not mess imports
+        import duckdb
+
         self.path = str(path)
         self.con = duckdb.connect(self.path)
         self._init_schema()
@@ -45,6 +48,10 @@ class BlockTimestampDatabase:
         """Import data from raw dictionary format to the database.
 
         Uses an upsert strategy (ON CONFLICT REPLACE) to ensure latest data is kept.
+
+        :param chain_id: Chain ID for the data being imported.
+
+        :param data: Mapping of block number (int) to timestamp (datetime).
         """
         if not data:
             return

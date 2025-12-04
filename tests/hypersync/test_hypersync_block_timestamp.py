@@ -157,7 +157,6 @@ def test_get_block_timestamps_using_hypersync_cached_multichain(hypersync_client
     assert len(df) == 202  # 101 per chain
 
 
-
 def test_get_block_timestamps_using_hypersync_continue_cache(hypersync_client: HypersyncClient, hypersync_polygon_client: HypersyncClient, tmp_path):
     """Get blocks and then get some more blocks"""
 
