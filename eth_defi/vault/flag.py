@@ -75,6 +75,16 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag, str]] = {
     "0x98281466abcf48eaad8c6e22dedd18a3426a93b4": (VaultFlag.illiquid, XUSD_MESSAGE),
     # AvantgardeUSDC Core
     "0x5b56f90340dbaa6a8693dadb141d620f0e154fe6": (VaultFlag.illiquid, XUSD_MESSAGE),
+    # Borrowable USDC Deposit, SiloId: 23
+    "0x5954ce6671d97d24b782920ddcdbb4b1e63ab2de": (VaultFlag.illiquid, XUSD_MESSAGE),
+    # Borrowable scUSD Deposit, SiloId: 118
+    "0xb1412442aa998950f2f652667d5eba35fe66e43f": (VaultFlag.illiquid, XUSD_MESSAGE),
+    # MEV Capital scUSD
+    "0xb38d431e932fea77d1df0ae0dfe4400c97e597b8": (VaultFlag.illiquid, XUSD_MESSAGE),
+    # MEV Capital USDC
+    "0x196f3c7443e940911ee2bb88e019fd71400349d9": (VaultFlag.illiquid, XUSD_MESSAGE),
+    # Borrowable USDC Deposit, SiloId: 170
+    "0x7786dba2a1f7a4b0b7abf0962c449154c4f2b8ac": (VaultFlag.illiquid, XUSD_MESSAGE),
 }
 
 for addr in VAULT_FLAGS_AND_NOTES.keys():

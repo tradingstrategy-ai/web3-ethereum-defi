@@ -2,16 +2,15 @@
 
 import datetime
 import logging
-import os
-import pickle
 import threading
 from pathlib import Path
-from typing import TypeAlias
 
+import pandas as pd
 from joblib import Parallel, delayed
 from tqdm_loggable.auto import tqdm
 
 from eth_defi.chain import get_chain_name
+from eth_defi.event_reader.timestamp_cache import load_timestamp_cache, save_timestamp_cache, BlockTimestampDatabase, DEFAULT_TIMESTAMP_CACHE_FILE
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.timestamp import get_block_timestamp
 
@@ -19,13 +18,7 @@ from eth_defi.timestamp import get_block_timestamp
 logger = logging.getLogger(__name__)
 
 
-ChainBlockTimestampMap: TypeAlias = dict[int, dict[int, datetime.datetime]]
-
 _timestamp_instance = threading.local()
-
-
-#: Where we store our block header timestamps cache by default
-DEFAULT_TIMESTAMP_CACHE_FILE = Path.home() / ".cache" / "tradingstrategy" / "block-timestamps.pickle"
 
 
 def _read_timestamp_subprocess(
@@ -49,24 +42,6 @@ def _read_timestamp_subprocess(
     return block_number, get_block_timestamp(web3, block_number)
 
 
-def load_timestamp_cache(cache_file: Path) -> ChainBlockTimestampMap:
-    return pickle.load(cache_file.open("rb")) if cache_file.exists() else {}
-
-
-def save_timestamp_cache(timestamps: ChainBlockTimestampMap, cache_file: Path):
-    assert isinstance(timestamps, dict), "Timestamps must be a dictionary"
-    cache_file.parent.mkdir(parents=True, exist_ok=True)
-    tmp_path = cache_file.with_suffix(cache_file.suffix + ".tmp")
-    with tmp_path.open("wb") as f:
-        pickle.dump(timestamps, f)
-        f.flush()
-        os.fsync(f.fileno())
-    tmp_path.replace(cache_file)  # Atomic move
-
-    size = cache_file.stat().st_size
-    logger.debug(f"Saved block timestamps to {cache_file}, size is {size / 1024 * 1024} MB")
-
-
 def fetch_block_timestamps_multiprocess(
     chain_id: int,
     web3factory: Web3Factory,
@@ -76,9 +51,9 @@ def fetch_block_timestamps_multiprocess(
     display_progress=True,
     max_workers=8,
     timeout=120,
-    cache_file: Path | None = Path.home() / ".cache" / "tradingstrategy" / "block-timestamps.pickle",
+    cache_file: Path | None = DEFAULT_TIMESTAMP_CACHE_FILE,
     checkpoint_freq: int = 20_000,
-) -> dict[int, datetime.datetime]:
+) -> pd.Series:
     """Extract timestamps using fast multiprocessing.
 
     - Subprocess entrypoint
@@ -117,22 +92,44 @@ def fetch_block_timestamps_multiprocess(
     else:
         progress_bar = None
 
-    existing_data = load_timestamp_cache(cache_file)
+    timestamp_db = None  # Allow operating without caching
+    if cache_file:
+        if cache_file.exists():
+            timestamp_db: BlockTimestampDatabase = load_timestamp_cache(cache_file)
+        else:
+            timestamp_db = BlockTimestampDatabase.create(cache_file)
 
-    result: ChainBlockTimestampMap = existing_data
-    result[chain_id] = result.get(chain_id, {})
+        series = timestamp_db[chain_id]
+
+        if series is not None:
+            result = series.to_dict()
+        else:
+            result = {}
+    else:
+        result = {}
 
     def _task_gen():
         nonlocal web3factory
         for _block_number in range(start_block, end_block + 1, step):
-            if result[chain_id].get(_block_number) is None:
+            if result.get(_block_number) is None:
                 yield web3factory, chain_id, _block_number
 
-    last_save = 0
+    last_save = block_number = 0
+
+    def _save():
+        # Periodical checkpoint write
+        nonlocal last_save
+        nonlocal block_number
+        last_save = block_number
+        if timestamp_db:
+            timestamp_db.import_chain_data(
+                chain_id,
+                result,
+            )
 
     for completed_task in worker_processor(delayed(_read_timestamp_subprocess)(*args) for args in _task_gen()):
         block_number, timestamp = completed_task
-        result[chain_id][block_number] = timestamp
+        result[block_number] = timestamp
 
         if progress_bar:
             progress_bar.update(1)
@@ -144,14 +141,28 @@ def fetch_block_timestamps_multiprocess(
 
         if block_number - last_save >= checkpoint_freq:
             # Save the current state to the cache file
-            last_save = block_number
-            if cache_file:
-                save_timestamp_cache(result, cache_file)
+            timestamp_db.import_chain_data(
+                chain_id,
+                result,
+            )
+            _save()
+
+    # Final checkpoint
+    _save()
 
     if progress_bar:
         progress_bar.close()
 
-    return result[chain_id]
+    if timestamp_db:
+        try:
+            series = timestamp_db[chain_id]
+            return series.loc[start_block:end_block]
+        finally:
+            # DuckDB save
+            timestamp_db.close()
+    else:
+        # Legacy path
+        return pd.Series(result)
 
 
 def fetch_block_timestamps_multiprocess_auto_backend(
@@ -166,7 +177,7 @@ def fetch_block_timestamps_multiprocess_auto_backend(
     cache_file: Path | None = DEFAULT_TIMESTAMP_CACHE_FILE,
     checkpoint_freq: int = 20_000,
     hypersync_client: "hypersync.HypersyncClient | None" = None,
-) -> dict[int, datetime.datetime]:
+) -> pd.Series:
     """Fetch block timestamps, choose backend.
 
     - If Hypersync is available, use the optimised code path
@@ -175,10 +186,14 @@ def fetch_block_timestamps_multiprocess_auto_backend(
 
     :param step:
         Hypersync does not respect `step` but gets all blocks.
+
+    :return:
+        Pandas series block number (int) -> block timestamp (datetime)
     """
 
     if hypersync_client:
         from eth_defi.hypersync.timestamp import fetch_block_timestamps_using_hypersync_cached
+
         return fetch_block_timestamps_using_hypersync_cached(
             client=hypersync_client,
             chain_id=chain_id,

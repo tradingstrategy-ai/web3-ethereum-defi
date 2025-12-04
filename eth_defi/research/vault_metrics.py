@@ -582,7 +582,9 @@ def calculate_lifetime_metrics(
             last_three_months = group.loc[three_months_start:]
 
             if vault_address == "0x75288264fdfea8ce68e6d852696ab1ce2f3e5004":
-                import ipdb ; ipdb.set_trace()
+                import ipdb
+
+                ipdb.set_trace()
 
             one_month_start = group.index.asof(month_ago)
             last_month = group.loc[one_month_start:]
