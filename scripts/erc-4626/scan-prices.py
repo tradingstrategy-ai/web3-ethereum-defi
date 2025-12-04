@@ -161,8 +161,8 @@ def main():
     price_parquet_fname = os.environ.get("UNCLEANED_PRICE_DATABASE")
 
     vault_db_fname = DEFAULT_VAULT_DATABASE
-    price_parquet_fname = Path(price_parquet_fname) or DEFAULT_UNCLEANED_PRICE_DATABASE
-    reader_state_db = Path(reader_state_database) or DEFAULT_READER_STATE_DATABASE
+    price_parquet_fname = Path(price_parquet_fname or DEFAULT_UNCLEANED_PRICE_DATABASE)
+    reader_state_db = Path(reader_state_database or DEFAULT_READER_STATE_DATABASE)
 
     print(f"Scanning vault historical prices on chain {web3.eth.chain_id}: {name}")
 

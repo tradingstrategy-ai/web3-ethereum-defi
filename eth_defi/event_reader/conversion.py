@@ -165,7 +165,7 @@ def convert_solidity_bytes_to_string(byte_data: bytes, max_length: int, errors="
 
     try:
         string_data = decode(["string"], byte_data)[0]
-    except InvalidPointer:
+    except (InvalidPointer, UnicodeDecodeError):
         return ""
 
     sanitised = sanitise_string(string_data, max_length=max_length)
