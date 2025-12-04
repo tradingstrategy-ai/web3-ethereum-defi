@@ -109,7 +109,6 @@ async def get_block_timestamps_using_hypersync_async(
 
     receiver = await client.stream(query, hypersync.StreamConfig())
 
-    progress_update_idx = 0
     while True:
         try:
             res = await asyncio.wait_for(receiver.recv(), timeout=timeout)
@@ -132,11 +131,12 @@ async def get_block_timestamps_using_hypersync_async(
 
             if progress_bar:
                 if progress_update_idx % progress_throttle == 0:
-                    progress_bar.update(progress_throttle)
+                    progress_bar.update(len(res.data.blocks))
                     utc_timestamp = from_unix_timestamp(timestamp)
                     progress_bar.set_postfix(
                         {
                             "timestamp": utc_timestamp,
+                            "block": f"{block.number:,}",
                         }
                     )
 
@@ -207,6 +207,8 @@ async def fetch_block_timestamps_using_hypersync_cached_async(
 ) -> pd.Series:
     """Quickly get block timestamps using Hypersync API and a local cache file.
 
+    - Ultra fast, used optimised Hypersync streaming and DuckDB local cache.
+
     :return:
         Block number -> datetime mapping
     """
@@ -239,7 +241,6 @@ async def fetch_block_timestamps_using_hypersync_cached_async(
         )
 
     # Check if we have anything to read
-    result = {}
     checkpoint_count = 0
 
     index = []
@@ -285,7 +286,10 @@ def fetch_block_timestamps_using_hypersync_cached(
     cache_file=DEFAULT_TIMESTAMP_CACHE_FILE,
     display_progress: bool = True,
 ) -> pd.Series:
-    """Sync wrapper."""
+    """Sync wrapper.
+
+    See :py:func:`fetch_block_timestamps_using_hypersync_cached_async` for documentation.
+    """
 
     async def _hypersync_asyncio_wrapper():
         return await fetch_block_timestamps_using_hypersync_cached_async(
