@@ -87,6 +87,7 @@ HYPERSYNC_SERVES = {
     324: {"Network Name": "ZKsync", "URL": "https://zksync.hypersync.xyz or https://324.hypersync.xyz", "Tier": "🥉", "Supports Traces": False},
     7777777: {"Network Name": "Zora", "URL": "https://zora.hypersync.xyz or https://7777777.hypersync.xyz", "Tier": "🪨", "Supports Traces": False},
     146: {"Network Name": "Sonic", "URL": "https://sonic.hypersync.xyz or https://146.hypersync.xyz", "Tier": "🪨", "Supports Traces": False},
+    143: {"Network Name": "Monad", "URL": "https://monad.hypersync.xyz or https://143.hypersync.xyz", "Tier": "🪨", "Supports Traces": False},
 }
 
 

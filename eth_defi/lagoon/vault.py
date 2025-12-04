@@ -728,6 +728,9 @@ class LagoonVault(ERC7540Vault):
 
         return ERC7540DepositManager(self)
 
+    def get_link(self, referral: str | None = None) -> str:
+        return f"https://app.lagoon.finance/{self.chain_id}/{self.vault_address}"
+
 
 class LagoonFlowManager(VaultFlowManager):
     """Manage deposit/redemption queue for Lagoon.

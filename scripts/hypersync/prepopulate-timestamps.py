@@ -56,6 +56,9 @@ def create_and_populate_hypersync_timestamp_db_for_rpc(rpc_name: str):
     chain_id = web3.eth.chain_id
     chain_name = get_chain_name(chain_id)
     hypersync_server = get_hypersync_server(chain_id)
+    if hypersync_server is None:
+        print(f"No Hypersync server configured for chain {chain_name} ({chain_id}), skipping...")
+        return
 
     hypersync_api_key = os.environ.get("HYPERSYNC_API_KEY")
 

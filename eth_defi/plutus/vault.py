@@ -44,3 +44,7 @@ class PlutusVault(ERC4626Vault):
         We estimate one month lock-up for modelling purposes based on the discussion with Plutus in Discord.
         """
         return datetime.timedelta(days=30)
+
+    def get_link(self, referral: str | None = None) -> str:
+        # No vault pages
+        return f"https://plutus.fi/Vaults"

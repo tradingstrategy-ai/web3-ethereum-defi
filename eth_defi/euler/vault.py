@@ -11,6 +11,7 @@ from web3 import Web3
 
 from eth_typing import BlockIdentifier
 
+from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.euler.offchain_metadata import EulerVaultMetadata, fetch_euler_vault_metadata
 from eth_defi.event_reader.multicall_batcher import EncodedCall
@@ -90,3 +91,7 @@ class EulerVault(ERC4626Vault):
 
     def get_estimated_lock_up(self) -> datetime.timedelta | None:
         return datetime.timedelta(days=0)
+
+    def get_link(self, referral: str | None = None) -> str:
+        chain_name = get_chain_name(self.chain_id).lower()
+        return f"https://app.euler.finance/earn/{self.vault_address}?network={chain_name}"
