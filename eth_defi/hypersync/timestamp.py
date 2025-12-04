@@ -51,6 +51,7 @@ async def get_block_timestamps_using_hypersync_async(
     end_block: int,
     timeout: float = 30.0,
     display_progress: bool = True,
+    progress_throttle=10_000,
 ) -> AsyncIterable[BlockHeader]:
     """Read block timestamps using Hypersync API.
 
@@ -108,6 +109,7 @@ async def get_block_timestamps_using_hypersync_async(
 
     receiver = await client.stream(query, hypersync.StreamConfig())
 
+    progress_update_idx = 0
     while True:
         try:
             res = await asyncio.wait_for(receiver.recv(), timeout=timeout)
@@ -119,7 +121,7 @@ async def get_block_timestamps_using_hypersync_async(
         if res is None:
             break
 
-        for block in res.data.blocks:
+        for progress_update_idx, block in enumerate(res.data.blocks):
             assert block.hash.startswith("0x")
             timestamp = int(block.timestamp, 16)
             yield BlockHeader(
@@ -129,13 +131,14 @@ async def get_block_timestamps_using_hypersync_async(
             )
 
             if progress_bar:
-                progress_bar.update(1)
-                utc_timestamp = from_unix_timestamp(timestamp)
-                progress_bar.set_postfix(
-                    {
-                        "timestamp": utc_timestamp,
-                    }
-                )
+                if progress_update_idx % progress_throttle == 0:
+                    progress_bar.update(progress_throttle)
+                    utc_timestamp = from_unix_timestamp(timestamp)
+                    progress_bar.set_postfix(
+                        {
+                            "timestamp": utc_timestamp,
+                        }
+                    )
 
     if progress_bar:
         progress_bar.close()

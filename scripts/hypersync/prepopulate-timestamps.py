@@ -94,7 +94,7 @@ def main():
     else:
         rpc_names = RPC_NAMES
 
-    for rpc in RPC_NAMES:
+    for rpc in rpc_names:
         print(f"Prepopulating timestamps for RPC {rpc}...")
         create_and_populate_hypersync_timestamp_db_for_rpc(rpc)
         print(f"Done prepopulating timestamps for RPC {rpc}.")
