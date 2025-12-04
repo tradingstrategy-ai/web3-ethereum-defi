@@ -52,6 +52,7 @@ Copy server-side run results back to the local machine:
 .. code-block:: shell
 
     rsync -av --inplace --progress --exclude="tmp*" "vitalik7-tailscale:.tradingstrategy/vaults/*" ~/.tradingstrategy/vaults/
+    rsync -av --inplace --progress "vitalik7-tailscale:.tradingstrategy/block-timestamps.*" ~/.tradingstrategy
 
 Debug scan of a single vault:
 
@@ -74,7 +75,6 @@ from pathlib import Path
 
 from urllib.parse import urlparse
 
-from eth_defi.hypersync.server import get_hypersync_server
 from eth_defi.hypersync.utils import configure_hypersync_from_env
 
 try:

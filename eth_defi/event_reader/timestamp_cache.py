@@ -20,7 +20,7 @@ class BlockTimestampDatabase:
 
     - Internal storage: DuckDB on-disk database (or in-memory).
     - Efficient selective loading and upserting
-    - Millisecond accuracy for the timestamps
+    - One second precision for disk space and speed savings
 
     For usage see `eth_defi.event_reader.multicall_timestamp.fetch_block_timestamps_multiprocess_auto_backend`
     """
@@ -39,12 +39,15 @@ class BlockTimestampDatabase:
         self._init_schema()
 
     def _init_schema(self):
-        """Ensure the table exists with the correct schema and primary key."""
+        """Ensure the table exists with the correct schema and primary key.
+
+        - We have plenty of time before year 2038, and I won't be around
+        """
         self.con.execute("""
             CREATE TABLE IF NOT EXISTS block_timestamps (
-                chain_id UINTEGER,
-                block_number UINTEGER,
-                timestamp TIMESTAMP_MS,
+                chain_id UINT32,
+                block_number UINT64,
+                timestamp UINT32,
                 PRIMARY KEY (chain_id, block_number)
             )
         """)
@@ -72,12 +75,13 @@ class BlockTimestampDatabase:
                     "timestamp": data.values,
                 }
             )
-            df_new["timestamp"] = pd.to_datetime(df_new["timestamp"], unit="s").astype("datetime64[ms]")
+            df_new["timestamp"] = df_new["timestamp"].astype("uint32")
             df_new["chain_id"] = chain_id
         else:
+            # Legacy ppath
             df_new = pd.DataFrame([{"chain_id": chain_id, "block_number": k, "timestamp": v} for k, v in data.items()])
-            # Need to force MS
-            df_new["timestamp"] = df_new["timestamp"].astype("datetime64[ms]")
+            # Convert to 32-bit unix timestamp
+            df_new["timestamp"] = (df_new["timestamp"].astype("int64") // 10**9).astype("uint32")
 
         # 2. Register df as a view so DuckDB can query it
         self.con.register("df_view", df_new)
@@ -165,7 +169,7 @@ class BlockTimestampDatabase:
 
         # Set index to match original behavior
         df.set_index("block_number", inplace=True)
-        return df["timestamp"]
+        return self.transform_time_values(df["timestamp"])
 
     def query(self, chain_id: int, start_block: int, end_block: int) -> pd.Series | None:
         """Get timestamps for a single chain in an inclusive block range.
@@ -195,7 +199,15 @@ class BlockTimestampDatabase:
             return None
 
         df.set_index("block_number", inplace=True)
-        return df["timestamp"]
+        return self.transform_time_values(df["timestamp"])
+
+    def transform_time_values(self, series: pd.Series) -> pd.Series:
+        """Post-process our raw values from the database to actual time format.}
+
+        :param series: Pandas Series with datetime values
+        :return: Pandas Series with integer unix timestamps (seconds)
+        """
+        return pd.to_datetime(series, unit="s").astype("datetime64[s]")
 
     def close(self):
         """Close the connection."""

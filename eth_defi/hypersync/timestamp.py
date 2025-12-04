@@ -121,7 +121,6 @@ async def get_block_timestamps_using_hypersync_async(
             break
 
         for progress_update_idx, block in enumerate(res.data.blocks):
-            assert block.hash.startswith("0x")
             timestamp = int(block.timestamp, 16)
             yield BlockHeader(
                 block_number=block.number,
