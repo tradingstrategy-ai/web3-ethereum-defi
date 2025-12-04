@@ -185,6 +185,7 @@ def fetch_block_timestamps_multiprocess_auto_backend(
             start_block=start_block,
             end_block=end_block,
             cache_file=cache_file,
+            display_progress=display_progress,
         )
     else:
         return fetch_block_timestamps_multiprocess(

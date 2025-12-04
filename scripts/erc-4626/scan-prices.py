@@ -155,7 +155,7 @@ def main():
 
     hypersync_config = configure_hypersync_from_env(web3)
 
-    print(f"Using scan backend: {hypersync_config.scan_backend}, HyperSync URL: {hypersync_config/hypersync_url}")
+    print(f"Using scan backend: {hypersync_config.scan_backend}, HyperSync URL: {hypersync_config.hypersync_url}")
 
     reader_state_database = os.environ.get("READER_STATE_DATABASE")
     price_parquet_fname = os.environ.get("UNCLEANED_PRICE_DATABASE")

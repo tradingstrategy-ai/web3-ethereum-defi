@@ -35,6 +35,8 @@ from eth_typing import BlockNumber
 import hypersync
 from hypersync import BlockField
 
+from tqdm_loggable.auto import tqdm
+
 from eth_defi.event_reader.block_header import BlockHeader
 from eth_defi.event_reader.multicall_timestamp import load_timestamp_cache, DEFAULT_TIMESTAMP_CACHE_FILE, ChainBlockTimestampMap, save_timestamp_cache
 from eth_defi.utils import from_unix_timestamp
@@ -48,6 +50,7 @@ async def get_block_timestamps_using_hypersync_async(
     start_block: int,
     end_block: int,
     timeout: float = 30.0,
+    display_progress: bool = True,
 ) -> Iterable[BlockHeader]:
     """Read block timestamps using Hypersync API.
 
@@ -78,6 +81,16 @@ async def get_block_timestamps_using_hypersync_async(
     connected_chain_id = await client.get_chain_id()
     assert chain_id == connected_chain_id, f"Connected to chain {connected_chain_id}, but expected {chain_id}"
 
+    if display_progress:
+        progress_bar = tqdm(
+            total=(end_block - start_block),
+            desc=f"Reading timestamps (hypersync) on {chain_id}: {start_block:,} - {end_block:,}",
+            unit_scale=True,  # enable k/M formatting for {n_fmt}/{total_fmt}
+            unit_divisor=1000,  # use 1000-based units
+        )
+    else:
+        progress_bar = None
+
     # The query to run
     query = hypersync.Query(
         from_block=start_block,
@@ -98,9 +111,9 @@ async def get_block_timestamps_using_hypersync_async(
     while True:
         try:
             res = await asyncio.wait_for(receiver.recv(), timeout=timeout)
-        except asyncio.TimeoutError:
-            logger.warning("HyperSync receiver timed out")
-            break  # or handle as appropriate
+        except asyncio.TimeoutError as e:
+            logger.error("HyperSync receiver timed out, cannot recover")
+            raise RuntimeError(f"Cannot recover from HyperSync stream timeout after {timeout} seconds") from e
 
         # exit if the stream finished
         if res is None:
@@ -108,11 +121,25 @@ async def get_block_timestamps_using_hypersync_async(
 
         for block in res.data.blocks:
             assert block.hash.startswith("0x")
+            timestamp = int(block.timestamp, 16)
             yield BlockHeader(
                 block_number=block.number,
                 block_hash=block.hash,
-                timestamp=int(block.timestamp, 16),
+                timestamp=timestamp,
             )
+
+            if progress_bar:
+                progress_bar.update(1)
+                utc_timestamp = from_unix_timestamp(timestamp)
+                progress_bar.set_postfix(
+                    {
+                        "timestamp": utc_timestamp,
+                    }
+                )
+
+    if progress_bar:
+        progress_bar.close()
+
 
 
 def get_block_timestamps_using_hypersync(
@@ -120,6 +147,7 @@ def get_block_timestamps_using_hypersync(
     chain_id: int,
     start_block: int,
     end_block: int,
+    display_progress: bool = True,
 ) -> dict[BlockNumber, BlockHeader]:
     """Quickly get block timestamps using Hypersync API.
 
@@ -138,6 +166,7 @@ def get_block_timestamps_using_hypersync(
             chain_id,
             start_block,
             end_block,
+            display_progress=display_progress,
         )
         return {v.block_number: v async for v in iter}
 
@@ -171,6 +200,7 @@ def fetch_block_timestamps_using_hypersync_cached(
     start_block: int,
     end_block: int,
     cache_file=DEFAULT_TIMESTAMP_CACHE_FILE,
+    display_progress: bool = True,
 ) -> dict[int, datetime.datetime]:
     """Quickly get block timestamps using Hypersync API and a local cache file.
 
@@ -183,16 +213,31 @@ def fetch_block_timestamps_using_hypersync_cached(
     result: ChainBlockTimestampMap = existing_data
     result[chain_id] = result.get(chain_id, {})
 
-    last_read_block = max(result[chain_id].keys(), default=start_block)
+    last_read_block = max(result[chain_id].keys(), default=None)
+    first_read_block = min(result[chain_id].keys(), default=None)
+
+    logger.info(f"Timestamp cache {cache_file} for chain {chain_id}: blocks {first_read_block} - {last_read_block}")
+
+    if last_read_block:
+        # Check the range we need to map out, we might ask earlier blocks than before
+        if start_block < first_read_block:
+            scan_start = start_block
+        else:
+            scan_start = last_read_block
+    else:
+        scan_start = start_block
+
+    logger.info(f"Adjusted timestamp scan range for chain {chain_id}: blocks {scan_start} - {end_block}")
 
     # Check if we have anything to read
-    if end_block > last_read_block:
+    if end_block > last_read_block or start_block < first_read_block:
 
         block_to_timestamp = get_block_timestamps_using_hypersync(
             client,
             chain_id,
-            start_block=last_read_block,
+            start_block=scan_start,
             end_block=end_block,
+            display_progress=display_progress,
         )
 
         for block_number, block_header in block_to_timestamp.items():
