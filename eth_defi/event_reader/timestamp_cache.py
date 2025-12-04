@@ -79,7 +79,7 @@ class BlockTimestampDatabase:
             df_new["timestamp"] = df_new["timestamp"].astype("uint32")
             df_new["chain_id"] = chain_id
         else:
-            # Legacy ppath
+            # Legacy path
             df_new = pd.DataFrame([{"chain_id": chain_id, "block_number": k, "timestamp": v} for k, v in data.items()])
             # Convert to 32-bit unix timestamp
             df_new["timestamp"] = (df_new["timestamp"].astype("int64") // 10**9).astype("uint32")

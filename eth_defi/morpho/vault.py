@@ -7,6 +7,7 @@ import logging
 from eth_typing import BlockIdentifier
 from web3 import Web3
 
+from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.vault.base import VaultHistoricalReader, VaultHistoricalRead
@@ -119,3 +120,7 @@ class MorphoVault(ERC4626Vault):
 
     def get_estimated_lock_up(self) -> datetime.timedelta | None:
         return datetime.timedelta(days=0)
+
+    def get_link(self, referral: str | None = None) -> str:
+        chain_name = get_chain_name(self.chain_id).lower()
+        return f"https://app.morpho.org/{chain_name}/vault/{self.vault_address}/"

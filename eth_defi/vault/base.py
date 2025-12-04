@@ -786,3 +786,16 @@ class VaultBase(ABC):
     def get_notes(self) -> str | None:
         """Get a human readable message if we know somethign special is going on with this vault."""
         return get_notes(self.address)
+
+    def get_link(self, referral: str | None = None) -> str:
+        """Get a link to the vault dashboard on its native site.
+
+        - By default, give RouteScan link
+
+        :param referral:
+            Optional referral code to append to the URL.
+
+        :return:
+            URL string
+        """
+        return f"https://routescan.io/address/{self.vault_address}"

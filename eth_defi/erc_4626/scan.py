@@ -57,6 +57,7 @@ def create_vault_scan_record(
         "Shares": 0,
         "Features": "",
         "First seen": detection.first_seen_at,
+        "Link": None,
         "_detection_data": detection,
         "_fees": None,
         "_flags": {},
@@ -112,6 +113,9 @@ def create_vault_scan_record(
             logger.error(f"Failed to read flags for vault {vault} at {detection.address}: {e}", exc_info=e)
             flags = {}
 
+        # Resolve vault flags from the smart contract state
+        link = vault.get_link()
+
         protocol_name = get_vault_protocol_name(detection.features)
 
         data = {
@@ -130,6 +134,7 @@ def create_vault_scan_record(
             "First seen": detection.first_seen_at,
             "Features": ", ".join(sorted([f.name for f in detection.features])),
             "Lock up": lockup,
+            "Link": link,
             "_detection_data": detection,
             "_denomination_token": denomination_token,
             "_share_token": vault.share_token.export() if vault.share_token else None,
