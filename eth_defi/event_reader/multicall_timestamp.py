@@ -13,7 +13,6 @@ from tqdm_loggable.auto import tqdm
 
 from eth_defi.chain import get_chain_name
 from eth_defi.event_reader.web3factory import Web3Factory
-from eth_defi.hypersync.timestamp import fetch_block_timestamps_using_hypersync_cached
 from eth_defi.timestamp import get_block_timestamp
 
 
@@ -155,7 +154,7 @@ def fetch_block_timestamps_multiprocess(
     return result[chain_id]
 
 
-def fetch_block_timestamps_multiprocess_multi_backend(
+def fetch_block_timestamps_multiprocess_auto_backend(
     chain_id: int,
     web3factory: Web3Factory,
     start_block: int,
@@ -171,14 +170,21 @@ def fetch_block_timestamps_multiprocess_multi_backend(
     """Fetch block timestamps, choose backend.
 
     - If Hypersync is available, use the optimised code path
+
+    For arguments see :py:func:`fetch_block_timestamps_multiprocess`.
+
+    :param step:
+        Hypersync does not respect `step` but gets all blocks.
     """
 
     if hypersync_client:
+        from eth_defi.hypersync.timestamp import fetch_block_timestamps_using_hypersync_cached
         return fetch_block_timestamps_using_hypersync_cached(
             client=hypersync_client,
             chain_id=chain_id,
             start_block=start_block,
             end_block=end_block,
+            cache_file=cache_file,
         )
     else:
         return fetch_block_timestamps_multiprocess(

@@ -43,7 +43,7 @@ from eth_defi.abi import get_deployed_contract, ZERO_ADDRESS, encode_function_ca
 from eth_defi.chain import get_default_call_gas_limit
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.event_reader.fast_json_rpc import get_last_headers
-from eth_defi.event_reader.multicall_timestamp import fetch_block_timestamps_multiprocess
+from eth_defi.event_reader.multicall_timestamp import fetch_block_timestamps_multiprocess, fetch_block_timestamps_multiprocess_auto_backend
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.middleware import ProbablyNodeHasNoBlock, is_retryable_http_exception
 from eth_defi.provider.fallback import FallbackProvider
@@ -1402,7 +1402,7 @@ def read_multicall_historical_stateful(
     assert all(s is not None for s in calls.values()), f"States missing for some calls"
 
     # Significant speedup by prefetcing timestamps
-    timestamps = fetch_block_timestamps_multiprocess(
+    timestamps = fetch_block_timestamps_multiprocess_auto_backend(
         chain_id=chain_id,
         web3factory=web3factory,
         start_block=start_block,
@@ -1411,6 +1411,7 @@ def read_multicall_historical_stateful(
         max_workers=max_workers,
         timeout=timeout,
         display_progress=display_progress,
+        hypersync_client=hypersync_client,
     )
 
     chunk = []

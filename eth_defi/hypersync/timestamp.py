@@ -73,7 +73,7 @@ async def get_block_timestamps_using_hypersync_async(
     assert isinstance(client, hypersync.HypersyncClient), f"Expected HypersyncClient, got {type(client)}"
     assert type(chain_id) == int
     assert start_block >= 0
-    assert end_block >= start_block
+    assert end_block >= start_block, f"end_block {end_block} must be >= start_block {start_block}"
 
     connected_chain_id = await client.get_chain_id()
     assert chain_id == connected_chain_id, f"Connected to chain {connected_chain_id}, but expected {chain_id}"
@@ -185,16 +185,19 @@ def fetch_block_timestamps_using_hypersync_cached(
 
     last_read_block = max(result[chain_id].keys(), default=start_block)
 
-    block_to_timestamp = get_block_timestamps_using_hypersync(
-        client,
-        chain_id,
-        start_block=last_read_block,
-        end_block=end_block,
-    )
+    # Check if we have anything to read
+    if end_block > last_read_block:
 
-    for block_number, block_header in block_to_timestamp.items():
-        result[chain_id][block_number] = block_header.timestamp_as_datetime
+        block_to_timestamp = get_block_timestamps_using_hypersync(
+            client,
+            chain_id,
+            start_block=last_read_block,
+            end_block=end_block,
+        )
 
-    save_timestamp_cache(result, cache_file)
+        for block_number, block_header in block_to_timestamp.items():
+            result[chain_id][block_number] = block_header.timestamp_as_datetime
+
+        save_timestamp_cache(result, cache_file)
 
     return result[chain_id]

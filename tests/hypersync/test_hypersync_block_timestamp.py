@@ -5,6 +5,8 @@ import os
 
 import pytest
 
+from eth_defi.event_reader.multicall_timestamp import fetch_block_timestamps_multiprocess_auto_backend
+from eth_defi.event_reader.web3factory import SimpleWeb3Factory
 from eth_defi.hypersync.server import get_hypersync_server
 
 from hypersync import HypersyncClient, ClientConfig
@@ -78,6 +80,20 @@ def test_get_block_timestamps_using_hypersync_cached(
         cache_file=tmp_path / "timestamp_cache.json"
     )
 
+    assert len(blocks) == 101
+    timestamp = blocks[10_000_100]
+    assert timestamp == datetime.datetime(2020, 5, 4, 13, 45, 31)
+
+    # One more time with auto endpoint
+    blocks = fetch_block_timestamps_multiprocess_auto_backend(
+        hypersync_client=hypersync_client,
+        chain_id=1,
+        start_block=10_000_000,
+        end_block=10_000_100,
+        cache_file=tmp_path / "timestamp_cache.json",
+        web3factory=SimpleWeb3Factory(None),
+        step=10,
+    )
     assert len(blocks) == 101
     timestamp = blocks[10_000_100]
     assert timestamp == datetime.datetime(2020, 5, 4, 13, 45, 31)
