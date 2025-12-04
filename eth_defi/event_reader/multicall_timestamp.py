@@ -155,7 +155,11 @@ def fetch_block_timestamps_multiprocess(
         progress_bar.close()
 
     if timestamp_db:
-        return timestamp_db[chain_id]
+        try:
+            return timestamp_db[chain_id]
+        finally:
+            # DuckDB save
+            timestamp_db.close()
     else:
         return pd.Series(result)
 

@@ -1231,6 +1231,7 @@ def read_multicall_historical(
     display_progress: bool | str = True,
     progress_suffix: Callable | None = None,
     require_multicall_result=False,
+    hypersync_client: "HypersyncClient | None" = None,
 ) -> Iterable[CombinedEncodedCallResult]:
     """Read historical data using multiple threads in parallel for speedup.
 
@@ -1267,6 +1268,9 @@ def read_multicall_historical(
         Whether to display progress bar or not.
 
         Set to string to have a progress bar label.
+
+    :param hypersync_client:
+        Not used in this reader
     """
 
     assert type(start_block) == int, f"Got: {start_block}"

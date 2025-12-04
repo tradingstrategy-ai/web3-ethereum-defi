@@ -5,6 +5,8 @@ import os
 
 import pandas as pd
 import pytest
+import duckdb
+
 
 from eth_defi.event_reader.multicall_timestamp import fetch_block_timestamps_multiprocess_auto_backend
 from eth_defi.event_reader.web3factory import SimpleWeb3Factory
@@ -106,7 +108,7 @@ def test_get_block_timestamps_using_hypersync_cached_multichain(hypersync_client
 
     assert get_hypersync_block_height(hypersync_client) > 10_000_000
 
-    cache_file = tmp_path / "timestamp_cache.parquet"
+    cache_file = tmp_path / "timestamp_cache.duckdb"
 
     blocks_ethereum = fetch_block_timestamps_using_hypersync_cached(
         hypersync_client,
@@ -148,5 +150,8 @@ def test_get_block_timestamps_using_hypersync_cached_multichain(hypersync_client
     timestamp = blocks_polygon[10_000_100]
     assert timestamp == pd.Timestamp("2021-01-24 22:32:30")
 
-    df = pd.read_parquet(cache_file)
+    db = duckdb.connect(cache_file)
+    assert len(db.sql("SHOW TABLES")) == 1
+
+    df = db.sql("SELECT * FROM block_timestamps").df()
     assert len(df) == 202  # 101 per chain

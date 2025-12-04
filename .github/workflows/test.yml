@@ -71,7 +71,7 @@ jobs:
       - name: Install dependencies with specific Web3.py version
         run: |
             poetry install
-            poetry install -E docs -E data -E test -E hypersync -E ccxt -E web3v7 
+            poetry install -E docs -E data -E test -E hypersync -E ccxt -E web3v7 -E duckdb -E hypersync
 
       - name: Install Ganache
         run: yarn global add ganache

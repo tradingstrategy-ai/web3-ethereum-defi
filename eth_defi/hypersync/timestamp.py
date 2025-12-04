@@ -213,10 +213,8 @@ def fetch_block_timestamps_using_hypersync_cached(
 
     if cache_file.exists():
         timestamp_db = load_timestamp_cache(cache_file)
-        chain_blocks = timestamp_db[chain_id]
-
     else:
-        timestamp_db = BlockTimestampDatabase.create()
+        timestamp_db = BlockTimestampDatabase.create(cache_file)
 
     first_read_block, last_read_block = timestamp_db.get_first_and_last_block(chain_id)
 
@@ -255,4 +253,8 @@ def fetch_block_timestamps_using_hypersync_cached(
 
     existing_samples = timestamp_db[chain_id]
 
-    return existing_samples
+    # DuckDB save
+    timestamp_db.close()
+
+    # Drop unnecessary blocks from memory
+    return existing_samples.loc[start_block:end_block]

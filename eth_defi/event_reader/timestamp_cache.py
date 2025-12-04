@@ -1,93 +1,144 @@
-import datetime
-from pathlib import Path
-import logging
-
-
+import duckdb
 import pandas as pd
-
-
-#: Where we store our block header timestamps cache by default
-DEFAULT_TIMESTAMP_CACHE_FILE = Path.home() / ".cache" / "tradingstrategy" / "block-timestamps.parquet"
-
+import datetime
+import logging
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+# Default path constant (assumed from context)
+DEFAULT_TIMESTAMP_CACHE_FILE = Path.home() / ".tradingstrategy" / Path("block-timestamps.duckdb")
+
 
 class BlockTimestampDatabase:
-    """Mapping of chain ID -> block number -> timestamp.
+    """Mapping of chain ID -> block number -> timestamp using DuckDB.
 
-    - Internal presentation as Pandas series to save memory and disk space
-    - Use more efficient Parquet save/load format
+    - Internal storage: DuckDB on-disk database (or in-memory).
+    - Efficient selective loading and upserting.
+
+    For usage see `eth_defi.event_reader.multicall_timestamp.fetch_block_timestamps_multiprocess_auto_backend`
     """
 
-    def __init__(self, df: pd.DataFrame):
-        self.df = df
+    def __init__(self, path: Path | str = DEFAULT_TIMESTAMP_CACHE_FILE):
+        """Initialize the database connection.
+
+        :param path: Path to the DuckDB file. Use ':memory:' for transient storage.
+        """
+        self.path = str(path)
+        self.con = duckdb.connect(self.path)
+        self._init_schema()
+
+    def _init_schema(self):
+        """Ensure the table exists with the correct schema and primary key."""
+        self.con.execute("""
+            CREATE TABLE IF NOT EXISTS block_timestamps (
+                chain_id UINTEGER,
+                block_number UINTEGER,
+                timestamp TIMESTAMP,
+                PRIMARY KEY (chain_id, block_number)
+            )
+        """)
 
     def import_chain_data(self, chain_id: int, data: dict[int, datetime.datetime]):
-        """Import data from raw dictionary format to a chain slice."""
-        s = pd.Series(data, dtype="datetime64[s]")
+        """Import data from raw dictionary format to the database.
 
-        # Create a matching MultiIndex: (chain_id, block_number)
-        mi = pd.MultiIndex.from_product(
-            [[chain_id], s.index],
-            names=["chain_id", "block_number"],
-        )
-        s = pd.Series(s.values, index=mi, name="timestamp")
+        Uses an upsert strategy (ON CONFLICT REPLACE) to ensure latest data is kept.
+        """
+        if not data:
+            return
 
-        self.df = pd.concat([self.df, s.to_frame()]).sort_index()
-        self.df = self.df[~self.df.index.duplicated(keep="last")]  # keep latest
+        # 1. Convert dict to a temporary DataFrame for easy bulk insertion
+        # Note: We use a DataFrame here as an intermediate transport buffer,
+        # not as the persistent store.
+        df_new = pd.DataFrame([{"chain_id": chain_id, "block_number": k, "timestamp": v} for k, v in data.items()])
+
+        # 2. Register df as a view so DuckDB can query it
+        self.con.register("df_view", df_new)
+
+        # 3. Perform Insert / On Conflict Replace
+        self.con.execute("""
+            INSERT INTO block_timestamps (chain_id, block_number, timestamp)
+            SELECT chain_id, block_number, timestamp FROM df_view
+            ON CONFLICT (chain_id, block_number) DO UPDATE SET timestamp = EXCLUDED.timestamp
+        """)
+
+        # Cleanup view
+        self.con.unregister("df_view")
 
     @staticmethod
-    def load(path: Path) -> "ChainBlockTimestampMap":
-        df = pd.read_parquet(path)
-        return BlockTimestampDatabase(df)
+    def load(path: Path, read_only: bool = False) -> "BlockTimestampDatabase":
+        """Load the database from disk.
+
+        :param read_only: If True, opens the connection in read-only mode (good for multiprocess readers).
+        """
+        db = BlockTimestampDatabase(path)
+        if read_only:
+            # Re-connect in read_only mode specifically
+            db.con.close()
+            db.con = duckdb.connect(str(path), read_only=True)
+        return db
 
     @staticmethod
-    def create() -> "ChainBlockTimestampMap":
-        df = BlockTimestampDatabase.create_dataframe()
-        return BlockTimestampDatabase(df)
+    def create(path: Path = DEFAULT_TIMESTAMP_CACHE_FILE) -> "BlockTimestampDatabase":
+        """Create an in-memory instance."""
+        return BlockTimestampDatabase(path)
 
-    def save(self, path: Path):
-        self.df.to_parquet(path, index=True)
+    def save(self, path: Path = None):
+        """Force a checkpoint.
 
-    @staticmethod
-    def create_dataframe() -> pd.DataFrame:
-        # Define the MultiIndex levels and names
-        levels = [[], []]  # initially empty
-        codes = [[], []]  # initially empty
-        names = ["chain_id", "block_number"]
+        Note: DuckDB usually auto-commits. If moving from :memory: to disk,
+        we need to copy.
+        """
 
-        multi_index = pd.MultiIndex(levels=levels, codes=codes, names=names)
-
-        # Create empty DataFrame with the correct column and dtype
-        df = pd.DataFrame(
-            {"timestamp": pd.Series(dtype="datetime64[s]")},  # 1-second precision
-            index=multi_index,
-        )
-        return df
+        # Just ensure WAL is flushed
+        self.con.commit()
 
     def get_first_and_last_block(self, chain_id: int) -> tuple[int, int]:
         """Get the first and last block numbers we have for a given chain ID.
 
-        :return:
-            0,0 if no data
+        :return: 0,0 if no data
         """
-        chain_blocks = self[chain_id]
-        if chain_blocks is None or len(chain_blocks) == 0:
+        res = self.con.execute(
+            """
+            SELECT MIN(block_number), MAX(block_number) 
+            FROM block_timestamps 
+            WHERE chain_id = ?
+        """,
+            [chain_id],
+        ).fetchone()
+
+        if res is None or res[0] is None:
             return 0, 0
-        return chain_blocks.index[0], chain_blocks.index[-1]
+        return res[0], res[1]
 
-    def __getitem__(self, chain_id) -> pd.Series | None:
-        """Get timestamps for a single chain
+    def __getitem__(self, chain_id: int) -> pd.Series | None:
+        """Get timestamps for a single chain.
 
-        :return:
-            Pandas series block number (int) -> block timestamp (pd.Timestamp)
+        Returns a Pandas Series to maintain compatibility with the original API.
+
+        :return: Pandas series block number (int) -> block timestamp (pd.Timestamp)
         """
-        try:
-            chain_df = self.df.xs(chain_id, level="chain_id")  # keeps 'block_number' as the index
-        except KeyError:
+        # Selectively load only the specific chain ID
+        df = self.con.execute(
+            """
+            SELECT block_number, timestamp 
+            FROM block_timestamps 
+            WHERE chain_id = ? 
+            ORDER BY block_number ASC
+        """,
+            [chain_id],
+        ).df()
+
+        if df.empty:
             return None
-        return chain_df["timestamp"]
+
+        # Set index to match original behavior
+        df.set_index("block_number", inplace=True)
+        return df["timestamp"]
+
+    def close(self):
+        """Close the connection."""
+        self.con.close()
 
 
 def load_timestamp_cache(cache_file: Path = DEFAULT_TIMESTAMP_CACHE_FILE) -> BlockTimestampDatabase:
@@ -97,6 +148,11 @@ def load_timestamp_cache(cache_file: Path = DEFAULT_TIMESTAMP_CACHE_FILE) -> Blo
 
 def save_timestamp_cache(timestamps: BlockTimestampDatabase, cache_file: Path = DEFAULT_TIMESTAMP_CACHE_FILE):
     assert isinstance(timestamps, BlockTimestampDatabase), f"Expected BlockTimestampDatabase, got {type(timestamps)}"
+
+    # In DuckDB, data is persisted immediately on insert/update if connected to a file.
+    # We call save() to ensure WAL is flushed or if we need to export from memory.
     timestamps.save(cache_file)
-    size = cache_file.stat().st_size
-    logger.info(f"Saved block timestamps to {cache_file}, size is {size / 1024 * 1024} MB")
+
+    if cache_file.exists():
+        size_mb = cache_file.stat().st_size / (1024 * 1024)
+        logger.info(f"Ensured block timestamps saved to {cache_file}, size is {size_mb:.2f} MB")

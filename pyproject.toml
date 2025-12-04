@@ -1,6 +1,6 @@
 # To install:
 #
-# poetry install -E web3v6 -E data -E test -E docs -E data -E hypersync -E ccxt -E cloudflare_r2
+# poetry install -E web3v6 -E data -E test -E docs -E data -E hypersync -E ccxt -E cloudflare_r2 -E duckdb
 #
 
 [tool.poetry]
@@ -153,6 +153,9 @@ zstandard = "^0.25.0"
 ccxt = {version = "^4.5.16", optional = true}
 boto3 = {version = "^1.41.0", optional = true}
 
+# Timestamp cache
+duckdb = {version = "^1.4.2", optional = true}
+
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.11.13"
@@ -174,6 +177,7 @@ data = ["jupyter", "tqdm", "pandas", "gql", "matplotlib", "plotly", "pyarrow", "
 test = ["pytest-xdist"]
 
 hypersync = ["hypersync"]
+duckdb = ["duckdb"]
 ccxt = ["ccxt"]
 cloudflare_r2 = ["boto3"]
 #tester = ["eth-tester"]
