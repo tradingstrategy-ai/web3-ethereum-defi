@@ -250,7 +250,7 @@ async def fetch_block_timestamps_using_hypersync_cached_async(
         )
 
         async for block_header in iter:
-            result[block_header.block_number] = pd.to_datetime(block_header.timestamp, unit="ms")
+            result[block_header.block_number] = pd.to_datetime(block_header.timestamp, unit="s")
             checkpoint_count += 1
 
             if checkpoint_count % checkpoint_freq == 0:

@@ -15,7 +15,8 @@ class BlockTimestampDatabase:
     """Mapping of chain ID -> block number -> timestamp using DuckDB.
 
     - Internal storage: DuckDB on-disk database (or in-memory).
-    - Efficient selective loading and upserting.
+    - Efficient selective loading and upserting
+    - Millisecond accuracy for the timestamps
 
     For usage see `eth_defi.event_reader.multicall_timestamp.fetch_block_timestamps_multiprocess_auto_backend`
     """
@@ -162,7 +163,7 @@ class BlockTimestampDatabase:
         :param end_block: Inclusive end block
         :return: Pandas series block number (int) -> block timestamp (pd.Timestamp), or None if empty
         """
-        if start_block > end_block:
+        if start_block >= end_block:
             raise ValueError("start_block must be <= end_block")
 
         df = self.con.execute(
