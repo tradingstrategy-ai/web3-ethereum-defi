@@ -3469,7 +3469,9 @@ class GMX(ExchangeCompatible):
         params: dict | None = None,
     ):
         """Not supported - GMX orders execute immediately."""
-        raise NotSupported(f"{self.id} fetch_order() not supported - GMX orders execute immediately")
+        raise NotSupported(
+            self.id + " fetch_order() is not supported - GMX orders execute immediately via the keeper system. Use fetch_positions() to see open positions or fetch_my_trades() for execution history.",
+        )
 
     def fetch_order_book(
         self,
