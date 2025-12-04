@@ -26,8 +26,7 @@ Example:
 """
 
 import asyncio
-import datetime
-from typing import Iterable, AsyncIterable
+from typing import AsyncIterable
 import logging
 
 import pandas as pd
@@ -39,7 +38,7 @@ from hypersync import BlockField
 from tqdm_loggable.auto import tqdm
 
 from eth_defi.event_reader.block_header import BlockHeader
-from eth_defi.event_reader.timestamp_cache import load_timestamp_cache, save_timestamp_cache, BlockTimestampDatabase, DEFAULT_TIMESTAMP_CACHE_FILE
+from eth_defi.event_reader.timestamp_cache import load_timestamp_cache, BlockTimestampDatabase, DEFAULT_TIMESTAMP_CACHE_FILE
 from eth_defi.utils import from_unix_timestamp
 
 logger = logging.getLogger(__name__)

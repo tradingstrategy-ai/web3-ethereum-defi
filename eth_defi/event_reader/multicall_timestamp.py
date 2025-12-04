@@ -51,7 +51,7 @@ def fetch_block_timestamps_multiprocess(
     display_progress=True,
     max_workers=8,
     timeout=120,
-    cache_file: Path | None = Path.home() / ".cache" / "tradingstrategy" / "block-timestamps.pickle",
+    cache_file: Path | None = DEFAULT_TIMESTAMP_CACHE_FILE,
     checkpoint_freq: int = 20_000,
 ) -> pd.Series:
     """Extract timestamps using fast multiprocessing.
@@ -126,7 +126,6 @@ def fetch_block_timestamps_multiprocess(
                 chain_id,
                 result,
             )
-            save_timestamp_cache(timestamp_db, cache_file)
 
     for completed_task in worker_processor(delayed(_read_timestamp_subprocess)(*args) for args in _task_gen()):
         block_number, timestamp = completed_task
@@ -156,11 +155,13 @@ def fetch_block_timestamps_multiprocess(
 
     if timestamp_db:
         try:
-            return timestamp_db[chain_id]
+            series = timestamp_db[chain_id]
+            return series.loc[start_block:end_block]
         finally:
             # DuckDB save
             timestamp_db.close()
     else:
+        # Legacy path
         return pd.Series(result)
 
 

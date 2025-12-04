@@ -96,6 +96,7 @@ def test_4626_historical_vault_data_stateless(
 
 def test_4626_historical_vault_data_stateful(
     web3: Web3,
+    tmp_path,
 ):
     """Read historical data of IPOR USDC and some other vaults using a stateful reader."""
 
@@ -121,9 +122,12 @@ def test_4626_historical_vault_data_stateful(
     usdc = fetch_erc20_details(web3, USDC_NATIVE_TOKEN[web3.eth.chain_id])
     susds = fetch_erc20_details(web3, SUSDS_NATIVE_TOKEN[web3.eth.chain_id])
 
+    timestamp_cache_file = tmp_path / "timestamp_cache.duckdb"
+
     reader = VaultHistoricalReadMulticaller(
         web3factory=MultiProviderWeb3Factory(JSON_RPC_BASE),
         supported_quote_tokens={usdc, susds},
+        timestamp_cache_file=timestamp_cache_file,
     )
 
     records = reader.read_historical(

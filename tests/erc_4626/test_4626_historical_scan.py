@@ -46,6 +46,7 @@ def test_4626_historical_prices(
     max_workers = 8
 
     token_cache = TokenDiskCache(tmp_path / "token-cache.sqlite")
+    timestamp_cache_file = tmp_path / "timestamp-cache.duckdb"
 
     # https://app.ipor.io/fusion/base/0x45aa96f0b3188d47a1dafdbefce1db6b37f58216
     ipor_usdc = IPORVault(web3, VaultSpec(web3.eth.chain_id, "0x45aa96f0b3188d47a1dafdbefce1db6b37f58216"), token_cache=token_cache)
@@ -85,6 +86,7 @@ def test_4626_historical_prices(
         end_block=end,
         token_cache=token_cache,
         max_workers=max_workers,
+        timestamp_cache_file=timestamp_cache_file,
     )
 
     assert output_fname.exists(), f"Did not create: {output_fname}"
