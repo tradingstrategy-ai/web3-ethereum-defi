@@ -530,7 +530,7 @@ def calculate_lifetime_metrics(
         risk_numeric = risk.value if isinstance(risk, VaultTechnicalRisk) else None
 
         notes = get_notes(vault_address)
-        flags = vault_metadata.get("_flags", {})
+        flags = vault_metadata.get("_flags", [])
 
         lockup = vault_metadata.get("_lockup", None)
         if pd.isna(lockup):
