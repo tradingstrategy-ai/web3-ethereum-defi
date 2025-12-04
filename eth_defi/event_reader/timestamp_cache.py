@@ -1,3 +1,5 @@
+"""DuckDB-based cache for block number -> timestamp mapping."""
+
 import duckdb
 import pandas as pd
 import datetime
@@ -79,11 +81,11 @@ class BlockTimestampDatabase:
         return db
 
     @staticmethod
-    def create(path: Path = DEFAULT_TIMESTAMP_CACHE_FILE) -> "BlockTimestampDatabase":
+    def create(path: Path) -> "BlockTimestampDatabase":
         """Create an in-memory instance."""
         return BlockTimestampDatabase(path)
 
-    def save(self, path: Path = None):
+    def save(self):
         """Force a checkpoint.
 
         Note: DuckDB usually auto-commits. If moving from :memory: to disk,
@@ -151,7 +153,7 @@ def save_timestamp_cache(timestamps: BlockTimestampDatabase, cache_file: Path = 
 
     # In DuckDB, data is persisted immediately on insert/update if connected to a file.
     # We call save() to ensure WAL is flushed or if we need to export from memory.
-    timestamps.save(cache_file)
+    timestamps.save()
 
     if cache_file.exists():
         size_mb = cache_file.stat().st_size / (1024 * 1024)

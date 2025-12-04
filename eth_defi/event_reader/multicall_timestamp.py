@@ -97,7 +97,7 @@ def fetch_block_timestamps_multiprocess(
         if cache_file.exists():
             timestamp_db: BlockTimestampDatabase = load_timestamp_cache(cache_file)
         else:
-            timestamp_db = BlockTimestampDatabase.create()
+            timestamp_db = BlockTimestampDatabase.create(cache_file)
 
         series = timestamp_db[chain_id]
 

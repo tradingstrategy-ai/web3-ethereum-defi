@@ -25,9 +25,9 @@ def web3_polygon_factory() -> Web3Factory:
 
 
 def test_get_block_timestamps_using_multiprocess_cached(web3_ethereum_factory, web3_polygon_factory, tmp_path):
-    """We get 100 historical blocks from Hypersync"""
+    """We get 100 historical blocks using our poor multiprocess reader"""
 
-    cache_file = tmp_path / "timestamp_cache.parquet"
+    cache_file = tmp_path / "timestamp_cache.duckdb"
 
     blocks = fetch_block_timestamps_multiprocess_auto_backend(
         chain_id=1,
