@@ -110,6 +110,7 @@ def test_4626_historical_prices(
         end_block=end,
         max_workers=max_workers,
         token_cache=token_cache,
+        timestamp_cache_file=timestamp_cache_file,
     )
     assert output_fname.exists(), f"Did not create: {output_fname}"
     assert scan_result["existing"] is True

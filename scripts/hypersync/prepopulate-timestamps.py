@@ -1,4 +1,12 @@
-"""Create a multichain timesstamp database and prepopulate it with data from Hypersync."""
+"""Create a multichain timesstamp database and prepopulate it with data from Hypersync.
+
+To run a single chain:
+
+.. code-block:: shell
+
+    RPC_NAMES=JSON_RPC_ARBITRUM python scripts/hypersync/prepopulate-timestamps.py
+
+"""
 
 import os
 
@@ -79,6 +87,13 @@ def create_and_populate_hypersync_timestamp_db_for_rpc(rpc_name: str):
 
 def main():
     print(f"Prepopulating timestamp cache file {DEFAULT_TIMESTAMP_CACHE_FILE}")
+
+    rpc_names = os.environ.get("RPC_NAMES")
+    if rpc_names:
+        rpc_names = rpc_names.split(" ")
+    else:
+        rpc_names = RPC_NAMES
+
     for rpc in RPC_NAMES:
         print(f"Prepopulating timestamps for RPC {rpc}...")
         create_and_populate_hypersync_timestamp_db_for_rpc(rpc)
