@@ -80,6 +80,7 @@ class BlockTimestampDatabase:
 
         :param read_only: If True, opens the connection in read-only mode (good for multiprocess readers).
         """
+        import duckdb
         db = BlockTimestampDatabase(path)
         if read_only:
             # Re-connect in read_only mode specifically
