@@ -9182,7 +9182,6 @@ cloudflare-r2 = ["boto3"]
 data = ["ffn", "gql", "jupyter", "kaleido", "matplotlib", "numpy", "pandas", "plotly", "pyarrow", "tenacity", "tqdm"]
 docs = ["Sphinx", "furo", "nbsphinx", "sphinx-autodoc-typehints", "sphinx-rtd-theme", "sphinx-rtd-theme", "sphinx-sitemap", "sphinx-sitemap", "zope-dottedname"]
 duckdb = ["duckdb"]
-freqtrade = []
 hypersync = ["hypersync"]
 test = ["pytest-xdist"]
 web3v6 = ["eth-account", "eth-account", "eth-pydantic-types", "eth-pydantic-types", "eth-tester", "eth-tester", "eth-typing", "eth-typing", "evm-trace", "evm-trace", "multicall", "multicall", "safe-eth-py", "safe-eth-py"]
@@ -9191,4 +9190,4 @@ web3v7 = ["eth-account", "eth-account", "eth-pydantic-types", "eth-pydantic-type
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<4"
-content-hash = "0229b5a4abaf368421ab892fc41102e7539142f59ef998e1ba1bcdd93d72f2df"
+content-hash = "9ff74a22e2342823fe81136195845ebf0a5533fafa5e132b53bca94dd7da409c"
