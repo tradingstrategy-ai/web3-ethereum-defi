@@ -85,19 +85,35 @@ class AsyncGMXSubsquidClient:
 
             return result.get("data", {})
 
-    async def get_market_infos(self, limit: int = 200) -> list[dict[str, Any]]:
+    async def get_market_infos(
+        self,
+        market_address: str | None = None,
+        limit: int = 200,
+        order_by: str = "id_DESC",
+    ) -> list[dict[str, Any]]:
         """Fetch market information from Subsquid.
 
         Args:
+            market_address: Optional filter by specific market address
             limit: Maximum number of markets to fetch
+            order_by: Sort order (e.g., "id_DESC")
 
         Returns:
             List of market info dictionaries
         """
+        where_clause = ""
+        if market_address:
+            where_clause = f'where: {{ marketTokenAddress_eq: "{market_address}" }}'
+
+        # Debug logging
+        logger.info(f"Querying marketInfos with market_address={market_address}, limit={limit}")
+        logger.info(f"Where clause: {where_clause}")
+
         query = f"""
         query {{
             marketInfos(
-                orderBy: [id_DESC]
+                {where_clause}
+                orderBy: [{order_by}]
                 limit: {limit}
             ) {{
                 id

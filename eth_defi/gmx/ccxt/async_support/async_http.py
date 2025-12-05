@@ -62,7 +62,7 @@ async def async_make_gmx_api_request(
     try:
         # Try each URL with retries
         for url, url_type in urls_to_try:
-            logger.info("Trying %s GMX API: %s", url_type, url)
+            logger.debug("Trying %s GMX API: %s", url_type, url)
 
             for attempt in range(max_retries):
                 try:

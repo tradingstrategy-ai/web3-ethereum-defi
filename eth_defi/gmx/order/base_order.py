@@ -9,7 +9,6 @@ import logging
 from dataclasses import dataclass, field
 from typing import Optional
 from decimal import Decimal
-from enum import Enum
 from statistics import median
 
 from eth_utils import to_checksum_address
@@ -29,17 +28,6 @@ from eth_defi.token import fetch_erc20_details
 # Module-level constants and logger
 logger = logging.getLogger(__name__)
 ZERO_REFERRAL_CODE = bytes.fromhex("0" * 64)
-
-
-class OrderType(Enum):
-    """GMX Order Types with contract values."""
-
-    SWAP = 0
-    SHIFT = 1
-    ATOMIC_WITHDRAWAL = 2
-    DEPOSIT = 3
-    WITHDRAWAL = 4
-    ATOMIC_SWAP = 5
 
 
 @dataclass

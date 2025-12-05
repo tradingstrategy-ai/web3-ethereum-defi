@@ -131,6 +131,7 @@ def patch_ccxt(force: bool = False) -> bool:
 
     try:
         from eth_defi.gmx.ccxt.exchange import GMX
+        from eth_defi.gmx.ccxt.async_support.exchange import GMX as AsyncGMX
     except ImportError as e:
         raise ImportError("Could not import GMX exchange class. Make sure eth_defi is properly installed.") from e
 
@@ -138,7 +139,7 @@ def patch_ccxt(force: bool = False) -> bool:
     if not _PATCHED:
         _ORIGINAL_EXCHANGES = ccxt.exchanges.copy() if hasattr(ccxt, "exchanges") else []
 
-    # Add GMX class to ccxt module
+    # Add GMX class to ccxt module (sync version)
     ccxt.gmx = GMX
 
     # Add 'gmx' to the exchanges list if it exists
@@ -156,23 +157,24 @@ def patch_ccxt(force: bool = False) -> bool:
         if "gmx" not in ccxt.__all__:
             ccxt.__all__.append("gmx")
 
-    # Patch ccxt.async_support
+    # Patch ccxt.async_support with the ASYNC version
     if hasattr(ccxt, "async_support"):
-        ccxt.async_support.gmx = GMX
+        ccxt.async_support.gmx = AsyncGMX  # Use async version, not sync
         if hasattr(ccxt.async_support, "exchanges"):
             if "gmx" not in ccxt.async_support.exchanges:
                 ccxt.async_support.exchanges.append("gmx")
                 ccxt.async_support.exchanges.sort()
-        logger.debug("Patched ccxt.async_support with GMX")
+        logger.debug("Patched ccxt.async_support with AsyncGMX")
 
-    # Patch ccxt.pro
+    # Patch ccxt.pro with ASYNC version (ccxt.pro is async-only)
+    # Freqtrade checks ccxt.pro first before falling back to ccxt.async_support
     if hasattr(ccxt, "pro"):
-        ccxt.pro.gmx = GMX
+        ccxt.pro.gmx = AsyncGMX  # ccxt.pro should use async version!
         if hasattr(ccxt.pro, "exchanges"):
             if "gmx" not in ccxt.pro.exchanges:
                 ccxt.pro.exchanges.append("gmx")
                 ccxt.pro.exchanges.sort()
-        logger.debug("Patched ccxt.pro with GMX")
+        logger.debug("Patched ccxt.pro with AsyncGMX (ccxt.pro is async-only)")
 
     # Mark as patched
     _PATCHED = True

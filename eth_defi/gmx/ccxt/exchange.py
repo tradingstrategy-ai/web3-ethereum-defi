@@ -32,6 +32,8 @@ from cchecksum import to_checksum_address
 from ccxt.base.errors import NotSupported
 
 from eth_defi.chain import get_chain_name
+from eth_defi.gmx.ccxt.errors import InsufficientHistoricalDataError
+from eth_defi.gmx.ccxt.validation import _validate_ohlcv_data_sufficiency
 from eth_defi.ccxt.exchange_compatible import ExchangeCompatible
 from eth_defi.gmx.api import GMXAPI
 from eth_defi.gmx.ccxt.properties import describe_gmx
@@ -338,11 +340,133 @@ class GMX(ExchangeCompatible):
         # Common initialization
         self._init_common()
 
+    def _load_markets_from_graphql(self) -> dict[str, Any]:
+        """Load markets from GraphQL only (for backtesting - no RPC calls).
+
+        Uses GMX API /tokens endpoint to fetch token metadata instead of hardcoding.
+
+        :return: dictionary mapping unified symbols to market info
+        :rtype: dict[str, Any]
+        """
+        try:
+            market_infos = self.subsquid.get_market_infos(limit=200)
+            logger.debug(f"Fetched {len(market_infos)} markets from GraphQL")
+
+            # Fetch token data from GMX API
+            tokens_data = self.api.get_tokens()
+            logger.debug(f"Fetched tokens from GMX API, type: {type(tokens_data)}")
+
+            # Build address->symbol mapping (lowercase addresses for matching)
+            address_to_symbol = {}
+            if isinstance(tokens_data, dict):
+                # If tokens_data is a dict, extract the list of tokens
+                tokens_list = tokens_data.get("tokens", [])
+            elif isinstance(tokens_data, list):
+                tokens_list = tokens_data
+            else:
+                logger.error(f"Unexpected tokens_data format: {type(tokens_data)}")
+                tokens_list = []
+
+            for token in tokens_list:
+                if not isinstance(token, dict):
+                    continue
+                address = token.get("address", "").lower()
+                symbol = token.get("symbol", "")
+                if address and symbol:
+                    address_to_symbol[address] = symbol
+
+            logger.info(f"Built address mapping for {len(address_to_symbol)} tokens")
+
+            markets_dict = {}
+            for market_info in market_infos:
+                try:
+                    index_token_addr = market_info.get("indexTokenAddress", "").lower()
+                    market_token_addr = market_info.get("marketTokenAddress", "")
+
+                    # Look up symbol from GMX API tokens data
+                    symbol_name = address_to_symbol.get(index_token_addr)
+
+                    if not symbol_name:
+                        logger.debug(f"Skipping market with unknown index token: {index_token_addr}")
+                        continue  # Skip unknown tokens
+
+                    # Skip excluded symbols
+                    if symbol_name in self.EXCLUDED_SYMBOLS:
+                        continue
+
+                    # Use Freqtrade futures format (consistent with regular load_markets)
+                    unified_symbol = f"{symbol_name}/USDC:USDC"
+
+                    # Calculate max leverage from minCollateralFactor
+                    min_collateral_factor = market_info.get("minCollateralFactor")
+                    max_leverage = 50.0  # Default
+                    if min_collateral_factor:
+                        max_leverage = GMXSubsquidClient.calculate_max_leverage(min_collateral_factor) or 50.0
+
+                    maintenance_margin_rate = 1.0 / max_leverage if max_leverage > 0 else 0.02
+
+                    markets_dict[unified_symbol] = {
+                        "id": symbol_name,
+                        "symbol": unified_symbol,
+                        "base": symbol_name,
+                        "quote": "USDC",
+                        "baseId": symbol_name,
+                        "quoteId": "USDC",
+                        "settle": "USDC",
+                        "settleId": "USDC",
+                        "active": True,
+                        "type": "swap",
+                        "spot": False,
+                        "swap": True,
+                        "future": True,
+                        "option": False,
+                        "contract": True,
+                        "linear": True,
+                        "contractSize": self.parse_number("1"),
+                        "precision": {
+                            "amount": self.parse_number(self.parse_precision("8")),
+                            "price": self.parse_number(self.parse_precision("8")),
+                        },
+                        "limits": {
+                            "amount": {"min": None, "max": None},
+                            "price": {"min": None, "max": None},
+                            "cost": {"min": 10, "max": None},
+                            "leverage": {"min": 1.1, "max": max_leverage},
+                        },
+                        "maintenanceMarginRate": maintenance_margin_rate,
+                        "info": {
+                            "market_token": market_token_addr,
+                            "index_token": market_info.get("indexTokenAddress"),
+                            "long_token": market_info.get("longTokenAddress"),
+                            "short_token": market_info.get("shortTokenAddress"),
+                            "graphql_only": True,  # Flag to indicate this was loaded from GraphQL
+                        },
+                    }
+                except Exception as e:
+                    logger.debug(f"Failed to process market {market_info.get('marketTokenAddress')}: {e}")
+                    continue
+
+            self.markets = markets_dict
+            self.markets_loaded = True
+            self.symbols = list(self.markets.keys())
+
+            logger.info(f"Loaded {len(self.markets)} markets from GraphQL: {self.symbols}")
+            return self.markets
+
+        except Exception as e:
+            logger.error(f"Failed to load markets from GraphQL: {e}")
+            # Return empty markets rather than failing completely
+            self.markets = {}
+            self.markets_loaded = True
+            self.symbols = []
+            return self.markets
+
     def _init_common(self):
         """Initialize common attributes regardless of init method."""
         self.markets = {}
         self.markets_loaded = False
         self.symbols = []
+        self._orders = {}  # Store orders for backtesting
 
         self.timeframes = {
             "1m": "1m",
@@ -351,6 +475,23 @@ class GMX(ExchangeCompatible):
             "1h": "1h",
             "4h": "4h",
             "1d": "1d",
+        }
+
+        # GMX trading fees (approximately 0.07% for most markets)
+        # GMX uses perpetual swaps, so fees are defined under 'swap'
+        self.fees = {
+            "trading": {
+                "tierBased": False,
+                "percentage": True,
+                "maker": 0.0007,  # 0.07% maker fee
+                "taker": 0.0007,  # 0.07% taker fee
+            },
+            "swap": {
+                "tierBased": False,
+                "percentage": True,
+                "maker": 0.0007,  # 0.07% maker fee
+                "taker": 0.0007,  # 0.07% taker fee
+            },
         }
 
         self.leverage = {}
@@ -366,6 +507,64 @@ class GMX(ExchangeCompatible):
         self.subsquid = None
         self.wallet_address = None
         self._init_common()
+
+    def calculate_fee(
+        self,
+        symbol: str,
+        type: str,
+        side: str,
+        amount: float,
+        price: float,
+        takerOrMaker: str = "taker",
+        params: dict = None,
+    ) -> dict:
+        """Calculate trading fee for GMX positions.
+
+        GMX uses dynamic fees based on pool balancing:
+        - Position open/close: 0.04% (balanced) or 0.06% (imbalanced)
+        - Normal swaps: 0.05% (balanced) or 0.07% (imbalanced)
+        - Stablecoin swaps: 0.005% (balanced) or 0.02% (imbalanced)
+
+        For backtesting, we use a fixed 0.06% (0.0006) which represents
+        a realistic middle ground for position trading.
+
+        Args:
+            symbol: Trading pair symbol (e.g., "ETH/USD")
+            type: Order type (e.g., "market", "limit")
+            side: Order side ("buy" or "sell")
+            amount: Order amount in base currency
+            price: Order price
+            takerOrMaker: "taker" or "maker" (not used for GMX)
+            params: Additional parameters
+
+        Returns:
+            Fee dictionary with rate and cost
+        """
+        if params is None:
+            params = {}
+
+        # GMX fee rate: 0.06% (0.0006) for positions
+        rate = 0.0006
+
+        # Get market to determine fee currency
+        market = None
+        if self.markets_loaded:
+            normalized_symbol = self._normalize_symbol(symbol)
+            if normalized_symbol in self.markets:
+                market = self.markets[normalized_symbol]
+
+        # Fee currency is the settlement currency (USDC for GMX)
+        currency = market.get("settle", "USDC") if market else "USDC"
+
+        # Calculate fee cost based on position notional value
+        cost = amount * price * rate if price and amount else None
+
+        return {
+            "type": takerOrMaker,
+            "currency": currency,
+            "rate": rate,
+            "cost": cost,
+        }
 
     def describe(self):
         """Get CCXT exchange description."""
@@ -409,13 +608,28 @@ class GMX(ExchangeCompatible):
         :type reload: bool
         :param params: Additional parameters (for CCXT compatibility, not currently used)
         :type params: dict | None
-        :return: dictionary mapping unified symbols (e.g., "ETH/USD") to market info
+        :return: dictionary mapping unified symbols (e.g., "ETH/USDC") to market info
         :rtype: dict[str, Any]
         """
         if self.markets_loaded and not reload:
             return self.markets
 
-        # Fetch available markets from GMX using Markets class
+        # For backtesting or when wallet is not provided, use GraphQL-only mode to avoid slow RPC calls
+        # Also check if graphql_only is set in exchange config
+        use_graphql_only = (
+            not self.wallet
+            or (params and params.get("graphql_only", False))
+            or self.options.get(
+                "graphql_only",
+                False,
+            )
+        )
+
+        if use_graphql_only and self.subsquid:
+            logger.info("Loading markets from GraphQL (backtesting mode - skipping RPC calls)")
+            return self._load_markets_from_graphql()
+
+        # Fetch available markets from GMX using Markets class (makes RPC calls)
         markets_instance = Markets(self.config)
         available_markets = markets_instance.get_available_markets()
 
@@ -454,8 +668,8 @@ class GMX(ExchangeCompatible):
                 )
                 continue
 
-            # Create unified symbol (e.g., ETH/USD)
-            unified_symbol = f"{symbol_name}/USD"
+            # Create unified symbol for Freqtrade futures (e.g., ETH/USDC:USDC)
+            unified_symbol = f"{symbol_name}/USDC:USDC"
 
             # Get max leverage for this market
             max_leverage = leverage_by_market.get(market_address)
@@ -471,25 +685,32 @@ class GMX(ExchangeCompatible):
                 "id": symbol_name,  # GMX market symbol
                 "symbol": unified_symbol,  # CCXT unified symbol
                 "base": symbol_name,  # Base currency (e.g., ETH)
-                "quote": "USD",  # Quote currency (always USD for GMX)
+                "quote": "USDC",  # Quote currency (settlement in USDC)
                 "baseId": symbol_name,
-                "quoteId": "USD",
+                "quoteId": "USDC",
+                "settle": "USDC",  # Settlement currency
+                "settleId": "USDC",  # Settlement currency ID
                 "active": True,
                 "type": "swap",  # GMX provides perpetual swaps
                 "spot": False,
+                "margin": True,
                 "swap": True,
-                "future": False,
+                "future": True,  # Enable for Freqtrade futures backtesting
                 "option": False,
                 "contract": True,
                 "linear": True,
+                "inverse": False,
+                "contractSize": self.parse_number("1"),
+                "maker": 0.0003,
+                "taker": 0.0006,
                 "precision": {
-                    "amount": 8,
-                    "price": 8,
+                    "amount": self.parse_number(self.parse_precision("8")),
+                    "price": self.parse_number(self.parse_precision("8")),
                 },
                 "limits": {
                     "amount": {"min": None, "max": None},
                     "price": {"min": None, "max": None},
-                    "cost": {"min": None, "max": None},
+                    "cost": {"min": 10, "max": None},
                     "leverage": {"min": 1.1, "max": max_leverage},
                 },
                 "maintenanceMarginRate": maintenance_margin_rate,
@@ -571,7 +792,8 @@ class GMX(ExchangeCompatible):
             if symbol_name in self.EXCLUDED_SYMBOLS:
                 continue
 
-            unified_symbol = f"{symbol_name}/USD"
+            # Use Freqtrade futures format
+            unified_symbol = f"{symbol_name}/USDC:USDC"
 
             # Get max leverage for this market
             max_leverage = leverage_by_market.get(market_address)
@@ -587,25 +809,32 @@ class GMX(ExchangeCompatible):
                 "id": symbol_name,
                 "symbol": unified_symbol,
                 "base": symbol_name,
-                "quote": "USD",
+                "quote": "USDC",
                 "baseId": symbol_name,
-                "quoteId": "USD",
+                "quoteId": "USDC",
+                "settle": "USDC",  # Settlement currency
+                "settleId": "USDC",  # Settlement currency ID
                 "active": True,
                 "type": "swap",  # GMX provides perpetual swaps
                 "spot": False,
+                "margin": True,
                 "swap": True,
-                "future": False,
+                "future": True,  # Enable for Freqtrade futures backtesting
                 "option": False,
                 "contract": True,
                 "linear": True,
+                "inverse": False,
+                "contractSize": self.parse_number("1"),
+                "maker": 0.0003,
+                "taker": 0.0006,
                 "precision": {
-                    "amount": 8,
-                    "price": 8,
+                    "amount": self.parse_number(self.parse_precision("8")),
+                    "price": self.parse_number(self.parse_precision("8")),
                 },
                 "limits": {
                     "amount": {"min": None, "max": None},
                     "price": {"min": None, "max": None},
-                    "cost": {"min": None, "max": None},
+                    "cost": {"min": 10, "max": None},
                     "leverage": {"min": 1.1, "max": max_leverage},
                 },
                 "maintenanceMarginRate": maintenance_margin_rate,
@@ -623,10 +852,34 @@ class GMX(ExchangeCompatible):
 
         return markets
 
+    def _normalize_symbol(self, symbol: str) -> str:
+        """Normalize symbol to Freqtrade futures format.
+
+        GMX markets are stored with Freqtrade futures format (e.g., "ETH/USDC:USDC")
+        but users may call methods with simpler format (e.g., "ETH/USDC").
+        This method normalizes the symbol to the internal format.
+
+        :param symbol: Symbol in either format ("ETH/USDC" or "ETH/USDC:USDC")
+        :type symbol: str
+        :return: Normalized symbol in Freqtrade futures format
+        :rtype: str
+        """
+        # If already in futures format, return as-is
+        if ":USDC" in symbol:
+            return symbol
+
+        # If in simple format, add :USDC suffix
+        # ETH/USDC -> ETH/USDC:USDC
+        if "/USDC" in symbol and ":USDC" not in symbol:
+            return f"{symbol}:USDC"
+
+        # Return as-is if not a USDC pair
+        return symbol
+
     def market(self, symbol: str) -> dict[str, Any]:
         """Get market information for a specific trading pair.
 
-        :param symbol: Unified symbol (e.g., "ETH/USD")
+        :param symbol: Unified symbol (e.g., "ETH/USD" or "ETH/USDC:USDC")
         :type symbol: str
         :return: Market information dictionary
         :rtype: dict[str, Any]
@@ -635,12 +888,15 @@ class GMX(ExchangeCompatible):
         if not self.markets_loaded:
             raise ValueError("Markets not loaded. Call load_markets() first.")
 
-        if symbol not in self.markets:
+        # Normalize symbol to internal format
+        normalized_symbol = self._normalize_symbol(symbol)
+
+        if normalized_symbol not in self.markets:
             raise ValueError(
                 f"Market {symbol} not found. Available markets: {list(self.markets.keys())}",
             )
 
-        return self.markets[symbol]
+        return self.markets[normalized_symbol]
 
     def fetch_market_leverage_tiers(
         self,
@@ -781,11 +1037,12 @@ class GMX(ExchangeCompatible):
         :type since: int | None
         :param limit: Maximum number of candles to return
         :type limit: int | None
-        :param params: Additional parameters (e.g., {"until": timestamp_ms})
+        :param params: Additional parameters (e.g., {"until": timestamp_ms, "skip_validation": True})
         :type params: dict[str, Any] | None
         :return: list of OHLCV candles, each as [timestamp_ms, open, high, low, close, volume]
         :rtype: list[list]
         :raises ValueError: If invalid symbol or timeframe
+        :raises InsufficientHistoricalDataError: If insufficient data for requested time range (when since is specified)
 
         .. note::
             Volume is always 0 as GMX API doesn't provide volume data
@@ -831,6 +1088,15 @@ class GMX(ExchangeCompatible):
 
         # Parse OHLCV data
         ohlcv = self.parse_ohlcvs(candles_data, market_info, timeframe, since, limit)
+
+        # Validate data sufficiency for backtesting
+        _validate_ohlcv_data_sufficiency(
+            ohlcv=ohlcv,
+            symbol=symbol,
+            timeframe=timeframe,
+            since=since,
+            params=params,
+        )
 
         return ohlcv
 
@@ -1166,7 +1432,9 @@ class GMX(ExchangeCompatible):
         for symbol in symbols:
             try:
                 oi = self.fetch_open_interest(symbol, params)
-                result[symbol] = oi
+                # Use canonical symbol from the returned data
+                canonical_symbol = oi["symbol"]
+                result[canonical_symbol] = oi
             except Exception as e:
                 # Skip symbols that fail (e.g., swap-only markets without OI data)
                 continue
@@ -1379,7 +1647,7 @@ class GMX(ExchangeCompatible):
         timestamp = self.milliseconds()
 
         return {
-            "symbol": symbol,
+            "symbol": market_info["symbol"],  # Use canonical symbol (ETH/USDC:USDC)
             "fundingRate": funding_per_second,  # Per-second rate
             "longFundingRate": long_funding,  # GMX-specific field
             "shortFundingRate": short_funding,  # GMX-specific field
@@ -1433,6 +1701,10 @@ class GMX(ExchangeCompatible):
         if limit is None:
             limit = 100
 
+        # Get canonical symbol from market
+        market_info = self.market(symbol)
+        canonical_symbol = market_info["symbol"]
+
         market_address = params.get("market_address")
         since_seconds = since // 1000 if since else None
 
@@ -1460,7 +1732,7 @@ class GMX(ExchangeCompatible):
 
             result.append(
                 {
-                    "symbol": symbol,
+                    "symbol": canonical_symbol,
                     "fundingRate": funding_per_second,
                     "longFundingRate": funding_per_second if longs_pay_shorts else -funding_per_second,
                     "shortFundingRate": -funding_per_second if longs_pay_shorts else funding_per_second,
@@ -1591,24 +1863,26 @@ class GMX(ExchangeCompatible):
         for symbol in target_symbols:
             try:
                 market = self.market(symbol)
+                # Use canonical symbol from market (ETH/USDC:USDC)
+                canonical_symbol = market["symbol"]
                 index_token_address = market["info"]["index_token"].lower()
 
                 if index_token_address in ticker_by_address:
                     ticker_data = ticker_by_address[index_token_address]
-                    result[symbol] = self.parse_ticker(ticker_data, market)
+                    result[canonical_symbol] = self.parse_ticker(ticker_data, market)
 
                     # Calculate 24h high/low from OHLCV (same as fetch_ticker)
                     try:
                         since = self.milliseconds() - (24 * 60 * 60 * 1000)
-                        ohlcv = self.fetch_ohlcv(symbol, "1h", since=since, limit=24)
+                        ohlcv = self.fetch_ohlcv(canonical_symbol, "1h", since=since, limit=24)
 
                         if ohlcv:
                             highs = [candle[2] for candle in ohlcv]
                             lows = [candle[3] for candle in ohlcv]
 
-                            result[symbol]["high"] = max(highs) if highs else None
-                            result[symbol]["low"] = min(lows) if lows else None
-                            result[symbol]["open"] = ohlcv[0][1] if ohlcv else None
+                            result[canonical_symbol]["high"] = max(highs) if highs else None
+                            result[canonical_symbol]["low"] = min(lows) if lows else None
+                            result[canonical_symbol]["open"] = ohlcv[0][1] if ohlcv else None
                     except Exception:
                         pass
             except Exception:
@@ -2197,7 +2471,7 @@ class GMX(ExchangeCompatible):
             "hedged": False,  # GMX doesn't support hedging mode
             "side": side,
             "contracts": contracts,
-            "contractSize": 1,  # 1 contract = 1 unit of base currency
+            "contractSize": self.parse_number("1"),
             "entryPrice": entry_price,
             "markPrice": mark_price,
             "notional": notional,
@@ -2263,11 +2537,14 @@ class GMX(ExchangeCompatible):
             try:
                 # Find matching market
                 market_symbol = position_data.get("market_symbol", "")
-                unified_symbol = f"{market_symbol}/USD"
+                unified_symbol = f"{market_symbol}/USDC:USDC"
 
                 # Skip if filtering by symbol
-                if symbol and unified_symbol != symbol:
-                    continue
+                if symbol:
+                    # Normalize the input symbol for comparison
+                    normalized_input_symbol = self._normalize_symbol(symbol)
+                    if unified_symbol != normalized_input_symbol:
+                        continue
 
                 # Get market info
                 if unified_symbol in self.markets:
@@ -2434,11 +2711,14 @@ class GMX(ExchangeCompatible):
             try:
                 # Find matching market
                 market_symbol = position_data.get("market_symbol", "")
-                unified_symbol = f"{market_symbol}/USD"
+                unified_symbol = f"{market_symbol}/USDC:USDC"
 
                 # Skip if filtering by symbols
-                if symbols and unified_symbol not in symbols:
-                    continue
+                if symbols:
+                    # Normalize input symbols for comparison
+                    normalized_symbols = [self._normalize_symbol(s) for s in symbols]
+                    if unified_symbol not in normalized_symbols:
+                        continue
 
                 # Get market info
                 if unified_symbol in self.markets:
@@ -2643,7 +2923,7 @@ class GMX(ExchangeCompatible):
             float(ohlcv[2]),  # High
             float(ohlcv[3]),  # Low
             float(ohlcv[4]),  # Close
-            0,  # Volume (GMX doesn't provide volume data)
+            1.0,  # Volume (GMX doesn't provide volume data, use dummy value to avoid Freqtrade filtering)
         ]
 
     def parse_timeframe(self, timeframe: str) -> int:
@@ -2861,16 +3141,19 @@ class GMX(ExchangeCompatible):
         :rtype: dict
         :raises ValueError: If symbol is invalid or parameters are incompatible
         """
+        # Normalize symbol to internal format (ETH/USDC -> ETH/USDC:USDC)
+        normalized_symbol = self._normalize_symbol(symbol)
+
         # Validate symbol exists
-        if symbol not in self.markets:
+        if normalized_symbol not in self.markets:
             raise ValueError(f"Market {symbol} not found. Call load_markets() first.")
 
-        market = self.markets[symbol]
+        market = self.markets[normalized_symbol]
         base_currency = market["base"]  # e.g., 'ETH' from 'ETH/USD'
 
         # Extract GMX-specific parameters from params
         collateral_symbol = params.get("collateral_symbol", "USDC")  # Default to USDC
-        leverage = params.get("leverage", self.leverage.get(symbol, 1.0))
+        leverage = params.get("leverage", self.leverage.get(normalized_symbol, 1.0))
         slippage_percent = params.get("slippage_percent", 0.003)  # 0.3% default
 
         # Determine if this is opening or closing a position
@@ -2946,7 +3229,7 @@ class GMX(ExchangeCompatible):
         # Calculate fee in ETH
         fee_cost = order_result.execution_fee / 1e18
 
-        return {
+        order = {
             "id": tx_hash,
             "clientOrderId": None,
             "timestamp": timestamp,
@@ -2969,6 +3252,11 @@ class GMX(ExchangeCompatible):
             "trades": [],
             "info": info,
         }
+
+        # Store order for backtesting
+        self._orders[tx_hash] = order
+
+        return order
 
     def create_order(
         self,
@@ -3064,7 +3352,8 @@ class GMX(ExchangeCompatible):
             order_result = self.trader.open_position(**gmx_params)
         elif side == "sell":
             # For closing positions, need to check existing position and calculate initial_collateral_delta
-            market = self.markets[symbol]
+            normalized_symbol = self._normalize_symbol(symbol)
+            market = self.markets[normalized_symbol]
             base_currency = market["base"]
 
             # Get existing positions to determine the position we're closing
@@ -3247,12 +3536,7 @@ class GMX(ExchangeCompatible):
         symbol: str | None = None,
         params: dict | None = None,
     ):
-        """Fetch order by ID.
-
-        Not supported by GMX - orders execute immediately.
-
-        :raises NotSupported: GMX doesn't support fetching individual orders
-        """
+        """Not supported - GMX orders execute immediately."""
         raise NotSupported(
             self.id + " fetch_order() is not supported - GMX orders execute immediately via the keeper system. Use fetch_positions() to see open positions or fetch_my_trades() for execution history.",
         )

@@ -21,6 +21,8 @@ from web3 import AsyncWeb3
 
 from eth_defi.chain import get_chain_name
 from eth_defi.gmx.ccxt.async_support.async_graphql import AsyncGMXSubsquidClient
+from eth_defi.gmx.ccxt.errors import InsufficientHistoricalDataError
+from eth_defi.gmx.ccxt.validation import _validate_ohlcv_data_sufficiency
 from eth_defi.gmx.ccxt.async_support.async_http import async_make_gmx_api_request
 from eth_defi.gmx.ccxt.properties import describe_gmx
 from eth_defi.gmx.config import GMXConfig
@@ -111,6 +113,62 @@ class GMX(Exchange):
         """Get CCXT exchange description."""
         return describe_gmx()
 
+    def calculate_fee(
+        self,
+        symbol: str,
+        type: str,
+        side: str,
+        amount: float,
+        price: float,
+        takerOrMaker: str = "taker",
+        params: dict = None,
+    ) -> dict:
+        """Calculate trading fee for GMX positions.
+
+        GMX uses dynamic fees based on pool balancing:
+        - Position open/close: 0.04% (balanced) or 0.06% (imbalanced)
+        - Normal swaps: 0.05% (balanced) or 0.07% (imbalanced)
+        - Stablecoin swaps: 0.005% (balanced) or 0.02% (imbalanced)
+
+        For backtesting, we use a fixed 0.06% (0.0006) which represents
+        a realistic middle ground for position trading.
+
+        Args:
+            symbol: Trading pair symbol (e.g., "ETH/USD")
+            type: Order type (e.g., "market", "limit")
+            side: Order side ("buy" or "sell")
+            amount: Order amount in base currency
+            price: Order price
+            takerOrMaker: "taker" or "maker" (not used for GMX)
+            params: Additional parameters
+
+        Returns:
+            Fee dictionary with rate and cost
+        """
+        if params is None:
+            params = {}
+
+        # GMX fee rate: 0.06% (0.0006) for positions
+        rate = 0.0006
+
+        # Get market to determine fee currency
+        market = None
+        if hasattr(self, "markets") and self.markets and symbol in self.markets:
+            market = self.markets[symbol]
+
+        # Fee currency is the settlement currency (USDC for GMX)
+        currency = market.get("settle", "USDC") if market else "USDC"
+
+        # Calculate fee cost based on position notional value
+        cost = amount * price * rate if price and amount else None
+
+        return {
+            "type": takerOrMaker,
+            "currency": currency,
+            "rate": rate,
+            "cost": cost,
+        }
+
     async def _ensure_session(self):
         """Lazy-initialize aiohttp session and async components."""
         if self.session is not None:
@@ -185,6 +243,142 @@ class GMX(Exchange):
         """Async context manager exit."""
         await self.close()
 
+    async def _load_markets_from_graphql(self) -> dict:
+        """Load markets from GraphQL only (for backtesting - no RPC calls).
+
+        Uses GMX API /tokens endpoint to fetch token metadata instead of hardcoding.
+
+        :return: dictionary mapping unified symbols to market info
+        :rtype: dict
+        """
+        try:
+            market_infos = await self.subsquid.get_market_infos(limit=200)
+            logger.info(f"Fetched {len(market_infos)} markets from GraphQL")
+
+            # Fetch token data from GMX API using async HTTP
+            tokens_data = await self._fetch_tokens_async()
+            logger.info(f"Fetched tokens from GMX API, type: {type(tokens_data)}, length: {len(tokens_data) if isinstance(tokens_data, (list, dict)) else 'N/A'}")
+
+            # Build address->symbol mapping (lowercase addresses for matching)
+            address_to_symbol = {}
+            if isinstance(tokens_data, dict):
+                # If tokens_data is a dict, extract the list of tokens
+                tokens_list = tokens_data.get("tokens", [])
+            elif isinstance(tokens_data, list):
+                tokens_list = tokens_data
+            else:
+                logger.error(f"Unexpected tokens_data format: {type(tokens_data)}")
+                tokens_list = []
+
+            for token in tokens_list:
+                if not isinstance(token, dict):
+                    continue
+                address = token.get("address", "").lower()
+                symbol = token.get("symbol", "")
+                if address and symbol:
+                    address_to_symbol[address] = symbol
+
+            logger.info(f"Built address mapping for {len(address_to_symbol)} tokens")
+
+            markets_dict = {}
+            for market_info in market_infos:
+                try:
+                    index_token_addr = market_info.get("indexTokenAddress", "").lower()
+                    market_token_addr = market_info.get("marketTokenAddress", "")
+
+                    # Look up symbol from GMX API tokens data
+                    symbol_name = address_to_symbol.get(index_token_addr)
+
+                    if not symbol_name:
+                        logger.debug(f"Skipping market with unknown index token: {index_token_addr}")
+                        continue  # Skip unknown tokens
+
+                    # Skip excluded symbols
+                    if symbol_name in self.EXCLUDED_SYMBOLS:
+                        continue
+
+                    unified_symbol = f"{symbol_name}/USDC"
+
+                    # Calculate max leverage from minCollateralFactor
+                    min_collateral_factor = market_info.get("minCollateralFactor")
+                    max_leverage = 50.0  # Default
+                    if min_collateral_factor:
+                        max_leverage = AsyncGMXSubsquidClient.calculate_max_leverage(min_collateral_factor) or 50.0
+
+                    maintenance_margin_rate = 1.0 / max_leverage if max_leverage > 0 else 0.02
+
+                    markets_dict[unified_symbol] = {
+                        "id": symbol_name,
+                        "symbol": unified_symbol,
+                        "base": symbol_name,
+                        "quote": "USDC",
+                        "baseId": symbol_name,
+                        "quoteId": "USDC",
+                        "settle": "USDC",
+                        "settleId": "USDC",
+                        "active": True,
+                        "type": "swap",
+                        "spot": False,
+                        "margin": True,
+                        "swap": True,
+                        "future": True,
+                        "option": False,
+                        "contract": True,
+                        "linear": True,
+                        "inverse": False,
+                        "contractSize": self.parse_number("1"),
+                        "precision": {
+                            "amount": self.parse_number(self.parse_precision("8")),
+                            "price": self.parse_number(self.parse_precision("8")),
+                        },
+                        "limits": {
+                            "amount": {"min": None, "max": None},
+                            "price": {"min": None, "max": None},
+                            "cost": {"min": 10, "max": None},
+                            "leverage": {"min": 1.1, "max": max_leverage},
+                        },
+                        "maintenanceMarginRate": maintenance_margin_rate,
+                        "info": {
+                            "market_token": market_token_addr,
+                            "index_token": market_info.get("indexTokenAddress"),
+                            "long_token": market_info.get("longTokenAddress"),
+                            "short_token": market_info.get("shortTokenAddress"),
+                            "graphql_only": True,  # Flag to indicate this was loaded from GraphQL
+                        },
+                    }
+                except Exception as e:
+                    logger.debug(f"Failed to process market {market_info.get('marketTokenAddress')}: {e}")
+                    continue
+
+            self.markets = markets_dict
+            self.symbols = list(self.markets.keys())
+
+            logger.info(f"Loaded {len(self.markets)} markets from GraphQL: {self.symbols}")
+            return self.markets
+
+        except Exception as e:
+            logger.error(f"Failed to load markets from GraphQL: {e}")
+            # Return empty markets rather than failing completely
+            self.markets = {}
+            self.symbols = []
+            return self.markets
+
+    async def _fetch_tokens_async(self) -> list[dict]:
+        """Fetch token data from GMX API asynchronously."""
+        from eth_defi.gmx.ccxt.async_support.async_http import async_make_gmx_api_request
+
+        try:
+            tokens_data = await async_make_gmx_api_request(
+                chain=self.chain,
+                endpoint="/tokens",
+                session=self.session,
+                timeout=10.0,
+            )
+            return tokens_data
+        except Exception as e:
+            logger.error(f"Failed to fetch tokens from GMX API: {e}")
+            return []
+
     async def load_markets(self, reload: bool = False, params: dict | None = None) -> dict:
         """Load markets asynchronously.
 
@@ -200,6 +394,14 @@ class GMX(Exchange):
 
         await self._ensure_session()
 
+        # For backtesting or when wallet is not provided, use GraphQL-only mode to avoid slow RPC calls
+        # Also check if graphql_only is set in exchange config
+        use_graphql_only = not self.wallet or (params and params.get("graphql_only", False)) or self.options.get("graphql_only", False)
+
+        if use_graphql_only and self.subsquid:
+            logger.info("Loading markets from GraphQL (backtesting mode - skipping RPC calls)")
+            return await self._load_markets_from_graphql()
+
         # Fetch markets list (this will need async version of Markets class)
         # For now, we'll call the sync method in executor as a bridge
         # TODO: Create fully async Markets implementation
@@ -208,81 +410,99 @@ class GMX(Exchange):
         markets_instance = Markets(self.config)
         available_markets = await loop.run_in_executor(None, markets_instance.get_available_markets)
 
-        # Fetch leverage data from Subsquid
-        market_infos = await self.subsquid.get_market_infos(limit=200)
-
+        # Fetch leverage data from subsquid if available
         leverage_by_market = {}
-        for info in market_infos:
-            addr = info.get("marketTokenAddress")
-            min_collateral = info.get("minCollateralFactor")
-            if addr and min_collateral:
-                from eth_utils import to_checksum_address
+        min_collateral_by_market = {}
+        if self.subsquid:
+            try:
+                market_infos = await self.subsquid.get_market_infos(limit=200)
+                for market_info in market_infos:
+                    market_addr = market_info.get("marketTokenAddress")
+                    min_collateral_factor = market_info.get("minCollateralFactor")
+                    if market_addr and min_collateral_factor:
+                        from eth_utils import to_checksum_address
 
-                addr = to_checksum_address(addr)
-                max_leverage = AsyncGMXSubsquidClient.calculate_max_leverage(min_collateral)
-                if max_leverage:
-                    leverage_by_market[addr] = max_leverage
+                        market_addr = to_checksum_address(market_addr)
+                        max_leverage = AsyncGMXSubsquidClient.calculate_max_leverage(min_collateral_factor)
+                        if max_leverage is not None:
+                            leverage_by_market[market_addr] = max_leverage
+                            min_collateral_by_market[market_addr] = min_collateral_factor
+            except Exception as e:
+                logger.warning(f"Failed to fetch leverage data from subsquid: {e}")
 
-        # Convert to CCXT format (reuse parsing logic from sync version)
-        self.markets = {}
-        for market_addr, market_data in available_markets.items():
+        # Process markets into CCXT-style format (matching sync version exactly)
+        for market_address, market_data in available_markets.items():
             symbol_name = market_data.get("market_symbol", "")
             if not symbol_name or symbol_name == "UNKNOWN":
                 continue
 
-            # Skip excluded symbols
             if symbol_name in self.EXCLUDED_SYMBOLS:
                 logger.debug(
                     "Skipping excluded GMX market %s (address %s)",
                     symbol_name,
-                    market_addr,
+                    market_address,
                 )
                 continue
 
-            symbol = f"{symbol_name}/USD"
+            # Create unified symbol for Freqtrade futures (e.g., ETH/USDC:USDC)
+            unified_symbol = f"{symbol_name}/USDC:USDC"
 
-            self.markets[symbol] = {
-                "id": symbol_name,
-                "symbol": symbol,
-                "base": symbol_name,
-                "quote": "USD",
+            # Get max leverage for this market
+            max_leverage = leverage_by_market.get(market_address)
+            min_collateral_factor = min_collateral_by_market.get(market_address)
+
+            # Calculate maintenance margin rate from min collateral factor
+            # maintenanceMarginRate = 1 / max_leverage (approximately)
+            # If max_leverage is 50x, maintenance margin is ~2%
+            # Default to 0.02 (2%, equivalent to 50x leverage) if not available
+            maintenance_margin_rate = (1.0 / max_leverage) if max_leverage else 0.02
+
+            self.markets[unified_symbol] = {
+                "id": symbol_name,  # GMX market symbol
+                "symbol": unified_symbol,  # CCXT unified symbol
+                "base": symbol_name,  # Base currency (e.g., ETH)
+                "quote": "USDC",  # Quote currency (settlement in USDC)
+                "baseId": symbol_name,
+                "quoteId": "USDC",
+                "settle": "USDC",  # Settlement currency
+                "settleId": "USDC",  # Settlement currency ID
                 "active": True,
-                "type": "swap",
+                "type": "swap",  # GMX provides perpetual swaps
                 "spot": False,
                 "margin": True,
                 "swap": True,
-                "future": False,
+                "future": True,
                 "option": False,
                 "contract": True,
-                "settle": "USD",
-                "settleId": "USD",
-                "contractSize": 1,
                 "linear": True,
                 "inverse": False,
-                "info": market_data,
+                "contractSize": self.parse_number("1"),
+                "maker": 0.0003,
+                "taker": 0.0006,
                 "precision": {
-                    "amount": 8,
-                    "price": 8,
+                    "amount": self.parse_number(self.parse_precision("8")),
+                    "price": self.parse_number(self.parse_precision("8")),
                 },
                 "limits": {
-                    "leverage": {
-                        "min": 1.1,
-                        "max": leverage_by_market.get(market_addr, 50),
-                    },
-                    "amount": {
-                        "min": 0.00000001,
-                        "max": None,
-                    },
-                    "price": {
-                        "min": None,
-                        "max": None,
-                    },
-                    "cost": {
-                        "min": None,
-                        "max": None,
-                    },
+                    "amount": {"min": None, "max": None},
+                    "price": {"min": None, "max": None},
+                    "cost": {"min": 10, "max": None},
+                    "leverage": {"min": 1.1, "max": max_leverage},
+                },
+                "maintenanceMarginRate": maintenance_margin_rate,
+                "info": {
+                    "market_token": market_address,  # Market contract address
+                    "index_token": market_data.get("index_token_address"),
+                    "long_token": market_data.get("long_token_address"),
+                    "short_token": market_data.get("short_token_address"),
+                    "min_collateral_factor": min_collateral_factor,
+                    "max_leverage": max_leverage,
+                    **market_data,
                 },
             }
+
+        # Update symbols list (CCXT compatibility)
+        self.symbols = list(self.markets.keys())
 
         return self.markets
 
@@ -417,10 +637,14 @@ class GMX(Exchange):
             timeframe: Candle interval (1m, 5m, 15m, 1h, 4h, 1d)
             since: Start timestamp in ms (for filtering)
             limit: Max number of candles
-            params: Additional parameters
+            params: Additional parameters (e.g., {"skip_validation": True})
 
         Returns:
             List of OHLCV candles [timestamp, open, high, low, close, volume]
+
+        Raises:
+            ValueError: If invalid timeframe
+            InsufficientHistoricalDataError: If insufficient data for requested time range (when since is specified)
         """
         await self._ensure_session()
         await self.load_markets()
@@ -433,30 +657,36 @@ class GMX(Exchange):
 
         gmx_period = self.timeframes[timeframe]
 
+        # Default limit if not provided
+        if limit is None:
+            limit = 10000
+
         # Fetch from GMX API
         data = await async_make_gmx_api_request(
             chain=self.chain,
-            endpoint=f"/prices/candles/{token_symbol}",
-            params={"period": gmx_period},
+            endpoint="/prices/candles",
+            params={"tokenSymbol": token_symbol, "period": gmx_period, "limit": limit},
             session=self.session,
         )
 
         candles_data = data.get("candles", [])
 
         # Parse candles
+        # API returns candles as arrays: [timestamp, open, high, low, close]
         ohlcv = []
         for candle in candles_data:
-            timestamp = candle.get("timestamp", 0) * 1000  # Convert to ms
+            # candle is an array: [timestamp, open, high, low, close]
+            timestamp = int(candle[0]) * 1000  # Convert to ms
 
             # Filter by since if provided
             if since and timestamp < since:
                 continue
 
-            o = float(candle.get("open", 0)) / 1e30
-            h = float(candle.get("high", 0)) / 1e30
-            l = float(candle.get("low", 0)) / 1e30
-            c = float(candle.get("close", 0)) / 1e30
-            v = 0  # GMX doesn't provide volume
+            o = float(candle[1])  # open
+            h = float(candle[2])  # high
+            l = float(candle[3])  # low
+            c = float(candle[4])  # close
+            v = 1.0  # GMX doesn't provide volume, use dummy value to avoid Freqtrade filtering
 
             ohlcv.append([timestamp, o, h, l, c, v])
 
@@ -466,6 +696,15 @@ class GMX(Exchange):
         # Apply limit
         if limit:
             ohlcv = ohlcv[-limit:]
+
+        # Validate data sufficiency for backtesting
+        _validate_ohlcv_data_sufficiency(
+            ohlcv=ohlcv,
+            symbol=symbol,
+            timeframe=timeframe,
+            since=since,
+            params=params,
+        )
 
         return ohlcv
 
@@ -777,7 +1016,11 @@ class GMX(Exchange):
             params = {}
 
         if limit is None:
-            limit = 120
+            limit = 10
+
+        # Cap limit to avoid GraphQL response size limits with 115 markets
+        # Each marketInfo has many fields, Subsquid can't handle large responses
+        limit = min(limit, 10)
 
         market = self.market(symbol)
         market_address = params.get("market_address", market["info"]["market_token"])

@@ -16,9 +16,8 @@ import pytest
 from decimal import Decimal
 from eth_utils import to_checksum_address
 
-from eth_defi.gmx.order.base_order import BaseOrder, OrderParams, OrderType, OrderResult, ETH_ZERO_ADDRESS, ZERO_REFERRAL_CODE
+from eth_defi.gmx.order.base_order import BaseOrder, OrderParams, OrderResult, ETH_ZERO_ADDRESS, ZERO_REFERRAL_CODE
 from eth_defi.gmx.contracts import NETWORK_TOKENS
-from eth_defi.token import fetch_erc20_details
 
 
 # ==================== Dataclass Tests ====================
@@ -97,16 +96,6 @@ def test_order_result_dataclass():
     assert result.gas_limit == 2500000
     # Updated: Test new field
     assert result.estimated_price_impact == -0.005
-
-
-def test_order_type_enum():
-    """Test OrderType enum values."""
-    assert OrderType.SWAP.value == 0
-    assert OrderType.SHIFT.value == 1
-    assert OrderType.ATOMIC_WITHDRAWAL.value == 2
-    assert OrderType.DEPOSIT.value == 3
-    assert OrderType.WITHDRAWAL.value == 4
-    assert OrderType.ATOMIC_SWAP.value == 5
 
 
 def test_module_constants():

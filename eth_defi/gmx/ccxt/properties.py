@@ -47,7 +47,7 @@ def describe_gmx() -> dict:
             "spot": False,
             "margin": True,  # GMX uses cross margin
             "swap": True,  # GMX provides perpetual swaps
-            "future": False,
+            "future": True,
             "option": False,
             "addMargin": False,  # Not yet
             "borrowCrossMargin": None,
@@ -187,7 +187,7 @@ def describe_gmx() -> dict:
             "fetchOpenOrdersWs": None,
             "fetchOption": None,
             "fetchOptionChain": None,
-            "fetchOrder": False,  # Requires contract integration
+            "fetchOrder": True,  # Enabled for backtesting (returns stub data)
             "fetchOrderWithClientOrderId": None,
             "fetchOrderBook": False,  # GMX uses liquidity pools, not order books
             "fetchOrderBooks": None,
@@ -351,6 +351,7 @@ def describe_gmx() -> dict:
         "commonCurrencies": {
             "XBT": "BTC",
             "BCHSV": "BSV",
+            "USD": "USDC",  # GMX uses USDC for settlement but commonly referred to as USD
         },
         "precisionMode": TICK_SIZE,
         "paddingMode": NO_PADDING,
@@ -359,5 +360,27 @@ def describe_gmx() -> dict:
             "amount": {"min": None, "max": None},
             "price": {"min": None, "max": None},
             "cost": {"min": None, "max": None},
+        },
+        "features": {
+            "spot": {
+                "fetchOHLCV": {
+                    "limit": 5000,
+                },
+            },
+            "swap": {
+                "linear": {
+                    "fetchOHLCV": {
+                        "limit": 5000,
+                    },
+                },
+                "inverse": {},  # GMX doesn't have inverse contracts, but CCXT requires this key
+            },
+            "futures": {  # Freqtrade might look for "futures" instead of "swap"
+                "linear": {
+                    "fetchOHLCV": {
+                        "limit": 5000,
+                    },
+                },
+            },
         },
     }
