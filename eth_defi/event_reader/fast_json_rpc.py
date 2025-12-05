@@ -43,19 +43,30 @@ def _make_request(self, method: RPCEndpoint, params: Any) -> RPCResponse:
     """Add response headers logging in case of exception raised."""
 
     request_data = self.encode_rpc_request(method, params)
-    raw_response = get_response_from_post_request(
-        self.endpoint_uri,
-        data=request_data,
-        **self.get_request_kwargs(),
-    )
+
+    try:
+        raw_response = get_response_from_post_request(
+            self.endpoint_uri,
+            data=request_data,
+            **self.get_request_kwargs(),
+        )
+    except Exception as e:
+        # Low level network error like ConnectionErro
+        last_headers_storage.headers = {"exception": str(e), "method": method, "endpoint_uri": get_url_domain(self.endpoint_uri)}
+        raise
+
+    # Pass dRPC / etc upstream RPC headers all along for debug
+    last_headers_storage.headers = {k: v for k, v in raw_response.headers.items()}
+    last_headers_storage.headers["method"] = method
+    last_headers_storage.headers["endpoint_uri"] = get_url_domain(self.endpoint_uri)
+    last_headers_storage.headers["status_code"] = raw_response.status_code
+    if raw_response.status_code >= 400:
+        last_headers_storage.headers["status_text"] = raw_response.text
+
     raw_response.raise_for_status()
 
     try:
         decoded = _fast_decode_rpc_response(raw_response.content)
-        # Pass dRPC / etc upstream RPC headers all along for debug
-        last_headers_storage.headers = {k: v for k, v in raw_response.headers.items()}
-        last_headers_storage.headers["method"] = method
-        last_headers_storage.headers["endpoint_uri"] = get_url_domain(self.endpoint_uri)
         return decoded
     except Exception as e:
         logger.error(
