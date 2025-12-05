@@ -14,7 +14,8 @@
 #
 # Make sure you have allocated at least 16 GB RAM for your Docker engine (Mac).
 #
-# Usage example (after cloning the repo):
+# Usage example (after cloning the repo).
+# We recommend giving Arbitrum RPC for maximum fireworks:
 #
 #     export JSON_RPC_URL="<...>"
 #     ./rpc-test.sh
