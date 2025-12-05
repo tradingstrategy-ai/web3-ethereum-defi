@@ -32,7 +32,6 @@
 # - delete these folders to start the restart the scan from block 1.
 #
 # If the process dies without a reason, Docker likely runs out of RAM.
-# Some chains like Arbitrum with a lot of blocks may require more RAM.
 #
 
 # How many worker process to spawn for parallel processing
