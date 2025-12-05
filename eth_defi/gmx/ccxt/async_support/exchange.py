@@ -21,6 +21,8 @@ from web3 import AsyncWeb3
 
 from eth_defi.chain import get_chain_name
 from eth_defi.gmx.ccxt.async_support.async_graphql import AsyncGMXSubsquidClient
+from eth_defi.gmx.ccxt.errors import InsufficientHistoricalDataError
+from eth_defi.gmx.ccxt.validation import _validate_ohlcv_data_sufficiency
 from eth_defi.gmx.ccxt.async_support.async_http import async_make_gmx_api_request
 from eth_defi.gmx.ccxt.properties import describe_gmx
 from eth_defi.gmx.config import GMXConfig
@@ -635,10 +637,14 @@ class GMX(Exchange):
             timeframe: Candle interval (1m, 5m, 15m, 1h, 4h, 1d)
             since: Start timestamp in ms (for filtering)
             limit: Max number of candles
-            params: Additional parameters
+            params: Additional parameters (e.g., {"skip_validation": True})
 
         Returns:
             List of OHLCV candles [timestamp, open, high, low, close, volume]
+
+        Raises:
+            ValueError: If invalid timeframe
+            InsufficientHistoricalDataError: If insufficient data for requested time range (when since is specified)
         """
         await self._ensure_session()
         await self.load_markets()
@@ -690,6 +696,15 @@ class GMX(Exchange):
         # Apply limit
         if limit:
             ohlcv = ohlcv[-limit:]
+
+        # Validate data sufficiency for backtesting
+        _validate_ohlcv_data_sufficiency(
+            ohlcv=ohlcv,
+            symbol=symbol,
+            timeframe=timeframe,
+            since=since,
+            params=params,
+        )
 
         return ohlcv
 

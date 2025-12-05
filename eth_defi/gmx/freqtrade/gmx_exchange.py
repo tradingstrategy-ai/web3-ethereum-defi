@@ -139,7 +139,9 @@ class Gmx(Exchange):
 
         # GMX requires RPC URL
         if "rpc_url" not in exchange_config and "rpcUrl" not in exchange_config.get("ccxt_config", {}):
-            raise OperationalException("GMX exchange requires 'rpc_url' in exchange config or 'rpcUrl' in ccxt_config")
+            raise OperationalException(
+                "GMX exchange requires 'rpc_url' in exchange config or 'rpcUrl' in ccxt_config",
+            )
 
         # Trading mode must be futures
         if self.trading_mode != TradingMode.FUTURES:

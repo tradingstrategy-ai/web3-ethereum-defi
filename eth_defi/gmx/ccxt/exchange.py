@@ -32,6 +32,8 @@ from cchecksum import to_checksum_address
 from ccxt.base.errors import NotSupported
 
 from eth_defi.chain import get_chain_name
+from eth_defi.gmx.ccxt.errors import InsufficientHistoricalDataError
+from eth_defi.gmx.ccxt.validation import _validate_ohlcv_data_sufficiency
 from eth_defi.ccxt.exchange_compatible import ExchangeCompatible
 from eth_defi.gmx.api import GMXAPI
 from eth_defi.gmx.ccxt.properties import describe_gmx
@@ -1035,11 +1037,12 @@ class GMX(ExchangeCompatible):
         :type since: int | None
         :param limit: Maximum number of candles to return
         :type limit: int | None
-        :param params: Additional parameters (e.g., {"until": timestamp_ms})
+        :param params: Additional parameters (e.g., {"until": timestamp_ms, "skip_validation": True})
         :type params: dict[str, Any] | None
         :return: list of OHLCV candles, each as [timestamp_ms, open, high, low, close, volume]
         :rtype: list[list]
         :raises ValueError: If invalid symbol or timeframe
+        :raises InsufficientHistoricalDataError: If insufficient data for requested time range (when since is specified)
 
         .. note::
             Volume is always 0 as GMX API doesn't provide volume data
@@ -1085,6 +1088,15 @@ class GMX(ExchangeCompatible):
 
         # Parse OHLCV data
         ohlcv = self.parse_ohlcvs(candles_data, market_info, timeframe, since, limit)
+
+        # Validate data sufficiency for backtesting
+        _validate_ohlcv_data_sufficiency(
+            ohlcv=ohlcv,
+            symbol=symbol,
+            timeframe=timeframe,
+            since=since,
+            params=params,
+        )
 
         return ohlcv
 
