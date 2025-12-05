@@ -1,15 +1,16 @@
 #!/bin/bash
 #
-# This script is to stress test RPC provider using vault data scanner.
+# This script is to stress test RPC provider using ERC-4626 vault data scanner.
 #
-# Vault data scanner runs a real-world workload against an archive node RPC provider.
-# It issues requests in ranges on ~10k-300k per run (depends on chain and data)
+# The vault data scanner runs a real-world workload against an archive node RPC provider.
+# It issues requests in ranges on ~10k-3M per run (depends on chain and data)
 # and tends to cover multiple rare error modes and edge cases, especially
 # what comes to the RPC upstream node load handling and robustness.
 # Calls done include eth_call, eth_getLogs, eth_getBlockByNumber, multicall calls etc.
 #
 # The scripts have default RPC retries of 5 before giving up.
 # It should give verbose çonsole diagnostics about failing RPC requests before giving up.
+# So when your RPC is faulty, it will crash with fireworks and good error messages.
 #
 # Make sure you have allocated at least 16 GB RAM for your Docker engine (Mac).
 #
@@ -36,7 +37,7 @@
 # How many worker process to spawn for parallel processing
 # (limited by RAM) - this values should be good for 16 GB RAM configured to Docker engine.
 # If it is slow, remember to change your Docker Desktop / Docker Engine settings.
-export MAX_WORKERS=24
+export MAX_WORKERS=32
 
 # Python logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL).
 # Set to "info" to get a lot of output.
