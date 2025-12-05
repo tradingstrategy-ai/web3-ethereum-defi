@@ -155,6 +155,38 @@ class BlockTimestampDatabase:
             return 0, 0
         return res[0], res[1]
 
+    def get_first_block(self) -> int:
+        """Get the first block number we have for a given chain ID.
+
+        :return: 0 if no data
+        """
+        res = self.con.execute(
+            """
+            SELECT MIN(block_number) 
+            FROM block_timestamps 
+        """
+        ).fetchone()
+
+        if res is None or res[0] is None:
+            return 0
+        return res[0]
+
+    def get_last_block(self) -> int:
+        """Get the last block number we have for a given chain ID.
+
+        :return: 0 if no data
+        """
+        res = self.con.execute(
+            """
+            SELECT MAX(block_number) 
+            FROM block_timestamps 
+        """
+        ).fetchone()
+
+        if res is None or res[0] is None:
+            return 0
+        return res[0]
+
     def to_series(self) -> pd.Series | None:
         """Get timestamps for a single chain.
 
@@ -244,7 +276,7 @@ class BlockTimestampSlicer:
     - Avoid reading all Arbitrum 20 GB of timestamp data to memory at once
     """
 
-    def __init__(self, timestamp_db: BlockTimestampDatabase, slice_size: int = 10_000):
+    def __init__(self, timestamp_db: BlockTimestampDatabase, slice_size: int = 1_000_000):
         self.timestamp_db = timestamp_db
         self.slice_size = slice_size
         self.current_slice: pd.Series = None
@@ -254,35 +286,30 @@ class BlockTimestampSlicer:
 
     def __getitem__(self, block_number: int) -> datetime.datetime:
         """Array access to timestamps."""
-        if self.current_slice is not None and block_number in self.current_slice:
-            return self.current_slice[block_number]
-
-        self.current_slice = self.timestamp_db.query(block_number, block_number + self.slice_size)
-        return self.current_slice[block_number]
+        value = self.get(block_number)
+        if value is None:
+            raise KeyError(f"Block number {block_number} not found in timestamp database")
+        return value
 
     def get(self, block_number: int) -> datetime.datetime | None:
         """Get timestamp for a given block number, or None if not found."""
+        if self.current_slice is not None and block_number in self.current_slice:
+            return self.current_slice[block_number]
+
+        logger.debug(f"Querying slice for block {block_number:,} (size {self.slice_size})")
+
+        self.current_slice = self.timestamp_db.query(block_number, block_number + self.slice_size)
+
         try:
-            return self[block_number]
+            return self.current_slice[block_number]
         except KeyError:
             return None
 
 
 def load_timestamp_cache(chain_id: int, cache_folder: Path = DEFAULT_TIMESTAMP_CACHE_FOLDER) -> BlockTimestampDatabase:
+    """Load the block->timestamp cache for a given chain ID."""
     cache_file = BlockTimestampDatabase.get_database_file_chain(chain_id, cache_folder)
     logger.info(f"Loading block timestamps from {cache_file}")
     db = BlockTimestampDatabase.load(chain_id, cache_file)
-    logger.info(f"Database has {db.get_count()} block timestamps for chain {chain_id}")
+    logger.info(f"Database has {db.get_count():,} block timestamps for chain {chain_id}")
     return db
-
-
-def save_timestamp_cache(timestamps: BlockTimestampDatabase, cache_file: Path = DEFAULT_TIMESTAMP_CACHE_FOLDER):
-    assert isinstance(timestamps, BlockTimestampDatabase), f"Expected BlockTimestampDatabase, got {type(timestamps)}"
-
-    # In DuckDB, data is persisted immediately on insert/update if connected to a file.
-    # We call save() to ensure WAL is flushed or if we need to export from memory.
-    timestamps.save()
-
-    if cache_file.exists():
-        size_mb = cache_file.stat().st_size / (1024 * 1024)
-        logger.info(f"Ensured block timestamps saved to {cache_file}, size is {size_mb:.2f} MB")

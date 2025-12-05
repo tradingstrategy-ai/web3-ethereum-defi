@@ -1456,6 +1456,8 @@ def read_multicall_historical_stateful(
     # Debug
     from eth_defi.erc_4626.vault import VaultReaderState
 
+    logger.info("Starting the main historical state read loop from block %d to %d", start_block, end_block)
+
     metrics = {}
     for block_number in range(start_block, end_block, step):
         # Map prefetch timestamp

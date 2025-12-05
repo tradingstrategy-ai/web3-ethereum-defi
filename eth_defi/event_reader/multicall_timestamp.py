@@ -10,7 +10,7 @@ from joblib import Parallel, delayed
 from tqdm_loggable.auto import tqdm
 
 from eth_defi.chain import get_chain_name
-from eth_defi.event_reader.timestamp_cache import load_timestamp_cache, save_timestamp_cache, BlockTimestampDatabase, DEFAULT_TIMESTAMP_CACHE_FOLDER, BlockTimestampSlicer
+from eth_defi.event_reader.timestamp_cache import load_timestamp_cache, BlockTimestampDatabase, DEFAULT_TIMESTAMP_CACHE_FOLDER, BlockTimestampSlicer
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.timestamp import get_block_timestamp
 
@@ -38,7 +38,6 @@ def _read_timestamp_subprocess(
         web3 = per_chain_web3[chain_id] = web3factory()
 
     assert web3.eth.chain_id == chain_id, f"Web3 chain ID mismatch: {web3.eth.chain_id} != {chain_id}"
-
     return block_number, get_block_timestamp(web3, block_number)
 
 
@@ -61,6 +60,11 @@ def fetch_block_timestamps_multiprocess(
     - The subprocess is recycled between different batch jobs
     - We cache reader Web3 connections between batch jobs
     - joblib never shuts down this process
+
+    .. note ::
+
+        Because this method aggressively uses `step` to skip blocks,
+        it results to non-reuseable timestamp cache (only valid for one scan and subsequent scans of the same task).
 
     :param cache_path
         Cache timestamps across runs and commands.
@@ -105,7 +109,8 @@ def fetch_block_timestamps_multiprocess(
 
     def _task_gen():
         nonlocal web3factory
-        for _block_number in range(start_block, end_block + 1, step):
+        first_block_to_check = max(start_block, timestamp_db.get_last_block())
+        for _block_number in range(first_block_to_check, end_block + 1, step):
             if result.get(_block_number) is None:
                 yield web3factory, chain_id, _block_number
 
