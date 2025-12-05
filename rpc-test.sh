@@ -41,7 +41,7 @@ export MAX_WORKERS=32
 
 # Python logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL).
 # Set to "info" to get a lot of output.
-export LOG_LEVEL=info
+export LOG_LEVEL=warning
 
 install -d ~/.tradingstrategy/
 install -d ~/.cache/
