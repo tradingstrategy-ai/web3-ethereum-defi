@@ -1,5 +1,6 @@
 """Validation utilities for GMX CCXT exchange data."""
 
+from datetime import datetime, timezone
 from typing import Any
 from eth_defi.gmx.ccxt.errors import InsufficientHistoricalDataError
 
@@ -15,7 +16,10 @@ def _validate_ohlcv_data_sufficiency(
 
     Raises InsufficientHistoricalDataError if:
     - 'since' specified but no data returned
-    - Data starts significantly later than requested 'since'
+    - Data starts on a later date than requested 'since'
+
+    Validation is date-based (ignoring time), meaning any time on the
+    same date is acceptable.
 
     No validation if:
     - 'since' is None (user just wants recent data)
@@ -54,13 +58,13 @@ def _validate_ohlcv_data_sufficiency(
     available_start = ohlcv[0][0]  # timestamp of first candle
     available_end = ohlcv[-1][0]  # timestamp of last candle
 
-    # Calculate acceptable gap (allow 1 candle period tolerance after requested time)
-    timeframe_ms = _timeframe_to_milliseconds(timeframe)
-    max_acceptable_start = since + timeframe_ms
+    # Compare dates (ignore time) for validation
+    # This allows any time on the same date to be acceptable
+    requested_date = datetime.fromtimestamp(since / 1000, tz=timezone.utc).date()
+    available_start_date = datetime.fromtimestamp(available_start / 1000, tz=timezone.utc).date()
 
-    # Check if data starts too late (more than 1 period after requested time)
-    # We allow data to start slightly after 'since' to account for candle alignment
-    if available_start > max_acceptable_start:
+    # Check if data starts on a later date
+    if available_start_date > requested_date:
         raise InsufficientHistoricalDataError(
             symbol=symbol,
             timeframe=timeframe,
