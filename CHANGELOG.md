@@ -1,3 +1,9 @@
+# Current
+
+- GMX CCXT/FreqTrade integration
+- Add: Rewrite block timestamp cache to use DuckDB and Hypersync
+- Fix: Multiple RPC issue workarounds
+
 # 0.35
 
 - Add: Initial skeleton for GMX CCXT adapter

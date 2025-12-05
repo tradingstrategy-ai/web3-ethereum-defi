@@ -244,13 +244,13 @@ class BlockTimestampSlicer:
     def __init__(self, timestamp_db: BlockTimestampDatabase, slice_size: int = 10_000):
         self.timestamp_db = timestamp_db
         self.slice_size = slice_size
-        self.current_slice = None
+        self.current_slice: pd.Series = None
 
     def __len__(self):
         return self.timestamp_db.get_count()
 
     def __getitem__(self, block_number: int) -> datetime.datetime:
-        if self.current_slice and block_number in self.current_slice:
+        if self.current_slice is not None and block_number in self.current_slice:
             return self.current_slice[block_number]
 
         self.current_slice = self.timestamp_db.query(block_number, block_number + self.slice_size)
