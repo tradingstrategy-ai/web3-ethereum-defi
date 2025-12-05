@@ -42,7 +42,7 @@ RPC_NAMES = [
     "JSON_RPC_POLYGON",
     "JSON_RPC_HEMI",
     "JSON_RPC_LINEA",
-    "JSON_RPC_TAC",
+    # "JSON_RPC_TAC",
     "JSON_RPC_PLASMA",
     "JSON_RPC_KATANA",
 ]
