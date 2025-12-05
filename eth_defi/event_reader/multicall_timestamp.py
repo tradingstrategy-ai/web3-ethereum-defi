@@ -10,7 +10,7 @@ from joblib import Parallel, delayed
 from tqdm_loggable.auto import tqdm
 
 from eth_defi.chain import get_chain_name
-from eth_defi.event_reader.timestamp_cache import load_timestamp_cache, save_timestamp_cache, BlockTimestampDatabase, DEFAULT_TIMESTAMP_CACHE_FOLDER
+from eth_defi.event_reader.timestamp_cache import load_timestamp_cache, save_timestamp_cache, BlockTimestampDatabase, DEFAULT_TIMESTAMP_CACHE_FOLDER, BlockTimestampSlicer
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.timestamp import get_block_timestamp
 
@@ -53,7 +53,7 @@ def fetch_block_timestamps_multiprocess(
     timeout=120,
     cache_path: Path | None = DEFAULT_TIMESTAMP_CACHE_FOLDER,
     checkpoint_freq: int = 20_000,
-) -> pd.Series:
+) -> BlockTimestampSlicer:
     """Extract timestamps using fast multiprocessing.
 
     - Subprocess entrypoint
@@ -87,7 +87,7 @@ def fetch_block_timestamps_multiprocess(
     if display_progress:
         progress_bar = tqdm(
             total=(end_block - start_block) // step,
-            desc=f"Reading timestamps (slow) for chain {chain_name}: {start_block:,} - {end_block:,}, {max_workers} workers",
+            desc=f"Reading timestamps (slow) for chain {chain_name}: {start_block:,} - {end_block:,}, step {step}, {max_workers} workers",
         )
     else:
         progress_bar = None
@@ -155,8 +155,7 @@ def fetch_block_timestamps_multiprocess(
 
     if timestamp_db:
         try:
-            series = timestamp_db.query(start_block, end_block)
-            return series
+            return timestamp_db.get_slicer()
         finally:
             # DuckDB save
             timestamp_db.close()
@@ -177,7 +176,7 @@ def fetch_block_timestamps_multiprocess_auto_backend(
     cache_path: Path | None = DEFAULT_TIMESTAMP_CACHE_FOLDER,
     checkpoint_freq: int = 20_000,
     hypersync_client: "hypersync.HypersyncClient | None" = None,
-) -> pd.Series:
+) -> BlockTimestampSlicer:
     """Fetch block timestamps, choose backend.
 
     - If Hypersync is available, use the optimised code path

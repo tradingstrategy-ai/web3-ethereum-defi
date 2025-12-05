@@ -216,9 +216,45 @@ class BlockTimestampDatabase:
         """
         return pd.to_datetime(series, unit="s").astype("datetime64[s]")
 
+    def get_count(self) -> int:
+        return self.con.execute(
+            """
+            SELECT COUNT(*) FROM block_timestamps
+            """
+        ).fetchone()[0]
+
+    def get_slicer(self) -> "BlockTimestampSlicer":
+        return BlockTimestampSlicer(self)
+
     def close(self):
-        """Close the connection."""
-        self.con.close()
+        """Fake close
+
+        TODO: No-op at the moment, as slicer reuses the conneciton
+        """
+        pass
+
+
+class BlockTimestampSlicer:
+    """Read timestamps from DuckDB in slices iteratively.
+
+    - Maintain a memory buffer of block numbers
+    - Avoid reading all Arbitrum 20 GB of timestamp data to memory at once
+    """
+
+    def __init__(self, timestamp_db: BlockTimestampDatabase, slice_size: int = 10_000):
+        self.timestamp_db = timestamp_db
+        self.slice_size = slice_size
+        self.current_slice = None
+
+    def __len__(self):
+        return self.timestamp_db.get_count()
+
+    def __getitem__(self, block_number: int) -> datetime.datetime:
+        if self.current_slice and block_number in self.current_slice:
+            return self.current_slice[block_number]
+
+        self.current_slice = self.timestamp_db.query(block_number, block_number + self.slice_size)
+        return self.current_slice[block_number]
 
 
 def load_timestamp_cache(chain_id: int, cache_folder: Path = DEFAULT_TIMESTAMP_CACHE_FOLDER) -> BlockTimestampDatabase:

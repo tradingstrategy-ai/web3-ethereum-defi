@@ -1028,7 +1028,7 @@ class MultiprocessMulticallReader:
                    ("Failed to call: InvalidTransaction" in parsed_error) or \
                    isinstance(e, ProbablyNodeHasNoBlock) or \
                    isinstance(e, (ReadTimeout, RemoteDisconnected, ConnectionError)) or \
-                   (isinstance(e, HTTPError) and e.response.status_code >= 500):
+                   (isinstance(e, HTTPError) and e.response.status_code >= 400):
                     raise MulticallRetryable(error_msg) from e
                 # fmt: on
                 else:
@@ -1056,6 +1056,7 @@ class MultiprocessMulticallReader:
         calls: list[EncodedCall],
         require_multicall_result=False,
         timestamp: datetime.datetime | None = None,
+        min_fallback_retries=5,
     ) -> Iterable[EncodedCallResult]:
         """Work a chunk of calls in the subprocess.
 
@@ -1070,6 +1071,9 @@ class MultiprocessMulticallReader:
 
         :param timestamp:
             Block timestamp
+
+        :param min_fallback_retries:
+            Bang all RPCs at least this many times when attempting to make progress.
         """
 
         assert isinstance(calls, list)
@@ -1150,9 +1154,12 @@ class MultiprocessMulticallReader:
                 fallback_provider = None
                 fallback_attempts = 0
 
+            # Try at least 3 times for extra robustness
+            fallback_attempts = max(fallback_attempts, min_fallback_retries)
+
             # Set batch size to 1 and give it one more go
             if fallback_attempts > 0:
-                logger.info("Attempting %d fallbacks", fallback_attempts)
+                logger.warning("Attempting retry %d times with fallbacks", fallback_attempts)
                 for i in range(fallback_attempts):
                     fallback_provider.switch_provider()
                     active_provider = fallback_provider.get_active_provider()
@@ -1170,6 +1177,7 @@ class MultiprocessMulticallReader:
                     except MulticallRetryable as e:
                         provider_name = get_provider_name(provider)
                         if i < (fallback_attempts - 1):
+                            logger.warning(f"Multicall retryable still failing, but we have retries left.")
                             logger.warning(f"Attempts: {i}, max attempts: {fallback_attempts}.")
                             logger.warning(f"Multicall with batch size 1 still failed at chain {chain_id}, block {block_identifier_str}. Switching provider and retrying. Current provider: {active_provider =} ({active_provider_name}). Exception: {e}.")
                             continue
@@ -1179,7 +1187,7 @@ class MultiprocessMulticallReader:
                             # Ruff piece of crap hack
                             # https://github.com/astral-sh/ruff/pull/8822
                             f"Encountered a contract that cannot be called even after dropping multicall batch size to 1 and switching providers, bailing out.\n"
-                            f"Fallback attempts {i}, max attempts {fallback_attempts}.\n"
+                            f"Fallback attempt number #{i}, max fallback attempts {fallback_attempts}.\n"
                             f"Manually figure out how to work around / change RPC providers.\n"
                             f"Original provider: {provider} ({provider_name}), fallback provider: {fallback_provider} ({active_provider_name}), chain {chain_id}, block {block_identifier_str}, batch size: 1.\n"
                             f"Exception: {e}.\n"

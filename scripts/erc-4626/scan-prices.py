@@ -267,6 +267,7 @@ def main():
     print(f"Token cache size is {token_cache.get_file_size():,} bytes, {len(token_cache):,} tokens")
     print("Scan complete")
     print(pformat_scan_result(scan_result))
+    print("All ok")
 
 
 if __name__ == "__main__":
