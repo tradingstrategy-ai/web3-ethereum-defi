@@ -1533,6 +1533,10 @@ def read_multicall_historical_stateful(
     if progress_bar:
         progress_bar.close()
 
+    timestamp_cache_close = getattr(timestamps, "close", None)
+    if callable(timestamp_cache_close):
+        timestamp_cache_close()
+
 
 def read_multicall_chunked(
     chain_id: int,

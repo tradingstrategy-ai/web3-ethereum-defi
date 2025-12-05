@@ -267,11 +267,8 @@ class BlockTimestampDatabase:
         return BlockTimestampSlicer(self)
 
     def close(self):
-        """Fake close
-
-        TODO: No-op at the moment, as slicer reuses the conneciton
-        """
-        pass
+        """Release duckdb resources."""
+        self.con.close()
 
 
 class BlockTimestampSlicer:
@@ -309,6 +306,10 @@ class BlockTimestampSlicer:
             return self.current_slice[block_number]
         except KeyError:
             return None
+
+    def close(self):
+        """Release the associated cache db."""
+        self.timestamp_db.close()
 
 
 def load_timestamp_cache(chain_id: int, cache_folder: Path = DEFAULT_TIMESTAMP_CACHE_FOLDER) -> BlockTimestampDatabase:

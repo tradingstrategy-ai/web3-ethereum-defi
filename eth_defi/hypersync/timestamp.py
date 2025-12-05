@@ -270,11 +270,7 @@ async def fetch_block_timestamps_using_hypersync_cached_async(
         _save()
 
     # Drop unnecessary blocks from memory
-    try:
-        return timestamp_db.get_slicer()
-    finally:
-        # DuckDB save
-        timestamp_db.close()
+    return timestamp_db.get_slicer()
 
 
 def fetch_block_timestamps_using_hypersync_cached(
