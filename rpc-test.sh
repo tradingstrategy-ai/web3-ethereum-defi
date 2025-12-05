@@ -11,6 +11,7 @@
 # The scripts have default RPC retries of 5 before giving up.
 # It should give verbose çonsole diagnostics about failing RPC requests before giving up.
 # So when your RPC is faulty, it will crash with fireworks and good error messages.
+# For RPC providers with multiple upstreams, this script exposes weak upstreams.
 #
 # Make sure you have allocated at least 16 GB RAM for your Docker engine (Mac).
 #

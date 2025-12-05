@@ -38,7 +38,7 @@ def _read_timestamp_subprocess(
         web3 = per_chain_web3[chain_id] = web3factory()
 
     assert web3.eth.chain_id == chain_id, f"Web3 chain ID mismatch: {web3.eth.chain_id} != {chain_id}"
-    return block_number, get_block_timestamp(web3, block_number)
+    return block_number, get_block_timestamp(web3, block_number, raw=True)
 
 
 def fetch_block_timestamps_multiprocess(
@@ -120,19 +120,25 @@ def fetch_block_timestamps_multiprocess(
         # Periodical checkpoint write
         nonlocal last_save
         nonlocal block_number
-        nonlocal buffer
+        nonlocal index
+        nonlocal values
         last_save = block_number
-        if buffer:
+        if index:
+            series = pd.Series(data=values, index=index)
             timestamp_db.import_chain_data(
                 chain_id,
-                buffer,
+                series,
             )
-        buffer = {}
+        index = []
+        values = []
 
-    buffer = {}
+    index = []
+    values = []
     for completed_task in worker_processor(delayed(_read_timestamp_subprocess)(*args) for args in _task_gen()):
         block_number, timestamp = completed_task
-        buffer[block_number] = timestamp
+
+        index.append(block_number)
+        values.append(timestamp)
 
         if progress_bar:
             progress_bar.update(1)

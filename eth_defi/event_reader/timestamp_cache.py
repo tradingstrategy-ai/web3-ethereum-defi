@@ -51,6 +51,11 @@ class BlockTimestampDatabase:
         self.con = duckdb.connect(self.path)
         self._init_schema()
 
+    def __del__(self):
+        if self.con is not None:
+            self.con.close()
+            self.con = None
+
     def _init_schema(self):
         """Ensure the table exists with the correct schema and primary key.
 
