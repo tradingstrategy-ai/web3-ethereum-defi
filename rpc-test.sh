@@ -11,7 +11,7 @@
 # The scripts have default RPC retries of 5 before giving up.
 # It should give verbose çonsole diagnostics about failing RPC requests before giving up.
 #
-# Make sure you have allocated at least 24 GB RAM for your Docker engine (Mac).
+# Make sure you have allocated at least 16 GB RAM for your Docker engine (Mac).
 #
 # Usage example (after cloning the repo):
 #

@@ -91,6 +91,7 @@ class BlockTimestampDatabase:
             )
             df_new["timestamp"] = df_new["timestamp"].astype("uint32")
         else:
+            assert len(data) > 0, f"No data to import: {data}"
             # Legacy path
             df_new = pd.DataFrame([{"block_number": k, "timestamp": v} for k, v in data.items()])
             # Convert to 32-bit unix timestamp
@@ -179,7 +180,7 @@ class BlockTimestampDatabase:
         df.set_index("block_number", inplace=True)
         return self.transform_time_values(df["timestamp"])
 
-    def query(self, start_block: int, end_block: int) -> pd.Series | None:
+    def query(self, start_block: int, end_block: int) -> pd.Series:
         """Get timestamps for a single chain in an inclusive block range.
 
         Returns a Pandas Series to maintain compatibility with the original API.
@@ -187,7 +188,9 @@ class BlockTimestampDatabase:
         :param chain_id: EVM chain id
         :param start_block: Inclusive start block
         :param end_block: Inclusive end block
-        :return: Pandas series block number (int) -> block timestamp (pd.Timestamp), or None if empty
+
+        :return:
+            Pandas series block number (int) -> block timestamp (pd.Timestamp)
         """
         if start_block >= end_block:
             raise ValueError("start_block must be <= end_block")
@@ -203,7 +206,7 @@ class BlockTimestampDatabase:
         ).df()
 
         if df.empty:
-            return None
+            return pd.Series([])
 
         df.set_index("block_number", inplace=True)
         return self.transform_time_values(df["timestamp"])
@@ -250,17 +253,27 @@ class BlockTimestampSlicer:
         return self.timestamp_db.get_count()
 
     def __getitem__(self, block_number: int) -> datetime.datetime:
+        """Array access to timestamps."""
         if self.current_slice is not None and block_number in self.current_slice:
             return self.current_slice[block_number]
 
         self.current_slice = self.timestamp_db.query(block_number, block_number + self.slice_size)
         return self.current_slice[block_number]
 
+    def get(self, block_number: int) -> datetime.datetime | None:
+        """Get timestamp for a given block number, or None if not found."""
+        try:
+            return self[block_number]
+        except KeyError:
+            return None
+
 
 def load_timestamp_cache(chain_id: int, cache_folder: Path = DEFAULT_TIMESTAMP_CACHE_FOLDER) -> BlockTimestampDatabase:
     cache_file = BlockTimestampDatabase.get_database_file_chain(chain_id, cache_folder)
     logger.info(f"Loading block timestamps from {cache_file}")
-    return BlockTimestampDatabase.load(chain_id, cache_file)
+    db = BlockTimestampDatabase.load(chain_id, cache_file)
+    logger.info(f"Database has {db.get_count()} block timestamps for chain {chain_id}")
+    return db
 
 
 def save_timestamp_cache(timestamps: BlockTimestampDatabase, cache_file: Path = DEFAULT_TIMESTAMP_CACHE_FOLDER):

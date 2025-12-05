@@ -99,12 +99,7 @@ def fetch_block_timestamps_multiprocess(
         else:
             timestamp_db = BlockTimestampDatabase.create(chain_id, cache_path)
 
-        series = timestamp_db.to_series()
-
-        if series is not None:
-            result = series.to_dict()
-        else:
-            result = {}
+        result = timestamp_db.get_slicer()
     else:
         result = {}
 
@@ -120,16 +115,19 @@ def fetch_block_timestamps_multiprocess(
         # Periodical checkpoint write
         nonlocal last_save
         nonlocal block_number
+        nonlocal buffer
         last_save = block_number
-        if timestamp_db:
+        if buffer:
             timestamp_db.import_chain_data(
                 chain_id,
-                result,
+                buffer,
             )
+        buffer = {}
 
+    buffer = {}
     for completed_task in worker_processor(delayed(_read_timestamp_subprocess)(*args) for args in _task_gen()):
         block_number, timestamp = completed_task
-        result[block_number] = timestamp
+        buffer[block_number] = timestamp
 
         if progress_bar:
             progress_bar.update(1)
@@ -141,10 +139,6 @@ def fetch_block_timestamps_multiprocess(
 
         if block_number - last_save >= checkpoint_freq:
             # Save the current state to the cache file
-            timestamp_db.import_chain_data(
-                chain_id,
-                result,
-            )
             _save()
 
     # Final checkpoint
@@ -154,14 +148,9 @@ def fetch_block_timestamps_multiprocess(
         progress_bar.close()
 
     if timestamp_db:
-        try:
-            return timestamp_db.get_slicer()
-        finally:
-            # DuckDB save
-            timestamp_db.close()
+        return timestamp_db.get_slicer()
     else:
-        # Legacy path
-        return pd.Series(result)
+        raise NotImplementedError("Non-cached timestamp fetching not implemented")
 
 
 def fetch_block_timestamps_multiprocess_auto_backend(
