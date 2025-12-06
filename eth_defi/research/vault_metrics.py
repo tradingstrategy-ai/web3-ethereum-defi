@@ -88,12 +88,12 @@ def slugify_vault(
     if base_slug not in existing_slugs:
         return base_slug
 
-    for attempt in range(2, 100):
+    for attempt in range(2, 20):
         new_slug = f"{base_slug}-{attempt}"
         if new_slug not in existing_slugs:
             return new_slug
 
-    raise AssertionError(f"Could not create unique slug for vault {name} ({address}) after 100 attempts")
+    return address
 
 
 def create_fee_label(
@@ -483,6 +483,58 @@ def calculate_sharpe_ratio_from_returns(
     return sharpe
 
 
+def slugify_vaults(vaults: dict[VaultSpec, VaultRow]) -> list[VaultRow] | None:
+    """Create slugs for a set of vaults.
+
+    - Always give the primary slug to the vault that was created first.
+    - Mutates VaultRow data in-place
+
+    :param vaults:
+        The vault metadata entries.
+
+    """
+    used_slugs: set[str] = set()
+
+    def _get_creation_date(row: VaultRow) -> datetime.datetime:
+        _detection_data = row.get("_detection_data")
+        return _detection_data.first_seen_at
+
+    def _slugify(vault_metadata) -> VaultRow:
+        existing_slug = vault_metadata.get("vault_slug")
+        if existing_slug:
+            return
+
+        name = vault_metadata.get("Name")
+        share_token = vault_metadata.get("Share token")
+        vault_address = vault_metadata["Address"]
+
+        vault_slug = slugify_vault(
+            name=name,
+            symbol=share_token,
+            address=vault_address,
+            existing_slugs=used_slugs,
+        )
+
+        protocol_slug = slugify_protocol(vault_metadata["Protocol"])
+
+        vault_metadata["vault_slug"] = vault_slug
+        vault_metadata["protocol_slug"] = protocol_slug
+
+        used_slugs.add(vault_slug)
+        return vault_metadata
+
+    first_vault = next(iter(vaults.values()))
+    if "vault_slug" in first_vault:
+        return None
+
+    # Sort vaults by creation date
+    # To always slugify in the same order
+    vaults = sorted(vaults.values(), key=_get_creation_date)
+
+    result = list(map(_slugify, vaults))
+    return result
+
+
 def calculate_lifetime_metrics(
     df: pd.DataFrame,
     vault_db: VaultDatabase | dict[VaultSpec, VaultRow],
@@ -515,8 +567,6 @@ def calculate_lifetime_metrics(
 
     month_ago = df.index.max() - pd.Timedelta(days=30)
     three_months_ago = df.index.max() - pd.Timedelta(days=90)
-
-    used_slugs = set()
 
     def process_vault_group(group):
         """Process a single vault group to calculate metrics
@@ -576,15 +626,8 @@ def calculate_lifetime_metrics(
         notes = get_notes(vault_address)
         flags = vault_metadata.get("_flags", [])
 
-        vault_slug = slugify_vault(
-            name=name,
-            symbol=share_token,
-            address=vault_address,
-            existing_slugs=used_slugs,
-        )
-        used_slugs.add(vault_slug)
-
-        protocol_slug = slugify_protocol(protocol)
+        vault_slug = vault_metadata["vault_slug"]
+        protocol_slug = vault_metadata["protocol_slug"]
 
         lockup = vault_metadata.get("_lockup", None)
         if pd.isna(lockup):
@@ -808,15 +851,12 @@ def calculate_lifetime_metrics(
             }
         )
 
-    def process_vault_group_wrapped(group):
-        try:
-            process_vault_group(group)
-        except Exception as e:
-            logger.error("Error processing vault group %s: %s", group.name, e)
-            raise RuntimeError(f"Error processing vault group {group.name}: {e}") from e
-
     # Enable tqdm progress bar for pandas
     tqdm.pandas(desc="Calculating vault performance metrics")
+
+    slugify_vaults(
+        vaults=vaults_by_id,
+    )
 
     # Use progress_apply instead of the for loop
     # results_df = df.groupby("id").progress_apply(process_vault_group)

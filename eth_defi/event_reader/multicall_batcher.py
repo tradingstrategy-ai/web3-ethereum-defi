@@ -922,8 +922,8 @@ class MultiprocessMulticallReader:
         TODO: Move these rules to their own module.
         """
 
-        #provider = web3.provider
-        #if isinstance(provider, FallbackProvider):
+        # provider = web3.provider
+        # if isinstance(provider, FallbackProvider):
         #    provider = provider.get_active_provider()
         # name = get_provider_name(provider)
 
