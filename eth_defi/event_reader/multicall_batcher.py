@@ -965,6 +965,9 @@ class MultiprocessMulticallReader:
             # Fix Mantle out of gas
             gas = self.get_gas_hint(chain_id=chain_id, batch_calls=batch_calls)
 
+            for address, data in batch_calls:
+                assert address not in BROKEN_VAULT_CONTRACTS, f"Contract {address} is broken, cannot call multicall on it."
+
             # https://github.com/onflow/go-ethereum/blob/18406ff59b887a1d132f46068aa0bee2a9234bd7/core/state/reader.go#L303C6-L303C25
             # https://etherscan.io/address/0xcA11bde05977b3631167028862bE2a173976CA11#code
             bound_func = multicall_contract.functions.tryBlockAndAggregate(
