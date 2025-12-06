@@ -1007,12 +1007,15 @@ class MultiprocessMulticallReader:
                     f"Block {block_identifier}, batch size: {len(batch_calls)}: {e}.\n"
                     f"Using provider: {self.web3.provider.__class__}: {name}\n"
                     f"Exception: {e.__class__}: {e} \n"
-                    f"HTTP status code: {status_code}\n"
+                    f"HTTP status code: {status_code.__class__}: {status_code}\n"
                     f"HTTP reply headers: {pformat(headers)}\n"
                     f"To simulate:\n"
                     f"{debug_data}\n"
                     f"Addresses: {addresses}"
                 )
+
+                if status_code:
+                    status_code = int(status_code)
 
                 parsed_error = str(e)
 
