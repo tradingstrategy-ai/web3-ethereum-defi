@@ -22,6 +22,7 @@ from tqdm.auto import tqdm
 from ffn.core import PerformanceStats
 from ffn.core import calc_stats
 from ffn.utils import fmtn, fmtp
+from slugify import slugify
 
 from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.core import ERC4262VaultDetection
@@ -52,6 +53,47 @@ def fmt_one_decimal_or_int(x: float | None) -> str:
 
     y = round(float(x * 100), 1)
     return f"{y:.0f}%" if y.is_integer() else f"{y:.1f}%"
+
+
+def slugify_protocol(protocol: str) -> str:
+    """Create a slug from protocol name for URLs.
+
+    :param protocol:
+        The protocol name.
+    """
+
+    if "unknown" in protocol.lower() or "not identifier" in protocol.lower():
+        return "unknown"
+
+    return slugify(protocol)
+
+
+def slugify_vault(
+    name: str | None,
+    symbol: str | None,
+    address: str,
+    existing_slugs: set[str],
+) -> str:
+    """Create a slug from vault metadata for URLs."""
+
+    # We have name but no symbol
+    if (not name) and symbol and len(symbol) >= 3:
+        name = symbol
+
+    if not name or len(name) <= 2:
+        return address
+
+    base_slug = slugify(name)
+
+    if base_slug not in existing_slugs:
+        return base_slug
+
+    for attempt in range(2, 100):
+        new_slug = f"{base_slug}-{attempt}"
+        if new_slug not in existing_slugs:
+            return new_slug
+
+    raise AssertionError(f"Could not create unique slug for vault {name} ({address}) after 100 attempts")
 
 
 def create_fee_label(
@@ -474,6 +516,8 @@ def calculate_lifetime_metrics(
     month_ago = df.index.max() - pd.Timedelta(days=30)
     three_months_ago = df.index.max() - pd.Timedelta(days=90)
 
+    used_slugs = set()
+
     def process_vault_group(group):
         """Process a single vault group to calculate metrics
 
@@ -531,6 +575,16 @@ def calculate_lifetime_metrics(
 
         notes = get_notes(vault_address)
         flags = vault_metadata.get("_flags", [])
+
+        vault_slug = slugify_vault(
+            name=name,
+            symbol=share_token,
+            address=vault_address,
+            existing_slugs=used_slugs,
+        )
+        used_slugs.add(vault_slug)
+
+        protocol_slug = slugify_protocol(protocol)
 
         lockup = vault_metadata.get("_lockup", None)
         if pd.isna(lockup):
@@ -697,6 +751,8 @@ def calculate_lifetime_metrics(
         return pd.Series(
             {
                 "name": name,
+                "vault_slug": vault_slug,
+                "protocol_slug": protocol_slug,
                 "lifetime_return": lifetime_return,
                 "lifetime_return_net": lifetime_return_net,
                 "cagr": cagr,
@@ -769,7 +825,8 @@ def calculate_lifetime_metrics(
 
     # Use progress_apply instead of the for loop
     # results_df = df.groupby("id").progress_apply(process_vault_group)
-    results_df = df.groupby("id", group_keys=False).progress_apply(process_vault_group)
+    # Sort is needed for slug stability
+    results_df = df.groupby("id", group_keys=False, sort=True).progress_apply(process_vault_group)
 
     # Reset index to convert the grouped results to a regular DataFrame
     results_df = results_df.reset_index(drop=True)
@@ -1010,6 +1067,8 @@ def format_lifetime_table(
     _del("lifetime_start")
     _del("lifetime_end")
     _del("lifetime_samples")
+    _del("vault_slug")
+    _del("protocol_slug")
 
     if not add_share_token:
         _del("share_token")

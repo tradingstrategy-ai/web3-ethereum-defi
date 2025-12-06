@@ -15,7 +15,7 @@ from eth_defi.hypersync.server import get_hypersync_server
 
 from hypersync import HypersyncClient, ClientConfig
 
-from eth_defi.hypersync.timestamp import get_block_timestamps_using_hypersync, get_hypersync_block_height, fetch_block_timestamps_using_hypersync_cached
+from eth_defi.hypersync.hypersync_timestamp import get_block_timestamps_using_hypersync, get_hypersync_block_height, fetch_block_timestamps_using_hypersync_cached
 
 HYPERSYNC_API_KEY = os.environ.get("HYPERSYNC_API_KEY")
 
