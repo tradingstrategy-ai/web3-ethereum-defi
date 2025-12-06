@@ -856,7 +856,7 @@ class MultiprocessMulticallReader:
         web3factory: Web3Factory | Web3,
         batch_size=40,
         backswitch_threshold=100,
-        too_many_requets_sleep=120.0,
+        too_many_requets_sleep=30.0,
     ):
         """Create subprocess worker instance.
 
@@ -999,7 +999,11 @@ class MultiprocessMulticallReader:
                 # When
                 #
 
-                status_code = getattr(e, "response", None) and getattr(e.response, "status_code", None)
+                if hasattr(e, "response"):
+                    status_code = e.respose.status_code
+                    assert type(status_code) == int, f"Got: {status_code.__class}: {status_code}"
+                else:
+                    status_code = None
 
                 error_msg = (
                     f"Multicall failed for chain {chain_id}\n"
@@ -1013,9 +1017,6 @@ class MultiprocessMulticallReader:
                     f"{debug_data}\n"
                     f"Addresses: {addresses}"
                 )
-
-                if status_code:
-                    status_code = int(status_code)
 
                 parsed_error = str(e)
 
