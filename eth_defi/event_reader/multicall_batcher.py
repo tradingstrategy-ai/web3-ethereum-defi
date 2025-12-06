@@ -1148,6 +1148,7 @@ class MultiprocessMulticallReader:
             # the underlying contract needs to be manually blacklisted.
             block_identifier_str = f"{block_identifier:,}" if type(block_identifier) == int else str(block_identifier)
             status_code = e.status_code
+            headers = e.headers
             cause = getattr(e, "__cause__", None)  # Get explicitly chained exception
 
             logger.warning(f"Multicall failed (out of gas?) at chain {chain_id}, block {block_identifier_str}, batch size: {batch_size}. Falling back to one call at a time to figure out broken contract.")
