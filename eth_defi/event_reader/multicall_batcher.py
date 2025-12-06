@@ -1171,6 +1171,11 @@ class MultiprocessMulticallReader:
             if fallback_attempts > 0:
                 logger.warning("Attempting retry %d times with fallbacks", fallback_attempts)
                 for i in range(fallback_attempts):
+                    if status_code == 429:
+                        # Alchemy throttling us\
+                        logger.warning("Received HTTP 429: %s, sleep %f, cauase %s", e, pformat(headers), self.too_many_requets_sleep, cause)
+                        time.sleep(self.too_many_requets_sleep)
+
                     fallback_provider.switch_provider(log_level=logging.WARNING)
 
                     active_provider = fallback_provider.get_active_provider()
@@ -1192,11 +1197,6 @@ class MultiprocessMulticallReader:
                         cause = getattr(e, "__cause__", None)  # Get explicitly chained exception
                         headers = e.headers
                         status_code = e.status_code
-
-                        if status_code == 429:
-                            # Alchemy throttling us\
-                            logger.warning("Received HTTP 429: %s, sleep %f, cauase %s", e, pformat(headers), self.too_many_requets_sleep, cause)
-                            time.sleep(self.too_many_requets_sleep)
 
                         if i < (fallback_attempts - 1):
                             logger.warning(f"Multicall retryable still failing, but we have retries left.")
