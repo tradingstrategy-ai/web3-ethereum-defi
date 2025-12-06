@@ -1032,21 +1032,7 @@ class MultiprocessMulticallReader:
                     time.sleep(self.too_many_requets_sleep)
                     raise MulticallRetryable(error_msg) from e
 
-                if ("out of gas" in parsed_error) or \
-                   ("evm timeout" in parsed_error) or \
-                   ("request timeout" in parsed_error) or \
-                   ("request timed out" in parsed_error) or \
-                   ("intrinsic gas too low" in parsed_error) or \
-                   ("intrinsic gas too high" in parsed_error) or \
-                   ("intrinsic gas too high" in parsed_error) or \
-                   ("incorrect response body" in parsed_error) or \
-                   ("exceeds block gas limit" in parsed_error) or \
-                   ("historical state" in parsed_error) or \
-                   ("state histories haven't been fully indexed yet" in parsed_error) or \
-                   ("Failed to call: InvalidTransaction" in parsed_error) or \
-                   isinstance(e, ProbablyNodeHasNoBlock) or \
-                   isinstance(e, (ReadTimeout, RemoteDisconnected, ConnectionError)) or \
-                   (isinstance(e, HTTPError) and e.response.status_code >= 400):
+                if ("out of gas" in parsed_error) or ("evm timeout" in parsed_error) or ("request timeout" in parsed_error) or ("request timed out" in parsed_error) or ("intrinsic gas too low" in parsed_error) or ("intrinsic gas too high" in parsed_error) or ("intrinsic gas too high" in parsed_error) or ("incorrect response body" in parsed_error) or ("exceeds block gas limit" in parsed_error) or ("historical state" in parsed_error) or ("state histories haven't been fully indexed yet" in parsed_error) or ("Failed to call: InvalidTransaction" in parsed_error) or isinstance(e, ProbablyNodeHasNoBlock) or isinstance(e, (ReadTimeout, RemoteDisconnected, ConnectionError)) or (isinstance(e, HTTPError) and e.response.status_code >= 400):
                     raise MulticallRetryable(error_msg) from e
                 else:
                     raise MulticallNonRetryable(error_msg) from e
@@ -1192,7 +1178,6 @@ class MultiprocessMulticallReader:
                             encoded_calls=encoded_calls,
                             require_multicall_result=require_multicall_result,
                         )
-
 
                     except MulticallRetryable as e:
                         provider_name = get_provider_name(provider)

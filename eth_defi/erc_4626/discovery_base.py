@@ -160,7 +160,6 @@ class VaultDiscoveryBase(abc.ABC):
             max_workers=self.max_workers,
             progress_bar_desc=progress_bar_desc,
         ):
-
             if feature_probe.address in BROKEN_VAULT_CONTRACTS:
                 logger.warning(f"Skipping known broken vault {feature_probe.address}")
 
