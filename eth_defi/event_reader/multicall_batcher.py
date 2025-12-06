@@ -52,7 +52,7 @@ from eth_defi.middleware import ProbablyNodeHasNoBlock, is_retryable_http_except
 from eth_defi.provider.fallback import FallbackProvider
 from eth_defi.provider.named import get_provider_name
 from eth_defi.timestamp import get_block_timestamp
-
+from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
 
 logger = logging.getLogger(__name__)
 
@@ -956,7 +956,7 @@ class MultiprocessMulticallReader:
         payload_size = 0
         calls_results = []
         chain_id = self.web3.eth.chain_id
-        batch_calls = []
+
         for i in range(0, len(encoded_calls), batch_size):
             batch_calls = encoded_calls[i : i + batch_size]
             # Calculate how many bytes we are going to use
@@ -1081,6 +1081,9 @@ class MultiprocessMulticallReader:
 
         assert isinstance(calls, list)
         assert all(isinstance(c, EncodedCall) for c in calls), f"Got: {calls}"
+
+        for c in calls:
+            assert c.address.lower() not in BROKEN_VAULT_CONTRACTS, f"Contract {c.address} is blacklisted due to known multicall issues. Remove it from the call list."
 
         # These calls we dropped because they are historical multicalls to later blocks
         filtered_out_calls = [c for c in calls if not c.is_valid_for_block(block_identifier)]
