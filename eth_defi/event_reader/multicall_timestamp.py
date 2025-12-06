@@ -197,7 +197,7 @@ def fetch_block_timestamps_multiprocess_auto_backend(
     """
 
     if hypersync_client:
-        from eth_defi.hypersync.timestamp import fetch_block_timestamps_using_hypersync_cached
+        from eth_defi.hypersync.hypersync_timestamp import fetch_block_timestamps_using_hypersync_cached
 
         return fetch_block_timestamps_using_hypersync_cached(
             client=hypersync_client,

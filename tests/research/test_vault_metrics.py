@@ -70,17 +70,21 @@ def test_calculate_lifetime_metrics(
     assert sample_row["chain"] == "Hemi"
     assert sample_row["years"] == pytest.approx(0.11225188227241616)
     assert sample_row["name"] == "Clearstar USDC.e"
+
+    assert sample_row["last_updated_at"] == pd.Timestamp("2025-10-24 06:34:11")
+    assert sample_row["last_updated_block"] == 2_951_745
+
     assert sample_row["perf_fee"] == 0.15
     assert sample_row["mgmt_fee"] == 0
     assert sample_row["deposit_fee"] == 0
     assert sample_row["withdraw_fee"] == 0
     assert sample_row["risk"] == VaultTechnicalRisk.negligible
     assert sample_row["current_nav"] == pytest.approx(2345373.103418)
-    assert sample_row["fee_label"] == "0% / 15%"
+    assert sample_row["fee_label"] == "0% / 15% (int.)"
 
     assert sample_row["lifetime_return"] == pytest.approx(0.002758)
     assert sample_row["cagr"] == pytest.approx(0.02483940718068034)
-    assert sample_row["cagr_net"] == pytest.approx(0.02107892820280277)
+    assert sample_row["cagr_net"] == pytest.approx(0.02483940718068034)
 
     # The prices file does not have enough data for three moths
     assert sample_row["three_months_cagr"] == pytest.approx(0)
@@ -89,14 +93,16 @@ def test_calculate_lifetime_metrics(
     assert sample_row["three_months_sharpe_net"] == pytest.approx(0)
 
     assert sample_row["one_month_returns"] == pytest.approx(0.0018523254977500514)
-    assert sample_row["one_month_returns_net"] == pytest.approx(0.0015744766730876325)
+    assert sample_row["one_month_returns_net"] == pytest.approx(0.0018523254977500514)
     assert sample_row["one_month_cagr"] == pytest.approx(0.022786946472187264)
-    assert sample_row["one_month_cagr_net"] == pytest.approx(0.019338796675171466)
-
-    assert sample_row["last_updated_at"] == pd.Timestamp("2025-10-24 06:34:11")
-    assert sample_row["last_updated_block"] == 2_951_745
+    assert sample_row["one_month_cagr_net"] == pytest.approx(0.022786946472187264)
 
     assert sample_row["features"] == ["morpho_like"]
+    assert sample_row["protocol_slug"] == "morpho"
+    assert sample_row["vault_slug"] == "clearstar-usdc-e"
+
+    # Link feature was not in the sample data when generated
+    assert sample_row["link"] is None
 
     # We can get human readable output
     formatted = format_lifetime_table(
