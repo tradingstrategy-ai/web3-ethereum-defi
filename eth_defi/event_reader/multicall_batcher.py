@@ -856,7 +856,7 @@ class MultiprocessMulticallReader:
         web3factory: Web3Factory | Web3,
         batch_size=40,
         backswitch_threshold=100,
-        too_many_requets_sleep=60.0,
+        too_many_requets_sleep=120.0,
     ):
         """Create subprocess worker instance.
 
@@ -999,7 +999,18 @@ class MultiprocessMulticallReader:
                 # When
                 #
 
-                error_msg = f"Multicall failed for chain {chain_id}, block {block_identifier}, batch size: {len(batch_calls)}: {e}.\nUsing provider: {self.web3.provider.__class__}: {name}\nHTTP reply headers: {pformat(headers)}\nTo simulate:\n{debug_data}\nAddresses: {addresses}"
+                error_msg = (
+                    f"Multicall failed for chain {chain_id}\n"
+                    # Ruff
+                    f"Block {block_identifier}, batch size: {len(batch_calls)}: {e}.\n"
+                    f"Using provider: {self.web3.provider.__class__}: {name}\n"
+                    f"Exception: {e.__class__}: {e} \n"
+                    f"HTTP reply headers: {pformat(headers)}\n"
+                    f"To simulate:\n"
+                    f"{debug_data}\n"
+                    f"Addresses: {addresses}"
+                )
+
                 parsed_error = str(e)
 
                 for address, data in batch_calls:
@@ -1011,7 +1022,7 @@ class MultiprocessMulticallReader:
                     )
 
                 if isinstance(e, HTTPError) and e.response.status_code == 429:
-                    # Alchemy throttling us
+                    # Alchemy throttling us\
                     logger.warning("Received HTTP 429: %s from %s, headers %s, sleeping %s", e, name, pformat(headers), self.too_many_requets_sleep)
                     time.sleep(self.too_many_requets_sleep)
                     raise MulticallRetryable(error_msg) from e
@@ -1186,7 +1197,7 @@ class MultiprocessMulticallReader:
                         if i < (fallback_attempts - 1):
                             logger.warning(f"Multicall retryable still failing, but we have retries left.")
                             logger.warning(f"Attempts: {i}, max attempts: {fallback_attempts}.")
-                            logger.warning(f"Multicall with batch size 1 still failed at chain {chain_id}, block {block_identifier_str}. Switching provider and retrying. Current provider: {active_provider =} ({active_provider_name}). Exception: {e}.")
+                            logger.warning(f"Multicall with batch size 1 still failed at chain {chain_id}, block {block_identifier_str}. Switching provider and retrying. Current provider: {active_provider =} ({active_provider_name}). Exception: {e.__class__}: {e}.")
                             continue
 
                         raise RuntimeError(
@@ -1197,7 +1208,7 @@ class MultiprocessMulticallReader:
                             f"Fallback attempt number #{i}, max fallback attempts {fallback_attempts}.\n"
                             f"Manually figure out how to work around / change RPC providers.\n"
                             f"Original provider: {provider} ({provider_name}), fallback provider: {fallback_provider} ({active_provider_name}), chain {chain_id}, block {block_identifier_str}, batch size: 1.\n"
-                            f"Exception: {e}.\n"
+                            f"Exception: {e.__class__}: {e}.\n"
                         ) from e
 
         self.calls += 1
