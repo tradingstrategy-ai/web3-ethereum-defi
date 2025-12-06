@@ -98,6 +98,11 @@ class MulticallRetryable(Exception):
     Try to decrease batch size.
     """
 
+    def __init__(self, message: str, status_code: int = None, headers: dict | None = None):
+        super().__init__(message)
+        self.status_code = status_code
+        self.headers = headers
+
 
 class MulticallNonRetryable(Exception):
     """Need to take a manual look these errors."""
@@ -1029,14 +1034,8 @@ class MultiprocessMulticallReader:
                         parsed_error,
                     )
 
-                if status_code == 429:
-                    # Alchemy throttling us\
-                    logger.warning("Received HTTP 429: %s from %s, headers %s, sleeping %s", e, name, pformat(headers), self.too_many_requets_sleep)
-                    time.sleep(self.too_many_requets_sleep)
-                    raise MulticallRetryable(error_msg) from e
-
                 if ("out of gas" in parsed_error) or ("evm timeout" in parsed_error) or ("request timeout" in parsed_error) or ("request timed out" in parsed_error) or ("intrinsic gas too low" in parsed_error) or ("intrinsic gas too high" in parsed_error) or ("intrinsic gas too high" in parsed_error) or ("incorrect response body" in parsed_error) or ("exceeds block gas limit" in parsed_error) or ("historical state" in parsed_error) or ("state histories haven't been fully indexed yet" in parsed_error) or ("Failed to call: InvalidTransaction" in parsed_error) or isinstance(e, ProbablyNodeHasNoBlock) or isinstance(e, (ReadTimeout, RemoteDisconnected, ConnectionError)) or (isinstance(e, HTTPError) and e.response.status_code >= 400):
-                    raise MulticallRetryable(error_msg) from e
+                    raise MulticallRetryable(error_msg, status_code=status_code, headers=headers) from e
                 else:
                     raise MulticallNonRetryable(error_msg) from e
 
@@ -1148,6 +1147,8 @@ class MultiprocessMulticallReader:
             # This will usually fix the issue, but it if is not resolve itself in few blocks the scan will grind snail pace and
             # the underlying contract needs to be manually blacklisted.
             block_identifier_str = f"{block_identifier:,}" if type(block_identifier) == int else str(block_identifier)
+            status_code = e.status_code
+
             logger.warning(f"Multicall failed (out of gas?) at chain {chain_id}, block {block_identifier_str}, batch size: {batch_size}. Falling back to one call at a time to figure out broken contract.")
             logger.info(f"Debug details: {str(e)}")  # Don't flood the terminal
 
@@ -1187,13 +1188,21 @@ class MultiprocessMulticallReader:
 
                     except MulticallRetryable as e:
                         provider_name = get_provider_name(provider)
+
+                        cause = getattr(e, "__cause__", None)  # Get explicitly chained exception
+                        headers = e.headers
+                        status_code = e.status_code
+
+                        if status_code == 429:
+                            # Alchemy throttling us\
+                            logger.warning("Received HTTP 429: %s, sleep %f, cauase %s", e, pformat(headers), self.too_many_requets_sleep, cause)
+                            time.sleep(self.too_many_requets_sleep)
+
                         if i < (fallback_attempts - 1):
                             logger.warning(f"Multicall retryable still failing, but we have retries left.")
                             logger.warning(f"Attempts: {i}, max attempts: {fallback_attempts}.")
                             logger.warning(f"Multicall with batch size 1 still failed at chain {chain_id}, block {block_identifier_str}. Switching provider and retrying. Current provider: {active_provider =} ({active_provider_name}). Exception: {e.__class__}: {e}.")
                             continue
-
-                        cause = getattr(e, "__cause__", None)  # Get explicitly chained exception
 
                         raise RuntimeError(
                             f"Multicall out of retries, attemps done {attempts_done}\n"
@@ -1205,6 +1214,8 @@ class MultiprocessMulticallReader:
                             f"   Original provider: {provider} ({provider_name}), fallback provider: {fallback_provider} ({active_provider_name}), chain {chain_id}, block {block_identifier_str}, batch size: 1.\n"
                             f"   Exception: {e.__class__}: {e}.\n"
                             f"   Cause: {cause.__class__}: {cause}.\n"
+                            f"   Headers: {pformat(headers)}.\n"
+                            f"   Status code: {status_code}\n"
                         ) from e
 
         self.calls += 1
