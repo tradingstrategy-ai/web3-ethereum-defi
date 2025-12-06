@@ -999,12 +999,15 @@ class MultiprocessMulticallReader:
                 # When
                 #
 
+                status_code = getattr(e, "response", None) and getattr(e.response, "status_code", None)
+
                 error_msg = (
                     f"Multicall failed for chain {chain_id}\n"
                     # Ruff
                     f"Block {block_identifier}, batch size: {len(batch_calls)}: {e}.\n"
                     f"Using provider: {self.web3.provider.__class__}: {name}\n"
                     f"Exception: {e.__class__}: {e} \n"
+                    f"HTTP status code: {status_code}\n"
                     f"HTTP reply headers: {pformat(headers)}\n"
                     f"To simulate:\n"
                     f"{debug_data}\n"
@@ -1021,7 +1024,7 @@ class MultiprocessMulticallReader:
                         str(e),
                     )
 
-                if isinstance(e, HTTPError) and e.response.status_code == 429:
+                if status_code == 429:
                     # Alchemy throttling us\
                     logger.warning("Received HTTP 429: %s from %s, headers %s, sleeping %s", e, name, pformat(headers), self.too_many_requets_sleep)
                     time.sleep(self.too_many_requets_sleep)
