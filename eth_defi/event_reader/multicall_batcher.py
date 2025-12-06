@@ -1148,6 +1148,7 @@ class MultiprocessMulticallReader:
             # the underlying contract needs to be manually blacklisted.
             block_identifier_str = f"{block_identifier:,}" if type(block_identifier) == int else str(block_identifier)
             status_code = e.status_code
+            cause = getattr(e, "__cause__", None)  # Get explicitly chained exception
 
             logger.warning(f"Multicall failed (out of gas?) at chain {chain_id}, block {block_identifier_str}, batch size: {batch_size}. Falling back to one call at a time to figure out broken contract.")
             logger.info(f"Debug details: {str(e)}")  # Don't flood the terminal
@@ -1172,9 +1173,11 @@ class MultiprocessMulticallReader:
                 logger.warning("Attempting retry %d times with fallbacks", fallback_attempts)
                 for i in range(fallback_attempts):
                     if status_code == 429:
-                        # Alchemy throttling us\
+                        # Alchemy/Quicknode throttling us
                         logger.warning("Received HTTP 429: %s, sleep %f, cauase %s", pformat(headers), self.too_many_requets_sleep, cause)
                         time.sleep(self.too_many_requets_sleep)
+                    else:
+                        logger.warning("Received no-throttle status 429: %s, cause: %s", pformat(headers), cause)
 
                     fallback_provider.switch_provider(log_level=logging.WARNING)
 
