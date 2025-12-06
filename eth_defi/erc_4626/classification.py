@@ -19,6 +19,7 @@ from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, read_multicall_chunked
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.vault.base import VaultBase, VaultSpec
+from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
 
 logger = logging.getLogger(__name__)
 
@@ -652,6 +653,9 @@ def detect_vault_features(
     :param verbose:
         Disable for command line scripts
     """
+
+    assert address.lower() not in BROKEN_VAULT_CONTRACTS, f"Vault {address} is known broken vault contract like, avoid"
+
     address = Web3.to_checksum_address(address)
     logger.info("Detecting vault features for %s", address)
     probe_calls = list(create_probe_calls([address]))

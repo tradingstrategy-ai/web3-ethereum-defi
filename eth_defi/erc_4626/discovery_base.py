@@ -152,6 +152,9 @@ class VaultDiscoveryBase(abc.ABC):
         else:
             progress_bar_desc = None
 
+        # Filter out known bad vaults
+        addresses = [a for a in addresses if a.lower() not in BROKEN_VAULT_CONTRACTS]
+
         for feature_probe in probe_vaults(
             chain,
             self.web3factory,

@@ -121,12 +121,7 @@ def get_vault_risk(
     return VAULT_PROTOCOL_RISK_MATRIX.get(protocol_name, default)
 
 
-#: Cause excessive gas fees, RPC havoc.
-#:
-#: Old Ethereum mainnet contracts when revert was not properly existing.
-#: Harmless but cause extra RPC load.
-#: These fail when we probe contract calls to identify them.
-BROKEN_VAULT_CONTRACTS = {
+_BROKEN_VAULT_CONTRACTS = {
     "0x7994157F0c9E6199B15e480FdAcf702aC4F6d8bB",
     "0xc3C12A9E63E466a3ba99E07f3EF1F38b8B81AE1B",
     "0x89567EA00650df98604cd09cDfaC630Cf492e4aB",
@@ -147,6 +142,11 @@ BROKEN_VAULT_CONTRACTS = {
     "0x37743836B6011D0655cF6608044C705571417371",
     "0x6df33A763e416889724E8913717710CC7c31d8c7",
     "0xE18898c76a39ba4Cd46a544b87ebe1166fbe7052",
-
 }
-BROKEN_VAULT_CONTRACTS = {addr.lower() for addr in BROKEN_VAULT_CONTRACTS}
+
+#: Cause excessive gas fees, RPC havoc.
+#:
+#: Old Ethereum mainnet contracts when revert was not properly existing.
+#: Harmless but cause extra RPC load.
+#: These fail when we probe contract calls to identify them.
+BROKEN_VAULT_CONTRACTS = {addr.lower() for addr in _BROKEN_VAULT_CONTRACTS}
