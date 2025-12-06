@@ -234,16 +234,20 @@ class FallbackProvider(BaseNamedProvider):
         if old_provider_name != new_provider_name:
             logger.log(self.switchover_noisiness, "Reset switch toggled for RPC providers %s -> %s\n", old_provider_name, new_provider_name)
 
-    def switch_provider(self):
+    def switch_provider(self, log_level: int = None):
         """Switch to next available provider."""
         provider = self.get_active_provider()
         old_provider_name = get_provider_name(provider)
         self.currently_active_provider = (self.currently_active_provider + 1) % len(self.providers)
         new_provider_name = get_provider_name(self.get_active_provider())
+
+        if log_level is None:
+            log_level = self.switchover_noisiness
+
         if old_provider_name != new_provider_name:
-            logger.log(self.switchover_noisiness, "Switched RPC providers %s -> %s\n", old_provider_name, new_provider_name)
+            logger.log(log_level, "Switched RPC providers %s -> %s\n", old_provider_name, new_provider_name)
         else:
-            logger.log(self.switchover_noisiness, "Only 1 RPC provider configured: %s, cannot switch, sleeping and hoping the issue resolves itself", old_provider_name)
+            logger.log(log_level, "Only 1 RPC provider configured: %s, cannot switch, sleeping and hoping the issue resolves itself", old_provider_name)
 
     def get_active_provider(self) -> NamedProvider:
         """Get currently active provider.

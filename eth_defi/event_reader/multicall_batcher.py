@@ -892,6 +892,7 @@ class MultiprocessMulticallReader:
         #: How many calls ago we switched the fallback provider.
         self.last_switch = 0
 
+
         #: Try to switch back from the fallback provider to the main provider after this many calls.
         self.backswitch_threshold = backswitch_threshold
 
@@ -1186,7 +1187,8 @@ class MultiprocessMulticallReader:
             if fallback_attempts > 0:
                 logger.warning("Attempting retry %d times with fallbacks", fallback_attempts)
                 for i in range(fallback_attempts):
-                    fallback_provider.switch_provider()
+                    fallback_provider.switch_provider(log_level=logging.WARNING)
+
                     active_provider = fallback_provider.get_active_provider()
                     active_provider_name = get_provider_name(active_provider)
 
