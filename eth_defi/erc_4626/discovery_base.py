@@ -19,6 +19,7 @@ from eth_defi.erc_4626.core import get_erc_4626_contract, ERC4626Feature, ERC426
 from eth_typing import HexAddress
 
 from eth_defi.vault.base import VaultSpec
+from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
 
 logger = logging.getLogger(__name__)
 
@@ -159,6 +160,10 @@ class VaultDiscoveryBase(abc.ABC):
             max_workers=self.max_workers,
             progress_bar_desc=progress_bar_desc,
         ):
+
+            if feature_probe.address in BROKEN_VAULT_CONTRACTS:
+                logger.warning(f"Skipping known broken vault {feature_probe.address}")
+
             lead = leads[feature_probe.address]
 
             detection = ERC4262VaultDetection(

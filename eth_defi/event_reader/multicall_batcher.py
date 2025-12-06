@@ -937,11 +937,6 @@ class MultiprocessMulticallReader:
         elif chain_id == 100:
             # Gnosis chain argh
             return 16
-        elif chain_id == 1:
-            if type(block_identifier) == int and (23_000_000 < block_identifier < 24_000_000):
-                # Getting problems on Ethereum
-                # eth_defi.event_reader.multicall_batcher.MulticallRetryable: Multicall failed for chain 1, block 23,953,482, batch size: 40: {'message': 'out of gas: gas required exceeds: 600000000', 'code': -32003}.
-                return 8
 
         # Default is 40
         return self.batch_size
@@ -1037,12 +1032,6 @@ class MultiprocessMulticallReader:
                     time.sleep(self.too_many_requets_sleep)
                     raise MulticallRetryable(error_msg) from e
 
-                # F*cking hell Ethereum nodes, what unbearable mess.
-                # Need to maintain crappy retry rules and all node behaviour is totally random
-                # fmt: off
-
-                #  {'message': 'historical state 403577f4153c080830e4b964d013aa20179f9175c89b54a6d9f10188709c7662 is not available', 'code': -32000}.
-
                 if ("out of gas" in parsed_error) or \
                    ("evm timeout" in parsed_error) or \
                    ("request timeout" in parsed_error) or \
@@ -1059,7 +1048,6 @@ class MultiprocessMulticallReader:
                    isinstance(e, (ReadTimeout, RemoteDisconnected, ConnectionError)) or \
                    (isinstance(e, HTTPError) and e.response.status_code >= 400):
                     raise MulticallRetryable(error_msg) from e
-                # fmt: on
                 else:
                     raise MulticallNonRetryable(error_msg) from e
 
