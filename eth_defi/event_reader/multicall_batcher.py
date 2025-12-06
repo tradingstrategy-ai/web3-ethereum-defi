@@ -931,10 +931,15 @@ class MultiprocessMulticallReader:
         elif chain_id == 100:
             # Gnosis chain argh
             return 16
+        elif chain_id == 100:
+            # Gnosis chain argh
+            return 16
         elif chain_id == 1:
-            # Boost mainnet scan
-            return 60
+            # Getting problems on Ethereum
+            # eth_defi.event_reader.multicall_batcher.MulticallRetryable: Multicall failed for chain 1, block 23,953,482, batch size: 40: {'message': 'out of gas: gas required exceeds: 600000000', 'code': -32003}.
+            return 20
         else:
+            # Default is 40
             return self.batch_size
 
     def call_multicall_with_batch_size(
