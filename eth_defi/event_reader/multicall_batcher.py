@@ -1173,7 +1173,7 @@ class MultiprocessMulticallReader:
                 for i in range(fallback_attempts):
                     if status_code == 429:
                         # Alchemy throttling us\
-                        logger.warning("Received HTTP 429: %s, sleep %f, cauase %s", e, pformat(headers), self.too_many_requets_sleep, cause)
+                        logger.warning("Received HTTP 429: %s, sleep %f, cauase %s", pformat(headers), self.too_many_requets_sleep, cause)
                         time.sleep(self.too_many_requets_sleep)
 
                     fallback_provider.switch_provider(log_level=logging.WARNING)
