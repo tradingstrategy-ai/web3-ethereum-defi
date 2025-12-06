@@ -674,7 +674,7 @@ def detect_vault_features(
 
 def create_vault_instance(
     web3: Web3,
-    address: HexAddress,
+    address: HexAddress | str,
     features: set[ERC4626Feature] | None = None,
     token_cache: dict | None = None,
     auto_detect: bool = False,

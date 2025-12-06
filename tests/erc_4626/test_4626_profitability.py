@@ -66,7 +66,8 @@ def test_4626_recent_profitability(
     assert 0 < profitability < 900
 
 
-@pytest.mark.skipif(CI, reason="Getting Response: 429 ***error:Too many requests*** from FindBlock on Github")
+# @pytest.mark.skipif(CI, reason="Getting Response: 429 ***error:Too many requests*** from FindBlock on Github")
+@pytest.mark.skip(reason="FindBlock too unstable to work")
 def test_4626_profitability_historical(
     vault: ERC4626Vault,
 ):

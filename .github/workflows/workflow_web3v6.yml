@@ -131,9 +131,9 @@ jobs:
         run: |
           # Enable verbose output if debugging is enabled
           if [ "$ENABLE_VERBOSE_LOGGING" = "true" ]; then
-            poetry run pytest --tb=native -n auto -v -s --capture=no
+            poetry run pytest --timeout-method=thread --timeout=180 --tb=native -n auto -v -s --capture=no
           else
-            poetry run pytest --tb=native -n auto
+            poetry run pytest --timeout-method=thread --timeout=180 --tb=native -n auto
           fi
         env:
           BNB_CHAIN_JSON_RPC: ${{ secrets.BNB_CHAIN_JSON_RPC }}

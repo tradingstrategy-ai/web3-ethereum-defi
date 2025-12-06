@@ -51,6 +51,11 @@ class BlockTimestampDatabase:
         self.con = duckdb.connect(self.path)
         self._init_schema()
 
+    def __del__(self):
+        if self.con is not None:
+            self.con.close()
+            self.con = None
+
     def _init_schema(self):
         """Ensure the table exists with the correct schema and primary key.
 
@@ -91,6 +96,7 @@ class BlockTimestampDatabase:
             )
             df_new["timestamp"] = df_new["timestamp"].astype("uint32")
         else:
+            assert len(data) > 0, f"No data to import: {data}"
             # Legacy path
             df_new = pd.DataFrame([{"block_number": k, "timestamp": v} for k, v in data.items()])
             # Convert to 32-bit unix timestamp
@@ -154,6 +160,38 @@ class BlockTimestampDatabase:
             return 0, 0
         return res[0], res[1]
 
+    def get_first_block(self) -> int:
+        """Get the first block number we have for a given chain ID.
+
+        :return: 0 if no data
+        """
+        res = self.con.execute(
+            """
+            SELECT MIN(block_number) 
+            FROM block_timestamps 
+        """
+        ).fetchone()
+
+        if res is None or res[0] is None:
+            return 0
+        return res[0]
+
+    def get_last_block(self) -> int:
+        """Get the last block number we have for a given chain ID.
+
+        :return: 0 if no data
+        """
+        res = self.con.execute(
+            """
+            SELECT MAX(block_number) 
+            FROM block_timestamps 
+        """
+        ).fetchone()
+
+        if res is None or res[0] is None:
+            return 0
+        return res[0]
+
     def to_series(self) -> pd.Series | None:
         """Get timestamps for a single chain.
 
@@ -179,7 +217,7 @@ class BlockTimestampDatabase:
         df.set_index("block_number", inplace=True)
         return self.transform_time_values(df["timestamp"])
 
-    def query(self, start_block: int, end_block: int) -> pd.Series | None:
+    def query(self, start_block: int, end_block: int) -> pd.Series:
         """Get timestamps for a single chain in an inclusive block range.
 
         Returns a Pandas Series to maintain compatibility with the original API.
@@ -187,7 +225,9 @@ class BlockTimestampDatabase:
         :param chain_id: EVM chain id
         :param start_block: Inclusive start block
         :param end_block: Inclusive end block
-        :return: Pandas series block number (int) -> block timestamp (pd.Timestamp), or None if empty
+
+        :return:
+            Pandas series block number (int) -> block timestamp (pd.Timestamp)
         """
         if start_block >= end_block:
             raise ValueError("start_block must be <= end_block")
@@ -203,7 +243,7 @@ class BlockTimestampDatabase:
         ).df()
 
         if df.empty:
-            return None
+            return pd.Series([])
 
         df.set_index("block_number", inplace=True)
         return self.transform_time_values(df["timestamp"])
@@ -216,24 +256,86 @@ class BlockTimestampDatabase:
         """
         return pd.to_datetime(series, unit="s").astype("datetime64[s]")
 
+    def get_count(self) -> int:
+        return self.con.execute(
+            """
+            SELECT COUNT(*) FROM block_timestamps
+            """
+        ).fetchone()[0]
+
+    def get_slicer(self) -> "BlockTimestampSlicer":
+        return BlockTimestampSlicer(self)
+
     def close(self):
-        """Close the connection."""
-        self.con.close()
+        """Release duckdb resources."""
+        logger.info("Closing %s", self.path)
+        if self.con is not None:
+            self.con.close()
+            self.con = None
+
+    def is_closed(self) -> bool:
+        """Check if the database connection is closed."""
+        return self.con is None
+
+
+class BlockTimestampSlicer:
+    """Read timestamps from DuckDB in slices iteratively.
+
+    - Maintain a memory buffer of block numbers
+    - Avoid reading all Arbitrum 20 GB of timestamp data to memory at once
+    """
+
+    def __init__(self, timestamp_db: BlockTimestampDatabase, slice_size: int = 1_000_000):
+        self.timestamp_db = timestamp_db
+        self.slice_size = slice_size
+        self.current_slice: pd.Series = None
+
+    def __len__(self):
+        return self.timestamp_db.get_count()
+
+    def __getitem__(self, block_number: int) -> datetime.datetime:
+        """Array access to timestamps."""
+        value = self.get(block_number)
+        if value is None:
+            raise KeyError(f"Block number {block_number} not found in timestamp database")
+        return value
+
+    def get(self, block_number: int) -> datetime.datetime | None:
+        """Get timestamp for a given block number, or None if not found."""
+
+        assert not self.timestamp_db.is_closed(), f"BlockTimestampSlicer.get(): underlying database is already closed"
+
+        if self.current_slice is not None and block_number in self.current_slice:
+            return self.current_slice[block_number]
+
+        current_slice_start = -1
+        current_slice_end = -1
+        if self.current_slice is not None:
+            if len(self.current_slice) > 0:
+                current_slice_start = self.current_slice.index[0]
+                current_slice_end = self.current_slice.index[-1]
+            else:
+                current_slice_start = 0
+                current_slice_end = 0
+
+        logger.debug(f"Querying slice for block {block_number:,} (size {self.slice_size}), current slice is {current_slice_start:,} - {current_slice_end:,}")
+
+        self.current_slice = self.timestamp_db.query(block_number, block_number + self.slice_size)
+
+        try:
+            return self.current_slice[block_number]
+        except KeyError:
+            return None
+
+    def close(self):
+        """Release the associated cache db."""
+        self.timestamp_db.close()
 
 
 def load_timestamp_cache(chain_id: int, cache_folder: Path = DEFAULT_TIMESTAMP_CACHE_FOLDER) -> BlockTimestampDatabase:
+    """Load the block->timestamp cache for a given chain ID."""
     cache_file = BlockTimestampDatabase.get_database_file_chain(chain_id, cache_folder)
     logger.info(f"Loading block timestamps from {cache_file}")
-    return BlockTimestampDatabase.load(chain_id, cache_file)
-
-
-def save_timestamp_cache(timestamps: BlockTimestampDatabase, cache_file: Path = DEFAULT_TIMESTAMP_CACHE_FOLDER):
-    assert isinstance(timestamps, BlockTimestampDatabase), f"Expected BlockTimestampDatabase, got {type(timestamps)}"
-
-    # In DuckDB, data is persisted immediately on insert/update if connected to a file.
-    # We call save() to ensure WAL is flushed or if we need to export from memory.
-    timestamps.save()
-
-    if cache_file.exists():
-        size_mb = cache_file.stat().st_size / (1024 * 1024)
-        logger.info(f"Ensured block timestamps saved to {cache_file}, size is {size_mb:.2f} MB")
+    db = BlockTimestampDatabase.load(chain_id, cache_file)
+    logger.info(f"Database has {db.get_count():,} block timestamps for chain {chain_id}")
+    return db

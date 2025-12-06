@@ -38,7 +38,7 @@ from hypersync import BlockField
 from tqdm_loggable.auto import tqdm
 
 from eth_defi.event_reader.block_header import BlockHeader
-from eth_defi.event_reader.timestamp_cache import load_timestamp_cache, BlockTimestampDatabase, DEFAULT_TIMESTAMP_CACHE_FOLDER
+from eth_defi.event_reader.timestamp_cache import load_timestamp_cache, BlockTimestampDatabase, DEFAULT_TIMESTAMP_CACHE_FOLDER, BlockTimestampSlicer
 from eth_defi.utils import from_unix_timestamp
 
 logger = logging.getLogger(__name__)
@@ -203,7 +203,7 @@ async def fetch_block_timestamps_using_hypersync_cached_async(
     cache_path=DEFAULT_TIMESTAMP_CACHE_FOLDER,
     display_progress: bool = True,
     checkpoint_freq: int = 1_250_000_000,
-) -> pd.Series:
+) -> BlockTimestampSlicer:
     """Quickly get block timestamps using Hypersync API and a local cache file.
 
     - Ultra fast, used optimised Hypersync streaming and DuckDB local cache.
@@ -270,11 +270,7 @@ async def fetch_block_timestamps_using_hypersync_cached_async(
         _save()
 
     # Drop unnecessary blocks from memory
-    try:
-        return timestamp_db.query(start_block, end_block)
-    finally:
-        # DuckDB save
-        timestamp_db.close()
+    return timestamp_db.get_slicer()
 
 
 def fetch_block_timestamps_using_hypersync_cached(
@@ -284,7 +280,7 @@ def fetch_block_timestamps_using_hypersync_cached(
     end_block: int,
     cache_path=DEFAULT_TIMESTAMP_CACHE_FOLDER,
     display_progress: bool = True,
-) -> pd.Series:
+) -> BlockTimestampSlicer:
     """Sync wrapper.
 
     See :py:func:`fetch_block_timestamps_using_hypersync_cached_async` for documentation.

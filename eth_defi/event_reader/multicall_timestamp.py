@@ -10,7 +10,7 @@ from joblib import Parallel, delayed
 from tqdm_loggable.auto import tqdm
 
 from eth_defi.chain import get_chain_name
-from eth_defi.event_reader.timestamp_cache import load_timestamp_cache, save_timestamp_cache, BlockTimestampDatabase, DEFAULT_TIMESTAMP_CACHE_FOLDER
+from eth_defi.event_reader.timestamp_cache import load_timestamp_cache, BlockTimestampDatabase, DEFAULT_TIMESTAMP_CACHE_FOLDER, BlockTimestampSlicer
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.timestamp import get_block_timestamp
 
@@ -38,8 +38,7 @@ def _read_timestamp_subprocess(
         web3 = per_chain_web3[chain_id] = web3factory()
 
     assert web3.eth.chain_id == chain_id, f"Web3 chain ID mismatch: {web3.eth.chain_id} != {chain_id}"
-
-    return block_number, get_block_timestamp(web3, block_number)
+    return block_number, get_block_timestamp(web3, block_number, raw=True)
 
 
 def fetch_block_timestamps_multiprocess(
@@ -53,7 +52,7 @@ def fetch_block_timestamps_multiprocess(
     timeout=120,
     cache_path: Path | None = DEFAULT_TIMESTAMP_CACHE_FOLDER,
     checkpoint_freq: int = 20_000,
-) -> pd.Series:
+) -> BlockTimestampSlicer:
     """Extract timestamps using fast multiprocessing.
 
     - Subprocess entrypoint
@@ -61,6 +60,11 @@ def fetch_block_timestamps_multiprocess(
     - The subprocess is recycled between different batch jobs
     - We cache reader Web3 connections between batch jobs
     - joblib never shuts down this process
+
+    .. note ::
+
+        Because this method aggressively uses `step` to skip blocks,
+        it results to non-reuseable timestamp cache (only valid for one scan and subsequent scans of the same task).
 
     :param cache_path
         Cache timestamps across runs and commands.
@@ -87,7 +91,7 @@ def fetch_block_timestamps_multiprocess(
     if display_progress:
         progress_bar = tqdm(
             total=(end_block - start_block) // step,
-            desc=f"Reading timestamps (slow) for chain {chain_name}: {start_block:,} - {end_block:,}, {max_workers} workers",
+            desc=f"Reading timestamps (slow) for chain {chain_name}: {start_block:,} - {end_block:,}, step {step}, {max_workers} workers",
         )
     else:
         progress_bar = None
@@ -99,18 +103,14 @@ def fetch_block_timestamps_multiprocess(
         else:
             timestamp_db = BlockTimestampDatabase.create(chain_id, cache_path)
 
-        series = timestamp_db.to_series()
-
-        if series is not None:
-            result = series.to_dict()
-        else:
-            result = {}
+        result = timestamp_db.get_slicer()
     else:
         result = {}
 
     def _task_gen():
         nonlocal web3factory
-        for _block_number in range(start_block, end_block + 1, step):
+        first_block_to_check = max(start_block, timestamp_db.get_last_block())
+        for _block_number in range(first_block_to_check, end_block + 1, step):
             if result.get(_block_number) is None:
                 yield web3factory, chain_id, _block_number
 
@@ -120,16 +120,28 @@ def fetch_block_timestamps_multiprocess(
         # Periodical checkpoint write
         nonlocal last_save
         nonlocal block_number
+        nonlocal index
+        nonlocal values
         last_save = block_number
-        if timestamp_db:
+        if index:
+            series = pd.Series(data=values, index=index)
             timestamp_db.import_chain_data(
                 chain_id,
-                result,
+                series,
             )
+        index = []
+        values = []
 
-    for completed_task in worker_processor(delayed(_read_timestamp_subprocess)(*args) for args in _task_gen()):
+    index = []
+    values = []
+
+    # Because of asyncrhonoisty issues with new DuckDB cache, we need to buffer all tasks and reads in one go
+    tasks = list(_task_gen())
+    for completed_task in worker_processor(delayed(_read_timestamp_subprocess)(*args) for args in tasks):
         block_number, timestamp = completed_task
-        result[block_number] = timestamp
+
+        index.append(block_number)
+        values.append(timestamp)
 
         if progress_bar:
             progress_bar.update(1)
@@ -141,10 +153,6 @@ def fetch_block_timestamps_multiprocess(
 
         if block_number - last_save >= checkpoint_freq:
             # Save the current state to the cache file
-            timestamp_db.import_chain_data(
-                chain_id,
-                result,
-            )
             _save()
 
     # Final checkpoint
@@ -154,15 +162,12 @@ def fetch_block_timestamps_multiprocess(
         progress_bar.close()
 
     if timestamp_db:
-        try:
-            series = timestamp_db.query(start_block, end_block)
-            return series
-        finally:
-            # DuckDB save
-            timestamp_db.close()
+        block_range = timestamp_db.get_first_and_last_block()
+        count = timestamp_db.get_count()
+        logger.info(f"Timestamp cache {cache_path} populated for chain {chain_id}: blocks {block_range[0]:,} - {block_range[1]:,}, total {count:,} entries")
+        return timestamp_db.get_slicer()
     else:
-        # Legacy path
-        return pd.Series(result)
+        raise NotImplementedError("Non-cached timestamp fetching not implemented")
 
 
 def fetch_block_timestamps_multiprocess_auto_backend(
@@ -177,7 +182,7 @@ def fetch_block_timestamps_multiprocess_auto_backend(
     cache_path: Path | None = DEFAULT_TIMESTAMP_CACHE_FOLDER,
     checkpoint_freq: int = 20_000,
     hypersync_client: "hypersync.HypersyncClient | None" = None,
-) -> pd.Series:
+) -> BlockTimestampSlicer:
     """Fetch block timestamps, choose backend.
 
     - If Hypersync is available, use the optimised code path

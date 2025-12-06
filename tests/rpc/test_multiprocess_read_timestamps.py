@@ -38,15 +38,14 @@ def test_get_block_timestamps_using_multiprocess_cached(web3_ethereum_factory, w
         web3factory=web3_ethereum_factory,
         step=1,
     )
-
     cache_file = BlockTimestampDatabase.get_database_file_chain(1, cache_path)
     assert cache_file.exists()
-
     # Blocks missing if they do not contain transactions
     # E.g https://etherscan.io/block/10000007
     assert len(blocks) == 101
     timestamp = blocks[10_000_100]
     assert timestamp == datetime.datetime(2020, 5, 4, 13, 45, 31)
+    blocks.close()
 
     # Run again with warm cache
     blocks = fetch_block_timestamps_multiprocess_auto_backend(
@@ -57,10 +56,10 @@ def test_get_block_timestamps_using_multiprocess_cached(web3_ethereum_factory, w
         web3factory=web3_ethereum_factory,
         step=1,
     )
-
     assert len(blocks) == 101
     timestamp = blocks[10_000_100]
     assert timestamp == datetime.datetime(2020, 5, 4, 13, 45, 31)
+    blocks.close()
 
     # One more time with auto endpoint
     blocks = fetch_block_timestamps_multiprocess_auto_backend(
@@ -74,3 +73,4 @@ def test_get_block_timestamps_using_multiprocess_cached(web3_ethereum_factory, w
     assert len(blocks) == 101
     timestamp = blocks[10_000_100]
     assert timestamp == datetime.datetime(2020, 5, 4, 13, 45, 31)
+    blocks.close()

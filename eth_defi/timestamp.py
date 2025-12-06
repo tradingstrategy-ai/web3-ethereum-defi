@@ -56,17 +56,22 @@ def get_latest_block_timestamp(web3: Web3) -> datetime.datetime:
     return native_datetime_utc_fromtimestamp(ts)
 
 
-def get_block_timestamp(web3: Web3, block_identifier: BlockIdentifier) -> datetime.datetime:
+def get_block_timestamp(web3: Web3, block_identifier: BlockIdentifier, raw=False) -> datetime.datetime | int:
     """Get a  block timestamp.
 
     Slow method. Use only for individual queries.
 
     By hand:
 
-    curl $JSON_RPC_MANTLE \
-        -X POST \
-        -H "Content-Type: application/json" \
-        --data '{"method":"eth_getBlockByNumber","params":["0x1",false],"id":1,"jsonrpc":"2.0"}'
+    .. code-block:: bash
+
+        curl $JSON_RPC_MANTLE \
+            -X POST \
+            -H "Content-Type: application/json" \
+            --data '{"method":"eth_getBlockByNumber","params":["0x1",false],"id":1,"jsonrpc":"2.0"}'
+
+    :param raw:
+        Don't do slow Python datetime conversion, return raw integer timestamp
 
     :return:
         Timezone naive UTC datetime
@@ -93,7 +98,10 @@ def get_block_timestamp(web3: Web3, block_identifier: BlockIdentifier) -> dateti
         else:
             ts = ts_str
 
-        return native_datetime_utc_fromtimestamp(ts)
+        if raw:
+            return ts
+        else:
+            return native_datetime_utc_fromtimestamp(ts)
     except Exception as e:
         raise RuntimeError(f"Failed to read timestamp for block {block_identifier}, chain: {web3.eth.chain_id}: {e}") from e
 

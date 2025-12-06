@@ -37,23 +37,23 @@ def hypersync_polygon_client() -> HypersyncClient:
 
 
 def test_get_block_timestamps_using_hypersync(hypersync_client: HypersyncClient):
-    """We get 100 historical blocks from Hypersync"""
+    """We get 100 historical blocks from Hypersync.
+
+    - Do not use cache
+    """
 
     assert get_hypersync_block_height(hypersync_client) > 10_000_000
-
     blocks = get_block_timestamps_using_hypersync(
         hypersync_client,
         chain_id=1,
         start_block=10_000_000,
         end_block=10_000_100,
     )
-
     # Blocks missing if they do not contain transactions
     # E.g https://etherscan.io/block/10000007
     assert len(blocks) == 101
 
     block = blocks[10_000_100]
-
     assert block.block_number == 10_000_100
     assert block.block_hash == "0x427b4ae39316c0df7ba6cd61a96bf668eff6e3ec01213b0fbc74f9b7a0726e7b"
     assert block.timestamp_as_datetime == datetime.datetime(2020, 5, 4, 13, 45, 31)
@@ -73,16 +73,14 @@ def test_get_block_timestamps_using_hypersync_cached(hypersync_client: Hypersync
         end_block=10_000_100,
         cache_path=cache_path,
     )
-
     cache_file = BlockTimestampDatabase.get_database_file_chain(1, cache_path)
-
     assert cache_file.exists()
-
     # Blocks missing if they do not contain transactions
     # E.g https://etherscan.io/block/10000007
     assert len(blocks) == 101
     timestamp = blocks[10_000_100]
     assert timestamp == datetime.datetime(2020, 5, 4, 13, 45, 31)
+    blocks.close()
 
     # Run again with warm cache
     blocks = fetch_block_timestamps_using_hypersync_cached(
@@ -92,10 +90,10 @@ def test_get_block_timestamps_using_hypersync_cached(hypersync_client: Hypersync
         end_block=10_000_100,
         cache_path=cache_path,
     )
-
     assert len(blocks) == 101
     timestamp = blocks[10_000_100]
     assert timestamp == datetime.datetime(2020, 5, 4, 13, 45, 31)
+    blocks.close()
 
     # One more time with auto endpoint
     blocks = fetch_block_timestamps_multiprocess_auto_backend(
@@ -110,15 +108,14 @@ def test_get_block_timestamps_using_hypersync_cached(hypersync_client: Hypersync
     assert len(blocks) == 101
     timestamp = blocks[10_000_100]
     assert timestamp == datetime.datetime(2020, 5, 4, 13, 45, 31)
+    blocks.close()
 
 
 def test_get_block_timestamps_using_hypersync_cached_multichain(hypersync_client: HypersyncClient, hypersync_polygon_client: HypersyncClient, tmp_path):
     """We get 100 historical blocks from Hypersync, multiple chains"""
 
     assert get_hypersync_block_height(hypersync_client) > 10_000_000
-
     cache_path = tmp_path
-
     blocks_ethereum = fetch_block_timestamps_using_hypersync_cached(
         hypersync_client,
         chain_id=1,
@@ -129,12 +126,12 @@ def test_get_block_timestamps_using_hypersync_cached_multichain(hypersync_client
 
     cache_file = BlockTimestampDatabase.get_database_file_chain(1, cache_path)
     assert cache_file.exists()
-
     # Blocks missing if they do not contain transactions
     # E.g https://etherscan.io/block/10000007
     assert len(blocks_ethereum) == 101
     timestamp = blocks_ethereum[10_000_100]
     assert timestamp == datetime.datetime(2020, 5, 4, 13, 45, 31)
+    blocks_ethereum.close()
 
     # Read cached
     blocks_ethereum_again = fetch_block_timestamps_using_hypersync_cached(
@@ -147,6 +144,7 @@ def test_get_block_timestamps_using_hypersync_cached_multichain(hypersync_client
     assert len(blocks_ethereum_again) == 101
     timestamp = blocks_ethereum_again[10_000_100]
     assert timestamp == datetime.datetime(2020, 5, 4, 13, 45, 31)
+    blocks_ethereum_again.close()
 
     # Read another chain to the same database
     blocks_polygon = fetch_block_timestamps_using_hypersync_cached(
@@ -159,9 +157,9 @@ def test_get_block_timestamps_using_hypersync_cached_multichain(hypersync_client
     assert len(blocks_polygon) == 101
     timestamp = blocks_polygon[10_000_100]
     assert timestamp == pd.Timestamp("2021-01-24 22:32:30")
-
     cache_file = BlockTimestampDatabase.get_database_file_chain(137, cache_path)
     assert cache_file.exists()
+    blocks_polygon.close()
 
 
 def test_get_block_timestamps_using_hypersync_continue_cache(hypersync_client: HypersyncClient, hypersync_polygon_client: HypersyncClient, tmp_path):
@@ -191,6 +189,7 @@ def test_get_block_timestamps_using_hypersync_continue_cache(hypersync_client: H
     # Blocks missing if they do not contain transactions
     # E.g https://etherscan.io/block/10000007
     assert len(blocks_ethereum) == 101
+    blocks_ethereum.close()
 
     # Read More than we have, after
     blocks_ethereum_again = fetch_block_timestamps_using_hypersync_cached(
@@ -201,6 +200,7 @@ def test_get_block_timestamps_using_hypersync_continue_cache(hypersync_client: H
         cache_path=cache_path,
     )
     assert len(blocks_ethereum_again) == 201
+    blocks_ethereum_again.close()
 
     # Read More than we have, before
     blocks_ethereum_again = fetch_block_timestamps_using_hypersync_cached(
@@ -211,6 +211,8 @@ def test_get_block_timestamps_using_hypersync_continue_cache(hypersync_client: H
         cache_path=cache_path,
     )
     assert len(blocks_ethereum_again) == 301
+
+    blocks_ethereum_again.close()
 
 
 def test_timestamp_multi_save(hypersync_client: HypersyncClient, hypersync_polygon_client: HypersyncClient, tmp_path):
@@ -228,11 +230,10 @@ def test_timestamp_multi_save(hypersync_client: HypersyncClient, hypersync_polyg
         cache_path=cache_path,
     )
 
-    cache_file = BlockTimestampDatabase.get_database_file_chain(1, cache_path)
-
     # Blocks missing if they do not contain transactions
     # E.g https://etherscan.io/block/10000007
     assert len(blocks_ethereum) == 101
+    blocks_ethereum.close()
 
     # Read More than we have, after
     blocks_ethereum_again = fetch_block_timestamps_using_hypersync_cached(
@@ -243,6 +244,7 @@ def test_timestamp_multi_save(hypersync_client: HypersyncClient, hypersync_polyg
         cache_path=cache_path,
     )
     assert len(blocks_ethereum_again) == 201
+    blocks_ethereum_again.close()
 
     # Read More than we have, before
     blocks_ethereum_again = fetch_block_timestamps_using_hypersync_cached(
@@ -253,3 +255,4 @@ def test_timestamp_multi_save(hypersync_client: HypersyncClient, hypersync_polyg
         cache_path=cache_path,
     )
     assert len(blocks_ethereum_again) == 301
+    blocks_ethereum_again.close()

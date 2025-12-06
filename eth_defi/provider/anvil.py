@@ -34,14 +34,18 @@ See also :py:mod:`eth_defi.trace` for Solidity tracebacks using Anvil.
 The code was originally lifted from Brownie project.
 """
 
+import fcntl
 import logging
 import os
 import shutil
 import sys
+import tempfile
 import time
 import warnings
 from dataclasses import dataclass
 from decimal import Decimal
+from functools import wraps
+from pathlib import Path
 from subprocess import DEVNULL, PIPE
 from typing import Any, Optional, Union
 
@@ -198,6 +202,55 @@ class AnvilLaunch:
         return stdout, stderr
 
 
+def _single_process_lock(timeout: float = 30.0):
+    """Decorator to ensure only one process can execute the function at a time.
+
+    Uses file-based locking to coordinate across processes.
+
+    :param timeout: Maximum time to wait for lock acquisition
+    :raises TimeoutError: If lock cannot be acquired within timeout
+
+    Example:
+        @single_process_lock(timeout=30.0)
+        def launch_anvil(...):
+            # function body
+    """
+
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            lock_file_path = Path(tempfile.gettempdir()) / f"{func.__name__}.lock"
+            lock_file = open(lock_file_path, "w")
+
+            start_time = time.time()
+
+            try:
+                # Try to acquire exclusive lock
+                while True:
+                    try:
+                        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                        logger.info(f"Acquired lock for {func.__name__}")
+                        break
+                    except BlockingIOError:
+                        if time.time() - start_time > timeout:
+                            raise TimeoutError(f"Could not acquire lock for {func.__name__} within {timeout}s")
+                        time.sleep(0.1)
+
+                # Execute the function
+                return func(*args, **kwargs)
+
+            finally:
+                # Release lock
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+                lock_file.close()
+                logger.info(f"Released lock for {func.__name__}")
+
+        return wrapper
+
+    return decorator
+
+
+@_single_process_lock(timeout=30.0)
 def launch_anvil(
     fork_url: Optional[str] = None,
     unlocked_addresses: list[Union[HexAddress, str]] = None,
