@@ -1186,6 +1186,7 @@ class MultiprocessMulticallReader:
             fallback_attempts = max(fallback_attempts, min_fallback_retries)
 
             # Set batch size to 1 and give it one more go
+            attempts_done = 0
             if fallback_attempts > 0:
                 logger.warning("Attempting retry %d times with fallbacks", fallback_attempts)
                 for i in range(fallback_attempts):
@@ -1195,6 +1196,7 @@ class MultiprocessMulticallReader:
                     active_provider_name = get_provider_name(active_provider)
 
                     try:
+                        attempts_done += 1
                         calls_results = self.call_multicall_with_batch_size(
                             multicall_contract,
                             block_identifier=block_identifier,
@@ -1202,6 +1204,7 @@ class MultiprocessMulticallReader:
                             encoded_calls=encoded_calls,
                             require_multicall_result=require_multicall_result,
                         )
+
 
                     except MulticallRetryable as e:
                         provider_name = get_provider_name(provider)
@@ -1211,15 +1214,18 @@ class MultiprocessMulticallReader:
                             logger.warning(f"Multicall with batch size 1 still failed at chain {chain_id}, block {block_identifier_str}. Switching provider and retrying. Current provider: {active_provider =} ({active_provider_name}). Exception: {e.__class__}: {e}.")
                             continue
 
+                        cause = getattr(e, "__cause__" None)  # Get explicitly chained exception
+
                         raise RuntimeError(
-                            f"Multicall retry failed\n"
+                            f"Multicall out of retries, attemps done {attempts_done}\n"
                             # Ruff piece of crap hack
                             # https://github.com/astral-sh/ruff/pull/8822
-                            f"Encountered a contract that cannot be called even after dropping multicall batch size to 1 and switching providers, bailing out.\n"
-                            f"Fallback attempt number #{i}, max fallback attempts {fallback_attempts}.\n"
-                            f"Manually figure out how to work around / change RPC providers.\n"
-                            f"Original provider: {provider} ({provider_name}), fallback provider: {fallback_provider} ({active_provider_name}), chain {chain_id}, block {block_identifier_str}, batch size: 1.\n"
-                            f"Exception: {e.__class__}: {e}.\n"
+                            f"   Encountered a contract that cannot be called even after dropping multicall batch size to 1 and switching providers, bailing out.\n"
+                            f"   Fallback attempt number #{i}, max fallback attempts {fallback_attempts}.\n"
+                            f"   Manually figure out how to work around / change RPC providers.\n"
+                            f"   Original provider: {provider} ({provider_name}), fallback provider: {fallback_provider} ({active_provider_name}), chain {chain_id}, block {block_identifier_str}, batch size: 1.\n"
+                            f"   Exception: {e.__class__}: {e}.\n"
+                            f"   Cause: {cause.__class__}: {cause}.\n"
                         ) from e
 
         self.calls += 1
