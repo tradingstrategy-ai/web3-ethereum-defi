@@ -1214,7 +1214,7 @@ class MultiprocessMulticallReader:
                             logger.warning(f"Multicall with batch size 1 still failed at chain {chain_id}, block {block_identifier_str}. Switching provider and retrying. Current provider: {active_provider =} ({active_provider_name}). Exception: {e.__class__}: {e}.")
                             continue
 
-                        cause = getattr(e, "__cause__" None)  # Get explicitly chained exception
+                        cause = getattr(e, "__cause__", None)  # Get explicitly chained exception
 
                         raise RuntimeError(
                             f"Multicall out of retries, attemps done {attempts_done}\n"
