@@ -298,7 +298,8 @@ class BlockTimestampSlicer:
         value = self.get(block_number)
         if value is None:
             first, last = self.timestamp_db.get_first_and_last_block()
-            raise KeyError(f"Block number {block_number} not found in timestamp database. Available range: {first:,} - {last:,}")
+            total = self.timestamp_db.get_count()
+            raise KeyError(f"Block number {block_number} not found in timestamp database. Available range: {first:,} - {last:,}, total {total:,} timestamp records")
         return value
 
     def get(self, block_number: int) -> datetime.datetime | None:
