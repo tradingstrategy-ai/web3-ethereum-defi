@@ -862,7 +862,7 @@ class MultiprocessMulticallReader:
         web3factory: Web3Factory | Web3,
         batch_size=40,
         backswitch_threshold=100,
-        too_many_requets_sleep=30.0,
+        too_many_requets_sleep=61.0,
     ):
         """Create subprocess worker instance.
 
@@ -1084,6 +1084,7 @@ class MultiprocessMulticallReader:
         assert isinstance(calls, list)
         assert all(isinstance(c, EncodedCall) for c in calls), f"Got: {calls}"
 
+        multicall_addresses = [c.address.lower() for c in calls]
         for c in calls:
             assert c.address.lower() not in BROKEN_VAULT_CONTRACTS, f"Contract {c.address} is blacklisted due to known multicall issues. Remove it from the call list."
 
@@ -1173,12 +1174,13 @@ class MultiprocessMulticallReader:
             if fallback_attempts > 0:
                 logger.warning("Attempting retry %d times with fallbacks", fallback_attempts)
                 for i in range(fallback_attempts):
+
                     if status_code == 429:
                         # Alchemy/Quicknode throttling us
-                        logger.warning("Received HTTP 429: %s, sleep %f, cauase %s", pformat(headers), self.too_many_requets_sleep, cause)
+                        logger.warning("Received HTTP 429: sleeping %f, cause %s",  self.too_many_requets_sleep, cause, pformat(headers))
                         time.sleep(self.too_many_requets_sleep)
                     else:
-                        logger.warning("Received no-throttle status 429: %s, cause: %s", pformat(headers), cause)
+                        logger.warning("Received no-throttle status %s: %s, cause: %s, multicall target addresses: %s", status_code, pformat(headers), cause, multicall_addresses)
 
                     fallback_provider.switch_provider(log_level=logging.WARNING)
 
@@ -1220,6 +1222,7 @@ class MultiprocessMulticallReader:
                             f"   Cause: {cause.__class__}: {cause}.\n"
                             f"   Headers: {pformat(headers)}.\n"
                             f"   Status code: {status_code}\n"
+                            f"   Addresses: {multicall_addresses}\n"
                         ) from e
 
         self.calls += 1
