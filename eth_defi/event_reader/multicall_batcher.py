@@ -16,6 +16,7 @@ import abc
 import datetime
 import logging
 import os
+import textwrap
 import threading
 import time
 import zlib
@@ -1005,12 +1006,14 @@ class MultiprocessMulticallReader:
                 else:
                     status_code = None
 
+                parsed_error = str(e)
+
                 error_msg = (
                     f"Multicall failed for chain {chain_id}\n"
                     # Ruff
                     f"Block {block_identifier}, batch size: {len(batch_calls)}: {e}.\n"
                     f"Using provider: {self.web3.provider.__class__}: {name}\n"
-                    f"Exception: {e.__class__}: {e} \n"
+                    f"Exception: {e.__class__}: {parsed_error} \n"
                     f"HTTP status code: {status_code.__class__}: {status_code}\n"
                     f"HTTP reply headers: {pformat(headers)}\n"
                     f"To simulate:\n"
@@ -1018,17 +1021,15 @@ class MultiprocessMulticallReader:
                     f"Addresses: {addresses}"
                 )
 
-                parsed_error = str(e)
+                logger.warning("Multicall error:\n%s", textwrap.indent(error_msg, prefix="    "))
 
                 for address, data in batch_calls:
-                    logger.info(
+                    logger.warning(
                         "Failed: Multicall batch call to %s with data %s: %s",
                         address,
                         data.hex(),
-                        str(e),
+                        parsed_error,
                     )
-
-                logger.warning("Multicall error: %s", error_msg)
 
                 if status_code == 429:
                     # Alchemy throttling us\
