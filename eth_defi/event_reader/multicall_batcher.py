@@ -916,7 +916,7 @@ class MultiprocessMulticallReader:
         else:
             return None
 
-    def get_batch_size(self, web3: Web3, chain_id) -> int | None:
+    def get_batch_size(self, web3: Web3, chain_id: int, block_identifier: BlockIdentifier) -> int | None:
         """Fix non-standard out of gas issues"""
 
         provider = web3.provider
@@ -935,12 +935,13 @@ class MultiprocessMulticallReader:
             # Gnosis chain argh
             return 16
         elif chain_id == 1:
-            # Getting problems on Ethereum
-            # eth_defi.event_reader.multicall_batcher.MulticallRetryable: Multicall failed for chain 1, block 23,953,482, batch size: 40: {'message': 'out of gas: gas required exceeds: 600000000', 'code': -32003}.
-            return 20
-        else:
-            # Default is 40
-            return self.batch_size
+            if type(block_identifier) == int and (23_000_000 < block_identifier < 24_000_000):
+                # Getting problems on Ethereum
+                # eth_defi.event_reader.multicall_batcher.MulticallRetryable: Multicall failed for chain 1, block 23,953,482, batch size: 40: {'message': 'out of gas: gas required exceeds: 600000000', 'code': -32003}.
+                return 20
+
+        # Default is 40
+        return self.batch_size
 
     def call_multicall_with_batch_size(
         self,
@@ -1127,7 +1128,7 @@ class MultiprocessMulticallReader:
         # we need to break it to smaller multicall call chunks
         # or we get RPC timeout
         chain_id = self.web3.eth.chain_id
-        batch_size = self.get_batch_size(self.web3, chain_id)
+        batch_size = self.get_batch_size(self.web3, chain_id, block_identifier)
 
         try:
             # Happy path
