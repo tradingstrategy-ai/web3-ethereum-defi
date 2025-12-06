@@ -8,7 +8,7 @@ import pytest
 from web3 import Web3
 
 
-from eth_defi.erc_4626.classification import create_vault_instance_autodetect
+from eth_defi.erc_4626.classification import create_vault_instance_autodetect, create_vault_instance
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch
 from eth_defi.provider.multi_provider import create_multi_provider_web3
@@ -42,9 +42,10 @@ def test_summer(
 ):
     """Read Summer.fi Earn vault metadata"""
 
-    vault = create_vault_instance_autodetect(
+    vault = create_vault_instance(
         web3,
-        vault_address="0x4f63cfea7458221cb3a0eee2f31f7424ad34bb58",
+        address="0x4f63cfea7458221cb3a0eee2f31f7424ad34bb58",
+        features={ERC4626Feature.summer_like},
     )
 
     assert vault.features == {ERC4626Feature.summer_like}

@@ -134,7 +134,10 @@ def fetch_block_timestamps_multiprocess(
 
     index = []
     values = []
-    for completed_task in worker_processor(delayed(_read_timestamp_subprocess)(*args) for args in _task_gen()):
+
+    # Because of asyncrhonoisty issues with new DuckDB cache, we need to buffer all tasks and reads in one go
+    tasks = list(_task_gen())
+    for completed_task in worker_processor(delayed(_read_timestamp_subprocess)(*args) for args in tasks):
         block_number, timestamp = completed_task
 
         index.append(block_number)
@@ -159,6 +162,9 @@ def fetch_block_timestamps_multiprocess(
         progress_bar.close()
 
     if timestamp_db:
+        block_range = timestamp_db.get_first_and_last_block()
+        count = timestamp_db.get_count()
+        logger.info(f"Timestamp cache {cache_path} populated for chain {chain_id}: blocks {block_range[0]:,} - {block_range[1]:,}, total {count:,} entries")
         return timestamp_db.get_slicer()
     else:
         raise NotImplementedError("Non-cached timestamp fetching not implemented")

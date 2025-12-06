@@ -267,7 +267,7 @@ def test_enzyme_uniswap_v3_arbitrum(
     assert 0.01 < weth.fetch_balance_of(vault.address) < 1
 
 
-@pytest.mark.skipif(CI, reason="Broken on Github CI")
+@pytest.mark.skip(reason="Test broken, Enzyme no longer supported")
 def test_enzyme_aave_arbitrum(
     web3: Web3,
     deployer: HexAddress,

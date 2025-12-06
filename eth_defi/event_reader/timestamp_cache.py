@@ -268,7 +268,14 @@ class BlockTimestampDatabase:
 
     def close(self):
         """Release duckdb resources."""
-        self.con.close()
+        logger.info("Closing %s", self.path)
+        if self.con is not None:
+            self.con.close()
+            self.con = None
+
+    def is_closed(self) -> bool:
+        """Check if the database connection is closed."""
+        return self.con is None
 
 
 class BlockTimestampSlicer:
@@ -295,10 +302,23 @@ class BlockTimestampSlicer:
 
     def get(self, block_number: int) -> datetime.datetime | None:
         """Get timestamp for a given block number, or None if not found."""
+
+        assert not self.timestamp_db.is_closed(), f"BlockTimestampSlicer.get(): underlying database is already closed"
+
         if self.current_slice is not None and block_number in self.current_slice:
             return self.current_slice[block_number]
 
-        logger.debug(f"Querying slice for block {block_number:,} (size {self.slice_size})")
+        current_slice_start = -1
+        current_slice_end = -1
+        if self.current_slice is not None:
+            if len(self.current_slice) > 0:
+                current_slice_start = self.current_slice.index[0]
+                current_slice_end = self.current_slice.index[-1]
+            else:
+                current_slice_start = 0
+                current_slice_end = 0
+
+        logger.debug(f"Querying slice for block {block_number:,} (size {self.slice_size}), current slice is {current_slice_start:,} - {current_slice_end:,}")
 
         self.current_slice = self.timestamp_db.query(block_number, block_number + self.slice_size)
 

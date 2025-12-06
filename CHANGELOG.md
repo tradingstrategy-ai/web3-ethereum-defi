@@ -3,6 +3,7 @@
 - GMX CCXT/FreqTrade integration
 - Add: Rewrite block timestamp cache to use DuckDB and Hypersync
 - Fix: Multiple RPC issue workarounds
+- Fix: Make `launch_anvil()` multi process locked, as likely Anvil has some internal conditions
 
 # 0.35
 
