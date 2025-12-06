@@ -250,7 +250,8 @@ def _single_process_lock(timeout: float = 30.0):
     return decorator
 
 
-@_single_process_lock(timeout=30.0)
+# Anvil launch may or may not need a lock, I am still unsure
+# Leaving out lock now because it seems to cause more harm than good
 def launch_anvil(
     fork_url: Optional[str] = None,
     unlocked_addresses: list[Union[HexAddress, str]] = None,
