@@ -892,7 +892,6 @@ class MultiprocessMulticallReader:
         #: How many calls ago we switched the fallback provider.
         self.last_switch = 0
 
-
         #: Try to switch back from the fallback provider to the main provider after this many calls.
         self.backswitch_threshold = backswitch_threshold
 
@@ -941,7 +940,7 @@ class MultiprocessMulticallReader:
             if type(block_identifier) == int and (23_000_000 < block_identifier < 24_000_000):
                 # Getting problems on Ethereum
                 # eth_defi.event_reader.multicall_batcher.MulticallRetryable: Multicall failed for chain 1, block 23,953,482, batch size: 40: {'message': 'out of gas: gas required exceeds: 600000000', 'code': -32003}.
-                return 16
+                return 8
 
         # Default is 40
         return self.batch_size
@@ -1028,6 +1027,8 @@ class MultiprocessMulticallReader:
                         data.hex(),
                         str(e),
                     )
+
+                logger.warning("Multicall error: %s", error_msg)
 
                 if status_code == 429:
                     # Alchemy throttling us\
