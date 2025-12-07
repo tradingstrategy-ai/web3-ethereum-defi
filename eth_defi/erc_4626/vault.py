@@ -101,18 +101,14 @@ class VaultReaderState(BatchCallState):
         "vault_poll_frequency",
         "token_symbol",
         "unsupported_token",
-
         "invoke_count_passed",
         "invoke_count_first_read",
         "invoke_count_missing_freq",
         "invoke_count_throttled",
-
         "write_filtered",
         "write_done",
-
         "rpc_error_count",
         "last_rpc_error",
-
     )
 
     def __init__(
@@ -284,7 +280,6 @@ class VaultReaderState(BatchCallState):
         block_identifier: BlockIdentifier,
         timestamp: datetime.datetime,
     ) -> bool:
-
         if self.first_seen_at_block:
             if block_identifier < self.first_seen_at_block:
                 # We do not read historical data before the first seen block
