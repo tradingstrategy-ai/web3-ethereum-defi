@@ -111,6 +111,7 @@ class VaultReaderState(BatchCallState):
         "write_done",
 
         "rpc_error_count",
+        "last_rpc_error",
 
     )
 
@@ -228,6 +229,7 @@ class VaultReaderState(BatchCallState):
 
         #: Cache for debuggin
         self.unsupported_token = None
+        self.last_rpc_error: str | None = None
 
     def __repr__(self):
         return f"<{self.__class__.__name__} vault={self.vault} last_tvl={self.last_tvl} last_share_price={self.last_share_price} max_tvl={self.max_tvl} last_call_at={self.last_call_at} peaked_at={self.peaked_at} faded_at={self.faded_at} denomination_token={self.denomination_token_address}>"
@@ -406,7 +408,7 @@ class VaultReaderState(BatchCallState):
                     self.faded_at = timestamp
 
         # Cache for debugging
-        self.token_symbol = self.vault.denomination_token.symbol if self.vault.denomination_token else "-"
+        # self.token_symbol = self.vault.denomination_token.symbol if self.vault.denomination_token else "-"
 
         # Diagnostics counter
         self.entry_count += 1

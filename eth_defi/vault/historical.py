@@ -45,6 +45,17 @@ DEFAULT_BLACK_LIST = [
 ]
 
 
+class _DummyObject:
+    def __getattr__(self, name):
+        return self
+
+    def __call__(self, *args, **kwargs):
+        return self
+
+    def __iadd__(self, other):
+        return 0
+
+
 class ParquetScanResult(TypedDict):
     """Result of generating historical prices Parquet file."""
 
@@ -420,7 +431,7 @@ class VaultHistoricalReadMulticaller:
 
             last_block_num = combined_result.block_number
             last_block_at = combined_result.timestamp
-            dummy_counter = Counter()
+            dummy_counter = _DummyObject()
 
             for vault_address, results in vault_data.items():
                 reader = readers[vault_address]
@@ -438,6 +449,7 @@ class VaultHistoricalReadMulticaller:
                 if current_result.errors:
                     error_count += 1
                     state.rpc_error_count += 1
+                    state.last_rpc_error = str(current_result.errors)
 
                 if current_result.is_almost_equal(last_result):
                     # Only yield a new row if the vault state has changed,

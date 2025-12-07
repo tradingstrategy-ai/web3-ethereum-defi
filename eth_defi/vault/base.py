@@ -237,7 +237,7 @@ class VaultHistoricalRead:
     def is_almost_equal(
         self,
         other: "VaultHistoricalRead | None",
-        epsilon: float = 0.001,
+        epsilon: float = 0.00025,
     ) -> bool:
         """Check if the read statistics match.
 
