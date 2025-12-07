@@ -101,6 +101,17 @@ class VaultReaderState(BatchCallState):
         "vault_poll_frequency",
         "token_symbol",
         "unsupported_token",
+
+        "invoke_count_passed",
+        "invoke_count_first_read",
+        "invoke_count_missing_freq",
+        "invoke_count_throttled",
+
+        "write_filtered",
+        "write_done",
+
+        "rpc_error_count",
+
     )
 
     def __init__(
@@ -178,8 +189,17 @@ class VaultReaderState(BatchCallState):
         #: Vaults we do no really care about
         self.tiny_tvl_threshold_rare_read = tiny_tvl_threshold_rare_read
 
-        #: Events read, used for testing
+        #: How many on_called() invocations have we had
         self.entry_count = 0
+
+        #: How many should_invoke() invocations have we had
+        self.invoke_count_passed = self.invoke_count_first_read = self.invoke_count_missing_freq = self.invoke_count_throttled = 0
+
+        # Track Parquet writes
+        self.write_filtered = self.write_done = 0
+
+        #: Track RPCc errors
+        self.rpc_error_count = 0
 
         #: Cache denomination token address when preparing readers
         self.denomination_token_address = None
@@ -262,6 +282,7 @@ class VaultReaderState(BatchCallState):
         block_identifier: BlockIdentifier,
         timestamp: datetime.datetime,
     ) -> bool:
+
         if self.first_seen_at_block:
             if block_identifier < self.first_seen_at_block:
                 # We do not read historical data before the first seen block
@@ -271,6 +292,7 @@ class VaultReaderState(BatchCallState):
         if self.last_call_at is None:
             # First read, we always read it
             self.vault_poll_frequency = "first_read"
+            self.invoke_count_first_read += 1
             return True
 
         vault_poll_frequency, freq = self.get_frequency()
@@ -278,12 +300,15 @@ class VaultReaderState(BatchCallState):
 
         if freq is None:
             # Further reads disabled
+            self.invoke_count_missing_freq += 1
             return False
 
         refresh_needed = (timestamp - self.last_call_at) >= freq
         if refresh_needed:
+            self.invoke_count_passed += 1
             return True
 
+        self.invoke_count_throttled += 1
         return False
 
     def get_frequency(self) -> tuple[VaultPollFrequency, datetime.timedelta | None]:

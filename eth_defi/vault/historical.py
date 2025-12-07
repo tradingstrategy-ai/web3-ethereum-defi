@@ -12,7 +12,7 @@ See :py:class:`VaultHistoricalReadMulticaller` for usage.
 import logging
 import os
 import tempfile
-from collections import defaultdict
+from collections import defaultdict, Counter
 import datetime
 from pathlib import Path
 
@@ -420,9 +420,11 @@ class VaultHistoricalReadMulticaller:
 
             last_block_num = combined_result.block_number
             last_block_at = combined_result.timestamp
+            dummy_counter = Counter()
 
             for vault_address, results in vault_data.items():
                 reader = readers[vault_address]
+                state = reader.reader_state or dummy_counter
 
                 last_result: VaultHistoricalRead = last_results.get(vault_address)
                 current_result: VaultHistoricalRead = reader.process_result(
@@ -431,18 +433,20 @@ class VaultHistoricalReadMulticaller:
                     results,
                 )
 
-                if reader.reader_state:
-                    current_result.vault_poll_frequency = reader.reader_state.vault_poll_frequency
+                current_result.vault_poll_frequency = state.vault_poll_frequency
 
                 if current_result.errors:
                     error_count += 1
+                    state.rpc_error_count += 1
 
                 if current_result.is_almost_equal(last_result):
                     # Only yield a new row if the vault state has changed,
                     # to not to unnecessary bloat the dataset
                     skipped_results += 1
+                    state.write_filtered += 1
                 else:
                     last_results[vault_address] = current_result
+                    state.write_done += 1
                     yield current_result
 
         logger.info("Processed total %d results, total %d combined results, for %d vaults, skipped %d new rows, error count %d", total_results, total_combined_results, len(vaults), skipped_results, error_count)

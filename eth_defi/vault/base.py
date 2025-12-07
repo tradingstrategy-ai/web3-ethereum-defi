@@ -237,11 +237,14 @@ class VaultHistoricalRead:
     def is_almost_equal(
         self,
         other: "VaultHistoricalRead | None",
-        epsilon: float = 1e-3,
+        epsilon: float = 0.001,
     ) -> bool:
         """Check if the read statistics match.
 
         - Throttle with epsilon relative difference to get rid of small increment rows
+
+        :param epsilon:
+            Detect 10 BPS changes
         """
         if other is None:
             return False
