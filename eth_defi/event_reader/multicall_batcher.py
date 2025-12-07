@@ -1003,9 +1003,8 @@ class MultiprocessMulticallReader:
                 # When
                 #
 
-                if hasattr(e, "response"):
+                if hasattr(e, "response") and e.response is not None:
                     status_code = e.response.status_code
-                    assert type(status_code) == int, f"Got: {status_code.__class}: {status_code}"
                 else:
                     status_code = None
 
