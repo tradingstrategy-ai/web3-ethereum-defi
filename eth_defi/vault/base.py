@@ -237,11 +237,14 @@ class VaultHistoricalRead:
     def is_almost_equal(
         self,
         other: "VaultHistoricalRead | None",
-        epsilon: float = 1e-3,
+        epsilon: float = 0.001,
     ) -> bool:
         """Check if the read statistics match.
 
         - Throttle with epsilon relative difference to get rid of small increment rows
+
+        :param epsilon:
+            Write changes with 10 BPS granularity
         """
         if other is None:
             return False
@@ -254,7 +257,7 @@ class VaultHistoricalRead:
         total_assets_diff = (other.total_assets - self.total_assets) / self.total_assets
         total_supply_diff = (other.total_supply - self.total_supply) / self.total_supply
 
-        return abs(share_price_diff) <= epsilon and abs(total_assets_diff) <= epsilon or abs(total_supply_diff) <= epsilon
+        return abs(share_price_diff) <= epsilon and abs(total_assets_diff) <= epsilon and abs(total_supply_diff) <= epsilon
 
     def export(self) -> dict:
         """Convert historical read for a Parquet/DataFrame export."""

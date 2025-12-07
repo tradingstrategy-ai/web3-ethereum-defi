@@ -1174,10 +1174,9 @@ class MultiprocessMulticallReader:
             if fallback_attempts > 0:
                 logger.warning("Attempting retry %d times with fallbacks", fallback_attempts)
                 for i in range(fallback_attempts):
-
                     if status_code == 429:
                         # Alchemy/Quicknode throttling us
-                        logger.warning("Received HTTP 429: sleeping %f, cause %s",  self.too_many_requets_sleep, cause, pformat(headers))
+                        logger.warning("Received HTTP 429: sleeping %f, cause %s", self.too_many_requets_sleep, cause, pformat(headers))
                         time.sleep(self.too_many_requets_sleep)
                     else:
                         logger.warning("Received no-throttle status %s: %s, cause: %s, multicall target addresses: %s", status_code, pformat(headers), cause, multicall_addresses)

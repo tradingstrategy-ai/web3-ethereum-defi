@@ -69,7 +69,7 @@ def test_4626_historical_vault_data_stateless(
     )
 
     records = list(records)
-    assert len(records) == 77
+    assert len(records) == 79
 
     # Records are not guaranteed to be in specific order, so fix it here
     records.sort(key=lambda r: (r.block_number, r.vault.address))
@@ -173,7 +173,7 @@ def test_4626_historical_vault_data_stateful(
     assert alternative_state.max_tvl == pytest.approx(Decimal("1343887.145555"))
 
     # Many more records than with the daily scanner above because we read every hour
-    assert len(records) == 70
+    assert len(records) == 71
 
     # Records are not guaranteed to be in specific order, so fix it here
     records.sort(key=lambda r: (r.block_number, r.vault.address))
