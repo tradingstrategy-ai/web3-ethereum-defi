@@ -343,7 +343,9 @@ class LagoonVault(ERC7540Vault):
             except CannotRetrieveSafeInfoException as e:
                 # Safe is not a safe but EOA address
                 # https://arbiscan.io/address/0xb03EdA433d5bB1ef76b63087D4042A92C02822bD
-                logger.error(f"Lagoon Safe info fetch failed for Safe {safe}, vault {self.vault_address}, vault info is {vault_info}: {e}", exc_info=e)
+                cause = getattr(e, "__cause__", None)
+                logger.error(f"Lagoon Safe info fetch failed, exception {e} (cause: {cause}) for Safe {safe}, vault {self.vault_address}, vault info is {vault_info}")
+                logger.error(exc_info=e)
 
         return vault_info | safe_info_dict
 
