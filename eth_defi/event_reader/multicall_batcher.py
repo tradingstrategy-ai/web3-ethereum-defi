@@ -1220,7 +1220,7 @@ class MultiprocessMulticallReader:
                             f"   Cause: {cause.__class__}: {cause}.\n"
                             f"   Headers: {pformat(headers)}.\n"
                             f"   Status code: {status_code}\n"
-                            f"   Addresses: {multicall_addresses}\n"
+                            f"   Addresses: {multicall_addresses[0:3]}... total {len(multicall_addresses)}\n"
                         ) from e
 
         self.calls += 1
