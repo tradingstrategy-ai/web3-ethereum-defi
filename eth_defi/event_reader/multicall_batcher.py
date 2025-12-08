@@ -1168,9 +1168,13 @@ class MultiprocessMulticallReader:
             # Try at least 3 times for extra robustness
             fallback_attempts = max(fallback_attempts, min_fallback_retries)
 
+            fallback_batch_size = len(encoded_calls) // 2
             # Set batch size to 1 and give it one more go
             attempted_providers = []
             attempts_done = 0
+
+            last_exception = e
+
             if fallback_attempts > 0:
                 logger.warning("Attempting retry %d times with fallbacks", fallback_attempts)
                 for i in range(fallback_attempts):
@@ -1181,13 +1185,16 @@ class MultiprocessMulticallReader:
                     else:
                         logger.warning("Received no-throttle status %s: %s, cause: %s, multicall target addresses: %s...", status_code, pformat(headers), cause, multicall_addresses[0:3])
 
-                    fallback_provider.switch_provider(log_level=logging.WARNING)
+                    fallback_provider.switch_provider(
+                        log_level=logging.WARNING,
+                        randomise=True,
+                        cause=f"Last exception: {str(last_exception)}",
+                    )
 
                     active_provider = fallback_provider.get_active_provider()
                     active_provider_name = get_provider_name(active_provider)
                     attempted_providers.append(active_provider_name)
 
-                    fallback_batch_size = 1
                     try:
                         attempts_done += 1
                         calls_results = self.call_multicall_with_batch_size(
@@ -1204,19 +1211,13 @@ class MultiprocessMulticallReader:
                         cause = getattr(e, "__cause__", None)  # Get explicitly chained exception
                         headers = e.headers
                         status_code = e.status_code
+                        last_exception = e
+                        fallback_batch_size = max(fallback_batch_size // 2, 1)
 
                         msg = (
                             # Ruff piece of crap hack
                             # https://github.com/astral-sh/ruff/pull/8822
-                            f"   Fallback attempt number #{i}, max fallback attempts {fallback_attempts}.\n"
-                            f"   Original provider: {provider} ({provider_name}), fallback provider: {fallback_provider} ({active_provider_name}), chain {chain_id}, block {block_identifier_str}, batch size: 1.\n"
-                            f"   Attempted providers: {attempted_providers}.\n"
-                            f"   Exception: {e.__class__}: {e}.\n"
-                            f"   Cause: {cause.__class__}: {cause}.\n"
-                            f"   Headers: {pformat(headers)}.\n"
-                            f"   Status code: {status_code}\n"
-                            f"   Address batch size: {fallback_batch_size}\n"
-                            f"   Addresses: {multicall_addresses[0:3]}... total {len(multicall_addresses)}\n"
+                            f"   Fallback attempt number #{i}, max fallback attempts {fallback_attempts}.\n   Original provider: {provider} ({provider_name}), fallback provider: {fallback_provider} ({active_provider_name}), chain {chain_id}, block {block_identifier_str}, batch size: 1.\n   Attempted providers: {attempted_providers}.\n   Exception: {e.__class__}: {e}.\n   Cause: {cause.__class__}: {cause}.\n   Headers: {pformat(headers)}.\n   Status code: {status_code}\n   Address batch size: {fallback_batch_size}\n   Addresses: {multicall_addresses[0:3]}... total {len(multicall_addresses)}\n"
                         )
 
                         logger.warning("Multicall retry status:\n%s", msg)
