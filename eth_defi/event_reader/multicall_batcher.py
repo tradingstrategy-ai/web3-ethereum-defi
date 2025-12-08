@@ -1206,12 +1206,9 @@ class MultiprocessMulticallReader:
                         status_code = e.status_code
 
                         msg = (
-                            f"   Attempts done {attempts_done}\n"
                             # Ruff piece of crap hack
                             # https://github.com/astral-sh/ruff/pull/8822
-                            f"   Encountered a contract that cannot be called even after dropping multicall batch size to 1 and switching providers, bailing out.\n"
                             f"   Fallback attempt number #{i}, max fallback attempts {fallback_attempts}.\n"
-                            f"   Manually figure out how to work around / change RPC providers.\n"
                             f"   Original provider: {provider} ({provider_name}), fallback provider: {fallback_provider} ({active_provider_name}), chain {chain_id}, block {block_identifier_str}, batch size: 1.\n"
                             f"   Attempted providers: {attempted_providers}.\n"
                             f"   Exception: {e.__class__}: {e}.\n"
