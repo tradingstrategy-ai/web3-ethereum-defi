@@ -95,7 +95,7 @@ def test_steakhouse_usdt(
         require_multicall_result=True,
         timestamp_cache_file=timestamp_cache_path,
     )
-    assert scan_report["rows_written"] == 283
+    assert scan_report["rows_written"] == 291
 
     df = pd.read_parquet(parquet_file)
 

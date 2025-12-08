@@ -1160,7 +1160,7 @@ class MultiprocessMulticallReader:
                 self.last_switch = self.calls
                 fallback_provider = provider
                 # If we have only one fallback provider configured, try it twice
-                fallback_attempts = len(provider.providers) + 3
+                fallback_attempts = len(provider.providers) + 2
             else:
                 fallback_provider = None
                 fallback_attempts = 0
@@ -1169,6 +1169,7 @@ class MultiprocessMulticallReader:
             fallback_attempts = max(fallback_attempts, min_fallback_retries)
 
             # Set batch size to 1 and give it one more go
+            attempted_providers = []
             attempts_done = 0
             if fallback_attempts > 0:
                 logger.warning("Attempting retry %d times with fallbacks", fallback_attempts)
@@ -1184,13 +1185,15 @@ class MultiprocessMulticallReader:
 
                     active_provider = fallback_provider.get_active_provider()
                     active_provider_name = get_provider_name(active_provider)
+                    attempted_providers.append(active_provider_name)
 
+                    fallback_batch_size = 1
                     try:
                         attempts_done += 1
                         calls_results = self.call_multicall_with_batch_size(
                             multicall_contract,
                             block_identifier=block_identifier,
-                            batch_size=1,
+                            batch_size=fallback_batch_size,
                             encoded_calls=encoded_calls,
                             require_multicall_result=require_multicall_result,
                         )
@@ -1202,26 +1205,31 @@ class MultiprocessMulticallReader:
                         headers = e.headers
                         status_code = e.status_code
 
-                        if i < (fallback_attempts - 1):
-                            logger.warning(f"Multicall retryable still failing, but we have retries left.")
-                            logger.warning(f"Attempts: {i}, max attempts: {fallback_attempts}.")
-                            logger.warning(f"Multicall with batch size 1 still failed at chain {chain_id}, block {block_identifier_str}. Switching provider and retrying. Current provider: {active_provider =} ({active_provider_name}). Exception: {e.__class__}: {e}.")
-                            continue
-
-                        raise RuntimeError(
-                            f"Multicall out of retries, attemps done {attempts_done}\n"
+                        msg = (
+                            f"   Attempts done {attempts_done}\n"
                             # Ruff piece of crap hack
                             # https://github.com/astral-sh/ruff/pull/8822
                             f"   Encountered a contract that cannot be called even after dropping multicall batch size to 1 and switching providers, bailing out.\n"
                             f"   Fallback attempt number #{i}, max fallback attempts {fallback_attempts}.\n"
                             f"   Manually figure out how to work around / change RPC providers.\n"
                             f"   Original provider: {provider} ({provider_name}), fallback provider: {fallback_provider} ({active_provider_name}), chain {chain_id}, block {block_identifier_str}, batch size: 1.\n"
+                            f"   Attempted providers: {attempted_providers}.\n"
                             f"   Exception: {e.__class__}: {e}.\n"
                             f"   Cause: {cause.__class__}: {cause}.\n"
                             f"   Headers: {pformat(headers)}.\n"
                             f"   Status code: {status_code}\n"
+                            f"   Address batch size: {fallback_batch_size}\n"
                             f"   Addresses: {multicall_addresses[0:3]}... total {len(multicall_addresses)}\n"
-                        ) from e
+                        )
+
+                        logger.warning("Multicall retry status:\n%s", msg)
+
+                        if i < (fallback_attempts - 1):
+                            logger.warning(f"Multicall retryable still failing, but we have retries left.")
+                            logger.warning(f"Attempts: {i}, max attempts: {fallback_attempts}.")
+                            continue
+
+                        raise RuntimeError(f"Out of multicall retries, even after dropping multicall batch size to 1 and switching providers, bailing out.\n" + msg) from e
 
         self.calls += 1
 
