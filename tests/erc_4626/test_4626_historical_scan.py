@@ -91,7 +91,7 @@ def test_4626_historical_prices(
 
     assert output_fname.exists(), f"Did not create: {output_fname}"
     assert scan_result["existing"] is False
-    assert scan_result["rows_written"] == 36
+    assert scan_result["rows_written"] == 37
     assert scan_result["rows_deleted"] == 0
 
     table = pq.read_table(output_fname)
@@ -114,8 +114,8 @@ def test_4626_historical_prices(
     )
     assert output_fname.exists(), f"Did not create: {output_fname}"
     assert scan_result["existing"] is True
-    assert scan_result["rows_written"] == 36
-    assert scan_result["rows_deleted"] == 36
+    assert scan_result["rows_written"] == 37
+    assert scan_result["rows_deleted"] == 37
 
     # https://app.lagoon.finance/vault/1/0x03D1eC0D01b659b89a87eAbb56e4AF5Cb6e14BFc
     lagoon_vault = LagoonVault(web3_ethereum, VaultSpec(web3_ethereum.eth.chain_id, "0x03D1eC0D01b659b89a87eAbb56e4AF5Cb6e14BFc"))
@@ -143,8 +143,8 @@ def test_4626_historical_prices(
     )
 
     assert scan_result["existing"] is True
-    assert scan_result["rows_written"] == 22
+    assert scan_result["rows_written"] == 24
     assert scan_result["rows_deleted"] == 0
 
     table = pq.read_table(output_fname)
-    assert table.num_rows == 36 + 22
+    assert table.num_rows == 37 + 24
