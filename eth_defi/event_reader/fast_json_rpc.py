@@ -44,6 +44,9 @@ def _make_request(self, method: RPCEndpoint, params: Any) -> RPCResponse:
 
     request_data = self.encode_rpc_request(method, params)
 
+    # Clear the last headers
+    last_headers_storage.headers = {}
+
     try:
         raw_response = get_response_from_post_request(
             self.endpoint_uri,
