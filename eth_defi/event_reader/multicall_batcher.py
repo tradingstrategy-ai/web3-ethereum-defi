@@ -1169,6 +1169,7 @@ class MultiprocessMulticallReader:
             fallback_attempts = max(fallback_attempts, min_fallback_retries)
 
             # Set batch size to 1 and give it one more go
+            attempted_providers = []
             attempts_done = 0
             if fallback_attempts > 0:
                 logger.warning("Attempting retry %d times with fallbacks", fallback_attempts)
@@ -1184,13 +1185,15 @@ class MultiprocessMulticallReader:
 
                     active_provider = fallback_provider.get_active_provider()
                     active_provider_name = get_provider_name(active_provider)
+                    attempted_providers.append(active_provider_name)
 
+                    fallback_batch_size = 1
                     try:
                         attempts_done += 1
                         calls_results = self.call_multicall_with_batch_size(
                             multicall_contract,
                             block_identifier=block_identifier,
-                            batch_size=1,
+                            batch_size=fallback_batch_size,
                             encoded_calls=encoded_calls,
                             require_multicall_result=require_multicall_result,
                         )
@@ -1216,10 +1219,12 @@ class MultiprocessMulticallReader:
                             f"   Fallback attempt number #{i}, max fallback attempts {fallback_attempts}.\n"
                             f"   Manually figure out how to work around / change RPC providers.\n"
                             f"   Original provider: {provider} ({provider_name}), fallback provider: {fallback_provider} ({active_provider_name}), chain {chain_id}, block {block_identifier_str}, batch size: 1.\n"
+                            f"   Attempted providers: {attempted_providers}.\n"
                             f"   Exception: {e.__class__}: {e}.\n"
                             f"   Cause: {cause.__class__}: {cause}.\n"
                             f"   Headers: {pformat(headers)}.\n"
                             f"   Status code: {status_code}\n"
+                            f"   Address batch size: {fallback_batch_size}\n"
                             f"   Addresses: {multicall_addresses[0:3]}... total {len(multicall_addresses)}\n"
                         ) from e
 

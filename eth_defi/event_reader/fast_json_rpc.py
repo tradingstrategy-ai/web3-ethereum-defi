@@ -55,13 +55,22 @@ def _make_request(self, method: RPCEndpoint, params: Any) -> RPCResponse:
         last_headers_storage.headers = {"exception": str(e), "method": method, "endpoint_uri": get_url_domain(self.endpoint_uri)}
         raise
 
+    counter = getattr(last_headers_storage, "counter", 0)
+    counter += 1
+    last_headers_storage.counter = counter
+
     # Pass dRPC / etc upstream RPC headers all along for debug
-    last_headers_storage.headers = {k: v for k, v in raw_response.headers.items()}
-    last_headers_storage.headers["method"] = method
-    last_headers_storage.headers["endpoint_uri"] = get_url_domain(self.endpoint_uri)
-    last_headers_storage.headers["status_code"] = raw_response.status_code
-    if raw_response.status_code >= 400:
-        last_headers_storage.headers["status_text"] = raw_response.text
+    if raw_response.status_code >= 300:
+        # Only record headers in the case of problems
+        thread_id = threading.get_ident()
+        headers_id = f"{counter}-{thread_id}"
+        last_headers_storage.headers = {k: v for k, v in raw_response.headers.items()}
+        last_headers_storage.headers["method"] = method
+        last_headers_storage.headers["endpoint_uri"] = get_url_domain(self.endpoint_uri)
+        last_headers_storage.headers["status_code"] = raw_response.status_code
+        last_headers_storage.headers["headers-track-id"] = headers_id
+        if raw_response.status_code >= 400:
+            last_headers_storage.headers["status_text"] = raw_response.text
 
     raw_response.raise_for_status()
 
