@@ -1710,8 +1710,10 @@ def export_lifetime_row(row: pd.Series) -> dict:
         if isinstance(value, Enum):
             return value.value
         # Na-like scalar
-        if pd.isna(value):
+        if pd.isna(value) or value == "NaT":
+            # TODO: NaT hack, lockup: NaT is broken in somewhere deeper, investigate
             return None
+
         return value
 
     out = {k: _serialize(v) for k, v in row.to_dict().items()}
