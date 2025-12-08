@@ -1020,7 +1020,7 @@ class MultiprocessMulticallReader:
                     f"HTTP reply headers: {pformat(headers)}\n"
                     f"To simulate:\n"
                     f"{debug_data}\n"
-                    f"Addresses: {addresses}"
+                    f"Addresses: {addresses[0:3]}... total {len(addresses)}\n"
                 )
 
                 logger.warning("Multicall error:\n%s", textwrap.indent(error_msg, prefix="    "))
