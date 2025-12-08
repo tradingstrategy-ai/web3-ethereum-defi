@@ -1168,7 +1168,7 @@ class MultiprocessMulticallReader:
             # Try at least 3 times for extra robustness
             fallback_attempts = max(fallback_attempts, min_fallback_retries)
 
-            fallback_batch_size = len(encoded_calls) // 2
+            fallback_batch_size = batch_size // 3
             # Set batch size to 1 and give it one more go
             attempted_providers = []
             attempts_done = 0
