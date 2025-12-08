@@ -33,6 +33,7 @@ from eth_defi.provider.broken_provider import get_almost_latest_block_number
 from eth_defi.token import TokenDetails, TokenDiskCache, fetch_erc20_details
 from eth_defi.utils import chunked
 from eth_defi.vault.base import VaultBase, VaultHistoricalReader, VaultHistoricalRead, VaultSpec
+from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
 
 logger = logging.getLogger(__name__)
 
@@ -569,6 +570,13 @@ def scan_historical_prices_to_parquet(
         stateful,
     )
 
+    cleaned_vaults = []
+    for v in vaults:
+        if v.vault_address.lower() in BROKEN_VAULT_CONTRACTS:
+            logger.warning(f"Skipping blacklisted vault {v.vault_address} on chain {v.chain_id}")
+            continue
+        cleaned_vaults.append(v)
+
     assert all(v.first_seen_at_block for v in vaults), f"You need to set vault.first_seen_at_block hint in order to run this reader"
     assert all(v.chain_id == chain_id for v in vaults), f"All vaults must be on the same chain"
 
@@ -634,7 +642,7 @@ def scan_historical_prices_to_parquet(
 
     # Create iterator that will drop in vault historical read entries block by block
     entries_iter = reader.read_historical(
-        vaults=vaults,
+        vaults=cleaned_vaults,
         start_block=start_block,
         end_block=end_block,
         step=step,

@@ -1020,7 +1020,7 @@ class MultiprocessMulticallReader:
                     f"HTTP reply headers: {pformat(headers)}\n"
                     f"To simulate:\n"
                     f"{debug_data}\n"
-                    f"Addresses: {addresses[0:3]}... total {len(addresses)}\n"
+                    f"Addresses: {addresses[0:6]}... total {len(addresses)}\n"
                 )
 
                 logger.warning("Multicall error:\n%s", textwrap.indent(error_msg, prefix="    "))
@@ -1183,7 +1183,7 @@ class MultiprocessMulticallReader:
                         logger.warning("Received HTTP 429: sleeping %f, cause %s", self.too_many_requets_sleep, cause)
                         time.sleep(self.too_many_requets_sleep)
                     else:
-                        logger.warning("Received no-throttle status %s: %s, cause: %s, multicall target addresses: %s...", status_code, pformat(headers), cause, multicall_addresses[0:3])
+                        logger.warning("Received no-throttle status %s: %s, cause: %s, multicall target addresses: %s...", status_code, pformat(headers), cause, multicall_addresses[0:6])
 
                     fallback_provider.switch_provider(
                         log_level=logging.WARNING,
@@ -1217,7 +1217,7 @@ class MultiprocessMulticallReader:
                         msg = (
                             # Ruff piece of crap hack
                             # https://github.com/astral-sh/ruff/pull/8822
-                            f"   Fallback attempt number #{i}, max fallback attempts {fallback_attempts}.\n   Original provider: {provider} ({provider_name}), fallback provider: {fallback_provider} ({active_provider_name}), chain {chain_id}, block {block_identifier_str}, batch size: 1.\n   Attempted providers: {attempted_providers}.\n   Exception: {e.__class__}: {e}.\n   Cause: {cause.__class__}: {cause}.\n   Headers: {pformat(headers)}.\n   Status code: {status_code}\n   Address batch size: {fallback_batch_size}\n   Addresses: {multicall_addresses[0:3]}... total {len(multicall_addresses)}\n"
+                            f"   Fallback attempt number #{i}, max fallback attempts {fallback_attempts}.\n   Original provider: {provider} ({provider_name}), fallback provider: {fallback_provider} ({active_provider_name}), chain {chain_id}, block {block_identifier_str}, batch size: 1.\n   Attempted providers: {attempted_providers}.\n   Exception: {e.__class__}: {e}.\n   Cause: {cause.__class__}: {cause}.\n   Headers: {pformat(headers)}.\n   Status code: {status_code}\n   Address batch size: {fallback_batch_size}\n   Addresses: {multicall_addresses[0:6]}... total {len(multicall_addresses)}\n"
                         )
 
                         logger.warning("Multicall retry status:\n%s", msg)
