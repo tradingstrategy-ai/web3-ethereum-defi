@@ -21,7 +21,7 @@ from tqdm_loggable.auto import tqdm
 from joblib import Parallel, delayed
 
 from eth_defi.token import is_stablecoin_like
-from eth_defi.research.sparkline import render_sparkline, export_sparkline_as_svg
+from eth_defi.research.sparkline import render_sparkline_simple, export_sparkline_as_svg
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.vaultdb import VaultDatabase, read_default_vault_prices, VaultRow
 from eth_defi.research.sparkline import upload_to_r2_compressed
@@ -35,6 +35,8 @@ MIN_TVL = 25_000
 class RenderData:
     vault_id: str
     svg_bytes: bytes
+    content_type: str
+    extension: str
 
 
 def is_vault_included(row: VaultRow):
@@ -74,7 +76,7 @@ def main():
     prices_df = prices_df[prices_df.index >= (last_day - pd.Timedelta(days=90))]
     prices_df = prices_df.reset_index().set_index(["id", "timestamp"]).sort_index()
 
-    def _render_row(row: VaultRow) -> RenderData:
+    def _render_row_simple_svg(row: VaultRow) -> RenderData:
         detection_data = row["_detection_data"]
         spec = detection_data.get_spec()
         vault_id = spec.as_string_id()
@@ -100,7 +102,7 @@ def main():
         # Do daily data points
         vault_prices_df = vault_prices_df.resample("D").last()[["share_price", "total_assets"]]
 
-        fig = render_sparkline(
+        fig = render_sparkline_simple(
             vault_prices_df,
             width=100,
             height=25,
@@ -112,14 +114,63 @@ def main():
         return RenderData(
             vault_id=vault_id,
             svg_bytes=svg_bytes,
+            content_type="image/svg+xml",
+            extension="svg",
+        )
+
+    def _render_row_gradient_png(row: VaultRow) -> RenderData:
+        detection_data = row["_detection_data"]
+        spec = detection_data.get_spec()
+        vault_id = spec.as_string_id()
+
+        nav = row.get("NAV") or 0
+        denomination = row.get("Denomination") or ""
+
+        logger.info(
+            "Exporting sparkline for vault %s: %s, NAV: %s, denomination: %s",
+            vault_id,
+            row.get("Name", "<unknown>"),
+            nav,
+            denomination,
+        )
+
+        try:
+            vault_prices_df = prices_df.loc[vault_id]
+        except KeyError:
+            # print(f"Skipping vault {vault_id}, no price data")
+            logger.info("Skipping vault %s, no price data", vault_id)
+            return None
+
+        # Do daily data points
+        vault_prices_df = vault_prices_df.resample("D").last()[["share_price", "total_assets"]]
+
+        # Use Twitter Summary Card size
+        fig = render_sparkline_simple(
+            vault_prices_df,
+            width=300,
+            height=157,
+        )
+
+        png_bytes = export_sparkline_as_svg(
+            fig,
+        )
+        return RenderData(
+            vault_id=vault_id,
+            svg_bytes=png_bytes,
+            content_type="image/png",
+            extension="png",
         )
 
     def _upload_row(render_data: RenderData):
         vault_id = render_data.vault_id
         svg_bytes = render_data.svg_bytes
-        object_name = f"sparkline-90d-{vault_id}.svg"
+        object_name = f"sparkline-90d-{vault_id}.{render_data.extension}"
 
-        logger.info("Uploading vault %s, no price data", vault_id)
+        logger.info(
+            "Uploading vault %s, filename %s",
+            vault_id,
+            object_name,
+        )
 
         upload_to_r2_compressed(
             payload=svg_bytes,
@@ -128,7 +179,7 @@ def main():
             endpoint_url=endpoint_url,
             access_key_id=access_key_id,
             secret_access_key=secret_access_key,
-            content_type="image/svg+xml",
+            content_type=render_data.content_type,
         )
         # print(f"Uploaded sparkline to R2 bucket '{bucket_name}' as '{object_name}'")
 
@@ -136,7 +187,11 @@ def main():
     # NSWindow should only be instantiated on the main thread!
     render_data = []
     for row in tqdm(vault_rows, desc="Rendering sparklines"):
-        data = _render_row(row)
+        data = _render_row_simple_svg(row)
+        if data is not None:
+            render_data.append(data)
+
+        data = _render_row_gradient_png(row)
         if data is not None:
             render_data.append(data)
 

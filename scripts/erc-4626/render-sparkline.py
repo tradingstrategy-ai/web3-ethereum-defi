@@ -9,7 +9,7 @@ import tempfile
 import webbrowser
 
 from eth_defi.vault.base import VaultSpec
-from eth_defi.research.sparkline import extract_vault_price_data, render_sparkline, export_sparkline_as_svg
+from eth_defi.research.sparkline import extract_vault_price_data, render_sparkline_simple, export_sparkline_as_svg, render_sparkline_gradient, export_sparkline_as_png
 from eth_defi.vault.vaultdb import VaultDatabase, read_default_vault_prices
 
 
@@ -28,7 +28,7 @@ def display_png_in_browser(title: str, png_bytes: bytes):
     <head>
         <title>Sparkline Chart for {title}</title>
     </head>
-    <body>
+    <body bgcolor="#888888">
         <img src="data:image/png;base64,{base64_png}" />
     </body>
     </html>
@@ -59,7 +59,7 @@ def display_svg_in_browser(title: str, svg_bytes: bytes):
     <head>
         <title>Sparkline Chart for {title}</title>
     </head>
-    <body>
+    <body bgcolor="#000000">
         <img src="data:image/svg+xml;base64,{base64_svg}" />
     </body>
     </html>
@@ -91,19 +91,31 @@ def main():
         prices_df=prices_df,
     )
 
-    fig = render_sparkline(
+    # fig = render_sparkline(
+    #    vault_prices_df,
+    #    width=100,
+    #    height=25,
+    # )
+
+    # Twitter Summary CArd
+    # https://developer.x.com/en/docs/x-for-websites/cards/overview/summary-card-with-large-image
+    fig = render_sparkline_gradient(
         vault_prices_df,
-        width=100,
-        height=25,
+        width=300,
+        height=157,
     )
 
     svg_bytes = export_sparkline_as_svg(
         fig,
     )
 
-    display_svg_in_browser(
+    png_bytes = export_sparkline_as_png(
+        fig,
+    )
+
+    display_png_in_browser(
         f"Vault {vault['Name']}: {vault_id}",
-        svg_bytes,
+        png_bytes,
     )
 
     # Special filename for unit testing

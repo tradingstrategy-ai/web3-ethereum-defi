@@ -8,6 +8,7 @@ import gzip
 from io import BytesIO
 
 import pandas as pd
+import numpy as np
 
 import matplotlib.pyplot as plt
 
@@ -38,7 +39,7 @@ def extract_vault_price_data(
     return vault_data
 
 
-def render_sparkline(
+def render_sparkline_simple(
     vault_prices_df: pd.DataFrame,
     width: int = 256,
     height: int = 64,
@@ -92,6 +93,57 @@ def render_sparkline(
 
     fig.patch.set_facecolor("black")
     ax1.patch.set_facecolor("black")
+
+    return fig
+
+
+def render_sparkline_gradient(
+    vault_prices_df: pd.DataFrame,
+    width: int = 256,
+    height: int = 64,
+    ffill=True,
+) -> plt.Figure:
+    """Render a sparkline chart with green-to-black gradient fill."""
+
+    vault_data = vault_prices_df
+
+    if ffill:
+        vault_data = forward_fill_vault(vault_data)
+
+    dpi = 100
+    fig = plt.figure(figsize=(width / dpi, height / dpi), dpi=dpi)
+    fig.patch.set_facecolor("black")
+
+    ax1 = fig.add_axes([0, 0, 1, 1])
+    ax1.patch.set_facecolor("black")
+
+    # Get y-axis limits
+    y_min = vault_data["share_price"].min()
+    y_max = vault_data["share_price"].max()
+
+    # Create gradient fill using imshow
+    gradient = np.linspace(0, 1, 256).reshape(256, 1)
+    im = ax1.imshow(gradient, extent=[vault_data.index[0], vault_data.index[-1], y_min, y_max], aspect="auto", cmap=plt.cm.colors.LinearSegmentedColormap.from_list("green_black", ["#00ff88", "#000000"]), alpha=0.4, zorder=0)
+
+    # Create fill_between to get the path for clipping
+    collection = ax1.fill_between(vault_data.index, vault_data["share_price"], y_min, alpha=0)
+
+    # Apply the clipping path to the gradient
+    im.set_clip_path(collection.get_paths()[0], transform=ax1.transData)
+
+    # Plot the line on top
+    ax1.plot(vault_data.index, vault_data["share_price"], color="#00ff88", linewidth=2, zorder=2)
+
+    # Remove all spines, ticks, labels
+    for spine in ax1.spines.values():
+        spine.set_visible(False)
+    ax1.set_xticks([])
+    ax1.set_yticks([])
+    ax1.get_xaxis().set_visible(False)
+    ax1.get_yaxis().set_visible(False)
+    ax1.margins(x=0, y=0)
+
+    fig.subplots_adjust(left=0, right=1, top=1, bottom=0)
 
     return fig
 
