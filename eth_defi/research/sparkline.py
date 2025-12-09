@@ -96,6 +96,66 @@ def render_sparkline(
     return fig
 
 
+def render_sparkline_gradient(
+    vault_prices_df: pd.DataFrame,
+    width: int = 256,
+    height: int = 64,
+    ffill=True,
+) -> plt.Figure:
+    """Render a sparkline chart for a single vault.
+
+    - Use green tinted gradient as the fill
+
+    :param spec:
+        chain-vault address identifier
+
+    :param ffill:
+        Forward-fill the sparse source data
+    """
+
+    vault_data = vault_prices_df
+
+    assert len(vault_data) > 0, f"No data for vault: {id}"
+    assert isinstance(vault_data.index, pd.DatetimeIndex), f"Expected DatetimeIndex, got: {type(vault_data.index)}"
+
+    if ffill:
+        vault_data = forward_fill_vault(vault_data)
+
+    # Convert pixels to inches (matplotlib uses inches)
+    dpi = 100
+    fig = plt.figure(figsize=(width / dpi, height / dpi), dpi=dpi)
+    fig.patch.set_facecolor("black")
+
+    # Full-extent axis (no margins)
+    ax1 = fig.add_axes([0, 0, 1, 1])
+    ax1.patch.set_facecolor("black")
+
+    # Plot the line with green color
+    ax1.plot(vault_data.index, vault_data["share_price"], color="#00ff88", linewidth=2)
+
+    # Fill area under the line with gradient effect
+    ax1.fill_between(
+        vault_data.index,
+        vault_data["share_price"],
+        alpha=0.3,
+        color="#00ff88"
+    )
+
+    # Remove all spines, ticks, labels
+    for spine in ax1.spines.values():
+        spine.set_visible(False)
+    ax1.set_xticks([])
+    ax1.set_yticks([])
+    ax1.get_xaxis().set_visible(False)
+    ax1.get_yaxis().set_visible(False)
+    ax1.margins(x=0, y=0)
+
+    # Fill entire canvas
+    fig.subplots_adjust(left=0, right=1, top=1, bottom=0)
+
+    return fig
+
+
 def export_sparkline_as_png(
     fig: plt.Figure,
 ) -> bytes:
