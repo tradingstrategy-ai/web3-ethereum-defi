@@ -99,9 +99,11 @@ def render_sparkline_simple(
 
 def render_sparkline_gradient(
     vault_prices_df: pd.DataFrame,
-    width: int = 256,
-    height: int = 64,
+    width: int = 300,
+    height: int = 300,
     ffill=True,
+    line_color="#22B452",
+    bg_color="#282827",
 ) -> plt.Figure:
     """Render a sparkline chart with green-to-black gradient fill."""
 
@@ -112,29 +114,50 @@ def render_sparkline_gradient(
 
     dpi = 100
     fig = plt.figure(figsize=(width / dpi, height / dpi), dpi=dpi)
-    fig.patch.set_facecolor("black")
+    fig.patch.set_facecolor(bg_color)
 
     ax1 = fig.add_axes([0, 0, 1, 1])
-    ax1.patch.set_facecolor("black")
+    ax1.patch.set_facecolor(bg_color)
 
-    # Get y-axis limits
+    # Get y-axis limits with margin
     y_min = vault_data["share_price"].min()
     y_max = vault_data["share_price"].max()
+    y_range = y_max - y_min
 
-    # Create gradient fill using imshow
+    # Calculate margin in data units (50px / height * y_range)
+    margin_ratio = 50 / height
+    y_margin = y_range * margin_ratio
+
+    # Apply margins (top only)
+    y_min_with_margin = y_min - y_margin
+    # y_min_with_margin = y_min
+    y_max_with_margin = y_max + y_margin
+
+    # Set y-axis limits with margin
+    ax1.set_ylim(y_min_with_margin, y_max_with_margin)
+
+    # Rest of the code remains the same, but use original y_min for gradient extent
     gradient = np.linspace(0, 1, 256).reshape(256, 1)
-    im = ax1.imshow(gradient, extent=[vault_data.index[0], vault_data.index[-1], y_min, y_max], aspect="auto", cmap=plt.cm.colors.LinearSegmentedColormap.from_list("green_black", ["#00ff88", "#000000"]), alpha=0.4, zorder=0)
+    im = ax1.imshow(
+        gradient,
+        extent=[vault_data.index[0], vault_data.index[-1], y_min, y_max],
+        aspect="auto",
+        cmap=plt.cm.colors.LinearSegmentedColormap.from_list("green_black", [line_color, bg_color]),
+        alpha=0.4,
+        zorder=0,
+    )
 
-    # Create fill_between to get the path for clipping
     collection = ax1.fill_between(vault_data.index, vault_data["share_price"], y_min, alpha=0)
-
-    # Apply the clipping path to the gradient
     im.set_clip_path(collection.get_paths()[0], transform=ax1.transData)
 
-    # Plot the line on top
-    ax1.plot(vault_data.index, vault_data["share_price"], color="#00ff88", linewidth=2, zorder=2)
+    ax1.plot(
+        vault_data.index,
+        vault_data["share_price"],
+        color="#00ff88",
+        linewidth=2,
+        zorder=2,
+    )
 
-    # Remove all spines, ticks, labels
     for spine in ax1.spines.values():
         spine.set_visible(False)
     ax1.set_xticks([])
@@ -155,7 +178,7 @@ def export_sparkline_as_png(
 
     # Create a BytesIO buffer to save the PNG
     buffer = BytesIO()
-    fig.savefig(buffer, format="png", dpi=100, transparent=True)
+    fig.savefig(buffer, format="png", dpi=100, transparent=False)
     plt.close(fig)
 
     # Get the PNG bytes

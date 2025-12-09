@@ -101,8 +101,6 @@ def main():
     # https://developer.x.com/en/docs/x-for-websites/cards/overview/summary-card-with-large-image
     fig = render_sparkline_gradient(
         vault_prices_df,
-        width=300,
-        height=157,
     )
 
     svg_bytes = export_sparkline_as_svg(

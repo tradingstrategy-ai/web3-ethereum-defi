@@ -21,7 +21,7 @@ from tqdm_loggable.auto import tqdm
 from joblib import Parallel, delayed
 
 from eth_defi.token import is_stablecoin_like
-from eth_defi.research.sparkline import render_sparkline_simple, export_sparkline_as_svg
+from eth_defi.research.sparkline import render_sparkline_simple, export_sparkline_as_svg, render_sparkline_gradient, export_sparkline_as_png
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.vaultdb import VaultDatabase, read_default_vault_prices, VaultRow
 from eth_defi.research.sparkline import upload_to_r2_compressed
@@ -145,13 +145,13 @@ def main():
         vault_prices_df = vault_prices_df.resample("D").last()[["share_price", "total_assets"]]
 
         # Use Twitter Summary Card size
-        fig = render_sparkline_simple(
+        fig = render_sparkline_gradient(
             vault_prices_df,
             width=300,
-            height=157,
+            height=300,
         )
 
-        png_bytes = export_sparkline_as_svg(
+        png_bytes = export_sparkline_as_png(
             fig,
         )
         return RenderData(
@@ -163,6 +163,7 @@ def main():
 
     def _upload_row(render_data: RenderData):
         vault_id = render_data.vault_id
+        svg_bytes = render_data.svg_bytes
         svg_bytes = render_data.svg_bytes
         object_name = f"sparkline-90d-{vault_id}.{render_data.extension}"
 
