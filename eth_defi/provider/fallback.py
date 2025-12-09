@@ -249,7 +249,7 @@ class FallbackProvider(BaseNamedProvider):
         if randomise:
             self.currently_active_provider = (self.currently_active_provider + 1) % len(self.providers)
         else:
-            self.currently_active_provider = random.randint(0, len(self.providers))
+            self.currently_active_provider = random.randint(0, len(self.providers) - 1)
 
         new_provider_name = get_provider_name(self.get_active_provider())
 
@@ -266,7 +266,10 @@ class FallbackProvider(BaseNamedProvider):
 
         If this provider fails, we are automatically recycled to the next one.
         """
-        return self.providers[self.currently_active_provider]
+        try:
+            return self.providers[self.currently_active_provider]
+        except IndexError as e:
+            raise IndexProvider(f"Currently active provider index {self.currently_active_provider} is out of range for configured providers {len(self.providers)}") from e
 
     def get_total_api_call_counts(self) -> dict[str, int]:
         """Get API call coubst across all providers"""
