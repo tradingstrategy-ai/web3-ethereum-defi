@@ -15,7 +15,7 @@ from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from eth_typing import HexAddress
-from cchecksum import to_checksum_address
+from eth_utils import to_checksum_address
 
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.contracts import get_reader_contract, get_datastore_contract, get_contract_addresses

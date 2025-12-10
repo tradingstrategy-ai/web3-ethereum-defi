@@ -15,9 +15,9 @@ from typing import Optional
 import requests
 
 from eth_typing import HexAddress
+from eth_utils import to_checksum_address
 from web3 import Web3
 from web3.contract import Contract
-from cchecksum import to_checksum_address
 
 from eth_defi.abi import get_deployed_contract
 from eth_defi.gmx.constants import GMX_API_URLS, GMX_API_URLS_BACKUP, GMX_CONTRACTS_JSON_URL, GMX_CONTRACTS_JSON_URL_UPDATES

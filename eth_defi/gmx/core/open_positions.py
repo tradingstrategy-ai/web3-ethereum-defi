@@ -8,7 +8,7 @@ import logging
 from typing import Any
 
 import numpy as np
-from cchecksum import to_checksum_address
+from eth_utils import to_checksum_address
 
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.core.get_data import GetData

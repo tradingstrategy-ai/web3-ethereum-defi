@@ -19,7 +19,6 @@ bitarray==3.7.1
 bleach==6.2.0
 cached-property==2.0.1
 cachetools==5.5.2
-cchecksum==0.3.1
 certifi==2025.8.3
 cffi==1.17.1
 charset-normalizer==3.4.3
