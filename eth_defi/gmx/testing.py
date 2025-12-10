@@ -14,7 +14,7 @@
 # from decimal import Decimal
 # from pathlib import Path
 # import logging
-# from cchecksum import to_checksum_address
+# from eth_utils import to_checksum_address
 # from eth_abi import encode
 # from eth_pydantic_types import HexStr
 # from eth_utils import keccak

@@ -10,7 +10,7 @@ import requests
 from eth_defi.gmx.core.markets import MarketInfo
 from eth_defi.gmx.core.oracle import OraclePrices
 from eth_defi.gmx.contracts import get_tokens_address_dict, _get_clean_api_urls
-from cchecksum import to_checksum_address
+from eth_utils import to_checksum_address
 
 
 def test_market_info_dataclass():

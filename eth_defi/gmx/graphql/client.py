@@ -722,7 +722,7 @@ class GMXSubsquidClient:
         :param token_address: Token contract address
         :return: Number of decimals for the token
         """
-        from cchecksum import to_checksum_address
+        from eth_utils import to_checksum_address
 
         # Get token metadata from GMX API
         tokens_metadata = self._get_tokens_metadata()
