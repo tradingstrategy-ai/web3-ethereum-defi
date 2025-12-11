@@ -5,6 +5,7 @@ AsyncWeb3 for blockchain operations, and async GraphQL for Subsquid queries.
 """
 
 import asyncio
+from datetime import datetime
 import logging
 from typing import Any
 
@@ -1048,8 +1049,6 @@ class GMX(Exchange):
             limit=limit,
         )
 
-        from datetime import datetime
-
         result = []
         for info in market_infos:
             funding_per_second = float(info.get("fundingFactorPerSecond", 0)) / 1e30
@@ -1072,6 +1071,46 @@ class GMX(Exchange):
             )
 
         return result
+
+    async def fetch_funding_history(
+        self,
+        symbol: str | None = None,
+        since: int | None = None,
+        limit: int | None = None,
+        params: dict[str, Any] | None = None,
+    ) -> list[dict[str, Any]]:
+        """
+        Fetch funding fee payment history for positions.
+
+        GMX V2 does not track historical funding fee payments per position.
+        This method returns an empty list to indicate no funding history is available.
+        Freqtrade will calculate funding fees as 0.0 when summing the empty list.
+
+        :param symbol: Unified symbol (e.g., "ETH/USD", "BTC/USD") - not used
+        :type symbol: str | None
+        :param since: Timestamp in milliseconds - not used
+        :type since: int | None
+        :param limit: Maximum number of records - not used
+        :type limit: int | None
+        :param params: Additional parameters - not used
+        :type params: dict[str, Any] | None
+        :returns: Empty list (GMX doesn't provide funding history)
+        :rtype: list[dict[str, Any]]
+
+        .. note::
+            GMX V2 does not track historical funding fee payments. Funding fees
+            are continuously accrued and settled, but the protocol does not
+            maintain a queryable history of past payments.
+
+            If you need funding rate history (not payment history), use
+            fetch_funding_rate_history() instead.
+        """
+        logger.warning(
+            "fetch_funding_history() called but GMX V2 does not track historical "
+            "funding fee payments. Returning empty list (funding fees will be "
+            "calculated as 0.0)."
+        )
+        return []
 
     async def fetch_funding_rates(self, symbols: list[str] | None = None, params: dict | None = None) -> dict:
         """Fetch funding rates for multiple symbols.

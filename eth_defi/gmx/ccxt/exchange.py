@@ -38,6 +38,7 @@ from eth_defi.ccxt.exchange_compatible import ExchangeCompatible
 from eth_defi.gmx.api import GMXAPI
 from eth_defi.gmx.ccxt.properties import describe_gmx
 from eth_defi.gmx.config import GMXConfig
+from eth_defi.gmx.contracts import get_contract_addresses, get_token_address_normalized
 from eth_defi.gmx.core import GetOpenPositions
 from eth_defi.gmx.core.markets import Markets
 from eth_defi.gmx.graphql.client import GMXSubsquidClient
@@ -1758,6 +1759,46 @@ class GMX(ExchangeCompatible):
 
         return result
 
+    def fetch_funding_history(
+        self,
+        symbol: str | None = None,
+        since: int | None = None,
+        limit: int | None = None,
+        params: dict[str, Any] | None = None,
+    ) -> list[dict[str, Any]]:
+        """
+        Fetch funding fee payment history for positions.
+
+        GMX V2 does not track historical funding fee payments per position.
+        This method returns an empty list to indicate no funding history is available.
+        Freqtrade will calculate funding fees as 0.0 when summing the empty list.
+
+        :param symbol: Unified symbol (e.g., "ETH/USD", "BTC/USD") - not used
+        :type symbol: str | None
+        :param since: Timestamp in milliseconds - not used
+        :type since: int | None
+        :param limit: Maximum number of records - not used
+        :type limit: int | None
+        :param params: Additional parameters - not used
+        :type params: dict[str, Any] | None
+        :returns: Empty list (GMX doesn't provide funding history)
+        :rtype: list[dict[str, Any]]
+
+        .. note::
+            GMX V2 does not track historical funding fee payments. Funding fees
+            are continuously accrued and settled, but the protocol does not
+            maintain a queryable history of past payments.
+
+            If you need funding rate history (not payment history), use
+            fetch_funding_rate_history() instead.
+        """
+        logger.warning(
+            "fetch_funding_history() called but GMX V2 does not track historical "
+            "funding fee payments. Returning empty list (funding fees will be "
+            "calculated as 0.0)."
+        )
+        return []
+
     def fetch_ticker(
         self,
         symbol: str,
@@ -3224,6 +3265,111 @@ class GMX(ExchangeCompatible):
 
         return gmx_params
 
+    def _ensure_token_approval(
+        self,
+        collateral_symbol: str,
+        size_delta_usd: float,
+        leverage: float,
+    ):
+        """Ensure token approval for order creation.
+
+        Checks if the collateral token has sufficient allowance for the GMX router.
+        If not, automatically approves the token with a large allowance to avoid
+        repeated approval transactions.
+
+        Based on reference implementation from tests/gmx/debug_deploy.py
+
+        :param collateral_symbol: Symbol of collateral token (e.g., 'USDC', 'WETH')
+        :param size_delta_usd: Position size in USD
+        :param leverage: Leverage multiplier
+        """
+        # Skip approval for ETH (native token)
+        if collateral_symbol in ["ETH", "AVAX"]:
+            logger.debug(f"Using native {collateral_symbol} - no approval needed")
+            return
+
+        # Get token address
+        chain = self.config.get_chain()
+        collateral_token_address = get_token_address_normalized(chain, collateral_symbol)
+
+        if not collateral_token_address:
+            # If token address not found, assume it's OK (might be native or not need approval)
+            logger.debug(f"Token address not found for {collateral_symbol}, skipping approval")
+            return
+
+        # Get contract addresses (for router address)
+        contract_addresses = get_contract_addresses(chain)
+        spender_address = contract_addresses.syntheticsrouter
+
+        # Get token details and contract
+        token_details = fetch_erc20_details(self.web3, collateral_token_address)
+        token_contract = token_details.contract
+
+        # Check current allowance
+        wallet_address = self.wallet.address
+        current_allowance = token_contract.functions.allowance(
+            to_checksum_address(wallet_address),
+            spender_address
+        ).call()
+
+        # Calculate required collateral amount (position size / leverage)
+        # Add 10% buffer for fees
+        required_collateral_usd = (size_delta_usd / leverage) * 1.1
+        required_amount = int(required_collateral_usd * (10**token_details.decimals))
+
+        logger.debug(
+            f"Token approval check: {collateral_symbol} allowance={current_allowance / (10**token_details.decimals):.4f}, "
+            f"required={required_amount / (10**token_details.decimals):.4f}"
+        )
+
+        # If allowance is sufficient, no action needed
+        if current_allowance >= required_amount:
+            logger.debug(f"Sufficient {collateral_symbol} allowance exists")
+            return
+
+        # Need to approve - use a large amount to avoid repeated approvals
+        # Approve 1 billion tokens (same pattern as debug_deploy.py)
+        approve_amount = 1_000_000_000 * (10**token_details.decimals)
+
+        logger.info(
+            f"Insufficient {collateral_symbol} allowance. "
+            f"Current: {current_allowance / (10**token_details.decimals):.4f}, "
+            f"Required: {required_amount / (10**token_details.decimals):.4f}. "
+            f"Approving {approve_amount / (10**token_details.decimals):.0f} {collateral_symbol}..."
+        )
+
+        # Build approval transaction
+        approve_tx = token_contract.functions.approve(
+            spender_address,
+            approve_amount
+        ).build_transaction({
+            "from": to_checksum_address(wallet_address),
+            "gas": 100_000,
+            "gasPrice": self.web3.eth.gas_price,
+        })
+
+        # CRITICAL: Remove nonce before calling sign_transaction_with_new_nonce
+        # The wallet will manage the nonce automatically
+        if "nonce" in approve_tx:
+            del approve_tx["nonce"]
+
+        # Sign and send approval transaction
+        signed_approve_tx = self.wallet.sign_transaction_with_new_nonce(approve_tx)
+        approve_tx_hash = self.web3.eth.send_raw_transaction(signed_approve_tx.rawTransaction)
+
+        logger.info(f"Approval transaction sent: {approve_tx_hash.hex()}. Waiting for confirmation...")
+
+        # Wait for confirmation
+        approve_receipt = self.web3.eth.wait_for_transaction_receipt(approve_tx_hash, timeout=120)
+
+        if approve_receipt["status"] == 1:
+            logger.info(
+                f"Token approval successful! Approved {approve_amount / (10**token_details.decimals):.0f} "
+                f"{collateral_symbol} for {spender_address}"
+            )
+        else:
+            raise Exception(f"Token approval transaction failed: {approve_tx_hash.hex()}")
+
     def _parse_order_result_to_ccxt(
         self,
         order_result,
@@ -3391,6 +3537,13 @@ class GMX(ExchangeCompatible):
             amount,
             price,
             params,
+        )
+
+        # Ensure token approval before creating order
+        self._ensure_token_approval(
+            collateral_symbol=gmx_params["collateral_symbol"],
+            size_delta_usd=gmx_params["size_delta_usd"],
+            leverage=gmx_params["leverage"],
         )
 
         if side == "buy":
