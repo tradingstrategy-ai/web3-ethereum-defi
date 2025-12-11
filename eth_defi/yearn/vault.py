@@ -132,3 +132,6 @@ class YearnV3Vault(ERC4626Vault):
 
     def get_estimated_lock_up(self) -> datetime.timedelta:
         return datetime.timedelta(0)
+
+    def get_link(self, referral: str | None = None) -> str:
+        return f"https://yearn.fi/v3/{self.chain_id}/{self.vault_address}"

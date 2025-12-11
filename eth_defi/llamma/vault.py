@@ -9,6 +9,7 @@ from web3.contract import Contract
 
 from eth_typing import BlockIdentifier
 
+from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.token import TokenDetails, fetch_erc20_details
@@ -81,3 +82,7 @@ class LLAMMAVault(ERC4626Vault):
 
     def get_estimated_lock_up(self) -> datetime.timedelta:
         return datetime.timedelta(days=0)
+
+    def get_link(self, referral: str | None = None) -> str:
+        chain_name = get_chain_name(self.chain_id).lower()
+        return f"https://www.curve.finance/lend/{chain_name}/markets/{self.vault_address}/"

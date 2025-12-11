@@ -5,6 +5,7 @@
 """
 
 import gzip
+import warnings
 from io import BytesIO
 
 import pandas as pd
@@ -134,39 +135,42 @@ def render_sparkline_gradient(
     y_max_with_margin = y_max + y_margin
 
     # Set y-axis limits with margin
-    ax1.set_ylim(y_min_with_margin, y_max_with_margin)
+    # UserWarning: Attempting to set identical low and high xlims makes transformation singular; automatically expanding.
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        ax1.set_ylim(y_min_with_margin, y_max_with_margin)
 
-    # Rest of the code remains the same, but use original y_min for gradient extent
-    gradient = np.linspace(0, 1, 256).reshape(256, 1)
-    im = ax1.imshow(
-        gradient,
-        extent=[vault_data.index[0], vault_data.index[-1], y_min, y_max],
-        aspect="auto",
-        cmap=plt.cm.colors.LinearSegmentedColormap.from_list("green_black", [line_color, bg_color]),
-        alpha=0.4,
-        zorder=0,
-    )
+        # Rest of the code remains the same, but use original y_min for gradient extent
+        gradient = np.linspace(0, 1, 256).reshape(256, 1)
+        im = ax1.imshow(
+            gradient,
+            extent=[vault_data.index[0], vault_data.index[-1], y_min, y_max],
+            aspect="auto",
+            cmap=plt.cm.colors.LinearSegmentedColormap.from_list("green_black", [line_color, bg_color]),
+            alpha=0.4,
+            zorder=0,
+        )
 
-    collection = ax1.fill_between(vault_data.index, vault_data["share_price"], y_min, alpha=0)
-    im.set_clip_path(collection.get_paths()[0], transform=ax1.transData)
+        collection = ax1.fill_between(vault_data.index, vault_data["share_price"], y_min, alpha=0)
+        im.set_clip_path(collection.get_paths()[0], transform=ax1.transData)
 
-    ax1.plot(
-        vault_data.index,
-        vault_data["share_price"],
-        color="#00ff88",
-        linewidth=2,
-        zorder=2,
-    )
+        ax1.plot(
+            vault_data.index,
+            vault_data["share_price"],
+            color="#00ff88",
+            linewidth=2,
+            zorder=2,
+        )
 
-    for spine in ax1.spines.values():
-        spine.set_visible(False)
-    ax1.set_xticks([])
-    ax1.set_yticks([])
-    ax1.get_xaxis().set_visible(False)
-    ax1.get_yaxis().set_visible(False)
-    ax1.margins(x=0, y=0)
+        for spine in ax1.spines.values():
+            spine.set_visible(False)
+        ax1.set_xticks([])
+        ax1.set_yticks([])
+        ax1.get_xaxis().set_visible(False)
+        ax1.get_yaxis().set_visible(False)
+        ax1.margins(x=0, y=0)
 
-    fig.subplots_adjust(left=0, right=1, top=1, bottom=0)
+        fig.subplots_adjust(left=0, right=1, top=1, bottom=0)
 
     return fig
 
