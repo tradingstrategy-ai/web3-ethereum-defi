@@ -373,6 +373,17 @@ def create_probe_calls(
             extra_data=None,
         )
 
+        # TrueFi
+        # https://github.com/TrueFi-Protocol
+        # https://arbiscan.io/address/0x8626a4234721A605Fc84Bb49d55194869Ae95D98#readContract
+        truefi_call = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="depositController()")[0:4],
+            function="depositController",
+            data=b"",
+            extra_data=None,
+        )
+
         yield bad_probe_call
         yield name_call
         yield share_price_call
@@ -406,6 +417,7 @@ def create_probe_calls(
         yield llamma_call
         yield summer_call
         yield silo_call
+        yield truefi_call
 
 
 def identify_vault_features(
@@ -550,6 +562,9 @@ def identify_vault_features(
     if calls["utilizationData"].success:
         features.add(ERC4626Feature.silo_like)
 
+    if calls["depositController"].success:
+        features.add(ERC4626Feature.truefi_like)
+
     if len(features) > 4:
         # This contract somehow responses to all calls with success.
         # It is probably some sort of a broken proxy?
@@ -579,6 +594,8 @@ def identify_vault_features(
             features.add(ERC4626Feature.fluid_like)
         elif "Peapods" in name:
             features.add(ERC4626Feature.peapods_like)
+        elif "Savings GYD" in name:
+            features.add(ERC4626Feature.gyroscope)
 
     return features
 
@@ -812,6 +829,12 @@ def create_vault_instance(
         from eth_defi.silo.vault import SiloVault
 
         return SiloVault(web3, spec, token_cache=token_cache, features=features)
+
+    elif ERC4626Feature.truefi_like in features:
+        # Both of these have fees internatilised
+        from eth_defi.truefi.vault import TrueFiVault
+
+        return TrueFiVault(web3, spec, token_cache=token_cache, features=features)
 
     else:
         # Generic ERC-4626 without fee data
