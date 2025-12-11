@@ -29,7 +29,7 @@ from datetime import datetime
 from typing import Any
 
 from eth_utils import to_checksum_address
-from ccxt.base.errors import NotSupported
+from ccxt.base.errors import NotSupported, OrderNotFound
 
 from eth_defi.chain import get_chain_name
 from eth_defi.gmx.ccxt.errors import InsufficientHistoricalDataError
@@ -213,6 +213,7 @@ class GMX(ExchangeCompatible):
         self._chain_id_override = parameters.get("chainId")
         self._wallet = parameters.get("wallet")
         self._verbose = parameters.get("verbose", False)
+        self.execution_buffer = parameters.get("executionBuffer", 2.2)
 
         # Configure verbose logging if requested
         if self._verbose:
@@ -318,6 +319,7 @@ class GMX(ExchangeCompatible):
         self.api = GMXAPI(config)
         self.web3 = config.web3
         self.wallet = wallet
+        self.execution_buffer = 2.2  # Default execution buffer for legacy config
 
         # Initialize trading manager
         self.trader = GMXTrading(config) if wallet else None
@@ -2369,7 +2371,7 @@ class GMX(ExchangeCompatible):
 
             try:
                 # Fetch token details and contract
-                token_details = fetch_erc20_details(self.web3, token_address)
+                token_details = fetch_erc20_details(self.web3, token_address, chain_id=self.web3.eth.chain_id)
 
                 # Get balance
                 balance_raw = token_details.contract.functions.balanceOf(wallet).call()
@@ -3302,7 +3304,7 @@ class GMX(ExchangeCompatible):
         spender_address = contract_addresses.syntheticsrouter
 
         # Get token details and contract
-        token_details = fetch_erc20_details(self.web3, collateral_token_address)
+        token_details = fetch_erc20_details(self.web3, collateral_token_address, chain_id=self.web3.eth.chain_id)
         token_contract = token_details.contract
 
         # Check current allowance
@@ -3509,7 +3511,7 @@ class GMX(ExchangeCompatible):
             - leverage (float): Leverage multiplier (default: 1.0)
             - collateral_symbol (str): Collateral token (default: 'USDC')
             - slippage_percent (float): Slippage tolerance (default: 0.003)
-            - execution_buffer (float): Gas buffer multiplier (default: 1.3)
+            - execution_buffer (float): Gas buffer multiplier (default: 2.2)
             - auto_cancel (bool): Auto-cancel if execution fails (default: False)
         :type params: dict | None
         :return: CCXT-compatible order structure with transaction hash and status
@@ -3597,7 +3599,7 @@ class GMX(ExchangeCompatible):
                 size_delta_usd=size_delta_usd,
                 initial_collateral_delta=initial_collateral_delta,
                 slippage_percent=gmx_params.get("slippage_percent", 0.003),
-                execution_buffer=gmx_params.get("execution_buffer", 1.3),
+                execution_buffer=gmx_params.get("execution_buffer", self.execution_buffer),
                 auto_cancel=gmx_params.get("auto_cancel", False),
             )
         else:
@@ -3735,10 +3737,54 @@ class GMX(ExchangeCompatible):
         symbol: str | None = None,
         params: dict | None = None,
     ):
-        """Not supported - GMX orders execute immediately."""
-        raise NotSupported(
-            self.id + " fetch_order() is not supported - GMX orders execute immediately via the keeper system. Use fetch_positions() to see open positions or fetch_my_trades() for execution history.",
-        )
+        """Fetch order by ID (transaction hash).
+
+        Returns the order that was created with the given transaction hash.
+        Queries the blockchain to get the current transaction status.
+
+        :param id: Order ID (transaction hash)
+        :type id: str
+        :param symbol: Symbol (not used, for CCXT compatibility)
+        :type symbol: str | None
+        :param params: Additional parameters (not used)
+        :type params: dict | None
+        :return: CCXT-compatible order structure
+        :rtype: dict
+        :raises OrderNotFound: If order with given ID doesn't exist
+        """
+        # Check if order exists in stored orders
+        if id in self._orders:
+            order = self._orders[id].copy()
+
+            # Fetch current transaction status from blockchain
+            try:
+                if id.startswith("0x"):
+                    receipt = self.web3.eth.get_transaction_receipt(id)
+                    # Update status based on receipt
+                    tx_success = receipt.get("status") == 1
+                    order["status"] = "closed" if tx_success else "failed"
+
+                    # GMX orders execute immediately, so update filled/remaining
+                    if tx_success:
+                        order["filled"] = order["amount"]
+                        order["remaining"] = 0.0
+                    else:
+                        order["filled"] = 0.0
+                        order["remaining"] = order["amount"]
+
+                    # Update info with latest receipt data
+                    if "info" not in order:
+                        order["info"] = {}
+                    order["info"]["receipt"] = receipt
+                    order["info"]["block_number"] = receipt.get("blockNumber")
+                    order["info"]["gas_used"] = receipt.get("gasUsed")
+            except Exception as e:
+                logger.warning(f"Could not fetch transaction receipt for {id}: {e}")
+
+            return order
+
+        # Order not found in stored orders - could query GraphQL here for historical data
+        raise OrderNotFound(f"{self.id} order {id} not found in stored orders")
 
     def fetch_order_book(
         self,
