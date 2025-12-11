@@ -146,7 +146,7 @@ def test_fallback_unhandled_exception(fallback_provider: FallbackProvider, provi
 
 # Github flaky
 # FAILED tests/rpc/test_fallback_provider.py::test_fallback_nonce_too_low - assert 2 == 3
-@flaky.flaky
+@pytest.mark.skipif(CI, reason="Flaky on Github CI")
 def test_fallback_nonce_too_low(web3, deployer: str):
     """Retry nonce too low errors with eth_sendRawTransaction,
 

@@ -47,6 +47,8 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    llamma/index
    summer/index
    silo/index
+   truefi/index
+   superform/index
    chainlink/index
    foundry/index
    etherscan/index
