@@ -563,6 +563,11 @@ class GMX(Exchange):
             endpoint="/prices/tickers",
             session=self.session,
         )
+        logger.debug(
+            "\n--- [async_support/exchange.py:fetch_ticker] symbol=%s pulled=%s",
+            symbol,
+            len(data) if isinstance(data, list) else "n/a",
+        )
 
         # Find ticker for this token
         ticker_data = None
@@ -570,6 +575,11 @@ class GMX(Exchange):
             for item in data:
                 if item.get("tokenSymbol") == token_symbol:
                     ticker_data = item
+                    logger.debug(
+                        "\n--- [async_support/exchange.py:fetch_ticker] symbol=%s matched tokenSymbol=%s",
+                        symbol,
+                        token_symbol,
+                    )
                     break
 
         if not ticker_data:
@@ -579,6 +589,14 @@ class GMX(Exchange):
         min_price = float(ticker_data.get("minPrice", 0)) / 1e30
         max_price = float(ticker_data.get("maxPrice", 0)) / 1e30
         last = (min_price + max_price) / 2
+
+        logger.info(
+            "\n--- [async_support/exchange.py:fetch_ticker] symbol=%s price=%s high=%s low=%s",
+            symbol,
+            last,
+            max_price,
+            min_price,
+        )
 
         return {
             "symbol": symbol,

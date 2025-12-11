@@ -658,14 +658,58 @@ class BaseOrder:
             required = required_amount / (10**token_details.decimals)
             current = allowance / (10**token_details.decimals)
 
-            # Just log a warning - don't block transaction creation
-            logger.warning(
-                "Insufficient token allowance for %s. Required: %.4f, Current allowance: %.4f. User needs to approve tokens using: token.approve('%s', amount) before submitting the transaction.",
-                token_details.symbol,
-                required,
-                current,
-                self.contract_addresses.syntheticsrouter,
-            )
+            # Check if wallet is available for auto-approval (CCXT use case)
+            if hasattr(self.config, 'wallet') and self.config.wallet:
+                logger.info(
+                    "Insufficient token allowance for %s. Required: %.4f, Current allowance: %.4f. Auto-approving tokens for %s...",
+                    token_details.symbol,
+                    required,
+                    current,
+                    self.contract_addresses.syntheticsrouter,
+                )
+
+                # Auto-approve tokens
+                # Approve a large amount (1 billion tokens) to avoid repeated approvals
+                approve_amount = 1_000_000_000 * (10**token_details.decimals)
+
+                # Build approval transaction
+                approve_tx = token_contract.functions.approve(
+                    self.contract_addresses.syntheticsrouter,
+                    approve_amount,
+                ).build_transaction({
+                    "from": to_checksum_address(user_address),
+                    "gas": 100_000,  # Standard gas for approve
+                    "maxFeePerGas": self.web3.eth.gas_price,
+                    "maxPriorityFeePerGas": self.web3.eth.max_priority_fee,
+                    "nonce": self.web3.eth.get_transaction_count(to_checksum_address(user_address)),
+                    "chainId": self.web3.eth.chain_id,
+                })
+
+                # Sign and send transaction
+                signed_tx = self.config.wallet.sign_transaction_with_new_nonce(approve_tx)
+                tx_hash = self.web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+
+                logger.info("Approval transaction sent: %s. Waiting for confirmation...", tx_hash.hex())
+
+                # Wait for transaction to be mined
+                receipt = self.web3.eth.wait_for_transaction_receipt(tx_hash, timeout=120)
+
+                if receipt["status"] == 1:
+                    logger.info("Token approval successful! Approved %.4f %s for %s",
+                               approve_amount / (10**token_details.decimals),
+                               token_details.symbol,
+                               self.contract_addresses.syntheticsrouter)
+                else:
+                    raise Exception(f"Token approval transaction failed: {tx_hash.hex()}")
+            else:
+                # Wallet not available - just log warning (existing behavior for non-CCXT use)
+                logger.warning(
+                    "Insufficient token allowance for %s. Required: %.4f, Current allowance: %.4f. User needs to approve tokens using: token.approve('%s', amount) before submitting the transaction.",
+                    token_details.symbol,
+                    required,
+                    current,
+                    self.contract_addresses.syntheticsrouter,
+                )
         else:
             logger.debug("Token approval check passed: %.4f %s approved", allowance / (10**token_details.decimals), token_details.symbol)
 

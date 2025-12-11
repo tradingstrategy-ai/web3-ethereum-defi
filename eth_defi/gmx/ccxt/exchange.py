@@ -253,7 +253,8 @@ class GMX(ExchangeCompatible):
             )
 
         # Create GMX config from web3 and wallet
-        self.config = GMXConfig(self.web3, user_wallet_address=wallet_address)
+        # Pass wallet to config so BaseOrder can access it for auto-approval
+        self.config = GMXConfig(self.web3, user_wallet_address=wallet_address, wallet=self.wallet)
 
         # Initialize API and trader
         self.api = GMXAPI(self.config)
@@ -1220,15 +1221,26 @@ class GMX(ExchangeCompatible):
             # Use midpoint as last price
             last_price = (max_price_float + min_price_float) / 2
 
+        logger.debug(
+            "\n--- [exchange.py:parse_ticker] symbol=%s token=%s synthetic=%s decimals=%s last=%s max=%s min=%s",
+            self.safe_string(market, "symbol"),
+            token_address,
+            is_synthetic,
+            token_decimals,
+            last_price,
+            max_price,
+            min_price,
+        )
+
         return {
             "symbol": self.safe_string(market, "symbol"),
             "timestamp": timestamp,
             "datetime": self.iso8601(timestamp),
             "high": None,  # Will calculate from OHLCV in fetch_ticker
             "low": None,  # Will calculate from OHLCV in fetch_ticker
-            "bid": None,  # GMX doesn't have order books
+            "bid": last_price,  # TEMPORARY: Using last price for testing
             "bidVolume": None,
-            "ask": None,
+            "ask": last_price,  # TEMPORARY: Using last price for testing
             "askVolume": None,
             "vwap": None,
             "open": None,  # Will calculate from OHLCV in fetch_ticker
@@ -1778,12 +1790,22 @@ class GMX(ExchangeCompatible):
 
         # Fetch ticker from GMX API
         all_tickers = self.api.get_tickers()
+        logger.debug(
+            "\n--- [exchange.py:fetch_ticker] symbol=%s pulled=%s",
+            symbol,
+            len(all_tickers) if isinstance(all_tickers, list) else "n/a",
+        )
 
         # Find ticker for this token
         ticker = None
         for t in all_tickers:
             if t.get("tokenAddress", "").lower() == index_token_address.lower():
                 ticker = t
+                logger.debug(
+                    "\n--- [exchange.py:fetch_ticker] symbol=%s matched tokenAddress=%s",
+                    symbol,
+                    index_token_address,
+                )
                 break
 
         if not ticker:
@@ -1791,11 +1813,24 @@ class GMX(ExchangeCompatible):
 
         # Parse to CCXT format
         result = self.parse_ticker(ticker, market)
+        print("--------------------------------")
+        print(f"\n--- [exchange.py:parse_ticker]{result=}")
+        print("--------------------------------")
+        logger.info(
+            "\n--- [exchange.py:fetch_ticker] symbol=%s price=%s high=%s low=%s",
+            symbol,
+            result.get("last"),
+            result.get("high"),
+            result.get("low"),
+        )
 
         # Calculate 24h high/low from recent OHLCV (last 24 hours of 1h candles)
         try:
             since = self.milliseconds() - (24 * 60 * 60 * 1000)  # 24 hours ago
             ohlcv = self.fetch_ohlcv(symbol, "1h", since=since, limit=24)
+            print("--------------------------------")
+            print(f"{ohlcv=}")
+            print("--------------------------------")
 
             if ohlcv:
                 # Extract highs and lows
@@ -3131,9 +3166,9 @@ class GMX(ExchangeCompatible):
         :type type: str
         :param side: Order side ('buy' or 'sell')
         :type side: str
-        :param amount: Order size in USD
+        :param amount: Order size in base currency contracts (e.g., BTC for BTC/USD)
         :type amount: float
-        :param price: Limit price (unused for market orders)
+        :param price: Price in quote currency (USD). Used to convert amount to USD. Fetched from ticker if None.
         :type price: float | None
         :param params: Additional parameters (leverage, collateral_symbol, etc.)
         :type params: dict
@@ -3160,12 +3195,23 @@ class GMX(ExchangeCompatible):
         # Check if user has an existing position
         is_long = side == "buy"
 
+        # Convert amount from base currency (BTC/ETH) to USD
+        # For CCXT linear perpetuals, amount is in base currency contracts
+        # GMX needs size_delta_usd in actual USD
+        if price:
+            size_delta_usd = amount * price
+        else:
+            # For market orders, fetch current price
+            ticker = self.fetch_ticker(symbol)
+            current_price = ticker['last']
+            size_delta_usd = amount * current_price
+
         gmx_params = {
             "market_symbol": base_currency,
             "collateral_symbol": collateral_symbol,
             "start_token_symbol": collateral_symbol,
             "is_long": is_long,
-            "size_delta_usd": amount,
+            "size_delta_usd": size_delta_usd,
             "leverage": leverage,
             "slippage_percent": slippage_percent,
         }
