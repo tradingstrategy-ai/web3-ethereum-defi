@@ -233,6 +233,19 @@ def create_probe_calls(
             data=b"",
             extra_data=None,
         )
+
+        # Superform
+        # https://github.com/TrueFi-Protocol
+        # https://app.superform.xyz/
+        # https://arbiscan.io/address/0xa7781f1d982eb9000bc1733e29ff5ba2824cdbe5#code
+        superform_call_3 = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="PROFIT_UNLOCK_TIME()")[0:4],
+            function="PROFIT_UNLOCK_TIME",
+            data=b"",
+            extra_data=None,
+        )
+
         # profitMaxUnlockTime()
         # https://etherscan.io/address/0xa10c40f9e318b0ed67ecc3499d702d8db9437228#readProxyContract
         term_finance_call = EncodedCall.from_keccak_signature(
@@ -402,6 +415,7 @@ def create_probe_calls(
         yield yearn_v3_call
         yield superform_call
         yield superform_call_2
+        yield superform_call_3
         yield term_finance_call
         yield euler_call
         yield registry_call
@@ -564,6 +578,9 @@ def identify_vault_features(
 
     if calls["depositController"].success:
         features.add(ERC4626Feature.truefi_like)
+
+    if calls["PROFIT_UNLOCK_TIME"].success:
+        features.add(ERC4626Feature.superform_like)
 
     if len(features) > 4:
         # This contract somehow responses to all calls with success.
@@ -835,6 +852,12 @@ def create_vault_instance(
         from eth_defi.truefi.vault import TrueFiVault
 
         return TrueFiVault(web3, spec, token_cache=token_cache, features=features)
+
+    elif ERC4626Feature.superform_like in features:
+        # Both of these have fees internatilised
+        from eth_defi.superform.vault import SuperformVault
+
+        return SuperformVault(web3, spec, token_cache=token_cache, features=features)
 
     else:
         # Generic ERC-4626 without fee data

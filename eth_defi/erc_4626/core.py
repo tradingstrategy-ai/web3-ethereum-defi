@@ -333,6 +333,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     elif ERC4626Feature.truefi_like in features:
         return "TrueFI"
 
+    elif ERC4626Feature.superform_like in features:
+        return "Superform"
+
     # No idea
     if ERC4626Feature.erc_7540_like in features:
         return "<unknown ERC-7540>"
