@@ -56,7 +56,7 @@ class SwapOrder(BaseOrder):
         amount_in: int | float,
         slippage_percent: float = 0.005,
         min_output_amount: int = 0,
-        execution_buffer: float = 1.3,
+        execution_buffer: float = 2.2,
         auto_cancel: bool = False,
     ) -> OrderResult:
         """Create a swap order transaction.
@@ -70,7 +70,7 @@ class SwapOrder(BaseOrder):
         :type slippage_percent: float
         :param min_output_amount: Minimum output amount (0 for auto-calculation)
         :type min_output_amount: int
-        :param execution_buffer: Gas execution buffer multiplier (default 1.3)
+        :param execution_buffer: Gas execution buffer multiplier (default 2.2)
         :type execution_buffer: float
         :param auto_cancel: Whether to auto-cancel if execution fails
         :type auto_cancel: bool
@@ -227,7 +227,7 @@ class SwapOrder(BaseOrder):
             ).call()
 
             # Get output token decimals for formatting
-            out_token_details = fetch_erc20_details(self.web3, self.out_token)
+            out_token_details = fetch_erc20_details(self.web3, self.out_token, chain_id=self.chain_id)
 
             return {
                 "out_token_amount": result[0],
@@ -244,7 +244,7 @@ class SwapOrder(BaseOrder):
         self,
         amount_in: int | float,
         slippage_percent: float = 0.005,
-        execution_buffer: float = 1.3,
+        execution_buffer: float = 2.2,
     ) -> OrderResult:
         """Create a market swap order (CCXT-style method).
 

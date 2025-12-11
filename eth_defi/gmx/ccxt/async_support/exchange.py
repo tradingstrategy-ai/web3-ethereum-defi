@@ -16,6 +16,7 @@ from ccxt.base.errors import (
     ExchangeNotAvailable,
     NetworkError,
     NotSupported,
+    OrderNotFound,
     RequestTimeout,
 )
 from web3 import AsyncWeb3
@@ -109,6 +110,9 @@ class GMX(Exchange):
         # Will be populated by load_markets()
         if not hasattr(self, "markets") or self.markets is None:
             self.markets = {}
+
+        # Store orders for fetch_order support
+        self._orders = {}
 
     def describe(self):
         """Get CCXT exchange description."""
@@ -737,8 +741,54 @@ class GMX(Exchange):
         raise NotSupported(f"{self.id} cancel_order() not supported - GMX orders execute immediately")
 
     async def fetch_order(self, id: str, symbol: str | None = None, params: dict | None = None):
-        """Not supported - GMX orders execute immediately."""
-        raise NotSupported(f"{self.id} fetch_order() not supported - GMX orders execute immediately")
+        """Fetch order by ID (transaction hash).
+
+        Returns the order that was created with the given transaction hash.
+        Queries the blockchain to get the current transaction status.
+
+        :param id: Order ID (transaction hash)
+        :type id: str
+        :param symbol: Symbol (not used, for CCXT compatibility)
+        :type symbol: str | None
+        :param params: Additional parameters (not used)
+        :type params: dict | None
+        :return: CCXT-compatible order structure
+        :rtype: dict
+        :raises OrderNotFound: If order with given ID doesn't exist
+        """
+        # Check if order exists in stored orders
+        if id in self._orders:
+            order = self._orders[id].copy()
+
+            # Fetch current transaction status from blockchain
+            try:
+                if id.startswith("0x"):
+                    receipt = await self.web3.eth.get_transaction_receipt(id)
+                    # Update status based on receipt
+                    tx_success = receipt.get("status") == 1
+                    order["status"] = "closed" if tx_success else "failed"
+
+                    # GMX orders execute immediately, so update filled/remaining
+                    if tx_success:
+                        order["filled"] = order["amount"]
+                        order["remaining"] = 0.0
+                    else:
+                        order["filled"] = 0.0
+                        order["remaining"] = order["amount"]
+
+                    # Update info with latest receipt data
+                    if "info" not in order:
+                        order["info"] = {}
+                    order["info"]["receipt"] = receipt
+                    order["info"]["block_number"] = receipt.get("blockNumber")
+                    order["info"]["gas_used"] = receipt.get("gasUsed")
+            except Exception as e:
+                logger.warning(f"Could not fetch transaction receipt for {id}: {e}")
+
+            return order
+
+        # Order not found in stored orders - could query GraphQL here for historical data
+        raise OrderNotFound(f"{self.id} order {id} not found in stored orders")
 
     async def fetch_open_orders(self, symbol: str | None = None, since: int | None = None, limit: int | None = None, params: dict | None = None):
         """Fetch open orders (returns positions as orders).
