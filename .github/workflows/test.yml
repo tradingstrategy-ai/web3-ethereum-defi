@@ -37,14 +37,14 @@ jobs:
         with:
           submodules: true
 
-#      - name: Setup Node.js
-#        uses: actions/setup-node@v3
-#        with:
-#          # npm version need to support aave-deploy
-#          node-version: 18
-#          cache: "npm"
-#          cache-dependency-path: contracts/aave-v3-deploy/package-lock.json
-#
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          # npm version need to support aave-deploy
+          node-version: 18
+          cache: "npm"
+          cache-dependency-path: contracts/aave-v3-deploy/package-lock.json
+
 #      # pnpm needed to compile Enzyme
 #      # We need version 7 to be exact.
 #      - name: Install pnpm
@@ -58,11 +58,6 @@ jobs:
         uses: pnpm/action-setup@v4
         with:
             version: 10.21.0
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 18
-          cache: pnpm
 
       - name: Export PNPM location
         run: |
