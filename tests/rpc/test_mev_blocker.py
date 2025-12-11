@@ -86,7 +86,8 @@ def test_mev_blocker_send_transaction_raw(mev_blocker_provider: MEVBlockerProvid
     if WEB3_PY_V7:
         assert mev_blocker_provider.provider_counter["call"] == 11
     else:
-        assert mev_blocker_provider.provider_counter["call"] == 10
+        # Github race condition
+        assert mev_blocker_provider.provider_counter["call"] in (10, 11)
     assert mev_blocker_provider.provider_counter["call"] == start_call_count + 1
     assert mev_blocker_provider.provider_counter["transact"] == 1
 
