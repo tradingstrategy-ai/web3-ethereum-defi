@@ -37,19 +37,33 @@ jobs:
         with:
           submodules: true
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          # npm version need to support aave-deploy
-          node-version: 18
-          cache: "npm"
-          cache-dependency-path: contracts/aave-v3-deploy/package-lock.json
+#      - name: Setup Node.js
+#        uses: actions/setup-node@v3
+#        with:
+#          # npm version need to support aave-deploy
+#          node-version: 18
+#          cache: "npm"
+#          cache-dependency-path: contracts/aave-v3-deploy/package-lock.json
+#
+#      # pnpm needed to compile Enzyme
+#      # We need version 7 to be exact.
+#      - name: Install pnpm
+#        run: |
+#          curl -fsSL https://get.pnpm.io/install.sh | env PNPM_VERSION=7.27.1 sh -
+#          PNPM_HOME="/home/runner/.local/share/pnpm"
+#          # https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#adding-a-system-path
+#          echo $PNPM_HOME >> $GITHUB_PATH
 
-      # pnpm needed to compile Enzyme
-      # We need version 7 to be exact.
       - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 19
+          cache: pnpm
+
+      - name: Export PNPM location
         run: |
-          curl -fsSL https://get.pnpm.io/install.sh | env PNPM_VERSION=7.27.1 sh -
           PNPM_HOME="/home/runner/.local/share/pnpm"
           # https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#adding-a-system-path
           echo $PNPM_HOME >> $GITHUB_PATH
