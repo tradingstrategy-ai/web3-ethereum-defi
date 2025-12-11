@@ -312,6 +312,14 @@ class GMXTrading:
             "slippage_percent": slippage_percent,
         }
 
+        print("--------------------------------")
+        print(f"\n--- [trading.py:open_position]{parameters=}")
+        print("--------------------------------")
+
+        print("--------------------------------")
+        print(f"\n--- [trading.py:open_position]{config=}")
+        print("--------------------------------")
+
         # Process parameters
         order_parameters = OrderArgumentParser(config, is_increase=True).process_parameters_dictionary(parameters)
 
