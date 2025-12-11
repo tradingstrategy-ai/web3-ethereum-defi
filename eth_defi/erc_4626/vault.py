@@ -688,6 +688,10 @@ class ERC4626Vault(VaultBase):
         return Web3.to_checksum_address(self.spec.vault_address)
 
     @property
+    def vault_address_checksumless(self) -> HexAddress:
+        return self.spec.vault_address
+
+    @property
     def name(self) -> str:
         return self.share_token.name
 

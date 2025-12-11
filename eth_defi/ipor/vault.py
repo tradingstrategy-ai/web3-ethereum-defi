@@ -10,6 +10,7 @@ from web3.contract import Contract
 from web3.types import BlockIdentifier
 
 from eth_defi.abi import ZERO_ADDRESS_STR, get_deployed_contract
+from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, MultiprocessMulticallReader
@@ -222,3 +223,8 @@ class IPORVault(ERC4626Vault):
 
     def get_estimated_lock_up(self) -> datetime.timedelta | None:
         return self.get_redemption_delay()
+
+    # https://app.ipor.io/fusion/arbitrum/0x4c4f752fa54dafb6d51b4a39018271c90ba1156f
+    def get_link(self, referral: str | None = None) -> str:
+        chain_name = get_chain_name(self.chain_id).lower()
+        return f"https://app.ipor.io/fusion/{chain_name}/{self.vault_address_checksumless}"
