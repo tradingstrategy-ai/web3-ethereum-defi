@@ -13,9 +13,8 @@ from typing import Any, Optional
 from collections import defaultdict
 
 from eth_abi import encode
-from eth_utils import keccak
+from eth_utils import keccak, to_checksum_address
 from eth_typing import HexAddress
-from cchecksum import to_checksum_address
 
 from eth_defi.event_reader.multicall_batcher import EncodedCall, read_multicall_chunked, EncodedCallResult
 from eth_defi.event_reader.web3factory import TunedWeb3Factory
