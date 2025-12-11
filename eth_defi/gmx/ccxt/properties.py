@@ -144,7 +144,7 @@ def describe_gmx() -> dict:
             "fetchDepositsWs": None,
             "fetchDepositWithdrawFee": None,
             "fetchDepositWithdrawFees": None,
-            "fetchFundingHistory": None,
+            "fetchFundingHistory": True,  # Returns empty list (GMX doesn't track historical funding)
             "fetchFundingRate": True,  #
             "fetchFundingRateHistory": True,  #
             "fetchFundingInterval": None,
