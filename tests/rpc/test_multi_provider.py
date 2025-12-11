@@ -1,6 +1,7 @@
 """MultiProviderWeb3 configuration tests."""
 
 import os
+from urllib.parse import urlparse
 
 import pytest
 from web3 import HTTPProvider, Web3
@@ -47,7 +48,9 @@ def test_multi_provider_fallback_only():
     https://polygon-rpc.com
     """
     web3 = create_multi_provider_web3(config)
-    assert "polygon-rpc.com" in get_provider_name(web3.get_fallback_provider())
+    provider_name = get_provider_name(web3.get_fallback_provider())
+    hostname = urlparse(provider_name).hostname
+    assert hostname == "polygon-rpc.com"
 
 
 def test_multi_provider_no_graphql():
