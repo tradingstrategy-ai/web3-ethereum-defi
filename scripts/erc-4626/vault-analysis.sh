@@ -23,3 +23,4 @@ echo "Done: both Arbitrum and Base analyses completed."
 
 echo "Export to json file"
 python scripts/erc-4626/vault-analysis-json.py
+cp /root/top_vaults_analysis.json ~/.tradingstrategy/top-stablecoin-vaults.json
