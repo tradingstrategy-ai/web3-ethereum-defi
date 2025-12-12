@@ -28,6 +28,7 @@ class YearnV3Vault(ERC4626Vault):
     - Example `Yearn v3 vault <https://arbiscan.io/address/0x9fa306b1f4a6a83fec98d8ebbabedff78c407f6b>`__ (Vyper)
     - `Vault contract on Github <https://github.com/yearn/yearn-vaults-v3/blob/master/contracts/VaultV3.vy>`__
     - Example `SiloStrategy contract <https://arbiscan.io/address/0xA4B8873B4629c20f2167c0A2bC33B6AF8699dDc1#code>`__
+    - `Yearn's own internal vault metadata JSON endpoint <https://ydaemon.yearn.fi/vaults/detected?limit=2000>`__ - check for `isRetired` flag
 
     Max withdrawl:
 
