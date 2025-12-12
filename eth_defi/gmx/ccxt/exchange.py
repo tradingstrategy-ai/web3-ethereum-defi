@@ -3579,7 +3579,7 @@ class GMX(ExchangeCompatible):
 
         # Submit to blockchain
         tx_hash_bytes = self.web3.eth.send_raw_transaction(signed_tx.rawTransaction)
-        tx_hash = tx_hash_bytes.hex()
+        tx_hash = self.web3.to_hex(tx_hash_bytes)  # Use to_hex to include "0x" prefix
 
         # Wait for confirmation
         receipt = self.web3.eth.wait_for_transaction_receipt(tx_hash_bytes)
@@ -3760,10 +3760,13 @@ class GMX(ExchangeCompatible):
 
         # Order not in cache - try to fetch from blockchain directly
         # This handles orders from previous sessions or other strategies
-        if id.startswith("0x"):
+        # Normalize ID: add "0x" prefix if missing (for backwards compatibility with old order IDs)
+        normalized_id = id if id.startswith("0x") else f"0x{id}"
+
+        if len(normalized_id) == 66:  # Valid tx hash length (0x + 64 hex chars)
             try:
-                receipt = self.web3.eth.get_transaction_receipt(id)
-                tx = self.web3.eth.get_transaction(id)
+                receipt = self.web3.eth.get_transaction_receipt(normalized_id)
+                tx = self.web3.eth.get_transaction(normalized_id)
 
                 # Build minimal order structure from transaction data
                 tx_success = receipt.get("status") == 1
@@ -3782,7 +3785,7 @@ class GMX(ExchangeCompatible):
                     "filled": None,  # Can't determine from tx alone
                     "remaining": 0.0 if tx_success else None,
                     "cost": None,
-                    "trades": None,
+                    "trades": [],  # Empty list, not None - freqtrade expects a list
                     "fee": {
                         "currency": "ETH",
                         "cost": float(receipt.get("gasUsed", 0)) * float(tx.get("gasPrice", 0)) / 1e18,
