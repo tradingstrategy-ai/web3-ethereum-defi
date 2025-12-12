@@ -221,11 +221,27 @@ class ERC4626Feature(enum.Enum):
     #: https://arbiscan.io/address/0xacb7432a4bb15402ce2afe0a7c9d5b738604f6f9#readContract
     silo_like = "silo_like"
 
+    #: Savings GYD
+    #:
+    #: https://app.gyro.finance/sgyd/arbitrum/https://app.gyro.finance/sgyd/arbitrum/
+    gyroscope = "gyroscope"
+
+    #: TrueFi
+    #:
+    #: https://truefi.io/
+    #: https://arbiscan.io/address/0x8626a4234721a605fc84bb49d55194869ae95d98#readContract
+    truefi_like = "truefi_like"
+
 
 def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     """Deduct vault protocol name based on Vault smart contract features.
 
     At least one feature must match.
+
+    See :py:func:`eth_defi.erc_4626.classification.identify_vault_features`.
+
+    :param features:
+        List of detected features for a vault
     """
     if ERC4626Feature.broken in features:
         return "<not ERC-4626>"
@@ -310,6 +326,15 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.silo_like in features:
         return "Silo Finance"
+
+    elif ERC4626Feature.gyroscope in features:
+        return "Gyroscope"
+
+    elif ERC4626Feature.truefi_like in features:
+        return "TrueFI"
+
+    elif ERC4626Feature.superform_like in features:
+        return "Superform"
 
     # No idea
     if ERC4626Feature.erc_7540_like in features:

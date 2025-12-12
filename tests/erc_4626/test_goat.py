@@ -44,7 +44,10 @@ def test_goat_protocol(
     web3: Web3,
     tmp_path: Path,
 ):
-    """Bwaaa"""
+    """Bwaaa.
+
+    https://arbiscan.io/address/0x8a1eF3066553275829d1c0F64EE8D5871D5ce9d3#readContract
+    """
 
     vault = create_vault_instance_autodetect(
         web3,
