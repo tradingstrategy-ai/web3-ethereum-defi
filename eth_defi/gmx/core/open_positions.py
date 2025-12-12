@@ -190,6 +190,7 @@ class GetOpenPositions(GetData):
             processed_positions = {}
             chain_tokens = self._get_tokens_address_dict()
             oracle_prices = OraclePrices(chain=chain_name)
+            logger.info("Fetching oracle prices (may take a few seconds)...")
             prices = oracle_prices.get_recent_prices()
 
             for pos in positions_data:
@@ -393,6 +394,7 @@ class GetOpenPositions(GetData):
 
         # Get oracle prices with error handling
         try:
+            logger.info("Fetching oracle prices (may take a few seconds)...")
             prices = OraclePrices(chain=chain_name).get_recent_prices()
 
             # Map testnet token addresses to mainnet for oracle lookups

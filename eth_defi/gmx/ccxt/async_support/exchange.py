@@ -262,7 +262,7 @@ class GMX(Exchange):
 
             # Fetch token data from GMX API using async HTTP
             tokens_data = await self._fetch_tokens_async()
-            logger.info(f"Fetched tokens from GMX API, type: {type(tokens_data)}, length: {len(tokens_data) if isinstance(tokens_data, (list, dict)) else 'N/A'}")
+            logger.debug(f"Fetched tokens from GMX API, type: {type(tokens_data)}, length: {len(tokens_data) if isinstance(tokens_data, (list, dict)) else 'N/A'}")
 
             # Build address->symbol mapping (lowercase addresses for matching)
             address_to_symbol = {}
@@ -283,7 +283,7 @@ class GMX(Exchange):
                 if address and symbol:
                     address_to_symbol[address] = symbol
 
-            logger.info(f"Built address mapping for {len(address_to_symbol)} tokens")
+            logger.debug(f"Built address mapping for {len(address_to_symbol)} tokens")
 
             markets_dict = {}
             for market_info in market_infos:
@@ -302,7 +302,8 @@ class GMX(Exchange):
                     if symbol_name in self.EXCLUDED_SYMBOLS:
                         continue
 
-                    unified_symbol = f"{symbol_name}/USDC"
+                    # Use Freqtrade futures format (consistent with regular load_markets)
+                    unified_symbol = f"{symbol_name}/USDC:USDC"
 
                     # Calculate max leverage from minCollateralFactor
                     min_collateral_factor = market_info.get("minCollateralFactor")
@@ -358,7 +359,8 @@ class GMX(Exchange):
             self.markets = markets_dict
             self.symbols = list(self.markets.keys())
 
-            logger.info(f"Loaded {len(self.markets)} markets from GraphQL: {self.symbols}")
+            logger.info(f"Loaded {len(self.markets)} markets from GraphQL")
+            logger.debug(f"Market symbols: {self.symbols}")
             return self.markets
 
         except Exception as e:
@@ -399,12 +401,12 @@ class GMX(Exchange):
 
         await self._ensure_session()
 
-        # For backtesting or when wallet is not provided, use GraphQL-only mode to avoid slow RPC calls
-        # Also check if graphql_only is set in exchange config
-        use_graphql_only = not self.wallet or (params and params.get("graphql_only", False)) or self.options.get("graphql_only", False)
+        # Use GraphQL by default for fast initialization (avoids slow RPC calls to Markets/Oracle)
+        # Only use RPC path if explicitly requested via graphql_only=False
+        use_graphql_only = not (params and params.get("graphql_only") is False) and not self.options.get("graphql_only") is False
 
         if use_graphql_only and self.subsquid:
-            logger.info("Loading markets from GraphQL (backtesting mode - skipping RPC calls)")
+            logger.info("Loading markets from GraphQL")
             return await self._load_markets_from_graphql()
 
         # Fetch markets list (this will need async version of Markets class)

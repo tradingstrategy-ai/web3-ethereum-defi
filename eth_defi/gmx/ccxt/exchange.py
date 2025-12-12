@@ -379,7 +379,7 @@ class GMX(ExchangeCompatible):
                 if address and symbol:
                     address_to_symbol[address] = symbol
 
-            logger.info(f"Built address mapping for {len(address_to_symbol)} tokens")
+            logger.debug(f"Built address mapping for {len(address_to_symbol)} tokens")
 
             markets_dict = {}
             for market_info in market_infos:
@@ -454,7 +454,8 @@ class GMX(ExchangeCompatible):
             self.markets_loaded = True
             self.symbols = list(self.markets.keys())
 
-            logger.info(f"Loaded {len(self.markets)} markets from GraphQL: {self.symbols}")
+            logger.info(f"Loaded {len(self.markets)} markets from GraphQL")
+            logger.debug(f"Market symbols: {self.symbols}")
             return self.markets
 
         except Exception as e:
@@ -618,19 +619,12 @@ class GMX(ExchangeCompatible):
         if self.markets_loaded and not reload:
             return self.markets
 
-        # For backtesting or when wallet is not provided, use GraphQL-only mode to avoid slow RPC calls
-        # Also check if graphql_only is set in exchange config
-        use_graphql_only = (
-            not self.wallet
-            or (params and params.get("graphql_only", False))
-            or self.options.get(
-                "graphql_only",
-                False,
-            )
-        )
+        # Use GraphQL by default for fast initialization (avoids slow RPC calls to Markets/Oracle)
+        # Only use RPC path if explicitly requested via graphql_only=False
+        use_graphql_only = not (params and params.get("graphql_only") is False) and not self.options.get("graphql_only") is False
 
         if use_graphql_only and self.subsquid:
-            logger.info("Loading markets from GraphQL (backtesting mode - skipping RPC calls)")
+            logger.info("Loading markets from GraphQL")
             return self._load_markets_from_graphql()
 
         # Fetch available markets from GMX using Markets class (makes RPC calls)
