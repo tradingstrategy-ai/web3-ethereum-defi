@@ -143,12 +143,6 @@ class GMXAPI:
                 "minPrice": response[3].get("minPrice"),
             }
 
-        logger.debug(
-            "\n--- [api.py:get_tickers] chain=%s count=%s sample=%s",
-            self.chain,
-            len(response) if isinstance(response, list) else "n/a",
-            sample,
-        )
         return response
 
     def get_signed_prices(self) -> dict[str, Any]:

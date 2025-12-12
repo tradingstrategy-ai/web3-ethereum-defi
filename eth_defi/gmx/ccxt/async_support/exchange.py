@@ -111,7 +111,7 @@ class GMX(Exchange):
         if not hasattr(self, "markets") or self.markets is None:
             self.markets = {}
 
-        # Store orders for fetch_order support
+        # Order cache - cleared on fresh runs to avoid stale data
         self._orders = {}
 
     def describe(self):
@@ -568,11 +568,6 @@ class GMX(Exchange):
             endpoint="/prices/tickers",
             session=self.session,
         )
-        logger.debug(
-            "\n--- [async_support/exchange.py:fetch_ticker] symbol=%s pulled=%s",
-            symbol,
-            len(data) if isinstance(data, list) else "n/a",
-        )
 
         # Find ticker for this token
         ticker_data = None
@@ -580,11 +575,6 @@ class GMX(Exchange):
             for item in data:
                 if item.get("tokenSymbol") == token_symbol:
                     ticker_data = item
-                    logger.debug(
-                        "\n--- [async_support/exchange.py:fetch_ticker] symbol=%s matched tokenSymbol=%s",
-                        symbol,
-                        token_symbol,
-                    )
                     break
 
         if not ticker_data:
@@ -594,14 +584,6 @@ class GMX(Exchange):
         min_price = float(ticker_data.get("minPrice", 0)) / 1e30
         max_price = float(ticker_data.get("maxPrice", 0)) / 1e30
         last = (min_price + max_price) / 2
-
-        logger.info(
-            "\n--- [async_support/exchange.py:fetch_ticker] symbol=%s price=%s high=%s low=%s",
-            symbol,
-            last,
-            max_price,
-            min_price,
-        )
 
         return {
             "symbol": symbol,
@@ -736,6 +718,15 @@ class GMX(Exchange):
         """Not supported - GMX uses liquidity pools."""
         raise NotSupported(f"{self.id} fetch_order_book() not supported - GMX uses liquidity pools")
 
+    def clear_order_cache(self):
+        """Clear the in-memory order cache.
+
+        Call this when switching strategies or starting a fresh session
+        to avoid stale order data from previous runs.
+        """
+        self._orders = {}
+        logger.info("Cleared order cache")
+
     async def cancel_order(self, id: str, symbol: str | None = None, params: dict | None = None):
         """Not supported - GMX orders execute immediately."""
         raise NotSupported(f"{self.id} cancel_order() not supported - GMX orders execute immediately")
@@ -787,8 +778,54 @@ class GMX(Exchange):
 
             return order
 
-        # Order not found in stored orders - could query GraphQL here for historical data
-        raise OrderNotFound(f"{self.id} order {id} not found in stored orders")
+        # Order not in cache - try to fetch from blockchain directly
+        # This handles orders from previous sessions or other strategies
+        if id.startswith("0x"):
+            try:
+                receipt = await self.web3.eth.get_transaction_receipt(id)
+                tx = await self.web3.eth.get_transaction(id)
+
+                # Build minimal order structure from transaction data
+                tx_success = receipt.get("status") == 1
+                order = {
+                    "id": id,
+                    "clientOrderId": None,
+                    "datetime": self.iso8601(tx.get("blockNumber", 0) * 1000) if tx.get("blockNumber") else None,
+                    "timestamp": tx.get("blockNumber", 0) * 1000 if tx.get("blockNumber") else None,
+                    "lastTradeTimestamp": None,
+                    "status": "closed" if tx_success else "failed",
+                    "symbol": symbol if symbol else None,
+                    "type": "market",
+                    "side": None,  # Can't determine from tx alone
+                    "price": None,
+                    "amount": None,  # Can't determine from tx alone
+                    "filled": None,  # Can't determine from tx alone
+                    "remaining": 0.0 if tx_success else None,
+                    "cost": None,
+                    "trades": None,
+                    "fee": {
+                        "currency": "ETH",
+                        "cost": float(receipt.get("gasUsed", 0)) * float(tx.get("gasPrice", 0)) / 1e18,
+                    },
+                    "info": {
+                        "receipt": receipt,
+                        "transaction": tx,
+                        "block_number": receipt.get("blockNumber"),
+                        "gas_used": receipt.get("gasUsed"),
+                    },
+                    "average": None,
+                    "fees": [],
+                }
+
+                logger.info(f"Fetched order {id} from blockchain (not in cache)")
+                return order
+
+            except Exception as e:
+                logger.warning(f"Could not fetch transaction {id} from blockchain: {e}")
+                # Fall through to raise OrderNotFound
+
+        # Order not found anywhere
+        raise OrderNotFound(f"{self.id} order {id} not found in stored orders or on blockchain")
 
     async def fetch_open_orders(self, symbol: str | None = None, since: int | None = None, limit: int | None = None, params: dict | None = None):
         """Fetch open orders (returns positions as orders).
