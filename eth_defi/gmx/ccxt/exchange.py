@@ -1171,9 +1171,9 @@ class GMX(ExchangeCompatible):
                 "datetime": "2021-01-01T00:00:00.000Z",
                 "high": None,  # Calculated separately from OHLCV
                 "low": None,  # Calculated separately from OHLCV
-                "bid": None,  # GMX doesn't have order books
+                "bid": last_price,  # GMX doesn't have order books
                 "bidVolume": None,
-                "ask": None,
+                "ask": last_price,
                 "askVolume": None,
                 "vwap": None,
                 "open": None,  # Calculated separately from OHLCV
@@ -1856,24 +1856,11 @@ class GMX(ExchangeCompatible):
 
         # Parse to CCXT format
         result = self.parse_ticker(ticker, market)
-        print("--------------------------------")
-        print(f"\n--- [exchange.py:parse_ticker]{result=}")
-        print("--------------------------------")
-        logger.info(
-            "\n--- [exchange.py:fetch_ticker] symbol=%s price=%s high=%s low=%s",
-            symbol,
-            result.get("last"),
-            result.get("high"),
-            result.get("low"),
-        )
 
         # Calculate 24h high/low from recent OHLCV (last 24 hours of 1h candles)
         try:
             since = self.milliseconds() - (24 * 60 * 60 * 1000)  # 24 hours ago
             ohlcv = self.fetch_ohlcv(symbol, "1h", since=since, limit=24)
-            print("--------------------------------")
-            print(f"{ohlcv=}")
-            print("--------------------------------")
 
             if ohlcv:
                 # Extract highs and lows
@@ -3403,7 +3390,9 @@ class GMX(ExchangeCompatible):
         timestamp = self.milliseconds()
 
         # Determine status from receipt
-        status = "open" if receipt.get("status") == 1 else "failed"
+        # GMX orders execute immediately in the transaction, so if successful, the order is filled
+        tx_success = receipt.get("status") == 1
+        status = "closed" if tx_success else "failed"
 
         # Build info dict with all GMX-specific data
         info = {
@@ -3423,21 +3412,25 @@ class GMX(ExchangeCompatible):
         # Calculate fee in ETH
         fee_cost = order_result.execution_fee / 1e18
 
+        # GMX orders execute immediately - filled/remaining based on transaction success
+        filled_amount = amount if tx_success else 0.0
+        remaining_amount = 0.0 if tx_success else amount
+
         order = {
             "id": tx_hash,
             "clientOrderId": None,
             "timestamp": timestamp,
             "datetime": self.iso8601(timestamp),
-            "lastTradeTimestamp": None,
+            "lastTradeTimestamp": timestamp if tx_success else None,
             "symbol": symbol,
             "type": type,
             "side": side,
             "price": order_result.mark_price if type == "market" else None,
             "amount": amount,
-            "cost": None,  # Will be known after keeper execution
-            "average": None,  # Will be known after keeper execution
-            "filled": 0.0,  # Not filled yet (order just created)
-            "remaining": amount,
+            "cost": amount if tx_success else None,  # Cost equals amount for GMX (amount is in USD)
+            "average": order_result.mark_price if tx_success else None,  # Average fill price
+            "filled": filled_amount,  # GMX orders execute immediately in the transaction
+            "remaining": remaining_amount,
             "status": status,
             "fee": {
                 "cost": fee_cost,
