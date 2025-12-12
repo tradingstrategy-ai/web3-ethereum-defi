@@ -121,8 +121,4 @@ class IncreaseOrder(BaseOrder):
             valid_from_time=valid_from_time,
         )
 
-        print(
-            f"Creating increase order: size_delta=${size_delta}, collateral_delta={initial_collateral_delta_amount}",
-        )
-
         return self.order_builder(params, is_open=True, is_close=False, is_swap=False)
