@@ -5,6 +5,7 @@ AsyncWeb3 for blockchain operations, and async GraphQL for Subsquid queries.
 """
 
 import asyncio
+from datetime import datetime
 import logging
 from typing import Any
 
@@ -15,6 +16,7 @@ from ccxt.base.errors import (
     ExchangeNotAvailable,
     NetworkError,
     NotSupported,
+    OrderNotFound,
     RequestTimeout,
 )
 from web3 import AsyncWeb3
@@ -108,6 +110,9 @@ class GMX(Exchange):
         # Will be populated by load_markets()
         if not hasattr(self, "markets") or self.markets is None:
             self.markets = {}
+
+        # Order cache - cleared on fresh runs to avoid stale data
+        self._orders = {}
 
     def describe(self):
         """Get CCXT exchange description."""
@@ -257,7 +262,7 @@ class GMX(Exchange):
 
             # Fetch token data from GMX API using async HTTP
             tokens_data = await self._fetch_tokens_async()
-            logger.info(f"Fetched tokens from GMX API, type: {type(tokens_data)}, length: {len(tokens_data) if isinstance(tokens_data, (list, dict)) else 'N/A'}")
+            logger.debug(f"Fetched tokens from GMX API, type: {type(tokens_data)}, length: {len(tokens_data) if isinstance(tokens_data, (list, dict)) else 'N/A'}")
 
             # Build address->symbol mapping (lowercase addresses for matching)
             address_to_symbol = {}
@@ -278,7 +283,7 @@ class GMX(Exchange):
                 if address and symbol:
                     address_to_symbol[address] = symbol
 
-            logger.info(f"Built address mapping for {len(address_to_symbol)} tokens")
+            logger.debug(f"Built address mapping for {len(address_to_symbol)} tokens")
 
             markets_dict = {}
             for market_info in market_infos:
@@ -297,7 +302,8 @@ class GMX(Exchange):
                     if symbol_name in self.EXCLUDED_SYMBOLS:
                         continue
 
-                    unified_symbol = f"{symbol_name}/USDC"
+                    # Use Freqtrade futures format (consistent with regular load_markets)
+                    unified_symbol = f"{symbol_name}/USDC:USDC"
 
                     # Calculate max leverage from minCollateralFactor
                     min_collateral_factor = market_info.get("minCollateralFactor")
@@ -353,7 +359,8 @@ class GMX(Exchange):
             self.markets = markets_dict
             self.symbols = list(self.markets.keys())
 
-            logger.info(f"Loaded {len(self.markets)} markets from GraphQL: {self.symbols}")
+            logger.info(f"Loaded {len(self.markets)} markets from GraphQL")
+            logger.debug(f"Market symbols: {self.symbols}")
             return self.markets
 
         except Exception as e:
@@ -394,12 +401,12 @@ class GMX(Exchange):
 
         await self._ensure_session()
 
-        # For backtesting or when wallet is not provided, use GraphQL-only mode to avoid slow RPC calls
-        # Also check if graphql_only is set in exchange config
-        use_graphql_only = not self.wallet or (params and params.get("graphql_only", False)) or self.options.get("graphql_only", False)
+        # Use GraphQL by default for fast initialization (avoids slow RPC calls to Markets/Oracle)
+        # Only use RPC path if explicitly requested via graphql_only=False
+        use_graphql_only = not (params and params.get("graphql_only") is False) and not self.options.get("graphql_only") is False
 
         if use_graphql_only and self.subsquid:
-            logger.info("Loading markets from GraphQL (backtesting mode - skipping RPC calls)")
+            logger.info("Loading markets from GraphQL")
             return await self._load_markets_from_graphql()
 
         # Fetch markets list (this will need async version of Markets class)
@@ -713,13 +720,117 @@ class GMX(Exchange):
         """Not supported - GMX uses liquidity pools."""
         raise NotSupported(f"{self.id} fetch_order_book() not supported - GMX uses liquidity pools")
 
+    def clear_order_cache(self):
+        """Clear the in-memory order cache.
+
+        Call this when switching strategies or starting a fresh session
+        to avoid stale order data from previous runs.
+        """
+        self._orders = {}
+        logger.info("Cleared order cache")
+
     async def cancel_order(self, id: str, symbol: str | None = None, params: dict | None = None):
         """Not supported - GMX orders execute immediately."""
         raise NotSupported(f"{self.id} cancel_order() not supported - GMX orders execute immediately")
 
     async def fetch_order(self, id: str, symbol: str | None = None, params: dict | None = None):
-        """Not supported - GMX orders execute immediately."""
-        raise NotSupported(f"{self.id} fetch_order() not supported - GMX orders execute immediately")
+        """Fetch order by ID (transaction hash).
+
+        Returns the order that was created with the given transaction hash.
+        Queries the blockchain to get the current transaction status.
+
+        :param id: Order ID (transaction hash)
+        :type id: str
+        :param symbol: Symbol (not used, for CCXT compatibility)
+        :type symbol: str | None
+        :param params: Additional parameters (not used)
+        :type params: dict | None
+        :return: CCXT-compatible order structure
+        :rtype: dict
+        :raises OrderNotFound: If order with given ID doesn't exist
+        """
+        # Check if order exists in stored orders
+        if id in self._orders:
+            order = self._orders[id].copy()
+
+            # Fetch current transaction status from blockchain
+            try:
+                if id.startswith("0x"):
+                    receipt = await self.web3.eth.get_transaction_receipt(id)
+                    # Update status based on receipt
+                    tx_success = receipt.get("status") == 1
+                    order["status"] = "closed" if tx_success else "failed"
+
+                    # GMX orders execute immediately, so update filled/remaining
+                    if tx_success:
+                        order["filled"] = order["amount"]
+                        order["remaining"] = 0.0
+                    else:
+                        order["filled"] = 0.0
+                        order["remaining"] = order["amount"]
+
+                    # Update info with latest receipt data
+                    if "info" not in order:
+                        order["info"] = {}
+                    order["info"]["receipt"] = receipt
+                    order["info"]["block_number"] = receipt.get("blockNumber")
+                    order["info"]["gas_used"] = receipt.get("gasUsed")
+            except Exception as e:
+                logger.warning(f"Could not fetch transaction receipt for {id}: {e}")
+
+            return order
+
+        # Order not in cache - try to fetch from blockchain directly
+        # This handles orders from previous sessions or other strategies
+        # Normalize ID: add "0x" prefix if missing (for backwards compatibility with old order IDs)
+        normalized_id = id if id.startswith("0x") else f"0x{id}"
+
+        if len(normalized_id) == 66:  # Valid tx hash length (0x + 64 hex chars)
+            try:
+                receipt = await self.web3.eth.get_transaction_receipt(normalized_id)
+                tx = await self.web3.eth.get_transaction(normalized_id)
+
+                # Build minimal order structure from transaction data
+                tx_success = receipt.get("status") == 1
+                order = {
+                    "id": id,
+                    "clientOrderId": None,
+                    "datetime": self.iso8601(tx.get("blockNumber", 0) * 1000) if tx.get("blockNumber") else None,
+                    "timestamp": tx.get("blockNumber", 0) * 1000 if tx.get("blockNumber") else None,
+                    "lastTradeTimestamp": None,
+                    "status": "closed" if tx_success else "failed",
+                    "symbol": symbol if symbol else None,
+                    "type": "market",
+                    "side": None,  # Can't determine from tx alone
+                    "price": None,
+                    "amount": None,  # Can't determine from tx alone
+                    "filled": None,  # Can't determine from tx alone
+                    "remaining": 0.0 if tx_success else None,
+                    "cost": None,
+                    "trades": [],  # Empty list, not None - freqtrade expects a list
+                    "fee": {
+                        "currency": "ETH",
+                        "cost": float(receipt.get("gasUsed", 0)) * float(tx.get("gasPrice", 0)) / 1e18,
+                    },
+                    "info": {
+                        "receipt": receipt,
+                        "transaction": tx,
+                        "block_number": receipt.get("blockNumber"),
+                        "gas_used": receipt.get("gasUsed"),
+                    },
+                    "average": None,
+                    "fees": [],
+                }
+
+                logger.info(f"Fetched order {id} from blockchain (not in cache)")
+                return order
+
+            except Exception as e:
+                logger.warning(f"Could not fetch transaction {id} from blockchain: {e}")
+                # Fall through to raise OrderNotFound
+
+        # Order not found anywhere
+        raise OrderNotFound(f"{self.id} order {id} not found in stored orders or on blockchain")
 
     async def fetch_open_orders(self, symbol: str | None = None, since: int | None = None, limit: int | None = None, params: dict | None = None):
         """Fetch open orders (returns positions as orders).
@@ -1030,8 +1141,6 @@ class GMX(Exchange):
             limit=limit,
         )
 
-        from datetime import datetime
-
         result = []
         for info in market_infos:
             funding_per_second = float(info.get("fundingFactorPerSecond", 0)) / 1e30
@@ -1054,6 +1163,46 @@ class GMX(Exchange):
             )
 
         return result
+
+    async def fetch_funding_history(
+        self,
+        symbol: str | None = None,
+        since: int | None = None,
+        limit: int | None = None,
+        params: dict[str, Any] | None = None,
+    ) -> list[dict[str, Any]]:
+        """
+        Fetch funding fee payment history for positions.
+
+        GMX V2 does not track historical funding fee payments per position.
+        This method returns an empty list to indicate no funding history is available.
+        Freqtrade will calculate funding fees as 0.0 when summing the empty list.
+
+        :param symbol: Unified symbol (e.g., "ETH/USD", "BTC/USD") - not used
+        :type symbol: str | None
+        :param since: Timestamp in milliseconds - not used
+        :type since: int | None
+        :param limit: Maximum number of records - not used
+        :type limit: int | None
+        :param params: Additional parameters - not used
+        :type params: dict[str, Any] | None
+        :returns: Empty list (GMX doesn't provide funding history)
+        :rtype: list[dict[str, Any]]
+
+        .. note::
+            GMX V2 does not track historical funding fee payments. Funding fees
+            are continuously accrued and settled, but the protocol does not
+            maintain a queryable history of past payments.
+
+            If you need funding rate history (not payment history), use
+            fetch_funding_rate_history() instead.
+        """
+        logger.warning(
+            "fetch_funding_history() called but GMX V2 does not track historical "
+            "funding fee payments. Returning empty list (funding fees will be "
+            "calculated as 0.0)."
+        )
+        return []
 
     async def fetch_funding_rates(self, symbols: list[str] | None = None, params: dict | None = None) -> dict:
         """Fetch funding rates for multiple symbols.

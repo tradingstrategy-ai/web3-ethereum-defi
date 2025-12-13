@@ -63,7 +63,7 @@ class IncreaseOrder(BaseOrder):
         initial_collateral_delta_amount: int | str,
         slippage_percent: float = 0.003,
         swap_path: Optional[list[str]] = None,
-        execution_buffer: float = 1.3,
+        execution_buffer: float = 2.2,
         auto_cancel: bool = False,
         data_list: Optional[list[str]] = None,
         callback_gas_limit: int = 0,
@@ -119,10 +119,6 @@ class IncreaseOrder(BaseOrder):
             callback_gas_limit=callback_gas_limit,
             min_output_amount=min_output_amount,
             valid_from_time=valid_from_time,
-        )
-
-        print(
-            f"Creating increase order: size_delta=${size_delta}, collateral_delta={initial_collateral_delta_amount}",
         )
 
         return self.order_builder(params, is_open=True, is_close=False, is_swap=False)

@@ -51,7 +51,7 @@ class OrderParams:
     # Optional parameters
     max_fee_per_gas: Optional[int] = None
     auto_cancel: bool = False
-    execution_buffer: float = 1.3
+    execution_buffer: float = 2.2
     # GMX v2.2 new dataList field
     data_list: Optional[list[str]] = field(default_factory=list)
 
@@ -360,8 +360,8 @@ class BaseOrder:
             [float(price_data["maxPriceFull"]), float(price_data["minPriceFull"])],
         )
 
-        # According to GMX standard, all prices are scaled in 30 decimals
-        # The human-readable price is calculated as: human_price = raw / (10 ** (30 - token_decimals))
+        # Oracle REST API returns prices in 30-decimal PRECISION format
+        # Convert to human-readable USD price based on token decimals
         price_usd = price / (10 ** (PRECISION - decimals))  # PRECISION = 30
 
         # Calculate slippage based on position type and action
@@ -644,7 +644,7 @@ class BaseOrder:
             logger.debug("No wallet address configured, skipping approval check")
             return
 
-        token_details = fetch_erc20_details(self.web3, params.collateral_address)
+        token_details = fetch_erc20_details(self.web3, params.collateral_address, chain_id=self.chain_id)
         token_contract = token_details.contract
 
         allowance = token_contract.functions.allowance(

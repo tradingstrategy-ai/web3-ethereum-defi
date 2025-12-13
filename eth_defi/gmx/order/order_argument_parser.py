@@ -47,7 +47,7 @@ def _get_token_metadata_dict(web3: Web3, chain: str, use_cache: bool = True) -> 
     result = {}
     for symbol, address in tokens_by_symbol.items():
         try:
-            token_details = fetch_erc20_details(web3, address)
+            token_details = fetch_erc20_details(web3, address, chain_id=chain_id)
             result[address] = {
                 "symbol": symbol,
                 "address": address,
