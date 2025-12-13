@@ -253,8 +253,7 @@ class GetOpenPositions(GetData):
         is_long = pos["isLong"]
 
         # GraphQL provides entry price and leverage directly (different decimal format than RPC)
-        # entryPrice is in 12 decimals, leverage is in 4 decimals
-        entry_price = int(pos["entryPrice"]) / 10**12
+        entry_price = int(pos["entryPrice"]) / 10**(30-index_token_info["decimals"])
         leverage = int(pos["leverage"]) / 10**4
 
         # Calculate collateral value in USD
