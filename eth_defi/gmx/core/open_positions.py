@@ -34,12 +34,12 @@ class GetOpenPositions(GetData):
     and liquidation thresholds.
     """
 
-    def __init__(self, config: GMXConfig, filter_swap_markets: bool = True, use_graphql: bool = True):
+    def __init__(self, config: GMXConfig, filter_swap_markets: bool = True, use_graphql: bool = False):
         """Initialize open positions data provider.
 
         :param config: GMXConfig instance containing chain and network info
         :param filter_swap_markets: Whether to filter out swap markets from results
-        :param use_graphql: Whether to use GraphQL (faster) instead of RPC calls (default: True)
+        :param use_graphql: Whether to use GraphQL (faster) instead of RPC calls (default: False - uses contract calls)
         """
         super().__init__(config, filter_swap_markets=filter_swap_markets)
         self.use_graphql = use_graphql
@@ -215,6 +215,18 @@ class GetOpenPositions(GetData):
     def _process_graphql_position(self, pos: dict, chain_tokens: dict, prices: dict) -> dict[str, Any]:
         """Convert GraphQL position data to internal format matching RPC response.
 
+        .. warning::
+            GraphQL provides faster queries but is missing real-time borrowing/funding fields.
+            The following fields are set to 0 because they require on-chain computation:
+
+            - ``borrowing_factor``: Requires current market state and time-based accumulation
+            - ``funding_fee_amount_per_size``: Calculated from funding rate changes since position opened
+            - ``long_token_claimable_funding_amount_per_size``: Real-time funding pool state
+            - ``short_token_claimable_funding_amount_per_size``: Real-time funding pool state
+
+            These fields are only available through the Reader contract (RPC method).
+            For accurate borrowing/funding data, use ``use_graphql=False`` when initializing GetOpenPositions.
+
         :param pos: Position data from GraphQL
         :param chain_tokens: Token metadata dictionary
         :param prices: Oracle prices dictionary
@@ -305,13 +317,15 @@ class GetOpenPositions(GetData):
             "initial_collateral_amount": collateral_amount,
             "initial_collateral_amount_usd": collateral_amount_usd,
             "leverage": leverage,
-            "pending_impact_amount": 0,  # Not available in GraphQL
-            "borrowing_factor": 0,  # Not in Subsquid schema
-            "funding_fee_amount_per_size": 0,  # Not in Subsquid schema
-            "long_token_claimable_funding_amount_per_size": 0,  # Not in Subsquid schema
-            "short_token_claimable_funding_amount_per_size": 0,  # Not in Subsquid schema
+            # These fields require real-time on-chain calculation and are NOT in GraphQL schema
+            # Use RPC method (use_graphql=False) if you need accurate values
+            "pending_impact_amount": 0,  # Requires Reader contract call
+            "borrowing_factor": 0,  # Requires current market state + time accumulation
+            "funding_fee_amount_per_size": 0,  # Requires funding rate history since position opened
+            "long_token_claimable_funding_amount_per_size": 0,  # Requires real-time funding pool state
+            "short_token_claimable_funding_amount_per_size": 0,  # Requires real-time funding pool state
             "increased_at_time": int(pos.get("openedAt", 0)),
-            "decreased_at_time": 0,  # Not in Subsquid schema
+            "decreased_at_time": 0,  # Static field not tracked in GraphQL
             "position_modified_at": "",
             "is_long": is_long,
             "percent_profit": percent_profit,
