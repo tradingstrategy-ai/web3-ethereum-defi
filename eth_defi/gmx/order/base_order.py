@@ -360,8 +360,8 @@ class BaseOrder:
             [float(price_data["maxPriceFull"]), float(price_data["minPriceFull"])],
         )
 
-        # According to GMX standard, all prices are scaled in 30 decimals
-        # The human-readable price is calculated as: human_price = raw / (10 ** (30 - token_decimals))
+        # Oracle REST API returns prices in 30-decimal PRECISION format
+        # Convert to human-readable USD price based on token decimals
         price_usd = price / (10 ** (PRECISION - decimals))  # PRECISION = 30
 
         # Calculate slippage based on position type and action

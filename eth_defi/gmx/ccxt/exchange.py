@@ -2382,6 +2382,17 @@ class GMX(ExchangeCompatible):
         entry_price = self.safe_number(order, "entry_price")
         mark_price = self.safe_number(order, "mark_price")
 
+        # Check if entry_price looks like raw GMX value (> 1 trillion suggests unconverted)
+        # GMX GraphQL stores prices with 12 decimals, RPC uses 30-token_decimals
+        # If the value seems too large, it's likely raw and needs conversion
+        if entry_price and entry_price > 1_000_000_000_000:  # > 1 trillion
+            # Try dividing by 10**12 first (GraphQL format)
+            entry_price = entry_price / 10**12
+
+        # Same check for mark_price
+        if mark_price and mark_price > 1_000_000_000_000:
+            mark_price = mark_price / 10**12
+
         # Calculate amount in base currency
         amount = None
         if position_size_usd and entry_price and entry_price > 0:
@@ -3385,6 +3396,10 @@ class GMX(ExchangeCompatible):
         # Calculate fee in ETH
         fee_cost = order_result.execution_fee / 1e18
 
+        # OrderResult.mark_price is already converted to USD in base_order.py
+        # No additional conversion needed here
+        mark_price = order_result.mark_price
+
         # GMX orders execute immediately - filled/remaining based on transaction success
         filled_amount = amount if tx_success else 0.0
         remaining_amount = 0.0 if tx_success else amount
@@ -3398,10 +3413,10 @@ class GMX(ExchangeCompatible):
             "symbol": symbol,
             "type": type,
             "side": side,
-            "price": order_result.mark_price if type == "market" else None,
+            "price": mark_price if type == "market" else None,
             "amount": amount,
             "cost": amount if tx_success else None,  # Cost equals amount for GMX (amount is in USD)
-            "average": order_result.mark_price if tx_success else None,  # Average fill price
+            "average": mark_price if tx_success else None,  # Average fill price
             "filled": filled_amount,  # GMX orders execute immediately in the transaction
             "remaining": remaining_amount,
             "status": status,
