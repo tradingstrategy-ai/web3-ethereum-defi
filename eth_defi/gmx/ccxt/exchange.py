@@ -583,21 +583,21 @@ class GMX(ExchangeCompatible):
         if self._token_metadata:
             return  # Already loaded
 
-        try:
-            tokens_data = self.api.get_tokens()
-            token_list = tokens_data.get("tokens", []) if isinstance(tokens_data, dict) else tokens_data
+        tokens_data = self.api.get_tokens()
+        token_list = tokens_data.get("tokens", []) if isinstance(tokens_data, dict) else tokens_data
 
-            for token in token_list:
-                address = token.get("address", "").lower()
-                if address:
-                    self._token_metadata[address] = {
-                        "decimals": token.get("decimals", 18),
-                        "synthetic": token.get("synthetic", False),
-                        "symbol": token.get("symbol", ""),
-                    }
-        except Exception:
-            # If we can't load metadata, will fall back to default behavior
-            pass
+        for token in token_list:
+            address = token.get("address", "").lower()
+            symbol = token.get("symbol", "")
+            decimals = token.get("decimals")
+            if address:
+                if decimals is None:
+                    raise ValueError(f"GMX API did not return decimals for token {symbol} ({address}). Cannot safely convert prices.")
+                self._token_metadata[address] = {
+                    "decimals": decimals,
+                    "synthetic": token.get("synthetic", False),
+                    "symbol": symbol,
+                }
 
     def load_markets(
         self,
@@ -1198,20 +1198,20 @@ class GMX(ExchangeCompatible):
         token_address = self.safe_string(ticker, "tokenAddress", "").lower()
 
         # Get token metadata for correct decimal conversion
-        token_meta = self._token_metadata.get(token_address, {})
-        is_synthetic = token_meta.get("synthetic", False)
-        token_decimals = token_meta.get("decimals", 18)
+        token_meta = self._token_metadata.get(token_address)
+        if not token_meta:
+            raise ValueError(f"Token metadata not found for {token_address}. Ensure load_markets() was called and token exists in GMX API.")
+        token_decimals = token_meta.get("decimals")
+        if token_decimals is None:
+            raise ValueError(f"Token decimals not found for {token_address}. Cannot safely convert prices.")
 
         # Convert from appropriate decimal format to float
+        # GMX uses 30-decimal PRECISION for all prices
+        # Formula: price_usd = raw_price / 10^(30 - token_decimals)
+        # Examples: BTC (8 decimals) = 10^22, ETH (18 decimals) = 10^12
         last_price = None
         if max_price and min_price:
-            if is_synthetic:
-                # Synthetic tokens use (30 - token_decimals) format
-                # Example: BTC with 8 decimals uses 30-8=22 decimal places
-                price_decimals = 30 - token_decimals
-            else:
-                # Non-synthetic tokens use standard 12 decimals
-                price_decimals = 12
+            price_decimals = 30 - token_decimals
 
             max_price_float = float(max_price) / (10**price_decimals)
             min_price_float = float(min_price) / (10**price_decimals)
@@ -1977,10 +1977,12 @@ class GMX(ExchangeCompatible):
             # Extract token info (keys are: symbol, address, decimals)
             address = token.get("address", "")
             symbol = token.get("symbol", "")
-            decimals = token.get("decimals", 18)
+            decimals = token.get("decimals")
             name = symbol  # GMX API doesn't provide full names
 
             if symbol and address:
+                if decimals is None:
+                    raise ValueError(f"GMX API did not return decimals for token {symbol} ({address}). Cannot safely process currencies.")
                 result[symbol] = {
                     "id": address,
                     "code": symbol,
@@ -2356,6 +2358,70 @@ class GMX(ExchangeCompatible):
 
         return result
 
+    def _get_token_decimals(self, market: dict | None) -> int | None:
+        """Get token decimals from market metadata.
+
+        :param market: Market structure with info containing index_token address
+        :return: Token decimals or None if not found
+        """
+        if not market or not isinstance(market, dict):
+            return None
+
+        # Ensure token metadata is loaded
+        if not getattr(self, "_token_metadata", None):
+            self._token_metadata = {}
+        if not self._token_metadata:
+            self._load_token_metadata()
+
+        info = market.get("info", {}) or {}
+        index_addr = (info.get("index_token") or info.get("indexTokenAddress") or "").lower()
+        if not index_addr:
+            raise ValueError(f"Market {market.get('symbol', 'unknown')} has no index_token address. Cannot determine decimals.")
+
+        token_meta = self._token_metadata.get(index_addr)
+        if not token_meta:
+            raise ValueError(f"Token metadata not found for index token {index_addr}. Ensure load_markets() was called.")
+
+        decimals = token_meta.get("decimals")
+        if decimals is None:
+            raise ValueError(f"Decimals not found for token {index_addr}. GMX API response is missing decimals.")
+
+        return int(decimals)
+
+    def _convert_price_to_usd(self, raw_price: float | int | None, market: dict | None) -> float | None:
+        """Convert GMX raw price to USD using the standard formula.
+
+        Uses the same conversion as open_positions.py:
+            price_usd = raw_price / 10^(30 - token_decimals)
+
+        :param raw_price: Raw price from GMX (may be in 30-decimal format or already USD)
+        :param market: Market structure to get token decimals
+        :return: Price in USD or None
+        """
+        from eth_defi.gmx.utils import convert_raw_price_to_usd
+
+        if raw_price is None:
+            return None
+
+        try:
+            v = float(raw_price)
+        except Exception:
+            return None
+
+        # If already looks like a valid USD price, return as-is
+        # This handles data that's already been converted (e.g., from GetOpenPositions)
+        if 0.01 <= v <= 1_000_000:
+            return v
+
+        # Get token decimals from market metadata
+        token_decimals = self._get_token_decimals(market)
+        if token_decimals is None:
+            # Cannot convert without knowing token decimals
+            # Return as-is - caller should ensure proper conversion upstream
+            return v
+
+        return convert_raw_price_to_usd(v, token_decimals)
+
     def parse_order(
         self,
         order: dict,
@@ -2378,20 +2444,15 @@ class GMX(ExchangeCompatible):
         side = "buy" if is_long else "sell"
 
         # Get position size and prices
+        # Note: Data from GetOpenPositions is already converted to USD
+        # _convert_price_to_usd handles both raw and pre-converted values
         position_size_usd = self.safe_number(order, "position_size")
-        entry_price = self.safe_number(order, "entry_price")
-        mark_price = self.safe_number(order, "mark_price")
+        raw_entry_price = self.safe_number(order, "entry_price")
+        raw_mark_price = self.safe_number(order, "mark_price")
 
-        # Check if entry_price looks like raw GMX value (> 1 trillion suggests unconverted)
-        # GMX GraphQL stores prices with 12 decimals, RPC uses 30-token_decimals
-        # If the value seems too large, it's likely raw and needs conversion
-        if entry_price and entry_price > 1_000_000_000_000:  # > 1 trillion
-            # Try dividing by 10**12 first (GraphQL format)
-            entry_price = entry_price / 10**12
-
-        # Same check for mark_price
-        if mark_price and mark_price > 1_000_000_000_000:
-            mark_price = mark_price / 10**12
+        # Convert prices to USD (handles already-converted values gracefully)
+        entry_price = self._convert_price_to_usd(raw_entry_price, market)
+        mark_price = self._convert_price_to_usd(raw_mark_price, market)
 
         # Calculate amount in base currency
         amount = None

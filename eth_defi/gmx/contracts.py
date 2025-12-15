@@ -275,10 +275,12 @@ def _fetch_tokens_from_gmx_api(chain: str) -> Optional[dict[str, dict]]:
         for token_info in token_infos:
             symbol = token_info.get("symbol", "")
             address = token_info.get("address", "")
-            decimals = token_info.get("decimals", 18)  # Default to 18 if not specified
+            decimals = token_info.get("decimals")
             synthetic = token_info.get("synthetic", False)
 
             if symbol and address:
+                if decimals is None:
+                    raise ValueError(f"GMX API did not return decimals for token {symbol} ({address}). Cannot safely convert prices.")
                 checksum_address = to_checksum_address(address)
                 tokens_dict[checksum_address] = {
                     "symbol": symbol,

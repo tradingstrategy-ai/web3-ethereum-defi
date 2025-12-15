@@ -275,15 +275,26 @@ class GMX(Exchange):
                 logger.error(f"Unexpected tokens_data format: {type(tokens_data)}")
                 tokens_list = []
 
+            # Build address->symbol mapping and token metadata (lowercase addresses for matching)
+            self._token_metadata = {}
             for token in tokens_list:
                 if not isinstance(token, dict):
                     continue
                 address = token.get("address", "").lower()
                 symbol = token.get("symbol", "")
+                decimals = token.get("decimals")
                 if address and symbol:
+                    if decimals is None:
+                        raise ValueError(f"GMX API did not return decimals for token {symbol} ({address}). Cannot safely convert prices.")
                     address_to_symbol[address] = symbol
+                    # Store full token metadata including decimals for price conversion
+                    self._token_metadata[address] = {
+                        "decimals": decimals,
+                        "synthetic": token.get("synthetic", False),
+                        "symbol": symbol,
+                    }
 
-            logger.debug(f"Built address mapping for {len(address_to_symbol)} tokens")
+            logger.debug(f"Built address mapping for {len(address_to_symbol)} tokens, metadata for {len(self._token_metadata)} tokens")
 
             markets_dict = {}
             for market_info in market_infos:
@@ -733,6 +744,71 @@ class GMX(Exchange):
         """Not supported - GMX orders execute immediately."""
         raise NotSupported(f"{self.id} cancel_order() not supported - GMX orders execute immediately")
 
+    def _get_token_decimals(self, market: dict | None) -> int | None:
+        """Get token decimals from market metadata.
+
+        Token metadata is populated during load_markets() from the GMX API,
+        which returns correct decimals for each token (e.g., BTC=8, ETH=18).
+
+        :param market: Market structure with info containing index_token address
+        :return: Token decimals or None if not found
+        """
+        if not market or not isinstance(market, dict):
+            raise ValueError("Market must be provided to get token decimals.")
+
+        # Token metadata is populated during load_markets from GMX API
+        if not getattr(self, "_token_metadata", None):
+            raise ValueError("Token metadata not loaded. Ensure load_markets() was called first.")
+
+        info = market.get("info", {}) or {}
+        index_addr = (info.get("index_token") or info.get("indexTokenAddress") or "").lower()
+        if not index_addr:
+            raise ValueError(f"Market {market.get('symbol', 'unknown')} has no index_token address. Cannot determine decimals.")
+
+        token_meta = self._token_metadata.get(index_addr)
+        if not token_meta:
+            raise ValueError(f"Token metadata not found for index token {index_addr}. Ensure load_markets() was called.")
+
+        decimals = token_meta.get("decimals")
+        if decimals is None:
+            raise ValueError(f"Decimals not found for token {index_addr}. GMX API response is missing decimals.")
+
+        return int(decimals)
+
+    def _convert_price_to_usd(self, raw_price: float | int | None, market: dict | None) -> float | None:
+        """Convert GMX raw price to USD using the standard formula.
+
+        Uses the same conversion as open_positions.py:
+            price_usd = raw_price / 10^(30 - token_decimals)
+
+        :param raw_price: Raw price from GMX (may be in 30-decimal format or already USD)
+        :param market: Market structure to get token decimals
+        :return: Price in USD or None
+        """
+        from eth_defi.gmx.utils import convert_raw_price_to_usd
+
+        if raw_price is None:
+            return None
+
+        try:
+            v = float(raw_price)
+        except Exception:
+            return None
+
+        # If already looks like a valid USD price, return as-is
+        # This handles data that's already been converted (e.g., from GetOpenPositions)
+        if 0.01 <= v <= 1_000_000:
+            return v
+
+        # Get token decimals from market metadata
+        token_decimals = self._get_token_decimals(market)
+        if token_decimals is None:
+            # Cannot convert without knowing token decimals
+            # Return as-is - caller should ensure proper conversion upstream
+            return v
+
+        return convert_raw_price_to_usd(v, token_decimals)
+
     async def fetch_order(self, id: str, symbol: str | None = None, params: dict | None = None):
         """Fetch order by ID (transaction hash).
 
@@ -753,6 +829,19 @@ class GMX(Exchange):
         if id in self._orders:
             order = self._orders[id].copy()
 
+            # Convert price fields to USD if present and market known
+            try:
+                mkt = None
+                sym = order.get("symbol")
+                if sym and getattr(self, "markets_loaded", False):
+                    mkt = self.market(sym)
+                if "price" in order:
+                    order["price"] = self._convert_price_to_usd(order.get("price"), mkt)
+                if "average" in order:
+                    order["average"] = self._convert_price_to_usd(order.get("average"), mkt)
+            except Exception:
+                pass
+
             # Fetch current transaction status from blockchain
             try:
                 if id.startswith("0x"):
@@ -763,11 +852,11 @@ class GMX(Exchange):
 
                     # GMX orders execute immediately, so update filled/remaining
                     if tx_success:
-                        order["filled"] = order["amount"]
+                        order["filled"] = order.get("amount")
                         order["remaining"] = 0.0
                     else:
                         order["filled"] = 0.0
-                        order["remaining"] = order["amount"]
+                        order["remaining"] = order.get("amount")
 
                     # Update info with latest receipt data
                     if "info" not in order:

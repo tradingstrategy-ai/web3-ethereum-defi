@@ -262,3 +262,62 @@ def test_case_sensitive_addresses(graphql_client):
     # Both should return lists (but may have different content)
     assert isinstance(positions_checksummed, list)
     assert isinstance(positions_lowercase, list)
+
+
+def test_format_position_btc_real_data(graphql_client):
+    """Test position formatting with real BTC/USD position data from GraphQL.
+
+    This tests the decimal decoding with actual data from GMX Subsquid,
+    ensuring proper handling of token-specific decimal places.
+    """
+    # Real BTC/USD position data from GMX GraphQL
+    # Market: BTC/USD (0x47c031236e19d024b42f8AE6780E44A573170703 on Arbitrum)
+    # Index token: BTC (8 decimals)
+    # Collateral token: USDC (6 decimals)
+    raw_position = {
+        "id": "0x9a9fc3e047a4b8ca7f3fe2cc2d4812e019ba08b41cc135fa36ae271edcac45e8",
+        "positionKey": "0x9a9fc3e047a4b8ca7f3fe2cc2d4812e019ba08b41cc135fa36ae271edcac45e8",
+        "account": "0xB065f2BE6A488735148C06109c5e0b12E832f3D4",
+        "market": "0x47c031236e19d024b42f8AE6780E44A573170703",
+        "collateralToken": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",  # USDC
+        "isLong": True,
+        "maxSize": "10515274652799372837048675205120",
+        "collateralAmount": "10512973",  # 10.512973 USDC (6 decimals)
+        "entryPrice": "904695401600221357399008449",  # ~$90,469.54 (30-index_decimals = 22 decimals for BTC)
+        "leverage": "10003",  # ~1.0003x (4 decimals)
+        "sizeInTokens": "11623",  # 0.00011623 BTC (30 decimals)
+        "sizeInUsd": "10515274652799372837048675205120",  # $10.52 (30 decimals)
+        "realizedFees": "3785466987990000000000000000",  # ~$0.00379 (30 decimals)
+        "realizedPnl": "0",
+        "unrealizedPnl": "0",
+        "unrealizedFees": "0",
+        "realizedPriceImpact": "0",
+        "unrealizedPriceImpact": "0",
+        "openedAt": 1765617888,
+    }
+
+    formatted = graphql_client.format_position(raw_position)
+
+    # Expected values from GMX UI:
+    # - Size: $10.52
+    # - Net value: $10.51
+    # - Collateral: $10.51 (USDC)
+    # - Entry price: $90,469.54
+    # - Leverage: ~1.0003x
+    # - PnL: -0.03%
+
+    # Test collateral amount (USDC has 6 decimals)
+    assert abs(formatted["collateral_amount"] - 10.512973) < 0.000001
+
+    # Test size in USD (30 decimals)
+    assert abs(formatted["size_usd"] - 10.52) < 0.01
+
+    # Test entry price (BTC has 8 decimals, so entryPrice uses 30-8=22 decimals)
+    # 904695401600221357399008449 / 10^22 = 90469.54...
+    assert abs(formatted["entry_price"] - 90469.54) < 1.0
+
+    # Test leverage (4 decimals: 10000 = 1x)
+    assert abs(formatted["leverage"] - 1.0003) < 0.0001
+
+    # Test size in tokens (30 decimals)
+    assert abs(formatted["size_tokens"] - 0.00011623) < 0.00000001

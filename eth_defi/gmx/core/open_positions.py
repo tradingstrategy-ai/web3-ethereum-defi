@@ -258,7 +258,7 @@ class GetOpenPositions(GetData):
         if not index_token_info or not collateral_token_info:
             raise ValueError(f"Token info not found for index={index_token} or collateral={collateral_token}")
 
-        # Parse values from GraphQL (they're BigInt strings)
+        # Parse values from GraphQL
         position_size_usd = int(pos["sizeInUsd"]) / 10**30
         size_in_tokens = int(pos["sizeInTokens"])
         collateral_amount = int(pos["collateralAmount"])
