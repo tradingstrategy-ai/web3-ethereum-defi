@@ -96,14 +96,16 @@ VAULT_SPECIFIC_RISK = {
     # kUSDC
     # https://basescan.org/address/0x43e3e6ffb2e363e64cd480cbb7cd0cf47bc6b477
     "0x43e3e6ffb2e363e64cd480cbb7cd0cf47bc6b477": VaultTechnicalRisk.blacklisted,
+
     # Savings GYD
     # Protocol no longer active?
     # https://x.com/TradingProtocol/status/1999448052034076863
     "0xea50f402653c41cadbafd1f788341db7b7f37816": VaultTechnicalRisk.blacklisted,
+
     # Yearn ARB/USDC.e silo strategy vault
     # 100% utilisation on Silo V1, likely cooked
     # https://gov.yearn.fi/t/what-is-the-status-of-silo-lender-arb-usdc-e/14572
-    "0x9fa306b1f4a6a83fec98d8ebbabedff78c407f6b": VaultTechnicalRisk.low,
+    # "0x9fa306b1f4a6a83fec98d8ebbabedff78c407f6b": VaultTechnicalRisk.low,
 }
 
 

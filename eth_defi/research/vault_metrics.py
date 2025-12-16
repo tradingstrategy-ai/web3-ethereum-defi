@@ -6,6 +6,7 @@
 
 import datetime
 import logging
+import math
 from enum import Enum
 from typing import Literal, TypeAlias, Optional
 import warnings
@@ -1709,9 +1710,14 @@ def export_lifetime_row(row: pd.Series) -> dict:
             return [_serialize(rec) for rec in value.to_dict(orient="records")]
         if isinstance(value, Enum):
             return value.value
+
         # Na-like scalar
         if pd.isna(value) or value == "NaT":
             # TODO: NaT hack, lockup: NaT is broken in somewhere deeper, investigate
+            return None
+
+        if math.isinf(value):
+            # JSON cannot handle inf
             return None
 
         return value
