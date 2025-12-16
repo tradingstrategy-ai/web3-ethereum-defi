@@ -28,6 +28,7 @@ from eth_defi.gmx.ccxt.validation import _validate_ohlcv_data_sufficiency
 from eth_defi.gmx.ccxt.async_support.async_http import async_make_gmx_api_request
 from eth_defi.gmx.ccxt.properties import describe_gmx
 from eth_defi.gmx.config import GMXConfig
+from eth_defi.gmx.core.open_positions import GetOpenPositions
 from eth_defi.gmx.core import Markets
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.multi_provider import create_multi_provider_web3
@@ -924,11 +925,42 @@ class GMX(Exchange):
     async def fetch_open_orders(self, symbol: str | None = None, since: int | None = None, limit: int | None = None, params: dict | None = None):
         """Fetch open orders (returns positions as orders).
 
-        GMX doesn't have traditional pending orders. This returns open positions formatted as orders.
+        GMX doesn't have traditional pending orders. We mirror the sync adapter
+        by returning current positions formatted as orders using GetOpenPositions
+        as the single source of truth. This keeps Freqtrade's dashboard in sync
+        with actual on-chain positions and avoids silent desyncs when a close
+        transaction partially/fully fails.
         """
-        # Would need to implement fetch_positions first
-        # For now, return empty list as placeholder
-        return []
+        positions = await self.fetch_positions(symbols=[symbol] if symbol else None, params=params)
+
+        orders: list[dict] = []
+        for pos in positions:
+            order = {
+                "id": pos.get("id"),
+                "clientOrderId": None,
+                "timestamp": pos.get("timestamp"),
+                "datetime": pos.get("datetime"),
+                "lastTradeTimestamp": pos.get("timestamp"),
+                "symbol": pos.get("symbol"),
+                "type": "market",
+                "side": "buy" if pos.get("side") == "long" else "sell",
+                "price": pos.get("entryPrice") or pos.get("markPrice"),
+                "amount": pos.get("contracts"),
+                "cost": pos.get("notional"),
+                "average": pos.get("entryPrice"),
+                "filled": pos.get("contracts"),
+                "remaining": 0.0,
+                "status": "open",
+                "fee": None,
+                "trades": [],
+                "info": pos,
+            }
+            orders.append(order)
+
+        if limit:
+            orders = orders[:limit]
+
+        return orders
 
     async def fetch_my_trades(self, symbol: str | None = None, since: int | None = None, limit: int | None = None, params: dict | None = None):
         """Fetch user trade history from Subsquid."""
@@ -947,6 +979,84 @@ class GMX(Exchange):
         # TODO: Implement GraphQL query for public trades via Subsquid
         # For now, return empty list
         return []
+
+    async def fetch_positions(self, symbols: list[str] | None = None, params: dict | None = None) -> list[dict]:
+        """Fetch all open positions for the account (contract-based)."""
+        await self._ensure_session()
+        await self.load_markets()
+
+        params = params or {}
+
+        wallet = params.get("wallet_address", self.wallet_address)
+        if not wallet:
+            raise ValueError("wallet_address must be provided in GMXConfig or params")
+
+        positions_manager = GetOpenPositions(self.config)
+        positions = positions_manager.get_data(wallet)
+
+        result: list[dict] = []
+        for position_key, data in positions.items():
+            market_symbol = data.get("market_symbol", "")
+            unified_symbol = f"{market_symbol}/USDC:USDC"
+
+            if symbols and unified_symbol not in symbols:
+                continue
+
+            position_size_usd = float(data.get("position_size", 0) or 0)
+            entry_price = data.get("entry_price")
+            mark_price = data.get("mark_price")
+            percent_profit = float(data.get("percent_profit", 0) or 0)
+            collateral_usd = float(data.get("initial_collateral_amount_usd", 0) or 0)
+
+            contracts = None
+            if entry_price and entry_price > 0:
+                try:
+                    contracts = position_size_usd / float(entry_price)
+                except Exception:
+                    contracts = None
+
+            notional = None
+            if contracts and mark_price:
+                try:
+                    notional = contracts * float(mark_price)
+                except Exception:
+                    notional = None
+
+            unrealized_pnl = None
+            if position_size_usd:
+                unrealized_pnl = position_size_usd * (percent_profit / 100)
+
+            timestamp = self.milliseconds()
+
+            result.append(
+                {
+                    "id": position_key,
+                    "symbol": unified_symbol,
+                    "timestamp": timestamp,
+                    "datetime": self.iso8601(timestamp),
+                    "isolated": False,
+                    "hedged": False,
+                    "side": "long" if data.get("is_long", True) else "short",
+                    "contracts": contracts,
+                    "contractSize": self.parse_number("1"),
+                    "entryPrice": entry_price,
+                    "markPrice": mark_price,
+                    "notional": notional,
+                    "leverage": data.get("leverage"),
+                    "collateral": collateral_usd,
+                    "initialMargin": collateral_usd,
+                    "maintenanceMargin": None,
+                    "initialMarginPercentage": None,
+                    "maintenanceMarginPercentage": 0.01,
+                    "unrealizedPnl": unrealized_pnl,
+                    "liquidationPrice": None,
+                    "marginRatio": None,
+                    "percentage": percent_profit,
+                    "info": data,
+                }
+            )
+
+        return result
 
     async def fetch_balance(self, params: dict | None = None) -> dict:
         """Fetch account balance.
