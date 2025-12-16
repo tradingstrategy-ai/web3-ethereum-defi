@@ -50,9 +50,9 @@ services:
 
     # Try with 8gb RAM, 32G limit
     # The bottleneck seems to be the data cleaning script.
-    mem_limit: ${MEM_LIMIT:-32g}
+    mem_limit: ${MEM_LIMIT:-48g}
     mem_reservation: ${MEM_RESERVATION:-8g}
-    memswap_limit: ${MEMSWAP_LIMIT:-48g} # Total memory + swap limit
+    memswap_limit: ${MEMSWAP_LIMIT:-64g} # Total memory + swap limit
     shm_size: ${SHM_SIZE:-2g} # Shared memory size
 
     # OOM kill disable (use with caution)

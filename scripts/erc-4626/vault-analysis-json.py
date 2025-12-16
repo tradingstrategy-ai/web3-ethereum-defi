@@ -47,8 +47,8 @@ MONTHS = int(os.getenv("MONTHS", "3"))  # Time window in months
 EVENT_THRESHOLD = int(os.getenv("EVENT_THRESHOLD", "5"))  # Min event count
 MAX_ANNUALISED_RETURN = float(os.getenv("MAX_ANNUALISED_RETURN", "0.5"))  # Cap annualized return at 50%
 MIN_TVL = float(os.getenv("MIN_TVL", "50000"))  # Minimum TVL filter
-TOP_PER_CHAIN = int(os.getenv("TOP_PER_CHAIN", "30"))  # Top N vaults per chain
-OUTPUT_JSON = os.getenv("OUTPUT_JSON", "/root/top_vaults_analysis.json")
+TOP_PER_CHAIN = int(os.getenv("TOP_PER_CHAIN", "999"))  # Top N vaults per chain
+OUTPUT_JSON = Path(os.getenv("OUTPUT_JSON", "~/.tradingstrategy/vaults/stablecoin-vault-metrics.json")).expanduser()
 DATA_DIR = Path(os.getenv("DATA_DIR", "~/.tradingstrategy/vaults")).expanduser()
 PARQUET_FILE = DATA_DIR / "cleaned-vault-prices-1h.parquet"
 
