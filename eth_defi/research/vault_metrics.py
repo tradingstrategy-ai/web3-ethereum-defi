@@ -1716,9 +1716,10 @@ def export_lifetime_row(row: pd.Series) -> dict:
             # TODO: NaT hack, lockup: NaT is broken in somewhere deeper, investigate
             return None
 
-        if math.isinf(value):
-            # JSON cannot handle inf
-            return None
+        if isinstance(value, float):
+            if math.isinf(value):
+                # JSON cannot handle inf
+                return None
 
         return value
 
