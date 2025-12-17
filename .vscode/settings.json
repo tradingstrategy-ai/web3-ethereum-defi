@@ -8,6 +8,5 @@
         }
     },
     "python.testing.unittestEnabled": false,
-    "python.testing.pytestEnabled": true,
-    "wake.compiler.solc.remappings": []
+    "python.testing.pytestEnabled": true
 }
