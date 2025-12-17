@@ -42,6 +42,84 @@ logger = logging.getLogger(__name__)
 #: 0.01 = 1%
 Percent: TypeAlias = float
 
+Period: TypeAlias = Literal["1W", "1M", "6M", "1Y", "lifetime"]
+
+USDollarAmount: TypeAlias = float
+
+
+@dataclass(slots=True)
+class PeriodMetrics:
+    """Tearsheet metrics for one period."""
+
+    period: Period
+
+    error_reason: str
+
+    #: When was start share price sampled
+    period_start_at: pd.Timestamp
+
+    #: When was end share price sampled
+    period_end_at: pd.Timestamp
+
+    #: Share price at beginning
+    share_price_start: USDollarAmount
+
+    #: Share price at end
+    share_price_end: USDollarAmount
+
+    #: Number of raw datapoints used
+    raw_samples: int
+
+    samples_start_at: pd.Timestamp
+
+    samples_end_at: pd.Timestamp
+
+    #: Number of daily datapoitns used
+    daily_samples: int
+
+    #: How much absolute returns we had
+    returns_gross: Percent
+
+    returns_new: Percent
+
+    #: Compounding annual returns
+    cagr_gross: Percent
+
+    cagr_net: Percent
+
+    #: Annualised volatility, calculated based on daily returns
+    volatility: Percent
+
+    #: Sharpe ratio
+    sharpe: float
+
+    #: Period maximum drawdown
+    max_drawdown: Percent
+
+    #: TVL at the start of the period
+    tvl_start: USDollarAmount
+
+    #: TVL at the end of the period
+    tvl_end: USDollarAmount
+
+    #: Minimum TVL in the period
+    tvl_low: USDollarAmount
+
+    #: Maximum TVL in the period
+    tvl_high: USDollarAmount
+
+
+#: Period -> Perioud duration, max sparse sample mismatch
+LOOKBACK_AND_TOLERANCES: dict[Period, tuple[pd.DateOffset, pd.Timedelta]] = {
+    "1W": (pd.DateOffset(weeks=1), pd.Timedelta(days=5)),
+    "1M": (pd.DateOffset(months=1), pd.Timedelta(days=60)),
+    "3M": (pd.DateOffset(months=3), pd.Timedelta(days=90 + 45)),
+    "6M": (pd.DateOffset(months=6), pd.Timedelta(days=180 + 45)),
+    "1Y": (pd.DateOffset(years=1), pd.Timedelta(days=180 + 45)),
+    "all": (pd.DateOffset(years=999), pd.Timedelta(years=999)),
+}
+
+
 
 def fmt_one_decimal_or_int(x: float | None) -> str:
     """Display fees to .1 accuracy if there are .1 fractions, otherwise as int."""
@@ -550,6 +628,66 @@ def _unnullify(x: str | None, default: str = "<unknown>") -> str:
     if x is None or pd.isna(x):
         return default
     return x
+
+def calculate_period_metrics(
+    period: Period,
+    gross_fee_data: FeeData,
+    net_fee_data: FeeData,
+    share_price_hourly: pd.Series,
+    share_price_daily: pd.Series,
+    tvl: pd.Series,
+    now_: pd.Timestamp,
+) -> PeriodMetrics:
+    """Calculate metrics for one period."""
+
+    assert tvl.index == share_price_hourly.index, f"Share price and TVL have different index"
+
+    period_duration, period_tolerance = LOOKBACK_AND_TOLERANCES[period]
+    period_start_at = now_ - period_duration
+    period_end_at = now_
+
+    samples_start_at = share_price_hourly.index.asof(period_duration)
+    period_samples = share_price_hourly.loc[samples_start_at:]
+
+    if len(period_samples) == 0:
+        return PeriodMetrics(
+            period=period,
+            raw_samples=0,
+            period_start_at=period_start_at,
+            period_end_at=period_end_at,
+            error_reason="Period did not contain any samples"
+        )
+
+    samples_end_at = share_price_hourly.index[-1]
+    raw_samples = len(period_samples)
+
+    if len(period_samples) == 1:
+        return PeriodMetrics(
+            period=period,
+            raw_samples=raw_samples,
+            period_start_at=period_start_at,
+            period_end_at=period_end_at,
+            error_reason="Period contained only one sample",
+            samples_start_at=samples_start_at,
+            samples_end_at=samples_end_at,
+        )
+
+    period_tvl_samples = tvl[samples_start_at:samples_end_at]
+
+    calculate_net_profit(
+        start=samples_start_at,
+        end=end_date,
+        share_price_start=group.iloc[0]["share_price"],
+        share_price_end=group.iloc[-1]["share_price"],
+        management_fee_annual=net_fee_data.management,
+        performance_fee=net_fee_data.performance,
+        deposit_fee=net_fee_data.deposit,
+        withdrawal_fee=net_fee_data.withdraw,
+        sample_count=len(group),
+    )
+
+
+
 
 
 def calculate_lifetime_metrics(
