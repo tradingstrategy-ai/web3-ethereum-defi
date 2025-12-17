@@ -23,7 +23,7 @@ All fixtures are defined in conftest.py:
 from eth_defi.gmx.core import GetOpenPositions
 from eth_defi.gmx.order.base_order import OrderResult
 from eth_defi.gmx.trading import GMXTrading
-from tests.gmx.fork_helpers import execute_order_as_keeper, extract_order_key_from_receipt, setup_mock_oracle, fetch_on_chain_oracle_prices
+from tests.gmx.fork_helpers import execute_order_as_keeper, extract_order_key_from_receipt, fetch_on_chain_oracle_prices, setup_mock_oracle
 
 
 def test_initialization(arbitrum_fork_config):
@@ -39,6 +39,7 @@ def test_open_long_position(
     position_verifier_fork,
     arbitrum_fork_config,
     test_wallet,
+    execution_buffer,
 ):
     """
     Test opening a long ETH position with full execution.
@@ -64,7 +65,7 @@ def test_open_long_position(
         size_delta_usd=10,
         leverage=2.5,
         slippage_percent=0.005,
-        execution_buffer=2.2,
+        execution_buffer=execution_buffer,
     )
 
     # Verify OrderResult structure
@@ -111,6 +112,7 @@ def test_open_short_position(
     web3_arbitrum_fork,
     arbitrum_fork_config_short,
     test_wallet,
+    execution_buffer,
 ):
     """
     Test opening a short ETH position with full execution.
@@ -122,8 +124,8 @@ def test_open_short_position(
     3. Execute order as keeper
     4. Verify position was created
     """
-    from eth_defi.gmx.trading import GMXTrading
     from eth_defi.gmx.core import GetOpenPositions
+    from eth_defi.gmx.trading import GMXTrading
 
     # Create instances with short position config
     trading_manager_fork = GMXTrading(arbitrum_fork_config_short)
@@ -143,7 +145,7 @@ def test_open_short_position(
         size_delta_usd=10,
         leverage=2.5,
         slippage_percent=0.005,
-        execution_buffer=2.2,
+        execution_buffer=execution_buffer,
     )
 
     assert isinstance(order_result, OrderResult), "Expected OrderResult instance"
@@ -184,6 +186,7 @@ def test_open_and_close_position(
     web3_arbitrum_fork,
     arbitrum_fork_config_open_close,
     test_wallet,
+    execution_buffer,
 ):
     """
     Test full position lifecycle: open then close.
@@ -214,7 +217,7 @@ def test_open_and_close_position(
         size_delta_usd=10,
         leverage=2.5,
         slippage_percent=0.005,
-        execution_buffer=2.2,
+        execution_buffer=execution_buffer,
     )
 
     # Submit and execute open order
@@ -267,7 +270,7 @@ def test_open_and_close_position(
         size_delta_usd=position_size_usd_raw,  # Use raw value for exact match
         initial_collateral_delta=collateral_amount_usd,  # Withdraw all collateral
         slippage_percent=0.005,
-        execution_buffer=2.2,
+        execution_buffer=execution_buffer,
     )
 
     # Submit and execute close order

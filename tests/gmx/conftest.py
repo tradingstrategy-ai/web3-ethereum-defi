@@ -2,37 +2,34 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import Generator, Any
+from typing import Any, Generator
 
 import eth_abi
-from eth_defi.trace import assert_transaction_success_with_explanation
+import pytest
+from eth_account import Account
 from eth_pydantic_types import HexStr
-from eth_utils import to_checksum_address, keccak
-from web3 import Web3, HTTPProvider
+from eth_typing import HexAddress
+from eth_utils import keccak, to_checksum_address
+from web3 import HTTPProvider, Web3
 
-from eth_defi.chain import install_chain_middleware, get_chain_id_by_name
+from eth_defi.chain import get_chain_id_by_name, install_chain_middleware
 from eth_defi.gas import node_default_gas_price_strategy
 from eth_defi.gmx.api import GMXAPI
 from eth_defi.gmx.config import GMXConfig
-from eth_defi.gmx.core import GetOpenPositions, GetPoolTVL, Markets, GetFundingFee, GetClaimableFees, GetBorrowAPR, GetAvailableLiquidity
+from eth_defi.gmx.contracts import NETWORK_TOKENS, get_contract_addresses
+from eth_defi.gmx.core import GetAvailableLiquidity, GetBorrowAPR, GetClaimableFees, GetFundingFee, GetOpenPositions, GetPoolTVL, Markets
 from eth_defi.gmx.core.glv_stats import GlvStats
 from eth_defi.gmx.data import GMXMarketData
 from eth_defi.gmx.graphql.client import GMXSubsquidClient
-
 from eth_defi.gmx.order.base_order import BaseOrder
 from eth_defi.gmx.order.swap_order import SwapOrder
-from eth_defi.gmx.contracts import NETWORK_TOKENS, get_contract_addresses
 from eth_defi.gmx.synthetic_tokens import get_gmx_synthetic_token_by_symbol
 from eth_defi.gmx.trading import GMXTrading
+from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.anvil import fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.token import fetch_erc20_details, TokenDetails
-from eth_account import Account
-from eth_defi.hotwallet import HotWallet
-
-import pytest
-from eth_typing import HexAddress
-
+from eth_defi.token import TokenDetails, fetch_erc20_details
+from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.utils import addr
 from tests.gmx.fork_helpers import setup_mock_oracle
 
@@ -212,8 +209,14 @@ def pytest_generate_tests(metafunc):
         if not available_chains:
             pytest.skip("No JSON_RPC_ARBITRUM environment variable available")
 
-        # Parametrize tests with available chains (only arbitrum)
+        # Parametrise tests with available chains (only arbitrum)
         metafunc.parametrize("chain_name", available_chains)
+
+
+@pytest.fixture()
+def execution_buffer() -> float:
+    """Default execution buffer multiplier used across GMX tests."""
+    return 30
 
 
 @pytest.fixture()
@@ -1231,7 +1234,11 @@ def arbitrum_fork_config_short(
     GMX config for Arbitrum mainnet fork with mock oracle set to ETH price 3550.
     Used for short position tests.
     """
-    return _create_fork_config(web3_arbitrum_fork, anvil_private_key, wallet_with_all_tokens)
+    return _create_fork_config(
+        web3_arbitrum_fork,
+        anvil_private_key,
+        wallet_with_all_tokens,
+    )
 
 
 @pytest.fixture()
@@ -1245,7 +1252,11 @@ def arbitrum_fork_config_open_close(
     GMX config for Arbitrum mainnet fork with fresh mock oracle (ETH price: 3450).
     Used for open/close position tests.
     """
-    return _create_fork_config(web3_arbitrum_fork, anvil_private_key, wallet_with_all_tokens)
+    return _create_fork_config(
+        web3_arbitrum_fork,
+        anvil_private_key,
+        wallet_with_all_tokens,
+    )
 
 
 @pytest.fixture()

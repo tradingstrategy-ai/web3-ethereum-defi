@@ -13,24 +13,21 @@ Required environment variables:
 - TD_ARB: Tenderly fork URL (for --td mode)
 """
 
+import argparse
 import os
 import sys
-import argparse
 import time
 
 from eth_utils import to_checksum_address
-
-from eth_defi.chain import get_chain_name
-from eth_defi.gmx.config import GMXConfig
-from eth_defi.gmx.trading import GMXTrading
-from eth_defi.gmx.core.open_positions import GetOpenPositions
-from eth_defi.hotwallet import HotWallet
-from eth_defi.gmx.contracts import (
-    get_token_address_normalized,
-)
 from rich.console import Console
 from web3 import Web3
 
+from eth_defi.chain import get_chain_name
+from eth_defi.gmx.config import GMXConfig
+from eth_defi.gmx.contracts import get_token_address_normalized
+from eth_defi.gmx.trading import GMXTrading
+from eth_defi.gmx.core.open_positions import GetOpenPositions
+from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.anvil import fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import fetch_erc20_details
@@ -51,6 +48,7 @@ console = Console()
 FORK_BLOCK = 392496384
 LARGE_USDC_HOLDER = to_checksum_address("0xEe7aE85f2Fe2239E27D9c1E23fFFe168D63b4055")
 LARGE_WETH_HOLDER = to_checksum_address("0x70d95587d40A2caf56bd97485aB3Eec10Bee6336")
+EXECUTION_BUFFER = 30
 #
 # # Fetch prices from GMX API
 # console.print("\n[dim]Fetching prices from GMX API...[/dim]")
@@ -300,7 +298,7 @@ def main():
             size_delta_usd=size_usd,
             leverage=leverage,
             slippage_percent=0.005,
-            execution_buffer=2.2,
+            execution_buffer=EXECUTION_BUFFER,
         )
 
         console.print(f"\n[green]Order created[/green]")
@@ -417,8 +415,14 @@ def main():
                 # For short positions: price goes DOWN (-1000) to create profit
                 new_eth_price = current_eth_price + 1000 if is_long else current_eth_price - 1000
 
-                console.print(f"[dim]Setting up mock oracle for closing position (ETH=${new_eth_price}, USDC=${current_usdc_price})...[/dim]")
-                setup_mock_oracle(web3, eth_price_usd=new_eth_price, usdc_price_usd=current_usdc_price)
+                console.print(
+                    f"[dim]Setting up mock oracle for closing position (ETH=${new_eth_price}, USDC=${current_usdc_price})...[/dim]",
+                )
+                setup_mock_oracle(
+                    web3,
+                    eth_price_usd=new_eth_price,
+                    usdc_price_usd=current_usdc_price,
+                )
                 console.print(f"[dim]Mock oracle configured[/dim]\n")
 
                 try:
@@ -430,7 +434,7 @@ def main():
                         size_delta_usd=position_size_usd_raw,  # Use raw value for exact match
                         initial_collateral_delta=collateral_amount_usd,
                         slippage_percent=0.005,
-                        execution_buffer=2.2,
+                        execution_buffer=EXECUTION_BUFFER,
                     )
 
                     console.print(f"\n[green]Close order created[/green]")

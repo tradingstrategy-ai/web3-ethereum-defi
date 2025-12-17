@@ -11,7 +11,7 @@ from eth_defi.gmx.core import GetOpenPositions
 from tests.gmx.fork_helpers import execute_order_as_keeper, extract_order_key_from_receipt
 
 
-def test_ccxt_style_create_market_buy_order(arbitrum_fork_config, test_wallet):
+def test_ccxt_style_create_market_buy_order(arbitrum_fork_config, test_wallet, execution_buffer):
     """Test opening a long position with CCXT-style initialization.
 
     - Initializes GMX with CCXT-style parameters
@@ -43,7 +43,7 @@ def test_ccxt_style_create_market_buy_order(arbitrum_fork_config, test_wallet):
             "leverage": 2.5,
             "collateral_symbol": "ETH",
             "slippage_percent": 0.005,
-            "execution_buffer": 2.2,
+            "execution_buffer": execution_buffer,
         },
     )
 
@@ -83,7 +83,7 @@ def test_ccxt_style_create_market_buy_order(arbitrum_fork_config, test_wallet):
     assert position["leverage"] > 0
 
 
-def test_ccxt_style_create_market_sell_order(arbitrum_fork_config, test_wallet):
+def test_ccxt_style_create_market_sell_order(arbitrum_fork_config, test_wallet, execution_buffer):
     """Test closing a long position with CCXT-style initialization.
 
     - Initializes GMX with CCXT-style parameters
@@ -113,7 +113,7 @@ def test_ccxt_style_create_market_sell_order(arbitrum_fork_config, test_wallet):
             "leverage": 2.5,
             "collateral_symbol": "ETH",
             "slippage_percent": 0.005,
-            "execution_buffer": 2.2,
+            "execution_buffer": execution_buffer,
         },
     )
 
@@ -134,7 +134,7 @@ def test_ccxt_style_create_market_sell_order(arbitrum_fork_config, test_wallet):
         {
             "collateral_symbol": "ETH",
             "slippage_percent": 0.005,
-            "execution_buffer": 2.2,
+            "execution_buffer": execution_buffer,
         },
     )
 
@@ -156,7 +156,7 @@ def test_ccxt_style_create_market_sell_order(arbitrum_fork_config, test_wallet):
     assert len(positions_after) == 0
 
 
-def test_ccxt_style_create_order_generic(arbitrum_fork_config, test_wallet):
+def test_ccxt_style_create_order_generic(arbitrum_fork_config, test_wallet, execution_buffer):
     """Test generic create_order method with CCXT-style init.
 
     - Uses CCXT-style initialization
@@ -187,7 +187,7 @@ def test_ccxt_style_create_order_generic(arbitrum_fork_config, test_wallet):
             "leverage": 3.0,
             "collateral_symbol": "USDC",
             "slippage_percent": 0.01,
-            "execution_buffer": 2.5,
+            "execution_buffer": execution_buffer,
         },
     )
 
@@ -209,7 +209,7 @@ def test_ccxt_style_create_order_generic(arbitrum_fork_config, test_wallet):
     assert len(positions) > 0
 
 
-def test_ccxt_style_open_and_close_complete_flow(arbitrum_fork_config, test_wallet):
+def test_ccxt_style_open_and_close_complete_flow(arbitrum_fork_config, test_wallet, execution_buffer):
     """Test complete open and close flow with CCXT-style init.
 
     - Opens position with CCXT-style init
@@ -238,7 +238,7 @@ def test_ccxt_style_open_and_close_complete_flow(arbitrum_fork_config, test_wall
             "leverage": 3.0,
             "collateral_symbol": "ETH",
             "slippage_percent": 0.005,
-            "execution_buffer": 2.2,
+            "execution_buffer": execution_buffer,
         },
     )
 
@@ -263,7 +263,7 @@ def test_ccxt_style_open_and_close_complete_flow(arbitrum_fork_config, test_wall
         {
             "collateral_symbol": "ETH",
             "slippage_percent": 0.005,
-            "execution_buffer": 2.2,
+            "execution_buffer": execution_buffer,
         },
     )
 
@@ -277,7 +277,7 @@ def test_ccxt_style_open_and_close_complete_flow(arbitrum_fork_config, test_wall
     assert len(positions_after_close) == 0
 
 
-def test_ccxt_style_with_wallet_object(arbitrum_fork_config, test_wallet):
+def test_ccxt_style_with_wallet_object(arbitrum_fork_config, test_wallet, execution_buffer):
     """Test CCXT-style init with wallet object instead of privateKey.
 
     - Uses wallet object in parameters
@@ -304,7 +304,7 @@ def test_ccxt_style_with_wallet_object(arbitrum_fork_config, test_wallet):
             "leverage": 2.5,
             "collateral_symbol": "ETH",
             "slippage_percent": 0.005,
-            "execution_buffer": 2.2,
+            "execution_buffer": execution_buffer,
         },
     )
 

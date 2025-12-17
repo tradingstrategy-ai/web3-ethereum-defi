@@ -11,7 +11,7 @@ from eth_defi.gmx.core import GetOpenPositions
 from tests.gmx.fork_helpers import execute_order_as_keeper, extract_order_key_from_receipt
 
 
-def test_create_market_buy_order(arbitrum_fork_config, test_wallet):
+def test_create_market_buy_order(arbitrum_fork_config, test_wallet, execution_buffer):
     """Test opening a long position with create_market_buy_order.
 
     - Creates market buy order for ETH/USD
@@ -30,7 +30,7 @@ def test_create_market_buy_order(arbitrum_fork_config, test_wallet):
             "leverage": 2.5,
             "collateral_symbol": "ETH",
             "slippage_percent": 0.005,
-            "execution_buffer": 2.2,
+            "execution_buffer": execution_buffer,
         },
     )
 
@@ -70,7 +70,7 @@ def test_create_market_buy_order(arbitrum_fork_config, test_wallet):
     assert position["leverage"] > 0
 
 
-def test_create_market_sell_order(arbitrum_fork_config, test_wallet):
+def test_create_market_sell_order(arbitrum_fork_config, test_wallet, execution_buffer):
     """Test closing a long position with create_market_sell_order.
 
     - Opens a long position first
@@ -89,7 +89,7 @@ def test_create_market_sell_order(arbitrum_fork_config, test_wallet):
             "leverage": 2.5,
             "collateral_symbol": "ETH",
             "slippage_percent": 0.005,
-            "execution_buffer": 2.2,
+            "execution_buffer": execution_buffer,
         },
     )
 
@@ -110,7 +110,7 @@ def test_create_market_sell_order(arbitrum_fork_config, test_wallet):
         {
             "collateral_symbol": "ETH",
             "slippage_percent": 0.005,
-            "execution_buffer": 2.2,
+            "execution_buffer": execution_buffer,
         },
     )
 
@@ -132,7 +132,7 @@ def test_create_market_sell_order(arbitrum_fork_config, test_wallet):
     assert len(positions_after) == 0
 
 
-def test_create_order(arbitrum_fork_config, test_wallet):
+def test_create_order(arbitrum_fork_config, test_wallet, execution_buffer):
     """Test generic create_order method with custom parameters.
 
     - Uses create_order directly instead of convenience methods
@@ -153,7 +153,7 @@ def test_create_order(arbitrum_fork_config, test_wallet):
             "leverage": 3.0,
             "collateral_symbol": "USDC",
             "slippage_percent": 0.01,
-            "execution_buffer": 2.5,
+            "execution_buffer": execution_buffer,
         },
     )
 

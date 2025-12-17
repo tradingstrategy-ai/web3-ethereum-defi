@@ -613,13 +613,13 @@ class GMX(ExchangeCompatible):
         :type reload: bool
         :param params: Additional parameters (for CCXT compatibility, not currently used)
         :type params: dict | None
-        :return: dictionary mapping unified symbols (e.g., "ETH/USDC") to market info
+        :return: dictionary mapping unified symbols (e.g. "ETH/USDC") to market info
         :rtype: dict[str, Any]
         """
         if self.markets_loaded and not reload:
             return self.markets
 
-        # Use GraphQL by default for fast initialization (avoids slow RPC calls to Markets/Oracle)
+        # Use GraphQL by default for fast initialisation (avoids slow RPC calls to Markets/Oracle)
         # Only use RPC path if explicitly requested via graphql_only=False
         use_graphql_only = not (params and params.get("graphql_only") is False) and not self.options.get("graphql_only") is False
 
@@ -641,7 +641,7 @@ class GMX(ExchangeCompatible):
                     market_addr = market_info.get("marketTokenAddress")
                     min_collateral_factor = market_info.get("minCollateralFactor")
                     if market_addr and min_collateral_factor:
-                        # Normalize address to checksum format to match available_markets keys
+                        # Normalise address to checksum format to match available_markets keys
                         market_addr = to_checksum_address(market_addr)
                         max_leverage = GMXSubsquidClient.calculate_max_leverage(
                             min_collateral_factor,
@@ -1777,11 +1777,7 @@ class GMX(ExchangeCompatible):
             If you need funding rate history (not payment history), use
             fetch_funding_rate_history() instead.
         """
-        logger.warning(
-            "fetch_funding_history() called but GMX V2 does not track historical "
-            "funding fee payments. Returning empty list (funding fees will be "
-            "calculated as 0.0)."
-        )
+        logger.warning("fetch_funding_history() called but GMX V2 does not track historical funding fee payments. Returning empty list (funding fees will be calculated as 0.0).")
         return []
 
     def fetch_ticker(
@@ -2879,6 +2875,7 @@ class GMX(ExchangeCompatible):
         """
         params = params or {}
 
+        # TODO: GMX now supports leverage less than 1. Handle this new update
         # Validate leverage
         if leverage < 1.0:
             raise ValueError(f"Leverage must be >= 1.0, got {leverage}")
@@ -3278,7 +3275,7 @@ class GMX(ExchangeCompatible):
         else:
             # For market orders, fetch current price
             ticker = self.fetch_ticker(symbol)
-            current_price = ticker['last']
+            current_price = ticker["last"]
             size_delta_usd = amount * current_price
 
         gmx_params = {
@@ -3341,20 +3338,14 @@ class GMX(ExchangeCompatible):
 
         # Check current allowance
         wallet_address = self.wallet.address
-        current_allowance = token_contract.functions.allowance(
-            to_checksum_address(wallet_address),
-            spender_address
-        ).call()
+        current_allowance = token_contract.functions.allowance(to_checksum_address(wallet_address), spender_address).call()
 
         # Calculate required collateral amount (position size / leverage)
         # Add 10% buffer for fees
         required_collateral_usd = (size_delta_usd / leverage) * 1.1
         required_amount = int(required_collateral_usd * (10**token_details.decimals))
 
-        logger.debug(
-            f"Token approval check: {collateral_symbol} allowance={current_allowance / (10**token_details.decimals):.4f}, "
-            f"required={required_amount / (10**token_details.decimals):.4f}"
-        )
+        logger.debug(f"Token approval check: {collateral_symbol} allowance={current_allowance / (10**token_details.decimals):.4f}, required={required_amount / (10**token_details.decimals):.4f}")
 
         # If allowance is sufficient, no action needed
         if current_allowance >= required_amount:
@@ -3365,22 +3356,16 @@ class GMX(ExchangeCompatible):
         # Approve 1 billion tokens (same pattern as debug_deploy.py)
         approve_amount = 1_000_000_000 * (10**token_details.decimals)
 
-        logger.info(
-            f"Insufficient {collateral_symbol} allowance. "
-            f"Current: {current_allowance / (10**token_details.decimals):.4f}, "
-            f"Required: {required_amount / (10**token_details.decimals):.4f}. "
-            f"Approving {approve_amount / (10**token_details.decimals):.0f} {collateral_symbol}..."
-        )
+        logger.info(f"Insufficient {collateral_symbol} allowance. Current: {current_allowance / (10**token_details.decimals):.4f}, Required: {required_amount / (10**token_details.decimals):.4f}. Approving {approve_amount / (10**token_details.decimals):.0f} {collateral_symbol}...")
 
         # Build approval transaction
-        approve_tx = token_contract.functions.approve(
-            spender_address,
-            approve_amount
-        ).build_transaction({
-            "from": to_checksum_address(wallet_address),
-            "gas": 100_000,
-            "gasPrice": self.web3.eth.gas_price,
-        })
+        approve_tx = token_contract.functions.approve(spender_address, approve_amount).build_transaction(
+            {
+                "from": to_checksum_address(wallet_address),
+                "gas": 100_000,
+                "gasPrice": self.web3.eth.gas_price,
+            }
+        )
 
         # CRITICAL: Remove nonce before calling sign_transaction_with_new_nonce
         # The wallet will manage the nonce automatically
@@ -3397,10 +3382,7 @@ class GMX(ExchangeCompatible):
         approve_receipt = self.web3.eth.wait_for_transaction_receipt(approve_tx_hash, timeout=120)
 
         if approve_receipt["status"] == 1:
-            logger.info(
-                f"Token approval successful! Approved {approve_amount / (10**token_details.decimals):.0f} "
-                f"{collateral_symbol} for {spender_address}"
-            )
+            logger.info(f"Token approval successful! Approved {approve_amount / (10**token_details.decimals):.0f} {collateral_symbol} for {spender_address}")
         else:
             raise Exception(f"Token approval transaction failed: {approve_tx_hash.hex()}")
 
@@ -3617,11 +3599,7 @@ class GMX(ExchangeCompatible):
                 position_collateral = position_data.get("collateral_token", "")
 
                 # Match market, collateral, and must be a long position
-                if (
-                    position_market == base_currency
-                    and position_collateral == gmx_params["collateral_symbol"]
-                    and position_is_long
-                ):
+                if position_market == base_currency and position_collateral == gmx_params["collateral_symbol"] and position_is_long:
                     position_to_close = position_data
                     break
 
@@ -3647,8 +3625,7 @@ class GMX(ExchangeCompatible):
 
             if not position_size_usd or position_size_usd <= 0:
                 raise ValueError(
-                    f"Cannot determine position size for {symbol} to close. "
-                    f"Position data: {position_to_close}",
+                    f"Cannot determine position size for {symbol} to close. Position data: {position_to_close}",
                 )
 
             # User-requested size (from CCXT amount / strategy).
@@ -3660,8 +3637,7 @@ class GMX(ExchangeCompatible):
 
             if size_delta_usd <= 0:
                 raise ValueError(
-                    f"Requested close size {requested_size_usd} is not positive for "
-                    f"position size {position_size_usd} on {symbol}",
+                    f"Requested close size {requested_size_usd} is not positive for position size {position_size_usd} on {symbol}",
                 )
 
             # Derive collateral delta proportionally from the original collateral.

@@ -1396,11 +1396,7 @@ class GMX(Exchange):
             If you need funding rate history (not payment history), use
             fetch_funding_rate_history() instead.
         """
-        logger.warning(
-            "fetch_funding_history() called but GMX V2 does not track historical "
-            "funding fee payments. Returning empty list (funding fees will be "
-            "calculated as 0.0)."
-        )
+        logger.warning("fetch_funding_history() called but GMX V2 does not track historical funding fee payments. Returning empty list (funding fees will be calculated as 0.0).")
         return []
 
     async def fetch_funding_rates(self, symbols: list[str] | None = None, params: dict | None = None) -> dict:
