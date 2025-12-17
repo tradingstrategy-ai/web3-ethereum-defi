@@ -137,7 +137,7 @@ def convert_raw_price_to_usd(raw_price: int | float, token_decimals: int) -> flo
     :return: Price in USD
     """
     price_decimals = GMX_PRICE_PRECISION - token_decimals
-    return float(raw_price) / (10 ** price_decimals)
+    return float(raw_price) / (10**price_decimals)
 
 
 def convert_usd_to_raw_price(price_usd: float, token_decimals: int) -> int:
@@ -150,7 +150,7 @@ def convert_usd_to_raw_price(price_usd: float, token_decimals: int) -> int:
     :return: Raw price value in GMX 30-decimal format
     """
     price_decimals = GMX_PRICE_PRECISION - token_decimals
-    return int(price_usd * (10 ** price_decimals))
+    return int(price_usd * (10**price_decimals))
 
 
 # Can be done using the `GMXAPI` class if needed

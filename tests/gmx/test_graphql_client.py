@@ -2,8 +2,10 @@
 Tests for GMX Subsquid GraphQL client.
 """
 
-import pytest
 from decimal import Decimal
+
+import pytest
+from eth_utils.address import to_checksum_address
 
 from eth_defi.gmx.graphql.client import GMXSubsquidClient
 
@@ -213,14 +215,15 @@ def test_format_position(graphql_client):
     raw_position = {
         "id": "test-position",
         "positionKey": "0x1234",
-        "account": "0x5678",
-        "market": "0xabcd",
-        "collateralToken": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",  # USDC (6 decimals)
+        "account": to_checksum_address("0xaf88d065e77c8cC2239327C5EDb3A432268e5831"),
+        "market": to_checksum_address("0xaf88d065e77c8cC2239327C5EDb3A432268e5831"),
+        "collateralToken": to_checksum_address("0xaf88d065e77c8cC2239327C5EDb3A432268e5831"),  # USDC (6 decimals)
         "isLong": True,
         "collateralAmount": "1000000",  # 1 USDC (6 decimals)
         "sizeInUsd": "10000000000000000000000000000000",  # 10 USD (30 decimals)
-        "sizeInTokens": "1000000000000000000000000000000",  # 1 token (30 decimals)
-        "entryPrice": "3000000000000000000000",  # 3000 USD (18 decimals)
+        # Use realistic scaling based on index token decimals (defaults to 18 here)
+        "sizeInTokens": "1000000000000000000",  # 1 token (18 decimals)
+        "entryPrice": "3000000000000000",  # 3000 USD when decoded with 12 decimals
         "realizedPnl": "500000000000000000000000000000",  # 0.5 USD (30 decimals)
         "unrealizedPnl": "-200000000000000000000000000000",  # -0.2 USD (30 decimals)
         "realizedFees": "100000000000000000000000000000",  # 0.1 USD (30 decimals)

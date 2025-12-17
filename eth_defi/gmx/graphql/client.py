@@ -10,8 +10,9 @@ The original contract-based implementation (GetOpenPositions) remains the source
 of truth for on-chain data when executing trades.
 """
 
-from typing import Optional, Any
 from decimal import Decimal
+from typing import Any, Optional
+
 import requests
 
 from eth_defi.gmx.contracts import GMX_SUBSQUID_ENDPOINTS, get_tokens_metadata_dict
@@ -753,13 +754,22 @@ class GMXSubsquidClient:
         :param token_address: Token contract address
         :return: Number of decimals for the token
         """
-        from eth_utils import to_checksum_address
+        from eth_utils import is_address, to_checksum_address
+
+        # Validate address before normalizing
+        if not is_address(token_address):
+            # Invalid address format, default to 18 decimals
+            return 18
+
+        try:
+            # Normalize address to checksum format
+            checksum_address = to_checksum_address(token_address)
+        except (ValueError, TypeError):
+            # Invalid address format, default to 18 decimals
+            return 18
 
         # Get token metadata from GMX API
         tokens_metadata = self._get_tokens_metadata()
-
-        # Normalize address to checksum format
-        checksum_address = to_checksum_address(token_address)
 
         # Look up token in metadata
         if checksum_address in tokens_metadata:
@@ -778,6 +788,7 @@ class GMXSubsquidClient:
             self._markets_cache = {}
             for market in markets_list:
                 from eth_utils import to_checksum_address
+
                 market_addr = to_checksum_address(market["id"])
                 self._markets_cache[market_addr] = market
         return self._markets_cache
@@ -788,10 +799,19 @@ class GMXSubsquidClient:
         :param market_address: Market contract address
         :return: Number of decimals for the index token
         """
-        from eth_utils import to_checksum_address
+        from eth_utils import is_address, to_checksum_address
 
-        # Normalize market address
-        market_addr = to_checksum_address(market_address)
+        # Validate address before normalizing
+        if not is_address(market_address):
+            # Invalid address format, default to 18 decimals
+            return 18
+
+        try:
+            # Normalize market address
+            market_addr = to_checksum_address(market_address)
+        except (ValueError, TypeError):
+            # Invalid address format, default to 18 decimals
+            return 18
 
         # Get market info from cache
         markets = self._get_markets_cache()

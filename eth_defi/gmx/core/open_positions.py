@@ -265,7 +265,7 @@ class GetOpenPositions(GetData):
         is_long = pos["isLong"]
 
         # GraphQL provides entry price and leverage directly (different decimal format than RPC)
-        entry_price = int(pos["entryPrice"]) / 10**(30-index_token_info["decimals"])
+        entry_price = int(pos["entryPrice"]) / 10 ** (30 - index_token_info["decimals"])
         leverage = int(pos["leverage"]) / 10**4
 
         # Calculate collateral value in USD
@@ -280,17 +280,13 @@ class GetOpenPositions(GetData):
         mark_price = entry_price  # Default fallback
         if oracle_address in prices:
             price_data = prices[oracle_address]
-            mark_price = np.median([float(price_data["maxPriceFull"]), float(price_data["minPriceFull"])]) / 10 ** (
-                30 - index_decimals
-            )
+            mark_price = np.median([float(price_data["maxPriceFull"]), float(price_data["minPriceFull"])]) / 10 ** (30 - index_decimals)
 
         # Get collateral price for USD value calculation
         collateral_oracle = get_oracle_address(chain_name, collateral_token)
         if collateral_oracle in prices:
             collateral_price_data = prices[collateral_oracle]
-            collateral_price = np.median(
-                [float(collateral_price_data["maxPriceFull"]), float(collateral_price_data["minPriceFull"])]
-            ) / 10 ** (30 - collateral_decimals)
+            collateral_price = np.median([float(collateral_price_data["maxPriceFull"]), float(collateral_price_data["minPriceFull"])]) / 10 ** (30 - collateral_decimals)
         else:
             collateral_price = 1.0  # Assume $1 for stablecoins
 

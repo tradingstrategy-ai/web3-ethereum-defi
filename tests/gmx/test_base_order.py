@@ -12,13 +12,14 @@ when connected to different networks using Anvil forks. Tests include:
 - Price impact estimation
 """
 
-import pytest
+import logging
 from decimal import Decimal
+
+import pytest
 from eth_utils import to_checksum_address
 
-from eth_defi.gmx.order.base_order import BaseOrder, OrderParams, OrderResult, ETH_ZERO_ADDRESS, ZERO_REFERRAL_CODE
 from eth_defi.gmx.contracts import NETWORK_TOKENS
-
+from eth_defi.gmx.order.base_order import ETH_ZERO_ADDRESS, ZERO_REFERRAL_CODE, BaseOrder, OrderParams, OrderResult
 
 # ==================== Dataclass Tests ====================
 
@@ -71,7 +72,7 @@ def test_order_params_defaults():
     assert params.slippage_percent == 0.005
     assert params.swap_path == []
     assert params.auto_cancel is False
-    assert params.execution_buffer == 1.3
+    assert params.execution_buffer == 2.2
     # Updated: Test new field defaults
     assert params.callback_gas_limit == 0
     assert params.min_output_amount == 0
@@ -579,8 +580,6 @@ def test_check_for_approval_native_token(chain_name, base_order):
 
 def test_check_for_approval_insufficient_erc20(chain_name, base_order, usdc, test_address, caplog):
     """Test approval check logs warning with insufficient allowance."""
-    import logging
-
     markets = base_order.markets.get_available_markets()
     market_key = next(iter(markets.keys()))
     market_data = markets[market_key]

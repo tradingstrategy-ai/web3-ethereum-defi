@@ -137,8 +137,7 @@ class GMXAPI:
         sample = None
         if isinstance(response, list) and response:
             sample = {
-                "token": response[3].get("tokenSymbol")
-                or response[3].get("tokenAddress"),
+                "token": response[3].get("tokenSymbol") or response[3].get("tokenAddress"),
                 "maxPrice": response[3].get("maxPrice"),
                 "minPrice": response[3].get("minPrice"),
             }
