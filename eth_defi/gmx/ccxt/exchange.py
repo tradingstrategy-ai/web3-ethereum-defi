@@ -28,15 +28,15 @@ import time
 from datetime import datetime
 from typing import Any
 
-from eth_utils import to_checksum_address
 from ccxt.base.errors import NotSupported, OrderNotFound
+from eth_utils import to_checksum_address
 
-from eth_defi.chain import get_chain_name
-from eth_defi.gmx.ccxt.errors import InsufficientHistoricalDataError
-from eth_defi.gmx.ccxt.validation import _validate_ohlcv_data_sufficiency
 from eth_defi.ccxt.exchange_compatible import ExchangeCompatible
+from eth_defi.chain import get_chain_name
 from eth_defi.gmx.api import GMXAPI
+from eth_defi.gmx.ccxt.errors import InsufficientHistoricalDataError
 from eth_defi.gmx.ccxt.properties import describe_gmx
+from eth_defi.gmx.ccxt.validation import _validate_ohlcv_data_sufficiency
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.contracts import get_contract_addresses, get_token_address_normalized
 from eth_defi.gmx.core import GetOpenPositions

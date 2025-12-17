@@ -895,11 +895,41 @@ def trading_manager(arbitrum_fork_config):
 
 
 @pytest.fixture()
-def test_wallet(web3_arbitrum_fork, anvil_private_key):
+def test_wallet(web3_arbitrum_fork, anvil_private_key, chain_name, large_weth_holder_arbitrum):
     """Create a HotWallet for testing transactions."""
     account = Account.from_key(anvil_private_key)
     wallet = HotWallet(account)
     wallet.sync_nonce(web3_arbitrum_fork)
+
+    # Fund wallet with ETH for gas fees (required for GMX order transactions)
+    # GMX orders require ETH for execution fees and gas
+    eth_amount_wei = 100 * 10**18  # 100 ETH should be enough for multiple transactions
+    web3_arbitrum_fork.provider.make_request(
+        "anvil_setBalance",
+        [wallet.address, hex(eth_amount_wei)],
+    )
+
+    # Fund wallet with WETH for collateral (tests use ETH/WETH as collateral)
+    if chain_name == "arbitrum":
+        try:
+            config = _get_chain_config_with_tokens(chain_name)
+            weth_address = config["native_token_address"]  # WETH is the native token on Arbitrum
+            weth = fetch_erc20_details(web3_arbitrum_fork, weth_address)
+
+            # Fund the whale holder with ETH for gas
+            gas_eth = 10 * 10**18
+            web3_arbitrum_fork.provider.make_request(
+                "anvil_setBalance",
+                [large_weth_holder_arbitrum, hex(gas_eth)],
+            )
+
+            # Transfer WETH to test wallet
+            weth_amount = 1000 * 10**18  # 1000 WETH for collateral
+            weth.contract.functions.transfer(wallet.address, weth_amount).transact({"from": large_weth_holder_arbitrum})
+        except Exception:
+            # If WETH transfer fails, that's ok - some tests might not need it
+            pass
+
     return wallet
 
 
