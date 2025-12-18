@@ -225,3 +225,66 @@ def test_export_lifetime_metrics(
     r = rows[0]
     assert r["name"] == "Clearstar USDC.e"
     assert r["chain"] == "Hemi"
+
+
+def test_export_lifetime_row_nat_serialization():
+    """Test that NaT values are properly serialized as None/null, not the string "NaT".
+
+    This is a regression test for a bug where pd.NaT values were being converted
+    to the string "NaT" instead of null in JSON output.
+    """
+    # Create a test DataFrame with NaT values in various columns
+    # We need to explicitly set dtypes to force pandas to convert None to NaT
+    test_data = {
+        "name": ["Test Vault"],
+        "chain": ["test-chain"],
+        "current_nav": [1000.0],
+        "lockup": [None],
+        "one_month_start": [None],
+        "one_month_end": [None],
+        "three_months_start": [None],
+        "three_months_end": [None],
+        "cagr": [0.05],
+        "event_count": [100],
+    }
+
+    df = pd.DataFrame(test_data)
+    # Force datetime columns to datetime64[ns] dtype, which converts None to NaT
+    df["one_month_start"] = pd.to_datetime(df["one_month_start"])
+    df["one_month_end"] = pd.to_datetime(df["one_month_end"])
+    df["three_months_start"] = pd.to_datetime(df["three_months_start"])
+    df["three_months_end"] = pd.to_datetime(df["three_months_end"])
+    # Force lockup to float, which also converts None to NaT in this context
+    df["lockup"] = df["lockup"].astype("float64")
+
+    row = df.iloc[0]
+
+    # Verify that pandas has converted None to NaT for datetime fields
+    # (this is the precondition that caused the bug)
+    row_dict = row.to_dict()
+    assert row_dict["one_month_start"] is pd.NaT
+    # For numeric columns, None becomes NaN which also gets represented as NaT in to_dict()
+    assert pd.isna(row_dict["lockup"])
+
+    # Export the row
+    result = export_lifetime_row(row)
+
+    # Verify the result is JSON serializable
+    json_str = json.dumps(result)
+
+    # Parse it back to verify the actual values
+    parsed = json.loads(json_str)
+
+    # These fields should be null in JSON, NOT the string "NaT"
+    assert parsed["lockup"] is None, f"lockup should be null, got {parsed['lockup']!r}"
+    assert parsed["one_month_start"] is None, f"one_month_start should be null, got {parsed['one_month_start']!r}"
+    assert parsed["one_month_end"] is None, f"one_month_end should be null, got {parsed['one_month_end']!r}"
+    assert parsed["three_months_start"] is None, f"three_months_start should be null, got {parsed['three_months_start']!r}"
+    assert parsed["three_months_end"] is None, f"three_months_end should be null, got {parsed['three_months_end']!r}"
+
+    # Verify that the JSON string does not contain the literal string "NaT"
+    assert '"NaT"' not in json_str, f"JSON output should not contain the string 'NaT', but got: {json_str}"
+
+    # Verify other fields are still properly serialized
+    assert parsed["name"] == "Test Vault"
+    assert parsed["current_nav"] == 1000.0
