@@ -1677,6 +1677,10 @@ def export_lifetime_row(row: pd.Series) -> dict:
     """
 
     def _serialize(value):
+        # Check for NaT first, before any isinstance checks
+        # (pd.NaT can match isinstance checks for datetime/Timestamp)
+        if value is pd.NaT:
+            return None
         # Numpy scalar
         if isinstance(value, (np.floating, np.integer)):
             return value.item()
@@ -1687,8 +1691,6 @@ def export_lifetime_row(row: pd.Series) -> dict:
         if isinstance(value, datetime.datetime):
             return value.isoformat()
         # Timedelta types
-        if value is pd.NaT:
-            return None
         if isinstance(value, (pd.Timedelta, datetime.timedelta)):
             return value.total_seconds()
         # Custom enum-like risk object
@@ -1711,9 +1713,8 @@ def export_lifetime_row(row: pd.Series) -> dict:
         if isinstance(value, Enum):
             return value.value
 
-        # Na-like scalar
-        if pd.isna(value) or value == "NaT":
-            # TODO: NaT hack, lockup: NaT is broken in somewhere deeper, investigate
+        # Na-like scalar (NaN, None, etc.)
+        if pd.isna(value):
             return None
 
         if isinstance(value, float):
