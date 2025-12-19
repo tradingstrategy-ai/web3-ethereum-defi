@@ -234,6 +234,7 @@ STABLECOIN_LIKE = set(
         "USD+",
         "USD0",
         "USD1",
+        "USD8",
         "USDA",
         "USDB",
         "USDC",
