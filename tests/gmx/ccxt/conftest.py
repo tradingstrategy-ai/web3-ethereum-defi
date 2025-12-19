@@ -5,10 +5,10 @@
 
 import logging
 import os
-from typing import Generator, Any
+from typing import Any, Generator
 
 import pytest
-from web3 import Web3, HTTPProvider
+from web3 import HTTPProvider, Web3
 
 from eth_defi.chain import install_chain_middleware
 from eth_defi.gas import node_default_gas_price_strategy
@@ -200,33 +200,33 @@ def ccxt_gmx_fork_short(
 @pytest.fixture
 def web3(chain_rpc_url) -> Web3:
     """Simple Web3 instance connected to Arbitrum mainnet (no fork).
-    
+
     Used for tests that don't need fork functionality, like monkeypatch tests.
     """
     rpc_url = os.environ.get("JSON_RPC_ARBITRUM")
     if not rpc_url:
         pytest.skip("No JSON_RPC_ARBITRUM environment variable available")
-    
+
     web3 = Web3(HTTPProvider(rpc_url))
     web3.middleware_onion.clear()
     install_chain_middleware(web3)
-    
+
     if not web3.is_connected():
         pytest.skip(f"Could not connect to Arbitrum RPC at {rpc_url}")
-    
+
     return web3
 
 
 @pytest.fixture
 def gmx_arbitrum(chain_rpc_url) -> GMX:
     """GMX CCXT instance connected to Arbitrum mainnet (no fork).
-    
+
     Used for endpoint tests that only need to read data from mainnet.
     """
     rpc_url = os.environ.get("JSON_RPC_ARBITRUM")
     if not rpc_url:
         pytest.skip("No JSON_RPC_ARBITRUM environment variable available")
-    
+
     gmx = GMX(
         params={
             "rpcUrl": rpc_url,
@@ -238,7 +238,7 @@ def gmx_arbitrum(chain_rpc_url) -> GMX:
 @pytest.fixture
 def ccxt_gmx_arbitrum(gmx_arbitrum) -> GMX:
     """Alias for gmx_arbitrum fixture for consistency with other test files.
-    
+
     Some tests use ccxt_gmx_arbitrum naming convention.
     """
     return gmx_arbitrum

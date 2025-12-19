@@ -9,10 +9,7 @@ import time
 from flaky import flaky
 
 from eth_defi.gmx.ccxt.exchange import GMX
-from tests.gmx.fork_helpers import (execute_order_as_keeper,
-                                    extract_order_key_from_receipt,
-                                    fetch_on_chain_oracle_prices,
-                                    setup_mock_oracle)
+from tests.gmx.fork_helpers import execute_order_as_keeper, extract_order_key_from_receipt, fetch_on_chain_oracle_prices, setup_mock_oracle
 
 
 def _execute_order(web3, tx_hash):
