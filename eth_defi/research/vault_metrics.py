@@ -42,7 +42,7 @@ logger = logging.getLogger(__name__)
 #: 0.01 = 1%
 Percent: TypeAlias = float
 
-Period: TypeAlias = Literal["1W", "1M", "6M", "1Y", "lifetime"]
+Period: TypeAlias = Literal["1W", "1M", "3M", "6M", "1Y", "lifetime"]
 
 USDollarAmount: TypeAlias = float
 
