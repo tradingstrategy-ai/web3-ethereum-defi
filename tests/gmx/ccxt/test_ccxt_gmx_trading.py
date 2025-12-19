@@ -201,12 +201,16 @@ def test_cancel_order_not_supported(arbitrum_fork_config, test_wallet):
 
 
 def test_fetch_order_not_supported(arbitrum_fork_config, test_wallet):
-    """Test that fetch_order raises NotSupported.
+    """Test that fetch_order raises OrderNotFound for invalid order IDs.
 
-    GMX orders execute immediately, use fetch_positions instead.
+    fetch_order is supported and can fetch orders by transaction hash.
+    It raises OrderNotFound if the order doesn't exist.
     """
+    from ccxt.base.errors import OrderNotFound
+
     gmx = GMX(config=arbitrum_fork_config, wallet=test_wallet)
     gmx.load_markets()
 
-    with pytest.raises(NotSupported, match="execute immediately"):
+    # fetch_order is supported - it should raise OrderNotFound for invalid IDs
+    with pytest.raises(OrderNotFound, match="not found"):
         gmx.fetch_order("0x123")
