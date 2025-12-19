@@ -1110,6 +1110,9 @@ def format_lifetime_table(
     _del("vault_slug")
     _del("protocol_slug")
 
+    _del("normalised_denomination")
+    _del("denomination_slug")
+
     if not add_share_token:
         _del("share_token")
     else:
