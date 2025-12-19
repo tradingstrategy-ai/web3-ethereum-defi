@@ -930,6 +930,36 @@ def is_stablecoin_like(token_symbol: str | None, symbol_list=ALL_STABLECOIN_LIKE
     return token_symbol in symbol_list
 
 
+def normalise_token_symbol(token_symbol: str | None) -> str | None:
+    """Normalise token symbol for stablecoin detection.
+
+    - Uppercase
+    - Remove bridge suffixes
+    - Fix USDT variations
+
+    :param token_symbol:
+        Token symbol as it is written on the contract.
+
+    :return:
+        Normalised token symbol
+    """
+
+    if token_symbol is None:
+        return None
+
+    assert isinstance(token_symbol, str), f"We got {token_symbol}"
+
+    token_symbol = token_symbol.uppercase()
+
+    if token_symbol.endswith(".E"):
+        token_symbol = token_symbol.removesuffix(".E")
+
+    if token_symbol in {"USDT0", "USD₮0"}:
+        token_symbol = "USDT"
+
+    return token_symbol
+
+
 def get_weth_contract(web3: Web3, name: str = "1delta/IWETH9.json") -> Contract:
     """Get WETH9 contract for the chain
 
