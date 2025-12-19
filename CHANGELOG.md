@@ -3,6 +3,7 @@
 - Add: USDT and other token symbol normalisation in `normalise_token_symbol()`
 - Add: New Protocol: Gyroscope
 - Add: GMX CCXT/FreqTrade live trading initial implementation
+- Add: New vault performance metrics calculations
 - Fix: Various RPC issue workaround and fixes
 
 # 0.36
