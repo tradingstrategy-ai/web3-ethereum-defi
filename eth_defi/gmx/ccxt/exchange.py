@@ -3248,6 +3248,10 @@ class GMX(ExchangeCompatible):
         :rtype: dict
         :raises ValueError: If symbol is invalid or parameters are incompatible
         """
+        # Ensure markets are loaded before processing
+        if not self.markets_loaded or not self.markets:
+            self.load_markets()
+
         # Normalize symbol to internal format (ETH/USDC -> ETH/USDC:USDC)
         normalized_symbol = self._normalize_symbol(symbol)
 
@@ -3551,8 +3555,11 @@ class GMX(ExchangeCompatible):
                 "Wallet required for order creation. GMX is running in VIEW-ONLY mode. Provide 'privateKey' or 'wallet' in constructor parameters. Example: GMX({'rpcUrl': '...', 'privateKey': '0x...'})",
             )
 
-        # Ensure markets are loaded
-        if not self.markets_loaded:
+        # Sync wallet nonce before creating/closing order (required for Freqtrade)
+        self.wallet.sync_nonce(self.web3)
+
+        # Ensure markets are loaded and populated
+        if not self.markets_loaded or not self.markets:
             self.load_markets()
 
         # Convert CCXT parameters to GMX parameters

@@ -374,7 +374,7 @@ def anvil_chain_fork(
     launch = fork_network_anvil(
         chain_rpc_url,
         unlocked_addresses=unlocked_addresses,
-        test_request_timeout=60,
+        test_request_timeout=100,
         # fork_block_number=FORK_BLOCK_ARBITRUM,
         launch_wait_seconds=60,
     )
@@ -392,7 +392,7 @@ def web3_arbitrum_fork(anvil_chain_fork: str) -> Web3:
     web3 = Web3(
         HTTPProvider(
             anvil_chain_fork,
-            request_kwargs={"timeout": 60},
+            request_kwargs={"timeout": 100},
         )
     )
     install_chain_middleware(web3)
@@ -895,7 +895,7 @@ def trading_manager(arbitrum_fork_config):
 
 
 @pytest.fixture()
-def test_wallet(web3_arbitrum_fork, anvil_private_key, chain_name, large_weth_holder_arbitrum):
+def test_wallet(web3_arbitrum_fork, anvil_private_key, chain_name, large_weth_holder_arbitrum, large_usdc_holder_arbitrum):
     """Create a HotWallet for testing transactions."""
     account = Account.from_key(anvil_private_key)
     wallet = HotWallet(account)
@@ -903,7 +903,7 @@ def test_wallet(web3_arbitrum_fork, anvil_private_key, chain_name, large_weth_ho
 
     # Fund wallet with ETH for gas fees (required for GMX order transactions)
     # GMX orders require ETH for execution fees and gas
-    eth_amount_wei = 100 * 10**18  # 100 ETH should be enough for multiple transactions
+    eth_amount_wei = 1000 * 10**18  # 1000 ETH should be enough for multiple transactions
     web3_arbitrum_fork.provider.make_request(
         "anvil_setBalance",
         [wallet.address, hex(eth_amount_wei)],
@@ -913,7 +913,7 @@ def test_wallet(web3_arbitrum_fork, anvil_private_key, chain_name, large_weth_ho
     if chain_name == "arbitrum":
         try:
             config = _get_chain_config_with_tokens(chain_name)
-            weth_address = config["native_token_address"]  # WETH is the native token on Arbitrum
+            weth_address = config["native_token_address"]  # ETH is the native token on Arbitrum
             weth = fetch_erc20_details(web3_arbitrum_fork, weth_address)
 
             # Fund the whale holder with ETH for gas
@@ -925,9 +925,33 @@ def test_wallet(web3_arbitrum_fork, anvil_private_key, chain_name, large_weth_ho
 
             # Transfer WETH to test wallet
             weth_amount = 1000 * 10**18  # 1000 WETH for collateral
-            weth.contract.functions.transfer(wallet.address, weth_amount).transact({"from": large_weth_holder_arbitrum})
+            weth.contract.functions.transfer(wallet.address, weth_amount).transact(
+                {"from": large_weth_holder_arbitrum},
+            )
         except Exception:
             # If WETH transfer fails, that's ok - some tests might not need it
+            pass
+
+        # Fund wallet with USDC (required for GMX trading operations)
+        try:
+            config = _get_chain_config_with_tokens(chain_name)
+            usdc_address = config["usdc_address"]
+            usdc = fetch_erc20_details(web3_arbitrum_fork, usdc_address)
+
+            # Fund the whale holder with ETH for gas
+            gas_eth = 10 * 10**18
+            web3_arbitrum_fork.provider.make_request(
+                "anvil_setBalance",
+                [large_usdc_holder_arbitrum, hex(gas_eth)],
+            )
+
+            # Transfer USDC to test wallet
+            usdc_amount = 100_000 * 10**6  # 100,000 USDC (6 decimals)
+            usdc.contract.functions.transfer(wallet.address, usdc_amount).transact(
+                {"from": large_usdc_holder_arbitrum},
+            )
+        except Exception:
+            # If USDC transfer fails, that's ok - some tests might not need it
             pass
 
     return wallet
@@ -1026,7 +1050,7 @@ def gmx_open_positions(chain_rpc_url) -> GetOpenPositions:
     # This ensures RPC has all state data available
     launch = fork_network_anvil(
         chain_rpc_url,
-        test_request_timeout=60,
+        test_request_timeout=100,
         launch_wait_seconds=60,
     )
     anvil_chain_fork = launch.json_rpc_url
@@ -1034,7 +1058,7 @@ def gmx_open_positions(chain_rpc_url) -> GetOpenPositions:
     web3 = Web3(
         HTTPProvider(
             anvil_chain_fork,
-            request_kwargs={"timeout": 60},
+            request_kwargs={"timeout": 100},
         )
     )
     gmx_config = GMXConfig(web3)

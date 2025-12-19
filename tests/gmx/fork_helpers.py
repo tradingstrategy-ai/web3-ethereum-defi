@@ -539,6 +539,9 @@ def setup_mock_oracle(
     # Configure prices using the first available account
     account = web3.eth.accounts[0]
 
+    # Fund the account with ETH for gas (handles multiple calls to setup_mock_oracle)
+    deal_eth(web3, account, 10 * 10**18)
+
     # WETH: 18 decimals -> price * 10^12
     weth_address = _resolve_token_address(chain, "WETH", ARBITRUM_DEFAULTS["weth"])
     weth_price = int(eth_price_usd * (10**12))
