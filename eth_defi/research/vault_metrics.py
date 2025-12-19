@@ -591,7 +591,7 @@ def calculate_lifetime_metrics(
         denomination = vault_metadata.get("Denomination")
         share_token = vault_metadata.get("Share token")
         normalised_denomination = normalise_token_symbol(denomination)
-        denomination_slug = normalised_denomination.lowercase()
+        denomination_slug = normalised_denomination.lower()
 
         max_nav = group["total_assets"].max()
         current_nav = group["total_assets"].iloc[-1]
@@ -1109,6 +1109,9 @@ def format_lifetime_table(
     _del("lifetime_samples")
     _del("vault_slug")
     _del("protocol_slug")
+
+    _del("normalised_denomination")
+    _del("denomination_slug")
 
     if not add_share_token:
         _del("share_token")
@@ -1681,6 +1684,10 @@ def export_lifetime_row(row: pd.Series) -> dict:
     """
 
     def _serialize(value):
+        # Check for NaT first, before any isinstance checks
+        # (pd.NaT can match isinstance checks for datetime/Timestamp)
+        if value is pd.NaT:
+            return None
         # Numpy scalar
         if isinstance(value, (np.floating, np.integer)):
             return value.item()
@@ -1691,8 +1698,6 @@ def export_lifetime_row(row: pd.Series) -> dict:
         if isinstance(value, datetime.datetime):
             return value.isoformat()
         # Timedelta types
-        if value is pd.NaT:
-            return None
         if isinstance(value, (pd.Timedelta, datetime.timedelta)):
             return value.total_seconds()
         # Custom enum-like risk object
@@ -1715,9 +1720,8 @@ def export_lifetime_row(row: pd.Series) -> dict:
         if isinstance(value, Enum):
             return value.value
 
-        # Na-like scalar
-        if pd.isna(value) or value == "NaT":
-            # TODO: NaT hack, lockup: NaT is broken in somewhere deeper, investigate
+        # Na-like scalar (NaN, None, etc.)
+        if pd.isna(value):
             return None
 
         if isinstance(value, float):
