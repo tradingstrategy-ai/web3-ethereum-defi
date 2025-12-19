@@ -28,7 +28,9 @@ def _execute_order(web3, tx_hash):
 
     return exec_receipt
 
+
 # NOTE: These 2 tests don't run together. They only pass when ran separately.
+
 
 @flaky(max_runs=3, min_passes=1)
 def test_open_and_close_long_position(
@@ -153,7 +155,7 @@ def test_open_and_close_long_position(
 #     _execute_order(web3, tx_hash)
 
 #     # Verify position exists
-#     
+#
 #     positions = gmx.fetch_positions([symbol])
 
 #     assert len(positions) > 0, "Should have at least one position after opening"
@@ -189,6 +191,6 @@ def test_open_and_close_long_position(
 #     _execute_order(web3, close_tx_hash)
 
 #     # Verify closed
-#     
+#
 #     final_positions = gmx.fetch_positions([symbol])
 #     assert len(final_positions) == 0, "Position should be closed"

@@ -5,7 +5,7 @@
 
 import logging
 import os
-from typing import Generator, Any
+from typing import Any, Generator
 
 import pytest
 from web3 import Web3
@@ -192,6 +192,46 @@ def ccxt_gmx_fork_short(
         params={
             "rpcUrl": web3_arbitrum_fork_ccxt_short.provider.endpoint_uri if hasattr(web3_arbitrum_fork_ccxt_short.provider, "endpoint_uri") else None,
             "wallet": test_wallet,
+        }
+    )
+    return gmx
+
+
+@pytest.fixture
+def gmx_arbitrum() -> GMX:
+    """CCXT GMX exchange for Arbitrum mainnet in view-only mode.
+
+    This fixture creates a GMX instance connected to Arbitrum mainnet
+    for testing CCXT endpoint functionality with real API calls.
+    No wallet is required as this is for read-only operations.
+    """
+    rpc_url = os.environ.get("JSON_RPC_ARBITRUM")
+    if not rpc_url:
+        pytest.skip("JSON_RPC_ARBITRUM environment variable not set")
+
+    gmx = GMX(
+        params={
+            "rpcUrl": rpc_url,
+        }
+    )
+    return gmx
+
+
+@pytest.fixture
+def ccxt_gmx_arbitrum() -> GMX:
+    """CCXT GMX exchange for Arbitrum mainnet in view-only mode.
+
+    Alias for gmx_arbitrum fixture. This fixture creates a GMX instance
+    connected to Arbitrum mainnet for testing CCXT functionality.
+    No wallet is required as this is for read-only operations.
+    """
+    rpc_url = os.environ.get("JSON_RPC_ARBITRUM")
+    if not rpc_url:
+        pytest.skip("JSON_RPC_ARBITRUM environment variable not set")
+
+    gmx = GMX(
+        params={
+            "rpcUrl": rpc_url,
         }
     )
     return gmx
