@@ -29,7 +29,7 @@ from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.core import ERC4262VaultDetection
 from eth_defi.research.value_table import format_series_as_multi_column_grid
 from eth_defi.research.wrangle_vault_prices import forward_fill_vault
-from eth_defi.token import is_stablecoin_like
+from eth_defi.token import is_stablecoin_like, normalise_token_symbol
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.fee import FeeData, VaultFeeMode
 from eth_defi.vault.flag import get_notes, VaultFlag
@@ -590,6 +590,8 @@ def calculate_lifetime_metrics(
         name = vault_metadata.get("Name")
         denomination = vault_metadata.get("Denomination")
         share_token = vault_metadata.get("Share token")
+        normalised_denomination = normalise_token_symbol(denomination)
+        denomination_slug = normalised_denomination.lower()
 
         max_nav = group["total_assets"].max()
         current_nav = group["total_assets"].iloc[-1]
@@ -808,6 +810,8 @@ def calculate_lifetime_metrics(
                 "one_month_cagr": one_month_cagr,
                 "one_month_cagr_net": one_month_cagr_net,
                 "denomination": denomination,
+                "normalised_denomination": normalised_denomination,
+                "denomination_slug": denomination_slug,
                 "share_token": share_token,
                 "chain": get_chain_name(chain_id),
                 "peak_nav": max_nav,
@@ -1105,6 +1109,9 @@ def format_lifetime_table(
     _del("lifetime_samples")
     _del("vault_slug")
     _del("protocol_slug")
+
+    _del("normalised_denomination")
+    _del("denomination_slug")
 
     if not add_share_token:
         _del("share_token")
