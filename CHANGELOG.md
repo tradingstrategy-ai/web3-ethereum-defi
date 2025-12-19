@@ -1,6 +1,13 @@
+# Current
+
+- Add: USDT and other token symbol normalisation in `normalise_token_symbol()`
+- Add: New Protocol: Gyroscope
+- Add: GMX CCXT/FreqTrade live trading initial implementation
+- Fix: Various RPC issue workaround and fixes
+
 # 0.36
 
-- Add: GMX CCXT/FreqTrade integration
+- Add: GMX CCXT/FreqTrade integrat  ion
 - Add: Rewrite block timestamp cache to use DuckDB and Hypersync
 - Fix: Multiple RPC issue workarounds
 - Fix: Make `launch_anvil()` multi process locked, as likely Anvil has some internal conditions
