@@ -45,31 +45,9 @@ jobs:
     name: GMX Tests - Python ${{ matrix.python-version }} - Web3.py v${{ matrix.web3-version }}
 
     steps:
-      # TODO: we only need contracts/aave-v3-deploy for tests
-      # but there does not seem to be an option to choose which submodules to checkout
-      # https://github.com/actions/checkout
       - uses: actions/checkout@v3
         with:
           submodules: true
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          # npm version need to support aave-deploy
-          node-version: 18
-          cache: "npm"
-          cache-dependency-path: contracts/aave-v3-deploy/package-lock.json
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-            version: 10.21.0
-
-      - name: Export PNPM location
-        run: |
-          PNPM_HOME="/home/runner/.local/share/pnpm"
-          # https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#adding-a-system-path
-          echo $PNPM_HOME >> $GITHUB_PATH
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
@@ -90,9 +68,6 @@ jobs:
             poetry install
             poetry install -E docs -E data -E test -E hypersync -E ccxt -E web3v7 -E duckdb
 
-      - name: Install Ganache
-        run: yarn global add ganache
-
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
@@ -100,26 +75,6 @@ jobs:
           # version: "nightly-de33b6af53005037b463318d2628b5cfcaf39916"
           #version: "nightly-fdd321bac95f0935529164a88faf99d4d5cfa321"
           version: "v1.2.3"
-
-      # We also work around race condition for setting up Aave NPM packages.
-      - name: Setup Aave v3 for tests
-        run: |
-          poetry run install-aave-for-testing
-
-      # We also work around race condition for setting up Aave NPM packages.
-      - name: Build needed contracts
-        run: |
-          pnpm --version
-      # Broken with the latest foudry?
-      # make guard in-house safe-integration
-
-      # Lagoon source deployment needs soldeer
-      - name: Lagoon dependency issue smoke test
-        run: |
-          export PATH="$HOME/.cargo/bin:$PATH"
-          (cd contracts/lagoon-v0 && forge soldeer install)
-          ls -lha contracts/lagoon-v0/dependencies/
-          ls -lha contracts/lagoon-v0/dependencies/@openzeppelin-contracts-upgradeable-5.0.0/
 
       # Verify the correct Web3.py version is installed
       # This helps debug any remaining issues
