@@ -4,6 +4,7 @@
 """
 
 import logging
+import os
 from typing import Generator, Any
 
 import pytest
@@ -19,9 +20,7 @@ from tests.gmx.conftest import _approve_tokens_for_config
 from tests.gmx.fork_helpers import setup_mock_oracle
 
 
-@pytest.fixture()
-def anvil_chain_fork_ccxt(
-    request,
+def _create_anvil_fork(
     chain_name,
     chain_rpc_url,
     large_eth_holder,
@@ -36,7 +35,7 @@ def anvil_chain_fork_ccxt(
     gmx_keeper_arbitrum,
     large_gm_eth_usdc_holder_arbitrum,
 ) -> Generator[str, Any, None]:
-    """Create a testable fork of the live chain using Anvil."""
+    """Helper to create a testable fork of the live chain using Anvil."""
     unlocked_addresses = [large_eth_holder, large_wbtc_holder]
 
     if chain_name == "arbitrum":
@@ -55,22 +54,100 @@ def anvil_chain_fork_ccxt(
         chain_rpc_url,
         unlocked_addresses=unlocked_addresses,
         test_request_timeout=100,
-        # fork_block_number=FORK_BLOCK_ARBITRUM,
         launch_wait_seconds=60,
     )
 
     try:
         yield launch.json_rpc_url
     finally:
-        # Wind down Anvil process after the test is complete
         launch.close(log_level=logging.ERROR)
 
 
 @pytest.fixture()
-def web3_arbitrum_fork_ccxt(anvil_chain_fork_ccxt: str) -> Web3:
-    """Set up a local unit testing blockchain with the forked chain."""
+def anvil_chain_fork_ccxt_long(
+    chain_name,
+    chain_rpc_url,
+    large_eth_holder,
+    large_wbtc_holder,
+    large_wavax_holder,
+    large_usdc_holder_arbitrum,
+    large_usdc_holder_avalanche,
+    large_wbtc_holder_avalanche,
+    large_link_holder_avalanche,
+    gmx_controller_arbitrum,
+    large_weth_holder_arbitrum,
+    gmx_keeper_arbitrum,
+    large_gm_eth_usdc_holder_arbitrum,
+) -> Generator[str, Any, None]:
+    """Create a testable fork for long position tests."""
+    yield from _create_anvil_fork(
+        chain_name,
+        chain_rpc_url,
+        large_eth_holder,
+        large_wbtc_holder,
+        large_wavax_holder,
+        large_usdc_holder_arbitrum,
+        large_usdc_holder_avalanche,
+        large_wbtc_holder_avalanche,
+        large_link_holder_avalanche,
+        gmx_controller_arbitrum,
+        large_weth_holder_arbitrum,
+        gmx_keeper_arbitrum,
+        large_gm_eth_usdc_holder_arbitrum,
+    )
+
+
+@pytest.fixture()
+def anvil_chain_fork_ccxt_short(
+    chain_name,
+    chain_rpc_url,
+    large_eth_holder,
+    large_wbtc_holder,
+    large_wavax_holder,
+    large_usdc_holder_arbitrum,
+    large_usdc_holder_avalanche,
+    large_wbtc_holder_avalanche,
+    large_link_holder_avalanche,
+    gmx_controller_arbitrum,
+    large_weth_holder_arbitrum,
+    gmx_keeper_arbitrum,
+    large_gm_eth_usdc_holder_arbitrum,
+) -> Generator[str, Any, None]:
+    """Create a testable fork for short position tests."""
+    yield from _create_anvil_fork(
+        chain_name,
+        chain_rpc_url,
+        large_eth_holder,
+        large_wbtc_holder,
+        large_wavax_holder,
+        large_usdc_holder_arbitrum,
+        large_usdc_holder_avalanche,
+        large_wbtc_holder_avalanche,
+        large_link_holder_avalanche,
+        gmx_controller_arbitrum,
+        large_weth_holder_arbitrum,
+        gmx_keeper_arbitrum,
+        large_gm_eth_usdc_holder_arbitrum,
+    )
+
+
+@pytest.fixture()
+def web3_arbitrum_fork_ccxt_long(anvil_chain_fork_ccxt_long: str) -> Web3:
+    """Set up web3 for long position tests."""
     web3 = create_multi_provider_web3(
-        anvil_chain_fork_ccxt,
+        anvil_chain_fork_ccxt_long,
+        default_http_timeout=(3.0, 180.0),
+    )
+    install_chain_middleware(web3)
+    web3.eth.set_gas_price_strategy(node_default_gas_price_strategy)
+    return web3
+
+
+@pytest.fixture()
+def web3_arbitrum_fork_ccxt_short(anvil_chain_fork_ccxt_short: str) -> Web3:
+    """Set up web3 for short position tests."""
+    web3 = create_multi_provider_web3(
+        anvil_chain_fork_ccxt_short,
         default_http_timeout=(3.0, 180.0),
     )
     install_chain_middleware(web3)
@@ -79,25 +156,20 @@ def web3_arbitrum_fork_ccxt(anvil_chain_fork_ccxt: str) -> Web3:
 
 
 @pytest.fixture
-def ccxt_gmx_fork(
-    web3_arbitrum_fork_ccxt,
-    arbitrum_fork_config,
+def ccxt_gmx_fork_open_close(
+    web3_arbitrum_fork_ccxt_long,
     test_wallet,
 ) -> GMX:
-    """CCXT GMX exchange with wallet for fork testing (long positions).
+    """CCXT GMX exchange with wallet for open/close long position testing.
 
-    Uses arbitrum_fork_config which has mock oracle set up.
-    Uses test_wallet fixture which is already synced and funded.
+    Uses separate anvil fork to avoid state pollution with other tests.
     """
-    setup_mock_oracle(web3_arbitrum_fork_ccxt)
-    # Create GMX config
-    config = GMXConfig(web3_arbitrum_fork_ccxt, user_wallet_address=test_wallet)
-
-    # Approve tokens for GMX routers
-    _approve_tokens_for_config(config, web3_arbitrum_fork_ccxt, test_wallet.address)
+    setup_mock_oracle(web3_arbitrum_fork_ccxt_long)
+    config = GMXConfig(web3_arbitrum_fork_ccxt_long, user_wallet_address=test_wallet)
+    _approve_tokens_for_config(config, web3_arbitrum_fork_ccxt_long, test_wallet.address)
     gmx = GMX(
         params={
-            "rpcUrl": web3_arbitrum_fork_ccxt.provider.endpoint_uri if hasattr(web3_arbitrum_fork_ccxt.provider, "endpoint_uri") else None,
+            "rpcUrl": web3_arbitrum_fork_ccxt_long.provider.endpoint_uri if hasattr(web3_arbitrum_fork_ccxt_long.provider, "endpoint_uri") else None,
             "wallet": test_wallet,
         }
     )
@@ -106,23 +178,19 @@ def ccxt_gmx_fork(
 
 @pytest.fixture
 def ccxt_gmx_fork_short(
-    web3_arbitrum_fork_ccxt,
-    arbitrum_fork_config_short,
+    web3_arbitrum_fork_ccxt_short,
     test_wallet,
 ) -> GMX:
-    """CCXT GMX exchange with wallet for fork testing (short positions).
+    """CCXT GMX exchange with wallet for short position testing.
 
-    Uses arbitrum_fork_config_short which has mock oracle with ETH price at 3550.
+    Uses separate anvil fork to avoid state pollution with other tests.
     """
-    setup_mock_oracle(web3_arbitrum_fork_ccxt)
-    # Create GMX config
-    config = GMXConfig(web3_arbitrum_fork_ccxt, user_wallet_address=test_wallet)
-
-    # Approve tokens for GMX routers
-    _approve_tokens_for_config(config, web3_arbitrum_fork_ccxt, test_wallet.address)
+    setup_mock_oracle(web3_arbitrum_fork_ccxt_short)
+    config = GMXConfig(web3_arbitrum_fork_ccxt_short, user_wallet_address=test_wallet)
+    _approve_tokens_for_config(config, web3_arbitrum_fork_ccxt_short, test_wallet.address)
     gmx = GMX(
         params={
-            "rpcUrl": web3_arbitrum_fork_ccxt.provider.endpoint_uri if hasattr(web3_arbitrum_fork_ccxt.provider, "endpoint_uri") else None,
+            "rpcUrl": web3_arbitrum_fork_ccxt_short.provider.endpoint_uri if hasattr(web3_arbitrum_fork_ccxt_short.provider, "endpoint_uri") else None,
             "wallet": test_wallet,
         }
     )
@@ -130,24 +198,47 @@ def ccxt_gmx_fork_short(
 
 
 @pytest.fixture
-def ccxt_gmx_fork_open_close(
-    web3_arbitrum_fork_ccxt,
-    test_wallet,
-) -> GMX:
-    """CCXT GMX exchange with wallet for open/close position testing.
-
-    Uses arbitrum_fork_config_open_close which has fresh mock oracle setup.
+def web3(chain_rpc_url) -> Web3:
+    """Simple Web3 instance connected to Arbitrum mainnet (no fork).
+    
+    Used for tests that don't need fork functionality, like monkeypatch tests.
     """
-    setup_mock_oracle(web3_arbitrum_fork_ccxt)
-    # Create GMX config
-    config = GMXConfig(web3_arbitrum_fork_ccxt, user_wallet_address=test_wallet)
+    rpc_url = os.environ.get("JSON_RPC_ARBITRUM")
+    if not rpc_url:
+        pytest.skip("No JSON_RPC_ARBITRUM environment variable available")
+    
+    web3 = Web3(HTTPProvider(rpc_url))
+    web3.middleware_onion.clear()
+    install_chain_middleware(web3)
+    
+    if not web3.is_connected():
+        pytest.skip(f"Could not connect to Arbitrum RPC at {rpc_url}")
+    
+    return web3
 
-    # Approve tokens for GMX routers
-    _approve_tokens_for_config(config, web3_arbitrum_fork_ccxt, test_wallet.address)
+
+@pytest.fixture
+def gmx_arbitrum(chain_rpc_url) -> GMX:
+    """GMX CCXT instance connected to Arbitrum mainnet (no fork).
+    
+    Used for endpoint tests that only need to read data from mainnet.
+    """
+    rpc_url = os.environ.get("JSON_RPC_ARBITRUM")
+    if not rpc_url:
+        pytest.skip("No JSON_RPC_ARBITRUM environment variable available")
+    
     gmx = GMX(
         params={
-            "rpcUrl": web3_arbitrum_fork_ccxt.provider.endpoint_uri if hasattr(web3_arbitrum_fork_ccxt.provider, "endpoint_uri") else None,
-            "wallet": test_wallet,
+            "rpcUrl": rpc_url,
         }
     )
     return gmx
+
+
+@pytest.fixture
+def ccxt_gmx_arbitrum(gmx_arbitrum) -> GMX:
+    """Alias for gmx_arbitrum fixture for consistency with other test files.
+    
+    Some tests use ccxt_gmx_arbitrum naming convention.
+    """
+    return gmx_arbitrum

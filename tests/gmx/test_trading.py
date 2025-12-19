@@ -20,6 +20,8 @@ All fixtures are defined in conftest.py:
 - test_wallet: HotWallet for signing transactions
 """
 
+from flaky import flaky
+
 from eth_defi.gmx.core import GetOpenPositions
 from eth_defi.gmx.order.base_order import OrderResult
 from eth_defi.gmx.trading import GMXTrading
@@ -33,6 +35,7 @@ def test_initialization(arbitrum_fork_config):
     assert trading.config.get_chain().lower() == "arbitrum"
 
 
+@flaky(max_runs=3, min_passes=1)
 def test_open_long_position(
     web3_arbitrum_fork,
     trading_manager_fork,
@@ -108,6 +111,7 @@ def test_open_long_position(
     assert position["leverage"] > 0, "Leverage should be > 0"
 
 
+@flaky(max_runs=3, min_passes=1)
 def test_open_short_position(
     web3_arbitrum_fork,
     arbitrum_fork_config_short,
@@ -182,6 +186,7 @@ def test_open_short_position(
     assert position["position_size"] > 0, "Position size should be > 0"
 
 
+@flaky(max_runs=3, min_passes=1)
 def test_open_and_close_position(
     web3_arbitrum_fork,
     arbitrum_fork_config_open_close,

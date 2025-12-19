@@ -88,7 +88,7 @@ jobs:
       - name: Install dependencies with specific Web3.py version
         run: |
             poetry install
-            poetry install -E docs -E data -E test -E hypersync -E ccxt -E web3v7 -E duckdb -E hypersync
+            poetry install -E docs -E data -E test -E hypersync -E ccxt -E web3v7 -E duckdb
 
       - name: Install Ganache
         run: yarn global add ganache
@@ -121,7 +121,7 @@ jobs:
           ls -lha contracts/lagoon-v0/dependencies/
           ls -lha contracts/lagoon-v0/dependencies/@openzeppelin-contracts-upgradeable-5.0.0/
 
-      # CRITICAL: Verify the correct Web3.py version is installed
+      # Verify the correct Web3.py version is installed
       # This helps debug any remaining issues
       - name: Verify Web3.py version and environment isolation
         run: |
@@ -252,7 +252,7 @@ jobs:
             poetry run pytest tests/gmx/ --timeout-method=thread --tb=short -n auto -v
           fi
         env:
-          # CRITICAL: Arbitrum mainnet RPC is required for GMX tests (GMX is on Arbitrum)
+          # Arbitrum mainnet RPC is required for GMX tests (GMX is on Arbitrum)
           # Used for mainnet fork testing in conftest.py
           JSON_RPC_ARBITRUM: ${{ secrets.JSON_RPC_ARBITRUM }}
           # Arbitrum Sepolia testnet RPC for testnet GMX tests

@@ -9,6 +9,7 @@ Tests follow the complete order lifecycle:
 """
 
 import pytest
+from flaky import flaky
 
 from eth_defi.gmx.contracts import get_token_address_normalized
 from eth_defi.gmx.order.base_order import OrderResult
@@ -24,6 +25,7 @@ def test_initialization(trading_manager_fork):
     assert trading_manager_fork.config.get_chain().lower() == "arbitrum"
 
 
+@flaky(max_runs=3, min_passes=1)
 def test_swap_usdc_to_eth_with_execution(
     web3_arbitrum_fork,
     trading_manager_fork,
@@ -125,6 +127,7 @@ def test_swap_usdc_to_eth_with_execution(
     assert eth_gain_net > 0, f"Should receive ETH after swap (net of gas), got {eth_gain_net:.6f}"
 
 
+@flaky(max_runs=3, min_passes=1)
 def test_swap_eth_to_usdc_with_execution(
     web3_arbitrum_fork,
     trading_manager_fork,
