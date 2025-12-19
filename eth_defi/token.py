@@ -949,7 +949,7 @@ def normalise_token_symbol(token_symbol: str | None) -> str | None:
 
     assert isinstance(token_symbol, str), f"We got {token_symbol}"
 
-    token_symbol = token_symbol.uppercase()
+    token_symbol = token_symbol.upper()
 
     if token_symbol.endswith(".E"):
         token_symbol = token_symbol.removesuffix(".E")
