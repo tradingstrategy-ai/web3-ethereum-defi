@@ -1,4 +1,4 @@
-# Current
+# 0.37
 
 - Add: USDT and other token symbol normalisation in `normalise_token_symbol()`
 - Add: New Protocol: Gyroscope
