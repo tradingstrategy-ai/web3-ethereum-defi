@@ -23,12 +23,7 @@ from flaky import flaky
 
 from eth_defi.gmx.order.base_order import OrderResult
 from eth_defi.gmx.trading import GMXTrading
-from tests.gmx.fork_helpers import (
-    execute_order_as_keeper,
-    extract_order_key_from_receipt,
-    fetch_on_chain_oracle_prices,
-    setup_mock_oracle,
-)
+from tests.gmx.fork_helpers import execute_order_as_keeper, extract_order_key_from_receipt, fetch_on_chain_oracle_prices, setup_mock_oracle
 
 
 def test_initialization(isolated_fork_env):
