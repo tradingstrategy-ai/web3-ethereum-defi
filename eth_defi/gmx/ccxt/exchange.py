@@ -28,16 +28,17 @@ import time
 from datetime import datetime
 from typing import Any
 
+from ccxt.base.errors import NotSupported, OrderNotFound
 from eth_utils import to_checksum_address
-from ccxt.base.errors import NotSupported
 
-from eth_defi.chain import get_chain_name
-from eth_defi.gmx.ccxt.errors import InsufficientHistoricalDataError
-from eth_defi.gmx.ccxt.validation import _validate_ohlcv_data_sufficiency
 from eth_defi.ccxt.exchange_compatible import ExchangeCompatible
+from eth_defi.chain import get_chain_name
 from eth_defi.gmx.api import GMXAPI
+from eth_defi.gmx.ccxt.errors import InsufficientHistoricalDataError
 from eth_defi.gmx.ccxt.properties import describe_gmx
+from eth_defi.gmx.ccxt.validation import _validate_ohlcv_data_sufficiency
 from eth_defi.gmx.config import GMXConfig
+from eth_defi.gmx.contracts import get_contract_addresses, get_token_address_normalized
 from eth_defi.gmx.core import GetOpenPositions
 from eth_defi.gmx.core.markets import Markets
 from eth_defi.gmx.graphql.client import GMXSubsquidClient
@@ -212,6 +213,7 @@ class GMX(ExchangeCompatible):
         self._chain_id_override = parameters.get("chainId")
         self._wallet = parameters.get("wallet")
         self._verbose = parameters.get("verbose", False)
+        self.execution_buffer = parameters.get("executionBuffer", 2.2)
 
         # Configure verbose logging if requested
         if self._verbose:
@@ -253,7 +255,8 @@ class GMX(ExchangeCompatible):
             )
 
         # Create GMX config from web3 and wallet
-        self.config = GMXConfig(self.web3, user_wallet_address=wallet_address)
+        # Pass wallet to config so BaseOrder can access it for auto-approval
+        self.config = GMXConfig(self.web3, user_wallet_address=wallet_address, wallet=self.wallet)
 
         # Initialize API and trader
         self.api = GMXAPI(self.config)
@@ -316,6 +319,7 @@ class GMX(ExchangeCompatible):
         self.api = GMXAPI(config)
         self.web3 = config.web3
         self.wallet = wallet
+        self.execution_buffer = 2.2  # Default execution buffer for legacy config
 
         # Initialize trading manager
         self.trader = GMXTrading(config) if wallet else None
@@ -375,7 +379,7 @@ class GMX(ExchangeCompatible):
                 if address and symbol:
                     address_to_symbol[address] = symbol
 
-            logger.info(f"Built address mapping for {len(address_to_symbol)} tokens")
+            logger.debug(f"Built address mapping for {len(address_to_symbol)} tokens")
 
             markets_dict = {}
             for market_info in market_infos:
@@ -450,7 +454,8 @@ class GMX(ExchangeCompatible):
             self.markets_loaded = True
             self.symbols = list(self.markets.keys())
 
-            logger.info(f"Loaded {len(self.markets)} markets from GraphQL: {self.symbols}")
+            logger.info(f"Loaded {len(self.markets)} markets from GraphQL")
+            logger.debug(f"Market symbols: {self.symbols}")
             return self.markets
 
         except Exception as e:
@@ -466,7 +471,7 @@ class GMX(ExchangeCompatible):
         self.markets = {}
         self.markets_loaded = False
         self.symbols = []
-        self._orders = {}  # Store orders for backtesting
+        self._orders = {}  # Order cache - cleared on fresh runs to avoid stale data
 
         self.timeframes = {
             "1m": "1m",
@@ -578,21 +583,21 @@ class GMX(ExchangeCompatible):
         if self._token_metadata:
             return  # Already loaded
 
-        try:
-            tokens_data = self.api.get_tokens()
-            token_list = tokens_data.get("tokens", []) if isinstance(tokens_data, dict) else tokens_data
+        tokens_data = self.api.get_tokens()
+        token_list = tokens_data.get("tokens", []) if isinstance(tokens_data, dict) else tokens_data
 
-            for token in token_list:
-                address = token.get("address", "").lower()
-                if address:
-                    self._token_metadata[address] = {
-                        "decimals": token.get("decimals", 18),
-                        "synthetic": token.get("synthetic", False),
-                        "symbol": token.get("symbol", ""),
-                    }
-        except Exception:
-            # If we can't load metadata, will fall back to default behavior
-            pass
+        for token in token_list:
+            address = token.get("address", "").lower()
+            symbol = token.get("symbol", "")
+            decimals = token.get("decimals")
+            if address:
+                if decimals is None:
+                    raise ValueError(f"GMX API did not return decimals for token {symbol} ({address}). Cannot safely convert prices.")
+                self._token_metadata[address] = {
+                    "decimals": decimals,
+                    "synthetic": token.get("synthetic", False),
+                    "symbol": symbol,
+                }
 
     def load_markets(
         self,
@@ -608,25 +613,18 @@ class GMX(ExchangeCompatible):
         :type reload: bool
         :param params: Additional parameters (for CCXT compatibility, not currently used)
         :type params: dict | None
-        :return: dictionary mapping unified symbols (e.g., "ETH/USDC") to market info
+        :return: dictionary mapping unified symbols (e.g. "ETH/USDC") to market info
         :rtype: dict[str, Any]
         """
         if self.markets_loaded and not reload:
             return self.markets
 
-        # For backtesting or when wallet is not provided, use GraphQL-only mode to avoid slow RPC calls
-        # Also check if graphql_only is set in exchange config
-        use_graphql_only = (
-            not self.wallet
-            or (params and params.get("graphql_only", False))
-            or self.options.get(
-                "graphql_only",
-                False,
-            )
-        )
+        # Use GraphQL by default for fast initialisation (avoids slow RPC calls to Markets/Oracle)
+        # Only use RPC path if explicitly requested via graphql_only=False
+        use_graphql_only = not (params and params.get("graphql_only") is False) and not self.options.get("graphql_only") is False
 
         if use_graphql_only and self.subsquid:
-            logger.info("Loading markets from GraphQL (backtesting mode - skipping RPC calls)")
+            logger.info("Loading markets from GraphQL")
             return self._load_markets_from_graphql()
 
         # Fetch available markets from GMX using Markets class (makes RPC calls)
@@ -643,7 +641,7 @@ class GMX(ExchangeCompatible):
                     market_addr = market_info.get("marketTokenAddress")
                     min_collateral_factor = market_info.get("minCollateralFactor")
                     if market_addr and min_collateral_factor:
-                        # Normalize address to checksum format to match available_markets keys
+                        # Normalise address to checksum format to match available_markets keys
                         market_addr = to_checksum_address(market_addr)
                         max_leverage = GMXSubsquidClient.calculate_max_leverage(
                             min_collateral_factor,
@@ -1167,9 +1165,9 @@ class GMX(ExchangeCompatible):
                 "datetime": "2021-01-01T00:00:00.000Z",
                 "high": None,  # Calculated separately from OHLCV
                 "low": None,  # Calculated separately from OHLCV
-                "bid": None,  # GMX doesn't have order books
+                "bid": last_price,  # GMX doesn't have order books
                 "bidVolume": None,
-                "ask": None,
+                "ask": last_price,
                 "askVolume": None,
                 "vwap": None,
                 "open": None,  # Calculated separately from OHLCV
@@ -1200,20 +1198,20 @@ class GMX(ExchangeCompatible):
         token_address = self.safe_string(ticker, "tokenAddress", "").lower()
 
         # Get token metadata for correct decimal conversion
-        token_meta = self._token_metadata.get(token_address, {})
-        is_synthetic = token_meta.get("synthetic", False)
-        token_decimals = token_meta.get("decimals", 18)
+        token_meta = self._token_metadata.get(token_address)
+        if not token_meta:
+            raise ValueError(f"Token metadata not found for {token_address}. Ensure load_markets() was called and token exists in GMX API.")
+        token_decimals = token_meta.get("decimals")
+        if token_decimals is None:
+            raise ValueError(f"Token decimals not found for {token_address}. Cannot safely convert prices.")
 
         # Convert from appropriate decimal format to float
+        # GMX uses 30-decimal PRECISION for all prices
+        # Formula: price_usd = raw_price / 10^(30 - token_decimals)
+        # Examples: BTC (8 decimals) = 10^22, ETH (18 decimals) = 10^12
         last_price = None
         if max_price and min_price:
-            if is_synthetic:
-                # Synthetic tokens use (30 - token_decimals) format
-                # Example: BTC with 8 decimals uses 30-8=22 decimal places
-                price_decimals = 30 - token_decimals
-            else:
-                # Non-synthetic tokens use standard 12 decimals
-                price_decimals = 12
+            price_decimals = 30 - token_decimals
 
             max_price_float = float(max_price) / (10**price_decimals)
             min_price_float = float(min_price) / (10**price_decimals)
@@ -1226,9 +1224,9 @@ class GMX(ExchangeCompatible):
             "datetime": self.iso8601(timestamp),
             "high": None,  # Will calculate from OHLCV in fetch_ticker
             "low": None,  # Will calculate from OHLCV in fetch_ticker
-            "bid": None,  # GMX doesn't have order books
+            "bid": last_price,  # TEMPORARY: Using last price for testing
             "bidVolume": None,
-            "ask": None,
+            "ask": last_price,  # TEMPORARY: Using last price for testing
             "askVolume": None,
             "vwap": None,
             "open": None,  # Will calculate from OHLCV in fetch_ticker
@@ -1746,6 +1744,42 @@ class GMX(ExchangeCompatible):
 
         return result
 
+    def fetch_funding_history(
+        self,
+        symbol: str | None = None,
+        since: int | None = None,
+        limit: int | None = None,
+        params: dict[str, Any] | None = None,
+    ) -> list[dict[str, Any]]:
+        """
+        Fetch funding fee payment history for positions.
+
+        GMX V2 does not track historical funding fee payments per position.
+        This method returns an empty list to indicate no funding history is available.
+        Freqtrade will calculate funding fees as 0.0 when summing the empty list.
+
+        :param symbol: Unified symbol (e.g., "ETH/USD", "BTC/USD") - not used
+        :type symbol: str | None
+        :param since: Timestamp in milliseconds - not used
+        :type since: int | None
+        :param limit: Maximum number of records - not used
+        :type limit: int | None
+        :param params: Additional parameters - not used
+        :type params: dict[str, Any] | None
+        :returns: Empty list (GMX doesn't provide funding history)
+        :rtype: list[dict[str, Any]]
+
+        .. note::
+            GMX V2 does not track historical funding fee payments. Funding fees
+            are continuously accrued and settled, but the protocol does not
+            maintain a queryable history of past payments.
+
+            If you need funding rate history (not payment history), use
+            fetch_funding_rate_history() instead.
+        """
+        logger.warning("fetch_funding_history() called but GMX V2 does not track historical funding fee payments. Returning empty list (funding fees will be calculated as 0.0).")
+        return []
+
     def fetch_ticker(
         self,
         symbol: str,
@@ -1939,10 +1973,12 @@ class GMX(ExchangeCompatible):
             # Extract token info (keys are: symbol, address, decimals)
             address = token.get("address", "")
             symbol = token.get("symbol", "")
-            decimals = token.get("decimals", 18)
+            decimals = token.get("decimals")
             name = symbol  # GMX API doesn't provide full names
 
             if symbol and address:
+                if decimals is None:
+                    raise ValueError(f"GMX API did not return decimals for token {symbol} ({address}). Cannot safely process currencies.")
                 result[symbol] = {
                     "id": address,
                     "code": symbol,
@@ -2293,7 +2329,7 @@ class GMX(ExchangeCompatible):
 
             try:
                 # Fetch token details and contract
-                token_details = fetch_erc20_details(self.web3, token_address)
+                token_details = fetch_erc20_details(self.web3, token_address, chain_id=self.web3.eth.chain_id)
 
                 # Get balance
                 balance_raw = token_details.contract.functions.balanceOf(wallet).call()
@@ -2318,6 +2354,70 @@ class GMX(ExchangeCompatible):
 
         return result
 
+    def _get_token_decimals(self, market: dict | None) -> int | None:
+        """Get token decimals from market metadata.
+
+        :param market: Market structure with info containing index_token address
+        :return: Token decimals or None if not found
+        """
+        if not market or not isinstance(market, dict):
+            return None
+
+        # Ensure token metadata is loaded
+        if not getattr(self, "_token_metadata", None):
+            self._token_metadata = {}
+        if not self._token_metadata:
+            self._load_token_metadata()
+
+        info = market.get("info", {}) or {}
+        index_addr = (info.get("index_token") or info.get("indexTokenAddress") or "").lower()
+        if not index_addr:
+            raise ValueError(f"Market {market.get('symbol', 'unknown')} has no index_token address. Cannot determine decimals.")
+
+        token_meta = self._token_metadata.get(index_addr)
+        if not token_meta:
+            raise ValueError(f"Token metadata not found for index token {index_addr}. Ensure load_markets() was called.")
+
+        decimals = token_meta.get("decimals")
+        if decimals is None:
+            raise ValueError(f"Decimals not found for token {index_addr}. GMX API response is missing decimals.")
+
+        return int(decimals)
+
+    def _convert_price_to_usd(self, raw_price: float | int | None, market: dict | None) -> float | None:
+        """Convert GMX raw price to USD using the standard formula.
+
+        Uses the same conversion as open_positions.py:
+            price_usd = raw_price / 10^(30 - token_decimals)
+
+        :param raw_price: Raw price from GMX (may be in 30-decimal format or already USD)
+        :param market: Market structure to get token decimals
+        :return: Price in USD or None
+        """
+        from eth_defi.gmx.utils import convert_raw_price_to_usd
+
+        if raw_price is None:
+            return None
+
+        try:
+            v = float(raw_price)
+        except Exception:
+            return None
+
+        # If already looks like a valid USD price, return as-is
+        # This handles data that's already been converted (e.g., from GetOpenPositions)
+        if 0.01 <= v <= 1_000_000:
+            return v
+
+        # Get token decimals from market metadata
+        token_decimals = self._get_token_decimals(market)
+        if token_decimals is None:
+            # Cannot convert without knowing token decimals
+            # Return as-is - caller should ensure proper conversion upstream
+            return v
+
+        return convert_raw_price_to_usd(v, token_decimals)
+
     def parse_order(
         self,
         order: dict,
@@ -2340,9 +2440,15 @@ class GMX(ExchangeCompatible):
         side = "buy" if is_long else "sell"
 
         # Get position size and prices
+        # Note: Data from GetOpenPositions is already converted to USD
+        # _convert_price_to_usd handles both raw and pre-converted values
         position_size_usd = self.safe_number(order, "position_size")
-        entry_price = self.safe_number(order, "entry_price")
-        mark_price = self.safe_number(order, "mark_price")
+        raw_entry_price = self.safe_number(order, "entry_price")
+        raw_mark_price = self.safe_number(order, "mark_price")
+
+        # Convert prices to USD (handles already-converted values gracefully)
+        entry_price = self._convert_price_to_usd(raw_entry_price, market)
+        mark_price = self._convert_price_to_usd(raw_mark_price, market)
 
         # Calculate amount in base currency
         amount = None
@@ -2769,6 +2875,7 @@ class GMX(ExchangeCompatible):
         """
         params = params or {}
 
+        # TODO: GMX now supports leverage less than 1. Handle this new update
         # Validate leverage
         if leverage < 1.0:
             raise ValueError(f"Leverage must be >= 1.0, got {leverage}")
@@ -3131,9 +3238,9 @@ class GMX(ExchangeCompatible):
         :type type: str
         :param side: Order side ('buy' or 'sell')
         :type side: str
-        :param amount: Order size in USD
+        :param amount: Order size in base currency contracts (e.g., BTC for BTC/USD)
         :type amount: float
-        :param price: Limit price (unused for market orders)
+        :param price: Price in quote currency (USD). Used to convert amount to USD. Fetched from ticker if None.
         :type price: float | None
         :param params: Additional parameters (leverage, collateral_symbol, etc.)
         :type params: dict
@@ -3141,6 +3248,10 @@ class GMX(ExchangeCompatible):
         :rtype: dict
         :raises ValueError: If symbol is invalid or parameters are incompatible
         """
+        # Ensure markets are loaded before processing
+        if not self.markets_loaded or not self.markets:
+            self.load_markets()
+
         # Normalize symbol to internal format (ETH/USDC -> ETH/USDC:USDC)
         normalized_symbol = self._normalize_symbol(symbol)
 
@@ -3160,12 +3271,23 @@ class GMX(ExchangeCompatible):
         # Check if user has an existing position
         is_long = side == "buy"
 
+        # Convert amount from base currency (BTC/ETH) to USD
+        # For CCXT linear perpetuals, amount is in base currency contracts
+        # GMX needs size_delta_usd in actual USD
+        if price:
+            size_delta_usd = amount * price
+        else:
+            # For market orders, fetch current price
+            ticker = self.fetch_ticker(symbol)
+            current_price = ticker["last"]
+            size_delta_usd = amount * current_price
+
         gmx_params = {
             "market_symbol": base_currency,
             "collateral_symbol": collateral_symbol,
             "start_token_symbol": collateral_symbol,
             "is_long": is_long,
-            "size_delta_usd": amount,
+            "size_delta_usd": size_delta_usd,
             "leverage": leverage,
             "slippage_percent": slippage_percent,
         }
@@ -3177,6 +3299,96 @@ class GMX(ExchangeCompatible):
             gmx_params["auto_cancel"] = params["auto_cancel"]
 
         return gmx_params
+
+    def _ensure_token_approval(
+        self,
+        collateral_symbol: str,
+        size_delta_usd: float,
+        leverage: float,
+    ):
+        """Ensure token approval for order creation.
+
+        Checks if the collateral token has sufficient allowance for the GMX router.
+        If not, automatically approves the token with a large allowance to avoid
+        repeated approval transactions.
+
+        Based on reference implementation from tests/gmx/debug_deploy.py
+
+        :param collateral_symbol: Symbol of collateral token (e.g., 'USDC', 'WETH')
+        :param size_delta_usd: Position size in USD
+        :param leverage: Leverage multiplier
+        """
+        # Skip approval for ETH (native token)
+        if collateral_symbol in ["ETH", "AVAX"]:
+            logger.debug(f"Using native {collateral_symbol} - no approval needed")
+            return
+
+        # Get token address
+        chain = self.config.get_chain()
+        collateral_token_address = get_token_address_normalized(chain, collateral_symbol)
+
+        if not collateral_token_address:
+            # If token address not found, assume it's OK (might be native or not need approval)
+            logger.debug(f"Token address not found for {collateral_symbol}, skipping approval")
+            return
+
+        # Get contract addresses (for router address)
+        contract_addresses = get_contract_addresses(chain)
+        spender_address = contract_addresses.syntheticsrouter
+
+        # Get token details and contract
+        token_details = fetch_erc20_details(self.web3, collateral_token_address, chain_id=self.web3.eth.chain_id)
+        token_contract = token_details.contract
+
+        # Check current allowance
+        wallet_address = self.wallet.address
+        current_allowance = token_contract.functions.allowance(to_checksum_address(wallet_address), spender_address).call()
+
+        # Calculate required collateral amount (position size / leverage)
+        # Add 10% buffer for fees
+        required_collateral_usd = (size_delta_usd / leverage) * 1.1
+        required_amount = int(required_collateral_usd * (10**token_details.decimals))
+
+        logger.debug(f"Token approval check: {collateral_symbol} allowance={current_allowance / (10**token_details.decimals):.4f}, required={required_amount / (10**token_details.decimals):.4f}")
+
+        # If allowance is sufficient, no action needed
+        if current_allowance >= required_amount:
+            logger.debug(f"Sufficient {collateral_symbol} allowance exists")
+            return
+
+        # Need to approve - use a large amount to avoid repeated approvals
+        # Approve 1 billion tokens (same pattern as debug_deploy.py)
+        approve_amount = 1_000_000_000 * (10**token_details.decimals)
+
+        logger.info(f"Insufficient {collateral_symbol} allowance. Current: {current_allowance / (10**token_details.decimals):.4f}, Required: {required_amount / (10**token_details.decimals):.4f}. Approving {approve_amount / (10**token_details.decimals):.0f} {collateral_symbol}...")
+
+        # Build approval transaction
+        approve_tx = token_contract.functions.approve(spender_address, approve_amount).build_transaction(
+            {
+                "from": to_checksum_address(wallet_address),
+                "gas": 100_000,
+                "gasPrice": self.web3.eth.gas_price,
+            }
+        )
+
+        # CRITICAL: Remove nonce before calling sign_transaction_with_new_nonce
+        # The wallet will manage the nonce automatically
+        if "nonce" in approve_tx:
+            del approve_tx["nonce"]
+
+        # Sign and send approval transaction
+        signed_approve_tx = self.wallet.sign_transaction_with_new_nonce(approve_tx)
+        approve_tx_hash = self.web3.eth.send_raw_transaction(signed_approve_tx.rawTransaction)
+
+        logger.info(f"Approval transaction sent: {approve_tx_hash.hex()}. Waiting for confirmation...")
+
+        # Wait for confirmation
+        approve_receipt = self.web3.eth.wait_for_transaction_receipt(approve_tx_hash, timeout=120)
+
+        if approve_receipt["status"] == 1:
+            logger.info(f"Token approval successful! Approved {approve_amount / (10**token_details.decimals):.0f} {collateral_symbol} for {spender_address}")
+        else:
+            raise Exception(f"Token approval transaction failed: {approve_tx_hash.hex()}")
 
     def _parse_order_result_to_ccxt(
         self,
@@ -3209,7 +3421,9 @@ class GMX(ExchangeCompatible):
         timestamp = self.milliseconds()
 
         # Determine status from receipt
-        status = "open" if receipt.get("status") == 1 else "failed"
+        # GMX orders execute immediately in the transaction, so if successful, the order is filled
+        tx_success = receipt.get("status") == 1
+        status = "closed" if tx_success else "failed"
 
         # Build info dict with all GMX-specific data
         info = {
@@ -3229,21 +3443,29 @@ class GMX(ExchangeCompatible):
         # Calculate fee in ETH
         fee_cost = order_result.execution_fee / 1e18
 
+        # OrderResult.mark_price is already converted to USD in base_order.py
+        # No additional conversion needed here
+        mark_price = order_result.mark_price
+
+        # GMX orders execute immediately - filled/remaining based on transaction success
+        filled_amount = amount if tx_success else 0.0
+        remaining_amount = 0.0 if tx_success else amount
+
         order = {
             "id": tx_hash,
             "clientOrderId": None,
             "timestamp": timestamp,
             "datetime": self.iso8601(timestamp),
-            "lastTradeTimestamp": None,
+            "lastTradeTimestamp": timestamp if tx_success else None,
             "symbol": symbol,
             "type": type,
             "side": side,
-            "price": order_result.mark_price if type == "market" else None,
+            "price": mark_price if type == "market" else None,
             "amount": amount,
-            "cost": None,  # Will be known after keeper execution
-            "average": None,  # Will be known after keeper execution
-            "filled": 0.0,  # Not filled yet (order just created)
-            "remaining": amount,
+            "cost": amount if tx_success else None,  # Cost equals amount for GMX (amount is in USD)
+            "average": mark_price if tx_success else None,  # Average fill price
+            "filled": filled_amount,  # GMX orders execute immediately in the transaction
+            "remaining": remaining_amount,
             "status": status,
             "fee": {
                 "cost": fee_cost,
@@ -3317,7 +3539,7 @@ class GMX(ExchangeCompatible):
             - leverage (float): Leverage multiplier (default: 1.0)
             - collateral_symbol (str): Collateral token (default: 'USDC')
             - slippage_percent (float): Slippage tolerance (default: 0.003)
-            - execution_buffer (float): Gas buffer multiplier (default: 1.3)
+            - execution_buffer (float): Gas buffer multiplier (default: 2.2)
             - auto_cancel (bool): Auto-cancel if execution fails (default: False)
         :type params: dict | None
         :return: CCXT-compatible order structure with transaction hash and status
@@ -3333,8 +3555,11 @@ class GMX(ExchangeCompatible):
                 "Wallet required for order creation. GMX is running in VIEW-ONLY mode. Provide 'privateKey' or 'wallet' in constructor parameters. Example: GMX({'rpcUrl': '...', 'privateKey': '0x...'})",
             )
 
-        # Ensure markets are loaded
-        if not self.markets_loaded:
+        # Sync wallet nonce before creating/closing order (required for Freqtrade)
+        self.wallet.sync_nonce(self.web3)
+
+        # Ensure markets are loaded and populated
+        if not self.markets_loaded or not self.markets:
             self.load_markets()
 
         # Convert CCXT parameters to GMX parameters
@@ -3347,11 +3572,24 @@ class GMX(ExchangeCompatible):
             params,
         )
 
+        # Ensure token approval before creating order
+        self._ensure_token_approval(
+            collateral_symbol=gmx_params["collateral_symbol"],
+            size_delta_usd=gmx_params["size_delta_usd"],
+            leverage=gmx_params["leverage"],
+        )
+
         if side == "buy":
             # Create the order using GMXTrading
             order_result = self.trader.open_position(**gmx_params)
         elif side == "sell":
-            # For closing positions, need to check existing position and calculate initial_collateral_delta
+            # For closing positions, use on-chain position data from GetOpenPositions
+            # to derive the correct decrease size and collateral delta.
+            #
+            # This mirrors the recommendation from the GMX SDK: always base the
+            # decrease on the actual open position instead of the user-requested
+            # amount to avoid "invalid decrease order size" reverts.
+
             normalized_symbol = self._normalize_symbol(symbol)
             market = self.markets[normalized_symbol]
             base_currency = market["base"]
@@ -3360,7 +3598,7 @@ class GMX(ExchangeCompatible):
             positions_manager = GetOpenPositions(self.config)
             existing_positions = positions_manager.get_data(self.wallet.address)
 
-            # Find the matching long position
+            # Find the matching long position for this market + collateral
             position_to_close = None
             for position_key, position_data in existing_positions.items():
                 position_market = position_data.get("market_symbol", "")
@@ -3373,23 +3611,62 @@ class GMX(ExchangeCompatible):
                     break
 
             if not position_to_close:
-                raise ValueError(f"No long position found for {symbol} with collateral {gmx_params['collateral_symbol']} to close")
+                raise ValueError(
+                    f"No long position found for {symbol} with collateral {gmx_params['collateral_symbol']} to close",
+                )
 
-            # Calculate initial_collateral_delta based on size and leverage
-            size_delta_usd = gmx_params["size_delta_usd"]
-            leverage = position_to_close.get("leverage", 1.0)
+            # Derive actual on-chain position size in USD.
+            # Preferred source is the already-converted "position_size" field.
+            position_size_usd = position_to_close.get("position_size")
 
-            # Handle abnormal leverage values (from gmx_close_position.py)
-            if leverage > 100 or leverage < 0.1:
-                initial_collateral_delta = size_delta_usd / 10
-            else:
-                initial_collateral_delta = size_delta_usd / leverage
+            # Fallback: convert raw 30-decimal size if available
+            if position_size_usd is None:
+                raw_size = position_to_close.get("position_size_usd_raw") or position_to_close.get(
+                    "position_size_usd",
+                )
+                if raw_size:
+                    try:
+                        position_size_usd = float(raw_size) / 10**30
+                    except Exception:
+                        position_size_usd = None
 
-            # Ensure minimum reasonable collateral value
-            if initial_collateral_delta < 0.1:
-                initial_collateral_delta = size_delta_usd
+            if not position_size_usd or position_size_usd <= 0:
+                raise ValueError(
+                    f"Cannot determine position size for {symbol} to close. Position data: {position_to_close}",
+                )
 
-            # Call close_position with the required initial_collateral_delta
+            # User-requested size (from CCXT amount / strategy).
+            requested_size_usd = float(gmx_params["size_delta_usd"])
+
+            # Clamp requested size to the actual position size to avoid protocol
+            # reverts when trying to close more than is open.
+            size_delta_usd = min(requested_size_usd, position_size_usd)
+
+            if size_delta_usd <= 0:
+                raise ValueError(
+                    f"Requested close size {requested_size_usd} is not positive for position size {position_size_usd} on {symbol}",
+                )
+
+            # Derive collateral delta proportionally from the original collateral.
+            # This matches GMX semantics better than guessing from leverage.
+            collateral_amount_usd = position_to_close.get("initial_collateral_amount_usd")
+            if collateral_amount_usd is None:
+                # Fallback: approximate from leverage if USD value is missing
+                leverage = float(position_to_close.get("leverage", 1.0) or 1.0)
+                if leverage > 0:
+                    collateral_amount_usd = position_size_usd / leverage
+                else:
+                    collateral_amount_usd = position_size_usd
+
+            # Pro-rata collateral for partial closes, full amount for full close
+            close_fraction = min(1.0, size_delta_usd / position_size_usd)
+            initial_collateral_delta = collateral_amount_usd * close_fraction
+
+            # Safety floor – avoid tiny dust values that can cause rounding issues
+            if initial_collateral_delta <= 0:
+                initial_collateral_delta = collateral_amount_usd
+
+            # Call close_position with the derived parameters
             order_result = self.trader.close_position(
                 market_symbol=gmx_params["market_symbol"],
                 collateral_symbol=gmx_params["collateral_symbol"],
@@ -3398,7 +3675,7 @@ class GMX(ExchangeCompatible):
                 size_delta_usd=size_delta_usd,
                 initial_collateral_delta=initial_collateral_delta,
                 slippage_percent=gmx_params.get("slippage_percent", 0.003),
-                execution_buffer=gmx_params.get("execution_buffer", 1.3),
+                execution_buffer=gmx_params.get("execution_buffer", self.execution_buffer),
                 auto_cancel=gmx_params.get("auto_cancel", False),
             )
         else:
@@ -3412,7 +3689,7 @@ class GMX(ExchangeCompatible):
 
         # Submit to blockchain
         tx_hash_bytes = self.web3.eth.send_raw_transaction(signed_tx.rawTransaction)
-        tx_hash = tx_hash_bytes.hex()
+        tx_hash = self.web3.to_hex(tx_hash_bytes)  # Use to_hex to include "0x" prefix
 
         # Wait for confirmation
         receipt = self.web3.eth.wait_for_transaction_receipt(tx_hash_bytes)
@@ -3514,6 +3791,15 @@ class GMX(ExchangeCompatible):
 
     # Unsupported methods (GMX protocol limitations)
 
+    def clear_order_cache(self):
+        """Clear the in-memory order cache.
+
+        Call this when switching strategies or starting a fresh session
+        to avoid stale order data from previous runs.
+        """
+        self._orders = {}
+        logger.info("Cleared order cache")
+
     def cancel_order(
         self,
         id: str,
@@ -3536,10 +3822,103 @@ class GMX(ExchangeCompatible):
         symbol: str | None = None,
         params: dict | None = None,
     ):
-        """Not supported - GMX orders execute immediately."""
-        raise NotSupported(
-            self.id + " fetch_order() is not supported - GMX orders execute immediately via the keeper system. Use fetch_positions() to see open positions or fetch_my_trades() for execution history.",
-        )
+        """Fetch order by ID (transaction hash).
+
+        Returns the order that was created with the given transaction hash.
+        Queries the blockchain to get the current transaction status.
+
+        :param id: Order ID (transaction hash)
+        :type id: str
+        :param symbol: Symbol (not used, for CCXT compatibility)
+        :type symbol: str | None
+        :param params: Additional parameters (not used)
+        :type params: dict | None
+        :return: CCXT-compatible order structure
+        :rtype: dict
+        :raises OrderNotFound: If order with given ID doesn't exist
+        """
+        # Check if order exists in stored orders
+        if id in self._orders:
+            order = self._orders[id].copy()
+
+            # Fetch current transaction status from blockchain
+            try:
+                if id.startswith("0x"):
+                    receipt = self.web3.eth.get_transaction_receipt(id)
+                    # Update status based on receipt
+                    tx_success = receipt.get("status") == 1
+                    order["status"] = "closed" if tx_success else "failed"
+
+                    # GMX orders execute immediately, so update filled/remaining
+                    if tx_success:
+                        order["filled"] = order["amount"]
+                        order["remaining"] = 0.0
+                    else:
+                        order["filled"] = 0.0
+                        order["remaining"] = order["amount"]
+
+                    # Update info with latest receipt data
+                    if "info" not in order:
+                        order["info"] = {}
+                    order["info"]["receipt"] = receipt
+                    order["info"]["block_number"] = receipt.get("blockNumber")
+                    order["info"]["gas_used"] = receipt.get("gasUsed")
+            except Exception as e:
+                logger.warning(f"Could not fetch transaction receipt for {id}: {e}")
+
+            return order
+
+        # Order not in cache - try to fetch from blockchain directly
+        # This handles orders from previous sessions or other strategies
+        # Normalize ID: add "0x" prefix if missing (for backwards compatibility with old order IDs)
+        normalized_id = id if id.startswith("0x") else f"0x{id}"
+
+        if len(normalized_id) == 66:  # Valid tx hash length (0x + 64 hex chars)
+            try:
+                receipt = self.web3.eth.get_transaction_receipt(normalized_id)
+                tx = self.web3.eth.get_transaction(normalized_id)
+
+                # Build minimal order structure from transaction data
+                tx_success = receipt.get("status") == 1
+                order = {
+                    "id": id,
+                    "clientOrderId": None,
+                    "datetime": self.iso8601(tx.get("blockNumber", 0) * 1000) if tx.get("blockNumber") else None,
+                    "timestamp": tx.get("blockNumber", 0) * 1000 if tx.get("blockNumber") else None,
+                    "lastTradeTimestamp": None,
+                    "status": "closed" if tx_success else "failed",
+                    "symbol": symbol if symbol else None,
+                    "type": "market",
+                    "side": None,  # Can't determine from tx alone
+                    "price": None,
+                    "amount": None,  # Can't determine from tx alone
+                    "filled": None,  # Can't determine from tx alone
+                    "remaining": 0.0 if tx_success else None,
+                    "cost": None,
+                    "trades": [],  # Empty list, not None - freqtrade expects a list
+                    "fee": {
+                        "currency": "ETH",
+                        "cost": float(receipt.get("gasUsed", 0)) * float(tx.get("gasPrice", 0)) / 1e18,
+                    },
+                    "info": {
+                        "receipt": receipt,
+                        "transaction": tx,
+                        "block_number": receipt.get("blockNumber"),
+                        "gas_used": receipt.get("gasUsed"),
+                    },
+                    "average": None,
+                    "fees": [],
+                }
+
+                logger.info(f"Fetched order {id} from blockchain (not in cache)")
+                return order
+
+            except Exception as e:
+                logger.warning(f"Could not fetch transaction {id} from blockchain: {e}")
+                # Fall through to raise OrderNotFound
+
+        # Order not found anywhere
+        raise OrderNotFound(f"{self.id} order {id} not found in stored orders or on blockchain")
 
     def fetch_order_book(
         self,

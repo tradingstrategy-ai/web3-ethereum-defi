@@ -4,12 +4,15 @@ GMX API Module
 This module provides functionality for interacting with GMX APIs.
 """
 
+import logging
 from typing import Optional, Any
 import pandas as pd
 
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.constants import GMX_API_URLS, GMX_API_URLS_BACKUP
 from eth_defi.gmx.retry import make_gmx_api_request
+
+logger = logging.getLogger(__name__)
 
 
 class GMXAPI:
@@ -128,7 +131,18 @@ class GMXAPI:
             typically including bid/ask prices, last price, and volume data
         :rtype: dict[str, Any]
         """
-        return self._make_request("/prices/tickers")
+        response = self._make_request("/prices/tickers")
+
+        # Log a small summary to help debugging without dumping full payloads
+        sample = None
+        if isinstance(response, list) and response:
+            sample = {
+                "token": response[3].get("tokenSymbol") or response[3].get("tokenAddress"),
+                "maxPrice": response[3].get("maxPrice"),
+                "minPrice": response[3].get("minPrice"),
+            }
+
+        return response
 
     def get_signed_prices(self) -> dict[str, Any]:
         """

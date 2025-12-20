@@ -11,8 +11,7 @@ from web3 import Web3
 from eth_defi.gmx.core.markets import Markets
 from eth_defi.gmx.core.oracle import OraclePrices
 from eth_defi.gmx.utils import determine_swap_route
-from eth_defi.gmx.contracts import get_tokens_address_dict
-from eth_defi.token import fetch_erc20_details
+from eth_defi.gmx.contracts import get_tokens_metadata_dict
 
 # Module-level caches to avoid repeated expensive calls
 _MARKETS_CACHE: dict[str, dict] = {}  # Key: chain name
@@ -23,12 +22,11 @@ def _get_token_metadata_dict(web3: Web3, chain: str, use_cache: bool = True) -> 
     """
     Get token metadata in SDK-compatible format with caching.
 
-    Converts our eth_defi format (symbol -> address) into SDK format
-    (address -> {symbol, address, decimals}) required by ArgumentParser.
+    Fetches token metadata from GMX API (not on-chain) because:
+    - GMX API returns all tokens in a single call (much faster than 100+ RPC calls)
+    - Synthetic tokens (APT, PEPE, etc.) don't exist on-chain, only in GMX API
 
-    Uses module-level caching to avoid repeated RPC calls for token metadata.
-
-    :param web3: Web3 connection instance
+    :param web3: Web3 connection instance (used only for cache key)
     :param chain: Network name
     :param use_cache: Whether to use cached values. Default is True.
     :return: Dictionary mapping addresses to token metadata
@@ -40,26 +38,17 @@ def _get_token_metadata_dict(web3: Web3, chain: str, use_cache: bool = True) -> 
     if use_cache and cache_key in _TOKEN_METADATA_CACHE:
         return _TOKEN_METADATA_CACHE[cache_key].copy()
 
-    # Get our format: {symbol: address}
-    tokens_by_symbol = get_tokens_address_dict(chain)
+    # Fetch from GMX API - returns {address: {symbol, decimals, synthetic}}
+    api_tokens = get_tokens_metadata_dict(chain)
 
-    # Convert to SDK format: {address: {symbol, address, decimals}}
+    # Convert to format expected by ArgumentParser: {address: {symbol, address, decimals}}
     result = {}
-    for symbol, address in tokens_by_symbol.items():
-        try:
-            token_details = fetch_erc20_details(web3, address)
-            result[address] = {
-                "symbol": symbol,
-                "address": address,
-                "decimals": token_details.decimals,
-            }
-        except Exception as e:
-            # Fallback for tokens that might not be standard ERC20
-            result[address] = {
-                "symbol": symbol,
-                "address": address,
-                "decimals": 18,  # Default to 18 decimals
-            }
+    for address, metadata in api_tokens.items():
+        result[address] = {
+            "symbol": metadata["symbol"],
+            "address": address,
+            "decimals": metadata["decimals"],
+        }
 
     # Cache the result
     if use_cache:

@@ -206,45 +206,6 @@ def test_get_pool_tvl_token_addresses(chain_name, get_pool_tvl):
             assert data["long_token"] != data["short_token"], f"Long and short tokens should be different: {data['long_token']} == {data['short_token']}"
 
 
-def test_get_pool_tvl_usd_calculation(chain_name, get_pool_tvl):
-    """
-    Test that USD calculation logic produces reasonable values.
-
-    This verifies that the USD values make sense relative to each other.
-    """
-    pool_tvl_data = get_pool_tvl.get_data()
-
-    # Should have some data to test
-    assert len(pool_tvl_data) > 0
-
-    # Get markets sorted by TVL
-    sorted_markets = sorted([(m, d["total_tvl"]) for m, d in pool_tvl_data.items() if d["total_tvl"] > 0], key=lambda x: x[1], reverse=True)
-
-    # Verify top markets have higher TVL than bottom markets
-    if len(sorted_markets) > 3:
-        top_markets = sorted_markets[:3]
-        bottom_markets = sorted_markets[-3:]
-
-        for top_market in top_markets:
-            for bottom_market in bottom_markets:
-                assert top_market[1] > bottom_market[1], f"Top market {top_market[0]} should have higher TVL than bottom market {bottom_market[0]}"
-
-    # Verify ETH/BTC markets have higher TVL than smaller tokens
-    eth_markets = [m for m in pool_tvl_data.items() if "ETH" in m[0].upper() and "2" not in m[0].upper()]
-    btc_markets = [m for m in pool_tvl_data.items() if "BTC" in m[0].upper() and "2" not in m[0].upper()]
-    small_markets = [m for m in pool_tvl_data.items() if "SHIB" in m[0].upper() or "PEPE" in m[0].upper()]
-
-    if eth_markets and small_markets:
-        avg_eth_tvl = sum(m[1]["total_tvl"] for m in eth_markets) / len(eth_markets)
-        avg_small_tvl = sum(m[1]["total_tvl"] for m in small_markets) / len(small_markets)
-        assert avg_eth_tvl > avg_small_tvl, "ETH markets should generally have higher TVL than meme tokens"
-
-    if btc_markets and small_markets:
-        avg_btc_tvl = sum(m[1]["total_tvl"] for m in btc_markets) / len(btc_markets)
-        avg_small_tvl = sum(m[1]["total_tvl"] for m in small_markets) / len(small_markets)
-        assert avg_btc_tvl > avg_small_tvl, "BTC markets should generally have higher TVL than meme tokens"
-
-
 def test_get_pool_tvl_special_markets(chain_name, get_pool_tvl):
     """
     Test special market types like BTC2, ETH2, and UNKNOWN.

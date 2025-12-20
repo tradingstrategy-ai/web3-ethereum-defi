@@ -9,10 +9,12 @@ import sys
 from pathlib import Path
 
 from eth_abi import encode
-from eth_defi.chain import get_chain_name
 from eth_utils import to_checksum_address
 from web3 import Web3
+
 from eth_defi.abi import get_contract
+from eth_defi.chain import get_chain_name
+from eth_defi.gmx.contracts import get_contract_addresses, get_token_address_normalized
 from eth_defi.gmx.core import OraclePrices
 from eth_defi.trace import assert_transaction_success_with_explanation
 
@@ -27,25 +29,73 @@ if not logger.handlers:
     logger.addHandler(handler)
 
 
+# Known-good Arbitrum mainnet fallbacks to avoid brittle hardcoding elsewhere.
+# Token addresses prefer the shared registry; fall back to the canonical mainnet hex.
+def _arbitrum_token(symbol: str, fallback: str) -> str:
+    try:
+        resolved = get_token_address_normalized("arbitrum", symbol)
+        if resolved:
+            return to_checksum_address(resolved)
+    except Exception:
+        pass
+    return to_checksum_address(fallback)
+
+
+ARBITRUM_DEFAULTS = {
+    "chainlink_provider": "0xE1d5a068c5b75E0c7Ea1A9Fe8EA056f9356C6fFD",
+    "order_handler": "0x04315E233C1c6FfA61080B76E29d5e8a1f7B4A35",
+    "role_store": "0x3c3d99FD298f679DBC2CEcd132b4eC4d0F5e6e72",
+    "weth": _arbitrum_token("WETH", "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1"),
+    "usdc": _arbitrum_token("USDC", "0xaf88d065e77c8cC2239327C5EDb3A432268e5831"),
+}
+
+
 def detect_provider_type(web3: Web3) -> str:
     """Detect if we're using Anvil or Tenderly.
 
     Returns:
         "anvil", "tenderly", or "unknown"
     """
-    try:
-        # Try Anvil-specific method
-        web3.provider.make_request("anvil_nodeInfo", [])
-        return "anvil"
-    except Exception:
-        pass
-
-    # Check if endpoint contains tenderly
+    # Check if endpoint contains tenderly FIRST (before trying RPC methods)
     endpoint = str(web3.provider.endpoint_uri if hasattr(web3.provider, "endpoint_uri") else "")
     if "tenderly" in endpoint.lower():
         return "tenderly"
 
+    try:
+        # Try Anvil-specific method
+        result = web3.provider.make_request("anvil_nodeInfo", [])
+        # Check if it actually succeeded (Tenderly might return error in result)
+        if result and not result.get("error"):
+            return "anvil"
+    except Exception:
+        pass
+
     return "unknown"
+
+
+def _resolve_token_address(chain: str, symbol: str, fallback: str) -> str:
+    """Return checksum token address for chain with safe fallback."""
+    try:
+        resolved = get_token_address_normalized(chain, symbol)
+        if resolved:
+            return to_checksum_address(resolved)
+    except Exception as e:  # pragma: no cover - used only in fork tooling
+        logger.debug(f"Failed to resolve {symbol} on {chain}: {e}")
+    return to_checksum_address(fallback)
+
+
+def _resolve_contract_address(chain: str, attr: str | tuple[str, ...], fallback: str) -> str:
+    """Return checksum contract address from GMX registry with safe fallback."""
+    try:
+        addresses = get_contract_addresses(chain)
+        attr_names = (attr,) if isinstance(attr, str) else attr
+        for name in attr_names:
+            resolved = getattr(addresses, name, None)
+            if resolved:
+                return to_checksum_address(resolved)
+    except Exception as e:  # pragma: no cover - used only in fork tooling
+        logger.debug(f"Failed to resolve {attr} for {chain}: {e}")
+    return to_checksum_address(fallback)
 
 
 def set_code(web3: Web3, address: str, bytecode: str):
@@ -317,9 +367,9 @@ def fetch_on_chain_oracle_prices(web3: Web3) -> tuple[int, int]:
         oracle = OraclePrices(chain)
         prices = oracle.get_recent_prices()
 
-        # Token addresses
-        weth_address = to_checksum_address("0x82aF49447D8a07e3bd95BD0d56f35241523fBab1")
-        usdc_address = to_checksum_address("0xaf88d065e77c8cC2239327C5EDb3A432268e5831")
+        # Token addresses (prefer registry, fallback to known-good mainnet values)
+        weth_address = _resolve_token_address(chain, "WETH", ARBITRUM_DEFAULTS["weth"])
+        usdc_address = _resolve_token_address(chain, "USDC", ARBITRUM_DEFAULTS["usdc"])
 
         # Get prices (they come in GMX's 30-decimal format)
         # WETH: 18 decimals -> stored as price * 10^12
@@ -369,6 +419,7 @@ def setup_mock_oracle(
         usdc_price_usd: USDC price in USD (if None, fetches from chain)
     """
     provider_type = detect_provider_type(web3)
+    chain = get_chain_name(web3.eth.chain_id).lower()
     logger.info(f"Setting up mock oracle (provider: {provider_type})")
 
     # Fetch on-chain prices if not provided (matches GMX's approach of using actual chain state)
@@ -379,8 +430,12 @@ def setup_mock_oracle(
 
     logger.info(f"Using prices: ETH=${eth_price_usd}, USDC=${usdc_price_usd}")
 
-    # Production oracle provider address (verified from mainnet)
-    production_provider_address = to_checksum_address("0xE1d5a068c5b75E0c7Ea1A9Fe8EA056f9356C6fFD")
+    # Production oracle provider address (prefer GMX registry, fallback to Arbitrum mainnet)
+    production_provider_address = _resolve_contract_address(
+        chain,
+        ("chainlinkdatastreamprovider", "gmoracleprovider"),
+        ARBITRUM_DEFAULTS["chainlink_provider"],
+    )
 
     # Load MockOracleProvider contract JSON
     contract_path = Path(__file__).parent.parent.parent / "eth_defi" / "abi" / "gmx" / "MockOracleProvider.json"
@@ -412,10 +467,14 @@ def setup_mock_oracle(
 
     # Get the ORIGINAL bytecode from the address (before replacement) for comparison
     original_bytecode_before = web3.eth.get_code(production_provider_address)
-    logger.info(f"Original bytecode at {production_provider_address}: {len(original_bytecode_before)} bytes")
+    logger.info(
+        f"Original bytecode at {production_provider_address}: {len(original_bytecode_before)} bytes",
+    )
 
     # Replace production provider bytecode with our mock bytecode
-    logger.info(f"Replacing bytecode at production address {production_provider_address}...")
+    logger.info(
+        f"Replacing bytecode at production address {production_provider_address}...",
+    )
     set_code(web3, production_provider_address, bytecode)
 
     # Verify the bytecode was actually changed
@@ -450,7 +509,7 @@ def setup_mock_oracle(
     logger.info("  ✓ Bytecode changed from original Chainlink provider")
     logger.info("  ✓ New bytecode matches MockOracleProvider.json")
 
-    # Load the contract instance at the production provider address (no deployment needed!)
+    # Load the contract instance at the production provider address
     mock = web3.eth.contract(address=production_provider_address, abi=abi)
     logger.info(f"Mock oracle loaded at production address: {mock.address}")
 
@@ -482,8 +541,11 @@ def setup_mock_oracle(
     # Configure prices using the first available account
     account = web3.eth.accounts[0]
 
+    # Fund the account with ETH for gas (handles multiple calls to setup_mock_oracle)
+    deal_eth(web3, account, 10 * 10**18)
+
     # WETH: 18 decimals -> price * 10^12
-    weth_address = to_checksum_address("0x82aF49447D8a07e3bd95BD0d56f35241523fBab1")
+    weth_address = _resolve_token_address(chain, "WETH", ARBITRUM_DEFAULTS["weth"])
     weth_price = int(eth_price_usd * (10**12))
     logger.info(f"Setting WETH price to {weth_price}...")
 
@@ -502,7 +564,7 @@ def setup_mock_oracle(
     )
 
     # USDC: 6 decimals -> price * 10^24
-    usdc_address = to_checksum_address("0xaf88d065e77c8cC2239327C5EDb3A432268e5831")
+    usdc_address = _resolve_token_address(chain, "USDC", ARBITRUM_DEFAULTS["usdc"])
     usdc_price = int(usdc_price_usd * (10**24))
     logger.info(f"Setting USDC price to {usdc_price}...")
 
@@ -527,10 +589,11 @@ def execute_order_as_keeper(web3: Web3, order_key: bytes):
         Tuple of (receipt, keeper_address)
     """
     provider_type = detect_provider_type(web3)
+    chain = get_chain_name(web3.eth.chain_id).lower()
     logger.info(f"Executing order as keeper (provider: {provider_type})")
 
-    # Get keeper from RoleStore
-    role_store_address = to_checksum_address("0x3c3d99FD298f679DBC2CEcd132b4eC4d0F5e6e72")
+    # Get keeper from RoleStore (address fixed on Arbitrum mainnet, safe fallback used)
+    role_store_address = to_checksum_address(ARBITRUM_DEFAULTS["role_store"])
     RoleStore = get_contract(web3, "gmx/RoleStore.json")
     role_store = RoleStore(address=role_store_address)
 
@@ -550,14 +613,18 @@ def execute_order_as_keeper(web3: Web3, order_key: bytes):
     set_balance(web3, keeper, hex(web3.to_wei(500, "ether")))
 
     # Get OrderHandler (use correct address with CONTROLLER role)
-    order_handler_address = to_checksum_address("0x04315E233C1c6FfA61080B76E29d5e8a1f7B4A35")
+    order_handler_address = _resolve_contract_address(chain, "orderhandler", ARBITRUM_DEFAULTS["order_handler"])
     OrderHandler = get_contract(web3, "gmx/OrderHandler.json")
     order_handler = OrderHandler(address=order_handler_address)
 
     # Build oracle params
-    weth_address = to_checksum_address("0x82aF49447D8a07e3bd95BD0d56f35241523fBab1")
-    usdc_address = to_checksum_address("0xaf88d065e77c8cC2239327C5EDb3A432268e5831")
-    oracle_provider = to_checksum_address("0xE1d5a068c5b75E0c7Ea1A9Fe8EA056f9356C6fFD")
+    weth_address = _resolve_token_address(chain, "WETH", ARBITRUM_DEFAULTS["weth"])
+    usdc_address = _resolve_token_address(chain, "USDC", ARBITRUM_DEFAULTS["usdc"])
+    oracle_provider = _resolve_contract_address(
+        chain,
+        ("chainlinkdatastreamprovider", "gmoracleprovider"),
+        ARBITRUM_DEFAULTS["chainlink_provider"],
+    )
 
     oracle_params = (
         [weth_address, usdc_address],

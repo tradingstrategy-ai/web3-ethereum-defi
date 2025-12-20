@@ -196,6 +196,7 @@ class GMXConfig:
         self,
         web3: Web3,
         user_wallet_address: Optional[str] = None,
+        wallet=None,
     ):
         """Initialize GMX configuration with automatic network detection.
 
@@ -205,11 +206,13 @@ class GMXConfig:
 
         :param web3: Web3 instance connected to the target blockchain network
         :param user_wallet_address: Optional wallet address for operations
+        :param wallet: Optional HotWallet instance for transaction signing (used by CCXT wrapper)
         :raises AssertionError:
             When the Web3 connection targets an unsupported blockchain network
             or automatic network detection fails due to connectivity issues
         """
         self.web3 = web3
+        self.wallet = wallet  # Store wallet for CCXT auto-approval use case
 
         # Used in some GMX API mappings
         chain = self.chain = get_chain_name(web3.eth.chain_id).lower()

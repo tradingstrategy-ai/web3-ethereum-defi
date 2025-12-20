@@ -106,7 +106,7 @@ Design Philosophy
 """
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from decimal import Decimal
 from eth_abi import encode
@@ -115,6 +115,42 @@ from eth_utils import keccak
 from eth_defi.gmx.core.markets import Markets
 from eth_defi.gmx.core.open_positions import GetOpenPositions
 from eth_defi.gmx.contracts import get_tokens_address_dict, TESTNET_TO_MAINNET_ORACLE_TOKENS
+
+
+# GMX uses 30-decimal precision for all price values
+GMX_PRICE_PRECISION = 30
+
+
+def convert_raw_price_to_usd(raw_price: int | float, token_decimals: int) -> float:
+    """Convert GMX raw price to human-readable USD.
+
+    GMX stores prices in 30-decimal PRECISION format. The conversion formula is:
+        price_usd = raw_price / 10^(30 - token_decimals)
+
+    Examples:
+        - BTC (8 decimals): raw / 10^22
+        - ETH (18 decimals): raw / 10^12
+        - USDC (6 decimals): raw / 10^24
+
+    :param raw_price: Raw price value from GMX (30-decimal format)
+    :param token_decimals: Number of decimals for the token (e.g., 8 for BTC, 18 for ETH)
+    :return: Price in USD
+    """
+    price_decimals = GMX_PRICE_PRECISION - token_decimals
+    return float(raw_price) / (10**price_decimals)
+
+
+def convert_usd_to_raw_price(price_usd: float, token_decimals: int) -> int:
+    """Convert USD price to GMX raw format.
+
+    Inverse of convert_raw_price_to_usd.
+
+    :param price_usd: Price in USD
+    :param token_decimals: Number of decimals for the token
+    :return: Raw price value in GMX 30-decimal format
+    """
+    price_decimals = GMX_PRICE_PRECISION - token_decimals
+    return int(price_usd * (10**price_decimals))
 
 
 # Can be done using the `GMXAPI` class if needed

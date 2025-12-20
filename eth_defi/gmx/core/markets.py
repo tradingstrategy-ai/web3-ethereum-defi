@@ -60,21 +60,12 @@ class Markets:
         self._markets_cache: Optional[dict] = None  # Cache for processed markets
 
     def _get_token_metadata_dict(self) -> dict[HexAddress, dict]:
-        """Get token metadata dictionary for mainnet."""
-        # Get token address mapping
-        token_address_dict = get_tokens_address_dict(self.config.chain)
+        """Get token metadata dictionary with correct decimals from GMX API.
 
-        # Create reverse lookup: address -> metadata
-        token_metadata_dict = {}
-        for symbol, address in token_address_dict.items():
-            # Add synthetic flag to metadata
-            token_metadata_dict[address] = {
-                "symbol": symbol,
-                "decimals": 18,  # Default, will be updated if we have more info
-                "synthetic": False,  # Default value
-            }
-
-        return token_metadata_dict
+        Uses get_tokens_metadata_dict which fetches decimals from the GMX API,
+        ensuring correct price conversions for all tokens (e.g., BTC=8, ETH=18).
+        """
+        return get_tokens_metadata_dict(self.config.chain)
 
     def _get_oracle_prices(self) -> dict[str, dict]:
         """Get or fetch oracle prices."""
@@ -297,33 +288,35 @@ class Markets:
 
                 # Handle swap markets (when index token metadata is missing)
                 if not index_token_meta:
-                    # For swap markets, create a custom symbol
-                    long_symbol = long_token_meta["symbol"] if long_token_meta else "UNKNOWN"
-                    short_symbol = short_token_meta["symbol"] if short_token_meta else "UNKNOWN"
-                    market_symbol = f"SWAP {long_symbol}-{short_symbol}"
+                    # Skip swap markets - they don't have price data we can safely convert
+                    logger.debug(f"Skipping market {market_address}: no index token metadata (likely a swap market)")
+                    continue
 
-                    # Create synthetic metadata for swap markets
-                    index_token_meta = {"symbol": market_symbol, "decimals": 18, "synthetic": True}
-                else:
-                    # Determine market symbol
-                    market_symbol = index_token_meta["symbol"]
-                    if long_token_address == short_token_address:
-                        market_symbol = f"{market_symbol}2"
+                # Verify index token has decimals
+                if "decimals" not in index_token_meta:
+                    raise ValueError(f"Index token {index_token_address} missing decimals in GMX API response. Cannot safely process market {market_address}.")
 
-                    # Set synthetic flag for BTC2/ETH2 markets
-                    index_token_meta["synthetic"] = long_token_address == short_token_address
+                # Determine market symbol
+                market_symbol = index_token_meta["symbol"]
+                if long_token_address == short_token_address:
+                    market_symbol = f"{market_symbol}2"
+
+                # Set synthetic flag for BTC2/ETH2 markets
+                index_token_meta["synthetic"] = long_token_address == short_token_address
 
                 # Special case for wstETH market
                 if market_address == self._special_wsteth_address:
                     market_symbol = "wstETH"
                     index_token_address = to_checksum_address("0x5979D7b546E38E414F7E9822514be443A4800529")
-                    index_token_meta = token_metadata_dict.get(index_token_address, {"symbol": "wstETH", "decimals": 18, "synthetic": False})
+                    index_token_meta = token_metadata_dict.get(index_token_address)
+                    if not index_token_meta or "decimals" not in index_token_meta:
+                        raise ValueError(f"wstETH token {index_token_address} not found in GMX API or missing decimals.")
 
-                # Ensure metadata exists for all tokens
-                if not long_token_meta:
-                    long_token_meta = {"symbol": "UNKNOWN", "decimals": 18, "synthetic": False}
-                if not short_token_meta:
-                    short_token_meta = {"symbol": "UNKNOWN", "decimals": 18, "synthetic": False}
+                # Ensure metadata exists for all tokens (long/short tokens need decimals for collateral)
+                if not long_token_meta or "decimals" not in long_token_meta:
+                    raise ValueError(f"Long token {long_token_address} missing metadata or decimals for market {market_address}.")
+                if not short_token_meta or "decimals" not in short_token_meta:
+                    raise ValueError(f"Short token {short_token_address} missing metadata or decimals for market {market_address}.")
 
                 # Store processed market
                 processed_markets[market_address] = {

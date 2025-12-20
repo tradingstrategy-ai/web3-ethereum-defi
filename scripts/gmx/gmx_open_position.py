@@ -90,7 +90,7 @@ console = Console()
 
 
 def main():
-    rpc_url = os.environ.get("ARBITRUM_SEPOLIA_RPC_URL")
+    rpc_url = "https://virtual.arbitrum-sepolia.eu.rpc.tenderly.co/91907bb6-9171-4c80-8af3-debba71b2aae"  # os.environ.get("ARBITRUM_SEPOLIA_RPC_URL")
     private_key = os.environ.get("PRIVATE_KEY")
 
     console.print("Starting GMX Position Opening Test...")
@@ -172,7 +172,7 @@ def main():
             size_delta_usd=size_usd,
             leverage=leverage,
             slippage_percent=0.005,  # 0.5% slippage
-            execution_buffer=2.2,  # less than this is reverting
+            execution_buffer=30,  # less than this is reverting
         )
 
         console.print(f"\n[green]Position Order object created successfully![/green]")
