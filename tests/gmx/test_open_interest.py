@@ -2,8 +2,6 @@
 Tests for GMX Open Interest Data Retrieval Module.
 """
 
-import time
-
 from eth_defi.gmx.core.open_interest import GetOpenInterest, OpenInterestInfo
 
 
@@ -89,7 +87,6 @@ def test_open_interest_calculation(get_open_interest):
 def test_data_consistency(get_open_interest):
     """Test that open interest data is consistent across multiple calls with real data."""
     results1 = get_open_interest.get_data()
-    time.sleep(0.1)  # Small delay to allow for potential changes
     results2 = get_open_interest.get_data()
 
     # We expect some minor changes due to trading activity, but not major changes

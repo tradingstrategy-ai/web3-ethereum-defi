@@ -48,10 +48,7 @@ from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.trading import GMXTrading
 from eth_defi.gmx.core.open_positions import GetOpenPositions
 from eth_defi.hotwallet import HotWallet
-from eth_defi.gmx.contracts import (
-    get_token_address_normalized,
-    get_contract_addresses,
-)
+from eth_defi.gmx.contracts import get_token_address_normalized, get_contract_addresses
 from rich.console import Console
 from web3 import Web3
 
@@ -63,7 +60,6 @@ from tests.gmx.fork_helpers import extract_order_key_from_receipt, set_next_bloc
 import logging
 from rich.logging import RichHandler
 from pathlib import Path
-from eth_abi import decode
 
 # Configure logging - suppress verbose library logs
 FORMAT = "%(message)s"

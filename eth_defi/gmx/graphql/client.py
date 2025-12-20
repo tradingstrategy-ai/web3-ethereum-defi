@@ -10,8 +10,9 @@ The original contract-based implementation (GetOpenPositions) remains the source
 of truth for on-chain data when executing trades.
 """
 
-from typing import Optional, Any
 from decimal import Decimal
+from typing import Any, Optional
+
 import requests
 
 from eth_defi.gmx.contracts import GMX_SUBSQUID_ENDPOINTS, get_tokens_metadata_dict
@@ -29,13 +30,31 @@ class GMXSubsquidClient:
     This client fetches position and PnL data from the GMX Subsquid indexer,
     providing fast access to current and historical trading data.
 
+    .. important::
+        **GraphQL Limitations:** This client provides snapshot position data but lacks
+        real-time borrowing/funding fields that require on-chain computation:
+
+        - borrowing_factor
+        - funding_fee_amount_per_size
+        - long_token_claimable_funding_amount_per_size
+        - short_token_claimable_funding_amount_per_size
+
+        These fields require the Reader contract and are only available via
+        ``GetOpenPositions`` with ``use_graphql=False``.
+
+        **Trade-off:** GraphQL is 10-100x faster but provides static data.
+        Use RPC for real-time funding/borrowing calculations.
+
     Example usage::
 
         # Create client
         client = GMXSubsquidClient()
 
-        # Get open positions
+        # Get open positions (fast, but no borrowing/funding data)
         positions = client.get_positions(account="0x1234...", only_open=True)
+
+        # Format position with proper decimal handling
+        formatted = client.format_position(positions[0])
 
         # Get PnL summary
         pnl_summary = client.get_pnl_summary(account="0x1234...")
@@ -65,6 +84,8 @@ class GMXSubsquidClient:
 
         # Cache token metadata from GMX API (address -> {symbol, decimals, synthetic})
         self._tokens_metadata: Optional[dict[str, dict]] = None
+        # Cache markets data (market_address -> {indexToken, longToken, shortToken})
+        self._markets_cache: Optional[dict[str, dict]] = None
 
     def _get_tokens_metadata(self) -> dict[str, dict]:
         """Get token metadata from GMX API, with caching.
@@ -112,6 +133,17 @@ class GMXSubsquidClient:
     ) -> list[dict[str, Any]]:
         """Get positions for an account.
 
+        .. note::
+            GraphQL provides fast queries but lacks real-time borrowing/funding data.
+            Fields NOT available in GraphQL (require on-chain Reader contract):
+
+            - borrowing_factor
+            - funding_fee_amount_per_size
+            - long_token_claimable_funding_amount_per_size
+            - short_token_claimable_funding_amount_per_size
+
+            For these fields, use GetOpenPositions with use_graphql=False.
+
         :param account: Wallet address (checksummed or lowercase)
         :param only_open: If True, only return positions with size > 0
         :param limit: Maximum number of positions to return
@@ -125,13 +157,13 @@ class GMXSubsquidClient:
             - isLong: True for long, False for short
             - collateralAmount: Collateral amount (BigInt as string)
             - sizeInUsd: Position size in USD (30 decimals, BigInt as string)
-            - sizeInTokens: Position size in tokens (BigInt as string)
-            - entryPrice: Entry price (30 decimals, BigInt as string)
+            - sizeInTokens: Position size in tokens (index_token_decimals, BigInt as string)
+            - entryPrice: Entry price (30-index_decimals, BigInt as string)
             - realizedPnl: Realized PnL (30 decimals, BigInt as string)
             - unrealizedPnl: Unrealized PnL (30 decimals, BigInt as string)
             - realizedFees: Realized fees (30 decimals, BigInt as string)
             - unrealizedFees: Unrealized fees (30 decimals, BigInt as string)
-            - leverage: Leverage (30 decimals, BigInt as string)
+            - leverage: Leverage (4 decimals, BigInt as string, 10000 = 1x)
             - openedAt: Opening timestamp
         """
         query = """
@@ -722,19 +754,74 @@ class GMXSubsquidClient:
         :param token_address: Token contract address
         :return: Number of decimals for the token
         """
-        from eth_utils import to_checksum_address
+        from eth_utils import is_address, to_checksum_address
+
+        # Validate address before normalizing
+        if not is_address(token_address):
+            # Invalid address format, default to 18 decimals
+            return 18
+
+        try:
+            # Normalize address to checksum format
+            checksum_address = to_checksum_address(token_address)
+        except (ValueError, TypeError):
+            # Invalid address format, default to 18 decimals
+            return 18
 
         # Get token metadata from GMX API
         tokens_metadata = self._get_tokens_metadata()
-
-        # Normalize address to checksum format
-        checksum_address = to_checksum_address(token_address)
 
         # Look up token in metadata
         if checksum_address in tokens_metadata:
             return tokens_metadata[checksum_address]["decimals"]
 
         # Default to 18 for unknown tokens
+        return 18
+
+    def _get_markets_cache(self) -> dict[str, dict]:
+        """Get markets data with caching.
+
+        :return: Dictionary mapping market addresses to market info
+        """
+        if self._markets_cache is None:
+            markets_list = self.get_markets(limit=200)
+            self._markets_cache = {}
+            for market in markets_list:
+                from eth_utils import to_checksum_address
+
+                market_addr = to_checksum_address(market["id"])
+                self._markets_cache[market_addr] = market
+        return self._markets_cache
+
+    def get_index_token_decimals(self, market_address: str) -> int:
+        """Get decimals for the index token of a market.
+
+        :param market_address: Market contract address
+        :return: Number of decimals for the index token
+        """
+        from eth_utils import is_address, to_checksum_address
+
+        # Validate address before normalizing
+        if not is_address(market_address):
+            # Invalid address format, default to 18 decimals
+            return 18
+
+        try:
+            # Normalize market address
+            market_addr = to_checksum_address(market_address)
+        except (ValueError, TypeError):
+            # Invalid address format, default to 18 decimals
+            return 18
+
+        # Get market info from cache
+        markets = self._get_markets_cache()
+
+        if market_addr in markets:
+            index_token = markets[market_addr].get("indexToken")
+            if index_token:
+                return self.get_token_decimals(index_token)
+
+        # Default to 18 if market or index token not found
         return 18
 
     def format_position(self, position: dict[str, Any]) -> dict[str, Any]:
@@ -747,12 +834,18 @@ class GMXSubsquidClient:
             Decimals vary by field:
 
             - collateralAmount: Depends on collateral token (6 for USDC, 18 for ETH, etc.)
-            - sizeInUsd, sizeInTokens: 30 decimals
-            - entryPrice: 18 decimals (price per token)
+            - sizeInUsd: 30 decimals
+            - sizeInTokens: Depends on index token (8 for BTC, 18 for ETH, etc.)
+            - entryPrice: 30 - index_token_decimals (e.g., 22 for BTC with 8 decimals)
             - PnL and fees: 30 decimals
             - leverage: 4 decimals (10000 = 1x leverage)
         """
         collateral_decimals = self.get_token_decimals(position["collateralToken"])
+        index_decimals = self.get_index_token_decimals(position["market"])
+
+        # Entry price uses: 30 - index_decimals
+        # This accounts for the index token's decimal places
+        price_decimals = 30 - index_decimals
 
         return {
             "id": position["id"],
@@ -763,8 +856,8 @@ class GMXSubsquidClient:
             "is_long": position["isLong"],
             "collateral_amount": float(self.from_fixed_point(position["collateralAmount"], decimals=collateral_decimals)),
             "size_usd": float(self.from_fixed_point(position["sizeInUsd"])),
-            "size_tokens": float(self.from_fixed_point(position["sizeInTokens"])),
-            "entry_price": float(self.from_fixed_point(position["entryPrice"], decimals=18)),
+            "size_tokens": float(self.from_fixed_point(position["sizeInTokens"], decimals=index_decimals)),
+            "entry_price": float(self.from_fixed_point(position["entryPrice"], decimals=price_decimals)),
             "realized_pnl": float(self.from_fixed_point(position["realizedPnl"])),
             "unrealized_pnl": float(self.from_fixed_point(position["unrealizedPnl"])),
             "realized_fees": float(self.from_fixed_point(position["realizedFees"])),

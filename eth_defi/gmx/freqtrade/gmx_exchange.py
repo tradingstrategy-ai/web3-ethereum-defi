@@ -37,6 +37,7 @@ from freqtrade.exchange.exchange_types import FtHas, Tickers
 
 from eth_defi.gmx.ccxt.errors import InsufficientHistoricalDataError
 from eth_defi.gmx.ccxt.validation import _timeframe_to_milliseconds
+from eth_defi.gmx.core.open_positions import GetOpenPositions
 
 logger = logging.getLogger(__name__)
 
@@ -389,3 +390,23 @@ class Gmx(Exchange):
         except Exception as e:
             logger.warning(f"Error getting max leverage for {pair}: {e}, returning default 50x")
             return 50.0
+
+    def fetch_onchain_positions(self, use_graphql: bool = False) -> dict:
+        """Fetch live GMX positions directly from the contracts (or Subsquid when enabled).
+
+        This gives Freqtrade a second, on-chain source of truth to reconcile
+        dashboard state after opens/closes. It mirrors the logic used by the
+        CCXT adapter so you can verify that positions are really open/closed
+        when the UI or logs look suspicious.
+        """
+        gmx = getattr(self, "_api", None)
+        wallet = getattr(gmx, "wallet_address", None)
+
+        if not gmx or not getattr(gmx, "config", None):
+            raise OperationalException("GMX CCXT client is not initialized")
+        if not wallet:
+            raise OperationalException("GMX wallet_address is missing; cannot fetch on-chain positions")
+
+        positions = GetOpenPositions(gmx.config, use_graphql=use_graphql).get_data(wallet)
+        logger.info("Fetched %s on-chain GMX positions for wallet %s", len(positions), wallet)
+        return positions

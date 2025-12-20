@@ -82,7 +82,7 @@ jobs:
       - name: Install dependencies with specific Web3.py version
         run: |
             poetry install
-            poetry install -E docs -E data -E test -E hypersync -E ccxt -E web3v7 -E duckdb -E hypersync
+            poetry install -E docs -E data -E test -E hypersync -E ccxt -E web3v7 -E duckdb
 
       - name: Install Ganache
         run: yarn global add ganache
@@ -149,11 +149,15 @@ jobs:
 
       - name: Run tests (parallel)
         run: |
+          # NOTE: GMX tests are excluded here and run separately in test-gmx.yml workflow
+          # GMX tests cannot run in parallel due to mainnet fork state conflicts
+          # See .github/workflows/test-gmx.yml for details on why parallel execution fails
+          # 
           # Enable verbose output if debugging is enabled
           if [ "$ENABLE_VERBOSE_LOGGING" = "true" ]; then
-            poetry run pytest --timeout-method=thread --tb=native -n auto -v -s --capture=no
+            poetry run pytest --timeout-method=thread --tb=native -n auto -v -s --capture=no --ignore=tests/gmx
           else
-            poetry run pytest --timeout-method=thread --tb=native -n auto
+            poetry run pytest --timeout-method=thread --tb=native -n auto --ignore=tests/gmx
           fi
         env:
           BNB_CHAIN_JSON_RPC: ${{ secrets.BNB_CHAIN_JSON_RPC }}

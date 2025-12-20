@@ -2,7 +2,7 @@
 Tests for GMXTrading on Arbitrum mainnet fork.
 
 These tests verify GMX trading functionality on Arbitrum mainnet fork with mock oracle.
-All tests run on an Anvil fork with a mock oracle to enable testing without live price feeds.
+Each test gets its own completely isolated Anvil fork instance.
 
 Tests follow the complete order lifecycle:
 1. Create order (sign and submit transaction)
@@ -12,34 +12,31 @@ Tests follow the complete order lifecycle:
 Required Environment Variables:
 - JSON_RPC_ARBITRUM: Arbitrum mainnet RPC endpoint for forking
 
-All fixtures are defined in conftest.py:
-- arbitrum_fork_config: GMX config for mainnet fork
-- trading_manager_fork: GMXTrading instance
-- position_verifier_fork: GetOpenPositions instance
-- web3_arbitrum_fork: Web3 instance with mock oracle setup
-- test_wallet: HotWallet for signing transactions
+Uses isolated_fork_env fixture which provides:
+- Fresh Anvil fork per test
+- Mock oracle set up FIRST (matching debug.py flow)
+- Funded wallet with ETH/WETH/USDC
+- GMX config with approved tokens
 """
 
-from eth_defi.gmx.core import GetOpenPositions
+from flaky import flaky
+
 from eth_defi.gmx.order.base_order import OrderResult
 from eth_defi.gmx.trading import GMXTrading
-from tests.gmx.fork_helpers import execute_order_as_keeper, extract_order_key_from_receipt, setup_mock_oracle, fetch_on_chain_oracle_prices
+from tests.gmx.fork_helpers import execute_order_as_keeper, extract_order_key_from_receipt, fetch_on_chain_oracle_prices, setup_mock_oracle
 
 
-def test_initialization(arbitrum_fork_config):
-    """Test that the trading module initializes correctly on Arbitrum mainnet fork."""
-    trading = GMXTrading(arbitrum_fork_config)
-    assert trading.config == arbitrum_fork_config
+def test_initialization(isolated_fork_env):
+    """Test that the trading module initialises correctly on Arbitrum mainnet fork."""
+    env = isolated_fork_env
+    trading = GMXTrading(env.config)
+    assert trading.config == env.config
     assert trading.config.get_chain().lower() == "arbitrum"
 
 
-def test_open_long_position(
-    web3_arbitrum_fork,
-    trading_manager_fork,
-    position_verifier_fork,
-    arbitrum_fork_config,
-    test_wallet,
-):
+# NOTE: These tests are flaky because the blockchain changes and GMX is notoriously unstable and make changes unannounced. We have faced this several times during development. Tests start failing out of the blue for silly reasons.
+@flaky(max_runs=3, min_passes=1)
+def test_open_long_position(isolated_fork_env, execution_buffer):
     """
     Test opening a long ETH position with full execution.
 
@@ -49,14 +46,18 @@ def test_open_long_position(
     3. Execute order as keeper
     4. Verify position was created
     """
-    wallet_address = arbitrum_fork_config.get_wallet_address()
+    env = isolated_fork_env
+    wallet_address = env.config.get_wallet_address()
 
     # Record initial state
-    initial_positions = position_verifier_fork.get_data(wallet_address)
+    initial_positions = env.positions.get_data(wallet_address)
     initial_position_count = len(initial_positions)
 
+    # Sync nonce before transaction
+    env.wallet.sync_nonce(env.web3)
+
     # === Step 1: Create order ===
-    order_result = trading_manager_fork.open_position(
+    order_result = env.trading.open_position(
         market_symbol="ETH",
         collateral_symbol="ETH",
         start_token_symbol="ETH",
@@ -64,7 +65,7 @@ def test_open_long_position(
         size_delta_usd=10,
         leverage=2.5,
         slippage_percent=0.005,
-        execution_buffer=2.2,
+        execution_buffer=execution_buffer,
     )
 
     # Verify OrderResult structure
@@ -77,9 +78,9 @@ def test_open_long_position(
     if "nonce" in transaction:
         del transaction["nonce"]
 
-    signed_tx = test_wallet.sign_transaction_with_new_nonce(transaction)
-    tx_hash = web3_arbitrum_fork.eth.send_raw_transaction(signed_tx.rawTransaction)
-    receipt = web3_arbitrum_fork.eth.wait_for_transaction_receipt(tx_hash)
+    signed_tx = env.wallet.sign_transaction_with_new_nonce(transaction)
+    tx_hash = env.web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+    receipt = env.web3.eth.wait_for_transaction_receipt(tx_hash)
 
     assert receipt["status"] == 1, "Order transaction should succeed"
 
@@ -88,11 +89,11 @@ def test_open_long_position(
     assert order_key is not None, "Should extract order key from receipt"
 
     # === Step 3: Execute order as keeper ===
-    exec_receipt, keeper_address = execute_order_as_keeper(web3_arbitrum_fork, order_key)
+    exec_receipt, keeper_address = execute_order_as_keeper(env.web3, order_key)
     assert exec_receipt["status"] == 1, "Order execution should succeed"
 
     # === Step 4: Verify position was created ===
-    final_positions = position_verifier_fork.get_data(wallet_address)
+    final_positions = env.positions.get_data(wallet_address)
     final_position_count = len(final_positions)
 
     assert final_position_count == initial_position_count + 1, "Should have 1 more position"
@@ -107,14 +108,11 @@ def test_open_long_position(
     assert position["leverage"] > 0, "Leverage should be > 0"
 
 
-def test_open_short_position(
-    web3_arbitrum_fork,
-    arbitrum_fork_config_short,
-    test_wallet,
-):
+@flaky(max_runs=3, min_passes=1)
+def test_open_short_position(isolated_fork_env_short, execution_buffer):
     """
     Test opening a short ETH position with full execution.
-    Uses ETH price of 3550 USD.
+    Uses isolated fork with ETH price of 3550 USD.
 
     Flow:
     1. Create order (ETH market, USDC collateral, 2.5x leverage)
@@ -122,20 +120,18 @@ def test_open_short_position(
     3. Execute order as keeper
     4. Verify position was created
     """
-    from eth_defi.gmx.trading import GMXTrading
-    from eth_defi.gmx.core import GetOpenPositions
-
-    # Create instances with short position config
-    trading_manager_fork = GMXTrading(arbitrum_fork_config_short)
-    position_verifier_fork = GetOpenPositions(arbitrum_fork_config_short)
-    wallet_address = arbitrum_fork_config_short.get_wallet_address()
+    env = isolated_fork_env_short
+    wallet_address = env.config.get_wallet_address()
 
     # Record initial state
-    initial_positions = position_verifier_fork.get_data(wallet_address)
+    initial_positions = env.positions.get_data(wallet_address)
     initial_position_count = len(initial_positions)
 
+    # Sync nonce before transaction
+    env.wallet.sync_nonce(env.web3)
+
     # === Step 1: Create order ===
-    order_result = trading_manager_fork.open_position(
+    order_result = env.trading.open_position(
         market_symbol="ETH",
         collateral_symbol="ETH",
         start_token_symbol="ETH",
@@ -143,7 +139,7 @@ def test_open_short_position(
         size_delta_usd=10,
         leverage=2.5,
         slippage_percent=0.005,
-        execution_buffer=2.2,
+        execution_buffer=execution_buffer,
     )
 
     assert isinstance(order_result, OrderResult), "Expected OrderResult instance"
@@ -153,9 +149,9 @@ def test_open_short_position(
     if "nonce" in transaction:
         del transaction["nonce"]
 
-    signed_tx = test_wallet.sign_transaction_with_new_nonce(transaction)
-    tx_hash = web3_arbitrum_fork.eth.send_raw_transaction(signed_tx.rawTransaction)
-    receipt = web3_arbitrum_fork.eth.wait_for_transaction_receipt(tx_hash)
+    signed_tx = env.wallet.sign_transaction_with_new_nonce(transaction)
+    tx_hash = env.web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+    receipt = env.web3.eth.wait_for_transaction_receipt(tx_hash)
 
     assert receipt["status"] == 1, "Order transaction should succeed"
 
@@ -164,11 +160,11 @@ def test_open_short_position(
     assert order_key is not None, "Should extract order key from receipt"
 
     # === Step 3: Execute order as keeper ===
-    exec_receipt, keeper_address = execute_order_as_keeper(web3_arbitrum_fork, order_key)
+    exec_receipt, keeper_address = execute_order_as_keeper(env.web3, order_key)
     assert exec_receipt["status"] == 1, "Order execution should succeed"
 
     # === Step 4: Verify position was created ===
-    final_positions = position_verifier_fork.get_data(wallet_address)
+    final_positions = env.positions.get_data(wallet_address)
     final_position_count = len(final_positions)
 
     assert final_position_count == initial_position_count + 1, "Should have 1 more position"
@@ -180,14 +176,11 @@ def test_open_short_position(
     assert position["position_size"] > 0, "Position size should be > 0"
 
 
-def test_open_and_close_position(
-    web3_arbitrum_fork,
-    arbitrum_fork_config_open_close,
-    test_wallet,
-):
+@flaky(max_runs=3, min_passes=1)
+def test_open_and_close_position(isolated_fork_env, execution_buffer):
     """
     Test full position lifecycle: open then close.
-    Uses fresh oracle setup with ETH price of 3450 USD.
+    Uses isolated fork with fresh oracle setup.
 
     Flow:
     1. Open position (long ETH)
@@ -195,18 +188,18 @@ def test_open_and_close_position(
     3. Close position (decrease to 0)
     4. Verify position was closed
     """
-
-    # Create instances with open/close position config
-    trading_manager_fork = GMXTrading(arbitrum_fork_config_open_close)
-    position_verifier_fork = GetOpenPositions(arbitrum_fork_config_open_close)
-    wallet_address = arbitrum_fork_config_open_close.get_wallet_address()
+    env = isolated_fork_env
+    wallet_address = env.config.get_wallet_address()
 
     # Record initial state
-    initial_positions = position_verifier_fork.get_data(wallet_address)
+    initial_positions = env.positions.get_data(wallet_address)
     initial_position_count = len(initial_positions)
 
+    # Sync nonce before transaction
+    env.wallet.sync_nonce(env.web3)
+
     # === Step 1: Open position ===
-    order_result = trading_manager_fork.open_position(
+    order_result = env.trading.open_position(
         market_symbol="ETH",
         collateral_symbol="ETH",
         start_token_symbol="ETH",
@@ -214,7 +207,7 @@ def test_open_and_close_position(
         size_delta_usd=10,
         leverage=2.5,
         slippage_percent=0.005,
-        execution_buffer=2.2,
+        execution_buffer=execution_buffer,
     )
 
     # Submit and execute open order
@@ -222,18 +215,18 @@ def test_open_and_close_position(
     if "nonce" in transaction:
         del transaction["nonce"]
 
-    signed_tx = test_wallet.sign_transaction_with_new_nonce(transaction)
-    tx_hash = web3_arbitrum_fork.eth.send_raw_transaction(signed_tx.rawTransaction)
-    receipt = web3_arbitrum_fork.eth.wait_for_transaction_receipt(tx_hash)
+    signed_tx = env.wallet.sign_transaction_with_new_nonce(transaction)
+    tx_hash = env.web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+    receipt = env.web3.eth.wait_for_transaction_receipt(tx_hash)
 
     assert receipt["status"] == 1, "Open order transaction should succeed"
 
     order_key = extract_order_key_from_receipt(receipt)
-    exec_receipt, _ = execute_order_as_keeper(web3_arbitrum_fork, order_key)
+    exec_receipt, _ = execute_order_as_keeper(env.web3, order_key)
     assert exec_receipt["status"] == 1, "Open order execution should succeed"
 
     # === Step 2: Verify position was created ===
-    positions_after_open = position_verifier_fork.get_data(wallet_address)
+    positions_after_open = env.positions.get_data(wallet_address)
     assert len(positions_after_open) == initial_position_count + 1, "Should have 1 position after opening"
 
     position_key, position = list(positions_after_open.items())[0]
@@ -246,20 +239,19 @@ def test_open_and_close_position(
 
     # Update mock oracle price before closing to simulate price movement
     # For long positions: price goes UP (+1000) to create profit
-    # For short positions: price goes DOWN (-1000) to create profit
-    current_eth_price, current_usdc_price = fetch_on_chain_oracle_prices(web3_arbitrum_fork)
+    current_eth_price, current_usdc_price = fetch_on_chain_oracle_prices(env.web3)
     new_eth_price = current_eth_price + 1000  # Increase price for long position profit
     setup_mock_oracle(
-        web3_arbitrum_fork,
+        env.web3,
         eth_price_usd=new_eth_price,
         usdc_price_usd=current_usdc_price,
     )
 
     # Sync wallet nonce after oracle setup (which sends transactions)
-    test_wallet.sync_nonce(web3_arbitrum_fork)
+    env.wallet.sync_nonce(env.web3)
 
     # === Step 3: Close position ===
-    close_order_result = trading_manager_fork.close_position(
+    close_order_result = env.trading.close_position(
         market_symbol="ETH",
         collateral_symbol="ETH",
         start_token_symbol="ETH",  # Receive ETH when closing
@@ -267,7 +259,7 @@ def test_open_and_close_position(
         size_delta_usd=position_size_usd_raw,  # Use raw value for exact match
         initial_collateral_delta=collateral_amount_usd,  # Withdraw all collateral
         slippage_percent=0.005,
-        execution_buffer=2.2,
+        execution_buffer=execution_buffer,
     )
 
     # Submit and execute close order
@@ -275,16 +267,16 @@ def test_open_and_close_position(
     if "nonce" in close_transaction:
         del close_transaction["nonce"]
 
-    signed_close_tx = test_wallet.sign_transaction_with_new_nonce(close_transaction)
-    close_tx_hash = web3_arbitrum_fork.eth.send_raw_transaction(signed_close_tx.rawTransaction)
-    close_receipt = web3_arbitrum_fork.eth.wait_for_transaction_receipt(close_tx_hash)
+    signed_close_tx = env.wallet.sign_transaction_with_new_nonce(close_transaction)
+    close_tx_hash = env.web3.eth.send_raw_transaction(signed_close_tx.rawTransaction)
+    close_receipt = env.web3.eth.wait_for_transaction_receipt(close_tx_hash)
 
     assert close_receipt["status"] == 1, "Close order transaction should succeed"
 
     close_order_key = extract_order_key_from_receipt(close_receipt)
-    close_exec_receipt, _ = execute_order_as_keeper(web3_arbitrum_fork, close_order_key)
+    close_exec_receipt, _ = execute_order_as_keeper(env.web3, close_order_key)
     assert close_exec_receipt["status"] == 1, "Close order execution should succeed"
 
     # === Step 4: Verify position was closed ===
-    positions_after_close = position_verifier_fork.get_data(wallet_address)
+    positions_after_close = env.positions.get_data(wallet_address)
     assert len(positions_after_close) == initial_position_count, "Should have no positions after closing"

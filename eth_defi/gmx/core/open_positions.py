@@ -5,7 +5,7 @@ This module provides access to open positions data for user addresses.
 """
 
 import logging
-from typing import Any
+from typing import Any, Optional
 
 import numpy as np
 from eth_utils import to_checksum_address
@@ -18,6 +18,7 @@ from eth_defi.gmx.contracts import (
     get_tokens_metadata_dict,
     NETWORK_TOKENS_METADATA,
     TESTNET_TO_MAINNET_ORACLE_TOKENS,
+    GMX_SUBSQUID_ENDPOINTS,
 )
 from eth_defi.gmx.types import MarketData
 
@@ -33,16 +34,20 @@ class GetOpenPositions(GetData):
     and liquidation thresholds.
     """
 
-    def __init__(self, config: GMXConfig, filter_swap_markets: bool = True):
+    def __init__(self, config: GMXConfig, filter_swap_markets: bool = True, use_graphql: bool = False):
         """Initialize open positions data provider.
 
         :param config: GMXConfig instance containing chain and network info
         :param filter_swap_markets: Whether to filter out swap markets from results
+        :param use_graphql: Whether to use GraphQL (faster) instead of RPC calls (default: False - uses contract calls)
         """
         super().__init__(config, filter_swap_markets=filter_swap_markets)
+        self.use_graphql = use_graphql
 
     def get_data(self, address: str) -> MarketData:
         """Get all open positions for a given address on the configured chain.
+
+        Uses GraphQL (fast) by default, falls back to RPC if GraphQL fails or is disabled.
 
         :param address: User wallet address to query positions for
         :returns: A dictionary containing the open positions, where asset and direction are the keys
@@ -51,8 +56,20 @@ class GetOpenPositions(GetData):
         # Convert address to checksum format
         checksum_address = to_checksum_address(address)
 
+        # Try GraphQL first if enabled
+        if self.use_graphql:
+            try:
+                return self._get_data_via_graphql(checksum_address)
+            except Exception as e:
+                logger.warning(f"GraphQL query failed, falling back to RPC: {e}")
+                # Fall through to RPC method
+
+        # RPC method (original implementation)
+        # Normalize chain name to lowercase string
+        chain_name = self.config.chain.lower() if isinstance(self.config.chain, str) else str(self.config.chain).lower()
+
         try:
-            contract_addresses = get_contract_addresses(self.config.chain)
+            contract_addresses = get_contract_addresses(chain_name)
             datastore_address = contract_addresses.datastore
 
             # Get raw positions from reader contract
@@ -72,7 +89,7 @@ class GetOpenPositions(GetData):
 
             if len(raw_positions) == 0:
                 logger.info(
-                    f'No positions open for address: "{checksum_address}" on {self.config.chain.title()}.',
+                    f'No positions open for address: "{checksum_address}" on {chain_name.title()}.',
                 )
                 return {}
 
@@ -104,6 +121,213 @@ class GetOpenPositions(GetData):
             logger.error(f"Failed to fetch open positions data: {e}")
             raise e
 
+    def _get_data_via_graphql(self, address: str) -> MarketData:
+        """Fetch open positions using GraphQL (faster than RPC).
+
+        Queries GMX Subsquid endpoint for position data, which is significantly faster than
+        calling the Reader contract via RPC.
+
+        :param address: Checksum wallet address
+        :returns: Dictionary of positions matching RPC format
+        :rtype: dict
+        """
+        import requests
+
+        # Get Subsquid GraphQL URL for current chain (normalize to lowercase)
+        chain_name = self.config.chain.lower() if isinstance(self.config.chain, str) else str(self.config.chain).lower()
+        subgraph_url = GMX_SUBSQUID_ENDPOINTS.get(chain_name)
+        if not subgraph_url:
+            raise ValueError(f"No GraphQL endpoint configured for chain: {chain_name}")
+
+        # GraphQL query to fetch positions
+        query = """
+        query GetPositions($account: String!) {
+          positions(where: {account_eq: $account, sizeInUsd_gt: "0"}, limit: 100) {
+            id
+            positionKey
+            account
+            market
+            collateralToken
+            isLong
+            sizeInUsd
+            sizeInTokens
+            collateralAmount
+            entryPrice
+            leverage
+            realizedPnl
+            unrealizedPnl
+            realizedFees
+            unrealizedFees
+            maxSize
+            openedAt
+          }
+        }
+        """
+
+        # Subsquid stores addresses in checksummed format (case-sensitive)
+        variables = {"account": address}
+
+        try:
+            response = requests.post(
+                subgraph_url,
+                json={"query": query, "variables": variables},
+                headers={"Content-Type": "application/json"},
+                timeout=10,
+            )
+            response.raise_for_status()
+            data = response.json()
+
+            if "errors" in data:
+                raise ValueError(f"GraphQL errors: {data['errors']}")
+
+            positions_data = data.get("data", {}).get("positions", [])
+
+            if not positions_data:
+                logger.info(f'No positions found via GraphQL for address: "{address}" on {chain_name.title()}')
+                return {}
+
+            # Process GraphQL positions to match RPC format
+            processed_positions = {}
+            chain_tokens = self._get_tokens_address_dict()
+            oracle_prices = OraclePrices(chain=chain_name)
+            logger.info("Fetching oracle prices (may take a few seconds)...")
+            prices = oracle_prices.get_recent_prices()
+
+            for pos in positions_data:
+                try:
+                    # Convert GraphQL position to internal format
+                    processed_position = self._process_graphql_position(pos, chain_tokens, prices)
+
+                    # Build key using market symbol and direction
+                    direction = "long" if processed_position["is_long"] else "short"
+                    key = f"{processed_position['market_symbol']}_{direction}"
+                    processed_positions[key] = processed_position
+
+                except Exception as e:
+                    logger.warning(f"Failed to process GraphQL position {pos.get('id')}: {e}")
+                    continue
+
+            return processed_positions
+
+        except requests.RequestException as e:
+            raise ValueError(f"GraphQL request failed: {e}")
+
+    def _process_graphql_position(self, pos: dict, chain_tokens: dict, prices: dict) -> dict[str, Any]:
+        """Convert GraphQL position data to internal format matching RPC response.
+
+        .. warning::
+            GraphQL provides faster queries but is missing real-time borrowing/funding fields.
+            The following fields are set to 0 because they require on-chain computation:
+
+            - ``borrowing_factor``: Requires current market state and time-based accumulation
+            - ``funding_fee_amount_per_size``: Calculated from funding rate changes since position opened
+            - ``long_token_claimable_funding_amount_per_size``: Real-time funding pool state
+            - ``short_token_claimable_funding_amount_per_size``: Real-time funding pool state
+
+            These fields are only available through the Reader contract (RPC method).
+            For accurate borrowing/funding data, use ``use_graphql=False`` when initializing GetOpenPositions.
+
+        :param pos: Position data from GraphQL
+        :param chain_tokens: Token metadata dictionary
+        :param prices: Oracle prices dictionary
+        :returns: Processed position matching RPC format
+        :rtype: dict
+        """
+        # Normalize chain name to lowercase string
+        chain_name = self.config.chain.lower() if isinstance(self.config.chain, str) else str(self.config.chain).lower()
+
+        # Get market info
+        markets = self.markets.get_available_markets()
+        market_address = to_checksum_address(pos["market"])
+        market_info = None
+        for key, market in markets.items():
+            if market["gmx_market_address"].lower() == market_address.lower():
+                market_info = market
+                break
+
+        if not market_info:
+            raise ValueError(f"Market not found for address: {market_address}")
+
+        # Get index token from market info
+        index_token = to_checksum_address(market_info["index_token_address"])
+        collateral_token = to_checksum_address(pos["collateralToken"])
+
+        index_token_info = chain_tokens.get(index_token)
+        collateral_token_info = chain_tokens.get(collateral_token)
+
+        if not index_token_info or not collateral_token_info:
+            raise ValueError(f"Token info not found for index={index_token} or collateral={collateral_token}")
+
+        # Parse values from GraphQL
+        position_size_usd = int(pos["sizeInUsd"]) / 10**30
+        size_in_tokens = int(pos["sizeInTokens"])
+        collateral_amount = int(pos["collateralAmount"])
+        is_long = pos["isLong"]
+
+        # GraphQL provides entry price and leverage directly (different decimal format than RPC)
+        entry_price = int(pos["entryPrice"]) / 10 ** (30 - index_token_info["decimals"])
+        leverage = int(pos["leverage"]) / 10**4
+
+        # Calculate collateral value in USD
+        collateral_decimals = collateral_token_info["decimals"]
+        collateral_amount_tokens = collateral_amount / 10**collateral_decimals
+
+        # Get mark price from oracle
+        from eth_defi.gmx.utils import get_oracle_address
+
+        index_decimals = index_token_info["decimals"]
+        oracle_address = get_oracle_address(chain_name, index_token)
+        mark_price = entry_price  # Default fallback
+        if oracle_address in prices:
+            price_data = prices[oracle_address]
+            mark_price = np.median([float(price_data["maxPriceFull"]), float(price_data["minPriceFull"])]) / 10 ** (30 - index_decimals)
+
+        # Get collateral price for USD value calculation
+        collateral_oracle = get_oracle_address(chain_name, collateral_token)
+        if collateral_oracle in prices:
+            collateral_price_data = prices[collateral_oracle]
+            collateral_price = np.median([float(collateral_price_data["maxPriceFull"]), float(collateral_price_data["minPriceFull"])]) / 10 ** (30 - collateral_decimals)
+        else:
+            collateral_price = 1.0  # Assume $1 for stablecoins
+
+        collateral_amount_usd = collateral_amount_tokens * collateral_price
+
+        # Calculate profit percentage using mark price vs entry price
+        if entry_price > 0:
+            if is_long:
+                percent_profit = ((mark_price / entry_price) - 1) * leverage * 100
+            else:
+                percent_profit = (1 - (mark_price / entry_price)) * leverage * 100
+        else:
+            percent_profit = 0
+
+        return {
+            "account": to_checksum_address(pos["account"]),
+            "market": market_address,
+            "market_symbol": market_info["market_symbol"],
+            "collateral_token": collateral_token_info["symbol"],
+            "position_size": position_size_usd,
+            "position_size_usd_raw": int(pos["sizeInUsd"]),
+            "size_in_tokens": size_in_tokens,
+            "entry_price": entry_price,
+            "initial_collateral_amount": collateral_amount,
+            "initial_collateral_amount_usd": collateral_amount_usd,
+            "leverage": leverage,
+            # These fields require real-time on-chain calculation and are NOT in GraphQL schema
+            # Use RPC method (use_graphql=False) if you need accurate values
+            "pending_impact_amount": 0,  # Requires Reader contract call
+            "borrowing_factor": 0,  # Requires current market state + time accumulation
+            "funding_fee_amount_per_size": 0,  # Requires funding rate history since position opened
+            "long_token_claimable_funding_amount_per_size": 0,  # Requires real-time funding pool state
+            "short_token_claimable_funding_amount_per_size": 0,  # Requires real-time funding pool state
+            "increased_at_time": int(pos.get("openedAt", 0)),
+            "decreased_at_time": 0,  # Static field not tracked in GraphQL
+            "position_modified_at": "",
+            "is_long": is_long,
+            "percent_profit": percent_profit,
+            "mark_price": mark_price,
+        }
+
     def _get_tokens_address_dict(self) -> dict[str, Any]:
         """Get token metadata from GMX API.
 
@@ -115,15 +339,17 @@ class GetOpenPositions(GetData):
         :returns: Dictionary mapping token addresses to their metadata
         :rtype: dict
         """
+        # Normalize chain name to lowercase string
+        chain = self.config.chain.lower() if isinstance(self.config.chain, str) else str(self.config.chain).lower()
+
         try:
             # Get tokens metadata from GMX API (includes decimals - no contract calls needed!)
-            chain_tokens = get_tokens_metadata_dict(self.config.chain)
+            chain_tokens = get_tokens_metadata_dict(chain)
             logging.debug(
-                f"Fetched {len(chain_tokens)} tokens from GMX API for {self.config.chain}",
+                f"Fetched {len(chain_tokens)} tokens from GMX API for {chain}",
             )
 
             # Add missing tokens from NETWORK_TOKENS_METADATA if needed
-            chain = self.config.chain
             if chain in NETWORK_TOKENS_METADATA:
                 network_tokens_meta = NETWORK_TOKENS_METADATA[chain]
                 for address, metadata in network_tokens_meta.items():
@@ -147,6 +373,9 @@ class GetOpenPositions(GetData):
         :returns: A processed dictionary containing info on the positions
         :rtype: dict
         """
+        # Normalize chain name to lowercase string
+        chain_name = self.config.chain.lower() if isinstance(self.config.chain, str) else str(self.config.chain).lower()
+
         # Get market information
         available_markets = self.markets.get_available_markets()
         market_info = available_markets[raw_position[0][1]]
@@ -174,7 +403,8 @@ class GetOpenPositions(GetData):
 
         # Get oracle prices with error handling
         try:
-            prices = OraclePrices(chain=self.config.chain).get_recent_prices()
+            logger.info("Fetching oracle prices (may take a few seconds)...")
+            prices = OraclePrices(chain=chain_name).get_recent_prices()
 
             # Map testnet token addresses to mainnet for oracle lookups
             # Testnets don't have their own oracles, so we use mainnet prices

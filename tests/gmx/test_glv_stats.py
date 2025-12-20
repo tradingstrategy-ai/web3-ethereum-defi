@@ -2,9 +2,8 @@
 Tests for GMX GLV Stats Data Retrieval Module.
 """
 
-import pytest
 import logging
-import time
+
 from collections import defaultdict
 
 from eth_defi.gmx.core.glv_stats import GlvStats
@@ -169,7 +168,6 @@ def test_market_composition_data(get_glv_stats):
 def test_data_consistency(get_glv_stats):
     """Test that GLV data is consistent across multiple calls with real data."""
     results1 = get_glv_stats.get_glv_stats_multicall()
-    time.sleep(0.1)  # Small delay to allow for potential changes
     results2 = get_glv_stats.get_glv_stats_multicall()
 
     # We expect some minor changes due to trading activity, but not major changes
