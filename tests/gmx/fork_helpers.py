@@ -56,17 +56,19 @@ def detect_provider_type(web3: Web3) -> str:
     Returns:
         "anvil", "tenderly", or "unknown"
     """
-    try:
-        # Try Anvil-specific method
-        web3.provider.make_request("anvil_nodeInfo", [])
-        return "anvil"
-    except Exception:
-        pass
-
-    # Check if endpoint contains tenderly
+    # Check if endpoint contains tenderly FIRST (before trying RPC methods)
     endpoint = str(web3.provider.endpoint_uri if hasattr(web3.provider, "endpoint_uri") else "")
     if "tenderly" in endpoint.lower():
         return "tenderly"
+
+    try:
+        # Try Anvil-specific method
+        result = web3.provider.make_request("anvil_nodeInfo", [])
+        # Check if it actually succeeded (Tenderly might return error in result)
+        if result and not result.get("error"):
+            return "anvil"
+    except Exception:
+        pass
 
     return "unknown"
 

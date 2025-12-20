@@ -8,6 +8,8 @@ Tests follow the complete order lifecycle:
 3. Verify swap was completed with assertions
 """
 
+import time
+
 import pytest
 from flaky import flaky
 
@@ -64,6 +66,9 @@ def test_swap_usdc_to_eth_with_execution(
 
     # Amount to swap: use 1000 USDC for meaningful ETH output
     swap_amount = min(1000.0, (initial_usdc_balance / (10**usdc.decimals)) * 0.1)
+
+    # Sync nonce before transaction
+    test_wallet.sync_nonce(web3_arbitrum_fork)
 
     # === Step 1: Create swap order ===
     print(f"\nCreating swap order: {swap_amount:.2f} USDC -> ETH")
@@ -167,6 +172,9 @@ def test_swap_eth_to_usdc_with_execution(
     # Amount to swap: use 1 ETH
     swap_amount = 1.0
 
+    # Sync nonce before transaction
+    test_wallet.sync_nonce(web3_arbitrum_fork)
+
     # === Step 1: Create swap order ===
     print(f"\nCreating swap order: {swap_amount:.6f} ETH -> USDC")
     order_result = trading_manager_fork.swap_tokens(
@@ -205,6 +213,7 @@ def test_swap_eth_to_usdc_with_execution(
     assert exec_receipt["status"] == 1, "Order execution should succeed"
 
     # === Step 4: Verify swap was completed ===
+    time.sleep(2)  # Brief wait for state to settle
     final_usdc_balance = usdc.contract.functions.balanceOf(wallet_address).call()
     final_eth_balance = web3_arbitrum_fork.eth.get_balance(wallet_address)
 

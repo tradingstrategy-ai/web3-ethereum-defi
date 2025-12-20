@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Generator
 
@@ -35,6 +36,7 @@ from tests.gmx.fork_helpers import setup_mock_oracle
 
 # Fork configuration constants
 FORK_BLOCK_ARBITRUM = 401729535  # Updated: old block 392496384 had empty getMarkets() data
+FORK_BLOCK_WORKING = 392496384
 
 # Set up logging for debugging
 logger = logging.getLogger(__name__)
@@ -407,30 +409,6 @@ def mock_oracle_fork(web3_arbitrum_fork: Web3) -> str:
     Replaces the production Chainlink oracle with a mock oracle that allows
     setting custom prices for testing. This is required for fork testing since
     the real Chainlink oracle may not work on forked chains.
-
-    Prices are fetched dynamically from on-chain oracle to match GMX validation.
-
-    Returns:
-        Address of the mock oracle provider
-    """
-    setup_mock_oracle(web3_arbitrum_fork)
-    return to_checksum_address("0xE1d5a068c5b75E0c7Ea1A9Fe8EA056f9356C6fFD")
-
-
-@pytest.fixture()
-def mock_oracle_fork_short(web3_arbitrum_fork: Web3) -> str:
-    """Set up mock oracle for short position testing with ETH price at 3550.
-
-    Returns:
-        Address of the mock oracle provider
-    """
-    setup_mock_oracle(web3_arbitrum_fork, eth_price_usd=3550)
-    return to_checksum_address("0xE1d5a068c5b75E0c7Ea1A9Fe8EA056f9356C6fFD")
-
-
-@pytest.fixture()
-def mock_oracle_fork_open_close(web3_arbitrum_fork: Web3) -> str:
-    """Set up fresh mock oracle for open/close position testing with dynamic prices.
 
     Prices are fetched dynamically from on-chain oracle to match GMX validation.
 
@@ -1278,55 +1256,11 @@ def arbitrum_fork_config(
 
 
 @pytest.fixture()
-def arbitrum_fork_config_short(
-    web3_arbitrum_fork,
-    anvil_private_key,
-    wallet_with_all_tokens,
-    mock_oracle_fork_short,
-) -> GMXConfig:
-    """
-    GMX config for Arbitrum mainnet fork with mock oracle set to ETH price 3550.
-    Used for short position tests.
-    """
-    return _create_fork_config(
-        web3_arbitrum_fork,
-        anvil_private_key,
-        wallet_with_all_tokens,
-    )
-
-
-@pytest.fixture()
-def arbitrum_fork_config_open_close(
-    web3_arbitrum_fork,
-    anvil_private_key,
-    wallet_with_all_tokens,
-    mock_oracle_fork_open_close,
-) -> GMXConfig:
-    """
-    GMX config for Arbitrum mainnet fork with fresh mock oracle (ETH price: 3450).
-    Used for open/close position tests.
-    """
-    return _create_fork_config(
-        web3_arbitrum_fork,
-        anvil_private_key,
-        wallet_with_all_tokens,
-    )
-
-
-@pytest.fixture()
 def trading_manager_fork(arbitrum_fork_config) -> GMXTrading:
     """
-    GMXTrading instance for Arbitrum mainnet fork (long position tests).
+    GMXTrading instance for Arbitrum mainnet fork.
     """
     return GMXTrading(arbitrum_fork_config)
-
-
-@pytest.fixture()
-def position_verifier_fork(arbitrum_fork_config) -> GetOpenPositions:
-    """
-    GetOpenPositions instance for Arbitrum mainnet fork (long position tests).
-    """
-    return GetOpenPositions(arbitrum_fork_config)
 
 
 @pytest.fixture
@@ -1342,3 +1276,359 @@ def account_with_positions():
     This is a public address used in the demo script.
     """
     return "0x1640e916e10610Ba39aAC5Cd8a08acF3cCae1A4c"
+
+
+# ============================================================================
+# TENDERLY FIXTURES - Use TENDERLY_RPC_URL env var to run tests on Tenderly
+# ============================================================================
+
+
+@pytest.fixture()
+def tenderly_rpc_url() -> str | None:
+    """Get Tenderly RPC URL from environment."""
+    url = os.environ.get("TENDERLY_RPC_URL")
+    if not url:
+        pytest.skip("TENDERLY_RPC_URL environment variable not set")
+    return url
+
+
+@pytest.fixture()
+def web3_tenderly(tenderly_rpc_url: str) -> Web3:
+    """Web3 instance connected directly to Tenderly virtual testnet."""
+    web3 = Web3(HTTPProvider(tenderly_rpc_url, request_kwargs={"timeout": 100}))
+    install_chain_middleware(web3)
+    web3.eth.set_gas_price_strategy(node_default_gas_price_strategy)
+
+    if not web3.is_connected():
+        pytest.skip(f"Could not connect to Tenderly RPC at {tenderly_rpc_url}")
+
+    return web3
+
+
+@pytest.fixture()
+def mock_oracle_tenderly(web3_tenderly: Web3) -> str:
+    """Set up mock oracle on Tenderly virtual testnet."""
+    setup_mock_oracle(web3_tenderly)
+    return to_checksum_address("0xE1d5a068c5b75E0c7Ea1A9Fe8EA056f9356C6fFD")
+
+
+@pytest.fixture()
+def test_wallet_tenderly(web3_tenderly: Web3, anvil_private_key) -> HotWallet:
+    """Create a HotWallet for testing on Tenderly.
+
+    Funds the wallet with ETH using Tenderly's setBalance.
+    """
+    account = Account.from_key(anvil_private_key)
+    wallet = HotWallet(account)
+    wallet.sync_nonce(web3_tenderly)
+
+    # Fund wallet with ETH using Tenderly RPC
+    eth_amount_wei = 1000 * 10**18
+    try:
+        web3_tenderly.provider.make_request(
+            "tenderly_setBalance",
+            [wallet.address, hex(eth_amount_wei)],
+        )
+    except Exception:
+        # Try anvil_setBalance as fallback (some Tenderly versions support it)
+        web3_tenderly.provider.make_request(
+            "anvil_setBalance",
+            [wallet.address, hex(eth_amount_wei)],
+        )
+
+    # Fund with WETH
+    config = _get_chain_config_with_tokens("arbitrum")
+    weth_address = config["native_token_address"]
+    weth = fetch_erc20_details(web3_tenderly, weth_address)
+
+    # Use a whale address and impersonate it
+    large_weth_holder = to_checksum_address("0x70d95587d40A2caf56bd97485aB3Eec10Bee6336")
+
+    # Fund the whale with gas
+    try:
+        web3_tenderly.provider.make_request(
+            "tenderly_setBalance",
+            [large_weth_holder, hex(10 * 10**18)],
+        )
+    except Exception:
+        web3_tenderly.provider.make_request(
+            "anvil_setBalance",
+            [large_weth_holder, hex(10 * 10**18)],
+        )
+
+    # Transfer WETH to test wallet (Tenderly allows tx from any address)
+    weth_amount = 1000 * 10**18
+    try:
+        weth.contract.functions.transfer(wallet.address, weth_amount).transact(
+            {"from": large_weth_holder},
+        )
+    except Exception as e:
+        logger.warning(f"Could not transfer WETH: {e}")
+
+    # Fund with USDC
+    usdc_address = config["usdc_address"]
+    usdc = fetch_erc20_details(web3_tenderly, usdc_address)
+    large_usdc_holder = to_checksum_address("0xEe7aE85f2Fe2239E27D9c1E23fFFe168D63b4055")
+
+    try:
+        web3_tenderly.provider.make_request(
+            "tenderly_setBalance",
+            [large_usdc_holder, hex(10 * 10**18)],
+        )
+    except Exception:
+        web3_tenderly.provider.make_request(
+            "anvil_setBalance",
+            [large_usdc_holder, hex(10 * 10**18)],
+        )
+
+    usdc_amount = 100_000 * 10**6
+    try:
+        usdc.contract.functions.transfer(wallet.address, usdc_amount).transact(
+            {"from": large_usdc_holder},
+        )
+    except Exception as e:
+        logger.warning(f"Could not transfer USDC: {e}")
+
+    return wallet
+
+
+@pytest.fixture()
+def arbitrum_tenderly_config(
+    web3_tenderly: Web3,
+    anvil_private_key,
+    mock_oracle_tenderly,
+) -> GMXConfig:
+    """GMX config for Tenderly virtual testnet with funded wallet and mock oracle."""
+    account = Account.from_key(anvil_private_key)
+    wallet = HotWallet(account)
+    wallet.sync_nonce(web3_tenderly)
+    wallet_address = wallet.get_main_address()
+
+    # Fund wallet with ETH
+    eth_amount_wei = 1000 * 10**18
+    try:
+        web3_tenderly.provider.make_request(
+            "tenderly_setBalance",
+            [wallet_address, hex(eth_amount_wei)],
+        )
+    except Exception:
+        web3_tenderly.provider.make_request(
+            "anvil_setBalance",
+            [wallet_address, hex(eth_amount_wei)],
+        )
+
+    # Fund with tokens
+    config = _get_chain_config_with_tokens("arbitrum")
+
+    # Fund WETH
+    weth_address = config["native_token_address"]
+    weth = fetch_erc20_details(web3_tenderly, weth_address)
+    large_weth_holder = to_checksum_address("0x70d95587d40A2caf56bd97485aB3Eec10Bee6336")
+
+    try:
+        web3_tenderly.provider.make_request(
+            "tenderly_setBalance",
+            [large_weth_holder, hex(10 * 10**18)],
+        )
+        weth.contract.functions.transfer(wallet_address, 1000 * 10**18).transact(
+            {"from": large_weth_holder},
+        )
+    except Exception as e:
+        logger.warning(f"Could not transfer WETH: {e}")
+
+    # Fund USDC
+    usdc_address = config["usdc_address"]
+    usdc = fetch_erc20_details(web3_tenderly, usdc_address)
+    large_usdc_holder = to_checksum_address("0xEe7aE85f2Fe2239E27D9c1E23fFFe168D63b4055")
+
+    try:
+        web3_tenderly.provider.make_request(
+            "tenderly_setBalance",
+            [large_usdc_holder, hex(10 * 10**18)],
+        )
+        usdc.contract.functions.transfer(wallet_address, 100_000 * 10**6).transact(
+            {"from": large_usdc_holder},
+        )
+    except Exception as e:
+        logger.warning(f"Could not transfer USDC: {e}")
+
+    # Create GMX config
+    gmx_config = GMXConfig(web3_tenderly, user_wallet_address=wallet_address)
+
+    # Approve tokens for GMX routers
+    _approve_tokens_for_config(gmx_config, web3_tenderly, wallet_address)
+
+    return gmx_config
+
+
+@pytest.fixture()
+def trading_manager_tenderly(arbitrum_tenderly_config) -> GMXTrading:
+    """GMXTrading instance for Tenderly virtual testnet."""
+    return GMXTrading(arbitrum_tenderly_config)
+
+
+@pytest.fixture()
+def position_verifier_tenderly(arbitrum_tenderly_config) -> GetOpenPositions:
+    """GetOpenPositions instance for Tenderly virtual testnet."""
+    return GetOpenPositions(arbitrum_tenderly_config)
+
+
+# ============================================================================
+# ISOLATED FORK FIXTURES - Each test gets its own fresh Anvil instance
+# setup order: fork → oracle → wallet → config
+# ============================================================================
+
+
+@dataclass
+class IsolatedForkEnv:
+    """All components needed for an isolated GMX fork test."""
+
+    web3: Web3
+    config: GMXConfig
+    wallet: HotWallet
+    trading: GMXTrading
+    positions: GetOpenPositions
+    anvil_launch: Any  # AnvilLaunch object for cleanup
+
+
+def _create_isolated_fork_env(
+    rpc_url: str,
+    private_key: str,
+) -> IsolatedForkEnv:
+    """Create a completely isolated fork environment matching debug.py's flow.
+
+    Order of operations (matches debug.py exactly):
+    1. Spawn fresh Anvil fork
+    2. Setup mock oracle FIRST
+    3. Fund wallet with ETH/WETH/USDC
+    4. Create GMX config
+    5. Approve tokens
+
+    Args:
+        rpc_url: Arbitrum RPC URL to fork from
+        private_key: Private key for test wallet
+        eth_price_usd: Optional ETH price for mock oracle (None = fetch from chain)
+
+    Returns:
+        IsolatedForkEnv with all components
+    """
+    # Whale addresses for token transfers
+    large_usdc_holder = to_checksum_address("0xEe7aE85f2Fe2239E27D9c1E23fFFe168D63b4055")
+    large_weth_holder = to_checksum_address("0x70d95587d40A2caf56bd97485aB3Eec10Bee6336")
+
+    # === Step 1: Spawn fresh Anvil fork ===
+    launch = fork_network_anvil(
+        rpc_url,
+        unlocked_addresses=[large_usdc_holder, large_weth_holder],
+    )
+
+    web3 = create_multi_provider_web3(
+        launch.json_rpc_url,
+        default_http_timeout=(3.0, 180.0),
+    )
+
+    # === Step 2: Setup mock oracle FIRST (like debug.py) ===
+    setup_mock_oracle(web3)
+
+    # === Step 3: Setup and fund wallet ===
+    account = Account.from_key(private_key)
+    wallet = HotWallet(account)
+    wallet.sync_nonce(web3)
+    wallet_address = wallet.get_main_address()
+
+    # Fund with ETH
+    eth_amount_wei = 100 * 10**18
+    web3.provider.make_request("anvil_setBalance", [wallet_address, hex(eth_amount_wei)])
+
+    # Fund whales with gas
+    gas_eth = 1 * 10**18
+    web3.provider.make_request("anvil_setBalance", [large_usdc_holder, hex(gas_eth)])
+    web3.provider.make_request("anvil_setBalance", [large_weth_holder, hex(gas_eth)])
+
+    # Transfer WETH from whale
+    config = _get_chain_config_with_tokens("arbitrum")
+    weth_address = config["native_token_address"]
+    weth = fetch_erc20_details(web3, weth_address)
+    weth_amount = 1000 * 10**18
+    weth.contract.functions.transfer(wallet_address, weth_amount).transact(
+        {"from": large_weth_holder},
+    )
+
+    # Transfer USDC from whale
+    usdc_address = config["usdc_address"]
+    usdc = fetch_erc20_details(web3, usdc_address)
+    usdc_amount = 100_000 * 10**6
+    usdc.contract.functions.transfer(wallet_address, usdc_amount).transact(
+        {"from": large_usdc_holder},
+    )
+
+    # Sync nonce after transfers
+    wallet.sync_nonce(web3)
+
+    # === Step 4: Create GMX config ===
+    gmx_config = GMXConfig(web3, user_wallet_address=wallet_address)
+
+    # === Step 5: Approve tokens for GMX routers ===
+    _approve_tokens_for_config(gmx_config, web3, wallet_address)
+
+    # Create trading and position instances
+    trading = GMXTrading(gmx_config)
+    positions = GetOpenPositions(gmx_config)
+
+    return IsolatedForkEnv(
+        web3=web3,
+        config=gmx_config,
+        wallet=wallet,
+        trading=trading,
+        positions=positions,
+        anvil_launch=launch,
+    )
+
+
+@pytest.fixture()
+def isolated_fork_env() -> Generator[IsolatedForkEnv, None, None]:
+    """Completely isolated fork environment for each test.
+
+    Each test gets its own fresh Anvil instance with:
+    - Mock oracle set up FIRST (matching debug.py)
+    - Funded wallet with ETH/WETH/USDC
+    - GMX config with approved tokens
+
+    Usage:
+        def test_something(isolated_fork_env):
+            env = isolated_fork_env
+            order = env.trading.open_position(...)
+            signed = env.wallet.sign_transaction_with_new_nonce(order.transaction)
+            env.web3.eth.send_raw_transaction(signed.rawTransaction)
+    """
+    rpc_url = os.environ.get("JSON_RPC_ARBITRUM")
+    if not rpc_url:
+        pytest.skip("JSON_RPC_ARBITRUM environment variable not set")
+
+    # Use default Anvil private key
+    private_key = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+
+    env = _create_isolated_fork_env(rpc_url, private_key)
+
+    try:
+        yield env
+    finally:
+        # Clean up Anvil process
+        env.anvil_launch.close(log_level=logging.ERROR)
+
+
+@pytest.fixture()
+def isolated_fork_env_short() -> Generator[IsolatedForkEnv, None, None]:
+    """Isolated fork with ETH price set to 3550 (for short position tests)."""
+    rpc_url = os.environ.get("JSON_RPC_ARBITRUM")
+    if not rpc_url:
+        pytest.skip("JSON_RPC_ARBITRUM environment variable not set")
+
+    private_key = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+
+    env = _create_isolated_fork_env(rpc_url, private_key)
+
+    try:
+        yield env
+    finally:
+        env.anvil_launch.close(log_level=logging.ERROR)

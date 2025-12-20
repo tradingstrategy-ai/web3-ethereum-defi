@@ -90,7 +90,7 @@ def test_ensure_patched():
     unpatch_ccxt()
 
 
-def test_gmx_instantiation(web3):
+def test_gmx_instantiation(web3_mainnet):
     """Test that GMX can be instantiated through CCXT after patching."""
 
     # Patch CCXT
@@ -98,7 +98,7 @@ def test_gmx_instantiation(web3):
 
     try:
         # Create GMX instance using CCXT
-        exchange = ccxt.gmx({"rpcUrl": web3.provider.endpoint_uri})
+        exchange = ccxt.gmx({"rpcUrl": web3_mainnet.provider.endpoint_uri})
 
         # Should be a GMX instance
         assert exchange.id == "gmx"
