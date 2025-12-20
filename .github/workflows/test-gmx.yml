@@ -204,7 +204,7 @@ jobs:
           else
             # Run in parallel with verbose output to see which tests fail
             # Using -n auto for parallel execution, -v for verbose, --tb=short for cleaner output
-            poetry run pytest tests/gmx/ --timeout-method=thread --tb=short -n auto -v
+            poetry run pytest tests/gmx/ --timeout-method=thread --tb=short -n auto
           fi
         env:
           # Arbitrum mainnet RPC is required for GMX tests (GMX is on Arbitrum)

@@ -8,8 +8,6 @@ Tests follow the complete order lifecycle:
 3. Verify swap was completed with assertions
 """
 
-import time
-
 import pytest
 from flaky import flaky
 
@@ -28,12 +26,7 @@ def test_initialization(trading_manager_fork):
 
 
 @flaky(max_runs=3, min_passes=1)
-def test_swap_usdc_to_eth_with_execution(
-    web3_arbitrum_fork,
-    trading_manager_fork,
-    arbitrum_fork_config,
-    test_wallet,
-):
+def test_swap_usdc_to_eth_with_execution(isolated_fork_env, execution_buffer):
     """
     Test creating and EXECUTING a USDC -> ETH swap order on Arbitrum fork.
 
@@ -45,16 +38,17 @@ def test_swap_usdc_to_eth_with_execution(
 
     Note: GMX swaps output native ETH (not WETH) when swapping to ETH.
     """
-    wallet_address = arbitrum_fork_config.get_wallet_address()
+    env = isolated_fork_env
+    wallet_address = env.config.get_wallet_address()
     chain = "arbitrum"
 
     # Get token details
     usdc_address = get_token_address_normalized(chain, "USDC")
-    usdc = fetch_erc20_details(web3_arbitrum_fork, usdc_address)
+    usdc = fetch_erc20_details(env.web3, usdc_address)
 
     # Check initial balances (USDC and native ETH)
     initial_usdc_balance = usdc.contract.functions.balanceOf(wallet_address).call()
-    initial_eth_balance = web3_arbitrum_fork.eth.get_balance(wallet_address)
+    initial_eth_balance = env.web3.eth.get_balance(wallet_address)
 
     print(f"\nInitial balances:")
     print(f"  USDC: {initial_usdc_balance / (10**usdc.decimals):.2f}")
@@ -68,16 +62,16 @@ def test_swap_usdc_to_eth_with_execution(
     swap_amount = min(1000.0, (initial_usdc_balance / (10**usdc.decimals)) * 0.1)
 
     # Sync nonce before transaction
-    test_wallet.sync_nonce(web3_arbitrum_fork)
+    env.wallet.sync_nonce(env.web3)
 
     # === Step 1: Create swap order ===
     print(f"\nCreating swap order: {swap_amount:.2f} USDC -> ETH")
-    order_result = trading_manager_fork.swap_tokens(
+    order_result = env.trading.swap_tokens(
         in_token_symbol="USDC",
         out_token_symbol="ETH",
         amount=swap_amount,
         slippage_percent=0.03,
-        execution_buffer=5.0,
+        execution_buffer=execution_buffer,
     )
 
     # Verify OrderResult structure
@@ -90,9 +84,9 @@ def test_swap_usdc_to_eth_with_execution(
     if "nonce" in transaction:
         del transaction["nonce"]
 
-    signed_tx = test_wallet.sign_transaction_with_new_nonce(transaction)
-    tx_hash = web3_arbitrum_fork.eth.send_raw_transaction(signed_tx.rawTransaction)
-    receipt = web3_arbitrum_fork.eth.wait_for_transaction_receipt(tx_hash)
+    signed_tx = env.wallet.sign_transaction_with_new_nonce(transaction)
+    tx_hash = env.web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+    receipt = env.web3.eth.wait_for_transaction_receipt(tx_hash)
 
     print(f"Swap order transaction sent: {tx_hash.hex()}")
     print(f"Status: {receipt['status']}, Gas used: {receipt['gasUsed']}")
@@ -104,12 +98,12 @@ def test_swap_usdc_to_eth_with_execution(
     assert order_key is not None, "Should extract order key from receipt"
 
     # === Step 3: Execute order as keeper ===
-    exec_receipt, keeper_address = execute_order_as_keeper(web3_arbitrum_fork, order_key)
+    exec_receipt, keeper_address = execute_order_as_keeper(env.web3, order_key)
     assert exec_receipt["status"] == 1, "Order execution should succeed"
 
     # === Step 4: Verify swap was completed ===
     final_usdc_balance = usdc.contract.functions.balanceOf(wallet_address).call()
-    final_eth_balance = web3_arbitrum_fork.eth.get_balance(wallet_address)
+    final_eth_balance = env.web3.eth.get_balance(wallet_address)
 
     print(f"\nFinal balances:")
     print(f"  USDC: {final_usdc_balance / (10**usdc.decimals):.2f}")
@@ -133,12 +127,7 @@ def test_swap_usdc_to_eth_with_execution(
 
 
 @flaky(max_runs=3, min_passes=1)
-def test_swap_eth_to_usdc_with_execution(
-    web3_arbitrum_fork,
-    trading_manager_fork,
-    arbitrum_fork_config,
-    test_wallet,
-):
+def test_swap_eth_to_usdc_with_execution(isolated_fork_env, execution_buffer):
     """
     Test creating and EXECUTING an ETH -> USDC swap order on Arbitrum fork.
 
@@ -150,16 +139,17 @@ def test_swap_eth_to_usdc_with_execution(
 
     Note: GMX uses native ETH for swaps (internally wraps to WETH).
     """
-    wallet_address = arbitrum_fork_config.get_wallet_address()
+    env = isolated_fork_env
+    wallet_address = env.config.get_wallet_address()
     chain = "arbitrum"
 
     # Get token details
     usdc_address = get_token_address_normalized(chain, "USDC")
-    usdc = fetch_erc20_details(web3_arbitrum_fork, usdc_address)
+    usdc = fetch_erc20_details(env.web3, usdc_address)
 
     # Check initial balances (USDC and native ETH)
     initial_usdc_balance = usdc.contract.functions.balanceOf(wallet_address).call()
-    initial_eth_balance = web3_arbitrum_fork.eth.get_balance(wallet_address)
+    initial_eth_balance = env.web3.eth.get_balance(wallet_address)
 
     print(f"\nInitial balances:")
     print(f"  USDC: {initial_usdc_balance / (10**usdc.decimals):.2f}")
@@ -173,16 +163,16 @@ def test_swap_eth_to_usdc_with_execution(
     swap_amount = 1.0
 
     # Sync nonce before transaction
-    test_wallet.sync_nonce(web3_arbitrum_fork)
+    env.wallet.sync_nonce(env.web3)
 
     # === Step 1: Create swap order ===
     print(f"\nCreating swap order: {swap_amount:.6f} ETH -> USDC")
-    order_result = trading_manager_fork.swap_tokens(
+    order_result = env.trading.swap_tokens(
         in_token_symbol="ETH",
         out_token_symbol="USDC",
         amount=swap_amount,
         slippage_percent=0.03,
-        execution_buffer=5.0,
+        execution_buffer=execution_buffer,
     )
 
     # Verify OrderResult structure
@@ -195,9 +185,9 @@ def test_swap_eth_to_usdc_with_execution(
     if "nonce" in transaction:
         del transaction["nonce"]
 
-    signed_tx = test_wallet.sign_transaction_with_new_nonce(transaction)
-    tx_hash = web3_arbitrum_fork.eth.send_raw_transaction(signed_tx.rawTransaction)
-    receipt = web3_arbitrum_fork.eth.wait_for_transaction_receipt(tx_hash)
+    signed_tx = env.wallet.sign_transaction_with_new_nonce(transaction)
+    tx_hash = env.web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+    receipt = env.web3.eth.wait_for_transaction_receipt(tx_hash)
 
     print(f"Swap order transaction sent: {tx_hash.hex()}")
     print(f"Status: {receipt['status']}, Gas used: {receipt['gasUsed']}")
@@ -209,13 +199,12 @@ def test_swap_eth_to_usdc_with_execution(
     assert order_key is not None, "Should extract order key from receipt"
 
     # === Step 3: Execute order as keeper ===
-    exec_receipt, keeper_address = execute_order_as_keeper(web3_arbitrum_fork, order_key)
+    exec_receipt, keeper_address = execute_order_as_keeper(env.web3, order_key)
     assert exec_receipt["status"] == 1, "Order execution should succeed"
 
     # === Step 4: Verify swap was completed ===
-    time.sleep(2)  # Brief wait for state to settle
     final_usdc_balance = usdc.contract.functions.balanceOf(wallet_address).call()
-    final_eth_balance = web3_arbitrum_fork.eth.get_balance(wallet_address)
+    final_eth_balance = env.web3.eth.get_balance(wallet_address)
 
     print(f"\nFinal balances:")
     print(f"  USDC: {final_usdc_balance / (10**usdc.decimals):.2f}")

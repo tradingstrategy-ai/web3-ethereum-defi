@@ -19,8 +19,6 @@ Uses isolated_fork_env fixture which provides:
 - GMX config with approved tokens
 """
 
-import time
-
 from flaky import flaky
 
 from eth_defi.gmx.order.base_order import OrderResult
@@ -171,7 +169,6 @@ def test_open_short_position(isolated_fork_env_short, execution_buffer):
     assert exec_receipt["status"] == 1, "Order execution should succeed"
 
     # === Step 4: Verify position was created ===
-    time.sleep(2)  # Brief wait for state to settle
     final_positions = env.positions.get_data(wallet_address)
     final_position_count = len(final_positions)
 
@@ -234,7 +231,6 @@ def test_open_and_close_position(isolated_fork_env, execution_buffer):
     assert exec_receipt["status"] == 1, "Open order execution should succeed"
 
     # === Step 2: Verify position was created ===
-    time.sleep(2)  # Brief wait for state to settle
     positions_after_open = env.positions.get_data(wallet_address)
     assert len(positions_after_open) == initial_position_count + 1, "Should have 1 position after opening"
 
@@ -287,6 +283,5 @@ def test_open_and_close_position(isolated_fork_env, execution_buffer):
     assert close_exec_receipt["status"] == 1, "Close order execution should succeed"
 
     # === Step 4: Verify position was closed ===
-    time.sleep(2)  # Brief wait for state to settle
     positions_after_close = env.positions.get_data(wallet_address)
     assert len(positions_after_close) == initial_position_count, "Should have no positions after closing"
