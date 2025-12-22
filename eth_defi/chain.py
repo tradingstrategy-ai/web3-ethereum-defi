@@ -65,6 +65,7 @@ CHAIN_NAMES = {
     43111: "Hemi",
     59144: "Linea",
     747474: "Katana",
+    10143: "Monad",
 }
 
 #: For linking on reports
@@ -96,6 +97,7 @@ CHAIN_HOMEPAGES = {
     43111: {"name": "Hemi", "homepage": "https://hemi.xyz/"},
     59144: {"name": "Linea", "homepage": "https://linea.build/"},
     747474: {"name": "Katana", "homepage": "https://katana.network/"},
+    10143: {"name": "Monad", "homepage": "https://monad.xyz"},
 }
 
 #: Chain avg block times.
@@ -117,7 +119,7 @@ EVM_BLOCK_TIMES = {
     999: 0.1,  # Hyperliquid (same as 645749, assuming chain ID confusion; verify correct ID)
     42161: 0.25,  # Arbitrum (block time ~250ms, though batches vary; reflects Nitro update)
     421614: 0.25,  # Arbitrum Sepolia (same as Arbitrum mainnet)
-    2741: 2,  # Layer-2, assumed fast like other L2s
+    2741: 2,  # Layer-2, assumed fast EVM_BLOCK_TIMESlike other L2s
     10: 2,  # Optimistic Rollup, ~2s block time
     1868: 2,  # New L2, assumed ~2s based on typical L2 performance
     324: 1,  # ZK-Rollup, very fast, ~1s
@@ -132,6 +134,7 @@ EVM_BLOCK_TIMES = {
     43111: 12,  # Hemi aims for sub-15 second block times on its Layer 2 network
     59144: 2,  # Block Time: Approximately 2 seconds soft finality
     747474: 1,  # Katana, ~1s block time avg
+    10143: 0.4,  # Monad, target ~1s block times on mainnet
 }
 
 
