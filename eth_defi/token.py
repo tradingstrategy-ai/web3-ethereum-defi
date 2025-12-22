@@ -254,6 +254,7 @@ STABLECOIN_LIKE = set(
         "USDT",
         "USDT.e",
         "USDT0",
+        "USD₮",
         "USDV",
         "USDX",
         "USDXL",
@@ -313,13 +314,15 @@ STABLECOIN_LIKE = set(
         "vbUSDT",
         "wM",
         "xUSD",
+        "MTUSD",
+
     ]
 )
 
 
 #: Stablecoins which can be used as collateral, but which also have built-in yield bearing function
 #: with rebasing.
-YIELD_BEARING_STABLES = {"sfrxUSD", "sUSDe", "sUSDai", "sBOLD"}
+YIELD_BEARING_STABLES = {"sfrxUSD", "sUSDe", "sUSDai", "sBOLD", "sAUSD"}
 
 #: Stablecoins plus their interest wrapped counterparts on Compound and Aave.
 #: Also contains other derivates.

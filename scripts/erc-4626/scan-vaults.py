@@ -27,6 +27,9 @@ Or:
     # Mainnet
     SCAN_BACKEND=rpc LOG_LEVEL=info JSON_RPC_URL=$JSON_RPC_ETHEREUM python scripts/erc-4626/scan-vaults.py
 
+    # Monad
+    LOG_LEVEL=info JSON_RPC_URL=$JSON_RPC_MONAD python scripts/erc-4626/scan-vaults.py
+
 
 Or for faster small sample scan limit the end block:
 

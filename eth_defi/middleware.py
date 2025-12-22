@@ -123,8 +123,9 @@ DEFAULT_RETRYABLE_HTTP_STATUS_CODES = (
 DEFAULT_RETRYABLE_RPC_ERROR_CODES = (
     # The node provider has corrupted database or something, GoEthereum
     # cannot handle gracefully.
+    # F**ing Monad has repurposed this error code for "execution reverted"
     # ValueError: {'message': 'Internal JSON-RPC error.', 'code': -32603}
-    -32603,
+    # -32603,
     # ValueError: {'code': -32000, 'message': 'nonce too low'}.
     # Might happen when we are broadcasting multiple transactions through multiple RPC providers
     # using eth_sendRawTransaction
@@ -176,6 +177,8 @@ DEFAULT_RETRYABLE_RPC_ERROR_MESSAGES = {
     "Parse error",
     # Hyperliquid EVM WTF
     "Unexpected error (code=40000)",
+    # Was -32003 error code until Monad messed this up
+    "Internal JSON-RPC error",
 }
 
 #: Ethereum JSON-RPC calls where the value never changes
