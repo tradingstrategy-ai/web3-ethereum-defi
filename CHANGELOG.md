@@ -1,3 +1,7 @@
+# Current
+
+- Add: New chain: Monad
+
 # 0.37
 
 - Add: USDT and other token symbol normalisation in `normalise_token_symbol()`

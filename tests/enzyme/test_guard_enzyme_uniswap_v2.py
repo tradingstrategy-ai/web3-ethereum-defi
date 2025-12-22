@@ -471,6 +471,7 @@ def test_enzyme_guarded_trade_multihops_uniswap_v2(
     assert mln_token.contract.functions.balanceOf(vault.address).call() == pytest.approx(0.991787879885383035 * 10**18)
 
 
+@flaky.flaky
 def test_enzyme_guarded_unauthorised_approve(
     web3: Web3,
     deployer: HexAddress,

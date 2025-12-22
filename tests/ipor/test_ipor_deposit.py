@@ -6,6 +6,7 @@
 import os
 from decimal import Decimal
 
+import flaky
 import pytest
 from eth_typing import HexAddress
 from web3 import Web3
@@ -168,6 +169,8 @@ def test_ipor_deposit(
     assert share_price == pytest.approx(Decimal("1.033566972584479679488338198"))
 
 
+# ValueError: RPC smoke test failed for ***: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+@flaky.flaky
 def test_ipor_redeem(
     web3: Web3,
     vault: IPORVault,

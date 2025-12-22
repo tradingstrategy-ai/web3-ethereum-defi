@@ -36,20 +36,21 @@ export MAX_WORKERS
 # python scripts/erc-4626/scan-vaults.py
 # if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
 
-# Currently: disabled - HyperSync for Hyperliquid is stuck
-# export JSON_RPC_URL=$JSON_RPC_HYPERLIQUID
-# python scripts/erc-4626/scan-vaults.py
-# if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
+export JSON_RPC_URL=$JSON_RPC_MONAD
+python scripts/erc-4626/scan-vaults.py
+if [[ "$SCAN_PRICES" == "true" ]]; python scripts/erc-4626/scan-prices.py ; fi
+
+export JSON_RPC_URL=$JSON_RPC_HYPERLIQUID
+python scripts/erc-4626/scan-vaults.py
+if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
 
 export JSON_RPC_URL=$JSON_RPC_BASE
 python scripts/erc-4626/scan-vaults.py
-if [[ "$SCAN_PRICES" == "true" ]]; then MAX_WORKERS=10 python scripts/erc-4626/scan-prices.py ; fi
-
+if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
 
 export JSON_RPC_URL=$JSON_RPC_ARBITRUM
 python scripts/erc-4626/scan-vaults.py
 if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
-
 
 export JSON_RPC_URL=$JSON_RPC_ETHEREUM
 python scripts/erc-4626/scan-vaults.py
