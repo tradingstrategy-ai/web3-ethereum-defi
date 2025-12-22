@@ -16,7 +16,7 @@ from eth_typing import HexAddress
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, get_vault_protocol_name
 from eth_defi.erc_4626.discovery_base import PotentialVaultMatch
 from eth_defi.vault.base import VaultSpec
-
+from eth_defi.vault.flag import VaultFlag
 
 #: Where we store the vault metadata database by default
 DEFAULT_VAULT_DATABASE = Path.home() / ".tradingstrategy" / "vaults" / "vault-metadata-db.pickle"
@@ -63,6 +63,8 @@ class VaultRow(TypedDict):
     _denomination_token: dict
 
     features: set[ERC4626Feature]
+
+    _flags: set[VaultFlag]
 
     __annotations__ = {
         "First seen at": datetime.datetime,
@@ -219,9 +221,10 @@ class VaultDatabase:
                 "chain_id": chain_id,
                 "vault_address": address,
                 "name": row.get("Name"),
-                "symbol": row.get("Symbol"),
+                "denomination": row.get("Denomination"),
                 "protocol": protocol,
                 "tvl": row.get("NAV"),
+                "last_block": detection_data.last_scanned_block,
             }
             data.append(entry)
         return pd.DataFrame(data)

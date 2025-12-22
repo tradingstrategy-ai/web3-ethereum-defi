@@ -11,6 +11,7 @@ Usage:
     CHAIN_ID=1 python scripts/erc-4626/purge-price-data.py
     CHAIN_ID=42161 python scripts/erc-4626/purge-price-data.py
     CHAIN_ID=8453 python scripts/erc-4626/purge-price-data.py
+    CHAIN_ID=5000 python scripts/erc-4626/purge-price-data.py
 
 """
 
