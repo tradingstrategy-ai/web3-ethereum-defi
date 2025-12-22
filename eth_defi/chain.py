@@ -65,7 +65,7 @@ CHAIN_NAMES = {
     43111: "Hemi",
     59144: "Linea",
     747474: "Katana",
-    10143: "Monad",
+    143: "Monad",
 }
 
 #: For linking on reports
@@ -97,7 +97,7 @@ CHAIN_HOMEPAGES = {
     43111: {"name": "Hemi", "homepage": "https://hemi.xyz/"},
     59144: {"name": "Linea", "homepage": "https://linea.build/"},
     747474: {"name": "Katana", "homepage": "https://katana.network/"},
-    10143: {"name": "Monad", "homepage": "https://monad.xyz"},
+    143: {"name": "Monad", "homepage": "https://monad.xyz"},
 }
 
 #: Chain avg block times.
@@ -134,7 +134,7 @@ EVM_BLOCK_TIMES = {
     43111: 12,  # Hemi aims for sub-15 second block times on its Layer 2 network
     59144: 2,  # Block Time: Approximately 2 seconds soft finality
     747474: 1,  # Katana, ~1s block time avg
-    10143: 0.4,  # Monad, target ~1s block times on mainnet
+    143: 0.4,  # Monad, target ~1s block times on mainnet
 }
 
 
