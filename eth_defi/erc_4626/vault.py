@@ -805,9 +805,11 @@ class ERC4626Vault(VaultBase):
             # to gracefully handle failed erc_7575_call()
             # Mantle
             # Could not read ERC4626Vault 0x32F6D2c91FF3C3d2f1fC2cCAb4Afcf2b6ecF24Ef (set()): {'message': 'out of gas', 'code': -32000}
-            # Hyperliquid
+            # Hyperliquid:
             # ValueError: Call failed: 400 Client Error: Bad Request for url: https://lb.drpc.org/ogrpc?network=hyperliquid&dkey=AiWA4TvYpkijvapnvFlyx_WBfO5CICoR76hArr3WfgV4
-            if not (("Execution reverted" in parsed_error) or ("execution reverted" in parsed_error) or ("out of gas" in parsed_error) or ("Bad Request" in parsed_error) or ("VM execution error" in parsed_error)):
+            # Hyperliquid:
+            #  {'code': -32603, 'message': 'Failed to call: InvalidTransaction(Revert(RevertError { output: None }))'}
+            if not (("Execution reverted" in parsed_error) or ("execution reverted" in parsed_error) or ("out of gas" in parsed_error) or ("Bad Request" in parsed_error) or ("VM execution error" in parsed_error)) or ("InvalidTransaction" in parsed_error):
                 logger.error(f"fetch_share_token(): Not sure about exception %s", e)
                 raise
 
