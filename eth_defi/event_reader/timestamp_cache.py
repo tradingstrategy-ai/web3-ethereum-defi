@@ -329,6 +329,10 @@ class BlockTimestampSlicer:
         except KeyError:
             return None
 
+    def get_last_block(self) -> int:
+        """Get the maximum block number in the database."""
+        return self.timestamp_db.get_last_block()
+
     def close(self):
         """Release the associated cache db."""
         self.timestamp_db.close()
