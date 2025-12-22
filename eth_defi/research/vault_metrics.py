@@ -788,6 +788,9 @@ def calculate_lifetime_metrics(
 
         last_updated_at = group.index.max()
         last_updated_block = group.loc[last_updated_at]["block_number"]
+        last_share_price = group.iloc[-1]["share_price"]
+        first_updated_at = group.index.min()
+        first_updated_block = group.iloc[0]["block_number"]
 
         return pd.Series(
             {
@@ -837,8 +840,11 @@ def calculate_lifetime_metrics(
                 "address": vault_spec.vault_address,
                 "chain_id": vault_spec.chain_id,
                 "stablecoinish": is_stablecoin_like(denomination),
+                "first_updated_at": first_updated_at,
+                "first_updated_block": first_updated_block,
                 "last_updated_at": last_updated_at,
                 "last_updated_block": last_updated_block,
+                "last_share_price": last_share_price,
                 "features": features,
                 "flags": flags,
                 "notes": notes,
@@ -1112,6 +1118,11 @@ def format_lifetime_table(
 
     _del("normalised_denomination")
     _del("denomination_slug")
+
+    _del("first_updated_at")
+    _del("first_updated_block")
+    _del("last_updated_block")
+    _del("last_share_price")
 
     if not add_share_token:
         _del("share_token")

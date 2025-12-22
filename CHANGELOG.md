@@ -1,6 +1,7 @@
 # Current
 
 - Add: New chain: Monad
+- Fix: Various RPC error code workarounds (Monad, Arbitrum, Hyperliquid)
 
 # 0.37
 
