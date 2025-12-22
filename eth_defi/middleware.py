@@ -149,6 +149,9 @@ DEFAULT_RETRYABLE_RPC_ERROR_CODES = (
     # dRPC failure
     # ValueError: {'message': 'There are not enough CUPs left to cover the CU required for current request.', 'code': 42903}g
     42903,
+    # Below happened very often with Polygon RPCs, both Alchemy and Quicknode got it
+    # {'code': -32002, 'message': 'request timed out'}
+    -32002,
 )
 
 
