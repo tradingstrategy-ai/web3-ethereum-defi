@@ -8,7 +8,7 @@ from eth_defi.chain import get_chain_homepage
 def get_address_link(
     chain: str,
     address: str,
-) -> str:    
+) -> str:
     return f"https://routescan.io/address/{address}"
 
 
