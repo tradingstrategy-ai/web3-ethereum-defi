@@ -271,6 +271,7 @@ STABLECOIN_LIKE = set(
         "USR",
         "UST",
         "USTC",
+        "USDtb",
         "USX",
         "USXAU",
         "UTY",

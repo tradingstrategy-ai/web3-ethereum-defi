@@ -111,7 +111,7 @@ def get_vault_risk(
     protocol_name: str,
     vault_address: HexAddress | str | None = None,
     default=None,
-):
+) -> VaultTechnicalRisk | None:
     """Get technical and developer risk associated with a particular vault"""
 
     from eth_defi.vault.flag import get_vault_special_flags, VaultFlag

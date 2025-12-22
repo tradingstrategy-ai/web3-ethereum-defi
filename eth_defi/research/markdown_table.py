@@ -42,7 +42,7 @@ def format_markdown_table(
         raise RuntimeError("No data available.")
 
     def _format_name(row: pd.Series) -> pd.Series:
-        name = row["Link"]
+        name = row.name
         vault_link = row["Link"]
         return f"[{name}]({vault_link})"
 

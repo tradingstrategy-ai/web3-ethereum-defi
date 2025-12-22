@@ -62,6 +62,8 @@ class VaultRow(TypedDict):
 
     _denomination_token: dict
 
+    _lockup: datetime.datetime | None
+
     features: set[ERC4626Feature]
 
     _flags: set[VaultFlag]

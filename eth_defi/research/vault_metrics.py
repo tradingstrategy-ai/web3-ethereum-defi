@@ -105,7 +105,7 @@ def _get_trading_strategy_vault_link(
     vault_address: str,
 ):
     chain_slug = chain_name.lower()
-    return f"https://tradingstrategy.ai/trading-view/{chain_slug}/vaults/{vault_slug}"
+    return f"https://tradingstrategy.ai/trading-view/{chain_slug}/vaults/{vault_slug}#{vault_address}"
 
 
 def create_fee_label(
