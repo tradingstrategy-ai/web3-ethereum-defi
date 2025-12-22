@@ -315,6 +315,9 @@ STABLECOIN_LIKE = set(
         "wM",
         "xUSD",
         "MTUSD",
+        "ysUSDC",
+        "mtUSDC",
+        "mtUSDT",
     ]
 )
 

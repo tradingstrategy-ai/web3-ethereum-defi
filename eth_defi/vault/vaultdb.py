@@ -13,7 +13,7 @@ from atomicwrites import atomic_write
 
 from eth_typing import HexAddress
 
-from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
+from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, get_vault_protocol_name
 from eth_defi.erc_4626.discovery_base import PotentialVaultMatch
 from eth_defi.vault.base import VaultSpec
 
@@ -204,6 +204,27 @@ class VaultDatabase:
             leads={},
             last_scanned_block={},
         )
+
+    @staticmethod
+    def to_dataframe(rows: Iterable[VaultRow]) -> pd.DataFrame:
+        """Convert selected vault rows to a Pandas DataFrame for diagnostics."""
+        data = []
+        for row in rows:
+            detection_data: ERC4262VaultDetection = row.get("_detection_data")
+            chain_id = detection_data.chain
+            address = detection_data.address
+            features = row.get("features", set())
+            protocol = get_vault_protocol_name(features)
+            entry = {
+                "chain_id": chain_id,
+                "vault_address": address,
+                "name": row.get("Name"),
+                "symbol": row.get("Symbol"),
+                "protocol": protocol,
+                "tvl": row.get("NAV"),
+            }
+            data.append(entry)
+        return pd.DataFrame(data)
 
     #
     # Backwards compatibility methods, do not use in the future

@@ -83,13 +83,13 @@ class FeeData:
 
     **How fees are presented**:
 
-    - **Gross fees** are what protocols track internally. They are not exposed to an investor,
+    - **Gross fees** are what vaults track internally. They are not exposed to an investor,
       and only useful for internal profit calculations of the vault. Gross fees have
       already been deducted when the vault share price is updated.
 
-    - **Net fees** are deduced at a redemption. Investor receives less than the value of their shares back.
+    - **Net fees** are deduced at a redemption. A vault investor receives less than the value of their shares back.
 
-    - For comparing the profitability of vaults, you need to reduce net fees of the investment period
+    - For comparing the profitability of vaults, you need to reduce the net fees of an investment period
       from the vault share price.
 
     - Common vault fee mechanisms implementations are: externalised (net fees, deducted from an investor at a redemption),
