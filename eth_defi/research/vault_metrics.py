@@ -1119,6 +1119,11 @@ def format_lifetime_table(
     _del("normalised_denomination")
     _del("denomination_slug")
 
+    _del("first_updated_at")
+    _del("first_updated_block")
+    _del("last_updated_block")
+    _del("last_share_price")
+
     if not add_share_token:
         _del("share_token")
     else:
