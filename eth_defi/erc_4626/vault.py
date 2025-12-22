@@ -765,7 +765,7 @@ class ERC4626Vault(VaultBase):
         else:
             return None
 
-    def fetch_share_token_address(self) -> HexAddress:
+    def fetch_share_token_address(self, block_identifier: BlockIdentifier = "latest") -> HexAddress:
         """Get share token of this vault.
 
         - Vault itself (ERC-4626)
@@ -787,7 +787,7 @@ class ERC4626Vault(VaultBase):
             # because of how shitty EVM is
             result = erc_7575_call.call(
                 self.web3,
-                block_identifier="latest",
+                block_identifier=block_identifier,
                 ignore_error=False,
                 silent_error=True,
                 attempts=4,

@@ -152,6 +152,9 @@ DEFAULT_RETRYABLE_RPC_ERROR_CODES = (
     # Below happened very often with Polygon RPCs, both Alchemy and Quicknode got it
     # {'code': -32002, 'message': 'request timed out'}
     -32002,
+    # Arbitrum on "latest" block
+    # {'message': 'upstream does not have the requested block yet', 'code': -32603},
+    -32603,
 )
 
 
