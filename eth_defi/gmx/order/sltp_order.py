@@ -20,11 +20,13 @@ from eth_utils import to_checksum_address
 from web3.types import TxParams
 
 from eth_defi.gmx.config import GMXConfig
-from eth_defi.gmx.constants import DECREASE_POSITION_SWAP_TYPES, ETH_ZERO_ADDRESS, OrderType, PRECISION
-from eth_defi.gmx.contracts import NETWORK_TOKENS, TESTNET_TO_MAINNET_ORACLE_TOKENS
+from eth_defi.gmx.constants import (DECREASE_POSITION_SWAP_TYPES,
+                                    ETH_ZERO_ADDRESS, PRECISION, OrderType)
+from eth_defi.gmx.contracts import (NETWORK_TOKENS,
+                                    TESTNET_TO_MAINNET_ORACLE_TOKENS)
 from eth_defi.gmx.gas_utils import calculate_execution_fee
-from eth_defi.gmx.order.base_order import BaseOrder, OrderParams, OrderResult, ZERO_REFERRAL_CODE
-
+from eth_defi.gmx.order.base_order import (ZERO_REFERRAL_CODE, BaseOrder,
+                                           OrderParams, OrderResult)
 
 logger = logging.getLogger(__name__)
 
@@ -693,13 +695,17 @@ class SLTPOrder(BaseOrder):
         gas_price = self.web3.eth.gas_price
         main_execution_fee = int(main_gas_limit * gas_price * execution_buffer)
 
+        # Scale size_delta_usd to 30 decimal precision (GMX format)
+        # Use Decimal to avoid floating point precision errors
+        size_delta_scaled = int(Decimal(str(size_delta_usd)) * Decimal(10**PRECISION))
+
         # Get main order parameters
         params = OrderParams(
             market_key=self.market_key,
             collateral_address=self.collateral_address,
             index_token_address=self.index_token_address,
             is_long=self.is_long,
-            size_delta=size_delta_usd,
+            size_delta=size_delta_scaled,
             initial_collateral_delta_amount=str(initial_collateral_delta_amount),
             slippage_percent=slippage_percent,
             swap_path=swap_path,
