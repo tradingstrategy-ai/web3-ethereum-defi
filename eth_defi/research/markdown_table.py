@@ -35,19 +35,8 @@ def format_markdown_table(
         raise RuntimeError("No data available.")
 
     def _format_links(row: pd.Series) -> pd.Series:
-        if "name" in row:
-            vault_name = row["name"]
-        else:
-            index = row.name
-            vault_name = index
-
-        if not vault_name:
-            vault_name = "<unnamed>"
-
-        vault_id = row["id"]
-        chain_id, address = vault_id.split("-")
-        vault_link = get_address_link(chain_id, address)
-        return f"[{vault_name.strip()}]({vault_link})"
+        vault_link = row["Link"]
+        return vault_link
 
     def _format_chain_name(row: pd.Series) -> pd.Series:
         index = row.name

@@ -97,6 +97,17 @@ def slugify_vault(
     return address
 
 
+def _get_trading_strategy_vault_link(
+    chain_id: int,
+    chain_name: str,
+    protocol_slug: str,
+    vault_slug: str,
+    vault_address: str,
+):
+    chain_slug = chain_name.lower()
+    return f"https://tradingstrategy.ai/trading-view/{chain_slug}/vaults/{vault_slug}"
+
+
 def create_fee_label(
     fee_data: FeeData,
 ):
@@ -632,6 +643,14 @@ def calculate_lifetime_metrics(
         vault_slug = vault_metadata["vault_slug"]
         protocol_slug = vault_metadata["protocol_slug"]
 
+        trading_strategy_link = _get_trading_strategy_vault_link(
+            chain_id=chain_id,
+            chain_name=get_chain_name(chain_id),
+            protocol_slug=protocol_slug,
+            vault_slug=vault_slug,
+            vault_address=vault_address,
+        )
+
         lockup = vault_metadata.get("_lockup", None)
         if pd.isna(lockup):
             # Clean up some legacy data
@@ -849,6 +868,7 @@ def calculate_lifetime_metrics(
                 "flags": flags,
                 "notes": notes,
                 "link": link,
+                "trading_strategy_link": trading_strategy_link,
                 # Debug and diagnostics for sparse data
                 "one_month_start": one_month_start,
                 "one_month_end": one_month_end,
@@ -1124,6 +1144,8 @@ def format_lifetime_table(
     _del("last_updated_block")
     _del("last_share_price")
 
+    _del("link")
+
     if not add_share_token:
         _del("share_token")
     else:
@@ -1153,7 +1175,7 @@ def format_lifetime_table(
             "flags": "Flags",
             "notes": "Notes",
             "id": "id",
-            "link": "Link",
+            "trading_strategy_link": "Link",
         }
     )
 
