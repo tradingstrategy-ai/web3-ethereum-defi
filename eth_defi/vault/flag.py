@@ -117,6 +117,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag, str]] = {
     "0xd24e4a98b5fd90ff21a9cc5e2c1254de8084cd81": (VaultFlag.broken, BROKEN_VAULT),
     # Yearn USDC to USDS Depositor strategy
     "0x39c0aec5738ed939876245224afc7e09c8480a52": (VaultFlag.broken, BROKEN_VAULT),
+    # Peapods broken 42?
+    "0x4b5c90dc6bc08a10a24487726e614e9d148362e1": (VaultFlag.broken, BROKEN_VAULT),
 }
 
 for addr in VAULT_FLAGS_AND_NOTES.keys():
