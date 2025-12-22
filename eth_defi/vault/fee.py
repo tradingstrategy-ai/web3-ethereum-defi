@@ -76,10 +76,24 @@ VAULT_PROTOCOL_FEE_MATRIX = {
 
 @dataclass
 class FeeData:
-    """Track vault fee parameters.
+    """Track vault fee parameters
 
     - Offer methods to calculate gross/net fees based on the vault fee mode
     - `None` means fee unknown: protocol not recognized, or fee data not available
+
+    **How fees are presented**:
+
+    - **Gross fees** are what protocols track internally. They are not exposed to an investor,
+      and only useful for internal profit calculations of the vault. Gross fees have
+      already been deducted when the vault share price is updated.
+
+    - **Net fees** are deduced at a redemption. Investor receives less than the value of their shares back.
+
+    - For comparing the profitability of vaults, you need to reduce net fees of the investment period
+      from the vault share price.
+
+    - Common vault fee mechanisms implementations are: externalised (net fees, deducted from an investor at a redemption),
+       skimming (redirected from profits at the time of trade) and minting (new shares minted to the vault owner at the time of trade).
     """
 
     #: Determines is the vault share price is fees-net or fees-gross
