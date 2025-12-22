@@ -12,6 +12,13 @@ def get_address_link(
     return f"https://routescan.io/address/{address}"
 
 
+def _get_chain_link(
+    chain_name: str,
+) -> str:
+    slug = chain_name.lower().replace(" ", "-")
+    return f"https://tradingstrategy.ai/trading-view/{slug}/vaults"
+
+
 def _move_columns_to_front(df: pd.DataFrame, cols: list[str]) -> pd.DataFrame:
     # Move specific columns to the front
     df = df[cols + [col for col in df.columns if col not in cols]]
@@ -34,15 +41,17 @@ def format_markdown_table(
     if df.empty:
         raise RuntimeError("No data available.")
 
-    def _format_links(row: pd.Series) -> pd.Series:
+    def _format_name(row: pd.Series) -> pd.Series:
+        name = row["Link"]
         vault_link = row["Link"]
-        return vault_link
+        return f"[{name}]({vault_link})"
 
     def _format_chain_name(row: pd.Series) -> pd.Series:
         index = row.name
         vault_id = row["id"]
         chain_id, address = vault_id.split("-")
         name, link = get_chain_homepage(int(chain_id))
+        link = _get_chain_link(name)
         return f"[{name}]({link})"
 
     def _format_tvl(row: pd.Series) -> pd.Series:
@@ -69,7 +78,7 @@ def format_markdown_table(
     # Format all float values to 2 decimal places
     df = df.map(lambda x: f"{x:.2f}" if isinstance(x, float) else x)
 
-    df["Vault"] = df.apply(_format_links, axis=1)
+    df["Vault"] = df.apply(_format_name, axis=1)
     df["Chain"] = df.apply(_format_chain_name, axis=1)
 
     df = df.reset_index(drop=True)
