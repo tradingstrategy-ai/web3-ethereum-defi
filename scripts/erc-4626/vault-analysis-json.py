@@ -45,7 +45,7 @@ from eth_defi.research.vault_metrics import (
 # --------------------------------------------------------------------
 MONTHS = int(os.getenv("MONTHS", "3"))  # Time window in months
 EVENT_THRESHOLD = int(os.getenv("EVENT_THRESHOLD", "5"))  # Min event count
-MAX_ANNUALISED_RETURN = float(os.getenv("MAX_ANNUALISED_RETURN", "0.5"))  # Cap annualized return at 50%
+MAX_ANNUALISED_RETURN = float(os.getenv("MAX_ANNUALISED_RETURN", "4.0"))  # Cap annualized return at 400%
 MIN_TVL = float(os.getenv("MIN_TVL", "50000"))  # Minimum TVL filter
 TOP_PER_CHAIN = int(os.getenv("TOP_PER_CHAIN", "999"))  # Top N vaults per chain
 OUTPUT_JSON = Path(os.getenv("OUTPUT_JSON", "~/.tradingstrategy/vaults/stablecoin-vault-metrics.json")).expanduser()
