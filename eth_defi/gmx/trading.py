@@ -121,6 +121,7 @@ from eth_defi.gmx.order import OrderResult
 from eth_defi.gmx.order.increase_order import IncreaseOrder
 from eth_defi.gmx.order.decrease_order import DecreaseOrder
 from eth_defi.gmx.order.swap_order import SwapOrder
+from eth_defi.gmx.order.sltp_order import SLTPOrder, SLTPEntry, SLTPParams, SLTPOrderResult
 from eth_defi.gmx.order.order_argument_parser import OrderArgumentParser
 from eth_defi.gmx.config import GMXConfig
 
@@ -621,4 +622,313 @@ class GMXTrading:
             slippage_percent=order_parameters["slippage_percent"],
             execution_buffer=execution_buffer,
             **kwargs,
+        )
+
+    def open_position_with_sltp(
+        self,
+        market_symbol: str,
+        collateral_symbol: str,
+        start_token_symbol: str,
+        is_long: bool,
+        size_delta_usd: float,
+        leverage: float,
+        stop_loss_percent: float | None = None,
+        take_profit_percent: float | None = None,
+        stop_loss_price: float | None = None,
+        take_profit_price: float | None = None,
+        slippage_percent: float = 0.003,
+        execution_buffer: float = 2.5,
+        **kwargs,
+    ) -> SLTPOrderResult:
+        """
+        Open a position with bundled Stop Loss and Take Profit orders.
+
+        Creates a single atomic transaction that opens a position and attaches
+        SL/TP orders. All three orders are submitted together, ensuring the
+        protective orders are in place from the moment the position is opened.
+
+        Example:
+
+        .. code-block:: python
+
+            # Open long with 5% stop loss and 10% take profit
+            result = trader.open_position_with_sltp(
+                market_symbol="ETH",
+                collateral_symbol="ETH",
+                start_token_symbol="ETH",
+                is_long=True,
+                size_delta_usd=1000,
+                leverage=2.5,
+                stop_loss_percent=0.05,  # 5% below entry
+                take_profit_percent=0.10,  # 10% above entry
+            )
+
+            # Or use absolute prices
+            result = trader.open_position_with_sltp(
+                market_symbol="ETH",
+                collateral_symbol="ETH",
+                start_token_symbol="ETH",
+                is_long=True,
+                size_delta_usd=1000,
+                leverage=2.5,
+                stop_loss_price=2850.0,  # SL at $2850
+                take_profit_price=3300.0,  # TP at $3300
+            )
+
+        :param market_symbol: Market to trade (e.g., "ETH", "BTC")
+        :param collateral_symbol: Collateral asset (e.g., "ETH", "USDC")
+        :param start_token_symbol: Asset you're starting with
+        :param is_long: True for long, False for short
+        :param size_delta_usd: Position size in USD
+        :param leverage: Leverage multiplier (e.g., 2.5 for 2.5x)
+        :param stop_loss_percent: SL trigger as percentage (0.05 = 5%)
+        :param take_profit_percent: TP trigger as percentage (0.10 = 10%)
+        :param stop_loss_price: Absolute SL trigger price in USD
+        :param take_profit_price: Absolute TP trigger price in USD
+        :param slippage_percent: Maximum slippage (default 0.3%)
+        :param execution_buffer: Fee buffer multiplier (default 2.5)
+        :return: SLTPOrderResult with bundled transaction
+        """
+        # Get configuration and process parameters
+        config = self.config.get_config()
+
+        parameters = {
+            "chain": self.config.get_chain(),
+            "index_token_symbol": market_symbol,
+            "collateral_token_symbol": collateral_symbol,
+            "start_token_symbol": start_token_symbol,
+            "is_long": is_long,
+            "size_delta_usd": size_delta_usd,
+            "leverage": leverage,
+            "slippage_percent": slippage_percent,
+        }
+
+        order_parameters = OrderArgumentParser(config, is_increase=True).process_parameters_dictionary(parameters)
+
+        # Create SLTP order instance
+        sltp = SLTPOrder(
+            config=self.config,
+            market_key=order_parameters["market_key"],
+            collateral_address=order_parameters["collateral_address"],
+            index_token_address=order_parameters["index_token_address"],
+            is_long=order_parameters["is_long"],
+        )
+
+        # Build SL/TP params
+        sltp_params = None
+        if stop_loss_percent or stop_loss_price or take_profit_percent or take_profit_price:
+            sl_entry = None
+            tp_entry = None
+
+            if stop_loss_percent:
+                sl_entry = SLTPEntry(trigger_percent=stop_loss_percent)
+            elif stop_loss_price:
+                sl_entry = SLTPEntry(trigger_price=stop_loss_price)
+
+            if take_profit_percent:
+                tp_entry = SLTPEntry(trigger_percent=take_profit_percent)
+            elif take_profit_price:
+                tp_entry = SLTPEntry(trigger_price=take_profit_price)
+
+            sltp_params = SLTPParams(stop_loss=sl_entry, take_profit=tp_entry)
+
+        return sltp.create_increase_order_with_sltp(
+            size_delta_usd=size_delta_usd,
+            initial_collateral_delta_amount=order_parameters["initial_collateral_delta"],
+            sltp_params=sltp_params,
+            slippage_percent=slippage_percent,
+            swap_path=order_parameters["swap_path"],
+            execution_buffer=execution_buffer,
+            **kwargs,
+        )
+
+    def create_stop_loss(
+        self,
+        market_symbol: str,
+        collateral_symbol: str,
+        is_long: bool,
+        position_size_usd: float,
+        entry_price: float,
+        stop_loss_percent: float | None = None,
+        stop_loss_price: float | None = None,
+        close_percent: float = 1.0,
+        slippage_percent: float = 0.003,
+        execution_buffer: float = 2.5,
+        **kwargs,
+    ) -> OrderResult:
+        """
+        Create a standalone Stop Loss order for an existing position.
+
+        The SL order will trigger when price moves against your position
+        by the specified amount, limiting potential losses.
+
+        Example:
+
+        .. code-block:: python
+
+            # Create SL 5% below entry for a long position
+            sl_result = trader.create_stop_loss(
+                market_symbol="ETH",
+                collateral_symbol="ETH",
+                is_long=True,
+                position_size_usd=1000,
+                entry_price=3000.0,
+                stop_loss_percent=0.05,  # Triggers at $2850
+            )
+
+            # Or use absolute price
+            sl_result = trader.create_stop_loss(
+                market_symbol="ETH",
+                collateral_symbol="ETH",
+                is_long=True,
+                position_size_usd=1000,
+                entry_price=3000.0,
+                stop_loss_price=2850.0,
+            )
+
+        :param market_symbol: Market of the position (e.g., "ETH")
+        :param collateral_symbol: Collateral asset of the position
+        :param is_long: True if long position, False if short
+        :param position_size_usd: Total position size in USD
+        :param entry_price: Position entry price in USD
+        :param stop_loss_percent: SL as percentage from entry (0.05 = 5%)
+        :param stop_loss_price: Absolute SL price in USD
+        :param close_percent: Fraction of position to close (1.0 = 100%)
+        :param slippage_percent: Maximum slippage
+        :param execution_buffer: Fee buffer multiplier
+        :return: OrderResult with stop loss transaction
+        """
+        if not stop_loss_percent and not stop_loss_price:
+            raise ValueError("Either stop_loss_percent or stop_loss_price must be provided")
+
+        config = self.config.get_config()
+
+        parameters = {
+            "chain": self.config.get_chain(),
+            "index_token_symbol": market_symbol,
+            "collateral_token_symbol": collateral_symbol,
+            "start_token_symbol": collateral_symbol,
+            "is_long": is_long,
+            "size_delta_usd": position_size_usd,
+            "slippage_percent": slippage_percent,
+        }
+
+        order_parameters = OrderArgumentParser(config, is_decrease=True).process_parameters_dictionary(parameters)
+
+        sltp = SLTPOrder(
+            config=self.config,
+            market_key=order_parameters["market_key"],
+            collateral_address=order_parameters["collateral_address"],
+            index_token_address=order_parameters["index_token_address"],
+            is_long=order_parameters["is_long"],
+        )
+
+        entry = SLTPEntry(
+            trigger_percent=stop_loss_percent,
+            trigger_price=stop_loss_price,
+            close_percent=close_percent,
+        )
+
+        return sltp.create_stop_loss_order(
+            position_size_usd=position_size_usd,
+            entry=entry,
+            entry_price=entry_price,
+            slippage_percent=slippage_percent,
+            execution_buffer=execution_buffer,
+        )
+
+    def create_take_profit(
+        self,
+        market_symbol: str,
+        collateral_symbol: str,
+        is_long: bool,
+        position_size_usd: float,
+        entry_price: float,
+        take_profit_percent: float | None = None,
+        take_profit_price: float | None = None,
+        close_percent: float = 1.0,
+        slippage_percent: float = 0.003,
+        execution_buffer: float = 2.5,
+        **kwargs,
+    ) -> OrderResult:
+        """
+        Create a standalone Take Profit order for an existing position.
+
+        The TP order will trigger when price moves in your favor
+        by the specified amount, locking in profits.
+
+        Example:
+
+        .. code-block:: python
+
+            # Create TP 10% above entry for a long position
+            tp_result = trader.create_take_profit(
+                market_symbol="ETH",
+                collateral_symbol="ETH",
+                is_long=True,
+                position_size_usd=1000,
+                entry_price=3000.0,
+                take_profit_percent=0.10,  # Triggers at $3300
+            )
+
+            # Scale out: close 50% at TP
+            tp_result = trader.create_take_profit(
+                market_symbol="ETH",
+                collateral_symbol="ETH",
+                is_long=True,
+                position_size_usd=1000,
+                entry_price=3000.0,
+                take_profit_price=3300.0,
+                close_percent=0.5,  # Close 50% at TP
+            )
+
+        :param market_symbol: Market of the position (e.g., "ETH")
+        :param collateral_symbol: Collateral asset of the position
+        :param is_long: True if long position, False if short
+        :param position_size_usd: Total position size in USD
+        :param entry_price: Position entry price in USD
+        :param take_profit_percent: TP as percentage from entry (0.10 = 10%)
+        :param take_profit_price: Absolute TP price in USD
+        :param close_percent: Fraction of position to close (1.0 = 100%)
+        :param slippage_percent: Maximum slippage
+        :param execution_buffer: Fee buffer multiplier
+        :return: OrderResult with take profit transaction
+        """
+        if not take_profit_percent and not take_profit_price:
+            raise ValueError("Either take_profit_percent or take_profit_price must be provided")
+
+        config = self.config.get_config()
+
+        parameters = {
+            "chain": self.config.get_chain(),
+            "index_token_symbol": market_symbol,
+            "collateral_token_symbol": collateral_symbol,
+            "start_token_symbol": collateral_symbol,
+            "is_long": is_long,
+            "size_delta_usd": position_size_usd,
+            "slippage_percent": slippage_percent,
+        }
+
+        order_parameters = OrderArgumentParser(config, is_decrease=True).process_parameters_dictionary(parameters)
+
+        sltp = SLTPOrder(
+            config=self.config,
+            market_key=order_parameters["market_key"],
+            collateral_address=order_parameters["collateral_address"],
+            index_token_address=order_parameters["index_token_address"],
+            is_long=order_parameters["is_long"],
+        )
+
+        entry = SLTPEntry(
+            trigger_percent=take_profit_percent,
+            trigger_price=take_profit_price,
+            close_percent=close_percent,
+        )
+
+        return sltp.create_take_profit_order(
+            position_size_usd=position_size_usd,
+            entry=entry,
+            entry_price=entry_price,
+            slippage_percent=slippage_percent,
+            execution_buffer=execution_buffer,
         )
