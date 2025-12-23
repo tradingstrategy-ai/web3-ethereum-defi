@@ -55,6 +55,12 @@ def get_notes(address: HexAddress | str) -> str | None:
     return None
 
 
+def is_flagged_vault(address: HexAddress | str) -> bool:
+    """Is this vault flagged for any special reason?"""
+    assert address.startswith("0x"), f"Invalid address: {address}"
+    return address in VAULT_FLAGS_AND_NOTES
+
+
 XUSD_MESSAGE = "Vault likely illiquid due to Stream xUSD exposure issues. You may lose all of your deposits."
 
 HIDDEN_VAULT = "Vault not actively listed on any known website. Likely unmaintained. You may lose your deposits."
@@ -92,6 +98,9 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag, str]] = {
     "0x61ffbead1d4dc9ffba35eb16fd6cadee9b37b2aa": (VaultFlag.illiquid, XUSD_MESSAGE),
     "0x8399c8fc273bd165c346af74a02e65f10e4fd78f": (VaultFlag.illiquid, XUSD_MESSAGE),
     "0xac69cfe6bb269cebf8ab4764d7e678c3658b99f2": (VaultFlag.illiquid, XUSD_MESSAGE),
+    "0x55555815a5595991c3a0ff119b59aef6c8b55555": (VaultFlag.illiquid, XUSD_MESSAGE),
+    "0x36e2aa296e798ca6262dc5fad5f5660e638d5402": (VaultFlag.illiquid, XUSD_MESSAGE),
+
 
     # Borrowable USDC Deposit, SiloId: 55, Sonic
     "0x4935fadb17df859667cc4f7bfe6a8cb24f86f8d0": (VaultFlag.illiquid, XUSD_MESSAGE),
@@ -115,10 +124,27 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag, str]] = {
     "0x7786dba2a1f7a4b0b7abf0962c449154c4f2b8ac": (VaultFlag.illiquid, XUSD_MESSAGE),
     # atvPTmax
     "0xd24e4a98b5fd90ff21a9cc5e2c1254de8084cd81": (VaultFlag.broken, BROKEN_VAULT),
+    # Aarna atvPTmax
+    "0x332e81368daec705612ff06b3a80b10ae1e5f110)": (VaultFlag.broken, BROKEN_VAULT),
     # Yearn USDC to USDS Depositor strategy
     "0x39c0aec5738ed939876245224afc7e09c8480a52": (VaultFlag.broken, BROKEN_VAULT),
     # Peapods broken 42?
     "0x4b5c90dc6bc08a10a24487726e614e9d148362e1": (VaultFlag.broken, BROKEN_VAULT),
+    # Mithras
+    "0x391b3f70e254d582588b27e97e48d1cfcdf0be7e": (VaultFlag.broken, BROKEN_VAULT),
+    #BlueChip USDC Vault (Prime)
+    "0x3f604074f3f12ff70c29e6bcc9232c707dc4d970": (VaultFlag.broken, BROKEN_VAULT),
+    # Peapods 14
+    "0xc2810eb57526df869049fbf4c541791a3255d24c": (VaultFlag.broken, BROKEN_VAULT),
+    # Pendle
+    "0xd6e094faf9585757f879067ce79c7f6b3c8e4fb0": (VaultFlag.broken, BROKEN_VAULT),
+    "0x64fcfd84109768136a687ed9614a9d0b8c6910e2": (VaultFlag.broken, BROKEN_VAULT),
+    "0xd87598dd895de1b7fb2ba6af91b152f26baf7bee": (VaultFlag.broken, BROKEN_VAULT),
+    # Yield optimizer vault
+    "0x3bb60eca398f480f4b7756600c04309de486232e": (VaultFlag.broken, BROKEN_VAULT),
+    # Janus Henderson
+    "0x4880799ee5200fc58da299e965df644fbf46780b": (VaultFlag.broken, BROKEN_VAULT),
+    "0xe9d1f733f406d4bbbdfac6d4cfcd2e13a6ee1d01": (VaultFlag.broken, BROKEN_VAULT),
 }
 
 for addr in VAULT_FLAGS_AND_NOTES.keys():
