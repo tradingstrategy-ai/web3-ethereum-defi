@@ -107,6 +107,7 @@ VAULT_SPECIFIC_RISK = {
 }
 
 
+
 def get_vault_risk(
     protocol_name: str,
     vault_address: HexAddress | str | None = None,
@@ -114,11 +115,11 @@ def get_vault_risk(
 ) -> VaultTechnicalRisk | None:
     """Get technical and developer risk associated with a particular vault"""
 
-    from eth_defi.vault.flag import get_vault_special_flags, VaultFlag
+    from eth_defi.vault.flag import get_vault_special_flags, BAD_FLAGS
 
     # Check for xUSD incidents
     flags = get_vault_special_flags(vault_address)
-    if VaultFlag.illiquid in flags:
+    if flags & BAD_FLAGS:
         return VaultTechnicalRisk.blacklisted
 
     if vault_address:

@@ -39,7 +39,16 @@ class VaultFlag(str, enum.Enum):
     malicious = "malicious"
 
 
+#: Don't touch vaults with these flags
+BAD_FLAGS = {
+    VaultFlag.illiquid,
+    VaultFlag.broken,
+    VaultFlag.malicious,
+}
+
+
 _empty_set = set()
+
 
 
 def get_vault_special_flags(address: str | HexAddress) -> set[VaultFlag]:
@@ -71,6 +80,8 @@ HIDDEN_VAULT = "Vault not actively listed on any known website. Likely unmaintai
 BROKEN_VAULT = "Onchain metrics coming out of this vault do not make sense and it's likely the smart contract is broken."
 
 MALICIOUS_VAULT = "This vault is reported as malicious, and may have some sort of mechanism to steal funds."
+
+MAINST_VAULT = "Main Street Market related products were wiped out in Oct 10th event https://x.com/Main_St_Finance/status/1976972055951147194"
 
 #: Vault manual blacklist flags and notes.
 #:
@@ -125,6 +136,9 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag, str]] = {
     "0x196f3c7443e940911ee2bb88e019fd71400349d9": (VaultFlag.illiquid, XUSD_MESSAGE),
     # Borrowable USDC Deposit, SiloId: 170
     "0x7786dba2a1f7a4b0b7abf0962c449154c4f2b8ac": (VaultFlag.illiquid, XUSD_MESSAGE),
+    # Greenhouse USD ghUSDC
+    # https://x.com/Main_St_Finance/status/1976972055951147194
+    "0xf6bC16B79c469b94Cdd25F3e2334DD4FEE47A581": (VaultFlag.illiquid, MAINST_VAULT),
     # atvPTmax
     "0xd24e4a98b5fd90ff21a9cc5e2c1254de8084cd81": (VaultFlag.broken, BROKEN_VAULT),
     # Aarna atvPTmax
@@ -151,7 +165,7 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag, str]] = {
     # Malicious Euler vault?
     # EVK Vault eUSDC-8 on Sonic
     "0x683dbc88b371ae48962b56e36e5a0c34e3ad4caf": (VaultFlag.malicious, MALICIOUS_VAULT),
-}
+
 
 for addr in VAULT_FLAGS_AND_NOTES.keys():
     assert addr.lower() == addr, f"Vault address must be lowercased: {addr}"
