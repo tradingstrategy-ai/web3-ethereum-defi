@@ -138,11 +138,11 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag, str]] = {
     "0x7786dba2a1f7a4b0b7abf0962c449154c4f2b8ac": (VaultFlag.illiquid, XUSD_MESSAGE),
     # Greenhouse USD ghUSDC
     # https://x.com/Main_St_Finance/status/1976972055951147194
-    "0xf6bC16B79c469b94Cdd25F3e2334DD4FEE47A581": (VaultFlag.illiquid, MAINST_VAULT),
+    "0xf6bc16b79c469b94cdd25f3e2334dd4fee47a581": (VaultFlag.illiquid, MAINST_VAULT),
     # atvPTmax
     "0xd24e4a98b5fd90ff21a9cc5e2c1254de8084cd81": (VaultFlag.broken, BROKEN_VAULT),
     # Aarna atvPTmax
-    "0x332e81368daec705612ff06b3a80b10ae1e5f110)": (VaultFlag.broken, BROKEN_VAULT),
+    "0x332e81368daec705612ff06b3a80b10ae1e5f110": (VaultFlag.broken, BROKEN_VAULT),
     # Yearn USDC to USDS Depositor strategy
     "0x39c0aec5738ed939876245224afc7e09c8480a52": (VaultFlag.broken, BROKEN_VAULT),
     # Peapods broken 42?
