@@ -358,6 +358,7 @@ def main():
                 console.print(f"[green]Found {len(open_positions)} position(s)[/green]\n")
 
                 for idx, (position_key, position) in enumerate(open_positions.items(), 1):
+                    console.print(f"{open_positions=}")
                     market_symbol = position.get("market_symbol", "Unknown")
                     is_long = position.get("is_long", False)
                     direction = "LONG" if is_long else "SHORT"

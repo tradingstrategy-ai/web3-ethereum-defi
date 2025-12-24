@@ -365,6 +365,12 @@ class OrderArgumentParser:
         if "size_delta_usd" in self.parameters_dict and "initial_collateral_delta" in self.parameters_dict:
             return self.parameters_dict
 
+        # For decrease orders (SL/TP), only size_delta_usd is required
+        # initial_collateral_delta defaults to 0 (GMX handles collateral withdrawal)
+        if self.is_decrease and "size_delta_usd" in self.parameters_dict and "initial_collateral_delta" not in self.parameters_dict:
+            self.parameters_dict["initial_collateral_delta"] = 0
+            return self.parameters_dict
+
         # Leverage + collateral provided, calculate size
         elif "leverage" in self.parameters_dict and "initial_collateral_delta" in self.parameters_dict and "size_delta_usd" not in self.parameters_dict:
             initial_collateral_delta_usd = self._calculate_initial_collateral_usd()
