@@ -165,7 +165,7 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag, str]] = {
     # Malicious Euler vault?
     # EVK Vault eUSDC-8 on Sonic
     "0x683dbc88b371ae48962b56e36e5a0c34e3ad4caf": (VaultFlag.malicious, MALICIOUS_VAULT),
-
+}
 
 for addr in VAULT_FLAGS_AND_NOTES.keys():
     assert addr.lower() == addr, f"Vault address must be lowercased: {addr}"
