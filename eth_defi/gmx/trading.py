@@ -810,6 +810,7 @@ class GMXTrading:
             "start_token_symbol": collateral_symbol,
             "is_long": is_long,
             "size_delta_usd": position_size_usd,
+            "initial_collateral_delta": 0,  # 0 means withdraw all remaining collateral
             "slippage_percent": slippage_percent,
         }
 
@@ -906,6 +907,7 @@ class GMXTrading:
             "start_token_symbol": collateral_symbol,
             "is_long": is_long,
             "size_delta_usd": position_size_usd,
+            "initial_collateral_delta": 0,  # 0 means withdraw all remaining collateral
             "slippage_percent": slippage_percent,
         }
 

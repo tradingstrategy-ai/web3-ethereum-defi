@@ -1,11 +1,11 @@
 """
-GMX Stop Loss Order Script for Arbitrum Sepolia
+GMX Take Profit Order Script for Arbitrum Sepolia
 
-Opens a position and creates a stop loss order on GMX Arbitrum Sepolia testnet.
+Opens a position and creates a take profit order on GMX Arbitrum Sepolia testnet.
 
 This script demonstrates:
 1. Opening a leveraged position
-2. Creating a standalone stop loss order for that position
+2. Creating a standalone take profit order for that position
 
 Usage
 -----
@@ -14,7 +14,7 @@ With environment variables::
 
     export PRIVATE_KEY="0x1234..."
     export ARBITRUM_SEPOLIA_RPC_URL="https://arbitrum-sepolia.infura.io/v3/YOUR_KEY"
-    python scripts/gmx/gmx_stop_loss_order.py
+    python scripts/gmx/gmx_take_profit_order.py
 
 Environment Variables
 ---------------------
@@ -51,7 +51,7 @@ console = Console()
 EXECUTION_BUFFER = 30  # Higher buffer for testnet reliability
 SIZE_USD = 10  # Position size in USD
 LEVERAGE = 1.5  # Leverage multiplier
-STOP_LOSS_PERCENT = 0.05  # 5% stop loss
+TAKE_PROFIT_PERCENT = 0.10  # 10% take profit
 MARKET_SYMBOL = "ETH"
 COLLATERAL_SYMBOL = "ETH"  # ETH gets auto-wrapped to WETH by GMX
 IS_LONG = True  # Long position
@@ -96,7 +96,7 @@ def main():
         console.print("[red]Error: PRIVATE_KEY environment variable not set[/red]")
         sys.exit(1)
 
-    console.print("\n[bold green]=== GMX Stop Loss Order - Arbitrum Sepolia ===[/bold green]\n")
+    console.print("\n[bold green]=== GMX Take Profit Order - Arbitrum Sepolia ===[/bold green]\n")
 
     # Create web3 provider
     web3 = create_multi_provider_web3(rpc_url)
@@ -229,57 +229,57 @@ def main():
         console.print(f"  Entry Price: ${entry_price:,.2f}")
         console.print(f"  Size: ${position_size:,.2f}")
 
-    # Create Stop Loss
-    console.print(f"\n[bold cyan]Creating Stop Loss ({STOP_LOSS_PERCENT * 100:.1f}%)...[/bold cyan]")
+    # Create Take Profit
+    console.print(f"\n[bold cyan]Creating Take Profit ({TAKE_PROFIT_PERCENT * 100:.1f}%)...[/bold cyan]")
 
     # Calculate trigger price for display
     if is_long:
-        sl_trigger = entry_price * (1 - STOP_LOSS_PERCENT)
+        tp_trigger = entry_price * (1 + TAKE_PROFIT_PERCENT)
     else:
-        sl_trigger = entry_price * (1 + STOP_LOSS_PERCENT)
+        tp_trigger = entry_price * (1 - TAKE_PROFIT_PERCENT)
 
-    console.print(f"  Trigger Price: ${sl_trigger:,.2f}")
+    console.print(f"  Trigger Price: ${tp_trigger:,.2f}")
 
-    sl_result = trading.create_stop_loss(
+    tp_result = trading.create_take_profit(
         market_symbol=market_symbol,
         collateral_symbol=collateral_symbol,
         is_long=is_long,
         position_size_usd=position_size,
         entry_price=entry_price,
-        stop_loss_percent=STOP_LOSS_PERCENT,
+        take_profit_percent=TAKE_PROFIT_PERCENT,
         execution_buffer=EXECUTION_BUFFER,
     )
 
-    console.print(f"  Execution Fee: {sl_result.execution_fee / 10**18:.6f} ETH")
+    console.print(f"  Execution Fee: {tp_result.execution_fee / 10**18:.6f} ETH")
 
-    # Submit Stop Loss
-    sl_tx = sl_result.transaction
-    if "nonce" in sl_tx:
-        del sl_tx["nonce"]
+    # Submit Take Profit
+    tp_tx = tp_result.transaction
+    if "nonce" in tp_tx:
+        del tp_tx["nonce"]
 
-    signed_sl = wallet.sign_transaction_with_new_nonce(sl_tx)
-    sl_hash = web3.eth.send_raw_transaction(signed_sl.rawTransaction)
-    console.print(f"  TX Hash: {sl_hash.hex()}")
+    signed_tp = wallet.sign_transaction_with_new_nonce(tp_tx)
+    tp_hash = web3.eth.send_raw_transaction(signed_tp.rawTransaction)
+    console.print(f"  TX Hash: {tp_hash.hex()}")
 
-    sl_receipt = web3.eth.wait_for_transaction_receipt(sl_hash)
+    tp_receipt = web3.eth.wait_for_transaction_receipt(tp_hash)
 
-    if sl_receipt["status"] == 1:
-        sl_order_keys = verify_orders_created(sl_receipt)
-        console.print(f"[green]Stop Loss order created: {sl_order_keys[0].hex() if sl_order_keys else 'N/A'}[/green]")
+    if tp_receipt["status"] == 1:
+        tp_order_keys = verify_orders_created(tp_receipt)
+        console.print(f"[green]Take Profit order created: {tp_order_keys[0].hex() if tp_order_keys else 'N/A'}[/green]")
     else:
-        console.print("[red]Stop Loss order failed[/red]")
-        assert_transaction_success_with_explanation(web3, sl_hash)
+        console.print("[red]Take Profit order failed[/red]")
+        assert_transaction_success_with_explanation(web3, tp_hash)
         sys.exit(1)
 
     # Summary
     console.print("\n" + "=" * 60)
-    console.print("[bold green]Stop Loss Order Submitted Successfully![/bold green]")
+    console.print("[bold green]Take Profit Order Submitted Successfully![/bold green]")
     console.print("=" * 60)
     console.print(f"\n  Position: {market_symbol} {'Long' if is_long else 'Short'}")
     console.print(f"  Size: ${position_size:,.2f}")
     console.print(f"  Entry Price: ${entry_price:,.2f}")
-    console.print(f"  Stop Loss Trigger: ${sl_trigger:,.2f}")
-    console.print("\n[dim]Note: SL order is pending until price triggers it.[/dim]")
+    console.print(f"  Take Profit Trigger: ${tp_trigger:,.2f}")
+    console.print("\n[dim]Note: TP order is pending until price triggers it.[/dim]")
     console.print("[dim]On testnet, keepers will execute when conditions are met.[/dim]")
 
 
