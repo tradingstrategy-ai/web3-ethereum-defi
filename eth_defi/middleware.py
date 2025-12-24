@@ -154,6 +154,9 @@ DEFAULT_RETRYABLE_RPC_ERROR_CODES = (
     -32002,
     # Arbitrum on "latest" block
     # {'message': 'upstream does not have the requested block yet', 'code': -32603},
+    # Polygon:
+    # 'code': -32603, 'message': 'failsafe timeout policy exceeded on network-level after 12.1529531s: timeout exceeded'}.
+    #
     -32603,
 )
 

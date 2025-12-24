@@ -848,6 +848,27 @@ class CombinedEncodedCallResult:
     results: list[EncodedCallResult]
 
 
+#: F**k EVM
+WTF_RETRY_EXCEPTIONS_MESSAGE_CLUES = {
+    m.lower()
+    for m in (
+        "out of gas",
+        "evm timeout",
+        "request timeout",
+        "request timed out",
+        "intrinsic gas too low",
+        "intrinsic gas too high",
+        "intrinsic gas too high",
+        "incorrect response body",
+        "exceeds block gas limit",
+        "historical state",
+        "state histories haven't been fully indexed yet",
+        "Failed to call: InvalidTransaction",
+        "failsafe timeout policy exceeded",
+    )
+}
+
+
 class MultiprocessMulticallReader:
     """An instance created in a subprocess to do calls.
 
@@ -1033,7 +1054,11 @@ class MultiprocessMulticallReader:
                         parsed_error,
                     )
 
-                if ("out of gas" in parsed_error) or ("evm timeout" in parsed_error) or ("request timeout" in parsed_error) or ("request timed out" in parsed_error) or ("intrinsic gas too low" in parsed_error) or ("intrinsic gas too high" in parsed_error) or ("intrinsic gas too high" in parsed_error) or ("incorrect response body" in parsed_error) or ("exceeds block gas limit" in parsed_error) or ("historical state" in parsed_error) or ("state histories haven't been fully indexed yet" in parsed_error) or ("Failed to call: InvalidTransaction" in parsed_error) or isinstance(e, ProbablyNodeHasNoBlock) or isinstance(e, (ReadTimeout, RemoteDisconnected, ConnectionError)) or (isinstance(e, HTTPError) and e.response.status_code >= 400):
+                # Check for upstream RPC being broken issues
+                parsed_error = parsed_error.lower()
+                wtf_error = any(clue in parsed_error for clue in WTF_RETRY_EXCEPTIONS_MESSAGE_CLUES)
+
+                if wtf_error or isinstance(e, ProbablyNodeHasNoBlock) or isinstance(e, (ReadTimeout, RemoteDisconnected, ConnectionError)) or (isinstance(e, HTTPError) and e.response.status_code >= 400):
                     raise MulticallRetryable(error_msg, status_code=status_code, headers=headers) from e
                 else:
                     raise MulticallNonRetryable(error_msg) from e
