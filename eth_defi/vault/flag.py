@@ -35,6 +35,9 @@ class VaultFlag(str, enum.Enum):
     #:
     broken = "broken"
 
+    #: The contract will steal your money
+    malicious = "malicious"
+
 
 _empty_set = set()
 
@@ -66,6 +69,8 @@ XUSD_MESSAGE = "Vault likely illiquid due to Stream xUSD exposure issues. You ma
 HIDDEN_VAULT = "Vault not actively listed on any known website. Likely unmaintained. You may lose your deposits."
 
 BROKEN_VAULT = "Onchain metrics coming out of this vault do not make sense and it's likely the smart contract is broken."
+
+MALICIOUS_VAULT = "This vault is reported as malicious, and may have some sort of mechanism to steal funds."
 
 #: Vault manual blacklist flags and notes.
 #:
@@ -100,8 +105,6 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag, str]] = {
     "0xac69cfe6bb269cebf8ab4764d7e678c3658b99f2": (VaultFlag.illiquid, XUSD_MESSAGE),
     "0x55555815a5595991c3a0ff119b59aef6c8b55555": (VaultFlag.illiquid, XUSD_MESSAGE),
     "0x36e2aa296e798ca6262dc5fad5f5660e638d5402": (VaultFlag.illiquid, XUSD_MESSAGE),
-
-
     # Borrowable USDC Deposit, SiloId: 55, Sonic
     "0x4935fadb17df859667cc4f7bfe6a8cb24f86f8d0": (VaultFlag.illiquid, XUSD_MESSAGE),
     # EVK Vault eUSDC-1, Sonic
@@ -132,7 +135,7 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag, str]] = {
     "0x4b5c90dc6bc08a10a24487726e614e9d148362e1": (VaultFlag.broken, BROKEN_VAULT),
     # Mithras
     "0x391b3f70e254d582588b27e97e48d1cfcdf0be7e": (VaultFlag.broken, BROKEN_VAULT),
-    #BlueChip USDC Vault (Prime)
+    # BlueChip USDC Vault (Prime)
     "0x3f604074f3f12ff70c29e6bcc9232c707dc4d970": (VaultFlag.broken, BROKEN_VAULT),
     # Peapods 14
     "0xc2810eb57526df869049fbf4c541791a3255d24c": (VaultFlag.broken, BROKEN_VAULT),
@@ -145,6 +148,9 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag, str]] = {
     # Janus Henderson
     "0x4880799ee5200fc58da299e965df644fbf46780b": (VaultFlag.broken, BROKEN_VAULT),
     "0xe9d1f733f406d4bbbdfac6d4cfcd2e13a6ee1d01": (VaultFlag.broken, BROKEN_VAULT),
+    # Malicious Euler vault?
+    # EVK Vault eUSDC-8 on Sonic
+    "0x683dbc88b371ae48962b56e36e5a0c34e3ad4caf": (VaultFlag.malicious, MALICIOUS_VAULT),
 }
 
 for addr in VAULT_FLAGS_AND_NOTES.keys():
