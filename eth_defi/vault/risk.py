@@ -107,7 +107,6 @@ VAULT_SPECIFIC_RISK = {
 }
 
 
-
 def get_vault_risk(
     protocol_name: str,
     vault_address: HexAddress | str | None = None,

@@ -50,7 +50,6 @@ BAD_FLAGS = {
 _empty_set = set()
 
 
-
 def get_vault_special_flags(address: str | HexAddress) -> set[VaultFlag]:
     """Get all special vault flags."""
     entry = VAULT_FLAGS_AND_NOTES.get(address)
