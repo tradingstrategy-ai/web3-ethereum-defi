@@ -55,7 +55,7 @@ def get_vault_special_flags(address: str | HexAddress) -> set[VaultFlag]:
     """Get all special vault flags."""
     entry = VAULT_FLAGS_AND_NOTES.get(address)
     if entry:
-        return entry[0]
+        return {entry[0]}
     return _empty_set
 
 
