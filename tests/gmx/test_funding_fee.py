@@ -2,7 +2,8 @@
 Tests for GMX Funding APR functionality (alias for GetFundingFee).
 """
 
-import pytest
+from flaky import flaky
+
 from eth_defi.gmx.core.funding_fee import GetFundingFee
 
 
@@ -67,7 +68,7 @@ def test_funding_fee_calculation(get_funding_fee):
             assert isinstance(results["short"][market_symbol], float)
 
 
-@pytest.mark.flaky(reruns=3)
+@flaky(max_runs=3, min_passes=1)
 def test_data_consistency(get_funding_fee):
     """Test that funding fee data is consistent across multiple calls with real data."""
     results1 = get_funding_fee.get_data()

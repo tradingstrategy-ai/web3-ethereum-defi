@@ -13,7 +13,7 @@ from eth_defi.gmx.api import GMXAPI
 @flaky(max_runs=3, min_passes=1)
 def test_api_initialization(chain_name, gmx_config):
     """
-    Test that the API initializes correctly with chain-specific config.
+    Test that the API initialises correctly with chain-specific config.
     """
     api = GMXAPI(gmx_config)
     assert api.chain.lower() == chain_name.lower()
