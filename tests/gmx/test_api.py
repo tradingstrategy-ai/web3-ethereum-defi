@@ -4,13 +4,13 @@ Tests for GMXAPI with parametrized chain testing.
 This test suite makes real API calls to GMX API endpoints for Arbitrum and Avalanche networks.
 """
 
-import pytest
 import pandas as pd
+from flaky import flaky
 
 from eth_defi.gmx.api import GMXAPI
 
 
-@pytest.mark.flaky(reruns=3)
+@flaky(max_runs=3, min_passes=1)
 def test_api_initialization(chain_name, gmx_config):
     """
     Test that the API initializes correctly with chain-specific config.
@@ -21,7 +21,7 @@ def test_api_initialization(chain_name, gmx_config):
     assert chain_name.lower() in api.backup_url
 
 
-@pytest.mark.flaky(reruns=3)
+@flaky(max_runs=3, min_passes=1)
 def test_get_tickers(api):
     """
     Test retrieving current price information for all tokens.
@@ -43,7 +43,7 @@ def test_get_tickers(api):
         assert "maxPrice" in ticker
 
 
-@pytest.mark.flaky(reruns=3)
+@flaky(max_runs=3, min_passes=1)
 def test_get_signed_prices(api):
     """
     Test retrieving signed prices for on-chain transactions.
@@ -64,7 +64,7 @@ def test_get_signed_prices(api):
         assert "signers" in result or "signatures" in result
 
 
-@pytest.mark.flaky(reruns=3)
+@flaky(max_runs=3, min_passes=1)
 def test_get_tokens(api):
     """
     Test retrieving list of supported tokens.
@@ -86,7 +86,7 @@ def test_get_tokens(api):
             assert "address" in token
 
 
-@pytest.mark.flaky(reruns=3)
+@flaky(max_runs=3, min_passes=1)
 def test_get_candlesticks(chain_name, api):
     """
     Test retrieving historical price data.
@@ -116,7 +116,7 @@ def test_get_candlesticks(chain_name, api):
             assert isinstance(candle, list) and len(candle) >= 5
 
 
-@pytest.mark.flaky(reruns=3)
+@flaky(max_runs=3, min_passes=1)
 def test_get_candlesticks_dataframe(api):
     """
     Test retrieving historical price data as DataFrame.
@@ -142,7 +142,7 @@ def test_get_candlesticks_dataframe(api):
         assert pd.api.types.is_numeric_dtype(df[col])
 
 
-@pytest.mark.flaky(reruns=3)
+@flaky(max_runs=3, min_passes=1)
 def test_api_retry_mechanism(chain_name, gmx_config, monkeypatch):
     """
     Test that the API retries with backup URL on failure.
