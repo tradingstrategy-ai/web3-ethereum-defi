@@ -31,6 +31,7 @@ from pathlib import Path
 from IPython.display import display
 
 from eth_defi.token import is_stablecoin_like
+
 # Import core TradingStrategy / eth_defi modules
 from eth_defi.vault.base import VaultSpec  # noqa: F401
 from eth_defi.vault.vaultdb import VaultDatabase
@@ -39,7 +40,9 @@ from eth_defi.research.vault_metrics import (
     calculate_lifetime_metrics,
     clean_lifetime_metrics,
     format_lifetime_table,
-    export_lifetime_row, cross_check_data, calculate_hourly_returns_for_all_vaults,
+    export_lifetime_row,
+    cross_check_data,
+    calculate_hourly_returns_for_all_vaults,
 )
 
 # --------------------------------------------------------------------
