@@ -109,8 +109,6 @@ import logging
 from typing import Any
 
 from decimal import Decimal
-from eth_abi import encode
-from eth_utils import keccak
 
 from eth_defi.gmx.core.markets import Markets
 from eth_defi.gmx.core.open_positions import GetOpenPositions
