@@ -1536,8 +1536,8 @@ def _create_isolated_fork_env(
     wallet.sync_nonce(web3)
     wallet_address = wallet.get_main_address()
 
-    # Fund with ETH
-    eth_amount_wei = 100 * 10**18
+    # Fund with ETH (1000 ETH for multiple transactions with execution fees)
+    eth_amount_wei = 1000 * 10**18
     web3.provider.make_request("anvil_setBalance", [wallet_address, hex(eth_amount_wei)])
 
     # Fund whales with gas

@@ -124,9 +124,9 @@ def test_base_order_initialization(chain_name, arbitrum_fork_config):
     # Updated: Test new attributes
     assert hasattr(base_order, "_order_types")
     assert base_order._order_types is not None
-    assert "market_increase" in base_order._order_types
-    assert "market_decrease" in base_order._order_types
-    assert "market_swap" in base_order._order_types
+    assert hasattr(base_order._order_types, "MARKET_INCREASE")
+    assert hasattr(base_order._order_types, "MARKET_DECREASE")
+    assert hasattr(base_order._order_types, "MARKET_SWAP")
 
     # Updated: Test gas limits initialization
     assert hasattr(base_order, "_gas_limits")
@@ -157,15 +157,15 @@ def test_gas_limits_initialization(chain_name, base_order):
 
 def test_order_types_initialization(base_order):
     """Test that order types are properly initialized."""
-    # Updated: Test all order types are available
-    assert base_order._order_types["market_swap"] == 0
-    assert base_order._order_types["limit_swap"] == 1
-    assert base_order._order_types["market_increase"] == 2
-    assert base_order._order_types["limit_increase"] == 3
-    assert base_order._order_types["market_decrease"] == 4
-    assert base_order._order_types["limit_decrease"] == 5
-    assert base_order._order_types["stop_loss_decrease"] == 6
-    assert base_order._order_types["liquidation"] == 7
+    # Updated: Test all order types are available via OrderType enum
+    assert base_order._order_types.MARKET_SWAP == 0
+    assert base_order._order_types.LIMIT_SWAP == 1
+    assert base_order._order_types.MARKET_INCREASE == 2
+    assert base_order._order_types.LIMIT_INCREASE == 3
+    assert base_order._order_types.MARKET_DECREASE == 4
+    assert base_order._order_types.LIMIT_DECREASE == 5
+    assert base_order._order_types.STOP_LOSS_DECREASE == 6
+    assert base_order._order_types.LIQUIDATION == 7
 
 
 def test_markets_property(base_order):
