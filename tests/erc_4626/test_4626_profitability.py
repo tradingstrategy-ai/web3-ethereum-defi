@@ -3,6 +3,7 @@
 import datetime
 import os
 
+import flaky
 import pytest
 from eth_typing import HexAddress
 from web3 import Web3
@@ -45,6 +46,9 @@ def vault(web3, ipor_usdc_address) -> ERC4626VaultInfo:
     return ERC4626Vault(web3, spec)
 
 
+# RPC broken?
+# RuntimeError: Failed to read timestamp for block 39935174, chain: 8453: ***'code': -32014, 'message': 'block not found with number 0x2615cc6'***
+@flaky.flaky
 def test_4626_recent_profitability(
     vault: ERC4626Vault,
     test_block_number: int,
