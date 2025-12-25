@@ -19,12 +19,7 @@ import time
 from flaky import flaky
 
 from eth_defi.gmx.order.sltp_order import SLTPOrderResult
-from tests.gmx.fork_helpers import (
-    execute_order_as_keeper,
-    extract_order_key_from_receipt,
-    fetch_on_chain_oracle_prices,
-    setup_mock_oracle,
-)
+from tests.gmx.fork_helpers import execute_order_as_keeper, extract_order_key_from_receipt, fetch_on_chain_oracle_prices, setup_mock_oracle
 
 
 # ============================================================================
@@ -295,7 +290,7 @@ def test_standalone_long_with_stop_loss(isolated_fork_env, execution_buffer):
         position_size_usd=position_size,
         entry_price=entry_price,
         stop_loss_percent=0.05,
-        execution_buffer=execution_buffer,
+        execution_buffer=execution_buffer * 100,
     )
 
     sl_tx = sl_result.transaction.copy()
@@ -326,7 +321,7 @@ def test_standalone_long_with_take_profit(isolated_fork_env, execution_buffer):
         size_delta_usd=100,
         leverage=2.5,
         slippage_percent=0.005,
-        execution_buffer=execution_buffer,
+        execution_buffer=execution_buffer * 100,
     )
 
     transaction = order_result.transaction.copy()
@@ -429,7 +424,7 @@ def test_standalone_short_with_sl_and_tp(isolated_fork_env_short, execution_buff
         position_size_usd=position_size,
         entry_price=entry_price,
         stop_loss_percent=0.05,
-        execution_buffer=execution_buffer,
+        execution_buffer=execution_buffer * 100,
     )
 
     sl_tx = sl_result.transaction.copy()
