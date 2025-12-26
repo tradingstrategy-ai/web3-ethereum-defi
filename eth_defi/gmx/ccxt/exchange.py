@@ -3330,7 +3330,7 @@ class GMX(ExchangeCompatible):
                     trigger_price=sl.get("triggerPrice"),
                     trigger_percent=sl.get("triggerPercent"),  # GMX extension
                     close_percent=sl.get("closePercent", 1.0),  # GMX extension
-                    close_size_usd=sl.get("closeSizeUsd"),      # GMX extension
+                    close_size_usd=sl.get("closeSizeUsd"),  # GMX extension
                     auto_cancel=sl.get("autoCancel", True),
                 )
             else:
@@ -3353,7 +3353,7 @@ class GMX(ExchangeCompatible):
                     trigger_price=tp.get("triggerPrice"),
                     trigger_percent=tp.get("triggerPercent"),  # GMX extension
                     close_percent=tp.get("closePercent", 1.0),  # GMX extension
-                    close_size_usd=tp.get("closeSizeUsd"),      # GMX extension
+                    close_size_usd=tp.get("closeSizeUsd"),  # GMX extension
                     auto_cancel=tp.get("autoCancel", True),
                 )
             else:
@@ -3392,9 +3392,7 @@ class GMX(ExchangeCompatible):
             raise ValueError("Bundled SL/TP only supported for opening positions (side='buy'). Use standalone SL/TP for existing positions.")
 
         # Convert CCXT params to GMX params
-        gmx_params = self._convert_ccxt_to_gmx_params(
-            symbol, type, side, amount, price, params
-        )
+        gmx_params = self._convert_ccxt_to_gmx_params(symbol, type, side, amount, price, params)
 
         # Get market and token info
         normalized_symbol = self._normalize_symbol(symbol)
@@ -3419,7 +3417,7 @@ class GMX(ExchangeCompatible):
         # Calculate collateral amount from size and leverage
         collateral_usd = size_delta_usd / leverage
         token_details = fetch_erc20_details(self.web3, collateral_address, chain_id=self.web3.eth.chain_id)
-        collateral_amount = int(collateral_usd * (10 ** token_details.decimals))
+        collateral_amount = int(collateral_usd * (10**token_details.decimals))
 
         # Ensure token approval
         self._ensure_token_approval(collateral_symbol, size_delta_usd, leverage)
@@ -3817,15 +3815,11 @@ class GMX(ExchangeCompatible):
 
         # Check for standalone SL/TP order types
         if type in ["stop_loss", "take_profit"]:
-            return self._create_standalone_sltp_order(
-                symbol, type, side, amount, params
-            )
+            return self._create_standalone_sltp_order(symbol, type, side, amount, params)
 
         # Bundled approach: SL/TP with position opening
         if sl_entry or tp_entry:
-            return self._create_order_with_sltp(
-                symbol, type, side, amount, price, params, sl_entry, tp_entry
-            )
+            return self._create_order_with_sltp(symbol, type, side, amount, price, params, sl_entry, tp_entry)
 
         # Convert CCXT parameters to GMX parameters (standard flow)
         gmx_params = self._convert_ccxt_to_gmx_params(
