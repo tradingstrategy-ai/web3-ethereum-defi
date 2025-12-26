@@ -56,7 +56,7 @@ class SwapOrder(BaseOrder):
         amount_in: int | float,
         slippage_percent: float = 0.005,
         min_output_amount: int = 0,
-        execution_buffer: float = 2.2,
+        execution_buffer: float = 3.0,
         auto_cancel: bool = False,
     ) -> OrderResult:
         """Create a swap order transaction.
@@ -244,7 +244,7 @@ class SwapOrder(BaseOrder):
         self,
         amount_in: int | float,
         slippage_percent: float = 0.005,
-        execution_buffer: float = 2.2,
+        execution_buffer: float = 3.0,
     ) -> OrderResult:
         """Create a market swap order (CCXT-style method).
 

@@ -51,7 +51,7 @@ class OrderParams:
     # Optional parameters
     max_fee_per_gas: Optional[int] = None
     auto_cancel: bool = False
-    execution_buffer: float = 2.2
+    execution_buffer: float = 3.0
     # GMX v2.2 new dataList field
     data_list: Optional[list[str]] = field(default_factory=list)
 

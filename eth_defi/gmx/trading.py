@@ -594,7 +594,7 @@ class GMXTrading:
         amount: float,
         position_usd: Optional[float] = 0,
         slippage_percent: Optional[float] = 0.02,
-        execution_buffer=2.2,  # this is needed to pass the gas usage
+        execution_buffer=3.0,  # this is needed to pass the gas usage
         **kwargs,
     ) -> OrderResult:
         """

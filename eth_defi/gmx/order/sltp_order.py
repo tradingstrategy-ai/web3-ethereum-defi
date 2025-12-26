@@ -483,7 +483,7 @@ class SLTPOrder(BaseOrder):
         entry: SLTPEntry,
         entry_price: float | None = None,
         slippage_percent: float = 0.003,
-        execution_buffer: float = 2.2,
+        execution_buffer: float = 3.0,
     ) -> OrderResult:
         """Create standalone stop loss for existing position.
 
@@ -570,7 +570,7 @@ class SLTPOrder(BaseOrder):
         entry: SLTPEntry,
         entry_price: float | None = None,
         slippage_percent: float = 0.003,
-        execution_buffer: float = 2.2,
+        execution_buffer: float = 3.0,
     ) -> OrderResult:
         """Create standalone take profit for existing position.
 
@@ -658,7 +658,7 @@ class SLTPOrder(BaseOrder):
         sltp_params: SLTPParams | None = None,
         slippage_percent: float = 0.003,
         swap_path: list[str] | None = None,
-        execution_buffer: float = 2.2,
+        execution_buffer: float = 3.0,
         auto_cancel: bool = False,
         data_list: list[str] | None = None,
     ) -> SLTPOrderResult:

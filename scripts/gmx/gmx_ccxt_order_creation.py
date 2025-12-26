@@ -110,40 +110,10 @@ def setup_fork_environment(
     balance = weth_token.contract.functions.balanceOf(wallet_address).call()
     print(f"  WETH balance: {balance / 10**18:.6f} WETH")
 
-    # Sync wallet nonce before approvals (whale transfers may have advanced block)
+    # Sync wallet nonce (whale transfers may have advanced block)
     wallet.sync_nonce(web3)
 
-    # Approve tokens for GMX routers
-    print("\nApproving tokens for GMX routers...")
-    contract_addresses = get_contract_addresses(chain)
-    router_addresses = [contract_addresses.syntheticsrouter, contract_addresses.exchangerouter]
-    max_approval = 2**256 - 1
-
-    for token_symbol, token in [("USDC", usdc_token), ("WETH", weth_token)]:
-        approved_count = 0
-        for router_address in router_addresses:
-            # Check current allowance
-            allowance = token.contract.functions.allowance(wallet_address, router_address).call()
-            if allowance < max_approval // 2:  # If less than half of max, approve
-                approve_tx = token.contract.functions.approve(router_address, max_approval).build_transaction(
-                    {
-                        "from": wallet_address,
-                        "gas": 100000,
-                        "gasPrice": web3.eth.gas_price,
-                    }
-                )
-                # Remove nonce if present, let wallet manage it
-                if "nonce" in approve_tx:
-                    del approve_tx["nonce"]
-                signed_approve = wallet.sign_transaction_with_new_nonce(approve_tx)
-                approve_hash = web3.eth.send_raw_transaction(signed_approve.rawTransaction)
-                approve_receipt = web3.eth.wait_for_transaction_receipt(approve_hash)
-                assert approve_receipt["status"] == 1, f"{token_symbol} approval failed for {router_address}"
-                approved_count += 1
-        if approved_count > 0:
-            print(f"  {token_symbol} approved for {approved_count} router(s)")
-        else:
-            print(f"  {token_symbol} already approved")
+    # Note: Token approvals are handled automatically by the GMX CCXT wrapper
 
     return chain
 

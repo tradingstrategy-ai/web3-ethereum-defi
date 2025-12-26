@@ -211,7 +211,7 @@ class GMX(ExchangeCompatible):
         self._chain_id_override = parameters.get("chainId")
         self._wallet = parameters.get("wallet")
         self._verbose = parameters.get("verbose", False)
-        self.execution_buffer = parameters.get("executionBuffer", 2.2)
+        self.execution_buffer = parameters.get("executionBuffer", 3.0)
 
         # Configure verbose logging if requested
         if self._verbose:
@@ -317,7 +317,7 @@ class GMX(ExchangeCompatible):
         self.api = GMXAPI(config)
         self.web3 = config.web3
         self.wallet = wallet
-        self.execution_buffer = 2.2  # Default execution buffer for legacy config
+        self.execution_buffer = 3.0  # Default execution buffer for legacy config
 
         # Initialize trading manager
         self.trader = GMXTrading(config) if wallet else None

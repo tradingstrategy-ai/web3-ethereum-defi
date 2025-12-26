@@ -64,14 +64,19 @@ See Also
 - :mod:`eth_defi.gmx.trading` - GMX trading module
 """
 
+import logging
 import os
 import sys
 
 from rich.console import Console
+from rich.logging import RichHandler
 from rich.table import Table
 
 from eth_defi.gmx.ccxt.exchange import GMX
 from eth_defi.gmx.core.open_positions import GetOpenPositions
+
+# Configure logging to show approval messages
+logging.basicConfig(level=logging.INFO, format="%(message)s", handlers=[RichHandler(console=Console(), show_time=False, show_path=False)])
 
 console = Console()
 
@@ -113,6 +118,7 @@ def main():
     console.print("\n[blue]Step 2: Loading available markets...[/blue]")
     gmx.load_markets()
     console.print(f"[green]Loaded {len(gmx.markets)} markets[/green]")
+    # Note: Token approvals are handled automatically by the GMX CCXT wrapper
 
     # Display available markets
     market_table = Table(title="Available Markets")

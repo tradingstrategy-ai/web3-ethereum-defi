@@ -63,7 +63,7 @@ class IncreaseOrder(BaseOrder):
         initial_collateral_delta_amount: int | str,
         slippage_percent: float = 0.003,
         swap_path: Optional[list[str]] = None,
-        execution_buffer: float = 2.2,
+        execution_buffer: float = 3.0,
         auto_cancel: bool = False,
         data_list: Optional[list[str]] = None,
         callback_gas_limit: int = 0,
