@@ -22,7 +22,6 @@ Example usage::
     will always be 0 in the returned OHLCV arrays.
 """
 
-import asyncio
 import logging
 import time
 from datetime import datetime
@@ -34,7 +33,6 @@ from eth_utils import to_checksum_address
 from eth_defi.ccxt.exchange_compatible import ExchangeCompatible
 from eth_defi.chain import get_chain_name
 from eth_defi.gmx.api import GMXAPI
-from eth_defi.gmx.ccxt.errors import InsufficientHistoricalDataError
 from eth_defi.gmx.ccxt.properties import describe_gmx
 from eth_defi.gmx.ccxt.validation import _validate_ohlcv_data_sufficiency
 from eth_defi.gmx.config import GMXConfig
@@ -3271,16 +3269,9 @@ class GMX(ExchangeCompatible):
         # Check if user has an existing position
         is_long = side == "buy"
 
-        # Convert amount from base currency (BTC/ETH) to USD
-        # For CCXT linear perpetuals, amount is in base currency contracts
-        # GMX needs size_delta_usd in actual USD
-        if price:
-            size_delta_usd = amount * price
-        else:
-            # For market orders, fetch current price
-            ticker = self.fetch_ticker(symbol)
-            current_price = ticker["last"]
-            size_delta_usd = amount * current_price
+        # For GMX linear perpetuals, amount is already in USD (contract size)
+        # No need to multiply by price
+        size_delta_usd = amount
 
         gmx_params = {
             "market_symbol": base_currency,
@@ -3300,6 +3291,460 @@ class GMX(ExchangeCompatible):
 
         return gmx_params
 
+    def _parse_sltp_params(self, params: dict) -> tuple[Any | None, Any | None]:
+        """Parse CCXT-style SL/TP params into GMX SLTPEntry objects.
+
+        Supports both CCXT unified (stopLossPrice) and object (stopLoss) styles.
+
+        CCXT Standard Styles:
+        1. Unified: params = {"stopLossPrice": 1850.0, "takeProfitPrice": 2200.0}
+        2. Object:  params = {"stopLoss": {"triggerPrice": 1850.0}, "takeProfit": {"triggerPrice": 2200.0}}
+
+        GMX Extensions (in object style):
+        - triggerPercent: Percentage-based trigger (e.g., 0.05 for 5% below entry)
+        - closePercent: Percentage of position to close (default: 1.0 = 100%)
+        - closeSizeUsd: Specific USD amount to close
+        - autoCancel: Cancel SL/TP if main order fails (default: True)
+
+        :param params: CCXT params dictionary
+        :type params: dict
+        :return: Tuple of (stop_loss_entry, take_profit_entry), either can be None
+        :rtype: tuple[SLTPEntry | None, SLTPEntry | None]
+        """
+        from eth_defi.gmx.order import SLTPEntry
+
+        stop_loss_entry = None
+        take_profit_entry = None
+
+        # Parse Stop Loss
+        if "stopLossPrice" in params:
+            # CCXT unified style
+            stop_loss_entry = SLTPEntry(
+                trigger_price=params["stopLossPrice"],
+                close_percent=1.0,
+                auto_cancel=True,
+            )
+        elif "stopLoss" in params:
+            # CCXT object style
+            sl = params["stopLoss"]
+            if isinstance(sl, dict):
+                stop_loss_entry = SLTPEntry(
+                    trigger_price=sl.get("triggerPrice"),
+                    trigger_percent=sl.get("triggerPercent"),  # GMX extension
+                    close_percent=sl.get("closePercent", 1.0),  # GMX extension
+                    close_size_usd=sl.get("closeSizeUsd"),  # GMX extension
+                    auto_cancel=sl.get("autoCancel", True),
+                )
+            else:
+                # Backwards compat: stopLoss as price value
+                stop_loss_entry = SLTPEntry(trigger_price=sl, close_percent=1.0)
+
+        # Parse Take Profit (same logic)
+        if "takeProfitPrice" in params:
+            take_profit_entry = SLTPEntry(
+                trigger_price=params["takeProfitPrice"],
+                close_percent=1.0,
+                auto_cancel=True,
+            )
+        elif "takeProfit" in params:
+            tp = params["takeProfit"]
+            if isinstance(tp, dict):
+                take_profit_entry = SLTPEntry(
+                    trigger_price=tp.get("triggerPrice"),
+                    trigger_percent=tp.get("triggerPercent"),
+                    close_percent=tp.get("closePercent", 1.0),
+                    close_size_usd=tp.get("closeSizeUsd"),
+                    auto_cancel=tp.get("autoCancel", True),
+                )
+            else:
+                take_profit_entry = SLTPEntry(trigger_price=tp, close_percent=1.0)
+
+        return stop_loss_entry, take_profit_entry
+
+    def _validate_sltp_entry(self, entry: Any, name: str):
+        """Validate SL/TP entry parameters.
+
+        Validates that:
+        1. Exactly one of triggerPrice OR triggerPercent is specified (XOR)
+        2. closePercent is between 0 and 1.0 if specified
+
+        :param entry: SLTPEntry object to validate
+        :type entry: SLTPEntry
+        :param name: Name for error messages ("stopLoss" or "takeProfit")
+        :type name: str
+        :raises ValueError: If parameters are invalid
+        """
+        if entry is None:
+            return
+
+        # Must specify EITHER triggerPrice OR triggerPercent
+        has_price = entry.trigger_price is not None
+        has_percent = entry.trigger_percent is not None
+
+        if not (has_price ^ has_percent):  # XOR - exactly one must be true
+            raise ValueError(f"{name}: Must specify exactly one of triggerPrice or triggerPercent")
+
+        # Close amount validation
+        close_percent = entry.close_percent
+
+        if close_percent and not (0 < close_percent <= 1.0):
+            raise ValueError(f"{name}: closePercent must be between 0 and 1.0")
+
+    def _create_order_with_sltp(
+        self,
+        symbol: str,
+        type: str,
+        side: str,
+        amount: float,
+        price: float | None,
+        params: dict,
+        sl_entry: Any | None,
+        tp_entry: Any | None,
+    ) -> dict:
+        """Create order with bundled stop-loss and/or take-profit.
+
+        Opens a position and atomically creates SL/TP orders in a single transaction.
+
+        :param symbol: Market symbol (e.g., 'ETH/USD')
+        :param type: Order type ('market' or 'limit')
+        :param side: Order side ('buy' or 'sell')
+        :param amount: Order size in USD
+        :param price: Limit price (optional)
+        :param params: Additional CCXT parameters
+        :param sl_entry: Parsed stop-loss entry
+        :param tp_entry: Parsed take-profit entry
+        :return: CCXT-compatible order structure
+        """
+        from eth_defi.gmx.order import SLTPOrder, SLTPParams
+
+        # Require wallet for order creation
+        if not self.wallet:
+            raise ValueError("Wallet required for order creation. GMX is running in VIEW-ONLY mode.")
+
+        # Sync wallet nonce
+        self.wallet.sync_nonce(self.web3)
+
+        # Ensure markets are loaded
+        if not self.markets_loaded or not self.markets:
+            self.load_markets()
+
+        # Convert CCXT parameters to GMX parameters
+        gmx_params = self._convert_ccxt_to_gmx_params(
+            symbol,
+            type,
+            side,
+            amount,
+            price,
+            params,
+        )
+
+        # Ensure token approval
+        self._ensure_token_approval(
+            collateral_symbol=gmx_params["collateral_symbol"],
+            size_delta_usd=gmx_params["size_delta_usd"],
+            leverage=gmx_params["leverage"],
+        )
+
+        # Create SLTPParams from entries
+        # Set execution_fee_buffer=1.0 since we already apply execution_buffer separately
+        sltp_params = SLTPParams(
+            stop_loss=sl_entry,
+            take_profit=tp_entry,
+            execution_fee_buffer=1.0,  # Don't double-multiply with execution_buffer
+        )
+
+        # Get market addresses from loaded markets
+        normalized_symbol = self._normalize_symbol(symbol)
+        market = self.markets[normalized_symbol]
+        market_info = market["info"]
+
+        market_key = market_info["market_token"]
+        index_token_address = market_info["index_token"]
+
+        # Determine collateral address from collateral_symbol parameter
+        # Map symbol to token address from market
+        base_currency = market["base"]  # e.g., 'ETH'
+        quote_currency = market["quote"]  # e.g., 'USDC'
+        collateral_symbol = gmx_params["collateral_symbol"]
+
+        if collateral_symbol == base_currency:
+            # Using base currency as collateral (e.g., ETH for ETH/USDC)
+            collateral_address = market_info["long_token"]
+        elif collateral_symbol == quote_currency:
+            # Using quote currency as collateral (e.g., USDC for ETH/USDC)
+            collateral_address = market_info["short_token"]
+        else:
+            raise ValueError(f"Invalid collateral {collateral_symbol} for market {symbol}. Use {base_currency} or {quote_currency}")
+
+        # Create SLTPOrder instance with addresses
+        sltp_order = SLTPOrder(
+            config=self.config,
+            market_key=market_key,
+            collateral_address=collateral_address,
+            index_token_address=index_token_address,
+            is_long=gmx_params["is_long"],
+        )
+
+        # Calculate collateral amount from size and leverage
+        # collateral = size_delta_usd / leverage
+        leverage = gmx_params["leverage"]
+        collateral_usd = gmx_params["size_delta_usd"] / leverage
+
+        # Get collateral token decimals
+        from eth_defi.token import fetch_erc20_details
+
+        collateral_token = fetch_erc20_details(self.web3, collateral_address)
+        collateral_decimals = collateral_token.decimals
+
+        # Get current collateral token price
+        if collateral_symbol == base_currency:
+            # Collateral is base currency (e.g., ETH) - use symbol price
+            ticker = self.fetch_ticker(symbol)
+            collateral_price = ticker["last"]
+        elif collateral_symbol == quote_currency:
+            # Collateral is quote currency (e.g., USDC) - assume $1
+            collateral_price = 1.0
+        else:
+            raise ValueError(f"Cannot determine price for collateral {collateral_symbol}")
+
+        # Convert USD to token amount
+        collateral_amount = collateral_usd / collateral_price
+        initial_collateral_delta_amount = int(collateral_amount * (10**collateral_decimals))
+
+        logger.debug(f"Collateral calculation: size=${gmx_params['size_delta_usd']}, leverage={leverage}, collateral_usd=${collateral_usd:.2f}, price=${collateral_price:.2f}, amount={collateral_amount:.6f} {collateral_symbol}, wei={initial_collateral_delta_amount}")
+
+        # Create increase order with SL/TP
+        order_result = sltp_order.create_increase_order_with_sltp(
+            size_delta_usd=gmx_params["size_delta_usd"],
+            initial_collateral_delta_amount=initial_collateral_delta_amount,
+            sltp_params=sltp_params,
+            slippage_percent=gmx_params.get("slippage_percent", 0.003),
+            execution_buffer=gmx_params.get("execution_buffer", self.execution_buffer),
+        )
+
+        # Sign transaction (remove nonce if present, wallet will manage it)
+        transaction = order_result.transaction
+        if "nonce" in transaction:
+            del transaction["nonce"]
+        signed_tx = self.wallet.sign_transaction_with_new_nonce(transaction)
+
+        # Submit to blockchain
+        tx_hash_bytes = self.web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+        tx_hash = self.web3.to_hex(tx_hash_bytes)
+
+        # Wait for confirmation
+        receipt = self.web3.eth.wait_for_transaction_receipt(tx_hash_bytes)
+
+        # Build CCXT order structure directly for bundled SL/TP
+        ccxt_order = {
+            "id": tx_hash,
+            "clientOrderId": None,
+            "datetime": self.iso8601(self.milliseconds()),
+            "timestamp": self.milliseconds(),
+            "lastTradeTimestamp": None,
+            "status": "closed" if receipt["status"] == 1 else "failed",
+            "symbol": symbol,
+            "type": type,
+            "timeInForce": None,
+            "postOnly": False,
+            "side": side,
+            "price": None,  # Market order - no limit price
+            "stopPrice": None,
+            "triggerPrice": None,
+            "amount": amount,
+            "cost": amount,  # For perpetuals, cost = amount in USD
+            "average": None,
+            "filled": amount if receipt["status"] == 1 else 0,
+            "remaining": 0,
+            "trades": [],
+            "fee": {
+                "currency": "ETH",
+                "cost": order_result.total_execution_fee / 10**18,  # Convert from wei
+            },
+            "info": {
+                "transaction": transaction,
+                "receipt": receipt,
+                "has_stop_loss": sl_entry is not None,
+                "has_take_profit": tp_entry is not None,
+                "stop_loss_trigger": order_result.stop_loss_trigger_price,
+                "take_profit_trigger": order_result.take_profit_trigger_price,
+                "total_execution_fee": order_result.total_execution_fee,
+                "main_order_fee": order_result.main_order_fee,
+                "stop_loss_fee": order_result.stop_loss_fee,
+                "take_profit_fee": order_result.take_profit_fee,
+            },
+        }
+
+        return ccxt_order
+
+    def _create_standalone_sltp_order(
+        self,
+        symbol: str,
+        type: str,
+        side: str,
+        amount: float,
+        params: dict,
+        sl_entry: Any | None,
+        tp_entry: Any | None,
+    ) -> dict:
+        """Create standalone stop-loss or take-profit order for existing position.
+
+        :param symbol: Market symbol (e.g., 'ETH/USD')
+        :param type: Order type ('stop_loss' or 'take_profit')
+        :param side: Order side ('sell' to close long, 'buy' to close short)
+        :param amount: Order size in USD
+        :param params: Additional CCXT parameters
+        :param sl_entry: Parsed stop-loss entry
+        :param tp_entry: Parsed take-profit entry
+        :return: CCXT-compatible order structure
+        """
+        from eth_defi.gmx.order import SLTPOrder, SLTPEntry
+        from eth_defi.gmx.core import GetOpenPositions
+
+        # Require wallet for order creation
+        if not self.wallet:
+            raise ValueError("Wallet required for order creation. GMX is running in VIEW-ONLY mode.")
+
+        # Sync wallet nonce
+        self.wallet.sync_nonce(self.web3)
+
+        # Ensure markets are loaded
+        if not self.markets_loaded or not self.markets:
+            self.load_markets()
+
+        # Normalize symbol and get market info
+        normalized_symbol = self._normalize_symbol(symbol)
+        if normalized_symbol not in self.markets:
+            raise ValueError(f"Market {symbol} not found")
+
+        market = self.markets[normalized_symbol]
+        base_currency = market["base"]
+
+        # Get collateral symbol from params or default to USDC
+        collateral_symbol = params.get("collateral_symbol", "USDC")
+
+        # Determine position direction from side
+        # For standalone orders: "sell" closes long, "buy" closes short
+        is_long = side == "sell"  # Closing long = sell, closing short = buy
+
+        # Get existing position info
+        positions_manager = GetOpenPositions(self.config)
+        existing_positions = positions_manager.get_data(self.wallet.address)
+
+        # Find matching position
+        position_to_protect = None
+        for position_key, position_data in existing_positions.items():
+            position_market = position_data.get("market_symbol", "")
+            position_is_long = position_data.get("is_long", None)
+            position_collateral = position_data.get("collateral_token", "")
+
+            if position_market == base_currency and position_collateral == collateral_symbol and position_is_long == is_long:
+                position_to_protect = position_data
+                break
+
+        if not position_to_protect:
+            direction = "long" if is_long else "short"
+            raise ValueError(f"No {direction} position found for {symbol} with collateral {collateral_symbol}")
+
+        # Get entry price for percentage-based triggers
+        entry_price = position_to_protect.get("entry_price", 0)
+
+        # Determine which entry to use and validate trigger price
+        if type == "stop_loss":
+            if not sl_entry:
+                # Create entry from params if not already parsed
+                trigger_price = params.get("triggerPrice")
+                if not trigger_price:
+                    raise ValueError("stopLoss order requires triggerPrice in params")
+                sl_entry = SLTPEntry(
+                    trigger_price=trigger_price,
+                    close_percent=params.get("closePercent", 1.0),
+                    close_size_usd=params.get("closeSizeUsd"),
+                    auto_cancel=params.get("autoCancel", True),
+                )
+            active_entry = sl_entry
+            order_type_name = "stop_loss"
+        elif type == "take_profit":
+            if not tp_entry:
+                # Create entry from params if not already parsed
+                trigger_price = params.get("triggerPrice")
+                if not trigger_price:
+                    raise ValueError("takeProfit order requires triggerPrice in params")
+                tp_entry = SLTPEntry(
+                    trigger_price=trigger_price,
+                    close_percent=params.get("closePercent", 1.0),
+                    close_size_usd=params.get("closeSizeUsd"),
+                    auto_cancel=params.get("autoCancel", True),
+                )
+            active_entry = tp_entry
+            order_type_name = "take_profit"
+        else:
+            raise ValueError(f"Invalid order type for standalone SL/TP: {type}")
+
+        # Get market addresses from loaded markets
+        market_info = market["info"]
+        market_key = market_info["market_token"]
+        index_token_address = market_info["index_token"]
+
+        # Determine collateral address based on position direction
+        # For longs, use long_token; for shorts, use short_token
+        if is_long:
+            collateral_address = market_info["long_token"]
+        else:
+            collateral_address = market_info["short_token"]
+
+        # Create SLTPOrder instance with addresses
+        sltp_order = SLTPOrder(
+            config=self.config,
+            market_key=market_key,
+            collateral_address=collateral_address,
+            index_token_address=index_token_address,
+            is_long=is_long,
+        )
+
+        # Create standalone decrease order
+        order_result = sltp_order.create_decrease_order(
+            entry_price=entry_price,
+            sltp_entry=active_entry,
+            is_stop_loss=(type == "stop_loss"),
+            slippage_percent=params.get("slippage_percent", 0.003),
+            execution_buffer=params.get("execution_buffer", self.execution_buffer),
+        )
+
+        # Sign transaction (remove nonce if present, wallet will manage it)
+        transaction = order_result.transaction
+        if "nonce" in transaction:
+            del transaction["nonce"]
+        signed_tx = self.wallet.sign_transaction_with_new_nonce(transaction)
+
+        # Submit to blockchain
+        tx_hash_bytes = self.web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+        tx_hash = self.web3.to_hex(tx_hash_bytes)
+
+        # Wait for confirmation
+        receipt = self.web3.eth.wait_for_transaction_receipt(tx_hash_bytes)
+
+        # Convert to CCXT format
+        ccxt_order = self._parse_order_result_to_ccxt(
+            order_result,
+            symbol,
+            side,
+            type,
+            amount,
+            tx_hash,
+            receipt,
+        )
+
+        # Override type to reflect standalone SL/TP
+        ccxt_order["type"] = type
+
+        # Add trigger price to info
+        if active_entry.trigger_price:
+            ccxt_order["price"] = active_entry.trigger_price
+            ccxt_order["info"]["trigger_price"] = active_entry.trigger_price
+
+        return ccxt_order
+
     def _ensure_token_approval(
         self,
         collateral_symbol: str,
@@ -3308,87 +3753,90 @@ class GMX(ExchangeCompatible):
     ):
         """Ensure token approval for order creation.
 
-        Checks if the collateral token has sufficient allowance for the GMX router.
-        If not, automatically approves the token with a large allowance to avoid
+        Checks if the collateral token has sufficient allowance for GMX routers.
+        If not, automatically approves the token with max uint256 allowance to avoid
         repeated approval transactions.
 
-        Based on reference implementation from tests/gmx/debug_deploy.py
+        Approves for both SyntheticsRouter and ExchangeRouter.
+        For native tokens (ETH/AVAX), also approves the wrapped version (WETH/WAVAX).
 
-        :param collateral_symbol: Symbol of collateral token (e.g., 'USDC', 'WETH')
+        Note: We approve max uint256 amount (2^256-1) for convenience in testing/examples.
+        In production, you may want to approve exact amounts or use a lower limit.
+
+        :param collateral_symbol: Symbol of collateral token (e.g., 'USDC', 'WETH', 'ETH')
         :param size_delta_usd: Position size in USD
         :param leverage: Leverage multiplier
         """
-        # Skip approval for ETH (native token)
-        if collateral_symbol in ["ETH", "AVAX"]:
-            logger.debug(f"Using native {collateral_symbol} - no approval needed")
-            return
-
-        # Get token address
         chain = self.config.get_chain()
-        collateral_token_address = get_token_address_normalized(chain, collateral_symbol)
-
-        if not collateral_token_address:
-            # If token address not found, assume it's OK (might be native or not need approval)
-            logger.debug(f"Token address not found for {collateral_symbol}, skipping approval")
-            return
-
-        # Get contract addresses (for router address)
         contract_addresses = get_contract_addresses(chain)
-        spender_address = contract_addresses.syntheticsrouter
+        router_addresses = [contract_addresses.syntheticsrouter, contract_addresses.exchangerouter]
+        max_approval = 2**256 - 1
 
-        # Get token details and contract
-        token_details = fetch_erc20_details(self.web3, collateral_token_address, chain_id=self.web3.eth.chain_id)
-        token_contract = token_details.contract
-
-        # Check current allowance
-        wallet_address = self.wallet.address
-        current_allowance = token_contract.functions.allowance(to_checksum_address(wallet_address), spender_address).call()
-
-        # Calculate required collateral amount (position size / leverage)
-        # Add 10% buffer for fees
-        required_collateral_usd = (size_delta_usd / leverage) * 1.1
-        required_amount = int(required_collateral_usd * (10**token_details.decimals))
-
-        logger.debug(f"Token approval check: {collateral_symbol} allowance={current_allowance / (10**token_details.decimals):.4f}, required={required_amount / (10**token_details.decimals):.4f}")
-
-        # If allowance is sufficient, no action needed
-        if current_allowance >= required_amount:
-            logger.debug(f"Sufficient {collateral_symbol} allowance exists")
-            return
-
-        # Need to approve - use a large amount to avoid repeated approvals
-        # Approve 1 billion tokens (same pattern as debug_deploy.py)
-        approve_amount = 1_000_000_000 * (10**token_details.decimals)
-
-        logger.info(f"Insufficient {collateral_symbol} allowance. Current: {current_allowance / (10**token_details.decimals):.4f}, Required: {required_amount / (10**token_details.decimals):.4f}. Approving {approve_amount / (10**token_details.decimals):.0f} {collateral_symbol}...")
-
-        # Build approval transaction
-        approve_tx = token_contract.functions.approve(spender_address, approve_amount).build_transaction(
-            {
-                "from": to_checksum_address(wallet_address),
-                "gas": 100_000,
-                "gasPrice": self.web3.eth.gas_price,
-            }
-        )
-
-        # CRITICAL: Remove nonce before calling sign_transaction_with_new_nonce
-        # The wallet will manage the nonce automatically
-        if "nonce" in approve_tx:
-            del approve_tx["nonce"]
-
-        # Sign and send approval transaction
-        signed_approve_tx = self.wallet.sign_transaction_with_new_nonce(approve_tx)
-        approve_tx_hash = self.web3.eth.send_raw_transaction(signed_approve_tx.rawTransaction)
-
-        logger.info(f"Approval transaction sent: {approve_tx_hash.hex()}. Waiting for confirmation...")
-
-        # Wait for confirmation
-        approve_receipt = self.web3.eth.wait_for_transaction_receipt(approve_tx_hash, timeout=120)
-
-        if approve_receipt["status"] == 1:
-            logger.info(f"Token approval successful! Approved {approve_amount / (10**token_details.decimals):.0f} {collateral_symbol} for {spender_address}")
+        # For native tokens (ETH/AVAX), approve the wrapped version (WETH/WAVAX)
+        # since GMX auto-wraps native tokens
+        tokens_to_approve = []
+        if collateral_symbol == "ETH":
+            tokens_to_approve.append("WETH")
+        elif collateral_symbol == "AVAX":
+            tokens_to_approve.append("WAVAX")
         else:
-            raise Exception(f"Token approval transaction failed: {approve_tx_hash.hex()}")
+            tokens_to_approve.append(collateral_symbol)
+
+        wallet_address = self.wallet.address
+
+        for token_symbol in tokens_to_approve:
+            # Get token address
+            token_address = get_token_address_normalized(chain, token_symbol)
+            if not token_address:
+                logger.debug(f"Token address not found for {token_symbol}, skipping approval")
+                continue
+
+            # Get token details and contract
+            token_details = fetch_erc20_details(self.web3, token_address, chain_id=self.web3.eth.chain_id)
+            token_contract = token_details.contract
+
+            # Check and approve for each router
+            for router_address in router_addresses:
+                # Check current allowance
+                current_allowance = token_contract.functions.allowance(to_checksum_address(wallet_address), router_address).call()
+
+                # If allowance is less than half of max, approve max
+                if current_allowance < max_approval // 2:
+                    logger.info(f"[Approval] {token_symbol} for router {router_address} - Current allowance: {current_allowance / (10**token_details.decimals):.4f}")
+
+                    # Build approval transaction
+                    approve_tx = token_contract.functions.approve(router_address, max_approval).build_transaction(
+                        {
+                            "from": to_checksum_address(wallet_address),
+                            "gas": 100_000,
+                            "gasPrice": self.web3.eth.gas_price,
+                        }
+                    )
+
+                    # CRITICAL: Remove nonce before calling sign_transaction_with_new_nonce
+                    if "nonce" in approve_tx:
+                        del approve_tx["nonce"]
+
+                    # Sign and send approval transaction
+                    signed_approve_tx = self.wallet.sign_transaction_with_new_nonce(approve_tx)
+                    approve_tx_hash = self.web3.eth.send_raw_transaction(signed_approve_tx.rawTransaction)
+
+                    logger.info(f"[Approval] TX sent: {approve_tx_hash.hex()} - Waiting for confirmation...")
+
+                    # Wait for confirmation
+                    approve_receipt = self.web3.eth.wait_for_transaction_receipt(approve_tx_hash)
+                    if approve_receipt["status"] != 1:
+                        raise ValueError(f"Token approval failed for {token_symbol} on router {router_address}. TX: {approve_tx_hash.hex()}")
+
+                    # Verify approval was successful by checking allowance again
+                    new_allowance = token_contract.functions.allowance(to_checksum_address(wallet_address), router_address).call()
+
+                    logger.info(f"[Approval] SUCCESS - {token_symbol} for router {router_address} - New allowance: {new_allowance / (10**token_details.decimals):.4f} (block: {approve_receipt['blockNumber']})")
+
+                    if new_allowance < max_approval // 2:
+                        raise ValueError(f"Approval verification failed for {token_symbol}! Expected allowance >= {max_approval // 2}, got {new_allowance}. TX: {approve_tx_hash.hex()}")
+                else:
+                    logger.info(f"[Approval] SKIP - {token_symbol} for router {router_address} - Allowance already sufficient: {current_allowance / (10**token_details.decimals):.4f}")
 
     def _parse_order_result_to_ccxt(
         self,
@@ -3548,6 +3996,22 @@ class GMX(ExchangeCompatible):
         """
         if params is None:
             params = {}
+
+        # Parse SL/TP parameters (CCXT standard)
+        sl_entry, tp_entry = self._parse_sltp_params(params)
+
+        # Validate SL/TP parameters if present
+        if sl_entry or tp_entry:
+            self._validate_sltp_entry(sl_entry, "stopLoss")
+            self._validate_sltp_entry(tp_entry, "takeProfit")
+
+        # Check for standalone SL/TP order types
+        if type in ["stop_loss", "take_profit"]:
+            return self._create_standalone_sltp_order(symbol, type, side, amount, params, sl_entry, tp_entry)
+
+        # Bundled approach: SL/TP with position opening
+        if sl_entry or tp_entry:
+            return self._create_order_with_sltp(symbol, type, side, amount, price, params, sl_entry, tp_entry)
 
         # Require wallet for order creation
         if not self.wallet:

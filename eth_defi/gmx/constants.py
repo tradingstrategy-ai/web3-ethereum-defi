@@ -48,6 +48,7 @@ Note:
     https://gmx-docs.io/docs/api/rest-v2
 """
 
+from enum import IntEnum
 from pathlib import Path
 import json
 
@@ -228,17 +229,29 @@ ETH_ZERO_ADDRESS = "0x" + "0" * 40
 GMX_CONTRACTS_JSON_URL_UPDATES = "https://raw.githubusercontent.com/gmx-io/gmx-synthetics/refs/heads/updates/docs/contracts.json"
 GMX_CONTRACTS_JSON_URL = "https://raw.githubusercontent.com/gmx-io/gmx-synthetics/refs/heads/main/docs/contracts.json"
 
-# Order type mappings compatible with GMX protocol
-ORDER_TYPES = {
-    "market_swap": 0,
-    "limit_swap": 1,
-    "market_increase": 2,
-    "limit_increase": 3,
-    "market_decrease": 4,
-    "limit_decrease": 5,
-    "stop_loss_decrease": 6,
-    "liquidation": 7,
-}
+
+class OrderType(IntEnum):
+    """GMX order types as IntEnum for type-safe order creation.
+
+    - MARKET_SWAP (0): Immediate token swap at market price
+    - LIMIT_SWAP (1): Token swap at specified limit price
+    - MARKET_INCREASE (2): Open/increase position at market price
+    - LIMIT_INCREASE (3): Open/increase position at limit price
+    - MARKET_DECREASE (4): Close/decrease position at market price
+    - LIMIT_DECREASE (5): Take Profit - triggers when price reaches target
+    - STOP_LOSS_DECREASE (6): Stop Loss - triggers when price hits stop level
+    - LIQUIDATION (7): Forced position liquidation
+    """
+
+    MARKET_SWAP = 0
+    LIMIT_SWAP = 1
+    MARKET_INCREASE = 2
+    LIMIT_INCREASE = 3
+    MARKET_DECREASE = 4
+    LIMIT_DECREASE = 5  # Take Profit
+    STOP_LOSS_DECREASE = 6  # Stop Loss
+    LIQUIDATION = 7
+
 
 # Decrease position swap type mappings
 DECREASE_POSITION_SWAP_TYPES = {

@@ -7,6 +7,12 @@ Trading Orders (inherit from BaseOrder):
     - DecreaseOrder: Close or decrease positions
     - SwapOrder: Token swaps
 
+Stop-Loss/Take-Profit Orders:
+    - SLTPOrder: Create stop-loss and take-profit orders
+    - SLTPEntry: Configuration for individual SL/TP trigger
+    - SLTPParams: Combined SL/TP parameters for bundled orders
+    - SLTPOrderResult: Result of SL/TP order creation
+
 Liquidity Orders:
     Base Classes:
         - Deposit: Base class for adding liquidity to markets
@@ -24,6 +30,7 @@ from eth_defi.gmx.order.base_order import BaseOrder, OrderParams, OrderResult
 from eth_defi.gmx.order.increase_order import IncreaseOrder
 from eth_defi.gmx.order.decrease_order import DecreaseOrder
 from eth_defi.gmx.order.swap_order import SwapOrder
+from eth_defi.gmx.order.sltp_order import SLTPEntry, SLTPParams, SLTPOrder, SLTPOrderResult
 
 __all__ = [
     # Base classes
@@ -34,4 +41,9 @@ __all__ = [
     "IncreaseOrder",
     "DecreaseOrder",
     "SwapOrder",
+    # Stop-Loss/Take-Profit orders
+    "SLTPEntry",
+    "SLTPParams",
+    "SLTPOrder",
+    "SLTPOrderResult",
 ]

@@ -115,7 +115,10 @@ Warning:
     with more capital than you can afford to lose completely.
 """
 
+import logging
 from typing import Optional
+
+from eth_utils import to_checksum_address
 
 from eth_defi.gmx.order import OrderResult
 from eth_defi.gmx.order.increase_order import IncreaseOrder
@@ -123,6 +126,10 @@ from eth_defi.gmx.order.decrease_order import DecreaseOrder
 from eth_defi.gmx.order.swap_order import SwapOrder
 from eth_defi.gmx.order.order_argument_parser import OrderArgumentParser
 from eth_defi.gmx.config import GMXConfig
+from eth_defi.gmx.contracts import get_contract_addresses, get_token_address_normalized
+from eth_defi.token import fetch_erc20_details
+
+logger = logging.getLogger(__name__)
 
 
 class GMXTrading:
@@ -181,6 +188,96 @@ class GMXTrading:
             required for trading operations and position management
         """
         self.config = config
+
+    def _ensure_token_approval(
+        self,
+        collateral_symbol: str,
+        size_delta_usd: float,
+        leverage: float,
+    ):
+        """Ensure token approval for trading operations.
+
+        Automatically checks and approves tokens for GMX routers if needed.
+        Approves for both SyntheticsRouter and ExchangeRouter.
+        For native tokens (ETH/AVAX), approves the wrapped version (WETH/WAVAX).
+
+        Note: We approve max uint256 amount (2^256-1) for convenience in testing/examples.
+        In production, you may want to approve exact amounts or use a lower limit.
+
+        :param collateral_symbol: Symbol of collateral token (e.g., 'USDC', 'WETH', 'ETH')
+        :param size_delta_usd: Position size in USD
+        :param leverage: Leverage multiplier
+        """
+        chain = self.config.get_chain()
+        contract_addresses = get_contract_addresses(chain)
+        router_addresses = [contract_addresses.syntheticsrouter, contract_addresses.exchangerouter]
+        max_approval = 2**256 - 1
+
+        # For native tokens (ETH/AVAX), approve the wrapped version (WETH/WAVAX)
+        tokens_to_approve = []
+        if collateral_symbol == "ETH":
+            tokens_to_approve.append("WETH")
+        elif collateral_symbol == "AVAX":
+            tokens_to_approve.append("WAVAX")
+        else:
+            tokens_to_approve.append(collateral_symbol)
+
+        wallet_address = self.config.user_wallet_address
+        web3 = self.config.web3
+
+        for token_symbol in tokens_to_approve:
+            # Get token address
+            token_address = get_token_address_normalized(chain, token_symbol)
+            if not token_address:
+                logger.debug(f"Token address not found for {token_symbol}, skipping approval")
+                continue
+
+            # Get token details and contract
+            token_details = fetch_erc20_details(web3, token_address, chain_id=web3.eth.chain_id)
+            token_contract = token_details.contract
+
+            # Check and approve for each router
+            for router_address in router_addresses:
+                # Check current allowance
+                current_allowance = token_contract.functions.allowance(to_checksum_address(wallet_address), router_address).call()
+
+                # If allowance is less than half of max, approve max
+                if current_allowance < max_approval // 2:
+                    logger.info(f"[Approval] {token_symbol} for router {router_address} - Current allowance: {current_allowance / (10**token_details.decimals):.4f}")
+
+                    # Build approval transaction
+                    approve_tx = token_contract.functions.approve(router_address, max_approval).build_transaction(
+                        {
+                            "from": to_checksum_address(wallet_address),
+                            "gas": 100_000,
+                            "gasPrice": web3.eth.gas_price,
+                        }
+                    )
+
+                    # Remove nonce - will be managed by transaction execution
+                    if "nonce" in approve_tx:
+                        del approve_tx["nonce"]
+
+                    # Sign and send approval transaction
+                    signed_approve_tx = self.config.hot_wallet.sign_transaction_with_new_nonce(approve_tx)
+                    approve_tx_hash = web3.eth.send_raw_transaction(signed_approve_tx.rawTransaction)
+
+                    logger.info(f"[Approval] TX sent: {approve_tx_hash.hex()} - Waiting for confirmation...")
+
+                    # Wait for confirmation
+                    approve_receipt = web3.eth.wait_for_transaction_receipt(approve_tx_hash)
+                    if approve_receipt["status"] != 1:
+                        raise ValueError(f"Token approval failed for {token_symbol} on router {router_address}. TX: {approve_tx_hash.hex()}")
+
+                    # Verify approval was successful by checking allowance again
+                    new_allowance = token_contract.functions.allowance(to_checksum_address(wallet_address), router_address).call()
+
+                    logger.info(f"[Approval] SUCCESS - {token_symbol} for router {router_address} - New allowance: {new_allowance / (10**token_details.decimals):.4f} (block: {approve_receipt['blockNumber']})")
+
+                    if new_allowance < max_approval // 2:
+                        raise ValueError(f"Approval verification failed for {token_symbol}! Expected allowance >= {max_approval // 2}, got {new_allowance}. TX: {approve_tx_hash.hex()}")
+                else:
+                    logger.info(f"[Approval] SKIP - {token_symbol} for router {router_address} - Allowance already sufficient: {current_allowance / (10**token_details.decimals):.4f}")
 
     def open_position(
         self,
@@ -314,6 +411,13 @@ class GMXTrading:
 
         # Process parameters
         order_parameters = OrderArgumentParser(config, is_increase=True).process_parameters_dictionary(parameters)
+
+        # Ensure token approval before creating order
+        self._ensure_token_approval(
+            collateral_symbol=collateral_symbol,
+            size_delta_usd=size_delta_usd,
+            leverage=leverage,
+        )
 
         # Create order instance with position identification (order classes need GMXConfig)
         order = IncreaseOrder(

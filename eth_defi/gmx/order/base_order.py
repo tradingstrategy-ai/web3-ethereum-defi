@@ -16,7 +16,7 @@ from web3.types import TxParams
 
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.contracts import get_contract_addresses, get_exchange_router_contract, NETWORK_TOKENS, get_datastore_contract, TESTNET_TO_MAINNET_ORACLE_TOKENS, get_reader_contract
-from eth_defi.gmx.constants import PRECISION, ORDER_TYPES, DECREASE_POSITION_SWAP_TYPES, GAS_LIMITS, ETH_ZERO_ADDRESS
+from eth_defi.gmx.constants import PRECISION, OrderType, DECREASE_POSITION_SWAP_TYPES, GAS_LIMITS, ETH_ZERO_ADDRESS
 from eth_defi.gmx.core.markets import Markets
 from eth_defi.gmx.core.oracle import OraclePrices
 from eth_defi.gas import estimate_gas_fees
@@ -107,9 +107,6 @@ class BaseOrder:
             self.web3,
             self.chain,
         )
-
-        # Initialize order type constants
-        self._order_types = ORDER_TYPES
 
         # Initialize gas limits from datastore
         self._initialize_gas_limits()
@@ -205,13 +202,13 @@ class BaseOrder:
         """
         # Determine gas limits (from original determine_gas_limits)
         if is_open:
-            order_type = self._order_types["market_increase"]
+            order_type = OrderType.MARKET_INCREASE
         elif is_close:
-            order_type = self._order_types["market_decrease"]
+            order_type = OrderType.MARKET_DECREASE
         elif is_swap:
-            order_type = self._order_types["market_swap"]
+            order_type = OrderType.MARKET_SWAP
         else:
-            order_type = self._order_types["market_increase"]
+            order_type = OrderType.MARKET_INCREASE
 
         # Get market and price data first (validate market exists before other operations)
         # Use cached data to avoid repeated expensive API calls

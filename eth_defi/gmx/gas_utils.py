@@ -4,7 +4,19 @@ GMX Gas Utilities
 
 from web3.contract import Contract
 
-from eth_defi.gmx.keys import DEPOSIT_GAS_LIMIT, WITHDRAWAL_GAS_LIMIT, SINGLE_SWAP_GAS_LIMIT, SWAP_ORDER_GAS_LIMIT, INCREASE_ORDER_GAS_LIMIT, DECREASE_ORDER_GAS_LIMIT, EXECUTION_GAS_FEE_BASE_AMOUNT, EXECUTION_GAS_FEE_MULTIPLIER_FACTOR
+from eth_defi.gmx.keys import (
+    DEPOSIT_GAS_LIMIT,
+    WITHDRAWAL_GAS_LIMIT,
+    SINGLE_SWAP_GAS_LIMIT,
+    SWAP_ORDER_GAS_LIMIT,
+    INCREASE_ORDER_GAS_LIMIT,
+    DECREASE_ORDER_GAS_LIMIT,
+    EXECUTION_GAS_FEE_BASE_AMOUNT,
+    EXECUTION_GAS_FEE_BASE_AMOUNT_V2_1,
+    EXECUTION_GAS_FEE_MULTIPLIER_FACTOR,
+    EXECUTION_GAS_FEE_PER_ORACLE_PRICE,
+    apply_factor,
+)
 
 # Module-level cache for gas limits to avoid repeated RPC calls
 # Key: (chain_id, datastore_address)
@@ -43,6 +55,14 @@ def execution_gas_fee_multiplier_key():
     return EXECUTION_GAS_FEE_MULTIPLIER_FACTOR
 
 
+def execution_gas_fee_base_amount_v2_1_key():
+    return EXECUTION_GAS_FEE_BASE_AMOUNT_V2_1
+
+
+def execution_gas_fee_per_oracle_price_key():
+    return EXECUTION_GAS_FEE_PER_ORACLE_PRICE
+
+
 def get_gas_limits(datastore_object: Contract, use_cache: bool = True) -> dict[str, int]:
     """
     Given a Web3 contract object of the datastore, return a dictionary with the gas limits
@@ -72,7 +92,7 @@ def get_gas_limits(datastore_object: Contract, use_cache: bool = True) -> dict[s
     if use_cache and cache_key in _GAS_LIMITS_CACHE:
         return _GAS_LIMITS_CACHE[cache_key].copy()
 
-    # Fetch gas limits from contract (7 RPC calls)
+    # Fetch gas limits from contract (9 RPC calls)
     gas_limits = {
         "deposit": datastore_object.functions.getUint(deposit_gas_limit_key()).call(),
         "withdraw": datastore_object.functions.getUint(withdraw_gas_limit_key()).call(),
@@ -81,7 +101,9 @@ def get_gas_limits(datastore_object: Contract, use_cache: bool = True) -> dict[s
         "increase_order": datastore_object.functions.getUint(increase_order_gas_limit_key()).call(),
         "decrease_order": datastore_object.functions.getUint(decrease_order_gas_limit_key()).call(),
         "estimated_fee_base_gas_limit": datastore_object.functions.getUint(execution_gas_fee_base_amount_key()).call(),
+        "estimated_fee_base_gas_limit_v2_1": datastore_object.functions.getUint(execution_gas_fee_base_amount_v2_1_key()).call(),
         "estimated_fee_multiplier_factor": datastore_object.functions.getUint(execution_gas_fee_multiplier_key()).call(),
+        "estimated_fee_per_oracle_price": datastore_object.functions.getUint(execution_gas_fee_per_oracle_price_key()).call(),
         "multicall_base": 200000,  # Fixed constant not stored in datastore
     }
 
@@ -99,3 +121,77 @@ def clear_gas_limits_cache():
     """
     global _GAS_LIMITS_CACHE
     _GAS_LIMITS_CACHE.clear()
+
+
+def calculate_execution_fee(
+    gas_limits: dict[str, int],
+    gas_price: int,
+    order_type: str = "decrease_order",
+    oracle_price_count: int = 2,
+) -> int:
+    """Calculate execution fee using GMX's formula.
+
+    GMX calculates minimum execution fee as:
+        adjustedGasLimit = baseGasLimit + (oracleCount * perOracleGas) + applyFactor(estimatedGasLimit, multiplierFactor)
+        minExecutionFee = adjustedGasLimit * tx.gasprice
+
+    Where applyFactor(value, factor) = value * factor / 10^30
+
+    Parameters
+    ----------
+    gas_limits : dict[str, int]
+        Gas limits dictionary from get_gas_limits()
+    gas_price : int
+        Gas price in wei (should be maxFeePerGas for EIP-1559)
+    order_type : str
+        Order type key: "increase_order", "decrease_order", "swap_order", etc.
+    oracle_price_count : int
+        Number of oracle prices needed (typically 2 for most orders)
+
+    Returns
+    -------
+    int
+        Calculated execution fee in wei
+    """
+    import logging
+
+    logger = logging.getLogger(__name__)
+
+    # Get base gas limit (prefer V2.1 if available, fallback to V1)
+    base_gas_limit = gas_limits.get("estimated_fee_base_gas_limit_v2_1", 0)
+    if base_gas_limit == 0:
+        base_gas_limit = gas_limits.get("estimated_fee_base_gas_limit", 0)
+
+    # Add per-oracle-price gas
+    per_oracle_gas = gas_limits.get("estimated_fee_per_oracle_price", 0)
+    base_gas_limit += per_oracle_gas * oracle_price_count
+
+    # Get the order-specific gas limit
+    estimated_gas_limit = gas_limits.get(order_type, 2000000)
+
+    # Get multiplier factor (in 30-decimal format)
+    multiplier_factor = gas_limits.get("estimated_fee_multiplier_factor", 10**30)
+
+    # Apply factor: value * factor / 10^30
+    adjusted_order_gas = apply_factor(estimated_gas_limit, multiplier_factor)
+
+    # Total adjusted gas limit
+    total_gas_limit = int(base_gas_limit + adjusted_order_gas)
+
+    # Calculate fee
+    execution_fee = total_gas_limit * gas_price
+
+    logger.info(
+        "GMX execution fee: base_gas=%d, per_oracle=%d, order_gas=%d, multiplier=%d, adjusted_order_gas=%d, total_gas=%d, gas_price=%d gwei, fee=%d wei (%.6f ETH)",
+        base_gas_limit - (per_oracle_gas * oracle_price_count),
+        per_oracle_gas,
+        estimated_gas_limit,
+        multiplier_factor,
+        int(adjusted_order_gas),
+        total_gas_limit,
+        gas_price // 10**9,
+        execution_fee,
+        execution_fee / 10**18,
+    )
+
+    return execution_fee
