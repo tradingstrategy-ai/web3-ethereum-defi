@@ -28,37 +28,49 @@ Examples
 
 Bundled SL/TP (CCXT unified style)::
 
-    order = gmx.create_market_buy_order("ETH/USDC:USDC", 1000, {
-        "leverage": 3.0,
-        "stopLossPrice": 1850.0,      # Simple trigger price
-        "takeProfitPrice": 2200.0,    # Simple trigger price
-    })
+    order = gmx.create_market_buy_order(
+        "ETH/USDC:USDC",
+        1000,
+        {
+            "leverage": 3.0,
+            "stopLossPrice": 1850.0,  # Simple trigger price
+            "takeProfitPrice": 2200.0,  # Simple trigger price
+        },
+    )
 
 Bundled SL/TP (CCXT object style)::
 
-    order = gmx.create_market_buy_order("ETH/USDC:USDC", 1000, {
-        "leverage": 3.0,
-        "stopLoss": {
-            "triggerPrice": 1850.0,
-            "closePercent": 1.0,       # Close 100% of position
+    order = gmx.create_market_buy_order(
+        "ETH/USDC:USDC",
+        1000,
+        {
+            "leverage": 3.0,
+            "stopLoss": {
+                "triggerPrice": 1850.0,
+                "closePercent": 1.0,  # Close 100% of position
+            },
+            "takeProfit": {
+                "triggerPrice": 2200.0,
+                "closePercent": 1.0,
+            },
         },
-        "takeProfit": {
-            "triggerPrice": 2200.0,
-            "closePercent": 1.0,
-        },
-    })
+    )
 
 GMX Extensions (percentage-based triggers)::
 
-    order = gmx.create_market_buy_order("ETH/USDC:USDC", 1000, {
-        "leverage": 3.0,
-        "stopLoss": {
-            "triggerPercent": 0.05,    # 5% below entry
+    order = gmx.create_market_buy_order(
+        "ETH/USDC:USDC",
+        1000,
+        {
+            "leverage": 3.0,
+            "stopLoss": {
+                "triggerPercent": 0.05,  # 5% below entry
+            },
+            "takeProfit": {
+                "triggerPercent": 0.10,  # 10% above entry
+            },
         },
-        "takeProfit": {
-            "triggerPercent": 0.10,    # 10% above entry
-        },
-    })
+    )
 
 See Also
 --------
@@ -89,7 +101,7 @@ LEVERAGE = 2.0  # Leverage multiplier
 STOP_LOSS_PERCENT = 0.05  # 5% stop loss
 TAKE_PROFIT_PERCENT = 0.10  # 10% take profit
 MARKET_SYMBOL = "ETH/USDC:USDC"
-COLLATERAL_SYMBOL = "ETH"  # ETH gets auto-wrapped to WETH by GMX
+COLLATERAL_SYMBOL = "USDC"  # Use USDC as collateral (short token)
 
 
 def verify_orders_created(receipt: dict) -> list[bytes]:
@@ -167,10 +179,12 @@ def main():
 
     # Initialize GMX CCXT wrapper
     console.print("\n[bold]Initializing GMX CCXT wrapper...[/bold]")
-    gmx = GMX({
-        "rpcUrl": rpc_url,
-        "privateKey": private_key,
-    })
+    gmx = GMX(
+        {
+            "rpcUrl": rpc_url,
+            "privateKey": private_key,
+        }
+    )
 
     # Load markets
     console.print("  Loading markets...")
@@ -302,22 +316,22 @@ def main():
         # Show alternative parameter styles
         console.print("\n[bold cyan]Alternative Parameter Styles:[/bold cyan]")
         console.print("\n[dim]1. CCXT Unified Style (simple prices):[/dim]")
-        console.print('[dim]   params = {[/dim]')
+        console.print("[dim]   params = {[/dim]")
         console.print('[dim]       "stopLossPrice": 1850.0,[/dim]')
         console.print('[dim]       "takeProfitPrice": 2200.0,[/dim]')
-        console.print('[dim]   }[/dim]')
+        console.print("[dim]   }[/dim]")
 
         console.print("\n[dim]2. CCXT Object Style (with options):[/dim]")
-        console.print('[dim]   params = {[/dim]')
+        console.print("[dim]   params = {[/dim]")
         console.print('[dim]       "stopLoss": {"triggerPrice": 1850.0},[/dim]')
         console.print('[dim]       "takeProfit": {"triggerPrice": 2200.0},[/dim]')
-        console.print('[dim]   }[/dim]')
+        console.print("[dim]   }[/dim]")
 
         console.print("\n[dim]3. GMX Extension (percentage-based):[/dim]")
-        console.print('[dim]   params = {[/dim]')
+        console.print("[dim]   params = {[/dim]")
         console.print('[dim]       "stopLoss": {"triggerPercent": 0.05},  # 5% below entry[/dim]')
         console.print('[dim]       "takeProfit": {"triggerPercent": 0.10},  # 10% above entry[/dim]')
-        console.print('[dim]   }[/dim]')
+        console.print("[dim]   }[/dim]")
 
     except Exception as e:
         console.print(f"\n[red]Error creating order: {e}[/red]")
