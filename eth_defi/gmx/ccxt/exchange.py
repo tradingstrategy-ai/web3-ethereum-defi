@@ -42,6 +42,7 @@ from eth_defi.gmx.contracts import get_contract_addresses, get_token_address_nor
 from eth_defi.gmx.core import GetOpenPositions
 from eth_defi.gmx.core.markets import Markets
 from eth_defi.gmx.graphql.client import GMXSubsquidClient
+from eth_defi.gmx.order import SLTPEntry, SLTPOrder, SLTPParams
 from eth_defi.gmx.trading import GMXTrading
 from eth_defi.gmx.utils import calculate_estimated_liquidation_price
 from eth_defi.hotwallet import HotWallet
@@ -3300,6 +3301,281 @@ class GMX(ExchangeCompatible):
 
         return gmx_params
 
+    def _parse_sltp_params(self, params: dict) -> tuple[SLTPEntry | None, SLTPEntry | None]:
+        """Parse CCXT-style SL/TP params into GMX SLTPEntry objects.
+
+        Supports both CCXT unified (stopLossPrice/takeProfitPrice) and object (stopLoss/takeProfit) styles.
+
+        :param params: CCXT parameters dict containing SL/TP configuration
+        :type params: dict
+        :return: Tuple of (stop_loss_entry, take_profit_entry)
+        :rtype: tuple[SLTPEntry | None, SLTPEntry | None]
+        """
+        stop_loss_entry = None
+        take_profit_entry = None
+
+        # Parse Stop Loss
+        if "stopLossPrice" in params:
+            # CCXT unified style - simple price
+            stop_loss_entry = SLTPEntry(
+                trigger_price=params["stopLossPrice"],
+                close_percent=1.0,
+                auto_cancel=True,
+            )
+        elif "stopLoss" in params:
+            # CCXT object style or GMX extensions
+            sl = params["stopLoss"]
+            if isinstance(sl, dict):
+                stop_loss_entry = SLTPEntry(
+                    trigger_price=sl.get("triggerPrice"),
+                    trigger_percent=sl.get("triggerPercent"),  # GMX extension
+                    close_percent=sl.get("closePercent", 1.0),  # GMX extension
+                    close_size_usd=sl.get("closeSizeUsd"),  # GMX extension
+                    auto_cancel=sl.get("autoCancel", True),
+                )
+            else:
+                # Backwards compat: stopLoss as price value
+                stop_loss_entry = SLTPEntry(trigger_price=sl, close_percent=1.0)
+
+        # Parse Take Profit (same logic)
+        if "takeProfitPrice" in params:
+            # CCXT unified style
+            take_profit_entry = SLTPEntry(
+                trigger_price=params["takeProfitPrice"],
+                close_percent=1.0,
+                auto_cancel=True,
+            )
+        elif "takeProfit" in params:
+            # CCXT object style or GMX extensions
+            tp = params["takeProfit"]
+            if isinstance(tp, dict):
+                take_profit_entry = SLTPEntry(
+                    trigger_price=tp.get("triggerPrice"),
+                    trigger_percent=tp.get("triggerPercent"),  # GMX extension
+                    close_percent=tp.get("closePercent", 1.0),  # GMX extension
+                    close_size_usd=tp.get("closeSizeUsd"),  # GMX extension
+                    auto_cancel=tp.get("autoCancel", True),
+                )
+            else:
+                # Backwards compat: takeProfit as price value
+                take_profit_entry = SLTPEntry(trigger_price=tp, close_percent=1.0)
+
+        return stop_loss_entry, take_profit_entry
+
+    def _create_order_with_sltp(
+        self,
+        symbol: str,
+        type: str,
+        side: str,
+        amount: float,
+        price: float | None,
+        params: dict,
+        sl_entry: SLTPEntry | None,
+        tp_entry: SLTPEntry | None,
+    ) -> dict:
+        """Create order with bundled SL/TP (atomic transaction).
+
+        Opens position + SL + TP in a single multicall transaction.
+
+        :param symbol: Market symbol (e.g., 'ETH/USD')
+        :param type: Order type ('market' or 'limit')
+        :param side: Order side ('buy' for long, 'sell' for short)
+        :param amount: Order size in USD
+        :param price: Price (for limit orders, or None for market)
+        :param params: Additional CCXT parameters
+        :param sl_entry: Stop loss configuration
+        :param tp_entry: Take profit configuration
+        :return: CCXT-compatible order structure
+        """
+        # Only support bundled SL/TP for opening positions (buy side)
+        if side != "buy":
+            raise ValueError("Bundled SL/TP only supported for opening positions (side='buy'). Use standalone SL/TP for existing positions.")
+
+        # Convert CCXT params to GMX params
+        gmx_params = self._convert_ccxt_to_gmx_params(symbol, type, side, amount, price, params)
+
+        # Get market and token info
+        normalized_symbol = self._normalize_symbol(symbol)
+        market = self.markets[normalized_symbol]
+        base_currency = market["base"]
+
+        collateral_symbol = gmx_params["collateral_symbol"]
+        leverage = gmx_params["leverage"]
+        size_delta_usd = gmx_params["size_delta_usd"]
+        slippage_percent = gmx_params.get("slippage_percent", 0.003)
+        execution_buffer = gmx_params.get("execution_buffer", self.execution_buffer)
+
+        # Get token addresses
+        chain = self.config.get_chain()
+        market_address = market["info"]["market_token"]  # Market contract address
+
+        # For GMX, we need to use the market's long_token for long positions
+        # GMX markets have specific tokens for long/short positions
+        # E.g., ETH/USDC market uses wstETH (long_token), not WETH
+        collateral_address = market["info"]["long_token"]  # Use market's long token for long positions
+        index_token_address = market["info"]["index_token"]  # Use market's index token
+
+        if not collateral_address or not index_token_address:
+            raise ValueError(f"Could not resolve token addresses for {symbol} market")
+
+        # Calculate collateral amount from size and leverage
+        collateral_usd = size_delta_usd / leverage
+        token_details = fetch_erc20_details(self.web3, collateral_address, chain_id=self.web3.eth.chain_id)
+
+        # Get the price of the collateral token to convert USD to token amount
+        # For GMX markets, we need the actual price of the long_token (e.g., wstETH price, not ETH price)
+        from eth_defi.gmx.reader import get_market_token_price
+
+        collateral_token_price = get_market_token_price(
+            config=self.config,
+            token_address=collateral_address,
+        )
+
+        # Calculate token amount: collateral_usd / token_price_usd = tokens
+        # Then convert to smallest unit (wei-equivalent)
+        collateral_tokens = collateral_usd / collateral_token_price
+        collateral_amount = int(collateral_tokens * (10**token_details.decimals))
+
+        # Ensure token approval for the actual collateral token
+        # Use token symbol from token_details since we might be using a different token
+        # (e.g., market uses wstETH but user specified "ETH")
+        actual_collateral_symbol = token_details.symbol
+        self._ensure_token_approval(actual_collateral_symbol, size_delta_usd, leverage)
+
+        # Create SLTPOrder instance
+        sltp_order = SLTPOrder(
+            config=self.config,
+            market_key=to_checksum_address(market_address),
+            collateral_address=to_checksum_address(collateral_address),
+            index_token_address=to_checksum_address(index_token_address),
+            is_long=True,  # buy = long
+        )
+
+        # Build SLTPParams
+        sltp_params = SLTPParams(
+            stop_loss=sl_entry,
+            take_profit=tp_entry,
+        )
+
+        # Create bundled order
+        sltp_result = sltp_order.create_increase_order_with_sltp(
+            size_delta_usd=size_delta_usd,
+            initial_collateral_delta_amount=collateral_amount,
+            sltp_params=sltp_params,
+            slippage_percent=slippage_percent,
+            execution_buffer=execution_buffer,
+        )
+
+        logger.info(f"SL/TP result created: entry_price={sltp_result.entry_price}, sl_trigger={sltp_result.stop_loss_trigger_price}, tp_trigger={sltp_result.take_profit_trigger_price}, sl_fee={sltp_result.stop_loss_fee}, tp_fee={sltp_result.take_profit_fee}")
+
+        # Sign transaction
+        transaction = sltp_result.transaction
+        if "nonce" in transaction:
+            del transaction["nonce"]
+        signed_tx = self.wallet.sign_transaction_with_new_nonce(transaction)
+
+        # Submit to blockchain
+        tx_hash_bytes = self.web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+        tx_hash = self.web3.to_hex(tx_hash_bytes)
+
+        # Wait for confirmation
+        receipt = self.web3.eth.wait_for_transaction_receipt(tx_hash_bytes)
+
+        # Convert to CCXT format with SL/TP info
+        order = self._parse_sltp_result_to_ccxt(
+            sltp_result,
+            symbol,
+            side,
+            type,
+            amount,
+            tx_hash,
+            receipt,
+        )
+
+        return order
+
+    def _parse_sltp_result_to_ccxt(
+        self,
+        sltp_result,
+        symbol: str,
+        side: str,
+        type: str,
+        amount: float,
+        tx_hash: str,
+        receipt: dict,
+    ) -> dict:
+        """Convert SLTPOrderResult to CCXT order structure.
+
+        :param sltp_result: SLTPOrderResult from SLTPOrder
+        :param symbol: CCXT symbol
+        :param side: Order side
+        :param type: Order type
+        :param amount: Order size
+        :param tx_hash: Transaction hash
+        :param receipt: Transaction receipt
+        :return: CCXT-compatible order structure with SL/TP info
+        """
+        timestamp = self.milliseconds()
+        tx_success = receipt.get("status") == 1
+        status = "closed" if tx_success else "failed"
+
+        # Build info dict with SL/TP data
+        info = {
+            "tx_hash": tx_hash,
+            "receipt": receipt,
+            "block_number": receipt.get("blockNumber"),
+            "gas_used": receipt.get("gasUsed"),
+            "total_execution_fee": sltp_result.total_execution_fee,
+            "main_order_fee": sltp_result.main_order_fee,
+            "stop_loss_fee": sltp_result.stop_loss_fee,
+            "take_profit_fee": sltp_result.take_profit_fee,
+            "entry_price": sltp_result.entry_price,
+            "has_stop_loss": sltp_result.stop_loss_trigger_price is not None,
+            "has_take_profit": sltp_result.take_profit_trigger_price is not None,
+        }
+
+        # Add trigger prices if they exist
+        if sltp_result.stop_loss_trigger_price is not None:
+            info["stop_loss_trigger_price"] = sltp_result.stop_loss_trigger_price
+        if sltp_result.take_profit_trigger_price is not None:
+            info["take_profit_trigger_price"] = sltp_result.take_profit_trigger_price
+
+        # Calculate fee in ETH
+        fee_cost = sltp_result.total_execution_fee / 1e18
+
+        # Use entry price from result
+        mark_price = sltp_result.entry_price
+
+        # GMX orders execute immediately
+        filled_amount = amount if tx_success else 0.0
+        remaining_amount = 0.0 if tx_success else amount
+
+        order = {
+            "id": tx_hash,
+            "clientOrderId": None,
+            "timestamp": timestamp,
+            "datetime": self.iso8601(timestamp),
+            "lastTradeTimestamp": timestamp if tx_success else None,
+            "symbol": symbol,
+            "type": type,
+            "side": side,
+            "price": mark_price,
+            "amount": amount,
+            "cost": amount if tx_success else None,
+            "average": mark_price if tx_success else None,
+            "filled": filled_amount,
+            "remaining": remaining_amount,
+            "status": status,
+            "fee": {
+                "cost": fee_cost,
+                "currency": "ETH",
+            },
+            "trades": None,
+            "info": info,
+        }
+
+        return order
+
     def _ensure_token_approval(
         self,
         collateral_symbol: str,
@@ -3347,9 +3623,20 @@ class GMX(ExchangeCompatible):
         # Calculate required collateral amount (position size / leverage)
         # Add 10% buffer for fees
         required_collateral_usd = (size_delta_usd / leverage) * 1.1
-        required_amount = int(required_collateral_usd * (10**token_details.decimals))
 
-        logger.debug(f"Token approval check: {collateral_symbol} allowance={current_allowance / (10**token_details.decimals):.4f}, required={required_amount / (10**token_details.decimals):.4f}")
+        # Get token price to convert USD to token amount
+        from eth_defi.gmx.reader import get_market_token_price
+
+        token_price = get_market_token_price(
+            config=self.config,
+            token_address=collateral_token_address,
+        )
+
+        # Convert USD to token amount: usd / price = tokens
+        required_tokens = required_collateral_usd / token_price
+        required_amount = int(required_tokens * (10**token_details.decimals))
+
+        logger.debug(f"Token approval check: {collateral_symbol} allowance={current_allowance / (10**token_details.decimals):.4f}, required={required_amount / (10**token_details.decimals):.4f}, token_price=${token_price:.2f}")
 
         # If allowance is sufficient, no action needed
         if current_allowance >= required_amount:
@@ -3562,7 +3849,18 @@ class GMX(ExchangeCompatible):
         if not self.markets_loaded or not self.markets:
             self.load_markets()
 
-        # Convert CCXT parameters to GMX parameters
+        # Parse SL/TP parameters (CCXT standard)
+        sl_entry, tp_entry = self._parse_sltp_params(params)
+
+        # Check for standalone SL/TP order types
+        if type in ["stop_loss", "take_profit"]:
+            return self._create_standalone_sltp_order(symbol, type, side, amount, params)
+
+        # Bundled approach: SL/TP with position opening
+        if sl_entry or tp_entry:
+            return self._create_order_with_sltp(symbol, type, side, amount, price, params, sl_entry, tp_entry)
+
+        # Convert CCXT parameters to GMX parameters (standard flow)
         gmx_params = self._convert_ccxt_to_gmx_params(
             symbol,
             type,
