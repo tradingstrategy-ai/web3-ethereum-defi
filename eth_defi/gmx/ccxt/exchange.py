@@ -3408,19 +3408,39 @@ class GMX(ExchangeCompatible):
         # Get token addresses
         chain = self.config.get_chain()
         market_address = market["info"]["market_token"]  # Market contract address
-        collateral_address = get_token_address_normalized(chain, collateral_symbol)
-        index_token_address = get_token_address_normalized(chain, base_currency)
+
+        # For GMX, we need to use the market's long_token for long positions
+        # GMX markets have specific tokens for long/short positions
+        # E.g., ETH/USDC market uses wstETH (long_token), not WETH
+        collateral_address = market["info"]["long_token"]  # Use market's long token for long positions
+        index_token_address = market["info"]["index_token"]  # Use market's index token
 
         if not collateral_address or not index_token_address:
-            raise ValueError(f"Could not resolve token addresses for {symbol} with collateral {collateral_symbol}")
+            raise ValueError(f"Could not resolve token addresses for {symbol} market")
 
         # Calculate collateral amount from size and leverage
         collateral_usd = size_delta_usd / leverage
         token_details = fetch_erc20_details(self.web3, collateral_address, chain_id=self.web3.eth.chain_id)
-        collateral_amount = int(collateral_usd * (10**token_details.decimals))
 
-        # Ensure token approval
-        self._ensure_token_approval(collateral_symbol, size_delta_usd, leverage)
+        # Get the price of the collateral token to convert USD to token amount
+        # For GMX markets, we need the actual price of the long_token (e.g., wstETH price, not ETH price)
+        from eth_defi.gmx.reader import get_market_token_price
+
+        collateral_token_price = get_market_token_price(
+            config=self.config,
+            token_address=collateral_address,
+        )
+
+        # Calculate token amount: collateral_usd / token_price_usd = tokens
+        # Then convert to smallest unit (wei-equivalent)
+        collateral_tokens = collateral_usd / collateral_token_price
+        collateral_amount = int(collateral_tokens * (10**token_details.decimals))
+
+        # Ensure token approval for the actual collateral token
+        # Use token symbol from token_details since we might be using a different token
+        # (e.g., market uses wstETH but user specified "ETH")
+        actual_collateral_symbol = token_details.symbol
+        self._ensure_token_approval(actual_collateral_symbol, size_delta_usd, leverage)
 
         # Create SLTPOrder instance
         sltp_order = SLTPOrder(
@@ -3445,6 +3465,8 @@ class GMX(ExchangeCompatible):
             slippage_percent=slippage_percent,
             execution_buffer=execution_buffer,
         )
+
+        logger.info(f"SL/TP result created: entry_price={sltp_result.entry_price}, sl_trigger={sltp_result.stop_loss_trigger_price}, tp_trigger={sltp_result.take_profit_trigger_price}, sl_fee={sltp_result.stop_loss_fee}, tp_fee={sltp_result.take_profit_fee}")
 
         # Sign transaction
         transaction = sltp_result.transaction
@@ -3508,9 +3530,15 @@ class GMX(ExchangeCompatible):
             "stop_loss_fee": sltp_result.stop_loss_fee,
             "take_profit_fee": sltp_result.take_profit_fee,
             "entry_price": sltp_result.entry_price,
-            "stop_loss_trigger_price": sltp_result.stop_loss_trigger_price,
-            "take_profit_trigger_price": sltp_result.take_profit_trigger_price,
+            "has_stop_loss": sltp_result.stop_loss_trigger_price is not None,
+            "has_take_profit": sltp_result.take_profit_trigger_price is not None,
         }
+
+        # Add trigger prices if they exist
+        if sltp_result.stop_loss_trigger_price is not None:
+            info["stop_loss_trigger_price"] = sltp_result.stop_loss_trigger_price
+        if sltp_result.take_profit_trigger_price is not None:
+            info["take_profit_trigger_price"] = sltp_result.take_profit_trigger_price
 
         # Calculate fee in ETH
         fee_cost = sltp_result.total_execution_fee / 1e18
@@ -3595,9 +3623,20 @@ class GMX(ExchangeCompatible):
         # Calculate required collateral amount (position size / leverage)
         # Add 10% buffer for fees
         required_collateral_usd = (size_delta_usd / leverage) * 1.1
-        required_amount = int(required_collateral_usd * (10**token_details.decimals))
 
-        logger.debug(f"Token approval check: {collateral_symbol} allowance={current_allowance / (10**token_details.decimals):.4f}, required={required_amount / (10**token_details.decimals):.4f}")
+        # Get token price to convert USD to token amount
+        from eth_defi.gmx.reader import get_market_token_price
+
+        token_price = get_market_token_price(
+            config=self.config,
+            token_address=collateral_token_address,
+        )
+
+        # Convert USD to token amount: usd / price = tokens
+        required_tokens = required_collateral_usd / token_price
+        required_amount = int(required_tokens * (10**token_details.decimals))
+
+        logger.debug(f"Token approval check: {collateral_symbol} allowance={current_allowance / (10**token_details.decimals):.4f}, required={required_amount / (10**token_details.decimals):.4f}, token_price=${token_price:.2f}")
 
         # If allowance is sufficient, no action needed
         if current_allowance >= required_amount:
