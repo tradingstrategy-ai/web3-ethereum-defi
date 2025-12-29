@@ -8,6 +8,7 @@
       "Bash(cat:*)",
       "Bash(git:*)",
       "Bash(python:*)",
+      "Bash(python3:*)",
       "Bash(poetry:*)",
       "Bash(source:*)",
       "Edit(**)",

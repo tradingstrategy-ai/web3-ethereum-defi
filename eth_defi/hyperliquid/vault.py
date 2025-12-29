@@ -37,6 +37,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
+from functools import cached_property
 from typing import Any, Iterator
 
 import pandas as pd
@@ -85,6 +86,60 @@ class VaultFollower:
     days_following: int
     vault_entry_time: int
     lockup_until: int | None = None
+
+
+@dataclass(slots=True)
+class PortfolioHistory:
+    """Historical portfolio data for a specific time period.
+
+    Contains account value history, PNL history, and trading volume
+    for a given period (day, week, month, or allTime).
+    """
+
+    #: Time period identifier (day, week, month, allTime)
+    period: str
+    #: Account value history as list of (timestamp, value) tuples
+    account_value_history: list[tuple[datetime, Decimal]]
+    #: PNL history as list of (timestamp, pnl) tuples
+    pnl_history: list[tuple[datetime, Decimal]]
+    #: Trading volume for the period (USD)
+    volume: Decimal
+
+
+@dataclass(slots=True)
+class VaultInfo:
+    """Detailed information about a Hyperliquid vault.
+
+    This dataclass represents the response from the ``vaultDetails`` API endpoint,
+    containing comprehensive vault metadata, follower information, and portfolio history.
+    """
+
+    #: Vault display name
+    name: str
+    #: Vault's blockchain address
+    vault_address: HexAddress
+    #: Vault manager/operator address
+    leader: HexAddress
+    #: Vault description text
+    description: str
+    #: List of vault followers (depositors)
+    followers: list[VaultFollower]
+    #: Portfolio history by time period
+    portfolio: dict[str, PortfolioHistory]
+    #: Maximum distributable amount (USD)
+    max_distributable: Decimal
+    #: Maximum withdrawable amount (USD)
+    max_withdrawable: Decimal
+    #: Whether vault is closed for deposits
+    is_closed: bool
+    #: Whether vault allows deposits
+    allow_deposits: bool
+    #: Vault relationship type (normal, child, parent)
+    relationship_type: str
+    #: Commission rate for the vault leader (as decimal, e.g., 0.1 = 10%)
+    commission_rate: Percent | None = None
+    #: Parent vault address if this is a child vault
+    parent: HexAddress | None = None
 
 
 @dataclass(slots=True)
@@ -178,6 +233,9 @@ class HyperliquidVault:
         self.server_url = server_url
         self.timeout = timeout
 
+    def __repr__(self) -> str:
+        return f"<HyperliquidVault {self.vault_address}>"
+
     def _make_request(
         self,
         request_type: str,
@@ -211,6 +269,103 @@ class HyperliquidVault:
         )
         response.raise_for_status()
         return response.json()
+
+    def fetch_info(self) -> VaultInfo:
+        """Fetch detailed vault information from the Hyperliquid API.
+
+        Makes a request to the ``vaultDetails`` endpoint and returns
+        a typed :py:class:`VaultInfo` dataclass with all vault metadata.
+
+        Use :py:attr:`info` property for cached access.
+
+        Example::
+
+            from eth_defi.hyperliquid.session import create_hyperliquid_session
+            from eth_defi.hyperliquid.vault import HyperliquidVault
+
+            session = create_hyperliquid_session()
+            vault = HyperliquidVault(
+                session=session,
+                vault_address="0x3df9769bbbb335340872f01d8157c779d73c6ed0",
+            )
+
+            info = vault.fetch_info()
+            print(f"Vault: {info.name}")
+            print(f"Leader: {info.leader}")
+            print(f"Followers: {len(info.followers)}")
+
+        :return:
+            VaultInfo dataclass with vault details
+        :raises requests.HTTPError:
+            If the HTTP request fails
+        """
+        data = self._make_request("vaultDetails", {"vaultAddress": self.vault_address})
+
+        # Parse followers
+        followers = []
+        for f in data.get("followers", []):
+            followers.append(VaultFollower(
+                user=f["user"],
+                vault_equity=Decimal(str(f["vaultEquity"])),
+                pnl=Decimal(str(f["pnl"])),
+                all_time_pnl=Decimal(str(f["allTimePnl"])),
+                days_following=f["daysFollowing"],
+                vault_entry_time=f["vaultEntryTime"],
+                lockup_until=f.get("lockupUntil"),
+            ))
+
+        # Parse portfolio history
+        portfolio: dict[str, PortfolioHistory] = {}
+        for period_name, period_data in data.get("portfolio", []):
+            account_value_history = [
+                (datetime.fromtimestamp(ts / 1000), Decimal(str(value)))
+                for ts, value in period_data.get("accountValueHistory", [])
+            ]
+            pnl_history = [
+                (datetime.fromtimestamp(ts / 1000), Decimal(str(value)))
+                for ts, value in period_data.get("pnlHistory", [])
+            ]
+            volume = Decimal(str(period_data.get("vlm", "0")))
+
+            portfolio[period_name] = PortfolioHistory(
+                period=period_name,
+                account_value_history=account_value_history,
+                pnl_history=pnl_history,
+                volume=volume,
+            )
+
+        # Parse relationship
+        relationship = data.get("relationship", {})
+        relationship_type = relationship.get("type", "normal")
+        parent = relationship.get("parent")
+
+        return VaultInfo(
+            name=data["name"],
+            vault_address=data["vaultAddress"],
+            leader=data["leader"],
+            description=data.get("description", ""),
+            followers=followers,
+            portfolio=portfolio,
+            max_distributable=Decimal(str(data.get("maxDistributable", "0"))),
+            max_withdrawable=Decimal(str(data.get("maxWithdrawable", "0"))),
+            is_closed=data.get("isClosed", False),
+            allow_deposits=data.get("allowDeposits", True),
+            relationship_type=relationship_type,
+            commission_rate=data.get("commissionRate"),
+            parent=parent,
+        )
+
+    @cached_property
+    def info(self) -> VaultInfo:
+        """Cached vault information.
+
+        Fetches vault details on first access and caches the result.
+        Use :py:meth:`fetch_info` to force a fresh fetch.
+
+        :return:
+            VaultInfo dataclass with vault details
+        """
+        return self.fetch_info()
 
 
 class VaultSortKey(Enum):
