@@ -79,6 +79,7 @@ class VaultFollower:
     :param vault_entry_time: Timestamp when user entered the vault (milliseconds)
     :param lockup_until: Timestamp when lockup period ends (milliseconds), if applicable
     """
+
     user: HexAddress
     vault_equity: Decimal
     pnl: Decimal
@@ -304,27 +305,23 @@ class HyperliquidVault:
         # Parse followers
         followers = []
         for f in data.get("followers", []):
-            followers.append(VaultFollower(
-                user=f["user"],
-                vault_equity=Decimal(str(f["vaultEquity"])),
-                pnl=Decimal(str(f["pnl"])),
-                all_time_pnl=Decimal(str(f["allTimePnl"])),
-                days_following=f["daysFollowing"],
-                vault_entry_time=f["vaultEntryTime"],
-                lockup_until=f.get("lockupUntil"),
-            ))
+            followers.append(
+                VaultFollower(
+                    user=f["user"],
+                    vault_equity=Decimal(str(f["vaultEquity"])),
+                    pnl=Decimal(str(f["pnl"])),
+                    all_time_pnl=Decimal(str(f["allTimePnl"])),
+                    days_following=f["daysFollowing"],
+                    vault_entry_time=f["vaultEntryTime"],
+                    lockup_until=f.get("lockupUntil"),
+                )
+            )
 
         # Parse portfolio history
         portfolio: dict[str, PortfolioHistory] = {}
         for period_name, period_data in data.get("portfolio", []):
-            account_value_history = [
-                (datetime.fromtimestamp(ts / 1000), Decimal(str(value)))
-                for ts, value in period_data.get("accountValueHistory", [])
-            ]
-            pnl_history = [
-                (datetime.fromtimestamp(ts / 1000), Decimal(str(value)))
-                for ts, value in period_data.get("pnlHistory", [])
-            ]
+            account_value_history = [(datetime.fromtimestamp(ts / 1000), Decimal(str(value))) for ts, value in period_data.get("accountValueHistory", [])]
+            pnl_history = [(datetime.fromtimestamp(ts / 1000), Decimal(str(value))) for ts, value in period_data.get("pnlHistory", [])]
             volume = Decimal(str(period_data.get("vlm", "0")))
 
             portfolio[period_name] = PortfolioHistory(
@@ -490,4 +487,3 @@ def fetch_all_vaults(
     # No sorting - yield directly for memory efficiency
     for item in data:
         yield _parse_vault(item)
-    

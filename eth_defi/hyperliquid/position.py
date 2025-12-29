@@ -46,8 +46,7 @@ Example::
 
     # Reconstruct position events (also returns an iterator)
     for event in reconstruct_position_history(fills):
-        print(f"{event.timestamp}: {event.event_type} {event.direction} {event.coin} "
-              f"size={event.size} @ {event.price}")
+        print(f"{event.timestamp}: {event.event_type} {event.direction} {event.coin} size={event.size} @ {event.price}")
 """
 
 import datetime
@@ -223,11 +222,13 @@ def fetch_vault_fills(
         vault = "0x3df9769bbbb335340872f01d8157c779d73c6ed0"
 
         # Fetch last 7 days of fills
-        fills = list(fetch_vault_fills(
-            session,
-            vault,
-            start_time=datetime.now() - timedelta(days=7),
-        ))
+        fills = list(
+            fetch_vault_fills(
+                session,
+                vault,
+                start_time=datetime.now() - timedelta(days=7),
+            )
+        )
         print(f"Fetched {len(fills)} fills")
 
     :param session:
@@ -309,10 +310,7 @@ def fetch_vault_fills(
 
         # Check if we've hit the API limit
         if total_fetched >= MAX_TOTAL_FILLS:
-            logger.warning(
-                f"Hit API limit of {MAX_TOTAL_FILLS} fills. "
-                f"Older history may be unavailable."
-            )
+            logger.warning(f"Hit API limit of {MAX_TOTAL_FILLS} fills. Older history may be unavailable.")
             break
 
         # If we got fewer than max per request, we've likely exhausted the range
@@ -439,14 +437,18 @@ def reconstruct_position_history(
         events = list(reconstruct_position_history(fills))
 
         # Filter for just opens and closes
-        trades = [e for e in events if e.event_type in (
-            PositionEventType.open,
-            PositionEventType.close,
-        )]
+        trades = [
+            e
+            for e in events
+            if e.event_type
+            in (
+                PositionEventType.open,
+                PositionEventType.close,
+            )
+        ]
 
         for trade in trades:
-            print(f"{trade.timestamp}: {trade.event_type.value} "
-                  f"{trade.direction.value} {trade.coin}")
+            print(f"{trade.timestamp}: {trade.event_type.value} {trade.direction.value} {trade.coin}")
 
     :param fills:
         Iterable of fills sorted by timestamp ascending (oldest first).
@@ -478,9 +480,7 @@ def reconstruct_position_history(
             direction = PositionDirection.long if new_size > 0 else PositionDirection.short
             realized_pnl = None
 
-            yield _create_event(
-                fill, event_type, direction, fill.size, new_size, realized_pnl
-            )
+            yield _create_event(fill, event_type, direction, fill.size, new_size, realized_pnl)
 
         elif new_size == Decimal("0"):
             # Had position, now flat -> Close
@@ -488,9 +488,7 @@ def reconstruct_position_history(
             direction = PositionDirection.long if old_size > 0 else PositionDirection.short
             realized_pnl = fill.closed_pnl if fill.closed_pnl != 0 else None
 
-            yield _create_event(
-                fill, event_type, direction, fill.size, new_size, realized_pnl
-            )
+            yield _create_event(fill, event_type, direction, fill.size, new_size, realized_pnl)
 
         elif (old_size > 0 and new_size > 0) or (old_size < 0 and new_size < 0):
             # Same side, size changed
@@ -505,9 +503,7 @@ def reconstruct_position_history(
                 event_type = PositionEventType.decrease
                 realized_pnl = fill.closed_pnl if fill.closed_pnl != 0 else None
 
-            yield _create_event(
-                fill, event_type, direction, fill.size, new_size, realized_pnl
-            )
+            yield _create_event(fill, event_type, direction, fill.size, new_size, realized_pnl)
 
         else:
             # Position flipped sides (e.g., long -> short)
@@ -585,11 +581,7 @@ def validate_position_reconstruction(fills: list[Fill]) -> bool:
         actual_start = positions.get(coin, Decimal("0"))
 
         if actual_start != expected_start:
-            logger.error(
-                f"Position mismatch for {coin} at {fill.timestamp}: "
-                f"expected startPosition={expected_start}, "
-                f"calculated={actual_start}"
-            )
+            logger.error(f"Position mismatch for {coin} at {fill.timestamp}: expected startPosition={expected_start}, calculated={actual_start}")
             return False
 
         # Update position
@@ -611,16 +603,18 @@ def get_position_summary(events: list[PositionEvent]) -> dict[str, dict]:
     """
     from collections import defaultdict
 
-    summaries: dict[str, dict] = defaultdict(lambda: {
-        "total_trades": 0,
-        "opens": 0,
-        "closes": 0,
-        "increases": 0,
-        "decreases": 0,
-        "total_realized_pnl": Decimal("0"),
-        "total_fees": Decimal("0"),
-        "current_position": Decimal("0"),
-    })
+    summaries: dict[str, dict] = defaultdict(
+        lambda: {
+            "total_trades": 0,
+            "opens": 0,
+            "closes": 0,
+            "increases": 0,
+            "decreases": 0,
+            "total_realized_pnl": Decimal("0"),
+            "total_fees": Decimal("0"),
+            "current_position": Decimal("0"),
+        }
+    )
 
     for event in events:
         summary = summaries[event.coin]

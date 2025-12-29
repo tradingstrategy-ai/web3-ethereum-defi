@@ -13,10 +13,7 @@ from decimal import Decimal
 import pandas as pd
 import pytest
 
-from eth_defi.hyperliquid.position import (Fill, PositionDirection,
-                                           PositionEvent, PositionEventType,
-                                           fetch_vault_fills,
-                                           reconstruct_position_history)
+from eth_defi.hyperliquid.position import Fill, PositionDirection, PositionEvent, PositionEventType, fetch_vault_fills, reconstruct_position_history
 from eth_defi.hyperliquid.position_analysis import create_account_dataframe
 from eth_defi.hyperliquid.session import create_hyperliquid_session
 
@@ -39,12 +36,14 @@ def session():
 @pytest.fixture(scope="module")
 def vault_fills(session) -> list[Fill]:
     """Fetch fills for the test vault."""
-    fills = list(fetch_vault_fills(
-        session,
-        TEST_VAULT_ADDRESS,
-        start_time=TEST_START_TIME,
-        end_time=TEST_END_TIME,
-    ))
+    fills = list(
+        fetch_vault_fills(
+            session,
+            TEST_VAULT_ADDRESS,
+            start_time=TEST_START_TIME,
+            end_time=TEST_END_TIME,
+        )
+    )
     return fills
 
 

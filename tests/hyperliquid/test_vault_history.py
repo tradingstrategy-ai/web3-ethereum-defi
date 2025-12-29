@@ -14,12 +14,7 @@ from decimal import Decimal
 
 import pytest
 
-from eth_defi.hyperliquid.position import (Fill, PositionDirection,
-                                           PositionEvent, PositionEventType,
-                                           fetch_vault_fills,
-                                           get_position_summary,
-                                           reconstruct_position_history,
-                                           validate_position_reconstruction)
+from eth_defi.hyperliquid.position import Fill, PositionDirection, PositionEvent, PositionEventType, fetch_vault_fills, get_position_summary, reconstruct_position_history, validate_position_reconstruction
 from eth_defi.hyperliquid.session import create_hyperliquid_session
 
 #: Test vault address (Trading Strategy - IchiV3 LS)
@@ -44,12 +39,14 @@ def vault_fills(session) -> list[Fill]:
 
     Uses fixed time range 2025-12-01 to 2025-12-28 for reproducibility.
     """
-    fills = list(fetch_vault_fills(
-        session,
-        TEST_VAULT_ADDRESS,
-        start_time=TEST_START_TIME,
-        end_time=TEST_END_TIME,
-    ))
+    fills = list(
+        fetch_vault_fills(
+            session,
+            TEST_VAULT_ADDRESS,
+            start_time=TEST_START_TIME,
+            end_time=TEST_END_TIME,
+        )
+    )
     return fills
 
 
@@ -96,21 +93,20 @@ def test_fetch_with_time_range(session):
     start_time = datetime(2025, 12, 15)
     end_time = datetime(2025, 12, 20)
 
-    fills = list(fetch_vault_fills(
-        session,
-        TEST_VAULT_ADDRESS,
-        start_time=start_time,
-        end_time=end_time,
-    ))
+    fills = list(
+        fetch_vault_fills(
+            session,
+            TEST_VAULT_ADDRESS,
+            start_time=start_time,
+            end_time=end_time,
+        )
+    )
 
     # All fills should be within the time range
     start_ms = int(start_time.timestamp() * 1000)
     end_ms = int(end_time.timestamp() * 1000)
 
-    assert all(
-        start_ms <= fill.timestamp_ms <= end_ms
-        for fill in fills
-    ), "All fills should be within the specified time range"
+    assert all(start_ms <= fill.timestamp_ms <= end_ms for fill in fills), "All fills should be within the specified time range"
 
 
 def test_event_data_structure(position_events: list[PositionEvent]):
@@ -181,9 +177,7 @@ def test_summary(position_events: list[PositionEvent]):
     assert summary["VVV"]["total_realized_pnl"] == Decimal("32.009223")
 
     # Verify fees are tracked
-    assert all(
-        stats["total_fees"] > 0 for stats in summary.values()
-    ), "All coins should have fees"
+    assert all(stats["total_fees"] > 0 for stats in summary.values()), "All coins should have fees"
 
 
 def test_pagination_handles_empty_result(session):
@@ -191,12 +185,14 @@ def test_pagination_handles_empty_result(session):
     start_time = datetime(2019, 1, 1)
     end_time = datetime(2020, 1, 1)
 
-    fills = list(fetch_vault_fills(
-        session,
-        TEST_VAULT_ADDRESS,
-        start_time=start_time,
-        end_time=end_time,
-    ))
+    fills = list(
+        fetch_vault_fills(
+            session,
+            TEST_VAULT_ADDRESS,
+            start_time=start_time,
+            end_time=end_time,
+        )
+    )
 
     assert fills == [], "Should return empty list for time range with no fills"
 
@@ -206,15 +202,15 @@ def test_pagination_respects_start_time(session):
     start_time = datetime(2025, 12, 20)
     end_time = datetime(2025, 12, 25)
 
-    fills = list(fetch_vault_fills(
-        session,
-        TEST_VAULT_ADDRESS,
-        start_time=start_time,
-        end_time=end_time,
-    ))
+    fills = list(
+        fetch_vault_fills(
+            session,
+            TEST_VAULT_ADDRESS,
+            start_time=start_time,
+            end_time=end_time,
+        )
+    )
 
     start_ms = int(start_time.timestamp() * 1000)
 
-    assert all(
-        fill.timestamp_ms >= start_ms for fill in fills
-    ), "All fills should be at or after start_time"
+    assert all(fill.timestamp_ms >= start_ms for fill in fills), "All fills should be at or after start_time"

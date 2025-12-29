@@ -64,5 +64,4 @@ def test_hyperliquid_vault_metadata():
     assert len(last_vault.leader) == 42, "Last vault leader should be 42 chars (0x + 40 hex)"
 
     # First vault should have earlier creation time than last vault
-    assert first_vault.create_time < last_vault.create_time, \
-        "First vault should have earlier creation time than last vault"
+    assert first_vault.create_time < last_vault.create_time, "First vault should have earlier creation time than last vault"

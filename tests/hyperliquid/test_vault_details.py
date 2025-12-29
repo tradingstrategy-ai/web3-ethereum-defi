@@ -12,8 +12,7 @@ from decimal import Decimal
 import pytest
 
 from eth_defi.hyperliquid.session import create_hyperliquid_session
-from eth_defi.hyperliquid.vault import (HyperliquidVault, PortfolioHistory,
-                                        VaultFollower, VaultInfo)
+from eth_defi.hyperliquid.vault import HyperliquidVault, PortfolioHistory, VaultFollower, VaultInfo
 
 #: Test vault address (Trading Strategy - IchiV3 LS)
 TEST_VAULT_ADDRESS = "0x3df9769bbbb335340872f01d8157c779d73c6ed0"
@@ -89,8 +88,7 @@ def test_vault_info_portfolio_history(vault_info: VaultInfo):
 
     # Should have standard time periods
     expected_periods = {"day", "week", "month", "allTime"}
-    assert expected_periods.issubset(set(vault_info.portfolio.keys())), \
-        f"Missing periods: {expected_periods - set(vault_info.portfolio.keys())}"
+    assert expected_periods.issubset(set(vault_info.portfolio.keys())), f"Missing periods: {expected_periods - set(vault_info.portfolio.keys())}"
 
     # Check each period's structure
     for period_name, history in vault_info.portfolio.items():
@@ -102,6 +100,7 @@ def test_vault_info_portfolio_history(vault_info: VaultInfo):
         if history.account_value_history:
             ts, value = history.account_value_history[0]
             from datetime import datetime
+
             assert isinstance(ts, datetime)
             assert isinstance(value, Decimal)
 
@@ -114,4 +113,3 @@ def test_vault_info_portfolio_history(vault_info: VaultInfo):
 
         # Volume should be a Decimal
         assert isinstance(history.volume, Decimal)
-

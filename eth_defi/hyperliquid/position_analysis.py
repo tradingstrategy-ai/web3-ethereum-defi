@@ -20,8 +20,8 @@ Example::
     df = create_account_dataframe(events)
 
     # Calculate total account PnL at each timestamp
-    pnl_columns = [col for col in df.columns if col.endswith('_pnl')]
-    df['total_pnl'] = df[pnl_columns].sum(axis=1)
+    pnl_columns = [col for col in df.columns if col.endswith("_pnl")]
+    df["total_pnl"] = df[pnl_columns].sum(axis=1)
 """
 
 import datetime
@@ -61,8 +61,8 @@ def create_account_dataframe(events: Iterable[PositionEvent]) -> pd.DataFrame:
     # Structure: {coin: {direction: {'exposure': Decimal, 'cumulative_pnl': Decimal}}}
     state: dict[str, dict[str, dict[str, Decimal]]] = defaultdict(
         lambda: {
-            'long': {'exposure': Decimal('0'), 'cumulative_pnl': Decimal('0')},
-            'short': {'exposure': Decimal('0'), 'cumulative_pnl': Decimal('0')},
+            "long": {"exposure": Decimal("0"), "cumulative_pnl": Decimal("0")},
+            "short": {"exposure": Decimal("0"), "cumulative_pnl": Decimal("0")},
         }
     )
 
@@ -72,28 +72,28 @@ def create_account_dataframe(events: Iterable[PositionEvent]) -> pd.DataFrame:
 
     for event in events:
         coin = event.coin
-        direction = 'long' if event.direction == PositionDirection.long else 'short'
+        direction = "long" if event.direction == PositionDirection.long else "short"
 
         # Update exposure based on position_after
         # For the given direction, calculate notional exposure
         if event.direction == PositionDirection.long:
             # Long position: positive position_after
-            state[coin]['long']['exposure'] = abs(event.position_after) * event.price
+            state[coin]["long"]["exposure"] = abs(event.position_after) * event.price
             # If position closed (position_after == 0), exposure becomes 0
         else:
             # Short position: negative position_after
-            state[coin]['short']['exposure'] = abs(event.position_after) * event.price
+            state[coin]["short"]["exposure"] = abs(event.position_after) * event.price
 
         # Update cumulative PnL if there's realized PnL
         if event.realized_pnl is not None:
-            state[coin][direction]['cumulative_pnl'] += event.realized_pnl
+            state[coin][direction]["cumulative_pnl"] += event.realized_pnl
 
         # Build row snapshot with current state for all coins
         row = {}
         for c, directions in state.items():
-            for d in ('long', 'short'):
-                row[f'{c}_{d}_exposure'] = float(directions[d]['exposure'])
-                row[f'{c}_{d}_pnl'] = float(directions[d]['cumulative_pnl'])
+            for d in ("long", "short"):
+                row[f"{c}_{d}_exposure"] = float(directions[d]["exposure"])
+                row[f"{c}_{d}_pnl"] = float(directions[d]["cumulative_pnl"])
 
         rows.append(row)
         timestamps.append(event.timestamp)
@@ -102,7 +102,7 @@ def create_account_dataframe(events: Iterable[PositionEvent]) -> pd.DataFrame:
         return pd.DataFrame()
 
     # Create DataFrame
-    df = pd.DataFrame(rows, index=pd.DatetimeIndex(timestamps, name='timestamp'))
+    df = pd.DataFrame(rows, index=pd.DatetimeIndex(timestamps, name="timestamp"))
 
     # Fill NaN with 0 for columns that didn't exist yet in earlier rows
     df = df.fillna(0.0)
