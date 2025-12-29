@@ -599,6 +599,11 @@ def calculate_lifetime_metrics(
         assert vault_metadata, f"Vault metadata not found for {id_val}. This vault is present in price data, but not in metadata entries. We have {len(vaults_by_id)} metadata entries."
 
         name = vault_metadata.get("Name")
+
+        if not name:
+            # Normalise name, don't let null name to leak beyond this point
+            name = "<unnamed>"
+
         denomination = vault_metadata.get("Denomination")
         share_token = vault_metadata.get("Share token")
         normalised_denomination = normalise_token_symbol(denomination)
