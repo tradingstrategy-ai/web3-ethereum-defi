@@ -69,23 +69,21 @@ HYPERLIQUID_STATS_TESTNET_URL = "https://stats-data.hyperliquid-testnet.xyz/Main
 
 @dataclass(slots=True)
 class VaultFollower:
-    """Represents a follower (depositor) in a Hyperliquid vault.
+    """Represents a follower (depositor) in a Hyperliquid vault."""
 
-    :param user: Follower's wallet address
-    :param vault_equity: Current equity in the vault (USD)
-    :param pnl: Profit/loss since entry
-    :param all_time_pnl: All-time profit/loss
-    :param days_following: Number of days following this vault
-    :param vault_entry_time: Timestamp when user entered the vault (milliseconds)
-    :param lockup_until: Timestamp when lockup period ends (milliseconds), if applicable
-    """
-
+    #: Follower's wallet address
     user: HexAddress
+    #: Current equity in the vault (USD)
     vault_equity: Decimal
+    #: Profit/loss since entry
     pnl: Decimal
+    #: All-time profit/loss
     all_time_pnl: Decimal
+    #: Number of days following this vault
     days_following: int
+    #: Timestamp when user entered the vault (milliseconds)
     vault_entry_time: int
+    #: Timestamp when lockup period ends (milliseconds), if applicable
     lockup_until: int | None = None
 
 
