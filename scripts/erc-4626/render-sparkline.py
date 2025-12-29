@@ -98,6 +98,7 @@ def main():
         width=100,
         height=25,
         line_width=1,
+        margin_ratio=4,
     )
 
     # Twitter Summary CArd

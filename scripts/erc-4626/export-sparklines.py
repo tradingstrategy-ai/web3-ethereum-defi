@@ -123,6 +123,7 @@ def main():
             width=100,
             height=25,
             line_width=1,
+            margin_ratio=4,
         )
 
         svg_bytes = export_sparkline_as_svg(

@@ -106,6 +106,7 @@ def render_sparkline_gradient(
     line_color="#22B452",
     bg_color="#282827",
     line_width: int = 2,
+    margin_ratio=50,
 ) -> plt.Figure:
     """Render a sparkline chart with green-to-black gradient fill."""
 
@@ -127,11 +128,12 @@ def render_sparkline_gradient(
     y_range = y_max - y_min
 
     # Calculate margin in data units (50px / height * y_range)
-    margin_ratio = 50 / height
+    margin_ratio = margin_ratio / height
     y_margin = y_range * margin_ratio
 
     # Apply margins (top only)
     y_min_with_margin = y_min - y_margin
+
     # y_min_with_margin = y_min
     y_max_with_margin = y_max + y_margin
 
