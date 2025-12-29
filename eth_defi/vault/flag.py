@@ -115,6 +115,7 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag, str]] = {
     "0xac69cfe6bb269cebf8ab4764d7e678c3658b99f2": (VaultFlag.illiquid, XUSD_MESSAGE),
     "0x55555815a5595991c3a0ff119b59aef6c8b55555": (VaultFlag.illiquid, XUSD_MESSAGE),
     "0x36e2aa296e798ca6262dc5fad5f5660e638d5402": (VaultFlag.illiquid, XUSD_MESSAGE),
+    "0x27968d36b937dcb26f33902fa489e5b228b104be": (VaultFlag.illiquid, XUSD_MESSAGE),
     # Borrowable USDC Deposit, SiloId: 55, Sonic
     "0x4935fadb17df859667cc4f7bfe6a8cb24f86f8d0": (VaultFlag.illiquid, XUSD_MESSAGE),
     # EVK Vault eUSDC-1, Sonic
@@ -135,6 +136,14 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag, str]] = {
     "0x196f3c7443e940911ee2bb88e019fd71400349d9": (VaultFlag.illiquid, XUSD_MESSAGE),
     # Borrowable USDC Deposit, SiloId: 170
     "0x7786dba2a1f7a4b0b7abf0962c449154c4f2b8ac": (VaultFlag.illiquid, XUSD_MESSAGE),
+    # Valamor aUSDC/USDC/USDT etc.
+    # https://x.com/VarlamoreCap/status/1986290754688541003
+    "0x3d7b0c3997e48fa3fc96cd057d1fb4e5f891835b": (VaultFlag.illiquid, XUSD_MESSAGE),
+    "0xf6f87073cf8929c206a77b0694619dc776f89885": (VaultFlag.illiquid, XUSD_MESSAGE),
+    "0x2ba39e5388ac6c702cb29aea78d52aa66832f1ee": (VaultFlag.illiquid, XUSD_MESSAGE),
+    "0x4dc1ce9b9f9ef00c144bfad305f16c62293dc0e8": (VaultFlag.illiquid, XUSD_MESSAGE),
+    "0x6c09bfdc1df45d6c4ff78dc9f1c13af29eb335d4": (VaultFlag.illiquid, XUSD_MESSAGE),
+    "0x9a1bf5365edbb99c2c61ca6d9ffad0b705acfc6f": (VaultFlag.illiquid, XUSD_MESSAGE),
     # Greenhouse USD ghUSDC
     # https://x.com/Main_St_Finance/status/1976972055951147194
     "0xf6bc16b79c469b94cdd25f3e2334dd4fee47a581": (VaultFlag.illiquid, MAINST_VAULT),
