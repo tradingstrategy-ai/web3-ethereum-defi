@@ -41,10 +41,22 @@ class RenderData:
     extension: str
 
 
-def is_vault_included(row: VaultRow):
-    nav = row.get("NAV") or 0
+def is_vault_included(
+    row: VaultRow,
+    prices_df_grouped: pd.core.groupby.generic.DataFrameGroupBy,
+):
+    id = row["_detection_data"].get_spec().as_string_id()
     denomination = row.get("Denomination") or ""
-    return nav > MIN_PEAK_TVL and is_stablecoin_like(denomination)
+    if not is_stablecoin_like(denomination):
+        return False
+
+    try:
+        vault_price_df = prices_df_grouped.get_group(id)
+    except KeyError:
+        return False
+
+    # Check the peak TVL passed our threshold
+    return vault_price_df["total_assets"].max() >= MIN_PEAK_TVL
 
 
 def main():
@@ -65,9 +77,11 @@ def main():
     vault_db = VaultDatabase.read()
     prices_df = read_default_vault_prices()
 
+    prices_groped = prices_df.groupby("id")
+
     # Select entries with peak TVL 50k USD
 
-    vault_rows = [r for r in vault_db.rows.values() if is_vault_included(r)]
+    vault_rows = [r for r in vault_db.rows.values() if is_vault_included(r, prices_groped)]
 
     logger.info(f"Exporting sparklines for {len(vault_rows)} vaults to R2 bucket '{bucket_name}'")
 
