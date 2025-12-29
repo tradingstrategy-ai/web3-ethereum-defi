@@ -73,6 +73,7 @@ Tutorials and examples
    erc-4626-vaults-arbitrum
    erc-4626-single-vault
    erc-4626-deposit-redeem
+   hyperliquid-vault-analysis
    enzyme-read-vaults
    enzyme-deploy
    verify-node-integrity
