@@ -40,14 +40,12 @@ Example::
     session = create_hyperliquid_session()
     vault_address = "0x3df9769bbbb335340872f01d8157c779d73c6ed0"
 
-    # Fetch fills for the last 30 days
+    # Fetch fills for the last 30 days (returns an iterator)
     start_time = datetime.now() - timedelta(days=30)
     fills = fetch_vault_fills(session, vault_address, start_time=start_time)
 
-    # Reconstruct position events
-    events = reconstruct_position_history(fills)
-
-    for event in events:
+    # Reconstruct position events (also returns an iterator)
+    for event in reconstruct_position_history(fills):
         print(f"{event.timestamp}: {event.event_type} {event.direction} {event.coin} "
               f"size={event.size} @ {event.price}")
 """
@@ -57,7 +55,7 @@ import logging
 from dataclasses import dataclass
 from decimal import Decimal
 from enum import Enum
-from typing import Iterator
+from typing import Iterable, Iterator
 
 from eth_typing import HexAddress
 from requests import Session
@@ -201,14 +199,19 @@ def fetch_vault_fills(
     server_url: str = HYPERLIQUID_API_URL,
     timeout: float = 30.0,
     aggregate_by_time: bool = False,
-) -> list[Fill]:
+) -> Iterator[Fill]:
     """Fetch all fills for a vault with automatic pagination.
 
     Fetches trade fills from the Hyperliquid API using the ``userFillsByTime``
     endpoint with automatic pagination to handle API limits.
 
-    The fills are returned in chronological order (oldest first) for
+    The fills are yielded in chronological order (oldest first) for
     position reconstruction.
+
+    Note: This function collects all fills before yielding to ensure
+    chronological ordering. For memory-constrained scenarios with very
+    large fill histories, consider using :py:func:`fetch_vault_fills_iterator`
+    which yields fills in API order (not chronological).
 
     Example::
 
@@ -220,11 +223,11 @@ def fetch_vault_fills(
         vault = "0x3df9769bbbb335340872f01d8157c779d73c6ed0"
 
         # Fetch last 7 days of fills
-        fills = fetch_vault_fills(
+        fills = list(fetch_vault_fills(
             session,
             vault,
             start_time=datetime.now() - timedelta(days=7),
-        )
+        ))
         print(f"Fetched {len(fills)} fills")
 
     :param session:
@@ -242,7 +245,7 @@ def fetch_vault_fills(
     :param aggregate_by_time:
         When True, partial fills from the same crossing order are combined
     :return:
-        List of fills sorted by timestamp ascending (oldest first)
+        Iterator of fills sorted by timestamp ascending (oldest first)
     :raises requests.HTTPError:
         If the HTTP request fails after retries
     """
@@ -259,8 +262,10 @@ def fetch_vault_fills(
     total_fetched = 0
 
     logger.info(
-        f"Fetching fills for vault {vault_address} "
-        f"from {start_time.isoformat()} to {end_time.isoformat()}"
+        "Fetching fills for vault %s from %s to %s",
+        vault_address,
+        start_time.isoformat(),
+        end_time.isoformat(),
     )
 
     while current_end_ms > start_ms:
@@ -317,9 +322,9 @@ def fetch_vault_fills(
     # Sort by timestamp ascending for chronological processing
     all_fills.sort(key=lambda f: f.timestamp_ms)
 
-    logger.info(f"Fetched {len(all_fills)} total fills for vault {vault_address}")
+    logger.info("Fetched %d total fills for vault %s", len(all_fills), vault_address)
 
-    return all_fills
+    yield from all_fills
 
 
 def fetch_vault_fills_iterator(
@@ -409,8 +414,8 @@ def fetch_vault_fills_iterator(
 
 
 def reconstruct_position_history(
-    fills: list[Fill],
-) -> list[PositionEvent]:
+    fills: Iterable[Fill],
+) -> Iterator[PositionEvent]:
     """Reconstruct position open/close events from fill history.
 
     Processes fills chronologically to detect position state changes:
@@ -431,7 +436,7 @@ def reconstruct_position_history(
         )
 
         fills = fetch_vault_fills(session, vault_address)
-        events = reconstruct_position_history(fills)
+        events = list(reconstruct_position_history(fills))
 
         # Filter for just opens and closes
         trades = [e for e in events if e.event_type in (
@@ -444,13 +449,11 @@ def reconstruct_position_history(
                   f"{trade.direction.value} {trade.coin}")
 
     :param fills:
-        List of fills sorted by timestamp ascending (oldest first).
-        Use :py:func:`fetch_vault_fills` to obtain this.
+        Iterable of fills sorted by timestamp ascending (oldest first).
+        Use :py:func:`fetch_vault_fills` or :py:func:`fetch_vault_fills_iterator` to obtain this.
     :return:
-        List of position events in chronological order
+        Iterator of position events in chronological order
     """
-    events: list[PositionEvent] = []
-
     # Track current position per asset
     # Positive = long, negative = short
     positions: dict[str, Decimal] = {}
@@ -475,9 +478,9 @@ def reconstruct_position_history(
             direction = PositionDirection.long if new_size > 0 else PositionDirection.short
             realized_pnl = None
 
-            events.append(_create_event(
+            yield _create_event(
                 fill, event_type, direction, fill.size, new_size, realized_pnl
-            ))
+            )
 
         elif new_size == Decimal("0"):
             # Had position, now flat -> Close
@@ -485,9 +488,9 @@ def reconstruct_position_history(
             direction = PositionDirection.long if old_size > 0 else PositionDirection.short
             realized_pnl = fill.closed_pnl if fill.closed_pnl != 0 else None
 
-            events.append(_create_event(
+            yield _create_event(
                 fill, event_type, direction, fill.size, new_size, realized_pnl
-            ))
+            )
 
         elif (old_size > 0 and new_size > 0) or (old_size < 0 and new_size < 0):
             # Same side, size changed
@@ -502,9 +505,9 @@ def reconstruct_position_history(
                 event_type = PositionEventType.decrease
                 realized_pnl = fill.closed_pnl if fill.closed_pnl != 0 else None
 
-            events.append(_create_event(
+            yield _create_event(
                 fill, event_type, direction, fill.size, new_size, realized_pnl
-            ))
+            )
 
         else:
             # Position flipped sides (e.g., long -> short)
@@ -512,30 +515,28 @@ def reconstruct_position_history(
 
             # First: close old position
             old_direction = PositionDirection.long if old_size > 0 else PositionDirection.short
-            events.append(_create_event(
+            yield _create_event(
                 fill,
                 PositionEventType.close,
                 old_direction,
                 abs(old_size),  # Close the entire old position
                 Decimal("0"),
                 fill.closed_pnl if fill.closed_pnl != 0 else None,
-            ))
+            )
 
             # Second: open new position with remaining size
             new_direction = PositionDirection.long if new_size > 0 else PositionDirection.short
-            events.append(_create_event(
+            yield _create_event(
                 fill,
                 PositionEventType.open,
                 new_direction,
                 abs(new_size),  # Open with the flipped amount
                 new_size,
                 None,
-            ))
+            )
 
         # Update position tracker
         positions[coin] = new_size
-
-    return events
 
 
 def _create_event(

@@ -44,19 +44,19 @@ def vault_fills(session) -> list[Fill]:
 
     Uses fixed time range 2025-12-01 to 2025-12-28 for reproducibility.
     """
-    fills = fetch_vault_fills(
+    fills = list(fetch_vault_fills(
         session,
         TEST_VAULT_ADDRESS,
         start_time=TEST_START_TIME,
         end_time=TEST_END_TIME,
-    )
+    ))
     return fills
 
 
 @pytest.fixture(scope="module")
 def position_events(vault_fills) -> list[PositionEvent]:
     """Reconstruct position events from fills."""
-    return reconstruct_position_history(vault_fills)
+    return list(reconstruct_position_history(vault_fills))
 
 
 def test_fetch_returns_fills(vault_fills: list[Fill]):
@@ -96,12 +96,12 @@ def test_fetch_with_time_range(session):
     start_time = datetime(2025, 12, 15)
     end_time = datetime(2025, 12, 20)
 
-    fills = fetch_vault_fills(
+    fills = list(fetch_vault_fills(
         session,
         TEST_VAULT_ADDRESS,
         start_time=start_time,
         end_time=end_time,
-    )
+    ))
 
     # All fills should be within the time range
     start_ms = int(start_time.timestamp() * 1000)
@@ -191,12 +191,12 @@ def test_pagination_handles_empty_result(session):
     start_time = datetime(2019, 1, 1)
     end_time = datetime(2020, 1, 1)
 
-    fills = fetch_vault_fills(
+    fills = list(fetch_vault_fills(
         session,
         TEST_VAULT_ADDRESS,
         start_time=start_time,
         end_time=end_time,
-    )
+    ))
 
     assert fills == [], "Should return empty list for time range with no fills"
 
@@ -206,12 +206,12 @@ def test_pagination_respects_start_time(session):
     start_time = datetime(2025, 12, 20)
     end_time = datetime(2025, 12, 25)
 
-    fills = fetch_vault_fills(
+    fills = list(fetch_vault_fills(
         session,
         TEST_VAULT_ADDRESS,
         start_time=start_time,
         end_time=end_time,
-    )
+    ))
 
     start_ms = int(start_time.timestamp() * 1000)
 

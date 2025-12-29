@@ -20,8 +20,9 @@ Avoid running the whole test suite as it takes several minutes. Only run specifi
 - Use threaded instead of async Python code
 - Always type hint function arguments and return values
 - Try to use Python and Pandas `apply()` and other functional helpers instead of slow for and while loops
-- Use `any()` and `all()` when checking if a collection member has one or more matches, instead of using slow for loops
+- Use `any()` and `all()` with generators and list comprehension when checking if a collection member has one or more matches, instead of using slow for loops
 - All functions that do network reads to get data should be prefixed with `fetch_` instead of `get_`
+- Always try to return `Iterator` instead of `list` from a function call to make functions faster
 
 ### Code comments
 
