@@ -1,5 +1,10 @@
 # Instructions to work with the code base
 
+## English
+
+- Use UK/British English instead of US English
+- Say things like `visualise` instead of `visualize`
+
 ## Running tests
 
 To run tests you need to use the installed Poetry environment, with given environment secrets file.
@@ -43,6 +48,7 @@ Avoid running the whole test suite as it takes several minutes. Only run specifi
 ### Documentation
 
 - All API modules should have stub entry under `docs/source/api` and cross-referenced in `docs/source/api/index` table of contents
+- See `docs/source/api/index.rst` and `docs/source/api/lagoon/index.rst` as examples
 
 ### datetime
 
@@ -57,3 +63,8 @@ Avoid running the whole test suite as it takes several minutes. Only run specifi
 
 - Never use test classes in pytest
 - `pytest` tests should not have stdout output like `print`
+- Instead of manual float fuzzy comparison like `assert abs(aave_total_pnl - 96.6087) < 0.01` use `pytest.approx()`
+
+## Python notebooks
+
+- Whenever possible, prefer table output instead of print(). Use Pandas DataFrame and notebook's built-in display() function to render tabular data.

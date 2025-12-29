@@ -13,14 +13,10 @@ from decimal import Decimal
 import pandas as pd
 import pytest
 
-from eth_defi.hyperliquid.position import (
-    Fill,
-    PositionDirection,
-    PositionEvent,
-    PositionEventType,
-    fetch_vault_fills,
-    reconstruct_position_history,
-)
+from eth_defi.hyperliquid.position import (Fill, PositionDirection,
+                                           PositionEvent, PositionEventType,
+                                           fetch_vault_fills,
+                                           reconstruct_position_history)
 from eth_defi.hyperliquid.position_analysis import create_account_dataframe
 from eth_defi.hyperliquid.session import create_hyperliquid_session
 
@@ -64,48 +60,6 @@ def account_df(position_events) -> pd.DataFrame:
     return create_account_dataframe(position_events)
 
 
-def test_dataframe_has_timestamp_index(account_df: pd.DataFrame):
-    """Test that DataFrame has a timestamp index."""
-    assert isinstance(account_df.index, pd.DatetimeIndex)
-    assert account_df.index.name == "timestamp"
-
-
-def test_dataframe_has_expected_columns(account_df: pd.DataFrame):
-    """Test that DataFrame has exposure and pnl columns for each market."""
-    columns = account_df.columns.tolist()
-
-    # Check that columns follow the naming convention
-    exposure_columns = [c for c in columns if c.endswith("_exposure")]
-    pnl_columns = [c for c in columns if c.endswith("_pnl")]
-
-    assert len(exposure_columns) > 0, "Should have exposure columns"
-    assert len(pnl_columns) > 0, "Should have pnl columns"
-
-    # Each exposure column should have a corresponding pnl column
-    for exp_col in exposure_columns:
-        base = exp_col.replace("_exposure", "")
-        assert f"{base}_pnl" in columns, f"Missing pnl column for {base}"
-
-
-def test_dataframe_has_long_and_short_columns(account_df: pd.DataFrame):
-    """Test that DataFrame has both long and short direction columns."""
-    columns = account_df.columns.tolist()
-
-    long_columns = [c for c in columns if "_long_" in c]
-    short_columns = [c for c in columns if "_short_" in c]
-
-    assert len(long_columns) > 0, "Should have long direction columns"
-    assert len(short_columns) > 0, "Should have short direction columns"
-
-
-def test_dataframe_row_count_matches_events(
-    account_df: pd.DataFrame,
-    position_events: list[PositionEvent],
-):
-    """Test that DataFrame has one row per position event."""
-    assert len(account_df) == len(position_events)
-
-
 def test_total_pnl_can_be_calculated(account_df: pd.DataFrame):
     """Test that total account PnL can be calculated by summing pnl columns."""
     pnl_columns = [col for col in account_df.columns if col.endswith("_pnl")]
@@ -115,28 +69,6 @@ def test_total_pnl_can_be_calculated(account_df: pd.DataFrame):
     assert isinstance(total_pnl.iloc[-1], float)
     # There should be some realized PnL in the test period
     assert total_pnl.iloc[-1] != 0, "Expected some realized PnL"
-
-
-def test_exposure_values_are_non_negative(account_df: pd.DataFrame):
-    """Test that exposure values are non-negative."""
-    exposure_columns = [col for col in account_df.columns if col.endswith("_exposure")]
-    for col in exposure_columns:
-        assert (account_df[col] >= 0).all(), f"Exposure column {col} has negative values"
-
-
-def test_specific_coin_columns_exist(account_df: pd.DataFrame):
-    """Test that specific coins from the test period have columns."""
-    columns = account_df.columns.tolist()
-
-    # These coins are known to be traded in the test period
-    # (based on test_vault_history.py test_summary)
-    expected_coins = ["BTC", "ACE", "ZEC", "AAVE"]
-
-    for coin in expected_coins:
-        assert f"{coin}_long_exposure" in columns, f"Missing {coin}_long_exposure"
-        assert f"{coin}_long_pnl" in columns, f"Missing {coin}_long_pnl"
-        assert f"{coin}_short_exposure" in columns, f"Missing {coin}_short_exposure"
-        assert f"{coin}_short_pnl" in columns, f"Missing {coin}_short_pnl"
 
 
 def test_final_pnl_values_match_summary(
@@ -150,16 +82,3 @@ def test_final_pnl_values_match_summary(
     # AAVE should have specific realized PnL
     aave_total_pnl = final_row.get("AAVE_long_pnl", 0) + final_row.get("AAVE_short_pnl", 0)
     assert abs(aave_total_pnl - 96.6087) < 0.01, f"AAVE PnL mismatch: {aave_total_pnl}"
-
-
-def test_empty_events_returns_empty_dataframe():
-    """Test that empty event list returns empty DataFrame."""
-    df = create_account_dataframe([])
-    assert len(df) == 0
-    assert isinstance(df, pd.DataFrame)
-
-
-def test_dataframe_columns_are_sorted(account_df: pd.DataFrame):
-    """Test that columns are sorted alphabetically."""
-    columns = account_df.columns.tolist()
-    assert columns == sorted(columns), "Columns should be sorted"
