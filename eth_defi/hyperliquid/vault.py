@@ -52,6 +52,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
+from enum import Enum
 from typing import Any, Iterator
 
 import pandas as pd
@@ -224,11 +225,32 @@ DEFAULT_RETRIES = 5
 DEFAULT_BACKOFF_FACTOR = 0.5
 
 
+class VaultSortKey(Enum):
+    """Supported sort keys for vault listing.
+
+    These correspond to fields available in VaultSummary that provide
+    stable, deterministic ordering.
+    """
+
+    #: Sort by vault address (hex string, stable and unique)
+    VAULT_ADDRESS = "vault_address"
+    #: Sort by vault name (alphabetical)
+    NAME = "name"
+    #: Sort by TVL (Total Value Locked)
+    TVL = "tvl"
+    #: Sort by APR (Annual Percentage Rate)
+    APR = "apr"
+    #: Sort by creation time
+    CREATE_TIME = "create_time"
+
+
 def fetch_all_vaults(
     stats_url: str = HYPERLIQUID_STATS_URL,
     timeout: float = 30.0,
     retries: int = DEFAULT_RETRIES,
     backoff_factor: float = DEFAULT_BACKOFF_FACTOR,
+    sort_by: VaultSortKey | None = None,
+    sort_descending: bool = False,
 ) -> Iterator[VaultSummary]:
     """Iterate over all Hyperliquid vaults.
 
@@ -244,7 +266,7 @@ def fetch_all_vaults(
 
     Example::
 
-        from eth_defi.hyperliquid.vault import fetch_all_vaults, HYPERLIQUID_STATS_TESTNET_URL
+        from eth_defi.hyperliquid.vault import fetch_all_vaults, HYPERLIQUID_STATS_TESTNET_URL, VaultSortKey
 
         # Iterate over all vaults (mainnet)
         for vault in fetch_all_vaults():
@@ -260,6 +282,12 @@ def fetch_all_vaults(
         # Convert to list
         all_vaults = list(fetch_all_vaults())
 
+        # Get vaults sorted by address (stable, deterministic order)
+        sorted_vaults = list(fetch_all_vaults(sort_by=VaultSortKey.VAULT_ADDRESS))
+
+        # Get top 10 vaults by TVL
+        top_tvl = list(fetch_all_vaults(sort_by=VaultSortKey.TVL, sort_descending=True))[:10]
+
     :param stats_url:
         Hyperliquid stats-data API URL.
         Use ``HYPERLIQUID_STATS_URL`` for mainnet or ``HYPERLIQUID_STATS_TESTNET_URL`` for testnet.
@@ -269,6 +297,11 @@ def fetch_all_vaults(
         Maximum number of retry attempts for failed requests
     :param backoff_factor:
         Backoff factor for exponential retry delays
+    :param sort_by:
+        Optional sort key for ordering results. Use ``VaultSortKey.VAULT_ADDRESS``
+        for stable, deterministic ordering across runs.
+    :param sort_descending:
+        If True, sort in descending order. Default is ascending.
     :return:
         Iterator yielding VaultSummary objects
     :raises requests.HTTPError:
@@ -297,7 +330,8 @@ def fetch_all_vaults(
 
     logger.info(f"Fetched {len(data)} vaults from Hyperliquid")
 
-    for item in data:
+    def _parse_vault(item: dict) -> VaultSummary:
+        """Parse a single vault item from the API response."""
         # Stats-data response has vault info nested under "summary" key
         summary = item.get("summary", {})
         relationship = summary.get("relationship", {})
@@ -307,7 +341,7 @@ def fetch_all_vaults(
         # Format: [["day", [...]], ["week", [...]], ["month", [...]], ["allTime", [...]]]
         pnls = {period: values for period, values in item.get("pnls", [])}
 
-        yield VaultSummary(
+        return VaultSummary(
             name=summary.get("name", ""),
             vault_address=summary.get("vaultAddress", ""),
             leader=summary.get("leader", ""),
@@ -321,3 +355,27 @@ def fetch_all_vaults(
             pnl_month=pnls.get("month"),
             pnl_all_time=pnls.get("allTime"),
         )
+
+    if sort_by is None:
+        # No sorting - yield directly for memory efficiency
+        for item in data:
+            yield _parse_vault(item)
+    else:
+        # Sorting required - need to collect all vaults first
+        vaults = [_parse_vault(item) for item in data]
+
+        # Define sort key based on requested field
+        def _get_sort_key(vault: VaultSummary):
+            value = getattr(vault, sort_by.value)
+            # Handle None values - sort them to the end
+            if value is None:
+                if sort_by == VaultSortKey.APR:
+                    return float("-inf") if sort_descending else float("inf")
+                elif sort_by == VaultSortKey.CREATE_TIME:
+                    return datetime.min if sort_descending else datetime.max
+                else:
+                    return ""
+            return value
+
+        vaults.sort(key=_get_sort_key, reverse=sort_descending)
+        yield from vaults
