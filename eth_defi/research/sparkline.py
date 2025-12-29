@@ -105,6 +105,7 @@ def render_sparkline_gradient(
     ffill=True,
     line_color="#22B452",
     bg_color="#282827",
+    line_width: int = 2,
 ) -> plt.Figure:
     """Render a sparkline chart with green-to-black gradient fill."""
 
@@ -158,7 +159,7 @@ def render_sparkline_gradient(
             vault_data.index,
             vault_data["share_price"],
             color="#00ff88",
-            linewidth=2,
+            linewidth=line_width,
             zorder=2,
         )
 

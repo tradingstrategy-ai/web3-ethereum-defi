@@ -91,18 +91,21 @@ def main():
         prices_df=prices_df,
     )
 
-    # fig = render_sparkline(
-    #    vault_prices_df,
-    #    width=100,
-    #    height=25,
-    # )
+    # Listing sparklien
+    # See export-sparklines.py
+    fig = render_sparkline_gradient(
+        vault_prices_df,
+        width=100,
+        height=25,
+        line_width=1,
+    )
 
     # Twitter Summary CArd
     # https://developer.x.com/en/docs/x-for-websites/cards/overview/summary-card-with-large-image
-    fig = render_sparkline_gradient(
-        vault_prices_df,
-    )
-
+    # fig = render_sparkline_gradient(
+    #     vault_prices_df,
+    # )
+    #
     svg_bytes = export_sparkline_as_svg(
         fig,
     )
