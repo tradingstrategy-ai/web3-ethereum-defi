@@ -40,7 +40,6 @@ from enum import Enum
 from typing import Any, Iterator
 
 import pandas as pd
-import requests
 from eth_typing import HexAddress
 from requests import Session
 
@@ -130,41 +129,54 @@ class HyperliquidVault:
 
     Example::
 
+        from eth_defi.hyperliquid.session import create_hyperliquid_session
+        from eth_defi.hyperliquid.vault import HyperliquidVault, HYPERLIQUID_API_URL
+
+        # Create a session for API requests
+        session = create_hyperliquid_session()
+
         # Initialize for mainnet
-        vault = HyperliquidVault()
+        vault = HyperliquidVault(
+            session=session,
+            vault_address="0x1234567890abcdef1234567890abcdef12345678",
+        )
 
         # Or for testnet
-        vault = HyperliquidVault(testnet=True)
+        vault = HyperliquidVault(
+            session=session,
+            vault_address="0x1234567890abcdef1234567890abcdef12345678",
+            server_url=HYPERLIQUID_TESTNET_API_URL,
+        )
 
-        # Get all vaults summary
-        summaries_df = vault.get_vault_summaries_dataframe()
-        print(f"Found {len(summaries_df)} vaults")
-
-        # Get specific vault details
-        details = vault.get_vault_details("0x...")
-
-        # Get portfolio history for a vault
-        history_df = vault.get_vault_portfolio_history_dataframe("0x...")
-
-    :param testnet: Use testnet API instead of mainnet
+    :param session: HTTP session with retry logic from :py:func:`create_hyperliquid_session`
+    :param vault_address: The vault's blockchain address
+    :param server_url: Hyperliquid API URL (defaults to mainnet)
     :param timeout: HTTP request timeout in seconds
     """
 
     def __init__(
         self,
-        testnet: bool = False,
+        session: Session,
+        vault_address: HexAddress,
+        server_url: str = HYPERLIQUID_API_URL,
         timeout: float = 30.0,
     ):
         """Initialize the Hyperliquid vault client.
 
-        :param testnet:
-            If True, use the testnet API URL instead of mainnet
+        :param session:
+            HTTP session with retry logic. Use :py:func:`create_hyperliquid_session` to create one.
+        :param vault_address:
+            The vault's blockchain address
+        :param server_url:
+            Hyperliquid API URL. Use ``HYPERLIQUID_API_URL`` for mainnet
+            or ``HYPERLIQUID_TESTNET_API_URL`` for testnet.
         :param timeout:
             HTTP request timeout in seconds
         """
-        self.base_url = HYPERLIQUID_TESTNET_API_URL if testnet else HYPERLIQUID_API_URL
+        self.session = session
+        self.vault_address = vault_address
+        self.server_url = server_url
         self.timeout = timeout
-        self.testnet = testnet
 
     def _make_request(
         self,
@@ -184,14 +196,14 @@ class HyperliquidVault:
         :raises requests.Timeout:
             If the request times out
         """
-        url = f"{self.base_url}/info"
+        url = f"{self.server_url}/info"
         payload = {"type": request_type}
         if params:
             payload.update(params)
 
         logger.debug(f"Making request to {url} with payload: {payload}")
 
-        response = requests.post(
+        response = self.session.post(
             url,
             json=payload,
             headers={"Content-Type": "application/json"},
