@@ -118,10 +118,11 @@ def main():
         # Do daily data points
         vault_prices_df = vault_prices_df.resample("D").last()[["share_price", "total_assets"]]
 
-        fig = render_sparkline_simple(
+        fig = render_sparkline_gradient(
             vault_prices_df,
             width=100,
             height=25,
+            line_width=1,
         )
 
         svg_bytes = export_sparkline_as_svg(
