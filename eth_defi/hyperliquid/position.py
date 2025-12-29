@@ -440,8 +440,8 @@ def reconstruct_position_history(
 
         # Filter for just opens and closes
         trades = [e for e in events if e.event_type in (
-            PositionEventType.OPEN,
-            PositionEventType.CLOSE,
+            PositionEventType.open,
+            PositionEventType.close,
         )]
 
         for trade in trades:

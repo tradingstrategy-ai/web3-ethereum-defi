@@ -407,7 +407,7 @@ def fetch_all_vaults(
     Example::
 
         from eth_defi.hyperliquid.session import create_hyperliquid_session
-        from eth_defi.hyperliquid.vault import fetch_all_vaults, HYPERLIQUID_STATS_TESTNET_URL, VaultSortKey
+        from eth_defi.hyperliquid.vault import fetch_all_vaults, HYPERLIQUID_STATS_TESTNET_URL
 
         # Create a session for API requests
         session = create_hyperliquid_session()
@@ -426,11 +426,11 @@ def fetch_all_vaults(
         # Convert to list
         all_vaults = list(fetch_all_vaults(session))
 
-        # Get vaults sorted by address (stable, deterministic order)
-        sorted_vaults = list(fetch_all_vaults(session, sort_by=VaultSortKey.VAULT_ADDRESS))
+        # Sort vaults by TVL after fetching
+        sorted_by_tvl = sorted(fetch_all_vaults(session), key=lambda v: v.tvl, reverse=True)
 
         # Get top 10 vaults by TVL
-        top_tvl = list(fetch_all_vaults(session, sort_by=VaultSortKey.TVL, sort_descending=True))[:10]
+        top_tvl = sorted_by_tvl[:10]
 
     :param session:
         A requests Session configured for Hyperliquid API.
