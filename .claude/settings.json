@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch",
+      "Bash(mkdir:*)",
+      "Bash(ls:*)",
+      "Bash(cat:*)",
+      "Bash(git:*)",
+      "Edit(**)",
+      "Write(**)",
+      "MultiEdit(**)",
+      "Bash(./scripts/*.sh:*)",
+      "Bash(bash scripts/:*)",
+      "Bash(sh scripts/:*)"            
+    ]
+  }
+}
