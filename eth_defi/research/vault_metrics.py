@@ -547,6 +547,13 @@ def slugify_vaults(vaults: dict[VaultSpec, VaultRow]) -> list[VaultRow] | None:
     return result
 
 
+def _unnullify(x: str | None, default: str = "<unknown>") -> str:
+    """Make sure we do not pass null value on human readable names beyond this point."""
+    if x is None or pd.isna(x):
+        return default
+    return x
+
+
 def calculate_lifetime_metrics(
     df: pd.DataFrame,
     vault_db: VaultDatabase | dict[VaultSpec, VaultRow],
@@ -598,18 +605,9 @@ def calculate_lifetime_metrics(
 
         assert vault_metadata, f"Vault metadata not found for {id_val}. This vault is present in price data, but not in metadata entries. We have {len(vaults_by_id)} metadata entries."
 
-        name = vault_metadata.get("Name")
-
-        if not name:
-            # Normalise name, don't let null name to leak beyond this point
-            name = "<unnamed>"
-
-        denomination = vault_metadata.get("Denomination")
-
-        if not denomination:
-            denomination = "<broken>"
-
-        share_token = vault_metadata.get("Share token")
+        name = _unnullify(vault_metadata.get("Name"), "<unnamed>")
+        denomination = _unnullify(vault_metadata.get("Denomination"), "<broken>")
+        share_token = _unnullify(vault_metadata.get("Share token"), "<broken>")
         normalised_denomination = normalise_token_symbol(denomination)
         denomination_slug = normalised_denomination.lower()
 
