@@ -605,6 +605,10 @@ def calculate_lifetime_metrics(
             name = "<unnamed>"
 
         denomination = vault_metadata.get("Denomination")
+
+        if not denomination:
+            denomination = "<broken>"
+
         share_token = vault_metadata.get("Share token")
         normalised_denomination = normalise_token_symbol(denomination)
         denomination_slug = normalised_denomination.lower()
