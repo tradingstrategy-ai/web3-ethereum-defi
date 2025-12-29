@@ -43,10 +43,9 @@ import pandas as pd
 import requests
 from eth_typing import HexAddress
 from requests import Session
-from requests.adapters import HTTPAdapter
 
+from eth_defi.hyperliquid.session import create_hyperliquid_session
 from eth_defi.types import Percent
-from eth_defi.velvet.logging_retry import LoggingRetry
 
 logger = logging.getLogger(__name__)
 
@@ -202,13 +201,6 @@ class HyperliquidVault:
         return response.json()
 
 
-#: Default number of retries for API requests
-DEFAULT_RETRIES = 5
-
-#: Default backoff factor for retries (seconds)
-DEFAULT_BACKOFF_FACTOR = 0.5
-
-
 class VaultSortKey(Enum):
     """Supported sort keys for vault listing.
 
@@ -229,10 +221,9 @@ class VaultSortKey(Enum):
 
 
 def fetch_all_vaults(
+    session: Session | None = None,
     stats_url: str = HYPERLIQUID_STATS_URL,
     timeout: float = 30.0,
-    retries: int = DEFAULT_RETRIES,
-    backoff_factor: float = DEFAULT_BACKOFF_FACTOR,
 ) -> Iterator[VaultSummary]:
     """Iterate over all Hyperliquid vaults.
 
@@ -248,57 +239,48 @@ def fetch_all_vaults(
 
     Example::
 
+        from eth_defi.hyperliquid.session import create_hyperliquid_session
         from eth_defi.hyperliquid.vault import fetch_all_vaults, HYPERLIQUID_STATS_TESTNET_URL, VaultSortKey
 
+        # Create a session for API requests
+        session = create_hyperliquid_session()
+
         # Iterate over all vaults (mainnet)
-        for vault in fetch_all_vaults():
+        for vault in fetch_all_vaults(session):
             print(f"Vault: {vault.name}, TVL: ${vault.tvl:,.2f}")
 
         # Use testnet
-        for vault in fetch_all_vaults(stats_url=HYPERLIQUID_STATS_TESTNET_URL):
+        for vault in fetch_all_vaults(session, stats_url=HYPERLIQUID_STATS_TESTNET_URL):
             print(f"Testnet vault: {vault.name}")
 
         # Filter vaults with high TVL
-        high_tvl_vaults = [v for v in fetch_all_vaults() if v.tvl > 1_000_000]
+        high_tvl_vaults = [v for v in fetch_all_vaults(session) if v.tvl > 1_000_000]
 
         # Convert to list
-        all_vaults = list(fetch_all_vaults())
+        all_vaults = list(fetch_all_vaults(session))
 
         # Get vaults sorted by address (stable, deterministic order)
-        sorted_vaults = list(fetch_all_vaults(sort_by=VaultSortKey.VAULT_ADDRESS))
+        sorted_vaults = list(fetch_all_vaults(session, sort_by=VaultSortKey.VAULT_ADDRESS))
 
         # Get top 10 vaults by TVL
-        top_tvl = list(fetch_all_vaults(sort_by=VaultSortKey.TVL, sort_descending=True))[:10]
+        top_tvl = list(fetch_all_vaults(session, sort_by=VaultSortKey.TVL, sort_descending=True))[:10]
 
+    :param session:
+        A requests Session configured for Hyperliquid API.
+        Use :py:func:`eth_defi.hyperliquid.session.create_hyperliquid_session` to create one.
+        If None, a default session will be created.
     :param stats_url:
         Hyperliquid stats-data API URL.
         Use ``HYPERLIQUID_STATS_URL`` for mainnet or ``HYPERLIQUID_STATS_TESTNET_URL`` for testnet.
     :param timeout:
         HTTP request timeout in seconds
-    :param retries:
-        Maximum number of retry attempts for failed requests
-    :param backoff_factor:
-        Backoff factor for exponential retry delays
-    :param sort_by:
-        Optional sort key for ordering results. Use ``VaultSortKey.VAULT_ADDRESS``
-        for stable, deterministic ordering across runs.
-    :param sort_descending:
-        If True, sort in descending order. Default is ascending.
     :return:
         Iterator yielding VaultSummary objects
     :raises requests.HTTPError:
         If the HTTP request fails after all retries
     """
-    # Set up session with retry policy for API throttling
-    session = Session()
-    retry_policy = LoggingRetry(
-        total=retries,
-        backoff_factor=backoff_factor,
-        status_forcelist=[429, 500, 502, 503, 504],
-        logger=logger,
-    )
-    session.mount("http://", HTTPAdapter(max_retries=retry_policy))
-    session.mount("https://", HTTPAdapter(max_retries=retry_policy))
+    if session is None:
+        session = create_hyperliquid_session()
 
     logger.debug(f"Fetching all vaults from {stats_url}")
 

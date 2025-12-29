@@ -4,6 +4,7 @@ This test module verifies that we can fetch vault metadata from the Hyperliquid
 stats-data API and sort the results in a stable order.
 """
 
+from eth_defi.hyperliquid.session import create_hyperliquid_session
 from eth_defi.hyperliquid.vault import (
     VaultSummary,
     fetch_all_vaults,
@@ -18,8 +19,9 @@ def test_hyperliquid_vault_metadata():
     - Takes the first 10 vaults
     - Examines stable variables (name, leader address) of first and last vault
     """
-    # Fetch all vaults
-    vaults = list(fetch_all_vaults())
+    # Create session and fetch all vaults
+    session = create_hyperliquid_session()
+    vaults = list(fetch_all_vaults(session))
 
     # There should be many vaults available
     assert len(vaults) > 10, f"Expected more than 10 vaults, got {len(vaults)}"
