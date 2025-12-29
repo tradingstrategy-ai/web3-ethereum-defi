@@ -20,7 +20,6 @@ from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.token import TokenDiskCache
 from eth_defi.vault.fee import FeeData, BROKEN_FEE_DATA
-from eth_defi.vault.flag import get_vault_special_flags, get_notes
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +53,7 @@ def create_vault_scan_record(
         "Denomination": "",
         "Share token": "",
         "NAV": 0,
+        "Peak NAV": 0,
         "Mgmt fee": None,
         "Perf fee": None,
         "Shares": 0,

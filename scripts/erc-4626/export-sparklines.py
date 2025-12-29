@@ -28,7 +28,9 @@ from eth_defi.research.sparkline import upload_to_r2_compressed
 
 
 #: What's the threshold to render the spark line for the vault
-MIN_TVL = 25_000
+#:
+#: Must match the valut in vault-analysis-json.py
+MIN_PEAK_TVL = 5000
 
 
 @dataclass(slots=True)
@@ -42,7 +44,7 @@ class RenderData:
 def is_vault_included(row: VaultRow):
     nav = row.get("NAV") or 0
     denomination = row.get("Denomination") or ""
-    return nav > MIN_TVL and is_stablecoin_like(denomination)
+    return nav > MIN_PEAK_TVL and is_stablecoin_like(denomination)
 
 
 def main():
