@@ -24,3 +24,6 @@ Avoid running the whole test suite as it takes several minutes. Only run specifi
 - For logging, use the module level `logger = logging.getLogger(__name__)` pattern
 - For percent like numberes, do not use raw float, but
 - All functions that do network reads to get data should be prefixed with `fetch_` instead of `get_`
+- If you need to use `requests` module, make sure it
+- All products
+- All API modules should have stub entry under `docs/source/api` and cross-referenced in `docs/source/api/index` table of contents

@@ -3,22 +3,6 @@
 This module provides functionality for extracting historical Hyperliquid vault
 events and serializing them into Pandas DataFrames for analysis.
 
-Example::
-
-    from eth_defi.hyperliquid.vault import HyperliquidVault
-
-    # Initialize vault client
-    vault = HyperliquidVault()
-
-    # Get all vault summaries as DataFrame
-    df = vault.get_vault_summaries_dataframe()
-
-    # Get details for a specific vault
-    details = vault.get_vault_details("0x1234...")
-
-    # Get vault details with portfolio history as DataFrame
-    df_history = vault.get_vault_portfolio_history_dataframe("0x1234...")
-
 API Endpoints
 -------------
 
@@ -249,8 +233,6 @@ def fetch_all_vaults(
     timeout: float = 30.0,
     retries: int = DEFAULT_RETRIES,
     backoff_factor: float = DEFAULT_BACKOFF_FACTOR,
-    sort_by: VaultSortKey | None = None,
-    sort_descending: bool = False,
 ) -> Iterator[VaultSummary]:
     """Iterate over all Hyperliquid vaults.
 
@@ -356,26 +338,7 @@ def fetch_all_vaults(
             pnl_all_time=pnls.get("allTime"),
         )
 
-    if sort_by is None:
-        # No sorting - yield directly for memory efficiency
-        for item in data:
-            yield _parse_vault(item)
-    else:
-        # Sorting required - need to collect all vaults first
-        vaults = [_parse_vault(item) for item in data]
-
-        # Define sort key based on requested field
-        def _get_sort_key(vault: VaultSummary):
-            value = getattr(vault, sort_by.value)
-            # Handle None values - sort them to the end
-            if value is None:
-                if sort_by == VaultSortKey.APR:
-                    return float("-inf") if sort_descending else float("inf")
-                elif sort_by == VaultSortKey.CREATE_TIME:
-                    return datetime.min if sort_descending else datetime.max
-                else:
-                    return ""
-            return value
-
-        vaults.sort(key=_get_sort_key, reverse=sort_descending)
-        yield from vaults
+    # No sorting - yield directly for memory efficiency
+    for item in data:
+        yield _parse_vault(item)
+    

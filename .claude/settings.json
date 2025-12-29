@@ -9,6 +9,7 @@
       "Bash(git:*)",
       "Bash(python:*)",
       "Bash(poetry:*)",
+      "Bash(source:*)",
       "Edit(**)",
       "Write(**)",
       "MultiEdit(**)",
