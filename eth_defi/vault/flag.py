@@ -200,7 +200,7 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag, str]] = {
     "0x8bce54605f56f2f711d9b60bdf2433aae8a14aa5": (VaultFlag.abnormal_tvl, ABNORMAL_TVL),
     "0xbcf722b41ff6f2f932721582680ed0116292cc28": (VaultFlag.abnormal_tvl, ABNORMAL_TVL),
     # USDC BaseInvaders
-    "0xD1468AF648565f11393e4033cb0Cd270b62495c9": (VaultFlag.abnormal_tvl, UNKNOWN_VAULT),
+    "0xd1468af648565f11393e4033cb0cd270b62495c9": (VaultFlag.abnormal_tvl, UNKNOWN_VAULT),
     # Peapods Interest Bearing USDC - 17
     "0xeee75954eded526ef98a0cecc027beee4586315e": (VaultFlag.broken, BROKEN_VAULT),
 }
