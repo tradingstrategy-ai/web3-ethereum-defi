@@ -7,35 +7,33 @@
 import datetime
 import logging
 import math
-from enum import Enum
-from typing import Literal, TypeAlias, Optional
 import warnings
-from dataclasses import dataclass, is_dataclass, asdict
+from dataclasses import asdict, dataclass, is_dataclass
+from enum import Enum
+from typing import Literal, Optional, TypeAlias
 
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
-
-from plotly.subplots import make_subplots
-from plotly.graph_objects import Figure
 import plotly.io as pio
-from tqdm.auto import tqdm
-from ffn.core import PerformanceStats
-from ffn.core import calc_stats
+from ffn.core import PerformanceStats, calc_stats
 from ffn.utils import fmtn, fmtp
+from plotly.graph_objects import Figure
+from plotly.subplots import make_subplots
 from slugify import slugify
+from tqdm.auto import tqdm
 
 from eth_defi.chain import get_chain_name
+from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.core import ERC4262VaultDetection
 from eth_defi.research.value_table import format_series_as_multi_column_grid
 from eth_defi.research.wrangle_vault_prices import forward_fill_vault
 from eth_defi.token import is_stablecoin_like, normalise_token_symbol
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.fee import FeeData, VaultFeeMode
-from eth_defi.vault.flag import get_notes, VaultFlag
+from eth_defi.vault.flag import VaultFlag, get_notes
+from eth_defi.vault.risk import VaultTechnicalRisk, get_vault_risk
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
-from eth_defi.vault.risk import get_vault_risk, VaultTechnicalRisk
-from eth_defi.compat import native_datetime_utc_now
 
 logger = logging.getLogger(__name__)
 
@@ -115,7 +113,7 @@ def create_fee_label(
 
     Order is: management / performance / deposit / withdrawal fees.
     """
-
+ 
     management_fee_annual = fee_data.management
     performance_fee: Percent = fee_data.performance
     deposit_fee: Percent = fee_data.deposit
@@ -666,6 +664,20 @@ def calculate_lifetime_metrics(
         detection: ERC4262VaultDetection = vault_metadata["_detection_data"]
         features = sorted([f.name for f in detection.features])
 
+        # Token addresses
+        share_token_data = vault_metadata.get("_share_token")
+        if isinstance(share_token_data, dict):
+            share_token_address = share_token_data.get("address")
+        else:
+            share_token_address = None
+
+        # Most ERC-4626 vaults are also the share token (ERC-20) contract.
+        if not share_token_address:
+            share_token_address = vault_metadata.get("Address") or detection.address
+
+        denomination_token_data = vault_metadata.get("_denomination_token")
+        denomination_token_address = denomination_token_data.get("address") if isinstance(denomination_token_data, dict) else None
+
         # Do we know fees for this vault
         known_fee = mgmt_fee is not None and perf_fee is not None
 
@@ -823,6 +835,8 @@ def calculate_lifetime_metrics(
                 "name": name,
                 "vault_slug": vault_slug,
                 "protocol_slug": protocol_slug,
+                "share_token_address": share_token_address,
+                "denomination_token_address": denomination_token_address,
                 "lifetime_return": lifetime_return,
                 "lifetime_return_net": lifetime_return_net,
                 "cagr": cagr,
@@ -864,6 +878,8 @@ def calculate_lifetime_metrics(
                 "start_date": lifetime_start_date,
                 "end_date": lifetime_end_date,
                 "address": vault_spec.vault_address,
+                "share_token_address": share_token_address,
+                "denomination_token_address": denomination_token_address,
                 "chain_id": vault_spec.chain_id,
                 "stablecoinish": is_stablecoin_like(denomination),
                 "first_updated_at": first_updated_at,
@@ -1150,6 +1166,10 @@ def format_lifetime_table(
     _del("first_updated_block")
     _del("last_updated_block")
     _del("last_share_price")
+
+    # Addresses
+    _del("share_token_address")
+    _del("denomination_token_address")
 
     _del("link")
 
@@ -1649,7 +1669,7 @@ def display_vault_chart_and_tearsheet(
         Disable rendering in tests
     """
 
-    from IPython.display import display, HTML
+    from IPython.display import HTML, display
 
     vault_report = analyse_vault(
         vault_db=vault_db,

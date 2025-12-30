@@ -147,10 +147,10 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag, str]] = {
     # Greenhouse USD ghUSDC
     # https://x.com/Main_St_Finance/status/1976972055951147194
     "0xf6bc16b79c469b94cdd25f3e2334dd4fee47a581": (VaultFlag.illiquid, MAINST_VAULT),
+    # Aarna atvPTmax
     # atvPTmax
     "0xd24e4a98b5fd90ff21a9cc5e2c1254de8084cd81": (VaultFlag.broken, BROKEN_VAULT),
     "0x9deb2b3593eb4e1838b233d386a9358448f753e3": (VaultFlag.broken, BROKEN_VAULT),
-    # Aarna atvPTmax
     "0x332e81368daec705612ff06b3a80b10ae1e5f110": (VaultFlag.broken, BROKEN_VAULT),
     # Yearn USDC to USDS Depositor strategy
     "0x39c0aec5738ed939876245224afc7e09c8480a52": (VaultFlag.broken, BROKEN_VAULT),
@@ -177,6 +177,9 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag, str]] = {
     # Broken vault?
     # http://localhost:5173/trading-view/vaults/stablecoins/iusd
     "0x36585e7ae4b8a422135618a2c113b8b516067e7a": (VaultFlag.broken, BROKEN_VAULT),
+    # Broken vault?
+    # Upshift Edge USDC
+    "0xeaa3b922e9febca37d1c02d2142a59595094c605": (VaultFlag.broken, BROKEN_VAULT),
 }
 
 for addr in VAULT_FLAGS_AND_NOTES.keys():
