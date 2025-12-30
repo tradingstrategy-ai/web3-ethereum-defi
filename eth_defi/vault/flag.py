@@ -88,6 +88,8 @@ MAINST_VAULT = "Main Street Market related products were wiped out in Oct 10th e
 
 ABNORMAL_TVL = "The TVL on this vault is abnormal"
 
+UNKNOWN_VAULT = "Vault is not known, not listed on the website of the protocol"
+
 #: Vault manual blacklist flags and notes.
 #:
 #: The reason notes is a guess.
@@ -123,6 +125,7 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag, str]] = {
     "0x36e2aa296e798ca6262dc5fad5f5660e638d5402": (VaultFlag.illiquid, XUSD_MESSAGE),
     "0x27968d36b937dcb26f33902fa489e5b228b104be": (VaultFlag.illiquid, XUSD_MESSAGE),
     "0x6030ad53d90ec2fb67f3805794dbb3fa5fd6eb64": (VaultFlag.illiquid, XUSD_MESSAGE),
+    "0x7184bea7743ccfbe390f9cd830095a13ef867941": (VaultFlag.illiquid, XUSD_MESSAGE),
     # Borrowable USDC Deposit, SiloId: 55, Sonic
     "0x4935fadb17df859667cc4f7bfe6a8cb24f86f8d0": (VaultFlag.illiquid, XUSD_MESSAGE),
     # EVK Vault eUSDC-1, Sonic
@@ -196,6 +199,10 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag, str]] = {
     "0x21b92610c69c889b6ca972a973f637e9f10885b3": (VaultFlag.abnormal_tvl, ABNORMAL_TVL),
     "0x8bce54605f56f2f711d9b60bdf2433aae8a14aa5": (VaultFlag.abnormal_tvl, ABNORMAL_TVL),
     "0xbcf722b41ff6f2f932721582680ed0116292cc28": (VaultFlag.abnormal_tvl, ABNORMAL_TVL),
+    # USDC BaseInvaders
+    "0xD1468AF648565f11393e4033cb0Cd270b62495c9": (VaultFlag.abnormal_tvl, UNKNOWN_VAULT),
+    # Peapods Interest Bearing USDC - 17
+    "0xeee75954eded526ef98a0cecc027beee4586315e": (VaultFlag.broken, BROKEN_VAULT),
 }
 
 for addr in VAULT_FLAGS_AND_NOTES.keys():
