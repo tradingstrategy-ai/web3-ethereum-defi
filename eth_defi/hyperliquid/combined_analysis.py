@@ -67,9 +67,9 @@ def analyse_positions_and_deposits(
         combined = analyse_positions_and_deposits(position_df, deposit_df, initial_balance=1000.0)
 
         # Get final values
-        final_pnl = combined['cumulative_pnl'].iloc[-1]
-        final_netflow = combined['cumulative_netflow'].iloc[-1]
-        final_value = combined['cumulative_account_value'].iloc[-1]
+        final_pnl = combined["cumulative_pnl"].iloc[-1]
+        final_netflow = combined["cumulative_netflow"].iloc[-1]
+        final_value = combined["cumulative_account_value"].iloc[-1]
 
         print(f"Trading PnL: ${final_pnl:,.2f}")
         print(f"Net capital flow: ${final_netflow:,.2f}")
@@ -89,13 +89,15 @@ def analyse_positions_and_deposits(
     """
     # Handle empty inputs
     if position_df.empty and deposit_df.empty:
-        return pd.DataFrame(columns=[
-            "pnl_update",
-            "netflow_update",
-            "cumulative_pnl",
-            "cumulative_netflow",
-            "cumulative_account_value",
-        ])
+        return pd.DataFrame(
+            columns=[
+                "pnl_update",
+                "netflow_update",
+                "cumulative_pnl",
+                "cumulative_netflow",
+                "cumulative_account_value",
+            ]
+        )
 
     # Extract PnL updates from position DataFrame
     position_updates = _extract_pnl_updates(position_df)
@@ -109,9 +111,7 @@ def analyse_positions_and_deposits(
     # Calculate cumulative values
     combined["cumulative_pnl"] = combined["pnl_update"].cumsum()
     combined["cumulative_netflow"] = combined["netflow_update"].cumsum()
-    combined["cumulative_account_value"] = (
-        initial_balance + combined["cumulative_netflow"] + combined["cumulative_pnl"]
-    )
+    combined["cumulative_account_value"] = initial_balance + combined["cumulative_netflow"] + combined["cumulative_pnl"]
 
     return combined
 

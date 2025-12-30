@@ -91,6 +91,4 @@ def test_combined_summary(combined_df: pd.DataFrame):
 
     assert summary["total_events"] == len(combined_df)
     assert summary["total_netflow"] == pytest.approx(3650.0, rel=0.01)
-    assert summary["final_account_value"] == pytest.approx(
-        summary["total_pnl"] + summary["total_netflow"]
-    )
+    assert summary["final_account_value"] == pytest.approx(summary["total_pnl"] + summary["total_netflow"])
