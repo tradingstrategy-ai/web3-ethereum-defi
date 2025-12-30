@@ -38,12 +38,16 @@ class VaultFlag(str, enum.Enum):
     #: The contract will steal your money
     malicious = "malicious"
 
+    #: Abnormal TVL
+    abnormal_tvl = "abnormal_tvl"
+
 
 #: Don't touch vaults with these flags
 BAD_FLAGS = {
     VaultFlag.illiquid,
     VaultFlag.broken,
     VaultFlag.malicious,
+    VaultFlag.abnormal_tvl,
 }
 
 
@@ -82,6 +86,8 @@ MALICIOUS_VAULT = "This vault is reported as malicious, and may have some sort o
 
 MAINST_VAULT = "Main Street Market related products were wiped out in Oct 10th event https://x.com/Main_St_Finance/status/1976972055951147194"
 
+ABNORMAL_TVL = "The TVL on this vault is abnormal"
+
 #: Vault manual blacklist flags and notes.
 #:
 #: The reason notes is a guess.
@@ -116,6 +122,7 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag, str]] = {
     "0x55555815a5595991c3a0ff119b59aef6c8b55555": (VaultFlag.illiquid, XUSD_MESSAGE),
     "0x36e2aa296e798ca6262dc5fad5f5660e638d5402": (VaultFlag.illiquid, XUSD_MESSAGE),
     "0x27968d36b937dcb26f33902fa489e5b228b104be": (VaultFlag.illiquid, XUSD_MESSAGE),
+    "0x6030ad53d90ec2fb67f3805794dbb3fa5fd6eb64": (VaultFlag.illiquid, XUSD_MESSAGE),
     # Borrowable USDC Deposit, SiloId: 55, Sonic
     "0x4935fadb17df859667cc4f7bfe6a8cb24f86f8d0": (VaultFlag.illiquid, XUSD_MESSAGE),
     # EVK Vault eUSDC-1, Sonic
@@ -144,6 +151,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag, str]] = {
     "0x4dc1ce9b9f9ef00c144bfad305f16c62293dc0e8": (VaultFlag.illiquid, XUSD_MESSAGE),
     "0x6c09bfdc1df45d6c4ff78dc9f1c13af29eb335d4": (VaultFlag.illiquid, XUSD_MESSAGE),
     "0x9a1bf5365edbb99c2c61ca6d9ffad0b705acfc6f": (VaultFlag.illiquid, XUSD_MESSAGE),
+    # Spectra ERC4626 Wrapper: MEV USDC
+    "0x92fbb58342164546325602588599b05802c69bbe": (VaultFlag.illiquid, XUSD_MESSAGE),
     # Greenhouse USD ghUSDC
     # https://x.com/Main_St_Finance/status/1976972055951147194
     "0xf6bc16b79c469b94cdd25f3e2334dd4fee47a581": (VaultFlag.illiquid, MAINST_VAULT),
@@ -180,6 +189,13 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag, str]] = {
     # Broken vault?
     # Upshift Edge USDC
     "0xeaa3b922e9febca37d1c02d2142a59595094c605": (VaultFlag.broken, BROKEN_VAULT),
+    # Velvet USD coin
+    "0xe83522f0882493844c48add97ef03281040e3d2d": (VaultFlag.broken, BROKEN_VAULT),
+    # Abnormal TVLs
+    "0x10019c629aa7c51e3853286b1c7894b17c257e00": (VaultFlag.abnormal_tvl, BROKEN_VAULT),
+    "0x21b92610c69c889b6ca972a973f637e9f10885b3": (VaultFlag.abnormal_tvl, ABNORMAL_TVL),
+    "0x8bce54605f56f2f711d9b60bdf2433aae8a14aa5": (VaultFlag.abnormal_tvl, ABNORMAL_TVL),
+
 }
 
 for addr in VAULT_FLAGS_AND_NOTES.keys():
