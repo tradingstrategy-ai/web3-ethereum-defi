@@ -55,6 +55,7 @@ Avoid running the whole test suite as it takes several minutes. Only run specifi
 
 - Use naive UTC datetimes everywhere
 - When using datetime class use `import datetime.datetime` and use `datetime.datetime` and `datetime.timedelta` as type hints
+- Instead of `datetime.datetime.utcnow()` use `native_datetime_utc_now()` that is compatible across Python versions
 
 ### Enum
 
@@ -65,7 +66,26 @@ Avoid running the whole test suite as it takes several minutes. Only run specifi
 - Never use test classes in pytest
 - `pytest` tests should not have stdout output like `print`
 - Instead of manual float fuzzy comparison like `assert abs(aave_total_pnl - 96.6087) < 0.01` use `pytest.approx()`
+- For DuckDB testing, make sure the database is always closed using finally clause or fixtures
+
+## Progress
+
+- For long runnign for loops, use `tqdm` and `tqdm_loggable.auto` module for progress bar
+- For example, see `lead_scan_core.py`
 
 ## Python notebooks
 
 - Whenever possible, prefer table output instead of print(). Use Pandas DataFrame and notebook's built-in display() function to render tabular data.
+
+## Command line scripts
+
+- Use scripts/erc-4626/scab-vaults.py as an example how to set up logger and read any needed environment variables as input.
+- Always use environment variables. Do not attempt to create command line parsers unless explicitly asked.
+- For tabular output, do not use `print()` loops but use `tabulate.tabulate()` function, see `whitelist-vaults.py` as an example
+
+## Parallerisation and optimising long running data reading pipelines
+
+- Uses `joblib.Parallel` to parallerise API reading of multiple entries
+- Use threading backend unless explicitly specified otherwise
+- For example, see `lead_scan_core.py`
+- All functions using `joblib.Parallel` must take a parameter max workers
