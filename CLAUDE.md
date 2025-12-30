@@ -88,4 +88,4 @@ Avoid running the whole test suite as it takes several minutes. Only run specifi
 - Uses `joblib.Parallel` to parallerise API reading of multiple entries
 - Use threading backend unless explicitly specified otherwise
 - For example, see `lead_scan_core.py`
-- All functions using `joblib.Parallel` must take a parameter max workers
+- All functions using `joblib.Parallel` must take `max_workers` argument. This must be exposed to command line scripts as `MAX_WORKERS` environment variable, see `scripts/erc-4626/scan-vaults.py` as an example.

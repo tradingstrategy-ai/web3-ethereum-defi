@@ -14,27 +14,11 @@ from decimal import Decimal
 
 import pytest
 
-from eth_defi.hyperliquid.position import Fill, PositionDirection, PositionEvent, PositionEventType, fetch_vault_fills, get_position_summary, reconstruct_position_history, validate_position_reconstruction
-from eth_defi.hyperliquid.session import create_hyperliquid_session
-
-#: Test vault address (Trading Strategy - IchiV3 LS)
-TEST_VAULT_ADDRESS = "0x3df9769bbbb335340872f01d8157c779d73c6ed0"
-
-#: Fixed test time range start
-TEST_START_TIME = datetime(2025, 12, 1)
-
-#: Fixed test time range end
-TEST_END_TIME = datetime(2025, 12, 28)
+from eth_defi.hyperliquid.position import Fill, PositionDirection, PositionEvent, PositionEventType, fetch_vault_fills, get_position_summary, reconstruct_position_history
 
 
 @pytest.fixture(scope="module")
-def session():
-    """Create a shared session for all tests in this module."""
-    return create_hyperliquid_session()
-
-
-@pytest.fixture(scope="module")
-def vault_fills(session) -> list[Fill]:
+def vault_fills(session, hyperliquid_sample_vault, hyperliquid_test_period_start, hyperliquid_test_period_end) -> list[Fill]:
     """Fetch fills for the test vault.
 
     Uses fixed time range 2025-12-01 to 2025-12-28 for reproducibility.
@@ -42,9 +26,9 @@ def vault_fills(session) -> list[Fill]:
     fills = list(
         fetch_vault_fills(
             session,
-            TEST_VAULT_ADDRESS,
-            start_time=TEST_START_TIME,
-            end_time=TEST_END_TIME,
+            hyperliquid_sample_vault,
+            start_time=hyperliquid_test_period_start,
+            end_time=hyperliquid_test_period_end,
         )
     )
     return fills
@@ -88,7 +72,7 @@ def test_fill_data_structure(vault_fills: list[Fill]):
     assert isinstance(fill.fee, Decimal)
 
 
-def test_fetch_with_time_range(session):
+def test_fetch_with_time_range(session, hyperliquid_sample_vault):
     """Test fetching with specific time range."""
     start_time = datetime(2025, 12, 15)
     end_time = datetime(2025, 12, 20)
@@ -96,7 +80,7 @@ def test_fetch_with_time_range(session):
     fills = list(
         fetch_vault_fills(
             session,
-            TEST_VAULT_ADDRESS,
+            hyperliquid_sample_vault,
             start_time=start_time,
             end_time=end_time,
         )
@@ -180,7 +164,7 @@ def test_summary(position_events: list[PositionEvent]):
     assert all(stats["total_fees"] > 0 for stats in summary.values()), "All coins should have fees"
 
 
-def test_pagination_handles_empty_result(session):
+def test_pagination_handles_empty_result(session, hyperliquid_sample_vault):
     """Test pagination with a time range that has no fills."""
     start_time = datetime(2019, 1, 1)
     end_time = datetime(2020, 1, 1)
@@ -188,7 +172,7 @@ def test_pagination_handles_empty_result(session):
     fills = list(
         fetch_vault_fills(
             session,
-            TEST_VAULT_ADDRESS,
+            hyperliquid_sample_vault,
             start_time=start_time,
             end_time=end_time,
         )
@@ -197,7 +181,7 @@ def test_pagination_handles_empty_result(session):
     assert fills == [], "Should return empty list for time range with no fills"
 
 
-def test_pagination_respects_start_time(session):
+def test_pagination_respects_start_time(session, hyperliquid_sample_vault):
     """Test that pagination stops at start_time boundary."""
     start_time = datetime(2025, 12, 20)
     end_time = datetime(2025, 12, 25)
@@ -205,7 +189,7 @@ def test_pagination_respects_start_time(session):
     fills = list(
         fetch_vault_fills(
             session,
-            TEST_VAULT_ADDRESS,
+            hyperliquid_sample_vault,
             start_time=start_time,
             end_time=end_time,
         )
