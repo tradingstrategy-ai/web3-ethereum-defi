@@ -650,7 +650,7 @@ def calculate_lifetime_metrics(
         if current_nav > 100_000_000_000:
             risk = VaultTechnicalRisk.blacklisted
             notes = ABNORMAL_TVL
-            flags |= VaultFlag.abnormal_tvl
+            flags.add(VaultFlag.abnormal_tvl)
 
         vault_slug = vault_metadata["vault_slug"]
         protocol_slug = vault_metadata["protocol_slug"]
