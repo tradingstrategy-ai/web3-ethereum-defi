@@ -113,7 +113,7 @@ def create_fee_label(
 
     Order is: management / performance / deposit / withdrawal fees.
     """
- 
+
     management_fee_annual = fee_data.management
     performance_fee: Percent = fee_data.performance
     deposit_fee: Percent = fee_data.deposit
@@ -878,8 +878,6 @@ def calculate_lifetime_metrics(
                 "start_date": lifetime_start_date,
                 "end_date": lifetime_end_date,
                 "address": vault_spec.vault_address,
-                "share_token_address": share_token_address,
-                "denomination_token_address": denomination_token_address,
                 "chain_id": vault_spec.chain_id,
                 "stablecoinish": is_stablecoin_like(denomination),
                 "first_updated_at": first_updated_at,
