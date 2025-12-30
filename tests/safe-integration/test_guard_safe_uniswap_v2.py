@@ -131,6 +131,7 @@ def safe(
     assert guard.functions.avatar().call() == safe.address
     assert guard.functions.target().call() == safe.address
     tx_hash = guard.functions.whitelistUniswapV2Router(uniswap_v2.router.address, "Allow Uniswap v2").transact({"from": owner})
+    assert_transaction_success_with_explanation(web3, tx_hash)
     receipt = web3.eth.get_transaction_receipt(tx_hash)
 
     assert len(receipt["logs"]) == 3
