@@ -137,6 +137,9 @@ def test_repr(
     str(buy_tx)
 
 
+#: Anvil being shit
+#:eth_defi.trace.TransactionAssertionError: Revert reason: execution reverted
+@flaky.flaky
 def test_vault_controlled_wallet_make_buy(
     web3: Web3,
     deployment: EnzymeDeployment,
