@@ -149,6 +149,7 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag, str]] = {
     "0xf6bc16b79c469b94cdd25f3e2334dd4fee47a581": (VaultFlag.illiquid, MAINST_VAULT),
     # atvPTmax
     "0xd24e4a98b5fd90ff21a9cc5e2c1254de8084cd81": (VaultFlag.broken, BROKEN_VAULT),
+    "0x9deb2b3593eb4e1838b233d386a9358448f753e3": (VaultFlag.broken, BROKEN_VAULT),
     # Aarna atvPTmax
     "0x332e81368daec705612ff06b3a80b10ae1e5f110": (VaultFlag.broken, BROKEN_VAULT),
     # Yearn USDC to USDS Depositor strategy
@@ -174,6 +175,7 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag, str]] = {
     # EVK Vault eUSDC-8 on Sonic
     "0x683dbc88b371ae48962b56e36e5a0c34e3ad4caf": (VaultFlag.malicious, MALICIOUS_VAULT),
     # Broken vault?
+    # http://localhost:5173/trading-view/vaults/stablecoins/iusd
     "0x36585e7ae4b8a422135618a2c113b8b516067e7a": (VaultFlag.broken, BROKEN_VAULT),
 }
 
