@@ -7,39 +7,22 @@ Uses the same test vault as other Hyperliquid tests for consistency.
 """
 
 from datetime import datetime
-from decimal import Decimal
 
 import pandas as pd
 import pytest
 
-from eth_defi.hyperliquid.deposit import VaultDepositEvent, VaultEventType, create_deposit_dataframe, fetch_vault_deposits, get_deposit_summary
-from eth_defi.hyperliquid.session import create_hyperliquid_session
-
-#: Test vault address (Trading Strategy - IchiV3 LS)
-TEST_VAULT_ADDRESS = "0x3df9769bbbb335340872f01d8157c779d73c6ed0"
-
-#: Fixed test time range start
-TEST_START_TIME = datetime(2025, 12, 1)
-
-#: Fixed test time range end
-TEST_END_TIME = datetime(2025, 12, 28)
+from eth_defi.hyperliquid.deposit import VaultDepositEvent, create_deposit_dataframe, fetch_vault_deposits, get_deposit_summary
 
 
 @pytest.fixture(scope="module")
-def session():
-    """Create a shared session for all tests in this module."""
-    return create_hyperliquid_session()
-
-
-@pytest.fixture(scope="module")
-def vault_events(session) -> list[VaultDepositEvent]:
+def vault_events(session, hyperliquid_sample_vault, hyperliquid_test_period_start, hyperliquid_test_period_end) -> list[VaultDepositEvent]:
     """Fetch deposit/withdrawal events for the test vault."""
     events = list(
         fetch_vault_deposits(
             session,
-            TEST_VAULT_ADDRESS,
-            start_time=TEST_START_TIME,
-            end_time=TEST_END_TIME,
+            hyperliquid_sample_vault,
+            start_time=hyperliquid_test_period_start,
+            end_time=hyperliquid_test_period_end,
         )
     )
     return events
@@ -75,7 +58,7 @@ def test_get_summary(vault_events: list[VaultDepositEvent]):
     assert summary["total_events"] == len(vault_events)
 
 
-def test_fetch_with_time_range(session):
+def test_fetch_with_time_range(session, hyperliquid_sample_vault):
     """Test fetching with specific time range."""
     start_time = datetime(2025, 12, 15)
     end_time = datetime(2025, 12, 20)
@@ -83,7 +66,7 @@ def test_fetch_with_time_range(session):
     events = list(
         fetch_vault_deposits(
             session,
-            TEST_VAULT_ADDRESS,
+            hyperliquid_sample_vault,
             start_time=start_time,
             end_time=end_time,
         )
@@ -94,7 +77,7 @@ def test_fetch_with_time_range(session):
         assert start_time <= event.timestamp <= end_time, "All events should be within the specified time range"
 
 
-def test_fetch_empty_result(session):
+def test_fetch_empty_result(session, hyperliquid_sample_vault):
     """Test fetching with a time range that has no events."""
     start_time = datetime(2019, 1, 1)
     end_time = datetime(2020, 1, 1)
@@ -102,7 +85,7 @@ def test_fetch_empty_result(session):
     events = list(
         fetch_vault_deposits(
             session,
-            TEST_VAULT_ADDRESS,
+            hyperliquid_sample_vault,
             start_time=start_time,
             end_time=end_time,
         )

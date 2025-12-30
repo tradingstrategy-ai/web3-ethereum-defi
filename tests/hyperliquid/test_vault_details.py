@@ -11,25 +11,15 @@ from decimal import Decimal
 
 import pytest
 
-from eth_defi.hyperliquid.session import create_hyperliquid_session
 from eth_defi.hyperliquid.vault import HyperliquidVault, PortfolioHistory, VaultFollower, VaultInfo
 
-#: Test vault address (Trading Strategy - IchiV3 LS)
-TEST_VAULT_ADDRESS = "0x3df9769bbbb335340872f01d8157c779d73c6ed0"
-
 
 @pytest.fixture(scope="module")
-def session():
-    """Create a shared session for all tests in this module."""
-    return create_hyperliquid_session()
-
-
-@pytest.fixture(scope="module")
-def vault(session) -> HyperliquidVault:
+def vault(session, hyperliquid_sample_vault) -> HyperliquidVault:
     """Create a HyperliquidVault instance for the test vault."""
     return HyperliquidVault(
         session=session,
-        vault_address=TEST_VAULT_ADDRESS,
+        vault_address=hyperliquid_sample_vault,
     )
 
 
@@ -39,10 +29,10 @@ def vault_info(vault) -> VaultInfo:
     return vault.fetch_info()
 
 
-def test_vault_info_basic_properties(vault_info: VaultInfo):
+def test_vault_info_basic_properties(vault_info: VaultInfo, hyperliquid_sample_vault):
     """Test basic vault info properties that should be stable."""
     # Vault address should match
-    assert vault_info.vault_address.lower() == TEST_VAULT_ADDRESS.lower()
+    assert vault_info.vault_address.lower() == hyperliquid_sample_vault.lower()
 
     # Name should be set
     assert vault_info.name == "Trading Strategy - IchiV3 LS"
