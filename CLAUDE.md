@@ -76,3 +76,16 @@ Avoid running the whole test suite as it takes several minutes. Only run specifi
 ## Python notebooks
 
 - Whenever possible, prefer table output instead of print(). Use Pandas DataFrame and notebook's built-in display() function to render tabular data.
+
+## Command line scripts
+
+- Use scripts/erc-4626/scab-vaults.py as an example how to set up logger and read any needed environment variables as input.
+- Always use environment variables. Do not attempt to create command line parsers unless explicitly asked.
+- For tabular output, do not use `print()` loops but use `tabulate.tabulate()` function, see `whitelist-vaults.py` as an example
+
+## Parallerisation and optimising long running data reading pipelines
+
+- Uses `joblib.Parallel` to parallerise API reading of multiple entries
+- Use threading backend unless explicitly specified otherwise
+- For example, see `lead_scan_core.py`
+- All functions using `joblib.Parallel` must take a parameter max workers

@@ -23,18 +23,13 @@ from pathlib import Path
 from typing import Iterator
 
 import pandas as pd
-from tqdm_loggable.auto import tqdm
 from eth_typing import HexAddress
+from joblib import Parallel, delayed
 from requests import Session
+from tqdm_loggable.auto import tqdm
 
 from eth_defi.compat import native_datetime_utc_now
-from eth_defi.hyperliquid.vault import (
-    HyperliquidVault,
-    VaultInfo,
-    VaultSummary,
-    fetch_all_vaults,
-    HYPERLIQUID_STATS_URL,
-)
+from eth_defi.hyperliquid.vault import HYPERLIQUID_STATS_URL, HyperliquidVault, VaultSummary, fetch_all_vaults
 from eth_defi.types import Percent
 
 logger = logging.getLogger(__name__)
@@ -416,34 +411,6 @@ class VaultSnapshotDatabase:
         return self.con is None
 
 
-def fetch_vault_info_safe(
-    session: Session,
-    vault_address: HexAddress,
-    timeout: float = 30.0,
-) -> VaultInfo | None:
-    """Fetch vault info with error handling.
-
-    :param session:
-        HTTP session for API requests
-    :param vault_address:
-        Vault address to fetch info for
-    :param timeout:
-        Request timeout in seconds
-    :return:
-        VaultInfo if successful, None if request failed
-    """
-    try:
-        vault = HyperliquidVault(
-            session=session,
-            vault_address=vault_address,
-            timeout=timeout,
-        )
-        return vault.fetch_info()
-    except Exception as e:
-        logger.warning("Failed to fetch info for vault %s: %s", vault_address, e)
-        return None
-
-
 def scan_vaults(
     session: Session,
     db_path: Path = HYPERLIQUID_VAULT_METADATA_DATABASE,
@@ -451,6 +418,7 @@ def scan_vaults(
     fetch_follower_counts: bool = True,
     timeout: float = 30.0,
     limit: int | None = None,
+    max_workers: int = 16,
 ) -> VaultSnapshotDatabase:
     """Scan all Hyperliquid vaults and store snapshots in DuckDB.
 
@@ -487,8 +455,21 @@ def scan_vaults(
         HTTP request timeout in seconds
     :param limit:
         Limit the number of vaults to scan. Internal testing only.
+    :param max_workers:
+        Maximum number of parallel workers for fetching vault details.
+        Defaults to 16.
     :return:
         VaultSnapshotDatabase instance with the newly inserted snapshots
+
+    .. note::
+
+        The session's rate limiter restricts requests to 1/second by default.
+        Having many parallel workers does not speed up processing - they will
+        queue behind the rate limiter. With ~8000 vaults and 1 req/sec,
+        a full scan takes approximately 2-3 hours. If you encounter 429 errors
+        after retries are exhausted, the Hyperliquid API is rate limiting you
+        beyond what the client-side limiter can prevent.
+
     """
     # Use a single timestamp for all snapshots in this scan
     snapshot_timestamp = native_datetime_utc_now()
@@ -509,29 +490,34 @@ def scan_vaults(
         vault_summaries = vault_summaries[:limit]
     logger.info("Fetched %d vault summaries", len(vault_summaries))
 
-    # Create snapshots with progress bar
-    snapshots = []
+    # Filter out disabled vaults before processing
+    summaries_to_process = []
     skipped_count = 0
-    desc = "Scanning Hyperliquid vaults"
-    for summary in tqdm(vault_summaries, desc=desc):
-        # Skip disabled vaults
+    for summary in vault_summaries:
         if summary.vault_address in disabled_vaults:
             skipped_count += 1
-            continue
+        else:
+            summaries_to_process.append(summary)
 
+    def process_vault_summary(summary: VaultSummary) -> VaultSnapshot:
+        """Process a single vault summary into a snapshot."""
         # Fetch follower count if requested
         follower_count = None
         if fetch_follower_counts:
-            info = fetch_vault_info_safe(session, summary.vault_address, timeout)
-            if info is not None:
-                follower_count = len(info.followers)
+            vault = HyperliquidVault(
+                session=session,
+                vault_address=summary.vault_address,
+                timeout=timeout,
+            )
+            info = vault.fetch_info()
+            follower_count = len(info.followers)
 
         # Automatically disable vaults with TVL below threshold
         scan_disabled_reason = None
         if summary.tvl < MIN_TVL_THRESHOLD:
             scan_disabled_reason = ScanDisabled.not_enough_tvl
 
-        snapshot = VaultSnapshot(
+        return VaultSnapshot(
             snapshot_timestamp=snapshot_timestamp,
             vault_address=summary.vault_address,
             name=summary.name,
@@ -545,7 +531,10 @@ def scan_vaults(
             follower_count=follower_count,
             scan_disabled_reason=scan_disabled_reason,
         )
-        snapshots.append(snapshot)
+
+    # Process vault summaries in parallel using threading backend
+    desc = "Scanning Hyperliquid vaults"
+    snapshots = Parallel(n_jobs=max_workers, backend="threading")(delayed(process_vault_summary)(summary) for summary in tqdm(summaries_to_process, desc=desc))
 
     # Bulk insert all snapshots
     db.insert_snapshots(iter(snapshots))

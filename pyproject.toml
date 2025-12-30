@@ -156,6 +156,7 @@ boto3 = {version = "^1.41.0", optional = true}
 # Timestamp cache
 duckdb = {version = "^1.4.2", optional = true}
 python-slugify = "^8.0.4"
+requests-ratelimiter = "^0.7.0"
 
 
 [tool.poetry.group.dev.dependencies]

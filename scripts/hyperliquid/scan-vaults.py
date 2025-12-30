@@ -21,6 +21,7 @@ Environment variables:
 - ``LOG_LEVEL``: Logging level (debug, info, warning, error). Default: warning
 - ``DB_PATH``: Path to DuckDB database file. Default: ~/.tradingstrategy/hyperliquid/vaults.duckdb
 - ``LIMIT``: Limit the number of vaults to scan (for testing). Default: None (scan all)
+- ``MAX_WORKERS``: Maximum number of parallel workers for fetching vault details. Default: 16
 
 """
 
@@ -58,18 +59,26 @@ def main():
     limit_str = os.environ.get("LIMIT")
     limit = int(limit_str) if limit_str else None
 
+    # Get max workers for parallel processing
+    max_workers = int(os.environ.get("MAX_WORKERS", "6"))
+
     print(f"Scanning Hyperliquid vaults...")
     print(f"Database path: {db_path}")
     if limit:
         print(f"Limit: {limit} vaults")
+    print(f"Max workers: {max_workers}")
 
-    # Create session and scan
-    session = create_hyperliquid_session()
+    # Create session and scan.
+    # Rate limiting uses SQLite backend for thread-safe coordination across workers.
+    session = create_hyperliquid_session(
+        requests_per_second=2.75,
+    )
 
     db = scan_vaults(
         session=session,
         db_path=db_path,
         limit=limit,
+        max_workers=max_workers,
     )
 
     try:
@@ -81,15 +90,21 @@ def main():
 
         print(f"\nScan complete!")
         print(f"Total vaults: {vault_count:,}")
+        print(f"Active vaults: {vault_count - disabled_count:,}")
+        print(f"Disabled vaults: {disabled_count:,}")
         print(f"Total snapshots: {snapshot_count:,}")
         print(f"Scan timestamps: {len(timestamps)}")
-        print(f"Disabled vaults: {disabled_count:,}")
 
         # Show top 10 vaults by TVL
         df = db.get_latest_snapshots()
         if len(df) > 0:
             print("\nTop 10 vaults by TVL:")
-            top_10 = df.head(10)[["name", "vault_address", "tvl", "apr", "total_pnl", "follower_count"]]
+            top_10 = df.head(10)[["name", "vault_address", "tvl", "apr", "total_pnl", "follower_count"]].copy()
+            # Format TVL as currency
+            top_10["tvl"] = top_10["tvl"].apply(lambda x: f"${x:,.0f}" if x is not None else "")
+            # Format APR and total_pnl as percent
+            top_10["apr"] = top_10["apr"].apply(lambda x: f"{x * 100:.2f}%" if x is not None else "")
+            top_10["total_pnl"] = top_10["total_pnl"].apply(lambda x: f"${x:,.0f}" if x is not None else "")
             table_fmt = tabulate(
                 top_10.to_dict("records"),
                 headers="keys",

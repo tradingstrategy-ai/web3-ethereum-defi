@@ -42,7 +42,6 @@ import os
 from pathlib import Path
 from urllib.parse import urlparse
 
-
 from eth_defi.erc_4626.lead_scan_core import scan_leads
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.vaultdb import DEFAULT_VAULT_DATABASE
