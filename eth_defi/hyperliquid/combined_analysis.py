@@ -6,6 +6,16 @@ data to create a comprehensive view of vault performance including:
 - Cumulative account value over time
 - Net capital flows (deposits minus withdrawals)
 - Trading PnL separated from capital movements
+- Internal share price calculation (similar to ERC-4626 vaults)
+
+The share price mechanism works as follows:
+
+- ``total_assets`` tracks the account value (NAV) at each point in time
+- ``total_supply`` tracks the number of shares outstanding
+- ``share_price`` is calculated as ``total_assets / total_supply``
+- When a deposit occurs, new shares are minted: ``shares_minted = deposit_amount / share_price``
+- When a withdrawal occurs, shares are burned: ``shares_burned = withdrawal_amount / share_price``
+- Share price starts at 1.00 at vault inception
 
 Example::
 
@@ -33,6 +43,8 @@ Example::
     combined_df = analyse_positions_and_deposits(position_df, deposit_df)
 
     print(f"Final account value: ${combined_df['cumulative_account_value'].iloc[-1]:,.2f}")
+    print(f"Share price: ${combined_df['share_price'].iloc[-1]:.4f}")
+    print(f"Total supply: {combined_df['total_supply'].iloc[-1]:,.2f}")
 """
 
 import pandas as pd
@@ -55,6 +67,16 @@ def analyse_positions_and_deposits(
     - ``cumulative_pnl``: Running total of realised trading PnL
     - ``cumulative_netflow``: Running total of capital flows (deposits - withdrawals)
     - ``cumulative_account_value``: Total account value (initial_balance + netflow + pnl)
+    - ``total_assets``: Alias for cumulative_account_value (NAV)
+    - ``total_supply``: Number of shares outstanding
+    - ``share_price``: Share price calculated as total_assets / total_supply
+
+    The share price calculation follows ERC-4626 vault mechanics:
+
+    - Share price starts at 1.00 when the first deposit occurs
+    - When deposits occur, new shares are minted at the current share price
+    - When withdrawals occur, shares are burned at the current share price
+    - PnL changes affect total_assets but not total_supply, thus changing share price
 
     The DataFrame is indexed by timestamp and sorted chronologically, combining
     events from both position changes and deposit/withdrawal activity.
@@ -70,10 +92,12 @@ def analyse_positions_and_deposits(
         final_pnl = combined["cumulative_pnl"].iloc[-1]
         final_netflow = combined["cumulative_netflow"].iloc[-1]
         final_value = combined["cumulative_account_value"].iloc[-1]
+        final_share_price = combined["share_price"].iloc[-1]
 
         print(f"Trading PnL: ${final_pnl:,.2f}")
         print(f"Net capital flow: ${final_netflow:,.2f}")
         print(f"Account value: ${final_value:,.2f}")
+        print(f"Share price: ${final_share_price:.4f}")
 
     :param position_df:
         DataFrame from :py:func:`~eth_defi.hyperliquid.position_analysis.create_account_dataframe`.
@@ -85,7 +109,7 @@ def analyse_positions_and_deposits(
         Starting account balance before the analysis period.
         Defaults to 0.0.
     :return:
-        DataFrame with unified timeline containing PnL and capital flow metrics.
+        DataFrame with unified timeline containing PnL, capital flow, and share price metrics.
     """
     # Handle empty inputs
     if position_df.empty and deposit_df.empty:
@@ -96,6 +120,9 @@ def analyse_positions_and_deposits(
                 "cumulative_pnl",
                 "cumulative_netflow",
                 "cumulative_account_value",
+                "total_assets",
+                "total_supply",
+                "share_price",
             ]
         )
 
@@ -112,6 +139,9 @@ def analyse_positions_and_deposits(
     combined["cumulative_pnl"] = combined["pnl_update"].cumsum()
     combined["cumulative_netflow"] = combined["netflow_update"].cumsum()
     combined["cumulative_account_value"] = initial_balance + combined["cumulative_netflow"] + combined["cumulative_pnl"]
+
+    # Calculate share price metrics
+    combined = _calculate_share_price(combined, initial_balance)
 
     return combined
 
@@ -199,13 +229,82 @@ def _merge_timelines(
     return combined[["pnl_update", "netflow_update"]]
 
 
+def _calculate_share_price(
+    combined: pd.DataFrame,
+    initial_balance: float,  # noqa: ARG001
+) -> pd.DataFrame:
+    """Calculate share price metrics for the combined DataFrame.
+
+    Implements ERC-4626-style share price calculation:
+
+    - Share price starts at 1.00
+    - Deposits mint new shares at current share price
+    - Withdrawals burn shares at current share price
+    - PnL changes affect total_assets but not total_supply
+
+    :param combined:
+        DataFrame with cumulative_account_value and netflow_update columns
+    :param initial_balance:
+        Starting account balance (reserved for future use)
+    :return:
+        DataFrame with total_assets, total_supply, and share_price columns added
+    """
+    # total_assets is the same as cumulative_account_value (NAV)
+    combined["total_assets"] = combined["cumulative_account_value"]
+
+    # Calculate total_supply by tracking share minting/burning
+    # We need to iterate through rows to properly calculate shares at each step
+    total_supply_values = []
+    share_price_values = []
+
+    current_total_supply = 0.0
+    current_share_price = 1.0  # Share price starts at 1.00
+
+    for _idx, row in combined.iterrows():
+        netflow = row["netflow_update"]
+        total_assets = row["total_assets"]
+
+        if netflow != 0:
+            # Deposit or withdrawal event
+            if current_total_supply == 0:
+                # First deposit: share price is 1.00, mint shares equal to deposit amount
+                if netflow > 0:
+                    shares_change = netflow / current_share_price
+                    current_total_supply += shares_change
+                # Ignore withdrawals when there are no shares (shouldn't happen)
+            else:
+                # Calculate shares to mint/burn at current share price
+                # For deposits: shares_minted = deposit_amount / share_price
+                # For withdrawals: shares_burned = withdrawal_amount / share_price
+                shares_change = netflow / current_share_price
+                current_total_supply += shares_change
+
+        # Ensure total_supply doesn't go negative
+        current_total_supply = max(0.0, current_total_supply)
+
+        total_supply_values.append(current_total_supply)
+
+        # Calculate share price: total_assets / total_supply
+        if current_total_supply > 0:
+            current_share_price = total_assets / current_total_supply
+        else:
+            current_share_price = 1.0  # Default to 1.0 if no shares
+
+        share_price_values.append(current_share_price)
+
+    combined["total_supply"] = total_supply_values
+    combined["share_price"] = share_price_values
+
+    return combined
+
+
 def get_combined_summary(combined_df: pd.DataFrame) -> dict:
     """Generate a summary of combined position and deposit analysis.
 
     :param combined_df:
         DataFrame from :py:func:`analyse_positions_and_deposits`
     :return:
-        Dict with summary statistics
+        Dict with summary statistics including share price metrics
     """
     if combined_df.empty:
         return {
@@ -218,6 +317,9 @@ def get_combined_summary(combined_df: pd.DataFrame) -> dict:
             "max_drawdown": 0.0,
             "start_time": None,
             "end_time": None,
+            "final_share_price": 1.0,
+            "final_total_supply": 0.0,
+            "share_price_change": 0.0,
         }
 
     final_pnl = combined_df["cumulative_pnl"].iloc[-1]
@@ -231,6 +333,20 @@ def get_combined_summary(combined_df: pd.DataFrame) -> dict:
     drawdown = combined_df["cumulative_account_value"] - running_max
     max_drawdown = drawdown.min()
 
+    # Share price metrics
+    final_share_price = combined_df["share_price"].iloc[-1] if "share_price" in combined_df.columns else 1.0
+    final_total_supply = combined_df["total_supply"].iloc[-1] if "total_supply" in combined_df.columns else 0.0
+
+    # Calculate share price change from first non-zero share price
+    share_price_change = 0.0
+    if "share_price" in combined_df.columns:
+        # Find first row with shares outstanding
+        shares_exist = combined_df["total_supply"] > 0
+        if shares_exist.any():
+            first_share_price = combined_df.loc[shares_exist, "share_price"].iloc[0]
+            if first_share_price > 0:
+                share_price_change = (final_share_price - first_share_price) / first_share_price
+
     return {
         "total_events": len(combined_df),
         "total_pnl": float(final_pnl),
@@ -241,4 +357,7 @@ def get_combined_summary(combined_df: pd.DataFrame) -> dict:
         "max_drawdown": float(max_drawdown),
         "start_time": combined_df.index.min(),
         "end_time": combined_df.index.max(),
+        "final_share_price": float(final_share_price),
+        "final_total_supply": float(final_total_supply),
+        "share_price_change": float(share_price_change),
     }

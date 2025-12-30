@@ -127,11 +127,12 @@ jobs:
               print(f'{pkg.project_name}: {pkg.version}')
           "
 
+      # Run Hyperliquid tests only against Web3 v7 to save capacity
       - name: Run tests (parallel)
         run: |
           # Enable verbose output if debugging is enabled
           if [ "$ENABLE_VERBOSE_LOGGING" = "true" ]; then
-            poetry run pytest --timeout-method=thread --timeout=180 --tb=native -n auto -v -s --capture=no --ignore=tests/gmx
+            poetry run pytest --timeout-method=thread --timeout=180 --tb=native -n auto -v -s --capture=no --ignore=tests/gmx -ignore=tests/hyperliquid 
           else
             poetry run pytest --timeout-method=thread --timeout=180 --tb=native -n auto --ignore=tests/gmx
           fi

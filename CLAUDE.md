@@ -73,6 +73,11 @@ Avoid running the whole test suite as it takes several minutes. Only run specifi
 - For long runnign for loops, use `tqdm` and `tqdm_loggable.auto` module for progress bar
 - For example, see `lead_scan_core.py`
 
+## Visualisations
+
+- Use Plotly
+- For chart titles, use heading case as explained above
+
 ## Python notebooks
 
 - Whenever possible, prefer table output instead of print(). Use Pandas DataFrame and notebook's built-in display() function to render tabular data.
