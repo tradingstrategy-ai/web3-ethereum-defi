@@ -195,6 +195,7 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag, str]] = {
     "0x10019c629aa7c51e3853286b1c7894b17c257e00": (VaultFlag.abnormal_tvl, BROKEN_VAULT),
     "0x21b92610c69c889b6ca972a973f637e9f10885b3": (VaultFlag.abnormal_tvl, ABNORMAL_TVL),
     "0x8bce54605f56f2f711d9b60bdf2433aae8a14aa5": (VaultFlag.abnormal_tvl, ABNORMAL_TVL),
+    "0xbcf722b41ff6f2f932721582680ed0116292cc28": (VaultFlag.abnormal_tvl, ABNORMAL_TVL),
 
 }
 
