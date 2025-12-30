@@ -38,8 +38,13 @@ logger = logging.getLogger(__name__)
 HYPERLIQUID_VAULT_METADATA_DATABASE = Path.home() / ".tradingstrategy" / "hyperliquid" / "vaults.duckdb"
 
 #: Minimum TVL threshold in USD for scanning vaults
-#: Vaults below this threshold will be marked as disabled with `ScanDisabled.not_enough_tvl`
+#: Vaults below this threshold AND older than AGE_THRESHOLD will be marked as disabled
+#: with `ScanDisabled.not_enough_tvl`
 MIN_TVL_THRESHOLD = Decimal("1000")
+
+#: Age threshold for disabling low TVL vaults
+#: Only vaults older than this threshold can be disabled for low TVL
+AGE_THRESHOLD = datetime.timedelta(days=30)
 
 
 class ScanDisabled(Enum):
@@ -93,6 +98,7 @@ class VaultSnapshot:
     total_pnl: Decimal | None
 
     #: Number of followers/depositors in the vault
+    #: Note: Hyperliquid API returns at most 100 followers, so this value maxes out at 100
     follower_count: int | None
 
     #: Reason why this vault is disabled from future scans, or None if enabled
@@ -512,10 +518,14 @@ def scan_vaults(
             info = vault.fetch_info()
             follower_count = len(info.followers)
 
-        # Automatically disable vaults with TVL below threshold
+        # Automatically disable vaults with TVL below threshold AND older than age threshold
         scan_disabled_reason = None
         if summary.tvl < MIN_TVL_THRESHOLD:
-            scan_disabled_reason = ScanDisabled.not_enough_tvl
+            # Only disable if vault is old enough (give new vaults time to grow)
+            if summary.create_time is not None:
+                vault_age = snapshot_timestamp - summary.create_time
+                if vault_age > AGE_THRESHOLD:
+                    scan_disabled_reason = ScanDisabled.not_enough_tvl
 
         return VaultSnapshot(
             snapshot_timestamp=snapshot_timestamp,
