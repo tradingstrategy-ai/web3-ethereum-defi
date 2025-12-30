@@ -31,7 +31,7 @@ from eth_defi.research.wrangle_vault_prices import forward_fill_vault
 from eth_defi.token import is_stablecoin_like, normalise_token_symbol
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.fee import FeeData, VaultFeeMode
-from eth_defi.vault.flag import VaultFlag, get_notes
+from eth_defi.vault.flag import VaultFlag, get_notes, ABNORMAL_TVL
 from eth_defi.vault.risk import VaultTechnicalRisk, get_vault_risk
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
 
@@ -639,14 +639,22 @@ def calculate_lifetime_metrics(
         link = vault_metadata.get("Link")
         event_count = group["event_count"].iloc[-1]
         protocol = vault_metadata["Protocol"]
-        risk = get_vault_risk(protocol, vault_address)
-        risk_numeric = risk.value if isinstance(risk, VaultTechnicalRisk) else None
 
+        risk = get_vault_risk(protocol, vault_address)
         notes = get_notes(vault_address)
-        flags = vault_metadata.get("_flags", [])
+
+        flags = vault_metadata.get("_flags", set())
+
+        # Check for broken vaults by abnormal TVL > $100B.
+        # This automatically filters out several broken entries
+        if current_nav > 100_000_000_000:
+            risk = VaultTechnicalRisk.blacklisted
+            notes = ABNORMAL_TVL
+            flags |= VaultFlag.abnormal_tvl
 
         vault_slug = vault_metadata["vault_slug"]
         protocol_slug = vault_metadata["protocol_slug"]
+        risk_numeric = risk.value if isinstance(risk, VaultTechnicalRisk) else None
 
         trading_strategy_link = _get_trading_strategy_vault_link(
             chain_id=chain_id,
