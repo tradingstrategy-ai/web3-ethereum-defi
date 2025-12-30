@@ -44,6 +44,8 @@ from eth_defi.usdc.eip_3009 import EIP3009AuthorizationType, make_eip_3009_trans
 
 CI = os.environ.get("CI") == "true"
 
+pytestmark = pytest.mark.skip(reason="Phasing out Enzyme support")
+
 
 @pytest.fixture
 def vault_owner(web3, deployer) -> Account:
