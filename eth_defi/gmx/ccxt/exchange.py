@@ -383,17 +383,35 @@ class GMX(ExchangeCompatible):
             logger.debug(f"Built address mapping for {len(address_to_symbol)} tokens")
 
             markets_dict = {}
+            # Special wstETH market address (has WETH as index but should be treated as wstETH market)
+            _special_wsteth_address = "0x0Cf1fb4d1FF67A3D8Ca92c9d6643F8F9be8e03E5".lower()
+
             for market_info in market_infos:
                 try:
                     index_token_addr = market_info.get("indexTokenAddress", "").lower()
                     market_token_addr = market_info.get("marketTokenAddress", "")
+                    market_token_addr_lower = market_token_addr.lower()
+                    long_token_addr = market_info.get("longTokenAddress", "").lower()
+                    short_token_addr = market_info.get("shortTokenAddress", "").lower()
 
-                    # Look up symbol from GMX API tokens data
-                    symbol_name = address_to_symbol.get(index_token_addr)
+                    # Special case for wstETH market
+                    # This market has WETH as index token but should be treated as wstETH
+                    if market_token_addr_lower == _special_wsteth_address:
+                        symbol_name = "wstETH"
+                        # Override index token to wstETH token for correct identification
+                        index_token_addr = "0x5979D7b546E38E414F7E9822514be443A4800529".lower()
+                    else:
+                        # Look up symbol from GMX API tokens data
+                        symbol_name = address_to_symbol.get(index_token_addr)
 
                     if not symbol_name:
                         logger.debug(f"Skipping market with unknown index token: {index_token_addr}")
                         continue  # Skip unknown tokens
+
+                    # Handle synthetic markets (where long_token == short_token)
+                    # These are marked with "2" suffix (e.g., ETH2, BTC2)
+                    if long_token_addr == short_token_addr:
+                        symbol_name = f"{symbol_name}2"
 
                     # Skip excluded symbols
                     if symbol_name in self.EXCLUDED_SYMBOLS:
@@ -441,7 +459,7 @@ class GMX(ExchangeCompatible):
                         "maintenanceMarginRate": maintenance_margin_rate,
                         "info": {
                             "market_token": market_token_addr,
-                            "index_token": market_info.get("indexTokenAddress"),
+                            "index_token": index_token_addr,  # Use overridden value (e.g., wstETH token for wstETH market)
                             "long_token": market_info.get("longTokenAddress"),
                             "short_token": market_info.get("shortTokenAddress"),
                             "graphql_only": True,  # Flag to indicate this was loaded from GraphQL
@@ -3405,13 +3423,15 @@ class GMX(ExchangeCompatible):
         slippage_percent = gmx_params.get("slippage_percent", 0.003)
         execution_buffer = gmx_params.get("execution_buffer", self.execution_buffer)
 
-        # Get token addresses
+        # Get token addresses from self.markets
+        # Note: self.markets is now correctly loaded (both GraphQL and RPC paths handle wstETH special case)
+        # This respects the user's loading preference (GraphQL vs RPC) and avoids unnecessary RPC calls
         chain = self.config.get_chain()
         market_address = market["info"]["market_token"]  # Market contract address
 
         # For GMX, we need to use the market's long_token for long positions
         # GMX markets have specific tokens for long/short positions
-        # E.g., ETH/USDC market uses wstETH (long_token), not WETH
+        # E.g., ETH/USDC market uses WETH (long_token), wstETH market uses wstETH
         collateral_address = market["info"]["long_token"]  # Use market's long token for long positions
         index_token_address = market["info"]["index_token"]  # Use market's index token
 
@@ -3854,7 +3874,7 @@ class GMX(ExchangeCompatible):
 
         # Check for standalone SL/TP order types
         if type in ["stop_loss", "take_profit"]:
-            return self._create_standalone_sltp_order(symbol, type, side, amount, params)
+            return self._create_standalone_sltp_order(symbol, type, side, amount, params,)
 
         # Bundled approach: SL/TP with position opening
         if sl_entry or tp_entry:
