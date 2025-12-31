@@ -203,6 +203,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag, str]] = {
     "0xd1468af648565f11393e4033cb0cd270b62495c9": (VaultFlag.abnormal_tvl, UNKNOWN_VAULT),
     # Peapods Interest Bearing USDC - 17
     "0xeee75954eded526ef98a0cecc027beee4586315e": (VaultFlag.broken, BROKEN_VAULT),
+    # Pendle yield vault
+    "0x8977aafd34323fa046f51f3c913a30caa7dd17db": (VaultFlag.broken, BROKEN_VAULT),
 }
 
 for addr in VAULT_FLAGS_AND_NOTES.keys():
