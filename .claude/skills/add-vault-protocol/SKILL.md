@@ -37,10 +37,10 @@ Before starting, gather the following information from the user:
 
 ### Step 2: Create the vault class
 
-Create `eth_defi/{protocol_slug}/vault.py` following the patterns in:
+Create `eth_defi/erc_4626/vault_protocol/{protocol_slug}/vault.py` following the patterns in:
 
-- `eth_defi/plutus/vault.py` - Simple vault with hardcoded fees
-- `eth_defi/ipor/vault.py` - Complex vault with custom fee reading and multicall support
+- `eth_defi/erc_4626/vault_protocol/plutus/vault.py` - Simple vault with hardcoded fees
+- `eth_defi/erc_4626/vault_protocol/ipor/vault.py` - Complex vault with custom fee reading and multicall support
 
 The vault class should:
 
@@ -149,7 +149,7 @@ In `eth_defi/erc_4626/classification.py`, add a case for the new protocol in `cr
 
 ```python
 elif ERC4626Feature.{protocol_slug}_like in features:
-    from eth_defi.{protocol_slug}.vault import {ProtocolName}Vault
+    from eth_defi.erc_4626.vault_protocol.{protocol_slug}.vault import {ProtocolName}Vault
 
     return {ProtocolName}Vault(web3, spec, token_cache=token_cache, features=features)
 ```
@@ -177,7 +177,7 @@ import flaky
 
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import get_vault_protocol_name
-from eth_defi.{protocol_slug}.vault import {ProtocolName}Vault
+from eth_defi.erc_4626.vault_protocol.{protocol_slug}.vault import {ProtocolName}Vault
 from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.vault.base import VaultTechnicalRisk
@@ -242,7 +242,7 @@ After adding it, run the test module and fix any issues.
 
 ### Step 7: Add module **init**.py
 
-Create `eth_defi/{protocol_slug}/__init__.py`:
+Create `eth_defi/erc_4626/vault_protocol/{protocol_slug}/__init__.py`:
 
 ```python
 """{Protocol Name} protocol integration."""
@@ -250,22 +250,22 @@ Create `eth_defi/{protocol_slug}/__init__.py`:
 
 ## Step 8: Update documentation
 
-- Add protocol to `docs/source/api`
+- Add protocol to `docs/source/vaults`
 - Include protocol name
 - Search web for a short description, two paragraph
 - Add a link to the protocol home page and documentation
 - Search Github/web for a Github repo link of the smart contracts
 - Search protocol homepage for Twitter link and add it to the documentation
 - Add the new modules to the protocol index page TOC
-- Add the protocol to the master index in `docs/source/api/index.rst`
+- Add the protocol to the master index in `docs/source/vaults/index.rst`
 
 Examples include
 
-- `docs/source/api/plutus/index.rst`, `docs/source/api/truefi/index.rst`, `docs/source/api/goat/index.rst`,
+- `docs/source/vaults/plutus/index.rst`, `docs/source/vaults/truefi/index.rst`, `docs/source/api/vaults/index.rst`,
 
 ## Step 9: Run all vault protocol detection tests
 
-Check that all ERC-4626 tests pass after adding a new vault protocol by running all testse in `tests/erc_4626` folder.
+Check that all ERC-4626 tests pass after adding a new vault protocol by running all testse in `tests/erc_4626/vault_protocol` folder.
 
 Run all vault testes:
 
@@ -290,9 +290,8 @@ After implementation, verify:
 - [ ] `create_probe_calls()` has a unique probe for the protocol
 - [ ] `identify_vault_features()` correctly identifies the protocol
 - [ ] `create_vault_instance()` creates the correct vault class
-- [ ] Test file runs successfully with: `source .local-test.env && poetry run pytest tests/erc_4626/test_{protocol_slug}.py -v`
+- [ ] Test file runs successfully with: `source .local-test.env && poetry run pytest tests/erc_4626/vault_protocol/test_{protocol_slug}.py -v`
 - [ ] API documents have been updated
-- [ ] No vaults : `source .local-test.env && poetry run pytest tests/erc_4626/test_{protocol_slug}.py -v`
 - [ ] Check that homepage link in the API documentation takes to the correct homepage
 - [ ] Check that Twitter link in the API documentation works and takes to the same Twitter account as listed on the protocol homepage
 

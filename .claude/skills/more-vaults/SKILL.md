@@ -143,7 +143,7 @@ In `eth_defi/erc_4626/classification.py`, add a case for the new protocol in `cr
 
 ```python
 elif ERC4626Feature.{protocol_slug}_like in features:
-    from eth_defi.{protocol_slug}.vault import {ProtocolName}Vault
+    from eth_defi.erc_4626.vault_protocol.{protocol_slug}.vault import {ProtocolName}Vault
 
     return {ProtocolName}Vault(web3, spec, token_cache=token_cache, features=features)
 ```
@@ -164,7 +164,7 @@ import flaky
 
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import get_vault_protocol_name
-from eth_defi.{protocol_slug}.vault import {ProtocolName}Vault
+from eth_defi.erc_4626.vault_protocol.{protocol_slug}.vault import {ProtocolName}Vault
 from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.vault.base import VaultTechnicalRisk
@@ -242,9 +242,8 @@ After implementation, verify:
 - [ ] `create_probe_calls()` has a unique probe for the protocol
 - [ ] `identify_vault_features()` correctly identifies the protocol
 - [ ] `create_vault_instance()` creates the correct vault class
-- [ ] Test file runs successfully with: `source .local-test.env && poetry run pytest tests/erc_4626/test_{protocol_slug}.py -v`
+- [ ] Test file runs successfully with: `source .local-test.env && poetry run pytest tests/erc_4626/vault_protocol/test_{protocol_slug}.py -v`
 - [ ] API documents have been updated
-- [ ] No vaults : `source .local-test.env && poetry run pytest tests/erc_4626/test_{protocol_slug}.py -v`
 - [ ] Check that homepage link in the API documentation takes to the correct homepage
 - [ ] Check that Twitter link in the API documentation works and takes to the same Twitter account as listed on the protocol homepage
 
