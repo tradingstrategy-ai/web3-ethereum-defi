@@ -210,7 +210,7 @@ def test_ccxt_sltp_uses_correct_market(
 
 @flaky(max_runs=3, min_passes=1)
 def test_ccxt_sltp_graphql_mode(
-    ccxt_gmx_fork_open_close: GMX,
+    ccxt_gmx_fork_graphql: GMX,
     web3_arbitrum_fork_ccxt_long,
     execution_buffer: int,
 ):
@@ -219,7 +219,7 @@ def test_ccxt_sltp_graphql_mode(
     Verifies that the GraphQL fix correctly separates ETH and wstETH markets,
     allowing SLTP orders to work without making RPC calls to Core Markets module.
     """
-    gmx = ccxt_gmx_fork_open_close
+    gmx = ccxt_gmx_fork_graphql
     web3 = web3_arbitrum_fork_ccxt_long
 
     # Verify we're using GraphQL loading (markets should already be loaded)

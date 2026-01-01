@@ -237,3 +237,29 @@ def ccxt_gmx_arbitrum() -> GMX:
         }
     )
     return gmx
+
+
+@pytest.fixture
+def ccxt_gmx_fork_graphql(
+    web3_arbitrum_fork_ccxt_long,
+    test_wallet,
+) -> GMX:
+    """CCXT GMX exchange with wallet for testing GraphQL market loading.
+
+    Uses separate anvil fork to avoid state pollution with other tests.
+    Uses GraphQL loading for fast market data retrieval.
+    Markets are pre-loaded so they're immediately available.
+    """
+    setup_mock_oracle(web3_arbitrum_fork_ccxt_long)
+    config = GMXConfig(web3_arbitrum_fork_ccxt_long, user_wallet_address=test_wallet)
+    _approve_tokens_for_config(config, web3_arbitrum_fork_ccxt_long, test_wallet.address)
+    gmx = GMX(
+        params={
+            "rpcUrl": web3_arbitrum_fork_ccxt_long.provider.endpoint_uri if hasattr(web3_arbitrum_fork_ccxt_long.provider, "endpoint_uri") else None,
+            "wallet": test_wallet,
+            "options": {"graphql_only": True},
+        }
+    )
+    # Pre-load markets so they're available immediately
+    gmx.load_markets()
+    return gmx
