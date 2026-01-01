@@ -13,7 +13,7 @@ from eth_typing import BlockIdentifier
 
 from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.vault import ERC4626Vault
-from eth_defi.euler.offchain_metadata import EulerVaultMetadata, fetch_euler_vault_metadata
+from eth_defi.erc_4626.vault_protocol.euler.offchain_metadata import EulerVaultMetadata, fetch_euler_vault_metadata
 from eth_defi.event_reader.multicall_batcher import EncodedCall
 from eth_defi.vault.base import VaultTechnicalRisk
 

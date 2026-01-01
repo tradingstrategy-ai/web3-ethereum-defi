@@ -9,11 +9,11 @@ from web3 import Web3
 
 from eth_defi.cow.constants import COWSWAP_SETTLEMENT
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
-from eth_defi.gains.vault import GainsVault
+from eth_defi.erc_4626.vault_protocol.gains.vault import GainsVault
 from eth_defi.hotwallet import HotWallet
-from eth_defi.lagoon.cowswap import presign_and_broadcast
+from eth_defi.erc_4626.vault_protocol.lagoon.cowswap import presign_and_broadcast
 from eth_defi.cow.quote import fetch_quote
-from eth_defi.lagoon.deployment import LagoonDeploymentParameters, deploy_automated_lagoon_vault
+from eth_defi.erc_4626.vault_protocol.lagoon.deployment import LagoonDeploymentParameters, deploy_automated_lagoon_vault
 from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import TokenDetails, USDC_NATIVE_TOKEN, USDC_WHALE, fetch_erc20_details, BRIDGED_USDC_TOKEN, USDT_NATIVE_TOKEN, WRAPPED_NATIVE_TOKEN

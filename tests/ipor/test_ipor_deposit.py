@@ -14,7 +14,7 @@ from web3 import Web3
 from eth_defi.erc_4626.analysis import analyse_4626_flow_transaction
 from eth_defi.erc_4626.estimate import estimate_4626_redeem, estimate_4626_deposit, estimate_value_by_share_price
 from eth_defi.erc_4626.flow import deposit_4626, redeem_4626
-from eth_defi.ipor.vault import IPORVault
+from eth_defi.erc_4626.vault_protocol.ipor.vault import IPORVault
 from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch, mine
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import TokenDetails, fetch_erc20_details

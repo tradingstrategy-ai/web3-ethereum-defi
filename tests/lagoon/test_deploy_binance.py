@@ -13,8 +13,8 @@ from eth_typing import HexAddress
 from web3 import Web3
 
 from eth_defi.hotwallet import HotWallet
-from eth_defi.lagoon.deployment import LagoonDeploymentParameters, deploy_automated_lagoon_vault
-from eth_defi.lagoon.vault import LagoonVersion
+from eth_defi.erc_4626.vault_protocol.lagoon.deployment import LagoonDeploymentParameters, deploy_automated_lagoon_vault
+from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVersion
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import TokenDetails, USDT_NATIVE_TOKEN, fetch_erc20_details, WRAPPED_NATIVE_TOKEN, USDT_WHALE

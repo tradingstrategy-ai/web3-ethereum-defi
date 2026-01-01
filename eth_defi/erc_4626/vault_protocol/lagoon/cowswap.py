@@ -33,7 +33,7 @@ from eth_defi.cow.constants import COWSWAP_SETTLEMENT, COWSWAP_VAULT_RELAYER
 from eth_defi.cow.order import GPv2OrderData, post_order
 from eth_defi.cow.status import wait_order_complete, CowSwapResult
 from eth_defi.hotwallet import HotWallet
-from eth_defi.lagoon.vault import LagoonVault
+from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.token import TokenDetails
 from eth_defi.trace import assert_transaction_success_with_explanation
 

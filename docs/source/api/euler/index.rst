@@ -7,5 +7,5 @@ Euler vault protocol integration.
    :toctree: _autosummary_euler
    :recursive:
 
-   eth_defi.euler.vault
-   eth_defi.euler.offchain_metadata
+   eth_defi.erc_4626.vault_protocol.euler.vault
+   eth_defi.erc_4626.vault_protocol.euler.offchain_metadata

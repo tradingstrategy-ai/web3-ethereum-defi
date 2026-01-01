@@ -40,8 +40,8 @@ from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.foundry.forge import deploy_contract_with_forge
 from eth_defi.gas import estimate_gas_price, apply_gas
 from eth_defi.hotwallet import HotWallet
-from eth_defi.lagoon.beacon_proxy import deploy_beacon_proxy
-from eth_defi.lagoon.vault import LagoonVault
+from eth_defi.erc_4626.vault_protocol.lagoon.beacon_proxy import deploy_beacon_proxy
+from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.orderly.vault import OrderlyVault
 from eth_defi.provider.anvil import is_anvil
 from eth_defi.safe.deployment import add_new_safe_owners, deploy_safe, fetch_safe_deployment

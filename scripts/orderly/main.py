@@ -28,7 +28,7 @@ from web3 import Web3
 
 from eth_defi.chain import get_chain_name
 from eth_defi.hotwallet import HotWallet
-from eth_defi.lagoon.vault import LagoonVault, VaultSpec
+from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault, VaultSpec
 from eth_defi.orderly.api import OrderlyApiClient
 from eth_defi.orderly.vault import OrderlyVault, deposit
 from eth_defi.provider.multi_provider import create_multi_provider_web3

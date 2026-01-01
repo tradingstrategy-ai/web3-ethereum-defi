@@ -42,11 +42,11 @@ from web3.exceptions import ContractLogicError, BadFunctionCallOutput
 from eth_defi.vault.base import VaultFlowManager, VaultInfo, VaultSpec
 from eth_defi.erc_7540.vault import ERC7540Vault
 
-from ..abi import encode_function_call, get_deployed_contract, get_function_abi_by_name, get_function_selector, present_solidity_args
-from ..erc_4626.core import ERC4626Feature
-from ..event_reader.multicall_batcher import EncodedCall
-from ..safe.safe_compat import create_safe_ethereum_client
-from ..trace import assert_transaction_success_with_explanation
+from eth_defi.abi import encode_function_call, get_deployed_contract, get_function_abi_by_name, get_function_selector, present_solidity_args
+from eth_defi.erc_4626.core import ERC4626Feature
+from eth_defi.event_reader.multicall_batcher import EncodedCall
+from eth_defi.safe.safe_compat import create_safe_ethereum_client
+from eth_defi.trace import assert_transaction_success_with_explanation
 
 logger = logging.getLogger(__name__)
 
@@ -725,7 +725,7 @@ class LagoonVault(ERC7540Vault):
         return self.safe.contract.functions.isModuleEnabled(self.trading_strategy_module_address).call() == True
 
     def get_deposit_manager(self) -> "eth_defi.lagoon.deposit_redeem.ERC7540DepositManager":
-        from eth_defi.lagoon.deposit_redeem import ERC7540DepositManager
+        from eth_defi.erc_4626.vault_protocol.lagoon.deposit_redeem import ERC7540DepositManager
 
         return ERC7540DepositManager(self)
 

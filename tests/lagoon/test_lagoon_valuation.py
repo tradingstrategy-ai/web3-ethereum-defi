@@ -11,7 +11,7 @@ from web3.contract.contract import ContractFunction
 import flaky
 
 from eth_defi.event_reader.multicall_batcher import get_multicall_contract, call_multicall_batched_single_thread, MulticallWrapper
-from eth_defi.lagoon.vault import LagoonVault
+from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.provider.broken_provider import get_almost_latest_block_number
 from eth_defi.safe.trace import assert_execute_module_success
 from eth_defi.token import TokenDetails, fetch_erc20_details

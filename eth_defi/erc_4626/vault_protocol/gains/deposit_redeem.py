@@ -70,7 +70,7 @@ class GainsDepositManager(ERC4626DepositManager):
     """Add Gains-specific redemption logic."""
 
     def __init__(self, vault: "eth_defi.gains.vault.GainsVault"):
-        from eth_defi.gains.vault import GainsVault
+        from eth_defi.erc_4626.vault_protocol.gains.vault import GainsVault
 
         assert isinstance(vault, GainsVault), f"Got {type(vault)}"
         self.vault = vault

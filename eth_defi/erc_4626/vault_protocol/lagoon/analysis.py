@@ -13,7 +13,7 @@ from decimal import Decimal
 from hexbytes import HexBytes
 from web3._utils.events import EventLogErrorFlags
 
-from eth_defi.lagoon.vault import LagoonVault
+from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.timestamp import get_block_timestamp
 from eth_defi.token import TokenDetails
 from eth_defi.trace import assert_transaction_success_with_explanation

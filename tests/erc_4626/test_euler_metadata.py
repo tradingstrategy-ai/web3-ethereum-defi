@@ -9,7 +9,7 @@ from web3 import Web3
 import flaky
 
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
-from eth_defi.euler.vault import EulerVault
+from eth_defi.erc_4626.vault_protocol.euler.vault import EulerVault
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")

@@ -3,7 +3,7 @@
 import logging
 import datetime
 
-from eth_defi.gains.vault import GainsVault
+from eth_defi.erc_4626.vault_protocol.gains.vault import GainsVault
 from eth_defi.provider.anvil import mine
 from eth_typing import HexAddress
 

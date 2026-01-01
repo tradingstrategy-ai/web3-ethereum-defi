@@ -46,8 +46,8 @@ class ERC7540DepositRequest(DepositRequest):
             If we did not know how to parse the transaction
         """
 
-        from eth_defi.lagoon.vault import LagoonVault
-        from eth_defi.lagoon.vault import LagoonVersion
+        from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
+        from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVersion
 
         tx_hash = tx_hashes[-1]
 
@@ -111,8 +111,8 @@ class ERC7540RedemptionRequest(RedemptionRequest):
     """Synchronous deposit request for ERC-7540 vaults."""
 
     def parse_redeem_transaction(self, tx_hashes: list[HexBytes]) -> RedemptionTicket:
-        from eth_defi.lagoon.vault import LagoonVault
-        from eth_defi.lagoon.vault import LagoonVersion
+        from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
+        from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVersion
 
         tx_hash = tx_hashes[-1]
 
@@ -152,7 +152,7 @@ class ERC7540DepositManager(VaultDepositManager):
     """
 
     def __init__(self, vault: "eth_defi.erc_7540.vault.ERC7540Vault"):
-        from eth_defi.lagoon.vault import LagoonVault
+        from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 
         assert isinstance(vault, LagoonVault), f"Got {type(vault)}"
         self.vault = vault

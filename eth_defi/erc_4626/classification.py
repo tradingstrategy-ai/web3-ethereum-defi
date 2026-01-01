@@ -825,12 +825,12 @@ def create_vault_instance(
         return None
     elif ERC4626Feature.ipor_like in features:
         # IPOR instance
-        from eth_defi.ipor.vault import IPORVault
+        from eth_defi.erc_4626.vault_protocol.ipor.vault import IPORVault
 
         return IPORVault(web3, spec, token_cache=token_cache, features=features)
     elif ERC4626Feature.lagoon_like in features:
         # Lagoon instance
-        from eth_defi.lagoon.vault import LagoonVault
+        from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 
         return LagoonVault(web3, spec, token_cache=token_cache, features=features)
     elif ERC4626Feature.morpho_like in features:
@@ -839,23 +839,23 @@ def create_vault_instance(
 
         return MorphoVault(web3, spec, token_cache=token_cache, features=features)
     elif ERC4626Feature.euler_like in features:
-        # Lagoon instance
-        from eth_defi.euler.vault import EulerVault
+        # Euler instance
+        from eth_defi.erc_4626.vault_protocol.euler.vault import EulerVault
 
         return EulerVault(web3, spec, token_cache=token_cache, features=features)
 
     elif ERC4626Feature.gains_like in features:
-        # Lagoon instance
-        from eth_defi.gains.vault import GainsVault
+        # Gains instance
+        from eth_defi.erc_4626.vault_protocol.gains.vault import GainsVault
 
         return GainsVault(web3, spec, token_cache=token_cache, features=features)
     elif ERC4626Feature.ostium_like in features:
-        # Lagoon instance
-        from eth_defi.gains.vault import OstiumVault
+        # Ostium instance
+        from eth_defi.erc_4626.vault_protocol.gains.vault import OstiumVault
 
         return OstiumVault(web3, spec, token_cache=token_cache, features=features)
     elif ERC4626Feature.umami_like in features:
-        from eth_defi.umami.vault import UmamiVault
+        from eth_defi.erc_4626.vault_protocol.umami.vault import UmamiVault
 
         return UmamiVault(web3, spec, token_cache=token_cache, features=features)
     elif ERC4626Feature.plutus_like in features:

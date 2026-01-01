@@ -44,8 +44,8 @@ from eth_defi.erc_4626.classification import create_vault_instance, detect_vault
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.etherscan.validation import check_etherscan_api_key
 from eth_defi.hotwallet import HotWallet
-from eth_defi.lagoon.config import get_lagoon_chain_config
-from eth_defi.lagoon.deployment import LagoonDeploymentParameters, deploy_automated_lagoon_vault
+from eth_defi.erc_4626.vault_protocol.lagoon.config import get_lagoon_chain_config
+from eth_defi.erc_4626.vault_protocol.lagoon.deployment import LagoonDeploymentParameters, deploy_automated_lagoon_vault
 from eth_defi.provider.anvil import fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import USDC_NATIVE_TOKEN, USDT_NATIVE_TOKEN

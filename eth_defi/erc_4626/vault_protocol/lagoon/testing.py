@@ -11,7 +11,7 @@ from eth_defi.erc_4626.classification import create_vault_instance
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.event_reader.conversion import convert_uint256_string_to_int, convert_uin256_to_bytes
 from eth_defi.event_reader.multicall_batcher import EncodedCall
-from eth_defi.lagoon.vault import LagoonVault
+from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.trace import assert_transaction_success_with_explanation
 
 

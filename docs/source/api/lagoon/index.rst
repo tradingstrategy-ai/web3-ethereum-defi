@@ -7,11 +7,11 @@ Lagoon protocol vaults integration.
    :toctree: _autosummary_lagoon
    :recursive:
 
-   eth_defi.lagoon.vault
-   eth_defi.lagoon.deposit_redeem
-   eth_defi.lagoon.config
-   eth_defi.lagoon.deployment
-   eth_defi.lagoon.analysis
-   eth_defi.lagoon.beacon_proxy
-   eth_defi.lagoon.cowswap
-   eth_defi.lagoon.testing
+   eth_defi.erc_4626.vault_protocol.lagoon.vault
+   eth_defi.erc_4626.vault_protocol.lagoon.deposit_redeem
+   eth_defi.erc_4626.vault_protocol.lagoon.config
+   eth_defi.erc_4626.vault_protocol.lagoon.deployment
+   eth_defi.erc_4626.vault_protocol.lagoon.analysis
+   eth_defi.erc_4626.vault_protocol.lagoon.beacon_proxy
+   eth_defi.erc_4626.vault_protocol.lagoon.cowswap
+   eth_defi.erc_4626.vault_protocol.lagoon.testing

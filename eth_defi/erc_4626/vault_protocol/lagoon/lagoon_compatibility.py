@@ -17,7 +17,7 @@ from eth_typing import HexAddress
 from tqdm_loggable.auto import tqdm
 
 from eth_defi.chain import get_chain_name
-from eth_defi.lagoon.vault import LagoonVault
+from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.provider.anvil import mine, launch_anvil, set_balance
 from eth_defi.provider.fallback import FallbackProvider
 from eth_defi.provider.mev_blocker import MEVBlockerProvider

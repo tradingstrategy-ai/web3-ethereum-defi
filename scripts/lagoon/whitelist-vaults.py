@@ -32,8 +32,8 @@ from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature, get_vault_protocol_name
 from eth_defi.erc_4626.vault import ERC4626Vault
-from eth_defi.gains.vault import GainsVault
-from eth_defi.lagoon.vault import LagoonVault
+from eth_defi.erc_4626.vault_protocol.gains.vault import GainsVault
+from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.safe.deployment import fetch_safe_deployment
 from eth_defi.safe.tx import propose_safe_transaction
