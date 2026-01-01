@@ -9,4 +9,4 @@ LLAMMA (Lending Liquidating Automated Market Maker Algorithm) is the market-maki
    :toctree: _autosummary_llamma
    :recursive:
 
-   eth_defi.llamma.vault
+   eth_defi.erc_4626.vault_protocol.llamma.vault

@@ -12,4 +12,4 @@ CAP is a covered call yield protocol that provides structured products for earni
    :toctree: _autosummary_cap
    :recursive:
 
-   eth_defi.cap.vault
+   eth_defi.erc_4626.vault_protocol.cap.vault

@@ -16,9 +16,7 @@ from web3.types import BlockIdentifier
 
 from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.core import ERC4626Feature
-from eth_defi.event_reader.multicall_batcher import (EncodedCall,
-                                                     EncodedCallResult,
-                                                     read_multicall_chunked)
+from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, read_multicall_chunked
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.vault.base import VaultBase, VaultSpec
 from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
@@ -861,122 +859,121 @@ def create_vault_instance(
 
         return UmamiVault(web3, spec, token_cache=token_cache, features=features)
     elif ERC4626Feature.plutus_like in features:
-        from eth_defi.plutus.vault import PlutusVault
+        from eth_defi.erc_4626.vault_protocol.plutus.vault import PlutusVault
 
         return PlutusVault(web3, spec, token_cache=token_cache, features=features)
 
     elif ERC4626Feature.harvest_finance in features:
-        from eth_defi.harvest.vault import HarvestVault
+        from eth_defi.erc_4626.vault_protocol.harvest.vault import HarvestVault
 
         return HarvestVault(web3, spec, token_cache=token_cache, features=features)
 
     elif ERC4626Feature.d2_like in features:
-        from eth_defi.d2.vault import D2Vault
+        from eth_defi.erc_4626.vault_protocol.d2.vault import D2Vault
 
         return D2Vault(web3, spec, token_cache=token_cache, features=features)
     elif ERC4626Feature.untangled_like in features:
-        from eth_defi.untangle.vault import UntangleVault
+        from eth_defi.erc_4626.vault_protocol.untangle.vault import UntangleVault
 
         return UntangleVault(web3, spec, token_cache=token_cache, features=features)
     elif ERC4626Feature.cap_like in features:
         # Covered Agent Protocol (CAP) uses Yearn V3 infrastructure
-        from eth_defi.cap.vault import CAPVault
+        from eth_defi.erc_4626.vault_protocol.cap.vault import CAPVault
 
         return CAPVault(web3, spec, token_cache=token_cache, features=features)
     elif ERC4626Feature.foxify_like in features:
-        from eth_defi.foxify.vault import FoxifyVault
+        from eth_defi.erc_4626.vault_protocol.foxify.vault import FoxifyVault
 
         return FoxifyVault(web3, spec, token_cache=token_cache, features=features)
     elif ERC4626Feature.liquidity_royalty_like in features:
-        from eth_defi.liquidity_royalty.vault import LiquidityRoyalyJuniorVault
+        from eth_defi.erc_4626.vault_protocol.liquidity_royalty.vault import LiquidityRoyalyJuniorVault
 
         return LiquidityRoyalyJuniorVault(web3, spec, token_cache=token_cache, features=features)
     elif ERC4626Feature.csigma_like in features:
-        from eth_defi.csigma.vault import CsigmaVault
+        from eth_defi.erc_4626.vault_protocol.csigma.vault import CsigmaVault
 
         return CsigmaVault(web3, spec, token_cache=token_cache, features=features)
     elif ERC4626Feature.spark_like in features:
-        from eth_defi.spark.vault import SparkVault
+        from eth_defi.erc_4626.vault_protocol.spark.vault import SparkVault
 
         return SparkVault(web3, spec, token_cache=token_cache, features=features)
     elif ERC4626Feature.yearn_morpho_compounder_like in features:
         # Yearn V3 vault with Morpho Compounder strategy
-        from eth_defi.yearn.morpho_compounder import \
-            YearnMorphoCompounderStrategy
+        from eth_defi.erc_4626.vault_protocol.yearn.morpho_compounder import YearnMorphoCompounderStrategy
 
         return YearnMorphoCompounderStrategy(web3, spec, token_cache=token_cache, features=features)
     elif ERC4626Feature.yearn_v3_like in features or ERC4626Feature.yearn_tokenised_strategy in features:
         # Both of these have fees internatilised
-        from eth_defi.yearn.vault import YearnV3Vault
+        from eth_defi.erc_4626.vault_protocol.yearn.vault import YearnV3Vault
 
         return YearnV3Vault(web3, spec, token_cache=token_cache, features=features)
     elif ERC4626Feature.goat_like in features:
         # Both of these have fees internatilised
-        from eth_defi.goat.vault import GoatVault
+        from eth_defi.erc_4626.vault_protocol.goat.vault import GoatVault
 
         return GoatVault(web3, spec, token_cache=token_cache, features=features)
     elif ERC4626Feature.usdai_like in features:
         # Both of these have fees internatilised
-        from eth_defi.usdai.vault import StakedUSDaiVault
+        from eth_defi.erc_4626.vault_protocol.usdai.vault import StakedUSDaiVault
 
         return StakedUSDaiVault(web3, spec, token_cache=token_cache, features=features)
     elif ERC4626Feature.autopool_like in features:
         # Both of these have fees internatilised
-        from eth_defi.autopool.vault import AutoPoolVault
+        from eth_defi.erc_4626.vault_protocol.autopool.vault import AutoPoolVault
 
         return AutoPoolVault(web3, spec, token_cache=token_cache, features=features)
     elif ERC4626Feature.nashpoint_like in features:
         # Both of these have fees internatilised
-        from eth_defi.nashpoint.vault import NashpointNodeVault
+        from eth_defi.erc_4626.vault_protocol.nashpoint.vault import NashpointNodeVault
 
         return NashpointNodeVault(web3, spec, token_cache=token_cache, features=features)
 
     elif ERC4626Feature.llamma_like in features:
         # Both of these have fees internatilised
-        from eth_defi.llamma.vault import LLAMMAVault
+        from eth_defi.erc_4626.vault_protocol.llamma.vault import LLAMMAVault
 
         return LLAMMAVault(web3, spec, token_cache=token_cache, features=features)
 
     elif ERC4626Feature.summer_like in features:
         # Both of these have fees internatilised
-        from eth_defi.summer.vault import SummerVault
+        from eth_defi.erc_4626.vault_protocol.summer.vault import SummerVault
 
         return SummerVault(web3, spec, token_cache=token_cache, features=features)
 
     elif ERC4626Feature.silo_like in features:
         # Both of these have fees internatilised
-        from eth_defi.silo.vault import SiloVault
+        from eth_defi.erc_4626.vault_protocol.silo.vault import SiloVault
 
         return SiloVault(web3, spec, token_cache=token_cache, features=features)
 
     elif ERC4626Feature.truefi_like in features:
         # Both of these have fees internatilised
-        from eth_defi.truefi.vault import TrueFiVault
+        from eth_defi.erc_4626.vault_protocol.truefi.vault import TrueFiVault
 
         return TrueFiVault(web3, spec, token_cache=token_cache, features=features)
 
     elif ERC4626Feature.superform_like in features:
         # Both of these have fees internatilised
-        from eth_defi.superform.vault import SuperformVault
+        from eth_defi.erc_4626.vault_protocol.superform.vault import SuperformVault
 
         return SuperformVault(web3, spec, token_cache=token_cache, features=features)
 
     elif ERC4626Feature.teller_like in features:
-        from eth_defi.teller.vault import TellerVault
+        from eth_defi.erc_4626.vault_protocol.teller.vault import TellerVault
 
         return TellerVault(web3, spec, token_cache=token_cache, features=features)
 
     elif ERC4626Feature.deltr_like in features:
-        from eth_defi.deltr.vault import DeltrVault
+        from eth_defi.erc_4626.vault_protocol.deltr.vault import DeltrVault
 
         return DeltrVault(web3, spec, token_cache=token_cache, features=features)
 
     elif ERC4626Feature.upshift_like in features:
-        from eth_defi.upshift.vault import UpshiftVault
+        from eth_defi.erc_4626.vault_protocol.upshift.vault import UpshiftVault
 
         return UpshiftVault(web3, spec, token_cache=token_cache, features=features)
     elif ERC4626Feature.sky_like in features:
-        from eth_defi.sky.vault import SkyVault
+        from eth_defi.erc_4626.vault_protocol.sky.vault import SkyVault
 
         return SkyVault(web3, spec, token_cache=token_cache, features=features)
 

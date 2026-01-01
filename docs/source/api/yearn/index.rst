@@ -14,4 +14,5 @@ Backed by Fasanara Capital, a leading institutional asset manager and fintech in
    :toctree: _autosummary_d2
    :recursive:
 
-   eth_defi.yearn.vault
+   eth_defi.erc_4626.vault_protocol.yearn.vault
+   eth_defi.erc_4626.vault_protocol.yearn.morpho_compounder

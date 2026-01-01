@@ -13,4 +13,4 @@ Interest is primarily generated through fixed-rate and variable-rate onchain len
    :toctree: _autosummary_superform
    :recursive:
 
-   eth_defi.superform.vault
+   eth_defi.erc_4626.vault_protocol.superform.vault

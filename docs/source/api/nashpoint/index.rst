@@ -16,4 +16,4 @@ NashPoint vaults are known as *Node*.
    :toctree: _autosummary_d2
    :recursive:
 
-   eth_defi.nashpoint.vault
+   eth_defi.erc_4626.vault_protocol.nashpoint.vault

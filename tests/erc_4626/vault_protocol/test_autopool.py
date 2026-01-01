@@ -8,13 +8,13 @@ import pytest
 from web3 import Web3
 import flaky
 
-from eth_defi.autopool.vault import AutoPoolVault
+from eth_defi.erc_4626.vault_protocol.autopool.vault import AutoPoolVault
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch
 from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.untangle.vault import UntangleVault
-from eth_defi.usdai.vault import StakedUSDaiVault
+from eth_defi.erc_4626.vault_protocol.untangle.vault import UntangleVault
+from eth_defi.erc_4626.vault_protocol.usdai.vault import StakedUSDaiVault
 from eth_defi.vault.base import VaultTechnicalRisk
 from eth_defi.vault.fee import VaultFeeMode
 

@@ -15,4 +15,4 @@ Harvest offers a simplified but powerful platform to discover yield strategies a
    :toctree: _autosummary_plutus
    :recursive:
 
-   eth_defi.harvest.vault
+   eth_defi.erc_4626.vault_protocol.harvest.vault

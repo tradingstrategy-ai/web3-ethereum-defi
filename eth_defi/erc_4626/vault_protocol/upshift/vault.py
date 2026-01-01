@@ -15,7 +15,7 @@ class UpshiftVault(ERC4626Vault):
     """Upshift protocol vaults.
 
     Upshift democratises institutional-grade DeFi yield strategies through non-custodial vaults
-    built on August infrastructure. 
+    built on August infrastructure.
 
     Links:
 

@@ -28,4 +28,4 @@ Key features:
    :toctree: _autosummary_sky
    :recursive:
 
-   eth_defi.sky.vault
+   eth_defi.erc_4626.vault_protocol.sky.vault

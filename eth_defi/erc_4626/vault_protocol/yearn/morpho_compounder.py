@@ -13,7 +13,7 @@ from eth_typing import BlockIdentifier, HexAddress
 from web3.contract import Contract
 
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
-from eth_defi.yearn.vault import YearnV3Vault
+from eth_defi.erc_4626.vault_protocol.yearn.vault import YearnV3Vault
 
 logger = logging.getLogger(__name__)
 

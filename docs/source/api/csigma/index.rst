@@ -28,4 +28,4 @@ loans are accessible on 11 major blockchain networks, including Ethereum, Arbitr
    :toctree: _autosummary_csigma
    :recursive:
 
-   eth_defi.csigma.vault
+   eth_defi.erc_4626.vault_protocol.csigma.vault

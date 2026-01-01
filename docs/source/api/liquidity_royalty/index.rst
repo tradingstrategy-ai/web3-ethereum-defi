@@ -25,4 +25,4 @@ Key features:
    :toctree: _autosummary_liquidity_royalty
    :recursive:
 
-   eth_defi.liquidity_royalty.vault
+   eth_defi.erc_4626.vault_protocol.liquidity_royalty.vault

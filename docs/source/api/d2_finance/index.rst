@@ -11,4 +11,4 @@ High-Yield Stablecoin, Bitcoin, & RWA Strategies on Hyperliquid. D2 Finance deli
    :toctree: _autosummary_d2
    :recursive:
 
-   eth_defi.d2.vault
+   eth_defi.erc_4626.vault_protocol.d2.vault

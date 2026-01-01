@@ -11,4 +11,4 @@ Silo is the main component of the protocol. It implements lending logic, manages
    :toctree: _autosummary_d2
    :recursive:
 
-   eth_defi.silo.vault
+   eth_defi.erc_4626.vault_protocol.silo.vault

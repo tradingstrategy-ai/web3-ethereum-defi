@@ -5,7 +5,7 @@ import logging
 
 from eth_typing import BlockIdentifier
 
-from eth_defi.yearn.vault import YearnV3Vault
+from eth_defi.erc_4626.vault_protocol.yearn.vault import YearnV3Vault
 
 logger = logging.getLogger(__name__)
 

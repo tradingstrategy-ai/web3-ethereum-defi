@@ -13,9 +13,9 @@ from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch
 from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.untangle.vault import UntangleVault
+from eth_defi.erc_4626.vault_protocol.untangle.vault import UntangleVault
 from eth_defi.vault.base import VaultTechnicalRisk
-from eth_defi.yearn.vault import YearnV3Vault
+from eth_defi.erc_4626.vault_protocol.yearn.vault import YearnV3Vault
 
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
 

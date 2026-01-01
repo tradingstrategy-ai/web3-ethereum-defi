@@ -7,7 +7,7 @@ import flaky
 import pytest
 from web3 import Web3
 
-from eth_defi.cap.vault import CAPVault
+from eth_defi.erc_4626.vault_protocol.cap.vault import CAPVault
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature, get_vault_protocol_name
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
