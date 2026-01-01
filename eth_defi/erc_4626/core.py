@@ -254,6 +254,11 @@ class ERC4626Feature(enum.Enum):
     #: https://csigma.finance
     csigma_like = "csigma_like"
 
+    #: Spark
+    #:
+    #: https://spark.fi/
+    spark_like = "spark_like"
+
 
 def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     """Deduct vault protocol name based on Vault smart contract features.
@@ -369,6 +374,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.csigma_like in features:
         return "cSigma Finance"
+
+    elif ERC4626Feature.spark_like in features:
+        return "Spark"
 
     # No idea
     if ERC4626Feature.erc_7540_like in features:
