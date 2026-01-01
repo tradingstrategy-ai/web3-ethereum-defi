@@ -60,43 +60,27 @@ logger = logging.getLogger(__name__)
 class {ProtocolName}Vault(ERC4626Vault):
     """Protocol vault support.
 
-    Add few lines descriptiong of the protocol here, from the protocol documentation.
+    One line description of the protocol.
 
     - Add links to protocol documentation
     - Add links to example contracts on block explorers
     - Add links to github
+    - If fee information is documented or available as Github source code, link into it
     """
 
     def has_custom_fees(self) -> bool:
-        """Whether this vault has deposit/withdrawal fees."""
         return False  # Adjust based on protocol
 
     def get_management_fee(self, block_identifier: BlockIdentifier) -> float:
-        """Get the current management fee as a percent.
-
-        :return:
-            0.1 = 10%
-        """
-        # Implement based on protocol's fee structure
-        # Generated: Human can add details later
         return None
 
     def get_performance_fee(self, block_identifier: BlockIdentifier) -> float | None:
-        """Get the current performance fee as a percent.
-
-        :return:
-            0.1 = 10%
-        """
-        # Implement based on protocol's fee structure
-        # Generated: Human can add details later
         return None
 
     def get_estimated_lock_up(self) -> datetime.timedelta | None:
-        """Get estimated lock-up period if any."""
         return None
 
     def get_link(self, referral: str | None = None) -> str:
-        """Get the vault's web UI link."""
         return f"https://protocol-url.com/vault/{self.vault_address}"
 ```
 

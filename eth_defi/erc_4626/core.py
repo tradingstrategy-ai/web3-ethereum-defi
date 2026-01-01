@@ -282,6 +282,12 @@ class ERC4626Feature(enum.Enum):
     #: https://etherscan.io/address/0xa7a31e6a81300120b7c4488ec3126bc1ad11f320
     deltr_like = "deltr_like"
 
+    #: Upshift
+    #:
+    #: Institutional-grade DeFi yield strategies through non-custodial vaults.
+    #: https://www.upshift.finance/
+    upshift_like = "upshift_like"
+
 
 def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     """Deduct vault protocol name based on Vault smart contract features.
@@ -409,6 +415,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.deltr_like in features:
         return "Deltr"
+
+    elif ERC4626Feature.upshift_like in features:
+        return "Upshift"
 
     # No idea
     if ERC4626Feature.erc_7540_like in features:

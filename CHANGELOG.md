@@ -10,6 +10,7 @@
 - Add: New vault type: Yearn Morpho Compounder strategy
 - Add: New protocol: Teller (Base)
 - Add: New protocol: Deltr (Ethereum)
+- Add: New protocol: Upshift (Ethereum)
 - Fix: Various RPC error code workarounds (Monad, Arbitrum, Hyperliquid)
 
 # 0.37

@@ -90,6 +90,7 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Yearn Morpho Compounder": VaultTechnicalRisk.minimal,
     "Teller": None,
     "Deltr": VaultTechnicalRisk.dangerous,
+    "Upshift": None,
 }
 
 #: Particular vaults that are broken, misleading or otherwise problematic.
