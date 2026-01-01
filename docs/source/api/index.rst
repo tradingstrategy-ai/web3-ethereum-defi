@@ -29,36 +29,8 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    vault/index
    erc_4626/index
    enzyme/index
-   lagoon/index
    velvet/index
-   ipor/index
-   euler/index
    morpho/index
-   umami/index
-   gains/index
-   plutus/index
-   harvest/index
-   d2_finance/index
-   untangle/index
-   yearn/index
-   goat/index
-   usdai/index
-   auto_finance/index
-   nashpoint/index
-   llamma/index
-   summer/index
-   silo/index
-   truefi/index
-   superform/index
-   cap/index
-   foxify/index
-   liquidity_royalty/index
-   csigma/index
-   spark/index
-   sky/index
-   teller/index
-   deltr/index
-   upshift/index
    chainlink/index
    foundry/index
    etherscan/index

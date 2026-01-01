@@ -1,0 +1,62 @@
+Vault protocols
+===============
+
+This section documents integrations with ERC-4626 compliant vault protocols.
+
+About ERC-4626
+--------------
+
+`ERC-4626 <https://eips.ethereum.org/EIPS/eip-4626>`__ is a tokenised vault standard
+that provides a common interface for yield-bearing vaults. The standard defines
+a consistent API for deposit, withdrawal, and share accounting operations,
+making it easier to integrate with different vault implementations.
+
+Vault integrations
+------------------
+
+This Python package provides integrations with various ERC-4626 vault protocols,
+enabling you to:
+
+- **Discover vaults**: Find vaults and query their features across multiple chains
+- **Deposit and redeem**: Automate deposits into vaults and redemptions from your application
+- **Query positions**: Check your vault positions and share balances
+- **Historical data**: Read share price history, TVL, deposits, and redemptions
+- **Protocol-specific features**: Handle unique characteristics like redemption delays, fees, and settlement mechanics
+
+For the core ERC-4626 functionality shared across all vault protocols, see
+:py:mod:`eth_defi.erc_4626`.
+
+Supported protocols
+-------------------
+
+.. toctree::
+   :maxdepth: 1
+
+   auto_finance/index
+   cap/index
+   csigma/index
+   d2_finance/index
+   deltr/index
+   euler/index
+   foxify/index
+   gains/index
+   goat/index
+   harvest/index
+   ipor/index
+   lagoon/index
+   liquidity_royalty/index
+   llamma/index
+   nashpoint/index
+   plutus/index
+   silo/index
+   sky/index
+   spark/index
+   summer/index
+   superform/index
+   teller/index
+   truefi/index
+   umami/index
+   untangle/index
+   upshift/index
+   usdai/index
+   yearn/index
