@@ -26,6 +26,16 @@ Avoid running the whole test suite as it takes several minutes. Only run specifi
 When running pytest or any test commands, always use an extended timeout
 by specifying `timeout: 180000` (3 minutes) in the bash tool parameters.
 
+### Environment variable configuration and RPC URL format
+
+We use environment variables like `JSON_RPC_ETHEREUM`, JSON_RPC_ARBITRUM` to interact with various EVM-based blockchains.
+
+In the environment file, the RPC URLs are provided in the project-specific space-separated fallback format, as described in `mev-blocker.rst`.
+
+- If there is a space in RPC URL given by a environment variable like `JSON_RPC_ETHEREUM`, it can be only used with Python call `create_multi_provider_web3()`
+- If you are going to use this RPC URL with other commands, like `curl`, you need to parse the RPC environment variable by spltting it by spaces and taking the first entry
+- All environment variables point to EVM archive nodes
+
 ## Formatting code
 
 After a large task is complete you can format the code with:

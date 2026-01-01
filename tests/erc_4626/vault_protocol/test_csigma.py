@@ -56,4 +56,4 @@ def test_csigma(
     assert vault.has_custom_fees() is False
 
     # Check vault link
-    assert vault.get_link() == "https://edge.csigma.finance/'"
+    assert vault.get_link() == "https://edge.csigma.finance/"

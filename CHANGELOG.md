@@ -6,6 +6,7 @@
 - Add: New protocol: Liquidity Royalty Tranching (Berachain)
 - Add: New protocol: cSigma Finance (Ethereum)
 - Add: New protocol: Spark (Ethereum)
+- Add: New vault type: Yearn Morpho Compounder strategy
 - Fix: Various RPC error code workarounds (Monad, Arbitrum, Hyperliquid)
 
 # 0.37
@@ -18,7 +19,7 @@
 
 # 0.36
 
-- Add: GMX CCXT/FreqTrade integrat  ion
+- Add: GMX CCXT/FreqTrade integrat ion
 - Add: Rewrite block timestamp cache to use DuckDB and Hypersync
 - Fix: Multiple RPC issue workarounds
 - Fix: Make `launch_anvil()` multi process locked, as likely Anvil has some internal conditions
@@ -41,12 +42,12 @@
 - Add: New protocol: Untangled Finance
 - Add: New protocol: Harvest Finance
 - Add: New protocol: Yearn Finance
-- Add: New protocol: Goat protocol 
+- Add: New protocol: Goat protocol
 - Add: New protocol: USDai protocol and StakedUSDai vault
 - Add: New protocol: AUTO Finance (prev. Tokemak)
 - Add: New protocol: NashPoint
-- Add: Vault protocol fee classification (internal/external/feeless) 
-- Add: Vault fees and net profit calculations 
+- Add: Vault protocol fee classification (internal/external/feeless)
+- Add: Vault fees and net profit calculations
 - Add: `get_block_timestamps_using_hypersync()`
 - Add: Expand `TradingStrategyModuleV0` to cover ERC-7540 and Gains deposit/rdeem
 - Add: Guard updates: Whitelist Lagoon vault deposits into other ERC-7540 vaults (Lagoon vaults)
@@ -61,14 +62,13 @@
 - Add: Safe propose_transaction()
 - Add: Example tutorial how to analyse Aave liquidations
 
-
 # 0.33
 
 - Migrate to Web3.py 7.x with the optional Web3 6.x dependency available. See [README](github.com/tradingstrategy-ai/web3-ethereum-defi) for updated installation instruction details.
 - Add: Support `swapExactTokensForTokensSupportingFeeOnTransferTokens` in GuardV0 and `swap_with_slippage_protection()`
 - Add: `VaultDepositManager` interface which abstracts deposit/redeem process over different vaults: ERC-4626, ERC-7540, Gains-like
-- Add: [Initial support for Gains](https://web3-ethereum-defi.readthedocs.io/api/gains/index.html) 
-- Add: [Initial support for Ostium](https://web3-ethereum-defi.readthedocs.io/api/gains/index.html)  
+- Add: [Initial support for Gains](https://web3-ethereum-defi.readthedocs.io/api/gains/index.html)
+- Add: [Initial support for Ostium](https://web3-ethereum-defi.readthedocs.io/api/gains/index.html)
 - Fix: Custom gas limit fixes needed for Base, Mantle
 
 # 0.32
@@ -82,9 +82,10 @@
 - Add: `check_etherscan_api_key()` to do a pre-flight check your Etherscan API key works
 - Add: Lagoon custom deployments for BNB Chain and Mode
 - Fix: `TradingStrategyModuleV0` Zodiac module contract size for deployment
-- Fix: [Vault share price for gTrade (Gains Network) and other vaults using non-standard formula which is not total assets / total supply](https://web3-ethereum-defi.readthedocs.io/tutorials/erc-4626-single-vault.html)  
+- Fix: [Vault share price for gTrade (Gains Network) and other vaults using non-standard formula which is not total assets / total supply](https://web3-ethereum-defi.readthedocs.io/tutorials/erc-4626-single-vault.html)
 
 - Add: `get_tx_broadcast_data` is added to get raw transaction bytes using both versions web3py i.e. `v6` & `v7`
+
 # 0.31
 
 - Add: Lagoon vault guard re-deployment against an existing vault
@@ -93,7 +94,7 @@
 - Add: `ignore_error` flag for `eth_call` in fallback/retry middleware. Allow the caller to signal that it is normal for `eth_call` request to fail, and retries should not be ignored, or the failure should not be logged
 - Add: [ERC-4626 deposit and redeem workflow improvements, tutorial](https://web3-ethereum-defi.readthedocs.io/tutorials/erc-4626-deposit-redeem.html)
 - Add: `disable_safe_module()` for Safe multisigs
-- Add: Support accessing IPOR redemption delay 
+- Add: Support accessing IPOR redemption delay
 - Add: Support Etherscan-style ABI files that are just a JSON list of ABI items, not a full ABI dictionary
 - Add: `detect_vault_features(address)` to easily detect arbitrary vaults
 - Add: Ruff linting of the code
@@ -128,9 +129,10 @@
 - Add: IPOR vault support
 - Add: Morpho vault support
 - Add: `eth_defi.token.TokenDiskCache`
-- Add: `get_last_headers()`: Expose JSON-RPC server HTTP reply headers in every JSON-RPC call, to allow debugging RPC providers like dRPC 
+- Add: `get_last_headers()`: Expose JSON-RPC server HTTP reply headers in every JSON-RPC call, to allow debugging RPC providers like dRPC
 - Add new chain support: Abstract, Optimism, Celo, ZKSync, Gnosis chain, Soneium, Zora, Hyperliquid, Blast, Mantle, Unichain, Berachain
-- 
+-
+
 # 0.28.1
 
 - Expose `TokenSnifferError.status_code` attribute so clients can handle sniffer errors
@@ -146,7 +148,6 @@
 - Add: Integrate `TradingStrategyModuleV0` module to Gnosis Safe-based protocols using Zodiac module. Mainly needed for Lagoon vaults, but can work for others: vanilla Safe, DAOs.
 - Change: Default to Anvil 0.3.0, Cancun EVM hardfork
 
-
 # 0.27
 
 - Add: Support for [Velvet Capital vaults](https://www.velvet.capital/)
@@ -160,7 +161,7 @@
 - Change `launch_anvil()` to use latest hardfork by default instead of `london`
 - Various smaller bug fixes and optimisations
 
-# 0.26.1 
+# 0.26.1
 
 - Add: TokenSniffer API wrapper with a persistent cache
 - Add: Enzyme vault deployments on Arbitrum
@@ -173,7 +174,7 @@
 - Add: `wait_and_broadcast_multiple_nodes(inter_node_delay)` to fix Alchemy https://github.com/ethereum/go-ethereum/issues/26890
 - Internal change: Move `deploy_guard()` to its own function and refactor Enzyme vault deployment to more manageable
 - Dependencies: Numpy < 2.x for now as it breaks too much stuff, updating dependencies is a headache
-- Add and fixed: Various logging and diagnostics lines 
+- Add and fixed: Various logging and diagnostics lines
 - Fixed: [Uniswap Subgraphs now require an API key](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/215)
 
 # 0.25.7
@@ -183,7 +184,6 @@
 # 0.25.6
 
 - Add Aave v2 event reader support
-
 
 # 0.25.5
 
@@ -195,7 +195,7 @@
   node.js, hardhat and node-gyp were un-co-operative. Instead, now we just flatten out Enzyme sol
   files and store them in the source tree as copies.
 - Improved error messages for `GuardV0`
-- Handle HTTP 520 retryable, as returned by Alchemy JSON-RPC 
+- Handle HTTP 520 retryable, as returned by Alchemy JSON-RPC
 - Handle `ValueError: {'code': -32000, 'message': 'execution aborted (timeout = 5s)'}` as returned by Alchemy RPC
 
 # 0.25.3
@@ -204,7 +204,7 @@
 
 # 0.25.2
 
-- Handle HTTP 525 retryable, as returned by Alchemy JSON-RPC 
+- Handle HTTP 525 retryable, as returned by Alchemy JSON-RPC
 
 # 0.25.1
 
@@ -229,7 +229,7 @@
 - `hash(SignedTransactionWithNonce)` now is `SignedTransactionWithNonce.hash`, Ethereum transaction hash
 - Improve various utility functions
 - Fix issues cleaning AST information from Enzyme contracts on certain UNIX shells
-- Fix log message in the fallback provider that if we have only a single 
+- Fix log message in the fallback provider that if we have only a single
   provider don't call error handling "switching"
 - Fix Sphinx dependencies to be dev dependencies
 
@@ -251,7 +251,7 @@
 
 - Figure out how to tackle Anvil unreliability issues
 - Mark `evm_mine` JSON-RPC method not retryable
-- Fix `anvil.mine()` without parameters do not attempt to guess next block timestamp, as this 
+- Fix `anvil.mine()` without parameters do not attempt to guess next block timestamp, as this
   was wrong under a load, probably due to Anvil's internal race conditions
 - Add `is_retryable_http_exception(method, params)` to allow decide the retry of a JSON-RPC request based
   on its inputs, not just the output exception
@@ -266,8 +266,8 @@
 # 0.24.2
 
 - Add `is_anvil(web3)` method
-- Add `fetch_erc20_balances_by_token_list(decimalise=True)` to 
-  get multiple token balances with decimal conversaion 
+- Add `fetch_erc20_balances_by_token_list(decimalise=True)` to
+  get multiple token balances with decimal conversaion
   as a batch operation
 - Fix: `set_block_tip_latency()` defauts to 0 when
   connected to `create_multi_provider_web3` to simplify testing
@@ -309,17 +309,17 @@
 - Add: `static_call_cache_middleware` to reduce the amount of `eth_chainId` API calls
 - Add: `TrackedLazyTimestampReader` to help working with slow nodes
 - Add: `MultiProviderWeb3.get_api_call_counts` to see JSON-RPC API call stats across all providers
-- Fix: `swap_with_slippage_protection(max_slippage)` is BPS 
+- Fix: `swap_with_slippage_protection(max_slippage)` is BPS
 - API change: `swap_with_slippage_protection(max_slippage=15)` - change the default Uniswap v3
   trade slippage tolerance from (unrealistic) 0.1 BPS to 15 BPS.
 - Fix: The madness of JSON-RPC providers abuse the error code `-32000`.
-  We check for *error message* now instead of error code.
+  We check for _error message_ now instead of error code.
 - Internal change: When reading events, only notify progress bar when we have an event hit,
   to avoid unnecessary `eth_getBlockByNumber` calls for timestamps.
 
 # 0.22.30
 
-- API change: Handle `wait_and_broadcast_multiple_nodes()` so that it will attempt 
+- API change: Handle `wait_and_broadcast_multiple_nodes()` so that it will attempt
   to retry multiple providers multiple times before raising the last exception
 
 # 0.22.29
@@ -333,7 +333,6 @@
 
 - More retryable JSON-RPC errors whitelisted. Now `ValueError: {'code': -32701, 'message': 'Please specify address in your request or, to remove restrictions, order a dedicated full node here: https://www.allnodes.com/bnb/host'}`.
 
-
 # 0.22.27
 
 - More retryable JSON-RPC errors whitelisted. Now `{'code': -32005, 'message': 'limit exceeded'}`.
@@ -342,7 +341,7 @@
 
 - Add `eth_defi.confirmation.check_nonce_mismatch` to verify our signed transactions
   have good nonces based on on-chain data
-- Add `wait_and_broadcast_multiple_nodes(check_nonce_validity)` and by default 
+- Add `wait_and_broadcast_multiple_nodes(check_nonce_validity)` and by default
   try to figure nonce issues before attemping to broadcast transactions
 
 # 0.22.25
@@ -368,7 +367,7 @@
 - Don't pin down `pyarrow` version to make it easier to use different Arrow
   reading backends
 
-# 0.22.20 
+# 0.22.20
 
 - Add `eth_defi.provider.broken_provider.get_almost_latest_block_number()`
   for developer ergonomics when working with Ankr and LlamaNodes
@@ -381,7 +380,7 @@
 
 # 0.22.18
 
-- Added `ChunkedEncodingError` to automatically retryable errors. 
+- Added `ChunkedEncodingError` to automatically retryable errors.
   This error happens on LlamaNodes.com and is likely a quality of a service issue
   on their behalf.
 
@@ -390,12 +389,12 @@
 - Make testing and `launch_anvil` distrubuted safe by randomising Anvil localhost port it binds.
   Test now run in few minutes instead of tens of minutes. Tests must be still run with
   `pytest --dist loadscope` as individual test modules are not parallel safe.
-- Add ``eth_defi.broken_provider.set_block_tip_latency()`` to control the default delays 
+- Add `eth_defi.broken_provider.set_block_tip_latency()` to control the default delays
   for which we expect the chain tip to stabilise.
 
 # 0.22.16
 
-- Work around ``BadFunctionCallOutput``: Insufficient bytes exception: A special case of eth_call returning an empty result.
+- Work around `BadFunctionCallOutput`: Insufficient bytes exception: A special case of eth_call returning an empty result.
   This happens if you call a smart contract for a block number
   for which the node does not yet have data or is still processing data.
   This happens often on low-quality RPC providers (Ankr)
@@ -406,9 +405,9 @@
   in `get_default_block_tip_latency()` so that fail over switches are more robust.
 
 # 0.22.15
-    
+
 - Fix [FallbackProvider](https://web3-ethereum-defi.readthedocs.io/api/provider/_autosummary_provider/eth_defi.provider.fallback.html) to work with [certain problematic error codes](https://twitter.com/moo9000/status/1707672647264346205)
-- Log non-retryable exceptions in fallback middleware, so 
+- Log non-retryable exceptions in fallback middleware, so
   there is better diagnostics why fallback fails
 - Add `HotWallet.fill_in_gas_estimations()`
 
@@ -429,7 +428,7 @@
 # 0.22.12
 
 - Retry [nonce too low errors](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/153),
-  (related to LLamaNodes). 
+  (related to LLamaNodes).
 
 # 0.22.11
 
@@ -437,13 +436,13 @@
 
 # 0.22.10
 
-- Move Ankr specific functionality to its own `eth_defi.provider.ankr` module 
+- Move Ankr specific functionality to its own `eth_defi.provider.ankr` module
   that will see more changes in the future
 
 # 0.22.9
 
-- Add `eth_defi.rpc.broken_provider` for workaround for the quirks and features of different JSON-RPC providers 
-- Ankr workaround for `BlockNotFound` exception. 
+- Add `eth_defi.rpc.broken_provider` for workaround for the quirks and features of different JSON-RPC providers
+- Ankr workaround for `BlockNotFound` exception.
 
 # 0.22.8
 
@@ -630,8 +629,7 @@
 # 0.16
 
 - Add initial Chainlink support
--
-Add [eth_defi.reader.multithread.MultithreadEventReader for easy to use high-speed Solidity event reading](https://web3-ethereum-defi.readthedocs.io/tutorials/multithread-reader.html)
+- Add [eth_defi.reader.multithread.MultithreadEventReader for easy to use high-speed Solidity event reading](https://web3-ethereum-defi.readthedocs.io/tutorials/multithread-reader.html)
 - Add Enzyme's price feeds
 - Add Enzyme's `Vault.fetch`
 - Add `eth_defi.utils.to_unix_timestamp`
@@ -657,18 +655,17 @@ Add [eth_defi.reader.multithread.MultithreadEventReader for easy to use high-spe
 
 # 0.15.1
 
--
-Added [a script for verifying the integrity of your EVM JSON-RPC node data](https://web3-ethereum-defi.readthedocs.io/tutorials/index.html)
+- Added [a script for verifying the integrity of your EVM JSON-RPC node data](https://web3-ethereum-defi.readthedocs.io/tutorials/index.html)
 - Added `TunedWeb3Factory(thread_local_cache)` option for more performant web3 connection when using thread pooling
 
 # 0.15
 
 - Migrate to Web3.py 6.0. Notable Web3.py API changes:
-    - `toChecksumAddress` -> `to_checksum_address`
-    - `processReceipt` -> `process_receipt`
-    - `web3.contract.Contract` -> `web3.contract.contract.Contract`
-    - `solidityKeccak` -> `solidity_keccak`
-    - `decode_function_input` returns dict instead of tuple
+  - `toChecksumAddress` -> `to_checksum_address`
+  - `processReceipt` -> `process_receipt`
+  - `web3.contract.Contract` -> `web3.contract.contract.Contract`
+  - `solidityKeccak` -> `solidity_keccak`
+  - `decode_function_input` returns dict instead of tuple
 - Support Anvil as the unit test backend ove `EthereumTester` - Anvil is much faster
 - `deploy_contract()` tracks deployed contracts and their ABIs so we can print symbolic Solidity stack traces
 - Print Solidity stack traces of failed transactions using `print_symbolic_trace()` and `trace_evm_transaction()`
@@ -802,10 +799,8 @@ Added [a script for verifying the integrity of your EVM JSON-RPC node data](http
 
 # 0.9
 
--
-Feature: [High speed Solidity events / eth_getLogs fetching and decoding](https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/scripts/read-uniswap-v2-pairs-and-swaps-concurrent.py)
--
-Feature: [JSON-RPC retry middleware with sleep and backoff](https://web3-ethereum-defi.readthedocs.io/_autosummary/eth_defi.middleware.http_retry_request_with_sleep_middleware.html#eth_defi.middleware.http_retry_request_with_sleep_middleware)
+- Feature: [High speed Solidity events / eth_getLogs fetching and decoding](https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/scripts/read-uniswap-v2-pairs-and-swaps-concurrent.py)
+- Feature: [JSON-RPC retry middleware with sleep and backoff](https://web3-ethereum-defi.readthedocs.io/_autosummary/eth_defi.middleware.http_retry_request_with_sleep_middleware.html#eth_defi.middleware.http_retry_request_with_sleep_middleware)
 - Feature:
   Added [decode_signed_transaction](https://web3-ethereum-defi.readthedocs.io/_autosummary/eth_defi.tx.decode_signed_transaction.html#eth_defi.tx.decode_signed_transaction)
   with EIP-2718 and EIP-2930 tx support
@@ -858,9 +853,8 @@ Feature: [JSON-RPC retry middleware with sleep and backoff](https://web3-ethereu
 
 # 0.4
 
--
-Feature: [eth_defi.ganache module](https://smart-contracts-for-testing.readthedocs.io/en/latest/_autosummary/eth_defi.ganache.html#module-eth_defi.ganache)
-to support ganache-cli mainnet forks
+- Feature: [eth_defi.ganache module](https://smart-contracts-for-testing.readthedocs.io/en/latest/_autosummary/eth_defi.ganache.html#module-eth_defi.ganache)
+  to support ganache-cli mainnet forks
 - Feature: `HotWallet.get_native_currency_balance` to easier management of hot wallet accounts
 - Feature: `HotWallet.from_private_key` to easier management of hot wallet accounts
 

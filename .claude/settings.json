@@ -14,6 +14,8 @@
       "Bash(curl:*)",
       "Bash(head:*)",
       "Bash(tail:*)",
+      "Bash(echo:*)",
+      "Bash(gh pr create:*)",
       "Edit(**)",
       "Write(**)",
       "MultiEdit(**)",
@@ -22,7 +24,8 @@
       "Bash(sh scripts/:*)",
       "Skill(add-vault-protocol)",
       "Skill(add-vault-protocol:*)",
-      "Bash(gh pr create:*)"                  
+      "Skill(more-vaults)",
+      "Skill(more-vaults:*)"                           
     ]
   }
 }
