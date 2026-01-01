@@ -92,6 +92,7 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Deltr": VaultTechnicalRisk.dangerous,
     "Upshift": VaultTechnicalRisk.severe,
     "Sky": VaultTechnicalRisk.negligible,
+    "Maple": VaultTechnicalRisk.negligible,
 }
 
 #: Particular vaults that are broken, misleading or otherwise problematic.

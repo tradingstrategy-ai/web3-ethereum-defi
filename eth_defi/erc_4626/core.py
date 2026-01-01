@@ -294,6 +294,12 @@ class ERC4626Feature(enum.Enum):
     #: https://etherscan.io/address/0x99cd4ec3f88a45940936f469e4bb72a2a701eeb9
     sky_like = "sky_like"
 
+    #: Maple Finance
+    #:
+    #: Institutional-grade DeFi lending protocol with Syrup yield products.
+    #: https://maple.finance/
+    maple_like = "maple_like"
+
 
 def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     """Deduct vault protocol name based on Vault smart contract features.
@@ -426,6 +432,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "Upshift"
     elif ERC4626Feature.sky_like in features:
         return "Sky"
+
+    elif ERC4626Feature.maple_like in features:
+        return "Maple"
 
     # No idea
     if ERC4626Feature.erc_7540_like in features:

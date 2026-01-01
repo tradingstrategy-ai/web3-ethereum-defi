@@ -977,6 +977,11 @@ def create_vault_instance(
 
         return SkyVault(web3, spec, token_cache=token_cache, features=features)
 
+    elif ERC4626Feature.maple_like in features:
+        from eth_defi.erc_4626.vault_protocol.maple.vault import SyrupVault
+
+        return SyrupVault(web3, spec, token_cache=token_cache, features=features)
+
     else:
         # Generic ERC-4626 without fee data
         from eth_defi.erc_4626.vault import ERC4626Vault
@@ -1023,4 +1028,10 @@ HARDCODED_PROTOCOLS = {
     # Sky (formerly MakerDAO) - stUSDS vault on Ethereum
     # https://etherscan.io/address/0x99cd4ec3f88a45940936f469e4bb72a2a701eeb9
     "0x99cd4ec3f88a45940936f469e4bb72a2a701eeb9": {ERC4626Feature.sky_like},
+    # Maple Finance - syrupUSDC vault on Ethereum
+    # https://etherscan.io/address/0x80ac24aa929eaf5013f6436cda2a7ba190f5cc0b
+    "0x80ac24aa929eaf5013f6436cda2a7ba190f5cc0b": {ERC4626Feature.maple_like},
+    # Maple Finance - syrupUSDT vault on Ethereum
+    # https://etherscan.io/address/0x356b8d89c1e1239cbbb9de4815c39a1474d5ba7d
+    "0x356b8d89c1e1239cbbb9de4815c39a1474d5ba7d": {ERC4626Feature.maple_like},
 }
