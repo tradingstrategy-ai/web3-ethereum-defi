@@ -46,7 +46,8 @@ poetry run ruff format
 
 ## Pull requests
 
-Never push directly to a master, and open a pull request when asked.
+- Never push directly to a master, and open a pull request when asked.
+- Do not include test plan in a pull request description
 
 ## Specific rules
 
