@@ -1,0 +1,184 @@
+[
+  {
+    "inputs": [],
+    "name": "name",
+    "outputs": [{"type": "string", "name": ""}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "symbol",
+    "outputs": [{"type": "string", "name": ""}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "decimals",
+    "outputs": [{"type": "uint8", "name": ""}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "totalAssets",
+    "outputs": [{"type": "uint256", "name": ""}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "totalSupply",
+    "outputs": [{"type": "uint256", "name": ""}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{"type": "address", "name": "account"}],
+    "name": "balanceOf",
+    "outputs": [{"type": "uint256", "name": ""}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "asset",
+    "outputs": [{"type": "address", "name": ""}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{"type": "uint256", "name": "assets"}],
+    "name": "convertToShares",
+    "outputs": [{"type": "uint256", "name": ""}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{"type": "uint256", "name": "shares"}],
+    "name": "convertToAssets",
+    "outputs": [{"type": "uint256", "name": ""}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{"type": "address", "name": "receiver"}],
+    "name": "maxDeposit",
+    "outputs": [{"type": "uint256", "name": ""}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{"type": "address", "name": "owner"}],
+    "name": "maxWithdraw",
+    "outputs": [{"type": "uint256", "name": ""}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{"type": "address", "name": "owner"}],
+    "name": "maxRedeem",
+    "outputs": [{"type": "uint256", "name": ""}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{"type": "uint256", "name": "assets"}],
+    "name": "previewDeposit",
+    "outputs": [{"type": "uint256", "name": ""}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{"type": "uint256", "name": "shares"}],
+    "name": "previewMint",
+    "outputs": [{"type": "uint256", "name": ""}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{"type": "uint256", "name": "assets"}],
+    "name": "previewWithdraw",
+    "outputs": [{"type": "uint256", "name": ""}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{"type": "uint256", "name": "shares"}],
+    "name": "previewRedeem",
+    "outputs": [{"type": "uint256", "name": ""}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {"type": "uint256", "name": "assets"},
+      {"type": "address", "name": "receiver"}
+    ],
+    "name": "deposit",
+    "outputs": [{"type": "uint256", "name": "shares"}],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {"type": "uint256", "name": "shares"},
+      {"type": "address", "name": "receiver"}
+    ],
+    "name": "mint",
+    "outputs": [{"type": "uint256", "name": "assets"}],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {"type": "uint256", "name": "assets"},
+      {"type": "address", "name": "receiver"},
+      {"type": "address", "name": "owner"}
+    ],
+    "name": "withdraw",
+    "outputs": [{"type": "uint256", "name": "shares"}],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {"type": "uint256", "name": "shares"},
+      {"type": "address", "name": "receiver"},
+      {"type": "address", "name": "owner"}
+    ],
+    "name": "redeem",
+    "outputs": [{"type": "uint256", "name": "assets"}],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{"type": "address", "name": "account"}],
+    "name": "isOracleManager",
+    "outputs": [{"type": "bool", "name": ""}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "nonReservePercentage",
+    "outputs": [{"type": "uint64", "name": ""}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "pauseDuration",
+    "outputs": [{"type": "uint64", "name": ""}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "pauseStartTime",
+    "outputs": [{"type": "uint64", "name": ""}],
+    "stateMutability": "view",
+    "type": "function"
+  }
+]

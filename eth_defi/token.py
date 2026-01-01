@@ -175,6 +175,7 @@ STABLECOIN_LIKE = set(
         "CNHT",
         "CRVUSD",
         "CUSD",
+        "csUSD",
         "DAI",
         "DJED",
         "DOLADUSD",

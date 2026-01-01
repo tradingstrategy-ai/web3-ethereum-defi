@@ -85,6 +85,7 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "LLAMMA": VaultTechnicalRisk.low,
     "Foxify": VaultTechnicalRisk.dangerous,
     "Liquidity Royalty Tranching": None,
+    "cSigma Finance": VaultTechnicalRisk.severe,
 }
 
 #: Particular vaults that are broken, misleading or otherwise problematic.
