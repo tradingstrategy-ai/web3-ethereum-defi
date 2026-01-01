@@ -189,9 +189,6 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag, str]] = {
     "0xd87598dd895de1b7fb2ba6af91b152f26baf7bee": (VaultFlag.broken, BROKEN_VAULT),
     # Yield optimizer vault
     "0x3bb60eca398f480f4b7756600c04309de486232e": (VaultFlag.broken, BROKEN_VAULT),
-    # Janus Henderson
-    "0x4880799ee5200fc58da299e965df644fbf46780b": (VaultFlag.broken, BROKEN_VAULT),
-    "0xe9d1f733f406d4bbbdfac6d4cfcd2e13a6ee1d01": (VaultFlag.broken, BROKEN_VAULT),
     # Malicious Euler vault?
     # EVK Vault eUSDC-8 on Sonic
     "0x683dbc88b371ae48962b56e36e5a0c34e3ad4caf": (VaultFlag.malicious, MALICIOUS_VAULT),

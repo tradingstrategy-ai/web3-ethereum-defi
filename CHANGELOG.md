@@ -12,7 +12,8 @@
 - Add: New protocol: Deltr (Ethereum)
 - Add: New protocol: Upshift (Ethereum)
 - Add: New protocol: Sky (Ethereum) - formerly MakerDAO, stUSDS vault
-- Add: New protocol: Maple Finance: - syrupUSDC and syrupUSDT vaults
+- Add: New protocol: Maple Finance - syrupUSDC and syrupUSDT vaults
+- Add: New protocol: Centrifuge - RWA tokenisation and financing with ERC-7540 liquidity pools
 - Fix: Various RPC error code workarounds (Monad, Arbitrum, Hyperliquid)
 
 # 0.37

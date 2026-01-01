@@ -446,6 +446,27 @@ def create_probe_calls(
             extra_data=None,
         )
 
+        # Centrifuge
+        # LiquidityPool vaults for RWA financing
+        # https://etherscan.io/address/0xa702ac7953e6a66d2b10a478eb2f0e2b8c8fd23e
+        # https://github.com/centrifuge/liquidity-pools
+        centrifuge_call = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="poolId()")[0:4],
+            function="poolId",
+            data=b"",
+            extra_data=None,
+        )
+
+        # Centrifuge trancheId for additional verification
+        centrifuge_tranche_call = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="trancheId()")[0:4],
+            function="trancheId",
+            data=b"",
+            extra_data=None,
+        )
+
         yield bad_probe_call
         yield name_call
         yield share_price_call
@@ -485,6 +506,8 @@ def create_probe_calls(
         yield yearn_vault_call
         yield teller_v2_call
         yield upshift_call
+        yield centrifuge_call
+        yield centrifuge_tranche_call
 
 
 def identify_vault_features(
@@ -641,6 +664,13 @@ def identify_vault_features(
     # https://etherscan.io/address/0x69fc3f84fd837217377d9dae0212068ceb65818e
     if calls["settlementAccount"].success:
         features.add(ERC4626Feature.upshift_like)
+
+    # Centrifuge - LiquidityPool vaults for RWA financing
+    # https://etherscan.io/address/0xa702ac7953e6a66d2b10a478eb2f0e2b8c8fd23e
+    # Both poolId and trancheId must succeed for Centrifuge identification
+    if calls["poolId"].success and calls["trancheId"].success:
+        features.add(ERC4626Feature.centrifuge_like)
+        features.add(ERC4626Feature.erc_7540_like)
 
     # # TODO: No way separate from Goat Protocol, see test_superform
     # if calls["PROFIT_UNLOCK_TIME"].success:
@@ -981,6 +1011,11 @@ def create_vault_instance(
         from eth_defi.erc_4626.vault_protocol.maple.vault import SyrupVault
 
         return SyrupVault(web3, spec, token_cache=token_cache, features=features)
+
+    elif ERC4626Feature.centrifuge_like in features:
+        from eth_defi.erc_4626.vault_protocol.centrifuge.vault import CentrifugeVault
+
+        return CentrifugeVault(web3, spec, token_cache=token_cache, features=features)
 
     else:
         # Generic ERC-4626 without fee data

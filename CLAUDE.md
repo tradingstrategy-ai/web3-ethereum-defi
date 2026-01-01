@@ -131,3 +131,4 @@ poetry run ruff format
 
 - Prefer a blockchain explorer like Etherscan over Python and Curl when trying to read proxy contract address
 - Prefer Python snippets instead of `curl` when trying to read data directly from a blockchain explorer
+- To get the latest block number, use given JSON-RPC URL and Python's Web3.py `web3.eth.block_number` call

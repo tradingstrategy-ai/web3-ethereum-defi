@@ -88,11 +88,12 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "cSigma Finance": VaultTechnicalRisk.severe,
     "Spark": VaultTechnicalRisk.negligible,
     "Yearn Morpho Compounder": VaultTechnicalRisk.minimal,
-    "Teller": None,
+    "Teller": VaultTechnicalRisk.severe,
     "Deltr": VaultTechnicalRisk.dangerous,
     "Upshift": VaultTechnicalRisk.severe,
     "Sky": VaultTechnicalRisk.negligible,
     "Maple": VaultTechnicalRisk.negligible,
+    "Centrifuge": VaultTechnicalRisk.negligible,
 }
 
 #: Particular vaults that are broken, misleading or otherwise problematic.
