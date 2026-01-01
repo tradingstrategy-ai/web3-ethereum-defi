@@ -19,7 +19,10 @@
       "MultiEdit(**)",
       "Bash(./scripts/*.sh:*)",
       "Bash(bash scripts/:*)",
-      "Bash(sh scripts/:*)"            
+      "Bash(sh scripts/:*)",
+      "Skill(add-vault-protocol)",
+      "Skill(add-vault-protocol:*)",
+      "Bash(gh pr create:*)"                  
     ]
   }
 }

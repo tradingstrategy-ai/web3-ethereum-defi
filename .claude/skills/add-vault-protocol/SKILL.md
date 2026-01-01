@@ -17,6 +17,7 @@ Before starting, gather the following information from the user:
 4. **Chain** - Which blockchain (Ethereum, Arbitrum, Base, etc.)
 5. **Block explorer URL** - To fetch the ABI (e.g., Etherscan, Arbiscan, Basescan)
 6. **Single vault protocol**: Some protocols, especially ones issuing out their own stablecoin, are know to have only a single vault for the stablecoin staking. Example protocols are like like Spark, Ethena, Cap. In this case use `HARDCODED_PROTOCOLS` classification later, as there is no point to create complex vault smart contract detection patterns if the protocol does not need it.
+7. **Risk level**: Optional. If not given, set to `None`
 
 ## Step-by-step implementation
 
@@ -173,8 +174,8 @@ elif ERC4626Feature.{protocol_slug}_like in features:
 
 Update `eth_defi/vault/risk.py` with the protocol stub.
 
-Set the initial risk level for the protocol in `VAULT_PROTOCOL_RISK_MATRIX`
-to `None` and this will be later updated by human judgement.
+Set the initial risk level for the protocol in `VAULT_PROTOCOL_RISK_MATRIX`.
+USe `None` if not given and this will be later updated by human judgement.
 
 ### Step 6: Create test file
 
@@ -294,7 +295,7 @@ Fix any issues if found.
 
 Format the newly added files with `poetry run ruff format`.
 
-## Verification checklist
+## Step 11: Verification checklist
 
 After implementation, verify:
 
@@ -313,9 +314,20 @@ After implementation, verify:
 
 If there are problems with the checklist, ask for human assistance.
 
-## Step 11: Changelog
+## Step 12: Changelog
 
 - Update changelog line in `CHANGELOG.md` and add a note of added new protocol
+
+## Step 13: Pull request (optional)
+
+After everything is done, open a pull request, but only if the user asks you to.
+
+```shell
+gh pr create \
+  --title "Add new vault protocol: {protocol name}" \
+  --body  $'Protocol: {protocok name}\nHomepage: {homepage link}\nGithub: {github link}\nDocs: {docs link}\nExample contract: {blockchain explorer link}" \
+  --base master
+```
 
 ## Finding unique protocol identifiers
 
