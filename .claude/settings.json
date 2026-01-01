@@ -11,6 +11,7 @@
       "Bash(python3:*)",
       "Bash(poetry:*)",
       "Bash(source:*)",
+      "Bash(curl:*)",
       "Edit(**)",
       "Write(**)",
       "MultiEdit(**)",

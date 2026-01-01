@@ -11,26 +11,22 @@
 
 import dataclasses
 import datetime
-
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from decimal import Decimal
 from functools import cached_property
-from typing import Iterable, TypedDict, Tuple
+from typing import Iterable, Tuple, TypedDict
 
-
-from eth_typing import BlockIdentifier, HexAddress, BlockNumber
-
+from eth_typing import BlockIdentifier, BlockNumber, HexAddress
 from web3 import Web3
-
 
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.token import DEFAULT_TOKEN_CACHE, TokenAddress, TokenDetails, fetch_erc20_details
 from eth_defi.vault.deposit_redeem import VaultDepositManager
 from eth_defi.vault.lower_case_dict import LowercaseDict
-from .fee import VaultFeeMode, get_vault_fee_mode, FeeData
-from .flag import VaultFlag, get_vault_special_flags, get_notes
 
+from .fee import FeeData, VaultFeeMode, get_vault_fee_mode
+from .flag import VaultFlag, get_notes, get_vault_special_flags
 from .risk import VaultTechnicalRisk, get_vault_risk
 
 BlockRange = Tuple[BlockNumber, BlockNumber]
@@ -680,7 +676,7 @@ class VaultBase(ABC):
         """Return the name of the vault protocol."""
 
         # TODO: Refactor modules
-        from ..erc_4626.core import get_vault_protocol_name, ERC4626Feature
+        from ..erc_4626.core import ERC4626Feature, get_vault_protocol_name
 
         features = getattr(self, "features", None)
         if features is None:

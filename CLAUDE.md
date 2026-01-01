@@ -8,15 +8,28 @@
 
 ## Running tests
 
+If we have not run tests before make sure the user has created a gitignored file `.local-test.env` in the repository root. This will use `source` shell command to include the actual test secrets which lie outside the repository structure.
+
 To run tests you need to use the installed Poetry environment, with given environment secrets file.
 
 To run tests use the `pytest` wrapper command:
 
 ```shell
-source ~/code/trade-executor/env/local-test.env && poetry pytest run
+source .local-test.env && poetry pytest run
 ```
 
 Avoid running the whole test suite as it takes several minutes. Only run specific test cases.
+
+When running pytest or any test commands, always use an extended timeout
+by specifying `timeout: 180000` (3 minutes) in the bash tool parameters.
+
+## Formatting code
+
+After a large task is complete you can format the code with:
+
+```shell
+poetry run ruff format
+```
 
 ## Specific rules
 

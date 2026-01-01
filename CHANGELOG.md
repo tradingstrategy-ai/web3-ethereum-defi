@@ -1,6 +1,7 @@
 # Current
 
 - Add: New chain: Monad
+- Add: New protocol: CAP (Covered Agent Protocol)
 - Fix: Various RPC error code workarounds (Monad, Arbitrum, Hyperliquid)
 
 # 0.37

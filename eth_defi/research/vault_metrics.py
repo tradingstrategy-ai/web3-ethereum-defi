@@ -31,7 +31,7 @@ from eth_defi.research.wrangle_vault_prices import forward_fill_vault
 from eth_defi.token import is_stablecoin_like, normalise_token_symbol
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.fee import FeeData, VaultFeeMode
-from eth_defi.vault.flag import VaultFlag, get_notes, ABNORMAL_TVL
+from eth_defi.vault.flag import ABNORMAL_TVL, VaultFlag, get_notes
 from eth_defi.vault.risk import VaultTechnicalRisk, get_vault_risk
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
 
