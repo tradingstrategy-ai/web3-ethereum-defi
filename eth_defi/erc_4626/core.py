@@ -300,6 +300,14 @@ class ERC4626Feature(enum.Enum):
     #: https://maple.finance/
     maple_like = "maple_like"
 
+    #: Centrifuge
+    #:
+    #: Real-world asset (RWA) tokenisation and financing protocol.
+    #: Each pool can have multiple tranches, and each tranche is a separate
+    #: deployment of an ERC-7540 Vault and a Tranche Token.
+    #: https://centrifuge.io/
+    centrifuge_like = "centrifuge_like"
+
 
 def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     """Deduct vault protocol name based on Vault smart contract features.
@@ -435,6 +443,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.maple_like in features:
         return "Maple"
+
+    elif ERC4626Feature.centrifuge_like in features:
+        return "Centrifuge"
 
     # No idea
     if ERC4626Feature.erc_7540_like in features:

@@ -34,6 +34,7 @@ Supported protocols
 
    auto_finance/index
    cap/index
+   centrifuge/index
    csigma/index
    d2_finance/index
    deltr/index
