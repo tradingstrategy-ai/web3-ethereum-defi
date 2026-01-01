@@ -1381,7 +1381,7 @@ def analyse_vault(
         hourly_df=vault_df,
     )
 
-
+e
 def calculate_performance_metrics_for_all_vaults(
     vault_db: VaultDatabase,
     prices_df: pd.DataFrame,
