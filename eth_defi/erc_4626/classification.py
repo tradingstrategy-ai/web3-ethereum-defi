@@ -821,6 +821,10 @@ def create_vault_instance(
         from eth_defi.cap.vault import CAPVault
 
         return CAPVault(web3, spec, token_cache=token_cache, features=features)
+    elif ERC4626Feature.foxify_like in features:
+        from eth_defi.foxify.vault import FoxifyVault
+
+        return FoxifyVault(web3, spec, token_cache=token_cache, features=features)
     elif ERC4626Feature.yearn_v3_like in features or ERC4626Feature.yearn_tokenised_strategy in features:
         # Both of these have fees internatilised
         from eth_defi.yearn.vault import YearnV3Vault
@@ -905,5 +909,8 @@ def create_vault_instance_autodetect(
 #: For these, we need to do by vault contract address whitelisting here.
 #:
 HARDCODED_PROTOCOLS = {
+    # CAP - Covered Agent Protocol
     "0x3ed6aa32c930253fc990de58ff882b9186cd0072": {ERC4626Feature.cap_like},
+    # Foxify - Sonic chain
+    "0x3ccff8c929b497c1ff96592b8ff592b45963e732": {ERC4626Feature.foxify_like},
 }

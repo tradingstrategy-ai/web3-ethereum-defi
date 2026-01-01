@@ -167,9 +167,16 @@ elif ERC4626Feature.{protocol_slug}_like in features:
     return {ProtocolName}Vault(web3, spec, token_cache=token_cache, features=features)
 ```
 
+### Step 5: Update risk information
+
+Update `eth_defi/vault/risk.py` with the protocol stub.
+
+Set the initial risk level for the protocol in `VAULT_PROTOCOL_RISK_MATRIX`
+to `None` and this will be later updated by human judgement.
+
 ### Step 6: Create test file
 
-Create `tests/erc_4626/test_{protocol_slug}.py` following the pattern in `tests/erc_4626/test_plutus.py`:
+Create `tests/erc_4626/vault_protocol/test_{protocol_slug}.py` following the pattern in `tests/erc_4626/vault_protocol/test_plutus.py` and. `tests/erc_4626/vault_protocol/test_goat.py`:
 
 ```python
 """Test {Protocol Name} vault metadata"""
@@ -231,15 +238,20 @@ def test_{protocol_slug}(
     # Add assertation about vault feature flags here, like:
     # assert vault.features == {ERC4626Feature.goat_like}
 
-    # Add assertions for fees, risk level, etc.
+    # Add assertions for fee data we know
     # assert vault.get_management_fee("latest") == ...
     # assert vault.get_performance_fee("latest") == ...
+
+    # Add assertion for the protcol risk level
+    # assert vault.get_risk() == VaultTechnicalRisk.unknown
 
 ```
 
 - Update the test file for a correct blockchain
 - Use the blockchain explorer to get the latest block number and update it in `fork_block_number`.
 - When you run the test and if the user does not have JSON-RPC configured for this chain, interrupt the skill and tell user to update his test environment variables
+
+After adding it, run the test module and fix any issues.
 
 ### Step 7: Add module **init**.py
 
@@ -264,9 +276,17 @@ Examples include
 
 - `docs/source/api/plutus/index.rst`, `docs/source/api/truefi/index.rst`, `docs/source/api/goat/index.rst`,
 
-## Step 9: Run tests and fix issues
+## Step 9: Run all vault protocol detection tests
 
 Check that all ERC-4626 tests pass after adding a new vault protocol by running all testse in `tests/erc_4626` folder.
+
+Run all vault testes:
+
+```
+source .local-test.env && poetry run pytest -k vault_protocol
+```
+
+Fix any issues if found.
 
 ## Step 10: Format the codebase
 

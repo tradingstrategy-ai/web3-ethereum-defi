@@ -41,6 +41,9 @@ class VaultFlag(str, enum.Enum):
     #: Abnormal TVL
     abnormal_tvl = "abnormal_tvl"
 
+    # Properitary trading
+    proprietary_trading = "proprietary_trading"
+
 
 #: Don't touch vaults with these flags
 BAD_FLAGS = {
@@ -89,6 +92,9 @@ MAINST_VAULT = "Main Street Market related products were wiped out in Oct 10th e
 ABNORMAL_TVL = "The TVL on this vault is abnormal"
 
 UNKNOWN_VAULT = "Vault is not known, not listed on the website of the protocol"
+
+FOXIFY_VAULT = "Foxify offers perp DEX and funding for proprietary trades. This vault is associated with this activity, but it is not publicly described how the vault works."
+
 
 #: Vault manual blacklist flags and notes.
 #:
@@ -205,6 +211,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag, str]] = {
     "0xeee75954eded526ef98a0cecc027beee4586315e": (VaultFlag.broken, BROKEN_VAULT),
     # Pendle yield vault
     "0x8977aafd34323fa046f51f3c913a30caa7dd17db": (VaultFlag.broken, BROKEN_VAULT),
+    # Foxify vault
+    "0x3ccff8c929b497c1ff96592b8ff592b45963e732": (VaultFlag.proprietary_trading, FOXIFY_VAULT),
 }
 
 for addr in VAULT_FLAGS_AND_NOTES.keys():

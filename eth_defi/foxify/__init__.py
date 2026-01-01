@@ -1,0 +1,1 @@
+"""Foxify protocol integration."""
