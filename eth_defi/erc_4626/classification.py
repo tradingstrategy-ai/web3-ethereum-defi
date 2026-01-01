@@ -403,6 +403,27 @@ def create_probe_calls(
             extra_data=None,
         )
 
+        # Yearn Morpho Compounder strategy
+        # Uses auction() for reward liquidation
+        # https://etherscan.io/address/0x6D2981FF9b8d7edbb7604de7A65BAC8694ac849F
+        yearn_auction_call = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="auction()")[0:4],
+            function="auction",
+            data=b"",
+            extra_data=None,
+        )
+
+        # Yearn TokenizedStrategy has vault() that points to the parent vault
+        # https://etherscan.io/address/0x6D2981FF9b8d7edbb7604de7A65BAC8694ac849F
+        yearn_vault_call = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="vault()")[0:4],
+            function="vault",
+            data=b"",
+            extra_data=None,
+        )
+
         yield bad_probe_call
         yield name_call
         yield share_price_call
@@ -438,6 +459,8 @@ def create_probe_calls(
         yield summer_call
         yield silo_call
         yield truefi_call
+        yield yearn_auction_call
+        yield yearn_vault_call
 
 
 def identify_vault_features(
@@ -610,6 +633,9 @@ def identify_vault_features(
             features.add(ERC4626Feature.baklava_space_like)
         elif name == "Satoshi":
             features.add(ERC4626Feature.satoshi_stablecoin)
+        elif "Morpho" in name and calls["auction"].success and calls["vault"].success:
+            # Yearn Morpho Compounder strategy (TokenizedStrategy with auction mechanism)
+            features.add(ERC4626Feature.yearn_morpho_compounder_like)
         elif "Athena" in name:
             features.add(ERC4626Feature.athena_like)
         elif "RightsToken" in name:
@@ -837,6 +863,11 @@ def create_vault_instance(
         from eth_defi.spark.vault import SparkVault
 
         return SparkVault(web3, spec, token_cache=token_cache, features=features)
+    elif ERC4626Feature.yearn_morpho_compounder_like in features:
+        # Yearn V3 vault with Morpho Compounder strategy
+        from eth_defi.yearn.morpho_compounder import YearnMorphoCompounderStrategy
+
+        return YearnMorphoCompounderStrategy(web3, spec, token_cache=token_cache, features=features)
     elif ERC4626Feature.yearn_v3_like in features or ERC4626Feature.yearn_tokenised_strategy in features:
         # Both of these have fees internatilised
         from eth_defi.yearn.vault import YearnV3Vault
