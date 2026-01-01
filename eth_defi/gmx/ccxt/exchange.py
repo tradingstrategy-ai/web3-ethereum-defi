@@ -346,7 +346,16 @@ class GMX(ExchangeCompatible):
         self._init_common()
 
     def _load_markets_from_graphql(self) -> dict[str, Any]:
-        """Load markets from GraphQL only (for backtesting - no RPC calls).
+        """Load markets from GraphQL only (NOT RECOMMENDED - has known bugs).
+
+        **WARNING**: GraphQL loading has known bugs and inconsistencies:
+        - wstETH market resolution may be incorrect (maps to wrong index token)
+        - Synthetic markets (ETH2, BTC2) may not be handled properly
+        - Market data may be stale or incomplete compared to on-chain data
+        - Special case handling is incomplete compared to Core Markets module
+
+        **RECOMMENDATION**: Use RPC loading (default) for trading and production use.
+        GraphQL is only suitable for backtesting where speed > accuracy.
 
         Uses GMX API /tokens endpoint to fetch token metadata instead of hardcoding.
 
@@ -638,13 +647,18 @@ class GMX(ExchangeCompatible):
         if self.markets_loaded and not reload:
             return self.markets
 
-        # Use GraphQL by default for fast initialisation (avoids slow RPC calls to Markets/Oracle)
-        # Only use RPC path if explicitly requested via graphql_only=False
-        use_graphql_only = not (params and params.get("graphql_only") is False) and not self.options.get("graphql_only") is False
+        # NOTE: GraphQL loading has bugs with market resolution (wstETH, synthetic markets not handled correctly)
+        # Use RPC (Core Markets module) by default for correct market data
+        # GraphQL can be enabled with options={'graphql_only': True} but is NOT recommended for trading
+        use_graphql_only = (params and params.get("graphql_only") is True) or self.options.get("graphql_only") is True
 
         if use_graphql_only and self.subsquid:
-            logger.info("Loading markets from GraphQL")
+            logger.warning("Loading markets from GraphQL (graphql_only=True). NOTE: GraphQL has known bugs with wstETH and may return incorrect market data. Use RPC loading (default) for trading.")
             return self._load_markets_from_graphql()
+
+        # Fetch available markets from GMX using Markets class (makes RPC calls)
+        # This is the RECOMMENDED and DEFAULT method - Core Markets module handles all special cases correctly
+        logger.info("Loading markets from RPC (Core Markets module)")
 
         # Fetch available markets from GMX using Markets class (makes RPC calls)
         markets_instance = Markets(self.config)
@@ -3444,12 +3458,22 @@ class GMX(ExchangeCompatible):
 
         # Get the price of the collateral token to convert USD to token amount
         # For GMX markets, we need the actual price of the long_token (e.g., wstETH price, not ETH price)
-        from eth_defi.gmx.reader import get_market_token_price
+        from eth_defi.gmx.core.oracle import OraclePrices
+        from eth_defi.gmx.constants import PRECISION
+        from statistics import median
 
-        collateral_token_price = get_market_token_price(
-            config=self.config,
-            token_address=collateral_address,
-        )
+        oracle = OraclePrices(self.config.chain)
+        oracle_prices = oracle.get_recent_prices()
+
+        # Get the collateral token's oracle price
+        if collateral_address not in oracle_prices:
+            raise ValueError(f"No oracle price available for collateral token {collateral_address}")
+
+        price_data = oracle_prices[collateral_address]
+        raw_price = median([float(price_data["maxPriceFull"]), float(price_data["minPriceFull"])])
+
+        # Convert from 30-decimal precision to USD price
+        collateral_token_price = raw_price / (10 ** (PRECISION - token_details.decimals))
 
         # Calculate token amount: collateral_usd / token_price_usd = tokens
         # Then convert to smallest unit (wei-equivalent)
@@ -3645,12 +3669,22 @@ class GMX(ExchangeCompatible):
         required_collateral_usd = (size_delta_usd / leverage) * 1.1
 
         # Get token price to convert USD to token amount
-        from eth_defi.gmx.reader import get_market_token_price
+        from eth_defi.gmx.core.oracle import OraclePrices
+        from eth_defi.gmx.constants import PRECISION
+        from statistics import median
 
-        token_price = get_market_token_price(
-            config=self.config,
-            token_address=collateral_token_address,
-        )
+        oracle = OraclePrices(self.config.chain)
+        oracle_prices = oracle.get_recent_prices()
+
+        # Get the collateral token's oracle price
+        if collateral_token_address not in oracle_prices:
+            raise ValueError(f"No oracle price available for collateral token {collateral_token_address}")
+
+        price_data = oracle_prices[collateral_token_address]
+        raw_price = median([float(price_data["maxPriceFull"]), float(price_data["minPriceFull"])])
+
+        # Convert from 30-decimal precision to USD price
+        token_price = raw_price / (10 ** (PRECISION - token_details.decimals))
 
         # Convert USD to token amount: usd / price = tokens
         required_tokens = required_collateral_usd / token_price
@@ -3874,7 +3908,13 @@ class GMX(ExchangeCompatible):
 
         # Check for standalone SL/TP order types
         if type in ["stop_loss", "take_profit"]:
-            return self._create_standalone_sltp_order(symbol, type, side, amount, params,)
+            return self._create_standalone_sltp_order(
+                symbol,
+                type,
+                side,
+                amount,
+                params,
+            )
 
         # Bundled approach: SL/TP with position opening
         if sl_entry or tp_entry:

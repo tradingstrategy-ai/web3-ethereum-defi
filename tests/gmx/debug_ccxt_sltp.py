@@ -11,6 +11,10 @@ MARKET SELECTION:
 - Default: ETH/USDC with ETH collateral
 - Use --btc for BTC/USDC with USDC collateral
 
+MARKET LOADING:
+- Default: RPC/Core Markets (slower but correct)
+- Use --graphql for GraphQL loading (faster but may have bugs)
+
 Required environment variables:
 - PRIVATE_KEY: Private key for signing transactions
 - ARBITRUM_CHAIN_JSON_RPC: RPC endpoint for Anvil fork
@@ -206,6 +210,13 @@ def parse_arguments():
         help="Use BTC/USDC market instead of ETH/USDC (default: ETH/USDC)",
     )
 
+    # Market loading method
+    parser.add_argument(
+        "--graphql",
+        action="store_true",
+        help="Use GraphQL for market loading (default: RPC/Core Markets)",
+    )
+
     return parser.parse_args()
 
 
@@ -331,14 +342,26 @@ def main():
         console.print("\n[bold]Setting up GMX CCXT...[/bold]")
 
         # Initialize CCXT GMX wrapper
-        gmx = GMX(
-            params={
-                "rpcUrl": web3.provider.endpoint_uri if hasattr(web3.provider, "endpoint_uri") else None,
-                "wallet": wallet,
-            }
-        )
+        gmx_params = {
+            "rpcUrl": web3.provider.endpoint_uri
+            if hasattr(
+                web3.provider,
+                "endpoint_uri",
+            )
+            else None,
+            "wallet": wallet,
+        }
 
-        # Load markets (uses GraphQL by default, which is fast)
+        # Add graphql_only option if flag is set
+        if args.graphql:
+            gmx_params["options"] = {"graphql_only": True}
+            console.print("  [yellow]Using GraphQL for market loading (--graphql flag)[/yellow]")
+        else:
+            console.print("  [green]Using RPC/Core Markets for market loading (default)[/green]")
+
+        gmx = GMX(params=gmx_params)
+
+        # Load markets
         console.print("  Loading markets...")
         gmx.load_markets()
         console.print(f"  Loaded {len(gmx.markets)} markets")

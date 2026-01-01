@@ -163,7 +163,7 @@ def ccxt_gmx_fork_open_close(
     """CCXT GMX exchange with wallet for open/close long position testing.
 
     Uses separate anvil fork to avoid state pollution with other tests.
-    Uses GraphQL loading (default) which is fast and avoids slow RPC calls on fork.
+    Uses RPC loading (default) which is slower but provides correct market data.
     """
     setup_mock_oracle(web3_arbitrum_fork_ccxt_long)
     config = GMXConfig(web3_arbitrum_fork_ccxt_long, user_wallet_address=test_wallet)
@@ -185,7 +185,7 @@ def ccxt_gmx_fork_short(
     """CCXT GMX exchange with wallet for short position testing.
 
     Uses separate anvil fork to avoid state pollution with other tests.
-    Uses GraphQL loading (default) which is fast and avoids slow RPC calls on fork.
+    Uses RPC loading (default) which is slower but provides correct market data.
     """
     setup_mock_oracle(web3_arbitrum_fork_ccxt_short)
     config = GMXConfig(web3_arbitrum_fork_ccxt_short, user_wallet_address=test_wallet)
