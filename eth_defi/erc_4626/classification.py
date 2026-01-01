@@ -435,6 +435,17 @@ def create_probe_calls(
             extra_data=None,
         )
 
+        # Upshift
+        # TokenizedAccount vaults built on August infrastructure
+        # https://etherscan.io/address/0x69fc3f84fd837217377d9dae0212068ceb65818e
+        upshift_call = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="settlementAccount()")[0:4],
+            function="settlementAccount",
+            data=b"",
+            extra_data=None,
+        )
+
         yield bad_probe_call
         yield name_call
         yield share_price_call
@@ -473,6 +484,7 @@ def create_probe_calls(
         yield yearn_auction_call
         yield yearn_vault_call
         yield teller_v2_call
+        yield upshift_call
 
 
 def identify_vault_features(
@@ -624,6 +636,11 @@ def identify_vault_features(
     # https://basescan.org/address/0x13cd7cf42ccbaca8cd97e7f09572b6ea0de1097b
     if calls["TELLER_V2"].success:
         features.add(ERC4626Feature.teller_like)
+
+    # Upshift - TokenizedAccount vaults
+    # https://etherscan.io/address/0x69fc3f84fd837217377d9dae0212068ceb65818e
+    if calls["settlementAccount"].success:
+        features.add(ERC4626Feature.upshift_like)
 
     # # TODO: No way separate from Goat Protocol, see test_superform
     # if calls["PROFIT_UNLOCK_TIME"].success:
@@ -950,6 +967,11 @@ def create_vault_instance(
         from eth_defi.deltr.vault import DeltrVault
 
         return DeltrVault(web3, spec, token_cache=token_cache, features=features)
+
+    elif ERC4626Feature.upshift_like in features:
+        from eth_defi.upshift.vault import UpshiftVault
+
+        return UpshiftVault(web3, spec, token_cache=token_cache, features=features)
 
     else:
         # Generic ERC-4626 without fee data
