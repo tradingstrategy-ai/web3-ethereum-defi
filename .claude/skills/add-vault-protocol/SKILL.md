@@ -16,7 +16,7 @@ Before starting, gather the following information from the user:
 3. **Protocol slug** - Snake_case identifier for code (e.g., "plutus", "ipor", "morpho")
 4. **Chain** - Which blockchain (Ethereum, Arbitrum, Base, etc.)
 5. **Block explorer URL** - To fetch the ABI (e.g., Etherscan, Arbiscan, Basescan)
-6. **Single vault protocol**: If the protocol is know to have only a single vault, like Spark, Ethena, Cap. In this case use `HARDCODED_PROTOCOLS` classification later.
+6. **Single vault protocol**: Some protocols, especially ones issuing out their own stablecoin, are know to have only a single vault for the stablecoin staking. Example protocols are like like Spark, Ethena, Cap. In this case use `HARDCODED_PROTOCOLS` classification later, as there is no point to create complex vault smart contract detection patterns if the protocol does not need it.
 
 ## Step-by-step implementation
 
@@ -268,6 +268,10 @@ Examples include
 
 Check that all ERC-4626 tests pass after adding a new vault protocol by running all testse in `tests/erc_4626` folder.
 
+## Step 10: Format the codebase
+
+Format the newly added files with `poetry run ruff format`.
+
 ## Verification checklist
 
 After implementation, verify:
@@ -284,6 +288,12 @@ After implementation, verify:
 - [ ] No vaults : `source .local-test.env && poetry run pytest tests/erc_4626/test_{protocol_slug}.py -v`
 - [ ] Check that homepage link in the API documentation takes to the correct homepage
 - [ ] Check that Twitter link in the API documentation works and takes to the same Twitter account as listed on the protocol homepage
+
+If there are problems with the checklist, ask for human assistance.
+
+## Step 11: Changelog
+
+- Update changelog line in `CHANGELOG.md` and add a note of added new protocol
 
 ## Finding unique protocol identifiers
 

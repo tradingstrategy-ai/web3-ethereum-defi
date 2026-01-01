@@ -23,6 +23,14 @@ Avoid running the whole test suite as it takes several minutes. Only run specifi
 When running pytest or any test commands, always use an extended timeout
 by specifying `timeout: 180000` (3 minutes) in the bash tool parameters.
 
+## Formatting code
+
+After a large task is complete you can format the code with:
+
+```shell
+poetry run ruff format
+```
+
 ## Specific rules
 
 ### Generic
