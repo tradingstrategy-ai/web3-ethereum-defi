@@ -235,7 +235,7 @@ def test_{protocol_slug}(
 ```
 
 - Update the test file for a correct blockchain
-- Use the blockchain explorer to get the latest block number and update it in `fork_block_number`.
+- Use the blockchain explorer to get the latest block number using given JSON-RPC URL and Python's Web3.py `web3.eth.block_number` call
 - When you run the test and if the user does not have JSON-RPC configured for this chain, interrupt the skill and tell user to update his test environment variables
 
 After adding it, run the test module and fix any issues.

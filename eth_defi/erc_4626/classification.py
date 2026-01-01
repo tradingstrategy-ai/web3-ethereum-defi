@@ -16,9 +16,7 @@ from web3.types import BlockIdentifier
 
 from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.core import ERC4626Feature
-from eth_defi.event_reader.multicall_batcher import (EncodedCall,
-                                                     EncodedCallResult,
-                                                     read_multicall_chunked)
+from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, read_multicall_chunked
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.vault.base import VaultBase, VaultSpec
 from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
@@ -905,8 +903,7 @@ def create_vault_instance(
 
         return D2Vault(web3, spec, token_cache=token_cache, features=features)
     elif ERC4626Feature.untangled_like in features:
-        from eth_defi.erc_4626.vault_protocol.untangle.vault import \
-            UntangleVault
+        from eth_defi.erc_4626.vault_protocol.untangle.vault import UntangleVault
 
         return UntangleVault(web3, spec, token_cache=token_cache, features=features)
     elif ERC4626Feature.cap_like in features:
@@ -919,8 +916,7 @@ def create_vault_instance(
 
         return FoxifyVault(web3, spec, token_cache=token_cache, features=features)
     elif ERC4626Feature.liquidity_royalty_like in features:
-        from eth_defi.erc_4626.vault_protocol.liquidity_royalty.vault import \
-            LiquidityRoyalyJuniorVault
+        from eth_defi.erc_4626.vault_protocol.liquidity_royalty.vault import LiquidityRoyalyJuniorVault
 
         return LiquidityRoyalyJuniorVault(web3, spec, token_cache=token_cache, features=features)
     elif ERC4626Feature.csigma_like in features:
@@ -933,8 +929,7 @@ def create_vault_instance(
         return SparkVault(web3, spec, token_cache=token_cache, features=features)
     elif ERC4626Feature.yearn_morpho_compounder_like in features:
         # Yearn V3 vault with Morpho Compounder strategy
-        from eth_defi.erc_4626.vault_protocol.yearn.morpho_compounder import \
-            YearnMorphoCompounderStrategy
+        from eth_defi.erc_4626.vault_protocol.yearn.morpho_compounder import YearnMorphoCompounderStrategy
 
         return YearnMorphoCompounderStrategy(web3, spec, token_cache=token_cache, features=features)
     elif ERC4626Feature.yearn_v3_like in features or ERC4626Feature.yearn_tokenised_strategy in features:
@@ -949,20 +944,17 @@ def create_vault_instance(
         return GoatVault(web3, spec, token_cache=token_cache, features=features)
     elif ERC4626Feature.usdai_like in features:
         # Both of these have fees internatilised
-        from eth_defi.erc_4626.vault_protocol.usdai.vault import \
-            StakedUSDaiVault
+        from eth_defi.erc_4626.vault_protocol.usdai.vault import StakedUSDaiVault
 
         return StakedUSDaiVault(web3, spec, token_cache=token_cache, features=features)
     elif ERC4626Feature.autopool_like in features:
         # Both of these have fees internatilised
-        from eth_defi.erc_4626.vault_protocol.autopool.vault import \
-            AutoPoolVault
+        from eth_defi.erc_4626.vault_protocol.autopool.vault import AutoPoolVault
 
         return AutoPoolVault(web3, spec, token_cache=token_cache, features=features)
     elif ERC4626Feature.nashpoint_like in features:
         # Both of these have fees internatilised
-        from eth_defi.erc_4626.vault_protocol.nashpoint.vault import \
-            NashpointNodeVault
+        from eth_defi.erc_4626.vault_protocol.nashpoint.vault import NashpointNodeVault
 
         return NashpointNodeVault(web3, spec, token_cache=token_cache, features=features)
 
@@ -992,8 +984,7 @@ def create_vault_instance(
 
     elif ERC4626Feature.superform_like in features:
         # Both of these have fees internatilised
-        from eth_defi.erc_4626.vault_protocol.superform.vault import \
-            SuperformVault
+        from eth_defi.erc_4626.vault_protocol.superform.vault import SuperformVault
 
         return SuperformVault(web3, spec, token_cache=token_cache, features=features)
 
@@ -1022,8 +1013,7 @@ def create_vault_instance(
         return SyrupVault(web3, spec, token_cache=token_cache, features=features)
 
     elif ERC4626Feature.centrifuge_like in features:
-        from eth_defi.erc_4626.vault_protocol.centrifuge.vault import \
-            CentrifugeVault
+        from eth_defi.erc_4626.vault_protocol.centrifuge.vault import CentrifugeVault
 
         return CentrifugeVault(web3, spec, token_cache=token_cache, features=features)
 
