@@ -267,6 +267,15 @@ class ERC4626Feature(enum.Enum):
     #: https://etherscan.io/address/0x6D2981FF9b8d7edbb7604de7A65BAC8694ac849F
     yearn_morpho_compounder_like = "yearn_morpho_compounder_like"
 
+    #: Teller Protocol
+    #:
+    #: Long-tail lending pools where lenders deposit assets to earn yield
+    #: from borrower interest payments. Uses time-based loan expiration
+    #: instead of price-based liquidations.
+    #: https://www.teller.org/
+    #: https://basescan.org/address/0x13cd7cf42ccbaca8cd97e7f09572b6ea0de1097b
+    teller_like = "teller_like"
+
 
 def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     """Deduct vault protocol name based on Vault smart contract features.
@@ -388,6 +397,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.yearn_morpho_compounder_like in features:
         return "Yearn Morpho Compounder"
+
+    elif ERC4626Feature.teller_like in features:
+        return "Teller"
 
     # No idea
     if ERC4626Feature.erc_7540_like in features:

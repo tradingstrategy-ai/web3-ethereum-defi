@@ -7,6 +7,7 @@
 - Add: New protocol: cSigma Finance (Ethereum)
 - Add: New protocol: Spark (Ethereum)
 - Add: New vault type: Yearn Morpho Compounder strategy
+- Add: New protocol: Teller (Base)
 - Fix: Various RPC error code workarounds (Monad, Arbitrum, Hyperliquid)
 
 # 0.37

@@ -424,6 +424,17 @@ def create_probe_calls(
             extra_data=None,
         )
 
+        # Teller Protocol
+        # LenderCommitmentGroup_Pool_V2 long-tail lending pools
+        # https://basescan.org/address/0x13cd7cf42ccbaca8cd97e7f09572b6ea0de1097b
+        teller_v2_call = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="TELLER_V2()")[0:4],
+            function="TELLER_V2",
+            data=b"",
+            extra_data=None,
+        )
+
         yield bad_probe_call
         yield name_call
         yield share_price_call
@@ -461,6 +472,7 @@ def create_probe_calls(
         yield truefi_call
         yield yearn_auction_call
         yield yearn_vault_call
+        yield teller_v2_call
 
 
 def identify_vault_features(
@@ -607,6 +619,11 @@ def identify_vault_features(
 
     if calls["depositController"].success:
         features.add(ERC4626Feature.truefi_like)
+
+    # Teller Protocol - LenderCommitmentGroup_Pool_V2
+    # https://basescan.org/address/0x13cd7cf42ccbaca8cd97e7f09572b6ea0de1097b
+    if calls["TELLER_V2"].success:
+        features.add(ERC4626Feature.teller_like)
 
     # # TODO: No way separate from Goat Protocol, see test_superform
     # if calls["PROFIT_UNLOCK_TIME"].success:
@@ -923,6 +940,11 @@ def create_vault_instance(
         from eth_defi.superform.vault import SuperformVault
 
         return SuperformVault(web3, spec, token_cache=token_cache, features=features)
+
+    elif ERC4626Feature.teller_like in features:
+        from eth_defi.teller.vault import TellerVault
+
+        return TellerVault(web3, spec, token_cache=token_cache, features=features)
 
     else:
         # Generic ERC-4626 without fee data
