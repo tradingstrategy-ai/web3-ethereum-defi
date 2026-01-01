@@ -285,7 +285,7 @@ Check that all ERC-4626 tests pass after adding a new vault protocol by running 
 Run all vault testes:
 
 ```
-source .local-test.env && poetry run pytest -k vault_protocol
+source .local-test.env && poetry run pytest -k {vault protocol test case name here}
 ```
 
 Fix any issues if found.

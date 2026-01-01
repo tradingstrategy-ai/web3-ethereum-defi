@@ -26,6 +26,9 @@ from eth_defi.usdc.deployment import deploy_fiat_token
 from eth_defi.usdc.eip_3009 import make_eip_3009_transfer, EIP3009AuthorizationType
 
 
+pytestmark = pytest.mark.skip(reason="Phasing out support for Enzyme vaults")
+
+
 @pytest.fixture()
 def usdc(web3, deployer: ChecksumAddress) -> TokenDetails:
     """Centre fiat token.
