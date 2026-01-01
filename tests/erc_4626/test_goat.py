@@ -4,19 +4,15 @@ import os
 from decimal import Decimal
 from pathlib import Path
 
-import pytest
-
-from web3 import Web3
 import flaky
+import pytest
+from web3 import Web3
 
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
-from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.goat.vault import GoatVault
-from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch
+from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.untangle.vault import UntangleVault
-from eth_defi.vault.base import VaultTechnicalRisk
 
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
 

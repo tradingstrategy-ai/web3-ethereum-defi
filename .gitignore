@@ -35,3 +35,6 @@ contracts/aave-v3-deploy/hardhat-deployment-export.json
 .env
 
 logs/
+
+# Local test env symlink
+.local-test.env

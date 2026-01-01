@@ -232,6 +232,13 @@ class ERC4626Feature(enum.Enum):
     #: https://arbiscan.io/address/0x8626a4234721a605fc84bb49d55194869ae95d98#readContract
     truefi_like = "truefi_like"
 
+    #: Covered Agent Protocol (CAP)
+    #:
+    #: https://cap.ag/
+    #: Uses Yearn V3 vault infrastructure
+    #: https://etherscan.io/address/0x3ed6aa32c930253fc990de58ff882b9186cd0072
+    cap_like = "cap_like"
+
 
 def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     """Deduct vault protocol name based on Vault smart contract features.
@@ -335,6 +342,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.superform_like in features:
         return "Superform"
+
+    elif ERC4626Feature.cap_like in features:
+        return "CAP"
 
     # No idea
     if ERC4626Feature.erc_7540_like in features:

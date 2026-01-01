@@ -16,7 +16,9 @@ from web3.types import BlockIdentifier
 
 from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.core import ERC4626Feature
-from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, read_multicall_chunked
+from eth_defi.event_reader.multicall_batcher import (EncodedCall,
+                                                     EncodedCallResult,
+                                                     read_multicall_chunked)
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.vault.base import VaultBase, VaultSpec
 from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
@@ -35,11 +37,16 @@ class VaultFeatureProbe:
 def create_probe_calls(
     addresses: Iterable[HexAddress],
     share_probe_amount=1_000_000,
+    chain_id: int | None=None,
 ) -> Iterable[EncodedCall]:
     """Create calls that call each vault address using multicall.
 
     - Because ERC standards are such a shit show, and nobody is using good interface standard,
       we figure out the vault type by probing it with various calls
+
+    :param chain_id:
+        Limit probes by a chain, so that we do not try to probe vaults that exist only on certain
+        chains like mainnet.
     """
 
     convert_to_shares_payload = eth_abi.encode(["uint256"], [share_probe_amount])
@@ -48,6 +55,7 @@ def create_probe_calls(
 
     # TODO: Might be bit slowish here, but we are not perf intensive
     for address in addresses:
+
         bad_probe_call = EncodedCall.from_keccak_signature(
             address=address,
             signature=Web3.keccak(text="EVM IS BROKEN SHIT()")[0:4],
@@ -615,7 +623,7 @@ def identify_vault_features(
             features.add(ERC4626Feature.peapods_like)
         elif "Savings GYD" in name:
             features.add(ERC4626Feature.gyroscope)
-
+        
     return features
 
 
@@ -691,6 +699,12 @@ def detect_vault_features(
     """
 
     assert address.lower() not in BROKEN_VAULT_CONTRACTS, f"Vault {address} is known broken vault contract like, avoid"
+
+    hardcoded_flags = HARDCODED_PROTOCOLS.get(address.lower())
+    if hardcoded_flags:
+        features = hardcoded_flags
+        logger.debug("Using hardcoded vault features for %s: %s", address, features)
+        return hardcoded_flags
 
     address = Web3.to_checksum_address(address)
     logger.info("Detecting vault features for %s", address)
@@ -805,6 +819,11 @@ def create_vault_instance(
         from eth_defi.untangle.vault import UntangleVault
 
         return UntangleVault(web3, spec, token_cache=token_cache, features=features)
+    elif ERC4626Feature.cap_like in features:
+        # Covered Agent Protocol (CAP) uses Yearn V3 infrastructure
+        from eth_defi.cap.vault import CAPVault
+
+        return CAPVault(web3, spec, token_cache=token_cache, features=features)
     elif ERC4626Feature.yearn_v3_like in features or ERC4626Feature.yearn_tokenised_strategy in features:
         # Both of these have fees internatilised
         from eth_defi.yearn.vault import YearnV3Vault
@@ -881,3 +900,13 @@ def create_vault_instance_autodetect(
     vault = create_vault_instance(web3, vault_address, features=features, token_cache=token_cache)
     assert vault is not None, f"Could not create vault instance: {vault_address} with features {features}"
     return vault
+
+
+#: Handle problematic protocols.
+#:
+#: Some protocols cannot be detected by their vault smart contract structure, because they are using copy-paste smart contracts.
+#: For these, we need to do by vault contract address whitelisting here.
+#:
+HARDCODED_PROTOCOLS = {
+    "0x3ed6aa32c930253fc990de58ff882b9186cd0072": {ERC4626Feature.cap_like},  
+}
