@@ -7,6 +7,7 @@ AsyncWeb3 for blockchain operations, and async GraphQL for Subsquid queries.
 import asyncio
 from datetime import datetime
 import logging
+from statistics import median
 from typing import Any
 
 import aiohttp
@@ -19,19 +20,25 @@ from ccxt.base.errors import (
     OrderNotFound,
     RequestTimeout,
 )
+from eth_utils import to_checksum_address
 from web3 import AsyncWeb3
 
 from eth_defi.chain import get_chain_name
 from eth_defi.gmx.ccxt.async_support.async_graphql import AsyncGMXSubsquidClient
-from eth_defi.gmx.ccxt.errors import InsufficientHistoricalDataError
-from eth_defi.gmx.ccxt.validation import _validate_ohlcv_data_sufficiency
 from eth_defi.gmx.ccxt.async_support.async_http import async_make_gmx_api_request
+from eth_defi.gmx.ccxt.errors import InsufficientHistoricalDataError
 from eth_defi.gmx.ccxt.properties import describe_gmx
+from eth_defi.gmx.ccxt.validation import _validate_ohlcv_data_sufficiency
 from eth_defi.gmx.config import GMXConfig
-from eth_defi.gmx.core.open_positions import GetOpenPositions
+from eth_defi.gmx.constants import PRECISION
 from eth_defi.gmx.core import Markets
+from eth_defi.gmx.core.open_positions import GetOpenPositions
+from eth_defi.gmx.core.oracle import OraclePrices
+from eth_defi.gmx.order.sltp_order import SLTPEntry, SLTPOrder, SLTPParams
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.token import fetch_erc20_details
+from eth_defi.utils import get_contract_addresses, get_token_address_normalized
 
 logger = logging.getLogger(__name__)
 
@@ -1432,3 +1439,542 @@ class GMX(Exchange):
                     result[symbol] = fr_result
 
         return result
+
+    def _parse_sltp_params(self, params: dict) -> tuple:
+        """Parse CCXT-style SL/TP params into GMX SLTPEntry objects.
+
+        Supports both CCXT unified (stopLossPrice/takeProfitPrice) and object (stopLoss/takeProfit) styles.
+
+        :param params: CCXT parameters dict containing SL/TP configuration
+        :return: Tuple of (stop_loss_entry, take_profit_entry)
+        """
+        stop_loss_entry = None
+        take_profit_entry = None
+
+        # Parse Stop Loss
+        if "stopLossPrice" in params:
+            stop_loss_entry = SLTPEntry(
+                trigger_price=params["stopLossPrice"],
+                close_percent=1.0,
+                auto_cancel=True,
+            )
+        elif "stopLoss" in params:
+            sl = params["stopLoss"]
+            if isinstance(sl, dict):
+                stop_loss_entry = SLTPEntry(
+                    trigger_price=sl.get("triggerPrice"),
+                    trigger_percent=sl.get("triggerPercent"),
+                    close_percent=sl.get("closePercent", 1.0),
+                    close_size_usd=sl.get("closeSizeUsd"),
+                    auto_cancel=sl.get("autoCancel", True),
+                )
+            else:
+                stop_loss_entry = SLTPEntry(trigger_price=sl, close_percent=1.0)
+
+        # Parse Take Profit
+        if "takeProfitPrice" in params:
+            take_profit_entry = SLTPEntry(
+                trigger_price=params["takeProfitPrice"],
+                close_percent=1.0,
+                auto_cancel=True,
+            )
+        elif "takeProfit" in params:
+            tp = params["takeProfit"]
+            if isinstance(tp, dict):
+                take_profit_entry = SLTPEntry(
+                    trigger_price=tp.get("triggerPrice"),
+                    trigger_percent=tp.get("triggerPercent"),
+                    close_percent=tp.get("closePercent", 1.0),
+                    close_size_usd=tp.get("closeSizeUsd"),
+                    auto_cancel=tp.get("autoCancel", True),
+                )
+            else:
+                take_profit_entry = SLTPEntry(trigger_price=tp, close_percent=1.0)
+
+        return stop_loss_entry, take_profit_entry
+
+    async def create_order(
+        self,
+        symbol: str,
+        type: str,
+        side: str,
+        amount: float,
+        price: float | None = None,
+        params: dict | None = None,
+    ) -> dict:
+        """Create and execute a GMX order asynchronously.
+
+        This is the async version of the sync create_order() method.
+        Supports bundled SL/TP orders and standalone SL/TP creation.
+
+        :param symbol: Market symbol (e.g., 'ETH/USD', 'BTC/USD')
+        :param type: Order type ('market' or 'limit')
+        :param side: Order side ('buy' for long, 'sell' for short)
+        :param amount: Order size in USD
+        :param price: Limit price (currently unused, GMX uses market orders)
+        :param params: Additional parameters including SL/TP configuration
+        :return: CCXT-compatible order structure
+        """
+        if params is None:
+            params = {}
+
+        # Require wallet for order creation
+        if not self.wallet:
+            raise ValueError(
+                "Wallet required for order creation. Provide 'privateKey' or 'wallet' in constructor parameters.",
+            )
+
+        # Sync wallet nonce
+        # Note: AsyncWeb3 doesn't have sync methods, need to use await
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, self.wallet.sync_nonce, self.web3)
+
+        # Ensure markets are loaded
+        if not self.markets_loaded or not self.markets:
+            await self.load_markets()
+
+        # Parse SL/TP parameters
+        sl_entry, tp_entry = self._parse_sltp_params(params)
+
+        # Check for standalone SL/TP order types
+        if type in ["stop_loss", "take_profit"]:
+            return await self._create_standalone_sltp_order(
+                symbol,
+                type,
+                side,
+                amount,
+                params,
+            )
+
+        # Bundled approach: SL/TP with position opening
+        if sl_entry or tp_entry:
+            return await self._create_order_with_sltp(
+                symbol,
+                type,
+                side,
+                amount,
+                price,
+                params,
+                sl_entry,
+                tp_entry,
+            )
+
+        # Standard order creation (no SLTP)
+        raise NotSupported(f"{self.id} async create_order() for standard orders not yet implemented")
+
+    async def _create_order_with_sltp(
+        self,
+        symbol: str,
+        type: str,
+        side: str,
+        amount: float,
+        price: float | None,
+        params: dict,
+        sl_entry,
+        tp_entry,
+    ) -> dict:
+        """Create order with bundled SL/TP (async version).
+
+        Opens position + SL + TP in a single multicall transaction.
+
+        :param symbol: Market symbol
+        :param type: Order type
+        :param side: Order side
+        :param amount: Order size in USD
+        :param price: Price (for limit orders)
+        :param params: Additional CCXT parameters
+        :param sl_entry: Stop loss configuration
+        :param tp_entry: Take profit configuration
+        :return: CCXT-compatible order structure
+        """
+        # Only support bundled SL/TP for opening positions (buy side)
+        if side != "buy":
+            raise ValueError("Bundled SL/TP only supported for opening positions (side='buy'). Use standalone SL/TP for existing positions.")
+
+        # Convert CCXT params to GMX params
+        gmx_params = await self._convert_ccxt_to_gmx_params_async(symbol, type, side, amount, price, params)
+
+        # Get market and token info
+        normalized_symbol = self._normalize_symbol(symbol)
+        market = self.markets[normalized_symbol]
+
+        collateral_symbol = gmx_params["collateral_symbol"]
+        leverage = gmx_params["leverage"]
+        size_delta_usd = gmx_params["size_delta_usd"]
+        slippage_percent = gmx_params.get("slippage_percent", 0.003)
+        execution_buffer = gmx_params.get("execution_buffer", 2.2)
+
+        # Get token addresses from market
+        chain = self.chain
+        market_address = market["info"]["market_token"]
+        collateral_address = market["info"]["long_token"]
+        index_token_address = market["info"]["index_token"]
+
+        if not collateral_address or not index_token_address:
+            raise ValueError(f"Could not resolve token addresses for {symbol} market")
+
+        # Calculate collateral amount from size and leverage
+        collateral_usd = size_delta_usd / leverage
+
+        # Get token details (sync operation in executor)
+        loop = asyncio.get_event_loop()
+        token_details = await loop.run_in_executor(
+            None,
+            fetch_erc20_details,
+            self.web3,
+            collateral_address,
+            self.web3.eth.chain_id,
+        )
+
+        # Get oracle prices (sync operation in executor)
+        oracle = OraclePrices(self.chain)
+        oracle_prices = await loop.run_in_executor(None, oracle.get_recent_prices)
+
+        # Get collateral token price
+        if collateral_address not in oracle_prices:
+            raise ValueError(f"No oracle price available for collateral token {collateral_address}")
+
+        price_data = oracle_prices[collateral_address]
+        raw_price = median([float(price_data["maxPriceFull"]), float(price_data["minPriceFull"])])
+        collateral_token_price = raw_price / (10 ** (PRECISION - token_details.decimals))
+
+        # Calculate collateral amount in token units
+        collateral_tokens = collateral_usd / collateral_token_price
+        collateral_amount = int(collateral_tokens * (10**token_details.decimals))
+
+        # Ensure token approval
+        await self._ensure_token_approval_async(
+            collateral_symbol,
+            token_details.symbol,
+            size_delta_usd,
+            leverage,
+            collateral_address,
+            token_details,
+        )
+
+        # Create SLTPOrder instance (sync operation)
+        sltp_order = SLTPOrder(
+            config=self.config,
+            market_key=to_checksum_address(market_address),
+            collateral_address=to_checksum_address(collateral_address),
+            index_token_address=to_checksum_address(index_token_address),
+            is_long=True,
+        )
+
+        # Build SLTPParams
+        sltp_params = SLTPParams(
+            stop_loss=sl_entry,
+            take_profit=tp_entry,
+        )
+
+        # Create bundled order (sync operation in executor)
+        sltp_result = await loop.run_in_executor(
+            None,
+            sltp_order.create_increase_order_with_sltp,
+            size_delta_usd,
+            collateral_amount,
+            sltp_params,
+            slippage_percent,
+            None,  # swap_path
+            execution_buffer,
+            False,  # auto_cancel
+            None,  # data_list
+        )
+
+        logger.info(f"SL/TP result created: entry_price={sltp_result.entry_price}, sl_trigger={sltp_result.stop_loss_trigger_price}, tp_trigger={sltp_result.take_profit_trigger_price}")
+
+        # Sign transaction
+        transaction = sltp_result.transaction
+        if "nonce" in transaction:
+            del transaction["nonce"]
+
+        signed_tx = await loop.run_in_executor(
+            None,
+            self.wallet.sign_transaction_with_new_nonce,
+            transaction,
+        )
+
+        # Submit to blockchain
+        tx_hash_bytes = await self.web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+        tx_hash = self.web3.to_hex(tx_hash_bytes)
+
+        # Wait for confirmation
+        receipt = await self.web3.eth.wait_for_transaction_receipt(tx_hash_bytes)
+
+        # Convert to CCXT format
+        order = self._parse_sltp_result_to_ccxt(
+            sltp_result,
+            symbol,
+            side,
+            type,
+            amount,
+            tx_hash,
+            receipt,
+        )
+
+        return order
+
+    def _normalize_symbol(self, symbol: str) -> str:
+        """Normalize symbol to match market keys.
+
+        :param symbol: Input symbol (e.g., 'ETH/USD' or 'ETH/USDC:USDC')
+        :return: Normalized symbol
+        """
+        # If symbol already has settlement token, return as-is
+        if ":" in symbol:
+            return symbol
+
+        # Add USDC settlement for GMX futures
+        return f"{symbol}:USDC"
+
+    async def _convert_ccxt_to_gmx_params_async(
+        self,
+        symbol: str,
+        type: str,
+        side: str,
+        amount: float,
+        price: float | None,
+        params: dict,
+    ) -> dict:
+        """Convert CCXT parameters to GMX parameters (async version).
+
+        :param symbol: Market symbol
+        :param type: Order type
+        :param side: Order side
+        :param amount: Order size in USD
+        :param price: Price
+        :param params: Additional parameters
+        :return: GMX parameters dict
+        """
+        leverage = params.get("leverage", 1.0)
+        collateral_symbol = params.get("collateral_symbol", "USDC")
+        slippage_percent = params.get("slippage_percent", 0.003)
+        execution_buffer = params.get("execution_buffer", 2.2)
+
+        return {
+            "symbol": symbol,
+            "collateral_symbol": collateral_symbol,
+            "leverage": leverage,
+            "size_delta_usd": amount,
+            "slippage_percent": slippage_percent,
+            "execution_buffer": execution_buffer,
+        }
+
+    async def _ensure_token_approval_async(
+        self,
+        requested_symbol: str,
+        actual_symbol: str,
+        size_delta_usd: float,
+        leverage: float,
+        collateral_address: str,
+        token_details,
+    ):
+        """Ensure token approval for order creation (async version).
+
+        :param requested_symbol: Symbol requested by user
+        :param actual_symbol: Actual token symbol from contract
+        :param size_delta_usd: Position size in USD
+        :param leverage: Leverage multiplier
+        :param collateral_address: Token address
+        :param token_details: Token details object
+        """
+        # Skip for native tokens
+        if requested_symbol in ["ETH", "AVAX"]:
+            logger.debug(f"Using native {requested_symbol} - no approval needed")
+            return
+
+        # Get contract addresses
+        loop = asyncio.get_event_loop()
+        contract_addresses = get_contract_addresses(self.chain)
+        spender_address = contract_addresses.syntheticsrouter
+
+        # Check current allowance
+        wallet_address = self.wallet.address
+        token_contract = token_details.contract
+
+        current_allowance = await loop.run_in_executor(
+            None,
+            token_contract.functions.allowance(
+                to_checksum_address(wallet_address),
+                spender_address,
+            ).call,
+        )
+
+        # Calculate required amount
+        required_collateral_usd = (size_delta_usd / leverage) * 1.1
+
+        # Get oracle prices
+        oracle = OraclePrices(self.chain)
+        oracle_prices = await loop.run_in_executor(None, oracle.get_recent_prices)
+
+        if collateral_address not in oracle_prices:
+            raise ValueError(f"No oracle price available for {collateral_address}")
+
+        price_data = oracle_prices[collateral_address]
+        raw_price = median([float(price_data["maxPriceFull"]), float(price_data["minPriceFull"])])
+        token_price = raw_price / (10 ** (PRECISION - token_details.decimals))
+
+        required_tokens = required_collateral_usd / token_price
+        required_amount = int(required_tokens * (10**token_details.decimals))
+
+        # Check if approval needed
+        if current_allowance >= required_amount:
+            logger.debug(f"Sufficient {actual_symbol} allowance exists")
+            return
+
+        # Approve large amount
+        approve_amount = 1_000_000_000 * (10**token_details.decimals)
+
+        logger.info(f"Approving {approve_amount / (10**token_details.decimals):.0f} {actual_symbol}...")
+
+        # Build and send approval transaction
+        approve_tx = await loop.run_in_executor(
+            None,
+            token_contract.functions.approve(spender_address, approve_amount).build_transaction,
+            {
+                "from": to_checksum_address(wallet_address),
+                "gas": 100_000,
+                "gasPrice": self.web3.eth.gas_price,
+            },
+        )
+
+        if "nonce" in approve_tx:
+            del approve_tx["nonce"]
+
+        signed_approve_tx = await loop.run_in_executor(
+            None,
+            self.wallet.sign_transaction_with_new_nonce,
+            approve_tx,
+        )
+
+        approve_tx_hash = await self.web3.eth.send_raw_transaction(signed_approve_tx.rawTransaction)
+        approve_receipt = await self.web3.eth.wait_for_transaction_receipt(approve_tx_hash, timeout=120)
+
+        if approve_receipt["status"] != 1:
+            raise Exception(f"Token approval failed: {approve_tx_hash.hex()}")
+
+        logger.info(f"Token approval successful!")
+
+    def _parse_sltp_result_to_ccxt(
+        self,
+        sltp_result,
+        symbol: str,
+        side: str,
+        type: str,
+        amount: float,
+        tx_hash: str,
+        receipt: dict,
+    ) -> dict:
+        """Convert SLTPOrderResult to CCXT order structure.
+
+        :param sltp_result: SLTPOrderResult
+        :param symbol: CCXT symbol
+        :param side: Order side
+        :param type: Order type
+        :param amount: Order size
+        :param tx_hash: Transaction hash
+        :param receipt: Transaction receipt
+        :return: CCXT-compatible order structure
+        """
+        timestamp = self.milliseconds()
+        tx_success = receipt.get("status") == 1
+        status = "closed" if tx_success else "failed"
+
+        # Build info dict
+        info = {
+            "tx_hash": tx_hash,
+            "receipt": receipt,
+            "block_number": receipt.get("blockNumber"),
+            "gas_used": receipt.get("gasUsed"),
+            "total_execution_fee": sltp_result.total_execution_fee,
+            "main_order_fee": sltp_result.main_order_fee,
+            "stop_loss_fee": sltp_result.stop_loss_fee,
+            "take_profit_fee": sltp_result.take_profit_fee,
+            "entry_price": sltp_result.entry_price,
+            "has_stop_loss": sltp_result.stop_loss_trigger_price is not None,
+            "has_take_profit": sltp_result.take_profit_trigger_price is not None,
+        }
+
+        if sltp_result.stop_loss_trigger_price is not None:
+            info["stop_loss_trigger_price"] = sltp_result.stop_loss_trigger_price
+        if sltp_result.take_profit_trigger_price is not None:
+            info["take_profit_trigger_price"] = sltp_result.take_profit_trigger_price
+
+        fee_cost = sltp_result.total_execution_fee / 1e18
+        mark_price = sltp_result.entry_price
+        filled_amount = amount if tx_success else 0.0
+        remaining_amount = 0.0 if tx_success else amount
+
+        return {
+            "id": tx_hash,
+            "clientOrderId": None,
+            "timestamp": timestamp,
+            "datetime": self.iso8601(timestamp),
+            "lastTradeTimestamp": timestamp if tx_success else None,
+            "symbol": symbol,
+            "type": type,
+            "side": side,
+            "price": mark_price,
+            "amount": amount,
+            "cost": amount if tx_success else None,
+            "average": mark_price if tx_success else None,
+            "filled": filled_amount,
+            "remaining": remaining_amount,
+            "status": status,
+            "fee": {
+                "cost": fee_cost,
+                "currency": "ETH",
+            },
+            "trades": None,
+            "info": info,
+        }
+
+    async def _create_standalone_sltp_order(
+        self,
+        symbol: str,
+        type: str,
+        side: str,
+        amount: float,
+        params: dict,
+    ) -> dict:
+        """Create standalone SL/TP order for existing position (async version).
+
+        :param symbol: Market symbol
+        :param type: Order type ('stop_loss' or 'take_profit')
+        :param side: Order side
+        :param amount: Order size
+        :param params: Additional parameters
+        :return: CCXT-compatible order structure
+        """
+        # Async implementation mirrors sync but with await for blocking calls
+        raise NotSupported(f"{self.id} async standalone SLTP orders not yet implemented - use sync version")
+
+    async def create_market_buy_order(
+        self,
+        symbol: str,
+        amount: float,
+        params: dict | None = None,
+    ) -> dict:
+        """Create a market buy order (long position) asynchronously.
+
+        :param symbol: Market symbol
+        :param amount: Order size in USD
+        :param params: Additional parameters (can include SL/TP)
+        :return: CCXT-compatible order structure
+        """
+        return await self.create_order(symbol, "market", "buy", amount, None, params)
+
+    async def create_market_sell_order(
+        self,
+        symbol: str,
+        amount: float,
+        params: dict | None = None,
+    ) -> dict:
+        """Create a market sell order (short position) asynchronously.
+
+        :param symbol: Market symbol
+        :param amount: Order size in USD
+        :param params: Additional parameters (can include SL/TP)
+        :return: CCXT-compatible order structure
+        """
+        return await self.create_order(symbol, "market", "sell", amount, None, params)
