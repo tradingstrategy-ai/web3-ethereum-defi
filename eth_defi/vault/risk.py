@@ -89,6 +89,7 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Spark": VaultTechnicalRisk.negligible,
     "Yearn Morpho Compounder": VaultTechnicalRisk.minimal,
     "Teller": None,
+    "Deltr": VaultTechnicalRisk.dangerous,
 }
 
 #: Particular vaults that are broken, misleading or otherwise problematic.
