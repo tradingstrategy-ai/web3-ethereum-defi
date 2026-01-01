@@ -12,7 +12,7 @@ import flaky
 
 from eth_defi.erc_4626.classification import detect_vault_features
 from eth_defi.erc_4626.core import ERC4626Feature
-from eth_defi.ipor.vault import IPORVault
+from eth_defi.erc_4626.vault_protocol.ipor.vault import IPORVault
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 
 from eth_defi.vault.base import VaultSpec

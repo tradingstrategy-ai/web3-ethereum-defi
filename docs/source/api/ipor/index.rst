@@ -7,4 +7,4 @@ IPOR Fusion vaults integration.
    :toctree: _autosummary_ipor
    :recursive:
 
-   eth_defi.ipor.vault
+   eth_defi.erc_4626.vault_protocol.ipor.vault

@@ -19,7 +19,7 @@ from eth_defi.erc_4626.classification import create_vault_instance
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.flow import approve_and_deposit_4626, approve_and_redeem_4626
 from eth_defi.erc_4626.vault import ERC4626Vault
-from eth_defi.ipor.vault import IPORVault
+from eth_defi.erc_4626.vault_protocol.ipor.vault import IPORVault
 from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch, mine
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.simple_vault.transact import encode_simple_vault_transaction

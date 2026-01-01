@@ -19,13 +19,13 @@ from web3 import Web3
 
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect, create_vault_instance
 from eth_defi.erc_4626.core import ERC4626Feature
-from eth_defi.gains.deposit_redeem import GainsDepositManager
+from eth_defi.erc_4626.vault_protocol.gains.deposit_redeem import GainsDepositManager
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch, make_anvil_custom_rpc_request
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import TokenDetails, USDC_WHALE, fetch_erc20_details, USDC_NATIVE_TOKEN
 from eth_defi.trace import assert_transaction_success_with_explanation
-from eth_defi.umami.vault import UmamiVault, UmamiDepositManager
+from eth_defi.erc_4626.vault_protocol.umami.vault import UmamiVault, UmamiDepositManager
 
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
 JSON_RPC_TENDERLY = os.environ.get("JSON_RPC_TENDERLY", None)

@@ -10,7 +10,7 @@ import pytest
 from web3 import Web3
 
 from eth_defi.abi import ZERO_ADDRESS_STR
-from eth_defi.ipor.vault import IPORVault
+from eth_defi.erc_4626.vault_protocol.ipor.vault import IPORVault
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 
 from eth_defi.vault.base import VaultSpec

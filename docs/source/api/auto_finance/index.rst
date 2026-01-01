@@ -17,4 +17,4 @@ From there, the Autopool Rebalance Logic takes over, autonomously monitoring the
    :toctree: _autosummary_d2
    :recursive:
 
-   eth_defi.autopool.vault
+   eth_defi.erc_4626.vault_protocol.autopool.vault

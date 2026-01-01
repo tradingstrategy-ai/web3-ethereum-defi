@@ -15,4 +15,4 @@ Plutus buys back PLUTUS using revenue and productive treasury funds and distribu
    :toctree: _autosummary_plutus
    :recursive:
 
-   eth_defi.plutus.vault
+   eth_defi.erc_4626.vault_protocol.plutus.vault

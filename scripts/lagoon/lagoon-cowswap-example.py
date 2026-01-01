@@ -19,9 +19,9 @@ from eth_defi.chain import get_chain_name
 from eth_defi.confirmation import broadcast_and_wait_transactions_to_complete
 from eth_defi.gas import estimate_gas_price, apply_gas
 from eth_defi.hotwallet import HotWallet, SignedTransactionWithNonce
-from eth_defi.lagoon.cowswap import presign_and_broadcast, execute_presigned_cowswap_order, approve_cow_swap
+from eth_defi.erc_4626.vault_protocol.lagoon.cowswap import presign_and_broadcast, execute_presigned_cowswap_order, approve_cow_swap
 from eth_defi.cow.quote import fetch_quote
-from eth_defi.lagoon.deployment import deploy_automated_lagoon_vault, LagoonDeploymentParameters
+from eth_defi.erc_4626.vault_protocol.lagoon.deployment import deploy_automated_lagoon_vault, LagoonDeploymentParameters
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import BRIDGED_USDC_TOKEN, USDC_NATIVE_TOKEN, USDT_NATIVE_TOKEN, WRAPPED_NATIVE_TOKEN, get_weth_contract, fetch_erc20_details
 from eth_defi.utils import setup_console_logging

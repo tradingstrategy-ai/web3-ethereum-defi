@@ -7,7 +7,7 @@ import flaky
 import pytest
 from web3 import Web3
 
-from eth_defi.csigma.vault import CsigmaVault
+from eth_defi.erc_4626.vault_protocol.csigma.vault import CsigmaVault
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil

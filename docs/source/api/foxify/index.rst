@@ -18,4 +18,4 @@ Traders can access up to $10,000, either by completing one of two FUNDED challen
    :toctree: _autosummary_foxify
    :recursive:
 
-   eth_defi.foxify.vault
+   eth_defi.erc_4626.vault_protocol.foxify.vault

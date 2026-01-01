@@ -9,4 +9,4 @@ Deltr API
    :toctree: _autosummary_deltr
    :recursive:
 
-   eth_defi.deltr.vault
+   eth_defi.erc_4626.vault_protocol.deltr.vault

@@ -18,4 +18,4 @@ The protocol is maintained by independent developers and is governed by GOA hold
    :toctree: _autosummary_d2
    :recursive:
 
-   eth_defi.goat.vault
+   eth_defi.erc_4626.vault_protocol.goat.vault

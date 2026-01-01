@@ -41,4 +41,4 @@ for pool-style lending.
    :toctree: _autosummary_teller
    :recursive:
 
-   eth_defi.teller.vault
+   eth_defi.erc_4626.vault_protocol.teller.vault

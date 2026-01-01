@@ -104,7 +104,7 @@ class ERC7540Vault(ERC4626Vault):
         return self.vault_contract.functions.redeem(raw_amount, depositor, depositor)
 
     def get_deposit_manager(self) -> "eth_defi.lagoon.deposit_redeem.ERC7540DepositManager":
-        from eth_defi.lagoon.deposit_redeem import ERC7540DepositManager
+        from eth_defi.erc_4626.vault_protocol.lagoon.deposit_redeem import ERC7540DepositManager
 
         return ERC7540DepositManager(self)
 

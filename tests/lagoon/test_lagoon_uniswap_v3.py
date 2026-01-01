@@ -9,7 +9,7 @@ from web3 import Web3
 
 from eth_defi.abi import get_function_selector
 from eth_defi.hotwallet import HotWallet
-from eth_defi.lagoon.deployment import LagoonAutomatedDeployment, LagoonDeploymentParameters, deploy_automated_lagoon_vault
+from eth_defi.erc_4626.vault_protocol.lagoon.deployment import LagoonAutomatedDeployment, LagoonDeploymentParameters, deploy_automated_lagoon_vault
 from eth_defi.token import TokenDetails, USDC_NATIVE_TOKEN
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.uniswap_v3.constants import UNISWAP_V3_DEPLOYMENTS

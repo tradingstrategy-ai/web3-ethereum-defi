@@ -27,4 +27,4 @@ for tokenised vaults.
    :toctree: _autosummary_upshift
    :recursive:
 
-   eth_defi.upshift.vault
+   eth_defi.erc_4626.vault_protocol.upshift.vault

@@ -11,4 +11,4 @@ Built on the upgraded GMX v2 platform, GM Vaults enable users to deposit single 
    :toctree: _autosummary_euler
    :recursive:
 
-   eth_defi.umami.vault
+   eth_defi.erc_4626.vault_protocol.umami.vault

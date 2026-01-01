@@ -17,14 +17,14 @@ This `Python-based <https://tradingstrategy.ai/glossary/python>`__ API allows yo
 - Query your vault positions
 - Query vault redemption delays
 
-For the example usage, see :py:class:`~eth_defi.gains.vault.GainsVault` class.
+For the example usage, see :py:class:`~eth_defi.erc_4626.vault_protocol.gains.vault.GainsVault` class.
 
 .. autosummary::
    :toctree: _autosummary_gains
    :recursive:
 
-   eth_defi.gains.vault
-   eth_defi.gains.deposit_redeem
-   eth_defi.gains.testing
+   eth_defi.erc_4626.vault_protocol.gains.vault
+   eth_defi.erc_4626.vault_protocol.gains.deposit_redeem
+   eth_defi.erc_4626.vault_protocol.gains.testing
 
 For more tutorials, like vault historical data, see `ERC-4626 <https://tradingstrategy.ai/glossary/erc-4626>`__ tutorials in :ref:`tutorials <tutorials>` section.

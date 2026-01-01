@@ -12,7 +12,7 @@ from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import get_vault_protocol_name
 from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch
 from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.umami.vault import UmamiVault
+from eth_defi.erc_4626.vault_protocol.umami.vault import UmamiVault
 from eth_defi.vault.base import VaultTechnicalRisk
 
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")

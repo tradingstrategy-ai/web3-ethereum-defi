@@ -10,7 +10,7 @@ from typing import Literal
 import requests
 from eth_typing import HexAddress
 
-from eth_defi.lagoon.cowswap import logger
+from eth_defi.erc_4626.vault_protocol.lagoon.cowswap import logger
 from eth_defi.cow.api import CowAPIError, get_cowswap_api
 from eth_defi.token import TokenDetails
 

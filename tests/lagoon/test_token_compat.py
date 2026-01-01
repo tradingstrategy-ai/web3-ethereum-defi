@@ -11,7 +11,7 @@ import flaky
 
 from eth_typing import HexAddress
 
-from eth_defi.lagoon.lagoon_compatibility import check_lagoon_compatibility_with_database
+from eth_defi.erc_4626.vault_protocol.lagoon.lagoon_compatibility import check_lagoon_compatibility_with_database
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.trade import TradeSuccess
 from eth_defi.utils import addr

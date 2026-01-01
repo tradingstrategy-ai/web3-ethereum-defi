@@ -10,7 +10,7 @@ from web3 import Web3
 
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
-from eth_defi.llamma.vault import LLAMMAVault
+from eth_defi.erc_4626.vault_protocol.llamma.vault import LLAMMAVault
 from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.vault.fee import VaultFeeMode

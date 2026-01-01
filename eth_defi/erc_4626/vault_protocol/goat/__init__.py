@@ -1,0 +1,1 @@
+"""goat vault protocol."""

@@ -10,7 +10,7 @@ from web3 import Web3
 
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
-from eth_defi.goat.vault import GoatVault
+from eth_defi.erc_4626.vault_protocol.goat.vault import GoatVault
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 

@@ -11,8 +11,8 @@ from web3 import Web3
 import flaky
 
 from eth_defi.hotwallet import HotWallet
-from eth_defi.lagoon.deployment import LagoonDeploymentParameters, deploy_automated_lagoon_vault
-from eth_defi.lagoon.vault import LagoonVersion
+from eth_defi.erc_4626.vault_protocol.lagoon.deployment import LagoonDeploymentParameters, deploy_automated_lagoon_vault
+from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVersion
 from eth_defi.token import TokenDetails, USDC_NATIVE_TOKEN
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.uniswap_v2.constants import UNISWAP_V2_DEPLOYMENTS
