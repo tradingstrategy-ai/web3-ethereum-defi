@@ -16,7 +16,9 @@ from web3.types import BlockIdentifier
 
 from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.core import ERC4626Feature
-from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, read_multicall_chunked
+from eth_defi.event_reader.multicall_batcher import (EncodedCall,
+                                                     EncodedCallResult,
+                                                     read_multicall_chunked)
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.vault.base import VaultBase, VaultSpec
 from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
@@ -899,7 +901,8 @@ def create_vault_instance(
         return SparkVault(web3, spec, token_cache=token_cache, features=features)
     elif ERC4626Feature.yearn_morpho_compounder_like in features:
         # Yearn V3 vault with Morpho Compounder strategy
-        from eth_defi.yearn.morpho_compounder import YearnMorphoCompounderStrategy
+        from eth_defi.yearn.morpho_compounder import \
+            YearnMorphoCompounderStrategy
 
         return YearnMorphoCompounderStrategy(web3, spec, token_cache=token_cache, features=features)
     elif ERC4626Feature.yearn_v3_like in features or ERC4626Feature.yearn_tokenised_strategy in features:
@@ -972,6 +975,10 @@ def create_vault_instance(
         from eth_defi.upshift.vault import UpshiftVault
 
         return UpshiftVault(web3, spec, token_cache=token_cache, features=features)
+    elif ERC4626Feature.sky_like in features:
+        from eth_defi.sky.vault import SkyVault
+
+        return SkyVault(web3, spec, token_cache=token_cache, features=features)
 
     else:
         # Generic ERC-4626 without fee data
@@ -1016,4 +1023,10 @@ HARDCODED_PROTOCOLS = {
     # Deltr - StakeddUSD vault on Ethereum
     # https://etherscan.io/address/0xa7a31e6a81300120b7c4488ec3126bc1ad11f320
     "0xa7a31e6a81300120b7c4488ec3126bc1ad11f320": {ERC4626Feature.deltr_like},
+    # Sky (formerly MakerDAO) - stUSDS vault on Ethereum
+    # https://etherscan.io/address/0x99cd4ec3f88a45940936f469e4bb72a2a701eeb9
+    "0x99cd4ec3f88a45940936f469e4bb72a2a701eeb9": {ERC4626Feature.sky_like},
+}
+    # https://etherscan.io/address/0x99cd4ec3f88a45940936f469e4bb72a2a701eeb9
+    "0x99cd4ec3f88a45940936f469e4bb72a2a701eeb9": {ERC4626Feature.sky_like},
 }
