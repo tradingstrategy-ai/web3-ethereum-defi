@@ -31,6 +31,7 @@ Table of contents
    :maxdepth: 1
 
    api/index
+   vaults/index
    tutorials/index
    development
    troubleshooting
