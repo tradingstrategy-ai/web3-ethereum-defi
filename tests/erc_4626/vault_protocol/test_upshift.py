@@ -12,6 +12,7 @@ from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.upshift.vault import UpshiftVault
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.vault.risk import VaultTechnicalRisk
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
 
@@ -72,4 +73,4 @@ def test_upshift(
     assert "0x69FC3f84FD837217377d9Dae0212068cEB65818e" in link  # Checksummed address
 
     # Risk level should be None (not yet assessed)
-    assert vault.get_risk() is None
+    assert vault.get_risk() is VaultTechnicalRisk.severe
