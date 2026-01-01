@@ -50,7 +50,7 @@ def test_foxify(
     assert isinstance(vault, FoxifyVault)
     assert vault.get_protocol_name() == "Foxify"
     assert vault.features == {ERC4626Feature.foxify_like}
-    assert vault.get_management_fee("latest") == 0.0
-    assert vault.get_performance_fee("latest") == 0.0
+    assert vault.get_management_fee("latest") is None
+    assert vault.get_performance_fee("latest") is None
     assert vault.has_custom_fees() is False
     assert vault.get_risk() == VaultTechnicalRisk.dangerous
