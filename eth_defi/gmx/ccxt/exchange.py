@@ -346,16 +346,10 @@ class GMX(ExchangeCompatible):
         self._init_common()
 
     def _load_markets_from_graphql(self) -> dict[str, Any]:
-        """Load markets from GraphQL only (NOT RECOMMENDED - has known bugs).
+        """Load markets from GraphQL.
 
-        **WARNING**: GraphQL loading has known bugs and inconsistencies:
-        - wstETH market resolution may be incorrect (maps to wrong index token)
-        - Synthetic markets (ETH2, BTC2) may not be handled properly
-        - Market data may be stale or incomplete compared to on-chain data
-        - Special case handling is incomplete compared to Core Markets module
-
-        **RECOMMENDATION**: Use RPC loading (default) for trading and production use.
-        GraphQL is only suitable for backtesting where speed > accuracy.
+        Fast market loading using SubSquid GraphQL endpoint.
+        Significantly faster than RPC loading (1-2s vs 87-217s).
 
         Uses GMX API /tokens endpoint to fetch token metadata instead of hardcoding.
 
@@ -647,17 +641,17 @@ class GMX(ExchangeCompatible):
         if self.markets_loaded and not reload:
             return self.markets
 
-        # NOTE: GraphQL loading has bugs with market resolution (wstETH, synthetic markets not handled correctly)
-        # Use RPC (Core Markets module) by default for correct market data
-        # GraphQL can be enabled with options={'graphql_only': True} but is NOT recommended for trading
+        # GraphQL loading is faster (1-2s) but RPC is more thorough (87-217s)
+        # Use RPC (Core Markets module) by default for complete market data
+        # GraphQL can be enabled with options={'graphql_only': True} for faster loading
         use_graphql_only = (params and params.get("graphql_only") is True) or self.options.get("graphql_only") is True
 
         if use_graphql_only and self.subsquid:
-            logger.warning("Loading markets from GraphQL (graphql_only=True). NOTE: GraphQL has known bugs with wstETH and may return incorrect market data. Use RPC loading (default) for trading.")
+            logger.info("Loading markets from GraphQL (graphql_only=True)")
             return self._load_markets_from_graphql()
 
         # Fetch available markets from GMX using Markets class (makes RPC calls)
-        # This is the RECOMMENDED and DEFAULT method - Core Markets module handles all special cases correctly
+        # Default method - fetches complete market data from on-chain sources
         logger.info("Loading markets from RPC (Core Markets module)")
 
         # Fetch available markets from GMX using Markets class (makes RPC calls)

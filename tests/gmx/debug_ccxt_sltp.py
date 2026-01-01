@@ -12,8 +12,8 @@ MARKET SELECTION:
 - Use --btc for BTC/USDC with USDC collateral
 
 MARKET LOADING:
-- Default: RPC/Core Markets (slower but correct)
-- Use --graphql for GraphQL loading (faster but may have bugs)
+- Default: RPC/Core Markets (thorough, 87-217s)
+- Use --graphql for GraphQL loading (fast, 1-2s)
 
 Required environment variables:
 - PRIVATE_KEY: Private key for signing transactions
@@ -355,7 +355,7 @@ def main():
         # Add graphql_only option if flag is set
         if args.graphql:
             gmx_params["options"] = {"graphql_only": True}
-            console.print("  [yellow]Using GraphQL for market loading (--graphql flag)[/yellow]")
+            console.print("  [cyan]Using GraphQL for market loading (--graphql flag)[/cyan]")
         else:
             console.print("  [green]Using RPC/Core Markets for market loading (default)[/green]")
 
