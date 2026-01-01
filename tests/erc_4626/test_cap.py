@@ -15,10 +15,7 @@ from eth_defi.provider.multi_provider import create_multi_provider_web3
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
 
-pytestmark = pytest.mark.skipif(
-    JSON_RPC_ETHEREUM is None,
-    reason="JSON_RPC_ETHEREUM needed to run these tests"
-)
+pytestmark = pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHEREUM needed to run these tests")
 
 
 @pytest.fixture(scope="module")
@@ -56,4 +53,3 @@ def test_cap_vault(
     assert vault.get_management_fee("latest") == 0.0
     assert vault.get_performance_fee("latest") == 0.0
     assert vault.has_custom_fees() is False
-

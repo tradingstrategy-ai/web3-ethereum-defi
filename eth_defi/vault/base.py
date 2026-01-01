@@ -20,10 +20,8 @@ from typing import Iterable, Tuple, TypedDict
 from eth_typing import BlockIdentifier, BlockNumber, HexAddress
 from web3 import Web3
 
-from eth_defi.event_reader.multicall_batcher import (EncodedCall,
-                                                     EncodedCallResult)
-from eth_defi.token import (DEFAULT_TOKEN_CACHE, TokenAddress, TokenDetails,
-                            fetch_erc20_details)
+from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
+from eth_defi.token import DEFAULT_TOKEN_CACHE, TokenAddress, TokenDetails, fetch_erc20_details
 from eth_defi.vault.deposit_redeem import VaultDepositManager
 from eth_defi.vault.lower_case_dict import LowercaseDict
 

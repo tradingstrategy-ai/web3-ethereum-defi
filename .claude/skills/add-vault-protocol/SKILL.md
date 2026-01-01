@@ -249,6 +249,25 @@ Create `eth_defi/{protocol_slug}/__init__.py`:
 """{Protocol Name} protocol integration."""
 ```
 
+## Step 8: Update documentation
+
+- Add protocol to `docs/source/api`
+- Include protocol name
+- Search web for a short description, two paragraph
+- Add a link to the protocol home page and documentation
+- Search Github/web for a Github repo link of the smart contracts
+- Search protocol homepage for Twitter link and add it to the documentation
+- Add the new modules to the protocol index page TOC
+- Add the protocol to the master index in `docs/source/api/index.rst`
+
+Examples include
+
+- `docs/source/api/plutus/index.rst`, `docs/source/api/truefi/index.rst`, `docs/source/api/goat/index.rst`,
+
+## Step 9: Run tests and fix issues
+
+Check that all ERC-4626 tests pass after adding a new vault protocol by running all testse in `tests/erc_4626` folder.
+
 ## Verification checklist
 
 After implementation, verify:
@@ -263,6 +282,8 @@ After implementation, verify:
 - [ ] Test file runs successfully with: `source .local-test.env && poetry run pytest tests/erc_4626/test_{protocol_slug}.py -v`
 - [ ] API documents have been updated
 - [ ] No vaults : `source .local-test.env && poetry run pytest tests/erc_4626/test_{protocol_slug}.py -v`
+- [ ] Check that homepage link in the API documentation takes to the correct homepage
+- [ ] Check that Twitter link in the API documentation works and takes to the same Twitter account as listed on the protocol homepage
 
 ## Finding unique protocol identifiers
 
@@ -285,25 +306,6 @@ To find a function that uniquely identifies the protocol:
        if "ProtocolName" in name:
            features.add(ERC4626Feature.{protocol_slug}_like)
    ```
-
-## Step 8: Update documentation
-
-- Add protocol to `docs/source/api`
-- Include protocol name
-- Search web for a short description, two paragraph
-- Add a link to the protocol home page and documentation
-- Search Github/web for a Github repo link of the smart contracts
-- Search protocol homepage for Twitter link and add it to the documentation
-- Add the new modules to the protocol index page TOC
-- Add the protocol to the master index in `docs/source/api/index.rst`
-
-Examples include
-
-- `docs/source/api/plutus/index.rst`, `docs/source/api/truefi/index.rst`, `docs/source/api/goat/index.rst`,
-
-## Step 9: Run tests and fix issues
-
-Check that all ERC-4626 tests pass after adding a new vault protocol by running all testse in `tests/erc_4626` folder.
 
 ## Example ABI structure
 

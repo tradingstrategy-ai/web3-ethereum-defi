@@ -16,9 +16,7 @@ from web3.types import BlockIdentifier
 
 from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.core import ERC4626Feature
-from eth_defi.event_reader.multicall_batcher import (EncodedCall,
-                                                     EncodedCallResult,
-                                                     read_multicall_chunked)
+from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, read_multicall_chunked
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.vault.base import VaultBase, VaultSpec
 from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
@@ -37,7 +35,7 @@ class VaultFeatureProbe:
 def create_probe_calls(
     addresses: Iterable[HexAddress],
     share_probe_amount=1_000_000,
-    chain_id: int | None=None,
+    chain_id: int | None = None,
 ) -> Iterable[EncodedCall]:
     """Create calls that call each vault address using multicall.
 
@@ -55,7 +53,6 @@ def create_probe_calls(
 
     # TODO: Might be bit slowish here, but we are not perf intensive
     for address in addresses:
-
         bad_probe_call = EncodedCall.from_keccak_signature(
             address=address,
             signature=Web3.keccak(text="EVM IS BROKEN SHIT()")[0:4],
@@ -623,7 +620,7 @@ def identify_vault_features(
             features.add(ERC4626Feature.peapods_like)
         elif "Savings GYD" in name:
             features.add(ERC4626Feature.gyroscope)
-        
+
     return features
 
 
@@ -908,5 +905,5 @@ def create_vault_instance_autodetect(
 #: For these, we need to do by vault contract address whitelisting here.
 #:
 HARDCODED_PROTOCOLS = {
-    "0x3ed6aa32c930253fc990de58ff882b9186cd0072": {ERC4626Feature.cap_like},  
+    "0x3ed6aa32c930253fc990de58ff882b9186cd0072": {ERC4626Feature.cap_like},
 }
