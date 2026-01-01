@@ -51,6 +51,7 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    truefi/index
    superform/index
    cap/index
+   foxify/index
    chainlink/index
    foundry/index
    etherscan/index
