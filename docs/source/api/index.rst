@@ -55,6 +55,7 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    liquidity_royalty/index
    csigma/index
    spark/index
+   sky/index
    teller/index
    deltr/index
    upshift/index

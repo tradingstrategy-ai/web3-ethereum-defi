@@ -287,6 +287,12 @@ class ERC4626Feature(enum.Enum):
     #: Institutional-grade DeFi yield strategies through non-custodial vaults.
     #: https://www.upshift.finance/
     upshift_like = "upshift_like"
+    #: Sky (formerly MakerDAO)
+    #:
+    #: stUSDS vault for USDS staking.
+    #: https://sky.money/
+    #: https://etherscan.io/address/0x99cd4ec3f88a45940936f469e4bb72a2a701eeb9
+    sky_like = "sky_like"
 
 
 def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
@@ -418,6 +424,8 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.upshift_like in features:
         return "Upshift"
+    elif ERC4626Feature.sky_like in features:
+        return "Sky"
 
     # No idea
     if ERC4626Feature.erc_7540_like in features:

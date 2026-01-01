@@ -16,7 +16,7 @@
       "Bash(tail:*)",
       "Bash(echo:*)",
       "Bash(cut:*)",
-      "Bash(gh pr create:*)",
+      "Bash(gh:*)",
       "Edit(**)",
       "Write(**)",
       "MultiEdit(**)",
