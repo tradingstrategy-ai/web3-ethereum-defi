@@ -24,7 +24,7 @@ class FoxifyVault(ERC4626Vault):
 
     @property
     def name(self) -> str:
-        # Originak is "LP_VAULT"
+        # Originak is "LP TOKEN"
         return "Foxify LP Vault"
 
     def has_custom_fees(self) -> bool:
@@ -39,7 +39,7 @@ class FoxifyVault(ERC4626Vault):
         :return:
             0.0 as fees are built into returns
         """
-        return 0.0
+        return None
 
     def get_performance_fee(self, block_identifier: BlockIdentifier) -> float | None:
         """Get the current performance fee.
@@ -49,7 +49,7 @@ class FoxifyVault(ERC4626Vault):
         :return:
             0.0 as fees are built into returns
         """
-        return 0.0
+        return None
 
     def get_estimated_lock_up(self) -> datetime.timedelta | None:
         """No lock-up period for Foxify vaults."""

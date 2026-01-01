@@ -77,7 +77,8 @@ class {ProtocolName}Vault(ERC4626Vault):
             0.1 = 10%
         """
         # Implement based on protocol's fee structure
-        return 0.0
+        # Generated: Human can add details later
+        return None
 
     def get_performance_fee(self, block_identifier: BlockIdentifier) -> float | None:
         """Get the current performance fee as a percent.
@@ -86,6 +87,7 @@ class {ProtocolName}Vault(ERC4626Vault):
             0.1 = 10%
         """
         # Implement based on protocol's fee structure
+        # Generated: Human can add details later
         return None
 
     def get_estimated_lock_up(self) -> datetime.timedelta | None:
