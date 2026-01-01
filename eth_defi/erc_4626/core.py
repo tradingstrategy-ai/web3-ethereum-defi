@@ -244,6 +244,11 @@ class ERC4626Feature(enum.Enum):
     #: https://www.foxify.trade/
     foxify_like = "foxify_like"
 
+    #: Liquidity Royalty Tranching
+    #:
+    #: https://github.com/stratosphere-network/LiquidRoyaltyContracts
+    liquidity_royalty_like = "liquidity_royalty_like"
+
 
 def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     """Deduct vault protocol name based on Vault smart contract features.
@@ -353,6 +358,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.foxify_like in features:
         return "Foxify"
+
+    elif ERC4626Feature.liquidity_royalty_like in features:
+        return "Liquidity Royalty Tranching"
 
     # No idea
     if ERC4626Feature.erc_7540_like in features:

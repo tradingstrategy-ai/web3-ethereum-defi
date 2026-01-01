@@ -84,6 +84,7 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Summer.fi": VaultTechnicalRisk.low,
     "LLAMMA": VaultTechnicalRisk.low,
     "Foxify": VaultTechnicalRisk.dangerous,
+    "Liquidity Royalty Tranching": None,
 }
 
 #: Particular vaults that are broken, misleading or otherwise problematic.

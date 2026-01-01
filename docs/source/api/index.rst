@@ -52,6 +52,7 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    superform/index
    cap/index
    foxify/index
+   liquidity_royalty/index
    chainlink/index
    foundry/index
    etherscan/index
