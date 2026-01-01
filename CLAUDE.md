@@ -44,6 +44,10 @@ After a large task is complete you can format the code with:
 poetry run ruff format
 ```
 
+## Pull requests
+
+Never push directly to a master, and open a pull request when asked.
+
 ## Specific rules
 
 ### Generic
@@ -60,6 +64,7 @@ poetry run ruff format
 
 - For code comments, Use Sphinx restructured text style
 - For documenting dataclass and Enum members, use Sphinx `#: comment here` line comment above variable, not `:param:`
+- If a. class function overloads a function inherited from the parent, and there is nothing to comment, do not repeat the code comment and leave it empty instead
 
 ### Type hinting
 
@@ -120,3 +125,8 @@ poetry run ruff format
 - Use threading backend unless explicitly specified otherwise
 - For example, see `lead_scan_core.py`
 - All functions using `joblib.Parallel` must take `max_workers` argument. This must be exposed to command line scripts as `MAX_WORKERS` environment variable, see `scripts/erc-4626/scan-vaults.py` as an example.
+
+## Working with RPC and blockchain explorers
+
+- Prefer a blockchain explorer like Etherscan over Python and Curl when trying to read proxy contract address
+- Prefer Python snippets instead of `curl` when trying to read data directly from a blockchain explorer
