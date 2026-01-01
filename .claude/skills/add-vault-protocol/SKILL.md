@@ -167,6 +167,13 @@ elif ERC4626Feature.{protocol_slug}_like in features:
     return {ProtocolName}Vault(web3, spec, token_cache=token_cache, features=features)
 ```
 
+### Step 5: Update risk information
+
+Update `eth_defi/vault/risk.py` with the protocol stub.
+
+Set the initial risk level for the protocol in `VAULT_PROTOCOL_RISK_MATRIX`
+to `None` and this will be later updated by human judgement.
+
 ### Step 6: Create test file
 
 Create `tests/erc_4626/vault_protocol/test_{protocol_slug}.py` following the pattern in `tests/erc_4626/vault_protocol/test_plutus.py` and. `tests/erc_4626/vault_protocol/test_goat.py`:
@@ -231,9 +238,12 @@ def test_{protocol_slug}(
     # Add assertation about vault feature flags here, like:
     # assert vault.features == {ERC4626Feature.goat_like}
 
-    # Add assertions for fees, risk level, etc.
+    # Add assertions for fee data we know
     # assert vault.get_management_fee("latest") == ...
     # assert vault.get_performance_fee("latest") == ...
+
+    # Add assertion for the protcol risk level
+    # assert vault.get_risk() == VaultTechnicalRisk.unknown
 
 ```
 

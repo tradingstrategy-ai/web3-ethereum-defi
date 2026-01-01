@@ -83,6 +83,7 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Silo Finance": VaultTechnicalRisk.low,
     "Summer.fi": VaultTechnicalRisk.low,
     "LLAMMA": VaultTechnicalRisk.low,
+    "Foxify": VaultTechnicalRisk.dangerous,
 }
 
 #: Particular vaults that are broken, misleading or otherwise problematic.
@@ -114,7 +115,7 @@ def get_vault_risk(
 ) -> VaultTechnicalRisk | None:
     """Get technical and developer risk associated with a particular vault"""
 
-    from eth_defi.vault.flag import get_vault_special_flags, BAD_FLAGS
+    from eth_defi.vault.flag import BAD_FLAGS, get_vault_special_flags
 
     # Check for xUSD incidents
     flags = get_vault_special_flags(vault_address)
