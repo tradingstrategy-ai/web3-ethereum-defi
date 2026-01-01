@@ -99,7 +99,7 @@ class {ProtocolName}Vault(ERC4626Vault):
         return f"https://protocol-url.com/vault/{self.vault_address}"
 ```
 
-For `get_link()` check the protocol website to find a direct link URL pattern to its vault. Usually these are in the formats
+For `get_link()` check the protocol website to find a direct link URL pattern to its vault. Usual formats:
 
 - By address
 - By chain id and address - for example Ethereum chain id is 1

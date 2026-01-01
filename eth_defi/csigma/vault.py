@@ -87,4 +87,4 @@ class CsigmaVault(ERC4626Vault):
         :return:
             Link to the csUSD vault page.
         """
-        return "https://www.csigma.finance/csusd"
+        return "https://edge.csigma.finance/"
