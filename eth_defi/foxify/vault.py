@@ -22,6 +22,11 @@ class FoxifyVault(ERC4626Vault):
     - Example vault: https://sonicscan.org/address/0x3ccff8c929b497c1ff96592b8ff592b45963e732
     """
 
+    @property
+    def name(self) -> str:
+        # Originak is "LP_VAULT"
+        return "Foxify LP Vault"
+
     def has_custom_fees(self) -> bool:
         """Foxify vaults do not have explicit deposit/withdrawal fees."""
         return False
