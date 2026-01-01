@@ -44,6 +44,9 @@ class VaultFlag(str, enum.Enum):
     # Properitary trading
     proprietary_trading = "proprietary_trading"
 
+    #: This vault represents an underlying wrapped asset like a share
+    wrapped_asset = "wrapped_asset"
+
 
 #: Don't touch vaults with these flags
 BAD_FLAGS = {

@@ -249,6 +249,11 @@ class ERC4626Feature(enum.Enum):
     #: https://github.com/stratosphere-network/LiquidRoyaltyContracts
     liquidity_royalty_like = "liquidity_royalty_like"
 
+    #: cSigma Finance
+    #:
+    #: https://csigma.finance
+    csigma_like = "csigma_like"
+
 
 def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     """Deduct vault protocol name based on Vault smart contract features.
@@ -361,6 +366,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.liquidity_royalty_like in features:
         return "Liquidity Royalty Tranching"
+
+    elif ERC4626Feature.csigma_like in features:
+        return "cSigma Finance"
 
     # No idea
     if ERC4626Feature.erc_7540_like in features:

@@ -131,7 +131,7 @@ Edit `eth_defi/erc_4626/classification.py`:
 
 1. In `create_probe_calls()`, add a probe call that uniquely identifies this protocol:
    - Analyse the ABI and the vault implementation smart contract source code to find a function unique to this protocol
-   - Look for functions like `getProtocolSpecificData()`, custom role constants, etc.
+   - Look for functions like `getProtocolSpecificData()`, custom role constants, etc. and compare them to what is already implemented in `create_probe_calls()`
    - Make sure this call does not conflict with already configured protocols
    - You can also use blockchain explorer's Contract > Read contract or Contract Read contract as proxy to figure out good ABI calls to detect this particular type of smart contracts
    - If the protocol is a single vault protocol, use `HARDCODED_PROTOCOLS` in classification.py instead

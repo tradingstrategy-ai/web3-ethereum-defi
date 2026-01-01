@@ -53,6 +53,7 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    cap/index
    foxify/index
    liquidity_royalty/index
+   csigma/index
    chainlink/index
    foundry/index
    etherscan/index

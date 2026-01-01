@@ -12,6 +12,8 @@
       "Bash(poetry:*)",
       "Bash(source:*)",
       "Bash(curl:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
       "Edit(**)",
       "Write(**)",
       "MultiEdit(**)",

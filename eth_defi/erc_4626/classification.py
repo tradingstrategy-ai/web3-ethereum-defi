@@ -829,6 +829,10 @@ def create_vault_instance(
         from eth_defi.liquidity_royalty.vault import LiquidityRoyalyJuniorVault
 
         return LiquidityRoyalyJuniorVault(web3, spec, token_cache=token_cache, features=features)
+    elif ERC4626Feature.csigma_like in features:
+        from eth_defi.csigma.vault import CsigmaVault
+
+        return CsigmaVault(web3, spec, token_cache=token_cache, features=features)
     elif ERC4626Feature.yearn_v3_like in features or ERC4626Feature.yearn_tokenised_strategy in features:
         # Both of these have fees internatilised
         from eth_defi.yearn.vault import YearnV3Vault
@@ -919,4 +923,7 @@ HARDCODED_PROTOCOLS = {
     "0x3ccff8c929b497c1ff96592b8ff592b45963e732": {ERC4626Feature.foxify_like},
     # Liquidity Royalty Tranching - Junior Vault on Berachain
     "0x3a0a97dca5e6cacc258490d5ece453412f8e1883": {ERC4626Feature.liquidity_royalty_like},
+    # cSigma Finance - csUSD vault on Ethereum
+    # https://etherscan.io/address/0xd5d097f278a735d0a3c609deee71234cac14b47e
+    "0xd5d097f278a735d0a3c609deee71234cac14b47e": {ERC4626Feature.csigma_like},
 }
