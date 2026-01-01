@@ -276,6 +276,12 @@ class ERC4626Feature(enum.Enum):
     #: https://basescan.org/address/0x13cd7cf42ccbaca8cd97e7f09572b6ea0de1097b
     teller_like = "teller_like"
 
+    #: Deltr
+    #:
+    #: StakeddUSD vault for dUSD staking.
+    #: https://etherscan.io/address/0xa7a31e6a81300120b7c4488ec3126bc1ad11f320
+    deltr_like = "deltr_like"
+
 
 def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     """Deduct vault protocol name based on Vault smart contract features.
@@ -400,6 +406,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.teller_like in features:
         return "Teller"
+
+    elif ERC4626Feature.deltr_like in features:
+        return "Deltr"
 
     # No idea
     if ERC4626Feature.erc_7540_like in features:

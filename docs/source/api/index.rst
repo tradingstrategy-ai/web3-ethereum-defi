@@ -56,6 +56,7 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    csigma/index
    spark/index
    teller/index
+   deltr/index
    chainlink/index
    foundry/index
    etherscan/index

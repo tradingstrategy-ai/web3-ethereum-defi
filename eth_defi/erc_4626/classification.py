@@ -946,6 +946,11 @@ def create_vault_instance(
 
         return TellerVault(web3, spec, token_cache=token_cache, features=features)
 
+    elif ERC4626Feature.deltr_like in features:
+        from eth_defi.deltr.vault import DeltrVault
+
+        return DeltrVault(web3, spec, token_cache=token_cache, features=features)
+
     else:
         # Generic ERC-4626 without fee data
         from eth_defi.erc_4626.vault import ERC4626Vault
@@ -986,4 +991,7 @@ HARDCODED_PROTOCOLS = {
     # Spark - sUSDC vault on Ethereum
     # https://etherscan.io/address/0xbc65ad17c5c0a2a4d159fa5a503f4992c7b545fe
     "0xbc65ad17c5c0a2a4d159fa5a503f4992c7b545fe": {ERC4626Feature.spark_like},
+    # Deltr - StakeddUSD vault on Ethereum
+    # https://etherscan.io/address/0xa7a31e6a81300120b7c4488ec3126bc1ad11f320
+    "0xa7a31e6a81300120b7c4488ec3126bc1ad11f320": {ERC4626Feature.deltr_like},
 }
