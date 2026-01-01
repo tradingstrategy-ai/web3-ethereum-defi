@@ -54,6 +54,7 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    foxify/index
    liquidity_royalty/index
    csigma/index
+   spark/index
    chainlink/index
    foundry/index
    etherscan/index

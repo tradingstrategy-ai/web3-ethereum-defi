@@ -86,6 +86,7 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Foxify": VaultTechnicalRisk.dangerous,
     "Liquidity Royalty Tranching": None,
     "cSigma Finance": VaultTechnicalRisk.severe,
+    "Spark": VaultTechnicalRisk.negligible,
 }
 
 #: Particular vaults that are broken, misleading or otherwise problematic.

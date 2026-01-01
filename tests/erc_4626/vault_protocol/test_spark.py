@@ -1,4 +1,4 @@
-"""Test cSigma Finance vault metadata."""
+"""Test Spark vault metadata."""
 
 import os
 from pathlib import Path
@@ -7,11 +7,12 @@ import flaky
 import pytest
 from web3 import Web3
 
-from eth_defi.csigma.vault import CsigmaVault
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.spark.vault import SparkVault
+from eth_defi.vault.base import VaultTechnicalRisk
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
 
@@ -21,7 +22,7 @@ pytestmark = pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHE
 @pytest.fixture(scope="module")
 def anvil_ethereum_fork(request) -> AnvilLaunch:
     """Fork at a specific block for reproducibility."""
-    launch = fork_network_anvil(JSON_RPC_ETHEREUM, fork_block_number=21_900_000)
+    launch = fork_network_anvil(JSON_RPC_ETHEREUM, fork_block_number=24_140_000)
     try:
         yield launch
     finally:
@@ -35,25 +36,28 @@ def web3(anvil_ethereum_fork):
 
 
 @flaky.flaky
-def test_csigma(
+def test_spark(
     web3: Web3,
     tmp_path: Path,
 ):
-    """Read cSigma Finance vault metadata."""
+    """Read Spark vault metadata."""
 
     vault = create_vault_instance_autodetect(
         web3,
-        vault_address="0xd5d097f278a735d0a3c609deee71234cac14b47e",
+        vault_address="0xbc65ad17c5c0a2a4d159fa5a503f4992c7b545fe",
     )
 
-    assert isinstance(vault, CsigmaVault)
-    assert vault.get_protocol_name() == "cSigma Finance"
-    assert vault.features == {ERC4626Feature.csigma_like}
+    assert isinstance(vault, SparkVault)
+    assert vault.get_protocol_name() == "Spark"
+    assert vault.features == {ERC4626Feature.spark_like}
 
-    # Fees are not yet known for cSigma
-    assert vault.get_management_fee("latest") is None
-    assert vault.get_performance_fee("latest") is None
+    # Spark does not charge fees
+    assert vault.get_management_fee("latest") == 0.0
+    assert vault.get_performance_fee("latest") == 0.0
     assert vault.has_custom_fees() is False
 
     # Check vault link
-    assert vault.get_link() == "https://edge.csigma.finance/'"
+    assert vault.get_link() == "https://app.spark.fi/savings/mainnet/spusdc"
+
+    # Check risk level
+    assert vault.get_risk() == VaultTechnicalRisk.negligible
