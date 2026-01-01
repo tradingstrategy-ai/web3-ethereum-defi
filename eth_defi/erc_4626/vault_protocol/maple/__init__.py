@@ -1,0 +1,1 @@
+"""Maple Finance protocol integration."""

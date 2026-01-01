@@ -10,11 +10,9 @@
 - Add: New vault type: Yearn Morpho Compounder strategy
 - Add: New protocol: Teller (Base)
 - Add: New protocol: Deltr (Ethereum)
-<<<<<<< HEAD
 - Add: New protocol: Upshift (Ethereum)
-=======
 - Add: New protocol: Sky (Ethereum) - formerly MakerDAO, stUSDS vault
->>>>>>> 45f1282a (Sky temp commit)
+- Add: New protocol: Maple Finance: - syrupUSDC and syrupUSDT vaults
 - Fix: Various RPC error code workarounds (Monad, Arbitrum, Hyperliquid)
 
 # 0.37
