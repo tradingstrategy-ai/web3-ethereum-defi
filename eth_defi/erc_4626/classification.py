@@ -1027,6 +1027,3 @@ HARDCODED_PROTOCOLS = {
     # https://etherscan.io/address/0x99cd4ec3f88a45940936f469e4bb72a2a701eeb9
     "0x99cd4ec3f88a45940936f469e4bb72a2a701eeb9": {ERC4626Feature.sky_like},
 }
-    # https://etherscan.io/address/0x99cd4ec3f88a45940936f469e4bb72a2a701eeb9
-    "0x99cd4ec3f88a45940936f469e4bb72a2a701eeb9": {ERC4626Feature.sky_like},
-}
