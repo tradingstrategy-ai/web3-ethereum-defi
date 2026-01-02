@@ -865,6 +865,7 @@ def calculate_vault_record(
     vault_metadata_rows: dict[VaultSpec, VaultRow],
     month_ago: pd.Timestamp,
     three_months_ago: pd.Timestamp,
+    vault_id: str | None = None,
 ) -> pd.Series:
     """Process a single vault metadata + prices to calculate its full data.
 
@@ -882,11 +883,14 @@ def calculate_vault_record(
     :param three_months_ago:
         Timestamp for 3-month lookback
 
+    :param vault_id:
+        Vault ID string. If not provided, extracted from prices_df["id"].
+
     :return:
         Series with calculated metrics
     """
     # Extract the group name (id_val)
-    id_val = prices_df["id"].iloc[0]
+    id_val = vault_id if vault_id is not None else prices_df["id"].iloc[0]
 
     # Extract vault metadata
     vault_spec = VaultSpec.parse_string(id_val, separator="-")
@@ -1271,10 +1275,73 @@ def calculate_lifetime_metrics(
 
     # Use progress_apply instead of the for loop
     # Sort is needed for slug stability
-    results_df = df.groupby("id", group_keys=False, sort=True).progress_apply(lambda group: calculate_vault_record(group, vaults_by_id, month_ago, three_months_ago))
+    # We pass include_groups=False to avoid FutureWarning, and pass id via group.name
+    def _apply_vault_record(group):
+        return calculate_vault_record(group, vaults_by_id, month_ago, three_months_ago, vault_id=group.name)
+
+    results_df = df.groupby("id", group_keys=False, sort=True).progress_apply(
+        _apply_vault_record,
+        include_groups=False,
+    )
 
     # Reset index to convert the grouped results to a regular DataFrame
     results_df = results_df.reset_index(drop=True)
+
+    # Add ranking columns
+    results_df = calculate_vault_rankings(results_df)
+
+    return results_df
+
+
+def calculate_vault_rankings(
+    results_df: pd.DataFrame,
+) -> pd.DataFrame:
+    """Calculate ranking columns based on 3M CAGR performance.
+
+    Adds three ranking columns:
+
+    - ranking_overall_3m: Rank among all vaults (1 = best)
+    - ranking_chain_3m: Rank among vaults on the same chain (1 = best)
+    - ranking_protocol_3m: Rank among vaults in the same protocol (1 = best)
+
+    Uses three_months_cagr_net if available, falls back to three_months_cagr (gross).
+    Vaults with NaN/zero 3M CAGR, blacklisted risk, or current TVL below $10k receive None rankings.
+
+    :param results_df:
+        DataFrame from calculate_lifetime_metrics()
+
+    :return:
+        DataFrame with ranking columns added
+    """
+    # Create a working copy of CAGR values for ranking
+    # Prefer net CAGR, fall back to gross if net is not available
+    cagr_for_ranking = results_df["three_months_cagr_net"].copy()
+    gross_mask = cagr_for_ranking.isna()
+    cagr_for_ranking.loc[gross_mask] = results_df.loc[gross_mask, "three_months_cagr"]
+
+    # Treat zero as missing data (insufficient 3M history)
+    cagr_for_ranking = cagr_for_ranking.replace(0, pd.NA)
+
+    # Exclude blacklisted vaults from rankings
+    blacklisted_mask = results_df["risk"] == VaultTechnicalRisk.blacklisted
+    cagr_for_ranking.loc[blacklisted_mask] = pd.NA
+
+    # Exclude vaults with less than $10k current TVL
+    low_tvl_mask = results_df["current_nav"] < 10_000
+    cagr_for_ranking.loc[low_tvl_mask] = pd.NA
+
+    # Calculate overall ranking (higher CAGR = rank 1)
+    results_df["ranking_overall_3m"] = cagr_for_ranking.rank(
+        method="min",
+        ascending=False,
+        na_option="keep",
+    ).astype("Int64")
+
+    # Calculate chain ranking (rank within each chain)
+    results_df["ranking_chain_3m"] = cagr_for_ranking.groupby(results_df["chain"]).rank(method="min", ascending=False, na_option="keep").astype("Int64")
+
+    # Calculate protocol ranking (rank within each protocol)
+    results_df["ranking_protocol_3m"] = cagr_for_ranking.groupby(results_df["protocol_slug"]).rank(method="min", ascending=False, na_option="keep").astype("Int64")
 
     return results_df
 
@@ -1531,6 +1598,11 @@ def format_lifetime_table(
 
     # New structured period metrics (not for human-readable table)
     _del("period_results")
+
+    # Ranking columns (not for human-readable table)
+    _del("ranking_overall_3m")
+    _del("ranking_chain_3m")
+    _del("ranking_protocol_3m")
 
     if not add_share_token:
         _del("share_token")
