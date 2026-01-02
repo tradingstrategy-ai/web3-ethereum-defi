@@ -63,7 +63,6 @@ def display_vaults_table(df: pd.DataFrame, nav_threshold=Decimal(1.1)) -> None:
     if "Lock up" in df.columns:
         del df["Lock up"]
 
-    del df["Shares"]
     del df["Link"]
 
     # Remove zero entries
@@ -138,7 +137,6 @@ def scan_leads(
     rpcs = get_provider_name(web3.provider)
 
     hypersync_config = configure_hypersync_from_env(web3, hypersync_api_key=hypersync_api_key)
-
     printer(f"Scanning ERC-4626 vaults on chain {web3.eth.chain_id}: {name}, using rpcs: {rpcs}, using event backend {backend}, HyperSync: {hypersync_config.hypersync_url or '<not avail>'}, and {max_workers} workers")
 
     if not vault_db_file.exists():
@@ -194,7 +192,7 @@ def scan_leads(
     vault_detections = list(report.detections.values())
 
     # Prepare data export by reading further per-vault data using multiprocessing
-    worker_processor = Parallel(n_jobs=max_workers)
+    worker_processor = Parallel(n_jobs=max_workers, backend="threading")
     logger.info("Extracting remaining vault metadata for %d vaults", len(vault_detections))
 
     # Quite a mouthful line to create a row of output for each vault detection using subproces pool

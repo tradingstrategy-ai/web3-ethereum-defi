@@ -511,6 +511,7 @@ def create_probe_calls(
 
 
 def identify_vault_features(
+    address: HexAddress,
     calls: dict[str, EncodedCallResult],
     debug_text: str | None,
 ) -> set[ERC4626Feature]:
@@ -519,6 +520,11 @@ def identify_vault_features(
     :param calls:
         Call name -> result
     """
+
+    # Shortcut for single vault protocols
+    hardcoded_features = HARDCODED_PROTOCOLS.get(address.lower())
+    if hardcoded_features is not None:
+        return hardcoded_features
 
     features = set()
 
@@ -749,7 +755,7 @@ def probe_vaults(
         address_calls[call_result.call.func_name] = call_result
 
     for address, address_call_results in results_per_address.items():
-        features = identify_vault_features(address_call_results, debug_text=f"vault: {address}")
+        features = identify_vault_features(address, address_call_results, debug_text=f"vault: {address}")
         yield VaultFeatureProbe(
             address=address,
             features=features,
@@ -809,7 +815,7 @@ def detect_vault_features(
             logger.info("Result for %s: %s, error: %s", call.func_name, result.success, str(result.revert_exception))
         results[call.func_name] = result
 
-    features = identify_vault_features(results, debug_text=f"vault: {address}")
+    features = identify_vault_features(address, results, debug_text=f"vault: {address}")
     return features
 
 
@@ -1070,3 +1076,6 @@ HARDCODED_PROTOCOLS = {
     # https://etherscan.io/address/0x356b8d89c1e1239cbbb9de4815c39a1474d5ba7d
     "0x356b8d89c1e1239cbbb9de4815c39a1474d5ba7d": {ERC4626Feature.maple_like},
 }
+
+for a in HARDCODED_PROTOCOLS.keys():
+    assert a == a.lower(), f"Hardcoded protocol address not lowercased: {a}"
