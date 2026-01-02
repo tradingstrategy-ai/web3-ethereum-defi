@@ -165,6 +165,8 @@ Update `eth_defi/vault/fee.py` with the protocol stub.
 
 Set `VAULT_PROTOCOL_FEE_MATRIX` to `None` for newly added protocol.
 
+Match `get_vault_protocol_name()` for the protocol name spelling.
+
 ### Step 6: Create test file
 
 Create `tests/erc_4626/vault_protocol/test_{protocol_slug}.py` following the pattern in `tests/erc_4626/vault_protocol/test_plutus.py` and. `tests/erc_4626/vault_protocol/test_goat.py`:
