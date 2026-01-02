@@ -1338,18 +1338,10 @@ def calculate_vault_rankings(
     ).astype("Int64")
 
     # Calculate chain ranking (rank within each chain)
-    results_df["ranking_chain_3m"] = (
-        cagr_for_ranking.groupby(results_df["chain"])
-        .rank(method="min", ascending=False, na_option="keep")
-        .astype("Int64")
-    )
+    results_df["ranking_chain_3m"] = cagr_for_ranking.groupby(results_df["chain"]).rank(method="min", ascending=False, na_option="keep").astype("Int64")
 
     # Calculate protocol ranking (rank within each protocol)
-    results_df["ranking_protocol_3m"] = (
-        cagr_for_ranking.groupby(results_df["protocol_slug"])
-        .rank(method="min", ascending=False, na_option="keep")
-        .astype("Int64")
-    )
+    results_df["ranking_protocol_3m"] = cagr_for_ranking.groupby(results_df["protocol_slug"]).rank(method="min", ascending=False, na_option="keep").astype("Int64")
 
     return results_df
 
