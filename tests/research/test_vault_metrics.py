@@ -105,6 +105,16 @@ def test_calculate_lifetime_metrics(
     # Link feature was not in the sample data when generated
     assert sample_row["link"] is None
 
+    # Verify ranking columns exist
+    assert "ranking_overall_3m" in metrics.columns
+    assert "ranking_chain_3m" in metrics.columns
+    assert "ranking_protocol_3m" in metrics.columns
+
+    # Test data has zero three_months_cagr (insufficient data), so rankings should be None
+    assert pd.isna(sample_row["ranking_overall_3m"])
+    assert pd.isna(sample_row["ranking_chain_3m"])
+    assert pd.isna(sample_row["ranking_protocol_3m"])
+
     # Verify period_results contains structured period metrics
     period_results = sample_row["period_results"]
     assert isinstance(period_results, list)
