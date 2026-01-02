@@ -484,27 +484,8 @@ class Gmx(Exchange):
             - takeProfit: Take-profit configuration (dict or price)
         :return: CCXT-compatible order structure
         """
-        # Extract SL/TP from kwargs
-        params = {
-            "leverage": leverage,
-            "reduceOnly": reduceOnly,
-        }
-
-        # Add SL/TP if provided
-        if "stopLoss" in kwargs:
-            params["stopLoss"] = kwargs["stopLoss"]
-        if "takeProfit" in kwargs:
-            params["takeProfit"] = kwargs["takeProfit"]
-
-        # Pass collateral_symbol if provided
-        if "collateral_symbol" in kwargs:
-            params["collateral_symbol"] = kwargs["collateral_symbol"]
-
-        # Pass slippage if provided
-        if "slippage_percent" in kwargs:
-            params["slippage_percent"] = kwargs["slippage_percent"]
-
         # Call parent create_order which uses CCXT underneath
+        # Pass all kwargs to parent, which will forward them to CCXT
         return super().create_order(
             pair=pair,
             ordertype=ordertype,
@@ -514,5 +495,5 @@ class Gmx(Exchange):
             leverage=leverage,
             reduceOnly=reduceOnly,
             time_in_force=time_in_force,
-            params=params,
+            **kwargs,
         )
