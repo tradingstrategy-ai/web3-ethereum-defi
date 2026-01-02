@@ -1029,6 +1029,11 @@ def create_vault_instance(
 
         return EthenaVault(web3, spec, token_cache=token_cache, features=features)
 
+    elif ERC4626Feature.usdd_like in features:
+        from eth_defi.erc_4626.vault_protocol.usdd.vault import USSDVault
+
+        return USSDVault(web3, spec, token_cache=token_cache, features=features)
+
     else:
         # Generic ERC-4626 without fee data
         from eth_defi.erc_4626.vault import ERC4626Vault
@@ -1087,6 +1092,12 @@ HARDCODED_PROTOCOLS = {
     # Ethena - sUSDe vault on Ethereum
     # https://etherscan.io/address/0x9d39a5de30e57443bff2a8307a4256c8797a3497
     "0x9d39a5de30e57443bff2a8307a4256c8797a3497": {ERC4626Feature.ethena_like},
+    # Decentralized USD (USDD) - sUSDD vault on Ethereum
+    # https://etherscan.io/address/0xC5d6A7B61d18AfA11435a889557b068BB9f29930
+    "0xc5d6a7b61d18afa11435a889557b068bb9f29930": {ERC4626Feature.usdd_like},
+    # Decentralized USD (USDD) - sUSDD vault on BNB Chain
+    # https://bscscan.com/address/0x8bA9dA757d1D66c58b1ae7e2ED6c04087348A82d
+    "0x8ba9da757d1d66c58b1ae7e2ed6c04087348a82d": {ERC4626Feature.usdd_like},
 }
 
 for a in HARDCODED_PROTOCOLS.keys():
