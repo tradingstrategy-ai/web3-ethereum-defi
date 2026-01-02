@@ -9,7 +9,6 @@ from eth_typing import BlockIdentifier
 
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
 from eth_defi.erc_4626.vault import ERC4626Vault
-from eth_defi.vault.base import VaultTechnicalRisk
 
 logger = logging.getLogger(__name__)
 
@@ -25,9 +24,6 @@ class SuperformVault(ERC4626Vault):
     - `Github <https://github.com/superform-xyz/v2-core>`__
     - `X <https://app.superform.xyz/>`
     """
-
-    def get_risk(self) -> VaultTechnicalRisk | None:
-        return VaultTechnicalRisk.elevated
 
     def get_performance_fee(self, block_identifier: BlockIdentifier) -> float | None:
         """TODO: Unsure"""

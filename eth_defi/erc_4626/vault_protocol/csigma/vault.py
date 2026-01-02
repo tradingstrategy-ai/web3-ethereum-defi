@@ -58,7 +58,7 @@ class CsigmaVault(ERC4626Vault):
         :return:
             0.1 = 10%
         """
-        return None
+        return 0
 
     def get_performance_fee(self, block_identifier: BlockIdentifier) -> float | None:
         """Get the current performance fee as a percent.
@@ -68,7 +68,7 @@ class CsigmaVault(ERC4626Vault):
         :return:
             0.1 = 10%
         """
-        return None
+        return 0
 
     def get_estimated_lock_up(self) -> datetime.timedelta | None:
         """Get estimated lock-up period if any.

@@ -98,6 +98,10 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Decentralized USD": VaultTechnicalRisk.severe,
     "Liquidity Royalty Tranching": VaultTechnicalRisk.severe,
     "Term Finance": VaultTechnicalRisk.low,
+    # The vault does not give any indication what kind of underlying activity and positions
+    # the vault has. Users cannot assess what they are investing in.
+    # See https://app.superform.xyz/vault/1_0x942bed98560e9b2aa0d4ec76bbda7a7e55f6b2d6
+    "Superform": VaultTechnicalRisk.severe,
 }
 
 #: Particular vaults that are broken, misleading or otherwise problematic.

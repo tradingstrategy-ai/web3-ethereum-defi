@@ -1043,7 +1043,7 @@ def calculate_vault_record(
         cagr = 0
         cagr_net = 0 if known_fee else None
 
-    # Legacy: hree months metrics
+    # Legacy: three months metrics
     if three_months_pm and three_months_pm.error_reason is None:
         three_month_returns = three_months_pm.returns_gross
         three_months_return_net = three_months_pm.returns_net if known_fee else None
