@@ -22,7 +22,6 @@ Example usage::
     will always be 0 in the returned OHLCV arrays.
 """
 
-import asyncio
 import logging
 import time
 from datetime import datetime
@@ -34,7 +33,6 @@ from eth_utils import to_checksum_address
 from eth_defi.ccxt.exchange_compatible import ExchangeCompatible
 from eth_defi.chain import get_chain_name
 from eth_defi.gmx.api import GMXAPI
-from eth_defi.gmx.ccxt.errors import InsufficientHistoricalDataError
 from eth_defi.gmx.ccxt.properties import describe_gmx
 from eth_defi.gmx.ccxt.validation import _validate_ohlcv_data_sufficiency
 from eth_defi.gmx.config import GMXConfig
@@ -555,17 +553,14 @@ class GMX(ExchangeCompatible):
         For backtesting, we use a fixed 0.06% (0.0006) which represents
         a realistic middle ground for position trading.
 
-        Args:
-            symbol: Trading pair symbol (e.g., "ETH/USD")
-            type: Order type (e.g., "market", "limit")
-            side: Order side ("buy" or "sell")
-            amount: Order amount in base currency
-            price: Order price
-            takerOrMaker: "taker" or "maker" (not used for GMX)
-            params: Additional parameters
-
-        Returns:
-            Fee dictionary with rate and cost
+        :param symbol: Trading pair symbol (e.g., "ETH/USD")
+        :param type: Order type (e.g., "market", "limit")
+        :param side: Order side ("buy" or "sell")
+        :param amount: Order amount in base currency
+        :param price: Order price
+        :param takerOrMaker: "taker" or "maker" (not used for GMX)
+        :param params: Additional parameters
+        :return: Fee dictionary with rate and cost
         """
         if params is None:
             params = {}

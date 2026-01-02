@@ -14,11 +14,8 @@ import aiohttp
 from ccxt.async_support import Exchange
 from ccxt.base.errors import (
     ExchangeError,
-    ExchangeNotAvailable,
-    NetworkError,
     NotSupported,
     OrderNotFound,
-    RequestTimeout,
 )
 from eth_utils import to_checksum_address
 from web3 import AsyncWeb3
@@ -26,7 +23,6 @@ from web3 import AsyncWeb3
 from eth_defi.chain import get_chain_name
 from eth_defi.gmx.ccxt.async_support.async_graphql import AsyncGMXSubsquidClient
 from eth_defi.gmx.ccxt.async_support.async_http import async_make_gmx_api_request
-from eth_defi.gmx.ccxt.errors import InsufficientHistoricalDataError
 from eth_defi.gmx.ccxt.properties import describe_gmx
 from eth_defi.gmx.ccxt.validation import _validate_ohlcv_data_sufficiency
 from eth_defi.gmx.config import GMXConfig
@@ -35,7 +31,7 @@ from eth_defi.gmx.core import Markets
 from eth_defi.gmx.core.open_positions import GetOpenPositions
 from eth_defi.gmx.core.oracle import OraclePrices
 from eth_defi.gmx.order.sltp_order import SLTPEntry, SLTPOrder, SLTPParams
-from eth_defi.gmx.contracts import get_contract_addresses, get_token_address_normalized
+from eth_defi.gmx.contracts import get_contract_addresses
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import fetch_erc20_details

@@ -24,9 +24,8 @@ class AsyncGMXSubsquidClient:
     ):
         """Initialize async Subsquid client.
 
-        Args:
-            chain: Chain name (e.g., "arbitrum", "avalanche")
-            custom_endpoint: Optional custom Subsquid endpoint URL
+        :param chain: Chain name (e.g., "arbitrum", "avalanche")
+        :param custom_endpoint: Optional custom Subsquid endpoint URL
         """
         self.chain = chain.lower()
         self.custom_endpoint = custom_endpoint
@@ -58,12 +57,9 @@ class AsyncGMXSubsquidClient:
     async def _query(self, query: str, variables: dict | None = None) -> dict:
         """Execute GraphQL query.
 
-        Args:
-            query: GraphQL query string
-            variables: Optional query variables
-
-        Returns:
-            GraphQL response data
+        :param query: GraphQL query string
+        :param variables: Optional query variables
+        :return: GraphQL response data
         """
         if not self.session:
             raise RuntimeError("Session not initialized. Use 'async with' context manager.")
@@ -93,13 +89,10 @@ class AsyncGMXSubsquidClient:
     ) -> list[dict[str, Any]]:
         """Fetch market information from Subsquid.
 
-        Args:
-            market_address: Optional filter by specific market address
-            limit: Maximum number of markets to fetch
-            order_by: Sort order (e.g., "id_DESC")
-
-        Returns:
-            List of market info dictionaries
+        :param market_address: Optional filter by specific market address
+        :param limit: Maximum number of markets to fetch
+        :param order_by: Sort order (e.g., "id_DESC")
+        :return: List of market info dictionaries
         """
         where_clause = ""
         if market_address:
