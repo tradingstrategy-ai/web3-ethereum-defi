@@ -32,6 +32,7 @@ from eth_defi.gmx.core.open_positions import GetOpenPositions
 from eth_defi.gmx.core.oracle import OraclePrices
 from eth_defi.gmx.order.sltp_order import SLTPEntry, SLTPOrder, SLTPParams
 from eth_defi.gmx.contracts import get_contract_addresses
+from eth_defi.gmx.utils import convert_raw_price_to_usd
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import fetch_erc20_details
@@ -387,8 +388,6 @@ class GMX(Exchange):
 
     async def _fetch_tokens_async(self) -> list[dict]:
         """Fetch token data from GMX API asynchronously."""
-        from eth_defi.gmx.ccxt.async_support.async_http import async_make_gmx_api_request
-
         try:
             tokens_data = await async_make_gmx_api_request(
                 chain=self.chain,
@@ -442,8 +441,6 @@ class GMX(Exchange):
                     market_addr = market_info.get("marketTokenAddress")
                     min_collateral_factor = market_info.get("minCollateralFactor")
                     if market_addr and min_collateral_factor:
-                        from eth_utils import to_checksum_address
-
                         market_addr = to_checksum_address(market_addr)
                         max_leverage = AsyncGMXSubsquidClient.calculate_max_leverage(min_collateral_factor)
                         if max_leverage is not None:
@@ -789,8 +786,6 @@ class GMX(Exchange):
         :param market: Market structure to get token decimals
         :return: Price in USD or None
         """
-        from eth_defi.gmx.utils import convert_raw_price_to_usd
-
         if raw_price is None:
             return None
 
@@ -1278,8 +1273,6 @@ class GMX(Exchange):
         info = market_infos[0]
 
         # Parse funding rate
-        from datetime import datetime
-
         funding_per_second = float(info.get("fundingFactorPerSecond", 0)) / 1e30
         longs_pay_shorts = info.get("longsPayShorts", True)
 

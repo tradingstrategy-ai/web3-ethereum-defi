@@ -7,7 +7,6 @@ This module provides borrow APR data for GMX protocol markets.
 import logging
 
 logger = logging.getLogger(__name__)
-from typing import Any
 
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.core.get_data import GetData

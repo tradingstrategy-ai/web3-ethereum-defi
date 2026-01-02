@@ -31,8 +31,10 @@ Example:
 from decimal import Decimal
 from typing import Optional
 
-from eth_defi.gmx.contracts import get_tokens_address_dict
-from eth_defi.gmx.keys import create_hash, create_hash_string, apply_factor
+from eth_defi.gmx.constants import TOKEN_ADDRESS_MAPPINGS
+from eth_defi.gmx.contracts import get_datastore_contract, get_reader_contract, get_tokens_address_dict
+from eth_defi.gmx.core.open_interest import GetOpenInterest
+from eth_defi.gmx.keys import apply_factor, create_hash, create_hash_string, min_collateral
 
 
 def get_is_equivalent_tokens(token1: str, token2: str, chain: str) -> bool:
@@ -50,8 +52,6 @@ def get_is_equivalent_tokens(token1: str, token2: str, chain: str) -> bool:
     Returns:
         True if tokens are equivalent, False otherwise
     """
-    from eth_defi.gmx.constants import TOKEN_ADDRESS_MAPPINGS
-
     # Normalize addresses to lowercase
     token1 = token1.lower()
     token2 = token2.lower()
@@ -292,9 +292,6 @@ def get_liquidation_price(
             liq_price = get_liquidation_price(config, positions["ETH_long"])
             print(f"ETH long liquidation price: ${liq_price:.2f}")
     """
-    from eth_defi.gmx.contracts import get_datastore_contract, get_reader_contract
-    from eth_defi.gmx.keys import accountPositionListKey, min_collateral
-
     if wallet_address is None:
         wallet_address = config.user_wallet_address
         if wallet_address is None:
@@ -308,8 +305,6 @@ def get_liquidation_price(
     market_address = position_dict["market"]
 
     # Initialize markets and get market info
-    from eth_defi.gmx.core.open_interest import GetOpenInterest
-
     data_obj = GetOpenInterest(config=config, filter_swap_markets=True)
     data_obj._get_token_addresses(market_address)
     market_info = data_obj.markets.get_available_markets()[market_address]

@@ -8,7 +8,7 @@ import logging
 from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
-from typing import Any, Iterable
+from typing import Iterable
 from collections import defaultdict
 
 import numpy as np
@@ -144,13 +144,9 @@ class GetAvailableLiquidity(GetData):
         logger.info("GMX v2 Available Liquidity (Original Approach)")
 
         # Get open interest data like original
-        from eth_defi.gmx.core.open_interest import GetOpenInterest
-
         open_interest = GetOpenInterest(self.config).get_data()
 
         # Get oracle prices once like original
-        from eth_defi.gmx.core.oracle import OraclePrices
-
         prices = OraclePrices(self.config.chain).get_recent_prices()
 
         # Get available markets
@@ -433,8 +429,6 @@ class GetAvailableLiquidity(GetData):
             - open_interest_reserve_factor: uncalled web3 contract object for open interest reserve factor
         :rtype: tuple
         """
-        from typing import Any
-
         # get web3 datastore object
         datastore = get_datastore_contract(self.config.web3, self.config.chain)
 

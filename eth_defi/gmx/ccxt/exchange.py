@@ -25,6 +25,7 @@ Example usage::
 import logging
 import time
 from datetime import datetime
+from statistics import median
 from typing import Any
 
 from ccxt.base.errors import NotSupported, OrderNotFound
@@ -36,13 +37,15 @@ from eth_defi.gmx.api import GMXAPI
 from eth_defi.gmx.ccxt.properties import describe_gmx
 from eth_defi.gmx.ccxt.validation import _validate_ohlcv_data_sufficiency
 from eth_defi.gmx.config import GMXConfig
+from eth_defi.gmx.constants import PRECISION
 from eth_defi.gmx.contracts import get_contract_addresses, get_token_address_normalized
-from eth_defi.gmx.core import GetOpenPositions
 from eth_defi.gmx.core.markets import Markets
+from eth_defi.gmx.core.open_positions import GetOpenPositions
+from eth_defi.gmx.core.oracle import OraclePrices
 from eth_defi.gmx.graphql.client import GMXSubsquidClient
 from eth_defi.gmx.order import SLTPEntry, SLTPOrder, SLTPParams
 from eth_defi.gmx.trading import GMXTrading
-from eth_defi.gmx.utils import calculate_estimated_liquidation_price
+from eth_defi.gmx.utils import calculate_estimated_liquidation_price, convert_raw_price_to_usd
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import fetch_erc20_details
@@ -2315,8 +2318,6 @@ class GMX(ExchangeCompatible):
         # Fetch open positions to calculate locked collateral
         collateral_locked = {}  # Maps token symbol to locked amount (in token units)
         try:
-            from eth_defi.gmx.core import GetOpenPositions
-
             positions_manager = GetOpenPositions(self.config)
             positions = positions_manager.get_data(wallet)
 
@@ -2416,8 +2417,6 @@ class GMX(ExchangeCompatible):
         :param market: Market structure to get token decimals
         :return: Price in USD or None
         """
-        from eth_defi.gmx.utils import convert_raw_price_to_usd
-
         if raw_price is None:
             return None
 
@@ -2651,9 +2650,6 @@ class GMX(ExchangeCompatible):
         wallet = params.get("wallet_address", self.wallet_address)
         if not wallet:
             raise ValueError("wallet_address must be provided in GMXConfig or params")
-
-        # Import and use GetOpenPositions
-        from eth_defi.gmx.core.open_positions import GetOpenPositions
 
         # Fetch open positions
         positions_manager = GetOpenPositions(self.config)
@@ -3447,10 +3443,6 @@ class GMX(ExchangeCompatible):
 
         # Get the price of the collateral token to convert USD to token amount
         # For GMX markets, we need the actual price of the long_token (e.g., wstETH price, not ETH price)
-        from eth_defi.gmx.core.oracle import OraclePrices
-        from eth_defi.gmx.constants import PRECISION
-        from statistics import median
-
         oracle = OraclePrices(self.config.chain)
         oracle_prices = oracle.get_recent_prices()
 
@@ -3658,10 +3650,6 @@ class GMX(ExchangeCompatible):
         required_collateral_usd = (size_delta_usd / leverage) * 1.1
 
         # Get token price to convert USD to token amount
-        from eth_defi.gmx.core.oracle import OraclePrices
-        from eth_defi.gmx.constants import PRECISION
-        from statistics import median
-
         oracle = OraclePrices(self.config.chain)
         oracle_prices = oracle.get_recent_prices()
 

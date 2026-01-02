@@ -23,20 +23,18 @@ Limitations:
 """
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
 
 import pandas as pd
 
-from freqtrade.enums import CandleType, MarginMode, PriceType, TradingMode
-from freqtrade.exceptions import DDosProtection, OperationalException, TemporaryError
+from freqtrade.enums import MarginMode, TradingMode
+from freqtrade.exceptions import OperationalException, TemporaryError
 from freqtrade.exchange import Exchange
 from freqtrade.exchange.common import retrier
-from freqtrade.exchange.exchange_types import FtHas, Tickers
+from freqtrade.exchange.exchange_types import FtHas
 
 from eth_defi.gmx.ccxt.errors import InsufficientHistoricalDataError
-from eth_defi.gmx.ccxt.validation import _timeframe_to_milliseconds
 from eth_defi.gmx.core.open_positions import GetOpenPositions
 
 logger = logging.getLogger(__name__)

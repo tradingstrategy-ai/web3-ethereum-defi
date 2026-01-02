@@ -8,6 +8,7 @@ Converts user-friendly parameters (symbols, USD amounts) into contract-ready for
 import numpy as np
 from web3 import Web3
 
+from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.core.markets import Markets
 from eth_defi.gmx.core.oracle import OraclePrices
 from eth_defi.gmx.utils import determine_swap_route
@@ -107,9 +108,6 @@ class OrderArgumentParser:
 
         # Check if markets are cached
         if chain not in _MARKETS_CACHE:
-            # Import GMXConfig to create proper config for Markets
-            from eth_defi.gmx.config import GMXConfig
-
             # Get user wallet address - handle both types
             user_wallet_address = getattr(config, "user_wallet_address", None) or getattr(config, "_user_wallet_address", None)
 
