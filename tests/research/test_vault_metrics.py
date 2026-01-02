@@ -105,16 +105,6 @@ def test_calculate_lifetime_metrics(
     # Link feature was not in the sample data when generated
     assert sample_row["link"] is None
 
-    # Verify ranking columns exist
-    assert "ranking_overall_3m" in metrics.columns
-    assert "ranking_chain_3m" in metrics.columns
-    assert "ranking_protocol_3m" in metrics.columns
-
-    # Test data has zero three_months_cagr (insufficient data), so rankings should be None
-    assert pd.isna(sample_row["ranking_overall_3m"])
-    assert pd.isna(sample_row["ranking_chain_3m"])
-    assert pd.isna(sample_row["ranking_protocol_3m"])
-
     # Verify period_results contains structured period metrics
     period_results = sample_row["period_results"]
     assert isinstance(period_results, list)
@@ -134,6 +124,22 @@ def test_calculate_lifetime_metrics(
     assert lifetime_result.raw_samples > 0
     # Lifetime returns should approximately match the legacy lifetime_return
     assert lifetime_result.returns_gross == pytest.approx(sample_row["lifetime_return"], rel=0.01)
+
+    # Verify rankings are stored in PeriodMetrics objects for all periods
+    for pm in period_results:
+        assert hasattr(pm, "ranking_overall")
+        assert hasattr(pm, "ranking_chain")
+        assert hasattr(pm, "ranking_protocol")
+
+    # Check 3M period rankings - vault has valid CAGR and TVL so should have rankings
+    three_month_result = next(p for p in period_results if p.period == "3M")
+    # If CAGR is valid and TVL >= 10k, vault should have rankings
+    if three_month_result.cagr_net is not None and (three_month_result.tvl_end or 0) >= 10_000:
+        assert three_month_result.ranking_overall is not None
+        assert three_month_result.ranking_chain is not None
+        assert three_month_result.ranking_protocol is not None
+    else:
+        assert three_month_result.ranking_overall is None
 
     # We can get human readable output
     formatted = format_lifetime_table(
