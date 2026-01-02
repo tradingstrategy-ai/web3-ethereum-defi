@@ -62,11 +62,14 @@ def display_vaults_table(df: pd.DataFrame, nav_threshold=Decimal(1.1)) -> None:
     if "Lock up" in df.columns:
         del df["Lock up"]
 
+    del df["Shares"]
+    del df["Link"]
+
     # Remove zero entries
     df = df.loc[df["NAV"] >= nav_threshold]
 
-    df["Mgmt fee"] = df["Mgmt fee"].apply(lambda x: f"{x:.1%}" if type(x) == float else "-")
-    df["Perf fee"] = df["Perf fee"].apply(lambda x: f"{x:.1%}" if type(x) == float else "-")
+    # df["Mgmt fee"] = df["Mgmt fee"].apply(lambda x: f"{x:.1%}" if type(x) == float else "-")
+    # df["Perf fee"] = df["Perf fee"].apply(lambda x: f"{x:.1%}" if type(x) == float else "-")
     # df["Address"] = df["Address"].apply(lambda x: x[0:8])  # Address is too wide in terminal
     df = df.set_index("Address")
 
@@ -100,6 +103,8 @@ def display_vaults_table(df: pd.DataFrame, nav_threshold=Decimal(1.1)) -> None:
 
     with pd.option_context("display.max_rows", None):
         display(df)
+
+    print("Displayed columns:", df.columns.tolist())
 
 
 def scan_leads(

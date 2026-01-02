@@ -58,6 +58,8 @@ class VaultRow(TypedDict):
 
     Protocol: str
 
+    Link: str
+
     _detection_data: ERC4262VaultDetection
 
     _denomination_token: dict

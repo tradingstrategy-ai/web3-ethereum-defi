@@ -36,6 +36,14 @@ export MAX_WORKERS
 # python scripts/erc-4626/scan-vaults.py
 # if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
 
+# Hypersync timing out
+#   File "/usr/src/web3-ethereum-defi/eth_defi/erc_4626/hypersync_discovery.py", line 173, in scan_potential_vaults
+#    res = await asyncio.wait_for(receiver.recv(), timeout=self.recv_timeout)
+#export JSON_RPC_URL=$JSON_RPC_MODE
+# python scripts/erc-4626/scan-vaults.py
+# if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
+
+
 export JSON_RPC_URL=$JSON_RPC_MONAD
 python scripts/erc-4626/scan-vaults.py
 if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
@@ -97,9 +105,6 @@ export JSON_RPC_URL=$JSON_RPC_PLASMA
 python scripts/erc-4626/scan-vaults.py
 if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
 
-export JSON_RPC_URL=$JSON_RPC_MODE
-python scripts/erc-4626/scan-vaults.py
-if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
 
 export JSON_RPC_URL=$JSON_RPC_BINANCE
 python scripts/erc-4626/scan-vaults.py
