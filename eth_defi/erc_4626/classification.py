@@ -1034,6 +1034,11 @@ def create_vault_instance(
 
         return USSDVault(web3, spec, token_cache=token_cache, features=features)
 
+    elif ERC4626Feature.term_finance_like in features:
+        from eth_defi.erc_4626.vault_protocol.term_finance.vault import TermFinanceVault
+
+        return TermFinanceVault(web3, spec, token_cache=token_cache, features=features)
+
     else:
         # Generic ERC-4626 without fee data
         from eth_defi.erc_4626.vault import ERC4626Vault
