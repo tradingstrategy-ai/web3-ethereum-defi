@@ -376,7 +376,7 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     elif ERC4626Feature.superform_like in features:
         return "Superform"
     elif ERC4626Feature.yearn_compounder_like in features:
-        return "Yearn compounder"
+        return "Yearn"
     elif ERC4626Feature.superform_like in features:
         return "Superform"
     elif ERC4626Feature.yearn_v3_like in features:
@@ -395,8 +395,6 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "D2 Finance"
     elif ERC4626Feature.untangled_like in features:
         return "Untangle Finance"
-    elif ERC4626Feature.yearn_tokenised_strategy in features:
-        return "Yearn tokenised strategy"
     elif ERC4626Feature.goat_like in features:
         return "Goat Protocol"
     elif ERC4626Feature.usdai_like in features:
@@ -440,7 +438,7 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "Spark"
 
     elif ERC4626Feature.yearn_morpho_compounder_like in features:
-        return "Yearn Morpho Compounder"
+        return "Yearn"
 
     elif ERC4626Feature.teller_like in features:
         return "Teller"
