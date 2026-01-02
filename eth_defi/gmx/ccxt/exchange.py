@@ -1207,11 +1207,15 @@ class GMX(ExchangeCompatible):
                 "info": {...},  # Raw GMX ticker data
             }
         """
+        symbol = self.safe_string(market, "symbol") if market else "UNKNOWN"
+        logger.info(f"[TICKER_PARSE] Starting parse_ticker for symbol: %s", symbol)
+
         # Get current timestamp
         timestamp = self.milliseconds()
 
         # Load token metadata if not already loaded (for decimal conversion)
         self._load_token_metadata()
+        logger.info(f"[TICKER_PARSE] %s - Token metadata loaded, total tokens: %d", symbol, len(self._token_metadata))
 
         # Extract price from ticker
         # GMX API ticker structure: {"maxPrice": "339822976278", "minPrice": "339695402118", "tokenAddress": "0x..."}
@@ -1222,13 +1226,26 @@ class GMX(ExchangeCompatible):
         min_price = self.safe_string(ticker, "minPrice")
         token_address = self.safe_string(ticker, "tokenAddress", "").lower()
 
+        logger.info(
+            f"[TICKER_PARSE] %s - Extracted from ticker: token_address=%s, max_price=%s, min_price=%s",
+            symbol, token_address, max_price, min_price
+        )
+
         # Get token metadata for correct decimal conversion
         token_meta = self._token_metadata.get(token_address)
         if not token_meta:
+            logger.error(
+                f"[TICKER_PARSE] %s - Token metadata not found for address %s. Available addresses: %s",
+                symbol, token_address, list(self._token_metadata.keys())[:5]
+            )
             raise ValueError(f"Token metadata not found for {token_address}. Ensure load_markets() was called and token exists in GMX API.")
+
         token_decimals = token_meta.get("decimals")
         if token_decimals is None:
+            logger.error(f"[TICKER_PARSE] %s - Token decimals not found in metadata: %s", symbol, token_meta)
             raise ValueError(f"Token decimals not found for {token_address}. Cannot safely convert prices.")
+
+        logger.info(f"[TICKER_PARSE] %s - Token metadata: decimals=%d, metadata=%s", symbol, token_decimals, token_meta)
 
         # Convert from appropriate decimal format to float
         # GMX uses 30-decimal PRECISION for all prices
@@ -1238,13 +1255,28 @@ class GMX(ExchangeCompatible):
         if max_price and min_price:
             price_decimals = 30 - token_decimals
 
+            logger.info(
+                f"[TICKER_PARSE] %s - Price calculation: token_decimals=%d, price_decimals=(30-%d)=%d",
+                symbol, token_decimals, token_decimals, price_decimals
+            )
+
             max_price_float = float(max_price) / (10**price_decimals)
             min_price_float = float(min_price) / (10**price_decimals)
             # Use midpoint as last price
             last_price = (max_price_float + min_price_float) / 2
 
-        return {
-            "symbol": self.safe_string(market, "symbol"),
+            logger.info(
+                f"[TICKER_PARSE] %s - Converted prices: max_price_float=%.8f, min_price_float=%.8f, last_price=%.8f",
+                symbol, max_price_float, min_price_float, last_price
+            )
+        else:
+            logger.warning(
+                f"[TICKER_PARSE] %s - Missing price data: max_price=%s, min_price=%s",
+                symbol, max_price, min_price
+            )
+
+        result = {
+            "symbol": symbol,
             "timestamp": timestamp,
             "datetime": self.iso8601(timestamp),
             "high": None,  # Will calculate from OHLCV in fetch_ticker
@@ -1265,6 +1297,13 @@ class GMX(ExchangeCompatible):
             "quoteVolume": None,
             "info": ticker,
         }
+
+        logger.info(
+            f"[TICKER_PARSE] %s - Returning parsed ticker: last=%s, bid=%s, ask=%s, close=%s",
+            symbol, result.get("last"), result.get("bid"), result.get("ask"), result.get("close")
+        )
+
+        return result
 
     def fetch_open_interest(
         self,
@@ -1826,17 +1865,30 @@ class GMX(ExchangeCompatible):
             print(f"Current price: ${ticker['last']}")
             print(f"24h high: ${ticker['high']}")
         """
+        logger.info(f"[TICKER_FETCH] Starting fetch_ticker for symbol: %s", symbol)
+
         params = params or {}
         self.load_markets()
 
         # Get market info
-        market = self.market(symbol)
+        try:
+            market = self.market(symbol)
+            logger.info(f"[TICKER_FETCH] %s - Market loaded: id=%s", symbol, market.get("id"))
+        except Exception as e:
+            logger.error(f"[TICKER_FETCH] %s - Failed to load market: %s", symbol, e)
+            raise
 
         # Get index token address for this market
         index_token_address = market["info"]["index_token"]
+        logger.info(f"[TICKER_FETCH] %s - Index token address: %s", symbol, index_token_address)
 
         # Fetch ticker from GMX API
-        all_tickers = self.api.get_tickers()
+        try:
+            all_tickers = self.api.get_tickers()
+            logger.info(f"[TICKER_FETCH] %s - Retrieved %d tickers from GMX API", symbol, len(all_tickers))
+        except Exception as e:
+            logger.error(f"[TICKER_FETCH] %s - Failed to get tickers from API: %s", symbol, e)
+            raise
 
         # Find ticker for this token
         ticker = None
@@ -1846,10 +1898,31 @@ class GMX(ExchangeCompatible):
                 break
 
         if not ticker:
+            logger.error(
+                f"[TICKER_FETCH] %s - No ticker found for token %s. Available addresses: %s",
+                symbol,
+                index_token_address,
+                [t.get("tokenAddress") for t in all_tickers[:5]]
+            )
             raise ValueError(f"No ticker data found for {symbol}")
+
+        logger.info(
+            f"[TICKER_FETCH] %s - Found raw ticker: maxPrice=%s, minPrice=%s",
+            symbol,
+            ticker.get("maxPrice"),
+            ticker.get("minPrice")
+        )
 
         # Parse to CCXT format
         result = self.parse_ticker(ticker, market)
+
+        logger.info(
+            f"[TICKER_FETCH] %s - Parsed ticker result: bid=%s, ask=%s, last=%s",
+            symbol,
+            result.get("bid"),
+            result.get("ask"),
+            result.get("last")
+        )
 
         # Calculate 24h high/low from recent OHLCV (last 24 hours of 1h candles)
         try:
