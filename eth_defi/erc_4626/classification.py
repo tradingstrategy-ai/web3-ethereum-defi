@@ -14,7 +14,7 @@ from eth_typing import HexAddress
 from web3 import Web3
 from web3.types import BlockIdentifier
 
-from eth_defi.abi import ZERO_ADDRESS_STR
+from eth_defi.abi import ZERO_ADDRESS_BYTES, ZERO_ADDRESS_STR
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, read_multicall_chunked
 from eth_defi.event_reader.web3factory import Web3Factory
@@ -50,6 +50,7 @@ def create_probe_calls(
     convert_to_shares_payload = eth_abi.encode(["uint256"], [share_probe_amount])
     zero_uint_payload = eth_abi.encode(["uint256"], [0])
     double_address = eth_abi.encode(["address", "address"], [ZERO_ADDRESS_STR, ZERO_ADDRESS_STR])
+    zero_address_payload = eth_abi.encode(["address"], [ZERO_ADDRESS_STR])
 
     # TODO: Might be bit slowish here, but we are not perf intensive
     for address in addresses:
@@ -458,12 +459,12 @@ def create_probe_calls(
             extra_data=None,
         )
 
-        # Centrifuge trancheId for additional verification
-        centrifuge_tranche_call = EncodedCall.from_keccak_signature(
+        # Centrifuge wards call for additional verification
+        centrifuge_wards_call = EncodedCall.from_keccak_signature(
             address=address,
-            signature=Web3.keccak(text="trancheId()")[0:4],
-            function="trancheId",
-            data=b"",
+            signature=Web3.keccak(text="wards(address)")[0:4],
+            function="wards",
+            data=zero_address_payload,
             extra_data=None,
         )
 
@@ -507,7 +508,7 @@ def create_probe_calls(
         yield teller_v2_call
         yield upshift_call
         yield centrifuge_call
-        yield centrifuge_tranche_call
+        yield centrifuge_wards_call
 
 
 def identify_vault_features(
@@ -674,7 +675,7 @@ def identify_vault_features(
     # Centrifuge - LiquidityPool vaults for RWA financing
     # https://etherscan.io/address/0xa702ac7953e6a66d2b10a478eb2f0e2b8c8fd23e
     # Both poolId and trancheId must succeed for Centrifuge identification
-    if calls["poolId"].success and calls["trancheId"].success:
+    if calls["poolId"].success and calls["wards"].success:
         features.add(ERC4626Feature.centrifuge_like)
         features.add(ERC4626Feature.erc_7540_like)
 

@@ -19,10 +19,7 @@ import logging
 from eth_typing import BlockIdentifier
 
 from eth_defi.erc_4626.vault import ERC4626Vault
-from eth_defi.erc_4626.vault_protocol.centrifuge.centrifuge_utils import (
-    fetch_pool_id,
-    fetch_tranche_id,
-)
+from eth_defi.erc_4626.vault_protocol.centrifuge.centrifuge_utils import fetch_pool_id, fetch_tranche_id
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +36,10 @@ class CentrifugeVault(ERC4626Vault):
     Centrifuge vaults implement ERC-7540 (asynchronous deposits/redemptions) on top
     of ERC-4626, enabling integration with the Centrifuge protocol's epoch-based
     investment system.
+
+    This vault covers to detections
+    - poolId() + tranceId() + wards(): https://etherscan.io/address/0xa702ac7953e6a66d2b10a478eb2f0e2b8c8fd23e
+    - poolId() + wards(): https://etherscan.io/address/0x4880799ee5200fc58da299e965df644fbf46780b#readContract
 
     - Homepage: https://centrifuge.io/
     - Documentation: https://docs.centrifuge.io/

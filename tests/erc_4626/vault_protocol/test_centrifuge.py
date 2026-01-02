@@ -15,6 +15,7 @@ from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.centrifuge.vault import CentrifugeVault
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.vault.base import VaultTechnicalRisk
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
 
@@ -24,7 +25,7 @@ pytestmark = pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHE
 @pytest.fixture(scope="module")
 def anvil_ethereum_fork(request) -> AnvilLaunch:
     """Fork at a specific block for reproducibility."""
-    launch = fork_network_anvil(JSON_RPC_ETHEREUM, fork_block_number=21_500_000)
+    launch = fork_network_anvil(JSON_RPC_ETHEREUM, fork_block_number=24_147_164)
     try:
         yield launch
     finally:
@@ -71,6 +72,38 @@ def test_centrifuge(
 
     # Check vault risk is set
     from eth_defi.vault.base import VaultTechnicalRisk
+
+    risk = vault.get_risk()
+    assert risk == VaultTechnicalRisk.negligible
+
+
+@flaky.flaky
+def test_centrifuge_anemoy_jtrsy(
+    web3: Web3,
+    tmp_path: Path,
+):
+    """Read Centrifuge Anemoy Liquid Treasury Fund 1 vault metadata.
+
+    https://etherscan.io/address/0x4880799ee5200fc58da299e965df644fbf46780b
+    """
+
+    vault = create_vault_instance_autodetect(
+        web3,
+        vault_address="0x4880799ee5200fc58da299e965df644fbf46780b",
+    )
+
+    assert ERC4626Feature.centrifuge_like in vault.features, f"Got features: {vault.features}"
+
+    assert isinstance(vault, CentrifugeVault)
+    assert vault.get_protocol_name() == "Centrifuge"
+
+    # Verify pool and tranche IDs are accessible
+    pool_id = vault.fetch_pool_id()
+    assert pool_id > 0
+
+    # Verify get_link() returns expected format
+    link = vault.get_link()
+    assert link == f"https://app.centrifuge.io/pool/{pool_id}"
 
     risk = vault.get_risk()
     assert risk == VaultTechnicalRisk.negligible

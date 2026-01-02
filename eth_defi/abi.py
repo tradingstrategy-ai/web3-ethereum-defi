@@ -12,22 +12,23 @@ import json
 import re
 from functools import lru_cache
 from pathlib import Path
-from typing import Optional, Sequence, Type, Union, Any
+from typing import Any, Optional, Sequence, Type, Union
 
 import eth_abi
 from eth_abi import decode
 from eth_typing import HexAddress, HexStr
 from eth_utils import encode_hex, function_abi_to_4byte_selector
-from web3._utils.contracts import encode_abi
 from eth_utils.abi import event_abi_to_log_topic
-from eth_defi.compat import abi_to_signature, get_function_info, WEB3_PY_V7
 from hexbytes import HexBytes
 from web3 import Web3
 from web3._utils.abi import get_abi_input_names, get_abi_input_types
-from web3.contract.contract import Contract, ContractFunction, ContractEvent
+from web3._utils.contracts import encode_abi
+from web3.contract.contract import Contract, ContractEvent, ContractFunction
 
 # Cache loaded ABI files in-process memory for speedup
 from web3.datastructures import AttributeDict
+
+from eth_defi.compat import WEB3_PY_V7, abi_to_signature, get_function_info
 
 # How big are our ABI and contract caches
 _CACHE_SIZE = 512
@@ -41,6 +42,9 @@ ZERO_ADDRESS_STR = "0x0000000000000000000000000000000000000000"
 
 #: Ethereum 0x0000000000000000000000000000000000000000 address
 ZERO_ADDRESS = ZERO_ADDRESS_STR
+
+#: Ethereum 0x address as bytes
+ZERO_ADDRESS_BYTES = bytes.fromhex(ZERO_ADDRESS_STR[2:])
 
 #: Used by Gnosis Safe in linked lists
 #: https://github.com/safe-global/safe-smart-account/pull/993
