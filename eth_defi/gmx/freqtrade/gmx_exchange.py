@@ -23,20 +23,18 @@ Limitations:
 """
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
 
 import pandas as pd
 
-from freqtrade.enums import CandleType, MarginMode, PriceType, TradingMode
-from freqtrade.exceptions import DDosProtection, OperationalException, TemporaryError
+from freqtrade.enums import MarginMode, TradingMode
+from freqtrade.exceptions import OperationalException, TemporaryError
 from freqtrade.exchange import Exchange
 from freqtrade.exchange.common import retrier
-from freqtrade.exchange.exchange_types import FtHas, Tickers
+from freqtrade.exchange.exchange_types import FtHas
 
 from eth_defi.gmx.ccxt.errors import InsufficientHistoricalDataError
-from eth_defi.gmx.ccxt.validation import _timeframe_to_milliseconds
 from eth_defi.gmx.core.open_positions import GetOpenPositions
 
 logger = logging.getLogger(__name__)
@@ -69,7 +67,7 @@ class Gmx(Exchange):
     # Feature flags for GMX futures
     _ft_has: FtHas = {
         # GMX is futures-only, no spot support
-        "stoploss_on_exchange": False,  # No stop-loss on exchange (use Freqtrade stop-loss)
+        "stoploss_on_exchange": True,  # GMX supports bundled SL/TP orders
         "order_time_in_force": ["GTC"],  # Only GTC (Good-Till-Cancel) - immediate execution
         "trades_pagination": None,  # No pagination support
         "trades_has_history": True,  # Can fetch historical trades
@@ -87,7 +85,7 @@ class Gmx(Exchange):
 
     _ft_has_futures: FtHas = {
         "funding_fee_candle_limit": 10000,  # Max funding fee candles
-        "stoploss_order_types": {},  # No stop-loss order types
+        "stoploss_order_types": {"market": "market"},  # GMX supports market stop-loss
         "order_time_in_force": ["GTC"],  # Only immediate execution
         "tickers_have_price": True,  # Tickers include bid/ask
         "floor_leverage": False,  # Leverage is not floored
@@ -105,9 +103,8 @@ class Gmx(Exchange):
     def __init__(self, *args, **kwargs):
         """Initialize GMX exchange.
 
-        Args:
-            *args: Positional arguments passed to parent Exchange
-            **kwargs: Keyword arguments passed to parent Exchange
+        :param *args: Positional arguments passed to parent Exchange
+        :param **kwargs: Keyword arguments passed to parent Exchange
         """
         super().__init__(*args, **kwargs)
 
@@ -115,8 +112,7 @@ class Gmx(Exchange):
     def _ccxt_config(self) -> dict:
         """Get CCXT configuration for GMX.
 
-        Returns:
-            Configuration dict for CCXT initialization
+        :return: Configuration dict for CCXT initialization
         """
         config = {}
         if self.trading_mode == TradingMode.FUTURES:
@@ -134,11 +130,8 @@ class Gmx(Exchange):
 
         GMX requires Web3 RPC URL and private key instead of API keys.
 
-        Args:
-            config: Freqtrade configuration dict
-
-        Raises:
-            OperationalException: If required config is missing or invalid
+        :param config: Freqtrade configuration dict
+        :raises OperationalException: If required config is missing or invalid
         """
         super().validate_config(config)
 
@@ -169,12 +162,9 @@ class Gmx(Exchange):
         the available data range in cached feather files. Raises an error if data
         is insufficient, preventing wasted computation on invalid backtests.
 
-        Args:
-            config: Freqtrade configuration dict containing timerange and pair_whitelist
-
-        Raises:
-            InsufficientHistoricalDataError: If timerange exceeds available data
-            OperationalException: If data files cannot be read
+        :param config: Freqtrade configuration dict containing timerange and pair_whitelist
+        :raises InsufficientHistoricalDataError: If timerange exceeds available data
+        :raises OperationalException: If data files cannot be read
         """
         # Extract timerange parameter
         timerange_str = config.get("timerange")
@@ -221,14 +211,9 @@ class Gmx(Exchange):
     def _parse_timerange_date(self, date_str: str) -> int:
         """Parse freqtrade timerange date string to millisecond timestamp.
 
-        Args:
-            date_str: Date string in format YYYYMMDD or YYYYMMDDHHMMSS
-
-        Returns:
-            Unix timestamp in milliseconds
-
-        Raises:
-            ValueError: If date_str format is invalid
+        :param date_str: Date string in format YYYYMMDD or YYYYMMDDHHMMSS
+        :return: Unix timestamp in milliseconds
+        :raises ValueError: If date_str format is invalid
         """
         # Parse different formats
         if len(date_str) == 8:  # YYYYMMDD
@@ -255,15 +240,12 @@ class Gmx(Exchange):
         data range covers the requested start date. Validation is date-based,
         meaning any time on the requested date is acceptable.
 
-        Args:
-            pair: Trading pair (e.g., "ETH/USDC:USDC")
-            timeframe: Candle timeframe (e.g., "5m", "1h")
-            requested_start: Requested start timestamp (ms)
-            datadir: Path to data directory containing feather files
-
-        Raises:
-            InsufficientHistoricalDataError: If data is insufficient
-            OperationalException: If feather file cannot be read
+        :param pair: Trading pair (e.g., "ETH/USDC:USDC")
+        :param timeframe: Candle timeframe (e.g., "5m", "1h")
+        :param requested_start: Requested start timestamp (ms)
+        :param datadir: Path to data directory containing feather files
+        :raises InsufficientHistoricalDataError: If data is insufficient
+        :raises OperationalException: If feather file cannot be read
         """
         # Convert pair format: "ETH/USDC:USDC" -> "ETH_USDC_USDC"
         pair_filename = pair.replace("/", "_").replace(":", "_")
@@ -329,15 +311,12 @@ class Gmx(Exchange):
     ) -> dict:
         """Get parameters for order creation.
 
-        Args:
-            side: Order side ('buy' or 'sell')
-            ordertype: Order type ('market', 'limit', etc.)
-            leverage: Leverage multiplier
-            reduceOnly: Whether this is a reduce-only order
-            time_in_force: Time in force (only 'GTC' supported)
-
-        Returns:
-            Parameters dict for CCXT order creation
+        :param side: Order side ('buy' or 'sell')
+        :param ordertype: Order type ('market', 'limit', etc.)
+        :param leverage: Leverage multiplier
+        :param reduceOnly: Whether this is a reduce-only order
+        :param time_in_force: Time in force (only 'GTC' supported)
+        :return: Parameters dict for CCXT order creation
         """
         params = super()._get_params(
             side=side,
@@ -358,15 +337,10 @@ class Gmx(Exchange):
         GMX supports different leverage limits per market based on the
         minCollateralFactor. This is already loaded in the market info.
 
-        Args:
-            pair: Trading pair symbol (e.g., "ETH/USD")
-            stake_amount: Stake amount (not used for GMX as leverage is market-specific)
-
-        Returns:
-            Maximum leverage as float (e.g., 50.0 for 50x)
-
-        Raises:
-            OperationalException: If pair not found or leverage info unavailable
+        :param pair: Trading pair symbol (e.g., "ETH/USD")
+        :param stake_amount: Stake amount (not used for GMX as leverage is market-specific)
+        :return: Maximum leverage as float (e.g., 50.0 for 50x)
+        :raises OperationalException: If pair not found or leverage info unavailable
         """
         try:
             # Get market info from CCXT
@@ -410,3 +384,135 @@ class Gmx(Exchange):
         positions = GetOpenPositions(gmx.config, use_graphql=use_graphql).get_data(wallet)
         logger.info("Fetched %s on-chain GMX positions for wallet %s", len(positions), wallet)
         return positions
+
+    @retrier
+    def create_stoploss(
+        self,
+        pair: str,
+        amount: float,
+        stop_price: float,
+        order_types: dict,
+        side: str,
+        leverage: float,
+    ) -> dict:
+        """Create a stop-loss order on GMX.
+
+        GMX supports bundled stop-loss orders that are created atomically with positions.
+        This method creates a standalone stop-loss order for existing positions.
+
+        :param pair: Trading pair (e.g., "ETH/USDC:USDC")
+        :param amount: Position size in USD to close
+        :param stop_price: Stop-loss trigger price
+        :param order_types: Freqtrade order type configuration
+        :param side: Order side ("buy" for closing short, "sell" for closing long)
+        :param leverage: Leverage multiplier
+        :return: CCXT-compatible order structure
+        :raises TemporaryError: If order creation fails temporarily
+        :raises DDosProtection: If rate limit exceeded
+        """
+        try:
+            # GMX uses standalone SL/TP order type
+            params = {
+                "leverage": leverage,
+                "stopLossPrice": stop_price,
+            }
+
+            # Create standalone stop-loss order via CCXT
+            order = self._api.create_order(
+                symbol=pair,
+                type="stop_loss",  # GMX-specific order type
+                side=side,
+                amount=amount,
+                params=params,
+            )
+
+            logger.info(
+                "Created stop-loss order for %s: price=%.2f, amount=%.2f USD",
+                pair,
+                stop_price,
+                amount,
+            )
+            return order
+
+        except Exception as e:
+            logger.error(f"Failed to create stop-loss for {pair}: {e}")
+            raise TemporaryError(f"GMX stop-loss creation failed: {e}")
+
+    def stoploss_adjust(self, stop_loss: float, order: dict, side: str) -> bool:
+        """Check if stoploss needs adjustment.
+
+        GMX stop-loss orders are immutable once created. To adjust, you must
+        cancel the existing order and create a new one.
+
+        :param stop_loss: New stop-loss price
+        :param order: Existing stop-loss order
+        :param side: Order side
+        :return: True if adjustment needed, False otherwise
+        """
+        # GMX orders are immutable - any change requires cancellation and recreation
+        # Since GMX doesn't support order cancellation for executed orders,
+        # return False to indicate no adjustment possible
+        return False
+
+    @retrier
+    def create_order(
+        self,
+        pair: str,
+        ordertype: str,
+        side: str,
+        amount: float,
+        rate: float | None = None,
+        leverage: float = 1.0,
+        reduceOnly: bool = False,
+        time_in_force: str = "GTC",
+        **kwargs,
+    ) -> dict:
+        """Create order with optional SL/TP support.
+
+        Freqtrade-compatible order creation that supports GMX bundled SL/TP.
+
+        :param pair: Trading pair
+        :param ordertype: Order type ("market", "limit")
+        :param side: Order side ("buy", "sell")
+        :param amount: Order size in USD
+        :param rate: Limit price (not used for GMX market orders)
+        :param leverage: Leverage multiplier
+        :param reduceOnly: Whether this is a reduce-only order
+        :param time_in_force: Time in force (only "GTC" supported)
+        :param **kwargs: Additional parameters including:
+            - stopLoss: Stop-loss configuration (dict or price)
+            - takeProfit: Take-profit configuration (dict or price)
+        :return: CCXT-compatible order structure
+        """
+        # Extract SL/TP from kwargs
+        params = {
+            "leverage": leverage,
+            "reduceOnly": reduceOnly,
+        }
+
+        # Add SL/TP if provided
+        if "stopLoss" in kwargs:
+            params["stopLoss"] = kwargs["stopLoss"]
+        if "takeProfit" in kwargs:
+            params["takeProfit"] = kwargs["takeProfit"]
+
+        # Pass collateral_symbol if provided
+        if "collateral_symbol" in kwargs:
+            params["collateral_symbol"] = kwargs["collateral_symbol"]
+
+        # Pass slippage if provided
+        if "slippage_percent" in kwargs:
+            params["slippage_percent"] = kwargs["slippage_percent"]
+
+        # Call parent create_order which uses CCXT underneath
+        return super().create_order(
+            pair=pair,
+            ordertype=ordertype,
+            side=side,
+            amount=amount,
+            rate=rate,
+            leverage=leverage,
+            reduceOnly=reduceOnly,
+            time_in_force=time_in_force,
+            params=params,
+        )

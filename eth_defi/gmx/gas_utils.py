@@ -2,6 +2,8 @@
 GMX Gas Utilities
 """
 
+import logging
+
 from web3.contract import Contract
 
 from eth_defi.gmx.keys import DEPOSIT_GAS_LIMIT, WITHDRAWAL_GAS_LIMIT, SINGLE_SWAP_GAS_LIMIT, SWAP_ORDER_GAS_LIMIT, INCREASE_ORDER_GAS_LIMIT, DECREASE_ORDER_GAS_LIMIT, EXECUTION_GAS_FEE_BASE_AMOUNT, EXECUTION_GAS_FEE_BASE_AMOUNT_V2_1, EXECUTION_GAS_FEE_MULTIPLIER_FACTOR, EXECUTION_GAS_FEE_PER_ORACLE_PRICE, apply_factor
@@ -141,8 +143,6 @@ def calculate_execution_fee(
     int
         Calculated execution fee in wei
     """
-    import logging
-
     logger = logging.getLogger(__name__)
 
     # Get base gas limit (prefer V2.1 if available, fallback to V1)

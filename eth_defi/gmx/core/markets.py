@@ -12,7 +12,7 @@ from eth_typing import HexAddress
 from eth_utils import to_checksum_address
 
 from eth_defi.gmx.config import GMXConfig
-from eth_defi.gmx.contracts import get_contract_addresses, get_reader_contract, get_tokens_address_dict, get_tokens_metadata_dict
+from eth_defi.gmx.contracts import get_contract_addresses, get_reader_contract, get_tokens_metadata_dict
 from eth_defi.gmx.core.oracle import OraclePrices
 from eth_defi.gmx.types import MarketData, MarketSymbol
 

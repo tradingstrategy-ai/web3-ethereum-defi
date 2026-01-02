@@ -14,11 +14,13 @@ Key features:
 import logging
 from dataclasses import dataclass
 from decimal import Decimal
+from statistics import median
 
 from eth_typing import ChecksumAddress
 from eth_utils import to_checksum_address
 from web3.types import TxParams
 
+from eth_defi.gas import estimate_gas_fees
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.constants import DECREASE_POSITION_SWAP_TYPES, ETH_ZERO_ADDRESS, PRECISION, OrderType
 from eth_defi.gmx.contracts import NETWORK_TOKENS, TESTNET_TO_MAINNET_ORACLE_TOKENS
@@ -321,7 +323,6 @@ class SLTPOrder(BaseOrder):
             raise ValueError(f"Price not available for token {self.index_token_address}")
 
         price_data = self._cached_prices[oracle_address]
-        from statistics import median
 
         price = median(
             [
@@ -345,8 +346,6 @@ class SLTPOrder(BaseOrder):
         """
         # Use maxFeePerGas for EIP-1559 transactions since GMX uses tx.gasprice
         # which equals effectiveGasPrice (min of maxFeePerGas and baseFee + priorityFee)
-        from eth_defi.gas import estimate_gas_fees
-
         gas_fees = estimate_gas_fees(self.web3)
         gas_price = gas_fees.max_fee_per_gas if gas_fees.max_fee_per_gas else self.web3.eth.gas_price
 

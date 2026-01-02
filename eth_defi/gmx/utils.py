@@ -110,9 +110,9 @@ from typing import Any
 
 from decimal import Decimal
 
-from eth_defi.gmx.core.markets import Markets
-from eth_defi.gmx.core.open_positions import GetOpenPositions
-from eth_defi.gmx.contracts import get_tokens_address_dict, TESTNET_TO_MAINNET_ORACLE_TOKENS
+from eth_defi.gmx.config import GMXConfig
+from eth_defi.gmx.constants import TOKEN_ADDRESS_MAPPINGS
+from eth_defi.gmx.contracts import get_tokens_address_dict, NETWORK_TOKENS, TESTNET_TO_MAINNET_ORACLE_TOKENS
 
 
 # GMX uses 30-decimal precision for all price values
@@ -447,6 +447,9 @@ def get_positions(config, address: str = None) -> dict[str, Any]:
         When no address is available from either parameter or configuration,
         making position queries impossible
     """
+    # Import here to avoid circular import: utils.py -> open_positions.py -> utils.py
+    from eth_defi.gmx.core.open_positions import GetOpenPositions
+
     if address is None:
         address = config.user_wallet_address
         if address is None:
@@ -455,8 +458,6 @@ def get_positions(config, address: str = None) -> dict[str, Any]:
     # GetOpenPositions expects GMXConfig, so create one if we have GMXConfigManager
     if hasattr(config, "get_web3_connection"):
         # This is GMXConfigManager
-        from eth_defi.gmx.config import GMXConfig
-
         web3 = config.get_web3_connection()
         gmx_config = GMXConfig(web3, user_wallet_address=config.user_wallet_address)
         positions = GetOpenPositions(config=gmx_config).get_data(address=address)
@@ -600,6 +601,9 @@ def transform_open_position_to_order_parameters(
         # Get output token address
         out_token_address = find_dictionary_by_key_value(gmx_tokens, "symbol", out_token)["address"]
 
+        # Import here to avoid circular import: utils.py -> core.markets -> core/__init__ -> core.open_positions -> utils.py
+        from eth_defi.gmx.core.markets import Markets
+
         # Get markets info
         markets = Markets(config=config).info
 
@@ -662,9 +666,6 @@ def determine_swap_route(markets: dict, in_token: str, out_token: str, chain: st
     :return: Tuple of (list of GMX markets to swap through, requires_multi_swap)
     :rtype: tuple[list, bool]
     """
-    from eth_defi.gmx.constants import TOKEN_ADDRESS_MAPPINGS
-    from eth_defi.gmx.contracts import NETWORK_TOKENS
-
     # Apply token address mappings for routing
     # Handle WBTC -> BTC.b mapping and similar
     if chain in TOKEN_ADDRESS_MAPPINGS:

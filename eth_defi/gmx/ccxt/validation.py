@@ -25,15 +25,12 @@ def _validate_ohlcv_data_sufficiency(
     - 'since' is None (user just wants recent data)
     - params contains skip_validation=True
 
-    Args:
-        ohlcv: Parsed OHLCV data (list of [timestamp, o, h, l, c, v])
-        symbol: Market symbol
-        timeframe: Timeframe interval
-        since: Requested start timestamp (ms), if provided
-        params: Additional parameters (may contain skip_validation flag)
-
-    Raises:
-        InsufficientHistoricalDataError: If data is insufficient
+    :param ohlcv: Parsed OHLCV data (list of [timestamp, o, h, l, c, v])
+    :param symbol: Market symbol
+    :param timeframe: Timeframe interval
+    :param since: Requested start timestamp (ms), if provided
+    :param params: Additional parameters (may contain skip_validation flag)
+    :raises InsufficientHistoricalDataError: If data is insufficient
     """
     # Escape hatch
     if params and params.get("skip_validation"):
@@ -78,11 +75,8 @@ def _validate_ohlcv_data_sufficiency(
 def _timeframe_to_milliseconds(timeframe: str) -> int:
     """Convert CCXT timeframe string to milliseconds.
 
-    Args:
-        timeframe: Timeframe string (e.g., "1m", "5m", "1h", "4h", "1d")
-
-    Returns:
-        Duration in milliseconds
+    :param timeframe: Timeframe string (e.g., "1m", "5m", "1h", "4h", "1d")
+    :return: Duration in milliseconds
 
     Examples:
         >>> _timeframe_to_milliseconds("1m")

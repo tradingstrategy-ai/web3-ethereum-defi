@@ -14,6 +14,7 @@ from decimal import Decimal
 from typing import Any, Optional
 
 import requests
+from eth_utils import is_address, to_checksum_address
 
 from eth_defi.gmx.contracts import GMX_SUBSQUID_ENDPOINTS, get_tokens_metadata_dict
 
@@ -754,8 +755,6 @@ class GMXSubsquidClient:
         :param token_address: Token contract address
         :return: Number of decimals for the token
         """
-        from eth_utils import is_address, to_checksum_address
-
         # Validate address before normalizing
         if not is_address(token_address):
             # Invalid address format, default to 18 decimals
@@ -787,8 +786,6 @@ class GMXSubsquidClient:
             markets_list = self.get_markets(limit=200)
             self._markets_cache = {}
             for market in markets_list:
-                from eth_utils import to_checksum_address
-
                 market_addr = to_checksum_address(market["id"])
                 self._markets_cache[market_addr] = market
         return self._markets_cache
@@ -799,8 +796,6 @@ class GMXSubsquidClient:
         :param market_address: Market contract address
         :return: Number of decimals for the index token
         """
-        from eth_utils import is_address, to_checksum_address
-
         # Validate address before normalizing
         if not is_address(market_address):
             # Invalid address format, default to 18 decimals
