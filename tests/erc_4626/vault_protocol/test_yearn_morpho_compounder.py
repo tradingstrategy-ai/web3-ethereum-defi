@@ -51,7 +51,7 @@ def test_yearn_morpho_compounder(
     )
 
     assert isinstance(vault, YearnMorphoCompounderStrategy)
-    assert vault.get_protocol_name() == "Yearn Morpho Compounder"
+    assert vault.get_protocol_name() == "Yearn"
 
     # Check feature flags
     assert ERC4626Feature.yearn_morpho_compounder_like in vault.features

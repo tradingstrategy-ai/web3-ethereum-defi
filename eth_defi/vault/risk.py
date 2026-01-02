@@ -87,7 +87,6 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Liquidity Royalty Tranching": None,
     "cSigma Finance": VaultTechnicalRisk.severe,
     "Spark": VaultTechnicalRisk.negligible,
-    "Yearn Morpho Compounder": VaultTechnicalRisk.minimal,
     "Teller": VaultTechnicalRisk.severe,
     "Deltr": VaultTechnicalRisk.dangerous,
     "Upshift": VaultTechnicalRisk.severe,
