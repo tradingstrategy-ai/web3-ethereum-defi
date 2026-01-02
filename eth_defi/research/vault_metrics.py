@@ -941,6 +941,10 @@ def calculate_vault_record(
     if current_nav > 100_000_000_000:
         risk = VaultTechnicalRisk.blacklisted
         notes = ABNORMAL_TVL
+        if not flags:
+            # TODO: Hack to break somewhere reused empty set object
+            # which gets shared across all vaults
+            flags = set()
         flags.add(VaultFlag.abnormal_tvl)
 
     vault_slug = vault_metadata["vault_slug"]
