@@ -308,6 +308,12 @@ class ERC4626Feature(enum.Enum):
     #: https://centrifuge.io/
     centrifuge_like = "centrifuge_like"
 
+    #: Ethena
+    #:
+    #: Synthetic dollar protocol with sUSDe staking vault.
+    #: https://ethena.fi/
+    ethena_like = "ethena_like"
+
 
 def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     """Deduct vault protocol name based on Vault smart contract features.
@@ -446,6 +452,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.centrifuge_like in features:
         return "Centrifuge"
+
+    elif ERC4626Feature.ethena_like in features:
+        return "Ethena"
 
     # No idea
     if ERC4626Feature.erc_7540_like in features:

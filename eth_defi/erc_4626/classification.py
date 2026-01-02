@@ -1024,6 +1024,11 @@ def create_vault_instance(
 
         return CentrifugeVault(web3, spec, token_cache=token_cache, features=features)
 
+    elif ERC4626Feature.ethena_like in features:
+        from eth_defi.erc_4626.vault_protocol.ethena.vault import EthenaVault
+
+        return EthenaVault(web3, spec, token_cache=token_cache, features=features)
+
     else:
         # Generic ERC-4626 without fee data
         from eth_defi.erc_4626.vault import ERC4626Vault
@@ -1076,6 +1081,9 @@ HARDCODED_PROTOCOLS = {
     # Maple Finance - syrupUSDT vault on Ethereum
     # https://etherscan.io/address/0x356b8d89c1e1239cbbb9de4815c39a1474d5ba7d
     "0x356b8d89c1e1239cbbb9de4815c39a1474d5ba7d": {ERC4626Feature.maple_like},
+    # Ethena - sUSDe vault on Ethereum
+    # https://etherscan.io/address/0x9d39a5de30e57443bff2a8307a4256c8797a3497
+    "0x9d39a5de30e57443bff2a8307a4256c8797a3497": {ERC4626Feature.ethena_like},
 }
 
 for a in HARDCODED_PROTOCOLS.keys():

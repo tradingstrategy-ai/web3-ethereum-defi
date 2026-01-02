@@ -14,6 +14,7 @@
 - Add: New protocol: Sky (Ethereum) - formerly MakerDAO, stUSDS vault
 - Add: New protocol: Maple Finance - syrupUSDC and syrupUSDT vaults
 - Add: New protocol: Centrifuge - RWA tokenisation and financing with ERC-7540 liquidity pools
+- Add: New protocol: Ethena - sUSDe synthetic dollar staking vault
 - Fix: Various RPC error code workarounds (Monad, Arbitrum, Hyperliquid)
 
 # 0.37
