@@ -114,12 +114,11 @@ class PeriodMetrics:
 LOOKBACK_AND_TOLERANCES: dict[Period, tuple[pd.DateOffset, pd.Timedelta]] = {
     "1W": (pd.DateOffset(days=7), pd.Timedelta(days=5)),
     "1M": (pd.DateOffset(days=30), pd.Timedelta(days=60)),
-    "3M": (pd.DateOffset(days=3*30), pd.Timedelta(days=90 + 45)),
-    "6M": (pd.DateOffset(days=6*30), pd.Timedelta(days=180 + 45)),
-    "1Y": (pd.DateOffset(days=12*30), pd.Timedelta(days=180 + 45)),
-    "lifetime": (pd.DateOffset(years=100), pd.Timedelta(days=100*365)),
+    "3M": (pd.DateOffset(days=3 * 30), pd.Timedelta(days=90 + 45)),
+    "6M": (pd.DateOffset(days=6 * 30), pd.Timedelta(days=180 + 45)),
+    "1Y": (pd.DateOffset(days=12 * 30), pd.Timedelta(days=180 + 45)),
+    "lifetime": (pd.DateOffset(years=100), pd.Timedelta(days=100 * 365)),
 }
-
 
 
 def fmt_one_decimal_or_int(x: float | None) -> str:
@@ -630,6 +629,7 @@ def _unnullify(x: str | None, default: str = "<unknown>") -> str:
         return default
     return x
 
+
 def calculate_period_metrics(
     period: Period,
     gross_fee_data: FeeData,
@@ -680,13 +680,7 @@ def calculate_period_metrics(
     period_samples_hourly = share_price_hourly.loc[samples_start_at:]
 
     if len(period_samples_hourly) == 0:
-        return PeriodMetrics(
-            period=period,
-            raw_samples=0,
-            period_start_at=period_start_at,
-            period_end_at=period_end_at,
-            error_reason="Period did not contain any samples"
-        )
+        return PeriodMetrics(period=period, raw_samples=0, period_start_at=period_start_at, period_end_at=period_end_at, error_reason="Period did not contain any samples")
 
     samples_end_at = period_samples_hourly.index[-1]
     raw_samples = len(period_samples_hourly)
@@ -810,7 +804,6 @@ def calculate_period_metrics(
         tvl_low=tvl_low,
         tvl_high=tvl_high,
     )
-
 
 
 def calculate_vault_record(
@@ -1220,9 +1213,7 @@ def calculate_lifetime_metrics(
 
     # Use progress_apply instead of the for loop
     # Sort is needed for slug stability
-    results_df = df.groupby("id", group_keys=False, sort=True).progress_apply(
-        lambda group: calculate_vault_record(group, vaults_by_id, month_ago, three_months_ago)
-    )
+    results_df = df.groupby("id", group_keys=False, sort=True).progress_apply(lambda group: calculate_vault_record(group, vaults_by_id, month_ago, three_months_ago))
 
     # Reset index to convert the grouped results to a regular DataFrame
     results_df = results_df.reset_index(drop=True)

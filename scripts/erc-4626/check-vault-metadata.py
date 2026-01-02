@@ -13,4 +13,3 @@ vault_id = VaultSpec.parse_string("146-0x3ccff8c929b497c1ff96592b8ff592b45963e73
 vault_db = VaultDatabase.read()
 vault_record = vault_db.get(vault_id)
 pprint(vault_record)
-

@@ -1,6 +1,5 @@
 """Check a vault onchain data."""
 
-
 from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.classification import create_vault_instance, detect_vault_features
 from eth_defi.provider.env import get_json_rpc_env, read_json_rpc_url
