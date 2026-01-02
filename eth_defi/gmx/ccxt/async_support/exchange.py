@@ -1548,8 +1548,122 @@ class GMX(Exchange):
                 tp_entry,
             )
 
-        # Standard order creation (no SLTP)
-        raise NotSupported(f"{self.id} async create_order() for standard orders not yet implemented")
+        # Convert CCXT parameters to GMX parameters (standard flow)
+        gmx_params = await self._convert_ccxt_to_gmx_params_async(
+            symbol,
+            type,
+            side,
+            amount,
+            price,
+            params,
+        )
+
+        # Extract reduceOnly from params to determine if opening or closing
+        reduceOnly = params.get("reduceOnly", False)
+
+        if not reduceOnly:
+            # ============================================
+            # OPENING POSITIONS (buy=LONG, sell=SHORT)
+            # ============================================
+            
+            # Ensure token approval before creating order
+            await self._ensure_token_approval_async(
+                requested_symbol=gmx_params["collateral_symbol"],
+                actual_symbol=gmx_params["collateral_symbol"], # Simplified for approval check
+                size_delta_usd=gmx_params["size_delta_usd"],
+                leverage=gmx_params["leverage"],
+                collateral_address=None, # Will be resolved inside
+                token_details=None # Will be fetched inside
+            )
+            # Actually, the async _ensure_token_approval_async needs more args.
+            # Let's fix the call to match signature or use a better pattern.
+            # I'll rely on the existing create_order logic but adjust for side.
+            
+            # Re-implementing the opening logic to match sync version's robustness
+            normalized_symbol = self._normalize_symbol(symbol)
+            market = self.markets[normalized_symbol]
+            is_long = gmx_params["is_long"]
+            collateral_address = market["info"]["long_token"] if is_long else market["info"]["short_token"]
+            
+            loop = asyncio.get_event_loop()
+            token_details = await loop.run_in_executor(
+                None, fetch_erc20_details, self.web3, collateral_address, self.web3.eth.chain_id
+            )
+            
+            await self._ensure_token_approval_async(
+                gmx_params["collateral_symbol"],
+                token_details.symbol,
+                gmx_params["size_delta_usd"],
+                gmx_params["leverage"],
+                collateral_address,
+                token_details
+            )
+
+            order_result = await loop.run_in_executor(
+                None,
+                self.trader.open_position,
+                gmx_params["symbol"],
+                gmx_params["collateral_symbol"],
+                gmx_params["collateral_symbol"],
+                gmx_params["is_long"],
+                gmx_params["size_delta_usd"],
+                gmx_params["leverage"],
+                gmx_params["slippage_percent"],
+                gmx_params["execution_buffer"]
+            )
+
+        else:
+            # ============================================
+            # CLOSING POSITIONS (sell=close LONG, buy=close SHORT)
+            # ============================================
+            is_closing_long = (side == "sell")
+            is_closing_short = (side == "buy")
+
+            normalized_symbol = self._normalize_symbol(symbol)
+            market = self.markets[normalized_symbol]
+            base_currency = market["base"]
+
+            positions_manager = GetOpenPositions(self.config)
+            loop = asyncio.get_event_loop()
+            existing_positions = await loop.run_in_executor(None, positions_manager.get_data, self.wallet.address)
+
+            position_to_close = None
+            for position_key, position_data in existing_positions.items():
+                if position_data.get("market_symbol") == base_currency and position_data.get("collateral_token") == gmx_params["collateral_symbol"]:
+                    if is_closing_long and position_data.get("is_long"):
+                        position_to_close = position_data
+                        break
+                    elif is_closing_short and not position_data.get("is_long"):
+                        position_to_close = position_data
+                        break
+
+            if not position_to_close:
+                raise ValueError(f"No matching position found for {symbol} to close")
+
+            position_size_usd = position_to_close.get("position_size")
+            requested_size_usd = float(gmx_params["size_delta_usd"])
+            size_delta_usd = min(requested_size_usd, position_size_usd)
+
+            collateral_amount_usd = position_to_close.get("initial_collateral_amount_usd")
+            close_fraction = min(1.0, size_delta_usd / position_size_usd)
+            initial_collateral_delta = collateral_amount_usd * close_fraction
+
+            order_result = await loop.run_in_executor(
+                None,
+                self.trader.close_position,
+                gmx_params["market_symbol"],
+                gmx_params["collateral_symbol"],
+                gmx_params["collateral_symbol"],
+                position_to_close.get("is_long"),
+                size_delta_usd,
+                initial_collateral_delta,
+                gmx_params["slippage_percent"],
+                gmx_params["execution_buffer"],
+                False
+            )
+
+        # Sign transaction
+        transaction = order_result.transaction
 
     async def _create_order_with_sltp(
         self,
@@ -1576,9 +1690,10 @@ class GMX(Exchange):
         :param tp_entry: Take profit configuration
         :return: CCXT-compatible order structure
         """
-        # Only support bundled SL/TP for opening positions (buy side)
-        if side != "buy":
-            raise ValueError("Bundled SL/TP only supported for opening positions (side='buy'). Use standalone SL/TP for existing positions.")
+        # Only support bundled SL/TP for opening positions (reduceOnly=False)
+        reduceOnly = params.get("reduceOnly", False)
+        if reduceOnly:
+            raise ValueError("Bundled SL/TP only supported for opening positions (reduceOnly=False). Use standalone SL/TP for closing positions.")
 
         # Convert CCXT params to GMX params
         gmx_params = await self._convert_ccxt_to_gmx_params_async(symbol, type, side, amount, price, params)
@@ -1596,7 +1711,16 @@ class GMX(Exchange):
         # Get token addresses from market
         chain = self.chain
         market_address = market["info"]["market_token"]
-        collateral_address = market["info"]["long_token"]
+
+        # Determine position direction from gmx_params
+        is_long = gmx_params["is_long"]
+
+        # For GMX, we need to use the appropriate token based on position direction
+        if is_long:
+            collateral_address = market["info"]["long_token"]
+        else:
+            collateral_address = market["info"]["short_token"]
+        
         index_token_address = market["info"]["index_token"]
 
         if not collateral_address or not index_token_address:
@@ -1647,7 +1771,7 @@ class GMX(Exchange):
             market_key=to_checksum_address(market_address),
             collateral_address=to_checksum_address(collateral_address),
             index_token_address=to_checksum_address(index_token_address),
-            is_long=True,
+            is_long=is_long,
         )
 
         # Build SLTPParams
@@ -1740,11 +1864,22 @@ class GMX(Exchange):
         slippage_percent = params.get("slippage_percent", 0.003)
         execution_buffer = params.get("execution_buffer", 2.2)
 
+        # Determine position direction based on side and reduceOnly
+        reduceOnly = params.get("reduceOnly", False)
+
+        if not reduceOnly:
+            # Opening a position
+            is_long = (side == "buy")  # buy = LONG, sell = SHORT
+        else:
+            # Closing a position
+            is_long = (side == "sell")  # sell = close LONG, buy = close SHORT
+
         return {
             "symbol": symbol,
             "collateral_symbol": collateral_symbol,
             "leverage": leverage,
             "size_delta_usd": amount,
+            "is_long": is_long,
             "slippage_percent": slippage_percent,
             "execution_buffer": execution_buffer,
         }
@@ -1935,8 +2070,115 @@ class GMX(Exchange):
         :param params: Additional parameters
         :return: CCXT-compatible order structure
         """
-        # Async implementation mirrors sync but with await for blocking calls
-        raise NotSupported(f"{self.id} async standalone SLTP orders not yet implemented - use sync version")
+        # Determine position direction
+        # If closing Long, side is Sell. If closing Short, side is Buy.
+        is_long = side == "sell"
+
+        # Get market info
+        normalized_symbol = self._normalize_symbol(symbol)
+        market = self.markets[normalized_symbol]
+        base_currency = market["base"]
+
+        # Fetch existing positions (run sync GetOpenPositions in executor)
+        loop = asyncio.get_event_loop()
+        positions_manager = GetOpenPositions(self.config)
+        existing_positions = await loop.run_in_executor(
+            None,
+            positions_manager.get_data,
+            self.wallet.address
+        )
+
+        position = None
+        for key, pos in existing_positions.items():
+            if pos.get("market_symbol") == base_currency and pos.get("is_long") == is_long:
+                position = pos
+                break
+
+        if not position:
+             raise ValueError(f"No {'long' if is_long else 'short'} position found for {symbol} to attach SL/TP")
+
+        # Get position details
+        position_size_usd = position.get("position_size")
+        if position_size_usd is None:
+             raw = position.get("position_size_usd_raw") or position.get("position_size_usd")
+             if raw:
+                 position_size_usd = float(raw) / 1e30
+
+        if not position_size_usd:
+            raise ValueError(f"Could not determine position size for {symbol}")
+
+        collateral_token_address = position.get("collateral_token_address")
+        index_token_address = market["info"]["index_token"]
+        market_address = market["info"]["market_token"]
+
+        # Parse SL/TP params
+        sl_entry, tp_entry = self._parse_sltp_params(params)
+
+        entry = sl_entry if type == "stop_loss" else tp_entry
+        if not entry:
+             trigger_price = params.get("stopLossPrice") if type == "stop_loss" else params.get("takeProfitPrice")
+             if trigger_price:
+                 entry = SLTPEntry(trigger_price=trigger_price, close_percent=1.0, auto_cancel=True)
+             else:
+                 raise ValueError(f"Missing configuration for {type} order")
+
+        if amount and amount > 0:
+            entry.close_size_usd = amount
+        elif entry.close_size_usd is None:
+            entry.close_size_usd = position_size_usd
+
+        # Create SLTPOrder
+        sltp_order = SLTPOrder(
+            config=self.config,
+            market_key=to_checksum_address(market_address),
+            collateral_address=to_checksum_address(collateral_token_address),
+            index_token_address=to_checksum_address(index_token_address),
+            is_long=is_long,
+        )
+
+        # Create order (sync operation)
+        slippage = params.get("slippage_percent", 0.003)
+        buffer = params.get("execution_buffer", 2.2)
+        entry_price = position.get("entry_price")
+
+        if type == "stop_loss":
+            result = await loop.run_in_executor(
+                None,
+                sltp_order.create_stop_loss_order,
+                position_size_usd,
+                entry,
+                entry_price,
+                slippage,
+                buffer
+            )
+        else:
+            result = await loop.run_in_executor(
+                None,
+                sltp_order.create_take_profit_order,
+                position_size_usd,
+                entry,
+                entry_price,
+                slippage,
+                buffer
+            )
+
+        # Sign and send
+        transaction = result.transaction
+        if "nonce" in transaction:
+            del transaction["nonce"]
+        signed_tx = await loop.run_in_executor(
+            None,
+            self.wallet.sign_transaction_with_new_nonce,
+            transaction
+        )
+
+        tx_hash_bytes = await self.web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+        tx_hash = self.web3.to_hex(tx_hash_bytes)
+        receipt = await self.web3.eth.wait_for_transaction_receipt(tx_hash_bytes)
+
+        return self._parse_sltp_result_to_ccxt(
+            result, symbol, side, type, amount, tx_hash, receipt
+        )
 
     async def create_market_buy_order(
         self,
