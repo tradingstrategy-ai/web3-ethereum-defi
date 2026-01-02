@@ -62,4 +62,5 @@ Supported protocols
    untangle/index
    upshift/index
    usdai/index
+   usdd/index
    yearn/index

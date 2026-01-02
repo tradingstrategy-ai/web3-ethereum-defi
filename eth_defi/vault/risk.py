@@ -95,6 +95,8 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Maple": VaultTechnicalRisk.negligible,
     "Centrifuge": VaultTechnicalRisk.negligible,
     "Ethena": VaultTechnicalRisk.negligible,
+    "Decentralized USD": VaultTechnicalRisk.severe,
+    "Liquidity Royalty Tranching": VaultTechnicalRisk.severe,
 }
 
 #: Particular vaults that are broken, misleading or otherwise problematic.

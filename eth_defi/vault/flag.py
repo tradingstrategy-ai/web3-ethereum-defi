@@ -215,7 +215,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag, str]] = {
     "0x3ccff8c929b497c1ff96592b8ff592b45963e732": (VaultFlag.proprietary_trading, FOXIFY_VAULT),
     # KUSDT
     # http://localhost:5173/trading-view/binance/vaults/gtrade-kusdt
-    "0x4f04CB32688eA1954e53C85B846597881ebE9582": (VaultFlag.broken, BROKEN_VAULT),
+    # No idea what's this - unverified
+    "0x4f04cb32688ea1954e53c85b846597881ebe9582": (VaultFlag.broken, BROKEN_VAULT),
 }
 
 for addr in VAULT_FLAGS_AND_NOTES.keys():
