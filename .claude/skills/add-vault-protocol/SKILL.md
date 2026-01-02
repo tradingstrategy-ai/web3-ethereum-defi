@@ -154,12 +154,16 @@ elif ERC4626Feature.{protocol_slug}_like in features:
     return {ProtocolName}Vault(web3, spec, token_cache=token_cache, features=features)
 ```
 
-### Step 5: Update risk information
+### Step 5: Update risk and fee information
 
 Update `eth_defi/vault/risk.py` with the protocol stub.
 
 Set the initial risk level for the protocol in `VAULT_PROTOCOL_RISK_MATRIX`.
 USe `None` if not given and this will be later updated by human judgement.
+
+Update `eth_defi/vault/fee.py` with the protocol stub.
+
+Set `VAULT_PROTOCOL_FEE_MATRIX` to `None` for newly added protocol.
 
 ### Step 6: Create test file
 
