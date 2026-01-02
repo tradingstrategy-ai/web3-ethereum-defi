@@ -57,6 +57,7 @@ Supported protocols
    summer/index
    superform/index
    teller/index
+   term_finance/index
    truefi/index
    umami/index
    untangle/index

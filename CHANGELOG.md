@@ -16,6 +16,7 @@
 - Add: New protocol: Centrifuge - RWA tokenisation and financing with ERC-7540 liquidity pools
 - Add: New protocol: Ethena - sUSDe synthetic dollar staking vault
 - Add: New protocol: Decentralized USD (USDD) - sUSDD savings vaults on Ethereum and BNB Chain
+- Add: New protocol: Term Finance - fixed-rate DeFi lending via auction-based matching
 - Fix: Various RPC error code workarounds (Monad, Arbitrum, Hyperliquid)
 
 # 0.37

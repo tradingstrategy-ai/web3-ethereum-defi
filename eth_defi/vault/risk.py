@@ -97,6 +97,7 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Ethena": VaultTechnicalRisk.negligible,
     "Decentralized USD": VaultTechnicalRisk.severe,
     "Liquidity Royalty Tranching": VaultTechnicalRisk.severe,
+    "Term Finance": None,
 }
 
 #: Particular vaults that are broken, misleading or otherwise problematic.
