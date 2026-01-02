@@ -94,6 +94,7 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Sky": VaultTechnicalRisk.negligible,
     "Maple": VaultTechnicalRisk.negligible,
     "Centrifuge": VaultTechnicalRisk.negligible,
+    "Ethena": VaultTechnicalRisk.negligible,
 }
 
 #: Particular vaults that are broken, misleading or otherwise problematic.

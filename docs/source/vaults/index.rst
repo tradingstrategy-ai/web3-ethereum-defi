@@ -38,6 +38,7 @@ Supported protocols
    csigma/index
    d2_finance/index
    deltr/index
+   ethena/index
    euler/index
    foxify/index
    gains/index

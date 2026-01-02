@@ -1,0 +1,1 @@
+"""Ethena protocol integration."""
