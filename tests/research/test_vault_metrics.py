@@ -87,11 +87,11 @@ def test_calculate_lifetime_metrics(
     assert sample_row["cagr"] == pytest.approx(0.02483940718068034)
     assert sample_row["cagr_net"] == pytest.approx(0.02483940718068034)
 
-    # The prices file does not have enough data for three moths
-    assert sample_row["three_months_cagr"] == pytest.approx(0)
-    assert sample_row["three_months_cagr_net"] == pytest.approx(0)
-    assert sample_row["three_months_sharpe"] == pytest.approx(0)
-    assert sample_row["three_months_sharpe_net"] == pytest.approx(0)
+    # Three months metrics - the test data spans ~41 days, which fits within 3M tolerance
+    assert sample_row["three_months_cagr"] == pytest.approx(0.02483940718068034)
+    assert sample_row["three_months_cagr_net"] == pytest.approx(0.02483940718068034)
+    assert sample_row["three_months_sharpe"] == pytest.approx(5.280916994701033)
+    assert sample_row["three_months_sharpe_net"] == pytest.approx(5.280916994701033)
 
     assert sample_row["one_month_returns"] == pytest.approx(0.0018523254977500514)
     assert sample_row["one_month_returns_net"] == pytest.approx(0.0018523254977500514)

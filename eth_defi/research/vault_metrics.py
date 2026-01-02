@@ -997,154 +997,8 @@ def calculate_vault_record(
     # Do we know fees for this vault
     known_fee = mgmt_fee is not None and perf_fee is not None
 
-    # Calculate lifetime return using cumulative product approach
-    with warnings.catch_warnings():
-        # We may have severeal division by zero if the share price starts at 0
-        warnings.simplefilter("ignore", RuntimeWarning)
-
-        # 2) Ensure prices_df index is monotonic and clean
-        prices_df = prices_df.loc[~prices_df.index.isna()].sort_index(kind="stable")
-
-        lifetime_start_date = start_date = prices_df.index[0]
-        lifetime_end_date = end_date = prices_df.index[-1]
-        lifetime_samples = len(prices_df)
-
-        lifetime_return = prices_df.iloc[-1]["share_price"] / prices_df.iloc[0]["share_price"] - 1
-
-        if known_fee:
-            lifetime_return_net = calculate_net_profit(
-                start=start_date,
-                end=end_date,
-                share_price_start=prices_df.iloc[0]["share_price"],
-                share_price_end=prices_df.iloc[-1]["share_price"],
-                management_fee_annual=net_fee_data.management,
-                performance_fee=net_fee_data.performance,
-                deposit_fee=net_fee_data.deposit,
-                withdrawal_fee=net_fee_data.withdraw,
-                sample_count=len(prices_df),
-            )
-        else:
-            lifetime_return_net = None
-
-        # Calculate CAGR
-        # Get the first and last date
-        age = years = (end_date - start_date).days / 365.25
-        cagr = (1 + lifetime_return) ** (1 / years) - 1 if years > 0 else np.nan
-
-        if known_fee:
-            cagr_net = (1 + lifetime_return_net) ** (1 / years) - 1 if years > 0 else np.nan
-        else:
-            cagr_net = None
-
-        three_months_start = prices_df.index.asof(three_months_ago)
-        last_three_months = prices_df.loc[three_months_start:]
-
-        one_month_start = prices_df.index.asof(month_ago)
-        last_month = prices_df.loc[one_month_start:]
-        one_month_end = last_month.index.max()
-
-        # Calculate 3 months CAGR
-        # Get the first and last date
-        three_months_start = start_date = last_three_months.index.min()
-        three_months_end = end_date = last_three_months.index.max()
-        three_months_samples = len(last_three_months)
-
-        # We need at least two data points and the start sample must fit into 90 days + buffer time range
-        if len(last_three_months) >= 2 and (three_months_end - three_months_start) < pd.Timedelta(days=120):
-            years = (end_date - start_date).days / 365.25
-
-            returns_series = resample_returns(
-                last_three_months["returns_1h"],
-                freq="D",
-            )
-
-            three_month_returns = last_three_months.iloc[-1]["share_price"] / last_three_months.iloc[0]["share_price"] - 1
-
-            three_months_cagr = (1 + three_month_returns) ** (1 / years) - 1 if years > 0 else np.nan
-
-            if known_fee:
-                three_months_return_net = calculate_net_profit(
-                    start=start_date,
-                    end=end_date,
-                    share_price_start=last_three_months.iloc[0]["share_price"],
-                    share_price_end=last_three_months.iloc[-1]["share_price"],
-                    management_fee_annual=net_fee_data.management,
-                    performance_fee=net_fee_data.performance,
-                    deposit_fee=net_fee_data.deposit,
-                    withdrawal_fee=net_fee_data.withdraw,
-                    sample_count=len(last_three_months),
-                )
-                three_months_cagr_net = (1 + three_months_return_net) ** (1 / years) - 1 if years > 0 else np.nan
-            else:
-                three_months_return_net = None
-                three_months_cagr_net = None
-
-            # Three months daily volatility, annualised
-            daily_vol = returns_series.std()
-            three_months_volatility = daily_vol * np.sqrt(365)
-
-            three_months_sharpe = calculate_sharpe_ratio_from_returns(returns_series)
-            three_months_sharpe_net = calculate_sharpe_ratio_from_returns(returns_series)
-
-        else:
-            # We have not collected data for the last three months,
-            # because our stateful reader decided the vault is dead
-            three_months_cagr = 0
-            three_months_cagr_net = 0
-            three_months_volatility = 0
-            three_month_returns = 0
-            three_months_return_net = 0
-            three_months_sharpe_net = 0
-            three_months_sharpe = 0
-
-        start_date = last_month.index.min()
-        end_date = last_month.index.max()
-
-        # We need at least two data points and the start sample must fit into 90 days + buffer time range
-        if len(last_month) >= 2 and (one_month_end - one_month_start) < pd.Timedelta(days=60):
-            years = (end_date - start_date).days / 365.25
-
-            one_month_returns = last_month.iloc[-1]["share_price"] / last_month.iloc[0]["share_price"] - 1
-            one_month_cagr = (1 + one_month_returns) ** (1 / years) - 1 if years > 0 else np.nan
-
-            one_month_start = start_date
-            one_month_end = end_date
-            one_month_samples = len(last_month)
-
-            if known_fee:
-                one_month_returns_net = calculate_net_profit(
-                    start=start_date,
-                    end=end_date,
-                    share_price_start=last_month.iloc[0]["share_price"],
-                    share_price_end=last_month.iloc[-1]["share_price"],
-                    management_fee_annual=net_fee_data.management,
-                    performance_fee=net_fee_data.performance,
-                    deposit_fee=net_fee_data.deposit,
-                    withdrawal_fee=net_fee_data.withdraw,
-                    sample_count=len(last_month),
-                )
-                one_month_cagr_net = (1 + one_month_returns_net) ** (1 / years) - 1 if years > 0 else np.nan
-            else:
-                one_month_returns_net = None
-                one_month_cagr_net = None
-                one_month_start = one_month_end = one_month_samples = None
-
-        else:
-            # We have not collected data for the last month,
-            # because our stateful reader decided the vault is dead
-            one_month_cagr = 0
-            one_month_returns = 0
-            one_month_returns_net = 0
-            one_month_cagr_net = 0
-            one_month_start = one_month_end = one_month_samples = None
-
-    fee_label = create_fee_label(fee_data)
-
-    last_updated_at = prices_df.index.max()
-    last_updated_block = prices_df.loc[last_updated_at]["block_number"]
-    last_share_price = prices_df.iloc[-1]["share_price"]
-    first_updated_at = prices_df.index.min()
-    first_updated_block = prices_df.iloc[0]["block_number"]
+    # Ensure prices_df index is monotonic and clean
+    prices_df = prices_df.loc[~prices_df.index.isna()].sort_index(kind="stable")
 
     # Calculate period metrics using the new structured approach
     # Resample share price once for all period calculations
@@ -1165,6 +1019,79 @@ def calculate_vault_record(
             now_=now_,
         )
         period_results.append(period_metric)
+
+    # Extract period metrics for backward compatibility
+    lifetime_pm = get_period_metrics(period_results, "lifetime")
+    three_months_pm = get_period_metrics(period_results, "3M")
+    one_month_pm = get_period_metrics(period_results, "1M")
+
+    # Lifetime metrics
+    lifetime_start_date = prices_df.index[0]
+    lifetime_end_date = prices_df.index[-1]
+    lifetime_samples = len(prices_df)
+    age = (lifetime_end_date - lifetime_start_date).days / 365.25
+
+    # Legacy: Lifetime metrics
+    if lifetime_pm and lifetime_pm.error_reason is None:
+        lifetime_return = lifetime_pm.returns_gross
+        lifetime_return_net = lifetime_pm.returns_net if known_fee else None
+        cagr = lifetime_pm.cagr_gross
+        cagr_net = lifetime_pm.cagr_net if known_fee else None
+    else:
+        lifetime_return = 0
+        lifetime_return_net = 0 if known_fee else None
+        cagr = 0
+        cagr_net = 0 if known_fee else None
+
+    # Legacy: hree months metrics
+    if three_months_pm and three_months_pm.error_reason is None:
+        three_month_returns = three_months_pm.returns_gross
+        three_months_return_net = three_months_pm.returns_net if known_fee else None
+        three_months_cagr = three_months_pm.cagr_gross
+        three_months_cagr_net = three_months_pm.cagr_net if known_fee else None
+        three_months_volatility = three_months_pm.volatility
+        three_months_sharpe = three_months_pm.sharpe
+        three_months_sharpe_net = three_months_pm.sharpe  # Same as gross for now
+        three_months_start = three_months_pm.samples_start_at
+        three_months_end = three_months_pm.samples_end_at
+        three_months_samples = three_months_pm.raw_samples
+    else:
+        three_month_returns = 0
+        three_months_return_net = 0 if known_fee else None
+        three_months_cagr = 0
+        three_months_cagr_net = 0 if known_fee else None
+        three_months_volatility = 0
+        three_months_sharpe = 0
+        three_months_sharpe_net = 0
+        three_months_start = None
+        three_months_end = None
+        three_months_samples = 0
+
+    # Legacy: One month metrics
+    if one_month_pm and one_month_pm.error_reason is None:
+        one_month_returns = one_month_pm.returns_gross
+        one_month_returns_net = one_month_pm.returns_net if known_fee else None
+        one_month_cagr = one_month_pm.cagr_gross
+        one_month_cagr_net = one_month_pm.cagr_net if known_fee else None
+        one_month_start = one_month_pm.samples_start_at
+        one_month_end = one_month_pm.samples_end_at
+        one_month_samples = one_month_pm.raw_samples
+    else:
+        one_month_returns = 0
+        one_month_returns_net = 0 if known_fee else None
+        one_month_cagr = 0
+        one_month_cagr_net = 0 if known_fee else None
+        one_month_start = None
+        one_month_end = None
+        one_month_samples = None
+
+    fee_label = create_fee_label(fee_data)
+
+    last_updated_at = prices_df.index.max()
+    last_updated_block = prices_df.loc[last_updated_at]["block_number"]
+    last_share_price = prices_df.iloc[-1]["share_price"]
+    first_updated_at = prices_df.index.min()
+    first_updated_block = prices_df.iloc[0]["block_number"]
 
     return pd.Series(
         {
