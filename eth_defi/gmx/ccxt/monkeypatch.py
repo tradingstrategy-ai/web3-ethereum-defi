@@ -68,7 +68,6 @@ Advanced usage - manual patching::
 """
 
 import logging
-import sys
 from contextlib import contextmanager
 from typing import Optional
 
@@ -91,15 +90,10 @@ def patch_ccxt(force: bool = False) -> bool:
     - Adds 'gmx' to ``ccxt.exchanges`` list
     - Updates ``ccxt.__all__`` if it exists
 
-    Args:
-        force: If True, re-apply the patch even if already applied.
-               If False (default), skip if already patched.
-
-    Returns:
-        True if patch was applied, False if already patched and not forced.
-
-    Raises:
-        ImportError: If CCXT is not installed or GMX class cannot be imported.
+    :param force: If True, re-apply the patch even if already applied.
+                  If False (default), skip if already patched.
+    :return: True if patch was applied, False if already patched and not forced.
+    :raises ImportError: If CCXT is not installed or GMX class cannot be imported.
 
     Example::
 
@@ -191,8 +185,7 @@ def unpatch_ccxt() -> bool:
     This function reverses the monkeypatch applied by ``patch_ccxt()``,
     removing GMX from CCXT's namespace and exchange list.
 
-    Returns:
-        True if unpatch was performed, False if not currently patched.
+    :return: True if unpatch was performed, False if not currently patched.
 
     .. warning::
         This function is primarily for testing. In production code, you typically
@@ -269,8 +262,7 @@ def unpatch_ccxt() -> bool:
 def is_patched() -> bool:
     """Check if CCXT is currently patched with GMX support.
 
-    Returns:
-        True if GMX is currently registered in CCXT, False otherwise.
+    :return: True if GMX is currently registered in CCXT, False otherwise.
 
     Example::
 

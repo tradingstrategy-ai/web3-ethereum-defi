@@ -24,20 +24,15 @@ async def async_make_gmx_api_request(
 
     Async version of eth_defi.gmx.retry.make_gmx_api_request with same behavior.
 
-    Args:
-        chain: Chain name (e.g., "arbitrum", "avalanche")
-        endpoint: API endpoint path (e.g., "/tokens", "/prices/tickers")
-        params: Optional query parameters
-        session: Optional aiohttp session for connection pooling
-        timeout: HTTP request timeout in seconds
-        max_retries: Maximum retry attempts per URL
-        retry_delay: Initial delay between retries (exponential backoff)
-
-    Returns:
-        Parsed JSON response
-
-    Raises:
-        RuntimeError: If all retries and backup attempts fail
+    :param chain: Chain name (e.g., "arbitrum", "avalanche")
+    :param endpoint: API endpoint path (e.g., "/tokens", "/prices/tickers")
+    :param params: Optional query parameters
+    :param session: Optional aiohttp session for connection pooling
+    :param timeout: HTTP request timeout in seconds
+    :param max_retries: Maximum retry attempts per URL
+    :param retry_delay: Initial delay between retries (exponential backoff)
+    :return: Parsed JSON response
+    :raises RuntimeError: If all retries and backup attempts fail
     """
     chain_lower = chain.lower()
 

@@ -5,9 +5,10 @@ This module provides access to open positions data for user addresses.
 """
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
+import requests
 from eth_utils import to_checksum_address
 
 from eth_defi.gmx.config import GMXConfig
@@ -21,6 +22,7 @@ from eth_defi.gmx.contracts import (
     GMX_SUBSQUID_ENDPOINTS,
 )
 from eth_defi.gmx.types import MarketData
+from eth_defi.gmx.utils import get_oracle_address
 
 logger = logging.getLogger(__name__)
 
@@ -131,8 +133,6 @@ class GetOpenPositions(GetData):
         :returns: Dictionary of positions matching RPC format
         :rtype: dict
         """
-        import requests
-
         # Get Subsquid GraphQL URL for current chain (normalize to lowercase)
         chain_name = self.config.chain.lower() if isinstance(self.config.chain, str) else str(self.config.chain).lower()
         subgraph_url = GMX_SUBSQUID_ENDPOINTS.get(chain_name)
@@ -273,8 +273,6 @@ class GetOpenPositions(GetData):
         collateral_amount_tokens = collateral_amount / 10**collateral_decimals
 
         # Get mark price from oracle
-        from eth_defi.gmx.utils import get_oracle_address
-
         index_decimals = index_token_info["decimals"]
         oracle_address = get_oracle_address(chain_name, index_token)
         mark_price = entry_price  # Default fallback

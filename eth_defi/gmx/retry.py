@@ -6,7 +6,7 @@ Centralized retry and backup failover handling for all GMX API calls.
 
 import logging
 import time
-from typing import Optional, Callable, Any
+from typing import Optional, Any
 
 import requests
 

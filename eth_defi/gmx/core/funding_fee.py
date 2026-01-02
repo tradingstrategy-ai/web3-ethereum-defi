@@ -4,8 +4,6 @@ GMX Funding APR Data Retrieval Module.
 This module provides funding APR data for GMX protocol markets.
 """
 
-from typing import Any
-
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.core.get_data import GetData
 from eth_defi.gmx.types import PositionSideData
