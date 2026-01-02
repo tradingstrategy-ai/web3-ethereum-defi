@@ -109,6 +109,15 @@ class PeriodMetrics:
     #: Maximum TVL in the period
     tvl_high: USDollarAmount | None = None
 
+    #: Rank among all vaults (1 = best), based on CAGR
+    ranking_overall: int | None = None
+
+    #: Rank among vaults on the same chain (1 = best), based on CAGR
+    ranking_chain: int | None = None
+
+    #: Rank among vaults in the same protocol (1 = best), based on CAGR
+    ranking_protocol: int | None = None
+
 
 #: Period -> Perioud duration, max sparse sample mismatch
 LOOKBACK_AND_TOLERANCES: dict[Period, tuple[pd.DateOffset, pd.Timedelta]] = {
@@ -1293,55 +1302,91 @@ def calculate_lifetime_metrics(
     return results_df
 
 
+def get_period_metrics(period_results: list[PeriodMetrics], period: Period) -> PeriodMetrics | None:
+    """Get PeriodMetrics for a specific period from the results list.
+
+    :param period_results:
+        List of PeriodMetrics objects from a vault record
+
+    :param period:
+        The period to find (e.g., "1W", "1M", "3M", "6M", "1Y", "lifetime")
+
+    :return:
+        The matching PeriodMetrics or None if not found
+    """
+    for pm in period_results:
+        if pm.period == period:
+            return pm
+    return None
+
+
 def calculate_vault_rankings(
     results_df: pd.DataFrame,
+    min_tvl: float = 10_000,
 ) -> pd.DataFrame:
-    """Calculate ranking columns based on 3M CAGR performance.
+    """Calculate rankings for all periods inside PeriodMetrics objects.
 
-    Adds three ranking columns:
+    Updates PeriodMetrics objects in-place within the period_results lists.
+    Rankings are calculated for all 6 periods (1W, 1M, 3M, 6M, 1Y, lifetime).
 
-    - ranking_overall_3m: Rank among all vaults (1 = best)
-    - ranking_chain_3m: Rank among vaults on the same chain (1 = best)
-    - ranking_protocol_3m: Rank among vaults in the same protocol (1 = best)
-
-    Uses three_months_cagr_net if available, falls back to three_months_cagr (gross).
-    Vaults with NaN/zero 3M CAGR, blacklisted risk, or current TVL below $10k receive None rankings.
+    Vaults are excluded from rankings if:
+    - They have no CAGR data (zero or NaN)
+    - They have an error_reason set
+    - They are blacklisted (risk == VaultTechnicalRisk.blacklisted)
+    - Their period TVL is below the threshold
 
     :param results_df:
         DataFrame from calculate_lifetime_metrics()
 
+    :param min_tvl:
+        Minimum TVL required for ranking (default: $10,000)
+
     :return:
-        DataFrame with ranking columns added
+        DataFrame with rankings updated in PeriodMetrics objects
     """
-    # Create a working copy of CAGR values for ranking
-    # Prefer net CAGR, fall back to gross if net is not available
-    cagr_for_ranking = results_df["three_months_cagr_net"].copy()
-    gross_mask = cagr_for_ranking.isna()
-    cagr_for_ranking.loc[gross_mask] = results_df.loc[gross_mask, "three_months_cagr"]
+    periods: list[Period] = list(LOOKBACK_AND_TOLERANCES.keys())
 
-    # Treat zero as missing data (insufficient 3M history)
-    cagr_for_ranking = cagr_for_ranking.replace(0, pd.NA)
+    for period in periods:
+        # Build a Series of CAGR values for this period
+        cagr_values = []
 
-    # Exclude blacklisted vaults from rankings
-    blacklisted_mask = results_df["risk"] == VaultTechnicalRisk.blacklisted
-    cagr_for_ranking.loc[blacklisted_mask] = pd.NA
+        for idx in results_df.index:
+            row = results_df.loc[idx]
+            period_results = row["period_results"]
+            pm = get_period_metrics(period_results, period)
 
-    # Exclude vaults with less than $10k current TVL
-    low_tvl_mask = results_df["current_nav"] < 10_000
-    cagr_for_ranking.loc[low_tvl_mask] = pd.NA
+            if pm is None or pm.error_reason is not None:
+                cagr_values.append(pd.NA)
+                continue
 
-    # Calculate overall ranking (higher CAGR = rank 1)
-    results_df["ranking_overall_3m"] = cagr_for_ranking.rank(
-        method="min",
-        ascending=False,
-        na_option="keep",
-    ).astype("Int64")
+            # Use net CAGR, fall back to gross
+            cagr = pm.cagr_net if pm.cagr_net is not None else pm.cagr_gross
 
-    # Calculate chain ranking (rank within each chain)
-    results_df["ranking_chain_3m"] = cagr_for_ranking.groupby(results_df["chain"]).rank(method="min", ascending=False, na_option="keep").astype("Int64")
+            # Apply exclusion criteria
+            is_blacklisted = row["risk"] == VaultTechnicalRisk.blacklisted
+            tvl = pm.tvl_end or 0
+            has_low_tvl = tvl < min_tvl
+            has_no_cagr = cagr is None or cagr == 0 or pd.isna(cagr)
 
-    # Calculate protocol ranking (rank within each protocol)
-    results_df["ranking_protocol_3m"] = cagr_for_ranking.groupby(results_df["protocol_slug"]).rank(method="min", ascending=False, na_option="keep").astype("Int64")
+            if is_blacklisted or has_low_tvl or has_no_cagr:
+                cagr_values.append(pd.NA)
+            else:
+                cagr_values.append(cagr)
+
+        cagr_series = pd.Series(cagr_values, index=results_df.index)
+
+        # Calculate rankings
+        overall_ranks = cagr_series.rank(method="min", ascending=False, na_option="keep")
+        chain_ranks = cagr_series.groupby(results_df["chain"]).rank(method="min", ascending=False, na_option="keep")
+        protocol_ranks = cagr_series.groupby(results_df["protocol_slug"]).rank(method="min", ascending=False, na_option="keep")
+
+        # Update PeriodMetrics objects in-place
+        for idx in results_df.index:
+            pm = get_period_metrics(results_df.loc[idx, "period_results"], period)
+            if pm is not None:
+                pm.ranking_overall = int(overall_ranks[idx]) if pd.notna(overall_ranks[idx]) else None
+                pm.ranking_chain = int(chain_ranks[idx]) if pd.notna(chain_ranks[idx]) else None
+                pm.ranking_protocol = int(protocol_ranks[idx]) if pd.notna(protocol_ranks[idx]) else None
 
     return results_df
 
