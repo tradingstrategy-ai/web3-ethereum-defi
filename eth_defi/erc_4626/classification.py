@@ -1075,6 +1075,9 @@ HARDCODED_PROTOCOLS = {
     # Sky (formerly MakerDAO) - stUSDS vault on Ethereum
     # https://etherscan.io/address/0x99cd4ec3f88a45940936f469e4bb72a2a701eeb9
     "0x99cd4ec3f88a45940936f469e4bb72a2a701eeb9": {ERC4626Feature.sky_like},
+    # Sky (formerly MakerDAO) - sUSDS vault on Ethereum
+    # https://etherscan.io/address/0xa3931d71877c0e7a3148cb7eb4463524fec27fbd
+    "0xa3931d71877c0e7a3148cb7eb4463524fec27fbd": {ERC4626Feature.sky_like},
     # Maple Finance - syrupUSDC vault on Ethereum
     # https://etherscan.io/address/0x80ac24aa929eaf5013f6436cda2a7ba190f5cc0b
     "0x80ac24aa929eaf5013f6436cda2a7ba190f5cc0b": {ERC4626Feature.maple_like},

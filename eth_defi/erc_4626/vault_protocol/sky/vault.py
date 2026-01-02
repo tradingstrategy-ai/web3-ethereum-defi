@@ -2,12 +2,16 @@
 
 Sky (formerly MakerDAO) is one of the oldest and most established DeFi protocols.
 The protocol provides the USDS stablecoin and allows users to earn yield through
-staking USDS in the stUSDS vault.
+staking USDS in Sky savings vaults.
 
-The stUSDS vault is an ERC-4626 compliant tokenised vault that allows users to
-stake USDS and earn the Sky Savings Rate (SSR). The vault accumulates yield
-through the ``drip()`` mechanism which accrues interest based on the ``chi``
-rate accumulator.
+Sky offers two ERC-4626 compliant tokenised vaults:
+
+- **stUSDS** (Staked USDS): The original Sky savings vault
+- **sUSDS** (Savings USDS): An additional savings vault with the same mechanics
+
+Both vaults allow users to stake USDS and earn the Sky Savings Rate (SSR). The
+vaults accumulate yield through the ``drip()`` mechanism which accrues interest
+based on the ``chi`` rate accumulator.
 
 Key features:
 
@@ -20,7 +24,8 @@ Key features:
 - Documentation: https://developers.sky.money/
 - GitHub: https://github.com/sky-ecosystem/stusds
 - Twitter: https://x.com/SkyEcosystem
-- Contract: https://etherscan.io/address/0x99cd4ec3f88a45940936f469e4bb72a2a701eeb9
+- stUSDS Contract: https://etherscan.io/address/0x99cd4ec3f88a45940936f469e4bb72a2a701eeb9
+- sUSDS Contract: https://etherscan.io/address/0xa3931d71877c0e7a3148cb7eb4463524fec27fbd
 """
 
 import datetime
@@ -36,15 +41,16 @@ logger = logging.getLogger(__name__)
 class SkyVault(ERC4626Vault):
     """Sky protocol vault support.
 
-    Sky stUSDS vault allows users to stake USDS and earn the Sky Savings Rate.
-    The vault accumulates yield through the ``chi`` rate accumulator which is
-    updated via the ``drip()`` function.
+    Sky savings vaults (stUSDS and sUSDS) allow users to stake USDS and earn the
+    Sky Savings Rate. The vaults accumulate yield through the ``chi`` rate
+    accumulator which is updated via the ``drip()`` function.
 
     - Homepage: https://sky.money/
     - Documentation: https://developers.sky.money/
     - GitHub: https://github.com/sky-ecosystem/stusds
     - Twitter: https://x.com/SkyEcosystem
-    - Contract: https://etherscan.io/address/0x99cd4ec3f88a45940936f469e4bb72a2a701eeb9
+    - stUSDS Contract: https://etherscan.io/address/0x99cd4ec3f88a45940936f469e4bb72a2a701eeb9
+    - sUSDS Contract: https://etherscan.io/address/0xa3931d71877c0e7a3148cb7eb4463524fec27fbd
     """
 
     def has_custom_fees(self) -> bool:

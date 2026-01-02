@@ -666,8 +666,12 @@ def calculate_period_metrics(
         PeriodMetrics dataclass with calculated metrics
     """
     period_duration, period_tolerance = LOOKBACK_AND_TOLERANCES[period]
-    period_start_at = now_ - period_duration
-    period_end_at = now_
+
+    if period == "lifetime":
+        period_start_at = share_price_hourly.index[0]
+    else:
+        period_start_at = now_ - period_duration
+        period_end_at = now_
 
     # Find the nearest available sample at or before period_start_at
     samples_start_at = share_price_hourly.index.asof(period_start_at)

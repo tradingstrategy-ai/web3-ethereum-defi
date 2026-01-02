@@ -36,15 +36,43 @@ def web3(anvil_ethereum_fork):
 
 
 @flaky.flaky
-def test_sky(
+def test_sky_stusds(
     web3: Web3,
     tmp_path: Path,
 ):
-    """Read Sky vault metadata."""
+    """Read Sky stUSDS vault metadata."""
 
     vault = create_vault_instance_autodetect(
         web3,
         vault_address="0x99cd4ec3f88a45940936f469e4bb72a2a701eeb9",
+    )
+
+    assert isinstance(vault, SkyVault)
+    assert vault.get_protocol_name() == "Sky"
+    assert vault.features == {ERC4626Feature.sky_like}
+
+    # Sky does not charge fees
+    assert vault.get_management_fee("latest") == 0.0
+    assert vault.get_performance_fee("latest") == 0.0
+    assert vault.has_custom_fees() is False
+
+    # Check vault link
+    assert vault.get_link() == "https://sky.money/"
+
+    # Check risk level
+    assert vault.get_risk() == VaultTechnicalRisk.negligible
+
+
+@flaky.flaky
+def test_sky_susds(
+    web3: Web3,
+    tmp_path: Path,
+):
+    """Read Sky sUSDS vault metadata."""
+
+    vault = create_vault_instance_autodetect(
+        web3,
+        vault_address="0xa3931d71877c0e7a3148cb7eb4463524fec27fbd",
     )
 
     assert isinstance(vault, SkyVault)
