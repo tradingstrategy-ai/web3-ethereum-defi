@@ -42,6 +42,84 @@ logger = logging.getLogger(__name__)
 #: 0.01 = 1%
 Percent: TypeAlias = float
 
+Period: TypeAlias = Literal["1W", "1M", "3M", "6M", "1Y", "lifetime"]
+
+USDollarAmount: TypeAlias = float
+
+
+@dataclass(slots=True)
+class PeriodMetrics:
+    """Tearsheet metrics for one period."""
+
+    period: Period
+
+    #: Error reason if metrics could not be calculated, None if successful
+    error_reason: str | None = None
+
+    #: When was start share price sampled
+    period_start_at: pd.Timestamp | None = None
+
+    #: When was end share price sampled
+    period_end_at: pd.Timestamp | None = None
+
+    #: Share price at beginning
+    share_price_start: USDollarAmount | None = None
+
+    #: Share price at end
+    share_price_end: USDollarAmount | None = None
+
+    #: Number of raw datapoints used
+    raw_samples: int = 0
+
+    samples_start_at: pd.Timestamp | None = None
+
+    samples_end_at: pd.Timestamp | None = None
+
+    #: Number of daily datapoitns used
+    daily_samples: int = 0
+
+    #: How much absolute returns we had
+    returns_gross: Percent | None = None
+
+    returns_net: Percent | None = None
+
+    #: Compounding annual returns
+    cagr_gross: Percent | None = None
+
+    cagr_net: Percent | None = None
+
+    #: Annualised volatility, calculated based on daily returns
+    volatility: Percent | None = None
+
+    #: Sharpe ratio
+    sharpe: float | None = None
+
+    #: Period maximum drawdown
+    max_drawdown: Percent | None = None
+
+    #: TVL at the start of the period
+    tvl_start: USDollarAmount | None = None
+
+    #: TVL at the end of the period
+    tvl_end: USDollarAmount | None = None
+
+    #: Minimum TVL in the period
+    tvl_low: USDollarAmount | None = None
+
+    #: Maximum TVL in the period
+    tvl_high: USDollarAmount | None = None
+
+
+#: Period -> Perioud duration, max sparse sample mismatch
+LOOKBACK_AND_TOLERANCES: dict[Period, tuple[pd.DateOffset, pd.Timedelta]] = {
+    "1W": (pd.DateOffset(days=7), pd.Timedelta(days=5)),
+    "1M": (pd.DateOffset(days=30), pd.Timedelta(days=60)),
+    "3M": (pd.DateOffset(days=3 * 30), pd.Timedelta(days=90 + 45)),
+    "6M": (pd.DateOffset(days=6 * 30), pd.Timedelta(days=180 + 45)),
+    "1Y": (pd.DateOffset(days=12 * 30), pd.Timedelta(days=180 + 45)),
+    "lifetime": (pd.DateOffset(years=100), pd.Timedelta(days=100 * 365)),
+}
+
 
 def fmt_one_decimal_or_int(x: float | None) -> str:
     """Display fees to .1 accuracy if there are .1 fractions, otherwise as int."""
@@ -552,6 +630,596 @@ def _unnullify(x: str | None, default: str = "<unknown>") -> str:
     return x
 
 
+def calculate_period_metrics(
+    period: Period,
+    gross_fee_data: FeeData,
+    net_fee_data: FeeData,
+    share_price_hourly: pd.Series,
+    share_price_daily: pd.Series,
+    tvl: pd.Series,
+    now_: pd.Timestamp,
+) -> PeriodMetrics:
+    """Calculate metrics for one period.
+
+    :param period:
+        Period identifier (1W, 1M, 3M, 6M, 1Y, lifetime)
+
+    :param gross_fee_data:
+        Fee data before fee mode adjustments
+
+    :param net_fee_data:
+        Fee data after fee mode adjustments (for net return calculations)
+
+    :param share_price_hourly:
+        Hourly share price series with DatetimeIndex
+
+    :param share_price_daily:
+        Daily share price series with DatetimeIndex
+
+    :param tvl:
+        Total value locked series with DatetimeIndex
+
+    :param now_:
+        The reference timestamp (usually the last timestamp in the data)
+
+    :return:
+        PeriodMetrics dataclass with calculated metrics
+    """
+    period_duration, period_tolerance = LOOKBACK_AND_TOLERANCES[period]
+    period_start_at = now_ - period_duration
+    period_end_at = now_
+
+    # Find the nearest available sample at or before period_start_at
+    samples_start_at = share_price_hourly.index.asof(period_start_at)
+
+    # Handle case where no sample exists at or before period_start_at
+    if pd.isna(samples_start_at):
+        # Fall back to the first available sample
+        samples_start_at = share_price_hourly.index[0]
+
+    period_samples_hourly = share_price_hourly.loc[samples_start_at:]
+
+    if len(period_samples_hourly) == 0:
+        return PeriodMetrics(period=period, raw_samples=0, period_start_at=period_start_at, period_end_at=period_end_at, error_reason="Period did not contain any samples")
+
+    samples_end_at = period_samples_hourly.index[-1]
+    raw_samples = len(period_samples_hourly)
+
+    if len(period_samples_hourly) == 1:
+        return PeriodMetrics(
+            period=period,
+            raw_samples=raw_samples,
+            period_start_at=period_start_at,
+            period_end_at=period_end_at,
+            error_reason="Period contained only one sample",
+            samples_start_at=samples_start_at,
+            samples_end_at=samples_end_at,
+        )
+
+    # Check if sample duration exceeds tolerance
+    sample_duration = samples_end_at - samples_start_at
+    if sample_duration > period_tolerance:
+        return PeriodMetrics(
+            period=period,
+            raw_samples=raw_samples,
+            period_start_at=period_start_at,
+            period_end_at=period_end_at,
+            samples_start_at=samples_start_at,
+            samples_end_at=samples_end_at,
+            error_reason=f"Sample duration {sample_duration} exceeds tolerance {period_tolerance}",
+        )
+
+    # Filter daily samples for the period
+    # Use asof to find nearest daily sample at or before samples_start_at
+    daily_start = share_price_daily.index.asof(samples_start_at)
+    if pd.isna(daily_start):
+        return PeriodMetrics(
+            period=period,
+            raw_samples=raw_samples,
+            period_start_at=period_start_at,
+            period_end_at=period_end_at,
+            error_reason="No daily samples available at or before period start",
+            samples_start_at=samples_start_at,
+            samples_end_at=samples_end_at,
+        )
+
+    period_samples_daily = share_price_daily.loc[daily_start:samples_end_at]
+    daily_samples = len(period_samples_daily)
+
+    # Extract start and end share prices
+    share_price_start = period_samples_hourly.iloc[0]
+    share_price_end = period_samples_hourly.iloc[-1]
+
+    # Calculate gross returns
+    if share_price_start == 0:
+        returns_gross = 0
+    else:
+        returns_gross = (share_price_end / share_price_start) - 1
+
+    # Calculate net returns using calculate_net_profit()
+    returns_net = calculate_net_profit(
+        start=samples_start_at,
+        end=samples_end_at,
+        share_price_start=share_price_start,
+        share_price_end=share_price_end,
+        management_fee_annual=net_fee_data.management,
+        performance_fee=net_fee_data.performance,
+        deposit_fee=net_fee_data.deposit,
+        withdrawal_fee=net_fee_data.withdraw,
+        sample_count=raw_samples,
+    )
+
+    # Calculate CAGR (gross and net)
+    # CAGR formula: (1 + return) ^ (1/years) - 1
+    years = sample_duration.days / 365.25
+    base_gross = 1 + returns_gross
+    base_net = 1 + returns_net
+
+    if base_gross < 0 or base_net < 0:
+        return PeriodMetrics(
+            period=period,
+            raw_samples=raw_samples,
+            period_start_at=period_start_at,
+            period_end_at=period_end_at,
+            error_reason=f"Gross base ({base_gross}) or net base ({base_net}) negative, cannot compute CAGR ",
+            samples_start_at=samples_start_at,
+            samples_end_at=samples_end_at,
+        )
+
+    # Too short period
+    if years < 3 / 365:
+        return PeriodMetrics(
+            period=period,
+            raw_samples=raw_samples,
+            period_start_at=period_start_at,
+            period_end_at=period_end_at,
+            error_reason=f"Period too short, days={sample_duration.days}, years={years:.4f}, to calculate metrics",
+            samples_start_at=samples_start_at,
+            samples_end_at=samples_end_at,
+        )
+
+    cagr_gross = base_gross ** (1 / years) - 1
+    cagr_net = base_net ** (1 / years) - 1
+
+    # Calculate daily returns for volatility and max drawdown
+    # Filter to only numeric values, drop NaN and infinite values
+    daily_returns = period_samples_daily.pct_change(fill_method=None).dropna()
+    # Ensure numeric dtype and filter out inf values to avoid std() errors
+    daily_returns = pd.to_numeric(daily_returns, errors="coerce")
+    daily_returns = daily_returns[np.isfinite(daily_returns)].dropna()
+
+    # Calculate volatility (annualized from daily)
+    if len(daily_returns) >= 2:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            volatility = daily_returns.std() * np.sqrt(365)
+            if not np.isfinite(volatility):
+                volatility = 0
+    else:
+        volatility = 0
+
+    # Calculate Sharpe ratio using hourly returns
+    hourly_returns = period_samples_hourly.pct_change(fill_method=None).dropna()
+    # Ensure numeric dtype and filter out inf values
+    hourly_returns = pd.to_numeric(hourly_returns, errors="coerce")
+    hourly_returns = hourly_returns[np.isfinite(hourly_returns)].dropna()
+    sharpe = calculate_sharpe_ratio_from_returns(hourly_returns)
+    if not np.isfinite(sharpe):
+        sharpe = 0
+
+    # Calculate max drawdown
+    if len(daily_returns) >= 2:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            wealth = (1 + daily_returns).cumprod()
+            running_max = wealth.cummax()
+            drawdown = (wealth - running_max) / running_max
+            max_drawdown = drawdown.min()  # Most negative value
+            if not np.isfinite(max_drawdown):
+                max_drawdown = 0
+    else:
+        max_drawdown = 0
+
+    # Extract TVL metrics
+    period_tvl = tvl.loc[samples_start_at:samples_end_at]
+    if len(period_tvl) > 0:
+        tvl_start = period_tvl.iloc[0]
+        tvl_end = period_tvl.iloc[-1]
+        tvl_low = period_tvl.min()
+        tvl_high = period_tvl.max()
+    else:
+        tvl_start = tvl_end = tvl_low = tvl_high = 0
+
+    return PeriodMetrics(
+        period=period,
+        error_reason=None,
+        period_start_at=period_start_at,
+        period_end_at=period_end_at,
+        share_price_start=share_price_start,
+        share_price_end=share_price_end,
+        raw_samples=raw_samples,
+        samples_start_at=samples_start_at,
+        samples_end_at=samples_end_at,
+        daily_samples=daily_samples,
+        returns_gross=returns_gross,
+        returns_net=returns_net,
+        cagr_gross=cagr_gross,
+        cagr_net=cagr_net,
+        volatility=volatility,
+        sharpe=sharpe,
+        max_drawdown=max_drawdown,
+        tvl_start=tvl_start,
+        tvl_end=tvl_end,
+        tvl_low=tvl_low,
+        tvl_high=tvl_high,
+    )
+
+
+def calculate_vault_record(
+    prices_df: pd.DataFrame,
+    vault_metadata_rows: dict[VaultSpec, VaultRow],
+    month_ago: pd.Timestamp,
+    three_months_ago: pd.Timestamp,
+) -> pd.Series:
+    """Process a single vault metadata + prices to calculate its full data.
+
+    - Exported to frontend, everything
+
+    :param prices_df:
+        Price DataFrame for a single vault
+
+    :param vault_metadata_rows:
+        Dictionary of vault metadata keyed by VaultSpec
+
+    :param month_ago:
+        Timestamp for 1-month lookback
+
+    :param three_months_ago:
+        Timestamp for 3-month lookback
+
+    :return:
+        Series with calculated metrics
+    """
+    # Extract the group name (id_val)
+    id_val = prices_df["id"].iloc[0]
+
+    # Extract vault metadata
+    vault_spec = VaultSpec.parse_string(id_val, separator="-")
+    vault_metadata: VaultRow = vault_metadata_rows.get(vault_spec)
+
+    assert vault_metadata, f"Vault metadata not found for {id_val}. This vault is present in price data, but not in metadata entries. We have {len(vault_metadata_rows)} metadata entries."
+
+    name = _unnullify(vault_metadata.get("Name"), "<unnamed>")
+    denomination = _unnullify(vault_metadata.get("Denomination"), "<broken>")
+    share_token = _unnullify(vault_metadata.get("Share token"), "<broken>")
+    normalised_denomination = normalise_token_symbol(denomination)
+    denomination_slug = normalised_denomination.lower()
+
+    max_nav = prices_df["total_assets"].max()
+    current_nav = prices_df["total_assets"].iloc[-1]
+    chain_id = prices_df["chain"].iloc[-1]
+
+    fee_data: FeeData = vault_metadata.get("_fees")
+    gross_fee_data = fee_data
+
+    if fee_data is None:
+        # Legacy, unit tests,etc.
+        # _fees not in the exported pickle we use for testing
+        fee_data = FeeData(
+            fee_mode=VaultFeeMode.externalised,
+            management=vault_metadata["Mgmt fee"],
+            performance=vault_metadata["Perf fee"],
+            deposit=vault_metadata.get("Deposit fee", 0),  # Rare: assume 0 if not explicitly set
+            withdraw=vault_metadata.get("Withdrawal fee", 0),  # Rare: assume 0 if not explicitly set
+        )
+
+    fee_mode = fee_data.fee_mode
+    net_fee_data = fee_data.get_net_fees()
+
+    mgmt_fee = fee_data.management
+    perf_fee = fee_data.performance
+    deposit_fee = fee_data.deposit
+    withdrawal_fee = fee_data.withdraw
+
+    vault_address = vault_metadata["Address"]
+    link = vault_metadata.get("Link")
+    event_count = prices_df["event_count"].iloc[-1]
+    protocol = vault_metadata["Protocol"]
+
+    risk = get_vault_risk(protocol, vault_address)
+    notes = get_notes(vault_address)
+
+    flags = vault_metadata.get("_flags", set())
+
+    # Check for broken vaults by abnormal TVL > $100B.
+    # This automatically filters out several broken entries
+    if current_nav > 100_000_000_000:
+        risk = VaultTechnicalRisk.blacklisted
+        notes = ABNORMAL_TVL
+        flags.add(VaultFlag.abnormal_tvl)
+
+    vault_slug = vault_metadata["vault_slug"]
+    protocol_slug = vault_metadata["protocol_slug"]
+    risk_numeric = risk.value if isinstance(risk, VaultTechnicalRisk) else None
+
+    trading_strategy_link = _get_trading_strategy_vault_link(
+        chain_id=chain_id,
+        chain_name=get_chain_name(chain_id),
+        protocol_slug=protocol_slug,
+        vault_slug=vault_slug,
+        vault_address=vault_address,
+    )
+
+    lockup = vault_metadata.get("_lockup", None)
+    if pd.isna(lockup):
+        # Clean up some legacy data
+        lockup = None
+
+    detection: ERC4262VaultDetection = vault_metadata["_detection_data"]
+    features = sorted([f.name for f in detection.features])
+
+    # Token addresses
+    share_token_data = vault_metadata.get("_share_token")
+    if isinstance(share_token_data, dict):
+        share_token_address = share_token_data.get("address")
+    else:
+        share_token_address = None
+
+    # Most ERC-4626 vaults are also the share token (ERC-20) contract.
+    if not share_token_address:
+        share_token_address = vault_metadata.get("Address") or detection.address
+
+    denomination_token_data = vault_metadata.get("_denomination_token")
+    denomination_token_address = denomination_token_data.get("address") if isinstance(denomination_token_data, dict) else None
+
+    # Do we know fees for this vault
+    known_fee = mgmt_fee is not None and perf_fee is not None
+
+    # Calculate lifetime return using cumulative product approach
+    with warnings.catch_warnings():
+        # We may have severeal division by zero if the share price starts at 0
+        warnings.simplefilter("ignore", RuntimeWarning)
+
+        # 2) Ensure prices_df index is monotonic and clean
+        prices_df = prices_df.loc[~prices_df.index.isna()].sort_index(kind="stable")
+
+        lifetime_start_date = start_date = prices_df.index[0]
+        lifetime_end_date = end_date = prices_df.index[-1]
+        lifetime_samples = len(prices_df)
+
+        lifetime_return = prices_df.iloc[-1]["share_price"] / prices_df.iloc[0]["share_price"] - 1
+
+        if known_fee:
+            lifetime_return_net = calculate_net_profit(
+                start=start_date,
+                end=end_date,
+                share_price_start=prices_df.iloc[0]["share_price"],
+                share_price_end=prices_df.iloc[-1]["share_price"],
+                management_fee_annual=net_fee_data.management,
+                performance_fee=net_fee_data.performance,
+                deposit_fee=net_fee_data.deposit,
+                withdrawal_fee=net_fee_data.withdraw,
+                sample_count=len(prices_df),
+            )
+        else:
+            lifetime_return_net = None
+
+        # Calculate CAGR
+        # Get the first and last date
+        age = years = (end_date - start_date).days / 365.25
+        cagr = (1 + lifetime_return) ** (1 / years) - 1 if years > 0 else np.nan
+
+        if known_fee:
+            cagr_net = (1 + lifetime_return_net) ** (1 / years) - 1 if years > 0 else np.nan
+        else:
+            cagr_net = None
+
+        three_months_start = prices_df.index.asof(three_months_ago)
+        last_three_months = prices_df.loc[three_months_start:]
+
+        one_month_start = prices_df.index.asof(month_ago)
+        last_month = prices_df.loc[one_month_start:]
+        one_month_end = last_month.index.max()
+
+        # Calculate 3 months CAGR
+        # Get the first and last date
+        three_months_start = start_date = last_three_months.index.min()
+        three_months_end = end_date = last_three_months.index.max()
+        three_months_samples = len(last_three_months)
+
+        # We need at least two data points and the start sample must fit into 90 days + buffer time range
+        if len(last_three_months) >= 2 and (three_months_end - three_months_start) < pd.Timedelta(days=120):
+            years = (end_date - start_date).days / 365.25
+
+            returns_series = resample_returns(
+                last_three_months["returns_1h"],
+                freq="D",
+            )
+
+            three_month_returns = last_three_months.iloc[-1]["share_price"] / last_three_months.iloc[0]["share_price"] - 1
+
+            three_months_cagr = (1 + three_month_returns) ** (1 / years) - 1 if years > 0 else np.nan
+
+            if known_fee:
+                three_months_return_net = calculate_net_profit(
+                    start=start_date,
+                    end=end_date,
+                    share_price_start=last_three_months.iloc[0]["share_price"],
+                    share_price_end=last_three_months.iloc[-1]["share_price"],
+                    management_fee_annual=net_fee_data.management,
+                    performance_fee=net_fee_data.performance,
+                    deposit_fee=net_fee_data.deposit,
+                    withdrawal_fee=net_fee_data.withdraw,
+                    sample_count=len(last_three_months),
+                )
+                three_months_cagr_net = (1 + three_months_return_net) ** (1 / years) - 1 if years > 0 else np.nan
+            else:
+                three_months_return_net = None
+                three_months_cagr_net = None
+
+            # Three months daily volatility, annualised
+            daily_vol = returns_series.std()
+            three_months_volatility = daily_vol * np.sqrt(365)
+
+            three_months_sharpe = calculate_sharpe_ratio_from_returns(returns_series)
+            three_months_sharpe_net = calculate_sharpe_ratio_from_returns(returns_series)
+
+        else:
+            # We have not collected data for the last three months,
+            # because our stateful reader decided the vault is dead
+            three_months_cagr = 0
+            three_months_cagr_net = 0
+            three_months_volatility = 0
+            three_month_returns = 0
+            three_months_return_net = 0
+            three_months_sharpe_net = 0
+            three_months_sharpe = 0
+
+        start_date = last_month.index.min()
+        end_date = last_month.index.max()
+
+        # We need at least two data points and the start sample must fit into 90 days + buffer time range
+        if len(last_month) >= 2 and (one_month_end - one_month_start) < pd.Timedelta(days=60):
+            years = (end_date - start_date).days / 365.25
+
+            one_month_returns = last_month.iloc[-1]["share_price"] / last_month.iloc[0]["share_price"] - 1
+            one_month_cagr = (1 + one_month_returns) ** (1 / years) - 1 if years > 0 else np.nan
+
+            one_month_start = start_date
+            one_month_end = end_date
+            one_month_samples = len(last_month)
+
+            if known_fee:
+                one_month_returns_net = calculate_net_profit(
+                    start=start_date,
+                    end=end_date,
+                    share_price_start=last_month.iloc[0]["share_price"],
+                    share_price_end=last_month.iloc[-1]["share_price"],
+                    management_fee_annual=net_fee_data.management,
+                    performance_fee=net_fee_data.performance,
+                    deposit_fee=net_fee_data.deposit,
+                    withdrawal_fee=net_fee_data.withdraw,
+                    sample_count=len(last_month),
+                )
+                one_month_cagr_net = (1 + one_month_returns_net) ** (1 / years) - 1 if years > 0 else np.nan
+            else:
+                one_month_returns_net = None
+                one_month_cagr_net = None
+                one_month_start = one_month_end = one_month_samples = None
+
+        else:
+            # We have not collected data for the last month,
+            # because our stateful reader decided the vault is dead
+            one_month_cagr = 0
+            one_month_returns = 0
+            one_month_returns_net = 0
+            one_month_cagr_net = 0
+            one_month_start = one_month_end = one_month_samples = None
+
+    fee_label = create_fee_label(fee_data)
+
+    last_updated_at = prices_df.index.max()
+    last_updated_block = prices_df.loc[last_updated_at]["block_number"]
+    last_share_price = prices_df.iloc[-1]["share_price"]
+    first_updated_at = prices_df.index.min()
+    first_updated_block = prices_df.iloc[0]["block_number"]
+
+    # Calculate period metrics using the new structured approach
+    # Resample share price once for all period calculations
+    share_price_hourly = prices_df["share_price"]
+    share_price_daily = share_price_hourly.resample("D").last()
+    tvl_series = prices_df["total_assets"]
+    now_ = prices_df.index.max()
+
+    period_results = []
+    for period in LOOKBACK_AND_TOLERANCES.keys():
+        period_metric = calculate_period_metrics(
+            period=period,
+            gross_fee_data=gross_fee_data,
+            net_fee_data=net_fee_data,
+            share_price_hourly=share_price_hourly,
+            share_price_daily=share_price_daily,
+            tvl=tvl_series,
+            now_=now_,
+        )
+        period_results.append(period_metric)
+
+    return pd.Series(
+        {
+            "name": name,
+            "vault_slug": vault_slug,
+            "protocol_slug": protocol_slug,
+            "share_token_address": share_token_address,
+            "denomination_token_address": denomination_token_address,
+            "lifetime_return": lifetime_return,
+            "lifetime_return_net": lifetime_return_net,
+            "cagr": cagr,
+            "cagr_net": cagr_net,
+            "three_months_returns": three_month_returns,
+            "three_months_returns_net": three_months_return_net,
+            "three_months_cagr": three_months_cagr,
+            "three_months_cagr_net": three_months_cagr_net,
+            "three_months_sharpe": three_months_sharpe,
+            "three_months_sharpe_net": three_months_sharpe_net,
+            "three_months_volatility": three_months_volatility,
+            "one_month_returns": one_month_returns,
+            "one_month_returns_net": one_month_returns_net,
+            "one_month_cagr": one_month_cagr,
+            "one_month_cagr_net": one_month_cagr_net,
+            "denomination": denomination,
+            "normalised_denomination": normalised_denomination,
+            "denomination_slug": denomination_slug,
+            "share_token": share_token,
+            "chain": get_chain_name(chain_id),
+            "peak_nav": max_nav,
+            "current_nav": current_nav,
+            "years": age,
+            "mgmt_fee": mgmt_fee,
+            "perf_fee": perf_fee,
+            "deposit_fee": deposit_fee,
+            "withdraw_fee": withdrawal_fee,
+            "fee_mode": fee_mode,
+            "fee_internalised": fee_mode.is_internalised() if fee_mode else None,
+            "gross_fees": gross_fee_data,
+            "net_fees": net_fee_data,
+            "fee_label": fee_label,
+            "lockup": lockup,
+            "event_count": event_count,
+            "protocol": protocol,
+            "risk": risk,
+            "risk_numeric": risk_numeric,
+            "id": id_val,
+            "start_date": lifetime_start_date,
+            "end_date": lifetime_end_date,
+            "address": vault_spec.vault_address,
+            "chain_id": vault_spec.chain_id,
+            "stablecoinish": is_stablecoin_like(denomination),
+            "first_updated_at": first_updated_at,
+            "first_updated_block": first_updated_block,
+            "last_updated_at": last_updated_at,
+            "last_updated_block": last_updated_block,
+            "last_share_price": last_share_price,
+            "features": features,
+            "flags": flags,
+            "notes": notes,
+            "link": link,
+            "trading_strategy_link": trading_strategy_link,
+            # Debug and diagnostics for sparse data
+            "one_month_start": one_month_start,
+            "one_month_end": one_month_end,
+            "one_month_samples": one_month_samples,
+            "three_months_start": three_months_start,
+            "three_months_end": three_months_end,
+            "three_months_samples": three_months_samples,
+            "lifetime_start": lifetime_start_date,
+            "lifetime_end": lifetime_end_date,
+            "lifetime_samples": lifetime_samples,
+            # New structured period metrics
+            "period_results": period_results,
+        }
+    )
+
+
 def calculate_lifetime_metrics(
     df: pd.DataFrame,
     vault_db: VaultDatabase | dict[VaultSpec, VaultRow],
@@ -585,332 +1253,6 @@ def calculate_lifetime_metrics(
     month_ago = df.index.max() - pd.Timedelta(days=30)
     three_months_ago = df.index.max() - pd.Timedelta(days=90)
 
-    def process_vault_group(group):
-        """Process a single vault group to calculate metrics
-
-        :param group:
-            Price DataFrame for a single vault
-        ."""
-        # Extract the group name (id_val)
-        id_val = group["id"].iloc[0]
-
-        # Sort by timestamp just to be safe
-        # group = group.sort_index()
-
-        # Extract vault metadata
-        vault_spec = VaultSpec.parse_string(id_val, separator="-")
-        vault_metadata: VaultRow = vaults_by_id.get(vault_spec)
-
-        assert vault_metadata, f"Vault metadata not found for {id_val}. This vault is present in price data, but not in metadata entries. We have {len(vaults_by_id)} metadata entries."
-
-        name = _unnullify(vault_metadata.get("Name"), "<unnamed>")
-        denomination = _unnullify(vault_metadata.get("Denomination"), "<broken>")
-        share_token = _unnullify(vault_metadata.get("Share token"), "<broken>")
-        normalised_denomination = normalise_token_symbol(denomination)
-        denomination_slug = normalised_denomination.lower()
-
-        max_nav = group["total_assets"].max()
-        current_nav = group["total_assets"].iloc[-1]
-        chain_id = group["chain"].iloc[-1]
-
-        fee_data: FeeData = vault_metadata.get("_fees")
-        gross_fee_data = fee_data
-
-        if fee_data is None:
-            # Legacy, unit tests,etc.
-            # _fees not in the exported pickle we use for testing
-            fee_data = FeeData(
-                fee_mode=VaultFeeMode.externalised,
-                management=vault_metadata["Mgmt fee"],
-                performance=vault_metadata["Perf fee"],
-                deposit=vault_metadata.get("Deposit fee", 0),  # Rare: assume 0 if not explicitly set
-                withdraw=vault_metadata.get("Withdrawal fee", 0),  # Rare: assume 0 if not explicitly set
-            )
-
-        fee_mode = fee_data.fee_mode
-        net_fee_data = fee_data.get_net_fees()
-
-        mgmt_fee = fee_data.management
-        perf_fee = fee_data.performance
-        deposit_fee = fee_data.deposit
-        withdrawal_fee = fee_data.withdraw
-
-        vault_address = vault_metadata["Address"]
-        link = vault_metadata.get("Link")
-        event_count = group["event_count"].iloc[-1]
-        protocol = vault_metadata["Protocol"]
-
-        risk = get_vault_risk(protocol, vault_address)
-        notes = get_notes(vault_address)
-
-        flags = vault_metadata.get("_flags", set())
-
-        # Check for broken vaults by abnormal TVL > $100B.
-        # This automatically filters out several broken entries
-        if current_nav > 100_000_000_000:
-            risk = VaultTechnicalRisk.blacklisted
-            notes = ABNORMAL_TVL
-            flags.add(VaultFlag.abnormal_tvl)
-
-        vault_slug = vault_metadata["vault_slug"]
-        protocol_slug = vault_metadata["protocol_slug"]
-        risk_numeric = risk.value if isinstance(risk, VaultTechnicalRisk) else None
-
-        trading_strategy_link = _get_trading_strategy_vault_link(
-            chain_id=chain_id,
-            chain_name=get_chain_name(chain_id),
-            protocol_slug=protocol_slug,
-            vault_slug=vault_slug,
-            vault_address=vault_address,
-        )
-
-        lockup = vault_metadata.get("_lockup", None)
-        if pd.isna(lockup):
-            # Clean up some legacy data
-            lockup = None
-
-        detection: ERC4262VaultDetection = vault_metadata["_detection_data"]
-        features = sorted([f.name for f in detection.features])
-
-        # Token addresses
-        share_token_data = vault_metadata.get("_share_token")
-        if isinstance(share_token_data, dict):
-            share_token_address = share_token_data.get("address")
-        else:
-            share_token_address = None
-
-        # Most ERC-4626 vaults are also the share token (ERC-20) contract.
-        if not share_token_address:
-            share_token_address = vault_metadata.get("Address") or detection.address
-
-        denomination_token_data = vault_metadata.get("_denomination_token")
-        denomination_token_address = denomination_token_data.get("address") if isinstance(denomination_token_data, dict) else None
-
-        # Do we know fees for this vault
-        known_fee = mgmt_fee is not None and perf_fee is not None
-
-        # Calculate lifetime return using cumulative product approach
-        with warnings.catch_warnings():
-            # We may have severeal division by zero if the share price starts at 0
-            warnings.simplefilter("ignore", RuntimeWarning)
-
-            # 2) Ensure group index is monotonic and clean
-            group = group.loc[~group.index.isna()].sort_index(kind="stable")
-
-            lifetime_start_date = start_date = group.index[0]
-            lifetime_end_date = end_date = group.index[-1]
-            lifetime_samples = len(group)
-
-            lifetime_return = group.iloc[-1]["share_price"] / group.iloc[0]["share_price"] - 1
-
-            if known_fee:
-                lifetime_return_net = calculate_net_profit(
-                    start=start_date,
-                    end=end_date,
-                    share_price_start=group.iloc[0]["share_price"],
-                    share_price_end=group.iloc[-1]["share_price"],
-                    management_fee_annual=net_fee_data.management,
-                    performance_fee=net_fee_data.performance,
-                    deposit_fee=net_fee_data.deposit,
-                    withdrawal_fee=net_fee_data.withdraw,
-                    sample_count=len(group),
-                )
-            else:
-                lifetime_return_net = None
-
-            # Calculate CAGR
-            # Get the first and last date
-            age = years = (end_date - start_date).days / 365.25
-            cagr = (1 + lifetime_return) ** (1 / years) - 1 if years > 0 else np.nan
-
-            if known_fee:
-                cagr_net = (1 + lifetime_return_net) ** (1 / years) - 1 if years > 0 else np.nan
-            else:
-                cagr_net = None
-
-            three_months_start = group.index.asof(three_months_ago)
-            last_three_months = group.loc[three_months_start:]
-
-            one_month_start = group.index.asof(month_ago)
-            last_month = group.loc[one_month_start:]
-            one_month_end = last_month.index.max()
-
-            # Calculate 3 months CAGR
-            # Get the first and last date
-            three_months_start = start_date = last_three_months.index.min()
-            three_months_end = end_date = last_three_months.index.max()
-            three_months_samples = len(last_three_months)
-
-            # We need at least two data points and the start sample must fit into 90 days + buffer time range
-            if len(last_three_months) >= 2 and (three_months_end - three_months_start) < pd.Timedelta(days=120):
-                years = (end_date - start_date).days / 365.25
-
-                returns_series = resample_returns(
-                    last_three_months["returns_1h"],
-                    freq="D",
-                )
-
-                three_month_returns = last_three_months.iloc[-1]["share_price"] / last_three_months.iloc[0]["share_price"] - 1
-
-                three_months_cagr = (1 + three_month_returns) ** (1 / years) - 1 if years > 0 else np.nan
-
-                if known_fee:
-                    three_months_return_net = calculate_net_profit(
-                        start=start_date,
-                        end=end_date,
-                        share_price_start=last_three_months.iloc[0]["share_price"],
-                        share_price_end=last_three_months.iloc[-1]["share_price"],
-                        management_fee_annual=net_fee_data.management,
-                        performance_fee=net_fee_data.performance,
-                        deposit_fee=net_fee_data.deposit,
-                        withdrawal_fee=net_fee_data.withdraw,
-                        sample_count=len(last_three_months),
-                    )
-                    three_months_cagr_net = (1 + three_months_return_net) ** (1 / years) - 1 if years > 0 else np.nan
-                else:
-                    three_months_return_net = None
-                    three_months_cagr_net = None
-
-                # Three months daily volatility, annualised
-                daily_vol = returns_series.std()
-                three_months_volatility = daily_vol * np.sqrt(365)
-
-                three_months_sharpe = calculate_sharpe_ratio_from_returns(returns_series)
-                three_months_sharpe_net = calculate_sharpe_ratio_from_returns(returns_series)
-
-            else:
-                # We have not collected data for the last three months,
-                # because our stateful reader decided the vault is dead
-                three_months_cagr = 0
-                three_months_cagr_net = 0
-                three_months_volatility = 0
-                three_month_returns = 0
-                three_months_return_net = 0
-                three_months_sharpe_net = 0
-                three_months_sharpe = 0
-
-            start_date = last_month.index.min()
-            end_date = last_month.index.max()
-
-            # We need at least two data points and the start sample must fit into 90 days + buffer time range
-            if len(last_month) >= 2 and (one_month_end - one_month_start) < pd.Timedelta(days=60):
-                years = (end_date - start_date).days / 365.25
-
-                one_month_returns = last_month.iloc[-1]["share_price"] / last_month.iloc[0]["share_price"] - 1
-                one_month_cagr = (1 + one_month_returns) ** (1 / years) - 1 if years > 0 else np.nan
-
-                one_month_start = start_date
-                one_month_end = end_date
-                one_month_samples = len(last_month)
-
-                if known_fee:
-                    one_month_returns_net = calculate_net_profit(
-                        start=start_date,
-                        end=end_date,
-                        share_price_start=last_month.iloc[0]["share_price"],
-                        share_price_end=last_month.iloc[-1]["share_price"],
-                        management_fee_annual=net_fee_data.management,
-                        performance_fee=net_fee_data.performance,
-                        deposit_fee=net_fee_data.deposit,
-                        withdrawal_fee=net_fee_data.withdraw,
-                        sample_count=len(last_month),
-                    )
-                    one_month_cagr_net = (1 + one_month_returns_net) ** (1 / years) - 1 if years > 0 else np.nan
-                else:
-                    one_month_returns_net = None
-                    one_month_cagr_net = None
-                    one_month_start = one_month_end = one_month_samples = None
-
-            else:
-                # We have not collected data for the last month,
-                # because our stateful reader decided the vault is dead
-                one_month_cagr = 0
-                one_month_returns = 0
-                one_month_returns_net = 0
-                one_month_cagr_net = 0
-                one_month_start = one_month_end = one_month_samples = None
-
-        fee_label = create_fee_label(fee_data)
-
-        last_updated_at = group.index.max()
-        last_updated_block = group.loc[last_updated_at]["block_number"]
-        last_share_price = group.iloc[-1]["share_price"]
-        first_updated_at = group.index.min()
-        first_updated_block = group.iloc[0]["block_number"]
-
-        return pd.Series(
-            {
-                "name": name,
-                "vault_slug": vault_slug,
-                "protocol_slug": protocol_slug,
-                "share_token_address": share_token_address,
-                "denomination_token_address": denomination_token_address,
-                "lifetime_return": lifetime_return,
-                "lifetime_return_net": lifetime_return_net,
-                "cagr": cagr,
-                "cagr_net": cagr_net,
-                "three_months_returns": three_month_returns,
-                "three_months_returns_net": three_months_return_net,
-                "three_months_cagr": three_months_cagr,
-                "three_months_cagr_net": three_months_cagr_net,
-                "three_months_sharpe": three_months_sharpe,
-                "three_months_sharpe_net": three_months_sharpe_net,
-                "three_months_volatility": three_months_volatility,
-                "one_month_returns": one_month_returns,
-                "one_month_returns_net": one_month_returns_net,
-                "one_month_cagr": one_month_cagr,
-                "one_month_cagr_net": one_month_cagr_net,
-                "denomination": denomination,
-                "normalised_denomination": normalised_denomination,
-                "denomination_slug": denomination_slug,
-                "share_token": share_token,
-                "chain": get_chain_name(chain_id),
-                "peak_nav": max_nav,
-                "current_nav": current_nav,
-                "years": age,
-                "mgmt_fee": mgmt_fee,
-                "perf_fee": perf_fee,
-                "deposit_fee": deposit_fee,
-                "withdraw_fee": withdrawal_fee,
-                "fee_mode": fee_mode,
-                "fee_internalised": fee_mode.is_internalised() if fee_mode else None,
-                "gross_fees": gross_fee_data,
-                "net_fees": net_fee_data,
-                "fee_label": fee_label,
-                "lockup": lockup,
-                "event_count": event_count,
-                "protocol": protocol,
-                "risk": risk,
-                "risk_numeric": risk_numeric,
-                "id": id_val,
-                "start_date": lifetime_start_date,
-                "end_date": lifetime_end_date,
-                "address": vault_spec.vault_address,
-                "chain_id": vault_spec.chain_id,
-                "stablecoinish": is_stablecoin_like(denomination),
-                "first_updated_at": first_updated_at,
-                "first_updated_block": first_updated_block,
-                "last_updated_at": last_updated_at,
-                "last_updated_block": last_updated_block,
-                "last_share_price": last_share_price,
-                "features": features,
-                "flags": flags,
-                "notes": notes,
-                "link": link,
-                "trading_strategy_link": trading_strategy_link,
-                # Debug and diagnostics for sparse data
-                "one_month_start": one_month_start,
-                "one_month_end": one_month_end,
-                "one_month_samples": one_month_samples,
-                "three_months_start": three_months_start,
-                "three_months_end": three_months_end,
-                "three_months_samples": three_months_samples,
-                "lifetime_start": lifetime_start_date,
-                "lifetime_end": lifetime_end_date,
-                "lifetime_samples": lifetime_samples,
-            }
-        )
-
     # Enable tqdm progress bar for pandas
     tqdm.pandas(desc="Calculating vault performance metrics")
 
@@ -919,9 +1261,8 @@ def calculate_lifetime_metrics(
     )
 
     # Use progress_apply instead of the for loop
-    # results_df = df.groupby("id").progress_apply(process_vault_group)
     # Sort is needed for slug stability
-    results_df = df.groupby("id", group_keys=False, sort=True).progress_apply(process_vault_group)
+    results_df = df.groupby("id", group_keys=False, sort=True).progress_apply(lambda group: calculate_vault_record(group, vaults_by_id, month_ago, three_months_ago))
 
     # Reset index to convert the grouped results to a regular DataFrame
     results_df = results_df.reset_index(drop=True)
@@ -1178,6 +1519,9 @@ def format_lifetime_table(
     _del("denomination_token_address")
 
     _del("link")
+
+    # New structured period metrics (not for human-readable table)
+    _del("period_results")
 
     if not add_share_token:
         _del("share_token")
@@ -1791,7 +2135,7 @@ def export_lifetime_row(row: pd.Series) -> dict:
             return None
 
         if isinstance(value, float):
-            if math.isinf(value):
+            if math.isinf(value) or math.isnan(value):
                 # JSON cannot handle inf
                 return None
 

@@ -16,7 +16,8 @@ from eth_defi.research.vault_benchmark import visualise_vault_return_benchmark
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.risk import VaultTechnicalRisk
 from eth_defi.vault.vaultdb import VaultDatabase
-from eth_defi.research.vault_metrics import calculate_lifetime_metrics, display_vault_chart_and_tearsheet, format_lifetime_table, export_lifetime_row
+from eth_defi.research.vault_metrics import calculate_lifetime_metrics, calculate_period_metrics, display_vault_chart_and_tearsheet, format_lifetime_table, export_lifetime_row, PeriodMetrics
+from eth_defi.vault.fee import FeeData, VaultFeeMode
 
 
 @pytest.fixture(scope="module")
@@ -104,6 +105,26 @@ def test_calculate_lifetime_metrics(
     # Link feature was not in the sample data when generated
     assert sample_row["link"] is None
 
+    # Verify period_results contains structured period metrics
+    period_results = sample_row["period_results"]
+    assert isinstance(period_results, list)
+    assert len(period_results) == 6  # 1W, 1M, 3M, 6M, 1Y, lifetime
+
+    # Check one period (1M) from period_results
+    one_month_result = next(p for p in period_results if p.period == "1M")
+    assert isinstance(one_month_result, PeriodMetrics)
+    assert one_month_result.period == "1M"
+    # The 1M period should have data (matching legacy one_month_returns)
+    assert one_month_result.raw_samples > 0
+
+    # Check lifetime period
+    lifetime_result = next(p for p in period_results if p.period == "lifetime")
+    assert isinstance(lifetime_result, PeriodMetrics)
+    assert lifetime_result.period == "lifetime"
+    assert lifetime_result.raw_samples > 0
+    # Lifetime returns should approximately match the legacy lifetime_return
+    assert lifetime_result.returns_gross == pytest.approx(sample_row["lifetime_return"], rel=0.01)
+
     # We can get human readable output
     formatted = format_lifetime_table(
         metrics,
@@ -111,6 +132,98 @@ def test_calculate_lifetime_metrics(
         add_address=True,
     )
     assert len(formatted) == 3
+
+    # Verify period_results is not in formatted output
+    assert "period_results" not in formatted.columns
+
+
+def test_calculate_period_metrics(
+    vault_db: VaultDatabase,
+    price_df: pd.DataFrame,
+):
+    """Test period metrics calculation for individual periods.
+
+    - Tests the new structured approach with LOOKBACK_AND_TOLERANCES
+    - Tests 1M, 3M, and lifetime periods
+    """
+
+    # Use Clearstar vault (has good data quality)
+    vault_id = "43111-0x05c2e246156d37b39a825a25dd08d5589e3fd883"
+    vault_spec = VaultSpec.parse_string(vault_id)
+
+    # Extract single vault data
+    vault_data = price_df[price_df["id"] == vault_id].copy()
+    vault_data = vault_data.sort_index()
+
+    # Get fee data from vault_db (same pattern as calculate_lifetime_metrics)
+    vault_row = vault_db.rows[vault_spec]
+    fee_data = vault_row.get("_fees")
+    if fee_data is None:
+        # Legacy fallback
+        fee_data = FeeData(
+            fee_mode=VaultFeeMode.externalised,
+            management=vault_row["Mgmt fee"],
+            performance=vault_row["Perf fee"],
+            deposit=vault_row.get("Deposit fee", 0),
+            withdraw=vault_row.get("Withdrawal fee", 0),
+        )
+    net_fee_data = fee_data.get_net_fees()
+
+    # Prepare inputs
+    share_price_hourly = vault_data["share_price"]
+    share_price_daily = share_price_hourly.resample("D").last().dropna()
+    tvl = vault_data["total_assets"]
+    now_ = vault_data.index.max()
+
+    # Test 1M period
+    metrics_1m = calculate_period_metrics(
+        period="1M",
+        gross_fee_data=fee_data,
+        net_fee_data=net_fee_data,
+        share_price_hourly=share_price_hourly,
+        share_price_daily=share_price_daily,
+        tvl=tvl,
+        now_=now_,
+    )
+    assert metrics_1m.period == "1M"
+    assert metrics_1m.error_reason is None, f"1M period failed: {metrics_1m.error_reason}"
+    assert metrics_1m.raw_samples > 0
+    # Compare with existing test values from test_calculate_lifetime_metrics
+    assert metrics_1m.returns_gross == pytest.approx(0.0018523254977500514, rel=0.01)
+    assert metrics_1m.tvl_end > 0
+
+    # Test 3M period (may have sparse data issue based on test data)
+    metrics_3m = calculate_period_metrics(
+        period="3M",
+        gross_fee_data=fee_data,
+        net_fee_data=net_fee_data,
+        share_price_hourly=share_price_hourly,
+        share_price_daily=share_price_daily,
+        tvl=tvl,
+        now_=now_,
+    )
+    assert metrics_3m.period == "3M"
+    # 3M may have error due to sparse data in test dataset
+    # The test data spans ~41 days, so 3M lookback will use all available data
+
+    # Test lifetime period
+    metrics_lifetime = calculate_period_metrics(
+        period="lifetime",
+        gross_fee_data=fee_data,
+        net_fee_data=net_fee_data,
+        share_price_hourly=share_price_hourly,
+        share_price_daily=share_price_daily,
+        tvl=tvl,
+        now_=now_,
+    )
+    assert metrics_lifetime.period == "lifetime"
+    assert metrics_lifetime.error_reason is None, f"Lifetime period failed: {metrics_lifetime.error_reason}"
+    # Compare with existing test values from test_calculate_lifetime_metrics
+    assert metrics_lifetime.returns_gross == pytest.approx(0.002758, rel=0.01)
+    assert metrics_lifetime.raw_samples > 0
+    assert metrics_lifetime.daily_samples > 0
+    assert metrics_lifetime.tvl_start > 0
+    assert metrics_lifetime.tvl_end > 0
 
 
 def test_vault_charts(
