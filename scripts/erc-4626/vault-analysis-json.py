@@ -18,6 +18,10 @@ To test out:
 
     OUTPUT_JSON=/tmp/top-vaults.json python scripts/erc-4626/vault-analysis-json.py
 
+To test out Pandas warning issues in calculate_lifetime_metrics(), enable strict warnings:
+
+.. code-block:: shell
+    PYTHONWARNINGS="error::RuntimeWarning" python scripts/erc-4626/vault-analysis-json.py
 """
 
 import os

@@ -54,6 +54,7 @@ def display_vaults_table(df: pd.DataFrame, nav_threshold=Decimal(1.1)) -> None:
     del df["First seen"]
     del df["Symbol"]
     del df["Shares"]
+
     if "Deposit fee" in df.columns:
         del df["Deposit fee"]
     if "Withdraw fee" in df.columns:
