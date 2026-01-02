@@ -482,37 +482,60 @@ class Gmx(Exchange):
         :param **kwargs: Additional parameters including:
             - stopLoss: Stop-loss configuration (dict or price)
             - takeProfit: Take-profit configuration (dict or price)
+            - collateral_symbol: Collateral token symbol
+            - slippage_percent: Slippage tolerance percentage
         :return: CCXT-compatible order structure
         """
-        # Extract SL/TP from kwargs
-        params = {
-            "leverage": leverage,
-            "reduceOnly": reduceOnly,
-        }
+        # Handle dry run via parent
+        if self._config["dry_run"]:
+            dry_order = self.create_dry_run_order(pair, ordertype, side, amount, self.price_to_precision(pair, rate), leverage)
+            return dry_order
 
-        # Add SL/TP if provided
+        # Get base params from parent's _get_params()
+        params = self._get_params(side, ordertype, leverage, reduceOnly, time_in_force)
+
+        # Add GMX-specific params from kwargs
         if "stopLoss" in kwargs:
             params["stopLoss"] = kwargs["stopLoss"]
         if "takeProfit" in kwargs:
             params["takeProfit"] = kwargs["takeProfit"]
-
-        # Pass collateral_symbol if provided
         if "collateral_symbol" in kwargs:
             params["collateral_symbol"] = kwargs["collateral_symbol"]
-
-        # Pass slippage if provided
         if "slippage_percent" in kwargs:
             params["slippage_percent"] = kwargs["slippage_percent"]
 
-        # Call parent create_order which uses CCXT underneath
-        return super().create_order(
-            pair=pair,
-            ordertype=ordertype,
-            side=side,
-            amount=amount,
-            rate=rate,
-            leverage=leverage,
-            reduceOnly=reduceOnly,
-            time_in_force=time_in_force,
-            params=params,
-        )
+        try:
+            # Set the precision for amount and price(rate) as accepted by the exchange
+            amount = self.amount_to_precision(pair, self._amount_to_contracts(pair, amount))
+            needs_price = self._order_needs_price(side, ordertype)
+            rate_for_order = self.price_to_precision(pair, rate) if needs_price else None
+
+            if not reduceOnly:
+                self._lev_prep(pair, leverage, side, accept_fail=True)
+
+            # Call CCXT API directly with GMX-specific params
+            order = self._api.create_order(
+                pair,
+                ordertype,
+                side,
+                amount,
+                rate_for_order,
+                params,
+            )
+
+            # Post-process order response
+            if order.get("status") is None:
+                # Map empty status to open.
+                order["status"] = "open"
+
+            if order.get("type") is None:
+                order["type"] = ordertype
+
+            self._log_exchange_response("create_order", order)
+            order = self._order_contracts_to_amount(order)
+            return order
+
+        except Exception as e:
+            # Let parent's exception handling deal with CCXT exceptions
+            # Re-raise to trigger retrier decorator if needed
+            raise
