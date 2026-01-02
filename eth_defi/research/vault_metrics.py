@@ -669,6 +669,7 @@ def calculate_period_metrics(
 
     if period == "lifetime":
         period_start_at = share_price_hourly.index[0]
+        period_end_at = now_
     else:
         period_start_at = now_ - period_duration
         period_end_at = now_
