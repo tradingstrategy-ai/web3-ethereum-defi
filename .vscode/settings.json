@@ -15,10 +15,13 @@
         "**/node_modules": true,
         "**/dist": true,
         "**/.git": true,
-        "**/docs": true    
+        "**/docs/build": true    
     },
     "python.analysis.exclude": [
         "**/.venv"
+    ],
+    "python.analysis.include": [
+        "eth_defi"
     ],
     "python.analysis.diagnosticMode": "workspace"    
 }

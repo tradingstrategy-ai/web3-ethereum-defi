@@ -53,60 +53,61 @@ class PeriodMetrics:
 
     period: Period
 
-    error_reason: str
+    #: Error reason if metrics could not be calculated, None if successful
+    error_reason: str | None = None
 
     #: When was start share price sampled
-    period_start_at: pd.Timestamp
+    period_start_at: pd.Timestamp | None = None
 
     #: When was end share price sampled
-    period_end_at: pd.Timestamp
+    period_end_at: pd.Timestamp | None = None
 
     #: Share price at beginning
-    share_price_start: USDollarAmount
+    share_price_start: USDollarAmount | None = None
 
     #: Share price at end
-    share_price_end: USDollarAmount
+    share_price_end: USDollarAmount | None = None
 
     #: Number of raw datapoints used
-    raw_samples: int
+    raw_samples: int = 0
 
-    samples_start_at: pd.Timestamp
+    samples_start_at: pd.Timestamp | None = None
 
-    samples_end_at: pd.Timestamp
+    samples_end_at: pd.Timestamp | None = None
 
     #: Number of daily datapoitns used
-    daily_samples: int
+    daily_samples: int = 0
 
     #: How much absolute returns we had
-    returns_gross: Percent
+    returns_gross: Percent | None = None
 
-    returns_net: Percent
+    returns_net: Percent | None = None
 
     #: Compounding annual returns
-    cagr_gross: Percent
+    cagr_gross: Percent | None = None
 
-    cagr_net: Percent
+    cagr_net: Percent | None = None
 
     #: Annualised volatility, calculated based on daily returns
-    volatility: Percent
+    volatility: Percent | None = None
 
     #: Sharpe ratio
-    sharpe: float
+    sharpe: float | None = None
 
     #: Period maximum drawdown
-    max_drawdown: Percent
+    max_drawdown: Percent | None = None
 
     #: TVL at the start of the period
-    tvl_start: USDollarAmount
+    tvl_start: USDollarAmount | None = None
 
     #: TVL at the end of the period
-    tvl_end: USDollarAmount
+    tvl_end: USDollarAmount | None = None
 
     #: Minimum TVL in the period
-    tvl_low: USDollarAmount
+    tvl_low: USDollarAmount | None = None
 
     #: Maximum TVL in the period
-    tvl_high: USDollarAmount
+    tvl_high: USDollarAmount | None = None
 
 
 #: Period -> Perioud duration, max sparse sample mismatch
@@ -1081,6 +1082,26 @@ def calculate_vault_record(
     first_updated_at = prices_df.index.min()
     first_updated_block = prices_df.iloc[0]["block_number"]
 
+    # Calculate period metrics using the new structured approach
+    # Resample share price once for all period calculations
+    share_price_hourly = prices_df["share_price"]
+    share_price_daily = share_price_hourly.resample("D").last()
+    tvl_series = prices_df["total_assets"]
+    now_ = prices_df.index.max()
+
+    period_results = []
+    for period in LOOKBACK_AND_TOLERANCES.keys():
+        period_metric = calculate_period_metrics(
+            period=period,
+            gross_fee_data=gross_fee_data,
+            net_fee_data=net_fee_data,
+            share_price_hourly=share_price_hourly,
+            share_price_daily=share_price_daily,
+            tvl=tvl_series,
+            now_=now_,
+        )
+        period_results.append(period_metric)
+
     return pd.Series(
         {
             "name": name,
@@ -1151,6 +1172,8 @@ def calculate_vault_record(
             "lifetime_start": lifetime_start_date,
             "lifetime_end": lifetime_end_date,
             "lifetime_samples": lifetime_samples,
+            # New structured period metrics
+            "period_results": period_results,
         }
     )
 
@@ -1456,6 +1479,9 @@ def format_lifetime_table(
     _del("denomination_token_address")
 
     _del("link")
+
+    # New structured period metrics (not for human-readable table)
+    _del("period_results")
 
     if not add_share_token:
         _del("share_token")

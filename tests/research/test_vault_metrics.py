@@ -16,7 +16,7 @@ from eth_defi.research.vault_benchmark import visualise_vault_return_benchmark
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.risk import VaultTechnicalRisk
 from eth_defi.vault.vaultdb import VaultDatabase
-from eth_defi.research.vault_metrics import calculate_lifetime_metrics, calculate_period_metrics, display_vault_chart_and_tearsheet, format_lifetime_table, export_lifetime_row
+from eth_defi.research.vault_metrics import calculate_lifetime_metrics, calculate_period_metrics, display_vault_chart_and_tearsheet, format_lifetime_table, export_lifetime_row, PeriodMetrics
 from eth_defi.vault.fee import FeeData, VaultFeeMode
 
 
@@ -105,6 +105,26 @@ def test_calculate_lifetime_metrics(
     # Link feature was not in the sample data when generated
     assert sample_row["link"] is None
 
+    # Verify period_results contains structured period metrics
+    period_results = sample_row["period_results"]
+    assert isinstance(period_results, list)
+    assert len(period_results) == 6  # 1W, 1M, 3M, 6M, 1Y, lifetime
+
+    # Check one period (1M) from period_results
+    one_month_result = next(p for p in period_results if p.period == "1M")
+    assert isinstance(one_month_result, PeriodMetrics)
+    assert one_month_result.period == "1M"
+    # The 1M period should have data (matching legacy one_month_returns)
+    assert one_month_result.raw_samples > 0
+
+    # Check lifetime period
+    lifetime_result = next(p for p in period_results if p.period == "lifetime")
+    assert isinstance(lifetime_result, PeriodMetrics)
+    assert lifetime_result.period == "lifetime"
+    assert lifetime_result.raw_samples > 0
+    # Lifetime returns should approximately match the legacy lifetime_return
+    assert lifetime_result.returns_gross == pytest.approx(sample_row["lifetime_return"], rel=0.01)
+
     # We can get human readable output
     formatted = format_lifetime_table(
         metrics,
@@ -112,6 +132,9 @@ def test_calculate_lifetime_metrics(
         add_address=True,
     )
     assert len(formatted) == 3
+
+    # Verify period_results is not in formatted output
+    assert "period_results" not in formatted.columns
 
 
 def test_calculate_period_metrics(
