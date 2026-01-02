@@ -35,10 +35,10 @@ from eth_defi.gmx.core import Markets
 from eth_defi.gmx.core.open_positions import GetOpenPositions
 from eth_defi.gmx.core.oracle import OraclePrices
 from eth_defi.gmx.order.sltp_order import SLTPEntry, SLTPOrder, SLTPParams
+from eth_defi.gmx.contracts import get_contract_addresses, get_token_address_normalized
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import fetch_erc20_details
-from eth_defi.utils import get_contract_addresses, get_token_address_normalized
 
 logger = logging.getLogger(__name__)
 
