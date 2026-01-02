@@ -710,7 +710,20 @@ def calculate_period_metrics(
         )
 
     # Filter daily samples for the period
-    period_samples_daily = share_price_daily.loc[samples_start_at:]
+    # Use asof to find nearest daily sample at or before samples_start_at
+    daily_start = share_price_daily.index.asof(samples_start_at)
+    if pd.isna(daily_start):
+        return PeriodMetrics(
+            period=period,
+            raw_samples=raw_samples,
+            period_start_at=period_start_at,
+            period_end_at=period_end_at,
+            error_reason="No daily samples available at or before period start",
+            samples_start_at=samples_start_at,
+            samples_end_at=samples_end_at,
+        )
+
+    period_samples_daily = share_price_daily.loc[daily_start:samples_end_at]
     daily_samples = len(period_samples_daily)
 
     # Extract start and end share prices
@@ -737,37 +750,73 @@ def calculate_period_metrics(
     )
 
     # Calculate CAGR (gross and net)
+    # CAGR formula: (1 + return) ^ (1/years) - 1
     years = sample_duration.days / 365.25
-    if years > 0:
-        cagr_gross = (1 + returns_gross) ** (1 / years) - 1
-        cagr_net = (1 + returns_net) ** (1 / years) - 1
-    else:
-        cagr_gross = 0
-        cagr_net = 0
+    base_gross = 1 + returns_gross
+    base_net = 1 + returns_net
+
+    if base_gross < 0 or base_net < 0:
+        return PeriodMetrics(
+            period=period,
+            raw_samples=raw_samples,
+            period_start_at=period_start_at,
+            period_end_at=period_end_at,
+            error_reason=f"Gross base ({base_gross}) or net base ({base_net}) negative, cannot compute CAGR ",
+            samples_start_at=samples_start_at,
+            samples_end_at=samples_end_at,
+        )
+
+    # Too short period
+    if years < 3 / 365:
+        return PeriodMetrics(
+            period=period,
+            raw_samples=raw_samples,
+            period_start_at=period_start_at,
+            period_end_at=period_end_at,
+            error_reason=f"Period too short, days={sample_duration.days}, years={years:.4f}, to calculate metrics",
+            samples_start_at=samples_start_at,
+            samples_end_at=samples_end_at,
+        )
+
+    cagr_gross = base_gross ** (1 / years) - 1
+    cagr_net = base_net ** (1 / years) - 1
 
     # Calculate daily returns for volatility and max drawdown
-    daily_returns = period_samples_daily.pct_change().dropna()
+    # Filter to only numeric values, drop NaN and infinite values
+    daily_returns = period_samples_daily.pct_change(fill_method=None).dropna()
+    # Ensure numeric dtype and filter out inf values to avoid std() errors
+    daily_returns = pd.to_numeric(daily_returns, errors="coerce")
+    daily_returns = daily_returns[np.isfinite(daily_returns)].dropna()
 
     # Calculate volatility (annualized from daily)
     if len(daily_returns) >= 2:
-        volatility = daily_returns.std() * np.sqrt(365)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            volatility = daily_returns.std() * np.sqrt(365)
+            if not np.isfinite(volatility):
+                volatility = 0
     else:
         volatility = 0
 
     # Calculate Sharpe ratio using hourly returns
-    hourly_returns = period_samples_hourly.pct_change().dropna()
+    hourly_returns = period_samples_hourly.pct_change(fill_method=None).dropna()
+    # Ensure numeric dtype and filter out inf values
+    hourly_returns = pd.to_numeric(hourly_returns, errors="coerce")
+    hourly_returns = hourly_returns[np.isfinite(hourly_returns)].dropna()
     sharpe = calculate_sharpe_ratio_from_returns(hourly_returns)
-    if np.isnan(sharpe):
+    if not np.isfinite(sharpe):
         sharpe = 0
 
     # Calculate max drawdown
     if len(daily_returns) >= 2:
-        wealth = (1 + daily_returns).cumprod()
-        running_max = wealth.cummax()
-        drawdown = (wealth - running_max) / running_max
-        max_drawdown = drawdown.min()  # Most negative value
-        if np.isnan(max_drawdown):
-            max_drawdown = 0
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            wealth = (1 + daily_returns).cumprod()
+            running_max = wealth.cummax()
+            drawdown = (wealth - running_max) / running_max
+            max_drawdown = drawdown.min()  # Most negative value
+            if not np.isfinite(max_drawdown):
+                max_drawdown = 0
     else:
         max_drawdown = 0
 
@@ -2086,7 +2135,7 @@ def export_lifetime_row(row: pd.Series) -> dict:
             return None
 
         if isinstance(value, float):
-            if math.isinf(value):
+            if math.isinf(value) or math.isnan(value):
                 # JSON cannot handle inf
                 return None
 
