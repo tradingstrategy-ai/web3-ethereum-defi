@@ -68,7 +68,7 @@ class CsigmaVault(ERC4626Vault):
         :return:
             0.1 = 10%
         """
-        return None
+        return 0
 
     def get_estimated_lock_up(self) -> datetime.timedelta | None:
         """Get estimated lock-up period if any.
@@ -76,7 +76,7 @@ class CsigmaVault(ERC4626Vault):
         cSigma uses a First-In-First-Out queue for redemptions when vault reserves
         are depleted. The lock-up period depends on RWA credit market liquidity.
         """
-        return None
+        return 0
 
     def get_link(self, referral: str | None = None) -> str:
         """Get the vault's web UI link.
