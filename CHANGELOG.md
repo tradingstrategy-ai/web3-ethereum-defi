@@ -17,6 +17,7 @@
 - Add: New protocol: Ethena - sUSDe synthetic dollar staking vault
 - Add: New protocol: Decentralized USD (USDD) - sUSDD savings vaults on Ethereum and BNB Chain
 - Add: New protocol: Term Finance - fixed-rate DeFi lending via auction-based matching
+- Add: New protocol: EulerEarn - Metamorpho-based yield aggregator on Euler Vault Kit
 - Fix: Various RPC error code workarounds (Monad, Arbitrum, Hyperliquid)
 
 # 0.37

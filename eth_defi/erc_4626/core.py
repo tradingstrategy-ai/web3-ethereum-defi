@@ -154,6 +154,16 @@ class ERC4626Feature(enum.Enum):
     #: https://basescan.org/address/0x30a9a9654804f1e5b3291a86e83eded7cf281618#code
     euler_like = "euler_like"
 
+    #: EulerEarn
+    #:
+    #: EulerEarn is a Metamorpho-based metavault that aggregates deposits into multiple ERC-4626 vaults.
+    #: Built on top of Euler Vault Kit (EVK).
+    #: https://github.com/euler-xyz/euler-earn
+    #: https://docs.euler.finance/developers/euler-earn/
+    #:
+    #: Example vault: https://snowtrace.io/address/0xE1A62FDcC6666847d5EA752634E45e134B2F824B
+    euler_earn_like = "euler_earn_like"
+
     #: Umami DAO
     #:
     #: gmUSDC vault - ERC-4626 custom in-house, no Github repo
@@ -371,6 +381,8 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "Lagoon Finance"
     elif ERC4626Feature.term_finance_like in features:
         return "Term Finance"
+    elif ERC4626Feature.euler_earn_like in features:
+        return "Euler"
     elif ERC4626Feature.euler_like in features:
         return "Euler"
     elif ERC4626Feature.superform_like in features:
