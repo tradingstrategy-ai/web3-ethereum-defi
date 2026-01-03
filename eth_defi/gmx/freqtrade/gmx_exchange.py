@@ -417,12 +417,13 @@ class Gmx(Exchange):
                 "stopLossPrice": stop_price,
             }
 
-            # Create standalone stop-loss order via CCXT
+            # Create standalone stop-loss order via CCXT using keyword arguments
             order = self._api.create_order(
                 symbol=pair,
                 type="stop_loss",  # GMX-specific order type
                 side=side,
                 amount=amount,
+                price=None,  # price (not used for stop-loss orders)
                 params=params,
             )
 
@@ -482,37 +483,27 @@ class Gmx(Exchange):
         :param **kwargs: Additional parameters including:
             - stopLoss: Stop-loss configuration (dict or price)
             - takeProfit: Take-profit configuration (dict or price)
+            - collateral_symbol: Collateral token symbol
+            - slippage_percent: Slippage tolerance percentage
         :return: CCXT-compatible order structure
         """
-        # Extract SL/TP from kwargs
-        params = {
-            "leverage": leverage,
-            "reduceOnly": reduceOnly,
-        }
+        # Handle dry run via parent
+        if self._config["dry_run"]:
+            dry_order = self.create_dry_run_order(pair, ordertype, side, amount, self.price_to_precision(pair, rate), leverage)
+            return dry_order
 
-        # Add SL/TP if provided
+        # Get base params from parent's _get_params()
+        params = self._get_params(side, ordertype, leverage, reduceOnly, time_in_force)
+
+        # Add GMX-specific params from kwargs
         if "stopLoss" in kwargs:
             params["stopLoss"] = kwargs["stopLoss"]
         if "takeProfit" in kwargs:
             params["takeProfit"] = kwargs["takeProfit"]
-
-        # Pass collateral_symbol if provided
         if "collateral_symbol" in kwargs:
             params["collateral_symbol"] = kwargs["collateral_symbol"]
-
-        # Pass slippage if provided
         if "slippage_percent" in kwargs:
             params["slippage_percent"] = kwargs["slippage_percent"]
 
         # Call parent create_order which uses CCXT underneath
-        return super().create_order(
-            pair=pair,
-            ordertype=ordertype,
-            side=side,
-            amount=amount,
-            rate=rate,
-            leverage=leverage,
-            reduceOnly=reduceOnly,
-            time_in_force=time_in_force,
-            params=params,
-        )
+        return super().create_order(pair=pair, ordertype=ordertype, side=side, amount=amount, rate=rate, leverage=leverage, reduceOnly=reduceOnly, time_in_force=time_in_force, **kwargs)

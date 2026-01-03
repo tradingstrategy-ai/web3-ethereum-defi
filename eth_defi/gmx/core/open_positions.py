@@ -304,6 +304,7 @@ class GetOpenPositions(GetData):
             "market": market_address,
             "market_symbol": market_info["market_symbol"],
             "collateral_token": collateral_token_info["symbol"],
+            "collateral_token_address": collateral_token,
             "position_size": position_size_usd,
             "position_size_usd_raw": int(pos["sizeInUsd"]),
             "size_in_tokens": size_in_tokens,
@@ -519,6 +520,7 @@ class GetOpenPositions(GetData):
             "market": raw_position[0][1],
             "market_symbol": market_info["market_symbol"],
             "collateral_token": chain_tokens[collateral_token_address]["symbol"],
+            "collateral_token_address": collateral_token_address,
             "position_size": raw_position[1][0] / 10**30,
             "position_size_usd_raw": raw_position[1][0],  # Raw value with 30 decimals - needed for exact position closing
             "size_in_tokens": raw_position[1][1],

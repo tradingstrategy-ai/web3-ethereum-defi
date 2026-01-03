@@ -45,7 +45,7 @@ from eth_defi.gmx.core.oracle import OraclePrices
 from eth_defi.gmx.graphql.client import GMXSubsquidClient
 from eth_defi.gmx.order import SLTPEntry, SLTPOrder, SLTPParams
 from eth_defi.gmx.trading import GMXTrading
-from eth_defi.gmx.utils import calculate_estimated_liquidation_price, convert_raw_price_to_usd
+from eth_defi.gmx.utils import calculate_estimated_liquidation_price, convert_raw_price_to_usd, get_oracle_address
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import fetch_erc20_details
@@ -3285,9 +3285,20 @@ class GMX(ExchangeCompatible):
         leverage = params.get("leverage", self.leverage.get(normalized_symbol, 1.0))
         slippage_percent = params.get("slippage_percent", 0.003)  # 0.3% default
 
-        # Determine if this is opening or closing a position
-        # Check if user has an existing position
-        is_long = side == "buy"
+        # Determine position direction based on side and reduceOnly
+        # Following Freqtrade/CCXT standard pattern:
+        # - Opening: buy=LONG, sell=SHORT
+        # - Closing: sell=close LONG, buy=close SHORT
+        reduceOnly = params.get("reduceOnly", False)
+
+        if not reduceOnly:
+            # Opening a position
+            is_long = side == "buy"  # buy = LONG, sell = SHORT
+            logger.info(f"🔍 DIAGNOSTIC: _convert_ccxt_to_gmx_params - Opening position: side='{side}' -> is_long={is_long} (reduceOnly={reduceOnly})")
+        else:
+            # Closing a position
+            is_long = side == "sell"  # sell = close LONG, buy = close SHORT
+            logger.info(f"🔍 DIAGNOSTIC: _convert_ccxt_to_gmx_params - Closing position: side='{side}' -> is_long={is_long} (reduceOnly={reduceOnly})")
 
         # Convert amount from base currency (BTC/ETH) to USD
         # For CCXT linear perpetuals, amount is in base currency contracts
@@ -3404,12 +3415,20 @@ class GMX(ExchangeCompatible):
         :param tp_entry: Take profit configuration
         :return: CCXT-compatible order structure
         """
-        # Only support bundled SL/TP for opening positions (buy side)
-        if side != "buy":
-            raise ValueError("Bundled SL/TP only supported for opening positions (side='buy'). Use standalone SL/TP for existing positions.")
+        # Only support bundled SL/TP for opening positions (reduceOnly=False)
+        reduceOnly = params.get("reduceOnly", False)
+        if reduceOnly:
+            raise ValueError("Bundled SL/TP only supported for opening positions (reduceOnly=False). Use standalone SL/TP for closing positions.")
 
         # Convert CCXT params to GMX params
-        gmx_params = self._convert_ccxt_to_gmx_params(symbol, type, side, amount, price, params)
+        gmx_params = self._convert_ccxt_to_gmx_params(
+            symbol,
+            type,
+            side,
+            amount,
+            price,
+            params,
+        )
 
         # Get market and token info
         normalized_symbol = self._normalize_symbol(symbol)
@@ -3428,10 +3447,16 @@ class GMX(ExchangeCompatible):
         chain = self.config.get_chain()
         market_address = market["info"]["market_token"]  # Market contract address
 
-        # For GMX, we need to use the market's long_token for long positions
+        # Determine position direction from gmx_params (set by _convert_ccxt_to_gmx_params)
+        is_long = gmx_params["is_long"]
+
+        # For GMX, we need to use the appropriate token based on position direction
         # GMX markets have specific tokens for long/short positions
-        # E.g., ETH/USDC market uses WETH (long_token), wstETH market uses wstETH
-        collateral_address = market["info"]["long_token"]  # Use market's long token for long positions
+        # Long positions use long_token, short positions use short_token (typically stablecoin)
+        if is_long:
+            collateral_address = market["info"]["long_token"]  # Use market's long token for long positions
+        else:
+            collateral_address = market["info"]["short_token"]  # Use market's short token for short positions
         index_token_address = market["info"]["index_token"]  # Use market's index token
 
         if not collateral_address or not index_token_address:
@@ -3439,7 +3464,11 @@ class GMX(ExchangeCompatible):
 
         # Calculate collateral amount from size and leverage
         collateral_usd = size_delta_usd / leverage
-        token_details = fetch_erc20_details(self.web3, collateral_address, chain_id=self.web3.eth.chain_id)
+        token_details = fetch_erc20_details(
+            self.web3,
+            collateral_address,
+            chain_id=self.web3.eth.chain_id,
+        )
 
         # Get the price of the collateral token to convert USD to token amount
         # For GMX markets, we need the actual price of the long_token (e.g., wstETH price, not ETH price)
@@ -3447,11 +3476,14 @@ class GMX(ExchangeCompatible):
         oracle_prices = oracle.get_recent_prices()
 
         # Get the collateral token's oracle price
-        if collateral_address not in oracle_prices:
-            raise ValueError(f"No oracle price available for collateral token {collateral_address}")
+        oracle_token_address = get_oracle_address(chain, collateral_address)
+        if oracle_token_address not in oracle_prices:
+            raise ValueError(f"No oracle price available for collateral token {collateral_address} (mapped to {oracle_token_address})")
 
-        price_data = oracle_prices[collateral_address]
-        raw_price = median([float(price_data["maxPriceFull"]), float(price_data["minPriceFull"])])
+        price_data = oracle_prices[oracle_token_address]
+        raw_price = median(
+            [float(price_data["maxPriceFull"]), float(price_data["minPriceFull"])],
+        )
 
         # Convert from 30-decimal precision to USD price
         collateral_token_price = raw_price / (10 ** (PRECISION - token_details.decimals))
@@ -3465,7 +3497,11 @@ class GMX(ExchangeCompatible):
         # Use token symbol from token_details since we might be using a different token
         # (e.g., market uses wstETH but user specified "ETH")
         actual_collateral_symbol = token_details.symbol
-        self._ensure_token_approval(actual_collateral_symbol, size_delta_usd, leverage)
+        self._ensure_token_approval(
+            actual_collateral_symbol,
+            size_delta_usd,
+            leverage,
+        )
 
         # Create SLTPOrder instance
         sltp_order = SLTPOrder(
@@ -3473,7 +3509,7 @@ class GMX(ExchangeCompatible):
             market_key=to_checksum_address(market_address),
             collateral_address=to_checksum_address(collateral_address),
             index_token_address=to_checksum_address(index_token_address),
-            is_long=True,  # buy = long
+            is_long=is_long,  # Use actual position direction from gmx_params
         )
 
         # Build SLTPParams
@@ -3491,7 +3527,9 @@ class GMX(ExchangeCompatible):
             execution_buffer=execution_buffer,
         )
 
-        logger.info(f"SL/TP result created: entry_price={sltp_result.entry_price}, sl_trigger={sltp_result.stop_loss_trigger_price}, tp_trigger={sltp_result.take_profit_trigger_price}, sl_fee={sltp_result.stop_loss_fee}, tp_fee={sltp_result.take_profit_fee}")
+        logger.info(
+            f"SL/TP result created: entry_price={sltp_result.entry_price}, sl_trigger={sltp_result.stop_loss_trigger_price}, tp_trigger={sltp_result.take_profit_trigger_price}, sl_fee={sltp_result.stop_loss_fee}, tp_fee={sltp_result.take_profit_fee}",
+        )
 
         # Sign transaction
         transaction = sltp_result.transaction
@@ -3654,10 +3692,11 @@ class GMX(ExchangeCompatible):
         oracle_prices = oracle.get_recent_prices()
 
         # Get the collateral token's oracle price
-        if collateral_token_address not in oracle_prices:
-            raise ValueError(f"No oracle price available for collateral token {collateral_token_address}")
+        oracle_token_address = get_oracle_address(chain, collateral_token_address)
+        if oracle_token_address not in oracle_prices:
+            raise ValueError(f"No oracle price available for collateral token {collateral_token_address} (mapped to {oracle_token_address})")
 
-        price_data = oracle_prices[collateral_token_address]
+        price_data = oracle_prices[oracle_token_address]
         raw_price = median([float(price_data["maxPriceFull"]), float(price_data["minPriceFull"])])
 
         # Convert from 30-decimal precision to USD price
@@ -3798,6 +3837,126 @@ class GMX(ExchangeCompatible):
 
         return order
 
+    def _create_standalone_sltp_order(
+        self,
+        symbol: str,
+        type: str,
+        side: str,
+        amount: float,
+        params: dict,
+    ) -> dict:
+        """Create standalone SL/TP order for existing position.
+
+        :param symbol: Market symbol
+        :param type: Order type ('stop_loss' or 'take_profit')
+        :param side: Order side ('sell' closes long, 'buy' closes short)
+        :param amount: Order size in USD
+        :param params: Additional parameters
+        :return: CCXT-compatible order structure
+        """
+        # Determine position direction
+        # If closing Long, side is Sell. If closing Short, side is Buy.
+        is_long = side == "sell"
+
+        # Get market info
+        normalized_symbol = self._normalize_symbol(symbol)
+        market = self.markets[normalized_symbol]
+        base_currency = market["base"]
+
+        # We need to match the existing position's collateral.
+        # Freqtrade typically doesn't pass collateral_symbol for stoploss.
+        # We'll find the open position to get exact details.
+        positions_manager = GetOpenPositions(self.config)
+        existing_positions = positions_manager.get_data(self.wallet.address)
+
+        position = None
+        for key, pos in existing_positions.items():
+            if pos.get("market_symbol") == base_currency and pos.get("is_long") == is_long:
+                # Found matching position
+                position = pos
+                break
+
+        if not position:
+            raise ValueError(f"No {'long' if is_long else 'short'} position found for {symbol} to attach SL/TP")
+
+        # Get position details
+        position_size_usd = position.get("position_size")
+        if position_size_usd is None:
+            # Fallback parsing
+            raw = position.get("position_size_usd_raw") or position.get("position_size_usd")
+            if raw:
+                position_size_usd = float(raw) / 1e30
+
+        if not position_size_usd:
+            raise ValueError(f"Could not determine position size for {symbol}")
+
+        collateral_token_address = position.get("collateral_token_address")
+        index_token_address = market["info"]["index_token"]
+        market_address = market["info"]["market_token"]
+
+        # Parse SL/TP params to entry
+        sl_entry, tp_entry = self._parse_sltp_params(params)
+
+        # Select entry based on type
+        entry = sl_entry if type == "stop_loss" else tp_entry
+        if not entry:
+            # If passed via explicit params (not nested in stopLoss object)
+            trigger_price = params.get("stopLossPrice") if type == "stop_loss" else params.get("takeProfitPrice")
+            if trigger_price:
+                entry = SLTPEntry(trigger_price=trigger_price, close_percent=1.0, auto_cancel=True)
+            else:
+                raise ValueError(f"Missing configuration for {type} order")
+
+        # Use passed amount as close size if specified
+        if amount and amount > 0:
+            entry.close_size_usd = amount
+        elif entry.close_size_usd is None:
+            # Default to full position if not specified
+            entry.close_size_usd = position_size_usd
+
+        # Create SLTPOrder
+        sltp_order = SLTPOrder(
+            config=self.config,
+            market_key=to_checksum_address(market_address),
+            collateral_address=to_checksum_address(collateral_token_address),
+            index_token_address=to_checksum_address(index_token_address),
+            is_long=is_long,
+        )
+
+        # Create order
+        slippage = params.get("slippage_percent", 0.003)
+        buffer = params.get("execution_buffer", self.execution_buffer)
+        entry_price = position.get("entry_price")
+
+        if type == "stop_loss":
+            result = sltp_order.create_stop_loss_order(
+                position_size_usd=position_size_usd,
+                entry=entry,
+                entry_price=entry_price,
+                slippage_percent=slippage,
+                execution_buffer=buffer,
+            )
+        else:
+            result = sltp_order.create_take_profit_order(
+                position_size_usd=position_size_usd,
+                entry=entry,
+                entry_price=entry_price,
+                slippage_percent=slippage,
+                execution_buffer=buffer,
+            )
+
+        # Sign and send
+        transaction = result.transaction
+        if "nonce" in transaction:
+            del transaction["nonce"]
+        signed_tx = self.wallet.sign_transaction_with_new_nonce(transaction)
+
+        tx_hash_bytes = self.web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+        tx_hash = self.web3.to_hex(tx_hash_bytes)
+        receipt = self.web3.eth.wait_for_transaction_receipt(tx_hash_bytes)
+
+        return self._parse_order_result_to_ccxt(result, symbol, side, type, amount, tx_hash, receipt)
+
     def create_order(
         self,
         symbol: str,
@@ -3895,7 +4054,16 @@ class GMX(ExchangeCompatible):
 
         # Bundled approach: SL/TP with position opening
         if sl_entry or tp_entry:
-            return self._create_order_with_sltp(symbol, type, side, amount, price, params, sl_entry, tp_entry)
+            return self._create_order_with_sltp(
+                symbol,
+                type,
+                side,
+                amount,
+                price,
+                params,
+                sl_entry,
+                tp_entry,
+            )
 
         # Convert CCXT parameters to GMX parameters (standard flow)
         gmx_params = self._convert_ccxt_to_gmx_params(
@@ -3914,16 +4082,29 @@ class GMX(ExchangeCompatible):
             leverage=gmx_params["leverage"],
         )
 
-        if side == "buy":
-            # Create the order using GMXTrading
+        # Extract reduceOnly from params to determine if opening or closing
+        reduceOnly = params.get("reduceOnly", False)
+
+        if not reduceOnly:
+            # ============================================
+            # OPENING POSITIONS (buy=LONG, sell=SHORT)
+            # ============================================
             order_result = self.trader.open_position(**gmx_params)
-        elif side == "sell":
+
+        else:
+            # ============================================
+            # CLOSING POSITIONS (sell=close LONG, buy=close SHORT)
+            # ============================================
             # For closing positions, use on-chain position data from GetOpenPositions
             # to derive the correct decrease size and collateral delta.
             #
             # This mirrors the recommendation from the GMX SDK: always base the
             # decrease on the actual open position instead of the user-requested
             # amount to avoid "invalid decrease order size" reverts.
+
+            # Determine which type of position we're closing
+            is_closing_long = side == "sell"  # sell = close LONG
+            is_closing_short = side == "buy"  # buy = close SHORT
 
             normalized_symbol = self._normalize_symbol(symbol)
             market = self.markets[normalized_symbol]
@@ -3933,21 +4114,27 @@ class GMX(ExchangeCompatible):
             positions_manager = GetOpenPositions(self.config)
             existing_positions = positions_manager.get_data(self.wallet.address)
 
-            # Find the matching long position for this market + collateral
+            # Find the matching position for this market + collateral + direction
             position_to_close = None
             for position_key, position_data in existing_positions.items():
                 position_market = position_data.get("market_symbol", "")
                 position_is_long = position_data.get("is_long", None)
                 position_collateral = position_data.get("collateral_token", "")
 
-                # Match market, collateral, and must be a long position
-                if position_market == base_currency and position_collateral == gmx_params["collateral_symbol"] and position_is_long:
-                    position_to_close = position_data
-                    break
+                # Match market and collateral
+                if position_market == base_currency and position_collateral == gmx_params["collateral_symbol"]:
+                    # Check if position direction matches what we're trying to close
+                    if is_closing_long and position_is_long:
+                        position_to_close = position_data
+                        break
+                    elif is_closing_short and not position_is_long:
+                        position_to_close = position_data
+                        break
 
             if not position_to_close:
+                position_type = "long" if is_closing_long else "short"
                 raise ValueError(
-                    f"No long position found for {symbol} with collateral {gmx_params['collateral_symbol']} to close",
+                    f"No {position_type} position found for {symbol} with collateral {gmx_params['collateral_symbol']} to close",
                 )
 
             # Derive actual on-chain position size in USD.
@@ -4002,19 +4189,18 @@ class GMX(ExchangeCompatible):
                 initial_collateral_delta = collateral_amount_usd
 
             # Call close_position with the derived parameters
+            # Use the actual position direction from the found position
             order_result = self.trader.close_position(
                 market_symbol=gmx_params["market_symbol"],
                 collateral_symbol=gmx_params["collateral_symbol"],
                 start_token_symbol=gmx_params["start_token_symbol"],
-                is_long=True,  # We're closing a long position
+                is_long=position_to_close.get("is_long"),  # Use actual position direction
                 size_delta_usd=size_delta_usd,
                 initial_collateral_delta=initial_collateral_delta,
                 slippage_percent=gmx_params.get("slippage_percent", 0.003),
                 execution_buffer=gmx_params.get("execution_buffer", self.execution_buffer),
                 auto_cancel=gmx_params.get("auto_cancel", False),
             )
-        else:
-            raise ValueError("Side must be 'buy' or 'sell'")
 
         # Sign transaction (remove nonce if present, wallet will manage it)
         transaction = order_result.transaction
