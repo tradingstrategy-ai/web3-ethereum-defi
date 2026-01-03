@@ -50,7 +50,7 @@ console = Console()
 # Configuration
 EXECUTION_BUFFER = 30  # Higher buffer for testnet reliability
 SIZE_USD = 10  # Position size in USD
-LEVERAGE = 1.5  # Leverage multiplier
+LEVERAGE = 2.5  # Leverage multiplier
 STOP_LOSS_PERCENT = 0.05  # 5% stop loss
 MARKET_SYMBOL = "ETH"
 COLLATERAL_SYMBOL = "ETH"  # ETH gets auto-wrapped to WETH by GMX
@@ -173,7 +173,7 @@ def main():
             is_long=IS_LONG,
             size_delta_usd=SIZE_USD,
             leverage=LEVERAGE,
-            slippage_percent=0.005,
+            slippage_percent=0.05,  # 5% slippage I know. But for the sake of testing
             execution_buffer=EXECUTION_BUFFER,
         )
 
