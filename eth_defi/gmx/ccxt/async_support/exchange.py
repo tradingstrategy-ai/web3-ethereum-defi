@@ -1948,15 +1948,31 @@ class GMX(Exchange):
     ) -> dict:
         """Create standalone SL/TP order for existing position (async version).
 
-        :param symbol: Market symbol
-        :param type: Order type ('stop_loss' or 'take_profit')
-        :param side: Order side
-        :param amount: Order size
-        :param params: Additional parameters
+        This method creates a standalone stop-loss or take-profit order for an
+        existing GMX position asynchronously. Unlike bundled orders (created with
+        position opening), these are created separately after a position is already open.
+
+        Used by Freqtrade's ``create_stoploss()`` method when
+        ``stoploss_on_exchange=True``.
+
+        :param symbol: Market symbol (e.g., "ETH/USDC:USDC")
+        :param type: Order type ("stop_loss" or "take_profit")
+        :param side: Order side ("sell" to close long, "buy" to close short)
+        :param amount: Position size in USD to close
+        :param params: Parameters dict containing:
+
+            - ``stopLossPrice`` or ``takeProfitPrice``: Trigger price (float)
+            - ``leverage``: Position leverage (required)
+            - ``collateral_symbol``: Collateral token (optional, inferred from symbol)
+            - ``slippage_percent``: Slippage tolerance (default: 0.003)
+            - ``execution_buffer``: Execution fee buffer multiplier (default: 2.5)
+
         :return: CCXT-compatible order structure
+        :raises NotSupported: Async version not yet implemented
+        :raises InvalidOrder: If required parameters are missing
         """
-        # Async implementation mirrors sync but with await for blocking calls
-        raise NotSupported(f"{self.id} async standalone SLTP orders not yet implemented - use sync version")
+        # Async implementation would require async GMXTrading methods
+        raise NotSupported(f"{self.id} async standalone SLTP orders not yet implemented. Use sync GMX exchange class for standalone SL/TP orders in Freqtrade.")
 
     async def create_market_buy_order(
         self,
