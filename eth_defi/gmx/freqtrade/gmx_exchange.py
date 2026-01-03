@@ -417,12 +417,13 @@ class Gmx(Exchange):
                 "stopLossPrice": stop_price,
             }
 
-            # Create standalone stop-loss order via CCXT
+            # Create standalone stop-loss order via CCXT using keyword arguments
             order = self._api.create_order(
                 symbol=pair,
                 type="stop_loss",  # GMX-specific order type
                 side=side,
                 amount=amount,
+                price=None,  # price (not used for stop-loss orders)
                 params=params,
             )
 
@@ -504,38 +505,5 @@ class Gmx(Exchange):
         if "slippage_percent" in kwargs:
             params["slippage_percent"] = kwargs["slippage_percent"]
 
-        try:
-            # Set the precision for amount and price(rate) as accepted by the exchange
-            amount = self.amount_to_precision(pair, self._amount_to_contracts(pair, amount))
-            needs_price = self._order_needs_price(side, ordertype)
-            rate_for_order = self.price_to_precision(pair, rate) if needs_price else None
-
-            if not reduceOnly:
-                self._lev_prep(pair, leverage, side, accept_fail=True)
-
-            # Call CCXT API directly with GMX-specific params
-            order = self._api.create_order(
-                pair,
-                ordertype,
-                side,
-                amount,
-                rate_for_order,
-                params,
-            )
-
-            # Post-process order response
-            if order.get("status") is None:
-                # Map empty status to open.
-                order["status"] = "open"
-
-            if order.get("type") is None:
-                order["type"] = ordertype
-
-            self._log_exchange_response("create_order", order)
-            order = self._order_contracts_to_amount(order)
-            return order
-
-        except Exception as e:
-            # Let parent's exception handling deal with CCXT exceptions
-            # Re-raise to trigger retrier decorator if needed
-            raise
+        # Call parent create_order which uses CCXT underneath
+        return super().create_order(pair=pair, ordertype=ordertype, side=side, amount=amount, rate=rate, leverage=leverage, reduceOnly=reduceOnly, time_in_force=time_in_force, **kwargs)
