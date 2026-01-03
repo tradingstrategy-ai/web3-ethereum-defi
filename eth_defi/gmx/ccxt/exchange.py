@@ -3292,13 +3292,20 @@ class GMX(ExchangeCompatible):
         # Convert amount from base currency (BTC/ETH) to USD
         # For CCXT linear perpetuals, amount is in base currency contracts
         # GMX needs size_delta_usd in actual USD
-        if price:
-            size_delta_usd = amount * price
+
+        # GMX Extension: Support direct USD sizing via size_usd parameter
+        if "size_usd" in params:
+            # Direct USD amount (GMX-native approach)
+            size_delta_usd = params["size_usd"]
         else:
-            # For market orders, fetch current price
-            ticker = self.fetch_ticker(symbol)
-            current_price = ticker["last"]
-            size_delta_usd = amount * current_price
+            # Standard CCXT: amount is in base currency, convert to USD
+            if price:
+                size_delta_usd = amount * price
+            else:
+                # For market orders, fetch current price
+                ticker = self.fetch_ticker(symbol)
+                current_price = ticker["last"]
+                size_delta_usd = amount * current_price
 
         gmx_params = {
             "market_symbol": base_currency,
@@ -3824,13 +3831,26 @@ class GMX(ExchangeCompatible):
             wallet = HotWallet.from_private_key("0x...")
             gmx = GMX(config, wallet=wallet)
 
-            # Create market buy order (long position)
+            # Approach 1: CCXT standard (amount in base currency)
             order = gmx.create_order(
                 "ETH/USD",
                 "market",
                 "buy",
-                1000,
+                0.5,  # 0.5 ETH
                 params={
+                    "leverage": 3.0,
+                    "collateral_symbol": "USDC",
+                },
+            )
+
+            # Approach 2: GMX extension (size_usd in USD)
+            order = gmx.create_order(
+                "ETH/USD",
+                "market",
+                "buy",
+                0,  # Ignored when size_usd is provided
+                params={
+                    "size_usd": 1000,  # $1000 position
                     "leverage": 3.0,
                     "collateral_symbol": "USDC",
                 },
@@ -3845,11 +3865,12 @@ class GMX(ExchangeCompatible):
         :type type: str
         :param side: Order side ('buy' for long, 'sell' for short)
         :type side: str
-        :param amount: Order size in USD
+        :param amount: Order size in base currency contracts (e.g., ETH for ETH/USD). Use params['size_usd'] for USD-based sizing.
         :type amount: float
-        :param price: Limit price (currently unused, GMX uses market orders)
+        :param price: Price for limit orders. For market orders, used to convert amount to USD if provided.
         :type price: float | None
         :param params: Additional parameters:
+            - size_usd (float): GMX Extension - Order size in USD (alternative to amount parameter)
             - leverage (float): Leverage multiplier (default: 1.0)
             - collateral_symbol (str): Collateral token (default: 'USDC')
             - slippage_percent (float): Slippage tolerance (default: 0.003)
