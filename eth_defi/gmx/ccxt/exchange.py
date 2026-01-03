@@ -2694,6 +2694,66 @@ class GMX(ExchangeCompatible):
 
         return result
 
+    def _get_trades_from_order_cache(
+        self,
+        symbol: str = None,
+        since: int = None,
+    ) -> list[dict]:
+        """
+        Convert cached orders to trade format.
+
+        This provides immediate trade data from recent orders without waiting for
+        Subsquid indexer to process them. This solves the race condition where
+        Freqtrade tries to fetch trade details immediately after order execution.
+
+        :param symbol: Filter by symbol (optional)
+        :param since: Timestamp in milliseconds to fetch trades from
+        :return: List of CCXT-formatted trades from cached orders
+        """
+        trades = []
+
+        for order_id, order in self._orders.items():
+            # Only process closed (filled) orders
+            # IMPORTANT: Failed transactions have status="failed" and are skipped here.
+            # GMX orders execute atomically on-chain - they either succeed completely
+            # (receipt.status=1 → order.status="closed") or revert completely
+            # (receipt.status=0 → order.status="failed"). This ensures failed orders
+            # in the cache never appear as trades, preventing conflicts.
+            if order.get("status") != "closed":
+                continue
+
+            # Filter by symbol if specified
+            if symbol:
+                normalized_symbol = self._normalize_symbol(symbol)
+                if order.get("symbol") != normalized_symbol:
+                    continue
+
+            # Filter by timestamp if specified
+            if since and order.get("timestamp", 0) < since:
+                continue
+
+            # Convert order to trade format
+            # CCXT trade format: https://docs.ccxt.com/#/?id=trade-structure
+            trade = {
+                "id": order_id,  # Transaction hash
+                "order": order_id,  # Link to order
+                "timestamp": order.get("timestamp"),
+                "datetime": order.get("datetime"),
+                "symbol": order.get("symbol"),
+                "type": order.get("type"),
+                "side": order.get("side"),
+                "takerOrMaker": None,  # GMX doesn't distinguish
+                "price": order.get("average") or order.get("price"),
+                "amount": order.get("filled") or order.get("amount"),
+                "cost": order.get("cost"),
+                "fee": order.get("fee"),
+                "fees": [order.get("fee")] if order.get("fee") else [],
+                "info": order.get("info", {}),
+            }
+            trades.append(trade)
+
+        return trades
+
     def fetch_my_trades(
         self,
         symbol: str = None,
@@ -2704,7 +2764,14 @@ class GMX(ExchangeCompatible):
         """
         Fetch user's trade history.
 
-        Returns position changes (opens/closes) for the account.
+        Uses RPC-first approach:
+        1. First checks local order cache for recent trades (immediate blockchain data)
+        2. Then fetches historical trades from Subsquid GraphQL
+        3. Merges and deduplicates results
+
+        This solves the race condition where Freqtrade fetches trades immediately
+        after order execution, before the Subsquid indexer has processed them.
+
         Requires user_wallet_address to be set in GMXConfig.
 
         :param symbol: Filter by symbol (optional)
@@ -2731,7 +2798,10 @@ class GMX(ExchangeCompatible):
         if not wallet:
             raise ValueError("wallet_address must be provided in GMXConfig or params")
 
-        # Fetch position changes from Subsquid
+        # Step 1: Get trades from local order cache (RPC-based, immediate)
+        cache_trades = self._get_trades_from_order_cache(symbol=symbol, since=since)
+
+        # Step 2: Fetch position changes from Subsquid (historical data)
         # NOTE: get_position_changes() only accepts account, position_key, and limit parameters
         # We need to filter by timestamp manually
         position_changes = self.subsquid.get_position_changes(
@@ -2740,7 +2810,7 @@ class GMX(ExchangeCompatible):
         )
 
         # Parse each position change as a trade
-        trades = []
+        subsquid_trades = []
         for change in position_changes:
             try:
                 # Filter by timestamp if specified
@@ -2768,14 +2838,26 @@ class GMX(ExchangeCompatible):
 
                 # Parse trade
                 trade = self.parse_trade(change, market)
-                trades.append(trade)
+                subsquid_trades.append(trade)
 
             except Exception:
                 # Skip trades we can't parse
                 pass
 
-        # Sort by timestamp descending
-        trades.sort(key=lambda x: x["timestamp"], reverse=True)
+        # Step 3: Merge results, deduplicating by transaction hash (id)
+        # Cache trades take precedence (more recent/accurate)
+        seen_ids = {trade["id"] for trade in cache_trades if trade.get("id")}
+        trades = cache_trades.copy()
+
+        # Add Subsquid trades that aren't in cache
+        for trade in subsquid_trades:
+            trade_id = trade.get("id")
+            if trade_id and trade_id not in seen_ids:
+                trades.append(trade)
+                seen_ids.add(trade_id)
+
+        # Step 4: Sort by timestamp descending
+        trades.sort(key=lambda x: x.get("timestamp", 0), reverse=True)
 
         # Apply limit
         if limit:
@@ -3660,9 +3742,9 @@ class GMX(ExchangeCompatible):
         execution_buffer = params.get("execution_buffer", 2.5)
 
         # Parse symbol to get market info
-        market_info = self._get_market_info(symbol)
-        market_symbol = market_info["index_token"]
-        collateral_symbol = params.get("collateral_symbol") or market_info["collateral_token"]
+        market_info = self.market(symbol)
+        market_symbol = market_info["base"]  # e.g., "BTC" from "BTC/USDC:USDC"
+        collateral_symbol = params.get("collateral_symbol", "USDC")
 
         # Determine position direction from side
         # For SL/TP: sell = closing long position, buy = closing short position
