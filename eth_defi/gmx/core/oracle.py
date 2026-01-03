@@ -11,6 +11,8 @@ import time
 import logging
 import random
 
+from eth_typing import HexAddress
+from eth_utils import to_checksum_address
 from requests import Response
 
 from eth_defi.gmx.contracts import _get_clean_api_urls, _get_clean_backup_urls
@@ -20,6 +22,27 @@ from eth_defi.gmx.types import PriceData
 # Key: chain name, Value: (prices dict, timestamp)
 _ORACLE_PRICES_CACHE: dict[str, tuple[dict, float]] = {}
 _CACHE_TTL_SECONDS = 10  # Cache oracle prices for 10 seconds
+
+# Testnet to mainnet token address mappings
+# Used to translate testnet addresses to mainnet equivalents for oracle price lookups
+# Since testnets use mainnet oracle endpoints, we need this mapping
+_TESTNET_TO_MAINNET_ADDRESSES: dict[str, dict[HexAddress, HexAddress]] = {
+    # Arbitrum Sepolia → Arbitrum mainnet
+    "arbitrum_sepolia": {
+        # WETH/ETH
+        "0x980B62Da83eFf3D4576C647993b0c1D7faf17c73": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
+        # USDC
+        "0x3321Fd36aEaB0d5CdfD26f4A3A93E2D2aAcCB99f": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+        # USDC.SG (synthetic) - maps to same USDC on mainnet
+        "0x3253a335E7bFfB4790Aa4C25C4250d206E9b9773": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+        # BTC
+        "0xF79cE1Cf38A09D572b021B4C5548b75A14082F12": "0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f",
+    },
+    # Avalanche Fuji → Avalanche mainnet
+    "avalanche_fuji": {
+        # Add mappings when Fuji testnet is tested
+    },
+}
 
 
 class OraclePrices:
@@ -55,6 +78,39 @@ class OraclePrices:
         self.oracle_url = clean_api_urls[oracle_chain] + "/signed_prices/latest"
         self.backup_oracle_url = clean_backup_urls.get(oracle_chain, "") + "/signed_prices/latest" if clean_backup_urls.get(oracle_chain) else None
 
+    def _translate_address_for_oracle(self, address: HexAddress) -> HexAddress:
+        """Translate testnet token address to mainnet equivalent for oracle lookup.
+
+        Testnets use mainnet oracle endpoints, so we need to map testnet
+        token addresses to their mainnet equivalents before looking up prices.
+
+        :param address: Token address (testnet or mainnet)
+        :return: Mainnet token address for oracle lookup
+        """
+        # Check if we have a mapping for this chain
+        if self.chain in _TESTNET_TO_MAINNET_ADDRESSES:
+            # Normalise address to checksum format for consistent lookup
+            try:
+                checksum_addr = to_checksum_address(address)
+            except ValueError:
+                # Invalid address format, return as-is
+                return address
+
+            # Look up mainnet equivalent
+            mapping = _TESTNET_TO_MAINNET_ADDRESSES[self.chain]
+            mainnet_addr = mapping.get(checksum_addr)
+
+            if mainnet_addr:
+                logging.debug("Translated testnet address %s to mainnet %s", checksum_addr, mainnet_addr)
+                return mainnet_addr
+            else:
+                # No mapping found - address might already be mainnet or unknown token
+                logging.debug("No testnet mapping found for %s, using as-is", checksum_addr)
+                return checksum_addr
+
+        # Not a testnet chain, return address unchanged
+        return address
+
     def get_recent_prices(self, use_cache: bool = True, cache_ttl: float = None) -> PriceData:
         """Get raw output of the GMX rest v2 api for signed prices.
 
@@ -86,6 +142,25 @@ class OraclePrices:
             _ORACLE_PRICES_CACHE[self.chain] = (prices, time.time())
 
         return prices
+
+    def get_price_for_token(self, token_address: HexAddress, use_cache: bool = True) -> dict | None:
+        """Get oracle price for a specific token, handling testnet address translation.
+
+        This is the recommended method for getting token prices as it automatically
+        handles testnet-to-mainnet address mapping.
+
+        :param token_address: Token address (testnet or mainnet)
+        :param use_cache: Whether to use cached oracle prices
+        :return: Price data dict or None if not found
+        """
+        # Translate testnet address to mainnet if needed
+        lookup_address = self._translate_address_for_oracle(token_address)
+
+        # Get all oracle prices
+        oracle_prices = self.get_recent_prices(use_cache=use_cache)
+
+        # Look up by mainnet address
+        return oracle_prices.get(lookup_address)
 
     def _make_query(self, max_retries=5, initial_backoff=1, max_backoff=60) -> Optional[Response]:
         """Make request using oracle URL with retry mechanism.

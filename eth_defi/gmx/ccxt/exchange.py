@@ -3444,13 +3444,11 @@ class GMX(ExchangeCompatible):
         # Get the price of the collateral token to convert USD to token amount
         # For GMX markets, we need the actual price of the long_token (e.g., wstETH price, not ETH price)
         oracle = OraclePrices(self.config.chain)
-        oracle_prices = oracle.get_recent_prices()
 
-        # Get the collateral token's oracle price
-        if collateral_address not in oracle_prices:
-            raise ValueError(f"No oracle price available for collateral token {collateral_address}")
-
-        price_data = oracle_prices[collateral_address]
+        # Get price for token (handles testnet address translation)
+        price_data = oracle.get_price_for_token(collateral_address)
+        if price_data is None:
+            raise ValueError(f"No oracle price available for collateral token {collateral_address}. This may indicate the token is not supported by GMX oracle feeds.")
         raw_price = median([float(price_data["maxPriceFull"]), float(price_data["minPriceFull"])])
 
         # Convert from 30-decimal precision to USD price
@@ -3651,13 +3649,11 @@ class GMX(ExchangeCompatible):
 
         # Get token price to convert USD to token amount
         oracle = OraclePrices(self.config.chain)
-        oracle_prices = oracle.get_recent_prices()
 
-        # Get the collateral token's oracle price
-        if collateral_token_address not in oracle_prices:
-            raise ValueError(f"No oracle price available for collateral token {collateral_token_address}")
-
-        price_data = oracle_prices[collateral_token_address]
+        # Get price for token (handles testnet address translation)
+        price_data = oracle.get_price_for_token(collateral_token_address)
+        if price_data is None:
+            raise ValueError(f"No oracle price available for collateral token {collateral_token_address}. This may indicate the token is not supported by GMX oracle feeds.")
         raw_price = median([float(price_data["maxPriceFull"]), float(price_data["minPriceFull"])])
 
         # Convert from 30-decimal precision to USD price

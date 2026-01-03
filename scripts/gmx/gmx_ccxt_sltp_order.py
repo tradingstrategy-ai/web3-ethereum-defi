@@ -95,7 +95,7 @@ from rich.console import Console
 console = Console()
 
 # Configuration
-EXECUTION_BUFFER = 30  # Higher buffer for testnet reliability
+EXECUTION_BUFFER = 4  # Higher buffer for testnet reliability
 SIZE_USD = 10  # Position size in USD
 LEVERAGE = 2.0  # Leverage multiplier
 STOP_LOSS_PERCENT = 0.05  # 5% stop loss
@@ -220,13 +220,17 @@ def main():
 
     try:
         # Create market buy order with bundled SL/TP using GMX percentage extension
-        order = gmx.create_market_buy_order(
+        order = gmx.create_order(
             MARKET_SYMBOL,
+            "market",
+            "buy",
             SIZE_USD,
+            None,  # price (not needed for market orders)
             {
                 "leverage": LEVERAGE,
                 "collateral_symbol": COLLATERAL_SYMBOL,
                 "execution_buffer": EXECUTION_BUFFER,
+                "slippage_percent": 0.02,  # 2% slippage for testing
                 # GMX extension: percentage-based triggers
                 "stopLoss": {
                     "triggerPercent": STOP_LOSS_PERCENT,
