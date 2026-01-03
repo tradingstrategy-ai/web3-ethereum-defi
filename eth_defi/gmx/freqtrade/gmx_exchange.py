@@ -683,5 +683,5 @@ class Gmx(Exchange):
             reduceOnly=reduceOnly,
             time_in_force=time_in_force,
             initial_order=initial_order,
-            params=params,
+            **kwargs,
         )
