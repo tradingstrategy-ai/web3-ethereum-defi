@@ -135,6 +135,7 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag, str]] = {
     "0x27968d36b937dcb26f33902fa489e5b228b104be": (VaultFlag.illiquid, XUSD_MESSAGE),
     "0x6030ad53d90ec2fb67f3805794dbb3fa5fd6eb64": (VaultFlag.illiquid, XUSD_MESSAGE),
     "0x7184bea7743ccfbe390f9cd830095a13ef867941": (VaultFlag.illiquid, XUSD_MESSAGE),
+    "0x2f5dc399b1e31f9808d1ef1256917abd2447c74f": (VaultFlag.illiquid, XUSD_MESSAGE),
     # Borrowable USDC Deposit, SiloId: 55, Sonic
     "0x4935fadb17df859667cc4f7bfe6a8cb24f86f8d0": (VaultFlag.illiquid, XUSD_MESSAGE),
     # EVK Vault eUSDC-1, Sonic
