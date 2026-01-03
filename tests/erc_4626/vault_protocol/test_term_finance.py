@@ -9,9 +9,11 @@ from web3 import Web3
 
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
-from eth_defi.erc_4626.vault_protocol.term_finance.vault import TermFinanceVault
+from eth_defi.erc_4626.vault_protocol.term_finance.vault import \
+    TermFinanceVault
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.vault.risk import VaultTechnicalRisk
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
 
@@ -59,4 +61,4 @@ def test_term_finance_vault(
     assert vault.get_link() == "https://app.term.finance/vaults/0xa10c40f9e318b0ed67ecc3499d702d8db9437228/1"
 
     # Risk level is None (to be assessed later)
-    assert vault.get_risk() is None
+    assert vault.get_risk() is VaultTechnicalRisk.low

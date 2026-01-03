@@ -227,11 +227,15 @@ def test_{protocol_slug}(
 
 After adding it, run the test module and fix any issues.
 
-## Step 6: Format the codebase
+## Step 7: All vault protocol related tests
+
+Rerun all tests for the vault protocl for which we added more vaults.
+
+## Step 8: Format the codebase
 
 Format the newly added files with `poetry run ruff format`.
 
-## Step 7: Verification checklist
+## Step 9: Verification checklist
 
 After implementation, verify:
 
@@ -249,11 +253,11 @@ After implementation, verify:
 
 If there are problems with the checklist, ask for human assistance.
 
-## Step 8: Changelog
+## Step 10: Changelog
 
 - Update changelog line in `CHANGELOG.md` and add a note of added new protocol
 
-## Step 9: Pull request (optional)
+## Step 11: Pull request (optional)
 
 After everything is done, open a pull request, but only if the user asks you to.
 

@@ -6,7 +6,7 @@ Default permissions ask for confirmations repeatedly, enable safe permissions wi
 
 ## Skills
 
-TODO
+- [See example skill descriptions here](./.claude/skills)
 
 ## Checking web pages under development in Svelte
 
