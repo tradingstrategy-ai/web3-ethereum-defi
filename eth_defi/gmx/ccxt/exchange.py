@@ -4069,9 +4069,9 @@ class GMX(ExchangeCompatible):
 
         :param symbol: Market symbol (e.g., 'ETH/USD')
         :type symbol: str
-        :param amount: Order size in USD
+        :param amount: Order size in base currency contracts (e.g., ETH for ETH/USD). Use params['size_usd'] for USD-based sizing.
         :type amount: float
-        :param params: Additional parameters (see create_order)
+        :param params: Additional parameters (see create_order). Use 'size_usd' for direct USD sizing.
         :type params: dict | None
         :return: CCXT-compatible order structure
         :rtype: dict
@@ -4091,15 +4091,15 @@ class GMX(ExchangeCompatible):
         amount: float,
         params: dict | None = None,
     ) -> dict:
-        """Create a market sell order (short position).
+        """Create a market sell order (close long position).
 
         Convenience wrapper around create_order() for market sell orders.
 
         :param symbol: Market symbol (e.g., 'ETH/USD')
         :type symbol: str
-        :param amount: Order size in USD
+        :param amount: Order size in base currency contracts (e.g., ETH for ETH/USD). Use params['size_usd'] for USD-based sizing.
         :type amount: float
-        :param params: Additional parameters (see create_order)
+        :param params: Additional parameters (see create_order). Use 'size_usd' for direct USD sizing.
         :type params: dict | None
         :return: CCXT-compatible order structure
         :rtype: dict

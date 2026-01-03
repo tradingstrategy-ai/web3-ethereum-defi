@@ -29,11 +29,12 @@ def test_ccxt_long_with_stop_loss(
     size_usd = 10.0
     stop_loss_percent = 0.05
 
-    # Open long position with stop loss
+    # Open long position with stop loss using GMX extension (size_usd)
     order = gmx.create_market_buy_order(
         symbol,
-        size_usd,
+        0,  # Ignored when size_usd is provided
         {
+            "size_usd": size_usd,  # GMX extension for direct USD sizing
             "leverage": leverage,
             "collateral_symbol": "ETH",
             "slippage_percent": 0.005,
@@ -90,11 +91,12 @@ def test_ccxt_long_with_take_profit(
     size_usd = 10.0
     take_profit_percent = 0.10
 
-    # Open long position with take profit
+    # Open long position with take profit using GMX extension (size_usd)
     order = gmx.create_market_buy_order(
         symbol,
-        size_usd,
+        0,  # Ignored when size_usd is provided
         {
+            "size_usd": size_usd,  # GMX extension for direct USD sizing
             "leverage": leverage,
             "collateral_symbol": "ETH",
             "slippage_percent": 0.005,
@@ -158,11 +160,12 @@ def test_ccxt_sltp_uses_correct_market(
     leverage = 2.5
     size_usd = 10.0
 
-    # Create order with stop loss
+    # Create order with stop loss using GMX extension (size_usd)
     order = gmx.create_market_buy_order(
         symbol,
-        size_usd,
+        0,  # Ignored when size_usd is provided
         {
+            "size_usd": size_usd,  # GMX extension for direct USD sizing
             "leverage": leverage,
             "collateral_symbol": "ETH",
             "slippage_percent": 0.005,
@@ -244,8 +247,9 @@ def test_ccxt_sltp_graphql_mode(
 
     order = gmx.create_market_buy_order(
         symbol,
-        size_usd,
+        0,  # Ignored when size_usd is provided
         {
+            "size_usd": size_usd,  # GMX extension for direct USD sizing
             "leverage": leverage,
             "collateral_symbol": "ETH",
             "slippage_percent": 0.005,
@@ -277,3 +281,178 @@ def test_ccxt_sltp_graphql_mode(
     info = order.get("info", {})
     assert info.get("stop_loss_trigger_price") is not None, "SL should be set"
     assert info.get("take_profit_trigger_price") is not None, "TP should be set"
+
+
+@flaky(max_runs=3, min_passes=1)
+def test_ccxt_sizing_with_size_usd_parameter(
+    ccxt_gmx_fork_open_close: GMX,
+    web3_arbitrum_fork_ccxt_long,
+    execution_buffer: int,
+):
+    """Test order creation using GMX extension size_usd parameter.
+
+    Verifies that the size_usd parameter correctly creates a position with
+    the exact USD size specified, regardless of the amount parameter value.
+    """
+    gmx = ccxt_gmx_fork_open_close
+    web3 = web3_arbitrum_fork_ccxt_long
+
+    symbol = "ETH/USDC:USDC"
+    leverage = 2.5
+    size_usd = 10.0
+
+    # Create order using size_usd parameter (GMX extension)
+    order = gmx.create_market_buy_order(
+        symbol,
+        0,  # This value should be ignored
+        {
+            "size_usd": size_usd,  # GMX extension for direct USD sizing
+            "leverage": leverage,
+            "collateral_symbol": "ETH",
+            "slippage_percent": 0.005,
+            "execution_buffer": execution_buffer,
+            "stopLoss": {
+                "triggerPercent": 0.05,
+                "closePercent": 1.0,
+            },
+        },
+    )
+
+    assert order is not None
+    assert order.get("id") is not None
+
+    tx_hash = order.get("info", {}).get("tx_hash") or order.get("id")
+    _execute_order(web3, tx_hash)
+
+    # Verify position size matches size_usd
+    positions = gmx.fetch_positions([symbol])
+    assert len(positions) > 0, "Position should be created"
+
+    position = positions[0]
+    position_size = position.get("notional", 0)
+
+    # Position size should be close to size_usd (within 1% due to price movements)
+    assert abs(position_size - size_usd) / size_usd < 0.01, f"Position size {position_size} should be close to {size_usd}"
+
+
+@flaky(max_runs=3, min_passes=1)
+def test_ccxt_sizing_with_base_currency_amount(
+    ccxt_gmx_fork_open_close: GMX,
+    web3_arbitrum_fork_ccxt_long,
+    execution_buffer: int,
+):
+    """Test order creation using CCXT standard (amount in base currency).
+
+    Verifies that passing amount in base currency (ETH) correctly converts
+    to USD position size based on current market price.
+    """
+    gmx = ccxt_gmx_fork_open_close
+    web3 = web3_arbitrum_fork_ccxt_long
+
+    symbol = "ETH/USDC:USDC"
+    leverage = 2.5
+    target_usd = 10.0
+
+    # Fetch current price to convert USD to ETH
+    ticker = gmx.fetch_ticker(symbol)
+    current_price = ticker["last"]
+    amount_eth = target_usd / current_price
+
+    # Create order using CCXT standard (amount in base currency)
+    order = gmx.create_market_buy_order(
+        symbol,
+        amount_eth,  # Amount in ETH (base currency)
+        {
+            "leverage": leverage,
+            "collateral_symbol": "ETH",
+            "slippage_percent": 0.005,
+            "execution_buffer": execution_buffer,
+            "stopLoss": {
+                "triggerPercent": 0.05,
+                "closePercent": 1.0,
+            },
+        },
+    )
+
+    assert order is not None
+    assert order.get("id") is not None
+
+    tx_hash = order.get("info", {}).get("tx_hash") or order.get("id")
+    _execute_order(web3, tx_hash)
+
+    # Verify position size
+    positions = gmx.fetch_positions([symbol])
+    assert len(positions) > 0, "Position should be created"
+
+    position = positions[0]
+    position_size = position.get("notional", 0)
+
+    # Position size should be close to target_usd (within 2% due to price conversion)
+    assert abs(position_size - target_usd) / target_usd < 0.02, f"Position size {position_size} should be close to {target_usd}"
+
+
+@flaky(max_runs=3, min_passes=1)
+def test_ccxt_sltp_bundled_orders_count(
+    ccxt_gmx_fork_open_close: GMX,
+    web3_arbitrum_fork_ccxt_long,
+    execution_buffer: int,
+):
+    """Test that bundled SL/TP creates exactly 3 orders in one transaction.
+
+    Verifies that opening a position with both stop loss and take profit
+    creates all three orders (main, SL, TP) in a single atomic transaction.
+    """
+    gmx = ccxt_gmx_fork_open_close
+    web3 = web3_arbitrum_fork_ccxt_long
+
+    symbol = "ETH/USDC:USDC"
+    size_usd = 10.0
+
+    # Create bundled order with both SL and TP
+    order = gmx.create_market_buy_order(
+        symbol,
+        0,
+        {
+            "size_usd": size_usd,
+            "leverage": 2.5,
+            "collateral_symbol": "ETH",
+            "slippage_percent": 0.005,
+            "execution_buffer": execution_buffer,
+            "stopLoss": {
+                "triggerPercent": 0.05,
+                "closePercent": 1.0,
+            },
+            "takeProfit": {
+                "triggerPercent": 0.10,
+                "closePercent": 1.0,
+            },
+        },
+    )
+
+    assert order is not None
+
+    # Verify order info contains all three order details
+    info = order.get("info", {})
+    assert info.get("has_stop_loss") is True, "Should have stop loss"
+    assert info.get("has_take_profit") is True, "Should have take profit"
+    assert info.get("stop_loss_trigger_price") is not None, "SL trigger price should be set"
+    assert info.get("take_profit_trigger_price") is not None, "TP trigger price should be set"
+    assert info.get("stop_loss_fee", 0) > 0, "SL execution fee should be > 0"
+    assert info.get("take_profit_fee", 0) > 0, "TP execution fee should be > 0"
+    assert info.get("main_order_fee", 0) > 0, "Main order fee should be > 0"
+
+    # Verify total fee includes all three orders
+    total_fee = info.get("total_execution_fee", 0)
+    main_fee = info.get("main_order_fee", 0)
+    sl_fee = info.get("stop_loss_fee", 0)
+    tp_fee = info.get("take_profit_fee", 0)
+
+    expected_total = main_fee + sl_fee + tp_fee
+    assert total_fee == expected_total, f"Total fee {total_fee} should equal sum of individual fees {expected_total}"
+
+    tx_hash = order.get("info", {}).get("tx_hash") or order.get("id")
+    _execute_order(web3, tx_hash)
+
+    # Verify position created successfully
+    positions = gmx.fetch_positions([symbol])
+    assert len(positions) > 0, "Position should be created from bundled order"
