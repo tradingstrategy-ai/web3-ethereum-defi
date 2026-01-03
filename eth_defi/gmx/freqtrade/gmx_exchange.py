@@ -47,7 +47,50 @@ class Gmx(Exchange):
     futures exchange. Since GMX is a DEX with unique characteristics, some
     Freqtrade features are not supported.
 
-    Configuration Example::
+    Stop-Loss and Take-Profit Support
+    ----------------------------------
+
+    GMX supports both standard Freqtrade SL/TP patterns and advanced bundled orders:
+
+    **Standard Pattern (Default)**
+
+        Freqtrade creates orders separately:
+
+        1. Entry order via ``create_order()`` - opens position
+        2. Stop-loss via ``create_stoploss()`` - separate transaction after entry fills
+        3. Take-profit via exit signals - bot-managed exits
+
+        This works out of the box with standard Freqtrade strategies when
+        ``stoploss_on_exchange=True`` is configured.
+
+    **Advanced Pattern (Bundled Orders)**
+
+        Custom strategies can pass ``stopLoss`` and ``takeProfit`` parameters to
+        ``create_order()`` to create all 3 orders atomically in one transaction:
+
+        - Main order (position entry)
+        - Stop-loss order (if stopLoss provided)
+        - Take-profit order (if takeProfit provided)
+
+        Benefits: Lower gas costs, atomic execution, guaranteed SL/TP placement.
+
+        Example custom strategy::
+
+            def enter_long(self, pair, amount, leverage):
+                return self.exchange.create_order(
+                    pair=pair,
+                    ordertype="market",
+                    side="buy",
+                    amount=amount,
+                    leverage=leverage,
+                    stopLoss={"triggerPercent": 0.05},  # 5% SL
+                    takeProfit={"triggerPercent": 0.10},  # 10% TP
+                )
+
+    Configuration Example
+    ---------------------
+
+    Basic configuration::
 
         {
             "exchange": {
@@ -61,6 +104,12 @@ class Gmx(Exchange):
             "stake_currency": "USD",
             "trading_mode": "futures",
             "margin_mode": "isolated",
+            "order_types": {
+                "entry": "market",
+                "exit": "market",
+                "stoploss": "market",
+                "stoploss_on_exchange": True,  # Enable SL on exchange
+            },
         }
     """
 
@@ -385,7 +434,7 @@ class Gmx(Exchange):
         logger.info("Fetched %s on-chain GMX positions for wallet %s", len(positions), wallet)
         return positions
 
-    @retrier
+    @retrier(retries=0)
     def create_stoploss(
         self,
         pair: str,
@@ -457,6 +506,7 @@ class Gmx(Exchange):
     @retrier
     def create_order(
         self,
+        *,
         pair: str,
         ordertype: str,
         side: str,
@@ -465,40 +515,158 @@ class Gmx(Exchange):
         leverage: float = 1.0,
         reduceOnly: bool = False,
         time_in_force: str = "GTC",
+        initial_order: bool = True,
         **kwargs,
     ) -> dict:
-        """Create order with optional SL/TP support.
+        """Create order with optional bundled stop-loss and take-profit support.
 
-        Freqtrade-compatible order creation that supports GMX bundled SL/TP.
+        GMX supports two order creation patterns:
 
-        :param pair: Trading pair
+        **Standard Freqtrade Pattern (separate orders):**
+            Used by default when no SL/TP parameters are provided. Freqtrade will:
+
+            1. Call ``create_order()`` to open position (single order)
+            2. Call ``create_stoploss()`` after entry fills (separate transaction)
+            3. Call ``create_order()`` for exits/take-profit (separate transaction)
+
+            This is the standard Freqtrade flow and works out of the box.
+
+        **Advanced Pattern (bundled orders):**
+            When ``stopLoss`` or ``takeProfit`` parameters are provided, GMX creates
+            all orders atomically in a single transaction:
+
+            - Main order (entry position)
+            - Stop-loss order (if stopLoss provided)
+            - Take-profit order (if takeProfit provided)
+
+            This reduces gas costs and ensures atomic execution. Requires custom
+            Freqtrade strategies to pass SL/TP parameters.
+
+        Example (standard Freqtrade)::
+
+            # Freqtrade calls this automatically - single entry order
+            order = exchange.create_order(
+                pair="ETH/USDC:USDC",
+                ordertype="market",
+                side="buy",
+                amount=1000,  # USD
+                leverage=3.0,
+            )
+            # Later, Freqtrade calls create_stoploss() separately
+
+        Example (bundled orders - custom strategy)::
+
+            # Custom strategy can pass SL/TP for bundled order
+            order = exchange.create_order(
+                pair="ETH/USDC:USDC",
+                ordertype="market",
+                side="buy",
+                amount=1000,
+                leverage=3.0,
+                stopLoss={"triggerPrice": 1850.0},  # CCXT unified
+                takeProfit={"triggerPrice": 2200.0},
+            )
+            # Creates 3 orders in 1 transaction
+
+        Example (GMX percentage-based triggers)::
+
+            order = exchange.create_order(
+                pair="ETH/USDC:USDC",
+                ordertype="market",
+                side="buy",
+                amount=1000,
+                leverage=3.0,
+                stopLoss={"triggerPercent": 0.05},  # 5% below entry
+                takeProfit={"triggerPercent": 0.10},  # 10% above entry
+            )
+
+        :param pair: Trading pair (e.g., "ETH/USDC:USDC")
         :param ordertype: Order type ("market", "limit")
-        :param side: Order side ("buy", "sell")
+        :param side: Order side ("buy" for long, "sell" for short)
         :param amount: Order size in USD
         :param rate: Limit price (not used for GMX market orders)
-        :param leverage: Leverage multiplier
+        :param leverage: Leverage multiplier (1.0 to 100.0)
         :param reduceOnly: Whether this is a reduce-only order
-        :param time_in_force: Time in force (only "GTC" supported)
-        :param **kwargs: Additional parameters including:
-            - stopLoss: Stop-loss configuration (dict or price)
-            - takeProfit: Take-profit configuration (dict or price)
-        :return: CCXT-compatible order structure
-        """
-        # Extract SL/TP from kwargs
-        params = {
-            "leverage": leverage,
-            "reduceOnly": reduceOnly,
-        }
+        :param time_in_force: Time in force (only "GTC" supported by GMX)
+        :param initial_order: Whether this is an initial order (True) or adjustment (False)
+        :param **kwargs: Additional parameters. For bundled orders:
 
-        # Add SL/TP if provided
-        if "stopLoss" in kwargs:
-            params["stopLoss"] = kwargs["stopLoss"]
-        if "takeProfit" in kwargs:
-            params["takeProfit"] = kwargs["takeProfit"]
+            - ``stopLoss``: Stop-loss configuration (dict or float)
+
+              - Dict: ``{"triggerPrice": 1850.0}`` (CCXT unified)
+              - Dict: ``{"triggerPercent": 0.05}`` (GMX extension, 5% below entry)
+              - Float: ``1850.0`` (interpreted as triggerPrice)
+
+            - ``takeProfit``: Take-profit configuration (dict or float)
+
+              - Dict: ``{"triggerPrice": 2200.0}`` (CCXT unified)
+              - Dict: ``{"triggerPercent": 0.10}`` (GMX extension, 10% above entry)
+              - Float: ``2200.0`` (interpreted as triggerPrice)
+
+            - ``stopLossPrice``: Alternative CCXT unified parameter (float)
+            - ``takeProfitPrice``: Alternative CCXT unified parameter (float)
+            - ``collateral_symbol``: Collateral token (e.g., "USDC")
+            - ``slippage_percent``: Slippage tolerance (default: 0.003)
+
+        :return: CCXT-compatible order structure with GMX-specific info
+        :raises TemporaryError: If order creation fails temporarily
+        :raises OperationalException: If parameters are invalid
+        """
+        # Build params dict from kwargs
+        params = kwargs.get("params", {}) or {}
+
+        # Add core parameters
+        params["leverage"] = leverage
+        params["reduceOnly"] = reduceOnly
+
+        # Extract SL/TP from kwargs (advanced pattern)
+        # Support both direct kwargs and params dict
+        stop_loss = kwargs.get("stopLoss") or params.get("stopLoss")
+        take_profit = kwargs.get("takeProfit") or params.get("takeProfit")
+
+        # Also support CCXT unified parameters
+        if not stop_loss and "stopLossPrice" in kwargs:
+            stop_loss = {"triggerPrice": kwargs["stopLossPrice"]}
+        if not stop_loss and "stopLossPrice" in params:
+            stop_loss = {"triggerPrice": params["stopLossPrice"]}
+
+        if not take_profit and "takeProfitPrice" in kwargs:
+            take_profit = {"triggerPrice": kwargs["takeProfitPrice"]}
+        if not take_profit and "takeProfitPrice" in params:
+            take_profit = {"triggerPrice": params["takeProfitPrice"]}
+
+        # Convert float to dict format if needed
+        if isinstance(stop_loss, (int, float)):
+            stop_loss = {"triggerPrice": float(stop_loss)}
+        if isinstance(take_profit, (int, float)):
+            take_profit = {"triggerPrice": float(take_profit)}
+
+        # Add to params if present
+        has_bundled = False
+        if stop_loss:
+            params["stopLoss"] = stop_loss
+            has_bundled = True
+        if take_profit:
+            params["takeProfit"] = take_profit
+            has_bundled = True
+
+        # Log bundled order creation
+        if has_bundled:
+            order_count = 1 + (1 if stop_loss else 0) + (1 if take_profit else 0)
+            logger.info(
+                "Creating bundled order for %s: %d orders in 1 transaction (main%s%s)",
+                pair,
+                order_count,
+                " + SL" if stop_loss else "",
+                " + TP" if take_profit else "",
+            )
 
         # Pass collateral_symbol if provided
         if "collateral_symbol" in kwargs:
             params["collateral_symbol"] = kwargs["collateral_symbol"]
+        elif "collateral_symbol" in params:
+            # Already in params, no need to add
+            pass
 
         # Pass slippage if provided
         if "slippage_percent" in kwargs:
@@ -514,5 +682,6 @@ class Gmx(Exchange):
             leverage=leverage,
             reduceOnly=reduceOnly,
             time_in_force=time_in_force,
+            initial_order=initial_order,
             params=params,
         )

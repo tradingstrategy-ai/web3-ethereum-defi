@@ -3606,6 +3606,159 @@ class GMX(ExchangeCompatible):
 
         return order
 
+    def _create_standalone_sltp_order(
+        self,
+        symbol: str,
+        type: str,
+        side: str,
+        amount: float,
+        params: dict,
+    ) -> dict:
+        """Create standalone SL/TP order for existing position.
+
+        This method creates a standalone stop-loss or take-profit order for an
+        existing GMX position. Unlike bundled orders (created with position opening),
+        these are created separately after a position is already open.
+
+        Used by Freqtrade's ``create_stoploss()`` method when
+        ``stoploss_on_exchange=True``.
+
+        :param symbol: Market symbol (e.g., "ETH/USDC:USDC")
+        :param type: Order type ("stop_loss" or "take_profit")
+        :param side: Order side ("sell" to close long, "buy" to close short)
+        :param amount: Position size in USD to close
+        :param params: Parameters dict containing:
+
+            - ``stopLossPrice`` or ``takeProfitPrice``: Trigger price (float)
+            - ``leverage``: Position leverage (required)
+            - ``collateral_symbol``: Collateral token (optional, inferred from symbol)
+            - ``slippage_percent``: Slippage tolerance (default: 0.003)
+            - ``execution_buffer``: Execution fee buffer multiplier (default: 2.5)
+
+        :return: CCXT-compatible order structure
+        :raises NotSupported: If trying to create SL/TP without existing position
+        :raises InvalidOrder: If required parameters are missing
+        """
+        from eth_defi.gmx.trading import GMXTrading
+
+        # Parse parameters
+        trigger_price = params.get("stopLossPrice" if type == "stop_loss" else "takeProfitPrice")
+        if not trigger_price:
+            # Try alternative parameter names
+            if type == "stop_loss" and "stopLoss" in params:
+                sl_param = params["stopLoss"]
+                trigger_price = sl_param.get("triggerPrice") if isinstance(sl_param, dict) else sl_param
+            elif type == "take_profit" and "takeProfit" in params:
+                tp_param = params["takeProfit"]
+                trigger_price = tp_param.get("triggerPrice") if isinstance(tp_param, dict) else tp_param
+
+        if not trigger_price:
+            raise InvalidOrder(f"Trigger price required for standalone {type} order")
+
+        leverage = params.get("leverage", 1.0)
+        slippage_percent = params.get("slippage_percent", 0.003)
+        execution_buffer = params.get("execution_buffer", 2.5)
+
+        # Parse symbol to get market info
+        market_info = self._get_market_info(symbol)
+        market_symbol = market_info["index_token"]
+        collateral_symbol = params.get("collateral_symbol") or market_info["collateral_token"]
+
+        # Determine position direction from side
+        # For SL/TP: sell = closing long position, buy = closing short position
+        is_long = side == "sell"
+
+        # We need to know the entry price to calculate percentage
+        # For now, use trigger price to calculate entry price
+        # This assumes the user passed absolute trigger price
+        # In reality, we should fetch the position from chain, but that's expensive
+
+        # Create GMX trading instance
+        trading = GMXTrading(self.config)
+
+        # Create standalone SL or TP order
+        if type == "stop_loss":
+            result = trading.create_stop_loss(
+                market_symbol=market_symbol,
+                collateral_symbol=collateral_symbol,
+                is_long=is_long,
+                position_size_usd=amount,
+                entry_price=None,  # Will be inferred from position
+                stop_loss_price=trigger_price,
+                close_percent=1.0,  # Close entire position
+                slippage_percent=slippage_percent,
+                execution_buffer=execution_buffer,
+            )
+        else:  # take_profit
+            result = trading.create_take_profit(
+                market_symbol=market_symbol,
+                collateral_symbol=collateral_symbol,
+                is_long=is_long,
+                position_size_usd=amount,
+                entry_price=None,  # Will be inferred from position
+                take_profit_price=trigger_price,
+                close_percent=1.0,
+                slippage_percent=slippage_percent,
+                execution_buffer=execution_buffer,
+            )
+
+        # Sign and submit transaction
+        transaction = result.transaction
+        if "nonce" in transaction:
+            del transaction["nonce"]
+
+        signed_tx = self.wallet.sign_transaction_with_new_nonce(transaction)
+        tx_hash = self.web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+        receipt = self.web3.eth.wait_for_transaction_receipt(tx_hash)
+
+        # Build CCXT-compatible order structure
+        timestamp = self.milliseconds()
+        tx_success = receipt.get("status") == 1
+
+        order = {
+            "id": tx_hash.hex(),
+            "clientOrderId": None,
+            "timestamp": timestamp,
+            "datetime": self.iso8601(timestamp),
+            "lastTradeTimestamp": timestamp if tx_success else None,
+            "symbol": symbol,
+            "type": type,
+            "side": side,
+            "price": trigger_price,
+            "amount": amount,
+            "cost": amount if tx_success else None,
+            "average": trigger_price if tx_success else None,
+            "filled": amount if tx_success else 0.0,
+            "remaining": 0.0 if tx_success else amount,
+            "status": "closed" if tx_success else "canceled",
+            "fee": {
+                "cost": result.execution_fee / 10**18,
+                "currency": "ETH",
+            },
+            "trades": None,
+            "stopPrice": trigger_price,  # Freqtrade expects this field
+            "info": {
+                "tx_hash": tx_hash.hex(),
+                "block_number": receipt.get("blockNumber"),
+                "gas_used": receipt.get("gasUsed"),
+                "execution_fee": result.execution_fee,
+                "trigger_price": trigger_price,
+                "order_type": type,
+                "receipt": receipt,
+            },
+        }
+
+        logger.info(
+            "Created standalone %s order for %s: trigger=%.2f, amount=%.2f USD, tx=%s",
+            type,
+            symbol,
+            trigger_price,
+            amount,
+            tx_hash.hex(),
+        )
+
+        return order
+
     def _ensure_token_approval(
         self,
         collateral_symbol: str,
