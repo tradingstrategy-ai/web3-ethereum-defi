@@ -612,65 +612,66 @@ class Gmx(Exchange):
         :raises TemporaryError: If order creation fails temporarily
         :raises OperationalException: If parameters are invalid
         """
-        # Build params dict from kwargs
-        params = kwargs.get("params", {}) or {}
+        # TODO: checking if passing **kwargs as a whole works or not
+        # # Build params dict from kwargs
+        # params = kwargs.get("params", {}) or {}
 
-        # Add core parameters
-        params["leverage"] = leverage
-        params["reduceOnly"] = reduceOnly
+        # # Add core parameters
+        # params["leverage"] = leverage
+        # params["reduceOnly"] = reduceOnly
 
-        # Extract SL/TP from kwargs (advanced pattern)
-        # Support both direct kwargs and params dict
-        stop_loss = kwargs.get("stopLoss") or params.get("stopLoss")
-        take_profit = kwargs.get("takeProfit") or params.get("takeProfit")
+        # # Extract SL/TP from kwargs (advanced pattern)
+        # # Support both direct kwargs and params dict
+        # stop_loss = kwargs.get("stopLoss") or params.get("stopLoss")
+        # take_profit = kwargs.get("takeProfit") or params.get("takeProfit")
 
-        # Also support CCXT unified parameters
-        if not stop_loss and "stopLossPrice" in kwargs:
-            stop_loss = {"triggerPrice": kwargs["stopLossPrice"]}
-        if not stop_loss and "stopLossPrice" in params:
-            stop_loss = {"triggerPrice": params["stopLossPrice"]}
+        # # Also support CCXT unified parameters
+        # if not stop_loss and "stopLossPrice" in kwargs:
+        #     stop_loss = {"triggerPrice": kwargs["stopLossPrice"]}
+        # if not stop_loss and "stopLossPrice" in params:
+        #     stop_loss = {"triggerPrice": params["stopLossPrice"]}
 
-        if not take_profit and "takeProfitPrice" in kwargs:
-            take_profit = {"triggerPrice": kwargs["takeProfitPrice"]}
-        if not take_profit and "takeProfitPrice" in params:
-            take_profit = {"triggerPrice": params["takeProfitPrice"]}
+        # if not take_profit and "takeProfitPrice" in kwargs:
+        #     take_profit = {"triggerPrice": kwargs["takeProfitPrice"]}
+        # if not take_profit and "takeProfitPrice" in params:
+        #     take_profit = {"triggerPrice": params["takeProfitPrice"]}
 
-        # Convert float to dict format if needed
-        if isinstance(stop_loss, (int, float)):
-            stop_loss = {"triggerPrice": float(stop_loss)}
-        if isinstance(take_profit, (int, float)):
-            take_profit = {"triggerPrice": float(take_profit)}
+        # # Convert float to dict format if needed
+        # if isinstance(stop_loss, (int, float)):
+        #     stop_loss = {"triggerPrice": float(stop_loss)}
+        # if isinstance(take_profit, (int, float)):
+        #     take_profit = {"triggerPrice": float(take_profit)}
 
-        # Add to params if present
-        has_bundled = False
-        if stop_loss:
-            params["stopLoss"] = stop_loss
-            has_bundled = True
-        if take_profit:
-            params["takeProfit"] = take_profit
-            has_bundled = True
+        # # Add to params if present
+        # has_bundled = False
+        # if stop_loss:
+        #     params["stopLoss"] = stop_loss
+        #     has_bundled = True
+        # if take_profit:
+        #     params["takeProfit"] = take_profit
+        #     has_bundled = True
 
         # Log bundled order creation
-        if has_bundled:
-            order_count = 1 + (1 if stop_loss else 0) + (1 if take_profit else 0)
-            logger.info(
-                "Creating bundled order for %s: %d orders in 1 transaction (main%s%s)",
-                pair,
-                order_count,
-                " + SL" if stop_loss else "",
-                " + TP" if take_profit else "",
-            )
+        # if has_bundled:
+        #     order_count = 1 + (1 if stop_loss else 0) + (1 if take_profit else 0)
+        #     logger.info(
+        #         "Creating bundled order for %s: %d orders in 1 transaction (main%s%s)",
+        #         pair,
+        #         order_count,
+        #         " + SL" if stop_loss else "",
+        #         " + TP" if take_profit else "",
+        #     )
 
-        # Pass collateral_symbol if provided
-        if "collateral_symbol" in kwargs:
-            params["collateral_symbol"] = kwargs["collateral_symbol"]
-        elif "collateral_symbol" in params:
-            # Already in params, no need to add
-            pass
+        # # Pass collateral_symbol if provided
+        # if "collateral_symbol" in kwargs:
+        #     params["collateral_symbol"] = kwargs["collateral_symbol"]
+        # elif "collateral_symbol" in params:
+        #     # Already in params, no need to add
+        #     pass
 
-        # Pass slippage if provided
-        if "slippage_percent" in kwargs:
-            params["slippage_percent"] = kwargs["slippage_percent"]
+        # # Pass slippage if provided
+        # if "slippage_percent" in kwargs:
+        #     params["slippage_percent"] = kwargs["slippage_percent"]
 
         # Call parent create_order which uses CCXT underneath
         return super().create_order(
