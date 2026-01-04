@@ -49,10 +49,11 @@ poetry run ruff format
 - Never push directly to a master, and open a pull request when asked.
 - Do not include test plan in a pull request description
 - If the user ask to open a pull request as feature then start the PR title with "feat:" prefix and also add one line about the feature into `CHANGELOG.md`
+- Each changelog entry should follow the date of the PR in YYYY-MM-DD format. Example: Something was updated (2026-01-01).
 
 ## Specific rules
 
-### Generic
+### Python rukes
 
 - For data structures, prefer `dataclass(slots=True)`
 - Use threaded instead of async Python code
@@ -61,6 +62,8 @@ poetry run ruff format
 - Use `any()` and `all()` with generators and list comprehension when checking if a collection member has one or more matches, instead of using slow for loops
 - All functions that do network reads to get data should be prefixed with `fetch_` instead of `get_`
 - Always try to return `Iterator` instead of `list` from a function call to make functions faster
+- For long runnign for loops, use `tqdm` and `tqdm_loggable.auto` module for progress bar. As an example, see `lead_scan_core.py`.
+- For visualusations, use Plotly. For chart titles, use heading case as explained above.
 
 ### Code comments
 
@@ -100,16 +103,6 @@ poetry run ruff format
 - `pytest` tests should not have stdout output like `print`
 - Instead of manual float fuzzy comparison like `assert abs(aave_total_pnl - 96.6087) < 0.01` use `pytest.approx()`
 - For DuckDB testing, make sure the database is always closed using finally clause or fixtures
-
-## Progress
-
-- For long runnign for loops, use `tqdm` and `tqdm_loggable.auto` module for progress bar
-- For example, see `lead_scan_core.py`
-
-## Visualisations
-
-- Use Plotly
-- For chart titles, use heading case as explained above
 
 ## Python notebooks
 
