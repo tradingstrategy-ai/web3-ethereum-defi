@@ -57,3 +57,28 @@ def test_csigma(
 
     # Check vault link
     assert vault.get_link() == "https://edge.csigma.finance/"
+
+
+@flaky.flaky
+def test_csigma_v2_pool(
+    web3: Web3,
+    tmp_path: Path,
+):
+    """Read cSigma Finance CsigmaV2Pool vault metadata."""
+
+    vault = create_vault_instance_autodetect(
+        web3,
+        vault_address="0x438982ea288763370946625fd76c2508ee1fb229",
+    )
+
+    assert isinstance(vault, CsigmaVault)
+    assert vault.get_protocol_name() == "cSigma Finance"
+    assert vault.features == {ERC4626Feature.csigma_like}
+
+    # Fees are not yet known for cSigma
+    assert vault.get_management_fee("latest") is 0
+    assert vault.get_performance_fee("latest") is 0
+    assert vault.has_custom_fees() is False
+
+    # Check vault link
+    assert vault.get_link() == "https://edge.csigma.finance/"

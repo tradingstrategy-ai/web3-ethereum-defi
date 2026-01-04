@@ -36,9 +36,9 @@ Before starting, gather the following information from the user:
 
 ### Step 2: Create the vault class
 
-Update the existing vault class to include a
+Update the existing vault protocol Python module to contain a class definitions.
 
-The vault class should:
+The vault class should be in a new module next to the existing module:
 
 ```python
 """Module docstring describing the protocol."""
@@ -235,7 +235,13 @@ Rerun all tests for the vault protocl for which we added more vaults.
 
 Format the newly added files with `poetry run ruff format`.
 
-## Step 9: Verification checklist
+## Step 9: Update documentation
+
+In `docs/source/vaults` include the newly created module alongside the existing module.
+
+Remember to update `index.rst`.
+
+## Step 10: Verification checklist
 
 After implementation, verify:
 
@@ -253,11 +259,11 @@ After implementation, verify:
 
 If there are problems with the checklist, ask for human assistance.
 
-## Step 10: Changelog
+## Step 12: Changelog
 
 - Update changelog line in `CHANGELOG.md` and add a note of added new protocol
 
-## Step 11: Pull request (optional)
+## Step 12: Pull request (optional)
 
 After everything is done, open a pull request, but only if the user asks you to.
 
