@@ -203,7 +203,6 @@ class BaseOrder:
         :param is_swap: Whether performing a swap
         :return: OrderResult with unsigned transaction
         """
-        print(f"order_builder start: is_open={is_open}, is_close={is_close}, is_swap={is_swap}")
         # Determine gas limits (from original determine_gas_limits)
         if is_open:
             order_type = OrderType.MARKET_INCREASE
@@ -217,13 +216,11 @@ class BaseOrder:
         # Get market and price data first (validate market exists before other operations)
         # Use cached data to avoid repeated expensive API calls
         if self._cached_markets is None:
-            print("Fetching markets...")
             self._cached_markets = self.markets.get_available_markets()
             logger.debug("Markets data cached")
         markets = self._cached_markets
 
         if self._cached_prices is None:
-            print("Fetching oracle prices...")
             self._cached_prices = self.oracle_prices.get_recent_prices()
             logger.debug("Oracle prices cached")
         prices = self._cached_prices
@@ -240,7 +237,6 @@ class BaseOrder:
 
         # Calculate prices with slippage (validate prices exist before other operations)
         decimals = market_data["market_metadata"]["decimals"]
-        print("Calculating prices...")
         price_usd, raw_price, acceptable_price, acceptable_price_in_usd = self._get_prices(
             decimals,
             prices,
@@ -251,16 +247,13 @@ class BaseOrder:
         )
 
         # Get execution fee
-        print("Estimating gas fees...")
         gas_price = self.web3.eth.gas_price
         gas_limits = self._determine_gas_limits(is_open, is_close, is_swap)
         execution_fee = int(gas_limits["total"] * gas_price)
         execution_fee = int(execution_fee * params.execution_buffer)
-        print(f"execution_fee: {execution_fee} wei ({execution_fee / 10**18} ETH), gas_price: {gas_price}, buffer: {params.execution_buffer}")
 
         # Check approval if not closing (after market and price validation)
         if not is_close:
-            print("Checking approval...")
             self._check_for_approval(params)
 
         # Build order arguments (from original _create_order)
@@ -268,7 +261,6 @@ class BaseOrder:
         mark_price = raw_price if is_open else 0
         acceptable_price_val = acceptable_price if not is_swap else 0
 
-        print("Building order arguments...")
         arguments = self._build_order_arguments(
             params,
             execution_fee,
@@ -278,7 +270,6 @@ class BaseOrder:
         )
 
         # Build multicall
-        print("Building multicall args...")
         multicall_args, value_amount = self._build_multicall_args(
             params,
             arguments,
@@ -287,7 +278,6 @@ class BaseOrder:
         )
 
         # Build final transaction (from original _submit_transaction)
-        print("Building final transaction...")
         transaction = self._build_transaction(
             multicall_args,
             value_amount,
@@ -295,7 +285,6 @@ class BaseOrder:
         )
 
         # Estimate price impact (optional, may return None). Mostly fails on arbitrum
-        print("Estimating price impact...")
         price_impact = self._estimate_price_impact(
             params,
             market_data,
@@ -304,7 +293,6 @@ class BaseOrder:
             is_swap,
         )
 
-        print("order_builder complete.")
         return OrderResult(
             transaction=transaction,
             execution_fee=execution_fee,
