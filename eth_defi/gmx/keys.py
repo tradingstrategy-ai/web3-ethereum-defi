@@ -16,17 +16,12 @@ def apply_factor(value, factor):
     GMX uses 30-decimal fixed-point arithmetic for many values.
     This function applies a factor stored as an integer with 30 decimals.
 
-    Parameters
-    ----------
-    value : numeric
-        Value to apply factor to
-    factor : int
-        Factor in 30-decimal format (e.g., 10^30 = 1.0)
-
-    Returns
-    -------
-    numeric
-        Result of (value * factor) / 10^30
+    :param value: Value to apply factor to
+    :type value: numeric
+    :param factor: Factor in 30-decimal format (e.g., 10^30 = 1.0)
+    :type factor: int
+    :return: Result of (value * factor) / 10^30
+    :rtype: numeric
     """
     return value * factor / 10**30
 
@@ -34,17 +29,12 @@ def apply_factor(value, factor):
 def create_hash(data_type_list: list, data_value_list: list) -> bytes:
     """Create a keccak hash using ABI encoding.
 
-    Parameters
-    ----------
-    data_type_list : list
-        List of data types as strings (e.g., ["string", "address"])
-    data_value_list : list
-        List of values matching the data types
-
-    Returns
-    -------
-    bytes
-        Keccak-256 hashed key
+    :param data_type_list: List of data types as strings (e.g., ["string", "address"])
+    :type data_type_list: list
+    :param data_value_list: List of values matching the data types
+    :type data_value_list: list
+    :return: Keccak-256 hashed key
+    :rtype: bytes
     """
     byte_data = encode(data_type_list, data_value_list)
     return keccak(byte_data)
@@ -53,15 +43,10 @@ def create_hash(data_type_list: list, data_value_list: list) -> bytes:
 def create_hash_string(string: str) -> bytes:
     """Hash a string value using keccak-256.
 
-    Parameters
-    ----------
-    string : str
-        String to hash
-
-    Returns
-    -------
-    bytes
-        Keccak-256 hashed string
+    :param string: String to hash
+    :type string: str
+    :return: Keccak-256 hashed string
+    :rtype: bytes
     """
     return create_hash(["string"], [string])
 

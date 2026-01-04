@@ -71,19 +71,33 @@ def _get_clean_backup_urls() -> dict[str, str]:
 class ContractAddresses:
     """GMX contract addresses for a specific network."""
 
+    #: DataStore contract address for on-chain data storage
     datastore: HexAddress
+    #: EventEmitter contract address for protocol event logging
     eventemitter: HexAddress
+    #: ExchangeRouter contract address for trading operations
     exchangerouter: HexAddress
+    #: DepositVault contract address for deposit operations
     depositvault: HexAddress
+    #: WithdrawalVault contract address for withdrawal operations
     withdrawalvault: HexAddress
+    #: OrderVault contract address for order management
     ordervault: HexAddress
+    #: SyntheticsReader contract address for efficient data queries
     syntheticsreader: HexAddress
+    #: SyntheticsRouter contract address for synthetic asset routing
     syntheticsrouter: HexAddress
+    #: GLVReader contract address for GLV token queries
     glvreader: HexAddress
+    #: ChainlinkPriceFeedProvider contract address (optional)
     chainlinkpricefeedprovider: Optional[HexAddress] = None
+    #: ChainlinkDataStreamProvider contract address (optional)
     chainlinkdatastreamprovider: Optional[HexAddress] = None
+    #: GMOracleProvider contract address (optional)
     gmoracleprovider: Optional[HexAddress] = None
+    #: OrderHandler contract address (optional)
     orderhandler: Optional[HexAddress] = None
+    #: Oracle contract address (optional)
     oracle: Optional[HexAddress] = None
 
 
