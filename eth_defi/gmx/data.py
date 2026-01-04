@@ -82,9 +82,10 @@ class GMXMarketData:
     consistent interface. Uses read-only access to ensure safe data retrieval
     without requiring wallet credentials or transaction signing capabilities.
 
-    Attributes:
-        gmx_config: Complete GMX configuration object for network settings
-        config: Read-only configuration manager for safe data access operations
+    :ivar gmx_config: Complete GMX configuration object for network settings
+    :vartype gmx_config: GMXConfig
+    :ivar config: Read-only configuration manager for safe data access operations
+    :vartype config: GMXConfigManager
     """
 
     def __init__(self, gmx_config: GMXConfig):
@@ -108,10 +109,11 @@ class GMXMarketData:
         the GMX protocol on the configured network. The information includes market
         identifiers, supported assets, trading parameters, and current market status.
 
-        Returns:
+        :return:
             Dictionary containing complete market information including market names,
             supported tokens, trading parameters, fees, and current status for all
-            available GMX trading markets.
+            available GMX trading markets
+        :rtype: MarketData
         """
         markets = Markets(self.gmx_config)
         return markets.get_available_markets()
@@ -125,9 +127,10 @@ class GMXMarketData:
         for large trades, making this crucial information for trading strategy
         and risk management.
 
-        Returns:
+        :return:
             Nested dictionary structure where outer keys are position sides (long/short)
-            and inner dictionaries contain liquidity amounts for different markets.
+            and inner dictionaries contain liquidity amounts for different markets
+        :rtype: PositionSideData
         """
         # Use multicall approach for better performance (original max(0, ...) bug has been fixed)
         return GetAvailableLiquidity(self.gmx_config).get_data()
@@ -142,10 +145,11 @@ class GMXMarketData:
         are dynamic and adjust based on utilization, market conditions, and
         available liquidity in each market.
 
-        Returns:
+        :return:
             Nested dictionary where outer keys are market identifiers and
             inner dictionaries contain APR values for different assets and
-            position types, expressed as decimal percentages.
+            position types, expressed as decimal percentages
+        :rtype: PositionSideData
         """
         return GetBorrowAPR(self.gmx_config).get_data()
 
@@ -159,10 +163,11 @@ class GMXMarketData:
         address, including the amounts and types of rewards that have been
         earned but not yet withdrawn.
 
-        Returns:
+        :return:
             Dictionary containing claimable fee information including amounts,
             asset types, and claiming mechanisms available to liquidity
-            providers based on their LP token holdings.
+            providers based on their LP token holdings
+        :rtype: MarketData
         """
         return GetClaimableFees(self.gmx_config).get_data()
 
@@ -176,10 +181,11 @@ class GMXMarketData:
         components and can be useful for understanding protocol health and
         capital efficiency.
 
-        Returns:
+        :return:
             Dictionary containing TVL information organized by contract
             addresses, showing the value and composition of assets locked
             in each component of the GMX protocol
+        :rtype: TVLData
         """
         return ContractTVL(self.gmx_config).get_pool_balances()
 
@@ -193,10 +199,11 @@ class GMXMarketData:
         short position holders, and vice versa. These rates adjust dynamically
         based on the imbalance between long and short positions.
 
-        Returns:
+        :return:
             Nested dictionary where outer keys are market identifiers and
             inner dictionaries contain funding APR values for different
             position types, with positive values indicating longs pay shorts
+        :rtype: PositionSideData
         """
         return GetFundingFee(self.gmx_config).get_data()
 
@@ -210,10 +217,11 @@ class GMXMarketData:
         to understand the value of their holdings and calculate returns on
         their liquidity provision activities.
 
-        Returns:
+        :return:
             Dictionary containing GM token prices, underlying asset values,
             and other valuation metrics that determine the worth of liquidity
             provider positions in various GMX pools
+        :rtype: PriceData
         """
         return GMPrices(self.gmx_config).get_prices()
 
@@ -227,10 +235,11 @@ class GMXMarketData:
         trading and significant capital deployment, while changes in open
         interest can signal shifting market sentiment and trader positioning.
 
-        Returns:
+        :return:
             Nested dictionary where outer keys are market identifiers and
             inner dictionaries contain open interest values for different
             position types (long/short) and underlying assets
+        :rtype: PositionSideData
         """
         return GetOpenInterest(self.gmx_config).get_data()
 
@@ -244,10 +253,11 @@ class GMXMarketData:
         protocol's view of current market values for all supported assets,
         ensuring accurate and manipulation-resistant pricing.
 
-        Returns:
+        :return:
             Dictionary containing current oracle prices and metadata for all
             supported assets, including timestamps, confidence intervals,
             and other price feed quality indicators
+        :rtype: PriceData
         """
         return OraclePrices(self.config.chain).get_recent_prices()
 
@@ -261,10 +271,11 @@ class GMXMarketData:
         health of the GMX ecosystem. Higher TVL generally indicates greater
         trading capacity and reduced slippage for large trades.
 
-        Returns:
+        :return:
             Dictionary containing detailed TVL information for each liquidity
             pool, including asset breakdown, pool composition, and total
             values across different asset types and markets
+        :rtype: TVLData
         """
         return GetPoolTVL(self.gmx_config).get_pool_balances()
 
@@ -278,10 +289,11 @@ class GMXMarketData:
         performance and composition of GLV token holdings, helping liquidity
         providers understand the efficiency of these enhanced LP products.
 
-        Returns:
+        :return:
             Dictionary containing GLV token statistics including performance
             metrics, composition data, yield information, and other relevant
             analytics for advanced liquidity provision strategies
+        :rtype: MarketData
         """
         return GlvStats(self.gmx_config).get_glv_stats()
 
