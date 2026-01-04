@@ -1,0 +1,40 @@
+name: Claude Code Review (Mention)
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  claude-review:
+    # Only run if comment contains @claude and is on a PR
+    if: |
+      github.event.issue.pull_request &&
+      contains(github.event.comment.body, '@claude')
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Claude Code Review
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          model: claude-opus-4-5-20251101
+          prompt: |
+            Review this pull request thoroughly. Focus on:
+            - Correctness and potential bugs
+            - Security vulnerabilities
+            - Performance implications
+            - Code quality and maintainability
+
+            Provide detailed, actionable feedback.
