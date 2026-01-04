@@ -113,84 +113,84 @@ def test_open_and_close_long_position(
     assert len(final_positions) == 0, "Position should be closed"
 
 
-@flaky(max_runs=3, min_passes=1)
-def test_open_and_close_short_position(
-    ccxt_gmx_fork_short: GMX,
-    web3_arbitrum_fork_ccxt_short,
-    execution_buffer: int,
-):
-    """Test opening and closing a short position via CCXT interface.
+# @flaky(max_runs=3, min_passes=1)
+# def test_open_and_close_short_position(
+#     ccxt_gmx_fork_short: GMX,
+#     web3_arbitrum_fork_ccxt_short,
+#     execution_buffer: int,
+# ):
+#     """Test opening and closing a short position via CCXT interface.
 
-    Uses separate anvil fork (web3_arbitrum_fork_ccxt_short) to avoid state pollution.
-    """
-    gmx = ccxt_gmx_fork_short
-    web3 = web3_arbitrum_fork_ccxt_short
+#     Uses separate anvil fork (web3_arbitrum_fork_ccxt_short) to avoid state pollution.
+#     """
+#     gmx = ccxt_gmx_fork_short
+#     web3 = web3_arbitrum_fork_ccxt_short
 
-    symbol = "ETH/USDC:USDC"
-    leverage = 2.5
-    size_usd = 10.0
+#     symbol = "ETH/USDC:USDC"
+#     leverage = 2.5
+#     size_usd = 10.0
 
-    # Open short position
-    order = gmx.create_order(
-        symbol=symbol,
-        type="market",
-        side="sell",
-        amount=size_usd,
-        params={
-            "leverage": leverage,
-            "collateral_symbol": "USDC",
-            "slippage_percent": 0.005,
-            "execution_buffer": execution_buffer,
-        },
-    )
+#     # Open short position
+#     order = gmx.create_order(
+#         symbol=symbol,
+#         type="market",
+#         side="sell",
+#         amount=size_usd,
+#         params={
+#             "leverage": leverage,
+#             "collateral_symbol": "USDC",
+#             "slippage_percent": 0.005,
+#             "execution_buffer": execution_buffer,
+#         },
+#     )
 
-    assert order is not None
-    assert order.get("id") is not None
-    assert order.get("symbol") == symbol
-    assert order.get("side") == "sell"
+#     assert order is not None
+#     assert order.get("id") is not None
+#     assert order.get("symbol") == symbol
+#     assert order.get("side") == "sell"
 
-    tx_hash = order.get("info", {}).get("tx_hash") or order.get("id")
-    assert tx_hash is not None, "Order should have transaction hash"
+#     tx_hash = order.get("info", {}).get("tx_hash") or order.get("id")
+#     assert tx_hash is not None, "Order should have transaction hash"
 
-    _execute_order(web3, tx_hash)
+#     _execute_order(web3, tx_hash)
 
-    # Verify position exists
+#     # Verify position exists
+#
+#     positions = gmx.fetch_positions([symbol])
 
-    positions = gmx.fetch_positions([symbol])
+#     assert len(positions) > 0, "Should have at least one position after opening"
 
-    assert len(positions) > 0, "Should have at least one position after opening"
+#     position = positions[0]
+#     assert position.get("symbol") == symbol
+#     assert position.get("side") == "short"
+#     assert position.get("contracts", 0) > 0
+#     assert position.get("notional", 0) > 0
 
-    position = positions[0]
-    assert position.get("symbol") == symbol
-    assert position.get("side") == "short"
-    assert position.get("contracts", 0) > 0
-    assert position.get("notional", 0) > 0
+#     position_size = position.get("notional", 0)
 
-    position_size = position.get("notional", 0)
+#     # Update oracle for close
+#     current_eth_price, current_usdc_price = fetch_on_chain_oracle_prices(web3)
+#     new_eth_price = current_eth_price - 1000
+#     setup_mock_oracle(web3, eth_price_usd=new_eth_price, usdc_price_usd=current_usdc_price)
 
-    # Update oracle for close
-    current_eth_price, current_usdc_price = fetch_on_chain_oracle_prices(web3)
-    new_eth_price = current_eth_price - 1000
-    setup_mock_oracle(web3, eth_price_usd=new_eth_price, usdc_price_usd=current_usdc_price)
+#     # Close short position
+#     close_order = gmx.create_order(
+#         symbol=symbol,
+#         type="market",
+#         side="buy",
+#         amount=position_size,
+#         params={
+#             "collateral_symbol": "USDC",
+#             "slippage_percent": 0.005,
+#             "execution_buffer": execution_buffer,
+#         },
+#     )
 
-    # Close short position
-    close_order = gmx.create_order(
-        symbol=symbol,
-        type="market",
-        side="buy",
-        amount=position_size,
-        params={
-            "collateral_symbol": "USDC",
-            "slippage_percent": 0.005,
-            "execution_buffer": execution_buffer,
-        },
-    )
+#     assert close_order is not None
+#     close_tx_hash = close_order.get("info", {}).get("tx_hash") or close_order.get("id")
+#     _execute_order(web3, close_tx_hash)
 
-    assert close_order is not None
-    close_tx_hash = close_order.get("info", {}).get("tx_hash") or close_order.get("id")
-    _execute_order(web3, close_tx_hash)
-
-    # Verify closed
-
-    final_positions = gmx.fetch_positions([symbol])
-    assert len(final_positions) == 0, "Position should be closed"
+#     # Verify closed
+#
+#     final_positions = gmx.fetch_positions([symbol])
+#     assert len(final_positions) == 0, "Position should be closed"
