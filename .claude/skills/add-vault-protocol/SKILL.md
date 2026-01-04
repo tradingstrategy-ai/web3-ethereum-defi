@@ -169,6 +169,8 @@ Match `get_vault_protocol_name()` for the protocol name spelling.
 
 ### Step 6: Create test file
 
+First the latest block number for the selected chain using `get-block-number` skill.
+
 Create `tests/erc_4626/vault_protocol/test_{protocol_slug}.py` following the pattern in `tests/erc_4626/vault_protocol/test_plutus.py` and. `tests/erc_4626/vault_protocol/test_goat.py`:
 
 ```python

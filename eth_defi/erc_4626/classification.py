@@ -273,6 +273,18 @@ def create_probe_calls(
             extra_data=None,
         )
 
+        # EulerEarn
+        # Metamorpho-based metavault for Euler ecosystem
+        # https://github.com/euler-xyz/euler-earn
+        # https://snowtrace.io/address/0xE1A62FDcC6666847d5EA752634E45e134B2F824B
+        euler_earn_call = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="supplyQueueLength()")[0:4],
+            function="supplyQueueLength",
+            data=b"",
+            extra_data=None,
+        )
+
         # https://arbiscan.io/address/0x5f851f67d24419982ecd7b7765defd64fbb50a97#readContract
         umami_call = EncodedCall.from_keccak_signature(
             address=address,
@@ -489,6 +501,7 @@ def create_probe_calls(
         # yield superform_call_3
         yield term_finance_call
         yield euler_call
+        yield euler_earn_call
         yield registry_call
         yield umami_call
         yield plutus_call
@@ -617,6 +630,12 @@ def identify_vault_features(
 
     if calls["MODULE_VAULT"].success:
         features.add(ERC4626Feature.euler_like)
+
+    # EulerEarn - Metamorpho-based metavault
+    # Must check supplyQueueLength AND curator to distinguish from other protocols
+    # https://snowtrace.io/address/0xE1A62FDcC6666847d5EA752634E45e134B2F824B
+    if calls["supplyQueueLength"].success:
+        features.add(ERC4626Feature.euler_earn_like)
 
     # https://arbiscan.io/address/0x5f851f67d24419982ecd7b7765defd64fbb50a97#readContract
     if calls["aggregateVault"].success:
@@ -875,6 +894,11 @@ def create_vault_instance(
         from eth_defi.morpho.vault import MorphoVault
 
         return MorphoVault(web3, spec, token_cache=token_cache, features=features)
+    elif ERC4626Feature.euler_earn_like in features:
+        # EulerEarn metavault instance
+        from eth_defi.erc_4626.vault_protocol.euler.vault import EulerEarnVault
+
+        return EulerEarnVault(web3, spec, token_cache=token_cache, features=features)
     elif ERC4626Feature.euler_like in features:
         # Euler instance
         from eth_defi.erc_4626.vault_protocol.euler.vault import EulerVault

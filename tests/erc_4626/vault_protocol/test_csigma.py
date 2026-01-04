@@ -7,9 +7,9 @@ import flaky
 import pytest
 from web3 import Web3
 
-from eth_defi.erc_4626.vault_protocol.csigma.vault import CsigmaVault
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
+from eth_defi.erc_4626.vault_protocol.csigma.vault import CsigmaVault
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 
@@ -51,8 +51,8 @@ def test_csigma(
     assert vault.features == {ERC4626Feature.csigma_like}
 
     # Fees are not yet known for cSigma
-    assert vault.get_management_fee("latest") is None
-    assert vault.get_performance_fee("latest") is None
+    assert vault.get_management_fee("latest") is 0
+    assert vault.get_performance_fee("latest") is 0
     assert vault.has_custom_fees() is False
 
     # Check vault link
