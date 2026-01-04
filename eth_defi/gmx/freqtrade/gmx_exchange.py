@@ -450,7 +450,7 @@ class Gmx(Exchange):
         This method creates a standalone stop-loss order for existing positions.
 
         :param pair: Trading pair (e.g., "ETH/USDC:USDC")
-        :param amount: Position size in USD to close
+        :param amount: Position size in base currency (e.g., BTC for BTC/USD, ETH for ETH/USD)
         :param stop_price: Stop-loss trigger price
         :param order_types: Freqtrade order type configuration
         :param side: Order side ("buy" for closing short, "sell" for closing long)
@@ -460,6 +460,20 @@ class Gmx(Exchange):
         :raises DDosProtection: If rate limit exceeded
         """
         try:
+            # Convert amount from base currency to USD
+            # Freqtrade passes amount in base currency (BTC/ETH), but GMX expects USD
+            ticker = self._api.fetch_ticker(pair)
+            current_price = ticker["last"]
+            amount_usd = amount * current_price
+
+            logger.info(
+                "Converting stop-loss amount for %s: %.8f (base currency) * %.2f (price) = %.2f USD",
+                pair,
+                amount,
+                current_price,
+                amount_usd,
+            )
+
             # GMX uses standalone SL/TP order type
             params = {
                 "leverage": leverage,
@@ -471,7 +485,7 @@ class Gmx(Exchange):
                 symbol=pair,
                 type="stop_loss",  # GMX-specific order type
                 side=side,
-                amount=amount,
+                amount=amount_usd,
                 params=params,
             )
 
@@ -479,7 +493,7 @@ class Gmx(Exchange):
                 "Created stop-loss order for %s: price=%.2f, amount=%.2f USD",
                 pair,
                 stop_price,
-                amount,
+                amount_usd,
             )
             return order
 
