@@ -1,6 +1,12 @@
-"""Euler Vault Kit specific integrations.
+"""Euler Vault Kit and EulerEarn integrations.
 
-- Metadata repo https://github.com/euler-xyz/euler-labels/blob/master/130/vaults.json
+- EVK (Euler Vault Kit): Credit vaults with borrowing functionality
+  https://github.com/euler-xyz/euler-vault-kit
+  Metadata repo: https://github.com/euler-xyz/euler-labels/blob/master/130/vaults.json
+
+- EulerEarn: Metamorpho-based metavault for yield aggregation on top of EVK
+  https://github.com/euler-xyz/euler-earn
+  Documentation: https://docs.euler.finance/developers/euler-earn/
 """
 
 import datetime
@@ -95,3 +101,174 @@ class EulerVault(ERC4626Vault):
     def get_link(self, referral: str | None = None) -> str:
         chain_name = get_chain_name(self.chain_id).lower()
         return f"https://app.euler.finance/earn/{self.vault_address}?network={chain_name}"
+
+
+class EulerEarnVault(ERC4626Vault):
+    """EulerEarn metavault support.
+
+    EulerEarn is a protocol for noncustodial risk management on top of accepted ERC-4626 vaults,
+    especially the EVK (Euler Vault Kit) vaults. Based on Metamorpho architecture.
+
+    - EulerEarn allows only accepted ERC-4626 vaults to be used as strategies
+    - EulerEarn vaults are themselves ERC-4626 vaults
+    - One EulerEarn vault is related to one underlying asset
+    - Users can supply or withdraw assets at any time, depending on the available liquidity
+    - A maximum of 30 strategies can be enabled on a given EulerEarn vault
+    - There are 4 different roles: owner, curator, guardian & allocator
+    - The vault owner can set a performance fee up to 50% of the generated interest
+
+    Links:
+
+    - GitHub: https://github.com/euler-xyz/euler-earn
+    - Documentation: https://docs.euler.finance/developers/euler-earn/
+    - Integrator guide: https://docs.euler.finance/developers/euler-earn/integrator-guide/
+    - Example vault: https://snowtrace.io/address/0xE1A62FDcC6666847d5EA752634E45e134B2F824B
+    """
+
+    def get_risk(self) -> VaultTechnicalRisk | None:
+        """EulerEarn vaults have negligible risk due to battle-tested infrastructure.
+
+        Based on Metamorpho architecture with extensive audits.
+        """
+        return VaultTechnicalRisk.negligible
+
+    def has_custom_fees(self) -> bool:
+        """EulerEarn has on-chain readable performance fees."""
+        return True
+
+    def get_management_fee(self, block_identifier: BlockIdentifier) -> float:
+        """EulerEarn vaults do not have management fees.
+
+        Only performance fee is charged on generated interest.
+        """
+        return 0.0
+
+    def get_performance_fee(self, block_identifier: BlockIdentifier) -> float | None:
+        """Get EulerEarn performance fee.
+
+        - EulerEarn charges a performance fee on generated interest
+        - The fee is stored as a uint96 in WAD (1e18) format
+        - Maximum fee is 50% (0.5e18)
+
+        See: https://github.com/euler-xyz/euler-earn/blob/main/src/EulerEarn.sol
+
+        :return:
+            Performance fee as a decimal (e.g., 0.10 for 10%), or None if reading fails
+        """
+        fee_call = EncodedCall.from_keccak_signature(
+            address=self.address,
+            signature=Web3.keccak(text="fee()")[0:4],
+            function="fee",
+            data=b"",
+            extra_data=None,
+        )
+        try:
+            data = fee_call.call(self.web3, block_identifier)
+        except ValueError as e:
+            logger.warning(
+                "fee() read reverted on EulerEarn vault %s: %s",
+                self,
+                str(e),
+                exc_info=e,
+            )
+            return None
+
+        # Fee is stored in WAD format (1e18)
+        fee_wad = int.from_bytes(data[0:32], byteorder="big")
+        performance_fee = fee_wad / (10**18)
+        return performance_fee
+
+    def get_estimated_lock_up(self) -> datetime.timedelta | None:
+        """EulerEarn vaults allow instant withdrawals.
+
+        Users can withdraw at any time depending on available liquidity.
+        """
+        return datetime.timedelta(days=0)
+
+    def get_link(self, referral: str | None = None) -> str:
+        """Get link to EulerEarn vault on Euler app.
+
+        EulerEarn vaults are shown on the Euler Finance app under the "earn" section.
+        """
+        chain_name = get_chain_name(self.chain_id).lower()
+        return f"https://app.euler.finance/earn/{self.vault_address}?network={chain_name}"
+
+    def get_supply_queue_length(self, block_identifier: BlockIdentifier = "latest") -> int | None:
+        """Get the number of strategies in the supply queue.
+
+        :return:
+            Number of strategies in the supply queue, or None if reading fails
+        """
+        supply_queue_length_call = EncodedCall.from_keccak_signature(
+            address=self.address,
+            signature=Web3.keccak(text="supplyQueueLength()")[0:4],
+            function="supplyQueueLength",
+            data=b"",
+            extra_data=None,
+        )
+        try:
+            data = supply_queue_length_call.call(self.web3, block_identifier)
+        except ValueError as e:
+            logger.warning(
+                "supplyQueueLength() read reverted on EulerEarn vault %s: %s",
+                self,
+                str(e),
+                exc_info=e,
+            )
+            return None
+
+        return int.from_bytes(data[0:32], byteorder="big")
+
+    def get_withdraw_queue_length(self, block_identifier: BlockIdentifier = "latest") -> int | None:
+        """Get the number of strategies in the withdraw queue.
+
+        :return:
+            Number of strategies in the withdraw queue, or None if reading fails
+        """
+        withdraw_queue_length_call = EncodedCall.from_keccak_signature(
+            address=self.address,
+            signature=Web3.keccak(text="withdrawQueueLength()")[0:4],
+            function="withdrawQueueLength",
+            data=b"",
+            extra_data=None,
+        )
+        try:
+            data = withdraw_queue_length_call.call(self.web3, block_identifier)
+        except ValueError as e:
+            logger.warning(
+                "withdrawQueueLength() read reverted on EulerEarn vault %s: %s",
+                self,
+                str(e),
+                exc_info=e,
+            )
+            return None
+
+        return int.from_bytes(data[0:32], byteorder="big")
+
+    def get_curator(self, block_identifier: BlockIdentifier = "latest") -> str | None:
+        """Get the curator address for this vault.
+
+        The curator can manage vault parameters and strategy allocations.
+
+        :return:
+            Curator address, or None if reading fails
+        """
+        curator_call = EncodedCall.from_keccak_signature(
+            address=self.address,
+            signature=Web3.keccak(text="curator()")[0:4],
+            function="curator",
+            data=b"",
+            extra_data=None,
+        )
+        try:
+            data = curator_call.call(self.web3, block_identifier)
+        except ValueError as e:
+            logger.warning(
+                "curator() read reverted on EulerEarn vault %s: %s",
+                self,
+                str(e),
+                exc_info=e,
+            )
+            return None
+
+        return Web3.to_checksum_address(data[12:32])

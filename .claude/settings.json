@@ -38,7 +38,8 @@
       "Skill(add-vault-protocol)",
       "Skill(add-vault-protocol:*)",
       "Skill(more-vaults)",
-      "Skill(more-vaults:*)"                           
+      "Skill(more-vaults:*)",
+      "mcp__github__*"                           
     ]
   }
 }

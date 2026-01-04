@@ -40,6 +40,7 @@ Supported protocols
    deltr/index
    ethena/index
    euler/index
+   euler_earn/index
    foxify/index
    gains/index
    goat/index
