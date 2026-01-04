@@ -542,7 +542,7 @@ def setup_mock_oracle(
     account = web3.eth.accounts[0]
 
     # Fund the account with ETH for gas (handles multiple calls to setup_mock_oracle)
-    deal_eth(web3, account, 10 * 10**18)
+    deal_eth(web3, account, 100_000_000 * 10**18)
 
     # WETH: 18 decimals -> price * 10^12
     weth_address = _resolve_token_address(chain, "WETH", ARBITRUM_DEFAULTS["weth"])

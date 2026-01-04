@@ -459,6 +459,19 @@ class Gmx(Exchange):
         :raises TemporaryError: If order creation fails temporarily
         :raises DDosProtection: If rate limit exceeded
         """
+        logger.info("*" * 80)
+        logger.info("*** GMX create_stoploss CALLED ***")
+        logger.info(
+            "  pair=%s, amount=%.8f, stop_price=%.2f, side=%s, leverage=%.2f",
+            pair,
+            amount,
+            stop_price,
+            side,
+            leverage,
+        )
+        logger.info("  order_types=%s", order_types)
+        logger.info("*" * 80)
+
         try:
             # Convert amount from base currency to USD
             # Freqtrade passes amount in base currency (BTC/ETH), but GMX expects USD
@@ -467,7 +480,7 @@ class Gmx(Exchange):
             amount_usd = amount * current_price
 
             logger.info(
-                "Converting stop-loss amount for %s: %.8f (base currency) * %.2f (price) = %.2f USD",
+                ">>> Converting stop-loss amount for %s: %.8f (base currency) * %.2f (price) = %.2f USD",
                 pair,
                 amount,
                 current_price,
@@ -480,6 +493,8 @@ class Gmx(Exchange):
                 "stopLossPrice": stop_price,
             }
 
+            logger.debug("Creating standalone stop-loss order with params: %s", params)
+
             # Create standalone stop-loss order via CCXT
             order = self._api.create_order(
                 symbol=pair,
@@ -489,12 +504,14 @@ class Gmx(Exchange):
                 params=params,
             )
 
+            logger.info("*" * 80)
             logger.info(
-                "Created stop-loss order for %s: price=%.2f, amount=%.2f USD",
+                "✓ Created stop-loss order for %s: price=%.2f, amount=%.2f USD",
                 pair,
                 stop_price,
                 amount_usd,
             )
+            logger.info("*" * 80)
             return order
 
         except Exception as e:
@@ -626,69 +643,28 @@ class Gmx(Exchange):
         :raises TemporaryError: If order creation fails temporarily
         :raises OperationalException: If parameters are invalid
         """
-        # TODO: checking if passing **kwargs as a whole works or not
-        # # Build params dict from kwargs
-        # params = kwargs.get("params", {}) or {}
-
-        # # Add core parameters
-        # params["leverage"] = leverage
-        # params["reduceOnly"] = reduceOnly
-
-        # # Extract SL/TP from kwargs (advanced pattern)
-        # # Support both direct kwargs and params dict
-        # stop_loss = kwargs.get("stopLoss") or params.get("stopLoss")
-        # take_profit = kwargs.get("takeProfit") or params.get("takeProfit")
-
-        # # Also support CCXT unified parameters
-        # if not stop_loss and "stopLossPrice" in kwargs:
-        #     stop_loss = {"triggerPrice": kwargs["stopLossPrice"]}
-        # if not stop_loss and "stopLossPrice" in params:
-        #     stop_loss = {"triggerPrice": params["stopLossPrice"]}
-
-        # if not take_profit and "takeProfitPrice" in kwargs:
-        #     take_profit = {"triggerPrice": kwargs["takeProfitPrice"]}
-        # if not take_profit and "takeProfitPrice" in params:
-        #     take_profit = {"triggerPrice": params["takeProfitPrice"]}
-
-        # # Convert float to dict format if needed
-        # if isinstance(stop_loss, (int, float)):
-        #     stop_loss = {"triggerPrice": float(stop_loss)}
-        # if isinstance(take_profit, (int, float)):
-        #     take_profit = {"triggerPrice": float(take_profit)}
-
-        # # Add to params if present
-        # has_bundled = False
-        # if stop_loss:
-        #     params["stopLoss"] = stop_loss
-        #     has_bundled = True
-        # if take_profit:
-        #     params["takeProfit"] = take_profit
-        #     has_bundled = True
-
-        # Log bundled order creation
-        # if has_bundled:
-        #     order_count = 1 + (1 if stop_loss else 0) + (1 if take_profit else 0)
-        #     logger.info(
-        #         "Creating bundled order for %s: %d orders in 1 transaction (main%s%s)",
-        #         pair,
-        #         order_count,
-        #         " + SL" if stop_loss else "",
-        #         " + TP" if take_profit else "",
-        #     )
-
-        # # Pass collateral_symbol if provided
-        # if "collateral_symbol" in kwargs:
-        #     params["collateral_symbol"] = kwargs["collateral_symbol"]
-        # elif "collateral_symbol" in params:
-        #     # Already in params, no need to add
-        #     pass
-
-        # # Pass slippage if provided
-        # if "slippage_percent" in kwargs:
-        #     params["slippage_percent"] = kwargs["slippage_percent"]
+        # Enhanced logging with visual separators for workflow visibility
+        logger.info("=" * 80)
+        logger.info("*** GMX FREQTRADE create_order CALLED ***")
+        logger.info(
+            "  pair=%s, ordertype=%s, side=%s, amount=%.8f, rate=%s, leverage=%.2f, reduceOnly=%s, time_in_force=%s, initial_order=%s",
+            pair,
+            ordertype,
+            side,
+            amount,
+            rate,
+            leverage,
+            reduceOnly,
+            time_in_force,
+            initial_order,
+        )
+        if kwargs:
+            logger.info("  kwargs=%s", kwargs)
+        logger.info("=" * 80)
 
         # Call parent create_order which uses CCXT underneath
-        return super().create_order(
+        logger.info(">>> Delegating to parent Exchange.create_order() -> GMX CCXT adapter")
+        order = super().create_order(
             pair=pair,
             ordertype=ordertype,
             side=side,
@@ -700,3 +676,16 @@ class Gmx(Exchange):
             initial_order=initial_order,
             **kwargs,
         )
+
+        logger.info("=" * 80)
+        logger.info("*** GMX CCXT adapter RETURNED order ***")
+        logger.info(
+            "  id=%s, status=%s, filled=%.8f, remaining=%.8f",
+            order.get("id"),
+            order.get("status"),
+            order.get("filled", 0),
+            order.get("remaining", 0),
+        )
+        logger.info("=" * 80)
+
+        return order

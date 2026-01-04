@@ -4177,94 +4177,169 @@ class GMX(ExchangeCompatible):
             # decrease on the actual open position instead of the user-requested
             # amount to avoid "invalid decrease order size" reverts.
 
+            # RACE CONDITION FIX: When stop-loss executes, it closes the position on-chain.
+            # If Freqtrade's main loop then tries to close the same position (e.g., via ROI),
+            # we need to handle this gracefully instead of raising an error.
+
             normalized_symbol = self._normalize_symbol(symbol)
             market = self.markets[normalized_symbol]
             base_currency = market["base"]
 
             # Get existing positions to determine the position we're closing
             positions_manager = GetOpenPositions(self.config)
-            existing_positions = positions_manager.get_data(self.wallet.address)
 
-            # Find the matching long position for this market + collateral
-            position_to_close = None
-            for position_key, position_data in existing_positions.items():
-                position_market = position_data.get("market_symbol", "")
-                position_is_long = position_data.get("is_long", None)
-                position_collateral = position_data.get("collateral_token", "")
+            try:
+                existing_positions = positions_manager.get_data(self.wallet.address)
 
-                # Match market, collateral, and must be a long position
-                if position_market == base_currency and position_collateral == gmx_params["collateral_symbol"] and position_is_long:
-                    position_to_close = position_data
-                    break
+                # Find the matching long position for this market + collateral
+                position_to_close = None
+                for position_key, position_data in existing_positions.items():
+                    position_market = position_data.get("market_symbol", "")
+                    position_is_long = position_data.get("is_long", None)
+                    position_collateral = position_data.get("collateral_token", "")
 
-            if not position_to_close:
-                raise ValueError(
-                    f"No long position found for {symbol} with collateral {gmx_params['collateral_symbol']} to close",
+                    # Match market, collateral, and must be a long position
+                    if position_market == base_currency and position_collateral == gmx_params["collateral_symbol"] and position_is_long:
+                        position_to_close = position_data
+                        break
+
+                if not position_to_close:
+                    # Position not found - likely already closed (e.g., by stop-loss)
+                    # Verify this by checking all positions are indeed closed for this market
+                    logger.warning(f"Position for {symbol} with collateral {gmx_params['collateral_symbol']} not found. This likely means the position was already closed (e.g., by stop-loss execution). Returning synthetic 'closed' order response.")
+
+                    # Return a synthetic "closed" order to allow Freqtrade to reconcile state
+                    timestamp = self.milliseconds()
+                    synthetic_order = {
+                        "id": f"already_closed_{timestamp}",
+                        "clientOrderId": None,
+                        "timestamp": timestamp,
+                        "datetime": self.iso8601(timestamp),
+                        "lastTradeTimestamp": timestamp,
+                        "symbol": symbol,
+                        "type": type,
+                        "side": side,
+                        "price": None,  # Unknown since position was closed elsewhere
+                        "amount": amount,
+                        "cost": amount,  # Assume full amount for GMX (amount is in USD)
+                        "average": None,
+                        "filled": amount,  # Mark as fully filled
+                        "remaining": 0.0,
+                        "status": "closed",  # Position already closed
+                        "fee": {"cost": 0.0, "currency": "ETH"},  # No additional fee for this synthetic order
+                        "trades": [],
+                        "info": {
+                            "reason": "position_already_closed",
+                            "message": f"Position for {symbol} was already closed (likely by stop-loss)",
+                            "requested_close_size_usd": gmx_params["size_delta_usd"],
+                        },
+                    }
+
+                    logger.info(f"Position for {symbol} already closed - returning synthetic order id={synthetic_order['id']}")
+                    return synthetic_order
+
+                # Derive actual on-chain position size in USD.
+                # Preferred source is the already-converted "position_size" field.
+                position_size_usd = position_to_close.get("position_size")
+
+                # Fallback: convert raw 30-decimal size if available
+                if position_size_usd is None:
+                    raw_size = position_to_close.get("position_size_usd_raw") or position_to_close.get(
+                        "position_size_usd",
+                    )
+                    if raw_size:
+                        try:
+                            position_size_usd = float(raw_size) / 10**30
+                        except Exception:
+                            position_size_usd = None
+
+                if not position_size_usd or position_size_usd <= 0:
+                    raise ValueError(
+                        f"Cannot determine position size for {symbol} to close. Position data: {position_to_close}",
+                    )
+
+                # User-requested size (from CCXT amount / strategy).
+                requested_size_usd = float(gmx_params["size_delta_usd"])
+
+                # Clamp requested size to the actual position size to avoid protocol
+                # reverts when trying to close more than is open.
+                size_delta_usd = min(requested_size_usd, position_size_usd)
+
+                if size_delta_usd <= 0:
+                    raise ValueError(
+                        f"Requested close size {requested_size_usd} is not positive for position size {position_size_usd} on {symbol}",
+                    )
+
+                # Derive collateral delta proportionally from the original collateral.
+                # This matches GMX semantics better than guessing from leverage.
+                collateral_amount_usd = position_to_close.get("initial_collateral_amount_usd")
+                if collateral_amount_usd is None:
+                    # Fallback: approximate from leverage if USD value is missing
+                    leverage = float(position_to_close.get("leverage", 1.0) or 1.0)
+                    if leverage > 0:
+                        collateral_amount_usd = position_size_usd / leverage
+                    else:
+                        collateral_amount_usd = position_size_usd
+
+                # Pro-rata collateral for partial closes, full amount for full close
+                close_fraction = min(1.0, size_delta_usd / position_size_usd)
+                initial_collateral_delta = collateral_amount_usd * close_fraction
+
+                # Safety floor – avoid tiny dust values that can cause rounding issues
+                if initial_collateral_delta <= 0:
+                    initial_collateral_delta = collateral_amount_usd
+
+                # Call close_position with the derived parameters
+                order_result = self.trader.close_position(
+                    market_symbol=gmx_params["market_symbol"],
+                    collateral_symbol=gmx_params["collateral_symbol"],
+                    start_token_symbol=gmx_params["start_token_symbol"],
+                    is_long=True,  # We're closing a long position
+                    size_delta_usd=size_delta_usd,
+                    initial_collateral_delta=initial_collateral_delta,
+                    slippage_percent=gmx_params.get("slippage_percent", 0.003),
+                    execution_buffer=gmx_params.get("execution_buffer", self.execution_buffer),
+                    auto_cancel=gmx_params.get("auto_cancel", False),
                 )
 
-            # Derive actual on-chain position size in USD.
-            # Preferred source is the already-converted "position_size" field.
-            position_size_usd = position_to_close.get("position_size")
+            except ValueError as e:
+                # Check if this is a "position not found" error (our code above)
+                # or some other ValueError that should be re-raised
+                error_msg = str(e)
+                if "No long position found" in error_msg or "position was already closed" in error_msg:
+                    # This is the race condition - position was already closed
+                    logger.warning(f"Caught position-not-found error for {symbol}: {error_msg}. Position likely closed by stop-loss. Returning synthetic 'closed' order.")
 
-            # Fallback: convert raw 30-decimal size if available
-            if position_size_usd is None:
-                raw_size = position_to_close.get("position_size_usd_raw") or position_to_close.get(
-                    "position_size_usd",
-                )
-                if raw_size:
-                    try:
-                        position_size_usd = float(raw_size) / 10**30
-                    except Exception:
-                        position_size_usd = None
-
-            if not position_size_usd or position_size_usd <= 0:
-                raise ValueError(
-                    f"Cannot determine position size for {symbol} to close. Position data: {position_to_close}",
-                )
-
-            # User-requested size (from CCXT amount / strategy).
-            requested_size_usd = float(gmx_params["size_delta_usd"])
-
-            # Clamp requested size to the actual position size to avoid protocol
-            # reverts when trying to close more than is open.
-            size_delta_usd = min(requested_size_usd, position_size_usd)
-
-            if size_delta_usd <= 0:
-                raise ValueError(
-                    f"Requested close size {requested_size_usd} is not positive for position size {position_size_usd} on {symbol}",
-                )
-
-            # Derive collateral delta proportionally from the original collateral.
-            # This matches GMX semantics better than guessing from leverage.
-            collateral_amount_usd = position_to_close.get("initial_collateral_amount_usd")
-            if collateral_amount_usd is None:
-                # Fallback: approximate from leverage if USD value is missing
-                leverage = float(position_to_close.get("leverage", 1.0) or 1.0)
-                if leverage > 0:
-                    collateral_amount_usd = position_size_usd / leverage
+                    # Return synthetic closed order
+                    timestamp = self.milliseconds()
+                    synthetic_order = {
+                        "id": f"already_closed_{timestamp}",
+                        "clientOrderId": None,
+                        "timestamp": timestamp,
+                        "datetime": self.iso8601(timestamp),
+                        "lastTradeTimestamp": timestamp,
+                        "symbol": symbol,
+                        "type": type,
+                        "side": side,
+                        "price": None,
+                        "amount": amount,
+                        "cost": amount,
+                        "average": None,
+                        "filled": amount,
+                        "remaining": 0.0,
+                        "status": "closed",
+                        "fee": {"cost": 0.0, "currency": "ETH"},
+                        "trades": [],
+                        "info": {
+                            "reason": "position_already_closed",
+                            "message": error_msg,
+                            "requested_close_size_usd": gmx_params.get("size_delta_usd"),
+                        },
+                    }
+                    return synthetic_order
                 else:
-                    collateral_amount_usd = position_size_usd
-
-            # Pro-rata collateral for partial closes, full amount for full close
-            close_fraction = min(1.0, size_delta_usd / position_size_usd)
-            initial_collateral_delta = collateral_amount_usd * close_fraction
-
-            # Safety floor – avoid tiny dust values that can cause rounding issues
-            if initial_collateral_delta <= 0:
-                initial_collateral_delta = collateral_amount_usd
-
-            # Call close_position with the derived parameters
-            order_result = self.trader.close_position(
-                market_symbol=gmx_params["market_symbol"],
-                collateral_symbol=gmx_params["collateral_symbol"],
-                start_token_symbol=gmx_params["start_token_symbol"],
-                is_long=True,  # We're closing a long position
-                size_delta_usd=size_delta_usd,
-                initial_collateral_delta=initial_collateral_delta,
-                slippage_percent=gmx_params.get("slippage_percent", 0.003),
-                execution_buffer=gmx_params.get("execution_buffer", self.execution_buffer),
-                auto_cancel=gmx_params.get("auto_cancel", False),
-            )
+                    # Some other ValueError - re-raise it
+                    raise
         else:
             raise ValueError("Side must be 'buy' or 'sell'")
 
