@@ -142,26 +142,20 @@ GMX_DATASTORE_ADDRESS = {
     "avalanche": "0x2F0b22339414ADeD7D5F06f9D604c7fF5b2fe3f6",
 }
 
+#: Smart contract addresses for GMX Reader contracts by network.
+#:
+#: The Reader contract provides optimized read-only access to protocol data,
+#: offering batch queries and computed values that would be expensive to
+#: calculate on-demand. It acts as a view layer that aggregates information
+#: from multiple protocol contracts, providing convenient interfaces for
+#: common data access patterns.
+#:
+#: Reader contracts are particularly important for user interfaces and
+#: analytics systems that need to efficiently query large amounts of protocol
+#: data. They implement gas-optimized functions that can return complex data
+#: structures in single calls, reducing the number of RPC requests needed
+#: for comprehensive protocol state queries.
 GMX_READER_ADDRESS = {
-    """
-    Smart contract addresses for GMX Reader contracts by network.
-    
-    The Reader contract provides optimized read-only access to protocol data,
-    offering batch queries and computed values that would be expensive to
-    calculate on-demand. It acts as a view layer that aggregates information
-    from multiple protocol contracts, providing convenient interfaces for
-    common data access patterns.
-    
-    Reader contracts are particularly important for user interfaces and
-    analytics systems that need to efficiently query large amounts of protocol
-    data. They implement gas-optimized functions that can return complex data
-    structures in single calls, reducing the number of RPC requests needed
-    for comprehensive protocol state queries.
-    
-    :type: dict[str, str]
-    :var arbitrum: Reader contract address on Arbitrum network
-    :var avalanche: Reader contract address on Avalanche network
-    """
     "arbitrum": "0x5Ca84c34a381434786738735265b9f3FD814b824",
     "avalanche": "0xBAD04dDcc5CC284A86493aFA75D2BEb970C72216",
 }
@@ -191,22 +185,18 @@ GMX_EXCHANGE_ROUTER_ADDRESS = {
 eventemitter_path = base_dir / "../" / "abi" / "gmx" / "eventemitter.json"
 
 # Read and parse the JSON ABI file
+#: Application Binary Interface (ABI) for the GMX Event Emitter contract.
+#:
+#: The ABI defines the contract's interface, including function signatures, event
+#: definitions, and data types. This allows Python code to properly encode function
+#: calls and decode contract responses when interacting with the deployed Event
+#: Emitter contracts on different blockchain networks.
+#:
+#: The Event Emitter ABI includes definitions for all events that the contract
+#: can emit, such as position updates, liquidations, and funding rate changes.
+#: This information is essential for parsing event logs and building event
+#: monitoring systems that react to protocol state changes.
 GMX_EVENT_EMITTER_ABI = json.loads(eventemitter_path.read_text())
-"""
-Application Binary Interface (ABI) for the GMX Event Emitter contract.
-
-The ABI defines the contract's interface, including function signatures, event
-definitions, and data types. This allows Python code to properly encode function
-calls and decode contract responses when interacting with the deployed Event
-Emitter contracts on different blockchain networks.
-
-The Event Emitter ABI includes definitions for all events that the contract
-can emit, such as position updates, liquidations, and funding rate changes.
-This information is essential for parsing event logs and building event
-monitoring systems that react to protocol state changes.
-
-:type: list[dict[str, Any]]
-"""
 
 
 # Event signatures for GMX contracts

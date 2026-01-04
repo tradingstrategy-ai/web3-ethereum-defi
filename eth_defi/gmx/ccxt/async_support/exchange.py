@@ -1499,9 +1499,15 @@ class GMX(Exchange):
         :param symbol: Market symbol (e.g., 'ETH/USD', 'BTC/USD')
         :param type: Order type ('market' or 'limit')
         :param side: Order side ('buy' for long, 'sell' for short)
-        :param amount: Order size in USD
-        :param price: Limit price (currently unused, GMX uses market orders)
-        :param params: Additional parameters including SL/TP configuration
+        :param amount: Order size in base currency contracts (e.g., ETH for ETH/USD). Use params['size_usd'] for USD-based sizing.
+        :param price: Price for limit orders. For market orders, used to convert amount to USD if provided.
+        :param params: Additional parameters:
+            - size_usd (float): GMX Extension - Order size in USD (alternative to amount parameter)
+            - leverage (float): Leverage multiplier
+            - collateral_symbol (str): Collateral token
+            - slippage_percent (float): Slippage tolerance
+            - execution_buffer (float): Gas buffer multiplier
+            - stopLoss/takeProfit: SL/TP configuration
         :return: CCXT-compatible order structure
         """
         if params is None:
@@ -1730,8 +1736,8 @@ class GMX(Exchange):
         :param symbol: Market symbol
         :param type: Order type
         :param side: Order side
-        :param amount: Order size in USD
-        :param price: Price
+        :param amount: Order size in base currency contracts (e.g., ETH for ETH/USD). Use params['size_usd'] for USD-based sizing.
+        :param price: Price for limit orders. For market orders, used to convert amount to USD if provided.
         :param params: Additional parameters
         :return: GMX parameters dict
         """
@@ -1740,11 +1746,25 @@ class GMX(Exchange):
         slippage_percent = params.get("slippage_percent", 0.003)
         execution_buffer = params.get("execution_buffer", 2.2)
 
+        # GMX Extension: Support direct USD sizing via size_usd parameter
+        if "size_usd" in params:
+            # Direct USD amount (GMX-native approach)
+            size_delta_usd = params["size_usd"]
+        else:
+            # Standard CCXT: amount is in base currency, convert to USD
+            if price:
+                size_delta_usd = amount * price
+            else:
+                # For market orders, fetch current price
+                ticker = await self.fetch_ticker(symbol)
+                current_price = ticker["last"]
+                size_delta_usd = amount * current_price
+
         return {
             "symbol": symbol,
             "collateral_symbol": collateral_symbol,
             "leverage": leverage,
-            "size_delta_usd": amount,
+            "size_delta_usd": size_delta_usd,
             "slippage_percent": slippage_percent,
             "execution_buffer": execution_buffer,
         }
@@ -1928,15 +1948,31 @@ class GMX(Exchange):
     ) -> dict:
         """Create standalone SL/TP order for existing position (async version).
 
-        :param symbol: Market symbol
-        :param type: Order type ('stop_loss' or 'take_profit')
-        :param side: Order side
-        :param amount: Order size
-        :param params: Additional parameters
+        This method creates a standalone stop-loss or take-profit order for an
+        existing GMX position asynchronously. Unlike bundled orders (created with
+        position opening), these are created separately after a position is already open.
+
+        Used by Freqtrade's ``create_stoploss()`` method when
+        ``stoploss_on_exchange=True``.
+
+        :param symbol: Market symbol (e.g., "ETH/USDC:USDC")
+        :param type: Order type ("stop_loss" or "take_profit")
+        :param side: Order side ("sell" to close long, "buy" to close short)
+        :param amount: Position size in USD to close
+        :param params: Parameters dict containing:
+
+            - ``stopLossPrice`` or ``takeProfitPrice``: Trigger price (float)
+            - ``leverage``: Position leverage (required)
+            - ``collateral_symbol``: Collateral token (optional, inferred from symbol)
+            - ``slippage_percent``: Slippage tolerance (default: 0.003)
+            - ``execution_buffer``: Execution fee buffer multiplier (default: 2.5)
+
         :return: CCXT-compatible order structure
+        :raises NotSupported: Async version not yet implemented
+        :raises InvalidOrder: If required parameters are missing
         """
-        # Async implementation mirrors sync but with await for blocking calls
-        raise NotSupported(f"{self.id} async standalone SLTP orders not yet implemented - use sync version")
+        # Async implementation would require async GMXTrading methods
+        raise NotSupported(f"{self.id} async standalone SLTP orders not yet implemented. Use sync GMX exchange class for standalone SL/TP orders in Freqtrade.")
 
     async def create_market_buy_order(
         self,
