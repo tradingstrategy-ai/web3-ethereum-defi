@@ -1100,6 +1100,9 @@ HARDCODED_PROTOCOLS = {
     # cSigma Finance - csUSD vault on Ethereum
     # https://etherscan.io/address/0xd5d097f278a735d0a3c609deee71234cac14b47e
     "0xd5d097f278a735d0a3c609deee71234cac14b47e": {ERC4626Feature.csigma_like},
+    # cSigma Finance - CsigmaV2Pool on Ethereum
+    # https://etherscan.io/address/0x438982ea288763370946625fd76c2508ee1fb229
+    "0x438982ea288763370946625fd76c2508ee1fb229": {ERC4626Feature.csigma_like},
     # Spark - sUSDC vault on Ethereum
     # https://etherscan.io/address/0xbc65ad17c5c0a2a4d159fa5a503f4992c7b545fe
     "0xbc65ad17c5c0a2a4d159fa5a503f4992c7b545fe": {ERC4626Feature.spark_like},

@@ -6,7 +6,6 @@ on:
 
 jobs:
   claude-review:
-    # Only run if comment contains @claude and is on a PR
     if: |
       github.event.issue.pull_request &&
       contains(github.event.comment.body, '@claude')
@@ -19,9 +18,10 @@ jobs:
       issues: write
 
     steps:
-      - name: Checkout repository
+      - name: Checkout PR
         uses: actions/checkout@v4
         with:
+          ref: refs/pull/${{ github.event.issue.number }}/head
           fetch-depth: 0
 
       - name: Run Claude Code Review
