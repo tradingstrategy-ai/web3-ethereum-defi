@@ -8,7 +8,7 @@ leverage in one place and use it across various DeFi protocols. The protocol
 has two sides: passive liquidity providers who earn yield by depositing assets,
 and active traders/farmers who can borrow assets for leveraged positions.
 
-The PoolV3 contracts are ERC-4626 compatible lending pools that manage liquidity
+The `PoolV3` contracts are ERC-4626 compatible lending pools that manage liquidity
 from passive lenders. When users deposit stablecoins or other assets, they receive
 pool shares (dTokens) representing their deposit. The underlying deposits are
 lent to credit accounts that pay interest on borrowed funds.

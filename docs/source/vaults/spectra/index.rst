@@ -7,6 +7,17 @@ Spectra is an open-source interest rate derivatives protocol that enables yield 
 The protocol splits ERC-4626 compliant interest-bearing tokens into Principal Tokens (PT) and
 Yield Tokens (YT), allowing users to fix rates, trade yield, and earn on liquidity positions.
 
+Spectra Finance:
+
+- `Homepage <https://www.spectra.finance/>`__
+- `App <https://app.spectra.finance>`__
+- `Documentation <https://docs.spectra.finance/>`__
+- `Twitter <https://x.com/spectra_finance>`__
+- `GitHub <https://github.com/perspectivefi>`__
+
+About WUSDN
+~~~~~~~~~~~
+
 The current integration supports the Spectra ERC-4626 wrapper for WUSDN (Wrapped Ultimate
 Synthetic Delta Neutral), which is a wrapper contract that makes WUSDN compatible with
 Spectra's yield tokenisation system.
@@ -16,14 +27,6 @@ wrapper that enables WUSDN to be used within Spectra's PT/YT system.
 
 WUSDN is a non-rebasing wrapper around USDN, a decentralised synthetic US dollar from
 `SmarDex <https://smardex.io/usdn>`__ that uses a delta-neutral strategy to generate yield.
-
-Spectra Finance:
-
-- `Homepage <https://www.spectra.finance/>`__
-- `App <https://app.spectra.finance>`__
-- `Documentation <https://docs.spectra.finance/>`__
-- `Twitter <https://x.com/spectra_finance>`__
-- `GitHub <https://github.com/perspectivefi>`__
 
 USDN / SmarDex (underlying protocol):
 

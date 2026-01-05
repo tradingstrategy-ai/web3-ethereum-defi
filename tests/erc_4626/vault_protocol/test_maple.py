@@ -1,5 +1,6 @@
-"""Test Maple Finance Syrup vault metadata."""
+"""Test Maple Finance vault metadata."""
 
+import datetime
 import os
 from pathlib import Path
 
@@ -12,6 +13,7 @@ from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.erc_4626.vault_protocol.maple.vault import SyrupVault
+from eth_defi.erc_4626.vault_protocol.maple.aqru_vault import AQRUPoolVault
 from eth_defi.vault.base import VaultTechnicalRisk
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
@@ -78,6 +80,37 @@ def test_maple_syrup_usdt(
     assert isinstance(vault, SyrupVault)
     assert vault.get_protocol_name() == "Maple"
     assert vault.features == {ERC4626Feature.maple_like}
+
+    # Check risk level
+    assert vault.get_risk() == VaultTechnicalRisk.negligible
+
+
+@flaky.flaky
+def test_maple_aqru_pool(
+    web3: Web3,
+    tmp_path: Path,
+):
+    """Read Maple AQRU Pool (Real-World Receivables) vault metadata."""
+
+    vault = create_vault_instance_autodetect(
+        web3,
+        vault_address="0xe9d33286f0E37f517B1204aA6dA085564414996d",
+    )
+
+    assert isinstance(vault, AQRUPoolVault)
+    assert vault.get_protocol_name() == "Maple"
+    assert vault.features == {ERC4626Feature.maple_aqru_like}
+
+    # AQRU Pool has internalised fees
+    assert vault.get_management_fee("latest") is None
+    assert vault.get_performance_fee("latest") is None
+    assert vault.has_custom_fees() is False
+
+    # AQRU Pool has 45-day lock-up
+    assert vault.get_estimated_lock_up() == datetime.timedelta(days=45)
+
+    # Check vault link
+    assert vault.get_link() == "https://aqru.io/real-world-receivables/"
 
     # Check risk level
     assert vault.get_risk() == VaultTechnicalRisk.negligible

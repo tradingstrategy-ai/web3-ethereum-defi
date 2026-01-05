@@ -43,6 +43,8 @@
       "Skill(more-vaults:*)",
       "Skill(identify-vault-protocol)",
       "Skill(identify-vault-protocol:*)",      
+      "Skill(get-block-number)",
+      "Skill(get-block-number:*)",      
       "mcp__github__*"                           
     ]
   }
