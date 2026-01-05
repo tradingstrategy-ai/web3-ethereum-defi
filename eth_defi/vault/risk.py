@@ -102,6 +102,7 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     # See https://app.superform.xyz/vault/1_0x942bed98560e9b2aa0d4ec76bbda7a7e55f6b2d6
     "Superform": VaultTechnicalRisk.severe,
     "Royco": None,
+    "ETH Strategy": VaultTechnicalRisk.low,
 }
 
 #: Particular vaults that are broken, misleading or otherwise problematic.

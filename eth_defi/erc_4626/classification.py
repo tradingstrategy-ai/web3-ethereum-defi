@@ -1090,6 +1090,11 @@ def create_vault_instance(
 
         return RoycoVault(web3, spec, token_cache=token_cache, features=features)
 
+    elif ERC4626Feature.eth_strategy_like in features:
+        from eth_defi.erc_4626.vault_protocol.eth_strategy.vault import EthStrategyVault
+
+        return EthStrategyVault(web3, spec, token_cache=token_cache, features=features)
+
     else:
         # Generic ERC-4626 without fee data
         from eth_defi.erc_4626.vault import ERC4626Vault
@@ -1163,6 +1168,9 @@ HARDCODED_PROTOCOLS = {
     # ZeroLend RWA USDC vault wrapped by Royco on Ethereum
     # https://etherscan.io/address/0x887d57a509070a0843c6418eb5cffc090dcbbe95
     "0x887d57a509070a0843c6418eb5cffc090dcbbe95": {ERC4626Feature.zerolend_like, ERC4626Feature.royco_like},
+    # ETH Strategy - ESPN (EthStrategyPerpetualNote) vault on Ethereum
+    # https://etherscan.io/address/0xb250c9e0f7be4cff13f94374c993ac445a1385fe
+    "0xb250c9e0f7be4cff13f94374c993ac445a1385fe": {ERC4626Feature.eth_strategy_like},
 }
 
 for a in HARDCODED_PROTOCOLS.keys():
