@@ -1,0 +1,37 @@
+name: Upshift
+slug: upshift
+short_description: |
+  Institutional-grade DeFi yield strategies through non-custodial vaults.
+long_description: |
+  Upshift democratises institutional-grade DeFi yield strategies through non-custodial vaults
+  built on August infrastructure. The platform handles three main product offerings:
+
+  **Upshift Lend**: An on-chain lending platform providing overcollateralised positions
+  with institutional borrowers, emphasising KYC/KYB verification and real yield opportunities.
+
+  **Upshift DeFi Yield**: Access to yield strategies curated and executed by some of the
+  best-performing DeFi funds, offering institutional-level risk management previously
+  unavailable to retail participants.
+
+  **Vault-as-a-Service (VaaS)**: A streamlined solution for ecosystems and protocols
+  looking to offer tailored vault opportunities, utilising the ERC-4626 standard alongside
+  August smart contracts.
+
+  The vaults operate as non-custodial structures, meaning users maintain control over their assets.
+  The implementation leverages the ERC-4626 Vault Standard, a widely-adopted Ethereum standard
+  for tokenised vaults.
+fee_description: |
+links:
+  homepage: https://www.upshift.finance/
+  app:
+  twitter: https://x.com/upshift_fi
+  github:
+  documentation: https://docs.upshift.finance/
+  defillama: https://defillama.com/protocol/upshift
+  audits:
+  fees:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/upshift
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/upshift/index.html
+example_smart_contracts:
+  - https://etherscan.io/address/0x69fc3f84fd837217377d9dae0212068ceb65818e
+  -

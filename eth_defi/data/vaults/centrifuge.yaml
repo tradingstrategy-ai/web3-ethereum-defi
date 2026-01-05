@@ -1,0 +1,34 @@
+name: Centrifuge
+slug: centrifuge
+short_description: |
+  Protocol for real-world asset tokenisation and financing.
+long_description: |
+  Centrifuge is a protocol for real-world asset (RWA) tokenisation and financing.
+  It enables borrowers to finance assets like invoices, real estate, and other
+  tokenised assets without the need for banks or other intermediaries.
+
+  Each pool can have multiple tranches, and each tranche is a separate deployment
+  of an ERC-7540 Vault and a Tranche Token. Additionally, each tranche of a
+  Centrifuge pool can have multiple Liquidity Pools (vaults) - one for each
+  supported investment currency.
+
+  The protocol implements ERC-7540 (asynchronous deposits/redemptions) on top of
+  ERC-4626, enabling integration with Centrifuge's epoch-based investment system.
+
+  One of the most popular Centrifuge users is Anemoy, which offers tokenised US assets
+  like S&P 500 index, Janus Henderson AAA collateralised loan obligation ETF and US treasuries.
+fee_description: |
+links:
+  homepage: https://centrifuge.io/
+  app: https://app.centrifuge.io/
+  twitter: https://x.com/centrifuge
+  github: https://github.com/centrifuge/liquidity-pools
+  documentation: https://docs.centrifuge.io/
+  defillama: https://defillama.com/protocol/centrifuge
+  audits:
+  fees:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/centrifuge
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/centrifuge/index.html
+example_smart_contracts:
+  - https://etherscan.io/address/0xa702ac7953e6a66d2b10a478eb2f0e2b8c8fd23e
+  -

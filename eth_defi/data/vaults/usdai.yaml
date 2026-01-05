@@ -1,0 +1,35 @@
+name: USDai
+slug: usdai
+short_description: |
+  Synthetic dollar protocol bridging DeFi and artificial intelligence infrastructure.
+long_description: |
+  USD.AI is a synthetic dollar protocol that bridges DeFi and artificial intelligence infrastructure.
+  The protocol issues USDai, an overcollateralised stablecoin pegged to $1 and redeemable for stablecoins
+  like USDC, with reserves deployed in income-generating AI/DePIN loans backed by NVIDIA GPUs.
+
+  The dual-token system includes:
+
+  - **USDai**: Non-yield-bearing synthetic dollar, highly liquid and composable
+  - **sUSDai**: Yield-bearing ERC-4626 vault shares received when staking USDai
+
+  Key features:
+
+  - Synthetic dollar backed by tokenised U.S. Treasuries through the M0 platform
+  - Yield generation from loans collateralised by GPU hardware in insured data centres
+  - Each GPU is documented under U.S. commercial law and tokenised as an NFT
+  - Chainlink Price Feeds integration for accurate on-chain rates
+fee_description: |
+links:
+  homepage: https://usd.ai/
+  app: https://usdai.fi/
+  twitter: https://x.com/USDai_Official
+  github:
+  documentation: https://usdai.gitbook.io/usdai/
+  defillama: https://defillama.com/protocol/usd-ai
+  audits:
+  fees:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/usdai
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/usdai/index.html
+example_smart_contracts:
+  - https://arbiscan.io/address/0xc0540184de0e42eab2b0a4fc35f4817041001e85
+  -

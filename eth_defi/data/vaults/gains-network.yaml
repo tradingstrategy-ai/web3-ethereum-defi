@@ -1,0 +1,38 @@
+name: Gains Network
+slug: gains-network
+short_description: |
+  Automated market making vaults for perpetual futures trading on-chain.
+long_description: |
+  GToken-based vault smart contracts provide automated market making vaults for perpetual futures
+  purely on-chain. The trading engine uses gToken vaults for all trading pairs, making it over
+  100x more capital efficient than traditional order book approaches.
+
+  Known implementations are:
+
+  - gTrade, formerly known as Gains protocol and its gToken vaults
+  - Ostium vaults, also known as "Ostium LP" vaults where LP stands for liquidity provider
+
+  This Python-based API allows you to automate interactions with these vaults in your application:
+
+  - Discover vaults and their features across multiple chains
+  - Historical data reading: share price, profit, TVL, deposits, redemptions
+  - Deposit into a vault from your application
+  - Redeem from the vault
+  - Query your vault positions
+  - Query vault redemption delays
+fee_description: |
+links:
+  homepage: https://gains.trade/
+  app: https://gains.trade/vaults
+  twitter: https://x.com/GainsNetwork_io
+  github: https://github.com/GainsNetwork-org
+  documentation: https://docs.gains.trade/
+  defillama: https://defillama.com/protocol/gains-network
+  audits:
+  fees:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/gains-network
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/gains/index.html
+example_smart_contracts:
+  - https://arbiscan.io/address/0xd3443ee1e91af28e5fb858fbd0d72a63ba8046e0
+  - https://arbiscan.io/address/0x20d419a8e12c45f88fda7c5760bb6923cee27f98
+  -

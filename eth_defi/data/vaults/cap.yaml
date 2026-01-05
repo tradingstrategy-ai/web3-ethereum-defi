@@ -1,0 +1,23 @@
+name: CAP
+slug: cap
+short_description: |
+  Covered call yield protocol providing structured products for crypto assets.
+long_description: |
+  CAP is a covered call yield protocol that provides structured products for earning yield on
+  crypto assets. The protocol provides credible financial guarantees via two products: the
+  dollar-denominated cUSD and the yield-bearing stcUSD.
+fee_description: |
+links:
+  homepage: https://cap.app/
+  app:
+  twitter: https://x.com/capmoney_
+  github:
+  documentation:
+  defillama: https://defillama.com/protocol/cap
+  audits:
+  fees:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/cap
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/cap/index.html
+example_smart_contracts:
+  - https://etherscan.io/address/0x3ed6aa32c930253fc990de58ff882b9186cd0072
+  -

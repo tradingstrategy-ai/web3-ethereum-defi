@@ -1,0 +1,36 @@
+name: IPOR
+slug: ipor
+short_description: |
+  Meta DeFi aggregation, execution and intelligence engine for on-chain asset management.
+long_description: |
+  IPOR Fusion is a meta DeFi aggregation, execution and intelligence engine that introduces
+  a unified liquidity framework for on-chain asset management. Fusion combines various aggregation
+  and routing protocols into a single smart contract layer, automating asset management and
+  maximising returns across yield sources.
+
+  Vaults in IPOR Fusion are called Plasma Vaults and are the central part of the Fusion system.
+  All Plasma Vaults implement the ERC-4626 standard. Plasma Vaults implement a Diamond Proxy
+  pattern and delegate calls to fuses and attached contracts to manage fees and rewards collection.
+
+  Key features:
+
+  - Intelligence-driven execution for DeFi operations including looping, carry trades and arbitrage
+  - Single integration point for accessing multiple yield venues
+  - Automated rebalancing, optimisation and risk management
+  - Siloed risk exposure between Fusion vaults (losses not socialised)
+  - Built with battle-tested smart contracts and audited by top-tier firms
+fee_description: |
+links:
+  homepage: https://www.ipor.io/
+  app: https://app.ipor.io/
+  twitter: https://x.com/ipor_io
+  github: https://github.com/IPOR-Labs/ipor-fusion
+  documentation: https://docs.ipor.io/ipor-fusion/vaults
+  defillama: https://defillama.com/protocol/ipor-fusion
+  audits:
+  fees:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/ipor
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/ipor/index.html
+example_smart_contracts:
+  - https://etherscan.io/address/0xabab980f0ecb232d52f422c6b68d25c3d0c18e3e
+  -

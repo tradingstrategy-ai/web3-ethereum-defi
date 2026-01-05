@@ -1,0 +1,34 @@
+name: Term Finance
+slug: term-finance
+short_description: |
+  Noncustodial fixed-rate liquidity protocol modelled on tri-party repo arrangements.
+long_description: |
+  Term Finance is a noncustodial fixed-rate liquidity protocol modelled on tri-party
+  repo arrangements common in traditional finance (TradFi). Liquidity suppliers and
+  takers are matched through a unique weekly auction process where liquidity takers
+  submit bids and suppliers submit offers to the protocol.
+
+  The protocol determines a "market clearing rate" that matches supply and demand.
+  Bidders who bid more than the clearing rate receive loans and lenders asking less
+  than the clearing rate supply liquidity.
+
+  Key features:
+
+  - Fixed-rate DeFi lending and borrowing via auctions
+  - Scalable transactions with no spread, no slippage, and low fees
+  - Collateral sits in isolated noncustodial smart contracts (repoLocker)
+  - No rehypothecation - collateral cannot be lent to other borrowers
+fee_description: |
+links:
+  homepage: https://www.term.finance/
+  app: https://app.term.finance/
+  twitter: https://x.com/term_labs
+  github: https://github.com/term-finance/term-finance-contracts
+  documentation: https://developers.term.finance
+  defillama:
+  audits:
+  fees:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/term-finance
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/term_finance/index.html
+example_smart_contracts:
+  - https://etherscan.io/address/0xa10c40f9e318b0ed67ecc3499d702d8db9437228

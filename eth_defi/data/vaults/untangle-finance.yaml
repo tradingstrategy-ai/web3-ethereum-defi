@@ -1,0 +1,28 @@
+name: Untangle Finance
+slug: untangle-finance
+short_description: |
+  Decentralised lending and liquidity protocol for real-world asset collaterals.
+long_description: |
+  Untangled Finance builds and executes yield strategies through in-house credit investment management,
+  risk modelling, and smart contract capabilities. The platform is a decentralised lending and
+  liquidity protocol for real-world asset collaterals.
+
+  Backed by Fasanara Capital, a leading institutional asset manager and fintech investing pioneer,
+  they specialise in creating on-chain credit and delta-neutral yield strategies involving both
+  RWAs and crypto natives. Their private credit tokenisation strategies cover assets sourced from
+  a pool of 100+ fintech lenders in 60+ countries.
+fee_description: |
+links:
+  homepage: https://untangled.finance/
+  app:
+  twitter: https://x.com/untangledfi
+  github: https://github.com/untangledfinance
+  documentation:
+  defillama: https://defillama.com/protocol/untangled-rwa
+  audits:
+  fees:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/untangle-finance
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/untangle/index.html
+example_smart_contracts:
+  - https://arbiscan.io/address/0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9
+  -

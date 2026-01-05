@@ -1,0 +1,25 @@
+name: Superform
+slug: superform
+short_description: |
+  Permissionless cross-chain yield marketplace for DeFi protocols.
+long_description: |
+  Superform is a permissionless cross-chain yield marketplace designed for DeFi protocols, allowing
+  them to list their vaults or asset pools. SuperVaults offer a simple way to get the best yields
+  on-chain without needing to check rates or rebalance your portfolio.
+
+  Interest is primarily generated through fixed-rate and variable-rate on-chain lending products.
+  The Superform Protocol is a suite of non-upgradeable, non-custodial smart contracts that act as
+  a central repository for yield and a router for users. It is modular, permissionless to list vaults,
+  and enables intent-based transactions across chains.
+fee_description: |
+links:
+  homepage: https://www.superform.xyz/
+  app: https://app.superform.xyz/
+  twitter: https://x.com/Superformxyz
+  github: https://github.com/superform-xyz
+  documentation: https://docs.superform.xyz/
+  defillama: https://defillama.com/protocol/superform
+  audits:
+  fees:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/superform
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/superform/index.html

@@ -1,0 +1,26 @@
+name: Silo Finance
+slug: silo-finance
+short_description: |
+  Non-custodial lending primitive creating programmable risk-isolated markets.
+long_description: |
+  The Silo Protocol is a non-custodial lending primitive that creates programmable risk-isolated markets
+  known as silos. Any user with a wallet can lend or borrow in a silo in a non-custodial manner. Silo
+  markets use the peer-to-pool, overcollateralised model, where the value of a borrower's collateral
+  always exceeds the value of their loan.
+
+  Unlike traditional lending protocols where all assets share risk in a common pool, Silo creates
+  separate, isolated lending pools for each supported asset. Each Silo is composed of the unique
+  asset for which it was created and bridge assets (ETH, USDC). Silo V2 supports ERC-4626 integration
+  for seamless compatibility with third-party DeFi applications.
+fee_description: |
+links:
+  homepage: https://silo.finance/
+  app: https://app.silo.finance/
+  twitter: https://x.com/SiloFinance
+  github: https://github.com/silo-finance
+  documentation: https://docs.silo.finance/
+  defillama: https://defillama.com/protocol/silo-finance
+  audits:
+  fees:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/silo-finance
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/silo/index.html

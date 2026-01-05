@@ -1,0 +1,25 @@
+name: Plutus
+slug: plutus
+short_description: |
+  Cross-chain yield- and governance layer backing the Plutus protocol and ecosystem.
+long_description: |
+  PLUTUS is the cross-chain yield- and governance layer backing the Plutus protocol and ecosystem.
+
+  The yield-bearing and vote-enabling escrowed version xPLUTUS is made available on each chain
+  PLUTUS, the LayerZero OFT, is deployed on.
+
+  Plutus buys back PLUTUS using revenue and productive treasury funds and distributes this
+  PLUTUS-denominated real yield to xPLUTUS stakers, thus funnelling circulating supply to
+  those most aligned with the protocol.
+fee_description: |
+links:
+  homepage: https://plutus.fi/
+  app:
+  twitter: https://x.com/plutus_fi_x
+  github:
+  documentation:
+  defillama:
+  audits:
+  fees:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/plutus
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/plutus/index.html

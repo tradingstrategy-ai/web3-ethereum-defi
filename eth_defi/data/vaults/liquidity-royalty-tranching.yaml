@@ -1,0 +1,36 @@
+name: Liquidity Royalty Tranching
+slug: liquidity-royalty-tranching
+short_description: |
+  Tiered vault system on Berachain with profit spillover and cascading backstop mechanisms.
+long_description: |
+  Liquidity Royalty Tranching is a protocol implementing a tiered vault system on Berachain
+  with profit spillover and cascading backstop mechanisms.
+
+  The protocol features three vault types:
+
+  - **Senior vault**: Primary yield-generating vault
+  - **Junior vault**: Receives 80% of Senior's excess profits (spillover) and provides secondary backstop protection
+  - **Reserve vault**: Provides primary backstop protection
+
+  Key features:
+
+  - Profit spillover mechanism from Senior to Junior vault
+  - Cascading backstop architecture (Reserve -> Junior -> Senior)
+  - Non-rebasing ERC-4626 share tokens
+  - 7-day cooldown period for penalty-free withdrawals
+  - 20% penalty for early withdrawals without cooldown, plus 1% base withdrawal fee
+fee_description: |
+  - 7-day cooldown period for penalty-free withdrawals
+  - 20% penalty for early withdrawals without cooldown
+  - 1% base withdrawal fee
+links:
+  homepage: https://github.com/stratosphere-network/LiquidRoyaltyContracts
+  app:
+  twitter:
+  github: https://github.com/stratosphere-network/LiquidRoyaltyContracts
+  documentation: https://github.com/stratosphere-network/LiquidRoyaltyContracts/tree/master/docs
+  defillama:
+  audits:
+  fees:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/liquidity-royalty-tranching
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/liquidity_royalty/index.html

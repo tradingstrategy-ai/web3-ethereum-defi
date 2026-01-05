@@ -1,0 +1,37 @@
+name: AUTO Finance
+slug: auto-finance
+short_description: |
+  Autonomous LP optimisation with ERC-4626 standard vaults.
+long_description: |
+  Also known as Tokemak and Autopool protocol.
+
+  Providing liquidity in DeFi, particularly to correlated trading pairs such as ETH LSTs/LRTs and
+  stablecoins on decentralised exchanges (DEXs), or to lending markets like AAVE, Fluid, and Morpho,
+  can be an extremely efficient on-chain way to earn additional yield on one's assets. Despite this,
+  it comes with many complexities to achieve that efficiency.
+
+  Autopools were developed to address the many challenges liquidity providers (LPs) face when optimising
+  for best performance. Users deposit assets into an autopool, each representing a set of potential
+  deployment destinations for the autonomous rebalance logic. The Autopool Rebalance Logic takes over,
+  autonomously monitoring the underlying pools and leveraging its powerful framework to rebalance.
+
+  Key features:
+
+  - Autonomous LP optimisation with ERC-4626 standard vaults
+  - No lock-ups or cooldown periods for withdrawals
+  - Modular architecture allowing plug-and-play integration of new assets and destinations
+fee_description: |
+links:
+  homepage: https://www.tokemak.xyz/
+  app: https://app.tokemak.xyz/
+  twitter: https://x.com/autopools
+  github:
+  documentation: https://docs.tokemak.xyz/
+  defillama: https://defillama.com/protocol/tokemak
+  audits:
+  fees:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/auto-finance
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/auto_finance/index.html
+example_smart_contracts:
+  - https://arbiscan.io/address/0xf63b7f49b4f5dc5d0e7e583cfd79dc64e646320c
+  -

@@ -1,0 +1,35 @@
+name: Lagoon Finance
+slug: lagoon-finance
+short_description: |
+  Open, general-purpose, secure vault infrastructure for on-chain yield products.
+long_description: |
+  Lagoon provides open, general-purpose, secure vault infrastructure to build and scale on-chain
+  yield products. The platform is designed for asset managers, DAOs, DeFi protocols and market
+  makers who need flexible vault infrastructure.
+
+  Powered by the ERC-7540 standard (asynchronous vaults), curators manage deposits and withdrawals
+  asynchronously, while users can join any public vault to start earning on their assets. The
+  infrastructure is built on top of Safe, leveraging Zodiac modules for security.
+
+  Key features:
+
+  - ERC-7540 asynchronous vault standard for managed deposits and withdrawals
+  - Built on Safe with Zodiac modules for institutional-grade security
+  - Smart contract code reviewed seven times by reputable firms
+  - Vault access controls with optional KYC/KYB integration
+  - CoW Protocol integration for trade execution
+fee_description: |
+links:
+  homepage: https://lagoon.finance/
+  app: https://app.lagoon.finance/
+  twitter: https://x.com/lagoon_finance
+  github: https://github.com/hopperlabsxyz
+  documentation: https://docs.lagoon.finance/
+  defillama: https://defillama.com/protocol/lagoon
+  audits:
+  fees:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/lagoon-finance
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/lagoon/index.html
+example_smart_contracts:
+  - https://basescan.org/address/0x6a5ea384e394083149ce39db29d5787a658aa98a
+  -

@@ -1,0 +1,38 @@
+name: Euler
+slug: euler
+short_description: |
+  Modular lending platform for lending and borrowing ERC-20 crypto assets.
+long_description: |
+  Euler is a modular lending platform that allows users to lend and borrow ERC-20 crypto assets
+  in a decentralised, non-custodial manner. The platform is built on Ethereum and enables any
+  asset to become collateral for a lending market.
+
+  Euler v2 has two main components:
+
+  - **Euler Vault Kit (EVK)**: A modular framework for building credit vaults - permissionless,
+    composable ERC-4626 lending pools with added borrowing functionality
+  - **Ethereum Vault Connector (EVC)**: An interoperability layer that connects vaults and allows
+    their use as collateral for other vaults
+
+  Key features:
+
+  - Permissionless vault deployment with customisable risk parameters
+  - Multicall batching and flash liquidity via EVC
+  - Market-leading risk-adjusted rates for lenders and borrowers
+  - Institutional-grade security with multiple audits
+fee_description: |
+links:
+  homepage: https://www.euler.finance/
+  app: https://app.euler.finance/
+  twitter: https://x.com/eulerfinance
+  github: https://github.com/euler-xyz
+  documentation: https://docs.euler.finance/
+  defillama: https://defillama.com/protocol/euler
+  audits:
+  fees:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/euler
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/euler/index.html
+example_smart_contracts:
+  - https://etherscan.io/address/0x1e548CfcE5FCF17247E024eF06d32A01841fF404
+  - https://snowtrace.io/address/0xE1A62FDcC6666847d5EA752634E45e134B2F824B
+  -

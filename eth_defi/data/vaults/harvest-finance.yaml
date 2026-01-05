@@ -1,0 +1,30 @@
+name: Harvest Finance
+slug: harvest-finance
+short_description: |
+  Crypto smart contract platform that optimises yield farming via automated strategies.
+long_description: |
+  Harvest is a crypto smart contract platform that optimises yield farming for its users via automated
+  strategies. There are hundreds of third-party platforms to accrue yields from in crypto, such as
+  lending, staking, or liquidity provision, and the Harvest platform aggregates the best yield
+  opportunities to help its users accrue more yield through automation.
+
+  Harvest offers a simplified but powerful platform to discover yield strategies across the decentralised
+  finance ecosystem and helps you keep track of important performance metrics. Over 100 yield strategies
+  for ETH, WBTC, USDC, USDT, and more are available across Ethereum Mainnet, Arbitrum, Base, Polygon
+  and zkSync Era.
+fee_description: |
+links:
+  homepage: https://harvest.finance/
+  app: https://app.harvest.finance/
+  twitter: https://x.com/harvest_finance
+  github: https://github.com/harvest-finance
+  documentation: https://docs.harvest.finance/
+  defillama: https://defillama.com/protocol/harvest-finance
+  audits:
+  fees:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/harvest-finance
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/harvest/index.html
+example_smart_contracts:
+  - https://arbiscan.io/address/0x573a918F255E751054f7751975D0577Cb82F947b
+  - https://arbiscan.io/address/0x5f19640De4A50e035AB0b50957748bFdEd8F158D
+  -

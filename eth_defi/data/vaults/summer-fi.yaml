@@ -1,0 +1,25 @@
+name: Summer.fi
+slug: summer-fi
+short_description: |
+  Unified frontend for passive lending and advanced DeFi operations.
+long_description: |
+  Summer.fi is a unified frontend offering two distinct yet complementary products:
+
+  - **Lazy Summer Protocol**: A hands-free, passive lending protocol for effortless yield optimisation
+  - **Summer.fi Pro**: An advanced lending, borrowing, and earning app for more experienced DeFi users
+
+  Summer.fi is an app designed to simplify and enhance users' interactions with lending, borrowing,
+  and yield generation. The protocol provides access to DeFi yields continually rebalanced by AI
+  powered Keepers.
+fee_description: |
+links:
+  homepage: https://summer.fi/
+  app:
+  twitter: https://x.com/summerfinance_
+  github: https://github.com/oasisdex
+  documentation: https://docs.summer.fi/
+  defillama: https://defillama.com/protocol/summer.fi
+  audits:
+  fees:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/summer-fi
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/summer/index.html

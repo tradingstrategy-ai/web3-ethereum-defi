@@ -1,0 +1,38 @@
+name: Ethena
+slug: ethena
+short_description: |
+  Synthetic dollar protocol providing crypto-native solution for money.
+long_description: |
+  Ethena is a synthetic dollar protocol built on Ethereum that provides a crypto-native
+  solution for money, USDe, alongside a globally accessible dollar savings asset, sUSDe.
+
+  USDe is a synthetic dollar backed by crypto assets and corresponding short futures
+  positions, maintaining its $1 peg through delta-neutral hedging. In practice, Ethena
+  accepts crypto collateral (such as Ethereum) and immediately takes an equivalent short
+  position in perpetual futures markets, balancing price movements to stabilise USDe's value.
+
+  sUSDe (staked USDe) allows users to stake USDe and earn yield from three sustainable
+  sources: funding and basis spread from delta hedging derivatives positions, rewards from
+  liquid stable backing assets, and staked ETH consensus/execution layer rewards.
+
+  Key features:
+
+  - No management or performance fees at the smart contract level
+  - Yield comes from protocol funding rates and staking rewards
+  - Governance-configurable cooldown period for withdrawals (up to 90 days)
+  - Fully backed by USDe
+fee_description: |
+  No management or performance fees at the smart contract level.
+links:
+  homepage: https://ethena.fi/
+  app:
+  twitter: https://x.com/ethena_labs
+  github: https://github.com/ethena-labs
+  documentation: https://docs.ethena.fi/
+  defillama:
+  audits:
+  fees:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/ethena
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/ethena/index.html
+example_smart_contracts:
+  - https://etherscan.io/address/0x9d39a5de30e57443bff2a8307a4256c8797a3497

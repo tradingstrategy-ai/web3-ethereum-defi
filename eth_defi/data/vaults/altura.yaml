@@ -1,0 +1,42 @@
+name: Altura
+slug: altura
+short_description: |
+  Multi-strategy yield protocol built on HyperEVM democratising institutional-grade trading strategies.
+long_description: |
+  Altura is a multi-strategy yield protocol built on HyperEVM (Hyperliquid) that
+  democratises access to institutional-grade trading strategies. Users deposit USDT0
+  into a single vault, and Altura allocates capital across diversified yield sources
+  including arbitrage, funding rate capture, staking yield, and liquidity provision.
+
+  The protocol targets a base 20% APY through a diversified portfolio of strategies:
+
+  - **Arbitrage & Funding (50%)**: Market-neutral trading and funding rate capture
+  - **Staking & Restaking (30%)**: Protocol-level staking rewards
+  - **Structured Liquidity Provision (20%)**: LP strategies on HyperEVM
+
+  Key features:
+
+  - Non-custodial yield protocol with full on-chain verifiability
+  - NAV oracle-backed pricing for accurate share valuation
+  - Epoch-based withdrawal system with 6-hour minimum hold period
+  - Role-based access control (Admin, Operator, Guardian)
+  - Pausable functionality for emergency situations
+fee_description: |
+  Altura charges a minimal exit fee on instant withdrawals only:
+
+  - **Instant withdrawal fee**: 0.01% (1 basis point) when liquidity is available
+  - **Epoch withdrawal fee**: 0% for queued withdrawals
+  - **Management/Performance fees**: None (yield accrues via Price-Per-Share mechanism)
+links:
+  homepage: https://altura.trade/
+  app: https://app.altura.trade/
+  twitter: https://twitter.com/alturax
+  github: https://github.com/AlturaTrade
+  documentation: https://docs.altura.trade/
+  defillama:
+  audits: https://github.com/AlturaTrade/docs/blob/V2/VaultAudit.pdf
+  fees:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/altura
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/altura/index.html
+example_smart_contracts:
+  - https://hyperevmscan.io/address/0xd0ee0cf300dfb598270cd7f4d0c6e0d8f6e13f29

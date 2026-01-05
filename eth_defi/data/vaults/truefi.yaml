@@ -1,0 +1,26 @@
+name: TrueFi
+slug: truefi
+short_description: |
+  DeFi's first and largest credit protocol connecting lenders, borrowers, and portfolio managers.
+long_description: |
+  TrueFi is DeFi's first and largest credit protocol, connecting lenders, borrowers, and portfolio
+  managers via smart contracts governed by the TRU token. Lenders enjoy predictable, transparent
+  yields on real-world and crypto-native lending. Borrowers and portfolio managers get access to
+  competitively priced capital with no collateral lockup.
+
+  Since its launch in November 2020, TrueFi has originated more than $1.7bn in loans to over 30
+  borrowers and paid more than $40mm in interest to protocol participants. Borrowers include both
+  leading crypto-focused institutions and real-world firms, such as fintech companies, trading
+  firms, and credit funds.
+fee_description: |
+links:
+  homepage: https://truefi.io/
+  app:
+  twitter: https://x.com/TrueFiDAO
+  github: https://github.com/TrueFi-Protocol
+  documentation: https://docs.truefi.io/
+  defillama: https://defillama.com/protocol/truefi
+  audits:
+  fees:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/truefi
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/truefi/index.html

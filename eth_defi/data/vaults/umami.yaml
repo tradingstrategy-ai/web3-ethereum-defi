@@ -1,0 +1,28 @@
+name: Umami
+slug: umami
+short_description: |
+  GM Vaults enabling single token deposits with automated hedging on GMX v2.
+long_description: |
+  Built on the upgraded GMX v2 platform, GM Vaults enable users to deposit single tokens like BTC,
+  ETH, USDC and ARB, while eliminating impermanent loss through automated hedging called "internal
+  netting". These vaults utilise the GM Index (GMI) to manage deposits and generate yield from four
+  distinct synthetic pools on GMX V2, ensuring a stable and lucrative environment for depositors.
+
+  A crucial element of Umami's hedging strategy is internal netting. Each of its Vaults acts as a
+  hedging counterparty to the others. Instead of costly external hedges, Umami's Vaults swap delta
+  among themselves while keeping the vast majority of their TVL deployed to generate yield.
+fee_description: |
+links:
+  homepage: https://umami.finance/
+  app: https://umami.finance/vaults
+  twitter: https://x.com/umamifinance
+  github:
+  documentation: https://about.umami.finance/
+  defillama: https://defillama.com/protocol/umami-finance
+  audits:
+  fees:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/umami
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/umami/index.html
+example_smart_contracts:
+  - https://arbiscan.io/address/0x959f3807f0aa7921e18c78b00b2819ba91e52fef
+  -

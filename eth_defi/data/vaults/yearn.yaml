@@ -1,0 +1,30 @@
+name: Yearn
+slug: yearn
+short_description: |
+  Capital pools that automatically generate yield based on opportunities present in the market.
+long_description: |
+  Yearn Vaults (yVaults) are capital pools that automatically generate yield based on opportunities
+  present in the market. Vaults benefit users by socialising gas costs, automating the yield generation
+  and rebalancing process, and automatically shifting capital as opportunities arise. End users do not
+  need extensive knowledge of the underlying DeFi protocols and can use the vaults as passive-investing
+  strategies.
+
+  With yVaults v3, vaults can be made from a single strategy or a collection of multiple strategies
+  which balance funds between them. Users have more control over where they want their funds to go
+  and a wider range of risk appetites.
+fee_description: |
+links:
+  homepage: https://yearn.fi/
+  app: https://yearn.fi/vaults
+  twitter: https://x.com/yearnfi
+  github: https://github.com/yearn
+  documentation: https://docs.yearn.fi/
+  defillama: https://defillama.com/protocol/yearn-finance
+  audits:
+  fees:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/yearn
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/yearn/index.html
+example_smart_contracts:
+  - https://arbiscan.io/address/0x9fa306b1f4a6a83fec98d8ebbabedff78c407f6b
+  - https://arbiscan.io/address/0xA4B8873B4629c20f2167c0A2bC33B6AF8699dDc1
+  -

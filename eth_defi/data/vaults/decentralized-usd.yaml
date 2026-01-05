@@ -1,0 +1,33 @@
+name: Decentralized USD
+slug: decentralized-usd
+short_description: |
+  Decentralised stablecoin protocol providing yield through sUSDD savings vaults.
+long_description: |
+  USDD is a decentralised stablecoin protocol that provides the USDD stablecoin
+  and allows users to earn yield through staking USDD in sUSDD savings vaults.
+
+  The sUSDD vault is an ERC-4626 compliant tokenised vault that allows users to
+  stake USDD and earn yield. USDD is deployed on multiple chains including
+  Ethereum and BNB Chain.
+
+  Key features:
+
+  - No deposit/withdrawal fees at the smart contract level
+  - Instant deposits and withdrawals
+  - Cross-chain deployment on Ethereum and BNB Chain
+fee_description: |
+  No deposit/withdrawal fees at the smart contract level.
+links:
+  homepage: https://usdd.io/
+  app:
+  twitter: https://x.com/usaborning
+  github:
+  documentation: https://docs.usdd.io/
+  defillama:
+  audits:
+  fees:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/decentralized-usd
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/usdd/index.html
+example_smart_contracts:
+  - https://etherscan.io/address/0xC5d6A7B61d18AfA11435a889557b068BB9f29930
+  - https://bscscan.com/address/0x8bA9dA757d1D66c58b1ae7e2ED6c04087348A82d

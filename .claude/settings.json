@@ -47,6 +47,10 @@
       "Skill(identify-vault-protocol:*)",      
       "Skill(get-block-number)",
       "Skill(get-block-number:*)",      
+      "Skill(extract-project-logo)",
+      "Skill(extract-project-logo:*)",
+      "Skill(extract-vault-protocol-logo)",
+      "Skill(extract-vault-protocol-logo:*)",
       "mcp__github__*"                           
     ]
   }

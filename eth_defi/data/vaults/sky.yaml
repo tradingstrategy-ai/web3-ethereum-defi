@@ -1,0 +1,34 @@
+name: Sky
+slug: sky
+short_description: |
+  One of the oldest and most established DeFi protocols, formerly MakerDAO.
+long_description: |
+  Sky (formerly MakerDAO) is one of the oldest and most established DeFi protocols.
+  The protocol provides the USDS stablecoin and allows users to earn yield through
+  staking USDS in the stUSDS vault.
+
+  The stUSDS vault is an ERC-4626 compliant tokenised vault that allows users to
+  stake USDS and earn the Sky Savings Rate (SSR).
+
+  Key features:
+
+  - No deposit/withdrawal fees at the smart contract level
+  - Yield accrues through the Sky Savings Rate (SSR)
+  - Instant deposits and withdrawals
+  - Fully decentralised and battle-tested infrastructure
+fee_description: |
+  No deposit/withdrawal fees at the smart contract level.
+links:
+  homepage: https://sky.money/
+  app:
+  twitter: https://x.com/SkyEcosystem
+  github: https://github.com/sky-ecosystem/stusds
+  documentation: https://developers.sky.money/
+  defillama:
+  audits:
+  fees:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/sky
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/sky/index.html
+example_smart_contracts:
+  - https://etherscan.io/address/0x99cd4ec3f88a45940936f469e4bb72a2a701eeb9
+  - https://etherscan.io/address/0xa3931d71877c0e7a3148cb7eb4463524fec27fbd

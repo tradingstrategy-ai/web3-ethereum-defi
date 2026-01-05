@@ -1,0 +1,28 @@
+name: ETH Strategy
+slug: eth-strategy
+short_description: |
+  DeFi treasury protocol offering leveraged ETH exposure without liquidation risk.
+long_description: |
+  ETH Strategy is a DeFi treasury protocol that offers leveraged ETH exposure without risk of
+  liquidation or volatility decay. It operates as Ethereum's first autonomous treasury protocol,
+  designed to reimagine MicroStrategy's approach in a DeFi-native context.
+
+  The ESPN (ETH Strategy Perpetual Note) vault is an ERC-4626 compliant vault that allows users
+  to deposit USDS stablecoins. The protocol takes no fees on deposits or redemptions and is
+  DAO-governed with rage quit functionality.
+fee_description: |
+  The protocol takes no fees on deposits or redemptions.
+links:
+  homepage: https://www.ethstrat.xyz/
+  app:
+  twitter: https://x.com/eth_strategy
+  github: https://github.com/dangerousfood/ethstrategy
+  documentation: https://docs.ethstrat.xyz/
+  defillama:
+  audits:
+  fees:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/eth-strategy
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/eth_strategy/index.html
+example_smart_contracts:
+  - https://etherscan.io/address/0xb250c9e0f7be4cff13f94374c993ac445a1385fe
+  -

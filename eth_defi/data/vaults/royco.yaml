@@ -1,0 +1,28 @@
+name: Royco
+slug: royco
+short_description: |
+  Incentivised Action Market Protocol enabling vault wrappers with integrated rewards.
+long_description: |
+  Royco is an Incentivised Action Market (IAM) Protocol that enables protocols to create
+  incentivised ERC-4626 vault wrappers with integrated rewards systems. The WrappedVault
+  contract wraps underlying vaults and adds flexible reward distribution functionality,
+  supporting up to 20 simultaneous reward programmes.
+
+  Royco allows protocols to deploy incentive campaigns for their vaults, enabling users
+  to earn rewards in the form of ERC-20 tokens or points programmes alongside the underlying
+  vault yield.
+fee_description: |
+links:
+  homepage: https://royco.org/
+  app:
+  twitter: https://x.com/roycoprotocol
+  github: https://github.com/roycoprotocol/royco
+  documentation: https://docs.royco.org/
+  defillama:
+  audits:
+  fees:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/royco
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/royco/index.html
+example_smart_contracts:
+  - https://etherscan.io/address/0x887d57a509070a0843c6418eb5cffc090dcbbe95
+  -

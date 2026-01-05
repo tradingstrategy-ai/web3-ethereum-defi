@@ -1,0 +1,26 @@
+name: D2 Finance
+slug: d2-finance
+short_description: |
+  Real yield at scale with DeFi-native alpha and TradFi expertise.
+long_description: |
+  D2 Finance delivers real yield at scale - combining DeFi-native alpha with TradFi expertise to
+  provide institutional-grade stablecoin, RWA and BTC-backed structured strategies. Powered by
+  Hyperliquid and other EVM chains.
+
+  The protocol offers high-yield strategies on stablecoins, Bitcoin, and real-world assets,
+  designed for both retail and institutional investors seeking managed yield products.
+fee_description: |
+links:
+  homepage: https://d2.finance/
+  app:
+  twitter: https://x.com/D2_Finance
+  github:
+  documentation:
+  defillama: https://defillama.com/protocol/d2-finance
+  audits:
+  fees:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/d2-finance
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/d2_finance/index.html
+example_smart_contracts:
+  - https://arbiscan.io/address/0x350856A672e7bF7D7327c8a5e72Ac49833DBfB75
+  -
