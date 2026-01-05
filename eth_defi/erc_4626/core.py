@@ -304,11 +304,18 @@ class ERC4626Feature(enum.Enum):
     #: https://etherscan.io/address/0x99cd4ec3f88a45940936f469e4bb72a2a701eeb9
     sky_like = "sky_like"
 
-    #: Maple Finance
+    #: Maple Finance Syrup
     #:
     #: Institutional-grade DeFi lending protocol with Syrup yield products.
     #: https://maple.finance/
     maple_like = "maple_like"
+
+    #: Maple Finance AQRU Pool
+    #:
+    #: AQRU Receivables Pool for IRS tax credit receivables on Maple Finance.
+    #: Real-world receivables pool bridging DeFi with traditional assets.
+    #: https://aqru.io/real-world-receivables/
+    maple_aqru_like = "maple_aqru_like"
 
     #: Centrifuge
     #:
@@ -369,6 +376,12 @@ class ERC4626Feature(enum.Enum):
     #: https://www.spectra.finance/
     #: https://smardex.io/usdn
     spectra_usdn_wrapper_like = "spectra_usdn_wrapper_like"
+
+    #: Gearbox Protocol
+    #:
+    #: Composable leverage protocol with ERC-4626 compatible lending pools (PoolV3).
+    #: https://gearbox.finance/
+    gearbox_like = "gearbox_like"
 
 
 def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
@@ -506,6 +519,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     elif ERC4626Feature.maple_like in features:
         return "Maple"
 
+    elif ERC4626Feature.maple_aqru_like in features:
+        return "Maple"
+
     elif ERC4626Feature.centrifuge_like in features:
         return "Centrifuge"
 
@@ -532,6 +548,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.spectra_usdn_wrapper_like in features:
         return "Spectra"
+
+    elif ERC4626Feature.gearbox_like in features:
+        return "Gearbox"
 
     # No idea
     if ERC4626Feature.erc_7540_like in features:

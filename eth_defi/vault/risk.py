@@ -106,6 +106,7 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Yuzu Money": VaultTechnicalRisk.low,
     "Altura": VaultTechnicalRisk.severe,
     "Spectra": VaultTechnicalRisk.low,
+    "Gearbox": VaultTechnicalRisk.low,
 }
 
 #: Particular vaults that are broken, misleading or otherwise problematic.
