@@ -101,6 +101,7 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     # the vault has. Users cannot assess what they are investing in.
     # See https://app.superform.xyz/vault/1_0x942bed98560e9b2aa0d4ec76bbda7a7e55f6b2d6
     "Superform": VaultTechnicalRisk.severe,
+    "Royco": None,
 }
 
 #: Particular vaults that are broken, misleading or otherwise problematic.

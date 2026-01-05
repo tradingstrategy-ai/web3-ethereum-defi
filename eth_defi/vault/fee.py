@@ -75,6 +75,7 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "cSigma Finance": VaultFeeMode.feeless,
     "Ethena": VaultFeeMode.feeless,
     "Term Finance": VaultFeeMode.internalised_skimming,
+    "Royco": None,
 }
 
 
