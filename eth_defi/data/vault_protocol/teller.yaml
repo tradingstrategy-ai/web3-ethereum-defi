@@ -1,0 +1,43 @@
+name: Teller
+slug: teller
+short_description: |
+  Decentralised lending protocol enabling long-tail lending pools with time-based loans.
+long_description: |
+  Teller Protocol is a decentralised lending protocol that enables long-tail
+  lending pools where liquidity providers can deposit assets and earn yield
+  from borrower interest payments.
+
+  The protocol operates with a unique architecture that separates lending and
+  borrowing into isolated pools with specific collateral/lending token pairs.
+  Each pool has pre-set terms including collateralisation ratio, APR range,
+  and maximum loan duration.
+
+  Key features:
+
+  - **Long-tail lending pools**: Each pool is isolated to a specific lending
+    token and collateral token pair (e.g., USDC/TIBBIR)
+  - **Time-based loans**: All loans on Teller are time-based instead of
+    price-based. Price will never cause a loan to default, only expiration
+  - **Liquidation auctions**: On default, collateral is transferred to a 24-hour
+    Dutch auction where it is purchased to pay off the loan
+  - **ERC-4626 compliant**: Lenders receive vault shares representing their stake
+    in the pool
+  - **TWAP pricing**: Uses Uniswap V3 TWAP for collateral price oracles
+
+  The protocol is built on TellerV2 which handles the core lending mechanics,
+  with LenderCommitmentGroup_Pool_V2 contract providing the ERC-4626 vault interface
+  for pool-style lending.
+fee_description: |
+links:
+  homepage: https://www.teller.org/
+  app: https://app.teller.org/base/earn
+  twitter: https://x.com/useteller
+  github: https://github.com/teller-protocol/teller-protocol-v2
+  documentation: https://docs.teller.org/teller-v2
+  defillama:
+  audits:
+  fees:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/teller
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/teller/index.html
+example_smart_contracts:
+  - https://basescan.org/address/0x13cd7cf42ccbaca8cd97e7f09572b6ea0de1097b

@@ -1,0 +1,40 @@
+name: Yuzu Money
+slug: yuzu-money
+short_description: |
+  DeFi protocol packaging high-yield strategies into an overcollateralised stablecoin.
+long_description: |
+  Yuzu Money is a DeFi protocol that packages high-yield strategies into an overcollateralised
+  stablecoin (yzUSD). The protocol is deployed on the Plasma chain and offers multiple products
+  for users seeking yield on their stablecoin holdings.
+
+  The protocol features a multi-token architecture:
+
+  - **yzUSD**: Overcollateralised stablecoin targeting $1 USD, backed 1:1 by USDC
+  - **syzUSD**: Yield-bearing token received when staking yzUSD (ERC-4626 vault)
+  - **yzPP**: Junior tranche / insurance liquidity pool providing first-loss capital
+
+  Key features:
+
+  - Institutional-grade risk mitigation with risk tranching
+  - Nexus Mutual smart contract insurance coverage
+  - Hypernative threat monitoring
+  - Real-time Proof of Reserves dashboard
+  - Audited by Pashov Audit Group
+fee_description: |
+  Yuzu Money does not charge traditional performance fees. Instead, the protocol employs a
+  yield-smoothing mechanism where a consistent weekly yield target is distributed to users,
+  backed by a Reserve Fund that acts as a buffer. This approach provides more predictable
+  returns without explicit management or performance fees.
+links:
+  homepage: https://yuzu.money/
+  app: https://app.yuzu.money/
+  twitter: https://x.com/YuzuMoneyX
+  github:
+  documentation: https://yuzu-money.gitbook.io/yuzu-money/
+  defillama: https://defillama.com/protocol/yuzu-money
+  audits: https://github.com/pashov/audits/blob/master/team/pdf/YuzuUSD-security-review_2025-08-28.pdf
+  fees: https://yuzu-money.gitbook.io/yuzu-money/faq-1/performance-fee
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/yuzu-money
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/yuzu_money/index.html
+example_smart_contracts:
+  - https://plasmascan.to/address/0xebfc8c2fe73c431ef2a371aea9132110aab50dca

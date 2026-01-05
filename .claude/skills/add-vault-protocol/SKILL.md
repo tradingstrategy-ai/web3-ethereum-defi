@@ -287,7 +287,11 @@ Fix any issues if found.
 
 Format the newly added files with `poetry run ruff format`.
 
-## Step 11: Verification checklist
+## Step 11: Add metadata
+
+Read `eth_defi/data/vault_protocol/README.md` and use it to write YAML file for the vault protocol.
+
+## Step 12: Verification checklist
 
 After implementation, verify:
 
@@ -305,11 +309,11 @@ After implementation, verify:
 
 If there are problems with the checklist, ask for human assistance.
 
-## Step 12: Changelog
+## Step 13: Changelog
 
 - Update changelog line in `CHANGELOG.md` and add a note of added new protocol
 
-## Step 13: Pull request (optional)
+## Step 14: Pull request (optional)
 
 After everything is done, open a pull request, but only if the user asks you to.
 

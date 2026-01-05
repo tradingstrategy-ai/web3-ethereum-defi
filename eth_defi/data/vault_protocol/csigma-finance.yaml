@@ -1,0 +1,31 @@
+name: cSigma Finance
+slug: csigma-finance
+short_description: |
+  Blockchain-based protocol connecting global borrowers and lenders through standardised lending.
+long_description: |
+  cSigma Finance is a blockchain-based protocol that connects global borrowers and lenders
+  by standardising and streamlining the commercial lending process. The protocol offers
+  crypto-uncorrelated yield opportunities to stablecoin holders through tokenised real-world
+  assets (RWA) and risk-adjusted DeFi strategies.
+
+  csUSD allows users to deposit stablecoins and earn yield from two sources:
+  RWA credit markets and on-chain DeFi yield strategies. The protocol dynamically
+  allocates between these sources based on market conditions to optimise yield performance.
+
+  As of Q1 2025, cSigma Finance has tokenised over $80 million in business loans from
+  mid-market companies across the United States, European Union, and Asia. The tokenised
+  loans are accessible on 11 major blockchain networks, including Ethereum, Arbitrum, and BNB.
+fee_description: |
+links:
+  homepage: https://csigma.finance/
+  app: https://www.csigma.finance/csusd
+  twitter: https://x.com/csigmafinance
+  github:
+  documentation: https://csigma-edge.gitbook.io/csigma-protocol/
+  defillama:
+  audits:
+  fees:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/csigma-finance
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/csigma/index.html
+example_smart_contracts:
+  - https://etherscan.io/address/0xd5d097f278a735d0a3c609deee71234cac14b47e

@@ -1,0 +1,34 @@
+name: Spark
+slug: spark
+short_description: |
+  Decentralised non-custodial liquidity protocol built on MakerDAO/Sky infrastructure.
+long_description: |
+  Spark is a decentralised non-custodial liquidity protocol built on top of the MakerDAO/Sky
+  infrastructure. It allows users to participate as suppliers or borrowers, and provides
+  yield-generating stablecoin products through the Sky Savings Rate (SSR).
+
+  The sUSDC vault is an ERC-4626 compliant tokenised vault that allows users to deposit USDC
+  and earn the Sky Savings Rate. The vault handles USDC deposits by converting USDC to USDS
+  using the dss-lite-psm (Peg Stability Module) and then depositing into sUSDS to earn yield.
+
+  Key features:
+
+  - No deposit/withdrawal fees at the smart contract level
+  - Yield accrues through the Sky Savings Rate (SSR)
+  - Instant deposits and withdrawals (subject to PSM liquidity)
+  - Fully backed by sUSDS (savings USDS)
+fee_description: |
+  No deposit/withdrawal fees at the smart contract level.
+links:
+  homepage: https://spark.fi/
+  app: https://app.spark.fi/savings/mainnet/spusdc
+  twitter: https://x.com/sparkdotfi
+  github: https://github.com/sparkdotfi/spark-vaults
+  documentation: https://docs.spark.fi/
+  defillama:
+  audits:
+  fees:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/spark
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/spark/index.html
+example_smart_contracts:
+  - https://etherscan.io/address/0xbc65ad17c5c0a2a4d159fa5a503f4992c7b545fe

@@ -1,0 +1,38 @@
+name: Gearbox
+slug: gearbox
+short_description: |
+  Composable leverage protocol allowing leverage across various DeFi protocols.
+long_description: |
+  Gearbox Protocol is a composable leverage protocol that allows users to take
+  leverage in one place and use it across various DeFi protocols. The protocol
+  has two sides: passive liquidity providers who earn yield by depositing assets,
+  and active traders/farmers who can borrow assets for leveraged positions.
+
+  The PoolV3 contracts are ERC-4626 compatible lending pools that manage liquidity
+  from passive lenders. When users deposit stablecoins or other assets, they receive
+  pool shares (dTokens) representing their deposit. The underlying deposits are
+  lent to credit accounts that pay interest on borrowed funds.
+
+  Key features:
+
+  - Composable leverage: Use borrowed funds across integrated DeFi protocols
+  - Passive yield: Earn interest from leveraged borrowers
+  - ERC-4626 compatible: Standard vault interface for easy integration
+  - Multiple audits: ChainSecurity audits for V3 core contracts
+fee_description: |
+  - Withdrawal fee: 0% for passive lenders
+  - APY spread: ~50% between borrower rate and lender rate goes to protocol
+  - For passive lenders, fees are internalised in the share price
+links:
+  homepage: https://gearbox.finance/
+  app: https://app.gearbox.fi/
+  twitter: https://x.com/GearboxProtocol
+  github: https://github.com/Gearbox-protocol/core-v3
+  documentation: https://docs.gearbox.finance/
+  defillama:
+  audits: https://docs.gearbox.finance/risk-and-security/audits-bug-bounty
+  fees: https://docs.gearbox.finance/overview/protocol-fees
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/gearbox
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/gearbox/index.html
+example_smart_contracts:
+  - https://plasmascan.to/address/0xb74760fd26400030620027dd29d19d74d514700e

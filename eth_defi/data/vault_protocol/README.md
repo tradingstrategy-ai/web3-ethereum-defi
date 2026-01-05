@@ -8,14 +8,17 @@ This folder contains metadata for vault protocols.
 
 3. Each slug has a corresponding YAML file in [Strict YAML format](https://github.com/crdoconnor/strictyaml). E.g. for Lagoon Finance there is `lagoon-finance.yml`
 
-4. Each protocol one of two logo.
+4. Each protocol can contain multiple original logos and up to three formatted logos.
 
-- The logo is 256 x 256 px PNG file.
-- For white-background theme there is `{protocol slug}-light.png`
-- For dark-background theme there is `{protocol slug}-dark.png`
+- Subfolder `original_logos` contains the logos obtained through the homepage or web search
+- Subfoder `formatted_logos` contain the logos that have been adapted to the style guides
+- The formatted logo is 256 x 256 px PNG file.
+- For generic theme there is `{protocol slug}.generic.png`
+- For white-background theme there is `{protocol slug}.light.png`
+- For dark-background theme there is `{protocol slug}.dark.png`
 - Either of the logo files might be present or missing
 
-## Example YAML format
+## Example YAML file fields
 
 ```yaml
 name: { protocol name here }
@@ -38,6 +41,8 @@ links:
   trading_strategy: { link to the protocol on the TradingStrategy.ai website, listed here https://tradingstrategy.ai/trading-view/vaults/protocols }
   integration_documentation: { link to protocol page here https://web3-ethereum-defi.readthedocs.io/vaults/index.html}
   
+# List of links to the vault smart contracts on a blockchain explorer like Etherscan, Routescan.
+# Can be anywhere between zero to multiple links.
 example_smart_contracts:
   - { example link to a smart contract on a blockchain explorer }
 ```
