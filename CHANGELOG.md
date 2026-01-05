@@ -1,5 +1,6 @@
 # Current
 
+- Add: New protocol: Spectra USDN Wrapper - ERC4626 wrapper for WUSDN (SmarDex) (2026-01-05)
 - Add: New protocol: Altura - multi-strategy yield protocol on HyperEVM (2026-01-05)
 - Add: New protocol: Yuzu Money - overcollateralised stablecoin protocol on Plasma chain (2026-01-05)
 - Add: cSigma Finance cSuperior Quality Private Credit vault (2026-01-05)

@@ -1105,6 +1105,11 @@ def create_vault_instance(
 
         return AlturaVault(web3, spec, token_cache=token_cache, features=features)
 
+    elif ERC4626Feature.spectra_usdn_wrapper_like in features:
+        from eth_defi.erc_4626.vault_protocol.spectra.wusdn_vault import SpectraUSDNWrapperVault
+
+        return SpectraUSDNWrapperVault(web3, spec, token_cache=token_cache, features=features)
+
     else:
         # Generic ERC-4626 without fee data
         from eth_defi.erc_4626.vault import ERC4626Vault
@@ -1190,6 +1195,9 @@ HARDCODED_PROTOCOLS = {
     # Altura - NavVault (AVLT) on HyperEVM
     # https://hyperevmscan.io/address/0xd0ee0cf300dfb598270cd7f4d0c6e0d8f6e13f29
     "0xd0ee0cf300dfb598270cd7f4d0c6e0d8f6e13f29": {ERC4626Feature.altura_like},
+    # Spectra Finance - ERC4626 wrapper for WUSDN (SmarDex delta-neutral synthetic dollar)
+    # https://etherscan.io/address/0x06a491e3efee37eb191d0434f54be6e42509f9d3
+    "0x06a491e3efee37eb191d0434f54be6e42509f9d3": {ERC4626Feature.spectra_usdn_wrapper_like},
 }
 
 for a in HARDCODED_PROTOCOLS.keys():
