@@ -1,0 +1,42 @@
+name: Mainstreet Finance
+slug: mainstreet-finance
+short_description: |
+  Synthetic USD stablecoin ecosystem with options arbitrage yield strategies.
+long_description: |
+  Mainstreet Finance is a synthetic USD stablecoin ecosystem built on multi-asset
+  collateralisation on the Sonic blockchain. The protocol delivers institutional-grade
+  delta-neutral yield strategies through a dual-token system - msUSD (the synthetic
+  stablecoin) and smsUSD (the staked version that earns yield from options arbitrage
+  strategies).
+
+  Users deposit USDC to mint msUSD, which can then be staked into smsUSD to earn
+  yield. The underlying collateral is deployed into CME index box spreads and options
+  arbitrage strategies, with profits distributed to smsUSD holders.
+
+  Key features:
+
+  - Dual-token system: msUSD (non-yield-bearing) and smsUSD (yield-bearing)
+  - Yield from institutional-grade options arbitrage strategies
+  - Cross-chain functionality via LayerZero OFT standard
+  - Governance-configurable cooldown period for withdrawals (up to 90 days, default 7 days)
+fee_description: |
+  20% protocol fee on gross yields:
+  - 10% to insurance fund
+  - 10% to treasury
+  - 80% distributed to smsUSD holders
+
+  No management fees, deposit fees, or withdrawal fees at the smart contract level.
+links:
+  homepage: https://mainstreet.finance/
+  app: https://mainstreet.finance/
+  twitter: https://x.com/Main_St_Finance
+  github: https://github.com/Mainstreet-Labs/mainstreet-core
+  documentation: https://mainstreet-finance.gitbook.io/mainstreet.finance
+  defillama: https://defillama.com/stablecoin/main-street-usd
+  audits: https://mainstreet-finance.gitbook.io/mainstreet.finance/audits/watchpug-security-audit-1
+  fees: https://mainstreet-finance.gitbook.io/mainstreet.finance/returns-calculation-and-distribution
+  trading_strategy:
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/mainstreet/index.html
+example_smart_contracts:
+  # smsUSD is the only ERC-4626 vault; msY (0x890A5122Aa1dA30fEC4286DE7904Ff808F0bd74A) is a LayerZero satellite token, not a vault
+  - https://sonicscan.org/address/0xc7990369DA608C2F4903715E3bD22f2970536C29

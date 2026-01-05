@@ -52,6 +52,7 @@ Supported protocols
    lagoon/index
    liquidity_royalty/index
    llamma/index
+   mainstreet/index
    maple/index
    nashpoint/index
    plutus/index

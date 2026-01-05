@@ -1,5 +1,6 @@
 # Current
 
+- Add: New protocol: Mainstreet Finance - synthetic USD stablecoin ecosystem on Sonic (2026-01-05)
 - Add: New protocol: Gearbox - composable leverage protocol lending pools (2026-01-05)
 - Add: New vault type: Maple Finance AQRU Pool - Real-World Receivables vault (2026-01-05)
 - Add: New protocol: Spectra USDN Wrapper - ERC4626 wrapper for WUSDN (SmarDex) (2026-01-05)
