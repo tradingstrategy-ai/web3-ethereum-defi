@@ -22,6 +22,11 @@ because we want to use logos in squared icon context.
 
 It is preferred to save multiple options and variants of the project logos if available.
 
+Example PNG and SVG image files we want to find include e.g.:
+- For generic theme there is `{project slug}.generic.svg`
+- For whitish text and symbol on dark-background theme there is `{project slug}.light.png`
+- For darkish text on symbol on light-background theme there is `{project slug}.dark.png`
+
 ## Step 1: Search for brand kit or media resources
 
 The highest quality logos are typically found in official brand/media kits. Search for these pages:
