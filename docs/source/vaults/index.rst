@@ -58,6 +58,7 @@ Supported protocols
    silo/index
    sky/index
    spark/index
+   spectra/index
    summer/index
    superform/index
    teller/index
