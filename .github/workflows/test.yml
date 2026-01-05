@@ -168,6 +168,7 @@ jobs:
           JSON_RPC_BINANCE: ${{ secrets.JSON_RPC_BINANCE }}
           JSON_RPC_ARBITRUM: ${{ secrets.JSON_RPC_ARBITRUM }}
           JSON_RPC_PLASMA: ${{ secrets.JSON_RPC_PLASMA }}
+          JSON_RPC_HYPERLIQUID: ${{ secrets.JSON_RPC_HYPERLIQUID }}
           ETHEREUM_JSON_RPC: ${{ secrets.JSON_RPC_ETHEREUM }}
           GOOGLE_CLOUD_PROJECT: ${{ secrets.GOOGLE_CLOUD_PROJECT }}
           GOOGLE_CLOUD_REGION: ${{ secrets.GOOGLE_CLOUD_REGION }}
