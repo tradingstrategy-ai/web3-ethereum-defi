@@ -105,6 +105,7 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "ETH Strategy": VaultTechnicalRisk.low,
     "Yuzu Money": VaultTechnicalRisk.low,
     "Altura": VaultTechnicalRisk.severe,
+    "Spectra": VaultTechnicalRisk.low,
 }
 
 #: Particular vaults that are broken, misleading or otherwise problematic.

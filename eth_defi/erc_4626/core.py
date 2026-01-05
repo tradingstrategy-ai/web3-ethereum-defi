@@ -362,6 +362,14 @@ class ERC4626Feature(enum.Enum):
     #: https://altura.trade/
     altura_like = "altura_like"
 
+    #: Spectra USDN Wrapper
+    #:
+    #: Spectra ERC4626 wrapper for WUSDN (SmarDex delta-neutral synthetic dollar).
+    #: This is a wrapper contract, not a core Spectra yield tokenisation vault.
+    #: https://www.spectra.finance/
+    #: https://smardex.io/usdn
+    spectra_usdn_wrapper_like = "spectra_usdn_wrapper_like"
+
 
 def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     """Deduct vault protocol name based on Vault smart contract features.
@@ -521,6 +529,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.altura_like in features:
         return "Altura"
+
+    elif ERC4626Feature.spectra_usdn_wrapper_like in features:
+        return "Spectra"
 
     # No idea
     if ERC4626Feature.erc_7540_like in features:
