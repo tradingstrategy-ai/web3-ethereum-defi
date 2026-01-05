@@ -480,6 +480,17 @@ def create_probe_calls(
             extra_data=None,
         )
 
+        # Royco Protocol
+        # WrappedVault contracts with reward distribution
+        # https://etherscan.io/address/0x887d57a509070a0843c6418eb5cffc090dcbbe95
+        royco_call = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="previewRateAfterDeposit(address,uint256)")[0:4],
+            function="previewRateAfterDeposit",
+            data=eth_abi.encode(["address", "uint256"], [ZERO_ADDRESS_STR, 0]),
+            extra_data=None,
+        )
+
         yield bad_probe_call
         yield name_call
         yield share_price_call
@@ -522,6 +533,7 @@ def create_probe_calls(
         yield upshift_call
         yield centrifuge_call
         yield centrifuge_wards_call
+        yield royco_call
 
 
 def identify_vault_features(
@@ -697,6 +709,11 @@ def identify_vault_features(
     if calls["poolId"].success and calls["wards"].success:
         features.add(ERC4626Feature.centrifuge_like)
         features.add(ERC4626Feature.erc_7540_like)
+
+    # Royco Protocol - WrappedVault with reward distribution
+    # https://etherscan.io/address/0x887d57a509070a0843c6418eb5cffc090dcbbe95
+    if calls["previewRateAfterDeposit"].success:
+        features.add(ERC4626Feature.royco_like)
 
     # # TODO: No way separate from Goat Protocol, see test_superform
     # if calls["PROFIT_UNLOCK_TIME"].success:
@@ -1062,6 +1079,11 @@ def create_vault_instance(
         from eth_defi.erc_4626.vault_protocol.term_finance.vault import TermFinanceVault
 
         return TermFinanceVault(web3, spec, token_cache=token_cache, features=features)
+
+    elif ERC4626Feature.royco_like in features:
+        from eth_defi.erc_4626.vault_protocol.royco.vault import RoycoVault
+
+        return RoycoVault(web3, spec, token_cache=token_cache, features=features)
 
     else:
         # Generic ERC-4626 without fee data

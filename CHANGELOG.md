@@ -2,6 +2,7 @@
 
 - Add: Claude Code skill for identifying vault protocols (2026-01-05)
 - Add: New protocol research: ZeroLend Royco wrapped vault (2026-01-05)
+- Add: New protocol: Royco Protocol - incentivised ERC-4626 vault wrappers (2026-01-05)
 - Add: Claude Code support
 - Add: New chain: Monad
 - Add: New protocol: CAP (Covered Agent Protocol)

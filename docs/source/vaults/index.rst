@@ -52,6 +52,7 @@ Supported protocols
    maple/index
    nashpoint/index
    plutus/index
+   royco/index
    silo/index
    sky/index
    spark/index
