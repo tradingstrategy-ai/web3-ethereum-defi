@@ -1,5 +1,6 @@
 # Current
 
+- Add: cSigma Finance cSuperior Quality Private Credit vault (2026-01-05)
 - Add: New protocol: ETH Strategy - DeFi treasury protocol with ESPN vault (2026-01-05)
 - Add: New protocol: ZeroLend - multi-chain DeFi lending with Royco integration (2026-01-05)
 - Add: Claude Code skill for identifying vault protocols (2026-01-05)
