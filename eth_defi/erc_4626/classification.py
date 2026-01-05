@@ -491,6 +491,18 @@ def create_probe_calls(
             extra_data=None,
         )
 
+        # Gearbox Protocol - PoolV3
+        # Lending pools that return "POOL" from contractType()
+        # https://github.com/Gearbox-protocol/core-v3/blob/main/contracts/pool/PoolV3.sol
+        # https://plasmascan.to/address/0xb74760fd26400030620027dd29d19d74d514700e
+        gearbox_contract_type_call = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="contractType()")[0:4],
+            function="contractType",
+            data=b"",
+            extra_data=None,
+        )
+
         yield bad_probe_call
         yield name_call
         yield share_price_call
@@ -534,6 +546,7 @@ def create_probe_calls(
         yield centrifuge_call
         yield centrifuge_wards_call
         yield royco_call
+        yield gearbox_contract_type_call
 
 
 def identify_vault_features(
@@ -714,6 +727,20 @@ def identify_vault_features(
     # https://etherscan.io/address/0x887d57a509070a0843c6418eb5cffc090dcbbe95
     if calls["previewRateAfterDeposit"].success:
         features.add(ERC4626Feature.royco_like)
+
+    # Gearbox Protocol - PoolV3 lending pools
+    # contractType() returns "POOL" as bytes32
+    # https://github.com/Gearbox-protocol/core-v3/blob/main/contracts/pool/PoolV3.sol
+    if calls["contractType"].success:
+        try:
+            contract_type = calls["contractType"].result
+            if contract_type:
+                # Decode bytes32 to string, strip null bytes
+                decoded = contract_type.rstrip(b"\x00").decode("utf-8", errors="ignore")
+                if decoded == "POOL":
+                    features.add(ERC4626Feature.gearbox_like)
+        except Exception:
+            pass
 
     # # TODO: No way separate from Goat Protocol, see test_superform
     # if calls["PROFIT_UNLOCK_TIME"].success:
@@ -1060,6 +1087,11 @@ def create_vault_instance(
 
         return SyrupVault(web3, spec, token_cache=token_cache, features=features)
 
+    elif ERC4626Feature.maple_aqru_like in features:
+        from eth_defi.erc_4626.vault_protocol.maple.aqru_vault import AQRUPoolVault
+
+        return AQRUPoolVault(web3, spec, token_cache=token_cache, features=features)
+
     elif ERC4626Feature.centrifuge_like in features:
         from eth_defi.erc_4626.vault_protocol.centrifuge.vault import CentrifugeVault
 
@@ -1109,6 +1141,11 @@ def create_vault_instance(
         from eth_defi.erc_4626.vault_protocol.spectra.wusdn_vault import SpectraUSDNWrapperVault
 
         return SpectraUSDNWrapperVault(web3, spec, token_cache=token_cache, features=features)
+
+    elif ERC4626Feature.gearbox_like in features:
+        from eth_defi.erc_4626.vault_protocol.gearbox.vault import GearboxVault
+
+        return GearboxVault(web3, spec, token_cache=token_cache, features=features)
 
     else:
         # Generic ERC-4626 without fee data
@@ -1171,6 +1208,9 @@ HARDCODED_PROTOCOLS = {
     # Maple Finance - syrupUSDT vault on Ethereum
     # https://etherscan.io/address/0x356b8d89c1e1239cbbb9de4815c39a1474d5ba7d
     "0x356b8d89c1e1239cbbb9de4815c39a1474d5ba7d": {ERC4626Feature.maple_like},
+    # Maple Finance - AQRU Pool (Real-World Receivables) on Ethereum
+    # https://etherscan.io/address/0xe9d33286f0E37f517B1204aA6dA085564414996d
+    "0xe9d33286f0e37f517b1204aa6da085564414996d": {ERC4626Feature.maple_aqru_like},
     # Ethena - sUSDe vault on Ethereum
     # https://etherscan.io/address/0x9d39a5de30e57443bff2a8307a4256c8797a3497
     "0x9d39a5de30e57443bff2a8307a4256c8797a3497": {ERC4626Feature.ethena_like},

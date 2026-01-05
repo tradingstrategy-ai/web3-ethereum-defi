@@ -45,6 +45,7 @@ Supported protocols
    eth_strategy/index
    foxify/index
    gains/index
+   gearbox/index
    goat/index
    harvest/index
    ipor/index

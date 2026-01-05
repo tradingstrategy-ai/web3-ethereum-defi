@@ -82,6 +82,8 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "Yuzu Money": VaultFeeMode.feeless,
     # Altura has minimal exit fees (0.01%) on instant withdrawals only, no management/performance fees
     "Altura": VaultFeeMode.feeless,
+    # Gearbox has fees internalised in share price via APY spread between borrower and lender rates
+    "Gearbox": VaultFeeMode.internalised_skimming,
 }
 
 
