@@ -104,7 +104,7 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Royco": None,
     "ETH Strategy": VaultTechnicalRisk.low,
     "Yuzu Money": VaultTechnicalRisk.low,
-    "Altura": None,
+    "Altura": VaultTechnicalRisk.low,
 }
 
 #: Particular vaults that are broken, misleading or otherwise problematic.

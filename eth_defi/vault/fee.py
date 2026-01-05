@@ -80,8 +80,8 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     # Yuzu Money has no performance fee, uses yield-smoothing mechanism instead
     # https://yuzu-money.gitbook.io/yuzu-money/faq-1/performance-fee
     "Yuzu Money": VaultFeeMode.feeless,
-    # Altura has exit fees on instant withdrawals, no management/performance fees
-    "Altura": None,
+    # Altura has minimal exit fees (0.01%) on instant withdrawals only, no management/performance fees
+    "Altura": VaultFeeMode.feeless,
 }
 
 
