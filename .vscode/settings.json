@@ -23,5 +23,9 @@
     "python.analysis.include": [
         "eth_defi"
     ],
-    "python.analysis.diagnosticMode": "workspace"    
+    "python.analysis.diagnosticMode": "workspace",
+    "[markdown]": {
+        "editor.defaultFormatter": null,
+         "editor.formatOnSave": false
+    }        
 }

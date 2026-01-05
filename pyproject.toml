@@ -157,6 +157,7 @@ boto3 = {version = "^1.41.0", optional = true}
 duckdb = {version = "^1.4.2", optional = true}
 python-slugify = "^8.0.4"
 requests-ratelimiter = "^0.7.0"
+strictyaml = "^1.7.3"
 
 
 [tool.poetry.group.dev.dependencies]
