@@ -41,6 +41,7 @@ Supported protocols
    ethena/index
    euler/index
    euler_earn/index
+   eth_strategy/index
    foxify/index
    gains/index
    goat/index

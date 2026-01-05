@@ -343,6 +343,12 @@ class ERC4626Feature(enum.Enum):
     #: https://zerolend.xyz/
     zerolend_like = "zerolend_like"
 
+    #: ETH Strategy
+    #:
+    #: DeFi treasury protocol offering leveraged ETH exposure without liquidation risk.
+    #: https://www.ethstrat.xyz/
+    eth_strategy_like = "eth_strategy_like"
+
 
 def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     """Deduct vault protocol name based on Vault smart contract features.
@@ -493,6 +499,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.royco_like in features:
         return "Royco"
+
+    elif ERC4626Feature.eth_strategy_like in features:
+        return "ETH Strategy"
 
     # No idea
     if ERC4626Feature.erc_7540_like in features:

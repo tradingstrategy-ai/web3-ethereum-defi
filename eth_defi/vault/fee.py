@@ -76,6 +76,7 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "Ethena": VaultFeeMode.feeless,
     "Term Finance": VaultFeeMode.internalised_skimming,
     "Royco": None,
+    "ETH Strategy": VaultFeeMode.feeless,
 }
 
 
