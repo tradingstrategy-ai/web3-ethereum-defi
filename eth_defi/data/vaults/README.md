@@ -10,12 +10,12 @@ This folder contains metadata for vault protocols.
 
 4. Each protocol can contain multiple original logos and up to three formatted logos.
 
-- Subfolder `original_logos` contains the logos obtained through the homepage or web search
+- Subfolder `original_logos` contains the logos obtained through the homepage or web search. There is a subfolder for each protocol, like `original_logos/euler` which contains raw downloads we extracted using `extract-vault-project-logo` skill.
 - Subfoder `formatted_logos` contain the logos that have been adapted to the style guides
 - The formatted logo is 256 x 256 px PNG file.
 - For generic theme there is `{protocol slug}.generic.png`
-- For white-background theme there is `{protocol slug}.light.png`
-- For dark-background theme there is `{protocol slug}.dark.png`
+- For whitish text and symbol on dark-background theme there is `{protocol slug}.light.png`
+- For darkish text on symbol on light-background theme there is `{protocol slug}.dark.png`
 - Either of the logo files might be present or missing
 
 ## Example YAML file fields

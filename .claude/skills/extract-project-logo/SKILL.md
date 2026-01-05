@@ -20,6 +20,8 @@ If any required input is missing, ask the user before proceeding.
 Always prefer an image file with brand mark (logo without text) over wordmark (logo with text),
 because we want to use logos in squared icon context.
 
+It is preferred to save multiple options and variants of the project logos if available.
+
 ## Step 1: Search for brand kit or media resources
 
 The highest quality logos are typically found in official brand/media kits. Search for these pages:
@@ -43,7 +45,7 @@ The highest quality logos are typically found in official brand/media kits. Sear
    - Choose the most square logo variant if multiple options exist
    - If both light and dark themes are present, get both
    
-If a brand kit is found with suitable logos, proceed to Step 4.
+If a brand kit is found with suitable logos, proceed to Step 5.
 
 ## Step 2: Check GitHub repository
 
@@ -98,7 +100,11 @@ Use the MCP Playwright tool to:
 
 3. **Twitter Card image** - Check `<meta name="twitter:image">`
 
-## Step 4: Verify logo quality
+## Step 4: Extract from Twitter
+
+Get the project logo from their Twitter (also known as X.com) avatar image.
+
+## Step 5: Verify logo quality
 
 Before saving, verify the extracted logo meets quality standards:
 
