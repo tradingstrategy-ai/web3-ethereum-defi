@@ -107,6 +107,7 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Altura": VaultTechnicalRisk.severe,
     "Spectra": VaultTechnicalRisk.low,
     "Gearbox": VaultTechnicalRisk.low,
+    "Mainstreet Finance": None,
 }
 
 #: Particular vaults that are broken, misleading or otherwise problematic.
