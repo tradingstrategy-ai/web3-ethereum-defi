@@ -32,6 +32,7 @@ Supported protocols
 .. toctree::
    :maxdepth: 1
 
+   altura/index
    auto_finance/index
    cap/index
    centrifuge/index
