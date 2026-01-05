@@ -77,6 +77,9 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "Term Finance": VaultFeeMode.internalised_skimming,
     "Royco": None,
     "ETH Strategy": VaultFeeMode.feeless,
+    # Yuzu Money has no performance fee, uses yield-smoothing mechanism instead
+    # https://yuzu-money.gitbook.io/yuzu-money/faq-1/performance-fee
+    "Yuzu Money": VaultFeeMode.feeless,
 }
 
 

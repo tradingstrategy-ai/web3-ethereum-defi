@@ -103,6 +103,7 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Superform": VaultTechnicalRisk.severe,
     "Royco": None,
     "ETH Strategy": VaultTechnicalRisk.low,
+    "Yuzu Money": VaultTechnicalRisk.low,
 }
 
 #: Particular vaults that are broken, misleading or otherwise problematic.

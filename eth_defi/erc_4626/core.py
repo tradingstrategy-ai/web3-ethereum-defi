@@ -349,6 +349,13 @@ class ERC4626Feature(enum.Enum):
     #: https://www.ethstrat.xyz/
     eth_strategy_like = "eth_strategy_like"
 
+    #: Yuzu Money
+    #:
+    #: DeFi protocol packaging high-yield strategies into an overcollateralised stablecoin.
+    #: Deployed on Plasma chain with yzUSD, syzUSD, and yzPP products.
+    #: https://yuzu.money/
+    yuzu_money_like = "yuzu_money_like"
+
 
 def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     """Deduct vault protocol name based on Vault smart contract features.
@@ -502,6 +509,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.eth_strategy_like in features:
         return "ETH Strategy"
+
+    elif ERC4626Feature.yuzu_money_like in features:
+        return "Yuzu Money"
 
     # No idea
     if ERC4626Feature.erc_7540_like in features:

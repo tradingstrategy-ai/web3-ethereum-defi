@@ -1,0 +1,1 @@
+"""Yuzu Money protocol integration."""
