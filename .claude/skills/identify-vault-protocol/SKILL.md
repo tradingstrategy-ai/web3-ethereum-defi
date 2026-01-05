@@ -104,4 +104,4 @@ Give bullet points output that contains:
 The output format should be a Markdown block.
 
 - Display the output in the chat
-- Save the result in `docs/protocol-research/{protocol name slugged}.md`.
+- Save the result in `docs/protocol-research/{protocol name slugged}-{vault address}.md`.
