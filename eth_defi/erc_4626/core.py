@@ -336,6 +336,13 @@ class ERC4626Feature(enum.Enum):
     #: https://royco.org/
     royco_like = "royco_like"
 
+    #: ZeroLend
+    #:
+    #: Multi-chain DeFi lending protocol built on Layer 2 solutions, based on Aave V3.
+    #: Uses Royco WrappedVault infrastructure for incentivised vaults.
+    #: https://zerolend.xyz/
+    zerolend_like = "zerolend_like"
+
 
 def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     """Deduct vault protocol name based on Vault smart contract features.
@@ -480,6 +487,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.usdd_like in features:
         return "Decentralized USD"
+
+    elif ERC4626Feature.zerolend_like in features:
+        return "ZeroLend"
 
     elif ERC4626Feature.royco_like in features:
         return "Royco"

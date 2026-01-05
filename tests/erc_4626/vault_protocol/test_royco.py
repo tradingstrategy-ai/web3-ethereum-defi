@@ -1,4 +1,4 @@
-"""Test Royco Protocol vault metadata."""
+"""Test Royco Protocol and ZeroLend vault metadata."""
 
 import os
 from pathlib import Path
@@ -10,6 +10,7 @@ from web3 import Web3
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.royco.vault import RoycoVault
+from eth_defi.erc_4626.vault_protocol.zerolend.vault import ZeroLendVault
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 
@@ -35,13 +36,14 @@ def web3(anvil_ethereum_fork):
 
 
 @flaky.flaky
-def test_royco(
+def test_zerolend_royco_vault(
     web3: Web3,
     tmp_path: Path,
 ):
-    """Read Royco Protocol vault metadata.
+    """Read ZeroLend vault metadata.
 
     ZeroLend RWA USDC vault wrapped by Royco.
+    This vault has both zerolend_like and royco_like features.
     https://etherscan.io/address/0x887d57a509070a0843c6418eb5cffc090dcbbe95
     """
 
@@ -50,10 +52,20 @@ def test_royco(
         vault_address="0x887d57a509070a0843c6418eb5cffc090dcbbe95",
     )
 
+    # ZeroLendVault is a subclass of RoycoVault
+    assert isinstance(vault, ZeroLendVault)
     assert isinstance(vault, RoycoVault)
-    assert vault.get_protocol_name() == "Royco"
+
+    # Protocol name should be ZeroLend (more specific)
+    assert vault.get_protocol_name() == "ZeroLend"
+
+    # Both features should be present
+    assert ERC4626Feature.zerolend_like in vault.features
     assert ERC4626Feature.royco_like in vault.features
 
-    # Fees are handled by the underlying vault
+    # Fees are handled by the underlying vault (inherited from RoycoVault)
     assert vault.get_management_fee("latest") is None
     assert vault.get_performance_fee("latest") is None
+
+    # Link should point to ZeroLend
+    assert vault.get_link() == "https://zerolend.xyz/"
