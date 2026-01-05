@@ -28,6 +28,7 @@
       "Bash(then:*)",
       "Bash(else:*)",
       "Bash(xargs:*)",
+      "Bash(export:*)",
       "Bash(mv:*)",
       "Edit(**)",
       "Write(**)",
