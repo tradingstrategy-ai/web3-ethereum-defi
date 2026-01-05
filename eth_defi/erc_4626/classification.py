@@ -1100,6 +1100,11 @@ def create_vault_instance(
 
         return YuzuMoneyVault(web3, spec, token_cache=token_cache, features=features)
 
+    elif ERC4626Feature.altura_like in features:
+        from eth_defi.erc_4626.vault_protocol.altura.vault import AlturaVault
+
+        return AlturaVault(web3, spec, token_cache=token_cache, features=features)
+
     else:
         # Generic ERC-4626 without fee data
         from eth_defi.erc_4626.vault import ERC4626Vault
@@ -1182,6 +1187,9 @@ HARDCODED_PROTOCOLS = {
     # Yuzu Money - yzPP (Yuzu Protection Pool) vault on Plasma
     # https://plasmascan.to/address/0xebfc8c2fe73c431ef2a371aea9132110aab50dca
     "0xebfc8c2fe73c431ef2a371aea9132110aab50dca": {ERC4626Feature.yuzu_money_like},
+    # Altura - NavVault (AVLT) on HyperEVM
+    # https://hyperevmscan.io/address/0xd0ee0cf300dfb598270cd7f4d0c6e0d8f6e13f29
+    "0xd0ee0cf300dfb598270cd7f4d0c6e0d8f6e13f29": {ERC4626Feature.altura_like},
 }
 
 for a in HARDCODED_PROTOCOLS.keys():

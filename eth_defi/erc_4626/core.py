@@ -356,6 +356,12 @@ class ERC4626Feature(enum.Enum):
     #: https://yuzu.money/
     yuzu_money_like = "yuzu_money_like"
 
+    #: Altura
+    #:
+    #: Multi-strategy yield protocol on HyperEVM (Hyperliquid) with NAV oracle pricing.
+    #: https://altura.trade/
+    altura_like = "altura_like"
+
 
 def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     """Deduct vault protocol name based on Vault smart contract features.
@@ -512,6 +518,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.yuzu_money_like in features:
         return "Yuzu Money"
+
+    elif ERC4626Feature.altura_like in features:
+        return "Altura"
 
     # No idea
     if ERC4626Feature.erc_7540_like in features:
