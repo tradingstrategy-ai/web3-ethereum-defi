@@ -27,4 +27,5 @@ links:
   trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/goat-protocol
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/goat/index.html
 example_smart_contracts:
+  - https://arbiscan.io/address/0x8a1ef3066553275829d1c0f64ee8d5871d5ce9d3
   -

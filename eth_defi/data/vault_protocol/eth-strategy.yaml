@@ -24,4 +24,5 @@ links:
   trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/eth-strategy
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/eth_strategy/index.html
 example_smart_contracts:
+  - https://etherscan.io/address/0xb250c9e0f7be4cff13f94374c993ac445a1385fe
   -

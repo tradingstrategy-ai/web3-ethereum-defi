@@ -33,4 +33,6 @@ links:
   trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/gains-network
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/gains/index.html
 example_smart_contracts:
+  - https://arbiscan.io/address/0xd3443ee1e91af28e5fb858fbd0d72a63ba8046e0
+  - https://arbiscan.io/address/0x20d419a8e12c45f88fda7c5760bb6923cee27f98
   -

@@ -33,4 +33,5 @@ links:
   trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/auto-finance
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/auto_finance/index.html
 example_smart_contracts:
+  - https://arbiscan.io/address/0xf63b7f49b4f5dc5d0e7e583cfd79dc64e646320c
   -

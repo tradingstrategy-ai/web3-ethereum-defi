@@ -19,4 +19,5 @@ links:
   trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/cap
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/cap/index.html
 example_smart_contracts:
+  - https://etherscan.io/address/0x3ed6aa32c930253fc990de58ff882b9186cd0072
   -

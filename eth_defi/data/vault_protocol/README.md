@@ -43,6 +43,7 @@ links:
   
 # List of links to the vault smart contracts on a blockchain explorer like Etherscan, Routescan.
 # Can be anywhere between zero to multiple links.
+# If there are no examples, this list is not present.
 example_smart_contracts:
   - { example link to a smart contract on a blockchain explorer }
 ```

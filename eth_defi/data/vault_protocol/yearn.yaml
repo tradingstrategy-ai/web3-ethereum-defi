@@ -25,4 +25,6 @@ links:
   trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/yearn
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/yearn/index.html
 example_smart_contracts:
+  - https://arbiscan.io/address/0x9fa306b1f4a6a83fec98d8ebbabedff78c407f6b
+  - https://arbiscan.io/address/0xA4B8873B4629c20f2167c0A2bC33B6AF8699dDc1
   -

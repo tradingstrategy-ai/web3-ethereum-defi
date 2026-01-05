@@ -23,4 +23,5 @@ links:
   trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/zerolend
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/zerolend/index.html
 example_smart_contracts:
+  - https://etherscan.io/address/0x887d57a509070a0843c6418eb5cffc090dcbbe95
   -

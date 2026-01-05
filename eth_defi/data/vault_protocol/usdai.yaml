@@ -31,4 +31,5 @@ links:
   trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/usdai
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/usdai/index.html
 example_smart_contracts:
+  - https://arbiscan.io/address/0xc0540184de0e42eab2b0a4fc35f4817041001e85
   -

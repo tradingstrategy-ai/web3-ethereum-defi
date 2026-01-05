@@ -31,4 +31,5 @@ links:
   trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/lagoon-finance
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/lagoon/index.html
 example_smart_contracts:
+  - https://basescan.org/address/0x6a5ea384e394083149ce39db29d5787a658aa98a
   -
