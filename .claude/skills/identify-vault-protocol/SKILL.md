@@ -47,7 +47,11 @@ IGNORE ALL RESULTS ON TRADING STRATEGY WEBSITE AND ETH_DEFI REPOSITORY, AS WE CA
 
 Same search steos as above but do web search.
 
-## Step 5: Check web properties of a protocol
+## Step 5: DefiLLama adapters
+
+- Search [the DefiLlama adapters Github repository](https://github.com/DefiLlama/DefiLlama-Adapters) for clues using the smart contract address
+
+## Step 6: Check web properties of a protocol
 
 If it looks like there are is a good match for some protocol we have not yet listed
 
@@ -58,7 +62,7 @@ If it looks like there are is a good match for some protocol we have not yet lis
 
 If the search results from the earlier steps do not give good results, then ask for the human input what to attempt next.
 
-## Step 6: Audit reports
+## Step 7: Audit reports
 
 Check the protocol website, documentation site and web search for smart contract audits.
 
@@ -72,6 +76,14 @@ Also if there is a sepearate developer, do another search with use keywords
 
 Usually audit reports are available as PDF or report-like web page.
 
+## Step 8: Gather fee information
+
+Gather hints about the protocol fee structure in
+
+- The vault smart contract, or other related smart contracts in the Github repository
+- Protocol homepage
+- Write a free-form note with links for the human to research further
+
 ## Analyse
 
 Give bullet points output that contains:
@@ -83,7 +95,9 @@ Give bullet points output that contains:
 - Web page
 - Github repository
 - Documentation link
+- DefiLLama link (if available)
 - Link to audit documents
+- Fee information
 - Notes
 - If the smart cotract is developed by someone else, name the developer and link the developer Github repository
 

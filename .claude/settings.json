@@ -30,6 +30,7 @@
       "Bash(xargs:*)",
       "Bash(export:*)",
       "Bash(mv:*)",
+      "Bash(wc:*)",
       "Edit(**)",
       "Write(**)",
       "MultiEdit(**)",
@@ -40,6 +41,8 @@
       "Skill(add-vault-protocol:*)",
       "Skill(more-vaults)",
       "Skill(more-vaults:*)",
+      "Skill(identify-vault-protocol)",
+      "Skill(identify-vault-protocol:*)",      
       "mcp__github__*"                           
     ]
   }

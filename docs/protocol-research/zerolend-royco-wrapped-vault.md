@@ -17,6 +17,7 @@ This is a **ZeroLend** vault deployed through **Royco Protocol's** WrappedVault 
 ## Protocol: ZeroLend
 
 ZeroLend is a multi-chain DeFi lending protocol built on Layer 2 solutions, based on Aave V3. It specialises in:
+
 - Liquid Restaking Tokens (LRTs) lending
 - Real World Assets (RWAs) lending
 - Account abstraction
@@ -31,6 +32,7 @@ ZeroLend is a multi-chain DeFi lending protocol built on Layer 2 solutions, base
 ### ZeroLend audits
 
 ZeroLend has been audited by multiple security firms:
+
 - **Mundus Security**: https://github.com/zerolend/audits
 - **PeckShield**: https://github.com/zerolend/audits
 - **Halborn**: https://www.halborn.com/case-studies
@@ -59,6 +61,7 @@ Full contract addresses: https://docs.royco.org/for-incentive-providers/contract
 ### Royco audits
 
 Royco Protocol has been audited by:
+
 - **Spearbit**: Audit conducted October 2024
 - **Cantina Private Competition**
 - **Cantina Open Competition**

@@ -26,7 +26,8 @@ You chan find these in `CHAIN_NAMES` and in `eth_defi.provider.env`
 
 ## Running the script
 
-Generate and run a Python script to fetch the block number:
+Generate and run a Python script to fetch the block number.
+Run it Python commadn line inline, don't write a new file.
 
 ```python
 import os
