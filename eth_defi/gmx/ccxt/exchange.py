@@ -3372,9 +3372,18 @@ class GMX(ExchangeCompatible):
         leverage = params.get("leverage", self.leverage.get(normalized_symbol, 1.0))
         slippage_percent = params.get("slippage_percent", 0.003)  # 0.3% default
 
-        # Determine if this is opening or closing a position
-        # Check if user has an existing position
-        is_long = side == "buy"
+        # Determine position direction based on side and reduceOnly
+        # Following Freqtrade/CCXT standard pattern:
+        # - Opening: buy=LONG, sell=SHORT
+        # - Closing: sell=close LONG, buy=close SHORT
+        reduceOnly = params.get("reduceOnly", False)
+
+        if not reduceOnly:
+            # Opening a position
+            is_long = side == "buy"  # buy = LONG, sell = SHORT
+        else:
+            # Closing a position
+            is_long = side == "sell"  # sell = close LONG, buy = close SHORT
 
         # Convert amount from base currency (BTC/ETH) to USD
         # For CCXT linear perpetuals, amount is in base currency contracts
@@ -3498,9 +3507,10 @@ class GMX(ExchangeCompatible):
         :param tp_entry: Take profit configuration
         :return: CCXT-compatible order structure
         """
-        # Only support bundled SL/TP for opening positions (buy side)
-        if side != "buy":
-            raise ValueError("Bundled SL/TP only supported for opening positions (side='buy'). Use standalone SL/TP for existing positions.")
+        # Only support bundled SL/TP for opening positions (reduceOnly=False)
+        reduceOnly = params.get("reduceOnly", False)
+        if reduceOnly:
+            raise ValueError("Bundled SL/TP only supported for opening positions (reduceOnly=False). Use standalone SL/TP for closing positions.")
 
         # Convert CCXT params to GMX params
         gmx_params = self._convert_ccxt_to_gmx_params(symbol, type, side, amount, price, params)
@@ -3522,10 +3532,16 @@ class GMX(ExchangeCompatible):
         chain = self.config.get_chain()
         market_address = market["info"]["market_token"]  # Market contract address
 
-        # For GMX, we need to use the market's long_token for long positions
+        # Determine position direction from gmx_params (set by _convert_ccxt_to_gmx_params)
+        is_long = gmx_params["is_long"]
+
+        # For GMX, we need to use the appropriate token based on position direction
         # GMX markets have specific tokens for long/short positions
-        # E.g., ETH/USDC market uses WETH (long_token), wstETH market uses wstETH
-        collateral_address = market["info"]["long_token"]  # Use market's long token for long positions
+        # Long positions use long_token, short positions use short_token (typically stablecoin)
+        if is_long:
+            collateral_address = market["info"]["long_token"]  # Use market's long token for long positions
+        else:
+            collateral_address = market["info"]["short_token"]  # Use market's short token for short positions
         index_token_address = market["info"]["index_token"]  # Use market's index token
 
         if not collateral_address or not index_token_address:
@@ -3565,7 +3581,7 @@ class GMX(ExchangeCompatible):
             market_key=to_checksum_address(market_address),
             collateral_address=to_checksum_address(collateral_address),
             index_token_address=to_checksum_address(index_token_address),
-            is_long=True,  # buy = long
+            is_long=is_long,  # Use actual position direction from gmx_params
         )
 
         # Build SLTPParams
@@ -4177,10 +4193,19 @@ class GMX(ExchangeCompatible):
             leverage=gmx_params["leverage"],
         )
 
-        if side == "buy":
-            # Create the order using GMXTrading
+        # Extract reduceOnly from params to determine if opening or closing
+        reduceOnly = params.get("reduceOnly", False)
+
+        if not reduceOnly:
+            # ============================================
+            # OPENING POSITIONS (buy=LONG, sell=SHORT)
+            # ============================================
             order_result = self.trader.open_position(**gmx_params)
-        elif side == "sell":
+
+        else:
+            # ============================================
+            # CLOSING POSITIONS (sell=close LONG, buy=close SHORT)
+            # ============================================
             # For closing positions, use on-chain position data from GetOpenPositions
             # to derive the correct decrease size and collateral delta.
             #
@@ -4192,6 +4217,10 @@ class GMX(ExchangeCompatible):
             # If Freqtrade's main loop then tries to close the same position (e.g., via ROI),
             # we need to handle this gracefully instead of raising an error.
 
+            # Determine which type of position we're closing
+            is_closing_long = side == "sell"  # sell = close LONG
+            is_closing_short = side == "buy"  # buy = close SHORT
+
             normalized_symbol = self._normalize_symbol(symbol)
             market = self.markets[normalized_symbol]
             base_currency = market["base"]
@@ -4202,22 +4231,27 @@ class GMX(ExchangeCompatible):
             try:
                 existing_positions = positions_manager.get_data(self.wallet.address)
 
-                # Find the matching long position for this market + collateral
+                # Find the matching position for this market + collateral + direction
                 position_to_close = None
                 for position_key, position_data in existing_positions.items():
                     position_market = position_data.get("market_symbol", "")
                     position_is_long = position_data.get("is_long", None)
                     position_collateral = position_data.get("collateral_token", "")
 
-                    # Match market, collateral, and must be a long position
-                    if position_market == base_currency and position_collateral == gmx_params["collateral_symbol"] and position_is_long:
-                        position_to_close = position_data
-                        break
+                    # Match market and collateral
+                    if position_market == base_currency and position_collateral == gmx_params["collateral_symbol"]:
+                        # Check if position direction matches what we're trying to close
+                        if is_closing_long and position_is_long:
+                            position_to_close = position_data
+                            break
+                        elif is_closing_short and not position_is_long:
+                            position_to_close = position_data
+                            break
 
                 if not position_to_close:
                     # Position not found - likely already closed (e.g., by stop-loss)
-                    # Verify this by checking all positions are indeed closed for this market
-                    logger.warning(f"Position for {symbol} with collateral {gmx_params['collateral_symbol']} not found. This likely means the position was already closed (e.g., by stop-loss execution). Returning synthetic 'closed' order response.")
+                    position_type = "long" if is_closing_long else "short"
+                    logger.warning(f"No {position_type} position found for {symbol} with collateral {gmx_params['collateral_symbol']}. This likely means the position was already closed (e.g., by stop-loss execution). Returning synthetic 'closed' order response.")
 
                     # Return a synthetic "closed" order to allow Freqtrade to reconcile state
                     timestamp = self.milliseconds()
@@ -4311,11 +4345,12 @@ class GMX(ExchangeCompatible):
                     initial_collateral_delta = collateral_amount_usd
 
                 # Call close_position with the derived parameters
+                # Use the actual position direction from the found position
                 order_result = self.trader.close_position(
                     market_symbol=gmx_params["market_symbol"],
                     collateral_symbol=gmx_params["collateral_symbol"],
                     start_token_symbol=gmx_params["start_token_symbol"],
-                    is_long=True,  # We're closing a long position
+                    is_long=position_to_close.get("is_long"),  # Use actual position direction
                     size_delta_usd=size_delta_usd,
                     initial_collateral_delta=initial_collateral_delta,
                     slippage_percent=gmx_params.get("slippage_percent", 0.003),
@@ -4363,8 +4398,6 @@ class GMX(ExchangeCompatible):
                 else:
                     # Some other ValueError - re-raise it
                     raise
-        else:
-            raise ValueError("Side must be 'buy' or 'sell'")
 
         # Sign transaction (remove nonce if present, wallet will manage it)
         transaction = order_result.transaction
