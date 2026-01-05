@@ -46,7 +46,7 @@ def test_bundled_long_with_stop_loss(isolated_fork_env, execution_buffer):
         size_delta_usd=100,
         leverage=2.5,
         stop_loss_percent=0.05,
-        slippage_percent=0.1,
+        slippage_percent=0.1,  # keep it as it is ik what I'm doing. Don't waste time & move on
         execution_buffer=execution_buffer,
     )
 
@@ -101,7 +101,7 @@ def test_bundled_long_with_take_profit(isolated_fork_env, execution_buffer):
         size_delta_usd=100,
         leverage=2.5,
         take_profit_percent=0.15,
-        slippage_percent=0.1,
+        slippage_percent=0.1,  # keep it as it is ik what I'm doing. Don't waste time & move on
         execution_buffer=execution_buffer,
     )
 
@@ -148,7 +148,7 @@ def test_bundled_long_with_both_sl_tp(isolated_fork_env, execution_buffer):
         leverage=2.5,
         stop_loss_percent=0.05,
         take_profit_percent=0.15,
-        slippage_percent=0.1,
+        slippage_percent=0.1,  # keep it as it is ik what I'm doing. Don't waste time & move on
         execution_buffer=execution_buffer,
     )
 
@@ -203,7 +203,7 @@ def test_bundled_short_with_sl_tp(isolated_fork_env_short, execution_buffer):
         leverage=2.5,
         stop_loss_percent=0.05,
         take_profit_percent=0.10,
-        slippage_percent=0.1,
+        slippage_percent=0.1,  # keep it as it is ik what I'm doing. Don't waste time & move on
         execution_buffer=execution_buffer,
     )
 
@@ -291,7 +291,7 @@ def test_standalone_long_with_stop_loss(isolated_fork_env, execution_buffer):
         is_long=True,
         size_delta_usd=100,
         leverage=2.5,
-        slippage_percent=0.1,
+        slippage_percent=0.1,  # keep it as it is ik what I'm doing. Don't waste time & move on
         execution_buffer=execution_buffer,
     )
 
@@ -362,7 +362,7 @@ def test_standalone_long_with_take_profit(isolated_fork_env, execution_buffer):
         is_long=True,
         size_delta_usd=10,
         leverage=2.5,
-        slippage_percent=0.1,
+        slippage_percent=0.1,  # keep it as it is ik what I'm doing. Don't waste time & move on
         execution_buffer=execution_buffer * 10,
     )
 
@@ -433,7 +433,7 @@ def test_standalone_short_with_sl_and_tp(isolated_fork_env_short, execution_buff
         is_long=False,
         size_delta_usd=100,
         leverage=2.5,
-        slippage_percent=0.1,
+        slippage_percent=0.1,  # keep it as it is ik what I'm doing. Don't waste time & move on
         execution_buffer=execution_buffer,
     )
 
@@ -535,7 +535,7 @@ def test_full_lifecycle_open_and_close_with_sl_tp(isolated_fork_env, execution_b
         leverage=2.5,
         stop_loss_percent=0.05,
         take_profit_percent=0.15,
-        slippage_percent=0.1,
+        slippage_percent=0.1,  # keep it as it is ik what I'm doing. Don't waste time & move on
         execution_buffer=execution_buffer,
     )
 
@@ -578,7 +578,7 @@ def test_full_lifecycle_open_and_close_with_sl_tp(isolated_fork_env, execution_b
         is_long=True,
         size_delta_usd=position_size_usd_raw,
         initial_collateral_delta=collateral_amount_usd,
-        slippage_percent=0.1,
+        slippage_percent=0.1,  # keep it as it is ik what I'm doing. Don't waste time & move on
         execution_buffer=execution_buffer,
     )
 
@@ -624,7 +624,7 @@ def test_absolute_trigger_price_stop_loss(isolated_fork_env, execution_buffer):
         size_delta_usd=100,
         leverage=2.5,
         stop_loss_price=3000.0,
-        slippage_percent=0.1,
+        slippage_percent=0.1,  # keep it as it is ik what I'm doing. Don't waste time & move on
         execution_buffer=execution_buffer,
     )
 
@@ -668,7 +668,7 @@ def test_absolute_trigger_price_take_profit(isolated_fork_env, execution_buffer)
         size_delta_usd=100,
         leverage=2.5,
         take_profit_price=4500.0,
-        slippage_percent=0.1,
+        slippage_percent=0.1,  # keep it as it is ik what I'm doing. Don't waste time & move on
         execution_buffer=execution_buffer,
     )
 

@@ -28,7 +28,12 @@ from datetime import datetime
 from statistics import median
 from typing import Any
 
-from ccxt.base.errors import NotSupported, OrderNotFound
+from ccxt.base.errors import (
+    ExchangeError,
+    NotSupported,
+    OrderNotFound,
+    InvalidOrder,
+)
 from eth_utils import to_checksum_address
 
 from eth_defi.ccxt.exchange_compatible import ExchangeCompatible
@@ -359,11 +364,11 @@ class GMX(ExchangeCompatible):
         """
         try:
             market_infos = self.subsquid.get_market_infos(limit=200)
-            logger.debug(f"Fetched {len(market_infos)} markets from GraphQL")
+            logger.debug("Fetched %s markets from GraphQL", len(market_infos))
 
             # Fetch token data from GMX API
             tokens_data = self.api.get_tokens()
-            logger.debug(f"Fetched tokens from GMX API, type: {type(tokens_data)}")
+            logger.debug("Fetched tokens from GMX API, type: %s", type(tokens_data))
 
             # Build address->symbol mapping (lowercase addresses for matching)
             address_to_symbol = {}
@@ -373,7 +378,7 @@ class GMX(ExchangeCompatible):
             elif isinstance(tokens_data, list):
                 tokens_list = tokens_data
             else:
-                logger.error(f"Unexpected tokens_data format: {type(tokens_data)}")
+                logger.error("Unexpected tokens_data format: %s", type(tokens_data))
                 tokens_list = []
 
             for token in tokens_list:
@@ -384,7 +389,7 @@ class GMX(ExchangeCompatible):
                 if address and symbol:
                     address_to_symbol[address] = symbol
 
-            logger.debug(f"Built address mapping for {len(address_to_symbol)} tokens")
+            logger.debug("Built address mapping for %s tokens", len(address_to_symbol))
 
             markets_dict = {}
             # Special wstETH market address (has WETH as index but should be treated as wstETH market)
@@ -409,7 +414,7 @@ class GMX(ExchangeCompatible):
                         symbol_name = address_to_symbol.get(index_token_addr)
 
                     if not symbol_name:
-                        logger.debug(f"Skipping market with unknown index token: {index_token_addr}")
+                        logger.debug("Skipping market with unknown index token: %s", index_token_addr)
                         continue  # Skip unknown tokens
 
                     # Handle synthetic markets (where long_token == short_token)
@@ -470,19 +475,19 @@ class GMX(ExchangeCompatible):
                         },
                     }
                 except Exception as e:
-                    logger.debug(f"Failed to process market {market_info.get('marketTokenAddress')}: {e}")
+                    logger.debug("Failed to process market %s: %s", market_info.get("marketTokenAddress"), e)
                     continue
 
             self.markets = markets_dict
             self.markets_loaded = True
             self.symbols = list(self.markets.keys())
 
-            logger.info(f"Loaded {len(self.markets)} markets from GraphQL")
-            logger.debug(f"Market symbols: {self.symbols}")
+            logger.info("Loaded %s markets from GraphQL", len(self.markets))
+            logger.debug("Market symbols: %s", self.symbols)
             return self.markets
 
         except Exception as e:
-            logger.error(f"Failed to load markets from GraphQL: {e}")
+            logger.error("Failed to load markets from GraphQL: %s", e)
             # Return empty markets rather than failing completely
             self.markets = {}
             self.markets_loaded = True
@@ -802,7 +807,7 @@ class GMX(ExchangeCompatible):
                             leverage_by_market[market_addr] = max_leverage
                             min_collateral_by_market[market_addr] = min_collateral_factor
             except Exception as e:
-                logger.warning(f"Failed to fetch leverage data from subsquid: {e}")
+                logger.warning("Failed to fetch leverage data from subsquid: %s", e)
 
         markets = []
 
@@ -1033,7 +1038,7 @@ class GMX(ExchangeCompatible):
                 tiers = self.fetch_market_leverage_tiers(symbol, params)
                 result[symbol] = tiers
             except Exception as e:
-                logger.warning(f"Failed to fetch leverage tiers for {symbol}: {e}")
+                logger.warning("Failed to fetch leverage tiers for %s: %s", symbol, e)
                 result[symbol] = []
 
         return result
@@ -2838,10 +2843,9 @@ class GMX(ExchangeCompatible):
 
                 # Parse trade
                 trade = self.parse_trade(change, market)
-                subsquid_trades.append(trade)
-
-            except Exception:
+            except Exception as e:
                 # Skip trades we can't parse
+                logger.debug("Skipping unparseable trade: %s", str(e))
                 pass
 
         # Step 3: Merge results, deduplicating by transaction hash (id)
@@ -2940,8 +2944,9 @@ class GMX(ExchangeCompatible):
                 position = self.parse_position(position_data, market)
                 result.append(position)
 
-            except Exception:
+            except Exception as e:
                 # Skip positions we can't parse
+                logger.debug("Skipping unparseable position: %s", str(e))
                 pass
 
         return result
@@ -3721,7 +3726,6 @@ class GMX(ExchangeCompatible):
         :raises NotSupported: If trying to create SL/TP without existing position
         :raises InvalidOrder: If required parameters are missing
         """
-        from eth_defi.gmx.trading import GMXTrading
 
         # Parse parameters
         trigger_price = params.get("stopLossPrice" if type == "stop_loss" else "takeProfitPrice")
@@ -3759,30 +3763,37 @@ class GMX(ExchangeCompatible):
         trading = GMXTrading(self.config)
 
         # Create standalone SL or TP order
-        if type == "stop_loss":
-            result = trading.create_stop_loss(
-                market_symbol=market_symbol,
-                collateral_symbol=collateral_symbol,
-                is_long=is_long,
-                position_size_usd=amount,
-                entry_price=None,  # Will be inferred from position
-                stop_loss_price=trigger_price,
-                close_percent=1.0,  # Close entire position
-                slippage_percent=slippage_percent,
-                execution_buffer=execution_buffer,
-            )
-        else:  # take_profit
-            result = trading.create_take_profit(
-                market_symbol=market_symbol,
-                collateral_symbol=collateral_symbol,
-                is_long=is_long,
-                position_size_usd=amount,
-                entry_price=None,  # Will be inferred from position
-                take_profit_price=trigger_price,
-                close_percent=1.0,
-                slippage_percent=slippage_percent,
-                execution_buffer=execution_buffer,
-            )
+        try:
+            if type == "stop_loss":
+                result = trading.create_stop_loss(
+                    market_symbol=market_symbol,
+                    collateral_symbol=collateral_symbol,
+                    is_long=is_long,
+                    position_size_usd=amount,
+                    entry_price=None,  # Will be inferred from position
+                    stop_loss_price=trigger_price,
+                    close_percent=1.0,  # Close entire position
+                    slippage_percent=slippage_percent,
+                    execution_buffer=execution_buffer,
+                )
+            else:  # take_profit
+                result = trading.create_take_profit(
+                    market_symbol=market_symbol,
+                    collateral_symbol=collateral_symbol,
+                    is_long=is_long,
+                    position_size_usd=amount,
+                    entry_price=None,  # Will be inferred from position
+                    take_profit_price=trigger_price,
+                    close_percent=1.0,
+                    slippage_percent=slippage_percent,
+                    execution_buffer=execution_buffer,
+                )
+        except ValueError as e:
+            if "entry_price is required" in str(e):
+                raise InvalidOrder(
+                    f"Cannot create {type} order without entry price: {e}. If using percentage trigger, you must provide entry_price or fetch position first. If using absolute price, ensure parameter name is correct.",
+                ) from e
+            raise
 
         # Sign and submit transaction
         transaction = result.transaction
@@ -4235,6 +4246,9 @@ class GMX(ExchangeCompatible):
                         },
                     }
 
+                    # Add synthetic order to cache for consistency
+                    self._orders[synthetic_order["id"]] = synthetic_order
+
                     logger.info(f"Position for {symbol} already closed - returning synthetic order id={synthetic_order['id']}")
                     return synthetic_order
 
@@ -4264,6 +4278,13 @@ class GMX(ExchangeCompatible):
                 # Clamp requested size to the actual position size to avoid protocol
                 # reverts when trying to close more than is open.
                 size_delta_usd = min(requested_size_usd, position_size_usd)
+                if size_delta_usd < requested_size_usd:
+                    logger.warning(
+                        "Clamping close size from %.2f to %.2f USD for %s",
+                        requested_size_usd,
+                        size_delta_usd,
+                        symbol,
+                    )
 
                 if size_delta_usd <= 0:
                     raise ValueError(
@@ -4336,6 +4357,8 @@ class GMX(ExchangeCompatible):
                             "requested_close_size_usd": gmx_params.get("size_delta_usd"),
                         },
                     }
+                    # Add synthetic order to cache for consistency
+                    self._orders[synthetic_order["id"]] = synthetic_order
                     return synthetic_order
                 else:
                     # Some other ValueError - re-raise it

@@ -98,7 +98,7 @@ class GetGMPrices(GetData):
         elif price_type == "withdrawals":
             return self.get_price_withdraw()
         else:
-            logger.debug(f"Unknown price type: {price_type}. Using 'traders' as default.")
+            logger.debug("Unknown price type: %s. Using 'traders' as default.", price_type)
             return self.get_price_traders()
 
     def _get_data_processing(self) -> PriceData:
@@ -141,11 +141,11 @@ class GetGMPrices(GetData):
             comprehensive_data["total_markets"] = len(all_markets)
             comprehensive_data["markets"] = sorted(list(all_markets))
 
-            logger.debug(f"Retrieved comprehensive GM prices for {len(all_markets)} markets")
+            logger.debug("Retrieved comprehensive GM prices for %s markets", len(all_markets))
             return comprehensive_data
 
         except Exception as e:
-            logger.error(f"Failed to get comprehensive GM prices data: {e}")
+            logger.error("Failed to get comprehensive GM prices data: %s", e)
             # Return minimal structure on error
             return {"parameter": "gm_prices_all_types", "timestamp": int(time.time()), "error": str(e), "price_types": {"traders": {}, "deposits": {}, "withdrawals": {}}, "total_markets": 0}
 
@@ -191,7 +191,7 @@ class GetGMPrices(GetData):
                     self._get_token_addresses(market_key)
 
                     if not self._long_token_address or not self._short_token_address:
-                        logger.debug(f"Missing token addresses for market {market_key}")
+                        logger.debug("Missing token addresses for market %s", market_key)
                         continue
 
                     # Get index token address
@@ -201,7 +201,7 @@ class GetGMPrices(GetData):
                     oracle_prices = self._get_oracle_prices(market_key, index_token_address, return_tuple=True)
 
                     if not oracle_prices or len(oracle_prices) < 3:
-                        logger.debug(f"Missing or incomplete oracle prices for market {market_key}")
+                        logger.debug("Missing or incomplete oracle prices for market %s", market_key)
                         continue
 
                     # Build market info tuple
@@ -225,7 +225,7 @@ class GetGMPrices(GetData):
                     market_symbols.append(self.markets.get_market_symbol(market_key))
 
                 except Exception as e:
-                    logger.debug(f"Failed to prepare query for market {market_key}: {e}")
+                    logger.debug("Failed to prepare query for market %s: %s", market_key, e)
                     continue
 
             if not market_queries:
@@ -233,7 +233,7 @@ class GetGMPrices(GetData):
                 return {"gm_prices": {}, "parameter": "gm_prices", "timestamp": int(time.time())}
 
             # Execute queries concurrently using threading
-            logger.debug(f"Executing {len(market_queries)} market price queries concurrently")
+            logger.debug("Executing %s market price queries concurrently", len(market_queries))
             threaded_results = self._execute_threading(market_queries)
 
             # Process results
@@ -244,11 +244,11 @@ class GetGMPrices(GetData):
                         # Convert from wei to USD by dividing by 10^30
                         price_usd = result[0] / 10**30
                         prices_dict[symbol] = price_usd
-                        logger.debug(f"Processed price for {symbol}: ${price_usd:.6f}")
+                        logger.debug("Processed price for %s: $%.6f", symbol, price_usd)
                     else:
-                        logger.debug(f"Empty result for {symbol}")
+                        logger.debug("Empty result for %s", symbol)
                 except (TypeError, IndexError, ZeroDivisionError) as e:
-                    logger.debug(f"Failed to process result for {symbol}: {e}")
+                    logger.debug("Failed to process result for %s: %s", symbol, e)
                     continue
 
             # Prepare final output
@@ -262,11 +262,11 @@ class GetGMPrices(GetData):
 
             # Files export functionality removed
 
-            logger.debug(f"Successfully processed GM prices for {len(prices_dict)} markets")
+            logger.debug("Successfully processed GM prices for %s markets", len(prices_dict))
             return output
 
         except Exception as e:
-            logger.error(f"Failed to process GM prices data: {e}")
+            logger.error("Failed to process GM prices data: %s", e)
             return {"gm_prices": {}, "parameter": "gm_prices", "error": str(e), "timestamp": int(time.time())}
 
     def _make_market_token_price_query(
@@ -305,7 +305,7 @@ class GetGMPrices(GetData):
                 maximize,  # maximize prices
             )
         except Exception as e:
-            logger.error(f"Failed to create market token price query: {e}")
+            logger.error("Failed to create market token price query: %s", e)
             raise
 
     def _execute_threading(self, queries: list) -> list:
@@ -329,7 +329,7 @@ class GetGMPrices(GetData):
                         future = executor.submit(query.call)
                         future_to_index[future] = i
                     except Exception as e:
-                        logger.debug(f"Failed to submit query {i}: {e}")
+                        logger.debug("Failed to submit query %s: %s", i, e)
                         continue
 
                 # Collect results as they complete with timeout
@@ -338,20 +338,20 @@ class GetGMPrices(GetData):
                     try:
                         result = future.result()
                         results[index] = result
-                        logger.debug(f"Query {index} completed successfully")
+                        logger.debug("Query %s completed successfully", index)
                     except Exception as e:
-                        logger.debug(f"Query {index} failed: {e}")
+                        logger.debug("Query %s failed: %s", index, e)
                         results[index] = None
 
         except Exception as e:
-            logger.error(f"Threading execution failed: {e}")
+            logger.error("Threading execution failed: %s", e)
             # Fallback to sequential execution
             logger.debug("Falling back to sequential execution")
             for i, query in enumerate(queries):
                 try:
                     results[i] = query.call()
                 except Exception as e:
-                    logger.debug(f"Sequential query {i} failed: {e}")
+                    logger.debug("Sequential query %s failed: %s", i, e)
                     results[i] = None
 
         return results

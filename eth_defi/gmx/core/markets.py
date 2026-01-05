@@ -72,7 +72,7 @@ class Markets:
         try:
             oracle_prices = OraclePrices(chain=self.config.chain).get_recent_prices()
         except Exception as e:
-            logger.debug(f"Failed to fetch oracle prices: {e}")
+            logger.debug("Failed to fetch oracle prices: %s", e)
             oracle_prices = {}
 
         return oracle_prices
@@ -250,7 +250,7 @@ class Markets:
 
         # Get raw market data
         raw_markets = self._get_available_markets_raw()
-        logger.debug(f"Retrieved {len(raw_markets)} raw markets from contract")
+        logger.debug("Retrieved %s raw markets from contract", len(raw_markets))
 
         # Process markets in bulk
         processed_markets = {}
@@ -269,7 +269,7 @@ class Markets:
                     if market_address == self._special_wsteth_address:
                         index_token_address = to_checksum_address("0x5979D7b546E38E414F7E9822514be443A4800529")
                     else:
-                        logger.debug(f"Skipping market {market_address} with zero index token address")
+                        logger.debug("Skipping market %s with zero index token address", market_address)
                         continue
 
                 # Check if index token is available in oracle prices (skip for testnets due to address mismatch)
@@ -278,7 +278,7 @@ class Markets:
                     if market_address == self._special_wsteth_address:
                         pass  # Continue processing
                     else:
-                        logger.debug(f"Skipping market {market_address}: index token {index_token_address} not in oracle prices")
+                        logger.debug("Skipping market %s: index token %s not in oracle prices", market_address, index_token_address)
                         continue
 
                 # Get metadata for all tokens
@@ -289,7 +289,7 @@ class Markets:
                 # Handle swap markets (when index token metadata is missing)
                 if not index_token_meta:
                     # Skip swap markets - they don't have price data we can safely convert
-                    logger.debug(f"Skipping market {market_address}: no index token metadata (likely a swap market)")
+                    logger.debug("Skipping market %s: no index token metadata (likely a swap market)", market_address)
                     continue
 
                 # Verify index token has decimals
@@ -331,10 +331,10 @@ class Markets:
                 }
 
             except Exception as e:
-                logger.debug(f"Skipping market {raw_market[0]}: {e}")
+                logger.debug("Skipping market %s: %s", raw_market[0], e)
                 continue
 
-        logger.debug(f"Processed {len(processed_markets)} markets successfully")
+        logger.debug("Processed %s markets successfully", len(processed_markets))
 
         # Cache the results for future calls
         self._markets_cache = processed_markets

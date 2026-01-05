@@ -466,7 +466,7 @@ def get_positions(config, address: str = None) -> dict[str, Any]:
         positions = GetOpenPositions(config=config).get_data(address=address)
 
     if len(positions) > 0:
-        logging.info(f"Open Positions for {address}:")
+        logging.info("Open Positions for %s:", address)
         for key in positions.keys():
             logging.info(key)
 

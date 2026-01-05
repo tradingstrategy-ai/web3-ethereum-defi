@@ -74,7 +74,7 @@ class OraclePrices:
         if oracle_chain not in clean_api_urls:
             raise ValueError(f"Unsupported chain: {chain}. Supported: {list(clean_api_urls.keys()) + list(testnet_to_mainnet.keys())}")
 
-        logging.info(f"Using oracle for chain '{oracle_chain}' (requested chain: '{chain}')")
+        logging.info("Using oracle for chain '%s' (requested chain: '%s')", oracle_chain, chain)
         self.oracle_url = clean_api_urls[oracle_chain] + "/signed_prices/latest"
         self.backup_oracle_url = clean_backup_urls.get(oracle_chain, "") + "/signed_prices/latest" if clean_backup_urls.get(oracle_chain) else None
 
@@ -130,7 +130,7 @@ class OraclePrices:
             age = time.time() - cached_time
 
             if age < ttl:
-                logging.debug(f"Using cached oracle prices (age: {age:.1f}s)")
+                logging.debug("Using cached oracle prices (age: %.1fs)", age)
                 return cached_prices
 
         # Fetch fresh prices
@@ -162,7 +162,7 @@ class OraclePrices:
         # Look up by mainnet address
         return oracle_prices.get(lookup_address)
 
-    def _make_query(self, max_retries=5, initial_backoff=1, max_backoff=60) -> Optional[Response]:
+    def _make_query(self, max_retries=5, initial_backoff=1, max_backoff=60) -> Response | None:
         """Make request using oracle URL with retry mechanism.
 
         :param max_retries: Maximum number of retry attempts
@@ -174,33 +174,57 @@ class OraclePrices:
         :rtype: requests.models.Response
         :raises requests.exceptions.RequestException: If all retry attempts fail
         """
-        url = self.oracle_url
-        attempts = 0
-        backoff = initial_backoff
+        urls = [self.oracle_url]
+        if self.backup_oracle_url:
+            urls.append(self.backup_oracle_url)
 
-        while attempts < max_retries:
-            try:
-                logging.debug(f"Querying oracle at {url}")
-                response = requests.get(url, timeout=30)  # Added timeout for safety
-                response.raise_for_status()  # Raise exception for 4XX/5XX status codes
-                return response
+        last_exception = None
 
-            except (requests.exceptions.RequestException, requests.exceptions.Timeout) as e:
-                attempts += 1
+        for url in urls:
+            attempts = 0
+            backoff = initial_backoff
+
+            while attempts < max_retries:
+                try:
+                    logging.debug("Querying oracle at %s", url)
+                    response = requests.get(url, timeout=30)  # Added timeout for safety
+                    response.raise_for_status()  # Raise exception for 4XX/5XX status codes
+                    return response
+
+                except requests.exceptions.HTTPError as e:
+                    # Don't retry client errors (4xx)
+                    if 400 <= e.response.status_code < 500:
+                        logging.error("Oracle client error %s: %s", e.response.status_code, e)
+                        last_exception = e
+                        break  # Break inner loop, try next URL
+
+                    # 5xx errors fall through to general RequestException handling (retry)
+                    attempts += 1
+                    last_exception = e
+
+                except (requests.exceptions.RequestException, requests.exceptions.Timeout) as e:
+                    attempts += 1
+                    last_exception = e
 
                 if attempts >= max_retries:
-                    logging.error(f"Failed to query oracle after {max_retries} attempts: {str(e)}")
-                    raise
+                    logging.warning("Failed to query oracle at %s after %s attempts: %s", url, max_retries, str(last_exception))
+                    break
 
                 # Add jitter to avoid thundering herd problem
                 jitter = random.uniform(0, 0.1 * backoff)
                 wait_time = backoff + jitter
 
-                logging.debug(f"Request failed: {str(e)}. Retrying in {wait_time:.2f} seconds (attempt {attempts}/{max_retries})")
+                logging.debug("Request failed: %s. Retrying in %.2f seconds (attempt %s/%s)", str(last_exception), wait_time, attempts, max_retries)
                 time.sleep(wait_time)
 
                 # Exponential backoff with capping
                 backoff = min(backoff * 2, max_backoff)
+
+        # If we exhausted all URLs and retries
+        if last_exception:
+            logging.error("All oracle URLs failed. Last error: %s", str(last_exception))
+            raise last_exception
+
         return None
 
     @staticmethod

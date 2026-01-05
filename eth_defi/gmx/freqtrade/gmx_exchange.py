@@ -397,7 +397,7 @@ class Gmx(Exchange):
 
             if not market:
                 # If markets not loaded, return default
-                logger.warning(f"Market {pair} not found, returning default leverage of 50x")
+                logger.warning("Market %s not found, returning default leverage of 50x", pair)
                 return 50.0
 
             # Get max leverage from market limits
@@ -407,11 +407,11 @@ class Gmx(Exchange):
                 return float(max_leverage)
 
             # Fallback to default GMX leverage
-            logger.debug(f"No leverage limit found for {pair}, using default 50x")
+            logger.debug("No leverage limit found for %s, using default 50x", pair)
             return 50.0
 
         except Exception as e:
-            logger.warning(f"Error getting max leverage for {pair}: {e}, returning default 50x")
+            logger.warning("Error getting max leverage for %s: %s, returning default 50x", pair, e)
             return 50.0
 
     def fetch_onchain_positions(self, use_graphql: bool = False) -> dict:

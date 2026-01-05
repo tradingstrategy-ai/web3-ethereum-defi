@@ -263,11 +263,11 @@ class GMX(Exchange):
         """
         try:
             market_infos = await self.subsquid.get_market_infos(limit=200)
-            logger.info(f"Fetched {len(market_infos)} markets from GraphQL")
+            logger.info("Fetched %s markets from GraphQL", len(market_infos))
 
             # Fetch token data from GMX API using async HTTP
             tokens_data = await self._fetch_tokens_async()
-            logger.debug(f"Fetched tokens from GMX API, type: {type(tokens_data)}, length: {len(tokens_data) if isinstance(tokens_data, (list, dict)) else 'N/A'}")
+            logger.debug("Fetched tokens from GMX API, type: %s, length: %s", type(tokens_data), len(tokens_data) if isinstance(tokens_data, (list, dict)) else "N/A")
 
             # Build address->symbol mapping (lowercase addresses for matching)
             address_to_symbol = {}
@@ -277,7 +277,7 @@ class GMX(Exchange):
             elif isinstance(tokens_data, list):
                 tokens_list = tokens_data
             else:
-                logger.error(f"Unexpected tokens_data format: {type(tokens_data)}")
+                logger.error("Unexpected tokens_data format: %s", type(tokens_data))
                 tokens_list = []
 
             # Build address->symbol mapping and token metadata (lowercase addresses for matching)
@@ -299,7 +299,7 @@ class GMX(Exchange):
                         "symbol": symbol,
                     }
 
-            logger.debug(f"Built address mapping for {len(address_to_symbol)} tokens, metadata for {len(self._token_metadata)} tokens")
+            logger.debug("Built address mapping for %s tokens, metadata for %s tokens", len(address_to_symbol), len(self._token_metadata))
 
             markets_dict = {}
             for market_info in market_infos:
@@ -311,7 +311,7 @@ class GMX(Exchange):
                     symbol_name = address_to_symbol.get(index_token_addr)
 
                     if not symbol_name:
-                        logger.debug(f"Skipping market with unknown index token: {index_token_addr}")
+                        logger.debug("Skipping market with unknown index token: %s", index_token_addr)
                         continue  # Skip unknown tokens
 
                     # Skip excluded symbols
@@ -369,18 +369,18 @@ class GMX(Exchange):
                         },
                     }
                 except Exception as e:
-                    logger.debug(f"Failed to process market {market_info.get('marketTokenAddress')}: {e}")
+                    logger.debug("Failed to process market %s: %s", market_info.get("marketTokenAddress"), e)
                     continue
 
             self.markets = markets_dict
             self.symbols = list(self.markets.keys())
 
-            logger.info(f"Loaded {len(self.markets)} markets from GraphQL")
-            logger.debug(f"Market symbols: {self.symbols}")
+            logger.info("Loaded %s markets from GraphQL", len(self.markets))
+            logger.debug("Market symbols: %s", self.symbols)
             return self.markets
 
         except Exception as e:
-            logger.error(f"Failed to load markets from GraphQL: {e}")
+            logger.error("Failed to load markets from GraphQL: %s", e)
             # Return empty markets rather than failing completely
             self.markets = {}
             self.symbols = []
@@ -397,7 +397,7 @@ class GMX(Exchange):
             )
             return tokens_data
         except Exception as e:
-            logger.error(f"Failed to fetch tokens from GMX API: {e}")
+            logger.error("Failed to fetch tokens from GMX API: %s", e)
             return []
 
     async def load_markets(self, reload: bool = False, params: dict | None = None) -> dict:
@@ -447,7 +447,7 @@ class GMX(Exchange):
                             leverage_by_market[market_addr] = max_leverage
                             min_collateral_by_market[market_addr] = min_collateral_factor
             except Exception as e:
-                logger.warning(f"Failed to fetch leverage data from subsquid: {e}")
+                logger.warning("Failed to fetch leverage data from subsquid: %s", e)
 
         # Process markets into CCXT-style format (matching sync version exactly)
         for market_address, market_data in available_markets.items():
@@ -864,7 +864,7 @@ class GMX(Exchange):
                     order["info"]["block_number"] = receipt.get("blockNumber")
                     order["info"]["gas_used"] = receipt.get("gasUsed")
             except Exception as e:
-                logger.warning(f"Could not fetch transaction receipt for {id}: {e}")
+                logger.warning("Could not fetch transaction receipt for %s: %s", id, e)
 
             return order
 
@@ -910,11 +910,11 @@ class GMX(Exchange):
                     "fees": [],
                 }
 
-                logger.info(f"Fetched order {id} from blockchain (not in cache)")
+                logger.info("Fetched order %s from blockchain (not in cache)", id)
                 return order
 
             except Exception as e:
-                logger.warning(f"Could not fetch transaction {id} from blockchain: {e}")
+                logger.warning("Could not fetch transaction %s from blockchain: %s", id, e)
                 # Fall through to raise OrderNotFound
 
         # Order not found anywhere
@@ -1676,7 +1676,7 @@ class GMX(Exchange):
             None,  # data_list
         )
 
-        logger.info(f"SL/TP result created: entry_price={sltp_result.entry_price}, sl_trigger={sltp_result.stop_loss_trigger_price}, tp_trigger={sltp_result.take_profit_trigger_price}")
+        logger.info("SL/TP result created: entry_price=%s, sl_trigger=%s, tp_trigger=%s", sltp_result.entry_price, sltp_result.stop_loss_trigger_price, sltp_result.take_profit_trigger_price)
 
         # Sign transaction
         transaction = sltp_result.transaction
@@ -1789,7 +1789,7 @@ class GMX(Exchange):
         """
         # Skip for native tokens
         if requested_symbol in ["ETH", "AVAX"]:
-            logger.debug(f"Using native {requested_symbol} - no approval needed")
+            logger.debug("Using native %s - no approval needed", requested_symbol)
             return
 
         # Get contract addresses
@@ -1828,13 +1828,13 @@ class GMX(Exchange):
 
         # Check if approval needed
         if current_allowance >= required_amount:
-            logger.debug(f"Sufficient {actual_symbol} allowance exists")
+            logger.debug("Sufficient %s allowance exists", actual_symbol)
             return
 
         # Approve large amount
         approve_amount = 1_000_000_000 * (10**token_details.decimals)
 
-        logger.info(f"Approving {approve_amount / (10**token_details.decimals):.0f} {actual_symbol}...")
+        logger.info("Approving %.0f %s...", approve_amount / (10**token_details.decimals), actual_symbol)
 
         # Build and send approval transaction
         approve_tx = await loop.run_in_executor(
@@ -1862,7 +1862,7 @@ class GMX(Exchange):
         if approve_receipt["status"] != 1:
             raise Exception(f"Token approval failed: {approve_tx_hash.hex()}")
 
-        logger.info(f"Token approval successful!")
+        logger.info("Token approval successful!")
 
     def _parse_sltp_result_to_ccxt(
         self,
