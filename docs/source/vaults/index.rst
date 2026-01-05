@@ -67,3 +67,4 @@ Supported protocols
    usdai/index
    usdd/index
    yearn/index
+   zerolend/index

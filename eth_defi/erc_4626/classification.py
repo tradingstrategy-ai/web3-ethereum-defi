@@ -1080,6 +1080,11 @@ def create_vault_instance(
 
         return TermFinanceVault(web3, spec, token_cache=token_cache, features=features)
 
+    elif ERC4626Feature.zerolend_like in features:
+        from eth_defi.erc_4626.vault_protocol.zerolend.vault import ZeroLendVault
+
+        return ZeroLendVault(web3, spec, token_cache=token_cache, features=features)
+
     elif ERC4626Feature.royco_like in features:
         from eth_defi.erc_4626.vault_protocol.royco.vault import RoycoVault
 
@@ -1155,6 +1160,9 @@ HARDCODED_PROTOCOLS = {
     # Yearn SparkCompounder - ysUSDS vault on Ethereum
     # https://etherscan.io/address/0xc9f01b5c6048b064e6d925d1c2d7206d4feef8a3
     "0xc9f01b5c6048b064e6d925d1c2d7206d4feef8a3": {ERC4626Feature.yearn_tokenised_strategy},
+    # ZeroLend RWA USDC vault wrapped by Royco on Ethereum
+    # https://etherscan.io/address/0x887d57a509070a0843c6418eb5cffc090dcbbe95
+    "0x887d57a509070a0843c6418eb5cffc090dcbbe95": {ERC4626Feature.zerolend_like, ERC4626Feature.royco_like},
 }
 
 for a in HARDCODED_PROTOCOLS.keys():
