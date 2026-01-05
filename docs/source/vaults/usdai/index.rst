@@ -1,18 +1,32 @@
 USDai protocol API
 -----------------
 
-Goat delivers market-leading yields  — combining secure, liquidity-optimized vaults with rigorous risk management to maximize returns without compromising safety.
+`USD.AI <https://usd.ai/>`__ integration.
 
-Goat Protocol simplifies access to top-performing DeFi projects by offering multi-strategy yield vaults that act like robo-advisors. These vaults automatically allocate assets to the highest-performing yield strategies in DeFi.
+USD.AI is a synthetic dollar protocol that bridges DeFi and artificial intelligence infrastructure.
+The protocol issues USDai, an overcollateralised stablecoin pegged to $1 and redeemable for stablecoins
+like USDC, with reserves deployed in income-generating AI/DePIN loans backed by NVIDIA GPUs.
 
-These vaults accept any asset which will be automatically converted into the base asset. By continuously analyzing market trends and adjusting investment strategies accordingly, Goat Protocol ensures that users' assets are always allocated to the most lucrative yield bearing positions. This automated fund reallocation ensures investors earn maximum returns with minimal effort.
+The dual-token system includes:
 
-This approach maximizes returns while providing a diversified investment strategy that reduces risk and enhances flexibility. Users benefit from optimized asset allocation and yield generation without the burden of staying constantly informed about the latest DeFi trends.
+- **USDai**: Non-yield-bearing synthetic dollar, highly liquid and composable
+- **sUSDai**: Yield-bearing ERC-4626 vault shares received when staking USDai
 
-The protocol is maintained by independent developers and is governed by GOA holders.
+Key features:
 
+- Synthetic dollar backed by tokenised U.S. Treasuries through the M0 platform
+- Yield generation from loans collateralised by GPU hardware in insured data centres
+- Each GPU is documented under U.S. commercial law and tokenised as an NFT
+- Chainlink Price Feeds integration for accurate onchain rates
 
+Links
+~~~~~
+
+- `Homepage <https://usd.ai/>`__
+- `App <https://usdai.fi/>`__
+- `Documentation <https://usdai.gitbook.io/usdai/>`__
 - `Twitter <https://x.com/USDai_Official>`__
+- `DefiLlama <https://defillama.com/protocol/usd-ai>`__
 
 .. autosummary::
    :toctree: _autosummary_d2

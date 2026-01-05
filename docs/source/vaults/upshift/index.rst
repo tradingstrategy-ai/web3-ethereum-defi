@@ -19,9 +19,13 @@ The vaults operate as non-custodial structures, meaning users maintain control o
 The implementation leverages the ERC-4626 Vault Standard, a widely-adopted Ethereum standard
 for tokenised vaults.
 
+Links
+~~~~~
+
 - `Homepage <https://www.upshift.finance/>`__
 - `Documentation <https://docs.upshift.finance/>`__
 - `Twitter <https://x.com/upshift_fi>`__
+- `DefiLlama <https://defillama.com/protocol/upshift>`__
 
 .. autosummary::
    :toctree: _autosummary_upshift

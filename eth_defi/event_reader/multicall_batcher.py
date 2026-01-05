@@ -865,6 +865,8 @@ WTF_RETRY_EXCEPTIONS_MESSAGE_CLUES = {
         "state histories haven't been fully indexed yet",
         "Failed to call: InvalidTransaction",
         "failsafe timeout policy exceeded",
+        # dRPC out of credit?
+        "API key is not allowed to access blockchain"
     )
 }
 

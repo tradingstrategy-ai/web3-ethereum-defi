@@ -15,10 +15,16 @@ supported investment currency.
 The protocol implements ERC-7540 (asynchronous deposits/redemptions) on top of
 ERC-4626, enabling integration with Centrifuge's epoch-based investment system.
 
+Links
+~~~~~
+
+- `Homepage <https://centrifuge.io/>`__
+- `App <https://app.centrifuge.io/>`__
 - `Documentation <https://docs.centrifuge.io/>`__
 - `Developer docs <https://developer.centrifuge.io/>`__
-- `Github <https://github.com/centrifuge/liquidity-pools>`__
-- `Twitter <https://twitter.com/centrifuge>`__
+- `GitHub <https://github.com/centrifuge/liquidity-pools>`__
+- `Twitter <https://x.com/centrifuge>`__
+- `DefiLlama <https://defillama.com/protocol/centrifuge>`__
 
 One of the most popular Centrifuge users is `Anemoy <https://www.anemoy.io/>`__,
 which offers tokenised US assets like S&P 500 index, Janus Henderson AAA collaterlised loan obligation ETF and US treasuries.
