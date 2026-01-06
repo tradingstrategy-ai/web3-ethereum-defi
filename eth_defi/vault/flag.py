@@ -222,7 +222,7 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag, str]] = {
     "0x4f04cb32688ea1954e53c85b846597881ebe9582": (VaultFlag.broken, BROKEN_VAULT),
     # Steakhouse High Yield USDT0 on Arbitrum
     # https://tradingstrategy.ai/trading-view/arbitrum/vaults/steakhouse-high-yield-usdt0
-    "0x4739e2c293bdcd835829aa7c5d7fbdee93565d1a": (VaultFlag.abnormal_tvl, PENDLE_LOOPING),
+    "0x4739e2c293bdcd835829aa7c5d7fbdee93565d1a": (None, PENDLE_LOOPING),
 }
 
 for addr in VAULT_FLAGS_AND_NOTES.keys():
