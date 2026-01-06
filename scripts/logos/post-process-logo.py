@@ -57,16 +57,33 @@ def convert_svg_to_png(input_path: Path, output_path: Path, size: int = 512) -> 
 
     Note: Gemini does not accept SVG input, only raster images.
 
+    This function preprocesses the SVG to remove style attributes that use
+    unsupported colour spaces (like display-p3), which cairosvg cannot render.
+    The fill attribute values are preserved and used instead.
+
     :param input_path: Path to input SVG file
     :param output_path: Path to output PNG file
     :param size: Output size in pixels (width and height)
     """
+    import re
+
     import cairosvg
 
     logger.info("Converting SVG to PNG: %s -> %s (size: %d)", input_path, output_path, size)
 
+    # Read and preprocess SVG to remove problematic style attributes
+    svg_content = input_path.read_text()
+
+    # Remove style attributes containing color() function (e.g., display-p3 colour space)
+    # which cairosvg doesn't support. The fill attribute will be used instead.
+    original_content = svg_content
+    svg_content = re.sub(r'\s*style="[^"]*color\([^)]+\)[^"]*"', "", svg_content)
+
+    if svg_content != original_content:
+        logger.info("Removed unsupported colour space style attributes from SVG")
+
     cairosvg.svg2png(
-        url=str(input_path),
+        bytestring=svg_content.encode(),
         write_to=str(output_path),
         output_width=size,
         output_height=size,
