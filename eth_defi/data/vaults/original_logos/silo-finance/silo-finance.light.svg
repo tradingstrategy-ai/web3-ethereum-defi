@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   preserveAspectRatio="xMidYMid"
+   data-bbox="0 0 220.424 90.33"
+   viewBox="0 0 90.330003 90.33"
+   data-type="color"
+   role="presentation"
+   aria-hidden="true"
+   aria-label=""
+   version="1.1"
+   id="svg163"
+   width="90.330002"
+   height="90.330002"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs167" />
+  <g
+     id="g161">
+    <g
+       id="g479"
+       transform="translate(5.3100009)"
+       style="fill:#ffffff">
+      <path
+         d="M 47.82,37.19 V 0 H 26.57 a 26.57,26.57 0 0 0 0,53.14 h 5.31 v -16 z"
+         fill="#000000"
+         data-color="1"
+         id="path147"
+         style="fill:#ffffff" />
+      <path
+         d="m 53.14,37.19 h -5.32 v 16 H 31.88 v 37.14 h 21.26 a 26.57,26.57 0 0 0 0,-53.14 z"
+         fill="#000000"
+         data-color="1"
+         id="path149"
+         style="fill:#ffffff" />
+    </g>
+  </g>
+</svg>
