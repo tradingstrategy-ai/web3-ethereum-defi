@@ -31,6 +31,7 @@ import base64
 import io
 import logging
 import os
+import sys
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -157,7 +158,11 @@ def process_logo_with_gemini(
     if hasattr(response, "candidates") and response.candidates:
         for part in response.candidates[0].content.parts:
             if hasattr(part, "inline_data") and part.inline_data:
-                image_data = base64.b64decode(part.inline_data.data)
+                # Gemini returns raw bytes, not base64 encoded
+                image_data = part.inline_data.data
+                # Handle both bytes and string (base64) cases
+                if isinstance(image_data, str):
+                    image_data = base64.b64decode(image_data)
                 result_image = Image.open(io.BytesIO(image_data))
                 result_image.save(output_path, "PNG")
                 logger.info("Logo processed and saved to: %s", output_path)
@@ -262,6 +267,23 @@ def main():
     from eth_defi.utils import setup_console_logging
 
     setup_console_logging(default_log_level=os.environ.get("LOG_LEVEL", "info"))
+
+    # Check for required API key first
+    if not GOOGLE_AI_API_KEY:
+        print("\n" + "=" * 80)
+        print("ERROR: GOOGLE_AI_API_KEY environment variable is not set")
+        print("=" * 80)
+        print("\nThis script requires a Google AI Studio API key to use Gemini 2.5 Flash Image.")
+        print("\nTo get an API key:")
+        print("  1. Visit https://aistudio.google.com/")
+        print("  2. Sign in with your Google account")
+        print("  3. Click 'Get API key' in the left sidebar")
+        print("  4. Create a new API key or use an existing one")
+        print("\nTo set the API key:")
+        print("  export GOOGLE_AI_API_KEY='your-api-key-here'")
+        print("\nThen run this script again.")
+        print("=" * 80 + "\n")
+        raise ValueError("GOOGLE_AI_API_KEY environment variable is required")
 
     if not INPUT_IMAGE:
         raise ValueError("INPUT_IMAGE environment variable is required")

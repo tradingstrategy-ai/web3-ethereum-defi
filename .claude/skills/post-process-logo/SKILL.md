@@ -59,7 +59,7 @@ export INPUT_IMAGE=/path/to/original/logo.svg
 export OUTPUT_IMAGE=/path/to/output/logo.generic.png
 export TARGET_SIZE=256
 export PADDING_PERCENT=10
-python scripts/logos/post-process-logo.py
+poetry run python scripts/logos/post-process-logo.py
 ```
 
 ### Invert colours (light to dark or vice versa)
@@ -71,7 +71,7 @@ export GOOGLE_AI_API_KEY=...
 export INPUT_IMAGE=/path/to/logo.light.png
 export OUTPUT_IMAGE=/path/to/logo.dark.png
 export INVERT=light_to_dark
-python scripts/logos/post-process-logo.py
+poetry run python python scripts/logos/post-process-logo.py
 ```
 
 Set `INVERT` to:
@@ -79,23 +79,7 @@ Set `INVERT` to:
 - `dark_to_light` - Convert a light logo (for dark backgrounds) to a dark logo (for light backgrounds)
 - Empty or unset - No colour inversion
 
-## Step 4: Verify output
-
-After processing, verify each output file:
-
-1. **Dimensions** - Should be exactly 256x256 pixels
-2. **Format** - Should be PNG with RGBA colour mode
-3. **Transparency** - Background should be transparent
-4. **Content** - Logo should be centred with appropriate padding
-5. **Quality** - No artifacts, distortion, or pixelation
-
-Use this command to check image properties:
-
-```shell
-python -c "from PIL import Image; img = Image.open('output.png'); print(f'Size: {img.size}, Mode: {img.mode}')"
-```
-
-## Step 5: Report results
+## Step 4: Report results
 
 Provide the user with:
 
@@ -106,9 +90,8 @@ Provide the user with:
 ## Output naming convention
 
 Output files should follow this naming pattern:
-- `{protocol-slug}.generic.png` - Generic/default theme
-- `{protocol-slug}.light.png` - For light backgrounds
-- `{protocol-slug}.dark.png` - For dark backgrounds
+- `{protocol-slug}/light.png` - For light backgrounds
+- `{protocol-slug}/dark.png` - For dark backgrounds
 
 ## Troubleshooting
 
