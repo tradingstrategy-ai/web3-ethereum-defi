@@ -6,7 +6,7 @@ This folder contains metadata for vault protocols.
 
 2. Each protocol is identified by its slug, which name lowercase, spaces replaced by dash. E.g. `Lagoon Finance` becomes `lagoon-finance`.
 
-3. Each slug has a corresponding YAML file in [Strict YAML format](https://github.com/crdoconnor/strictyaml). E.g. for Lagoon Finance there is `lagoon-finance.yml`
+3. Each slug has a corresponding YAML file in [Strict YAML format](https://github.com/crdoconnor/strictyaml) stored in the `metadata` subfolder. E.g. for Lagoon Finance there is `metadata/lagoon-finance.yaml`
 
 4. Each protocol can contain multiple original logos and up to three formatted logos.
 

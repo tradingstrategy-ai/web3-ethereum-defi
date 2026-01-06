@@ -13,7 +13,7 @@ This skill extracts and saves a logo for vault protocol metadata stored in this 
 
 # Step 1: Find protocol homepage link 
 
-Get the homepage link from the protocol-specific YAML file in `eth_defi/data/vaults`.
+Get the homepage link from the protocol-specific YAML file in `eth_defi/data/vaults/metadata`.
 
 # Step 2: Extract the logo
 
