@@ -2,36 +2,36 @@
 
 
 - Add: Claude Code skill for post-processing vault protocol logos using Nano Banana AI (2026-01-06)
-- Add: New protocol: Mainstreet Finance - synthetic USD stablecoin ecosystem on Sonic (2026-01-05)
-- Add: New protocol: Gearbox - composable leverage protocol lending pools (2026-01-05)
-- Add: New vault type: Maple Finance AQRU Pool - Real-World Receivables vault (2026-01-05)
-- Add: New protocol: Spectra USDN Wrapper - ERC4626 wrapper for WUSDN (SmarDex) (2026-01-05)
-- Add: New protocol: Altura - multi-strategy yield protocol on HyperEVM (2026-01-05)
-- Add: New protocol: Yuzu Money - overcollateralised stablecoin protocol on Plasma chain (2026-01-05)
-- Add: cSigma Finance cSuperior Quality Private Credit vault (2026-01-05)
-- Add: New protocol: ETH Strategy - DeFi treasury protocol with ESPN vault (2026-01-05)
-- Add: New protocol: ZeroLend - multi-chain DeFi lending with Royco integration (2026-01-05)
+- Add: New protocol: [Mainstreet Finance](https://tradingstrategy.ai/trading-view/vaults/protocols/mainstreet-finance) - synthetic USD stablecoin ecosystem on Sonic (2026-01-05)
+- Add: New protocol: [Gearbox](https://tradingstrategy.ai/trading-view/vaults/protocols/gearbox) - composable leverage protocol lending pools (2026-01-05)
+- Add: New vault type: [Maple Finance](https://tradingstrategy.ai/trading-view/vaults/protocols/maple) AQRU Pool - Real-World Receivables vault (2026-01-05)
+- Add: New protocol: [Spectra](https://tradingstrategy.ai/trading-view/vaults/protocols/spectra) USDN Wrapper - ERC4626 wrapper for WUSDN (SmarDex) (2026-01-05)
+- Add: New protocol: [Altura](https://tradingstrategy.ai/trading-view/vaults/protocols/altura) - multi-strategy yield protocol on HyperEVM (2026-01-05)
+- Add: New protocol: [Yuzu Money](https://tradingstrategy.ai/trading-view/vaults/protocols/yuzu-money) - overcollateralised stablecoin protocol on Plasma chain (2026-01-05)
+- Add: [cSigma Finance](https://tradingstrategy.ai/trading-view/vaults/protocols/csigma-finance) cSuperior Quality Private Credit vault (2026-01-05)
+- Add: New protocol: [ETH Strategy](https://tradingstrategy.ai/trading-view/vaults/protocols/eth-strategy) - DeFi treasury protocol with ESPN vault (2026-01-05)
+- Add: New protocol: [ZeroLend](https://tradingstrategy.ai/trading-view/vaults/protocols/zerolend) - multi-chain DeFi lending with Royco integration (2026-01-05)
 - Add: Claude Code skill for identifying vault protocols (2026-01-05)
 - Add: New protocol research: ZeroLend Royco wrapped vault (2026-01-05)
-- Add: New protocol: Royco Protocol - incentivised ERC-4626 vault wrappers (2026-01-05)
+- Add: New protocol: [Royco Protocol](https://tradingstrategy.ai/trading-view/vaults/protocols/royco) - incentivised ERC-4626 vault wrappers (2026-01-05)
 - Add: Claude Code support
 - Add: New chain: Monad
-- Add: New protocol: CAP (Covered Agent Protocol)
-- Add: New protocol: Foxify (Sonic chain)
-- Add: New protocol: Liquidity Royalty Tranching (Berachain)
-- Add: New protocol: cSigma Finance (Ethereum)
-- Add: New protocol: Spark (Ethereum)
-- Add: New vault type: Yearn Morpho Compounder strategy
-- Add: New protocol: Teller (Base)
-- Add: New protocol: Deltr (Ethereum)
-- Add: New protocol: Upshift (Ethereum)
-- Add: New protocol: Sky (Ethereum) - formerly MakerDAO, stUSDS and sUSDS vaults
-- Add: New protocol: Maple Finance - syrupUSDC and syrupUSDT vaults
-- Add: New protocol: Centrifuge - RWA tokenisation and financing with ERC-7540 liquidity pools
-- Add: New protocol: Ethena - sUSDe synthetic dollar staking vault
-- Add: New protocol: Decentralized USD (USDD) - sUSDD savings vaults on Ethereum and BNB Chain
-- Add: New protocol: Term Finance - fixed-rate DeFi lending via auction-based matching
-- Add: New protocol: EulerEarn - Metamorpho-based yield aggregator on Euler Vault Kit
+- Add: New protocol: [CAP](https://tradingstrategy.ai/trading-view/vaults/protocols/cap) (Covered Agent Protocol)
+- Add: New protocol: [Foxify](https://tradingstrategy.ai/trading-view/vaults/protocols/foxify) (Sonic chain)
+- Add: New protocol: [Liquidity Royalty Tranching](https://tradingstrategy.ai/trading-view/vaults/protocols/liquidity-royalty-tranching) (Berachain)
+- Add: New protocol: [cSigma Finance](https://tradingstrategy.ai/trading-view/vaults/protocols/csigma-finance) (Ethereum)
+- Add: New protocol: [Spark](https://tradingstrategy.ai/trading-view/vaults/protocols/spark) (Ethereum)
+- Add: New vault type: [Yearn](https://tradingstrategy.ai/trading-view/vaults/protocols/yearn) Morpho Compounder strategy
+- Add: New protocol: [Teller](https://tradingstrategy.ai/trading-view/vaults/protocols/teller) (Base)
+- Add: New protocol: [Deltr](https://tradingstrategy.ai/trading-view/vaults/protocols/deltr) (Ethereum)
+- Add: New protocol: [Upshift](https://tradingstrategy.ai/trading-view/vaults/protocols/upshift) (Ethereum)
+- Add: New protocol: [Sky](https://tradingstrategy.ai/trading-view/vaults/protocols/sky) (Ethereum) - formerly MakerDAO, stUSDS and sUSDS vaults
+- Add: New protocol: [Maple Finance](https://tradingstrategy.ai/trading-view/vaults/protocols/maple) - syrupUSDC and syrupUSDT vaults
+- Add: New protocol: [Centrifuge](https://tradingstrategy.ai/trading-view/vaults/protocols/centrifuge) - RWA tokenisation and financing with ERC-7540 liquidity pools
+- Add: New protocol: [Ethena](https://tradingstrategy.ai/trading-view/vaults/protocols/ethena) - sUSDe synthetic dollar staking vault
+- Add: New protocol: [Decentralized USD](https://tradingstrategy.ai/trading-view/vaults/protocols/decentralized-usd) (USDD) - sUSDD savings vaults on Ethereum and BNB Chain
+- Add: New protocol: [Term Finance](https://tradingstrategy.ai/trading-view/vaults/protocols/term-finance) - fixed-rate DeFi lending via auction-based matching
+- Add: New protocol: [EulerEarn](https://tradingstrategy.ai/trading-view/vaults/protocols/euler) - Metamorpho-based yield aggregator on Euler Vault Kit
 - Fix: Various RPC error code workarounds (Monad, Arbitrum, Hyperliquid)
 
 # 0.37
@@ -53,24 +53,24 @@
 # 0.35
 
 - Add: Initial skeleton for GMX CCXT adapter
-- Add: New protocol: Silo Finance
-- Add: New protocol: Summer.fi Earn
-- Add: New protocol: Curve LLAMMA
+- Add: New protocol: [Silo Finance](https://tradingstrategy.ai/trading-view/vaults/protocols/silo-finance)
+- Add: New protocol: [Summer.fi Earn](https://tradingstrategy.ai/trading-view/vaults/protocols/summer-fi)
+- Add: New protocol: [Curve LLAMMA](https://tradingstrategy.ai/trading-view/vaults/protocols/llamma)
 - Add: Net/gross vault fee analysis
 - Fixes: Multiple RPC and workaround fixes for reading vault onchain data
 
 # 0.34
 
-- Add: New protocol: Plutus
-- Add: New protocol: D2 Finance
-- Add: New protocol: Umami Finance
-- Add: New protocol: Untangled Finance
-- Add: New protocol: Harvest Finance
-- Add: New protocol: Yearn Finance
-- Add: New protocol: Goat protocol
-- Add: New protocol: USDai protocol and StakedUSDai vault
-- Add: New protocol: AUTO Finance (prev. Tokemak)
-- Add: New protocol: NashPoint
+- Add: New protocol: [Plutus](https://tradingstrategy.ai/trading-view/vaults/protocols/plutus)
+- Add: New protocol: [D2 Finance](https://tradingstrategy.ai/trading-view/vaults/protocols/d2-finance)
+- Add: New protocol: [Umami Finance](https://tradingstrategy.ai/trading-view/vaults/protocols/umami)
+- Add: New protocol: [Untangled Finance](https://tradingstrategy.ai/trading-view/vaults/protocols/untangle-finance)
+- Add: New protocol: [Harvest Finance](https://tradingstrategy.ai/trading-view/vaults/protocols/harvest-finance)
+- Add: New protocol: [Yearn Finance](https://tradingstrategy.ai/trading-view/vaults/protocols/yearn)
+- Add: New protocol: [Goat protocol](https://tradingstrategy.ai/trading-view/vaults/protocols/goat-protocol)
+- Add: New protocol: [USDai](https://tradingstrategy.ai/trading-view/vaults/protocols/usdai) protocol and StakedUSDai vault
+- Add: New protocol: [AUTO Finance](https://tradingstrategy.ai/trading-view/vaults/protocols/auto-finance) (prev. Tokemak)
+- Add: New protocol: [NashPoint](https://tradingstrategy.ai/trading-view/vaults/protocols/nashpoint)
 - Add: Vault protocol fee classification (internal/external/feeless)
 - Add: Vault fees and net profit calculations
 - Add: `get_block_timestamps_using_hypersync()`
