@@ -64,7 +64,8 @@ def get_vault_special_flags(address: str | HexAddress) -> set[VaultFlag]:
     """Get all special vault flags."""
     entry = VAULT_FLAGS_AND_NOTES.get(address)
     if entry:
-        return {entry[0]}
+        if entry[0]:
+            return {entry}
     return _empty_set
 
 
@@ -79,7 +80,7 @@ def get_notes(address: HexAddress | str) -> str | None:
 def is_flagged_vault(address: HexAddress | str) -> bool:
     """Is this vault flagged for any special reason?"""
     assert address.startswith("0x"), f"Invalid address: {address}"
-    return address in VAULT_FLAGS_AND_NOTES
+    return VAULT_FLAGS_AND_NOTES.get(address) is not None
 
 
 XUSD_MESSAGE = "Vault likely illiquid due to Stream xUSD exposure issues. You may lose all of your deposits."
@@ -98,13 +99,15 @@ UNKNOWN_VAULT = "Vault is not known, not listed on the website of the protocol"
 
 FOXIFY_VAULT = "Foxify offers perp DEX and funding for proprietary trades. This vault is associated with this activity, but it is not publicly described how the vault works."
 
+PENDLE_LOOPING = "Abnormal high yield due to Pendle looping - more info here https://x.com/ssmccul/status/2006016219275501936"
+
 
 #: Vault manual blacklist flags and notes.
 #:
 #: The reason notes is a guess.
 #:
 #: Make sure address is lowercased
-VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag, str]] = {
+VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     # Borrowable USDC Deposit, SiloId: 127
     "0x2433d6ac11193b4695d9ca73530de93c538ad18a": (VaultFlag.illiquid, XUSD_MESSAGE),
     # https://tradingstrategy.ai/trading-view/sonic/vaults/borrowable-xusd-deposit-siloid-112
@@ -218,6 +221,9 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag, str]] = {
     # http://localhost:5173/trading-view/binance/vaults/gtrade-kusdt
     # No idea what's this - unverified
     "0x4f04cb32688ea1954e53c85b846597881ebe9582": (VaultFlag.broken, BROKEN_VAULT),
+    # Steakhouse High Yield USDT0 on Arbitrum
+    # https://tradingstrategy.ai/trading-view/arbitrum/vaults/steakhouse-high-yield-usdt0
+    "0x4739e2c293bdcd835829aa7c5d7fbdee93565d1a": (None, PENDLE_LOOPING),
 }
 
 for addr in VAULT_FLAGS_AND_NOTES.keys():
