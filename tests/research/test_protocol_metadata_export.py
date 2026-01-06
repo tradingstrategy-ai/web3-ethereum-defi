@@ -5,6 +5,8 @@ import os
 import pytest
 import requests
 
+from eth_defi.vault.protocol_metadata import process_and_upload_protocol_metadata
+
 
 @pytest.mark.skipif(os.environ.get("R2_VAULT_METADATA_BUCKET_NAME") is None, reason="R2_VAULT_METADATA_BUCKET_NAME not set")
 def test_upload_euler_protocol_metadata():
@@ -13,13 +15,14 @@ def test_upload_euler_protocol_metadata():
     - Uploads metadata JSON and light.png logo with test- prefix
     - If R2_VAULT_METADATA_PUBLIC_URL is set, downloads files back to verify upload succeeded
     """
-    from eth_defi.vault.protocol_metadata import process_and_upload_protocol_metadata
 
     bucket_name = os.environ.get("R2_VAULT_METADATA_BUCKET_NAME")
     access_key_id = os.environ.get("R2_VAULT_METADATA_ACCESS_KEY_ID")
     secret_access_key = os.environ.get("R2_VAULT_METADATA_SECRET_ACCESS_KEY")
     endpoint_url = os.environ.get("R2_VAULT_METADATA_ENDPOINT_URL")
-    public_url = os.environ.get("R2_VAULT_METADATA_PUBLIC_URL", "https://example.r2.dev")
+    public_url = os.environ.get("R2_VAULT_METADATA_PUBLIC_URL")
+
+    assert public_url is not None, "R2_VAULT_METADATA_PUBLIC_URL must be set to verify upload"
 
     slug = "euler"
     key_prefix = "test-"
