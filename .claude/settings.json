@@ -51,6 +51,8 @@
       "Skill(extract-project-logo:*)",
       "Skill(extract-vault-protocol-logo)",
       "Skill(extract-vault-protocol-logo:*)",
+      "Skill(post-process-logo)",
+      "Skill(post-process-logo:*)",
       "mcp__github__*"                           
     ]
   }

@@ -169,6 +169,11 @@ flaky = "^3.7.0"
 # See discussion https://github.com/python-poetry/poetry/issues/3348#issuecomment-726534462
 anyio = "^4.11.0"
 pytest-asyncio = ">=0.21,<0.23"
+# Logo processing dependencies for post-process-logo skill
+google-generativeai = ">=0.8.0"
+cairosvg = ">=2.7.0"
+Pillow = ">=10.0.0"
+rembg = ">=2.0.50"
 
 
 [tool.poetry.extras]
