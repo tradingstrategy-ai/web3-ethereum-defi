@@ -15,6 +15,7 @@ among themselves while keeping the vast majority of their TVL deployed to genera
 Links
 ~~~~~
 
+- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/umami>`__
 - `Homepage <https://umami.finance/>`__
 - `App <https://umami.finance/vaults>`__
 - `Documentation <https://about.umami.finance/>`__

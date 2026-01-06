@@ -15,6 +15,7 @@ powered Keepers.
 Links
 ~~~~~
 
+- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/summer-fi>`__
 - `Homepage <https://summer.fi/>`__
 - `Documentation <https://docs.summer.fi/>`__
 - `GitHub <https://github.com/oasisdex>`__

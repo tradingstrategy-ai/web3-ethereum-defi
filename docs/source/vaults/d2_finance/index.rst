@@ -13,6 +13,7 @@ designed for both retail and institutional investors seeking managed yield produ
 Links
 ~~~~~
 
+- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/d2-finance>`__
 - `Homepage <https://d2.finance/>`__
 - `Twitter <https://x.com/D2_Finance>`__
 - `DefiLlama <https://defillama.com/protocol/d2-finance>`__

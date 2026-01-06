@@ -24,6 +24,7 @@ Key features:
 Links
 ~~~~~
 
+- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/euler>`__
 - `Homepage <https://www.euler.finance/>`__
 - `App <https://app.euler.finance/>`__
 - `Documentation <https://docs.euler.finance/>`__

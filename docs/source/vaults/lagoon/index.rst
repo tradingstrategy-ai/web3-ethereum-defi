@@ -22,6 +22,7 @@ Key features:
 Links
 ~~~~~
 
+- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/lagoon-finance>`__
 - `Homepage <https://lagoon.finance/>`__
 - `App <https://app.lagoon.finance/>`__
 - `Documentation <https://docs.lagoon.finance/>`__

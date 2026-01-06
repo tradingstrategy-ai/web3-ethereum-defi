@@ -23,6 +23,7 @@ Key features:
 Links
 ~~~~~
 
+- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/ipor>`__
 - `Homepage <https://www.ipor.io/>`__
 - `App <https://app.ipor.io/>`__
 - `Documentation <https://docs.ipor.io/ipor-fusion/vaults>`__

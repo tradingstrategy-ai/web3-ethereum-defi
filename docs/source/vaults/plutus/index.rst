@@ -12,6 +12,7 @@ Plutus buys back PLUTUS using revenue and productive treasury funds and distribu
 Links
 ~~~~~
 
+- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/plutus>`__
 - `Homepage <https://plutus.fi/>`__
 - `Twitter <https://x.com/plutus_fi_x>`__
 

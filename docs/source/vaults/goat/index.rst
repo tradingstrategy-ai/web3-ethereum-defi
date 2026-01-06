@@ -18,6 +18,7 @@ protocol is maintained by independent developers and is governed by GOA holders.
 Links
 ~~~~~
 
+- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/goat-protocol>`__
 - `Homepage <https://goat.fi/>`__
 - `App <https://app.goat.fi/>`__
 - `Documentation <https://docs.goat.fi/>`__

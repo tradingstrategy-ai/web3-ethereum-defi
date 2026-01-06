@@ -15,6 +15,7 @@ a pool of 100+ fintech lenders in 60+ countries.
 Links
 ~~~~~
 
+- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/untangle-finance>`__
 - `Homepage <https://untangled.finance/>`__
 - `GitHub <https://github.com/untangledfinance>`__
 - `Twitter <https://x.com/untangledfi>`__

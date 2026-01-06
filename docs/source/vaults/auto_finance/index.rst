@@ -24,6 +24,7 @@ Key features:
 Links
 ~~~~~
 
+- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/auto-finance>`__
 - `Homepage <https://www.tokemak.xyz/>`__
 - `App <https://app.tokemak.xyz/>`__
 - `Documentation <https://docs.tokemak.xyz/>`__

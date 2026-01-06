@@ -33,6 +33,7 @@ Example vault contracts:
 Links
 ~~~~~
 
+- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/gearbox>`__
 - `Homepage <https://gearbox.finance/>`__
 - `App <https://app.gearbox.fi/>`__
 - `Documentation <https://docs.gearbox.finance/>`__

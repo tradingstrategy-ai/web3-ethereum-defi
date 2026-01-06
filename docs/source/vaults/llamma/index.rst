@@ -16,6 +16,7 @@ rather than liquidating fully at a specific liquidation price, enabling soft liq
 Links
 ~~~~~
 
+- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/llamma>`__
 - `Homepage <https://curve.fi/>`__
 - `App <https://lend.curve.fi/>`__
 - `Documentation <https://docs.curve.finance/crvUSD/amm/>`__

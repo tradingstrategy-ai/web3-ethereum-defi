@@ -16,6 +16,7 @@ for seamless compatibility with third-party DeFi applications.
 Links
 ~~~~~
 
+- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/silo-finance>`__
 - `Homepage <https://silo.finance/>`__
 - `App <https://app.silo.finance/>`__
 - `Documentation <https://docs.silo.finance/>`__

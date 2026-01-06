@@ -16,6 +16,7 @@ and zkSync Era.
 Links
 ~~~~~
 
+- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/harvest-finance>`__
 - `Homepage <https://harvest.finance/>`__
 - `App <https://app.harvest.finance/>`__
 - `Documentation <https://docs.harvest.finance/>`__
