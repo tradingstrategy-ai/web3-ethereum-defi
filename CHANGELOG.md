@@ -1,10 +1,6 @@
 # Current
 
-- Add: Light variant logos for 30 vault protocols (2026-01-06)
-- Fix: Unify vault protocol slug naming across codebase, fixing duplicate "Lagoon" vs "Lagoon Finance" entries (2026-01-06)
-- Add: Helper script to generate canonical vault protocol slugs from protocol names (2026-01-06)
-- Fix: Improve logo inversion detection to only invert when no bright pixels exist (2026-01-06)
-- Fix: SVG to PNG conversion now handles display-p3 colour space (2026-01-06)
+
 - Add: Claude Code skill for post-processing vault protocol logos using Nano Banana AI (2026-01-06)
 - Add: New protocol: Mainstreet Finance - synthetic USD stablecoin ecosystem on Sonic (2026-01-05)
 - Add: New protocol: Gearbox - composable leverage protocol lending pools (2026-01-05)
