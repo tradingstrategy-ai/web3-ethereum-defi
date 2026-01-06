@@ -49,6 +49,7 @@ The highest quality logos are typically found in official brand/media kits. Sear
    - Prefer SVG or vector formats over raster images
    - Choose the most square logo variant if multiple options exist
    - If both light and dark themes are present, get both
+   - If colourful option exist, get it as well
    
 If a brand kit is found with suitable logos, proceed to Step 5.
 
@@ -177,6 +178,12 @@ Provide the user with:
 2. **File details** - Format, dimensions (for raster), file size
 3. **Saved path** - Confirm where the file was saved
 4. **Alternative versions** - Note if other variants are available (dark mode, icon-only, etc.)
+
+## Step 7: Save the report as Markdown file next to the logos
+
+- Create a Markdown file in the folder where logos where saved
+- Include the same information as for the user report
+- Include links to the web pages, brand pages and brand kits used
 
 ## Troubleshooting
 
