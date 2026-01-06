@@ -5,9 +5,7 @@ description: Post-process original logos into standardised 256x256 PNG format
 
 # Post-process logo
 
-This skill transforms original logo images into standardised 256x256 PNG format suitable for vault protocol metadata. It uses Google Gemini 2.5 Flash Image (Nano Banana) for AI-powered logo processing in a single pass, followed by rembg for background removal (since Gemini cannot produce true transparent PNGs).
-
-For logos that are already clean brand marks with suitable colours, the Gemini step can be skipped using `SKIP_GEMINI=true`.
+This skill transforms original logo images into standardised 256x256 PNG format suitable for vault protocol metadata. It automatically selects the most square variant from available logos and applies padding if needed to create a perfect square output.
 
 ## Required inputs
 
@@ -23,8 +21,9 @@ If any required input is missing, ask the user before proceeding.
 
 Ensure the following are available:
 
-1. **GOOGLE_AI_API_KEY** environment variable set with a valid Google AI Studio API key (not required if using `SKIP_GEMINI=true`)
-2. Python dependencies installed: `poetry install --with dev`
+1. Python dependencies installed: `poetry install --with dev`
+
+Python Pillow is installed for detecting image format, dimensions, and transparency.
 
 ## Step 1: Inventory input logos
 
@@ -35,72 +34,40 @@ List all image files in the input folder and classify them:
    - `{slug}.generic.{ext}` - Generic/default theme
    - `{slug}.light.{ext}` - Light background theme (dark logo)
    - `{slug}.dark.{ext}` - Dark background theme (light logo)
-3. Report findings to user
+3. **Check aspect ratio** of each logo:
+   - **Square aspect ratio**: Width equals height (1:1 ratio). Allow 90% tolerance in the detection as there might be one-off pixel errors in the source material.
+   - **Non-square**: Width differs from height - will need padding to become square
+4. **Check if logos have transparent backgrounds**:
+   - **Transparent background**: PNG files with alpha channel transparency
+   - **Assume SVGs are always transparent**: SVG files the originals should never contain a solid background
+5. Report findings to user, noting aspect ratios for each variant
 
 ## Step 2: Variant selection
 
-If multiple variants exist and user hasn't specified a preference:
+### Automatic selection priority
 
-1. Default to the generic (colourful) variant if present
+1. **Pick the most square variant**: Calculate aspect ratio (min dimension / max dimension) for each variant and select the one closest to 1.0
+2. **If multiple variants have the same squareness**:
+   - Prefer transparent variants (PNG with alpha, SVG)
+   - If still tied, prefer generic > light > dark
+3. **If user specified a variant preference**: Use that variant regardless of squareness
 
-## Step 3: Process each logo
+## Step 3: Process logo
 
-For each selected logo, run the processing script. The pipeline:
-
-**Full pipeline (default):**
-1. **SVG to PNG** (if needed) - Gemini only accepts raster images
-2. **Gemini processing** (single prompt): analyses logo type, extracts icon, optionally inverts colours, crops to square
-3. **Background removal** (rembg) - Gemini cannot produce true transparency
-4. **Scale to 256x256** (Pillow)
-
-**Simplified pipeline (SKIP_GEMINI=true):**
-1. **SVG to PNG** (if needed)
-2. **Background removal** (rembg)
-3. **Scale to 256x256** (Pillow)
-
-### Standard processing
-
-```shell
-export GOOGLE_AI_API_KEY=...
-export INPUT_IMAGE=/path/to/original/logo.svg
-export OUTPUT_IMAGE=/path/to/output/logo.generic.png
-export TARGET_SIZE=256
-export PADDING_PERCENT=10
-poetry run python scripts/logos/post-process-logo.py
-```
-
-### Skip Gemini (for clean brand marks)
-
-If the logo is already a clean brand mark/icon with suitable colours, skip the AI processing:
+Process the selected logo variant. The script will automatically add padding to non-square logos to make them square before scaling.
 
 ```shell
 export INPUT_IMAGE=/path/to/original/logo.png
 export OUTPUT_IMAGE=/path/to/output/logo.generic.png
-export SKIP_GEMINI=true
 poetry run python scripts/logos/post-process-logo.py
 ```
 
-This is useful when:
-- The logo is already just an icon (no text to remove)
-- The colour variant is already suitable for the target background
-- You want faster processing without API calls
-
-### Invert colours (light to dark or vice versa)
-
-If you only have one variant (e.g., only a light logo) and need the opposite variant:
-
-```shell
-export GOOGLE_AI_API_KEY=...
-export INPUT_IMAGE=/path/to/logo.light.png
-export OUTPUT_IMAGE=/path/to/logo.dark.png
-export INVERT=light_to_dark
-poetry run python scripts/logos/post-process-logo.py
-```
-
-Set `INVERT` to:
-- `light_to_dark` - Convert a dark logo (for light backgrounds) to a light logo (for dark backgrounds)
-- `dark_to_light` - Convert a light logo (for dark backgrounds) to a dark logo (for light backgrounds)
-- Empty or unset - No colour inversion
+The script will:
+1. Convert SVG to PNG if needed
+2. Add transparent padding to make the logo square (if non-square)
+3. Remove background if not already transparent
+4. Recolour for dark background (invert colours if logo is too dark to be visible on dark backgrounds)
+5. Trim any excess padding and scale to 256x256
 
 ## Step 4: Report results
 
@@ -118,21 +85,6 @@ Output files should follow this naming pattern:
 
 ## Troubleshooting
 
-### API key not set
-
-If you see "GOOGLE_AI_API_KEY environment variable is required":
-
-1. Ensure the API key is exported in your environment
-2. Get a key from [Google AI Studio](https://aistudio.google.com/)
-
-### No image returned from Gemini
-
-If Gemini doesn't return an image:
-
-1. The image may be too complex or unclear
-2. Try with a higher resolution input
-3. Check if the API key has sufficient quota
-
 ### SVG conversion issues
 
 If SVG conversion fails:
@@ -141,10 +93,10 @@ If SVG conversion fails:
 2. Some complex SVGs may not render correctly
 3. Try opening in a browser to verify the SVG displays properly
 
-### Colour inversion produces unexpected results
+### Background removal issues
 
-If the inverted colours don't look right:
+If the background isn't removed properly:
 
-1. Gemini may struggle with complex multi-coloured logos
-2. For simple inversions, consider manual editing
-3. Try providing a clearer input image
+1. The logo may have complex edges or gradients
+2. Try providing a higher resolution input
+3. For logos that already have transparency, the script will skip background removal

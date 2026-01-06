@@ -17,15 +17,7 @@ Before starting, gather the following from the user:
 
 If any required input is missing, ask the user before proceeding.
 
-Always prefer an image file with brand mark (logo without text) over wordmark (logo with text),
-because we want to use logos in squared icon context.
-
-It is preferred to save multiple options and variants of the project logos if available.
-
-Example PNG and SVG image files we want to find include e.g.:
-- For generic theme there is `{project slug}.generic.svg`
-- For whitish text and symbol on dark-background theme there is `{project slug}.light.png`
-- For darkish text on symbol on light-background theme there is `{project slug}.dark.png`
+Save all project logos in the target folder. We will pick variants and post-process those later.
 
 ## Step 1: Search for brand kit or media resources
 
@@ -110,29 +102,7 @@ Use the MCP Playwright tool to:
 
 Get the project logo from their Twitter (also known as X.com) avatar image.
 
-## Step 5: Verify logo quality
-
-Before saving, verify the extracted logo meets quality standards:
-
-### Quality checklist
-
-- [ ] **Format**: SVG preferred, PNG acceptable (minimum 256x256), avoid JPG for logos
-- [ ] **Transparency**: Logo should have transparent background (not white/coloured)
-- [ ] **Clarity**: No compression artifacts, pixelation, or distortion
-- [ ] **Completeness**: Full logo visible, not cropped or cut off
-- [ ] **Correct variant**: Primary logo, not a favicon or simplified icon (unless that's what's needed)
-
-### Size guidelines
-
-| Format | Minimum size | Recommended |
-|--------|--------------|-------------|
-| SVG    | N/A (vector) | Always prefer |
-| PNG    | 256x256      | 512x512 or larger |
-| ICO    | Avoid        | Only for favicons |
-
-If the logo quality is insufficient, return to earlier steps or inform the user that only low-quality versions are available.
-
-## Step 5: Download and save
+## Step 6: Download and save
 
 1. **For SVG files**:
    - Download the raw SVG content
@@ -170,7 +140,7 @@ with open("{save_path}", "w") as f:
     f.write(svg_content)
 ```
 
-## Step 6: Report results to user
+## Step 7: Report results to user
 
 Provide the user with:
 
@@ -179,7 +149,7 @@ Provide the user with:
 3. **Saved path** - Confirm where the file was saved
 4. **Alternative versions** - Note if other variants are available (dark mode, icon-only, etc.)
 
-## Step 7: Save the report as Markdown file next to the logos
+## Step 8: Save the report as Markdown file next to the logos
 
 - Create a Markdown file in the folder where logos where saved
 - Include the same information as for the user report
@@ -196,14 +166,6 @@ If no suitable logo can be found:
 3. Search "[project name] logo" on image search engines
 4. Check DeFiLlama, CoinGecko, or similar aggregators for crypto projects
 5. Ask the user if they have alternative sources or contacts
-
-### Logo is low quality
-
-If only low-quality versions are available:
-
-1. Inform the user of the limitation
-2. Suggest contacting the project directly for brand assets
-3. Offer to save the best available version with a note about quality
 
 ### Dynamic/JavaScript-rendered logos
 

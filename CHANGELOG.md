@@ -1,5 +1,6 @@
 # Current
 
+- Fix: Improve logo inversion detection to only invert when no bright pixels exist (2026-01-06)
 - Fix: SVG to PNG conversion now handles display-p3 colour space (2026-01-06)
 - Add: Claude Code skill for post-processing vault protocol logos using Nano Banana AI (2026-01-06)
 - Add: New protocol: Mainstreet Finance - synthetic USD stablecoin ecosystem on Sonic (2026-01-05)
