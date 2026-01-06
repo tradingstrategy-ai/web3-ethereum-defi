@@ -54,6 +54,6 @@ def test_truefi_protocol(
 
     assert vault.features == {ERC4626Feature.truefi_like}
     assert isinstance(vault, TrueFiVault), f"Got: {type(vault)}: {vault}"
-    assert vault.get_protocol_name() == "TrueFI"
+    assert vault.get_protocol_name() == "TrueFi"
     assert vault.name == "Gravity Team LTD"
     assert vault.denomination_token.symbol == "USDC"
