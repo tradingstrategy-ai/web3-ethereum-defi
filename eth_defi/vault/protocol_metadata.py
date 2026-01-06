@@ -187,11 +187,12 @@ def build_metadata_json(yaml_path: Path, public_url: str) -> VaultProtocolMetada
     example_smart_contracts = [c for c in raw_contracts if c and isinstance(c, str) and c.strip()]
 
     # Build logo URLs based on availability
+    # URL format: {public_url}/vault-protocol-metadata/{slug}/{variant}.png
     available = get_available_logos(slug)
     public_url = public_url.rstrip("/")
     logos: VaultProtocolLogos = {
-        "dark": f"{public_url}/{slug}/dark.png" if available["dark"] else None,
-        "light": f"{public_url}/{slug}/light.png" if available["light"] else None,
+        "dark": f"{public_url}/vault-protocol-metadata/{slug}/dark.png" if available["dark"] else None,
+        "light": f"{public_url}/vault-protocol-metadata/{slug}/light.png" if available["light"] else None,
     }
 
     return VaultProtocolMetadata(
@@ -256,11 +257,12 @@ def process_and_upload_protocol_metadata(
     logger.info("Uploading metadata for protocol: %s", slug)
 
     # Upload metadata JSON
+    # Object name format: vault-protocol-metadata/{key_prefix}{slug}/metadata.json
     json_bytes = json.dumps(metadata, indent=2).encode()
     upload_to_r2_compressed(
         payload=json_bytes,
         bucket_name=bucket_name,
-        object_name=f"{key_prefix}{slug}/metadata.json",
+        object_name=f"vault-protocol-metadata/{key_prefix}{slug}/metadata.json",
         endpoint_url=endpoint_url,
         access_key_id=access_key_id,
         secret_access_key=secret_access_key,
@@ -276,7 +278,7 @@ def process_and_upload_protocol_metadata(
             upload_to_r2_compressed(
                 payload=logo_path.read_bytes(),
                 bucket_name=bucket_name,
-                object_name=f"{key_prefix}{slug}/{variant}.png",
+                object_name=f"vault-protocol-metadata/{key_prefix}{slug}/{variant}.png",
                 endpoint_url=endpoint_url,
                 access_key_id=access_key_id,
                 secret_access_key=secret_access_key,
