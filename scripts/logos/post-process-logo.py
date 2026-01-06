@@ -164,7 +164,7 @@ def process_logo_with_gemini(
                 if isinstance(image_data, str):
                     image_data = base64.b64decode(image_data)
                 result_image = Image.open(io.BytesIO(image_data))
-                result_image.save(output_path, "PNG")
+                result_image.save(output_path, "PNG", optimize=True, compress_level=9)
                 logger.info("Logo processed and saved to: %s", output_path)
                 return
 
@@ -187,7 +187,7 @@ def remove_background(input_path: Path, output_path: Path) -> None:
 
     image = Image.open(input_path)
     result = remove(image)
-    result.save(output_path, "PNG")
+    result.save(output_path, "PNG", optimize=True, compress_level=9)
 
     logger.info("Background removed and saved to: %s", output_path)
 
@@ -205,7 +205,7 @@ def scale_image(input_path: Path, output_path: Path, size: int = 256) -> None:
 
     image = Image.open(input_path).convert("RGBA")
     resized = image.resize((size, size), Image.Resampling.LANCZOS)
-    resized.save(output_path, "PNG")
+    resized.save(output_path, "PNG", optimize=True, compress_level=9)
 
     logger.info("Scaled and saved to: %s", output_path)
 
