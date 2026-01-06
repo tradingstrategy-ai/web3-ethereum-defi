@@ -1,4 +1,4 @@
-# Current
+# 0.38
 
 
 - Add: Claude Code skill for post-processing vault protocol logos using Nano Banana AI (2026-01-06)
