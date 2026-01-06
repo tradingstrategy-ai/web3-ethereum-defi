@@ -515,7 +515,7 @@ class Gmx(Exchange):
             return order
 
         except Exception as e:
-            logger.error(f"Failed to create stop-loss for {pair}: {e}")
+            logger.error("Failed to create stop-loss for %s: %s", pair, e)
             raise TemporaryError(f"GMX stop-loss creation failed: {e}")
 
     def stoploss_adjust(self, stop_loss: float, order: dict, side: str) -> bool:

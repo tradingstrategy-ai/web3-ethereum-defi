@@ -434,7 +434,7 @@ class GMX(ExchangeCompatible):
                     max_leverage = 50.0  # Default
                     if min_collateral_factor:
                         max_leverage = GMXSubsquidClient.calculate_max_leverage(min_collateral_factor) or 50.0
-                    # don't ask why it works ok?
+                    # don't ask why it works
                     maintenance_margin_rate = 1.0 / max_leverage if max_leverage > 0 else 0.02
 
                     markets_dict[unified_symbol] = {
@@ -680,7 +680,7 @@ class GMX(ExchangeCompatible):
                             leverage_by_market[market_addr] = max_leverage
                             min_collateral_by_market[market_addr] = min_collateral_factor
             except Exception as e:
-                logger.warning(f"Failed to fetch leverage data from subsquid: {e}")
+                logger.warning("Failed to fetch leverage data from subsquid: %s", e)
 
         # Process markets into CCXT-style format
         for market_address, market_data in available_markets.items():
@@ -2317,8 +2317,8 @@ class GMX(ExchangeCompatible):
         # Convert to checksum address
         wallet = self.web3.to_checksum_address(wallet)
 
-        logger.info("=" * 80)
-        logger.info("BALANCE_TRACE: fetch_balance() CALLED, wallet=%s", wallet)
+        logger.debug("=" * 80)
+        logger.debug("BALANCE_TRACE: fetch_balance() CALLED, wallet=%s", wallet)
 
         # Fetch currency metadata
         currencies = self.fetch_currencies()
@@ -2347,10 +2347,12 @@ class GMX(ExchangeCompatible):
                     collateral_locked[collateral_token] += collateral_amount_float
 
         except Exception as e:
-            # If we can't fetch positions, just show all balance as free
-            logger.warning("BALANCE_TRACE: Failed to fetch positions for collateral calculation: %s", e)
+            # If we can't fetch positions, we cannot reliably calculate locked collateral
+            # Raising exception prevents incorrect balance from being used
+            logger.error("Failed to fetch positions for balance calculation: %s", e)
+            raise ExchangeError(f"Cannot calculate balance: position fetch failed: {e}") from e
 
-        logger.info("BALANCE_TRACE: collateral_locked=%s", collateral_locked)
+        logger.debug("BALANCE_TRACE: collateral_locked=%s", collateral_locked)
 
         # Build balance dict
         result = {"free": {}, "used": {}, "total": {}, "info": {}}
@@ -2386,17 +2388,17 @@ class GMX(ExchangeCompatible):
                 result["info"][code] = {"error": str(e)}
 
         # Log final balance state
-        logger.info("BALANCE_TRACE: fetch_balance() RETURNING")
+        logger.debug("BALANCE_TRACE: fetch_balance() RETURNING")
         for code in ["USDC", "ETH", "WETH"]:
             if code in result and isinstance(result[code], dict):
-                logger.info(
+                logger.debug(
                     "BALANCE_TRACE: %s: free=%.8f, used=%.8f, total=%.8f",
                     code,
                     result[code].get("free", 0),
                     result[code].get("used", 0),
                     result[code].get("total", 0),
                 )
-        logger.info("=" * 80)
+        logger.debug("=" * 80)
 
         return result
 
@@ -2861,10 +2863,12 @@ class GMX(ExchangeCompatible):
 
                 # Parse trade
                 trade = self.parse_trade(change, market)
-            except Exception as e:
-                # Skip trades we can't parse
+            except (KeyError, ValueError, TypeError) as e:
+                # Skip trades we can't parse due to missing/invalid data
                 logger.debug("Skipping unparseable trade: %s", str(e))
-                pass
+            except Exception as e:
+                # Unexpected error - log at warning level for investigation
+                logger.warning("Unexpected error parsing trade: %s", str(e), exc_info=True)
 
         # Step 3: Merge results, deduplicating by transaction hash (id)
         # Cache trades take precedence (more recent/accurate)
@@ -3617,7 +3621,7 @@ class GMX(ExchangeCompatible):
             execution_buffer=execution_buffer,
         )
 
-        logger.info(f"SL/TP result created: entry_price={sltp_result.entry_price}, sl_trigger={sltp_result.stop_loss_trigger_price}, tp_trigger={sltp_result.take_profit_trigger_price}, sl_fee={sltp_result.stop_loss_fee}, tp_fee={sltp_result.take_profit_fee}")
+        logger.info("SL/TP result created: entry_price=%s, sl_trigger=%s, tp_trigger=%s, sl_fee=%s, tp_fee=%s", sltp_result.entry_price, sltp_result.stop_loss_trigger_price, sltp_result.take_profit_trigger_price, sltp_result.stop_loss_fee, sltp_result.take_profit_fee)
 
         # Sign transaction
         transaction = sltp_result.transaction
@@ -3906,7 +3910,7 @@ class GMX(ExchangeCompatible):
         """
         # Skip approval for ETH (native token)
         if collateral_symbol in ["ETH", "AVAX"]:
-            logger.debug(f"Using native {collateral_symbol} - no approval needed")
+            logger.debug("Using native %s - no approval needed", collateral_symbol)
             return
 
         # Get token address
@@ -3915,7 +3919,7 @@ class GMX(ExchangeCompatible):
 
         if not collateral_token_address:
             # If token address not found, assume it's OK (might be native or not need approval)
-            logger.debug(f"Token address not found for {collateral_symbol}, skipping approval")
+            logger.debug("Token address not found for %s, skipping approval", collateral_symbol)
             return
 
         # Get contract addresses (for router address)
@@ -3950,18 +3954,18 @@ class GMX(ExchangeCompatible):
         required_tokens = required_collateral_usd / token_price
         required_amount = int(required_tokens * (10**token_details.decimals))
 
-        logger.debug(f"Token approval check: {collateral_symbol} allowance={current_allowance / (10**token_details.decimals):.4f}, required={required_amount / (10**token_details.decimals):.4f}, token_price=${token_price:.2f}")
+        logger.debug("Token approval check: %s allowance=%.4f, required=%.4f, token_price=$%.2f", collateral_symbol, current_allowance / (10**token_details.decimals), required_amount / (10**token_details.decimals), token_price)
 
         # If allowance is sufficient, no action needed
         if current_allowance >= required_amount:
-            logger.debug(f"Sufficient {collateral_symbol} allowance exists")
+            logger.debug("Sufficient %s allowance exists", collateral_symbol)
             return
 
         # Need to approve - use a large amount to avoid repeated approvals
         # Approve 1 billion tokens (same pattern as debug_deploy.py)
         approve_amount = 1_000_000_000 * (10**token_details.decimals)
 
-        logger.info(f"Insufficient {collateral_symbol} allowance. Current: {current_allowance / (10**token_details.decimals):.4f}, Required: {required_amount / (10**token_details.decimals):.4f}. Approving {approve_amount / (10**token_details.decimals):.0f} {collateral_symbol}...")
+        logger.info("Insufficient %s allowance. Current: %.4f, Required: %.4f. Approving %.0f %s...", collateral_symbol, current_allowance / (10**token_details.decimals), required_amount / (10**token_details.decimals), approve_amount / (10**token_details.decimals), collateral_symbol)
 
         # Build approval transaction
         approve_tx = token_contract.functions.approve(spender_address, approve_amount).build_transaction(
@@ -3981,13 +3985,13 @@ class GMX(ExchangeCompatible):
         signed_approve_tx = self.wallet.sign_transaction_with_new_nonce(approve_tx)
         approve_tx_hash = self.web3.eth.send_raw_transaction(signed_approve_tx.rawTransaction)
 
-        logger.info(f"Approval transaction sent: {approve_tx_hash.hex()}. Waiting for confirmation...")
+        logger.info("Approval transaction sent: %s. Waiting for confirmation...", approve_tx_hash.hex())
 
         # Wait for confirmation
         approve_receipt = self.web3.eth.wait_for_transaction_receipt(approve_tx_hash, timeout=120)
 
         if approve_receipt["status"] == 1:
-            logger.info(f"Token approval successful! Approved {approve_amount / (10**token_details.decimals):.0f} {collateral_symbol} for {spender_address}")
+            logger.info("Token approval successful! Approved %.0f %s for %s", approve_amount / (10**token_details.decimals), collateral_symbol, spender_address)
         else:
             raise Exception(f"Token approval transaction failed: {approve_tx_hash.hex()}")
 
@@ -4297,7 +4301,7 @@ class GMX(ExchangeCompatible):
                 if not position_to_close:
                     # Position not found - likely already closed (e.g., by stop-loss)
                     position_type = "long" if is_closing_long else "short"
-                    logger.warning(f"No {position_type} position found for {symbol} with collateral {gmx_params['collateral_symbol']}. This likely means the position was already closed (e.g., by stop-loss execution). Returning synthetic 'closed' order response.")
+                    logger.warning("No %s position found for %s with collateral %s. This likely means the position was already closed (e.g., by stop-loss execution). Returning synthetic 'closed' order response.", position_type, symbol, gmx_params["collateral_symbol"])
 
                     # Get current mark price for cost calculation
                     try:
@@ -4337,7 +4341,7 @@ class GMX(ExchangeCompatible):
                     # Add synthetic order to cache for consistency
                     self._orders[synthetic_order["id"]] = synthetic_order
 
-                    logger.info(f"Position for {symbol} already closed - returning synthetic order id={synthetic_order['id']}")
+                    logger.info("Position for %s already closed - returning synthetic order id=%s", symbol, synthetic_order["id"])
                     return synthetic_order
 
                 # Derive actual on-chain position size in USD.
@@ -4418,7 +4422,7 @@ class GMX(ExchangeCompatible):
                 error_msg = str(e)
                 if "No long position found" in error_msg or "position was already closed" in error_msg:
                     # This is the race condition - position was already closed
-                    logger.warning(f"Caught position-not-found error for {symbol}: {error_msg}. Position likely closed by stop-loss. Returning synthetic 'closed' order.")
+                    logger.warning("Caught position-not-found error for %s: %s. Position likely closed by stop-loss. Returning synthetic 'closed' order.", symbol, error_msg)
 
                     # Get current mark price for cost calculation
                     try:
@@ -4661,7 +4665,7 @@ class GMX(ExchangeCompatible):
                     order["info"]["block_number"] = receipt.get("blockNumber")
                     order["info"]["gas_used"] = receipt.get("gasUsed")
             except Exception as e:
-                logger.warning(f"Could not fetch transaction receipt for {id}: {e}")
+                logger.warning("Could not fetch transaction receipt for %s: %s", id, e)
 
             return order
 
@@ -4707,11 +4711,11 @@ class GMX(ExchangeCompatible):
                     "fees": [],
                 }
 
-                logger.info(f"Fetched order {id} from blockchain (not in cache)")
+                logger.info("Fetched order %s from blockchain (not in cache)", id)
                 return order
 
             except Exception as e:
-                logger.warning(f"Could not fetch transaction {id} from blockchain: {e}")
+                logger.warning("Could not fetch transaction %s from blockchain: %s", id, e)
                 # Fall through to raise OrderNotFound
 
         # Order not found anywhere
