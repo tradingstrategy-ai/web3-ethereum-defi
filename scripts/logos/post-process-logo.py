@@ -299,9 +299,13 @@ def remove_background(input_path: Path, output_path: Path) -> None:
 def recolour_for_dark_background(input_path: Path, output_path: Path) -> None:
     """Detect if logo is dark-on-dark and invert colours for dark background visibility.
 
-    Analyses the visible (non-transparent) pixels of the image. If there are no
-    bright pixels at all (none exceeding a brightness threshold), the logo would
-    not be visible on a dark background. In this case, the colours are inverted.
+    Analyses the visible (non-transparent) pixels of the image. Uses two separate
+    analyses:
+    1. Fully opaque pixels (alpha >= 250) - the core logo content
+    2. All visible pixels weighted by alpha - to detect colourful elements
+
+    A logo needs inversion if its core content is dark AND it doesn't have
+    significant colourful/bright elements (like gradient icons).
 
     :param input_path: Path to input image file
     :param output_path: Path to output image file
@@ -312,63 +316,161 @@ def recolour_for_dark_background(input_path: Path, output_path: Path) -> None:
 
     image = Image.open(input_path).convert("RGBA")
 
-    # Extract only visible pixels (alpha > 0)
+    # Extract pixels for analysis
     pixels = list(image.getdata())
-    visible_pixels = [(r, g, b) for r, g, b, a in pixels if a > 0]
+
+    # Separate fully opaque pixels (core content) from semi-transparent (edges/artifacts)
+    opaque_pixels = [(r, g, b) for r, g, b, a in pixels if a >= 250]
+    visible_pixels = [(r, g, b, a) for r, g, b, a in pixels if a > 0]
 
     if not visible_pixels:
         logger.warning("No visible pixels found, skipping recolouring")
         image.save(output_path, "PNG", optimize=True, compress_level=9)
         return
 
-    # Check if there are ANY bright pixels in the image
     # Using perceived luminance formula: 0.299*R + 0.587*G + 0.114*B
-    # A pixel is considered "bright" if its luminance exceeds the threshold
-    brightness_threshold = 128
+    dark_threshold = 60  # Core content is "dark" if average below this
+    colourful_threshold = 150  # A pixel is considered "colourful/bright" if above this
 
-    has_bright_pixels = any((0.299 * r + 0.587 * g + 0.114 * b) >= brightness_threshold for r, g, b in visible_pixels)
+    # Analyse core content (fully opaque pixels only)
+    if opaque_pixels:
+        core_brightness_sum = sum(0.299 * r + 0.587 * g + 0.114 * b for r, g, b in opaque_pixels)
+        core_avg_brightness = core_brightness_sum / len(opaque_pixels)
+        core_max_brightness = max(0.299 * r + 0.587 * g + 0.114 * b for r, g, b in opaque_pixels)
+    else:
+        # Fall back to all visible pixels if no fully opaque ones
+        core_avg_brightness = 128
+        core_max_brightness = 128
 
-    if not has_bright_pixels:
-        # Calculate max brightness for logging
-        max_brightness = max(0.299 * r + 0.587 * g + 0.114 * b for r, g, b in visible_pixels)
+    # Check for colourful/bright elements (like gradient icons) using all visible pixels
+    # Weight by alpha to favour opaque pixels
+    colourful_weight = 0
+    total_weight = 0
+    for r, g, b, a in visible_pixels:
+        brightness = 0.299 * r + 0.587 * g + 0.114 * b
+        weight = (a / 255.0) ** 2
+        total_weight += weight
+        if brightness > colourful_threshold:
+            colourful_weight += weight
+
+    colourful_ratio = colourful_weight / total_weight if total_weight > 0 else 0
+
+    # Also check for bimodal distribution (dark text with light fills, like Royco)
+    # Count dark opaque pixels vs bright opaque pixels
+    dark_opaque_count = 0
+    bright_opaque_count = 0
+    mid_opaque_count = 0
+    for r, g, b in opaque_pixels:
+        brightness = 0.299 * r + 0.587 * g + 0.114 * b
+        if brightness < 50:
+            dark_opaque_count += 1
+        elif brightness > 200:
+            bright_opaque_count += 1
+        else:
+            mid_opaque_count += 1
+
+    total_opaque = len(opaque_pixels) if opaque_pixels else 1
+    dark_ratio = dark_opaque_count / total_opaque
+    bright_ratio = bright_opaque_count / total_opaque
+    mid_ratio = mid_opaque_count / total_opaque
+
+    # Detect bimodal distribution: significant dark AND bright pixels with few mid-tones
+    # This indicates dark text with light fills (like Royco) - needs inversion
+    # For bimodal: mostly dark (>50%), some bright (>5%), very few mid-tones (<10%)
+    is_bimodal = dark_ratio > 0.5 and bright_ratio > 0.05 and mid_ratio < 0.1
+
+    # Invert if:
+    # 1. Core content is predominantly dark (average brightness below threshold)
+    #    AND core has no bright gradient elements (max brightness also low)
+    #    AND there are no significant colourful gradient elements
+    # OR
+    # 2. The logo has bimodal distribution (dark outlines with light fills)
+    #    which would appear as dark-on-dark with light fills that look like holes
+    core_is_dark = core_avg_brightness < dark_threshold and core_max_brightness < 100
+    has_gradient_elements = colourful_ratio > 0.02 and not is_bimodal
+
+    should_invert = (core_is_dark and not has_gradient_elements) or is_bimodal
+
+    logger.info(
+        "Pixel distribution - dark: %.1f%%, bright: %.1f%%, mid: %.1f%%, bimodal: %s",
+        dark_ratio * 100,
+        bright_ratio * 100,
+        mid_ratio * 100,
+        is_bimodal,
+    )
+
+    if should_invert:
         logger.info(
-            "Logo has no bright pixels (max brightness: %.1f < %d), inverting colours for dark background",
-            max_brightness,
-            brightness_threshold,
+            "Logo core is dark (avg: %.1f, max: %.1f, colourful: %.1f%%), inverting colours for dark background",
+            core_avg_brightness,
+            core_max_brightness,
+            colourful_ratio * 100,
         )
 
-        # Split into RGB and Alpha channels
-        r, g, b, a = image.split()
+        if is_bimodal:
+            # For bimodal logos (dark text with light background remnants inside letters):
+            # - Make bright pixels transparent (they're background, not part of the logo)
+            # - Invert only the dark pixels to white
+            logger.info("Using bimodal processing: making bright pixels transparent, inverting dark pixels")
 
-        # Invert only the RGB channels, preserve alpha
-        rgb_image = Image.merge("RGB", (r, g, b))
-        inverted_rgb = ImageOps.invert(rgb_image)
+            result = image.copy()
+            result_data = list(result.getdata())
+            new_data = []
 
-        # Recombine with original alpha channel
-        r_inv, g_inv, b_inv = inverted_rgb.split()
-        result = Image.merge("RGBA", (r_inv, g_inv, b_inv, a))
+            for r, g, b, a in result_data:
+                if a == 0:
+                    # Already transparent
+                    new_data.append((r, g, b, a))
+                else:
+                    brightness = 0.299 * r + 0.587 * g + 0.114 * b
+                    if brightness > 180:
+                        # Bright pixel - make transparent (background remnant)
+                        new_data.append((0, 0, 0, 0))
+                    elif brightness < 80:
+                        # Dark pixel - invert to white
+                        new_data.append((255, 255, 255, a))
+                    else:
+                        # Mid-tone - invert normally
+                        new_data.append((255 - r, 255 - g, 255 - b, a))
 
-        result.save(output_path, "PNG", optimize=True, compress_level=9)
+            result.putdata(new_data)
+            result.save(output_path, "PNG", optimize=True, compress_level=9)
+        else:
+            # Standard inversion for non-bimodal dark logos
+            # Split into RGB and Alpha channels
+            r, g, b, a = image.split()
+
+            # Invert only the RGB channels, preserve alpha
+            rgb_image = Image.merge("RGB", (r, g, b))
+            inverted_rgb = ImageOps.invert(rgb_image)
+
+            # Recombine with original alpha channel
+            r_inv, g_inv, b_inv = inverted_rgb.split()
+            result = Image.merge("RGBA", (r_inv, g_inv, b_inv, a))
+
+            result.save(output_path, "PNG", optimize=True, compress_level=9)
+
         logger.info("Colours inverted and saved to: %s", output_path)
     else:
-        # Calculate max brightness for logging
-        max_brightness = max(0.299 * r + 0.587 * g + 0.114 * b for r, g, b in visible_pixels)
         logger.info(
-            "Logo has bright pixels (max brightness: %.1f >= %d), no recolouring needed",
-            max_brightness,
-            brightness_threshold,
+            "Logo has sufficient brightness (core avg: %.1f, core max: %.1f, colourful: %.1f%%), no recolouring needed",
+            core_avg_brightness,
+            core_max_brightness,
+            colourful_ratio * 100,
         )
         image.save(output_path, "PNG", optimize=True, compress_level=9)
 
 
 def trim_and_scale_image(input_path: Path, output_path: Path, size: int = 256) -> None:
-    """Remove padding/margin and scale image to target size.
+    """Remove padding/margin and scale image to target size, preserving aspect ratio.
 
     Removes both transparent padding and solid colour padding/margins by:
     1. First trimming transparent pixels using alpha channel
     2. Then detecting and removing any solid colour border/padding
 
-    Finally scales to the target size using high-quality resampling.
+    Finally scales to the target size using high-quality resampling while
+    preserving the original aspect ratio. Non-square content is centered
+    on a transparent square canvas.
 
     :param input_path: Path to input image file
     :param output_path: Path to output image file
@@ -436,11 +538,39 @@ def trim_and_scale_image(input_path: Path, output_path: Path, size: int = 256) -
                     image.height,
                 )
 
-    # Scale to target size
-    resized = image.resize((size, size), Image.Resampling.LANCZOS)
-    resized.save(output_path, "PNG", optimize=True, compress_level=9)
+    # Scale to target size while preserving aspect ratio
+    content_width, content_height = image.size
+    aspect_ratio = content_width / content_height
 
-    logger.info("Trimmed and scaled to: %s", output_path)
+    if aspect_ratio > 1:
+        # Wider than tall - fit to width
+        new_width = size
+        new_height = int(size / aspect_ratio)
+    else:
+        # Taller than wide - fit to height
+        new_height = size
+        new_width = int(size * aspect_ratio)
+
+    # Resize content preserving aspect ratio
+    resized_content = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+
+    # Create square canvas and center the content
+    result = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    x_offset = (size - new_width) // 2
+    y_offset = (size - new_height) // 2
+    result.paste(resized_content, (x_offset, y_offset))
+
+    result.save(output_path, "PNG", optimize=True, compress_level=9)
+    logger.info(
+        "Scaled %dx%d -> %dx%d (centered on %dx%d canvas): %s",
+        content_width,
+        content_height,
+        new_width,
+        new_height,
+        size,
+        size,
+        output_path,
+    )
 
 
 def process_logo(

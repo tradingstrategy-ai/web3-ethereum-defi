@@ -25,6 +25,16 @@ Ensure the following are available:
 
 Python Pillow is installed for detecting image format, dimensions, and transparency.
 
+## Logo vocabulary
+
+There is no universal standard how artist name their logo files for dark and light variants. In our case, we always say
+- `light`: light (white) text on dark or transparent background
+- `dark`: dark (black) text on white or transparent  background
+
+Following vocabulary is used:
+- Brand mark: same as logo mark, the logo without the brand name text
+- Word mark: the logo with the brand name text
+
 ## Step 1: Inventory input logos
 
 List all image files in the input folder and classify them:
@@ -34,13 +44,14 @@ List all image files in the input folder and classify them:
    - `{slug}.generic.{ext}` - Generic/default theme
    - `{slug}.light.{ext}` - Light background theme (dark logo)
    - `{slug}.dark.{ext}` - Dark background theme (light logo)
-3. **Check aspect ratio** of each logo:
+3. Always prefer brand marks over word marks as source logo for post processing
+4. **Check aspect ratio** of each logo:
    - **Square aspect ratio**: Width equals height (1:1 ratio). Allow 90% tolerance in the detection as there might be one-off pixel errors in the source material.
    - **Non-square**: Width differs from height - will need padding to become square
-4. **Check if logos have transparent backgrounds**:
+5. **Check if logos have transparent backgrounds**:
    - **Transparent background**: PNG files with alpha channel transparency
    - **Assume SVGs are always transparent**: SVG files the originals should never contain a solid background
-5. Report findings to user, noting aspect ratios for each variant
+6. Report findings to user, noting aspect ratios for each variant
 
 ## Step 2: Variant selection
 
