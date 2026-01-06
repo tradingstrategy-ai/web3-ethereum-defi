@@ -411,7 +411,7 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     elif ERC4626Feature.ipor_like in features:
         return "IPOR"
     elif ERC4626Feature.lagoon_like in features:
-        return "Lagoon"
+        return "Lagoon Finance"
     elif ERC4626Feature.morpho_like in features:
         return "Morpho"
     elif ERC4626Feature.panoptic_like in features:
@@ -436,8 +436,6 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "Kiln Metavault"
     elif ERC4626Feature.peapods_like in features:
         return "Peapods"
-    elif ERC4626Feature.lagoon_like in features:
-        return "Lagoon Finance"
     elif ERC4626Feature.term_finance_like in features:
         return "Term Finance"
     elif ERC4626Feature.euler_earn_like in features:
@@ -488,7 +486,7 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "Gyroscope"
 
     elif ERC4626Feature.truefi_like in features:
-        return "TrueFI"
+        return "TrueFi"
 
     elif ERC4626Feature.superform_like in features:
         return "Superform"
