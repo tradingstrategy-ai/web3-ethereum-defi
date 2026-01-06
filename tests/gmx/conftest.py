@@ -284,8 +284,10 @@ def large_usdc_holder_arbitrum() -> HexAddress:
 
     This account is unlocked on Anvil, so you have access to good USDC stash.
     """
+    # https://arbiscan.io/token/0xaf88d065e77c8cc2239327c5edb3a432268e5831
     # This address has consistent USDC balance across different blocks
-    return to_checksum_address("0xEe7aE85f2Fe2239E27D9c1E23fFFe168D63b4055")
+    # backup 0x463f5D63e5a5EDB8615b0e485A090a18Aba08578
+    return to_checksum_address("0x2Df1c51E09aECF9cacB7bc98cB1742757f163dF7")
 
 
 @pytest.fixture()
@@ -873,7 +875,13 @@ def trading_manager(arbitrum_fork_config):
 
 
 @pytest.fixture()
-def test_wallet(web3_arbitrum_fork, anvil_private_key, chain_name, large_weth_holder_arbitrum, large_usdc_holder_arbitrum):
+def test_wallet(
+    web3_arbitrum_fork,
+    anvil_private_key,
+    chain_name,
+    large_weth_holder_arbitrum,
+    large_usdc_holder_arbitrum,
+):
     """Create a HotWallet for testing transactions."""
     account = Account.from_key(anvil_private_key)
     wallet = HotWallet(account)
@@ -895,7 +903,7 @@ def test_wallet(web3_arbitrum_fork, anvil_private_key, chain_name, large_weth_ho
             weth = fetch_erc20_details(web3_arbitrum_fork, weth_address)
 
             # Fund the whale holder with ETH for gas
-            gas_eth = 10 * 10**18
+            gas_eth = 100000 * 10**18
             web3_arbitrum_fork.provider.make_request(
                 "anvil_setBalance",
                 [large_weth_holder_arbitrum, hex(gas_eth)],
@@ -917,7 +925,7 @@ def test_wallet(web3_arbitrum_fork, anvil_private_key, chain_name, large_weth_ho
             usdc = fetch_erc20_details(web3_arbitrum_fork, usdc_address)
 
             # Fund the whale holder with ETH for gas
-            gas_eth = 10 * 10**18
+            gas_eth = 10000 * 10**18
             web3_arbitrum_fork.provider.make_request(
                 "anvil_setBalance",
                 [large_usdc_holder_arbitrum, hex(gas_eth)],
@@ -928,9 +936,8 @@ def test_wallet(web3_arbitrum_fork, anvil_private_key, chain_name, large_weth_ho
             usdc.contract.functions.transfer(wallet.address, usdc_amount).transact(
                 {"from": large_usdc_holder_arbitrum},
             )
-        except Exception:
-            # If USDC transfer fails, that's ok - some tests might not need it
-            pass
+        except Exception as e:
+            raise e
 
     return wallet
 

@@ -1,196 +1,232 @@
-"""GMX CCXT Trading Tests - Open and Close Position.
+"""
+Simplified CCXT trading tests for GMX.
 
-Tests CCXT-compatible trading methods on Arbitrum mainnet fork.
-Follows the same workflow as debug_ccxt.py for reliability.
+Two minimal tests demonstrating complete position lifecycle:
+1. Open and close a long ETH position
+2. Open and close a short ETH position
 """
 
 from flaky import flaky
-
-from eth_defi.gmx.ccxt.exchange import GMX
+from eth_defi.gmx.order.base_order import OrderResult
 from tests.gmx.fork_helpers import execute_order_as_keeper, extract_order_key_from_receipt, fetch_on_chain_oracle_prices, setup_mock_oracle
 
 
-def _execute_order(web3, tx_hash):
-    """Helper to execute an order: wait for receipt, extract key, execute as keeper."""
-    if isinstance(tx_hash, str):
-        tx_hash_bytes = bytes.fromhex(tx_hash[2:]) if tx_hash.startswith("0x") else bytes.fromhex(tx_hash)
-    else:
-        tx_hash_bytes = tx_hash
+@flaky(max_runs=3, min_passes=1)
+def test_ccxt_open_and_close_long_position(isolated_fork_env, execution_buffer):
+    """
+    Test opening and closing a long ETH position.
 
-    receipt = web3.eth.wait_for_transaction_receipt(tx_hash_bytes)
-    assert receipt["status"] == 1, "Order transaction should succeed"
+    Flow:
+    1. Open long position (ETH market, ETH collateral, 2.5x leverage)
+    2. Execute order as keeper
+    3. Verify position created
+    4. Update oracle price (+1000 USD for profit)
+    5. Close position
+    6. Execute close order
+    7. Verify position closed
+    """
+    env = isolated_fork_env
+    wallet_address = env.config.get_wallet_address()
 
+    # Record initial state
+    initial_positions = env.positions.get_data(wallet_address)
+    initial_position_count = len(initial_positions)
+
+    # Sync nonce
+    env.wallet.sync_nonce(env.web3)
+
+    # === STEP 1: Open long position ===
+    order_result = env.trading.open_position(
+        market_symbol="ETH",
+        collateral_symbol="ETH",
+        start_token_symbol="ETH",
+        is_long=True,
+        size_delta_usd=10,
+        leverage=2.5,
+        slippage_percent=0.5,
+        execution_buffer=execution_buffer,
+    )
+
+    assert isinstance(order_result, OrderResult)
+    assert order_result.execution_fee > 0
+
+    # Submit and execute open order
+    transaction = order_result.transaction.copy()
+    if "nonce" in transaction:
+        del transaction["nonce"]
+
+    signed_tx = env.wallet.sign_transaction_with_new_nonce(transaction)
+    tx_hash = env.web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+    receipt = env.web3.eth.wait_for_transaction_receipt(tx_hash)
+
+    assert receipt["status"] == 1
     order_key = extract_order_key_from_receipt(receipt)
-    assert order_key is not None, "Should extract order key from receipt"
+    assert order_key is not None
 
-    exec_receipt, _ = execute_order_as_keeper(web3, order_key)
-    assert exec_receipt["status"] == 1, "Keeper execution should succeed"
+    # Execute order as keeper
+    exec_receipt, _ = execute_order_as_keeper(env.web3, order_key)
+    assert exec_receipt["status"] == 1
 
-    return exec_receipt
+    # === STEP 2: Verify position created ===
+    positions_after_open = env.positions.get_data(wallet_address)
+    assert len(positions_after_open) == initial_position_count + 1
 
+    position_key, position = list(positions_after_open.items())[0]
+    position_size_usd_raw = position["position_size_usd_raw"]
+    collateral_amount_usd = position["initial_collateral_amount_usd"]
+    assert position["market_symbol"] == "ETH"
+    assert position["is_long"] is True
+    assert position["position_size"] > 0
 
-# NOTE: These 2 tests don't run together. They only pass when ran separately.
+    # Update oracle price for profit (long: price goes UP)
+    current_eth_price, current_usdc_price = fetch_on_chain_oracle_prices(env.web3)
+    new_eth_price = current_eth_price + 1000
+    setup_mock_oracle(
+        env.web3,
+        eth_price_usd=new_eth_price,
+        usdc_price_usd=current_usdc_price,
+    )
+
+    env.wallet.sync_nonce(env.web3)
+
+    # === STEP 3: Close position ===
+    close_order_result = env.trading.close_position(
+        market_symbol="ETH",
+        collateral_symbol="ETH",
+        start_token_symbol="ETH",
+        is_long=True,
+        size_delta_usd=position_size_usd_raw,
+        initial_collateral_delta=collateral_amount_usd,
+        slippage_percent=0.5,
+        execution_buffer=execution_buffer,
+    )
+
+    # Submit and execute close order
+    close_transaction = close_order_result.transaction.copy()
+    if "nonce" in close_transaction:
+        del close_transaction["nonce"]
+
+    signed_close_tx = env.wallet.sign_transaction_with_new_nonce(close_transaction)
+    close_tx_hash = env.web3.eth.send_raw_transaction(signed_close_tx.rawTransaction)
+    close_receipt = env.web3.eth.wait_for_transaction_receipt(close_tx_hash)
+
+    assert close_receipt["status"] == 1
+    close_order_key = extract_order_key_from_receipt(close_receipt)
+    close_exec_receipt, _ = execute_order_as_keeper(env.web3, close_order_key)
+    assert close_exec_receipt["status"] == 1
+
+    # === STEP 4: Verify position closed ===
+    positions_after_close = env.positions.get_data(wallet_address)
+    assert len(positions_after_close) == initial_position_count
 
 
 @flaky(max_runs=3, min_passes=1)
-def test_open_and_close_long_position(
-    ccxt_gmx_fork_open_close: GMX,
-    web3_arbitrum_fork_ccxt_long,
-    execution_buffer: int,
+def test_ccxt_open_and_close_short_position(
+    isolated_fork_env_short,
+    execution_buffer,
 ):
-    """Test opening and closing a long position via CCXT interface.
-
-    Uses separate anvil fork (web3_arbitrum_fork_ccxt_long) to avoid state pollution.
     """
-    gmx = ccxt_gmx_fork_open_close
-    web3 = web3_arbitrum_fork_ccxt_long
+    Test opening and closing a short ETH position.
 
-    symbol = "ETH/USDC:USDC"
-    leverage = 2.5
-    size_usd = 10.0
+    Flow:
+    1. Open short position (ETH market, ETH collateral, 2.5x leverage)
+    2. Execute order as keeper
+    3. Verify position created
+    4. Update oracle price (-1000 USD for profit)
+    5. Close position
+    6. Execute close order
+    7. Verify position closed
+    """
+    env = isolated_fork_env_short
+    wallet_address = env.config.get_wallet_address()
 
-    # Open long position
-    order = gmx.create_order(
-        symbol=symbol,
-        type="market",
-        side="buy",
-        amount=size_usd,
-        params={
-            "leverage": leverage,
-            "collateral_symbol": "ETH",
-            "slippage_percent": 0.005,
-            "execution_buffer": execution_buffer,
-        },
+    # Record initial state
+    initial_positions = env.positions.get_data(wallet_address)
+    initial_position_count = len(initial_positions)
+
+    # Sync nonce
+    env.wallet.sync_nonce(env.web3)
+
+    # === STEP 1: Open short position ===
+    order_result = env.trading.open_position(
+        market_symbol="ETH",
+        collateral_symbol="ETH",
+        start_token_symbol="ETH",
+        is_long=False,
+        size_delta_usd=10,
+        leverage=2.5,
+        slippage_percent=0.5,
+        execution_buffer=execution_buffer,
     )
 
-    assert order is not None
-    assert order.get("id") is not None
-    assert order.get("symbol") == symbol
-    assert order.get("side") == "buy"
+    assert isinstance(order_result, OrderResult)
+    assert order_result.execution_fee > 0
 
-    tx_hash = order.get("info", {}).get("tx_hash") or order.get("id")
-    assert tx_hash is not None, "Order should have transaction hash"
+    # Submit and execute open order
+    transaction = order_result.transaction.copy()
+    if "nonce" in transaction:
+        del transaction["nonce"]
 
-    _execute_order(web3, tx_hash)
+    signed_tx = env.wallet.sign_transaction_with_new_nonce(transaction)
+    tx_hash = env.web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+    receipt = env.web3.eth.wait_for_transaction_receipt(tx_hash)
 
-    # Verify position exists
-    positions = gmx.fetch_positions([symbol])
+    assert receipt["status"] == 1
+    order_key = extract_order_key_from_receipt(receipt)
+    assert order_key is not None
 
-    assert len(positions) > 0, "Should have at least one position after opening"
+    # Execute order as keeper
+    exec_receipt, _ = execute_order_as_keeper(env.web3, order_key)
+    assert exec_receipt["status"] == 1
 
-    position = positions[0]
-    assert position.get("symbol") == symbol
-    assert position.get("side") == "long"
-    assert position.get("contracts", 0) > 0
-    assert position.get("notional", 0) > 0
+    # === STEP 2: Verify position created ===
+    positions_after_open = env.positions.get_data(wallet_address)
+    assert len(positions_after_open) == initial_position_count + 1
 
-    position_size = position.get("notional", 0)
+    position_key, position = list(positions_after_open.items())[0]
+    position_size_usd_raw = position["position_size_usd_raw"]
+    collateral_amount_usd = position["initial_collateral_amount_usd"]
+    assert position["market_symbol"] == "ETH"
+    assert position["is_long"] is False
+    assert position["position_size"] > 0
 
-    # Update oracle for close
-    current_eth_price, current_usdc_price = fetch_on_chain_oracle_prices(web3)
-    new_eth_price = current_eth_price + 1000
-    setup_mock_oracle(web3, eth_price_usd=new_eth_price, usdc_price_usd=current_usdc_price)
-
-    # Close long position
-    close_order = gmx.create_order(
-        symbol=symbol,
-        type="market",
-        side="sell",
-        amount=position_size,
-        params={
-            "collateral_symbol": "ETH",
-            "slippage_percent": 0.005,
-            "execution_buffer": execution_buffer,
-        },
+    # Update oracle price for profit (short: price goes DOWN)
+    current_eth_price, current_usdc_price = fetch_on_chain_oracle_prices(env.web3)
+    new_eth_price = current_eth_price - 1000
+    setup_mock_oracle(
+        env.web3,
+        eth_price_usd=new_eth_price,
+        usdc_price_usd=current_usdc_price,
     )
 
-    assert close_order is not None
-    close_tx_hash = close_order.get("info", {}).get("tx_hash") or close_order.get("id")
-    _execute_order(web3, close_tx_hash)
+    env.wallet.sync_nonce(env.web3)
 
-    # Verify closed
-    final_positions = gmx.fetch_positions([symbol])
-    assert len(final_positions) == 0, "Position should be closed"
+    # === STEP 3: Close position ===
+    close_order_result = env.trading.close_position(
+        market_symbol="ETH",
+        collateral_symbol="ETH",
+        start_token_symbol="ETH",
+        is_long=False,
+        size_delta_usd=position_size_usd_raw,
+        initial_collateral_delta=collateral_amount_usd,
+        slippage_percent=0.5,
+        execution_buffer=execution_buffer,
+    )
 
+    # Submit and execute close order
+    close_transaction = close_order_result.transaction.copy()
+    if "nonce" in close_transaction:
+        del close_transaction["nonce"]
 
-# @flaky(max_runs=3, min_passes=1)
-# def test_open_and_close_short_position(
-#     ccxt_gmx_fork_short: GMX,
-#     web3_arbitrum_fork_ccxt_short,
-#     execution_buffer: int,
-# ):
-#     """Test opening and closing a short position via CCXT interface.
+    signed_close_tx = env.wallet.sign_transaction_with_new_nonce(close_transaction)
+    close_tx_hash = env.web3.eth.send_raw_transaction(signed_close_tx.rawTransaction)
+    close_receipt = env.web3.eth.wait_for_transaction_receipt(close_tx_hash)
 
-#     Uses separate anvil fork (web3_arbitrum_fork_ccxt_short) to avoid state pollution.
-#     """
-#     gmx = ccxt_gmx_fork_short
-#     web3 = web3_arbitrum_fork_ccxt_short
+    assert close_receipt["status"] == 1
+    close_order_key = extract_order_key_from_receipt(close_receipt)
+    close_exec_receipt, _ = execute_order_as_keeper(env.web3, close_order_key)
+    assert close_exec_receipt["status"] == 1
 
-#     symbol = "ETH/USDC:USDC"
-#     leverage = 2.5
-#     size_usd = 10.0
-
-#     # Open short position
-#     order = gmx.create_order(
-#         symbol=symbol,
-#         type="market",
-#         side="sell",
-#         amount=size_usd,
-#         params={
-#             "leverage": leverage,
-#             "collateral_symbol": "USDC",
-#             "slippage_percent": 0.005,
-#             "execution_buffer": execution_buffer,
-#         },
-#     )
-
-#     assert order is not None
-#     assert order.get("id") is not None
-#     assert order.get("symbol") == symbol
-#     assert order.get("side") == "sell"
-
-#     tx_hash = order.get("info", {}).get("tx_hash") or order.get("id")
-#     assert tx_hash is not None, "Order should have transaction hash"
-
-#     _execute_order(web3, tx_hash)
-
-#     # Verify position exists
-#
-#     positions = gmx.fetch_positions([symbol])
-
-#     assert len(positions) > 0, "Should have at least one position after opening"
-
-#     position = positions[0]
-#     assert position.get("symbol") == symbol
-#     assert position.get("side") == "short"
-#     assert position.get("contracts", 0) > 0
-#     assert position.get("notional", 0) > 0
-
-#     position_size = position.get("notional", 0)
-
-#     # Update oracle for close
-#     current_eth_price, current_usdc_price = fetch_on_chain_oracle_prices(web3)
-#     new_eth_price = current_eth_price - 1000
-#     setup_mock_oracle(web3, eth_price_usd=new_eth_price, usdc_price_usd=current_usdc_price)
-
-#     # Close short position
-#     close_order = gmx.create_order(
-#         symbol=symbol,
-#         type="market",
-#         side="buy",
-#         amount=position_size,
-#         params={
-#             "collateral_symbol": "USDC",
-#             "slippage_percent": 0.005,
-#             "execution_buffer": execution_buffer,
-#         },
-#     )
-
-#     assert close_order is not None
-#     close_tx_hash = close_order.get("info", {}).get("tx_hash") or close_order.get("id")
-#     _execute_order(web3, close_tx_hash)
-
-#     # Verify closed
-#
-#     final_positions = gmx.fetch_positions([symbol])
-#     assert len(final_positions) == 0, "Position should be closed"
+    # === STEP 4: Verify position closed ===
+    positions_after_close = env.positions.get_data(wallet_address)
+    assert len(positions_after_close) == initial_position_count
