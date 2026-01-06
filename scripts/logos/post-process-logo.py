@@ -17,13 +17,19 @@ Usage:
     export INVERT=light_to_dark
     python scripts/logos/post-process-logo.py
 
+    # Skip Gemini processing for logos that are already clean brand marks
+    export SKIP_GEMINI=true
+    python scripts/logos/post-process-logo.py
+
 Environment variables:
-    GOOGLE_AI_API_KEY: Google AI Studio API key for Gemini (required)
+    GOOGLE_AI_API_KEY: Google AI Studio API key for Gemini (required unless SKIP_GEMINI=true)
     INPUT_IMAGE: Path to input image file (required)
     OUTPUT_IMAGE: Path to output image file (required)
     TARGET_SIZE: Target size in pixels (default: 256)
     PADDING_PERCENT: Padding percentage for square crop (default: 10)
     INVERT: Colour inversion mode - 'light_to_dark', 'dark_to_light', or empty for no inversion
+    SKIP_GEMINI: Set to 'true' to skip Gemini processing and go straight to background removal.
+                 Use this for logos that are already clean brand marks with suitable colours.
 
 """
 
@@ -43,6 +49,7 @@ OUTPUT_IMAGE = os.environ.get("OUTPUT_IMAGE")
 TARGET_SIZE = int(os.environ.get("TARGET_SIZE", "256"))
 PADDING_PERCENT = int(os.environ.get("PADDING_PERCENT", "10"))
 INVERT = os.environ.get("INVERT", "")  # 'light_to_dark', 'dark_to_light', or empty
+SKIP_GEMINI = os.environ.get("SKIP_GEMINI", "").lower() in ("true", "1", "yes")
 
 
 def convert_svg_to_png(input_path: Path, output_path: Path, size: int = 512) -> None:
@@ -171,17 +178,57 @@ def process_logo_with_gemini(
     raise ValueError("No image returned from Gemini API")
 
 
+def has_transparency(image_path: Path) -> bool:
+    """Check if an image already has transparent pixels.
+
+    :param image_path: Path to image file
+    :return: True if the image has any transparent or semi-transparent pixels
+    """
+    from PIL import Image
+
+    image = Image.open(image_path)
+
+    # Check if image has an alpha channel
+    if image.mode not in ("RGBA", "LA", "PA"):
+        return False
+
+    # Get alpha channel
+    if image.mode == "RGBA":
+        alpha = image.getchannel("A")
+    elif image.mode == "LA":
+        alpha = image.getchannel("A")
+    else:  # PA mode
+        alpha = image.getchannel("A")
+
+    # Check if any pixel has alpha < 255 (not fully opaque)
+    alpha_data = alpha.getdata()
+    min_alpha = min(alpha_data)
+
+    return min_alpha < 255
+
+
 def remove_background(input_path: Path, output_path: Path) -> None:
     """Remove background from image using rembg.
 
     Gemini cannot produce true transparent PNGs, so we use rembg
     to remove the background after Gemini processing.
 
+    If the input image already has transparency, the background removal
+    step is skipped and the image is copied directly to the output.
+
     :param input_path: Path to input image file
     :param output_path: Path to output image file
     """
     from PIL import Image
     from rembg import remove
+
+    # Check if image already has transparency
+    if has_transparency(input_path):
+        logger.info("Image already has transparency, skipping background removal: %s", input_path)
+        image = Image.open(input_path)
+        image.save(output_path, "PNG", optimize=True, compress_level=9)
+        logger.info("Copied transparent image to: %s", output_path)
+        return
 
     logger.info("Removing background: %s", input_path)
 
@@ -280,48 +327,76 @@ def process_logo(
     target_size: int = 256,
     padding_percent: int = 10,
     invert: str = "",
+    skip_gemini: bool = False,
 ) -> None:
     """Process a logo image through the full pipeline.
 
-    Pipeline:
+    Pipeline (full):
     1. SVG to PNG conversion (if needed) - Gemini only accepts raster images
     2. Gemini processing (single prompt): analyse, extract icon, optionally invert, crop to square
     3. Background removal (rembg) - Gemini cannot produce true transparency
     4. Trim transparent padding and scale to target size (Pillow)
+
+    Pipeline (skip_gemini=True):
+    1. SVG to PNG conversion (if needed)
+    2. Background removal (rembg)
+    3. Trim transparent padding and scale to target size (Pillow)
+
+    Use skip_gemini=True for logos that are already clean brand marks with suitable
+    colours - this skips the AI processing and goes straight to background removal.
 
     :param input_path: Path to input image file
     :param output_path: Path to output image file
     :param target_size: Target output size in pixels
     :param padding_percent: Padding percentage for square crop
     :param invert: 'light_to_dark', 'dark_to_light', or empty for no inversion
+    :param skip_gemini: Skip Gemini processing (for already suitable brand marks)
     """
     import tempfile
 
-    logger.info("Starting logo processing: %s -> %s", input_path, output_path)
+    logger.info(
+        "Starting logo processing: %s -> %s (skip_gemini=%s)",
+        input_path,
+        output_path,
+        skip_gemini,
+    )
 
     # Create temp directory for intermediate files
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_path = Path(temp_dir)
         current_file = input_path
 
-        # Step 1: Convert SVG to PNG if needed (Gemini only accepts raster images)
+        # Step 1: Convert SVG to PNG if needed
         if input_path.suffix.lower() == ".svg":
             svg_output = temp_path / "step1_svg_converted.png"
             convert_svg_to_png(current_file, svg_output, size=512)
             current_file = svg_output
 
-        # Step 2: Process with Gemini (single prompt for all AI operations including crop)
-        gemini_output = temp_path / "step2_gemini_processed.png"
-        process_logo_with_gemini(current_file, gemini_output, padding_percent, invert)
-        current_file = gemini_output
+        if skip_gemini:
+            # Simplified pipeline: skip Gemini, go straight to background removal
+            logger.info("Skipping Gemini processing (SKIP_GEMINI=true)")
 
-        # Step 3: Remove background (Gemini cannot produce true transparency)
-        bg_removed_output = temp_path / "step3_bg_removed.png"
-        remove_background(current_file, bg_removed_output)
-        current_file = bg_removed_output
+            # Step 2: Remove background
+            bg_removed_output = temp_path / "step2_bg_removed.png"
+            remove_background(current_file, bg_removed_output)
+            current_file = bg_removed_output
 
-        # Step 4: Trim transparent padding and scale to target size
-        trim_and_scale_image(current_file, output_path, target_size)
+            # Step 3: Trim transparent padding and scale to target size
+            trim_and_scale_image(current_file, output_path, target_size)
+        else:
+            # Full pipeline with Gemini processing
+            # Step 2: Process with Gemini (single prompt for all AI operations including crop)
+            gemini_output = temp_path / "step2_gemini_processed.png"
+            process_logo_with_gemini(current_file, gemini_output, padding_percent, invert)
+            current_file = gemini_output
+
+            # Step 3: Remove background (Gemini cannot produce true transparency)
+            bg_removed_output = temp_path / "step3_bg_removed.png"
+            remove_background(current_file, bg_removed_output)
+            current_file = bg_removed_output
+
+            # Step 4: Trim transparent padding and scale to target size
+            trim_and_scale_image(current_file, output_path, target_size)
 
     logger.info("Logo processing complete: %s", output_path)
 
@@ -332,8 +407,8 @@ def main():
 
     setup_console_logging(default_log_level=os.environ.get("LOG_LEVEL", "info"))
 
-    # Check for required API key first
-    if not GOOGLE_AI_API_KEY:
+    # Check for required API key first (only if not skipping Gemini)
+    if not SKIP_GEMINI and not GOOGLE_AI_API_KEY:
         print("\n" + "=" * 80)
         print("ERROR: GOOGLE_AI_API_KEY environment variable is not set")
         print("=" * 80)
@@ -345,6 +420,8 @@ def main():
         print("  4. Create a new API key or use an existing one")
         print("\nTo set the API key:")
         print("  export GOOGLE_AI_API_KEY='your-api-key-here'")
+        print("\nAlternatively, set SKIP_GEMINI=true to skip AI processing:")
+        print("  export SKIP_GEMINI=true")
         print("\nThen run this script again.")
         print("=" * 80 + "\n")
         raise ValueError("GOOGLE_AI_API_KEY environment variable is required")
@@ -369,6 +446,7 @@ def main():
         target_size=TARGET_SIZE,
         padding_percent=PADDING_PERCENT,
         invert=INVERT,
+        skip_gemini=SKIP_GEMINI,
     )
 
 
