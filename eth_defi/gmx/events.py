@@ -561,6 +561,7 @@ def find_events_by_name(
 
 #: GMX error selectors (computed from keccak256("ErrorName(types...)")[:4])
 #: Maps 4-byte selector hex string to (error_name, parameter_types) tuple
+#: See: https://github.com/gmx-io/gmx-synthetics/blob/main/contracts/error/Errors.sol
 GMX_ERROR_SELECTORS: dict[str, tuple[str, list[str]]] = {
     # Order errors
     "9fbe2cbc": ("InvalidDecreaseOrderSize", ["uint256", "uint256"]),
@@ -568,6 +569,11 @@ GMX_ERROR_SELECTORS: dict[str, tuple[str, list[str]]] = {
     "3784f834": ("UnsupportedOrderType", ["uint256"]),
     "59485ed9": ("OrderNotFound", ["bytes32"]),
     "730d44b1": ("OrderAlreadyFrozen", []),
+    "30779725": ("EmptyOrder", []),
+    "feddc084": ("InvalidKeeperForFrozenOrder", ["address"]),
+    "f4253177": ("EmptySizeDeltaInTokens", []),
+    "9319d603": ("OrderValidFromTimeNotReached", ["uint256", "uint256"]),
+    "794a604a": ("MaxAutoCancelOrdersExceeded", ["uint256", "uint256"]),
     # Position errors
     "4dfbbff3": ("EmptyPosition", []),
     "426cfff0": ("PositionNotFound", ["bytes32"]),
@@ -577,25 +583,46 @@ GMX_ERROR_SELECTORS: dict[str, tuple[str, list[str]]] = {
     "74cc815b": ("InsufficientCollateralAmount", ["uint256", "int256"]),
     "2159b161": ("InsufficientCollateralUsd", ["int256"]),
     "3a61a4a9": ("UnableToWithdrawCollateral", ["int256"]),
+    "12110872": ("LiquidatablePosition", ["string", "int256", "int256", "int256"]),
+    "9c693e4e": ("InvalidCollateralTokenForMarket", ["address", "address"]),
+    "919dd98a": ("PositionShouldNotBeLiquidated", ["string", "int256", "int256", "int256"]),
+    "be2cbc10": ("InvalidDecreaseOrderSize", ["uint256", "uint256"]),
     # Price/execution errors
     "cc32db99": ("NegativeExecutionPrice", ["int256", "uint256", "uint256", "int256", "uint256"]),
     "f0641c92": ("PriceImpactLargerThanOrderSize", ["int256", "uint256"]),
+    "6514b64e": ("InvalidFeedPrice", ["address", "int256"]),
+    "677abf1c": ("OracleTimestampsAreSmallerThanRequired", ["uint256", "uint256"]),
     # Pool/reserve errors
     "23090a31": ("InsufficientPoolAmount", ["uint256", "uint256"]),
     "315276c9": ("InsufficientReserve", ["uint256", "uint256"]),
     "109ef850": ("MaxLongExceeded", ["uint256", "uint256"]),
     "5ba53cd3": ("MaxShortExceeded", ["uint256", "uint256"]),
+    "2bf127cf": ("MaxOpenInterestExceeded", ["uint256", "uint256"]),
+    "29ff3fc8": ("MaxPoolAmountExceeded", ["uint256", "uint256"]),
+    "a942ab62": ("MaxCollateralSumExceeded", ["uint256", "uint256"]),
+    "169f0412": ("MaxPoolUsdForDepositExceeded", ["uint256", "uint256"]),
+    "8c617982": ("InsufficientReserveForOpenInterest", ["uint256", "uint256"]),
+    "f8c937db": ("DisabledMarket", ["address"]),
     # Output/swap errors
     "d28d3eb5": ("InsufficientOutputAmount", ["uint256", "uint256"]),
     "a7aebadc": ("InsufficientSwapOutputAmount", ["uint256", "uint256"]),
     "75885d69": ("SwapPriceImpactExceedsAmountIn", ["uint256", "int256"]),
+    "f817118e": ("InvalidTokenIn", ["address", "address"]),
+    "c78b78fa": ("DuplicatedMarketInSwapPath", ["address"]),
     # Token/market errors
     "6ce23460": ("MinMarketTokens", ["uint256", "uint256"]),
     "f442c0bc": ("MinLongTokens", ["uint256", "uint256"]),
     "b4a196af": ("MinShortTokens", ["uint256", "uint256"]),
+    "e234604a": ("MinMarketTokens", ["uint256", "uint256"]),
+    "42c0bc84": ("MinLongTokens", ["uint256", "uint256"]),
+    "a196af45": ("MinShortTokens", ["uint256", "uint256"]),
     # Oracle errors
     "cd64a025": ("EmptyPrimaryPrice", ["address"]),
     "2b6e7c3f": ("MaxPriceAgeExceeded", ["uint256", "uint256"]),
+    # Gas/execution errors
+    "ac504dbb": ("InsufficientExecutionFee", ["uint256", "uint256"]),
+    "78cd7e7a": ("InsufficientWntAmountForExecutionFee", ["uint256", "uint256"]),
+    "416f9306": ("InsufficientExecutionGas", ["uint256", "uint256", "uint256"]),
     # Standard revert
     "08c379a0": ("Error", ["string"]),
 }

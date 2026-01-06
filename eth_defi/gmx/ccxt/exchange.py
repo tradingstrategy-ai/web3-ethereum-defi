@@ -4023,12 +4023,18 @@ class GMX(ExchangeCompatible):
         :return: CCXT-compatible order structure
         :rtype: dict
         """
+        from eth_defi.gmx.verification import raise_if_order_failed
+
         timestamp = self.milliseconds()
 
-        # Determine status from receipt
-        # GMX orders execute immediately in the transaction, so if successful, the order is filled
-        tx_success = receipt.get("status") == 1
-        status = "closed" if tx_success else "failed"
+        # Verify order execution using GMX events
+        # This will raise GMXOrderFailedException if the order was cancelled/frozen
+        # even if the transaction receipt shows status=1
+        verification = raise_if_order_failed(self.web3, receipt, tx_hash)
+
+        # If we reach here, order succeeded at the GMX protocol level
+        tx_success = True
+        status = "closed"
 
         # Build info dict with all GMX-specific data
         info = {
@@ -4040,6 +4046,15 @@ class GMX(ExchangeCompatible):
             "acceptable_price": order_result.acceptable_price,
             "mark_price": order_result.mark_price,
             "gas_limit": order_result.gas_limit,
+            # Verification data from GMX events
+            "verification": {
+                "execution_price": verification.execution_price,
+                "size_delta_usd": verification.size_delta_usd,
+                "pnl_usd": verification.pnl_usd,
+                "price_impact_usd": verification.price_impact_usd,
+                "event_count": verification.event_count,
+                "is_long": verification.is_long,
+            },
         }
 
         if order_result.estimated_price_impact is not None:
@@ -4048,9 +4063,9 @@ class GMX(ExchangeCompatible):
         # Calculate fee in ETH
         fee_cost = order_result.execution_fee / 1e18
 
-        # OrderResult.mark_price is already converted to USD in base_order.py
-        # No additional conversion needed here
-        mark_price = order_result.mark_price
+        # Use actual execution price from GMX events if available, else fall back to mark_price
+        actual_price = verification.execution_price if verification.execution_price else order_result.mark_price
+        mark_price = actual_price if actual_price else order_result.mark_price
 
         # GMX orders execute immediately - filled/remaining based on transaction success
         filled_amount = amount if tx_success else 0.0
