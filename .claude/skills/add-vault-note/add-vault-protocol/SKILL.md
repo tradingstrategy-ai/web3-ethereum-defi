@@ -35,6 +35,7 @@ Add the vault address `VAULT_FLAGS_AND_NOTES`
 - Make sure the address is lowercased
 - For the message create a Python constant like other messages have in `flag.py`
 - Set the message and flag in the dictionary
+- If the user explicitly did not tell you to use any flag, set flag to `None` 
 - Add the vault name as a comment on the above line
 
 ## 3. Format code
