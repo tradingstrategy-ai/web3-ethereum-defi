@@ -72,7 +72,7 @@ class GetPoolTVL(GetData):
         # Generate all multicall requests
         logger.debug("Generating multicall requests...")
         encoded_calls = list(self.generate_all_multicalls(markets))
-        logger.debug(f"Generated {len(encoded_calls)} multicall requests")
+        logger.debug("Generated %s multicall requests", len(encoded_calls))
 
         # Create Web3Factory for multicall execution
         web3_factory = TunedWeb3Factory(rpc_config_line=self.config.web3.provider.endpoint_uri)
@@ -93,13 +93,13 @@ class GetPoolTVL(GetData):
             token_type = call_result.call.extra_data["token_type"]
             multicall_results[market_key][token_type] = call_result
 
-        logger.debug(f"Processed multicalls for {len(multicall_results)} markets")
+        logger.debug("Processed multicalls for %s markets", len(multicall_results))
 
         # Process results
         pool_tvl_dict = {}
         for market_key, market_data in markets.items():
             if market_key not in multicall_results:
-                logger.debug(f"No multicall results for market {market_key}")
+                logger.debug("No multicall results for market %s", market_key)
                 continue
 
             market_symbol = market_data["market_symbol"]
@@ -114,7 +114,7 @@ class GetPoolTVL(GetData):
                         result_bytes = results[token_type].result
                         return int.from_bytes(result_bytes, byteorder="big") if result_bytes else 0
                     else:
-                        logger.debug(f"Failed to get {token_type} balance for {market_symbol}")
+                        logger.debug("Failed to get %s balance for %s", token_type, market_symbol)
                         return 0
 
                 long_balance = safe_extract_balance("long")
@@ -134,10 +134,10 @@ class GetPoolTVL(GetData):
                     "short_token": self._short_token_address,
                 }
 
-                logger.debug(f"{market_symbol} TVL: ${pool_tvl_dict[market_symbol]['total_tvl']:,.2f}")
+                logger.debug("%s TVL: $%.2f", market_symbol, pool_tvl_dict[market_symbol]["total_tvl"])
 
             except Exception as e:
-                logger.error(f"Failed to process market {market_symbol}: {e}")
+                logger.error("Failed to process market %s: %s", market_symbol, e)
                 continue
 
         return pool_tvl_dict
@@ -172,7 +172,7 @@ class GetPoolTVL(GetData):
         try:
             token_data = self.oracle_prices.get(token_address)
             if not token_data:
-                logger.debug(f"No oracle price data for token {token_address}")
+                logger.debug("No oracle price data for token %s", token_address)
                 return float(token_balance)
 
             token_price = np.median(
@@ -183,5 +183,5 @@ class GetPoolTVL(GetData):
             )
             return token_price * token_balance
         except (KeyError, TypeError, ValueError) as e:
-            logger.debug(f"Error calculating USD value for {token_address}: {e}")
+            logger.debug("Error calculating USD value for %s: %s", token_address, e)
             return float(token_balance)

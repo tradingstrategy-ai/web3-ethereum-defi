@@ -88,7 +88,7 @@ class GetOpenInterest(GetData):
 
             # Skip markets with invalid index token addresses
             if index_token_address == "0x0000000000000000000000000000000000000000":
-                logger.warning(f"Skipping market {market_key} with zero index token address")
+                logger.warning("Skipping market %s with zero index token address", market_key)
                 continue
 
             market = [
@@ -153,8 +153,8 @@ class GetOpenInterest(GetData):
             long_value = (long_oi - long_pnl) / long_precision
             short_value = (short_oi - short_pnl) / precision
 
-            logger.debug(f"{market_symbol} Long: ${self._format_number(long_value)}")
-            logger.debug(f"{market_symbol} Short: ${self._format_number(short_value)}")
+            logger.debug("%s Long: $%s", market_symbol, self._format_number(long_value))
+            logger.debug("%s Short: $%s", market_symbol, self._format_number(short_value))
 
             self.output["long"][market_symbol] = long_value
             self.output["short"][market_symbol] = short_value

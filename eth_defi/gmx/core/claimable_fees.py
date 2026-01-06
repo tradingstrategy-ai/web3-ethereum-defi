@@ -77,7 +77,7 @@ class GetClaimableFees(GetData):
         # Generate all multicall requests
         logger.debug("Generating multicall requests...")
         encoded_calls = list(self.generate_all_multicalls(available_markets))
-        logger.debug(f"Generated {len(encoded_calls)} multicall requests")
+        logger.debug("Generated %s multicall requests", len(encoded_calls))
 
         # Create Web3Factory for multicall execution
         web3_factory = TunedWeb3Factory(rpc_config_line=self.config.web3.provider.endpoint_uri)
@@ -98,13 +98,13 @@ class GetClaimableFees(GetData):
             token_type = call_result.call.extra_data["token_type"]
             multicall_results[market_key][token_type] = call_result
 
-        logger.debug(f"Processed multicalls for {len(multicall_results)} markets")
+        logger.debug("Processed multicalls for %s markets", len(multicall_results))
 
         # Process results
         market_fees = {}
         for market_key in available_markets:
             if market_key not in multicall_results:
-                logger.warning(f"No multicall results for market {market_key}")
+                logger.warning("No multicall results for market %s", market_key)
                 continue
 
             self._get_token_addresses(market_key)
@@ -119,7 +119,7 @@ class GetClaimableFees(GetData):
                         result_bytes = results[token_type].result
                         return int.from_bytes(result_bytes, byteorder="big") if result_bytes else 0
                     else:
-                        logger.warning(f"Failed to get {token_type} fees for {market_symbol}")
+                        logger.warning("Failed to get %s fees for %s", token_type, market_symbol)
                         return 0
 
                 long_claimable_fees = safe_extract_fee("long")
@@ -140,7 +140,7 @@ class GetClaimableFees(GetData):
                         ]
                     )
                 else:
-                    logger.warning(f"No oracle price data for token {self._long_token_address}")
+                    logger.warning("No oracle price data for token %s", self._long_token_address)
                     long_token_price = 1.0  # Fallback
 
                 # Convert to USD
@@ -156,10 +156,10 @@ class GetClaimableFees(GetData):
                 # Store market fees
                 market_fees[market_symbol] = {"long": long_claimable_usd, "short": short_claimable_usd, "total": long_claimable_usd + short_claimable_usd, "long_token": self._long_token_address, "short_token": self._short_token_address, "long_raw": long_claimable_fees, "short_raw": short_claimable_fees}
 
-                logger.debug(f"{market_symbol} claimable fees: ${long_claimable_usd + short_claimable_usd:,.2f}")
+                logger.debug("%s claimable fees: $%.2f", market_symbol, long_claimable_usd + short_claimable_usd)
 
             except Exception as e:
-                logger.error(f"Failed to process market {market_symbol}: {e}")
+                logger.error("Failed to process market %s: %s", market_symbol, e)
                 continue
 
         return market_fees

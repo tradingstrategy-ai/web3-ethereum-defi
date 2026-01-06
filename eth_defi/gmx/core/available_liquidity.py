@@ -131,7 +131,7 @@ class GetAvailableLiquidity(GetData):
         for market_key in available_markets:
             self._get_token_addresses(market_key)
             if self._long_token_address is None or self._short_token_address is None:
-                logger.warning(f"Skipping market {market_key} due to missing token addresses")
+                logger.warning("Skipping market %s due to missing token addresses", market_key)
                 continue
             yield from self.generate_multicall_requests(market_key, self._long_token_address, self._short_token_address)
 
@@ -161,7 +161,7 @@ class GetAvailableLiquidity(GetData):
 
             # Skip if not in open interest data
             if market_symbol not in open_interest.get("long", {}) or market_symbol not in open_interest.get("short", {}):
-                logger.warning(f"No open interest data for {market_symbol}")
+                logger.warning("No open interest data for %s", market_symbol)
                 continue
 
             try:
@@ -191,7 +191,7 @@ class GetAvailableLiquidity(GetData):
 
                 # Calculate token price exactly like original
                 if self._long_token_address not in prices:
-                    logger.warning(f"No oracle price for {self._long_token_address} in {market_symbol}")
+                    logger.warning("No oracle price for %s in %s", self._long_token_address, market_symbol)
                     continue
 
                 token_price = np.median(
@@ -201,7 +201,7 @@ class GetAvailableLiquidity(GetData):
                     ]
                 )
 
-                logger.info(f"Token: {market_symbol}")
+                logger.info("Token: %s", market_symbol)
 
                 # LONG LIQUIDITY - exact same logic as original
                 long_reserve_factor = min(long_reserve_factor, long_oi_reserve_factor)
@@ -213,7 +213,7 @@ class GetAvailableLiquidity(GetData):
                 long_max_reserved_usd = long_max_reserved_tokens / long_precision * token_price
                 long_liquidity = long_max_reserved_usd - float(reserved_long)
 
-                logger.info(f"Available Long Liquidity: ${long_liquidity:,.2f}")
+                logger.info("Available Long Liquidity: $%.2f", long_liquidity)
 
                 # SHORT LIQUIDITY - exact same logic as original
                 short_reserve_factor = min(short_reserve_factor, short_oi_reserve_factor)
@@ -227,14 +227,14 @@ class GetAvailableLiquidity(GetData):
                     short_max_reserved_usd = short_max_reserved_tokens / short_precision * token_price
                     short_liquidity = short_max_reserved_usd - float(reserved_short)
 
-                logger.info(f"Available Short Liquidity: ${short_liquidity:,.2f}")
+                logger.info("Available Short Liquidity: $%.2f", short_liquidity)
 
                 # Store results
                 self.output["long"][market_symbol] = long_liquidity
                 self.output["short"][market_symbol] = short_liquidity
 
             except Exception as e:
-                logger.error(f"Failed to process market {market_symbol}: {e}")
+                logger.error("Failed to process market %s: %s", market_symbol, e)
                 continue
 
         self.output["parameter"] = "available_liquidity"
@@ -259,7 +259,7 @@ class GetAvailableLiquidity(GetData):
         # Generate all multicall requests
         logger.debug("Generating multicall requests...")
         encoded_calls = list(self.generate_all_multicalls())
-        logger.debug(f"Generated {len(encoded_calls)} multicall requests")
+        logger.debug("Generated %s multicall requests", len(encoded_calls))
 
         # Create Web3Factory for multicall execution
         web3_factory = TunedWeb3Factory(rpc_config_line=self.config.web3.provider.endpoint_uri)
@@ -280,29 +280,29 @@ class GetAvailableLiquidity(GetData):
             data_type = call_result.call.extra_data["data_type"]
             multicall_results[market_key][data_type] = call_result
 
-        logger.debug(f"Processed multicalls for {len(multicall_results)} markets")
+        logger.debug("Processed multicalls for %s markets", len(multicall_results))
 
         # Process results and calculate available liquidity
         available_markets = self.markets.get_available_markets()
-        logger.debug(f"Processing {len(available_markets)} available markets")
+        logger.debug("Processing %s available markets", len(available_markets))
 
         processed_count = 0
         for market_key in available_markets:
             if market_key not in multicall_results:
-                logger.warning(f"No multicall results for market {market_key}")
+                logger.warning("No multicall results for market %s", market_key)
                 continue
 
             market_results = multicall_results[market_key]
-            logger.debug(f"Processing market {market_key} with {len(market_results)} results")
+            logger.debug("Processing market %s with %s results", market_key, len(market_results))
 
             # Get market metadata
             self._get_token_addresses(market_key)
             if self._long_token_address is None or self._short_token_address is None:
-                logger.warning(f"Skipping market {market_key} due to missing token addresses")
+                logger.warning("Skipping market %s due to missing token addresses", market_key)
                 continue
 
             market_symbol = self.markets.get_market_symbol(market_key)
-            logger.debug(f"Processing market symbol: {market_symbol}")
+            logger.debug("Processing market symbol: %s", market_symbol)
 
             try:
                 # Get decimal factors and precision values
@@ -318,10 +318,10 @@ class GetAvailableLiquidity(GetData):
                         # Convert bytes result to integer (uint256)
                         result_bytes = market_results[result_key].result
                         value = int.from_bytes(result_bytes, byteorder="big") if result_bytes else 0
-                        logger.debug(f"  {result_key}: {value} (bytes length: {len(result_bytes) if result_bytes else 0})")
+                        logger.debug("  %s: %s (bytes length: %s)", result_key, value, len(result_bytes) if result_bytes else 0)
                         return value
                     else:
-                        logger.warning(f"Failed to get {result_key} for {market_symbol} - success: {market_results[result_key].success if result_key in market_results else 'missing'}")
+                        logger.warning("Failed to get %s for %s - success: %s", result_key, market_symbol, market_results[result_key].success if result_key in market_results else "missing")
                         return 0
 
                 long_pool_amount = safe_extract_uint("long_pool_amount")
@@ -331,15 +331,15 @@ class GetAvailableLiquidity(GetData):
                 long_oi_reserve_factor = safe_extract_uint("long_oi_reserve_factor")
                 short_oi_reserve_factor = safe_extract_uint("short_oi_reserve_factor")
 
-                logger.debug(f"{market_symbol} extracted values:")
-                logger.debug(f"  long_pool_amount={long_pool_amount}, short_pool_amount={short_pool_amount}")
-                logger.debug(f"  long_reserve_factor={long_reserve_factor}, short_reserve_factor={short_reserve_factor}")
-                logger.debug(f"  long_oi_reserve_factor={long_oi_reserve_factor}, short_oi_reserve_factor={short_oi_reserve_factor}")
+                logger.debug("%s extracted values:", market_symbol)
+                logger.debug("  long_pool_amount=%s, short_pool_amount=%s", long_pool_amount, short_pool_amount)
+                logger.debug("  long_reserve_factor=%s, short_reserve_factor=%s", long_reserve_factor, short_reserve_factor)
+                logger.debug("  long_oi_reserve_factor=%s, short_oi_reserve_factor=%s", long_oi_reserve_factor, short_oi_reserve_factor)
 
                 # Get oracle prices
                 prices = OraclePrices(self.config.chain).get_recent_prices()
                 if self._long_token_address not in prices:
-                    logger.warning(f"No oracle price for {self._long_token_address} in {market_symbol}")
+                    logger.warning("No oracle price for %s in %s", self._long_token_address, market_symbol)
                     continue
 
                 token_price = np.median(
@@ -348,16 +348,16 @@ class GetAvailableLiquidity(GetData):
                         float(prices[self._long_token_address]["minPriceFull"]) / oracle_precision,
                     ]
                 )
-                logger.debug(f"{market_symbol}: token_price={token_price}, oracle_precision={oracle_precision}")
+                logger.debug("%s: token_price=%s, oracle_precision=%s", market_symbol, token_price, oracle_precision)
 
                 # Get reserved amounts from open interest
                 if market_symbol not in open_interest.get("long", {}) or market_symbol not in open_interest.get("short", {}):
-                    logger.warning(f"No open interest data for {market_symbol}")
+                    logger.warning("No open interest data for %s", market_symbol)
                     continue
 
                 reserved_long = open_interest["long"][market_symbol]
                 reserved_short = open_interest["short"][market_symbol]
-                logger.debug(f"{market_symbol}: reserved_long={reserved_long}, reserved_short={reserved_short}")
+                logger.debug("%s: reserved_long=%s, reserved_short=%s", market_symbol, reserved_long, reserved_short)
 
                 # Select the lesser of maximum value of pool reserves or open interest limit
                 effective_long_reserve_factor = min(long_reserve_factor, long_oi_reserve_factor)
@@ -384,23 +384,23 @@ class GetAvailableLiquidity(GetData):
                     short_max_reserved_usd = short_pool_amount * effective_short_reserve_factor
                     short_available_usd = short_max_reserved_usd / short_precision - reserved_short
 
-                logger.debug(f"{market_symbol} calculations:")
-                logger.debug(f"  long_pool_amount={long_pool_amount}, long_precision={long_precision}")
-                logger.debug(f"  effective_long_reserve_factor={effective_long_reserve_factor}")
-                logger.debug(f"  short_pool_amount={short_pool_amount}, short_precision={short_precision}")
-                logger.debug(f"  effective_short_reserve_factor={effective_short_reserve_factor}")
+                logger.debug("%s calculations:", market_symbol)
+                logger.debug("  long_pool_amount=%s, long_precision=%s", long_pool_amount, long_precision)
+                logger.debug("  effective_long_reserve_factor=%s", effective_long_reserve_factor)
+                logger.debug("  short_pool_amount=%s, short_precision=%s", short_pool_amount, short_precision)
+                logger.debug("  effective_short_reserve_factor=%s", effective_short_reserve_factor)
                 # Store in output structure
                 self.output["long"][market_symbol] = long_available_usd
                 self.output["short"][market_symbol] = short_available_usd
                 processed_count += 1
 
-                logger.debug(f"{market_symbol}: Long=${long_available_usd:,.2f}, Short=${short_available_usd:,.2f}")
+                logger.debug("%s: Long=$%.2f, Short=$%.2f", market_symbol, long_available_usd, short_available_usd)
 
             except Exception as e:
-                logger.error(f"Failed to process market {market_symbol}: {e}")
+                logger.error("Failed to process market %s: %s", market_symbol, e)
                 continue
 
-        logger.info(f"Successfully processed {processed_count} markets out of {len(available_markets)}")
+        logger.info("Successfully processed %s markets out of %s", processed_count, len(available_markets))
 
         # Add parameter identifier for compatibility
         self.output["parameter"] = "available_liquidity"
@@ -408,7 +408,7 @@ class GetAvailableLiquidity(GetData):
         total_long = sum(v for v in self.output["long"].values() if isinstance(v, (int, float)))
         total_short = sum(v for v in self.output["short"].values() if isinstance(v, (int, float)))
 
-        logger.debug(f"Liquidity calculation complete: Total Long=${total_long:,.2f}, Total Short=${total_short:,.2f}, Markets processed: {len(self.output['long'])}")
+        logger.debug("Liquidity calculation complete: Total Long=$%.2f, Total Short=$%.2f, Markets processed: %s", total_long, total_short, len(self.output["long"]))
 
         return self.output
 

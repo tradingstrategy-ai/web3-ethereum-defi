@@ -11,6 +11,8 @@ import time
 import logging
 import random
 
+from eth_typing import HexAddress
+from eth_utils import to_checksum_address
 from requests import Response
 
 from eth_defi.gmx.contracts import _get_clean_api_urls, _get_clean_backup_urls
@@ -20,6 +22,27 @@ from eth_defi.gmx.types import PriceData
 # Key: chain name, Value: (prices dict, timestamp)
 _ORACLE_PRICES_CACHE: dict[str, tuple[dict, float]] = {}
 _CACHE_TTL_SECONDS = 10  # Cache oracle prices for 10 seconds
+
+# Testnet to mainnet token address mappings
+# Used to translate testnet addresses to mainnet equivalents for oracle price lookups
+# Since testnets use mainnet oracle endpoints, we need this mapping
+_TESTNET_TO_MAINNET_ADDRESSES: dict[str, dict[HexAddress, HexAddress]] = {
+    # Arbitrum Sepolia → Arbitrum mainnet
+    "arbitrum_sepolia": {
+        # WETH/ETH
+        "0x980B62Da83eFf3D4576C647993b0c1D7faf17c73": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
+        # USDC
+        "0x3321Fd36aEaB0d5CdfD26f4A3A93E2D2aAcCB99f": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+        # USDC.SG (synthetic) - maps to same USDC on mainnet
+        "0x3253a335E7bFfB4790Aa4C25C4250d206E9b9773": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+        # BTC
+        "0xF79cE1Cf38A09D572b021B4C5548b75A14082F12": "0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f",
+    },
+    # Avalanche Fuji → Avalanche mainnet
+    "avalanche_fuji": {
+        # Add mappings when Fuji testnet is tested
+    },
+}
 
 
 class OraclePrices:
@@ -51,9 +74,42 @@ class OraclePrices:
         if oracle_chain not in clean_api_urls:
             raise ValueError(f"Unsupported chain: {chain}. Supported: {list(clean_api_urls.keys()) + list(testnet_to_mainnet.keys())}")
 
-        logging.info(f"Using oracle for chain '{oracle_chain}' (requested chain: '{chain}')")
+        logging.info("Using oracle for chain '%s' (requested chain: '%s')", oracle_chain, chain)
         self.oracle_url = clean_api_urls[oracle_chain] + "/signed_prices/latest"
         self.backup_oracle_url = clean_backup_urls.get(oracle_chain, "") + "/signed_prices/latest" if clean_backup_urls.get(oracle_chain) else None
+
+    def _translate_address_for_oracle(self, address: HexAddress) -> HexAddress:
+        """Translate testnet token address to mainnet equivalent for oracle lookup.
+
+        Testnets use mainnet oracle endpoints, so we need to map testnet
+        token addresses to their mainnet equivalents before looking up prices.
+
+        :param address: Token address (testnet or mainnet)
+        :return: Mainnet token address for oracle lookup
+        """
+        # Check if we have a mapping for this chain
+        if self.chain in _TESTNET_TO_MAINNET_ADDRESSES:
+            # Normalise address to checksum format for consistent lookup
+            try:
+                checksum_addr = to_checksum_address(address)
+            except ValueError:
+                # Invalid address format, return as-is
+                return address
+
+            # Look up mainnet equivalent
+            mapping = _TESTNET_TO_MAINNET_ADDRESSES[self.chain]
+            mainnet_addr = mapping.get(checksum_addr)
+
+            if mainnet_addr:
+                logging.debug("Translated testnet address %s to mainnet %s", checksum_addr, mainnet_addr)
+                return mainnet_addr
+            else:
+                # No mapping found - address might already be mainnet or unknown token
+                logging.debug("No testnet mapping found for %s, using as-is", checksum_addr)
+                return checksum_addr
+
+        # Not a testnet chain, return address unchanged
+        return address
 
     def get_recent_prices(self, use_cache: bool = True, cache_ttl: float = None) -> PriceData:
         """Get raw output of the GMX rest v2 api for signed prices.
@@ -74,7 +130,7 @@ class OraclePrices:
             age = time.time() - cached_time
 
             if age < ttl:
-                logging.debug(f"Using cached oracle prices (age: {age:.1f}s)")
+                logging.debug("Using cached oracle prices (age: %.1fs)", age)
                 return cached_prices
 
         # Fetch fresh prices
@@ -87,7 +143,26 @@ class OraclePrices:
 
         return prices
 
-    def _make_query(self, max_retries=5, initial_backoff=1, max_backoff=60) -> Optional[Response]:
+    def get_price_for_token(self, token_address: HexAddress, use_cache: bool = True) -> dict | None:
+        """Get oracle price for a specific token, handling testnet address translation.
+
+        This is the recommended method for getting token prices as it automatically
+        handles testnet-to-mainnet address mapping.
+
+        :param token_address: Token address (testnet or mainnet)
+        :param use_cache: Whether to use cached oracle prices
+        :return: Price data dict or None if not found
+        """
+        # Translate testnet address to mainnet if needed
+        lookup_address = self._translate_address_for_oracle(token_address)
+
+        # Get all oracle prices
+        oracle_prices = self.get_recent_prices(use_cache=use_cache)
+
+        # Look up by mainnet address
+        return oracle_prices.get(lookup_address)
+
+    def _make_query(self, max_retries=5, initial_backoff=1, max_backoff=60) -> Response | None:
         """Make request using oracle URL with retry mechanism.
 
         :param max_retries: Maximum number of retry attempts
@@ -99,33 +174,57 @@ class OraclePrices:
         :rtype: requests.models.Response
         :raises requests.exceptions.RequestException: If all retry attempts fail
         """
-        url = self.oracle_url
-        attempts = 0
-        backoff = initial_backoff
+        urls = [self.oracle_url]
+        if self.backup_oracle_url:
+            urls.append(self.backup_oracle_url)
 
-        while attempts < max_retries:
-            try:
-                logging.debug(f"Querying oracle at {url}")
-                response = requests.get(url, timeout=30)  # Added timeout for safety
-                response.raise_for_status()  # Raise exception for 4XX/5XX status codes
-                return response
+        last_exception = None
 
-            except (requests.exceptions.RequestException, requests.exceptions.Timeout) as e:
-                attempts += 1
+        for url in urls:
+            attempts = 0
+            backoff = initial_backoff
+
+            while attempts < max_retries:
+                try:
+                    logging.debug("Querying oracle at %s", url)
+                    response = requests.get(url, timeout=30)  # Added timeout for safety
+                    response.raise_for_status()  # Raise exception for 4XX/5XX status codes
+                    return response
+
+                except requests.exceptions.HTTPError as e:
+                    # Don't retry client errors (4xx)
+                    if 400 <= e.response.status_code < 500:
+                        logging.error("Oracle client error %s: %s", e.response.status_code, e)
+                        last_exception = e
+                        break  # Break inner loop, try next URL
+
+                    # 5xx errors fall through to general RequestException handling (retry)
+                    attempts += 1
+                    last_exception = e
+
+                except (requests.exceptions.RequestException, requests.exceptions.Timeout) as e:
+                    attempts += 1
+                    last_exception = e
 
                 if attempts >= max_retries:
-                    logging.error(f"Failed to query oracle after {max_retries} attempts: {str(e)}")
-                    raise
+                    logging.warning("Failed to query oracle at %s after %s attempts: %s", url, max_retries, str(last_exception))
+                    break
 
                 # Add jitter to avoid thundering herd problem
                 jitter = random.uniform(0, 0.1 * backoff)
                 wait_time = backoff + jitter
 
-                logging.debug(f"Request failed: {str(e)}. Retrying in {wait_time:.2f} seconds (attempt {attempts}/{max_retries})")
+                logging.debug("Request failed: %s. Retrying in %.2f seconds (attempt %s/%s)", str(last_exception), wait_time, attempts, max_retries)
                 time.sleep(wait_time)
 
                 # Exponential backoff with capping
                 backoff = min(backoff * 2, max_backoff)
+
+        # If we exhausted all URLs and retries
+        if last_exception:
+            logging.error("All oracle URLs failed. Last error: %s", str(last_exception))
+            raise last_exception
+
         return None
 
     @staticmethod

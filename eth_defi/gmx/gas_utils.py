@@ -54,24 +54,18 @@ def execution_gas_fee_per_oracle_price_key():
 
 
 def get_gas_limits(datastore_object: Contract, use_cache: bool = True) -> dict[str, int]:
-    """
-    Given a Web3 contract object of the datastore, return a dictionary with the gas limits
+    """Given a Web3 contract object of the datastore, return a dictionary with the gas limits
     (as integers) that correspond to various operations used for execution fee calculation.
 
     Uses module-level caching to avoid repeated RPC calls for the same datastore.
     Gas limits are cached per (chain_id, datastore_address) combination.
 
-    Parameters
-    ----------
-    datastore_object : web3.contract.Contract
-        The connected contract instance.
-    use_cache : bool, optional
-        Whether to use cached values. Default is True.
-
-    Returns
-    -------
-    dict[str, int]
-        Gas limit values for various operations.
+    :param datastore_object: The connected contract instance
+    :type datastore_object: web3.contract.Contract
+    :param use_cache: Whether to use cached values. Default is True
+    :type use_cache: bool
+    :return: Gas limit values for various operations
+    :rtype: dict[str, int]
     """
     # Get cache key from contract
     chain_id = datastore_object.w3.eth.chain_id
@@ -127,21 +121,16 @@ def calculate_execution_fee(
 
     Where applyFactor(value, factor) = value * factor / 10^30
 
-    Parameters
-    ----------
-    gas_limits : dict[str, int]
-        Gas limits dictionary from get_gas_limits()
-    gas_price : int
-        Gas price in wei (should be maxFeePerGas for EIP-1559)
-    order_type : str
-        Order type key: "increase_order", "decrease_order", "swap_order", etc.
-    oracle_price_count : int
-        Number of oracle prices needed (typically 2 for most orders)
-
-    Returns
-    -------
-    int
-        Calculated execution fee in wei
+    :param gas_limits: Gas limits dictionary from get_gas_limits()
+    :type gas_limits: dict[str, int]
+    :param gas_price: Gas price in wei (should be maxFeePerGas for EIP-1559)
+    :type gas_price: int
+    :param order_type: Order type key: "increase_order", "decrease_order", "swap_order", etc.
+    :type order_type: str
+    :param oracle_price_count: Number of oracle prices needed (typically 2 for most orders)
+    :type oracle_price_count: int
+    :return: Calculated execution fee in wei
+    :rtype: int
     """
     logger = logging.getLogger(__name__)
 

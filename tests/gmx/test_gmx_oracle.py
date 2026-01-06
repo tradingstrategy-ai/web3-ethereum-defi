@@ -5,10 +5,8 @@ This test suite verifies the functionality of the OraclePrices class
 when fetching oracle price data from GMX APIs.
 """
 
-import logging
 import pytest
 import requests
-import os
 
 from eth_defi.gmx.core.oracle import OraclePrices
 
@@ -166,16 +164,19 @@ def test_make_query_invalid_url():
     """Test _make_query behavior with invalid URL."""
     oracle = OraclePrices("arbitrum")
 
-    # Temporarily modify URL to invalid endpoint
+    # Temporarily modify URLs to invalid endpoint
     original_url = oracle.oracle_url
+    original_backup_url = oracle.backup_oracle_url
     oracle.oracle_url = "https://invalid-api-endpoint.nonexistent/hehehe"
+    oracle.backup_oracle_url = None  # Disable backup to ensure exception is raised
 
     try:
         with pytest.raises(requests.exceptions.RequestException):
             oracle._make_query(max_retries=2, initial_backoff=0.1)
     finally:
-        # Restore original URL
+        # Restore original URLs
         oracle.oracle_url = original_url
+        oracle.backup_oracle_url = original_backup_url
 
 
 def test_full_integration_flow(chain_name):

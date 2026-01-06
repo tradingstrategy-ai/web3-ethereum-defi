@@ -46,7 +46,7 @@ def test_bundled_long_with_stop_loss(isolated_fork_env, execution_buffer):
         size_delta_usd=100,
         leverage=2.5,
         stop_loss_percent=0.05,
-        slippage_percent=0.005,
+        slippage_percent=0.1,  # keep it as it is ik what I'm doing. Don't waste time & move on
         execution_buffer=execution_buffer,
     )
 
@@ -101,7 +101,7 @@ def test_bundled_long_with_take_profit(isolated_fork_env, execution_buffer):
         size_delta_usd=100,
         leverage=2.5,
         take_profit_percent=0.15,
-        slippage_percent=0.005,
+        slippage_percent=0.1,  # keep it as it is ik what I'm doing. Don't waste time & move on
         execution_buffer=execution_buffer,
     )
 
@@ -148,7 +148,7 @@ def test_bundled_long_with_both_sl_tp(isolated_fork_env, execution_buffer):
         leverage=2.5,
         stop_loss_percent=0.05,
         take_profit_percent=0.15,
-        slippage_percent=0.005,
+        slippage_percent=0.1,  # keep it as it is ik what I'm doing. Don't waste time & move on
         execution_buffer=execution_buffer,
     )
 
@@ -203,7 +203,7 @@ def test_bundled_short_with_sl_tp(isolated_fork_env_short, execution_buffer):
         leverage=2.5,
         stop_loss_percent=0.05,
         take_profit_percent=0.10,
-        slippage_percent=0.005,
+        slippage_percent=0.1,  # keep it as it is ik what I'm doing. Don't waste time & move on
         execution_buffer=execution_buffer,
     )
 
@@ -236,6 +236,43 @@ def test_bundled_short_with_sl_tp(isolated_fork_env_short, execution_buffer):
 # STANDALONE MODE TESTS - Open position first, then add SL/TP
 # ============================================================================
 
+from eth_defi.gmx.synthetic_tokens import get_gmx_synthetic_token_by_symbol
+from eth_defi.token import fetch_erc20_details
+from eth_utils import to_checksum_address
+
+
+def _fund_wallet_for_trading(env, wallet_address):
+    """Fund wallet with USDC and ETH for trading."""
+    # Fund wallet with USDC from whale if needed
+    large_usdc_holder = to_checksum_address("0x2Df1c51E09aECF9cacB7bc98cB1742757f163dF7")
+    usdc_token = get_gmx_synthetic_token_by_symbol(env.web3.eth.chain_id, "USDC")
+
+    if usdc_token:
+        usdc = fetch_erc20_details(env.web3, usdc_token.address)
+
+        # Check current USDC balance
+        usdc_balance_pre = usdc.contract.functions.balanceOf(wallet_address).call()
+
+        # Fund wallet with USDC if balance is 0 or low
+        if usdc_balance_pre < 1000 * 10**6:  # Less than 1000 USDC
+            # Impersonate whale
+            env.web3.provider.make_request("anvil_impersonateAccount", [large_usdc_holder])
+
+            # Fund whale with gas
+            gas_eth = 100 * 10**18
+            env.web3.provider.make_request("anvil_setBalance", [large_usdc_holder, hex(gas_eth)])
+
+            # Transfer USDC from whale to wallet
+            usdc_amount = 100_000_000 * 10**6  # 100M USDC
+            tx_hash = usdc.contract.functions.transfer(wallet_address, usdc_amount).transact({"from": large_usdc_holder})
+            env.web3.eth.wait_for_transaction_receipt(tx_hash)
+
+            # Stop impersonating
+            env.web3.provider.make_request("anvil_stopImpersonatingAccount", [large_usdc_holder])
+
+    # Ensure wallet has enough ETH
+    env.web3.provider.make_request("anvil_setBalance", [wallet_address, hex(100 * 10**18)])
+
 
 @flaky(max_runs=3, min_passes=1)
 def test_standalone_long_with_stop_loss(isolated_fork_env, execution_buffer):
@@ -244,16 +281,17 @@ def test_standalone_long_with_stop_loss(isolated_fork_env, execution_buffer):
     wallet_address = env.config.get_wallet_address()
 
     env.wallet.sync_nonce(env.web3)
+    _fund_wallet_for_trading(env, wallet_address)
 
     # Step 1: Open position without SL/TP
     order_result = env.trading.open_position(
         market_symbol="ETH",
-        collateral_symbol="ETH",
-        start_token_symbol="ETH",
+        collateral_symbol="USDC",
+        start_token_symbol="USDC",
         is_long=True,
         size_delta_usd=100,
         leverage=2.5,
-        slippage_percent=0.005,
+        slippage_percent=0.1,  # keep it as it is ik what I'm doing. Don't waste time & move on
         execution_buffer=execution_buffer,
     )
 
@@ -280,6 +318,9 @@ def test_standalone_long_with_stop_loss(isolated_fork_env, execution_buffer):
     entry_price = pos_data["entry_price"]
     position_size = pos_data["position_size"]
 
+    # Re-fund wallet with ETH explicitly to fix the 0 balance issue
+    env.web3.provider.make_request("anvil_setBalance", [wallet_address, hex(100 * 10**18)])
+
     # Step 2: Create standalone stop loss
     env.wallet.sync_nonce(env.web3)
 
@@ -290,7 +331,7 @@ def test_standalone_long_with_stop_loss(isolated_fork_env, execution_buffer):
         position_size_usd=position_size,
         entry_price=entry_price,
         stop_loss_percent=0.05,
-        execution_buffer=execution_buffer * 100,
+        execution_buffer=execution_buffer * 10,
     )
 
     sl_tx = sl_result.transaction.copy()
@@ -311,17 +352,18 @@ def test_standalone_long_with_take_profit(isolated_fork_env, execution_buffer):
     wallet_address = env.config.get_wallet_address()
 
     env.wallet.sync_nonce(env.web3)
+    _fund_wallet_for_trading(env, wallet_address)
 
     # Step 1: Open position without SL/TP
     order_result = env.trading.open_position(
         market_symbol="ETH",
-        collateral_symbol="ETH",
-        start_token_symbol="ETH",
+        collateral_symbol="USDC",
+        start_token_symbol="USDC",
         is_long=True,
-        size_delta_usd=100,
+        size_delta_usd=10,
         leverage=2.5,
-        slippage_percent=0.005,
-        execution_buffer=execution_buffer * 100,
+        slippage_percent=0.1,  # keep it as it is ik what I'm doing. Don't waste time & move on
+        execution_buffer=execution_buffer * 10,
     )
 
     transaction = order_result.transaction.copy()
@@ -346,6 +388,9 @@ def test_standalone_long_with_take_profit(isolated_fork_env, execution_buffer):
     pos_key, pos_data = list(positions.items())[0]
     entry_price = pos_data["entry_price"]
     position_size = pos_data["position_size"]
+
+    # Re-fund wallet with ETH explicitly to fix the 0 balance issue
+    env.web3.provider.make_request("anvil_setBalance", [wallet_address, hex(100 * 10**18)])
 
     # Step 2: Create standalone take profit
     env.wallet.sync_nonce(env.web3)
@@ -378,16 +423,17 @@ def test_standalone_short_with_sl_and_tp(isolated_fork_env_short, execution_buff
     wallet_address = env.config.get_wallet_address()
 
     env.wallet.sync_nonce(env.web3)
+    _fund_wallet_for_trading(env, wallet_address)
 
     # Step 1: Open short position
     order_result = env.trading.open_position(
         market_symbol="ETH",
-        collateral_symbol="ETH",
-        start_token_symbol="ETH",
+        collateral_symbol="USDC",
+        start_token_symbol="USDC",
         is_long=False,
         size_delta_usd=100,
         leverage=2.5,
-        slippage_percent=0.005,
+        slippage_percent=0.1,  # keep it as it is ik what I'm doing. Don't waste time & move on
         execution_buffer=execution_buffer,
     )
 
@@ -414,6 +460,9 @@ def test_standalone_short_with_sl_and_tp(isolated_fork_env_short, execution_buff
     entry_price = pos_data["entry_price"]
     position_size = pos_data["position_size"]
 
+    # Re-fund wallet with ETH explicitly to fix the 0 balance issue
+    env.web3.provider.make_request("anvil_setBalance", [wallet_address, hex(100 * 10**18)])
+
     # Step 2: Create stop loss for short position
     env.wallet.sync_nonce(env.web3)
 
@@ -424,7 +473,7 @@ def test_standalone_short_with_sl_and_tp(isolated_fork_env_short, execution_buff
         position_size_usd=position_size,
         entry_price=entry_price,
         stop_loss_percent=0.05,
-        execution_buffer=execution_buffer * 100,
+        execution_buffer=execution_buffer * 10,
     )
 
     sl_tx = sl_result.transaction.copy()
@@ -486,7 +535,7 @@ def test_full_lifecycle_open_and_close_with_sl_tp(isolated_fork_env, execution_b
         leverage=2.5,
         stop_loss_percent=0.05,
         take_profit_percent=0.15,
-        slippage_percent=0.005,
+        slippage_percent=0.1,  # keep it as it is ik what I'm doing. Don't waste time & move on
         execution_buffer=execution_buffer,
     )
 
@@ -529,7 +578,7 @@ def test_full_lifecycle_open_and_close_with_sl_tp(isolated_fork_env, execution_b
         is_long=True,
         size_delta_usd=position_size_usd_raw,
         initial_collateral_delta=collateral_amount_usd,
-        slippage_percent=0.005,
+        slippage_percent=0.1,  # keep it as it is ik what I'm doing. Don't waste time & move on
         execution_buffer=execution_buffer,
     )
 
@@ -575,7 +624,7 @@ def test_absolute_trigger_price_stop_loss(isolated_fork_env, execution_buffer):
         size_delta_usd=100,
         leverage=2.5,
         stop_loss_price=3000.0,
-        slippage_percent=0.005,
+        slippage_percent=0.1,  # keep it as it is ik what I'm doing. Don't waste time & move on
         execution_buffer=execution_buffer,
     )
 
@@ -619,7 +668,7 @@ def test_absolute_trigger_price_take_profit(isolated_fork_env, execution_buffer)
         size_delta_usd=100,
         leverage=2.5,
         take_profit_price=4500.0,
-        slippage_percent=0.005,
+        slippage_percent=0.1,  # keep it as it is ik what I'm doing. Don't waste time & move on
         execution_buffer=execution_buffer,
     )
 

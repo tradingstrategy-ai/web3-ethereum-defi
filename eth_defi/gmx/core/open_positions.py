@@ -63,7 +63,7 @@ class GetOpenPositions(GetData):
             try:
                 return self._get_data_via_graphql(checksum_address)
             except Exception as e:
-                logger.warning(f"GraphQL query failed, falling back to RPC: {e}")
+                logger.warning("GraphQL query failed, falling back to RPC: %s", e)
                 # Fall through to RPC method
 
         # RPC method (original implementation)
@@ -83,16 +83,12 @@ class GetOpenPositions(GetData):
                 # 2. No positions for this address
                 # 3. Network/RPC issues
                 error_msg = str(decode_error)
-                logger.error(
-                    f"Could not decode positions for address {checksum_address}: {error_msg}",
-                )
+                logger.error("Could not decode positions for address %s: %s", checksum_address, error_msg)
                 # Return empty dict for addresses with no valid positions
                 raise decode_error
 
             if len(raw_positions) == 0:
-                logger.info(
-                    f'No positions open for address: "{checksum_address}" on {chain_name.title()}.',
-                )
+                logger.info('No positions open for address: "%s" on %s.', checksum_address, chain_name.title())
                 return {}
 
             processed_positions = {}
@@ -110,17 +106,17 @@ class GetOpenPositions(GetData):
                     key = "{}_{}".format(processed_position["market_symbol"], direction)
                     processed_positions[key] = processed_position
                 except KeyError as e:
-                    logging.error(f"Incompatible market: {e}")
+                    logging.error("Incompatible market: %s", e)
                     # Continue processing other positions instead of failing completely
                     continue
                 except Exception as e:
-                    logging.error(f"Error processing position: {e}")
+                    logging.error("Error processing position: %s", e)
                     continue
 
             return processed_positions
 
         except Exception as e:
-            logger.error(f"Failed to fetch open positions data: {e}")
+            logger.error("Failed to fetch open positions data: %s", e)
             raise e
 
     def _get_data_via_graphql(self, address: str) -> MarketData:
@@ -183,7 +179,7 @@ class GetOpenPositions(GetData):
             positions_data = data.get("data", {}).get("positions", [])
 
             if not positions_data:
-                logger.info(f'No positions found via GraphQL for address: "{address}" on {chain_name.title()}')
+                logger.info('No positions found via GraphQL for address: "%s" on %s', address, chain_name.title())
                 return {}
 
             # Process GraphQL positions to match RPC format
@@ -204,7 +200,7 @@ class GetOpenPositions(GetData):
                     processed_positions[key] = processed_position
 
                 except Exception as e:
-                    logger.warning(f"Failed to process GraphQL position {pos.get('id')}: {e}")
+                    logger.warning("Failed to process GraphQL position %s: %s", pos.get("id"), e)
                     continue
 
             return processed_positions
@@ -299,6 +295,27 @@ class GetOpenPositions(GetData):
         else:
             percent_profit = 0
 
+        # Log position data for debugging (GraphQL source)
+        logger.info(
+            "POSITION_TRACE: _process_graphql_position() market=%s, is_long=%s, position_size_usd=%.2f",
+            market_info["market_symbol"],
+            is_long,
+            position_size_usd,
+        )
+        logger.info(
+            "POSITION_TRACE: collateral_amount_tokens=%.8f, collateral_price=%.4f, collateral_usd=%.2f",
+            collateral_amount_tokens,
+            collateral_price,
+            collateral_amount_usd,
+        )
+        logger.info(
+            "POSITION_TRACE: entry_price=%.4f, mark_price=%.4f, leverage=%.2f, percent_profit=%.4f%%",
+            entry_price,
+            mark_price,
+            leverage,
+            percent_profit,
+        )
+
         return {
             "account": to_checksum_address(pos["account"]),
             "market": market_address,
@@ -343,9 +360,7 @@ class GetOpenPositions(GetData):
         try:
             # Get tokens metadata from GMX API (includes decimals - no contract calls needed!)
             chain_tokens = get_tokens_metadata_dict(chain)
-            logging.debug(
-                f"Fetched {len(chain_tokens)} tokens from GMX API for {chain}",
-            )
+            logging.debug("Fetched %s tokens from GMX API for %s", len(chain_tokens), chain)
 
             # Add missing tokens from NETWORK_TOKENS_METADATA if needed
             if chain in NETWORK_TOKENS_METADATA:
@@ -353,14 +368,12 @@ class GetOpenPositions(GetData):
                 for address, metadata in network_tokens_meta.items():
                     if address not in chain_tokens:
                         chain_tokens[address] = metadata
-                        logging.info(
-                            f"Added token from NETWORK_TOKENS_METADATA: {metadata['symbol']} ({address})",
-                        )
+                        logging.info("Added token from NETWORK_TOKENS_METADATA: %s (%s)", metadata["symbol"], address)
 
             return chain_tokens
 
         except Exception as e:
-            logging.error(f"Failed to get token metadata: {e}")
+            logging.error("Failed to get token metadata: %s", e)
             raise e
 
     def _get_data_processing(self, raw_position: tuple) -> dict[str, Any]:
@@ -439,12 +452,10 @@ class GetOpenPositions(GetData):
                         float(index_price_data["minPriceFull"]),
                     ]
                 ) / 10 ** (30 - index_token_decimals)
-                logging.debug(f"Got oracle price for index token {index_token_address}: ${mark_price:.4f},")
+                logging.debug("Got oracle price for index token %s: $%.4f,", index_token_address, mark_price)
             else:
                 # Price not found in oracle, use entry price
-                logging.debug(
-                    f"Oracle price not found for index token {index_token_address} (oracle address: {oracle_index_token_address}), using entry price",
-                )
+                logging.debug("Oracle price not found for index token %s (oracle address: %s), using entry price", index_token_address, oracle_index_token_address)
                 mark_price = entry_price
 
             # Get collateral token price for leverage calculation
@@ -458,20 +469,18 @@ class GetOpenPositions(GetData):
                         float(collateral_price_data["minPriceFull"]),
                     ]
                 ) / 10 ** (30 - collateral_token_decimals)
-                logging.debug(f"Got oracle price for collateral token {collateral_token_address}: ${collateral_price:.4f},")
+                logging.debug("Got oracle price for collateral token %s: $%.4f,", collateral_token_address, collateral_price)
             else:
                 # Collateral price not found, assume $1 (for stablecoins) or use mark price (for same-asset collateral)
                 if index_token_address.lower() == collateral_token_address.lower():
                     collateral_price = mark_price
-                    logging.debug(f"Using mark price for collateral (same as index token): ${collateral_price:.4f},")
+                    logging.debug("Using mark price for collateral (same as index token): $%.4f,", collateral_price)
                 else:
                     collateral_price = 1.0
-                    logging.debug(
-                        f"Oracle price not found for collateral token {collateral_token_address}, assuming $1 (stablecoin)",
-                    )
+                    logging.debug("Oracle price not found for collateral token %s, assuming $1 (stablecoin)", collateral_token_address)
 
         except (KeyError, TypeError, ValueError) as e:
-            logging.warning(f"Could not get oracle prices: {e}")
+            logging.warning("Could not get oracle prices: %s", e)
             mark_price = entry_price  # Fallback to entry price
             # For collateral, assume $1 for stablecoins or use entry price for same-asset
             if index_token_address.lower() == collateral_token_address.lower():
@@ -513,6 +522,27 @@ class GetOpenPositions(GetData):
         #   [8] increasedAtTime
         #   [9] decreasedAtTime
         # raw_position[2] = Flags (isLong)
+
+        # Log position data for debugging
+        logger.info(
+            "POSITION_TRACE: _get_data_processing() market=%s, is_long=%s, position_size_usd=%.2f",
+            market_info["market_symbol"],
+            raw_position[2][0],
+            position_size_usd,
+        )
+        logger.info(
+            "POSITION_TRACE: collateral_amount_tokens=%.8f, collateral_price=%.4f, collateral_usd=%.2f",
+            collateral_amount_tokens,
+            collateral_price,
+            collateral_amount_usd,
+        )
+        logger.info(
+            "POSITION_TRACE: entry_price=%.4f, mark_price=%.4f, leverage=%.2f, percent_profit=%.4f%%",
+            entry_price,
+            mark_price,
+            leverage,
+            percent_profit,
+        )
 
         return {
             "account": raw_position[0][0],

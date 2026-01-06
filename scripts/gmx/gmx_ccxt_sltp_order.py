@@ -26,42 +26,48 @@ Environment Variables
 Examples
 --------
 
-Bundled SL/TP (CCXT unified style)::
+**Two approaches for position sizing:**
+
+1. **CCXT Standard:** Pass ``amount`` in base currency (ETH)
+2. **GMX Extension:** Pass ``size_usd`` in params for direct USD sizing
+
+Approach 1 - CCXT Standard (amount in ETH)::
+
+    # For $1000 position at $2000/ETH:
+    ticker = gmx.fetch_ticker("ETH/USDC:USDC")
+    amount_eth = 1000 / ticker["last"]  # Convert USD to ETH
 
     order = gmx.create_market_buy_order(
         "ETH/USDC:USDC",
-        1000,
+        amount_eth,  # In base currency (ETH)
         {
             "leverage": 3.0,
-            "stopLossPrice": 1850.0,  # Simple trigger price
-            "takeProfitPrice": 2200.0,  # Simple trigger price
+            "stopLossPrice": 1850.0,
+            "takeProfitPrice": 2200.0,
         },
     )
 
-Bundled SL/TP (CCXT object style)::
+Approach 2 - GMX Extension (size_usd in params)::
 
+    # Direct USD sizing - no conversion needed
     order = gmx.create_market_buy_order(
         "ETH/USDC:USDC",
-        1000,
+        0,  # Ignored when size_usd is provided
         {
+            "size_usd": 1000,  # Direct USD amount
             "leverage": 3.0,
-            "stopLoss": {
-                "triggerPrice": 1850.0,
-                "closePercent": 1.0,  # Close 100% of position
-            },
-            "takeProfit": {
-                "triggerPrice": 2200.0,
-                "closePercent": 1.0,
-            },
+            "stopLossPrice": 1850.0,
+            "takeProfitPrice": 2200.0,
         },
     )
 
-GMX Extensions (percentage-based triggers)::
+GMX Extensions (percentage-based triggers with size_usd)::
 
     order = gmx.create_market_buy_order(
         "ETH/USDC:USDC",
-        1000,
+        0,  # Ignored when size_usd is provided
         {
+            "size_usd": 1000,  # GMX extension
             "leverage": 3.0,
             "stopLoss": {
                 "triggerPercent": 0.05,  # 5% below entry
@@ -95,7 +101,7 @@ from rich.console import Console
 console = Console()
 
 # Configuration
-EXECUTION_BUFFER = 30  # Higher buffer for testnet reliability
+EXECUTION_BUFFER = 4  # Higher buffer for testnet reliability
 SIZE_USD = 10  # Position size in USD
 LEVERAGE = 2.0  # Leverage multiplier
 STOP_LOSS_PERCENT = 0.05  # 5% stop loss
@@ -215,18 +221,28 @@ def main():
     console.print(f"  Stop Loss: {STOP_LOSS_PERCENT * 100:.1f}% below entry")
     console.print(f"  Take Profit: {TAKE_PROFIT_PERCENT * 100:.1f}% above entry")
 
+    console.print("\n[bold yellow]Creating Bundled Order (3 orders in 1 transaction):[/bold yellow]")
+    console.print("  [cyan]1. Main order:[/cyan] Open position")
+    console.print("  [cyan]2. Stop Loss order:[/cyan] Triggered at entry - {:.1f}%".format(STOP_LOSS_PERCENT * 100))
+    console.print("  [cyan]3. Take Profit order:[/cyan] Triggered at entry + {:.1f}%".format(TAKE_PROFIT_PERCENT * 100))
     console.print("\n[dim]Using GMX extension: percentage-based triggers[/dim]")
     console.print("[dim]Triggers will be calculated from actual entry price[/dim]")
 
     try:
-        # Create market buy order with bundled SL/TP using GMX percentage extension
-        order = gmx.create_market_buy_order(
+        # Create market buy order with bundled SL/TP using GMX extensions
+        # Using size_usd parameter for direct USD sizing (GMX native approach)
+        order = gmx.create_order(
             MARKET_SYMBOL,
-            SIZE_USD,
+            "market",
+            "buy",
+            0,  # Ignored when size_usd is provided
+            None,  # price (not needed for market orders)
             {
+                "size_usd": SIZE_USD,  # GMX extension: direct USD amount
                 "leverage": LEVERAGE,
                 "collateral_symbol": COLLATERAL_SYMBOL,
                 "execution_buffer": EXECUTION_BUFFER,
+                "slippage_percent": 0.02,  # 2% slippage for testing
                 # GMX extension: percentage-based triggers
                 "stopLoss": {
                     "triggerPercent": STOP_LOSS_PERCENT,

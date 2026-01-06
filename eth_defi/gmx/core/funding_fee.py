@@ -49,12 +49,12 @@ class GetFundingFee(GetData):
 
             # Skip markets with unknown symbols or missing open interest data
             if symbol == "UNKNOWN" or symbol not in open_interest.get("long", {}) or symbol not in open_interest.get("short", {}):
-                self.log.debug(f"Skipping market {market_key} with symbol '{symbol}' - no open interest data available")
+                self.log.debug("Skipping market %s with symbol '%s' - no open interest data available", market_key, symbol)
                 continue
 
             # Skip markets with zero index token addresses
             if index_token_address == "0x0000000000000000000000000000000000000000":
-                self.log.debug(f"Skipping market {market_key} with zero index token address")
+                self.log.debug("Skipping market %s with zero index token address", market_key)
                 continue
 
             try:
@@ -63,7 +63,7 @@ class GetFundingFee(GetData):
                     index_token_address,
                 )
             except Exception as e:
-                self.log.error(f"Failed to get oracle prices for {market_key}: {e}")
+                self.log.error("Failed to get oracle prices for %s: %s", market_key, e)
                 continue
 
             mapper.append(symbol)

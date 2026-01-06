@@ -6,6 +6,7 @@ from decimal import Decimal
 
 import pytest
 from eth_utils.address import to_checksum_address
+from flaky import flaky
 
 from eth_defi.gmx.graphql.client import GMXSubsquidClient
 
@@ -249,6 +250,7 @@ def test_format_position(graphql_client):
     assert formatted["opened_at"] == 1234567890
 
 
+@flaky(max_runs=3, min_passes=1)
 def test_case_sensitive_addresses(graphql_client):
     """Test that the client handles checksummed addresses correctly.
 

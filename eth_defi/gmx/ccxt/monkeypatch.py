@@ -174,7 +174,7 @@ def patch_ccxt(force: bool = False) -> bool:
     _PATCHED = True
 
     logger.info("Successfully patched CCXT with GMX exchange support")
-    logger.debug(f"CCXT now has {len(ccxt.exchanges)} exchanges including GMX")
+    logger.debug("CCXT now has %s exchanges including GMX", len(ccxt.exchanges))
 
     return True
 

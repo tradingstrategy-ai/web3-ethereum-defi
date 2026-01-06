@@ -166,8 +166,15 @@ def ccxt_gmx_fork_open_close(
     Uses RPC loading (default) for complete market data.
     """
     setup_mock_oracle(web3_arbitrum_fork_ccxt_long)
-    config = GMXConfig(web3_arbitrum_fork_ccxt_long, user_wallet_address=test_wallet)
-    _approve_tokens_for_config(config, web3_arbitrum_fork_ccxt_long, test_wallet.address)
+    config = GMXConfig(
+        web3_arbitrum_fork_ccxt_long,
+        user_wallet_address=test_wallet,
+    )
+    _approve_tokens_for_config(
+        config,
+        web3_arbitrum_fork_ccxt_long,
+        test_wallet.address,
+    )
     gmx = GMX(
         params={
             "rpcUrl": web3_arbitrum_fork_ccxt_long.provider.endpoint_uri if hasattr(web3_arbitrum_fork_ccxt_long.provider, "endpoint_uri") else None,
@@ -262,4 +269,113 @@ def ccxt_gmx_fork_graphql(
     )
     # Pre-load markets so they're available immediately
     gmx.load_markets()
+    return gmx
+
+
+# ============================================================================
+# TENDERLY FIXTURES - Use TENDERLY_RPC_URL env var to run tests on Tenderly
+# ============================================================================
+
+
+@pytest.fixture()
+def tenderly_rpc_url() -> str | None:
+    """Get Tenderly RPC URL from environment."""
+    url = os.environ.get("TENDERLY_RPC_URL")
+    if not url:
+        pytest.skip("TENDERLY_RPC_URL environment variable not set")
+    return url
+
+
+@pytest.fixture()
+def web3_tenderly(tenderly_rpc_url: str) -> Web3:
+    """Web3 instance connected directly to Tenderly virtual testnet."""
+    from eth_defi.provider.multi_provider import create_multi_provider_web3
+
+    web3 = create_multi_provider_web3(
+        tenderly_rpc_url,
+        default_http_timeout=(3.0, 180.0),
+    )
+    install_chain_middleware(web3)
+    web3.eth.set_gas_price_strategy(node_default_gas_price_strategy)
+
+    if not web3.is_connected():
+        pytest.skip(f"Could not connect to Tenderly RPC at {tenderly_rpc_url}")
+
+    return web3
+
+
+@pytest.fixture()
+def test_wallet_tenderly(web3_tenderly: Web3) -> "HotWallet":
+    """Create a HotWallet for testing on Tenderly.
+
+    Funds the wallet with ETH, WETH, and USDC using Tenderly's setBalance.
+    """
+    from eth_account import Account
+    from eth_defi.hotwallet import HotWallet
+    from eth_defi.token import fetch_erc20_details
+    from eth_utils import to_checksum_address
+    from tests.gmx.fork_helpers import set_balance
+
+    # Use default anvil private key
+    private_key = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+    account = Account.from_key(private_key)
+    wallet = HotWallet(account)
+    wallet.sync_nonce(web3_tenderly)
+
+    # Fund wallet with ETH
+    eth_amount_wei = 100_000_000 * 10**18
+    set_balance(web3_tenderly, wallet.address, hex(eth_amount_wei))
+
+    # Fund WETH
+    large_weth_holder = to_checksum_address("0x70d95587d40A2caf56bd97485aB3Eec10Bee6336")
+    set_balance(web3_tenderly, large_weth_holder, hex(10 * 10**18))
+
+    weth_address = to_checksum_address("0x82aF49447D8a07e3bd95BD0d56f35241523fBab1")
+    weth = fetch_erc20_details(web3_tenderly, weth_address)
+    weth_amount = 1000 * 10**18
+    try:
+        weth.contract.functions.transfer(wallet.address, weth_amount).transact(
+            {"from": large_weth_holder},
+        )
+    except Exception as e:
+        logging.warning(f"Could not transfer WETH: {e}")
+
+    # Fund USDC
+    large_usdc_holder = to_checksum_address("0xEe7aE85f2Fe2239E27D9c1E23fFFe168D63b4055")
+    set_balance(web3_tenderly, large_usdc_holder, hex(10 * 10**18))
+
+    usdc_address = to_checksum_address("0xaf88d065e77c8cC2239327C5EDb3A432268e5831")
+    usdc = fetch_erc20_details(web3_tenderly, usdc_address)
+    usdc_amount = 100_000_000 * 10**6
+    try:
+        usdc.contract.functions.transfer(wallet.address, usdc_amount).transact(
+            {"from": large_usdc_holder},
+        )
+    except Exception as e:
+        logging.warning(f"Could not transfer USDC: {e}")
+
+    # Sync nonce after transfers
+    wallet.sync_nonce(web3_tenderly)
+
+    return wallet
+
+
+@pytest.fixture
+def ccxt_gmx_tenderly(
+    web3_tenderly,
+    test_wallet_tenderly,
+) -> GMX:
+    """CCXT GMX exchange with wallet for testing on Tenderly virtual testnet.
+
+    Uses Tenderly directly (no Anvil fork) for persistent state testing.
+    """
+    setup_mock_oracle(web3_tenderly)
+    config = GMXConfig(web3_tenderly, user_wallet_address=test_wallet_tenderly)
+    _approve_tokens_for_config(config, web3_tenderly, test_wallet_tenderly.address)
+    gmx = GMX(
+        params={
+            "rpcUrl": web3_tenderly.provider.endpoint_uri if hasattr(web3_tenderly.provider, "endpoint_uri") else None,
+            "wallet": test_wallet_tenderly,
+        }
+    )
     return gmx

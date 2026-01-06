@@ -284,8 +284,10 @@ def large_usdc_holder_arbitrum() -> HexAddress:
 
     This account is unlocked on Anvil, so you have access to good USDC stash.
     """
+    # https://arbiscan.io/token/0xaf88d065e77c8cc2239327c5edb3a432268e5831
     # This address has consistent USDC balance across different blocks
-    return to_checksum_address("0xEe7aE85f2Fe2239E27D9c1E23fFFe168D63b4055")
+    # backup 0x463f5D63e5a5EDB8615b0e485A090a18Aba08578
+    return to_checksum_address("0x2Df1c51E09aECF9cacB7bc98cB1742757f163dF7")
 
 
 @pytest.fixture()
@@ -649,12 +651,12 @@ def wallet_with_usdc(
         usdc_address = config["usdc_address"]
         usdc = fetch_erc20_details(web3_arbitrum_fork, usdc_address)
         large_holder = large_usdc_holder_arbitrum
-        amount = 100_000 * 10**6  # 100,000 USDC (6 decimals)
+        amount = 100_000_000 * 10**6  # 100,000 USDC (6 decimals)
     else:  # avalanche
         usdc_address = config["usdc_address"]
         usdc = fetch_erc20_details(web3_arbitrum_fork, usdc_address)
         large_holder = large_usdc_holder_avalanche
-        amount = 100_000 * 10**6  # 100,000 USDC (6 decimals)
+        amount = 100_000_000 * 10**6  # 100,000 USDC (6 decimals)
 
     # Fund the whale holder with ETH for gas
     eth_amount_wei = 10 * 10**18  # 10 ETH for gas
@@ -873,7 +875,13 @@ def trading_manager(arbitrum_fork_config):
 
 
 @pytest.fixture()
-def test_wallet(web3_arbitrum_fork, anvil_private_key, chain_name, large_weth_holder_arbitrum, large_usdc_holder_arbitrum):
+def test_wallet(
+    web3_arbitrum_fork,
+    anvil_private_key,
+    chain_name,
+    large_weth_holder_arbitrum,
+    large_usdc_holder_arbitrum,
+):
     """Create a HotWallet for testing transactions."""
     account = Account.from_key(anvil_private_key)
     wallet = HotWallet(account)
@@ -881,7 +889,7 @@ def test_wallet(web3_arbitrum_fork, anvil_private_key, chain_name, large_weth_ho
 
     # Fund wallet with ETH for gas fees (required for GMX order transactions)
     # GMX orders require ETH for execution fees and gas
-    eth_amount_wei = 1000 * 10**18  # 1000 ETH should be enough for multiple transactions
+    eth_amount_wei = 100_000_000 * 10**18  # 100_000_000 ETH should be enough for multiple transactions
     web3_arbitrum_fork.provider.make_request(
         "anvil_setBalance",
         [wallet.address, hex(eth_amount_wei)],
@@ -895,7 +903,7 @@ def test_wallet(web3_arbitrum_fork, anvil_private_key, chain_name, large_weth_ho
             weth = fetch_erc20_details(web3_arbitrum_fork, weth_address)
 
             # Fund the whale holder with ETH for gas
-            gas_eth = 10 * 10**18
+            gas_eth = 100000 * 10**18
             web3_arbitrum_fork.provider.make_request(
                 "anvil_setBalance",
                 [large_weth_holder_arbitrum, hex(gas_eth)],
@@ -917,20 +925,19 @@ def test_wallet(web3_arbitrum_fork, anvil_private_key, chain_name, large_weth_ho
             usdc = fetch_erc20_details(web3_arbitrum_fork, usdc_address)
 
             # Fund the whale holder with ETH for gas
-            gas_eth = 10 * 10**18
+            gas_eth = 10000 * 10**18
             web3_arbitrum_fork.provider.make_request(
                 "anvil_setBalance",
                 [large_usdc_holder_arbitrum, hex(gas_eth)],
             )
 
             # Transfer USDC to test wallet
-            usdc_amount = 100_000 * 10**6  # 100,000 USDC (6 decimals)
+            usdc_amount = 100_000_000 * 10**6  # 100,000 USDC (6 decimals)
             usdc.contract.functions.transfer(wallet.address, usdc_amount).transact(
                 {"from": large_usdc_holder_arbitrum},
             )
-        except Exception:
-            # If USDC transfer fails, that's ok - some tests might not need it
-            pass
+        except Exception as e:
+            raise e
 
     return wallet
 
@@ -1381,7 +1388,7 @@ def test_wallet_tenderly(web3_tenderly: Web3, anvil_private_key) -> HotWallet:
             [large_usdc_holder, hex(10 * 10**18)],
         )
 
-    usdc_amount = 100_000 * 10**6
+    usdc_amount = 100_000_000 * 10**6
     try:
         usdc.contract.functions.transfer(wallet.address, usdc_amount).transact(
             {"from": large_usdc_holder},
@@ -1446,7 +1453,7 @@ def arbitrum_tenderly_config(
             "tenderly_setBalance",
             [large_usdc_holder, hex(10 * 10**18)],
         )
-        usdc.contract.functions.transfer(wallet_address, 100_000 * 10**6).transact(
+        usdc.contract.functions.transfer(wallet_address, 100_000_000 * 10**6).transact(
             {"from": large_usdc_holder},
         )
     except Exception as e:
@@ -1537,11 +1544,11 @@ def _create_isolated_fork_env(
     wallet_address = wallet.get_main_address()
 
     # Fund with ETH (1000 ETH for multiple transactions with execution fees)
-    eth_amount_wei = 1000 * 10**18
+    eth_amount_wei = 100_000_000 * 10**18
     web3.provider.make_request("anvil_setBalance", [wallet_address, hex(eth_amount_wei)])
 
     # Fund whales with gas
-    gas_eth = 1 * 10**18
+    gas_eth = 100_000_000 * 10**18
     web3.provider.make_request("anvil_setBalance", [large_usdc_holder, hex(gas_eth)])
     web3.provider.make_request("anvil_setBalance", [large_weth_holder, hex(gas_eth)])
 
@@ -1549,7 +1556,7 @@ def _create_isolated_fork_env(
     config = _get_chain_config_with_tokens("arbitrum")
     weth_address = config["native_token_address"]
     weth = fetch_erc20_details(web3, weth_address)
-    weth_amount = 1000 * 10**18
+    weth_amount = 100_000_000 * 10**18
     weth.contract.functions.transfer(wallet_address, weth_amount).transact(
         {"from": large_weth_holder},
     )
@@ -1557,7 +1564,7 @@ def _create_isolated_fork_env(
     # Transfer USDC from whale
     usdc_address = config["usdc_address"]
     usdc = fetch_erc20_details(web3, usdc_address)
-    usdc_amount = 100_000 * 10**6
+    usdc_amount = 100_000_000 * 10**6
     usdc.contract.functions.transfer(wallet_address, usdc_amount).transact(
         {"from": large_usdc_holder},
     )

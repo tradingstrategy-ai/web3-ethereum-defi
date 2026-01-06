@@ -47,7 +47,50 @@ class Gmx(Exchange):
     futures exchange. Since GMX is a DEX with unique characteristics, some
     Freqtrade features are not supported.
 
-    Configuration Example::
+    Stop-Loss and Take-Profit Support
+    ----------------------------------
+
+    GMX supports both standard Freqtrade SL/TP patterns and advanced bundled orders:
+
+    **Standard Pattern (Default)**
+
+        Freqtrade creates orders separately:
+
+        1. Entry order via ``create_order()`` - opens position
+        2. Stop-loss via ``create_stoploss()`` - separate transaction after entry fills
+        3. Take-profit via exit signals - bot-managed exits
+
+        This works out of the box with standard Freqtrade strategies when
+        ``stoploss_on_exchange=True`` is configured.
+
+    **Advanced Pattern (Bundled Orders)**
+
+        Custom strategies can pass ``stopLoss`` and ``takeProfit`` parameters to
+        ``create_order()`` to create all 3 orders atomically in one transaction:
+
+        - Main order (position entry)
+        - Stop-loss order (if stopLoss provided)
+        - Take-profit order (if takeProfit provided)
+
+        Benefits: Lower gas costs, atomic execution, guaranteed SL/TP placement.
+
+        Example custom strategy::
+
+            def enter_long(self, pair, amount, leverage):
+                return self.exchange.create_order(
+                    pair=pair,
+                    ordertype="market",
+                    side="buy",
+                    amount=amount,
+                    leverage=leverage,
+                    stopLoss={"triggerPercent": 0.05},  # 5% SL
+                    takeProfit={"triggerPercent": 0.10},  # 10% TP
+                )
+
+    Configuration Example
+    ---------------------
+
+    Basic configuration::
 
         {
             "exchange": {
@@ -61,6 +104,12 @@ class Gmx(Exchange):
             "stake_currency": "USD",
             "trading_mode": "futures",
             "margin_mode": "isolated",
+            "order_types": {
+                "entry": "market",
+                "exit": "market",
+                "stoploss": "market",
+                "stoploss_on_exchange": True,  # Enable SL on exchange
+            },
         }
     """
 
@@ -348,7 +397,7 @@ class Gmx(Exchange):
 
             if not market:
                 # If markets not loaded, return default
-                logger.warning(f"Market {pair} not found, returning default leverage of 50x")
+                logger.warning("Market %s not found, returning default leverage of 50x", pair)
                 return 50.0
 
             # Get max leverage from market limits
@@ -358,11 +407,11 @@ class Gmx(Exchange):
                 return float(max_leverage)
 
             # Fallback to default GMX leverage
-            logger.debug(f"No leverage limit found for {pair}, using default 50x")
+            logger.debug("No leverage limit found for %s, using default 50x", pair)
             return 50.0
 
         except Exception as e:
-            logger.warning(f"Error getting max leverage for {pair}: {e}, returning default 50x")
+            logger.warning("Error getting max leverage for %s: %s, returning default 50x", pair, e)
             return 50.0
 
     def fetch_onchain_positions(self, use_graphql: bool = False) -> dict:
@@ -385,7 +434,7 @@ class Gmx(Exchange):
         logger.info("Fetched %s on-chain GMX positions for wallet %s", len(positions), wallet)
         return positions
 
-    @retrier
+    @retrier(retries=0)
     def create_stoploss(
         self,
         pair: str,
@@ -401,7 +450,7 @@ class Gmx(Exchange):
         This method creates a standalone stop-loss order for existing positions.
 
         :param pair: Trading pair (e.g., "ETH/USDC:USDC")
-        :param amount: Position size in USD to close
+        :param amount: Position size in base currency (e.g., BTC for BTC/USD, ETH for ETH/USD)
         :param stop_price: Stop-loss trigger price
         :param order_types: Freqtrade order type configuration
         :param side: Order side ("buy" for closing short, "sell" for closing long)
@@ -410,28 +459,59 @@ class Gmx(Exchange):
         :raises TemporaryError: If order creation fails temporarily
         :raises DDosProtection: If rate limit exceeded
         """
+        logger.info("*" * 80)
+        logger.info("*** GMX create_stoploss CALLED ***")
+        logger.info(
+            "  pair=%s, amount=%.8f, stop_price=%.2f, side=%s, leverage=%.2f",
+            pair,
+            amount,
+            stop_price,
+            side,
+            leverage,
+        )
+        logger.info("  order_types=%s", order_types)
+        logger.info("*" * 80)
+
         try:
+            # Convert amount from base currency to USD
+            # Freqtrade passes amount in base currency (BTC/ETH), but GMX expects USD
+            ticker = self._api.fetch_ticker(pair)
+            current_price = ticker["last"]
+            amount_usd = amount * current_price
+
+            logger.info(
+                ">>> Converting stop-loss amount for %s: %.8f (base currency) * %.2f (price) = %.2f USD",
+                pair,
+                amount,
+                current_price,
+                amount_usd,
+            )
+
             # GMX uses standalone SL/TP order type
             params = {
                 "leverage": leverage,
                 "stopLossPrice": stop_price,
             }
 
+            logger.debug("Creating standalone stop-loss order with params: %s", params)
+
             # Create standalone stop-loss order via CCXT
             order = self._api.create_order(
                 symbol=pair,
                 type="stop_loss",  # GMX-specific order type
                 side=side,
-                amount=amount,
+                amount=amount_usd,
                 params=params,
             )
 
+            logger.info("*" * 80)
             logger.info(
-                "Created stop-loss order for %s: price=%.2f, amount=%.2f USD",
+                "✓ Created stop-loss order for %s: price=%.2f, amount=%.2f USD",
                 pair,
                 stop_price,
-                amount,
+                amount_usd,
             )
+            logger.info("*" * 80)
             return order
 
         except Exception as e:
@@ -457,6 +537,7 @@ class Gmx(Exchange):
     @retrier
     def create_order(
         self,
+        *,
         pair: str,
         ordertype: str,
         side: str,
@@ -465,47 +546,125 @@ class Gmx(Exchange):
         leverage: float = 1.0,
         reduceOnly: bool = False,
         time_in_force: str = "GTC",
+        initial_order: bool = True,
         **kwargs,
     ) -> dict:
-        """Create order with optional SL/TP support.
+        """Create order with optional bundled stop-loss and take-profit support.
 
-        Freqtrade-compatible order creation that supports GMX bundled SL/TP.
+        GMX supports two order creation patterns:
 
-        :param pair: Trading pair
+        **Standard Freqtrade Pattern (separate orders):**
+            Used by default when no SL/TP parameters are provided. Freqtrade will:
+
+            1. Call ``create_order()`` to open position (single order)
+            2. Call ``create_stoploss()`` after entry fills (separate transaction)
+            3. Call ``create_order()`` for exits/take-profit (separate transaction)
+
+            This is the standard Freqtrade flow and works out of the box.
+
+        **Advanced Pattern (bundled orders):**
+            When ``stopLoss`` or ``takeProfit`` parameters are provided, GMX creates
+            all orders atomically in a single transaction:
+
+            - Main order (entry position)
+            - Stop-loss order (if stopLoss provided)
+            - Take-profit order (if takeProfit provided)
+
+            This reduces gas costs and ensures atomic execution. Requires custom
+            Freqtrade strategies to pass SL/TP parameters.
+
+        Example (standard Freqtrade)::
+
+            # Freqtrade calls this automatically - single entry order
+            order = exchange.create_order(
+                pair="ETH/USDC:USDC",
+                ordertype="market",
+                side="buy",
+                amount=1000,  # USD
+                leverage=3.0,
+            )
+            # Later, Freqtrade calls create_stoploss() separately
+
+        Example (bundled orders - custom strategy)::
+
+            # Custom strategy can pass SL/TP for bundled order
+            order = exchange.create_order(
+                pair="ETH/USDC:USDC",
+                ordertype="market",
+                side="buy",
+                amount=1000,
+                leverage=3.0,
+                stopLoss={"triggerPrice": 1850.0},  # CCXT unified
+                takeProfit={"triggerPrice": 2200.0},
+            )
+            # Creates 3 orders in 1 transaction
+
+        Example (GMX percentage-based triggers)::
+
+            order = exchange.create_order(
+                pair="ETH/USDC:USDC",
+                ordertype="market",
+                side="buy",
+                amount=1000,
+                leverage=3.0,
+                stopLoss={"triggerPercent": 0.05},  # 5% below entry
+                takeProfit={"triggerPercent": 0.10},  # 10% above entry
+            )
+
+        :param pair: Trading pair (e.g., "ETH/USDC:USDC")
         :param ordertype: Order type ("market", "limit")
-        :param side: Order side ("buy", "sell")
+        :param side: Order side ("buy" for long, "sell" for short)
         :param amount: Order size in USD
         :param rate: Limit price (not used for GMX market orders)
-        :param leverage: Leverage multiplier
+        :param leverage: Leverage multiplier (1.0 to 100.0)
         :param reduceOnly: Whether this is a reduce-only order
-        :param time_in_force: Time in force (only "GTC" supported)
-        :param **kwargs: Additional parameters including:
-            - stopLoss: Stop-loss configuration (dict or price)
-            - takeProfit: Take-profit configuration (dict or price)
-        :return: CCXT-compatible order structure
+        :param time_in_force: Time in force (only "GTC" supported by GMX)
+        :param initial_order: Whether this is an initial order (True) or adjustment (False)
+        :param **kwargs: Additional parameters. For bundled orders:
+
+            - ``stopLoss``: Stop-loss configuration (dict or float)
+
+              - Dict: ``{"triggerPrice": 1850.0}`` (CCXT unified)
+              - Dict: ``{"triggerPercent": 0.05}`` (GMX extension, 5% below entry)
+              - Float: ``1850.0`` (interpreted as triggerPrice)
+
+            - ``takeProfit``: Take-profit configuration (dict or float)
+
+              - Dict: ``{"triggerPrice": 2200.0}`` (CCXT unified)
+              - Dict: ``{"triggerPercent": 0.10}`` (GMX extension, 10% above entry)
+              - Float: ``2200.0`` (interpreted as triggerPrice)
+
+            - ``stopLossPrice``: Alternative CCXT unified parameter (float)
+            - ``takeProfitPrice``: Alternative CCXT unified parameter (float)
+            - ``collateral_symbol``: Collateral token (e.g., "USDC")
+            - ``slippage_percent``: Slippage tolerance (default: 0.003)
+
+        :return: CCXT-compatible order structure with GMX-specific info
+        :raises TemporaryError: If order creation fails temporarily
+        :raises OperationalException: If parameters are invalid
         """
-        # Extract SL/TP from kwargs
-        params = {
-            "leverage": leverage,
-            "reduceOnly": reduceOnly,
-        }
-
-        # Add SL/TP if provided
-        if "stopLoss" in kwargs:
-            params["stopLoss"] = kwargs["stopLoss"]
-        if "takeProfit" in kwargs:
-            params["takeProfit"] = kwargs["takeProfit"]
-
-        # Pass collateral_symbol if provided
-        if "collateral_symbol" in kwargs:
-            params["collateral_symbol"] = kwargs["collateral_symbol"]
-
-        # Pass slippage if provided
-        if "slippage_percent" in kwargs:
-            params["slippage_percent"] = kwargs["slippage_percent"]
+        # Enhanced logging with visual separators for workflow visibility
+        logger.info("=" * 80)
+        logger.info("*** GMX FREQTRADE create_order CALLED ***")
+        logger.info(
+            "  pair=%s, ordertype=%s, side=%s, amount=%.8f, rate=%s, leverage=%.2f, reduceOnly=%s, time_in_force=%s, initial_order=%s",
+            pair,
+            ordertype,
+            side,
+            amount,
+            rate,
+            leverage,
+            reduceOnly,
+            time_in_force,
+            initial_order,
+        )
+        if kwargs:
+            logger.info("  kwargs=%s", kwargs)
+        logger.info("=" * 80)
 
         # Call parent create_order which uses CCXT underneath
-        return super().create_order(
+        logger.info(">>> Delegating to parent Exchange.create_order() -> GMX CCXT adapter")
+        order = super().create_order(
             pair=pair,
             ordertype=ordertype,
             side=side,
@@ -514,5 +673,24 @@ class Gmx(Exchange):
             leverage=leverage,
             reduceOnly=reduceOnly,
             time_in_force=time_in_force,
-            params=params,
+            initial_order=initial_order,
+            **kwargs,
         )
+
+        logger.info("=" * 80)
+        logger.info("*** GMX CCXT adapter RETURNED order ***")
+        logger.info(
+            "  id=%s, status=%s, filled=%.8f, remaining=%.8f",
+            order.get("id"),
+            order.get("status"),
+            order.get("filled", 0),
+            order.get("remaining", 0),
+        )
+        logger.info("  cost=%.2f, average=%.4f", order.get("cost", 0), order.get("average", 0))
+        # Log order info for debugging balance/profit issues
+        order_info = order.get("info", {})
+        if order_info:
+            logger.info("  FREQTRADE_ORDER_TRACE: info=%s", order_info)
+        logger.info("=" * 80)
+
+        return order

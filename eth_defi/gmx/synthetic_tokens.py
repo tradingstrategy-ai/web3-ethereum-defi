@@ -129,8 +129,8 @@ class GMXSyntheticTokenDetails:
 
         Useful for saving to disk cache or API responses.
 
-        Returns:
-            dictionary with all token information
+        :return: dictionary with all token information
+        :rtype: dict[str, Any]
         """
         return {
             "symbol": self.symbol,

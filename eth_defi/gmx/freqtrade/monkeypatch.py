@@ -160,7 +160,7 @@ def patch_freqtrade(force: bool = False) -> bool:
                     common.SUPPORTED_EXCHANGES.sort()
 
         except (ImportError, AttributeError) as e:
-            logger.debug(f"Could not update SUPPORTED_EXCHANGES list: {e}")
+            logger.debug("Could not update SUPPORTED_EXCHANGES list: %s", e)
 
         # Mark as patched
         _PATCHED = True
@@ -171,7 +171,7 @@ def patch_freqtrade(force: bool = False) -> bool:
         return True
 
     except Exception as e:
-        logger.error(f"Failed to patch Freqtrade: {e}")
+        logger.error("Failed to patch Freqtrade: %s", e)
         raise
 
 

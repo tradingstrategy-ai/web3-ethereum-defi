@@ -64,7 +64,7 @@ class GetBorrowAPR(GetData):
                 self.output["long"][key] = (output[1] / 10**28) * 3600
                 self.output["short"][key] = (output[2] / 10**28) * 3600
 
-                logger.debug("{}\nLong Borrow Hourly Rate: -{:.5f}%\nShort Borrow Hourly Rate: -{:.5f}%\n".format(key, self.output["long"][key], self.output["short"][key]))
+                logger.debug("%s\nLong Borrow Hourly Rate: -%.5f%%\nShort Borrow Hourly Rate: -%.5f%%\n", key, self.output["long"][key], self.output["short"][key])
             else:
                 # Set default values for failed markets
                 self.output["long"][key] = 0.0

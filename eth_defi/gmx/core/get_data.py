@@ -141,9 +141,9 @@ class GetData(ABC):
             self._long_token_address = self.markets.get_long_token_address(market_key)
             self._short_token_address = self.markets.get_short_token_address(market_key)
 
-            self.log.debug(f"Token addresses for {market_key}: Long: {self._long_token_address}, Short: {self._short_token_address}")
+            self.log.debug("Token addresses for %s: Long: %s, Short: %s", market_key, self._long_token_address, self._short_token_address)
         except Exception as e:
-            self.log.warning(f"Failed to get token addresses for {market_key}: {e}")
+            self.log.warning("Failed to get token addresses for %s: %s", market_key, e)
             self._long_token_address = None
             self._short_token_address = None
 
@@ -163,10 +163,10 @@ class GetData(ABC):
                 if not market_symbol.startswith("SWAP"):
                     filtered_markets[market_key] = market_data
 
-            self.log.debug(f"Filtered markets: {len(filtered_markets)} from {len(available_markets)}")
+            self.log.debug("Filtered markets: %s from %s", len(filtered_markets), len(available_markets))
 
         except Exception as e:
-            self.log.warning(f"Failed to filter swap markets: {e}")
+            self.log.warning("Failed to filter swap markets: %s", e)
 
     def _get_pnl(self, market: list, prices_list: list, is_long: bool, maximize: bool = False) -> tuple[int, int]:
         """
@@ -191,7 +191,7 @@ class GetData(ABC):
             return open_interest_pnl, pnl
 
         except Exception as e:
-            self.log.warning(f"Failed to get PnL for market {market[0]}: {e}")
+            self.log.warning("Failed to get PnL for market %s: %s", market[0], e)
             return 0, 0
 
     def _get_oracle_prices(self, market_key: HexAddress, index_token_address: HexAddress, return_tuple: bool = False) -> Any:
@@ -260,7 +260,7 @@ class GetData(ABC):
             return self.reader_contract.functions.getMarketInfo(self.datastore_contract_address, prices, to_checksum_address(market_key))
 
         except Exception as e:
-            self.log.warning(f"Failed to get oracle prices for {market_key}: {e}")
+            self.log.warning("Failed to get oracle prices for %s: %s", market_key, e)
             if return_tuple:
                 return (0, 0), (0, 0), (0, 0)
             return None
@@ -308,7 +308,7 @@ class GetData(ABC):
                 "isDisabled": output[6],
             }
         except (IndexError, TypeError) as e:
-            logging.warning(f"Failed to format market info output: {e}")
+            logging.warning("Failed to format market info output: %s", e)
             return {}
 
     def _execute_threading(self, contract_calls: list, max_workers: int = 5) -> list:
@@ -345,7 +345,7 @@ class GetData(ABC):
                 try:
                     results[original_index] = future.result()
                 except Exception as e:
-                    self.log.warning(f"Contract call {original_index} failed: {e}")
+                    self.log.warning("Contract call %s failed: %s", original_index, e)
                     results[original_index] = None
 
         return results
@@ -367,10 +367,10 @@ class GetData(ABC):
             with open(filename, "w") as f:
                 json.dump(json_data, f, indent=2)
 
-            self.log.info(f"Data saved to {filename}")
+            self.log.info("Data saved to %s", filename)
 
         except Exception as e:
-            self.log.error(f"Failed to save JSON: {e}")
+            self.log.error("Failed to save JSON: %s", e)
 
     def _save_to_csv(self, data: dict[str, Any]) -> None:
         """
@@ -398,7 +398,7 @@ class GetData(ABC):
                 self._save_dict_to_csv(data, filename)
 
         except Exception as e:
-            self.log.error(f"Failed to save CSV: {e}")
+            self.log.error("Failed to save CSV: %s", e)
 
     def _save_dict_to_csv(self, data_dict: dict[str, Any], filename: str) -> None:
         """
@@ -422,4 +422,4 @@ class GetData(ABC):
             for market, value in data_dict.items():
                 writer.writerow([timestamp, market, value])
 
-        self.log.info(f"Data saved to {filename}")
+        self.log.info("Data saved to %s", filename)
