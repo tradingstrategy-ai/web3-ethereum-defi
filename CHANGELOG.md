@@ -1,5 +1,6 @@
 # Current
 
+- Add: Claude Code skill for post-processing vault protocol logos using Nano Banana AI (2026-01-06)
 - Add: New protocol: Mainstreet Finance - synthetic USD stablecoin ecosystem on Sonic (2026-01-05)
 - Add: New protocol: Gearbox - composable leverage protocol lending pools (2026-01-05)
 - Add: New vault type: Maple Finance AQRU Pool - Real-World Receivables vault (2026-01-05)

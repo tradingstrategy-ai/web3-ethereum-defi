@@ -6,6 +6,14 @@
 - Say things like `visualise` instead of `visualize`
 - For headings, only capitalise the first letter of heading, do not use title case
 
+## Running Python scripts
+
+When running a Python script use `poetry run python` command instead of plain `python` command, so that the virtual environment is activated.
+
+```shell
+poetry run python scripts/logos/post-process-logo.py
+```
+
 ## Running tests
 
 If we have not run tests before make sure the user has created a gitignored file `.local-test.env` in the repository root. This will use `source` shell command to include the actual test secrets which lie outside the repository structure. Note: this file does not contain actual environment variables, just a `source` command to get them from elsewhere. **Never edit this file** and always ask the user to prepare the file for Claude Code.
@@ -50,10 +58,11 @@ poetry run ruff format
 - Do not include test plan in a pull request description
 - If the user ask to open a pull request as feature then start the PR title with "feat:" prefix and also add one line about the feature into `CHANGELOG.md`
 - Each changelog entry should follow the date of the PR in YYYY-MM-DD format. Example: Something was updated (2026-01-01).
+- Before opening or updating a pull request, format the code
 
 ## Specific rules
 
-### Python rukes
+### Python rules
 
 - For data structures, prefer `dataclass(slots=True)`
 - Use threaded instead of async Python code
@@ -103,6 +112,10 @@ poetry run ruff format
 - `pytest` tests should not have stdout output like `print`
 - Instead of manual float fuzzy comparison like `assert abs(aave_total_pnl - 96.6087) < 0.01` use `pytest.approx()`
 - For DuckDB testing, make sure the database is always closed using finally clause or fixtures
+
+### pyproject.toml
+
+- When adding or updating dependencies in `pyproject.toml`, always add a comment why this dependency is needed for this project
 
 ## Python notebooks
 
