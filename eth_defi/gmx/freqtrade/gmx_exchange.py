@@ -686,6 +686,11 @@ class Gmx(Exchange):
             order.get("filled", 0),
             order.get("remaining", 0),
         )
+        logger.info("  cost=%.2f, average=%.4f", order.get("cost", 0), order.get("average", 0))
+        # Log order info for debugging balance/profit issues
+        order_info = order.get("info", {})
+        if order_info:
+            logger.info("  FREQTRADE_ORDER_TRACE: info=%s", order_info)
         logger.info("=" * 80)
 
         return order

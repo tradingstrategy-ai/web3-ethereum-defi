@@ -1524,6 +1524,21 @@ class GMX(Exchange):
         loop = asyncio.get_event_loop()
         await loop.run_in_executor(None, self.wallet.sync_nonce, self.web3)
 
+        logger.info("=" * 80)
+        logger.info(
+            "ORDER_TRACE: async create_order() CALLED symbol=%s, type=%s, side=%s, amount=%.8f",
+            symbol,
+            type,
+            side,
+            amount,
+        )
+        logger.info(
+            "ORDER_TRACE: params: reduceOnly=%s, leverage=%s, collateral_symbol=%s",
+            params.get("reduceOnly", False),
+            params.get("leverage"),
+            params.get("collateral_symbol"),
+        )
+
         # Ensure markets are loaded
         if not self.markets_loaded or not self.markets:
             await self.load_markets()
@@ -1706,6 +1721,15 @@ class GMX(Exchange):
             tx_hash,
             receipt,
         )
+
+        logger.info(
+            "ORDER_TRACE: async create_order() RETURNING order_id=%s, status=%s, filled=%.8f, cost=%.2f",
+            order.get("id"),
+            order.get("status"),
+            order.get("filled", 0),
+            order.get("cost", 0),
+        )
+        logger.info("=" * 80)
 
         return order
 
@@ -1925,7 +1949,7 @@ class GMX(Exchange):
             "side": side,
             "price": mark_price,
             "amount": amount,
-            "cost": amount if tx_success else None,
+            "cost": amount * mark_price if tx_success and mark_price else None,  # Cost in stake currency = amount * price
             "average": mark_price if tx_success else None,
             "filled": filled_amount,
             "remaining": remaining_amount,

@@ -295,6 +295,27 @@ class GetOpenPositions(GetData):
         else:
             percent_profit = 0
 
+        # Log position data for debugging (GraphQL source)
+        logger.info(
+            "POSITION_TRACE: _process_graphql_position() market=%s, is_long=%s, position_size_usd=%.2f",
+            market_info["market_symbol"],
+            is_long,
+            position_size_usd,
+        )
+        logger.info(
+            "POSITION_TRACE: collateral_amount_tokens=%.8f, collateral_price=%.4f, collateral_usd=%.2f",
+            collateral_amount_tokens,
+            collateral_price,
+            collateral_amount_usd,
+        )
+        logger.info(
+            "POSITION_TRACE: entry_price=%.4f, mark_price=%.4f, leverage=%.2f, percent_profit=%.4f%%",
+            entry_price,
+            mark_price,
+            leverage,
+            percent_profit,
+        )
+
         return {
             "account": to_checksum_address(pos["account"]),
             "market": market_address,
@@ -501,6 +522,27 @@ class GetOpenPositions(GetData):
         #   [8] increasedAtTime
         #   [9] decreasedAtTime
         # raw_position[2] = Flags (isLong)
+
+        # Log position data for debugging
+        logger.info(
+            "POSITION_TRACE: _get_data_processing() market=%s, is_long=%s, position_size_usd=%.2f",
+            market_info["market_symbol"],
+            raw_position[2][0],
+            position_size_usd,
+        )
+        logger.info(
+            "POSITION_TRACE: collateral_amount_tokens=%.8f, collateral_price=%.4f, collateral_usd=%.2f",
+            collateral_amount_tokens,
+            collateral_price,
+            collateral_amount_usd,
+        )
+        logger.info(
+            "POSITION_TRACE: entry_price=%.4f, mark_price=%.4f, leverage=%.2f, percent_profit=%.4f%%",
+            entry_price,
+            mark_price,
+            leverage,
+            percent_profit,
+        )
 
         return {
             "account": raw_position[0][0],

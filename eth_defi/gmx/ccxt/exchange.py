@@ -434,7 +434,7 @@ class GMX(ExchangeCompatible):
                     max_leverage = 50.0  # Default
                     if min_collateral_factor:
                         max_leverage = GMXSubsquidClient.calculate_max_leverage(min_collateral_factor) or 50.0
-
+                    # don't ask why it works ok?
                     maintenance_margin_rate = 1.0 / max_leverage if max_leverage > 0 else 0.02
 
                     markets_dict[unified_symbol] = {
@@ -2317,6 +2317,9 @@ class GMX(ExchangeCompatible):
         # Convert to checksum address
         wallet = self.web3.to_checksum_address(wallet)
 
+        logger.info("=" * 80)
+        logger.info("BALANCE_TRACE: fetch_balance() CALLED, wallet=%s", wallet)
+
         # Fetch currency metadata
         currencies = self.fetch_currencies()
 
@@ -2343,9 +2346,11 @@ class GMX(ExchangeCompatible):
                         collateral_locked[collateral_token] = 0.0
                     collateral_locked[collateral_token] += collateral_amount_float
 
-        except Exception:
+        except Exception as e:
             # If we can't fetch positions, just show all balance as free
-            pass
+            logger.warning("BALANCE_TRACE: Failed to fetch positions for collateral calculation: %s", e)
+
+        logger.info("BALANCE_TRACE: collateral_locked=%s", collateral_locked)
 
         # Build balance dict
         result = {"free": {}, "used": {}, "total": {}, "info": {}}
@@ -2379,6 +2384,19 @@ class GMX(ExchangeCompatible):
             except Exception as e:
                 # Skip tokens we can't query
                 result["info"][code] = {"error": str(e)}
+
+        # Log final balance state
+        logger.info("BALANCE_TRACE: fetch_balance() RETURNING")
+        for code in ["USDC", "ETH", "WETH"]:
+            if code in result and isinstance(result[code], dict):
+                logger.info(
+                    "BALANCE_TRACE: %s: free=%.8f, used=%.8f, total=%.8f",
+                    code,
+                    result[code].get("free", 0),
+                    result[code].get("used", 0),
+                    result[code].get("total", 0),
+                )
+        logger.info("=" * 80)
 
         return result
 
@@ -4045,7 +4063,7 @@ class GMX(ExchangeCompatible):
             "side": side,
             "price": mark_price if type == "market" else None,
             "amount": amount,
-            "cost": amount if tx_success else None,  # Cost equals amount for GMX (amount is in USD)
+            "cost": amount * mark_price if tx_success and mark_price else None,  # Cost in stake currency = amount * price
             "average": mark_price if tx_success else None,  # Average fill price
             "filled": filled_amount,  # GMX orders execute immediately in the transaction
             "remaining": remaining_amount,
@@ -4155,6 +4173,21 @@ class GMX(ExchangeCompatible):
         # Sync wallet nonce before creating/closing order (required for Freqtrade)
         self.wallet.sync_nonce(self.web3)
 
+        logger.info("=" * 80)
+        logger.info(
+            "ORDER_TRACE: create_order() CALLED symbol=%s, type=%s, side=%s, amount=%.8f",
+            symbol,
+            type,
+            side,
+            amount,
+        )
+        logger.info(
+            "ORDER_TRACE: params: reduceOnly=%s, leverage=%s, collateral_symbol=%s",
+            params.get("reduceOnly", False),
+            params.get("leverage"),
+            params.get("collateral_symbol"),
+        )
+
         # Ensure markets are loaded and populated
         if not self.markets_loaded or not self.markets:
             self.load_markets()
@@ -4231,6 +4264,19 @@ class GMX(ExchangeCompatible):
             try:
                 existing_positions = positions_manager.get_data(self.wallet.address)
 
+                # Log existing positions for debugging
+                logger.info("ORDER_TRACE: Fetched %d existing positions for close operation", len(existing_positions))
+                for key, pos in existing_positions.items():
+                    logger.info(
+                        "ORDER_TRACE: Position %s - market=%s, is_long=%s, size_usd=%.2f, collateral_usd=%.2f, percent_profit=%.4f%%",
+                        key,
+                        pos.get("market_symbol"),
+                        pos.get("is_long"),
+                        pos.get("position_size", 0),
+                        pos.get("initial_collateral_amount_usd", 0),
+                        pos.get("percent_profit", 0),
+                    )
+
                 # Find the matching position for this market + collateral + direction
                 position_to_close = None
                 for position_key, position_data in existing_positions.items():
@@ -4253,6 +4299,14 @@ class GMX(ExchangeCompatible):
                     position_type = "long" if is_closing_long else "short"
                     logger.warning(f"No {position_type} position found for {symbol} with collateral {gmx_params['collateral_symbol']}. This likely means the position was already closed (e.g., by stop-loss execution). Returning synthetic 'closed' order response.")
 
+                    # Get current mark price for cost calculation
+                    try:
+                        ticker = self.fetch_ticker(symbol)
+                        mark_price = ticker.get("last") or ticker.get("close")
+                    except Exception as e:
+                        logger.warning("Failed to fetch ticker for synthetic order price: %s", e)
+                        mark_price = None
+
                     # Return a synthetic "closed" order to allow Freqtrade to reconcile state
                     timestamp = self.milliseconds()
                     synthetic_order = {
@@ -4264,10 +4318,10 @@ class GMX(ExchangeCompatible):
                         "symbol": symbol,
                         "type": type,
                         "side": side,
-                        "price": None,  # Unknown since position was closed elsewhere
+                        "price": mark_price,  # Current mark price (approximation)
                         "amount": amount,
-                        "cost": amount,  # Assume full amount for GMX (amount is in USD)
-                        "average": None,
+                        "cost": amount * mark_price if mark_price else 0,  # Cost in stake currency = amount * price
+                        "average": mark_price,  # Average fill price (approximation)
                         "filled": amount,  # Mark as fully filled
                         "remaining": 0.0,
                         "status": "closed",  # Position already closed
@@ -4366,6 +4420,14 @@ class GMX(ExchangeCompatible):
                     # This is the race condition - position was already closed
                     logger.warning(f"Caught position-not-found error for {symbol}: {error_msg}. Position likely closed by stop-loss. Returning synthetic 'closed' order.")
 
+                    # Get current mark price for cost calculation
+                    try:
+                        ticker = self.fetch_ticker(symbol)
+                        mark_price = ticker.get("last") or ticker.get("close")
+                    except Exception as ticker_error:
+                        logger.warning("Failed to fetch ticker for synthetic order price: %s", ticker_error)
+                        mark_price = None
+
                     # Return synthetic closed order
                     timestamp = self.milliseconds()
                     synthetic_order = {
@@ -4377,10 +4439,10 @@ class GMX(ExchangeCompatible):
                         "symbol": symbol,
                         "type": type,
                         "side": side,
-                        "price": None,
+                        "price": mark_price,  # Current mark price (approximation)
                         "amount": amount,
-                        "cost": amount,
-                        "average": None,
+                        "cost": amount * mark_price if mark_price else 0,  # Cost in stake currency = amount * price
+                        "average": mark_price,  # Average fill price (approximation)
                         "filled": amount,
                         "remaining": 0.0,
                         "status": "closed",
@@ -4412,8 +4474,14 @@ class GMX(ExchangeCompatible):
         # Wait for confirmation
         receipt = self.web3.eth.wait_for_transaction_receipt(tx_hash_bytes)
 
+        logger.info(
+            "ORDER_TRACE: Transaction submitted tx_hash=%s, status=%s",
+            tx_hash,
+            receipt.get("status"),
+        )
+
         # Convert to CCXT format
-        return self._parse_order_result_to_ccxt(
+        order = self._parse_order_result_to_ccxt(
             order_result,
             symbol,
             side,
@@ -4422,6 +4490,17 @@ class GMX(ExchangeCompatible):
             tx_hash,
             receipt,
         )
+
+        logger.info(
+            "ORDER_TRACE: create_order() RETURNING order_id=%s, status=%s, filled=%.8f, cost=%.2f",
+            order.get("id"),
+            order.get("status"),
+            order.get("filled", 0),
+            order.get("cost", 0),
+        )
+        logger.info("=" * 80)
+
+        return order
 
     def create_market_buy_order(
         self,
