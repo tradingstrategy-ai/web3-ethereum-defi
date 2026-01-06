@@ -7,8 +7,25 @@ Two minimal tests demonstrating complete position lifecycle:
 """
 
 from flaky import flaky
+
 from eth_defi.gmx.order.base_order import OrderResult
 from tests.gmx.fork_helpers import execute_order_as_keeper, extract_order_key_from_receipt, fetch_on_chain_oracle_prices, setup_mock_oracle
+
+
+def _execute_order(web3, tx_hash):
+    """Execute a GMX order as keeper.
+
+    Helper function for SLTP tests that takes a transaction hash,
+    extracts the order key, and executes the order.
+
+    :param web3: Web3 instance
+    :param tx_hash: Transaction hash from order creation
+    :return: Execution receipt
+    """
+    receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
+    order_key = extract_order_key_from_receipt(receipt)
+    exec_receipt, _ = execute_order_as_keeper(web3, order_key)
+    return exec_receipt
 
 
 @flaky(max_runs=3, min_passes=1)

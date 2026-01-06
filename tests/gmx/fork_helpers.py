@@ -590,7 +590,7 @@ def execute_order_as_keeper(web3: Web3, order_key: bytes):
     """
     provider_type = detect_provider_type(web3)
     chain = get_chain_name(web3.eth.chain_id).lower()
-    logger.info(f"Executing order as keeper (provider: {provider_type})")
+    logger.info("Executing order as keeper (provider: %s)", provider_type)
 
     # Get keeper from RoleStore (address fixed on Arbitrum mainnet, safe fallback used)
     role_store_address = to_checksum_address(ARBITRUM_DEFAULTS["role_store"])
@@ -607,7 +607,7 @@ def execute_order_as_keeper(web3: Web3, order_key: bytes):
 
     keepers = role_store.functions.getRoleMembers(role_key, 0, 1).call()
     keeper = keepers[0]
-    logger.info(f"Keeper address: {keeper}")
+    logger.info("Keeper address: %s", keeper)
 
     # Fund keeper with ETH using provider-agnostic method
     set_balance(web3, keeper, hex(web3.to_wei(500, "ether")))
@@ -656,7 +656,7 @@ def execute_order_as_keeper(web3: Web3, order_key: bytes):
         stop_impersonating_account(web3, keeper)
 
 
-def extract_order_key_from_receipt(receipt: dict) -> bytes:
+def extract_order_key_from_receipt(receipt: dict, web3: Web3 | None = None) -> bytes:
     """Extract order key from OrderCreated event in receipt.
 
     GMX v2.2 uses EventLog2 with the order key in topics[2].
@@ -664,9 +664,28 @@ def extract_order_key_from_receipt(receipt: dict) -> bytes:
     topics[1]: OrderCreated event hash (a7427759...)
     topics[2]: order key
     topics[3]: account address
-    """
 
-    # OrderCreated event hash
+    :param receipt:
+        Transaction receipt
+
+    :param web3:
+        Optional Web3 instance. If provided, uses the event module for
+        full event decoding. If not provided, falls back to simple
+        topic extraction.
+
+    :return:
+        The 32-byte order key
+    """
+    # If web3 is provided, use the new event module for full decoding
+    if web3 is not None:
+        from eth_defi.gmx.events import extract_order_key_from_receipt as extract_key
+
+        order_key = extract_key(web3, receipt)
+        logger.info("Extracted order key: %s", order_key.hex())
+        return order_key
+
+    # Fallback to simple topic extraction (no web3 required)
+    # OrderCreated event hash - keccak256("OrderCreated")
     ORDER_CREATED_HASH = "a7427759bfd3b941f14e687e129519da3c9b0046c5b9aaa290bb1dede63753b3"
 
     for log in receipt.get("logs", []):
@@ -692,7 +711,41 @@ def extract_order_key_from_receipt(receipt: dict) -> bytes:
             # topics[2] is the order key
             order_key_hex = topic_hashes[2]
             order_key = bytes.fromhex(order_key_hex)
-            logger.info(f"Extracted order key: {order_key.hex()}")
+            logger.info("Extracted order key: %s", order_key.hex())
             return order_key
 
     raise ValueError("Could not extract order key from receipt")
+
+
+def execute_order_and_get_result(web3: Web3, order_key: bytes):
+    """Execute order as keeper and return the parsed execution result.
+
+    This is a convenience wrapper around execute_order_as_keeper that also
+    parses the execution events to extract prices, fees, and status.
+
+    :param web3:
+        Web3 instance connected to the fork
+
+    :param order_key:
+        The 32-byte order key from OrderCreated event
+
+    :return:
+        Tuple of (receipt, keeper_address, execution_result)
+        where execution_result is an OrderExecutionResult from eth_defi.gmx.events
+    """
+    from eth_defi.gmx.events import extract_order_execution_result
+
+    receipt, keeper = execute_order_as_keeper(web3, order_key)
+
+    # Parse the execution result from the receipt
+    result = extract_order_execution_result(web3, receipt, order_key)
+
+    if result:
+        logger.info(
+            "Order execution result: status=%s, price=%s, pnl=%s",
+            result.status,
+            result.execution_price,
+            result.pnl_usd,
+        )
+
+    return receipt, keeper, result
