@@ -188,6 +188,8 @@ cairosvg = ">=2.7.0"
 # rembg and onnxruntime are needed for background removal in logo processing
 onnxruntime = "^1.23.2"
 rembg = ">=2.0.50"
+# pillow and onnxruntime are needed for background removal in logo processing
+pillow = "^12.1.0"
 
 [tool.poetry.extras]
 # To install the web3py version based dependencies
