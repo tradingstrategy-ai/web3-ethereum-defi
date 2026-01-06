@@ -58,6 +58,7 @@ poetry run ruff format
 - Do not include test plan in a pull request description
 - If the user ask to open a pull request as feature then start the PR title with "feat:" prefix and also add one line about the feature into `CHANGELOG.md`
 - Each changelog entry should follow the date of the PR in YYYY-MM-DD format. Example: Something was updated (2026-01-01).
+- Before opening or updating a pull request, format the code
 
 ## Specific rules
 
