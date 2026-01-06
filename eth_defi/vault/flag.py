@@ -98,6 +98,8 @@ UNKNOWN_VAULT = "Vault is not known, not listed on the website of the protocol"
 
 FOXIFY_VAULT = "Foxify offers perp DEX and funding for proprietary trades. This vault is associated with this activity, but it is not publicly described how the vault works."
 
+PENDLE_LOOPING = "Abnormal high yield due to Pendle looping - more info here https://x.com/ssmccul/status/2006016219275501936"
+
 
 #: Vault manual blacklist flags and notes.
 #:
@@ -218,6 +220,9 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag, str]] = {
     # http://localhost:5173/trading-view/binance/vaults/gtrade-kusdt
     # No idea what's this - unverified
     "0x4f04cb32688ea1954e53c85b846597881ebe9582": (VaultFlag.broken, BROKEN_VAULT),
+    # Steakhouse High Yield USDT0 on Arbitrum
+    # https://tradingstrategy.ai/trading-view/arbitrum/vaults/steakhouse-high-yield-usdt0
+    "0x4739e2c293bdcd835829aa7c5d7fbdee93565d1a": (VaultFlag.abnormal_tvl, PENDLE_LOOPING),
 }
 
 for addr in VAULT_FLAGS_AND_NOTES.keys():
