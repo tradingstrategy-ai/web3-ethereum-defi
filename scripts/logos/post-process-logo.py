@@ -1,55 +1,41 @@
 """Post-process logo images for vault protocol metadata.
 
 Converts, crops, and scales logo images to standardised 256x256 PNG format.
-Uses Google Gemini 2.5 Flash Image (Nano Banana) for AI-powered logo processing
-in a single pass, followed by background removal using rembg.
+Automatically adds padding to non-square images to make them square before
+processing with background removal using rembg.
 
 Usage:
 
 .. code-block:: shell
 
-    export GOOGLE_AI_API_KEY=...
     export INPUT_IMAGE=/path/to/input.svg
     export OUTPUT_IMAGE=/path/to/output.png
     python scripts/logos/post-process-logo.py
 
-    # To also invert colours (create opposite theme variant)
-    export INVERT=light_to_dark
-    python scripts/logos/post-process-logo.py
-
-    # Skip Gemini processing for logos that are already clean brand marks
-    export SKIP_GEMINI=true
-    python scripts/logos/post-process-logo.py
-
 Environment variables:
-    GOOGLE_AI_API_KEY: Google AI Studio API key for Gemini (required unless SKIP_GEMINI=true)
     INPUT_IMAGE: Path to input image file (required)
     OUTPUT_IMAGE: Path to output image file (required)
     TARGET_SIZE: Target size in pixels (default: 256)
-    PADDING_PERCENT: Padding percentage for square crop (default: 10)
-    INVERT: Colour inversion mode - 'light_to_dark', 'dark_to_light', or empty for no inversion
-    SKIP_GEMINI: Set to 'true' to skip Gemini processing and go straight to background removal.
-                 Use this for logos that are already clean brand marks with suitable colours.
+
+.. note::
+
+    Gemini processing has been disabled. Gemini produces hallucinated crap
+    when fed in logos and is useless at the moment. The script now simply
+    picks the input image, adds padding if non-square, removes background,
+    and scales to target size.
 
 """
 
-import base64
-import io
 import logging
 import os
-import sys
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
 # Environment variable configuration
-GOOGLE_AI_API_KEY = os.environ.get("GOOGLE_AI_API_KEY")
 INPUT_IMAGE = os.environ.get("INPUT_IMAGE")
 OUTPUT_IMAGE = os.environ.get("OUTPUT_IMAGE")
 TARGET_SIZE = int(os.environ.get("TARGET_SIZE", "256"))
-PADDING_PERCENT = int(os.environ.get("PADDING_PERCENT", "10"))
-INVERT = os.environ.get("INVERT", "")  # 'light_to_dark', 'dark_to_light', or empty
-SKIP_GEMINI = os.environ.get("SKIP_GEMINI", "").lower() in ("true", "1", "yes")
 
 
 def convert_svg_to_png(input_path: Path, output_path: Path, size: int = 512) -> None:
@@ -92,107 +78,161 @@ def convert_svg_to_png(input_path: Path, output_path: Path, size: int = 512) -> 
     logger.info("SVG conversion complete")
 
 
-def process_logo_with_gemini(
-    input_path: Path,
-    output_path: Path,
-    padding_percent: int = 10,
-    invert: str = "",
-) -> None:
-    """Process logo using a single Gemini AI prompt.
+def pad_to_square(input_path: Path, output_path: Path) -> None:
+    """Add transparent padding to make a non-square image square.
 
-    Performs all AI operations in one pass:
-    - Analyses if logo is brandmark, wordmark, or combination
-    - Extracts brand mark if needed (removes text)
-    - Optionally inverts colours for opposite theme variant
-    - Crops to square with padding
-
-    Note: Gemini cannot produce true transparent PNGs, so background
-    removal must be done separately after this step.
+    Centers the original image content and adds transparent padding
+    on the shorter dimension to create a square output.
 
     :param input_path: Path to input image file
     :param output_path: Path to output image file
-    :param padding_percent: Padding percentage for square crop
-    :param invert: 'light_to_dark', 'dark_to_light', or empty for no inversion
     """
-    import google.generativeai as genai
     from PIL import Image
 
-    if not GOOGLE_AI_API_KEY:
-        raise ValueError("GOOGLE_AI_API_KEY environment variable is required")
+    logger.info("Checking if padding needed: %s", input_path)
 
-    genai.configure(api_key=GOOGLE_AI_API_KEY)
-    model = genai.GenerativeModel("gemini-2.5-flash-image")
+    image = Image.open(input_path).convert("RGBA")
+    width, height = image.size
 
-    logger.info("Processing logo with Gemini: %s (invert=%s)", input_path, invert or "none")
+    # Check if already square (within 1% tolerance)
+    aspect_ratio = min(width, height) / max(width, height)
+    if aspect_ratio >= 0.99:
+        logger.info("Image is already square (%dx%d), no padding needed", width, height)
+        image.save(output_path, "PNG", optimize=True, compress_level=9)
+        return
 
-    # Load and prepare image
-    image = Image.open(input_path)
+    # Calculate new square size (use the larger dimension)
+    new_size = max(width, height)
 
-    # Build the prompt - all operations in one pass
-    prompt_parts = [
-        "Process this logo image to create a clean, square icon suitable for use as an app icon or avatar.",
-        "",
-        "Please perform ALL of the following steps in a single output:",
-        "",
-        "1. ANALYSE: Determine if this is a brandmark (icon only), wordmark (text only), or combination (icon + text).",
-        "",
-        "2. EXTRACT ICON: If the logo contains text (wordmark or combination), extract ONLY the icon/symbol portion and remove all text elements. If it's already just an icon, keep it as is.",
-        "",
-    ]
+    # Create new transparent square image
+    square_image = Image.new("RGBA", (new_size, new_size), (0, 0, 0, 0))
 
-    # Add colour inversion step if requested
-    if invert == "light_to_dark":
-        prompt_parts.extend(
-            [
-                "3. INVERT COLOURS: This logo is designed for light backgrounds (dark-coloured logo). Invert the colours to create a version suitable for dark backgrounds. Make dark elements light/white and light elements dark. Preserve any brand colours where appropriate.",
-                "",
-            ]
-        )
-        next_step = 4
-    elif invert == "dark_to_light":
-        prompt_parts.extend(
-            [
-                "3. INVERT COLOURS: This logo is designed for dark backgrounds (light-coloured logo). Invert the colours to create a version suitable for light backgrounds. Make light/white elements dark and dark elements light. Preserve any brand colours where appropriate.",
-                "",
-            ]
-        )
-        next_step = 4
-    else:
-        next_step = 3
+    # Calculate position to center the original image
+    x_offset = (new_size - width) // 2
+    y_offset = (new_size - height) // 2
 
-    prompt_parts.extend(
-        [
-            f"{next_step}. USE SOLID BACKGROUND: Place the logo on a solid white background (we will remove it later).",
-            "",
-            f"{next_step + 1}. CROP TO SQUARE: Crop the result to a square aspect ratio, centering the icon/logo content with approximately {padding_percent}% padding on all sides.",
-            "",
-            "Output a single square image with:",
-            "- Only the icon/symbol (no text)",
-            "- Solid white background",
-            f"- Content centered with {padding_percent}% padding",
-            "- Clean edges with no artifacts",
-        ]
+    # Paste original image onto square canvas
+    square_image.paste(image, (x_offset, y_offset))
+
+    square_image.save(output_path, "PNG", optimize=True, compress_level=9)
+    logger.info(
+        "Added padding to make square: %dx%d -> %dx%d",
+        width,
+        height,
+        new_size,
+        new_size,
     )
 
-    prompt = "\n".join(prompt_parts)
 
-    response = model.generate_content([prompt, image])
-
-    # Extract image from response
-    if hasattr(response, "candidates") and response.candidates:
-        for part in response.candidates[0].content.parts:
-            if hasattr(part, "inline_data") and part.inline_data:
-                # Gemini returns raw bytes, not base64 encoded
-                image_data = part.inline_data.data
-                # Handle both bytes and string (base64) cases
-                if isinstance(image_data, str):
-                    image_data = base64.b64decode(image_data)
-                result_image = Image.open(io.BytesIO(image_data))
-                result_image.save(output_path, "PNG", optimize=True, compress_level=9)
-                logger.info("Logo processed and saved to: %s", output_path)
-                return
-
-    raise ValueError("No image returned from Gemini API")
+# NOTE: Gemini processing has been disabled.
+# Gemini produces hallucinated crap when fed in logos and is useless at the moment.
+# The code below is kept for reference but is not used.
+#
+# def process_logo_with_gemini(
+#     input_path: Path,
+#     output_path: Path,
+#     padding_percent: int = 10,
+#     invert: str = "",
+# ) -> None:
+#     """Process logo using a single Gemini AI prompt.
+#
+#     Performs all AI operations in one pass:
+#     - Analyses if logo is brandmark, wordmark, or combination
+#     - Extracts brand mark if needed (removes text)
+#     - Optionally inverts colours for opposite theme variant
+#     - Crops to square with padding
+#
+#     Note: Gemini cannot produce true transparent PNGs, so background
+#     removal must be done separately after this step.
+#
+#     :param input_path: Path to input image file
+#     :param output_path: Path to output image file
+#     :param padding_percent: Padding percentage for square crop
+#     :param invert: 'light_to_dark', 'dark_to_light', or empty for no inversion
+#     """
+#     import base64
+#     import io
+#
+#     import google.generativeai as genai
+#     from PIL import Image
+#
+#     GOOGLE_AI_API_KEY = os.environ.get("GOOGLE_AI_API_KEY")
+#     if not GOOGLE_AI_API_KEY:
+#         raise ValueError("GOOGLE_AI_API_KEY environment variable is required")
+#
+#     genai.configure(api_key=GOOGLE_AI_API_KEY)
+#     model = genai.GenerativeModel("gemini-2.5-flash-image")
+#
+#     logger.info("Processing logo with Gemini: %s (invert=%s)", input_path, invert or "none")
+#
+#     # Load and prepare image
+#     image = Image.open(input_path)
+#
+#     # Build the prompt - all operations in one pass
+#     prompt_parts = [
+#         "Process this logo image to create a clean, square icon suitable for use as an app icon or avatar.",
+#         "",
+#         "Please perform ALL of the following steps in a single output:",
+#         "",
+#         "1. ANALYSE: Determine if this is a brandmark (icon only), wordmark (text only), or combination (icon + text).",
+#         "",
+#         "2. EXTRACT ICON: If the logo contains text (wordmark or combination), extract ONLY the icon/symbol portion and remove all text elements. If it's already just an icon, keep it as is.",
+#         "",
+#     ]
+#
+#     # Add colour inversion step if requested
+#     if invert == "light_to_dark":
+#         prompt_parts.extend(
+#             [
+#                 "3. INVERT COLOURS: This logo is designed for light backgrounds (dark-coloured logo). Invert the colours to create a version suitable for dark backgrounds. Make dark elements light/white and light elements dark. Preserve any brand colours where appropriate.",
+#                 "",
+#             ]
+#         )
+#         next_step = 4
+#     elif invert == "dark_to_light":
+#         prompt_parts.extend(
+#             [
+#                 "3. INVERT COLOURS: This logo is designed for dark backgrounds (light-coloured logo). Invert the colours to create a version suitable for light backgrounds. Make light/white elements dark and dark elements light. Preserve any brand colours where appropriate.",
+#                 "",
+#             ]
+#         )
+#         next_step = 4
+#     else:
+#         next_step = 3
+#
+#     prompt_parts.extend(
+#         [
+#             f"{next_step}. USE SOLID BACKGROUND: Place the logo on a solid white background (we will remove it later).",
+#             "",
+#             f"{next_step + 1}. CROP TO SQUARE: Crop the result to a square aspect ratio, centering the icon/logo content with approximately {padding_percent}% padding on all sides.",
+#             "",
+#             "Output a single square image with:",
+#             "- Only the icon/symbol (no text)",
+#             "- Solid white background",
+#             f"- Content centered with {padding_percent}% padding",
+#             "- Clean edges with no artifacts",
+#         ]
+#     )
+#
+#     prompt = "\n".join(prompt_parts)
+#
+#     response = model.generate_content([prompt, image])
+#
+#     # Extract image from response
+#     if hasattr(response, "candidates") and response.candidates:
+#         for part in response.candidates[0].content.parts:
+#             if hasattr(part, "inline_data") and part.inline_data:
+#                 # Gemini returns raw bytes, not base64 encoded
+#                 image_data = part.inline_data.data
+#                 # Handle both bytes and string (base64) cases
+#                 if isinstance(image_data, str):
+#                     image_data = base64.b64decode(image_data)
+#                 result_image = Image.open(io.BytesIO(image_data))
+#                 result_image.save(output_path, "PNG", optimize=True, compress_level=9)
+#                 logger.info("Logo processed and saved to: %s", output_path)
+#                 return
+#
+#     raise ValueError("No image returned from Gemini API")
 
 
 def has_transparency(image_path: Path) -> bool:
@@ -254,6 +294,71 @@ def remove_background(input_path: Path, output_path: Path) -> None:
     result.save(output_path, "PNG", optimize=True, compress_level=9)
 
     logger.info("Background removed and saved to: %s", output_path)
+
+
+def recolour_for_dark_background(input_path: Path, output_path: Path) -> None:
+    """Detect if logo is dark-on-dark and invert colours for dark background visibility.
+
+    Analyses the visible (non-transparent) pixels of the image. If there are no
+    bright pixels at all (none exceeding a brightness threshold), the logo would
+    not be visible on a dark background. In this case, the colours are inverted.
+
+    :param input_path: Path to input image file
+    :param output_path: Path to output image file
+    """
+    from PIL import Image, ImageOps
+
+    logger.info("Checking if recolouring needed for dark background: %s", input_path)
+
+    image = Image.open(input_path).convert("RGBA")
+
+    # Extract only visible pixels (alpha > 0)
+    pixels = list(image.getdata())
+    visible_pixels = [(r, g, b) for r, g, b, a in pixels if a > 0]
+
+    if not visible_pixels:
+        logger.warning("No visible pixels found, skipping recolouring")
+        image.save(output_path, "PNG", optimize=True, compress_level=9)
+        return
+
+    # Check if there are ANY bright pixels in the image
+    # Using perceived luminance formula: 0.299*R + 0.587*G + 0.114*B
+    # A pixel is considered "bright" if its luminance exceeds the threshold
+    brightness_threshold = 128
+
+    has_bright_pixels = any((0.299 * r + 0.587 * g + 0.114 * b) >= brightness_threshold for r, g, b in visible_pixels)
+
+    if not has_bright_pixels:
+        # Calculate max brightness for logging
+        max_brightness = max(0.299 * r + 0.587 * g + 0.114 * b for r, g, b in visible_pixels)
+        logger.info(
+            "Logo has no bright pixels (max brightness: %.1f < %d), inverting colours for dark background",
+            max_brightness,
+            brightness_threshold,
+        )
+
+        # Split into RGB and Alpha channels
+        r, g, b, a = image.split()
+
+        # Invert only the RGB channels, preserve alpha
+        rgb_image = Image.merge("RGB", (r, g, b))
+        inverted_rgb = ImageOps.invert(rgb_image)
+
+        # Recombine with original alpha channel
+        r_inv, g_inv, b_inv = inverted_rgb.split()
+        result = Image.merge("RGBA", (r_inv, g_inv, b_inv, a))
+
+        result.save(output_path, "PNG", optimize=True, compress_level=9)
+        logger.info("Colours inverted and saved to: %s", output_path)
+    else:
+        # Calculate max brightness for logging
+        max_brightness = max(0.299 * r + 0.587 * g + 0.114 * b for r, g, b in visible_pixels)
+        logger.info(
+            "Logo has bright pixels (max brightness: %.1f >= %d), no recolouring needed",
+            max_brightness,
+            brightness_threshold,
+        )
+        image.save(output_path, "PNG", optimize=True, compress_level=9)
 
 
 def trim_and_scale_image(input_path: Path, output_path: Path, size: int = 256) -> None:
@@ -342,40 +447,26 @@ def process_logo(
     input_path: Path,
     output_path: Path,
     target_size: int = 256,
-    padding_percent: int = 10,
-    invert: str = "",
-    skip_gemini: bool = False,
 ) -> None:
     """Process a logo image through the full pipeline.
 
-    Pipeline (full):
-    1. SVG to PNG conversion (if needed) - Gemini only accepts raster images
-    2. Gemini processing (single prompt): analyse, extract icon, optionally invert, crop to square
-    3. Background removal (rembg) - Gemini cannot produce true transparency
-    4. Trim transparent padding and scale to target size (Pillow)
-
-    Pipeline (skip_gemini=True):
+    Pipeline:
     1. SVG to PNG conversion (if needed)
-    2. Background removal (rembg)
-    3. Trim transparent padding and scale to target size (Pillow)
-
-    Use skip_gemini=True for logos that are already clean brand marks with suitable
-    colours - this skips the AI processing and goes straight to background removal.
+    2. Add padding to make square (if non-square)
+    3. Background removal (rembg)
+    4. Recolour for dark background (invert if logo is too dark)
+    5. Trim transparent padding and scale to target size (Pillow)
 
     :param input_path: Path to input image file
     :param output_path: Path to output image file
     :param target_size: Target output size in pixels
-    :param padding_percent: Padding percentage for square crop
-    :param invert: 'light_to_dark', 'dark_to_light', or empty for no inversion
-    :param skip_gemini: Skip Gemini processing (for already suitable brand marks)
     """
     import tempfile
 
     logger.info(
-        "Starting logo processing: %s -> %s (skip_gemini=%s)",
+        "Starting logo processing: %s -> %s",
         input_path,
         output_path,
-        skip_gemini,
     )
 
     # Create temp directory for intermediate files
@@ -389,31 +480,23 @@ def process_logo(
             convert_svg_to_png(current_file, svg_output, size=512)
             current_file = svg_output
 
-        if skip_gemini:
-            # Simplified pipeline: skip Gemini, go straight to background removal
-            logger.info("Skipping Gemini processing (SKIP_GEMINI=true)")
+        # Step 2: Add padding to make square if needed
+        padded_output = temp_path / "step2_padded.png"
+        pad_to_square(current_file, padded_output)
+        current_file = padded_output
 
-            # Step 2: Remove background
-            bg_removed_output = temp_path / "step2_bg_removed.png"
-            remove_background(current_file, bg_removed_output)
-            current_file = bg_removed_output
+        # Step 3: Remove background
+        bg_removed_output = temp_path / "step3_bg_removed.png"
+        remove_background(current_file, bg_removed_output)
+        current_file = bg_removed_output
 
-            # Step 3: Trim transparent padding and scale to target size
-            trim_and_scale_image(current_file, output_path, target_size)
-        else:
-            # Full pipeline with Gemini processing
-            # Step 2: Process with Gemini (single prompt for all AI operations including crop)
-            gemini_output = temp_path / "step2_gemini_processed.png"
-            process_logo_with_gemini(current_file, gemini_output, padding_percent, invert)
-            current_file = gemini_output
+        # Step 4: Recolour for dark background (invert if logo is too dark)
+        recoloured_output = temp_path / "step4_recoloured.png"
+        recolour_for_dark_background(current_file, recoloured_output)
+        current_file = recoloured_output
 
-            # Step 3: Remove background (Gemini cannot produce true transparency)
-            bg_removed_output = temp_path / "step3_bg_removed.png"
-            remove_background(current_file, bg_removed_output)
-            current_file = bg_removed_output
-
-            # Step 4: Trim transparent padding and scale to target size
-            trim_and_scale_image(current_file, output_path, target_size)
+        # Step 5: Trim transparent padding and scale to target size
+        trim_and_scale_image(current_file, output_path, target_size)
 
     logger.info("Logo processing complete: %s", output_path)
 
@@ -423,25 +506,6 @@ def main():
     from eth_defi.utils import setup_console_logging
 
     setup_console_logging(default_log_level=os.environ.get("LOG_LEVEL", "info"))
-
-    # Check for required API key first (only if not skipping Gemini)
-    if not SKIP_GEMINI and not GOOGLE_AI_API_KEY:
-        print("\n" + "=" * 80)
-        print("ERROR: GOOGLE_AI_API_KEY environment variable is not set")
-        print("=" * 80)
-        print("\nThis script requires a Google AI Studio API key to use Gemini 2.5 Flash Image.")
-        print("\nTo get an API key:")
-        print("  1. Visit https://aistudio.google.com/")
-        print("  2. Sign in with your Google account")
-        print("  3. Click 'Get API key' in the left sidebar")
-        print("  4. Create a new API key or use an existing one")
-        print("\nTo set the API key:")
-        print("  export GOOGLE_AI_API_KEY='your-api-key-here'")
-        print("\nAlternatively, set SKIP_GEMINI=true to skip AI processing:")
-        print("  export SKIP_GEMINI=true")
-        print("\nThen run this script again.")
-        print("=" * 80 + "\n")
-        raise ValueError("GOOGLE_AI_API_KEY environment variable is required")
 
     if not INPUT_IMAGE:
         raise ValueError("INPUT_IMAGE environment variable is required")
@@ -461,9 +525,6 @@ def main():
         input_path=input_path,
         output_path=output_path,
         target_size=TARGET_SIZE,
-        padding_percent=PADDING_PERCENT,
-        invert=INVERT,
-        skip_gemini=SKIP_GEMINI,
     )
 
 
