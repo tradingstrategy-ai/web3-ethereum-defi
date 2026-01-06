@@ -19,6 +19,14 @@ If any required input is missing, ask the user before proceeding.
 
 Save all project logos in the target folder. We will pick variants and post-process those later.
 
+There is no universal standard how artist name their logo files for dark and light variants. In our case, we always say
+- `light`: light (white) text on dark or transparent background
+- `dark`: dark (black) text on white or transparent  background
+
+Following vocabulary is used:
+- Brand mark: same as logo mark, the logo without the brand name text
+- Word mark: the logo with the brand name text
+
 ## Step 1: Search for brand kit or media resources
 
 The highest quality logos are typically found in official brand/media kits. Search for these pages:

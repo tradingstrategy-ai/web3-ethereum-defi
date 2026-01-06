@@ -407,18 +407,49 @@ def recolour_for_dark_background(input_path: Path, output_path: Path) -> None:
             colourful_ratio * 100,
         )
 
-        # Split into RGB and Alpha channels
-        r, g, b, a = image.split()
+        if is_bimodal:
+            # For bimodal logos (dark text with light background remnants inside letters):
+            # - Make bright pixels transparent (they're background, not part of the logo)
+            # - Invert only the dark pixels to white
+            logger.info("Using bimodal processing: making bright pixels transparent, inverting dark pixels")
 
-        # Invert only the RGB channels, preserve alpha
-        rgb_image = Image.merge("RGB", (r, g, b))
-        inverted_rgb = ImageOps.invert(rgb_image)
+            result = image.copy()
+            result_data = list(result.getdata())
+            new_data = []
 
-        # Recombine with original alpha channel
-        r_inv, g_inv, b_inv = inverted_rgb.split()
-        result = Image.merge("RGBA", (r_inv, g_inv, b_inv, a))
+            for r, g, b, a in result_data:
+                if a == 0:
+                    # Already transparent
+                    new_data.append((r, g, b, a))
+                else:
+                    brightness = 0.299 * r + 0.587 * g + 0.114 * b
+                    if brightness > 180:
+                        # Bright pixel - make transparent (background remnant)
+                        new_data.append((0, 0, 0, 0))
+                    elif brightness < 80:
+                        # Dark pixel - invert to white
+                        new_data.append((255, 255, 255, a))
+                    else:
+                        # Mid-tone - invert normally
+                        new_data.append((255 - r, 255 - g, 255 - b, a))
 
-        result.save(output_path, "PNG", optimize=True, compress_level=9)
+            result.putdata(new_data)
+            result.save(output_path, "PNG", optimize=True, compress_level=9)
+        else:
+            # Standard inversion for non-bimodal dark logos
+            # Split into RGB and Alpha channels
+            r, g, b, a = image.split()
+
+            # Invert only the RGB channels, preserve alpha
+            rgb_image = Image.merge("RGB", (r, g, b))
+            inverted_rgb = ImageOps.invert(rgb_image)
+
+            # Recombine with original alpha channel
+            r_inv, g_inv, b_inv = inverted_rgb.split()
+            result = Image.merge("RGBA", (r_inv, g_inv, b_inv, a))
+
+            result.save(output_path, "PNG", optimize=True, compress_level=9)
+
         logger.info("Colours inverted and saved to: %s", output_path)
     else:
         logger.info(
