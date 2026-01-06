@@ -1,5 +1,6 @@
 # Current
 
+- Add: Light variant logos for 30 vault protocols (2026-01-06)
 - Fix: Unify vault protocol slug naming across codebase, fixing duplicate "Lagoon" vs "Lagoon Finance" entries (2026-01-06)
 - Add: Helper script to generate canonical vault protocol slugs from protocol names (2026-01-06)
 - Fix: Improve logo inversion detection to only invert when no bright pixels exist (2026-01-06)
