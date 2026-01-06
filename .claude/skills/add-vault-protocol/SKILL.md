@@ -289,7 +289,7 @@ Format the newly added files with `poetry run ruff format`.
 
 ## Step 11: Add metadata and logos
 
-Read `eth_defi/data/vault_protocol/README.md` and use it to write YAML file for the vault protocol.
+Read `eth_defi/data/vaults/README.md` and use it to write a YAML file for the vault protocol in `eth_defi/data/vaults/metadata`.
 
 - Create the metadata YAML file
 - Use `extract-vault-protocol-logo` skill to save the vault protocol original logo files
