@@ -10,6 +10,7 @@ dollar-denominated cUSD and the yield-bearing stcUSD.
 Links
 ~~~~~
 
+- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/cap>`__
 - `Homepage <https://cap.app/>`__
 - `Twitter <https://x.com/capmoney_>`__
 - `DefiLlama <https://defillama.com/protocol/cap>`__

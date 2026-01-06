@@ -18,6 +18,7 @@ ERC-4626, enabling integration with Centrifuge's epoch-based investment system.
 Links
 ~~~~~
 
+- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/centrifuge>`__
 - `Homepage <https://centrifuge.io/>`__
 - `App <https://app.centrifuge.io/>`__
 - `Documentation <https://docs.centrifuge.io/>`__

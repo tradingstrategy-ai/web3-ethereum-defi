@@ -16,6 +16,7 @@ firms, and credit funds.
 Links
 ~~~~~
 
+- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/truefi>`__
 - `Homepage <https://truefi.io/>`__
 - `Documentation <https://docs.truefi.io/>`__
 - `GitHub <https://github.com/TrueFi-Protocol>`__

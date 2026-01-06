@@ -22,6 +22,7 @@ for tokenised vaults.
 Links
 ~~~~~
 
+- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/upshift>`__
 - `Homepage <https://www.upshift.finance/>`__
 - `Documentation <https://docs.upshift.finance/>`__
 - `Twitter <https://x.com/upshift_fi>`__

@@ -16,6 +16,7 @@ and a wider range of risk appetites.
 Links
 ~~~~~
 
+- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/yearn>`__
 - `Homepage <https://yearn.fi/>`__
 - `App <https://yearn.fi/vaults>`__
 - `Documentation <https://docs.yearn.fi/>`__

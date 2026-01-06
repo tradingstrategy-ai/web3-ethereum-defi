@@ -15,6 +15,7 @@ and enables intent-based transactions across chains.
 Links
 ~~~~~
 
+- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/superform>`__
 - `Homepage <https://www.superform.xyz/>`__
 - `App <https://app.superform.xyz/>`__
 - `Documentation <https://docs.superform.xyz/>`__

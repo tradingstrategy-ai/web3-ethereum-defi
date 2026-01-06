@@ -17,6 +17,7 @@ Known implementations are:
 Links
 ~~~~~
 
+- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/gains-network>`__
 - `Homepage <https://gains.trade/>`__
 - `Vaults <https://gains.trade/vaults>`__
 - `Documentation <https://docs.gains.trade/>`__

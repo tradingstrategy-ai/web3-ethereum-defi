@@ -21,6 +21,7 @@ NashPoint vaults are known as *Node*.
 Links
 ~~~~~
 
+- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/nashpoint>`__
 - `Homepage <https://www.nashpoint.fi/>`__
 - `Documentation <https://nashpoint.gitbook.io/nashpoint>`__
 - `Twitter <https://x.com/NashPointFi>`__

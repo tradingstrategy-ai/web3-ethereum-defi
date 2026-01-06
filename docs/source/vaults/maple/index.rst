@@ -55,6 +55,7 @@ Key features:
 Links
 ~~~~~
 
+- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/maple>`__
 - `Homepage <https://maple.finance/>`__
 - `App <https://app.maple.finance/earn>`__
 - `Documentation <https://docs.maple.finance/>`__
