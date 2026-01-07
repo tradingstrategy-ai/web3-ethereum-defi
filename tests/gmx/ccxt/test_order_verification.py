@@ -304,6 +304,8 @@ def test_ccxt_fetch_order_detects_cancelled(isolated_fork_env, execution_buffer)
     # Verify cancellation details are stored
     assert "cancellation_reason" in updated_order["info"], "Should have cancellation_reason in info"
     assert "event_names" in updated_order["info"], "Should have event_names in info"
-    assert "OrderCancelled" in updated_order["info"]["event_names"], f"Should have OrderCancelled in event_names, got: {updated_order['info'].get('event_names')}"
+    assert "OrderCancelled" in updated_order["info"]["event_names"], f"Should have OrderCancelled in event_names, got: {(updated_order['info'].get('event_names'))}"
 
-    print(f"Order correctly detected as cancelled: reason={updated_order['info'].get('cancellation_reason')}")
+    print(
+        f"Order correctly detected as cancelled: reason={updated_order['info'].get('cancellation_reason')}",
+    )
