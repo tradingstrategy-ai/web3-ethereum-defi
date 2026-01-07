@@ -401,6 +401,12 @@ class ERC4626Feature(enum.Enum):
     #: https://resolv.xyz/
     resolv_like = "resolv_like"
 
+    #: Curvance
+    #:
+    #: Next-generation DeFi lending protocol with capital-efficient money markets.
+    #: https://www.curvance.com/
+    curvance_like = "curvance_like"
+
 
 def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     """Deduct vault protocol name based on Vault smart contract features.
@@ -576,6 +582,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.resolv_like in features:
         return "Resolv"
+
+    elif ERC4626Feature.curvance_like in features:
+        return "Curvance"
 
     # No idea
     if ERC4626Feature.erc_7540_like in features:

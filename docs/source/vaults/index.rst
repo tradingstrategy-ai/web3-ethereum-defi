@@ -37,6 +37,7 @@ Supported protocols
    cap/index
    centrifuge/index
    csigma/index
+   curvance/index
    d2_finance/index
    deltr/index
    ethena/index

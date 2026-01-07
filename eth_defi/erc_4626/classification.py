@@ -503,6 +503,18 @@ def create_probe_calls(
             extra_data=None,
         )
 
+        # Curvance Protocol
+        # BorrowableCToken and other cToken vaults have marketManager() returning IMarketManager address
+        # https://github.com/curvance/curvance-contracts
+        # https://monadscan.com/address/0xad4aa2a713fb86fbb6b60de2af9e32a11db6abf2
+        curvance_call = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="marketManager()")[0:4],
+            function="marketManager",
+            data=b"",
+            extra_data=None,
+        )
+
         yield bad_probe_call
         yield name_call
         yield share_price_call
@@ -547,6 +559,7 @@ def create_probe_calls(
         yield centrifuge_wards_call
         yield royco_call
         yield gearbox_contract_type_call
+        yield curvance_call
 
 
 def identify_vault_features(
@@ -741,6 +754,12 @@ def identify_vault_features(
                     features.add(ERC4626Feature.gearbox_like)
         except Exception:
             pass
+
+    # Curvance Protocol - BorrowableCToken and other cToken vaults
+    # marketManager() returns the IMarketManager address
+    # https://github.com/curvance/curvance-contracts
+    if calls["marketManager"].success:
+        features.add(ERC4626Feature.curvance_like)
 
     # # TODO: No way separate from Goat Protocol, see test_superform
     # if calls["PROFIT_UNLOCK_TIME"].success:
@@ -1161,6 +1180,11 @@ def create_vault_instance(
         from eth_defi.erc_4626.vault_protocol.resolv.vault import ResolvVault
 
         return ResolvVault(web3, spec, token_cache=token_cache, features=features)
+
+    elif ERC4626Feature.curvance_like in features:
+        from eth_defi.erc_4626.vault_protocol.curvance.vault import CurvanceVault
+
+        return CurvanceVault(web3, spec, token_cache=token_cache, features=features)
 
     else:
         # Generic ERC-4626 without fee data
