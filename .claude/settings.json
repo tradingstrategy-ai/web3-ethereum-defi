@@ -19,6 +19,7 @@
       "Bash(gh:*)",
       "Bash(find:*)",
       "Bash(sed:*)",
+      "Bash(awk:*)",
       "Bash(sort:*)",
       "Bash(grep:*)",
       "Bash(for:*)",
