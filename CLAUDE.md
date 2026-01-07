@@ -44,13 +44,29 @@ In the environment file, the RPC URLs are provided in the project-specific space
 - If you are going to use this RPC URL with other commands, like `curl`, you need to parse the RPC environment variable by spltting it by spaces and taking the first entry
 - All environment variables point to EVM archive nodes
 
-## Formatting code
+## Running tests
 
-After a large task is complete you can format the code with:
+If we have not run tests before make sure the user has created a gitignored file `.local-test.env` in the repository root. This will use `source` shell command to include the actual test secrets which lie outside the repository structure. Note: this file does not contain actual environment variables, just a `source` command to get them from elsewhere. **Never edit this file** and always ask the user to prepare the file for Claude Code.
+
+To run tests you need to use the installed Poetry environment, with given environment secrets file.
+
+To run tests use the `pytest` wrapper command:
 
 ```shell
-poetry run ruff format
+source .local-test.env && poetry pytest run {test case name or pattern here}
 ```
+
+Always prefix pytest command with relevant source command,
+otherwise the test cannot find environment variables.
+
+Avoid running the whole test suite as it takes several minutes. Only run specific test cases.
+
+When running pytest or any test commands, always use an extended timeout
+by specifying `timeout: 180000` (3 minutes) in the bash tool parameters.
+
+## Formatting code
+
+Don't format code for now.
 
 ## Pull requests
 

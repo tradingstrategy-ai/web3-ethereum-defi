@@ -264,6 +264,9 @@ Create `eth_defi/erc_4626/vault_protocol/{protocol_slug}/__init__.py`:
 - Add a link to the protocol home page and documentation
 - Search Github/web for a Github repo link of the smart contracts
 - Search protocol homepage for Twitter link and add it to the documentation
+- Search protocol homepage and documentation audits page
+- Search protocol homepage and documentation fees page
+- Check if DefiLLama has a page for this protocol
 - Add the new modules to the protocol index page TOC
 - Add the protocol to the master index in `docs/source/vaults/index.rst`
 
