@@ -1,5 +1,6 @@
 # Current
 
+- Fix: ResourceWarning for unclosed sockets and subprocess handles in `eth_defi.utils` (2026-01-07)
 - Add: New vault type: [Spectra](https://tradingstrategy.ai/trading-view/vaults/protocols/spectra) ERC4626 wrapper (sw-earn) on Monad (2026-01-07)
 - Add: New protocol: [Curvance](https://www.curvance.com/) - next-generation DeFi lending protocol on Monad and other chains (2026-01-07)
 - Add: New protocol: [Resolv](https://tradingstrategy.ai/trading-view/vaults/protocols/resolv) - delta-neutral stablecoin protocol with wstUSR vault (2026-01-07)
