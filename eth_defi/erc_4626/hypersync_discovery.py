@@ -32,6 +32,10 @@ except ImportError as e:
 logger = logging.getLogger(__name__)
 
 
+class HypersyncCrappedOut(Exception):
+    pass
+
+
 class HypersyncVaultDiscover(VaultDiscoveryBase):
     """Autoscan the chain for 4626 vaults.
 
@@ -114,11 +118,28 @@ class HypersyncVaultDiscover(VaultDiscoveryBase):
         )
         return query
 
-    def fetch_leads(self, start_block: int, end_block: int, display_progress=True) -> LeadScanReport:
+    def fetch_leads(self, start_block: int, end_block: int, attempts=3, retry_sleep=30, display_progress=True) -> LeadScanReport:
+        """
+        Synchronous wrapper around async lead scanning.
+
+        :parma attempts:
+            Deal with HyperSync flakiness by retrying the scan this many times.
+        """
+
         # Don't leak async colored interface, as it is an implementation detail
         async def _hypersync_asyncio_wrapper():
-            report = await self.scan_potential_vaults(start_block, end_block, display_progress)
-            return report
+            for attempt in range(attempts):
+                try:
+                    report = await self.scan_potential_vaults(start_block, end_block, display_progress)
+                    return report
+                except HypersyncCrappedOut as e:
+                    logger.error(f"HyperSync scan attempt {attempt + 1} of {attempts} failed: {e}")
+                    if attempt + 1 >= attempts:
+                        logger.error("All HyperSync scan attempts failed, giving up")
+                        raise e
+                    else:
+                        logger.info(f"Retrying HyperSync scan after {retry_sleep} seconds backoff")
+                        time.sleep(retry_sleep)
 
         return asyncio.run(_hypersync_asyncio_wrapper())
 
@@ -175,7 +196,7 @@ class HypersyncVaultDiscover(VaultDiscoveryBase):
                 # TODO: Not sure if we can recover from a timeout like this
                 retry_sleep = 10
                 logger.error("HyperSync receiver timed out, sleeping %f", retry_sleep)
-                raise
+                raise HypersyncCrappedOut(f"Cannot recover from HyperSync stream timeout after {self.recv_timeout} seconds") from e
 
             # exit if the stream finished
             if res is None:
