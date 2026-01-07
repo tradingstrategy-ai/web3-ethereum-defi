@@ -17,14 +17,12 @@ keywords = [
   "gmx",
   "gnosis",
   "ethereum",
-  "cryptocurrency",
   "erc-20",
-  "pancakeswap",
   "web3",
   "blockchain",
-  "avalanche",
   "arbitrum",
   "chainlink",
+  "hyperliquid",
 ]
 packages = [
   {include = "eth_defi"},
