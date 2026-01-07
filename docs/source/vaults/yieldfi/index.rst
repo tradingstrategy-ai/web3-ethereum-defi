@@ -15,8 +15,11 @@ Links
 ~~~~~
 
 - `Homepage <https://yield.fi/>`__
+- `Documentation <https://docs.yield.fi/>`__
 - `Twitter <https://x.com/getyieldfi>`__
 - `GitHub <https://github.com/YieldFiLabs>`__
+- `DefiLlama <https://defillama.com/protocol/yieldfi>`__
+- `Audits <https://docs.yield.fi/resources/audits>`__
 
 .. autosummary::
    :toctree: _autosummary_yieldfi

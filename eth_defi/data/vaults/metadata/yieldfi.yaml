@@ -21,9 +21,9 @@ links:
   app: https://yield.fi/
   twitter: https://x.com/getyieldfi
   github: https://github.com/YieldFiLabs
-  documentation:
-  defillama:
-  audits:
+  documentation: https://docs.yield.fi/
+  defillama: https://defillama.com/protocol/yieldfi
+  audits: https://docs.yield.fi/resources/audits
   fees:
   trading_strategy:
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/yieldfi/index.html
