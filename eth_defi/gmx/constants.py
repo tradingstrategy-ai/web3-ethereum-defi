@@ -281,3 +281,12 @@ TOKEN_ADDRESS_MAPPINGS = {
         "0x3253a335E7bFfB4790Aa4C25C4250d206E9b9773": "0x3321Fd36aEaB0d5CdfD26f4A3A93E2D2aAcCB99f",
     },
 }
+
+# Trading limits
+#: Minimum cost (USD) for GMX orders - GMX protocol minimum is $2
+#: It's not mentioned in the docs but observed from the web UI. https://app.gmx.io/#/trade
+GMX_MIN_COST_USD = 2
+
+#: Minimum display stake (USD) for leverage tier calculations
+#: Used to ensure minimum position sizes in leverage tier max notional calculations
+GMX_MIN_DISPLAY_STAKE = 20.0

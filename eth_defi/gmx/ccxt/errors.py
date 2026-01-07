@@ -84,3 +84,93 @@ class InsufficientHistoricalDataError(ExchangeError):
             lines.append("Try reducing the backtest time range or using a larger timeframe interval.")
 
         return "\n".join(lines)
+
+
+class GMXOrderFailedException(ExchangeError):
+    """Raised when a GMX order fails at the protocol level despite transaction success.
+
+    This occurs when GMX emits OrderCancelled or OrderFrozen events, which can happen
+    even when the keeper transaction succeeds (receipt.status == 1).
+
+    Common failure reasons:
+
+    - MaxOpenInterestExceeded: Pool has hit its open interest limit
+    - InsufficientPoolAmount: Not enough liquidity in the pool
+    - OrderNotFulfillableAtAcceptablePrice: Price moved beyond slippage tolerance
+    - MinPositionSize: Order size is below minimum
+    - InvalidDecreaseOrderSize: Decrease size doesn't match position
+
+    :ivar order_key:
+        The 32-byte GMX order key
+
+    :ivar status:
+        Order status: "cancelled" or "frozen"
+
+    :ivar reason:
+        Human-readable reason string from GMX event
+
+    :ivar decoded_error:
+        Decoded error message from reasonBytes (e.g., "MaxOpenInterestExceeded($1,234.56, $1,000.00)")
+
+    :ivar error_selector:
+        4-byte error selector hex string (e.g., "2bf127cf")
+
+    :ivar reason_bytes:
+        Raw reasonBytes from the GMX event
+
+    :ivar tx_hash:
+        Transaction hash of the failed order
+
+    :ivar receipt:
+        Full transaction receipt
+
+    Example usage::
+
+        try:
+            order = gmx.create_order("ETH/USD", "market", "buy", 100)
+        except GMXOrderFailedException as e:
+            print(f"Order failed: {e.decoded_error}")
+            print(f"Order key: {e.order_key.hex()}")
+            # Handle failure - do NOT treat as successful order
+    """
+
+    def __init__(
+        self,
+        order_key: bytes,
+        status: str,
+        reason: str | None,
+        decoded_error: str | None,
+        error_selector: str | None,
+        reason_bytes: bytes | None,
+        tx_hash: str,
+        receipt: dict,
+    ):
+        self.order_key = order_key
+        self.status = status
+        self.reason = reason
+        self.decoded_error = decoded_error
+        self.error_selector = error_selector
+        self.reason_bytes = reason_bytes
+        self.tx_hash = tx_hash
+        self.receipt = receipt
+
+        message = self._build_message()
+        super().__init__(message)
+
+    def _build_message(self) -> str:
+        """Build human-readable error message."""
+        lines = [
+            f"GMX order {self.status}",
+        ]
+
+        if self.decoded_error:
+            lines.append(f"Error: {self.decoded_error}")
+        elif self.reason:
+            lines.append(f"Reason: {self.reason}")
+
+        if self.order_key:
+            lines.append(f"Order key: 0x{self.order_key.hex()[:16]}...")
+
+        lines.append(f"Transaction: {self.tx_hash}")
+
+        return " | ".join(lines)

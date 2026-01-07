@@ -26,7 +26,7 @@ from eth_defi.gmx.ccxt.async_support.async_http import async_make_gmx_api_reques
 from eth_defi.gmx.ccxt.properties import describe_gmx
 from eth_defi.gmx.ccxt.validation import _validate_ohlcv_data_sufficiency
 from eth_defi.gmx.config import GMXConfig
-from eth_defi.gmx.constants import PRECISION
+from eth_defi.gmx.constants import GMX_MIN_COST_USD, PRECISION
 from eth_defi.gmx.core import Markets
 from eth_defi.gmx.core.open_positions import GetOpenPositions
 from eth_defi.gmx.core.oracle import OraclePrices
@@ -356,7 +356,7 @@ class GMX(Exchange):
                         "limits": {
                             "amount": {"min": None, "max": None},
                             "price": {"min": None, "max": None},
-                            "cost": {"min": 10, "max": None},
+                            "cost": {"min": GMX_MIN_COST_USD, "max": None},
                             "leverage": {"min": 1.1, "max": max_leverage},
                         },
                         "maintenanceMarginRate": maintenance_margin_rate,
@@ -426,7 +426,7 @@ class GMX(Exchange):
         # Fetch markets list (this will need async version of Markets class)
         # For now, we'll call the sync method in executor as a bridge
         # TODO: Create fully async Markets implementation
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
 
         markets_instance = Markets(self.config)
         available_markets = await loop.run_in_executor(None, markets_instance.get_available_markets)
@@ -505,7 +505,7 @@ class GMX(Exchange):
                 "limits": {
                     "amount": {"min": None, "max": None},
                     "price": {"min": None, "max": None},
-                    "cost": {"min": 10, "max": None},
+                    "cost": {"min": GMX_MIN_COST_USD, "max": None},
                     "leverage": {"min": 1.1, "max": max_leverage},
                 },
                 "maintenanceMarginRate": maintenance_margin_rate,
@@ -812,9 +812,16 @@ class GMX(Exchange):
         """Fetch order by ID (transaction hash).
 
         Returns the order that was created with the given transaction hash.
-        Queries the blockchain to get the current transaction status.
+        For orders with status "open", this method checks the GMX DataStore
+        and EventEmitter to determine if the keeper has executed the order.
 
-        :param id: Order ID (transaction hash)
+        GMX uses a two-phase execution model:
+        1. Order Creation - User submits, receives status "open"
+        2. Keeper Execution - Keeper executes, status changes to "closed" or "cancelled"
+
+        This method is called by Freqtrade to poll for order status updates.
+
+        :param id: Order ID (transaction hash of order creation)
         :type id: str
         :param symbol: Symbol (not used, for CCXT compatibility)
         :type symbol: str | None
@@ -841,30 +848,106 @@ class GMX(Exchange):
             except Exception:
                 pass
 
-            # Fetch current transaction status from blockchain
+            # If already closed/cancelled/failed, return cached status
+            if order.get("status") in ("closed", "cancelled", "failed"):
+                logger.debug("fetch_order(%s): returning cached status=%s", id[:16], order.get("status"))
+                return order
+
+            # Order is "open" - check if keeper has executed
+            order_key_hex = order.get("info", {}).get("order_key")
+            if not order_key_hex:
+                logger.warning("fetch_order(%s): no order_key stored, cannot check execution status", id[:16])
+                return order
+
+            order_key = bytes.fromhex(order_key_hex)
+
+            # Check if order still pending in DataStore (using sync call via asyncio)
+            from eth_defi.gmx.order_tracking import check_order_status
+            import asyncio
+
             try:
-                if id.startswith("0x"):
-                    receipt = await self.web3.eth.get_transaction_receipt(id)
-                    # Update status based on receipt
-                    tx_success = receipt.get("status") == 1
-                    order["status"] = "closed" if tx_success else "failed"
-
-                    # GMX orders execute immediately, so update filled/remaining
-                    if tx_success:
-                        order["filled"] = order.get("amount")
-                        order["remaining"] = 0.0
-                    else:
-                        order["filled"] = 0.0
-                        order["remaining"] = order.get("amount")
-
-                    # Update info with latest receipt data
-                    if "info" not in order:
-                        order["info"] = {}
-                    order["info"]["receipt"] = receipt
-                    order["info"]["block_number"] = receipt.get("blockNumber")
-                    order["info"]["gas_used"] = receipt.get("gasUsed")
+                # Run sync function in thread pool
+                status_result = await asyncio.get_running_loop().run_in_executor(None, lambda: check_order_status(self.web3, order_key, self.chain))
             except Exception as e:
-                logger.warning("Could not fetch transaction receipt for %s: %s", id, e)
+                logger.warning("fetch_order(%s): error checking order status: %s", id[:16], e)
+                return order
+
+            if status_result.is_pending:
+                # Still waiting for keeper execution
+                logger.debug("fetch_order(%s): order still pending (waiting for keeper)", id[:16])
+                return order
+
+            # Order no longer pending - verify execution result
+            if status_result.execution_receipt:
+                from eth_defi.gmx.verification import verify_gmx_order_execution
+
+                verification = verify_gmx_order_execution(
+                    self.web3,
+                    status_result.execution_receipt,
+                    order_key,
+                )
+
+                if verification.success:
+                    # Order executed successfully
+                    order["status"] = "closed"
+                    order["filled"] = order["amount"]
+                    order["remaining"] = 0.0
+                    order["average"] = verification.execution_price
+                    order["lastTradeTimestamp"] = self.milliseconds()
+
+                    # Calculate cost based on actual execution price
+                    if verification.execution_price and order["amount"]:
+                        order["cost"] = order["amount"] * verification.execution_price
+
+                    # Update info with verification data
+                    order["info"]["execution_tx_hash"] = status_result.execution_tx_hash
+                    order["info"]["execution_receipt"] = status_result.execution_receipt
+                    order["info"]["execution_block"] = status_result.execution_block
+                    order["info"]["verification"] = {
+                        "execution_price": verification.execution_price,
+                        "size_delta_usd": verification.size_delta_usd,
+                        "pnl_usd": verification.pnl_usd,
+                        "price_impact_usd": verification.price_impact_usd,
+                        "event_count": verification.event_count,
+                        "event_names": verification.event_names,
+                        "is_long": verification.is_long,
+                    }
+
+                    logger.info(
+                        "fetch_order(%s): order EXECUTED at price=%.2f, size_usd=%.2f",
+                        id[:16],
+                        verification.execution_price or 0,
+                        verification.size_delta_usd or 0,
+                    )
+                else:
+                    # Order was cancelled or frozen
+                    order["status"] = "cancelled"
+                    order["filled"] = 0.0
+                    order["remaining"] = order["amount"]
+
+                    # Update info with cancellation details
+                    order["info"]["execution_tx_hash"] = status_result.execution_tx_hash
+                    order["info"]["execution_receipt"] = status_result.execution_receipt
+                    order["info"]["execution_block"] = status_result.execution_block
+                    order["info"]["cancellation_reason"] = verification.decoded_error or verification.reason
+                    order["info"]["event_names"] = verification.event_names
+
+                    logger.warning(
+                        "fetch_order(%s): order CANCELLED - reason=%s, events=%s",
+                        id[:16],
+                        verification.decoded_error or verification.reason,
+                        verification.event_names,
+                    )
+
+                # Update cache with new status
+                self._orders[id] = order
+
+            else:
+                # Order removed from DataStore but no execution receipt found
+                logger.warning(
+                    "fetch_order(%s): order removed from DataStore but no execution event found",
+                    id[:16],
+                )
 
             return order
 
@@ -879,6 +962,7 @@ class GMX(Exchange):
                 tx = await self.web3.eth.get_transaction(normalized_id)
 
                 # Build minimal order structure from transaction data
+                # Note: For orders not in cache, we can't track keeper execution
                 tx_success = receipt.get("status") == 1
                 order = {
                     "id": id,
@@ -886,14 +970,14 @@ class GMX(Exchange):
                     "datetime": self.iso8601(tx.get("blockNumber", 0) * 1000) if tx.get("blockNumber") else None,
                     "timestamp": tx.get("blockNumber", 0) * 1000 if tx.get("blockNumber") else None,
                     "lastTradeTimestamp": None,
-                    "status": "closed" if tx_success else "failed",
+                    "status": "open" if tx_success else "failed",  # Can't verify execution without order_key
                     "symbol": symbol if symbol else None,
                     "type": "market",
                     "side": None,  # Can't determine from tx alone
                     "price": None,
                     "amount": None,  # Can't determine from tx alone
                     "filled": None,  # Can't determine from tx alone
-                    "remaining": 0.0 if tx_success else None,
+                    "remaining": None,
                     "cost": None,
                     "trades": [],  # Empty list, not None - freqtrade expects a list
                     "fee": {
@@ -901,7 +985,7 @@ class GMX(Exchange):
                         "cost": float(receipt.get("gasUsed", 0)) * float(tx.get("gasPrice", 0)) / 1e18,
                     },
                     "info": {
-                        "receipt": receipt,
+                        "creation_receipt": receipt,
                         "transaction": tx,
                         "block_number": receipt.get("blockNumber"),
                         "gas_used": receipt.get("gasUsed"),
@@ -910,7 +994,7 @@ class GMX(Exchange):
                     "fees": [],
                 }
 
-                logger.info("Fetched order %s from blockchain (not in cache)", id)
+                logger.info("fetch_order(%s): fetched from blockchain (not in cache), status=open", id[:16])
                 return order
 
             except Exception as e:
@@ -1521,7 +1605,7 @@ class GMX(Exchange):
 
         # Sync wallet nonce
         # Note: AsyncWeb3 doesn't have sync methods, need to use await
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         await loop.run_in_executor(None, self.wallet.sync_nonce, self.web3)
 
         logger.info("=" * 80)
@@ -1627,7 +1711,7 @@ class GMX(Exchange):
         collateral_usd = size_delta_usd / leverage
 
         # Get token details (sync operation in executor)
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         token_details = await loop.run_in_executor(
             None,
             fetch_erc20_details,
@@ -1817,7 +1901,7 @@ class GMX(Exchange):
             return
 
         # Get contract addresses
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         contract_addresses = get_contract_addresses(self.chain)
         spender_address = contract_addresses.syntheticsrouter
 
