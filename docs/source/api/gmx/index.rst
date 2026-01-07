@@ -46,13 +46,16 @@ More info
    eth_defi.gmx.base
    eth_defi.gmx.config
    eth_defi.gmx.constants
+   eth_defi.gmx.contracts
    eth_defi.gmx.data
    eth_defi.gmx.events
-   eth_defi.gmx.gmx_data_reader
-   eth_defi.gmx.liquidity
+   eth_defi.gmx.gas_utils
+   eth_defi.gmx.keys
    eth_defi.gmx.order
-   eth_defi.gmx.trading
-   eth_defi.gmx.utils
-   eth_defi.gmx.wallet_adapter_signer
+   eth_defi.gmx.retry
+   eth_defi.gmx.synthetic_tokens
    eth_defi.gmx.testing
+   eth_defi.gmx.trading
+   eth_defi.gmx.types
+   eth_defi.gmx.utils
 

@@ -19,13 +19,15 @@ See :ref:`tutorials` for more information how to do swaps in Python, or how to a
    :toctree: _autosummary_uniswap_v3
    :recursive:
 
-   eth_defi.uniswap_v3.deployment
-   eth_defi.uniswap_v3.constants
-   eth_defi.uniswap_v3.utils
-   eth_defi.uniswap_v3.liquidity
    eth_defi.uniswap_v3.analysis
+   eth_defi.uniswap_v3.constants
+   eth_defi.uniswap_v3.deployment
    eth_defi.uniswap_v3.events
-   eth_defi.uniswap_v3.price
+   eth_defi.uniswap_v3.fee
+   eth_defi.uniswap_v3.liquidity
+   eth_defi.uniswap_v3.oracle
    eth_defi.uniswap_v3.pool
+   eth_defi.uniswap_v3.price
    eth_defi.uniswap_v3.swap
-   eth_defi.uniswap_v2.oracle
+   eth_defi.uniswap_v3.tvl
+   eth_defi.uniswap_v3.utils
