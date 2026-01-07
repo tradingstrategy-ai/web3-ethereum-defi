@@ -8,4 +8,5 @@ API helpers for HyperSync client.
    :recursive:
 
    eth_defi.hypersync.server
-   eth_defi.hypersync.timestamp
+   eth_defi.hypersync.hypersync_timestamp
+   eth_defi.hypersync.utils

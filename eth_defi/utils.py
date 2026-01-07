@@ -40,9 +40,12 @@ def is_localhost_port_listening(port: int, host="localhost") -> bool:
     """
 
     a_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    location = (host, port)
-    result_of_check = a_socket.connect_ex(location)
-    return result_of_check == 0
+    try:
+        location = (host, port)
+        result_of_check = a_socket.connect_ex(location)
+        return result_of_check == 0
+    finally:
+        a_socket.close()
 
 
 def find_free_port(min_port: int = 20_000, max_port: int = 40_000, max_attempt: int = 20) -> int:
@@ -124,15 +127,26 @@ def shutdown_hard(
         # Still alive, we need to kill to read the output
         process.kill()
 
-    for line in process.stdout.readlines():
-        stdout += line
-        if log_level is not None:
-            logger._log(log_level, "stdout: %s", line.decode("utf-8").strip())
+    # Read stdout/stderr before wait() as wait() may close the pipes
+    # Also check if streams are not already closed (e.g. if close() is called twice)
+    if process.stdout is not None and not process.stdout.closed:
+        for line in process.stdout.readlines():
+            stdout += line
+            if log_level is not None:
+                logger._log(log_level, "stdout: %s", line.decode("utf-8").strip())
+        process.stdout.close()
 
-    for line in process.stderr.readlines():
-        stderr += line
-        if log_level is not None:
-            logger._log(log_level, "stderr: %s", line.decode("utf-8").strip())
+    if process.stderr is not None and not process.stderr.closed:
+        for line in process.stderr.readlines():
+            stderr += line
+            if log_level is not None:
+                logger._log(log_level, "stderr: %s", line.decode("utf-8").strip())
+        process.stderr.close()
+
+    # Wait for the process to terminate to avoid ResourceWarning about
+    # subprocess still running. Do this after reading stdout/stderr.
+    if process.poll() is None:
+        process.wait()
 
     if block:
         assert check_port is not None, "Give check_port to block the execution"

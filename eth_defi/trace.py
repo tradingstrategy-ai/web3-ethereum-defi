@@ -132,7 +132,7 @@ def trace_evm_transaction(
             calltree = get_calltree_from_geth_trace(iter(frames), **root_node_kwargs)
         case TraceMethod.parity:
             trace_dump = web3.manager.request_blocking("trace_transaction", [tx_hash])
-            trace_list = ParityTraceList.parse_obj(trace_dump)
+            trace_list = ParityTraceList.model_validate(trace_dump)
             calltree = get_calltree_from_parity_trace(trace_list)
         case _:
             raise RuntimeError("Unsupported method")

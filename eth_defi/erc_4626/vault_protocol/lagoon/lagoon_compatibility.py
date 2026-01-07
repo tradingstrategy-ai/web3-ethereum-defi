@@ -468,7 +468,8 @@ def check_lagoon_compatibility_with_database(
     if database_file.exists():
         # Load cached data
         try:
-            database: LagoonTokenCheckDatabase = pickle.load(database_file.open("rb"))
+            with database_file.open("rb") as f:
+                database: LagoonTokenCheckDatabase = pickle.load(f)
             for entry in database.report_by_token.values():
                 entry.cached = True
         except EOFError:
@@ -549,9 +550,11 @@ def check_lagoon_compatibility_with_database(
         database.report_by_token[base_token_address.lower()] = report
 
         # Because the operation is so slow, we want to resave after each iteration
-        pickle.dump(database, database_file.open("wb"))
+        with database_file.open("wb") as f:
+            pickle.dump(database, f)
 
         anvil.close()
 
-    pickle.dump(database, database_file.open("wb"))
+    with database_file.open("wb") as f:
+        pickle.dump(database, f)
     return database

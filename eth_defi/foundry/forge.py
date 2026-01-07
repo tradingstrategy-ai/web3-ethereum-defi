@@ -70,7 +70,11 @@ def _exec_cmd(
     proc = psutil.Popen(cmd_line, stdin=DEVNULL, stdout=out, stderr=out)
     result = proc.wait(timeout)
 
-    output = proc.stdout.read().decode("utf-8") + proc.stderr.read().decode("utf-8")
+    try:
+        output = proc.stdout.read().decode("utf-8") + proc.stderr.read().decode("utf-8")
+    finally:
+        proc.stdout.close()
+        proc.stderr.close()
 
     if result != 0:
         if "No files changed, compilation skipped" not in output:
