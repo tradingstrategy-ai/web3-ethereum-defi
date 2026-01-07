@@ -1152,6 +1152,11 @@ def create_vault_instance(
 
         return MainstreetVault(web3, spec, token_cache=token_cache, features=features)
 
+    elif ERC4626Feature.yieldfi_like in features:
+        from eth_defi.erc_4626.vault_protocol.yieldfi.vault import YieldFiVault
+
+        return YieldFiVault(web3, spec, token_cache=token_cache, features=features)
+
     else:
         # Generic ERC-4626 without fee data
         from eth_defi.erc_4626.vault import ERC4626Vault
@@ -1246,6 +1251,9 @@ HARDCODED_PROTOCOLS = {
     # Mainstreet Finance - smsUSD (legacy) vault on Sonic
     # https://sonicscan.org/address/0xc7990369DA608C2F4903715E3bD22f2970536C29
     "0xc7990369da608c2f4903715e3bd22f2970536c29": {ERC4626Feature.mainstreet_like},
+    # YieldFi - vyUSD vault on Ethereum
+    # https://etherscan.io/address/0x2e3c5e514eef46727de1fe44618027a9b70d92fc
+    "0x2e3c5e514eef46727de1fe44618027a9b70d92fc": {ERC4626Feature.yieldfi_like},
 }
 
 for a in HARDCODED_PROTOCOLS.keys():

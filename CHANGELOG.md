@@ -1,6 +1,7 @@
 # 0.38
 
 
+- Add: New protocol: [YieldFi](https://yield.fi/) - Web3 asset management platform with vyToken vaults (2026-01-07)
 - Add: Claude Code skill for post-processing vault protocol logos using Nano Banana AI (2026-01-06)
 - Add: New protocol: [Mainstreet Finance](https://tradingstrategy.ai/trading-view/vaults/protocols/mainstreet-finance) - synthetic USD stablecoin ecosystem on Sonic (2026-01-05)
 - Add: New protocol: [Gearbox](https://tradingstrategy.ai/trading-view/vaults/protocols/gearbox) - composable leverage protocol lending pools (2026-01-05)

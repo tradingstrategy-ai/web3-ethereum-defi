@@ -389,6 +389,12 @@ class ERC4626Feature(enum.Enum):
     #: https://mainstreet.finance/
     mainstreet_like = "mainstreet_like"
 
+    #: YieldFi
+    #:
+    #: Web3 asset management platform with vyToken vaults.
+    #: https://yield.fi/
+    yieldfi_like = "yieldfi_like"
+
 
 def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     """Deduct vault protocol name based on Vault smart contract features.
@@ -558,6 +564,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.mainstreet_like in features:
         return "Mainstreet Finance"
+
+    elif ERC4626Feature.yieldfi_like in features:
+        return "YieldFi"
 
     # No idea
     if ERC4626Feature.erc_7540_like in features:
