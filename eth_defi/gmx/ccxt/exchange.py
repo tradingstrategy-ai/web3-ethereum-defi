@@ -226,6 +226,7 @@ class GMX(ExchangeCompatible):
         self._wallet = parameters.get("wallet")
         self._verbose = parameters.get("verbose", False)
         self.execution_buffer = parameters.get("executionBuffer", 2.2)
+        self.default_slippage = parameters.get("defaultSlippage", 0.003)  # 0.3% default
 
         # Configure verbose logging if requested
         if self._verbose:
@@ -332,6 +333,7 @@ class GMX(ExchangeCompatible):
         self.web3 = config.web3
         self.wallet = wallet
         self.execution_buffer = 2.2  # Default execution buffer for legacy config
+        self.default_slippage = 0.003  # Default 0.3% slippage
 
         # Initialize trading manager
         self.trader = GMXTrading(config) if wallet else None
@@ -544,6 +546,7 @@ class GMX(ExchangeCompatible):
         self.trader = None
         self.subsquid = None
         self.wallet_address = None
+        self.default_slippage = 0.003  # Default 0.3% slippage
         self._init_common()
 
     def calculate_fee(
@@ -3475,7 +3478,7 @@ class GMX(ExchangeCompatible):
         # Extract GMX-specific parameters from params
         collateral_symbol = params.get("collateral_symbol", "USDC")  # Default to USDC
         leverage = params.get("leverage", self.leverage.get(normalized_symbol, 1.0))
-        slippage_percent = params.get("slippage_percent", 0.003)  # 0.3% default
+        slippage_percent = params.get("slippage_percent", self.default_slippage)
 
         # Determine position direction based on side and reduceOnly
         # Following Freqtrade/CCXT standard pattern:
@@ -3628,7 +3631,7 @@ class GMX(ExchangeCompatible):
         collateral_symbol = gmx_params["collateral_symbol"]
         leverage = gmx_params["leverage"]
         size_delta_usd = gmx_params["size_delta_usd"]
-        slippage_percent = gmx_params.get("slippage_percent", 0.003)
+        slippage_percent = gmx_params.get("slippage_percent", self.default_slippage)
         execution_buffer = gmx_params.get("execution_buffer", self.execution_buffer)
 
         # Get token addresses from self.markets
@@ -3863,7 +3866,7 @@ class GMX(ExchangeCompatible):
             raise InvalidOrder(f"Trigger price required for standalone {type} order")
 
         leverage = params.get("leverage", 1.0)
-        slippage_percent = params.get("slippage_percent", 0.003)
+        slippage_percent = params.get("slippage_percent", self.default_slippage)
         execution_buffer = params.get("execution_buffer", 2.5)
 
         # Parse symbol to get market info
@@ -4515,7 +4518,7 @@ class GMX(ExchangeCompatible):
                     is_long=position_to_close.get("is_long"),  # Use actual position direction
                     size_delta_usd=size_delta_usd,
                     initial_collateral_delta=initial_collateral_delta,
-                    slippage_percent=gmx_params.get("slippage_percent", 0.003),
+                    slippage_percent=gmx_params.get("slippage_percent", self.default_slippage),
                     execution_buffer=gmx_params.get("execution_buffer", self.execution_buffer),
                     auto_cancel=gmx_params.get("auto_cancel", False),
                 )
