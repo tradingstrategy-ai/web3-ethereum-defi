@@ -1,0 +1,30 @@
+name: Resolv
+slug: resolv
+short_description: |
+  Delta-neutral stablecoin protocol with wstUSR wrapped staking vault.
+long_description: |
+  Resolv is a protocol that maintains USR, a stablecoin fully backed by ETH and BTC
+  and pegged to the US Dollar. The stablecoin's delta-neutral design ensures price
+  stability, and is backed by an innovative insurance pool (RLP) to provide additional
+  security and overcollateralisation.
+
+  **About the vault**: The wstUSR (Wrapped stUSR) vault is an ERC-4626 compliant wrapper around the rebasing
+  stUSR (staked USR) token. stUSR is a yield-bearing token that automatically compounds
+  returns generated from the basis trade. wstUSR provides a non-rebasing representation
+  of stUSR, making it suitable for DeFi integrations that don't support rebasing tokens.
+
+fee_description: |
+  No deposit/withdrawal fees at the smart contract level.
+links:
+  homepage: https://resolv.xyz/
+  app:
+  twitter: https://x.com/ResolvLabs
+  github:
+  documentation: https://docs.resolv.xyz/
+  defillama: https://defillama.com/protocol/resolv
+  audits: https://docs.resolv.xyz/litepaper/resources/security
+  fees:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/resolv
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/resolv/index.html
+example_smart_contracts:
+  - https://etherscan.io/address/0x1202f5c7b4b9e47a1a484e8b270be34dbbc75055

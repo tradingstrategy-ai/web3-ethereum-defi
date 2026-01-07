@@ -1,0 +1,1 @@
+"""Resolv protocol integration."""

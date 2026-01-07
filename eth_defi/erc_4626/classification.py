@@ -1157,6 +1157,11 @@ def create_vault_instance(
 
         return YieldFiVault(web3, spec, token_cache=token_cache, features=features)
 
+    elif ERC4626Feature.resolv_like in features:
+        from eth_defi.erc_4626.vault_protocol.resolv.vault import ResolvVault
+
+        return ResolvVault(web3, spec, token_cache=token_cache, features=features)
+
     else:
         # Generic ERC-4626 without fee data
         from eth_defi.erc_4626.vault import ERC4626Vault
@@ -1257,6 +1262,10 @@ HARDCODED_PROTOCOLS = {
     # YieldFi - vyUSD vault on Ethereum
     # https://etherscan.io/address/0x2e3c5e514eef46727de1fe44618027a9b70d92fc
     "0x2e3c5e514eef46727de1fe44618027a9b70d92fc": {ERC4626Feature.yieldfi_like},
+    # Resolv - wstUSR (Wrapped stUSR) vault on Ethereum
+    # ERC-4626 wrapper around rebasing staked USR token
+    # https://etherscan.io/address/0x1202f5c7b4b9e47a1a484e8b270be34dbbc75055
+    "0x1202f5c7b4b9e47a1a484e8b270be34dbbc75055": {ERC4626Feature.resolv_like},
 }
 
 for a in HARDCODED_PROTOCOLS.keys():

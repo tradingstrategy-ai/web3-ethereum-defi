@@ -86,6 +86,7 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "Gearbox": VaultFeeMode.internalised_skimming,
     "Mainstreet Finance": None,
     "YieldFi": None,
+    "Resolv": VaultFeeMode.feeless,
 }
 
 
