@@ -407,6 +407,13 @@ class ERC4626Feature(enum.Enum):
     #: https://www.curvance.com/
     curvance_like = "curvance_like"
 
+    #: Spectra ERC4626 Wrapper
+    #:
+    #: Generic Spectra ERC4626 wrapper for rebasing tokens on various chains.
+    #: These wrappers make rebasing tokens compatible with Spectra's PT/YT system.
+    #: https://www.spectra.finance/
+    spectra_erc4626_wrapper_like = "spectra_erc4626_wrapper_like"
+
 
 def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     """Deduct vault protocol name based on Vault smart contract features.
@@ -585,6 +592,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.curvance_like in features:
         return "Curvance"
+
+    elif ERC4626Feature.spectra_erc4626_wrapper_like in features:
+        return "Spectra"
 
     # No idea
     if ERC4626Feature.erc_7540_like in features:
