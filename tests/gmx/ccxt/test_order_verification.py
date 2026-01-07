@@ -20,7 +20,7 @@ from tests.gmx.fork_helpers import (
 )
 
 
-# @flaky(max_runs=3, min_passes=1)
+@flaky(max_runs=3, min_passes=1)
 def test_order_verification_raises_on_cancelled_order(
     isolated_fork_env,
     execution_buffer,
@@ -200,7 +200,7 @@ def test_order_verification_succeeds_for_valid_order(
     assert result.execution_price is not None
 
 
-# @flaky(max_runs=3, min_passes=1)
+@flaky(max_runs=3, min_passes=1)
 def test_ccxt_parse_order_raises_on_cancelled(isolated_fork_env, execution_buffer):
     """Test that CCXT _parse_order_result_to_ccxt() raises GMXOrderFailedException.
 
