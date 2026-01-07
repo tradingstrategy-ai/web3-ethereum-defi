@@ -39,7 +39,6 @@ from eth_utils import to_checksum_address
 from eth_defi.ccxt.exchange_compatible import ExchangeCompatible
 from eth_defi.chain import get_chain_name
 from eth_defi.gmx.api import GMXAPI
-from eth_defi.gmx.ccxt.errors import GMXOrderFailedException
 from eth_defi.gmx.ccxt.properties import describe_gmx
 from eth_defi.gmx.ccxt.validation import _validate_ohlcv_data_sufficiency
 from eth_defi.gmx.config import GMXConfig
@@ -4661,13 +4660,49 @@ class GMX(ExchangeCompatible):
                     event_name,
                     error_reason,
                 )
-                raise GMXOrderFailedException(
-                    status="cancelled",
-                    order_key=order_key,
-                    receipt=None,
-                    reason=error_reason,
-                    event_names=[event_name],
+                # Return cancelled order - don't raise exception
+                # Freqtrade expects order dict, not exception
+                timestamp = self.milliseconds()
+                order = {
+                    "id": tx_hash,
+                    "clientOrderId": None,
+                    "timestamp": timestamp,
+                    "datetime": self.iso8601(timestamp),
+                    "lastTradeTimestamp": timestamp,
+                    "symbol": symbol,
+                    "type": type,
+                    "side": side,
+                    "price": None,
+                    "amount": amount,
+                    "cost": None,
+                    "average": None,
+                    "filled": 0.0,
+                    "remaining": amount,
+                    "status": "cancelled",
+                    "fee": {
+                        "cost": order_result.execution_fee / 1e18,
+                        "currency": "ETH",
+                    },
+                    "trades": [],
+                    "info": {
+                        "tx_hash": tx_hash,
+                        "creation_receipt": receipt,
+                        "order_key": order_key.hex(),
+                        "event_name": event_name,
+                        "cancel_reason": error_reason,
+                    },
+                }
+
+                # Store in cache
+                self._orders[tx_hash] = order
+
+                logger.info(
+                    "ORDER_TRACE: create_order() RETURNING cancelled order_id=%s, reason=%s",
+                    tx_hash[:18],
+                    error_reason,
                 )
+
+                return order
 
             # Order executed successfully
             # Parse execution price from Subsquid (30 decimals) or event
