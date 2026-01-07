@@ -2,6 +2,7 @@
 #
 # poetry install -E web3v6 -E data -E test -E docs -E data -E hypersync -E ccxt -E cloudflare_r2 -E duckdb
 #
+# 
 
 [tool.poetry]
 authors = ["Mikko Ohtamaa <mikko@tradingstrategy.ai>"]
