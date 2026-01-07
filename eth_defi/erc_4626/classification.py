@@ -1156,10 +1156,10 @@ def create_vault_instance(
 
         return AlturaVault(web3, spec, token_cache=token_cache, features=features)
 
-    elif ERC4626Feature.spectra_usdn_wrapper_like in features:
-        from eth_defi.erc_4626.vault_protocol.spectra.wusdn_vault import SpectraUSDNWrapperVault
+    elif ERC4626Feature.spectra_usdn_wrapper_like in features or ERC4626Feature.spectra_erc4626_wrapper_like in features:
+        from eth_defi.erc_4626.vault_protocol.spectra.erc4626_wrapper_vault import SpectraERC4626WrapperVault
 
-        return SpectraUSDNWrapperVault(web3, spec, token_cache=token_cache, features=features)
+        return SpectraERC4626WrapperVault(web3, spec, token_cache=token_cache, features=features)
 
     elif ERC4626Feature.gearbox_like in features:
         from eth_defi.erc_4626.vault_protocol.gearbox.vault import GearboxVault
@@ -1280,6 +1280,9 @@ HARDCODED_PROTOCOLS = {
     # Spectra Finance - ERC4626 wrapper for WUSDN (SmarDex delta-neutral synthetic dollar)
     # https://etherscan.io/address/0x06a491e3efee37eb191d0434f54be6e42509f9d3
     "0x06a491e3efee37eb191d0434f54be6e42509f9d3": {ERC4626Feature.spectra_usdn_wrapper_like},
+    # Spectra Finance - ERC4626 wrapper (sw-earn) on Monad
+    # https://monadscan.com/address/0x28e60b466a075cecef930d29f7f1b0facf48f950
+    "0x28e60b466a075cecef930d29f7f1b0facf48f950": {ERC4626Feature.spectra_erc4626_wrapper_like},
     # Mainstreet Finance - smsUSD (legacy) vault on Sonic
     # https://sonicscan.org/address/0xc7990369DA608C2F4903715E3bD22f2970536C29
     "0xc7990369da608c2f4903715e3bd22f2970536c29": {ERC4626Feature.mainstreet_like},
