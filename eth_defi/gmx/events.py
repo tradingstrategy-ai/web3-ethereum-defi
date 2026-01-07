@@ -46,7 +46,8 @@ from web3 import Web3
 from web3.contract import Contract
 from eth_utils import keccak
 
-from eth_defi.gmx.constants import GMX_EVENT_EMITTER_ABI, GMX_EVENT_EMITTER_ADDRESS
+from eth_defi.gmx.constants import GMX_EVENT_EMITTER_ABI
+from eth_defi.gmx.contracts import get_contract_addresses
 
 
 logger = logging.getLogger(__name__)
@@ -266,6 +267,28 @@ class OrderExecutionResult:
     is_long: bool | None = None
 
 
+def _get_chain_name_from_id(chain_id: int) -> str:
+    """Get chain name from chain ID.
+
+    :param chain_id:
+        The chain ID
+
+    :return:
+        Chain name for GMX contracts
+
+    :raises ValueError:
+        If chain ID is not supported
+    """
+    chain_id_to_name = {
+        42161: "arbitrum",
+        43114: "avalanche",
+        421614: "arbitrum_sepolia",
+    }
+    if chain_id not in chain_id_to_name:
+        raise ValueError(f"Unknown chain ID {chain_id} for GMX EventEmitter")
+    return chain_id_to_name[chain_id]
+
+
 def _get_event_emitter_contract(web3: Web3, chain_name: str | None = None) -> Contract:
     """Get the EventEmitter contract instance.
 
@@ -273,23 +296,18 @@ def _get_event_emitter_contract(web3: Web3, chain_name: str | None = None) -> Co
         Web3 instance
 
     :param chain_name:
-        Chain name (arbitrum, avalanche). If None, auto-detects.
+        Chain name (arbitrum, avalanche, arbitrum_sepolia). If None, auto-detects.
 
     :return:
         EventEmitter contract instance
     """
     if chain_name is None:
         chain_id = web3.eth.chain_id
-        if chain_id == 42161:
-            chain_name = "arbitrum"
-        elif chain_id == 43114:
-            chain_name = "avalanche"
-        else:
-            raise ValueError(f"Unknown chain ID {chain_id} for GMX EventEmitter")
+        chain_name = _get_chain_name_from_id(chain_id)
 
-    address = GMX_EVENT_EMITTER_ADDRESS.get(chain_name)
-    if not address:
-        raise ValueError(f"No EventEmitter address for chain {chain_name}")
+    # Get address dynamically from GMX contracts registry
+    contract_addresses = get_contract_addresses(chain_name)
+    address = contract_addresses.eventemitter
 
     return web3.eth.contract(
         address=Web3.to_checksum_address(address),

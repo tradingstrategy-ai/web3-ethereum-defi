@@ -13,7 +13,7 @@ Usage:
 
 import logging
 import os
-from datetime import datetime
+from eth_defi.compat import native_datetime_utc_fromtimestamp
 
 from joblib import Parallel, delayed
 from rich.console import Console
@@ -224,7 +224,7 @@ def analyse_transaction(
 
     # Get block timestamp
     block = web3.eth.get_block(receipt["blockNumber"])
-    timestamp = datetime.utcfromtimestamp(block["timestamp"])
+    timestamp = native_datetime_utc_fromtimestamp(block["timestamp"])
 
     # Build trade data
     trade_data = {
@@ -459,7 +459,10 @@ def main():
     # Handle space-separated fallback URLs
     rpc_url = rpc_url.split()[0]
 
-    trader_address = os.environ.get("TRADER_ADDRESS", "0x962b94eBB41a7fbd936a47d0dB34502a66DF5f62")
+    trader_address = os.environ.get(
+        "TRADER_ADDRESS",
+        "0x962b94eBB41a7fbd936a47d0dB34502a66DF5f62",
+    )
     trade_limit = int(os.environ.get("TRADE_LIMIT", "30"))
 
     # Connect to Arbitrum
@@ -497,7 +500,10 @@ def main():
         TaskProgressColumn(),
         console=console,
     ) as progress:
-        task = progress.add_task("[cyan]Analysing trades...", total=len(tx_hashes))
+        task = progress.add_task(
+            "[cyan]Analysing trades...",
+            total=len(tx_hashes),
+        )
 
         # Use joblib for parallel processing with threading backend
         results = Parallel(n_jobs=max_workers, backend="threading")(delayed(analyse_transaction_worker)(rpc_url, tx_hash, trader_address) for tx_hash in tx_hashes)

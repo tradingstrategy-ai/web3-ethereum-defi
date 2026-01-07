@@ -227,7 +227,6 @@ def example_extract_order_execution_result(web3: Web3, receipt: dict):
     return result
 
 
-
 def example_decode_error_reason():
     """Example: Decode GMX error reasons."""
     print("\n" + "=" * 60)
@@ -289,7 +288,10 @@ def main():
     example_decode_error_reason()
 
     # Run dynamic examples if we have a transaction
-    tx_hash = os.environ.get("TX_HASH", EXAMPLE_TX_HASHES[0] if EXAMPLE_TX_HASHES else None,)
+    tx_hash = os.environ.get(
+        "TX_HASH",
+        EXAMPLE_TX_HASHES[0] if EXAMPLE_TX_HASHES else None,
+    )
 
     if tx_hash and web3:
         print("\n" + "=" * 60)
