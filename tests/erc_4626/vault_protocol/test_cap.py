@@ -53,3 +53,24 @@ def test_cap_vault(
     assert vault.get_management_fee("latest") == 0.0
     assert vault.get_performance_fee("latest") == 0.0
     assert vault.has_custom_fees() is False
+
+
+@flaky.flaky
+def test_cap_aave_v3_lender_vault(
+    web3: Web3,
+    tmp_path: Path,
+):
+    """Read CAP AaveV3Lender USDC vault metadata."""
+
+    vault = create_vault_instance_autodetect(
+        web3,
+        vault_address="0x7d7f72d393f242da6e22d3b970491c06742984ff",
+    )
+    assert vault.features == {ERC4626Feature.cap_like}
+    assert isinstance(vault, CAPVault)
+    assert vault.get_protocol_name() == "CAP"
+
+    # CAP vaults have fees internalised
+    assert vault.get_management_fee("latest") == 0.0
+    assert vault.get_performance_fee("latest") == 0.0
+    assert vault.has_custom_fees() is False
