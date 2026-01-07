@@ -135,6 +135,10 @@ class VaultDiscoveryBase(abc.ABC):
             end_block,
             display_progress,
         )
+
+        if report is None:
+            raise RuntimeError(f"fetch_leads() returned None for {self.__class__.__name__}, start_block={start_block}, end_block={end_block}")
+
         report.start_block = start_block
         report.end_block = end_block
         assert isinstance(report, LeadScanReport), f"Expected LeadScanReport, got {type(report)}"

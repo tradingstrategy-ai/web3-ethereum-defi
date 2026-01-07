@@ -118,28 +118,41 @@ class HypersyncVaultDiscover(VaultDiscoveryBase):
         )
         return query
 
-    def fetch_leads(self, start_block: int, end_block: int, attempts=3, retry_sleep=30, display_progress=True) -> LeadScanReport:
+    def fetch_leads(self, start_block: int, end_block: int, display_progress=True, attempts=3, retry_sleep=30) -> LeadScanReport:
         """
         Synchronous wrapper around async lead scanning.
 
-        :parma attempts:
+        :param display_progress:
+            Show progress bar.
+
+        :param attempts:
             Deal with HyperSync flakiness by retrying the scan this many times.
+
+        :param retry_sleep:
+            How long to sleep between retries.
         """
 
+        assert attempts > 0, "attempts must be at least 1"
+
         # Don't leak async colored interface, as it is an implementation detail
-        async def _hypersync_asyncio_wrapper():
+        async def _hypersync_asyncio_wrapper() -> LeadScanReport:
+            last_exception = None
             for attempt in range(attempts):
                 try:
                     report = await self.scan_potential_vaults(start_block, end_block, display_progress)
                     return report
                 except HypersyncCrappedOut as e:
+                    last_exception = e
                     logger.error(f"HyperSync scan attempt {attempt + 1} of {attempts} failed: {e}")
                     if attempt + 1 >= attempts:
                         logger.error("All HyperSync scan attempts failed, giving up")
-                        raise e
+                        raise
                     else:
                         logger.info(f"Retrying HyperSync scan after {retry_sleep} seconds backoff")
                         time.sleep(retry_sleep)
+
+            # Should never reach here, but raise if we somehow do
+            raise last_exception or RuntimeError("HyperSync scan failed with no exception recorded")
 
         return asyncio.run(_hypersync_asyncio_wrapper())
 
