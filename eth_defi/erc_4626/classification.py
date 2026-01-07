@@ -1187,6 +1187,9 @@ def create_vault_instance_autodetect(
 HARDCODED_PROTOCOLS = {
     # CAP - Covered Agent Protocol
     "0x3ed6aa32c930253fc990de58ff882b9186cd0072": {ERC4626Feature.cap_like},
+    # CAP - Covered Agent Protocol - AaveV3Lender USDC vault on Ethereum
+    # https://etherscan.io/address/0x7d7f72d393f242da6e22d3b970491c06742984ff
+    "0x7d7f72d393f242da6e22d3b970491c06742984ff": {ERC4626Feature.cap_like},
     # Foxify - Sonic chain
     "0x3ccff8c929b497c1ff96592b8ff592b45963e732": {ERC4626Feature.foxify_like},
     # Liquidity Royalty Tranching - Junior Vault on Berachain

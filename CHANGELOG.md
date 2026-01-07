@@ -1,6 +1,7 @@
 # Current
 
 - Add: New protocol: [YieldFi](https://yield.fi/) - Web3 asset management platform with vyToken vaults (2026-01-07)
+- Add: New vault type: [CAP](https://tradingstrategy.ai/trading-view/vaults/protocols/cap) AaveV3Lender USDC vault on Ethereum (2026-01-07)
 
 # 0.38
 
