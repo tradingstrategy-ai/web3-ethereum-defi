@@ -36,6 +36,7 @@ by specifying `timeout: 180000` (3 minutes) in the bash tool parameters.
 
 If you need extra output pass `--log-cli-level=info` argument to `pytest`.
 
+
 ### Environment variable configuration and RPC URL format
 
 We use environment variables like `JSON_RPC_ETHEREUM`, JSON_RPC_ARBITRUM` to interact with various EVM-based blockchains.

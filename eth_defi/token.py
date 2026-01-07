@@ -113,6 +113,14 @@ USDC_WHALE: dict[int, HexAddress | str] = {
     # Coinbase 10
     # https://arbiscan.io/token/0xaf88d065e77c8cc2239327c5edb3a432268e5831#balances
     42161: "0x3DD1D15b3c78d6aCFD75a254e857Cbe5b9fF0aF2",
+    # To find large holder accounts, use polygonscan <https://polygonscan.com/token/0x2791bca1f2de4661ed88a30c99a7a9449aa84174#balances>
+}
+
+# Bridged USDC.e
+# Used in fork testing
+USDCE_WHALE: dict[int, HexAddress | str] = {
+    # To find large holder accounts, use polygonscan <https://polygonscan.com/token/0x2791bca1f2de4661ed88a30c99a7a9449aa84174#balances>
+    137: "0x3DD1D15b3c78d6aCFD75a254e857Cbe5b9fF0aF2",
 }
 
 #: Used in fork testing
