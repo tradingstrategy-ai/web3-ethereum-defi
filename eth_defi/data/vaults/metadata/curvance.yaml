@@ -1,0 +1,35 @@
+name: Curvance
+slug: curvance
+short_description: |
+  Next-generation DeFi lending protocol with capital-efficient money markets across multiple chains.
+long_description: |
+  Curvance is a cross-chain DeFi lending protocol that enables users to deposit collateral, borrow
+  assets, and participate in yield optimisation strategies through a non-custodial architecture.
+
+  The protocol features risk-isolated, intent-based lending markets that blend elements of shared
+  pools and isolated markets. This enables flexible risk management, higher loan-to-value ratios
+  for safer assets, and innovative lending opportunities tailored to different DeFi strategies.
+
+  Key features include auto-compounding vaults, one-click looping for maximised capital efficiency,
+  and dual oracle protection for accurate pricing. Curvance is deployed on Monad, Ethereum,
+  Arbitrum, Base, Optimism, Polygon zkEVM, and Blast.
+fee_description: |
+  Curvance uses an interest-based fee model rather than explicit deposit/withdrawal fees:
+
+  - **Interest fee**: The protocol takes a percentage (up to 60%) of borrower interest payments.
+    This is the primary revenue source and does not directly reduce depositor returns.
+  - **Flashloan fee**: 0.04% (4 basis points) on flash loan amounts.
+  - **No management or performance fees**: Depositors do not pay explicit fees on their deposits.
+links:
+  homepage: https://www.curvance.com/
+  app: https://www.curvance.com/
+  twitter: https://x.com/Curvance
+  github: https://github.com/curvance/curvance-contracts
+  documentation: https://docs.curvance.com/
+  defillama: https://defillama.com/protocol/curvance
+  audits: https://docs.curvance.com/cve/security/security-and-audits
+  fees:
+  trading_strategy:
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/curvance/index.html
+example_smart_contracts:
+  - https://monadscan.com/address/0xad4aa2a713fb86fbb6b60de2af9e32a11db6abf2

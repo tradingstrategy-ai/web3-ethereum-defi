@@ -87,6 +87,9 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "Mainstreet Finance": None,
     "YieldFi": None,
     "Resolv": VaultFeeMode.feeless,
+    # Curvance uses interest-based fees (up to 60% of borrower interest) which are internalised
+    # Depositors don't pay explicit fees - the protocol earns from borrower interest spread
+    "Curvance": VaultFeeMode.internalised_skimming,
 }
 
 
