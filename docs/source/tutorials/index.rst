@@ -71,8 +71,13 @@ Tutorials and examples
    erc-4626-best-vaults
    erc-4626-vault-report-markdown
    erc-4626-vaults-arbitrum
+   erc-4626-vaults-mantle
    erc-4626-single-vault
+   erc-4626-examine-vault-reader-state
+   erc-4626-fija-vaults
    erc-4626-deposit-redeem
+   vault-historical-data
+   scratchpad
    hyperliquid-vault-analysis
    enzyme-read-vaults
    enzyme-deploy
