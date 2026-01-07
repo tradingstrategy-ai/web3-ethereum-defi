@@ -22,6 +22,7 @@ from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.euler.offchain_metadata import EulerVaultMetadata, fetch_euler_vault_metadata
 from eth_defi.event_reader.multicall_batcher import EncodedCall
 from eth_defi.vault.base import VaultTechnicalRisk
+from eth_defi.vault.flag import BAD_FLAGS, get_vault_special_flags
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +38,10 @@ class EulerVault(ERC4626Vault):
     """
 
     def get_risk(self) -> VaultTechnicalRisk | None:
+        # Check for vault-specific flags (e.g., xUSD exposure) first
+        flags = get_vault_special_flags(self.address)
+        if flags & BAD_FLAGS:
+            return VaultTechnicalRisk.blacklisted
         return VaultTechnicalRisk.low
 
     @cached_property
@@ -129,7 +134,12 @@ class EulerEarnVault(ERC4626Vault):
         """EulerEarn vaults have negligible risk due to battle-tested infrastructure.
 
         Based on Metamorpho architecture with extensive audits.
+        However, individual vaults may be blacklisted due to specific issues (e.g., xUSD exposure).
         """
+        # Check for vault-specific flags (e.g., xUSD exposure) first
+        flags = get_vault_special_flags(self.address)
+        if flags & BAD_FLAGS:
+            return VaultTechnicalRisk.blacklisted
         return VaultTechnicalRisk.negligible
 
     def has_custom_fees(self) -> bool:

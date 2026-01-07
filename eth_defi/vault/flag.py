@@ -62,10 +62,10 @@ _empty_set = set()
 
 def get_vault_special_flags(address: str | HexAddress) -> set[VaultFlag]:
     """Get all special vault flags."""
-    entry = VAULT_FLAGS_AND_NOTES.get(address)
+    entry = VAULT_FLAGS_AND_NOTES.get(address.lower())
     if entry:
         if entry[0]:
-            return {entry}
+            return {entry[0]}
     return _empty_set
 
 
