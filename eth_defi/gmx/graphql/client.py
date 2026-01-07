@@ -10,12 +10,14 @@ The original contract-based implementation (GetOpenPositions) remains the source
 of truth for on-chain data when executing trades.
 """
 
+import time
 from decimal import Decimal
 from typing import Any, Optional
 
 import requests
 from eth_utils import is_address, to_checksum_address
 
+from eth_defi.gmx.constants import GMX_MIN_DISPLAY_STAKE
 from eth_defi.gmx.contracts import GMX_SUBSQUID_ENDPOINTS, get_tokens_metadata_dict
 
 # Thresholds from GMX interface (in USD, 30 decimals)
@@ -64,9 +66,13 @@ class GMXSubsquidClient:
         history = client.get_position_changes(account="0x1234...", limit=50)
     """
 
-    MIN_DISPLAY_STAKE = 20.0
+    MIN_DISPLAY_STAKE = GMX_MIN_DISPLAY_STAKE
 
-    def __init__(self, chain: str = "arbitrum", custom_endpoint: Optional[str] = None):
+    def __init__(
+        self,
+        chain: str = "arbitrum",
+        custom_endpoint: Optional[str] = None,
+    ):
         """Initialize the Subsquid client.
 
         :param chain: Chain name ("arbitrum", "avalanche", or "arbitrum_sepolia")
@@ -860,3 +866,84 @@ class GMXSubsquidClient:
             "leverage": float(self.from_fixed_point(position["leverage"], decimals=4)),
             "opened_at": position["openedAt"],
         }
+
+    def get_trade_action_by_order_key(
+        self,
+        order_key: str,
+        timeout_seconds: int = 30,
+        poll_interval: float = 0.5,
+    ) -> Optional[dict[str, Any]]:
+        """Query for order execution status via Subsquid.
+
+        Polls Subsquid until the trade action appears or timeout.
+        Much faster than on-chain polling (typically < 5 seconds).
+
+        This is used by `create_order()` to wait for keeper execution
+        and verify the order was executed successfully or cancelled.
+
+        :param order_key: Order key (hex string with 0x prefix)
+        :param timeout_seconds: Max time to wait for indexer (default 30s)
+        :param poll_interval: Time between queries in seconds (default 0.5s)
+        :return: Trade action dict or None if not found within timeout
+
+        Example::
+
+            client = GMXSubsquidClient(chain="arbitrum")
+            action = client.get_trade_action_by_order_key(
+                "0x1234...abcd",
+                timeout_seconds=30,
+            )
+
+            if action:
+                if action["eventName"] == "OrderExecuted":
+                    print(f"Executed at {action['executionPrice']}")
+                elif action["eventName"] == "OrderCancelled":
+                    print(f"Cancelled: {action['reason']}")
+        """
+        query = """
+        query GetTradeAction($orderKey: String!) {
+          tradeActions(
+            where: { orderKey_eq: $orderKey }
+            limit: 1
+            orderBy: timestamp_DESC
+          ) {
+            eventName
+            executionPrice
+            sizeDeltaUsd
+            pnlUsd
+            reason
+            reasonBytes
+            orderKey
+            orderType
+            isLong
+            timestamp
+            acceptablePrice
+            triggerPrice
+            priceImpactUsd
+            positionFeeAmount
+            borrowingFeeAmount
+            fundingFeeAmount
+            transaction {
+              hash
+              timestamp
+            }
+          }
+        }
+        """
+
+        start_time = time.time()
+        while time.time() - start_time < timeout_seconds:
+            try:
+                data = self._query(query, variables={"orderKey": order_key})
+                actions = data.get("tradeActions", [])
+
+                if actions:
+                    return actions[0]
+
+            except Exception:
+                # Ignore query errors during polling, will retry
+                pass
+
+            time.sleep(poll_interval)
+
+        return None

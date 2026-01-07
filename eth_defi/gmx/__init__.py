@@ -18,6 +18,12 @@ from eth_defi.gmx.events import (
     find_events_by_name,
     get_event_name_hash,
 )
+from eth_defi.gmx.order_tracking import (
+    ORDER_LIST_KEY,
+    OrderStatusResult,
+    check_order_status,
+    is_order_pending,
+)
 from eth_defi.gmx.verification import (
     GMXOrderVerificationResult,
     raise_if_order_failed,
@@ -30,8 +36,11 @@ __all__ = [
     "GMX_USD_PRECISION",
     "GMXEventData",
     "GMXOrderVerificationResult",
+    "ORDER_LIST_KEY",
     "OrderExecutionResult",
     "OrderFees",
+    "OrderStatusResult",
+    "check_order_status",
     "decode_error_reason",
     "decode_gmx_event",
     "decode_gmx_events",
@@ -39,6 +48,7 @@ __all__ = [
     "extract_order_key_from_receipt",
     "find_events_by_name",
     "get_event_name_hash",
+    "is_order_pending",
     "raise_if_order_failed",
     "verify_gmx_order_execution",
 ]

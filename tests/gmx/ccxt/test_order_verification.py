@@ -201,11 +201,16 @@ def test_order_verification_succeeds_for_valid_order(
 
 
 @flaky(max_runs=3, min_passes=1)
-def test_ccxt_parse_order_raises_on_cancelled(isolated_fork_env, execution_buffer):
-    """Test that CCXT _parse_order_result_to_ccxt() raises GMXOrderFailedException.
+def test_ccxt_fetch_order_detects_cancelled(isolated_fork_env, execution_buffer):
+    """Test that CCXT fetch_order() correctly detects cancelled orders.
 
-    This test verifies the full CCXT integration where the exception is raised
-    from within the CCXT exchange wrapper's parsing method.
+    This test verifies the full CCXT integration where:
+    1. create_order() returns status "open" (pending keeper execution)
+    2. Keeper cancels the order due to price movement
+    3. fetch_order() detects the cancellation and returns status "cancelled"
+
+    This is the new two-phase execution model matching how Freqtrade polls
+    for order status updates.
     """
 
     env = isolated_fork_env
@@ -246,6 +251,27 @@ def test_ccxt_parse_order_raises_on_cancelled(isolated_fork_env, execution_buffe
 
     order_key = extract_order_key_from_receipt(receipt)
 
+    # Simulate create_order() returning an "open" order
+    # In real usage, create_order() would do this automatically
+    tx_hash_str = tx_hash.hex() if isinstance(tx_hash, bytes) else str(tx_hash)
+    initial_order = gmx._parse_order_result_to_ccxt(
+        order_result,
+        symbol="ETH/USD:USDC",
+        side="buy",
+        type="market",
+        amount=10.0,
+        tx_hash=tx_hash_str,
+        receipt=receipt,
+        order_key=order_key,
+    )
+
+    # Store in GMX order cache (create_order() does this automatically)
+    gmx._orders[tx_hash_str] = initial_order
+
+    # Verify initial order has status "open"
+    assert initial_order["status"] == "open", f"Expected status 'open', got: {initial_order['status']}"
+    assert initial_order["info"].get("order_key") == order_key.hex(), "order_key should be stored in info"
+
     # Move oracle price UP significantly BEFORE keeper execution
     # For a LONG order, acceptable_price is the MAX price buyer will pay
     # Moving price UP means execution_price > acceptable_price → order cancelled
@@ -266,19 +292,18 @@ def test_ccxt_parse_order_raises_on_cancelled(isolated_fork_env, execution_buffe
     assert "OrderCancelled" in verification_result.event_names, f"Expected OrderCancelled event, got: {verification_result.event_names}"
     assert "OrderExecuted" not in verification_result.event_names, f"OrderExecuted should NOT be present, got: {verification_result.event_names}"
 
-    # Call CCXT's parse method which includes verification
-    # This should raise GMXOrderFailedException
-    with pytest.raises(GMXOrderFailedException) as exc_info:
-        gmx._parse_order_result_to_ccxt(
-            order_result,
-            symbol="ETH/USD:USDC",
-            side="buy",
-            type="market",
-            amount=10.0,
-            tx_hash=tx_hash.hex() if isinstance(tx_hash, bytes) else str(tx_hash),
-            receipt=exec_receipt,
-        )
+    # Now fetch_order() should detect the cancellation
+    # This is how Freqtrade polls for order status
+    updated_order = gmx.fetch_order(tx_hash_str)
 
-    exc = exc_info.value
-    assert exc.status == "cancelled"
-    assert exc.order_key == order_key
+    # Verify order status changed to "cancelled"
+    assert updated_order["status"] == "cancelled", f"Expected status 'cancelled', got: {updated_order['status']}"
+    assert updated_order["filled"] == 0.0, "Cancelled order should have filled=0"
+    assert updated_order["remaining"] == updated_order["amount"], "Cancelled order should have remaining=amount"
+
+    # Verify cancellation details are stored
+    assert "cancellation_reason" in updated_order["info"], "Should have cancellation_reason in info"
+    assert "event_names" in updated_order["info"], "Should have event_names in info"
+    assert "OrderCancelled" in updated_order["info"]["event_names"], f"Should have OrderCancelled in event_names, got: {updated_order['info'].get('event_names')}"
+
+    print(f"Order correctly detected as cancelled: reason={updated_order['info'].get('cancellation_reason')}")
