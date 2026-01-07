@@ -2476,6 +2476,10 @@ class GMX(ExchangeCompatible):
         :param wallet: Wallet address to check balance for
         :return: Tuple of (code, balance_float, raw_balance, error_message)
         """
+        # Skip synthetic tokens - they don't exist as ERC20 contracts on this chain
+        if currency.get("info", {}).get("synthetic", False):
+            return code, None, None, None
+
         token_address = currency["id"]
         decimals = currency["precision"]
 
