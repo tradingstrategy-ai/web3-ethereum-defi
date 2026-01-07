@@ -14,10 +14,6 @@ build:
   tools:
     python: "3.11"
 
-  commands:
-    - pip install -r docs/requirements.txt
-    - sphinx-build -j auto -b html docs/source $READTHEDOCS_OUTPUT/html
-
 python:
   install:
     - requirements: docs/requirements.txt
