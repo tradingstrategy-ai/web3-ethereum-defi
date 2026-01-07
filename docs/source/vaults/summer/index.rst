@@ -23,8 +23,8 @@ Links
 - `DefiLlama <https://defillama.com/protocol/summer.fi>`__
 
 .. autosummary::
-   :toctree: _autosummary_d2
+   :toctree: _autosummary_summer
    :recursive:
 
-   eth_defi.silo.vault
+   eth_defi.erc_4626.vault_protocol.summer.vault
 
