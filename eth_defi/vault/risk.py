@@ -108,6 +108,7 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Spectra": VaultTechnicalRisk.low,
     "Gearbox": VaultTechnicalRisk.low,
     "Mainstreet Finance": None,
+    "YieldFi": None,
 }
 
 #: Particular vaults that are broken, misleading or otherwise problematic.

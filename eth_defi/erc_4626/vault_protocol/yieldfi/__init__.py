@@ -1,0 +1,1 @@
+"""YieldFi protocol integration."""

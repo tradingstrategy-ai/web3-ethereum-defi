@@ -1,0 +1,31 @@
+name: YieldFi
+slug: yieldfi
+short_description: |
+  Web3 asset management platform deploying capital into risk-managed DeFi strategies.
+long_description: |
+  YieldFi is an asset management platform for the onchain economy. The protocol actively
+  deploys capital into risk-managed, high-performing DeFi strategies across stablecoins,
+  ETH, and BTC asset classes.
+
+  The platform uses vyToken vaults (e.g., vyUSD) that implement ERC-4626 with additional
+  features including configurable vesting periods for reward distribution and guardrail
+  mechanisms for risk management.
+
+  YieldFi aims to provide streamlined Web3 asset management for users seeking simplified
+  access to yield-generating DeFi opportunities.
+fee_description: |
+  YieldFi vaults have configurable fees via the setFee() function. The fee structure
+  is protocol-determined and may vary by vault.
+links:
+  homepage: https://yield.fi/
+  app: https://yield.fi/
+  twitter: https://x.com/getyieldfi
+  github: https://github.com/YieldFiLabs
+  documentation: https://docs.yield.fi/
+  defillama: https://defillama.com/protocol/yieldfi
+  audits: https://docs.yield.fi/resources/audits
+  fees:
+  trading_strategy:
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/yieldfi/index.html
+example_smart_contracts:
+  - https://etherscan.io/address/0x2e3c5e514eef46727de1fe44618027a9b70d92fc

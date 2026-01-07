@@ -85,6 +85,7 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     # Gearbox has fees internalised in share price via APY spread between borrower and lender rates
     "Gearbox": VaultFeeMode.internalised_skimming,
     "Mainstreet Finance": None,
+    "YieldFi": None,
 }
 
 
