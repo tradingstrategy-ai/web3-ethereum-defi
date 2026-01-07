@@ -169,7 +169,7 @@ def example_extract_order_execution_result(web3: Web3, receipt: dict):
         print("(This transaction may not be a keeper order execution)")
         return None
 
-    print(f"\nOrder Execution Result:")
+    print("\nOrder Execution Result:")
     print(f"  order_key: 0x{result.order_key.hex()[:16]}...")
     print(f"  status: {result.status}")
     print(f"  account: {result.account}")
@@ -226,64 +226,6 @@ def example_extract_order_execution_result(web3: Web3, receipt: dict):
 
     return result
 
-
-def example_gmx_event_data_accessors():
-    """Example: Show GMXEventData accessor methods."""
-    print("\n" + "=" * 60)
-    print("5. GMXEventData accessor methods")
-    print("=" * 60)
-
-    print("""
-GMXEventData provides typed accessor methods for event data:
-
-  event.get_address("key")   -> HexAddress | None
-  event.get_uint("key")      -> int | None
-  event.get_int("key")       -> int | None
-  event.get_bool("key")      -> bool | None
-  event.get_bytes32("key")   -> bytes | None
-  event.get_bytes("key")     -> bytes | None
-  event.get_string("key")    -> str | None
-
-Direct dictionary access also available:
-  event.address_items        -> dict[str, HexAddress]
-  event.uint_items           -> dict[str, int]
-  event.int_items            -> dict[str, int]
-  event.bool_items           -> dict[str, bool]
-  event.bytes32_items        -> dict[str, bytes]
-  event.bytes_items          -> dict[str, bytes]
-  event.string_items         -> dict[str, str]
-
-Array variants:
-  event.address_array_items  -> dict[str, list[HexAddress]]
-  event.uint_array_items     -> dict[str, list[int]]
-  ... etc
-
-Common field keys by event type:
-
-OrderCreated:
-  - account, receiver, market, initialCollateralToken (addresses)
-  - orderType, sizeDeltaUsd, triggerPrice, acceptablePrice (uints)
-  - isLong, shouldUnwrapNativeToken (bools)
-  - key (bytes32 in topic1)
-
-OrderExecuted:
-  - account (address)
-  - secondaryOrderType (uint)
-  - key (bytes32 in topic1)
-
-PositionIncrease/Decrease:
-  - account, market, collateralToken (addresses)
-  - executionPrice, sizeDeltaUsd, sizeDeltaInTokens (uints)
-  - collateralDeltaAmount, priceImpactUsd (ints)
-  - isLong (bool)
-  - orderKey, positionKey (bytes32)
-
-OrderFrozen/Cancelled:
-  - account (address)
-  - reason (string)
-  - reasonBytes (bytes)
-  - key (bytes32 in topic1)
-""")
 
 
 def example_decode_error_reason():
@@ -344,11 +286,10 @@ def main():
 
     # Run static examples (no RPC needed)
     example_get_event_name_hash()
-    example_gmx_event_data_accessors()
     example_decode_error_reason()
 
     # Run dynamic examples if we have a transaction
-    tx_hash = os.environ.get("TX_HASH")
+    tx_hash = os.environ.get("TX_HASH", EXAMPLE_TX_HASHES[0] if EXAMPLE_TX_HASHES else None,)
 
     if tx_hash and web3:
         print("\n" + "=" * 60)
