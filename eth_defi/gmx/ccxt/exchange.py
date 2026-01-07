@@ -23,7 +23,9 @@ Example usage::
 """
 
 import logging
+import os
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from statistics import median
 from typing import Any
@@ -1925,38 +1927,73 @@ class GMX(ExchangeCompatible):
         else:
             target_symbols = list(self.markets.keys())
 
-        # Parse ticker for each requested symbol
+        # Parse ticker for each requested symbol (first pass - basic ticker data)
         result = {}
+        symbols_needing_ohlcv = []
+        since = self.milliseconds() - (24 * 60 * 60 * 1000)
+
         for symbol in target_symbols:
             try:
                 market = self.market(symbol)
-                # Use canonical symbol from market (ETH/USDC:USDC)
                 canonical_symbol = market["symbol"]
                 index_token_address = market["info"]["index_token"].lower()
 
                 if index_token_address in ticker_by_address:
                     ticker_data = ticker_by_address[index_token_address]
                     result[canonical_symbol] = self.parse_ticker(ticker_data, market)
-
-                    # Calculate 24h high/low from OHLCV (same as fetch_ticker)
-                    try:
-                        since = self.milliseconds() - (24 * 60 * 60 * 1000)
-                        ohlcv = self.fetch_ohlcv(canonical_symbol, "1h", since=since, limit=24)
-
-                        if ohlcv:
-                            highs = [candle[2] for candle in ohlcv]
-                            lows = [candle[3] for candle in ohlcv]
-
-                            result[canonical_symbol]["high"] = max(highs) if highs else None
-                            result[canonical_symbol]["low"] = min(lows) if lows else None
-                            result[canonical_symbol]["open"] = ohlcv[0][1] if ohlcv else None
-                    except Exception:
-                        pass
+                    symbols_needing_ohlcv.append(canonical_symbol)
             except Exception:
-                # Skip symbols we can't fetch
                 pass
 
+        # Fetch OHLCV data in parallel for 24h high/low calculation
+        if symbols_needing_ohlcv:
+            max_workers = int(os.environ.get("MAX_WORKERS", "4"))
+            ohlcv_map = {}
+
+            try:
+                with ThreadPoolExecutor(max_workers=min(max_workers, len(symbols_needing_ohlcv))) as executor:
+                    future_to_symbol = {executor.submit(self._fetch_ohlcv_for_ticker, sym, since): sym for sym in symbols_needing_ohlcv}
+
+                    for future in as_completed(future_to_symbol, timeout=60):
+                        symbol, ohlcv = future.result()
+                        if ohlcv:
+                            ohlcv_map[symbol] = ohlcv
+
+            except Exception as e:
+                logger.warning("Parallel OHLCV fetch failed, falling back to sequential: %s", e)
+                for sym in symbols_needing_ohlcv:
+                    _, ohlcv = self._fetch_ohlcv_for_ticker(sym, since)
+                    if ohlcv:
+                        ohlcv_map[sym] = ohlcv
+
+            # Apply OHLCV data to tickers
+            for symbol, ohlcv in ohlcv_map.items():
+                if symbol in result and ohlcv:
+                    highs = [candle[2] for candle in ohlcv]
+                    lows = [candle[3] for candle in ohlcv]
+                    result[symbol]["high"] = max(highs) if highs else None
+                    result[symbol]["low"] = min(lows) if lows else None
+                    result[symbol]["open"] = ohlcv[0][1] if ohlcv else None
+
         return result
+
+    def _fetch_ohlcv_for_ticker(
+        self,
+        symbol: str,
+        since: int,
+    ) -> tuple[str, list | None]:
+        """Fetch 24h OHLCV data for a single ticker.
+
+        :param symbol: Market symbol (e.g., "ETH/USD:USDC")
+        :param since: Start timestamp in milliseconds
+        :return: Tuple of (symbol, ohlcv_data) or (symbol, None) on error
+        """
+        try:
+            ohlcv = self.fetch_ohlcv(symbol, "1h", since=since, limit=24)
+            return symbol, ohlcv
+        except Exception as e:
+            logger.debug("Failed to fetch OHLCV for %s: %s", symbol, e)
+            return symbol, None
 
     def fetch_currencies(
         self,
@@ -2360,35 +2397,53 @@ class GMX(ExchangeCompatible):
         # Build balance dict
         result = {"free": {}, "used": {}, "total": {}, "info": {}}
 
-        # Query balance for each token
-        for code, currency in currencies.items():
-            token_address = currency["id"]
-            decimals = currency["precision"]
+        # Query balance for each token in parallel
+        max_workers = int(os.environ.get("MAX_WORKERS", "4"))
+        currency_items = list(currencies.items())
 
+        if currency_items:
+            balance_results = []
             try:
-                # Fetch token details and contract
-                token_details = fetch_erc20_details(self.web3, token_address, chain_id=self.web3.eth.chain_id)
+                with ThreadPoolExecutor(max_workers=min(max_workers, len(currency_items))) as executor:
+                    future_to_code = {}
+                    for code, currency in currency_items:
+                        future = executor.submit(self._fetch_single_token_balance, code, currency, wallet)
+                        future_to_code[future] = code
 
-                # Get balance
-                balance_raw = token_details.contract.functions.balanceOf(wallet).call()
-                balance_float = float(balance_raw) / (10**decimals)
-
-                # Calculate used (locked in positions) and free amounts
-                used_amount = collateral_locked.get(code, 0.0)
-                free_amount = max(0.0, balance_float - used_amount)  # Ensure non-negative
-                total_amount = balance_float
-
-                result[code] = {"free": free_amount, "used": used_amount, "total": total_amount}
-
-                result["free"][code] = free_amount
-                result["used"][code] = used_amount
-                result["total"][code] = total_amount
-
-                result["info"][code] = {"address": token_address, "raw_balance": str(balance_raw), "decimals": decimals}
+                    for future in as_completed(future_to_code, timeout=30):
+                        balance_results.append(future.result())
 
             except Exception as e:
-                # Skip tokens we can't query
-                result["info"][code] = {"error": str(e)}
+                logger.warning("Parallel balance fetch failed, falling back to sequential: %s", e)
+                # Fallback to sequential execution
+                for code, currency in currency_items:
+                    balance_results.append(self._fetch_single_token_balance(code, currency, wallet))
+
+            # Process results
+            for code, balance_float, balance_raw, error in balance_results:
+                currency = currencies.get(code, {})
+                token_address = currency.get("id", "")
+                decimals = currency.get("precision", 18)
+
+                if error:
+                    result["info"][code] = {"error": error}
+                else:
+                    # Calculate used (locked in positions) and free amounts
+                    used_amount = collateral_locked.get(code, 0.0)
+                    free_amount = max(0.0, balance_float - used_amount)  # Ensure non-negative
+                    total_amount = balance_float
+
+                    result[code] = {"free": free_amount, "used": used_amount, "total": total_amount}
+
+                    result["free"][code] = free_amount
+                    result["used"][code] = used_amount
+                    result["total"][code] = total_amount
+
+                    result["info"][code] = {
+                        "address": token_address,
+                        "raw_balance": str(balance_raw),
+                        "decimals": decimals,
+                    }
 
         # Log final balance state
         logger.debug("BALANCE_TRACE: fetch_balance() RETURNING")
@@ -2404,6 +2459,31 @@ class GMX(ExchangeCompatible):
         logger.debug("=" * 80)
 
         return result
+
+    def _fetch_single_token_balance(
+        self,
+        code: str,
+        currency: dict,
+        wallet: str,
+    ) -> tuple[str, float | None, int | None, str | None]:
+        """Fetch balance for a single token.
+
+        :param code: Token code (e.g., "ETH", "USDC")
+        :param currency: Currency metadata with id (address) and precision (decimals)
+        :param wallet: Wallet address to check balance for
+        :return: Tuple of (code, balance_float, raw_balance, error_message)
+        """
+        token_address = currency["id"]
+        decimals = currency["precision"]
+
+        try:
+            token_details = fetch_erc20_details(self.web3, token_address, chain_id=self.web3.eth.chain_id)
+            balance_raw = token_details.contract.functions.balanceOf(wallet).call()
+            balance_float = float(balance_raw) / (10**decimals)
+            return code, balance_float, balance_raw, None
+        except Exception as e:
+            logger.warning("Failed to fetch balance for %s: %s", code, e)
+            return code, None, None, str(e)
 
     def _get_token_decimals(self, market: dict | None) -> int | None:
         """Get token decimals from market metadata.

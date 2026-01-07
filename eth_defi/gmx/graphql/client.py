@@ -10,12 +10,16 @@ The original contract-based implementation (GetOpenPositions) remains the source
 of truth for on-chain data when executing trades.
 """
 
+import logging
 import time
+from concurrent.futures import ThreadPoolExecutor
 from decimal import Decimal
 from typing import Any, Optional
 
 import requests
 from eth_utils import is_address, to_checksum_address
+
+logger = logging.getLogger(__name__)
 
 from eth_defi.gmx.constants import GMX_MIN_DISPLAY_STAKE
 from eth_defi.gmx.contracts import GMX_SUBSQUID_ENDPOINTS, get_tokens_metadata_dict
@@ -94,6 +98,16 @@ class GMXSubsquidClient:
         # Cache markets data (market_address -> {indexToken, longToken, shortToken})
         self._markets_cache: Optional[dict[str, dict]] = None
 
+        # HTTP session with connection pooling for better performance
+        self._session = requests.Session()
+        adapter = requests.adapters.HTTPAdapter(
+            pool_connections=10,
+            pool_maxsize=10,
+            max_retries=3,
+        )
+        self._session.mount("https://", adapter)
+        self._session.mount("http://", adapter)
+
     def _get_tokens_metadata(self) -> dict[str, dict]:
         """Get token metadata from GMX API, with caching.
 
@@ -116,7 +130,7 @@ class GMXSubsquidClient:
         :raises requests.HTTPError: If the request fails
         :raises ValueError: If GraphQL returns errors
         """
-        response = requests.post(
+        response = self._session.post(
             self.endpoint,
             json={"query": query, "variables": variables or {}},
             headers={"Content-Type": "application/json"},
@@ -562,9 +576,22 @@ class GMXSubsquidClient:
         :param account: Wallet address (checksummed or lowercase)
         :return: True if account meets large account criteria, False otherwise
         """
+        # Fetch stats and PnL summary in parallel for better performance
+        stats = None
+        pnl_summary = None
 
-        # Get all-time stats
-        stats = self.get_account_stats(account)
+        try:
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                stats_future = executor.submit(self.get_account_stats, account)
+                pnl_future = executor.submit(self.get_pnl_summary, account)
+
+                stats = stats_future.result(timeout=30)
+                pnl_summary = pnl_future.result(timeout=30)
+        except Exception as e:
+            logger.warning("Parallel query failed, falling back to sequential: %s", e)
+            stats = self.get_account_stats(account)
+            pnl_summary = self.get_pnl_summary(account)
+
         if not stats:
             return False
 
@@ -573,9 +600,6 @@ class GMXSubsquidClient:
         # Check all-time volume threshold
         if all_time_volume > ALL_TIME_VOLUME:
             return True
-
-        # Get PnL summary to check recent trading
-        pnl_summary = self.get_pnl_summary(account)
 
         # Check 14-day volume (week bucket includes last 7 days, we approximate with month data)
         for bucket in pnl_summary:
