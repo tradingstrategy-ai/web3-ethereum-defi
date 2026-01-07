@@ -23,11 +23,13 @@ import os
 from pathlib import Path
 
 from joblib import Parallel, delayed
+from tabulate import tabulate
 from tqdm_loggable.auto import tqdm
 
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.protocol_metadata import (
     METADATA_DIR,
+    get_available_logos,
     process_and_upload_protocol_metadata,
 )
 
@@ -69,7 +71,22 @@ def main():
     tasks = (delayed(_process_slug)(slug) for slug in slugs)
     Parallel(n_jobs=max_workers, prefer="threads")(tqdm(tasks, total=len(slugs), desc="Uploading protocol metadata"))
 
-    print("Protocol metadata export complete")
+    # Build summary table of exported protocols and logo availability
+    table_data = []
+    for slug in sorted(slugs):
+        logos = get_available_logos(slug)
+        table_data.append([
+            slug,
+            "Yes" if logos["light"] else "No",
+            "Yes" if logos["dark"] else "No",
+        ])
+
+    print("\nProtocol metadata export complete\n")
+    print(tabulate(
+        table_data,
+        headers=["Protocol", "Light logo", "Dark logo"],
+        tablefmt="simple",
+    ))
 
 
 if __name__ == "__main__":
