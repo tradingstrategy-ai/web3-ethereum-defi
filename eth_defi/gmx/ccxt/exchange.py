@@ -2478,7 +2478,7 @@ class GMX(ExchangeCompatible):
         """
         # Skip synthetic tokens - they don't exist as ERC20 contracts on this chain
         if currency.get("info", {}).get("synthetic", False):
-            return code, None, None, None
+            return code, None, None, "synthetic_token"
 
         token_address = currency["id"]
         decimals = currency["precision"]

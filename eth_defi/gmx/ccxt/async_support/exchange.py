@@ -426,7 +426,7 @@ class GMX(Exchange):
         # Fetch markets list (this will need async version of Markets class)
         # For now, we'll call the sync method in executor as a bridge
         # TODO: Create fully async Markets implementation
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
 
         markets_instance = Markets(self.config)
         available_markets = await loop.run_in_executor(None, markets_instance.get_available_markets)
@@ -867,7 +867,7 @@ class GMX(Exchange):
 
             try:
                 # Run sync function in thread pool
-                status_result = await asyncio.get_event_loop().run_in_executor(None, lambda: check_order_status(self.web3, order_key, self.chain))
+                status_result = await asyncio.get_running_loop().run_in_executor(None, lambda: check_order_status(self.web3, order_key, self.chain))
             except Exception as e:
                 logger.warning("fetch_order(%s): error checking order status: %s", id[:16], e)
                 return order
@@ -1605,7 +1605,7 @@ class GMX(Exchange):
 
         # Sync wallet nonce
         # Note: AsyncWeb3 doesn't have sync methods, need to use await
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         await loop.run_in_executor(None, self.wallet.sync_nonce, self.web3)
 
         logger.info("=" * 80)
@@ -1711,7 +1711,7 @@ class GMX(Exchange):
         collateral_usd = size_delta_usd / leverage
 
         # Get token details (sync operation in executor)
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         token_details = await loop.run_in_executor(
             None,
             fetch_erc20_details,
@@ -1901,7 +1901,7 @@ class GMX(Exchange):
             return
 
         # Get contract addresses
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         contract_addresses = get_contract_addresses(self.chain)
         spender_address = contract_addresses.syntheticsrouter
 
