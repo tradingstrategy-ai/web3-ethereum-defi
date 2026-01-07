@@ -56,6 +56,7 @@ Supported protocols
    maple/index
    nashpoint/index
    plutus/index
+   resolv/index
    royco/index
    silo/index
    sky/index
