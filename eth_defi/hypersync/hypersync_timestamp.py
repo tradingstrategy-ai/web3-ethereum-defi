@@ -44,12 +44,16 @@ from eth_defi.utils import from_unix_timestamp
 logger = logging.getLogger(__name__)
 
 
+class HypersyncFlaky(Exception):
+    """Hypersync stream flaky error, e.g. timeout."""
+
+
 async def get_block_timestamps_using_hypersync_async(
     client: hypersync.HypersyncClient,
     chain_id: int,
     start_block: int,
     end_block: int,
-    timeout: float = 30.0,
+    timeout: float = 120.0,
     display_progress: bool = True,
     progress_throttle=10_000,
 ) -> AsyncIterable[BlockHeader]:
@@ -114,7 +118,7 @@ async def get_block_timestamps_using_hypersync_async(
             res = await asyncio.wait_for(receiver.recv(), timeout=timeout)
         except asyncio.TimeoutError as e:
             logger.error("HyperSync receiver timed out, cannot recover")
-            raise RuntimeError(f"Cannot recover from HyperSync stream timeout after {timeout} seconds") from e
+            raise HypersyncFlaky(f"Cannot recover from HyperSync stream timeout after {timeout} seconds") from e
 
         # exit if the stream finished
         if res is None:
@@ -280,20 +284,31 @@ def fetch_block_timestamps_using_hypersync_cached(
     end_block: int,
     cache_path=DEFAULT_TIMESTAMP_CACHE_FOLDER,
     display_progress: bool = True,
+    attempts=5,
 ) -> BlockTimestampSlicer:
     """Sync wrapper.
 
     See :py:func:`fetch_block_timestamps_using_hypersync_cached_async` for documentation.
+
+    :param attempts:
+        Work around Hypersync timeout issues
     """
 
     async def _hypersync_asyncio_wrapper():
-        return await fetch_block_timestamps_using_hypersync_cached_async(
-            client=client,
-            chain_id=chain_id,
-            start_block=start_block,
-            end_block=end_block,
-            cache_path=cache_path,
-            display_progress=display_progress,
-        )
+        for attempt in range(attempts):
+            try:
+                return await fetch_block_timestamps_using_hypersync_cached_async(
+                    client=client,
+                    chain_id=chain_id,
+                    start_block=start_block,
+                    end_block=end_block,
+                    cache_path=cache_path,
+                    display_progress=display_progress,
+                )
+            except HypersyncFlaky as e:
+                logger.warning(f"Hypersync flaky error on attempt {attempt + 1}/{attempts}: {e}")
+                if attempt + 1 >= attempts:
+                    logger.error("Exceeded maximum Hypersync attempts, failing: %s", e)
+                    raise
 
     return asyncio.run(_hypersync_asyncio_wrapper())
