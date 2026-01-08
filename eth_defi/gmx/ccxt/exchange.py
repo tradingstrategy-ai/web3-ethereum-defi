@@ -151,6 +151,7 @@ class GMX(ExchangeCompatible):
         params: dict | None = None,
         subsquid_endpoint: str | None = None,
         wallet: HotWallet | None = None,
+        price_sanity_config: "PriceSanityCheckConfig | None" = None,
         **kwargs,
     ):
         """
@@ -183,6 +184,8 @@ class GMX(ExchangeCompatible):
         :type subsquid_endpoint: str | None
         :param wallet: HotWallet for transaction signing (legacy only)
         :type wallet: HotWallet | None
+        :param price_sanity_config: Configuration for price sanity checks (optional)
+        :type price_sanity_config: PriceSanityCheckConfig | None
         """
         # Handle positional arguments and mixed usage
         # If the first argument 'config' is actually a dict, treat it as params
@@ -190,6 +193,12 @@ class GMX(ExchangeCompatible):
         if isinstance(config, dict):
             params = config
             config = None
+
+        # Store price sanity config (will be initialized in _init_common if None)
+        self._price_sanity_config = price_sanity_config
+
+        # Initialize oracle prices instance (will be lazily created when needed)
+        self._oracle_prices_instance = None
 
         # Prepare kwargs for CCXT base class
         # CCXT expects 'config' to be a dict of parameters if provided
@@ -199,7 +208,14 @@ class GMX(ExchangeCompatible):
 
         # Initialize CCXT base class
         # We do NOT pass GMXConfig object to super().__init__ as it expects a dict
-        super().__init__(config=ccxt_kwargs)
+        # Note: CCXT may try to access properties during init, so we need config set first
+        try:
+            super().__init__(config=ccxt_kwargs)
+        except ValueError as e:
+            # CCXT tries to access oracle_prices property during init, which may fail
+            # if config isn't set yet. This is OK - we'll set it properly below.
+            if "Cannot access oracle prices" not in str(e):
+                raise
 
         # Detect initialization style and route to appropriate method
         if params:
@@ -227,6 +243,7 @@ class GMX(ExchangeCompatible):
         self._verbose = parameters.get("verbose", False)
         self.execution_buffer = parameters.get("executionBuffer", 2.2)
         self.default_slippage = parameters.get("defaultSlippage", 0.003)  # 0.3% default
+        self._oracle_prices_instance = None
 
         # Configure verbose logging if requested
         if self._verbose:
@@ -334,6 +351,7 @@ class GMX(ExchangeCompatible):
         self.wallet = wallet
         self.execution_buffer = 2.2  # Default execution buffer for legacy config
         self.default_slippage = 0.003  # Default 0.3% slippage
+        self._oracle_prices_instance = None
 
         # Initialize trading manager
         self.trader = GMXTrading(config) if wallet else None
@@ -537,6 +555,12 @@ class GMX(ExchangeCompatible):
         self.leverage = {}
         self._token_metadata = {}
 
+        # Initialize price sanity config if not already set
+        if self._price_sanity_config is None:
+            from eth_defi.gmx.price_sanity import PriceSanityCheckConfig
+
+            self._price_sanity_config = PriceSanityCheckConfig()
+
     def _init_empty(self):
         """Initialize with minimal functionality (no RPC/config)."""
         self.config = None
@@ -547,7 +571,32 @@ class GMX(ExchangeCompatible):
         self.subsquid = None
         self.wallet_address = None
         self.default_slippage = 0.003  # Default 0.3% slippage
+        self._oracle_prices_instance = None
         self._init_common()
+
+    @property
+    def oracle_prices(self) -> OraclePrices:
+        """Oracle prices instance for retrieving current prices.
+
+        Uses lazy initialization pattern for efficiency. Only creates
+        the OraclePrices instance when first accessed.
+
+        :return: OraclePrices instance for this exchange's chain
+        :rtype: OraclePrices
+        :raises ValueError: If accessed before config is set
+        """
+        # Check if the instance exists using getattr to avoid AttributeError during initialization
+        instance = getattr(self, "_oracle_prices_instance", None)
+        if instance is None:
+            # Use getattr to safely check if config exists (it may not during initialization)
+            config = getattr(self, "config", None)
+            if config is None:
+                # During initialization, config might not be set yet
+                # This is OK - the instance will be created when actually needed
+                raise ValueError("Cannot access oracle prices without a config. Initialize with config or params.")
+            self._oracle_prices_instance = OraclePrices(config.get_chain())
+            instance = self._oracle_prices_instance
+        return instance
 
     def calculate_fee(
         self,
@@ -1863,6 +1912,79 @@ class GMX(ExchangeCompatible):
 
         # Parse to CCXT format
         result = self.parse_ticker(ticker, market)
+
+        # Perform price sanity check if enabled
+        if self._price_sanity_config.enabled:
+            try:
+                from eth_defi.gmx.price_sanity import (
+                    check_price_sanity,
+                    PriceSanityAction,
+                    PriceSanityException,
+                )
+
+                # Get oracle prices (lazy initialization)
+                if self._oracle_prices_instance is None:
+                    self._oracle_prices_instance = OraclePrices(self.config.get_chain())
+                oracle_prices = self._oracle_prices_instance.get_recent_prices()
+
+                # Get token decimals from market info
+                token_decimals = market["info"].get("index_token_decimals", 18)
+
+                # Normalise token address for lookup
+                oracle_address = index_token_address
+                if hasattr(self.config, "get_chain") and self.config.get_chain() in [
+                    "arbitrum_sepolia",
+                    "avalanche_fuji",
+                ]:
+                    from eth_defi.gmx.core.oracle import _TESTNET_TO_MAINNET_ADDRESSES
+
+                    testnet_mappings = _TESTNET_TO_MAINNET_ADDRESSES.get(self.config.get_chain(), {})
+                    oracle_address = testnet_mappings.get(index_token_address, index_token_address)
+
+                # Get oracle price for this token
+                oracle_price = oracle_prices.get(oracle_address)
+
+                if oracle_price:
+                    # Perform sanity check
+                    sanity_result = check_price_sanity(
+                        oracle_price=oracle_price,
+                        ticker_price=ticker,
+                        token_address=index_token_address,
+                        token_decimals=token_decimals,
+                        config=self._price_sanity_config,
+                    )
+
+                    # Store result in ticker info
+                    result["info"]["price_sanity_check"] = {
+                        "passed": sanity_result.passed,
+                        "deviation_percent": sanity_result.deviation_percent,
+                        "oracle_price_usd": sanity_result.oracle_price_usd,
+                        "ticker_price_usd": sanity_result.ticker_price_usd,
+                        "action_taken": sanity_result.action_taken.value,
+                        "timestamp": sanity_result.timestamp.isoformat(),
+                        "reason": sanity_result.reason,
+                    }
+
+                    # Apply action if check failed
+                    if not sanity_result.passed:
+                        if sanity_result.action_taken == PriceSanityAction.use_oracle_warn:
+                            # Use oracle price instead of ticker price
+                            result["last"] = sanity_result.oracle_price_usd
+                            result["close"] = sanity_result.oracle_price_usd
+                            result["bid"] = sanity_result.oracle_price_usd
+                            result["ask"] = sanity_result.oracle_price_usd
+                        # use_ticker_warn and raise_exception are already handled by check_price_sanity
+
+            except PriceSanityException:
+                # Re-raise price sanity exceptions
+                raise
+            except Exception as e:
+                # Log but don't fail on sanity check errors
+                logger.warning(
+                    "Price sanity check failed for %s: %s. Continuing with ticker price.",
+                    symbol,
+                    str(e),
+                )
 
         # Calculate 24h high/low from recent OHLCV (last 24 hours of 1h candles)
         try:
@@ -4348,7 +4470,17 @@ class GMX(ExchangeCompatible):
             # ============================================
             # OPENING POSITIONS (buy=LONG, sell=SHORT)
             # ============================================
-            order_result = self.trader.open_position(**gmx_params)
+            if type == "limit":
+                # Limit order - triggers at specified price
+                if price is None:
+                    raise ValueError("Limit orders require a price parameter")
+                order_result = self.trader.open_limit_position(
+                    trigger_price=price,
+                    **gmx_params,
+                )
+            else:
+                # Market order - executes immediately
+                order_result = self.trader.open_position(**gmx_params)
 
         else:
             # ============================================
@@ -4944,22 +5076,53 @@ class GMX(ExchangeCompatible):
         price: float,
         params: dict | None = None,
     ) -> dict:
-        """Create a limit order.
+        """Create a limit order that triggers at specified price.
 
-        Note: GMX currently uses market orders with acceptable price limits.
-        This method exists for CCXT compatibility but behaves like a market order.
+        Creates a GMX LIMIT_INCREASE order that remains pending until the market
+        price reaches the trigger price. Unlike market orders which execute
+        immediately, limit orders allow you to enter positions at specific price levels.
+
+        **Example:**
+
+        .. code-block:: python
+
+            # Limit long order - buy ETH if price drops to $3000
+            order = gmx.create_limit_order(
+                "ETH/USD",
+                "buy",
+                0,  # Ignored when size_usd is provided
+                3000.0,  # Trigger price
+                params={
+                    "size_usd": 1000,
+                    "leverage": 2.5,
+                    "collateral_symbol": "ETH",
+                },
+            )
+
+            # Limit short order - short ETH if price rises to $4000
+            order = gmx.create_limit_order(
+                "ETH/USD",
+                "sell",
+                0,
+                4000.0,
+                params={
+                    "size_usd": 1000,
+                    "leverage": 2.0,
+                    "collateral_symbol": "USDC",
+                },
+            )
 
         :param symbol: Market symbol (e.g., 'ETH/USD')
         :type symbol: str
-        :param side: Order side ('buy' or 'sell')
+        :param side: Order side ('buy' for long, 'sell' for short)
         :type side: str
-        :param amount: Order size in USD
+        :param amount: Order size in base currency (or 0 if using size_usd in params)
         :type amount: float
-        :param price: Limit price (informational, GMX uses market orders)
+        :param price: Trigger price at which the order executes (USD)
         :type price: float
         :param params: Additional parameters (see create_order)
         :type params: dict | None
-        :return: CCXT-compatible order structure
+        :return: CCXT-compatible order structure with transaction hash
         :rtype: dict
         """
         return self.create_order(symbol, "limit", side, amount, price, params)

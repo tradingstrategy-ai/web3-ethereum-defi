@@ -456,3 +456,126 @@ def test_ccxt_sltp_bundled_orders_count(
     # Verify position created successfully
     positions = gmx.fetch_positions([symbol])
     assert len(positions) > 0, "Position should be created from bundled order"
+
+
+@flaky(max_runs=3, min_passes=1)
+def test_ccxt_create_limit_buy_order(
+    ccxt_gmx_fork_open_close: GMX,
+    web3_arbitrum_fork_ccxt_long,
+    execution_buffer: int,
+):
+    """Test creating a limit buy (long) order via CCXT interface.
+
+    Demonstrates CCXT unified API for creating a limit order that triggers
+    when price reaches the specified level.
+
+    Note: For testing, we use current market price as trigger so keeper can execute immediately.
+    In production, limit orders would wait for price to reach the trigger level.
+    """
+    gmx = ccxt_gmx_fork_open_close
+    web3 = web3_arbitrum_fork_ccxt_long
+
+    symbol = "ETH/USDC:USDC"
+    leverage = 2.5
+    size_usd = 10.0
+
+    # Get current price from ticker to use as trigger (for immediate execution in test)
+    ticker = gmx.fetch_ticker(symbol)
+    current_price = ticker.get("last") or ticker.get("close", 3500.0)
+    trigger_price = current_price  # Use current price so keeper can execute immediately
+
+    # Create limit buy order using CCXT unified API
+    order = gmx.create_limit_buy_order(
+        symbol,
+        0,  # Ignored when size_usd is provided
+        trigger_price,  # The limit/trigger price
+        {
+            "size_usd": size_usd,  # GMX extension for direct USD sizing
+            "leverage": leverage,
+            "collateral_symbol": "ETH",
+            "slippage_percent": 0.005,
+            "execution_buffer": execution_buffer,
+        },
+    )
+
+    assert order is not None
+    assert order.get("id") is not None
+    assert order.get("symbol") == symbol
+    assert order.get("side") == "buy"
+
+    tx_hash = order.get("info", {}).get("tx_hash") or order.get("id")
+    assert tx_hash is not None, "Order should have transaction hash"
+
+    # Execute order as keeper
+    _execute_order(web3, tx_hash)
+
+    # Verify position exists
+    positions = gmx.fetch_positions([symbol])
+    assert len(positions) > 0, "Should have at least one position after limit order executes"
+
+    position = positions[0]
+    assert position.get("symbol") == symbol
+    assert position.get("side") == "long"
+    assert position.get("contracts", 0) > 0
+    assert position.get("notional", 0) > 0
+
+
+@flaky(max_runs=3, min_passes=1)
+def test_ccxt_create_limit_sell_order(
+    ccxt_gmx_fork_short: GMX,
+    web3_arbitrum_fork_ccxt_short,
+    execution_buffer: int,
+):
+    """Test creating a limit sell (short) order via CCXT interface.
+
+    Demonstrates CCXT unified API for creating a limit short order that triggers
+    when price reaches the specified level.
+
+    Note: For testing, we use current market price as trigger so keeper can execute immediately.
+    Short positions require USDC collateral, hence using the short fixtures.
+    """
+    gmx = ccxt_gmx_fork_short
+    web3 = web3_arbitrum_fork_ccxt_short
+
+    symbol = "ETH/USDC:USDC"
+    leverage = 2.0
+    size_usd = 10.0
+
+    # Get current price from ticker to use as trigger
+    ticker = gmx.fetch_ticker(symbol)
+    current_price = ticker.get("last") or ticker.get("close", 3500.0)
+    trigger_price = current_price  # Use current price for immediate execution in test
+
+    # Create limit sell (short) order
+    order = gmx.create_limit_sell_order(
+        symbol,
+        0,  # Ignored when size_usd is provided
+        trigger_price,
+        {
+            "size_usd": size_usd,
+            "leverage": leverage,
+            "collateral_symbol": "USDC",
+            "slippage_percent": 0.005,
+            "execution_buffer": execution_buffer,
+        },
+    )
+
+    assert order is not None
+    assert order.get("id") is not None
+    assert order.get("symbol") == symbol
+    assert order.get("side") == "sell"
+
+    tx_hash = order.get("info", {}).get("tx_hash") or order.get("id")
+    assert tx_hash is not None, "Order should have transaction hash"
+
+    # Execute order as keeper
+    _execute_order(web3, tx_hash)
+
+    # Verify position exists
+    positions = gmx.fetch_positions([symbol])
+    assert len(positions) > 0, "Should have at least one position after limit order executes"
+
+    position = positions[0]
+    assert position.get("symbol") == symbol
+    assert position.get("side") == "short"
+    assert position.get("contracts", 0) > 0
