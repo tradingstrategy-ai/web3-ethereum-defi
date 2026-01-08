@@ -1,5 +1,6 @@
 # Current
 
+- Add: Blacklist Superform vault 0x942bed98560e9b2aa0d4ec76bbda7a7e55f6b2d6 (2026-01-08)
 - Add: Fluid protocol logo assets (2026-01-08)
 - Add: Morpho protocol logo assets (2026-01-08)
 - Fix: ResourceWarning for unclosed sockets and subprocess handles in `eth_defi.utils` (2026-01-07)
