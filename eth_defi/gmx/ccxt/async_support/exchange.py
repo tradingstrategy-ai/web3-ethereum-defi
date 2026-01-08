@@ -451,7 +451,7 @@ class GMX(Exchange):
 
         try:
             # Fetch markets from /markets/info endpoint
-            logger.info("Fetching markets from REST API /markets/info endpoint")
+            logger.debug("Fetching markets from REST API /markets/info endpoint")
             markets_info = await async_make_gmx_api_request(
                 chain=self.chain,
                 endpoint="/markets/info",
