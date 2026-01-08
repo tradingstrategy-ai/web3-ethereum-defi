@@ -216,9 +216,11 @@ class ERC4626Feature(enum.Enum):
     #: https://nashpoint.gitbook.io/nashpoint
     nashpoint_like = "nashpoint_like"
 
-    #: LLAMMA
+    #: Llama Lend (powered by LLAMMA)
     #:
-    #: https://nashpoint.gitbook.io/nashpoint
+    #: Llama Lend is Curve Finance's lending protocol powered by the liquidation protection
+    #: mechanism provided by LLAMMA (Lending Liquidating Automated Market Maker Algorithm).
+    #: https://lend.curve.fi/
     llamma_like = "llamma_like"
 
     #: Summer Earn
@@ -499,7 +501,7 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "NashPoint"
 
     elif ERC4626Feature.llamma_like in features:
-        return "LLAMMA"
+        return "Llama Lend"
 
     elif ERC4626Feature.summer_like in features:
         return "Summer.fi"

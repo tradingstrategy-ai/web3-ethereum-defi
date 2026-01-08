@@ -375,7 +375,7 @@ def create_probe_calls(
             extra_data=None,
         )
 
-        # LLAMMA
+        # Llama Lend (powered by LLAMMA)
         # https://arbiscan.io/address/0xe296ee7f83d1d95b3f7827ff1d08fe1e4cf09d8d#code
         llamma_call = EncodedCall.from_keccak_signature(
             address=address,
@@ -1053,10 +1053,10 @@ def create_vault_instance(
         return NashpointNodeVault(web3, spec, token_cache=token_cache, features=features)
 
     elif ERC4626Feature.llamma_like in features:
-        # Both of these have fees internatilised
-        from eth_defi.erc_4626.vault_protocol.llamma.vault import LLAMMAVault
+        # Llama Lend - fees are internalised
+        from eth_defi.erc_4626.vault_protocol.llama_lend.vault import LlamaLendVault
 
-        return LLAMMAVault(web3, spec, token_cache=token_cache, features=features)
+        return LlamaLendVault(web3, spec, token_cache=token_cache, features=features)
 
     elif ERC4626Feature.summer_like in features:
         # Both of these have fees internatilised

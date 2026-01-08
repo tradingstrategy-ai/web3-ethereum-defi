@@ -1,4 +1,4 @@
-"LLAMMA vault tests"
+"Llama Lend vault tests"
 
 import os
 from pathlib import Path
@@ -10,7 +10,7 @@ from web3 import Web3
 
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
-from eth_defi.erc_4626.vault_protocol.llamma.vault import LLAMMAVault
+from eth_defi.erc_4626.vault_protocol.llama_lend.vault import LlamaLendVault
 from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.vault.fee import VaultFeeMode
@@ -36,11 +36,11 @@ def web3(anvil_arbitrum_fork):
     return web3
 
 
-def test_llamma(
+def test_llama_lend(
     web3: Web3,
     tmp_path: Path,
 ):
-    """Read NashPoint metadata"""
+    """Read Llama Lend metadata"""
 
     vault = create_vault_instance_autodetect(
         web3,
@@ -48,9 +48,9 @@ def test_llamma(
     )
 
     assert vault.features == {ERC4626Feature.llamma_like}
-    assert isinstance(vault, LLAMMAVault)
-    assert vault.name == "Curve LLAMMA IBTC / crvUSD"
-    assert vault.get_protocol_name() == "LLAMMA"
+    assert isinstance(vault, LlamaLendVault)
+    assert vault.name == "Llama Lend IBTC / crvUSD"
+    assert vault.get_protocol_name() == "Llama Lend"
     assert vault.get_management_fee("latest") == 0.00
     assert vault.get_performance_fee("latest") == 0.00
     assert vault.get_fee_mode() == VaultFeeMode.internalised_skimming
