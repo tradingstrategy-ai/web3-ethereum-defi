@@ -122,4 +122,8 @@ html_css_files = [
     "custom.css",
 ]
 
+# Disable syntax highlighting
+highlight_language = 'none'
+pygments_style = None
+
 from eth_defi.docs import monkeypatch
