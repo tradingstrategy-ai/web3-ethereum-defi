@@ -71,6 +71,7 @@ class OrderResult:
     :param mark_price: Current mark price
     :param gas_limit: Gas limit for transaction
     :param estimated_price_impact: Optional estimated price impact in USD
+    :param price_sanity_check: Optional price sanity check result
     """
 
     transaction: TxParams
@@ -79,6 +80,7 @@ class OrderResult:
     mark_price: float
     gas_limit: int
     estimated_price_impact: Optional[float] = None  # Added price impact
+    price_sanity_check: Optional["PriceSanityCheckResult"] = None  # Price sanity check result
 
 
 class BaseOrder:
@@ -88,11 +90,13 @@ class BaseOrder:
     Compatible with CCXT trading interface patterns for easy migration.
     """
 
-    def __init__(self, config: GMXConfig):
+    def __init__(self, config: GMXConfig, price_sanity_config: "PriceSanityCheckConfig | None" = None):
         """Initialize the base order with GMX configuration.
 
         :param config: GMX configuration instance
         :type config: GMXConfig
+        :param price_sanity_config: Optional configuration for price sanity checks
+        :type price_sanity_config: PriceSanityCheckConfig | None
         """
         self._oracle_prices = None
         self._markets = None
@@ -113,6 +117,14 @@ class BaseOrder:
 
         # Initialize gas limits from datastore
         self._initialize_gas_limits()
+
+        # Initialize price sanity config
+        if price_sanity_config is None:
+            from eth_defi.gmx.price_sanity import PriceSanityCheckConfig
+
+            self._price_sanity_config = PriceSanityCheckConfig()
+        else:
+            self._price_sanity_config = price_sanity_config
 
         logger.debug(
             "Initialized %s for %s",
@@ -191,6 +203,8 @@ class BaseOrder:
         is_open: bool = False,
         is_close: bool = False,
         is_swap: bool = False,
+        is_limit: bool = False,
+        trigger_price: float | None = None,
     ) -> OrderResult:
         """Build an order transaction.
 
@@ -201,11 +215,16 @@ class BaseOrder:
         :param is_open: Whether opening a position
         :param is_close: Whether closing a position
         :param is_swap: Whether performing a swap
+        :param is_limit: Whether this is a limit order (triggers at specified price)
+        :param trigger_price: USD price at which order triggers (required for limit orders)
         :return: OrderResult with unsigned transaction
         """
         # Determine gas limits (from original determine_gas_limits)
         if is_open:
-            order_type = OrderType.MARKET_INCREASE
+            if is_limit:
+                order_type = OrderType.LIMIT_INCREASE
+            else:
+                order_type = OrderType.MARKET_INCREASE
         elif is_close:
             order_type = OrderType.MARKET_DECREASE
         elif is_swap:
@@ -237,7 +256,7 @@ class BaseOrder:
 
         # Calculate prices with slippage (validate prices exist before other operations)
         decimals = market_data["market_metadata"]["decimals"]
-        price_usd, raw_price, acceptable_price, acceptable_price_in_usd = self._get_prices(
+        price_usd, raw_price, acceptable_price, acceptable_price_in_usd, sanity_result = self._get_prices(
             decimals,
             prices,
             params,
@@ -260,6 +279,25 @@ class BaseOrder:
         # Use raw_price (in contract format) for mark_price, not the USD price
         mark_price = raw_price if is_open else 0
         acceptable_price_val = acceptable_price if not is_swap else 0
+
+        # For limit orders, override with trigger price-based calculations
+        if is_limit and trigger_price is not None:
+            # Calculate acceptable price from trigger price instead of mark price
+            if params.is_long:
+                # Long: willing to buy at slightly higher than trigger
+                slippage_price = trigger_price * (1 + params.slippage_percent)
+            else:
+                # Short: willing to sell at slightly lower than trigger
+                slippage_price = trigger_price * (1 - params.slippage_percent)
+
+            acceptable_price_val = int(slippage_price * (10 ** (PRECISION - decimals)))
+
+            # Convert trigger price to contract format for mark_price param (used as triggerPrice)
+            mark_price = int(Decimal(str(trigger_price)) * Decimal(10 ** (PRECISION - decimals)))
+
+            logger.debug("Limit order trigger price (USD): $%.4f", trigger_price)
+            logger.debug("Limit order acceptable price (contract): %d", acceptable_price_val)
+            logger.debug("Limit order trigger price (contract): %d", mark_price)
 
         arguments = self._build_order_arguments(
             params,
@@ -293,13 +331,17 @@ class BaseOrder:
             is_swap,
         )
 
+        # For limit orders, return trigger_price as the mark_price
+        result_mark_price = trigger_price if (is_limit and trigger_price is not None) else price_usd
+
         return OrderResult(
             transaction=transaction,
             execution_fee=execution_fee,
             acceptable_price=acceptable_price_val,
-            mark_price=price_usd,
+            mark_price=result_mark_price,
             gas_limit=gas_limits["total"],
             estimated_price_impact=price_impact,
+            price_sanity_check=sanity_result,
         )
 
     def _determine_gas_limits(self, is_open: bool, is_close: bool, is_swap: bool) -> dict[str, int]:
@@ -332,7 +374,7 @@ class BaseOrder:
         is_open: bool,
         is_close: bool,
         is_swap: bool,
-    ) -> tuple[float, int, int, float]:
+    ) -> tuple[float, int, int, float, Optional["PriceSanityCheckResult"]]:
         """Calculate prices with slippage.
 
         :param decimals: Token decimals
@@ -341,7 +383,7 @@ class BaseOrder:
         :param is_open: Whether opening a position
         :param is_close: Whether closing a position
         :param is_swap: Whether performing a swap
-        :return: Tuple of (price_usd, raw_price, acceptable_price, acceptable_price_in_usd)
+        :return: Tuple of (price_usd, raw_price, acceptable_price, acceptable_price_in_usd, price_sanity_check)
         """
         logger.debug("Getting prices...")
 
@@ -394,7 +436,78 @@ class BaseOrder:
             logger.debug("Acceptable price (USD): $%.8f", acceptable_price_in_usd)
             logger.debug("Acceptable price (contract format): %d", acceptable_price)
 
-        return price_usd, raw_price, acceptable_price, acceptable_price_in_usd
+        # Perform price sanity check if enabled and not a swap
+        sanity_result = None
+        if self._price_sanity_config.enabled and not is_swap:
+            try:
+                from eth_defi.gmx.price_sanity import (
+                    check_price_sanity,
+                    PriceSanityAction,
+                    PriceSanityException,
+                )
+                from eth_defi.gmx.api import GMXAPI
+
+                # Fetch ticker prices
+                api = GMXAPI(config=None, chain=self.chain)
+                all_tickers = api.get_tickers()
+
+                # Find ticker for this token
+                ticker = next(
+                    (t for t in all_tickers if t.get("tokenAddress", "").lower() == oracle_address.lower()),
+                    None,
+                )
+
+                if ticker:
+                    # Perform sanity check
+                    sanity_result = check_price_sanity(
+                        oracle_price=price_data,
+                        ticker_price=ticker,
+                        token_address=oracle_address,
+                        token_decimals=decimals,
+                        config=self._price_sanity_config,
+                    )
+
+                    # Apply action if check failed
+                    if not sanity_result.passed:
+                        if sanity_result.action_taken == PriceSanityAction.use_ticker_warn:
+                            # Use ticker price instead of oracle price
+                            price_usd = sanity_result.ticker_price_usd
+                            # Recalculate slippage with ticker price
+                            if is_open:
+                                if params.is_long:
+                                    slippage_price = price_usd + (price_usd * params.slippage_percent)
+                                else:
+                                    slippage_price = price_usd - (price_usd * params.slippage_percent)
+                            elif is_close:
+                                if params.is_long:
+                                    slippage_price = price_usd - (price_usd * params.slippage_percent)
+                                else:
+                                    slippage_price = price_usd + (price_usd * params.slippage_percent)
+                            else:
+                                slippage_price = 0
+
+                            acceptable_price = int(slippage_price * (10 ** (PRECISION - decimals)))
+                            acceptable_price_in_usd = slippage_price if slippage_price != 0 else 0
+                            raw_price = int(Decimal(str(price_usd * (10 ** (PRECISION - decimals)))))
+
+                            logger.info(
+                                "Using ticker price $%.2f instead of oracle price $%.2f due to sanity check",
+                                price_usd,
+                                sanity_result.oracle_price_usd,
+                            )
+                        # use_oracle_warn and raise_exception are already handled by check_price_sanity
+
+            except PriceSanityException:
+                # Re-raise price sanity exceptions
+                raise
+            except Exception as e:
+                # Log but don't fail on sanity check errors
+                logger.warning(
+                    "Price sanity check failed: %s. Continuing with oracle price.",
+                    str(e),
+                )
+
+        return price_usd, raw_price, acceptable_price, acceptable_price_in_usd, sanity_result
 
     def _build_order_arguments(
         self,

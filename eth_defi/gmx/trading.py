@@ -624,6 +624,145 @@ class GMXTrading:
             **kwargs,
         )
 
+    def open_limit_position(
+        self,
+        market_symbol: str,
+        collateral_symbol: str,
+        start_token_symbol: str,
+        is_long: bool,
+        size_delta_usd: float,
+        leverage: float,
+        trigger_price: float,
+        slippage_percent: Optional[float] = 0.003,
+        auto_cancel: bool = True,
+        **kwargs,
+    ) -> OrderResult:
+        """
+        Open a limit position that triggers at specified price.
+
+        Creates a limit order that opens a position when the market price
+        reaches the trigger price. Unlike market orders which execute immediately,
+        limit orders remain pending until price conditions are met.
+
+        **When to Use Limit Orders:**
+
+        Limit orders are useful when you want to enter a position at a specific
+        price level rather than the current market price. Common use cases include:
+
+        - Buying dips: Set a trigger price below current market to buy if price drops
+        - Selling rallies: Set a trigger price above current market to short if price rises
+        - Range trading: Enter positions at predetermined support/resistance levels
+
+        **Trigger Price Logic:**
+
+        For long positions, the order triggers when the market price falls to
+        or below the trigger price. For short positions, the order triggers
+        when the market price rises to or above the trigger price.
+
+        Example:
+
+        .. code-block:: python
+
+            # Limit long order - buy ETH if price drops to $3000
+            limit_long = trader.open_limit_position(
+                market_symbol="ETH",
+                collateral_symbol="ETH",
+                start_token_symbol="ETH",
+                is_long=True,
+                size_delta_usd=1000,
+                leverage=2.5,
+                trigger_price=3000.0,  # Buy at $3000 or better
+                slippage_percent=0.005,
+            )
+
+            # Limit short order - short ETH if price rises to $4000
+            limit_short = trader.open_limit_position(
+                market_symbol="ETH",
+                collateral_symbol="USDC",
+                start_token_symbol="USDC",
+                is_long=False,
+                size_delta_usd=1000,
+                leverage=2.0,
+                trigger_price=4000.0,  # Short at $4000 or better
+            )
+
+        :param market_symbol:
+            Symbol identifying the market to trade (e.g., "ETH", "BTC")
+        :type market_symbol: str
+        :param collateral_symbol:
+            Symbol of the asset to use as collateral (e.g., "USDC", "ETH")
+        :type collateral_symbol: str
+        :param start_token_symbol:
+            Symbol of the asset you currently hold to fund the position
+        :type start_token_symbol: str
+        :param is_long:
+            Whether to open a long (bullish) or short (bearish) position
+        :type is_long: bool
+        :param size_delta_usd:
+            Total position size in USD terms
+        :type size_delta_usd: float
+        :param leverage:
+            Leverage multiplier (e.g., 2.5 for 2.5x leverage)
+        :type leverage: float
+        :param trigger_price:
+            USD price at which the order triggers and executes
+        :type trigger_price: float
+        :param slippage_percent:
+            Maximum acceptable slippage as decimal (0.003 = 0.3%)
+        :type slippage_percent: Optional[float]
+        :param auto_cancel:
+            Whether to auto-cancel the order if it can't execute (default True)
+        :type auto_cancel: bool
+        :param kwargs:
+            Additional parameters including execution_buffer, max_fee_per_gas, etc.
+        :type kwargs: Any
+        :return:
+            OrderResult containing unsigned transaction ready for signing
+        :rtype: OrderResult
+        :raises ValueError:
+            When parameters are invalid or trigger_price is not positive
+        """
+        if trigger_price <= 0:
+            raise ValueError("trigger_price must be positive")
+
+        # Get configuration
+        config = self.config.get_config()
+
+        # Prepare parameters dictionary
+        parameters = {
+            "chain": self.config.get_chain(),
+            "index_token_symbol": market_symbol,
+            "collateral_token_symbol": collateral_symbol,
+            "start_token_symbol": start_token_symbol,
+            "is_long": is_long,
+            "size_delta_usd": size_delta_usd,
+            "leverage": leverage,
+            "slippage_percent": slippage_percent,
+        }
+
+        # Process parameters
+        order_parameters = OrderArgumentParser(config, is_increase=True).process_parameters_dictionary(parameters)
+
+        # Create order instance with position identification
+        order = IncreaseOrder(
+            config=self.config,
+            market_key=order_parameters["market_key"],
+            collateral_address=order_parameters["collateral_address"],
+            index_token_address=order_parameters["index_token_address"],
+            is_long=order_parameters["is_long"],
+        )
+
+        # Create the limit increase order transaction
+        return order.create_limit_increase_order(
+            trigger_price=trigger_price,
+            size_delta=order_parameters["size_delta"],
+            initial_collateral_delta_amount=order_parameters["initial_collateral_delta"],
+            slippage_percent=order_parameters["slippage_percent"],
+            swap_path=order_parameters["swap_path"],
+            auto_cancel=auto_cancel,
+            **kwargs,
+        )
+
     def open_position_with_sltp(
         self,
         market_symbol: str,
@@ -703,7 +842,10 @@ class GMXTrading:
             "slippage_percent": slippage_percent,
         }
 
-        order_parameters = OrderArgumentParser(config, is_increase=True).process_parameters_dictionary(parameters)
+        order_parameters = OrderArgumentParser(
+            config,
+            is_increase=True,
+        ).process_parameters_dictionary(parameters)
 
         # Create SLTP order instance
         sltp = SLTPOrder(

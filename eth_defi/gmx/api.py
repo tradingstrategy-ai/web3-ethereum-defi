@@ -5,6 +5,7 @@ This module provides functionality for interacting with GMX APIs.
 """
 
 import logging
+import time
 from typing import Optional, Any
 import pandas as pd
 
@@ -13,6 +14,22 @@ from eth_defi.gmx.constants import GMX_API_URLS, GMX_API_URLS_BACKUP
 from eth_defi.gmx.retry import make_gmx_api_request
 
 logger = logging.getLogger(__name__)
+
+# Module-level cache for ticker prices with timestamps
+# Key: chain name, Value: (tickers list, timestamp)
+_TICKER_PRICES_CACHE: dict[str, tuple[list, float]] = {}
+_TICKER_CACHE_TTL_SECONDS = 10  # Cache ticker prices for 10 seconds
+
+
+def clear_ticker_prices_cache() -> None:
+    """Clear the ticker prices cache.
+
+    This function clears the module-level cache that stores ticker price data.
+    Useful for testing or when fresh data is explicitly required.
+    """
+    global _TICKER_PRICES_CACHE
+    _TICKER_PRICES_CACHE.clear()
+    logger.debug("Ticker prices cache cleared")
 
 
 class GMXAPI:
@@ -119,19 +136,42 @@ class GMXAPI:
             retry_delay=retry_delay,
         )
 
-    def get_tickers(self) -> dict[str, Any]:
+    def get_tickers(self, use_cache: bool = True) -> dict[str, Any]:
         """
         Get current price information for all supported tokens.
 
         This endpoint provides real-time pricing data for all tokens supported
-        by the GMX protocol on the configured network.
+        by the GMX protocol on the configured network. Results are cached for
+        10 seconds to reduce API calls.
 
+        :param use_cache:
+            Whether to use cached data if available (default True)
+        :type use_cache: bool
         :return:
             Dictionary containing current price information for all tokens,
             typically including bid/ask prices, last price, and volume data
         :rtype: dict[str, Any]
         """
+        # Check cache if enabled
+        if use_cache and self.chain in _TICKER_PRICES_CACHE:
+            cached_tickers, cached_time = _TICKER_PRICES_CACHE[self.chain]
+            age = time.time() - cached_time
+
+            if age < _TICKER_CACHE_TTL_SECONDS:
+                logger.debug(
+                    "Using cached ticker prices for %s (age: %.1fs)",
+                    self.chain,
+                    age,
+                )
+                return cached_tickers
+
+        # Fetch fresh data
         response = self._make_request("/prices/tickers")
+
+        # Cache the response
+        if use_cache:
+            _TICKER_PRICES_CACHE[self.chain] = (response, time.time())
+            logger.debug("Cached ticker prices for %s", self.chain)
 
         # Log a small summary to help debugging without dumping full payloads
         sample = None
