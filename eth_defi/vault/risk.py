@@ -132,6 +132,9 @@ VAULT_SPECIFIC_RISK = {
     # 100% utilisation on Silo V1, likely cooked
     # https://gov.yearn.fi/t/what-is-the-status-of-silo-lender-arb-usdc-e/14572
     # "0x9fa306b1f4a6a83fec98d8ebbabedff78c407f6b": VaultTechnicalRisk.low,
+    # Superform vault - no indication of underlying activity or positions
+    # https://app.superform.xyz/vault/1_0x942bed98560e9b2aa0d4ec76bbda7a7e55f6b2d6
+    "0x942bed98560e9b2aa0d4ec76bbda7a7e55f6b2d6": VaultTechnicalRisk.blacklisted,
 }
 
 
