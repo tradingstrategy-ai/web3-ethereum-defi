@@ -315,6 +315,9 @@ def test_swap_through_module_succeed(
     assert weth.functions.balanceOf(safe.address).call() > 0
 
 
+# Anvil crappiness
+# ERROR tests/safe-integration/test_guard_safe_e2e.py::test_swap_through_module_revert - AssertionError: Could not read block number from Anvil after the launch with command 'anvil': at http://localhost:21938, stdout is 0 bytes, stderr is 205 bytes
+@flaky.flaky
 def test_swap_through_module_revert(
     web3: Web3,
     safe: Safe,
