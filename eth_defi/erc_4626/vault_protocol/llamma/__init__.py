@@ -1,1 +1,0 @@
-"""llamma vault protocol."""

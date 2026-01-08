@@ -75,18 +75,22 @@ def main():
     table_data = []
     for slug in sorted(slugs):
         logos = get_available_logos(slug)
-        table_data.append([
-            slug,
-            "Yes" if logos["light"] else "No",
-            "Yes" if logos["dark"] else "No",
-        ])
+        table_data.append(
+            [
+                slug,
+                "Yes" if logos["light"] else "No",
+                "Yes" if logos["dark"] else "No",
+            ]
+        )
 
     print("\nProtocol metadata export complete\n")
-    print(tabulate(
-        table_data,
-        headers=["Protocol", "Light logo", "Dark logo"],
-        tablefmt="simple",
-    ))
+    print(
+        tabulate(
+            table_data,
+            headers=["Protocol", "Light logo", "Dark logo"],
+            tablefmt="simple",
+        )
+    )
 
 
 if __name__ == "__main__":

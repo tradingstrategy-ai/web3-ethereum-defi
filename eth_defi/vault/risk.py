@@ -82,7 +82,7 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "NashPoint": VaultTechnicalRisk.low,
     "Silo Finance": VaultTechnicalRisk.low,
     "Summer.fi": VaultTechnicalRisk.low,
-    "LLAMMA": VaultTechnicalRisk.low,
+    "Llama Lend": VaultTechnicalRisk.low,
     "Foxify": VaultTechnicalRisk.dangerous,
     "Liquidity Royalty Tranching": None,
     "cSigma Finance": VaultTechnicalRisk.severe,

@@ -123,7 +123,7 @@ html_css_files = [
 ]
 
 # Disable syntax highlighting
-highlight_language = 'none'
+highlight_language = "none"
 pygments_style = None
 
 from eth_defi.docs import monkeypatch

@@ -1,0 +1,29 @@
+name: Llama Lend
+slug: llama-lend
+short_description: |
+  Curve Finance's lending protocol with soft-liquidation protection.
+long_description: |
+  Llama Lend is Curve Finance's lending protocol powered by the liquidation protection mechanism
+  provided by LLAMMA (Lending Liquidating Automated Market Maker Algorithm).
+
+  LLAMMA is the market-making contract that rebalances the collateral of a loan. It is an algorithm
+  implemented into a smart contract which is responsible for liquidating and de-liquidating collateral
+  based on market conditions through arbitrage traders. Each individual market has its own AMM
+  containing the collateral and borrowable asset.
+
+  Based on the collateral provided, LLAMMA fixes specific price bands to liquidate portions of the
+  collateral rather than liquidating fully at a specific liquidation price, enabling soft liquidations.
+fee_description: |
+links:
+  homepage: https://curve.fi/
+  app: https://lend.curve.fi/
+  twitter: https://x.com/llamalend
+  github: https://github.com/curvefi
+  documentation: https://docs.curve.finance/crvUSD/amm/
+  defillama: https://defillama.com/protocol/curve-llamalend
+  audits:
+  fees:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/llama-lend
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/llama-lend/index.html
+example_smart_contracts:
+  - https://arbiscan.io/address/0xe296ee7f83d1d95b3f7827ff1d08fe1e4cf09d8d

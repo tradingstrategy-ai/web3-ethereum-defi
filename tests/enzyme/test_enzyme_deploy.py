@@ -56,7 +56,8 @@ def test_deploy_enzyme(
     assert_transaction_success_with_explanation(web3, tx_hash)
     tx_hash = usdc.functions.approve(comptroller.address, 500 * 10**6).transact({"from": user_1})
     assert_transaction_success_with_explanation(web3, tx_hash)
-    comptroller.functions.buyShares(500 * 10**6, 1).transact({"from": user_1})
+    tx_hash = comptroller.functions.buyShares(500 * 10**6, 1).transact({"from": user_1})
+    assert_transaction_success_with_explanation(web3, tx_hash)
 
     # See user 2 received shares
     balance = vault.functions.balanceOf(user_1).call()

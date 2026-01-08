@@ -51,7 +51,7 @@ Supported protocols
    ipor/index
    lagoon/index
    liquidity_royalty/index
-   llamma/index
+   llama-lend/index
    mainstreet/index
    maple/index
    nashpoint/index

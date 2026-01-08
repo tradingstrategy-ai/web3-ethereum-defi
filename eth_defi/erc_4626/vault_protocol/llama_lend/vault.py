@@ -1,4 +1,8 @@
-"""Curve LLAMMA Lending vault support."""
+"""Llama Lend vault support.
+
+Llama Lend is powered by the liquidation protection mechanism provided by LLAMMA
+(Lending Liquidating Automated Market Maker Algorithm).
+"""
 
 import datetime
 
@@ -19,22 +23,26 @@ from eth_defi.vault.base import VaultTechnicalRisk
 logger = logging.getLogger(__name__)
 
 
-class LLAMMAVault(ERC4626Vault):
-    """Llama vaults.
+class LlamaLendVault(ERC4626Vault):
+    """Llama Lend vaults.
 
-    This vault wraps LLAMMA AMM.
+    Llama Lend is Curve Finance's lending protocol powered by the liquidation protection mechanism
+    provided by LLAMMA (Lending Liquidating Automated Market Maker Algorithm).
 
-    LLAMMA (Lending Liquidating Automated Market Maker Algorithm) is the market-making contract that rebalances the collateral of a loan. It is an algorithm implemented into a smart contract which is responsible for liquidating and de-liquidating collateral based on market conditions through arbitrage traders. Each individual market has its own AMM containing the collateral and borrowable asset. E.g. the AMM of the ETH<>crvUSD contains of ETH and crvUSD.
+    LLAMMA is the market-making contract that rebalances the collateral of a loan. It is an algorithm
+    implemented into a smart contract which is responsible for liquidating and de-liquidating collateral
+    based on market conditions through arbitrage traders. Each individual market has its own AMM
+    containing the collateral and borrowable asset. E.g. the AMM of the ETH<>crvUSD contains of ETH and crvUSD.
 
     - `LLAMMA explained <https://docs.curve.finance/crvUSD/amm/>__
     - `Vault smart contract code: <https://arbiscan.io/address/0xe296ee7f83d1d95b3f7827ff1d08fe1e4cf09d8d#code>`__
-    - `LLAMMA markets <https://www.curve.finance/llamalend/ethereum/markets>`__
+    - `Llama Lend markets <https://www.curve.finance/llamalend/ethereum/markets>`__
     """
 
     @cached_property
     def name(self) -> str:
         """Get vault name."""
-        return f"Curve LLAMMA {self.collateral_token.symbol} / {self.denomination_token.symbol}"
+        return f"Llama Lend {self.collateral_token.symbol} / {self.denomination_token.symbol}"
 
     def get_risk(self) -> VaultTechnicalRisk | None:
         return VaultTechnicalRisk.low
@@ -45,7 +53,7 @@ class LLAMMAVault(ERC4626Vault):
         return get_deployed_erc_4626_contract(
             self.web3,
             self.spec.vault_address,
-            abi_fname="llamma/Vault.json",
+            abi_fname="llama-lend/Vault.json",
         )
 
     @cached_property
