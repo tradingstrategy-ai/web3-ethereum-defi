@@ -5,8 +5,10 @@ AsyncWeb3 for blockchain operations, and async GraphQL for Subsquid queries.
 """
 
 import asyncio
+import os
 from datetime import datetime
 import logging
+from pathlib import Path
 from statistics import median
 from typing import Any
 
@@ -21,6 +23,7 @@ from eth_utils import to_checksum_address
 from web3 import AsyncWeb3
 
 from eth_defi.chain import get_chain_name
+from eth_defi.gmx.cache import GMXMarketCache
 from eth_defi.gmx.ccxt.async_support.async_graphql import AsyncGMXSubsquidClient
 from eth_defi.gmx.ccxt.async_support.async_http import async_make_gmx_api_request
 from eth_defi.gmx.ccxt.properties import describe_gmx
@@ -230,6 +233,23 @@ class GMX(Exchange):
         )
         await self.subsquid.__aenter__()
 
+        # Initialise disk cache for markets
+        cache_disabled = self.options.get("disable_market_cache") is True or os.environ.get("GMX_DISABLE_MARKET_CACHE", "").lower() == "true"
+
+        cache_dir = self.options.get("market_cache_dir")
+        if cache_dir:
+            cache_dir = Path(cache_dir)
+
+        try:
+            self._market_cache = GMXMarketCache.get_cache(
+                chain=self.chain,
+                cache_dir=cache_dir,
+                disabled=cache_disabled,
+            )
+        except Exception as e:
+            logger.warning("Failed to initialise market cache: %s", e)
+            self._market_cache = None
+
         logger.info("Async GMX exchange session initialized for chain: %s", self.chain)
 
     async def close(self):
@@ -400,8 +420,220 @@ class GMX(Exchange):
             logger.error("Failed to fetch tokens from GMX API: %s", e)
             return []
 
+    async def _load_markets_from_rest_api(self) -> dict:
+        """Load markets from GMX REST API asynchronously (fast, comprehensive).
+
+        Fetches market data from /markets/info endpoint which provides:
+        - Market metadata (tokens, addresses)
+        - Open interest and liquidity
+        - Funding rates
+        - isListed status
+
+        Uses disk cache for persistence across restarts.
+
+        :return: dictionary mapping unified symbols to market info
+        :rtype: dict
+        """
+        # Try disk cache first
+        if self._market_cache:
+            try:
+                cached_markets = self._market_cache.get_markets(
+                    loading_mode="rest_api",
+                    check_expiry=True,
+                )
+                if cached_markets:
+                    logger.info("Loaded %s markets from disk cache", len(cached_markets))
+                    self.markets = cached_markets
+                    self.symbols = list(self.markets.keys())
+                    return self.markets
+            except Exception as e:
+                logger.warning("Failed to load from disk cache: %s", e)
+
+        try:
+            # Fetch markets from /markets/info endpoint
+            logger.info("Fetching markets from REST API /markets/info endpoint")
+            markets_info = await async_make_gmx_api_request(
+                chain=self.chain,
+                endpoint="/markets/info",
+                params={"marketTokensData": "true"},
+                session=self.session,
+                timeout=10.0,
+            )
+
+            # Fetch token metadata for symbol mapping
+            tokens_data = await self._fetch_tokens_async()
+
+            # Build address->token mapping (lowercase for matching)
+            self._token_metadata = {}
+            if isinstance(tokens_data, dict):
+                tokens_list = tokens_data.get("tokens", [])
+            elif isinstance(tokens_data, list):
+                tokens_list = tokens_data
+            else:
+                tokens_list = []
+
+            for token in tokens_list:
+                if not isinstance(token, dict):
+                    continue
+                address = token.get("address", "").lower()
+                symbol = token.get("symbol", "")
+                decimals = token.get("decimals")
+                if address and symbol and decimals is not None:
+                    self._token_metadata[address] = {
+                        "decimals": decimals,
+                        "synthetic": token.get("synthetic", False),
+                        "symbol": symbol,
+                    }
+
+            # Process markets from /markets/info
+            markets_dict = {}
+            markets_list = markets_info.get("markets", []) if isinstance(markets_info, dict) else []
+
+            for market in markets_list:
+                try:
+                    # Get market addresses
+                    market_token = market.get("marketToken", "")
+                    index_token = market.get("indexToken", "").lower()
+                    long_token = market.get("longToken", "").lower()
+                    short_token = market.get("shortToken", "").lower()
+
+                    # Check if market is listed
+                    is_listed = market.get("isListed", True)
+                    if not is_listed:
+                        logger.debug("Skipping unlisted market %s", market_token)
+                        continue
+
+                    # Special case: wstETH market
+                    is_wsteth_market = market_token.lower() == "0x0Cf1fb4d1FF67A3D8Ca92c9d6643F8F9be8e03E5".lower()
+
+                    # Get index token metadata
+                    index_meta = self._token_metadata.get(index_token, {})
+                    symbol_name = index_meta.get("symbol")
+
+                    if not symbol_name:
+                        logger.debug("Skipping market with unknown index token: %s", index_token)
+                        continue
+
+                    # Skip excluded symbols
+                    if symbol_name in self.EXCLUDED_SYMBOLS:
+                        logger.debug("Skipping excluded symbol: %s", symbol_name)
+                        continue
+
+                    # Check if synthetic market (long_token == short_token, not wstETH)
+                    is_synthetic = (long_token == short_token) and not is_wsteth_market
+
+                    # Create unified symbol
+                    if is_synthetic:
+                        unified_symbol = f"{symbol_name}/USDC:USDC2"
+                    else:
+                        unified_symbol = f"{symbol_name}/USDC:USDC"
+
+                    # Get leverage info from subsquid if available
+                    max_leverage = 50.0  # Default
+                    min_collateral_factor = None
+
+                    if self.subsquid:
+                        try:
+                            market_infos = await self.subsquid.get_market_infos(limit=200)
+                            for mi in market_infos:
+                                if mi.get("marketTokenAddress", "").lower() == market_token.lower():
+                                    mcf = mi.get("minCollateralFactor")
+                                    if mcf:
+                                        min_collateral_factor = mcf
+                                        max_leverage = AsyncGMXSubsquidClient.calculate_max_leverage(mcf) or 50.0
+                                        break
+                        except Exception as e:
+                            logger.debug("Failed to fetch leverage for %s: %s", market_token, e)
+
+                    maintenance_margin_rate = 1.0 / max_leverage if max_leverage > 0 else 0.02
+
+                    # Build CCXT-compatible market structure
+                    markets_dict[unified_symbol] = {
+                        "id": symbol_name,
+                        "symbol": unified_symbol,
+                        "base": symbol_name,
+                        "quote": "USDC",
+                        "baseId": symbol_name,
+                        "quoteId": "USDC",
+                        "settle": "USDC",
+                        "settleId": "USDC",
+                        "active": True,
+                        "type": "swap",
+                        "spot": False,
+                        "margin": True,
+                        "swap": True,
+                        "future": True,
+                        "option": False,
+                        "contract": True,
+                        "linear": True,
+                        "inverse": False,
+                        "contractSize": self.parse_number("1"),
+                        "maker": 0.0003,
+                        "taker": 0.0006,
+                        "precision": {
+                            "amount": self.parse_number(self.parse_precision("8")),
+                            "price": self.parse_number(self.parse_precision("8")),
+                        },
+                        "limits": {
+                            "amount": {"min": None, "max": None},
+                            "price": {"min": None, "max": None},
+                            "cost": {"min": GMX_MIN_COST_USD, "max": None},
+                            "leverage": {"min": 1.1, "max": max_leverage},
+                        },
+                        "maintenanceMarginRate": maintenance_margin_rate,
+                        "info": {
+                            "market_token": market_token,
+                            "index_token": market.get("indexToken"),
+                            "long_token": market.get("longToken"),
+                            "short_token": market.get("shortToken"),
+                            "min_collateral_factor": min_collateral_factor,
+                            "max_leverage": max_leverage,
+                            "is_synthetic": is_synthetic,
+                            "rest_api": True,  # Flag indicating REST API source
+                            **market,  # Include all REST API fields
+                        },
+                    }
+
+                except Exception as e:
+                    logger.debug("Failed to process market %s: %s", market.get("marketToken"), e)
+                    continue
+
+            self.markets = markets_dict
+            self.symbols = list(self.markets.keys())
+
+            # Save to disk cache
+            if self._market_cache and self.markets:
+                try:
+                    self._market_cache.set_markets(
+                        data=self.markets,
+                        loading_mode="rest_api",
+                        ttl=None,  # Use default TTL
+                    )
+                    logger.debug("Saved %s markets to disk cache", len(self.markets))
+                except Exception as e:
+                    logger.warning("Failed to save to disk cache: %s", e)
+
+            logger.info("Loaded %s markets from REST API", len(self.markets))
+            return self.markets
+
+        except Exception as e:
+            logger.error("Failed to load markets from REST API: %s", e)
+            self.markets = {}
+            self.symbols = []
+            return self.markets
+
     async def load_markets(self, reload: bool = False, params: dict | None = None) -> dict:
         """Load markets asynchronously.
+
+        Loading modes (in priority order):
+        1. REST API (DEFAULT) - Fast (1-2s), official GMX endpoint, comprehensive data
+        2. GraphQL - Fast (1-2s), requires subsquid
+        3. RPC - Slow (87-217s), most comprehensive on-chain data
+
+        Use options or params to control loading mode:
+        - options={'rest_api_mode': False} - Disable REST API mode
+        - options={'graphql_only': True} - Force GraphQL mode
+        - params={'graphql_only': True} - Force GraphQL mode (CCXT style)
 
         Args:
             reload: Force reload even if cached
@@ -415,17 +647,29 @@ class GMX(Exchange):
 
         await self._ensure_session()
 
-        # Use GraphQL by default for fast initialization (avoids slow RPC calls to Markets/Oracle)
-        # Only use RPC path if explicitly requested via graphql_only=False
-        use_graphql_only = not (params and params.get("graphql_only") is False) and not self.options.get("graphql_only") is False
+        # Determine loading mode based on configuration
+        rest_api_disabled = (params and params.get("rest_api_mode") is False) or self.options.get("rest_api_mode") is False
+
+        use_graphql_only = (params and params.get("graphql_only") is True) or self.options.get("graphql_only") is True
+
+        # Loading mode selection:
+        # 1. If REST API not disabled and not forcing GraphQL -> REST API (NEW DEFAULT)
+        # 2. If GraphQL explicitly requested -> GraphQL
+        # 3. Otherwise -> RPC (fallback)
+
+        if not rest_api_disabled and not use_graphql_only:
+            logger.info("Loading markets from REST API (default mode)")
+            return await self._load_markets_from_rest_api()
 
         if use_graphql_only and self.subsquid:
-            logger.info("Loading markets from GraphQL")
+            logger.info("Loading markets from GraphQL (graphql_only=True)")
             return await self._load_markets_from_graphql()
 
+        # RPC mode (fallback)
         # Fetch markets list (this will need async version of Markets class)
         # For now, we'll call the sync method in executor as a bridge
         # TODO: Create fully async Markets implementation
+        logger.info("Loading markets from RPC (Core Markets module)")
         loop = asyncio.get_running_loop()
 
         markets_instance = Markets(self.config)
@@ -640,6 +884,123 @@ class GMX(Exchange):
                 tickers[symbol] = result
 
         return tickers
+
+    async def fetch_apy(
+        self,
+        symbol: str | None = None,
+        period: str = "30d",
+        params: dict | None = None,
+    ) -> dict[str, Any] | float | None:
+        """Fetch APY (Annual Percentage Yield) data for GMX markets asynchronously.
+
+        Retrieves yield data from GMX REST API with disk caching support.
+        Can fetch APY for a specific market or all markets at once.
+
+        :param symbol:
+            CCXT market symbol (e.g., "ETH/USDC:USDC").
+            If None, returns APY for all markets as a dictionary.
+        :param period:
+            Time period for APY calculation.
+            Valid values: '1d', '7d', '30d', '90d', '180d', '1y', 'total'
+            Default: '30d'
+        :param params:
+            Optional parameters (not used currently)
+        :return:
+            If symbol is specified: float APY value or None if not found
+            If symbol is None: dict mapping symbols to APY values
+
+        Example::
+
+            # Fetch 30-day APY for specific market
+            apy = await gmx.fetch_apy("ETH/USDC:USDC", period="30d")
+            print(f"ETH/USDC APY: {apy * 100:.2f}%")
+
+            # Fetch APY for all markets
+            all_apy = await gmx.fetch_apy(period="7d")
+            for symbol, apy_value in all_apy.items():
+                print(f"{symbol}: {apy_value * 100:.2f}%")
+        """
+        params = params or {}
+
+        # Ensure session is initialized
+        await self._ensure_session()
+
+        # Ensure markets are loaded
+        if not self.markets:
+            await self.load_markets()
+
+        # Try disk cache first
+        cached_apy = None
+        if self._market_cache:
+            try:
+                cached_apy = self._market_cache.get_apy(period=period, check_expiry=True)
+                if cached_apy:
+                    logger.debug("Using cached APY data for period %s", period)
+            except Exception as e:
+                logger.warning("Failed to read APY from disk cache: %s", e)
+
+        # Fetch from API if cache miss
+        if cached_apy is None:
+            try:
+                apy_response = await async_make_gmx_api_request(
+                    chain=self.chain,
+                    endpoint="/apy",
+                    params={"period": period},
+                    session=self.session,
+                    timeout=10.0,
+                )
+                cached_apy = apy_response.get("markets", {}) if isinstance(apy_response, dict) else {}
+
+                # Save to disk cache
+                if self._market_cache and cached_apy:
+                    try:
+                        self._market_cache.set_apy(
+                            data=cached_apy,
+                            period=period,
+                            ttl=None,  # Use default TTL from constants
+                        )
+                        logger.debug("Saved APY data to disk cache for period %s", period)
+                    except Exception as e:
+                        logger.warning("Failed to save APY to disk cache: %s", e)
+
+            except Exception as e:
+                logger.error("Failed to fetch APY data from API: %s", e)
+                return None if symbol else {}
+
+        # Build mapping of market token address to CCXT symbol
+        market_token_to_symbol = {}
+        for ccxt_symbol, market_info in self.markets.items():
+            market_token = market_info["info"].get("market_token", "").lower()
+            if market_token:
+                market_token_to_symbol[market_token] = ccxt_symbol
+
+        # If symbol specified, return APY for that market only
+        if symbol is not None:
+            # Get market info for this symbol
+            market = self.market(symbol)
+            market_token = market["info"].get("market_token", "").lower()
+
+            # Look up APY by market token address (case-insensitive)
+            for addr, apy_data in cached_apy.items():
+                if addr.lower() == market_token:
+                    # Return base APY value
+                    return apy_data.get("apy", 0.0)
+
+            # Market not found in APY data
+            logger.warning("No APY data found for %s (market token: %s)", symbol, market_token)
+            return None
+
+        # Return APY for all markets (map from market token addresses to CCXT symbols)
+        result = {}
+        for market_token_addr, apy_data in cached_apy.items():
+            market_token_lower = market_token_addr.lower()
+
+            # Find CCXT symbol for this market token
+            if market_token_lower in market_token_to_symbol:
+                ccxt_symbol = market_token_to_symbol[market_token_lower]
+                result[ccxt_symbol] = apy_data.get("apy", 0.0)
+
+        return result
 
     async def fetch_ohlcv(
         self,

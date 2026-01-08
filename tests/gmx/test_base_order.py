@@ -251,7 +251,7 @@ def test_get_prices_long_open(chain_name, base_order):
     )
 
     decimals = market_data["market_metadata"]["decimals"]
-    price_usd, raw_price, acceptable_price, acceptable_price_in_usd = base_order._get_prices(
+    price_usd, raw_price, acceptable_price, acceptable_price_in_usd, sanity_result = base_order._get_prices(
         decimals,
         prices,
         params,
@@ -281,7 +281,7 @@ def test_get_prices_long_close(chain_name, base_order):
     params = OrderParams(market_key=market_key, collateral_address=market_data["long_token_address"], index_token_address=index_token_address, is_long=True, size_delta=1000.0, initial_collateral_delta_amount="1000000000000000000", slippage_percent=0.005)
 
     decimals = market_data["market_metadata"]["decimals"]
-    price_usd, raw_price, acceptable_price, acceptable_price_in_usd = base_order._get_prices(
+    price_usd, raw_price, acceptable_price, acceptable_price_in_usd, sanity_result = base_order._get_prices(
         decimals,
         prices,
         params,
@@ -310,7 +310,7 @@ def test_get_prices_swap(chain_name, base_order):
     params = OrderParams(market_key=market_key, collateral_address=market_data["long_token_address"], index_token_address=index_token_address, is_long=False, size_delta=0.0, initial_collateral_delta_amount="1000000000000000000", slippage_percent=0.005)
 
     decimals = market_data["market_metadata"]["decimals"]
-    price_usd, raw_price, acceptable_price, acceptable_price_in_usd = base_order._get_prices(
+    price_usd, raw_price, acceptable_price, acceptable_price_in_usd, sanity_result = base_order._get_prices(
         decimals,
         prices,
         params,
@@ -792,7 +792,7 @@ def test_base_order_default_price_sanity_config(chain_name, arbitrum_fork_config
 def test_order_result_includes_sanity_check(chain_name, base_order):
     """Test that OrderResult can include price sanity check result."""
     from eth_defi.gmx.price_sanity import PriceSanityCheckResult, PriceSanityAction
-    from eth_defi.timestamp import native_datetime_utc_now
+    from eth_defi.compat import native_datetime_utc_now
 
     # Create a mock sanity check result
     sanity_result = PriceSanityCheckResult(

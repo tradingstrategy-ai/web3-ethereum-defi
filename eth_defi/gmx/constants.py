@@ -290,3 +290,25 @@ GMX_MIN_COST_USD = 2
 #: Minimum display stake (USD) for leverage tier calculations
 #: Used to ensure minimum position sizes in leverage tier max notional calculations
 GMX_MIN_DISPLAY_STAKE = 20.0
+
+# Cache TTL constants (in seconds)
+#: Module-level ticker cache TTL - fast-changing price data
+_TICKER_CACHE_TTL_SECONDS = 10
+
+#: Module-level markets list cache TTL - rarely changes
+_MARKETS_CACHE_TTL_SECONDS = 600  # 10 minutes
+
+#: Module-level markets info cache TTL - trading data with moderate freshness needs
+_MARKETS_INFO_CACHE_TTL_SECONDS = 60  # 1 minute
+
+#: Module-level APY cache TTL - calculated periodically
+_APY_CACHE_TTL_SECONDS = 300  # 5 minutes
+
+#: Disk cache TTL for market metadata - persists across restarts
+DISK_CACHE_MARKETS_TTL_SECONDS = 3600  # 1 hour
+
+#: Disk cache TTL for APY data - moderate freshness
+DISK_CACHE_APY_TTL_SECONDS = 300  # 5 minutes
+
+#: Default cache directory for market data
+DEFAULT_MARKET_CACHE_DIR = "~/.cache/web3-ethereum-defi/gmx"
