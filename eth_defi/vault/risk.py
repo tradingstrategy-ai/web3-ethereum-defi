@@ -61,7 +61,7 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Euler": VaultTechnicalRisk.negligible,
     "Morpho": VaultTechnicalRisk.negligible,
     "Enzyme": VaultTechnicalRisk.negligible,
-    "Lagoon": VaultTechnicalRisk.minimal,
+    "Lagoon Finance": VaultTechnicalRisk.minimal,
     "IPOR": VaultTechnicalRisk.minimal,
     "Velvet Capital": VaultTechnicalRisk.high,
     "Umami": VaultTechnicalRisk.severe,
