@@ -1,5 +1,6 @@
 # Current
 
+- Add: Fluid protocol logo assets (2026-01-08)
 - Add: Morpho protocol logo assets (2026-01-08)
 - Fix: ResourceWarning for unclosed sockets and subprocess handles in `eth_defi.utils` (2026-01-07)
 - Add: New vault type: [Spectra](https://tradingstrategy.ai/trading-view/vaults/protocols/spectra) ERC4626 wrapper (sw-earn) on Monad (2026-01-07)
