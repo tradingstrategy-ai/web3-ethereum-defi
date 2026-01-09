@@ -17,7 +17,6 @@ from eth_defi.gmx.price_sanity import (
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 
 
-
 def test_fetch_ticker_with_price_sanity_default(chain_rpc_url):
     """Test fetch_ticker includes price sanity check with default config.
 
@@ -56,7 +55,6 @@ def test_fetch_ticker_with_price_sanity_default(chain_rpc_url):
     print(f"ETH/USDC:USDC - Oracle: ${sanity_check['oracle_price_usd']:.2f}, Ticker: ${sanity_check['ticker_price_usd']:.2f}, Deviation: {sanity_check['deviation_percent']:.4%}")
 
 
-
 def test_fetch_ticker_with_custom_sanity_config(chain_rpc_url):
     """Test fetch_ticker with custom price sanity configuration.
 
@@ -86,7 +84,6 @@ def test_fetch_ticker_with_custom_sanity_config(chain_rpc_url):
     assert ticker["last"] > 0
 
 
-
 def test_fetch_ticker_disabled_sanity_check(chain_rpc_url):
     """Test fetch_ticker with disabled price sanity check.
 
@@ -111,7 +108,6 @@ def test_fetch_ticker_disabled_sanity_check(chain_rpc_url):
     if "price_sanity_check" in ticker["info"]:
         # If the check ran anyway, that's a bug
         pytest.fail("Price sanity check should not run when disabled")
-
 
 
 def test_fetch_ticker_raise_exception_action(chain_rpc_url):
@@ -139,7 +135,6 @@ def test_fetch_ticker_raise_exception_action(chain_rpc_url):
     # Verify exception structure
     assert exc_info.value.result is not None
     assert not exc_info.value.result.passed
-
 
 
 def test_fetch_ticker_multiple_markets(chain_rpc_url):
@@ -174,7 +169,6 @@ def test_fetch_ticker_multiple_markets(chain_rpc_url):
             print(f"{symbol} - Deviation: {sanity_check['deviation_percent']:.4%}")
 
 
-
 def test_oracle_prices_property(chain_rpc_url):
     """Test that oracle_prices property works correctly.
 
@@ -199,7 +193,6 @@ def test_oracle_prices_property(chain_rpc_url):
     # Should be cached on second access
     oracle_prices_instance2 = gmx.oracle_prices
     assert oracle_prices_instance is oracle_prices_instance2
-
 
 
 def test_price_sanity_use_oracle_price_on_deviation(chain_rpc_url):
@@ -234,7 +227,6 @@ def test_price_sanity_use_oracle_price_on_deviation(chain_rpc_url):
                 # Ticker last should be oracle price
                 assert ticker["last"] == pytest.approx(sanity_check["oracle_price_usd"], rel=1e-6)
                 print(f"Price deviation detected - using oracle price: ${ticker['last']:.2f}")
-
 
 
 def test_ccxt_initialization_with_params(chain_rpc_url):
