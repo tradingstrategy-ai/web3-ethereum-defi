@@ -967,6 +967,13 @@ class GMX(ExchangeCompatible):
 
         use_graphql_only = (params and params.get("graphql_only") is True) or self.options.get("graphql_only") is True
 
+        # Check if we're on a testnet - REST API only supports mainnet
+        # Testnets must use RPC mode for accurate on-chain market data
+        is_testnet = self.config and self.config.chain in ("arbitrum_sepolia", "avalanche_fuji")
+        if is_testnet:
+            rest_api_disabled = True
+            logger.info("Testnet detected (%s) - REST API not available, using RPC mode", self.config.chain)
+
         # Loading mode selection:
         # 1. If REST API not disabled and not forcing GraphQL -> REST API (NEW DEFAULT)
         # 2. If GraphQL explicitly requested -> GraphQL
