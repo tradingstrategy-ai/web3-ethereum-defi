@@ -24,14 +24,14 @@ def format_usd(value: float) -> str:
 
 
 def main():
-    """Fetch and display leverage tiers for BTC/USD."""
+    """Fetch and display leverage tiers for BTC/USDC:USDC."""
 
     # Initialize GMX CCXT exchange
     web3 = Web3(Web3.HTTPProvider("https://arb1.arbitrum.io/rpc"))
     config = GMXConfig(web3)
     gmx = GMX(config)
 
-    symbol = "BTC/USD"
+    symbol = "BTC/USDC:USDC"
 
     print(f"\n{'=' * 80}")
     print(f"Leverage Tiers for {symbol}")

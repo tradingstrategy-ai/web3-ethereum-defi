@@ -17,7 +17,7 @@ def main():
 
     exchange.load_markets()
 
-    symbols = ["ETH/USD", "BTC/USD", "ARB/USD"]
+    symbols = ["ETH/USDC:USDC", "BTC/USDC:USDC", "ARB/USDC:USDC"]
 
     print("GMX Funding Rates (Hourly)\n")
     print(f"{'Market':<8} {'Long Rate':>12} {'Short Rate':>12} {'Daily (Long)':>14} {'Annual (Long)':>15} {'Direction':>20}")
@@ -49,10 +49,10 @@ def main():
             print(f"Error fetching funding rate for {symbol}: {e}")
 
     print("\n" + "=" * 95)
-    print("\nHistorical Funding Rates (ETH/USD - Last 10 snapshots)\n")
+    print("\nHistorical Funding Rates (ETH/USDC:USDC - Last 10 snapshots)\n")
 
     try:
-        history = exchange.fetch_funding_rate_history("ETH/USD", limit=10)
+        history = exchange.fetch_funding_rate_history("ETH/USDC:USDC", limit=10)
 
         print(f"{'Index':<6} {'Rate/Second':>15} {'Hourly Rate':>15} {'Daily Rate':>15} {'Long Rate':>15} {'Short Rate':>15}")
         print("-" * 95)

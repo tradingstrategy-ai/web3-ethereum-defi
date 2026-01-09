@@ -40,7 +40,7 @@ def example_fetch_ticker(gmx: GMX):
     print("1. fetch_ticker() - Single Market Ticker")
     print("=" * 60)
 
-    ticker = gmx.fetch_ticker("ETH/USD")
+    ticker = gmx.fetch_ticker("ETH/USDC:USDC")
 
     print(f"Symbol: {ticker['symbol']}")
     print(f"Last Price: {format_price(ticker['last'])}")
@@ -65,7 +65,7 @@ def example_fetch_tickers(gmx: GMX):
 
     # Example: filtering by symbols
     print("\nFiltering to specific symbols:")
-    filtered = gmx.fetch_tickers(["ETH/USD", "BTC/USD"])
+    filtered = gmx.fetch_tickers(["ETH/USDC:USDC", "BTC/USDC:USDC"])
     for symbol, ticker in filtered.items():
         print(f"  {symbol}: {format_price(ticker['last'])}")
 
@@ -92,10 +92,10 @@ def example_fetch_trades(gmx: GMX):
     print("=" * 60)
 
     since = int((datetime.now() - timedelta(hours=24)).timestamp() * 1000)
-    trades = gmx.fetch_trades("ETH/USD", since=since, limit=10)
+    trades = gmx.fetch_trades("ETH/USDC:USDC", since=since, limit=10)
 
     if trades:
-        print(f"\nShowing {len(trades)} trades for ETH/USD:\n")
+        print(f"\nShowing {len(trades)} trades for ETH/USDC:USDC:\n")
         for trade in trades[:10]:
             timestamp = datetime.fromisoformat(trade["datetime"].replace("Z", "+00:00"))
             time_str = timestamp.strftime("%m-%d %H:%M")

@@ -68,12 +68,18 @@ def setup_fork_environment(
     # Try Tenderly first, fall back to Anvil
     set_balance_method = None
     try:
-        web3.provider.make_request("tenderly_setBalance", [wallet_address, hex(1)])
+        web3.provider.make_request(
+            "tenderly_setBalance",
+            [wallet_address, hex(1)],
+        )
         set_balance_method = "tenderly_setBalance"
         print("  Using Tenderly for balance manipulation")
     except Exception:
         try:
-            web3.provider.make_request("anvil_setBalance", [wallet_address, hex(1)])
+            web3.provider.make_request(
+                "anvil_setBalance",
+                [wallet_address, hex(1)],
+            )
             set_balance_method = "anvil_setBalance"
             print("  Using Anvil for balance manipulation")
         except Exception:
@@ -85,7 +91,7 @@ def setup_fork_environment(
     eth_amount_wei = 100 * 10**18
     if set_balance_method:
         web3.provider.make_request(set_balance_method, [wallet_address, hex(eth_amount_wei)])
-        print(f"  ETH balance: 100 ETH")
+        print("  ETH balance: 100 ETH")
 
         # Give whales some ETH for gas
         gas_eth = 1 * 10**18
@@ -166,7 +172,7 @@ def test_order_creation_with_wallet(web3: Web3, wallet: HotWallet):
     print("Using parameters similar to debug.py for compatibility...")
     try:
         order = gmx.create_market_buy_order(
-            "ETH/USD",
+            "ETH/USDC:USDC",
             10.0,  # $10 USD position size (same as debug.py)
             {
                 "leverage": 2.5,  # Same as debug.py
@@ -294,7 +300,14 @@ def test_parameter_conversion(web3: Web3, wallet: HotWallet):
         "execution_buffer": 2.2,
     }
 
-    gmx_params = gmx._convert_ccxt_to_gmx_params("ETH/USD", "market", "buy", 10.0, None, ccxt_params)
+    gmx_params = gmx._convert_ccxt_to_gmx_params(
+        "ETH/USDC:USDC",
+        "market",
+        "buy",
+        10.0,
+        None,
+        ccxt_params,
+    )
 
     print("\nCCXT Parameters:")
     print(ccxt_params)
@@ -327,7 +340,7 @@ def test_error_handling(web3: Web3):
     gmx_no_wallet.load_markets()
 
     try:
-        order = gmx_no_wallet.create_market_buy_order("ETH/USD", 100.0)
+        order = gmx_no_wallet.create_market_buy_order("ETH/USDC:USDC", 100.0)
         print("Should have raised ValueError")
         return False
     except ValueError as e:
@@ -353,15 +366,15 @@ def test_unsupported_methods(web3: Web3, wallet: HotWallet):
     protocol_unsupported = [
         ("cancel_order", lambda: gmx.cancel_order("0x123"), NotSupported),
         ("fetch_order", lambda: gmx.fetch_order("0x123"), NotSupported),
-        ("fetch_order_book", lambda: gmx.fetch_order_book("ETH/USD"), NotSupported),
+        ("fetch_order_book", lambda: gmx.fetch_order_book("ETH/USDC:USDC"), NotSupported),
         ("fetch_closed_orders", lambda: gmx.fetch_closed_orders(), NotSupported),
         ("fetch_orders", lambda: gmx.fetch_orders(), NotSupported),
     ]
 
     # Methods not yet implemented but could be (should raise NotImplementedError)
     not_implemented = [
-        ("add_margin", lambda: gmx.add_margin("ETH/USD", 1000.0), NotImplementedError),
-        ("reduce_margin", lambda: gmx.reduce_margin("ETH/USD", 500.0), NotImplementedError),
+        ("add_margin", lambda: gmx.add_margin("ETH/USDC:USDC", 1000.0), NotImplementedError),
+        ("reduce_margin", lambda: gmx.reduce_margin("ETH/USDC:USDC", 500.0), NotImplementedError),
     ]
 
     all_passed = True

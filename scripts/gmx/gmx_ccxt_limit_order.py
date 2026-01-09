@@ -129,7 +129,7 @@ SIZE_USD = 10  # Position size in USD
 LEVERAGE = 2.0  # Leverage multiplier
 TRIGGER_OFFSET_PERCENT = 0.02  # 2% below current price for long limit
 MARKET_SYMBOL = "ETH/USDC:USDC"
-COLLATERAL_SYMBOL = "USDC"  # Use USDC as collateral
+COLLATERAL_SYMBOL = "USDC.SG"  # Use USDC.SG as collateral on Sepolia testnet
 
 
 def verify_order_created(receipt: dict) -> bytes | None:

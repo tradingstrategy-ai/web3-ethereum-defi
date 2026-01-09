@@ -71,9 +71,9 @@ Notes
 See Also
 --------
 
-- :mod:`eth_defi.gmx.trading` - GMX trading module
+- :meth:`eth_defi.gmx.trading.GMXTrading.open_limit_position` - Limit order API
 - :mod:`eth_defi.gmx.order.increase_order` - Limit order implementation
-- :class:`eth_defi.gmx.constants.OrderType` - Order type constants
+- :mod:`eth_defi.gmx.trading` - GMX trading module
 """
 
 import os
@@ -81,7 +81,6 @@ import sys
 
 from eth_defi.chain import get_chain_name
 from eth_defi.gmx.config import GMXConfig
-from eth_defi.gmx.constants import OrderType
 from eth_defi.gmx.contracts import get_contract_addresses, get_token_address_normalized
 from eth_defi.gmx.trading import GMXTrading
 from eth_defi.hotwallet import HotWallet
@@ -169,7 +168,6 @@ def main():
     console.print(f"[dim]In production, fetch current price and calculate trigger accordingly.[/dim]")
 
     try:
-
         # Create limit order
         console.print(f"\n[bold cyan]Creating Limit Order:[/bold cyan]")
         console.print(f"  Market: {user_market_symbol} ({market_symbol})")
@@ -180,17 +178,16 @@ def main():
         console.print(f"  Trigger Price: ${trigger_price_usd:,.2f}")
         console.print(f"  Order Type: LIMIT")
 
-        order = trading_client.open_position(
+        order = trading_client.open_limit_position(
             market_symbol=market_symbol,
             collateral_symbol=collateral_symbol,
             start_token_symbol=start_token_symbol,
             is_long=True,
             size_delta_usd=size_usd,
             leverage=leverage,
+            trigger_price=trigger_price_usd,
             slippage_percent=0.005,  # 0.5% slippage
             execution_buffer=30,
-            order_type=OrderType.LIMIT_INCREASE,  # Specify limit order type
-            trigger_price_usd=trigger_price_usd,  # Set trigger price
         )
 
         console.print(f"\n[green]Limit Order object created successfully![/green]")
@@ -244,6 +241,7 @@ def main():
         except Exception as e:
             console.print(f"[red]Token approval error: {e}[/red]")
             import traceback
+
             traceback.print_exc()
 
         # Sign and send limit order transaction
@@ -273,9 +271,7 @@ def main():
             console.print(f"\n  Market: {market_symbol}")
             console.print(f"  Size: ${size_usd}")
             console.print(f"  Leverage: {leverage}x")
-            console.print(f"  Current Price: ${current_price_usd:,.2f}")
             console.print(f"  Trigger Price: ${trigger_price_usd:,.2f}")
-            console.print(f"  Difference: {trigger_price_offset_percent * 100}% below current")
             console.print(f"\n  Transaction: {tx_hash.hex()}")
 
             console.print("\n[bold]Next Steps:[/bold]")
@@ -287,6 +283,7 @@ def main():
         except Exception as e:
             console.print(f"[red]Transaction failed: {e}[/red]")
             import traceback
+
             traceback.print_exc()
             raise
 
@@ -295,6 +292,7 @@ def main():
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
 
