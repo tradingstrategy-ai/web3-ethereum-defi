@@ -23,7 +23,7 @@ def main():
 
     gmx.load_markets()
 
-    symbols = ["ETH/USD", "BTC/USD", "ARB/USD"]
+    symbols = ["ETH/USDC:USDC", "BTC/USDC:USDC", "ARB/USDC:USDC"]
 
     print("GMX Open Interest Data (CCXT-compliant format)\n")
     print(f"{'Market':<8} {'Total OI':>15} {'Long OI':>15} {'Short OI':>15}")
@@ -49,17 +49,17 @@ def main():
     print("\nFetch Multiple Markets at Once\n")
 
     try:
-        ois = gmx.fetch_open_interests(["ETH/USD", "BTC/USD"])
+        ois = gmx.fetch_open_interests(["ETH/USDC:USDC", "BTC/USDC:USDC"])
         for symbol, oi in ois.items():
             print(f"{symbol}: ${oi['openInterestValue']:,.0f}")
     except Exception as e:
         print(f"Error: {e}")
 
     print("\n" + "=" * 60)
-    print("\nHistorical Open Interest (ETH/USD - Last 5 snapshots)\n")
+    print("\nHistorical Open Interest (ETH/USDC:USDC - Last 5 snapshots)\n")
 
     try:
-        history = gmx.fetch_open_interest_history("ETH/USD", limit=5)
+        history = gmx.fetch_open_interest_history("ETH/USDC:USDC", limit=5)
 
         print(f"{'Index':<6} {'Total OI':>15} {'Long OI':>15} {'Short OI':>15}")
         print("-" * 60)

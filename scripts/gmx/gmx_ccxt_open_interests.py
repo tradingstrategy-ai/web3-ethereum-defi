@@ -19,7 +19,7 @@ def main():
     print("Fetch Open Interest for Multiple Markets\n")
 
     # Fetch OI for specific markets
-    symbols = ["ETH/USD", "BTC/USD", "ARB/USD", "LINK/USD", "UNI/USD", "SOL/USD"]
+    symbols = ["ETH/USDC:USDC", "BTC/USDC:USDC", "ARB/USDC:USDC", "LINK/USDC:USDC", "UNI/USDC:USDC", "SOL/USDC:USDC"]
     ois = gmx.fetch_open_interests(symbols)
 
     print(
