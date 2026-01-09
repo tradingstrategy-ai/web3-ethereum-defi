@@ -3,6 +3,7 @@ Tests for GMX Borrow APR functionality.
 """
 
 from eth_defi.gmx.core.borrow_apr import GetBorrowAPR
+from eth_defi.gmx.core import markets
 
 
 def test_initialization(get_borrow_apr):
@@ -35,8 +36,9 @@ def test_get_data_processing(get_borrow_apr):
 def test_get_data_processing_empty_markets(get_borrow_apr):
     """Test _get_data_processing with empty markets."""
     # Temporarily replace markets cache with empty dict
-    original_markets_cache = get_borrow_apr.markets._markets_cache
-    get_borrow_apr.markets._markets_cache = {}
+    chain_key = get_borrow_apr.markets.config.chain
+    original_markets_cache = markets._CLASS_MARKETS_CACHE.get(chain_key, {})
+    markets._CLASS_MARKETS_CACHE[chain_key] = {}
 
     result = get_borrow_apr.get_data()
 
@@ -47,7 +49,7 @@ def test_get_data_processing_empty_markets(get_borrow_apr):
     assert "short" in result
 
     # Restore original markets
-    get_borrow_apr.markets._markets_cache = original_markets_cache
+    markets._CLASS_MARKETS_CACHE[chain_key] = original_markets_cache
 
 
 def test_output_format(get_borrow_apr):
