@@ -6,7 +6,6 @@ with the CCXT exchange wrapper.
 """
 
 import pytest
-from flaky import flaky
 
 from eth_defi.gmx.ccxt.exchange import GMX
 from eth_defi.gmx.config import GMXConfig
@@ -18,7 +17,7 @@ from eth_defi.gmx.price_sanity import (
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 
 
-@flaky(max_runs=3, min_passes=1)
+
 def test_fetch_ticker_with_price_sanity_default(chain_rpc_url):
     """Test fetch_ticker includes price sanity check with default config.
 
@@ -57,7 +56,7 @@ def test_fetch_ticker_with_price_sanity_default(chain_rpc_url):
     print(f"ETH/USDC:USDC - Oracle: ${sanity_check['oracle_price_usd']:.2f}, Ticker: ${sanity_check['ticker_price_usd']:.2f}, Deviation: {sanity_check['deviation_percent']:.4%}")
 
 
-@flaky(max_runs=3, min_passes=1)
+
 def test_fetch_ticker_with_custom_sanity_config(chain_rpc_url):
     """Test fetch_ticker with custom price sanity configuration.
 
@@ -87,7 +86,7 @@ def test_fetch_ticker_with_custom_sanity_config(chain_rpc_url):
     assert ticker["last"] > 0
 
 
-@flaky(max_runs=3, min_passes=1)
+
 def test_fetch_ticker_disabled_sanity_check(chain_rpc_url):
     """Test fetch_ticker with disabled price sanity check.
 
@@ -114,7 +113,7 @@ def test_fetch_ticker_disabled_sanity_check(chain_rpc_url):
         pytest.fail("Price sanity check should not run when disabled")
 
 
-@flaky(max_runs=3, min_passes=1)
+
 def test_fetch_ticker_raise_exception_action(chain_rpc_url):
     """Test fetch_ticker with raise_exception action.
 
@@ -126,7 +125,7 @@ def test_fetch_ticker_raise_exception_action(chain_rpc_url):
     # Use extremely strict threshold to force failure
     sanity_config = PriceSanityCheckConfig(
         enabled=True,
-        threshold_percent=0.000001,  # 0.0001%
+        threshold_percent=0.0000001,  # 0.00001%
         action=PriceSanityAction.raise_exception,
     )
 
@@ -142,7 +141,7 @@ def test_fetch_ticker_raise_exception_action(chain_rpc_url):
     assert not exc_info.value.result.passed
 
 
-@flaky(max_runs=3, min_passes=1)
+
 def test_fetch_ticker_multiple_markets(chain_rpc_url):
     """Test price sanity checks work for multiple markets.
 
@@ -175,7 +174,7 @@ def test_fetch_ticker_multiple_markets(chain_rpc_url):
             print(f"{symbol} - Deviation: {sanity_check['deviation_percent']:.4%}")
 
 
-@flaky(max_runs=3, min_passes=1)
+
 def test_oracle_prices_property(chain_rpc_url):
     """Test that oracle_prices property works correctly.
 
@@ -202,7 +201,7 @@ def test_oracle_prices_property(chain_rpc_url):
     assert oracle_prices_instance is oracle_prices_instance2
 
 
-@flaky(max_runs=3, min_passes=1)
+
 def test_price_sanity_use_oracle_price_on_deviation(chain_rpc_url):
     """Test that oracle price is used when deviation exceeds threshold.
 
@@ -237,7 +236,7 @@ def test_price_sanity_use_oracle_price_on_deviation(chain_rpc_url):
                 print(f"Price deviation detected - using oracle price: ${ticker['last']:.2f}")
 
 
-@flaky(max_runs=3, min_passes=1)
+
 def test_ccxt_initialization_with_params(chain_rpc_url):
     """Test CCXT-style initialization with price sanity config.
 

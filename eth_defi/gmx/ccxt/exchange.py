@@ -4004,17 +4004,29 @@ class GMX(ExchangeCompatible):
 
         # GMX Extension: Support direct USD sizing via size_usd parameter
         if "size_usd" in params:
+            # Validate: size_usd and non-zero amount should not be used together
+            if amount and amount > 0:
+                from ccxt.base.errors import InvalidOrder
+                raise InvalidOrder(
+                    f"Cannot use both 'size_usd' ({params['size_usd']}) and non-zero 'amount' ({amount}) together. "
+                    f"Use either: (1) 'size_usd' in params for direct USD sizing (recommended), or "
+                    f"(2) 'amount' for base currency sizing (will be multiplied by price). "
+                    f"Recommendation: Use 'size_usd' with amount=0 for precise USD-denominated positions."
+                )
             # Direct USD amount (GMX-native approach)
             size_delta_usd = params["size_usd"]
+            logger.info("ORDER_TRACE: Using size_usd=%.2f (direct USD sizing)", size_delta_usd)
         else:
             # Standard CCXT: amount is in base currency, convert to USD
             if price:
                 size_delta_usd = amount * price
+                logger.info("ORDER_TRACE: Using amount=%.8f * price=%.2f = size_delta_usd=%.2f", amount, price, size_delta_usd)
             else:
                 # For market orders, fetch current price
                 ticker = self.fetch_ticker(symbol)
                 current_price = ticker["last"]
                 size_delta_usd = amount * current_price
+                logger.info("ORDER_TRACE: Using amount=%.8f * current_price=%.2f = size_delta_usd=%.2f", amount, current_price, size_delta_usd)
 
         gmx_params = {
             "market_symbol": base_currency,

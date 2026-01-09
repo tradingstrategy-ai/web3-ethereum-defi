@@ -6,7 +6,6 @@ to verify price sanity check functionality.
 """
 
 import pytest
-from flaky import flaky
 
 from eth_defi.gmx.api import GMXAPI, clear_ticker_prices_cache
 from eth_defi.gmx.core.oracle import OraclePrices
@@ -20,7 +19,6 @@ from eth_defi.gmx.price_sanity import (
 )
 
 
-@flaky(max_runs=3, min_passes=1)
 def test_price_sanity_check_within_threshold(gmx_config):
     """Test that price sanity check passes when prices are within threshold.
 
@@ -103,7 +101,6 @@ def test_price_sanity_check_within_threshold(gmx_config):
     print(f"ETH Price - Oracle: ${result.oracle_price_usd:.2f}, Ticker: ${result.ticker_price_usd:.2f}, Deviation: {result.deviation_percent:.4%}")
 
 
-@flaky(max_runs=3, min_passes=1)
 def test_price_sanity_custom_threshold(gmx_config):
     """Test price sanity check with custom threshold.
 
@@ -184,7 +181,6 @@ def test_price_sanity_custom_threshold(gmx_config):
     assert result_strict.ticker_price_usd == result_lenient.ticker_price_usd
 
 
-@flaky(max_runs=3, min_passes=1)
 def test_price_sanity_action_use_oracle_warn(gmx_config):
     """Test use_oracle_warn action (default behaviour).
 
@@ -246,7 +242,6 @@ def test_price_sanity_action_use_oracle_warn(gmx_config):
     assert result.action_taken == PriceSanityAction.use_oracle_warn
 
 
-@flaky(max_runs=3, min_passes=1)
 def test_price_sanity_action_raise_exception(gmx_config):
     """Test raise_exception action with artificially high threshold.
 
@@ -311,7 +306,6 @@ def test_price_sanity_action_raise_exception(gmx_config):
     assert not exc_info.value.result.passed
 
 
-@flaky(max_runs=3, min_passes=1)
 def test_price_sanity_disabled(gmx_config):
     """Test that sanity check can be disabled.
 
@@ -366,7 +360,6 @@ def test_price_sanity_disabled(gmx_config):
     assert not config.enabled
 
 
-@flaky(max_runs=3, min_passes=1)
 def test_price_conversion_consistency(gmx_config):
     """Test that price conversions are consistent between oracle and ticker.
 
@@ -442,7 +435,6 @@ def test_price_conversion_consistency(gmx_config):
     print(f"Price conversion test - Oracle: ${oracle_price_usd:.2f}, Ticker: ${ticker_price_usd:.2f}, Deviation: {manual_deviation:.4%}")
 
 
-@flaky(max_runs=3, min_passes=1)
 def test_ticker_cache_functionality(gmx_config):
     """Test that ticker price caching works correctly.
 
