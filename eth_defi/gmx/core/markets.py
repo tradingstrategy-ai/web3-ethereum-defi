@@ -18,6 +18,10 @@ from eth_defi.gmx.types import MarketData, MarketSymbol
 
 logger = logging.getLogger(__name__)
 
+# Class-level cache for markets data, shared across all Markets instances
+# Keyed by chain name to avoid re-fetching for the same network
+_CLASS_MARKETS_CACHE: dict[str, dict] = {}
+
 
 @dataclass(slots=True)
 class MarketInfo:
@@ -57,7 +61,6 @@ class Markets:
         """
         self.config = config
         self._special_wsteth_address = to_checksum_address("0x0Cf1fb4d1FF67A3D8Ca92c9d6643F8F9be8e03E5")
-        self._markets_cache: Optional[dict] = None  # Cache for processed markets
 
     def _get_token_metadata_dict(self) -> dict[HexAddress, dict]:
         """Get token metadata dictionary with correct decimals from GMX API.
@@ -228,12 +231,13 @@ class Markets:
         :return: Dictionary of processed markets
         :rtype: dict
         """
-        # Return cached data if available
-        if self._markets_cache is not None:
-            logger.debug("Returning cached markets data")
-            return self._markets_cache
+        # Return cached data if available (class-level cache shared across all instances)
+        chain_key = self.config.chain
+        if chain_key in _CLASS_MARKETS_CACHE:
+            logger.debug("Returning cached markets data for chain %s", chain_key)
+            return _CLASS_MARKETS_CACHE[chain_key]
 
-        logger.debug("Processing GMX markets data...")
+        logger.debug("Processing GMX markets data for chain %s...", chain_key)
 
         # Pre-load necessary data
         token_metadata_dict = self._get_token_metadata_dict()
@@ -334,9 +338,9 @@ class Markets:
                 logger.debug("Skipping market %s: %s", raw_market[0], e)
                 continue
 
-        logger.debug("Processed %s markets successfully", len(processed_markets))
+        logger.debug("Processed %s markets successfully for chain %s", len(processed_markets), chain_key)
 
-        # Cache the results for future calls
-        self._markets_cache = processed_markets
+        # Cache the results for future calls (class-level cache shared across all instances)
+        _CLASS_MARKETS_CACHE[chain_key] = processed_markets
 
         return processed_markets
