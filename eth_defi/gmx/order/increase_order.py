@@ -122,3 +122,83 @@ class IncreaseOrder(BaseOrder):
         )
 
         return self.order_builder(params, is_open=True, is_close=False, is_swap=False)
+
+    def create_limit_increase_order(
+        self,
+        trigger_price: float,
+        size_delta: float,
+        initial_collateral_delta_amount: int | str,
+        slippage_percent: float = 0.003,
+        swap_path: Optional[list[str]] = None,
+        execution_buffer: float = 2.2,
+        auto_cancel: bool = True,
+        data_list: Optional[list[str]] = None,
+        callback_gas_limit: int = 0,
+        min_output_amount: int = 0,
+        valid_from_time: int = 0,
+    ) -> OrderResult:
+        """Create a limit increase order that triggers at specified price.
+
+        Creates an unsigned transaction for a limit order that opens or increases
+        a position when the market price reaches the trigger price. The order
+        remains pending until price conditions are met.
+
+        :param trigger_price: USD price at which order triggers
+        :type trigger_price: float
+        :param size_delta: Position size to increase in USD
+        :type size_delta: float
+        :param initial_collateral_delta_amount: Amount of collateral to add (in token's smallest unit)
+        :type initial_collateral_delta_amount: int | str
+        :param slippage_percent: Slippage tolerance as decimal (e.g., 0.003 = 0.3%)
+        :type slippage_percent: float
+        :param swap_path: Optional list of market addresses for swap routing
+        :type swap_path: Optional[list[str]]
+        :param execution_buffer: Gas buffer multiplier for execution fee
+        :type execution_buffer: float
+        :param auto_cancel: Whether to auto-cancel the order if it can't execute (default True)
+        :type auto_cancel: bool
+        :param data_list: Additional data for order
+        :type data_list: list
+        :param callback_gas_limit: Gas limit for callback execution
+        :type callback_gas_limit: int
+        :param min_output_amount: Minimum output amount for swaps
+        :type min_output_amount: int
+        :param valid_from_time: Timestamp when order becomes valid
+        :type valid_from_time: int
+        :return: OrderResult containing unsigned transaction and execution details
+        :rtype: OrderResult
+        :raises ValueError: If parameters are invalid or market doesn't exist
+        """
+        if trigger_price <= 0:
+            raise ValueError("trigger_price must be positive")
+
+        if swap_path is None:
+            swap_path = []
+        if data_list is None:
+            data_list = []
+
+        params = OrderParams(
+            market_key=self.market_key,
+            collateral_address=self.collateral_address,
+            index_token_address=self.index_token_address,
+            is_long=self.is_long,
+            size_delta=size_delta,
+            initial_collateral_delta_amount=str(initial_collateral_delta_amount),
+            slippage_percent=slippage_percent,
+            swap_path=swap_path,
+            execution_buffer=execution_buffer,
+            auto_cancel=auto_cancel,
+            data_list=data_list,
+            callback_gas_limit=callback_gas_limit,
+            min_output_amount=min_output_amount,
+            valid_from_time=valid_from_time,
+        )
+
+        return self.order_builder(
+            params,
+            is_open=True,
+            is_close=False,
+            is_swap=False,
+            is_limit=True,
+            trigger_price=trigger_price,
+        )

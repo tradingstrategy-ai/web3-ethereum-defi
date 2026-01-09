@@ -67,7 +67,7 @@ def setup_fork_network(web3: Web3):
     # Setup mock oracle - prices fetched dynamically from chain
     console.print("\n[dim]Setting up mock oracle (fetching on-chain prices)...[/dim]")
     setup_mock_oracle(web3)  # No hardcoded prices - fetches from chain automatically
-    console.print(f"[dim]Mock oracle configured with on-chain prices[/dim]\n")
+    console.print("[dim]Mock oracle configured with on-chain prices[/dim]\n")
 
     return chain
 
@@ -77,12 +77,17 @@ def fund_wallet_anvil(web3: Web3, wallet_address: str, tokens: dict):
     console.print("\n[bold]Funding wallet (Anvil mode)...[/bold]")
 
     # Set ETH balance for wallet
-    eth_amount_wei = 100 * 10**18
+    eth_amount_wei = 100_000 * 10**18
     web3.provider.make_request("anvil_setBalance", [wallet_address, hex(eth_amount_wei)])
-    console.print(f"  [green]ETH balance: 100 ETH[/green]")
+
+    # Verify balance was actually set
+    actual_balance = web3.eth.get_balance(wallet_address)
+    if actual_balance < eth_amount_wei * 0.99:  # Allow 1% tolerance
+        raise RuntimeError(f"anvil_setBalance failed: expected {eth_amount_wei}, got {actual_balance}")
+    console.print(f"  [green]ETH balance: {actual_balance / 10**18:,.2f} ETH (verified)[/green]")
 
     # Give whales some ETH for gas
-    gas_eth = 1 * 10**18
+    gas_eth = 100_000 * 10**18
     web3.provider.make_request("anvil_setBalance", [LARGE_USDC_HOLDER, hex(gas_eth)])
     web3.provider.make_request("anvil_setBalance", [LARGE_WETH_HOLDER, hex(gas_eth)])
 
@@ -110,23 +115,23 @@ def fund_wallet_tenderly(web3: Web3, wallet_address: str, tokens: dict):
     console.print("\n[bold]Funding wallet (Tenderly mode)...[/bold]")
 
     # Set ETH balance
-    eth_amount_wei = 100 * 10**18
+    eth_amount_wei = 100_000 * 10**18
     web3.provider.make_request("tenderly_setBalance", [wallet_address, hex(eth_amount_wei)])
-    console.print(f"  [green]ETH balance: 100 ETH[/green]")
+    console.print("  [green]ETH balance: 100,000 ETH[/green]")
 
     # Set USDC balance
     usdc_address = tokens.get("USDC")
     if usdc_address:
         usdc_amount = 100_000 * (10**6)
         web3.provider.make_request("tenderly_setErc20Balance", [usdc_address, wallet_address, hex(usdc_amount)])
-        console.print(f"  [green]USDC balance: 100,000 USDC[/green]")
+        console.print("  [green]USDC balance: 100,000 USDC[/green]")
 
     # Set WETH balance
     weth_address = tokens.get("WETH")
     if weth_address:
-        weth_amount = 1000 * (10**18)
+        weth_amount = 100_000 * (10**18)
         web3.provider.make_request("tenderly_setErc20Balance", [weth_address, wallet_address, hex(weth_amount)])
-        console.print(f"  [green]WETH balance: 1,000 WETH[/green]")
+        console.print("  [green]WETH balance: 100,000 WETH[/green]")
 
 
 def parse_arguments():
@@ -190,12 +195,11 @@ def main():
                 console.print("[red]Error: ARBITRUM_CHAIN_JSON_RPC environment variable not set[/red]")
                 sys.exit(1)
 
-            # console.print(f"Creating Anvil fork at block {FORK_BLOCK}...")
+            # Fork at latest block (old FORK_BLOCK was causing issues with GMX market data)
             launch = fork_network_anvil(
                 fork_rpc,
                 unlocked_addresses=[LARGE_USDC_HOLDER, LARGE_WETH_HOLDER],
-                #! NOTE: forking at an older block is throwing error while retrieving data empty market data
-                # fork_block_number=FORK_BLOCK,
+                # Use latest block - older blocks may have stale GMX market data
             )
 
             web3 = create_multi_provider_web3(
@@ -243,7 +247,25 @@ def main():
             fund_wallet_anvil(web3, wallet_address, tokens)
 
         # ========================================================================
-        # STEP 4: Create and Submit GMX Order via CCXT
+        # STEP 4: Load Markets (with REST API -> RPC fallback)
+        # ========================================================================
+        console.print("\n[bold]Loading GMX markets...[/bold]")
+
+        # Try REST API first (fast), fallback to RPC (slow but reliable) if API is down
+        gmx.load_markets()
+        if not gmx.markets:
+            console.print("  [yellow]REST API failed, falling back to RPC mode (this may take 1-2 minutes)...[/yellow]")
+            gmx.markets_loaded = False  # Reset to allow reload
+            gmx.load_markets(params={"rest_api_mode": False})
+
+        if gmx.markets:
+            console.print(f"  [green]Loaded {len(gmx.markets)} markets[/green]")
+        else:
+            console.print("  [red]Failed to load markets from both REST API and RPC[/red]")
+            raise RuntimeError("Could not load GMX markets - both REST API and RPC failed")
+
+        # ========================================================================
+        # STEP 5: Create and Submit GMX Order via CCXT
         # ========================================================================
         console.print("\n[bold]Creating GMX order via CCXT...[/bold]")
 
@@ -253,16 +275,18 @@ def main():
 
         console.print(f"  Symbol: {symbol}")
         console.print(f"  Size: ${size_usd} at {leverage}x leverage")
-        console.print(f"  Side: buy (LONG)")
-        console.print(f"  Collateral: ETH")
+        console.print("  Side: buy (LONG)")
+        console.print("  Collateral: ETH")
 
         # Create order using CCXT interface
+        # Note: Use size_usd param for direct USD sizing (amount is in base currency by CCXT standard)
         order = gmx.create_order(
             symbol=symbol,
             type="market",
             side="buy",
-            amount=size_usd,
+            amount=0,  # Not used when size_usd is provided
             params={
+                "size_usd": size_usd,  # Direct USD position size
                 "leverage": leverage,
                 "collateral_symbol": "ETH",
                 "slippage_percent": 0.005,
@@ -270,7 +294,7 @@ def main():
             },
         )
 
-        console.print(f"\n[green]Order created via CCXT[/green]")
+        console.print("\n[green]Order created via CCXT[/green]")
         console.print(f"  Order ID: {order.get('id')}")
         console.print(f"  Status: {order.get('status')}")
         console.print(f"  Symbol: {order.get('symbol')}")
@@ -295,7 +319,7 @@ def main():
             receipt = web3.eth.wait_for_transaction_receipt(tx_hash_bytes)
 
             if receipt["status"] == 1:
-                console.print(f"[green]Order submitted[/green]")
+                console.print("[green]Order submitted[/green]")
                 console.print(f"  Block: {receipt['blockNumber']}")
                 console.print(f"  Gas used: {receipt['gasUsed']}")
 
@@ -314,7 +338,7 @@ def main():
                     try:
                         exec_receipt, keeper_address = execute_order_as_keeper(web3, order_key)
 
-                        console.print(f"[green]Order executed[/green]")
+                        console.print("[green]Order executed[/green]")
                         console.print(f"  Keeper: {keeper_address}")
                         console.print(f"  Block: {exec_receipt['blockNumber']}")
                         console.print(f"  Gas used: {exec_receipt['gasUsed']}")
@@ -389,23 +413,29 @@ def main():
                         eth_price_usd=new_eth_price,
                         usdc_price_usd=current_usdc_price,
                     )
-                    console.print(f"[dim]Mock oracle configured[/dim]\n")
+                    console.print("[dim]Mock oracle configured[/dim]\n")
+
+                    # Re-fund wallet for close operation (setup_mock_oracle may have used transactions)
+                    web3.provider.make_request("anvil_setBalance", [wallet_address, hex(100_000 * 10**18)])
 
                     try:
                         # Close position using CCXT (sell side closes long positions)
+                        # reduceOnly=True is REQUIRED to close existing position vs open new short
                         close_order = gmx.create_order(
                             symbol=position_symbol,
                             type="market",
                             side="sell",
-                            amount=position_size,  # Close full position
+                            amount=0,  # Not used for close when size_usd provided
                             params={
+                                "size_usd": position_size,  # USD size to close
+                                "reduceOnly": True,  # CRITICAL: Close existing position, not open new short
                                 "collateral_symbol": "ETH",
                                 "slippage_percent": 0.005,
-                                "execution_buffer": EXECUTION_BUFFER,
+                                "execution_buffer": 2.0,  # Reduced from 15 (EXECUTION_BUFFER/2) - was causing excessive fees
                             },
                         )
 
-                        console.print(f"\n[green]Close order created via CCXT[/green]")
+                        console.print("\n[green]Close order created via CCXT[/green]")
                         console.print(f"  Order ID: {close_order.get('id')}")
                         console.print(f"  Status: {close_order.get('status')}")
 
@@ -423,7 +453,7 @@ def main():
                             close_receipt = web3.eth.wait_for_transaction_receipt(close_tx_hash_bytes)
 
                             if close_receipt["status"] == 1:
-                                console.print(f"[green]Close order submitted[/green]")
+                                console.print("[green]Close order submitted[/green]")
                                 console.print(f"  Block: {close_receipt['blockNumber']}")
                                 console.print(f"  Gas used: {close_receipt['gasUsed']}")
 
@@ -434,7 +464,7 @@ def main():
                                 console.print("\n[bold]Executing close order as keeper...[/bold]")
                                 close_exec_receipt, keeper_address = execute_order_as_keeper(web3, close_order_key)
 
-                                console.print(f"[green]Close order executed[/green]")
+                                console.print("[green]Close order executed[/green]")
                                 console.print(f"  Keeper: {keeper_address}")
                                 console.print(f"  Block: {close_exec_receipt['blockNumber']}")
                                 console.print(f"  Gas used: {close_exec_receipt['gasUsed']}")
@@ -445,13 +475,13 @@ def main():
 
                                 final_positions = gmx.fetch_positions([symbol])
                                 if len(final_positions) == 0:
-                                    console.print(f"[green]Position successfully closed![/green]")
+                                    console.print("[green]Position successfully closed![/green]")
                                 else:
                                     console.print(f"[yellow]Warning: {len(final_positions)} position(s) still open[/yellow]")
                                     for pos in final_positions:
                                         console.print(f"    {pos['symbol']} {pos['side']}: ${pos.get('notional', 0):.2f}")
                             else:
-                                console.print(f"[red]Close order failed[/red]")
+                                console.print("[red]Close order failed[/red]")
 
                     except Exception as e:
                         console.print(f"[red]Close position failed: {e}[/red]")
@@ -460,16 +490,16 @@ def main():
                         traceback.print_exc()
 
                 else:
-                    console.print(f"[yellow]No positions found[/yellow]")
+                    console.print("[yellow]No positions found[/yellow]")
 
             else:
-                console.print(f"\n[red]Order failed[/red]")
+                console.print("\n[red]Order failed[/red]")
                 try:
                     assert_transaction_success_with_explanation(web3, tx_hash_bytes)
                 except Exception as e:
                     console.print(f"  Error: {str(e)}")
         else:
-            console.print(f"[yellow]No transaction hash found in order[/yellow]")
+            console.print("[yellow]No transaction hash found in order[/yellow]")
 
     except Exception as e:
         console.print(f"\n[red]Error: {str(e)}[/red]")

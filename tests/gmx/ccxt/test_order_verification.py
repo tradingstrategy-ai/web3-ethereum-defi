@@ -309,3 +309,77 @@ def test_ccxt_fetch_order_detects_cancelled(isolated_fork_env, execution_buffer)
     print(
         f"Order correctly detected as cancelled: reason={updated_order['info'].get('cancellation_reason')}",
     )
+
+
+def test_create_order_rejects_conflicting_size_parameters(ccxt_gmx_fork_open_close):
+    """Test that create_order raises InvalidOrder when both size_usd and non-zero amount are provided.
+
+    This is a regression test for the position size bug where:
+    - The CCXT standard `amount` parameter is in base currency (ETH)
+    - The GMX extension `size_usd` parameter is in USD
+    - If both are provided, it's ambiguous which should be used
+
+    The fix ensures that the API rejects conflicting parameters with a clear error
+    message to prevent accidental position size miscalculations.
+
+    Example of the bug this prevents:
+    - User intends to open a $10 USD position
+    - User passes amount=10.0 (interpreted as 10 ETH) AND size_usd=10 (interpreted as $10 USD)
+    - Without validation, one would be silently ignored, leading to unexpected position size
+    """
+    from ccxt.base.errors import InvalidOrder
+
+    gmx = ccxt_gmx_fork_open_close
+
+    # Attempt to create order with both size_usd and non-zero amount
+    # This should raise InvalidOrder
+    with pytest.raises(InvalidOrder) as exc_info:
+        gmx.create_order(
+            symbol="ETH/USD:USDC",
+            type="market",
+            side="buy",
+            amount=10.0,  # Non-zero base currency amount (10 ETH)
+            params={
+                "size_usd": 25.0,  # Direct USD sizing (conflict!)
+                "leverage": 2.5,
+                "collateral_symbol": "ETH",
+                "slippage_percent": 0.005,
+            },
+        )
+
+    # Verify the error message is helpful
+    error_msg = str(exc_info.value)
+    assert "size_usd" in error_msg, "Error should mention size_usd parameter"
+    assert "amount" in error_msg, "Error should mention amount parameter"
+    assert "Cannot use both" in error_msg, "Error should explain the conflict"
+
+
+def test_create_order_accepts_size_usd_with_zero_amount(ccxt_gmx_fork_open_close, execution_buffer):
+    """Test that create_order accepts size_usd when amount is 0.
+
+    The recommended pattern is to use size_usd for USD-denominated position sizes
+    with amount=0. This test verifies that pattern works correctly.
+    """
+    gmx = ccxt_gmx_fork_open_close
+
+    # Create order using the recommended pattern: size_usd with amount=0
+    # This should NOT raise InvalidOrder
+    order = gmx.create_order(
+        symbol="ETH/USD:USDC",
+        type="market",
+        side="buy",
+        amount=0,  # Zero amount (not used)
+        params={
+            "size_usd": 10.0,  # Direct USD sizing
+            "leverage": 2.5,
+            "collateral_symbol": "ETH",
+            "slippage_percent": 0.005,
+            "execution_buffer": execution_buffer,
+        },
+    )
+
+    # Verify order was created (status should be "open" waiting for keeper)
+    assert order is not None
+    assert order["status"] == "open"
+    assert order["symbol"] == "ETH/USD:USDC"
+    assert order["side"] == "buy"

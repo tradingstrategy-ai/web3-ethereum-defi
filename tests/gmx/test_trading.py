@@ -280,3 +280,87 @@ def test_open_and_close_position(isolated_fork_env, execution_buffer):
     # === Step 4: Verify position was closed ===
     positions_after_close = env.positions.get_data(wallet_address)
     assert len(positions_after_close) == initial_position_count, "Should have no positions after closing"
+
+
+@flaky(max_runs=3, min_passes=1)
+def test_open_limit_long_position(isolated_fork_env, execution_buffer):
+    """
+    Test opening a limit long ETH position with keeper execution.
+
+    Flow:
+    1. Create limit order at a trigger price (use current price to ensure immediate execution)
+    2. Submit transaction to blockchain
+    3. Execute order as keeper
+    4. Verify position was created
+
+    Note: In production, limit orders wait for price to reach trigger level.
+    For testing, we set trigger_price to current oracle price so keeper can execute immediately.
+    """
+    env = isolated_fork_env
+    wallet_address = env.config.get_wallet_address()
+
+    # Record initial state
+    initial_positions = env.positions.get_data(wallet_address)
+    initial_position_count = len(initial_positions)
+
+    # Sync nonce before transaction
+    env.wallet.sync_nonce(env.web3)
+
+    # Get current ETH price from oracle for trigger price
+    # Use current price so the limit order can be executed immediately by keeper
+    eth_oracle_price, _ = fetch_on_chain_oracle_prices(env.web3)
+
+    # === Step 1: Create limit order ===
+    order_result = env.trading.open_limit_position(
+        market_symbol="ETH",
+        collateral_symbol="ETH",
+        start_token_symbol="ETH",
+        is_long=True,
+        size_delta_usd=10,
+        leverage=2.5,
+        trigger_price=eth_oracle_price,  # Use current price for immediate execution in test
+        slippage_percent=0.005,
+        execution_buffer=execution_buffer,
+        auto_cancel=True,
+    )
+
+    # Verify OrderResult structure
+    assert isinstance(order_result, OrderResult), "Expected OrderResult instance"
+    assert hasattr(order_result, "transaction"), "OrderResult should have transaction"
+    assert order_result.execution_fee > 0, "Execution fee should be > 0"
+
+    # === Step 2: Submit order transaction ===
+    transaction = order_result.transaction.copy()
+    if "nonce" in transaction:
+        del transaction["nonce"]
+
+    signed_tx = env.wallet.sign_transaction_with_new_nonce(transaction)
+    tx_hash = env.web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+    receipt = env.web3.eth.wait_for_transaction_receipt(tx_hash)
+
+    assert receipt["status"] == 1, "Order transaction should succeed"
+
+    # Extract order key from receipt
+    order_key = extract_order_key_from_receipt(receipt)
+    assert order_key is not None, "Should extract order key from receipt"
+
+    # === Step 3: Execute order as keeper ===
+    # In production, keeper would wait for price to reach trigger
+    # In test, we execute immediately since trigger_price == current price
+    exec_receipt, keeper_address = execute_order_as_keeper(env.web3, order_key)
+    assert exec_receipt["status"] == 1, "Order execution should succeed"
+
+    # === Step 4: Verify position was created ===
+    final_positions = env.positions.get_data(wallet_address)
+    final_position_count = len(final_positions)
+
+    assert final_position_count == initial_position_count + 1, "Should have 1 more position"
+
+    # Verify position details
+    assert len(final_positions) > 0, "Should have at least one position"
+    position_key, position = list(final_positions.items())[0]
+
+    assert position["market_symbol"] == "ETH", "Position should be for ETH market"
+    assert position["is_long"] is True, "Position should be long"
+    assert position["position_size"] > 0, "Position size should be > 0"
+    assert position["leverage"] > 0, "Leverage should be > 0"

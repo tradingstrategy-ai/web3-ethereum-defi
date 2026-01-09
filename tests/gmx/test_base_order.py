@@ -251,7 +251,7 @@ def test_get_prices_long_open(chain_name, base_order):
     )
 
     decimals = market_data["market_metadata"]["decimals"]
-    price_usd, raw_price, acceptable_price, acceptable_price_in_usd = base_order._get_prices(
+    price_usd, raw_price, acceptable_price, acceptable_price_in_usd, sanity_result = base_order._get_prices(
         decimals,
         prices,
         params,
@@ -281,7 +281,7 @@ def test_get_prices_long_close(chain_name, base_order):
     params = OrderParams(market_key=market_key, collateral_address=market_data["long_token_address"], index_token_address=index_token_address, is_long=True, size_delta=1000.0, initial_collateral_delta_amount="1000000000000000000", slippage_percent=0.005)
 
     decimals = market_data["market_metadata"]["decimals"]
-    price_usd, raw_price, acceptable_price, acceptable_price_in_usd = base_order._get_prices(
+    price_usd, raw_price, acceptable_price, acceptable_price_in_usd, sanity_result = base_order._get_prices(
         decimals,
         prices,
         params,
@@ -310,7 +310,7 @@ def test_get_prices_swap(chain_name, base_order):
     params = OrderParams(market_key=market_key, collateral_address=market_data["long_token_address"], index_token_address=index_token_address, is_long=False, size_delta=0.0, initial_collateral_delta_amount="1000000000000000000", slippage_percent=0.005)
 
     decimals = market_data["market_metadata"]["decimals"]
-    price_usd, raw_price, acceptable_price, acceptable_price_in_usd = base_order._get_prices(
+    price_usd, raw_price, acceptable_price, acceptable_price_in_usd, sanity_result = base_order._get_prices(
         decimals,
         prices,
         params,
@@ -754,3 +754,71 @@ def test_order_creation_invalid_market(base_order):
 
     with pytest.raises(ValueError, match="Market .* not found"):
         base_order.create_order(params, is_open=True)
+
+
+# ==================== Price Sanity Check Tests ====================
+
+
+def test_base_order_with_price_sanity_config(chain_name, arbitrum_fork_config):
+    """Test that BaseOrder accepts price_sanity_config parameter."""
+    from eth_defi.gmx.price_sanity import PriceSanityCheckConfig, PriceSanityAction
+
+    # Create custom sanity config
+    sanity_config = PriceSanityCheckConfig(
+        enabled=True,
+        threshold_percent=0.01,  # 1%
+        action=PriceSanityAction.use_oracle_warn,
+    )
+
+    base_order = BaseOrder(arbitrum_fork_config, price_sanity_config=sanity_config)
+
+    # Verify config is stored
+    assert base_order._price_sanity_config is not None
+    assert base_order._price_sanity_config.enabled is True
+    assert base_order._price_sanity_config.threshold_percent == 0.01
+    assert base_order._price_sanity_config.action == PriceSanityAction.use_oracle_warn
+
+
+def test_base_order_default_price_sanity_config(chain_name, arbitrum_fork_config):
+    """Test that BaseOrder uses default price sanity config when none provided."""
+    base_order = BaseOrder(arbitrum_fork_config)
+
+    # Should have default config
+    assert base_order._price_sanity_config is not None
+    assert base_order._price_sanity_config.enabled is True
+    assert base_order._price_sanity_config.threshold_percent == 0.03  # 3% default
+
+
+def test_order_result_includes_sanity_check(chain_name, base_order):
+    """Test that OrderResult can include price sanity check result."""
+    from eth_defi.gmx.price_sanity import PriceSanityCheckResult, PriceSanityAction
+    from eth_defi.compat import native_datetime_utc_now
+
+    # Create a mock sanity check result
+    sanity_result = PriceSanityCheckResult(
+        passed=True,
+        deviation_percent=0.01,
+        oracle_price_usd=3500.0,
+        ticker_price_usd=3535.0,
+        action_taken=PriceSanityAction.use_oracle_warn,
+        token_address="0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
+        timestamp=native_datetime_utc_now(),
+    )
+
+    # Create OrderResult with sanity check
+    result = OrderResult(
+        transaction={"from": "0x123", "to": "0x456"},
+        execution_fee=1000000,
+        acceptable_price=2000000,
+        mark_price=1900000.0,
+        gas_limit=2500000,
+        estimated_price_impact=-0.005,
+        price_sanity_check=sanity_result,
+    )
+
+    # Verify sanity check is included
+    assert result.price_sanity_check is not None
+    assert result.price_sanity_check.passed is True
+    assert result.price_sanity_check.deviation_percent == 0.01
+    assert result.price_sanity_check.oracle_price_usd == 3500.0
+    assert result.price_sanity_check.ticker_price_usd == 3535.0
