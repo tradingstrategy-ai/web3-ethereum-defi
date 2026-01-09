@@ -173,8 +173,9 @@ def test_order_creation_with_wallet(web3: Web3, wallet: HotWallet):
     try:
         order = gmx.create_market_buy_order(
             "ETH/USDC:USDC",
-            10.0,  # $10 USD position size (same as debug.py)
+            None,  # amount not needed when using size_usd (GMX extension)
             {
+                "size_usd": 10.0,  # $10 USD position size (direct USD sizing via GMX extension)
                 "leverage": 2.5,  # Same as debug.py
                 "collateral_symbol": "ETH",  # Same as debug.py (using ETH not USDC)
                 "slippage_percent": 0.005,  # Same as debug.py
@@ -292,8 +293,9 @@ def test_parameter_conversion(web3: Web3, wallet: HotWallet):
     gmx = GMX(config, wallet=wallet)
     gmx.load_markets()
 
-    # Test parameter conversion
+    # Test parameter conversion with GMX extension (size_usd)
     ccxt_params = {
+        "size_usd": 10.0,  # Direct USD sizing (GMX extension)
         "leverage": 2.5,
         "collateral_symbol": "ETH",
         "slippage_percent": 0.005,
@@ -304,7 +306,7 @@ def test_parameter_conversion(web3: Web3, wallet: HotWallet):
         "ETH/USDC:USDC",
         "market",
         "buy",
-        10.0,
+        None,  # amount not needed when using size_usd
         None,
         ccxt_params,
     )
