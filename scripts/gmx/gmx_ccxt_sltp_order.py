@@ -101,13 +101,13 @@ from rich.console import Console
 console = Console()
 
 # Configuration
-EXECUTION_BUFFER = 4  # Higher buffer for testnet reliability
+EXECUTION_BUFFER = 6  # Higher buffer for testnet reliability
 SIZE_USD = 10  # Position size in USD
 LEVERAGE = 2.0  # Leverage multiplier
 STOP_LOSS_PERCENT = 0.05  # 5% stop loss
 TAKE_PROFIT_PERCENT = 0.10  # 10% take profit
 MARKET_SYMBOL = "ETH/USDC:USDC"
-COLLATERAL_SYMBOL = "USDC"  # Use USDC as collateral (short token)
+COLLATERAL_SYMBOL = "ETH"  # Use ETH as collateral (long token)
 
 
 def verify_orders_created(receipt: dict) -> list[bytes]:
@@ -177,11 +177,14 @@ def main():
     eth_balance = web3.eth.get_balance(wallet_address)
     console.print(f"  ETH Balance: {eth_balance / 10**18:.6f} ETH")
 
-    # Check USDC balance
-    usdc_address = get_token_address_normalized(chain, "USDC")
+    # Check USDC.SG balance (testnet uses USDC.SG instead of USDC)
+    try:
+        usdc_address = get_token_address_normalized(chain, "USDC.SG")
+    except KeyError:
+        usdc_address = get_token_address_normalized(chain, "USDC")
     usdc_token = fetch_erc20_details(web3, usdc_address)
     usdc_balance = usdc_token.contract.functions.balanceOf(wallet_address).call()
-    console.print(f"  USDC Balance: {usdc_balance / 10**6:.2f} USDC")
+    console.print(f"  {usdc_token.symbol} Balance: {usdc_balance / 10**usdc_token.decimals:.2f} {usdc_token.symbol}")
 
     # Initialize GMX CCXT wrapper
     console.print("\n[bold]Initializing GMX CCXT wrapper...[/bold]")
@@ -242,15 +245,17 @@ def main():
                 "leverage": LEVERAGE,
                 "collateral_symbol": COLLATERAL_SYMBOL,
                 "execution_buffer": EXECUTION_BUFFER,
-                "slippage_percent": 0.02,  # 2% slippage for testing
+                "slippage_percent": 0.05,  # 5% slippage for testnet reliability
                 # GMX extension: percentage-based triggers
                 "stopLoss": {
                     "triggerPercent": STOP_LOSS_PERCENT,
                     "closePercent": 1.0,  # Close 100% on stop loss
+                    "autoCancel": False,  # Disable auto-cancel to avoid MaxAutoCancelOrdersExceeded
                 },
                 "takeProfit": {
                     "triggerPercent": TAKE_PROFIT_PERCENT,
                     "closePercent": 1.0,  # Close 100% on take profit
+                    "autoCancel": False,  # Disable auto-cancel to avoid MaxAutoCancelOrdersExceeded
                 },
             },
         )
