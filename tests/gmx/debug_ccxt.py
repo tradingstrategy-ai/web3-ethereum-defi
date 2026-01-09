@@ -67,7 +67,7 @@ def setup_fork_network(web3: Web3):
     # Setup mock oracle - prices fetched dynamically from chain
     console.print("\n[dim]Setting up mock oracle (fetching on-chain prices)...[/dim]")
     setup_mock_oracle(web3)  # No hardcoded prices - fetches from chain automatically
-    console.print(f"[dim]Mock oracle configured with on-chain prices[/dim]\n")
+    console.print("[dim]Mock oracle configured with on-chain prices[/dim]\n")
 
     return chain
 
@@ -464,7 +464,7 @@ def main():
                                 console.print("\n[bold]Executing close order as keeper...[/bold]")
                                 close_exec_receipt, keeper_address = execute_order_as_keeper(web3, close_order_key)
 
-                                console.print(f"[green]Close order executed[/green]")
+                                console.print("[green]Close order executed[/green]")
                                 console.print(f"  Keeper: {keeper_address}")
                                 console.print(f"  Block: {close_exec_receipt['blockNumber']}")
                                 console.print(f"  Gas used: {close_exec_receipt['gasUsed']}")
@@ -475,13 +475,13 @@ def main():
 
                                 final_positions = gmx.fetch_positions([symbol])
                                 if len(final_positions) == 0:
-                                    console.print(f"[green]Position successfully closed![/green]")
+                                    console.print("[green]Position successfully closed![/green]")
                                 else:
                                     console.print(f"[yellow]Warning: {len(final_positions)} position(s) still open[/yellow]")
                                     for pos in final_positions:
                                         console.print(f"    {pos['symbol']} {pos['side']}: ${pos.get('notional', 0):.2f}")
                             else:
-                                console.print(f"[red]Close order failed[/red]")
+                                console.print("[red]Close order failed[/red]")
 
                     except Exception as e:
                         console.print(f"[red]Close position failed: {e}[/red]")
@@ -490,16 +490,16 @@ def main():
                         traceback.print_exc()
 
                 else:
-                    console.print(f"[yellow]No positions found[/yellow]")
+                    console.print("[yellow]No positions found[/yellow]")
 
             else:
-                console.print(f"\n[red]Order failed[/red]")
+                console.print("\n[red]Order failed[/red]")
                 try:
                     assert_transaction_success_with_explanation(web3, tx_hash_bytes)
                 except Exception as e:
                     console.print(f"  Error: {str(e)}")
         else:
-            console.print(f"[yellow]No transaction hash found in order[/yellow]")
+            console.print("[yellow]No transaction hash found in order[/yellow]")
 
     except Exception as e:
         console.print(f"\n[red]Error: {str(e)}[/red]")
