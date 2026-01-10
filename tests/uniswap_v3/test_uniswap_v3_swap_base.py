@@ -2,6 +2,7 @@
 
 import os
 
+import flaky
 import pytest
 from eth_typing import HexAddress
 from web3 import Web3
@@ -85,6 +86,9 @@ def uniswap_v3(web3):
     return uniswap_v3_on_base
 
 
+# Anvil
+# ERROR tests/uniswap_v3/test_uniswap_v3_swap_base.py::test_uniswap_v3_swap_on_base - AssertionError: Could not read block number from Anvil after the launch with command 'anvil': at http://localhost:26545, stdout is 0 bytes, stderr is 143 bytes
+@flaky.flaky
 def test_uniswap_v3_swap_on_base(
     web3,
     uniswap_v3,
