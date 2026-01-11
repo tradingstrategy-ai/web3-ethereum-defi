@@ -7,6 +7,7 @@ import logging
 from web3.contract import Contract
 from eth_typing import BlockIdentifier
 
+from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.token import TokenDetails, fetch_erc20_details
@@ -115,3 +116,15 @@ class HarvestVault(ERC4626Vault):
 
     def get_estimated_lock_up(self) -> datetime.timedelta:
         return datetime.timedelta(0)
+
+    def get_link(self, referral: str | None = None) -> str:
+        """Get link to the Harvest Finance app.
+
+        :param referral:
+            Optional referral code (not used by Harvest).
+
+        :return:
+            URL to the vault on Harvest Finance app.
+        """
+        chain_name = get_chain_name(self.chain_id).lower()
+        return f"https://app.harvest.finance/{chain_name}/{self.vault_address}"
