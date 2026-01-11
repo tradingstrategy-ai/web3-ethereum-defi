@@ -2,6 +2,7 @@
 
 import os
 
+import flaky
 import pytest
 from eth_typing import HexAddress
 from web3 import Web3
@@ -85,6 +86,9 @@ def uniswap_v3(web3):
     return uniswap_v3_on_base
 
 
+# Anvil
+# ERROR tests/uniswap_v3/test_uniswap_v3_swap_base.py::test_uniswap_v3_swap_on_base - AssertionError: Could not read block number from Anvil after the launch with command 'anvil': at http://localhost:26545, stdout is 0 bytes, stderr is 143 bytes
+@flaky.flaky
 def test_uniswap_v3_swap_on_base(
     web3,
     uniswap_v3,
@@ -94,7 +98,7 @@ def test_uniswap_v3_swap_on_base(
     output_token = fetch_erc20_details(web3, "0x4200000000000000000000000000000000000006")  # WETH
 
     amount = 5 * 10**6
-
+z
     assert input_token.fetch_raw_balance_of(usdc_holder) >= amount, "Not enough USDC in the holder account"
 
     tx_hash = input_token.contract.functions.approve(uniswap_v3.swap_router.address, amount).transact({"from": usdc_holder})
