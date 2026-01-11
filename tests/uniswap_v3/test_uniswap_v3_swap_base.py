@@ -98,7 +98,7 @@ def test_uniswap_v3_swap_on_base(
     output_token = fetch_erc20_details(web3, "0x4200000000000000000000000000000000000006")  # WETH
 
     amount = 5 * 10**6
-z
+
     assert input_token.fetch_raw_balance_of(usdc_holder) >= amount, "Not enough USDC in the holder account"
 
     tx_hash = input_token.contract.functions.approve(uniswap_v3.swap_router.address, amount).transact({"from": usdc_holder})
