@@ -8,6 +8,7 @@ import os
 from typing import Any, Generator
 
 import pytest
+from eth_utils import to_checksum_address
 from web3 import Web3
 
 from eth_defi.chain import install_chain_middleware
@@ -16,7 +17,8 @@ from eth_defi.gmx.ccxt.exchange import GMX
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.provider.anvil import fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
-from tests.gmx.conftest import _approve_tokens_for_config
+from eth_defi.token import fetch_erc20_details
+from tests.gmx.conftest import _approve_tokens_for_config, _get_chain_config_with_tokens
 from tests.gmx.fork_helpers import setup_mock_oracle
 
 
@@ -61,6 +63,50 @@ def _create_anvil_fork(
         yield launch.json_rpc_url
     finally:
         launch.close(log_level=logging.ERROR)
+
+
+def _fund_wallet_on_fork(
+    web3: Web3,
+    wallet_address: str,
+    large_usdc_holder: str,
+    large_weth_holder: str,
+):
+    """Fund wallet with ETH, WETH, and USDC on the given fork.
+
+    This is necessary because the test_wallet fixture funds the wallet on a
+    different fork instance. Each anvil fork is independent, so we need to
+    fund the wallet on each fork that uses it.
+
+    :param web3: Web3 instance connected to the fork
+    :param wallet_address: Address to fund
+    :param large_usdc_holder: Address of USDC whale (must be unlocked in anvil)
+    :param large_weth_holder: Address of WETH whale (must be unlocked in anvil)
+    """
+    # Fund with ETH for gas and execution fees
+    eth_amount_wei = 100_000_000 * 10**18
+    web3.provider.make_request("anvil_setBalance", [wallet_address, hex(eth_amount_wei)])
+
+    # Fund whales with gas so they can transfer tokens
+    gas_eth = 100_000_000 * 10**18
+    web3.provider.make_request("anvil_setBalance", [large_usdc_holder, hex(gas_eth)])
+    web3.provider.make_request("anvil_setBalance", [large_weth_holder, hex(gas_eth)])
+
+    # Transfer WETH from whale
+    config = _get_chain_config_with_tokens("arbitrum")
+    weth_address = config["native_token_address"]
+    weth = fetch_erc20_details(web3, weth_address)
+    weth_amount = 100_000_000 * 10**18
+    weth.contract.functions.transfer(wallet_address, weth_amount).transact(
+        {"from": large_weth_holder},
+    )
+
+    # Transfer USDC from whale (required for short positions)
+    usdc_address = config["usdc_address"]
+    usdc = fetch_erc20_details(web3, usdc_address)
+    usdc_amount = 100_000_000 * 10**6  # 100M USDC
+    usdc.contract.functions.transfer(wallet_address, usdc_amount).transact(
+        {"from": large_usdc_holder},
+    )
 
 
 @pytest.fixture()
@@ -159,6 +205,8 @@ def web3_arbitrum_fork_ccxt_short(anvil_chain_fork_ccxt_short: str) -> Web3:
 def ccxt_gmx_fork_open_close(
     web3_arbitrum_fork_ccxt_long,
     test_wallet,
+    large_usdc_holder_arbitrum,
+    large_weth_holder_arbitrum,
 ) -> GMX:
     """CCXT GMX exchange with wallet for open/close long position testing.
 
@@ -166,9 +214,19 @@ def ccxt_gmx_fork_open_close(
     Uses RPC loading (default) for complete market data.
     """
     setup_mock_oracle(web3_arbitrum_fork_ccxt_long)
+
+    # Fund wallet on this fork (test_wallet is funded on a different fork)
+    _fund_wallet_on_fork(
+        web3_arbitrum_fork_ccxt_long,
+        test_wallet.address,
+        large_usdc_holder_arbitrum,
+        large_weth_holder_arbitrum,
+    )
+    test_wallet.sync_nonce(web3_arbitrum_fork_ccxt_long)
+
     config = GMXConfig(
         web3_arbitrum_fork_ccxt_long,
-        user_wallet_address=test_wallet,
+        user_wallet_address=test_wallet.address,
     )
     _approve_tokens_for_config(
         config,
@@ -181,6 +239,8 @@ def ccxt_gmx_fork_open_close(
             "wallet": test_wallet,
         }
     )
+    # Load markets using RPC mode (REST API won't work with forked chain)
+    gmx.load_markets(params={"rest_api_mode": False, "graphql_only": False})
     return gmx
 
 
@@ -188,14 +248,28 @@ def ccxt_gmx_fork_open_close(
 def ccxt_gmx_fork_short(
     web3_arbitrum_fork_ccxt_short,
     test_wallet,
+    large_usdc_holder_arbitrum,
+    large_weth_holder_arbitrum,
 ) -> GMX:
     """CCXT GMX exchange with wallet for short position testing.
 
     Uses separate anvil fork to avoid state pollution with other tests.
     Uses RPC loading (default) for complete market data.
+    Short positions require USDC collateral, which is funded by _fund_wallet_on_fork.
     """
     setup_mock_oracle(web3_arbitrum_fork_ccxt_short)
-    config = GMXConfig(web3_arbitrum_fork_ccxt_short, user_wallet_address=test_wallet)
+
+    # Fund wallet on this fork (test_wallet is funded on a different fork)
+    # This is critical for short positions which require USDC collateral
+    _fund_wallet_on_fork(
+        web3_arbitrum_fork_ccxt_short,
+        test_wallet.address,
+        large_usdc_holder_arbitrum,
+        large_weth_holder_arbitrum,
+    )
+    test_wallet.sync_nonce(web3_arbitrum_fork_ccxt_short)
+
+    config = GMXConfig(web3_arbitrum_fork_ccxt_short, user_wallet_address=test_wallet.address)
     _approve_tokens_for_config(config, web3_arbitrum_fork_ccxt_short, test_wallet.address)
     gmx = GMX(
         params={
@@ -203,6 +277,8 @@ def ccxt_gmx_fork_short(
             "wallet": test_wallet,
         }
     )
+    # Load markets using RPC mode (REST API won't work with forked chain)
+    gmx.load_markets(params={"rest_api_mode": False, "graphql_only": False})
     return gmx
 
 
@@ -250,6 +326,8 @@ def ccxt_gmx_arbitrum() -> GMX:
 def ccxt_gmx_fork_graphql(
     web3_arbitrum_fork_ccxt_long,
     test_wallet,
+    large_usdc_holder_arbitrum,
+    large_weth_holder_arbitrum,
 ) -> GMX:
     """CCXT GMX exchange with wallet for testing GraphQL market loading.
 
@@ -258,7 +336,17 @@ def ccxt_gmx_fork_graphql(
     Markets are pre-loaded so they're immediately available.
     """
     setup_mock_oracle(web3_arbitrum_fork_ccxt_long)
-    config = GMXConfig(web3_arbitrum_fork_ccxt_long, user_wallet_address=test_wallet)
+
+    # Fund wallet on this fork (test_wallet is funded on a different fork)
+    _fund_wallet_on_fork(
+        web3_arbitrum_fork_ccxt_long,
+        test_wallet.address,
+        large_usdc_holder_arbitrum,
+        large_weth_holder_arbitrum,
+    )
+    test_wallet.sync_nonce(web3_arbitrum_fork_ccxt_long)
+
+    config = GMXConfig(web3_arbitrum_fork_ccxt_long, user_wallet_address=test_wallet.address)
     _approve_tokens_for_config(config, web3_arbitrum_fork_ccxt_long, test_wallet.address)
     gmx = GMX(
         params={
@@ -378,4 +466,6 @@ def ccxt_gmx_tenderly(
             "wallet": test_wallet_tenderly,
         }
     )
+    # Load markets using RPC mode (REST API won't work with Tenderly virtual testnet)
+    gmx.load_markets(params={"rest_api_mode": False, "graphql_only": False})
     return gmx

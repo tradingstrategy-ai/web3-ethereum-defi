@@ -592,6 +592,7 @@ GMX_ERROR_SELECTORS: dict[str, tuple[str, list[str]]] = {
     "f4253177": ("EmptySizeDeltaInTokens", []),
     "9319d603": ("OrderValidFromTimeNotReached", ["uint256", "uint256"]),
     "794a604a": ("MaxAutoCancelOrdersExceeded", ["uint256", "uint256"]),
+    "0481a15a": ("InvalidOrderPrices", ["uint256", "uint256", "uint256", "uint256"]),
     # Position errors
     "4dfbbff3": ("EmptyPosition", []),
     "426cfff0": ("PositionNotFound", ["bytes32"]),
