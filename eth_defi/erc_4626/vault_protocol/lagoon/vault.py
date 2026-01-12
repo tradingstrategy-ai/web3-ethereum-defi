@@ -48,6 +48,9 @@ from eth_defi.event_reader.multicall_batcher import EncodedCall
 from eth_defi.safe.safe_compat import create_safe_ethereum_client
 from eth_defi.trace import assert_transaction_success_with_explanation
 
+from eth_abi.exceptions import InsufficientDataBytes
+
+
 logger = logging.getLogger(__name__)
 
 #: How much gas we use for valuation post
@@ -189,7 +192,7 @@ class LagoonVault(ERC7540Vault):
                 return LagoonVersion.v_0_5_0
             else:
                 raise NotImplementedError(f"Unknown Lagoon version {decoded_version} for vault {self.spec.vault_address}")
-        except (ValueError, ContractLogicError) as e:
+        except (ValueError, ContractLogicError, InsufficientDataBytes) as e:
             pass
 
         probe_call = EncodedCall.from_keccak_signature(
@@ -203,7 +206,7 @@ class LagoonVault(ERC7540Vault):
         try:
             probe_call.call(self.web3, block_identifier="latest")
             version = LagoonVersion.legacy
-        except (ValueError, ContractLogicError) as e:
+        except (ValueError, ContractLogicError, InsufficientDataBytes) as e:
             version = LagoonVersion.v_0_5_0
 
         return version
