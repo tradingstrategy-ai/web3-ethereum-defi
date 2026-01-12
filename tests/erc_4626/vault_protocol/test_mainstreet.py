@@ -14,8 +14,7 @@ from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.erc_4626.vault_protocol.mainstreet.vault import MainstreetVault
 
 JSON_RPC_SONIC = os.environ.get("JSON_RPC_SONIC")
-
-pytestmark = pytest.mark.skipif(JSON_RPC_SONIC is None, reason="JSON_RPC_SONIC needed to run these tests")
+JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
 
 
 @pytest.fixture(scope="module")
@@ -49,6 +48,56 @@ def test_mainstreet_legacy_smsUSD(
     assert isinstance(vault, MainstreetVault)
     assert vault.get_protocol_name() == "Mainstreet Finance"
     assert vault.features == {ERC4626Feature.mainstreet_like}
+
+    # Mainstreet has 20% performance fee (10% insurance + 10% treasury)
+    assert vault.get_management_fee("latest") == 0.0
+    assert vault.get_performance_fee("latest") == 0.20
+    assert vault.has_custom_fees() is False
+
+    # Check vault link
+    assert vault.get_link() == "https://mainstreet.finance/"
+
+
+@pytest.fixture(scope="module")
+def anvil_ethereum_fork(request) -> AnvilLaunch:
+    """Fork Ethereum at a specific block for reproducibility."""
+    if JSON_RPC_ETHEREUM is None:
+        pytest.skip("JSON_RPC_ETHEREUM needed to run this test")
+    launch = fork_network_anvil(JSON_RPC_ETHEREUM, fork_block_number=24_217_821)
+    try:
+        yield launch
+    finally:
+        launch.close()
+
+
+@pytest.fixture(scope="module")
+def web3_ethereum(anvil_ethereum_fork):
+    web3 = create_multi_provider_web3(anvil_ethereum_fork.json_rpc_url)
+    return web3
+
+
+@flaky.flaky
+def test_mainstreet_staked_msusd_ethereum(
+    web3_ethereum: Web3,
+    tmp_path: Path,
+):
+    """Read Mainstreet Finance Staked msUSD vault metadata on Ethereum.
+
+    The smart contract is developed by Mainstreet Labs.
+    https://etherscan.io/address/0x890a5122aa1da30fec4286de7904ff808f0bd74a
+    """
+
+    vault = create_vault_instance_autodetect(
+        web3_ethereum,
+        vault_address="0x890a5122aa1da30fec4286de7904ff808f0bd74a",
+    )
+
+    assert isinstance(vault, MainstreetVault)
+    assert vault.get_protocol_name() == "Mainstreet Finance"
+    assert vault.features == {ERC4626Feature.mainstreet_like}
+
+    # Check vault name override
+    assert vault.name == "Staked msUSD"
 
     # Mainstreet has 20% performance fee (10% insurance + 10% treasury)
     assert vault.get_management_fee("latest") == 0.0
