@@ -60,3 +60,14 @@ class UntangleVault(ERC7540Vault):
 
     def get_performance_fee(self, block_identifier: BlockIdentifier) -> float | None:
         return 0.0
+
+    def get_link(self, referral: str | None = None) -> str:
+        """Get the vault's web UI link.
+
+        :param referral:
+            Optional referral code (not used currently).
+
+        :return:
+            Link to the Untangle Finance app.
+        """
+        return "https://app.untangled.finance/"
