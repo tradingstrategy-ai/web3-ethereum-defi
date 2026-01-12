@@ -3,7 +3,7 @@ Tests for GMX Borrow APR functionality.
 """
 
 from eth_defi.gmx.core.borrow_apr import GetBorrowAPR
-from eth_defi.gmx.core import markets
+import eth_defi.gmx.core.markets as markets
 
 
 def test_initialization(get_borrow_apr):

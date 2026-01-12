@@ -239,6 +239,8 @@ def ccxt_gmx_fork_open_close(
             "wallet": test_wallet,
         }
     )
+    # Load markets using RPC mode (REST API won't work with forked chain)
+    gmx.load_markets(params={"rest_api_mode": False, "graphql_only": False})
     return gmx
 
 
@@ -275,6 +277,8 @@ def ccxt_gmx_fork_short(
             "wallet": test_wallet,
         }
     )
+    # Load markets using RPC mode (REST API won't work with forked chain)
+    gmx.load_markets(params={"rest_api_mode": False, "graphql_only": False})
     return gmx
 
 
@@ -462,4 +466,6 @@ def ccxt_gmx_tenderly(
             "wallet": test_wallet_tenderly,
         }
     )
+    # Load markets using RPC mode (REST API won't work with Tenderly virtual testnet)
+    gmx.load_markets(params={"rest_api_mode": False, "graphql_only": False})
     return gmx

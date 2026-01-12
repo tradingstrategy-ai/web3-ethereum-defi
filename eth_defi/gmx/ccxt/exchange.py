@@ -2206,10 +2206,38 @@ class GMX(ExchangeCompatible):
                 oracle_prices = self._oracle_prices_instance.get_recent_prices()
 
                 # Get token decimals from market info
-                token_decimals = market["info"].get("index_token_decimals", 18)
+                # Try multiple sources for compatibility with different loading modes
+                token_decimals = None
+
+                # First try market_metadata (RPC mode)
+                market_metadata = market["info"].get("market_metadata")
+                if market_metadata:
+                    token_decimals = market_metadata.get("decimals")
+
+                # Fall back to _token_metadata (REST API mode, loaded by parse_ticker)
+                if not token_decimals and self._token_metadata:
+                    token_meta = self._token_metadata.get(index_token_address.lower(), {})
+                    token_decimals = token_meta.get("decimals")
+
+                # Last resort: direct field in info (if added by some loading mode)
+                if not token_decimals:
+                    token_decimals = market["info"].get("index_token_decimals")
+
+                if not token_decimals:
+                    logger.debug(
+                        "Cannot get decimals for %s, skipping price sanity check",
+                        index_token_address,
+                    )
+                    return result  # Return ticker without sanity check
 
                 # Normalise token address for lookup
-                oracle_address = index_token_address
+                # Oracle prices use checksum addresses, so we need to normalise
+                try:
+                    oracle_address = to_checksum_address(index_token_address)
+                except (ValueError, AttributeError):
+                    oracle_address = index_token_address
+
+                # Handle testnet address translation
                 if hasattr(self.config, "get_chain") and self.config.get_chain() in [
                     "arbitrum_sepolia",
                     "avalanche_fuji",
@@ -2217,7 +2245,7 @@ class GMX(ExchangeCompatible):
                     from eth_defi.gmx.core.oracle import _TESTNET_TO_MAINNET_ADDRESSES
 
                     testnet_mappings = _TESTNET_TO_MAINNET_ADDRESSES.get(self.config.get_chain(), {})
-                    oracle_address = testnet_mappings.get(index_token_address, index_token_address)
+                    oracle_address = testnet_mappings.get(oracle_address, oracle_address)
 
                 # Get oracle price for this token
                 oracle_price = oracle_prices.get(oracle_address)
