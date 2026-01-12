@@ -72,6 +72,7 @@ from rich.table import Table
 
 from eth_defi.gmx.ccxt.exchange import GMX
 from eth_defi.gmx.core.open_positions import GetOpenPositions
+from eth_defi.trace import assert_transaction_success_with_explanation
 
 console = Console()
 
@@ -134,7 +135,7 @@ def main():
 
     # Create market buy order (open long position)
     console.print("\n[blue]Step 3: Creating market buy order (long position)...[/blue]")
-    symbol = "ETH/USD"
+    symbol = "ETH/USDC:USDC"
     position_size = 10.0  # $10 USD
 
     try:
@@ -157,6 +158,11 @@ def main():
         console.print(f"  Amount: ${buy_order['amount']}")
         console.print(f"  Fee: ${buy_order['fee']['cost']:.4f}")
         console.print(f"  TX Hash: {buy_order['info']['tx_hash']}")
+
+        # Verify transaction success
+        if buy_order.get("id"):
+            assert_transaction_success_with_explanation(gmx.web3, buy_order["id"])
+            console.print("[green]Transaction verified successfully[/green]")
 
     except Exception as e:
         console.print(f"[red]Failed to create buy order: {e}[/red]")

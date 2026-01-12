@@ -96,12 +96,12 @@ def fetch_ohlcv_example():
     markets = gmx.load_markets()
     console.print(f"[green]Loaded {len(markets)} markets[/green]")
 
-    # Fetch OHLCV data for ETH/USD
+    # Fetch OHLCV data for ETH/USDC:USDC
     console.print("\n" + "─" * 80)
-    console.print("[bold]Fetching ETH/USD hourly candles (last 50)...[/bold]")
+    console.print("[bold]Fetching ETH/USDC:USDC hourly candles (last 50)...[/bold]")
     console.print("─" * 80 + "\n")
 
-    symbol = "ETH/USD"
+    symbol = "ETH/USDC:USDC"
     timeframe = "1h"
     limit = 50
 
@@ -172,7 +172,7 @@ def fetch_multiple_timeframes():
 
     exchange.load_markets()
 
-    symbol = "BTC/USD"
+    symbol = "BTC/USDC:USDC"
     timeframes = ["1m", "15m", "1h", "1d"]
 
     console.print(
@@ -228,7 +228,7 @@ def fetch_with_since_parameter():
 
     exchange.load_markets()
 
-    symbol = "ETH/USD"
+    symbol = "ETH/USDC:USDC"
     timeframe = "1h"
 
     # Calculate 'since' as 24 hours ago
@@ -297,7 +297,7 @@ def compare_multiple_tokens():
 
     exchange.load_markets()
 
-    symbols = ["ETH/USD", "BTC/USD", "ARB/USD"]
+    symbols = ["ETH/USDC:USDC", "BTC/USDC:USDC", "ARB/USDC:USDC"]
     timeframe = "1h"
     limit = 24
 

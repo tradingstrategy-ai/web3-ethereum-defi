@@ -108,8 +108,11 @@ class OraclePrices:
                 logging.debug("No testnet mapping found for %s, using as-is", checksum_addr)
                 return checksum_addr
 
-        # Not a testnet chain, return address unchanged
-        return address
+        # Not a testnet chain, but still normalise to checksum for consistent lookup
+        try:
+            return to_checksum_address(address)
+        except ValueError:
+            return address
 
     def get_recent_prices(self, use_cache: bool = True, cache_ttl: float = None) -> PriceData:
         """Get raw output of the GMX rest v2 api for signed prices.

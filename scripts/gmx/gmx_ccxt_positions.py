@@ -91,13 +91,13 @@ def example_set_leverage(gmx: GMX):
 
     try:
         # Set leverage for specific symbol
-        print("\nSetting leverage for ETH/USD to 5x:")
-        result = gmx.set_leverage(5.0, "ETH/USD")
+        print("\nSetting leverage for ETH/USDC:USDC to 5x:")
+        result = gmx.set_leverage(5.0, "ETH/USDC:USDC")
         print(f"  {result['info']['message']}")
 
         # Set leverage for another symbol
-        print("\nSetting leverage for BTC/USD to 10x:")
-        result = gmx.set_leverage(10.0, "BTC/USD")
+        print("\nSetting leverage for BTC/USDC:USDC to 10x:")
+        result = gmx.set_leverage(10.0, "BTC/USDC:USDC")
         print(f"  {result['info']['message']}")
 
         # Set default leverage
@@ -121,13 +121,13 @@ def example_fetch_leverage(gmx: GMX):
 
     try:
         # Get leverage for specific symbol
-        print("\nGetting leverage for ETH/USD:")
-        leverage_info = gmx.fetch_leverage("ETH/USD")
-        print(f"  ETH/USD leverage: {leverage_info['leverage']}x")
+        print("\nGetting leverage for ETH/USDC:USDC:")
+        leverage_info = gmx.fetch_leverage("ETH/USDC:USDC")
+        print(f"  ETH/USDC:USDC leverage: {leverage_info['leverage']}x")
 
-        print("\nGetting leverage for BTC/USD:")
-        leverage_info = gmx.fetch_leverage("BTC/USD")
-        print(f"  BTC/USD leverage: {leverage_info['leverage']}x")
+        print("\nGetting leverage for BTC/USDC:USDC:")
+        leverage_info = gmx.fetch_leverage("BTC/USDC:USDC")
+        print(f"  BTC/USDC:USDC leverage: {leverage_info['leverage']}x")
 
         # Get all leverage settings
         print("\nAll leverage settings:")

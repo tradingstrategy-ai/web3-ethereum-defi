@@ -5,14 +5,80 @@ This module provides functionality for interacting with GMX APIs.
 """
 
 import logging
-from typing import Optional, Any
+import time
+from typing import Any, Optional
+
 import pandas as pd
 
 from eth_defi.gmx.config import GMXConfig
-from eth_defi.gmx.constants import GMX_API_URLS, GMX_API_URLS_BACKUP
+from eth_defi.gmx.constants import (
+    GMX_API_URLS,
+    GMX_API_URLS_BACKUP,
+    _APY_CACHE_TTL_SECONDS,
+    _MARKETS_CACHE_TTL_SECONDS,
+    _MARKETS_INFO_CACHE_TTL_SECONDS,
+    _TICKER_CACHE_TTL_SECONDS,
+)
 from eth_defi.gmx.retry import make_gmx_api_request
 
 logger = logging.getLogger(__name__)
+
+# Module-level cache for ticker prices with timestamps
+# Key: chain name, Value: (tickers list, timestamp)
+_TICKER_PRICES_CACHE: dict[str, tuple[list, float]] = {}
+
+# Module-level cache for markets list
+_MARKETS_CACHE: dict[str, tuple[dict, float]] = {}
+
+# Module-level cache for markets info
+_MARKETS_INFO_CACHE: dict[str, tuple[dict, float]] = {}
+
+# Module-level cache for APY data (includes period in key)
+_APY_CACHE: dict[str, tuple[dict, float]] = {}
+
+
+def clear_ticker_prices_cache() -> None:
+    """Clear the ticker prices cache.
+
+    This function clears the module-level cache that stores ticker price data.
+    Useful for testing or when fresh data is explicitly required.
+    """
+    global _TICKER_PRICES_CACHE
+    _TICKER_PRICES_CACHE.clear()
+    logger.debug("Ticker prices cache cleared")
+
+
+def clear_markets_cache() -> None:
+    """Clear the markets cache.
+
+    This function clears the module-level cache that stores markets list data.
+    Useful for testing or when fresh data is explicitly required.
+    """
+    global _MARKETS_CACHE
+    _MARKETS_CACHE.clear()
+    logger.debug("Markets cache cleared")
+
+
+def clear_markets_info_cache() -> None:
+    """Clear the markets info cache.
+
+    This function clears the module-level cache that stores detailed markets info data.
+    Useful for testing or when fresh data is explicitly required.
+    """
+    global _MARKETS_INFO_CACHE
+    _MARKETS_INFO_CACHE.clear()
+    logger.debug("Markets info cache cleared")
+
+
+def clear_apy_cache() -> None:
+    """Clear the APY cache.
+
+    This function clears the module-level cache that stores APY data.
+    Useful for testing or when fresh data is explicitly required.
+    """
+    global _APY_CACHE
+    _APY_CACHE.clear()
+    logger.debug("APY cache cleared")
 
 
 class GMXAPI:
@@ -119,19 +185,42 @@ class GMXAPI:
             retry_delay=retry_delay,
         )
 
-    def get_tickers(self) -> dict[str, Any]:
+    def get_tickers(self, use_cache: bool = True) -> dict[str, Any]:
         """
         Get current price information for all supported tokens.
 
         This endpoint provides real-time pricing data for all tokens supported
-        by the GMX protocol on the configured network.
+        by the GMX protocol on the configured network. Results are cached for
+        10 seconds to reduce API calls.
 
+        :param use_cache:
+            Whether to use cached data if available (default True)
+        :type use_cache: bool
         :return:
             Dictionary containing current price information for all tokens,
             typically including bid/ask prices, last price, and volume data
         :rtype: dict[str, Any]
         """
+        # Check cache if enabled
+        if use_cache and self.chain in _TICKER_PRICES_CACHE:
+            cached_tickers, cached_time = _TICKER_PRICES_CACHE[self.chain]
+            age = time.time() - cached_time
+
+            if age < _TICKER_CACHE_TTL_SECONDS:
+                logger.debug(
+                    "Using cached ticker prices for %s (age: %.1fs)",
+                    self.chain,
+                    age,
+                )
+                return cached_tickers
+
+        # Fetch fresh data
         response = self._make_request("/prices/tickers")
+
+        # Cache the response
+        if use_cache:
+            _TICKER_PRICES_CACHE[self.chain] = (response, time.time())
+            logger.debug("Cached ticker prices for %s", self.chain)
 
         # Log a small summary to help debugging without dumping full payloads
         sample = None
@@ -254,3 +343,194 @@ class GMXAPI:
         df["timestamp"] = pd.to_datetime(df["timestamp"], unit="s")
 
         return df
+
+    def get_markets(self, use_cache: bool = True) -> dict[str, Any]:
+        """Get list of all GMX trading markets.
+
+        Fetches market metadata from /markets endpoint including market tokens,
+        index tokens, collateral tokens, and listing status/dates.
+
+        Uses existing retry logic with automatic backup failover via
+        `make_gmx_api_request` from eth_defi.gmx.retry module.
+
+        :param use_cache:
+            Whether to use module-level cache (10 minute TTL)
+        :return:
+            Dictionary with 'markets' key containing list of market objects
+        :raises RuntimeError: If all API endpoints fail after retries
+        """
+        # Check cache
+        if use_cache:
+            cache_key = f"markets_{self.chain}"
+            if cache_key in _MARKETS_CACHE:
+                cached_data, cached_time = _MARKETS_CACHE[cache_key]
+                age = time.time() - cached_time
+                if age < _MARKETS_CACHE_TTL_SECONDS:
+                    logger.debug(
+                        "Using cached markets data for %s (age: %.1fs)",
+                        self.chain,
+                        age,
+                    )
+                    return cached_data
+
+        # Fetch from API with retry and backup failover
+        endpoint = "/markets"
+        data = make_gmx_api_request(
+            chain=self.chain,
+            endpoint=endpoint,
+            params=None,
+            timeout=10.0,
+            max_retries=2,
+            retry_delay=0.1,
+        )
+
+        # Cache result
+        if use_cache:
+            cache_key = f"markets_{self.chain}"
+            _MARKETS_CACHE[cache_key] = (data, time.time())
+            logger.debug("Cached markets data for %s", self.chain)
+
+        return data
+
+    def get_markets_info(
+        self,
+        market_tokens_data: bool = True,
+        use_cache: bool = True,
+    ) -> dict[str, Any]:
+        """Get comprehensive market information including liquidity and rates.
+
+        Fetches detailed market data from /markets/info endpoint including:
+        - Open interest (long/short)
+        - Available liquidity
+        - Pool amounts
+        - Funding rates (long/short)
+        - Borrowing rates (long/short)
+        - Net rates (long/short)
+        - isListed status (critical for filtering)
+
+        Uses existing retry logic with automatic backup failover via
+        `make_gmx_api_request` from eth_defi.gmx.retry module.
+
+        :param market_tokens_data:
+            Include detailed market token data in response
+        :param use_cache:
+            Whether to use module-level cache (60 second TTL)
+        :return:
+            Dictionary with 'markets' key containing detailed market objects
+        :raises RuntimeError: If all API endpoints fail after retries
+        """
+        # Check cache
+        if use_cache:
+            cache_key = f"markets_info_{self.chain}"
+            if cache_key in _MARKETS_INFO_CACHE:
+                cached_data, cached_time = _MARKETS_INFO_CACHE[cache_key]
+                age = time.time() - cached_time
+                if age < _MARKETS_INFO_CACHE_TTL_SECONDS:
+                    logger.debug(
+                        "Using cached markets info for %s (age: %.1fs)",
+                        self.chain,
+                        age,
+                    )
+                    return cached_data
+
+        # Fetch from API with retry and backup failover
+        endpoint = "/markets/info"
+        params = {}
+        if market_tokens_data:
+            params["marketTokensData"] = "true"
+
+        data = make_gmx_api_request(
+            chain=self.chain,
+            endpoint=endpoint,
+            params=params,
+            timeout=10.0,
+            max_retries=2,
+            retry_delay=0.1,
+        )
+
+        # Cache result
+        if use_cache:
+            cache_key = f"markets_info_{self.chain}"
+            _MARKETS_INFO_CACHE[cache_key] = (data, time.time())
+            logger.debug("Cached markets info for %s", self.chain)
+
+        return data
+
+    def get_apy(
+        self,
+        period: str = "30d",
+        use_cache: bool = True,
+    ) -> dict[str, Any]:
+        """Get APY data for GMX and GLV positions by market.
+
+        Fetches annualised yield data from /apy endpoint for different time periods.
+        Returns APY broken down by market token address including base APY and bonus APR.
+
+        Uses existing retry logic with automatic backup failover via
+        `make_gmx_api_request` from eth_defi.gmx.retry module.
+
+        :param period:
+            Time period for APY calculation. Valid values:
+            '1d', '7d', '30d', '90d', '180d', '1y', 'total'
+            Default: '30d'
+        :param use_cache:
+            Whether to use module-level cache (300 second TTL)
+        :return:
+            Dictionary with 'markets' key mapping market token addresses to APY data:
+            {'markets': {'0x...': {'apy': 0.215, 'baseApy': 0.215, 'bonusApr': 0}}}
+        :raises ValueError: If period is invalid
+        :raises RuntimeError: If all API endpoints fail after retries
+
+        Example:
+
+        .. code-block:: python
+
+            api = GMXAPI(config)
+            apy_data = api.get_apy(period="30d")
+
+            # Get APY for specific market
+            market_token = "0xd62068697bCc92AF253225676D618B0C9f17C663"
+            if market_token in apy_data.get("markets", {}):
+                market_apy = apy_data["markets"][market_token]["apy"]
+                print(f"30-day APY: {market_apy * 100:.2f}%")
+        """
+        # Validate period
+        valid_periods = ["1d", "7d", "30d", "90d", "180d", "1y", "total"]
+        if period not in valid_periods:
+            raise ValueError(f"Invalid period '{period}'. Must be one of {valid_periods}")
+
+        # Check cache (cache key includes period)
+        if use_cache:
+            cache_key = f"apy_{period}_{self.chain}"
+            if cache_key in _APY_CACHE:
+                cached_data, cached_time = _APY_CACHE[cache_key]
+                age = time.time() - cached_time
+                if age < _APY_CACHE_TTL_SECONDS:
+                    logger.debug(
+                        "Using cached APY data for %s period %s (age: %.1fs)",
+                        self.chain,
+                        period,
+                        age,
+                    )
+                    return cached_data
+
+        # Fetch from API with retry and backup failover
+        endpoint = "/apy"
+        params = {"period": period}
+
+        data = make_gmx_api_request(
+            chain=self.chain,
+            endpoint=endpoint,
+            params=params,
+            timeout=10.0,
+            max_retries=2,
+            retry_delay=0.1,
+        )
+
+        # Cache result
+        if use_cache:
+            cache_key = f"apy_{period}_{self.chain}"
+            _APY_CACHE[cache_key] = (data, time.time())
+            logger.debug("Cached APY data for %s period %s", self.chain, period)
+
+        return data

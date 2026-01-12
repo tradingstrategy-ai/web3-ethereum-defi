@@ -23,18 +23,6 @@ Basic usage with environment variables::
     export ARBITRUM_SEPOLIA_RPC_URL="https://arbitrum-sepolia.infura.io/v3/YOUR_KEY"
     python scripts/gmx/gmx_open_position.py
 
-For Arbitrum mainnet::
-
-    export PRIVATE_KEY="0x1234..."
-    export ARBITRUM_RPC_URL="https://arbitrum-mainnet.infura.io/v3/YOUR_KEY"
-    python scripts/gmx/gmx_open_position.py
-
-For Avalanche mainnet::
-
-    export PRIVATE_KEY="0x1234..."
-    export AVALANCHE_RPC_URL="https://avalanche-mainnet.infura.io/v3/YOUR_KEY"
-    python scripts/gmx/gmx_open_position.py
-
 Environment Variables
 ---------------------
 
@@ -42,13 +30,11 @@ The script requires the following environment variables:
 
 - ``PRIVATE_KEY``: Your wallet's private key (required)
 - ``ARBITRUM_SEPOLIA_RPC_URL``: Arbitrum Sepolia testnet RPC endpoint
-- ``ARBITRUM_RPC_URL``: Arbitrum mainnet RPC endpoint
-- ``AVALANCHE_RPC_URL``: Avalanche C-Chain mainnet RPC endpoint
 
 Example
 -------
 
-Open a $10 USD long position on CRV market with 1x leverage on Arbitrum Sepolia::
+Open a $10 USD long position on ETH market with 1x leverage on Arbitrum Sepolia::
 
     export PRIVATE_KEY="0x1234..."
     export ARBITRUM_SEPOLIA_RPC_URL="https://arbitrum-sepolia.infura.io/v3/YOUR_KEY"
@@ -90,8 +76,16 @@ console = Console()
 
 
 def main():
-    rpc_url = "https://virtual.arbitrum-sepolia.eu.rpc.tenderly.co/91907bb6-9171-4c80-8af3-debba71b2aae"  # os.environ.get("ARBITRUM_SEPOLIA_RPC_URL")
+    rpc_url = os.environ.get("ARBITRUM_SEPOLIA_RPC_URL")
     private_key = os.environ.get("PRIVATE_KEY")
+
+    if not rpc_url:
+        console.print("[red]Error: ARBITRUM_SEPOLIA_RPC_URL environment variable not set[/red]")
+        sys.exit(1)
+
+    if not private_key:
+        console.print("[red]Error: PRIVATE_KEY environment variable not set[/red]")
+        sys.exit(1)
 
     console.print("Starting GMX Position Opening Test...")
 
@@ -134,9 +128,9 @@ def main():
     trading_client = GMXTrading(config)
 
     # Market symbol where we want to trade
-    user_market_symbol = "CRV"
+    user_market_symbol = "ETH"
 
-    user_collateral_symbol = "USDC.SG"  # Using USDC.SG as collateral
+    user_collateral_symbol = "USDC.SG"  # Using USDC.SG as collateral on Sepolia testnet
     # WETH is not supported by GMX yet. If start & collateral symbols are different then it'll be swapped to collateral token
     user_start_token_symbol = "USDC.SG"
 
@@ -163,7 +157,7 @@ def main():
         console.print(f"\nOpening position: {size_usd} USD of {user_market_symbol} (mapped to {market_symbol}) with {leverage}x leverage")
 
         # Create the order FIRST - it will parse arguments and check approval
-        console.print(f"\nCreating position order...")
+        console.print("\nCreating position order...")
         order = trading_client.open_position(
             market_symbol=market_symbol,
             collateral_symbol=collateral_symbol,
@@ -171,11 +165,11 @@ def main():
             is_long=True,  # Set to True for long position
             size_delta_usd=size_usd,
             leverage=leverage,
-            slippage_percent=0.005,  # 0.5% slippage
-            execution_buffer=30,  # less than this is reverting
+            slippage_percent=0.1,  # 1% slippage
+            execution_buffer=10,  # less than this is reverting
         )
 
-        console.print(f"\n[green]Position Order object created successfully![/green]")
+        console.print("\n[green]Position Order object created successfully![/green]")
 
         # Now handle token approval using the warning message info
         # We get the collateral amount from the order's initial_collateral_delta_amount parameter
@@ -258,7 +252,7 @@ def main():
             signed_tx = wallet.sign_transaction_with_new_nonce(transaction)
             tx_hash = web3.eth.send_raw_transaction(signed_tx.raw_transaction)
 
-            console.print(f"Position transaction signed and sent!")
+            console.print("Position transaction signed and sent!")
             console.print(f"Transaction hash: [yellow]{tx_hash.hex()}[/yellow]")
 
             assert_transaction_success_with_explanation(web3, tx_hash)
