@@ -5,6 +5,7 @@ This test suite makes real API calls to GMX oracle and ticker endpoints
 to verify price sanity check functionality.
 """
 
+from flaky import flaky
 import pytest
 
 from eth_defi.gmx.api import GMXAPI, clear_ticker_prices_cache
@@ -242,6 +243,7 @@ def test_price_sanity_action_use_oracle_warn(gmx_config):
     assert result.action_taken == PriceSanityAction.use_oracle_warn
 
 
+@flaky(max_runs=3, min_passes=1)
 def test_price_sanity_action_raise_exception(gmx_config):
     """Test raise_exception action with artificially high threshold.
 
