@@ -515,6 +515,17 @@ def create_probe_calls(
             extra_data=None,
         )
 
+        # Singularity Finance DynaVaults
+        # routerRegistry() returns the address of the router registry contract
+        # https://basescan.org/address/0xdf71487381Ab5bD5a6B17eAa61FE2E6045A0e805
+        singularity_call = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="routerRegistry()")[0:4],
+            function="routerRegistry",
+            data=b"",
+            extra_data=None,
+        )
+
         yield bad_probe_call
         yield name_call
         yield share_price_call
@@ -560,6 +571,7 @@ def create_probe_calls(
         yield royco_call
         yield gearbox_contract_type_call
         yield curvance_call
+        yield singularity_call
 
 
 def identify_vault_features(
@@ -760,6 +772,12 @@ def identify_vault_features(
     # https://github.com/curvance/curvance-contracts
     if calls["marketManager"].success:
         features.add(ERC4626Feature.curvance_like)
+
+    # Singularity Finance DynaVaults
+    # routerRegistry() returns the address of the router registry contract
+    # https://basescan.org/address/0xdf71487381Ab5bD5a6B17eAa61FE2E6045A0e805
+    if calls["routerRegistry"].success:
+        features.add(ERC4626Feature.singularity_like)
 
     # # TODO: No way separate from Goat Protocol, see test_superform
     # if calls["PROFIT_UNLOCK_TIME"].success:
@@ -1185,6 +1203,11 @@ def create_vault_instance(
         from eth_defi.erc_4626.vault_protocol.curvance.vault import CurvanceVault
 
         return CurvanceVault(web3, spec, token_cache=token_cache, features=features)
+
+    elif ERC4626Feature.singularity_like in features:
+        from eth_defi.erc_4626.vault_protocol.singularity.vault import SingularityVault
+
+        return SingularityVault(web3, spec, token_cache=token_cache, features=features)
 
     else:
         # Generic ERC-4626 without fee data

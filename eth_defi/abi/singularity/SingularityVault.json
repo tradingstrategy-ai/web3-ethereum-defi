@@ -1,0 +1,2953 @@
+[
+  {
+    "inputs": [],
+    "name": "AlreadyInitializedRBAC",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "ArrayMismatch",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "spender",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "allowance",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "needed",
+        "type": "uint256"
+      }
+    ],
+    "name": "ERC20InsufficientAllowance",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "sender",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "balance",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "needed",
+        "type": "uint256"
+      }
+    ],
+    "name": "ERC20InsufficientBalance",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "approver",
+        "type": "address"
+      }
+    ],
+    "name": "ERC20InvalidApprover",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "receiver",
+        "type": "address"
+      }
+    ],
+    "name": "ERC20InvalidReceiver",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "sender",
+        "type": "address"
+      }
+    ],
+    "name": "ERC20InvalidSender",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "spender",
+        "type": "address"
+      }
+    ],
+    "name": "ERC20InvalidSpender",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "ERC5143_SlippageProtection",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "MaxDeposit",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "MaxRedeem",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "MaxWithdraw",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "MinDeposit",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "MinRedeem",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "MinWithdraw",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "NotAuthorized",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "Reentrancy",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "ZeroAddress",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "ZeroShares",
+    "type": "error"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "owner",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "spender",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "value",
+        "type": "uint256"
+      }
+    ],
+    "name": "Approval",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "newInstance",
+        "type": "address"
+      }
+    ],
+    "name": "Cloned",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "role",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "previousAdminRole",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "newAdminRole",
+        "type": "bytes32"
+      }
+    ],
+    "name": "RoleAdminChanged",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "role",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "sender",
+        "type": "address"
+      }
+    ],
+    "name": "RoleGranted",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "role",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "sender",
+        "type": "address"
+      }
+    ],
+    "name": "RoleRevoked",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "from",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "value",
+        "type": "uint256"
+      }
+    ],
+    "name": "Transfer",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "caller",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "bool",
+        "name": "newState",
+        "type": "bool"
+      }
+    ],
+    "name": "UpdatedPermissionDisabled",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "strategy",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "strategyTotalDebt",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "loss",
+        "type": "uint256"
+      }
+    ],
+    "name": "WithdrawFromStrategy",
+    "type": "event"
+  },
+  {
+    "inputs": [],
+    "name": "DEFAULT_ADMIN_ROLE",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "owner",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "spender",
+        "type": "address"
+      }
+    ],
+    "name": "allowance",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "spender",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "value",
+        "type": "uint256"
+      }
+    ],
+    "name": "approve",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "tokenAddress",
+        "type": "address"
+      }
+    ],
+    "name": "approveAddedToken",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "asset",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "assetsPerShare",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      }
+    ],
+    "name": "balanceOf",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "feeAmount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "feeToken",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "givenTotalSupply",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "givenFreeFunds",
+        "type": "uint256"
+      }
+    ],
+    "name": "calcSharesForFeeAmountUsingGivenTotalSupplyAndFreeFunds",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "feeShares",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "feeAmount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "feeToken",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "deltaTotalAssets",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "givenTotalSupply",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "givenTotalAssets",
+        "type": "uint256"
+      }
+    ],
+    "name": "calcSharesForFeeAmountUsingGivenTotalSupplyAndTotalAssets",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "feeShares",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "defaultAdmin",
+        "type": "address"
+      }
+    ],
+    "name": "clone",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "newInstance",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "shares",
+        "type": "uint256"
+      }
+    ],
+    "name": "convertToAssets",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "assets",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "assets",
+        "type": "uint256"
+      }
+    ],
+    "name": "convertToShares",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "shares",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "decimals",
+    "outputs": [
+      {
+        "internalType": "uint8",
+        "name": "",
+        "type": "uint8"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "assetsIncludingFees",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "receiver",
+        "type": "address"
+      }
+    ],
+    "name": "deposit",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "sharesNotIncludingFees",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "assets",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "receiver",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "minShares",
+        "type": "uint256"
+      }
+    ],
+    "name": "depositCheckSlippage",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "tokenIn",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amountIn",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "tokenOut",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "minAmountOut",
+        "type": "uint256"
+      }
+    ],
+    "name": "doSwap",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "amountOut",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "feeTransfer",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getClone",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "role",
+        "type": "bytes32"
+      }
+    ],
+    "name": "getRoleAdmin",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "role",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      }
+    ],
+    "name": "grantRole",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "role",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      }
+    ],
+    "name": "hasRole",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "nameOverride",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "symbolOverride",
+        "type": "string"
+      },
+      {
+        "internalType": "address",
+        "name": "managerAddress",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "referenceAssetOracleAddress",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "dynaRouterRegistryAddress",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "ownerAddress",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "vaultSimulatorAddress",
+        "type": "address"
+      }
+    ],
+    "name": "initialize",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "feeAmount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "feeToken",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "deltaTotalAssets",
+        "type": "uint256"
+      }
+    ],
+    "name": "issueSharesForFeeAmount",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "manager",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "name": "maxDeposit",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "maxDepositLimit",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "maxLoss",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "name": "maxMint",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "owner",
+        "type": "address"
+      }
+    ],
+    "name": "maxRedeem",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "maxTotalAssets",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "owner",
+        "type": "address"
+      }
+    ],
+    "name": "maxWithdraw",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "minDepositLimit",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "sharesNotIncludingFees",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "receiver",
+        "type": "address"
+      }
+    ],
+    "name": "mint",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "assetsIncludingFees",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "shares",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "receiver",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "maxAssets",
+        "type": "uint256"
+      }
+    ],
+    "name": "mintCheckSlippage",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "name",
+    "outputs": [
+      {
+        "internalType": "string",
+        "name": "",
+        "type": "string"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "permissionDisabled",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "assets",
+        "type": "uint256"
+      }
+    ],
+    "name": "previewDeposit",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "shares",
+        "type": "uint256"
+      }
+    ],
+    "name": "previewMint",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "shares",
+        "type": "uint256"
+      }
+    ],
+    "name": "previewRedeem",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "sharesIncludingFees",
+        "type": "uint256"
+      },
+      {
+        "components": [
+          {
+            "internalType": "address",
+            "name": "vault",
+            "type": "address"
+          },
+          {
+            "internalType": "address",
+            "name": "manager",
+            "type": "address"
+          },
+          {
+            "components": [
+              {
+                "internalType": "address",
+                "name": "tokenAddress",
+                "type": "address"
+              },
+              {
+                "internalType": "uint256",
+                "name": "balance",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "tokenIdle",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "tokenDebt",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "totalProfit",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "totalLoss",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "depositDebt",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "depositDebtRatio",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "lastReport",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "lastReportedValue",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "watermark",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "lastWatermark",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "watermarkDuration",
+                "type": "uint256"
+              },
+              {
+                "components": [
+                  {
+                    "internalType": "uint256",
+                    "name": "debtRatio",
+                    "type": "uint256"
+                  },
+                  {
+                    "internalType": "uint256",
+                    "name": "totalDebt",
+                    "type": "uint256"
+                  }
+                ],
+                "internalType": "struct IVaultSimulatorAPI.VaultStrategySnapshot[]",
+                "name": "strategies",
+                "type": "tuple[]"
+              }
+            ],
+            "internalType": "struct IVaultSimulatorAPI.VaultTokenSnapshot[]",
+            "name": "tokens",
+            "type": "tuple[]"
+          },
+          {
+            "internalType": "uint256",
+            "name": "reserveDebt",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "totalDepositDebt",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "totalFeeShares",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "totalFees",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "totalAssets",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "totalSupply",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "totalProfit",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "lockedProfit",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "lastLockedProfitRatio",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "lastLockedProfitDegradation",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "lockedProfitDegradationRate",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "extraLockedProfitDegradationRate",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "timestamp",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct IVaultSimulatorAPI.VaultSnapshot",
+        "name": "_snapshot",
+        "type": "tuple"
+      }
+    ],
+    "name": "previewRedeemProportional",
+    "outputs": [
+      {
+        "internalType": "uint256[]",
+        "name": "",
+        "type": "uint256[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "tokenIn",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amountIn",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "tokenOut",
+        "type": "address"
+      }
+    ],
+    "name": "previewSwap",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "amountOut",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "selectedRouter",
+        "type": "address"
+      },
+      {
+        "internalType": "bytes32[]",
+        "name": "swapData",
+        "type": "bytes32[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "assets",
+        "type": "uint256"
+      }
+    ],
+    "name": "previewWithdraw",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "pricePerShare",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "sharesIncludingFees",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "receiver",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "owner",
+        "type": "address"
+      }
+    ],
+    "name": "redeem",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "assetsNotIncludingFees",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "shares",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "receiver",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "owner",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "minAssets",
+        "type": "uint256"
+      }
+    ],
+    "name": "redeemCheckSlippage",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "sharesIncludingFees",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "receiver",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "owner",
+        "type": "address"
+      }
+    ],
+    "name": "redeemProportional",
+    "outputs": [
+      {
+        "internalType": "uint256[]",
+        "name": "",
+        "type": "uint256[]"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "shares",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "receiver",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "owner",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256[]",
+        "name": "minAssets",
+        "type": "uint256[]"
+      }
+    ],
+    "name": "redeemProportionalCheckSlippage",
+    "outputs": [
+      {
+        "internalType": "uint256[]",
+        "name": "",
+        "type": "uint256[]"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "referenceAsset",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "referenceAssetOracle",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "role",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      }
+    ],
+    "name": "renounceRole",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "tokenAddress",
+        "type": "address"
+      }
+    ],
+    "name": "resetRemovedTokenAllowance",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "role",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      }
+    ],
+    "name": "revokeRole",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "routerRegistry",
+    "outputs": [
+      {
+        "internalType": "contract IDynaRouterRegistryAPI",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "initialAdmin",
+        "type": "address"
+      }
+    ],
+    "name": "setDefaultAdmin",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "newMinDepositAssets",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "newMaxTotalAssets",
+        "type": "uint256"
+      }
+    ],
+    "name": "setDepositLimits",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_maxLoss",
+        "type": "uint256"
+      }
+    ],
+    "name": "setMaxLoss",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bool",
+        "name": "newState",
+        "type": "bool"
+      }
+    ],
+    "name": "setPermissionDisabled",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "referenceAssetOracleAddress",
+        "type": "address"
+      }
+    ],
+    "name": "setReferenceAssetOracle",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "routerRegistryAddress",
+        "type": "address"
+      }
+    ],
+    "name": "setRouterRegistry",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "user",
+        "type": "address"
+      }
+    ],
+    "name": "sharesOf",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "assets",
+        "type": "uint256"
+      },
+      {
+        "components": [
+          {
+            "internalType": "address",
+            "name": "vault",
+            "type": "address"
+          },
+          {
+            "internalType": "address",
+            "name": "manager",
+            "type": "address"
+          },
+          {
+            "components": [
+              {
+                "internalType": "address",
+                "name": "tokenAddress",
+                "type": "address"
+              },
+              {
+                "internalType": "uint256",
+                "name": "balance",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "tokenIdle",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "tokenDebt",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "totalProfit",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "totalLoss",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "depositDebt",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "depositDebtRatio",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "lastReport",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "lastReportedValue",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "watermark",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "lastWatermark",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "watermarkDuration",
+                "type": "uint256"
+              },
+              {
+                "components": [
+                  {
+                    "internalType": "uint256",
+                    "name": "debtRatio",
+                    "type": "uint256"
+                  },
+                  {
+                    "internalType": "uint256",
+                    "name": "totalDebt",
+                    "type": "uint256"
+                  }
+                ],
+                "internalType": "struct IVaultSimulatorAPI.VaultStrategySnapshot[]",
+                "name": "strategies",
+                "type": "tuple[]"
+              }
+            ],
+            "internalType": "struct IVaultSimulatorAPI.VaultTokenSnapshot[]",
+            "name": "tokens",
+            "type": "tuple[]"
+          },
+          {
+            "internalType": "uint256",
+            "name": "reserveDebt",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "totalDepositDebt",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "totalFeeShares",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "totalFees",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "totalAssets",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "totalSupply",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "totalProfit",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "lockedProfit",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "lastLockedProfitRatio",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "lastLockedProfitDegradation",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "lockedProfitDegradationRate",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "extraLockedProfitDegradationRate",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "timestamp",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct IVaultSimulatorAPI.VaultSnapshot",
+        "name": "snapshot",
+        "type": "tuple"
+      }
+    ],
+    "name": "simulatedDeposit",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "feeAmount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "feeToken",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "deltaTotalAssets",
+        "type": "uint256"
+      },
+      {
+        "components": [
+          {
+            "internalType": "address",
+            "name": "vault",
+            "type": "address"
+          },
+          {
+            "internalType": "address",
+            "name": "manager",
+            "type": "address"
+          },
+          {
+            "components": [
+              {
+                "internalType": "address",
+                "name": "tokenAddress",
+                "type": "address"
+              },
+              {
+                "internalType": "uint256",
+                "name": "balance",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "tokenIdle",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "tokenDebt",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "totalProfit",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "totalLoss",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "depositDebt",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "depositDebtRatio",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "lastReport",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "lastReportedValue",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "watermark",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "lastWatermark",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "watermarkDuration",
+                "type": "uint256"
+              },
+              {
+                "components": [
+                  {
+                    "internalType": "uint256",
+                    "name": "debtRatio",
+                    "type": "uint256"
+                  },
+                  {
+                    "internalType": "uint256",
+                    "name": "totalDebt",
+                    "type": "uint256"
+                  }
+                ],
+                "internalType": "struct IVaultSimulatorAPI.VaultStrategySnapshot[]",
+                "name": "strategies",
+                "type": "tuple[]"
+              }
+            ],
+            "internalType": "struct IVaultSimulatorAPI.VaultTokenSnapshot[]",
+            "name": "tokens",
+            "type": "tuple[]"
+          },
+          {
+            "internalType": "uint256",
+            "name": "reserveDebt",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "totalDepositDebt",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "totalFeeShares",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "totalFees",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "totalAssets",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "totalSupply",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "totalProfit",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "lockedProfit",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "lastLockedProfitRatio",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "lastLockedProfitDegradation",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "lockedProfitDegradationRate",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "extraLockedProfitDegradationRate",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "timestamp",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct IVaultSimulatorAPI.VaultSnapshot",
+        "name": "snapshot",
+        "type": "tuple"
+      }
+    ],
+    "name": "simulatedIssueSharesForFeeAmount",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "address",
+            "name": "vault",
+            "type": "address"
+          },
+          {
+            "internalType": "address",
+            "name": "manager",
+            "type": "address"
+          },
+          {
+            "components": [
+              {
+                "internalType": "address",
+                "name": "tokenAddress",
+                "type": "address"
+              },
+              {
+                "internalType": "uint256",
+                "name": "balance",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "tokenIdle",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "tokenDebt",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "totalProfit",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "totalLoss",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "depositDebt",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "depositDebtRatio",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "lastReport",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "lastReportedValue",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "watermark",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "lastWatermark",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "watermarkDuration",
+                "type": "uint256"
+              },
+              {
+                "components": [
+                  {
+                    "internalType": "uint256",
+                    "name": "debtRatio",
+                    "type": "uint256"
+                  },
+                  {
+                    "internalType": "uint256",
+                    "name": "totalDebt",
+                    "type": "uint256"
+                  }
+                ],
+                "internalType": "struct IVaultSimulatorAPI.VaultStrategySnapshot[]",
+                "name": "strategies",
+                "type": "tuple[]"
+              }
+            ],
+            "internalType": "struct IVaultSimulatorAPI.VaultTokenSnapshot[]",
+            "name": "tokens",
+            "type": "tuple[]"
+          },
+          {
+            "internalType": "uint256",
+            "name": "reserveDebt",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "totalDepositDebt",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "totalFeeShares",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "totalFees",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "totalAssets",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "totalSupply",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "totalProfit",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "lockedProfit",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "lastLockedProfitRatio",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "lastLockedProfitDegradation",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "lockedProfitDegradationRate",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "extraLockedProfitDegradationRate",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "timestamp",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct IVaultSimulatorAPI.VaultSnapshot",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "owner",
+        "type": "address"
+      },
+      {
+        "components": [
+          {
+            "internalType": "address",
+            "name": "vault",
+            "type": "address"
+          },
+          {
+            "internalType": "address",
+            "name": "manager",
+            "type": "address"
+          },
+          {
+            "components": [
+              {
+                "internalType": "address",
+                "name": "tokenAddress",
+                "type": "address"
+              },
+              {
+                "internalType": "uint256",
+                "name": "balance",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "tokenIdle",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "tokenDebt",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "totalProfit",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "totalLoss",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "depositDebt",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "depositDebtRatio",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "lastReport",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "lastReportedValue",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "watermark",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "lastWatermark",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "watermarkDuration",
+                "type": "uint256"
+              },
+              {
+                "components": [
+                  {
+                    "internalType": "uint256",
+                    "name": "debtRatio",
+                    "type": "uint256"
+                  },
+                  {
+                    "internalType": "uint256",
+                    "name": "totalDebt",
+                    "type": "uint256"
+                  }
+                ],
+                "internalType": "struct IVaultSimulatorAPI.VaultStrategySnapshot[]",
+                "name": "strategies",
+                "type": "tuple[]"
+              }
+            ],
+            "internalType": "struct IVaultSimulatorAPI.VaultTokenSnapshot[]",
+            "name": "tokens",
+            "type": "tuple[]"
+          },
+          {
+            "internalType": "uint256",
+            "name": "reserveDebt",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "totalDepositDebt",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "totalFeeShares",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "totalFees",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "totalAssets",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "totalSupply",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "totalProfit",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "lockedProfit",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "lastLockedProfitRatio",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "lastLockedProfitDegradation",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "lockedProfitDegradationRate",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "extraLockedProfitDegradationRate",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "timestamp",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct IVaultSimulatorAPI.VaultSnapshot",
+        "name": "snapshot",
+        "type": "tuple"
+      }
+    ],
+    "name": "simulatedMaxWithdraw",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "simulator",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes4",
+        "name": "interfaceId",
+        "type": "bytes4"
+      }
+    ],
+    "name": "supportsInterface",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "tokenIn",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amountIn",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "tokenOut",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "minAmountOut",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "selectedRouter",
+        "type": "address"
+      },
+      {
+        "internalType": "bytes32[]",
+        "name": "swapData",
+        "type": "bytes32[]"
+      }
+    ],
+    "name": "swap",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "tokenIn",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amountIn",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "tokenOut",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "minAmountOut",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "selectedRouter",
+        "type": "address"
+      },
+      {
+        "internalType": "bytes32[]",
+        "name": "swapData",
+        "type": "bytes32[]"
+      }
+    ],
+    "name": "swapAndReport",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "symbol",
+    "outputs": [
+      {
+        "internalType": "string",
+        "name": "",
+        "type": "string"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "takeSnapshot",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "address",
+            "name": "vault",
+            "type": "address"
+          },
+          {
+            "internalType": "address",
+            "name": "manager",
+            "type": "address"
+          },
+          {
+            "components": [
+              {
+                "internalType": "address",
+                "name": "tokenAddress",
+                "type": "address"
+              },
+              {
+                "internalType": "uint256",
+                "name": "balance",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "tokenIdle",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "tokenDebt",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "totalProfit",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "totalLoss",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "depositDebt",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "depositDebtRatio",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "lastReport",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "lastReportedValue",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "watermark",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "lastWatermark",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "watermarkDuration",
+                "type": "uint256"
+              },
+              {
+                "components": [
+                  {
+                    "internalType": "uint256",
+                    "name": "debtRatio",
+                    "type": "uint256"
+                  },
+                  {
+                    "internalType": "uint256",
+                    "name": "totalDebt",
+                    "type": "uint256"
+                  }
+                ],
+                "internalType": "struct IVaultSimulatorAPI.VaultStrategySnapshot[]",
+                "name": "strategies",
+                "type": "tuple[]"
+              }
+            ],
+            "internalType": "struct IVaultSimulatorAPI.VaultTokenSnapshot[]",
+            "name": "tokens",
+            "type": "tuple[]"
+          },
+          {
+            "internalType": "uint256",
+            "name": "reserveDebt",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "totalDepositDebt",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "totalFeeShares",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "totalFees",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "totalAssets",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "totalSupply",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "totalProfit",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "lockedProfit",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "lastLockedProfitRatio",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "lastLockedProfitDegradation",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "lockedProfitDegradationRate",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "extraLockedProfitDegradationRate",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "timestamp",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct IVaultSimulatorAPI.VaultSnapshot",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "base",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "quote",
+        "type": "address"
+      }
+    ],
+    "name": "tokenValueInQuoteAsset",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "value",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "totalAssets",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "total",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "totalSupply",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "value",
+        "type": "uint256"
+      }
+    ],
+    "name": "transfer",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "from",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "value",
+        "type": "uint256"
+      }
+    ],
+    "name": "transferFrom",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "assetsNotIncludingFees",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "receiver",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "owner",
+        "type": "address"
+      }
+    ],
+    "name": "withdraw",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "sharesIncludingFees",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "assets",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "receiver",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "owner",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "maxShares",
+        "type": "uint256"
+      }
+    ],
+    "name": "withdrawCheckSlippage",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "tokenAddress",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "valueToWithdraw",
+        "type": "uint256"
+      }
+    ],
+    "name": "withdrawTokenDebtFromStrategies",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "totalLoss",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "totalWithdrawn",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+]

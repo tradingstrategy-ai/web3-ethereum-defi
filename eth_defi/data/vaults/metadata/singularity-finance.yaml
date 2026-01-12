@@ -1,0 +1,26 @@
+name: Singularity Finance
+slug: singularity-finance
+short_description: |
+  DeFi yield vaults using DynaVaults framework on the Artificial Superintelligence Alliance ecosystem.
+long_description: |
+  Singularity Finance (SFI) is the on-chain infrastructure powering the AI economy.
+
+  The DynaVaults framework implements the ERC4626 vault standard with EIP-5143 slippage
+  protection to prevent value extraction during vault operations. The vaults use AI-driven
+  strategies to optimise yield across DeFi protocols.
+
+fee_description: |
+  Fees are internalised in the share price. No explicit fee getters are exposed on-chain.
+links:
+  homepage: https://singularityfinance.ai/
+  app:
+  twitter: https://x.com/singularity_fi
+  github:
+  documentation: https://docs.singularityfinance.ai/
+  defillama: https://defillama.com/protocol/singularity-finance
+  audits:
+  fees:
+  trading_strategy:
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/singularity/index.html
+example_smart_contracts:
+  - https://basescan.org/address/0xdf71487381Ab5bD5a6B17eAa61FE2E6045A0e805

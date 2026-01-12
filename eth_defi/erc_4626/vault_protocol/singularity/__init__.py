@@ -1,0 +1,1 @@
+"""Singularity Finance protocol integration."""
