@@ -90,8 +90,8 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     # Curvance uses interest-based fees (up to 60% of borrower interest) which are internalised
     # Depositors don't pay explicit fees - the protocol earns from borrower interest spread
     "Curvance": VaultFeeMode.internalised_skimming,
-    # Singularity Finance fees are internalised in the share price
-    "Singularity Finance": None,
+    # Singularity Finance fees are internalised in the share price via minting shares
+    "Singularity Finance": VaultFeeMode.internalised_minting,
 }
 
 
