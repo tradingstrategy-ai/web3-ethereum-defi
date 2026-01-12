@@ -16,6 +16,8 @@ from eth_defi.erc_4626.vault_protocol.mainstreet.vault import MainstreetVault
 JSON_RPC_SONIC = os.environ.get("JSON_RPC_SONIC")
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
 
+pytestmark = pytest.mark.skipif(not JSON_RPC_ETHEREUM or not JSON_RPC_SONIC, reason="JSON_RPC_SONIC and JSON_RPC_ETHEREUM needed to run these tests")
+
 
 @pytest.fixture(scope="module")
 def anvil_sonic_fork(request) -> AnvilLaunch:
