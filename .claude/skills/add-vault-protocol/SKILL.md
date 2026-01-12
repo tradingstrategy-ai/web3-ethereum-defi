@@ -68,9 +68,6 @@ class {ProtocolName}Vault(ERC4626Vault):
     - If fee information is documented or available as Github source code, link into it
     """
 
-    def has_custom_fees(self) -> bool:
-        return False  # Adjust based on protocol
-
     def get_management_fee(self, block_identifier: BlockIdentifier) -> float:
         return None
 

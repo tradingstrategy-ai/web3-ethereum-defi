@@ -19,6 +19,10 @@ long_description: |
   - Yield from institutional-grade options arbitrage strategies
   - Cross-chain functionality via LayerZero OFT standard
   - Governance-configurable cooldown period for withdrawals (up to 90 days, default 7 days)
+
+  The yield of staked msUSD vault comes from the [the options box spread strategy](https://mainstreet-finance.gitbook.io/mainstreet.finance/msusd-and-strategy-vaults/strategy-vaults/msy-the-options-box-spread).
+  The yield in box spreads is  driven by retail investor behavior in the options market.
+
 fee_description: |
   20% protocol fee on gross yields:
   - 10% to insurance fund
