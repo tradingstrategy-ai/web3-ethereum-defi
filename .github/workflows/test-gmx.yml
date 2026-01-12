@@ -200,7 +200,7 @@ jobs:
           # 
           # Enable verbose output if debugging is enabled
           if [ "$ENABLE_VERBOSE_LOGGING" = "true" ]; then
-            poetry run pytest tests/gmx/ --timeout-method=thread --tb=native -n auto -vvvv -s --capture=no
+            poetry run pytest tests/gmx/ --timeout-method=thread --tb=native -n auto -v -s --capture=no
           else
             # Run in parallel with verbose output to see which tests fail
             # Using -n auto for parallel execution, -v for verbose, --tb=short for cleaner output
