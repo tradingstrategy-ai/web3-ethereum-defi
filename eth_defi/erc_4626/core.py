@@ -52,8 +52,18 @@ class ERC4626Feature(enum.Enum):
     #: Moonwell protocol
     moonwell_like = "moonwell_like"
 
-    #: Morpho protocol
+    #: Morpho protocol (V1)
+    #:
+    #: Uses MORPHO() function for identification
     morpho_like = "morpho_like"
+
+    #: Morpho Vault V2
+    #:
+    #: Newer version with adapter-based architecture for multi-protocol yield allocation.
+    #: Uses adaptersLength() function for identification.
+    #: https://docs.morpho.org/learn/concepts/vault-v2/
+    #: https://github.com/morpho-org/vault-v2
+    morpho_v2_like = "morpho_v2_like"
 
     #: Harvest Finance like protocol
     harvest_finance = "harvest_finance"
@@ -435,6 +445,8 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     """
     if ERC4626Feature.broken in features:
         return "<not ERC-4626>"
+    elif ERC4626Feature.morpho_v2_like in features:
+        return "Morpho"
     elif ERC4626Feature.morpho_like in features:
         return "Morpho"
     elif ERC4626Feature.fluid_like in features:

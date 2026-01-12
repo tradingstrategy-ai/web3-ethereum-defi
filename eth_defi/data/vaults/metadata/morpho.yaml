@@ -1,0 +1,51 @@
+name: Morpho
+slug: morpho
+short_description: |
+  Decentralised lending protocol with optimised interest rates and flexible vault architectures.
+long_description: |
+  Morpho is a decentralised lending protocol that enables peer-to-peer lending with optimised
+  interest rates. The protocol matches lenders and borrowers directly when possible, allowing
+  both parties to benefit from improved rates compared to traditional lending pools.
+
+  Morpho offers two major vault versions:
+
+  - **Morpho V1 (MetaMorpho)**: The original Morpho vault architecture that directly integrates
+    with Morpho markets. These vaults are identified by the `MORPHO()` function.
+
+  - **Morpho V2**: A newer adapter-based architecture that enables flexible allocation across
+    multiple yield sources through smart contract adapters. V2 vaults support:
+
+    - Multi-protocol yield allocation via adapters
+    - Granular ID & Cap system for risk management
+    - Performance fees (up to 50%) and management fees (up to 5%)
+    - Timelocked governance with curator/allocator roles
+    - Non-custodial exits via `forceDeallocate`
+
+  Key features:
+
+  - Permissionless market creation with customisable risk parameters
+  - Multiple curated vault strategies from leading risk managers
+  - Institutional-grade security with multiple audits
+  - Deployed across Ethereum, Base, Arbitrum, and other chains
+fee_description: |
+  Morpho vaults have two fee types:
+
+  - **Performance fee**: Up to 50% on generated yield, taken when interest accrues
+  - **Management fee**: Up to 5% per year on total assets under management
+
+  Fees are internalised into the share price through share minting to fee recipients.
+  Individual vaults may have different fee configurations set by their curators.
+links:
+  homepage: https://morpho.org/
+  app: https://app.morpho.org/
+  twitter: https://x.com/MorphoLabs
+  github: https://github.com/morpho-org
+  documentation: https://docs.morpho.org/
+  defillama: https://defillama.com/protocol/morpho
+  audits: https://docs.morpho.org/security/audits/
+  fees: https://docs.morpho.org/curate/tutorials-v2/vault-creation/#fees
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/morpho
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/morpho/index.html
+example_smart_contracts:
+  - https://arbiscan.io/address/0xbeefff13dd098de415e07f033dae65205b31a894
+  - https://basescan.org/address/0x6b13c060F13Af1fdB319F52315BbbF3fb1D88844

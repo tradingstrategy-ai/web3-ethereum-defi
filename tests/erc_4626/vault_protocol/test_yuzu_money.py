@@ -2,6 +2,7 @@
 
 import os
 
+import flaky
 import pytest
 from web3 import Web3
 
@@ -35,6 +36,8 @@ def web3(anvil_plasma_fork):
     return web3
 
 
+# Anvil is broken
+@flaky.flaky
 def test_yuzu_money(web3: Web3):
     """Read Yuzu Money vault metadata."""
 
