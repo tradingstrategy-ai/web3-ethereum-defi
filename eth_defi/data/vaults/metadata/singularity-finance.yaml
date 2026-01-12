@@ -18,7 +18,7 @@ links:
   github:
   documentation: https://docs.singularityfinance.ai/
   defillama: https://defillama.com/protocol/singularity-finance
-  audits:
+  audits: https://paladinsec.co/projects/singularitydao/
   fees:
   trading_strategy:
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/singularity/index.html
