@@ -1603,7 +1603,7 @@ class GMX(ExchangeCompatible):
             "average": None,
             "baseVolume": None,  # GMX doesn't track volume
             "quoteVolume": None,
-            "info": ticker,
+            "info": ticker.copy(),  # Copy to avoid mutating cached ticker
         }
 
     def fetch_open_interest(
