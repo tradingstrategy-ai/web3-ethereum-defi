@@ -1222,13 +1222,26 @@ class GMX(Exchange):
 
             order_key = bytes.fromhex(order_key_hex)
 
+            # Calculate search_blocks based on order age
+            # Arbitrum: ~4 blocks/second, add 20% buffer
+            order_timestamp = order.get("timestamp")
+            if order_timestamp:
+                order_age_ms = self.milliseconds() - order_timestamp
+                order_age_seconds = order_age_ms / 1000
+                # 4 blocks/sec * 1.2 buffer = 4.8 blocks/sec
+                estimated_blocks = int(order_age_seconds * 4.8)
+                # Minimum 1000 blocks, maximum 1,000,000 blocks (~3 days)
+                search_blocks = min(max(estimated_blocks, 1000), 1_000_000)
+            else:
+                search_blocks = 100_000  # Default to ~7 hours if no timestamp
+
             # Check if order still pending in DataStore (using sync call via asyncio)
             from eth_defi.gmx.order_tracking import check_order_status
             import asyncio
 
             try:
                 # Run sync function in thread pool
-                status_result = await asyncio.get_running_loop().run_in_executor(None, lambda: check_order_status(self.web3, order_key, self.chain))
+                status_result = await asyncio.get_running_loop().run_in_executor(None, lambda: check_order_status(self.web3, order_key, self.chain, search_blocks=search_blocks))
             except Exception as e:
                 logger.warning("fetch_order(%s): error checking order status: %s", id[:16], e)
                 return order
@@ -1355,7 +1368,63 @@ class GMX(Exchange):
                     "fees": [],
                 }
 
-                logger.info("fetch_order(%s): fetched from blockchain (not in cache), status=open", id[:16])
+                # Try to verify execution status for orders fetched from blockchain
+                # This is important for orders from previous sessions
+                try:
+                    from eth_defi.gmx.events import extract_order_key_from_receipt
+                    from eth_defi.gmx.order_tracking import check_order_status
+                    from eth_defi.gmx.verification import verify_gmx_order_execution
+
+                    order_key = extract_order_key_from_receipt(self.web3, receipt)
+                    if order_key:
+                        order["info"]["order_key"] = order_key.hex()
+
+                        # Check execution with larger search window
+                        # (500k blocks ~= 1.4 days on Arbitrum)
+                        status_result = await asyncio.get_running_loop().run_in_executor(None, lambda: check_order_status(self.web3, order_key, self.chain, search_blocks=500_000))
+
+                        if not status_result.is_pending and status_result.execution_receipt:
+                            # Order was executed - verify and update status
+                            verification = verify_gmx_order_execution(
+                                self.web3,
+                                status_result.execution_receipt,
+                                order_key,
+                            )
+                            if verification.success:
+                                order["status"] = "closed"
+                                order["average"] = verification.execution_price
+                                order["info"]["execution_tx_hash"] = status_result.execution_tx_hash
+                                order["info"]["execution_block"] = status_result.execution_block
+                                logger.info(
+                                    "fetch_order(%s): fetched from blockchain, status=closed (executed)",
+                                    id[:16],
+                                )
+                            elif verification.status == "cancelled":
+                                order["status"] = "cancelled"
+                                order["info"]["cancellation_reason"] = verification.decoded_error or verification.reason
+                                logger.info(
+                                    "fetch_order(%s): fetched from blockchain, status=cancelled",
+                                    id[:16],
+                                )
+                            else:
+                                logger.info(
+                                    "fetch_order(%s): fetched from blockchain (not in cache), status=open",
+                                    id[:16],
+                                )
+                        else:
+                            logger.info(
+                                "fetch_order(%s): fetched from blockchain (not in cache), status=open",
+                                id[:16],
+                            )
+                    else:
+                        logger.info(
+                            "fetch_order(%s): fetched from blockchain (not in cache), status=open",
+                            id[:16],
+                        )
+                except Exception as e:
+                    logger.debug("Could not verify execution status for order %s: %s", id[:16], e)
+                    logger.info("fetch_order(%s): fetched from blockchain (not in cache), status=open", id[:16])
+
                 return order
 
             except Exception as e:
