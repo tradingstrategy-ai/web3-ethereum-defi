@@ -422,7 +422,9 @@ def get_mock_oracle_price(web3: Web3, token_symbol: str = "WETH") -> float:
     )
 
     # Load MockOracleProvider ABI
-    contract_path = Path(__file__).parent.parent / "eth_defi" / "abi" / "gmx" / "MockOracleProvider.json"
+    # Path: repo_root/eth_defi/abi/gmx/MockOracleProvider.json
+    # __file__ is tests/gmx/fork_helpers.py, so go up 3 levels to repo root
+    contract_path = Path(__file__).parent.parent.parent / "eth_defi" / "abi" / "gmx" / "MockOracleProvider.json"
     with open(contract_path) as f:
         contract_data = json.load(f)
 
