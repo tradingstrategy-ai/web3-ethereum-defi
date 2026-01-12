@@ -364,6 +364,7 @@ def test_create_order_accepts_size_usd_with_zero_amount(ccxt_gmx_fork_open_close
 
     # Create order using the recommended pattern: size_usd with amount=0
     # This should NOT raise InvalidOrder
+    # Use wait_for_execution=False for fork tests (Subsquid won't have fork order data)
     order = gmx.create_order(
         symbol="ETH/USDC:USDC",
         type="market",
@@ -375,6 +376,7 @@ def test_create_order_accepts_size_usd_with_zero_amount(ccxt_gmx_fork_open_close
             "collateral_symbol": "ETH",
             "slippage_percent": 0.005,
             "execution_buffer": execution_buffer,
+            "wait_for_execution": False,  # Skip Subsquid/EventEmitter waiting on fork
         },
     )
 

@@ -4815,6 +4815,8 @@ class GMX(ExchangeCompatible):
             - slippage_percent (float): Slippage tolerance (default: 0.003)
             - execution_buffer (float): Gas buffer multiplier (default: 2.2)
             - auto_cancel (bool): Auto-cancel if execution fails (default: False)
+            - wait_for_execution (bool): Wait for keeper execution via Subsquid/EventEmitter (default: True).
+              Set to False for fork tests where Subsquid won't have the order data.
         :type params: dict | None
         :return: CCXT-compatible order structure with transaction hash and status
         :rtype: dict
@@ -5160,10 +5162,14 @@ class GMX(ExchangeCompatible):
             logger.warning("Could not extract order_key from receipt: %s", e)
             order_key = None
 
+        # Check if we should wait for keeper execution
+        # For fork tests, Subsquid won't have the order data, so skip waiting
+        wait_for_execution = params.get("wait_for_execution", True) if params else True
+
         # Wait for keeper execution before returning
         # GMX uses two-phase execution: order creation → keeper execution
         # We must verify the keeper result to avoid reporting phantom trades
-        if order_key:
+        if order_key and wait_for_execution:
             order_key_hex = "0x" + order_key.hex()
             trade_action = None
             execution_price = None

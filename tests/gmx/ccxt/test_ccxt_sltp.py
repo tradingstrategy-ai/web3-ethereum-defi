@@ -485,6 +485,7 @@ def test_ccxt_create_limit_buy_order(
     trigger_price = current_price  # Use current price so keeper can execute immediately
 
     # Create limit buy order using CCXT unified API
+    # Use wait_for_execution=False for fork tests (Subsquid won't have fork order data)
     order = gmx.create_limit_buy_order(
         symbol,
         0,  # Ignored when size_usd is provided
@@ -495,6 +496,7 @@ def test_ccxt_create_limit_buy_order(
             "collateral_symbol": "ETH",
             "slippage_percent": 0.005,
             "execution_buffer": execution_buffer,
+            "wait_for_execution": False,  # Skip Subsquid/EventEmitter waiting on fork
         },
     )
 
@@ -547,6 +549,7 @@ def test_ccxt_create_limit_sell_order(
     trigger_price = current_price  # Use current price for immediate execution in test
 
     # Create limit sell (short) order
+    # Use wait_for_execution=False for fork tests (Subsquid won't have fork order data)
     order = gmx.create_limit_sell_order(
         symbol,
         0,  # Ignored when size_usd is provided
@@ -557,6 +560,7 @@ def test_ccxt_create_limit_sell_order(
             "collateral_symbol": "USDC",
             "slippage_percent": 0.005,
             "execution_buffer": execution_buffer,
+            "wait_for_execution": False,  # Skip Subsquid/EventEmitter waiting on fork
         },
     )
 
