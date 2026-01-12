@@ -256,7 +256,7 @@ def test_ccxt_fetch_order_detects_cancelled(isolated_fork_env, execution_buffer)
     tx_hash_str = tx_hash.hex() if isinstance(tx_hash, bytes) else str(tx_hash)
     initial_order = gmx._parse_order_result_to_ccxt(
         order_result,
-        symbol="ETH/USD:USDC",
+        symbol="ETH/USDC:USDC",
         side="buy",
         type="market",
         amount=10.0,
@@ -335,7 +335,7 @@ def test_create_order_rejects_conflicting_size_parameters(ccxt_gmx_fork_open_clo
     # This should raise InvalidOrder
     with pytest.raises(InvalidOrder) as exc_info:
         gmx.create_order(
-            symbol="ETH/USD:USDC",
+            symbol="ETH/USDC:USDC",
             type="market",
             side="buy",
             amount=10.0,  # Non-zero base currency amount (10 ETH)
@@ -365,7 +365,7 @@ def test_create_order_accepts_size_usd_with_zero_amount(ccxt_gmx_fork_open_close
     # Create order using the recommended pattern: size_usd with amount=0
     # This should NOT raise InvalidOrder
     order = gmx.create_order(
-        symbol="ETH/USD:USDC",
+        symbol="ETH/USDC:USDC",
         type="market",
         side="buy",
         amount=0,  # Zero amount (not used)
@@ -381,5 +381,5 @@ def test_create_order_accepts_size_usd_with_zero_amount(ccxt_gmx_fork_open_close
     # Verify order was created (status should be "open" waiting for keeper)
     assert order is not None
     assert order["status"] == "open"
-    assert order["symbol"] == "ETH/USD:USDC"
+    assert order["symbol"] == "ETH/USDC:USDC"
     assert order["side"] == "buy"

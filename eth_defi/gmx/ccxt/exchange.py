@@ -2415,7 +2415,7 @@ class GMX(ExchangeCompatible):
     ) -> tuple[str, list | None]:
         """Fetch 24h OHLCV data for a single ticker.
 
-        :param symbol: Market symbol (e.g., "ETH/USD:USDC")
+        :param symbol: Market symbol (e.g., "ETH/USDC:USDC")
         :param since: Start timestamp in milliseconds
         :return: Tuple of (symbol, ohlcv_data) or (symbol, None) on error
         """
