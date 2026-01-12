@@ -54,6 +54,9 @@ class MorphoV2Vault(ERC4626Vault):
     - V2 has both performance and management fees (V1 only had performance fee)
     - V2 uses ``adaptersLength()`` function while V1 uses ``MORPHO()`` function
     - V2 has timelocked governance with curator/allocator roles
+
+    See also :py:class:`eth_defi.erc_4626.vault_protocol.morpho.vault_v1.MorphoV1Vault`
+    for the original MetaMorpho architecture.
     """
 
     def get_management_fee(self, block_identifier: BlockIdentifier) -> float | None:

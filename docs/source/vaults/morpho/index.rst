@@ -43,7 +43,7 @@ Morpho V1 API
    :toctree: _autosummary_morpho
    :recursive:
 
-   eth_defi.morpho.vault
+   eth_defi.erc_4626.vault_protocol.morpho.vault_v1
 
 Morpho V2 API
 ~~~~~~~~~~~~~
@@ -52,4 +52,4 @@ Morpho V2 API
    :toctree: _autosummary_morpho_v2
    :recursive:
 
-   eth_defi.erc_4626.vault_protocol.morpho_v2.vault
+   eth_defi.erc_4626.vault_protocol.morpho.vault_v2

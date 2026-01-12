@@ -11,7 +11,7 @@ from web3 import Web3
 from eth_defi.erc_4626.vault import ERC4626Vault, VaultReaderState
 from eth_defi.event_reader.multicall_batcher import read_multicall_historical_stateful
 from eth_defi.erc_4626.vault_protocol.ipor.vault import IPORVault
-from eth_defi.morpho.vault import MorphoVault
+from eth_defi.erc_4626.vault_protocol.morpho.vault_v1 import MorphoVault
 from eth_defi.provider.multi_provider import create_multi_provider_web3, MultiProviderWeb3Factory
 from eth_defi.token import fetch_erc20_details, USDC_NATIVE_TOKEN, SUSDS_NATIVE_TOKEN
 from eth_defi.vault.base import VaultSpec
