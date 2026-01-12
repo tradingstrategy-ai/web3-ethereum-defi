@@ -17,14 +17,20 @@ The DynaVaults framework uses:
 - OpenZeppelin AccessControl for RBAC
 - Custom IAM contract for fine-grained access control
 
-Fees are internalised in the share price. No explicit fee getter functions are exposed on-chain.
+Fee structure:
+- Management fee and performance fee are available via vault.manager().getFees()
+- Deposit and withdrawal fees are configurable but typically kept at 0%
+- Fees are internalised in the share price via minting shares to the vault owner
 """
 
 import datetime
 import logging
+from functools import cached_property
 
 from eth_typing import BlockIdentifier
+from web3.contract import Contract
 
+from eth_defi.abi import get_deployed_contract
 from eth_defi.erc_4626.vault import ERC4626Vault
 
 logger = logging.getLogger(__name__)
@@ -41,23 +47,63 @@ class SingularityVault(ERC4626Vault):
     - Twitter: https://x.com/singularity_fi
     """
 
+    @cached_property
+    def vault_contract(self) -> Contract:
+        """Get the Singularity vault contract with full ABI."""
+        return get_deployed_contract(
+            self.web3,
+            fname="singularity/SingularityVault.json",
+            address=self.vault_address,
+        )
+
+    @cached_property
+    def manager_contract(self) -> Contract:
+        """Get the Singularity manager contract.
+
+        The manager contract holds fee configuration and other vault parameters.
+        """
+        manager_address = self.vault_contract.functions.manager().call()
+        return get_deployed_contract(
+            self.web3,
+            fname="singularity/SingularityManager.json",
+            address=manager_address,
+        )
+
     def has_custom_fees(self) -> bool:
-        """DynaVaults do not expose explicit fee getters on-chain."""
-        return False
+        """DynaVaults have custom fee getters via the manager contract."""
+        return True
 
     def get_management_fee(self, block_identifier: BlockIdentifier) -> float | None:
         """Get management fee.
 
-        Fees are internalised in the share price. No explicit fee getter available on-chain.
+        Fees are read from the manager contract via getFees().
+
+        :return:
+            Management fee as a decimal (0.02 = 2%).
         """
-        return None
+        try:
+            management_fee, _ = self.manager_contract.functions.getFees().call(block_identifier=block_identifier)
+            # Fee is in basis points (100 = 1%)
+            return management_fee / 10_000
+        except Exception as e:
+            logger.warning("Failed to get management fee for Singularity vault %s: %s", self.address, e)
+            return None
 
     def get_performance_fee(self, block_identifier: BlockIdentifier) -> float | None:
         """Get performance fee.
 
-        Fees are internalised in the share price. No explicit fee getter available on-chain.
+        Fees are read from the manager contract via getFees().
+
+        :return:
+            Performance fee as a decimal (0.10 = 10%).
         """
-        return None
+        try:
+            _, performance_fee = self.manager_contract.functions.getFees().call(block_identifier=block_identifier)
+            # Fee is in basis points (100 = 1%)
+            return performance_fee / 10_000
+        except Exception as e:
+            logger.warning("Failed to get performance fee for Singularity vault %s: %s", self.address, e)
+            return None
 
     def get_estimated_lock_up(self) -> datetime.timedelta | None:
         """Get estimated lock-up period.
