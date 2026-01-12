@@ -1309,6 +1309,9 @@ HARDCODED_PROTOCOLS = {
     # Mainstreet Finance - smsUSD (legacy) vault on Sonic
     # https://sonicscan.org/address/0xc7990369DA608C2F4903715E3bD22f2970536C29
     "0xc7990369da608c2f4903715e3bd22f2970536c29": {ERC4626Feature.mainstreet_like},
+    # Mainstreet Finance - Staked msUSD vault on Ethereum
+    # https://etherscan.io/address/0x890a5122aa1da30fec4286de7904ff808f0bd74a
+    "0x890a5122aa1da30fec4286de7904ff808f0bd74a": {ERC4626Feature.mainstreet_like},
     # YieldFi - vyUSD vault on Ethereum
     # https://etherscan.io/address/0x2e3c5e514eef46727de1fe44618027a9b70d92fc
     "0x2e3c5e514eef46727de1fe44618027a9b70d92fc": {ERC4626Feature.yieldfi_like},

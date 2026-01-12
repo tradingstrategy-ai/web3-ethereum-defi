@@ -1,9 +1,10 @@
 """Mainstreet Finance protocol vault support.
 
-Mainstreet Finance is a synthetic USD stablecoin ecosystem built on multi-asset
-collateralisation. The protocol delivers institutional-grade delta-neutral yield
-strategies through a dual-token system - msUSD (the synthetic stablecoin) and
-smsUSD (the staked version that earns yield from options arbitrage strategies).
+Mainstreet Finance (developed by Mainstreet Labs) is a synthetic USD stablecoin
+ecosystem built on multi-asset collateralisation. The protocol delivers
+institutional-grade delta-neutral yield strategies through a dual-token system -
+msUSD (the synthetic stablecoin) and smsUSD/Staked msUSD (the staked version
+that earns yield from options arbitrage strategies).
 
 Key features:
 
@@ -12,11 +13,14 @@ Key features:
 - Cooldown period of up to 90 days for withdrawals (configurable by governance)
 - Yield comes from CME index box spreads and options arbitrage strategies
 
+The smart contracts are developed by Mainstreet Labs.
+
 - Homepage: https://mainstreet.finance/
 - Documentation: https://mainstreet-finance.gitbook.io/mainstreet.finance
 - GitHub: https://github.com/Mainstreet-Labs/mainstreet-core
 - Twitter: https://x.com/Main_St_Finance
-- Legacy smsUSD contract: https://sonicscan.org/address/0xc7990369DA608C2F4903715E3bD22f2970536C29
+- Legacy smsUSD contract (Sonic): https://sonicscan.org/address/0xc7990369DA608C2F4903715E3bD22f2970536C29
+- Staked msUSD contract (Ethereum): https://etherscan.io/address/0x890a5122aa1da30fec4286de7904ff808f0bd74a
 """
 
 import datetime
@@ -29,6 +33,15 @@ from eth_defi.erc_4626.vault import ERC4626Vault
 logger = logging.getLogger(__name__)
 
 
+#: Custom vault names for Mainstreet vaults by address (lowercased)
+#:
+#: Some vaults have generic on-chain names that we override for clarity.
+MAINSTREET_VAULT_NAMES: dict[str, str] = {
+    # Ethereum Staked msUSD vault
+    "0x890a5122aa1da30fec4286de7904ff808f0bd74a": "Staked msUSD",
+}
+
+
 class MainstreetVault(ERC4626Vault):
     """Mainstreet Finance protocol vault support.
 
@@ -36,12 +49,26 @@ class MainstreetVault(ERC4626Vault):
     protocol options arbitrage strategies (CME index box spreads). The vault
     implements a flexible cooldown mechanism controlled by governance.
 
+    The smart contracts are developed by Mainstreet Labs.
+
     - Homepage: https://mainstreet.finance/
     - Documentation: https://mainstreet-finance.gitbook.io/mainstreet.finance
     - GitHub: https://github.com/Mainstreet-Labs/mainstreet-core
     - Twitter: https://x.com/Main_St_Finance
-    - Legacy smsUSD contract: https://sonicscan.org/address/0xc7990369DA608C2F4903715E3bD22f2970536C29
+    - Legacy smsUSD contract (Sonic): https://sonicscan.org/address/0xc7990369DA608C2F4903715E3bD22f2970536C29
+    - Staked msUSD contract (Ethereum): https://etherscan.io/address/0x890a5122aa1da30fec4286de7904ff808f0bd74a
     """
+
+    @property
+    def name(self) -> str:
+        """Return a human-readable name for this vault.
+
+        Uses custom names for known vaults, falls back to on-chain token name.
+        """
+        custom_name = MAINSTREET_VAULT_NAMES.get(self.vault_address.lower())
+        if custom_name:
+            return custom_name
+        return super().name
 
     def has_custom_fees(self) -> bool:
         """Whether this vault has deposit/withdrawal fees.
