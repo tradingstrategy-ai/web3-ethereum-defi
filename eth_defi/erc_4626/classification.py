@@ -1315,6 +1315,9 @@ HARDCODED_PROTOCOLS = {
     # YieldFi - vyUSD vault on Ethereum
     # https://etherscan.io/address/0x2e3c5e514eef46727de1fe44618027a9b70d92fc
     "0x2e3c5e514eef46727de1fe44618027a9b70d92fc": {ERC4626Feature.yieldfi_like},
+    # YieldFi - yUSD vault on Arbitrum
+    # https://arbiscan.io/address/0x4772d2e014f9fc3a820c444e3313968e9a5c8121
+    "0x4772d2e014f9fc3a820c444e3313968e9a5c8121": {ERC4626Feature.yieldfi_like},
     # Resolv - wstUSR (Wrapped stUSR) vault on Ethereum
     # ERC-4626 wrapper around rebasing staked USR token
     # https://etherscan.io/address/0x1202f5c7b4b9e47a1a484e8b270be34dbbc75055
