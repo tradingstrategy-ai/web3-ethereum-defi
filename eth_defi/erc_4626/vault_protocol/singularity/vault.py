@@ -110,7 +110,7 @@ class SingularityVault(ERC4626Vault):
 
         DynaVaults support instant redemption with EIP-5143 slippage protection.
         """
-        return None
+        return datetime.timedelta(days=0)
 
     def get_link(self, referral: str | None = None) -> str:
         """Get link to the vault page.
