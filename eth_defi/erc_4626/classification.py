@@ -157,13 +157,25 @@ def create_probe_calls(
             extra_data=None,
         )
 
-        # Morpho
+        # Morpho V1
         # Moonwell runs on Morpho
         # https://basescan.org/address/0x6b13c060F13Af1fdB319F52315BbbF3fb1D88844#readContract
         morpho_call = EncodedCall.from_keccak_signature(
             address=address,
             signature=Web3.keccak(text="MORPHO()")[0:4],
             function="MORPHO",
+            data=b"",
+            extra_data=None,
+        )
+
+        # Morpho V2
+        # Newer adapter-based architecture
+        # https://docs.morpho.org/learn/concepts/vault-v2/
+        # https://arbiscan.io/address/0xbeefff13dd098de415e07f033dae65205b31a894
+        morpho_v2_call = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="adaptersLength()")[0:4],
+            function="adaptersLength",
             data=b"",
             extra_data=None,
         )
@@ -537,6 +549,7 @@ def create_probe_calls(
         yield gains_call
         yield gains_tranche_call
         yield morpho_call
+        yield morpho_v2_call
         yield erc_7575_call
         yield kiln_metavaut_call
         yield lagoon_call
@@ -652,6 +665,11 @@ def identify_vault_features(
 
     if calls["MORPHO"].success:
         features.add(ERC4626Feature.morpho_like)
+
+    # Morpho V2 - uses adaptersLength() instead of MORPHO()
+    # Must check that MORPHO() fails to distinguish from V1
+    if calls["adaptersLength"].success and not calls["MORPHO"].success:
+        features.add(ERC4626Feature.morpho_v2_like)
 
     # Triggered by USDai
     # TODO: Any better ways to check this?
@@ -971,10 +989,15 @@ def create_vault_instance(
 
         return LagoonVault(web3, spec, token_cache=token_cache, features=features)
     elif ERC4626Feature.morpho_like in features:
-        # Lagoon instance
+        # Morpho V1 instance
         from eth_defi.morpho.vault import MorphoVault
 
         return MorphoVault(web3, spec, token_cache=token_cache, features=features)
+    elif ERC4626Feature.morpho_v2_like in features:
+        # Morpho V2 instance (adapter-based architecture)
+        from eth_defi.erc_4626.vault_protocol.morpho_v2.vault import MorphoV2Vault
+
+        return MorphoV2Vault(web3, spec, token_cache=token_cache, features=features)
     elif ERC4626Feature.euler_earn_like in features:
         # EulerEarn metavault instance
         from eth_defi.erc_4626.vault_protocol.euler.vault import EulerEarnVault

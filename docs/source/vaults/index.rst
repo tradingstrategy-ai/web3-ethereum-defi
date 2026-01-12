@@ -54,6 +54,7 @@ Supported protocols
    llama-lend/index
    mainstreet/index
    maple/index
+   morpho/index
    nashpoint/index
    plutus/index
    resolv/index
