@@ -398,6 +398,54 @@ def fetch_on_chain_oracle_prices(web3: Web3) -> tuple[int, int]:
         return 3000, 1
 
 
+def get_mock_oracle_price(web3: Web3, token_symbol: str = "WETH") -> float:
+    """Read the configured price from the mock oracle on the fork.
+
+    This queries the MockOracleProvider contract directly to get the
+    price that was set during fixture setup, avoiding any drift from
+    the GMX API.
+
+    Use this in tests to get the exact price the mock oracle will use,
+    ensuring limit order trigger prices match the oracle's acceptable range.
+
+    :param web3: Web3 instance connected to the fork
+    :param token_symbol: Token symbol ("WETH" or "USDC")
+    :return: Price in USD as float
+    """
+    chain = get_chain_name(web3.eth.chain_id).lower()
+
+    # Get mock oracle provider address
+    production_provider_address = _resolve_contract_address(
+        chain,
+        ("chainlinkdatastreamprovider", "gmoracleprovider"),
+        ARBITRUM_DEFAULTS["chainlink_provider"],
+    )
+
+    # Load MockOracleProvider ABI
+    contract_path = Path(__file__).parent.parent / "eth_defi" / "abi" / "gmx" / "MockOracleProvider.json"
+    with open(contract_path) as f:
+        contract_data = json.load(f)
+
+    mock = web3.eth.contract(address=production_provider_address, abi=contract_data["abi"])
+
+    # Get token address and decimals factor
+    if token_symbol == "WETH":
+        token_address = _resolve_token_address(chain, "WETH", ARBITRUM_DEFAULTS["weth"])
+        decimals_factor = 10**12  # WETH: 18 decimals -> price * 10^12
+    else:
+        token_address = _resolve_token_address(chain, "USDC", ARBITRUM_DEFAULTS["usdc"])
+        decimals_factor = 10**24  # USDC: 6 decimals -> price * 10^24
+
+    # Query mock oracle's tokenPrices mapping
+    min_price, max_price = mock.functions.tokenPrices(token_address).call()
+
+    # Convert back to USD (use max_price, same as setup)
+    price_usd = max_price / decimals_factor
+
+    logger.debug("Mock oracle price for %s: $%.2f", token_symbol, price_usd)
+    return price_usd
+
+
 def setup_mock_oracle(
     web3: Web3,
     eth_price_usd: int | None = None,

@@ -8,6 +8,7 @@ from flaky import flaky
 
 from eth_defi.gmx.ccxt.exchange import GMX
 from tests.gmx.ccxt.test_ccxt_trading import _execute_order
+from tests.gmx.fork_helpers import get_mock_oracle_price
 
 
 @flaky(max_runs=3, min_passes=1)
@@ -479,10 +480,9 @@ def test_ccxt_create_limit_buy_order(
     leverage = 2.5
     size_usd = 10.0
 
-    # Get current price from ticker to use as trigger (for immediate execution in test)
-    ticker = gmx.fetch_ticker(symbol)
-    current_price = ticker.get("last") or ticker.get("close", 3500.0)
-    trigger_price = current_price  # Use current price so keeper can execute immediately
+    # Get mock oracle price directly from the fork (not from API which may have drifted)
+    # This ensures trigger price matches the oracle's acceptable range for limit orders
+    trigger_price = get_mock_oracle_price(web3, "WETH")
 
     # Create limit buy order using CCXT unified API
     # Use wait_for_execution=False for fork tests (Subsquid won't have fork order data)
@@ -543,10 +543,9 @@ def test_ccxt_create_limit_sell_order(
     leverage = 2.0
     size_usd = 10.0
 
-    # Get current price from ticker to use as trigger
-    ticker = gmx.fetch_ticker(symbol)
-    current_price = ticker.get("last") or ticker.get("close", 3500.0)
-    trigger_price = current_price  # Use current price for immediate execution in test
+    # Get mock oracle price directly from the fork (not from API which may have drifted)
+    # This ensures trigger price matches the oracle's acceptable range for limit orders
+    trigger_price = get_mock_oracle_price(web3, "WETH")
 
     # Create limit sell (short) order
     # Use wait_for_execution=False for fork tests (Subsquid won't have fork order data)
