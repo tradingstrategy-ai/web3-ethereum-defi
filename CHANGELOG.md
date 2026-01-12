@@ -1,5 +1,6 @@
 # Current
 
+- Add: New protocol: [Singularity Finance](https://singularityfinance.ai/) - AI-powered DeFi yield vaults on Base (2026-01-12)
 - Add: Ostium protocol logo assets (2026-01-08)
 - Add: Blacklist Superform vault 0x942bed98560e9b2aa0d4ec76bbda7a7e55f6b2d6 (2026-01-08)
 - Add: Fluid protocol logo assets (2026-01-08)

@@ -111,6 +111,7 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "YieldFi": None,
     "Resolv": None,
     "Curvance": None,
+    "Singularity Finance": None,
 }
 
 #: Particular vaults that are broken, misleading or otherwise problematic.

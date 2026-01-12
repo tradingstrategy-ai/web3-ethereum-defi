@@ -59,6 +59,7 @@ Supported protocols
    resolv/index
    royco/index
    silo/index
+   singularity/index
    sky/index
    spark/index
    spectra/index
