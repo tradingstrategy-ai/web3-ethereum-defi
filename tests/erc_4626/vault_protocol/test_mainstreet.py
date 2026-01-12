@@ -9,12 +9,14 @@ from web3 import Web3
 
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
+from eth_defi.erc_4626.vault_protocol.mainstreet.vault import MainstreetVault
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.erc_4626.vault_protocol.mainstreet.vault import MainstreetVault
 
 JSON_RPC_SONIC = os.environ.get("JSON_RPC_SONIC")
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
+
+pytest.mark.skipif(JSON_RPC_SONIC is None or JSON_RPC_ETHEREUM is None, reason="JSON_RPC_SONIC and JSON_RPC_ETHEREUM needed to run these tests")    
 
 
 @pytest.fixture(scope="module")
