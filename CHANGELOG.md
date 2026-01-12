@@ -1,5 +1,6 @@
 # Current
 
+- Add: [YieldFi](https://tradingstrategy.ai/trading-view/vaults/protocols/yieldfi) yUSD vault on Arbitrum (2026-01-12)
 - Add: New vault type: [Mainstreet Finance](https://tradingstrategy.ai/trading-view/vaults/protocols/mainstreet-finance) Staked msUSD vault on Ethereum (2026-01-12)
 - Add: New protocol: [Singularity Finance](https://singularityfinance.ai/) - AI-powered DeFi yield vaults on Base (2026-01-12)
 - Add: Ostium protocol logo assets (2026-01-08)

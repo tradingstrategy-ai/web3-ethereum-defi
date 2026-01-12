@@ -14,6 +14,7 @@ from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
+JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
 
 pytestmark = pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHEREUM needed to run these tests")
 
@@ -44,6 +45,47 @@ def test_yieldfi(
     vault = create_vault_instance_autodetect(
         web3,
         vault_address="0x2e3c5e514eef46727de1fe44618027a9b70d92fc",
+    )
+
+    assert isinstance(vault, YieldFiVault)
+    assert vault.get_protocol_name() == "YieldFi"
+    assert ERC4626Feature.yieldfi_like in vault.features
+
+    # Fee data - YieldFi has configurable fees but currently set to 0
+    assert vault.get_management_fee("latest") == 0.0
+    assert vault.has_custom_fees() is False
+
+    # Check link
+    assert vault.get_link() == "https://yield.fi/"
+
+
+@pytest.fixture(scope="module")
+def anvil_arbitrum_fork(request) -> AnvilLaunch:
+    """Fork Arbitrum at a specific block for reproducibility"""
+    if JSON_RPC_ARBITRUM is None:
+        pytest.skip("JSON_RPC_ARBITRUM needed to run this test")
+    launch = fork_network_anvil(JSON_RPC_ARBITRUM, fork_block_number=299000000)
+    try:
+        yield launch
+    finally:
+        launch.close()
+
+
+@pytest.fixture(scope="module")
+def web3_arbitrum(anvil_arbitrum_fork):
+    web3 = create_multi_provider_web3(anvil_arbitrum_fork.json_rpc_url)
+    return web3
+
+
+@flaky.flaky
+def test_yieldfi_arbitrum(
+    web3_arbitrum: Web3,
+):
+    """Read YieldFi yUSD vault metadata on Arbitrum"""
+
+    vault = create_vault_instance_autodetect(
+        web3_arbitrum,
+        vault_address="0x4772d2e014f9fc3a820c444e3313968e9a5c8121",
     )
 
     assert isinstance(vault, YieldFiVault)
