@@ -538,6 +538,27 @@ def create_probe_calls(
             extra_data=None,
         )
 
+        # Brink vaults
+        # Uses modified events (DepositFunds/WithdrawFunds) instead of standard ERC-4626.
+        # Unique function: strategist() returns the strategist address.
+        # https://mantlescan.xyz/address/0xE12EED61E7cC36E4CF3304B8220b433f1fD6e254
+        brink_strategist_call = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="strategist()")[0:4],
+            function="strategist",
+            data=b"",
+            extra_data=None,
+        )
+
+        # Brink vaults also have vaultManager() function
+        brink_vault_manager_call = EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="vaultManager()")[0:4],
+            function="vaultManager",
+            data=b"",
+            extra_data=None,
+        )
+
         yield bad_probe_call
         yield name_call
         yield share_price_call
@@ -585,6 +606,8 @@ def create_probe_calls(
         yield gearbox_contract_type_call
         yield curvance_call
         yield singularity_call
+        yield brink_strategist_call
+        yield brink_vault_manager_call
 
 
 def identify_vault_features(
@@ -796,6 +819,13 @@ def identify_vault_features(
     # https://basescan.org/address/0xdf71487381Ab5bD5a6B17eAa61FE2E6045A0e805
     if calls["routerRegistry"].success:
         features.add(ERC4626Feature.singularity_like)
+
+    # Brink vaults
+    # Uses modified events (DepositFunds/WithdrawFunds) instead of standard ERC-4626.
+    # Both strategist() and vaultManager() must succeed for Brink identification.
+    # https://mantlescan.xyz/address/0xE12EED61E7cC36E4CF3304B8220b433f1fD6e254
+    if calls["strategist"].success and calls["vaultManager"].success:
+        features.add(ERC4626Feature.brink_like)
 
     # # TODO: No way separate from Goat Protocol, see test_superform
     # if calls["PROFIT_UNLOCK_TIME"].success:
@@ -1231,6 +1261,11 @@ def create_vault_instance(
         from eth_defi.erc_4626.vault_protocol.singularity.vault import SingularityVault
 
         return SingularityVault(web3, spec, token_cache=token_cache, features=features)
+
+    elif ERC4626Feature.brink_like in features:
+        from eth_defi.erc_4626.vault_protocol.brink.vault import BrinkVault
+
+        return BrinkVault(web3, spec, token_cache=token_cache, features=features)
 
     else:
         # Generic ERC-4626 without fee data

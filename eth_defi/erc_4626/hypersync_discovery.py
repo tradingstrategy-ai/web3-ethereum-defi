@@ -19,7 +19,14 @@ from tqdm_loggable.auto import tqdm
 from eth_defi.abi import get_topic_signature_from_event
 from eth_defi.chain import get_chain_name
 from eth_defi.compat import native_datetime_utc_fromtimestamp
-from eth_defi.erc_4626.discovery_base import PotentialVaultMatch, VaultDiscoveryBase, LeadScanReport, get_vault_discovery_events
+from eth_defi.erc_4626.discovery_base import (
+    PotentialVaultMatch,
+    VaultDiscoveryBase,
+    LeadScanReport,
+    get_vault_discovery_events,
+    get_vault_event_topic_map,
+    is_deposit_event,
+)
 from eth_defi.event_reader.web3factory import Web3Factory
 
 try:
@@ -82,7 +89,8 @@ class HypersyncVaultDiscover(VaultDiscoveryBase):
         - Find contracts emitting these events
         - Later prod these contracts to see which of them are proper vaults
         - We are likely having a real ERC-4262 contract if both events match,
-          ``Deposit`` evnet might have few similar contracts
+          ``Deposit`` event might have few similar contracts
+        - Also includes BrinkVault DepositFunds/WithdrawFunds events
         """
         return [get_topic_signature_from_event(e) for e in get_vault_discovery_events(self.web3)]
 
@@ -172,6 +180,9 @@ class HypersyncVaultDiscover(VaultDiscoveryBase):
 
         chain = self.web3.eth.chain_id
 
+        # Build topic map for classifying events (ERC-4626 and BrinkVault)
+        topic_map = get_vault_event_topic_map(self.web3)
+
         logger.info("Building HyperSync query")
         query = self.build_query(start_block, end_block)
 
@@ -236,9 +247,9 @@ class HypersyncVaultDiscover(VaultDiscoveryBase):
                         leads[log.address] = lead
                         report.new_leads += 1
 
-                    # Hardcoded for now
-                    deposit_kind = log.topics[0] == "0xdcbc1c05240f31ff3ad067ef1ee35ce4997762752e3a095284754544f4c709d7"
-                    if deposit_kind:
+                    # Classify event using topic map (supports ERC-4626 and BrinkVault)
+                    event_kind = topic_map.get(log.topics[0])
+                    if event_kind is not None and is_deposit_event(event_kind):
                         lead.deposit_count += 1
                         report.deposits += 1
                     else:

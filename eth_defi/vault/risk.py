@@ -112,6 +112,7 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Resolv": None,
     "Curvance": None,
     "Singularity Finance": None,
+    "Brink": None,
 }
 
 #: Particular vaults that are broken, misleading or otherwise problematic.

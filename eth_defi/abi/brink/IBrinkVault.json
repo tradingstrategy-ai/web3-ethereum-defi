@@ -1,0 +1,30 @@
+{
+  "abi": [
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "assetBalance",
+          "type": "uint256"
+        }
+      ],
+      "name": "DepositFunds",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "assetBalance",
+          "type": "uint256"
+        }
+      ],
+      "name": "WithdrawFunds",
+      "type": "event"
+    }
+  ]
+}

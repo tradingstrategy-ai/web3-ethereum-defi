@@ -34,6 +34,7 @@ Supported protocols
 
    altura/index
    auto_finance/index
+   brink/index
    cap/index
    centrifuge/index
    csigma/index
