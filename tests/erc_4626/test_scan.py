@@ -14,8 +14,7 @@ from eth_defi.erc_4626.lead_scan_core import scan_leads
 from eth_defi.erc_4626.rpc_discovery import JSONRPCVaultDiscover
 from eth_defi.erc_4626.scan import create_vault_scan_record_subprocess
 from eth_defi.hypersync.server import get_hypersync_server
-from eth_defi.provider.multi_provider import (MultiProviderWeb3Factory,
-                                              create_multi_provider_web3)
+from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.vaultdb import VaultDatabase
 
@@ -159,9 +158,9 @@ def test_lead_scan_core_hypersync(tmp_path, backend):
     assert updated_report.end_block == 2_800_000
     assert isinstance(updated_report, LeadScanReport)
     assert isinstance(updated_report.backend, HypersyncVaultDiscover)
-    assert updated_report.new_leads in (5, 6) # Flaky?
+    assert updated_report.new_leads in (5, 6)  # Flaky?
     assert updated_report.old_leads == 14
-    assert updated_report.deposits in (1633, 1634) # Flaky?
+    assert updated_report.deposits in (1633, 1634)  # Flaky?
 
 
 def test_4626_scan_moonwell(web3):
@@ -199,6 +198,6 @@ def test_4626_scan_moonwell(web3):
     rows = worker_processor(delayed(create_vault_scan_record_subprocess)(web3factory, d, scan_block) for d in vault_detections)
     rows.sort(key=lambda x: x["Address"])
 
-    assert len(rows) in (155, 168) # Flaky: 155 or 168 vaults found?
+    assert len(rows) in (155, 168)  # Flaky: 155 or 168 vaults found?
     moonwell = [r for r in rows if r["Name"] == "Moonwell Flagship USDC"][0]
     assert 29_000_000 < moonwell["NAV"] < 31_000_000
