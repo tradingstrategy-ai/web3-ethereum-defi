@@ -1,5 +1,6 @@
 # Current
 
+- Add: `get_safe_cached_latest_block_number()` function to work around broken JSON-RPC providers with time-based caching (2026-01-13)
 - Optimisation: Chain-based filtering for `create_probe_calls()` - skips protocol-specific probes on chains where protocols aren't deployed, reducing unnecessary RPC calls (2026-01-13)
 - Add: New protocol: [Accountable Capital](https://www.accountable.capital/) - blockchain-based financial verification vaults on Monad (2026-01-13)
 - Fix: Use different TVL thresholds for vault rankings - $50k for overall, $10k for chain/protocol rankings (2026-01-13)

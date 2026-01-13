@@ -13,6 +13,7 @@ from web3 import Web3
 from web3.contract import Contract
 
 from eth_defi.compat import WEB3_PY_V7
+from eth_defi.provider.broken_provider import get_safe_cached_latest_block_number
 from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.vault.flag import VaultFlag
 
@@ -715,6 +716,13 @@ class ERC4626Vault(VaultBase):
 
         - For example ``previewDeposit()`` function and other functions will revert
         """
+
+        # Work around broken RPC crap
+        block_identifier = get_safe_cached_latest_block_number(
+            self.web3,
+            chain_id=self.chain_id,
+        )
+
         try:
             # isOperator() function is only part of 7545 ABI and will revert is missing
             double_address = eth_abi.encode(["address", "address"], [ZERO_ADDRESS_STR, ZERO_ADDRESS_STR])
@@ -725,7 +733,7 @@ class ERC4626Vault(VaultBase):
                 data=double_address,
                 extra_data=None,
             )
-            erc_7540_call.call(self.web3, block_identifier="latest")
+            erc_7540_call.call(self.web3, block_identifier=block_identifier)
             return True
         except (ValueError, BadFunctionCallOutput):
             return False
@@ -733,13 +741,20 @@ class ERC4626Vault(VaultBase):
     def fetch_denomination_token_address(self) -> HexAddress | None:
         # Try to check if we are ERC-7575 first
         # https://eips.ethereum.org/EIPS/eip-7575
+
+        # Work around broken RPC crap
+        block_identifier = get_safe_cached_latest_block_number(
+            self.web3,
+            chain_id=self.chain_id,
+        )
+
         call = EncodedCall.from_contract_call(
             self.vault_contract.functions.asset(),
         )
         try:
             result = call.call(
                 self.web3,
-                block_identifier="latest",
+                block_identifier=block_identifier,
                 silent_error=True,
                 ignore_error=True,
                 attempts=2,
@@ -771,6 +786,14 @@ class ERC4626Vault(VaultBase):
         - share() accessor (ERc-7575)
         """
         erc_7575 = False
+
+        if block_identifier == "latest":
+            # Work around broken RPC crap
+            block_identifier = get_safe_cached_latest_block_number(
+                self.web3,
+                chain_id=self.chain_id,
+            )
+
         try:
             # ERC-7575
             erc_7575_call = EncodedCall.from_keccak_signature(
@@ -1011,6 +1034,12 @@ class ERC4626Vault(VaultBase):
     def get_flags(self) -> set[VaultFlag]:
         flags = super().get_flags()
 
+        # Work around broken RPC crap
+        block_identifier = get_safe_cached_latest_block_number(
+            self.web3,
+            chain_id=self.chain_id,
+        )
+
         # OpenZeppelin pausable
         # https://docs.openzeppelin.com/contracts/4.x/api/security#Pausable
         paused_call = EncodedCall.from_keccak_signature(
@@ -1023,7 +1052,7 @@ class ERC4626Vault(VaultBase):
         try:
             result = paused_call.call(
                 self.web3,
-                block_identifier="latest",
+                block_identifier=block_identifier,
                 silent_error=True,
                 ignore_error=True,
                 attempts=2,
