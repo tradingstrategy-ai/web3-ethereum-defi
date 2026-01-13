@@ -137,11 +137,13 @@ def get_safe_cached_latest_block_number(
     - No RPC call are made to
     - Disabled in Anvil configs
 
-    Work around the error:
+    Work around the error on Monad/Arbitrum/dRPC/shitty RPCs:
 
     .. code-block:: plain
 
         {'message': 'upstream does not have the requested block yet', 'code': -32603}
+
+    Their internal routing is likely broken and when calling `eth_call` with `latest` the request fails for no reason.
 
     :param chain_id:
         Chain id to use as part of the cache key
