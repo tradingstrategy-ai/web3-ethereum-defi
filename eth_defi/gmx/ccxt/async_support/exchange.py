@@ -36,6 +36,8 @@ from eth_defi.gmx.core.oracle import OraclePrices
 from eth_defi.gmx.order.sltp_order import SLTPEntry, SLTPOrder, SLTPParams
 from eth_defi.gmx.contracts import get_contract_addresses
 from eth_defi.gmx.utils import convert_raw_price_to_usd
+from eth_defi.gmx.order_tracking import check_order_status
+from eth_defi.gmx.verification import verify_gmx_order_execution
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import fetch_erc20_details
@@ -1223,9 +1225,6 @@ class GMX(Exchange):
             order_key = bytes.fromhex(order_key_hex)
 
             # Check if order still pending in DataStore (using sync call via asyncio)
-            from eth_defi.gmx.order_tracking import check_order_status
-            import asyncio
-
             try:
                 # Run sync function in thread pool
                 status_result = await asyncio.get_running_loop().run_in_executor(None, lambda: check_order_status(self.web3, order_key, self.chain))
@@ -1240,8 +1239,6 @@ class GMX(Exchange):
 
             # Order no longer pending - verify execution result
             if status_result.execution_receipt:
-                from eth_defi.gmx.verification import verify_gmx_order_execution
-
                 verification = verify_gmx_order_execution(
                     self.web3,
                     status_result.execution_receipt,
@@ -1305,8 +1302,9 @@ class GMX(Exchange):
 
             else:
                 # Order removed from DataStore but no execution receipt found
+                # check_order_status() already logged detailed diagnostics (Subsquid + log scan)
                 logger.warning(
-                    "fetch_order(%s): order removed from DataStore but no execution event found",
+                    "fetch_order(%s): order removed from DataStore but no execution event found (see check_order_status logs for details)",
                     id[:16],
                 )
 

@@ -3557,7 +3557,9 @@ class GMX(ExchangeCompatible):
         # Get wallet address
         wallet = params.get("wallet_address", self.wallet_address)
         if not wallet:
-            raise ValueError("wallet_address must be provided in GMXConfig or params")
+            raise ValueError(
+                "wallet_address must be provided in GMXConfig or params",
+            )
 
         # Fetch open positions
         positions_manager = GetOpenPositions(self.config)
@@ -5616,7 +5618,11 @@ class GMX(ExchangeCompatible):
 
             # If already closed/cancelled/failed, return cached status
             if order.get("status") in ("closed", "cancelled", "failed"):
-                logger.debug("fetch_order(%s): returning cached status=%s", id[:16], order.get("status"))
+                logger.debug(
+                    "fetch_order(%s): returning cached status=%s",
+                    id[:16],
+                    order.get("status"),
+                )
                 return order
 
             # Order is "open" - check if keeper has executed
@@ -5704,8 +5710,9 @@ class GMX(ExchangeCompatible):
 
             else:
                 # Order removed from DataStore but no execution receipt found
+                # check_order_status() already logged detailed diagnostics (Subsquid + log scan)
                 logger.warning(
-                    "fetch_order(%s): order removed from DataStore but no execution event found",
+                    "fetch_order(%s): order removed from DataStore but no execution event found (see check_order_status logs for details)",
                     id[:16],
                 )
 
