@@ -32,6 +32,7 @@ Supported protocols
 .. toctree::
    :maxdepth: 1
 
+   accountable/index
    altura/index
    auto_finance/index
    brink/index
