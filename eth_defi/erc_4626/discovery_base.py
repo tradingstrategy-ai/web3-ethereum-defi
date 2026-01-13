@@ -95,15 +95,15 @@ def get_standard_erc_4626_vault_discovery_events(web3) -> list[Type[ContractEven
 def get_brink_vault_discovery_events(web3) -> list[Type[ContractEvent]]:
     """Get list of BrinkVault events we use in vault discovery.
 
-    BrinkVault uses modified events instead of standard ERC-4626 Deposit/Withdraw:
+    BrinkVault uses custom events instead of standard ERC-4626 Deposit/Withdraw:
 
-    - DepositFunds(uint256 assetBalance)
-    - WithdrawFunds(uint256 assetBalance)
+    - Deposited(address caller, address recipient, uint256 assets, uint256 shares)
+    - Withdrawal(address caller, address recipient, uint256 received, uint256 shares)
     """
     IBrinkVault = get_brink_vault_contract(web3)
     return [
-        IBrinkVault.events.DepositFunds,
-        IBrinkVault.events.WithdrawFunds,
+        IBrinkVault.events.Deposited,
+        IBrinkVault.events.Withdrawal,
     ]
 
 
