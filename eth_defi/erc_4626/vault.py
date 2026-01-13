@@ -782,12 +782,13 @@ class ERC4626Vault(VaultBase):
             # Would hope to use ignore_errors here
             # but we cannot make distinction between broken smart contract and broken RPC gateway
             # because of how shitty EVM is
+            # Function selector: 0xa8d5fd65
             result = erc_7575_call.call(
                 self.web3,
                 block_identifier=block_identifier,
-                ignore_error=False,
+                ignore_error=True,
                 silent_error=True,
-                attempts=4,
+                attempts=2,  # Do not do extensive attempts here
             )
             if len(result) == 32:
                 erc_7575 = True
