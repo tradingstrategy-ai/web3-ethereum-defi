@@ -5,12 +5,30 @@
       "inputs": [
         {
           "indexed": false,
+          "internalType": "address",
+          "name": "caller",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "recipient",
+          "type": "address"
+        },
+        {
+          "indexed": false,
           "internalType": "uint256",
-          "name": "assetBalance",
+          "name": "assets",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "shares",
           "type": "uint256"
         }
       ],
-      "name": "DepositFunds",
+      "name": "Deposited",
       "type": "event"
     },
     {
@@ -18,12 +36,30 @@
       "inputs": [
         {
           "indexed": false,
+          "internalType": "address",
+          "name": "caller",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "recipient",
+          "type": "address"
+        },
+        {
+          "indexed": false,
           "internalType": "uint256",
-          "name": "assetBalance",
+          "name": "received",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "shares",
           "type": "uint256"
         }
       ],
-      "name": "WithdrawFunds",
+      "name": "Withdrawal",
       "type": "event"
     }
   ]
