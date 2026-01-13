@@ -30,9 +30,7 @@ from requests import Session
 from tqdm_loggable.auto import tqdm
 
 from eth_defi.compat import native_datetime_utc_now
-from eth_defi.hyperliquid.vault import (HYPERLIQUID_STATS_URL,
-                                        HyperliquidVault, VaultSummary,
-                                        fetch_all_vaults)
+from eth_defi.hyperliquid.vault import HYPERLIQUID_STATS_URL, HyperliquidVault, VaultSummary, fetch_all_vaults
 from eth_defi.types import Percent
 
 logger = logging.getLogger(__name__)
@@ -506,7 +504,7 @@ def scan_vaults(
 
     if vault_summaries is None:
         raise RuntimeError("Failed to fetch vault summaries after 3 attempts")
-        
+
     if limit is not None:
         vault_summaries = vault_summaries[:limit]
     logger.info("Fetched %d vault summaries", len(vault_summaries))
