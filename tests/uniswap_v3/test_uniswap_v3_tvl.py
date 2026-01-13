@@ -6,6 +6,7 @@ Performed using live Polygon mainnet archive node.
 import os
 from decimal import Decimal
 
+import flaky
 import pytest
 from web3 import HTTPProvider, Web3
 
@@ -56,6 +57,8 @@ def test_fetch_current_tvl(
     assert usdc_tvl > 10_000, f"Hoped we have at least $10,000 USDC locked up at 5 BPS pool"
 
 
+# FAILED tests/uniswap_v3/test_uniswap_v3_tvl.py::test_fetch_historic_tvl - ValueError: ***'message': "state histories haven't been fully indexed yet", 'code': -32000***
+@flaky.flaky
 def test_fetch_historic_tvl(
     matic_usdc_pool: PoolDetails,
     usdc: TokenDetails,
