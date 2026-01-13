@@ -425,7 +425,7 @@ def mock_oracle_fork(web3_arbitrum_fork: Web3) -> str:
 @pytest.fixture()
 def web3_mainnet(chain_name, chain_rpc_url):
     """Set up a Web3 connection to the mainnet chain."""
-    web3 = Web3(HTTPProvider(chain_rpc_url))
+    web3 = create_multi_provider_web3(chain_rpc_url)
     web3.middleware_onion.clear()
     install_chain_middleware(web3)
 

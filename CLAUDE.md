@@ -130,6 +130,7 @@ Don't format code for now.
 - `pytest` tests should not have stdout output like `print`
 - Instead of manual float fuzzy comparison like `assert abs(aave_total_pnl - 96.6087) < 0.01` use `pytest.approx()`
 - For DuckDB testing, make sure the database is always closed using finally clause or fixtures
+- Always use fixture and test functions, never use test classes
 
 ### pyproject.toml
 
