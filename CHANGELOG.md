@@ -1,4 +1,4 @@
-# Current
+# 0.39
 
 - Add: `get_safe_cached_latest_block_number()` function to work around broken JSON-RPC providers with time-based caching (2026-01-13)
 - Optimisation: Chain-based filtering for `create_probe_calls()` - skips protocol-specific probes on chains where protocols aren't deployed, reducing unnecessary RPC calls (2026-01-13)
@@ -10,10 +10,6 @@
 - Add: [YieldFi](https://tradingstrategy.ai/trading-view/vaults/protocols/yieldfi) yUSD vault on Arbitrum (2026-01-12)
 - Add: New vault type: [Mainstreet Finance](https://tradingstrategy.ai/trading-view/vaults/protocols/mainstreet-finance) Staked msUSD vault on Ethereum (2026-01-12)
 - Add: New protocol: [Singularity Finance](https://singularityfinance.ai/) - AI-powered DeFi yield vaults on Base (2026-01-12)
-- Add: Ostium protocol logo assets (2026-01-08)
-- Add: Blacklist Superform vault 0x942bed98560e9b2aa0d4ec76bbda7a7e55f6b2d6 (2026-01-08)
-- Add: Fluid protocol logo assets (2026-01-08)
-- Add: Morpho protocol logo assets (2026-01-08)
 - Fix: ResourceWarning for unclosed sockets and subprocess handles in `eth_defi.utils` (2026-01-07)
 - Add: New vault type: [Spectra](https://tradingstrategy.ai/trading-view/vaults/protocols/spectra) ERC4626 wrapper (sw-earn) on Monad (2026-01-07)
 - Add: New protocol: [Curvance](https://www.curvance.com/) - next-generation DeFi lending protocol on Monad and other chains (2026-01-07)
