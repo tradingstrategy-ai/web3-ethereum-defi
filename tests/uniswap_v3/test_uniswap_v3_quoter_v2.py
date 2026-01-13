@@ -6,6 +6,7 @@
 import os
 from decimal import Decimal
 
+import flaky
 import pytest
 from web3 import Web3
 
@@ -60,6 +61,9 @@ def test_fetch_weth_usdc_buy(web3: Web3):
     assert 1000 < usdc_price < 10_000
 
 
+# Anvil instability
+# FAILED tests/uniswap_v3/test_uniswap_v3_quoter_v2.py::test_fetch_weth_usdc_sell - eth_defi.provider.fallback.ExtraValueError: ***'code': -32014, 'message': 'block not found: 0x26dfb9c'***
+@flaky.flaky
 def test_fetch_weth_usdc_sell(web3: Web3):
     """Fetch sell price for WETH/SUDC trade
 
