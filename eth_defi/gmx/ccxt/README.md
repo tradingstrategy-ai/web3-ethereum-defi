@@ -112,7 +112,7 @@ gmx = GMX({
 | `create_market_sell_order(symbol, amount, params)` | Open short position | Use `size_usd` in params |
 | `create_limit_buy_order(symbol, amount, price, params)` | Limit long order | Price is trigger price |
 | `create_limit_sell_order(symbol, amount, price, params)` | Limit short order | Price is trigger price |
-| `set_leverage(leverage, symbol)` | Configure leverage | 1.1x to market max (up to 100x) |
+| `set_leverage(leverage, symbol)` | Configure leverage | 1.0x to market max (up to 100x) |
 
 ### Derivatives-specific
 
@@ -132,7 +132,7 @@ Parameters unique to GMX that extend standard CCXT:
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `size_usd` | float | Position size in USD (alternative to base currency amount) |
-| `leverage` | float | Leverage multiplier (1.1x to 100x) |
+| `leverage` | float | Leverage multiplier (1.0x to 100x) |
 | `collateral_symbol` | str | Collateral token symbol (e.g., "USDC", "ETH") |
 | `execution_buffer` | float | Gas fee multiplier for execution (default 2.2) |
 | `slippage_percent` | float | Slippage tolerance (default 0.003 = 0.3%) |
