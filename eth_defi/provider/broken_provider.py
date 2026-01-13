@@ -10,9 +10,11 @@ See also
 
 """
 
-from eth_defi.provider.ankr import is_ankr
+import time
+
 from web3 import Web3
 
+from eth_defi.provider.ankr import is_ankr
 from eth_defi.provider.fallback import FallbackProvider
 from eth_defi.provider.mev_blocker import MEVBlockerProvider
 
@@ -115,3 +117,54 @@ def get_almost_latest_block_number(web3: Web3) -> int:
 
     """
     return max(1, web3.eth.block_number - get_block_tip_latency(web3))
+
+
+#: Chain id
+_latest_delayed_block_number_cache = {}
+
+def get_safe_cached_latest_block_number(
+    web3: Web3, 
+    chain_id: int, 
+    blocks=1000,
+    cache_duration: int = 3600,
+):
+    """Get almost "latest" block to work around broken JSON-RPC providers.
+
+    - Not for high frequency usage, as it caches the block for `delay` seconds
+    - No RPC call are made to 
+
+    Work around the error:
+
+    .. code-block:: plain
+
+        {'message': 'upstream does not have the requested block yet', 'code': -32603}
+
+    :param chain_id:
+        Chain id to use as part of the cache key
+
+    :param blocks:
+        Number of blocks to subtract from the latest block
+
+    :param cache_duration:
+        Number of seconds to cache the result
+
+    :return:
+        Latest block number minus `blocks`
+
+    """
+    assert isinstance(chain_id, int), f"Expected int chain_id, got {type(chain_id)}"
+
+    now = time.time()
+
+    cached = _latest_delayed_block_number_cache.get(chain_id)
+    if cached is not None:
+        cached_block, cached_time = cached
+        if now - cached_time < cache_duration:
+            return cached_block
+
+    latest_block = web3.eth.block_number
+    safe_block = max(1, latest_block - blocks)
+
+    _latest_delayed_block_number_cache[chain_id] = (safe_block, now)
+
+    return safe_block
