@@ -1,5 +1,6 @@
 # Current
 
+- Add: New protocol: [Accountable Capital](https://www.accountable.capital/) - blockchain-based financial verification vaults on Monad (2026-01-13)
 - Fix: Use different TVL thresholds for vault rankings - $50k for overall, $10k for chain/protocol rankings (2026-01-13)
 - Add: New protocol: [Brink](https://brink.money/) - yield-bearing vaults on Mantle with modified ERC-4626 events (2026-01-12)
 - Add: [Morpho Vault V2](https://tradingstrategy.ai/trading-view/vaults/protocols/morpho) adapter-based architecture support (2026-01-12)

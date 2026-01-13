@@ -93,6 +93,8 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     # Singularity Finance fees are internalised in the share price via minting shares
     "Singularity Finance": VaultFeeMode.internalised_minting,
     "Brink": None,
+    # Accountable fees are internalised in the share price
+    "Accountable": VaultFeeMode.internalised_skimming,
 }
 
 
