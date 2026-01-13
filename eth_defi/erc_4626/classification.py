@@ -26,6 +26,107 @@ from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
 logger = logging.getLogger(__name__)
 
 
+#: Chain restrictions for protocols deployed on 3 or fewer chains.
+#:
+#: Maps probe function names to the set of chain IDs where that protocol is deployed.
+#: Probes for these protocols will be skipped on chains not in their set.
+#:
+#: Data source: https://top-defi-vaults.tradingstrategy.ai/top_vaults_by_chain.json
+#: Data checked: 2026-01-13
+#:
+CHAIN_RESTRICTED_PROBES: dict[str, set[int]] = {
+    # Disabled protocols - not found in vault data, disable everywhere
+    "outputToLp0Route": set(),  # Baklava Space - not found in data
+    "agent": set(),  # Astrolab - not found in data
+    # Single chain protocols
+    "marketManager": {143},  # Curvance - Monad only
+    "validateComponentRatios": {42161},  # NashPoint - Arbitrum only
+    "SAY_TRADER_ROLE": {42161},  # Plutus - Arbitrum only
+    "aggregateVault": {42161},  # Umami - Arbitrum only
+    "bridgedSupply": {42161},  # USDai - Arbitrum only
+    "routerRegistry": {8453},  # Singularity Finance - Base only
+    "strategist": {5000},  # Brink - Mantle only
+    "vaultManager": {5000},  # Brink - Mantle only
+    "strategy": {143},  # Accountable - Monad only
+    "queue": {143},  # Accountable - Monad only
+    "registry": {42161},  # Ostium - Arbitrum only
+    # Two chain protocols
+    "claimableKeeper": {137, 42161},  # Untangle Finance - Polygon, Arbitrum
+    # Three chain protocols
+    "getPerformanceFeeData": {1, 8453, 42161},  # IPOR - Ethereum, Base, Arbitrum
+    "borrowed_token": {1, 10, 42161},  # Llama Lend - Ethereum, Optimism, Arbitrum
+    "previewRateAfterDeposit": {1, 42161, 80094},  # Royco - Ethereum, Arbitrum, Berachain
+    "repoTokenHoldings": {1, 9745, 43114},  # Term Finance - Ethereum, Plasma, Avalanche
+    "depositController": {1, 56, 42161},  # TrueFi - Ethereum, BSC, Arbitrum
+    "poolId": {1, 8453, 42161},  # Centrifuge - Ethereum, Base, Arbitrum
+    "wards": {1, 8453, 42161},  # Centrifuge - Ethereum, Base, Arbitrum
+}
+
+
+def _should_yield_probe(func_name: str, chain_id: int | None) -> bool:
+    """Check if a probe call should be yielded based on chain restrictions.
+
+    :param func_name:
+        The function name of the probe call.
+
+    :param chain_id:
+        The chain ID to check against. If None, always returns True (no filtering).
+
+    :return:
+        True if the probe should be yielded, False if it should be skipped.
+    """
+    if chain_id is None:
+        return True  # No filtering when chain_id not provided
+
+    if func_name in CHAIN_RESTRICTED_PROBES:
+        return chain_id in CHAIN_RESTRICTED_PROBES[func_name]
+
+    return True  # No restriction, always yield
+
+
+#: Sentinel result for probes that were filtered out (not executed).
+#: Used when accessing probe results for probes that were skipped due to chain filtering.
+_MISSING_PROBE_RESULT = None
+
+
+class _ProbeResultsDict(dict):
+    """Wrapper for probe results that returns a "missing" result for filtered probes.
+
+    When probes are filtered by chain_id, some probe keys won't exist in the results.
+    This wrapper returns a fake "not successful" result for missing keys, allowing
+    identify_vault_features() to work without KeyError.
+    """
+
+    def __getitem__(self, key: str) -> EncodedCallResult:
+        try:
+            return super().__getitem__(key)
+        except KeyError:
+            # Return a fake result that indicates the probe was not executed
+            # This happens when the probe was filtered out due to chain restrictions
+            return _MissingProbeResult(key)
+
+
+class _MissingProbeResult:
+    """Fake EncodedCallResult for probes that were filtered out.
+
+    Always returns success=False and empty result, so feature detection
+    will correctly skip this protocol.
+    """
+
+    __slots__ = ("func_name",)
+
+    def __init__(self, func_name: str):
+        self.func_name = func_name
+
+    @property
+    def success(self) -> bool:
+        return False
+
+    @property
+    def result(self) -> bytes:
+        return b""
+
+
 @dataclass(frozen=True, slots=True)
 class VaultFeatureProbe:
     """Results of a multicall probing to a vault address."""
@@ -43,10 +144,20 @@ def create_probe_calls(
 
     - Because ERC standards are such a shit show, and nobody is using good interface standard,
       we figure out the vault type by probing it with various calls
+    - Skips protocol-specific probes for protocols only deployed on certain chains
+      (see :py:data:`CHAIN_RESTRICTED_PROBES` for the list)
+
+    :param addresses:
+        Iterable of vault contract addresses to probe.
+
+    :param share_probe_amount:
+        Amount used for convertToShares() probe call.
 
     :param chain_id:
-        Limit probes by a chain, so that we do not try to probe vaults that exist only on certain
-        chains like mainnet.
+        If provided, filters out probe calls for protocols that are not deployed on this chain.
+        This reduces unnecessary RPC calls when scanning chains where certain protocols don't exist.
+        Protocols deployed on 3 or fewer chains have their probes skipped on other chains.
+        If None, all probes are generated (no filtering).
     """
 
     convert_to_shares_payload = eth_abi.encode(["uint256"], [share_probe_amount])
@@ -56,7 +167,13 @@ def create_probe_calls(
 
     # TODO: Might be bit slowish here, but we are not perf intensive
     for address in addresses:
-        bad_probe_call = EncodedCall.from_keccak_signature(
+
+        # ====================
+        # Core probes - always yield (required for basic ERC-4626 detection)
+        # ====================
+
+        # Probe for broken contracts - if this succeeds, the contract is broken
+        yield EncodedCall.from_keccak_signature(
             address=address,
             signature=Web3.keccak(text="EVM IS BROKEN SHIT()")[0:4],
             function="EVM IS BROKEN SHIT",
@@ -64,7 +181,8 @@ def create_probe_calls(
             extra_data=None,
         )
 
-        name_call = EncodedCall.from_keccak_signature(
+        # name() - should be present on all ERC-4626 vaults
+        yield EncodedCall.from_keccak_signature(
             address=address,
             signature=Web3.keccak(text="name()")[0:4],
             function="name",
@@ -72,8 +190,8 @@ def create_probe_calls(
             extra_data=None,
         )
 
-        # Shouldl be present in all ERC-4626 vaults
-        share_price_call = EncodedCall.from_keccak_signature(
+        # convertToShares() - should be present in all ERC-4626 vaults
+        yield EncodedCall.from_keccak_signature(
             address=address,
             signature=Web3.keccak(text="convertToShares(uint256)")[0:4],
             function="convertToShares",
@@ -81,17 +199,24 @@ def create_probe_calls(
             extra_data=None,
         )
 
-        # See ipor/vault.py
-        ipor_fee_call = EncodedCall.from_keccak_signature(
-            address=address,
-            signature=Web3.keccak(text="getPerformanceFeeData()")[0:4],
-            function="getPerformanceFeeData",
-            data=b"",
-            extra_data=None,
-        )
+        # ====================
+        # Protocol-specific probes - some filtered by chain_id
+        # ====================
 
+        # IPOR - Ethereum, Base, Arbitrum only
+        # See ipor/vault.py
+        if _should_yield_probe("getPerformanceFeeData", chain_id):
+            yield EncodedCall.from_keccak_signature(
+                address=address,
+                signature=Web3.keccak(text="getPerformanceFeeData()")[0:4],
+                function="getPerformanceFeeData",
+                data=b"",
+                extra_data=None,
+            )
+
+        # Harvest Finance
         # https://github.com/harvest-finance/harvest/blob/14420a4444c6aaa7bf0d2303a5888feb812a0521/contracts/Vault.sol#L86C12-L86C26
-        harvest_finance_call = EncodedCall.from_keccak_signature(
+        yield EncodedCall.from_keccak_signature(
             address=address,
             signature=Web3.keccak(text="vaultFractionToInvestDenominator()")[0:4],
             function="vaultFractionToInvestDenominator",
@@ -99,8 +224,9 @@ def create_probe_calls(
             extra_data=None,
         )
 
+        # ERC-7540 async vault detection
         # function isOperator(address controller, address operator) external returns (bool);
-        erc_7540_call = EncodedCall.from_keccak_signature(
+        yield EncodedCall.from_keccak_signature(
             address=address,
             signature=Web3.keccak(text="isOperator(address,address)")[0:4],
             function="isOperator",
@@ -108,40 +234,32 @@ def create_probe_calls(
             extra_data=None,
         )
 
+        # Baklava Space - disabled (not found in data)
         # BRT2: vAMM
         # https://basescan.org/address/0x49AF8CAf88CFc8394FcF08Cf997f69Cee2105f2b#readProxyContract
-        #
-        baklava_space = EncodedCall.from_keccak_signature(
-            address=address,
-            signature=Web3.keccak(text="outputToLp0Route(uint256)")[0:4],
-            function="outputToLp0Route",
-            data=zero_uint_payload,
-            extra_data=None,
-        )
+        if _should_yield_probe("outputToLp0Route", chain_id):
+            yield EncodedCall.from_keccak_signature(
+                address=address,
+                signature=Web3.keccak(text="outputToLp0Route(uint256)")[0:4],
+                function="outputToLp0Route",
+                data=zero_uint_payload,
+                extra_data=None,
+            )
 
+        # Astrolab - disabled (not found in data)
         # https://basescan.org/address/0x2aeB4A62f40257bfC96D5be55519f70DB871c744#readContract
-        astrolab_call = EncodedCall.from_keccak_signature(
-            address=address,
-            signature=Web3.keccak(text="agent()")[0:4],
-            function="agent",
-            data=b"",
-            extra_data=None,
-        )
+        if _should_yield_probe("agent", chain_id):
+            yield EncodedCall.from_keccak_signature(
+                address=address,
+                signature=Web3.keccak(text="agent()")[0:4],
+                function="agent",
+                data=b"",
+                extra_data=None,
+            )
 
-        # https://basescan.org/address/0x944766f715b51967E56aFdE5f0Aa76cEaCc9E7f9#readProxyContract
-        # https://basescan.org/address/0x2ac590a4a78298093e5bc7742685446af96d56e7#code
-        # https://github.com/GainsNetwork/gTrade-v6.1/tree/main
-        gains_tranche_call = EncodedCall.from_keccak_signature(
-            address=address,
-            signature=Web3.keccak(text="depositCap()")[0:4],
-            function="depositCap",
-            data=b"",
-            extra_data=None,
-        )
-
-        # gToken like vaults
+        # Gains Network / gToken vaults
         # https://github.com/0xOstium/smart-contracts-public/blob/da3b944623bef814285b7f418d43e6a95f4ad4b1/src/OstiumVault.sol#L243
-        gains_call = EncodedCall.from_keccak_signature(
+        yield EncodedCall.from_keccak_signature(
             address=address,
             signature=Web3.keccak(text="maxDiscountP()")[0:4],
             function="maxDiscountP",
@@ -149,12 +267,13 @@ def create_probe_calls(
             extra_data=None,
         )
 
-        # OstiumVault detector on the top of Gains
-        # https://github.com/0xOstium/smart-contracts-public/blob/da3b944623bef814285b7f418d43e6a95f4ad4b1/src/OstiumVault.sol
-        registry_call = EncodedCall.from_keccak_signature(
+        # Gains Network tranches
+        # https://basescan.org/address/0x944766f715b51967E56aFdE5f0Aa76cEaCc9E7f9#readProxyContract
+        # https://github.com/GainsNetwork/gTrade-v6.1/tree/main
+        yield EncodedCall.from_keccak_signature(
             address=address,
-            signature=Web3.keccak(text="registry()")[0:4],
-            function="registry",
+            signature=Web3.keccak(text="depositCap()")[0:4],
+            function="depositCap",
             data=b"",
             extra_data=None,
         )
@@ -162,7 +281,7 @@ def create_probe_calls(
         # Morpho V1
         # Moonwell runs on Morpho
         # https://basescan.org/address/0x6b13c060F13Af1fdB319F52315BbbF3fb1D88844#readContract
-        morpho_call = EncodedCall.from_keccak_signature(
+        yield EncodedCall.from_keccak_signature(
             address=address,
             signature=Web3.keccak(text="MORPHO()")[0:4],
             function="MORPHO",
@@ -170,11 +289,10 @@ def create_probe_calls(
             extra_data=None,
         )
 
-        # Morpho V2
-        # Newer adapter-based architecture
+        # Morpho V2 - newer adapter-based architecture
         # https://docs.morpho.org/learn/concepts/vault-v2/
         # https://arbiscan.io/address/0xbeefff13dd098de415e07f033dae65205b31a894
-        morpho_v2_call = EncodedCall.from_keccak_signature(
+        yield EncodedCall.from_keccak_signature(
             address=address,
             signature=Web3.keccak(text="adaptersLength()")[0:4],
             function="adaptersLength",
@@ -182,10 +300,9 @@ def create_probe_calls(
             extra_data=None,
         )
 
-        # interface IERC7575 is IERC4626 {
-        #     function share() external view returns (address);
-        # }
-        erc_7575_call = EncodedCall.from_keccak_signature(
+        # ERC-7575 detection
+        # interface IERC7575 is IERC4626 { function share() external view returns (address); }
+        yield EncodedCall.from_keccak_signature(
             address=address,
             signature=Web3.keccak(text="share()")[0:4],
             function="share",
@@ -195,9 +312,8 @@ def create_probe_calls(
 
         # Kiln metavault
         # https://basescan.org/address/0x4b2A4368544E276780342750D6678dC30368EF35#readProxyContract
-        # additionalRewardsStrategy
         # https://github.com/0xZunia/Kiln.MetaVault
-        kiln_metavaut_call = EncodedCall.from_keccak_signature(
+        yield EncodedCall.from_keccak_signature(
             address=address,
             signature=Web3.keccak(text="additionalRewardsStrategy()")[0:4],
             function="additionalRewardsStrategy",
@@ -205,9 +321,9 @@ def create_probe_calls(
             extra_data=None,
         )
 
-        # MAX_MANAGEMENT_RATE
+        # Lagoon
         # https://basescan.org/address/0x6a5ea384e394083149ce39db29d5787a658aa98a#readContract
-        lagoon_call = EncodedCall.from_keccak_signature(
+        yield EncodedCall.from_keccak_signature(
             address=address,
             signature=Web3.keccak(text="MAX_MANAGEMENT_RATE()")[0:4],
             function="MAX_MANAGEMENT_RATE",
@@ -215,9 +331,9 @@ def create_probe_calls(
             extra_data=None,
         )
 
-        # GOV()
+        # Yearn V2
         # https://etherscan.io/address/0x4cE9c93513DfF543Bc392870d57dF8C04e89Ba0a#readContract
-        yearn_call = EncodedCall.from_keccak_signature(
+        yield EncodedCall.from_keccak_signature(
             address=address,
             signature=Web3.keccak(text="GOV()")[0:4],
             function="GOV",
@@ -225,10 +341,9 @@ def create_probe_calls(
             extra_data=None,
         )
 
-        # Written in Vyper
-        # isShutdown()
+        # Yearn V3 (Vyper)
         # https://polygonscan.com/address/0xa013fbd4b711f9ded6fb09c1c0d358e2fbc2eaa0#readContract
-        yearn_v3_call = EncodedCall.from_keccak_signature(
+        yield EncodedCall.from_keccak_signature(
             address=address,
             signature=Web3.keccak(text="get_default_queue()")[0:4],
             function="get_default_queue",
@@ -236,8 +351,9 @@ def create_probe_calls(
             extra_data=None,
         )
 
+        # Superform
         # https://basescan.org/address/0x84d7549557f0fb69efbd1229d8e2f350b483c09b#readContract
-        superform_call = EncodedCall.from_keccak_signature(
+        yield EncodedCall.from_keccak_signature(
             address=address,
             signature=Web3.keccak(text="THIS_CHAIN_ID()")[0:4],
             function="THIS_CHAIN_ID",
@@ -245,8 +361,9 @@ def create_probe_calls(
             extra_data=None,
         )
 
+        # Superform (alternative)
         # https://etherscan.io//address/0x862c57d48becB45583AEbA3f489696D22466Ca1b#readProxyContract
-        superform_call_2 = EncodedCall.from_keccak_signature(
+        yield EncodedCall.from_keccak_signature(
             address=address,
             signature=Web3.keccak(text="METADEPOSIT_TYPEHASH()")[0:4],
             function="METADEPOSIT_TYPEHASH",
@@ -254,32 +371,20 @@ def create_probe_calls(
             extra_data=None,
         )
 
-        # TODO: No way separate from Goat Protocol, see test_superform
-        # Superform
-        # https://github.com/TrueFi-Protocol
-        # https://app.superform.xyz/
-        # https://arbiscan.io/address/0xa7781f1d982eb9000bc1733e29ff5ba2824cdbe5#code
-        # superform_call_3 = EncodedCall.from_keccak_signature(
-        #     address=address,
-        #     signature=Web3.keccak(text="PROFIT_UNLOCK_TIME()")[0:4],
-        #     function="PROFIT_UNLOCK_TIME",
-        #     data=b"",
-        #     extra_data=None,
-        # )
-
-        # profitMaxUnlockTime()
+        # Term Finance - Ethereum, Plasma, Avalanche only
         # https://etherscan.io/address/0xa10c40f9e318b0ed67ecc3499d702d8db9437228#readProxyContract
-        term_finance_call = EncodedCall.from_keccak_signature(
-            address=address,
-            signature=Web3.keccak(text="repoTokenHoldings()")[0:4],
-            function="repoTokenHoldings",
-            data=b"",
-            extra_data=None,
-        )
+        if _should_yield_probe("repoTokenHoldings", chain_id):
+            yield EncodedCall.from_keccak_signature(
+                address=address,
+                signature=Web3.keccak(text="repoTokenHoldings()")[0:4],
+                function="repoTokenHoldings",
+                data=b"",
+                extra_data=None,
+            )
 
-        #
+        # Euler V1
         # https://basescan.org/address/0x30a9a9654804f1e5b3291a86e83eded7cf281618#code
-        euler_call = EncodedCall.from_keccak_signature(
+        yield EncodedCall.from_keccak_signature(
             address=address,
             signature=Web3.keccak(text="MODULE_VAULT()")[0:4],
             function="MODULE_VAULT",
@@ -287,11 +392,10 @@ def create_probe_calls(
             extra_data=None,
         )
 
-        # EulerEarn
-        # Metamorpho-based metavault for Euler ecosystem
+        # EulerEarn - Metamorpho-based metavault for Euler ecosystem
         # https://github.com/euler-xyz/euler-earn
         # https://snowtrace.io/address/0xE1A62FDcC6666847d5EA752634E45e134B2F824B
-        euler_earn_call = EncodedCall.from_keccak_signature(
+        yield EncodedCall.from_keccak_signature(
             address=address,
             signature=Web3.keccak(text="supplyQueueLength()")[0:4],
             function="supplyQueueLength",
@@ -299,25 +403,41 @@ def create_probe_calls(
             extra_data=None,
         )
 
+        # Ostium - Arbitrum only (registry() call)
+        # https://github.com/0xOstium/smart-contracts-public/blob/da3b944623bef814285b7f418d43e6a95f4ad4b1/src/OstiumVault.sol
+        if _should_yield_probe("registry", chain_id):
+            yield EncodedCall.from_keccak_signature(
+                address=address,
+                signature=Web3.keccak(text="registry()")[0:4],
+                function="registry",
+                data=b"",
+                extra_data=None,
+            )
+
+        # Umami - Arbitrum only
         # https://arbiscan.io/address/0x5f851f67d24419982ecd7b7765defd64fbb50a97#readContract
-        umami_call = EncodedCall.from_keccak_signature(
-            address=address,
-            signature=Web3.keccak(text="aggregateVault()")[0:4],
-            function="aggregateVault",
-            data=b"",
-            extra_data=None,
-        )
+        if _should_yield_probe("aggregateVault", chain_id):
+            yield EncodedCall.from_keccak_signature(
+                address=address,
+                signature=Web3.keccak(text="aggregateVault()")[0:4],
+                function="aggregateVault",
+                data=b"",
+                extra_data=None,
+            )
 
-        plutus_call = EncodedCall.from_keccak_signature(
-            address=address,
-            signature=Web3.keccak(text="SAY_TRADER_ROLE()")[0:4],
-            function="SAY_TRADER_ROLE",
-            data=b"",
-            extra_data=None,
-        )
+        # Plutus - Arbitrum only
+        if _should_yield_probe("SAY_TRADER_ROLE", chain_id):
+            yield EncodedCall.from_keccak_signature(
+                address=address,
+                signature=Web3.keccak(text="SAY_TRADER_ROLE()")[0:4],
+                function="SAY_TRADER_ROLE",
+                data=b"",
+                extra_data=None,
+            )
 
+        # D2 Finance
         # https://arbiscan.io/address/0x75288264fdfea8ce68e6d852696ab1ce2f3e5004#code
-        d2_call = EncodedCall.from_keccak_signature(
+        yield EncodedCall.from_keccak_signature(
             address=address,
             signature=Web3.keccak(text="getCurrentEpochInfo()")[0:4],
             function="getCurrentEpochInfo",
@@ -325,20 +445,21 @@ def create_probe_calls(
             extra_data=None,
         )
 
-        # Untangled finance
+        # Untangled Finance - Polygon, Arbitrum only
         # https://app.untangled.finance/
         # https://arbiscan.io/address/0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9#code
-        untangled_call = EncodedCall.from_keccak_signature(
-            address=address,
-            signature=Web3.keccak(text="claimableKeeper()")[0:4],
-            function="claimableKeeper",
-            data=b"",
-            extra_data=None,
-        )
+        if _should_yield_probe("claimableKeeper", chain_id):
+            yield EncodedCall.from_keccak_signature(
+                address=address,
+                signature=Web3.keccak(text="claimableKeeper()")[0:4],
+                function="claimableKeeper",
+                data=b"",
+                extra_data=None,
+            )
 
+        # Yearn TokenizedStrategy / Fluid conflicting
         # https://arbiscan.io/address/0xb739ae19620f7ecb4fb84727f205453aa5bc1ad2#code
-        # Fluid conflicting https://etherscan.io/address/0x00c8a649c9837523ebb406ceb17a6378ab5c74cf#readContract
-        trade_factory_call = EncodedCall.from_keccak_signature(
+        yield EncodedCall.from_keccak_signature(
             address=address,
             signature=Web3.keccak(text="tradeFactory()")[0:4],
             function="tradeFactory",
@@ -346,11 +467,10 @@ def create_probe_calls(
             extra_data=None,
         )
 
-        # Goat protocol
+        # Goat Protocol
         # https://github.com/goatfi/contracts
-        # https://arbiscan.io/address/0x8a1ef3066553275829d1c0f64ee8d5871d5ce9d3#readContract
         # https://github.com/goatfi/contracts/blob/main/src/infra/multistrategy/Multistrategy.sol
-        goat_call = EncodedCall.from_keccak_signature(
+        yield EncodedCall.from_keccak_signature(
             address=address,
             signature=Web3.keccak(text="DEGRADATION_COEFFICIENT()")[0:4],
             function="DEGRADATION_COEFFICIENT",
@@ -358,20 +478,21 @@ def create_probe_calls(
             extra_data=None,
         )
 
-        # USDai
+        # USDai - Arbitrum only
         # https://arbiscan.io/address/0xc0540184de0e42eab2b0a4fc35f4817041001e85#code
-        usdai_call = EncodedCall.from_keccak_signature(
-            address=address,
-            signature=Web3.keccak(text="bridgedSupply()")[0:4],
-            function="bridgedSupply",
-            data=b"",
-            extra_data=None,
-        )
+        if _should_yield_probe("bridgedSupply", chain_id):
+            yield EncodedCall.from_keccak_signature(
+                address=address,
+                signature=Web3.keccak(text="bridgedSupply()")[0:4],
+                function="bridgedSupply",
+                data=b"",
+                extra_data=None,
+            )
 
-        # Autopool
+        # Autopool (Tokemak)
         # https://arbiscan.io/address/0xf63b7f49b4f5dc5d0e7e583cfd79dc64e646320c#readProxyContract
-        # https://github.com/Tokemak/v2-core-pub?tab=readme-ov-file
-        autopool_call = EncodedCall.from_keccak_signature(
+        # https://github.com/Tokemak/v2-core-pub
+        yield EncodedCall.from_keccak_signature(
             address=address,
             signature=Web3.keccak(text="autoPoolStrategy()")[0:4],
             function="autoPoolStrategy",
@@ -379,29 +500,31 @@ def create_probe_calls(
             extra_data=None,
         )
 
-        # NashPoint
+        # NashPoint - Arbitrum only
         # https://arbiscan.io/address/0x6ca200319a0d4127a7a473d6891b86f34e312f42#readContract
-        nashpoint_call = EncodedCall.from_keccak_signature(
-            address=address,
-            signature=Web3.keccak(text="validateComponentRatios()")[0:4],
-            function="validateComponentRatios",
-            data=b"",
-            extra_data=None,
-        )
+        if _should_yield_probe("validateComponentRatios", chain_id):
+            yield EncodedCall.from_keccak_signature(
+                address=address,
+                signature=Web3.keccak(text="validateComponentRatios()")[0:4],
+                function="validateComponentRatios",
+                data=b"",
+                extra_data=None,
+            )
 
-        # Llama Lend (powered by LLAMMA)
+        # Llama Lend (LLAMMA) - Ethereum, Optimism, Arbitrum only
         # https://arbiscan.io/address/0xe296ee7f83d1d95b3f7827ff1d08fe1e4cf09d8d#code
-        llamma_call = EncodedCall.from_keccak_signature(
-            address=address,
-            signature=Web3.keccak(text="borrowed_token()")[0:4],
-            function="borrowed_token",
-            data=b"",
-            extra_data=None,
-        )
+        if _should_yield_probe("borrowed_token", chain_id):
+            yield EncodedCall.from_keccak_signature(
+                address=address,
+                signature=Web3.keccak(text="borrowed_token()")[0:4],
+                function="borrowed_token",
+                data=b"",
+                extra_data=None,
+            )
 
         # Summer Earn
         # https://arbiscan.io/address/0xe296ee7f83d1d95b3f7827ff1d08fe1e4cf09d8d#code
-        summer_call = EncodedCall.from_keccak_signature(
+        yield EncodedCall.from_keccak_signature(
             address=address,
             signature=Web3.keccak(text="ADMIRALS_QUARTERS_ROLE()")[0:4],
             function="ADMIRALS_QUARTERS_ROLE",
@@ -411,7 +534,7 @@ def create_probe_calls(
 
         # Silo Finance
         # https://arbiscan.io/address/0xacb7432a4bb15402ce2afe0a7c9d5b738604f6f9#readContract
-        silo_call = EncodedCall.from_keccak_signature(
+        yield EncodedCall.from_keccak_signature(
             address=address,
             signature=Web3.keccak(text="utilizationData()")[0:4],
             function="utilizationData",
@@ -419,21 +542,21 @@ def create_probe_calls(
             extra_data=None,
         )
 
-        # TrueFi
+        # TrueFi - Ethereum, BSC, Arbitrum only
         # https://github.com/TrueFi-Protocol
         # https://arbiscan.io/address/0x8626a4234721A605Fc84Bb49d55194869Ae95D98#readContract
-        truefi_call = EncodedCall.from_keccak_signature(
-            address=address,
-            signature=Web3.keccak(text="depositController()")[0:4],
-            function="depositController",
-            data=b"",
-            extra_data=None,
-        )
+        if _should_yield_probe("depositController", chain_id):
+            yield EncodedCall.from_keccak_signature(
+                address=address,
+                signature=Web3.keccak(text="depositController()")[0:4],
+                function="depositController",
+                data=b"",
+                extra_data=None,
+            )
 
-        # Yearn Morpho Compounder strategy
-        # Uses auction() for reward liquidation
+        # Yearn Morpho Compounder strategy - uses auction() for reward liquidation
         # https://etherscan.io/address/0x6D2981FF9b8d7edbb7604de7A65BAC8694ac849F
-        yearn_auction_call = EncodedCall.from_keccak_signature(
+        yield EncodedCall.from_keccak_signature(
             address=address,
             signature=Web3.keccak(text="auction()")[0:4],
             function="auction",
@@ -441,9 +564,9 @@ def create_probe_calls(
             extra_data=None,
         )
 
-        # Yearn TokenizedStrategy has vault() that points to the parent vault
+        # Yearn TokenizedStrategy - vault() points to parent vault
         # https://etherscan.io/address/0x6D2981FF9b8d7edbb7604de7A65BAC8694ac849F
-        yearn_vault_call = EncodedCall.from_keccak_signature(
+        yield EncodedCall.from_keccak_signature(
             address=address,
             signature=Web3.keccak(text="vault()")[0:4],
             function="vault",
@@ -451,10 +574,9 @@ def create_probe_calls(
             extra_data=None,
         )
 
-        # Teller Protocol
-        # LenderCommitmentGroup_Pool_V2 long-tail lending pools
+        # Teller Protocol - LenderCommitmentGroup_Pool_V2 long-tail lending pools
         # https://basescan.org/address/0x13cd7cf42ccbaca8cd97e7f09572b6ea0de1097b
-        teller_v2_call = EncodedCall.from_keccak_signature(
+        yield EncodedCall.from_keccak_signature(
             address=address,
             signature=Web3.keccak(text="TELLER_V2()")[0:4],
             function="TELLER_V2",
@@ -462,10 +584,9 @@ def create_probe_calls(
             extra_data=None,
         )
 
-        # Upshift
-        # TokenizedAccount vaults built on August infrastructure
+        # Upshift - TokenizedAccount vaults built on August infrastructure
         # https://etherscan.io/address/0x69fc3f84fd837217377d9dae0212068ceb65818e
-        upshift_call = EncodedCall.from_keccak_signature(
+        yield EncodedCall.from_keccak_signature(
             address=address,
             signature=Web3.keccak(text="settlementAccount()")[0:4],
             function="settlementAccount",
@@ -473,43 +594,44 @@ def create_probe_calls(
             extra_data=None,
         )
 
-        # Centrifuge
+        # Centrifuge - Ethereum, Base, Arbitrum only
         # LiquidityPool vaults for RWA financing
         # https://etherscan.io/address/0xa702ac7953e6a66d2b10a478eb2f0e2b8c8fd23e
         # https://github.com/centrifuge/liquidity-pools
-        centrifuge_call = EncodedCall.from_keccak_signature(
-            address=address,
-            signature=Web3.keccak(text="poolId()")[0:4],
-            function="poolId",
-            data=b"",
-            extra_data=None,
-        )
+        if _should_yield_probe("poolId", chain_id):
+            yield EncodedCall.from_keccak_signature(
+                address=address,
+                signature=Web3.keccak(text="poolId()")[0:4],
+                function="poolId",
+                data=b"",
+                extra_data=None,
+            )
 
         # Centrifuge wards call for additional verification
-        centrifuge_wards_call = EncodedCall.from_keccak_signature(
-            address=address,
-            signature=Web3.keccak(text="wards(address)")[0:4],
-            function="wards",
-            data=zero_address_payload,
-            extra_data=None,
-        )
+        if _should_yield_probe("wards", chain_id):
+            yield EncodedCall.from_keccak_signature(
+                address=address,
+                signature=Web3.keccak(text="wards(address)")[0:4],
+                function="wards",
+                data=zero_address_payload,
+                extra_data=None,
+            )
 
-        # Royco Protocol
+        # Royco Protocol - Ethereum, Arbitrum, Berachain only
         # WrappedVault contracts with reward distribution
         # https://etherscan.io/address/0x887d57a509070a0843c6418eb5cffc090dcbbe95
-        royco_call = EncodedCall.from_keccak_signature(
-            address=address,
-            signature=Web3.keccak(text="previewRateAfterDeposit(address,uint256)")[0:4],
-            function="previewRateAfterDeposit",
-            data=eth_abi.encode(["address", "uint256"], [ZERO_ADDRESS_STR, 0]),
-            extra_data=None,
-        )
+        if _should_yield_probe("previewRateAfterDeposit", chain_id):
+            yield EncodedCall.from_keccak_signature(
+                address=address,
+                signature=Web3.keccak(text="previewRateAfterDeposit(address,uint256)")[0:4],
+                function="previewRateAfterDeposit",
+                data=eth_abi.encode(["address", "uint256"], [ZERO_ADDRESS_STR, 0]),
+                extra_data=None,
+            )
 
-        # Gearbox Protocol - PoolV3
-        # Lending pools that return "POOL" from contractType()
+        # Gearbox Protocol - PoolV3 lending pools that return "POOL" from contractType()
         # https://github.com/Gearbox-protocol/core-v3/blob/main/contracts/pool/PoolV3.sol
-        # https://plasmascan.to/address/0xb74760fd26400030620027dd29d19d74d514700e
-        gearbox_contract_type_call = EncodedCall.from_keccak_signature(
+        yield EncodedCall.from_keccak_signature(
             address=address,
             signature=Web3.keccak(text="contractType()")[0:4],
             function="contractType",
@@ -517,122 +639,72 @@ def create_probe_calls(
             extra_data=None,
         )
 
-        # Curvance Protocol
-        # BorrowableCToken and other cToken vaults have marketManager() returning IMarketManager address
+        # Curvance Protocol - Monad only
+        # BorrowableCToken and other cToken vaults have marketManager()
         # https://github.com/curvance/curvance-contracts
         # https://monadscan.com/address/0xad4aa2a713fb86fbb6b60de2af9e32a11db6abf2
-        curvance_call = EncodedCall.from_keccak_signature(
-            address=address,
-            signature=Web3.keccak(text="marketManager()")[0:4],
-            function="marketManager",
-            data=b"",
-            extra_data=None,
-        )
+        if _should_yield_probe("marketManager", chain_id):
+            yield EncodedCall.from_keccak_signature(
+                address=address,
+                signature=Web3.keccak(text="marketManager()")[0:4],
+                function="marketManager",
+                data=b"",
+                extra_data=None,
+            )
 
-        # Singularity Finance DynaVaults
+        # Singularity Finance DynaVaults - Base only
         # routerRegistry() returns the address of the router registry contract
         # https://basescan.org/address/0xdf71487381Ab5bD5a6B17eAa61FE2E6045A0e805
-        singularity_call = EncodedCall.from_keccak_signature(
-            address=address,
-            signature=Web3.keccak(text="routerRegistry()")[0:4],
-            function="routerRegistry",
-            data=b"",
-            extra_data=None,
-        )
+        if _should_yield_probe("routerRegistry", chain_id):
+            yield EncodedCall.from_keccak_signature(
+                address=address,
+                signature=Web3.keccak(text="routerRegistry()")[0:4],
+                function="routerRegistry",
+                data=b"",
+                extra_data=None,
+            )
 
-        # Brink vaults
-        # Uses modified events (DepositFunds/WithdrawFunds) instead of standard ERC-4626.
-        # Unique function: strategist() returns the strategist address.
+        # Brink vaults - Mantle only
+        # Uses modified events (DepositFunds/WithdrawFunds) instead of standard ERC-4626
         # https://mantlescan.xyz/address/0xE12EED61E7cC36E4CF3304B8220b433f1fD6e254
-        brink_strategist_call = EncodedCall.from_keccak_signature(
-            address=address,
-            signature=Web3.keccak(text="strategist()")[0:4],
-            function="strategist",
-            data=b"",
-            extra_data=None,
-        )
+        if _should_yield_probe("strategist", chain_id):
+            yield EncodedCall.from_keccak_signature(
+                address=address,
+                signature=Web3.keccak(text="strategist()")[0:4],
+                function="strategist",
+                data=b"",
+                extra_data=None,
+            )
 
-        # Brink vaults also have vaultManager() function
-        brink_vault_manager_call = EncodedCall.from_keccak_signature(
-            address=address,
-            signature=Web3.keccak(text="vaultManager()")[0:4],
-            function="vaultManager",
-            data=b"",
-            extra_data=None,
-        )
+        if _should_yield_probe("vaultManager", chain_id):
+            yield EncodedCall.from_keccak_signature(
+                address=address,
+                signature=Web3.keccak(text="vaultManager()")[0:4],
+                function="vaultManager",
+                data=b"",
+                extra_data=None,
+            )
 
-        # Accountable Capital
-        # AccountableAsyncRedeemVault with ERC-7540 async redemption queue.
-        # Unique function: strategy() returns IStrategyVaultHooks address.
+        # Accountable Capital - Monad only
+        # AccountableAsyncRedeemVault with ERC-7540 async redemption queue
         # https://monadscan.com/address/0x58ba69b289De313E66A13B7D1F822Fc98b970554
-        accountable_strategy_call = EncodedCall.from_keccak_signature(
-            address=address,
-            signature=Web3.keccak(text="strategy()")[0:4],
-            function="strategy",
-            data=b"",
-            extra_data=None,
-        )
+        if _should_yield_probe("strategy", chain_id):
+            yield EncodedCall.from_keccak_signature(
+                address=address,
+                signature=Web3.keccak(text="strategy()")[0:4],
+                function="strategy",
+                data=b"",
+                extra_data=None,
+            )
 
-        # Accountable vaults also have queue() function for redemption queue state
-        accountable_queue_call = EncodedCall.from_keccak_signature(
-            address=address,
-            signature=Web3.keccak(text="queue()")[0:4],
-            function="queue",
-            data=b"",
-            extra_data=None,
-        )
-
-        yield bad_probe_call
-        yield name_call
-        yield share_price_call
-        yield ipor_fee_call
-        yield harvest_finance_call
-        yield erc_7540_call
-        yield baklava_space
-        yield astrolab_call
-        yield gains_call
-        yield gains_tranche_call
-        yield morpho_call
-        yield morpho_v2_call
-        yield erc_7575_call
-        yield kiln_metavaut_call
-        yield lagoon_call
-        yield yearn_call
-        yield yearn_v3_call
-        yield superform_call
-        yield superform_call_2
-        # yield superform_call_3
-        yield term_finance_call
-        yield euler_call
-        yield euler_earn_call
-        yield registry_call
-        yield umami_call
-        yield plutus_call
-        yield d2_call
-        yield untangled_call
-        yield trade_factory_call
-        yield goat_call
-        yield usdai_call
-        yield autopool_call
-        yield nashpoint_call
-        yield llamma_call
-        yield summer_call
-        yield silo_call
-        yield truefi_call
-        yield yearn_auction_call
-        yield yearn_vault_call
-        yield teller_v2_call
-        yield upshift_call
-        yield centrifuge_call
-        yield centrifuge_wards_call
-        yield royco_call
-        yield gearbox_contract_type_call
-        yield curvance_call
-        yield singularity_call
-        yield brink_strategist_call
-        yield brink_vault_manager_call
-        yield accountable_strategy_call
-        yield accountable_queue_call
+        if _should_yield_probe("queue", chain_id):
+            yield EncodedCall.from_keccak_signature(
+                address=address,
+                signature=Web3.keccak(text="queue()")[0:4],
+                function="queue",
+                data=b"",
+                extra_data=None,
+            )
 
 
 def identify_vault_features(
@@ -936,7 +1008,9 @@ def probe_vaults(
         address_calls[call_result.call.func_name] = call_result
 
     for address, address_call_results in results_per_address.items():
-        features = identify_vault_features(address, address_call_results, debug_text=f"vault: {address}")
+        # Wrap with _ProbeResultsDict to handle missing probes from chain filtering
+        wrapped_results = _ProbeResultsDict(address_call_results)
+        features = identify_vault_features(address, wrapped_results, debug_text=f"vault: {address}")
         yield VaultFeatureProbe(
             address=address,
             features=features,
@@ -997,7 +1071,9 @@ def detect_vault_features(
             logger.info("Result for %s: %s, error: %s", call.func_name, result.success, str(result.revert_exception))
         results[call.func_name] = result
 
-    features = identify_vault_features(address, results, debug_text=f"vault: {address}")
+    # Wrap with _ProbeResultsDict to handle missing probes from chain filtering
+    wrapped_results = _ProbeResultsDict(results)
+    features = identify_vault_features(address, wrapped_results, debug_text=f"vault: {address}")
     return features
 
 
