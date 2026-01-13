@@ -208,7 +208,7 @@ def anvil_{chain}_fork(request) -> AnvilLaunch:
 
 @pytest.fixture(scope="module")
 def web3(anvil_{chain}_fork):
-    web3 = create_multi_provider_web3(anvil_{chain}_fork.json_rpc_url)
+    web3 = create_multi_provider_web3(anvil_{chain}_fork.json_rpc_url, retries=2)
     return web3
 
 

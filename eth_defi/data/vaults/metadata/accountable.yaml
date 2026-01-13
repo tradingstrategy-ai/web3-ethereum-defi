@@ -1,0 +1,33 @@
+name: Accountable
+slug: accountable
+short_description: |
+  Blockchain-based financial verification technology with ERC-7540 async redemption vaults.
+long_description: |
+  Accountable Capital develops blockchain-based financial verification technology that enables
+  organisations and investors to demonstrate solvency, liquidity, and compliance through
+  transparent, verifiable attestations. The platform combines cryptographic proofs with
+  auditable financial data to enhance trust across Web3 and traditional finance.
+
+  Accountable vaults implement the ERC-7540 async redemption pattern with a queue system
+  for processing withdrawal requests. The protocol is primarily deployed on Monad blockchain.
+
+fee_description: |
+  Fee information is not publicly exposed on-chain. Accountable vaults do not have
+  explicit fee getter functions available for reading management or performance fees.
+links:
+  homepage: https://www.accountable.capital/
+  app: https://yield.accountable.capital/
+  twitter: https://x.com/AccountableData
+  github:
+  documentation: https://docs.accountable.capital/
+  defillama: https://defillama.com/protocol/accountable
+  audits: https://docs.accountable.capital/accountable-documentation/readme/audits
+  fees:
+  trading_strategy:
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/accountable/index.html
+  linkedin: https://www.linkedin.com/company/accountablecapital/
+example_smart_contracts:
+  - https://monadscan.com/address/0x58ba69b289De313E66A13B7D1F822Fc98b970554
+  - https://monadscan.com/address/0x3a2c4aAae6776dC1c31316De559598f2f952E2cB
+  - https://monadscan.com/address/0x4C0d041889281531fF060290d71091401Caa786D
+  - https://monadscan.com/address/0x0a4AfB907672279926c73Dc1F77151931c2A55cC

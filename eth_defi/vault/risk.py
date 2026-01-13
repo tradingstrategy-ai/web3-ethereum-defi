@@ -113,6 +113,7 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Curvance": None,
     "Singularity Finance": None,
     "Brink": None,
+    "Accountable": VaultTechnicalRisk.severe,
 }
 
 #: Particular vaults that are broken, misleading or otherwise problematic.
