@@ -170,9 +170,7 @@ def get_safe_cached_latest_block_number(
 
     if is_anvil(web3):
         # Anvil works correctly, no need to delay
-        latest_block = web3.eth.block_number
-        _latest_delayed_block_number_cache[chain_id] = (latest_block, now)
-        return latest_block
+        return "latest"
 
     latest_block = web3.eth.block_number
     safe_block = max(1, latest_block - blocks)
