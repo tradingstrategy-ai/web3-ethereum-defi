@@ -23,13 +23,16 @@ from pathlib import Path
 from typing import Iterator
 
 import pandas as pd
+import requests
 from eth_typing import HexAddress
 from joblib import Parallel, delayed
 from requests import Session
 from tqdm_loggable.auto import tqdm
 
 from eth_defi.compat import native_datetime_utc_now
-from eth_defi.hyperliquid.vault import HYPERLIQUID_STATS_URL, HyperliquidVault, VaultSummary, fetch_all_vaults
+from eth_defi.hyperliquid.vault import (HYPERLIQUID_STATS_URL,
+                                        HyperliquidVault, VaultSummary,
+                                        fetch_all_vaults)
 from eth_defi.types import Percent
 
 logger = logging.getLogger(__name__)
@@ -490,8 +493,20 @@ def scan_vaults(
     if disabled_vaults:
         logger.info("Skipping %d disabled vaults", len(disabled_vaults))
 
-    # Fetch all vault summaries
-    vault_summaries = list(fetch_all_vaults(session, stats_url, timeout))
+    # Fetch all vault summaries.
+    # Seems like we get flakiness from somewhere.
+    vault_summaries = None
+    for attempt in range(3):
+        try:
+            vault_summaries = list(fetch_all_vaults(session, stats_url, timeout))
+            break
+        except requests.exceptions.ChunkedEncodingError as e:
+            logger.warning("Error fetching vault summaries (attempt %d/3): %s", attempt + 1, str(e))
+            continue
+
+    if vault_summaries is None:
+        raise RuntimeError("Failed to fetch vault summaries after 3 attempts")
+        
     if limit is not None:
         vault_summaries = vault_summaries[:limit]
     logger.info("Fetched %d vault summaries", len(vault_summaries))

@@ -158,6 +158,8 @@ def create_probe_calls(
         If None, all probes are generated (no filtering).
     """
 
+    assert chain_id is not None, "Changed: always pass chain_id"
+
     convert_to_shares_payload = eth_abi.encode(["uint256"], [share_probe_amount])
     zero_uint_payload = eth_abi.encode(["uint256"], [0])
     double_address = eth_abi.encode(["address", "address"], [ZERO_ADDRESS_STR, ZERO_ADDRESS_STR])
