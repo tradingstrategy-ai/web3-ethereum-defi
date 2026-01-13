@@ -1023,6 +1023,8 @@ class ERC4626Vault(VaultBase):
                 self.web3,
                 block_identifier="latest",
                 silent_error=True,
+                ignore_error=True,
+                attempts=2,
             )
             paused = convert_int256_bytes_to_int(result) != 0
         except (ValueError, BadFunctionCallOutput, BadAddressError):
