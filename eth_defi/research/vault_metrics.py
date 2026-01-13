@@ -1249,7 +1249,8 @@ def get_period_metrics(period_results: list[PeriodMetrics], period: Period) -> P
 
 def calculate_vault_rankings(
     results_df: pd.DataFrame,
-    min_tvl: float = 10_000,
+    min_tvl_chain_protocol: float = 10_000,
+    min_tvl_overall: float = 50_000,
 ) -> pd.DataFrame:
     """Calculate rankings for all periods inside PeriodMetrics objects.
 
@@ -1265,8 +1266,11 @@ def calculate_vault_rankings(
     :param results_df:
         DataFrame from calculate_lifetime_metrics()
 
-    :param min_tvl:
-        Minimum TVL required for ranking (default: $10,000)
+    :param min_tvl_chain_protocol:
+        Minimum TVL required for chain and protocol rankings (default: $10,000)
+
+    :param min_tvl_overall:
+        Minimum TVL required for overall rankings (default: $50,000)
 
     :return:
         DataFrame with rankings updated in PeriodMetrics objects
@@ -1274,8 +1278,9 @@ def calculate_vault_rankings(
     periods: list[Period] = list(LOOKBACK_AND_TOLERANCES.keys())
 
     for period in periods:
-        # Build a Series of CAGR values for this period
-        cagr_values = []
+        # Build Series of CAGR values for this period with different TVL thresholds
+        cagr_values_chain_protocol = []
+        cagr_values_overall = []
 
         for idx in results_df.index:
             row = results_df.loc[idx]
@@ -1283,29 +1288,39 @@ def calculate_vault_rankings(
             pm = get_period_metrics(period_results, period)
 
             if pm is None or pm.error_reason is not None:
-                cagr_values.append(pd.NA)
+                cagr_values_chain_protocol.append(pd.NA)
+                cagr_values_overall.append(pd.NA)
                 continue
 
             # Use net CAGR, fall back to gross
             cagr = pm.cagr_net if pm.cagr_net is not None else pm.cagr_gross
 
-            # Apply exclusion criteria
+            # Apply exclusion criteria (common checks)
             is_blacklisted = row["risk"] == VaultTechnicalRisk.blacklisted
             tvl = pm.tvl_end or 0
-            has_low_tvl = tvl < min_tvl
             has_no_cagr = cagr is None or cagr == 0 or pd.isna(cagr)
 
-            if is_blacklisted or has_low_tvl or has_no_cagr:
-                cagr_values.append(pd.NA)
+            # Chain/protocol rankings use lower TVL threshold
+            has_low_tvl_chain_protocol = tvl < min_tvl_chain_protocol
+            if is_blacklisted or has_low_tvl_chain_protocol or has_no_cagr:
+                cagr_values_chain_protocol.append(pd.NA)
             else:
-                cagr_values.append(cagr)
+                cagr_values_chain_protocol.append(cagr)
 
-        cagr_series = pd.Series(cagr_values, index=results_df.index)
+            # Overall rankings use higher TVL threshold
+            has_low_tvl_overall = tvl < min_tvl_overall
+            if is_blacklisted or has_low_tvl_overall or has_no_cagr:
+                cagr_values_overall.append(pd.NA)
+            else:
+                cagr_values_overall.append(cagr)
 
-        # Calculate rankings
-        overall_ranks = cagr_series.rank(method="min", ascending=False, na_option="keep")
-        chain_ranks = cagr_series.groupby(results_df["chain"]).rank(method="min", ascending=False, na_option="keep")
-        protocol_ranks = cagr_series.groupby(results_df["protocol_slug"]).rank(method="min", ascending=False, na_option="keep")
+        cagr_series_chain_protocol = pd.Series(cagr_values_chain_protocol, index=results_df.index)
+        cagr_series_overall = pd.Series(cagr_values_overall, index=results_df.index)
+
+        # Calculate rankings with different series
+        overall_ranks = cagr_series_overall.rank(method="min", ascending=False, na_option="keep")
+        chain_ranks = cagr_series_chain_protocol.groupby(results_df["chain"]).rank(method="min", ascending=False, na_option="keep")
+        protocol_ranks = cagr_series_chain_protocol.groupby(results_df["protocol_slug"]).rank(method="min", ascending=False, na_option="keep")
 
         # Update PeriodMetrics objects in-place
         for idx in results_df.index:
