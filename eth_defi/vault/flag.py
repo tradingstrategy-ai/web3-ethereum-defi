@@ -47,6 +47,9 @@ class VaultFlag(str, enum.Enum):
     #: This vault represents an underlying wrapped asset like a share
     wrapped_asset = "wrapped_asset"
 
+    #: Vault ls missing in the protocol official website and might be a spoof attempt
+    unofficial = "unofficial"
+
 
 #: Don't touch vaults with these flags
 BAD_FLAGS = {
@@ -54,6 +57,7 @@ BAD_FLAGS = {
     VaultFlag.broken,
     VaultFlag.malicious,
     VaultFlag.abnormal_tvl,
+    VaultFlag.unofficial,
 }
 
 
@@ -103,6 +107,7 @@ PENDLE_LOOPING = "Abnormal high yield due to Pendle looping - more info here htt
 
 ZEROLEND_SUPERFORM_WITHDRAW_ONLY = "All ZeroLend vaults on Superform are in withdraw-only mode. Support could not give an answer on why."
 
+MISSING_IN_PROTOCOL_FRONTEND = "This vault is missing in the protocol's primary website and cannot be verified."
 
 #: Vault manual blacklist flags and notes.
 #:
@@ -169,6 +174,12 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0x4dc1ce9b9f9ef00c144bfad305f16c62293dc0e8": (VaultFlag.illiquid, XUSD_MESSAGE),
     "0x6c09bfdc1df45d6c4ff78dc9f1c13af29eb335d4": (VaultFlag.illiquid, XUSD_MESSAGE),
     "0x9a1bf5365edbb99c2c61ca6d9ffad0b705acfc6f": (VaultFlag.illiquid, XUSD_MESSAGE),
+    # Euler Re7
+    "0xaba9d2d4b6b93c3dc8976d8eb0690cca56431fe4": (VaultFlag.illiquid, XUSD_MESSAGE),
+    # K3
+    "0xe1a62fdcc6666847d5ea752634e45e134b2f824b": (VaultFlag.unofficial, MISSING_IN_PROTOCOL_FRONTEND),
+    # Excellion USDC Vault
+    "0xb8a14b03900828f863aedd9dd905363863bc31f4": (VaultFlag.illiquid, XUSD_MESSAGE),
     # Spectra ERC4626 Wrapper: MEV USDC
     "0x92fbb58342164546325602588599b05802c69bbe": (VaultFlag.illiquid, XUSD_MESSAGE),
     # Greenhouse USD ghUSDC
@@ -228,6 +239,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0x4739e2c293bdcd835829aa7c5d7fbdee93565d1a": (None, PENDLE_LOOPING),
     # Static RWA ZeroLend USDC
     "0x942bed98560e9b2aa0d4ec76bbda7a7e55f6b2d6": (None, ZEROLEND_SUPERFORM_WITHDRAW_ONLY),
+    # Euler MEV Capital USDC
+    "0xa446938b0204aa4055cdfed68ddf0e0d1bab3e9e": (VaultFlag.unofficial, MISSING_IN_PROTOCOL_FRONTEND),
 }
 
 for addr in VAULT_FLAGS_AND_NOTES.keys():
