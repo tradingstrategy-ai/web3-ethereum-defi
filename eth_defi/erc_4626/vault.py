@@ -741,6 +741,8 @@ class ERC4626Vault(VaultBase):
                 self.web3,
                 block_identifier="latest",
                 silent_error=True,
+                ignore_error=True,
+                attempts=2,
             )
             return convert_uint256_bytes_to_address(result)
         except (ValueError, BadFunctionCallOutput, BadAddressError):
