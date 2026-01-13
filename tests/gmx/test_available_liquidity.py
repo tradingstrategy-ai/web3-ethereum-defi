@@ -5,8 +5,9 @@ This test suite validates the GetAvailableLiquidity class functionality
 using efficient multicall batching across different chains.
 """
 
-import pytest
 import time
+
+import pytest
 
 from eth_defi.gmx.core.available_liquidity import GetAvailableLiquidity
 

@@ -23,10 +23,7 @@ from eth_defi.provider.multi_provider import create_multi_provider_web3, MultiPr
 JSON_RPC_MANTLE = os.environ.get("JSON_RPC_MANTLE")
 HYPERSYNC_API_KEY = os.environ.get("HYPERSYNC_API_KEY")
 
-pytestmark = pytest.mark.skipif(
-    JSON_RPC_MANTLE is None or HYPERSYNC_API_KEY is None,
-    reason="JSON_RPC_MANTLE and HYPERSYNC_API_KEY needed to run these tests"
-)
+pytestmark = pytest.mark.skipif(JSON_RPC_MANTLE is None or HYPERSYNC_API_KEY is None, reason="JSON_RPC_MANTLE and HYPERSYNC_API_KEY needed to run these tests")
 
 BRINK_VAULT_ADDRESS = "0xE12EED61E7cC36E4CF3304B8220b433f1fD6e254"
 DEPOSIT_BLOCK = 89361462  # Block with known Deposited event
@@ -51,9 +48,7 @@ def test_4626_scan_brink_mantle():
     web3factory = MultiProviderWeb3Factory(JSON_RPC_MANTLE)
 
     hypersync_url = get_hypersync_server(web3)
-    client = hypersync.HypersyncClient(
-        hypersync.ClientConfig(url=hypersync_url, bearer_token=HYPERSYNC_API_KEY)
-    )
+    client = hypersync.HypersyncClient(hypersync.ClientConfig(url=hypersync_url, bearer_token=HYPERSYNC_API_KEY))
 
     # Use wider block range to ensure we capture both deposit and withdrawal events
     # (scanner requires both to classify a vault as candidate)
