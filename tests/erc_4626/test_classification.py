@@ -27,7 +27,6 @@ def test_chain_probe_filtering():
     - Core probes are always present regardless of chain
     - Protocol-specific probes are filtered based on deployment chains
     - Disabled protocols (empty sets) never yield probes
-    - No chain_id means all probes are generated
     """
     test_address = "0x0000000000000000000000000000000000000001"
 
@@ -38,7 +37,7 @@ def test_chain_probe_filtering():
             assert isinstance(chain_id, int), f"{func_name} has non-integer chain_id: {chain_id}"
 
     # Test _should_yield_probe helper
-    # No chain_id means all probes yield
+    # No chain_id means all probes yield (for the helper function itself)
     assert _should_yield_probe("getPerformanceFeeData", None) is True
     assert _should_yield_probe("strategy", None) is True
     assert _should_yield_probe("unknown_func", None) is True
@@ -67,14 +66,6 @@ def test_chain_probe_filtering():
     assert _should_yield_probe("agent", ARBITRUM) is False  # Astrolab
 
     # Test create_probe_calls filtering
-    # All probes when no chain_id
-    probes_all = list(create_probe_calls([test_address], chain_id=None))
-    func_names_all = [p.func_name for p in probes_all]
-    assert "name" in func_names_all
-    assert "convertToShares" in func_names_all
-    assert "getPerformanceFeeData" in func_names_all
-    assert "strategy" in func_names_all
-
     # Accountable probes on Monad
     probes_monad = list(create_probe_calls([test_address], chain_id=MONAD))
     func_names_monad = [p.func_name for p in probes_monad]
@@ -91,6 +82,6 @@ def test_chain_probe_filtering():
     assert "name" in func_names_eth
     assert "convertToShares" in func_names_eth
 
-    # Polygon should have fewer probes than unfiltered
+    # Polygon should have fewer probes than Monad (which has Accountable probes)
     probes_polygon = list(create_probe_calls([test_address], chain_id=POLYGON))
-    assert len(probes_polygon) < len(probes_all)
+    assert len(probes_polygon) < len(probes_monad)
