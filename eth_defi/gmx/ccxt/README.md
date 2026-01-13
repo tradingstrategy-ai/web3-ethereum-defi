@@ -2,7 +2,7 @@
 
 A [CCXT](https://docs.ccxt.com/)-compatible adapter for [GMX](https://gmx.io/) perpetual futures exchange. This adapter provides familiar CCXT-style methods for market data, position management, and order execution on GMX.
 
-**Note:** For high-level overview and Core Trading API, see the [main GMX README](../README.md).
+**Note:** For high-level overview, Core Trading API, order examples, limitations, and example scripts, see the [main GMX README](../README.md).
 
 ## Initialisation
 
@@ -140,114 +140,9 @@ Parameters unique to GMX that extend standard CCXT:
 | `takeProfit` | dict | Take-profit config: `{triggerPrice, triggerPercent, closePercent}` |
 | `reduceOnly` | bool | Close position instead of opening new one |
 
-## Order examples
+## Examples
 
-### Market orders
-
-```python
-# Long position
-order = gmx.create_market_buy_order(
-    "ETH/USDC:USDC",
-    0,  # Ignored when size_usd provided
-    {
-        "size_usd": 1000,
-        "leverage": 3.0,
-        "collateral_symbol": "USDC",
-    },
-)
-
-# Short position
-order = gmx.create_market_sell_order(
-    "BTC/USDC:USDC",
-    0,
-    {
-        "size_usd": 500,
-        "leverage": 2.0,
-        "collateral_symbol": "USDC",
-    },
-)
-
-# Close position
-order = gmx.create_order(
-    "ETH/USDC:USDC",
-    "market",
-    "sell",  # Opposite of position direction
-    0,
-    None,
-    {"size_usd": 1000, "reduceOnly": True},
-)
-```
-
-### Limit orders
-
-Execute when market price reaches trigger price. Order remains pending until conditions are met.
-
-- **Long limit:** Trigger price BELOW current price (buy the dip)
-- **Short limit:** Trigger price ABOVE current price (sell the rally)
-
-```python
-# Limit long - triggers when price drops to $1900
-order = gmx.create_limit_buy_order(
-    "ETH/USDC:USDC",
-    0,
-    1900.0,  # Trigger price
-    {
-        "size_usd": 1000,
-        "leverage": 3.0,
-        "collateral_symbol": "USDC",
-    },
-)
-
-# Limit short - triggers when price rises to $4000
-order = gmx.create_limit_sell_order(
-    "ETH/USDC:USDC",
-    0,
-    4000.0,  # Trigger price
-    {
-        "size_usd": 1000,
-        "leverage": 2.0,
-        "collateral_symbol": "USDC",
-    },
-)
-```
-
-### Stop-loss and take-profit (bundled)
-
-Create position with SL/TP in a single atomic transaction:
-
-```python
-# Percentage-based triggers
-order = gmx.create_order(
-    "ETH/USDC:USDC",
-    "market",
-    "buy",
-    0,
-    None,
-    {
-        "size_usd": 1000,
-        "leverage": 3.0,
-        "collateral_symbol": "USDC",
-        "stopLoss": {"triggerPercent": 0.05},   # 5% below entry
-        "takeProfit": {"triggerPercent": 0.10}, # 10% above entry
-    },
-)
-
-# Absolute price triggers
-order = gmx.create_order(
-    "ETH/USDC:USDC",
-    "market",
-    "buy",
-    0,
-    None,
-    {
-        "size_usd": 1000,
-        "leverage": 3.0,
-        "collateral_symbol": "USDC",
-        "stopLossPrice": 1850.0,
-        "takeProfitPrice": 2200.0,
-    },
-)
-```
+For order creation examples (market, limit, stop-loss, take-profit, bundled orders), see the [main GMX README](../README.md#order-types).
 
 ### Fetching market data
 
@@ -299,20 +194,6 @@ for pos in positions:
 | `cancel_order()` | GMX orders execute immediately via keepers |
 | `fetch_order()` | Orders are transient (limited support for status checking) |
 
-## Limitations
-
-**Note:** These are protocol-level limitations, not implementation gaps:
-
-| Limitation | Description | Documentation |
-|------------|-------------|---------------|
-| No order book | GMX uses [liquidity pools](https://docs.gmx.io/docs/providing-liquidity), not order books | [Providing Liquidity](https://docs.gmx.io/docs/providing-liquidity) |
-| No order cancellation | Executed orders cannot be cancelled (keeper-executed) | [API Contracts](https://docs.gmx.io/docs/api/contracts) |
-| No volume data | OHLCV volume always 0 (data source limitation) | [Subsquid GraphQL](https://gmx.squids.live/) |
-| OHLCV limit | Historical data limited to ~10,000 candles per request | - |
-| Isolated margin only | Cross margin not supported by GMX | [Trading](https://docs.gmx.io/docs/trading) |
-| Keeper execution | Orders execute via [keeper network](https://docs.gmx.io/docs/api/contracts), not instantly | [API Contracts](https://docs.gmx.io/docs/api/contracts) |
-| 24h stats calculated | Ticker 24h high/low/open are calculated from OHLCV candles, not provided natively by GMX API (unlike centralised exchanges that track these in real-time) | - |
-
 ## Symbol format
 
 GMX uses the CCXT unified symbol format for perpetual futures:
@@ -328,6 +209,6 @@ Examples:
 
 ## See also
 
-- [Main GMX README](../README.md) - Overview and Core Trading API
+- [Main GMX README](../README.md) - Overview, Core Trading API, order examples, limitations, example scripts
 - [GMX Freqtrade Tutorial](https://github.com/tradingstrategy-ai/gmx-ccxt-freqtrade) - Complete trading bot example
 - [CCXT Documentation](https://docs.ccxt.com/)
