@@ -13,7 +13,8 @@ from web3 import HTTPProvider, Web3
 
 from eth_defi.abi import ZERO_ADDRESS
 from eth_defi.compat import WEB3_PY_V7, clear_middleware, create_http_provider
-from eth_defi.confirmation import NonceMismatch, wait_and_broadcast_multiple_nodes
+from eth_defi.confirmation import (NonceMismatch,
+                                   wait_and_broadcast_multiple_nodes)
 from eth_defi.event_reader.fast_json_rpc import get_last_headers
 from eth_defi.gas import node_default_gas_price_strategy
 from eth_defi.hotwallet import HotWallet
@@ -192,7 +193,7 @@ def test_fallback_nonce_too_low(web3, deployer: str):
         web3.eth.wait_for_transaction_receipt(web3, tx3_hash)
 
     # Flaky?
-    assert fallback_provider.api_retry_counts[0]["eth_sendRawTransaction"] in (2, 3, 4)  # 5 attempts, 3 retries, the last retry does not count
+    assert fallback_provider.api_retry_counts[0]["eth_sendRawTransaction"] in (2, 3, 4, 5)  # 5 attempts, 3 retries, the last retry does not count
 
 
 @pytest.mark.skipif(

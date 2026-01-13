@@ -1,16 +1,14 @@
 """Turn vault discoveries to human-readable and machine-readable tables."""
 
 import datetime
-import threading
 import logging
-
+import threading
 from typing import cast
 
 import pandas as pd
+from requests.exceptions import HTTPError
 from web3 import Web3
 from web3.types import BlockIdentifier
-
-from requests.exceptions import HTTPError
 
 from eth_defi.erc_4626.classification import create_vault_instance
 from eth_defi.erc_4626.core import get_vault_protocol_name
@@ -19,7 +17,7 @@ from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.token import TokenDiskCache
-from eth_defi.vault.fee import FeeData, BROKEN_FEE_DATA
+from eth_defi.vault.fee import BROKEN_FEE_DATA, FeeData
 
 logger = logging.getLogger(__name__)
 

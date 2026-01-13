@@ -11,10 +11,8 @@ from pathlib import Path
 from typing import Literal
 
 import pandas as pd
-
-from joblib import Parallel, delayed
 from IPython.core.display_functions import display
-
+from joblib import Parallel, delayed
 from tqdm_loggable.auto import tqdm
 
 from eth_defi.chain import get_chain_name
@@ -23,7 +21,8 @@ from eth_defi.erc_4626.rpc_discovery import JSONRPCVaultDiscover
 from eth_defi.erc_4626.scan import create_vault_scan_record_subprocess
 from eth_defi.hypersync.hypersync_timestamp import get_hypersync_block_height
 from eth_defi.hypersync.utils import configure_hypersync_from_env
-from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
+from eth_defi.provider.multi_provider import (MultiProviderWeb3Factory,
+                                              create_multi_provider_web3)
 from eth_defi.provider.named import get_provider_name
 from eth_defi.vault.vaultdb import VaultDatabase
 
