@@ -1126,13 +1126,17 @@ def create_vault_instance(
         from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 
         return LagoonVault(web3, spec, token_cache=token_cache, features=features)
+
+    # TODO: Some module deadlock sheningans for Morpho
     elif ERC4626Feature.morpho_like in features:
         # Morpho V1 instance
         from eth_defi.erc_4626.vault_protocol.morpho.vault_v1 import MorphoV1Vault
+        from eth_defi.erc_4626.vault_protocol.morpho.vault_v2 import MorphoV2Vault
 
         return MorphoV1Vault(web3, spec, token_cache=token_cache, features=features)
     elif ERC4626Feature.morpho_v2_like in features:
         # Morpho V2 instance (adapter-based architecture)
+        from eth_defi.erc_4626.vault_protocol.morpho.vault_v1 import MorphoV1Vault
         from eth_defi.erc_4626.vault_protocol.morpho.vault_v2 import MorphoV2Vault
 
         return MorphoV2Vault(web3, spec, token_cache=token_cache, features=features)
