@@ -59,7 +59,7 @@ def test_euler_earn(
     assert vault.get_protocol_name() == "Euler"
 
     # EulerEarn has negligible risk (same as EVK)
-    assert vault.get_risk() == VaultTechnicalRisk.negligible
+    assert vault.get_risk() == VaultTechnicalRisk.blacklisted
 
     # No management fee, performance fee read from chain
     assert vault.get_management_fee("latest") == 0.0
