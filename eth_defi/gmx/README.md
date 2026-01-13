@@ -19,7 +19,7 @@ For a complete trading bot example with Freqtrade, see the [gmx-ccxt-freqtrade t
 - **Open interest** - Market open interest by direction
 - **Leverage** - Configurable leverage (1.1x to 100x per market)
 - **Isolated margin** - GMX uses isolated margin mode
-- **Freqtrade integration** - Transparent monkeypatch for strategy backtesting and live trading
+- **Freqtrade integration** - Monkeypatch for strategy backtesting and live trading
 - **Arbitrum network** - Supports Arbitrum One (mainnet) and Arbitrum Sepolia (testnet)
 
 ## Quick start
@@ -416,7 +416,7 @@ See [ccxt/README.md](ccxt/README.md) for complete method reference and examples.
 
 ## Freqtrade integration
 
-The GMX adapter is injected into Freqtrade via transparent monkeypatch:
+The GMX adapter is injected into Freqtrade via monkeypatch:
 
 1. Patches CCXT to add `ccxt.gmx` and `ccxt.async_support.gmx`
 2. Registers `Gmx` class in Freqtrade's exchange module
@@ -467,7 +467,7 @@ pip install -e "deps/web3-ethereum-defi[data]"
         "ccxt_config": {
             "rpcUrl": "${JSON_RPC_ARBITRUM}",
             "privateKey": "${PRIVATE_KEY}",
-            "executionBuffer": 2.5,
+            "executionBuffer": 2.5, // This ensures that the multicalls on GMX doesn't run out of gas
             "options": {
                 "graphql_only": false
             }
@@ -508,8 +508,15 @@ pip install -e "deps/web3-ethereum-defi[data]"
 # Dry-run live trading
 ./freqtrade-gmx trade \
   --config configs/my_config.json \
+  --config configs/my_config.secrects.json
   --strategy MyStrategy \
   --dry-run
+
+# Live trade
+./freqtrade-gmx trade \
+  --config configs/my_config.json \
+  --config configs/my_config.secrects.json \
+  --strategy MyStrategy
 ```
 
 ### Programmatic patching
@@ -532,7 +539,7 @@ exchange = ExchangeResolver.load_exchange(config)
 |------------|-------------|---------------|
 | No order book | GMX uses [liquidity pools](https://docs.gmx.io/docs/providing-liquidity), not order books | [Providing Liquidity](https://docs.gmx.io/docs/providing-liquidity) |
 | No order cancellation | Executed orders cannot be cancelled (keeper-executed) | [API Contracts](https://docs.gmx.io/docs/api/contracts) |
-| No volume data | OHLCV volume always 0 (data source limitation) | [Subsquid GraphQL](https://gmx.squids.live/) |
+| No volume data | OHLCV volume always 0 (GMX API only provides OHLC + timestamp) | [Candles API](https://arbitrum-api.gmxinfra.io/prices/candles?tokenSymbol=ETH&period=1d&limit=3) |
 | OHLCV limit | Historical data limited to ~10,000 candles per request | [Candlesticks](https://docs.gmx.io/docs/api/rest#candlesticks) |
 | Isolated margin only | Cross margin not supported by GMX | [Trading](https://docs.gmx.io/docs/trading) |
 | Keeper execution | Orders execute via [keeper network](https://docs.gmx.io/docs/api/contracts), not instantly | [API Contracts](https://docs.gmx.io/docs/api/contracts) |
