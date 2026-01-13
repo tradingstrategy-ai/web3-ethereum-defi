@@ -17,7 +17,7 @@ For a complete trading bot example with Freqtrade, see the [gmx-ccxt-freqtrade t
 - **Historical OHLCV** - Candlestick data for backtesting (10,000 candle limit)
 - **Funding rates** - Real-time and historical funding rate data
 - **Open interest** - Market open interest by direction
-- **Leverage** - Configurable leverage (1.1x to 100x per market)
+- **Leverage** - Configurable leverage (1.0x to 100x per market)
 - **Isolated margin** - GMX uses isolated margin mode
 - **Freqtrade integration** - Monkeypatch for strategy backtesting and live trading
 - **Arbitrum network** - Supports Arbitrum One (mainnet) and Arbitrum Sepolia (testnet)
