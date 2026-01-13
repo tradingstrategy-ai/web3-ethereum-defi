@@ -21,8 +21,7 @@ from eth_defi.erc_4626.rpc_discovery import JSONRPCVaultDiscover
 from eth_defi.erc_4626.scan import create_vault_scan_record_subprocess
 from eth_defi.hypersync.hypersync_timestamp import get_hypersync_block_height
 from eth_defi.hypersync.utils import configure_hypersync_from_env
-from eth_defi.provider.multi_provider import (MultiProviderWeb3Factory,
-                                              create_multi_provider_web3)
+from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
 from eth_defi.provider.named import get_provider_name
 from eth_defi.vault.vaultdb import VaultDatabase
 

@@ -158,6 +158,9 @@ DEFAULT_RETRYABLE_RPC_ERROR_CODES = (
     # 'code': -32603, 'message': 'failsafe timeout policy exceeded on network-level after 12.1529531s: timeout exceeded'}.
     #
     -32603,
+    # dRPC out of credit?
+    # {'message': 'message: API key is not allowed to access blockchain, json-rpc code: -32052, rest code: 403', 'code': 0}
+    -32052,
 )
 
 
