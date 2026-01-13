@@ -14,8 +14,14 @@ from web3 import Web3
 
 from tqdm_loggable.auto import tqdm
 
-from eth_defi.erc_4626.discovery_base import get_vault_discovery_events, LeadScanReport
-from eth_defi.erc_4626.discovery_base import VaultDiscoveryBase, PotentialVaultMatch
+from eth_defi.erc_4626.discovery_base import (
+    get_vault_discovery_events,
+    get_vault_event_topic_map,
+    is_deposit_event,
+    LeadScanReport,
+    VaultDiscoveryBase,
+    PotentialVaultMatch,
+)
 from eth_defi.event_reader.reader import read_events_concurrent
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.event_reader.web3worker import create_thread_pool_executor
@@ -64,6 +70,8 @@ class JSONRPCVaultDiscover(VaultDiscoveryBase):
     def build_query(self, executor: ThreadPoolExecutor, start_block: int, end_block: int) -> dict:
         """Create a read_events_concurrent arguments to discover new vaults.
 
+        Includes both standard ERC-4626 events and BrinkVault events.
+
         See :py:func:`eth_defi.event_reader.reader.read_events_concurrent`
         """
 
@@ -97,6 +105,9 @@ class JSONRPCVaultDiscover(VaultDiscoveryBase):
         )
 
         chain = self.web3.eth.chain_id
+
+        # Build topic map for classifying events (ERC-4626 and BrinkVault)
+        topic_map = get_vault_event_topic_map(self.web3)
 
         executor = create_thread_pool_executor(
             self.web3factory,
@@ -145,10 +156,10 @@ class JSONRPCVaultDiscover(VaultDiscoveryBase):
                 leads[address] = lead
                 report.new_leads += 1
 
-            # Hardcoded for now
+            # Classify event using topic map (supports ERC-4626 and BrinkVault)
             assert event["topics"][0].startswith("0x")
-            deposit_kind = event["topics"][0] == "0xdcbc1c05240f31ff3ad067ef1ee35ce4997762752e3a095284754544f4c709d7"
-            if deposit_kind:
+            event_kind = topic_map.get(event["topics"][0])
+            if event_kind is not None and is_deposit_event(event_kind):
                 lead.deposit_count += 1
                 report.deposits += 1
             else:

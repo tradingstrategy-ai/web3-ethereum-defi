@@ -1,0 +1,27 @@
+name: Brink
+slug: brink
+short_description: |
+  DeFi protocol providing yield-bearing vaults on Mantle and other chains.
+long_description: |
+  Brink is a DeFi protocol that provides yield-bearing vaults on Mantle and other chains.
+  The protocol focuses on delivering sustainable yield through optimised DeFi strategies
+  while maintaining simplicity for users.
+
+  Brink vaults are ERC-4626 compliant but use modified events (DepositFunds and WithdrawFunds)
+  instead of the standard ERC-4626 Deposit and Withdraw events. Fees are internalised in the
+  share price with no explicit fee getter functions exposed on-chain.
+fee_description: |
+  Fees are internalised in the share price. No explicit fee getter functions are exposed on-chain.
+links:
+  homepage: https://brink.money/
+  app: https://brink.money/app
+  twitter: https://x.com/BrinkDotMoney
+  github:
+  documentation: https://doc.brink.money/
+  defillama:
+  audits: https://www.halborn.com/audits/lendle/brink-a73cf0
+  fees:
+  trading_strategy:
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/brink/index.html
+example_smart_contracts:
+  - https://mantlescan.xyz/address/0xE12EED61E7cC36E4CF3304B8220b433f1fD6e254

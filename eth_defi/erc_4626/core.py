@@ -432,6 +432,13 @@ class ERC4626Feature(enum.Enum):
     #: https://singularityfinance.ai/
     singularity_like = "singularity_like"
 
+    #: Brink
+    #:
+    #: Brink vaults on Mantle and other chains.
+    #: Uses modified events (DepositFunds/WithdrawFunds) instead of standard ERC-4626 events.
+    #: https://brink.trade/
+    brink_like = "brink_like"
+
 
 def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     """Deduct vault protocol name based on Vault smart contract features.
@@ -618,6 +625,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.singularity_like in features:
         return "Singularity Finance"
+
+    elif ERC4626Feature.brink_like in features:
+        return "Brink"
 
     # No idea
     if ERC4626Feature.erc_7540_like in features:
