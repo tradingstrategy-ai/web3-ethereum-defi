@@ -21,7 +21,8 @@
         "**/.venv"
     ],
     "python.analysis.include": [
-        "eth_defi"
+        "eth_defi",
+        "tests"
     ],
     "python.analysis.diagnosticMode": "workspace",
     "[markdown]": {

@@ -34,7 +34,7 @@ def anvil_monad_fork(request) -> AnvilLaunch:
 @pytest.fixture(scope="module")
 def web3(anvil_monad_fork):
     web3 = create_multi_provider_web3(
-        anvil_monad_fork.json_rpc_url, 
+        anvil_monad_fork.json_rpc_url,
         retries=2,
         default_http_timeout=(3, 10),
     )
@@ -59,6 +59,7 @@ def test_accountable_susn_vault(
     assert isinstance(vault, AccountableVault)
     assert ERC4626Feature.accountable_like in vault.features
     assert vault.get_protocol_name() == "Accountable"
+    assert vault.denomination_token.symbol == "USDC"
 
     # Fees are not publicly available
     assert vault.get_management_fee("latest") is None
@@ -83,6 +84,7 @@ def test_accountable_yuzu_vault(
     assert isinstance(vault, AccountableVault)
     assert ERC4626Feature.accountable_like in vault.features
     assert vault.get_protocol_name() == "Accountable"
+    assert vault.denomination_token.symbol == "USDC"
 
 
 @flaky.flaky
@@ -103,6 +105,7 @@ def test_accountable_asia_credit_vault(
     assert isinstance(vault, AccountableVault)
     assert ERC4626Feature.accountable_like in vault.features
     assert vault.get_protocol_name() == "Accountable"
+    assert vault.denomination_token.symbol == "USDC"
 
 
 @flaky.flaky
@@ -123,3 +126,4 @@ def test_accountable_aegis_vault(
     assert isinstance(vault, AccountableVault)
     assert ERC4626Feature.accountable_like in vault.features
     assert vault.get_protocol_name() == "Accountable"
+    assert vault.denomination_token.symbol == "USDC"
