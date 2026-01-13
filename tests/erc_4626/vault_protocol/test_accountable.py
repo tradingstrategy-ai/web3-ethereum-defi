@@ -127,3 +127,8 @@ def test_accountable_aegis_vault(
     assert ERC4626Feature.accountable_like in vault.features
     assert vault.get_protocol_name() == "Accountable"
     assert vault.denomination_token.symbol == "USDC"
+
+    import ipdb
+
+    ipdb.set_trace()
+    assert vault.fetch_total_assets() == 25_000_000

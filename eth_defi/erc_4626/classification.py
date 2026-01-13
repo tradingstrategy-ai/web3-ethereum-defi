@@ -1064,7 +1064,7 @@ def detect_vault_features(
         result = call.call_as_result(
             web3,
             block_identifier=block_number,
-            ignore_error=False,
+            ignore_error=True,
         )
         if verbose:
             logger.info("Result for %s: %s, error: %s", call.func_name, result.success, str(result.revert_exception))

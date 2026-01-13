@@ -21,7 +21,7 @@ from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.vault.base import VaultSpec
 
 # Foxify LP token on Sonic
-spec = VaultSpec.parse_string("1-0x4880799ee5200fc58da299e965df644fbf46780b")
+spec = VaultSpec.parse_string("143-0x0a4AfB907672279926c73Dc1F77151931c2A55cC")
 
 # JSON_RPC_ARBITRUM, etc.
 json_rpc_url = read_json_rpc_url(spec.chain_id)
