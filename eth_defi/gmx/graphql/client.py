@@ -905,8 +905,9 @@ class GMXSubsquidClient:
         Polls Subsquid until the trade action appears or timeout.
         Much faster than on-chain polling (typically < 5 seconds).
 
-        This is used by `create_order()` to wait for keeper execution
-        and verify the order was executed successfully or cancelled.
+        This uses a two-query approach for better reliability:
+        1. First tries positionChanges (faster, has tx hash in id field)
+        2. Falls back to tradeActions (more complete data)
 
         :param order_key: Order key (hex string with 0x prefix)
         :param timeout_seconds: Max time to wait for indexer (default 30s)
@@ -928,7 +929,31 @@ class GMXSubsquidClient:
                 elif action["eventName"] == "OrderCancelled":
                     print(f"Cancelled: {action['reason']}")
         """
-        query = """
+        # Query 1: positionChanges (faster, has tx hash in id field)
+        query_position_changes = """
+        query GetPositionChange($orderKey: String!) {
+          positionChanges(
+            where: { orderKey_eq: $orderKey }
+            limit: 1
+          ) {
+            id
+            type
+            orderKey
+            isLong
+            sizeDeltaUsd
+            executionPrice
+            priceImpactUsd
+            proportionalPendingImpactUsd
+            basePnlUsd
+            feesAmount
+            block
+            timestamp
+          }
+        }
+        """
+
+        # Query 2: tradeActions (more complete, has transaction object)
+        query_trade_actions = """
         query GetTradeAction($orderKey: String!) {
           tradeActions(
             where: { orderKey_eq: $orderKey }
@@ -948,6 +973,7 @@ class GMXSubsquidClient:
             acceptablePrice
             triggerPrice
             priceImpactUsd
+            proportionalPendingImpactUsd
             positionFeeAmount
             borrowingFeeAmount
             fundingFeeAmount
@@ -964,15 +990,82 @@ class GMXSubsquidClient:
 
         while time.time() - start_time < timeout_seconds:
             try:
-                # Use longer timeout for HTTP request (60s) to avoid timeout errors
-                data = self._query(query, variables={"orderKey": order_key}, timeout=60)
-                actions = data.get("tradeActions", [])
+                # Try positionChanges first (faster)
+                print(f"\n{'=' * 70}")
+                print(f"DEBUG: Querying positionChanges")
+                print(f"{'=' * 70}")
+                print(f"Query:")
+                print(query_position_changes)
+                print(f"Variables: {{'orderKey': '{order_key}'}}")
+                print(f"{'=' * 70}")
 
-                if actions:
-                    return actions[0]
+                data = self._query(query_position_changes, variables={"orderKey": order_key}, timeout=60)
+                changes = data.get("positionChanges", [])
 
-                # Reset failure counter on successful query (even if no results)
+                print(f"\nDEBUG: positionChanges response:")
+                import json
+
+                print(json.dumps({"positionChanges": changes}, indent=2, default=str))
+                print(f"{'=' * 70}\n")
+
+                if changes:
+                    change = changes[0]
+                    # Convert positionChange to tradeAction format
+                    # The id field IS the transaction hash!
+                    result = {
+                        "eventName": "OrderExecuted" if change["type"] == "increase" or change["type"] == "decrease" else "OrderCancelled",
+                        "orderKey": change["orderKey"],
+                        "orderType": 2 if change["type"] == "increase" else 3,  # MarketIncrease/MarketDecrease
+                        "isLong": change.get("isLong"),
+                        "executionPrice": str(change.get("executionPrice") or 0),
+                        "sizeDeltaUsd": str(change.get("sizeDeltaUsd") or 0),
+                        "priceImpactUsd": str(change.get("priceImpactUsd") or 0),
+                        "pendingPriceImpactUsd": str(change.get("proportionalPendingImpactUsd") or 0),
+                        "pnlUsd": str(change.get("basePnlUsd") or 0) if change.get("basePnlUsd") else None,
+                        "positionFeeAmount": str(change.get("feesAmount") or 0),
+                        "borrowingFeeAmount": "0",
+                        "fundingFeeAmount": "0",
+                        "timestamp": change.get("timestamp"),
+                        "transaction": {
+                            "hash": change["id"],  # id IS the tx hash!
+                            "blockNumber": change.get("block"),
+                            "timestamp": change.get("timestamp"),
+                        },
+                    }
+                    print(f"DEBUG: Returning result from positionChanges:")
+                    print(json.dumps(result, indent=2, default=str))
+                    print(f"{'=' * 70}\n")
+                    return result
+
+                # Reset failure counter on successful query
                 consecutive_failures = 0
+
+                # If positionChanges didn't return data, try tradeActions
+                print(f"\n{'=' * 70}")
+                print(f"DEBUG: positionChanges returned no data, trying tradeActions")
+                print(f"{'=' * 70}")
+                print(f"Query:")
+                print(query_trade_actions)
+                print(f"Variables: {{'orderKey': '{order_key}'}}")
+                print(f"{'=' * 70}")
+
+                try:
+                    data = self._query(query_trade_actions, variables={"orderKey": order_key}, timeout=60)
+                    actions = data.get("tradeActions", [])
+
+                    print(f"\nDEBUG: tradeActions response:")
+                    print(json.dumps({"tradeActions": actions}, indent=2, default=str))
+                    print(f"{'=' * 70}\n")
+
+                    if actions:
+                        print(f"DEBUG: Returning result from tradeActions:")
+                        print(json.dumps(actions[0], indent=2, default=str))
+                        print(f"{'=' * 70}\n")
+                        return actions[0]
+                except Exception as e:
+                    print(f"DEBUG: tradeActions query failed: {e}")
+                    print(f"{'=' * 70}\n")
+                    pass  # Continue polling
 
             except Exception as e:
                 consecutive_failures += 1

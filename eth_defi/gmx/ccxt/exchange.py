@@ -57,7 +57,6 @@ from eth_defi.gmx.order import SLTPEntry, SLTPOrder, SLTPParams
 from eth_defi.gmx.order_tracking import check_order_status
 from eth_defi.gmx.trading import GMXTrading
 from eth_defi.gmx.utils import calculate_estimated_liquidation_price, convert_raw_price_to_usd
-from eth_defi.gmx.verification import verify_gmx_order_execution
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import fetch_erc20_details
@@ -5675,6 +5674,9 @@ class GMX(ExchangeCompatible):
 
             # Order no longer pending - verify execution result
             if status_result.execution_receipt:
+                # Import here to avoid circular dependency
+                from eth_defi.gmx.verification import verify_gmx_order_execution
+
                 verification = verify_gmx_order_execution(
                     self.web3,
                     status_result.execution_receipt,
