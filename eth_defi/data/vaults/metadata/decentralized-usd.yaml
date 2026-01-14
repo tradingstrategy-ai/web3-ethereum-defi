@@ -5,6 +5,7 @@ short_description: |
 long_description: |
   USDD is a decentralised stablecoin protocol that provides the USDD stablecoin
   and allows users to earn yield through staking USDD in sUSDD savings vaults.
+  USDD comes from Tron ecosystem, originally funded by Tron DAO.
 
   The sUSDD vault is an ERC-4626 compliant tokenised vault that allows users to
   stake USDD and earn yield. USDD is deployed on multiple chains including
@@ -15,16 +16,20 @@ long_description: |
   - No deposit/withdrawal fees at the smart contract level
   - Instant deposits and withdrawals
   - Cross-chain deployment on Ethereum and BNB Chain
+
+  Transparency
+  - [Transparency dashboard](https://usdd.io/sa)
+  - [Investment strategy](https://defillama.com/stablecoin/usdd), [more on the strategy](https://docs.usdd.io/smart-allocator)
 fee_description: |
   No deposit/withdrawal fees at the smart contract level.
 links:
   homepage: https://usdd.io/
-  app:
-  twitter: https://x.com/usaborning
+  app: https://app.usdd.io/tron/
+  twitter: https://x.com/usddio
   github:
   documentation: https://docs.usdd.io/
-  defillama:
-  audits:
+  defillama: https://defillama.com/stablecoin/usdd
+  audits: https://docs.usdd.io/security/audits
   fees:
   trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/decentralized-usd
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/usdd/index.html

@@ -3,7 +3,6 @@
 - Add: `get_safe_cached_latest_block_number()` function to work around broken JSON-RPC providers with time-based caching (2026-01-13)
 - Optimisation: Chain-based filtering for `create_probe_calls()` - skips protocol-specific probes on chains where protocols aren't deployed, reducing unnecessary RPC calls (2026-01-13)
 - Add: New protocol: [Accountable Capital](https://www.accountable.capital/) - blockchain-based financial verification vaults on Monad (2026-01-13)
-- Fix: Use different TVL thresholds for vault rankings - $50k for overall, $10k for chain/protocol rankings (2026-01-13)
 - Add: New protocol: [Brink](https://brink.money/) - yield-bearing vaults on Mantle with modified ERC-4626 events (2026-01-12)
 - Add: [Morpho Vault V2](https://tradingstrategy.ai/trading-view/vaults/protocols/morpho) adapter-based architecture support (2026-01-12)
 - Fix: GMX CCXT limit order tests and price sanity test flakiness - added `get_mock_oracle_price()` helper for fork tests, fixed ticker cache mutation, and updated examples to use mock oracle prices (2026-01-13)
