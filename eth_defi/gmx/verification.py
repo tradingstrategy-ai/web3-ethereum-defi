@@ -33,6 +33,7 @@ from typing import Literal
 from eth_typing import HexAddress
 from web3 import Web3
 
+from eth_defi.gmx.ccxt.errors import GMXOrderFailedException
 from eth_defi.gmx.events import (
     GMX_PRICE_PRECISION,
     GMX_USD_PRECISION,
@@ -41,7 +42,6 @@ from eth_defi.gmx.events import (
     decode_gmx_events,
     extract_order_execution_result,
 )
-
 
 logger = logging.getLogger(__name__)
 
@@ -246,9 +246,10 @@ def verify_gmx_order_execution(
     if order_result.status == "executed":
         result.success = True
 
-        # Convert execution details to human-readable format
+        # Store raw execution_price (30 decimals) for later conversion
+        # Conversion to USD will be done in exchange.py using token-specific decimals
         if order_result.execution_price:
-            result.execution_price = order_result.execution_price / GMX_PRICE_PRECISION
+            result.execution_price = order_result.execution_price
 
         if order_result.size_delta_usd:
             result.size_delta_usd = order_result.size_delta_usd / GMX_USD_PRECISION
@@ -327,8 +328,6 @@ def raise_if_order_failed(
             # Order failed at GMX level despite tx success
             print(f"Order failed: {e.decoded_error}")
     """
-    from eth_defi.gmx.ccxt.errors import GMXOrderFailedException
-
     result = verify_gmx_order_execution(web3, receipt, order_key)
 
     if not result.success and result.status in ("cancelled", "frozen"):

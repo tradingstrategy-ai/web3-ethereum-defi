@@ -36,6 +36,8 @@ from eth_defi.gmx.core.oracle import OraclePrices
 from eth_defi.gmx.order.sltp_order import SLTPEntry, SLTPOrder, SLTPParams
 from eth_defi.gmx.contracts import get_contract_addresses
 from eth_defi.gmx.utils import convert_raw_price_to_usd
+from eth_defi.gmx.order_tracking import check_order_status
+from eth_defi.gmx.verification import verify_gmx_order_execution
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import fetch_erc20_details
@@ -1223,9 +1225,6 @@ class GMX(Exchange):
             order_key = bytes.fromhex(order_key_hex)
 
             # Check if order still pending in DataStore (using sync call via asyncio)
-            from eth_defi.gmx.order_tracking import check_order_status
-            import asyncio
-
             try:
                 # Run sync function in thread pool
                 status_result = await asyncio.get_running_loop().run_in_executor(None, lambda: check_order_status(self.web3, order_key, self.chain))
@@ -1240,8 +1239,6 @@ class GMX(Exchange):
 
             # Order no longer pending - verify execution result
             if status_result.execution_receipt:
-                from eth_defi.gmx.verification import verify_gmx_order_execution
-
                 verification = verify_gmx_order_execution(
                     self.web3,
                     status_result.execution_receipt,
@@ -1253,12 +1250,22 @@ class GMX(Exchange):
                     order["status"] = "closed"
                     order["filled"] = order["amount"]
                     order["remaining"] = 0.0
-                    order["average"] = verification.execution_price
+
+                    # Convert raw execution_price using token-specific decimals
+                    # verification.execution_price is in raw format (30 decimals)
+                    symbol = order.get("symbol")
+                    if symbol and verification.execution_price:
+                        market = self.markets[symbol]
+                        order["average"] = self._convert_price_to_usd(verification.execution_price, market)
+                    else:
+                        # Fallback: keep raw value if symbol not available (shouldn't happen)
+                        order["average"] = verification.execution_price
+
                     order["lastTradeTimestamp"] = self.milliseconds()
 
                     # Calculate cost based on actual execution price
-                    if verification.execution_price and order["amount"]:
-                        order["cost"] = order["amount"] * verification.execution_price
+                    if order.get("average") and order["amount"]:
+                        order["cost"] = order["amount"] * order["average"]
 
                     # Update info with verification data
                     order["info"]["execution_tx_hash"] = status_result.execution_tx_hash
@@ -1305,8 +1312,9 @@ class GMX(Exchange):
 
             else:
                 # Order removed from DataStore but no execution receipt found
+                # check_order_status() already logged detailed diagnostics (Subsquid + log scan)
                 logger.warning(
-                    "fetch_order(%s): order removed from DataStore but no execution event found",
+                    "fetch_order(%s): order removed from DataStore but no execution event found (see check_order_status logs for details)",
                     id[:16],
                 )
 
@@ -1969,20 +1977,20 @@ class GMX(Exchange):
         loop = asyncio.get_running_loop()
         await loop.run_in_executor(None, self.wallet.sync_nonce, self.web3)
 
-        logger.info("=" * 80)
-        logger.info(
-            "ORDER_TRACE: async create_order() CALLED symbol=%s, type=%s, side=%s, amount=%.8f",
-            symbol,
-            type,
-            side,
-            amount,
-        )
-        logger.info(
-            "ORDER_TRACE: params: reduceOnly=%s, leverage=%s, collateral_symbol=%s",
-            params.get("reduceOnly", False),
-            params.get("leverage"),
-            params.get("collateral_symbol"),
-        )
+        # logger.debug("=" * 80)
+        # logger.debug(
+        #     "ORDER_TRACE: async create_order() CALLED symbol=%s, type=%s, side=%s, amount=%.8f",
+        #     symbol,
+        #     type,
+        #     side,
+        #     amount,
+        # )
+        # logger.debug(
+        #     "ORDER_TRACE: params: reduceOnly=%s, leverage=%s, collateral_symbol=%s",
+        #     params.get("reduceOnly", False),
+        #     params.get("leverage"),
+        #     params.get("collateral_symbol"),
+        # )
 
         # Ensure markets are loaded
         if not self.markets_loaded or not self.markets:
@@ -2167,14 +2175,14 @@ class GMX(Exchange):
             receipt,
         )
 
-        logger.info(
+        logger.debug(
             "ORDER_TRACE: async create_order() RETURNING order_id=%s, status=%s, filled=%.8f, cost=%.2f",
             order.get("id"),
             order.get("status"),
             order.get("filled", 0),
             order.get("cost", 0),
         )
-        logger.info("=" * 80)
+        # logger.debug("=" * 80)
 
         return order
 
