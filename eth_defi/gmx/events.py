@@ -876,23 +876,29 @@ def extract_order_execution_result(
 
 
 def extract_order_key_from_receipt(web3: Web3, receipt: dict) -> bytes:
-    """Extract order key from OrderCreated event in receipt.
+    """Extract order key from OrderCreated or OrderExecuted event in receipt.
 
-    This is a convenience function for getting the order key from
-    a transaction that creates an order.
+    This function handles both GMX order execution models:
+
+    - **Two-phase orders** (limit orders): Look for OrderCreated event,
+      order is pending until keeper executes it in a separate transaction.
+
+    - **Single-phase orders** (market orders): Look for OrderExecuted event,
+      order is created and executed atomically in the same transaction.
 
     :param web3:
         Web3 instance
 
     :param receipt:
-        Transaction receipt from order creation
+        Transaction receipt from order creation/execution
 
     :return:
         The 32-byte order key
 
     :raises ValueError:
-        If no OrderCreated event found in receipt
+        If no OrderCreated or OrderExecuted event found in receipt
     """
+    # First try OrderCreated (two-phase orders like limit orders)
     for event in find_events_by_name(web3, receipt, "OrderCreated"):
         # The order key is in topic1 for EventLog2
         if event.topic1:
@@ -903,6 +909,18 @@ def extract_order_key_from_receipt(web3: Web3, receipt: dict) -> bytes:
         if key:
             return key
 
+    # Then try OrderExecuted (single-phase immediate execution)
+    # GMX market orders execute atomically - no separate OrderCreated event
+    for event in find_events_by_name(web3, receipt, "OrderExecuted"):
+        # The order key is in topic1 for EventLog2
+        if event.topic1:
+            return event.topic1
+
+        # Or it might be in the bytes32 items
+        key = event.get_bytes32("key")
+        if key:
+            return key
+
     raise ValueError(
-        "Could not extract order key from receipt - no OrderCreated event found",
+        "Could not extract order key from receipt - no OrderCreated or OrderExecuted event found",
     )

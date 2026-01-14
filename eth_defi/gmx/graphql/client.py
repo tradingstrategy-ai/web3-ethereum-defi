@@ -121,11 +121,13 @@ class GMXSubsquidClient:
         self,
         query: str,
         variables: Optional[dict[str, Any]] = None,
+        timeout: int = 60,
     ) -> dict[str, Any]:
         """Execute a GraphQL query.
 
         :param query: GraphQL query string
         :param variables: Optional query variables
+        :param timeout: Request timeout in seconds (default 60)
         :return: Query response data
         :raises requests.HTTPError: If the request fails
         :raises ValueError: If GraphQL returns errors
@@ -134,7 +136,7 @@ class GMXSubsquidClient:
             self.endpoint,
             json={"query": query, "variables": variables or {}},
             headers={"Content-Type": "application/json"},
-            timeout=30,
+            timeout=timeout,
         )
         response.raise_for_status()
 
@@ -896,6 +898,7 @@ class GMXSubsquidClient:
         order_key: str,
         timeout_seconds: int = 30,
         poll_interval: float = 0.5,
+        max_retries: int = 3,
     ) -> Optional[dict[str, Any]]:
         """Query for order execution status via Subsquid.
 
@@ -908,6 +911,7 @@ class GMXSubsquidClient:
         :param order_key: Order key (hex string with 0x prefix)
         :param timeout_seconds: Max time to wait for indexer (default 30s)
         :param poll_interval: Time between queries in seconds (default 0.5s)
+        :param max_retries: Number of retries for failed requests (default 3)
         :return: Trade action dict or None if not found within timeout
 
         Example::
@@ -956,17 +960,46 @@ class GMXSubsquidClient:
         """
 
         start_time = time.time()
+        consecutive_failures = 0
+
         while time.time() - start_time < timeout_seconds:
             try:
-                data = self._query(query, variables={"orderKey": order_key})
+                # Use longer timeout for HTTP request (60s) to avoid timeout errors
+                data = self._query(query, variables={"orderKey": order_key}, timeout=60)
                 actions = data.get("tradeActions", [])
 
                 if actions:
                     return actions[0]
 
-            except Exception:
-                # Ignore query errors during polling, will retry
-                pass
+                # Reset failure counter on successful query (even if no results)
+                consecutive_failures = 0
+
+            except Exception as e:
+                consecutive_failures += 1
+                logger.debug(
+                    "Subsquid query attempt failed (%d/%d): %s",
+                    consecutive_failures,
+                    max_retries,
+                    e,
+                )
+
+                # If we've hit max retries, give up
+                if consecutive_failures >= max_retries:
+                    logger.warning(
+                        "Subsquid query failed after %d retries: %s",
+                        max_retries,
+                        e,
+                    )
+                    return None
+
+                # Exponential backoff: wait 2^failures seconds before retry
+                backoff_time = min(2**consecutive_failures, 10)  # Cap at 10 seconds
+                logger.debug(
+                    "Retrying Subsquid query in %.1fs...",
+                    backoff_time,
+                )
+                time.sleep(backoff_time)
+                continue
 
             time.sleep(poll_interval)
 

@@ -51,7 +51,7 @@ from eth_defi.gmx.contracts import get_contract_addresses, get_token_address_nor
 from eth_defi.gmx.core.markets import Markets
 from eth_defi.gmx.core.open_positions import GetOpenPositions
 from eth_defi.gmx.core.oracle import OraclePrices
-from eth_defi.gmx.events import decode_gmx_event, extract_order_key_from_receipt
+from eth_defi.gmx.events import decode_gmx_event, extract_order_execution_result, extract_order_key_from_receipt
 from eth_defi.gmx.graphql.client import GMXSubsquidClient
 from eth_defi.gmx.order import SLTPEntry, SLTPOrder, SLTPParams
 from eth_defi.gmx.order_tracking import check_order_status
@@ -5153,16 +5153,47 @@ class GMX(ExchangeCompatible):
             receipt.get("status"),
         )
 
-        # Extract order_key from OrderCreated event for tracking
+        # Extract order_key from OrderCreated or OrderExecuted event for tracking
         try:
             order_key = extract_order_key_from_receipt(self.web3, receipt)
             logger.info(
-                "ORDER_TRACE: Extracted order_key=%s from OrderCreated event",
+                "ORDER_TRACE: Extracted order_key=%s from receipt",
                 order_key.hex()[:16] if order_key else "none",
             )
         except ValueError as e:
             logger.warning("Could not extract order_key from receipt: %s", e)
             order_key = None
+
+        # Check if order was immediately executed (single-phase market order)
+        # GMX market orders execute atomically - OrderExecuted is in same receipt
+        immediate_execution = extract_order_execution_result(self.web3, receipt, order_key)
+        if immediate_execution and immediate_execution.status == "executed":
+            logger.info(
+                "ORDER_TRACE: Order was immediately executed in same tx (single-phase), execution_price=%s, size_delta_usd=%s",
+                immediate_execution.execution_price,
+                immediate_execution.size_delta_usd,
+            )
+            # Order is already executed - return with status="closed"
+            order = self._format_order(
+                symbol=symbol,
+                order_type=order_type,
+                side=side,
+                amount=amount,
+                price=price,
+                tx_hash=tx_hash,
+                receipt=receipt,
+                order_key=order_key,
+            )
+            order["status"] = "closed"
+            order["filled"] = order["amount"]
+            order["remaining"] = 0.0
+
+            # Set execution price if available
+            if immediate_execution.execution_price:
+                order["average"] = immediate_execution.execution_price / 10**30
+
+            self._orders[order["id"]] = order
+            return order
 
         # Check if we should wait for keeper execution
         # For fork tests, Subsquid won't have the order data, so skip waiting
@@ -5190,6 +5221,11 @@ class GMX(ExchangeCompatible):
                     timeout_seconds=30,
                     poll_interval=0.5,
                 )
+
+                # Debug: Print full trade_action response
+                import json
+
+                print(f"DEBUG: trade_action response = {json.dumps(trade_action, indent=2, default=str)}")
 
                 if trade_action:
                     logger.info(
@@ -5616,16 +5652,8 @@ class GMX(ExchangeCompatible):
         if id in self._orders:
             order = self._orders[id].copy()
 
-            # If already closed/cancelled/failed, return cached status
-            if order.get("status") in ("closed", "cancelled", "failed"):
-                logger.debug(
-                    "fetch_order(%s): returning cached status=%s",
-                    id[:16],
-                    order.get("status"),
-                )
-                return order
-
-            # Order is "open" - check if keeper has executed
+            # Always check fresh status - do not cache order status
+            # This ensures we detect order execution/cancellation promptly
             order_key_hex = order.get("info", {}).get("order_key")
             if not order_key_hex:
                 logger.warning("fetch_order(%s): no order_key stored, cannot check execution status", id[:16])
