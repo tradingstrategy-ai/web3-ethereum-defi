@@ -459,9 +459,9 @@ class Gmx(Exchange):
         :raises TemporaryError: If order creation fails temporarily
         :raises DDosProtection: If rate limit exceeded
         """
-        logger.info("*" * 80)
-        logger.info("*** GMX create_stoploss CALLED ***")
-        logger.info(
+        logger.debug("*" * 80)
+        logger.debug("*** GMX create_stoploss CALLED ***")
+        logger.debug(
             "  pair=%s, amount=%.8f, stop_price=%.2f, side=%s, leverage=%.2f",
             pair,
             amount,
@@ -469,8 +469,8 @@ class Gmx(Exchange):
             side,
             leverage,
         )
-        logger.info("  order_types=%s", order_types)
-        logger.info("*" * 80)
+        logger.debug("  order_types=%s", order_types)
+        logger.debug("*" * 80)
 
         try:
             # Convert amount from base currency to USD
@@ -479,7 +479,7 @@ class Gmx(Exchange):
             current_price = ticker["last"]
             amount_usd = amount * current_price
 
-            logger.info(
+            logger.debug(
                 ">>> Converting stop-loss amount for %s: %.8f (base currency) * %.2f (price) = %.2f USD",
                 pair,
                 amount,
@@ -504,14 +504,14 @@ class Gmx(Exchange):
                 params=params,
             )
 
-            logger.info("*" * 80)
-            logger.info(
+            logger.debug("*" * 80)
+            logger.debug(
                 "✓ Created stop-loss order for %s: price=%.2f, amount=%.2f USD",
                 pair,
                 stop_price,
                 amount_usd,
             )
-            logger.info("*" * 80)
+            logger.debug("*" * 80)
             return order
 
         except Exception as e:
@@ -644,9 +644,9 @@ class Gmx(Exchange):
         :raises OperationalException: If parameters are invalid
         """
         # Enhanced logging with visual separators for workflow visibility
-        logger.info("=" * 80)
-        logger.info("*** GMX FREQTRADE create_order CALLED ***")
-        logger.info(
+        logger.debug("=" * 80)
+        logger.debug("*** GMX FREQTRADE create_order CALLED ***")
+        logger.debug(
             "  pair=%s, ordertype=%s, side=%s, amount=%.8f, rate=%s, leverage=%.2f, reduceOnly=%s, time_in_force=%s, initial_order=%s",
             pair,
             ordertype,
@@ -659,12 +659,12 @@ class Gmx(Exchange):
             initial_order,
         )
         if kwargs:
-            logger.info("  kwargs=%s", kwargs)
-        logger.info("=" * 80)
+            logger.debug("  kwargs=%s", kwargs)
+        logger.debug("=" * 80)
 
         # Call parent create_order which uses CCXT underneath
         # Note: initial_order is GMX-specific, don't pass to parent Exchange
-        logger.info(">>> Delegating to parent Exchange.create_order() -> GMX CCXT adapter")
+        logger.debug(">>> Delegating to parent Exchange.create_order() -> GMX CCXT adapter")
         order = super().create_order(
             pair=pair,
             ordertype=ordertype,
@@ -677,20 +677,20 @@ class Gmx(Exchange):
             **kwargs,
         )
 
-        logger.info("=" * 80)
-        logger.info("*** GMX CCXT adapter RETURNED order ***")
-        logger.info(
+        logger.debug("=" * 80)
+        logger.debug("*** GMX CCXT adapter RETURNED order ***")
+        logger.debug(
             "  id=%s, status=%s, filled=%.8f, remaining=%.8f",
             order.get("id"),
             order.get("status"),
             order.get("filled", 0),
             order.get("remaining", 0),
         )
-        logger.info("  cost=%.2f, average=%.4f", order.get("cost", 0), order.get("average", 0))
+        logger.debug("  cost=%.2f, average=%.4f", order.get("cost", 0), order.get("average", 0))
         # Log order info for debugging balance/profit issues
         order_info = order.get("info", {})
         if order_info:
-            logger.info("  FREQTRADE_ORDER_TRACE: info=%s", order_info)
-        logger.info("=" * 80)
+            logger.debug("  FREQTRADE_ORDER_TRACE: info=%s", order_info)
+        logger.debug("=" * 80)
 
         return order
