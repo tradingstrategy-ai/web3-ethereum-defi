@@ -147,11 +147,14 @@ def main():
         )
     )
 
+    # Put database files on R2 as well.
+    # These can be read by the backtester.
     base_path = Path("~/.tradingstrategy/vaults/").expanduser()
     paths = [
         base_path / "vault-prices-1h.parquet",
         base_path / "cleaned-vault-prices-1h.parquet",
-        base_path / "vault-db.pickle",        
+        base_path / "vault-metadata-db.pickle",        
+        base_path / "vault-reader-state-1h.pickle",
     ]
     print("Exporting data files to R2")
     upload_files_to_r2(
