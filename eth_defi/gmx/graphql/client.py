@@ -1048,22 +1048,20 @@ class GMXSubsquidClient:
         while time.time() - start_time < timeout_seconds:
             try:
                 # Try positionChanges first (faster)
-                print(f"\n{'=' * 70}")
-                print(f"DEBUG: Querying positionChanges")
-                print(f"{'=' * 70}")
-                print(f"Query:")
-                print(query_position_changes)
-                print(f"Variables: {{'orderKey': '{order_key}'}}")
-                print(f"{'=' * 70}")
+                logger.debug("=" * 70)
+                logger.debug("Querying positionChanges")
+                logger.debug("=" * 70)
+                logger.debug("Query: %s", query_position_changes)
+                logger.debug("Variables: orderKey=%s", order_key)
+                logger.debug("=" * 70)
 
                 data = self._query(query_position_changes, variables={"orderKey": order_key}, timeout=60)
                 changes = data.get("positionChanges", [])
 
-                print(f"\nDEBUG: positionChanges response:")
                 import json
 
-                print(json.dumps({"positionChanges": changes}, indent=2, default=str))
-                print(f"{'=' * 70}\n")
+                logger.debug("positionChanges response: %s", json.dumps({"positionChanges": changes}, indent=2, default=str))
+                logger.debug("=" * 70)
 
                 if changes:
                     change = changes[0]
@@ -1089,39 +1087,35 @@ class GMXSubsquidClient:
                             "timestamp": change.get("timestamp"),
                         },
                     }
-                    print(f"DEBUG: Returning result from positionChanges:")
-                    print(json.dumps(result, indent=2, default=str))
-                    print(f"{'=' * 70}\n")
+                    logger.debug("Returning result from positionChanges: %s", json.dumps(result, indent=2, default=str))
+                    logger.debug("=" * 70)
                     return result
 
                 # Reset failure counter on successful query
                 consecutive_failures = 0
 
                 # If positionChanges didn't return data, try tradeActions
-                print(f"\n{'=' * 70}")
-                print(f"DEBUG: positionChanges returned no data, trying tradeActions")
-                print(f"{'=' * 70}")
-                print(f"Query:")
-                print(query_trade_actions)
-                print(f"Variables: {{'orderKey': '{order_key}'}}")
-                print(f"{'=' * 70}")
+                logger.debug("=" * 70)
+                logger.debug("positionChanges returned no data, trying tradeActions")
+                logger.debug("=" * 70)
+                logger.debug("Query: %s", query_trade_actions)
+                logger.debug("Variables: orderKey=%s", order_key)
+                logger.debug("=" * 70)
 
                 try:
                     data = self._query(query_trade_actions, variables={"orderKey": order_key}, timeout=60)
                     actions = data.get("tradeActions", [])
 
-                    print(f"\nDEBUG: tradeActions response:")
-                    print(json.dumps({"tradeActions": actions}, indent=2, default=str))
-                    print(f"{'=' * 70}\n")
+                    logger.debug("tradeActions response: %s", json.dumps({"tradeActions": actions}, indent=2, default=str))
+                    logger.debug("=" * 70)
 
                     if actions:
-                        print(f"DEBUG: Returning result from tradeActions:")
-                        print(json.dumps(actions[0], indent=2, default=str))
-                        print(f"{'=' * 70}\n")
+                        logger.debug("Returning result from tradeActions: %s", json.dumps(actions[0], indent=2, default=str))
+                        logger.debug("=" * 70)
                         return actions[0]
                 except Exception as e:
-                    print(f"DEBUG: tradeActions query failed: {e}")
-                    print(f"{'=' * 70}\n")
+                    logger.debug("tradeActions query failed: %s", e)
+                    logger.debug("=" * 70)
                     pass  # Continue polling
 
             except Exception as e:
