@@ -663,6 +663,7 @@ class Gmx(Exchange):
         logger.info("=" * 80)
 
         # Call parent create_order which uses CCXT underneath
+        # Note: initial_order is GMX-specific, don't pass to parent Exchange
         logger.info(">>> Delegating to parent Exchange.create_order() -> GMX CCXT adapter")
         order = super().create_order(
             pair=pair,
@@ -673,7 +674,6 @@ class Gmx(Exchange):
             leverage=leverage,
             reduceOnly=reduceOnly,
             time_in_force=time_in_force,
-            initial_order=initial_order,
             **kwargs,
         )
 
