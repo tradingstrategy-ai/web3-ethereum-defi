@@ -148,6 +148,51 @@ class GMXSubsquidClient:
 
         return data.get("data", {})
 
+    def _query_with_retry(
+        self,
+        query: str,
+        variables: Optional[dict[str, Any]] = None,
+        timeout: int = 60,
+        max_retries: int = 3,
+        method_name: str = "query",
+    ) -> dict[str, Any]:
+        """Execute a GraphQL query with retry logic.
+
+        Wraps _query() with exponential backoff retry logic to handle
+        Subsquid timeouts and transient failures gracefully.
+
+        :param query: GraphQL query string
+        :param variables: Optional query variables
+        :param timeout: Request timeout in seconds
+        :param max_retries: Maximum retry attempts (default 3)
+        :param method_name: Method name for logging
+        :return: Query response data
+        :raises Exception: If all retries fail
+        """
+        for attempt in range(max_retries):
+            try:
+                return self._query(query, variables=variables, timeout=timeout)
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    backoff_time = 2 ** (attempt + 1)  # 2s, 4s, 8s
+                    logger.warning(
+                        "Subsquid %s attempt %d/%d failed: %s. Retrying in %ds...",
+                        method_name,
+                        attempt + 1,
+                        max_retries,
+                        e,
+                        backoff_time,
+                    )
+                    time.sleep(backoff_time)
+                else:
+                    logger.error(
+                        "Subsquid %s failed after %d retries: %s",
+                        method_name,
+                        max_retries,
+                        e,
+                    )
+                    raise
+
     def get_positions(
         self,
         account: str,
@@ -365,8 +410,20 @@ class GMXSubsquidClient:
         }}
         """
 
-        data = self._query(query, variables=variables)
-        return data.get("positionChanges", [])
+        # Use retry logic to handle Subsquid timeouts gracefully
+        try:
+            data = self._query_with_retry(
+                query,
+                variables=variables,
+                timeout=60,
+                max_retries=3,
+                method_name="get_position_changes",
+            )
+            return data.get("positionChanges", [])
+        except Exception:
+            # Return empty list instead of crashing Freqtrade
+            logger.error("get_position_changes failed, returning empty list")
+            return []
 
     def get_account_stats(self, account: str) -> Optional[dict[str, Any]]:
         """Get overall account statistics.

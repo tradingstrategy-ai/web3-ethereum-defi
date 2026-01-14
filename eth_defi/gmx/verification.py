@@ -246,9 +246,10 @@ def verify_gmx_order_execution(
     if order_result.status == "executed":
         result.success = True
 
-        # Convert execution details to human-readable format
+        # Store raw execution_price (30 decimals) for later conversion
+        # Conversion to USD will be done in exchange.py using token-specific decimals
         if order_result.execution_price:
-            result.execution_price = order_result.execution_price / GMX_PRICE_PRECISION
+            result.execution_price = order_result.execution_price
 
         if order_result.size_delta_usd:
             result.size_delta_usd = order_result.size_delta_usd / GMX_USD_PRECISION

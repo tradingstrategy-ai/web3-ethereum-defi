@@ -5188,8 +5188,10 @@ class GMX(ExchangeCompatible):
             order["remaining"] = 0.0
 
             # Set execution price if available
+            # Convert using token-specific decimals (30 - token_decimals)
             if immediate_execution.execution_price:
-                order["average"] = immediate_execution.execution_price / 10**30
+                market = self.markets[symbol]
+                order["average"] = self._convert_price_to_usd(immediate_execution.execution_price, market)
 
             self._orders[order["id"]] = order
             return order
@@ -5390,9 +5392,11 @@ class GMX(ExchangeCompatible):
 
             # Order executed successfully
             # Parse execution price from Subsquid (30 decimals) or event
+            # Convert using token-specific decimals (30 - token_decimals)
             raw_exec_price = trade_action.get("executionPrice")
             if raw_exec_price:
-                execution_price = float(raw_exec_price) / 1e30
+                market = self.markets[symbol]
+                execution_price = self._convert_price_to_usd(float(raw_exec_price), market)
             else:
                 # Use mark price as fallback
                 execution_price = order_result.mark_price
@@ -5688,12 +5692,22 @@ class GMX(ExchangeCompatible):
                     order["status"] = "closed"
                     order["filled"] = order["amount"]
                     order["remaining"] = 0.0
-                    order["average"] = verification.execution_price
+
+                    # Convert raw execution_price using token-specific decimals
+                    # verification.execution_price is in raw format (30 decimals)
+                    symbol = order.get("symbol")
+                    if symbol and verification.execution_price:
+                        market = self.markets[symbol]
+                        order["average"] = self._convert_price_to_usd(verification.execution_price, market)
+                    else:
+                        # Fallback: keep raw value if symbol not available (shouldn't happen)
+                        order["average"] = verification.execution_price
+
                     order["lastTradeTimestamp"] = self.milliseconds()
 
                     # Calculate cost based on actual execution price
-                    if verification.execution_price and order["amount"]:
-                        order["cost"] = order["amount"] * verification.execution_price
+                    if order.get("average") and order["amount"]:
+                        order["cost"] = order["amount"] * order["average"]
 
                     # Update info with verification data
                     order["info"]["execution_tx_hash"] = status_result.execution_tx_hash

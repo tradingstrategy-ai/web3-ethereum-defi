@@ -1250,12 +1250,22 @@ class GMX(Exchange):
                     order["status"] = "closed"
                     order["filled"] = order["amount"]
                     order["remaining"] = 0.0
-                    order["average"] = verification.execution_price
+
+                    # Convert raw execution_price using token-specific decimals
+                    # verification.execution_price is in raw format (30 decimals)
+                    symbol = order.get("symbol")
+                    if symbol and verification.execution_price:
+                        market = self.markets[symbol]
+                        order["average"] = self._convert_price_to_usd(verification.execution_price, market)
+                    else:
+                        # Fallback: keep raw value if symbol not available (shouldn't happen)
+                        order["average"] = verification.execution_price
+
                     order["lastTradeTimestamp"] = self.milliseconds()
 
                     # Calculate cost based on actual execution price
-                    if verification.execution_price and order["amount"]:
-                        order["cost"] = order["amount"] * verification.execution_price
+                    if order.get("average") and order["amount"]:
+                        order["cost"] = order["amount"] * order["average"]
 
                     # Update info with verification data
                     order["info"]["execution_tx_hash"] = status_result.execution_tx_hash
