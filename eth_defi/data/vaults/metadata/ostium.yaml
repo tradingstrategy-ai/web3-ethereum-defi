@@ -1,0 +1,36 @@
+name: Ostium
+slug: ostium
+short_description: |
+  Self-custodial leveraged trading platform for perpetual swaps on real-world assets.
+long_description: |
+  Ostium is a self-custodial leveraged trading platform for perpetual swaps on real-world assets
+  (RWAs) including stocks, indices, commodities, and FX. Built on Arbitrum, Ostium uses gToken-based
+  vault smart contracts that provide automated market making vaults for perpetual futures purely
+  on-chain.
+
+  The trading engine uses gToken vaults (also known as "Ostium LP" vaults where LP stands for
+  liquidity provider) for all trading pairs, making it over 100x more capital efficient than
+  traditional order book approaches.
+
+  Key features:
+
+  - ERC-4626 compatible vaults for perpetual futures liquidity provision
+  - Self-custodial trading on real-world assets
+  - Capital efficient automated market making for perpetual swaps
+  - Epoch-based withdrawal system for managing redemptions
+  - Built on Arbitrum for fast and low-cost transactions
+fee_description: |
+links:
+  homepage: https://www.ostium.com
+  app: https://ostium.app/vault
+  twitter: https://twitter.com/ostiumlabs
+  github: https://github.com/0xOstium/smart-contracts-public
+  documentation: https://ostium-labs.gitbook.io/ostium-docs
+  defillama: https://defillama.com/protocol/ostium
+  audits: https://ostium-labs.gitbook.io/ostium-docs/security/smart-contract-audits
+  fees: https://ostium-labs.gitbook.io/ostium-docs/fee-breakdown
+  trading_strategy:
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/gains/index.html
+example_smart_contracts:
+  - https://arbiscan.io/address/0x20d419a8e12c45f88fda7c5760bb6923cee27f98
+  -
