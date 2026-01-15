@@ -1067,6 +1067,7 @@ def detect_vault_features(
 
     web3factory = SimpleWeb3Factory(web3)
 
+    # TODO: the log output is super noisy here because of Anvil crappiness and warnings
     results = {}
     for call_result in read_multicall_chunked(
         chain_id=chain_id,
