@@ -968,6 +968,8 @@ def identify_vault_features(
             features.add(ERC4626Feature.peapods_like)
         elif "Savings GYD" in name:
             features.add(ERC4626Feature.gyroscope)
+        elif "YieldNest" in name:
+            features.add(ERC4626Feature.yieldnest_like)
 
     return features
 
@@ -1014,6 +1016,76 @@ def probe_vaults(
             address=address,
             features=features,
         )
+
+
+# def detect_vault_features(
+#     web3: Web3,
+#     address: HexAddress | str,
+#     verbose=True,
+# ) -> set[ERC4626Feature]:
+#     """Detect the ERC-4626 features of a vault smart contract.
+
+#     - Protocols: Harvest, Lagoon, etc.
+#     - Does support ERC-7540
+#     - Very slow, only use in scripts and tutorials.
+#     - Use to pass to :py:func:`create_vault_instance` to get a correct Python proxy class for the vault institated.
+#     - Uses multicall batching with threading backend for efficient RPC calls
+
+#     Example:
+
+#     .. code-block:: python
+
+#         features = detect_vault_features(web3, spec.vault_address, verbose=False)
+#         logger.info("Detected vault features: %s", features)
+
+#         vault = create_vault_instance(
+#             web3,
+#             spec.vault_address,
+#             features=features,
+#         )
+
+#     :param verbose:
+#         Disable for command line scripts
+#     """
+
+#     assert address.lower() not in BROKEN_VAULT_CONTRACTS, f"Vault {address} is known broken vault contract like, avoid"
+
+#     hardcoded_flags = HARDCODED_PROTOCOLS.get(address.lower())
+#     if hardcoded_flags:
+#         features = hardcoded_flags
+#         logger.debug("Using hardcoded vault features for %s: %s", address, features)
+#         return hardcoded_flags
+
+#     address = Web3.to_checksum_address(address)
+#     logger.info("Detecting vault features for %s", address)
+#     chain_id = web3.eth.chain_id
+#     probe_calls = list(create_probe_calls([address], chain_id=chain_id))
+#     block_number = web3.eth.block_number
+
+#     # Use multicall batching with threading backend for efficient RPC calls
+#     from eth_defi.event_reader.web3factory import SimpleWeb3Factory
+
+#     web3factory = SimpleWeb3Factory(web3)
+
+#     # TODO: the log output is super noisy here because of Anvil crappiness and warnings
+#     results = {}
+#     for call_result in read_multicall_chunked(
+#         chain_id=chain_id,
+#         web3factory=web3factory,
+#         calls=probe_calls,
+#         block_identifier=block_number,
+#         max_workers=1,
+#         backend="threading",
+#         timestamped_results=False,
+#     ):
+#         if verbose:
+#             logger.info("Result for %s: %s", call_result.call.func_name, call_result.success)
+#         results[call_result.call.func_name] = call_result
+
+#     # Wrap with _ProbeResultsDict to handle missing probes from chain filtering
+#     wrapped_results = _ProbeResultsDict(results)
+#     features = identify_vault_features(address, wrapped_results, debug_text=f"vault: {address}")
+#     return features
 
 
 def detect_vault_features(
@@ -1383,6 +1455,11 @@ def create_vault_instance(
         from eth_defi.erc_4626.vault_protocol.accountable.vault import AccountableVault
 
         return AccountableVault(web3, spec, token_cache=token_cache, features=features)
+
+    elif ERC4626Feature.yieldnest_like in features:
+        from eth_defi.erc_4626.vault_protocol.yieldnest.vault import YieldNestVault
+
+        return YieldNestVault(web3, spec, token_cache=token_cache, features=features)
 
     else:
         # Generic ERC-4626 without fee data

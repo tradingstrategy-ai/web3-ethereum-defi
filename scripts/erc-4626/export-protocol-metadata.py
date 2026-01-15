@@ -28,8 +28,7 @@ from tabulate import tabulate
 from tqdm_loggable.auto import tqdm
 
 from eth_defi.utils import setup_console_logging
-from eth_defi.vault.protocol_metadata import (
-    METADATA_DIR, get_available_logos, process_and_upload_protocol_metadata)
+from eth_defi.vault.protocol_metadata import METADATA_DIR, get_available_logos, process_and_upload_protocol_metadata
 
 logger = logging.getLogger(__name__)
 
@@ -59,8 +58,7 @@ def upload_files_to_r2(
         logger.info("No files to upload after filtering")
         return 0
 
-    logger.info("Uploading %d files to R2 bucket %s (excluded %d tmp* files)",
-                len(files_to_upload), bucket_name, len(file_paths) - len(files_to_upload))
+    logger.info("Uploading %d files to R2 bucket %s (excluded %d tmp* files)", len(files_to_upload), bucket_name, len(file_paths) - len(files_to_upload))
 
     s3_client = boto3.client(
         "s3",
@@ -78,7 +76,8 @@ def upload_files_to_r2(
 
         # Upload with progress bar for each file
         with open(file_path, "rb") as f:
-            with tqdm(total=file_size, unit='B', unit_scale=True, desc=f"Uploading {file_path.name}") as pbar:
+            with tqdm(total=file_size, unit="B", unit_scale=True, desc=f"Uploading {file_path.name}") as pbar:
+
                 def upload_callback(bytes_amount):
                     pbar.update(bytes_amount)
 
@@ -153,7 +152,7 @@ def main():
     paths = [
         base_path / "vault-prices-1h.parquet",
         base_path / "cleaned-vault-prices-1h.parquet",
-        base_path / "vault-metadata-db.pickle",        
+        base_path / "vault-metadata-db.pickle",
         base_path / "vault-reader-state-1h.pickle",
     ]
     print("Exporting data files to R2")

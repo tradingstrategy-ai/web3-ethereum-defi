@@ -446,6 +446,11 @@ class ERC4626Feature(enum.Enum):
     #: https://www.accountable.capital/
     accountable_like = "accountable_like"
 
+    #: YieldNest
+    #:
+    #: https://www.yieldnest.finance
+    yieldnest_like = "yieldnest_like"
+
 
 def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     """Deduct vault protocol name based on Vault smart contract features.
@@ -638,6 +643,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.accountable_like in features:
         return "Accountable"
+
+    elif ERC4626Feature.yieldnest_like in features:
+        return "YieldNest"
 
     # No idea
     if ERC4626Feature.erc_7540_like in features:

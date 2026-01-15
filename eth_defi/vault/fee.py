@@ -95,6 +95,7 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "Brink": None,
     # Accountable fees are internalised in the share price
     "Accountable": VaultFeeMode.internalised_skimming,
+    "YieldNest": None,
 }
 
 
