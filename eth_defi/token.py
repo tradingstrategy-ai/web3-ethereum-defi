@@ -254,7 +254,8 @@ STABLECOIN_LIKE = set(
         "USDe",  # Mantle
         "USDF",
         "USDH",
-        "USDHL",
+        "USDHL"
+        "USDG",
         "USDM",
         "USDN",
         "USDO",
