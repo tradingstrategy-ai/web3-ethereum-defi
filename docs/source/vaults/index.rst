@@ -78,5 +78,6 @@ Supported protocols
    usdd/index
    yearn/index
    yieldfi/index
+   yieldnest/index
    yuzu_money/index
    zerolend/index
