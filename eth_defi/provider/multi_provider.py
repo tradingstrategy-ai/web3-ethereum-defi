@@ -4,14 +4,15 @@ See :ref:`multi rpc` tutorial for details.
 """
 
 import logging
-from typing import List, Optional, Any, Dict
+from typing import Any, Dict, List, Optional
 
 import requests
 from requests.adapters import HTTPAdapter
-from urllib3.util import parse_url, Url, Retry
-from web3 import Web3, HTTPProvider
+from urllib3.util import Retry, Url, parse_url
+from web3 import HTTPProvider, Web3
 
 from eth_defi.chain import install_chain_middleware
+from eth_defi.compat import WEB3_PY_V7, clear_middleware, create_http_provider
 from eth_defi.event_reader.fast_json_rpc import patch_provider, patch_web3
 from eth_defi.middleware import static_call_cache_middleware
 from eth_defi.provider.anvil import is_anvil
@@ -20,8 +21,6 @@ from eth_defi.provider.fallback import FallbackProvider
 from eth_defi.provider.mev_blocker import MEVBlockerProvider
 from eth_defi.provider.named import NamedProvider, get_provider_name
 from eth_defi.utils import get_url_domain
-from eth_defi.compat import WEB3_PY_V7, create_http_provider
-from eth_defi.compat import clear_middleware
 
 logger = logging.getLogger(__name__)
 
@@ -111,6 +110,7 @@ def create_multi_provider_web3(
     default_http_timeout=(3.0, 30.0),
     retries: int = 6,
     hint: Optional[str] = "",
+    unit_test=False,
 ) -> MultiProviderWeb3:
     """Create a Web3 instance with multi-provider support.
 
@@ -180,6 +180,11 @@ def create_multi_provider_web3(
 
     :param hint:
         A hint for error logs if something goes wrong.
+
+    :param unit_test:
+        Run in unit test mode.
+
+        Have special hooks and environment variable based timeouts for unit tests.
 
     :return:
         Configured Web3 instance with multiple providers
@@ -286,7 +291,7 @@ def create_multi_provider_web3(
     patch_web3(web3)
 
     # Import compatibility functions
-    from eth_defi.compat import clear_middleware, add_middleware, WEB3_PY_V7
+    from eth_defi.compat import WEB3_PY_V7, add_middleware, clear_middleware
 
     # Clear all middleware first
     clear_middleware(web3)

@@ -3,14 +3,14 @@
 import os
 from pathlib import Path
 
+import flaky
 import pytest
 from web3 import Web3
-import flaky
 
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.singularity.vault import SingularityVault
-from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch
+from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 
 JSON_RPC_BASE = os.environ.get("JSON_RPC_BASE")
@@ -30,7 +30,9 @@ def anvil_base_fork(request) -> AnvilLaunch:
 
 @pytest.fixture(scope="module")
 def web3(anvil_base_fork):
-    web3 = create_multi_provider_web3(anvil_base_fork.json_rpc_url)
+    web3 = create_multi_provider_web3(
+        anvil_base_fork.json_rpc_url,
+    )
     return web3
 
 
