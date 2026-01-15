@@ -6,6 +6,8 @@
 - Further increase call throughput using multiprocessing with :py:class:`joblib.Parallel`
 - Do fast historical reads several blocks with :py:func:`read_multicall_historical`
 
+For usage see :py:func:`read_multicall_chunked` and `read_multicall_historical_stateful` functions.
+
 .. warning::
 
     See Multicall `private key leak hack warning <https://github.com/mds1/multicall>`__.
@@ -20,7 +22,6 @@ import textwrap
 import threading
 import time
 import zlib
-
 from abc import abstractmethod
 from collections import Counter
 from dataclasses import dataclass, field
@@ -28,20 +29,19 @@ from http.client import RemoteDisconnected
 from itertools import islice
 from pathlib import Path
 from pprint import pformat
-from typing import TypeAlias, Iterable, Generator, Hashable, Any, Final, Callable
+from typing import Any, Callable, Final, Generator, Hashable, Iterable, TypeAlias
 
+from eth_typing import BlockIdentifier, BlockNumber, HexAddress
 from hexbytes import HexBytes
-from requests import HTTPError
-from tqdm_loggable.auto import tqdm
-from requests.exceptions import ReadTimeout, ConnectionError
-
-from eth_typing import HexAddress, BlockIdentifier, BlockNumber
 from joblib import Parallel, delayed
+from requests import HTTPError
+from requests.exceptions import ConnectionError, ReadTimeout
+from tqdm_loggable.auto import tqdm
 from web3 import Web3
 from web3.contract import Contract
 from web3.contract.contract import ContractFunction
 
-from eth_defi.abi import get_deployed_contract, ZERO_ADDRESS, encode_function_call, ZERO_ADDRESS_STR, format_debug_instructions
+from eth_defi.abi import ZERO_ADDRESS, ZERO_ADDRESS_STR, encode_function_call, format_debug_instructions, get_deployed_contract
 from eth_defi.chain import get_default_call_gas_limit
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.event_reader.fast_json_rpc import get_last_headers
@@ -1616,6 +1616,7 @@ def read_multicall_chunked(
     chunk_size: int = 40,
     progress_bar_desc: str | None = None,
     timestamped_results=True,
+    backend="loky",
 ) -> Iterable[EncodedCallResult]:
     """Read current data using multiple processes in parallel for speedup.
 
@@ -1709,6 +1710,11 @@ def read_multicall_chunked(
 
         Causes very slow eth_getBlock call, use only if needed.
 
+    :param backend:
+        Joblib backend to use.
+
+        Either "loky" or "threading".
+
     :return:
         Iterable of results.
 
@@ -1721,7 +1727,7 @@ def read_multicall_chunked(
 
     worker_processor = Parallel(
         n_jobs=max_workers,
-        backend="loky",
+        backend=backend,
         timeout=timeout,
         max_nbytes=40 * 1024 * 1024,  # Allow passing 40 MBytes for child processes
         return_as="generator_unordered",
