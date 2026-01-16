@@ -1,0 +1,33 @@
+name: HypurrFi
+slug: hypurrfi
+short_description: |
+  Lending market on HyperEVM for leveraged yield strategies with native Hyperliquid assets.
+long_description: |
+  HypurrFi is a lending market built on HyperEVM (Hyperliquid) that enables users to deposit
+  and borrow native Hyperliquid assets for leveraged yield strategies.
+
+  The protocol offers two distinct market structures:
+
+  - Pooled markets: Shared liquidity pools with multiple lenders and borrowers
+  - Isolated markets: Separate lending pairs with isolated risk profiles
+
+  Key features:
+
+  - Native integration with Hyperliquid ecosystem
+  - Support for USDXL and other Hyperliquid-native assets
+  - Points system for early users and liquidity providers
+  - Bridge and swap functionality within the app
+fee_description: |
+links:
+  homepage: https://www.hypurr.fi/
+  app: https://app.hypurr.fi/
+  twitter: https://x.com/hypurrfi
+  github: https://github.com/lastdotnet
+  documentation: https://docs.hypurr.fi/
+  defillama:
+  audits: https://docs.hypurr.fi/introduction/security
+  fees:
+  trading_strategy:
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/hypurrfi/index.html
+example_smart_contracts:
+  - https://hyperevmscan.io/address/0x8001e1e7b05990d22dd8cdb9737f9fe6589827ce

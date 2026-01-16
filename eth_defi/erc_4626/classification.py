@@ -970,8 +970,34 @@ def identify_vault_features(
             features.add(ERC4626Feature.gyroscope)
         elif "YieldNest" in name:
             features.add(ERC4626Feature.yieldnest_like)
+        elif _is_hypurrfi_name(name):
+            features.add(ERC4626Feature.hypurrfi_like)
 
     return features
+
+
+def _is_hypurrfi_name(name: str) -> bool:
+    """Check if name matches HypurrFi vault naming pattern.
+
+    HypurrFi vault names start with "hy" and end with a hyphen followed by a digit.
+    Example: "hyUSDXL (Purr) - 2"
+
+    Note: The name parameter may contain ABI-encoding artifacts (null bytes, length prefixes)
+    so we search for the pattern within the string rather than matching from the start.
+
+    :param name:
+        The vault name to check (may contain ABI-encoding artifacts)
+
+    :return:
+        True if the name matches HypurrFi pattern
+    """
+    import re
+
+    if not name:
+        return False
+    # Search for pattern anywhere in the string to handle ABI-encoded data with null bytes
+    # Pattern: starts with "hy", contains "-", ends with digit(s) before null bytes
+    return bool(re.search(r"hy[^-]+-\s*\d+(?:\x00|$)", name, re.IGNORECASE))
 
 
 def probe_vaults(
@@ -1465,6 +1491,11 @@ def create_vault_instance(
         from eth_defi.erc_4626.vault_protocol.dolomite.vault import DolomiteVault
 
         return DolomiteVault(web3, spec, token_cache=token_cache, features=features)
+
+    elif ERC4626Feature.hypurrfi_like in features:
+        from eth_defi.erc_4626.vault_protocol.hypurrfi.vault import HypurrFiVault
+
+        return HypurrFiVault(web3, spec, token_cache=token_cache, features=features)
 
     else:
         # Generic ERC-4626 without fee data
