@@ -26,10 +26,18 @@ The GMX CCXT adapter provides:
 ### Environment setup
 
 - [ ] Python 3.11+ installed
-- [ ] Virtual environment created and activated
-- [ ] FreqTrade installed from freqtrade-develop
-- [ ] web3-ethereum-defi installed with [data] extras
-- [ ] `freqtrade-gmx` wrapper script tested (`./freqtrade-gmx --version`)
+- [ ] Repository cloned with submodules: `git clone --recurse-submodules https://github.com/tradingstrategy-ai/gmx-ccxt-freqtrade.git`
+- [ ] Virtual environment created and activated: `python -m venv .venv && source .venv/bin/activate`
+- [ ] FreqTrade installed from stable branch:
+  ```bash
+  git clone --branch stable https://github.com/freqtrade/freqtrade.git freqtrade-develop
+  pip install -r freqtrade-develop/requirements.txt
+  pip install -e freqtrade-develop/
+  ```
+- [ ] web3-ethereum-defi installed with extras: `pip install -e "deps/web3-ethereum-defi[web3v7,data,ccxt]"`
+- [ ] `freqtrade-gmx` wrapper script tested: `./freqtrade-gmx --version`
+
+**Full setup guide:** https://github.com/tradingstrategy-ai/gmx-ccxt-freqtrade#install-freqtrade
 
 ### Configuration setup
 
@@ -51,7 +59,7 @@ The GMX CCXT adapter provides:
 
 ### Production strategies
 
-#### IchiV2_LS_Live (recommended)
+#### IchiV2_LS_Live
 
 Dual long/short Ichimoku strategy for production trading.
 
@@ -144,7 +152,7 @@ Use these only for validating exchange connectivity and order execution.
 
 ### Key configuration parameters
 
-| Parameter | Description | Recommended |
+| Parameter | Description | Vlues we found optimal while testing |
 |-----------|-------------|-------------|
 | `dry_run` | Set to `false` for live trading | Start with `true` |
 | `stake_amount` | Position size per trade in USDC | Start small (2-30) |
@@ -316,7 +324,7 @@ poetry run python scripts/gmx/gmx_get_open_positions.py
 
 **N.B.**:  These are just optiomal configurations. This is not a trading advice.
 
-### Daily checklist
+### Things To Consider While Testing
 
 - [ ] Check wallet balance (ETH for gas, USDC for trading)
 - [ ] Review open positions
@@ -326,7 +334,7 @@ poetry run python scripts/gmx/gmx_get_open_positions.py
 
 ## Docker deployment
 
-For production deployments, use Docker Compose to run the bot as a service:
+For production deployments, use Docker Compose to run the bot as a service. We have a fully functional `docker-compose.yml` file added which can be extended further according to the requirements. Here is an example snippet:
 
 ```yaml
 # docker-compose.yml
@@ -381,9 +389,9 @@ Run multiple strategies simultaneously using separate wallets and databases:
 ```
 
 **Critical:** Each strategy instance must use:
-- A separate wallet (different private key)
 - A separate database file
 - Optionally, a separate API port if using REST API
+- Optionally, A separate wallet (different private key) but recommended.
 
 ## Emergency procedures
 
@@ -429,7 +437,7 @@ curl -X POST http://localhost:8080/api/v1/stopentry
 |-------|---------|------------|
 | RPC timeout | Orders not executing | Switch to backup RPC URL |
 | Insufficient gas | Transaction reverted | Add more ETH to wallet |
-| Keeper delay | Orders pending > 2 min | wait(Hardly ever happens) |
+| Keeper delay | Orders pending > 2 min | wait(Hardly ever happens. most likely order failed) |
 | Execution fee error | Order creation fails | Increase `executionBuffer` |
 | Market not found | Symbol error | Run `load_markets()` first |
 
