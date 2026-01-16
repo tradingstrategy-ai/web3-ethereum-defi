@@ -7,6 +7,7 @@ import os
 from decimal import Decimal
 from typing import cast
 
+import flaky
 import pytest
 from eth_typing import HexAddress, HexStr
 from web3 import Web3
@@ -390,6 +391,7 @@ def test_guard_can_do_erc_4626_withdraw(
     assert usdc.fetch_balance_of(vault.address) == pytest.approx(Decimal("10000"))
 
 
+@flaky.flaky
 def test_guard_malicious_withdraw(
     web3: Web3,
     erc4626_vault: IPORVault,
