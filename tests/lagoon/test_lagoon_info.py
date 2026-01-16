@@ -7,6 +7,7 @@ from decimal import Decimal
 
 import pytest
 from web3 import Web3
+import flaky
 
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.provider.broken_provider import get_almost_latest_block_number
@@ -79,6 +80,8 @@ def test_lagoon_fetch_portfolio(
     assert portfolio.spot_erc20[base_weth.address] == pytest.approx(Decimal(1 * 10**-16))
 
 
+# If the main RPC is unstable
+@flaky.flaky
 def test_lagoon_fee(web3: Web3, read_only_vault: LagoonVault):
     """Read Lagoon vault fees."""
     vault = read_only_vault
