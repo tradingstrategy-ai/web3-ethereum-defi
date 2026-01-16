@@ -1461,6 +1461,11 @@ def create_vault_instance(
 
         return YieldNestVault(web3, spec, token_cache=token_cache, features=features)
 
+    elif ERC4626Feature.dolomite_like in features:
+        from eth_defi.erc_4626.vault_protocol.dolomite.vault import DolomiteVault
+
+        return DolomiteVault(web3, spec, token_cache=token_cache, features=features)
+
     else:
         # Generic ERC-4626 without fee data
         from eth_defi.erc_4626.vault import ERC4626Vault
@@ -1574,6 +1579,12 @@ HARDCODED_PROTOCOLS = {
     # ERC-4626 wrapper around rebasing staked USR token
     # https://etherscan.io/address/0x1202f5c7b4b9e47a1a484e8b270be34dbbc75055
     "0x1202f5c7b4b9e47a1a484e8b270be34dbbc75055": {ERC4626Feature.resolv_like},
+    # Dolomite - dUSDT vault on Arbitrum
+    # https://arbiscan.io/address/0xf2d2d55daf93b0660297eaa10969ebe90ead5ce8
+    "0xf2d2d55daf93b0660297eaa10969ebe90ead5ce8": {ERC4626Feature.dolomite_like},
+    # Dolomite - dUSDC vault on Arbitrum
+    # https://arbiscan.io/address/0x444868b6e8079ac2c55eea115250f92c2b2c4d14
+    "0x444868b6e8079ac2c55eea115250f92c2b2c4d14": {ERC4626Feature.dolomite_like},
 }
 
 for a in HARDCODED_PROTOCOLS.keys():
