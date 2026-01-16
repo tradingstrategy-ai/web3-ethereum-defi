@@ -51,6 +51,7 @@ Supported protocols
    gearbox/index
    goat/index
    harvest/index
+   hypurrfi/index
    ipor/index
    lagoon/index
    liquidity_royalty/index

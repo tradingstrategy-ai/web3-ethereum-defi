@@ -98,6 +98,8 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "YieldNest": None,
     # Dolomite fees are internalised through interest rate spreads
     "Dolomite": VaultFeeMode.internalised_skimming,
+    # HypurrFi fees are internalised in the share price
+    "HypurrFi": VaultFeeMode.internalised_skimming,
 }
 
 

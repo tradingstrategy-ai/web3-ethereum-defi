@@ -116,6 +116,7 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Accountable": VaultTechnicalRisk.severe,
     "YieldNest": None,
     "Dolomite": None,
+    "HypurrFi": None,
 }
 
 #: Particular vaults that are broken, misleading or otherwise problematic.
