@@ -1,0 +1,40 @@
+name: USDX Money
+slug: usdx-money
+short_description: |
+  Synthetic USD stablecoin protocol with sUSDX staking vault.
+long_description: |
+  USDX Money is a synthetic USD stablecoin protocol that provides stability without
+  relying on traditional banking infrastructure. USDX is backed by delta-neutral
+  positions across multiple exchanges, seamlessly bridging DeFi, CeFi, and TradFi.
+
+  sUSDX (Staked USDX) is a reward-bearing token where users stake USDX to receive
+  a proportionate share of protocol-generated yield. The value of sUSDX appreciates
+  over time rather than its quantity increasing (similar to cbETH or rETH for ETH).
+  The staked USDX is not rehypothecated or used independently to generate sUSDX value
+  accrual.
+
+  Key features:
+
+  - Reward-bearing staking token (value appreciation, not quantity increase)
+  - No explicit management or performance fees at the smart contract level
+  - Yield generated from protocol activities
+  - Deployed on multiple chains with the same contract address
+  - 8-hour vesting period for reward distributions
+  - Configurable cooldown mechanism for unstaking (up to 90 days)
+fee_description: |
+  No explicit management or performance fees. Yield is distributed through value appreciation
+  of the sUSDX token.
+links:
+  homepage: https://usdx.money/
+  app:
+  twitter: https://x.com/StablesLabs
+  github: https://github.com/X-Financial-Technologies/usdx
+  documentation: https://docs.usdx.money/
+  defillama: https://defillama.com/protocol/stables-labs-usdx
+  audits:
+  fees:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/usdx-money
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/usdx_money/index.html
+example_smart_contracts:
+  - https://bscscan.com/address/0x7788a3538c5fc7f9c7c8a74eac4c898fc8d87d92
+  - https://etherscan.io/address/0x7788a3538c5fc7f9c7c8a74eac4c898fc8d87d92

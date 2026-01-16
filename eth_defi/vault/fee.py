@@ -102,6 +102,9 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "HypurrFi": VaultFeeMode.internalised_skimming,
     # Fluid fToken fees are internalised through the exchange price mechanism (interest accrual)
     "Fluid": VaultFeeMode.internalised_skimming,
+    # USDX Money sUSDX - yield is distributed through value appreciation (internalised)
+    # Management and performance fees are both 0%
+    "USDX Money": VaultFeeMode.internalised_skimming,
 }
 
 
