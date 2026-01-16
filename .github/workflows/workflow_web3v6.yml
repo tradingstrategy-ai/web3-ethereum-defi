@@ -131,7 +131,7 @@ jobs:
       - name: Run tests (parallel)
         run: |
           # Enable verbose output if debugging is enabled
-          poetry run pytest --timeout-method=thread --timeout=180 --tb=native -n auto -v -s --capture=no --ignore=tests/gmx -ignore=tests/hyperliquid --ignore=tests/gmx --ignore=tests/erc_4626
+          poetry run pytest --timeout-method=thread --timeout=180 --tb=native -n auto -v -s --capture=no --ignore=tests/gmx --ignore=tests/hyperliquid --ignore=tests/erc_4626
         env:
           BNB_CHAIN_JSON_RPC: ${{ secrets.BNB_CHAIN_JSON_RPC }}
           JSON_RPC_POLYGON_ARCHIVE: ${{ secrets.JSON_RPC_POLYGON_ARCHIVE }}
