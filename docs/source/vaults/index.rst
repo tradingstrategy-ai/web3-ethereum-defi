@@ -46,6 +46,7 @@ Supported protocols
    ethena/index
    euler/index
    eth_strategy/index
+   fluid/index
    foxify/index
    gains/index
    gearbox/index
