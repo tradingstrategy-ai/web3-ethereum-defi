@@ -1497,6 +1497,11 @@ def create_vault_instance(
 
         return HypurrFiVault(web3, spec, token_cache=token_cache, features=features)
 
+    elif ERC4626Feature.fluid_like in features:
+        from eth_defi.erc_4626.vault_protocol.fluid.vault import FluidVault
+
+        return FluidVault(web3, spec, token_cache=token_cache, features=features)
+
     else:
         # Generic ERC-4626 without fee data
         from eth_defi.erc_4626.vault import ERC4626Vault

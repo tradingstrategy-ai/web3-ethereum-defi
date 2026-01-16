@@ -100,6 +100,8 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "Dolomite": VaultFeeMode.internalised_skimming,
     # HypurrFi fees are internalised in the share price
     "HypurrFi": VaultFeeMode.internalised_skimming,
+    # Fluid fToken fees are internalised through the exchange price mechanism (interest accrual)
+    "Fluid": VaultFeeMode.internalised_skimming,
 }
 
 

@@ -117,6 +117,7 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "YieldNest": None,
     "Dolomite": None,
     "HypurrFi": None,
+    "Fluid": VaultTechnicalRisk.low,
 }
 
 #: Particular vaults that are broken, misleading or otherwise problematic.

@@ -1,0 +1,42 @@
+name: Fluid
+slug: fluid
+short_description: |
+  DeFi liquidity layer by Instadapp with ERC-4626 compliant fToken lending vaults.
+long_description: |
+  Fluid is a comprehensive DeFi liquidity layer by Instadapp that combines lending, borrowing,
+  and decentralised exchange capabilities. At its core is the Liquidity Layer, which consolidates
+  capital across built-on protocols, eliminating the need for individual protocols to independently
+  attract liquidity.
+
+  The ecosystem consists of multiple interconnected protocols:
+
+  - **Lending Protocol**: Simple deposit-and-earn system via ERC-4626 compliant fTokens that
+    represent user stakes and accrue interest over time through the exchange price mechanism.
+
+  - **Vault Protocol**: Advanced borrowing system with high LTV ratios (up to 95%) and low
+    liquidation penalties for capital-efficient collateralised debt positions.
+
+  - **DEX Protocol**: Decentralised exchange built on top of the Liquidity Layer with Smart
+    collateral and Smart debt features, allowing users to earn LP fees on collateral or
+    borrowed positions.
+
+  The protocol is deployed across multiple chains including Ethereum, Arbitrum, Base, and Plasma.
+fee_description: |
+  Fluid fTokens have fees internalised through the exchange price mechanism. Interest accrues to
+  the share price over time, and there are no explicit deposit or withdrawal fees.
+
+  The protocol earns revenue through interest rate spreads between lending and borrowing rates,
+  which are built into the liquidity layer's pricing mechanism.
+links:
+  homepage: https://fluid.io/
+  app: https://fluid.io/
+  twitter: https://x.com/0xfluid
+  github: https://github.com/Instadapp/fluid-contracts-public
+  documentation: https://docs.fluid.instadapp.io/
+  defillama: https://defillama.com/protocol/fluid
+  audits: https://docs.fluid.instadapp.io/security/audits
+  fees:
+  trading_strategy:
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/fluid/index.html
+example_smart_contracts:
+  - https://plasmascan.to/address/0x1DD4b13fcAE900C60a350589BE8052959D2Ed27B

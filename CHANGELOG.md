@@ -1,5 +1,6 @@
 # 0.39
 
+- Add: New protocol: [Fluid](https://fluid.io/) - DeFi liquidity layer by Instadapp with ERC-4626 compliant fToken lending vaults (2026-01-16)
 - Add: New protocol: [HypurrFi](https://www.hypurr.fi/) - lending market on HyperEVM for leveraged yield strategies (2026-01-16)
 - Add: New protocol: [Dolomite](https://tradingstrategy.ai/trading-view/vaults/protocols/dolomite) - next-generation DeFi lending and borrowing platform on Arbitrum (2026-01-16)
 - Add: New protocol: [YieldNest](https://www.yieldnest.finance) - automated liquid restaking with AI-enhanced strategy optimisation on Ethereum and BSC (2026-01-15)
