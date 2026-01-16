@@ -38,6 +38,23 @@ logger = logging.getLogger(__name__)
 #: The exchange rate we use for all unknown denomination tokens
 UNKNOWN_EXCHANGE_RATE = Decimal(0.99)
 
+#: Known error messages that indicate that share() accessor function
+#: is not accessible and contract is ERC-4626, not ERC-7540.
+#: Because all EVM clones have different behavior on execution reverted,
+#: this is a bit of a shitshow.
+KNOWN_SHARE_TOKEN_ERROR_MESSAGES = frozenset(
+    {
+        "Execution reverted",
+        "execution reverted",
+        "out of gas",
+        "Bad Request",
+        "VM execution error",
+        # HYperEVM spits out
+        # fetch_share_token(): Not sure about exception {'code': -32603, 'message': 'Failed to call: InvalidTransaction(Revert(RevertError { output: None }))', 'data': None}
+        "InvalidTransaction",
+    }
+)
+
 
 class ERC4626VaultInfo(VaultInfo):
     """Capture information about ERC- vault deployment."""
@@ -832,7 +849,7 @@ class ERC4626Vault(VaultBase):
             # ValueError: Call failed: 400 Client Error: Bad Request for url: https://lb.drpc.org/ogrpc?network=hyperliquid&dkey=AiWA4TvYpkijvapnvFlyx_WBfO5CICoR76hArr3WfgV4
             # Hyperliquid:
             #  {'code': -32603, 'message': 'Failed to call: InvalidTransaction(Revert(RevertError { output: None }))'}
-            if not (("Execution reverted" in parsed_error) or ("execution reverted" in parsed_error) or ("out of gas" in parsed_error) or ("Bad Request" in parsed_error) or ("VM execution error" in parsed_error)) or ("InvalidTransaction" in parsed_error):
+            if not any(msg in parsed_error for msg in KNOWN_SHARE_TOKEN_ERROR_MESSAGES):
                 logger.error(f"fetch_share_token(): Not sure about exception %s", e)
                 raise
 
@@ -851,6 +868,8 @@ class ERC4626Vault(VaultBase):
 
     def fetch_share_token(self) -> TokenDetails:
         # eth_defi.token.TokenDetailError: Token 0xDb7869Ffb1E46DD86746eA7403fa2Bb5Caf7FA46 missing symbol
+        share_token_address = self.fetch_share_token_address()
+        logger.info("Attempting to fetch share token details: %s for vault %s", share_token_address, self.address)
         return fetch_erc20_details(
             self.web3,
             self.fetch_share_token_address(),

@@ -18,12 +18,14 @@ from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.classification import create_vault_instance, detect_vault_features
 from eth_defi.provider.env import get_json_rpc_env, read_json_rpc_url
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.utils import setup_console_logging
 from eth_defi.vault.base import VaultSpec
 
-# Foxify LP token on Sonic
-spec = VaultSpec.parse_string("143-0x0a4AfB907672279926c73Dc1F77151931c2A55cC")
+setup_console_logging(default_log_level="INFO")
 
-# JSON_RPC_ARBITRUM, etc.
+# HyPurr something something
+spec = VaultSpec.parse_string("999-0x8001e1e7b05990d22dd8cdb9737f9fe6589827ce")
+
 json_rpc_url = read_json_rpc_url(spec.chain_id)
 web3 = create_multi_provider_web3(json_rpc_url)
 name = get_chain_name(web3.eth.chain_id)
@@ -34,13 +36,17 @@ print(f"Last block is: {web3.eth.block_number:,}")
 assert web3.eth.chain_id == spec.chain_id
 
 features = detect_vault_features(web3, spec.vault_address)
+
 vault = create_vault_instance(web3, spec.vault_address, features)
+print("Features:", [f.name for f in features])
+
+share_price = vault.fetch_share_price("latest")
 
 print("Chain name:", get_chain_name(web3.eth.chain_id))
 print("Vault address:", vault.address)
 print("Vault name:", vault.name)
 print("Vault denominator:", vault.denomination_token)
 print("Vault share token:", vault.share_token)
+print("Share price:", share_price)
 print("TVL:", vault.fetch_nav())
-print("Features:", [f.name for f in features])
 print("-" * 80)

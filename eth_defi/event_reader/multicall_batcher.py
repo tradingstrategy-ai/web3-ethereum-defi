@@ -754,7 +754,7 @@ class EncodedCall:
         web3: Web3,
         block_identifier: BlockIdentifier,
         from_=ZERO_ADDRESS_STR,
-        gas=99_000_000,
+        gas=15_000_000,
         ignore_error=False,
     ) -> "EncodedCallResult":
         """Perform RPC call and return the result as an :py:class:`EncodedCallResult`.
@@ -762,6 +762,11 @@ class EncodedCall:
         - Performs an RPC call and returns a wrapped result in an :py:class:`EncodedCallResult`.
 
         See :py:meth:`call` for info.
+
+        :param gas_limit:
+            eth_call RPC gas limit.
+
+            Set to 15M by default, assume to be safe on every chain.
         """
 
         try:

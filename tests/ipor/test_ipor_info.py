@@ -19,6 +19,8 @@ from eth_defi.vault.base import VaultSpec
 
 JSON_RPC_BASE = os.environ.get("JSON_RPC_BASE")
 
+CI = os.environ.get("CI") == "true"
+
 pytestmark = pytest.mark.skipif(JSON_RPC_BASE is None, reason="JSON_RPC_BASE needed to run these tests")
 
 
@@ -54,6 +56,7 @@ def test_ipor_fee(
 # 500 Server Error: Internal Server Error for url:
 # dRPC being flaky
 @flaky.flaky
+@pytest.mark.skipif(CI, reason="Anvil crap on Github")
 def test_ipor_identify(
     web3: Web3,
     vault: IPORVault,
