@@ -115,6 +115,7 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Brink": None,
     "Accountable": VaultTechnicalRisk.severe,
     "YieldNest": None,
+    "Dolomite": None,
 }
 
 #: Particular vaults that are broken, misleading or otherwise problematic.

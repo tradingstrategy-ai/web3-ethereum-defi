@@ -1,0 +1,41 @@
+name: Dolomite
+slug: dolomite
+short_description: |
+  Next-generation DeFi lending and borrowing platform supporting over 1,000 unique assets.
+long_description: |
+  Dolomite is a next-generation DeFi lending and borrowing platform built on Arbitrum
+  that supports over 1,000 unique assets with capital-efficient money markets. The protocol
+  allows users to lend, borrow, trade, margin, and hedge various crypto assets with greater
+  capital efficiency and broader asset support than traditional protocols.
+
+  Dolomite ERC-4626 vaults wrap user margin positions into standard ERC-4626 tokenised
+  vault shares, enabling seamless integration with other DeFi protocols. These vaults
+  support features like collateralisation for borrowing and integration with external
+  yield-bearing assets.
+
+  Key features:
+
+  - Yield accrues from lending in Dolomite money markets
+  - No explicit deposit/withdrawal fees at the vault level
+  - Fees are internalised through interest rate spreads
+  - Instant deposits and withdrawals (subject to market liquidity)
+  - Chainlink Automation secures price updates for vault assets
+  - Support for over 1,000 unique assets
+fee_description: |
+  Dolomite has no explicit deposit/withdrawal fees at the vault level. Fees are internalised
+  through interest rate spreads between borrowers and lenders. The protocol earns from
+  the difference between borrowing and lending rates.
+links:
+  homepage: https://dolomite.io/
+  app: https://app.dolomite.io/
+  twitter: https://twitter.com/dolomite_io
+  github: https://github.com/dolomite-exchange/dolomite-margin
+  documentation: https://docs.dolomite.io/
+  defillama: https://defillama.com/protocol/dolomite
+  audits: https://docs.dolomite.io/introduction/security-and-audits
+  fees:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/dolomite
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/dolomite/index.html
+example_smart_contracts:
+  - https://arbiscan.io/address/0x444868b6e8079ac2c55eea115250f92c2b2c4d14
+  - https://arbiscan.io/address/0xf2d2d55daf93b0660297eaa10969ebe90ead5ce8

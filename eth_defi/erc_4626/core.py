@@ -451,6 +451,12 @@ class ERC4626Feature(enum.Enum):
     #: https://www.yieldnest.finance
     yieldnest_like = "yieldnest_like"
 
+    #: Dolomite
+    #:
+    #: Next-generation DeFi lending and borrowing platform on Arbitrum.
+    #: https://dolomite.io/
+    dolomite_like = "dolomite_like"
+
 
 def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     """Deduct vault protocol name based on Vault smart contract features.
@@ -646,6 +652,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.yieldnest_like in features:
         return "YieldNest"
+
+    elif ERC4626Feature.dolomite_like in features:
+        return "Dolomite"
 
     # No idea
     if ERC4626Feature.erc_7540_like in features:

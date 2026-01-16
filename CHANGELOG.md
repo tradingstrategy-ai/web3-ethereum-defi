@@ -1,5 +1,6 @@
 # 0.39
 
+- Add: New protocol: [Dolomite](https://tradingstrategy.ai/trading-view/vaults/protocols/dolomite) - next-generation DeFi lending and borrowing platform on Arbitrum (2026-01-16)
 - Add: New protocol: [YieldNest](https://www.yieldnest.finance) - automated liquid restaking with AI-enhanced strategy optimisation on Ethereum and BSC (2026-01-15)
 - Add: `get_safe_cached_latest_block_number()` function to work around broken JSON-RPC providers with time-based caching (2026-01-13)
 - Optimisation: Chain-based filtering for `create_probe_calls()` - skips protocol-specific probes on chains where protocols aren't deployed, reducing unnecessary RPC calls (2026-01-13)

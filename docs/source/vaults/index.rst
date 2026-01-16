@@ -42,6 +42,7 @@ Supported protocols
    curvance/index
    d2_finance/index
    deltr/index
+   dolomite/index
    ethena/index
    euler/index
    eth_strategy/index
