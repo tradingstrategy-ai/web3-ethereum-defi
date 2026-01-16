@@ -318,6 +318,7 @@ def test_swap_through_module_succeed(
 # Anvil crappiness
 # ERROR tests/safe-integration/test_guard_safe_e2e.py::test_swap_through_module_revert - AssertionError: Could not read block number from Anvil after the launch with command 'anvil': at http://localhost:21938, stdout is 0 bytes, stderr is 205 bytes
 @flaky.flaky
+@pytest.mark.skipif(CI, reason="Too flaky on CI")
 def test_swap_through_module_revert(
     web3: Web3,
     safe: Safe,
@@ -361,6 +362,7 @@ def test_swap_through_module_revert(
 # Flaky because of Anvil
 # ERROR tests/safe-integration/test_guard_safe_e2e.py::test_swap_through_module_unauthorised - ValueError: RPC smoke test failed for ***: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
 @flaky.flaky
+@pytest.mark.skipif(CI, reason="Too flaky on CI")
 def test_swap_through_module_unauthorised(
     web3: Web3,
     safe: Safe,

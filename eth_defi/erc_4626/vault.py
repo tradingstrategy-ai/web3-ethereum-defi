@@ -38,8 +38,10 @@ logger = logging.getLogger(__name__)
 #: The exchange rate we use for all unknown denomination tokens
 UNKNOWN_EXCHANGE_RATE = Decimal(0.99)
 
-#: Known error messages that indicate a broken ERC-4626 contract
-#: when trying to fetch share token information
+#: Known error messages that indicate that share() accessor function
+#: is not accessible and contract is ERC-4626, not ERC-7540.
+#: Because all EVM clones have different behavior on execution reverted,
+#: this is a bit of a shitshow.
 KNOWN_SHARE_TOKEN_ERROR_MESSAGES = frozenset(
     {
         "Execution reverted",
@@ -47,6 +49,8 @@ KNOWN_SHARE_TOKEN_ERROR_MESSAGES = frozenset(
         "out of gas",
         "Bad Request",
         "VM execution error",
+        # HYperEVM spits out
+        # fetch_share_token(): Not sure about exception {'code': -32603, 'message': 'Failed to call: InvalidTransaction(Revert(RevertError { output: None }))', 'data': None}
         "InvalidTransaction",
     }
 )
