@@ -1502,6 +1502,11 @@ def create_vault_instance(
 
         return FluidVault(web3, spec, token_cache=token_cache, features=features)
 
+    elif ERC4626Feature.usdx_money_like in features:
+        from eth_defi.erc_4626.vault_protocol.usdx_money.vault import USDXMoneyVault
+
+        return USDXMoneyVault(web3, spec, token_cache=token_cache, features=features)
+
     else:
         # Generic ERC-4626 without fee data
         from eth_defi.erc_4626.vault import ERC4626Vault
@@ -1621,6 +1626,9 @@ HARDCODED_PROTOCOLS = {
     # Dolomite - dUSDC vault on Arbitrum
     # https://arbiscan.io/address/0x444868b6e8079ac2c55eea115250f92c2b2c4d14
     "0x444868b6e8079ac2c55eea115250f92c2b2c4d14": {ERC4626Feature.dolomite_like},
+    # USDX Money - sUSDX vault (same address across multiple chains: Ethereum, BSC, Arbitrum, Base)
+    # https://bscscan.com/address/0x7788a3538c5fc7f9c7c8a74eac4c898fc8d87d92
+    "0x7788a3538c5fc7f9c7c8a74eac4c898fc8d87d92": {ERC4626Feature.usdx_money_like},
 }
 
 for a in HARDCODED_PROTOCOLS.keys():

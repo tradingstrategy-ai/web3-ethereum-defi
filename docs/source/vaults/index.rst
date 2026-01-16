@@ -79,6 +79,7 @@ Supported protocols
    upshift/index
    usdai/index
    usdd/index
+   usdx_money/index
    yearn/index
    yieldfi/index
    yieldnest/index
