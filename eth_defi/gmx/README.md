@@ -22,6 +22,26 @@ For a complete trading bot example with Freqtrade, see the [gmx-ccxt-freqtrade t
 - **Freqtrade integration** - Monkeypatch for strategy backtesting and live trading
 - **Arbitrum network** - Supports Arbitrum One (mainnet) and Arbitrum Sepolia (testnet)
 
+## Live trading now available
+
+Live trading is fully supported with FreqTrade strategies on GMX. See the **[Live Trading Guide](LIVE_TRADING.md)** for:
+
+- Pre-flight checklist and wallet setup
+- Production strategy configurations (IchiV2_LS_Live, ADXMomentum, Simple)
+- Step-by-step commands to go live
+- Monitoring and risk management
+- Emergency procedures
+
+**Quick start:**
+
+```bash
+# 1. Dry-run validation (24h recommended)
+./freqtrade-gmx trade --config configs/your_config.json --strategy YourStrategy --dry-run
+
+# 2. Go live (after validation)
+./freqtrade-gmx trade --config configs/your_config.json --strategy YourStrategy
+```
+
 ## Quick start
 
 ### Installation
