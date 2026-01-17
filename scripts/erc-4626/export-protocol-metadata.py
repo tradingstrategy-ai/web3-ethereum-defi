@@ -28,8 +28,7 @@ from tabulate import tabulate
 from tqdm_loggable.auto import tqdm
 
 from eth_defi.utils import setup_console_logging
-from eth_defi.vault.protocol_metadata import (
-    METADATA_DIR, get_available_logos, process_and_upload_protocol_metadata)
+from eth_defi.vault.protocol_metadata import METADATA_DIR, get_available_logos, process_and_upload_protocol_metadata
 
 logger = logging.getLogger(__name__)
 

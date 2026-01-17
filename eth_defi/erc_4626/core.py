@@ -446,6 +446,29 @@ class ERC4626Feature(enum.Enum):
     #: https://www.accountable.capital/
     accountable_like = "accountable_like"
 
+    #: YieldNest
+    #:
+    #: https://www.yieldnest.finance
+    yieldnest_like = "yieldnest_like"
+
+    #: Dolomite
+    #:
+    #: Next-generation DeFi lending and borrowing platform on Arbitrum.
+    #: https://dolomite.io/
+    dolomite_like = "dolomite_like"
+
+    #: HypurrFi
+    #:
+    #: Lending market on HyperEVM (Hyperliquid) for leveraged yield strategies.
+    #: https://www.hypurr.fi/
+    hypurrfi_like = "hypurrfi_like"
+
+    #: USDX Money
+    #:
+    #: Synthetic USD stablecoin protocol with sUSDX staking vault.
+    #: https://usdx.money/
+    usdx_money_like = "usdx_money_like"
+
 
 def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     """Deduct vault protocol name based on Vault smart contract features.
@@ -638,6 +661,18 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.accountable_like in features:
         return "Accountable"
+
+    elif ERC4626Feature.yieldnest_like in features:
+        return "YieldNest"
+
+    elif ERC4626Feature.dolomite_like in features:
+        return "Dolomite"
+
+    elif ERC4626Feature.hypurrfi_like in features:
+        return "HypurrFi"
+
+    elif ERC4626Feature.usdx_money_like in features:
+        return "USDX Money"
 
     # No idea
     if ERC4626Feature.erc_7540_like in features:

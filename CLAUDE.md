@@ -158,3 +158,4 @@ Don't format code for now.
 - Prefer a blockchain explorer like Etherscan over Python and Curl when trying to read proxy contract address
 - Prefer Python snippets instead of `curl` when trying to read data directly from a blockchain explorer
 - To get the latest block number, use given JSON-RPC URL and Python's Web3.py `web3.eth.block_number` call
+- Never try to figure out RPC URL yourself - always use environment variables from the local environment given by the user. See `eth_defi.chain.CHAIN_NAMES` for aliases like chain id 999 -> JSON_RPC_HYPERLIQUD. Stop and ask user if you cannot figure out.

@@ -968,8 +968,36 @@ def identify_vault_features(
             features.add(ERC4626Feature.peapods_like)
         elif "Savings GYD" in name:
             features.add(ERC4626Feature.gyroscope)
+        elif "YieldNest" in name:
+            features.add(ERC4626Feature.yieldnest_like)
+        elif _is_hypurrfi_name(name):
+            features.add(ERC4626Feature.hypurrfi_like)
 
     return features
+
+
+def _is_hypurrfi_name(name: str) -> bool:
+    """Check if name matches HypurrFi vault naming pattern.
+
+    HypurrFi vault names start with "hy" and end with a hyphen followed by a digit.
+    Example: "hyUSDXL (Purr) - 2"
+
+    Note: The name parameter may contain ABI-encoding artifacts (null bytes, length prefixes)
+    so we search for the pattern within the string rather than matching from the start.
+
+    :param name:
+        The vault name to check (may contain ABI-encoding artifacts)
+
+    :return:
+        True if the name matches HypurrFi pattern
+    """
+    import re
+
+    if not name:
+        return False
+    # Search for pattern anywhere in the string to handle ABI-encoded data with null bytes
+    # Pattern: starts with "hy", contains "-", ends with digit(s) before null bytes
+    return bool(re.search(r"hy[^-]+-\s*\d+(?:\x00|$)", name, re.IGNORECASE))
 
 
 def probe_vaults(
@@ -1014,6 +1042,76 @@ def probe_vaults(
             address=address,
             features=features,
         )
+
+
+# def detect_vault_features(
+#     web3: Web3,
+#     address: HexAddress | str,
+#     verbose=True,
+# ) -> set[ERC4626Feature]:
+#     """Detect the ERC-4626 features of a vault smart contract.
+
+#     - Protocols: Harvest, Lagoon, etc.
+#     - Does support ERC-7540
+#     - Very slow, only use in scripts and tutorials.
+#     - Use to pass to :py:func:`create_vault_instance` to get a correct Python proxy class for the vault institated.
+#     - Uses multicall batching with threading backend for efficient RPC calls
+
+#     Example:
+
+#     .. code-block:: python
+
+#         features = detect_vault_features(web3, spec.vault_address, verbose=False)
+#         logger.info("Detected vault features: %s", features)
+
+#         vault = create_vault_instance(
+#             web3,
+#             spec.vault_address,
+#             features=features,
+#         )
+
+#     :param verbose:
+#         Disable for command line scripts
+#     """
+
+#     assert address.lower() not in BROKEN_VAULT_CONTRACTS, f"Vault {address} is known broken vault contract like, avoid"
+
+#     hardcoded_flags = HARDCODED_PROTOCOLS.get(address.lower())
+#     if hardcoded_flags:
+#         features = hardcoded_flags
+#         logger.debug("Using hardcoded vault features for %s: %s", address, features)
+#         return hardcoded_flags
+
+#     address = Web3.to_checksum_address(address)
+#     logger.info("Detecting vault features for %s", address)
+#     chain_id = web3.eth.chain_id
+#     probe_calls = list(create_probe_calls([address], chain_id=chain_id))
+#     block_number = web3.eth.block_number
+
+#     # Use multicall batching with threading backend for efficient RPC calls
+#     from eth_defi.event_reader.web3factory import SimpleWeb3Factory
+
+#     web3factory = SimpleWeb3Factory(web3)
+
+#     # TODO: the log output is super noisy here because of Anvil crappiness and warnings
+#     results = {}
+#     for call_result in read_multicall_chunked(
+#         chain_id=chain_id,
+#         web3factory=web3factory,
+#         calls=probe_calls,
+#         block_identifier=block_number,
+#         max_workers=1,
+#         backend="threading",
+#         timestamped_results=False,
+#     ):
+#         if verbose:
+#             logger.info("Result for %s: %s", call_result.call.func_name, call_result.success)
+#         results[call_result.call.func_name] = call_result
+
+#     # Wrap with _ProbeResultsDict to handle missing probes from chain filtering
+#     wrapped_results = _ProbeResultsDict(results)
+#     features = identify_vault_features(address, wrapped_results, debug_text=f"vault: {address}")
+#     return features
 
 
 def detect_vault_features(
@@ -1384,6 +1482,31 @@ def create_vault_instance(
 
         return AccountableVault(web3, spec, token_cache=token_cache, features=features)
 
+    elif ERC4626Feature.yieldnest_like in features:
+        from eth_defi.erc_4626.vault_protocol.yieldnest.vault import YieldNestVault
+
+        return YieldNestVault(web3, spec, token_cache=token_cache, features=features)
+
+    elif ERC4626Feature.dolomite_like in features:
+        from eth_defi.erc_4626.vault_protocol.dolomite.vault import DolomiteVault
+
+        return DolomiteVault(web3, spec, token_cache=token_cache, features=features)
+
+    elif ERC4626Feature.hypurrfi_like in features:
+        from eth_defi.erc_4626.vault_protocol.hypurrfi.vault import HypurrFiVault
+
+        return HypurrFiVault(web3, spec, token_cache=token_cache, features=features)
+
+    elif ERC4626Feature.fluid_like in features:
+        from eth_defi.erc_4626.vault_protocol.fluid.vault import FluidVault
+
+        return FluidVault(web3, spec, token_cache=token_cache, features=features)
+
+    elif ERC4626Feature.usdx_money_like in features:
+        from eth_defi.erc_4626.vault_protocol.usdx_money.vault import USDXMoneyVault
+
+        return USDXMoneyVault(web3, spec, token_cache=token_cache, features=features)
+
     else:
         # Generic ERC-4626 without fee data
         from eth_defi.erc_4626.vault import ERC4626Vault
@@ -1433,6 +1556,9 @@ HARDCODED_PROTOCOLS = {
     # Spark - sUSDC vault on Ethereum
     # https://etherscan.io/address/0xbc65ad17c5c0a2a4d159fa5a503f4992c7b545fe
     "0xbc65ad17c5c0a2a4d159fa5a503f4992c7b545fe": {ERC4626Feature.spark_like},
+    # Spark - vault on Ethereum
+    # https://etherscan.io/address/0x28b3a8fb53b741a8fd78c0fb9a6b2393d896a43d
+    "0x28b3a8fb53b741a8fd78c0fb9a6b2393d896a43d": {ERC4626Feature.spark_like},
     # Deltr - StakeddUSD vault on Ethereum
     # https://etherscan.io/address/0xa7a31e6a81300120b7c4488ec3126bc1ad11f320
     "0xa7a31e6a81300120b7c4488ec3126bc1ad11f320": {ERC4626Feature.deltr_like},
@@ -1497,6 +1623,15 @@ HARDCODED_PROTOCOLS = {
     # ERC-4626 wrapper around rebasing staked USR token
     # https://etherscan.io/address/0x1202f5c7b4b9e47a1a484e8b270be34dbbc75055
     "0x1202f5c7b4b9e47a1a484e8b270be34dbbc75055": {ERC4626Feature.resolv_like},
+    # Dolomite - dUSDT vault on Arbitrum
+    # https://arbiscan.io/address/0xf2d2d55daf93b0660297eaa10969ebe90ead5ce8
+    "0xf2d2d55daf93b0660297eaa10969ebe90ead5ce8": {ERC4626Feature.dolomite_like},
+    # Dolomite - dUSDC vault on Arbitrum
+    # https://arbiscan.io/address/0x444868b6e8079ac2c55eea115250f92c2b2c4d14
+    "0x444868b6e8079ac2c55eea115250f92c2b2c4d14": {ERC4626Feature.dolomite_like},
+    # USDX Money - sUSDX vault (same address across multiple chains: Ethereum, BSC, Arbitrum, Base)
+    # https://bscscan.com/address/0x7788a3538c5fc7f9c7c8a74eac4c898fc8d87d92
+    "0x7788a3538c5fc7f9c7c8a74eac4c898fc8d87d92": {ERC4626Feature.usdx_money_like},
 }
 
 for a in HARDCODED_PROTOCOLS.keys():

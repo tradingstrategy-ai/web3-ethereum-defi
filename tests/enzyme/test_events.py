@@ -28,6 +28,8 @@ from eth_defi.uniswap_v2.deployment import UniswapV2Deployment
 
 CI = os.environ.get("CI") == "true"
 
+pytestmark = pytest.mark.skip(reason="Enzyme support no longer maintained")
+
 
 @pytest.fixture
 def deployment(

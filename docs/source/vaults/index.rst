@@ -42,14 +42,17 @@ Supported protocols
    curvance/index
    d2_finance/index
    deltr/index
+   dolomite/index
    ethena/index
    euler/index
    eth_strategy/index
+   fluid/index
    foxify/index
    gains/index
    gearbox/index
    goat/index
    harvest/index
+   hypurrfi/index
    ipor/index
    lagoon/index
    liquidity_royalty/index
@@ -76,7 +79,9 @@ Supported protocols
    upshift/index
    usdai/index
    usdd/index
+   usdx_money/index
    yearn/index
    yieldfi/index
+   yieldnest/index
    yuzu_money/index
    zerolend/index
