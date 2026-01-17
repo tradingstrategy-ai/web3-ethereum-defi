@@ -241,10 +241,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0x942bed98560e9b2aa0d4ec76bbda7a7e55f6b2d6": (None, ZEROLEND_SUPERFORM_WITHDRAW_ONLY),
     # Euler MEV Capital USDC
     "0xa446938b0204aa4055cdfed68ddf0e0d1bab3e9e": (VaultFlag.unofficial, MISSING_IN_PROTOCOL_FRONTEND),
-    # LTether USDT
-    "0x4c8e1656e042a206eef7e8fcff99bac667e4623e": (VaultFlag.broken, BROKEN_VAULT),
-    # LUSD
-    "0x0ddb1ea478f8ef0e22c7706d2903a41e94b1299b": (VaultFlag.broken, BROKEN_VAULT),
+    # Rezerve USDC
+    "0xc42d337861878baa4dc820d9e6b6c667c2b57e8a": (VaultFlag.unofficial, MISSING_IN_PROTOCOL_FRONTEND),
 }
 
 for addr in VAULT_FLAGS_AND_NOTES.keys():
