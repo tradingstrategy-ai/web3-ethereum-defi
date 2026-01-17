@@ -95,6 +95,16 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "Brink": None,
     # Accountable fees are internalised in the share price
     "Accountable": VaultFeeMode.internalised_skimming,
+    "YieldNest": None,
+    # Dolomite fees are internalised through interest rate spreads
+    "Dolomite": VaultFeeMode.internalised_skimming,
+    # HypurrFi fees are internalised in the share price
+    "HypurrFi": VaultFeeMode.internalised_skimming,
+    # Fluid fToken fees are internalised through the exchange price mechanism (interest accrual)
+    "Fluid": VaultFeeMode.internalised_skimming,
+    # USDX Money sUSDX - yield is distributed through value appreciation (internalised)
+    # Management and performance fees are both 0%
+    "USDX Money": VaultFeeMode.internalised_skimming,
 }
 
 

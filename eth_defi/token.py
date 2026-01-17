@@ -199,6 +199,7 @@ STABLECOIN_LIKE = set(
         "FDUSD",
         "FEI",
         "FLEXUSD",
+        "feUSD",
         "FUSD",
         "FXD",
         "FXUSD",
@@ -254,7 +255,7 @@ STABLECOIN_LIKE = set(
         "USDe",  # Mantle
         "USDF",
         "USDH",
-        "USDHL",
+        "USDHLUSDG",
         "USDM",
         "USDN",
         "USDO",

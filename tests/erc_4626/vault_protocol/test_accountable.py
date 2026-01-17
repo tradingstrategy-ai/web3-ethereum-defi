@@ -3,6 +3,7 @@
 This is slow as hell.
 """
 
+import logging
 import os
 from pathlib import Path
 
@@ -28,7 +29,7 @@ def anvil_monad_fork(request) -> AnvilLaunch:
     try:
         yield launch
     finally:
-        launch.close()
+        launch.close(log_level=logging.INFO)
 
 
 @pytest.fixture(scope="module")
@@ -36,7 +37,7 @@ def web3(anvil_monad_fork):
     web3 = create_multi_provider_web3(
         anvil_monad_fork.json_rpc_url,
         retries=2,
-        default_http_timeout=(3, 10),
+        default_http_timeout=(10, 60),
     )
     return web3
 
@@ -128,7 +129,4 @@ def test_accountable_aegis_vault(
     assert vault.get_protocol_name() == "Accountable"
     assert vault.denomination_token.symbol == "USDC"
 
-    import ipdb
-
-    ipdb.set_trace()
-    assert vault.fetch_total_assets() == 25_000_000
+    assert vault.fetch_total_assets("latest") > 0

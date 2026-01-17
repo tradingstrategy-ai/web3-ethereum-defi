@@ -22,19 +22,73 @@ import logging
 import os
 from pathlib import Path
 
+import boto3
 from joblib import Parallel, delayed
 from tabulate import tabulate
 from tqdm_loggable.auto import tqdm
 
 from eth_defi.utils import setup_console_logging
-from eth_defi.vault.protocol_metadata import (
-    METADATA_DIR,
-    get_available_logos,
-    process_and_upload_protocol_metadata,
-)
-
+from eth_defi.vault.protocol_metadata import METADATA_DIR, get_available_logos, process_and_upload_protocol_metadata
 
 logger = logging.getLogger(__name__)
+
+
+def upload_files_to_r2(
+    file_paths: list[Path],
+    bucket_name: str,
+    endpoint_url: str,
+    access_key_id: str,
+    secret_access_key: str,
+    folder="vault-protocol-metadata",
+) -> int:
+    """Upload a list of files to R2 bucket, excluding tmp* files.
+
+    :param file_paths: List of file paths to upload
+    :param bucket_name: R2 bucket name
+    :param endpoint_url: R2 API endpoint URL
+    :param access_key_id: R2 access key ID
+    :param secret_access_key: R2 secret access key
+    :param folder: Folder name in R2 bucket to upload files to
+    :return: Number of files uploaded
+    """
+    # Filter out tmp* files
+    files_to_upload = [f for f in file_paths if not f.name.startswith("tmp")]
+
+    if not files_to_upload:
+        logger.info("No files to upload after filtering")
+        return 0
+
+    logger.info("Uploading %d files to R2 bucket %s (excluded %d tmp* files)",
+                len(files_to_upload), bucket_name, len(file_paths) - len(files_to_upload))
+
+    s3_client = boto3.client(
+        "s3",
+        endpoint_url=endpoint_url,
+        aws_access_key_id=access_key_id,
+        aws_secret_access_key=secret_access_key,
+    )
+
+    for file_path in files_to_upload:
+        # Determine S3 key based on base_path
+        s3_key = file_path.name
+        file_size = file_path.stat().st_size
+
+        logger.info("Uploading %s to s3://%s/%s", file_path, bucket_name, s3_key)
+
+        # Upload with progress bar for each file
+        with open(file_path, "rb") as f:
+            with tqdm(total=file_size, unit='B', unit_scale=True, desc=f"Uploading {file_path.name}") as pbar:
+                def upload_callback(bytes_amount):
+                    pbar.update(bytes_amount)
+
+                s3_client.upload_fileobj(
+                    f,
+                    bucket_name,
+                    s3_key,
+                    Callback=upload_callback,
+                )
+
+    return len(files_to_upload)
 
 
 def main():
@@ -90,6 +144,24 @@ def main():
             headers=["Protocol", "Light logo", "Dark logo"],
             tablefmt="simple",
         )
+    )
+
+    # Put database files on R2 as well.
+    # These can be read by the backtester.
+    base_path = Path("~/.tradingstrategy/vaults/").expanduser()
+    paths = [
+        base_path / "vault-prices-1h.parquet",
+        base_path / "cleaned-vault-prices-1h.parquet",
+        base_path / "vault-metadata-db.pickle",        
+        base_path / "vault-reader-state-1h.pickle",
+    ]
+    print("Exporting data files to R2")
+    upload_files_to_r2(
+        file_paths=paths,
+        bucket_name=bucket_name,
+        endpoint_url=endpoint_url,
+        access_key_id=access_key_id,
+        secret_access_key=secret_access_key,
     )
 
 

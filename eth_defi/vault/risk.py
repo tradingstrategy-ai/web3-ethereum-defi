@@ -114,6 +114,12 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Singularity Finance": None,
     "Brink": None,
     "Accountable": VaultTechnicalRisk.severe,
+    "YieldNest": None,
+    "Dolomite": None,
+    "HypurrFi": None,
+    "Fluid": VaultTechnicalRisk.low,
+    "ZeroLend": VaultTechnicalRisk.dangerous,
+    "USDX Money": None,
 }
 
 #: Particular vaults that are broken, misleading or otherwise problematic.

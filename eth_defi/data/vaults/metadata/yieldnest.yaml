@@ -1,0 +1,22 @@
+name: YieldNest
+slug: yieldnest
+short_description: |
+  Automated liquid restaking with AI-enhanced strategy optimisation
+long_description: |
+  YieldNest is a decentralised finance platform designed to simplify complex DeFi strategies. The protocol offers simple, high-yielding, risk-adjusted restaking and DeFi strategies, consolidating multiple protocol exposures into unified assets with Layer 1 settlement guarantees.
+
+  The platform's core mission centres on democratising DeFi access through secure, innovative products. YieldNest enables users to gain diversified exposure across multiple protocols and chains simultaneously through non-custodial solutions with robust security measures.
+fee_description: |
+  YieldNest implements dynamic withdrawal fees that vary based on buffer availability. The baseWithdrawalFee() function returns the current fee in basis points. Management and performance fees are not explicitly documented in the smart contracts.
+links:
+  homepage: https://www.yieldnest.finance
+  twitter: https://twitter.com/YieldNestFi
+  github: https://github.com/yieldnest
+  documentation: https://docs.yieldnest.finance
+  defillama: https://defillama.com/protocol/yieldnest
+  audits: https://www.chainsecurity.com/security-audit/yieldnest-protocol
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/yieldnest
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/yieldnest/index.html
+example_smart_contracts:
+  - https://etherscan.io/address/0x01ba69727e2860b37bc1a2bd56999c1afb4c15d8
+  - https://bscscan.com/address/0x32C830f5c34122C6afB8aE87ABA541B7900a2C5F

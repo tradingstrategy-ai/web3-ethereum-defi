@@ -51,13 +51,12 @@ from eth_defi.gmx.contracts import get_contract_addresses, get_token_address_nor
 from eth_defi.gmx.core.markets import Markets
 from eth_defi.gmx.core.open_positions import GetOpenPositions
 from eth_defi.gmx.core.oracle import OraclePrices
-from eth_defi.gmx.events import decode_gmx_event, extract_order_key_from_receipt
+from eth_defi.gmx.events import decode_gmx_event, extract_order_execution_result, extract_order_key_from_receipt
 from eth_defi.gmx.graphql.client import GMXSubsquidClient
 from eth_defi.gmx.order import SLTPEntry, SLTPOrder, SLTPParams
 from eth_defi.gmx.order_tracking import check_order_status
 from eth_defi.gmx.trading import GMXTrading
 from eth_defi.gmx.utils import calculate_estimated_liquidation_price, convert_raw_price_to_usd
-from eth_defi.gmx.verification import verify_gmx_order_execution
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import fetch_erc20_details
@@ -3557,7 +3556,9 @@ class GMX(ExchangeCompatible):
         # Get wallet address
         wallet = params.get("wallet_address", self.wallet_address)
         if not wallet:
-            raise ValueError("wallet_address must be provided in GMXConfig or params")
+            raise ValueError(
+                "wallet_address must be provided in GMXConfig or params",
+            )
 
         # Fetch open positions
         positions_manager = GetOpenPositions(self.config)
@@ -4046,18 +4047,18 @@ class GMX(ExchangeCompatible):
                 raise InvalidOrder(f"Cannot use both 'size_usd' ({params['size_usd']}) and non-zero 'amount' ({amount}) together. Use either: (1) 'size_usd' in params for direct USD sizing (recommended), or (2) 'amount' for base currency sizing (will be multiplied by price). Recommendation: Use 'size_usd' with amount=0 for precise USD-denominated positions.")
             # Direct USD amount (GMX-native approach)
             size_delta_usd = params["size_usd"]
-            logger.info("ORDER_TRACE: Using size_usd=%.2f (direct USD sizing)", size_delta_usd)
+            logger.debug("ORDER_TRACE: Using size_usd=%.2f (direct USD sizing)", size_delta_usd)
         else:
             # Standard CCXT: amount is in base currency, convert to USD
             if price:
                 size_delta_usd = amount * price
-                logger.info("ORDER_TRACE: Using amount=%.8f * price=%.2f = size_delta_usd=%.2f", amount, price, size_delta_usd)
+                logger.debug("ORDER_TRACE: Using amount=%.8f * price=%.2f = size_delta_usd=%.2f", amount, price, size_delta_usd)
             else:
                 # For market orders, fetch current price
                 ticker = self.fetch_ticker(symbol)
                 current_price = ticker["last"]
                 size_delta_usd = amount * current_price
-                logger.info("ORDER_TRACE: Using amount=%.8f * current_price=%.2f = size_delta_usd=%.2f", amount, current_price, size_delta_usd)
+                logger.debug("ORDER_TRACE: Using amount=%.8f * current_price=%.2f = size_delta_usd=%.2f", amount, current_price, size_delta_usd)
 
         gmx_params = {
             "market_symbol": base_currency,
@@ -4732,7 +4733,7 @@ class GMX(ExchangeCompatible):
         # Store order for fetch_order() to retrieve
         self._orders[tx_hash] = order
 
-        logger.info(
+        logger.debug(
             "ORDER_TRACE: Created order id=%s with status='open' (pending keeper execution), order_key=%s",
             tx_hash,
             order_key.hex()[:16] if order_key else "unknown",
@@ -4834,20 +4835,20 @@ class GMX(ExchangeCompatible):
         # Sync wallet nonce before creating/closing order (required for Freqtrade)
         self.wallet.sync_nonce(self.web3)
 
-        logger.info("=" * 80)
-        logger.info(
-            "ORDER_TRACE: create_order() CALLED symbol=%s, type=%s, side=%s, amount=%.8f",
-            symbol,
-            type,
-            side,
-            amount,
-        )
-        logger.info(
-            "ORDER_TRACE: params: reduceOnly=%s, leverage=%s, collateral_symbol=%s",
-            params.get("reduceOnly", False),
-            params.get("leverage"),
-            params.get("collateral_symbol"),
-        )
+        # logger.info("=" * 80)
+        # logger.info(
+        #     "ORDER_TRACE: create_order() CALLED symbol=%s, type=%s, side=%s, amount=%.8f",
+        #     symbol,
+        #     type,
+        #     side,
+        #     amount,
+        # )
+        # logger.info(
+        #     "ORDER_TRACE: params: reduceOnly=%s, leverage=%s, collateral_symbol=%s",
+        #     params.get("reduceOnly", False),
+        #     params.get("leverage"),
+        #     params.get("collateral_symbol"),
+        # )
 
         # Ensure markets are loaded and populated
         if not self.markets_loaded or not self.markets:
@@ -4936,17 +4937,17 @@ class GMX(ExchangeCompatible):
                 existing_positions = positions_manager.get_data(self.wallet.address)
 
                 # Log existing positions for debugging
-                logger.info("ORDER_TRACE: Fetched %d existing positions for close operation", len(existing_positions))
-                for key, pos in existing_positions.items():
-                    logger.info(
-                        "ORDER_TRACE: Position %s - market=%s, is_long=%s, size_usd=%.2f, collateral_usd=%.2f, percent_profit=%.4f%%",
-                        key,
-                        pos.get("market_symbol"),
-                        pos.get("is_long"),
-                        pos.get("position_size", 0),
-                        pos.get("initial_collateral_amount_usd", 0),
-                        pos.get("percent_profit", 0),
-                    )
+                # logger.info("ORDER_TRACE: Fetched %d existing positions for close operation", len(existing_positions))
+                # for key, pos in existing_positions.items():
+                #     logger.info(
+                #         "ORDER_TRACE: Position %s - market=%s, is_long=%s, size_usd=%.2f, collateral_usd=%.2f, percent_profit=%.4f%%",
+                #         key,
+                #         pos.get("market_symbol"),
+                #         pos.get("is_long"),
+                #         pos.get("position_size", 0),
+                #         pos.get("initial_collateral_amount_usd", 0),
+                #         pos.get("percent_profit", 0),
+                #     )
 
                 # Find the matching position for this market + collateral + direction
                 position_to_close = None
@@ -5145,22 +5146,55 @@ class GMX(ExchangeCompatible):
         # Wait for confirmation
         receipt = self.web3.eth.wait_for_transaction_receipt(tx_hash_bytes)
 
-        logger.info(
-            "ORDER_TRACE: Transaction submitted tx_hash=%s, status=%s",
-            tx_hash,
-            receipt.get("status"),
-        )
+        # logger.info(
+        #     "ORDER_TRACE: Transaction submitted tx_hash=%s, status=%s",
+        #     tx_hash,
+        #     receipt.get("status"),
+        # )
 
-        # Extract order_key from OrderCreated event for tracking
+        # Extract order_key from OrderCreated or OrderExecuted event for tracking
         try:
             order_key = extract_order_key_from_receipt(self.web3, receipt)
-            logger.info(
-                "ORDER_TRACE: Extracted order_key=%s from OrderCreated event",
-                order_key.hex()[:16] if order_key else "none",
-            )
+            # logger.info(
+            #     "ORDER_TRACE: Extracted order_key=%s from receipt",
+            #     order_key.hex()[:16] if order_key else "none",
+            # )
         except ValueError as e:
             logger.warning("Could not extract order_key from receipt: %s", e)
             order_key = None
+
+        # Check if order was immediately executed (single-phase market order)
+        # GMX market orders execute atomically - OrderExecuted is in same receipt
+        immediate_execution = extract_order_execution_result(self.web3, receipt, order_key)
+        if immediate_execution and immediate_execution.status == "executed":
+            # logger.info(
+            #     "ORDER_TRACE: Order was immediately executed in same tx (single-phase), execution_price=%s, size_delta_usd=%s",
+            #     immediate_execution.execution_price,
+            #     immediate_execution.size_delta_usd,
+            # )
+            # Order is already executed - return with status="closed"
+            order = self._format_order(
+                symbol=symbol,
+                order_type=order_type,
+                side=side,
+                amount=amount,
+                price=price,
+                tx_hash=tx_hash,
+                receipt=receipt,
+                order_key=order_key,
+            )
+            order["status"] = "closed"
+            order["filled"] = order["amount"]
+            order["remaining"] = 0.0
+
+            # Set execution price if available
+            # Convert using token-specific decimals (30 - token_decimals)
+            if immediate_execution.execution_price:
+                market = self.markets[symbol]
+                order["average"] = self._convert_price_to_usd(immediate_execution.execution_price, market)
+
+            self._orders[order["id"]] = order
+            return order
 
         # Check if we should wait for keeper execution
         # For fork tests, Subsquid won't have the order data, so skip waiting
@@ -5176,10 +5210,10 @@ class GMX(ExchangeCompatible):
             execution_tx_hash = None
 
             # Try Subsquid first (fast indexed query)
-            logger.info(
-                "ORDER_TRACE: Waiting for keeper execution via Subsquid (order_key=%s)...",
-                order_key_hex[:18],
-            )
+            # logger.info(
+            #     "ORDER_TRACE: Waiting for keeper execution via Subsquid (order_key=%s)...",
+            #     order_key_hex[:18],
+            # )
 
             try:
                 subsquid = GMXSubsquidClient(chain=self.config.get_chain())
@@ -5189,21 +5223,26 @@ class GMX(ExchangeCompatible):
                     poll_interval=0.5,
                 )
 
+                # Debug: Print full trade_action response
+                # import json
+                # print(f"DEBUG: trade_action response = {json.dumps(trade_action, indent=2, default=str)}")
+
                 if trade_action:
-                    logger.info(
-                        "ORDER_TRACE: Subsquid returned trade action: eventName=%s",
-                        trade_action.get("eventName"),
-                    )
+                    # logger.debug(
+                    #     "ORDER_TRACE: Subsquid returned trade action: eventName=%s",
+                    #     trade_action.get("eventName"),
+                    # )
+                    pass
 
             except Exception as e:
-                logger.warning(
+                logger.debug(
                     "ORDER_TRACE: Subsquid query failed, falling back to EventEmitter logs: %s",
                     e,
                 )
 
             # Fallback: Query EventEmitter logs directly if Subsquid failed
             if trade_action is None:
-                logger.info(
+                logger.debug(
                     "ORDER_TRACE: Falling back to EventEmitter log search...",
                 )
 
@@ -5242,7 +5281,7 @@ class GMX(ExchangeCompatible):
                                     continue
 
                                 # Found our order's execution event
-                                logger.info(
+                                logger.debug(
                                     "ORDER_TRACE: Found %s event in EventEmitter logs",
                                     event.event_name,
                                 )
@@ -5281,7 +5320,7 @@ class GMX(ExchangeCompatible):
             # Process the trade action result
             if trade_action is None:
                 # Timeout - no execution event found
-                logger.warning(
+                logger.debug(
                     "ORDER_TRACE: Keeper execution timeout, order_key=%s",
                     order_key_hex[:18],
                 )
@@ -5302,7 +5341,7 @@ class GMX(ExchangeCompatible):
             event_name = trade_action.get("eventName", "")
             if event_name in ("OrderCancelled", "OrderFrozen"):
                 error_reason = trade_action.get("reason") or f"Order {event_name.lower()}"
-                logger.error(
+                logger.debug(
                     "ORDER_TRACE: Order %s by keeper - reason=%s",
                     event_name,
                     error_reason,
@@ -5343,7 +5382,7 @@ class GMX(ExchangeCompatible):
                 # Store in cache
                 self._orders[tx_hash] = order
 
-                logger.info(
+                logger.debug(
                     "ORDER_TRACE: create_order() RETURNING cancelled order_id=%s, reason=%s",
                     tx_hash[:18],
                     error_reason,
@@ -5353,9 +5392,11 @@ class GMX(ExchangeCompatible):
 
             # Order executed successfully
             # Parse execution price from Subsquid (30 decimals) or event
+            # Convert using token-specific decimals (30 - token_decimals)
             raw_exec_price = trade_action.get("executionPrice")
             if raw_exec_price:
-                execution_price = float(raw_exec_price) / 1e30
+                market = self.markets[symbol]
+                execution_price = self._convert_price_to_usd(float(raw_exec_price), market)
             else:
                 # Use mark price as fallback
                 execution_price = order_result.mark_price
@@ -5363,7 +5404,7 @@ class GMX(ExchangeCompatible):
             execution_tx_hash = trade_action.get("transaction", {}).get("hash")
             is_long = trade_action.get("isLong")
 
-            logger.info(
+            logger.debug(
                 "ORDER_TRACE: Order EXECUTED successfully - price=%.2f",
                 execution_price or 0,
             )
@@ -5407,13 +5448,13 @@ class GMX(ExchangeCompatible):
             # Store in cache
             self._orders[tx_hash] = order
 
-            logger.info(
+            logger.debug(
                 "ORDER_TRACE: create_order() RETURNING order_id=%s, status=%s, filled=%.8f",
                 order.get("id"),
                 order.get("status"),
                 order.get("filled", 0),
             )
-            logger.info("=" * 80)
+            # logger.debug("=" * 80)
 
             return order
 
@@ -5429,14 +5470,14 @@ class GMX(ExchangeCompatible):
             order_key=order_key,
         )
 
-        logger.info(
+        logger.debug(
             "ORDER_TRACE: create_order() RETURNING order_id=%s, status=%s, filled=%.8f, order_key=%s",
             order.get("id"),
             order.get("status"),
             order.get("filled", 0),
             order.get("info", {}).get("order_key", "unknown")[:16] if order.get("info", {}).get("order_key") else "unknown",
         )
-        logger.info("=" * 80)
+        # logger.debug("=" * 80)
 
         return order
 
@@ -5614,12 +5655,8 @@ class GMX(ExchangeCompatible):
         if id in self._orders:
             order = self._orders[id].copy()
 
-            # If already closed/cancelled/failed, return cached status
-            if order.get("status") in ("closed", "cancelled", "failed"):
-                logger.debug("fetch_order(%s): returning cached status=%s", id[:16], order.get("status"))
-                return order
-
-            # Order is "open" - check if keeper has executed
+            # Always check fresh status - do not cache order status
+            # This ensures we detect order execution/cancellation promptly
             order_key_hex = order.get("info", {}).get("order_key")
             if not order_key_hex:
                 logger.warning("fetch_order(%s): no order_key stored, cannot check execution status", id[:16])
@@ -5641,6 +5678,9 @@ class GMX(ExchangeCompatible):
 
             # Order no longer pending - verify execution result
             if status_result.execution_receipt:
+                # Import here to avoid circular dependency
+                from eth_defi.gmx.verification import verify_gmx_order_execution
+
                 verification = verify_gmx_order_execution(
                     self.web3,
                     status_result.execution_receipt,
@@ -5652,12 +5692,22 @@ class GMX(ExchangeCompatible):
                     order["status"] = "closed"
                     order["filled"] = order["amount"]
                     order["remaining"] = 0.0
-                    order["average"] = verification.execution_price
+
+                    # Convert raw execution_price using token-specific decimals
+                    # verification.execution_price is in raw format (30 decimals)
+                    symbol = order.get("symbol")
+                    if symbol and verification.execution_price:
+                        market = self.markets[symbol]
+                        order["average"] = self._convert_price_to_usd(verification.execution_price, market)
+                    else:
+                        # Fallback: keep raw value if symbol not available (shouldn't happen)
+                        order["average"] = verification.execution_price
+
                     order["lastTradeTimestamp"] = self.milliseconds()
 
                     # Calculate cost based on actual execution price
-                    if verification.execution_price and order["amount"]:
-                        order["cost"] = order["amount"] * verification.execution_price
+                    if order.get("average") and order["amount"]:
+                        order["cost"] = order["amount"] * order["average"]
 
                     # Update info with verification data
                     order["info"]["execution_tx_hash"] = status_result.execution_tx_hash
@@ -5704,8 +5754,9 @@ class GMX(ExchangeCompatible):
 
             else:
                 # Order removed from DataStore but no execution receipt found
+                # check_order_status() already logged detailed diagnostics (Subsquid + log scan)
                 logger.warning(
-                    "fetch_order(%s): order removed from DataStore but no execution event found",
+                    "fetch_order(%s): order removed from DataStore but no execution event found (see check_order_status logs for details)",
                     id[:16],
                 )
 

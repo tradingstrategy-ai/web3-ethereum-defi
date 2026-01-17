@@ -121,11 +121,13 @@ class GMXSubsquidClient:
         self,
         query: str,
         variables: Optional[dict[str, Any]] = None,
+        timeout: int = 60,
     ) -> dict[str, Any]:
         """Execute a GraphQL query.
 
         :param query: GraphQL query string
         :param variables: Optional query variables
+        :param timeout: Request timeout in seconds (default 60)
         :return: Query response data
         :raises requests.HTTPError: If the request fails
         :raises ValueError: If GraphQL returns errors
@@ -134,7 +136,7 @@ class GMXSubsquidClient:
             self.endpoint,
             json={"query": query, "variables": variables or {}},
             headers={"Content-Type": "application/json"},
-            timeout=30,
+            timeout=timeout,
         )
         response.raise_for_status()
 
@@ -145,6 +147,51 @@ class GMXSubsquidClient:
             raise ValueError(f"GraphQL query failed: {errors}")
 
         return data.get("data", {})
+
+    def _query_with_retry(
+        self,
+        query: str,
+        variables: Optional[dict[str, Any]] = None,
+        timeout: int = 60,
+        max_retries: int = 3,
+        method_name: str = "query",
+    ) -> dict[str, Any]:
+        """Execute a GraphQL query with retry logic.
+
+        Wraps _query() with exponential backoff retry logic to handle
+        Subsquid timeouts and transient failures gracefully.
+
+        :param query: GraphQL query string
+        :param variables: Optional query variables
+        :param timeout: Request timeout in seconds
+        :param max_retries: Maximum retry attempts (default 3)
+        :param method_name: Method name for logging
+        :return: Query response data
+        :raises Exception: If all retries fail
+        """
+        for attempt in range(max_retries):
+            try:
+                return self._query(query, variables=variables, timeout=timeout)
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    backoff_time = 2 ** (attempt + 1)  # 2s, 4s, 8s
+                    logger.warning(
+                        "Subsquid %s attempt %d/%d failed: %s. Retrying in %ds...",
+                        method_name,
+                        attempt + 1,
+                        max_retries,
+                        e,
+                        backoff_time,
+                    )
+                    time.sleep(backoff_time)
+                else:
+                    logger.error(
+                        "Subsquid %s failed after %d retries: %s",
+                        method_name,
+                        max_retries,
+                        e,
+                    )
+                    raise
 
     def get_positions(
         self,
@@ -363,8 +410,20 @@ class GMXSubsquidClient:
         }}
         """
 
-        data = self._query(query, variables=variables)
-        return data.get("positionChanges", [])
+        # Use retry logic to handle Subsquid timeouts gracefully
+        try:
+            data = self._query_with_retry(
+                query,
+                variables=variables,
+                timeout=60,
+                max_retries=3,
+                method_name="get_position_changes",
+            )
+            return data.get("positionChanges", [])
+        except Exception:
+            # Return empty list instead of crashing Freqtrade
+            logger.error("get_position_changes failed, returning empty list")
+            return []
 
     def get_account_stats(self, account: str) -> Optional[dict[str, Any]]:
         """Get overall account statistics.
@@ -896,18 +955,21 @@ class GMXSubsquidClient:
         order_key: str,
         timeout_seconds: int = 30,
         poll_interval: float = 0.5,
+        max_retries: int = 3,
     ) -> Optional[dict[str, Any]]:
         """Query for order execution status via Subsquid.
 
         Polls Subsquid until the trade action appears or timeout.
         Much faster than on-chain polling (typically < 5 seconds).
 
-        This is used by `create_order()` to wait for keeper execution
-        and verify the order was executed successfully or cancelled.
+        This uses a two-query approach for better reliability:
+        1. First tries positionChanges (faster, has tx hash in id field)
+        2. Falls back to tradeActions (more complete data)
 
         :param order_key: Order key (hex string with 0x prefix)
         :param timeout_seconds: Max time to wait for indexer (default 30s)
         :param poll_interval: Time between queries in seconds (default 0.5s)
+        :param max_retries: Number of retries for failed requests (default 3)
         :return: Trade action dict or None if not found within timeout
 
         Example::
@@ -924,7 +986,31 @@ class GMXSubsquidClient:
                 elif action["eventName"] == "OrderCancelled":
                     print(f"Cancelled: {action['reason']}")
         """
-        query = """
+        # Query 1: positionChanges (faster, has tx hash in id field)
+        query_position_changes = """
+        query GetPositionChange($orderKey: String!) {
+          positionChanges(
+            where: { orderKey_eq: $orderKey }
+            limit: 1
+          ) {
+            id
+            type
+            orderKey
+            isLong
+            sizeDeltaUsd
+            executionPrice
+            priceImpactUsd
+            proportionalPendingImpactUsd
+            basePnlUsd
+            feesAmount
+            block
+            timestamp
+          }
+        }
+        """
+
+        # Query 2: tradeActions (more complete, has transaction object)
+        query_trade_actions = """
         query GetTradeAction($orderKey: String!) {
           tradeActions(
             where: { orderKey_eq: $orderKey }
@@ -944,6 +1030,7 @@ class GMXSubsquidClient:
             acceptablePrice
             triggerPrice
             priceImpactUsd
+            proportionalPendingImpactUsd
             positionFeeAmount
             borrowingFeeAmount
             fundingFeeAmount
@@ -956,17 +1043,107 @@ class GMXSubsquidClient:
         """
 
         start_time = time.time()
+        consecutive_failures = 0
+
         while time.time() - start_time < timeout_seconds:
             try:
-                data = self._query(query, variables={"orderKey": order_key})
-                actions = data.get("tradeActions", [])
+                # Try positionChanges first (faster)
+                logger.debug("=" * 70)
+                logger.debug("Querying positionChanges")
+                logger.debug("=" * 70)
+                logger.debug("Query: %s", query_position_changes)
+                logger.debug("Variables: orderKey=%s", order_key)
+                logger.debug("=" * 70)
 
-                if actions:
-                    return actions[0]
+                data = self._query(query_position_changes, variables={"orderKey": order_key}, timeout=60)
+                changes = data.get("positionChanges", [])
 
-            except Exception:
-                # Ignore query errors during polling, will retry
-                pass
+                import json
+
+                logger.debug("positionChanges response: %s", json.dumps({"positionChanges": changes}, indent=2, default=str))
+                logger.debug("=" * 70)
+
+                if changes:
+                    change = changes[0]
+                    # Convert positionChange to tradeAction format
+                    # The id field IS the transaction hash!
+                    result = {
+                        "eventName": "OrderExecuted" if change["type"] == "increase" or change["type"] == "decrease" else "OrderCancelled",
+                        "orderKey": change["orderKey"],
+                        "orderType": 2 if change["type"] == "increase" else 3,  # MarketIncrease/MarketDecrease
+                        "isLong": change.get("isLong"),
+                        "executionPrice": str(change.get("executionPrice") or 0),
+                        "sizeDeltaUsd": str(change.get("sizeDeltaUsd") or 0),
+                        "priceImpactUsd": str(change.get("priceImpactUsd") or 0),
+                        "pendingPriceImpactUsd": str(change.get("proportionalPendingImpactUsd") or 0),
+                        "pnlUsd": str(change.get("basePnlUsd") or 0) if change.get("basePnlUsd") else None,
+                        "positionFeeAmount": str(change.get("feesAmount") or 0),
+                        "borrowingFeeAmount": "0",
+                        "fundingFeeAmount": "0",
+                        "timestamp": change.get("timestamp"),
+                        "transaction": {
+                            "hash": change["id"],  # id IS the tx hash!
+                            "blockNumber": change.get("block"),
+                            "timestamp": change.get("timestamp"),
+                        },
+                    }
+                    logger.debug("Returning result from positionChanges: %s", json.dumps(result, indent=2, default=str))
+                    logger.debug("=" * 70)
+                    return result
+
+                # Reset failure counter on successful query
+                consecutive_failures = 0
+
+                # If positionChanges didn't return data, try tradeActions
+                logger.debug("=" * 70)
+                logger.debug("positionChanges returned no data, trying tradeActions")
+                logger.debug("=" * 70)
+                logger.debug("Query: %s", query_trade_actions)
+                logger.debug("Variables: orderKey=%s", order_key)
+                logger.debug("=" * 70)
+
+                try:
+                    data = self._query(query_trade_actions, variables={"orderKey": order_key}, timeout=60)
+                    actions = data.get("tradeActions", [])
+
+                    logger.debug("tradeActions response: %s", json.dumps({"tradeActions": actions}, indent=2, default=str))
+                    logger.debug("=" * 70)
+
+                    if actions:
+                        logger.debug("Returning result from tradeActions: %s", json.dumps(actions[0], indent=2, default=str))
+                        logger.debug("=" * 70)
+                        return actions[0]
+                except Exception as e:
+                    logger.debug("tradeActions query failed: %s", e)
+                    logger.debug("=" * 70)
+                    pass  # Continue polling
+
+            except Exception as e:
+                consecutive_failures += 1
+                logger.debug(
+                    "Subsquid query attempt failed (%d/%d): %s",
+                    consecutive_failures,
+                    max_retries,
+                    e,
+                )
+
+                # If we've hit max retries, give up
+                if consecutive_failures >= max_retries:
+                    logger.warning(
+                        "Subsquid query failed after %d retries: %s",
+                        max_retries,
+                        e,
+                    )
+                    return None
+
+                # Exponential backoff: wait 2^failures seconds before retry
+                backoff_time = min(2**consecutive_failures, 10)  # Cap at 10 seconds
+                logger.debug(
+                    "Retrying Subsquid query in %.1fs...",
+                    backoff_time,
+                )
+                time.sleep(backoff_time)
+                continue
 
             time.sleep(poll_interval)
 
