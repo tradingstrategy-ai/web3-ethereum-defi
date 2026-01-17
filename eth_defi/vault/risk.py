@@ -169,6 +169,7 @@ def get_vault_risk(
     return VAULT_PROTOCOL_RISK_MATRIX.get(protocol_name, default)
 
 
+# Addresses: ['0x249CAccaE4b8A4BC9E0F8e468d7Cc9EbFc7e0811', '0x249CAccaE4b8A4BC9E0F8e468d7Cc9EbFc7e0811', '0x249CAccaE4b8A4BC9E0F8e468d7Cc9EbFc7e0811']... total 3
 # Multicall3 is 0xcA11bde05977b3631167028862bE2a173976CA11
 
 _BROKEN_VAULT_CONTRACTS = {
@@ -210,6 +211,8 @@ _BROKEN_VAULT_CONTRACTS = {
     "0xB591D637cFd989A21e31873dbE64AFa4BF18f169",
     "0x8529019503c5BD707d8Eb98C5C87bF5237F89135",
     "0x9a2d163aB40F88C625Fd475e807Bbc3556566f80",  # Age old mainnet contract
+    "0x249CAccaE4b8A4BC9E0F8e468d7Cc9EbFc7e0811",  # Age old mainnet contract
+    "0x055ac8b974F075B86fB963e940407168E677585A",  # Age old mainnet contract
 }
 
 #: Cause excessive gas fees, RPC havoc.
