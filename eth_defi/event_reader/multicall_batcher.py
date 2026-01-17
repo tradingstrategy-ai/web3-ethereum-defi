@@ -942,7 +942,11 @@ class MultiprocessMulticallReader:
 
         - # https://docs.alchemy.com/reference/gas-limits-for-eth_call-and-eth_estimategas
         """
-        if chain_id == 5000:
+        if chain_id == 1:
+            # Not sure which RPC is this
+            # {'message': 'out of gas: gas required exceeds: 600000000', 'code': -32003}
+            return 50_000_000
+        elif chain_id == 5000:
             # Mantle: 1000B gas
             # Block 61298003
             # Address 0xca11bde05977b3631167028862be2a173976ca11

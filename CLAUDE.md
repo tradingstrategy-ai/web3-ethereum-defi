@@ -159,3 +159,14 @@ Don't format code for now.
 - Prefer Python snippets instead of `curl` when trying to read data directly from a blockchain explorer
 - To get the latest block number, use given JSON-RPC URL and Python's Web3.py `web3.eth.block_number` call
 - Never try to figure out RPC URL yourself - always use environment variables from the local environment given by the user. See `eth_defi.chain.CHAIN_NAMES` for aliases like chain id 999 -> JSON_RPC_HYPERLIQUD. Stop and ask user if you cannot figure out.
+
+For JSON-RPC URL configuration, environment variables. The variables are in the format `JSON_RPC_{CHAIN}` where `{CHAIN}` is the uppercase chain name:
+
+- `JSON_RPC_ETHEREUM` - Ethereum mainnet
+- `JSON_RPC_ARBITRUM` - Arbitrum One
+- `JSON_RPC_BASE` - Base
+- `JSON_RPC_POLYGON` - Polygon
+- `JSON_RPC_BINANCE` - BNB Smart Chain a.k.a. Binance a.k.a. BNB chain
+- `JSON_RPC_HYPERLIQUID` - HyperEVM
+
+You chan find these in `CHAIN_NAMES` and in `eth_defi.provider.env`

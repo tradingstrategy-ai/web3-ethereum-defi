@@ -13,17 +13,6 @@ ALWAYS USE SCRIPT. NEVER RELY ON THE HISTORICAL INFORMATION OR GUESS.
 
 1. **Chain name**: The blockchain to query (e.g., Ethereum, Arbitrum, Base, Polygon)
 
-## Environment variables
-
-The skill uses environment variables in the format `JSON_RPC_{CHAIN}` where `{CHAIN}` is the uppercase chain name:
-
-- `JSON_RPC_ETHEREUM` - Ethereum mainnet
-- `JSON_RPC_ARBITRUM` - Arbitrum One
-- `JSON_RPC_BASE` - Base
-- `JSON_RPC_POLYGON` - Polygon
-
-You chan find these in `CHAIN_NAMES` and in `eth_defi.provider.env`
-
 ## Running the script
 
 Generate and run a Python script to fetch the block number.

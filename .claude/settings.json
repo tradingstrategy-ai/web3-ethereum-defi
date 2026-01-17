@@ -58,6 +58,10 @@
       "Skill(extract-vault-protocol-logo:*)",
       "Skill(post-process-logo)",
       "Skill(post-process-logo:*)",
+      "Skill(check-vault-onchain)",
+      "Skill(check-vault-onchain:*)",
+      "Skill(add-vault-abi-methods)",
+      "Skill(add-vault-abi-methods:*)",
       "mcp__github__*"                           
     ]
   }

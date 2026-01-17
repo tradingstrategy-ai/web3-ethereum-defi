@@ -110,6 +110,10 @@ Use the MCP Playwright tool to:
 
 Get the project logo from their Twitter (also known as X.com) avatar image.
 
+## Step 5: Extract from Coingecko
+
+Get the project logo from their Coingecko.
+
 ## Step 6: Download and save
 
 1. **For SVG files**:
