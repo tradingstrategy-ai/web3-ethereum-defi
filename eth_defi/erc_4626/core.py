@@ -469,6 +469,12 @@ class ERC4626Feature(enum.Enum):
     #: https://usdx.money/
     usdx_money_like = "usdx_money_like"
 
+    #: Hyperlend
+    #:
+    #: Wrapped HLP vault for HyperLiquidity Provider on HyperEVM.
+    #: https://app.hyperlend.finance/hlp
+    hyperlend_like = "hyperlend_like"
+
 
 def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     """Deduct vault protocol name based on Vault smart contract features.
@@ -673,6 +679,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.usdx_money_like in features:
         return "USDX Money"
+
+    elif ERC4626Feature.hyperlend_like in features:
+        return "Hyperlend"
 
     # No idea
     if ERC4626Feature.erc_7540_like in features:

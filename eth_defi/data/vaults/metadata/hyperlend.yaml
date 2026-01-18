@@ -1,0 +1,37 @@
+name: Hyperlend
+slug: hyperlend
+short_description: |
+  Next-generation lending platform on Hyperliquid EVM with Wrapped HLP vault.
+long_description: |
+  Hyperlend is a next-generation lending platform on Hyperliquid EVM chain. The platform
+  enables users to earn interest, borrow assets, and build applications on the Hyperliquid
+  ecosystem. Hyperlend integrates Aave's lending infrastructure into a high-performance
+  environment, offering real-time leverage, dynamic interest rates, and deep liquidity.
+
+  Wrapped HyperLiquidity Provider (WHLP) is a tokenised version of HyperLiquidity Provider (HLP).
+  By minting WHLP, users earn trading fees from Hyperliquid while retaining full liquidity and
+  DeFi composability on HyperEVM. The token appreciates over time as HLP yields accrue to it.
+  Users deposit USDT0 to mint WHLP, which represents a claim on the underlying HLP vault's earnings.
+
+  Key features:
+
+  - WHLP token appreciates over time as HLP yields accrue
+  - 10% performance fee on yield
+  - No management fees or deposit/withdrawal fees
+  - Vault shares can be used as collateral for borrowing in Isolated Pools
+  - Managed by Paxos Labs
+fee_description: |
+  10% performance fee on yield. No management fees or deposit/withdrawal fees.
+links:
+  homepage: https://hyperlend.finance/
+  app: https://app.hyperlend.finance/hlp
+  twitter: https://x.com/hyperlendx
+  github: https://github.com/hyperlendx
+  documentation: https://docs.hyperlend.finance/
+  defillama: https://defillama.com/protocol/hyperlend
+  audits:
+  fees: https://docs.loopingcollective.org/products/wrapped-hlp
+  trading_strategy:
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/hyperlend/index.html
+example_smart_contracts:
+  - https://hyperevmscan.io/address/0x06fd9d03b3d0f18e4919919b72d30c582f0a97e5
