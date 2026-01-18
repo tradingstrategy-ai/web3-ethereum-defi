@@ -17,6 +17,7 @@ Documentation for `{{ fullname }}` Python {{ objtype }}.
 
 .. autoclass:: {{ objname }}
    :members:
+   :noindex:
 
    {% block attributes %}
    {% if attributes %}
@@ -45,6 +46,7 @@ Documentation for `{{ fullname }}` Python {{ objtype }}.
 Documentation for `{{ fullname }}` {{ objtype }}.
 
 .. auto{{ objtype }}:: {{ objname }}
+   :noindex:
 {% endif %}
 
 

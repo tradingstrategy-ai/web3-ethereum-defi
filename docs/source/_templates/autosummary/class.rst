@@ -10,6 +10,7 @@
    :members:
    :show-inheritance:
    :inherited-members:
+   :noindex:
 
    {% block methods %}
    .. automethod:: __init__

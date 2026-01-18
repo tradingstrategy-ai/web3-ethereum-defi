@@ -7,6 +7,7 @@ Documentation for `{{ fullname }}` Python module.
     :title: {{ fullname|extract_module_docstring|trim('.') or name }}
 
 .. automodule:: {{ fullname }}
+   :no-members:
 
    {% block attributes %}
    {% if attributes %}
