@@ -58,6 +58,10 @@ jobs:
         id: setup-python
         with:
           python-version: ${{ matrix.python-version }}
+          cache: "poetry"
+          cache-dependency-path: |
+            **/pyproject.toml 
+            .web3v6.txt
 
       - name: Set PYTHON_PATH environment variable
         run: echo "PYTHON_PATH=${{ steps.setup-python.outputs.python-path }}" >> $GITHUB_ENV

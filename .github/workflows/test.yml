@@ -2,9 +2,9 @@ name: Automated test suite
 
 on:
   push:
-    branches: [ master ]
+    branches: [master]
   pull_request:
-    branches: [ master ]
+    branches: [master]
 
 jobs:
   test-python:
@@ -45,19 +45,19 @@ jobs:
           cache: "npm"
           cache-dependency-path: contracts/aave-v3-deploy/package-lock.json
 
-#      # pnpm needed to compile Enzyme
-#      # We need version 7 to be exact.
-#      - name: Install pnpm
-#        run: |
-#          curl -fsSL https://get.pnpm.io/install.sh | env PNPM_VERSION=7.27.1 sh -
-#          PNPM_HOME="/home/runner/.local/share/pnpm"
-#          # https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#adding-a-system-path
-#          echo $PNPM_HOME >> $GITHUB_PATH
+      #      # pnpm needed to compile Enzyme
+      #      # We need version 7 to be exact.
+      #      - name: Install pnpm
+      #        run: |
+      #          curl -fsSL https://get.pnpm.io/install.sh | env PNPM_VERSION=7.27.1 sh -
+      #          PNPM_HOME="/home/runner/.local/share/pnpm"
+      #          # https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#adding-a-system-path
+      #          echo $PNPM_HOME >> $GITHUB_PATH
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
-            version: 10.21.0
+          version: 10.21.0
 
       - name: Export PNPM location
         run: |
@@ -69,8 +69,10 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          # Disable cache to force fresh installation when debugging
-          # cache: "poetry"
+          cache: "poetry"
+          cache-dependency-path: |
+            **/pyproject.toml 
+            .web3v7.txt
 
       # Poetry 2.0 breaks everything
       # https://github.com/python-poetry/poetry/blob/main/CHANGELOG.md
@@ -81,8 +83,8 @@ jobs:
       # Using a single installation command to avoid conflicts
       - name: Install dependencies with specific Web3.py version
         run: |
-            poetry install
-            poetry install -E docs -E data -E test -E hypersync -E ccxt -E web3v7 -E duckdb
+          poetry install
+          poetry install -E docs -E data -E test -E hypersync -E ccxt -E web3v7 -E duckdb
 
       - name: Install Ganache
         run: yarn global add ganache
@@ -144,8 +146,7 @@ jobs:
       #   uses: mxschmitt/action-tmate@v3
       #   with:
       #     limit-access-to-actor: true
-        # if: ${{ failure() || github.event.inputs.debug == 'true' }}
-
+      # if: ${{ failure() || github.event.inputs.debug == 'true' }}
 
       - name: Run tests (parallel)
         run: |
