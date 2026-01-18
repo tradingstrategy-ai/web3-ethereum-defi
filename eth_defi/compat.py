@@ -527,7 +527,7 @@ if WEB3_PY_V7:
     _geth_poa_middleware = ExtraDataToPOAMiddleware
 else:
     from web3.middleware import construct_sign_and_send_raw_middleware, geth_poa_middleware
-    from eth_utils.abi import _abi_to_signature
+    from eth_utils.abi import abi_to_signature as _abi_to_signature
     from web3._utils.request import get_response_from_post_request as _get_response_from_post_request
 
     encode_function_args = encode_function_args_v6
