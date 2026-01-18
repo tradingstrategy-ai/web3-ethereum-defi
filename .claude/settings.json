@@ -61,8 +61,7 @@
       "Skill(check-vault-onchain)",
       "Skill(check-vault-onchain:*)",
       "Skill(add-vault-abi-methods)",
-      "Skill(add-vault-abi-methods:*)",
-      "mcp__github__*"                           
+      "Skill(add-vault-abi-methods:*)"           
     ]
   }
 }

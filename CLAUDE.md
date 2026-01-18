@@ -68,7 +68,11 @@ by specifying `timeout: 180000` (3 minutes) in the bash tool parameters.
 
 ## Formatting code
 
-Don't format code for now.
+Run ruff to format code using Poetry:
+
+```shell
+poetry run format
+```
 
 ## Pull requests
 
@@ -170,3 +174,21 @@ For JSON-RPC URL configuration, environment variables. The variables are in the 
 - `JSON_RPC_HYPERLIQUID` - HyperEVM
 
 You chan find these in `CHAIN_NAMES` and in `eth_defi.provider.env`
+
+## Documentation
+
+Documentation uses Sphinx v4.5 for API and narrative documentation and lives in `docs` folder.
+
+You can build the documentation with the command:
+
+```shell
+source .local-test.env && make build-docs
+```
+
+If you need to clean Sphinx's autosummaries you can run:
+
+```shell
+source .local-test.env && make build-docs
+```
+
+Never directly edit auto-generated sphinx files in `_autosummary*` folders.

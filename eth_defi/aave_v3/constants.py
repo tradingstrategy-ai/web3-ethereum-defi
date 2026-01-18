@@ -1,17 +1,18 @@
-"""Aave v3 constants."""
+"""Aave v3 constants.
+
+Sources:
+- https://docs.aave.com/developers/deployed-contracts/v3-mainnet/polygon
+- https://docs.aave.com/developers/deployed-contracts/v3-mainnet/optimism
+- https://docs.aave.com/developers/deployed-contracts/v3-mainnet/arbitrum
+- https://docs.aave.com/developers/deployed-contracts/v3-mainnet/fantom
+- https://docs.aave.com/developers/deployed-contracts/v3-mainnet/avalanche
+- https://docs.aave.com/developers/deployed-contracts/v3-mainnet/harmony
+"""
 
 import enum
 import json
 import os
 from typing import NamedTuple
-
-# Sources:
-# https://docs.aave.com/developers/deployed-contracts/v3-mainnet/polygon
-# https://docs.aave.com/developers/deployed-contracts/v3-mainnet/optimism
-# https://docs.aave.com/developers/deployed-contracts/v3-mainnet/arbitrum
-# https://docs.aave.com/developers/deployed-contracts/v3-mainnet/fantom
-# https://docs.aave.com/developers/deployed-contracts/v3-mainnet/avalanche
-# https://docs.aave.com/developers/deployed-contracts/v3-mainnet/harmony
 
 
 class AaveNetwork(NamedTuple):
