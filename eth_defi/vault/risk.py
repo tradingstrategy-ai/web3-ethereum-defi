@@ -217,6 +217,7 @@ _BROKEN_VAULT_CONTRACTS = {
     "0x249CAccaE4b8A4BC9E0F8e468d7Cc9EbFc7e0811",  # Age old mainnet contract
     "0x055ac8b974F075B86fB963e940407168E677585A",  # Age old mainnet contract
     "0x2A0077eD1dF4BE3963b60191011c76DFE0dD4D9b3",  # Age old mainnet contract
+    "0xF1d402fCbEb2d0C8946F13196D72dB7258B0B296",
 }
 
 #: Cause excessive gas fees, RPC havoc.
