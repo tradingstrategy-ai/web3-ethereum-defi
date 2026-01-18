@@ -17,8 +17,7 @@ build:
     - python -m pip install --exists-action=w --no-cache-dir -r docs/requirements.txt
     - pwd
     - ls -l
-    - ls $READTHEDOCS_OUTPUT
-    - ls $READTHEDOCS_OUTPUT/html
+    - echo $READTHEDOCS_OUTPUT
     - (cd docs/source && python -m sphinx -j auto -T -b html -D language=en . $READTHEDOCS_OUTPUT/html)
 
     # - python -m pip install --upgrade --no-cache-dir pip setuptools
