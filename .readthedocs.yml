@@ -20,11 +20,6 @@ build:
     - echo $READTHEDOCS_OUTPUT
     - (cd docs/source && python -m sphinx -j auto -T -b html -D language=en . $READTHEDOCS_OUTPUT/html)
 
-    # - python -m pip install --upgrade --no-cache-dir pip setuptools
-#python:
-#  install:
-#    - requirements: docs/requirements.txt
-
 submodules:
   # include: all
   recursive: false
