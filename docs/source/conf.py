@@ -22,7 +22,7 @@ extensions = [
     "sphinx_sitemap",
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
-    "sphinx.ext.viewcode",
+    # "sphinx.ext.viewcode",
     # https://github.com/tox-dev/sphinx-autodoc-typehints/issues/216
     # sphinx_autodoc_typehints'
     "nbsphinx",
@@ -95,6 +95,9 @@ html_baseurl = "https://web3-ethereum-defi.readthedocs.io/"
 # https://nbsphinx.readthedocs.io/en/0.8.6/never-execute.html
 #
 nbsphinx_execute = "never"
+nbsphinx_thumbnails = {}  # Disable gallery thumbnails
+nbsphinx_kernel_name = 'python3'
+
 
 # Do not offer "Launch Binder" or similar button
 nbsphinx_prolog = """
