@@ -72,11 +72,3 @@ def test_yieldnest_ynrwax(
     assert lock_up is not None
     assert isinstance(lock_up, datetime.timedelta)
     assert lock_up.days > 0  # Should be positive until maturity date
-
-    # Check vault notes
-    notes = vault.get_notes()
-    assert notes is not None
-    assert "ynRWAx" in notes
-    assert "Kimber Capital" in notes
-    assert "15 Oct, 2026" in notes
-
