@@ -25,6 +25,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: "poetry"
 
       # Required by nbsphinx for notebook conversion
       - name: Install Pandoc
@@ -39,7 +40,6 @@ jobs:
       # Using a single installation command to avoid conflicts
       - name: Install dependencies with specific Web3.py version
         run: |
-          poetry install
           poetry install -E docs -E data -E test -E hypersync -E ccxt -E web3v7 -E duckdb
 
       - name: Build documentation
