@@ -989,8 +989,6 @@ def identify_vault_features(
             features.add(ERC4626Feature.peapods_like)
         elif "Savings GYD" in name:
             features.add(ERC4626Feature.gyroscope)
-        elif "YieldNest" in name:
-            features.add(ERC4626Feature.yieldnest_like)
         elif _is_hypurrfi_name(name):
             features.add(ERC4626Feature.hypurrfi_like)
 
@@ -1666,6 +1664,9 @@ HARDCODED_PROTOCOLS = {
     # Hyperlend - Wrapped HLP (WHLP) vault on HyperEVM
     # https://hyperevmscan.io/address/0x06fd9d03b3d0f18e4919919b72d30c582f0a97e5
     "0x06fd9d03b3d0f18e4919919b72d30c582f0a97e5": {ERC4626Feature.hyperlend_like},
+    # YieldNest - ynRWAx vault on Ethereum
+    # https://etherscan.io/address/0xf6e1443e3f70724cec8c0a779c7c35a8dcda928b
+    "0xf6e1443e3f70724cec8c0a779c7c35a8dcda928b": {ERC4626Feature.yieldnest_like},
 }
 
 for a in HARDCODED_PROTOCOLS.keys():

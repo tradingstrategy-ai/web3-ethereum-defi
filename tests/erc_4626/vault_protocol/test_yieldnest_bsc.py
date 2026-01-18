@@ -14,7 +14,7 @@ from eth_defi.provider.multi_provider import create_multi_provider_web3
 
 JSON_RPC_BINANCE = os.environ.get("JSON_RPC_BINANCE")
 
-pytestmark = pytest.mark.skip(reason="YieldNest proxy contract is screwed up and detection cannot be run")
+pytestmark = pytest.mark.skip(reason="Only ynRWAx vault on Ethereum is supported - BSC vault not hardcoded")
 
 
 @pytest.fixture(scope="module")

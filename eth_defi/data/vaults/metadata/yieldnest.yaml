@@ -18,5 +18,12 @@ links:
   trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/yieldnest
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/yieldnest/index.html
 example_smart_contracts:
-  - https://etherscan.io/address/0x01ba69727e2860b37bc1a2bd56999c1afb4c15d8
-  - https://bscscan.com/address/0x32C830f5c34122C6afB8aE87ABA541B7900a2C5F
+  - https://etherscan.io/address/0xf6e1443e3f70724cec8c0a779c7c35a8dcda928b
+vault_specific_notes:
+  # ynRWAx vault on Ethereum - detected by hardcoded address
+  "0xf6e1443e3f70724cec8c0a779c7c35a8dcda928b": |
+    ynRWAx: Tokenized Australian residential real estate credit earning 11% APY, allocated to mortgage-backed loans on verified house-and-land developments. Made safe in collaboration with a fully licensed and insured fund manager, Kimber Capital (AFS Licence No. 425278).
+
+    Fees: 0%.
+
+    Fixed Maturity Date: 15 Oct, 2026.
