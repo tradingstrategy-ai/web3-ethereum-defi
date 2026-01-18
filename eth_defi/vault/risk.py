@@ -121,6 +121,7 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "ZeroLend": VaultTechnicalRisk.dangerous,
     "USDX Money": None,
     "Hyperlend": VaultTechnicalRisk.severe,
+    "Sentiment": None,
 }
 
 #: Particular vaults that are broken, misleading or otherwise problematic.

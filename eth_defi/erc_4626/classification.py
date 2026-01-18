@@ -48,6 +48,7 @@ CHAIN_RESTRICTED_PROBES: dict[str, set[int]] = {
     "strategy": {143},  # Accountable - Monad only
     "queue": {143},  # Accountable - Monad only
     "registry": {42161},  # Ostium - Arbitrum only
+    "POOL": {999},  # Sentiment - HyperEVM only
     # Two chain protocols
     "claimableKeeper": {137, 42161},  # Untangle Finance - Polygon, Arbitrum
     # Three chain protocols
@@ -705,6 +706,19 @@ def create_probe_calls(
                 extra_data=None,
             )
 
+        # Sentiment - HyperEVM only
+        # SuperPool vault aggregator with POOL() returning the singleton Pool contract
+        # https://github.com/sentimentxyz/protocol-v2
+        # https://hyperevmscan.io/address/0xe45e7272da7208c7a137505dfb9491e330bf1a4e
+        if _should_yield_probe("POOL", chain_id):
+            yield EncodedCall.from_keccak_signature(
+                address=address,
+                signature=Web3.keccak(text="POOL()")[0:4],
+                function="POOL",
+                data=b"",
+                extra_data=None,
+            )
+
 
 def identify_vault_features(
     address: HexAddress,
@@ -929,6 +943,13 @@ def identify_vault_features(
     # https://monadscan.com/address/0x58ba69b289De313E66A13B7D1F822Fc98b970554
     if calls["strategy"].success and calls["queue"].success:
         features.add(ERC4626Feature.accountable_like)
+
+    # Sentiment - SuperPool vault aggregator
+    # POOL() returns the singleton Pool contract address
+    # https://github.com/sentimentxyz/protocol-v2
+    # https://hyperevmscan.io/address/0xe45e7272da7208c7a137505dfb9491e330bf1a4e
+    if calls["POOL"].success:
+        features.add(ERC4626Feature.sentiment_like)
 
     # # TODO: No way separate from Goat Protocol, see test_superform
     # if calls["PROFIT_UNLOCK_TIME"].success:
@@ -1511,6 +1532,11 @@ def create_vault_instance(
         from eth_defi.erc_4626.vault_protocol.hyperlend.vault import WrappedHLPVault
 
         return WrappedHLPVault(web3, spec, token_cache=token_cache, features=features)
+
+    elif ERC4626Feature.sentiment_like in features:
+        from eth_defi.erc_4626.vault_protocol.sentiment.vault import SentimentVault
+
+        return SentimentVault(web3, spec, token_cache=token_cache, features=features)
 
     else:
         # Generic ERC-4626 without fee data
