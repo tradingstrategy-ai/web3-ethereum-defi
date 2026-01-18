@@ -1,0 +1,50 @@
+name: Build documentation
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  build-docs:
+    runs-on: ubuntu-latest
+
+    # Only run the action for the latest push
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Poetry 2.0 breaks everything
+      # https://github.com/python-poetry/poetry/blob/main/CHANGELOG.md
+      - name: Install poetry
+        run: pipx install "poetry>2"
+
+      # Install dependencies with the specific Web3.py version
+      # Using a single installation command to avoid conflicts
+      - name: Install dependencies with specific Web3.py version
+        run: |
+          poetry install
+          poetry install -E docs -E data -E test -E hypersync -E ccxt -E web3v7 -E duckdb
+
+      - name: Build documentation
+        run: |
+          poetry run make build-docs
+
+      # Deploy to GitHub Pages only on push to master
+      - name: Deploy to GitHub Pages
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs/build/html
