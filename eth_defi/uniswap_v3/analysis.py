@@ -14,19 +14,21 @@ from eth_defi.uniswap_v3.utils import decode_path
 
 def get_input_args(params: tuple | dict) -> dict:
     """Names and decodes input arguments from router.decode_function_input()
-    Note there is no support yet for SwapRouter02, it does not accept a deadline parameter
+
+    Note there is no support yet for SwapRouter02, it does not accept a deadline parameter.
     See: https://docs.uniswap.org/contracts/v3/reference/periphery/interfaces/ISwapRouter#exactinputparams
 
+    Example struct::
 
-    struct ExactInputParams {
-        bytes path;
-        address recipient;
-        uint256 amountIn;
-        uint256 amountOutMinimum;
-    }
+        struct ExactInputParams {
+            bytes path;
+            address recipient;
+            uint256 amountIn;
+            uint256 amountOutMinimum;
+        }
 
-    :params:
-    params from router.decode_function_input
+    :param params:
+        params from router.decode_function_input
 
     :returns:
         Dict of exactInputParams as specified in the link above

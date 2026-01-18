@@ -84,9 +84,10 @@ def presign_cowswap(
 ) -> ContractFunction:
     """Construct a pre-signed CowSwap order for the offchain order book to execute using TradingStrategyModuleV0.
 
-        :param app_data:
-            From docs:  If you do not care about appData, set this field to "{}" and make sure that the order you signed for this request had its appData field set to 0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d.
-    tt
+    :param app_data:
+        From docs: If you do not care about appData, set this field to "{}" and make sure that the order
+        you signed for this request had its appData field set to
+        ``0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d``.
     """
 
     assert isinstance(vault, LagoonVault), f"Not a Lagoon vault: {type(vault)}"

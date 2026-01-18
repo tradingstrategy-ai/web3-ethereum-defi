@@ -1,5 +1,5 @@
 USDai protocol API
------------------
+------------------
 
 `USD.AI <https://usd.ai/>`__ integration.
 

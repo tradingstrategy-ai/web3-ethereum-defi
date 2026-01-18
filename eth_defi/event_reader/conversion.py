@@ -179,7 +179,7 @@ def convert_string_to_bytes32(s: str) -> bytes:
         Input string
 
     :return:
-        E.g. `0x746573740
+        E.g. ``0x746573740``
     """
     assert type(s) == str
     assert len(s) <= 32, f"String too long {len(s)} > 32"

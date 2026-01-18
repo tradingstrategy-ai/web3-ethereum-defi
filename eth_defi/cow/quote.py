@@ -24,7 +24,7 @@ class Quote:
 
     How does it look like:
 
-    ..code-block:: python
+    .. code-block:: python
 
         {'Buy': 'USDC.e',
          'Price': '3839.194418725202484702282634',

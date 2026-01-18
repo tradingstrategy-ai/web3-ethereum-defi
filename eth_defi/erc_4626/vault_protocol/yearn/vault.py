@@ -33,7 +33,7 @@ class YearnV3Vault(ERC4626Vault):
 
     Max withdrawl:
 
-    .. code-block:: vyper
+    .. code-block:: none
 
         def _max_withdraw(
             owner: address,
@@ -58,7 +58,7 @@ class YearnV3Vault(ERC4626Vault):
 
     Withdrawal:
 
-    .. code-block:: vyper
+    .. code-block:: none
 
         @internal
         def _withdraw_from_strategy(strategy: address, assets_to_withdraw: uint256):
@@ -80,7 +80,7 @@ class YearnV3Vault(ERC4626Vault):
 
     Taking profit:
 
-    .. code-block:: vyper
+    .. code-block:: none
 
         def _process_report(strategy: address) -> (uint256, uint256):
             ```

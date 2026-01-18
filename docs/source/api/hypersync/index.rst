@@ -1,5 +1,5 @@
 HyperSync protocol API
--------------------
+----------------------
 
 API helpers for HyperSync client.
 

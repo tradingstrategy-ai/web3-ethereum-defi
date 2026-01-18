@@ -8,7 +8,7 @@ represents the mature, stable implementation used in production trading
 systems and financial applications.
 
 Production Configuration Architecture
-------------------------------------
+-------------------------------------
 
 This implementation focuses on reliability, security, and operational simplicity
 for production environments. Automatic network detection eliminates configuration

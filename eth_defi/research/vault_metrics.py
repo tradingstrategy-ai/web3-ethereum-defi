@@ -276,9 +276,9 @@ def calculate_cumulative_returns(
 
 
 def zero_out_near_zero_prices(s: pd.Series, eps: float = 1e-9, clip_negatives: bool = True) -> pd.Series:
-    """
-    Replace values with |x| < eps by 0. Optionally clip negatives to 0.
-    Keeps NaN as-is, turns {+/-} inf into NaN.
+    """Replace values with abs(x) < eps by 0. Optionally clip negatives to 0.
+
+    Keeps NaN as-is, turns +/- inf into NaN.
     """
     s = pd.Series(s, dtype="float64").copy()
     s[~np.isfinite(s)] = np.nan

@@ -25,7 +25,7 @@ Key Computational Categories
 - **Error Handling**: Graceful handling of edge cases and exceptional conditions
 
 Mathematical Precision Philosophy
---------------------------------
+---------------------------------
 
 Financial calculations require absolute precision because small errors can compound
 into significant financial losses. The utility functions implement robust mathematical
@@ -33,7 +33,7 @@ operations using appropriate data types and validation to ensure accuracy across
 all supported market conditions and position sizes.
 
 Integration with Trading Operations
-----------------------------------
+-----------------------------------
 
 These utilities serve as the computational engine for all higher-level operations.
 When you open a position through the trading interface, liquidation calculations
@@ -42,7 +42,7 @@ position formatting occurs here. Understanding these utilities helps you underst
 how the entire system works at its core.
 
 Error Prevention and Validation
-------------------------------
+-------------------------------
 
 The utility layer implements comprehensive validation and error handling to prevent
 invalid operations from propagating through the system. This defensive programming

@@ -93,7 +93,7 @@ def get_almost_latest_block_number(web3: Web3) -> int:
 
     Because low quality providers may lose the block of this block number
     on the subsequent API calls, we add some number of delay
-    or confirmations to the chain tip, specified by :py:funct:`get_block_tip_latency`.
+    or confirmations to the chain tip, specified by :py:func:`get_block_tip_latency`.
 
     Providers with known issues
 
@@ -139,7 +139,7 @@ def get_safe_cached_latest_block_number(
 
     Work around the error on Monad/Arbitrum/dRPC/shitty RPCs:
 
-    .. code-block:: plain
+    .. code-block:: none
 
         {'message': 'upstream does not have the requested block yet', 'code': -32603}
 

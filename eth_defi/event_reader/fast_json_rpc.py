@@ -122,7 +122,7 @@ def get_last_headers() -> dict:
 
     Example output:
 
-    .. code-block:: plain
+    .. code-block:: none
 
         {'Date': 'Wed, 09 Apr 2025 14:56:48 GMT', 'Content-Type': 'application/json', 'Content-Length': '112', 'Connection': 'keep-alive', 'access-control-allow-origin': '*', 'Content-Encoding': 'gzip', 'vary': 'Accept-Encoding', 'x-drpc-owner-id': '2580e13b-d8a6-48a3-bdaa-67bc5972c7f5', 'x-drpc-owner-tier': 'paid', 'x-drpc-provider-id': 'drpc-core-free', 'x-drpc-trace-id': '3ac007d0de35bae3d390789476db31cd', 'strict-transport-security': 'max-age=31536000; includeSubDomains', 'cf-cache-status': 'DYNAMIC', 'Server': 'cloudflare', 'CF-RAY': '92dada6e5a7aed3f-SJC'}
 

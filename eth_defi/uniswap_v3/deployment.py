@@ -291,7 +291,7 @@ def increase_liquidity(
 ) -> dict:
     """
     Increase liquidity in an existing Uniswap V3 position.
-    `See Uniswap V3 documentation for details <https://docs.uniswap.org/contracts/v3/reference/periphery/interfaces/INonfungiblePositionManager>`_.
+    `See Uniswap V3 documentation for details <https://docs.uniswap.org/contracts/v3/reference/periphery/interfaces/INonfungiblePositionManager>`__.
 
     :param web3: Web3 instance
     :param position_owner: The address of the position_owner.
@@ -350,7 +350,7 @@ def decrease_liquidity(
 ) -> dict:
     """
     Decrease liquidity in an existing Uniswap V3 position.
-    `See Uniswap V3 documentation for details <https://docs.uniswap.org/contracts/v3/reference/periphery/interfaces/INonfungiblePositionManager>`_.
+    `See Uniswap V3 documentation for details <https://docs.uniswap.org/contracts/v3/reference/periphery/interfaces/INonfungiblePositionManager>`__.
 
     :param web3: Web3 instance
     :param position_owner: The address of the position_owner.
