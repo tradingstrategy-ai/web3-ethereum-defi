@@ -23,7 +23,7 @@ Links
 - `DefiLlama <https://defillama.com/protocol/umami-finance>`__
 
 .. autosummary::
-   :toctree: _autosummary_euler
+   :toctree: _autosummary_umami
    :recursive:
 
    eth_defi.erc_4626.vault_protocol.umami.vault

@@ -8,7 +8,7 @@ The module provides Python bindings for creating vaults, interaction adapters
 and reading the deposit and redemption information.
 
 .. autosummary::
-   :toctree: _autosummary_block_reader
+   :toctree: _autosummary_enzyme
    :recursive:
 
    eth_defi.enzyme.deployment

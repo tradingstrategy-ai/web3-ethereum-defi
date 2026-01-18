@@ -32,7 +32,7 @@ Links
 - `DefiLlama <https://defillama.com/protocol/tokemak>`__
 
 .. autosummary::
-   :toctree: _autosummary_d2
+   :toctree: _autosummary_auto_finance
    :recursive:
 
    eth_defi.erc_4626.vault_protocol.autopool.vault
