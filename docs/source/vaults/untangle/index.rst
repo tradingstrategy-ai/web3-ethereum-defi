@@ -22,7 +22,7 @@ Links
 - `DefiLlama <https://defillama.com/protocol/untangled-rwa>`__
 
 .. autosummary::
-   :toctree: _autosummary_d2
+   :toctree: _autosummary_untangle
    :recursive:
 
    eth_defi.erc_4626.vault_protocol.untangle.vault

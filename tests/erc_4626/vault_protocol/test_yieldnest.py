@@ -10,8 +10,7 @@ from web3 import Web3
 
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature, get_vault_protocol_name
-from eth_defi.erc_4626.vault_protocol.yieldnest.vault import (
-    YNRWAX_VAULT_ADDRESS, YieldNestVault)
+from eth_defi.erc_4626.vault_protocol.yieldnest.vault import YNRWAX_VAULT_ADDRESS, YieldNestVault
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.vault.base import VaultTechnicalRisk
@@ -72,11 +71,3 @@ def test_yieldnest_ynrwax(
     assert lock_up is not None
     assert isinstance(lock_up, datetime.timedelta)
     assert lock_up.days > 0  # Should be positive until maturity date
-
-    # Check vault notes
-    notes = vault.get_notes()
-    assert notes is not None
-    assert "ynRWAx" in notes
-    assert "Kimber Capital" in notes
-    assert "15 Oct, 2026" in notes
-

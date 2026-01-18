@@ -4,26 +4,25 @@ v6/v7 compatibility module
 """
 
 import datetime
+from collections import Counter
 from importlib.metadata import version
+from typing import Any, Callable
 
+import eth_abi
 from eth_typing import HexStr
 from packaging.version import Version
-import eth_abi
-from collections import Counter
-from typing import Any, Callable
-from web3.types import RPCEndpoint, RPCResponse
-
 from web3 import HTTPProvider, Web3
 from web3.contract import Contract
+from web3.types import RPCEndpoint, RPCResponse
 
 pkg_version = version("web3")
 WEB3_PY_V7 = Version(pkg_version) >= Version("7.0.0")
 
 # Middleware imports with compatibility
 if WEB3_PY_V7:
+    from requests.exceptions import ConnectionError, HTTPError, Timeout
     from web3.middleware import Web3Middleware
     from web3.providers.rpc.utils import ExceptionRetryConfiguration
-    from requests.exceptions import ConnectionError, HTTPError, Timeout
 
     # Fallback if it moved or doesn't exist in v7
     def check_if_retry_on_failure(method):
@@ -197,13 +196,14 @@ def exception_retry_middleware_v6(
 ) -> Callable[[RPCEndpoint, Any], RPCResponse | None] | None:
     """v6 implementation of exception_retry_middleware"""
     if not WEB3_PY_V7:
+        import logging
         import time
         from pprint import pformat
+
         from eth_defi.event_reader.fast_json_rpc import get_last_headers
 
         # Import the helper function we need
         from eth_defi.middleware import is_retryable_http_exception
-        import logging
 
         logger = logging.getLogger(__name__)
 
@@ -275,6 +275,7 @@ def exception_retry_middleware_v7(
         # For v7, we'll still provide the middleware but recommend against it
         import time
         from pprint import pformat
+
         from eth_defi.event_reader.fast_json_rpc import get_last_headers
         from eth_defi.middleware import is_retryable_http_exception
 
@@ -437,9 +438,9 @@ def get_function_info_v6(*args, **kwargs):
 
 def get_function_info_v7(*args, **kwargs):
     """v7 get_function_info equivalent - returns v6-compatible format"""
-    from web3.utils import get_abi_element_info
-    from eth_utils.abi import abi_to_signature
     from eth_utils import function_signature_to_4byte_selector
+    from eth_utils.abi import abi_to_signature
+    from web3.utils import get_abi_element_info
 
     # Handle the case: get_function_info(fn_name, codec, contract_abi, args=func.args)
     if len(args) == 3 and "args" in kwargs:
@@ -505,9 +506,9 @@ def encode_abi_compat(contract: Contract, fn_name: str, args: list[Any]) -> HexS
 
 # Version-based aliasing
 if WEB3_PY_V7:
-    from web3.middleware import SignAndSendRawMiddlewareBuilder, ExtraDataToPOAMiddleware
     from eth_utils.abi import abi_to_signature as _abi_to_signature
     from web3._utils.http_session_manager import HTTPSessionManager
+    from web3.middleware import ExtraDataToPOAMiddleware, SignAndSendRawMiddlewareBuilder
 
     sessions = HTTPSessionManager()
     _get_response_from_post_request = sessions.get_response_from_post_request
@@ -526,9 +527,9 @@ if WEB3_PY_V7:
     check_if_retry_on_failure_compat = check_if_retry_on_failure_v7
     _geth_poa_middleware = ExtraDataToPOAMiddleware
 else:
-    from web3.middleware import construct_sign_and_send_raw_middleware, geth_poa_middleware
     from eth_utils.abi import _abi_to_signature
     from web3._utils.request import get_response_from_post_request as _get_response_from_post_request
+    from web3.middleware import construct_sign_and_send_raw_middleware, geth_poa_middleware
 
     encode_function_args = encode_function_args_v6
     get_function_info = get_function_info_v6
