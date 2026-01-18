@@ -21,6 +21,11 @@ jobs:
         with:
           submodules: false
 
+      # Poetry must be installed before setup-python for cache to work
+      # https://github.com/python-poetry/poetry/blob/main/CHANGELOG.md
+      - name: Install poetry
+        run: pipx install "poetry>2"
+
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
@@ -30,11 +35,6 @@ jobs:
       # Required by nbsphinx for notebook conversion
       - name: Install Pandoc
         run: sudo apt-get update && sudo apt-get install -y pandoc
-
-      # Poetry 2.0 breaks everything
-      # https://github.com/python-poetry/poetry/blob/main/CHANGELOG.md
-      - name: Install poetry
-        run: pipx install "poetry>2"
 
       # Install dependencies with the specific Web3.py version
       # Using a single installation command to avoid conflicts
