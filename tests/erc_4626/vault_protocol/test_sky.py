@@ -89,3 +89,31 @@ def test_sky_susds(
 
     # Check risk level
     assert vault.get_risk() == VaultTechnicalRisk.negligible
+
+
+@flaky.flaky
+def test_sky_sdai(
+    web3: Web3,
+    tmp_path: Path,
+):
+    """Read Sky sDAI (Savings DAI) vault metadata."""
+
+    vault = create_vault_instance_autodetect(
+        web3,
+        vault_address="0x83f20f44975d03b1b09e64809b757c47f942beea",
+    )
+
+    assert isinstance(vault, SkyVault)
+    assert vault.get_protocol_name() == "Sky"
+    assert vault.features == {ERC4626Feature.sky_like}
+
+    # Sky does not charge fees
+    assert vault.get_management_fee("latest") == 0.0
+    assert vault.get_performance_fee("latest") == 0.0
+    assert vault.has_custom_fees() is False
+
+    # Check vault link
+    assert vault.get_link() == "https://sky.money/"
+
+    # Check risk level
+    assert vault.get_risk() == VaultTechnicalRisk.negligible

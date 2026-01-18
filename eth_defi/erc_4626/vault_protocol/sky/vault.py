@@ -4,19 +4,23 @@ Sky (formerly MakerDAO) is one of the oldest and most established DeFi protocols
 The protocol provides the USDS stablecoin and allows users to earn yield through
 staking USDS in Sky savings vaults.
 
-Sky offers two ERC-4626 compliant tokenised vaults:
+Sky offers ERC-4626 compliant tokenised vaults:
 
-- **stUSDS** (Staked USDS): The original Sky savings vault
+- **stUSDS** (Staked USDS): The original Sky savings vault for USDS
 - **sUSDS** (Savings USDS): An additional savings vault with the same mechanics
+- **sDAI** (Savings DAI): The original MakerDAO DAI Savings Rate vault
 
-Both vaults allow users to stake USDS and earn the Sky Savings Rate (SSR). The
+The USDS vaults allow users to stake USDS and earn the Sky Savings Rate (SSR). The
 vaults accumulate yield through the ``drip()`` mechanism which accrues interest
 based on the ``chi`` rate accumulator.
+
+The sDAI vault allows users to deposit DAI and earn the DAI Savings Rate (DSR)
+through MakerDAO's Pot contract.
 
 Key features:
 
 - No deposit/withdrawal fees at the smart contract level
-- Yield accrues through the Sky Savings Rate (SSR)
+- Yield accrues through the Sky Savings Rate (SSR) or DAI Savings Rate (DSR)
 - Instant deposits and withdrawals
 - Fully decentralised and battle-tested infrastructure
 
@@ -26,6 +30,7 @@ Key features:
 - Twitter: https://x.com/SkyEcosystem
 - stUSDS Contract: https://etherscan.io/address/0x99cd4ec3f88a45940936f469e4bb72a2a701eeb9
 - sUSDS Contract: https://etherscan.io/address/0xa3931d71877c0e7a3148cb7eb4463524fec27fbd
+- sDAI Contract: https://etherscan.io/address/0x83f20f44975d03b1b09e64809b757c47f942beea
 """
 
 import datetime
@@ -41,9 +46,10 @@ logger = logging.getLogger(__name__)
 class SkyVault(ERC4626Vault):
     """Sky protocol vault support.
 
-    Sky savings vaults (stUSDS and sUSDS) allow users to stake USDS and earn the
-    Sky Savings Rate. The vaults accumulate yield through the ``chi`` rate
-    accumulator which is updated via the ``drip()`` function.
+    Sky savings vaults (stUSDS, sUSDS, and sDAI) allow users to stake stablecoins
+    and earn yield. The USDS vaults earn the Sky Savings Rate while sDAI earns the
+    DAI Savings Rate. The vaults accumulate yield through rate accumulators which
+    are updated via the ``drip()`` function.
 
     - Homepage: https://sky.money/
     - Documentation: https://developers.sky.money/
@@ -51,6 +57,7 @@ class SkyVault(ERC4626Vault):
     - Twitter: https://x.com/SkyEcosystem
     - stUSDS Contract: https://etherscan.io/address/0x99cd4ec3f88a45940936f469e4bb72a2a701eeb9
     - sUSDS Contract: https://etherscan.io/address/0xa3931d71877c0e7a3148cb7eb4463524fec27fbd
+    - sDAI Contract: https://etherscan.io/address/0x83f20f44975d03b1b09e64809b757c47f942beea
     """
 
     def has_custom_fees(self) -> bool:
