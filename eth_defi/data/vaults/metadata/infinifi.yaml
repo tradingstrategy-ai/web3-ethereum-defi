@@ -1,0 +1,36 @@
+name: infiniFi
+slug: infinifi
+short_description: |
+  On-chain fractional reserve banking protocol with transparent yield distribution.
+long_description: |
+  infiniFi is a DeFi protocol that recreates fractional reserve banking on-chain on Ethereum.
+  The protocol enables users to deposit stablecoins to mint iUSD receipt tokens, which can
+  then be staked for yield through siUSD (liquid staking) or liUSD (locked staking).
+
+  By merging liquid and illiquid assets into a capital-efficient system with transparent
+  fractional reserves, infiniFi delivers superior yields to depositors. The protocol
+  allocates capital into yield strategies through integrations with Aave, Pendle, Fluid,
+  and Ethena, while maintaining reserves for redemptions.
+
+  In case of losses, the protocol has an explicit waterfall mechanism: locked liUSD
+  holders absorb losses first, then siUSD stakers, and finally plain iUSD holders.
+  This provides different risk/reward profiles for users based on their preferences.
+
+  The protocol was founded in 2024 and raised $3 million in pre-seed funding from
+  investors including Electric Capital, New Form Capital, Axiom, and Kraynos Capital.
+fee_description: |
+  infiniFi's fee structure is not publicly documented in detail. The protocol uses
+  epoch-based reward distribution to smooth yield over time.
+links:
+  homepage: https://infinifi.xyz/
+  app: https://app.infinifi.xyz/deposit
+  twitter: https://x.com/infinifi_
+  github: https://github.com/InfiniFi-Labs/infinifi-protocol
+  documentation: https://research.nansen.ai/articles/understanding-infini-fi-the-on-chain-fractional-reserve-banking-protocol
+  defillama: https://defillama.com/protocol/infinifi
+  audits: https://cantina.xyz/competitions/2ac7f906-1661-47eb-bfd6-519f5db0d36b
+  fees:
+  trading_strategy:
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/infinifi/index.html
+example_smart_contracts:
+  - https://etherscan.io/address/0xdbdc1ef57537e34680b898e1febd3d68c7389bcb

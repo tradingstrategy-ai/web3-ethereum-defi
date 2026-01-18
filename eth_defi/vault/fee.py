@@ -109,6 +109,8 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "Hyperlend": VaultFeeMode.internalised_skimming,
     # Sentiment SuperPools - fees taken from interest earned
     "Sentiment": VaultFeeMode.internalised_skimming,
+    # infiniFi - fees are internalised via epoch-based reward distribution
+    "infiniFi": None,
 }
 
 

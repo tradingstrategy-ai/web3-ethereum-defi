@@ -481,6 +481,12 @@ class ERC4626Feature(enum.Enum):
     #: https://www.sentiment.xyz/
     sentiment_like = "sentiment_like"
 
+    #: infiniFi
+    #:
+    #: On-chain fractional reserve banking protocol with siUSD liquid staking.
+    #: https://infinifi.xyz/
+    infinifi_like = "infinifi_like"
+
 
 def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     """Deduct vault protocol name based on Vault smart contract features.
@@ -691,6 +697,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.sentiment_like in features:
         return "Sentiment"
+
+    elif ERC4626Feature.infinifi_like in features:
+        return "infiniFi"
 
     # No idea
     if ERC4626Feature.erc_7540_like in features:
