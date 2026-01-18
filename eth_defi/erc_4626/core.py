@@ -475,6 +475,12 @@ class ERC4626Feature(enum.Enum):
     #: https://app.hyperlend.finance/hlp
     hyperlend_like = "hyperlend_like"
 
+    #: Sentiment
+    #:
+    #: Decentralised leverage lending protocol with SuperPool vault aggregators.
+    #: https://www.sentiment.xyz/
+    sentiment_like = "sentiment_like"
+
 
 def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     """Deduct vault protocol name based on Vault smart contract features.
@@ -682,6 +688,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.hyperlend_like in features:
         return "Hyperlend"
+
+    elif ERC4626Feature.sentiment_like in features:
+        return "Sentiment"
 
     # No idea
     if ERC4626Feature.erc_7540_like in features:

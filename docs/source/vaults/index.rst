@@ -65,6 +65,7 @@ Supported protocols
    plutus/index
    resolv/index
    royco/index
+   sentiment/index
    silo/index
    singularity/index
    sky/index

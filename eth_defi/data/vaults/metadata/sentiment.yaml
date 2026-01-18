@@ -1,0 +1,36 @@
+name: Sentiment
+slug: sentiment
+short_description: |
+  Decentralised onchain lending protocol with isolated pools and SuperPool vault aggregators.
+long_description: |
+  Sentiment is a decentralised onchain lending protocol that enables users to programmatically
+  lend and borrow digital assets on Ethereum and L2 chains. The protocol features isolated
+  pools for risk management, allowing lenders to choose their risk exposure.
+
+  The protocol uses a SuperPool architecture where deposits are aggregated across multiple
+  underlying lending pools. SuperPools are ERC-4626 compliant vault aggregators that manage
+  deposits with configurable allocation strategies controlled by allocators.
+
+  Key features:
+
+  - **Isolated pools**: Each pool has its own risk parameters and collateral requirements
+  - **SuperPools**: ERC-4626 vault aggregators that diversify deposits across multiple pools
+  - **Configurable fees**: Fees taken from interest earned, paid to fee recipients
+  - **Allocator system**: Third-party operators can manage pool allocations
+fee_description: |
+  Sentiment SuperPools charge a fee on interest earned. The fee is expressed as a value out of
+  1e18, where 1e18 represents 100%. When interest accrues, new shares are minted to the fee
+  recipient proportional to the configured fee rate.
+links:
+  homepage: https://www.sentiment.xyz/
+  app: https://app.sentiment.xyz/
+  twitter: https://x.com/sentimentxyz
+  github: https://github.com/sentimentxyz/protocol-v2
+  documentation: https://docs.sentiment.xyz/
+  defillama: https://defillama.com/protocol/sentiment
+  audits: https://github.com/sentimentxyz/protocol-v2/tree/master/audits
+  fees:
+  trading_strategy:
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/sentiment/index.html
+example_smart_contracts:
+  - https://hyperevmscan.io/address/0xe45e7272da7208c7a137505dfb9491e330bf1a4e
