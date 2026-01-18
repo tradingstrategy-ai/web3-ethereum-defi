@@ -6,6 +6,8 @@ long_description: |
   YieldNest is a decentralised finance platform designed to simplify complex DeFi strategies. The protocol offers simple, high-yielding, risk-adjusted restaking and DeFi strategies, consolidating multiple protocol exposures into unified assets with Layer 1 settlement guarantees.
 
   The platform's core mission centres on democratising DeFi access through secure, innovative products. YieldNest enables users to gain diversified exposure across multiple protocols and chains simultaneously through non-custodial solutions with robust security measures.
+
+  ynRWAx: Tokenized Australian residential real estate credit earning 11% APY, allocated to mortgage-backed loans on verified house-and-land developments. Made safe in collaboration with a fully licensed and insured fund manager, Kimber Capital (AFS Licence No. 425278).
 fee_description: |
   YieldNest implements dynamic withdrawal fees that vary based on buffer availability. The baseWithdrawalFee() function returns the current fee in basis points. Management and performance fees are not explicitly documented in the smart contracts.
 links:

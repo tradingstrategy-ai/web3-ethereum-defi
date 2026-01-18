@@ -122,4 +122,4 @@ class YieldNestVault(ERC4626Vault):
         :return:
             Link to YieldNest homepage as individual vault pages are not available
         """
-        return "https://www.yieldnest.finance"
+        return "https://app.yieldnest.finance/"
