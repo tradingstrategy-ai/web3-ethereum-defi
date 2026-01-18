@@ -17,6 +17,9 @@ build:
 python:
   install:
     - requirements: docs/requirements.txt
+ commands:
+    -  python -m sphinx -j -T -b html -d _build/doctrees -D language=en . $READTHEDOCS_OUTPUT/html 
+
 
 submodules:
   # include: all
