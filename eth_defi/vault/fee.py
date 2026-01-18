@@ -29,6 +29,7 @@ class VaultFeeMode(enum.Enum):
     #:
     #: Example protocols: AUTO Finance
     internalised_minting = "internalised_minting"
+    
 
     #: Vault fees are taken from the user explicitly at the redemption time.
     #:
@@ -105,6 +106,8 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     # USDX Money sUSDX - yield is distributed through value appreciation (internalised)
     # Management and performance fees are both 0%
     "USDX Money": VaultFeeMode.internalised_skimming,
+    # Hyperlend WHLP - 10% performance fee on yield, internalised in share price
+    "Hyperlend": VaultFeeMode.internalised_skimming,
 }
 
 
