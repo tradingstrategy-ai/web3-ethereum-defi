@@ -250,7 +250,7 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     # Rezerve USDC
     "0xc42d337861878baa4dc820d9e6b6c667c2b57e8a": (VaultFlag.unofficial, MISSING_IN_PROTOCOL_FRONTEND),
     # YieldNest ynRWAx vault on Ethereum - fixed maturity date 15 Oct 2026
-    "0xf6e1443e3f70724cec8c0a779c7c35a8dcda928b": (None, YIELDNEST_YNRWAX),
+    "0x01ba69727e2860b37bc1a2bd56999c1afb4c15d8": (None, YIELDNEST_YNRWAX),
 }
 
 for addr in VAULT_FLAGS_AND_NOTES.keys():

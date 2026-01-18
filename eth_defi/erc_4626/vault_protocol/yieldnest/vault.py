@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 #: ynRWAx vault address on Ethereum
 #:
 #: This vault has a fixed maturity date of 15 Oct 2026.
-YNRWAX_VAULT_ADDRESS: HexAddress = "0xf6e1443e3f70724cec8c0a779c7c35a8dcda928b"
+YNRWAX_VAULT_ADDRESS: HexAddress = "0x01ba69727e2860b37bc1a2bd56999c1afb4c15d8"
 
 #: ynRWAx fixed maturity date
 YNRWAX_MATURITY_DATE = datetime.datetime(2026, 10, 15)
