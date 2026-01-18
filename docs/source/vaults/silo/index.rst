@@ -25,7 +25,7 @@ Links
 - `DefiLlama <https://defillama.com/protocol/silo-finance>`__
 
 .. autosummary::
-   :toctree: _autosummary_d2
+   :toctree: _autosummary_silo
    :recursive:
 
    eth_defi.erc_4626.vault_protocol.silo.vault

@@ -25,7 +25,7 @@ Links
 - `Twitter <https://x.com/goatfidao>`__
 
 .. autosummary::
-   :toctree: _autosummary_d2
+   :toctree: _autosummary_goat
    :recursive:
 
    eth_defi.erc_4626.vault_protocol.goat.vault

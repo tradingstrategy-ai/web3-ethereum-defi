@@ -40,7 +40,7 @@ Morpho V1 API
 ~~~~~~~~~~~~~
 
 .. autosummary::
-   :toctree: _autosummary_morpho
+   :toctree: _autosummary_vault_morpho
    :recursive:
 
    eth_defi.erc_4626.vault_protocol.morpho.vault_v1

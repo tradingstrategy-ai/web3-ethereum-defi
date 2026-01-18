@@ -27,7 +27,7 @@ Links
 - `Twitter <https://x.com/NashPointFi>`__
 
 .. autosummary::
-   :toctree: _autosummary_d2
+   :toctree: _autosummary_nashpoint
    :recursive:
 
    eth_defi.erc_4626.vault_protocol.nashpoint.vault

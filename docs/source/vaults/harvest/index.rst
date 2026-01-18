@@ -25,7 +25,7 @@ Links
 - `DefiLlama <https://defillama.com/protocol/harvest-finance>`__
 
 .. autosummary::
-   :toctree: _autosummary_plutus
+   :toctree: _autosummary_harvest
    :recursive:
 
    eth_defi.erc_4626.vault_protocol.harvest.vault

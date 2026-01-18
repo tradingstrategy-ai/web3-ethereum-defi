@@ -7,7 +7,7 @@ deploy smart contracts, debug smart contracts and manage wallets.
 The core API is built on the top of Web3.py library.
 
 .. autosummary::
-   :toctree: _autosummary
+   :toctree: _autosummary_core
    :recursive:
 
    eth_defi.chain

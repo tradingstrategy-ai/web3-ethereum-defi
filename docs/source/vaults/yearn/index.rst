@@ -25,7 +25,7 @@ Links
 - `DefiLlama <https://defillama.com/protocol/yearn-finance>`__
 
 .. autosummary::
-   :toctree: _autosummary_d2
+   :toctree: _autosummary_yearn
    :recursive:
 
    eth_defi.erc_4626.vault_protocol.yearn.vault
