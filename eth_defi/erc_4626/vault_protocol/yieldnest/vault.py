@@ -23,13 +23,6 @@ YNRWAX_VAULT_ADDRESS: HexAddress = "0xf6e1443e3f70724cec8c0a779c7c35a8dcda928b"
 #: ynRWAx fixed maturity date
 YNRWAX_MATURITY_DATE = datetime.datetime(2026, 10, 15)
 
-#: ynRWAx vault description
-YNRWAX_DESCRIPTION = """ynRWAx: Tokenized Australian residential real estate credit earning 11% APY, allocated to mortgage-backed loans on verified house-and-land developments. Made safe in collaboration with a fully licensed and insured fund manager, Kimber Capital (AFS Licence No. 425278).
-
-Fees: 0%.
-
-Fixed Maturity Date: 15 Oct, 2026."""
-
 
 class YieldNestVault(ERC4626Vault):
     """YieldNest vault support.
@@ -104,16 +97,6 @@ class YieldNestVault(ERC4626Vault):
             now = native_datetime_utc_now()
             if now < YNRWAX_MATURITY_DATE:
                 return YNRWAX_MATURITY_DATE - now
-        return None
-
-    def get_notes(self) -> str | None:
-        """Get notes for the vault.
-
-        :return:
-            Description for ynRWAx vault, None for other vaults
-        """
-        if self.vault_address.lower() == YNRWAX_VAULT_ADDRESS:
-            return YNRWAX_DESCRIPTION
         return None
 
     def get_link(self, referral: str | None = None) -> str:

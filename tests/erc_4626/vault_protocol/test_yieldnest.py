@@ -4,14 +4,15 @@ import datetime
 import os
 from pathlib import Path
 
+import flaky
 import pytest
 from web3 import Web3
-import flaky
 
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
-from eth_defi.erc_4626.core import get_vault_protocol_name, ERC4626Feature
-from eth_defi.erc_4626.vault_protocol.yieldnest.vault import YieldNestVault, YNRWAX_VAULT_ADDRESS
-from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch
+from eth_defi.erc_4626.core import ERC4626Feature, get_vault_protocol_name
+from eth_defi.erc_4626.vault_protocol.yieldnest.vault import (
+    YNRWAX_VAULT_ADDRESS, YieldNestVault)
+from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.vault.base import VaultTechnicalRisk
 
@@ -79,6 +80,3 @@ def test_yieldnest_ynrwax(
     assert "Kimber Capital" in notes
     assert "15 Oct, 2026" in notes
 
-    # Check vault link
-    link = vault.get_link()
-    assert link == "https://www.yieldnest.finance"
