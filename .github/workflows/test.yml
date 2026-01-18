@@ -65,6 +65,9 @@ jobs:
           # https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#adding-a-system-path
           echo $PNPM_HOME >> $GITHUB_PATH
 
+      - name: Install poetry less than 2.3 (using matrix Python)
+        run: pipx install "poetry<2.3" --python "${{ env.PYTHON_PATH }}"
+
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
@@ -73,11 +76,6 @@ jobs:
           cache-dependency-path: |
             **/pyproject.toml 
             .web3v7.txt
-
-      # Poetry 2.0 breaks everything
-      # https://github.com/python-poetry/poetry/blob/main/CHANGELOG.md
-      - name: Install poetry less than 2.3 (using matrix Python)
-        run: pipx install "poetry<2.3" --python "${{ env.PYTHON_PATH }}"
 
       # Install dependencies with the specific Web3.py version
       # Using a single installation command to avoid conflicts
