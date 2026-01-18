@@ -44,6 +44,14 @@ class WrappedHLPVault(ERC4626Vault):
     - Contract: https://hyperevmscan.io/address/0x06fd9d03b3d0f18e4919919b72d30c582f0a97e5
     """
 
+    @property
+    def name(self) -> str:
+        """Override the vault name.
+
+        The on-chain name is generic, so we provide a more descriptive name.
+        """
+        return "Wrapped HLP"
+
     def has_custom_fees(self) -> bool:
         """Whether this vault has deposit/withdrawal fees.
 

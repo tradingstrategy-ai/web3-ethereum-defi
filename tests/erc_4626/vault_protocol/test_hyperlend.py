@@ -52,6 +52,7 @@ def test_hyperlend(
     assert isinstance(vault, WrappedHLPVault)
     assert vault.get_protocol_name() == "Hyperlend"
     assert vault.features == {ERC4626Feature.hyperlend_like}
+    assert vault.name == "Wrapped HLP"
 
     # Fee data
     assert vault.get_management_fee("latest") == 0.0

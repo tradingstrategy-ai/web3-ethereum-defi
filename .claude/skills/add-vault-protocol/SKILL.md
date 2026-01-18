@@ -295,6 +295,8 @@ Read `eth_defi/data/vaults/README.md` and use it to write a YAML file for the va
 - Use `extract-vault-protocol-logo` skill to save the vault protocol original logo files
 - Use `post-process-logo` skill to create a light variant of the logo
 
+AFTER COMPLETING THIS STEP REMEMBER TO CONTINUE WITH THE MAIN TASK.
+
 ## Step 12: Verification checklist
 
 After implementation, verify:

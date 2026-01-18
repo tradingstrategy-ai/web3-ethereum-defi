@@ -120,7 +120,7 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Fluid": VaultTechnicalRisk.low,
     "ZeroLend": VaultTechnicalRisk.dangerous,
     "USDX Money": None,
-    "Hyperlend": None,
+    "Hyperlend": VaultTechnicalRisk.severe,
 }
 
 #: Particular vaults that are broken, misleading or otherwise problematic.
