@@ -16,6 +16,12 @@ jobs:
       group: ${{ github.workflow }}-${{ github.ref }}
       cancel-in-progress: true
 
+    # Permissions for GitHub Pages deployment
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+
     steps:
       - uses: actions/checkout@v4
         with:
@@ -46,10 +52,14 @@ jobs:
         run: |
           poetry run make build-docs
 
-      # Deploy to GitHub Pages only on push to master
-      - name: Deploy to GitHub Pages
-        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-        uses: peaceiris/actions-gh-pages@v4
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./docs/build/html
+          path: './docs/build/html'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
