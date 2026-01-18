@@ -107,8 +107,8 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "USDX Money": VaultFeeMode.internalised_skimming,
     # Hyperlend WHLP - 10% performance fee on yield, internalised in share price
     "Hyperlend": VaultFeeMode.internalised_skimming,
-    # Sentiment SuperPools - fees taken from interest earned, minted as new shares
-    "Sentiment": VaultFeeMode.internalised_minting,
+    # Sentiment SuperPools - fees taken from interest earned
+    "Sentiment": VaultFeeMode.internalised_skimming,
 }
 
 
