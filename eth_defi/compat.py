@@ -531,7 +531,7 @@ if WEB3_PY_V7:
     check_if_retry_on_failure_compat = check_if_retry_on_failure_v7
     _geth_poa_middleware = ExtraDataToPOAMiddleware
 else:
-    from eth_utils.abi import abi_to_signature as _abi_to_signature
+    from eth_utils.abi import _abi_to_signature
     from web3._utils.request import \
         get_response_from_post_request as _get_response_from_post_request
     from web3.middleware import (construct_sign_and_send_raw_middleware,
