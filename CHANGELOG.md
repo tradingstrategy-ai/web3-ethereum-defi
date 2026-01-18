@@ -1,5 +1,6 @@
 # 0.39
 
+- Add: [Spark](https://tradingstrategy.ai/trading-view/vaults/protocols/spark) spUSDT (Spark Savings USDT) vault on Ethereum (2026-01-18)
 - Add: [Sky](https://tradingstrategy.ai/trading-view/vaults/protocols/sky) sDAI (Savings DAI) vault on Ethereum (2026-01-18)
 - Fix: YieldNest protocol detection now uses hardcoded address for ynRWAx vault on Ethereum, with fixed maturity date (15 Oct 2026) and vault-specific notes (2026-01-18)
 - Add: New protocol: [Sentiment](https://www.sentiment.xyz/) - decentralised leverage lending protocol with SuperPool vault aggregators on HyperEVM (2026-01-18)
