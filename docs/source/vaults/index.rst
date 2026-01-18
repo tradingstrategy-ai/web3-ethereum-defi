@@ -54,6 +54,7 @@ Supported protocols
    harvest/index
    hyperlend/index
    hypurrfi/index
+   infinifi/index
    ipor/index
    lagoon/index
    liquidity_royalty/index
