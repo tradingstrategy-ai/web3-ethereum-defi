@@ -12,6 +12,7 @@ from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.sentiment.vault import SentimentVault
 from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.vault.base import VaultTechnicalRisk
 
 JSON_RPC_HYPERLIQUID = os.environ.get("JSON_RPC_HYPERLIQUID")
 
@@ -59,8 +60,8 @@ def test_sentiment(
     assert perf_fee is not None
     assert 0 <= perf_fee <= 1.0  # Fee should be between 0% and 100%
 
-    # Risk level is not yet set for Sentiment
-    assert vault.get_risk() is None
+    # Risk level is low for Sentiment
+    assert vault.get_risk() == VaultTechnicalRisk.low
 
     # Test the link
     assert vault.get_link() == "https://app.sentiment.xyz/"
