@@ -74,7 +74,7 @@ class TokenRiskFlags(TypedDict):
 
     Example:
 
-    .. code-block:: json
+    .. code-block:: none
 
         {
         'description': "The token contract's transfer or transferFrom "

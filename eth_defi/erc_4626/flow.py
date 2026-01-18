@@ -136,14 +136,17 @@ def redeem_4626(
 
     .. table:: Key Differences Between Redeem and Withdraw in ERC-4626
 
-       +----------------+----------------------------------------+----------------------------------------+
-       | **Aspect**     | **Redeem**                             | **Withdraw**                           |
-       +----------------+----------------------------------------+----------------------------------------+
-       | **Input**      | Number of shares to burn               | Number of assets to receive    |
-       | **Output**      | Assets received                        | Shares burned                          |
-       | **User Intent**| Burn a specific number of shares       | Receive a specific amount of assets|
-       | **Calculation**| Shares → Assets                       | Assets → Shares                        |
-       +----------------+----------------------------------------+----------------------------------------+
+       +------------------+----------------------------------------+------------------------------------------+
+       | **Aspect**       | **Redeem**                             | **Withdraw**                             |
+       +==================+========================================+==========================================+
+       | **Input**        | Number of shares to burn               | Number of assets to receive              |
+       +------------------+----------------------------------------+------------------------------------------+
+       | **Output**       | Assets received                        | Shares burned                            |
+       +------------------+----------------------------------------+------------------------------------------+
+       | **User Intent**  | Burn a specific number of shares       | Receive a specific amount of assets      |
+       +------------------+----------------------------------------+------------------------------------------+
+       | **Calculation**  | Shares → Assets                        | Assets → Shares                          |
+       +------------------+----------------------------------------+------------------------------------------+
 
     Example:
 

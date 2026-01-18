@@ -696,11 +696,11 @@ class NetAssetValueCalculator:
 
                 - Price impact included
 
-                :param allow_failed_routing:
-                    Raise an error if we cannot get a single route for some token
-        s
-                :return:
-                    Map of token address -> valuation in denomiation token
+        :param allow_failed_routing:
+            Raise an error if we cannot get a single route for some token
+
+        :return:
+            Map of token address -> valuation in denomiation token
         """
         assert portfolio.is_spot_only()
         assert portfolio.get_position_count() > 0, "Empty portfolio"

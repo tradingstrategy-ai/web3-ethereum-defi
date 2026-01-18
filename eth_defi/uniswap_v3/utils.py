@@ -63,10 +63,10 @@ def decode_path(full_path_encoded: bytes) -> list:
     """Decodes the path. A bit tricky. Thanks to https://degencode.substack.com/p/project-uniswapv3-mempool-watcher
 
     :param full_path_encoded:
-    Encoded path as returned from router.decode_function_input (bytes)
+        Encoded path as returned from router.decode_function_input (bytes)
 
     :returns:
-    fully decoded path array including addresses and fees
+        Fully decoded path array including addresses and fees
     """
 
     assert type(full_path_encoded == bytes), "encoded path must be provided as bytes"

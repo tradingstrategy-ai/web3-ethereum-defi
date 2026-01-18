@@ -23,7 +23,7 @@ class GoatVault(ERC4626Vault):
     - `Multistrategy contract on Github <https://github.com/goatfi/contracts/blob/main/src/infra/multistrategy/Multistrategy.sol>`__
     - Fees are internalised into the share price of the strategy (similar as Yearn, Harvest).
 
-    Withdraw logic:
+    Withdraw logic (from ``_withdraw`` function):
 
     .. code-block:: solidity
 
@@ -96,9 +96,9 @@ class GoatVault(ERC4626Vault):
             return (assets, shares);
         }
 
-    Fee calculation:
+    Fee calculation (from ``_report`` function):
 
-        .. code-block:: solidity
+    .. code-block:: solidity
 
         /// @notice Reports the performance of a strategy.
         ///

@@ -1,5 +1,5 @@
 Untangle Finance API
--------------------
+--------------------
 
 `Untangled Finance <https://untangled.finance/>`__ vault integration.
 

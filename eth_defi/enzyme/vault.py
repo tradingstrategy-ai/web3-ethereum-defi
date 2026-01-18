@@ -88,7 +88,7 @@ class Vault:
 
     #: Our custom adapter for vault trades.
     #:
-    #: See :py:mod:`~eth_defi.enzyme.generic_adapter.
+    #: See :py:mod:`~eth_defi.enzyme.generic_adapter`.
     #:
     #: The Enzyme deployment does not know anything about the generic adapter.
     #: The generic adapter whitelists Enzyme's integration manager on the launch.
@@ -99,7 +99,7 @@ class Vault:
 
     #: Our custom EIP-3009 payment forwarder for the vault
     #:
-    #: See :py:mod:`~eth_defi.usdc.transfer_with_authorization.
+    #: See :py:mod:`~eth_defi.usdc.transfer_with_authorization`.
     #:
     #: Allows single click buy ins if there is no USDC in the vallet.
     #:

@@ -34,7 +34,7 @@ class LlamaLendVault(ERC4626Vault):
     based on market conditions through arbitrage traders. Each individual market has its own AMM
     containing the collateral and borrowable asset. E.g. the AMM of the ETH<>crvUSD contains of ETH and crvUSD.
 
-    - `LLAMMA explained <https://docs.curve.finance/crvUSD/amm/>__
+    - `LLAMMA explained <https://docs.curve.finance/crvUSD/amm/>`__
     - `Vault smart contract code: <https://arbiscan.io/address/0xe296ee7f83d1d95b3f7827ff1d08fe1e4cf09d8d#code>`__
     - `Llama Lend markets <https://www.curve.finance/llamalend/ethereum/markets>`__
     """

@@ -47,7 +47,7 @@ Include this is in your environment as:
 
     source credentials.env
 
-To test that Google Cloud HSM setup work, copy-paste the following snippet to IPython console using ``%cpaste`,
+To test that Google Cloud HSM setup work, copy-paste the following snippet to IPython console using ``%cpaste``,
 or use ``scripts/hsm/check-hsm-address.py`` script:
 
 .. code-block:: python
@@ -152,7 +152,7 @@ class GCloudHSMWallet(BaseWallet):
             }
 
             signed_tx = wallet.sign_transaction_with_new_nonce(tx)
-            tx_hash = web3.eth.send_raw_transaction(raw_bytes = get_tx_broadcast_data(signed_tx)\n)
+            tx_hash = web3.eth.send_raw_transaction(raw_bytes=get_tx_broadcast_data(signed_tx))
             assert_transaction_success_with_explanation(web3, tx_hash)
 
     Example with explicit configuration:
@@ -445,8 +445,8 @@ class GCloudHSMWallet(BaseWallet):
 
         Args:
             func: Contract function to call
-            *args: Arguments to pass to the contract function
-            **kwargs: Additional arguments including transaction overrides
+            args: Arguments to pass to the contract function
+            kwargs: Additional arguments including transaction overrides
 
         Returns:
             Signed transaction ready for broadcasting

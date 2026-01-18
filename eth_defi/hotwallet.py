@@ -536,7 +536,7 @@ class HotWallet:
             )
 
             receipt = receipts[signed_tx.hash]
-            print(f"Transaction broadcasted:\n{pformat(dict(receipt.items()))}")
+            print(f"Transaction broadcasted: {pformat(dict(receipt.items()))}")
 
         :param tx:
             Transaction data as a dictionary.

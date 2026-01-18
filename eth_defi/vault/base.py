@@ -706,14 +706,15 @@ class VaultBase(ABC):
     def has_custom_fees(self) -> bool:
         """Does this vault have custom fee structure reading methods.
 
-                Causes risk in the vault comparison.
+        Causes risk in the vault comparison.
 
-                -E.g.
-                - Withdraw fee
-                - Deposit fee
-        s
-                :return:
-                    True if custom fee reading methods are implemented
+        E.g.
+
+        - Withdraw fee
+        - Deposit fee
+
+        :return:
+            True if custom fee reading methods are implemented
         """
         return False
 

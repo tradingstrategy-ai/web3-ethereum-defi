@@ -720,7 +720,7 @@ def fetch_erc20_details(
 
         Set to ``None`` to disable the cache.
 
-        Instance of :py:class:`cachetools.Cache'.
+        Instance of :py:class:`cachetools.Cache`.
         See `cachetools documentation for details <https://cachetools.readthedocs.io/en/latest/#cachetools.LRUCache>`__.
 
     :param chain_id:

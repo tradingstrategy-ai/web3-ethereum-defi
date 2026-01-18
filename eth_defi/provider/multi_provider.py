@@ -339,7 +339,7 @@ def _fix_provider(provider: HTTPProvider):
 
 
 class MultiProviderWeb3Factory:
-    """Needed to pass RPC URL as :py:type:`Web3Factory`
+    """Needed to pass RPC URL as :py:data:`Web3Factory`
 
     - Allows creating web3 connections from a config line in multiprocessing worker pools
     """
