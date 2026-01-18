@@ -96,7 +96,7 @@ html_baseurl = "https://web3-ethereum-defi.readthedocs.io/"
 #
 nbsphinx_execute = "never"
 nbsphinx_thumbnails = {}  # Disable gallery thumbnails
-nbsphinx_kernel_name = 'python3'
+nbsphinx_kernel_name = "python3"
 
 
 # Do not offer "Launch Binder" or similar button

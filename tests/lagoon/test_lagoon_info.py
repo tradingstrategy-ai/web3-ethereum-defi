@@ -46,6 +46,8 @@ def test_lagoon_safe(read_only_vault: LagoonVault):
     assert safe.retrieve_modules() == ["0x0b2582E9Bf6AcE4E7f42883d4E91240551cf0947", "0x0Cdee1aCD67a424E476AD97bC60aa5F35D2556c9"]
 
 
+# ERROR tests/lagoon/test_lagoon_info.py::test_lagoon_tokens - ValueError: RPC smoke test failed for ***: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+@flaky.flaky
 def test_lagoon_tokens(read_only_vault: LagoonVault):
     """We are denominated in the USDC"""
     vault = read_only_vault

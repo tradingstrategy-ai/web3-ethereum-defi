@@ -45,8 +45,7 @@ if WEB3_PY_V7:
         )
         return method in DEFAULT_ALLOWLIST
 else:
-    from web3.middleware.exception_retry_request import \
-        check_if_retry_on_failure
+    from web3.middleware.exception_retry_request import check_if_retry_on_failure
 
 # Replace the APICallCounterMiddleware class and related functions with this:
 
@@ -149,8 +148,7 @@ def add_middleware(web3, middleware_func_or_name, layer=0):
 def check_if_retry_on_failure_v6(method):
     """v6 implementation of check_if_retry_on_failure"""
     if not WEB3_PY_V7:
-        from web3.middleware.exception_retry_request import \
-            check_if_retry_on_failure
+        from web3.middleware.exception_retry_request import check_if_retry_on_failure
 
         return check_if_retry_on_failure(method)
     return None
@@ -161,8 +159,7 @@ def check_if_retry_on_failure_v7(method):
     if WEB3_PY_V7:
         # Try to import from v7 location, or use fallback
         try:
-            from web3.middleware.exception_retry_request import \
-                check_if_retry_on_failure
+            from web3.middleware.exception_retry_request import check_if_retry_on_failure
 
             return check_if_retry_on_failure(method)
         except ModuleNotFoundError:
@@ -204,6 +201,7 @@ def exception_retry_middleware_v6(
         from pprint import pformat
 
         from eth_defi.event_reader.fast_json_rpc import get_last_headers
+
         # Import the helper function we need
         from eth_defi.middleware import is_retryable_http_exception
 
@@ -384,8 +382,7 @@ def install_retry_middleware_compat(web3: HTTPProvider, layer: int = 0):
             )
     else:
         # v6 uses middleware injection
-        from eth_defi.middleware import \
-            http_retry_request_with_sleep_middleware
+        from eth_defi.middleware import http_retry_request_with_sleep_middleware
 
         web3.middleware_onion.inject(http_retry_request_with_sleep_middleware, layer=layer)
 
@@ -511,8 +508,7 @@ def encode_abi_compat(contract: Contract, fn_name: str, args: list[Any]) -> HexS
 if WEB3_PY_V7:
     from eth_utils.abi import abi_to_signature as _abi_to_signature
     from web3._utils.http_session_manager import HTTPSessionManager
-    from web3.middleware import (ExtraDataToPOAMiddleware,
-                                 SignAndSendRawMiddlewareBuilder)
+    from web3.middleware import ExtraDataToPOAMiddleware, SignAndSendRawMiddlewareBuilder
 
     sessions = HTTPSessionManager()
     _get_response_from_post_request = sessions.get_response_from_post_request
@@ -532,10 +528,8 @@ if WEB3_PY_V7:
     _geth_poa_middleware = ExtraDataToPOAMiddleware
 else:
     from eth_utils.abi import _abi_to_signature
-    from web3._utils.request import \
-        get_response_from_post_request as _get_response_from_post_request
-    from web3.middleware import (construct_sign_and_send_raw_middleware,
-                                 geth_poa_middleware)
+    from web3._utils.request import get_response_from_post_request as _get_response_from_post_request
+    from web3.middleware import construct_sign_and_send_raw_middleware, geth_poa_middleware
 
     encode_function_args = encode_function_args_v6
     get_function_info = get_function_info_v6
