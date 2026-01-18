@@ -140,6 +140,8 @@ To use this package you need to
 
 # Install
 
+**Warning**: Currently, installation fails with Poetry 2.3 and some other package manager versions.
+
 With `pip`:
 
 ```shell
