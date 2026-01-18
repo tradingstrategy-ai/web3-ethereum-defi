@@ -14,11 +14,13 @@ build:
   tools:
     python: "3.11"
   commands:
+    # - python -m pip install --upgrade --no-cache-dir pip setuptools
+	  - python -m pip install --exists-action=w --no-cache-dir -r docs/requirements.txt
     - python -m sphinx -j -T -b html -d _build/doctrees -D language=en . $READTHEDOCS_OUTPUT/html
 
-python:
-  install:
-    - requirements: docs/requirements.txt
+#python:
+#  install:
+#    - requirements: docs/requirements.txt
 
 submodules:
   # include: all
