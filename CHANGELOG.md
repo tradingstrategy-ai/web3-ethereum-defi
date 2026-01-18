@@ -1,5 +1,6 @@
 # 0.39
 
+- Fix: YieldNest protocol detection now uses hardcoded address for ynRWAx vault on Ethereum, with fixed maturity date (15 Oct 2026) and vault-specific notes (2026-01-18)
 - Add: New protocol: [Sentiment](https://www.sentiment.xyz/) - decentralised leverage lending protocol with SuperPool vault aggregators on HyperEVM (2026-01-18)
 - Add: New protocol: [Hyperlend](https://hyperlend.finance/) - Wrapped HLP vault on HyperEVM for tokenised HyperLiquidity Provider (2026-01-18)
 - Add: New protocol: [USDX Money](https://usdx.money/) - synthetic USD stablecoin protocol with sUSDX staking vault (2026-01-16)

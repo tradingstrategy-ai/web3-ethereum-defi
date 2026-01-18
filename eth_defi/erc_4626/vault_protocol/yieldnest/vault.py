@@ -4,14 +4,24 @@ import datetime
 import logging
 from functools import cached_property
 
-from eth_typing import BlockIdentifier
+from eth_typing import BlockIdentifier, HexAddress
 from web3 import Web3
 from web3.contract import Contract
 
 from eth_defi.abi import get_deployed_contract
+from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.vault import ERC4626Vault
 
 logger = logging.getLogger(__name__)
+
+
+#: ynRWAx vault address on Ethereum
+#:
+#: This vault has a fixed maturity date of 15 Oct 2026.
+YNRWAX_VAULT_ADDRESS: HexAddress = "0xf6e1443e3f70724cec8c0a779c7c35a8dcda928b"
+
+#: ynRWAx fixed maturity date
+YNRWAX_MATURITY_DATE = datetime.datetime(2026, 10, 15)
 
 
 class YieldNestVault(ERC4626Vault):
@@ -77,9 +87,16 @@ class YieldNestVault(ERC4626Vault):
 
         The lock-up depends on buffer availability and queue position.
 
+        For ynRWAx vault, there is a fixed maturity date of 15 Oct 2026.
+        After this date, returns None.
+
         :return:
-            None as withdrawal time varies
+            Timedelta until maturity date for ynRWAx vault, None otherwise
         """
+        if self.vault_address.lower() == YNRWAX_VAULT_ADDRESS:
+            now = native_datetime_utc_now()
+            if now < YNRWAX_MATURITY_DATE:
+                return YNRWAX_MATURITY_DATE - now
         return None
 
     def get_link(self, referral: str | None = None) -> str:
@@ -88,4 +105,4 @@ class YieldNestVault(ERC4626Vault):
         :return:
             Link to YieldNest homepage as individual vault pages are not available
         """
-        return "https://www.yieldnest.finance"
+        return "https://app.yieldnest.finance/"

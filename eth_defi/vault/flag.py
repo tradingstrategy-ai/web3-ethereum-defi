@@ -75,7 +75,7 @@ def get_vault_special_flags(address: str | HexAddress) -> set[VaultFlag]:
 
 def get_notes(address: HexAddress | str) -> str | None:
     """Get notes related to the flags."""
-    entry = VAULT_FLAGS_AND_NOTES.get(address)
+    entry = VAULT_FLAGS_AND_NOTES.get(address.lower())
     if entry:
         return entry[1]
     return None
@@ -108,6 +108,12 @@ PENDLE_LOOPING = "Abnormal high yield due to Pendle looping - more info here htt
 ZEROLEND_SUPERFORM_WITHDRAW_ONLY = "All ZeroLend vaults on Superform are in withdraw-only mode. Support could not give an answer on why."
 
 MISSING_IN_PROTOCOL_FRONTEND = "This vault is missing in the protocol's primary website and cannot be verified."
+
+YIELDNEST_YNRWAX = """ynRWAx: Tokenized Australian residential real estate credit earning 11% APY, allocated to mortgage-backed loans on verified house-and-land developments. Made safe in collaboration with a fully licensed and insured fund manager, Kimber Capital (AFS Licence No. 425278).
+
+Fees: 0%.
+
+Fixed Maturity Date: 15 Oct, 2026."""
 
 #: Vault manual blacklist flags and notes.
 #:
@@ -243,6 +249,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0xa446938b0204aa4055cdfed68ddf0e0d1bab3e9e": (VaultFlag.unofficial, MISSING_IN_PROTOCOL_FRONTEND),
     # Rezerve USDC
     "0xc42d337861878baa4dc820d9e6b6c667c2b57e8a": (VaultFlag.unofficial, MISSING_IN_PROTOCOL_FRONTEND),
+    # YieldNest ynRWAx vault on Ethereum - fixed maturity date 15 Oct 2026
+    "0xf6e1443e3f70724cec8c0a779c7c35a8dcda928b": (None, YIELDNEST_YNRWAX),
 }
 
 for addr in VAULT_FLAGS_AND_NOTES.keys():
