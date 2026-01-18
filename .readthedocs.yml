@@ -13,12 +13,12 @@ build:
   os: ubuntu-24.04
   tools:
     python: "3.11"
+  commands:
+    - python -m sphinx -j -T -b html -d _build/doctrees -D language=en . $READTHEDOCS_OUTPUT/html
 
 python:
   install:
     - requirements: docs/requirements.txt
-  commands:
-    - python -m sphinx -j -T -b html -d _build/doctrees -D language=en . $READTHEDOCS_OUTPUT/html
 
 submodules:
   # include: all
