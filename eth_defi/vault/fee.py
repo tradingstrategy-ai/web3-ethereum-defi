@@ -113,6 +113,8 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "infiniFi": None,
     # Renalta - unverified contract, fee mode unknown
     "Renalta": None,
+    # Avant - no explicit fees, yield distributed through rewards vesting
+    "Avant": VaultFeeMode.feeless,
 }
 
 

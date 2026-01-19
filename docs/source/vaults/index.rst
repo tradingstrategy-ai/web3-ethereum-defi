@@ -34,6 +34,7 @@ Supported protocols
 
    accountable/index
    altura/index
+   avant/index
    auto_finance/index
    brink/index
    cap/index

@@ -125,6 +125,8 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "infiniFi": None,
     # Unverified smart contract source code
     "Renalta": VaultTechnicalRisk.dangerous,
+    # Avant - strategies are not published smart contracts
+    "Avant": VaultTechnicalRisk.severe,
 }
 
 #: Particular vaults that are broken, misleading or otherwise problematic.
