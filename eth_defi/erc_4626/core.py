@@ -487,6 +487,12 @@ class ERC4626Feature(enum.Enum):
     #: https://infinifi.xyz/
     infinifi_like = "infinifi_like"
 
+    #: Renalta
+    #:
+    #: Unverified smart contract source code - treat with caution.
+    #: https://renalta.com/
+    renalta_like = "renalta_like"
+
 
 def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     """Deduct vault protocol name based on Vault smart contract features.
@@ -700,6 +706,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.infinifi_like in features:
         return "infiniFi"
+
+    elif ERC4626Feature.renalta_like in features:
+        return "Renalta"
 
     # No idea
     if ERC4626Feature.erc_7540_like in features:

@@ -64,6 +64,7 @@ Supported protocols
    morpho/index
    nashpoint/index
    plutus/index
+   renalta/index
    resolv/index
    royco/index
    sentiment/index

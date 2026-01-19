@@ -1541,6 +1541,11 @@ def create_vault_instance(
 
         return InfiniFiVault(web3, spec, token_cache=token_cache, features=features)
 
+    elif ERC4626Feature.renalta_like in features:
+        from eth_defi.erc_4626.vault_protocol.renalta.vault import RenaltaVault
+
+        return RenaltaVault(web3, spec, token_cache=token_cache, features=features)
+
     else:
         # Generic ERC-4626 without fee data
         from eth_defi.erc_4626.vault import ERC4626Vault
@@ -1681,6 +1686,10 @@ HARDCODED_PROTOCOLS = {
     # infiniFi - siUSD (Staked iUSD) vault on Ethereum
     # https://etherscan.io/address/0xdbdc1ef57537e34680b898e1febd3d68c7389bcb
     "0xdbdc1ef57537e34680b898e1febd3d68c7389bcb": {ERC4626Feature.infinifi_like},
+    # Renalta - vault on Base
+    # Unverified smart contract source code
+    # https://basescan.org/address/0x0ff79b6d6c0fb5faf54bd26db5ce97062a105f81
+    "0x0ff79b6d6c0fb5faf54bd26db5ce97062a105f81": {ERC4626Feature.renalta_like},
 }
 
 for a in HARDCODED_PROTOCOLS.keys():

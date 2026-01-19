@@ -111,6 +111,8 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "Sentiment": VaultFeeMode.internalised_skimming,
     # infiniFi - fees are internalised via epoch-based reward distribution
     "infiniFi": None,
+    # Renalta - unverified contract, fee mode unknown
+    "Renalta": None,
 }
 
 

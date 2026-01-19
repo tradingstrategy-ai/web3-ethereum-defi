@@ -123,6 +123,8 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Hyperlend": VaultTechnicalRisk.severe,
     "Sentiment": VaultTechnicalRisk.low,
     "infiniFi": None,
+    # Unverified smart contract source code
+    "Renalta": VaultTechnicalRisk.dangerous,
 }
 
 #: Particular vaults that are broken, misleading or otherwise problematic.
