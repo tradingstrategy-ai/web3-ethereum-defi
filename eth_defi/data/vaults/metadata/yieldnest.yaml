@@ -8,7 +8,7 @@ long_description: |
   The platform's core mission centres on democratising DeFi access through secure, innovative products. YieldNest enables users to gain diversified exposure across multiple protocols and chains simultaneously through non-custodial solutions with robust security measures.
 
 fee_description: |
-  YieldNest implements dynamic withdrawal fees that vary based on buffer availability. The baseWithdrawalFee() function returns the current fee in basis points. Management and performance fees are not explicitly documented in the smart contracts.
+  YieldNest implements dynamic withdrawal fees that vary based on buffer availability. The baseWithdrawalFee() function returns the current fee in basis points. YieldNest does not charge management or performance fees.
 links:
   homepage: https://www.yieldnest.finance
   twitter: https://twitter.com/YieldNestFi
