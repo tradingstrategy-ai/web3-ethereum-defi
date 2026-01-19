@@ -1,0 +1,27 @@
+name: Avant
+slug: avant
+short_description: |
+  Decentralised stablecoin protocol on Avalanche with yield-bearing assets
+long_description: |
+  Avant Protocol is a decentralised finance platform on Avalanche that offers on-chain yield-bearing assets through an adaptive multi-manager architecture. The protocol deploys capital across delta-neutral strategies managed by specialised strategy teams.
+
+  The protocol offers avUSD, a stablecoin that can be staked to receive savUSD (Staked avUSD). savUSD is an ERC-4626 vault token that earns yield from the protocol's reward distribution mechanism with an 8-hour vesting period for distributed rewards.
+
+  Key features include multi-layer security with reserve funds and junior tranches for loss protection, a transparent dashboard for capital allocation reporting, and risk-tiered options through senior and junior tranches. The protocol also supports avBTC and avETH products with corresponding boosted yield versions.
+
+fee_description: |
+  Avant Protocol does not charge management or performance fees at the smart contract level. Yield is distributed through the protocol's reward mechanism and vested over 8 hours. A configurable cooldown period may be required for withdrawals, controlled by governance.
+
+links:
+  homepage: https://www.avantprotocol.com
+  app: https://app.avantprotocol.com
+  twitter: https://x.com/avantprotocol
+  github: https://github.com/Avant-Protocol
+  documentation: https://docs.avantprotocol.com
+  defillama: https://defillama.com/protocol/avant-protocol
+  audits: https://docs.avantprotocol.com/overview/audit-and-security
+  fees:
+  trading_strategy:
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/avant/index.html
+example_smart_contracts:
+  - https://snowtrace.io/address/0x06d47f3fb376649c3a9dafe069b3d6e35572219e

@@ -1546,6 +1546,11 @@ def create_vault_instance(
 
         return RenaltaVault(web3, spec, token_cache=token_cache, features=features)
 
+    elif ERC4626Feature.avant_like in features:
+        from eth_defi.erc_4626.vault_protocol.avant.vault import AvantVault
+
+        return AvantVault(web3, spec, token_cache=token_cache, features=features)
+
     else:
         # Generic ERC-4626 without fee data
         from eth_defi.erc_4626.vault import ERC4626Vault
@@ -1690,6 +1695,9 @@ HARDCODED_PROTOCOLS = {
     # Unverified smart contract source code
     # https://basescan.org/address/0x0ff79b6d6c0fb5faf54bd26db5ce97062a105f81
     "0x0ff79b6d6c0fb5faf54bd26db5ce97062a105f81": {ERC4626Feature.renalta_like},
+    # Avant Protocol - savUSD vault on Avalanche
+    # https://snowtrace.io/address/0x06d47f3fb376649c3a9dafe069b3d6e35572219e
+    "0x06d47f3fb376649c3a9dafe069b3d6e35572219e": {ERC4626Feature.avant_like},
 }
 
 for a in HARDCODED_PROTOCOLS.keys():

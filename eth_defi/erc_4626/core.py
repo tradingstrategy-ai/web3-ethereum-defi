@@ -493,6 +493,12 @@ class ERC4626Feature(enum.Enum):
     #: https://renalta.com/
     renalta_like = "renalta_like"
 
+    #: Avant Protocol
+    #:
+    #: Stablecoin protocol on Avalanche with savUSD staking vault.
+    #: https://www.avantprotocol.com/
+    avant_like = "avant_like"
+
 
 def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     """Deduct vault protocol name based on Vault smart contract features.
@@ -709,6 +715,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.renalta_like in features:
         return "Renalta"
+
+    elif ERC4626Feature.avant_like in features:
+        return "Avant"
 
     # No idea
     if ERC4626Feature.erc_7540_like in features:
