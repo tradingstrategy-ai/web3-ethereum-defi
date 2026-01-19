@@ -71,7 +71,7 @@ by specifying `timeout: 180000` (3 minutes) in the bash tool parameters.
 Run ruff to format code using Poetry:
 
 ```shell
-poetry run format
+poetry run ruff format
 ```
 
 ## Pull requests

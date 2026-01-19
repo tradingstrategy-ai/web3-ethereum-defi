@@ -251,6 +251,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0xc42d337861878baa4dc820d9e6b6c667c2b57e8a": (VaultFlag.unofficial, MISSING_IN_PROTOCOL_FRONTEND),
     # YieldNest ynRWAx vault on Ethereum - fixed maturity date 15 Oct 2026
     "0x01ba69727e2860b37bc1a2bd56999c1afb4c15d8": (None, YIELDNEST_YNRWAX),
+    # Supply USDC on ZeroLend RWA Market
+    "0x887d57a509070a0843c6418eb5cffc090dcbbe95": (None, ZEROLEND_SUPERFORM_WITHDRAW_ONLY),
 }
 
 for addr in VAULT_FLAGS_AND_NOTES.keys():
