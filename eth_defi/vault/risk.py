@@ -114,7 +114,7 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Singularity Finance": None,
     "Brink": None,
     "Accountable": VaultTechnicalRisk.severe,
-    "YieldNest": None,
+    "YieldNest": VaultTechnicalRisk.low,
     "Dolomite": None,
     "HypurrFi": None,
     "Fluid": VaultTechnicalRisk.low,
