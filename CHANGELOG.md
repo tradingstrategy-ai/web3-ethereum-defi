@@ -1,5 +1,6 @@
 # 0.39
 
+- Add: New protocol: [Renalta](https://renalta.com/) - yield protocol on Base blockchain with unverified smart contract source code (2026-01-19)
 - Add: New protocol: [infiniFi](https://infinifi.xyz/) - on-chain fractional reserve banking protocol with siUSD liquid staking vault on Ethereum (2026-01-18)
 - Add: [Spark](https://tradingstrategy.ai/trading-view/vaults/protocols/spark) spUSDT (Spark Savings USDT) vault on Ethereum (2026-01-18)
 - Add: [Sky](https://tradingstrategy.ai/trading-view/vaults/protocols/sky) sDAI (Savings DAI) vault on Ethereum (2026-01-18)

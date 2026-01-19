@@ -1,0 +1,24 @@
+name: Renalta
+slug: renalta
+short_description: |
+  Yield protocol on Base blockchain.
+long_description: |
+  Renalta is a yield protocol deployed on Base blockchain.
+
+  **WARNING**: The smart contract source code is unverified on the blockchain explorer.
+  There is no Github repository and no security audits available. Use with extreme caution.
+fee_description: |
+  Fee information is unknown due to unverified smart contract source code.
+links:
+  homepage: https://renalta.com/
+  app:
+  twitter:
+  github:
+  documentation:
+  defillama:
+  audits:
+  fees:
+  trading_strategy:
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/renalta/index.html
+example_smart_contracts:
+  - https://basescan.org/address/0x0ff79b6d6c0fb5faf54bd26db5ce97062a105f81
