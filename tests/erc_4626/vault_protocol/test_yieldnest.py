@@ -59,9 +59,9 @@ def test_yieldnest_ynrwax(
     assert vault.get_protocol_name() == "YieldNest"
     assert vault.features == {ERC4626Feature.yieldnest_like}
 
-    # Check that management and performance fees return None (not documented)
-    assert vault.get_management_fee("latest") is None
-    assert vault.get_performance_fee("latest") is None
+    # Check that management and performance fees are zero
+    assert vault.get_management_fee("latest") == 0.0
+    assert vault.get_performance_fee("latest") == 0.0
 
     # Check risk level
     assert vault.get_risk() is None

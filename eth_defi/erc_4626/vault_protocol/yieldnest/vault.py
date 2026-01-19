@@ -65,22 +65,22 @@ class YieldNestVault(ERC4626Vault):
     def get_management_fee(self, block_identifier: BlockIdentifier) -> float:
         """Get the current management fee as a percent.
 
-        YieldNest does not appear to have explicit management fees documented.
+        YieldNest does not charge management fees.
 
         :return:
-            None if not available
+            0.0
         """
-        return None
+        return 0.0
 
-    def get_performance_fee(self, block_identifier: BlockIdentifier) -> float | None:
+    def get_performance_fee(self, block_identifier: BlockIdentifier) -> float:
         """Get the current performance fee as a percent.
 
-        YieldNest does not appear to have explicit performance fees documented.
+        YieldNest does not charge performance fees.
 
         :return:
-            None if not available
+            0.0
         """
-        return None
+        return 0.0
 
     def get_estimated_lock_up(self) -> datetime.timedelta | None:
         """YieldNest vaults support instant withdrawals from buffer or queue-based withdrawals.
