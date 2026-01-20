@@ -61,3 +61,28 @@ def test_spark(
 
     # Check risk level
     assert vault.get_risk() == VaultTechnicalRisk.negligible
+
+
+@flaky.flaky
+def test_spark_pyusd(
+    web3: Web3,
+    tmp_path: Path,
+):
+    """Read Spark spPYUSD vault metadata."""
+
+    vault = create_vault_instance_autodetect(
+        web3,
+        vault_address="0x80128dbb9f07b93dde62a6daeadb69ed14a7d354",
+    )
+
+    assert isinstance(vault, SparkVault)
+    assert vault.get_protocol_name() == "Spark"
+    assert vault.features == {ERC4626Feature.spark_like}
+
+    # Spark does not charge fees
+    assert vault.get_management_fee("latest") == 0.0
+    assert vault.get_performance_fee("latest") == 0.0
+    assert vault.has_custom_fees() is False
+
+    # Check risk level
+    assert vault.get_risk() == VaultTechnicalRisk.negligible

@@ -1606,6 +1606,9 @@ HARDCODED_PROTOCOLS = {
     # Spark - spUSDT (Spark Savings USDT) vault on Ethereum
     # https://etherscan.io/address/0xe2e7a17dff93280dec073c995595155283e3c372
     "0xe2e7a17dff93280dec073c995595155283e3c372": {ERC4626Feature.spark_like},
+    # Spark - spPYUSD (Spark Savings PYUSD) vault on Ethereum
+    # https://etherscan.io/address/0x80128dbb9f07b93dde62a6daeadb69ed14a7d354
+    "0x80128dbb9f07b93dde62a6daeadb69ed14a7d354": {ERC4626Feature.spark_like},
     # Deltr - StakeddUSD vault on Ethereum
     # https://etherscan.io/address/0xa7a31e6a81300120b7c4488ec3126bc1ad11f320
     "0xa7a31e6a81300120b7c4488ec3126bc1ad11f320": {ERC4626Feature.deltr_like},
