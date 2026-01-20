@@ -5,6 +5,7 @@ This module provides parameter parsing and validation for GMX orders.
 Converts user-friendly parameters (symbols, USD amounts) into contract-ready format.
 """
 
+import logging
 import numpy as np
 from web3 import Web3
 
@@ -13,6 +14,8 @@ from eth_defi.gmx.core.markets import Markets
 from eth_defi.gmx.core.oracle import OraclePrices
 from eth_defi.gmx.utils import determine_swap_route
 from eth_defi.gmx.contracts import get_tokens_metadata_dict
+
+logger = logging.getLogger(__name__)
 
 # Module-level caches to avoid repeated expensive calls
 _MARKETS_CACHE: dict[str, dict] = {}  # Key: chain name
@@ -265,6 +268,13 @@ class OrderArgumentParser:
         try:
             collateral_token_symbol = self.parameters_dict["collateral_token_symbol"]
 
+            # Debug logging for collateral token flow
+            logger.info(
+                "COLLATERAL_TRACE: OrderArgumentParser._handle_missing_collateral_address()\n  collateral_token_symbol=%s\n  chain=%s",
+                collateral_token_symbol,
+                self.parameters_dict["chain"],
+            )
+
             # Special handling for BTC on arbitrum
             if collateral_token_symbol == "BTC" and self.parameters_dict["chain"] == "arbitrum":
                 self.parameters_dict["collateral_address"] = "0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f"
@@ -276,9 +286,22 @@ class OrderArgumentParser:
         tokens = _get_token_metadata_dict(self.web3, self.parameters_dict["chain"])
         collateral_address = self.find_key_by_symbol(tokens, collateral_token_symbol)
 
+        # Debug logging for collateral token flow
+        logger.info(
+            "COLLATERAL_TRACE: Resolved collateral address:\n  collateral_token_symbol=%s → collateral_address=%s\n  is_valid_for_market=%s",
+            collateral_token_symbol,
+            collateral_address,
+            self._check_if_valid_collateral_for_market(collateral_address),
+        )
+
         # Validate collateral is valid for the market
         if self._check_if_valid_collateral_for_market(collateral_address) and not self.is_swap:
             self.parameters_dict["collateral_address"] = collateral_address
+            # Debug logging for collateral token flow
+            logger.info(
+                "COLLATERAL_TRACE: Final collateral address set:\n  parameters_dict['collateral_address']=%s",
+                self.parameters_dict["collateral_address"],
+            )
 
     def _handle_missing_swap_path(self):
         """Determine swap path between tokens."""
@@ -345,6 +368,13 @@ class OrderArgumentParser:
         """Find token address by symbol in metadata dict."""
         for key, value in input_dict.items():
             if value.get("symbol") == search_symbol:
+                # Debug logging for collateral token flow
+                logger.info(
+                    "COLLATERAL_TRACE: find_key_by_symbol() FOUND\n  search_symbol=%s → address=%s\n  token_metadata=%s",
+                    search_symbol,
+                    key,
+                    value,
+                )
                 return key
         msg = f'"{search_symbol}" not a known token for GMX v2!'
         raise Exception(msg)

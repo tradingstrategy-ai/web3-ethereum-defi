@@ -632,6 +632,19 @@ class GMXTrading:
         # Get configuration
         config = self.config.get_config()
 
+        # Debug logging for collateral token flow
+        execution_buffer_kwarg = kwargs.get("execution_buffer", "NOT_SET")
+        logger.info(
+            "COLLATERAL_TRACE: GMXTrading.open_position() CALLED\n  market_symbol=%s\n  collateral_symbol=%s\n  start_token_symbol=%s\n  is_long=%s\n  size_delta_usd=%.2f\n  leverage=%.1f\n  execution_buffer=%s (from kwargs)",
+            market_symbol,
+            collateral_symbol,
+            start_token_symbol,
+            is_long,
+            size_delta_usd,
+            leverage,
+            f"{execution_buffer_kwarg:.1f}x" if execution_buffer_kwarg != "NOT_SET" else execution_buffer_kwarg,
+        )
+
         # Prepare parameters dictionary
         parameters = {
             "chain": self.config.get_chain(),
@@ -644,8 +657,25 @@ class GMXTrading:
             "slippage_percent": slippage_percent,
         }
 
+        # Debug logging for collateral token flow
+        logger.info(
+            "COLLATERAL_TRACE: Parameter dictionary created:\n  chain=%s\n  index_token_symbol=%s\n  collateral_token_symbol=%s\n  start_token_symbol=%s",
+            parameters["chain"],
+            parameters["index_token_symbol"],
+            parameters["collateral_token_symbol"],
+            parameters["start_token_symbol"],
+        )
+
         # Process parameters
         order_parameters = OrderArgumentParser(config, is_increase=True).process_parameters_dictionary(parameters)
+
+        # Debug logging for collateral token flow
+        logger.info(
+            "COLLATERAL_TRACE: After OrderArgumentParser.process_parameters_dictionary():\n  collateral_address=%s\n  start_token_address=%s\n  swap_path=%s",
+            order_parameters["collateral_address"],
+            order_parameters["start_token_address"],
+            order_parameters["swap_path"],
+        )
 
         # Log position size details (if gas monitoring enabled)
         gas_config = self._gas_monitor_config or GasMonitorConfig()

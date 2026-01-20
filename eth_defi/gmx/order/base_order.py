@@ -6,6 +6,7 @@ order implementations. Provides transaction building for GMX decentralised tradi
 """
 
 import logging
+import datetime
 from dataclasses import dataclass, field
 from typing import Optional
 from decimal import Decimal
@@ -20,7 +21,7 @@ from eth_defi.gmx.constants import PRECISION, OrderType, DECREASE_POSITION_SWAP_
 from eth_defi.gmx.core.markets import Markets
 from eth_defi.gmx.core.oracle import OraclePrices
 from eth_defi.gas import estimate_gas_fees
-from eth_defi.compat import encode_abi_compat
+from eth_defi.compat import encode_abi_compat, native_datetime_utc_now
 from eth_defi.gmx.gas_utils import get_gas_limits
 from eth_defi.token import fetch_erc20_details
 
@@ -28,6 +29,107 @@ from eth_defi.token import fetch_erc20_details
 # Module-level constants and logger
 logger = logging.getLogger(__name__)
 ZERO_REFERRAL_CODE = bytes.fromhex("0" * 64)
+
+# Price cache for ETH/USD conversion
+_eth_price_cache: Optional[tuple[Decimal, datetime.datetime]] = None
+_ETH_PRICE_CACHE_SECONDS = 60  # Cache ETH price for 60 seconds
+
+
+def get_eth_price_usd(config: GMXConfig) -> Optional[Decimal]:
+    """Fetch current ETH/USD price from Chainlink with caching.
+
+    This function fetches the current ETH/USD price from Chainlink price feeds
+    and caches the result for 60 seconds to avoid rate limiting.
+
+    Supported chains:
+    - Arbitrum (chain 42161): Uses 0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612
+
+    :param config: GMX configuration containing web3 instance
+    :return: ETH price in USD as Decimal, or None if fetching fails
+    """
+    global _eth_price_cache
+
+    # Check cache
+    if _eth_price_cache is not None:
+        price, timestamp = _eth_price_cache
+        age_seconds = (native_datetime_utc_now() - timestamp).total_seconds()
+        if age_seconds < _ETH_PRICE_CACHE_SECONDS:
+            logger.debug(
+                "Using cached ETH price: $%.2f (cached %.1f seconds ago)",
+                price,
+                age_seconds,
+            )
+            return price
+
+    # Fetch fresh price
+    try:
+        from eth_defi.abi import get_deployed_contract
+        from eth_defi.chainlink.round_data import ChainLinkLatestRoundData
+
+        # Get Chainlink aggregator address based on chain
+        chain_id = config.web3.eth.chain_id
+
+        # Map chain IDs to Chainlink ETH/USD feed addresses
+        # Source: https://docs.chain.link/data-feeds/price-feeds/addresses
+        chainlink_feeds = {
+            1: "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419",  # Ethereum mainnet
+            42161: "0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612",  # Arbitrum One
+            10: "0x13e3Ee699D1909E989722E753853AE30b17e08c5",  # Optimism
+            8453: "0x71041dddad3595F9CEd3DcCFBe3D1F4b0a16Bb70",  # Base
+            137: "0xAB594600376Ec9fD91F8e885dADF0CE036862dE0",  # Polygon
+            43114: "0x0A77230d17318075983913bC2145DB16C7366156",  # Avalanche
+        }
+
+        aggregator_address = chainlink_feeds.get(chain_id)
+        if not aggregator_address:
+            logger.debug(
+                "Chainlink ETH/USD feed not configured for chain %d. Skipping USD conversion.",
+                chain_id,
+            )
+            return None
+
+        # Fetch price from Chainlink
+        aggregator = get_deployed_contract(
+            config.web3,
+            "ChainlinkAggregatorV2V3Interface.json",
+            aggregator_address,
+        )
+        data = aggregator.functions.latestRoundData().call()
+        round_data = ChainLinkLatestRoundData(aggregator, *data)
+        price = round_data.price
+
+        # Cache the price (keep as Decimal for precision)
+        _eth_price_cache = (price, native_datetime_utc_now())
+
+        logger.debug(
+            "Fetched fresh ETH price from Chainlink on chain %d: $%.2f",
+            chain_id,
+            float(price),
+        )
+
+        return price
+
+    except Exception as e:
+        logger.debug(
+            "Failed to fetch ETH price from Chainlink: %s. USD conversion unavailable.",
+            str(e),
+        )
+        return None
+
+
+def format_eth_with_usd(eth_amount: float, eth_price_usd: Optional[Decimal]) -> str:
+    """Format ETH amount with optional USD value.
+
+    :param eth_amount: Amount in ETH
+    :param eth_price_usd: Current ETH price in USD as Decimal, or None to skip
+    :return: Formatted string like "0.000096 ETH (~$0.30)" or "0.000096 ETH"
+    """
+    if eth_price_usd is not None:
+        # Convert eth_amount to Decimal for precise calculation
+        usd_value = Decimal(str(eth_amount)) * eth_price_usd
+        return f"{eth_amount:.6f} ETH (~${float(usd_value):.2f})"
+    else:
+        return f"{eth_amount:.6f} ETH"
 
 
 @dataclass
@@ -268,8 +370,38 @@ class BaseOrder:
         # Get execution fee
         gas_price = self.web3.eth.gas_price
         gas_limits = self._determine_gas_limits(is_open, is_close, is_swap)
-        execution_fee = int(gas_limits["total"] * gas_price)
-        execution_fee = int(execution_fee * params.execution_buffer)
+        base_execution_fee = int(gas_limits["total"] * gas_price)
+        execution_fee = int(base_execution_fee * params.execution_buffer)
+
+        # Warn if execution buffer is dangerously low
+        if params.execution_buffer < 1.2:
+            logger.error(
+                "⚠️  CRITICAL: executionBuffer=%.1fx is DANGEROUSLY LOW! GMX keepers will likely reject this order. Minimum safe value: 1.5x. Recommended: 1.8-2.2x. Your order may fail with InsufficientExecutionFee error.",
+                params.execution_buffer,
+            )
+        elif params.execution_buffer < 1.5:
+            logger.warning(
+                "⚠️  WARNING: executionBuffer=%.1fx is very low. Consider increasing to 1.8-2.2x to avoid order failures during gas spikes.",
+                params.execution_buffer,
+            )
+
+        # Log execution fee breakdown for user visibility
+        execution_fee_eth = execution_fee / 1e18
+        base_execution_fee_eth = base_execution_fee / 1e18
+        gas_price_gwei = gas_price / 1e9
+
+        # Fetch ETH price for USD conversion
+        eth_price_usd = get_eth_price_usd(self.config)
+
+        logger.info(
+            "💰 GMX Execution Fee Breakdown:\n  Base execution fee: %d wei (%s)\n  Execution buffer: %.1fx\n  Final execution fee: %d wei (%s) ← Paid to GMX keepers\n  Gas price: %.2f gwei\n  Note: This is separate from Ethereum gas fees",
+            base_execution_fee,
+            format_eth_with_usd(base_execution_fee_eth, eth_price_usd),
+            params.execution_buffer,
+            execution_fee,
+            format_eth_with_usd(execution_fee_eth, eth_price_usd),
+            gas_price_gwei,
+        )
 
         # Check approval if not closing (after market and price validation)
         if not is_close:
@@ -333,6 +465,18 @@ class BaseOrder:
 
         # For limit orders, return trigger_price as the mark_price
         result_mark_price = trigger_price if (is_limit and trigger_price is not None) else price_usd
+
+        # Log total cost summary for user
+        estimated_gas_cost_eth = (gas_limits["total"] * gas_price) / 1e18
+        total_eth_needed = execution_fee_eth + estimated_gas_cost_eth
+
+        logger.info(
+            "📊 Total Transaction Cost Summary:\n  ├─ Execution fee (GMX keepers): %s\n  ├─ Gas fee (Ethereum network): ~%s (estimated)\n  └─ Total ETH needed: ~%s\n  💡 To reduce execution fee, set executionBuffer to 1.5-1.8 in config (currently %.1fx)",
+            format_eth_with_usd(execution_fee_eth, eth_price_usd),
+            format_eth_with_usd(estimated_gas_cost_eth, eth_price_usd),
+            format_eth_with_usd(total_eth_needed, eth_price_usd),
+            params.execution_buffer,
+        )
 
         return OrderResult(
             transaction=transaction,
@@ -616,6 +760,17 @@ class BaseOrder:
         # Get collateral amount from params
         collateral_amount = int(params.initial_collateral_delta_amount)
 
+        # Debug logging for collateral token flow
+        logger.info(
+            "COLLATERAL_TRACE: BaseOrder._prepare_multicall()\n  collateral_address=%s\n  native_token_address=%s\n  is_native=%s\n  collateral_amount=%d wei\n  execution_fee=%d wei\n  is_close=%s",
+            params.collateral_address,
+            native_token_address,
+            is_native,
+            collateral_amount,
+            execution_fee,
+            is_close,
+        )
+
         if is_native and not is_close:
             # Native token: include collateral in value
             value_amount = collateral_amount + execution_fee
@@ -636,6 +791,27 @@ class BaseOrder:
                 self._send_wnt(value_amount),
                 self._create_order(arguments),
             ]
+
+        # Debug logging for collateral token flow
+        if is_native and not is_close:
+            logger.info(
+                "COLLATERAL_TRACE: Transaction value determined:\n  is_native=%s\n  is_close=%s\n  value_amount=%d wei (%.6f ETH)\n  breakdown: collateral=%d wei + execution_fee=%d wei",
+                is_native,
+                is_close,
+                value_amount,
+                value_amount / 1e18,
+                collateral_amount,
+                execution_fee,
+            )
+        else:
+            logger.info(
+                "COLLATERAL_TRACE: Transaction value determined:\n  is_native=%s\n  is_close=%s\n  value_amount=%d wei (%.6f ETH)\n  breakdown: execution_fee=%d wei only",
+                is_native,
+                is_close,
+                value_amount,
+                value_amount / 1e18,
+                execution_fee,
+            )
 
         return multicall_args, value_amount
 

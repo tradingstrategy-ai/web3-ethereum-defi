@@ -69,6 +69,7 @@ from eth_defi.gmx.utils import calculate_estimated_liquidation_price, convert_ra
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import fetch_erc20_details
+from eth_defi.trace import assert_transaction_success_with_explanation
 
 logger = logging.getLogger(__name__)
 
@@ -5422,6 +5423,73 @@ class GMX(ExchangeCompatible):
         #     tx_hash,
         #     receipt.get("status"),
         # )
+
+        # Check if transaction reverted on-chain
+        if receipt.get("status") == 0:
+            logger.error(
+                "Order creation transaction REVERTED on-chain: tx_hash=%s, block=%s",
+                tx_hash,
+                receipt.get("blockNumber"),
+            )
+
+            # Try to get detailed revert reason from transaction trace
+            revert_reason = "Transaction reverted on-chain"
+            try:
+                # This will raise an exception with detailed trace analysis
+                assert_transaction_success_with_explanation(
+                    self.web3,
+                    tx_hash_bytes,
+                )
+            except Exception as trace_error:
+                # Extract the detailed error message
+                revert_reason = str(trace_error)
+                logger.error("Transaction revert reason: %s", revert_reason)
+
+            # Return cancelled order - don't store as "open"
+            # Match the pattern from commit 2e2a8757 for cancelled orders
+            timestamp = self.milliseconds()
+            failed_order = {
+                "id": tx_hash,
+                "clientOrderId": None,
+                "timestamp": timestamp,
+                "datetime": self.iso8601(timestamp),
+                "lastTradeTimestamp": timestamp,
+                "symbol": symbol,
+                "type": type,
+                "side": side,
+                "price": None,
+                "amount": amount,
+                "cost": None,
+                "average": None,
+                "filled": 0.0,
+                "remaining": amount,
+                "status": "cancelled",  # Mark as cancelled, not open
+                "fee": {
+                    "cost": order_result.execution_fee / 1e18,
+                    "currency": "ETH",
+                },
+                "trades": [],
+                "info": {
+                    "tx_hash": tx_hash,
+                    "creation_receipt": receipt,
+                    "block_number": receipt.get("blockNumber"),
+                    "gas_used": receipt.get("gasUsed"),
+                    "revert_reason": revert_reason,
+                    "event_name": "TransactionReverted",
+                    "cancel_reason": f"Order creation transaction reverted: {revert_reason}",
+                },
+            }
+
+            # Store in cache for consistency
+            self._orders[tx_hash] = failed_order
+
+            logger.info(
+                "Order creation FAILED - returning cancelled order id=%s, reason=%s",
+                tx_hash[:18],
+                revert_reason[:100],
+            )
+
+            return failed_order
 
         # Extract order_key from OrderCreated or OrderExecuted event for tracking
         try:
