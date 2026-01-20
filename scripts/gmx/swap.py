@@ -16,6 +16,7 @@ from web3 import Web3
 
 from eth_defi.compat import construct_sign_and_send_raw_middleware
 from eth_defi.gmx.config import GMXConfig
+from eth_defi.gmx.gas_monitor import GasMonitorConfig
 from eth_defi.gmx.testing import emulate_keepers
 from eth_defi.gmx.trading import GMXTrading
 from eth_defi.hotwallet import HotWallet
@@ -129,7 +130,8 @@ def main():
         web3=web3,
         wallet=hot_wallet,
     )
-    trading_manager = GMXTrading(gmx_config)
+    gas_config = GasMonitorConfig(enabled=True)
+    trading_manager = GMXTrading(gmx_config, gas_monitor_config=gas_config)
 
     usd_amount = 1.00  # In token amount in USD to swap. The input is trade size in USD, not token quantity.
     in_token_address = "0xaf88d065e77c8cC2239327C5EDb3A432268e5831"

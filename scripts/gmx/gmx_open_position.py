@@ -57,11 +57,15 @@ See Also
 
 """
 
+import logging
 import os
 import sys
 
+from rich.logging import RichHandler
+
 from eth_defi.chain import get_chain_name
 from eth_defi.gmx.config import GMXConfig
+from eth_defi.gmx.gas_monitor import GasMonitorConfig
 from eth_defi.gmx.trading import GMXTrading
 from eth_defi.gmx.order.order_argument_parser import OrderArgumentParser
 from eth_defi.hotwallet import HotWallet
@@ -71,6 +75,15 @@ from rich.console import Console
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
+
+# Configure logging to show gas monitoring and trading logs
+FORMAT = "%(message)s"
+logging.basicConfig(level="INFO", format=FORMAT, datefmt="[%X]", handlers=[RichHandler()])
+
+# Enable logging for eth_defi modules (gas monitoring, trading, etc.)
+logging.getLogger("eth_defi").setLevel(logging.INFO)
+logging.getLogger("eth_defi.gmx.trading").setLevel(logging.INFO)
+logging.getLogger("eth_defi.gmx.gas_monitor").setLevel(logging.INFO)
 
 console = Console()
 
@@ -123,9 +136,10 @@ def main():
     console.print(f"Wallet address: {wallet_address}")
     # console.print(f"Current nonce: {current_nonce}")
 
-    # Create GMX config
+    # Create GMX config with gas monitoring
     config = GMXConfig(web3, user_wallet_address=wallet_address)
-    trading_client = GMXTrading(config)
+    gas_config = GasMonitorConfig(enabled=True)
+    trading_client = GMXTrading(config, gas_monitor_config=gas_config)
 
     # Market symbol where we want to trade
     user_market_symbol = "ETH"

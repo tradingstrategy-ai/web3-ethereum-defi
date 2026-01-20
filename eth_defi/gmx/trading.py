@@ -115,7 +115,9 @@ Warning:
     with more capital than you can afford to lose completely.
 """
 
-from typing import Optional
+import logging
+from decimal import Decimal
+from typing import TYPE_CHECKING, Optional
 
 from eth_defi.gmx.order import OrderResult
 from eth_defi.gmx.order.increase_order import IncreaseOrder
@@ -124,6 +126,18 @@ from eth_defi.gmx.order.swap_order import SwapOrder
 from eth_defi.gmx.order.sltp_order import SLTPOrder, SLTPEntry, SLTPParams, SLTPOrderResult
 from eth_defi.gmx.order.order_argument_parser import OrderArgumentParser
 from eth_defi.gmx.config import GMXConfig
+from eth_defi.gmx.gas_monitor import (
+    GasMonitorConfig,
+    GMXGasMonitor,
+    GasCheckResult,
+    TradeExecutionResult,
+    InsufficientGasError,
+)
+
+if TYPE_CHECKING:
+    from eth_defi.hotwallet import HotWallet
+
+logger = logging.getLogger(__name__)
 
 
 class GMXTrading:
@@ -162,7 +176,11 @@ class GMXTrading:
     :vartype config: GMXConfig
     """
 
-    def __init__(self, config: GMXConfig):
+    def __init__(
+        self,
+        config: GMXConfig,
+        gas_monitor_config: GasMonitorConfig | None = None,
+    ):
         """
         Initialize the trading system with GMX configuration and validation.
 
@@ -177,11 +195,324 @@ class GMXTrading:
             wallet credentials. Must have write capability enabled as all trading
             operations require transaction signing and execution
         :type config: GMXConfig
+        :param gas_monitor_config:
+            Optional configuration for gas monitoring. If None, defaults are used.
+            Set enabled=False in the config to disable gas monitoring entirely.
+        :type gas_monitor_config: GasMonitorConfig | None
         :raises ValueError:
             When the configuration lacks transaction signing capabilities
             required for trading operations and position management
         """
         self.config = config
+        self._gas_monitor_config = gas_monitor_config
+        self._gas_monitor: GMXGasMonitor | None = None
+
+    @property
+    def gas_monitor(self) -> GMXGasMonitor:
+        """Lazy-initialise and return the gas monitor instance.
+
+        :return: GMXGasMonitor instance for this trading session
+        """
+        if self._gas_monitor is None:
+            self._gas_monitor = GMXGasMonitor(
+                web3=self.config.web3,
+                chain=self.config.get_chain(),
+                config=self._gas_monitor_config,
+            )
+        return self._gas_monitor
+
+    @property
+    def gas_monitor_config(self) -> GasMonitorConfig:
+        """Return the gas monitor configuration.
+
+        :return: Current gas monitor configuration
+        """
+        return self.gas_monitor.config
+
+    def execute_order(
+        self,
+        order_result: OrderResult,
+        wallet: "HotWallet",
+        check_gas: bool = True,
+    ) -> TradeExecutionResult:
+        """Execute an order with gas monitoring and graceful failure handling.
+
+        This method provides comprehensive trade execution with:
+        - Pre-trade gas balance checking (warning/critical thresholds)
+        - Gas estimation with safety buffer
+        - Logging of estimated and actual gas costs in native token and USD
+        - Graceful handling of out-of-gas failures (returns status instead of crash)
+
+        **Execution Flow:**
+
+        1. Check gas balance (if enabled)
+           - Critical: return failed result OR raise (based on config)
+           - Warning: log warning, continue
+        2. Estimate gas with buffer, log estimate
+        3. Sign and broadcast transaction
+        4. On success: log actual gas usage, return success result
+        5. On OutOfGas: return failed result (no crash)
+        6. On other error: return failed result with error message
+
+        Example:
+
+        .. code-block:: python
+
+            # Create order (existing flow)
+            order_result = trading.open_position(
+                market_symbol="ETH",
+                collateral_symbol="USDC",
+                ...
+            )
+
+            # Execute with gas monitoring (new flow)
+            result = trading.execute_order(order_result, wallet)
+
+            if result.success:
+                print(f"Trade executed: {result.tx_hash}")
+                print(f"Gas cost: {result.gas_cost_native} ETH (~${result.gas_cost_usd})")
+            else:
+                print(f"Trade failed: {result.reason}")
+                # Handle gracefully - no crash, can retry or alert
+
+        :param order_result:
+            OrderResult from open_position, close_position, swap_tokens, etc.
+            Contains the unsigned transaction to execute.
+        :type order_result: OrderResult
+        :param wallet:
+            HotWallet instance for signing and broadcasting the transaction.
+        :type wallet: HotWallet
+        :param check_gas:
+            Whether to perform gas balance check before execution.
+            Set to False to skip balance checking (e.g., for testing).
+        :type check_gas: bool
+        :return:
+            TradeExecutionResult with comprehensive outcome information.
+            Check result.success to determine if trade succeeded.
+        :rtype: TradeExecutionResult
+        :raises InsufficientGasError:
+            Only if gas_monitor_config.raise_on_critical is True and
+            balance is below critical threshold.
+        """
+        gas_check: GasCheckResult | None = None
+        gas_estimate = None
+        native_price_usd: float | None = None
+
+        # Step 1: Check gas balance if enabled
+        if check_gas and self.gas_monitor.config.enabled:
+            gas_check = self.gas_monitor.check_gas_balance(wallet.address)
+
+            if gas_check.status == "critical":
+                self.gas_monitor.log_gas_check_warning(gas_check)
+
+                if self.gas_monitor.config.raise_on_critical:
+                    raise InsufficientGasError(gas_check.message, gas_check)
+
+                return TradeExecutionResult(
+                    success=False,
+                    status="rejected",
+                    reason="critical_balance",
+                    tx_hash=None,
+                    receipt=None,
+                    order_result=order_result,
+                    gas_check=gas_check,
+                    gas_used=None,
+                    gas_cost_native=None,
+                    gas_cost_usd=None,
+                    error_message=gas_check.message,
+                )
+
+            elif gas_check.status == "warning":
+                self.gas_monitor.log_gas_check_warning(gas_check)
+
+            native_price_usd = gas_check.native_price_usd
+
+        # Step 2: Estimate gas with buffer and log
+        try:
+            gas_estimate = self.gas_monitor.estimate_transaction_gas(
+                tx=order_result.transaction,
+                from_addr=wallet.address,
+            )
+            self.gas_monitor.log_gas_estimate(gas_estimate, "GMX order")
+
+            # Cache price if not already fetched
+            if native_price_usd is None:
+                native_price_usd = gas_estimate.native_price_usd
+
+        except Exception as e:
+            logger.warning("Gas estimation failed: %s - using order gas_limit", e)
+            # Fall back to order's gas_limit if estimation fails
+
+        # Step 3: Sign and broadcast transaction
+        try:
+            # Build the transaction with nonce
+            tx = dict(order_result.transaction)
+
+            # Use estimated gas if available, otherwise use order's gas_limit
+            if gas_estimate:
+                tx["gas"] = gas_estimate.gas_limit
+
+            # Sign the transaction
+            signed_tx = wallet.sign_transaction_with_new_nonce(tx)
+
+            # Broadcast
+            tx_hash = self.config.web3.eth.send_raw_transaction(signed_tx.raw_transaction)
+            tx_hash_hex = tx_hash.hex()
+
+            logger.info("GMX order submitted: %s", tx_hash_hex)
+
+            # Wait for receipt
+            receipt = self.config.web3.eth.wait_for_transaction_receipt(tx_hash)
+            receipt_dict = dict(receipt)
+
+            # Step 4: Log actual gas usage on success
+            gas_used = receipt_dict.get("gasUsed", 0)
+            gas_cost_native, gas_cost_usd = self.gas_monitor.log_gas_usage(
+                receipt=receipt_dict,
+                native_price_usd=native_price_usd,
+                operation="GMX order",
+                estimated_gas=gas_estimate.gas_limit if gas_estimate else None,
+            )
+
+            # Check transaction status
+            status = receipt_dict.get("status", 1)
+            if status == 0:
+                # Transaction reverted
+                return TradeExecutionResult(
+                    success=False,
+                    status="failed",
+                    reason="reverted",
+                    tx_hash=tx_hash_hex,
+                    receipt=receipt_dict,
+                    order_result=order_result,
+                    gas_check=gas_check,
+                    gas_used=gas_used,
+                    gas_cost_native=gas_cost_native,
+                    gas_cost_usd=gas_cost_usd,
+                    error_message="Transaction reverted",
+                )
+
+            return TradeExecutionResult(
+                success=True,
+                status="executed",
+                reason=None,
+                tx_hash=tx_hash_hex,
+                receipt=receipt_dict,
+                order_result=order_result,
+                gas_check=gas_check,
+                gas_used=gas_used,
+                gas_cost_native=gas_cost_native,
+                gas_cost_usd=gas_cost_usd,
+                error_message=None,
+            )
+
+        except ValueError as e:
+            # Handle out-of-gas and other ValueError exceptions
+            error_str = str(e).lower()
+            if "insufficient funds" in error_str or "out of gas" in error_str:
+                reason = "out_of_gas"
+                error_message = f"Insufficient funds for gas: {e}"
+            else:
+                reason = "value_error"
+                error_message = str(e)
+
+            logger.error("GMX order failed: %s", error_message)
+
+            return TradeExecutionResult(
+                success=False,
+                status="failed",
+                reason=reason,
+                tx_hash=None,
+                receipt=None,
+                order_result=order_result,
+                gas_check=gas_check,
+                gas_used=None,
+                gas_cost_native=None,
+                gas_cost_usd=None,
+                error_message=error_message,
+            )
+
+        except Exception as e:
+            # Handle any other exceptions gracefully
+            logger.error("GMX order failed with unexpected error: %s", e)
+
+            return TradeExecutionResult(
+                success=False,
+                status="failed",
+                reason="error",
+                tx_hash=None,
+                receipt=None,
+                order_result=order_result,
+                gas_check=gas_check,
+                gas_used=None,
+                gas_cost_native=None,
+                gas_cost_usd=None,
+                error_message=str(e),
+            )
+
+    def _check_gas_and_log_estimate(
+        self,
+        order_result: OrderResult,
+        operation: str,
+        wallet_address: str | None = None,
+    ) -> None:
+        """Check gas balance and log gas estimate for an order.
+
+        This helper method performs gas monitoring for orders that will be
+        manually signed and sent. It checks the wallet's gas balance against
+        thresholds and logs the estimated gas cost.
+
+        :param order_result:
+            OrderResult containing the unsigned transaction
+        :type order_result: OrderResult
+        :param operation:
+            Description of the operation (e.g., "open_position", "close_position")
+        :type operation: str
+        :param wallet_address:
+            Wallet address to check gas balance for. If None, uses config wallet.
+        :type wallet_address: str | None
+        """
+        # Skip if gas monitoring is disabled
+        gas_config = self._gas_monitor_config or GasMonitorConfig()
+        if not gas_config.enabled:
+            return
+
+        # Get wallet address
+        if wallet_address is None:
+            wallet_address = self.config.get_wallet_address()
+        if wallet_address is None:
+            logger.debug("No wallet address available for gas monitoring")
+            return
+
+        try:
+            # Check gas balance
+            gas_check = self.gas_monitor.check_gas_balance(wallet_address)
+
+            # Log balance status
+            if gas_check.status == "critical":
+                if gas_config.raise_on_critical:
+                    raise InsufficientGasError(gas_check.message)
+                else:
+                    logger.error(gas_check.message)
+            elif gas_check.status == "warning":
+                logger.warning(gas_check.message)
+            else:
+                logger.debug(gas_check.message)
+
+            # Estimate gas for the transaction
+            try:
+                gas_estimate = self.gas_monitor.estimate_transaction_gas(
+                    order_result.transaction,
+                    wallet_address,
+                )
+                self.gas_monitor.log_gas_estimate(gas_estimate, operation)
+            except Exception as e:
+                logger.debug("Could not estimate gas for %s: %s", operation, e)
+
+        except InsufficientGasError:
+            raise
+        except Exception as e:
+            logger.debug("Gas monitoring check failed: %s", e)
 
     def open_position(
         self,
@@ -316,6 +647,68 @@ class GMXTrading:
         # Process parameters
         order_parameters = OrderArgumentParser(config, is_increase=True).process_parameters_dictionary(parameters)
 
+        # Log position size details (if gas monitoring enabled)
+        gas_config = self._gas_monitor_config or GasMonitorConfig()
+        if gas_config.enabled:
+            collateral_usd = size_delta_usd / leverage if leverage > 0 else 0
+            position_type = "LONG" if is_long else "SHORT"
+            # Try to get raw token amount
+            try:
+                from eth_defi.gmx.contracts import get_token_address_normalized
+                from eth_defi.token import fetch_erc20_details
+                from eth_defi.gmx.core.oracle import OraclePrices
+                from eth_defi.gmx.constants import PRECISION
+                from statistics import median
+
+                chain = self.config.get_chain()
+                collateral_address = get_token_address_normalized(chain, collateral_symbol)
+                if collateral_address:
+                    oracle = OraclePrices(chain)
+                    price_data = oracle.get_price_for_token(collateral_address)
+                    if price_data:
+                        token_details = fetch_erc20_details(self.config.web3, collateral_address)
+                        raw_price = median([float(price_data["maxPriceFull"]), float(price_data["minPriceFull"])])
+                        token_price_usd = raw_price / (10 ** (PRECISION - token_details.decimals))
+                        if token_price_usd > 0:
+                            collateral_tokens = collateral_usd / token_price_usd
+                            logger.info(
+                                "Opening %s position: size=$%.2f, collateral=$%.2f (%.6f %s), leverage=%.1fx",
+                                position_type,
+                                size_delta_usd,
+                                collateral_usd,
+                                collateral_tokens,
+                                collateral_symbol,
+                                leverage,
+                            )
+                        else:
+                            logger.info(
+                                "Opening %s position: size=$%.2f, collateral=$%.2f %s, leverage=%.1fx",
+                                position_type,
+                                size_delta_usd,
+                                collateral_usd,
+                                collateral_symbol,
+                                leverage,
+                            )
+                    else:
+                        logger.info(
+                            "Opening %s position: size=$%.2f, collateral=$%.2f %s, leverage=%.1fx",
+                            position_type,
+                            size_delta_usd,
+                            collateral_usd,
+                            collateral_symbol,
+                            leverage,
+                        )
+            except Exception as e:
+                logger.debug("Could not calculate raw token amount: %s", e)
+                logger.info(
+                    "Opening %s position: size=$%.2f, collateral=$%.2f %s, leverage=%.1fx",
+                    position_type,
+                    size_delta_usd,
+                    collateral_usd,
+                    collateral_symbol,
+                    leverage,
+                )
+
         # Create order instance with position identification (order classes need GMXConfig)
         order = IncreaseOrder(
             config=self.config,
@@ -326,13 +719,18 @@ class GMXTrading:
         )
 
         # Create the actual increase order transaction
-        return order.create_increase_order(
+        order_result = order.create_increase_order(
             size_delta=order_parameters["size_delta"],
             initial_collateral_delta_amount=order_parameters["initial_collateral_delta"],
             slippage_percent=order_parameters["slippage_percent"],
             swap_path=order_parameters["swap_path"],
             **kwargs,
         )
+
+        # Check gas and log estimate for manual signing
+        self._check_gas_and_log_estimate(order_result, "open_position")
+
+        return order_result
 
     def close_position(
         self,
@@ -466,6 +864,63 @@ class GMXTrading:
             is_decrease=True,
         ).process_parameters_dictionary(parameters)
 
+        # Log position close details (if gas monitoring enabled)
+        gas_config = self._gas_monitor_config or GasMonitorConfig()
+        if gas_config.enabled:
+            position_type = "LONG" if is_long else "SHORT"
+            # Try to get raw token amount for collateral withdrawal
+            try:
+                from eth_defi.gmx.contracts import get_token_address_normalized
+                from eth_defi.token import fetch_erc20_details
+                from eth_defi.gmx.core.oracle import OraclePrices
+                from eth_defi.gmx.constants import PRECISION
+                from statistics import median
+
+                chain = self.config.get_chain()
+                collateral_address = get_token_address_normalized(chain, collateral_symbol)
+                if collateral_address:
+                    oracle = OraclePrices(chain)
+                    price_data = oracle.get_price_for_token(collateral_address)
+                    if price_data:
+                        token_details = fetch_erc20_details(self.config.web3, collateral_address)
+                        raw_price = median([float(price_data["maxPriceFull"]), float(price_data["minPriceFull"])])
+                        token_price_usd = raw_price / (10 ** (PRECISION - token_details.decimals))
+                        if token_price_usd > 0:
+                            collateral_tokens = initial_collateral_delta / token_price_usd
+                            logger.info(
+                                "Closing %s position: size=$%.2f, collateral_withdraw=$%.2f (%.6f %s)",
+                                position_type,
+                                size_delta_usd,
+                                initial_collateral_delta,
+                                collateral_tokens,
+                                collateral_symbol,
+                            )
+                        else:
+                            logger.info(
+                                "Closing %s position: size=$%.2f, collateral_withdraw=$%.2f %s",
+                                position_type,
+                                size_delta_usd,
+                                initial_collateral_delta,
+                                collateral_symbol,
+                            )
+                    else:
+                        logger.info(
+                            "Closing %s position: size=$%.2f, collateral_withdraw=$%.2f %s",
+                            position_type,
+                            size_delta_usd,
+                            initial_collateral_delta,
+                            collateral_symbol,
+                        )
+            except Exception as e:
+                logger.debug("Could not calculate raw token amount: %s", e)
+                logger.info(
+                    "Closing %s position: size=$%.2f, collateral_withdraw=$%.2f %s",
+                    position_type,
+                    size_delta_usd,
+                    initial_collateral_delta,
+                    collateral_symbol,
+                )
+
         # Create order instance with position identification (order classes need GMXConfig, not GMXConfigManager)
         order = DecreaseOrder(
             config=self.config,  # Pass GMXConfig, not GMXConfigManager
@@ -476,13 +931,18 @@ class GMXTrading:
         )
 
         # Create the actual decrease order transaction
-        return order.create_decrease_order(
+        order_result = order.create_decrease_order(
             size_delta=order_parameters["size_delta"],
             initial_collateral_delta_amount=order_parameters["initial_collateral_delta"],
             slippage_percent=order_parameters["slippage_percent"],
             swap_path=order_parameters.get("swap_path", []),
             **kwargs,
         )
+
+        # Check gas and log estimate for manual signing
+        self._check_gas_and_log_estimate(order_result, "close_position")
+
+        return order_result
 
     def swap_tokens(
         self,
@@ -617,12 +1077,17 @@ class GMXTrading:
         )
 
         # Create the actual swap order transaction
-        return swap_order.create_swap_order(
+        order_result = swap_order.create_swap_order(
             amount_in=order_parameters["initial_collateral_delta"],
             slippage_percent=order_parameters["slippage_percent"],
             execution_buffer=execution_buffer,
             **kwargs,
         )
+
+        # Check gas and log estimate for manual signing
+        self._check_gas_and_log_estimate(order_result, "swap_tokens")
+
+        return order_result
 
     def open_limit_position(
         self,
@@ -753,7 +1218,7 @@ class GMXTrading:
         )
 
         # Create the limit increase order transaction
-        return order.create_limit_increase_order(
+        order_result = order.create_limit_increase_order(
             trigger_price=trigger_price,
             size_delta=order_parameters["size_delta"],
             initial_collateral_delta_amount=order_parameters["initial_collateral_delta"],
@@ -762,6 +1227,11 @@ class GMXTrading:
             auto_cancel=auto_cancel,
             **kwargs,
         )
+
+        # Check gas and log estimate for manual signing
+        self._check_gas_and_log_estimate(order_result, "open_limit_position")
+
+        return order_result
 
     def open_position_with_sltp(
         self,
@@ -874,7 +1344,7 @@ class GMXTrading:
 
             sltp_params = SLTPParams(stop_loss=sl_entry, take_profit=tp_entry)
 
-        return sltp.create_increase_order_with_sltp(
+        order_result = sltp.create_increase_order_with_sltp(
             size_delta_usd=size_delta_usd,
             initial_collateral_delta_amount=order_parameters["initial_collateral_delta"],
             sltp_params=sltp_params,
@@ -883,6 +1353,13 @@ class GMXTrading:
             execution_buffer=execution_buffer,
             **kwargs,
         )
+
+        # Check gas and log estimate for manual signing
+        # Note: SLTPOrderResult has main_order.transaction for gas estimation
+        if hasattr(order_result, "main_order") and hasattr(order_result.main_order, "transaction"):
+            self._check_gas_and_log_estimate(order_result.main_order, "open_position_with_sltp")
+
+        return order_result
 
     def create_stop_loss(
         self,
@@ -972,13 +1449,18 @@ class GMXTrading:
             close_percent=close_percent,
         )
 
-        return sltp.create_stop_loss_order(
+        order_result = sltp.create_stop_loss_order(
             position_size_usd=position_size_usd,
             entry=entry,
             entry_price=entry_price,
             slippage_percent=slippage_percent,
             execution_buffer=execution_buffer,
         )
+
+        # Check gas and log estimate for manual signing
+        self._check_gas_and_log_estimate(order_result, "create_stop_loss")
+
+        return order_result
 
     def create_take_profit(
         self,
@@ -1069,10 +1551,15 @@ class GMXTrading:
             close_percent=close_percent,
         )
 
-        return sltp.create_take_profit_order(
+        order_result = sltp.create_take_profit_order(
             position_size_usd=position_size_usd,
             entry=entry,
             entry_price=entry_price,
             slippage_percent=slippage_percent,
             execution_buffer=execution_buffer,
         )
+
+        # Check gas and log estimate for manual signing
+        self._check_gas_and_log_estimate(order_result, "create_take_profit")
+
+        return order_result

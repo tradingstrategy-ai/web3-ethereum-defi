@@ -26,6 +26,7 @@ from eth_defi.chain import get_chain_name
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.contracts import get_token_address_normalized
 from eth_defi.gmx.trading import GMXTrading
+from eth_defi.gmx.gas_monitor import GasMonitorConfig
 from eth_defi.gmx.core.open_positions import GetOpenPositions
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.anvil import fork_network_anvil
@@ -36,9 +37,15 @@ from tests.gmx.fork_helpers import execute_order_as_keeper, setup_mock_oracle, e
 import logging
 from rich.logging import RichHandler
 
-# Configure logging to show detailed output from fork_helpers
+# Configure logging to show detailed output from fork_helpers and eth_defi modules
 FORMAT = "%(message)s"
 logging.basicConfig(level="INFO", format=FORMAT, datefmt="[%X]", handlers=[RichHandler()])
+
+# Enable logging for eth_defi modules (gas monitoring, trading, etc.)
+logging.getLogger("eth_defi").setLevel(logging.INFO)
+logging.getLogger("eth_defi.gmx.trading").setLevel(logging.INFO)
+logging.getLogger("eth_defi.gmx.gas_monitor").setLevel(logging.INFO)
+logging.getLogger("eth_defi.gmx.ccxt.exchange").setLevel(logging.INFO)
 
 logger = logging.getLogger("rich")
 
@@ -288,7 +295,14 @@ def main():
         console.print(f"  Direction: LONG")
 
         config = GMXConfig(web3, user_wallet_address=wallet_address)
-        trading_client = GMXTrading(config)
+
+        # Enable gas monitoring with default thresholds
+        gas_config = GasMonitorConfig(
+            warning_threshold_usd=10.0,
+            critical_threshold_usd=2.0,
+            enabled=True,
+        )
+        trading_client = GMXTrading(config, gas_monitor_config=gas_config)
 
         order = trading_client.open_position(
             market_symbol=market_symbol,

@@ -15,13 +15,26 @@ Usage:
 """
 
 import argparse
+import logging
 import os
 
 from eth_utils import to_checksum_address
+from rich.logging import RichHandler
 from web3 import Web3
 
 from eth_defi.chain import get_chain_name
 from eth_defi.gmx.ccxt import GMX
+from eth_defi.gmx.gas_monitor import GasMonitorConfig
+
+# Configure logging to show gas monitoring and trading logs
+FORMAT = "%(message)s"
+logging.basicConfig(level="INFO", format=FORMAT, datefmt="[%X]", handlers=[RichHandler()])
+
+# Enable logging for eth_defi modules (gas monitoring, trading, etc.)
+logging.getLogger("eth_defi").setLevel(logging.INFO)
+logging.getLogger("eth_defi.gmx.trading").setLevel(logging.INFO)
+logging.getLogger("eth_defi.gmx.gas_monitor").setLevel(logging.INFO)
+logging.getLogger("eth_defi.gmx.ccxt.exchange").setLevel(logging.INFO)
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.contracts import get_token_address_normalized, get_contract_addresses
 from eth_defi.gmx.core import GetOpenPositions
@@ -162,11 +175,13 @@ def test_order_creation_with_wallet(web3: Web3, wallet: HotWallet, rpc_url: str)
     print("Test 1: Creating Order with Wallet (Mode B)")
     print("=" * 80)
 
-    # Use CCXT-style initialization (same as debug_ccxt.py)
+    # Use CCXT-style initialization (same as debug_ccxt.py) with gas monitoring
+    gas_config = GasMonitorConfig(enabled=True)
     gmx = GMX(
         params={
             "rpcUrl": rpc_url,
             "wallet": wallet,
+            "gas_monitor_config": gas_config,
         }
     )
 
@@ -324,11 +339,13 @@ def test_parameter_conversion(web3: Web3, wallet: HotWallet, rpc_url: str):
     print("Test 2: Parameter Conversion")
     print("=" * 80)
 
-    # Use CCXT-style initialization (same as debug_ccxt.py)
+    # Use CCXT-style initialization (same as debug_ccxt.py) with gas monitoring
+    gas_config = GasMonitorConfig(enabled=True)
     gmx = GMX(
         params={
             "rpcUrl": rpc_url,
             "wallet": wallet,
+            "gas_monitor_config": gas_config,
         }
     )
 
@@ -431,11 +448,13 @@ def test_unsupported_methods(web3: Web3, wallet: HotWallet, rpc_url: str):
     print("Test 4: Unsupported Methods")
     print("=" * 80)
 
-    # Use CCXT-style initialization (same as debug_ccxt.py)
+    # Use CCXT-style initialization (same as debug_ccxt.py) with gas monitoring
+    gas_config = GasMonitorConfig(enabled=True)
     gmx = GMX(
         params={
             "rpcUrl": rpc_url,
             "wallet": wallet,
+            "gas_monitor_config": gas_config,
         }
     )
 

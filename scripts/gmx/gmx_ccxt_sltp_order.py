@@ -86,17 +86,31 @@ See Also
 - :py:mod:`scripts.gmx.gmx_stop_loss_order` - Non-CCXT SL/TP example
 """
 
+import logging
 import os
 import sys
+
+from rich.logging import RichHandler
 
 from eth_defi.chain import get_chain_name
 from eth_defi.gmx.ccxt import GMX
 from eth_defi.gmx.contracts import get_token_address_normalized
+from eth_defi.gmx.gas_monitor import GasMonitorConfig
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
 from rich.console import Console
+
+# Configure logging to show gas monitoring and trading logs
+FORMAT = "%(message)s"
+logging.basicConfig(level="INFO", format=FORMAT, datefmt="[%X]", handlers=[RichHandler()])
+
+# Enable logging for eth_defi modules (gas monitoring, trading, etc.)
+logging.getLogger("eth_defi").setLevel(logging.INFO)
+logging.getLogger("eth_defi.gmx.trading").setLevel(logging.INFO)
+logging.getLogger("eth_defi.gmx.gas_monitor").setLevel(logging.INFO)
+logging.getLogger("eth_defi.gmx.ccxt.exchange").setLevel(logging.INFO)
 
 console = Console()
 
@@ -186,12 +200,14 @@ def main():
     usdc_balance = usdc_token.contract.functions.balanceOf(wallet_address).call()
     console.print(f"  {usdc_token.symbol} Balance: {usdc_balance / 10**usdc_token.decimals:.2f} {usdc_token.symbol}")
 
-    # Initialize GMX CCXT wrapper
+    # Initialize GMX CCXT wrapper with gas monitoring
     console.print("\n[bold]Initializing GMX CCXT wrapper...[/bold]")
+    gas_config = GasMonitorConfig(enabled=True)
     gmx = GMX(
         {
             "rpcUrl": rpc_url,
             "privateKey": private_key,
+            "gas_monitor_config": gas_config,
         }
     )
 
