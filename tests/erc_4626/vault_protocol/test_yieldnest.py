@@ -10,7 +10,8 @@ from web3 import Web3
 
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature, get_vault_protocol_name
-from eth_defi.erc_4626.vault_protocol.yieldnest.vault import YNRWAX_VAULT_ADDRESS, YieldNestVault
+from eth_defi.erc_4626.vault_protocol.yieldnest.vault import (
+    YNRWAX_VAULT_ADDRESS, YieldNestVault)
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.vault.base import VaultTechnicalRisk
@@ -64,7 +65,7 @@ def test_yieldnest_ynrwax(
     assert vault.get_performance_fee("latest") == 0.0
 
     # Check risk level
-    assert vault.get_risk() is None
+    assert vault.get_risk() is VaultTechnicalRisk.low
 
     # Check lock-up period - ynRWAx has fixed maturity date of 15 Oct 2026
     lock_up = vault.get_estimated_lock_up()
