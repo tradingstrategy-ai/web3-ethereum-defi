@@ -13,6 +13,7 @@ from web3 import Web3
 from web3.contract import Contract
 
 from eth_defi.compat import WEB3_PY_V7
+from eth_defi.middleware import ProbablyNodeHasNoBlock
 from eth_defi.provider.broken_provider import get_safe_cached_latest_block_number
 from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.vault.flag import VaultFlag
@@ -839,7 +840,12 @@ class ERC4626Vault(VaultBase):
                 # Could not read ERC4626Vault 0x0271353E642708517A07985eA6276944A708dDd1 (set()):
                 share_token_address = self.vault_address
 
-        except (ValueError, BadFunctionCallOutput, ExtraValueError) as e:
+        except (
+            ValueError,
+            BadFunctionCallOutput,
+            ExtraValueError,
+            ProbablyNodeHasNoBlock,
+        ) as e:
             parsed_error = str(e)
             # Try to figure out broken ERC-4626 contract and have all conditions
             # to gracefully handle failed erc_7575_call()
