@@ -21,7 +21,8 @@ from eth_defi.vault.flag import VaultFlag
 if WEB3_PY_V7:
     from web3.exceptions import BadFunctionCallOutput, BlockNumberOutOfRange
 else:
-    from web3.exceptions import BlockNumberOutofRange as BlockNumberOutOfRange, BadFunctionCallOutput
+    from web3.exceptions import BadFunctionCallOutput
+    from web3.exceptions import BlockNumberOutofRange as BlockNumberOutOfRange
 
 from web3.types import BlockIdentifier
 
@@ -753,7 +754,7 @@ class ERC4626Vault(VaultBase):
             )
             erc_7540_call.call(self.web3, block_identifier=block_identifier)
             return True
-        except (ValueError, BadFunctionCallOutput):
+        except (ValueError, BadFunctionCallOutput, ProbablyNodeHasNoBlock):
             return False
 
     def fetch_denomination_token_address(self) -> HexAddress | None:
@@ -778,7 +779,7 @@ class ERC4626Vault(VaultBase):
                 attempts=2,
             )
             return convert_uint256_bytes_to_address(result)
-        except (ValueError, BadFunctionCallOutput, BadAddressError):
+        except (ValueError, BadFunctionCallOutput, BadAddressError, ProbablyNodeHasNoBlock):
             pass
         return None
 
@@ -846,18 +847,22 @@ class ERC4626Vault(VaultBase):
             ExtraValueError,
             ProbablyNodeHasNoBlock,
         ) as e:
-            parsed_error = str(e)
-            # Try to figure out broken ERC-4626 contract and have all conditions
-            # to gracefully handle failed erc_7575_call()
-            # Mantle
-            # Could not read ERC4626Vault 0x32F6D2c91FF3C3d2f1fC2cCAb4Afcf2b6ecF24Ef (set()): {'message': 'out of gas', 'code': -32000}
-            # Hyperliquid:
-            # ValueError: Call failed: 400 Client Error: Bad Request for url: https://lb.drpc.org/ogrpc?network=hyperliquid&dkey=AiWA4TvYpkijvapnvFlyx_WBfO5CICoR76hArr3WfgV4
-            # Hyperliquid:
-            #  {'code': -32603, 'message': 'Failed to call: InvalidTransaction(Revert(RevertError { output: None }))'}
-            if not any(msg in parsed_error for msg in KNOWN_SHARE_TOKEN_ERROR_MESSAGES):
-                logger.error(f"fetch_share_token(): Not sure about exception %s", e)
-                raise
+            # ProbablyNodeHasNoBlock is a known exception type for node issues - always fall back gracefully
+            if isinstance(e, ProbablyNodeHasNoBlock):
+                logger.warning(f"fetch_share_token(): Node lacks block data for vault {self.vault_address}: {e}")
+            else:
+                parsed_error = str(e)
+                # Try to figure out broken ERC-4626 contract and have all conditions
+                # to gracefully handle failed erc_7575_call()
+                # Mantle
+                # Could not read ERC4626Vault 0x32F6D2c91FF3C3d2f1fC2cCAb4Afcf2b6ecF24Ef (set()): {'message': 'out of gas', 'code': -32000}
+                # Hyperliquid:
+                # ValueError: Call failed: 400 Client Error: Bad Request for url: https://lb.drpc.org/ogrpc?network=hyperliquid&dkey=AiWA4TvYpkijvapnvFlyx_WBfO5CICoR76hArr3WfgV4
+                # Hyperliquid:
+                #  {'code': -32603, 'message': 'Failed to call: InvalidTransaction(Revert(RevertError { output: None }))'}
+                if not any(msg in parsed_error for msg in KNOWN_SHARE_TOKEN_ERROR_MESSAGES):
+                    logger.error(f"fetch_share_token(): Not sure about exception %s", e)
+                    raise
 
             if isinstance(e, HTTPError):
                 # eRPC brokeness trap.
@@ -1083,7 +1088,7 @@ class ERC4626Vault(VaultBase):
                 attempts=2,
             )
             paused = convert_int256_bytes_to_int(result) != 0
-        except (ValueError, BadFunctionCallOutput, BadAddressError):
+        except (ValueError, BadFunctionCallOutput, BadAddressError, ProbablyNodeHasNoBlock):
             paused = False
 
         if paused:
