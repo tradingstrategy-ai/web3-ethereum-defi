@@ -1112,8 +1112,95 @@ class GMX(Exchange):
         logger.info("Cleared order cache")
 
     async def cancel_order(self, id: str, symbol: str | None = None, params: dict | None = None):
-        """Not supported - GMX orders execute immediately."""
-        raise NotSupported(f"{self.id} cancel_order() not supported - GMX orders execute immediately")
+        """Cancel an order (async version).
+
+        GMX orders execute immediately, so traditional "cancel" doesn't apply.
+        Check if order resulted in an open position and return appropriate status.
+
+        :param id: Order ID (transaction hash)
+        :param symbol: Trading pair symbol (required for position lookup)
+        :param params: Additional parameters
+        :return: Order dict with correct status
+        """
+        logger.info(
+            "cancel_order(%s, symbol=%s) - checking if order resulted in position (async)",
+            id,
+            symbol,
+        )
+
+        # Check if this order has an open position
+        if symbol:
+            try:
+                positions = await self.fetch_positions([symbol])
+
+                # If any position exists for this symbol, assume order was filled
+                if positions:
+                    position = positions[0]  # Should only be one position per symbol
+                    logger.info(
+                        "Order %s resulted in FILLED position (symbol=%s, side=%s, size=%s, async). Returning status='closed'.",
+                        id,
+                        symbol,
+                        position.get("side"),
+                        position.get("contracts"),
+                    )
+
+                    return {
+                        "id": id,
+                        "clientOrderId": None,
+                        "timestamp": position.get("timestamp"),
+                        "datetime": position.get("datetime"),
+                        "lastTradeTimestamp": None,
+                        "symbol": symbol,
+                        "type": "market",
+                        "side": position.get("side"),
+                        "price": position.get("entryPrice"),
+                        "amount": position.get("contracts"),
+                        "cost": position.get("contracts") * position.get("entryPrice", 0) if position.get("contracts") and position.get("entryPrice") else None,
+                        "average": position.get("entryPrice"),
+                        "filled": position.get("contracts"),
+                        "remaining": 0.0,
+                        "status": "closed",
+                        "fee": None,
+                        "trades": [],
+                        "info": {
+                            "reason": "GMX order executed immediately, position is open",
+                            "position": position.get("info"),
+                        },
+                    }
+            except Exception as e:
+                logger.warning(
+                    "Failed to check positions for order %s (async): %s. Assuming order failed.",
+                    id,
+                    e,
+                )
+
+        logger.info(
+            "Order %s has no open position (async). Returning status='canceled'.",
+            id,
+        )
+
+        return {
+            "id": id,
+            "clientOrderId": None,
+            "timestamp": None,
+            "datetime": None,
+            "lastTradeTimestamp": None,
+            "symbol": symbol,
+            "type": "market",
+            "side": None,
+            "price": None,
+            "amount": None,
+            "cost": None,
+            "average": None,
+            "filled": 0.0,
+            "remaining": 0.0,
+            "status": "canceled",
+            "fee": None,
+            "trades": [],
+            "info": {
+                "reason": "No position found - order may have failed/reverted or position already closed",
+            },
+        }
 
     def _get_token_decimals(self, market: dict | None) -> int | None:
         """Get token decimals from market metadata.

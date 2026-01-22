@@ -6144,13 +6144,100 @@ class GMX(ExchangeCompatible):
     ):
         """Cancel an order.
 
-        Not supported by GMX - orders execute immediately via keeper system.
+        GMX orders execute immediately, so traditional "cancel" doesn't apply.
+        Instead, we check if the order resulted in an open position:
 
-        :raises NotSupported: GMX doesn't support order cancellation
+        - If position exists → order was FILLED, return closed status
+        - If no position → order failed/reverted, return canceled status
+
+        This allows Freqtrade to sync its database state correctly on restart.
+
+        :param id: Order ID (transaction hash)
+        :param symbol: Trading pair symbol (required for position lookup)
+        :param params: Additional parameters
+        :return: Order dict with correct status
         """
-        raise NotSupported(
-            self.id + " cancel_order() is not supported - GMX orders are executed immediately by keepers and cannot be cancelled. Orders either execute or revert if conditions aren't met.",
+        logger.info(
+            "cancel_order(%s, symbol=%s) - checking if order resulted in position",
+            id,
+            symbol,
         )
+
+        # Check if this order has an open position
+        if symbol:
+            try:
+                positions = self.fetch_positions([symbol])
+
+                # If any position exists for this symbol, assume order was filled
+                if positions:
+                    position = positions[0]  # Should only be one position per symbol
+                    logger.info(
+                        "Order %s resulted in FILLED position (symbol=%s, side=%s, size=%s). Returning status='closed' so Freqtrade knows position is open.",
+                        id,
+                        symbol,
+                        position.get("side"),
+                        position.get("contracts"),
+                    )
+
+                    # Return order dict showing it was filled
+                    return {
+                        "id": id,
+                        "clientOrderId": None,
+                        "timestamp": position.get("timestamp"),
+                        "datetime": position.get("datetime"),
+                        "lastTradeTimestamp": None,
+                        "symbol": symbol,
+                        "type": "market",
+                        "side": position.get("side"),
+                        "price": position.get("entryPrice"),
+                        "amount": position.get("contracts"),
+                        "cost": position.get("contracts") * position.get("entryPrice", 0) if position.get("contracts") and position.get("entryPrice") else None,
+                        "average": position.get("entryPrice"),
+                        "filled": position.get("contracts"),
+                        "remaining": 0.0,
+                        "status": "closed",  # Order is closed (filled)
+                        "fee": None,
+                        "trades": [],
+                        "info": {
+                            "reason": "GMX order executed immediately, position is open",
+                            "position": position.get("info"),
+                        },
+                    }
+            except Exception as e:
+                logger.warning(
+                    "Failed to check positions for order %s: %s. Assuming order failed.",
+                    id,
+                    e,
+                )
+
+        # No position found - order either failed, reverted, or already closed
+        logger.info(
+            "Order %s has no open position. Returning status='canceled' (order failed/reverted or position already closed).",
+            id,
+        )
+
+        return {
+            "id": id,
+            "clientOrderId": None,
+            "timestamp": None,
+            "datetime": None,
+            "lastTradeTimestamp": None,
+            "symbol": symbol,
+            "type": "market",
+            "side": None,
+            "price": None,
+            "amount": None,
+            "cost": None,
+            "average": None,
+            "filled": 0.0,
+            "remaining": 0.0,
+            "status": "canceled",
+            "fee": None,
+            "trades": [],
+            "info": {
+                "reason": "No position found - order may have failed/reverted or position already closed",
+            },
+        }
 
     def fetch_order(
         self,
