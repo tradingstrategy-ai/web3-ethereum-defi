@@ -3610,6 +3610,7 @@ class GMX(ExchangeCompatible):
                 print(f"  PnL: ${pos['unrealizedPnl']:.2f} ({pos['percentage']:.2f}%)")
                 print(f"  Liquidation: ${pos['liquidationPrice']:.2f}")
         """
+        logger.debug("ORDER_TRACE: fetch_positions() CALLED - symbols=%s", symbols)
         params = params or {}
         self.load_markets()
 
@@ -3657,6 +3658,22 @@ class GMX(ExchangeCompatible):
                 # Skip positions we can't parse
                 logger.debug("Skipping unparseable position: %s", str(e))
                 pass
+
+        # Log summary of positions found
+        logger.info(
+            "ORDER_TRACE: fetch_positions() RETURNING %d position(s)",
+            len(result),
+        )
+        for pos in result:
+            logger.info(
+                "ORDER_TRACE:   - Position: symbol=%s, side=%s, size=%.8f, entry_price=%.2f, unrealized_pnl=%.2f, leverage=%.1fx",
+                pos.get("symbol"),
+                pos.get("side"),
+                pos.get("contracts", 0),
+                pos.get("entryPrice", 0),
+                pos.get("unrealizedPnl", 0),
+                pos.get("leverage", 0),
+            )
 
         return result
 
@@ -5051,20 +5068,20 @@ class GMX(ExchangeCompatible):
             elif gas_check.status == "warning":
                 monitor.log_gas_check_warning(gas_check)
 
-        # logger.info("=" * 80)
-        # logger.info(
-        #     "ORDER_TRACE: create_order() CALLED symbol=%s, type=%s, side=%s, amount=%.8f",
-        #     symbol,
-        #     type,
-        #     side,
-        #     amount,
-        # )
-        # logger.info(
-        #     "ORDER_TRACE: params: reduceOnly=%s, leverage=%s, collateral_symbol=%s",
-        #     params.get("reduceOnly", False),
-        #     params.get("leverage"),
-        #     params.get("collateral_symbol"),
-        # )
+        logger.info("=" * 80)
+        logger.info(
+            "ORDER_TRACE: create_order() CALLED - symbol=%s, type=%s, side=%s, amount=%.8f",
+            symbol,
+            type,
+            side,
+            amount,
+        )
+        logger.info(
+            "ORDER_TRACE:   params - reduceOnly=%s, leverage=%s, collateral_symbol=%s",
+            params.get("reduceOnly", False) if params else False,
+            params.get("leverage") if params else None,
+            params.get("collateral_symbol") if params else None,
+        )
 
         # Ensure markets are loaded and populated
         if not self.markets_loaded or not self.markets:
@@ -5891,9 +5908,10 @@ class GMX(ExchangeCompatible):
             execution_tx_hash = trade_action.get("transaction", {}).get("hash")
             is_long = trade_action.get("isLong")
 
-            logger.debug(
-                "ORDER_TRACE: Order EXECUTED successfully - price=%.2f",
+            logger.info(
+                "ORDER_TRACE: create_order() - Order EXECUTED successfully - price=%.2f, size_usd=%.2f",
                 execution_price or 0,
+                float(trade_action.get("sizeDeltaUsd", 0)) / 1e30 if trade_action.get("sizeDeltaUsd") else 0,
             )
 
             timestamp = self.milliseconds()
@@ -5935,13 +5953,14 @@ class GMX(ExchangeCompatible):
             # Store in cache
             self._orders[tx_hash] = order
 
-            logger.debug(
-                "ORDER_TRACE: create_order() RETURNING order_id=%s, status=%s, filled=%.8f",
-                order.get("id"),
+            logger.info(
+                "ORDER_TRACE: create_order() RETURNING - order_id=%s, status=%s, filled=%.8f, remaining=%.8f",
+                order.get("id")[:16] if order.get("id") else "None",
                 order.get("status"),
                 order.get("filled", 0),
+                order.get("remaining", 0),
             )
-            # logger.debug("=" * 80)
+            logger.info("=" * 80)
 
             return order
 
@@ -5957,14 +5976,15 @@ class GMX(ExchangeCompatible):
             order_key=order_key,
         )
 
-        logger.debug(
-            "ORDER_TRACE: create_order() RETURNING order_id=%s, status=%s, filled=%.8f, order_key=%s",
-            order.get("id"),
+        logger.info(
+            "ORDER_TRACE: create_order() RETURNING - order_id=%s, status=%s, filled=%.8f, remaining=%.8f, order_key=%s",
+            order.get("id")[:16] if order.get("id") else "None",
             order.get("status"),
             order.get("filled", 0),
+            order.get("remaining", 0),
             order.get("info", {}).get("order_key", "unknown")[:16] if order.get("info", {}).get("order_key") else "unknown",
         )
-        # logger.debug("=" * 80)
+        logger.info("=" * 80)
 
         return order
 
@@ -6144,100 +6164,13 @@ class GMX(ExchangeCompatible):
     ):
         """Cancel an order.
 
-        GMX orders execute immediately, so traditional "cancel" doesn't apply.
-        Instead, we check if the order resulted in an open position:
+        Not supported by GMX - orders execute immediately via keeper system.
 
-        - If position exists → order was FILLED, return closed status
-        - If no position → order failed/reverted, return canceled status
-
-        This allows Freqtrade to sync its database state correctly on restart.
-
-        :param id: Order ID (transaction hash)
-        :param symbol: Trading pair symbol (required for position lookup)
-        :param params: Additional parameters
-        :return: Order dict with correct status
+        :raises NotSupported: GMX doesn't support order cancellation
         """
-        logger.info(
-            "cancel_order(%s, symbol=%s) - checking if order resulted in position",
-            id,
-            symbol,
+        raise NotSupported(
+            self.id + " cancel_order() is not supported - GMX orders are executed immediately by keepers and cannot be cancelled. Orders either execute or revert if conditions aren't met.",
         )
-
-        # Check if this order has an open position
-        if symbol:
-            try:
-                positions = self.fetch_positions([symbol])
-
-                # If any position exists for this symbol, assume order was filled
-                if positions:
-                    position = positions[0]  # Should only be one position per symbol
-                    logger.info(
-                        "Order %s resulted in FILLED position (symbol=%s, side=%s, size=%s). Returning status='closed' so Freqtrade knows position is open.",
-                        id,
-                        symbol,
-                        position.get("side"),
-                        position.get("contracts"),
-                    )
-
-                    # Return order dict showing it was filled
-                    return {
-                        "id": id,
-                        "clientOrderId": None,
-                        "timestamp": position.get("timestamp"),
-                        "datetime": position.get("datetime"),
-                        "lastTradeTimestamp": None,
-                        "symbol": symbol,
-                        "type": "market",
-                        "side": position.get("side"),
-                        "price": position.get("entryPrice"),
-                        "amount": position.get("contracts"),
-                        "cost": position.get("contracts") * position.get("entryPrice", 0) if position.get("contracts") and position.get("entryPrice") else None,
-                        "average": position.get("entryPrice"),
-                        "filled": position.get("contracts"),
-                        "remaining": 0.0,
-                        "status": "closed",  # Order is closed (filled)
-                        "fee": None,
-                        "trades": [],
-                        "info": {
-                            "reason": "GMX order executed immediately, position is open",
-                            "position": position.get("info"),
-                        },
-                    }
-            except Exception as e:
-                logger.warning(
-                    "Failed to check positions for order %s: %s. Assuming order failed.",
-                    id,
-                    e,
-                )
-
-        # No position found - order either failed, reverted, or already closed
-        logger.info(
-            "Order %s has no open position. Returning status='canceled' (order failed/reverted or position already closed).",
-            id,
-        )
-
-        return {
-            "id": id,
-            "clientOrderId": None,
-            "timestamp": None,
-            "datetime": None,
-            "lastTradeTimestamp": None,
-            "symbol": symbol,
-            "type": "market",
-            "side": None,
-            "price": None,
-            "amount": None,
-            "cost": None,
-            "average": None,
-            "filled": 0.0,
-            "remaining": 0.0,
-            "status": "canceled",
-            "fee": None,
-            "trades": [],
-            "info": {
-                "reason": "No position found - order may have failed/reverted or position already closed",
-            },
-        }
 
     def fetch_order(
         self,
@@ -6267,9 +6200,22 @@ class GMX(ExchangeCompatible):
         :rtype: dict
         :raises OrderNotFound: If order with given ID doesn't exist
         """
+        logger.debug(
+            "ORDER_TRACE: fetch_order() CALLED - order_id=%s, symbol=%s",
+            id[:16] if id else "None",
+            symbol,
+        )
+
         # Check if order exists in stored orders
         if id in self._orders:
             order = self._orders[id].copy()
+            logger.info(
+                "ORDER_TRACE: fetch_order(%s) - FOUND IN CACHE - status=%s, filled=%.8f, remaining=%.8f",
+                id[:16],
+                order.get("status"),
+                order.get("filled", 0),
+                order.get("remaining", 0),
+            )
 
             # Always check fresh status - do not cache order status
             # This ensures we detect order execution/cancellation promptly
@@ -6379,8 +6325,12 @@ class GMX(ExchangeCompatible):
             return order
 
         # Order not in cache - try to fetch from blockchain directly
-        # This handles orders from previous sessions or other strategies
-        # Normalize ID: add "0x" prefix if missing (for backwards compatibility with old order IDs)
+        # This handles orders from previous sessions (e.g., after bot restart)
+        # Follow GMX SDK flow: extract order_key → query execution status → return correct status
+        logger.info(
+            "ORDER_TRACE: fetch_order(%s) - NOT IN CACHE, fetching from blockchain (e.g., after bot restart)",
+            id[:16] if id else "None",
+        )
         normalized_id = id if id.startswith("0x") else f"0x{id}"
 
         if len(normalized_id) == 66:  # Valid tx hash length (0x + 64 hex chars)
@@ -6388,40 +6338,285 @@ class GMX(ExchangeCompatible):
                 receipt = self.web3.eth.get_transaction_receipt(normalized_id)
                 tx = self.web3.eth.get_transaction(normalized_id)
 
-                # Build minimal order structure from transaction data
-                # Note: For orders not in cache, we can't track keeper execution
                 tx_success = receipt.get("status") == 1
+                if not tx_success:
+                    # Transaction failed - return failed order
+                    order = {
+                        "id": id,
+                        "clientOrderId": None,
+                        "datetime": self.iso8601(tx.get("blockNumber", 0) * 1000) if tx.get("blockNumber") else None,
+                        "timestamp": tx.get("blockNumber", 0) * 1000 if tx.get("blockNumber") else None,
+                        "lastTradeTimestamp": None,
+                        "status": "failed",
+                        "symbol": symbol if symbol else None,
+                        "type": "market",
+                        "side": None,
+                        "price": None,
+                        "amount": None,
+                        "filled": 0.0,
+                        "remaining": None,
+                        "cost": None,
+                        "trades": [],
+                        "fee": {
+                            "currency": "ETH",
+                            "cost": float(receipt.get("gasUsed", 0)) * float(tx.get("gasPrice", 0)) / 1e18,
+                        },
+                        "info": {
+                            "creation_receipt": receipt,
+                            "transaction": tx,
+                        },
+                        "average": None,
+                        "fees": [],
+                    }
+                    logger.info("fetch_order(%s): tx failed, status=failed", id[:16])
+                    return order
+
+                # Transaction succeeded - extract order_key to verify execution
+                try:
+                    order_key = extract_order_key_from_receipt(self.web3, receipt)
+                except ValueError as e:
+                    logger.warning("fetch_order(%s): could not extract order_key: %s", id[:16], e)
+                    order_key = None
+
+                if not order_key:
+                    # No order_key - can't verify execution, assume still pending
+                    logger.warning("fetch_order(%s): no order_key, returning status=open", id[:16])
+                    order = {
+                        "id": id,
+                        "clientOrderId": None,
+                        "datetime": self.iso8601(tx.get("blockNumber", 0) * 1000) if tx.get("blockNumber") else None,
+                        "timestamp": tx.get("blockNumber", 0) * 1000 if tx.get("blockNumber") else None,
+                        "lastTradeTimestamp": None,
+                        "status": "open",
+                        "symbol": symbol if symbol else None,
+                        "type": "market",
+                        "side": None,
+                        "price": None,
+                        "amount": None,
+                        "filled": None,
+                        "remaining": None,
+                        "cost": None,
+                        "trades": [],
+                        "fee": {
+                            "currency": "ETH",
+                            "cost": float(receipt.get("gasUsed", 0)) * float(tx.get("gasPrice", 0)) / 1e18,
+                        },
+                        "info": {
+                            "creation_receipt": receipt,
+                            "transaction": tx,
+                        },
+                        "average": None,
+                        "fees": [],
+                    }
+                    return order
+
+                # Follow GMX SDK flow: Query TradeAction via GraphQL (Subsquid)
+                order_key_hex = "0x" + order_key.hex()
+                trade_action = None
+
+                try:
+                    subsquid = GMXSubsquidClient(chain=self.config.get_chain())
+                    # No timeout - this is a historical query, not waiting for new data
+                    trade_action = subsquid.get_trade_action_by_order_key(
+                        order_key_hex,
+                        timeout_seconds=0,  # Don't wait, just check if exists
+                        poll_interval=0.5,
+                    )
+                except Exception as e:
+                    logger.debug("fetch_order(%s): Subsquid query failed: %s", id[:16], e)
+
+                # Fallback: Query EventEmitter logs if Subsquid failed
+                if trade_action is None:
+                    logger.debug("fetch_order(%s): Falling back to EventEmitter logs", id[:16])
+
+                    try:
+                        addresses = get_contract_addresses(self.config.get_chain())
+                        event_emitter = addresses.eventemitter
+                        creation_block = receipt.get("blockNumber", 0)
+                        current_block = self.web3.eth.block_number
+
+                        logs = self.web3.eth.get_logs(
+                            {
+                                "address": event_emitter,
+                                "fromBlock": creation_block,
+                                "toBlock": current_block,
+                            }
+                        )
+
+                        for log in logs:
+                            try:
+                                event = decode_gmx_event(self.web3, log)
+                                if not event:
+                                    continue
+
+                                if event.event_name not in ("OrderExecuted", "OrderCancelled", "OrderFrozen"):
+                                    continue
+
+                                # Check if this event matches our order_key
+                                event_order_key = event.topic1 or event.get_bytes32("key")
+                                if event_order_key != order_key:
+                                    continue
+
+                                # Found our order's execution event
+                                trade_action = {
+                                    "eventName": event.event_name,
+                                    "orderKey": order_key_hex,
+                                    "isLong": event.get_bool("isLong"),
+                                    "reason": event.get_string("reasonBytes") if event.event_name == "OrderCancelled" else None,
+                                    "transaction": {
+                                        "hash": log["transactionHash"].hex() if isinstance(log["transactionHash"], bytes) else log["transactionHash"],
+                                    },
+                                }
+
+                                # Get execution price if available
+                                if event.event_name == "OrderExecuted":
+                                    exec_price = event.get_uint("executionPrice")
+                                    if exec_price:
+                                        trade_action["executionPrice"] = str(exec_price)
+
+                                break
+
+                            except Exception as e:
+                                logger.debug("Error decoding log: %s", e)
+                                continue
+
+                    except Exception as e:
+                        logger.debug("fetch_order(%s): EventEmitter query failed: %s", id[:16], e)
+
+                # Process the trade action result
+                if trade_action is None:
+                    # No execution found - still pending or lost
+                    logger.warning(
+                        "ORDER_TRACE: fetch_order(%s) - NO EXECUTION FOUND (checked Subsquid + EventEmitter) - RETURNING status=open (might be lost/pending)",
+                        id[:16],
+                    )
+                    order = {
+                        "id": id,
+                        "clientOrderId": None,
+                        "datetime": self.iso8601(tx.get("blockNumber", 0) * 1000) if tx.get("blockNumber") else None,
+                        "timestamp": tx.get("blockNumber", 0) * 1000 if tx.get("blockNumber") else None,
+                        "lastTradeTimestamp": None,
+                        "status": "open",
+                        "symbol": symbol if symbol else None,
+                        "type": "market",
+                        "side": None,
+                        "price": None,
+                        "amount": None,
+                        "filled": None,
+                        "remaining": None,
+                        "cost": None,
+                        "trades": [],
+                        "fee": {
+                            "currency": "ETH",
+                            "cost": float(receipt.get("gasUsed", 0)) * float(tx.get("gasPrice", 0)) / 1e18,
+                        },
+                        "info": {
+                            "creation_receipt": receipt,
+                            "transaction": tx,
+                            "order_key": order_key_hex,
+                        },
+                        "average": None,
+                        "fees": [],
+                    }
+                    return order
+
+                # Check event type
+                event_name = trade_action.get("eventName", "")
+
+                if event_name in ("OrderCancelled", "OrderFrozen"):
+                    # Order cancelled/frozen
+                    error_reason = trade_action.get("reason") or f"Order {event_name.lower()}"
+                    logger.info(
+                        "ORDER_TRACE: fetch_order(%s) - Order CANCELLED/FROZEN - reason=%s - RETURNING status=cancelled",
+                        id[:16],
+                        error_reason,
+                    )
+
+                    timestamp = self.milliseconds()
+                    order = {
+                        "id": id,
+                        "clientOrderId": None,
+                        "timestamp": timestamp,
+                        "datetime": self.iso8601(timestamp),
+                        "lastTradeTimestamp": timestamp,
+                        "symbol": symbol,
+                        "type": "market",
+                        "side": None,
+                        "price": None,
+                        "amount": None,
+                        "cost": None,
+                        "average": None,
+                        "filled": 0.0,
+                        "remaining": None,
+                        "status": "cancelled",
+                        "fee": {
+                            "currency": "ETH",
+                            "cost": float(receipt.get("gasUsed", 0)) * float(tx.get("gasPrice", 0)) / 1e18,
+                        },
+                        "trades": [],
+                        "info": {
+                            "creation_receipt": receipt,
+                            "transaction": tx,
+                            "order_key": order_key_hex,
+                            "event_name": event_name,
+                            "cancel_reason": error_reason,
+                        },
+                    }
+                    return order
+
+                # Order executed successfully (OrderExecuted event)
+                raw_exec_price = trade_action.get("executionPrice")
+                execution_price = None
+                if raw_exec_price and symbol:
+                    market = self.markets.get(symbol)
+                    if market:
+                        execution_price = self._convert_price_to_usd(float(raw_exec_price), market)
+
+                execution_tx_hash = trade_action.get("transaction", {}).get("hash")
+                is_long = trade_action.get("isLong")
+
+                logger.info(
+                    "ORDER_TRACE: fetch_order(%s) - Order EXECUTED at price=%.2f, size_usd=%.2f - RETURNING status=closed",
+                    id[:16],
+                    execution_price or 0,
+                    float(trade_action.get("sizeDeltaUsd", 0)) / 1e30 if trade_action.get("sizeDeltaUsd") else 0,
+                )
+
+                timestamp = self.milliseconds()
                 order = {
                     "id": id,
                     "clientOrderId": None,
-                    "datetime": self.iso8601(tx.get("blockNumber", 0) * 1000) if tx.get("blockNumber") else None,
-                    "timestamp": tx.get("blockNumber", 0) * 1000 if tx.get("blockNumber") else None,
-                    "lastTradeTimestamp": None,
-                    "status": "open" if tx_success else "failed",  # Can't verify execution without order_key
-                    "symbol": symbol if symbol else None,
+                    "timestamp": timestamp,
+                    "datetime": self.iso8601(timestamp),
+                    "lastTradeTimestamp": timestamp,
+                    "symbol": symbol,
                     "type": "market",
-                    "side": None,  # Can't determine from tx alone
-                    "price": None,
-                    "amount": None,  # Can't determine from tx alone
-                    "filled": None,  # Can't determine from tx alone
-                    "remaining": None,
+                    "side": None,  # Unknown from tx alone
+                    "price": execution_price,
+                    "amount": None,  # Unknown from tx alone
                     "cost": None,
-                    "trades": [],  # Empty list, not None - freqtrade expects a list
+                    "average": execution_price,
+                    "filled": None,  # Unknown from tx alone
+                    "remaining": 0.0,
+                    "status": "closed",
                     "fee": {
                         "currency": "ETH",
                         "cost": float(receipt.get("gasUsed", 0)) * float(tx.get("gasPrice", 0)) / 1e18,
                     },
+                    "trades": [],
                     "info": {
                         "creation_receipt": receipt,
                         "transaction": tx,
-                        "block_number": receipt.get("blockNumber"),
-                        "gas_used": receipt.get("gasUsed"),
+                        "execution_tx_hash": execution_tx_hash,
+                        "order_key": order_key_hex,
+                        "execution_price": execution_price,
+                        "is_long": is_long,
+                        "event_name": event_name,
+                        "pnl_usd": float(trade_action.get("pnlUsd", 0)) / 1e30 if trade_action.get("pnlUsd") else None,
+                        "size_delta_usd": float(trade_action.get("sizeDeltaUsd", 0)) / 1e30 if trade_action.get("sizeDeltaUsd") else None,
+                        "price_impact_usd": float(trade_action.get("priceImpactUsd", 0)) / 1e30 if trade_action.get("priceImpactUsd") else None,
                     },
-                    "average": None,
-                    "fees": [],
                 }
-
-                logger.info("fetch_order(%s): fetched from blockchain (not in cache), status=open", id[:16])
                 return order
 
             except Exception as e:
