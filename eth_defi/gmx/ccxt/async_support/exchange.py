@@ -124,6 +124,13 @@ class GMX(Exchange):
         # Order cache - cleared on fresh runs to avoid stale data
         self._orders = {}
 
+        # Consecutive failure tracking for auto-pause
+        self._consecutive_failures = 0
+        self._max_consecutive_failures = 3
+        self._trading_paused = False
+        self._trading_paused_reason = ""
+        self._last_failed_tx_hash = None
+
     def describe(self):
         """Get CCXT exchange description."""
         return describe_gmx()
@@ -1972,6 +1979,31 @@ class GMX(Exchange):
                 "Wallet required for order creation. Provide 'privateKey' or 'wallet' in constructor parameters.",
             )
 
+        # Check if trading is paused due to consecutive failures
+        if self._trading_paused:
+            # Get current wallet balance for detailed error message
+            try:
+                loop = asyncio.get_running_loop()
+                eth_balance = await loop.run_in_executor(None, self.web3.eth.get_balance, self.wallet.address)
+                eth_balance_eth = eth_balance / 1e18
+                # Estimate USD value (using $2000/ETH as approximation)
+                eth_balance_usd = eth_balance_eth * 2000
+                balance_str = f"{eth_balance_eth:.6f} ETH (${eth_balance_usd:.2f})"
+            except Exception as e:
+                balance_str = f"<failed to fetch: {e}>"
+
+            # Get the last failed transaction hash if available
+            last_tx_hash = getattr(self, "_last_failed_tx_hash", None)
+            tx_link = f"TX: https://arbiscan.io/tx/{last_tx_hash}" if last_tx_hash else ""
+
+            # Build detailed error message
+            error_msg = f"🛑 GMX BOT PAUSED: {self._consecutive_failures} order failures detected.\n\n{self._trading_paused_reason}\n\nWallet balance: {balance_str}\n{tx_link}\n\nACTION REQUIRED: Increase executionBuffer in config (try 2.0x or higher), top up wallet if needed, then restart bot."
+            logger.error(error_msg)
+            # Raise BaseError which becomes OperationalException (stops bot, sends EXCEPTION to Telegram)
+            from ccxt.base.errors import BaseError
+
+            raise BaseError(error_msg)
+
         # Sync wallet nonce
         # Note: AsyncWeb3 doesn't have sync methods, need to use await
         loop = asyncio.get_running_loop()
@@ -2480,3 +2512,34 @@ class GMX(Exchange):
         :return: CCXT-compatible order structure
         """
         return await self.create_order(symbol, "market", "sell", amount, None, params)
+
+    def clear_order_cache(self):
+        """Clear the in-memory order cache.
+
+        Call this when switching strategies or starting a fresh session
+        to avoid stale order data from previous runs.
+        """
+        self._orders = {}
+        logger.info("Cleared order cache (async)")
+
+    def reset_failure_counter(self):
+        """Reset consecutive failure counter and resume trading.
+
+        Call this after fixing issues that caused transaction failures
+        (e.g., topping up wallet gas, adjusting execution buffer).
+
+        Example::
+
+            # After topping up wallet
+            gmx.reset_failure_counter()
+            # Trading can now resume
+        """
+        self._consecutive_failures = 0
+        self._trading_paused = False
+        self._trading_paused_reason = ""
+        self._last_failed_tx_hash = None
+        logger.info(
+            "Reset failure counter - trading resumed (async). Consecutive failures: %d, Paused: %s",
+            self._consecutive_failures,
+            self._trading_paused,
+        )

@@ -32,6 +32,7 @@ from statistics import median
 from typing import Any
 
 from ccxt.base.errors import (
+    BaseError,
     ExchangeError,
     InvalidOrder,
     NotSupported,
@@ -69,7 +70,6 @@ from eth_defi.gmx.utils import calculate_estimated_liquidation_price, convert_ra
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import fetch_erc20_details
-from eth_defi.trace import assert_transaction_success_with_explanation
 
 logger = logging.getLogger(__name__)
 
@@ -781,6 +781,12 @@ class GMX(ExchangeCompatible):
         self.markets_loaded = False
         self.symbols = []
         self._orders = {}  # Order cache - cleared on fresh runs to avoid stale data
+
+        # Consecutive failure tracking for safety
+        self._consecutive_failures = 0  # Track consecutive transaction failures
+        self._max_consecutive_failures = 3  # Threshold to pause trading
+        self._trading_paused = False  # Flag to indicate if trading is paused
+        self._trading_paused_reason = None  # Store reason for pause
 
         self.timeframes = {
             "1m": "1m",
@@ -4978,6 +4984,28 @@ class GMX(ExchangeCompatible):
                 "Wallet required for order creation. GMX is running in VIEW-ONLY mode. Provide 'privateKey' or 'wallet' in constructor parameters. Example: GMX({'rpcUrl': '...', 'privateKey': '0x...'})",
             )
 
+        # Check if trading is paused due to consecutive failures
+        if self._trading_paused:
+            # Get current wallet balance for detailed error message
+            try:
+                eth_balance = self.web3.eth.get_balance(self.wallet.address)
+                eth_balance_eth = eth_balance / 1e18
+                # Estimate USD value (using $2000/ETH as approximation)
+                eth_balance_usd = eth_balance_eth * 2000
+                balance_str = f"{eth_balance_eth:.6f} ETH (${eth_balance_usd:.2f})"
+            except Exception as e:
+                balance_str = f"<failed to fetch: {e}>"
+
+            # Get the last failed transaction hash if available
+            last_tx_hash = getattr(self, "_last_failed_tx_hash", None)
+            tx_link = f"TX: https://arbiscan.io/tx/{last_tx_hash}" if last_tx_hash else ""
+
+            # Build detailed error message
+            error_msg = f"🛑 GMX BOT PAUSED: {self._consecutive_failures} order failures detected.\n\n{self._trading_paused_reason}\n\nWallet balance: {balance_str}\n{tx_link}\n\nACTION REQUIRED: Increase executionBuffer in config (try 2.0x or higher), top up wallet if needed, then restart bot."
+            logger.error(error_msg)
+            # Raise BaseError which becomes OperationalException (stops bot, sends EXCEPTION to Telegram)
+            raise BaseError(error_msg)
+
         # Sync wallet nonce before creating/closing order (required for Freqtrade)
         self.wallet.sync_nonce(self.web3)
 
@@ -5432,18 +5460,131 @@ class GMX(ExchangeCompatible):
                 receipt.get("blockNumber"),
             )
 
-            # Try to get detailed revert reason from transaction trace
+            # Try to get revert reason using transaction replay
+            # If that fails, use gas usage patterns for diagnostics
             revert_reason = "Transaction reverted on-chain"
+
             try:
-                # This will raise an exception with detailed trace analysis
-                assert_transaction_success_with_explanation(
-                    self.web3,
-                    tx_hash_bytes,
-                )
-            except Exception as trace_error:
-                # Extract the detailed error message
-                revert_reason = str(trace_error)
-                logger.error("Transaction revert reason: %s", revert_reason)
+                from eth_defi.revert_reason import fetch_transaction_revert_reason
+
+                revert_reason = fetch_transaction_revert_reason(self.web3, tx_hash_bytes, unknown_error_message="<revert reason not available>")
+
+                # Check if extraction failed - use gas diagnostics
+                if "<revert reason not available>" in revert_reason:
+                    logger.debug("Transaction replay could not extract revert reason, using gas diagnostics")
+
+                    # Fetch transaction to get gas limit (already done below, but needed here for diagnostics)
+                    try:
+                        tx = self.web3.eth.get_transaction(tx_hash_bytes)
+                        gas_limit = tx.get("gas", 0)
+                    except Exception:
+                        gas_limit = 0
+
+                    gas_used = receipt.get("gasUsed", 0)
+
+                    # Check for out of gas
+                    if gas_limit > 0 and gas_used >= gas_limit:
+                        revert_reason = f"Transaction ran out of gas (used {gas_used:,} / {gas_limit:,}). Increase gas limit or check for infinite loops."
+                    # Check for low gas (used > 95% of limit)
+                    elif gas_limit > 0 and (gas_used / gas_limit) > 0.95:
+                        revert_reason = f"Transaction used {gas_used:,} of {gas_limit:,} gas ({gas_used * 100 // gas_limit}%). Likely insufficient gas."
+                    # Check for very low gas usage (likely failed early)
+                    elif gas_used < 50000:
+                        revert_reason = f"Transaction failed early (used only {gas_used:,} gas). Likely invalid parameters or contract state."
+                    else:
+                        # Generic message with gas info
+                        revert_reason = f"Transaction reverted (used {gas_used:,} of {gas_limit:,} gas). Revert reason could not be extracted."
+
+                    logger.error(
+                        "Could not extract revert reason via replay. Diagnostic: %s. Block: %s",
+                        revert_reason,
+                        receipt.get("blockNumber"),
+                    )
+                else:
+                    # fetch_transaction_revert_reason succeeded
+                    logger.error("Transaction revert reason: %s", revert_reason)
+
+            except Exception as fetch_error:
+                # fetch_transaction_revert_reason raised exception - use gas diagnostics
+                logger.debug("Transaction replay failed: %s", fetch_error)
+
+                # Fetch transaction to get gas limit
+                try:
+                    tx = self.web3.eth.get_transaction(tx_hash_bytes)
+                    gas_limit = tx.get("gas", 0)
+                except Exception:
+                    gas_limit = 0
+
+                gas_used = receipt.get("gasUsed", 0)
+
+                if gas_limit > 0 and gas_used >= gas_limit:
+                    revert_reason = f"Transaction ran out of gas (used {gas_used:,} / {gas_limit:,})."
+                elif gas_limit > 0 and (gas_used / gas_limit) > 0.95:
+                    revert_reason = f"Transaction likely ran out of gas (used {gas_used:,} of {gas_limit:,}, {gas_used * 100 // gas_limit}%)."
+                elif gas_used < 50000:
+                    revert_reason = f"Transaction failed early (used only {gas_used:,} gas). Likely invalid parameters."
+                else:
+                    revert_reason = f"Transaction reverted (gas: {gas_used:,} / {gas_limit:,}). Reason could not be extracted."
+
+                logger.error("Transaction replay failed. Diagnostic: %s", revert_reason)
+
+            # Increment consecutive failure counter
+            self._consecutive_failures += 1
+            # Store last failed tx hash for pause message
+            self._last_failed_tx_hash = tx_hash
+
+            # Get gas and balance info for detailed notification
+            gas_used = receipt.get("gasUsed", 0)
+
+            # Fetch transaction to get gas limit (receipts don't have gas limit, only gasUsed)
+            try:
+                tx = self.web3.eth.get_transaction(tx_hash_bytes)
+                gas_limit = tx.get("gas", 0)
+            except Exception as e:
+                logger.warning("Could not fetch transaction for gas limit: %s", e)
+                gas_limit = 0
+
+            gas_left = gas_limit - gas_used if gas_limit > 0 else 0
+
+            # Get current ETH balance
+            try:
+                eth_balance = self.web3.eth.get_balance(self.wallet.address)
+                eth_balance_formatted = f"{eth_balance / 1e18:.6f} ETH (${eth_balance / 1e18 * 2000:.2f} @ $2000/ETH)"
+            except Exception as e:
+                eth_balance_formatted = f"<failed to fetch: {e}>"
+
+            # Build error message for Freqtrade/Telegram notification
+            # Use f-string to avoid % formatting issues with logging
+            gas_pct = (gas_used * 100 / gas_limit) if gas_limit > 0 else 0
+            separator = "=" * 80
+            error_msg = f"\n{separator}\nCRITICAL: Order creation transaction REVERTED on-chain\n{separator}\nTransaction Hash: {tx_hash}\nBlock Number: {receipt.get('blockNumber')}\nRevert Reason: {revert_reason}\nGas Used: {gas_used:,} / {gas_limit:,} ({gas_pct:.1f}%)\nGas Left: {gas_left:,}\nWallet Balance: {eth_balance_formatted}\nConsecutive Failures: {self._consecutive_failures} / {self._max_consecutive_failures}\n{separator}"
+            logger.error(error_msg)
+
+            # Check if threshold reached - PAUSE TRADING
+            if self._consecutive_failures >= self._max_consecutive_failures:
+                self._trading_paused = True
+
+                # Calculate gas cost in USD
+                try:
+                    eth_balance = self.web3.eth.get_balance(self.wallet.address)
+                    eth_balance_eth = eth_balance / 1e18
+                    eth_balance_usd = eth_balance_eth * 2000  # Estimate USD value
+                    gas_cost_eth = (gas_used * 2) / 1e9  # Estimate at 2 gwei
+                    gas_cost_usd = gas_cost_eth * 2000
+
+                    # Build detailed pause reason with gas costs
+                    if "out of gas" in revert_reason.lower() or gas_used >= gas_limit * 0.95:
+                        self._trading_paused_reason = f"LOW GAS: {eth_balance_eth:.6f} ETH (${eth_balance_usd:.2f})! Last tx used {gas_used:,} / {gas_limit:,} gas (${gas_cost_usd:.2f}). Last failure: {revert_reason[:150]}"
+                    else:
+                        self._trading_paused_reason = f"Last tx: {gas_used:,} gas used (${gas_cost_usd:.2f}). Wallet: {eth_balance_eth:.6f} ETH (${eth_balance_usd:.2f}). Reason: {revert_reason[:150]}"
+                except Exception as e:
+                    # Fallback if gas calculation fails
+                    self._trading_paused_reason = f"Reached {self._consecutive_failures} consecutive transaction failures. Last failure: {revert_reason[:200]}"
+
+                # Critical alert for auto-pause
+                pause_separator = "!" * 80
+                pause_msg = f"\n{pause_separator}\nTRADING PAUSED - MANUAL INTERVENTION REQUIRED\n{pause_separator}\nReason: {self._consecutive_failures} consecutive transaction failures\n{self._trading_paused_reason}\nTo resume trading, call: gmx.reset_failure_counter()\n{pause_separator}"
+                logger.error(pause_msg)
 
             # Return cancelled order - don't store as "open"
             # Match the pattern from commit 2e2a8757 for cancelled orders
@@ -5490,6 +5631,14 @@ class GMX(ExchangeCompatible):
             )
 
             return failed_order
+
+        # Transaction succeeded - reset consecutive failure counter
+        if self._consecutive_failures > 0:
+            logger.info(
+                "Transaction succeeded - resetting consecutive failure counter (was %d)",
+                self._consecutive_failures,
+            )
+            self._consecutive_failures = 0
 
         # Extract order_key from OrderCreated or OrderExecuted event for tracking
         try:
@@ -5566,12 +5715,11 @@ class GMX(ExchangeCompatible):
                 # import json
                 # print(f"DEBUG: trade_action response = {json.dumps(trade_action, indent=2, default=str)}")
 
-                if trade_action:
-                    # logger.debug(
-                    #     "ORDER_TRACE: Subsquid returned trade action: eventName=%s",
-                    #     trade_action.get("eventName"),
-                    # )
-                    pass
+                # if trade_action:
+                # logger.debug(
+                #     "ORDER_TRACE: Subsquid returned trade action: eventName=%s",
+                #     trade_action.get("eventName"),
+                # )
 
             except Exception as e:
                 logger.debug(
@@ -5945,6 +6093,48 @@ class GMX(ExchangeCompatible):
         """
         self._orders = {}
         logger.info("Cleared order cache")
+
+    def reset_failure_counter(self):
+        """Reset consecutive failure counter and resume trading.
+
+        Call this method manually after investigating and resolving the cause
+        of consecutive transaction failures. This will:
+
+        - Reset the consecutive failure counter to 0
+        - Resume trading if it was paused
+        - Clear the pause reason
+
+        :Example:
+
+            .. code-block:: python
+
+                # After fixing gas issues or other problems
+                gmx.reset_failure_counter()
+
+                # Trading will resume on next create_order() call
+
+        .. warning::
+            Only call this after investigating and resolving the root cause
+            of the failures. Resetting without fixing the underlying issue
+            may lead to more wasted gas.
+        """
+        was_paused = self._trading_paused
+        failure_count = self._consecutive_failures
+
+        self._consecutive_failures = 0
+        self._trading_paused = False
+        self._trading_paused_reason = None
+
+        if was_paused:
+            logger.info(
+                "Trading RESUMED - failure counter reset (was %d failures, trading was paused)",
+                failure_count,
+            )
+        else:
+            logger.info(
+                "Failure counter reset (was %d failures, trading was not paused)",
+                failure_count,
+            )
 
     def cancel_order(
         self,
