@@ -26,26 +26,7 @@ class Quote:
 
     .. code-block:: python
 
-        {'Buy': 'USDC.e',
-         'Price': '3839.194418725202484702282634',
-         'Sell': 'WETH',
-         'expiration': '2025-10-31T08:56:32.245289888Z',
-         'from': '0xdcc6d3a3c006bb4a10b448b1ee750966395622c6',
-         'id': 59969377,
-         'quote': {'appData': '0x0000000000000000000000000000000000000000000000000000000000000000',
-                   'buyAmount': '374313',
-                   'buyToken': '0xff970a61a04b1ca14834a43f5de4533ebddb5cc8',
-                   'buyTokenBalance': 'erc20',
-                   'feeAmount': '2502202500000',
-                   'kind': 'sell',
-                   'partiallyFillable': False,
-                   'receiver': None,
-                   'sellAmount': '97497797500000',
-                   'sellToken': '0x82af49447d8a07e3bd95bd0d56f35241523fbab1',
-                   'sellTokenBalance': 'erc20',
-                   'signingScheme': 'presign',
-                   'validTo': 1761902192},
-         'verified': True}
+        {"Buy": "USDC.e", "Price": "3839.194418725202484702282634", "Sell": "WETH", "expiration": "2025-10-31T08:56:32.245289888Z", "from": "0xdcc6d3a3c006bb4a10b448b1ee750966395622c6", "id": 59969377, "quote": {"appData": "0x0000000000000000000000000000000000000000000000000000000000000000", "buyAmount": "374313", "buyToken": "0xff970a61a04b1ca14834a43f5de4533ebddb5cc8", "buyTokenBalance": "erc20", "feeAmount": "2502202500000", "kind": "sell", "partiallyFillable": False, "receiver": None, "sellAmount": "97497797500000", "sellToken": "0x82af49447d8a07e3bd95bd0d56f35241523fbab1", "sellTokenBalance": "erc20", "signingScheme": "presign", "validTo": 1761902192}, "verified": True}
 
     """
 
