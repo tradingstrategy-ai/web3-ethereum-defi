@@ -1639,6 +1639,9 @@ HARDCODED_PROTOCOLS = {
     # Decentralized USD (USDD) - sUSDD vault on BNB Chain
     # https://bscscan.com/address/0x8bA9dA757d1D66c58b1ae7e2ED6c04087348A82d
     "0x8ba9da757d1d66c58b1ae7e2ed6c04087348a82d": {ERC4626Feature.usdd_like},
+    # Decentralized USD (USDD) - SavingsUsdd vault on Ethereum
+    # https://etherscan.io/address/0xf94f97677914d298844ec8fa590fab09ccc324d0
+    "0xf94f97677914d298844ec8fa590fab09ccc324d0": {ERC4626Feature.usdd_like},
     # Yearn SparkCompounder - ysUSDS vault on Ethereum
     # https://etherscan.io/address/0xc9f01b5c6048b064e6d925d1c2d7206d4feef8a3
     "0xc9f01b5c6048b064e6d925d1c2d7206d4feef8a3": {ERC4626Feature.yearn_tokenised_strategy},
