@@ -228,6 +228,8 @@ _BROKEN_VAULT_CONTRACTS = {
     "0xBa74368AA52AD58d08309f1F549aA63bAB0C7e2A",    # Age old mainnet contract
     "0xBa74368AA52AD58d08309f1F549aA63bAB0C7e2A",    # Age old mainnet contract
     "0x8AF4dfc5c55eF2D3BCE511E4C14d631253533540",    # Age old mainnet contract
+    "0xEA5E5B5af68C4D03482A79573222400b905b37F9",  # Age old mainnet contract
+    "0xe6A4ECFF9f9179b7bbB910c8A3d0Bfd5de55d3AD", # Age old mainnet contract
     "0xF1d402fCbEb2d0C8946F13196D72dB7258B0B296",
 }
 
