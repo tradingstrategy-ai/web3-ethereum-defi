@@ -50,8 +50,8 @@ class VaultFlag(str, enum.Enum):
     #: Vault ls missing in the protocol official website and might be a spoof attempt
     unofficial = "unofficial"
 
-    #: Vault is blacklisted and should not be used
-    blacklisted = "blacklisted"
+    #: Vault has abnormal price behaviour on low TVL
+    abnormal_price_on_low_tvl = "abnormal_price_on_low_tvl"
 
 
 #: Don't touch vaults with these flags
@@ -61,7 +61,7 @@ BAD_FLAGS = {
     VaultFlag.malicious,
     VaultFlag.abnormal_tvl,
     VaultFlag.unofficial,
-    VaultFlag.blacklisted,
+    VaultFlag.abnormal_price_on_low_tvl,
 }
 
 
@@ -260,11 +260,11 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     # Supply USDC on ZeroLend RWA Market
     "0x887d57a509070a0843c6418eb5cffc090dcbbe95": (None, ZEROLEND_SUPERFORM_WITHDRAW_ONLY),
     # Re7 USDC (Euler on Sonic)
-    "0xf75ae954d30217b4ee70dbfb33f04162aa3cf260": (VaultFlag.blacklisted, LOW_TVL_ABNORMAL_PRICE),
+    "0xf75ae954d30217b4ee70dbfb33f04162aa3cf260": (VaultFlag.abnormal_price_on_low_tvl, LOW_TVL_ABNORMAL_PRICE),
     # Mainstreet Liquidity Vault (Euler on Sonic)
-    "0x5b63bd1574d40d98c6967047f0323cc5d4895775": (VaultFlag.blacklisted, LOW_TVL_ABNORMAL_PRICE),
+    "0x5b63bd1574d40d98c6967047f0323cc5d4895775": (VaultFlag.abnormal_price_on_low_tvl, LOW_TVL_ABNORMAL_PRICE),
     # Braindead Digital USDC (Euler on Sonic)
-    "0x3710b212b39477df2deaadcf16ef56c384a3d142": (VaultFlag.blacklisted, LOW_TVL_ABNORMAL_PRICE),
+    "0x3710b212b39477df2deaadcf16ef56c384a3d142": (VaultFlag.abnormal_price_on_low_tvl, LOW_TVL_ABNORMAL_PRICE),
 }
 
 for addr in VAULT_FLAGS_AND_NOTES.keys():
