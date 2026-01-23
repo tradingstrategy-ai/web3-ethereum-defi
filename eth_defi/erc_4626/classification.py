@@ -1551,6 +1551,11 @@ def create_vault_instance(
 
         return AvantVault(web3, spec, token_cache=token_cache, features=features)
 
+    elif ERC4626Feature.aarna_like in features:
+        from eth_defi.erc_4626.vault_protocol.aarna.vault import AarnaVault
+
+        return AarnaVault(web3, spec, token_cache=token_cache, features=features)
+
     else:
         # Generic ERC-4626 without fee data
         from eth_defi.erc_4626.vault import ERC4626Vault
@@ -1710,6 +1715,9 @@ HARDCODED_PROTOCOLS = {
     # Avant Protocol - savUSD vault on Avalanche
     # https://snowtrace.io/address/0x06d47f3fb376649c3a9dafe069b3d6e35572219e
     "0x06d47f3fb376649c3a9dafe069b3d6e35572219e": {ERC4626Feature.avant_like},
+    # aarnâ - atvPTmax Token vault on Ethereum
+    # https://etherscan.io/address/0xb9c1344105faa4681bc7ffd68c5c526da61f2ae8
+    "0xb9c1344105faa4681bc7ffd68c5c526da61f2ae8": {ERC4626Feature.aarna_like},
 }
 
 for a in HARDCODED_PROTOCOLS.keys():

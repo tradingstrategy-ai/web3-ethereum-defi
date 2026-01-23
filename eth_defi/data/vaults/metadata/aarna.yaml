@@ -1,0 +1,36 @@
+name: "aarnâ"
+slug: aarna
+short_description: |
+  Agentic Onchain Treasury (AOT) protocol using AI agents for DeFi management.
+long_description: |
+  aarnâ develops an Agentic Onchain Treasury (AOT), a fully autonomous onchain treasury
+  that allocates, rotates, and secures assets through programmable, transparent agent governance.
+  The system uses AI agents (âTARS) to manage decentralised finance complexity without requiring
+  users to navigate DeFi themselves.
+
+  Key features:
+
+  - **Agent Architecture**: Multi-agent system with specialised roles for yield analysis and trade execution
+  - **Non-custodial**: Users maintain control with assets remaining in their own wallets
+  - **Tokenised Vaults (âtv series)**: Structured exposure to various asset classes via ERC-4626 compliant vaults
+  - **Multi-chain**: Deployed across Ethereum, Base, Arbitrum, and Sonic networks
+  - **Governance Token ($AARNA)**: Powers staking, incentives, and policy updates through onchain voting
+
+  The platform's vaults operate through autonomous agents that analyse market conditions
+  and execute allocation strategies. Core contracts are independently audited by FailSafe
+  and CertiK, and monitored for security.
+fee_description: |
+  Fee information not publicly documented.
+links:
+  homepage: https://www.aarna.ai/
+  app: https://engine.aarna.ai/
+  twitter: https://twitter.com/aarnasays
+  github: https://github.com/aarna-ai
+  documentation: https://docs.aarna.ai/
+  defillama:
+  audits: https://skynet.certik.com/projects/aarna-protocol
+  fees:
+  trading_strategy:
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/aarna/index.html
+example_smart_contracts:
+  - https://etherscan.io/address/0xb9c1344105faa4681bc7ffd68c5c526da61f2ae8
