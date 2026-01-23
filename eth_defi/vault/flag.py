@@ -50,6 +50,9 @@ class VaultFlag(str, enum.Enum):
     #: Vault ls missing in the protocol official website and might be a spoof attempt
     unofficial = "unofficial"
 
+    #: Vault has abnormal price behaviour on low TVL
+    abnormal_price_on_low_tvl = "abnormal_price_on_low_tvl"
+
 
 #: Don't touch vaults with these flags
 BAD_FLAGS = {
@@ -58,6 +61,7 @@ BAD_FLAGS = {
     VaultFlag.malicious,
     VaultFlag.abnormal_tvl,
     VaultFlag.unofficial,
+    VaultFlag.abnormal_price_on_low_tvl,
 }
 
 
@@ -106,6 +110,8 @@ FOXIFY_VAULT = "Foxify offers perp DEX and funding for proprietary trades. This 
 PENDLE_LOOPING = "Abnormal high yield due to Pendle looping - more info here https://x.com/ssmccul/status/2006016219275501936"
 
 ZEROLEND_SUPERFORM_WITHDRAW_ONLY = "All ZeroLend vaults on Superform are in withdraw-only mode. Support could not give an answer on why."
+
+LOW_TVL_ABNORMAL_PRICE = "Low-TVL vault with abnormal price behaviour"
 
 MISSING_IN_PROTOCOL_FRONTEND = "This vault is missing in the protocol's primary website and cannot be verified."
 
@@ -253,6 +259,12 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0x01ba69727e2860b37bc1a2bd56999c1afb4c15d8": (None, YIELDNEST_YNRWAX),
     # Supply USDC on ZeroLend RWA Market
     "0x887d57a509070a0843c6418eb5cffc090dcbbe95": (None, ZEROLEND_SUPERFORM_WITHDRAW_ONLY),
+    # Re7 USDC (Euler on Sonic)
+    "0xf75ae954d30217b4ee70dbfb33f04162aa3cf260": (VaultFlag.abnormal_price_on_low_tvl, LOW_TVL_ABNORMAL_PRICE),
+    # Mainstreet Liquidity Vault (Euler on Sonic)
+    "0x5b63bd1574d40d98c6967047f0323cc5d4895775": (VaultFlag.abnormal_price_on_low_tvl, LOW_TVL_ABNORMAL_PRICE),
+    # Braindead Digital USDC (Euler on Sonic)
+    "0x3710b212b39477df2deaadcf16ef56c384a3d142": (VaultFlag.abnormal_price_on_low_tvl, LOW_TVL_ABNORMAL_PRICE),
 }
 
 for addr in VAULT_FLAGS_AND_NOTES.keys():
