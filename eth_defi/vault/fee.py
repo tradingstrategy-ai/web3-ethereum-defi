@@ -115,6 +115,8 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "Renalta": None,
     # Avant - no explicit fees, yield distributed through rewards vesting
     "Avant": VaultFeeMode.feeless,
+    # aarnâ - fee mode unknown
+    "aarnâ": None,
 }
 
 

@@ -32,6 +32,7 @@ Supported protocols
 .. toctree::
    :maxdepth: 1
 
+   aarna/index
    accountable/index
    altura/index
    avant/index
