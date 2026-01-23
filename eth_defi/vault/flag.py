@@ -265,6 +265,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0x5b63bd1574d40d98c6967047f0323cc5d4895775": (VaultFlag.abnormal_price_on_low_tvl, LOW_TVL_ABNORMAL_PRICE),
     # Braindead Digital USDC (Euler on Sonic)
     "0x3710b212b39477df2deaadcf16ef56c384a3d142": (VaultFlag.abnormal_price_on_low_tvl, LOW_TVL_ABNORMAL_PRICE),
+    # ymevUSDC (Yearn on Avalanche)
+    "0x7aca67a6856bf532a7b2dea9b20253f08bc9a85a": (VaultFlag.abnormal_price_on_low_tvl, LOW_TVL_ABNORMAL_PRICE),
 }
 
 for addr in VAULT_FLAGS_AND_NOTES.keys():
