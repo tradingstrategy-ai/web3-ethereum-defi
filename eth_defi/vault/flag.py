@@ -115,7 +115,7 @@ LOW_TVL_ABNORMAL_PRICE = "Low-TVL vault with abnormal price behaviour"
 
 MISSING_IN_PROTOCOL_FRONTEND = "This vault is missing in the protocol's primary website and cannot be verified."
 
-YIELDNEST_YNRWAX = """ynRWAx: Tokenized Australian residential real estate credit earning 11% APY, allocated to mortgage-backed loans on verified house-and-land developments. Made safe in collaboration with a fully licensed and insured fund manager, Kimber Capital (AFS Licence No. 425278).
+YIELDNEST_YNRWAX = """ynRWAx: Tokenized Australian residential real estate credit earning 11% APY, allocated to mortgage-backed loans on verified house-and-land developments. Made safe in collaboration with a fully licensed and insured fund manager, [Kimber Capital](https://kimbercapital.au/) (AFS Licence No. 425278).
 
 Fees: 0%.
 

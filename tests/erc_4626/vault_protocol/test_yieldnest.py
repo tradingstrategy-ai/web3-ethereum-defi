@@ -10,8 +10,7 @@ from web3 import Web3
 
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature, get_vault_protocol_name
-from eth_defi.erc_4626.vault_protocol.yieldnest.vault import (
-    YNRWAX_VAULT_ADDRESS, YieldNestVault)
+from eth_defi.erc_4626.vault_protocol.yieldnest.vault import YNRWAX_VAULT_ADDRESS, YieldNestVault
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.vault.base import VaultTechnicalRisk
