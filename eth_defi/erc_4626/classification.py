@@ -1556,6 +1556,11 @@ def create_vault_instance(
 
         return AarnaVault(web3, spec, token_cache=token_cache, features=features)
 
+    elif ERC4626Feature.yo_like in features:
+        from eth_defi.erc_4626.vault_protocol.yo.vault import YoVault
+
+        return YoVault(web3, spec, token_cache=token_cache, features=features)
+
     else:
         # Generic ERC-4626 without fee data
         from eth_defi.erc_4626.vault import ERC4626Vault
@@ -1718,6 +1723,9 @@ HARDCODED_PROTOCOLS = {
     # aarnâ - atvPTmax Token vault on Ethereum
     # https://etherscan.io/address/0xb9c1344105faa4681bc7ffd68c5c526da61f2ae8
     "0xb9c1344105faa4681bc7ffd68c5c526da61f2ae8": {ERC4626Feature.aarna_like},
+    # Yo Protocol - YoVault on Ethereum
+    # https://etherscan.io/address/0x0000000f2eb9f69274678c76222b35eec7588a65
+    "0x0000000f2eb9f69274678c76222b35eec7588a65": {ERC4626Feature.yo_like},
 }
 
 for a in HARDCODED_PROTOCOLS.keys():

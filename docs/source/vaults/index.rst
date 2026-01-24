@@ -89,5 +89,6 @@ Supported protocols
    yearn/index
    yieldfi/index
    yieldnest/index
+   yo/index
    yuzu_money/index
    zerolend/index

@@ -505,6 +505,12 @@ class ERC4626Feature(enum.Enum):
     #: https://www.aarna.ai/
     aarna_like = "aarna_like"
 
+    #: Yo Protocol
+    #:
+    #: DeFi protocol with ERC-4626 vault and asynchronous redemption mechanism.
+    #: https://www.yo.xyz/
+    yo_like = "yo_like"
+
 
 def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     """Deduct vault protocol name based on Vault smart contract features.
@@ -727,6 +733,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.aarna_like in features:
         return "aarnâ"
+
+    elif ERC4626Feature.yo_like in features:
+        return "Yo"
 
     # No idea
     if ERC4626Feature.erc_7540_like in features:

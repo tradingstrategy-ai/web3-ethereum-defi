@@ -130,6 +130,8 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Avant": VaultTechnicalRisk.severe,
     # aarnâ - new protocol, risk not yet assessed
     "aarnâ": None,
+    # Yo - YoVault_V2 source was not available on Github, and the development seems not to be transparent
+    "Yo": VaultTechnicalRisk.severe,
 }
 
 #: Particular vaults that are broken, misleading or otherwise problematic.

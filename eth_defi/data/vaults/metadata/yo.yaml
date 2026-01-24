@@ -1,0 +1,31 @@
+name: Yo
+slug: yo
+short_description: |
+  Decentralised yield optimisation platform with multi-chain asset allocation.
+long_description: |
+  Yo is a decentralised yield optimisation platform that automatically allocates user assets
+  across multiple DeFi protocols and blockchains to maximise risk-adjusted returns. The platform
+  uses algorithmic balancing powered by Exponential.fi's risk ratings to optimise yield while
+  managing exposure, and continuously rebalances to maintain optimal positioning.
+
+  The YoVault_V2 is an ERC-4626 compliant vault with an asynchronous redemption mechanism.
+  Users can deposit assets and request redemptions which are fulfilled by operators, enabling
+  cross-chain asset management. The vault integrates with over 40 DeFi protocols including
+  Uniswap, Aave, Compound, Curve, Lido, Morpho, and Pendle.
+fee_description: |
+  Yo vaults have configurable deposit and withdrawal fees that are set by the operators.
+  The fees are applied at the time of deposit or redemption. There are no separate
+  management or performance fees.
+links:
+  homepage: https://www.yo.xyz/
+  app: https://www.yo.xyz/
+  twitter: https://x.com/yield
+  github: https://github.com/yoprotocol/core
+  documentation: https://docs.yo.xyz/
+  defillama: https://defillama.com/protocol/yo
+  audits:
+  fees:
+  trading_strategy:
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/yo/index.html
+example_smart_contracts:
+  - https://etherscan.io/address/0x0000000f2eb9f69274678c76222b35eec7588a65

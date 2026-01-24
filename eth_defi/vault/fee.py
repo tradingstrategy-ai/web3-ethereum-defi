@@ -117,6 +117,8 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "Avant": VaultFeeMode.feeless,
     # aarnâ - fee mode unknown
     "aarnâ": None,
+    # Yo - has deposit and withdrawal fees, externalised
+    "Yo": None,
 }
 
 

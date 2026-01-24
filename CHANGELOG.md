@@ -1,5 +1,6 @@
 # 0.39
 
+- Add: New protocol: [Yo](https://www.yo.xyz/) - decentralised yield optimisation platform with multi-chain asset allocation on Ethereum (2026-01-24)
 - Add: New protocol: [aarnâ](https://www.aarna.ai/) - Agentic Onchain Treasury (AOT) protocol using AI agents for DeFi management on Ethereum (2026-01-23)
 - Add: [YieldFi](https://tradingstrategy.ai/trading-view/vaults/protocols/yieldfi) vyUSD vault on Base and yUSD vault on Ethereum (2026-01-23)
 - Add: New protocol: [Avant](https://www.avantprotocol.com/) - decentralised stablecoin protocol on Avalanche with savUSD staking vault (2026-01-19)
