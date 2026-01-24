@@ -1,0 +1,1 @@
+"""Yo protocol integration."""

@@ -1,0 +1,117 @@
+[
+  {
+    "inputs": [],
+    "name": "feeOnDeposit",
+    "outputs": [{"type": "uint256", "name": ""}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "feeOnWithdraw",
+    "outputs": [{"type": "uint256", "name": ""}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "feeRecipient",
+    "outputs": [{"type": "address", "name": ""}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "lastPricePerShare",
+    "outputs": [{"type": "uint256", "name": ""}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "aggregatedUnderlyingBalances",
+    "outputs": [{"type": "uint256", "name": ""}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "totalPendingAssets",
+    "outputs": [{"type": "uint256", "name": ""}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "maxPercentageChange",
+    "outputs": [{"type": "uint256", "name": ""}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{"type": "address", "name": "user"}],
+    "name": "pendingRedeemRequest",
+    "outputs": [
+      {"type": "uint256", "name": "shares"},
+      {"type": "uint256", "name": "assets"}
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "name",
+    "outputs": [{"type": "string", "name": ""}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "symbol",
+    "outputs": [{"type": "string", "name": ""}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "decimals",
+    "outputs": [{"type": "uint8", "name": ""}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "asset",
+    "outputs": [{"type": "address", "name": ""}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "totalAssets",
+    "outputs": [{"type": "uint256", "name": ""}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "totalSupply",
+    "outputs": [{"type": "uint256", "name": ""}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{"type": "uint256", "name": "assets"}],
+    "name": "convertToShares",
+    "outputs": [{"type": "uint256", "name": ""}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{"type": "uint256", "name": "shares"}],
+    "name": "convertToAssets",
+    "outputs": [{"type": "uint256", "name": ""}],
+    "stateMutability": "view",
+    "type": "function"
+  }
+]
