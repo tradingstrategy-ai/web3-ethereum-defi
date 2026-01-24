@@ -119,7 +119,10 @@ YIELDNEST_YNRWAX = """ynRWAx: Tokenized Australian residential real estate credi
 
 Fees: 0%.
 
-Fixed Maturity Date: 15 Oct, 2026."""
+Fixed Maturity Date: 15 Oct, 2026.
+
+Although the vault has long lock up matching the duration of the underlying real-world asset instrument, [the share token can be traded against the secondary liquidity available at Curve DEX](https://www.curve.finance/dex/ethereum/pools/factory-stable-ng-650/swap).
+"""
 
 #: Vault manual blacklist flags and notes.
 #:
