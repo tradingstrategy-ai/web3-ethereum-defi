@@ -67,3 +67,27 @@ def test_clean_vault_price_data(
     assert "raw_share_price" in df.columns
     assert "share_price" in df.columns
     assert len(df["id"].unique()) == 4
+
+
+def test_remove_inactive_lead_time():
+    """Test removal of initial rows where total_supply hasn't changed."""
+    from eth_defi.research.wrangle_vault_prices import remove_inactive_lead_time
+
+    # Create test data with inactive lead time
+    data = {
+        "id": ["vault1"] * 5 + ["vault2"] * 4,
+        "total_supply": [1000, 1000, 1000, 1500, 2000, 0, 100, 100, 200],
+        "share_price": [1.0, 1.0, 1.0, 1.1, 1.2, 0, 1.0, 1.0, 1.1],
+        "timestamp": pd.date_range("2024-01-01", periods=9, freq="h"),
+    }
+    df = pd.DataFrame(data).set_index("timestamp")
+
+    result = remove_inactive_lead_time(df)
+
+    # vault1: should start at index 3 (first change from 1000)
+    # vault2: should skip row 0 (zero supply), start at index 2 (first change from 100)
+    vault1_rows = result[result["id"] == "vault1"]
+    vault2_rows = result[result["id"] == "vault2"]
+
+    assert len(vault1_rows) == 2  # rows at index 3, 4
+    assert len(vault2_rows) == 1  # row at index 3 (200)
