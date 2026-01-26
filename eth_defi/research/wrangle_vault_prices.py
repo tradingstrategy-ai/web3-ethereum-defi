@@ -16,16 +16,13 @@ from typing import Callable
 import numpy as np
 import pandas as pd
 from eth_typing import HexAddress
+from IPython.display import display
+from tqdm.auto import tqdm
 
 from eth_defi.chain import get_chain_name
 from eth_defi.token import is_stablecoin_like
 from eth_defi.vault.base import VaultSpec
-from eth_defi.vault.vaultdb import VaultDatabase, DEFAULT_VAULT_DATABASE, VaultRow, DEFAULT_RAW_PRICE_DATABASE, DEFAULT_UNCLEANED_PRICE_DATABASE
-
-from tqdm.auto import tqdm
-
-
-from IPython.display import display
+from eth_defi.vault.vaultdb import DEFAULT_RAW_PRICE_DATABASE, DEFAULT_UNCLEANED_PRICE_DATABASE, DEFAULT_VAULT_DATABASE, VaultDatabase, VaultRow
 
 #: For manual debugging, we process these vaults first
 PRIORITY_SORT_IDS = [
@@ -422,6 +419,90 @@ def filter_unneeded_row(
     return filtered_df
 
 
+def remove_inactive_lead_time(
+    prices_df: pd.DataFrame,
+    logger=print,
+) -> pd.DataFrame:
+    """Remove initial inactive period from each vault's price history.
+
+    - At the beginning of a vault's lifecycle, total supply may remain constant
+      while the vault is inactive (e.g., 1, 1000, etc.)
+    - When the vault activates, the share price may jump, causing abnormal returns
+    - This function removes the initial rows where total_supply hasn't changed
+    - Uses exact equality for comparison
+    - Skips initial rows with zero or NaN total_supply to find first valid value
+
+    :param prices_df:
+        Price data with 'id' and 'total_supply' columns.
+        Assumes data is sorted by timestamp within each vault.
+
+    :return:
+        DataFrame with inactive lead time removed for each vault
+    """
+
+    original_row_count = len(prices_df)
+    rows_removed = 0
+    vaults_affected = 0
+
+    def _find_first_supply_change(group: pd.DataFrame) -> pd.DataFrame:
+        """Find the first row where total_supply changes from its initial value."""
+        nonlocal rows_removed
+        nonlocal vaults_affected
+
+        if len(group) <= 1:
+            return group
+
+        # Skip initial rows with zero or NaN total_supply to find first valid value
+        valid_supply_mask = (group["total_supply"] > 0) & pd.notna(group["total_supply"])
+        if not valid_supply_mask.any():
+            # No valid total_supply values - keep all data
+            return group
+
+        first_valid_idx = valid_supply_mask.idxmax()
+        first_valid_loc = group.index.get_loc(first_valid_idx)
+        initial_supply = group.iloc[first_valid_loc]["total_supply"]
+
+        # Find the first index where total_supply differs from initial value
+        # Only consider rows from first_valid_loc onwards
+        remaining_group = group.iloc[first_valid_loc:]
+        supply_changed_mask = remaining_group["total_supply"] != initial_supply
+
+        if not supply_changed_mask.any():
+            # Total supply never changed after initial valid value - keep from first valid
+            if first_valid_loc > 0:
+                vaults_affected += 1
+                rows_removed += first_valid_loc
+            return remaining_group
+
+        # Get the index of the first change
+        first_change_idx = supply_changed_mask.idxmax()
+        first_change_loc = remaining_group.index.get_loc(first_change_idx)
+
+        # Calculate total rows to remove (invalid initial rows + constant supply rows)
+        total_lead_rows = first_valid_loc + first_change_loc
+
+        if total_lead_rows > 0:
+            vaults_affected += 1
+            rows_removed += total_lead_rows
+
+        # Return only rows from the first change onwards
+        return remaining_group.iloc[first_change_loc:]
+
+    filtered_df = prices_df.groupby("id", group_keys=True, sort=False).apply(
+        _find_first_supply_change,
+        include_groups=False,
+    )
+
+    # groupby() added id as a MultiIndex level, unwind this back
+    # as other functions do not expect it
+    if isinstance(filtered_df.index, pd.MultiIndex):
+        filtered_df = filtered_df.reset_index(level="id")
+
+    logger(f"Removed inactive lead time: {original_row_count:,} -> {len(filtered_df):,} rows ({rows_removed:,} removed from {vaults_affected} vaults)")
+
+    return filtered_df
+
+
 def fix_outlier_share_prices(
     prices_df: pd.DataFrame,
     logger=print,
@@ -646,6 +727,13 @@ def process_raw_vault_scan_data(
     prices_df = filter_vaults_by_stablecoin(rows, prices_df, logger)
     # Disabled as low and does not result to any savings
     # prices_df = filter_unneeded_row(prices_df, logger)
+
+    prices_df = remove_inactive_lead_time(prices_df, logger)
+
+    if diagnose_vault_id:
+        vault_prices_df = prices_df[prices_df["id"] == diagnose_vault_id]
+        logger("After remove_inactive_lead_time():")
+        display(vault_prices_df)
 
     prices_df = fix_outlier_share_prices(prices_df, logger)
 

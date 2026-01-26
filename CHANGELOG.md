@@ -1,5 +1,6 @@
 # 0.39
 
+- Add: `remove_inactive_lead_time()` function to remove initial inactive period from vault price history where total supply hasn't changed (2026-01-26)
 - Add: Reader state display to `check-vault-metadata.py` script for debugging vault scanner state (2026-01-26)
 - Add: New protocol: [Yo](https://www.yo.xyz/) - decentralised yield optimisation platform with multi-chain asset allocation on Ethereum (2026-01-24)
 - Add: New protocol: [aarnâ](https://www.aarna.ai/) - Agentic Onchain Treasury (AOT) protocol using AI agents for DeFi management on Ethereum (2026-01-23)
