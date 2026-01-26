@@ -53,6 +53,9 @@ class VaultFlag(str, enum.Enum):
     #: Vault has abnormal price behaviour on low TVL
     abnormal_price_on_low_tvl = "abnormal_price_on_low_tvl"
 
+    #: This vault is a subvault used by other vaults
+    subvault = "subvault"
+
 
 #: Don't touch vaults with these flags
 BAD_FLAGS = {
@@ -62,6 +65,7 @@ BAD_FLAGS = {
     VaultFlag.abnormal_tvl,
     VaultFlag.unofficial,
     VaultFlag.abnormal_price_on_low_tvl,
+    VaultFlag.subvault,
 }
 
 
@@ -114,6 +118,8 @@ ZEROLEND_SUPERFORM_WITHDRAW_ONLY = "All ZeroLend vaults on Superform are in with
 LOW_TVL_ABNORMAL_PRICE = "Low-TVL vault with abnormal price behaviour"
 
 MISSING_IN_PROTOCOL_FRONTEND = "This vault is missing in the protocol's primary website and cannot be verified."
+
+SUBVAULT = "This vault is likely not intended to be directly exposed to the end users. It may be used by other vaults as a part of the strategy mix and has erratic TVL."
 
 YIELDNEST_YNRWAX = """ynRWAx: Tokenized Australian residential real estate credit earning 11% APY, allocated to mortgage-backed loans on verified house-and-land developments. Made safe in collaboration with a fully licensed and insured fund manager, [Kimber Capital](https://kimbercapital.au/) (AFS Licence No. 425278).
 
@@ -270,6 +276,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0x3710b212b39477df2deaadcf16ef56c384a3d142": (VaultFlag.abnormal_price_on_low_tvl, LOW_TVL_ABNORMAL_PRICE),
     # ymevUSDC (Yearn on Avalanche)
     "0x7aca67a6856bf532a7b2dea9b20253f08bc9a85a": (VaultFlag.abnormal_price_on_low_tvl, LOW_TVL_ABNORMAL_PRICE),
+    # Harvest: USDC Vault (0x0F6d)
+    "0x0f6d1d626fd6284c6c1c1345f30996b89b879689": (VaultFlag.subvault, SUBVAULT),
 }
 
 for addr in VAULT_FLAGS_AND_NOTES.keys():
