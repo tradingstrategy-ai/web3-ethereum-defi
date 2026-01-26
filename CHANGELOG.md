@@ -1,5 +1,6 @@
 # 0.39
 
+- Add: Reader state display to `check-vault-metadata.py` script for debugging vault scanner state (2026-01-26)
 - Add: New protocol: [Yo](https://www.yo.xyz/) - decentralised yield optimisation platform with multi-chain asset allocation on Ethereum (2026-01-24)
 - Add: New protocol: [aarnâ](https://www.aarna.ai/) - Agentic Onchain Treasury (AOT) protocol using AI agents for DeFi management on Ethereum (2026-01-23)
 - Add: [YieldFi](https://tradingstrategy.ai/trading-view/vaults/protocols/yieldfi) vyUSD vault on Base and yUSD vault on Ethereum (2026-01-23)
