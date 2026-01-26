@@ -1725,6 +1725,8 @@ HARDCODED_PROTOCOLS = {
     "0xb9c1344105faa4681bc7ffd68c5c526da61f2ae8": {ERC4626Feature.aarna_like},
     # Yo Protocol - YoVault on Ethereum
     # https://etherscan.io/address/0x0000000f2eb9f69274678c76222b35eec7588a65
+    # Same address also deployed on Base:
+    # https://basescan.org/address/0x0000000f2eb9f69274678c76222b35eec7588a65
     "0x0000000f2eb9f69274678c76222b35eec7588a65": {ERC4626Feature.yo_like},
 }
 
