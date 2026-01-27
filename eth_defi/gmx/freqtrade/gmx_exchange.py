@@ -662,6 +662,23 @@ class Gmx(Exchange):
             logger.debug("  kwargs=%s", kwargs)
         logger.debug("=" * 80)
 
+        # Check wallet ETH balance and warn if low (before creating order)
+        try:
+            if hasattr(self._api, "web3") and hasattr(self._api, "wallet"):
+                balance_wei = self._api.web3.eth.get_balance(self._api.wallet.address)
+                balance_eth = balance_wei / 1e18
+
+                # Warn if balance is low (< 0.01 ETH)
+                if balance_eth < 0.01:
+                    logger.warning(
+                        "💰 GMX GAS WARNING: Low ETH balance %.6f ETH. Minimum recommended: 0.01 ETH. Top up wallet %s to avoid order failures.",
+                        balance_eth,
+                        self._api.wallet.address,
+                    )
+        except Exception:
+            # Silently ignore balance check failures (don't block order creation)
+            pass
+
         # Call parent create_order which uses CCXT underneath
         # Note: initial_order is GMX-specific, don't pass to parent Exchange
         logger.debug(">>> Delegating to parent Exchange.create_order() -> GMX CCXT adapter")

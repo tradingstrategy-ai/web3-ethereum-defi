@@ -1,0 +1,15 @@
+{
+  "exchange": {
+    "ccxt_config": {
+      "rpcUrl": "https://arb1.arbitrum.io/rpc",
+      "privateKey": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+      "symbol": "HYPE/USDC:USDC",
+      "side": "buy",
+      "positionSize": 10.0,
+      "leverage": 2.5,
+      "collateralSymbol": "HYPE",
+      "slippagePercent": 0.5,
+      "executionBuffer": 2.2
+    }
+  }
+}

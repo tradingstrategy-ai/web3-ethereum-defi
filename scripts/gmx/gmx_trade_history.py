@@ -30,8 +30,6 @@ from eth_defi.gmx.events import (
     extract_order_execution_result,
 )
 
-# Set up logging
-logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger(__name__)
 
 # Rich console for output
@@ -454,6 +452,9 @@ def display_trades(trades: list[dict], trader_address: str):
 
 def main():
     """Main entry point."""
+    # Set up logging
+    logging.basicConfig(level=logging.WARNING)
+
     # Get configuration from environment
     rpc_url = os.environ.get("JSON_RPC_ARBITRUM", "https://arb1.arbitrum.io/rpc")
     # Handle space-separated fallback URLs

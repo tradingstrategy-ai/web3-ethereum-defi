@@ -33,10 +33,13 @@ from pathlib import Path
 from rich.console import Console
 from rich.table import Table
 
+from rich.logging import RichHandler
+
 from eth_defi.chain import get_chain_name
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.core.open_positions import GetOpenPositions
 from eth_defi.gmx.events import extract_order_key_from_receipt
+from eth_defi.gmx.gas_monitor import GasMonitorConfig
 from eth_defi.gmx.order_tracking import check_order_status, is_order_pending
 from eth_defi.gmx.trading import GMXTrading
 from eth_defi.gmx.verification import verify_gmx_order_execution
@@ -285,6 +288,15 @@ def close_position(
 
 def main():
     """Main entry point."""
+    # Configure logging to show gas monitoring and trading logs
+    FORMAT = "%(message)s"
+    logging.basicConfig(level="INFO", format=FORMAT, datefmt="[%X]", handlers=[RichHandler()])
+
+    # Enable logging for eth_defi modules (gas monitoring, trading, etc.)
+    logging.getLogger("eth_defi").setLevel(logging.INFO)
+    logging.getLogger("eth_defi.gmx.trading").setLevel(logging.INFO)
+    logging.getLogger("eth_defi.gmx.gas_monitor").setLevel(logging.INFO)
+
     # Check CLI arguments
     if len(sys.argv) < 2:
         console.print("[red]Usage: python gmx_close_all_positions.py <secrets_file> [slippage_percent][/red]")
@@ -346,9 +358,10 @@ def main():
     if eth_balance_float < 0.001:
         console.print("[red]Warning: Low ETH balance for gas fees![/red]")
 
-    # Create GMX config and trading client
+    # Create GMX config and trading client with gas monitoring
     config = GMXConfig(web3, user_wallet_address=wallet_address, wallet=wallet)
-    trading_client = GMXTrading(config)
+    gas_config = GasMonitorConfig(enabled=True)
+    trading_client = GMXTrading(config, gas_monitor_config=gas_config)
 
     # Fetch open positions
     console.print("\nFetching open positions...")

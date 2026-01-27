@@ -261,6 +261,26 @@ GAS_LIMITS = {
     "multicall_base": 200000,
 }
 
+# Gas monitoring default thresholds (in USD)
+#: Default warning threshold for low gas balance in USD
+#: When balance drops below this value, a warning is logged
+DEFAULT_GAS_WARNING_THRESHOLD_USD = 1.0
+
+#: Default critical threshold for gas balance in USD
+#: When balance drops below this value, a critical warning is logged
+DEFAULT_GAS_CRITICAL_THRESHOLD_USD = 0.5
+
+#: Default safety buffer multiplier for gas estimates
+#: Applied to raw gas estimate to account for estimation variance
+DEFAULT_GAS_ESTIMATE_BUFFER = 1.2
+
+#: Default setting for whether gas monitoring is enabled
+DEFAULT_GAS_MONITOR_ENABLED = True
+
+#: Default setting for whether to raise an exception on critical gas balance
+#: If False, only logs warning instead of raising InsufficientGasError
+DEFAULT_GAS_RAISE_ON_CRITICAL = False
+
 # Token address mappings for routing and swaps
 TOKEN_ADDRESS_MAPPINGS = {
     "arbitrum": {

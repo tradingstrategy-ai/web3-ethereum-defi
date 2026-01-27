@@ -47,8 +47,6 @@ from eth_defi.gmx.events import (
     get_event_name_hash,
 )
 
-# Configure logging
-logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -256,6 +254,9 @@ def example_decode_error_reason():
 
 
 def main():
+    # Configure logging
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+
     print("\n" + "=" * 60)
     print("GMX Event Parsing Examples")
     print("Decode and analyse GMX protocol events from transactions")

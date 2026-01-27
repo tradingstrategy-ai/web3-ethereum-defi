@@ -32,6 +32,7 @@ from statistics import median
 from typing import Any
 
 from ccxt.base.errors import (
+    BaseError,
     ExchangeError,
     InvalidOrder,
     NotSupported,
@@ -46,12 +47,21 @@ from eth_defi.gmx.cache import GMXMarketCache
 from eth_defi.gmx.ccxt.properties import describe_gmx
 from eth_defi.gmx.ccxt.validation import _validate_ohlcv_data_sufficiency
 from eth_defi.gmx.config import GMXConfig
-from eth_defi.gmx.constants import GMX_MIN_COST_USD, PRECISION
+from eth_defi.gmx.constants import (
+    DEFAULT_GAS_CRITICAL_THRESHOLD_USD,
+    DEFAULT_GAS_ESTIMATE_BUFFER,
+    DEFAULT_GAS_MONITOR_ENABLED,
+    DEFAULT_GAS_RAISE_ON_CRITICAL,
+    DEFAULT_GAS_WARNING_THRESHOLD_USD,
+    GMX_MIN_COST_USD,
+    PRECISION,
+)
 from eth_defi.gmx.contracts import get_contract_addresses, get_token_address_normalized
 from eth_defi.gmx.core.markets import Markets
 from eth_defi.gmx.core.open_positions import GetOpenPositions
 from eth_defi.gmx.core.oracle import OraclePrices
 from eth_defi.gmx.events import decode_gmx_event, extract_order_execution_result, extract_order_key_from_receipt
+from eth_defi.gmx.gas_monitor import GasMonitorConfig, GMXGasMonitor, InsufficientGasError
 from eth_defi.gmx.graphql.client import GMXSubsquidClient
 from eth_defi.gmx.order import SLTPEntry, SLTPOrder, SLTPParams
 from eth_defi.gmx.order_tracking import check_order_status
@@ -289,9 +299,20 @@ class GMX(ExchangeCompatible):
         # Pass wallet to config so BaseOrder can access it for auto-approval
         self.config = GMXConfig(self.web3, user_wallet_address=wallet_address, wallet=self.wallet)
 
-        # Initialize API and trader
+        # Parse gas monitoring config from CCXT options
+        options = parameters.get("options", {})
+        self._gas_monitor_config = GasMonitorConfig(
+            warning_threshold_usd=options.get("gasWarningThresholdUsd", DEFAULT_GAS_WARNING_THRESHOLD_USD),
+            critical_threshold_usd=options.get("gasCriticalThresholdUsd", DEFAULT_GAS_CRITICAL_THRESHOLD_USD),
+            enabled=options.get("gasMonitorEnabled", DEFAULT_GAS_MONITOR_ENABLED),
+            gas_estimate_buffer=options.get("gasEstimateBuffer", DEFAULT_GAS_ESTIMATE_BUFFER),
+            raise_on_critical=options.get("gasRaiseOnCritical", DEFAULT_GAS_RAISE_ON_CRITICAL),
+        )
+
+        # Initialize API and trader with gas monitoring config
         self.api = GMXAPI(self.config)
-        self.trader = GMXTrading(self.config) if self.wallet else None
+        self.trader = GMXTrading(self.config, gas_monitor_config=self._gas_monitor_config) if self.wallet else None
+        self._gas_monitor: GMXGasMonitor | None = None
 
         # Store wallet address
         self.wallet_address = wallet_address
@@ -354,8 +375,12 @@ class GMX(ExchangeCompatible):
         self.default_slippage = 0.003  # Default 0.3% slippage
         self._oracle_prices_instance = None
 
-        # Initialize trading manager
-        self.trader = GMXTrading(config) if wallet else None
+        # Use default gas monitoring config for legacy initialization
+        self._gas_monitor_config = GasMonitorConfig()
+
+        # Initialize trading manager with gas monitoring config
+        self.trader = GMXTrading(config, gas_monitor_config=self._gas_monitor_config) if wallet else None
+        self._gas_monitor: GMXGasMonitor | None = None
 
         # Store wallet address
         self.wallet_address = (
@@ -757,6 +782,12 @@ class GMX(ExchangeCompatible):
         self.symbols = []
         self._orders = {}  # Order cache - cleared on fresh runs to avoid stale data
 
+        # Consecutive failure tracking for safety
+        self._consecutive_failures = 0  # Track consecutive transaction failures
+        self._max_consecutive_failures = 3  # Threshold to pause trading
+        self._trading_paused = False  # Flag to indicate if trading is paused
+        self._trading_paused_reason = None  # Store reason for pause
+
         self.timeframes = {
             "1m": "1m",
             "5m": "5m",
@@ -846,6 +877,35 @@ class GMX(ExchangeCompatible):
                 raise ValueError("Cannot access oracle prices without a config. Initialize with config or params.")
             self._oracle_prices_instance = OraclePrices(config.get_chain())
             instance = self._oracle_prices_instance
+        return instance
+
+    @property
+    def gas_monitor(self) -> GMXGasMonitor | None:
+        """Gas monitor instance for checking balance and estimating gas costs.
+
+        Uses lazy initialisation pattern for efficiency. Only creates
+        the GMXGasMonitor instance when first accessed.
+
+        :return: GMXGasMonitor instance for this exchange's chain, or None during initialisation
+        :rtype: GMXGasMonitor | None
+        """
+        # Use getattr to avoid AttributeError during parent class initialization
+        instance = getattr(self, "_gas_monitor", None)
+        if instance is None:
+            config = getattr(self, "config", None)
+            # Return None during CCXT base class init (config not set yet)
+            if config is None:
+                return None
+            web3 = getattr(self, "web3", None)
+            if web3 is None:
+                return None
+            gas_config = getattr(self, "_gas_monitor_config", None) or GasMonitorConfig()
+            self._gas_monitor = GMXGasMonitor(
+                web3=web3,
+                chain=config.get_chain(),
+                config=gas_config,
+            )
+            instance = self._gas_monitor
         return instance
 
     def calculate_fee(
@@ -3550,6 +3610,7 @@ class GMX(ExchangeCompatible):
                 print(f"  PnL: ${pos['unrealizedPnl']:.2f} ({pos['percentage']:.2f}%)")
                 print(f"  Liquidation: ${pos['liquidationPrice']:.2f}")
         """
+        logger.debug("ORDER_TRACE: fetch_positions() CALLED - symbols=%s", symbols)
         params = params or {}
         self.load_markets()
 
@@ -3597,6 +3658,22 @@ class GMX(ExchangeCompatible):
                 # Skip positions we can't parse
                 logger.debug("Skipping unparseable position: %s", str(e))
                 pass
+
+        # Log summary of positions found
+        logger.info(
+            "ORDER_TRACE: fetch_positions() RETURNING %d position(s)",
+            len(result),
+        )
+        for pos in result:
+            logger.info(
+                "ORDER_TRACE:   - Position: symbol=%s, side=%s, size=%.8f, entry_price=%.2f, unrealized_pnl=%.2f, leverage=%.1fx",
+                pos.get("symbol"),
+                pos.get("side"),
+                pos.get("contracts", 0),
+                pos.get("entryPrice", 0),
+                pos.get("unrealizedPnl", 0),
+                pos.get("leverage", 0),
+            )
 
         return result
 
@@ -4258,10 +4335,44 @@ class GMX(ExchangeCompatible):
 
         logger.info("SL/TP result created: entry_price=%s, sl_trigger=%s, tp_trigger=%s, sl_fee=%s, tp_fee=%s", sltp_result.entry_price, sltp_result.stop_loss_trigger_price, sltp_result.take_profit_trigger_price, sltp_result.stop_loss_fee, sltp_result.take_profit_fee)
 
+        # Gas estimation and logging (if gas monitoring enabled)
+        gas_config = getattr(self, "_gas_monitor_config", None)
+
+        # Log position size details (if gas monitoring enabled)
+        if gas_config and gas_config.enabled:
+            position_type = "LONG" if is_long else "SHORT"
+            logger.info(
+                "Opening %s position with SL/TP: size=$%.2f, collateral=$%.2f (%.6f %s), leverage=%.1fx",
+                position_type,
+                size_delta_usd,
+                collateral_usd,
+                collateral_tokens,
+                actual_collateral_symbol,
+                leverage,
+            )
+        monitor = self.gas_monitor
+        gas_estimate = None
+        native_price_usd = None
+        if gas_config and gas_config.enabled and monitor:
+            try:
+                gas_estimate = monitor.estimate_transaction_gas(
+                    tx=sltp_result.transaction,
+                    from_addr=self.wallet.address,
+                )
+                monitor.log_gas_estimate(gas_estimate, "GMX SL/TP order")
+                native_price_usd = gas_estimate.native_price_usd
+            except Exception as e:
+                logger.warning("Gas estimation failed: %s - using order gas_limit", e)
+
         # Sign transaction
-        transaction = sltp_result.transaction
+        transaction = dict(sltp_result.transaction)
         if "nonce" in transaction:
             del transaction["nonce"]
+
+        # Use estimated gas if available
+        if gas_estimate:
+            transaction["gas"] = gas_estimate.gas_limit
+
         signed_tx = self.wallet.sign_transaction_with_new_nonce(transaction)
 
         # Submit to blockchain
@@ -4270,6 +4381,18 @@ class GMX(ExchangeCompatible):
 
         # Wait for confirmation
         receipt = self.web3.eth.wait_for_transaction_receipt(tx_hash_bytes)
+
+        # Log actual gas usage (if gas monitoring enabled)
+        if gas_config and gas_config.enabled and monitor:
+            try:
+                monitor.log_gas_usage(
+                    receipt=dict(receipt),
+                    native_price_usd=native_price_usd,
+                    operation="GMX SL/TP order",
+                    estimated_gas=gas_estimate.gas_limit if gas_estimate else None,
+                )
+            except Exception as e:
+                logger.warning("Failed to log gas usage: %s", e)
 
         # Convert to CCXT format with SL/TP info
         order = self._parse_sltp_result_to_ccxt(
@@ -4468,14 +4591,60 @@ class GMX(ExchangeCompatible):
                 ) from e
             raise
 
+        # Gas estimation and logging (if gas monitoring enabled)
+        gas_config = getattr(self, "_gas_monitor_config", None)
+        monitor = self.gas_monitor
+
+        # Log position size details for SL/TP order (if gas monitoring enabled)
+        if gas_config and gas_config.enabled:
+            position_type = "LONG" if is_long else "SHORT"
+            order_type_display = "Stop Loss" if type == "stop_loss" else "Take Profit"
+            logger.info(
+                "Creating %s for %s position: size=$%.2f, trigger=$%.2f, collateral=%s",
+                order_type_display,
+                position_type,
+                amount,
+                trigger_price,
+                collateral_symbol,
+            )
+
+        gas_estimate = None
+        native_price_usd = None
+        if gas_config and gas_config.enabled and monitor:
+            try:
+                gas_estimate = monitor.estimate_transaction_gas(
+                    tx=result.transaction,
+                    from_addr=self.wallet.address,
+                )
+                monitor.log_gas_estimate(gas_estimate, f"GMX {type} order")
+                native_price_usd = gas_estimate.native_price_usd
+            except Exception as e:
+                logger.warning("Gas estimation failed: %s - using order gas_limit", e)
+
         # Sign and submit transaction
-        transaction = result.transaction
+        transaction = dict(result.transaction)
         if "nonce" in transaction:
             del transaction["nonce"]
+
+        # Use estimated gas if available
+        if gas_estimate:
+            transaction["gas"] = gas_estimate.gas_limit
 
         signed_tx = self.wallet.sign_transaction_with_new_nonce(transaction)
         tx_hash = self.web3.eth.send_raw_transaction(signed_tx.rawTransaction)
         receipt = self.web3.eth.wait_for_transaction_receipt(tx_hash)
+
+        # Log actual gas usage (if gas monitoring enabled)
+        if gas_config and gas_config.enabled and monitor:
+            try:
+                monitor.log_gas_usage(
+                    receipt=dict(receipt),
+                    native_price_usd=native_price_usd,
+                    operation=f"GMX {type} order",
+                    estimated_gas=gas_estimate.gas_limit if gas_estimate else None,
+                )
+            except Exception as e:
+                logger.warning("Failed to log gas usage: %s", e)
 
         # Build CCXT-compatible order structure
         timestamp = self.milliseconds()
@@ -4832,23 +5001,87 @@ class GMX(ExchangeCompatible):
                 "Wallet required for order creation. GMX is running in VIEW-ONLY mode. Provide 'privateKey' or 'wallet' in constructor parameters. Example: GMX({'rpcUrl': '...', 'privateKey': '0x...'})",
             )
 
+        # Check if trading is paused due to consecutive failures
+        if self._trading_paused:
+            # Get current wallet balance for detailed error message
+            try:
+                eth_balance = self.web3.eth.get_balance(self.wallet.address)
+                eth_balance_eth = eth_balance / 1e18
+                # Estimate USD value (using $2000/ETH as approximation)
+                eth_balance_usd = eth_balance_eth * 2000
+                balance_str = f"{eth_balance_eth:.6f} ETH (${eth_balance_usd:.2f})"
+            except Exception as e:
+                balance_str = f"<failed to fetch: {e}>"
+
+            # Get the last failed transaction hash if available
+            last_tx_hash = getattr(self, "_last_failed_tx_hash", None)
+            tx_link = f"TX: https://arbiscan.io/tx/{last_tx_hash}" if last_tx_hash else ""
+
+            # Build detailed error message
+            error_msg = f"🛑 GMX BOT PAUSED: {self._consecutive_failures} order failures detected.\n\n{self._trading_paused_reason}\n\nWallet balance: {balance_str}\n{tx_link}\n\nACTION REQUIRED: Increase executionBuffer in config (try 2.0x or higher), top up wallet if needed, then restart bot."
+            logger.error(error_msg)
+            # Raise BaseError which becomes OperationalException (stops bot, sends EXCEPTION to Telegram)
+            raise BaseError(error_msg)
+
         # Sync wallet nonce before creating/closing order (required for Freqtrade)
         self.wallet.sync_nonce(self.web3)
 
-        # logger.info("=" * 80)
-        # logger.info(
-        #     "ORDER_TRACE: create_order() CALLED symbol=%s, type=%s, side=%s, amount=%.8f",
-        #     symbol,
-        #     type,
-        #     side,
-        #     amount,
-        # )
-        # logger.info(
-        #     "ORDER_TRACE: params: reduceOnly=%s, leverage=%s, collateral_symbol=%s",
-        #     params.get("reduceOnly", False),
-        #     params.get("leverage"),
-        #     params.get("collateral_symbol"),
-        # )
+        # Check gas balance before creating order (if gas monitoring enabled)
+        gas_config = getattr(self, "_gas_monitor_config", None)
+        monitor = self.gas_monitor
+        if gas_config and gas_config.enabled and monitor:
+            gas_check = monitor.check_gas_balance(self.wallet.address)
+            if gas_check.status == "critical":
+                monitor.log_gas_check_warning(gas_check)
+                if gas_config.raise_on_critical:
+                    raise InsufficientGasError(gas_check.message, gas_check)
+                # Return failed order dict instead of crashing
+                return {
+                    "id": None,
+                    "clientOrderId": None,
+                    "datetime": self.iso8601(self.milliseconds()),
+                    "timestamp": self.milliseconds(),
+                    "lastTradeTimestamp": None,
+                    "status": "rejected",
+                    "symbol": symbol,
+                    "type": type,
+                    "side": side,
+                    "price": price,
+                    "amount": amount,
+                    "filled": 0.0,
+                    "remaining": amount,
+                    "cost": 0.0,
+                    "trades": [],
+                    "fee": None,
+                    "info": {
+                        "error": "insufficient_gas",
+                        "message": gas_check.message,
+                        "gas_check": {
+                            "balance_native": str(gas_check.native_balance),
+                            "balance_usd": gas_check.balance_usd,
+                            "critical_threshold_usd": gas_config.critical_threshold_usd,
+                        },
+                    },
+                    "average": None,
+                    "fees": [],
+                }
+            elif gas_check.status == "warning":
+                monitor.log_gas_check_warning(gas_check)
+
+        logger.info("=" * 80)
+        logger.info(
+            "ORDER_TRACE: create_order() CALLED - symbol=%s, type=%s, side=%s, amount=%.8f",
+            symbol,
+            type,
+            side,
+            amount,
+        )
+        logger.info(
+            "ORDER_TRACE:   params - reduceOnly=%s, leverage=%s, collateral_symbol=%s",
+            params.get("reduceOnly", False) if params else False,
+            params.get("leverage") if params else None,
+            params.get("collateral_symbol") if params else None,
+        )
 
         # Ensure markets are loaded and populated
         if not self.markets_loaded or not self.markets:
@@ -4890,6 +5123,59 @@ class GMX(ExchangeCompatible):
 
         # Extract reduceOnly from params to determine if opening or closing
         reduceOnly = params.get("reduceOnly", False)
+
+        # Log position size details (if gas monitoring enabled)
+        if gas_config and gas_config.enabled:
+            size_usd = gmx_params.get("size_delta_usd", 0)
+            leverage = gmx_params.get("leverage", 1.0)
+            collateral_usd = size_usd / leverage if leverage > 0 else 0
+            collateral_symbol = gmx_params.get("collateral_symbol", "unknown")
+            is_long = gmx_params.get("is_long", True)
+            position_type = "LONG" if is_long else "SHORT"
+            action = "Closing" if reduceOnly else "Opening"
+
+            # Try to get raw token amount using oracle price
+            collateral_tokens = None
+            try:
+                from eth_defi.gmx.contracts import get_token_address_normalized
+                from eth_defi.gmx.core.oracle import OraclePrices
+                from statistics import median
+
+                chain = self.config.get_chain()
+                collateral_address = get_token_address_normalized(chain, collateral_symbol)
+                if collateral_address:
+                    oracle = OraclePrices(chain)
+                    price_data = oracle.get_price_for_token(collateral_address)
+                    if price_data:
+                        token_details = fetch_erc20_details(self.web3, collateral_address)
+                        raw_price = median([float(price_data["maxPriceFull"]), float(price_data["minPriceFull"])])
+                        token_price_usd = raw_price / (10 ** (PRECISION - token_details.decimals))
+                        if token_price_usd > 0:
+                            collateral_tokens = collateral_usd / token_price_usd
+            except Exception as e:
+                logger.debug("Could not calculate raw token amount: %s", e)
+
+            if collateral_tokens is not None:
+                logger.info(
+                    "%s %s position: size=$%.2f, collateral=$%.2f (%.6f %s), leverage=%.1fx",
+                    action,
+                    position_type,
+                    size_usd,
+                    collateral_usd,
+                    collateral_tokens,
+                    collateral_symbol,
+                    leverage,
+                )
+            else:
+                logger.info(
+                    "%s %s position: size=$%.2f, collateral=$%.2f %s, leverage=%.1fx",
+                    action,
+                    position_type,
+                    size_usd,
+                    collateral_usd,
+                    collateral_symbol,
+                    leverage,
+                )
 
         if not reduceOnly:
             # ============================================
@@ -5133,10 +5419,29 @@ class GMX(ExchangeCompatible):
                     # Some other ValueError - re-raise it
                     raise
 
+        # Gas estimation and logging (if gas monitoring enabled)
+        gas_estimate = None
+        native_price_usd = None
+        if gas_config and gas_config.enabled and monitor:
+            try:
+                gas_estimate = monitor.estimate_transaction_gas(
+                    tx=order_result.transaction,
+                    from_addr=self.wallet.address,
+                )
+                monitor.log_gas_estimate(gas_estimate, "GMX order")
+                native_price_usd = gas_estimate.native_price_usd
+            except Exception as e:
+                logger.warning("Gas estimation failed: %s - using order gas_limit", e)
+
         # Sign transaction (remove nonce if present, wallet will manage it)
-        transaction = order_result.transaction
+        transaction = dict(order_result.transaction)
         if "nonce" in transaction:
             del transaction["nonce"]
+
+        # Use estimated gas if available, otherwise use order's gas_limit
+        if gas_estimate:
+            transaction["gas"] = gas_estimate.gas_limit
+
         signed_tx = self.wallet.sign_transaction_with_new_nonce(transaction)
 
         # Submit to blockchain
@@ -5146,11 +5451,211 @@ class GMX(ExchangeCompatible):
         # Wait for confirmation
         receipt = self.web3.eth.wait_for_transaction_receipt(tx_hash_bytes)
 
+        # Log actual gas usage (if gas monitoring enabled)
+        if gas_config and gas_config.enabled and monitor:
+            try:
+                monitor.log_gas_usage(
+                    receipt=dict(receipt),
+                    native_price_usd=native_price_usd,
+                    operation="GMX order",
+                    estimated_gas=gas_estimate.gas_limit if gas_estimate else None,
+                )
+            except Exception as e:
+                logger.warning("Failed to log gas usage: %s", e)
+
         # logger.info(
         #     "ORDER_TRACE: Transaction submitted tx_hash=%s, status=%s",
         #     tx_hash,
         #     receipt.get("status"),
         # )
+
+        # Check if transaction reverted on-chain
+        if receipt.get("status") == 0:
+            logger.error(
+                "Order creation transaction REVERTED on-chain: tx_hash=%s, block=%s",
+                tx_hash,
+                receipt.get("blockNumber"),
+            )
+
+            # Try to get revert reason using transaction replay
+            # If that fails, use gas usage patterns for diagnostics
+            revert_reason = "Transaction reverted on-chain"
+
+            try:
+                from eth_defi.revert_reason import fetch_transaction_revert_reason
+
+                revert_reason = fetch_transaction_revert_reason(self.web3, tx_hash_bytes, unknown_error_message="<revert reason not available>")
+
+                # Check if extraction failed - use gas diagnostics
+                if "<revert reason not available>" in revert_reason:
+                    logger.debug("Transaction replay could not extract revert reason, using gas diagnostics")
+
+                    # Fetch transaction to get gas limit (already done below, but needed here for diagnostics)
+                    try:
+                        tx = self.web3.eth.get_transaction(tx_hash_bytes)
+                        gas_limit = tx.get("gas", 0)
+                    except Exception:
+                        gas_limit = 0
+
+                    gas_used = receipt.get("gasUsed", 0)
+
+                    # Check for out of gas
+                    if gas_limit > 0 and gas_used >= gas_limit:
+                        revert_reason = f"Transaction ran out of gas (used {gas_used:,} / {gas_limit:,}). Increase gas limit or check for infinite loops."
+                    # Check for low gas (used > 95% of limit)
+                    elif gas_limit > 0 and (gas_used / gas_limit) > 0.95:
+                        revert_reason = f"Transaction used {gas_used:,} of {gas_limit:,} gas ({gas_used * 100 // gas_limit}%). Likely insufficient gas."
+                    # Check for very low gas usage (likely failed early)
+                    elif gas_used < 50000:
+                        revert_reason = f"Transaction failed early (used only {gas_used:,} gas). Likely invalid parameters or contract state."
+                    else:
+                        # Generic message with gas info
+                        revert_reason = f"Transaction reverted (used {gas_used:,} of {gas_limit:,} gas). Revert reason could not be extracted."
+
+                    logger.error(
+                        "Could not extract revert reason via replay. Diagnostic: %s. Block: %s",
+                        revert_reason,
+                        receipt.get("blockNumber"),
+                    )
+                else:
+                    # fetch_transaction_revert_reason succeeded
+                    logger.error("Transaction revert reason: %s", revert_reason)
+
+            except Exception as fetch_error:
+                # fetch_transaction_revert_reason raised exception - use gas diagnostics
+                logger.debug("Transaction replay failed: %s", fetch_error)
+
+                # Fetch transaction to get gas limit
+                try:
+                    tx = self.web3.eth.get_transaction(tx_hash_bytes)
+                    gas_limit = tx.get("gas", 0)
+                except Exception:
+                    gas_limit = 0
+
+                gas_used = receipt.get("gasUsed", 0)
+
+                if gas_limit > 0 and gas_used >= gas_limit:
+                    revert_reason = f"Transaction ran out of gas (used {gas_used:,} / {gas_limit:,})."
+                elif gas_limit > 0 and (gas_used / gas_limit) > 0.95:
+                    revert_reason = f"Transaction likely ran out of gas (used {gas_used:,} of {gas_limit:,}, {gas_used * 100 // gas_limit}%)."
+                elif gas_used < 50000:
+                    revert_reason = f"Transaction failed early (used only {gas_used:,} gas). Likely invalid parameters."
+                else:
+                    revert_reason = f"Transaction reverted (gas: {gas_used:,} / {gas_limit:,}). Reason could not be extracted."
+
+                logger.error("Transaction replay failed. Diagnostic: %s", revert_reason)
+
+            # Increment consecutive failure counter
+            self._consecutive_failures += 1
+            # Store last failed tx hash for pause message
+            self._last_failed_tx_hash = tx_hash
+
+            # Get gas and balance info for detailed notification
+            gas_used = receipt.get("gasUsed", 0)
+
+            # Fetch transaction to get gas limit (receipts don't have gas limit, only gasUsed)
+            try:
+                tx = self.web3.eth.get_transaction(tx_hash_bytes)
+                gas_limit = tx.get("gas", 0)
+            except Exception as e:
+                logger.warning("Could not fetch transaction for gas limit: %s", e)
+                gas_limit = 0
+
+            gas_left = gas_limit - gas_used if gas_limit > 0 else 0
+
+            # Get current ETH balance
+            try:
+                eth_balance = self.web3.eth.get_balance(self.wallet.address)
+                eth_balance_formatted = f"{eth_balance / 1e18:.6f} ETH (${eth_balance / 1e18 * 2000:.2f} @ $2000/ETH)"
+            except Exception as e:
+                eth_balance_formatted = f"<failed to fetch: {e}>"
+
+            # Build error message for Freqtrade/Telegram notification
+            # Use f-string to avoid % formatting issues with logging
+            gas_pct = (gas_used * 100 / gas_limit) if gas_limit > 0 else 0
+            separator = "=" * 80
+            error_msg = f"\n{separator}\nCRITICAL: Order creation transaction REVERTED on-chain\n{separator}\nTransaction Hash: {tx_hash}\nBlock Number: {receipt.get('blockNumber')}\nRevert Reason: {revert_reason}\nGas Used: {gas_used:,} / {gas_limit:,} ({gas_pct:.1f}%)\nGas Left: {gas_left:,}\nWallet Balance: {eth_balance_formatted}\nConsecutive Failures: {self._consecutive_failures} / {self._max_consecutive_failures}\n{separator}"
+            logger.error(error_msg)
+
+            # Check if threshold reached - PAUSE TRADING
+            if self._consecutive_failures >= self._max_consecutive_failures:
+                self._trading_paused = True
+
+                # Calculate gas cost in USD
+                try:
+                    eth_balance = self.web3.eth.get_balance(self.wallet.address)
+                    eth_balance_eth = eth_balance / 1e18
+                    eth_balance_usd = eth_balance_eth * 2000  # Estimate USD value
+                    gas_cost_eth = (gas_used * 2) / 1e9  # Estimate at 2 gwei
+                    gas_cost_usd = gas_cost_eth * 2000
+
+                    # Build detailed pause reason with gas costs
+                    if "out of gas" in revert_reason.lower() or gas_used >= gas_limit * 0.95:
+                        self._trading_paused_reason = f"LOW GAS: {eth_balance_eth:.6f} ETH (${eth_balance_usd:.2f})! Last tx used {gas_used:,} / {gas_limit:,} gas (${gas_cost_usd:.2f}). Last failure: {revert_reason[:150]}"
+                    else:
+                        self._trading_paused_reason = f"Last tx: {gas_used:,} gas used (${gas_cost_usd:.2f}). Wallet: {eth_balance_eth:.6f} ETH (${eth_balance_usd:.2f}). Reason: {revert_reason[:150]}"
+                except Exception as e:
+                    # Fallback if gas calculation fails
+                    self._trading_paused_reason = f"Reached {self._consecutive_failures} consecutive transaction failures. Last failure: {revert_reason[:200]}"
+
+                # Critical alert for auto-pause
+                pause_separator = "!" * 80
+                pause_msg = f"\n{pause_separator}\nTRADING PAUSED - MANUAL INTERVENTION REQUIRED\n{pause_separator}\nReason: {self._consecutive_failures} consecutive transaction failures\n{self._trading_paused_reason}\nTo resume trading, call: gmx.reset_failure_counter()\n{pause_separator}"
+                logger.error(pause_msg)
+
+            # Return cancelled order - don't store as "open"
+            # Match the pattern from commit 2e2a8757 for cancelled orders
+            timestamp = self.milliseconds()
+            failed_order = {
+                "id": tx_hash,
+                "clientOrderId": None,
+                "timestamp": timestamp,
+                "datetime": self.iso8601(timestamp),
+                "lastTradeTimestamp": timestamp,
+                "symbol": symbol,
+                "type": type,
+                "side": side,
+                "price": None,
+                "amount": amount,
+                "cost": None,
+                "average": None,
+                "filled": 0.0,
+                "remaining": amount,
+                "status": "cancelled",  # Mark as cancelled, not open
+                "fee": {
+                    "cost": order_result.execution_fee / 1e18,
+                    "currency": "ETH",
+                },
+                "trades": [],
+                "info": {
+                    "tx_hash": tx_hash,
+                    "creation_receipt": receipt,
+                    "block_number": receipt.get("blockNumber"),
+                    "gas_used": receipt.get("gasUsed"),
+                    "revert_reason": revert_reason,
+                    "event_name": "TransactionReverted",
+                    "cancel_reason": f"Order creation transaction reverted: {revert_reason}",
+                },
+            }
+
+            # Store in cache for consistency
+            self._orders[tx_hash] = failed_order
+
+            logger.info(
+                "Order creation FAILED - returning cancelled order id=%s, reason=%s",
+                tx_hash[:18],
+                revert_reason[:100],
+            )
+
+            return failed_order
+
+        # Transaction succeeded - reset consecutive failure counter
+        if self._consecutive_failures > 0:
+            logger.info(
+                "Transaction succeeded - resetting consecutive failure counter (was %d)",
+                self._consecutive_failures,
+            )
+            self._consecutive_failures = 0
 
         # Extract order_key from OrderCreated or OrderExecuted event for tracking
         try:
@@ -5227,12 +5732,11 @@ class GMX(ExchangeCompatible):
                 # import json
                 # print(f"DEBUG: trade_action response = {json.dumps(trade_action, indent=2, default=str)}")
 
-                if trade_action:
-                    # logger.debug(
-                    #     "ORDER_TRACE: Subsquid returned trade action: eventName=%s",
-                    #     trade_action.get("eventName"),
-                    # )
-                    pass
+                # if trade_action:
+                # logger.debug(
+                #     "ORDER_TRACE: Subsquid returned trade action: eventName=%s",
+                #     trade_action.get("eventName"),
+                # )
 
             except Exception as e:
                 logger.debug(
@@ -5404,9 +5908,10 @@ class GMX(ExchangeCompatible):
             execution_tx_hash = trade_action.get("transaction", {}).get("hash")
             is_long = trade_action.get("isLong")
 
-            logger.debug(
-                "ORDER_TRACE: Order EXECUTED successfully - price=%.2f",
+            logger.info(
+                "ORDER_TRACE: create_order() - Order EXECUTED successfully - price=%.2f, size_usd=%.2f",
                 execution_price or 0,
+                float(trade_action.get("sizeDeltaUsd", 0)) / 1e30 if trade_action.get("sizeDeltaUsd") else 0,
             )
 
             timestamp = self.milliseconds()
@@ -5448,13 +5953,14 @@ class GMX(ExchangeCompatible):
             # Store in cache
             self._orders[tx_hash] = order
 
-            logger.debug(
-                "ORDER_TRACE: create_order() RETURNING order_id=%s, status=%s, filled=%.8f",
-                order.get("id"),
+            logger.info(
+                "ORDER_TRACE: create_order() RETURNING - order_id=%s, status=%s, filled=%.8f, remaining=%.8f",
+                order.get("id")[:16] if order.get("id") else "None",
                 order.get("status"),
                 order.get("filled", 0),
+                order.get("remaining", 0),
             )
-            # logger.debug("=" * 80)
+            logger.info("=" * 80)
 
             return order
 
@@ -5470,14 +5976,15 @@ class GMX(ExchangeCompatible):
             order_key=order_key,
         )
 
-        logger.debug(
-            "ORDER_TRACE: create_order() RETURNING order_id=%s, status=%s, filled=%.8f, order_key=%s",
-            order.get("id"),
+        logger.info(
+            "ORDER_TRACE: create_order() RETURNING - order_id=%s, status=%s, filled=%.8f, remaining=%.8f, order_key=%s",
+            order.get("id")[:16] if order.get("id") else "None",
             order.get("status"),
             order.get("filled", 0),
+            order.get("remaining", 0),
             order.get("info", {}).get("order_key", "unknown")[:16] if order.get("info", {}).get("order_key") else "unknown",
         )
-        # logger.debug("=" * 80)
+        logger.info("=" * 80)
 
         return order
 
@@ -5607,6 +6114,48 @@ class GMX(ExchangeCompatible):
         self._orders = {}
         logger.info("Cleared order cache")
 
+    def reset_failure_counter(self):
+        """Reset consecutive failure counter and resume trading.
+
+        Call this method manually after investigating and resolving the cause
+        of consecutive transaction failures. This will:
+
+        - Reset the consecutive failure counter to 0
+        - Resume trading if it was paused
+        - Clear the pause reason
+
+        :Example:
+
+            .. code-block:: python
+
+                # After fixing gas issues or other problems
+                gmx.reset_failure_counter()
+
+                # Trading will resume on next create_order() call
+
+        .. warning::
+            Only call this after investigating and resolving the root cause
+            of the failures. Resetting without fixing the underlying issue
+            may lead to more wasted gas.
+        """
+        was_paused = self._trading_paused
+        failure_count = self._consecutive_failures
+
+        self._consecutive_failures = 0
+        self._trading_paused = False
+        self._trading_paused_reason = None
+
+        if was_paused:
+            logger.info(
+                "Trading RESUMED - failure counter reset (was %d failures, trading was paused)",
+                failure_count,
+            )
+        else:
+            logger.info(
+                "Failure counter reset (was %d failures, trading was not paused)",
+                failure_count,
+            )
+
     def cancel_order(
         self,
         id: str,
@@ -5651,9 +6200,22 @@ class GMX(ExchangeCompatible):
         :rtype: dict
         :raises OrderNotFound: If order with given ID doesn't exist
         """
+        logger.debug(
+            "ORDER_TRACE: fetch_order() CALLED - order_id=%s, symbol=%s",
+            id[:16] if id else "None",
+            symbol,
+        )
+
         # Check if order exists in stored orders
         if id in self._orders:
             order = self._orders[id].copy()
+            logger.info(
+                "ORDER_TRACE: fetch_order(%s) - FOUND IN CACHE - status=%s, filled=%.8f, remaining=%.8f",
+                id[:16],
+                order.get("status"),
+                order.get("filled", 0),
+                order.get("remaining", 0),
+            )
 
             # Always check fresh status - do not cache order status
             # This ensures we detect order execution/cancellation promptly
@@ -5763,8 +6325,12 @@ class GMX(ExchangeCompatible):
             return order
 
         # Order not in cache - try to fetch from blockchain directly
-        # This handles orders from previous sessions or other strategies
-        # Normalize ID: add "0x" prefix if missing (for backwards compatibility with old order IDs)
+        # This handles orders from previous sessions (e.g., after bot restart)
+        # Follow GMX SDK flow: extract order_key → query execution status → return correct status
+        logger.info(
+            "ORDER_TRACE: fetch_order(%s) - NOT IN CACHE, fetching from blockchain (e.g., after bot restart)",
+            id[:16] if id else "None",
+        )
         normalized_id = id if id.startswith("0x") else f"0x{id}"
 
         if len(normalized_id) == 66:  # Valid tx hash length (0x + 64 hex chars)
@@ -5772,40 +6338,285 @@ class GMX(ExchangeCompatible):
                 receipt = self.web3.eth.get_transaction_receipt(normalized_id)
                 tx = self.web3.eth.get_transaction(normalized_id)
 
-                # Build minimal order structure from transaction data
-                # Note: For orders not in cache, we can't track keeper execution
                 tx_success = receipt.get("status") == 1
+                if not tx_success:
+                    # Transaction failed - return failed order
+                    order = {
+                        "id": id,
+                        "clientOrderId": None,
+                        "datetime": self.iso8601(tx.get("blockNumber", 0) * 1000) if tx.get("blockNumber") else None,
+                        "timestamp": tx.get("blockNumber", 0) * 1000 if tx.get("blockNumber") else None,
+                        "lastTradeTimestamp": None,
+                        "status": "failed",
+                        "symbol": symbol if symbol else None,
+                        "type": "market",
+                        "side": None,
+                        "price": None,
+                        "amount": None,
+                        "filled": 0.0,
+                        "remaining": None,
+                        "cost": None,
+                        "trades": [],
+                        "fee": {
+                            "currency": "ETH",
+                            "cost": float(receipt.get("gasUsed", 0)) * float(tx.get("gasPrice", 0)) / 1e18,
+                        },
+                        "info": {
+                            "creation_receipt": receipt,
+                            "transaction": tx,
+                        },
+                        "average": None,
+                        "fees": [],
+                    }
+                    logger.info("fetch_order(%s): tx failed, status=failed", id[:16])
+                    return order
+
+                # Transaction succeeded - extract order_key to verify execution
+                try:
+                    order_key = extract_order_key_from_receipt(self.web3, receipt)
+                except ValueError as e:
+                    logger.warning("fetch_order(%s): could not extract order_key: %s", id[:16], e)
+                    order_key = None
+
+                if not order_key:
+                    # No order_key - can't verify execution, assume still pending
+                    logger.warning("fetch_order(%s): no order_key, returning status=open", id[:16])
+                    order = {
+                        "id": id,
+                        "clientOrderId": None,
+                        "datetime": self.iso8601(tx.get("blockNumber", 0) * 1000) if tx.get("blockNumber") else None,
+                        "timestamp": tx.get("blockNumber", 0) * 1000 if tx.get("blockNumber") else None,
+                        "lastTradeTimestamp": None,
+                        "status": "open",
+                        "symbol": symbol if symbol else None,
+                        "type": "market",
+                        "side": None,
+                        "price": None,
+                        "amount": None,
+                        "filled": None,
+                        "remaining": None,
+                        "cost": None,
+                        "trades": [],
+                        "fee": {
+                            "currency": "ETH",
+                            "cost": float(receipt.get("gasUsed", 0)) * float(tx.get("gasPrice", 0)) / 1e18,
+                        },
+                        "info": {
+                            "creation_receipt": receipt,
+                            "transaction": tx,
+                        },
+                        "average": None,
+                        "fees": [],
+                    }
+                    return order
+
+                # Follow GMX SDK flow: Query TradeAction via GraphQL (Subsquid)
+                order_key_hex = "0x" + order_key.hex()
+                trade_action = None
+
+                try:
+                    subsquid = GMXSubsquidClient(chain=self.config.get_chain())
+                    # No timeout - this is a historical query, not waiting for new data
+                    trade_action = subsquid.get_trade_action_by_order_key(
+                        order_key_hex,
+                        timeout_seconds=0,  # Don't wait, just check if exists
+                        poll_interval=0.5,
+                    )
+                except Exception as e:
+                    logger.debug("fetch_order(%s): Subsquid query failed: %s", id[:16], e)
+
+                # Fallback: Query EventEmitter logs if Subsquid failed
+                if trade_action is None:
+                    logger.debug("fetch_order(%s): Falling back to EventEmitter logs", id[:16])
+
+                    try:
+                        addresses = get_contract_addresses(self.config.get_chain())
+                        event_emitter = addresses.eventemitter
+                        creation_block = receipt.get("blockNumber", 0)
+                        current_block = self.web3.eth.block_number
+
+                        logs = self.web3.eth.get_logs(
+                            {
+                                "address": event_emitter,
+                                "fromBlock": creation_block,
+                                "toBlock": current_block,
+                            }
+                        )
+
+                        for log in logs:
+                            try:
+                                event = decode_gmx_event(self.web3, log)
+                                if not event:
+                                    continue
+
+                                if event.event_name not in ("OrderExecuted", "OrderCancelled", "OrderFrozen"):
+                                    continue
+
+                                # Check if this event matches our order_key
+                                event_order_key = event.topic1 or event.get_bytes32("key")
+                                if event_order_key != order_key:
+                                    continue
+
+                                # Found our order's execution event
+                                trade_action = {
+                                    "eventName": event.event_name,
+                                    "orderKey": order_key_hex,
+                                    "isLong": event.get_bool("isLong"),
+                                    "reason": event.get_string("reasonBytes") if event.event_name == "OrderCancelled" else None,
+                                    "transaction": {
+                                        "hash": log["transactionHash"].hex() if isinstance(log["transactionHash"], bytes) else log["transactionHash"],
+                                    },
+                                }
+
+                                # Get execution price if available
+                                if event.event_name == "OrderExecuted":
+                                    exec_price = event.get_uint("executionPrice")
+                                    if exec_price:
+                                        trade_action["executionPrice"] = str(exec_price)
+
+                                break
+
+                            except Exception as e:
+                                logger.debug("Error decoding log: %s", e)
+                                continue
+
+                    except Exception as e:
+                        logger.debug("fetch_order(%s): EventEmitter query failed: %s", id[:16], e)
+
+                # Process the trade action result
+                if trade_action is None:
+                    # No execution found - still pending or lost
+                    logger.warning(
+                        "ORDER_TRACE: fetch_order(%s) - NO EXECUTION FOUND (checked Subsquid + EventEmitter) - RETURNING status=open (might be lost/pending)",
+                        id[:16],
+                    )
+                    order = {
+                        "id": id,
+                        "clientOrderId": None,
+                        "datetime": self.iso8601(tx.get("blockNumber", 0) * 1000) if tx.get("blockNumber") else None,
+                        "timestamp": tx.get("blockNumber", 0) * 1000 if tx.get("blockNumber") else None,
+                        "lastTradeTimestamp": None,
+                        "status": "open",
+                        "symbol": symbol if symbol else None,
+                        "type": "market",
+                        "side": None,
+                        "price": None,
+                        "amount": None,
+                        "filled": None,
+                        "remaining": None,
+                        "cost": None,
+                        "trades": [],
+                        "fee": {
+                            "currency": "ETH",
+                            "cost": float(receipt.get("gasUsed", 0)) * float(tx.get("gasPrice", 0)) / 1e18,
+                        },
+                        "info": {
+                            "creation_receipt": receipt,
+                            "transaction": tx,
+                            "order_key": order_key_hex,
+                        },
+                        "average": None,
+                        "fees": [],
+                    }
+                    return order
+
+                # Check event type
+                event_name = trade_action.get("eventName", "")
+
+                if event_name in ("OrderCancelled", "OrderFrozen"):
+                    # Order cancelled/frozen
+                    error_reason = trade_action.get("reason") or f"Order {event_name.lower()}"
+                    logger.info(
+                        "ORDER_TRACE: fetch_order(%s) - Order CANCELLED/FROZEN - reason=%s - RETURNING status=cancelled",
+                        id[:16],
+                        error_reason,
+                    )
+
+                    timestamp = self.milliseconds()
+                    order = {
+                        "id": id,
+                        "clientOrderId": None,
+                        "timestamp": timestamp,
+                        "datetime": self.iso8601(timestamp),
+                        "lastTradeTimestamp": timestamp,
+                        "symbol": symbol,
+                        "type": "market",
+                        "side": None,
+                        "price": None,
+                        "amount": None,
+                        "cost": None,
+                        "average": None,
+                        "filled": 0.0,
+                        "remaining": None,
+                        "status": "cancelled",
+                        "fee": {
+                            "currency": "ETH",
+                            "cost": float(receipt.get("gasUsed", 0)) * float(tx.get("gasPrice", 0)) / 1e18,
+                        },
+                        "trades": [],
+                        "info": {
+                            "creation_receipt": receipt,
+                            "transaction": tx,
+                            "order_key": order_key_hex,
+                            "event_name": event_name,
+                            "cancel_reason": error_reason,
+                        },
+                    }
+                    return order
+
+                # Order executed successfully (OrderExecuted event)
+                raw_exec_price = trade_action.get("executionPrice")
+                execution_price = None
+                if raw_exec_price and symbol:
+                    market = self.markets.get(symbol)
+                    if market:
+                        execution_price = self._convert_price_to_usd(float(raw_exec_price), market)
+
+                execution_tx_hash = trade_action.get("transaction", {}).get("hash")
+                is_long = trade_action.get("isLong")
+
+                logger.info(
+                    "ORDER_TRACE: fetch_order(%s) - Order EXECUTED at price=%.2f, size_usd=%.2f - RETURNING status=closed",
+                    id[:16],
+                    execution_price or 0,
+                    float(trade_action.get("sizeDeltaUsd", 0)) / 1e30 if trade_action.get("sizeDeltaUsd") else 0,
+                )
+
+                timestamp = self.milliseconds()
                 order = {
                     "id": id,
                     "clientOrderId": None,
-                    "datetime": self.iso8601(tx.get("blockNumber", 0) * 1000) if tx.get("blockNumber") else None,
-                    "timestamp": tx.get("blockNumber", 0) * 1000 if tx.get("blockNumber") else None,
-                    "lastTradeTimestamp": None,
-                    "status": "open" if tx_success else "failed",  # Can't verify execution without order_key
-                    "symbol": symbol if symbol else None,
+                    "timestamp": timestamp,
+                    "datetime": self.iso8601(timestamp),
+                    "lastTradeTimestamp": timestamp,
+                    "symbol": symbol,
                     "type": "market",
-                    "side": None,  # Can't determine from tx alone
-                    "price": None,
-                    "amount": None,  # Can't determine from tx alone
-                    "filled": None,  # Can't determine from tx alone
-                    "remaining": None,
+                    "side": None,  # Unknown from tx alone
+                    "price": execution_price,
+                    "amount": None,  # Unknown from tx alone
                     "cost": None,
-                    "trades": [],  # Empty list, not None - freqtrade expects a list
+                    "average": execution_price,
+                    "filled": None,  # Unknown from tx alone
+                    "remaining": 0.0,
+                    "status": "closed",
                     "fee": {
                         "currency": "ETH",
                         "cost": float(receipt.get("gasUsed", 0)) * float(tx.get("gasPrice", 0)) / 1e18,
                     },
+                    "trades": [],
                     "info": {
                         "creation_receipt": receipt,
                         "transaction": tx,
-                        "block_number": receipt.get("blockNumber"),
-                        "gas_used": receipt.get("gasUsed"),
+                        "execution_tx_hash": execution_tx_hash,
+                        "order_key": order_key_hex,
+                        "execution_price": execution_price,
+                        "is_long": is_long,
+                        "event_name": event_name,
+                        "pnl_usd": float(trade_action.get("pnlUsd", 0)) / 1e30 if trade_action.get("pnlUsd") else None,
+                        "size_delta_usd": float(trade_action.get("sizeDeltaUsd", 0)) / 1e30 if trade_action.get("sizeDeltaUsd") else None,
+                        "price_impact_usd": float(trade_action.get("priceImpactUsd", 0)) / 1e30 if trade_action.get("priceImpactUsd") else None,
                     },
-                    "average": None,
-                    "fees": [],
                 }
-
-                logger.info("fetch_order(%s): fetched from blockchain (not in cache), status=open", id[:16])
                 return order
 
             except Exception as e:
