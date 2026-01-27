@@ -15,34 +15,22 @@ import logging
 import time
 from http.client import RemoteDisconnected
 from pprint import pformat
-from typing import (
-    Any,
-    Callable,
-    Collection,
-    Counter,
-    Optional,
-    Tuple,
-    Type,
-    TypeAlias,
-    Union,
-)
+from typing import (Any, Callable, Collection, Counter, Optional, Tuple, Type,
+                    TypeAlias, Union)
 
 from eth_utils.toolz import assoc
-from requests.exceptions import (
-    ChunkedEncodingError,
-    ConnectionError,
-    HTTPError,
-    Timeout,
-    TooManyRedirects,
-    ContentDecodingError,
-)
+from requests.exceptions import (ChunkedEncodingError, ConnectionError,
+                                 ContentDecodingError, HTTPError, Timeout,
+                                 TooManyRedirects)
 from web3 import Web3
 from web3._utils.transactions import get_buffered_gas_estimate
 from web3.exceptions import BlockNotFound
 from web3.middleware import Middleware
 from web3.types import RPCEndpoint, RPCResponse
 
-from eth_defi.compat import WEB3_PY_V7, exception_retry_middleware as compat_exception_retry_middleware, check_if_retry_on_failure_compat
+from eth_defi.compat import WEB3_PY_V7, check_if_retry_on_failure_compat
+from eth_defi.compat import \
+    exception_retry_middleware as compat_exception_retry_middleware
 from eth_defi.tx import get_tx_broadcast_data
 
 logger = logging.getLogger(__name__)
@@ -161,6 +149,10 @@ DEFAULT_RETRYABLE_RPC_ERROR_CODES = (
     # dRPC out of credit?
     # {'message': 'message: API key is not allowed to access blockchain, json-rpc code: -32052, rest code: 403', 'code': 0}
     -32052,
+    # WTF dRPC
+    # Plasma
+    #  Provider lb.drpc.live: {"id":7,"jsonrpc":"2.0","error":{"message":"the method eth_blockNumber does not exist/is not available","code":-32601}}
+    -32601,
 )
 
 
