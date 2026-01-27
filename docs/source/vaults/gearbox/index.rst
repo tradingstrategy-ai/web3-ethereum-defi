@@ -29,6 +29,7 @@ Fee structure:
 Example vault contracts:
 
 - `Hyperithm USDT0 Pool on Plasma <https://plasmascan.to/address/0xb74760fd26400030620027dd29d19d74d514700e>`__
+- `GHO v3 Pool on Ethereum <https://etherscan.io/address/0x4d56c9cba373ad39df69eb18f076b7348000ae09>`__
 
 Links
 ~~~~~

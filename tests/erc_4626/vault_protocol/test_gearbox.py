@@ -15,8 +15,7 @@ from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.vault.base import VaultTechnicalRisk
 
 JSON_RPC_PLASMA = os.environ.get("JSON_RPC_PLASMA")
-
-pytestmark = pytest.mark.skipif(JSON_RPC_PLASMA is None, reason="JSON_RPC_PLASMA needed to run these tests")
+JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
 
 
 @pytest.fixture(scope="module")
@@ -30,21 +29,70 @@ def anvil_plasma_fork(request) -> AnvilLaunch:
 
 
 @pytest.fixture(scope="module")
-def web3(anvil_plasma_fork):
+def web3_plasma(anvil_plasma_fork):
     web3 = create_multi_provider_web3(anvil_plasma_fork.json_rpc_url)
     return web3
 
 
+@pytest.fixture(scope="module")
+def anvil_ethereum_fork(request) -> AnvilLaunch:
+    """Fork Ethereum mainnet at a specific block for reproducibility."""
+    launch = fork_network_anvil(JSON_RPC_ETHEREUM, fork_block_number=24_326_000)
+    try:
+        yield launch
+    finally:
+        launch.close()
+
+
+@pytest.fixture(scope="module")
+def web3_ethereum(anvil_ethereum_fork):
+    web3 = create_multi_provider_web3(anvil_ethereum_fork.json_rpc_url)
+    return web3
+
+
 @flaky.flaky
+@pytest.mark.skipif(JSON_RPC_PLASMA is None, reason="JSON_RPC_PLASMA needed to run this test")
 def test_gearbox_hyperithm_usdt0(
-    web3: Web3,
+    web3_plasma: Web3,
     tmp_path: Path,
 ):
     """Read Gearbox Hyperithm USDT0 vault metadata on Plasma."""
 
     vault = create_vault_instance_autodetect(
-        web3,
+        web3_plasma,
         vault_address="0xb74760fd26400030620027dd29d19d74d514700e",
+    )
+
+    assert isinstance(vault, GearboxVault)
+    assert vault.get_protocol_name() == "Gearbox"
+    assert vault.features == {ERC4626Feature.gearbox_like}
+
+    # Gearbox has zero fees for passive lenders (internalised in share price)
+    assert vault.get_management_fee("latest") == 0.0
+    assert vault.get_performance_fee("latest") == 0.0
+    assert vault.has_custom_fees() is False
+
+    # Check vault link
+    assert vault.get_link() == "https://app.gearbox.fi/"
+
+    # Check risk level
+    assert vault.get_risk() == VaultTechnicalRisk.low
+
+
+@flaky.flaky
+@pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHEREUM needed to run this test")
+def test_gearbox_poolv3_gho(
+    web3_ethereum: Web3,
+    tmp_path: Path,
+):
+    """Read Gearbox PoolV3 GHO vault metadata on Ethereum mainnet.
+
+    - https://etherscan.io/address/0x4d56c9cba373ad39df69eb18f076b7348000ae09
+    """
+
+    vault = create_vault_instance_autodetect(
+        web3_ethereum,
+        vault_address="0x4d56c9cba373ad39df69eb18f076b7348000ae09",
     )
 
     assert isinstance(vault, GearboxVault)
