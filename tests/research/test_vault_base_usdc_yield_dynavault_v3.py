@@ -51,7 +51,3 @@ def test_remove_inactive_lead_time(price_df: pd.DataFrame):
     # After removing inactive lead time, we should have equal or fewer rows
     assert len(cleaned) <= original_len
     # The cleaned data should still have valid share prices
-    print(cleaned.head())
-    import ipdb
-
-    ipdb.set_trace()
