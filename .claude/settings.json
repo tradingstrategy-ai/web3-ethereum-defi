@@ -35,12 +35,12 @@
       "Bash(cp:*)",
       "Bash(test:*)",
       "Bash(file:*)",
-      "Bash(identify:*)",   
-      "Bash(unzip:*)",      
-      "Bash(source:*)",      
-      "Bash(timeout:*)",      
-      "Bash(make:*)",     
-      "Bash(while:*)",      
+      "Bash(identify:*)",
+      "Bash(unzip:*)",
+      "Bash(source:*)",
+      "Bash(timeout:*)",
+      "Bash(make:*)",
+      "Bash(while:*)",
       "Edit(**)",
       "Write(**)",
       "MultiEdit(**)",
@@ -49,9 +49,9 @@
       "Skill(more-vaults)",
       "Skill(more-vaults:*)",
       "Skill(identify-vault-protocol)",
-      "Skill(identify-vault-protocol:*)",      
+      "Skill(identify-vault-protocol:*)",
       "Skill(get-block-number)",
-      "Skill(get-block-number:*)",      
+      "Skill(get-block-number:*)",
       "Skill(extract-project-logo)",
       "Skill(extract-project-logo:*)",
       "Skill(extract-vault-protocol-logo)",
@@ -61,7 +61,9 @@
       "Skill(check-vault-onchain)",
       "Skill(check-vault-onchain:*)",
       "Skill(add-vault-abi-methods)",
-      "Skill(add-vault-abi-methods:*)"           
+      "Skill(add-vault-abi-methods:*)",
+      "Skill(extract-test-set)",
+      "Skill(extract-test-set:*)"
     ]
   }
 }
