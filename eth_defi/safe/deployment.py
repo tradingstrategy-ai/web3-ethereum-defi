@@ -34,6 +34,7 @@ def deploy_safe(
     owners: list[HexAddress | str],
     threshold: int,
     master_copy_address="0x29fcB43b46531BcA003ddC8FCB67FFE91900C762",
+    post_deploy_delay_seconds=10.0,
 ) -> Safe:
     """Deploy a new Safe wallet.
 
@@ -81,6 +82,10 @@ def deploy_safe(
 
     contract_address = safe_tx_stuff.contract_address
     safe = SafeV141(contract_address, ethereum_client)
+
+    if not is_anvil(web3):
+        logger.info("Sleeping for %d seconds for Safe deployment state to propagate", post_deploy_delay_seconds)
+        time.sleep(post_deploy_delay_seconds)
 
     # Check that we can read back Safe data.
     # If this call fails make sure you do not have bad fork block number set
