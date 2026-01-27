@@ -156,9 +156,7 @@ MIN_AFFILIATE_REWARD_FACTOR = create_hash_string("MIN_AFFILIATE_REWARD_FACTOR")
 # ==============================================================================
 
 MAX_AUTO_CANCEL_ORDERS = create_hash_string("MAX_AUTO_CANCEL_ORDERS")
-MAX_TOTAL_CALLBACK_GAS_LIMIT_FOR_AUTO_CANCEL_ORDERS = create_hash_string(
-    "MAX_TOTAL_CALLBACK_GAS_LIMIT_FOR_AUTO_CANCEL_ORDERS"
-)
+MAX_TOTAL_CALLBACK_GAS_LIMIT_FOR_AUTO_CANCEL_ORDERS = create_hash_string("MAX_TOTAL_CALLBACK_GAS_LIMIT_FOR_AUTO_CANCEL_ORDERS")
 
 # ==============================================================================
 # Market Configuration
@@ -193,9 +191,7 @@ ORACLE_TIMESTAMP_ADJUSTMENT = create_hash_string("ORACLE_TIMESTAMP_ADJUSTMENT")
 
 MIN_COLLATERAL_FACTOR = create_hash_string("MIN_COLLATERAL_FACTOR")
 MIN_COLLATERAL_FACTOR_FOR_LIQUIDATION = create_hash_string("MIN_COLLATERAL_FACTOR_FOR_LIQUIDATION")
-MIN_COLLATERAL_FACTOR_FOR_OPEN_INTEREST_MULTIPLIER = create_hash_string(
-    "MIN_COLLATERAL_FACTOR_FOR_OPEN_INTEREST_MULTIPLIER"
-)
+MIN_COLLATERAL_FACTOR_FOR_OPEN_INTEREST_MULTIPLIER = create_hash_string("MIN_COLLATERAL_FACTOR_FOR_OPEN_INTEREST_MULTIPLIER")
 MIN_COLLATERAL_USD = create_hash_string("MIN_COLLATERAL_USD")
 MIN_POSITION_SIZE_USD = create_hash_string("MIN_POSITION_SIZE_USD")
 
@@ -496,15 +492,9 @@ GMX_DATA_ACTION = create_hash_string("GMX_DATA_ACTION")
 FEE_DISTRIBUTOR_DISTRIBUTION_DAY = create_hash_string("FEE_DISTRIBUTOR_DISTRIBUTION_DAY")
 FEE_DISTRIBUTOR_DISTRIBUTION_TIMESTAMP = create_hash_string("FEE_DISTRIBUTOR_DISTRIBUTION_TIMESTAMP")
 FEE_DISTRIBUTOR_STATE = create_hash_string("FEE_DISTRIBUTOR_STATE")
-FEE_DISTRIBUTOR_MAX_REFERRAL_REWARDS_WNT_USD_AMOUNT = create_hash_string(
-    "FEE_DISTRIBUTOR_MAX_REFERRAL_REWARDS_WNT_USD_AMOUNT"
-)
-FEE_DISTRIBUTOR_MAX_REFERRAL_REWARDS_WNT_USD_FACTOR = create_hash_string(
-    "FEE_DISTRIBUTOR_MAX_REFERRAL_REWARDS_WNT_USD_FACTOR"
-)
-FEE_DISTRIBUTOR_MAX_REFERRAL_REWARDS_ESGMX_AMOUNT = create_hash_string(
-    "FEE_DISTRIBUTOR_MAX_REFERRAL_REWARDS_ESGMX_AMOUNT"
-)
+FEE_DISTRIBUTOR_MAX_REFERRAL_REWARDS_WNT_USD_AMOUNT = create_hash_string("FEE_DISTRIBUTOR_MAX_REFERRAL_REWARDS_WNT_USD_AMOUNT")
+FEE_DISTRIBUTOR_MAX_REFERRAL_REWARDS_WNT_USD_FACTOR = create_hash_string("FEE_DISTRIBUTOR_MAX_REFERRAL_REWARDS_WNT_USD_FACTOR")
+FEE_DISTRIBUTOR_MAX_REFERRAL_REWARDS_ESGMX_AMOUNT = create_hash_string("FEE_DISTRIBUTOR_MAX_REFERRAL_REWARDS_ESGMX_AMOUNT")
 FEE_DISTRIBUTOR_GMX_PRICE = create_hash_string("FEE_DISTRIBUTOR_GMX_PRICE")
 FEE_DISTRIBUTOR_WNT_PRICE = create_hash_string("FEE_DISTRIBUTOR_WNT_PRICE")
 FEE_DISTRIBUTOR_MAX_READ_RESPONSE_DELAY = create_hash_string("FEE_DISTRIBUTOR_MAX_READ_RESPONSE_DELAY")
@@ -793,9 +783,7 @@ def claimable_collateral_factor_key(market: str, token: str, time_key: int) -> b
     :param time_key: Time key (uint256)
     :return: Keccak-256 hashed key
     """
-    return create_hash(
-        ["bytes32", "address", "address", "uint256"], [CLAIMABLE_COLLATERAL_FACTOR, market, token, time_key]
-    )
+    return create_hash(["bytes32", "address", "address", "uint256"], [CLAIMABLE_COLLATERAL_FACTOR, market, token, time_key])
 
 
 def claimable_collateral_factor_for_account_key(market: str, token: str, time_key: int, account: str) -> bytes:
@@ -836,9 +824,7 @@ def claimable_ui_fee_amount_key(market: str, token: str, ui_fee_receiver: str) -
     :param ui_fee_receiver: UI fee receiver address
     :return: Keccak-256 hashed key
     """
-    return create_hash(
-        ["bytes32", "address", "address", "address"], [CLAIMABLE_UI_FEE_AMOUNT, market, token, ui_fee_receiver]
-    )
+    return create_hash(["bytes32", "address", "address", "address"], [CLAIMABLE_UI_FEE_AMOUNT, market, token, ui_fee_receiver])
 
 
 def affiliate_reward_key(market: str, token: str, account: str) -> bytes:
@@ -1009,9 +995,7 @@ def open_interest_in_tokens_key(market: str, collateral_token: str, is_long: boo
     :param is_long: Is long position
     :return: Keccak-256 hashed key
     """
-    return create_hash(
-        ["bytes32", "address", "address", "bool"], [OPEN_INTEREST_IN_TOKENS, market, collateral_token, is_long]
-    )
+    return create_hash(["bytes32", "address", "address", "bool"], [OPEN_INTEREST_IN_TOKENS, market, collateral_token, is_long])
 
 
 def is_oracle_provider_enabled_key(provider: str) -> bytes:
@@ -1057,9 +1041,7 @@ def min_collateral_factor_for_open_interest_multiplier_key(market: str, is_long:
     :param is_long: Is long position
     :return: Keccak-256 hashed key
     """
-    return create_hash(
-        ["bytes32", "address", "bool"], [MIN_COLLATERAL_FACTOR_FOR_OPEN_INTEREST_MULTIPLIER, market, is_long]
-    )
+    return create_hash(["bytes32", "address", "bool"], [MIN_COLLATERAL_FACTOR_FOR_OPEN_INTEREST_MULTIPLIER, market, is_long])
 
 
 def reserve_factor_key(market: str, is_long: bool) -> bytes:
@@ -1497,9 +1479,7 @@ def funding_fee_amount_per_size_key(market: str, collateral_token: str, is_long:
     :param is_long: Is long position
     :return: Keccak-256 hashed key
     """
-    return create_hash(
-        ["bytes32", "address", "address", "bool"], [FUNDING_FEE_AMOUNT_PER_SIZE, market, collateral_token, is_long]
-    )
+    return create_hash(["bytes32", "address", "address", "bool"], [FUNDING_FEE_AMOUNT_PER_SIZE, market, collateral_token, is_long])
 
 
 def claimable_funding_amount_per_size_key(market: str, collateral_token: str, is_long: bool) -> bytes:
@@ -1510,9 +1490,7 @@ def claimable_funding_amount_per_size_key(market: str, collateral_token: str, is
     :param is_long: Is long position
     :return: Keccak-256 hashed key
     """
-    return create_hash(
-        ["bytes32", "address", "address", "bool"], [CLAIMABLE_FUNDING_AMOUNT_PER_SIZE, market, collateral_token, is_long]
-    )
+    return create_hash(["bytes32", "address", "address", "bool"], [CLAIMABLE_FUNDING_AMOUNT_PER_SIZE, market, collateral_token, is_long])
 
 
 def funding_updated_at_key(market: str) -> bytes:
@@ -1609,9 +1587,7 @@ def max_allowed_subaccount_action_count_key(account: str, subaccount: str, actio
     :param action_type: Action type (bytes32)
     :return: Keccak-256 hashed key
     """
-    return create_hash(
-        ["bytes32", "address", "address", "bytes32"], [MAX_ALLOWED_SUBACCOUNT_ACTION_COUNT, account, subaccount, action_type]
-    )
+    return create_hash(["bytes32", "address", "address", "bytes32"], [MAX_ALLOWED_SUBACCOUNT_ACTION_COUNT, account, subaccount, action_type])
 
 
 def subaccount_expires_at_key(account: str, subaccount: str, action_type: bytes) -> bytes:
@@ -1622,9 +1598,7 @@ def subaccount_expires_at_key(account: str, subaccount: str, action_type: bytes)
     :param action_type: Action type (bytes32)
     :return: Keccak-256 hashed key
     """
-    return create_hash(
-        ["bytes32", "address", "address", "bytes32"], [SUBACCOUNT_EXPIRES_AT, account, subaccount, action_type]
-    )
+    return create_hash(["bytes32", "address", "address", "bytes32"], [SUBACCOUNT_EXPIRES_AT, account, subaccount, action_type])
 
 
 def subaccount_action_count_key(account: str, subaccount: str, action_type: bytes) -> bytes:
@@ -1635,9 +1609,7 @@ def subaccount_action_count_key(account: str, subaccount: str, action_type: byte
     :param action_type: Action type (bytes32)
     :return: Keccak-256 hashed key
     """
-    return create_hash(
-        ["bytes32", "address", "address", "bytes32"], [SUBACCOUNT_ACTION_COUNT, account, subaccount, action_type]
-    )
+    return create_hash(["bytes32", "address", "address", "bytes32"], [SUBACCOUNT_ACTION_COUNT, account, subaccount, action_type])
 
 
 def subaccount_auto_top_up_amount_key(account: str, subaccount: str) -> bytes:
@@ -1969,9 +1941,7 @@ def fee_distributor_address_info_for_chain_key(chain_id: int, address_name: str)
     :param address_name: Address name (bytes32)
     :return: Keccak-256 hashed key
     """
-    return create_hash(
-        ["bytes32", "uint256", "bytes32"], [FEE_DISTRIBUTOR_ADDRESS_INFO_FOR_CHAIN, chain_id, address_name]
-    )
+    return create_hash(["bytes32", "uint256", "bytes32"], [FEE_DISTRIBUTOR_ADDRESS_INFO_FOR_CHAIN, chain_id, address_name])
 
 
 def contributor_token_amount_key(account: str, token: str) -> bytes:
