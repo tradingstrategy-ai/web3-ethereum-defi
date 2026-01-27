@@ -22,10 +22,7 @@ from tqdm.auto import tqdm
 from eth_defi.chain import get_chain_name
 from eth_defi.token import is_stablecoin_like
 from eth_defi.vault.base import VaultSpec
-from eth_defi.vault.vaultdb import (DEFAULT_RAW_PRICE_DATABASE,
-                                    DEFAULT_UNCLEANED_PRICE_DATABASE,
-                                    DEFAULT_VAULT_DATABASE, VaultDatabase,
-                                    VaultRow)
+from eth_defi.vault.vaultdb import DEFAULT_RAW_PRICE_DATABASE, DEFAULT_UNCLEANED_PRICE_DATABASE, DEFAULT_VAULT_DATABASE, VaultDatabase, VaultRow
 
 #: For manual debugging, we process these vaults first
 PRIORITY_SORT_IDS = [

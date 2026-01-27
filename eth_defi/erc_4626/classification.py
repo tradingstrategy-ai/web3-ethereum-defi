@@ -639,6 +639,17 @@ def create_probe_calls(
             extra_data=None,
         )
 
+        # Gearbox Protocol - PoolV3 lending pools on Ethereum mainnet (older deployment without contractType())
+        # poolQuotaKeeper() is unique to Gearbox PoolV3 contracts
+        # https://etherscan.io/address/0x4d56c9cba373ad39df69eb18f076b7348000ae09
+        yield EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="poolQuotaKeeper()")[0:4],
+            function="poolQuotaKeeper",
+            data=b"",
+            extra_data=None,
+        )
+
         # Curvance Protocol - Monad only
         # BorrowableCToken and other cToken vaults have marketManager()
         # https://github.com/curvance/curvance-contracts
@@ -905,7 +916,8 @@ def identify_vault_features(
         features.add(ERC4626Feature.royco_like)
 
     # Gearbox Protocol - PoolV3 lending pools
-    # contractType() returns "POOL" as bytes32
+    # contractType() returns "POOL" as bytes32 (newer deployments e.g. Plasma)
+    # poolQuotaKeeper() is unique to PoolV3 (older Ethereum mainnet deployments)
     # https://github.com/Gearbox-protocol/core-v3/blob/main/contracts/pool/PoolV3.sol
     if calls["contractType"].success:
         try:
@@ -917,6 +929,9 @@ def identify_vault_features(
                     features.add(ERC4626Feature.gearbox_like)
         except Exception:
             pass
+
+    if calls["poolQuotaKeeper"].success:
+        features.add(ERC4626Feature.gearbox_like)
 
     # Curvance Protocol - BorrowableCToken and other cToken vaults
     # marketManager() returns the IMarketManager address
