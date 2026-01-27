@@ -93,19 +93,19 @@ from eth_defi.token import fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
 from rich.console import Console
 
-# Configure logging to show gas monitoring and trading logs
-FORMAT = "%(message)s"
-logging.basicConfig(level="INFO", format=FORMAT, datefmt="[%X]", handlers=[RichHandler()])
-
-# Enable logging for eth_defi modules (gas monitoring, trading, etc.)
-logging.getLogger("eth_defi").setLevel(logging.INFO)
-logging.getLogger("eth_defi.gmx.trading").setLevel(logging.INFO)
-logging.getLogger("eth_defi.gmx.gas_monitor").setLevel(logging.INFO)
-
 console = Console()
 
 
 def main():
+    # Configure logging to show gas monitoring and trading logs
+    FORMAT = "%(message)s"
+    logging.basicConfig(level="INFO", format=FORMAT, datefmt="[%X]", handlers=[RichHandler()])
+
+    # Enable logging for eth_defi modules (gas monitoring, trading, etc.)
+    logging.getLogger("eth_defi").setLevel(logging.INFO)
+    logging.getLogger("eth_defi.gmx.trading").setLevel(logging.INFO)
+    logging.getLogger("eth_defi.gmx.gas_monitor").setLevel(logging.INFO)
+
     rpc_url = os.environ.get("ARBITRUM_SEPOLIA_RPC_URL")
     private_key = os.environ.get("PRIVATE_KEY")
 

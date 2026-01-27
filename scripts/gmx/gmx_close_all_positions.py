@@ -46,15 +46,6 @@ from eth_defi.gmx.verification import verify_gmx_order_execution
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 
-# Configure logging to show gas monitoring and trading logs
-FORMAT = "%(message)s"
-logging.basicConfig(level="INFO", format=FORMAT, datefmt="[%X]", handlers=[RichHandler()])
-
-# Enable logging for eth_defi modules (gas monitoring, trading, etc.)
-logging.getLogger("eth_defi").setLevel(logging.INFO)
-logging.getLogger("eth_defi.gmx.trading").setLevel(logging.INFO)
-logging.getLogger("eth_defi.gmx.gas_monitor").setLevel(logging.INFO)
-
 logger = logging.getLogger(__name__)
 console = Console()
 
@@ -297,6 +288,15 @@ def close_position(
 
 def main():
     """Main entry point."""
+    # Configure logging to show gas monitoring and trading logs
+    FORMAT = "%(message)s"
+    logging.basicConfig(level="INFO", format=FORMAT, datefmt="[%X]", handlers=[RichHandler()])
+
+    # Enable logging for eth_defi modules (gas monitoring, trading, etc.)
+    logging.getLogger("eth_defi").setLevel(logging.INFO)
+    logging.getLogger("eth_defi.gmx.trading").setLevel(logging.INFO)
+    logging.getLogger("eth_defi.gmx.gas_monitor").setLevel(logging.INFO)
+
     # Check CLI arguments
     if len(sys.argv) < 2:
         console.print("[red]Usage: python gmx_close_all_positions.py <secrets_file> [slippage_percent][/red]")

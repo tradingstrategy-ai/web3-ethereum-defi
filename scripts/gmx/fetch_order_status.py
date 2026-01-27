@@ -32,11 +32,6 @@ from eth_defi.gmx.graphql.client import GMXSubsquidClient
 from eth_defi.gmx.order_tracking import ORDER_LIST_KEY
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 
-# Set up logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
 logger = logging.getLogger(__name__)
 
 
@@ -113,6 +108,12 @@ def check_datastore_pending(web3: Web3, order_key_bytes: bytes, chain: str) -> b
 
 
 def main():
+    # Set up logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    )
+
     # Get environment variables
     order_key = os.environ.get("ORDER_KEY")
     chain = os.environ.get("GMX_CHAIN", "arbitrum")

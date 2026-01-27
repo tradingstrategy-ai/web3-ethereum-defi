@@ -28,15 +28,15 @@ from eth_defi.gmx.trading import GMXTrading
 from eth_defi.gmx.gas_monitor import GasMonitorConfig, GMXGasMonitor
 from eth_defi.hotwallet import HotWallet
 
-# Configure logging
-FORMAT = "%(message)s"
-logging.basicConfig(level="INFO", format=FORMAT, datefmt="[%X]", handlers=[RichHandler()])
-logging.getLogger("eth_defi.gmx.gas_monitor").setLevel(logging.INFO)
-
 console = Console()
 
 
 def main():
+    # Configure logging
+    FORMAT = "%(message)s"
+    logging.basicConfig(level="INFO", format=FORMAT, datefmt="[%X]", handlers=[RichHandler()])
+    logging.getLogger("eth_defi.gmx.gas_monitor").setLevel(logging.INFO)
+
     rpc_url = os.environ.get("JSON_RPC_ARBITRUM")
     private_key = os.environ.get("PRIVATE_KEY")
 

@@ -65,14 +65,6 @@ from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.trace import assert_transaction_success_with_explanation
 
-# Configure logging
-FORMAT = "%(message)s"
-logging.basicConfig(level="INFO", format=FORMAT, datefmt="[%X]", handlers=[RichHandler()])
-
-# Enable logging for eth_defi modules
-logging.getLogger("eth_defi").setLevel(logging.INFO)
-logging.getLogger("eth_defi.gmx.trading").setLevel(logging.INFO)
-
 logger = logging.getLogger(__name__)
 console = Console()
 
@@ -113,6 +105,14 @@ def load_config(config_path: str) -> dict:
 
 def main():
     """Main entry point."""
+    # Configure logging
+    FORMAT = "%(message)s"
+    logging.basicConfig(level="INFO", format=FORMAT, datefmt="[%X]", handlers=[RichHandler()])
+
+    # Enable logging for eth_defi modules
+    logging.getLogger("eth_defi").setLevel(logging.INFO)
+    logging.getLogger("eth_defi.gmx.trading").setLevel(logging.INFO)
+
     # Check CLI arguments
     if len(sys.argv) < 2:
         console.print("[red]Usage: python gmx_ccxt_open_position.py <config_file>[/red]")
