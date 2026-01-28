@@ -123,9 +123,8 @@ USDCE_WHALE: dict[int, HexAddress | str] = {
     #
     # 137: "0x611f7bF868a6212f871e89F7e44684045DdFB09d",
 
-    # Polymarket
-    # https://polygonscan.com/address/0x4d97dcd97ec945f40cf65f87097ace5ea0476045
-    137: "0x1205f31718499dBf1fCa446663B532Ef87481fe1",
+    # Okex https://intel.arkm.com/explorer/token/bridged-usdc-polygon-pos-bridge
+    137: "0x343d752bB710c5575E417edB3F9FA06241A4749A",
 }
 
 #: Used in fork testing
