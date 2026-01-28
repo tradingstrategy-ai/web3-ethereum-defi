@@ -1,8 +1,8 @@
-"""Forge smart contracte development toolchain integration.
+"""Forge smart contract development toolchain integration.
 
 - Compile and deploy smart contracts using Forge
 
-- Verify smart contracts on Etherscan
+- Verify smart contracts on Etherscan, Blockscout, Sourcify, or OKLink
 
 - See `Foundry book <https://book.getfoundry.sh/>`__ for more information.
 """
@@ -14,7 +14,7 @@ import os
 from pathlib import Path
 from shutil import which
 from subprocess import DEVNULL, PIPE
-from typing import Tuple
+from typing import Literal, Tuple
 
 import psutil
 from eth_account.signers.local import LocalAccount
@@ -106,6 +106,8 @@ def deploy_contract_with_forge(
     deployer: HotWallet | LocalAccount,
     constructor_args: list[str] | None = None,
     etherscan_api_key: str | None = None,
+    verifier: Literal["etherscan", "blockscout", "sourcify", "oklink"] | None = None,
+    verifier_url: str | None = None,
     register_for_tracing=True,
     timeout=DEFAULT_TIMEOUT,
     wait_for_block_confirmations=0,
@@ -174,11 +176,33 @@ def deploy_contract_with_forge(
         Need to be able to stringify these for forge.
 
     :param etherscan_api_key:
-        Needed for the source code verification on Etherscan and related services.
+        API key for Etherscan-compatible verification services.
 
-        You need a private API key.
+        Required when using ``verifier="etherscan"`` or ``verifier="oklink"``.
+
+        Not needed for Blockscout or Sourcify.
 
         E.g. `3F3H8....`.
+
+    :param verifier:
+        The contract verification provider to use.
+
+        Supported values:
+
+        - ``"etherscan"``: Etherscan and compatible explorers (requires API key)
+        - ``"blockscout"``: Blockscout explorers (requires verifier_url)
+        - ``"sourcify"``: Sourcify verification (no API key required)
+        - ``"oklink"``: OKLink explorer (requires API key)
+
+        If ``None`` but ``etherscan_api_key`` is provided, defaults to ``"etherscan"``
+        for backward compatibility.
+
+    :param verifier_url:
+        Custom verifier URL for Blockscout or other custom verification endpoints.
+
+        Required when ``verifier="blockscout"``.
+
+        Example: ``"https://base.blockscout.com/api/"``
 
     :param register_for_tracing:
         Make the symbolic contract information available on web3 instance.
@@ -216,6 +240,17 @@ def deploy_contract_with_forge(
     assert isinstance(contract_file, Path)
     assert type(constructor_args) in (list, tuple)
 
+    # Backward compatibility: if etherscan_api_key provided without verifier, assume etherscan
+    if etherscan_api_key and verifier is None:
+        verifier = "etherscan"
+
+    # Validate verifier-specific requirements
+    if verifier == "blockscout" and not verifier_url:
+        raise ValueError("verifier_url is required when using Blockscout verifier")
+
+    if verifier in ("etherscan", "oklink") and not etherscan_api_key:
+        raise ValueError(f"etherscan_api_key is required when using {verifier} verifier")
+
     json_rpc_url = web3.provider.endpoint_uri
 
     forge = which("forge")
@@ -245,22 +280,36 @@ def deploy_contract_with_forge(
     if verbose:
         cmd_line.append("-vvv")
 
-    if etherscan_api_key:
+    if verifier:
         if is_anvil(web3):
-            logger.warning("Etherscan verification skipped, running on a local fork")
+            logger.warning("Contract verification skipped, running on a local fork")
         else:
-            logger.info("Doing Etherscan verification with %d retries", verify_retries)
+            logger.info("Doing %s verification with %d retries", verifier, verify_retries)
             # Tuned retry parameters
             # https://github.com/foundry-rs/foundry/issues/6953
             cmd_line += [
-                "--etherscan-api-key",
-                etherscan_api_key,
+                "--verifier",
+                verifier,
                 "--verify",
                 "--retries",
                 str(verify_retries),
                 "--delay",
                 str(verify_delay),
             ]
+
+            # Add API key for verifiers that require it
+            if verifier in ("etherscan", "oklink") and etherscan_api_key:
+                cmd_line += [
+                    "--etherscan-api-key",
+                    etherscan_api_key,
+                ]
+
+            # Add custom verifier URL
+            if verifier_url:
+                cmd_line += [
+                    "--verifier-url",
+                    verifier_url,
+                ]
 
     cmd_line += [f"{src_contract_file}:{contract_name}"]
 

@@ -38,3 +38,6 @@ logs/
 
 # Local test env symlink
 .local-test.env
+
+# Claude Code local settings
+.claude/settings.local.json
