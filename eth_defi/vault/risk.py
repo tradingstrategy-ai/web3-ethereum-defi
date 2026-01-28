@@ -132,6 +132,8 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "aarnâ": None,
     # Yo - YoVault_V2 source was not available on Github, and the development seems not to be transparent
     "Yo": VaultTechnicalRisk.severe,
+    # Frax - extensively audited, open source, well-established protocol
+    "Frax": VaultTechnicalRisk.low,
 }
 
 #: Particular vaults that are broken, misleading or otherwise problematic.

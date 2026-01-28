@@ -1576,6 +1576,11 @@ def create_vault_instance(
 
         return YoVault(web3, spec, token_cache=token_cache, features=features)
 
+    elif ERC4626Feature.frax_like in features:
+        from eth_defi.erc_4626.vault_protocol.frax.vault import FraxVault
+
+        return FraxVault(web3, spec, token_cache=token_cache, features=features)
+
     else:
         # Generic ERC-4626 without fee data
         from eth_defi.erc_4626.vault import ERC4626Vault
@@ -1746,6 +1751,9 @@ HARDCODED_PROTOCOLS = {
     # Same address also deployed on Base:
     # https://basescan.org/address/0x0000000f2eb9f69274678c76222b35eec7588a65
     "0x0000000f2eb9f69274678c76222b35eec7588a65": {ERC4626Feature.yo_like},
+    # Frax - Fraxlend USDC lending pair on Ethereum
+    # https://etherscan.io/address/0xee847a804b67f4887c9e8fe559a2da4278defb52
+    "0xee847a804b67f4887c9e8fe559a2da4278defb52": {ERC4626Feature.frax_like},
 }
 
 for a in HARDCODED_PROTOCOLS.keys():

@@ -119,6 +119,8 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "aarnâ": None,
     # Yo - has deposit and withdrawal fees, externalised
     "Yo": None,
+    # Frax - Fraxlend takes 10% of interest revenue as protocol fee, internalised in share price
+    "Frax": VaultFeeMode.internalised_skimming,
 }
 
 
