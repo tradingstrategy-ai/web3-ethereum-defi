@@ -134,6 +134,7 @@ class LagoonVault(ERC7540Vault):
         token_cache: dict | None = None,
         vault_abi: str | None = None,
         features: set[ERC4626Feature] = None,
+        default_block_identifier: BlockIdentifier | None = None,
     ):
         """
         :param spec:
@@ -150,8 +151,13 @@ class LagoonVault(ERC7540Vault):
             Lagoon has different versions.
 
             None = autodetect.
+
+        :param default_block_identifier:
+            Override block identifier for on-chain metadata reads.
+
+            See :py:class:`ERC4626Vault` for details.
         """
-        super().__init__(web3, spec, features=features or {ERC4626Feature.lagoon_like, ERC4626Feature.erc_7540_like}, token_cache=token_cache)
+        super().__init__(web3, spec, features=features or {ERC4626Feature.lagoon_like, ERC4626Feature.erc_7540_like}, token_cache=token_cache, default_block_identifier=default_block_identifier)
         self.trading_strategy_module_address = trading_strategy_module_address
 
         if vault_abi is None:
