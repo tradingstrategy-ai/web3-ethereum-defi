@@ -521,15 +521,27 @@ pip install -e "deps/web3-ethereum-defi[data]"
 
 ### Live Trading With Custom Strategy
 
+#### Dashboard
+
+![](./media/ichiv2_ls_gmx_static.png)
+
 ![](./media/ichi_v2_gmx.png)
+
+#### Trades
 
 ![](./media/ichi_v2_gmx_2.png)
 
+
+#### Open Trades
+
 ![](./media/ichi_v2_gmx_3.png)
+
+#### Order History
 
 ![](./media/ichi_v2_gmx_4.png)
 
-![](./media/ichiv2_ls_gmx_static.png)
+
+
 
 
 ### Programmatic patching
