@@ -645,6 +645,9 @@ class LagoonVault(ERC7540Vault):
         """
         assert type(raw_amount) == int, f"Deposit amount must be int, got {raw_amount} {type(raw_amount)}"
         underlying = self.underlying_token
+
+        assert underlying is not None, "denomiation_token is missing. Did fetch_denomination_token() run successfully? Did you run against a flaky RPC?"
+
         existing_balance = underlying.fetch_raw_balance_of(depositor)
         if check_balance:
             assert existing_balance >= raw_amount, f"Cannot deposit {underlying.symbol} by {depositor}. Have: {existing_balance}, asked to deposit: {raw_amount}"
