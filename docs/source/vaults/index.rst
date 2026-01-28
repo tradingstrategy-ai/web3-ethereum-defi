@@ -50,6 +50,7 @@ Supported protocols
    eth_strategy/index
    fluid/index
    foxify/index
+   frax/index
    gains/index
    gearbox/index
    goat/index

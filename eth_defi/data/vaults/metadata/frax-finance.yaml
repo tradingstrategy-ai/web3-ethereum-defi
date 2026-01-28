@@ -1,0 +1,34 @@
+name: Frax
+slug: frax-finance
+short_description: |
+  Decentralised stablecoin and lending protocol with Fraxlend lending pairs.
+long_description: |
+  Frax Finance is a decentralised finance protocol that originated as the first fractional-algorithmic
+  stablecoin. The protocol has evolved into a comprehensive DeFi ecosystem encompassing stablecoins
+  (FRAX/frxUSD), liquid staking derivatives (frxETH/sfrxETH), lending markets (Fraxlend),
+  an automated market maker (Fraxswap), and its own Layer 2 chain (Fraxtal).
+
+  Fraxlend is the lending component of Frax Finance, providing isolated lending pairs where lenders
+  deposit assets and earn variable interest from borrowers. Each Fraxlend pair is an ERC-4626 compatible
+  vault with its own collateral type, interest rate model, and risk parameters. The protocol uses
+  Algorithmic Market Operations (AMOs) to perform autonomous market operations and maintain stablecoin pegs.
+
+  With Frax v3, the protocol moved to 100% collateralisation, removing dependence on USDC.
+  Governance is handled through Frax Shares (FXS) and a vetokenomics model (veFXS).
+fee_description: |
+  Fraxlend takes 10% of interest revenue as a protocol fee (via the `feeToProtocolRate` parameter).
+  This fee is internalised in the share price and not charged to lenders directly on deposit or withdrawal.
+  Lenders receive the net yield after the protocol fee is deducted from borrower interest.
+links:
+  homepage: https://frax.com/
+  app: https://app.frax.finance/fraxlend/available-pairs
+  twitter: https://x.com/fraxfinance
+  github: https://github.com/FraxFinance/fraxlend
+  documentation: https://docs.frax.finance/
+  defillama: https://defillama.com/protocol/frax-finance
+  audits: https://docs.frax.finance/other/audits
+  fees: https://docs.frax.finance/fraxlend/fraxlend-overview
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/frax-finance
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/frax/index.html
+example_smart_contracts:
+  - https://etherscan.io/address/0xee847a804b67f4887c9e8fe559a2da4278defb52
