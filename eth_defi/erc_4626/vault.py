@@ -655,6 +655,7 @@ class ERC4626Vault(VaultBase):
         spec: VaultSpec,
         token_cache: dict | None = None,
         features: set[ERC4626Feature] | None = None,
+        default_block_identifier: BlockIdentifier | None = None,
     ):
         """
         :param web3:
@@ -670,6 +671,12 @@ class ERC4626Vault(VaultBase):
 
         :param features:
             Pass vault feature flags along, externally detected.
+
+        :param default_block_identifier:
+            Override block identifier for on-chain metadata reads.
+
+            When ``None``, use :py:func:`get_safe_cached_latest_block_number` (the default, safe for broken RPCs).
+            Set to ``"latest"`` for freshly deployed vaults whose contracts do not exist at the safe-cached block.
         """
 
         if type(features) == set:
@@ -679,9 +686,24 @@ class ERC4626Vault(VaultBase):
         self.web3 = web3
         self.spec = spec
         self.features = features
+        self.default_block_identifier = default_block_identifier
 
     def __repr__(self):
         return f"<{self.__class__.__name__}: {self.spec}>"
+
+    def _get_block_identifier(self) -> BlockIdentifier:
+        """Resolve which block identifier to use for metadata reads.
+
+        - If :py:attr:`default_block_identifier` was set at construction time, use that
+        - Otherwise fall back to :py:func:`get_safe_cached_latest_block_number`
+          to work around broken L2 RPC providers
+        """
+        if self.default_block_identifier is not None:
+            return self.default_block_identifier
+        return get_safe_cached_latest_block_number(
+            self.web3,
+            chain_id=self.chain_id,
+        )
 
     def is_valid(self) -> bool:
         """Check if this vault is valid.
@@ -736,11 +758,7 @@ class ERC4626Vault(VaultBase):
         - For example ``previewDeposit()`` function and other functions will revert
         """
 
-        # Work around broken RPC crap
-        block_identifier = get_safe_cached_latest_block_number(
-            self.web3,
-            chain_id=self.chain_id,
-        )
+        block_identifier = self._get_block_identifier()
 
         try:
             # isOperator() function is only part of 7545 ABI and will revert is missing
@@ -761,11 +779,7 @@ class ERC4626Vault(VaultBase):
         # Try to check if we are ERC-7575 first
         # https://eips.ethereum.org/EIPS/eip-7575
 
-        # Work around broken RPC crap
-        block_identifier = get_safe_cached_latest_block_number(
-            self.web3,
-            chain_id=self.chain_id,
-        )
+        block_identifier = self._get_block_identifier()
 
         call = EncodedCall.from_contract_call(
             self.vault_contract.functions.asset(),
@@ -807,11 +821,7 @@ class ERC4626Vault(VaultBase):
         erc_7575 = False
 
         if block_identifier == "latest":
-            # Work around broken RPC crap
-            block_identifier = get_safe_cached_latest_block_number(
-                self.web3,
-                chain_id=self.chain_id,
-            )
+            block_identifier = self._get_block_identifier()
 
         try:
             # ERC-7575
@@ -1064,11 +1074,7 @@ class ERC4626Vault(VaultBase):
     def get_flags(self) -> set[VaultFlag]:
         flags = super().get_flags()
 
-        # Work around broken RPC crap
-        block_identifier = get_safe_cached_latest_block_number(
-            self.web3,
-            chain_id=self.chain_id,
-        )
+        block_identifier = self._get_block_identifier()
 
         # OpenZeppelin pausable
         # https://docs.openzeppelin.com/contracts/4.x/api/security#Pausable

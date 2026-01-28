@@ -1194,6 +1194,7 @@ def deploy_automated_lagoon_vault(
         VaultSpec(chain_id, vault_contract.address),
         trading_strategy_module_address=module.address,
         vault_abi=vault_abi,
+        default_block_identifier="latest",
     )
 
     end_balance = web3.eth.get_balance(deployer.address)
