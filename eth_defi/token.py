@@ -120,7 +120,12 @@ USDC_WHALE: dict[int, HexAddress | str] = {
 # Used in fork testing
 USDCE_WHALE: dict[int, HexAddress | str] = {
     # To find large holder accounts, use polygonscan <https://polygonscan.com/token/0x2791bca1f2de4661ed88a30c99a7a9449aa84174#balances>
-    137: "0x611f7bF868a6212f871e89F7e44684045DdFB09d",
+    #
+    # 137: "0x611f7bF868a6212f871e89F7e44684045DdFB09d",
+
+    # Polymarket
+    # https://polygonscan.com/address/0x4d97dcd97ec945f40cf65f87097ace5ea0476045
+    137: "0x4D97DCd97eC945f40cF65F87097ACe5EA0476045",
 }
 
 #: Used in fork testing
