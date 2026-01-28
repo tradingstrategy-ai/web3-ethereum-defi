@@ -83,6 +83,29 @@ def test_yieldfi_yusd_ethereum(
     assert vault.get_link() == "https://yield.fi/"
 
 
+@flaky.flaky
+def test_yieldfi_yusd_ethereum_2(
+    web3: Web3,
+):
+    """Read YieldFi yUSD vault metadata on Ethereum (0x19ebd191)"""
+
+    vault = create_vault_instance_autodetect(
+        web3,
+        vault_address="0x19ebd191f7a24ece672ba13a302212b5ef7f35cb",
+    )
+
+    assert isinstance(vault, YieldFiVault)
+    assert vault.get_protocol_name() == "YieldFi"
+    assert ERC4626Feature.yieldfi_like in vault.features
+
+    # Fee data - YieldFi has configurable fees but currently set to 0
+    assert vault.get_management_fee("latest") == 0.0
+    assert vault.has_custom_fees() is False
+
+    # Check link
+    assert vault.get_link() == "https://yield.fi/"
+
+
 @pytest.fixture(scope="module")
 def anvil_arbitrum_fork(request) -> AnvilLaunch:
     """Fork Arbitrum at a specific block for reproducibility"""
