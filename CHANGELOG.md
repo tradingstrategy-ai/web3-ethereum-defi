@@ -1,5 +1,6 @@
 # 0.39
 
+- Add: [YieldFi](https://tradingstrategy.ai/trading-view/vaults/protocols/yieldfi) yUSD vault on Ethereum (2026-01-28)
 - Add: [Gearbox](https://tradingstrategy.ai/trading-view/vaults/protocols/gearbox) PoolV3 GHO vault on Ethereum mainnet with `poolQuotaKeeper()` detection for older deployments (2026-01-27)
 - Add: `extract-test-set.py` script to extract raw price data and generate pytest test modules for individual vaults (2026-01-27)
 - Add: `remove_inactive_lead_time()` function to remove initial inactive period from vault price history where total supply hasn't changed (2026-01-26)
