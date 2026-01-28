@@ -125,7 +125,7 @@ USDCE_WHALE: dict[int, HexAddress | str] = {
 
     # Polymarket
     # https://polygonscan.com/address/0x4d97dcd97ec945f40cf65f87097ace5ea0476045
-    137: "0x4D97DCd97eC945f40cF65F87097ACe5EA0476045",
+    137: "0x1205f31718499dBf1fCa446663B532Ef87481fe1",
 }
 
 #: Used in fork testing
