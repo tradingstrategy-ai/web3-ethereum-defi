@@ -519,6 +519,19 @@ pip install -e "deps/web3-ethereum-defi[data]"
   --strategy MyStrategy
 ```
 
+### Live Trading With Custom Strategy
+
+![](./media/ichi_v2_gmx.png)
+
+![](./media/ichi_v2_gmx_2.png)
+
+![](./media/ichi_v2_gmx_3.png)
+
+![](./media/ichi_v2_gmx_4.png)
+
+![](./media/ichiv2_ls_gmx_static.png)
+
+
 ### Programmatic patching
 
 ```python
