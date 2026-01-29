@@ -19,29 +19,28 @@ from decimal import Decimal
 from io import StringIO
 from pathlib import Path
 from pprint import pformat
-from typing import Any, Callable
+from typing import Any, Callable, Literal
 
 import eth_abi
 from eth_account.signers.local import LocalAccount
 from eth_typing import BlockNumber, HexAddress
 from hexbytes import HexBytes
+from safe_eth.safe.safe import Safe
 from web3 import Web3
+from web3._utils.events import EventLogErrorFlags
 from web3.contract import Contract
 from web3.contract.contract import ContractFunction
-from web3._utils.events import EventLogErrorFlags
-from safe_eth.eth.ethereum_client import TxSpeed
-from safe_eth.safe.safe import Safe
 
 from eth_defi.aave_v3.deployment import AaveV3Deployment
-from eth_defi.abi import get_deployed_contract, ZERO_ADDRESS_STR, encode_multicalls
+from eth_defi.abi import ZERO_ADDRESS_STR, encode_multicalls, get_deployed_contract
 from eth_defi.cow.constants import COWSWAP_SETTLEMENT, COWSWAP_VAULT_RELAYER
 from eth_defi.deploy import deploy_contract
 from eth_defi.erc_4626.vault import ERC4626Vault
-from eth_defi.foundry.forge import deploy_contract_with_forge
-from eth_defi.gas import estimate_gas_price, apply_gas
-from eth_defi.hotwallet import HotWallet
 from eth_defi.erc_4626.vault_protocol.lagoon.beacon_proxy import deploy_beacon_proxy
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
+from eth_defi.foundry.forge import deploy_contract_with_forge
+from eth_defi.gas import apply_gas, estimate_gas_price
+from eth_defi.hotwallet import HotWallet
 from eth_defi.orderly.vault import OrderlyVault
 from eth_defi.provider.anvil import is_anvil
 from eth_defi.safe.deployment import add_new_safe_owners, deploy_safe, fetch_safe_deployment
@@ -53,7 +52,6 @@ from eth_defi.uniswap_v2.deployment import UniswapV2Deployment
 from eth_defi.uniswap_v3.deployment import UniswapV3Deployment
 from eth_defi.utils import chunked
 from eth_defi.vault.base import VaultSpec
-
 
 logger = logging.getLogger(__name__)
 
@@ -275,6 +273,8 @@ def deploy_lagoon_protocol_registry(
     safe: Safe,
     broadcast_func: Callable,
     etherscan_api_key: str = None,
+    verifier: Literal["etherscan", "blockscout", "sourcify", "oklink"] | None = None,
+    verifier_url: str | None = None,
 ) -> Contract:
     """Deploy a fee registry contract.
 
@@ -299,6 +299,8 @@ def deploy_lagoon_protocol_registry(
         deployer=deployer,
         constructor_args=["false"],
         etherscan_api_key=etherscan_api_key,
+        verifier=verifier,
+        verifier_url=verifier_url,
         contract_file_out="ProtocolRegistry.sol",
         verbose=True,
     )
@@ -328,6 +330,8 @@ def deploy_fresh_lagoon_protocol(
     safe: Safe,
     broadcast_func: Callable,
     etherscan_api_key: str = None,
+    verifier: Literal["etherscan", "blockscout", "sourcify", "oklink"] | None = None,
+    verifier_url: str | None = None,
     forge_sync_delay=4.0,
 ) -> Contract:
     """Deploy a fresh Lagoon implementation from the scratch.
@@ -349,6 +353,8 @@ def deploy_fresh_lagoon_protocol(
         deployer=deployer,
         safe=safe,
         etherscan_api_key=etherscan_api_key,
+        verifier=verifier,
+        verifier_url=verifier_url,
         broadcast_func=broadcast_func,
     )
 
@@ -361,6 +367,8 @@ def deploy_fresh_lagoon_protocol(
         contract_name="Vault",
         deployer=deployer,
         etherscan_api_key=etherscan_api_key,
+        verifier=verifier,
+        verifier_url=verifier_url,
         constructor_args=["true"],
         contract_file_out="Vault.sol",
         verbose=True,
@@ -385,6 +393,8 @@ def deploy_fresh_lagoon_protocol(
         contract_name="BeaconProxyFactory",
         deployer=deployer,
         etherscan_api_key=etherscan_api_key,
+        verifier=verifier,
+        verifier_url=verifier_url,
         constructor_args=[
             fee_registry.address,
             implementation_contract.address,
@@ -649,6 +659,8 @@ def deploy_safe_trading_strategy_module(
     safe: Safe,
     use_forge=False,
     etherscan_api_key: str = None,
+    verifier: Literal["etherscan", "blockscout", "sourcify", "oklink"] | None = None,
+    verifier_url: str | None = None,
     enable_on_safe=True,
 ) -> Contract:
     """Deploy TradingStrategyModuleV0 for Safe and Lagoon.
@@ -678,6 +690,8 @@ def deploy_safe_trading_strategy_module(
             deployer,
             [owner, safe.address],
             etherscan_api_key=etherscan_api_key,
+            verifier=verifier,
+            verifier_url=verifier_url,
         )
     else:
         module = deploy_contract(
@@ -789,7 +803,7 @@ def setup_guard(
         assert ausdc is not None, f"Aave aUSDC configuration missing for chain {web3.eth.chain_id}"
 
         logger.info("Whitelisting Aave v3 deployment: %s (pool)", aave_v3.pool.address)
-        note = f"Allow Aave v3 pool"
+        note = "Allow Aave v3 pool"
         tx_hash = _broadcast(module.functions.whitelistAaveV3(aave_v3.pool.address, note))
         assert_transaction_success_with_explanation(web3, tx_hash)
 
@@ -921,6 +935,8 @@ def deploy_automated_lagoon_vault(
     cowswap: bool = False,
     any_asset: bool = False,
     etherscan_api_key: str = None,
+    verifier: Literal["etherscan", "blockscout", "sourcify", "oklink"] | None = None,
+    verifier_url: str | None = None,
     use_forge=False,
     between_contracts_delay_seconds=45.0,
     erc_4626_vaults: list[ERC4626Vault] | None = None,
@@ -1052,7 +1068,7 @@ def deploy_automated_lagoon_vault(
             try:
                 module.functions.getGovernanceAddress()
                 existing_guard_module = module
-            except ValueError as e:
+            except ValueError:
                 continue
 
         assert existing_guard_module is not None, f"Cannot find TradingStrategyModuleV0 on Safe {safe.address} with vault {vault_contract.address}, modules {modules}"
@@ -1066,12 +1082,14 @@ def deploy_automated_lagoon_vault(
         if from_the_scratch:
             # Deploy the full Lagoon protocol with fee registry and beacon proxy factory,
             # setting out Safe as the protocol owner
-            assert use_forge, f"Fee registry deployment is only supported with Forge"
+            assert use_forge, "Fee registry deployment is only supported with Forge"
             beacon_proxy_factory_contract = deploy_fresh_lagoon_protocol(
                 web3=web3,
                 deployer=deployer,
                 safe=safe,
                 etherscan_api_key=etherscan_api_key,
+                verifier=verifier,
+                verifier_url=verifier_url,
                 broadcast_func=_broadcast,
             )
             beacon_proxy_factory_address = beacon_proxy_factory_contract.address
@@ -1108,6 +1126,8 @@ def deploy_automated_lagoon_vault(
         deployer=deployer_local_account,
         safe=safe,
         etherscan_api_key=etherscan_api_key,
+        verifier=verifier,
+        verifier_url=verifier_url,
         use_forge=use_forge,
         enable_on_safe=not guard_only,
     )
