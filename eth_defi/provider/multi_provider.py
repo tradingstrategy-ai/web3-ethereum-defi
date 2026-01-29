@@ -221,7 +221,7 @@ def create_multi_provider_web3(
     if len(transact_endpoints) > 1:
         raise MultiProviderConfigurationError(f"Only one execution endpoint can be specified, got {transact_endpoints}. Hint is {hint}.")
 
-    if len(call_endpoints) < 0:
+    if len(call_endpoints) == 0:
         raise MultiProviderConfigurationError(f"At least one call endpoint must be specified, configuration was {configuration_line}")
 
     if session is None:

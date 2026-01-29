@@ -68,6 +68,7 @@ from eth_defi.gmx.order_tracking import check_order_status
 from eth_defi.gmx.trading import GMXTrading
 from eth_defi.gmx.utils import calculate_estimated_liquidation_price, convert_raw_price_to_usd
 from eth_defi.hotwallet import HotWallet
+from eth_defi.provider.fallback import get_fallback_provider
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import fetch_erc20_details
 
@@ -180,6 +181,7 @@ class GMX(ExchangeCompatible):
                     "subsquidEndpoint": "...",  # Optional
                     "wallet": wallet_object,  # Optional - alternative to privateKey
                     "verbose": True,  # Optional - enable debug logging
+                    "requireMultipleProviders": True,  # Optional - enforce fallback support
                 }
             )
 
@@ -254,6 +256,7 @@ class GMX(ExchangeCompatible):
         self._verbose = parameters.get("verbose", False)
         self.execution_buffer = parameters.get("executionBuffer", 2.2)
         self.default_slippage = parameters.get("defaultSlippage", 0.003)  # 0.3% default
+        self._require_multiple_providers = parameters.get("requireMultipleProviders", False)
         self._oracle_prices_instance = None
 
         # Configure verbose logging if requested
@@ -265,6 +268,12 @@ class GMX(ExchangeCompatible):
             raise ValueError("rpcUrl is required in parameters")
 
         self.web3 = create_multi_provider_web3(self._rpc_url)
+
+        # Validate provider count if required
+        if self._require_multiple_providers:
+            fallback = get_fallback_provider(self.web3)
+            if len(fallback.providers) < 2:
+                raise ValueError(f"GMX CCXT requires at least 2 providers for proper fallback functionality, but only {len(fallback.providers)} provider(s) configured. Set requireMultipleProviders=False to allow single-provider mode.")
 
         # Detect chain from web3 or use override
         if self._chain_id_override:
