@@ -357,6 +357,14 @@ class StablecoinInfo(TypedDict):
     name: str
     #: Homepage URL for the project (empty string if unknown)
     homepage: str
+    #: Three-sentence description of the token
+    description: str
+    #: CoinGecko listing URL (empty string if not listed)
+    coingecko: str
+    #: DefiLlama listing URL (empty string if not listed)
+    defillama: str
+    #: Twitter/X account URL (empty string if not found)
+    twitter: str
 
 
 #: Full name and homepage for all coins in :py:data:`ALL_STABLECOIN_LIKE`.
