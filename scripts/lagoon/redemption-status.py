@@ -22,9 +22,8 @@ import os
 from dataclasses import dataclass
 from decimal import Decimal
 
-from tabulate import tabulate
-
 from eth_typing import HexAddress
+from tabulate import tabulate
 
 from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
