@@ -91,6 +91,8 @@ def make_gmx_api_request(
     endpoint: str,
     params: dict[str, Any] | None = None,
     timeout: float = 10.0,
+    max_retries: int | None = None,
+    retry_delay: float | None = None,
 ) -> dict[str, Any]:
     """Make a GMX API request with full-cycle retry.
 
@@ -115,11 +117,19 @@ def make_gmx_api_request(
         Optional query parameters
     :param timeout:
         HTTP request timeout in seconds
+    :param max_retries:
+        Deprecated. Kept for backwards compatibility but ignored.
+        Retry count is now controlled by GMX_API_MAX_RETRIES constant.
+    :param retry_delay:
+        Deprecated. Kept for backwards compatibility but ignored.
+        Delay is now controlled by GMX_API_INITIAL_DELAY constant.
     :return:
         Parsed JSON response
     :raises RuntimeError:
         If all retries and backup attempts fail
     """
+    # Note: max_retries and retry_delay are ignored - using constants instead
+    _ = max_retries, retry_delay  # Silence unused variable warnings
     chain_lower = chain.lower()
 
     # Get primary and backup URLs
