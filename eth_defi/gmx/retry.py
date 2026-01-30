@@ -19,6 +19,7 @@ from eth_defi.gmx.constants import (
     GMX_API_URLS,
     GMX_API_URLS_BACKUP,
     GMX_API_URLS_FALLBACK,
+    GMX_API_URLS_FALLBACK_2,
 )
 
 logger = logging.getLogger(__name__)
@@ -100,16 +101,17 @@ def make_gmx_api_request(
     This is the SINGLE centralised function for all GMX API calls. It handles:
 
     - Retry with exponential backoff per endpoint
-    - Automatic failover from primary to backup to fallback API
-    - Full-cycle retry: primary → backup → fallback → wait → repeat
+    - Automatic failover from primary to backup to fallback APIs
+    - Full-cycle retry: primary → backup → fallback → fallback-2 → wait → repeat
 
     Retry flow:
 
     1. Try primary API (GMX_API_MAX_RETRIES attempts with exponential backoff)
     2. Try backup API (GMX_API_MAX_RETRIES attempts with exponential backoff)
     3. Try fallback API (GMX_API_MAX_RETRIES attempts with exponential backoff)
-    4. Wait GMX_API_INITIAL_DELAY, then repeat full cycle
-    5. After GMX_API_FULL_CYCLE_RETRIES full cycles, raise RuntimeError
+    4. Try fallback-2 API (GMX_API_MAX_RETRIES attempts with exponential backoff)
+    5. Wait GMX_API_INITIAL_DELAY, then repeat full cycle
+    6. After GMX_API_FULL_CYCLE_RETRIES full cycles, raise RuntimeError
 
     :param chain:
         Chain name (e.g., "arbitrum", "avalanche")
@@ -138,8 +140,9 @@ def make_gmx_api_request(
     primary_url = GMX_API_URLS.get(chain_lower)
     backup_url = GMX_API_URLS_BACKUP.get(chain_lower)
     fallback_url = GMX_API_URLS_FALLBACK.get(chain_lower)
+    fallback_url_2 = GMX_API_URLS_FALLBACK_2.get(chain_lower)
 
-    if not primary_url and not backup_url and not fallback_url:
+    if not primary_url and not backup_url and not fallback_url and not fallback_url_2:
         raise ValueError(f"No GMX API URLs configured for chain: {chain}")
 
     last_error = None
@@ -196,6 +199,21 @@ def make_gmx_api_request(
                 GMX_API_MAX_RETRIES,
                 GMX_API_INITIAL_DELAY,
                 "fallback",
+            )
+            if result is not None:
+                return result
+            last_error = error
+
+        # Try second fallback API
+        if fallback_url_2:
+            result, error = _try_api_with_retries(
+                fallback_url_2,
+                endpoint,
+                params,
+                timeout,
+                GMX_API_MAX_RETRIES,
+                GMX_API_INITIAL_DELAY,
+                "fallback-2",
             )
             if result is not None:
                 return result
