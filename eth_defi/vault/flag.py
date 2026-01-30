@@ -288,6 +288,10 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0x888239ffa9a0613f9142c808aa9f7d1948a14f75": (VaultFlag.subvault, SUBVAULT),
     # Morpho Gauntlet USDC Prime Compounder
     "0x694e47afd14a64661a04eee674fb331bcdef3737": (VaultFlag.subvault, SUBVAULT),
+    # Morpho Gauntlet USDC Prime Compounder
+    "0x694e47afd14a64661a04eee674fb331bcdef3737": (VaultFlag.subvault, SUBVAULT),
+    # Aave V3 USDS Lender
+    "0xd144eaff17b0308a5154444907781382398aac61": (VaultFlag.subvault, SUBVAULT),
 }
 
 for addr in VAULT_FLAGS_AND_NOTES.keys():
