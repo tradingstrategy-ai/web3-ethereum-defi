@@ -22,7 +22,7 @@ from eth_utils import is_address, to_checksum_address
 logger = logging.getLogger(__name__)
 
 from eth_defi.gmx.constants import GMX_MIN_DISPLAY_STAKE
-from eth_defi.gmx.contracts import GMX_SUBSQUID_ENDPOINTS, get_tokens_metadata_dict
+from eth_defi.gmx.contracts import GMX_SUBSQUID_ENDPOINTS, GMX_SUBSQUID_ENDPOINTS_BACKUP, get_tokens_metadata_dict
 
 # Thresholds from GMX interface (in USD, 30 decimals)
 # Just Random values ChatGPT gave
@@ -86,8 +86,10 @@ class GMXSubsquidClient:
 
         if custom_endpoint:
             self.endpoint = custom_endpoint
+            self.endpoint_backup = None
         elif self.chain in GMX_SUBSQUID_ENDPOINTS:
             self.endpoint = GMX_SUBSQUID_ENDPOINTS[self.chain]
+            self.endpoint_backup = GMX_SUBSQUID_ENDPOINTS_BACKUP.get(self.chain)
         else:
             raise ValueError(
                 f"Unsupported chain: {chain}. Supported chains: {', '.join(GMX_SUBSQUID_ENDPOINTS.keys())}",
@@ -123,30 +125,53 @@ class GMXSubsquidClient:
         variables: Optional[dict[str, Any]] = None,
         timeout: int = 60,
     ) -> dict[str, Any]:
-        """Execute a GraphQL query.
+        """Execute a GraphQL query with automatic failover to backup endpoint.
 
         :param query: GraphQL query string
         :param variables: Optional query variables
         :param timeout: Request timeout in seconds (default 60)
         :return: Query response data
-        :raises requests.HTTPError: If the request fails
+        :raises requests.HTTPError: If the request fails on all endpoints
         :raises ValueError: If GraphQL returns errors
         """
-        response = self._session.post(
-            self.endpoint,
-            json={"query": query, "variables": variables or {}},
-            headers={"Content-Type": "application/json"},
-            timeout=timeout,
-        )
-        response.raise_for_status()
+        endpoints_to_try = [self.endpoint]
+        if self.endpoint_backup:
+            endpoints_to_try.append(self.endpoint_backup)
 
-        data = response.json()
+        last_error = None
+        for endpoint in endpoints_to_try:
+            try:
+                response = self._session.post(
+                    endpoint,
+                    json={"query": query, "variables": variables or {}},
+                    headers={"Content-Type": "application/json"},
+                    timeout=timeout,
+                )
+                response.raise_for_status()
 
-        if "errors" in data:
-            errors = ", ".join(err["message"] for err in data["errors"])
-            raise ValueError(f"GraphQL query failed: {errors}")
+                data = response.json()
 
-        return data.get("data", {})
+                if "errors" in data:
+                    errors = ", ".join(err["message"] for err in data["errors"])
+                    raise ValueError(f"GraphQL query failed: {errors}")
+
+                # Log if we used backup endpoint
+                if endpoint != self.endpoint:
+                    logger.info("Successfully used backup Subsquid endpoint")
+
+                return data.get("data", {})
+
+            except (requests.RequestException, requests.Timeout) as e:
+                last_error = e
+                logger.warning(
+                    "Subsquid query failed on %s: %s",
+                    endpoint.split("/")[2],  # Extract domain
+                    e,
+                )
+                continue
+
+        # All endpoints failed
+        raise last_error
 
     def _query_with_retry(
         self,
