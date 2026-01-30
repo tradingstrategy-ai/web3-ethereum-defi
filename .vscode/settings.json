@@ -28,5 +28,8 @@
     "[markdown]": {
         "editor.defaultFormatter": null,
          "editor.formatOnSave": false
-    }        
+    },
+    "chat.tools.terminal.autoApprove": {
+        "poetry": true
+    }
 }

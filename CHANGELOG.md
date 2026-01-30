@@ -1,5 +1,6 @@
 # 0.39
 
+- Add: `redemption-status.py` script to display Lagoon vault deposit and redemption status (2026-01-29)
 - Add: New protocol: [Frax Finance](https://frax.com/) - Fraxlend lending pair vault on Ethereum (2026-01-28)
 - Add: [YieldFi](https://tradingstrategy.ai/trading-view/vaults/protocols/yieldfi) yUSD vault on Ethereum (2026-01-28)
 - Add: [Gearbox](https://tradingstrategy.ai/trading-view/vaults/protocols/gearbox) PoolV3 GHO vault on Ethereum mainnet with `poolQuotaKeeper()` detection for older deployments (2026-01-27)

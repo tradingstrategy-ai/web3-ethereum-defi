@@ -122,7 +122,6 @@ USDCE_WHALE: dict[int, HexAddress | str] = {
     # To find large holder accounts, use polygonscan <https://polygonscan.com/token/0x2791bca1f2de4661ed88a30c99a7a9449aa84174#balances>
     #
     # 137: "0x611f7bF868a6212f871e89F7e44684045DdFB09d",
-
     # Okex https://intel.arkm.com/explorer/token/bridged-usdc-polygon-pos-bridge
     137: "0x343d752bB710c5575E417edB3F9FA06241A4749A",
 }
