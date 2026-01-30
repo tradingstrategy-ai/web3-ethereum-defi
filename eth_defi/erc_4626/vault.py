@@ -525,6 +525,26 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
         )
         yield convert_to_assets
 
+        max_deposit = EncodedCall.from_contract_call(
+            self.vault.vault_contract.functions.maxDeposit(ZERO_ADDRESS_STR),
+            extra_data={
+                "function": "maxDeposit",
+                "vault": self.vault.address,
+            },
+            first_block_number=self.first_block,
+        )
+        yield max_deposit
+
+        max_redeem = EncodedCall.from_contract_call(
+            self.vault.vault_contract.functions.maxRedeem(ZERO_ADDRESS_STR),
+            extra_data={
+                "function": "maxRedeem",
+                "vault": self.vault.address,
+            },
+            first_block_number=self.first_block,
+        )
+        yield max_redeem
+
     def process_core_erc_4626_result(
         self,
         call_by_name: dict[str, EncodedCallResult],
@@ -578,7 +598,21 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
         else:
             share_price = None
 
-        return share_price, total_supply, total_assets, (errors or None)
+        max_deposit_result = call_by_name.get("maxDeposit")
+        if max_deposit_result and max_deposit_result.success and self.vault.denomination_token is not None:
+            raw_max_deposit = convert_int256_bytes_to_int(max_deposit_result.result)
+            max_deposit = self.vault.denomination_token.convert_to_decimals(raw_max_deposit)
+        else:
+            max_deposit = None
+
+        max_redeem_result = call_by_name.get("maxRedeem")
+        if max_redeem_result and max_redeem_result.success and self.vault.share_token is not None:
+            raw_max_redeem = convert_int256_bytes_to_int(max_redeem_result.result)
+            max_redeem = self.vault.share_token.convert_to_decimals(raw_max_redeem)
+        else:
+            max_redeem = None
+
+        return share_price, total_supply, total_assets, (errors or None), max_deposit, max_redeem
 
     def dictify_multicall_results(
         self,
@@ -618,7 +652,7 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
             raise AssertionError(msg)
 
         # Decode common variables
-        share_price, total_supply, total_assets, errors = self.process_core_erc_4626_result(call_by_name)
+        share_price, total_supply, total_assets, errors, max_deposit, max_redeem = self.process_core_erc_4626_result(call_by_name)
 
         return VaultHistoricalRead(
             vault=self.vault,
@@ -630,6 +664,8 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
             performance_fee=None,
             management_fee=None,
             errors=errors or None,
+            max_deposit=max_deposit,
+            max_redeem=max_redeem,
         )
 
 

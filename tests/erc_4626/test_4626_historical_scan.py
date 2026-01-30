@@ -98,6 +98,14 @@ def test_4626_historical_prices(
     chain_column = table["chain"].to_pylist()
     assert all(c == 8453 for c in chain_column)
 
+    # Verify new vault state columns exist in the Parquet schema
+    column_names = table.column_names
+    assert "max_deposit" in column_names
+    assert "max_redeem" in column_names
+    assert "deposits_open" in column_names
+    assert "redemption_open" in column_names
+    assert "trading" in column_names
+
     #
     # Rescan
     #

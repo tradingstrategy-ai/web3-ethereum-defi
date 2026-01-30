@@ -9,8 +9,10 @@ import pytest
 from web3 import Web3
 import flaky
 
+from decimal import Decimal
+
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
-from eth_defi.erc_4626.vault_protocol.d2.vault import D2Vault, Epoch
+from eth_defi.erc_4626.vault_protocol.d2.vault import D2HistoricalReader, D2Vault, Epoch
 from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.vault.base import VaultTechnicalRisk
@@ -60,3 +62,34 @@ def test_d2(
 
     epoch = vault.fetch_current_epoch_info()
     assert epoch == Epoch(funding_start=datetime.datetime(2025, 10, 6, 16, 0), epoch_start=datetime.datetime(2025, 10, 7, 16, 0), epoch_end=datetime.datetime(2025, 11, 7, 8, 0))
+
+    # Verify D2-specific historical reader is returned
+    reader = vault.get_historical_reader(stateful=False)
+    assert isinstance(reader, D2HistoricalReader)
+
+    # Read vault state at the fork block using the historical reader
+    block_number = web3.eth.block_number
+    block = web3.eth.get_block(block_number)
+    timestamp = datetime.datetime.fromtimestamp(block["timestamp"], tz=datetime.timezone.utc).replace(tzinfo=None)
+
+    calls = list(reader.construct_multicalls())
+    call_results = [c.call_as_result(web3=web3, block_identifier=block_number) for c in calls]
+    vault_read = reader.process_result(block_number, timestamp, call_results)
+
+    assert vault_read.block_number == block_number
+    assert vault_read.share_price == Decimal("1.393886")
+    assert vault_read.total_assets == Decimal("3541406.718786")
+    assert vault_read.total_supply == Decimal("2540670.540343")
+    assert vault_read.max_deposit == Decimal("0")
+    assert vault_read.max_redeem == Decimal("0")
+
+    # D2-specific: at block 392_313_989 the vault is in epoch (trading), not funding, not redeemable
+    assert vault_read.deposits_open is False
+    assert vault_read.trading is True
+    assert vault_read.redemption_open is False
+
+    # Verify export round-trip
+    exported = vault_read.export()
+    assert exported["deposits_open"] == "false"
+    assert exported["trading"] == "true"
+    assert exported["redemption_open"] == "false"

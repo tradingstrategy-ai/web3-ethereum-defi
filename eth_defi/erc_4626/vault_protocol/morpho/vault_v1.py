@@ -65,7 +65,7 @@ class MorphoV1VaultHistoricalReader(ERC4626HistoricalReader):
         assert all(c.block_identifier == block_number for c in call_by_name.values()), "Sanity check for call block numbering"
 
         # Decode common variables
-        share_price, total_supply, total_assets, errors = self.process_core_erc_4626_result(call_by_name)
+        share_price, total_supply, total_assets, errors, max_deposit, max_redeem = self.process_core_erc_4626_result(call_by_name)
         performance_fee = self.process_morpho_fee_result(call_by_name)
 
         # Subclass
@@ -79,6 +79,8 @@ class MorphoV1VaultHistoricalReader(ERC4626HistoricalReader):
             performance_fee=performance_fee,
             management_fee=0,
             errors=errors,
+            max_deposit=max_deposit,
+            max_redeem=max_redeem,
         )
 
 

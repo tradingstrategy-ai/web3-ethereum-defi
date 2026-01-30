@@ -2,12 +2,68 @@
 
 import datetime
 import logging
+from typing import Iterable
 
 from eth_typing import BlockIdentifier
 
-from eth_defi.erc_4626.vault import ERC4626Vault
+from eth_defi.abi import ZERO_ADDRESS_STR
+from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
+from eth_defi.event_reader.conversion import convert_int256_bytes_to_int
+from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
+from eth_defi.vault.base import VaultHistoricalReader, VaultHistoricalRead
 
 logger = logging.getLogger(__name__)
+
+
+class PlutusHistoricalReader(ERC4626HistoricalReader):
+    """Read Plutus vault core data + deposit/redemption state via maxDeposit/maxRedeem.
+
+    - Plutus vaults are manually opened/closed
+    - Uses ERC-4626 ``maxDeposit(address(0))`` and ``maxRedeem(address(0))``
+      to determine if deposits/redemptions are open
+    - Trading state is not tracked (always ``None``)
+    """
+
+    def construct_multicalls(self) -> Iterable[EncodedCall]:
+        yield from self.construct_core_erc_4626_multicall()
+        # maxDeposit and maxRedeem are already included in the core multicall,
+        # so we can derive deposits_open/redemption_open from them directly
+
+    def process_result(
+        self,
+        block_number: int,
+        timestamp: datetime.datetime,
+        call_results: list[EncodedCallResult],
+    ) -> VaultHistoricalRead:
+        call_by_name = self.dictify_multicall_results(block_number, call_results)
+
+        # Decode common variables
+        share_price, total_supply, total_assets, errors, max_deposit, max_redeem = self.process_core_erc_4626_result(call_by_name)
+
+        # Derive deposits_open/redemption_open from maxDeposit/maxRedeem
+        deposits_open = None
+        if max_deposit is not None:
+            deposits_open = max_deposit > 0
+
+        redemption_open = None
+        if max_redeem is not None:
+            redemption_open = max_redeem > 0
+
+        return VaultHistoricalRead(
+            vault=self.vault,
+            block_number=block_number,
+            timestamp=timestamp,
+            share_price=share_price,
+            total_assets=total_assets,
+            total_supply=total_supply,
+            performance_fee=None,
+            management_fee=None,
+            errors=errors or None,
+            max_deposit=max_deposit,
+            max_redeem=max_redeem,
+            deposits_open=deposits_open,
+            redemption_open=redemption_open,
+        )
 
 
 class PlutusVault(ERC4626Vault):
@@ -17,6 +73,9 @@ class PlutusVault(ERC4626Vault):
     - Docs: https://docs.plutusdao.io/plutus-docs
     - About plHEDGE vault: https://medium.com/@plutus.fi/introducing-plvhedge-an-automated-funding-arbitrage-vault-f2f222fa8c56
     """
+
+    def get_historical_reader(self, stateful) -> VaultHistoricalReader:
+        return PlutusHistoricalReader(self, stateful)
 
     def has_custom_fees(self) -> bool:
         """Deposit/withdrawal fees."""
