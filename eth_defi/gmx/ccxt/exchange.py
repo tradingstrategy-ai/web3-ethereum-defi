@@ -69,10 +69,128 @@ from eth_defi.gmx.trading import GMXTrading
 from eth_defi.gmx.utils import calculate_estimated_liquidation_price, convert_raw_price_to_usd
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.fallback import get_fallback_provider
+from eth_defi.provider.log_block_range import get_logs_max_block_range
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import fetch_erc20_details
 
 logger = logging.getLogger(__name__)
+
+
+def _scan_logs_chunked_for_trade_action(
+    web3,
+    event_emitter: str,
+    order_key: bytes,
+    order_key_hex: str,
+    from_block: int,
+    to_block: int,
+) -> dict | None:
+    """Scan EventEmitter logs in chunks for order execution event.
+
+    Uses chunked queries to avoid RPC timeouts on large block ranges.
+
+    :param web3:
+        Web3 instance
+    :param event_emitter:
+        EventEmitter contract address
+    :param order_key:
+        The 32-byte order key to search for
+    :param order_key_hex:
+        The order key as hex string (with 0x prefix)
+    :param from_block:
+        Start block for scanning
+    :param to_block:
+        End block for scanning
+    :return:
+        trade_action dict if found, None otherwise
+    """
+    chunk_size = get_logs_max_block_range(web3)
+    total_blocks = to_block - from_block + 1
+
+    if total_blocks <= 0:
+        return None
+
+    logger.debug(
+        "Scanning %d blocks for order %s in chunks of %d",
+        total_blocks,
+        order_key_hex[:18],
+        chunk_size,
+    )
+
+    for chunk_start in range(from_block, to_block + 1, chunk_size):
+        chunk_end = min(chunk_start + chunk_size - 1, to_block)
+
+        logger.debug(
+            "Scanning blocks %d-%d for order %s",
+            chunk_start,
+            chunk_end,
+            order_key_hex[:18],
+        )
+
+        try:
+            logs = web3.eth.get_logs(
+                {
+                    "address": event_emitter,
+                    "fromBlock": chunk_start,
+                    "toBlock": chunk_end,
+                }
+            )
+
+            for log in logs:
+                try:
+                    event = decode_gmx_event(web3, log)
+                    if not event:
+                        continue
+
+                    if event.event_name not in ("OrderExecuted", "OrderCancelled", "OrderFrozen"):
+                        continue
+
+                    # Check if this event matches our order_key
+                    event_order_key = event.topic1 or event.get_bytes32("key")
+                    if event_order_key != order_key:
+                        continue
+
+                    # Found our order's execution event
+                    logger.debug(
+                        "Found %s event for order %s in block %d via chunked scan",
+                        event.event_name,
+                        order_key_hex[:18],
+                        log["blockNumber"],
+                    )
+
+                    # Build trade_action dict from event
+                    trade_action = {
+                        "eventName": event.event_name,
+                        "orderKey": order_key_hex,
+                        "isLong": event.get_bool("isLong"),
+                        "reason": event.get_string("reasonBytes") if event.event_name == "OrderCancelled" else None,
+                        "transaction": {
+                            "hash": log["transactionHash"].hex() if isinstance(log["transactionHash"], bytes) else log["transactionHash"],
+                        },
+                    }
+
+                    # Get execution price if available
+                    if event.event_name == "OrderExecuted":
+                        exec_price = event.get_uint("executionPrice")
+                        if exec_price:
+                            trade_action["executionPrice"] = str(exec_price)
+
+                    return trade_action
+
+                except Exception as e:
+                    logger.debug("Error decoding log: %s", e)
+                    continue
+
+        except Exception as e:
+            logger.warning(
+                "Error scanning blocks %d-%d for order %s: %s",
+                chunk_start,
+                chunk_end,
+                order_key_hex[:18],
+                e,
+            )
+            # Continue to next chunk - partial failure is acceptable
+
+    return None
 
 
 class GMX(ExchangeCompatible):
@@ -5768,7 +5886,7 @@ class GMX(ExchangeCompatible):
                 event_emitter = addresses.eventemitter
                 creation_block = receipt.get("blockNumber", 0)
 
-                # Poll EventEmitter logs for up to 60 seconds
+                # Poll EventEmitter logs for up to 60 seconds using chunked scanning
                 max_wait_seconds = 60
                 poll_interval = 2
                 start_time = time.time()
@@ -5776,58 +5894,22 @@ class GMX(ExchangeCompatible):
                 while time.time() - start_time < max_wait_seconds:
                     try:
                         current_block = self.web3.eth.block_number
-                        logs = self.web3.eth.get_logs(
-                            {
-                                "address": event_emitter,
-                                "fromBlock": creation_block,
-                                "toBlock": current_block,
-                            }
+
+                        # Use chunked scanning to avoid RPC timeouts on large block ranges
+                        trade_action = _scan_logs_chunked_for_trade_action(
+                            self.web3,
+                            event_emitter,
+                            order_key,
+                            order_key_hex,
+                            creation_block,
+                            current_block,
                         )
 
-                        for log in logs:
-                            try:
-                                event = decode_gmx_event(self.web3, log)
-                                if not event:
-                                    continue
-
-                                if event.event_name not in ("OrderExecuted", "OrderCancelled", "OrderFrozen"):
-                                    continue
-
-                                # Check if this event matches our order_key
-                                event_order_key = event.topic1 or event.get_bytes32("key")
-                                if event_order_key != order_key:
-                                    continue
-
-                                # Found our order's execution event
-                                logger.debug(
-                                    "ORDER_TRACE: Found %s event in EventEmitter logs",
-                                    event.event_name,
-                                )
-
-                                # Build trade_action-like dict from event
-                                trade_action = {
-                                    "eventName": event.event_name,
-                                    "orderKey": order_key_hex,
-                                    "isLong": event.get_bool("isLong"),
-                                    "reason": event.get_string("reasonBytes") if event.event_name == "OrderCancelled" else None,
-                                    "transaction": {
-                                        "hash": log["transactionHash"].hex() if isinstance(log["transactionHash"], bytes) else log["transactionHash"],
-                                    },
-                                }
-
-                                # Try to get execution price from PositionIncrease/PositionDecrease in same tx
-                                if event.event_name == "OrderExecuted":
-                                    exec_price = event.get_uint("executionPrice")
-                                    if exec_price:
-                                        trade_action["executionPrice"] = str(exec_price)
-
-                                break
-
-                            except Exception as e:
-                                logger.debug("Error decoding log: %s", e)
-                                continue
-
                         if trade_action:
+                            logger.debug(
+                                "ORDER_TRACE: Found %s event in EventEmitter logs",
+                                trade_action.get("eventName"),
+                            )
                             break
 
                     except Exception as e:
@@ -6457,50 +6539,15 @@ class GMX(ExchangeCompatible):
                         creation_block = receipt.get("blockNumber", 0)
                         current_block = self.web3.eth.block_number
 
-                        logs = self.web3.eth.get_logs(
-                            {
-                                "address": event_emitter,
-                                "fromBlock": creation_block,
-                                "toBlock": current_block,
-                            }
+                        # Use chunked scanning to avoid RPC timeouts on large block ranges
+                        trade_action = _scan_logs_chunked_for_trade_action(
+                            self.web3,
+                            event_emitter,
+                            order_key,
+                            order_key_hex,
+                            creation_block,
+                            current_block,
                         )
-
-                        for log in logs:
-                            try:
-                                event = decode_gmx_event(self.web3, log)
-                                if not event:
-                                    continue
-
-                                if event.event_name not in ("OrderExecuted", "OrderCancelled", "OrderFrozen"):
-                                    continue
-
-                                # Check if this event matches our order_key
-                                event_order_key = event.topic1 or event.get_bytes32("key")
-                                if event_order_key != order_key:
-                                    continue
-
-                                # Found our order's execution event
-                                trade_action = {
-                                    "eventName": event.event_name,
-                                    "orderKey": order_key_hex,
-                                    "isLong": event.get_bool("isLong"),
-                                    "reason": event.get_string("reasonBytes") if event.event_name == "OrderCancelled" else None,
-                                    "transaction": {
-                                        "hash": log["transactionHash"].hex() if isinstance(log["transactionHash"], bytes) else log["transactionHash"],
-                                    },
-                                }
-
-                                # Get execution price if available
-                                if event.event_name == "OrderExecuted":
-                                    exec_price = event.get_uint("executionPrice")
-                                    if exec_price:
-                                        trade_action["executionPrice"] = str(exec_price)
-
-                                break
-
-                            except Exception as e:
-                                logger.debug("Error decoding log: %s", e)
-                                continue
 
                     except Exception as e:
                         logger.debug("fetch_order(%s): EventEmitter query failed: %s", id[:16], e)
