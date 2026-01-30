@@ -4,16 +4,19 @@ import datetime
 import os
 from decimal import Decimal
 
+import flaky
 import pytest
-
 from web3 import Web3
 
 from eth_defi.erc_4626.vault import ERC4626Vault, VaultReaderState
-from eth_defi.event_reader.multicall_batcher import read_multicall_historical_stateful
 from eth_defi.erc_4626.vault_protocol.ipor.vault import IPORVault
 from eth_defi.erc_4626.vault_protocol.morpho.vault_v1 import MorphoVault
-from eth_defi.provider.multi_provider import create_multi_provider_web3, MultiProviderWeb3Factory
-from eth_defi.token import fetch_erc20_details, USDC_NATIVE_TOKEN, SUSDS_NATIVE_TOKEN
+from eth_defi.event_reader.multicall_batcher import \
+    read_multicall_historical_stateful
+from eth_defi.provider.multi_provider import (MultiProviderWeb3Factory,
+                                              create_multi_provider_web3)
+from eth_defi.token import (SUSDS_NATIVE_TOKEN, USDC_NATIVE_TOKEN,
+                            fetch_erc20_details)
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.historical import VaultHistoricalReadMulticaller
 
@@ -103,6 +106,9 @@ def test_4626_historical_vault_data_stateless(
     assert r.trading is None
 
 
+# 5
+FAILED tests/erc_4626/test_4626_historical_data.py::test_4626_historical_vault_data_stateful - requests.exceptions.ConnectionError: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+@flaky.flaky
 def test_4626_historical_vault_data_stateful(
     web3: Web3,
     tmp_path,
