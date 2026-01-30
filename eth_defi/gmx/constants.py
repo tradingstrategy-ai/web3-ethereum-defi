@@ -97,6 +97,21 @@ GMX_API_URLS_BACKUP: dict = {
     "arbitrum_sepolia": "https://dolphin-app-a2dup.ondigitalocean.app",
 }
 
+GMX_API_URLS_FALLBACK: dict = {
+    #: Fallback API endpoint URLs for GMX protocol services by blockchain network.
+    #:
+    #: These fallback endpoints provide a third level of redundancy when both
+    #: primary and backup endpoints are unavailable. Used as last resort before
+    #: raising an error.
+    #:
+    #: :type: dict[str, str]
+    #: :var arbitrum: Fallback API endpoint for Arbitrum network operations
+    #: :var avalanche: Fallback API endpoint for Avalanche network operations
+    "arbitrum": "https://arbitrum-api-fallback.gmxinfra.io",
+    "avalanche": "https://avalanche-api-fallback.gmxinfra.io",
+    "arbitrum_sepolia": "https://dolphin-app-a2dup.ondigitalocean.app",
+}
+
 # TODO: get rid of the rest bcz they will be migrated soon.
 # Contract addresses by chain
 GMX_EVENT_EMITTER_ADDRESS = {
