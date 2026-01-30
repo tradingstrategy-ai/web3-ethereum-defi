@@ -267,6 +267,11 @@ class GMX(ExchangeCompatible):
         if not self._rpc_url:
             raise ValueError("rpcUrl is required in parameters")
 
+        # Log detected RPC providers (space-separated format)
+        rpc_urls = [u for u in self._rpc_url.split() if u and not u.startswith("mev+")]
+        logger.info("RPC configuration: %d provider(s) detected", len(rpc_urls))
+
+        # Create web3 with multi-provider support
         self.web3 = create_multi_provider_web3(self._rpc_url)
 
         # Validate provider count if required
@@ -6235,9 +6240,17 @@ class GMX(ExchangeCompatible):
 
             order_key = bytes.fromhex(order_key_hex)
 
+            # Get creation block for accurate log scanning (important after bot restart)
+            creation_block = order.get("info", {}).get("block_number")
+
             # Check if order still pending in DataStore
             try:
-                status_result = check_order_status(self.web3, order_key, self.config.get_chain())
+                status_result = check_order_status(
+                    self.web3,
+                    order_key,
+                    self.config.get_chain(),
+                    creation_block=creation_block,
+                )
             except Exception as e:
                 logger.warning("fetch_order(%s): error checking order status: %s", id[:16], e)
                 return order

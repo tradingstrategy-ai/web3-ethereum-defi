@@ -48,9 +48,9 @@ Note:
     https://gmx-docs.io/docs/api/rest-v2
 """
 
+import json
 from enum import IntEnum
 from pathlib import Path
-import json
 
 # TODO: Older code needs to be cleaned
 
@@ -332,3 +332,17 @@ DISK_CACHE_APY_TTL_SECONDS = 300  # 5 minutes
 
 #: Default cache directory for market data
 DEFAULT_MARKET_CACHE_DIR = "~/.cache/web3-ethereum-defi/gmx"
+
+#: Subsquid retry configuration for order tracking
+SUBSQUID_ORDER_TRACKING_TIMEOUT = 10  # Increased from 5
+SUBSQUID_ORDER_TRACKING_MAX_RETRIES = 5  # Increased from 3
+SUBSQUID_ORDER_TRACKING_INITIAL_DELAY = 2.0  # Increased from 1.0
+SUBSQUID_ORDER_TRACKING_MAX_DELAY = 30.0
+SUBSQUID_ORDER_TRACKING_BACKOFF_MULTIPLIER = 2.0
+
+#: GMX API retry configuration
+GMX_API_MAX_RETRIES = 3  # Per endpoint (primary + backup)
+GMX_API_INITIAL_DELAY = 2.0
+GMX_API_MAX_DELAY = 30.0
+GMX_API_BACKOFF_MULTIPLIER = 2.0
+GMX_API_FULL_CYCLE_RETRIES = 2  # Full cycles through primary+backup
