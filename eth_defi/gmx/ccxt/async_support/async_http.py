@@ -6,7 +6,7 @@ from typing import Any
 
 import aiohttp
 
-from eth_defi.gmx.constants import GMX_API_URLS, GMX_API_URLS_BACKUP, GMX_API_URLS_FALLBACK
+from eth_defi.gmx.constants import GMX_API_URLS, GMX_API_URLS_BACKUP, GMX_API_URLS_FALLBACK, GMX_API_URLS_FALLBACK_2
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +36,7 @@ async def async_make_gmx_api_request(
     """
     chain_lower = chain.lower()
 
-    # Build list of URLs to try (primary first, then backup, then fallback)
+    # Build list of URLs to try (primary first, then backup, then fallbacks)
     urls_to_try = []
     if chain_lower in GMX_API_URLS:
         urls_to_try.append((GMX_API_URLS[chain_lower] + endpoint, "primary"))
@@ -44,6 +44,8 @@ async def async_make_gmx_api_request(
         urls_to_try.append((GMX_API_URLS_BACKUP[chain_lower] + endpoint, "backup"))
     if chain_lower in GMX_API_URLS_FALLBACK:
         urls_to_try.append((GMX_API_URLS_FALLBACK[chain_lower] + endpoint, "fallback"))
+    if chain_lower in GMX_API_URLS_FALLBACK_2:
+        urls_to_try.append((GMX_API_URLS_FALLBACK_2[chain_lower] + endpoint, "fallback-2"))
 
     if not urls_to_try:
         raise ValueError(f"No GMX API URLs configured for chain: {chain}")
@@ -71,7 +73,7 @@ async def async_make_gmx_api_request(
                         response.raise_for_status()
 
                         # Log success if using backup/fallback or after retries
-                        if url_type in ("backup", "fallback") or attempt > 0:
+                        if url_type in ("backup", "fallback", "fallback-2") or attempt > 0:
                             logger.info(
                                 "Successfully connected to %s GMX API for %s",
                                 url_type,
