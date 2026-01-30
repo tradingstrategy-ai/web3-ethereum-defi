@@ -107,7 +107,7 @@ def test_4626_historical_vault_data_stateless(
 
 
 # 5
-FAILED tests/erc_4626/test_4626_historical_data.py::test_4626_historical_vault_data_stateful - requests.exceptions.ConnectionError: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+# FAILED tests/erc_4626/test_4626_historical_data.py::test_4626_historical_vault_data_stateful - requests.exceptions.ConnectionError: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
 @flaky.flaky
 def test_4626_historical_vault_data_stateful(
     web3: Web3,
