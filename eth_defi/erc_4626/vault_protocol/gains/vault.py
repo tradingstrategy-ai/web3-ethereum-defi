@@ -22,6 +22,7 @@ Notes:
 import datetime
 import logging
 from functools import cached_property
+from typing import Iterable
 
 from web3 import Web3
 from web3.contract.contract import Contract
@@ -30,15 +31,89 @@ from web3.exceptions import BadFunctionCallOutput
 from eth_defi.abi import get_deployed_contract
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
-from eth_defi.erc_4626.vault import ERC4626Vault
-from eth_defi.event_reader.conversion import convert_bytes32_to_address, convert_string_to_bytes32
-from eth_defi.event_reader.multicall_batcher import EncodedCall
+from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
+from eth_defi.event_reader.conversion import convert_bytes32_to_address, convert_int256_bytes_to_int, convert_string_to_bytes32
+from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.utils import from_unix_timestamp
+from eth_defi.vault.base import VaultHistoricalReader, VaultHistoricalRead
 from eth_typing import BlockIdentifier
 
 from eth_defi.vault.risk import VaultTechnicalRisk
 
 logger = logging.getLogger(__name__)
+
+
+class GainsHistoricalReader(ERC4626HistoricalReader):
+    """Read Gains/Ostium vault core data + epoch-based deposit/redemption state.
+
+    - Deposits are always open for Gains/Ostium vaults
+    - Redemptions are open only when ``nextEpochValuesRequestCount() == 0``
+      on the open PnL contract (first 2 days of 3-day epoch)
+    - Trading state is not tracked (always ``None``)
+    """
+
+    def construct_multicalls(self) -> Iterable[EncodedCall]:
+        yield from self.construct_core_erc_4626_multicall()
+        yield from self.construct_gains_epoch_calls()
+
+    def construct_gains_epoch_calls(self) -> Iterable[EncodedCall]:
+        """Add epoch state call for redemption window detection.
+
+        Uses ``open_pnl_contract`` which works for both Gains (via ``openTradesPnlFeed()``)
+        and Ostium (via the registry).
+        """
+        try:
+            open_pnl = self.vault.open_pnl_contract
+        except (NotImplementedError, Exception):
+            # Some Gains-like vaults may not have an open PnL contract
+            return
+
+        next_epoch_values_request_count = EncodedCall.from_contract_call(
+            open_pnl.functions.nextEpochValuesRequestCount(),
+            extra_data={
+                "function": "nextEpochValuesRequestCount",
+                "vault": self.vault.address,
+            },
+            first_block_number=self.first_block,
+        )
+        yield next_epoch_values_request_count
+
+    def process_result(
+        self,
+        block_number: int,
+        timestamp: datetime.datetime,
+        call_results: list[EncodedCallResult],
+    ) -> VaultHistoricalRead:
+        call_by_name = self.dictify_multicall_results(block_number, call_results)
+
+        # Decode common variables
+        share_price, total_supply, total_assets, errors, max_deposit, max_redeem = self.process_core_erc_4626_result(call_by_name)
+
+        # Deposits are always open for Gains/Ostium
+        deposits_open = True
+
+        # Redemptions open when nextEpochValuesRequestCount == 0
+        redemption_open = None
+        epoch_result = call_by_name.get("nextEpochValuesRequestCount")
+        if epoch_result and epoch_result.success:
+            count = convert_int256_bytes_to_int(epoch_result.result)
+            redemption_open = count == 0
+
+        return VaultHistoricalRead(
+            vault=self.vault,
+            block_number=block_number,
+            timestamp=timestamp,
+            share_price=share_price,
+            total_assets=total_assets,
+            total_supply=total_supply,
+            performance_fee=None,
+            management_fee=None,
+            errors=errors or None,
+            max_deposit=max_deposit,
+            max_redeem=max_redeem,
+            deposits_open=deposits_open,
+            redemption_open=redemption_open,
+        )
 
 
 class GainsVault(ERC4626Vault):
@@ -276,6 +351,9 @@ class GainsVault(ERC4626Vault):
             0.05 for 5% discount
         """
         return self.vault_contract.functions.maxDiscountP().call() / 10**18 / 100
+
+    def get_historical_reader(self, stateful) -> VaultHistoricalReader:
+        return GainsHistoricalReader(self, stateful)
 
     def get_deposit_manager(self) -> "eth_defi.gains.deposit_redeem.GainsDepositManager":
         from eth_defi.erc_4626.vault_protocol.gains.deposit_redeem import GainsDepositManager

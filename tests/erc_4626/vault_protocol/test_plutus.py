@@ -1,6 +1,8 @@
 """Scan Euler vault metadata"""
 
+import datetime
 import os
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -10,7 +12,7 @@ import flaky
 
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import get_vault_protocol_name
-from eth_defi.erc_4626.vault_protocol.plutus.vault import PlutusVault
+from eth_defi.erc_4626.vault_protocol.plutus.vault import PlutusHistoricalReader, PlutusVault
 from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.erc_4626.vault_protocol.umami.vault import UmamiVault
@@ -57,3 +59,36 @@ def test_plutus(
     assert vault.get_performance_fee("latest") == 0.12
     assert vault.has_custom_fees() is False
     assert vault.get_protocol_name() == "Plutus"
+
+    # Verify Plutus-specific historical reader is returned
+    reader = vault.get_historical_reader(stateful=False)
+    assert isinstance(reader, PlutusHistoricalReader)
+
+    # Read vault state at the fork block using the historical reader
+    block_number = web3.eth.block_number
+    block = web3.eth.get_block(block_number)
+    timestamp = datetime.datetime.fromtimestamp(block["timestamp"], tz=datetime.timezone.utc).replace(tzinfo=None)
+
+    calls = list(reader.construct_multicalls())
+    call_results = [c.call_as_result(web3=web3, block_identifier=block_number) for c in calls]
+    vault_read = reader.process_result(block_number, timestamp, call_results)
+
+    assert vault_read.block_number == block_number
+    assert vault_read.share_price == Decimal("1.158908")
+    assert vault_read.total_assets == Decimal("178220.029349")
+    assert vault_read.total_supply == Decimal("153782.593144")
+    assert vault_read.max_deposit == Decimal("847420.85868")
+    assert vault_read.max_redeem == Decimal("0")
+
+    # Plutus derives deposit/redemption state from maxDeposit/maxRedeem
+    # At block 392_313_989: maxDeposit > 0 so deposits open, maxRedeem == 0 so redemptions closed
+    assert vault_read.deposits_open is True
+    assert vault_read.redemption_open is False
+    # Plutus does not track trading state
+    assert vault_read.trading is None
+
+    # Verify export round-trip
+    exported = vault_read.export()
+    assert exported["deposits_open"] == "true"
+    assert exported["redemption_open"] == "false"
+    assert exported["trading"] == ""

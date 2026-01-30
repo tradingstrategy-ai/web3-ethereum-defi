@@ -12,7 +12,7 @@ from eth_defi.erc_4626.classification import create_vault_instance_autodetect, d
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.gains.deposit_redeem import GainsDepositManager, GainsRedemptionRequest
 from eth_defi.erc_4626.vault_protocol.gains.testing import force_next_gains_epoch
-from eth_defi.erc_4626.vault_protocol.gains.vault import GainsVault
+from eth_defi.erc_4626.vault_protocol.gains.vault import GainsHistoricalReader, GainsVault
 from eth_defi.token import TokenDetails
 from eth_defi.trace import assert_transaction_success_with_explanation
 
@@ -45,6 +45,40 @@ def test_gains_read_data(web3, vault: GainsVault):
     now_ = datetime.datetime(2025, 9, 1)
     assert vault.estimate_redemption_ready(now_) == datetime.datetime(2025, 9, 1, 15, 53, 55)
     assert vault.get_max_discount_percent() == 0.05
+
+    # Verify Gains-specific historical reader is returned
+    reader = vault.get_historical_reader(stateful=False)
+    assert isinstance(reader, GainsHistoricalReader)
+
+    # Read vault state at the fork block using the historical reader
+    block_number = web3.eth.block_number
+    block = web3.eth.get_block(block_number)
+    timestamp = datetime.datetime.fromtimestamp(block["timestamp"], tz=datetime.timezone.utc).replace(tzinfo=None)
+
+    calls = list(reader.construct_multicalls())
+    call_results = [c.call_as_result(web3=web3, block_identifier=block_number) for c in calls]
+    vault_read = reader.process_result(block_number, timestamp, call_results)
+
+    assert vault_read.block_number == block_number
+    assert vault_read.share_price == Decimal("1.226361")
+    assert vault_read.total_assets == Decimal("13521484.785442")
+    assert vault_read.total_supply == Decimal("10218226.071715")
+    # Gains maxDeposit returns a very large number (uint256 max-like)
+    assert vault_read.max_deposit > Decimal("1e70")
+    assert vault_read.max_redeem == Decimal("0")
+
+    # Gains: deposits are always open
+    assert vault_read.deposits_open is True
+    # At this fork block, nextEpochValuesRequestCount == 2, so redemptions are closed
+    assert vault_read.redemption_open is False
+    # Gains does not track trading state
+    assert vault_read.trading is None
+
+    # Verify export round-trip
+    exported = vault_read.export()
+    assert exported["deposits_open"] == "true"
+    assert exported["redemption_open"] == "false"
+    assert exported["trading"] == ""
 
 
 def test_gains_deposit_withdraw(

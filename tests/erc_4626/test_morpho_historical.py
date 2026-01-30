@@ -112,6 +112,17 @@ def test_steakhouse_usdt(
     assert r.chain == 1
     assert r.total_assets == pytest.approx(42449976.669825)
 
+    # Verify new vault state columns exist in the DataFrame
+    assert "max_deposit" in df.columns
+    assert "max_redeem" in df.columns
+    assert "deposits_open" in df.columns
+    assert "redemption_open" in df.columns
+    assert "trading" in df.columns
+    # Morpho uses base reader, so boolean flags should be empty strings
+    assert r.deposits_open == ""
+    assert r.redemption_open == ""
+    assert r.trading == ""
+
 
 RPC_TEST = """
 curl -X POST -H "Content-Type: application/json" \

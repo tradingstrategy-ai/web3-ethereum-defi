@@ -329,6 +329,7 @@ STABLECOIN_LIKE = set(
         "vbUSDT",
         "wM",
         "xUSD",
+        "YUSD",
         "MTUSD",
         "ysUSDC",
         "mtUSDC",

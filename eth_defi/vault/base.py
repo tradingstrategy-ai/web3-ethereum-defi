@@ -218,6 +218,27 @@ class VaultHistoricalRead:
     #: Useful for diagnostics of scanning process
     vault_poll_frequency: str | None = None
 
+    #: Maximum deposit amount allowed at this point in time (ERC-4626 maxDeposit).
+    #:
+    #: In denomination token units.
+    max_deposit: Decimal | None = None
+
+    #: Maximum redeem amount allowed at this point in time (ERC-4626 maxRedeem).
+    #:
+    #: In share token units.
+    max_redeem: Decimal | None = None
+
+    #: Whether deposits were open at this point in time (protocol-specific logic)
+    deposits_open: bool | None = None
+
+    #: Whether redemptions were open at this point in time (protocol-specific logic)
+    redemption_open: bool | None = None
+
+    #: Whether the vault was actively trading at this point in time.
+    #:
+    #: Currently only supported for D2 Finance vaults.
+    trading: bool | None = None
+
     def __eq__(self, other: "VaultHistoricalRead | None") -> bool:
         """Check if the read statistics match.
 
@@ -270,6 +291,11 @@ class VaultHistoricalRead:
             "management_fee": float(self.management_fee) if self.management_fee is not None else _nan,
             "errors": error_msgs if error_msgs else "",
             "vault_poll_frequency": self.vault_poll_frequency if self.vault_poll_frequency else "",
+            "max_deposit": float(self.max_deposit) if self.max_deposit is not None else _nan,
+            "max_redeem": float(self.max_redeem) if self.max_redeem is not None else _nan,
+            "deposits_open": str(self.deposits_open).lower() if self.deposits_open is not None else "",
+            "redemption_open": str(self.redemption_open).lower() if self.redemption_open is not None else "",
+            "trading": str(self.trading).lower() if self.trading is not None else "",
         }
         return data
 
@@ -294,6 +320,11 @@ class VaultHistoricalRead:
                 ("management_fee", pa.float32()),
                 ("errors", pa.string()),
                 ("vault_poll_frequency", pa.string()),
+                ("max_deposit", pa.float64()),
+                ("max_redeem", pa.float64()),
+                ("deposits_open", pa.string()),
+                ("redemption_open", pa.string()),
+                ("trading", pa.string()),
             ]
         )
         return schema

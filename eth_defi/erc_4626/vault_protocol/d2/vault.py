@@ -4,15 +4,18 @@ import datetime
 from dataclasses import dataclass
 from functools import cached_property
 import logging
+from typing import Iterable
 
 from web3.contract import Contract
 from eth_typing import BlockIdentifier
 
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
-from eth_defi.erc_4626.vault import ERC4626Vault
+from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
+from eth_defi.event_reader.conversion import convert_int256_bytes_to_int
+from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.utils import from_unix_timestamp
-from eth_defi.vault.base import VaultTechnicalRisk
+from eth_defi.vault.base import VaultHistoricalReader, VaultHistoricalRead, VaultTechnicalRisk
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +25,96 @@ class Epoch:
     funding_start: datetime.datetime
     epoch_start: datetime.datetime
     epoch_end: datetime.datetime
+
+
+class D2HistoricalReader(ERC4626HistoricalReader):
+    """Read D2 Finance vault core data + epoch-based deposit/redemption/trading state.
+
+    - Deposits are open during the funding phase (``isFunding()``)
+    - Redemptions are open when funds are not custodied and not during epoch
+      (``notCustodiedAndNotDuringEpoch()``)
+    - Trading is active when the vault is in an epoch (``isInEpoch()``)
+    """
+
+    def construct_multicalls(self) -> Iterable[EncodedCall]:
+        yield from self.construct_core_erc_4626_multicall()
+        yield from self.construct_d2_epoch_calls()
+
+    def construct_d2_epoch_calls(self) -> Iterable[EncodedCall]:
+        """Add D2-specific epoch state calls."""
+        is_funding = EncodedCall.from_contract_call(
+            self.vault.vault_contract.functions.isFunding(),
+            extra_data={
+                "function": "isFunding",
+                "vault": self.vault.address,
+            },
+            first_block_number=self.first_block,
+        )
+        yield is_funding
+
+        is_in_epoch = EncodedCall.from_contract_call(
+            self.vault.vault_contract.functions.isInEpoch(),
+            extra_data={
+                "function": "isInEpoch",
+                "vault": self.vault.address,
+            },
+            first_block_number=self.first_block,
+        )
+        yield is_in_epoch
+
+        not_custodied_and_not_during_epoch = EncodedCall.from_contract_call(
+            self.vault.vault_contract.functions.notCustodiedAndNotDuringEpoch(),
+            extra_data={
+                "function": "notCustodiedAndNotDuringEpoch",
+                "vault": self.vault.address,
+            },
+            first_block_number=self.first_block,
+        )
+        yield not_custodied_and_not_during_epoch
+
+    def process_result(
+        self,
+        block_number: int,
+        timestamp: datetime.datetime,
+        call_results: list[EncodedCallResult],
+    ) -> VaultHistoricalRead:
+        call_by_name = self.dictify_multicall_results(block_number, call_results)
+
+        # Decode common variables
+        share_price, total_supply, total_assets, errors, max_deposit, max_redeem = self.process_core_erc_4626_result(call_by_name)
+
+        # Decode D2-specific epoch state
+        deposits_open = None
+        is_funding_result = call_by_name.get("isFunding")
+        if is_funding_result and is_funding_result.success:
+            deposits_open = bool(convert_int256_bytes_to_int(is_funding_result.result))
+
+        trading = None
+        is_in_epoch_result = call_by_name.get("isInEpoch")
+        if is_in_epoch_result and is_in_epoch_result.success:
+            trading = bool(convert_int256_bytes_to_int(is_in_epoch_result.result))
+
+        redemption_open = None
+        not_custodied_result = call_by_name.get("notCustodiedAndNotDuringEpoch")
+        if not_custodied_result and not_custodied_result.success:
+            redemption_open = bool(convert_int256_bytes_to_int(not_custodied_result.result))
+
+        return VaultHistoricalRead(
+            vault=self.vault,
+            block_number=block_number,
+            timestamp=timestamp,
+            share_price=share_price,
+            total_assets=total_assets,
+            total_supply=total_supply,
+            performance_fee=None,
+            management_fee=None,
+            errors=errors or None,
+            max_deposit=max_deposit,
+            max_redeem=max_redeem,
+            deposits_open=deposits_open,
+            redemption_open=redemption_open,
+            trading=trading,
+        )
 
 
 class D2Vault(ERC4626Vault):
@@ -68,6 +161,9 @@ class D2Vault(ERC4626Vault):
             self.spec.vault_address,
             abi_fname="d2/VaultV1Whitelisted.json",
         )
+
+    def get_historical_reader(self, stateful) -> VaultHistoricalReader:
+        return D2HistoricalReader(self, stateful)
 
     def fetch_current_epoch_id(self) -> int:
         return self.vault_contract.functions.getCurrentEpoch().call()

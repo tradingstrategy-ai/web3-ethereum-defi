@@ -12,7 +12,7 @@ from eth_defi.erc_4626.classification import create_vault_instance_autodetect, d
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.gains.deposit_redeem import GainsDepositManager, GainsRedemptionRequest
 from eth_defi.erc_4626.vault_protocol.gains.testing import force_next_gains_epoch
-from eth_defi.erc_4626.vault_protocol.gains.vault import GainsVault, OstiumVault
+from eth_defi.erc_4626.vault_protocol.gains.vault import GainsHistoricalReader, GainsVault, OstiumVault
 from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import TokenDetails
@@ -63,6 +63,39 @@ def test_ostium_read_data(web3, vault: GainsVault):
     assert vault.fetch_current_epoch_start() == datetime.datetime(2025, 9, 2, 12, 44, 20)
     assert vault.fetch_withdraw_epochs_time_lock() == 3
     assert vault.estimate_redemption_ready() is None
+
+    # Ostium inherits Gains historical reader
+    reader = vault.get_historical_reader(stateful=False)
+    assert isinstance(reader, GainsHistoricalReader)
+
+    # Read vault state at the fork block using the historical reader
+    block_number = web3.eth.block_number
+    block = web3.eth.get_block(block_number)
+    timestamp = datetime.datetime.fromtimestamp(block["timestamp"], tz=datetime.timezone.utc).replace(tzinfo=None)
+
+    calls = list(reader.construct_multicalls())
+    call_results = [c.call_as_result(web3=web3, block_identifier=block_number) for c in calls]
+    vault_read = reader.process_result(block_number, timestamp, call_results)
+
+    assert vault_read.block_number == block_number
+    assert vault_read.share_price == Decimal("1.098157")
+    assert vault_read.total_assets == Decimal("31668258.181211")
+    assert vault_read.total_supply == Decimal("28772893.664136")
+    assert vault_read.max_deposit == Decimal("1555220.50855")
+    assert vault_read.max_redeem == Decimal("0")
+
+    # Ostium: deposits are always open
+    assert vault_read.deposits_open is True
+    # At this fork block, nextEpochValuesRequestCount == 0, so redemptions are open
+    assert vault_read.redemption_open is True
+    # Ostium does not track trading state
+    assert vault_read.trading is None
+
+    # Verify export round-trip
+    exported = vault_read.export()
+    assert exported["deposits_open"] == "true"
+    assert exported["redemption_open"] == "true"
+    assert exported["trading"] == ""
 
 
 def test_ostium_deposit_withdraw(
