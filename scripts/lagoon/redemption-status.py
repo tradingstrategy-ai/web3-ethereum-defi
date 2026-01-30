@@ -105,14 +105,11 @@ def main() -> None:
     print(holdings_table)
     print(f"\nSum of listed holdings: {_format_amount(holdings_sum)} {denomination_token.symbol}")
 
-    delta = total_assets - holdings_sum
-    print(f"Delta vs totalAssets(): {_format_amount(delta)} {denomination_token.symbol}")
-
     flow_manager = vault.get_flow_manager()
     deposit_queue_assets = flow_manager.fetch_pending_deposit(block_number)
     redemption_queue_shares = flow_manager.fetch_pending_redemption(block_number)
     share_price = vault.fetch_share_price(block_number)
-    redemption_queue_assets = redemption_queue_shares * share_price
+    redemption_queue_assets = flow_manager.calculate_underlying_needed_for_redemptions(block_number)
 
     queues_table = tabulate(
         [
@@ -127,7 +124,7 @@ def main() -> None:
                 "Amount": _format_amount(redemption_queue_shares),
             },
             {
-                "Metric": "Redemption queue (assets equivalent)",
+                "Metric": "Redemption queue (underlying needed)",
                 "Units": denomination_token.symbol,
                 "Amount": _format_amount(redemption_queue_assets),
             },
