@@ -78,6 +78,8 @@ WRAPPED_NATIVE_TOKEN: dict[int, HexAddress | str] = {
     43114: "0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7",
     # WETH: Arbitrum Sepolia
     421614: "0x7b79995e5f793A07Bc00c21412e50Ecae098E7f9",
+    # WETH: Derive (OP Stack, same as Base/Optimism)
+    957: "0x4200000000000000000000000000000000000006",
 }
 
 #: Addresses of USDC of different chains
@@ -95,6 +97,8 @@ USDC_NATIVE_TOKEN: dict[int, HexAddress | str] = {
     56: "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d",
     # Arbitrum Sepolia
     421614: "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d",
+    # Derive (Lyra L2)
+    957: "0x6879287835A86F50f784313dBEd5E5cCC5bb8481",
 }
 
 #: Bridged USDC of different chains
