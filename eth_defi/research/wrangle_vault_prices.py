@@ -42,6 +42,30 @@ def get_vaults_by_id(rows: dict[VaultSpec, VaultRow]) -> dict[str, VaultRow]:
     return vaults_by_id
 
 
+#: Vault state columns added by the historical scanner.
+#: Ensure these are always present in cleaned data,
+#: even when processing old scan data that lacks them.
+VAULT_STATE_COLUMNS = {
+    "max_deposit": float("nan"),
+    "max_redeem": float("nan"),
+    "deposits_open": "",
+    "redemption_open": "",
+    "trading": "",
+}
+
+
+def ensure_vault_state_columns(prices_df: pd.DataFrame) -> pd.DataFrame:
+    """Ensure vault state columns are present in the DataFrame.
+
+    - Adds missing columns with default values for backward compatibility
+      with raw scan data generated before these fields were added.
+    """
+    for col, default in VAULT_STATE_COLUMNS.items():
+        if col not in prices_df.columns:
+            prices_df[col] = default
+    return prices_df
+
+
 def assign_unique_names(
     rows: dict[VaultSpec, VaultRow],
     prices_df: pd.DataFrame,
@@ -709,6 +733,8 @@ def process_raw_vault_scan_data(
     :param display:
         Display Pandas DataFrame function
     """
+
+    prices_df = ensure_vault_state_columns(prices_df)
 
     assign_unique_names(rows, prices_df, logger)
 

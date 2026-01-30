@@ -68,6 +68,14 @@ def test_clean_vault_price_data(
     assert "share_price" in df.columns
     assert len(df["id"].unique()) == 4
 
+    # Vault state columns should always be present in cleaned output,
+    # even when raw scan data predates these fields
+    assert "max_deposit" in df.columns
+    assert "max_redeem" in df.columns
+    assert "deposits_open" in df.columns
+    assert "redemption_open" in df.columns
+    assert "trading" in df.columns
+
 
 def test_remove_inactive_lead_time():
     """Test removal of initial rows where total_supply hasn't changed."""
