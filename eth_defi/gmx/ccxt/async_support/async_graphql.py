@@ -5,7 +5,7 @@ from typing import Any
 
 import aiohttp
 
-from eth_defi.gmx.contracts import GMX_SUBSQUID_ENDPOINTS
+from eth_defi.gmx.contracts import GMX_SUBSQUID_ENDPOINTS, GMX_SUBSQUID_ENDPOINTS_BACKUP
 from eth_defi.gmx.graphql.client import GMXSubsquidClient
 
 logger = logging.getLogger(__name__)
@@ -31,11 +31,13 @@ class AsyncGMXSubsquidClient:
         self.custom_endpoint = custom_endpoint
         self.session: aiohttp.ClientSession | None = None
 
-        # Get endpoint URL
+        # Get endpoint URLs (primary and backup)
         if custom_endpoint:
             self.endpoint = custom_endpoint
+            self.endpoint_backup = None
         elif self.chain in GMX_SUBSQUID_ENDPOINTS:
             self.endpoint = GMX_SUBSQUID_ENDPOINTS[self.chain]
+            self.endpoint_backup = GMX_SUBSQUID_ENDPOINTS_BACKUP.get(self.chain)
         else:
             raise ValueError(f"No Subsquid URL configured for chain: {chain}")
 
@@ -55,7 +57,7 @@ class AsyncGMXSubsquidClient:
             self.session = None
 
     async def _query(self, query: str, variables: dict | None = None) -> dict:
-        """Execute GraphQL query.
+        """Execute GraphQL query with automatic failover to backup endpoint.
 
         :param query: GraphQL query string
         :param variables: Optional query variables
@@ -64,22 +66,45 @@ class AsyncGMXSubsquidClient:
         if not self.session:
             raise RuntimeError("Session not initialized. Use 'async with' context manager.")
 
+        endpoints_to_try = [self.endpoint]
+        if self.endpoint_backup:
+            endpoints_to_try.append(self.endpoint_backup)
+
         payload = {"query": query}
         if variables:
             payload["variables"] = variables
 
-        async with self.session.post(
-            self.endpoint,
-            json=payload,
-            timeout=aiohttp.ClientTimeout(total=30),
-        ) as response:
-            response.raise_for_status()
-            result = await response.json()
+        last_error = None
+        for endpoint in endpoints_to_try:
+            try:
+                async with self.session.post(
+                    endpoint,
+                    json=payload,
+                    timeout=aiohttp.ClientTimeout(total=30),
+                ) as response:
+                    response.raise_for_status()
+                    result = await response.json()
 
-            if "errors" in result:
-                raise RuntimeError(f"GraphQL errors: {result['errors']}")
+                    if "errors" in result:
+                        raise RuntimeError(f"GraphQL errors: {result['errors']}")
 
-            return result.get("data", {})
+                    # Log if we used backup endpoint
+                    if endpoint != self.endpoint:
+                        logger.info("Successfully used backup Subsquid endpoint")
+
+                    return result.get("data", {})
+
+            except (aiohttp.ClientError, TimeoutError) as e:
+                last_error = e
+                logger.warning(
+                    "Async Subsquid query failed on %s: %s",
+                    endpoint.split("/")[2],  # Extract domain
+                    e,
+                )
+                continue
+
+        # All endpoints failed
+        raise last_error
 
     async def get_market_infos(
         self,

@@ -89,10 +89,13 @@ exposure of sensitive operations.
     deployment in environments with significant financial exposure.
 """
 
-from typing import Optional, Any
+from typing import Any, Optional
+
 from web3 import Web3
 
 from eth_defi.chain import get_chain_name
+from eth_defi.provider.fallback import FallbackProvider, get_fallback_provider
+from eth_defi.provider.multi_provider import MultiProviderWeb3, create_multi_provider_web3
 
 
 class GMXConfigManager:
@@ -325,3 +328,122 @@ class GMXConfig:
             "rpc_url": self._rpc_url,
             "chain_id": self.web3.eth.chain_id,
         }
+
+
+def create_gmx_config_with_fallback(
+    rpc_configuration: str,
+    user_wallet_address: Optional[str] = None,
+    wallet=None,
+    fallback_sleep: float = 5.0,
+    fallback_backoff: float = 1.25,
+    retries: int = 6,
+    require_multiple_providers: bool = False,
+) -> "GMXConfig":
+    """Create a GMXConfig with multi-provider fallback support.
+
+    This factory function creates a GMXConfig instance backed by a
+    MultiProviderWeb3 connection, providing automatic failover between
+    multiple RPC endpoints for improved reliability in production.
+
+    The configuration line supports multiple RPC URLs separated by spaces
+    or newlines. URLs prefixed with ``mev+`` are used for transaction
+    broadcasting (MEV protection).
+
+    Example:
+
+    .. code-block:: python
+
+        from eth_defi.gmx.config import create_gmx_config_with_fallback
+
+        # Multiple providers for resilience
+        config = create_gmx_config_with_fallback(
+            rpc_configuration="https://arb1.arbitrum.io/rpc https://arbitrum-one-rpc.publicnode.com",
+            user_wallet_address="0x...",
+            require_multiple_providers=True,
+        )
+
+    :param rpc_configuration:
+        Space or newline separated list of RPC URLs. URLs prefixed with
+        ``mev+`` are used for MEV-protected transaction broadcasting.
+
+    :param user_wallet_address:
+        Optional wallet address for transaction building operations.
+
+    :param wallet:
+        Optional HotWallet instance for transaction signing.
+
+    :param fallback_sleep:
+        Seconds between JSON-RPC call retries.
+
+    :param fallback_backoff:
+        Sleep increase multiplier for retries.
+
+    :param retries:
+        Number of retry attempts before failing.
+
+    :param require_multiple_providers:
+        If True, raises ValueError when fewer than 2 providers configured.
+
+    :return:
+        GMXConfig instance backed by MultiProviderWeb3.
+
+    :raises ValueError:
+        If require_multiple_providers is True and fewer than 2 providers
+        are configured.
+    """
+    web3 = create_multi_provider_web3(
+        rpc_configuration,
+        fallback_sleep=fallback_sleep,
+        fallback_backoff=fallback_backoff,
+        retries=retries,
+        hint="GMX configuration",
+    )
+
+    # Validate provider count if required
+    if require_multiple_providers:
+        fallback = get_fallback_provider(web3)
+        if len(fallback.providers) < 2:
+            raise ValueError(f"GMX configuration requires at least 2 providers for proper fallback functionality, but only {len(fallback.providers)} provider(s) configured. Set require_multiple_providers=False to allow single-provider mode.")
+
+    return GMXConfig(
+        web3=web3,
+        user_wallet_address=user_wallet_address,
+        wallet=wallet,
+    )
+
+
+def get_fallback_provider_from_gmx_config(config: "GMXConfig"):
+    """Get the FallbackProvider from a GMXConfig if available.
+
+    This utility function extracts the FallbackProvider from a GMXConfig
+    that was created with multi-provider support, allowing access to
+    provider statistics and manual failover controls.
+
+    Example:
+
+    .. code-block:: python
+
+        from eth_defi.gmx.config import (
+            create_gmx_config_with_fallback,
+            get_fallback_provider_from_gmx_config,
+        )
+
+        config = create_gmx_config_with_fallback("...")
+        fallback = get_fallback_provider_from_gmx_config(config)
+
+        if fallback:
+            print(f"API calls: {fallback.get_total_api_call_counts()}")
+
+    :param config:
+        GMXConfig instance to extract FallbackProvider from.
+
+    :return:
+        FallbackProvider instance if the config uses multi-provider Web3,
+        None otherwise.
+    """
+    if isinstance(config.web3, MultiProviderWeb3):
+        try:
+            return get_fallback_provider(config.web3)
+        except AssertionError:
+            return None
+    return None
