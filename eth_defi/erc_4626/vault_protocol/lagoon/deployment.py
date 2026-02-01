@@ -1272,4 +1272,10 @@ LAGOON_BEACON_PROXY_FACTORIES = {
         "abi": "lagoon/OptinProxyFactory.json",
         "address": "0xb1ee4f77a1691696a737ab9852e389cf4cb1f1f5",
     },
+    # Derive
+    # https://explorer.derive.xyz/address/0x4058140097F313886536bd64a7C1D25FF7356931
+    957: {
+        "abi": "lagoon/BeaconProxyFactory.json",
+        "address": "0x4058140097F313886536bd64a7C1D25FF7356931",
+    },
 }

@@ -66,6 +66,7 @@ CHAIN_NAMES = {
     59144: "Linea",
     747474: "Katana",
     143: "Monad",
+    957: "Derive",
 }
 
 #: For linking on reports
@@ -98,6 +99,7 @@ CHAIN_HOMEPAGES = {
     59144: {"name": "Linea", "homepage": "https://linea.build/"},
     747474: {"name": "Katana", "homepage": "https://katana.network/"},
     143: {"name": "Monad", "homepage": "https://monad.xyz"},
+    957: {"name": "Derive", "homepage": "https://derive.xyz"},
 }
 
 #: Chain avg block times.
@@ -135,6 +137,7 @@ EVM_BLOCK_TIMES = {
     59144: 2,  # Block Time: Approximately 2 seconds soft finality
     747474: 1,  # Katana, ~1s block time avg
     143: 0.4,  # Monad, target ~1s block times on mainnet
+    957: 2,  # Derive (Lyra L2), ~2s block time
 }
 
 
