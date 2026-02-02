@@ -1,5 +1,6 @@
 # 0.39
 
+- Fix: Gains epoch call construction now skips broken open PnL helper contracts listed in `BROKEN_VAULT_CONTRACTS` (2026-02-02)
 - Fix: Add broken Gains vault address on Berachain to `BROKEN_VAULT_CONTRACTS` so price scanner skips it (2026-02-02)
 - Fix: Broken vault contracts filtering in `scan_historical_prices_to_parquet` now properly applies to all subsequent code instead of being silently ignored (2026-02-02)
 - Add: Gains vault historical scan test covering the full stateful multicall pipeline (2026-02-02)
