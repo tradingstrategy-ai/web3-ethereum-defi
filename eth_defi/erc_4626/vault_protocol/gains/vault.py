@@ -62,10 +62,16 @@ class GainsHistoricalReader(ERC4626HistoricalReader):
         Uses ``open_pnl_contract`` which works for both Gains (via ``openTradesPnlFeed()``)
         and Ostium (via the registry).
         """
+        from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
+
         try:
             open_pnl = self.vault.open_pnl_contract
         except (NotImplementedError, Exception):
             # Some Gains-like vaults may not have an open PnL contract
+            return
+
+        if open_pnl.address.lower() in BROKEN_VAULT_CONTRACTS:
+            logger.warning("Skipping broken open PnL contract %s for vault %s", open_pnl.address, self.vault.address)
             return
 
         next_epoch_values_request_count = EncodedCall.from_contract_call(

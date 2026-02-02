@@ -553,21 +553,25 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
 
         errors = []
 
-        # Not generated with denomination token is busted
-        # assert "share_price" in call_by_name, f"share_price call missing for {self.vault}, we got {list(call_by_name.items())}"
-        assert "total_supply" in call_by_name, f"total_supply call missing for {self.vault}, we got {list(call_by_name.items())}"
-        assert "total_assets" in call_by_name, f"total_assets call missing for {self.vault}, we got {list(call_by_name.items())}"
-
         share_token = self.vault.share_token
-        if call_by_name["total_supply"].success and share_token is not None:
-            raw_total_supply = convert_int256_bytes_to_int(call_by_name["total_supply"].result)
+        total_supply_result = call_by_name.get("total_supply")
+        if total_supply_result is None:
+            logger.warning("total_supply call missing for %s, we got %s", self.vault, list(call_by_name.keys()))
+            errors.append("total_supply call missing")
+            total_supply = None
+        elif total_supply_result.success and share_token is not None:
+            raw_total_supply = convert_int256_bytes_to_int(total_supply_result.result)
             total_supply = self.vault.share_token.convert_to_decimals(raw_total_supply)
         else:
             errors.append("total_supply call failed")
             total_supply = None
 
         total_assets_call_result = call_by_name.get("total_assets")
-        if self.vault.denomination_token is not None and total_assets_call_result.success:
+        if total_assets_call_result is None:
+            logger.warning("total_assets call missing for %s, we got %s", self.vault, list(call_by_name.keys()))
+            errors.append("total_assets call missing")
+            total_assets = None
+        elif self.vault.denomination_token is not None and total_assets_call_result.success:
             raw_total_assets = convert_int256_bytes_to_int(total_assets_call_result.result)
             total_assets = self.vault.denomination_token.convert_to_decimals(raw_total_assets)
 
@@ -576,13 +580,13 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
             total_assets = None
 
         if total_assets == 0:
-            errors.append(f"total_assets zero: {call_by_name['total_assets']}")
+            errors.append(f"total_assets zero: {total_assets_call_result}")
 
         if total_supply == 0:
-            errors.append(f"total_supply zero: {call_by_name['total_supply']}")
+            errors.append(f"total_supply zero: {total_supply_result}")
 
         convert_to_assets_call_result = call_by_name.get("convertToAssets")
-        if self.vault.denomination_token is not None and convert_to_assets_call_result.success:
+        if self.vault.denomination_token is not None and convert_to_assets_call_result is not None and convert_to_assets_call_result.success:
             # Take one unit of assets
             raw_total_assets = convert_int256_bytes_to_int(convert_to_assets_call_result.result)
             share_price = self.vault.denomination_token.convert_to_decimals(raw_total_assets)
