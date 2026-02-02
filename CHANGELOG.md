@@ -1,5 +1,6 @@
 # 0.39
 
+- Fix: Add broken Gains vault address on Berachain to `BROKEN_VAULT_CONTRACTS` so price scanner skips it (2026-02-02)
 - Fix: Broken vault contracts filtering in `scan_historical_prices_to_parquet` now properly applies to all subsequent code instead of being silently ignored (2026-02-02)
 - Add: Gains vault historical scan test covering the full stateful multicall pipeline (2026-02-02)
 - Add: Vault state fields (`max_deposit`, `max_redeem`, `deposits_open`, `redemption_open`, `trading`) to historical vault reads with protocol-specific readers for Gains/Ostium, D2 Finance, and Plutus (2026-01-31)
