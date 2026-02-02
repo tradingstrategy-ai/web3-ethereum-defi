@@ -1,5 +1,6 @@
 # 0.39
 
+- Add: [Derive.xyz](https://www.derive.xyz/) perpetuals and options DEX integration with session key authentication and account balance reading (2026-02-03)
 - Fix: ERC-4626 core result processing gracefully handles missing `total_supply` and `total_assets` calls instead of crashing with asserts (2026-02-02)
 - Fix: Gains epoch call construction now skips broken open PnL helper contracts listed in `BROKEN_VAULT_CONTRACTS` (2026-02-02)
 - Fix: Add broken Gains vault address on Berachain to `BROKEN_VAULT_CONTRACTS` so price scanner skips it (2026-02-02)
