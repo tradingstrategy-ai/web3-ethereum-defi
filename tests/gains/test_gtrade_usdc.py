@@ -4,6 +4,7 @@ import datetime
 import os
 from decimal import Decimal
 
+import flaky
 import pytest
 
 from web3 import Web3
@@ -13,8 +14,12 @@ from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.gains.deposit_redeem import GainsDepositManager, GainsRedemptionRequest
 from eth_defi.erc_4626.vault_protocol.gains.testing import force_next_gains_epoch
 from eth_defi.erc_4626.vault_protocol.gains.vault import GainsHistoricalReader, GainsVault
-from eth_defi.token import TokenDetails
+from eth_defi.event_reader.multicall_batcher import read_multicall_historical_stateful
+from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
+from eth_defi.token import TokenDetails, fetch_erc20_details, USDC_NATIVE_TOKEN
 from eth_defi.trace import assert_transaction_success_with_explanation
+from eth_defi.vault.base import VaultSpec
+from eth_defi.vault.historical import VaultHistoricalReadMulticaller
 
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
 pytestmark = pytest.mark.skipif(not JSON_RPC_ARBITRUM, reason="Set JSON_RPC_ARBITRUM to run this test")
@@ -183,3 +188,85 @@ def test_gains_deposit_withdraw(
 
     shares = share_token.fetch_balance_of(test_user)
     assert shares == 0
+
+
+@flaky.flaky
+def test_gains_historical_stateful(tmp_path):
+    """Read historical data of gTrade USDC vault using the stateful multicall reader.
+
+    - Exercises the full historical scanning pipeline with a Gains vault
+    - Uses live Arbitrum RPC (not forked)
+    - Reads 1 week of data with hourly steps
+    - Verifies Gains-specific vault state fields (deposits_open, redemption_open)
+    """
+
+    web3 = create_multi_provider_web3(JSON_RPC_ARBITRUM)
+    chain_id = web3.eth.chain_id
+    assert chain_id == 42161
+
+    latest_block = web3.eth.block_number
+
+    # Arbitrum block time is ~0.25s
+    # 1 week = 7 * 24 * 3600 / 0.25 = 2_419_200 blocks
+    one_week_blocks = 2_419_200
+    start_block = latest_block - one_week_blocks
+    end_block = latest_block
+
+    # 1 hour step = 3600 / 0.25 = 14_400 blocks
+    step = 14_400
+
+    vault = GainsVault(web3, VaultSpec(chain_id, "0xd3443ee1e91af28e5fb858fbd0d72a63ba8046e0"))
+    vault.first_seen_at_block = start_block
+
+    usdc = fetch_erc20_details(web3, USDC_NATIVE_TOKEN[chain_id])
+
+    timestamp_cache_path = tmp_path / "timestamp_cache"
+
+    reader = VaultHistoricalReadMulticaller(
+        web3factory=MultiProviderWeb3Factory(JSON_RPC_ARBITRUM),
+        supported_quote_tokens={usdc},
+        timestamp_cache_file=timestamp_cache_path,
+    )
+
+    records = reader.read_historical(
+        vaults=[vault],
+        start_block=start_block,
+        end_block=end_block,
+        step=step,
+        reader_func=read_multicall_historical_stateful,
+    )
+
+    records = list(records)
+    assert len(records) >= 1, f"Expected at least 1 record, got {len(records)}"
+
+    # Verify reader state is populated
+    vault_readers = reader.readers
+    assert len(vault_readers) == 1
+    state = list(vault_readers.values())[0].reader_state
+    assert state.last_call_at is not None
+    assert state.entry_count >= 1
+
+    # Sort records by block number
+    records.sort(key=lambda r: r.block_number)
+
+    # Check last record has valid data
+    r = records[-1]
+    assert r.share_price is not None and r.share_price > 0
+    assert r.total_assets is not None and r.total_assets > 0
+    assert r.total_supply is not None and r.total_supply > 0
+    assert r.max_deposit is not None
+    assert r.max_redeem is not None
+
+    # Gains-specific fields
+    assert r.deposits_open is True
+    assert r.redemption_open is not None
+    assert isinstance(r.redemption_open, bool)
+    assert r.trading is None
+
+    # Verify export round-trip includes all state fields
+    exported = r.export()
+    assert "deposits_open" in exported
+    assert "redemption_open" in exported
+    assert "trading" in exported
+    assert exported["deposits_open"] == "true"
+    assert exported["trading"] == ""

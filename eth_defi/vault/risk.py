@@ -239,6 +239,7 @@ _BROKEN_VAULT_CONTRACTS = {
     "0xc5a9938F265690e3c904fC37c27d1B6D0Aab8612",  # Age old mainnet contract
     "0x8763e4686ba2fdCd0b71CeE0411100585C875278",  # Age old mainnet contract
     "0xF1d402fCbEb2d0C8946F13196D72dB7258B0B296",
+    "0x5705554BAa86Da01fF4A82d29a1598c5B3A8B476",  # Gains-like on Berachain: AssertionError: total_supply call missing for <GainsVault: VaultSpec(chain_id=80094, vault_address='0x6a6e4ad4a5ca14b940cd6949b1a90f947ae21c19')>, we got [('nextEpochValuesRequestCount', <Call EncodedCall(func_name='nextEpochValuesRequestCount', address='0x5705554BAa86Da01fF4A82d29a1598c5B3A8B476', data=HexBytes('0xb8feee64'), extra_data={'function': 'nextEpochValuesRequestCount', 'vault': '0x6a6E4ad4a5ca14B940Cd6949b1A90f947AE21c19'}, first_block_number=812267, call_id=202, _hash=3894220416) at block 16487097, success True, result: 0000000000000000000000000000000000000000000000000000000000000000, result len 32>)]
 }
 
 #: Cause excessive gas fees, RPC havoc.
