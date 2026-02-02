@@ -1,5 +1,6 @@
 # 0.39
 
+- Add: Gains vault historical scan test covering the full stateful multicall pipeline (2026-02-02)
 - Add: Vault state fields (`max_deposit`, `max_redeem`, `deposits_open`, `redemption_open`, `trading`) to historical vault reads with protocol-specific readers for Gains/Ostium, D2 Finance, and Plutus (2026-01-31)
 - Add: `redemption-status.py` script to display Lagoon vault deposit and redemption status (2026-01-29)
 - Add: New protocol: [Frax Finance](https://frax.com/) - Fraxlend lending pair vault on Ethereum (2026-01-28)
