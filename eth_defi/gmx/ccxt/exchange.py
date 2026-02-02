@@ -4248,38 +4248,111 @@ class GMX(ExchangeCompatible):
             # Closing a position
             is_long = side == "sell"  # sell = close LONG, buy = close SHORT
 
-        # Convert amount from base currency (BTC/ETH) to USD
-        # For CCXT linear perpetuals, amount is in base currency contracts
-        # GMX needs size_delta_usd in actual USD
+        # ============================================
+        # SIZE CALCULATION - EXACT GMX SIZE LOGIC
+        # ============================================
+        # For closes: Use exact GMX position size to prevent remnants
+        # For opens: Calculate from amount × price as usual
 
-        # GMX Extension: Support direct USD sizing via size_usd parameter
-        if "size_usd" in params:
+        if reduceOnly and gmx_position:
+            # ============================================
+            # CLOSING WITH GMX POSITION DATA
+            # Use exact on-chain values to prevent remnants
+            # ============================================
+
+            actual_size_usd = gmx_position.get("position_size", 0.0)
+
+            # Validate position size is positive
+            if actual_size_usd <= 0:
+                logger.warning(
+                    "CLOSE: GMX position has invalid size %.2f, falling back to calculated size",
+                    actual_size_usd
+                )
+                # Fall through to standard CCXT calculation by setting gmx_position to None
+                gmx_position = None
+
+        # Only proceed with GMX position logic if we still have a valid position
+        if reduceOnly and gmx_position:
+            # Check if this is a partial close (sub_trade_amt provided)
+            sub_trade_amt = params.get("sub_trade_amt")
+
+            if sub_trade_amt is None:
+                # ============================================
+                # FULL CLOSE: Use GMX's exact position size
+                # ============================================
+                size_delta_usd = actual_size_usd
+
+                logger.info(
+                    "FULL CLOSE: Using exact GMX position size %.2f USD "
+                    "(freqtrade amount %.2f tokens ignored to prevent remnants)",
+                    size_delta_usd,
+                    amount
+                )
+
+            else:
+                # ============================================
+                # PARTIAL CLOSE: Calculate requested, clamp to actual
+                # ============================================
+                if price:
+                    requested_size_usd = sub_trade_amt * price
+                else:
+                    ticker = self.fetch_ticker(symbol)
+                    current_price = ticker["last"]
+                    requested_size_usd = sub_trade_amt * current_price
+
+                # Clamp to actual position size
+                size_delta_usd = min(requested_size_usd, actual_size_usd)
+
+                if size_delta_usd < requested_size_usd:
+                    logger.warning(
+                        "PARTIAL CLOSE: Clamping size from %.2f to %.2f USD (actual GMX position)",
+                        requested_size_usd,
+                        size_delta_usd
+                    )
+
+                logger.info(
+                    "PARTIAL CLOSE: size_delta_usd=%.2f "
+                    "(requested %.2f, actual position %.2f)",
+                    size_delta_usd,
+                    requested_size_usd,
+                    actual_size_usd
+                )
+
+        elif "size_usd" in params:
+            # GMX Extension: Direct USD sizing via size_usd parameter
             # Validate: size_usd and non-zero amount should not be used together
             if amount and amount > 0:
                 from ccxt.base.errors import InvalidOrder
 
                 raise InvalidOrder(f"Cannot use both 'size_usd' ({params['size_usd']}) and non-zero 'amount' ({amount}) together. Use either: (1) 'size_usd' in params for direct USD sizing (recommended), or (2) 'amount' for base currency sizing (will be multiplied by price). Recommendation: Use 'size_usd' with amount=0 for precise USD-denominated positions.")
-            # Direct USD amount (GMX-native approach)
             size_delta_usd = params["size_usd"]
-            logger.debug("ORDER_TRACE: Using size_usd=%.2f (direct USD sizing)", size_delta_usd)
+            logger.debug("ORDER_TRACE: Using size_usd=%.2f from params", size_delta_usd)
+
         else:
-            # Standard CCXT: amount is in base currency, convert to USD
+            # Standard CCXT: amount in base currency, convert to USD
             if price:
                 size_delta_usd = amount * price
-                logger.debug("ORDER_TRACE: Using amount=%.8f * price=%.2f = size_delta_usd=%.2f", amount, price, size_delta_usd)
+                logger.debug(
+                    "ORDER_TRACE: Using amount=%.8f * price=%.2f = size_delta_usd=%.2f",
+                    amount, price, size_delta_usd
+                )
             else:
-                # For market orders, fetch current price
+                # Market orders: fetch current price
                 ticker = self.fetch_ticker(symbol)
                 current_price = ticker["last"]
                 size_delta_usd = amount * current_price
-                logger.debug("ORDER_TRACE: Using amount=%.8f * current_price=%.2f = size_delta_usd=%.2f", amount, current_price, size_delta_usd)
+                logger.debug(
+                    "ORDER_TRACE: Using amount=%.8f * current_price=%.2f = size_delta_usd=%.2f",
+                    amount, current_price, size_delta_usd
+                )
 
+        # Build GMX params dict with calculated/exact size
         gmx_params = {
             "market_symbol": base_currency,
             "collateral_symbol": collateral_symbol,
             "start_token_symbol": collateral_symbol,
             "is_long": is_long,
-            "size_delta_usd": size_delta_usd,
+            "size_delta_usd": size_delta_usd,  # Now uses exact GMX value for closes
             "leverage": leverage,
             "slippage_percent": slippage_percent,
         }
