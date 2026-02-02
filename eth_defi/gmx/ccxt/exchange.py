@@ -4189,6 +4189,7 @@ class GMX(ExchangeCompatible):
         amount: float,
         price: float | None,
         params: dict,
+        gmx_position: dict | None = None,
     ) -> dict:
         """Convert CCXT order parameters to GMX trading parameters.
 
@@ -4207,6 +4208,10 @@ class GMX(ExchangeCompatible):
         :type price: float | None
         :param params: Additional parameters (leverage, collateral_symbol, etc.)
         :type params: dict
+        :param gmx_position: Optional GMX position data from GetOpenPositions.
+            When provided (for closes), use exact GMX values instead of calculating
+            from amount × price. This prevents remnants from calculation mismatches.
+        :type gmx_position: dict | None
         :return: GMX-compatible parameter dictionary
         :rtype: dict
         :raises ValueError: If symbol is invalid or parameters are incompatible
@@ -4378,8 +4383,8 @@ class GMX(ExchangeCompatible):
         if reduceOnly:
             raise ValueError("Bundled SL/TP only supported for opening positions (reduceOnly=False). Use standalone SL/TP for closing positions.")
 
-        # Convert CCXT params to GMX params
-        gmx_params = self._convert_ccxt_to_gmx_params(symbol, type, side, amount, price, params)
+        # Convert CCXT params to GMX params (no position query needed for opening positions)
+        gmx_params = self._convert_ccxt_to_gmx_params(symbol, type, side, amount, price, params, gmx_position=None)
 
         # Get market and token info
         normalized_symbol = self._normalize_symbol(symbol)
@@ -5236,14 +5241,88 @@ class GMX(ExchangeCompatible):
         if sl_entry or tp_entry:
             return self._create_order_with_sltp(symbol, type, side, amount, price, params, sl_entry, tp_entry)
 
-        # Convert CCXT parameters to GMX parameters (standard flow)
+        # ============================================
+        # NEW: Query GMX position BEFORE size calculation for closes
+        # ============================================
+        gmx_position = None
+        reduceOnly = params.get("reduceOnly", False)
+
+        if reduceOnly:
+            try:
+                # Parse symbol to get market details
+                normalized_symbol = self._normalize_symbol(symbol)
+                market = self.markets[normalized_symbol]
+                base_currency = market["base"]
+
+                # Determine position direction from side
+                is_closing_long = (side == "sell")  # sell = close LONG
+                is_closing_short = (side == "buy")   # buy = close SHORT
+
+                # Extract collateral symbol
+                collateral_symbol = params.get("collateral_symbol")
+                if not collateral_symbol:
+                    if "collateral_token" in params:
+                        collateral_symbol = params["collateral_token"]
+                    else:
+                        # Default to quote currency (strip :USDC suffix if present)
+                        collateral_symbol = market["quote"].replace(":USDC", "").replace(":USDT", "")
+
+                # Query all positions for this wallet
+                logger.info(
+                    "CLOSE ORDER: Querying GMX for actual position (market=%s, collateral=%s, direction=%s)",
+                    base_currency,
+                    collateral_symbol,
+                    "LONG" if is_closing_long else "SHORT"
+                )
+
+                positions_manager = GetOpenPositions(self.config)
+                existing_positions = positions_manager.get_data(self.wallet.address)
+
+                # Find matching position: market + collateral + direction
+                for position_key, position_data in existing_positions.items():
+                    position_market = position_data.get("market_symbol", "")
+                    position_is_long = position_data.get("is_long", None)
+                    position_collateral = position_data.get("collateral_token", "")
+
+                    if (position_market == base_currency and
+                        position_collateral == collateral_symbol):
+
+                        if is_closing_long and position_is_long:
+                            gmx_position = position_data
+                            break
+                        elif is_closing_short and not position_is_long:
+                            gmx_position = position_data
+                            break
+
+                if gmx_position:
+                    logger.info(
+                        "CLOSE ORDER: Found GMX position - size_usd=%.2f, collateral_usd=%.2f, tokens=%s",
+                        gmx_position.get("position_size", 0),
+                        gmx_position.get("initial_collateral_amount_usd", 0),
+                        gmx_position.get("size_in_tokens", 0)
+                    )
+                else:
+                    logger.warning(
+                        "CLOSE ORDER: No GMX position found - may already be closed"
+                    )
+
+            except Exception as e:
+                logger.error("Failed to query GMX position for close: %s", e)
+                # Continue with calculated size as fallback
+                gmx_position = None
+
+        # ============================================
+        # Convert CCXT params to GMX params
+        # NOW PASSING gmx_position for accurate sizing
+        # ============================================
         gmx_params = self._convert_ccxt_to_gmx_params(
-            symbol,
-            type,
-            side,
-            amount,
-            price,
-            params,
+            symbol=symbol,
+            type=type,
+            side=side,
+            amount=amount,
+            price=price,
+            params=params,
+            gmx_position=gmx_position,  # NEW: Pass actual position data
         )
 
         # Ensure token approval before creating order
@@ -5253,8 +5332,7 @@ class GMX(ExchangeCompatible):
             leverage=gmx_params["leverage"],
         )
 
-        # Extract reduceOnly from params to determine if opening or closing
-        reduceOnly = params.get("reduceOnly", False)
+        # Note: reduceOnly already extracted earlier (before position query)
 
         # Log position size details (if gas monitoring enabled)
         if gas_config and gas_config.enabled:
