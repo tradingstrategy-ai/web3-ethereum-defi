@@ -577,6 +577,8 @@ def scan_historical_prices_to_parquet(
             continue
         cleaned_vaults.append(v)
 
+    vaults = cleaned_vaults
+
     assert all(v.first_seen_at_block for v in vaults), f"You need to set vault.first_seen_at_block hint in order to run this reader"
     assert all(v.chain_id == chain_id for v in vaults), f"All vaults must be on the same chain"
 
