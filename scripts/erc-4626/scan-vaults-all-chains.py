@@ -507,6 +507,9 @@ def main():
 
     results = {c.name: ChainResult(name=c.name, status="pending", retry_attempt=0) for c in chains}
 
+    # Display initial dashboard
+    print_dashboard(results)
+
     # First pass - scan all chains
     logger.info("First pass: scanning %d chains", len(chains))
     for chain in chains:
