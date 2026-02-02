@@ -239,61 +239,6 @@ def test_partial_close_clamps_to_actual_position(mock_fetch_erc20, mock_get_posi
             assert call_kwargs["size_delta_usd"] != requested_size, f"Should NOT use requested ${requested_size:.2f}, should clamp to actual $1.86"
 
 
-@patch("eth_defi.gmx.ccxt.exchange.extract_order_execution_result")
-@patch("eth_defi.gmx.ccxt.exchange.extract_order_key_from_receipt")
-@patch("eth_defi.gmx.ccxt.exchange.GetOpenPositions")
-@patch("eth_defi.gmx.ccxt.exchange.fetch_erc20_details")
-def test_close_with_position_query_failure_uses_calculated_size(mock_fetch_erc20, mock_get_positions, mock_extract_order_key, mock_extract_execution, mock_gmx_exchange):
-    """Test fallback to calculated size when position query fails.
-
-    Scenario:
-    - Position query raises exception (network error, timeout, etc.) at line 5352
-    - Exception is caught at line 5382, gmx_position set to None
-    - Should return synthetic "already_closed" order (no position found)
-    - This tests the error handling path, not the calculated size path
-    """
-    # Disable gas monitoring
-    mock_gmx_exchange._gas_monitor_config = None
-
-    # Mock extract_order_key_from_receipt to avoid event decoding
-    mock_extract_order_key.return_value = b"\xab\xc1\x23"
-    mock_extract_execution.return_value = None  # No immediate execution
-
-    # Mock ERC20 token details
-    mock_token = Mock()
-    mock_token.decimals = 6  # USDC has 6 decimals
-    mock_token.contract.functions.allowance.return_value.call.return_value = 10**30  # Large allowance
-    mock_fetch_erc20.return_value = mock_token
-
-    # Setup: Mock GetOpenPositions to return empty positions dict
-    # This simulates the scenario where position query works but position is not found
-    # When no position is found, code returns synthetic "already_closed" order
-    mock_positions_manager = Mock()
-    mock_positions_manager.get_data.return_value = {}  # Empty dict = no positions found
-    mock_get_positions.return_value = mock_positions_manager
-
-    # Mock fetch_ticker
-    with patch.object(mock_gmx_exchange, "fetch_ticker") as mock_ticker:
-        mock_ticker.return_value = {"last": 0.66, "close": 0.66}
-
-        # Execute: Try to close when position not found
-        order = mock_gmx_exchange.create_order(
-            symbol="ASTER/USDC:USDC",
-            type="market",
-            side="buy",  # buy = close SHORT
-            amount=15.0,
-            params={
-                "reduceOnly": True,
-                "collateral_symbol": "USDC",
-            },
-        )
-
-        # Assert: Returns synthetic "already_closed" order
-        assert order["status"] == "closed", f"Expected status='closed' for synthetic order, got {order['status']}"
-        assert "already_closed" in order["id"], f"Expected synthetic order id to contain 'already_closed', got {order['id']}"
-        assert order["info"]["reason"] == "position_already_closed", f"Expected reason='position_already_closed', got {order['info']['reason']}"
-
-
 @patch("eth_defi.gmx.ccxt.exchange.fetch_erc20_details")
 @patch("eth_defi.gmx.ccxt.exchange.GetOpenPositions")
 def test_close_with_no_position_returns_synthetic_order(mock_get_positions, mock_fetch_erc20, mock_gmx_exchange):
