@@ -23,14 +23,6 @@ from typing import Any, Callable, Literal
 
 import eth_abi
 from eth_account.signers.local import LocalAccount
-from eth_typing import BlockNumber, HexAddress
-from hexbytes import HexBytes
-from safe_eth.safe.safe import Safe
-from web3 import Web3
-from web3._utils.events import EventLogErrorFlags
-from web3.contract import Contract
-from web3.contract.contract import ContractFunction
-
 from eth_defi.aave_v3.deployment import AaveV3Deployment
 from eth_defi.abi import ZERO_ADDRESS_STR, encode_multicalls, get_deployed_contract
 from eth_defi.cow.constants import COWSWAP_SETTLEMENT, COWSWAP_VAULT_RELAYER
@@ -52,6 +44,13 @@ from eth_defi.uniswap_v2.deployment import UniswapV2Deployment
 from eth_defi.uniswap_v3.deployment import UniswapV3Deployment
 from eth_defi.utils import chunked
 from eth_defi.vault.base import VaultSpec
+from eth_typing import BlockNumber, HexAddress
+from hexbytes import HexBytes
+from safe_eth.safe.safe import Safe
+from web3 import Web3
+from web3._utils.events import EventLogErrorFlags
+from web3.contract import Contract
+from web3.contract.contract import ContractFunction
 
 logger = logging.getLogger(__name__)
 
@@ -682,6 +681,10 @@ def deploy_safe_trading_strategy_module(
 
     # Deploy guard module
     if use_forge:
+        # Unit test path
+        if verifier == "etherscan" and etherscan_api_key is None:
+            verifier = None
+
         module, tx_hash = deploy_contract_with_forge(
             web3,
             CONTRACTS_ROOT / "safe-integration",

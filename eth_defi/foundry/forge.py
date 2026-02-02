@@ -10,7 +10,6 @@
 import datetime
 import logging
 import os
-
 from pathlib import Path
 from shutil import which
 from subprocess import DEVNULL, PIPE
@@ -18,17 +17,15 @@ from typing import Literal, Tuple
 
 import psutil
 from eth_account.signers.local import LocalAccount
-from eth_typing import ChecksumAddress, HexAddress, HexStr
-from hexbytes import HexBytes
-from web3 import Web3
-from web3.contract import Contract
-
 from eth_defi.abi import get_deployed_contract
 from eth_defi.deploy import register_contract
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.anvil import is_anvil
 from eth_defi.trace import assert_transaction_success_with_explanation
-
+from eth_typing import ChecksumAddress, HexAddress, HexStr
+from hexbytes import HexBytes
+from web3 import Web3
+from web3.contract import Contract
 
 logger = logging.getLogger(__name__)
 
