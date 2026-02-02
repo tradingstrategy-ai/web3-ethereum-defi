@@ -61,7 +61,7 @@ Environment variables:
     - RETRY_COUNT: Number of retry attempts (default: "1")
     - MAX_WORKERS: Number of parallel workers (default: "50")
     - FREQUENCY: "1h" or "1d" (default: "1h")
-    - LOG_LEVEL: Logging level (default: "info")
+    - LOG_LEVEL: Logging level (default: "warning")
     - TEST_CHAINS: Comma-separated list of chain names to scan (default: all chains)
     - SKIP_POST_PROCESSING: "true" to skip post-processing steps (default: "false")
     - JSON_RPC_<CHAIN>: RPC URL for each chain (required per chain)
@@ -459,7 +459,7 @@ def main():
     """Main execution function"""
     # Setup logging
     setup_console_logging(
-        default_log_level=os.environ.get("LOG_LEVEL", "info"),
+        default_log_level=os.environ.get("LOG_LEVEL", "warning"),
         log_file=Path("logs/scan-all-chains.log"),
         clear_log_file=True,
     )
