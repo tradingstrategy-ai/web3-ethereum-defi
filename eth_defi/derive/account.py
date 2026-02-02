@@ -75,6 +75,31 @@ class AccountSummary:
     maintenance_margin: Decimal | None = None
 
 
+def fetch_subaccount_ids(
+    client: "DeriveApiClient",  # type: ignore  # noqa: F821
+) -> list[int]:
+    """Fetch subaccount IDs for a Derive wallet.
+
+    :param client:
+        Authenticated Derive API client with session key.
+    :return:
+        List of subaccount IDs (may be empty if no subaccounts exist).
+    :raises ValueError:
+        If authentication fails.
+    """
+    if not client.session_key_private:
+        raise ValueError("Session key required for authenticated requests.")
+
+    result = client._make_jsonrpc_request(
+        method="private/get_subaccounts",
+        params={"wallet": client.derive_wallet_address},
+        authenticated=True,
+    )
+    ids = result.get("subaccount_ids", [])
+    logger.info("Found %d subaccount(s) for wallet %s", len(ids), client.derive_wallet_address)
+    return ids
+
+
 def fetch_account_collaterals(
     client: "DeriveApiClient",  # type: ignore  # noqa: F821
     subaccount_id: int | None = None,

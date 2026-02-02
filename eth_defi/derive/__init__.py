@@ -5,55 +5,53 @@ built on Derive Chain (OP Stack L2).
 
 This module provides:
 
-- Session key authentication with EIP-712 signing
-- Account creation and management
+- Session key registration for existing accounts
+- Session key authentication with EIP-191 personal-sign
+- LightAccount wallet address resolution
 - Balance and collateral reading
 - HTTP session with thread-safe rate limiting
 
+.. important::
+
+    Account creation requires the Derive web interface.
+    See :py:mod:`eth_defi.derive.onboarding` for details.
+
 Key components:
 
+- :py:mod:`eth_defi.derive.onboarding` - Session key registration and wallet resolution
 - :py:mod:`eth_defi.derive.authentication` - API client with session key auth
 - :py:mod:`eth_defi.derive.account` - Balance and collateral functions
 - :py:mod:`eth_defi.derive.session` - HTTP session management
-- :py:mod:`eth_defi.derive.constants` - API URLs and enums
+- :py:mod:`eth_defi.derive.constants` - API URLs, contract addresses, and enums
 
 Example workflow::
 
     from eth_account import Account
-    from eth_defi.derive.authentication import DeriveApiClient, SessionKeyScope
-    from eth_defi.derive.account import fetch_account_summary
+    from eth_defi.derive.authentication import DeriveApiClient
+    from eth_defi.derive.account import fetch_account_collaterals
 
-    # Initialize client
-    owner = Account.from_key("0x...")
+    # Use credentials from the Derive web interface developer page
     client = DeriveApiClient(
-        owner_account=owner,
-        derive_wallet_address="0x...",  # From Derive.xyz interface
+        owner_account=Account.from_key("0x..."),  # Owner wallet private key
+        derive_wallet_address="0x...",  # From developer page
+        session_key_private="0x...",  # From developer page
         is_testnet=True,
     )
 
-    # Register session key
-    session = client.register_session_key(
-        scope=SessionKeyScope.read_only,
-        expiry_hours=24,
-    )
-    client.session_key_private = session["session_key_private"]
-
-    # Fetch balances
-    summary = fetch_account_summary(client)
-    print(f"Total: ${summary.total_value_usd}")
+    collaterals = fetch_account_collaterals(client)
 
 Authentication:
     Derive uses a three-tier wallet system:
 
     1. **Owner EOA** - Your original Ethereum wallet
-    2. **Derive Wallet** - Smart contract wallet on Derive Chain
+    2. **Derive Wallet** - LightAccount smart contract wallet on Derive Chain
     3. **Session Keys** - Temporary wallets for API access
 
-    Find your Derive Wallet at: https://testnet.derive.xyz/ → Developers
+    Create your account at: https://testnet.derive.xyz/ (testnet)
+    or https://derive.xyz/ (mainnet)
 
 Environment variables for testing:
     - ``DERIVE_OWNER_PRIVATE_KEY`` - Owner wallet private key
-    - ``DERIVE_WALLET_ADDRESS`` - Derive smart contract wallet
-    - ``DERIVE_SESSION_KEY_PRIVATE`` - Session key (after registration)
-    - ``SEND_REAL_REQUESTS`` - Enable live API calls
+    - ``DERIVE_SESSION_PRIVATE_KEY`` - Session key private key (from developer page)
+    - ``DERIVE_WALLET_ADDRESS`` - Derive smart contract wallet (from developer page)
 """

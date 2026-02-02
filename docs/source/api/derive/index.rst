@@ -27,7 +27,7 @@ Authentication
 Derive uses a three-tier wallet system:
 
 1. **Owner EOA** - Your original Ethereum wallet
-2. **Derive Wallet** - Smart contract wallet on Derive Chain (not your EOA)
+2. **Derive Wallet** - LightAccount smart contract wallet on Derive Chain (ERC-4337)
 3. **Session Keys** - Temporary wallets for API access
 
 Session keys must be registered by the owner and support three permission levels:
@@ -36,39 +36,46 @@ Session keys must be registered by the owner and support three permission levels
 - ``account`` - Manage orders and settings
 - ``admin`` - Full access including trading and withdrawals
 
-To find your Derive Wallet address: https://testnet.derive.xyz/ → Home → Developers → "Derive Wallet"
+Authentication headers use EIP-191 personal-sign (``encode_defunct``) with uppercase header names
+(``X-LYRAWALLET``, ``X-LYRATIMESTAMP``, ``X-LYRASIGNATURE``).
+
+Account creation
+~~~~~~~~~~~~~~~~
+
+.. important::
+
+    Account creation requires the Derive web interface. The web UI deploys an
+    ERC-4337 LightAccount via a gas-sponsored UserOperation. This step cannot be
+    automated due to bot detection on the SIWE endpoint and paymaster access controls.
+
+1. Visit https://testnet.derive.xyz/ (testnet) or https://derive.xyz/ (mainnet)
+2. Connect your Ethereum wallet (MetaMask, etc.)
+3. The interface will deploy your LightAccount and register the initial session key
+4. Find your Derive Wallet address: Home → Developers → "Derive Wallet"
 
 Getting started
 ~~~~~~~~~~~~~~~
 
-Example workflow:
+Once your account exists via the web interface, use the session key from the
+developer page to authenticate API requests:
 
 .. code-block:: python
 
     from eth_account import Account
-    from eth_defi.derive.authentication import DeriveApiClient, SessionKeyScope
-    from eth_defi.derive.account import fetch_account_summary
+    from eth_defi.derive.authentication import DeriveApiClient
+    from eth_defi.derive.account import fetch_account_collaterals
 
-    # Initialise with owner account
-    owner = Account.from_key("0x...")
-
+    # Use credentials from the Derive web interface developer page
     client = DeriveApiClient(
-        owner_account=owner,
-        derive_wallet_address="0x...",  # From Derive.xyz interface
+        owner_account=Account.from_key("0x..."),        # Owner wallet private key
+        derive_wallet_address="0x...",                    # From developer page
+        session_key_private="0x...",                      # From developer page
         is_testnet=True,
     )
 
-    # Register session key
-    session_info = client.register_session_key(
-        scope=SessionKeyScope.read_only,
-        expiry_hours=24,
-    )
-    client.session_key_private = session_info["session_key_private"]
-
     # Fetch account data
-    summary = fetch_account_summary(client)
-    print(f"Total value: ${summary.total_value_usd}")
-    for col in summary.collaterals:
+    collaterals = fetch_account_collaterals(client)
+    for col in collaterals:
         print(f"{col.token}: {col.available}")
 
 Environment variables
@@ -78,29 +85,27 @@ For testing, set these environment variables:
 
 .. code-block:: bash
 
-    # Owner wallet private key (your main Ethereum wallet)
+    # Owner wallet private key (from web UI wallet)
     DERIVE_OWNER_PRIVATE_KEY=0x...
 
-    # Derive wallet address (find in Derive.xyz interface)
+    # Session key private key (from testnet developer page)
+    DERIVE_SESSION_PRIVATE_KEY=0x...
+
+    # Derive wallet address (from testnet developer page)
     DERIVE_WALLET_ADDRESS=0x...
 
-    # Session key private key (generated after registration)
-    DERIVE_SESSION_KEY_PRIVATE=0x...
+Finding your private key
+^^^^^^^^^^^^^^^^^^^^^^^^
 
-    # Enable real API calls for testing
-    SEND_REAL_REQUESTS=true
+``DERIVE_OWNER_PRIVATE_KEY`` is the private key of the Ethereum wallet you used to
+connect to the Derive web interface. To export it:
 
-Creating test accounts
-~~~~~~~~~~~~~~~~~~~~~~
+- **MetaMask**: Account menu → "Account details" → "Show private key" → enter password
+- **Rabby**: Account address → three-dot menu → "Export Private Key" → enter password
+- **Other wallets**: Look for "Export private key" in account/security settings
 
-To create a fresh test account on Derive testnet:
-
-1. Generate a new wallet: ``Account.create()``
-2. Fund it with testnet ETH (Sepolia faucet)
-3. Use Derive testnet interface to mint USDC
-4. Visit https://testnet.derive.xyz/ to create your Derive Wallet
-5. Find your Derive Wallet address in the interface (Developers section)
-6. Register session key for API access
+``DERIVE_SESSION_PRIVATE_KEY`` and ``DERIVE_WALLET_ADDRESS`` are found on the Derive
+web interface under Home → Developers.
 
 Links
 ~~~~~
@@ -109,10 +114,9 @@ Links
 - `Testnet Interface <https://testnet.derive.xyz/>`__
 - `API Documentation <https://docs.derive.xyz/>`__
 - `API Reference <https://docs.derive.xyz/reference/overview>`__
-- `Session Keys Guide <https://docs.derive.xyz/reference/session-keys>`__
+- `Manual Onboarding Guide <https://docs.derive.xyz/reference/onboard-manually>`__
 - `Python Signing SDK <https://github.com/derivexyz/v2-action-signing-python>`__
 - `Derive Chain Explorer <https://explorer.derive.xyz/>`__
-- `Circle USDC Testnet Faucet <https://faucet.circle.com/>`__
 
 API modules
 ~~~~~~~~~~~
@@ -121,6 +125,7 @@ API modules
    :toctree: _autosummary_derive
    :recursive:
 
+   eth_defi.derive.onboarding
    eth_defi.derive.session
    eth_defi.derive.authentication
    eth_defi.derive.account

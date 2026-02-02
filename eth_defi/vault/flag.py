@@ -294,6 +294,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0xd144eaff17b0308a5154444907781382398aac61": (VaultFlag.subvault, SUBVAULT),
     # AaveV3 USDC.e Lender
     "0x85968bf0f1f110c707fef10a59f80118f349c058": (VaultFlag.subvault, SUBVAULT),
+    # Curve Boosted crvUSD-sfrxUSD Lender
+    "0xf91a9a1c782a1c11b627f6e576d92c7d72cdd4af": (VaultFlag.subvault, SUBVAULT),
 }
 
 for addr in VAULT_FLAGS_AND_NOTES.keys():

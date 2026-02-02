@@ -1,211 +1,62 @@
-# Derive.xyz Integration - Implementation Summary
+# Derive.xyz integration -- implementation summary
 
 ## Overview
 
-Successfully implemented comprehensive Derive.xyz perpetuals and options DEX integration with session key authentication.
+Derive.xyz (formerly Lyra) perpetuals and options DEX integration with
+EIP-191 session key authentication and LightAccount (ERC-4337) wallet support.
 
-## What Was Implemented
+## Architecture
 
-### Core Modules (`eth_defi/derive/`)
+Derive uses a three-tier wallet system:
 
-1. **constants.py** - API URLs, rate limits, and enums
-   - Mainnet/testnet URLs
-   - Session key scopes (read_only, account, admin)
-   - Collateral types (USDC, wETH, wstETH, wBTC)
-   - Margin types (standard_margin, portfolio_margin)
+1. **Owner EOA** -- original Ethereum wallet
+2. **Derive Wallet** -- LightAccount smart contract wallet on Derive Chain (ERC-4337)
+3. **Session Keys** -- temporary wallets for API access
 
-2. **session.py** - HTTP session with rate limiting
-   - Thread-safe SQLite-backed rate limiting
-   - Exponential backoff retry logic
-   - Connection pooling
-   - Based on Hyperliquid pattern
+Account creation and initial session key registration require the Derive web interface due to:
+- ERC-4337 UserOperation gas sponsorship via paymaster
+- SIWE (Sign-In with Ethereum) bot detection on the verify endpoint
+- No public API endpoint for account creation
 
-3. **authentication.py** - Session key authentication
-   - `DeriveApiClient` class for API interactions
-   - EIP-712 signature-based session key registration
-   - Authenticated JSON-RPC 2.0 requests
-   - Request signing with session keys
+## Modules
 
-4. **account.py** - Account balance reading
-   - `CollateralBalance` dataclass
-   - `AccountSummary` dataclass
-   - `fetch_account_collaterals()` function
-   - `fetch_account_summary()` function
+- `constants.py` -- API URLs, chain IDs, contract addresses, EIP-712 constants, enums
+- `session.py` -- HTTP session with SQLite-backed rate limiting
+- `authentication.py` -- DeriveApiClient with EIP-191 personal-sign auth
+- `account.py` -- balance and collateral reading functions
+- `onboarding.py` -- LightAccount address resolution and session key verification
 
-5. **__init__.py** - Module documentation
-   - Comprehensive examples
-   - Authentication workflow
-   - Environment variable documentation
+## Authentication
 
-### Tests (`tests/derive/`)
+Uses EIP-191 personal-sign (`encode_defunct(text=timestamp)`) with uppercase headers:
 
-1. **conftest.py** - Test fixtures
-   - Owner account fixture
-   - Derive client fixture
-   - Session key client fixture (auto-registers if needed)
-   - Test account wallet fixture
+- `X-LYRAWALLET` -- LightAccount smart contract wallet address
+- `X-LYRATIMESTAMP` -- UTC timestamp in milliseconds
+- `X-LYRASIGNATURE` -- signature of the timestamp string
 
-2. **test_authentication.py** - Authentication tests
-   - Session key registration test
-   - Validation tests for required parameters
+Matches the `derive_action_signing` package format (v0.0.13).
 
-3. **test_account_balance.py** - Balance reading tests
-   - Collateral fetching test
-   - Account summary test
-   - Authentication requirement test
+## Contract addresses (testnet)
 
-### Documentation (`docs/source/api/derive/`)
+- LightAccountFactory: `0x000000893A26168158fbeaDD9335Be5bC96592E2`
+- EntryPoint: `0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789`
+- Matching: `0x3cc154e220c2197c5337b7Bd13363DD127Bc0C6E`
+- Standard Risk Manager: `0x28bE681F7bEa6f465cbcA1D25A2125fe7533391C`
+- Deposit Module: `0x43223Db33AdA0575D2E100829543f8B04A37a1ec`
+- Bundler: `https://bundler-prod-testnet-0eakp60405.t.conduit.xyz`
 
-1. **index.rst** - Complete API documentation
-   - Preface explaining Derive.xyz
-   - Authentication section with three-tier wallet system
-   - Getting started examples
-   - Environment variables guide
-   - Test account creation instructions
-   - Links to all resources
-
-2. Updated **docs/source/api/index.rst** to include Derive
-
-### Configuration
-
-1. **.env.derive.example** - Environment variable template
-   - Complete setup instructions
-   - Variable descriptions
-   - Testing commands
-
-2. **CHANGELOG.md** - Updated with new feature
-
-## Environment Variables Required
+## Testing
 
 ```bash
-# Owner wallet (signs session key registrations)
-DERIVE_OWNER_PRIVATE_KEY=0x...
-
-# Derive smart contract wallet (NOT your EOA)
-DERIVE_WALLET_ADDRESS=0x...
-
-# Session key (optional, auto-generated if missing)
-DERIVE_SESSION_KEY_PRIVATE=0x...
-
-# Enable real API calls
-SEND_REAL_REQUESTS=true
-```
-
-## How to Use
-
-### Basic Example
-
-```python
-from eth_account import Account
-from eth_defi.derive.authentication import DeriveApiClient, SessionKeyScope
-from eth_defi.derive.account import fetch_account_summary
-
-# Initialize client
-owner = Account.from_key("0x...")
-client = DeriveApiClient(
-    owner_account=owner,
-    derive_wallet_address="0x...",  # From Derive.xyz interface
-    is_testnet=True,
-)
-
-# Register session key
-session = client.register_session_key(
-    scope=SessionKeyScope.read_only,
-    expiry_hours=24,
-)
-client.session_key_private = session["session_key_private"]
-
-# Fetch balances
-summary = fetch_account_summary(client)
-print(f"Total: ${summary.total_value_usd}")
-for col in summary.collaterals:
-    print(f"{col.token}: {col.available}")
-```
-
-### Running Tests
-
-```bash
-# Setup environment variables
+# Owner wallet private key (from web UI wallet, e.g. MetaMask export)
 export DERIVE_OWNER_PRIVATE_KEY=0x...
+
+# Session key private key (from Derive developer page: Home → Developers)
+export DERIVE_SESSION_PRIVATE_KEY=0x...
+
+# Derive wallet address (from Derive developer page: Home → Developers)
 export DERIVE_WALLET_ADDRESS=0x...
-export SEND_REAL_REQUESTS=true
 
-# Run all tests
-source .local-test.env && poetry run pytest tests/derive/ -v
-
-# Run with logging
+# Run tests
 source .local-test.env && poetry run pytest tests/derive/ -v --log-cli-level=info
 ```
-
-## Key Design Decisions
-
-1. **Authentication Pattern**: Followed Orderly API client pattern for EIP-712 signing and session key management
-
-2. **Session Management**: Reused Hyperliquid's proven session.py with SQLite-backed rate limiting for thread-safety
-
-3. **Data Structures**: Used `@dataclass(slots=True)` with `Decimal` for financial values following codebase standards
-
-4. **Error Handling**: Clear error messages guide users to set up authentication properly
-
-5. **Testing Strategy**: Tests skip gracefully when environment variables not set, auto-register session keys if needed
-
-## Authentication Flow
-
-1. **Owner EOA** → Your original Ethereum wallet
-2. **Derive Wallet** → Smart contract wallet on Derive Chain (get from Derive.xyz interface)
-3. **Session Key** → Temporary wallet registered by owner for API access
-
-Session keys support three permission levels:
-- `read_only` - View account data
-- `account` - Manage orders and settings
-- `admin` - Full trading and withdrawal access
-
-## Testing Account Creation
-
-To create a test account on Derive testnet:
-
-1. Generate new wallet: `Account.create()`
-2. Fund with Sepolia ETH (gas)
-3. Visit https://testnet.derive.xyz/ and connect
-4. Mint USDC via interface or Circle faucet
-5. Find Derive Wallet address in interface (Developers section)
-6. Register session key via API
-
-## Files Created
-
-**Module files:**
-- `eth_defi/derive/__init__.py` (1,973 bytes)
-- `eth_defi/derive/constants.py` (2,126 bytes)
-- `eth_defi/derive/session.py` (3,503 bytes)
-- `eth_defi/derive/authentication.py` (10,581 bytes)
-- `eth_defi/derive/account.py` (6,856 bytes)
-
-**Test files:**
-- `tests/derive/conftest.py` (2,657 bytes)
-- `tests/derive/test_authentication.py` (2,132 bytes)
-- `tests/derive/test_account_balance.py` (3,129 bytes)
-
-**Documentation:**
-- `docs/source/api/derive/index.rst` (3,618 bytes)
-- `.env.derive.example` (2,168 bytes)
-- Updated `docs/source/api/index.rst`
-- Updated `CHANGELOG.md`
-
-## Code Quality
-
-- ✅ Formatted with ruff
-- ✅ Type hints throughout
-- ✅ British English in documentation
-- ✅ Sphinx-compatible docstrings
-- ✅ Follows all codebase conventions
-- ✅ Comprehensive error handling
-
-## External Resources
-
-- [Derive.xyz Platform](https://www.derive.xyz/)
-- [Testnet Interface](https://testnet.derive.xyz/)
-- [API Documentation](https://docs.derive.xyz/)
-- [Session Keys Guide](https://docs.derive.xyz/reference/session-keys)
-- [Python Signing SDK](https://github.com/derivexyz/v2-action-signing-python)
-- [Derive Chain Explorer](https://explorer.derive.xyz/)
-- [Circle USDC Faucet](https://faucet.circle.com/)

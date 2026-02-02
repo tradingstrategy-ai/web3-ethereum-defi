@@ -1,25 +1,32 @@
 """Derive API client with session key authentication.
 
 This module provides the DeriveApiClient for authenticating with Derive.xyz API
-using session keys and EIP-712 signing.
+using session keys and EIP-191 personal-sign authentication.
+
+Authentication uses the ``encode_defunct(text=timestamp)`` pattern: the client
+signs a millisecond timestamp string with either a session key or the owner
+wallet key, and sends the signature in ``X-LYRASIGNATURE`` / ``X-LYRAWALLET``
+/ ``X-LYRATIMESTAMP`` headers.
+
+.. note::
+
+    Header names use uppercase (``X-LYRAWALLET`` etc.) to match the canonical
+    format used by the official ``derive_action_signing`` package.
 """
 
-import json
 import logging
 from datetime import UTC, datetime
 from typing import Any
 
-from eth_account import messages
+from eth_account import Account
+from eth_account.messages import encode_defunct
 from eth_account.signers.local import LocalAccount
 from eth_typing import HexAddress
 from requests import Session
-from web3 import Web3
 
 from eth_defi.derive.constants import (
-    DERIVE_CHAIN_ID,
     DERIVE_MAINNET_API_URL,
     DERIVE_TESTNET_API_URL,
-    SessionKeyScope,
 )
 from eth_defi.derive.session import create_derive_session
 
@@ -31,16 +38,22 @@ class DeriveApiClient:
 
     This client handles:
 
-    - Session key registration with owner signature
-    - Authenticated JSON-RPC 2.0 requests
-    - Account and subaccount creation
+    - Authenticated JSON-RPC 2.0 requests via HTTP
+    - Session key registration via ``/private/register_scoped_session_key``
+    - Signing requests with EIP-191 personal-sign (encode_defunct)
+
+    Authentication headers follow the Derive convention::
+
+        X-LYRAWALLET:    <smart contract wallet address>
+        X-LYRATIMESTAMP: <UTC timestamp in milliseconds>
+        X-LYRASIGNATURE: <EIP-191 signature of the timestamp string>
 
     Example::
 
         from eth_account import Account
-        from eth_defi.derive.authentication import DeriveApiClient, SessionKeyScope
+        from eth_defi.derive.authentication import DeriveApiClient
 
-        # Initialize with owner account
+        # Initialise with owner account
         owner = Account.from_key("0x...")
         client = DeriveApiClient(
             owner_account=owner,
@@ -48,14 +61,12 @@ class DeriveApiClient:
             is_testnet=True,
         )
 
-        # Register session key
-        session_info = client.register_session_key(
-            scope=SessionKeyScope.read_only,
-            expiry_hours=24,
+        # Make authenticated request using owner key directly
+        result = client._make_jsonrpc_request(
+            method="private/get_subaccounts",
+            params={"wallet": client.derive_wallet_address},
+            authenticated=True,
         )
-
-        # Use session key for authenticated requests
-        client.session_key_private = session_info["session_key_private"]
     """
 
     def __init__(
@@ -71,8 +82,9 @@ class DeriveApiClient:
         :param owner_account:
             Owner wallet (EOA) for signing session key registrations.
         :param derive_wallet_address:
-            Derive wallet address (smart contract wallet on Derive Chain).
-            This is NOT your EOA - find it at Derive.xyz → Developers.
+            Derive wallet address (LightAccount smart contract wallet on Derive Chain).
+            For manual onboarding this equals the counterfactual LightAccount
+            address derived from the owner EOA.
         :param subaccount_id:
             Subaccount ID to use for requests (defaults to 1).
         :param is_testnet:
@@ -93,126 +105,56 @@ class DeriveApiClient:
 
         self.session = create_derive_session()
 
-    def register_session_key(
-        self,
-        scope: SessionKeyScope = SessionKeyScope.read_only,
-        expiry_hours: int = 24,
-        label: str = "python-sdk",
-        ip_whitelist: list[str] | None = None,
-    ) -> dict[str, str]:
-        """Register a new session key with owner signature.
+    def _get_signing_key(self) -> str:
+        """Return the best available private key for signing requests.
 
-        This generates a new Ethereum wallet to use as a session key and registers it
-        with the Derive API using an EIP-712 signature from the owner account.
+        Prefers session key if available, falls back to owner wallet key.
 
-        Example::
-
-            session_info = client.register_session_key(
-                scope=SessionKeyScope.read_only,
-                expiry_hours=24,
-            )
-
-            # Save these credentials
-            print(f"Session key address: {session_info['session_key_address']}")
-            print(f"Session key private: {session_info['session_key_private']}")
-
-            # Use for authenticated requests
-            client.session_key_private = session_info["session_key_private"]
-
-        :param scope:
-            Permission level for the session key.
-        :param expiry_hours:
-            How many hours until the session key expires.
-        :param label:
-            Human-readable label for the session key.
-        :param ip_whitelist:
-            List of IP addresses allowed to use this key (empty = any IP).
         :return:
-            Dict with 'session_key_address' and 'session_key_private'
+            Private key hex string.
         :raises ValueError:
-            If owner_account or derive_wallet_address not set
+            If neither session key nor owner account is available.
         """
-        if not self.owner_account:
-            raise ValueError("owner_account is required to register session key")
+        if self.session_key_private:
+            return self.session_key_private
+        if self.owner_account:
+            return self.owner_account.key.hex()
+        raise ValueError("No signing key available (need session_key_private or owner_account)")
+
+    def _sign_auth_headers(self, private_key: str | None = None) -> dict[str, str]:
+        """Generate Derive authentication headers.
+
+        Signs the current UTC timestamp (milliseconds) using EIP-191
+        personal-sign (``encode_defunct``).
+
+        :param private_key:
+            Private key to sign with. If None, uses :meth:`_get_signing_key`.
+        :return:
+            Dict with ``X-LYRAWALLET``, ``X-LYRATIMESTAMP``, ``X-LYRASIGNATURE``.
+        :raises ValueError:
+            If derive_wallet_address is not set.
+        """
         if not self.derive_wallet_address:
-            raise ValueError("derive_wallet_address is required to register session key")
+            raise ValueError("derive_wallet_address required for authenticated requests")
 
-        # Generate new session key wallet
-        from eth_account import Account
+        if private_key is None:
+            private_key = self._get_signing_key()
 
-        session_key_account = Account.create()
+        timestamp = str(int(datetime.now(UTC).timestamp() * 1000))
 
-        logger.info(
-            "Registering session key %s for wallet %s",
-            session_key_account.address,
+        signer = Account.from_key(private_key)
+        signed = signer.sign_message(encode_defunct(text=timestamp))
+
+        logger.debug(
+            "Signed auth header with %s for wallet %s",
+            signer.address,
             self.derive_wallet_address,
         )
 
-        # Build registration message
-        timestamp_sec = int(datetime.now(UTC).timestamp())
-        expiry_sec = timestamp_sec + (expiry_hours * 3600)
-
-        # Note: The exact message structure may need adjustment based on Derive's API documentation
-        register_params = {
-            "wallet": self.derive_wallet_address,
-            "session_key": session_key_account.address,
-            "scope": scope.value,
-            "label": label,
-            "expiry_sec": expiry_sec,
-            "ip_whitelist": ip_whitelist or [],
-        }
-
-        # Create EIP-712 signature
-        # Note: This structure is based on common patterns and may need adjustment
-        domain_data = {
-            "name": "Derive",
-            "version": "1",
-            "chainId": DERIVE_CHAIN_ID,
-        }
-
-        message_types = {
-            "RegisterSessionKey": [
-                {"name": "wallet", "type": "address"},
-                {"name": "sessionKey", "type": "address"},
-                {"name": "scope", "type": "string"},
-                {"name": "expiry", "type": "uint256"},
-            ]
-        }
-
-        message_data = {
-            "wallet": self.derive_wallet_address,
-            "sessionKey": session_key_account.address,
-            "scope": scope.value,
-            "expiry": expiry_sec,
-        }
-
-        encoded_data = messages.encode_typed_data(
-            domain_data=domain_data,
-            message_types=message_types,
-            message_data=message_data,
-        )
-
-        signed_message = self.owner_account.sign_message(encoded_data)
-
-        # Add signature to parameters
-        register_params["signature"] = signed_message.signature.hex()
-        register_params["owner_address"] = self.owner_account.address
-
-        # Submit to API
-        try:
-            result = self._make_jsonrpc_request(
-                method="private/register_session_key",
-                params=register_params,
-                authenticated=False,
-            )
-            logger.info("Session key registered successfully")
-        except ValueError as e:
-            logger.error("Failed to register session key: %s", e)
-            raise
-
         return {
-            "session_key_address": session_key_account.address,
-            "session_key_private": session_key_account.key.hex(),
+            "X-LYRAWALLET": self.derive_wallet_address,
+            "X-LYRATIMESTAMP": timestamp,
+            "X-LYRASIGNATURE": signed.signature.hex(),
         }
 
     def _make_jsonrpc_request(
@@ -224,45 +166,36 @@ class DeriveApiClient:
     ) -> dict[str, Any]:
         """Make JSON-RPC 2.0 request to Derive API.
 
-        :param method:
-            JSON-RPC method name (e.g., "private/get_collaterals")
-        :param params:
-            Method parameters as dictionary
-        :param authenticated:
-            Whether to include authentication headers
-        :param timeout:
-            HTTP request timeout in seconds
-        :return:
-            Response result field (unwrapped from JSON-RPC envelope)
-        :raises ValueError:
-            If JSON-RPC returns error response or request fails
-        """
-        request_id = int(datetime.now(UTC).timestamp() * 1000)
+        Derive uses method-specific URL paths with the params dict as POST body.
+        For example, ``private/get_collaterals`` becomes::
 
-        request_body = {
-            "jsonrpc": "2.0",
-            "id": request_id,
-            "method": method,
-            "params": params,
-        }
+            POST https://api-demo.lyra.finance/private/get_collaterals
+
+        :param method:
+            JSON-RPC method name (e.g., ``private/get_collaterals``).
+        :param params:
+            Method parameters as dictionary.
+        :param authenticated:
+            Whether to include authentication headers.
+        :param timeout:
+            HTTP request timeout in seconds.
+        :return:
+            Response result field (unwrapped from JSON-RPC envelope).
+        :raises ValueError:
+            If JSON-RPC returns error response or request fails.
+        """
+        url = f"{self.base_url}/{method}"
 
         headers = {"Content-Type": "application/json"}
 
-        # Add authentication headers if needed
-        if authenticated and self.session_key_private:
-            if not self.derive_wallet_address:
-                raise ValueError("derive_wallet_address required for authenticated requests")
+        if authenticated:
+            headers.update(self._sign_auth_headers())
 
-            headers.update(self._sign_request_headers(method, params))
-            headers["X-LyraWallet"] = self.derive_wallet_address
-
-        # Make request
-        url = f"{self.base_url}"
-        logger.debug("Making JSON-RPC request to %s: method=%s", url, method)
+        logger.debug("Making request to %s", url)
 
         response = self.session.post(
             url,
-            json=request_body,
+            json=params,
             headers=headers,
             timeout=timeout,
         )
@@ -273,42 +206,11 @@ class DeriveApiClient:
         # Check for JSON-RPC error
         if "error" in data:
             error = data["error"]
+            error_data = error.get("data", "")
             error_msg = f"JSON-RPC error {error.get('code', 'unknown')}: {error.get('message', 'no message')}"
-            logger.error("API error: %s", error_msg)
+            if error_data:
+                error_msg += f" (data: {error_data})"
+            logger.error("API error for %s: %s", method, error_msg)
             raise ValueError(error_msg)
 
         return data.get("result", {})
-
-    def _sign_request_headers(self, method: str, params: dict[str, Any]) -> dict[str, str]:
-        """Generate authentication headers for signed requests.
-
-        Creates signature headers following Derive's authentication pattern.
-
-        :param method:
-            JSON-RPC method name
-        :param params:
-            Request parameters
-        :return:
-            Dictionary of authentication headers
-        """
-        from eth_account import Account
-
-        timestamp = int(datetime.now(UTC).timestamp() * 1000)
-
-        # Create message to sign
-        # Format: timestamp + method + params (sorted JSON)
-        params_str = json.dumps(params, separators=(",", ":"), sort_keys=True)
-        message = f"{timestamp}{method}{params_str}"
-
-        # Sign with session key
-        session_account = Account.from_key(self.session_key_private)
-        message_hash = Web3.keccak(text=message)
-        signature = session_account.signHash(message_hash)
-
-        logger.debug("Signing request with session key %s", session_account.address)
-
-        return {
-            "X-Timestamp": str(timestamp),
-            "X-SessionKey": session_account.address,
-            "X-Signature": signature.signature.hex(),
-        }
