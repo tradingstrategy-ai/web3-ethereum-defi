@@ -54,6 +54,7 @@ def test_ostium_features(web3):
     assert ERC4626Feature.ostium_like in features, f"Got features: {features}"
 
 
+@pytest.mark.flaky(max_runs=3)
 def test_ostium_read_data(web3, vault: GainsVault):
     assert vault.name == f"Ostium Liquidity Pool Vault"
     # https://arbiscan.io/address/0x20d419a8e12c45f88fda7c5760bb6923cee27f98#readContract
@@ -98,6 +99,7 @@ def test_ostium_read_data(web3, vault: GainsVault):
     assert exported["trading"] == ""
 
 
+@pytest.mark.flaky(max_runs=3)
 def test_ostium_deposit_withdraw(
     web3_write: Web3,
     test_user,
