@@ -4264,10 +4264,7 @@ class GMX(ExchangeCompatible):
 
             # Validate position size is positive
             if actual_size_usd <= 0:
-                logger.warning(
-                    "CLOSE: GMX position has invalid size %.2f, falling back to calculated size",
-                    actual_size_usd
-                )
+                logger.warning("CLOSE: GMX position has invalid size %.2f, falling back to calculated size", actual_size_usd)
                 # Fall through to standard CCXT calculation by setting gmx_position to None
                 gmx_position = None
 
@@ -4282,12 +4279,7 @@ class GMX(ExchangeCompatible):
                 # ============================================
                 size_delta_usd = actual_size_usd
 
-                logger.info(
-                    "FULL CLOSE: Using exact GMX position size %.2f USD "
-                    "(freqtrade amount %.2f tokens ignored to prevent remnants)",
-                    size_delta_usd,
-                    amount
-                )
+                logger.info("FULL CLOSE: Using exact GMX position size %.2f USD (freqtrade amount %.2f tokens ignored to prevent remnants)", size_delta_usd, amount)
 
             else:
                 # ============================================
@@ -4304,19 +4296,9 @@ class GMX(ExchangeCompatible):
                 size_delta_usd = min(requested_size_usd, actual_size_usd)
 
                 if size_delta_usd < requested_size_usd:
-                    logger.warning(
-                        "PARTIAL CLOSE: Clamping size from %.2f to %.2f USD (actual GMX position)",
-                        requested_size_usd,
-                        size_delta_usd
-                    )
+                    logger.warning("PARTIAL CLOSE: Clamping size from %.2f to %.2f USD (actual GMX position)", requested_size_usd, size_delta_usd)
 
-                logger.info(
-                    "PARTIAL CLOSE: size_delta_usd=%.2f "
-                    "(requested %.2f, actual position %.2f)",
-                    size_delta_usd,
-                    requested_size_usd,
-                    actual_size_usd
-                )
+                logger.info("PARTIAL CLOSE: size_delta_usd=%.2f (requested %.2f, actual position %.2f)", size_delta_usd, requested_size_usd, actual_size_usd)
 
         elif "size_usd" in params:
             # GMX Extension: Direct USD sizing via size_usd parameter
@@ -4332,19 +4314,13 @@ class GMX(ExchangeCompatible):
             # Standard CCXT: amount in base currency, convert to USD
             if price:
                 size_delta_usd = amount * price
-                logger.debug(
-                    "ORDER_TRACE: Using amount=%.8f * price=%.2f = size_delta_usd=%.2f",
-                    amount, price, size_delta_usd
-                )
+                logger.debug("ORDER_TRACE: Using amount=%.8f * price=%.2f = size_delta_usd=%.2f", amount, price, size_delta_usd)
             else:
                 # Market orders: fetch current price
                 ticker = self.fetch_ticker(symbol)
                 current_price = ticker["last"]
                 size_delta_usd = amount * current_price
-                logger.debug(
-                    "ORDER_TRACE: Using amount=%.8f * current_price=%.2f = size_delta_usd=%.2f",
-                    amount, current_price, size_delta_usd
-                )
+                logger.debug("ORDER_TRACE: Using amount=%.8f * current_price=%.2f = size_delta_usd=%.2f", amount, current_price, size_delta_usd)
 
         # Build GMX params dict with calculated/exact size
         gmx_params = {
@@ -5328,8 +5304,8 @@ class GMX(ExchangeCompatible):
                 base_currency = market["base"]
 
                 # Determine position direction from side
-                is_closing_long = (side == "sell")  # sell = close LONG
-                is_closing_short = (side == "buy")   # buy = close SHORT
+                is_closing_long = side == "sell"  # sell = close LONG
+                is_closing_short = side == "buy"  # buy = close SHORT
 
                 # Extract collateral symbol
                 collateral_symbol = params.get("collateral_symbol")
@@ -5341,12 +5317,7 @@ class GMX(ExchangeCompatible):
                         collateral_symbol = market["quote"].replace(":USDC", "").replace(":USDT", "")
 
                 # Query all positions for this wallet
-                logger.info(
-                    "CLOSE ORDER: Querying GMX for actual position (market=%s, collateral=%s, direction=%s)",
-                    base_currency,
-                    collateral_symbol,
-                    "LONG" if is_closing_long else "SHORT"
-                )
+                logger.info("CLOSE ORDER: Querying GMX for actual position (market=%s, collateral=%s, direction=%s)", base_currency, collateral_symbol, "LONG" if is_closing_long else "SHORT")
 
                 positions_manager = GetOpenPositions(self.config)
                 existing_positions = positions_manager.get_data(self.wallet.address)
@@ -5357,9 +5328,7 @@ class GMX(ExchangeCompatible):
                     position_is_long = position_data.get("is_long", None)
                     position_collateral = position_data.get("collateral_token", "")
 
-                    if (position_market == base_currency and
-                        position_collateral == collateral_symbol):
-
+                    if position_market == base_currency and position_collateral == collateral_symbol:
                         if is_closing_long and position_is_long:
                             gmx_position = position_data
                             break
@@ -5368,16 +5337,9 @@ class GMX(ExchangeCompatible):
                             break
 
                 if gmx_position:
-                    logger.info(
-                        "CLOSE ORDER: Found GMX position - size_usd=%.2f, collateral_usd=%.2f, tokens=%s",
-                        gmx_position.get("position_size", 0),
-                        gmx_position.get("initial_collateral_amount_usd", 0),
-                        gmx_position.get("size_in_tokens", 0)
-                    )
+                    logger.info("CLOSE ORDER: Found GMX position - size_usd=%.2f, collateral_usd=%.2f, tokens=%s", gmx_position.get("position_size", 0), gmx_position.get("initial_collateral_amount_usd", 0), gmx_position.get("size_in_tokens", 0))
                 else:
-                    logger.warning(
-                        "CLOSE ORDER: No GMX position found - may already be closed"
-                    )
+                    logger.warning("CLOSE ORDER: No GMX position found - may already be closed")
 
             except Exception as e:
                 logger.error("Failed to query GMX position for close: %s", e)
@@ -5581,63 +5543,41 @@ class GMX(ExchangeCompatible):
                     logger.info("Position for %s already closed - returning synthetic order id=%s", symbol, synthetic_order["id"])
                     return synthetic_order
 
-                # Derive actual on-chain position size in USD.
-                # Preferred source is the already-converted "position_size" field.
-                position_size_usd = position_to_close.get("position_size")
+                # ============================================
+                # NEW SIMPLIFIED LOGIC
+                # Size already calculated correctly in _convert_ccxt_to_gmx_params
+                # with exact GMX values - no clamping needed here
+                # ============================================
 
-                # Fallback: convert raw 30-decimal size if available
-                if position_size_usd is None:
-                    raw_size = position_to_close.get("position_size_usd_raw") or position_to_close.get(
-                        "position_size_usd",
-                    )
-                    if raw_size:
-                        try:
-                            position_size_usd = float(raw_size) / 10**30
-                        except Exception:
-                            position_size_usd = None
+                size_delta_usd = gmx_params["size_delta_usd"]
 
-                if not position_size_usd or position_size_usd <= 0:
-                    raise ValueError(
-                        f"Cannot determine position size for {symbol} to close. Position data: {position_to_close}",
-                    )
-
-                # User-requested size (from CCXT amount / strategy).
-                requested_size_usd = float(gmx_params["size_delta_usd"])
-
-                # Clamp requested size to the actual position size to avoid protocol
-                # reverts when trying to close more than is open.
-                size_delta_usd = min(requested_size_usd, position_size_usd)
-                if size_delta_usd < requested_size_usd:
-                    logger.warning(
-                        "Clamping close size from %.2f to %.2f USD for %s",
-                        requested_size_usd,
-                        size_delta_usd,
-                        symbol,
-                    )
-
+                # Validation: Ensure size is positive
                 if size_delta_usd <= 0:
-                    raise ValueError(
-                        f"Requested close size {requested_size_usd} is not positive for position size {position_size_usd} on {symbol}",
-                    )
+                    raise ValueError(f"Invalid close size {size_delta_usd} for {symbol}. Position data: {position_to_close}")
+
+                logger.info("CLOSE: Using size_delta_usd=%.2f from exact GMX position data", size_delta_usd)
 
                 # Derive collateral delta proportionally from the original collateral.
-                # This matches GMX semantics better than guessing from leverage.
+                # Since size is now exact from GMX, this calculation is accurate.
                 collateral_amount_usd = position_to_close.get("initial_collateral_amount_usd")
                 if collateral_amount_usd is None:
                     # Fallback: approximate from leverage if USD value is missing
                     leverage = float(position_to_close.get("leverage", 1.0) or 1.0)
                     if leverage > 0:
-                        collateral_amount_usd = position_size_usd / leverage
+                        collateral_amount_usd = size_delta_usd / leverage
                     else:
-                        collateral_amount_usd = position_size_usd
+                        collateral_amount_usd = size_delta_usd
 
                 # Pro-rata collateral for partial closes, full amount for full close
-                close_fraction = min(1.0, size_delta_usd / position_size_usd)
+                position_size_usd = position_to_close.get("position_size", size_delta_usd)
+                close_fraction = min(1.0, size_delta_usd / position_size_usd) if position_size_usd > 0 else 1.0
                 initial_collateral_delta = collateral_amount_usd * close_fraction
 
-                # Safety floor – avoid tiny dust values that can cause rounding issues
+                # Safety floor – avoid tiny dust values
                 if initial_collateral_delta <= 0:
                     initial_collateral_delta = collateral_amount_usd
+
+                logger.info("CLOSE: size_delta=%.2f (%.1f%%), collateral_delta=%.2f (%.1f%%)", size_delta_usd, close_fraction * 100, initial_collateral_delta, close_fraction * 100)
 
                 # Call close_position with the derived parameters
                 # Use the actual position direction from the found position
