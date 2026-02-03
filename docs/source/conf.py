@@ -39,6 +39,7 @@ templates_path = ["_templates"]
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = []
 
+
 # Minimal build for ReadTheDocs - only build index page as redirect stub.
 # Full docs moved to Cloudflare Pages at web3-ethereum-defi.tradingstrategy.ai
 # due to build timeout issues on RTD (full build exceeds RTD time limits).
