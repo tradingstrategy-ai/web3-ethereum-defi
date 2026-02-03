@@ -31,6 +31,21 @@ from .risk import VaultTechnicalRisk, get_vault_risk
 
 BlockRange = Tuple[BlockNumber, BlockNumber]
 
+#: Deposit closed reason constants
+DEPOSIT_CLOSED_EPOCH_WINDOW = "Epoch deposit window closed"
+DEPOSIT_CLOSED_FUNDING_PHASE = "Funding phase closed"
+DEPOSIT_CLOSED_BY_ADMIN = "Deposits closed by vault admin"
+DEPOSIT_CLOSED_CAP_REACHED = "Max deposit cap reached"
+DEPOSIT_CLOSED_UTILISATION = "Vault utilisation too high"
+DEPOSIT_CLOSED_PAUSED = "Vault paused by admin"
+
+#: Redemption closed reason constants
+REDEMPTION_CLOSED_EPOCH_WINDOW = "Epoch redemption window closed"
+REDEMPTION_CLOSED_FUNDS_CUSTODIED = "Funds custodied or epoch in progress"
+REDEMPTION_CLOSED_BY_ADMIN = "Redemptions closed by vault admin"
+REDEMPTION_CLOSED_INSUFFICIENT_LIQUIDITY = "Insufficient liquidity for redemption"
+REDEMPTION_CLOSED_PAUSED = "Vault paused by admin"
+
 
 @dataclass(slots=True)
 class VaultSpec:
@@ -798,6 +813,77 @@ class VaultBase(ABC):
 
         :return:
             None if not know
+        """
+        return None
+
+    def fetch_deposit_closed_reason(self) -> str | None:
+        """Get human-readable reason why deposits are closed.
+
+        - Override in protocol-specific subclasses
+        - Default behaviour: assume deposits are always open (return None)
+
+        :return:
+            Human-readable string explaining why deposits are closed,
+            or None if deposits are open.
+
+            Example reasons:
+
+            - "Epoch redemption window closed (opens in 14h)"
+            - "Vault paused by admin"
+            - "Max deposit cap reached"
+            - "Vault utilisation too high"
+        """
+        return None
+
+    def fetch_redemption_closed_reason(self) -> str | None:
+        """Get human-readable reason why redemptions are closed.
+
+        - Override in protocol-specific subclasses
+        - Default behaviour: assume redemptions are always open (return None)
+
+        :return:
+            Human-readable string explaining why redemptions are closed,
+            or None if redemptions are open.
+
+            Example reasons:
+
+            - "Epoch funding phase in progress (opens in 2d 5h)"
+            - "Vault paused by admin"
+            - "Vault utilisation too high - insufficient liquidity"
+        """
+        return None
+
+    def fetch_deposit_next_open(self) -> datetime.datetime | None:
+        """Get when deposits will next be open.
+
+        - For epoch-based vaults (Ostium, D2), return calculated window open time
+        - For non-epoch vaults (Plutus, IPOR, Morpho), return None
+        - Override in protocol-specific subclasses
+
+        :return:
+            Naive UTC datetime when deposits will next be available,
+            or None if:
+
+            - Deposits are currently open
+            - Timing is unpredictable (manually controlled)
+            - Protocol does not support timing information
+        """
+        return None
+
+    def fetch_redemption_next_open(self) -> datetime.datetime | None:
+        """Get when withdrawals/redemptions will next be open.
+
+        - For epoch-based vaults (Ostium, D2), return calculated window open time
+        - For non-epoch vaults (Plutus, IPOR, Morpho), return None
+        - Override in protocol-specific subclasses
+
+        :return:
+            Naive UTC datetime when withdrawals will next be available,
+            or None if:
+
+            - Withdrawals are currently open
+            - Timing is unpredictable (manually controlled)
+            - Protocol does not support timing information
         """
         return None
 

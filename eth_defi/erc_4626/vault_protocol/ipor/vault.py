@@ -14,7 +14,12 @@ from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, MultiprocessMulticallReader
-from eth_defi.vault.base import VaultHistoricalReader, VaultHistoricalRead
+from eth_defi.vault.base import (
+    DEPOSIT_CLOSED_UTILISATION,
+    REDEMPTION_CLOSED_INSUFFICIENT_LIQUIDITY,
+    VaultHistoricalRead,
+    VaultHistoricalReader,
+)
 from eth_defi.vault.risk import VaultTechnicalRisk
 
 #: function getPerformanceFeeData() external view returns (PlasmaVaultStorageLib.PerformanceFeeData memory feeData);
@@ -230,3 +235,37 @@ class IPORVault(ERC4626Vault):
     def get_link(self, referral: str | None = None) -> str:
         chain_name = get_chain_name(self.chain_id).lower()
         return f"https://app.ipor.io/fusion/{chain_name}/{self.vault_address_checksumless}"
+
+    def fetch_deposit_closed_reason(self) -> str | None:
+        """Check maxDeposit to determine if deposits are closed.
+
+        IPOR vaults are utilisation-based.
+        """
+        try:
+            max_deposit = self.vault_contract.functions.maxDeposit(ZERO_ADDRESS_STR).call()
+            if max_deposit == 0:
+                return DEPOSIT_CLOSED_UTILISATION
+        except Exception:
+            pass
+        return None
+
+    def fetch_redemption_closed_reason(self) -> str | None:
+        """Check maxRedeem to determine if redemptions are closed.
+
+        IPOR vaults are utilisation-based.
+        """
+        try:
+            max_redeem = self.vault_contract.functions.maxRedeem(ZERO_ADDRESS_STR).call()
+            if max_redeem == 0:
+                return REDEMPTION_CLOSED_INSUFFICIENT_LIQUIDITY
+        except Exception:
+            pass
+        return None
+
+    def fetch_deposit_next_open(self) -> datetime.datetime | None:
+        """Deposit timing is unpredictable - utilisation-based."""
+        return None
+
+    def fetch_redemption_next_open(self) -> datetime.datetime | None:
+        """Withdrawal timing is unpredictable - utilisation-based."""
+        return None

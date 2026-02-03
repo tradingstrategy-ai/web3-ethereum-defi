@@ -17,6 +17,7 @@ from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import TokenDetails
 from eth_defi.trace import assert_transaction_success_with_explanation
+from eth_defi.vault.base import DEPOSIT_CLOSED_CAP_REACHED
 
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
 pytestmark = pytest.mark.skipif(not JSON_RPC_ARBITRUM, reason="Set JSON_RPC_ARBITRUM to run this test")
@@ -97,6 +98,22 @@ def test_ostium_read_data(web3, vault: GainsVault):
     assert exported["deposits_open"] == "true"
     assert exported["redemption_open"] == "true"
     assert exported["trading"] == ""
+
+    # Test deposit/redemption status methods
+    deposit_reason = vault.fetch_deposit_closed_reason()
+    redemption_reason = vault.fetch_redemption_closed_reason()
+    deposit_next = vault.fetch_deposit_next_open()
+    redemption_next = vault.fetch_redemption_next_open()
+
+    # Check deposits - could be open or closed depending on vault supply vs cap
+    # At fork block 375_216_652, maxDeposit > 0 so deposits should be open
+    assert deposit_reason is None or deposit_reason == DEPOSIT_CLOSED_CAP_REACHED
+    # Deposit timing unpredictable (depends on supply vs cap)
+    assert deposit_next is None
+
+    # At fork block, redemptions are open (nextEpochValuesRequestCount == 0)
+    assert redemption_reason is None
+    assert redemption_next is None
 
 
 @pytest.mark.flaky(max_runs=3)

@@ -121,6 +121,34 @@ def create_vault_scan_record(
 
         protocol_name = get_vault_protocol_name(detection.features)
 
+        # Only call deposit/redemption status methods for vaults with NAV > 5000
+        # to avoid extra JSON-RPC calls for small vaults
+        deposit_closed_reason = None
+        redemption_closed_reason = None
+        deposit_next_open = None
+        redemption_next_open = None
+
+        if total_assets is not None and total_assets > 5000:
+            try:
+                deposit_closed_reason = vault.fetch_deposit_closed_reason()
+            except Exception:
+                pass
+
+            try:
+                redemption_closed_reason = vault.fetch_redemption_closed_reason()
+            except Exception:
+                pass
+
+            try:
+                deposit_next_open = vault.fetch_deposit_next_open()
+            except Exception:
+                pass
+
+            try:
+                redemption_next_open = vault.fetch_redemption_next_open()
+            except Exception:
+                pass
+
         data = {
             "Symbol": vault.symbol,
             "Name": vault.name,
@@ -143,6 +171,10 @@ def create_vault_scan_record(
             "_fees": fees,
             "_flags": flags,
             "_lockup": lockup,
+            "_deposit_closed_reason": deposit_closed_reason,
+            "_redemption_closed_reason": redemption_closed_reason,
+            "_deposit_next_open": deposit_next_open,
+            "_redemption_next_open": redemption_next_open,
         }
         return data
     except ExtraValueError as e:

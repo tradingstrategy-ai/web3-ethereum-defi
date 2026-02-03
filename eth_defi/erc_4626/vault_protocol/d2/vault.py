@@ -13,9 +13,16 @@ from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
+from eth_defi.compat import native_datetime_utc_now
 from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.utils import from_unix_timestamp
-from eth_defi.vault.base import VaultHistoricalReader, VaultHistoricalRead, VaultTechnicalRisk
+from eth_defi.vault.base import (
+    DEPOSIT_CLOSED_FUNDING_PHASE,
+    REDEMPTION_CLOSED_FUNDS_CUSTODIED,
+    VaultHistoricalRead,
+    VaultHistoricalReader,
+    VaultTechnicalRisk,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -197,3 +204,63 @@ class D2Vault(ERC4626Vault):
     def get_estimated_lock_up(self) -> datetime.timedelta:
         epoch = self.fetch_current_epoch_info()
         return epoch.epoch_end - epoch.epoch_start
+
+    def fetch_deposit_closed_reason(self) -> str | None:
+        """Deposits open during isFunding() phase."""
+        try:
+            is_funding = self.vault_contract.functions.isFunding().call()
+            if not is_funding:
+                next_open = self.fetch_deposit_next_open()
+                if next_open:
+                    remaining = next_open - native_datetime_utc_now()
+                    hours = remaining.total_seconds() / 3600
+                    if hours < 24:
+                        return f"{DEPOSIT_CLOSED_FUNDING_PHASE} (opens in {hours:.0f}h)"
+                    return f"{DEPOSIT_CLOSED_FUNDING_PHASE} (opens in {hours / 24:.1f}d)"
+                return DEPOSIT_CLOSED_FUNDING_PHASE
+        except Exception:
+            pass
+        return None
+
+    def fetch_redemption_closed_reason(self) -> str | None:
+        """Redemptions open when notCustodiedAndNotDuringEpoch()."""
+        try:
+            can_redeem = self.vault_contract.functions.notCustodiedAndNotDuringEpoch().call()
+            if not can_redeem:
+                next_open = self.fetch_redemption_next_open()
+                if next_open:
+                    remaining = next_open - native_datetime_utc_now()
+                    hours = remaining.total_seconds() / 3600
+                    if hours < 24:
+                        return f"{REDEMPTION_CLOSED_FUNDS_CUSTODIED} (opens in {hours:.0f}h)"
+                    return f"{REDEMPTION_CLOSED_FUNDS_CUSTODIED} (opens in {hours / 24:.1f}d)"
+                return REDEMPTION_CLOSED_FUNDS_CUSTODIED
+        except Exception:
+            pass
+        return None
+
+    def fetch_deposit_next_open(self) -> datetime.datetime | None:
+        """Get when deposits will next be open.
+
+        - Deposits open at the start of the next funding phase (after epoch ends)
+        """
+        try:
+            if self.vault_contract.functions.isFunding().call():
+                return None  # Already open
+            epoch = self.fetch_current_epoch_info()
+            return epoch.epoch_end  # Next funding starts after epoch ends
+        except Exception:
+            return None
+
+    def fetch_redemption_next_open(self) -> datetime.datetime | None:
+        """Get when withdrawals will next be open.
+
+        - Redemptions open when funds are not custodied and not during epoch
+        """
+        try:
+            if self.vault_contract.functions.notCustodiedAndNotDuringEpoch().call():
+                return None  # Already open
+            epoch = self.fetch_current_epoch_info()
+            return epoch.epoch_end
+        except Exception:
+            return None

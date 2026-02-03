@@ -22,9 +22,14 @@ import logging
 from eth_typing import BlockIdentifier
 from web3 import Web3
 
+from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.event_reader.multicall_batcher import EncodedCall
+from eth_defi.vault.base import (
+    DEPOSIT_CLOSED_CAP_REACHED,
+    REDEMPTION_CLOSED_INSUFFICIENT_LIQUIDITY,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -160,3 +165,37 @@ class MorphoV2Vault(ERC4626Vault):
             return None
 
         return int.from_bytes(data[0:32], byteorder="big")
+
+    def fetch_deposit_closed_reason(self) -> str | None:
+        """Check maxDeposit to determine if deposits are closed.
+
+        Morpho vaults are utilisation-based.
+        """
+        try:
+            max_deposit = self.vault_contract.functions.maxDeposit(ZERO_ADDRESS_STR).call()
+            if max_deposit == 0:
+                return DEPOSIT_CLOSED_CAP_REACHED
+        except Exception:
+            pass
+        return None
+
+    def fetch_redemption_closed_reason(self) -> str | None:
+        """Check maxRedeem to determine if redemptions are closed.
+
+        Morpho vaults are utilisation-based.
+        """
+        try:
+            max_redeem = self.vault_contract.functions.maxRedeem(ZERO_ADDRESS_STR).call()
+            if max_redeem == 0:
+                return REDEMPTION_CLOSED_INSUFFICIENT_LIQUIDITY
+        except Exception:
+            pass
+        return None
+
+    def fetch_deposit_next_open(self) -> datetime.datetime | None:
+        """Deposit timing is unpredictable - utilisation-based."""
+        return None
+
+    def fetch_redemption_next_open(self) -> datetime.datetime | None:
+        """Withdrawal timing is unpredictable - utilisation-based."""
+        return None
