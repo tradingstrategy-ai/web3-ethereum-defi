@@ -198,45 +198,36 @@ def fetch_account_summary(
 
     logger.info("Fetching account summary for subaccount %s", sid)
 
-    # Fetch collaterals
-    collaterals = fetch_account_collaterals(client, sid)
+    # Fetch full subaccount data in a single API call
+    response = client._make_jsonrpc_request(
+        method="private/get_subaccount",
+        params={"subaccount_id": sid},
+        authenticated=True,
+    )
 
-    # Fetch account info
-    try:
-        account_response = client._make_jsonrpc_request(
-            method="private/get_account",
-            params={"subaccount_id": sid},
-            authenticated=True,
+    # Parse collaterals from response
+    collaterals = []
+    for col_data in response.get("collaterals", []):
+        collaterals.append(
+            CollateralBalance(
+                token=col_data.get("asset_name", col_data.get("currency", "UNKNOWN")),
+                available=Decimal(str(col_data.get("amount", "0"))),
+                total=Decimal(str(col_data.get("amount", "0"))),
+                locked=Decimal("0"),
+                token_address=col_data.get("token_address"),
+            )
         )
-    except ValueError as e:
-        logger.warning("Failed to fetch account info: %s", e)
-        account_response = {}
 
-    # Fetch margin info
-    try:
-        margin_response = client._make_jsonrpc_request(
-            method="private/get_margin",
-            params={"subaccount_id": sid},
-            authenticated=True,
-        )
-    except ValueError as e:
-        logger.warning("Failed to fetch margin info: %s", e)
-        margin_response = {}
-
-    # Calculate total value from collaterals if not provided
-    total_value_usd = Decimal(str(account_response.get("total_value", "0")))
-    if total_value_usd == 0:
-        # Fallback: sum collateral totals (assuming USDC value)
-        for col in collaterals:
-            if col.token.upper() == "USDC":
-                total_value_usd += col.total
+    total_value_usd = Decimal(str(response.get("subaccount_value", "0")))
+    initial_margin = response.get("initial_margin")
+    maintenance_margin = response.get("maintenance_margin")
 
     return AccountSummary(
         account_address=client.derive_wallet_address,
         subaccount_id=sid,
         collaterals=collaterals,
         total_value_usd=total_value_usd,
-        margin_status=margin_response.get("status"),
-        initial_margin=Decimal(str(margin_response.get("initial_margin", "0"))) if margin_response.get("initial_margin") else None,
-        maintenance_margin=Decimal(str(margin_response.get("maintenance_margin", "0"))) if margin_response.get("maintenance_margin") else None,
+        margin_status=response.get("margin_type"),
+        initial_margin=Decimal(str(initial_margin)) if initial_margin is not None else None,
+        maintenance_margin=Decimal(str(maintenance_margin)) if maintenance_margin is not None else None,
     )

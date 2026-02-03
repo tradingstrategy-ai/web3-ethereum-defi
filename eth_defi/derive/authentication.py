@@ -39,7 +39,6 @@ class DeriveApiClient:
     This client handles:
 
     - Authenticated JSON-RPC 2.0 requests via HTTP
-    - Session key registration via ``/private/register_scoped_session_key``
     - Signing requests with EIP-191 personal-sign (encode_defunct)
 
     Authentication headers follow the Derive convention::

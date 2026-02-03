@@ -1,6 +1,6 @@
-"""Test Derive API with real credentials.
+"""Test Derive API.
 
-This test uses actual Derive.xyz API with real credentials to verify
+This test uses the Derive.xyz API with credentials to verify
 that account data reads work correctly.
 
 Required environment variables:
@@ -25,7 +25,7 @@ from eth_defi.derive.onboarding import fetch_derive_wallet_address
 # Skip tests if not configured
 pytestmark = pytest.mark.skipif(
     not os.environ.get("DERIVE_OWNER_PRIVATE_KEY") or not os.environ.get("DERIVE_SESSION_PRIVATE_KEY"),
-    reason="Set DERIVE_OWNER_PRIVATE_KEY and DERIVE_SESSION_PRIVATE_KEY to run real API tests. See tests/derive/derive-test-key-setup.md",
+    reason="Set DERIVE_OWNER_PRIVATE_KEY and DERIVE_SESSION_PRIVATE_KEY to run Derive API tests. See tests/derive/derive-test-key-setup.md",
 )
 
 
@@ -56,15 +56,15 @@ def authenticated_client(owner_account, derive_wallet_address):
         is_testnet=True,
         session_key_private=os.environ["DERIVE_SESSION_PRIVATE_KEY"],
     )
-    # Resolve real subaccount ID from the API
+    # Resolve subaccount ID from the API
     ids = fetch_subaccount_ids(client)
     if ids:
         client.subaccount_id = ids[0]
     return client
 
 
-def test_real_account_collaterals(authenticated_client):
-    """Test fetching collaterals from real Derive account.
+def test_account_collaterals(authenticated_client):
+    """Test fetching collaterals from a Derive account.
 
     This test works whether your account is empty or has funds.
     If empty, it verifies the API returns [] without errors.
@@ -83,8 +83,8 @@ def test_real_account_collaterals(authenticated_client):
         assert col.total >= col.available, f"{col.token} total should be >= available"
 
 
-def test_real_account_summary(authenticated_client):
-    """Test fetching complete account summary from real Derive account.
+def test_account_summary(authenticated_client):
+    """Test fetching complete account summary from a Derive account.
 
     This fetches collaterals, account info, and margin data.
     """
@@ -99,8 +99,9 @@ def test_real_account_summary(authenticated_client):
     assert isinstance(summary.collaterals, list)
     assert isinstance(summary.total_value_usd, Decimal)
 
-    if len(summary.collaterals) == 0:
-        assert summary.total_value_usd == Decimal("0"), "Empty account should have zero value"
+    # Account has been funded with 100k USDC
+    assert summary.total_value_usd >= 100_000, f"Expected at least 100k USD, got {summary.total_value_usd}"
+    assert len(summary.collaterals) > 0, "Funded account should have collaterals"
 
 
 def test_session_key_scope_read_only(authenticated_client):
