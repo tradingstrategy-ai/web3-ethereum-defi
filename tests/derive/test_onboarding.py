@@ -72,7 +72,6 @@ def test_derive_wallet_address_resolution(owner_account, derive_wallet_address):
     logger.info("Owner %s -> LightAccount %s", owner_account.address, derive_wallet_address)
 
 
-
 def test_session_key_authentication(authenticated_client):
     """Verify the session key from the web UI can authenticate API requests."""
     result = authenticated_client._make_jsonrpc_request(

@@ -43,15 +43,15 @@ exclude_patterns = []
 # Minimal build for ReadTheDocs - only build index page as redirect stub.
 # Full docs moved to Cloudflare Pages at web3-ethereum-defi.tradingstrategy.ai
 # due to build timeout issues on RTD (full build exceeds RTD time limits).
-if os.environ.get('READTHEDOCS'):
+if os.environ.get("READTHEDOCS"):
     exclude_patterns = [
-        'api/*',
-        'tutorials/*',
-        'vaults/*',
-        '_autosummary*',
-        'development.rst',
-        'troubleshooting.rst',
-        'related.rst',
+        "api/*",
+        "tutorials/*",
+        "vaults/*",
+        "_autosummary*",
+        "development.rst",
+        "troubleshooting.rst",
+        "related.rst",
     ]
     autosummary_generate = False
 
