@@ -220,3 +220,30 @@ toc:
 # Open web browser on docs on macOS
 browse-docs-macos:
 	@open docs/build/html/index.html
+
+# Deploy documentation to Cloudflare Pages
+#
+# Prerequisites:
+# 1. Install wrangler: npm install -g wrangler
+# 2. Create Cloudflare API token:
+#    - Go to https://dash.cloudflare.com/profile/api-tokens
+#    - Click "Create Token"
+#    - Use "Edit Cloudflare Workers" template (includes Pages permissions)
+#    - Or create custom token with: Account > Cloudflare Pages > Edit
+# 3. Get your Account ID:
+#    - Log in to Cloudflare dashboard
+#    - Account ID is in the right sidebar under "Account details"
+# 4. Set environment variables:
+#    - export CLOUDFLARE_API_TOKEN=your_token_here
+#    - export CLOUDFLARE_ACCOUNT_ID=your_account_id_here
+#
+# Usage:
+#   make deploy-docs-cloudflare       (builds and deploys)
+#   make deploy-docs-cloudflare-only  (deploys existing build)
+#
+deploy-docs-cloudflare: build-docs deploy-docs-cloudflare-only
+
+deploy-docs-cloudflare-only:
+	@if [ -z "$$CLOUDFLARE_API_TOKEN" ]; then echo "Error: CLOUDFLARE_API_TOKEN not set"; exit 1; fi
+	@if [ -z "$$CLOUDFLARE_ACCOUNT_ID" ]; then echo "Error: CLOUDFLARE_ACCOUNT_ID not set"; exit 1; fi
+	npx wrangler pages deploy docs/build/html --project-name=web3-ethereum-defi --commit-dirty=true

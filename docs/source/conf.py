@@ -88,7 +88,7 @@ sitemap_filename = "sitemap-generated.xml"
 sitemap_url_scheme = "{link}"
 sitemap_locales = [None]
 
-html_baseurl = "https://web3-ethereum-defi.readthedocs.io/"
+html_baseurl = "https://web3-ethereum-defi.tradingstrategy.ai/"
 
 #
 # All notebooks in documentation needs an API key and must be pre-executed
