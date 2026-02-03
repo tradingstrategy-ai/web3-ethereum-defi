@@ -133,6 +133,26 @@ if (window.location.hostname === 'web3-ethereum-defi.readthedocs.io') {
 }
 ```
 
+### 9. Minimal RTD build (prevent timeout)
+
+Since RTD is now just a redirect stub, `docs/source/conf.py` detects RTD builds and excludes most content:
+
+```python
+if os.environ.get('READTHEDOCS'):
+    exclude_patterns = [
+        'api/*',
+        'tutorials/*',
+        'vaults/*',
+        '_autosummary*',
+        'development.rst',
+        'troubleshooting.rst',
+        'related.rst',
+    ]
+    autosummary_generate = False
+```
+
+This makes RTD only build the index.rst page with the redirect JavaScript.
+
 ## Verification
 
 1. Test locally: `make deploy-docs-cloudflare`
