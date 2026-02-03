@@ -63,7 +63,15 @@
       "Skill(add-vault-abi-methods)",
       "Skill(add-vault-abi-methods:*)",
       "Skill(extract-test-set)",
-      "Skill(extract-test-set:*)"
+      "Skill(extract-test-set:*)",
+      "Bash(pip show:*)",
+      "Bash(pip3 show:*)",
+      "Bash(pip install:*)",
+      "Bash(playwright install:*)",
+      "Read(//Users/moo/code/trade-executor/**)",
+      "Read(//Users/moo/code/**)"
     ]
-  }
+  },
+  "model": "opus",
+  "thinkingMode": "extended"
 }

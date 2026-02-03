@@ -117,6 +117,7 @@ poetry run ruff format
 
 - All API modules should have stub entry under `docs/source/api` and cross-referenced in `docs/source/api/index` table of contents
 - See `docs/source/api/index.rst` and `docs/source/api/lagoon/index.rst` as examples
+- When writing documentation, in sentences, include inline links to the source pages. Link each page only once, preferably earler in the text.
 
 ### datetime
 
