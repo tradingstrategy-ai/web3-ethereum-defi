@@ -68,8 +68,7 @@
       "Bash(pip3 show:*)",
       "Bash(pip install:*)",
       "Bash(playwright install:*)",
-      "Read(//Users/moo/code/trade-executor/**)",
-      "Read(//Users/moo/code/**)"
+      "Bash(npx wrangler:*)"
     ]
   },
   "model": "opus",

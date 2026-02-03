@@ -4,6 +4,8 @@
 # list see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
+import os
+
 # -- Project information -----------------------------------------------------
 
 
@@ -36,6 +38,21 @@ templates_path = ["_templates"]
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = []
+
+# Minimal build for ReadTheDocs - only build index page as redirect stub.
+# Full docs moved to Cloudflare Pages at web3-ethereum-defi.tradingstrategy.ai
+# due to build timeout issues on RTD (full build exceeds RTD time limits).
+if os.environ.get('READTHEDOCS'):
+    exclude_patterns = [
+        'api/*',
+        'tutorials/*',
+        'vaults/*',
+        '_autosummary*',
+        'development.rst',
+        'troubleshooting.rst',
+        'related.rst',
+    ]
+    autosummary_generate = False
 
 # -- Options for HTML output -------------------------------------------------
 
@@ -88,7 +105,7 @@ sitemap_filename = "sitemap-generated.xml"
 sitemap_url_scheme = "{link}"
 sitemap_locales = [None]
 
-html_baseurl = "https://web3-ethereum-defi.readthedocs.io/"
+html_baseurl = "https://web3-ethereum-defi.tradingstrategy.ai/"
 
 #
 # All notebooks in documentation needs an API key and must be pre-executed

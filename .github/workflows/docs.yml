@@ -14,11 +14,9 @@ jobs:
       group: ${{ github.workflow }}-${{ github.ref }}
       cancel-in-progress: true
 
-    # Permissions for GitHub Pages deployment
+    # Permissions for Cloudflare Pages deployment
     permissions:
       contents: read
-      pages: write
-      id-token: write
 
     steps:
       - uses: actions/checkout@v4
@@ -53,14 +51,11 @@ jobs:
         run: |
           poetry run make build-docs
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
+      - name: Install wrangler
+        run: npm install -g wrangler
 
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: "./docs/build/html"
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Deploy to Cloudflare Pages
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: make deploy-docs-cloudflare-only
