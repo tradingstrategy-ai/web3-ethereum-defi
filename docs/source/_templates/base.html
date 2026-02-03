@@ -112,6 +112,14 @@
     <script>
       document.body.dataset.theme = localStorage.getItem("theme") || "auto";
     </script>
+
+    {# Redirect from ReadTheDocs to Cloudflare Pages #}
+    <script>
+      if (window.location.hostname === 'web3-ethereum-defi.readthedocs.io') {
+        var newUrl = 'https://web3-ethereum-defi.tradingstrategy.ai' + window.location.pathname + window.location.hash;
+        window.location.replace(newUrl);
+      }
+    </script>
     {% endblock %}
 
     {%- block scripts -%}

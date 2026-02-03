@@ -116,12 +116,27 @@ html_baseurl = "https://web3-ethereum-defi.tradingstrategy.ai/"
 1. `Makefile` - add `deploy-docs-cloudflare` target
 2. `.github/workflows/docs.yml` - use Makefile for deployment
 3. `docs/source/conf.py` - update `html_baseurl`
-4. `docs/source/_templates/base.html` - add analytics snippet (optional)
+4. `docs/source/_templates/base.html` - add RTD redirect script
 5. `docs/claude-plans/cloudflare-docs-migration.md` - save this plan
+
+### 8. Redirect from ReadTheDocs
+
+A JavaScript redirect is added to `docs/source/_templates/base.html` that:
+- Only triggers when hosted on `web3-ethereum-defi.readthedocs.io`
+- Redirects to the same path on `web3-ethereum-defi.tradingstrategy.ai`
+- Preserves the URL path and hash fragment
+
+```javascript
+if (window.location.hostname === 'web3-ethereum-defi.readthedocs.io') {
+  var newUrl = 'https://web3-ethereum-defi.tradingstrategy.ai' + window.location.pathname + window.location.hash;
+  window.location.replace(newUrl);
+}
+```
 
 ## Verification
 
 1. Test locally: `make deploy-docs-cloudflare`
 2. Push changes to trigger CI workflow
 3. Check Cloudflare Pages dashboard for successful deployment
-4. Verify docs accessible at `https://web3-ethereum-defi.tradingstrategy.ai/web3-ethereum-defi/`
+4. Verify docs accessible at `https://web3-ethereum-defi.tradingstrategy.ai/`
+5. Verify RTD redirects to Cloudflare: visit `https://web3-ethereum-defi.readthedocs.io/` and confirm redirect
