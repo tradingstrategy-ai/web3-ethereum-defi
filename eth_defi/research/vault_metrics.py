@@ -1632,6 +1632,10 @@ def format_lifetime_table(
             "notes": "Notes",
             "id": "id",
             "trading_strategy_link": "Link",
+            "deposit_closed_reason": "Deposit closed reason",
+            "redemption_closed_reason": "Redemption closed reason",
+            "deposit_next_open": "Deposit next open",
+            "redemption_next_open": "Redemption next open",
         }
     )
 
