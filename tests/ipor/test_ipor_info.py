@@ -15,7 +15,11 @@ from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.ipor.vault import IPORVault
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 
-from eth_defi.vault.base import VaultSpec
+from eth_defi.vault.base import (
+    DEPOSIT_CLOSED_UTILISATION,
+    REDEMPTION_CLOSED_INSUFFICIENT_LIQUIDITY,
+    VaultSpec,
+)
 
 JSON_RPC_BASE = os.environ.get("JSON_RPC_BASE")
 
@@ -65,3 +69,23 @@ def test_ipor_identify(
     """Identify IPOR vault."""
     features = detect_vault_features(web3, "0x45aa96f0b3188d47a1dafdbefce1db6b37f58216")
     assert features == {ERC4626Feature.ipor_like}
+
+
+@flaky.flaky
+def test_ipor_deposit_redemption_status(
+    web3: Web3,
+    vault: IPORVault,
+):
+    """Test deposit/redemption status methods."""
+    deposit_reason = vault.fetch_deposit_closed_reason()
+    redemption_reason = vault.fetch_redemption_closed_reason()
+    deposit_next = vault.fetch_deposit_next_open()
+    redemption_next = vault.fetch_redemption_next_open()
+
+    # IPOR utilisation-based - check reasons are either None or valid constants
+    assert deposit_reason is None or deposit_reason == DEPOSIT_CLOSED_UTILISATION
+    assert redemption_reason is None or redemption_reason == REDEMPTION_CLOSED_INSUFFICIENT_LIQUIDITY
+
+    # IPOR has no timing info (utilisation-based)
+    assert deposit_next is None
+    assert redemption_next is None

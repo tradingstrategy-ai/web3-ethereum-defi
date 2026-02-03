@@ -977,6 +977,12 @@ def calculate_vault_record(
         # Clean up some legacy data
         lockup = None
 
+    # Deposit/redemption status from vault scan
+    deposit_closed_reason = vault_metadata.get("_deposit_closed_reason")
+    redemption_closed_reason = vault_metadata.get("_redemption_closed_reason")
+    deposit_next_open = vault_metadata.get("_deposit_next_open")
+    redemption_next_open = vault_metadata.get("_redemption_next_open")
+
     detection: ERC4262VaultDetection = vault_metadata["_detection_data"]
     features = sorted([f.name for f in detection.features])
 
@@ -1165,6 +1171,11 @@ def calculate_vault_record(
             "lifetime_samples": lifetime_samples,
             # New structured period metrics
             "period_results": period_results,
+            # Deposit/redemption status
+            "deposit_closed_reason": deposit_closed_reason,
+            "redemption_closed_reason": redemption_closed_reason,
+            "deposit_next_open": deposit_next_open,
+            "redemption_next_open": redemption_next_open,
         }
     )
 
@@ -1621,6 +1632,10 @@ def format_lifetime_table(
             "notes": "Notes",
             "id": "id",
             "trading_strategy_link": "Link",
+            "deposit_closed_reason": "Deposit closed reason",
+            "redemption_closed_reason": "Redemption closed reason",
+            "deposit_next_open": "Deposit next open",
+            "redemption_next_open": "Redemption next open",
         }
     )
 

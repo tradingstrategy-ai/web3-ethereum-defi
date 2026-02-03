@@ -16,7 +16,7 @@ from eth_defi.erc_4626.vault_protocol.plutus.vault import PlutusHistoricalReader
 from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.erc_4626.vault_protocol.umami.vault import UmamiVault
-from eth_defi.vault.base import VaultTechnicalRisk
+from eth_defi.vault.base import REDEMPTION_CLOSED_BY_ADMIN, VaultTechnicalRisk
 
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
 
@@ -92,3 +92,17 @@ def test_plutus(
     assert exported["deposits_open"] == "true"
     assert exported["redemption_open"] == "false"
     assert exported["trading"] == ""
+
+    # Test deposit/redemption status methods
+    deposit_reason = vault.fetch_deposit_closed_reason()
+    redemption_reason = vault.fetch_redemption_closed_reason()
+    deposit_next = vault.fetch_deposit_next_open()
+    redemption_next = vault.fetch_redemption_next_open()
+
+    # At block 392_313_989: deposits open (maxDeposit > 0), redemptions closed (maxRedeem == 0)
+    assert deposit_reason is None  # Deposits open
+    assert redemption_reason == REDEMPTION_CLOSED_BY_ADMIN
+
+    # Plutus has no timing info (manually controlled)
+    assert deposit_next is None
+    assert redemption_next is None

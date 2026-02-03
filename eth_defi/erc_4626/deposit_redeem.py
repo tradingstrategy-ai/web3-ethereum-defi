@@ -1,18 +1,23 @@
 """ERC-4626 deposit and redeem requests."""
 
-from eth_defi.erc_4626.analysis import analyse_4626_flow_transaction
-from eth_defi.erc_4626.estimate import estimate_4626_deposit, estimate_4626_redeem
-from eth_defi.erc_4626.flow import deposit_4626, redeem_4626
-from eth_defi.timestamp import get_block_timestamp
-from eth_defi.trade import TradeSuccess, TradeFail
-from eth_defi.vault.deposit_redeem import DepositRequest, RedemptionRequest, RedemptionTicket, VaultDepositManager, DepositTicket, DepositRedeemEventAnalysis, DepositRedeemEventFailure
-
 import datetime
 from decimal import Decimal
 
-from web3.contract.contract import ContractFunction
-from eth_typing import HexAddress, BlockIdentifier
+from eth_typing import BlockIdentifier, HexAddress
 from hexbytes import HexBytes
+from web3.contract.contract import ContractFunction
+
+from eth_defi.erc_4626.analysis import analyse_4626_flow_transaction
+from eth_defi.erc_4626.estimate import (estimate_4626_deposit,
+                                        estimate_4626_redeem)
+from eth_defi.erc_4626.flow import deposit_4626, redeem_4626
+from eth_defi.timestamp import get_block_timestamp
+from eth_defi.trade import TradeFail, TradeSuccess
+from eth_defi.vault.deposit_redeem import (DepositRedeemEventAnalysis,
+                                           DepositRedeemEventFailure,
+                                           DepositRequest, DepositTicket,
+                                           RedemptionRequest, RedemptionTicket,
+                                           VaultDepositManager)
 
 
 class ERC4626DepositTicket(DepositRequest):
@@ -55,7 +60,10 @@ class ERC4626DepositManager(VaultDepositManager):
         check_max_deposit=True,
         check_enough_token=True,
     ) -> ERC4626DepositRequest:
+        
+
         if not raw_amount:
+            assert self.vault.denomination_token is not None, "Vault denomination token data missing: likely flaky RPC"
             raw_amount = self.vault.denomination_token.convert_to_raw(amount)
 
         func = deposit_4626(

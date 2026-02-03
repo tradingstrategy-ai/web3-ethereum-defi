@@ -35,7 +35,13 @@ from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
 from eth_defi.event_reader.conversion import convert_bytes32_to_address, convert_int256_bytes_to_int, convert_string_to_bytes32
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.utils import from_unix_timestamp
-from eth_defi.vault.base import VaultHistoricalReader, VaultHistoricalRead
+from eth_defi.abi import ZERO_ADDRESS_STR
+from eth_defi.vault.base import (
+    DEPOSIT_CLOSED_CAP_REACHED,
+    REDEMPTION_CLOSED_EPOCH_WINDOW,
+    VaultHistoricalRead,
+    VaultHistoricalReader,
+)
 from eth_typing import BlockIdentifier
 
 from eth_defi.vault.risk import VaultTechnicalRisk
@@ -57,12 +63,35 @@ class GainsHistoricalReader(ERC4626HistoricalReader):
         yield from self.construct_gains_epoch_calls()
 
     def construct_gains_epoch_calls(self) -> Iterable[EncodedCall]:
-        """Add epoch state call for redemption window detection.
+        """Add epoch state calls for deposit/redemption window detection.
 
-        Uses ``open_pnl_contract`` which works for both Gains (via ``openTradesPnlFeed()``)
-        and Ostium (via the registry).
+        - Uses ``accPnlPerTokenUsed()`` and ``currentMaxSupply()`` for deposit state
+        - Uses ``nextEpochValuesRequestCount()`` for redemption state
+        - Works for both Gains (via ``openTradesPnlFeed()``) and Ostium (via registry)
         """
         from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
+
+        # Add accPnlPerTokenUsed call for deposit state
+        acc_pnl_call = EncodedCall.from_contract_call(
+            self.vault.vault_contract.functions.accPnlPerTokenUsed(),
+            extra_data={
+                "function": "accPnlPerTokenUsed",
+                "vault": self.vault.address,
+            },
+            first_block_number=self.first_block,
+        )
+        yield acc_pnl_call
+
+        # Add currentMaxSupply call for deposit cap check
+        max_supply_call = EncodedCall.from_contract_call(
+            self.vault.vault_contract.functions.currentMaxSupply(),
+            extra_data={
+                "function": "currentMaxSupply",
+                "vault": self.vault.address,
+            },
+            first_block_number=self.first_block,
+        )
+        yield max_supply_call
 
         try:
             open_pnl = self.vault.open_pnl_contract
@@ -95,8 +124,23 @@ class GainsHistoricalReader(ERC4626HistoricalReader):
         # Decode common variables
         share_price, total_supply, total_assets, errors, max_deposit, max_redeem = self.process_core_erc_4626_result(call_by_name)
 
-        # Deposits are always open for Gains/Ostium
-        deposits_open = True
+        # Epoch-based deposit logic:
+        # Deposits closed when accPnlPerTokenUsed > 0 AND totalSupply >= currentMaxSupply
+        deposits_open = True  # Default to open
+        acc_pnl_result = call_by_name.get("accPnlPerTokenUsed")
+        max_supply_result = call_by_name.get("currentMaxSupply")
+        total_supply_result = call_by_name.get("totalSupply")
+
+        if acc_pnl_result and acc_pnl_result.success and max_supply_result and max_supply_result.success:
+            acc_pnl = convert_int256_bytes_to_int(acc_pnl_result.result)
+            current_max_supply = convert_int256_bytes_to_int(max_supply_result.result)
+
+            if acc_pnl > 0:
+                # During PnL periods, deposits capped at currentMaxSupply - totalSupply
+                if total_supply_result and total_supply_result.success:
+                    raw_total_supply = convert_int256_bytes_to_int(total_supply_result.result)
+                    if raw_total_supply >= current_max_supply:
+                        deposits_open = False
 
         # Redemptions open when nextEpochValuesRequestCount == 0
         redemption_open = None
@@ -365,6 +409,55 @@ class GainsVault(ERC4626Vault):
         from eth_defi.erc_4626.vault_protocol.gains.deposit_redeem import GainsDepositManager
 
         return GainsDepositManager(self)
+
+    def fetch_deposit_closed_reason(self) -> str | None:
+        """Check maxDeposit to determine if deposits are closed.
+
+        Deposits closed when vault reaches max supply during profitable periods.
+        """
+        try:
+            max_deposit = self.vault_contract.functions.maxDeposit(ZERO_ADDRESS_STR).call()
+            if max_deposit == 0:
+                return DEPOSIT_CLOSED_CAP_REACHED
+        except Exception:
+            pass
+        return None
+
+    def fetch_redemption_closed_reason(self) -> str | None:
+        """Check epoch state - redemptions open when nextEpochValuesRequestCount == 0."""
+        try:
+            count = self.open_pnl_contract.functions.nextEpochValuesRequestCount().call()
+            if count > 0:
+                next_open = self.fetch_redemption_next_open()
+                if next_open:
+                    remaining = next_open - native_datetime_utc_now()
+                    hours = remaining.total_seconds() / 3600
+                    if hours < 24:
+                        return f"{REDEMPTION_CLOSED_EPOCH_WINDOW} (opens in {hours:.0f}h)"
+                    return f"{REDEMPTION_CLOSED_EPOCH_WINDOW} (opens in {hours / 24:.1f}d)"
+                return REDEMPTION_CLOSED_EPOCH_WINDOW
+        except Exception:
+            pass
+        return None
+
+    def fetch_deposit_next_open(self) -> datetime.datetime | None:
+        """Deposit timing unpredictable - depends on vault supply vs cap."""
+        return None
+
+    def fetch_redemption_next_open(self) -> datetime.datetime | None:
+        """Get when withdrawals will next be open.
+
+        - Redemptions open at the start of the next epoch when nextEpochValuesRequestCount resets to 0
+        """
+        try:
+            count = self.open_pnl_contract.functions.nextEpochValuesRequestCount().call()
+            if count == 0:
+                return None  # Already open
+            epoch_start = self.fetch_current_epoch_start()
+            epoch_duration = self.fetch_epoch_duration()
+            return epoch_start + epoch_duration
+        except Exception:
+            return None
 
 
 class OstiumVault(GainsVault):

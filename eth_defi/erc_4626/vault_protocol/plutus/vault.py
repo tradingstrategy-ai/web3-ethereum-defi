@@ -10,7 +10,12 @@ from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
-from eth_defi.vault.base import VaultHistoricalReader, VaultHistoricalRead
+from eth_defi.vault.base import (
+    DEPOSIT_CLOSED_BY_ADMIN,
+    REDEMPTION_CLOSED_BY_ADMIN,
+    VaultHistoricalRead,
+    VaultHistoricalReader,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -107,3 +112,37 @@ class PlutusVault(ERC4626Vault):
     def get_link(self, referral: str | None = None) -> str:
         # No vault pages
         return f"https://plutus.fi/Vaults"
+
+    def fetch_deposit_closed_reason(self) -> str | None:
+        """Check maxDeposit to determine if deposits are closed.
+
+        Plutus vaults are manually opened/closed by admin.
+        """
+        try:
+            max_deposit = self.vault_contract.functions.maxDeposit(ZERO_ADDRESS_STR).call()
+            if max_deposit == 0:
+                return DEPOSIT_CLOSED_BY_ADMIN
+        except Exception:
+            pass
+        return None
+
+    def fetch_redemption_closed_reason(self) -> str | None:
+        """Check maxRedeem to determine if redemptions are closed.
+
+        Plutus vaults are manually opened/closed by admin.
+        """
+        try:
+            max_redeem = self.vault_contract.functions.maxRedeem(ZERO_ADDRESS_STR).call()
+            if max_redeem == 0:
+                return REDEMPTION_CLOSED_BY_ADMIN
+        except Exception:
+            pass
+        return None
+
+    def fetch_deposit_next_open(self) -> datetime.datetime | None:
+        """Deposit timing is unpredictable - manually controlled."""
+        return None
+
+    def fetch_redemption_next_open(self) -> datetime.datetime | None:
+        """Withdrawal timing is unpredictable - manually controlled."""
+        return None

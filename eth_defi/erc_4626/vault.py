@@ -32,7 +32,20 @@ from eth_defi.erc_4626.core import ERC4626Feature, get_deployed_erc_4626_contrac
 from eth_defi.event_reader.conversion import BadAddressError, convert_int256_bytes_to_int, convert_uint256_bytes_to_address
 from eth_defi.event_reader.multicall_batcher import BatchCallState, EncodedCall, EncodedCallResult
 from eth_defi.token import TokenDetails, fetch_erc20_details, is_stablecoin_like
-from eth_defi.vault.base import TradingUniverse, VaultBase, VaultFlowManager, VaultHistoricalRead, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
+from eth_defi.vault.base import (
+    DEPOSIT_CLOSED_CAP_REACHED,
+    DEPOSIT_CLOSED_PAUSED,
+    REDEMPTION_CLOSED_INSUFFICIENT_LIQUIDITY,
+    REDEMPTION_CLOSED_PAUSED,
+    TradingUniverse,
+    VaultBase,
+    VaultFlowManager,
+    VaultHistoricalRead,
+    VaultHistoricalReader,
+    VaultInfo,
+    VaultPortfolio,
+    VaultSpec,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -1109,6 +1122,40 @@ class ERC4626Vault(VaultBase):
 
             Because of so many protocol specific lockups, this must be explicitly set to zero.
         """
+        return None
+
+    def fetch_deposit_closed_reason(self) -> str | None:
+        """Check ERC-4626 maxDeposit to determine if deposits are closed."""
+        try:
+            max_deposit = self.vault_contract.functions.maxDeposit(ZERO_ADDRESS_STR).call()
+            if max_deposit == 0:
+                flags = self.get_flags()
+                if VaultFlag.paused in flags:
+                    return DEPOSIT_CLOSED_PAUSED
+                return DEPOSIT_CLOSED_CAP_REACHED
+        except Exception:
+            pass
+        return None
+
+    def fetch_redemption_closed_reason(self) -> str | None:
+        """Check ERC-4626 maxRedeem to determine if redemptions are closed."""
+        try:
+            max_redeem = self.vault_contract.functions.maxRedeem(ZERO_ADDRESS_STR).call()
+            if max_redeem == 0:
+                flags = self.get_flags()
+                if VaultFlag.paused in flags:
+                    return REDEMPTION_CLOSED_PAUSED
+                return REDEMPTION_CLOSED_INSUFFICIENT_LIQUIDITY
+        except Exception:
+            pass
+        return None
+
+    def fetch_deposit_next_open(self) -> datetime.datetime | None:
+        """Generic ERC-4626 - no timing information available."""
+        return None
+
+    def fetch_redemption_next_open(self) -> datetime.datetime | None:
+        """Generic ERC-4626 - no timing information available."""
         return None
 
     def get_flags(self) -> set[VaultFlag]:

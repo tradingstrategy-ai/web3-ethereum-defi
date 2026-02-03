@@ -15,6 +15,10 @@ from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.morpho.vault_v2 import MorphoV2Vault
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.vault.base import (
+    DEPOSIT_CLOSED_CAP_REACHED,
+    REDEMPTION_CLOSED_INSUFFICIENT_LIQUIDITY,
+)
 
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
 
@@ -77,3 +81,17 @@ def test_morpho_v2_vault(
     link = vault.get_link()
     assert "morpho.org" in link
     assert "arbitrum" in link.lower()
+
+    # Test deposit/redemption status methods
+    deposit_reason = vault.fetch_deposit_closed_reason()
+    redemption_reason = vault.fetch_redemption_closed_reason()
+    deposit_next = vault.fetch_deposit_next_open()
+    redemption_next = vault.fetch_redemption_next_open()
+
+    # Check reasons are either None or valid constants
+    assert deposit_reason is None or deposit_reason == DEPOSIT_CLOSED_CAP_REACHED
+    assert redemption_reason is None or redemption_reason == REDEMPTION_CLOSED_INSUFFICIENT_LIQUIDITY
+
+    # Morpho has no timing info (utilisation-based)
+    assert deposit_next is None
+    assert redemption_next is None

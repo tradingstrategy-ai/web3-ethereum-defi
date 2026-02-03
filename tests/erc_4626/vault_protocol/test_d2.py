@@ -15,7 +15,11 @@ from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.vault_protocol.d2.vault import D2HistoricalReader, D2Vault, Epoch
 from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch
 from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.vault.base import VaultTechnicalRisk
+from eth_defi.vault.base import (
+    DEPOSIT_CLOSED_FUNDING_PHASE,
+    REDEMPTION_CLOSED_FUNDS_CUSTODIED,
+    VaultTechnicalRisk,
+)
 
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
 
@@ -93,3 +97,19 @@ def test_d2(
     assert exported["deposits_open"] == "false"
     assert exported["trading"] == "true"
     assert exported["redemption_open"] == "false"
+
+    # Test deposit/redemption status methods
+    deposit_reason = vault.fetch_deposit_closed_reason()
+    redemption_reason = vault.fetch_redemption_closed_reason()
+    deposit_next = vault.fetch_deposit_next_open()
+    redemption_next = vault.fetch_redemption_next_open()
+
+    # At block 392_313_989 the vault is in epoch (trading), not funding
+    assert deposit_reason is not None
+    assert DEPOSIT_CLOSED_FUNDING_PHASE in deposit_reason
+    assert redemption_reason is not None
+    assert REDEMPTION_CLOSED_FUNDS_CUSTODIED in redemption_reason
+
+    # D2 should have timing info since it has epoch timing
+    assert deposit_next is not None or "opens in" in (deposit_reason or "")
+    assert redemption_next is not None or "opens in" in (redemption_reason or "")
