@@ -63,8 +63,12 @@ Environment variables:
     - FREQUENCY: "1h" or "1d" (default: "1h")
     - LOG_LEVEL: Logging level (default: "warning")
     - TEST_CHAINS: Comma-separated list of chain names to scan (default: all chains)
+    - CHAIN_ORDER: Comma-separated list of chain names to scan in order (whitespace allowed, chains not listed are skipped)
     - SKIP_POST_PROCESSING: "true" to skip post-processing steps (default: "false")
     - JSON_RPC_<CHAIN>: RPC URL for each chain (required per chain)
+
+Example CHAIN_ORDER for all chains:
+    CHAIN_ORDER="Sonic, Monad, Hyperliquid, Base, Arbitrum, Ethereum, Linea, Gnosis, Zora, Polygon, Avalanche, Berachain, Unichain, Hemi, Plasma, Binance, Mantle, Katana, Ink, Blast, Soneium, Optimism"
 """
 
 import datetime
@@ -490,6 +494,28 @@ def main():
 
     # Build chain configurations
     all_chains = build_chain_configs()
+    chain_by_name = {c.name: c for c in all_chains}
+
+    # Reorder and filter chains if CHAIN_ORDER is set
+    chain_order_str = os.environ.get("CHAIN_ORDER")
+    skipped_by_order = []  # Chains not in CHAIN_ORDER
+    if chain_order_str:
+        chain_order = [name.strip() for name in chain_order_str.split(",")]
+        reordered_chains = []
+        for name in chain_order:
+            if name in chain_by_name:
+                reordered_chains.append(chain_by_name[name])
+            else:
+                logger.warning("Unknown chain in CHAIN_ORDER: %s", name)
+        # Track chains not in CHAIN_ORDER as skipped
+        specified_names = set(chain_order)
+        for chain in all_chains:
+            if chain.name not in specified_names:
+                skipped_by_order.append(chain)
+        all_chains = reordered_chains
+        logger.info("CHAIN_ORDER: %s", ", ".join([c.name for c in all_chains]))
+        if skipped_by_order:
+            logger.info("Chains not in CHAIN_ORDER (will be skipped): %s", ", ".join([c.name for c in skipped_by_order]))
 
     # Filter chains if in test mode
     if test_chain_names:
@@ -506,6 +532,10 @@ def main():
         chains = all_chains
 
     results = {c.name: ChainResult(name=c.name, status="pending", retry_attempt=0) for c in chains}
+
+    # Add chains skipped by CHAIN_ORDER to results
+    for chain in skipped_by_order:
+        results[chain.name] = ChainResult(name=chain.name, status="skipped", error="Not in CHAIN_ORDER")
 
     # Display initial dashboard
     print_dashboard(results)
@@ -596,6 +626,9 @@ def main():
 
     logger.info("=" * 80)
     logger.info("Scan complete at %s", datetime.datetime.utcnow().isoformat())
+
+    # Print final dashboard
+    print_dashboard(results)
 
     # Exit with appropriate code
     if failed_count > 0:
