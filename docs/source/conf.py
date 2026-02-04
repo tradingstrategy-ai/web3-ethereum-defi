@@ -62,6 +62,14 @@ if os.environ.get("READTHEDOCS"):
 #
 html_theme = "furo"
 
+# Furo theme options
+# https://pradyunsg.me/furo/customisation/
+html_theme_options = {
+    "analytics": {
+        "google": "G-5JZ8F9H4WH",
+    },
+}
+
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
