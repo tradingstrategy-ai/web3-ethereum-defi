@@ -32,20 +32,7 @@ from eth_defi.erc_4626.core import ERC4626Feature, get_deployed_erc_4626_contrac
 from eth_defi.event_reader.conversion import BadAddressError, convert_int256_bytes_to_int, convert_uint256_bytes_to_address
 from eth_defi.event_reader.multicall_batcher import BatchCallState, EncodedCall, EncodedCallResult
 from eth_defi.token import TokenDetails, fetch_erc20_details, is_stablecoin_like
-from eth_defi.vault.base import (
-    DEPOSIT_CLOSED_CAP_REACHED,
-    DEPOSIT_CLOSED_PAUSED,
-    REDEMPTION_CLOSED_INSUFFICIENT_LIQUIDITY,
-    REDEMPTION_CLOSED_PAUSED,
-    TradingUniverse,
-    VaultBase,
-    VaultFlowManager,
-    VaultHistoricalRead,
-    VaultHistoricalReader,
-    VaultInfo,
-    VaultPortfolio,
-    VaultSpec,
-)
+from eth_defi.vault.base import DEPOSIT_CLOSED_CAP_REACHED, DEPOSIT_CLOSED_PAUSED, REDEMPTION_CLOSED_INSUFFICIENT_LIQUIDITY, REDEMPTION_CLOSED_PAUSED, TradingUniverse, VaultBase, VaultFlowManager, VaultHistoricalRead, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
 
 logger = logging.getLogger(__name__)
 
@@ -1124,39 +1111,89 @@ class ERC4626Vault(VaultBase):
         """
         return None
 
+    def can_check_deposit(self) -> bool:
+        """Check if maxDeposit(address(0)) can be used to check global deposit availability.
+
+        Most ERC-4626 vaults implement maxDeposit in a way that returns meaningful
+        values when called with address(0):
+
+        - Returns 0 when deposits are globally closed/capped
+        - Returns a positive value indicating maximum deposit allowed
+
+        Override to return False in subclasses where maxDeposit(address(0)) doesn't
+        provide meaningful global availability information.
+
+        :return:
+            True if maxDeposit(address(0)) returns meaningful values for global
+            deposit availability checking.
+        """
+        return True
+
+    def can_check_redeem(self) -> bool:
+        """Check if maxRedeem(address(0)) can be used to check global redemption availability.
+
+        Most protocols return 0 for maxRedeem(address(0)) because that address has no
+        balance/shares, not because redemptions are closed:
+
+        - Gearbox: maxRedeem returns min(balanceOf(owner), convertToShares(availableLiquidity))
+        - Most vaults: Return 0 because address(0) has no shares
+
+        Some protocols do use maxRedeem(address(0)) meaningfully:
+
+        - Morpho, IPOR, Plutus: Return 0 when redemptions are globally blocked
+
+        Override to return True in subclasses that support address(0) redemption checks.
+
+        :return:
+            True if maxRedeem(address(0)) returns meaningful values for global
+            redemption availability checking.
+        """
+        return False
+
     def fetch_deposit_closed_reason(self) -> str | None:
-        """Check ERC-4626 maxDeposit to determine if deposits are closed."""
+        """Check if deposits are closed using maxDeposit(address(0)).
+
+        Uses the ERC-4626 standard maxDeposit function to determine if deposits
+        are available. Returns a human-readable reason with the max deposit amount
+        if deposits are restricted.
+
+        :return:
+            Human-readable string if deposits are closed/restricted,
+            or None if deposits are open (maxDeposit > 0).
+        """
+        if not self.can_check_deposit():
+            return None
+
         try:
-            max_deposit = self.vault_contract.functions.maxDeposit(ZERO_ADDRESS_STR).call()
-            if max_deposit == 0:
-                flags = self.get_flags()
-                if VaultFlag.paused in flags:
-                    return DEPOSIT_CLOSED_PAUSED
-                return DEPOSIT_CLOSED_CAP_REACHED
+            max_deposit_raw = self.vault_contract.functions.maxDeposit(ZERO_ADDRESS_STR).call()
+            if max_deposit_raw == 0:
+                return f"{DEPOSIT_CLOSED_CAP_REACHED} (maxDeposit=0)"
+
+            return None  # Deposits are open
         except Exception:
-            pass
-        return None
+            return None  # Cannot determine, assume open
 
     def fetch_redemption_closed_reason(self) -> str | None:
-        """Check ERC-4626 maxRedeem to determine if redemptions are closed."""
+        """Check if redemptions are closed using maxRedeem(address(0)).
+
+        Only works for protocols that implement maxRedeem in a way that returns
+        meaningful values for address(0). Most protocols return 0 because
+        address(0) has no shares, not because redemptions are closed.
+
+        :return:
+            Human-readable string if redemptions are closed,
+            or None if redemptions are open or check is not supported.
+        """
+        if not self.can_check_redeem():
+            return None
+
         try:
-            max_redeem = self.vault_contract.functions.maxRedeem(ZERO_ADDRESS_STR).call()
-            if max_redeem == 0:
-                flags = self.get_flags()
-                if VaultFlag.paused in flags:
-                    return REDEMPTION_CLOSED_PAUSED
-                return REDEMPTION_CLOSED_INSUFFICIENT_LIQUIDITY
+            max_redeem_raw = self.vault_contract.functions.maxRedeem(ZERO_ADDRESS_STR).call()
+            if max_redeem_raw == 0:
+                return f"{REDEMPTION_CLOSED_INSUFFICIENT_LIQUIDITY} (maxRedeem=0)"
+            return None  # Redemptions are open
         except Exception:
-            pass
-        return None
-
-    def fetch_deposit_next_open(self) -> datetime.datetime | None:
-        """Generic ERC-4626 - no timing information available."""
-        return None
-
-    def fetch_redemption_next_open(self) -> datetime.datetime | None:
-        """Generic ERC-4626 - no timing information available."""
-        return None
+            return None  # Cannot determine, assume open
 
     def get_flags(self) -> set[VaultFlag]:
         flags = super().get_flags()

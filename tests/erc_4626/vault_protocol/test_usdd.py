@@ -62,6 +62,11 @@ def test_usdd_susdd_ethereum(
     # Check risk level
     assert vault.get_risk() == VaultTechnicalRisk.severe
 
+    # USDD doesn't support address(0) checks for maxDeposit/maxRedeem
+    # (contract returns empty data)
+    assert vault.can_check_deposit() is False
+    assert vault.can_check_redeem() is False
+
 
 @flaky.flaky
 def test_usdd_savings_usdd_ethereum(
@@ -89,3 +94,8 @@ def test_usdd_savings_usdd_ethereum(
 
     # Check risk level
     assert vault.get_risk() == VaultTechnicalRisk.severe
+
+    # USDD doesn't support address(0) checks for maxDeposit/maxRedeem
+    # (contract returns empty data)
+    assert vault.can_check_deposit() is False
+    assert vault.can_check_redeem() is False

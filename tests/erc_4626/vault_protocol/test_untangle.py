@@ -8,6 +8,7 @@ import pytest
 from web3 import Web3
 import flaky
 
+from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch
@@ -59,3 +60,13 @@ def test_untangle(
     assert modules.withdrawModule == "0x85501D012d38c28bB08BD4297F9e1f9Ff48b636a"
     assert modules.valuationModule == "0xc34C4ea200F6dE3Ddc07628acA9Af8347384A616"
     assert modules.authModule == "0x0000000000000000000000000000000000000000"
+
+    # Check maxDeposit/maxRedeem with address(0)
+    # Untangle returns large values (no per-address cap)
+    max_deposit = vault.vault_contract.functions.maxDeposit(ZERO_ADDRESS_STR).call()
+    max_redeem = vault.vault_contract.functions.maxRedeem(ZERO_ADDRESS_STR).call()
+    assert max_deposit > 0
+    assert max_redeem == 0
+
+    # Untangle doesn't support address(0) checks for maxDeposit/maxRedeem
+    assert vault.can_check_redeem() is False

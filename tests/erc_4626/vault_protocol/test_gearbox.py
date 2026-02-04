@@ -7,6 +7,7 @@ import flaky
 import pytest
 from web3 import Web3
 
+from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.gearbox.vault import GearboxVault
@@ -78,6 +79,15 @@ def test_gearbox_hyperithm_usdt0(
     # Check risk level
     assert vault.get_risk() == VaultTechnicalRisk.low
 
+    # Gearbox's maxRedeem(address(0)) always returns 0 because it uses
+    # min(balanceOf(owner), convertToShares(availableLiquidity())) and address(0) has no balance.
+    # This makes address(0) checks unsuitable for global redemption availability.
+    max_deposit = vault.vault_contract.functions.maxDeposit(ZERO_ADDRESS_STR).call()
+    max_redeem = vault.vault_contract.functions.maxRedeem(ZERO_ADDRESS_STR).call()
+    assert max_deposit > 0  # Deposits are open (returns large value)
+    assert max_redeem == 0  # Always 0 for address(0) due to balance check
+    assert vault.can_check_redeem() is False
+
 
 @flaky.flaky
 @pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHEREUM needed to run this test")
@@ -109,3 +119,11 @@ def test_gearbox_poolv3_gho(
 
     # Check risk level
     assert vault.get_risk() == VaultTechnicalRisk.low
+
+    # Gearbox's maxRedeem(address(0)) always returns 0 because it uses
+    # min(balanceOf(owner), convertToShares(availableLiquidity())) and address(0) has no balance.
+    max_deposit = vault.vault_contract.functions.maxDeposit(ZERO_ADDRESS_STR).call()
+    max_redeem = vault.vault_contract.functions.maxRedeem(ZERO_ADDRESS_STR).call()
+    assert max_deposit > 0  # Deposits are open
+    assert max_redeem == 0  # Always 0 for address(0)
+    assert vault.can_check_redeem() is False

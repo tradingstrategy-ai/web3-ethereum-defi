@@ -8,6 +8,7 @@ import pytest
 from web3 import Web3
 import flaky
 
+from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.vault_protocol.harvest.vault import HarvestVault
 from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch
@@ -58,3 +59,10 @@ def test_harvest(
 
     ftoken = vault.fetch_ftoken()
     assert ftoken.name == "Varlamore USDC Growth"
+
+    # Check maxDeposit and maxRedeem with address(0)
+    max_deposit = vault.vault_contract.functions.maxDeposit(ZERO_ADDRESS_STR).call()
+    max_redeem = vault.vault_contract.functions.maxRedeem(ZERO_ADDRESS_STR).call()
+    assert max_deposit >= 0
+    assert max_redeem >= 0
+    assert vault.can_check_redeem() is False

@@ -61,3 +61,10 @@ class YieldFiVault(ERC4626Vault):
         YieldFi uses a single app page for all vaults.
         """
         return "https://yield.fi/"
+
+    def can_check_deposit(self) -> bool:
+        """YieldFi doesn't support address(0) checks for maxDeposit.
+
+        The contract returns empty data for maxDeposit(address(0)).
+        """
+        return False

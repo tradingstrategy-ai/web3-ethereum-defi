@@ -27,10 +27,22 @@ import datetime
 import logging
 
 from eth_typing import BlockIdentifier
+from web3 import Web3
 
 from eth_defi.erc_4626.vault import ERC4626Vault
+from eth_defi.vault.base import (
+    DEPOSIT_CLOSED_PAUSED,
+    REDEMPTION_CLOSED_INSUFFICIENT_LIQUIDITY,
+    REDEMPTION_CLOSED_PAUSED,
+)
 
 logger = logging.getLogger(__name__)
+
+#: Minimal ABI for Gearbox PoolV3 functions not in standard ERC-4626
+GEARBOX_POOL_V3_ABI = [
+    {"inputs": [], "name": "paused", "outputs": [{"type": "bool"}], "stateMutability": "view", "type": "function"},
+    {"inputs": [], "name": "availableLiquidity", "outputs": [{"type": "uint256"}], "stateMutability": "view", "type": "function"},
+]
 
 
 class GearboxVault(ERC4626Vault):
@@ -72,3 +84,54 @@ class GearboxVault(ERC4626Vault):
     def get_link(self, referral: str | None = None) -> str:
         """Get link to the Gearbox app."""
         return "https://app.gearbox.fi/"
+
+    def _get_gearbox_contract(self):
+        """Get contract instance with Gearbox-specific ABI."""
+        return self.web3.eth.contract(address=self.address, abi=GEARBOX_POOL_V3_ABI)
+
+    def fetch_deposit_closed_reason(self) -> str | None:
+        """Check if deposits are closed.
+
+        Gearbox pools can be paused by governance.
+        Deposits are generally always open unless paused.
+
+        Note: We don't use maxDeposit(address(0)) because Gearbox's implementation
+        checks owner balance, making it unsuitable as a global availability check.
+        """
+        try:
+            gearbox_contract = self._get_gearbox_contract()
+            paused = gearbox_contract.functions.paused().call()
+            if paused:
+                return f"{DEPOSIT_CLOSED_PAUSED} (paused=true)"
+        except Exception:
+            pass
+        return None
+
+    def fetch_redemption_closed_reason(self) -> str | None:
+        """Check if redemptions are closed due to paused state or no liquidity.
+
+        Gearbox pools may have limited withdrawal liquidity when utilisation is high.
+        All deposited funds could be lent to credit accounts, leaving no liquidity
+        for immediate redemptions.
+
+        Note: We don't use maxRedeem(address(0)) because Gearbox's implementation
+        is: `Math.min(balanceOf(owner), convertToShares(availableLiquidity()))`.
+        Since balanceOf(address(0)) is always 0, maxRedeem(address(0)) always returns 0
+        regardless of actual available liquidity.
+        """
+        try:
+            gearbox_contract = self._get_gearbox_contract()
+
+            # Check if paused first
+            paused = gearbox_contract.functions.paused().call()
+            if paused:
+                return f"{REDEMPTION_CLOSED_PAUSED} (paused=true)"
+
+            # Check available liquidity
+            available_liquidity = gearbox_contract.functions.availableLiquidity().call()
+            if available_liquidity == 0:
+                return f"{REDEMPTION_CLOSED_INSUFFICIENT_LIQUIDITY} (availableLiquidity=0)"
+
+        except Exception:
+            pass
+        return None

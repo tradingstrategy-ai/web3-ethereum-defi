@@ -11,6 +11,7 @@ import flaky
 
 from decimal import Decimal
 
+from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.vault_protocol.d2.vault import D2HistoricalReader, D2Vault, Epoch
 from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch
@@ -113,3 +114,11 @@ def test_d2(
     # D2 should have timing info since it has epoch timing
     assert deposit_next is not None or "opens in" in (deposit_reason or "")
     assert redemption_next is not None or "opens in" in (redemption_reason or "")
+
+    # Check maxDeposit and maxRedeem with address(0)
+    # D2 uses these as global availability checks for epoch-based deposits/redemptions
+    max_deposit = vault.vault_contract.functions.maxDeposit(ZERO_ADDRESS_STR).call()
+    max_redeem = vault.vault_contract.functions.maxRedeem(ZERO_ADDRESS_STR).call()
+    assert max_deposit == 0  # Deposits closed during trading epoch
+    assert max_redeem == 0  # Redemptions closed during trading epoch
+    assert vault.can_check_redeem() is False

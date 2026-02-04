@@ -79,6 +79,11 @@ def test_yo_vault_ethereum(web3_ethereum: Web3):
     # Check the vault link
     assert vault.get_link() == "https://www.yo.xyz/"
 
+    # Yo doesn't support address(0) checks for maxDeposit/maxRedeem
+    # (contract returns empty data)
+    assert vault.can_check_deposit() is False
+    assert vault.can_check_redeem() is False
+
 
 @flaky.flaky
 @pytest.mark.skipif(
@@ -113,3 +118,8 @@ def test_yo_vault_base(web3_base: Web3):
 
     # Check the vault link
     assert vault.get_link() == "https://www.yo.xyz/"
+
+    # Yo doesn't support address(0) checks for maxDeposit/maxRedeem
+    # (contract returns empty data)
+    assert vault.can_check_deposit() is False
+    assert vault.can_check_redeem() is False

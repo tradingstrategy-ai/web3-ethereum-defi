@@ -244,7 +244,7 @@ class IPORVault(ERC4626Vault):
         try:
             max_deposit = self.vault_contract.functions.maxDeposit(ZERO_ADDRESS_STR).call()
             if max_deposit == 0:
-                return DEPOSIT_CLOSED_UTILISATION
+                return f"{DEPOSIT_CLOSED_UTILISATION} (maxDeposit=0)"
         except Exception:
             pass
         return None
@@ -257,7 +257,7 @@ class IPORVault(ERC4626Vault):
         try:
             max_redeem = self.vault_contract.functions.maxRedeem(ZERO_ADDRESS_STR).call()
             if max_redeem == 0:
-                return REDEMPTION_CLOSED_INSUFFICIENT_LIQUIDITY
+                return f"{REDEMPTION_CLOSED_INSUFFICIENT_LIQUIDITY} (maxRedeem=0)"
         except Exception:
             pass
         return None
@@ -269,3 +269,10 @@ class IPORVault(ERC4626Vault):
     def fetch_redemption_next_open(self) -> datetime.datetime | None:
         """Withdrawal timing is unpredictable - utilisation-based."""
         return None
+
+    def can_check_redeem(self) -> bool:
+        """IPOR supports address(0) checks for redemption availability.
+
+        - maxRedeem(address(0)) returns 0 when redemptions are blocked due to utilisation
+        """
+        return True

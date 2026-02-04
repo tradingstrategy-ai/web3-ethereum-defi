@@ -121,7 +121,7 @@ class PlutusVault(ERC4626Vault):
         try:
             max_deposit = self.vault_contract.functions.maxDeposit(ZERO_ADDRESS_STR).call()
             if max_deposit == 0:
-                return DEPOSIT_CLOSED_BY_ADMIN
+                return f"{DEPOSIT_CLOSED_BY_ADMIN} (maxDeposit=0)"
         except Exception:
             pass
         return None
@@ -134,7 +134,7 @@ class PlutusVault(ERC4626Vault):
         try:
             max_redeem = self.vault_contract.functions.maxRedeem(ZERO_ADDRESS_STR).call()
             if max_redeem == 0:
-                return REDEMPTION_CLOSED_BY_ADMIN
+                return f"{REDEMPTION_CLOSED_BY_ADMIN} (maxRedeem=0)"
         except Exception:
             pass
         return None
@@ -146,3 +146,10 @@ class PlutusVault(ERC4626Vault):
     def fetch_redemption_next_open(self) -> datetime.datetime | None:
         """Withdrawal timing is unpredictable - manually controlled."""
         return None
+
+    def can_check_redeem(self) -> bool:
+        """Plutus supports address(0) checks for redemption availability.
+
+        - maxRedeem(address(0)) returns 0 when admin has closed redemptions
+        """
+        return True

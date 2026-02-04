@@ -86,3 +86,10 @@ class USSDVault(ERC4626Vault):
             Link to the USDD homepage.
         """
         return "https://usdd.io/"
+
+    def can_check_deposit(self) -> bool:
+        """USDD doesn't support address(0) checks for maxDeposit.
+
+        The contract returns empty data for maxDeposit(address(0)).
+        """
+        return False
