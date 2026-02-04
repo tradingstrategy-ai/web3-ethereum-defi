@@ -7,6 +7,7 @@ import flaky
 import pytest
 from web3 import Web3
 
+from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.altura.vault import AlturaVault
@@ -70,3 +71,12 @@ def test_altura(
 
     # Check link
     assert vault.get_link() == "https://app.altura.trade"
+
+    # Check maxDeposit and maxRedeem with address(0)
+    # maxRedeem returns 0 because address(0) has no shares, not because redemptions are closed
+    # This vault cannot use address(0) checks for redemption availability
+    max_deposit = vault.vault_contract.functions.maxDeposit(ZERO_ADDRESS_STR).call()
+    max_redeem = vault.vault_contract.functions.maxRedeem(ZERO_ADDRESS_STR).call()
+    assert max_deposit > 0  # Deposits are open
+    assert max_redeem == 0  # address(0) has no shares
+    assert vault.can_check_max_deposit_and_redeem() is False

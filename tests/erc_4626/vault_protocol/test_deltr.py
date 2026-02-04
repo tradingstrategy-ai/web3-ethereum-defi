@@ -7,6 +7,7 @@ import flaky
 import pytest
 from web3 import Web3
 
+from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.vault_protocol.deltr.vault import DeltrVault
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
@@ -51,3 +52,7 @@ def test_deltr(
     assert vault.get_protocol_name() == "Deltr"
     assert vault.features == {ERC4626Feature.deltr_like}
     assert vault.get_risk() == VaultTechnicalRisk.dangerous
+
+    # Deltr doesn't implement standard maxDeposit/maxRedeem (returns empty data)
+    # so we cannot use address(0) checks for this vault
+    assert vault.can_check_max_deposit_and_redeem() is False

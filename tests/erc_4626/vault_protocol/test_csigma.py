@@ -7,6 +7,7 @@ import flaky
 import pytest
 from web3 import Web3
 
+from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.csigma.vault import CsigmaVault
@@ -58,6 +59,10 @@ def test_csigma(
     # Check vault link
     assert vault.get_link() == "https://edge.csigma.finance/"
 
+    # cSigma doesn't implement standard maxDeposit/maxRedeem (returns empty data)
+    # so we cannot use address(0) checks for this vault
+    assert vault.can_check_max_deposit_and_redeem() is False
+
 
 @flaky.flaky
 def test_csigma_v2_pool(
@@ -83,6 +88,9 @@ def test_csigma_v2_pool(
     # Check vault link
     assert vault.get_link() == "https://edge.csigma.finance/"
 
+    # cSigma doesn't implement standard maxDeposit/maxRedeem (returns empty data)
+    assert vault.can_check_max_deposit_and_redeem() is False
+
 
 @flaky.flaky
 def test_csigma_supqpv(
@@ -107,3 +115,6 @@ def test_csigma_supqpv(
 
     # Check vault link
     assert vault.get_link() == "https://edge.csigma.finance/"
+
+    # cSigma doesn't implement standard maxDeposit/maxRedeem (returns empty data)
+    assert vault.can_check_max_deposit_and_redeem() is False

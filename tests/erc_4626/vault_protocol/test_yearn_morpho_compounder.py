@@ -7,6 +7,7 @@ import pytest
 from web3 import Web3
 import flaky
 
+from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch
@@ -67,3 +68,13 @@ def test_yearn_morpho_compounder(
 
     # Check no lock-up
     assert vault.get_estimated_lock_up().total_seconds() == 0
+
+    # Check maxDeposit/maxRedeem with address(0)
+    # Yearn Morpho Compounder returns large values (no per-address cap)
+    max_deposit = vault.vault_contract.functions.maxDeposit(ZERO_ADDRESS_STR).call()
+    max_redeem = vault.vault_contract.functions.maxRedeem(ZERO_ADDRESS_STR).call()
+    assert max_deposit > 0
+    assert max_redeem == 0
+
+    # Yearn vaults don't support address(0) checks for maxDeposit/maxRedeem
+    assert vault.can_check_max_deposit_and_redeem() is False

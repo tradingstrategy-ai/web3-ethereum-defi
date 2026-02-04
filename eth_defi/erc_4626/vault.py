@@ -1131,6 +1131,28 @@ class ERC4626Vault(VaultBase):
     # - Some protocols (Gearbox) return 0 because address(0) has no balance
     # Each protocol must implement these methods explicitly if supported.
 
+    def can_check_max_deposit_and_redeem(self) -> bool:
+        """Check if maxDeposit(address(0)) and maxRedeem(address(0)) can be used for global availability checks.
+
+        Some protocols implement maxDeposit/maxRedeem in a way that returns meaningful
+        values when called with address(0):
+
+        - Morpho, IPOR: Return 0 when deposits/redemptions are globally closed
+        - Plutus: Return 0 when admin has closed deposits/redemptions
+
+        Other protocols return 0 for address(0) because that address has no balance,
+        not because the feature is closed:
+
+        - Gearbox: maxRedeem returns min(balanceOf(owner), convertToShares(availableLiquidity))
+
+        Override in subclasses that support address(0) checks.
+
+        :return:
+            True if maxDeposit(address(0)) and maxRedeem(address(0)) return meaningful
+            values for global availability checking.
+        """
+        return False
+
     def get_flags(self) -> set[VaultFlag]:
         flags = super().get_flags()
 

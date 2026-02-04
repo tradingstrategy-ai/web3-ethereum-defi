@@ -6,6 +6,7 @@ import flaky
 import pytest
 from web3 import Web3
 
+from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.yo.vault import YoVault
@@ -79,6 +80,15 @@ def test_yo_vault_ethereum(web3_ethereum: Web3):
     # Check the vault link
     assert vault.get_link() == "https://www.yo.xyz/"
 
+    # Check maxDeposit/maxRedeem with address(0)
+    max_deposit = vault.vault_contract.functions.maxDeposit(ZERO_ADDRESS_STR).call()
+    max_redeem = vault.vault_contract.functions.maxRedeem(ZERO_ADDRESS_STR).call()
+    assert max_deposit == 0
+    assert max_redeem == 0
+
+    # Yo doesn't support address(0) checks for maxDeposit/maxRedeem
+    assert vault.can_check_max_deposit_and_redeem() is False
+
 
 @flaky.flaky
 @pytest.mark.skipif(
@@ -113,3 +123,12 @@ def test_yo_vault_base(web3_base: Web3):
 
     # Check the vault link
     assert vault.get_link() == "https://www.yo.xyz/"
+
+    # Check maxDeposit/maxRedeem with address(0)
+    max_deposit = vault.vault_contract.functions.maxDeposit(ZERO_ADDRESS_STR).call()
+    max_redeem = vault.vault_contract.functions.maxRedeem(ZERO_ADDRESS_STR).call()
+    assert max_deposit == 0
+    assert max_redeem == 0
+
+    # Yo doesn't support address(0) checks for maxDeposit/maxRedeem
+    assert vault.can_check_max_deposit_and_redeem() is False

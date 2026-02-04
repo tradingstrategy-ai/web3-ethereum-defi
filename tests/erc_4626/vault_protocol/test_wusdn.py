@@ -6,6 +6,7 @@ import flaky
 import pytest
 from web3 import Web3
 
+from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.spectra.erc4626_wrapper_vault import SpectraERC4626WrapperVault
@@ -70,6 +71,9 @@ def test_spectra_usdn_wrapper_vault(web3_ethereum: Web3):
     # Check link
     assert vault.get_link() == "https://app.spectra.finance"
 
+    # Spectra doesn't support address(0) checks for maxDeposit/maxRedeem
+    assert vault.can_check_max_deposit_and_redeem() is False
+
 
 @flaky.flaky
 @pytest.mark.skipif(JSON_RPC_MONAD is None, reason="JSON_RPC_MONAD needed to run this test")
@@ -93,3 +97,6 @@ def test_spectra_erc4626_wrapper_vault_monad(web3_monad: Web3):
 
     # Check link
     assert vault.get_link() == "https://app.spectra.finance"
+
+    # Spectra doesn't support address(0) checks for maxDeposit/maxRedeem
+    assert vault.can_check_max_deposit_and_redeem() is False

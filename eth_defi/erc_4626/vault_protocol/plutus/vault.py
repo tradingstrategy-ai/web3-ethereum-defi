@@ -146,3 +146,11 @@ class PlutusVault(ERC4626Vault):
     def fetch_redemption_next_open(self) -> datetime.datetime | None:
         """Withdrawal timing is unpredictable - manually controlled."""
         return None
+
+    def can_check_max_deposit_and_redeem(self) -> bool:
+        """Plutus supports address(0) checks for global availability.
+
+        - maxDeposit(address(0)) returns 0 when admin has closed deposits
+        - maxRedeem(address(0)) returns 0 when admin has closed redemptions
+        """
+        return True

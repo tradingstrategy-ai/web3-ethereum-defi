@@ -7,6 +7,7 @@ import flaky
 import pytest
 from web3 import Web3
 
+from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.dolomite.vault import DolomiteVault
@@ -62,6 +63,15 @@ def test_dolomite_usdc(
     assert vault.get_performance_fee("latest") == 0.0
     assert vault.get_estimated_lock_up() is None
 
+    # Check maxDeposit/maxRedeem with address(0)
+    max_deposit = vault.vault_contract.functions.maxDeposit(ZERO_ADDRESS_STR).call()
+    max_redeem = vault.vault_contract.functions.maxRedeem(ZERO_ADDRESS_STR).call()
+    assert max_deposit == 0
+    assert max_redeem == 0
+
+    # Dolomite doesn't support address(0) checks for maxDeposit/maxRedeem
+    assert vault.can_check_max_deposit_and_redeem() is False
+
 
 @flaky.flaky
 def test_dolomite_usdt(
@@ -91,3 +101,12 @@ def test_dolomite_usdt(
     assert vault.get_management_fee("latest") == 0.0
     assert vault.get_performance_fee("latest") == 0.0
     assert vault.get_estimated_lock_up() is None
+
+    # Check maxDeposit/maxRedeem with address(0)
+    max_deposit = vault.vault_contract.functions.maxDeposit(ZERO_ADDRESS_STR).call()
+    max_redeem = vault.vault_contract.functions.maxRedeem(ZERO_ADDRESS_STR).call()
+    assert max_deposit == 0
+    assert max_redeem == 0
+
+    # Dolomite doesn't support address(0) checks for maxDeposit/maxRedeem
+    assert vault.can_check_max_deposit_and_redeem() is False

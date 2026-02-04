@@ -9,6 +9,7 @@ import pytest
 from web3 import Web3
 import flaky
 
+from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault import ERC4626Vault
@@ -57,3 +58,12 @@ def test_truefi_protocol(
     assert vault.get_protocol_name() == "TrueFi"
     assert vault.name == "Gravity Team LTD"
     assert vault.denomination_token.symbol == "USDC"
+
+    # Check maxDeposit/maxRedeem with address(0)
+    max_deposit = vault.vault_contract.functions.maxDeposit(ZERO_ADDRESS_STR).call()
+    max_redeem = vault.vault_contract.functions.maxRedeem(ZERO_ADDRESS_STR).call()
+    assert max_deposit == 0
+    assert max_redeem == 0
+
+    # TrueFi doesn't support address(0) checks for maxDeposit/maxRedeem
+    assert vault.can_check_max_deposit_and_redeem() is False

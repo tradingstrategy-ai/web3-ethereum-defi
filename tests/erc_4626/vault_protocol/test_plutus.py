@@ -16,6 +16,7 @@ from eth_defi.erc_4626.vault_protocol.plutus.vault import PlutusHistoricalReader
 from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.erc_4626.vault_protocol.umami.vault import UmamiVault
+from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.vault.base import REDEMPTION_CLOSED_BY_ADMIN, VaultTechnicalRisk
 
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
@@ -101,8 +102,16 @@ def test_plutus(
 
     # At block 392_313_989: deposits open (maxDeposit > 0), redemptions closed (maxRedeem == 0)
     assert deposit_reason is None  # Deposits open
-    assert redemption_reason == REDEMPTION_CLOSED_BY_ADMIN
+    assert redemption_reason.startswith(REDEMPTION_CLOSED_BY_ADMIN)  # Includes diagnostic info
 
     # Plutus has no timing info (manually controlled)
     assert deposit_next is None
     assert redemption_next is None
+
+    # Check maxDeposit and maxRedeem with address(0)
+    # Plutus uses these as global availability checks
+    max_deposit = vault.vault_contract.functions.maxDeposit(ZERO_ADDRESS_STR).call()
+    max_redeem = vault.vault_contract.functions.maxRedeem(ZERO_ADDRESS_STR).call()
+    assert max_deposit > 0  # Deposits are open
+    assert max_redeem == 0  # Redemptions are closed
+    assert vault.can_check_max_deposit_and_redeem() is True

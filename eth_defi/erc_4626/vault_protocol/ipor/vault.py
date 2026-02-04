@@ -269,3 +269,11 @@ class IPORVault(ERC4626Vault):
     def fetch_redemption_next_open(self) -> datetime.datetime | None:
         """Withdrawal timing is unpredictable - utilisation-based."""
         return None
+
+    def can_check_max_deposit_and_redeem(self) -> bool:
+        """IPOR supports address(0) checks for global availability.
+
+        - maxDeposit(address(0)) returns 0 when deposits are closed due to utilisation
+        - maxRedeem(address(0)) returns 0 when redemptions are blocked
+        """
+        return True
