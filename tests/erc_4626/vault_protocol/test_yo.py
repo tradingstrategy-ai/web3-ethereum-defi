@@ -6,7 +6,6 @@ import flaky
 import pytest
 from web3 import Web3
 
-from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.yo.vault import YoVault
@@ -121,4 +120,6 @@ def test_yo_vault_base(web3_base: Web3):
     assert vault.get_link() == "https://www.yo.xyz/"
 
     # Yo doesn't support address(0) checks for maxDeposit/maxRedeem
+    # (contract returns empty data)
+    assert vault.can_check_deposit() is False
     assert vault.can_check_redeem() is False
