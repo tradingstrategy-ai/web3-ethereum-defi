@@ -8,7 +8,6 @@ import flaky
 import pytest
 from web3 import Web3
 
-from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature, get_vault_protocol_name
 from eth_defi.erc_4626.vault_protocol.yieldnest.vault import YNRWAX_VAULT_ADDRESS, YieldNestVault
@@ -73,11 +72,7 @@ def test_yieldnest_ynrwax(
     assert isinstance(lock_up, datetime.timedelta)
     assert lock_up.days > 0  # Should be positive until maturity date
 
-    # Check maxDeposit/maxRedeem with address(0)
-    max_deposit = vault.vault_contract.functions.maxDeposit(ZERO_ADDRESS_STR).call()
-    max_redeem = vault.vault_contract.functions.maxRedeem(ZERO_ADDRESS_STR).call()
-    assert max_deposit >= 0
-    assert max_redeem >= 0
-
     # YieldNest doesn't support address(0) checks for maxDeposit/maxRedeem
+    # (contract returns empty data)
+    assert vault.can_check_deposit() is False
     assert vault.can_check_redeem() is False

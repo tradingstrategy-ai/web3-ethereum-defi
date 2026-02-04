@@ -106,3 +106,10 @@ class YieldNestVault(ERC4626Vault):
             Link to YieldNest homepage as individual vault pages are not available
         """
         return "https://app.yieldnest.finance/"
+
+    def can_check_deposit(self) -> bool:
+        """YieldNest doesn't support address(0) checks for maxDeposit.
+
+        The contract returns empty data for maxDeposit(address(0)).
+        """
+        return False

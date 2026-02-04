@@ -14,8 +14,7 @@ from web3.contract import Contract
 
 from eth_defi.compat import WEB3_PY_V7
 from eth_defi.middleware import ProbablyNodeHasNoBlock
-from eth_defi.provider.broken_provider import \
-    get_safe_cached_latest_block_number
+from eth_defi.provider.broken_provider import get_safe_cached_latest_block_number
 from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.vault.flag import VaultFlag
 
@@ -28,25 +27,12 @@ else:
 from web3.types import BlockIdentifier
 
 from eth_defi.abi import ZERO_ADDRESS_STR
-from eth_defi.balances import (fetch_erc20_balances_fallback,
-                               fetch_erc20_balances_multicall)
-from eth_defi.erc_4626.core import (ERC4626Feature,
-                                    get_deployed_erc_4626_contract)
-from eth_defi.event_reader.conversion import (BadAddressError,
-                                              convert_int256_bytes_to_int,
-                                              convert_uint256_bytes_to_address)
-from eth_defi.event_reader.multicall_batcher import (BatchCallState,
-                                                     EncodedCall,
-                                                     EncodedCallResult)
-from eth_defi.token import (TokenDetails, fetch_erc20_details,
-                            is_stablecoin_like)
-from eth_defi.vault.base import (DEPOSIT_CLOSED_CAP_REACHED,
-                                 DEPOSIT_CLOSED_PAUSED,
-                                 REDEMPTION_CLOSED_INSUFFICIENT_LIQUIDITY,
-                                 REDEMPTION_CLOSED_PAUSED, TradingUniverse,
-                                 VaultBase, VaultFlowManager,
-                                 VaultHistoricalRead, VaultHistoricalReader,
-                                 VaultInfo, VaultPortfolio, VaultSpec)
+from eth_defi.balances import fetch_erc20_balances_fallback, fetch_erc20_balances_multicall
+from eth_defi.erc_4626.core import ERC4626Feature, get_deployed_erc_4626_contract
+from eth_defi.event_reader.conversion import BadAddressError, convert_int256_bytes_to_int, convert_uint256_bytes_to_address
+from eth_defi.event_reader.multicall_batcher import BatchCallState, EncodedCall, EncodedCallResult
+from eth_defi.token import TokenDetails, fetch_erc20_details, is_stablecoin_like
+from eth_defi.vault.base import DEPOSIT_CLOSED_CAP_REACHED, DEPOSIT_CLOSED_PAUSED, REDEMPTION_CLOSED_INSUFFICIENT_LIQUIDITY, REDEMPTION_CLOSED_PAUSED, TradingUniverse, VaultBase, VaultFlowManager, VaultHistoricalRead, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
 
 logger = logging.getLogger(__name__)
 

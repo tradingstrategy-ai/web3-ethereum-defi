@@ -3,15 +3,14 @@
 import os
 from pathlib import Path
 
+import flaky
 import pytest
 from web3 import Web3
-import flaky
 
-from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.yieldfi.vault import YieldFiVault
-from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch
+from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
@@ -60,13 +59,9 @@ def test_yieldfi(
     # Check link
     assert vault.get_link() == "https://yield.fi/"
 
-    # Check maxDeposit/maxRedeem with address(0)
-    max_deposit = vault.vault_contract.functions.maxDeposit(ZERO_ADDRESS_STR).call()
-    max_redeem = vault.vault_contract.functions.maxRedeem(ZERO_ADDRESS_STR).call()
-    assert max_deposit >= 0
-    assert max_redeem >= 0
-
     # YieldFi doesn't support address(0) checks for maxDeposit/maxRedeem
+    # (contract returns empty data)
+    assert vault.can_check_deposit() is False
     assert vault.can_check_redeem() is False
 
 
@@ -92,13 +87,9 @@ def test_yieldfi_yusd_ethereum(
     # Check link
     assert vault.get_link() == "https://yield.fi/"
 
-    # Check maxDeposit/maxRedeem with address(0)
-    max_deposit = vault.vault_contract.functions.maxDeposit(ZERO_ADDRESS_STR).call()
-    max_redeem = vault.vault_contract.functions.maxRedeem(ZERO_ADDRESS_STR).call()
-    assert max_deposit >= 0
-    assert max_redeem >= 0
-
     # YieldFi doesn't support address(0) checks for maxDeposit/maxRedeem
+    # (contract returns empty data)
+    assert vault.can_check_deposit() is False
     assert vault.can_check_redeem() is False
 
 
@@ -124,13 +115,9 @@ def test_yieldfi_yusd_ethereum_2(
     # Check link
     assert vault.get_link() == "https://yield.fi/"
 
-    # Check maxDeposit/maxRedeem with address(0)
-    max_deposit = vault.vault_contract.functions.maxDeposit(ZERO_ADDRESS_STR).call()
-    max_redeem = vault.vault_contract.functions.maxRedeem(ZERO_ADDRESS_STR).call()
-    assert max_deposit >= 0
-    assert max_redeem >= 0
-
     # YieldFi doesn't support address(0) checks for maxDeposit/maxRedeem
+    # (contract returns empty data)
+    assert vault.can_check_deposit() is False
     assert vault.can_check_redeem() is False
 
 
@@ -174,13 +161,9 @@ def test_yieldfi_arbitrum(
     # Check link
     assert vault.get_link() == "https://yield.fi/"
 
-    # Check maxDeposit/maxRedeem with address(0)
-    max_deposit = vault.vault_contract.functions.maxDeposit(ZERO_ADDRESS_STR).call()
-    max_redeem = vault.vault_contract.functions.maxRedeem(ZERO_ADDRESS_STR).call()
-    assert max_deposit >= 0
-    assert max_redeem >= 0
-
     # YieldFi doesn't support address(0) checks for maxDeposit/maxRedeem
+    # (contract returns empty data)
+    assert vault.can_check_deposit() is False
     assert vault.can_check_redeem() is False
 
 
@@ -224,11 +207,7 @@ def test_yieldfi_base(
     # Check link
     assert vault.get_link() == "https://yield.fi/"
 
-    # Check maxDeposit/maxRedeem with address(0)
-    max_deposit = vault.vault_contract.functions.maxDeposit(ZERO_ADDRESS_STR).call()
-    max_redeem = vault.vault_contract.functions.maxRedeem(ZERO_ADDRESS_STR).call()
-    assert max_deposit >= 0
-    assert max_redeem >= 0
-
     # YieldFi doesn't support address(0) checks for maxDeposit/maxRedeem
+    # (contract returns empty data)
+    assert vault.can_check_deposit() is False
     assert vault.can_check_redeem() is False
