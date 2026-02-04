@@ -14,17 +14,18 @@ Example output::
 
 """
 
+from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.classification import create_vault_instance, detect_vault_features
-from eth_defi.provider.env import get_json_rpc_env, read_json_rpc_url
+from eth_defi.provider.env import read_json_rpc_url
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.base import VaultSpec
 
 setup_console_logging(default_log_level="INFO")
 
-# HyPurr something something
-spec = VaultSpec.parse_string("999-0x8001e1e7b05990d22dd8cdb9737f9fe6589827ce")
+# Gearbox vault on Plasma (chain 9745)
+spec = VaultSpec.parse_string("9745-0x76309a9a56309104518847bba321c261b7b4a43f")
 
 json_rpc_url = read_json_rpc_url(spec.chain_id)
 web3 = create_multi_provider_web3(json_rpc_url)
@@ -49,4 +50,35 @@ print("Vault denominator:", vault.denomination_token)
 print("Vault share token:", vault.share_token)
 print("Share price:", share_price)
 print("TVL:", vault.fetch_nav())
+print("-" * 80)
+
+# Check deposit/redemption status
+print("\nDeposit/Redemption status:")
+
+# Raw ERC-4626 maxDeposit/maxRedeem values
+try:
+    max_deposit = vault.vault_contract.functions.maxDeposit(ZERO_ADDRESS_STR).call()
+    print(f"  maxDeposit(address(0)): {max_deposit}")
+except Exception as e:
+    print(f"  maxDeposit(address(0)): ERROR - {e}")
+
+try:
+    max_redeem = vault.vault_contract.functions.maxRedeem(ZERO_ADDRESS_STR).call()
+    print(f"  maxRedeem(address(0)): {max_redeem}")
+except Exception as e:
+    print(f"  maxRedeem(address(0)): ERROR - {e}")
+
+# Protocol-specific close reasons
+try:
+    deposit_closed = vault.fetch_deposit_closed_reason()
+    print(f"  Deposit closed reason: {deposit_closed or '-'}")
+except Exception as e:
+    print(f"  Deposit closed reason: ERROR - {e}")
+
+try:
+    redemption_closed = vault.fetch_redemption_closed_reason()
+    print(f"  Redemption closed reason: {redemption_closed or '-'}")
+except Exception as e:
+    print(f"  Redemption closed reason: ERROR - {e}")
+
 print("-" * 80)

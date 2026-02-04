@@ -1124,39 +1124,12 @@ class ERC4626Vault(VaultBase):
         """
         return None
 
-    def fetch_deposit_closed_reason(self) -> str | None:
-        """Check ERC-4626 maxDeposit to determine if deposits are closed."""
-        try:
-            max_deposit = self.vault_contract.functions.maxDeposit(ZERO_ADDRESS_STR).call()
-            if max_deposit == 0:
-                flags = self.get_flags()
-                if VaultFlag.paused in flags:
-                    return DEPOSIT_CLOSED_PAUSED
-                return DEPOSIT_CLOSED_CAP_REACHED
-        except Exception:
-            pass
-        return None
-
-    def fetch_redemption_closed_reason(self) -> str | None:
-        """Check ERC-4626 maxRedeem to determine if redemptions are closed."""
-        try:
-            max_redeem = self.vault_contract.functions.maxRedeem(ZERO_ADDRESS_STR).call()
-            if max_redeem == 0:
-                flags = self.get_flags()
-                if VaultFlag.paused in flags:
-                    return REDEMPTION_CLOSED_PAUSED
-                return REDEMPTION_CLOSED_INSUFFICIENT_LIQUIDITY
-        except Exception:
-            pass
-        return None
-
-    def fetch_deposit_next_open(self) -> datetime.datetime | None:
-        """Generic ERC-4626 - no timing information available."""
-        return None
-
-    def fetch_redemption_next_open(self) -> datetime.datetime | None:
-        """Generic ERC-4626 - no timing information available."""
-        return None
+    # Note: fetch_deposit_closed_reason() and fetch_redemption_closed_reason()
+    # are NOT implemented at the ERC4626Vault level because maxDeposit(address(0))
+    # and maxRedeem(address(0)) behaviour varies by protocol:
+    # - Some protocols (Morpho, IPOR) return 0 when globally closed
+    # - Some protocols (Gearbox) return 0 because address(0) has no balance
+    # Each protocol must implement these methods explicitly if supported.
 
     def get_flags(self) -> set[VaultFlag]:
         flags = super().get_flags()

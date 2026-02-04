@@ -418,7 +418,7 @@ class GainsVault(ERC4626Vault):
         try:
             max_deposit = self.vault_contract.functions.maxDeposit(ZERO_ADDRESS_STR).call()
             if max_deposit == 0:
-                return DEPOSIT_CLOSED_CAP_REACHED
+                return f"{DEPOSIT_CLOSED_CAP_REACHED} (maxDeposit=0)"
         except Exception:
             pass
         return None
