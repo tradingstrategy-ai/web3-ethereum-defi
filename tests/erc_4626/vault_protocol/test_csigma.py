@@ -61,7 +61,7 @@ def test_csigma(
 
     # cSigma doesn't implement standard maxDeposit/maxRedeem (returns empty data)
     # so we cannot use address(0) checks for this vault
-    assert vault.can_check_max_deposit_and_redeem() is False
+    assert vault.can_check_redeem() is False
 
 
 @flaky.flaky
@@ -89,7 +89,7 @@ def test_csigma_v2_pool(
     assert vault.get_link() == "https://edge.csigma.finance/"
 
     # cSigma doesn't implement standard maxDeposit/maxRedeem (returns empty data)
-    assert vault.can_check_max_deposit_and_redeem() is False
+    assert vault.can_check_redeem() is False
 
 
 @flaky.flaky
@@ -117,4 +117,4 @@ def test_csigma_supqpv(
     assert vault.get_link() == "https://edge.csigma.finance/"
 
     # cSigma doesn't implement standard maxDeposit/maxRedeem (returns empty data)
-    assert vault.can_check_max_deposit_and_redeem() is False
+    assert vault.can_check_redeem() is False

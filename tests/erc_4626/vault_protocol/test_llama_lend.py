@@ -66,4 +66,4 @@ def test_llama_lend(
     assert max_redeem >= 0
 
     # Llama Lend doesn't support address(0) checks for maxDeposit/maxRedeem
-    assert vault.can_check_max_deposit_and_redeem() is False
+    assert vault.can_check_redeem() is False

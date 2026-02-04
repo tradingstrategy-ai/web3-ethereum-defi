@@ -86,7 +86,7 @@ def test_gearbox_hyperithm_usdt0(
     max_redeem = vault.vault_contract.functions.maxRedeem(ZERO_ADDRESS_STR).call()
     assert max_deposit > 0  # Deposits are open (returns large value)
     assert max_redeem == 0  # Always 0 for address(0) due to balance check
-    assert vault.can_check_max_deposit_and_redeem() is False
+    assert vault.can_check_redeem() is False
 
 
 @flaky.flaky
@@ -126,4 +126,4 @@ def test_gearbox_poolv3_gho(
     max_redeem = vault.vault_contract.functions.maxRedeem(ZERO_ADDRESS_STR).call()
     assert max_deposit > 0  # Deposits are open
     assert max_redeem == 0  # Always 0 for address(0)
-    assert vault.can_check_max_deposit_and_redeem() is False
+    assert vault.can_check_redeem() is False

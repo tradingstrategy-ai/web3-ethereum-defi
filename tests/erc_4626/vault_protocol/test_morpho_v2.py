@@ -105,4 +105,4 @@ def test_morpho_v2_vault(
     assert max_redeem >= 0
 
     # Morpho V2 supports address(0) checks for global deposit/redemption availability
-    assert vault.can_check_max_deposit_and_redeem() is True
+    assert vault.can_check_redeem() is True

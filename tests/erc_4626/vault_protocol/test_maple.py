@@ -72,7 +72,7 @@ def test_maple_syrup_usdc(
     assert max_redeem == 0
 
     # Maple doesn't support address(0) checks for maxDeposit/maxRedeem
-    assert vault.can_check_max_deposit_and_redeem() is False
+    assert vault.can_check_redeem() is False
 
 
 @flaky.flaky
@@ -101,7 +101,7 @@ def test_maple_syrup_usdt(
     assert max_redeem == 0
 
     # Maple doesn't support address(0) checks for maxDeposit/maxRedeem
-    assert vault.can_check_max_deposit_and_redeem() is False
+    assert vault.can_check_redeem() is False
 
 
 @flaky.flaky
@@ -141,4 +141,4 @@ def test_maple_aqru_pool(
     assert max_redeem == 0
 
     # Maple doesn't support address(0) checks for maxDeposit/maxRedeem
-    assert vault.can_check_max_deposit_and_redeem() is False
+    assert vault.can_check_redeem() is False

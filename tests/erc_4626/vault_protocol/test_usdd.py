@@ -70,7 +70,7 @@ def test_usdd_susdd_ethereum(
     assert max_redeem >= 0
 
     # USDD doesn't support address(0) checks for maxDeposit/maxRedeem
-    assert vault.can_check_max_deposit_and_redeem() is False
+    assert vault.can_check_redeem() is False
 
 
 @flaky.flaky
@@ -107,4 +107,4 @@ def test_usdd_savings_usdd_ethereum(
     assert max_redeem >= 0
 
     # USDD doesn't support address(0) checks for maxDeposit/maxRedeem
-    assert vault.can_check_max_deposit_and_redeem() is False
+    assert vault.can_check_redeem() is False

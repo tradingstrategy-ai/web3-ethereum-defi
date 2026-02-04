@@ -65,7 +65,7 @@ def test_sky_stusds(
 
     # stUSDS doesn't implement standard maxDeposit/maxRedeem (returns empty data)
     # so we cannot use address(0) checks for this vault
-    assert vault.can_check_max_deposit_and_redeem() is False
+    assert vault.can_check_redeem() is False
 
 
 @flaky.flaky
@@ -100,7 +100,7 @@ def test_sky_susds(
     max_redeem = vault.vault_contract.functions.maxRedeem(ZERO_ADDRESS_STR).call()
     assert max_deposit >= 0
     assert max_redeem >= 0
-    assert vault.can_check_max_deposit_and_redeem() is False
+    assert vault.can_check_redeem() is False
 
 
 @flaky.flaky
@@ -135,4 +135,4 @@ def test_sky_sdai(
     max_redeem = vault.vault_contract.functions.maxRedeem(ZERO_ADDRESS_STR).call()
     assert max_deposit >= 0
     assert max_redeem >= 0
-    assert vault.can_check_max_deposit_and_redeem() is False
+    assert vault.can_check_redeem() is False

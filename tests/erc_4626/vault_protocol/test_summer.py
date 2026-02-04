@@ -64,4 +64,4 @@ def test_summer(
     assert max_redeem == 0
 
     # Summer.fi doesn't support address(0) checks for maxDeposit/maxRedeem
-    assert vault.can_check_max_deposit_and_redeem() is False
+    assert vault.can_check_redeem() is False

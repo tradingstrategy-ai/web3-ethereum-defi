@@ -67,7 +67,7 @@ def test_mainstreet_legacy_smsUSD(
     assert max_redeem >= 0
 
     # Mainstreet doesn't support address(0) checks for maxDeposit/maxRedeem
-    assert vault.can_check_max_deposit_and_redeem() is False
+    assert vault.can_check_redeem() is False
 
 
 @pytest.fixture(scope="module")
@@ -126,4 +126,4 @@ def test_mainstreet_staked_msusd_ethereum(
     assert max_redeem >= 0
 
     # Mainstreet doesn't support address(0) checks for maxDeposit/maxRedeem
-    assert vault.can_check_max_deposit_and_redeem() is False
+    assert vault.can_check_redeem() is False

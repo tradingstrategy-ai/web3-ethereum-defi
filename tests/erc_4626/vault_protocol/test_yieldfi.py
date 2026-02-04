@@ -67,7 +67,7 @@ def test_yieldfi(
     assert max_redeem >= 0
 
     # YieldFi doesn't support address(0) checks for maxDeposit/maxRedeem
-    assert vault.can_check_max_deposit_and_redeem() is False
+    assert vault.can_check_redeem() is False
 
 
 @flaky.flaky
@@ -99,7 +99,7 @@ def test_yieldfi_yusd_ethereum(
     assert max_redeem >= 0
 
     # YieldFi doesn't support address(0) checks for maxDeposit/maxRedeem
-    assert vault.can_check_max_deposit_and_redeem() is False
+    assert vault.can_check_redeem() is False
 
 
 @flaky.flaky
@@ -131,7 +131,7 @@ def test_yieldfi_yusd_ethereum_2(
     assert max_redeem >= 0
 
     # YieldFi doesn't support address(0) checks for maxDeposit/maxRedeem
-    assert vault.can_check_max_deposit_and_redeem() is False
+    assert vault.can_check_redeem() is False
 
 
 @pytest.fixture(scope="module")
@@ -181,7 +181,7 @@ def test_yieldfi_arbitrum(
     assert max_redeem >= 0
 
     # YieldFi doesn't support address(0) checks for maxDeposit/maxRedeem
-    assert vault.can_check_max_deposit_and_redeem() is False
+    assert vault.can_check_redeem() is False
 
 
 @pytest.fixture(scope="module")
@@ -231,4 +231,4 @@ def test_yieldfi_base(
     assert max_redeem >= 0
 
     # YieldFi doesn't support address(0) checks for maxDeposit/maxRedeem
-    assert vault.can_check_max_deposit_and_redeem() is False
+    assert vault.can_check_redeem() is False

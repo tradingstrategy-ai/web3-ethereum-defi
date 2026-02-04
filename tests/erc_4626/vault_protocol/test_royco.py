@@ -78,4 +78,4 @@ def test_zerolend_royco_vault(
     assert max_redeem == 0
 
     # ZeroLend/Royco doesn't support address(0) checks for maxDeposit/maxRedeem
-    assert vault.can_check_max_deposit_and_redeem() is False
+    assert vault.can_check_redeem() is False

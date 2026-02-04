@@ -55,4 +55,4 @@ def test_deltr(
 
     # Deltr doesn't implement standard maxDeposit/maxRedeem (returns empty data)
     # so we cannot use address(0) checks for this vault
-    assert vault.can_check_max_deposit_and_redeem() is False
+    assert vault.can_check_redeem() is False

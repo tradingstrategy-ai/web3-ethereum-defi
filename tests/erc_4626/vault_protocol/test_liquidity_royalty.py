@@ -75,4 +75,4 @@ def test_liquidity_royalty_junior_vault(
     assert max_redeem >= 0
 
     # Liquidity Royalty doesn't support address(0) checks for maxDeposit/maxRedeem
-    assert vault.can_check_max_deposit_and_redeem() is False
+    assert vault.can_check_redeem() is False

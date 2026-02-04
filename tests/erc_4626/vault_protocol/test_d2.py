@@ -121,4 +121,4 @@ def test_d2(
     max_redeem = vault.vault_contract.functions.maxRedeem(ZERO_ADDRESS_STR).call()
     assert max_deposit == 0  # Deposits closed during trading epoch
     assert max_redeem == 0  # Redemptions closed during trading epoch
-    assert vault.can_check_max_deposit_and_redeem() is False
+    assert vault.can_check_redeem() is False

@@ -72,7 +72,7 @@ def test_spectra_usdn_wrapper_vault(web3_ethereum: Web3):
     assert vault.get_link() == "https://app.spectra.finance"
 
     # Spectra doesn't support address(0) checks for maxDeposit/maxRedeem
-    assert vault.can_check_max_deposit_and_redeem() is False
+    assert vault.can_check_redeem() is False
 
 
 @flaky.flaky
@@ -99,4 +99,4 @@ def test_spectra_erc4626_wrapper_vault_monad(web3_monad: Web3):
     assert vault.get_link() == "https://app.spectra.finance"
 
     # Spectra doesn't support address(0) checks for maxDeposit/maxRedeem
-    assert vault.can_check_max_deposit_and_redeem() is False
+    assert vault.can_check_redeem() is False

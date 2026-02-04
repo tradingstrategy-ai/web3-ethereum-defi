@@ -64,4 +64,4 @@ def test_autopool(
     max_redeem = vault.vault_contract.functions.maxRedeem(ZERO_ADDRESS_STR).call()
     assert max_deposit >= 0
     assert max_redeem >= 0
-    assert vault.can_check_max_deposit_and_redeem() is False
+    assert vault.can_check_redeem() is False

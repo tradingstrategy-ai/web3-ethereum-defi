@@ -84,4 +84,4 @@ def test_euler_earn(
     assert max_redeem == 0
 
     # EulerEarn doesn't support address(0) checks for maxDeposit/maxRedeem
-    assert vault.can_check_max_deposit_and_redeem() is False
+    assert vault.can_check_redeem() is False

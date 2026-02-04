@@ -74,7 +74,7 @@ def test_accountable_susn_vault(
     assert max_redeem >= 0
 
     # Accountable doesn't support address(0) checks for maxDeposit/maxRedeem
-    assert vault.can_check_max_deposit_and_redeem() is False
+    assert vault.can_check_redeem() is False
 
 
 @flaky.flaky
@@ -104,7 +104,7 @@ def test_accountable_yuzu_vault(
     assert max_redeem >= 0
 
     # Accountable doesn't support address(0) checks for maxDeposit/maxRedeem
-    assert vault.can_check_max_deposit_and_redeem() is False
+    assert vault.can_check_redeem() is False
 
 
 @flaky.flaky
@@ -134,7 +134,7 @@ def test_accountable_asia_credit_vault(
     assert max_redeem >= 0
 
     # Accountable doesn't support address(0) checks for maxDeposit/maxRedeem
-    assert vault.can_check_max_deposit_and_redeem() is False
+    assert vault.can_check_redeem() is False
 
 
 @flaky.flaky
@@ -166,4 +166,4 @@ def test_accountable_aegis_vault(
     assert max_redeem >= 0
 
     # Accountable doesn't support address(0) checks for maxDeposit/maxRedeem
-    assert vault.can_check_max_deposit_and_redeem() is False
+    assert vault.can_check_redeem() is False

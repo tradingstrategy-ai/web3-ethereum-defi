@@ -87,7 +87,7 @@ def test_yo_vault_ethereum(web3_ethereum: Web3):
     assert max_redeem >= 0
 
     # Yo doesn't support address(0) checks for maxDeposit/maxRedeem
-    assert vault.can_check_max_deposit_and_redeem() is False
+    assert vault.can_check_redeem() is False
 
 
 @flaky.flaky
@@ -131,4 +131,4 @@ def test_yo_vault_base(web3_base: Web3):
     assert max_redeem >= 0
 
     # Yo doesn't support address(0) checks for maxDeposit/maxRedeem
-    assert vault.can_check_max_deposit_and_redeem() is False
+    assert vault.can_check_redeem() is False

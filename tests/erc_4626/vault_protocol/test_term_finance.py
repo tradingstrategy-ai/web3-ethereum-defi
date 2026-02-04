@@ -70,4 +70,4 @@ def test_term_finance_vault(
     assert max_redeem >= 0
 
     # Term Finance doesn't support address(0) checks for maxDeposit/maxRedeem
-    assert vault.can_check_max_deposit_and_redeem() is False
+    assert vault.can_check_redeem() is False
