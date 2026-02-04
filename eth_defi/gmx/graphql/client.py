@@ -22,7 +22,7 @@ from eth_utils import is_address, to_checksum_address
 logger = logging.getLogger(__name__)
 
 from eth_defi.gmx.constants import GMX_MIN_DISPLAY_STAKE
-from eth_defi.gmx.contracts import GMX_SUBSQUID_ENDPOINTS, get_tokens_metadata_dict
+from eth_defi.gmx.contracts import GMX_SUBSQUID_ENDPOINTS, GMX_SUBSQUID_ENDPOINTS_BACKUP, get_tokens_metadata_dict
 
 # Thresholds from GMX interface (in USD, 30 decimals)
 # Just Random values ChatGPT gave
@@ -86,8 +86,10 @@ class GMXSubsquidClient:
 
         if custom_endpoint:
             self.endpoint = custom_endpoint
+            self.endpoint_backup = None
         elif self.chain in GMX_SUBSQUID_ENDPOINTS:
             self.endpoint = GMX_SUBSQUID_ENDPOINTS[self.chain]
+            self.endpoint_backup = GMX_SUBSQUID_ENDPOINTS_BACKUP.get(self.chain)
         else:
             raise ValueError(
                 f"Unsupported chain: {chain}. Supported chains: {', '.join(GMX_SUBSQUID_ENDPOINTS.keys())}",
@@ -123,30 +125,53 @@ class GMXSubsquidClient:
         variables: Optional[dict[str, Any]] = None,
         timeout: int = 60,
     ) -> dict[str, Any]:
-        """Execute a GraphQL query.
+        """Execute a GraphQL query with automatic failover to backup endpoint.
 
         :param query: GraphQL query string
         :param variables: Optional query variables
         :param timeout: Request timeout in seconds (default 60)
         :return: Query response data
-        :raises requests.HTTPError: If the request fails
+        :raises requests.HTTPError: If the request fails on all endpoints
         :raises ValueError: If GraphQL returns errors
         """
-        response = self._session.post(
-            self.endpoint,
-            json={"query": query, "variables": variables or {}},
-            headers={"Content-Type": "application/json"},
-            timeout=timeout,
-        )
-        response.raise_for_status()
+        endpoints_to_try = [self.endpoint]
+        if self.endpoint_backup:
+            endpoints_to_try.append(self.endpoint_backup)
 
-        data = response.json()
+        last_error = None
+        for endpoint in endpoints_to_try:
+            try:
+                response = self._session.post(
+                    endpoint,
+                    json={"query": query, "variables": variables or {}},
+                    headers={"Content-Type": "application/json"},
+                    timeout=timeout,
+                )
+                response.raise_for_status()
 
-        if "errors" in data:
-            errors = ", ".join(err["message"] for err in data["errors"])
-            raise ValueError(f"GraphQL query failed: {errors}")
+                data = response.json()
 
-        return data.get("data", {})
+                if "errors" in data:
+                    errors = ", ".join(err["message"] for err in data["errors"])
+                    raise ValueError(f"GraphQL query failed: {errors}")
+
+                # Log if we used backup endpoint
+                if endpoint != self.endpoint:
+                    logger.info("Successfully used backup Subsquid endpoint")
+
+                return data.get("data", {})
+
+            except (requests.RequestException, requests.Timeout) as e:
+                last_error = e
+                logger.warning(
+                    "Subsquid query failed on %s: %s",
+                    endpoint.split("/")[2],  # Extract domain
+                    e,
+                )
+                continue
+
+        # All endpoints failed
+        raise last_error
 
     def _query_with_retry(
         self,
@@ -959,12 +984,15 @@ class GMXSubsquidClient:
     ) -> Optional[dict[str, Any]]:
         """Query for order execution status via Subsquid.
 
-        Polls Subsquid until the trade action appears or timeout.
-        Much faster than on-chain polling (typically < 5 seconds).
+        Polls Subsquid until the order status appears or timeout.
+        Much faster than on-chain polling (typically < 1 second).
 
         This uses a two-query approach for better reliability:
-        1. First tries positionChanges (faster, has tx hash in id field)
-        2. Falls back to tradeActions (more complete data)
+        1. First tries positionChanges (fast, for executed position changes)
+        2. Falls back to orderById (fast and reliable for all order statuses)
+
+        Note: The tradeActions query was removed due to reliability issues
+        (frequent 504 Gateway Timeout errors when filtering by orderKey).
 
         :param order_key: Order key (hex string with 0x prefix)
         :param timeout_seconds: Max time to wait for indexer (default 30s)
@@ -1009,35 +1037,25 @@ class GMXSubsquidClient:
         }
         """
 
-        # Query 2: tradeActions (more complete, has transaction object)
-        query_trade_actions = """
-        query GetTradeAction($orderKey: String!) {
-          tradeActions(
-            where: { orderKey_eq: $orderKey }
-            limit: 1
-            orderBy: timestamp_DESC
-          ) {
-            eventName
-            executionPrice
-            sizeDeltaUsd
-            pnlUsd
-            reason
-            reasonBytes
-            orderKey
+        # Query 2: orderById (fast and reliable for all order statuses)
+        # Note: tradeActions query was removed due to frequent 504 timeouts
+        query_order_by_id = """
+        query GetOrderById($id: String!) {
+          orderById(id: $id) {
+            id
+            status
             orderType
             isLong
-            timestamp
+            sizeDeltaUsd
             acceptablePrice
             triggerPrice
-            priceImpactUsd
-            proportionalPendingImpactUsd
-            positionFeeAmount
-            borrowingFeeAmount
-            fundingFeeAmount
-            transaction {
-              hash
-              timestamp
-            }
+            cancelledReason
+            cancelledReasonBytes
+            frozenReason
+            frozenReasonBytes
+            createdTxn { hash timestamp }
+            cancelledTxn { hash timestamp }
+            executedTxn { hash timestamp }
           }
         }
         """
@@ -1094,27 +1112,63 @@ class GMXSubsquidClient:
                 # Reset failure counter on successful query
                 consecutive_failures = 0
 
-                # If positionChanges didn't return data, try tradeActions
+                # If positionChanges didn't return data, try orderById
                 logger.debug("=" * 70)
-                logger.debug("positionChanges returned no data, trying tradeActions")
+                logger.debug("positionChanges returned no data, trying orderById")
                 logger.debug("=" * 70)
-                logger.debug("Query: %s", query_trade_actions)
-                logger.debug("Variables: orderKey=%s", order_key)
+                logger.debug("Query: %s", query_order_by_id)
+                logger.debug("Variables: id=%s", order_key)
                 logger.debug("=" * 70)
 
                 try:
-                    data = self._query(query_trade_actions, variables={"orderKey": order_key}, timeout=60)
-                    actions = data.get("tradeActions", [])
+                    data = self._query(query_order_by_id, variables={"id": order_key}, timeout=30)
+                    order = data.get("orderById")
 
-                    logger.debug("tradeActions response: %s", json.dumps({"tradeActions": actions}, indent=2, default=str))
+                    logger.debug("orderById response: %s", json.dumps({"orderById": order}, indent=2, default=str))
                     logger.debug("=" * 70)
 
-                    if actions:
-                        logger.debug("Returning result from tradeActions: %s", json.dumps(actions[0], indent=2, default=str))
+                    if order:
+                        # Convert order status to eventName format
+                        status = order.get("status", "").lower()
+                        if status == "executed":
+                            event_name = "OrderExecuted"
+                            txn = order.get("executedTxn") or {}
+                        elif status == "cancelled":
+                            event_name = "OrderCancelled"
+                            txn = order.get("cancelledTxn") or {}
+                        elif status == "frozen":
+                            event_name = "OrderFrozen"
+                            txn = order.get("createdTxn") or {}
+                        elif status == "created":
+                            # Order still pending - don't return yet
+                            logger.debug("Order is still in Created status, continuing to poll")
+                            time.sleep(poll_interval)
+                            continue
+                        else:
+                            event_name = f"Order{status.title()}"
+                            txn = order.get("createdTxn") or {}
+
+                        result = {
+                            "eventName": event_name,
+                            "orderKey": order.get("id"),
+                            "orderType": order.get("orderType"),
+                            "isLong": order.get("isLong"),
+                            "sizeDeltaUsd": str(order.get("sizeDeltaUsd") or 0),
+                            "acceptablePrice": str(order.get("acceptablePrice") or 0),
+                            "triggerPrice": str(order.get("triggerPrice") or 0),
+                            "reason": order.get("cancelledReason") or order.get("frozenReason") or "",
+                            "reasonBytes": order.get("cancelledReasonBytes") or order.get("frozenReasonBytes") or "",
+                            "timestamp": txn.get("timestamp"),
+                            "transaction": {
+                                "hash": txn.get("hash"),
+                                "timestamp": txn.get("timestamp"),
+                            },
+                        }
+                        logger.debug("Returning result from orderById: %s", json.dumps(result, indent=2, default=str))
                         logger.debug("=" * 70)
-                        return actions[0]
+                        return result
                 except Exception as e:
-                    logger.debug("tradeActions query failed: %s", e)
+                    logger.debug("orderById query failed: %s", e)
                     logger.debug("=" * 70)
                     pass  # Continue polling
 

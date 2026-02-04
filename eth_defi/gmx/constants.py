@@ -48,9 +48,9 @@ Note:
     https://gmx-docs.io/docs/api/rest-v2
 """
 
+import json
 from enum import IntEnum
 from pathlib import Path
-import json
 
 # TODO: Older code needs to be cleaned
 
@@ -94,6 +94,35 @@ GMX_API_URLS_BACKUP: dict = {
     # :var avalanche: Backup API endpoint for Avalanche network operations
     "arbitrum": "https://arbitrum-api.gmxinfra2.io",
     "avalanche": "https://avalanche-api.gmxinfra2.io",
+    "arbitrum_sepolia": "https://dolphin-app-a2dup.ondigitalocean.app",
+}
+
+GMX_API_URLS_FALLBACK: dict = {
+    #: Fallback API endpoint URLs for GMX protocol services by blockchain network.
+    #:
+    #: These fallback endpoints provide a third level of redundancy when both
+    #: primary and backup endpoints are unavailable. Used as last resort before
+    #: raising an error.
+    #:
+    #: :type: dict[str, str]
+    #: :var arbitrum: Fallback API endpoint for Arbitrum network operations
+    #: :var avalanche: Fallback API endpoint for Avalanche network operations
+    "arbitrum": "https://arbitrum-api-fallback.gmxinfra.io",
+    "avalanche": "https://avalanche-api-fallback.gmxinfra.io",
+    "arbitrum_sepolia": "https://dolphin-app-a2dup.ondigitalocean.app",
+}
+
+GMX_API_URLS_FALLBACK_2: dict = {
+    #: Second fallback API endpoint URLs for GMX protocol services by blockchain network.
+    #:
+    #: These endpoints provide a fourth level of redundancy as a last resort
+    #: when primary, backup, and first fallback endpoints are all unavailable.
+    #:
+    #: :type: dict[str, str]
+    #: :var arbitrum: Second fallback API endpoint for Arbitrum network operations
+    #: :var avalanche: Second fallback API endpoint for Avalanche network operations
+    "arbitrum": "https://arbitrum-api-fallback.gmxinfra2.io",
+    "avalanche": "https://avalanche-api-fallback.gmxinfra2.io",
     "arbitrum_sepolia": "https://dolphin-app-a2dup.ondigitalocean.app",
 }
 
@@ -332,3 +361,17 @@ DISK_CACHE_APY_TTL_SECONDS = 300  # 5 minutes
 
 #: Default cache directory for market data
 DEFAULT_MARKET_CACHE_DIR = "~/.cache/web3-ethereum-defi/gmx"
+
+#: Subsquid retry configuration for order tracking
+SUBSQUID_ORDER_TRACKING_TIMEOUT = 10  # Increased from 5
+SUBSQUID_ORDER_TRACKING_MAX_RETRIES = 5  # Increased from 3
+SUBSQUID_ORDER_TRACKING_INITIAL_DELAY = 2.0  # Increased from 1.0
+SUBSQUID_ORDER_TRACKING_MAX_DELAY = 30.0
+SUBSQUID_ORDER_TRACKING_BACKOFF_MULTIPLIER = 2.0
+
+#: GMX API retry configuration
+GMX_API_MAX_RETRIES = 3  # Per endpoint (primary + backup)
+GMX_API_INITIAL_DELAY = 2.0
+GMX_API_MAX_DELAY = 30.0
+GMX_API_BACKOFF_MULTIPLIER = 2.0
+GMX_API_FULL_CYCLE_RETRIES = 2  # Full cycles through primary+backup
