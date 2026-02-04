@@ -369,10 +369,11 @@ def scan_chain(config: ChainConfig, scan_prices: bool, max_workers: int, frequen
     return result
 
 
-def print_dashboard(results: dict[str, ChainResult]) -> None:
+def print_dashboard(results: dict[str, ChainResult], display_order: list[str] | None = None) -> None:
     """Print console dashboard showing scan progress.
 
     :param results: Dictionary mapping chain name to result
+    :param display_order: Optional list of chain names specifying display order
     """
     # Clear screen (simple approach)
     print("\n" * 3)
@@ -383,7 +384,13 @@ def print_dashboard(results: dict[str, ChainResult]) -> None:
     print(f"{'Chain':<15} {'Status':<10} {'Vaults':<8} {'New':<6} {'Blocks':<22} {'Duration':<10} {'Retry':<5}")
     print("-" * 100)
 
-    for result in results.values():
+    # Use display_order if provided, otherwise use dict order
+    if display_order:
+        ordered_results = [results[name] for name in display_order if name in results]
+    else:
+        ordered_results = list(results.values())
+
+    for result in ordered_results:
         # Format fields
         status = result.status
         vaults = f"{result.vault_count:,}" if result.vault_count is not None else "-"
@@ -537,8 +544,11 @@ def main():
     for chain in skipped_by_order:
         results[chain.name] = ChainResult(name=chain.name, status="skipped", error="Not in CHAIN_ORDER")
 
+    # Build display order: chains to scan first (in CHAIN_ORDER), then skipped chains
+    display_order = [c.name for c in chains] + [c.name for c in skipped_by_order]
+
     # Display initial dashboard
-    print_dashboard(results)
+    print_dashboard(results, display_order)
 
     # First pass - scan all chains
     logger.info("First pass: scanning %d chains", len(chains))
@@ -562,7 +572,7 @@ def main():
         elif r.status == "skipped":
             logger.warning("%s: SKIPPED - %s", chain.name, r.error)
 
-        print_dashboard(results)
+        print_dashboard(results, display_order)
 
     # Retry passes - retry failed chains
     for attempt in range(1, retry_count + 1):
@@ -592,7 +602,7 @@ def main():
             else:
                 logger.error("%s (retry %d): FAILED - %s", chain.name, attempt, result.error)
 
-            print_dashboard(results)
+            print_dashboard(results, display_order)
 
     # Post-processing
     if skip_post_processing:
@@ -628,7 +638,7 @@ def main():
     logger.info("Scan complete at %s", datetime.datetime.utcnow().isoformat())
 
     # Print final dashboard
-    print_dashboard(results)
+    print_dashboard(results, display_order)
 
     # Exit with appropriate code
     if failed_count > 0:
