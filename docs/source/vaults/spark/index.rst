@@ -18,6 +18,10 @@ Key features:
 - Instant deposits and withdrawals (subject to PSM liquidity)
 - Fully backed by sUSDS (savings USDS)
 
+Links
+~~~~~
+
+- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/spark>`__
 - `Homepage <https://spark.fi/>`__
 - `Savings page <https://app.spark.fi/savings/mainnet/spusdc>`__
 - `Documentation <https://docs.spark.fi/>`__

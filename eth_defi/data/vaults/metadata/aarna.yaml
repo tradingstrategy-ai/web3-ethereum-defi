@@ -30,7 +30,7 @@ links:
   defillama:
   audits: https://skynet.certik.com/projects/aarna-protocol
   fees:
-  trading_strategy:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/aarna
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/aarna/index.html
 example_smart_contracts:
   - https://etherscan.io/address/0xb9c1344105faa4681bc7ffd68c5c526da61f2ae8

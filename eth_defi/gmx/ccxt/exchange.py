@@ -68,10 +68,129 @@ from eth_defi.gmx.order_tracking import check_order_status
 from eth_defi.gmx.trading import GMXTrading
 from eth_defi.gmx.utils import calculate_estimated_liquidation_price, convert_raw_price_to_usd
 from eth_defi.hotwallet import HotWallet
+from eth_defi.provider.fallback import get_fallback_provider
+from eth_defi.provider.log_block_range import get_logs_max_block_range
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import fetch_erc20_details
 
 logger = logging.getLogger(__name__)
+
+
+def _scan_logs_chunked_for_trade_action(
+    web3,
+    event_emitter: str,
+    order_key: bytes,
+    order_key_hex: str,
+    from_block: int,
+    to_block: int,
+) -> dict | None:
+    """Scan EventEmitter logs in chunks for order execution event.
+
+    Uses chunked queries to avoid RPC timeouts on large block ranges.
+
+    :param web3:
+        Web3 instance
+    :param event_emitter:
+        EventEmitter contract address
+    :param order_key:
+        The 32-byte order key to search for
+    :param order_key_hex:
+        The order key as hex string (with 0x prefix)
+    :param from_block:
+        Start block for scanning
+    :param to_block:
+        End block for scanning
+    :return:
+        trade_action dict if found, None otherwise
+    """
+    chunk_size = get_logs_max_block_range(web3)
+    total_blocks = to_block - from_block + 1
+
+    if total_blocks <= 0:
+        return None
+
+    logger.debug(
+        "Scanning %d blocks for order %s in chunks of %d",
+        total_blocks,
+        order_key_hex[:18],
+        chunk_size,
+    )
+
+    for chunk_start in range(from_block, to_block + 1, chunk_size):
+        chunk_end = min(chunk_start + chunk_size - 1, to_block)
+
+        logger.debug(
+            "Scanning blocks %d-%d for order %s",
+            chunk_start,
+            chunk_end,
+            order_key_hex[:18],
+        )
+
+        try:
+            logs = web3.eth.get_logs(
+                {
+                    "address": event_emitter,
+                    "fromBlock": chunk_start,
+                    "toBlock": chunk_end,
+                }
+            )
+
+            for log in logs:
+                try:
+                    event = decode_gmx_event(web3, log)
+                    if not event:
+                        continue
+
+                    if event.event_name not in ("OrderExecuted", "OrderCancelled", "OrderFrozen"):
+                        continue
+
+                    # Check if this event matches our order_key
+                    event_order_key = event.topic1 or event.get_bytes32("key")
+                    if event_order_key != order_key:
+                        continue
+
+                    # Found our order's execution event
+                    logger.debug(
+                        "Found %s event for order %s in block %d via chunked scan",
+                        event.event_name,
+                        order_key_hex[:18],
+                        log["blockNumber"],
+                    )
+
+                    # Build trade_action dict from event
+                    trade_action = {
+                        "eventName": event.event_name,
+                        "orderKey": order_key_hex,
+                        "isLong": event.get_bool("isLong"),
+                        "reason": event.get_string("reasonBytes") if event.event_name == "OrderCancelled" else None,
+                        "transaction": {
+                            "hash": log["transactionHash"].hex() if isinstance(log["transactionHash"], bytes) else log["transactionHash"],
+                        },
+                    }
+
+                    # Get execution price if available
+                    if event.event_name == "OrderExecuted":
+                        exec_price = event.get_uint("executionPrice")
+                        if exec_price:
+                            trade_action["executionPrice"] = str(exec_price)
+
+                    return trade_action
+
+                except Exception as e:
+                    logger.debug("Error decoding log: %s", e)
+                    continue
+
+        except Exception as e:
+            logger.warning(
+                "Error scanning blocks %d-%d for order %s: %s",
+                chunk_start,
+                chunk_end,
+                order_key_hex[:18],
+                e,
+            )
+            # Continue to next chunk - partial failure is acceptable
+
+    return None
 
 
 class GMX(ExchangeCompatible):
@@ -180,6 +299,7 @@ class GMX(ExchangeCompatible):
                     "subsquidEndpoint": "...",  # Optional
                     "wallet": wallet_object,  # Optional - alternative to privateKey
                     "verbose": True,  # Optional - enable debug logging
+                    "requireMultipleProviders": True,  # Optional - enforce fallback support
                 }
             )
 
@@ -254,6 +374,7 @@ class GMX(ExchangeCompatible):
         self._verbose = parameters.get("verbose", False)
         self.execution_buffer = parameters.get("executionBuffer", 2.2)
         self.default_slippage = parameters.get("defaultSlippage", 0.003)  # 0.3% default
+        self._require_multiple_providers = parameters.get("requireMultipleProviders", False)
         self._oracle_prices_instance = None
 
         # Configure verbose logging if requested
@@ -264,7 +385,18 @@ class GMX(ExchangeCompatible):
         if not self._rpc_url:
             raise ValueError("rpcUrl is required in parameters")
 
+        # Log detected RPC providers (space-separated format)
+        rpc_urls = [u for u in self._rpc_url.split() if u and not u.startswith("mev+")]
+        logger.info("RPC configuration: %d provider(s) detected", len(rpc_urls))
+
+        # Create web3 with multi-provider support
         self.web3 = create_multi_provider_web3(self._rpc_url)
+
+        # Validate provider count if required
+        if self._require_multiple_providers:
+            fallback = get_fallback_provider(self.web3)
+            if len(fallback.providers) < 2:
+                raise ValueError(f"GMX CCXT requires at least 2 providers for proper fallback functionality, but only {len(fallback.providers)} provider(s) configured. Set requireMultipleProviders=False to allow single-provider mode.")
 
         # Detect chain from web3 or use override
         if self._chain_id_override:
@@ -4057,6 +4189,7 @@ class GMX(ExchangeCompatible):
         amount: float,
         price: float | None,
         params: dict,
+        gmx_position: dict | None = None,
     ) -> dict:
         """Convert CCXT order parameters to GMX trading parameters.
 
@@ -4075,6 +4208,10 @@ class GMX(ExchangeCompatible):
         :type price: float | None
         :param params: Additional parameters (leverage, collateral_symbol, etc.)
         :type params: dict
+        :param gmx_position: Optional GMX position data from GetOpenPositions.
+            When provided (for closes), use exact GMX values instead of calculating
+            from amount × price. This prevents remnants from calculation mismatches.
+        :type gmx_position: dict | None
         :return: GMX-compatible parameter dictionary
         :rtype: dict
         :raises ValueError: If symbol is invalid or parameters are incompatible
@@ -4111,38 +4248,87 @@ class GMX(ExchangeCompatible):
             # Closing a position
             is_long = side == "sell"  # sell = close LONG, buy = close SHORT
 
-        # Convert amount from base currency (BTC/ETH) to USD
-        # For CCXT linear perpetuals, amount is in base currency contracts
-        # GMX needs size_delta_usd in actual USD
+        # ============================================
+        # SIZE CALCULATION - EXACT GMX SIZE LOGIC
+        # ============================================
+        # For closes: Use exact GMX position size to prevent remnants
+        # For opens: Calculate from amount × price as usual
 
-        # GMX Extension: Support direct USD sizing via size_usd parameter
-        if "size_usd" in params:
+        if reduceOnly and gmx_position:
+            # ============================================
+            # CLOSING WITH GMX POSITION DATA
+            # Use exact on-chain values to prevent remnants
+            # ============================================
+
+            actual_size_usd = gmx_position.get("position_size", 0.0)
+
+            # Validate position size is positive
+            if actual_size_usd <= 0:
+                logger.warning("CLOSE: GMX position has invalid size %.2f, falling back to calculated size", actual_size_usd)
+                # Fall through to standard CCXT calculation by setting gmx_position to None
+                gmx_position = None
+
+        # Only proceed with GMX position logic if we still have a valid position
+        if reduceOnly and gmx_position:
+            # Check if this is a partial close (sub_trade_amt provided)
+            sub_trade_amt = params.get("sub_trade_amt")
+
+            if sub_trade_amt is None:
+                # ============================================
+                # FULL CLOSE: Use GMX's exact position size
+                # ============================================
+                size_delta_usd = actual_size_usd
+
+                logger.info("FULL CLOSE: Using exact GMX position size %.2f USD (freqtrade amount %.2f tokens ignored to prevent remnants)", size_delta_usd, amount)
+
+            else:
+                # ============================================
+                # PARTIAL CLOSE: Calculate requested, clamp to actual
+                # ============================================
+                if price:
+                    requested_size_usd = sub_trade_amt * price
+                else:
+                    ticker = self.fetch_ticker(symbol)
+                    current_price = ticker["last"]
+                    requested_size_usd = sub_trade_amt * current_price
+
+                # Clamp to actual position size
+                size_delta_usd = min(requested_size_usd, actual_size_usd)
+
+                if size_delta_usd < requested_size_usd:
+                    logger.warning("PARTIAL CLOSE: Clamping size from %.2f to %.2f USD (actual GMX position)", requested_size_usd, size_delta_usd)
+
+                logger.info("PARTIAL CLOSE: size_delta_usd=%.2f (requested %.2f, actual position %.2f)", size_delta_usd, requested_size_usd, actual_size_usd)
+
+        elif "size_usd" in params:
+            # GMX Extension: Direct USD sizing via size_usd parameter
             # Validate: size_usd and non-zero amount should not be used together
             if amount and amount > 0:
                 from ccxt.base.errors import InvalidOrder
 
                 raise InvalidOrder(f"Cannot use both 'size_usd' ({params['size_usd']}) and non-zero 'amount' ({amount}) together. Use either: (1) 'size_usd' in params for direct USD sizing (recommended), or (2) 'amount' for base currency sizing (will be multiplied by price). Recommendation: Use 'size_usd' with amount=0 for precise USD-denominated positions.")
-            # Direct USD amount (GMX-native approach)
             size_delta_usd = params["size_usd"]
-            logger.debug("ORDER_TRACE: Using size_usd=%.2f (direct USD sizing)", size_delta_usd)
+            logger.debug("ORDER_TRACE: Using size_usd=%.2f from params", size_delta_usd)
+
         else:
-            # Standard CCXT: amount is in base currency, convert to USD
+            # Standard CCXT: amount in base currency, convert to USD
             if price:
                 size_delta_usd = amount * price
                 logger.debug("ORDER_TRACE: Using amount=%.8f * price=%.2f = size_delta_usd=%.2f", amount, price, size_delta_usd)
             else:
-                # For market orders, fetch current price
+                # Market orders: fetch current price
                 ticker = self.fetch_ticker(symbol)
                 current_price = ticker["last"]
                 size_delta_usd = amount * current_price
                 logger.debug("ORDER_TRACE: Using amount=%.8f * current_price=%.2f = size_delta_usd=%.2f", amount, current_price, size_delta_usd)
 
+        # Build GMX params dict with calculated/exact size
         gmx_params = {
             "market_symbol": base_currency,
             "collateral_symbol": collateral_symbol,
             "start_token_symbol": collateral_symbol,
             "is_long": is_long,
-            "size_delta_usd": size_delta_usd,
+            "size_delta_usd": size_delta_usd,  # Now uses exact GMX value for closes
             "leverage": leverage,
             "slippage_percent": slippage_percent,
         }
@@ -4246,8 +4432,8 @@ class GMX(ExchangeCompatible):
         if reduceOnly:
             raise ValueError("Bundled SL/TP only supported for opening positions (reduceOnly=False). Use standalone SL/TP for closing positions.")
 
-        # Convert CCXT params to GMX params
-        gmx_params = self._convert_ccxt_to_gmx_params(symbol, type, side, amount, price, params)
+        # Convert CCXT params to GMX params (no position query needed for opening positions)
+        gmx_params = self._convert_ccxt_to_gmx_params(symbol, type, side, amount, price, params, gmx_position=None)
 
         # Get market and token info
         normalized_symbol = self._normalize_symbol(symbol)
@@ -5104,14 +5290,74 @@ class GMX(ExchangeCompatible):
         if sl_entry or tp_entry:
             return self._create_order_with_sltp(symbol, type, side, amount, price, params, sl_entry, tp_entry)
 
-        # Convert CCXT parameters to GMX parameters (standard flow)
+        # ============================================
+        # NEW: Query GMX position BEFORE size calculation for closes
+        # ============================================
+        gmx_position = None
+        reduceOnly = params.get("reduceOnly", False)
+
+        if reduceOnly:
+            try:
+                # Parse symbol to get market details
+                normalized_symbol = self._normalize_symbol(symbol)
+                market = self.markets[normalized_symbol]
+                base_currency = market["base"]
+
+                # Determine position direction from side
+                is_closing_long = side == "sell"  # sell = close LONG
+                is_closing_short = side == "buy"  # buy = close SHORT
+
+                # Extract collateral symbol
+                collateral_symbol = params.get("collateral_symbol")
+                if not collateral_symbol:
+                    if "collateral_token" in params:
+                        collateral_symbol = params["collateral_token"]
+                    else:
+                        # Default to quote currency (strip :USDC suffix if present)
+                        collateral_symbol = market["quote"].replace(":USDC", "").replace(":USDT", "")
+
+                # Query all positions for this wallet
+                logger.info("CLOSE ORDER: Querying GMX for actual position (market=%s, collateral=%s, direction=%s)", base_currency, collateral_symbol, "LONG" if is_closing_long else "SHORT")
+
+                positions_manager = GetOpenPositions(self.config)
+                existing_positions = positions_manager.get_data(self.wallet.address)
+
+                # Find matching position: market + collateral + direction
+                for position_key, position_data in existing_positions.items():
+                    position_market = position_data.get("market_symbol", "")
+                    position_is_long = position_data.get("is_long", None)
+                    position_collateral = position_data.get("collateral_token", "")
+
+                    if position_market == base_currency and position_collateral == collateral_symbol:
+                        if is_closing_long and position_is_long:
+                            gmx_position = position_data
+                            break
+                        elif is_closing_short and not position_is_long:
+                            gmx_position = position_data
+                            break
+
+                if gmx_position:
+                    logger.info("CLOSE ORDER: Found GMX position - size_usd=%.2f, collateral_usd=%.2f, tokens=%s", gmx_position.get("position_size", 0), gmx_position.get("initial_collateral_amount_usd", 0), gmx_position.get("size_in_tokens", 0))
+                else:
+                    logger.warning("CLOSE ORDER: No GMX position found - may already be closed")
+
+            except Exception as e:
+                logger.error("Failed to query GMX position for close: %s", e)
+                # Continue with calculated size as fallback
+                gmx_position = None
+
+        # ============================================
+        # Convert CCXT params to GMX params
+        # NOW PASSING gmx_position for accurate sizing
+        # ============================================
         gmx_params = self._convert_ccxt_to_gmx_params(
-            symbol,
-            type,
-            side,
-            amount,
-            price,
-            params,
+            symbol=symbol,
+            type=type,
+            side=side,
+            amount=amount,
+            price=price,
+            params=params,
+            gmx_position=gmx_position,  # NEW: Pass actual position data
         )
 
         # Ensure token approval before creating order
@@ -5121,8 +5367,7 @@ class GMX(ExchangeCompatible):
             leverage=gmx_params["leverage"],
         )
 
-        # Extract reduceOnly from params to determine if opening or closing
-        reduceOnly = params.get("reduceOnly", False)
+        # Note: reduceOnly already extracted earlier (before position query)
 
         # Log position size details (if gas monitoring enabled)
         if gas_config and gas_config.enabled:
@@ -5298,63 +5543,41 @@ class GMX(ExchangeCompatible):
                     logger.info("Position for %s already closed - returning synthetic order id=%s", symbol, synthetic_order["id"])
                     return synthetic_order
 
-                # Derive actual on-chain position size in USD.
-                # Preferred source is the already-converted "position_size" field.
-                position_size_usd = position_to_close.get("position_size")
+                # ============================================
+                # NEW SIMPLIFIED LOGIC
+                # Size already calculated correctly in _convert_ccxt_to_gmx_params
+                # with exact GMX values - no clamping needed here
+                # ============================================
 
-                # Fallback: convert raw 30-decimal size if available
-                if position_size_usd is None:
-                    raw_size = position_to_close.get("position_size_usd_raw") or position_to_close.get(
-                        "position_size_usd",
-                    )
-                    if raw_size:
-                        try:
-                            position_size_usd = float(raw_size) / 10**30
-                        except Exception:
-                            position_size_usd = None
+                size_delta_usd = gmx_params["size_delta_usd"]
 
-                if not position_size_usd or position_size_usd <= 0:
-                    raise ValueError(
-                        f"Cannot determine position size for {symbol} to close. Position data: {position_to_close}",
-                    )
-
-                # User-requested size (from CCXT amount / strategy).
-                requested_size_usd = float(gmx_params["size_delta_usd"])
-
-                # Clamp requested size to the actual position size to avoid protocol
-                # reverts when trying to close more than is open.
-                size_delta_usd = min(requested_size_usd, position_size_usd)
-                if size_delta_usd < requested_size_usd:
-                    logger.warning(
-                        "Clamping close size from %.2f to %.2f USD for %s",
-                        requested_size_usd,
-                        size_delta_usd,
-                        symbol,
-                    )
-
+                # Validation: Ensure size is positive
                 if size_delta_usd <= 0:
-                    raise ValueError(
-                        f"Requested close size {requested_size_usd} is not positive for position size {position_size_usd} on {symbol}",
-                    )
+                    raise ValueError(f"Invalid close size {size_delta_usd} for {symbol}. Position data: {position_to_close}")
+
+                logger.info("CLOSE: Using size_delta_usd=%.2f from exact GMX position data", size_delta_usd)
 
                 # Derive collateral delta proportionally from the original collateral.
-                # This matches GMX semantics better than guessing from leverage.
+                # Since size is now exact from GMX, this calculation is accurate.
                 collateral_amount_usd = position_to_close.get("initial_collateral_amount_usd")
                 if collateral_amount_usd is None:
                     # Fallback: approximate from leverage if USD value is missing
                     leverage = float(position_to_close.get("leverage", 1.0) or 1.0)
                     if leverage > 0:
-                        collateral_amount_usd = position_size_usd / leverage
+                        collateral_amount_usd = size_delta_usd / leverage
                     else:
-                        collateral_amount_usd = position_size_usd
+                        collateral_amount_usd = size_delta_usd
 
                 # Pro-rata collateral for partial closes, full amount for full close
-                close_fraction = min(1.0, size_delta_usd / position_size_usd)
+                position_size_usd = position_to_close.get("position_size", size_delta_usd)
+                close_fraction = min(1.0, size_delta_usd / position_size_usd) if position_size_usd > 0 else 1.0
                 initial_collateral_delta = collateral_amount_usd * close_fraction
 
-                # Safety floor – avoid tiny dust values that can cause rounding issues
+                # Safety floor – avoid tiny dust values
                 if initial_collateral_delta <= 0:
                     initial_collateral_delta = collateral_amount_usd
+
+                logger.info("CLOSE: size_delta=%.2f (%.1f%%), collateral_delta=%.2f (%.1f%%)", size_delta_usd, close_fraction * 100, initial_collateral_delta, close_fraction * 100)
 
                 # Call close_position with the derived parameters
                 # Use the actual position direction from the found position
@@ -5754,7 +5977,7 @@ class GMX(ExchangeCompatible):
                 event_emitter = addresses.eventemitter
                 creation_block = receipt.get("blockNumber", 0)
 
-                # Poll EventEmitter logs for up to 60 seconds
+                # Poll EventEmitter logs for up to 60 seconds using chunked scanning
                 max_wait_seconds = 60
                 poll_interval = 2
                 start_time = time.time()
@@ -5762,58 +5985,22 @@ class GMX(ExchangeCompatible):
                 while time.time() - start_time < max_wait_seconds:
                     try:
                         current_block = self.web3.eth.block_number
-                        logs = self.web3.eth.get_logs(
-                            {
-                                "address": event_emitter,
-                                "fromBlock": creation_block,
-                                "toBlock": current_block,
-                            }
+
+                        # Use chunked scanning to avoid RPC timeouts on large block ranges
+                        trade_action = _scan_logs_chunked_for_trade_action(
+                            self.web3,
+                            event_emitter,
+                            order_key,
+                            order_key_hex,
+                            creation_block,
+                            current_block,
                         )
 
-                        for log in logs:
-                            try:
-                                event = decode_gmx_event(self.web3, log)
-                                if not event:
-                                    continue
-
-                                if event.event_name not in ("OrderExecuted", "OrderCancelled", "OrderFrozen"):
-                                    continue
-
-                                # Check if this event matches our order_key
-                                event_order_key = event.topic1 or event.get_bytes32("key")
-                                if event_order_key != order_key:
-                                    continue
-
-                                # Found our order's execution event
-                                logger.debug(
-                                    "ORDER_TRACE: Found %s event in EventEmitter logs",
-                                    event.event_name,
-                                )
-
-                                # Build trade_action-like dict from event
-                                trade_action = {
-                                    "eventName": event.event_name,
-                                    "orderKey": order_key_hex,
-                                    "isLong": event.get_bool("isLong"),
-                                    "reason": event.get_string("reasonBytes") if event.event_name == "OrderCancelled" else None,
-                                    "transaction": {
-                                        "hash": log["transactionHash"].hex() if isinstance(log["transactionHash"], bytes) else log["transactionHash"],
-                                    },
-                                }
-
-                                # Try to get execution price from PositionIncrease/PositionDecrease in same tx
-                                if event.event_name == "OrderExecuted":
-                                    exec_price = event.get_uint("executionPrice")
-                                    if exec_price:
-                                        trade_action["executionPrice"] = str(exec_price)
-
-                                break
-
-                            except Exception as e:
-                                logger.debug("Error decoding log: %s", e)
-                                continue
-
                         if trade_action:
+                            logger.debug(
+                                "ORDER_TRACE: Found %s event in EventEmitter logs",
+                                trade_action.get("eventName"),
+                            )
                             break
 
                     except Exception as e:
@@ -6226,9 +6413,17 @@ class GMX(ExchangeCompatible):
 
             order_key = bytes.fromhex(order_key_hex)
 
+            # Get creation block for accurate log scanning (important after bot restart)
+            creation_block = order.get("info", {}).get("block_number")
+
             # Check if order still pending in DataStore
             try:
-                status_result = check_order_status(self.web3, order_key, self.config.get_chain())
+                status_result = check_order_status(
+                    self.web3,
+                    order_key,
+                    self.config.get_chain(),
+                    creation_block=creation_block,
+                )
             except Exception as e:
                 logger.warning("fetch_order(%s): error checking order status: %s", id[:16], e)
                 return order
@@ -6435,50 +6630,15 @@ class GMX(ExchangeCompatible):
                         creation_block = receipt.get("blockNumber", 0)
                         current_block = self.web3.eth.block_number
 
-                        logs = self.web3.eth.get_logs(
-                            {
-                                "address": event_emitter,
-                                "fromBlock": creation_block,
-                                "toBlock": current_block,
-                            }
+                        # Use chunked scanning to avoid RPC timeouts on large block ranges
+                        trade_action = _scan_logs_chunked_for_trade_action(
+                            self.web3,
+                            event_emitter,
+                            order_key,
+                            order_key_hex,
+                            creation_block,
+                            current_block,
                         )
-
-                        for log in logs:
-                            try:
-                                event = decode_gmx_event(self.web3, log)
-                                if not event:
-                                    continue
-
-                                if event.event_name not in ("OrderExecuted", "OrderCancelled", "OrderFrozen"):
-                                    continue
-
-                                # Check if this event matches our order_key
-                                event_order_key = event.topic1 or event.get_bytes32("key")
-                                if event_order_key != order_key:
-                                    continue
-
-                                # Found our order's execution event
-                                trade_action = {
-                                    "eventName": event.event_name,
-                                    "orderKey": order_key_hex,
-                                    "isLong": event.get_bool("isLong"),
-                                    "reason": event.get_string("reasonBytes") if event.event_name == "OrderCancelled" else None,
-                                    "transaction": {
-                                        "hash": log["transactionHash"].hex() if isinstance(log["transactionHash"], bytes) else log["transactionHash"],
-                                    },
-                                }
-
-                                # Get execution price if available
-                                if event.event_name == "OrderExecuted":
-                                    exec_price = event.get_uint("executionPrice")
-                                    if exec_price:
-                                        trade_action["executionPrice"] = str(exec_price)
-
-                                break
-
-                            except Exception as e:
-                                logger.debug("Error decoding log: %s", e)
-                                continue
 
                     except Exception as e:
                         logger.debug("fetch_order(%s): EventEmitter query failed: %s", id[:16], e)

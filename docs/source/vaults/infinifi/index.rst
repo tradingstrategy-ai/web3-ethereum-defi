@@ -18,6 +18,7 @@ holders absorb losses first, then siUSD stakers, and finally plain iUSD holders.
 Links
 ~~~~~
 
+- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/infinifi>`__
 - `Homepage <https://infinifi.xyz/>`__
 - `App <https://app.infinifi.xyz/deposit>`__
 - `Twitter <https://x.com/infinifi_>`__

@@ -68,7 +68,8 @@
       "Bash(pip3 show:*)",
       "Bash(pip install:*)",
       "Bash(playwright install:*)",
-      "Bash(npx wrangler:*)"
+      "Bash(npx wrangler:*)",
+      "Read(//Users/moo/code/trade-executor/deps/web3-ethereum-defi/tests/erc_4626/vault_protocol/**)"
     ]
   },
   "model": "opus",

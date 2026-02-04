@@ -7,6 +7,7 @@ import flaky
 import pytest
 from web3 import Web3
 
+from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
@@ -62,6 +63,10 @@ def test_sky_stusds(
     # Check risk level
     assert vault.get_risk() == VaultTechnicalRisk.negligible
 
+    # stUSDS doesn't implement standard maxDeposit/maxRedeem (returns empty data)
+    # so we cannot use address(0) checks for this vault
+    assert vault.can_check_redeem() is False
+
 
 @flaky.flaky
 def test_sky_susds(
@@ -90,6 +95,13 @@ def test_sky_susds(
     # Check risk level
     assert vault.get_risk() == VaultTechnicalRisk.negligible
 
+    # Check maxDeposit and maxRedeem with address(0)
+    max_deposit = vault.vault_contract.functions.maxDeposit(ZERO_ADDRESS_STR).call()
+    max_redeem = vault.vault_contract.functions.maxRedeem(ZERO_ADDRESS_STR).call()
+    assert max_deposit >= 0
+    assert max_redeem >= 0
+    assert vault.can_check_redeem() is False
+
 
 @flaky.flaky
 def test_sky_sdai(
@@ -117,3 +129,10 @@ def test_sky_sdai(
 
     # Check risk level
     assert vault.get_risk() == VaultTechnicalRisk.negligible
+
+    # Check maxDeposit and maxRedeem with address(0)
+    max_deposit = vault.vault_contract.functions.maxDeposit(ZERO_ADDRESS_STR).call()
+    max_redeem = vault.vault_contract.functions.maxRedeem(ZERO_ADDRESS_STR).call()
+    assert max_deposit >= 0
+    assert max_redeem >= 0
+    assert vault.can_check_redeem() is False

@@ -19,6 +19,7 @@ and Smart debt features.
 Links
 ~~~~~
 
+- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/fluid>`__
 - `Homepage <https://fluid.io/>`__
 - `Documentation <https://docs.fluid.instadapp.io/>`__
 - `GitHub <https://github.com/Instadapp/fluid-contracts-public>`__

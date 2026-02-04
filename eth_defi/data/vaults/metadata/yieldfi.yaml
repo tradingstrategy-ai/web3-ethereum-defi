@@ -25,7 +25,7 @@ links:
   defillama: https://defillama.com/protocol/yieldfi
   audits: https://docs.yield.fi/resources/audits
   fees:
-  trading_strategy:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/yieldfi
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/yieldfi/index.html
 example_smart_contracts:
   - https://etherscan.io/address/0x2e3c5e514eef46727de1fe44618027a9b70d92fc

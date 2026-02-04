@@ -134,6 +134,8 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Yo": VaultTechnicalRisk.severe,
     # Frax - extensively audited, open source, well-established protocol
     "Frax": VaultTechnicalRisk.low,
+    # Hyperdrive - unverified smart contracts, suffered $782k exploit in 2025
+    "Hyperdrive": VaultTechnicalRisk.dangerous,
 }
 
 #: Particular vaults that are broken, misleading or otherwise problematic.

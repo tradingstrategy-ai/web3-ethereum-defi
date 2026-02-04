@@ -16,6 +16,10 @@ As of Q1 2025, cSigma Finance has tokenised over $80 million in business loans f
 mid-market companies across the United States, European Union, and Asia. The tokenised
 loans are accessible on 11 major blockchain networks, including Ethereum, Arbitrum, and BNB.
 
+Links
+~~~~~
+
+- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/csigma-finance>`__
 - `Homepage <https://csigma.finance/>`__
 - `csUSD vault <https://www.csigma.finance/csusd>`__
 - `Medium <https://csigma.medium.com/>`__

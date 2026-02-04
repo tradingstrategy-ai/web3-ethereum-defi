@@ -7,8 +7,10 @@ Spectra is an open-source interest rate derivatives protocol that enables yield 
 The protocol splits ERC-4626 compliant interest-bearing tokens into Principal Tokens (PT) and
 Yield Tokens (YT), allowing users to fix rates, trade yield, and earn on liquidity positions.
 
-Spectra Finance:
+Links
+~~~~~
 
+- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/spectra>`__
 - `Homepage <https://www.spectra.finance/>`__
 - `App <https://app.spectra.finance>`__
 - `Documentation <https://docs.spectra.finance/>`__

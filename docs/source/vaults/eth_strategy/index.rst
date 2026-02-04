@@ -11,6 +11,10 @@ The ESPN (ETH Strategy Perpetual Note) vault is an ERC-4626 compliant vault that
 to deposit USDS stablecoins. The protocol takes no fees on deposits or redemptions and is
 DAO-governed with rage quit functionality.
 
+Links
+~~~~~
+
+- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/eth-strategy>`__
 - `Website <https://www.ethstrat.xyz/>`__
 - `Documentation <https://docs.ethstrat.xyz/>`__
 - `GitHub <https://github.com/dangerousfood/ethstrategy>`__

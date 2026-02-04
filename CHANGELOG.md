@@ -1,5 +1,8 @@
 # 0.39
 
+- Fix: Vault deposit/redemption close reason checks are now protocol-specific instead of relying on generic `maxRedeem(address(0))` which doesn't work for all protocols like Gearbox (2026-02-04)
+- Add: New protocol: [Hyperdrive](https://hyperdrive.fi/) - stablecoin money market and yield hub on HyperEVM (Hyperliquid) (2026-02-04)
+- Add: Google Analytics tracking to Sphinx documentation (2026-02-04)
 - Add: `CHAIN_ORDER` environment variable for `scan-vaults-all-chains.py` to control chain scan order (2026-02-04)
 - Add: Cloudflare Pages documentation hosting with custom domain `web3-ethereum-defi.tradingstrategy.ai` (2026-02-03)
 - Add: [Derive.xyz](https://www.derive.xyz/) perpetuals and options DEX integration with session key authentication and account balance reading (2026-02-03)

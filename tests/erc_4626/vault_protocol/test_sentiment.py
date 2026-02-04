@@ -7,6 +7,7 @@ import pytest
 from web3 import Web3
 import flaky
 
+from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.sentiment.vault import SentimentVault
@@ -65,3 +66,12 @@ def test_sentiment(
 
     # Test the link
     assert vault.get_link() == "https://app.sentiment.xyz/"
+
+    # Check maxDeposit/maxRedeem with address(0)
+    max_deposit = vault.vault_contract.functions.maxDeposit(ZERO_ADDRESS_STR).call()
+    max_redeem = vault.vault_contract.functions.maxRedeem(ZERO_ADDRESS_STR).call()
+    assert max_deposit >= 0
+    assert max_redeem == 0
+
+    # Sentiment doesn't support address(0) checks for maxDeposit/maxRedeem
+    assert vault.can_check_redeem() is False

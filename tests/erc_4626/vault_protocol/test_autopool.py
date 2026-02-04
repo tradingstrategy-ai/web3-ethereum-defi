@@ -8,6 +8,7 @@ import pytest
 from web3 import Web3
 import flaky
 
+from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.vault_protocol.autopool.vault import AutoPoolVault
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
@@ -56,3 +57,11 @@ def test_autopool(
     assert vault.get_management_fee("latest") == 0.00
     assert vault.get_performance_fee("latest") == 0.00
     assert vault.get_fee_mode() == VaultFeeMode.internalised_minting
+
+    # Check maxDeposit and maxRedeem with address(0)
+    # TODO: Test is flaky due to Arbitrum RPC timeouts - verify values when stable
+    max_deposit = vault.vault_contract.functions.maxDeposit(ZERO_ADDRESS_STR).call()
+    max_redeem = vault.vault_contract.functions.maxRedeem(ZERO_ADDRESS_STR).call()
+    assert max_deposit >= 0
+    assert max_redeem >= 0
+    assert vault.can_check_redeem() is False

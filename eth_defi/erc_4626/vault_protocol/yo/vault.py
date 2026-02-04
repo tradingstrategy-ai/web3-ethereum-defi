@@ -141,3 +141,10 @@ class YoVault(ERC4626Vault):
             Link to the Yo protocol homepage.
         """
         return "https://www.yo.xyz/"
+
+    def can_check_deposit(self) -> bool:
+        """Yo doesn't support address(0) checks for maxDeposit.
+
+        The contract returns empty data for maxDeposit(address(0)).
+        """
+        return False

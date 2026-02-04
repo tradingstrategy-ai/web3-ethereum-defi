@@ -16,6 +16,7 @@ and execute allocation strategies. Vaults are compliant with ERC-4626 standards 
 Links
 ~~~~~
 
+- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/aarna>`__
 - `Homepage <https://www.aarna.ai/>`__
 - `Documentation <https://docs.aarna.ai/>`__
 - `App <https://engine.aarna.ai/>`__

@@ -14,6 +14,7 @@ allocation strategies. Fees are taken from interest earned and new shares are mi
 Links
 ~~~~~
 
+- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/sentiment>`__
 - `Homepage <https://www.sentiment.xyz/>`__
 - `Documentation <https://docs.sentiment.xyz/>`__
 - `GitHub <https://github.com/sentimentxyz/protocol-v2>`__

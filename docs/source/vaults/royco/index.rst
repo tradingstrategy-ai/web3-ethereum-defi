@@ -12,6 +12,10 @@ Royco allows protocols to deploy incentive campaigns for their vaults, enabling 
 to earn rewards in the form of ERC-20 tokens or points programmes alongside the underlying
 vault yield.
 
+Links
+~~~~~
+
+- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/royco>`__
 - `Homepage <https://royco.org/>`__
 - `Documentation <https://docs.royco.org/>`__
 - `Github <https://github.com/roycoprotocol/royco>`__

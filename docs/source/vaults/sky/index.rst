@@ -17,6 +17,10 @@ Key features:
 - Instant deposits and withdrawals
 - Fully decentralised and battle-tested infrastructure
 
+Links
+~~~~~
+
+- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/sky>`__
 - `Homepage <https://sky.money/>`__
 - `Documentation <https://developers.sky.money/>`__
 - `GitHub <https://github.com/sky-ecosystem/stusds>`__

@@ -36,7 +36,7 @@ links:
   defillama: https://defillama.com/protocol/fluid
   audits: https://docs.fluid.instadapp.io/security/audits
   fees:
-  trading_strategy:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/fluid
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/fluid/index.html
 example_smart_contracts:
   - https://plasmascan.to/address/0x1DD4b13fcAE900C60a350589BE8052959D2Ed27B

@@ -14,6 +14,7 @@ mechanisms for risk management.
 Links
 ~~~~~
 
+- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/yieldfi>`__
 - `Homepage <https://yield.fi/>`__
 - `Documentation <https://docs.yield.fi/>`__
 - `Twitter <https://x.com/getyieldfi>`__

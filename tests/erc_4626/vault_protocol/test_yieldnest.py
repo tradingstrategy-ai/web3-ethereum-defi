@@ -71,3 +71,8 @@ def test_yieldnest_ynrwax(
     assert lock_up is not None
     assert isinstance(lock_up, datetime.timedelta)
     assert lock_up.days > 0  # Should be positive until maturity date
+
+    # YieldNest doesn't support address(0) checks for maxDeposit/maxRedeem
+    # (contract returns empty data)
+    assert vault.can_check_deposit() is False
+    assert vault.can_check_redeem() is False

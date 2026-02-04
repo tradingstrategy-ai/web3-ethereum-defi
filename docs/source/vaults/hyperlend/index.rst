@@ -21,6 +21,10 @@ Key features:
 - Vault shares can be used as collateral for borrowing in Isolated Pools
 - Managed by Paxos Labs
 
+Links
+~~~~~
+
+- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/hyperlend>`__
 - `Homepage <https://hyperlend.finance/>`__
 - `Documentation <https://docs.hyperlend.finance/>`__
 - `wHLP documentation <https://docs.loopingcollective.org/products/wrapped-hlp>`__

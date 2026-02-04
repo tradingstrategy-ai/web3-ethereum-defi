@@ -11,6 +11,10 @@ ZeroLend uses `Royco Protocol's <https://royco.org/>`__ WrappedVault infrastruct
 incentivised ERC-4626 vault wrappers with integrated rewards systems. This allows ZeroLend
 vaults to offer additional reward programmes alongside the underlying vault yield.
 
+Links
+~~~~~
+
+- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/zerolend>`__
 - `Homepage <https://zerolend.xyz/>`__
 - `Application <https://app.zerolend.xyz/>`__
 - `Documentation <https://docs.zerolend.xyz/>`__

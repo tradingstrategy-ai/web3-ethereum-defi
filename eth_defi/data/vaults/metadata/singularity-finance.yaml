@@ -20,7 +20,7 @@ links:
   defillama: https://defillama.com/protocol/singularity-finance
   audits: https://paladinsec.co/projects/singularitydao/
   fees:
-  trading_strategy:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/singularity-finance
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/singularity/index.html
 example_smart_contracts:
   - https://basescan.org/address/0xdf71487381Ab5bD5a6B17eAa61FE2E6045A0e805

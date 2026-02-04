@@ -27,7 +27,7 @@ links:
   defillama:
   audits: https://docs.hypurr.fi/introduction/security
   fees:
-  trading_strategy:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/hypurrfi
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/hypurrfi/index.html
 example_smart_contracts:
   - https://hyperevmscan.io/address/0x8001e1e7b05990d22dd8cdb9737f9fe6589827ce

@@ -21,6 +21,7 @@ Key features:
 Links
 ~~~~~
 
+- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/singularity-finance>`__
 - `Homepage <https://singularityfinance.ai/>`__
 - `Documentation <https://docs.singularityfinance.ai/>`__
 - `Twitter <https://x.com/singularity_fi>`__
