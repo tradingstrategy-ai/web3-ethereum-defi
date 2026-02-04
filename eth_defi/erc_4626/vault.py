@@ -1183,13 +1183,6 @@ class ERC4626Vault(VaultBase):
             if max_deposit_raw == 0:
                 return f"{DEPOSIT_CLOSED_CAP_REACHED} (maxDeposit=0)"
 
-            # Convert to human-readable amount with token symbol
-            if self.denomination_token is not None:
-                max_deposit = self.denomination_token.convert_to_decimals(max_deposit_raw)
-                symbol = self.denomination_token.symbol or "tokens"
-                # Check if it's a very large number (effectively unlimited)
-                if max_deposit > Decimal(10**18):
-                    return None  # Effectively unlimited
             return None  # Deposits are open
         except Exception:
             return None  # Cannot determine, assume open
