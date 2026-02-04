@@ -1,0 +1,47 @@
+name: Hyperdrive
+slug: hyperdrive
+short_description: |
+  Premier stablecoin money market and yield hub on Hyperliquid (HyperEVM).
+long_description: |
+  Hyperdrive is the premier stablecoin money market on Hyperliquid and the foundational
+  layer for making everything on HyperCore liquid. It is an all-in-one DeFi hub on
+  Hyperliquid, offering spot lending markets, liquid staking of HYPE, and advanced
+  yield strategies.
+
+  The platform enables users to supply stablecoins to earn lending APY, borrow stablecoins
+  against other assets, liquid stake HYPE to earn staking rewards whilst using it as
+  collateral, and use HLP as collateral or leverage HLP to maximise HLP yield.
+
+  Key features:
+
+  - Supply stablecoins to earn lending APY
+  - Borrow stablecoins against other assets
+  - Liquid staking of HYPE with DeFi composability
+  - Automated yield strategies via Hyperdrive Earn
+  - Backed by Binance Labs, Hack VC, Arrington Capital, and Delphi Ventures
+
+  Security notes:
+
+  - Audited by Enigma Dark, Bail Security, and Obsidian Audits
+  - Protocol suffered a $782,000 exploit in 2025 (router contract vulnerability)
+  - Smart contracts are not verified on block explorers
+fee_description: |
+  Fee structure is not publicly documented for Hyperdrive vaults.
+links:
+  homepage: https://hyperdrive.fi/
+  app: https://app.hyperdrive.fi/earn
+  twitter: https://x.com/hyperdrivedefi
+  github:
+  documentation: https://hyperdrive-2.gitbook.io/hyperdrive/
+  defillama: https://defillama.com/protocol/hyperdrive-hl
+  audits:
+  fees:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/hyperdrive
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/hyperdrive_hl/index.html
+example_smart_contracts:
+  - https://purrsec.com/address/0x9271A5C684330B2a6775e96B3C140FC1dC3C89be
+  - https://purrsec.com/address/0xaEAAD6d9B096829E5F3804a747C9FDD6677d78f0
+  - https://purrsec.com/address/0x72EE42bd660e4f676106C3718b00af06257c9d35
+  - https://purrsec.com/address/0x7f2b789Ac6D93521FAe86Cbc838eFcfc4F2b004B
+  - https://purrsec.com/address/0x5743AeC1f06E896544D1638E0FEBd15098855CB5
+  - https://purrsec.com/address/0x4d0fF6a0DD9f7316b674Fb37993A3Ce28BEA340e

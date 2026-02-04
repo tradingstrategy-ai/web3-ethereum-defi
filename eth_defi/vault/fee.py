@@ -121,6 +121,8 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "Yo": None,
     # Frax - Fraxlend takes 10% of interest revenue as protocol fee, internalised in share price
     "Frax": VaultFeeMode.internalised_skimming,
+    # Hyperdrive - fee mode unknown (unverified contracts)
+    "Hyperdrive": None,
 }
 
 

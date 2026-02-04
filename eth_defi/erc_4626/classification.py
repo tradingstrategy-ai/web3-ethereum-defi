@@ -1581,6 +1581,11 @@ def create_vault_instance(
 
         return FraxVault(web3, spec, token_cache=token_cache, features=features)
 
+    elif ERC4626Feature.hyperdrive_hl_like in features:
+        from eth_defi.erc_4626.vault_protocol.hyperdrive_hl.vault import HyperdriveVault
+
+        return HyperdriveVault(web3, spec, token_cache=token_cache, features=features)
+
     else:
         # Generic ERC-4626 without fee data
         from eth_defi.erc_4626.vault import ERC4626Vault
@@ -1754,6 +1759,21 @@ HARDCODED_PROTOCOLS = {
     # Frax - Fraxlend USDC lending pair on Ethereum
     # https://etherscan.io/address/0xee847a804b67f4887c9e8fe559a2da4278defb52
     "0xee847a804b67f4887c9e8fe559a2da4278defb52": {ERC4626Feature.frax_like},
+    # Hyperdrive - HyperEVM vaults (stablecoin money market on Hyperliquid)
+    # https://app.hyperdrive.fi/earn
+    # Unverified smart contract source code
+    # Hyperdrive HYPE Liquidator (HD-LIQ-HYPE)
+    "0x9271a5c684330b2a6775e96b3c140fc1dc3c89be": {ERC4626Feature.hyperdrive_hl_like},
+    # Hyperdrive vault
+    "0xaeaad6d9b096829e5f3804a747c9fdd6677d78f0": {ERC4626Feature.hyperdrive_hl_like},
+    # Hyperdrive vault
+    "0x72ee42bd660e4f676106c3718b00af06257c9d35": {ERC4626Feature.hyperdrive_hl_like},
+    # Hyperdrive vault
+    "0x7f2b789ac6d93521fae86cbc838efcfc4f2b004b": {ERC4626Feature.hyperdrive_hl_like},
+    # Hyperdrive vault
+    "0x5743aec1f06e896544d1638e0febd15098855cb5": {ERC4626Feature.hyperdrive_hl_like},
+    # Hyperdrive vault
+    "0x4d0ff6a0dd9f7316b674fb37993a3ce28bea340e": {ERC4626Feature.hyperdrive_hl_like},
 }
 
 for a in HARDCODED_PROTOCOLS.keys():
