@@ -43,51 +43,7 @@ export MAX_WORKERS
 # python scripts/erc-4626/scan-vaults.py
 # if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
 
-export JSON_RPC_URL=$JSON_RPC_SONIC
-python scripts/erc-4626/scan-vaults.py
-if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
 
-export JSON_RPC_URL=$JSON_RPC_MONAD
-python scripts/erc-4626/scan-vaults.py
-if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
-
-export JSON_RPC_URL=$JSON_RPC_HYPERLIQUID
-python scripts/erc-4626/scan-vaults.py
-if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
-
-export JSON_RPC_URL=$JSON_RPC_BASE
-python scripts/erc-4626/scan-vaults.py
-if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
-
-export JSON_RPC_URL=$JSON_RPC_ARBITRUM
-python scripts/erc-4626/scan-vaults.py
-if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
-
-export JSON_RPC_URL=$JSON_RPC_ETHEREUM
-python scripts/erc-4626/scan-vaults.py
-if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
-
-
-export JSON_RPC_URL=$JSON_RPC_LINEA
-python scripts/erc-4626/scan-vaults.py
-if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
-
-
-export JSON_RPC_URL=$JSON_RPC_GNOSIS
-python scripts/erc-4626/scan-vaults.py
-if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
-
-export JSON_RPC_URL=$JSON_RPC_ZORA
-python scripts/erc-4626/scan-vaults.py
-if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
-
-export JSON_RPC_URL=$JSON_RPC_POLYGON
-python scripts/erc-4626/scan-vaults.py
-if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
-
-export JSON_RPC_URL=$JSON_RPC_AVALANCHE
-python scripts/erc-4626/scan-vaults.py
-if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
 
 export JSON_RPC_URL=$JSON_RPC_BERACHAIN
 python scripts/erc-4626/scan-vaults.py
@@ -121,6 +77,7 @@ export JSON_RPC_URL=$JSON_RPC_INK
 python scripts/erc-4626/scan-vaults.py
 if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
 
+
 export JSON_RPC_URL=$JSON_RPC_BLAST
 python scripts/erc-4626/scan-vaults.py
 if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
@@ -134,6 +91,56 @@ python scripts/erc-4626/scan-vaults.py
 if [[ "$SCAN_PRICES" == "true" ]]; then 
     python scripts/erc-4626/scan-prices.py ; 
 fi
+
+export JSON_RPC_URL=$JSON_RPC_MONAD
+python scripts/erc-4626/scan-vaults.py
+if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
+
+
+# Flaky Hypersync connection - run first, likely to crash first
+export JSON_RPC_URL=$JSON_RPC_POLYGON
+python scripts/erc-4626/scan-vaults.py
+if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
+
+export JSON_RPC_URL=$JSON_RPC_SONIC
+python scripts/erc-4626/scan-vaults.py
+if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
+
+export JSON_RPC_URL=$JSON_RPC_HYPERLIQUID
+python scripts/erc-4626/scan-vaults.py
+if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
+
+export JSON_RPC_URL=$JSON_RPC_BASE
+python scripts/erc-4626/scan-vaults.py
+if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
+
+export JSON_RPC_URL=$JSON_RPC_ARBITRUM
+python scripts/erc-4626/scan-vaults.py
+if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
+
+# Out of gas problems
+export JSON_RPC_URL=$JSON_RPC_ETHEREUM
+python scripts/erc-4626/scan-vaults.py
+if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
+
+
+export JSON_RPC_URL=$JSON_RPC_LINEA
+python scripts/erc-4626/scan-vaults.py
+if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
+
+
+export JSON_RPC_URL=$JSON_RPC_GNOSIS
+python scripts/erc-4626/scan-vaults.py
+if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
+
+export JSON_RPC_URL=$JSON_RPC_ZORA
+python scripts/erc-4626/scan-vaults.py
+if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
+
+export JSON_RPC_URL=$JSON_RPC_AVALANCHE
+python scripts/erc-4626/scan-vaults.py
+if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
+
 
 echo "Cleaning vault data"
 python scripts/erc-4626/clean-prices.py

@@ -9,6 +9,8 @@ services:
     container_name: vault-scanner
     restart: unless-stopped
     environment:
+
+      CHAIN_ORDER: ${CHAIN_ORDER:-}
       HYPERSYNC_API_KEY: ${HYPERSYNC_API_KEY:-}
       JSON_RPC_ETHEREUM: ${JSON_RPC_ETHEREUM:-}
       JSON_RPC_BERACHAIN: ${JSON_RPC_BERACHAIN:-}
