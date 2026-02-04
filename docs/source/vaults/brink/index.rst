@@ -14,6 +14,7 @@ Fees are internalised in the share price with no explicit fee getter functions e
 Links
 ~~~~~
 
+- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/brink>`__
 - `Homepage <https://brink.money/>`__
 - `App <https://brink.money/app>`__
 - `Documentation <https://doc.brink.money/>`__

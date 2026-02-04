@@ -38,7 +38,7 @@ links:
   defillama: https://defillama.com/stablecoin/main-street-usd
   audits: https://mainstreet-finance.gitbook.io/mainstreet.finance/audits/watchpug-security-audit-1
   fees: https://mainstreet-finance.gitbook.io/mainstreet.finance/returns-calculation-and-distribution
-  trading_strategy:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/mainstreet-finance
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/mainstreet/index.html
 example_smart_contracts:
   # smsUSD is the only ERC-4626 vault; msY (0x890A5122Aa1dA30fEC4286DE7904Ff808F0bd74A) is a LayerZero satellite token, not a vault

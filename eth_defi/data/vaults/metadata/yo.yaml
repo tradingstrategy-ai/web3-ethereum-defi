@@ -25,7 +25,7 @@ links:
   defillama: https://defillama.com/protocol/yo
   audits:
   fees:
-  trading_strategy:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/yo
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/yo/index.html
 example_smart_contracts:
   - https://etherscan.io/address/0x0000000f2eb9f69274678c76222b35eec7588a65

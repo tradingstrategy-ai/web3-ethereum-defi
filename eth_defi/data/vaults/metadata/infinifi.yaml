@@ -30,7 +30,7 @@ links:
   defillama: https://defillama.com/protocol/infinifi
   audits: https://cantina.xyz/competitions/2ac7f906-1661-47eb-bfd6-519f5db0d36b
   fees:
-  trading_strategy:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/infinifi
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/infinifi/index.html
 example_smart_contracts:
   - https://etherscan.io/address/0xdbdc1ef57537e34680b898e1febd3d68c7389bcb

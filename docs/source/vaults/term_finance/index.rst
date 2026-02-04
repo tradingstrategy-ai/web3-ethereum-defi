@@ -19,6 +19,10 @@ Key features:
 - Collateral sits in isolated noncustodial smart contracts (repoLocker)
 - No rehypothecation - collateral cannot be lent to other borrowers
 
+Links
+~~~~~
+
+- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/term-finance>`__
 - `Homepage <https://www.term.finance/>`__
 - `App <https://app.term.finance/>`__
 - `Documentation <https://developers.term.finance>`__

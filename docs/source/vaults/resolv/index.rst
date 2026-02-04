@@ -20,6 +20,10 @@ Key features:
 - Yield accrues through the underlying stUSR rebasing mechanism
 - Instant deposits and withdrawals
 
+Links
+~~~~~
+
+- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/resolv>`__
 - `Homepage <https://resolv.xyz/>`__
 - `Documentation <https://docs.resolv.xyz/>`__
 - `Twitter <https://x.com/ResolvLabs>`__

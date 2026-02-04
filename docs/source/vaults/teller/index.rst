@@ -30,6 +30,10 @@ The protocol is built on TellerV2 which handles the core lending mechanics,
 with `LenderCommitmentGroup_Pool_V2` contract providing the ERC-4626 vault interface
 for pool-style lending.
 
+Links
+~~~~~
+
+- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/teller>`__
 - `Homepage <https://www.teller.org/>`__
 - `Documentation <https://docs.teller.org/teller-v2>`__
 - `GitHub <https://github.com/teller-protocol/teller-protocol-v2>`__

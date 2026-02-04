@@ -20,6 +20,10 @@ Key features:
 - Governance-configurable cooldown period for withdrawals (up to 90 days, default 7 days)
 - Cross-chain functionality via LayerZero OFT standard
 
+Links
+~~~~~
+
+- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/mainstreet-finance>`__
 - `Homepage <https://mainstreet.finance/>`__
 - `Documentation <https://mainstreet-finance.gitbook.io/mainstreet.finance>`__
 - `GitHub <https://github.com/Mainstreet-Labs/mainstreet-core>`__

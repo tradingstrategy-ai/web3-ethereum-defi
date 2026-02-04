@@ -14,7 +14,7 @@ links:
   defillama:
   audits:
   fees:
-  trading_strategy:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/deltr
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/deltr/index.html
 example_smart_contracts:
   - https://etherscan.io/address/0xa7a31e6a81300120b7c4488ec3126bc1ad11f320

@@ -21,7 +21,7 @@ links:
   defillama: https://defillama.com/protocol/avant-protocol
   audits: https://docs.avantprotocol.com/overview/audit-and-security
   fees:
-  trading_strategy:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/avant
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/avant/index.html
 example_smart_contracts:
   - https://snowtrace.io/address/0x06d47f3fb376649c3a9dafe069b3d6e35572219e

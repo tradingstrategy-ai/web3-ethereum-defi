@@ -16,6 +16,10 @@ Key features:
 - Instant deposits and withdrawals
 - Cross-chain deployment on Ethereum and BNB Chain
 
+Links
+~~~~~
+
+- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/decentralized-usd>`__
 - `Homepage <https://usdd.io/>`__
 - `Documentation <https://docs.usdd.io/>`__
 - `Twitter <https://x.com/usaborning>`__
