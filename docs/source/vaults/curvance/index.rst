@@ -15,6 +15,7 @@ deployed on Monad, Ethereum, Arbitrum, Base, and other chains.
 Links
 ~~~~~
 
+- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/curvance>`__
 - `Homepage <https://www.curvance.com/>`__
 - `Documentation <https://docs.curvance.com/>`__
 - `GitHub <https://github.com/curvance/curvance-contracts>`__

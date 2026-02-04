@@ -18,7 +18,7 @@ links:
   defillama:
   audits:
   fees:
-  trading_strategy:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/renalta
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/renalta/index.html
 example_smart_contracts:
   - https://basescan.org/address/0x0ff79b6d6c0fb5faf54bd26db5ce97062a105f81

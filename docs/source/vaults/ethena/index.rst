@@ -22,6 +22,10 @@ Key features:
 - Governance-configurable cooldown period for withdrawals (up to 90 days)
 - Fully backed by USDe
 
+Links
+~~~~~
+
+- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/ethena>`__
 - `Homepage <https://ethena.fi/>`__
 - `Documentation <https://docs.ethena.fi/>`__
 - `GitHub <https://github.com/ethena-labs>`__

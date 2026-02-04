@@ -21,6 +21,10 @@ Key features:
 - Instant deposits and withdrawals (subject to market liquidity)
 - Chainlink Automation secures price updates for vault assets
 
+Links
+~~~~~
+
+- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/dolomite>`__
 - `Homepage <https://dolomite.io/>`__
 - `Application <https://app.dolomite.io/>`__
 - `Documentation <https://docs.dolomite.io/>`__

@@ -31,7 +31,7 @@ links:
   defillama: https://defillama.com/protocol/hyperlend
   audits:
   fees: https://docs.loopingcollective.org/products/wrapped-hlp
-  trading_strategy:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/hyperlend
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/hyperlend/index.html
 example_smart_contracts:
   - https://hyperevmscan.io/address/0x06fd9d03b3d0f18e4919919b72d30c582f0a97e5

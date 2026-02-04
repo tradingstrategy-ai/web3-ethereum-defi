@@ -29,7 +29,7 @@ links:
   defillama: https://defillama.com/protocol/curvance
   audits: https://docs.curvance.com/cve/security/security-and-audits
   fees:
-  trading_strategy:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/curvance
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/curvance/index.html
 example_smart_contracts:
   - https://monadscan.com/address/0xad4aa2a713fb86fbb6b60de2af9e32a11db6abf2

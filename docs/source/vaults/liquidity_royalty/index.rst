@@ -17,6 +17,10 @@ Key features:
 - 7-day cooldown period for penalty-free withdrawals
 - 20% penalty for early withdrawals without cooldown, plus 1% base withdrawal fee
 
+Links
+~~~~~
+
+- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/liquidity-royalty-tranching>`__
 - `Homepage <https://github.com/stratosphere-network/LiquidRoyaltyContracts>`__
 - `Documentation <https://github.com/stratosphere-network/LiquidRoyaltyContracts/tree/master/docs>`__
 - `Github <https://github.com/stratosphere-network/LiquidRoyaltyContracts>`__

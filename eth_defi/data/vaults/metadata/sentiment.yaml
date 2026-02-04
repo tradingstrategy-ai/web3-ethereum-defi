@@ -30,7 +30,7 @@ links:
   defillama: https://defillama.com/protocol/sentiment
   audits: https://github.com/sentimentxyz/protocol-v2/tree/master/audits
   fees:
-  trading_strategy:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/sentiment
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/sentiment/index.html
 example_smart_contracts:
   - https://hyperevmscan.io/address/0xe45e7272da7208c7a137505dfb9491e330bf1a4e

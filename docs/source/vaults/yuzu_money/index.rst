@@ -29,6 +29,10 @@ where a consistent weekly yield target is distributed to users, backed by a Rese
 that acts as a buffer. This approach provides more predictable returns without explicit
 management or performance fees.
 
+Links
+~~~~~
+
+- `Listing <https://tradingstrategy.ai/trading-view/vaults/protocols/yuzu-money>`__
 - `Homepage <https://yuzu.money/>`__
 - `App <https://app.yuzu.money/>`__
 - `Documentation <https://yuzu-money.gitbook.io/yuzu-money/>`__
