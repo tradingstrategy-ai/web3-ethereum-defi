@@ -517,6 +517,12 @@ class ERC4626Feature(enum.Enum):
     #: https://frax.com/
     frax_like = "frax_like"
 
+    #: Hyperdrive (HyperEVM)
+    #:
+    #: Stablecoin money market and yield hub on Hyperliquid (HyperEVM).
+    #: https://hyperdrive.fi/
+    hyperdrive_hl_like = "hyperdrive_hl_like"
+
 
 def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     """Deduct vault protocol name based on Vault smart contract features.
@@ -745,6 +751,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.frax_like in features:
         return "Frax"
+
+    elif ERC4626Feature.hyperdrive_hl_like in features:
+        return "Hyperdrive"
 
     # No idea
     if ERC4626Feature.erc_7540_like in features:

@@ -55,6 +55,7 @@ Supported protocols
    gearbox/index
    goat/index
    harvest/index
+   hyperdrive_hl/index
    hyperlend/index
    hypurrfi/index
    infinifi/index
