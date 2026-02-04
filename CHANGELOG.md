@@ -1,5 +1,6 @@
 # 0.39
 
+- Add: Google Analytics tracking to Sphinx documentation (2026-02-04)
 - Add: `CHAIN_ORDER` environment variable for `scan-vaults-all-chains.py` to control chain scan order (2026-02-04)
 - Add: Cloudflare Pages documentation hosting with custom domain `web3-ethereum-defi.tradingstrategy.ai` (2026-02-03)
 - Add: [Derive.xyz](https://www.derive.xyz/) perpetuals and options DEX integration with session key authentication and account balance reading (2026-02-03)
