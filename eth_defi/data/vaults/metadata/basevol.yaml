@@ -1,0 +1,41 @@
+name: BaseVol
+slug: basevol
+short_description: |
+  Onchain options protocol with AI-managed yield vaults on Base.
+long_description: |
+  BaseVol is an onchain options protocol on Base, offering zero-day-to-expiry (0DTE)
+  binary options trading and AI-managed yield vaults. The protocol was incubated by
+  Base (Batch #001, 2nd place global) and raised $3M in a seed round led by
+  Neoclassic Capital, joined by Virtuals Ventures and Baboon VC.
+
+  The Genesis Vault systematically deploys funds using a 90/10 allocation: 90% to
+  USDC lending on Morpho/Spark, and 10% to 0DTE options selling. The vault is managed
+  by A.T.M. (Autonomous Trading Machine), an AI agent that handles trade sizing,
+  hedging, and settlement.
+
+  Vault types:
+
+  - Genesis Vault (gVAULT) - neutral market strategy
+  - High Vol Vault (gVAULT-over101-under99) - high volatility strategy
+  - 99 Over Vault (gVAULT-over99) - directional strategy
+  - 101 Under Vault (gVAULT-under101) - directional strategy
+
+  The vaults use Diamond proxy (EIP-2535) architecture with multiple facets.
+fee_description: |
+  Fee structure is not publicly documented for BaseVol vaults.
+links:
+  homepage: https://basevol.com/
+  app:
+  twitter: https://x.com/BaseVolApp
+  github:
+  documentation: https://basevol.gitbook.io/docs/
+  defillama: https://defillama.com/protocol/basevol
+  audits: https://getfailsafe.com/basevol-smart-contract-audit/
+  fees:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/basevol
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/basevol/index.html
+example_smart_contracts:
+  - https://basescan.org/address/0xf1BE2622fd0f34d520Ab31019A4ad054a2c4B1e0
+  - https://basescan.org/address/0x052E7d7FBb4Cf3BE81a4fFC182BcC0FD802417Ae
+  - https://basescan.org/address/0xe34E510B1ef2e97911a646F120bD0dA2CA4ac0ff
+  - https://basescan.org/address/0x82b394c5d4eaC1b9755Eb33bF70AD6D08B2d59f4

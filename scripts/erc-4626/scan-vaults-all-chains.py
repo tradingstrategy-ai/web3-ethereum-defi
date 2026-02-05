@@ -78,6 +78,7 @@ import os
 import pickle
 import sys
 import time
+import traceback
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -146,6 +147,9 @@ class ChainResult:
     #: Error message if failed
     error: str | None = None
 
+    #: Full traceback string if failed
+    traceback_str: str | None = None
+
     #: Scan duration in seconds
     duration: float | None = None
 
@@ -210,7 +214,7 @@ def scan_vaults_for_chain(rpc_url: str, max_workers: int) -> tuple[bool, dict]:
 
     except Exception as e:
         logger.exception("Vault scan failed")
-        return False, {"error": str(e)}
+        return False, {"error": str(e), "traceback": traceback.format_exc()}
 
 
 def scan_prices_for_chain(rpc_url: str, max_workers: int, frequency: str) -> tuple[bool, dict]:
@@ -298,7 +302,7 @@ def scan_prices_for_chain(rpc_url: str, max_workers: int, frequency: str) -> tup
 
     except Exception as e:
         logger.exception("Price scan failed")
-        return False, {"error": str(e)}
+        return False, {"error": str(e), "traceback": traceback.format_exc()}
 
 
 def scan_chain(config: ChainConfig, scan_prices: bool, max_workers: int, frequency: str, retry_attempt: int) -> ChainResult:
@@ -336,6 +340,7 @@ def scan_chain(config: ChainConfig, scan_prices: bool, max_workers: int, frequen
             result.new_vaults = vault_metrics.get("new_vaults")
         else:
             result.error = vault_metrics.get("error", "Unknown error")
+            result.traceback_str = vault_metrics.get("traceback")
 
     # Scan prices
     if scan_prices:
@@ -350,10 +355,15 @@ def scan_chain(config: ChainConfig, scan_prices: bool, max_workers: int, frequen
             if result.end_block is None:
                 result.end_block = price_metrics.get("end_block")
         else:
+            price_error = price_metrics.get("error", "Unknown error")
+            price_tb = price_metrics.get("traceback")
             if result.error:
-                result.error += "; " + price_metrics.get("error", "Unknown error")
+                result.error += "; " + price_error
+                if price_tb:
+                    result.traceback_str = (result.traceback_str or "") + "\n" + price_tb
             else:
-                result.error = price_metrics.get("error", "Unknown error")
+                result.error = price_error
+                result.traceback_str = price_tb
 
     # Calculate duration
     result.duration = time.time() - start_time
@@ -405,7 +415,12 @@ def print_dashboard(results: dict[str, ChainResult], display_order: list[str] | 
         duration = f"{result.duration:.1f}s" if result.duration is not None else "-"
         retry = str(result.retry_attempt)
 
-        print(f"{result.name:<15} {status:<10} {vaults:<8} {new:<6} {blocks:<22} {duration:<10} {retry:<5}")
+        line = f"{result.name:<15} {status:<10} {vaults:<8} {new:<6} {blocks:<22} {duration:<10} {retry:<5}"
+        if result.status == "failed" and result.error:
+            # Truncate long error messages to fit the dashboard
+            error_msg = result.error[:80]
+            line += f"  {error_msg}"
+        print(line)
 
     # Summary
     print("-" * 100)
@@ -554,7 +569,17 @@ def main():
     # First pass - scan all chains
     logger.info("First pass: scanning %d chains", len(chains))
     for chain in chains:
-        results[chain.name] = scan_chain(chain, scan_prices, max_workers, frequency, 0)
+        try:
+            results[chain.name] = scan_chain(chain, scan_prices, max_workers, frequency, 0)
+        except Exception as e:
+            logger.exception("Chain %s crashed with unhandled exception", chain.name)
+            results[chain.name] = ChainResult(
+                name=chain.name,
+                status="failed",
+                error=str(e),
+                traceback_str=traceback.format_exc(),
+                retry_attempt=0,
+            )
 
         # Log result
         r = results[chain.name]
@@ -586,7 +611,17 @@ def main():
 
         for chain_name in failed_chain_names:
             chain = next(c for c in chains if c.name == chain_name)
-            result = scan_chain(chain, scan_prices, max_workers, frequency, attempt)
+            try:
+                result = scan_chain(chain, scan_prices, max_workers, frequency, attempt)
+            except Exception as e:
+                logger.exception("Chain %s crashed with unhandled exception (retry %d)", chain.name, attempt)
+                result = ChainResult(
+                    name=chain.name,
+                    status="failed",
+                    error=str(e),
+                    traceback_str=traceback.format_exc(),
+                    retry_attempt=attempt,
+                )
             results[chain.name] = result
 
             # Log result
@@ -638,13 +673,29 @@ def main():
     logger.info("=" * 80)
     logger.info("Scan complete at %s", datetime.datetime.utcnow().isoformat())
 
+    # Print full tracebacks for all failed chains before the final dashboard
+    failed_results = [r for r in results.values() if r.status == "failed" and r.traceback_str]
+    if failed_results:
+        print("\n")
+        print("=" * 100)
+        print(" " * 30 + "Full tracebacks for failed chains")
+        print("=" * 100)
+        for r in failed_results:
+            print(f"\n--- {r.name} (retry {r.retry_attempt}) ---")
+            print(r.traceback_str)
+        print("=" * 100)
+
     # Print final dashboard
     print_dashboard(results, display_order)
 
     # Exit with appropriate code
-    if failed_count > 0:
-        logger.warning("Exiting with error code due to %d failed chains", failed_count)
+    # Only exit with error if there are no successful chains at all
+    if success_count == 0 and failed_count > 0:
+        logger.warning("Exiting with error code - no chains succeeded (%d failed)", failed_count)
         sys.exit(1)
+    elif failed_count > 0:
+        logger.warning("%d chains failed but %d succeeded - exiting with success", failed_count, success_count)
+        sys.exit(0)
     else:
         logger.info("All scans completed successfully")
         sys.exit(0)

@@ -9,9 +9,9 @@ authors = ["Mikko Ohtamaa <mikko@tradingstrategy.ai>"]
 description = "Integrate DeFi protocols and Web3 frameworks to Python applications"
 license = "MIT"
 name = "web3-ethereum-defi"
-version = "0.39"
+version = "0.40"
 
-homepage = "https://web3-ethereum-defi.readthedocs.io/"
+homepage = "https://web3-ethereum-defi.tradingstrategy.ai/"
 keywords = [
   "uniswap",
   "aave",
@@ -37,7 +37,7 @@ repository = "https://github.com/tradingstrategy-ai/web3-ethereum-defi"
 [tool.poetry.urls]
 Changelog = "https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/CHANGELOG.md"
 Discord = "https://discord.gg/5M88m9nM8H"
-Documentation = "https://web3-ethereum-defi.readthedocs.io/"
+Documentation = "https://web3-ethereum-defi.tradingstrategy.ai/"
 Sponsor = "https://tradingstrategy.ai"
 Twitter = "https://twitter.com/tradingprotocol"
 Youtube = "https://www.youtube.com/@tradingstrategyprotocol"
@@ -60,9 +60,8 @@ ujson = ">=5.8.0"
 sigfig = "^1.3.2"
 tqdm = {version = ">=4.66.1", optional = true}
 tqdm-loggable = ">=0.1.3"
-# Some packages have still compatibility issues with Numpy 2.x release,
-# too tired to deal with them now
-numpy = {version = "<2", optional = true}
+# Allow Numpy 2.x now that ecosystem compatibility has improved
+numpy = {version = "<3", optional = true}
 pandas = {version = ">=1.4", optional = true}
 
 # Data
