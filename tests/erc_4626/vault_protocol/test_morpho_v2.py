@@ -38,7 +38,10 @@ def anvil_arbitrum_fork(request) -> AnvilLaunch:
 
 @pytest.fixture(scope="module")
 def web3(anvil_arbitrum_fork):
-    web3 = create_multi_provider_web3(anvil_arbitrum_fork.json_rpc_url)
+    web3 = create_multi_provider_web3(
+        anvil_arbitrum_fork.json_rpc_url,
+        default_http_timeout=(6.0, 60.0),
+    )
     return web3
 
 

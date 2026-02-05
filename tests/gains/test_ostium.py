@@ -56,7 +56,7 @@ def test_ostium_features(web3):
     assert ERC4626Feature.ostium_like in features, f"Got features: {features}"
 
 
-@pytest.mark.skipif(CI, "This just does not work on Github due to some RPC errors even after changing provider")
+@pytest.mark.skipif(CI, reason="This just does not work on Github due to some RPC errors even after changing provider")
 def test_ostium_read_data(web3, vault: GainsVault):
     assert vault.name == f"Ostium Liquidity Pool Vault"
     # https://arbiscan.io/address/0x20d419a8e12c45f88fda7c5760bb6923cee27f98#readContract
@@ -117,7 +117,7 @@ def test_ostium_read_data(web3, vault: GainsVault):
     assert redemption_next is None
 
 
-@pytest.mark.skipif(CI, "This just does not work on Github due to some RPC errors even after changing provider")
+@pytest.mark.skipif(CI, reason="This just does not work on Github due to some RPC errors even after changing provider")
 def test_ostium_deposit_withdraw(
     web3_write: Web3,
     test_user,
