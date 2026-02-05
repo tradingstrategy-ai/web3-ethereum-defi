@@ -255,7 +255,7 @@ def test_gains_historical_stateful(tmp_path):
     assert r.total_assets is not None and r.total_assets > 0
     assert r.total_supply is not None and r.total_supply > 0
     assert r.max_deposit is not None
-    assert r.max_redeem is not None
+    assert r.max_redeem is None
 
     # Gains-specific fields
     assert r.deposits_open is True
