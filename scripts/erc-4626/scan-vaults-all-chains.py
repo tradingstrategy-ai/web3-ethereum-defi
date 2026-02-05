@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Scan ERC-4626 vaults across all supported chains.
 
 - Scan vaults and optionally prices for multiple chains
