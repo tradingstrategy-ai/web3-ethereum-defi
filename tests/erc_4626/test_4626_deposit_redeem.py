@@ -117,6 +117,7 @@ def test_erc_4626_deposit(
     assert vault.share_token.fetch_balance_of(test_user) > 0
 
 
+@pytest.mark.skipif(CI, reason="Flaky on CI due to RPC errors")
 def test_erc_4626_redeem(
     web3: Web3,
     vault: ERC4626Vault,
