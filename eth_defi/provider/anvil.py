@@ -37,6 +37,7 @@ The code was originally lifted from Brownie project.
 import fcntl
 import logging
 import os
+import random
 import shutil
 import sys
 import tempfile
@@ -489,7 +490,7 @@ def launch_anvil(
         # Each call advances to the next RPC in round-robin order.
         available_rpcs = [u for u in fork_url.split(" ") if u]
         if not hasattr(_anvil_rpc_state, "rpc_index"):
-            _anvil_rpc_state.rpc_index = 0
+            _anvil_rpc_state.rpc_index = random.randint(0, len(available_rpcs) - 1)
         else:
             _anvil_rpc_state.rpc_index += 1
         rpc_index = _anvil_rpc_state.rpc_index % len(available_rpcs)
