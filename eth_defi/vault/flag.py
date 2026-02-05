@@ -130,6 +130,9 @@ Fixed Maturity Date: 15 Oct, 2026.
 Although the vault has long lock up matching the duration of the underlying real-world asset instrument, [the share token can be traded against the secondary liquidity available at Curve DEX](https://www.curve.finance/dex/ethereum/pools/factory-stable-ng-650/swap).
 """
 
+ETH_STRATEGY_ESPN = """ESPN (ETH Strategy Perpetual Note) lends USDS to ETH Strategy, but instead of receiving interest, ESPN receives a long-dated ETH call option. To extract yield from this long-dated call option, ESPN systematically sells shorter-dated call options on [Derive](https://www.derive.xyz/). The symmetry between the long-dated convertibles acquired and short-dated calls sold keeps the strategy balanced in USD terms. More info: https://x.com/TradingProtocol/status/2011043276283900198
+"""
+
 #: Vault manual blacklist flags and notes.
 #:
 #: The reason notes is a guess.
@@ -298,6 +301,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0xf91a9a1c782a1c11b627f6e576d92c7d72cdd4af": (VaultFlag.subvault, SUBVAULT),
     # dgnHYPE (D2 Finance on Arbitrum)
     "0x64167cd42859f64cff2aa4b63c3175ccef9659dd": (VaultFlag.subvault, SUBVAULT),
+    # ETH Strategy Perpetual Note (Ethereum)
+    "0xb250c9e0f7be4cff13f94374c993ac445a1385fe": (None, ETH_STRATEGY_ESPN),
 }
 
 for addr in VAULT_FLAGS_AND_NOTES.keys():
