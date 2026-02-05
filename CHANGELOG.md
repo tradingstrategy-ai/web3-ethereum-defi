@@ -1,5 +1,6 @@
 # Current
 
+- Fix: Multi-chain vault scanner now captures and displays exceptions per chain instead of crashing, with full tracebacks printed before the final dashboard (2026-02-05)
 - Fix: Remove `.html` suffix from Sphinx generated sitemap URLs for Cloudflare Pages compatibility (2026-02-05)
 
 # 0.40
