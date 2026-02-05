@@ -156,3 +156,29 @@ highlight_language = "none"
 pygments_style = None
 
 from eth_defi.docs import monkeypatch
+
+
+def strip_html_from_sitemap(app, exception):
+    """Remove .html suffix from generated sitemap URLs.
+
+    Runs as a ``build-finished`` event handler after sphinx-sitemap
+    has written the sitemap file.  Cloudflare Pages serves pages
+    without the ``.html`` extension, so the sitemap should match.
+    """
+    if exception:
+        return
+
+    from pathlib import Path
+    import re
+
+    filename = Path(app.outdir) / app.config.sitemap_filename
+    if not filename.exists():
+        return
+
+    content = filename.read_text(encoding="utf-8")
+    content = re.sub(r"\.html</loc>", "</loc>", content)
+    filename.write_text(content, encoding="utf-8")
+
+
+def setup(app):
+    app.connect("build-finished", strip_html_from_sitemap)
