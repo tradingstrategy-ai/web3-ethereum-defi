@@ -636,7 +636,7 @@ def fix_outlier_share_prices(
         # Mark rows where both changes exceed the threshold (spike and recovery)
         abnormal_mask = (group["pct_change_prev"] > max_diff) | (group["pct_change_next"] > max_diff)
 
-        group["fixed_share_price"] = np.NaN
+        group["fixed_share_price"] = np.nan
 
         # Print pass, figure out damanged entries
         for idx in group[abnormal_mask].index:
