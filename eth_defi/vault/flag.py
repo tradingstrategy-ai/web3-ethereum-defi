@@ -296,6 +296,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0x85968bf0f1f110c707fef10a59f80118f349c058": (VaultFlag.subvault, SUBVAULT),
     # Curve Boosted crvUSD-sfrxUSD Lender
     "0xf91a9a1c782a1c11b627f6e576d92c7d72cdd4af": (VaultFlag.subvault, SUBVAULT),
+    # dgnHYPE (D2 Finance on Arbitrum)
+    "0x64167cd42859f64cff2aa4b63c3175ccef9659dd": (VaultFlag.subvault, SUBVAULT),
 }
 
 for addr in VAULT_FLAGS_AND_NOTES.keys():
