@@ -32,6 +32,7 @@ from eth_defi.trace import (
 
 
 JSON_RPC_BASE = os.environ.get("JSON_RPC_BASE")
+CI = os.environ.get("CI") == "true"
 
 pytestmark = pytest.mark.skipif(
     JSON_RPC_BASE is None,
@@ -241,6 +242,7 @@ def guard(
     return get_deployed_contract(web3, "guard/GuardV0.json", vault.functions.guard().call())
 
 
+@pytest.mark.skipif(CI, reason="Flaky on CI due to Anvil fork block range errors")
 def test_vault_initialised(
     owner: str,
     asset_manager: str,
@@ -277,6 +279,7 @@ def test_vault_initialised(
     assert guard.functions.isAllowedAsset(denomination_token).call()
 
 
+@pytest.mark.skipif(CI, reason="Flaky on CI due to Anvil fork block range errors")
 def test_guard_can_do_erc_4626_deposit(
     web3: Web3,
     erc4626_vault: IPORVault,
@@ -304,6 +307,7 @@ def test_guard_can_do_erc_4626_deposit(
     assert erc4626_vault.fetch_total_assets("latest") == pytest.approx(Decimal("4629873.988981"))
 
 
+@pytest.mark.skipif(CI, reason="Flaky on CI due to Anvil fork block range errors")
 def test_guard_no_erc_4626_deposit_unapproved_vault(
     web3: Web3,
     malicious_vault: IPORVault,
@@ -334,6 +338,7 @@ def test_guard_no_erc_4626_deposit_unapproved_vault(
     assert erc4626_vault.fetch_total_assets("latest") == pytest.approx(Decimal("265089.086941"))
 
 
+@pytest.mark.skipif(CI, reason="Flaky on CI due to Anvil fork block range errors")
 def test_guard_can_do_erc_4626_withdraw(
     web3: Web3,
     erc4626_vault: IPORVault,

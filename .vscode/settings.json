@@ -22,7 +22,8 @@
     ],
     "python.analysis.include": [
         "eth_defi",
-        "tests"
+        "tests",
+        "scripts"
     ],
     "python.analysis.diagnosticMode": "workspace",
     "[markdown]": {

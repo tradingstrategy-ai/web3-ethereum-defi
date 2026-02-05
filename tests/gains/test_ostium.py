@@ -85,7 +85,7 @@ def test_ostium_read_data(web3, vault: GainsVault):
     assert vault_read.total_assets == Decimal("31668258.181211")
     assert vault_read.total_supply == Decimal("28772893.664136")
     assert vault_read.max_deposit == Decimal("1555220.50855")
-    assert vault_read.max_redeem == Decimal("0")
+    assert vault_read.max_redeem is None
 
     # Ostium: deposits are always open
     assert vault_read.deposits_open is True

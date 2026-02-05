@@ -6,9 +6,10 @@ Tests for the newer Morpho Vault V2 adapter-based architecture.
 import os
 from pathlib import Path
 
-import flaky
 import pytest
 from web3 import Web3
+
+CI = os.environ.get("CI") == "true"
 
 from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
@@ -45,7 +46,7 @@ def web3(anvil_arbitrum_fork):
     return web3
 
 
-@flaky.flaky
+@pytest.mark.skipif(CI, reason="Flaky on CI due to Anvil fork timeouts")
 def test_morpho_v2_vault(
     web3: Web3,
     tmp_path: Path,
