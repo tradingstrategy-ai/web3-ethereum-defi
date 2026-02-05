@@ -37,6 +37,7 @@ Supported protocols
    altura/index
    avant/index
    auto_finance/index
+   basevol/index
    brink/index
    cap/index
    centrifuge/index

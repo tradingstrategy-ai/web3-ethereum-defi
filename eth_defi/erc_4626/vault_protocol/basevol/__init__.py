@@ -1,0 +1,1 @@
+"""BaseVol protocol integration."""

@@ -123,6 +123,8 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "Frax": VaultFeeMode.internalised_skimming,
     # Hyperdrive - fee mode unknown (unverified contracts)
     "Hyperdrive": None,
+    # BaseVol - fee mode unknown
+    "BaseVol": None,
 }
 
 
