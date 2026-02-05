@@ -1,3 +1,7 @@
+# Current
+
+- Fix: Remove `.html` suffix from Sphinx generated sitemap URLs for Cloudflare Pages compatibility (2026-02-05)
+
 # 0.40
 
 - Update: Relax NumPy version constraint from `<2` to `<3` to allow NumPy 2.x (2026-02-05)
