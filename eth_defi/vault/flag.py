@@ -130,7 +130,9 @@ Fixed Maturity Date: 15 Oct, 2026.
 Although the vault has long lock up matching the duration of the underlying real-world asset instrument, [the share token can be traded against the secondary liquidity available at Curve DEX](https://www.curve.finance/dex/ethereum/pools/factory-stable-ng-650/swap).
 """
 
-ETH_STRATEGY_ESPN = """ESPN (ETH Strategy Perpetual Note) lends USDS to ETH Strategy, but instead of receiving interest, ESPN receives a long-dated ETH call option. To extract yield from this long-dated call option, ESPN systematically sells shorter-dated call options on [Derive](https://www.derive.xyz/). The symmetry between the long-dated convertibles acquired and short-dated calls sold keeps the strategy balanced in USD terms. More info: https://x.com/TradingProtocol/status/2011043276283900198
+ETH_STRATEGY_ESPN = """ESPN (ETH Strategy Perpetual Note) lends USDS to ETH Strategy, but instead of receiving interest, ESPN receives a long-dated ETH call option. To extract yield from this long-dated call option, ESPN systematically sells shorter-dated call options on [Derive](https://www.derive.xyz/). The symmetry between the long-dated convertibles acquired and short-dated calls sold keeps the strategy balanced in USD terms. 
+
+[Discussion about the ESPN vault](https://x.com/TradingProtocol/status/2011043276283900198).
 """
 
 #: Vault manual blacklist flags and notes.
