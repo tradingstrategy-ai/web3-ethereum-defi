@@ -40,6 +40,7 @@ import os
 import shutil
 import sys
 import tempfile
+import threading
 import time
 import warnings
 from dataclasses import dataclass
@@ -58,6 +59,14 @@ from web3 import HTTPProvider, Web3
 from eth_defi.utils import find_free_port, is_localhost_port_listening, shutdown_hard
 
 logger = logging.getLogger(__name__)
+
+#: Per-thread state tracking the last used RPC index for multi-RPC fork URLs.
+#: This is a workaround for test flakiness on CI: when multiple RPC endpoints
+#: are available (space-separated in fork_url), each call to launch_anvil()
+#: rotates to the next RPC endpoint instead of always using the first one.
+#: This spreads the load across RPC providers and avoids repeatedly hitting
+#: a flaky endpoint across multiple test fixtures.
+_anvil_rpc_state = threading.local()
 
 
 class InvalidArgumentWarning(Warning):
@@ -475,9 +484,17 @@ def launch_anvil(
     url = f"http://localhost:{port}"
 
     if fork_url and " " in fork_url:
-        # Assume multi-RPC syntax
-        cleaned_fork_url = fork_url.split(" ")[0]
-        logger.info("Multi RPC detected, using Anvil at the first RPC endpoint %s", cleaned_fork_url)
+        # Multi-RPC syntax: rotate through available endpoints across
+        # successive launch_anvil() calls to work around test flakiness on CI.
+        # Each call advances to the next RPC in round-robin order.
+        available_rpcs = [u for u in fork_url.split(" ") if u]
+        if not hasattr(_anvil_rpc_state, "rpc_index"):
+            _anvil_rpc_state.rpc_index = 0
+        else:
+            _anvil_rpc_state.rpc_index += 1
+        rpc_index = _anvil_rpc_state.rpc_index % len(available_rpcs)
+        cleaned_fork_url = available_rpcs[rpc_index]
+        logger.info("Multi RPC detected, using Anvil at RPC endpoint %d/%d: %s", rpc_index + 1, len(available_rpcs), cleaned_fork_url)
     else:
         cleaned_fork_url = fork_url
 
