@@ -86,7 +86,7 @@ def test_d2(
     assert vault_read.total_assets == Decimal("3541406.718786")
     assert vault_read.total_supply == Decimal("2540670.540343")
     assert vault_read.max_deposit == Decimal("0")
-    assert vault_read.max_redeem == Decimal("0")
+    assert vault_read.max_redeem is None
 
     # D2-specific: at block 392_313_989 the vault is in epoch (trading), not funding, not redeemable
     assert vault_read.deposits_open is False

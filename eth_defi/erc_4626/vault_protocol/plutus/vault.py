@@ -31,8 +31,19 @@ class PlutusHistoricalReader(ERC4626HistoricalReader):
 
     def construct_multicalls(self) -> Iterable[EncodedCall]:
         yield from self.construct_core_erc_4626_multicall()
-        # maxDeposit and maxRedeem are already included in the core multicall,
-        # so we can derive deposits_open/redemption_open from them directly
+        yield from self.construct_max_redeem_call()
+
+    def construct_max_redeem_call(self) -> Iterable[EncodedCall]:
+        """Plutus uses maxRedeem(address(0)) to signal whether redemptions are open."""
+        max_redeem = EncodedCall.from_contract_call(
+            self.vault.vault_contract.functions.maxRedeem(ZERO_ADDRESS_STR),
+            extra_data={
+                "function": "maxRedeem",
+                "vault": self.vault.address,
+            },
+            first_block_number=self.first_block,
+        )
+        yield max_redeem
 
     def process_result(
         self,
@@ -43,15 +54,19 @@ class PlutusHistoricalReader(ERC4626HistoricalReader):
         call_by_name = self.dictify_multicall_results(block_number, call_results)
 
         # Decode common variables
-        share_price, total_supply, total_assets, errors, max_deposit, max_redeem = self.process_core_erc_4626_result(call_by_name)
+        share_price, total_supply, total_assets, errors, max_deposit = self.process_core_erc_4626_result(call_by_name)
 
         # Derive deposits_open/redemption_open from maxDeposit/maxRedeem
         deposits_open = None
         if max_deposit is not None:
             deposits_open = max_deposit > 0
 
+        max_redeem = None
         redemption_open = None
-        if max_redeem is not None:
+        max_redeem_result = call_by_name.get("maxRedeem")
+        if max_redeem_result and max_redeem_result.success and self.vault.share_token is not None:
+            raw_max_redeem = convert_int256_bytes_to_int(max_redeem_result.result)
+            max_redeem = self.vault.share_token.convert_to_decimals(raw_max_redeem)
             redemption_open = max_redeem > 0
 
         return VaultHistoricalRead(

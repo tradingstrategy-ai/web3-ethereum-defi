@@ -88,7 +88,7 @@ class D2HistoricalReader(ERC4626HistoricalReader):
         call_by_name = self.dictify_multicall_results(block_number, call_results)
 
         # Decode common variables
-        share_price, total_supply, total_assets, errors, max_deposit, max_redeem = self.process_core_erc_4626_result(call_by_name)
+        share_price, total_supply, total_assets, errors, max_deposit = self.process_core_erc_4626_result(call_by_name)
 
         # Decode D2-specific epoch state
         deposits_open = None
@@ -117,7 +117,6 @@ class D2HistoricalReader(ERC4626HistoricalReader):
             management_fee=None,
             errors=errors or None,
             max_deposit=max_deposit,
-            max_redeem=max_redeem,
             deposits_open=deposits_open,
             redemption_open=redemption_open,
             trading=trading,

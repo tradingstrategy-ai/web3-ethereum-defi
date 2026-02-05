@@ -70,7 +70,7 @@ def test_gains_read_data(web3, vault: GainsVault):
     assert vault_read.total_supply == Decimal("10218226.071715")
     # Gains maxDeposit returns a very large number (uint256 max-like)
     assert vault_read.max_deposit > Decimal("1e70")
-    assert vault_read.max_redeem == Decimal("0")
+    assert vault_read.max_redeem is None
 
     # Gains: deposits are always open
     assert vault_read.deposits_open is True

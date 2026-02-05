@@ -81,9 +81,9 @@ def test_4626_historical_vault_data_stateless(
     assert r.total_assets == 0
     assert r.total_supply == 0
     assert r.share_price == Decimal(1)
-    # max_deposit/max_redeem should be populated from base ERC-4626 reader
+    # max_deposit should be populated from base ERC-4626 reader
     assert r.max_deposit is not None
-    assert r.max_redeem is not None
+    assert r.max_redeem is None
 
     r = [r for r in records if r.vault.name == "Moonwell Flagship USDC"][-1]
     assert r.block_number == 23998576
@@ -96,7 +96,7 @@ def test_4626_historical_vault_data_stateless(
     assert r.management_fee == 0
     assert r.performance_fee == 0.15
     assert r.max_deposit is not None
-    assert r.max_redeem is not None
+    assert r.max_redeem is None
     # Base reader does not set protocol-specific boolean flags
     assert r.deposits_open is None
     assert r.redemption_open is None
@@ -202,7 +202,7 @@ def test_4626_historical_vault_data_stateful(
     assert r.performance_fee == 0.10
     assert r.management_fee == 0.01
     assert r.max_deposit is not None
-    assert r.max_redeem is not None
+    assert r.max_redeem is None
 
     # Verify export round-trip includes new fields
     exported = r.export()
