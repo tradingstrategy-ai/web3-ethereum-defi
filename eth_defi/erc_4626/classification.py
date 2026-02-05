@@ -1586,6 +1586,11 @@ def create_vault_instance(
 
         return HyperdriveVault(web3, spec, token_cache=token_cache, features=features)
 
+    elif ERC4626Feature.basevol_like in features:
+        from eth_defi.erc_4626.vault_protocol.basevol.vault import BaseVolVault
+
+        return BaseVolVault(web3, spec, token_cache=token_cache, features=features)
+
     else:
         # Generic ERC-4626 without fee data
         from eth_defi.erc_4626.vault import ERC4626Vault
@@ -1759,6 +1764,22 @@ HARDCODED_PROTOCOLS = {
     # Frax - Fraxlend USDC lending pair on Ethereum
     # https://etherscan.io/address/0xee847a804b67f4887c9e8fe559a2da4278defb52
     "0xee847a804b67f4887c9e8fe559a2da4278defb52": {ERC4626Feature.frax_like},
+    # BaseVol - onchain options protocol on Base
+    # Vault addresses sourced from DefiLlama adapters and BaseVol documentation:
+    # https://github.com/DefiLlama/DefiLlama-Adapters/blob/3a63c0665de8d6a89f85ff360c5dc61fd40e72dd/projects/basevol/index.js#L6
+    # https://basevol.gitbook.io/docs/developers/contracts
+    # Genesis Vault (gVAULT)
+    # https://basescan.org/address/0xf1BE2622fd0f34d520Ab31019A4ad054a2c4B1e0
+    "0xf1be2622fd0f34d520ab31019a4ad054a2c4b1e0": {ERC4626Feature.basevol_like},
+    # High Vol Vault (gVAULT-over101-under99)
+    # https://basescan.org/address/0x052E7d7FBb4Cf3BE81a4fFC182BcC0FD802417Ae
+    "0x052e7d7fbb4cf3be81a4ffc182bcc0fd802417ae": {ERC4626Feature.basevol_like},
+    # 99 Over Vault (gVAULT-over99)
+    # https://basescan.org/address/0xe34E510B1ef2e97911a646F120bD0dA2CA4ac0ff
+    "0xe34e510b1ef2e97911a646f120bd0da2ca4ac0ff": {ERC4626Feature.basevol_like},
+    # 101 Under Vault (gVAULT-under101)
+    # https://basescan.org/address/0x82b394c5d4eaC1b9755Eb33bF70AD6D08B2d59f4
+    "0x82b394c5d4eac1b9755eb33bf70ad6d08b2d59f4": {ERC4626Feature.basevol_like},
     # Hyperdrive - HyperEVM vaults (stablecoin money market on Hyperliquid)
     # https://app.hyperdrive.fi/earn
     # Unverified smart contract source code

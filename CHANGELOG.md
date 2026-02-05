@@ -1,5 +1,6 @@
 # 0.39
 
+- Add: New protocol: [BaseVol](https://basevol.com/) - onchain options protocol with AI-managed yield vaults on Base (2026-02-05)
 - Fix: Vault deposit/redemption close reason checks are now protocol-specific instead of relying on generic `maxRedeem(address(0))` which doesn't work for all protocols like Gearbox (2026-02-04)
 - Add: New protocol: [Hyperdrive](https://hyperdrive.fi/) - stablecoin money market and yield hub on HyperEVM (Hyperliquid) (2026-02-04)
 - Add: Google Analytics tracking to Sphinx documentation (2026-02-04)

@@ -523,6 +523,12 @@ class ERC4626Feature(enum.Enum):
     #: https://hyperdrive.fi/
     hyperdrive_hl_like = "hyperdrive_hl_like"
 
+    #: BaseVol
+    #:
+    #: Onchain options protocol with AI-managed yield vaults on Base.
+    #: https://basevol.com/
+    basevol_like = "basevol_like"
+
 
 def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     """Deduct vault protocol name based on Vault smart contract features.
@@ -754,6 +760,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.hyperdrive_hl_like in features:
         return "Hyperdrive"
+
+    elif ERC4626Feature.basevol_like in features:
+        return "BaseVol"
 
     # No idea
     if ERC4626Feature.erc_7540_like in features:
