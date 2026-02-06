@@ -27,12 +27,15 @@ def apply_patch():
 
     This function patches CCXT (including async_support and pro modules)
     and Freqtrade to recognize GMX as a supported exchange.
+    It also adds sensitive data filtering to all log handlers.
     """
     global _patched_at_module_level
     print("Applying GMX monkeypatch to Freqtrade...", flush=True)
     from eth_defi.gmx.freqtrade.monkeypatch import patch_freqtrade
+    from eth_defi.gmx.freqtrade.sensitive_filter import patch_logging
 
     patch_freqtrade()
+    patch_logging()  # Add sensitive data filtering to all log handlers
 
     # Verify the patch worked correctly
     print("Verifying GMX monkeypatch...", flush=True)
