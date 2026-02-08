@@ -14,11 +14,11 @@ import os
 from decimal import Decimal
 
 import pytest
-from web3 import HTTPProvider, Web3
-from eth_defi.compat import geth_poa_middleware
+from web3 import Web3
 
 from eth_defi.event_reader.web3factory import TunedWeb3Factory
 from eth_defi.price_oracle.oracle import PriceOracle, time_weighted_average_price
+from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.uniswap_v3.oracle import (
     update_price_oracle_concurrent,
     update_price_oracle_single_thread,
@@ -28,19 +28,14 @@ from eth_defi.uniswap_v3.pool import fetch_pool_details
 
 @pytest.fixture
 def web3_factory() -> TunedWeb3Factory:
-    """Set up a Web3 connection generation factury"""
-    # https://web3py.readthedocs.io/en/latest/web3.eth.account.html#read-a-private-key-from-an-environment-variable
+    """Set up a Web3 connection generation factory"""
     return TunedWeb3Factory(os.environ["ETHEREUM_JSON_RPC"])
 
 
 @pytest.fixture
 def web3() -> Web3:
-    """Set up a Web3 connection generation factury"""
-    # https://web3py.readthedocs.io/en/latest/web3.eth.account.html#read-a-private-key-from-an-environment-variable
-    web3 = Web3(HTTPProvider(os.environ["ETHEREUM_JSON_RPC"]))
-    web3.middleware_onion.clear()
-    web3.middleware_onion.inject(geth_poa_middleware, layer=0)
-    return web3
+    """Set up a Web3 connection that supports multi-provider URLs"""
+    return create_multi_provider_web3(os.environ["ETHEREUM_JSON_RPC"])
 
 
 @pytest.fixture
