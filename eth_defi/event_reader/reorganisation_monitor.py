@@ -413,7 +413,7 @@ class ReorganisationMonitor(ABC):
         """Return UNIX UTC timestamp of a block."""
 
         ts = self.get_block_timestamp(block_number)
-        return pd.Timestamp.utcfromtimestamp(ts).tz_localize(None)
+        return pd.Timestamp.fromtimestamp(ts, tz="UTC").tz_localize(None)
 
     def update_chain(self) -> ChainReorganisationResolution:
         """Update the internal memory buffer of block headers from the blockchain node.

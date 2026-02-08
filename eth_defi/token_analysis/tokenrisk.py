@@ -22,6 +22,7 @@ from eth_typing import HexAddress
 from requests import Session
 from requests.sessions import HTTPAdapter
 
+from eth_defi.compat import native_datetime_utc_now
 from eth_defi.sqlite_cache import PersistentKeyValueStore
 from eth_defi.velvet.logging_retry import LoggingRetry
 
@@ -258,7 +259,7 @@ class TokenRisk:
 
         # Add timestamp when this was recorded,
         # so cache can have this also as a content value
-        data["data_fetched_at"] = datetime.datetime.utcnow().isoformat()
+        data["data_fetched_at"] = native_datetime_utc_now().isoformat()
 
         return data
 
@@ -353,7 +354,7 @@ class CachedTokenRisk(TokenRisk):
         cached = self.cache.get(cache_key)
         if not cached:
             decoded = super().fetch_token_info(chain_id, address)
-            decoded["cached_at"] = datetime.datetime.utcnow().isoformat()
+            decoded["cached_at"] = native_datetime_utc_now().isoformat()
             self.cache[cache_key] = json.dumps(decoded)
             decoded["cached"] = False
         else:
