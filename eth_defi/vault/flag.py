@@ -305,6 +305,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0x64167cd42859f64cff2aa4b63c3175ccef9659dd": (VaultFlag.subvault, SUBVAULT),
     # ETH Strategy Perpetual Note (Ethereum)
     "0xb250c9e0f7be4cff13f94374c993ac445a1385fe": (None, ETH_STRATEGY_ESPN),
+    # USDC Fluid Lender
+    "0x00c8a649c9837523ebb406ceb17a6378ab5c74cf": (VaultFlag.subvault, SUBVAULT),
 }
 
 for addr in VAULT_FLAGS_AND_NOTES.keys():
