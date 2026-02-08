@@ -86,7 +86,13 @@ DEFAULT_RETRYABLE_HTTP_STATUS_CODES = (
     # 400 Client Error: Bad Request for url: https://lb.drpc.org/ogrpc?network=abstract&dkey=AiWA4TvYpkijvapnvFlyx_UuJsZmMjkR8JUBzoXPVSjK')
     # '{"id":4,"jsonrpc":"2.0","error":{"message":"Can\'t route your request to suitable provider, if you specified certain providers revise the list","code":12}}'
     400,
+    # 401 Unauthorized - API key might be invalid/expired, but retry in case of transient issues
+    401,
 )
+
+#: HTTP status codes that indicate potential API key/authentication issues
+#: We retry these but log a warning to alert the user
+AUTH_WARNING_HTTP_STATUS_CODES = (401, 403)
 
 #: List of ValueError status codes we know we might want to retry after a timeout
 #:
@@ -270,7 +276,14 @@ def is_retryable_http_exception(
         return True
 
     if isinstance(exc, HTTPError):
-        return exc.response.status_code in retryable_status_codes
+        status_code = exc.response.status_code
+        if status_code in AUTH_WARNING_HTTP_STATUS_CODES:
+            logger.warning(
+                "RPC provider returned HTTP %s - this may indicate an invalid/expired API key or insufficient credits. Check your RPC provider configuration. URL: %s",
+                status_code,
+                exc.response.url if exc.response else "unknown",
+            )
+        return status_code in retryable_status_codes
 
     if isinstance(exc, retryable_exceptions):
         return True

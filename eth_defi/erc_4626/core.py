@@ -529,6 +529,12 @@ class ERC4626Feature(enum.Enum):
     #: https://basevol.com/
     basevol_like = "basevol_like"
 
+    #: sBOLD
+    #:
+    #: Yield-bearing tokenised representation of deposits into Liquity V2 Stability Pools.
+    #: https://www.k3.capital/
+    sbold_like = "sbold_like"
+
 
 def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     """Deduct vault protocol name based on Vault smart contract features.
@@ -763,6 +769,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.basevol_like in features:
         return "BaseVol"
+
+    elif ERC4626Feature.sbold_like in features:
+        return "sBOLD"
 
     # No idea
     if ERC4626Feature.erc_7540_like in features:

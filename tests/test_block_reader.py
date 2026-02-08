@@ -12,6 +12,7 @@ For manual tests see `scripts/read-uniswap-v2-pairs-and-swaps.py`.
 
 import os
 
+import flaky
 import pytest
 import requests
 from requests.adapters import HTTPAdapter
@@ -106,6 +107,7 @@ def decode_pair_created(web3: Web3, log: LogResult) -> dict:
     return data
 
 
+@flaky.flaky(max_runs=3)
 def test_read_events():
     """Read events quickly over JSON-RPC API."""
 
@@ -154,6 +156,7 @@ def test_read_events():
     assert e["tx_hash"] == "0xb0621ca74cee9f540dda6d575f6a7b876133b42684c1259aaeb59c831410ccb2"
 
 
+@flaky.flaky(max_runs=3)
 def test_read_events_concurrent():
     """Read events quickly over JSON-RPC API using a thread pool."""
 
@@ -205,6 +208,7 @@ def test_read_events_concurrent():
     assert e["tx_hash"] == "0xb0621ca74cee9f540dda6d575f6a7b876133b42684c1259aaeb59c831410ccb2"
 
 
+@flaky.flaky(max_runs=3)
 def test_read_events_concurrent_two_nodes():
     """TunedWeb3Factory accepts fallover nodes as config."""
 

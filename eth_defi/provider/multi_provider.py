@@ -310,7 +310,7 @@ def create_multi_provider_web3(
 
     # Install chain middleware with error handling
     try:
-        install_chain_middleware(web3)
+        install_chain_middleware(web3, hint=hint)
     except Exception as e:
         if "missing 1 required positional argument" in str(e):
             logger.error(f"Middleware compatibility issue in v7: {e}")

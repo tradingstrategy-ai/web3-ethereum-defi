@@ -72,6 +72,7 @@ Supported protocols
    renalta/index
    resolv/index
    royco/index
+   sbold/index
    sentiment/index
    silo/index
    singularity/index

@@ -125,6 +125,8 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "Hyperdrive": None,
     # BaseVol - fee mode unknown
     "BaseVol": None,
+    # sBOLD - yield accrues through stability pool rewards, no external fees
+    "sBOLD": VaultFeeMode.internalised_skimming,
 }
 
 

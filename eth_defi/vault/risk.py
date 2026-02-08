@@ -138,6 +138,8 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Hyperdrive": VaultTechnicalRisk.dangerous,
     # BaseVol - options protocol on Base, audited by FailSafe, Diamond proxy architecture
     "BaseVol": VaultTechnicalRisk.severe,
+    # sBOLD - audited by ChainSecurity, open source on GitHub
+    "sBOLD": VaultTechnicalRisk.low,
 }
 
 #: Particular vaults that are broken, misleading or otherwise problematic.

@@ -1591,6 +1591,11 @@ def create_vault_instance(
 
         return BaseVolVault(web3, spec, token_cache=token_cache, features=features)
 
+    elif ERC4626Feature.sbold_like in features:
+        from eth_defi.erc_4626.vault_protocol.sbold.vault import SBOLDVault
+
+        return SBOLDVault(web3, spec, token_cache=token_cache, features=features)
+
     else:
         # Generic ERC-4626 without fee data
         from eth_defi.erc_4626.vault import ERC4626Vault
@@ -1795,6 +1800,9 @@ HARDCODED_PROTOCOLS = {
     "0x5743aec1f06e896544d1638e0febd15098855cb5": {ERC4626Feature.hyperdrive_hl_like},
     # Hyperdrive vault
     "0x4d0ff6a0dd9f7316b674fb37993a3ce28bea340e": {ERC4626Feature.hyperdrive_hl_like},
+    # sBOLD - K3 Capital yield-bearing tokenised Liquity V2 Stability Pool deposit
+    # https://etherscan.io/address/0x50bd66d59911f5e086ec87ae43c811e0d059dd11
+    "0x50bd66d59911f5e086ec87ae43c811e0d059dd11": {ERC4626Feature.sbold_like},
 }
 
 for a in HARDCODED_PROTOCOLS.keys():
