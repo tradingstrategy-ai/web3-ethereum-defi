@@ -15,9 +15,7 @@ from decimal import Decimal
 
 import flaky
 import pytest
-from web3 import Web3
 
-from eth_defi.event_reader.web3factory import TunedWeb3Factory
 from eth_defi.price_oracle.oracle import PriceOracle, time_weighted_average_price
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.uniswap_v3.oracle import (
@@ -28,18 +26,6 @@ from eth_defi.uniswap_v3.pool import fetch_pool_details
 
 
 @pytest.fixture
-def web3_factory() -> TunedWeb3Factory:
-    """Set up a Web3 connection generation factory"""
-    return TunedWeb3Factory(os.environ["ETHEREUM_JSON_RPC"])
-
-
-@pytest.fixture
-def web3() -> Web3:
-    """Set up a Web3 connection that supports multi-provider URLs"""
-    return create_multi_provider_web3(os.environ["ETHEREUM_JSON_RPC"])
-
-
-@pytest.fixture
 def usdc_eth_address():
     """USDC/ETH 0.05% pool
     https://info.uniswap.org/#/pools/0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640
@@ -47,13 +33,16 @@ def usdc_eth_address():
     return "0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640"
 
 
-@flaky.flaky
+@flaky.flaky(max_runs=3)
 @pytest.mark.skipif(
     os.environ.get("ETHEREUM_JSON_RPC") is None,
     reason="Set ETHEREUM_JSON_RPC environment variable to Ethereum node URL to run this test",
 )
-def test_eth_usdc_price_single_thread(web3, usdc_eth_address):
+def test_eth_usdc_price_single_thread(usdc_eth_address):
     """Calculate historical ETH price from Uniswap V3 pool."""
+
+    # Create web3 inside test so flaky can retry on connection failures
+    web3 = create_multi_provider_web3(os.environ["ETHEREUM_JSON_RPC"])
 
     # Randomly chosen block range
     start_block = 14_000_000
@@ -98,13 +87,16 @@ def test_eth_usdc_price_single_thread(web3, usdc_eth_address):
     assert oracle.calculate_price() == pytest.approx(Decimal("3253.806086408162965922"))
 
 
-@flaky.flaky
+@flaky.flaky(max_runs=3)
 @pytest.mark.skipif(
     os.environ.get("ETHEREUM_JSON_RPC") is None,
     reason="Set ETHEREUM_JSON_RPC environment variable to Ethereum node to run this test",
 )
-def test_eth_usdc_price_concurrent(web3, usdc_eth_address):
+def test_eth_usdc_price_concurrent(usdc_eth_address):
     """Calculate historical ETH price from Uniswap V3 pool."""
+
+    # Create web3 inside test so flaky can retry on connection failures
+    web3 = create_multi_provider_web3(os.environ["ETHEREUM_JSON_RPC"])
 
     # Randomly chosen block range
     start_block = 14_000_000

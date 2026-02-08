@@ -1,10 +1,10 @@
 from decimal import Decimal
 
 import flaky
-import pandas as pd
-from web3 import Web3
-import pytest
 import os
+
+import pandas as pd
+import pytest
 
 
 import hypersync
@@ -22,27 +22,17 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-@pytest.fixture()
-def web3() -> Web3:
-    return create_multi_provider_web3(JSON_RPC_ETHEREUM)
-
-
-@pytest.fixture()
-def hypersync_client() -> hypersync.HypersyncClient:
-    hypersync_url = get_hypersync_server(1)  # Mainnet
-    client = hypersync.HypersyncClient(hypersync.ClientConfig(url=hypersync_url, bearer_token=HYPERSYNC_API_KEY))
-    return client
-
-
-@flaky.flaky
-def test_aave_liquidation_data(
-    web3: Web3,
-    hypersync_client: hypersync.HypersyncClient,
-):
+@flaky.flaky(max_runs=3)
+def test_aave_liquidation_data():
     """Read Aave liquidation events using HyperSync.
 
     - Take a snapshot of liquidation events on Ethereum mainnet and create a DataFrame out of it
     """
+
+    # Create connections inside test so flaky can retry on connection failures
+    web3 = create_multi_provider_web3(JSON_RPC_ETHEREUM)
+    hypersync_url = get_hypersync_server(1)  # Mainnet
+    hypersync_client = hypersync.HypersyncClient(hypersync.ClientConfig(url=hypersync_url, bearer_token=HYPERSYNC_API_KEY))
 
     reader = AaveLiquidationReader(
         client=hypersync_client,

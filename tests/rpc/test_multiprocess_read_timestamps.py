@@ -1,14 +1,13 @@
 import datetime
+import os
 
 import flaky
 import pytest
 
-import os
-
 from eth_defi.event_reader.multicall_timestamp import fetch_block_timestamps_multiprocess_auto_backend
 from eth_defi.event_reader.timestamp_cache import BlockTimestampDatabase
-from eth_defi.event_reader.web3factory import SimpleWeb3Factory, Web3Factory
-from eth_defi.provider.multi_provider import create_multi_provider_web3, MultiProviderWeb3Factory
+from eth_defi.event_reader.web3factory import Web3Factory
+from eth_defi.provider.multi_provider import MultiProviderWeb3Factory
 
 JSON_RPC_ETHEREUM = os.getenv("JSON_RPC_ETHEREUM")
 JSON_RPC_POLYGON = os.getenv("JSON_RPC_ETHEREUM")
@@ -26,7 +25,7 @@ def web3_polygon_factory() -> Web3Factory:
     return MultiProviderWeb3Factory(JSON_RPC_POLYGON)
 
 
-@flaky.flaky
+@flaky.flaky(max_runs=3)
 def test_get_block_timestamps_using_multiprocess_cached(web3_ethereum_factory, web3_polygon_factory, tmp_path):
     """We get 100 historical blocks using our poor multiprocess reader"""
 
