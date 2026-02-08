@@ -54,7 +54,7 @@ def test_sbold(
     assert vault.features == {ERC4626Feature.sbold_like}
 
     # Verify vault name and symbol
-    assert vault.name == "Staked Bold"
+    assert vault.name == "sBold"
     assert vault.symbol == "sBOLD"
 
     # Verify the underlying asset is BOLD
