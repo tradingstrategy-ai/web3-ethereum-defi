@@ -1,0 +1,41 @@
+name: sBOLD
+slug: sbold
+short_description: |
+  Yield-bearing tokenised representation of deposits into Liquity V2 Stability Pools.
+long_description: |
+  sBOLD is a yield-bearing stablecoin that aggregates and tokenises the stability pools of
+  Liquity V2, automatically hedging liquidation premiums. It serves as a passive non-custodial
+  savings account for BOLD token holders.
+
+  The vault deposits BOLD across multiple stability pools:
+  - wstETH pool (60% initial allocation)
+  - rETH pool (30% initial allocation)
+  - wETH pool (10% initial allocation)
+
+  Yield is generated from:
+  - Interest distributions from borrowers paid to stability pools
+  - Liquidation penalties through automated collateral swaps
+
+  sBOLD is developed by K3 Capital, a DeFi-focused organisation managing over $570M in assets
+  since 2021.
+fee_description: |
+  sBOLD has configurable fee mechanisms:
+  - Entry fee: Configurable, initially set to 0%
+  - Swap rewards: Admin-configurable basis points paid to fee receiver when collateral is swapped
+  - Swap fees: Configurable, initially set to 0%
+
+  There are no management or performance fees. Yield accrues directly through stability pool
+  rewards which are internalised into the share price.
+links:
+  homepage: https://www.k3.capital/
+  app:
+  twitter: https://x.com/k3_capital
+  github: https://github.com/K3Capital/sBOLD
+  documentation: https://k3capital.substack.com/
+  defillama:
+  audits: https://www.chainsecurity.com/security-audit/k3-sbold
+  fees:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/sbold
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/sbold/index.html
+example_smart_contracts:
+  - https://etherscan.io/address/0x50bd66d59911f5e086ec87ae43c811e0d059dd11
