@@ -6,6 +6,14 @@
 - Say things like `visualise` instead of `visualize`
 - For headings, only capitalise the first letter of heading, do not use title case
 
+## Installing dependencies
+
+Use Poetry version `<2.3` as newer versions may have compatibility issues. Install dependencies with all required extras:
+
+```shell
+poetry install -E web3v6 -E data -E test -E docs -E hypersync -E ccxt -E cloudflare_r2 -E duckdb
+```
+
 ## Running Python scripts
 
 When running a Python script use `poetry run python` command instead of plain `python` command, so that the virtual environment is activated.
@@ -23,7 +31,7 @@ To run tests you need to use the installed Poetry environment, with given enviro
 To run tests use the `pytest` wrapper command:
 
 ```shell
-source .local-test.env && poetry pytest run {test case name or pattern here}
+source .local-test.env && poetry run pytest {test case name or pattern here}
 ```
 
 Always prefix pytest command with relevant source command,
@@ -45,26 +53,6 @@ In the environment file, the RPC URLs are provided in the project-specific space
 - If there is a space in RPC URL given by a environment variable like `JSON_RPC_ETHEREUM`, it can be only used with Python call `create_multi_provider_web3()`
 - If you are going to use this RPC URL with other commands, like `curl`, you need to parse the RPC environment variable by spltting it by spaces and taking the first entry
 - All environment variables point to EVM archive nodes
-
-## Running tests
-
-If we have not run tests before make sure the user has created a gitignored file `.local-test.env` in the repository root. This will use `source` shell command to include the actual test secrets which lie outside the repository structure. Note: this file does not contain actual environment variables, just a `source` command to get them from elsewhere. **Never edit this file** and always ask the user to prepare the file for Claude Code.
-
-To run tests you need to use the installed Poetry environment, with given environment secrets file.
-
-To run tests use the `pytest` wrapper command:
-
-```shell
-source .local-test.env && poetry pytest run {test case name or pattern here}
-```
-
-Always prefix pytest command with relevant source command,
-otherwise the test cannot find environment variables.
-
-Avoid running the whole test suite as it takes several minutes. Only run specific test cases.
-
-When running pytest or any test commands, always use an extended timeout
-by specifying `timeout: 180000` (3 minutes) in the bash tool parameters.
 
 ## Formatting code
 
