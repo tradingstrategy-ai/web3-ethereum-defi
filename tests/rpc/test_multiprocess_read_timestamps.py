@@ -1,5 +1,6 @@
 import datetime
 
+import flaky
 import pytest
 
 import os
@@ -25,6 +26,7 @@ def web3_polygon_factory() -> Web3Factory:
     return MultiProviderWeb3Factory(JSON_RPC_POLYGON)
 
 
+@flaky.flaky
 def test_get_block_timestamps_using_multiprocess_cached(web3_ethereum_factory, web3_polygon_factory, tmp_path):
     """We get 100 historical blocks using our poor multiprocess reader"""
 

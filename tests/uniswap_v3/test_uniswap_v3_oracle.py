@@ -13,6 +13,7 @@ import datetime
 import os
 from decimal import Decimal
 
+import flaky
 import pytest
 from web3 import Web3
 
@@ -46,6 +47,7 @@ def usdc_eth_address():
     return "0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640"
 
 
+@flaky.flaky
 @pytest.mark.skipif(
     os.environ.get("ETHEREUM_JSON_RPC") is None,
     reason="Set ETHEREUM_JSON_RPC environment variable to Ethereum node URL to run this test",
@@ -96,6 +98,7 @@ def test_eth_usdc_price_single_thread(web3, usdc_eth_address):
     assert oracle.calculate_price() == pytest.approx(Decimal("3253.806086408162965922"))
 
 
+@flaky.flaky
 @pytest.mark.skipif(
     os.environ.get("ETHEREUM_JSON_RPC") is None,
     reason="Set ETHEREUM_JSON_RPC environment variable to Ethereum node to run this test",

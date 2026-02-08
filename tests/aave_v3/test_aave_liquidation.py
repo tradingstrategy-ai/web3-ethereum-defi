@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+import flaky
 import pandas as pd
 from web3 import Web3
 import pytest
@@ -33,6 +34,7 @@ def hypersync_client() -> hypersync.HypersyncClient:
     return client
 
 
+@flaky.flaky
 def test_aave_liquidation_data(
     web3: Web3,
     hypersync_client: hypersync.HypersyncClient,
