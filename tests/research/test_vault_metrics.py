@@ -141,6 +141,11 @@ def test_calculate_lifetime_metrics(
     # else:
     #     assert three_month_result.ranking_overall is None
 
+    # Lending statistics columns should be present in raw metrics
+    # (may be None/NaN if not available in test data)
+    assert "available_liquidity" in metrics.columns
+    assert "utilisation" in metrics.columns
+
     # We can get human readable output
     formatted = format_lifetime_table(
         metrics,
@@ -148,6 +153,10 @@ def test_calculate_lifetime_metrics(
         add_address=True,
     )
     # assert len(formatted) == 3
+
+    # Lending statistics should be present in formatted table with proper column names
+    assert "Available liquidity" in formatted.columns
+    assert "Utilisation" in formatted.columns
 
     # Verify period_results is not in formatted output
     # assert "period_results" not in formatted.columns
@@ -341,7 +350,7 @@ def test_export_lifetime_metrics(
     vault_db: VaultDatabase,
     price_df: pd.DataFrame,
 ):
-    """Export lifetimemetrics for the frontend"""
+    """Export lifetime metrics for the frontend"""
 
     metrics = calculate_lifetime_metrics(
         price_df,
@@ -354,6 +363,14 @@ def test_export_lifetime_metrics(
     r = rows[0]
     assert r["name"] == "Clearstar USDC.e"
     assert r["chain"] == "Hemi"
+
+    # Lending statistics fields should be present in exported data
+    # Values may be None if not available in test data
+    assert "available_liquidity" in r
+    assert "utilisation" in r
+    # Verify they serialize to JSON properly (None becomes null)
+    assert r["available_liquidity"] is None or isinstance(r["available_liquidity"], (int, float))
+    assert r["utilisation"] is None or isinstance(r["utilisation"], (int, float))
 
 
 def test_export_lifetime_row_nat_serialization():

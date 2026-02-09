@@ -76,6 +76,10 @@ def test_clean_vault_price_data(
     assert "redemption_open" in df.columns
     assert "trading" in df.columns
 
+    # Lending statistics columns should always be present in cleaned output
+    assert "available_liquidity" in df.columns
+    assert "utilisation" in df.columns
+
 
 def test_remove_inactive_lead_time():
     """Test removal of initial rows where total_supply hasn't changed."""

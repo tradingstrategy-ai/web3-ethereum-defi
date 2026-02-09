@@ -51,6 +51,8 @@ VAULT_STATE_COLUMNS = {
     "deposits_open": "",
     "redemption_open": "",
     "trading": "",
+    "available_liquidity": float("nan"),
+    "utilisation": float("nan"),
 }
 
 
