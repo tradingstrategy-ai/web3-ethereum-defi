@@ -41,6 +41,22 @@ class IPORVaultHistoricalReader(ERC4626HistoricalReader):
     def get_risk(self) -> VaultTechnicalRisk | None:
         return VaultTechnicalRisk.low
 
+    def get_warmup_calls(self) -> Iterable[tuple[str, callable, any]]:
+        """Yield warmup calls for IPOR vaults."""
+        yield from super().get_warmup_calls()
+
+        denomination_token = self.vault.denomination_token
+        if denomination_token is not None:
+            idle_call = denomination_token.contract.functions.balanceOf(self.vault.address)
+            yield ("idle_assets", lambda: idle_call.call(), idle_call)
+
+        vault_contract = self.vault.vault_contract
+        perf_fee_call = vault_contract.functions.getPerformanceFeeData()
+        yield ("getPerformanceFeeData", lambda: perf_fee_call.call(), perf_fee_call)
+
+        mgmt_fee_call = vault_contract.functions.getManagementFeeData()
+        yield ("getManagementFeeData", lambda: mgmt_fee_call.call(), mgmt_fee_call)
+
     def construct_multicalls(self) -> Iterable[EncodedCall]:
         yield from self.construct_core_erc_4626_multicall()
         yield from self.construct_fee_calls()
@@ -48,6 +64,9 @@ class IPORVaultHistoricalReader(ERC4626HistoricalReader):
 
     def construct_utilisation_calls(self) -> Iterable[EncodedCall]:
         """Add idle assets call for utilisation calculation."""
+        if self.should_skip_call("idle_assets"):
+            return
+
         denomination_token = self.vault.denomination_token
         if denomination_token is None:
             return
@@ -63,29 +82,31 @@ class IPORVaultHistoricalReader(ERC4626HistoricalReader):
         yield idle_call
 
     def construct_fee_calls(self) -> Iterable[EncodedCall]:
-        performance_fee_call = EncodedCall.from_keccak_signature(
-            address=self.vault.address,
-            signature=PERFORMANCE_FEE_CALL_SIGNATURE,
-            function="getPerformanceFeeData",
-            data=b"",
-            extra_data={
-                "vault": self.vault.address,
-            },
-            first_block_number=self.first_block,
-        )
-        yield performance_fee_call
+        if not self.should_skip_call("getPerformanceFeeData"):
+            performance_fee_call = EncodedCall.from_keccak_signature(
+                address=self.vault.address,
+                signature=PERFORMANCE_FEE_CALL_SIGNATURE,
+                function="getPerformanceFeeData",
+                data=b"",
+                extra_data={
+                    "vault": self.vault.address,
+                },
+                first_block_number=self.first_block,
+            )
+            yield performance_fee_call
 
-        management_fee_call = EncodedCall.from_keccak_signature(
-            address=self.vault.address,
-            signature=MANAGEGEMENT_FEE_CALL_SIGNATURE,
-            function="getManagementFeeData",
-            data=b"",
-            extra_data={
-                "vault": self.vault.address,
-            },
-            first_block_number=self.first_block,
-        )
-        yield management_fee_call
+        if not self.should_skip_call("getManagementFeeData"):
+            management_fee_call = EncodedCall.from_keccak_signature(
+                address=self.vault.address,
+                signature=MANAGEGEMENT_FEE_CALL_SIGNATURE,
+                function="getManagementFeeData",
+                data=b"",
+                extra_data={
+                    "vault": self.vault.address,
+                },
+                first_block_number=self.first_block,
+            )
+            yield management_fee_call
 
     def process_ipor_fee_result(self, call_by_name: dict[str, EncodedCallResult]) -> tuple:
         """Decode IPOR specific data."""

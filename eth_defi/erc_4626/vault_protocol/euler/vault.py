@@ -44,41 +44,61 @@ class EulerVaultHistoricalReader(ERC4626HistoricalReader):
     - Utilisation = totalBorrows / (cash + totalBorrows)
     """
 
+    def get_warmup_calls(self) -> Iterable[tuple[str, callable, any]]:
+        """Yield warmup calls for Euler EVK vaults.
+
+        Includes base ERC-4626 calls plus Euler-specific utilisation calls.
+        """
+        yield from super().get_warmup_calls()
+
+        vault_contract = self.vault.vault_contract
+        cash_call = vault_contract.functions.cash()
+        yield ("cash", lambda: cash_call.call(), cash_call)
+
+        total_borrows_call = vault_contract.functions.totalBorrows()
+        yield ("totalBorrows", lambda: total_borrows_call.call(), total_borrows_call)
+
+        interest_fee_call = vault_contract.functions.interestFee()
+        yield ("interestFee", lambda: interest_fee_call.call(), interest_fee_call)
+
     def construct_multicalls(self) -> Iterable[EncodedCall]:
         yield from self.construct_core_erc_4626_multicall()
         yield from self.construct_utilisation_calls()
 
     def construct_utilisation_calls(self) -> Iterable[EncodedCall]:
         """Add Euler EVK-specific utilisation calls."""
-        cash_call = EncodedCall.from_keccak_signature(
-            address=self.vault.address,
-            signature=CASH_SIGNATURE,
-            function="cash",
-            data=b"",
-            extra_data={"vault": self.vault.address},
-            first_block_number=self.first_block,
-        )
-        yield cash_call
+        if not self.should_skip_call("cash"):
+            cash_call = EncodedCall.from_keccak_signature(
+                address=self.vault.address,
+                signature=CASH_SIGNATURE,
+                function="cash",
+                data=b"",
+                extra_data={"vault": self.vault.address},
+                first_block_number=self.first_block,
+            )
+            yield cash_call
 
-        total_borrows_call = EncodedCall.from_keccak_signature(
-            address=self.vault.address,
-            signature=TOTAL_BORROWS_SIGNATURE,
-            function="totalBorrows",
-            data=b"",
-            extra_data={"vault": self.vault.address},
-            first_block_number=self.first_block,
-        )
-        yield total_borrows_call
+        if not self.should_skip_call("totalBorrows"):
+            total_borrows_call = EncodedCall.from_keccak_signature(
+                address=self.vault.address,
+                signature=TOTAL_BORROWS_SIGNATURE,
+                function="totalBorrows",
+                data=b"",
+                extra_data={"vault": self.vault.address},
+                first_block_number=self.first_block,
+            )
+            yield total_borrows_call
 
-        interest_fee_call = EncodedCall.from_keccak_signature(
-            address=self.vault.address,
-            signature=INTEREST_FEE_SIGNATURE,
-            function="interestFee",
-            data=b"",
-            extra_data={"vault": self.vault.address},
-            first_block_number=self.first_block,
-        )
-        yield interest_fee_call
+        if not self.should_skip_call("interestFee"):
+            interest_fee_call = EncodedCall.from_keccak_signature(
+                address=self.vault.address,
+                signature=INTEREST_FEE_SIGNATURE,
+                function="interestFee",
+                data=b"",
+                extra_data={"vault": self.vault.address},
+                first_block_number=self.first_block,
+            )
+            yield interest_fee_call
 
     def process_utilisation_result(self, call_by_name: dict[str, EncodedCallResult]) -> tuple[Decimal | None, Percent | None]:
         """Decode Euler EVK utilisation data.
@@ -540,6 +560,22 @@ class EulerEarnVaultHistoricalReader(ERC4626HistoricalReader):
     - Utilisation = (totalAssets - idle) / totalAssets
     """
 
+    def get_warmup_calls(self) -> Iterable[tuple[str, callable, any]]:
+        """Yield warmup calls for EulerEarn vaults.
+
+        Includes base ERC-4626 calls plus idle_assets and fee calls.
+        """
+        yield from super().get_warmup_calls()
+
+        denomination_token = self.vault.denomination_token
+        if denomination_token is not None:
+            idle_call = denomination_token.contract.functions.balanceOf(self.vault.address)
+            yield ("idle_assets", lambda: idle_call.call(), idle_call)
+
+        vault_contract = self.vault.vault_contract
+        fee_call = vault_contract.functions.fee()
+        yield ("fee", lambda: fee_call.call(), fee_call)
+
     def construct_multicalls(self) -> Iterable[EncodedCall]:
         yield from self.construct_core_erc_4626_multicall()
         yield from self.construct_utilisation_calls()
@@ -551,6 +587,9 @@ class EulerEarnVaultHistoricalReader(ERC4626HistoricalReader):
         Note: We use the asset token's balanceOf to get idle assets.
         This requires an additional call to the asset token contract.
         """
+        if self.should_skip_call("idle_assets"):
+            return
+
         denomination_token = self.vault.denomination_token
         if denomination_token is None:
             return
@@ -568,6 +607,9 @@ class EulerEarnVaultHistoricalReader(ERC4626HistoricalReader):
 
     def construct_fee_calls(self) -> Iterable[EncodedCall]:
         """Add EulerEarn fee call."""
+        if self.should_skip_call("fee"):
+            return
+
         fee_call = EncodedCall.from_keccak_signature(
             address=self.vault.address,
             signature=FEE_SIGNATURE,

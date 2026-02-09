@@ -121,6 +121,23 @@ class SiloVault(ERC4626Vault):
 class SiloVaultHistoricalReader(ERC4626HistoricalReader):
     """Read Silo vault core data + utilisation."""
 
+    def get_warmup_calls(self) -> Iterable[tuple[str, callable, any]]:
+        """Yield warmup calls for Silo vaults.
+
+        Includes base ERC-4626 calls plus Silo-specific utilisation calls.
+        """
+        yield from super().get_warmup_calls()
+
+        vault_contract = self.vault.vault_contract
+        get_liq_call = vault_contract.functions.getLiquidity()
+        yield ("getLiquidity", lambda: get_liq_call.call(), get_liq_call)
+
+        get_debt_call = vault_contract.functions.getDebtAssets()
+        yield ("getDebtAssets", lambda: get_debt_call.call(), get_debt_call)
+
+        get_collat_call = vault_contract.functions.getCollateralAssets()
+        yield ("getCollateralAssets", lambda: get_collat_call.call(), get_collat_call)
+
     def construct_multicalls(self) -> Iterable[EncodedCall]:
         yield from self.construct_core_erc_4626_multicall()
         yield from self.construct_utilisation_calls()
@@ -131,34 +148,37 @@ class SiloVaultHistoricalReader(ERC4626HistoricalReader):
         Silo uses getLiquidity(), getDebtAssets(), and getCollateralAssets().
         """
         # getLiquidity()
-        yield EncodedCall.from_contract_call(
-            self.vault.vault_contract.functions.getLiquidity(),
-            extra_data={
-                "function": "getLiquidity",
-                "vault": self.vault.address,
-            },
-            first_block_number=self.first_block,
-        )
+        if not self.should_skip_call("getLiquidity"):
+            yield EncodedCall.from_contract_call(
+                self.vault.vault_contract.functions.getLiquidity(),
+                extra_data={
+                    "function": "getLiquidity",
+                    "vault": self.vault.address,
+                },
+                first_block_number=self.first_block,
+            )
 
         # getDebtAssets()
-        yield EncodedCall.from_contract_call(
-            self.vault.vault_contract.functions.getDebtAssets(),
-            extra_data={
-                "function": "getDebtAssets",
-                "vault": self.vault.address,
-            },
-            first_block_number=self.first_block,
-        )
+        if not self.should_skip_call("getDebtAssets"):
+            yield EncodedCall.from_contract_call(
+                self.vault.vault_contract.functions.getDebtAssets(),
+                extra_data={
+                    "function": "getDebtAssets",
+                    "vault": self.vault.address,
+                },
+                first_block_number=self.first_block,
+            )
 
         # getCollateralAssets()
-        yield EncodedCall.from_contract_call(
-            self.vault.vault_contract.functions.getCollateralAssets(),
-            extra_data={
-                "function": "getCollateralAssets",
-                "vault": self.vault.address,
-            },
-            first_block_number=self.first_block,
-        )
+        if not self.should_skip_call("getCollateralAssets"):
+            yield EncodedCall.from_contract_call(
+                self.vault.vault_contract.functions.getCollateralAssets(),
+                extra_data={
+                    "function": "getCollateralAssets",
+                    "vault": self.vault.address,
+                },
+                first_block_number=self.first_block,
+            )
 
     def process_utilisation_result(
         self,

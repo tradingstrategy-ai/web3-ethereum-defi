@@ -4,7 +4,7 @@ import datetime
 import logging
 from decimal import Decimal
 from functools import cached_property
-from typing import Iterable, Literal, TypeAlias
+from typing import Any, Iterable, Literal, TypeAlias
 
 import eth_abi
 from eth_typing import HexAddress
@@ -126,6 +126,7 @@ class VaultReaderState(BatchCallState):
         "write_done",
         "rpc_error_count",
         "last_rpc_error",
+        "call_status",
     )
 
     def __init__(
@@ -244,6 +245,12 @@ class VaultReaderState(BatchCallState):
         self.unsupported_token = None
         self.last_rpc_error: str | None = None
 
+        #: Map of function names to their call status for warmup system
+        #: Key is the function name from extra_data["function"]
+        #: Value is tuple (check_block: int, reverts: bool)
+        #: Example: {"maxDeposit": (12345678, True)} means maxDeposit reverts, detected at block 12345678
+        self.call_status: dict[str, tuple[int, bool]] = {}
+
     def __repr__(self):
         return f"<{self.__class__.__name__} vault={self.vault} last_tvl={self.last_tvl} last_share_price={self.last_share_price} max_tvl={self.max_tvl} last_call_at={self.last_call_at} peaked_at={self.peaked_at} faded_at={self.faded_at} denomination_token={self.denomination_token_address}>"
 
@@ -255,6 +262,57 @@ class VaultReaderState(BatchCallState):
         for k, v in data.items():
             assert k in VaultReaderState.SERIALISABLE_ATTRIBUTES, f"Unknown key {k} in VaultReaderState.load()"
             setattr(self, k, v)
+
+    def should_skip_call(self, function_name: str) -> bool:
+        """Check if a specific function call should be skipped for this vault.
+
+        Part of the warmup system to detect and skip broken contract calls.
+        See README-reader-states.md for documentation.
+
+        :param function_name:
+            The function name as stored in extra_data["function"]
+
+        :return:
+            True if the call was marked as reverting
+        """
+        status = self.call_status.get(function_name)
+        if status is None:
+            return False
+        _check_block, reverts = status
+        return reverts
+
+    def get_call_status(self, function_name: str) -> tuple[int, bool] | None:
+        """Get the status of a function call.
+
+        :param function_name:
+            The function name to check
+
+        :return:
+            Tuple of (check_block, reverts) or None if not checked yet
+        """
+        return self.call_status.get(function_name)
+
+    def set_call_status(self, function_name: str, check_block: int, reverts: bool) -> None:
+        """Record the status of a function call.
+
+        :param function_name:
+            The function name to record
+
+        :param check_block:
+            The block number when we checked
+
+        :param reverts:
+            True if the call reverted
+        """
+        self.call_status[function_name] = (check_block, reverts)
+
+    def get_broken_calls(self) -> dict[str, int]:
+        """Get all calls marked as broken.
+
+        :return:
+            Dict of function_name -> check_block for broken calls
+        """
+        return {fn: block for fn, (block, reverts) in self.call_status.items() if reverts}
 
     @cached_property
     def exchange_rate(self) -> Decimal:
@@ -453,6 +511,51 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
             # Stateful reading cannot be used in unordered multiprocess reads
             self.reader_state = None
 
+    def get_warmup_calls(self) -> Iterable[tuple[str, callable, Any]]:
+        """Yield (function_name, callable, contract_call) tuples for warmup testing.
+
+        Each callable should execute a single contract call. If it raises,
+        the function is marked as broken.
+
+        The optional contract_call is used for gas estimation to detect expensive
+        calls before executing them. If provided, calls using excessive gas
+        (>1M gas) will be marked as broken without execution.
+
+        Override in subclasses to add protocol-specific calls.
+
+        :return:
+            Iterable of (function_name, test_callable, contract_call) tuples.
+            contract_call may be None if gas estimation is not needed.
+        """
+        vault_contract = self.vault.vault_contract
+
+        total_assets_call = vault_contract.functions.totalAssets()
+        yield ("total_assets", lambda: total_assets_call.call(), total_assets_call)
+
+        total_supply_call = vault_contract.functions.totalSupply()
+        yield ("total_supply", lambda: total_supply_call.call(), total_supply_call)
+
+        convert_call = vault_contract.functions.convertToAssets(self.one_raw_share)
+        yield ("convertToAssets", lambda: convert_call.call(), convert_call)
+
+        max_deposit_call = vault_contract.functions.maxDeposit(ZERO_ADDRESS_STR)
+        yield ("maxDeposit", lambda: max_deposit_call.call(), max_deposit_call)
+
+    def should_skip_call(self, function_name: str) -> bool:
+        """Check if a specific function call should be skipped.
+
+        Uses the reader state's call_status map if available.
+
+        :param function_name:
+            The function name to check
+
+        :return:
+            True if the call should be skipped
+        """
+        if self.reader_state is None:
+            return False
+        return self.reader_state.should_skip_call(function_name)
+
     def construct_multicalls(self) -> Iterable[EncodedCall]:
         """Get the onchain calls that are needed to read the share price."""
         try:
@@ -525,15 +628,18 @@ class ERC4626HistoricalReader(VaultHistoricalReader):
         )
         yield convert_to_assets
 
-        max_deposit = EncodedCall.from_contract_call(
-            self.vault.vault_contract.functions.maxDeposit(ZERO_ADDRESS_STR),
-            extra_data={
-                "function": "maxDeposit",
-                "vault": self.vault.address,
-            },
-            first_block_number=self.first_block,
-        )
-        yield max_deposit
+        # Only add maxDeposit if not flagged to skip
+        # Some vaults have extremely expensive maxDeposit implementations
+        if not self.should_skip_call("maxDeposit"):
+            max_deposit = EncodedCall.from_contract_call(
+                self.vault.vault_contract.functions.maxDeposit(ZERO_ADDRESS_STR),
+                extra_data={
+                    "function": "maxDeposit",
+                    "vault": self.vault.address,
+                },
+                first_block_number=self.first_block,
+            )
+            yield max_deposit
 
     def process_core_erc_4626_result(
         self,

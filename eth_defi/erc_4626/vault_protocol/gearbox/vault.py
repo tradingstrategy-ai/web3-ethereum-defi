@@ -59,35 +59,51 @@ TOTAL_BORROWED_SIGNATURE = Web3.keccak(text="totalBorrowed()")[0:4]
 class GearboxVaultHistoricalReader(ERC4626HistoricalReader):
     """Read Gearbox vault core data + utilisation metrics."""
 
+    def get_warmup_calls(self) -> Iterable[tuple[str, callable, any]]:
+        """Yield warmup calls for Gearbox vaults.
+
+        Includes base ERC-4626 calls plus Gearbox-specific utilisation calls.
+        """
+        yield from super().get_warmup_calls()
+
+        vault_contract = self.vault.vault_contract
+        avail_liq_call = vault_contract.functions.availableLiquidity()
+        yield ("availableLiquidity", lambda: avail_liq_call.call(), avail_liq_call)
+
+        total_borrowed_call = vault_contract.functions.totalBorrowed()
+        yield ("totalBorrowed", lambda: total_borrowed_call.call(), total_borrowed_call)
+
     def construct_multicalls(self) -> Iterable[EncodedCall]:
         yield from self.construct_core_erc_4626_multicall()
         yield from self.construct_utilisation_calls()
 
     def construct_utilisation_calls(self) -> Iterable[EncodedCall]:
         """Add Gearbox-specific utilisation calls."""
-        available_liquidity_call = EncodedCall.from_keccak_signature(
-            address=self.vault.address,
-            signature=AVAILABLE_LIQUIDITY_SIGNATURE,
-            function="availableLiquidity",
-            data=b"",
-            extra_data={
-                "vault": self.vault.address,
-            },
-            first_block_number=self.first_block,
-        )
-        yield available_liquidity_call
+        if not self.should_skip_call("availableLiquidity"):
+            available_liquidity_call = EncodedCall.from_keccak_signature(
+                address=self.vault.address,
+                signature=AVAILABLE_LIQUIDITY_SIGNATURE,
+                function="availableLiquidity",
+                data=b"",
+                extra_data={
+                    "vault": self.vault.address,
+                },
+                first_block_number=self.first_block,
+            )
+            yield available_liquidity_call
 
-        total_borrowed_call = EncodedCall.from_keccak_signature(
-            address=self.vault.address,
-            signature=TOTAL_BORROWED_SIGNATURE,
-            function="totalBorrowed",
-            data=b"",
-            extra_data={
-                "vault": self.vault.address,
-            },
-            first_block_number=self.first_block,
-        )
-        yield total_borrowed_call
+        if not self.should_skip_call("totalBorrowed"):
+            total_borrowed_call = EncodedCall.from_keccak_signature(
+                address=self.vault.address,
+                signature=TOTAL_BORROWED_SIGNATURE,
+                function="totalBorrowed",
+                data=b"",
+                extra_data={
+                    "vault": self.vault.address,
+                },
+                first_block_number=self.first_block,
+            )
+            yield total_borrowed_call
 
     def process_utilisation_result(self, call_by_name: dict[str, EncodedCallResult]) -> tuple[Decimal | None, Percent | None]:
         """Decode Gearbox utilisation data.
