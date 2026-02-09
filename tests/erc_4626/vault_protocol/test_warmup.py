@@ -144,7 +144,7 @@ def test_warmup_skips_already_checked(web3: Web3):
     assert len(results2) == 0, "Second warmup should skip already-checked calls"
 
 
-@flaky.flaky
+@flaky.flaky(max_runs=3)
 def test_warmup_affects_multicall_generation(web3: Web3):
     """Test that broken calls are actually skipped in multicall generation."""
     vault = create_vault_instance_autodetect(
