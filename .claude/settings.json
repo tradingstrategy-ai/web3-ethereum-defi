@@ -69,7 +69,10 @@
       "Bash(pip install:*)",
       "Bash(playwright install:*)",
       "Bash(npx wrangler:*)",
-      "Read(//Users/moo/code/trade-executor/deps/web3-ethereum-defi/tests/erc_4626/vault_protocol/**)"
+      "Read(//Users/moo/code/trade-executor/deps/web3-ethereum-defi/tests/erc_4626/vault_protocol/**)",
+      "Bash(TEST_CHAINS=Plasma SCAN_PRICES=true MAX_WORKERS=10 poetry run python:*)",
+      "Bash(tee:*)",
+      "Bash(TEST_CHAINS=Plasma SCAN_PRICES=true MAX_WORKERS=4 poetry run python:*)"
     ]
   },
   "model": "opus",
