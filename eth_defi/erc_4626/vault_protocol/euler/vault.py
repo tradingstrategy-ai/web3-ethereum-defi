@@ -558,14 +558,63 @@ class EulerEarnVaultHistoricalReader(ERC4626HistoricalReader):
     For EulerEarn (metavault):
     - Idle assets = asset().balanceOf(vault)
     - Utilisation = (totalAssets - idle) / totalAssets
+
+    .. warning::
+
+        EulerEarn vaults have maxDeposit() disabled because it uses excessive gas.
+
+        **Research notes on TelosC Surge vault (0xa9C251F8304b1B3Fc2b9e8fcae78D94Eff82Ac66)**:
+
+        The EulerEarn architecture (based on Metamorpho) has loop-heavy operations that
+        cause maxDeposit(address(0)) to consume 21-36M gas - nearly the entire Plasma
+        block gas limit of 36M.
+
+        The gas consumption comes from:
+
+        1. **_maxDeposit() in EulerEarnVaultModule.sol** iterates through supplyQueue
+           to calculate maxTotalDeposit for each strategy
+
+        2. **_convertToShares() in EulerEarnBase.sol** triggers _accruedFeeAndAssets()
+           which loops through the entire withdrawQueue to calculate accrued fees
+
+        3. **Maximum queue length of 30 strategies** (defined in ConstantsLib.MAX_QUEUE_LENGTH)
+           means up to 60 external contract calls per maxDeposit() invocation
+
+        Source code references:
+
+        - EulerEarnVaultModule.sol: _maxDeposit() at supplyQueue iteration
+        - EulerEarnBase.sol: _accruedFeeAndAssets() at withdrawQueue iteration
+        - ConstantsLib.sol: MAX_QUEUE_LENGTH = 30
+
+        Plasmascan: https://plasmascan.to/address/0xa9C251F8304b1B3Fc2b9e8fcae78D94Eff82Ac66
+
+        Since Multicall3 does not support per-call gas limits, and calling maxDeposit()
+        would consume the entire block gas limit, we unconditionally skip this call
+        for all EulerEarn vaults.
     """
+
+    def should_skip_call(self, function_name: str) -> bool:
+        """Check if a specific function call should be skipped.
+
+        EulerEarn vaults always skip maxDeposit due to excessive gas usage.
+        See class docstring for detailed research notes.
+        """
+        if function_name == "maxDeposit":
+            return True
+        return super().should_skip_call(function_name)
 
     def get_warmup_calls(self) -> Iterable[tuple[str, callable, any]]:
         """Yield warmup calls for EulerEarn vaults.
 
-        Includes base ERC-4626 calls plus idle_assets and fee calls.
+        Includes base ERC-4626 calls (except maxDeposit) plus idle_assets and fee calls.
+        maxDeposit is excluded because EulerEarn vaults use excessive gas for this call.
         """
-        yield from super().get_warmup_calls()
+        # Yield base calls but filter out maxDeposit
+        for warmup_item in super().get_warmup_calls():
+            function_name = warmup_item[0]
+            if function_name == "maxDeposit":
+                continue  # Skip maxDeposit - uses excessive gas on EulerEarn
+            yield warmup_item
 
         denomination_token = self.vault.denomination_token
         if denomination_token is not None:
