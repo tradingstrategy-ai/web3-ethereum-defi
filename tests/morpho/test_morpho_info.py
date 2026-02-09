@@ -4,13 +4,14 @@
 """
 
 import os
+from decimal import Decimal
 
 import pytest
 from web3 import Web3
 
-from eth_defi.erc_4626.vault_protocol.morpho.vault_v1 import MorphoVault
+from eth_defi.erc_4626.core import ERC4626Feature, is_lending_protocol
+from eth_defi.erc_4626.vault_protocol.morpho.vault_v1 import MorphoV1VaultHistoricalReader, MorphoVault
 from eth_defi.provider.multi_provider import create_multi_provider_web3
-
 from eth_defi.vault.base import VaultSpec
 
 JSON_RPC_BASE = os.environ.get("JSON_RPC_BASE")
@@ -44,3 +45,29 @@ def test_morpho_fee(
     block_number = test_block_number
     assert vault.get_management_fee(block_number) == 0
     assert vault.get_performance_fee(block_number) == 0.10
+
+
+def test_morpho_v1_utilisation(
+    web3: Web3,
+    vault: MorphoVault,
+):
+    """Test Morpho V1 utilisation API."""
+    # Test lending protocol identification (vault fixture doesn't have features set,
+    # so we test directly with the known feature)
+    assert is_lending_protocol({ERC4626Feature.morpho_like}) is True
+
+    # Test utilisation API
+    available_liquidity = vault.fetch_available_liquidity()
+    assert available_liquidity is not None
+    assert available_liquidity >= Decimal(0)
+
+    utilisation = vault.fetch_utilisation_percent()
+    assert utilisation is not None
+    assert 0.0 <= utilisation <= 1.0
+
+    # Test historical reader
+    reader = vault.get_historical_reader(stateful=False)
+    assert isinstance(reader, MorphoV1VaultHistoricalReader)
+    calls = list(reader.construct_multicalls())
+    call_names = [c.extra_data.get("function") for c in calls if c.extra_data]
+    assert "idle_assets" in call_names

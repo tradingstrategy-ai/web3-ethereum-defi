@@ -1,6 +1,7 @@
 """IPOR vault reading implementation."""
 
 import datetime
+from decimal import Decimal
 from functools import cached_property
 from typing import Iterable
 
@@ -14,6 +15,7 @@ from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, MultiprocessMulticallReader
+from eth_defi.types import Percent
 from eth_defi.vault.base import (
     DEPOSIT_CLOSED_UTILISATION,
     REDEMPTION_CLOSED_INSUFFICIENT_LIQUIDITY,
@@ -34,7 +36,7 @@ MANAGEGEMENT_FEE_CALL_SIGNATURE = Web3.keccak(text="getManagementFeeData()")[0:4
 
 
 class IPORVaultHistoricalReader(ERC4626HistoricalReader):
-    """Read IPOR vault core data + fees"""
+    """Read IPOR vault core data + fees + utilisation"""
 
     def get_risk(self) -> VaultTechnicalRisk | None:
         return VaultTechnicalRisk.low
@@ -42,6 +44,23 @@ class IPORVaultHistoricalReader(ERC4626HistoricalReader):
     def construct_multicalls(self) -> Iterable[EncodedCall]:
         yield from self.construct_core_erc_4626_multicall()
         yield from self.construct_fee_calls()
+        yield from self.construct_utilisation_calls()
+
+    def construct_utilisation_calls(self) -> Iterable[EncodedCall]:
+        """Add idle assets call for utilisation calculation."""
+        denomination_token = self.vault.denomination_token
+        if denomination_token is None:
+            return
+
+        idle_call = EncodedCall.from_contract_call(
+            denomination_token.contract.functions.balanceOf(self.vault.address),
+            extra_data={
+                "function": "idle_assets",
+                "vault": self.vault.address,
+            },
+            first_block_number=self.first_block,
+        )
+        yield idle_call
 
     def construct_fee_calls(self) -> Iterable[EncodedCall]:
         performance_fee_call = EncodedCall.from_keccak_signature(
@@ -93,6 +112,35 @@ class IPORVaultHistoricalReader(ERC4626HistoricalReader):
 
         return performance_fee, management_fee
 
+    def process_utilisation_result(
+        self,
+        call_by_name: dict[str, EncodedCallResult],
+        total_assets: Decimal | None,
+    ) -> tuple[Decimal | None, Percent | None]:
+        """Decode IPOR utilisation data.
+
+        Utilisation = (totalAssets - idle) / totalAssets
+        """
+        idle_result = call_by_name.get("idle_assets")
+
+        if idle_result is None or total_assets is None:
+            return None, None
+
+        denomination_token = self.vault.denomination_token
+        if denomination_token is None:
+            return None, None
+
+        idle_raw = int.from_bytes(idle_result.result[0:32], byteorder="big")
+        available_liquidity = denomination_token.convert_to_decimals(idle_raw)
+
+        if total_assets == 0:
+            utilisation = 0.0
+        else:
+            total_assets_raw = denomination_token.convert_to_raw(total_assets)
+            utilisation = (total_assets_raw - idle_raw) / total_assets_raw
+
+        return available_liquidity, utilisation
+
     def process_result(
         self,
         block_number: int,
@@ -104,8 +152,8 @@ class IPORVaultHistoricalReader(ERC4626HistoricalReader):
         # Decode common variables
         share_price, total_supply, total_assets, errors, max_deposit = self.process_core_erc_4626_result(call_by_name)
         performance_fee, management_fee = self.process_ipor_fee_result(call_by_name)
+        available_liquidity, utilisation = self.process_utilisation_result(call_by_name, total_assets)
 
-        # Subclass
         return VaultHistoricalRead(
             vault=self.vault,
             block_number=block_number,
@@ -117,6 +165,8 @@ class IPORVaultHistoricalReader(ERC4626HistoricalReader):
             management_fee=management_fee,
             errors=errors,
             max_deposit=max_deposit,
+            available_liquidity=available_liquidity,
+            utilisation=utilisation,
         )
 
 
@@ -275,3 +325,48 @@ class IPORVault(ERC4626Vault):
         - maxRedeem(address(0)) returns 0 when redemptions are blocked due to utilisation
         """
         return True
+
+    def fetch_available_liquidity(self, block_identifier: BlockIdentifier = "latest") -> Decimal | None:
+        """Get the amount of denomination token available for immediate withdrawal.
+
+        Uses the idle assets pattern: asset().balanceOf(vault) returns unallocated assets.
+
+        :param block_identifier:
+            Block to query. Defaults to "latest".
+
+        :return:
+            Amount in denomination token units (human-readable Decimal).
+        """
+        try:
+            denomination_token = self.denomination_token
+            if denomination_token is None:
+                return None
+            idle_raw = denomination_token.contract.functions.balanceOf(self.address).call(block_identifier=block_identifier)
+            return denomination_token.convert_to_decimals(idle_raw)
+        except Exception:
+            return None
+
+    def fetch_utilisation_percent(self, block_identifier: BlockIdentifier = "latest") -> Percent | None:
+        """Get the percentage of assets currently allocated to strategies.
+
+        Utilisation = (totalAssets - idle) / totalAssets
+
+        :param block_identifier:
+            Block to query. Defaults to "latest".
+
+        :return:
+            Utilisation as float between 0.0 and 1.0 (0% to 100%).
+        """
+        try:
+            denomination_token = self.denomination_token
+            if denomination_token is None:
+                return None
+
+            total_assets = self.vault_contract.functions.totalAssets().call(block_identifier=block_identifier)
+            idle = denomination_token.contract.functions.balanceOf(self.address).call(block_identifier=block_identifier)
+
+            if total_assets == 0:
+                return 0.0
+            return (total_assets - idle) / total_assets
+        except Exception:
+            return None

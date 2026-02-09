@@ -22,6 +22,7 @@ from web3 import Web3
 
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.token import DEFAULT_TOKEN_CACHE, TokenAddress, TokenDetails, fetch_erc20_details
+from eth_defi.types import Percent
 from eth_defi.vault.deposit_redeem import VaultDepositManager
 from eth_defi.vault.lower_case_dict import LowercaseDict
 
@@ -254,6 +255,18 @@ class VaultHistoricalRead:
     #: Currently only supported for D2 Finance vaults.
     trading: bool | None = None
 
+    #: Available liquidity for immediate withdrawal.
+    #:
+    #: Only applicable to lending protocol vaults (IPOR, Euler, Morpho, Gearbox, etc.)
+    #: In denomination token units.
+    available_liquidity: Decimal | None = None
+
+    #: Utilisation percentage of the lending vault.
+    #:
+    #: Only applicable to lending protocol vaults.
+    #: Value between 0.0 and 1.0 (0% to 100%).
+    utilisation: Percent | None = None
+
     def __eq__(self, other: "VaultHistoricalRead | None") -> bool:
         """Check if the read statistics match.
 
@@ -311,6 +324,8 @@ class VaultHistoricalRead:
             "deposits_open": str(self.deposits_open).lower() if self.deposits_open is not None else "",
             "redemption_open": str(self.redemption_open).lower() if self.redemption_open is not None else "",
             "trading": str(self.trading).lower() if self.trading is not None else "",
+            "available_liquidity": float(self.available_liquidity) if self.available_liquidity is not None else _nan,
+            "utilisation": float(self.utilisation) if self.utilisation is not None else _nan,
         }
         return data
 
@@ -340,6 +355,8 @@ class VaultHistoricalRead:
                 ("deposits_open", pa.string()),
                 ("redemption_open", pa.string()),
                 ("trading", pa.string()),
+                ("available_liquidity", pa.float64()),
+                ("utilisation", pa.float32()),
             ]
         )
         return schema
@@ -886,6 +903,45 @@ class VaultBase(ABC):
             - Protocol does not support timing information
         """
         return None
+
+    def fetch_available_liquidity(self, block_identifier: BlockIdentifier = "latest") -> Decimal | None:
+        """Get the amount of denomination token available for immediate withdrawal.
+
+        Only applicable to lending protocol vaults (IPOR, Euler, Morpho, Gearbox, etc.).
+        Non-lending protocols should leave this method unimplemented.
+
+        Note: `maxRedeem(address(0))` does NOT work as a proxy for available liquidity
+        because it requires a specific address that has already deposited shares.
+        For address(0), balanceOf is always 0, so maxRedeem returns 0 regardless of
+        actual liquidity.
+
+        :param block_identifier:
+            Block to query. Defaults to "latest".
+
+        :raises NotImplementedError:
+            For non-lending protocol vaults.
+
+        :return:
+            Amount in denomination token units (human-readable Decimal).
+        """
+        raise NotImplementedError(f"{self.__class__.__name__} does not implement fetch_available_liquidity(). This method is only available for lending protocol vaults.")
+
+    def fetch_utilisation_percent(self, block_identifier: BlockIdentifier = "latest") -> Percent | None:
+        """Get the percentage of assets currently lent out.
+
+        Only applicable to lending protocol vaults (IPOR, Euler, Morpho, Gearbox, etc.).
+        Non-lending protocols should leave this method unimplemented.
+
+        :param block_identifier:
+            Block to query. Defaults to "latest".
+
+        :raises NotImplementedError:
+            For non-lending protocol vaults.
+
+        :return:
+            Utilisation as float between 0.0 and 1.0 (0% to 100%).
+        """
+        raise NotImplementedError(f"{self.__class__.__name__} does not implement fetch_utilisation_percent(). This method is only available for lending protocol vaults.")
 
     def get_flags(self) -> set[VaultFlag]:
         """Get various vault state flags from the smart contract.

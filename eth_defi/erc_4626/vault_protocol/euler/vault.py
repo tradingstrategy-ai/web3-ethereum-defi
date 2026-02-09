@@ -10,21 +10,135 @@
 """
 
 import datetime
+from decimal import Decimal
 from functools import cached_property
 import logging
+from typing import Iterable
 
 from web3 import Web3
 
 from eth_typing import BlockIdentifier
 
 from eth_defi.chain import get_chain_name
-from eth_defi.erc_4626.vault import ERC4626Vault
+from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.euler.offchain_metadata import EulerVaultMetadata, fetch_euler_vault_metadata
-from eth_defi.event_reader.multicall_batcher import EncodedCall
-from eth_defi.vault.base import VaultTechnicalRisk
+from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
+from eth_defi.types import Percent
+from eth_defi.vault.base import VaultHistoricalRead, VaultHistoricalReader, VaultTechnicalRisk
 from eth_defi.vault.flag import BAD_FLAGS, get_vault_special_flags
 
 logger = logging.getLogger(__name__)
+
+#: Keccak signatures for Euler EVK multicall
+CASH_SIGNATURE = Web3.keccak(text="cash()")[0:4]
+TOTAL_BORROWS_SIGNATURE = Web3.keccak(text="totalBorrows()")[0:4]
+INTEREST_FEE_SIGNATURE = Web3.keccak(text="interestFee()")[0:4]
+
+
+class EulerVaultHistoricalReader(ERC4626HistoricalReader):
+    """Read Euler EVK vault core data + utilisation metrics.
+
+    For EVK vaults:
+    - cash() = underlying tokens currently held by vault
+    - totalBorrows() = outstanding borrows including accrued interest
+    - Utilisation = totalBorrows / (cash + totalBorrows)
+    """
+
+    def construct_multicalls(self) -> Iterable[EncodedCall]:
+        yield from self.construct_core_erc_4626_multicall()
+        yield from self.construct_utilisation_calls()
+
+    def construct_utilisation_calls(self) -> Iterable[EncodedCall]:
+        """Add Euler EVK-specific utilisation calls."""
+        cash_call = EncodedCall.from_keccak_signature(
+            address=self.vault.address,
+            signature=CASH_SIGNATURE,
+            function="cash",
+            data=b"",
+            extra_data={"vault": self.vault.address},
+            first_block_number=self.first_block,
+        )
+        yield cash_call
+
+        total_borrows_call = EncodedCall.from_keccak_signature(
+            address=self.vault.address,
+            signature=TOTAL_BORROWS_SIGNATURE,
+            function="totalBorrows",
+            data=b"",
+            extra_data={"vault": self.vault.address},
+            first_block_number=self.first_block,
+        )
+        yield total_borrows_call
+
+        interest_fee_call = EncodedCall.from_keccak_signature(
+            address=self.vault.address,
+            signature=INTEREST_FEE_SIGNATURE,
+            function="interestFee",
+            data=b"",
+            extra_data={"vault": self.vault.address},
+            first_block_number=self.first_block,
+        )
+        yield interest_fee_call
+
+    def process_utilisation_result(self, call_by_name: dict[str, EncodedCallResult]) -> tuple[Decimal | None, Percent | None]:
+        """Decode Euler EVK utilisation data.
+
+        Utilisation = totalBorrows / (cash + totalBorrows)
+        """
+        cash_result = call_by_name.get("cash")
+        total_borrows_result = call_by_name.get("totalBorrows")
+
+        if cash_result is None or total_borrows_result is None:
+            return None, None
+
+        denomination_token = self.vault.denomination_token
+        if denomination_token is None:
+            return None, None
+
+        cash_raw = int.from_bytes(cash_result.result[0:32], byteorder="big")
+        total_borrows_raw = int.from_bytes(total_borrows_result.result[0:32], byteorder="big")
+
+        available_liquidity = denomination_token.convert_to_decimals(cash_raw)
+
+        total_pool = cash_raw + total_borrows_raw
+        if total_pool == 0:
+            utilisation = 0.0
+        else:
+            utilisation = total_borrows_raw / total_pool
+
+        return available_liquidity, utilisation
+
+    def process_result(
+        self,
+        block_number: int,
+        timestamp: datetime.datetime,
+        call_results: list[EncodedCallResult],
+    ) -> VaultHistoricalRead:
+        call_by_name = self.dictify_multicall_results(block_number, call_results)
+
+        share_price, total_supply, total_assets, errors, max_deposit = self.process_core_erc_4626_result(call_by_name)
+        available_liquidity, utilisation = self.process_utilisation_result(call_by_name)
+
+        # Get interest fee if available
+        interest_fee_result = call_by_name.get("interestFee")
+        performance_fee = None
+        if interest_fee_result is not None:
+            performance_fee = float(int.from_bytes(interest_fee_result.result[0:32], byteorder="big") / (10**4))
+
+        return VaultHistoricalRead(
+            vault=self.vault,
+            block_number=block_number,
+            timestamp=timestamp,
+            share_price=share_price,
+            total_assets=total_assets,
+            total_supply=total_supply,
+            performance_fee=performance_fee,
+            management_fee=0.0,
+            errors=errors,
+            max_deposit=max_deposit,
+            available_liquidity=available_liquidity,
+            utilisation=utilisation,
+        )
 
 
 class EulerVault(ERC4626Vault):
@@ -106,6 +220,83 @@ class EulerVault(ERC4626Vault):
     def get_link(self, referral: str | None = None) -> str:
         chain_name = get_chain_name(self.chain_id).lower()
         return f"https://app.euler.finance/earn/{self.vault_address}?network={chain_name}"
+
+    def can_check_redeem(self) -> bool:
+        """Euler EVK does NOT support address(0) checks for redemption availability."""
+        return False
+
+    def get_historical_reader(self, stateful: bool) -> VaultHistoricalReader:
+        """Get Euler EVK-specific historical reader with utilisation metrics."""
+        return EulerVaultHistoricalReader(self, stateful)
+
+    def fetch_available_liquidity(self, block_identifier: BlockIdentifier = "latest") -> Decimal | None:
+        """Get the amount of denomination token available for immediate withdrawal.
+
+        Uses Euler's `cash()` function which returns the underlying tokens currently
+        held by the vault (not lent out).
+
+        :param block_identifier:
+            Block to query. Defaults to "latest".
+
+        :return:
+            Amount in denomination token units (human-readable Decimal).
+        """
+        cash_call = EncodedCall.from_keccak_signature(
+            address=self.address,
+            signature=CASH_SIGNATURE,
+            function="cash",
+            data=b"",
+            extra_data=None,
+        )
+        try:
+            data = cash_call.call(self.web3, block_identifier)
+            cash_raw = int.from_bytes(data[0:32], byteorder="big")
+            denomination_token = self.denomination_token
+            if denomination_token is None:
+                return None
+            return denomination_token.convert_to_decimals(cash_raw)
+        except Exception:
+            return None
+
+    def fetch_utilisation_percent(self, block_identifier: BlockIdentifier = "latest") -> Percent | None:
+        """Get the percentage of assets currently lent out.
+
+        Utilisation = totalBorrows / (cash + totalBorrows)
+
+        :param block_identifier:
+            Block to query. Defaults to "latest".
+
+        :return:
+            Utilisation as float between 0.0 and 1.0 (0% to 100%).
+        """
+        try:
+            cash_call = EncodedCall.from_keccak_signature(
+                address=self.address,
+                signature=CASH_SIGNATURE,
+                function="cash",
+                data=b"",
+                extra_data=None,
+            )
+            total_borrows_call = EncodedCall.from_keccak_signature(
+                address=self.address,
+                signature=TOTAL_BORROWS_SIGNATURE,
+                function="totalBorrows",
+                data=b"",
+                extra_data=None,
+            )
+
+            cash_data = cash_call.call(self.web3, block_identifier)
+            total_borrows_data = total_borrows_call.call(self.web3, block_identifier)
+
+            cash = int.from_bytes(cash_data[0:32], byteorder="big")
+            total_borrows = int.from_bytes(total_borrows_data[0:32], byteorder="big")
+
+            total_pool = cash + total_borrows
+            if total_pool == 0:
+                return 0.0
+            return total_borrows / total_pool
+        except Exception:
+            return None
 
 
 class EulerEarnVault(ERC4626Vault):
@@ -282,3 +473,169 @@ class EulerEarnVault(ERC4626Vault):
             return None
 
         return Web3.to_checksum_address(data[12:32])
+
+    def can_check_redeem(self) -> bool:
+        """EulerEarn does NOT support address(0) checks for redemption availability."""
+        return False
+
+    def get_historical_reader(self, stateful: bool) -> VaultHistoricalReader:
+        """Get EulerEarn-specific historical reader with utilisation metrics."""
+        return EulerEarnVaultHistoricalReader(self, stateful)
+
+    def fetch_available_liquidity(self, block_identifier: BlockIdentifier = "latest") -> Decimal | None:
+        """Get the amount of denomination token available for immediate withdrawal.
+
+        Uses the idle assets pattern: asset().balanceOf(vault) returns unallocated assets.
+
+        :param block_identifier:
+            Block to query. Defaults to "latest".
+
+        :return:
+            Amount in denomination token units (human-readable Decimal).
+        """
+        try:
+            denomination_token = self.denomination_token
+            if denomination_token is None:
+                return None
+            idle_raw = denomination_token.contract.functions.balanceOf(self.address).call(block_identifier=block_identifier)
+            return denomination_token.convert_to_decimals(idle_raw)
+        except Exception:
+            return None
+
+    def fetch_utilisation_percent(self, block_identifier: BlockIdentifier = "latest") -> Percent | None:
+        """Get the percentage of assets currently allocated to strategies.
+
+        Utilisation = (totalAssets - idle) / totalAssets
+
+        :param block_identifier:
+            Block to query. Defaults to "latest".
+
+        :return:
+            Utilisation as float between 0.0 and 1.0 (0% to 100%).
+        """
+        try:
+            denomination_token = self.denomination_token
+            if denomination_token is None:
+                return None
+
+            total_assets = self.vault_contract.functions.totalAssets().call(block_identifier=block_identifier)
+            idle = denomination_token.contract.functions.balanceOf(self.address).call(block_identifier=block_identifier)
+
+            if total_assets == 0:
+                return 0.0
+            return (total_assets - idle) / total_assets
+        except Exception:
+            return None
+
+
+#: Keccak signature for EulerEarn fee
+FEE_SIGNATURE = Web3.keccak(text="fee()")[0:4]
+
+
+class EulerEarnVaultHistoricalReader(ERC4626HistoricalReader):
+    """Read EulerEarn vault core data + utilisation metrics.
+
+    For EulerEarn (metavault):
+    - Idle assets = asset().balanceOf(vault)
+    - Utilisation = (totalAssets - idle) / totalAssets
+    """
+
+    def construct_multicalls(self) -> Iterable[EncodedCall]:
+        yield from self.construct_core_erc_4626_multicall()
+        yield from self.construct_utilisation_calls()
+        yield from self.construct_fee_calls()
+
+    def construct_utilisation_calls(self) -> Iterable[EncodedCall]:
+        """Add idle assets call for utilisation calculation.
+
+        Note: We use the asset token's balanceOf to get idle assets.
+        This requires an additional call to the asset token contract.
+        """
+        denomination_token = self.vault.denomination_token
+        if denomination_token is None:
+            return
+
+        # Get idle assets via balanceOf on the asset token
+        idle_call = EncodedCall.from_contract_call(
+            denomination_token.contract.functions.balanceOf(self.vault.address),
+            extra_data={
+                "function": "idle_assets",
+                "vault": self.vault.address,
+            },
+            first_block_number=self.first_block,
+        )
+        yield idle_call
+
+    def construct_fee_calls(self) -> Iterable[EncodedCall]:
+        """Add EulerEarn fee call."""
+        fee_call = EncodedCall.from_keccak_signature(
+            address=self.vault.address,
+            signature=FEE_SIGNATURE,
+            function="fee",
+            data=b"",
+            extra_data={"vault": self.vault.address},
+            first_block_number=self.first_block,
+        )
+        yield fee_call
+
+    def process_utilisation_result(
+        self,
+        call_by_name: dict[str, EncodedCallResult],
+        total_assets: Decimal | None,
+    ) -> tuple[Decimal | None, Percent | None]:
+        """Decode EulerEarn utilisation data.
+
+        Utilisation = (totalAssets - idle) / totalAssets
+        """
+        idle_result = call_by_name.get("idle_assets")
+
+        if idle_result is None or total_assets is None:
+            return None, None
+
+        denomination_token = self.vault.denomination_token
+        if denomination_token is None:
+            return None, None
+
+        idle_raw = int.from_bytes(idle_result.result[0:32], byteorder="big")
+        available_liquidity = denomination_token.convert_to_decimals(idle_raw)
+
+        if total_assets == 0:
+            utilisation = 0.0
+        else:
+            total_assets_raw = denomination_token.convert_to_raw(total_assets)
+            utilisation = (total_assets_raw - idle_raw) / total_assets_raw
+
+        return available_liquidity, utilisation
+
+    def process_result(
+        self,
+        block_number: int,
+        timestamp: datetime.datetime,
+        call_results: list[EncodedCallResult],
+    ) -> VaultHistoricalRead:
+        call_by_name = self.dictify_multicall_results(block_number, call_results)
+
+        share_price, total_supply, total_assets, errors, max_deposit = self.process_core_erc_4626_result(call_by_name)
+        available_liquidity, utilisation = self.process_utilisation_result(call_by_name, total_assets)
+
+        # Get performance fee if available
+        fee_result = call_by_name.get("fee")
+        performance_fee = None
+        if fee_result is not None:
+            fee_wad = int.from_bytes(fee_result.result[0:32], byteorder="big")
+            performance_fee = fee_wad / (10**18)
+
+        return VaultHistoricalRead(
+            vault=self.vault,
+            block_number=block_number,
+            timestamp=timestamp,
+            share_price=share_price,
+            total_assets=total_assets,
+            total_supply=total_supply,
+            performance_fee=performance_fee,
+            management_fee=0.0,
+            errors=errors,
+            max_deposit=max_deposit,
+            available_liquidity=available_liquidity,
+            utilisation=utilisation,
+        )
