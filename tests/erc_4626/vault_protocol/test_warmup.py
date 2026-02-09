@@ -151,11 +151,17 @@ def test_warmup_skips_already_checked(web3: Web3):
 
 @flaky.flaky(max_runs=3)
 def test_warmup_affects_multicall_generation(web3: Web3):
-    """Test that broken calls are actually skipped in multicall generation."""
-    vault = create_vault_instance_autodetect(
-        web3,
-        vault_address=GOOD_VAULT_ADDRESS,
-    )
+    """Test that broken calls are actually skipped in multicall generation.
+
+    Uses direct vault creation to avoid slow autodetection on Plasma RPC.
+    """
+    from eth_defi.erc_4626.vault import ERC4626Vault
+    from eth_defi.vault.base import VaultSpec
+
+    # Create vault directly without autodetection (which is slow on Plasma)
+    chain_id = web3.eth.chain_id
+    spec = VaultSpec(chain_id=chain_id, vault_address=GOOD_VAULT_ADDRESS)
+    vault = ERC4626Vault(web3, spec)
 
     # Create stateful reader
     reader = vault.get_historical_reader(stateful=True)
@@ -222,11 +228,16 @@ def test_warmup_detects_gas_estimation_failure(web3: Web3):
 
     Uses the good vault but simulates a broken call by testing warmup
     with a call that deliberately fails.
+
+    Uses direct vault creation to avoid slow autodetection on Plasma RPC.
     """
-    vault = create_vault_instance_autodetect(
-        web3,
-        vault_address=GOOD_VAULT_ADDRESS,
-    )
+    from eth_defi.erc_4626.vault import ERC4626Vault
+    from eth_defi.vault.base import VaultSpec
+
+    # Create vault directly without autodetection (which is slow on Plasma)
+    chain_id = web3.eth.chain_id
+    spec = VaultSpec(chain_id=chain_id, vault_address=GOOD_VAULT_ADDRESS)
+    vault = ERC4626Vault(web3, spec)
 
     reader = vault.get_historical_reader(stateful=True)
     block_number = web3.eth.block_number
