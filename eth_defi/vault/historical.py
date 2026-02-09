@@ -388,8 +388,9 @@ class VaultHistoricalReadMulticaller:
         self.readers = readers
 
         # Run warmup to detect broken calls before generating calls
-        if stateful:
-            self._run_warmup(readers, end_block)
+        # TODO: Warmup system disabled for now - individual readers handle broken calls
+        # if stateful:
+        #     self._run_warmup(readers, end_block)
 
         # for address, reader in readers.items():
         #     state: VaultReaderState = reader.reader_state
