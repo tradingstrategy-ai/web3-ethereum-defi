@@ -133,6 +133,18 @@ class FluidVault(ERC4626Vault):
 class FluidVaultHistoricalReader(ERC4626HistoricalReader):
     """Read Fluid vault core data + utilisation."""
 
+    def get_warmup_calls(self) -> Iterable[tuple[str, callable, any]]:
+        """Yield warmup calls for Fluid vaults.
+
+        Includes base ERC-4626 calls plus idle_assets for utilisation.
+        """
+        yield from super().get_warmup_calls()
+
+        denomination_token = self.vault.denomination_token
+        if denomination_token is not None:
+            idle_call = denomination_token.contract.functions.balanceOf(self.vault.address)
+            yield ("idle_assets", lambda: idle_call.call(), idle_call)
+
     def construct_multicalls(self) -> Iterable[EncodedCall]:
         yield from self.construct_core_erc_4626_multicall()
         yield from self.construct_utilisation_calls()
@@ -142,6 +154,9 @@ class FluidVaultHistoricalReader(ERC4626HistoricalReader):
 
         Fluid uses idle assets pattern: asset().balanceOf(vault)
         """
+        if self.should_skip_call("idle_assets"):
+            return
+
         denomination_token = self.vault.denomination_token
         if denomination_token is None:
             return

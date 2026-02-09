@@ -163,3 +163,54 @@ All readers inherit from `ERC4626HistoricalReader` and implement:
 - `construct_utilisation_calls()` - yields protocol-specific utilisation calls
 - `process_utilisation_result()` - decodes utilisation from multicall results
 - `process_result()` - returns `VaultHistoricalRead` with `available_liquidity` and `utilisation` fields
+
+## Testing the utilisation pipeline
+
+### Unit tests
+
+Each protocol has a test file that validates the utilisation API:
+
+| Protocol | Test file | Chain | RPC variable |
+|----------|-----------|-------|--------------|
+| Fluid | `tests/erc_4626/vault_protocol/test_fluid.py` | Plasma | `JSON_RPC_PLASMA` |
+| Silo | `tests/erc_4626/vault_protocol/test_silo.py` | Arbitrum | `JSON_RPC_ARBITRUM` |
+| Gearbox | `tests/erc_4626/vault_protocol/test_gearbox.py` | Ethereum | `JSON_RPC_ETHEREUM` |
+| IPOR | `tests/erc_4626/vault_protocol/test_ipor.py` | Ethereum | `JSON_RPC_ETHEREUM` |
+| Morpho V2 | `tests/erc_4626/vault_protocol/test_morpho_v2.py` | Arbitrum | `JSON_RPC_ARBITRUM` |
+
+Run tests with:
+
+```bash
+source .local-test.env && poetry run pytest tests/erc_4626/vault_protocol/test_fluid.py -v
+```
+
+### Integration testing with vault scanner
+
+To verify the full pipeline collects utilisation metrics:
+
+```bash
+# Scan a single chain with lending protocols
+source .local-test.env && \
+  TEST_CHAINS=Plasma SCAN_PRICES=true MAX_WORKERS=10 \
+  poetry run python scripts/erc-4626/scan-vaults-all-chains.py
+
+# Verify metadata contains utilisation
+python -c "
+import pickle
+from pathlib import Path
+vault_db_path = Path.home() / '.tradingstrategy/vaults/vault-metadata-db.pickle'
+with open(vault_db_path, 'rb') as f:
+    vault_db = pickle.load(f)
+lending = [(s, r) for s, r in vault_db.items() if r.get('_available_liquidity')]
+print(f'Found {len(lending)} lending vaults with utilisation data')
+"
+```
+
+### Chains with lending protocol support
+
+| Chain | Chain ID | Lending protocols |
+|-------|----------|-------------------|
+| Ethereum | 1 | Gearbox, Euler, EulerEarn, Morpho V1, IPOR, Llama Lend |
+| Arbitrum | 42161 | Morpho V2, Gearbox, Silo |
+| Base | 8453 | Morpho V1, IPOR, Fluid, Silo |
+| Plasma | 9745 | Fluid |

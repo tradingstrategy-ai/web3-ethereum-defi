@@ -26,6 +26,7 @@ from web3 import Web3
 from eth_defi import hypersync
 from eth_defi.chain import EVM_BLOCK_TIMES, get_chain_name
 from eth_defi.erc_4626.vault import VaultReaderState
+from eth_defi.erc_4626.warmup import warmup_vault_reader
 from eth_defi.event_reader.multicall_batcher import EncodedCall, read_multicall_historical, EncodedCallResult, read_multicall_historical_stateful, BatchCallState
 from eth_defi.event_reader.timestamp_cache import DEFAULT_TIMESTAMP_CACHE_FOLDER
 from eth_defi.event_reader.web3factory import Web3Factory
@@ -171,6 +172,40 @@ class VaultHistoricalReadMulticaller:
             state.share_token_address = address
 
         return address
+
+    def _run_warmup(
+        self,
+        readers: dict[HexAddress, VaultHistoricalReader],
+        block_number: int,
+    ) -> None:
+        """Run warmup checks on all vault readers.
+
+        Tests each vault's supported calls to detect which ones revert.
+        Results are stored in reader_state.call_status and used to skip
+        broken calls during the actual scan.
+
+        See README-reader-states.md for documentation.
+
+        :param readers:
+            Dict of vault_address -> VaultHistoricalReader
+
+        :param block_number:
+            Block number to use for testing
+        """
+        checked_count = 0
+        broken_count = 0
+
+        for reader in readers.values():
+            vault_results = warmup_vault_reader(reader, block_number)
+            if vault_results:
+                checked_count += len(vault_results)
+                broken_count += sum(1 for _, reverts in vault_results.values() if reverts)
+
+        if checked_count > 0:
+            logger.info(
+                "Warmup complete: checked %d calls across %d vaults, %d broken",
+                checked_count, len(readers), broken_count
+            )
 
     def _prepare_multicalls(self, reader: VaultHistoricalReader, stateful=False) -> Iterable[tuple[EncodedCall, BatchCallState]]:
         """Run in subprocess"""
@@ -351,6 +386,10 @@ class VaultHistoricalReadMulticaller:
 
         # Expose for testing purposes
         self.readers = readers
+
+        # Run warmup to detect broken calls before generating calls
+        if stateful:
+            self._run_warmup(readers, end_block)
 
         # for address, reader in readers.items():
         #     state: VaultReaderState = reader.reader_state
