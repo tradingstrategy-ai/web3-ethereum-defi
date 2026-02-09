@@ -42,7 +42,12 @@ def anvil_plasma_fork(request) -> AnvilLaunch:
 
 @pytest.fixture(scope="module")
 def web3(anvil_plasma_fork):
-    web3 = create_multi_provider_web3(anvil_plasma_fork.json_rpc_url)
+    # Use longer timeout (90s instead of default 30s) because Plasma fork
+    # can be slow, especially when processing expensive calls like maxDeposit
+    web3 = create_multi_provider_web3(
+        anvil_plasma_fork.json_rpc_url,
+        default_http_timeout=(3.0, 90.0),
+    )
     return web3
 
 
