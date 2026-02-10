@@ -6540,7 +6540,7 @@ class GMX(ExchangeCompatible):
         """
         logger.debug(
             "ORDER_TRACE: fetch_order() CALLED - order_id=%s, symbol=%s",
-            id[:16] if id else "None",
+            id if id else "None",
             symbol,
         )
 
@@ -6549,7 +6549,7 @@ class GMX(ExchangeCompatible):
             order = self._orders[id].copy()
             logger.info(
                 "ORDER_TRACE: fetch_order(%s) - FOUND IN CACHE - status=%s, filled=%.8f, remaining=%.8f",
-                id[:16],
+                id,
                 order.get("status"),
                 order.get("filled", 0),
                 order.get("remaining", 0),
@@ -6559,7 +6559,7 @@ class GMX(ExchangeCompatible):
             # This ensures we detect order execution/cancellation promptly
             order_key_hex = order.get("info", {}).get("order_key")
             if not order_key_hex:
-                logger.warning("fetch_order(%s): no order_key stored, cannot check execution status", id[:16])
+                logger.warning("fetch_order(%s): no order_key stored, cannot check execution status", id)
                 return order
 
             order_key = bytes.fromhex(order_key_hex)
@@ -6576,12 +6576,12 @@ class GMX(ExchangeCompatible):
                     creation_block=creation_block,
                 )
             except Exception as e:
-                logger.warning("fetch_order(%s): error checking order status: %s", id[:16], e)
+                logger.warning("fetch_order(%s): error checking order status: %s", id, e)
                 return order
 
             if status_result.is_pending:
                 # Still waiting for keeper execution
-                logger.debug("fetch_order(%s): order still pending (waiting for keeper)", id[:16])
+                logger.debug("fetch_order(%s): order still pending (waiting for keeper)", id)
                 return order
 
             # Order no longer pending - verify execution result
@@ -6641,8 +6641,8 @@ class GMX(ExchangeCompatible):
                     order["info"]["verification"] = {
                         "execution_price": verification.execution_price,
                         "size_delta_usd": verification.size_delta_usd,
-                        "pnl_usd": verification.pnl_usd,
-                        "price_impact_usd": verification.price_impact_usd,
+                        "pnl_usd": verification.pnl_usd / GMX_USD_PRECISION if verification.pnl_usd else None,
+                        "price_impact_usd": verification.price_impact_usd / GMX_USD_PRECISION if verification.price_impact_usd else None,
                         "event_count": verification.event_count,
                         "event_names": verification.event_names,
                         "is_long": verification.is_long,
@@ -6657,7 +6657,7 @@ class GMX(ExchangeCompatible):
 
                     logger.info(
                         "fetch_order(%s): order EXECUTED at price=%s, size_usd=%s, trading_fee=%s USD (rate=%s), execution_fee=%s ETH",
-                        id[:16],
+                        id,
                         verification.execution_price or 0,
                         verification.size_delta_usd or 0,
                         order["fee"].get("cost", 0.0) if order.get("fee") else 0.0,
@@ -6679,7 +6679,7 @@ class GMX(ExchangeCompatible):
 
                     logger.warning(
                         "fetch_order(%s): order CANCELLED - reason=%s, events=%s",
-                        id[:16],
+                        id,
                         verification.decoded_error or verification.reason,
                         verification.event_names,
                     )
@@ -6692,7 +6692,7 @@ class GMX(ExchangeCompatible):
                 # check_order_status() already logged detailed diagnostics (Subsquid + log scan)
                 logger.warning(
                     "fetch_order(%s): order removed from DataStore but no execution event found (see check_order_status logs for details)",
-                    id[:16],
+                    id,
                 )
 
             return order
@@ -6702,7 +6702,7 @@ class GMX(ExchangeCompatible):
         # Follow GMX SDK flow: extract order_key → query execution status → return correct status
         logger.info(
             "ORDER_TRACE: fetch_order(%s) - NOT IN CACHE, fetching from blockchain (e.g., after bot restart)",
-            id[:16] if id else "None",
+            id if id else "None",
         )
         normalized_id = id if id.startswith("0x") else f"0x{id}"
 
@@ -6741,19 +6741,19 @@ class GMX(ExchangeCompatible):
                         "average": None,
                         "fees": [],
                     }
-                    logger.info("fetch_order(%s): tx failed, status=failed", id[:16])
+                    logger.info("fetch_order(%s): tx failed, status=failed", id)
                     return order
 
                 # Transaction succeeded - extract order_key to verify execution
                 try:
                     order_key = extract_order_key_from_receipt(self.web3, receipt)
                 except ValueError as e:
-                    logger.warning("fetch_order(%s): could not extract order_key: %s", id[:16], e)
+                    logger.warning("fetch_order(%s): could not extract order_key: %s", id, e)
                     order_key = None
 
                 if not order_key:
                     # No order_key - can't verify execution, assume still pending
-                    logger.warning("fetch_order(%s): no order_key, returning status=open", id[:16])
+                    logger.warning("fetch_order(%s): no order_key, returning status=open", id)
                     order = {
                         "id": id,
                         "clientOrderId": None,
@@ -6796,11 +6796,11 @@ class GMX(ExchangeCompatible):
                         poll_interval=0.5,
                     )
                 except Exception as e:
-                    logger.debug("fetch_order(%s): Subsquid query failed: %s", id[:16], e)
+                    logger.debug("fetch_order(%s): Subsquid query failed: %s", id, e)
 
                 # Fallback: Query EventEmitter logs if Subsquid failed
                 if trade_action is None:
-                    logger.debug("fetch_order(%s): Falling back to EventEmitter logs", id[:16])
+                    logger.debug("fetch_order(%s): Falling back to EventEmitter logs", id)
 
                     try:
                         addresses = get_contract_addresses(self.config.get_chain())
@@ -6819,14 +6819,14 @@ class GMX(ExchangeCompatible):
                         )
 
                     except Exception as e:
-                        logger.debug("fetch_order(%s): EventEmitter query failed: %s", id[:16], e)
+                        logger.debug("fetch_order(%s): EventEmitter query failed: %s", id, e)
 
                 # Process the trade action result
                 if trade_action is None:
                     # No execution found - still pending or lost
                     logger.warning(
                         "ORDER_TRACE: fetch_order(%s) - NO EXECUTION FOUND (checked Subsquid + EventEmitter) - RETURNING status=open (might be lost/pending)",
-                        id[:16],
+                        id,
                     )
                     order = {
                         "id": id,
@@ -6866,7 +6866,7 @@ class GMX(ExchangeCompatible):
                     error_reason = trade_action.get("reason") or f"Order {event_name.lower()}"
                     logger.info(
                         "ORDER_TRACE: fetch_order(%s) - Order CANCELLED/FROZEN - reason=%s - RETURNING status=cancelled",
-                        id[:16],
+                        id,
                         error_reason,
                     )
 
@@ -6915,7 +6915,7 @@ class GMX(ExchangeCompatible):
 
                 logger.info(
                     "ORDER_TRACE: fetch_order(%s) - Order EXECUTED at price=%s, size_usd=%s - RETURNING status=closed",
-                    id[:16],
+                    id,
                     execution_price or 0,
                     float(trade_action.get("sizeDeltaUsd", 0)) / 1e30 if trade_action.get("sizeDeltaUsd") else 0,
                 )
