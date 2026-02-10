@@ -1,18 +1,17 @@
 "Llama Lend vault tests"
 
 import os
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
-
 from web3 import Web3
-
 
 from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
-from eth_defi.erc_4626.core import ERC4626Feature
-from eth_defi.erc_4626.vault_protocol.llama_lend.vault import LlamaLendVault
-from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch
+from eth_defi.erc_4626.core import ERC4626Feature, is_lending_protocol
+from eth_defi.erc_4626.vault_protocol.llama_lend.vault import LlamaLendVault, LlamaLendVaultHistoricalReader
+from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.vault.fee import VaultFeeMode
 
@@ -67,3 +66,22 @@ def test_llama_lend(
 
     # Llama Lend doesn't support address(0) checks for maxDeposit/maxRedeem
     assert vault.can_check_redeem() is False
+
+    # Test lending protocol identification
+    assert is_lending_protocol(vault.features) is True
+
+    # Test utilisation API
+    available_liquidity = vault.fetch_available_liquidity()
+    assert available_liquidity is not None
+    assert available_liquidity >= Decimal(0)
+
+    utilisation = vault.fetch_utilisation_percent()
+    assert utilisation is not None
+    assert 0.0 <= utilisation <= 1.0
+
+    # Test historical reader
+    reader = vault.get_historical_reader(stateful=False)
+    assert isinstance(reader, LlamaLendVaultHistoricalReader)
+    calls = list(reader.construct_multicalls())
+    call_names = [c.extra_data.get("function") for c in calls if c.extra_data]
+    assert "idle_assets" in call_names

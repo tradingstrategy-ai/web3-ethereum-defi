@@ -31,7 +31,7 @@ def target_vault_asset_manager():
 
 @pytest.fixture()
 def test_block_number():
-    return 35_920_482
+    return 41_950_000
 
 
 @pytest.fixture()

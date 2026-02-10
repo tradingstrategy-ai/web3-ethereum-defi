@@ -11,7 +11,7 @@ from web3 import Web3
 from web3.types import BlockIdentifier
 
 from eth_defi.erc_4626.classification import create_vault_instance
-from eth_defi.erc_4626.core import get_vault_protocol_name
+from eth_defi.erc_4626.core import get_vault_protocol_name, is_lending_protocol
 from eth_defi.erc_4626.discovery_base import ERC4262VaultDetection
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.event_reader.web3factory import Web3Factory
@@ -149,6 +149,21 @@ def create_vault_scan_record(
             except Exception:
                 pass
 
+        # Collect lending statistics for lending protocol vaults
+        available_liquidity = None
+        utilisation = None
+
+        if is_lending_protocol(detection.features) and total_assets is not None and total_assets > 5000:
+            try:
+                available_liquidity = vault.fetch_available_liquidity(block_identifier)
+            except Exception:
+                pass
+
+            try:
+                utilisation = vault.fetch_utilisation_percent(block_identifier)
+            except Exception:
+                pass
+
         data = {
             "Symbol": vault.symbol,
             "Name": vault.name,
@@ -175,6 +190,8 @@ def create_vault_scan_record(
             "_redemption_closed_reason": redemption_closed_reason,
             "_deposit_next_open": deposit_next_open,
             "_redemption_next_open": redemption_next_open,
+            "_available_liquidity": available_liquidity,
+            "_utilisation": utilisation,
         }
         return data
     except ExtraValueError as e:

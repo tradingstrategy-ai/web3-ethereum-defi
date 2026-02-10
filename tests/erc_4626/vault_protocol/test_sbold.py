@@ -21,7 +21,7 @@ pytestmark = pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHE
 @pytest.fixture(scope="module")
 def anvil_ethereum_fork(request) -> AnvilLaunch:
     """Fork at a specific block for reproducibility"""
-    launch = fork_network_anvil(JSON_RPC_ETHEREUM, fork_block_number=24_411_000)
+    launch = fork_network_anvil(JSON_RPC_ETHEREUM, fork_block_number=24_422_000)
     try:
         yield launch
     finally:

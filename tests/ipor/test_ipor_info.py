@@ -4,18 +4,17 @@
 """
 
 import os
+from decimal import Decimal
 
+import flaky
 import pytest
 from web3 import Web3
 
-import flaky
-
 from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.classification import detect_vault_features
-from eth_defi.erc_4626.core import ERC4626Feature
-from eth_defi.erc_4626.vault_protocol.ipor.vault import IPORVault
+from eth_defi.erc_4626.core import ERC4626Feature, is_lending_protocol
+from eth_defi.erc_4626.vault_protocol.ipor.vault import IPORVault, IPORVaultHistoricalReader
 from eth_defi.provider.multi_provider import create_multi_provider_web3
-
 from eth_defi.vault.base import (
     DEPOSIT_CLOSED_UTILISATION,
     REDEMPTION_CLOSED_INSUFFICIENT_LIQUIDITY,
@@ -97,3 +96,30 @@ def test_ipor_deposit_redemption_status(
     assert max_deposit >= 0
     assert max_redeem >= 0
     assert vault.can_check_redeem() is True
+
+
+@flaky.flaky
+def test_ipor_utilisation(
+    web3: Web3,
+    vault: IPORVault,
+):
+    """Test IPOR utilisation API."""
+    # Test lending protocol identification (vault fixture doesn't have features set,
+    # so we test directly with the known feature)
+    assert is_lending_protocol({ERC4626Feature.ipor_like}) is True
+
+    # Test utilisation API
+    available_liquidity = vault.fetch_available_liquidity()
+    assert available_liquidity is not None
+    assert available_liquidity >= Decimal(0)
+
+    utilisation = vault.fetch_utilisation_percent()
+    assert utilisation is not None
+    assert 0.0 <= utilisation <= 1.0
+
+    # Test historical reader
+    reader = vault.get_historical_reader(stateful=False)
+    assert isinstance(reader, IPORVaultHistoricalReader)
+    calls = list(reader.construct_multicalls())
+    call_names = [c.extra_data.get("function") for c in calls if c.extra_data]
+    assert "idle_assets" in call_names

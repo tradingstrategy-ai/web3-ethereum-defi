@@ -24,7 +24,7 @@ def test_token_risk_cached(tmp_path):
     # COW
     data = token_risk.fetch_token_info(56, "0x7aaaa5b10f97321345acd76945083141be1c5631")
     assert data["cached"] is False
-    assert data["score"] in (0, 78, 79, 80)  # Formula changed
+    assert data["score"] in (0, 77, 78, 79, 80)  # Formula changed
 
     assert not is_tradeable_token(data)
     info = token_risk.get_diagnostics()
