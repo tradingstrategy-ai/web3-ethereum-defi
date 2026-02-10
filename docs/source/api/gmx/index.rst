@@ -58,4 +58,9 @@ More info
    eth_defi.gmx.trading
    eth_defi.gmx.types
    eth_defi.gmx.utils
+   eth_defi.gmx.cache
+   eth_defi.gmx.gas_monitor
+   eth_defi.gmx.order_tracking
+   eth_defi.gmx.price_sanity
+   eth_defi.gmx.verification
 

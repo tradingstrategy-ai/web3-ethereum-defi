@@ -23,3 +23,4 @@ and reading the deposit and redemption information.
    eth_defi.enzyme.uniswap_v2
    eth_defi.enzyme.policy
    eth_defi.enzyme.vault_controlled_wallet
+   eth_defi.enzyme.uniswap_v3

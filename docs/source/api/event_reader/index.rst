@@ -35,3 +35,5 @@ resumed from the data on disk.
    eth_defi.event_reader.web3worker
    eth_defi.event_reader.state
    eth_defi.event_reader.json_state
+   eth_defi.event_reader.lazy_timestamp_reader
+   eth_defi.event_reader.timestamp_cache

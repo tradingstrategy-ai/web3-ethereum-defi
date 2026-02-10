@@ -37,4 +37,8 @@ More info
    eth_defi.erc_4626.scan
    eth_defi.erc_4626.estimate
    eth_defi.erc_4626.profit_and_loss
+   eth_defi.erc_4626.discovery_base
+   eth_defi.erc_4626.lead_scan_core
+   eth_defi.erc_4626.rpc_discovery
+   eth_defi.erc_4626.warmup
 

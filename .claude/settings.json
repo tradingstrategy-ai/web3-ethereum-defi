@@ -69,7 +69,13 @@
       "Bash(pip install:*)",
       "Bash(playwright install:*)",
       "Bash(npx wrangler:*)",
-      "Read(//Users/moo/code/trade-executor/deps/web3-ethereum-defi/tests/erc_4626/vault_protocol/**)"
+      "Read(//Users/moo/code/trade-executor/deps/web3-ethereum-defi/tests/erc_4626/vault_protocol/**)",
+      "Bash(pyenv install:*)",
+      "Bash(docker build:*)",
+      "Bash(pip index:*)",
+      "Bash(pip download:*)",
+      "Bash(python3.14 -m pip install:*)",
+      "Bash(forge build:*)"
     ]
   },
   "model": "opus",

@@ -24,3 +24,4 @@ See :ref:`tutorials` for code examples.
    eth_defi.aave_v3.loan
    eth_defi.aave_v3.rates
    eth_defi.aave_v3.reserve
+   eth_defi.aave_v3.liquidation

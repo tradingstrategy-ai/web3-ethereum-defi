@@ -26,3 +26,5 @@ Uniswap v2 API contains Python helpers to interact with Uniswap v2 style exchang
    eth_defi.uniswap_v2.liquidity
    eth_defi.uniswap_v2.oracle
    eth_defi.uniswap_v2.token_tax
+   eth_defi.uniswap_v2.constants
+   eth_defi.uniswap_v2.synthetic_data

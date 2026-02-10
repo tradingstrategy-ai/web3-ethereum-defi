@@ -24,4 +24,6 @@ A generic high-level Python framework to integrate different vault providers.
    eth_defi.vault.historical
    eth_defi.vault.lower_case_dict
    eth_defi.vault.mass_buyer
+   eth_defi.vault.flag
+   eth_defi.vault.protocol_metadata
 

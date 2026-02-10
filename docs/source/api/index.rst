@@ -30,8 +30,14 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    vault/index
    erc_4626/index
    enzyme/index
+   lagoon/index
+   ipor/index
    velvet/index
    morpho/index
+   erc_7540/index
+   simple_vault/index
+   ccxt/index
+   terms_of_service/index
    chainlink/index
    foundry/index
    etherscan/index

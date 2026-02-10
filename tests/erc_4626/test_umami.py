@@ -3,21 +3,20 @@
 import os
 from pathlib import Path
 
-import pytest
-
-from web3 import Web3
 import flaky
+import pytest
+from web3 import Web3
 
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import get_vault_protocol_name
-from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch
-from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.erc_4626.vault_protocol.umami.vault import UmamiVault
+from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
+from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.vault.base import VaultTechnicalRisk
 
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
 
-pytestmark = pytest.mark.skipif(JSON_RPC_ARBITRUM is None, reason="JSON_RPC_ETHEREUM needed to run these tests")
+pytestmark = pytest.mark.skipif(JSON_RPC_ARBITRUM is None, reason="JSON_RPC_ARBITRUM needed to run these tests")
 
 
 @pytest.fixture(scope="module")
