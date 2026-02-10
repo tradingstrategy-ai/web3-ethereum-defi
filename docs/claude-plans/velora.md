@@ -327,35 +327,32 @@ def approve_and_execute_velora_swap(
 
 ### 3. Smart contract changes
 
-**New: `contracts/guard/src/lib/SwapVelora.sol`**
-```solidity
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.26;
-
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-
-abstract contract SwapVelora {
-    event VeloraSwapExecuted(
-        uint256 indexed timestamp,
-        address indexed augustusSwapper,
-        address tokenIn,
-        address tokenOut,
-        uint256 amountIn,
-        uint256 amountOut,
-        uint256 minAmountOut
-    );
-}
-```
+Unlike CowSwap (which requires a separate `SwapCowSwap.sol` library for order signing/presigning), Velora's simpler atomic execution model means we only need to extend the existing contracts directly.
 
 **Modify: `contracts/guard/src/GuardV0Base.sol`**
+
+Add Velora whitelist mapping after `allowedCowSwaps` (~line 112):
 ```solidity
-// Add to state variables (~line 98)
+// Allowed Velora (ParaSwap) Augustus Swapper instances.
+//
+// Augustus Swapper is the main router contract for Velora/ParaSwap.
+// TokenTransferProxy is whitelisted separately via allowApprovalDestination.
+//
 mapping(address destination => bool allowed) public allowedVeloraSwappers;
+```
 
-// Add event
+Add event after `CowSwapApproved` (~line 148):
+```solidity
 event VeloraSwapperApproved(address augustusSwapper, string notes);
+```
 
-// Add whitelist function
+Add whitelist function after `whitelistCowSwap()` (~line 766):
+```solidity
+// Whitelist Velora (ParaSwap) Augustus Swapper for atomic swaps.
+//
+// TokenTransferProxy must be approved for token spending (not Augustus).
+// See: https://developers.velora.xyz
+//
 function whitelistVelora(
     address augustusSwapper,
     address tokenTransferProxy,
@@ -372,9 +369,48 @@ function isAllowedVeloraSwapper(address swapper) public view returns (bool) {
 ```
 
 **Modify: `contracts/safe-integration/src/TradingStrategyModuleV0.sol`**
-```solidity
-// Add after swapAndValidateCowSwap()
 
+Add IERC20 import at top:
+```solidity
+import {IERC20} from "@guard/lib/IERC20.sol";
+```
+
+Add event after contract declaration:
+```solidity
+// Velora swap execution event - emitted after successful atomic swap
+event VeloraSwapExecuted(
+    uint256 indexed timestamp,
+    address indexed augustusSwapper,
+    address tokenIn,
+    address tokenOut,
+    uint256 amountIn,
+    uint256 amountOut,
+    uint256 minAmountOut
+);
+```
+
+Add function after `swapAndValidateCowSwap()`:
+```solidity
+/**
+ * Execute a Velora (ParaSwap) swap through the Safe.
+ *
+ * Unlike CowSwap which uses offchain order books and presigning,
+ * Velora executes atomically by calling Augustus Swapper directly.
+ *
+ * Flow:
+ * 1. Python fetches quote from Velora API (GET /prices)
+ * 2. Python builds tx from Velora API (POST /transactions/:network)
+ * 3. Asset manager approves TokenTransferProxy via performCall()
+ * 4. Asset manager calls this function with Augustus calldata
+ * 5. This function validates, executes, checks slippage, emits event
+ *
+ * @param augustusSwapper The Velora Augustus Swapper contract address
+ * @param tokenIn The token being sold
+ * @param tokenOut The token being bought
+ * @param amountIn The amount of tokenIn to sell (for event logging)
+ * @param minAmountOut The minimum amount of tokenOut to receive (slippage protection)
+ * @param augustusCalldata The raw calldata from Velora API to execute on Augustus
+ */
 function swapAndValidateVelora(
     address augustusSwapper,
     address tokenIn,
@@ -417,7 +453,7 @@ function swapAndValidateVelora(
         "Insufficient output amount"
     );
 
-    // 5. Emit event
+    // 5. Emit event for offchain tracking
     emit VeloraSwapExecuted(
         block.timestamp,
         augustusSwapper,
@@ -507,7 +543,7 @@ Asset Manager (Python)
 
 ## Implementation order
 
-1. Smart contracts (GuardV0Base.sol, SwapVelora.sol, TradingStrategyModuleV0.sol) + compile ABIs
+1. Smart contracts (extend GuardV0Base.sol, extend TradingStrategyModuleV0.sol) + compile ABIs
 2. Core Python module (`eth_defi/velora/`)
 3. Lagoon integration (`eth_defi/erc_4626/vault_protocol/lagoon/velora.py`)
 4. Deployment integration
@@ -524,22 +560,21 @@ Asset Manager (Python)
 
 ## File summary
 
-### New files (11)
+### New files (10)
 1. `eth_defi/velora/__init__.py`
 2. `eth_defi/velora/constants.py`
 3. `eth_defi/velora/api.py`
 4. `eth_defi/velora/quote.py`
 5. `eth_defi/velora/swap.py`
 6. `eth_defi/erc_4626/vault_protocol/lagoon/velora.py`
-7. `contracts/guard/src/lib/SwapVelora.sol`
-8. `docs/source/api/velora/index.rst`
-9. `docs/source/tutorials/lagoon-velora.rst`
-10. `scripts/lagoon/lagoon-velora-example.py`
-11. `tests/lagoon/test_lagoon_velora.py`
+7. `docs/source/api/velora/index.rst`
+8. `docs/source/tutorials/lagoon-velora.rst`
+9. `scripts/lagoon/lagoon-velora-example.py`
+10. `tests/lagoon/test_lagoon_velora.py`
 
 ### Modified files (5)
-1. `contracts/guard/src/GuardV0Base.sol` - Add Velora whitelisting
-2. `contracts/safe-integration/src/TradingStrategyModuleV0.sol` - Add `swapAndValidateVelora()`, bump version
+1. `contracts/guard/src/GuardV0Base.sol` - Add `allowedVeloraSwappers` mapping, `whitelistVelora()`, `isAllowedVeloraSwapper()`
+2. `contracts/safe-integration/src/TradingStrategyModuleV0.sol` - Add IERC20 import, `VeloraSwapExecuted` event, `swapAndValidateVelora()`, bump version to v0.1.4
 3. `eth_defi/erc_4626/vault_protocol/lagoon/deployment.py` - Add `velora` parameter
 4. `docs/source/api/index.rst` - Add velora to toctree
 5. `docs/source/tutorials/index.rst` - Add lagoon-velora to toctree

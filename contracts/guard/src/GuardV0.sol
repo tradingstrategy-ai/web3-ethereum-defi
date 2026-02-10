@@ -13,7 +13,7 @@ import "./GuardV0Base.sol";
 /**
  * Prototype guard implementation.
  *
- * - Hardcoded actions for Uniswap v2, v3, 1delta
+ * - Hardcoded actions for Uniswap v2, v3, Aave, etc.
  *
  */
 contract GuardV0 is GuardV0Base, Ownable {

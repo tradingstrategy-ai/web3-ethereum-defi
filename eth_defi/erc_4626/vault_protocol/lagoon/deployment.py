@@ -26,6 +26,7 @@ from eth_account.signers.local import LocalAccount
 from eth_defi.aave_v3.deployment import AaveV3Deployment
 from eth_defi.abi import ZERO_ADDRESS_STR, encode_multicalls, get_deployed_contract
 from eth_defi.cow.constants import COWSWAP_SETTLEMENT, COWSWAP_VAULT_RELAYER
+from eth_defi.velora.api import get_augustus_swapper, get_token_transfer_proxy
 from eth_defi.deploy import deploy_contract
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.lagoon.beacon_proxy import deploy_beacon_proxy
@@ -746,6 +747,7 @@ def setup_guard(
     aave_v3: AaveV3Deployment | None = None,
     erc_4626_vaults: list[ERC4626Vault] | None = None,
     cowswap: bool = False,
+    velora: bool = False,
     hack_sleep=20.0,
     assets: list[HexAddress | str] | None = None,
     multicall_chunk_size=40,
@@ -909,6 +911,14 @@ def setup_guard(
         tx_hash = _broadcast(module.functions.whitelistCowSwap(COWSWAP_SETTLEMENT, COWSWAP_VAULT_RELAYER, "Allow CowSwap"))
         assert_transaction_success_with_explanation(web3, tx_hash)
 
+    if velora:
+        chain_id = web3.eth.chain_id
+        augustus = get_augustus_swapper(chain_id)
+        proxy = get_token_transfer_proxy(chain_id)
+        logger.info("Whitelisting Velora: Augustus %s, TokenTransferProxy %s", augustus, proxy)
+        tx_hash = _broadcast(module.functions.whitelistVelora(augustus, proxy, "Allow Velora"))
+        assert_transaction_success_with_explanation(web3, tx_hash)
+
     # Whitelist all assets
     if any_asset:
         logger.info("Allow any asset whitelist")
@@ -936,6 +946,7 @@ def deploy_automated_lagoon_vault(
     orderly_vault: OrderlyVault | None = None,
     aave_v3: AaveV3Deployment | None = None,
     cowswap: bool = False,
+    velora: bool = False,
     any_asset: bool = False,
     etherscan_api_key: str = None,
     verifier: Literal["etherscan", "blockscout", "sourcify", "oklink"] | None = None,
@@ -1156,6 +1167,7 @@ def deploy_automated_lagoon_vault(
         orderly_vault=orderly_vault,
         aave_v3=aave_v3,
         cowswap=cowswap,
+        velora=velora,
         erc_4626_vaults=erc_4626_vaults,
         any_asset=any_asset,
         broadcast_func=_broadcast,

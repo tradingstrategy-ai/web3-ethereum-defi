@@ -9,13 +9,14 @@ import "./lib/Path.sol";
 import "./IGuard.sol";
 
 import "./lib/IERC4626.sol";
+import "./lib/IERC20.sol";
 import "./lib/Multicall.sol";
 import "./lib/SwapCowSwap.sol";
 
 /**
  * Prototype guard implementation.
  *
- * - Hardcoded actions for Uniswap v2, v3, 1delta, Aave, etc.
+ * - Hardcoded actions for Uniswap v2, v3, Aave, etc.
  *
  * - Abstract base contract to deal with different ownership modifiers and initialisers (Safe, OpenZeppelin).@author
  *
@@ -26,26 +27,6 @@ abstract contract GuardV0Base is IGuard,  Multicall, SwapCowSwap  {
 
     using Path for bytes;
     using BytesLib for bytes;
-
-    /**
-     * Constants for 1delta path decoding using similar approach as Uniswap v3 `Path.sol`
-     * 
-     * Check our implementation at: `validate1deltaPath()`
-     */
-    /// @dev The length of the bytes encoded address
-    uint256 private constant ADDR_SIZE = 20;
-    /// @dev The length of the bytes encoded pool fee
-    uint256 private constant ONEDELTA_FEE_SIZE = 3;
-    /// @dev The length of the bytes encoded DEX ID
-    uint256 private constant ONEDELTA_PID_SIZE = 1;
-    /// @dev The length of the bytes encoded action
-    uint256 private constant ONEDELTA_ACTION_SIZE = 1;
-    /// @dev The offset of a single token address, fee, pid and action
-    uint256 private constant ONEDELTA_NEXT_OFFSET = ADDR_SIZE + ONEDELTA_FEE_SIZE + ONEDELTA_PID_SIZE + ONEDELTA_ACTION_SIZE;
-    /// @dev The offset of an encoded pool key
-    uint256 private constant ONEDELTA_POP_OFFSET = ONEDELTA_NEXT_OFFSET + ADDR_SIZE;
-    /// @dev The minimum length of an encoding that contains 2 or more pools
-    uint256 private constant ONEDELTA_MULTIPLE_POOLS_MIN_LENGTH = ONEDELTA_POP_OFFSET + ONEDELTA_NEXT_OFFSET;
 
     struct ExactInputParams {
         bytes path;
@@ -111,6 +92,13 @@ abstract contract GuardV0Base is IGuard,  Multicall, SwapCowSwap  {
     //
     mapping(address destination => bool allowed) public allowedCowSwaps;
 
+    // Allowed Velora (ParaSwap) Augustus Swapper instances.
+    //
+    // Augustus Swapper is the main router contract for Velora/ParaSwap.
+    // TokenTransferProxy is whitelisted separately via allowApprovalDestination.
+    //
+    mapping(address destination => bool allowed) public allowedVeloraSwappers;
+
     // Allow trading any token
     //
     // Dangerous, as malicious/compromised trade-executor can drain all assets through creating fake tokens
@@ -145,7 +133,19 @@ abstract contract GuardV0Base is IGuard,  Multicall, SwapCowSwap  {
     event LagoonVaultApproved(address vault, string notes);
 
     event CowSwapApproved(address settlementContract, string notes);
+    event VeloraSwapperApproved(address augustusSwapper, string notes);
     event ERC4626Approved(address vault, string notes);
+
+    // Velora swap execution event - emitted after successful atomic swap
+    event VeloraSwapExecuted(
+        uint256 indexed timestamp,
+        address indexed augustusSwapper,
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn,
+        uint256 amountOut,
+        uint256 minAmountOut
+    );
 
     // Implementation needs to provide its own ownership policy hooks
     modifier onlyGuardOwner() virtual;
@@ -301,6 +301,10 @@ abstract contract GuardV0Base is IGuard,  Multicall, SwapCowSwap  {
         return allowedCowSwaps[settlement] == true;
     }
 
+    function isAllowedVeloraSwapper(address swapper) public view returns (bool) {
+        return allowedVeloraSwappers[swapper] == true;
+    }
+
     function validate_transfer(bytes memory callData) public view {
         (address to, ) = abi.decode(callData, (address, uint));
         require(isAllowedWithdrawDestination(to), "validate_transfer: Receiver address not whitelisted by Guard");
@@ -414,8 +418,6 @@ abstract contract GuardV0Base is IGuard,  Multicall, SwapCowSwap  {
             // See whitelistUniswapV3Router
             // TODO: Build logic later if needed
             require(anyAsset, "validateCall: SwapRouter02 is currently supported only with anyAsset whitelist");
-        } else if(selector == getSelector("multicall(bytes[])")) {
-            validate_1deltaMulticall(callData);
         } else if(selector == getSelector("transfer(address,uint256)")) {
             validate_transfer(callData);
         } else if(selector == getSelector("approve(address,uint256)")) {
@@ -522,65 +524,6 @@ abstract contract GuardV0Base is IGuard,  Multicall, SwapCowSwap  {
         }
     }
 
-    // validate 1delta trade
-    function validate_1deltaMulticall(bytes memory callData) public view {
-        (bytes[] memory callArr) = abi.decode(callData, (bytes[]));
-
-        // loop through all sub-calls and validate
-        for (uint i; i < callArr.length; i++) {
-            bytes memory callDataWithSelector = callArr[i];
-
-            // bytes memory has to be sliced using BytesLib
-            bytes4 selector = bytes4(callDataWithSelector.slice(0, 4));
-            bytes memory subCallData = callDataWithSelector.slice(4, callDataWithSelector.length - 4);
-
-            // validate each sub-call
-            if (selector == getSelector("transferERC20In(address,uint256)")) {
-                validate_transferERC20In(subCallData);
-            } else if (selector == getSelector("transferERC20AllIn(address)")) {
-                validate_transferERC20AllIn(subCallData);
-            } else if (selector == getSelector("deposit(address,address)")) {
-                validate_1deltaDeposit(subCallData);
-            } else if (selector == getSelector("withdraw(address,address)")) {
-                validate_1deltaWithdraw(subCallData);
-            } else if (selector == getSelector("flashSwapExactIn(uint256,uint256,bytes)")) {
-                validate_flashSwapExactInt(subCallData);
-            } else if (selector == getSelector("flashSwapExactOut(uint256,uint256,bytes)")) {
-                validate_flashSwapExactOut(subCallData);
-            } else if (selector == getSelector("flashSwapAllOut(uint256,bytes)")) {
-                validate_flashSwapAllOut(subCallData);
-            } else {
-                revert("validate_1deltaMulticall: Unknown function selector");
-            }
-        }
-    }
-
-    // 1delta implementation: https://github.com/1delta-DAO/contracts-delegation/blob/4f27e1593c564c419ff042cdd932ed52d04216bf/contracts/1delta/modules/aave/FlashAggregator.sol#L78-L81
-    function validate_transferERC20In(bytes memory callData) public view {
-        (address token, ) = abi.decode(callData, (address, uint256));
-        require(isAllowedAsset(token), "validate_transferERC20In: Token not allowed");
-    }
-
-    // 1delta implementation: https://github.com/1delta-DAO/contracts-delegation/blob/4f27e1593c564c419ff042cdd932ed52d04216bf/contracts/1delta/modules/aave/FlashAggregator.sol#L83-L93
-    function validate_transferERC20AllIn(bytes memory callData) public view {
-        (address token) = abi.decode(callData, (address));
-
-        require(isAllowedAsset(token), "validate_transferERC20AllIn: Token not allowed");
-    }
-    
-    // 1delta implementation: https://github.com/1delta-DAO/contracts-delegation/blob/4f27e1593c564c419ff042cdd932ed52d04216bf/contracts/1delta/modules/aave/FlashAggregator.sol#L34-L39
-    function validate_1deltaDeposit(bytes memory callData) public view {
-        (address token, address receiver) = abi.decode(callData, (address, address));
-        require(isAllowedAsset(token), "validate_transferERC20AllIn: Token not allowed");
-        require(isAllowedReceiver(receiver), "validate_deposit: Receiver address not whitelisted by Guard");
-    }
-
-    // 1delta: https://github.com/1delta-DAO/contracts-delegation/blob/4f27e1593c564c419ff042cdd932ed52d04216bf/contracts/1delta/modules/aave/FlashAggregator.sol#L71-L74
-    function validate_1deltaWithdraw(bytes memory callData) public view {
-        (address token, address receiver) = abi.decode(callData, (address, address));
-        require(isAllowedAsset(token), "validate_withdraw: Token not allowed");
-        require(isAllowedReceiver(receiver), "validate_deposit: Receiver address not whitelisted by Guard");
-    }
 
     // ERC-4626 trading: Check we are allowed to deposit to a vault
     function validate_ERC4626Deposit(address target, bytes memory callData) public view {
@@ -621,64 +564,6 @@ abstract contract GuardV0Base is IGuard,  Multicall, SwapCowSwap  {
         // We can only receive from ERC-4626 to ourselves
         (, address receiver, ) = abi.decode(callData, (uint256, address, address));
         require(isAllowedReceiver(receiver), "validate_ERC4626Withdrawal: Receiver address not whitelisted by Guard");
-    }
-
-    // 1delta implementation: https://github.com/1delta-DAO/contracts-delegation/blob/4f27e1593c564c419ff042cdd932ed52d04216bf/contracts/1delta/modules/aave/MarginTrading.sol#L43-L89
-    function validate_flashSwapExactInt(bytes memory callData) public view {
-        (, , bytes memory path) = abi.decode(callData, (uint256, uint256, bytes));
-        validate1deltaPath(path);
-    }
-
-    // Reference in 1delta: https://github.com/1delta-DAO/contracts-delegation/blob/4f27e1593c564c419ff042cdd932ed52d04216bf/contracts/1delta/modules/aave/MarginTrading.sol#L91-L103
-    function validate_flashSwapExactOut(bytes memory callData) public view {
-        (, , bytes memory path) = abi.decode(callData, (uint256, uint256, bytes));
-        validate1deltaPath(path);
-    }
-
-    // 1delta implementation: https://github.com/1delta-DAO/contracts-delegation/blob/4f27e1593c564c419ff042cdd932ed52d04216bf/contracts/1delta/modules/aave/MarginTrading.sol#L153-L203
-    function validate_flashSwapAllOut(bytes memory callData) public view {
-        (, bytes memory path) = abi.decode(callData, (uint256, bytes));
-        validate1deltaPath(path);
-    }
-
-    /**
-     * Our implementation of 1delta path decoding and validation using similar 
-     * approach as Uniswap v3 `Path.sol`
-     *
-     * Read more:
-     * - How 1delta encodes the path: https://github.com/1delta-DAO/contracts-delegation/blob/4f27e1593c564c419ff042cdd932ed52d04216bf/test-ts/1delta/shared/aggregatorPath.ts#L5-L32
-     * - How 1delta decodes the path: https://github.com/1delta-DAO/contracts-delegation/blob/4f27e1593c564c419ff042cdd932ed52d04216bf/contracts/1delta/modules/aave/MarginTrading.sol#L54-L60
-     */
-    function validate1deltaPath(bytes memory path) public view {
-        address tokenIn;
-        address tokenOut;
-
-        while (true) {
-            tokenIn = path.toAddress(0);
-            tokenOut = path.toAddress(ONEDELTA_NEXT_OFFSET);
-
-            require(isAllowedAsset(tokenIn), "validate1deltaPath: Token not allowed");
-            require(isAllowedAsset(tokenOut), "validate1deltaPath: Token not allowed");
-
-            // iterate to next slice if the path still contains multiple pools
-            if (path.length >= ONEDELTA_MULTIPLE_POOLS_MIN_LENGTH) {
-                path = path.slice(ONEDELTA_NEXT_OFFSET, path.length - ONEDELTA_NEXT_OFFSET);
-            } else {
-                break;
-            }
-        }
-    }
-
-
-
-    function whitelistOnedelta(address brokerProxy, address lendingPool, string calldata notes) external {
-        allowCallSite(brokerProxy, getSelector("multicall(bytes[])"), notes);
-        allowApprovalDestination(brokerProxy, notes);
-        allowApprovalDestination(lendingPool, notes);
-
-        // vToken has to be approved delegation for broker proxy
-        // Reference in 1delta tests: https://github.com/1delta-DAO/contracts-delegation/blob/4f27e1593c564c419ff042cdd932ed52d04216bf/test-ts/1delta/aave/marginSwap.spec.ts#L206
-        allowDelegationApprovalDestination(brokerProxy, notes);
     }
 
     /**
@@ -763,6 +648,64 @@ abstract contract GuardV0Base is IGuard,  Multicall, SwapCowSwap  {
         allowApprovalDestination(relayerContract, notes);
         allowedCowSwaps[settlementContract] = true;
         emit CowSwapApproved(settlementContract, notes);
+    }
+
+    // Whitelist Velora (ParaSwap) Augustus Swapper for atomic swaps.
+    //
+    // TokenTransferProxy must be approved for token spending (not Augustus).
+    // See: https://developers.velora.xyz
+    //
+    function whitelistVelora(address augustusSwapper, address tokenTransferProxy, string calldata notes) external onlyGuardOwner {
+        allowApprovalDestination(tokenTransferProxy, notes);
+        allowedVeloraSwappers[augustusSwapper] = true;
+        emit VeloraSwapperApproved(augustusSwapper, notes);
+    }
+
+    // Validate Velora swap and compute pre-swap balance
+    //
+    // Returns the pre-swap balance of tokenOut for slippage verification
+    //
+    function _validateVeloraSwapAndGetPreBalance(
+        address safeAddress,
+        address augustusSwapper,
+        address tokenIn,
+        address tokenOut
+    ) internal view returns (uint256) {
+        require(isAllowedVeloraSwapper(augustusSwapper), "Velora not enabled");
+        require(isAllowedSender(msg.sender), "Sender not allowed");
+        require(isAllowedAsset(tokenIn), "tokenIn not allowed");
+        require(isAllowedAsset(tokenOut), "tokenOut not allowed");
+        return IERC20(tokenOut).balanceOf(safeAddress);
+    }
+
+    // Verify slippage after Velora swap execution and emit event
+    //
+    // Call this after executing the swap calldata on the Safe
+    //
+    function _verifyVeloraSwapAndEmit(
+        address safeAddress,
+        address augustusSwapper,
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn,
+        uint256 minAmountOut,
+        uint256 preBalance
+    ) internal {
+        uint256 postBalance = IERC20(tokenOut).balanceOf(safeAddress);
+        require(
+            postBalance >= preBalance + minAmountOut,
+            "Insufficient output amount"
+        );
+
+        emit VeloraSwapExecuted(
+            block.timestamp,
+            augustusSwapper,
+            tokenIn,
+            tokenOut,
+            amountIn,
+            postBalance - preBalance,
+            minAmountOut
+        );
     }
 
     /**

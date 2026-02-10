@@ -227,7 +227,7 @@ def test_guard_umami_deposit_malicious_receiver(
     deposit_fn.args = (
         deposit_fn.args[0],  # assets
         deposit_fn.args[1],  # minOutAfterFees
-        third_party,         # malicious receiver
+        third_party,  # malicious receiver
     )
 
     target, call_data = encode_simple_vault_transaction(deposit_fn)
@@ -255,10 +255,10 @@ def test_guard_umami_redeem_malicious_receiver(
     # Umami redeem is not exposed via a manager, so encode directly
     # redeem(uint256 shares, uint256 minOutAfterFees, address receiver, address owner)
     redeem_fn = umami_vault.vault_contract.functions.redeem(
-        100 * 10**6,     # shares
-        0,               # minOutAfterFees
-        third_party,     # malicious receiver
-        vault.address,   # owner
+        100 * 10**6,  # shares
+        0,  # minOutAfterFees
+        third_party,  # malicious receiver
+        vault.address,  # owner
     )
     target, call_data = encode_simple_vault_transaction(redeem_fn)
 
