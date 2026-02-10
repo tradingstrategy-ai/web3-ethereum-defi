@@ -192,6 +192,8 @@ def create_vault_scan_record(
             "_redemption_next_open": redemption_next_open,
             "_available_liquidity": available_liquidity,
             "_utilisation": utilisation,
+            "_description": vault.description,
+            "_short_description": vault.short_description,
         }
         return data
     except ExtraValueError as e:
