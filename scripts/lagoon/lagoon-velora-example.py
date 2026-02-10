@@ -130,8 +130,8 @@ def main():
     json_rpc_url = os.environ.get("JSON_RPC_ARBITRUM")
     assert json_rpc_url, "You need to give JSON_RPC_ARBITRUM environment variable pointing to your full node"
 
-    private_key = os.environ.get("PRIVATE_KEY")
-    assert private_key, "You need to give PRIVATE_KEY environment variable with a prefunded ETH account"
+    private_key = os.environ.get("PRIVATE_KEY_SWAP_TEST")
+    assert private_key, "You need to give PRIVATE_KEY_SWAP_TEST environment variable with a prefunded ETH account"
 
     etherscan_api_key = os.environ.get("ETHERSCAN_API_KEY")
     assert etherscan_api_key, "You need to give ETHERSCAN_API_KEY environment variable to verify the deployed contracts"
