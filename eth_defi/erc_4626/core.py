@@ -536,6 +536,40 @@ class ERC4626Feature(enum.Enum):
     sbold_like = "sbold_like"
 
 
+#: Features that identify lending protocol vaults.
+#:
+#: Lending protocols have borrowers and lenders, with utilisation-based liquidity.
+#: These vaults support `fetch_available_liquidity()` and `fetch_utilisation_percent()` APIs.
+LENDING_PROTOCOL_FEATURES: frozenset[ERC4626Feature] = frozenset(
+    {
+        ERC4626Feature.gearbox_like,
+        ERC4626Feature.ipor_like,
+        ERC4626Feature.euler_like,
+        ERC4626Feature.euler_earn_like,
+        ERC4626Feature.morpho_like,
+        ERC4626Feature.morpho_v2_like,
+        ERC4626Feature.fluid_like,
+        ERC4626Feature.silo_like,
+        ERC4626Feature.llamma_like,
+    }
+)
+
+
+def is_lending_protocol(features: set[ERC4626Feature]) -> bool:
+    """Check if the vault features indicate a lending protocol.
+
+    Lending protocols have borrowers and lenders with utilisation-based liquidity.
+    These vaults support `fetch_available_liquidity()` and `fetch_utilisation_percent()` APIs.
+
+    :param features:
+        Set of detected vault features.
+
+    :return:
+        True if the vault is a lending protocol vault.
+    """
+    return bool(features & LENDING_PROTOCOL_FEATURES)
+
+
 def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     """Deduct vault protocol name based on Vault smart contract features.
 

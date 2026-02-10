@@ -983,6 +983,28 @@ def calculate_vault_record(
     deposit_next_open = vault_metadata.get("_deposit_next_open")
     redemption_next_open = vault_metadata.get("_redemption_next_open")
 
+    # Lending statistics from vault scan metadata
+    available_liquidity_metadata = vault_metadata.get("_available_liquidity")
+    utilisation_metadata = vault_metadata.get("_utilisation")
+
+    # Lending statistics from historical price data (latest values)
+    available_liquidity = None
+    utilisation = None
+    if "available_liquidity" in prices_df.columns:
+        last_liquidity = prices_df["available_liquidity"].iloc[-1]
+        if pd.notna(last_liquidity):
+            available_liquidity = float(last_liquidity)
+    if "utilisation" in prices_df.columns:
+        last_utilisation = prices_df["utilisation"].iloc[-1]
+        if pd.notna(last_utilisation):
+            utilisation = float(last_utilisation)
+
+    # Fall back to metadata if historical data not available
+    if available_liquidity is None and available_liquidity_metadata is not None:
+        available_liquidity = float(available_liquidity_metadata)
+    if utilisation is None and utilisation_metadata is not None:
+        utilisation = float(utilisation_metadata)
+
     detection: ERC4262VaultDetection = vault_metadata["_detection_data"]
     features = sorted([f.name for f in detection.features])
 
@@ -1176,6 +1198,9 @@ def calculate_vault_record(
             "redemption_closed_reason": redemption_closed_reason,
             "deposit_next_open": deposit_next_open,
             "redemption_next_open": redemption_next_open,
+            # Lending protocol statistics
+            "available_liquidity": available_liquidity,
+            "utilisation": utilisation,
         }
     )
 
@@ -1531,6 +1556,10 @@ def format_lifetime_table(
     df["lockup"] = df["lockup"].apply(lambda x: f"{x.days}" if pd.notna(x) else "---")
     df["flags"] = df["flags"].apply(_str_enum_set)
 
+    # Format lending protocol statistics
+    df["utilisation"] = df["utilisation"].apply(lambda x: f"{x:.1%}" if pd.notna(x) else "---")
+    df["available_liquidity"] = df["available_liquidity"].apply(lambda x: f"${x:,.0f}" if pd.notna(x) else "---")
+
     def _del(x):
         if x in df.columns:
             del df[x]
@@ -1602,6 +1631,8 @@ def format_lifetime_table(
     _del("ranking_chain_3m")
     _del("ranking_protocol_3m")
 
+    # Lending protocol statistics are kept in the table (formatted above)
+
     if not add_share_token:
         _del("share_token")
     else:
@@ -1636,6 +1667,8 @@ def format_lifetime_table(
             "redemption_closed_reason": "Redemption closed reason",
             "deposit_next_open": "Deposit next open",
             "redemption_next_open": "Redemption next open",
+            "available_liquidity": "Available liquidity",
+            "utilisation": "Utilisation",
         }
     )
 
