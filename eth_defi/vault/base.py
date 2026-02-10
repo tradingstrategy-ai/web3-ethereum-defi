@@ -599,6 +599,26 @@ class VaultBase(ABC):
         """Vault share token symbol"""
         pass
 
+    @property
+    def description(self) -> str | None:
+        """Human-readable vault strategy description.
+
+        - Fetched from protocol-specific offchain sources (e.g. Euler GitHub labels, Lagoon web app API)
+        - Returns None if the protocol does not provide descriptions or the vault is not in the metadata source
+        - Override in subclasses that support offchain metadata
+        """
+        return None
+
+    @property
+    def short_description(self) -> str | None:
+        """One-liner vault summary.
+
+        - Shorter version of :py:meth:`description` suitable for listings and tables
+        - Returns None if not available
+        - Override in subclasses that support offchain metadata
+        """
+        return None
+
     @cached_property
     def flow_manager(self) -> VaultFlowManager:
         """Flow manager associated with this vault"""

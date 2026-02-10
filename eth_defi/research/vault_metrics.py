@@ -1005,6 +1005,10 @@ def calculate_vault_record(
     if utilisation is None and utilisation_metadata is not None:
         utilisation = float(utilisation_metadata)
 
+    # Vault descriptions from offchain metadata (Euler, Lagoon, etc.)
+    description = vault_metadata.get("_description")
+    short_description = vault_metadata.get("_short_description")
+
     detection: ERC4262VaultDetection = vault_metadata["_detection_data"]
     features = sorted([f.name for f in detection.features])
 
@@ -1201,6 +1205,9 @@ def calculate_vault_record(
             # Lending protocol statistics
             "available_liquidity": available_liquidity,
             "utilisation": utilisation,
+            # Offchain vault descriptions (Euler, Lagoon, etc.)
+            "description": description,
+            "short_description": short_description,
         }
     )
 
@@ -1632,6 +1639,10 @@ def format_lifetime_table(
     _del("ranking_protocol_3m")
 
     # Lending protocol statistics are kept in the table (formatted above)
+
+    # Offchain descriptions are exported via JSON API, not human-readable table
+    _del("description")
+    _del("short_description")
 
     if not add_share_token:
         _del("share_token")
