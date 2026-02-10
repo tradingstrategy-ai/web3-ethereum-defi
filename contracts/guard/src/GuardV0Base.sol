@@ -438,6 +438,14 @@ abstract contract GuardV0Base is IGuard,  Multicall, SwapCowSwap  {
             // Guard logic in approve() whitelist - no further checks here needed
             // validate_ERC4626Deposit(target, callData);
             // On ERC-7540 (Lagoon) - deposit takes extra adderss parameter?
+        } else if (selector == getSelector("deposit(uint256,uint256,address)")) {
+            // Umami non-standard ERC-4626 deposit with minShares slippage parameter
+            // See UmamiDepositManager
+            validate_UmamiDeposit(callData);
+        } else if (selector == getSelector("redeem(uint256,uint256,address,address)")) {
+            // Umami non-standard ERC-4626 redeem with minShares slippage parameter
+            // See UmamiDepositManager
+            validate_UmamiRedeem(callData);
         } else if (selector == getSelector("withdraw(uint256,address,address)")) {
             validate_ERC4626Withdraw(callData);
         } else if (selector == getSelector("redeem(uint256,address,address)")) {
@@ -592,6 +600,20 @@ abstract contract GuardV0Base is IGuard,  Multicall, SwapCowSwap  {
         // We can only receive from ERC-4626 to ourselves
         (, address receiver, ) = abi.decode(callData, (uint256, address, address));
         require(isAllowedReceiver(receiver), "validate_ERC4626Redeem: Receiver address not whitelisted by Guard");
+    }
+
+    // Umami non-standard ERC-4626 deposit: deposit(uint256 assets, uint256 minOutAfterFees, address receiver)
+    // https://arbiscan.io/address/0x959f3807f0aa7921e18c78b00b2819ba91e52fef#code
+    function validate_UmamiDeposit(bytes memory callData) public view {
+        (, , address receiver) = abi.decode(callData, (uint256, uint256, address));
+        require(isAllowedReceiver(receiver), "validate_UmamiDeposit: Receiver address not whitelisted by Guard");
+    }
+
+    // Umami non-standard ERC-4626 redeem: redeem(uint256 shares, uint256 minOutAfterFees, address receiver, address owner)
+    // https://arbiscan.io/address/0x959f3807f0aa7921e18c78b00b2819ba91e52fef#code
+    function validate_UmamiRedeem(bytes memory callData) public view {
+        (, , address receiver, ) = abi.decode(callData, (uint256, uint256, address, address));
+        require(isAllowedReceiver(receiver), "validate_UmamiRedeem: Receiver address not whitelisted by Guard");
     }
 
     // Validate cow swap settlement
