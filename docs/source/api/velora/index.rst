@@ -23,6 +23,8 @@ Technicals
 See :py:mod:`eth_defi.erc_4626.vault_protocol.lagoon.velora` for details on how to perform
 `Lagoon vault <https://tradingstrategy.ai/glossary/lagoon>`__ automated trading with Velora.
 
+For a complete working example, see the :ref:`lagoon-velora` tutorial.
+
 Swap flow:
 
 1. Fetch quote from Velora API (GET /prices)
