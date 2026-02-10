@@ -172,6 +172,7 @@ class ERC7540DepositManager(VaultDepositManager):
         # TODO: check_enough_token
 
         if not raw_amount:
+            assert self.vault.denomination_token is not None, f"Vault {self.vault.address} denomination token data missing: likely flaky RPC"
             raw_amount = self.vault.denomination_token.convert_to_raw(amount)
 
         func = self.vault.vault_contract.functions.requestDeposit(
@@ -203,6 +204,7 @@ class ERC7540DepositManager(VaultDepositManager):
         assert not to, f"Unsupported to={to}"
 
         if not raw_shares:
+            assert self.vault.share_token is not None, f"Vault {self.vault.address} share token data missing: likely flaky RPC"
             raw_shares = self.vault.share_token.convert_to_raw(shares)
 
         func = self.vault.request_redeem(
@@ -303,11 +305,13 @@ class ERC7540DepositManager(VaultDepositManager):
         )
 
     def estimate_deposit(self, owner: HexAddress, amount: Decimal, block_identifier: BlockIdentifier = "latest") -> Decimal:
+        assert self.vault.denomination_token is not None, f"Vault {self.vault.address} denomination token data missing: likely flaky RPC"
         raw_amount = self.vault.denomination_token.convert_to_raw(amount)
         raw_shares = self.vault.vault_contract.functions.convertToShares(raw_amount).call(block_identifier=block_identifier)
         return self.vault.share_token.convert_to_decimals(raw_shares)
 
     def estimate_redeem(self, owner: HexAddress, shares: Decimal, block_identifier: BlockIdentifier = "latest") -> Decimal:
+        assert self.vault.share_token is not None, f"Vault {self.vault.address} share token data missing: likely flaky RPC"
         raw_shares = self.vault.share_token.convert_to_raw(shares)
         raw_amount = self.vault.vault_contract.functions.convertToAssets(raw_shares).call(block_identifier=block_identifier)
         return self.vault.denomination_token.convert_to_decimals(raw_amount)
