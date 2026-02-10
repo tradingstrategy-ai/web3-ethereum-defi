@@ -342,9 +342,125 @@ class GMX(Exchange):
         market = None
         if hasattr(self, "markets") and self.markets and symbol in self.markets:
             market = self.markets[symbol]
-        currency = market.get("settle", "USDC") if market else "USDC"
+        currency = self.safe_string(market, "settle", "USDC") if market else "USDC"
         cost = abs(size_delta_usd) * rate if size_delta_usd else 0.0
         return {"cost": cost, "currency": currency, "rate": rate}
+
+    def _convert_token_fee_to_usd(self, fee_tokens: int, market: dict, is_long: bool) -> float:
+        """Convert raw token fee amount to USD.
+
+        GMX fees are denominated in the collateral token (long_token for longs,
+        short_token for shorts). This converts the raw token amount to USD.
+
+        Args:
+            fee_tokens: Raw fee amount in token's native decimals
+            market: CCXT market dict
+            is_long: Whether position is long (True) or short (False)
+
+        Returns:
+            Fee amount in USD
+
+        Note:
+            Currently assumes USDC collateral (most common on GMX).
+            For non-stablecoin collateral (WETH, WBTC), would need oracle price lookup.
+        """
+        if not fee_tokens or not market:
+            return 0.0
+
+        # Get collateral token address
+        collateral_token = self.safe_string(market.get("info", {}), "long_token" if is_long else "short_token")
+
+        if not collateral_token:
+            return 0.0
+
+        # Get token decimals (USDC=6, WETH=18, WBTC=8, etc.)
+        token_decimals = self._get_token_decimals(collateral_token)
+
+        # Convert to token amount
+        fee_in_tokens = fee_tokens / (10**token_decimals)
+
+        # For stablecoins (USDC, USDT), price is ~$1.00
+        # TODO: Add oracle price lookup for non-stablecoin collateral
+        return fee_in_tokens
+
+    def _extract_actual_fee(self, verification, market: dict, is_long: bool, size_delta_usd: float) -> dict:
+        """Extract actual fees from order verification.
+
+        Calculates total trading fee (position + borrowing + funding) from
+        on-chain events and computes the actual fee rate.
+
+        Returns CCXT-compliant fee structure with cost, currency, and rate.
+
+        Args:
+            verification: GMXOrderVerificationResult with fee data
+            market: CCXT market dict
+            is_long: Whether position is long
+            size_delta_usd: Position size in USD
+
+        Returns:
+            CCXT fee dict with actual cost, currency, and rate
+        """
+        if not verification or not verification.fees:
+            # Fallback to fixed rate if no fee data available
+            return self._build_trading_fee(market.get("symbol", ""), size_delta_usd)
+
+        # Sum all fee components (in collateral token amounts)
+        total_fee_tokens = verification.fees.position_fee + verification.fees.borrowing_fee + verification.fees.funding_fee + verification.fees.liquidation_fee
+
+        # Convert to USD using CCXT-compatible helper
+        fee_usd = self._convert_token_fee_to_usd(total_fee_tokens, market, is_long)
+
+        # Calculate actual rate
+        actual_rate = fee_usd / size_delta_usd if size_delta_usd > 0 else 0.0
+
+        # Get currency from market using CCXT safe access
+        currency = self.safe_string(market, "settle", "USDC") if market else "USDC"
+
+        # Return CCXT-compliant structure
+        return {"cost": fee_usd, "currency": currency, "rate": actual_rate}
+
+    def _build_fee_breakdown(self, verification, market: dict, is_long: bool, execution_fee_eth: float) -> dict:
+        """Build comprehensive fee breakdown for order info.
+
+        Creates detailed breakdown of all fee components.
+
+        Args:
+            verification: GMXOrderVerificationResult with fee data
+            market: CCXT market
+            is_long: Position direction
+            execution_fee_eth: Execution fee in ETH
+
+        Returns:
+            Detailed fee breakdown dict
+        """
+        breakdown = {}
+
+        if verification and verification.fees:
+            # Convert each fee component to USD
+            position_fee_usd = self._convert_token_fee_to_usd(verification.fees.position_fee, market, is_long)
+            borrowing_fee_usd = self._convert_token_fee_to_usd(verification.fees.borrowing_fee, market, is_long)
+            funding_fee_usd = self._convert_token_fee_to_usd(verification.fees.funding_fee, market, is_long)
+            liquidation_fee_usd = self._convert_token_fee_to_usd(verification.fees.liquidation_fee, market, is_long) if verification.fees.liquidation_fee else 0.0
+
+            total_trading_fee_usd = position_fee_usd + borrowing_fee_usd + funding_fee_usd + liquidation_fee_usd
+
+            breakdown["trading_fees"] = {
+                "position_fee_usd": position_fee_usd,
+                "borrowing_fee_usd": borrowing_fee_usd,
+                "funding_fee_usd": funding_fee_usd,
+                "liquidation_fee_usd": liquidation_fee_usd,
+                "total_usd": total_trading_fee_usd,
+            }
+
+        # Execution fees (keeper gas)
+        if execution_fee_eth:
+            # TODO: Get ETH price from oracle to convert to USD
+            breakdown["execution_fees"] = {
+                "eth": execution_fee_eth,
+                "usd": None,  # Would need ETH price oracle
+            }
+
+        return breakdown
 
     async def _ensure_session(self):
         """Lazy-initialize aiohttp session and async components."""
@@ -1443,12 +1559,22 @@ class GMX(Exchange):
                     if order.get("average") and order["amount"]:
                         order["cost"] = order["amount"] * order["average"]
 
-                    # Update fee: replace execution fee (ETH gas) with trading fee (USD)
+                    # Update fee: replace execution fee (ETH gas) with actual trading fee (USD)
+                    # Store old execution fee
                     if order.get("fee"):
                         order["info"]["execution_fee_eth"] = order["fee"].get("cost")
-                    size_for_fee = verification.size_delta_usd or order.get("cost")
-                    if size_for_fee:
-                        order["fee"] = self._build_trading_fee(order.get("symbol", ""), size_for_fee)
+
+                    # Get market and position direction for fee calculation
+                    symbol = order.get("symbol", "")
+                    market = self.markets.get(symbol) if symbol and hasattr(self, "markets") and self.markets else None
+                    is_long = verification.is_long if verification.is_long is not None else True
+
+                    # Extract actual fees from verification events
+                    order["fee"] = self._extract_actual_fee(verification, market, is_long, verification.size_delta_usd)
+
+                    # Add detailed fee breakdown
+                    execution_fee_eth = order["info"].get("execution_fee_eth", 0.0)
+                    order["info"]["fees_breakdown"] = self._build_fee_breakdown(verification, market, is_long, execution_fee_eth)
 
                     # Update info with verification data
                     order["info"]["execution_tx_hash"] = status_result.execution_tx_hash
@@ -1472,10 +1598,13 @@ class GMX(Exchange):
                     }
 
                     logger.info(
-                        "ORDER_TRACE: fetch_order(%s) - Order EXECUTED (async) at price=%.2f, size_usd=%.2f - RETURNING status=closed",
+                        "ORDER_TRACE: fetch_order(%s) - Order EXECUTED (async) at price=%s, size_usd=%s, trading_fee=%s USD (rate=%s), execution_fee=%s ETH - RETURNING status=closed",
                         id[:16],
                         verification.execution_price or 0,
                         verification.size_delta_usd or 0,
+                        order["fee"].get("cost") if order.get("fee") else "N/A",
+                        order["fee"].get("rate") if order.get("fee") else "N/A",
+                        order["info"].get("execution_fee_eth", "N/A"),
                     )
                 else:
                     # Order was cancelled or frozen
@@ -1732,7 +1861,7 @@ class GMX(Exchange):
                 is_long = trade_action.get("isLong")
 
                 logger.info(
-                    "ORDER_TRACE: fetch_order(%s) - Order EXECUTED (async) at price=%.2f, size_usd=%.2f - RETURNING status=closed",
+                    "ORDER_TRACE: fetch_order(%s) - Order EXECUTED (async) at price=%s, size_usd=%s - RETURNING status=closed",
                     id[:16],
                     execution_price or 0,
                     float(trade_action.get("sizeDeltaUsd", 0)) / 1e30 if trade_action.get("sizeDeltaUsd") else 0,
