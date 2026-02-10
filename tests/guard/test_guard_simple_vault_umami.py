@@ -10,19 +10,21 @@ Umami's handleDeposit() which does not work under Anvil.
 """
 
 import os
+from decimal import Decimal
 
 import pytest
 from eth_typing import HexAddress, HexStr
 from web3 import Web3
 from web3.contract import Contract
 
-from eth_defi.abi import get_deployed_contract, get_function_selector
+from eth_defi.abi import get_deployed_contract
 from eth_defi.deploy import deploy_contract
 from eth_defi.erc_4626.classification import create_vault_instance
 from eth_defi.erc_4626.core import ERC4626Feature
-from eth_defi.erc_4626.vault_protocol.umami.vault import UmamiVault
+from eth_defi.erc_4626.vault_protocol.umami.vault import UmamiVault, UmamiDepositManager
 from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.simple_vault.transact import encode_simple_vault_transaction
 from eth_defi.token import USDC_WHALE
 from eth_defi.trace import assert_transaction_success_with_explanation
 
@@ -171,21 +173,28 @@ def test_guard_umami_deposit_validates(
 ):
     """Valid Umami deposit passes guard validation.
 
-    The deposit receiver is our whitelisted vault address.
+    Use UmamiDepositManager to generate the deposit calldata,
+    then validate it against the guard via validateCall() view function.
+    The deposit receiver is our whitelisted SimpleVault address.
     """
-    vault_address = umami_vault.vault_address
-    receiver = vault.address
+    deposit_manager = umami_vault.get_deposit_manager()
+    assert isinstance(deposit_manager, UmamiDepositManager)
 
-    # Encode deposit(uint256 assets, uint256 minOutAfterFees, address receiver)
-    deposit_calldata = web3.codec.encode(
-        ["uint256", "uint256", "address"],
-        [1200 * 10**6, 0, receiver],
+    # Create deposit request with vault.address as owner/receiver
+    # Skip balance and max deposit checks since this is a guard-only test
+    deposit_request = deposit_manager.create_deposit_request(
+        owner=vault.address,
+        amount=Decimal(1200),
+        check_enough_token=False,
+        check_max_deposit=False,
     )
-    selector = Web3.keccak(text="deposit(uint256,uint256,address)")[:4]
-    full_calldata = selector + deposit_calldata
+
+    # Extract the ContractFunction and encode as (target, calldata)
+    deposit_fn = deposit_request.funcs[0]
+    target, call_data = encode_simple_vault_transaction(deposit_fn)
 
     # validateCall is a view function — should not revert
-    guard.functions.validateCall(asset_manager, vault_address, full_calldata).call()
+    guard.functions.validateCall(asset_manager, target, call_data).call()
 
 
 @pytest.mark.skipif(CI, reason="Flaky on CI due to Anvil fork block range errors")
@@ -200,20 +209,31 @@ def test_guard_umami_deposit_malicious_receiver(
     """Umami deposit to a non-whitelisted receiver is rejected by the guard.
 
     A compromised trade executor should not be able to redirect deposited
-    shares to an arbitrary address.
+    shares to an arbitrary address. Use UmamiDepositManager to generate
+    the calldata, then swap the receiver to a malicious address.
     """
-    vault_address = umami_vault.vault_address
+    deposit_manager = umami_vault.get_deposit_manager()
+    assert isinstance(deposit_manager, UmamiDepositManager)
 
-    # Encode deposit with a malicious receiver (third_party is not whitelisted)
-    deposit_calldata = web3.codec.encode(
-        ["uint256", "uint256", "address"],
-        [1200 * 10**6, 0, third_party],
+    deposit_request = deposit_manager.create_deposit_request(
+        owner=vault.address,
+        amount=Decimal(1200),
+        check_enough_token=False,
+        check_max_deposit=False,
     )
-    selector = Web3.keccak(text="deposit(uint256,uint256,address)")[:4]
-    full_calldata = selector + deposit_calldata
+
+    # Swap receiver to the malicious third_party address
+    deposit_fn = deposit_request.funcs[0]
+    deposit_fn.args = (
+        deposit_fn.args[0],  # assets
+        deposit_fn.args[1],  # minOutAfterFees
+        third_party,         # malicious receiver
+    )
+
+    target, call_data = encode_simple_vault_transaction(deposit_fn)
 
     with pytest.raises(Exception, match="validate_UmamiDeposit"):
-        guard.functions.validateCall(asset_manager, vault_address, full_calldata).call()
+        guard.functions.validateCall(asset_manager, target, call_data).call()
 
 
 @pytest.mark.skipif(CI, reason="Flaky on CI due to Anvil fork block range errors")
@@ -232,13 +252,15 @@ def test_guard_umami_redeem_malicious_receiver(
     """
     vault_address = umami_vault.vault_address
 
-    # Encode redeem(uint256 shares, uint256 minOutAfterFees, address receiver, address owner)
-    redeem_calldata = web3.codec.encode(
-        ["uint256", "uint256", "address", "address"],
-        [100 * 10**6, 0, third_party, vault.address],
+    # Umami redeem is not exposed via a manager, so encode directly
+    # redeem(uint256 shares, uint256 minOutAfterFees, address receiver, address owner)
+    redeem_fn = umami_vault.vault_contract.functions.redeem(
+        100 * 10**6,     # shares
+        0,               # minOutAfterFees
+        third_party,     # malicious receiver
+        vault.address,   # owner
     )
-    selector = Web3.keccak(text="redeem(uint256,uint256,address,address)")[:4]
-    full_calldata = selector + redeem_calldata
+    target, call_data = encode_simple_vault_transaction(redeem_fn)
 
     with pytest.raises(Exception, match="validate_UmamiRedeem"):
-        guard.functions.validateCall(asset_manager, vault_address, full_calldata).call()
+        guard.functions.validateCall(asset_manager, target, call_data).call()
