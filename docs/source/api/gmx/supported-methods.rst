@@ -65,13 +65,13 @@ Market data
      - GMX uses liquidity pools, not order books
    * - ``fetch_bids_asks``
      - No
-     -
+     - GMX has no order book; prices come from Chainlink oracles
    * - ``fetch_last_prices``
      - No
-     -
+     - GMX has no order book; use ``fetch_ticker`` instead
    * - ``fetch_mark_price``
      - No
-     -
+     - GMX uses oracle prices, not a separate mark price
 
 Trading
 ~~~~~~~
@@ -106,7 +106,7 @@ Trading
      - Orders execute immediately via keeper network or revert
    * - ``cancel_all_orders``
      - No
-     -
+     - GMX orders execute immediately via keeper network
    * - ``fetch_order``
      - Yes
      - Limited; polls keeper execution status
@@ -121,10 +121,10 @@ Trading
      - Use ``fetch_my_trades``
    * - ``fetch_canceled_orders``
      - No
-     -
+     - GMX orders cannot be cancelled; they execute or revert
    * - ``fetch_order_trades``
      - No
-     -
+     - GMX does not track individual order-to-trade mappings
 
 Account and balance
 ~~~~~~~~~~~~~~~~~~~
@@ -147,13 +147,13 @@ Account and balance
      - Full position detail: PnL, leverage, liquidation price, collateral
    * - ``fetch_ledger``
      - No
-     -
+     - GMX does not provide a ledger API
    * - ``fetch_trading_fee``
      - No
-     -
+     - GMX fees are embedded in execution; use ``calculate_fee``
    * - ``fetch_trading_fees``
      - No
-     -
+     - GMX fees are embedded in execution; use ``calculate_fee``
    * - ``calculate_fee``
      - Yes
      -
@@ -176,7 +176,7 @@ Derivatives
      -
    * - ``fetch_funding_rates``
      - No
-     -
+     - GMX does not expose a batch funding rates endpoint
    * - ``fetch_funding_history``
      - Yes
      - Returns empty list (GMX does not track historical funding per account)
@@ -206,7 +206,7 @@ Derivatives
      - GMX uses isolated margin only
    * - ``set_position_mode``
      - No
-     -
+     - GMX does not have hedge/one-way position modes
    * - ``add_margin``
      - No
      - Not yet implemented
@@ -229,28 +229,28 @@ Transfers and funding
      - Notes
    * - ``deposit``
      - No
-     -
+     - GMX is a DEX; no custodial deposits
    * - ``withdraw``
      - No
-     -
+     - GMX is a DEX; no custodial withdrawals
    * - ``transfer``
      - No
-     -
+     - GMX is a DEX; no internal transfers
    * - ``fetch_deposits``
      - No
-     -
+     - GMX is a DEX; no custodial deposit history
    * - ``fetch_withdrawals``
      - No
-     -
+     - GMX is a DEX; no custodial withdrawal history
    * - ``fetch_deposit_address``
      - No
-     -
+     - GMX is a DEX; users interact directly via wallet
    * - ``fetch_borrow_rate``
      - No
-     -
+     - GMX does not have a borrowing/lending facility
    * - ``fetch_borrow_rates``
      - No
-     -
+     - GMX does not have a borrowing/lending facility
 
 WebSocket (watch methods)
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -264,28 +264,28 @@ WebSocket (watch methods)
      - Notes
    * - ``watch_ticker``
      - No
-     -
+     - GMX does not provide a WebSocket API
    * - ``watch_tickers``
      - No
-     -
+     - GMX does not provide a WebSocket API
    * - ``watch_order_book``
      - No
-     -
+     - GMX does not provide a WebSocket API
    * - ``watch_trades``
      - No
-     -
+     - GMX does not provide a WebSocket API
    * - ``watch_ohlcv``
      - No
-     -
+     - GMX does not provide a WebSocket API
    * - ``watch_orders``
      - No
-     -
+     - GMX does not provide a WebSocket API
    * - ``watch_positions``
      - No
-     -
+     - GMX does not provide a WebSocket API
    * - ``watch_balance``
      - No
-     -
+     - GMX does not provide a WebSocket API
 
 GMX-specific extensions
 =======================
@@ -366,10 +366,10 @@ the monkeypatch that injects GMX as a supported exchange.
      - Fetch positions via GraphQL or Web3
    * - Spot trading
      - No
-     - Only perpetual futures
+     - GMX only supports perpetual futures
    * - WebSocket streaming
      - No
-     -
+     - GMX does not provide a WebSocket API
    * - Order modification (``stoploss_adjust``)
      - No
      - Returns ``False``; GMX orders are immutable
