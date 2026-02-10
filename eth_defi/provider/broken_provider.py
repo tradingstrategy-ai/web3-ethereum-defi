@@ -186,6 +186,13 @@ def get_safe_cached_latest_block_number(
     """
     assert isinstance(chain_id, int), f"Expected int chain_id, got {type(chain_id)}"
 
+    # Always check Anvil first - Anvil forks must never use cached block numbers
+    # from previous non-Anvil tests running in the same pytest session,
+    # as the cache is keyed by chain_id and a prior mainnet test could have
+    # cached a block number that's beyond the Anvil fork point
+    if is_anvil(web3):
+        return get_fork_safe_latest_block(web3)
+
     now = time.time()
 
     cached = _latest_delayed_block_number_cache.get(chain_id)
@@ -193,9 +200,6 @@ def get_safe_cached_latest_block_number(
         cached_block, cached_time = cached
         if now - cached_time < cache_duration:
             return cached_block
-
-    if is_anvil(web3):
-        return get_fork_safe_latest_block(web3)
 
     latest_block = web3.eth.block_number
     safe_block = max(1, latest_block - blocks)
