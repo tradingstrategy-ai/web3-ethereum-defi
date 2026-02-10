@@ -376,8 +376,7 @@ def _verify_archive_node_access(
     # This catches lagging/rate-limited nodes that report stale block heights.
     if current_block < fork_block_number:
         raise ArchiveNodeRequired(
-            f"RPC endpoint {rpc_url} is behind: current block is {current_block:,} but fork requires block {fork_block_number:,}. "
-            f"The node may be lagging or rate-limited.",
+            f"RPC endpoint {rpc_url} is behind: current block is {current_block:,} but fork requires block {fork_block_number:,}. The node may be lagging or rate-limited.",
             rpc_url=rpc_url,
             requested_block=fork_block_number,
             available_block=current_block,
