@@ -6653,9 +6653,9 @@ class GMX(ExchangeCompatible):
                         id[:16],
                         verification.execution_price or 0,
                         verification.size_delta_usd or 0,
-                        order["fee"].get("cost") if order.get("fee") else "N/A",
-                        order["fee"].get("rate") if order.get("fee") else "N/A",
-                        order["info"].get("execution_fee_eth", "N/A"),
+                        order["fee"].get("cost", 0.0) if order.get("fee") else 0.0,
+                        order["fee"].get("rate", 0.0) if order.get("fee") else 0.0,
+                        order["info"].get("execution_fee_eth", 0.0),
                     )
                 else:
                     # Order was cancelled or frozen
