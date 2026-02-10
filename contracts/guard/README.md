@@ -23,7 +23,7 @@ Guard will check for activities asset manager perform, all of them which need to
 - Withdrawal (transfer) of assets - assets can be only withdraw back to the owner
 - Uniswap v2 router swaps (approval + swap path)
 - Uniswap v3 router (TODO)
-- 1delta (TODO)
+- 1delta (skipped - old version no longer supported)
 
 Guard can be used independently from the vault implementation.
 It can be used with any asset management protocol e.g.
@@ -47,7 +47,7 @@ within the trades e.g. in swapTokensForExactTokens arguments.
 - Uniswap v2 compatibles
 - Uniswap v3 compatibles
 - Aave v3 compatibles (coming)
-- 1delta (coming)
+- 1delta (skipped - old version no longer supported)
 
 ## Simple vault
 

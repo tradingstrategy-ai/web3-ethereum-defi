@@ -21,6 +21,7 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    aave_v2/index
    aave_v3/index
    cowswap/index
+   velora/index
    derive/index
    gmx/index
    hyperliquid/index

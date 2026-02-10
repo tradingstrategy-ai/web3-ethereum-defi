@@ -44,7 +44,7 @@ contract TradingStrategyModuleV0 is Module, GuardV0Base {
 
     // Identify the deployed ABI
     function getTradingStrategyModuleVersion() public pure returns (string memory) {
-        return "v0.1.3";
+        return "v0.1.4";
     }
 
     /**
@@ -145,6 +145,58 @@ contract TradingStrategyModuleV0 is Module, GuardV0Base {
                 revert(add(response, 0x20), mload(response))
             }
        }
+    }
+
+    /**
+     * Execute a Velora (ParaSwap) swap through the Safe.
+     *
+     * Unlike CowSwap which uses offchain order books and presigning,
+     * Velora executes atomically by calling Augustus Swapper directly.
+     *
+     * @param augustusSwapper The Velora Augustus Swapper contract address
+     * @param tokenIn The token being sold
+     * @param tokenOut The token being bought
+     * @param amountIn The amount of tokenIn to sell (for event logging)
+     * @param minAmountOut The minimum amount of tokenOut to receive (slippage protection)
+     * @param augustusCalldata The raw calldata from Velora API to execute on Augustus
+     */
+    function swapAndValidateVelora(
+        address augustusSwapper,
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn,
+        uint256 minAmountOut,
+        bytes memory augustusCalldata
+    ) public {
+        uint256 preBalance = _validateVeloraSwapAndGetPreBalance(
+            avatar,
+            augustusSwapper,
+            tokenIn,
+            tokenOut
+        );
+
+        (bool success, bytes memory response) = execAndReturnData(
+            augustusSwapper,
+            0,
+            augustusCalldata,
+            Enum.Operation.Call
+        );
+
+        if (!success) {
+            assembly {
+                revert(add(response, 0x20), mload(response))
+            }
+        }
+
+        _verifyVeloraSwapAndEmit(
+            avatar,
+            augustusSwapper,
+            tokenIn,
+            tokenOut,
+            amountIn,
+            minAmountOut,
+            preBalance
+        );
     }
 
 }
