@@ -6833,18 +6833,18 @@ class GMX(ExchangeCompatible):
 
                 try:
                     subsquid = GMXSubsquidClient(chain=self.config.get_chain())
-                    # No timeout - this is a historical query, not waiting for new data
+                    # Historical query - give Subsquid a few seconds to respond
                     trade_action = subsquid.get_trade_action_by_order_key(
                         order_key_hex,
-                        timeout_seconds=0,  # Don't wait, just check if exists
+                        timeout_seconds=5,
                         poll_interval=0.5,
                     )
                 except Exception as e:
-                    logger.debug("fetch_order(%s): Subsquid query failed: %s", id, e)
+                    logger.info("fetch_order(%s): Subsquid query failed: %s", id[:16], e)
 
                 # Fallback: Query EventEmitter logs if Subsquid failed
                 if trade_action is None:
-                    logger.debug("fetch_order(%s): Falling back to EventEmitter logs", id)
+                    logger.info("fetch_order(%s): Falling back to EventEmitter logs", id[:16])
 
                     try:
                         addresses = get_contract_addresses(self.config.get_chain())
