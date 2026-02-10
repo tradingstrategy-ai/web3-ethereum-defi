@@ -320,6 +320,32 @@ class GMX(Exchange):
             "cost": cost,
         }
 
+    def _build_trading_fee(self, symbol: str, size_delta_usd: float) -> dict:
+        """Build a CCXT fee dict for GMX trading fees.
+
+        GMX charges 0.04-0.07% position fees depending on price impact direction.
+        We use 0.06% as the standard rate (the conservative/common case).
+
+        Fee is denominated in the settlement/quote currency (typically USDC).
+
+        Args:
+            symbol: Trading pair symbol
+            size_delta_usd: Position size in USD
+
+        Returns:
+            CCXT fee dict with cost, currency, and rate
+
+        See Also:
+            https://docs.gmx.io/docs/trading#fees-and-rebates
+        """
+        rate = 0.0006  # 0.06% - matches calculate_fee()
+        market = None
+        if hasattr(self, "markets") and self.markets and symbol in self.markets:
+            market = self.markets[symbol]
+        currency = market.get("settle", "USDC") if market else "USDC"
+        cost = abs(size_delta_usd) * rate if size_delta_usd else 0.0
+        return {"cost": cost, "currency": currency, "rate": rate}
+
     async def _ensure_session(self):
         """Lazy-initialize aiohttp session and async components."""
         if self.session is not None:
@@ -1417,6 +1443,13 @@ class GMX(Exchange):
                     if order.get("average") and order["amount"]:
                         order["cost"] = order["amount"] * order["average"]
 
+                    # Update fee: replace execution fee (ETH gas) with trading fee (USD)
+                    if order.get("fee"):
+                        order["info"]["execution_fee_eth"] = order["fee"].get("cost")
+                    size_for_fee = verification.size_delta_usd or order.get("cost")
+                    if size_for_fee:
+                        order["fee"] = self._build_trading_fee(order.get("symbol", ""), size_for_fee)
+
                     # Update info with verification data
                     order["info"]["execution_tx_hash"] = status_result.execution_tx_hash
                     order["info"]["execution_receipt"] = status_result.execution_receipt
@@ -1429,6 +1462,13 @@ class GMX(Exchange):
                         "event_count": verification.event_count,
                         "event_names": verification.event_names,
                         "is_long": verification.is_long,
+                        "fees": {
+                            "position_fee": verification.fees.position_fee,
+                            "borrowing_fee": verification.fees.borrowing_fee,
+                            "funding_fee": verification.fees.funding_fee,
+                        }
+                        if verification.fees
+                        else None,
                     }
 
                     logger.info(
@@ -2804,7 +2844,9 @@ class GMX(Exchange):
         if sltp_result.take_profit_trigger_price is not None:
             info["take_profit_trigger_price"] = sltp_result.take_profit_trigger_price
 
-        fee_cost = sltp_result.total_execution_fee / 1e18
+        # Store execution fee in info (ETH gas paid to keeper)
+        info["execution_fee_eth"] = sltp_result.total_execution_fee / 1e18
+
         mark_price = sltp_result.entry_price
         filled_amount = amount if tx_success else 0.0
         remaining_amount = 0.0 if tx_success else amount
@@ -2825,10 +2867,7 @@ class GMX(Exchange):
             "filled": filled_amount,
             "remaining": remaining_amount,
             "status": status,
-            "fee": {
-                "cost": fee_cost,
-                "currency": "ETH",
-            },
+            "fee": self._build_trading_fee(symbol, amount),
             "trades": None,
             "info": info,
         }
