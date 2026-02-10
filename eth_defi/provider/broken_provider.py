@@ -16,7 +16,7 @@ from eth_typing import BlockIdentifier
 from web3 import Web3
 
 from eth_defi.provider.ankr import is_ankr
-from eth_defi.provider.anvil import is_anvil
+from eth_defi.provider.anvil import is_anvil, is_mainnet_fork
 from eth_defi.provider.fallback import FallbackProvider
 from eth_defi.provider.mev_blocker import MEVBlockerProvider
 
@@ -84,6 +84,30 @@ def set_block_tip_latency(web3: Web3, block_count: int):
     See :py:func:`get_block_tip_latency`.
     """
     web3.block_tip_latency = block_count
+
+
+def get_fork_safe_latest_block(web3: Web3) -> BlockIdentifier:
+    """Get the latest block identifier that is safe for Anvil mainnet forks.
+
+    - For Anvil mainnet forks, returns ``web3.eth.block_number`` (an integer)
+      instead of ``"latest"`` to prevent the upstream RPC from resolving
+      ``"latest"`` to the actual chain tip (which may be beyond the fork block
+      or the upstream's available window).
+
+    - For non-fork Anvil (test backend), returns ``"latest"`` as there is no upstream RPC.
+
+    - For non-Anvil providers, returns ``"latest"``.
+
+    This is needed because web3.py v7 forwards ``"latest"`` to the upstream RPC
+    when Anvil needs to fetch state not cached at fork time. The upstream then
+    resolves ``"latest"`` to its own chain tip, causing ``BlockOutOfRangeError``
+    if the upstream has a limited block window.
+
+    See :py:func:`get_safe_cached_latest_block_number` which uses this function.
+    """
+    if is_anvil(web3) and is_mainnet_fork(web3):
+        return web3.eth.block_number
+    return "latest"
 
 
 def get_almost_latest_block_number(web3: Web3) -> int:
@@ -171,8 +195,7 @@ def get_safe_cached_latest_block_number(
             return cached_block
 
     if is_anvil(web3):
-        # Anvil works correctly, no need to delay
-        return "latest"
+        return get_fork_safe_latest_block(web3)
 
     latest_block = web3.eth.block_number
     safe_block = max(1, latest_block - blocks)
