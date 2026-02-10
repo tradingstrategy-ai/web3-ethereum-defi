@@ -1,5 +1,6 @@
 # Current
 
+- Update: Upgrade to Python 3.14 as the primary development and CI version across GitHub Actions and ReadTheDocs; Docker images upgraded to 3.12 (hypersync lacks 3.14 wheels) (2026-02-10)
 - Add: Archive node verification for `launch_anvil()` / `fork_network_anvil()` - new `archive=True` parameter validates RPC can access historical blocks before forking, with `ArchiveNodeRequired` exception including HTTP response headers for debugging (2026-02-10)
 - Add: Lending protocol utilisation metrics (`available_liquidity`, `utilisation`) for vault scanning and historical readers across Gearbox, Euler, Morpho, IPOR, and Llama Lend protocols (2026-02-09)
 - Fix: Replace deprecated `datetime.utcnow()` and `pd.Timestamp.utcfromtimestamp()` with Python 3.12+ compatible alternatives (2026-02-08)

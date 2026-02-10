@@ -671,7 +671,7 @@ def main():
                 logger.warning("  - %s: %s", name, r.error)
 
     logger.info("=" * 80)
-    logger.info("Scan complete at %s", datetime.datetime.utcnow().isoformat())
+    logger.info("Scan complete at %s", datetime.datetime.now(datetime.timezone.utc).isoformat())
 
     # Print full tracebacks for all failed chains before the final dashboard
     failed_results = [r for r in results.values() if r.status == "failed" and r.traceback_str]

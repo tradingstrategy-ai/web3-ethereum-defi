@@ -31,7 +31,7 @@ def get_hypersync_block_height(
 
 
 def main():
-    started = datetime.datetime.utcnow()
+    started = datetime.datetime.now(datetime.timezone.utc)
 
     while True:
         for chain in TESTED_CHAINS:

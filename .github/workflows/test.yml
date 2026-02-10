@@ -21,9 +21,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # for now let's keep the 3.13 aside as many of the modules don't support it yet
-        # The project is developed using 3.12. 3.10 has some encoding issues which is causing some tests to fail
-        python-version: ["3.12"]
+        # The project is developed using 3.14
+        python-version: ["3.14"]
         # v6 has it's own separate workflow
         web3-version: ["7"]
 
@@ -183,4 +182,4 @@ jobs:
         run: |
           poetry run ruff format --check --diff
         # Only run linting once (on the newest Python with latest web3.py)
-        if: "matrix.python-version == '3.12' && matrix.web3-version == '7'"
+        if: "matrix.python-version == '3.14' && matrix.web3-version == '7'"

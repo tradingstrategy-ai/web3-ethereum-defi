@@ -22,7 +22,9 @@
 #
 #
 
-FROM python:3.11.11
+# Note: hypersync does not publish wheels for Python 3.14 yet,
+# so Docker images stay on 3.12 until upstream adds support
+FROM python:3.12
 
 # Passed from Github Actions
 ARG GIT_VERSION_TAG=unspecifiedls
@@ -62,7 +64,7 @@ RUN poetry install -E data -E web3v6 -E hypersync -E cloudflare_r2 -E duckdb --n
 RUN poetry cache clear pypi --all --no-interaction
 
 # Speed up Python process startup
-RUN python -m compileall -q /usr/local/lib/python3.11
+RUN python -m compileall -q /usr/local/lib/python3.12
 RUN python -m compileall -q eth_defi
 
 ENV SCAN_PRICES=true

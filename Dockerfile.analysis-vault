@@ -1,5 +1,7 @@
 # Base image
-FROM python:3.11.11
+# Note: hypersync does not publish wheels for Python 3.14 yet,
+# so Docker images stay on 3.12 until upstream adds support
+FROM python:3.12
 
 # Build args
 ARG GIT_VERSION_TAG=unspecified
@@ -43,7 +45,7 @@ RUN .venv/bin/pip install gspread gspread-dataframe google-auth google-auth-oaut
 RUN poetry cache clear pypi --all --no-interaction
 
 # Speed up Python
-RUN python -m compileall -q /usr/local/lib/python3.11
+RUN python -m compileall -q /usr/local/lib/python3.12
 RUN python -m compileall -q eth_defi
 
 # Entrypoint
