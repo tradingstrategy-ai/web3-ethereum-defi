@@ -49,7 +49,7 @@ def anvil_base_fork(request, vault_manager) -> AnvilLaunch:
     assert JSON_RPC_BASE, "JSON_RPC_BASE not set"
     launch = fork_network_anvil(
         JSON_RPC_BASE,
-        fork_block_number=41_950_000,
+        fork_block_number=35_094_246,
         unlocked_addresses=[USDC_WHALE[8453], vault_manager],
     )
     try:

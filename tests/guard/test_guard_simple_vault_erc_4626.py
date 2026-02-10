@@ -42,7 +42,7 @@ pytestmark = pytest.mark.skipif(
 
 @pytest.fixture
 def large_usdc_holder() -> HexAddress:
-    return HexAddress(HexStr("0x40EbC1Ac8d4Fedd2E144b75fe9C0420BE82750c6"))
+    return HexAddress(HexStr("0x3304E22DDaa22bCdC5fCa2269b418046aE7b566A"))
 
 
 @pytest.fixture
@@ -55,7 +55,7 @@ def anvil_base_chain_fork(request, large_usdc_holder) -> AnvilLaunch:
     launch = fork_network_anvil(
         mainnet_rpc,
         unlocked_addresses=[large_usdc_holder],
-        fork_block_number=41_950_000,
+        fork_block_number=30_659_990,
     )
     try:
         yield launch
