@@ -144,15 +144,28 @@ def _scan_logs_chunked_for_trade_action(
                     )
 
                     # Build trade_action dict from event
+                    order_type = event.get_uint("orderType")
                     trade_action = {
                         "eventName": event.event_name,
                         "orderKey": order_key_hex,
                         "isLong": event.get_bool("isLong"),
+                        "orderType": order_type,
                         "reason": event.get_string("reasonBytes") if event.event_name == "OrderCancelled" else None,
                         "transaction": {
                             "hash": log["transactionHash"].hex() if isinstance(log["transactionHash"], bytes) else log["transactionHash"],
                         },
                     }
+
+                    logger.info(
+                        "EventEmitter trade_action for order %s: eventName=%s, orderType=%s, isLong=%s, "
+                        "available_uint_keys=%s, available_bool_keys=%s",
+                        order_key_hex[:18],
+                        event.event_name,
+                        order_type,
+                        event.get_bool("isLong"),
+                        list(event.uint_items.keys()),
+                        list(event.bool_items.keys()),
+                    )
 
                     # Get execution price if available
                     if event.event_name == "OrderExecuted":
@@ -175,6 +188,44 @@ def _scan_logs_chunked_for_trade_action(
                 e,
             )
             # Continue to next chunk - partial failure is acceptable
+
+    return None
+
+
+def _derive_side_from_trade_action(trade_action: dict) -> str | None:
+    """Derive CCXT order side from trade action data.
+
+    Uses ``orderType`` and ``isLong`` fields to reverse-map the side
+    that was used when the order was originally created.
+
+    Mapping (reverse of ``create_order()`` logic):
+
+    - MarketIncrease (2) + long  -> ``"buy"``  (opening long)
+    - MarketIncrease (2) + short -> ``"sell"`` (opening short)
+    - MarketDecrease (3) + long  -> ``"sell"`` (closing long)
+    - MarketDecrease (3) + short -> ``"buy"``  (closing short)
+
+    :param trade_action:
+        Dict from Subsquid or EventEmitter with ``orderType`` and ``isLong`` fields.
+    :return:
+        ``"buy"`` or ``"sell"`` if derivable, ``None`` otherwise.
+    """
+    order_type = trade_action.get("orderType")
+    is_long = trade_action.get("isLong")
+
+    if order_type is None or is_long is None:
+        return None
+
+    # Coerce to int in case it comes as string from some sources
+    try:
+        order_type = int(order_type)
+    except (ValueError, TypeError):
+        return None
+
+    if order_type == 2:  # MarketIncrease
+        return "buy" if is_long else "sell"
+    elif order_type == 3:  # MarketDecrease
+        return "sell" if is_long else "buy"
 
     return None
 
@@ -6851,6 +6902,17 @@ class GMX(ExchangeCompatible):
                     }
                     return order
 
+                # Log trade_action fields for diagnostics (exclude bulky transaction data)
+                trade_action_fields = {k: v for k, v in trade_action.items() if k != "transaction"}
+                logger.info(
+                    "fetch_order(%s): trade_action fields: %s",
+                    id[:16],
+                    trade_action_fields,
+                )
+
+                # Derive CCXT side from orderType + isLong
+                derived_side = _derive_side_from_trade_action(trade_action)
+
                 # Check event type
                 event_name = trade_action.get("eventName", "")
 
@@ -6872,7 +6934,7 @@ class GMX(ExchangeCompatible):
                         "lastTradeTimestamp": timestamp,
                         "symbol": symbol,
                         "type": "market",
-                        "side": None,
+                        "side": derived_side,  # Derived from orderType + isLong
                         "price": None,
                         "amount": None,
                         "cost": None,
@@ -6907,10 +6969,14 @@ class GMX(ExchangeCompatible):
                 is_long = trade_action.get("isLong")
 
                 logger.info(
-                    "ORDER_TRACE: fetch_order(%s) - Order EXECUTED at price=%s, size_usd=%s - RETURNING status=closed",
-                    id,
+                    "ORDER_TRACE: fetch_order(%s) - Order EXECUTED at price=%s, size_usd=%s, "
+                    "derived_side=%s, orderType=%s, isLong=%s - RETURNING status=closed",
+                    id[:16],
                     execution_price or 0,
                     float(trade_action.get("sizeDeltaUsd", 0)) / 1e30 if trade_action.get("sizeDeltaUsd") else 0,
+                    derived_side,
+                    trade_action.get("orderType"),
+                    trade_action.get("isLong"),
                 )
 
                 timestamp = self.milliseconds()
@@ -6922,9 +6988,9 @@ class GMX(ExchangeCompatible):
                     "lastTradeTimestamp": timestamp,
                     "symbol": symbol,
                     "type": "market",
-                    "side": None,  # Unknown from tx alone
+                    "side": derived_side,  # Derived from orderType + isLong
                     "price": execution_price,
-                    "amount": None,  # Unknown from tx alone
+                    "amount": None,
                     "cost": None,
                     "average": execution_price,
                     "filled": None,  # Unknown from tx alone
