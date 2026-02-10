@@ -144,6 +144,50 @@ def test_anvil_latest_block(web3: Web3, large_busd_holder: HexAddress, user_1):
     latest_block = web3.eth.get_block("latest")
 
 
+@pytest.mark.skipif(shutil.which("anvil") is None, reason="Install anvil to run this test")
+@flaky.flaky(max_runs=3)
+def test_archive_node_required_exception():
+    """Test that ArchiveNodeRequired is raised when forking with non-archive RPC.
+
+    Uses the public Polygon RPC (https://polygon-rpc.com/) which is NOT an archive
+    node. When we try to fork at a historical block, it should fail with
+    ArchiveNodeRequired exception containing the HTTP response headers.
+
+    .. note::
+
+        This test uses a public RPC that may rate limit requests.
+        The @flaky decorator handles intermittent failures.
+    """
+    from eth_defi.provider.anvil import fork_network_anvil, ArchiveNodeRequired
+
+    # Public Polygon RPC - known to NOT be an archive node
+    public_polygon_rpc = "https://polygon-rpc.com/"
+
+    # Try to fork at a very old block that the non-archive node won't have
+    # Block 1,000,000 is from early 2021
+    old_block = 1_000_000
+
+    with pytest.raises(ArchiveNodeRequired) as exc_info:
+        fork_network_anvil(
+            public_polygon_rpc,
+            fork_block_number=old_block,
+            archive=True,
+        )
+
+    # Verify the exception contains useful debugging information
+    exc = exc_info.value
+    assert exc.rpc_url == public_polygon_rpc
+    assert exc.requested_block == old_block
+    assert exc.available_block is not None  # Should have current block
+    assert exc.response_headers is not None  # Should have HTTP headers
+    assert len(exc.response_headers) > 0, "Exception should include HTTP response headers for debugging"
+
+    # Verify the error message is informative
+    error_message = str(exc)
+    assert "polygon-rpc.com" in error_message
+    assert str(old_block) in error_message or "1,000,000" in error_message
+
+
 # def test_revert_reason_middleware(web3: Web3, large_busd_holder: HexAddress, user_1: LocalAccount, user_2: LocalAccount):
 
 #     """Revert reason will be shown in Python tracebacks.
