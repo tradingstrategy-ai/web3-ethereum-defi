@@ -49,7 +49,7 @@ Running the example
     export ETHERSCAN_API_KEY=...
 
     # Run the script
-    python scripts/lagoon/lagoon-velora-example.py
+    poetry run python scripts/lagoon/lagoon-velora-example.py
 
 Example code
 ------------
