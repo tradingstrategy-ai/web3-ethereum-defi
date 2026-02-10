@@ -78,18 +78,12 @@ def warmup_vault_reader(
                 if gas_estimate > max_gas:
                     reverts = True
                     reason = f"excessive gas: {gas_estimate:,} > {max_gas:,}"
-                    logger.warning(
-                        "Vault %s call %s uses excessive gas: %s",
-                        vault.address, function_name, reason
-                    )
+                    logger.warning("Vault %s call %s uses excessive gas: %s", vault.address, function_name, reason)
             except Exception as e:
                 # Gas estimation failed - call reverts
                 reverts = True
                 reason = f"gas estimation failed: {str(e)[:80]}"
-                logger.info(
-                    "Vault %s call %s gas estimation failed: %s",
-                    vault.address, function_name, str(e)[:100]
-                )
+                logger.info("Vault %s call %s gas estimation failed: %s", vault.address, function_name, str(e)[:100])
 
         # If gas estimation passed (or not available), try the actual call
         if not reverts:
@@ -98,19 +92,13 @@ def warmup_vault_reader(
             except Exception as e:
                 reverts = True
                 reason = f"call failed: {str(e)[:80]}"
-                logger.info(
-                    "Vault %s call %s reverts: %s",
-                    vault.address, function_name, str(e)[:100]
-                )
+                logger.info("Vault %s call %s reverts: %s", vault.address, function_name, str(e)[:100])
 
         reader.reader_state.set_call_status(function_name, block_number, reverts)
         results[function_name] = (block_number, reverts)
 
         if reverts:
-            logger.warning(
-                "Marked %s.%s as broken at block %d (%s)",
-                vault.address[:10], function_name, block_number, reason or "unknown"
-            )
+            logger.warning("Marked %s.%s as broken at block %d (%s)", vault.address[:10], function_name, block_number, reason or "unknown")
 
     return results
 
@@ -148,9 +136,6 @@ def warmup_vault_readers(
             checked_count += len(vault_results)
             broken_count += sum(1 for _, reverts in vault_results.values() if reverts)
 
-    logger.info(
-        "Warmup complete: checked %d calls across %d vaults, %d broken",
-        checked_count, len(results), broken_count
-    )
+    logger.info("Warmup complete: checked %d calls across %d vaults, %d broken", checked_count, len(results), broken_count)
 
     return results

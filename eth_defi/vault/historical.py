@@ -202,10 +202,7 @@ class VaultHistoricalReadMulticaller:
                 broken_count += sum(1 for _, reverts in vault_results.values() if reverts)
 
         if checked_count > 0:
-            logger.info(
-                "Warmup complete: checked %d calls across %d vaults, %d broken",
-                checked_count, len(readers), broken_count
-            )
+            logger.info("Warmup complete: checked %d calls across %d vaults, %d broken", checked_count, len(readers), broken_count)
 
     def _prepare_multicalls(self, reader: VaultHistoricalReader, stateful=False) -> Iterable[tuple[EncodedCall, BatchCallState]]:
         """Run in subprocess"""

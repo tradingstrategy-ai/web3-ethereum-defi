@@ -18,10 +18,7 @@ from eth_defi.chain import CHAIN_NAMES
 
 
 def main():
-    reader_state_path = os.environ.get(
-        "READER_STATE_PATH",
-        str(Path.home() / ".tradingstrategy/vaults/reader-state.pickle")
-    )
+    reader_state_path = os.environ.get("READER_STATE_PATH", str(Path.home() / ".tradingstrategy/vaults/reader-state.pickle"))
 
     if not Path(reader_state_path).exists():
         print(f"Reader state file not found: {reader_state_path}")
@@ -42,14 +39,16 @@ def main():
             total_calls_checked += 1
             if reverts:
                 chain_name = CHAIN_NAMES.get(chain_id, f"Chain {chain_id}")
-                broken_calls.append({
-                    "Chain": chain_name,
-                    "Chain ID": chain_id,
-                    "Vault": vault_address[:10] + "...",
-                    "Full Address": vault_address,
-                    "Function": function_name,
-                    "Detected at Block": check_block,
-                })
+                broken_calls.append(
+                    {
+                        "Chain": chain_name,
+                        "Chain ID": chain_id,
+                        "Vault": vault_address[:10] + "...",
+                        "Full Address": vault_address,
+                        "Function": function_name,
+                        "Detected at Block": check_block,
+                    }
+                )
 
     print(f"Total calls checked across all vaults: {total_calls_checked}")
 

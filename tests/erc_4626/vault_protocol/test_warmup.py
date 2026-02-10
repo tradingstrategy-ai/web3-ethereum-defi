@@ -188,6 +188,7 @@ def test_warmup_affects_multicall_generation(web3: Web3):
 
 def test_vault_reader_state_call_status_serialisation():
     """Test that call_status is properly serialised and loaded."""
+
     # Create a mock vault reader state with call_status
     class MockVault:
         first_seen_at_block = 1000

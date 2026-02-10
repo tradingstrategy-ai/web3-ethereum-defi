@@ -342,20 +342,21 @@ def _verify_archive_node_access(
             error_message = error.get("message", str(error))
 
             # Common error patterns for missing archive data
-            if any(pattern in error_message.lower() for pattern in [
-                "block out of range",
-                "missing trie node",
-                "header not found",
-                "block not found",
-                "state not available",
-                "state histories haven't been fully indexed",
-                "pruned state",
-                "historical state not available",
-            ]):
+            if any(
+                pattern in error_message.lower()
+                for pattern in [
+                    "block out of range",
+                    "missing trie node",
+                    "header not found",
+                    "block not found",
+                    "state not available",
+                    "state histories haven't been fully indexed",
+                    "pruned state",
+                    "historical state not available",
+                ]
+            ):
                 raise ArchiveNodeRequired(
-                    f"RPC endpoint {rpc_url} does not provide archive access for block {fork_block_number:,}. "
-                    f"Current block is {current_block:,}. Error: {error_message}. "
-                    f"Response headers: {json.dumps(response_headers, indent=2)}",
+                    f"RPC endpoint {rpc_url} does not provide archive access for block {fork_block_number:,}. Current block is {current_block:,}. Error: {error_message}. Response headers: {json.dumps(response_headers, indent=2)}",
                     rpc_url=rpc_url,
                     requested_block=fork_block_number,
                     available_block=current_block,
@@ -371,10 +372,7 @@ def _verify_archive_node_access(
             available_block=current_block,
         ) from e
 
-    logger.debug(
-        "Archive node access verified for %s at block %d",
-        rpc_url, fork_block_number
-    )
+    logger.debug("Archive node access verified for %s at block %d", rpc_url, fork_block_number)
 
 
 # Anvil launch may or may not need a lock, I am still unsure
