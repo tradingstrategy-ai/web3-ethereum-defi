@@ -1,5 +1,6 @@
 # Current
 
+- Fix: Guard contract now validates Umami non-standard ERC-4626 deposit/redeem selectors instead of reverting with "Unknown function selector" (2026-02-10)
 - Add: Lagoon vault offchain metadata - fetch per-vault descriptions and curator info from Lagoon's web app API, with disk and in-process caching (2026-02-10)
 - Update: Upgrade Docker images and ReadTheDocs from Python 3.11 to 3.12; fix `datetime.utcnow()` deprecation for forward compatibility (2026-02-10)
 - Add: Archive node verification for `launch_anvil()` / `fork_network_anvil()` - new `archive=True` parameter validates RPC can access historical blocks before forking, with `ArchiveNodeRequired` exception including HTTP response headers for debugging (2026-02-10)
