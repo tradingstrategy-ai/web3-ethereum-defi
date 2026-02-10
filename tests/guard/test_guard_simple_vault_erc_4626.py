@@ -42,7 +42,7 @@ pytestmark = pytest.mark.skipif(
 
 @pytest.fixture
 def large_usdc_holder() -> HexAddress:
-    return HexAddress(HexStr("0x3304E22DDaa22bCdC5fCa2269b418046aE7b566A"))
+    return HexAddress(HexStr("0x40EbC1Ac8d4Fedd2E144b75fe9C0420BE82750c6"))
 
 
 @pytest.fixture
