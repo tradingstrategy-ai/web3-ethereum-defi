@@ -863,7 +863,20 @@ def extract_order_execution_result(
                 if event.event_name == "PositionDecrease":
                     result.pnl_usd = event.get_int("basePnlUsd")
 
-                # Extract fees
+                # Note: Fees are extracted from PositionFeesCollected event below
+                break
+
+        # Extract fees from PositionFeesCollected event (GMX V2)
+        # Fees are emitted in a separate event, not in PositionIncrease/Decrease
+        for event in decode_gmx_events(web3, receipt):
+            if event.event_name == "PositionFeesCollected":
+                # Check order key matches
+                event_order_key = event.get_bytes32("orderKey")
+                if order_key and event_order_key != order_key:
+                    continue
+
+                # Extract fees (all fees are combined in positionFeeAmount in GMX V2)
+                # The event also has borrowingFeeAmount and fundingFeeAmount fields
                 result.fees = OrderFees(
                     position_fee=event.get_uint("positionFeeAmount") or 0,
                     borrowing_fee=event.get_uint("borrowingFeeAmount") or 0,
