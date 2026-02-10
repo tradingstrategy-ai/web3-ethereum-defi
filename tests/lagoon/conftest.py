@@ -69,7 +69,7 @@ def safe_address() -> HexAddress:
 @pytest.fixture()
 def test_block_number() -> int:
     """Fork height for our tests."""
-    return 30_659_990
+    return 41_950_000
 
 
 @pytest.fixture()

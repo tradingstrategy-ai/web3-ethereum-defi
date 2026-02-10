@@ -55,7 +55,7 @@ def anvil_base_chain_fork(request, large_usdc_holder) -> AnvilLaunch:
     launch = fork_network_anvil(
         mainnet_rpc,
         unlocked_addresses=[large_usdc_holder],
-        fork_block_number=30_659_990,
+        fork_block_number=41_950_000,
     )
     try:
         yield launch
