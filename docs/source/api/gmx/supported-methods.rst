@@ -311,7 +311,10 @@ Pass these in the ``params`` dict when calling ``create_order``:
    * - ``collateral_symbol``
      - Collateral token symbol (e.g. ``"USDC"``, ``"ETH"``)
    * - ``execution_buffer``
-     - Gas fee multiplier for execution (default 2.2)
+     - Multiplier for the keeper execution fee included with the order (default 2.2).
+       Keepers only execute orders when the attached fee covers their gas costs —
+       too low and the order will not be picked up (you lose the gas), too high and
+       you overpay the keeper. Recommended range: 2.3–2.5.
    * - ``slippage_percent``
      - Slippage tolerance (default 0.003 = 0.3%)
    * - ``stopLoss``
