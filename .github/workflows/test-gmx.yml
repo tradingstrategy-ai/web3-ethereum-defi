@@ -36,8 +36,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # The project is developed using 3.14
-        python-version: ["3.14"]
+        # The project is developed using 3.12
+        python-version: ["3.12"]
         # v6 has it's own separate workflow
         web3-version: ["7"]
 

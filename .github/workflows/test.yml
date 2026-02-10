@@ -21,8 +21,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # The project is developed using 3.14
-        python-version: ["3.14"]
+        # The project is developed using 3.12
+        python-version: ["3.12"]
         # v6 has it's own separate workflow
         web3-version: ["7"]
 
@@ -182,4 +182,4 @@ jobs:
         run: |
           poetry run ruff format --check --diff
         # Only run linting once (on the newest Python with latest web3.py)
-        if: "matrix.python-version == '3.14' && matrix.web3-version == '7'"
+        if: "matrix.python-version == '3.12' && matrix.web3-version == '7'"

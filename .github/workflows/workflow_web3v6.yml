@@ -21,8 +21,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # The project is developed using 3.14
-        python-version: ["3.14"]
+        # The project is developed using 3.12
+        python-version: ["3.12"]
         web3-version: ["6"]
 
     name: Python ${{ matrix.python-version }} - Web3.py v${{ matrix.web3-version }}
