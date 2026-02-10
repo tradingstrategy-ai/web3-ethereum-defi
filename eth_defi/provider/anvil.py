@@ -78,6 +78,28 @@ class RPCRequestError(Exception):
     """Lifted from Brownie."""
 
 
+class ArchiveNodeRequired(Exception):
+    """RPC endpoint does not provide archive node access.
+
+    This is raised when a fork test requires historical block access
+    but the RPC endpoint only provides recent blocks.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        rpc_url: str | None = None,
+        requested_block: int | None = None,
+        available_block: int | None = None,
+        response_headers: dict | None = None,
+    ):
+        super().__init__(message)
+        self.rpc_url = rpc_url
+        self.requested_block = requested_block
+        self.available_block = available_block
+        self.response_headers = response_headers or {}
+
+
 #: Mappings between Anvil command line parameters and our internal argument names
 CLI_FLAGS = {
     "port": "--port",
@@ -260,6 +282,101 @@ def _single_process_lock(timeout: float = 30.0):
     return decorator
 
 
+def _verify_archive_node_access(
+    web3: Web3,
+    rpc_url: str,
+    fork_block_number: int,
+    current_block: int,
+    timeout: float = 3.0,
+) -> None:
+    """Verify that the RPC endpoint can access historical blocks.
+
+    Makes a test call to the fork block number to ensure the RPC
+    provides archive node access. If the call fails, raises an
+    informative exception with HTTP response headers for debugging.
+
+    :param web3:
+        Web3 connection to test
+
+    :param rpc_url:
+        The RPC URL being tested (for error messages)
+
+    :param fork_block_number:
+        The historical block number we need to access
+
+    :param current_block:
+        The current block number of the chain
+
+    :param timeout:
+        Request timeout in seconds
+
+    :raises ArchiveNodeRequired:
+        If the RPC cannot access the historical block
+    """
+    import json
+
+    # Try to get balance at the historical block - this is a cheap call
+    # that will fail if the RPC doesn't have archive data
+    test_address = "0x0000000000000000000000000000000000000000"
+
+    try:
+        # Make a direct HTTP request so we can capture response headers
+        payload = {
+            "jsonrpc": "2.0",
+            "method": "eth_getBalance",
+            "params": [test_address, hex(fork_block_number)],
+            "id": 1,
+        }
+        response = requests.post(
+            rpc_url,
+            json=payload,
+            timeout=timeout,
+            headers={"Content-Type": "application/json"},
+        )
+        response_headers = dict(response.headers)
+        response_data = response.json()
+
+        # Check for JSON-RPC error indicating missing block data
+        if "error" in response_data:
+            error = response_data["error"]
+            error_message = error.get("message", str(error))
+
+            # Common error patterns for missing archive data
+            if any(pattern in error_message.lower() for pattern in [
+                "block out of range",
+                "missing trie node",
+                "header not found",
+                "block not found",
+                "state not available",
+                "state histories haven't been fully indexed",
+                "pruned state",
+                "historical state not available",
+            ]):
+                raise ArchiveNodeRequired(
+                    f"RPC endpoint {rpc_url} does not provide archive access for block {fork_block_number:,}. "
+                    f"Current block is {current_block:,}. Error: {error_message}. "
+                    f"Response headers: {json.dumps(response_headers, indent=2)}",
+                    rpc_url=rpc_url,
+                    requested_block=fork_block_number,
+                    available_block=current_block,
+                    response_headers=response_headers,
+                )
+
+    except requests.exceptions.RequestException as e:
+        # Network error - wrap with context
+        raise ArchiveNodeRequired(
+            f"Failed to verify archive access for {rpc_url} at block {fork_block_number:,}: {e}",
+            rpc_url=rpc_url,
+            requested_block=fork_block_number,
+            available_block=current_block,
+        ) from e
+
+    logger.debug(
+        "Archive node access verified for %s at block %d",
+        rpc_url, fork_block_number
+    )
+
+
 # Anvil launch may or may not need a lock, I am still unsure
 # Leaving out lock now because it seems to cause more harm than good
 def launch_anvil(
@@ -279,6 +396,7 @@ def launch_anvil(
     code_size_limit: int = None,
     rpc_smoke_test=True,
     verbose=False,
+    archive: bool = True,
 ) -> AnvilLaunch:
     """Creates Anvil unit test backend or mainnet fork.
 
@@ -460,6 +578,18 @@ def launch_anvil(
         Make Anvil the proces to dump a lot of stuff to stdout/stderr.
 
         See -vvvv https://getfoundry.sh/anvil/reference/anvil
+
+    :param archive:
+        Check that the RPC endpoint provides archive node access.
+
+        When True (default) and ``fork_block_number`` is specified,
+        performs a smoke test to verify the RPC can access historical blocks.
+        If the RPC cannot access the requested block, raises :py:class:`ArchiveNodeRequired`
+        with HTTP response headers to help identify the problematic RPC provider.
+
+    :raises ArchiveNodeRequired:
+        When ``archive=True`` and the RPC endpoint cannot access the requested
+        historical block.
     """
 
     attempts_left = attempts
@@ -504,9 +634,19 @@ def launch_anvil(
         web3 = Web3(HTTPProvider(cleaned_fork_url, request_kwargs={"timeout": test_request_timeout}))
         # Will raise an exception if not working
         try:
-            web3.eth.block_number
+            current_rpc_block = web3.eth.block_number
         except Exception as e:
             raise ValueError(f"RPC smoke test failed for {cleaned_fork_url}: {e}") from e
+
+        # If archive mode and fork_block_number specified, verify RPC can access historical blocks
+        if archive and fork_block_number is not None:
+            _verify_archive_node_access(
+                web3=web3,
+                rpc_url=cleaned_fork_url,
+                fork_block_number=fork_block_number,
+                current_block=current_rpc_block,
+                timeout=test_request_timeout,
+            )
 
     # https://book.getfoundry.sh/reference/anvil/
     args = dict(
