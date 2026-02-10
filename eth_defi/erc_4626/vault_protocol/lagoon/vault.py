@@ -41,6 +41,7 @@ from web3.exceptions import ContractLogicError, BadFunctionCallOutput
 
 from eth_defi.vault.base import VaultFlowManager, VaultInfo, VaultSpec
 from eth_defi.erc_7540.vault import ERC7540Vault
+from eth_defi.erc_4626.vault_protocol.lagoon.offchain_metadata import LagoonVaultMetadata, fetch_lagoon_vault_metadata
 
 from eth_defi.abi import encode_function_call, get_deployed_contract, get_function_abi_by_name, get_function_selector, present_solidity_args
 from eth_defi.erc_4626.core import ERC4626Feature
@@ -263,6 +264,30 @@ class LagoonVault(ERC7540Vault):
         """
         version = self.fetch_version()
         return version
+
+    @cached_property
+    def lagoon_metadata(self) -> LagoonVaultMetadata | None:
+        """Offchain metadata from Lagoon's web app API.
+
+        - Fetched from ``app.lagoon.finance/api/vault`` endpoint
+        - Cached on first access
+        - Returns None if vault is not in Lagoon's app database
+        """
+        return fetch_lagoon_vault_metadata(self.web3, self.vault_address)
+
+    @property
+    def description(self) -> str | None:
+        """Full vault strategy description from Lagoon's offchain metadata."""
+        if self.lagoon_metadata:
+            return self.lagoon_metadata.get("description")
+        return None
+
+    @property
+    def short_description(self) -> str | None:
+        """Short one-liner vault summary from Lagoon's offchain metadata."""
+        if self.lagoon_metadata:
+            return self.lagoon_metadata.get("short_description")
+        return None
 
     @cached_property
     def trading_strategy_module_version(self) -> str:
