@@ -3,13 +3,16 @@
 Tests validate that:
 1. GMX router whitelisting works correctly
 2. GMX market whitelisting works correctly
-3. Multicall payload validation catches invalid receivers
-4. Multicall payload validation enforces asset whitelist
-5. anyAsset mode bypasses whitelist checks
+3. Ownership controls are enforced
+4. anyAsset mode works correctly
+
+Note: The actual ABI encoding validation is tested in the integration tests
+(tests/gmx/lagoon/test_gmx_lagoon_integration.py) which run against real GMX
+contracts on an Arbitrum fork. These unit tests focus on the whitelisting
+and access control logic.
 """
 
 import pytest
-from eth_abi import encode
 from eth_tester.exceptions import TransactionFailed
 from web3 import EthereumTesterProvider, Web3
 from web3.contract import Contract
@@ -17,13 +20,6 @@ from web3.contract import Contract
 from eth_defi.abi import get_deployed_contract
 from eth_defi.deploy import deploy_contract
 from eth_defi.token import create_token
-
-
-# GMX function selectors (must match GuardV0Base.sol)
-SEL_GMX_MULTICALL = bytes.fromhex("ac9650d8")
-SEL_GMX_SEND_WNT = bytes.fromhex("7d39aaf1")
-SEL_GMX_SEND_TOKENS = bytes.fromhex("e6d66ac8")
-SEL_GMX_CREATE_ORDER = bytes.fromhex("296ea41f")
 
 
 @pytest.fixture
@@ -145,469 +141,294 @@ def guard(
     # Whitelist market
     guard.functions.whitelistGMXMarket(eth_usd_market, "Allow ETH/USD").transact({"from": owner})
 
-    # Whitelist receiver (Safe)
+    # Whitelist receiver (Safe) - REQUIRED for GMX validation
     guard.functions.allowReceiver(safe_address, "Allow Safe").transact({"from": owner})
 
     return guard
 
 
-def encode_send_wnt(receiver: str, amount: int) -> bytes:
-    """Encode sendWnt(address,uint256) call data."""
-    return SEL_GMX_SEND_WNT + encode(["address", "uint256"], [receiver, amount])
+# =============================================================================
+# Test GMX whitelisting
+# =============================================================================
 
 
-def encode_send_tokens(token: str, receiver: str, amount: int) -> bytes:
-    """Encode sendTokens(address,address,uint256) call data."""
-    return SEL_GMX_SEND_TOKENS + encode(["address", "address", "uint256"], [token, receiver, amount])
+def test_gmx_router_whitelisted(
+    guard: Contract,
+    exchange_router: str,
+):
+    """Test that GMX router is properly whitelisted."""
+    assert guard.functions.isAllowedGMXRouter(exchange_router).call() is True
 
 
-def encode_create_order(
-    receiver: str,
-    cancellation_receiver: str,
-    callback_contract: str,
-    ui_fee_receiver: str,
-    market: str,
-    initial_collateral_token: str,
-) -> bytes:
-    """Encode createOrder call data (simplified - just the addresses we validate)."""
-    # CreateOrderParams has addresses at fixed offsets
-    # We encode the first 6 addresses + empty swapPath
-    return SEL_GMX_CREATE_ORDER + encode(["address", "address", "address", "address", "address", "address", "address[]"], [receiver, cancellation_receiver, callback_contract, ui_fee_receiver, market, initial_collateral_token, []])
+def test_gmx_router_not_whitelisted(
+    guard: Contract,
+    attacker: str,
+):
+    """Test that non-whitelisted router is rejected."""
+    assert guard.functions.isAllowedGMXRouter(attacker).call() is False
 
 
-def encode_multicall(calls: list[bytes]) -> bytes:
-    """Encode multicall(bytes[]) call data."""
-    return encode(["bytes[]"], [calls])
+def test_gmx_order_vault_stored(
+    guard: Contract,
+    exchange_router: str,
+    order_vault: str,
+):
+    """Test that orderVault is stored for the router."""
+    stored_vault = guard.functions.gmxOrderVaults(exchange_router).call()
+    assert stored_vault == order_vault
 
 
-class TestGMXWhitelisting:
-    """Test GMX router and market whitelisting."""
-
-    def test_gmx_router_whitelisted(
-        self,
-        guard: Contract,
-        exchange_router: str,
-    ):
-        """Test that GMX router is properly whitelisted."""
-        assert guard.functions.isAllowedGMXRouter(exchange_router).call() is True
-
-    def test_gmx_router_not_whitelisted(
-        self,
-        guard: Contract,
-        attacker: str,
-    ):
-        """Test that non-whitelisted router is rejected."""
-        assert guard.functions.isAllowedGMXRouter(attacker).call() is False
-
-    def test_gmx_order_vault_stored(
-        self,
-        guard: Contract,
-        exchange_router: str,
-        order_vault: str,
-    ):
-        """Test that orderVault is stored for the router."""
-        stored_vault = guard.functions.gmxOrderVaults(exchange_router).call()
-        assert stored_vault == order_vault
-
-    def test_gmx_market_whitelisted(
-        self,
-        guard: Contract,
-        eth_usd_market: str,
-    ):
-        """Test that whitelisted market is allowed."""
-        assert guard.functions.isAllowedGMXMarket(eth_usd_market).call() is True
-
-    def test_gmx_market_not_whitelisted(
-        self,
-        guard: Contract,
-        btc_usd_market: str,
-    ):
-        """Test that non-whitelisted market is rejected."""
-        assert guard.functions.isAllowedGMXMarket(btc_usd_market).call() is False
-
-    def test_gmx_market_removed(
-        self,
-        guard: Contract,
-        owner: str,
-        eth_usd_market: str,
-    ):
-        """Test that removed market is no longer allowed."""
-        guard.functions.removeGMXMarket(eth_usd_market, "Remove ETH/USD").transact({"from": owner})
-        assert guard.functions.isAllowedGMXMarket(eth_usd_market).call() is False
+def test_gmx_market_whitelisted(
+    guard: Contract,
+    eth_usd_market: str,
+):
+    """Test that whitelisted market is allowed."""
+    assert guard.functions.isAllowedGMXMarket(eth_usd_market).call() is True
 
 
-class TestGMXMulticallValidation:
-    """Test GMX multicall payload validation."""
-
-    def test_validate_sendwnt_valid_receiver(
-        self,
-        guard: Contract,
-        exchange_router: str,
-        safe_address: str,
-        order_vault: str,
-    ):
-        """Test that sendWnt to orderVault is valid."""
-        call_data = encode_send_wnt(order_vault, 10**17)  # 0.1 ETH
-        multicall_data = encode_multicall([call_data])
-
-        # Should not revert
-        guard.functions.validate_gmxMulticall(exchange_router, safe_address, multicall_data).call()
-
-    def test_validate_sendwnt_invalid_receiver(
-        self,
-        guard: Contract,
-        exchange_router: str,
-        safe_address: str,
-        attacker: str,
-    ):
-        """Test that sendWnt to wrong address reverts."""
-        call_data = encode_send_wnt(attacker, 10**17)
-        multicall_data = encode_multicall([call_data])
-
-        with pytest.raises(TransactionFailed, match="GMX sendWnt: invalid receiver"):
-            guard.functions.validate_gmxMulticall(exchange_router, safe_address, multicall_data).call()
-
-    def test_validate_sendtokens_valid(
-        self,
-        guard: Contract,
-        exchange_router: str,
-        safe_address: str,
-        order_vault: str,
-        usdc: Contract,
-    ):
-        """Test that sendTokens with whitelisted token to orderVault is valid."""
-        call_data = encode_send_tokens(usdc.address, order_vault, 1000 * 10**6)
-        multicall_data = encode_multicall([call_data])
-
-        guard.functions.validate_gmxMulticall(exchange_router, safe_address, multicall_data).call()
-
-    def test_validate_sendtokens_invalid_receiver(
-        self,
-        guard: Contract,
-        exchange_router: str,
-        safe_address: str,
-        attacker: str,
-        usdc: Contract,
-    ):
-        """Test that sendTokens to wrong address reverts."""
-        call_data = encode_send_tokens(usdc.address, attacker, 1000 * 10**6)
-        multicall_data = encode_multicall([call_data])
-
-        with pytest.raises(TransactionFailed, match="GMX sendTokens: invalid receiver"):
-            guard.functions.validate_gmxMulticall(exchange_router, safe_address, multicall_data).call()
-
-    def test_validate_sendtokens_non_whitelisted_token(
-        self,
-        web3: Web3,
-        guard: Contract,
-        exchange_router: str,
-        safe_address: str,
-        order_vault: str,
-        deployer: str,
-    ):
-        """Test that sendTokens with non-whitelisted token reverts."""
-        # Create a token that's not whitelisted
-        bad_token = create_token(web3, deployer, "Bad Token", "BAD", 1000 * 10**18)
-
-        call_data = encode_send_tokens(bad_token.address, order_vault, 1000 * 10**18)
-        multicall_data = encode_multicall([call_data])
-
-        with pytest.raises(TransactionFailed, match="GMX sendTokens: token not allowed"):
-            guard.functions.validate_gmxMulticall(exchange_router, safe_address, multicall_data).call()
-
-    def test_validate_create_order_valid(
-        self,
-        guard: Contract,
-        exchange_router: str,
-        safe_address: str,
-        eth_usd_market: str,
-        usdc: Contract,
-    ):
-        """Test that createOrder with valid params is accepted."""
-        call_data = encode_create_order(
-            receiver=safe_address,
-            cancellation_receiver=safe_address,
-            callback_contract="0x0000000000000000000000000000000000000000",
-            ui_fee_receiver="0x0000000000000000000000000000000000000000",
-            market=eth_usd_market,
-            initial_collateral_token=usdc.address,
-        )
-        multicall_data = encode_multicall([call_data])
-
-        guard.functions.validate_gmxMulticall(exchange_router, safe_address, multicall_data).call()
-
-    def test_validate_create_order_wrong_receiver(
-        self,
-        guard: Contract,
-        exchange_router: str,
-        safe_address: str,
-        attacker: str,
-        eth_usd_market: str,
-        usdc: Contract,
-    ):
-        """Test that createOrder with wrong receiver reverts."""
-        call_data = encode_create_order(
-            receiver=attacker,  # Wrong!
-            cancellation_receiver=safe_address,
-            callback_contract="0x0000000000000000000000000000000000000000",
-            ui_fee_receiver="0x0000000000000000000000000000000000000000",
-            market=eth_usd_market,
-            initial_collateral_token=usdc.address,
-        )
-        multicall_data = encode_multicall([call_data])
-
-        with pytest.raises(TransactionFailed, match="GMX createOrder: receiver must be Safe"):
-            guard.functions.validate_gmxMulticall(exchange_router, safe_address, multicall_data).call()
-
-    def test_validate_create_order_wrong_cancellation_receiver(
-        self,
-        guard: Contract,
-        exchange_router: str,
-        safe_address: str,
-        attacker: str,
-        eth_usd_market: str,
-        usdc: Contract,
-    ):
-        """Test that createOrder with wrong cancellationReceiver reverts."""
-        call_data = encode_create_order(
-            receiver=safe_address,
-            cancellation_receiver=attacker,  # Wrong!
-            callback_contract="0x0000000000000000000000000000000000000000",
-            ui_fee_receiver="0x0000000000000000000000000000000000000000",
-            market=eth_usd_market,
-            initial_collateral_token=usdc.address,
-        )
-        multicall_data = encode_multicall([call_data])
-
-        with pytest.raises(TransactionFailed, match="GMX createOrder: cancellationReceiver must be Safe"):
-            guard.functions.validate_gmxMulticall(exchange_router, safe_address, multicall_data).call()
-
-    def test_validate_create_order_non_whitelisted_market(
-        self,
-        guard: Contract,
-        exchange_router: str,
-        safe_address: str,
-        btc_usd_market: str,  # Not whitelisted
-        usdc: Contract,
-    ):
-        """Test that createOrder with non-whitelisted market reverts."""
-        call_data = encode_create_order(
-            receiver=safe_address,
-            cancellation_receiver=safe_address,
-            callback_contract="0x0000000000000000000000000000000000000000",
-            ui_fee_receiver="0x0000000000000000000000000000000000000000",
-            market=btc_usd_market,
-            initial_collateral_token=usdc.address,
-        )
-        multicall_data = encode_multicall([call_data])
-
-        with pytest.raises(TransactionFailed, match="GMX createOrder: market not allowed"):
-            guard.functions.validate_gmxMulticall(exchange_router, safe_address, multicall_data).call()
-
-    def test_validate_create_order_non_whitelisted_collateral(
-        self,
-        web3: Web3,
-        guard: Contract,
-        exchange_router: str,
-        safe_address: str,
-        eth_usd_market: str,
-        deployer: str,
-    ):
-        """Test that createOrder with non-whitelisted collateral reverts."""
-        bad_token = create_token(web3, deployer, "Bad Token", "BAD", 1000 * 10**18)
-
-        call_data = encode_create_order(
-            receiver=safe_address,
-            cancellation_receiver=safe_address,
-            callback_contract="0x0000000000000000000000000000000000000000",
-            ui_fee_receiver="0x0000000000000000000000000000000000000000",
-            market=eth_usd_market,
-            initial_collateral_token=bad_token.address,
-        )
-        multicall_data = encode_multicall([call_data])
-
-        with pytest.raises(TransactionFailed, match="GMX createOrder: collateral not allowed"):
-            guard.functions.validate_gmxMulticall(exchange_router, safe_address, multicall_data).call()
-
-    def test_validate_unknown_function_in_multicall(
-        self,
-        guard: Contract,
-        exchange_router: str,
-        safe_address: str,
-    ):
-        """Test that unknown function selector in multicall reverts."""
-        # Create call with unknown selector
-        unknown_call = bytes.fromhex("deadbeef") + encode(["uint256"], [123])
-        multicall_data = encode_multicall([unknown_call])
-
-        with pytest.raises(TransactionFailed, match="GMX: Unknown function in multicall"):
-            guard.functions.validate_gmxMulticall(exchange_router, safe_address, multicall_data).call()
-
-    def test_validate_non_whitelisted_router(
-        self,
-        guard: Contract,
-        attacker: str,
-        safe_address: str,
-        order_vault: str,
-    ):
-        """Test that non-whitelisted router reverts."""
-        call_data = encode_send_wnt(order_vault, 10**17)
-        multicall_data = encode_multicall([call_data])
-
-        with pytest.raises(TransactionFailed, match="GMX router not allowed"):
-            guard.functions.validate_gmxMulticall(
-                attacker,  # Not whitelisted
-                safe_address,
-                multicall_data,
-            ).call()
+def test_gmx_market_not_whitelisted(
+    guard: Contract,
+    btc_usd_market: str,
+):
+    """Test that non-whitelisted market is rejected."""
+    assert guard.functions.isAllowedGMXMarket(btc_usd_market).call() is False
 
 
-class TestGMXAnyAssetMode:
-    """Test that anyAsset mode bypasses whitelist checks."""
-
-    def test_any_asset_allows_non_whitelisted_market(
-        self,
-        web3: Web3,
-        guard: Contract,
-        owner: str,
-        exchange_router: str,
-        safe_address: str,
-        btc_usd_market: str,  # Not whitelisted
-        usdc: Contract,
-    ):
-        """Test that anyAsset=true allows non-whitelisted markets."""
-        # Enable anyAsset mode
-        guard.functions.setAnyAssetAllowed(True, "Enable anyAsset").transact({"from": owner})
-
-        call_data = encode_create_order(
-            receiver=safe_address,
-            cancellation_receiver=safe_address,
-            callback_contract="0x0000000000000000000000000000000000000000",
-            ui_fee_receiver="0x0000000000000000000000000000000000000000",
-            market=btc_usd_market,
-            initial_collateral_token=usdc.address,
-        )
-        multicall_data = encode_multicall([call_data])
-
-        # Should not revert with anyAsset=true
-        guard.functions.validate_gmxMulticall(exchange_router, safe_address, multicall_data).call()
-
-    def test_any_asset_allows_non_whitelisted_collateral(
-        self,
-        web3: Web3,
-        guard: Contract,
-        owner: str,
-        exchange_router: str,
-        safe_address: str,
-        eth_usd_market: str,
-        deployer: str,
-    ):
-        """Test that anyAsset=true allows non-whitelisted collateral."""
-        # Enable anyAsset mode
-        guard.functions.setAnyAssetAllowed(True, "Enable anyAsset").transact({"from": owner})
-
-        # Create token that's not whitelisted
-        bad_token = create_token(web3, deployer, "Bad Token", "BAD", 1000 * 10**18)
-
-        call_data = encode_create_order(
-            receiver=safe_address,
-            cancellation_receiver=safe_address,
-            callback_contract="0x0000000000000000000000000000000000000000",
-            ui_fee_receiver="0x0000000000000000000000000000000000000000",
-            market=eth_usd_market,
-            initial_collateral_token=bad_token.address,
-        )
-        multicall_data = encode_multicall([call_data])
-
-        # Should not revert with anyAsset=true
-        guard.functions.validate_gmxMulticall(exchange_router, safe_address, multicall_data).call()
-
-    def test_any_asset_still_validates_receivers(
-        self,
-        guard: Contract,
-        owner: str,
-        exchange_router: str,
-        safe_address: str,
-        attacker: str,
-        eth_usd_market: str,
-        usdc: Contract,
-    ):
-        """Test that anyAsset=true still validates receiver addresses."""
-        # Enable anyAsset mode
-        guard.functions.setAnyAssetAllowed(True, "Enable anyAsset").transact({"from": owner})
-
-        # Try to send to attacker - should still fail
-        call_data = encode_create_order(
-            receiver=attacker,  # Wrong receiver - still fails even with anyAsset
-            cancellation_receiver=safe_address,
-            callback_contract="0x0000000000000000000000000000000000000000",
-            ui_fee_receiver="0x0000000000000000000000000000000000000000",
-            market=eth_usd_market,
-            initial_collateral_token=usdc.address,
-        )
-        multicall_data = encode_multicall([call_data])
-
-        with pytest.raises(TransactionFailed, match="GMX createOrder: receiver must be Safe"):
-            guard.functions.validate_gmxMulticall(exchange_router, safe_address, multicall_data).call()
+def test_gmx_market_removed(
+    guard: Contract,
+    owner: str,
+    eth_usd_market: str,
+):
+    """Test that removed market is no longer allowed."""
+    guard.functions.removeGMXMarket(eth_usd_market, "Remove ETH/USD").transact({"from": owner})
+    assert guard.functions.isAllowedGMXMarket(eth_usd_market).call() is False
 
 
-class TestGMXCompleteMulticall:
-    """Test complete multicall scenarios with multiple inner calls."""
+def test_receiver_whitelisted(
+    guard: Contract,
+    safe_address: str,
+):
+    """Test that Safe is whitelisted as receiver."""
+    assert guard.functions.isAllowedReceiver(safe_address).call() is True
 
-    def test_complete_order_multicall(
-        self,
-        guard: Contract,
-        exchange_router: str,
-        safe_address: str,
-        order_vault: str,
-        eth_usd_market: str,
-        usdc: Contract,
-        weth: Contract,
-    ):
-        """Test a complete order multicall with sendWnt + sendTokens + createOrder."""
-        calls = [
-            # Send execution fee (WETH/native)
-            encode_send_wnt(order_vault, 10**16),  # 0.01 ETH
-            # Send collateral
-            encode_send_tokens(usdc.address, order_vault, 1000 * 10**6),  # 1000 USDC
-            # Create order
-            encode_create_order(
-                receiver=safe_address,
-                cancellation_receiver=safe_address,
-                callback_contract="0x0000000000000000000000000000000000000000",
-                ui_fee_receiver="0x0000000000000000000000000000000000000000",
-                market=eth_usd_market,
-                initial_collateral_token=usdc.address,
-            ),
-        ]
-        multicall_data = encode_multicall(calls)
 
-        # Should not revert
-        guard.functions.validate_gmxMulticall(exchange_router, safe_address, multicall_data).call()
+def test_receiver_not_whitelisted(
+    guard: Contract,
+    attacker: str,
+):
+    """Test that non-whitelisted address is rejected as receiver."""
+    assert guard.functions.isAllowedReceiver(attacker).call() is False
 
-    def test_close_position_multicall(
-        self,
-        guard: Contract,
-        exchange_router: str,
-        safe_address: str,
-        order_vault: str,
-        eth_usd_market: str,
-        usdc: Contract,
-    ):
-        """Test closing a position - only execution fee, no collateral."""
-        calls = [
-            # Send execution fee only
-            encode_send_wnt(order_vault, 10**16),  # 0.01 ETH
-            # Create close order (no collateral sent)
-            encode_create_order(
-                receiver=safe_address,
-                cancellation_receiver=safe_address,
-                callback_contract="0x0000000000000000000000000000000000000000",
-                ui_fee_receiver="0x0000000000000000000000000000000000000000",
-                market=eth_usd_market,
-                initial_collateral_token=usdc.address,
-            ),
-        ]
-        multicall_data = encode_multicall(calls)
 
-        guard.functions.validate_gmxMulticall(exchange_router, safe_address, multicall_data).call()
+def test_receiver_removed(
+    guard: Contract,
+    owner: str,
+    safe_address: str,
+):
+    """Test that removed receiver is no longer allowed."""
+    guard.functions.removeReceiver(safe_address, "Remove Safe").transact({"from": owner})
+    assert guard.functions.isAllowedReceiver(safe_address).call() is False
+
+
+# =============================================================================
+# Test anyAsset mode
+# =============================================================================
+
+
+def test_any_asset_allows_non_whitelisted_market(
+    guard: Contract,
+    owner: str,
+    btc_usd_market: str,
+):
+    """Test that anyAsset=true allows non-whitelisted markets."""
+    # Verify market is not whitelisted
+    assert guard.functions.isAllowedGMXMarket(btc_usd_market).call() is False
+
+    # Enable anyAsset mode
+    guard.functions.setAnyAssetAllowed(True, "Enable anyAsset").transact({"from": owner})
+
+    # Now market should be allowed
+    assert guard.functions.isAllowedGMXMarket(btc_usd_market).call() is True
+
+
+def test_any_asset_allows_non_whitelisted_asset(
+    web3: Web3,
+    guard: Contract,
+    owner: str,
+    deployer: str,
+):
+    """Test that anyAsset=true allows non-whitelisted assets."""
+    # Create token that's not whitelisted
+    bad_token = create_token(web3, deployer, "Bad Token", "BAD", 1000 * 10**18)
+
+    # Verify token is not whitelisted
+    assert guard.functions.isAllowedAsset(bad_token.address).call() is False
+
+    # Enable anyAsset mode
+    guard.functions.setAnyAssetAllowed(True, "Enable anyAsset").transact({"from": owner})
+
+    # Now token should be allowed
+    assert guard.functions.isAllowedAsset(bad_token.address).call() is True
+
+
+def test_any_asset_does_not_affect_receiver_check(
+    guard: Contract,
+    owner: str,
+    attacker: str,
+):
+    """Test that anyAsset=true does NOT bypass receiver whitelist.
+
+    SECURITY: Even with anyAsset enabled, receivers must be whitelisted
+    to prevent funds being sent to attacker addresses.
+    """
+    # Enable anyAsset mode
+    guard.functions.setAnyAssetAllowed(True, "Enable anyAsset").transact({"from": owner})
+
+    # Attacker should still NOT be allowed as receiver
+    assert guard.functions.isAllowedReceiver(attacker).call() is False
+
+
+# =============================================================================
+# SECURITY TESTS - Ownership controls
+# =============================================================================
+
+
+def test_security_only_owner_can_whitelist_gmx(
+    guard: Contract,
+    attacker: str,
+):
+    """SECURITY: Test that only owner can whitelist GMX routers."""
+    fake_router = "0x1111111111111111111111111111111111111111"
+    fake_synthetics = "0x2222222222222222222222222222222222222222"
+    fake_vault = "0x3333333333333333333333333333333333333333"
+
+    with pytest.raises(TransactionFailed):
+        guard.functions.whitelistGMX(
+            fake_router,
+            fake_synthetics,
+            fake_vault,
+            "Attacker trying to whitelist",
+        ).transact({"from": attacker})
+
+
+def test_security_only_owner_can_whitelist_market(
+    guard: Contract,
+    attacker: str,
+    btc_usd_market: str,
+):
+    """SECURITY: Test that only owner can whitelist markets."""
+    with pytest.raises(TransactionFailed):
+        guard.functions.whitelistGMXMarket(
+            btc_usd_market,
+            "Attacker trying to whitelist",
+        ).transact({"from": attacker})
+
+
+def test_security_only_owner_can_add_receiver(
+    guard: Contract,
+    attacker: str,
+):
+    """SECURITY: Test that only owner can add receivers."""
+    with pytest.raises(TransactionFailed):
+        guard.functions.allowReceiver(
+            attacker,
+            "Attacker trying to whitelist themselves",
+        ).transact({"from": attacker})
+
+
+def test_security_only_owner_can_remove_receiver(
+    guard: Contract,
+    attacker: str,
+    safe_address: str,
+):
+    """SECURITY: Test that only owner can remove receivers."""
+    with pytest.raises(TransactionFailed):
+        guard.functions.removeReceiver(
+            safe_address,
+            "Attacker trying to remove Safe",
+        ).transact({"from": attacker})
+
+
+def test_security_only_owner_can_enable_any_asset(
+    guard: Contract,
+    attacker: str,
+):
+    """SECURITY: Test that only owner can enable anyAsset mode."""
+    with pytest.raises(TransactionFailed):
+        guard.functions.setAnyAssetAllowed(
+            True,
+            "Attacker trying to enable anyAsset",
+        ).transact({"from": attacker})
+
+
+def test_security_only_owner_can_remove_market(
+    guard: Contract,
+    attacker: str,
+    eth_usd_market: str,
+):
+    """SECURITY: Test that only owner can remove markets."""
+    with pytest.raises(TransactionFailed):
+        guard.functions.removeGMXMarket(
+            eth_usd_market,
+            "Attacker trying to remove market",
+        ).transact({"from": attacker})
+
+
+# =============================================================================
+# Test whitelisting workflow
+# =============================================================================
+
+
+def test_complete_gmx_whitelist_workflow(
+    web3: Web3,
+    vault: Contract,
+    owner: str,
+):
+    """Test the complete GMX whitelisting workflow from scratch."""
+    # Get a fresh guard
+    guard = get_deployed_contract(web3, "guard/GuardV0.json", vault.functions.guard().call())
+
+    # Define addresses
+    exchange_router = "0x7C68C7866A64FA2160F78EEaE12217FFbf871fa8"
+    synthetics_router = "0x7452c558d45f8afC8c83dAe62C3f8A5BE19c71f6"
+    order_vault = "0x31eF83a530Fde1B38EE9A18093A333D8Bbbc40D5"
+    eth_usd_market = "0x70d95587d40A2caf56bd97485aB3Eec10Bee6336"
+    safe_address = web3.eth.accounts[3]
+    usdc_address = "0xaf88d065e77c8cC2239327C5EDb3A432268e5831"
+
+    # 1. Whitelist GMX router
+    guard.functions.whitelistGMX(exchange_router, synthetics_router, order_vault, "GMX").transact({"from": owner})
+    assert guard.functions.isAllowedGMXRouter(exchange_router).call() is True
+    assert guard.functions.gmxOrderVaults(exchange_router).call() == order_vault
+
+    # 2. Whitelist receiver (Safe)
+    guard.functions.allowReceiver(safe_address, "Safe").transact({"from": owner})
+    assert guard.functions.isAllowedReceiver(safe_address).call() is True
+
+    # 3. Whitelist market
+    guard.functions.whitelistGMXMarket(eth_usd_market, "ETH/USD").transact({"from": owner})
+    assert guard.functions.isAllowedGMXMarket(eth_usd_market).call() is True
+
+    # 4. Verify collateral token whitelisting through whitelistToken
+    guard.functions.whitelistToken(usdc_address, "USDC").transact({"from": owner})
+    assert guard.functions.isAllowedAsset(usdc_address).call() is True
+
+
+def test_gmx_selector_constant():
+    """Verify the GMX createOrder selector matches the expected value.
+
+    This ensures the Guard contract has the correct function selector
+    for GMX's createOrder function.
+    """
+    # The correct selector for createOrder(((address,address,address,address,address,address,address[]),(uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256),uint8,uint8,bool,bool,bool,bytes32,bytes32[]))
+    expected_selector = bytes.fromhex("f59c48eb")
+
+    # This can be verified by computing keccak256 of the function signature
+    from web3 import Web3
+
+    # Note: The actual selector depends on the exact function signature
+    # which includes the full tuple structure
+    sig = "createOrder(((address,address,address,address,address,address,address[]),(uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256),uint8,uint8,bool,bool,bool,bytes32,bytes32[]))"
+    computed = Web3.keccak(text=sig)[:4]
+
+    assert computed == expected_selector, f"Expected {expected_selector.hex()}, got {computed.hex()}"
