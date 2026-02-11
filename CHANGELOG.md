@@ -1,5 +1,6 @@
 # Current
 
+- Fix: Autopool (Tokemak / AUTO Finance) vaults no longer crash on `previewRedeem()` revert — `AutoPoolDepositManager` bypasses it and estimates redemption value via share price; generic `estimate_4626_redeem()` also catches reverts as a safety net (2026-02-11)
 - Fix: Guard contract now validates Umami non-standard ERC-4626 deposit/redeem selectors instead of reverting with "Unknown function selector" (2026-02-10)
 - Add: Lagoon vault offchain metadata - fetch per-vault descriptions and curator info from Lagoon's web app API, with disk and in-process caching (2026-02-10)
 - Update: Upgrade Docker images and ReadTheDocs from Python 3.11 to 3.12; fix `datetime.utcnow()` deprecation for forward compatibility (2026-02-10)
