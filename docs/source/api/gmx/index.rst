@@ -51,13 +51,155 @@ Key features:
 See the `gmx-ccxt-freqtrade repository <https://github.com/tradingstrategy-ai/gmx-ccxt-freqtrade>`__
 for complete setup instructions, backtesting guides, and a working strategy example.
 
-Supported CCXT and Freqtrade methods
+Supported CCXT and Freqtrade features
 ======================================
 
-See :ref:`gmx-supported-methods` for the full reference of every standard CCXT method
-and Freqtrade feature, showing which ones are supported, emulated, or unsupported
-by the GMX adapter — including GMX-specific extensions, bundled order parameters,
-and known limitations.
+The following tables list which standard CCXT and Freqtrade features are supported
+by the GMX adapter.
+
+**Market data**
+
+.. list-table::
+   :header-rows: 1
+   :widths: 40 15 45
+
+   * - Method
+     - Supported
+     - Notes
+   * - ``fetch_markets``
+     - Yes
+     -
+   * - ``fetch_ticker`` / ``fetch_tickers``
+     - Yes
+     -
+   * - ``fetch_ohlcv``
+     - Yes
+     - 1m, 5m, 15m, 1h, 4h, 1d; up to 10,000 candles
+   * - ``fetch_trades``
+     - Yes
+     - Derived from position events
+   * - ``fetch_currencies``
+     - Yes
+     -
+   * - ``fetch_order_book``
+     - No
+     - GMX uses liquidity pools, not order books
+   * - ``fetch_time`` / ``fetch_status``
+     - Yes
+     -
+
+**Account and positions**
+
+.. list-table::
+   :header-rows: 1
+   :widths: 40 15 45
+
+   * - Method
+     - Supported
+     - Notes
+   * - ``fetch_balance``
+     - Yes
+     -
+   * - ``fetch_positions``
+     - Yes
+     - Includes PnL, leverage, liquidation price
+   * - ``fetch_my_trades``
+     - Yes
+     -
+   * - ``fetch_open_orders``
+     - Yes
+     - Returns open positions as order-like structures
+   * - ``fetch_orders`` / ``fetch_closed_orders``
+     - No
+     - Use ``fetch_positions`` and ``fetch_my_trades``
+
+**Order management**
+
+.. list-table::
+   :header-rows: 1
+   :widths: 40 15 45
+
+   * - Method
+     - Supported
+     - Notes
+   * - ``create_order``
+     - Yes
+     - Market, limit, stop-loss, take-profit, bundled SL/TP
+   * - ``create_market_buy_order`` / ``create_market_sell_order``
+     - Yes
+     -
+   * - ``create_limit_order``
+     - Yes
+     - Behaves as a trigger order
+   * - ``cancel_order``
+     - No
+     - Orders execute immediately via keeper network
+   * - ``edit_order``
+     - No
+     - Orders are immutable once created
+   * - ``add_margin`` / ``reduce_margin``
+     - No
+     - Not yet implemented
+
+**Derivatives**
+
+.. list-table::
+   :header-rows: 1
+   :widths: 40 15 45
+
+   * - Method
+     - Supported
+     - Notes
+   * - ``fetch_funding_rate`` / ``fetch_funding_rate_history``
+     - Yes
+     -
+   * - ``fetch_open_interest`` / ``fetch_open_interest_history``
+     - Yes
+     -
+   * - ``set_leverage`` / ``fetch_leverage``
+     - Yes
+     - 1.0x to 100x per market
+   * - ``fetch_leverage_tiers``
+     - Yes
+     - Requires Subsquid
+   * - ``set_margin_mode``
+     - No
+     - GMX uses isolated margin only
+
+**Freqtrade integration**
+
+.. list-table::
+   :header-rows: 1
+   :widths: 40 15 45
+
+   * - Feature
+     - Supported
+     - Notes
+   * - Futures trading mode
+     - Yes
+     -
+   * - Stoploss on exchange
+     - Yes
+     - Bundled SL/TP in a single transaction
+   * - Historical OHLCV for backtesting
+     - Yes
+     - Up to 10,000 candles per request
+   * - Spot trading
+     - No
+     - Only perpetual futures
+   * - WebSocket streaming
+     - No
+     -
+   * - Order modification
+     - No
+     - Orders are immutable
+
+**Known limitations**
+
+- OHLCV volume is always 0 (GMX API limitation)
+- Ticker 24h high/low/open are calculated from OHLCV, not real-time
+- Balance ``used`` field is not calculated (shown as 0.0)
+- Testnet (Arbitrum Sepolia) uses RPC mode with slower market loading
 
 What is GMX?
 ============
