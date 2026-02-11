@@ -144,6 +144,7 @@ def test_anvil_latest_block(web3: Web3, large_busd_holder: HexAddress, user_1):
     latest_block = web3.eth.get_block("latest")
 
 
+@pytest.mark.skip(reason="Too flaky - depends on public Polygon RPC availability and response format")
 @pytest.mark.skipif(shutil.which("anvil") is None, reason="Install anvil to run this test")
 @flaky.flaky(max_runs=3)
 def test_archive_node_required_exception():
