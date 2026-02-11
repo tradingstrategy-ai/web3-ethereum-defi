@@ -71,6 +71,12 @@ bytes4 constant SEL_DELEGATE_SIGNER = 0x2df4869b;  // delegateSigner((bytes32,ad
 bytes4 constant SEL_ORDERLY_DEPOSIT = 0x322dda6d;  // deposit((bytes32,bytes32,bytes32,uint128))
 bytes4 constant SEL_ORDERLY_WITHDRAW = 0x98c2d086;  // withdraw((bytes32,bytes32,bytes32,uint128,uint128,address,address,uint64))
 
+// GMX
+bytes4 constant SEL_GMX_MULTICALL = 0xac9650d8;  // multicall(bytes[])
+bytes4 constant SEL_GMX_SEND_WNT = 0x7d39aaf1;  // sendWnt(address,uint256)
+bytes4 constant SEL_GMX_SEND_TOKENS = 0xe6d66ac8;  // sendTokens(address,address,uint256)
+bytes4 constant SEL_GMX_CREATE_ORDER = 0x296ea41f;  // createOrder(tuple) - hardcoded
+
 /**
  * Prototype guard implementation.
  *
@@ -157,6 +163,27 @@ abstract contract GuardV0Base is IGuard,  Multicall, SwapCowSwap  {
     //
     mapping(address destination => bool allowed) public allowedVeloraSwappers;
 
+    // Allowed GMX Exchange Router instances.
+    //
+    // GMX uses multicall() on ExchangeRouter to batch order operations.
+    // SyntheticsRouter is whitelisted separately via allowApprovalDestination for collateral.
+    //
+    mapping(address destination => bool allowed) public allowedGMXRouters;
+
+    // GMX OrderVault addresses per ExchangeRouter.
+    //
+    // OrderVault is where tokens are sent before order execution via sendWnt/sendTokens.
+    // We validate that tokens are only sent to the correct OrderVault.
+    //
+    mapping(address exchangeRouter => address orderVault) public gmxOrderVaults;
+
+    // Allowed GMX markets (market contract addresses).
+    //
+    // Each GMX market is a separate contract. We can whitelist specific markets
+    // to restrict which assets can be traded, or set anyAsset=true to allow all.
+    //
+    mapping(address market => bool allowed) public allowedGMXMarkets;
+
     // Allow trading any token
     //
     // Dangerous, as malicious/compromised trade-executor can drain all assets through creating fake tokens
@@ -192,6 +219,9 @@ abstract contract GuardV0Base is IGuard,  Multicall, SwapCowSwap  {
 
     event CowSwapApproved(address settlementContract, string notes);
     event VeloraSwapperApproved(address augustusSwapper, string notes);
+    event GMXRouterApproved(address exchangeRouter, address syntheticsRouter, string notes);
+    event GMXMarketApproved(address market, string notes);
+    event GMXMarketRemoved(address market, string notes);
     event ERC4626Approved(address vault, string notes);
 
     // Velora swap execution event - emitted after successful atomic swap
@@ -511,6 +541,9 @@ abstract contract GuardV0Base is IGuard,  Multicall, SwapCowSwap  {
             validate_orderlyDeposit(callData);
         } else if (selector == SEL_ORDERLY_WITHDRAW) {
             validate_orderlyWithdraw(callData);
+        } else if (selector == SEL_GMX_MULTICALL) {
+            // GMX multicall - validate inner calls
+            validate_gmxMulticall(target, sender, callData);
         } else {
             revert("Unknown function selector");
         }
@@ -678,6 +711,143 @@ abstract contract GuardV0Base is IGuard,  Multicall, SwapCowSwap  {
         allowApprovalDestination(tokenTransferProxy, notes);
         allowedVeloraSwappers[augustusSwapper] = true;
         emit VeloraSwapperApproved(augustusSwapper, notes);
+    }
+
+    // Whitelist GMX Exchange Router for perpetuals trading.
+    //
+    // GMX uses multicall() on ExchangeRouter to batch: sendWnt, sendTokens, createOrder.
+    // SyntheticsRouter must be approved for collateral token spending.
+    // OrderVault is where tokens are sent before order execution.
+    // See: https://docs.gmx.io
+    //
+    function whitelistGMX(
+        address exchangeRouter,
+        address syntheticsRouter,
+        address orderVault,
+        string calldata notes
+    ) external onlyGuardOwner {
+        // Allow multicall on ExchangeRouter
+        allowCallSite(exchangeRouter, SEL_GMX_MULTICALL, notes);
+        // Allow token approvals to SyntheticsRouter for collateral
+        allowApprovalDestination(syntheticsRouter, notes);
+        // Store orderVault for receiver validation in sendWnt/sendTokens
+        gmxOrderVaults[exchangeRouter] = orderVault;
+        // Track allowed routers
+        allowedGMXRouters[exchangeRouter] = true;
+        emit GMXRouterApproved(exchangeRouter, syntheticsRouter, notes);
+    }
+
+    function isAllowedGMXRouter(address router) public view returns (bool) {
+        return allowedGMXRouters[router];
+    }
+
+    // Whitelist a GMX market for trading.
+    //
+    // Markets are specific trading pairs (e.g., ETH/USD, BTC/USD).
+    // If anyAsset is set, all markets are allowed.
+    //
+    function whitelistGMXMarket(address market, string calldata notes) external onlyGuardOwner {
+        allowedGMXMarkets[market] = true;
+        emit GMXMarketApproved(market, notes);
+    }
+
+    function removeGMXMarket(address market, string calldata notes) external onlyGuardOwner {
+        allowedGMXMarkets[market] = false;
+        emit GMXMarketRemoved(market, notes);
+    }
+
+    function isAllowedGMXMarket(address market) public view returns (bool) {
+        return anyAsset || allowedGMXMarkets[market];
+    }
+
+    // Validate a GMX multicall payload.
+    //
+    // Decodes the multicall bytes[] and validates each inner call:
+    // - sendWnt: receiver must be orderVault
+    // - sendTokens: token must be allowed, receiver must be orderVault
+    // - createOrder: receiver/cancellationReceiver must be Safe, market/collateral must be allowed
+    //
+    function validate_gmxMulticall(
+        address exchangeRouter,
+        address safeAddress,
+        bytes calldata callData
+    ) public view {
+        require(isAllowedGMXRouter(exchangeRouter), "GMX router not allowed");
+
+        address orderVault = gmxOrderVaults[exchangeRouter];
+        require(orderVault != address(0), "GMX orderVault not configured");
+
+        // Decode multicall bytes array
+        bytes[] memory calls = abi.decode(callData, (bytes[]));
+
+        for (uint256 i = 0; i < calls.length; i++) {
+            require(calls[i].length >= 4, "GMX: call too short");
+            bytes4 selector = bytes4(calls[i][0]) | (bytes4(calls[i][1]) >> 8) | (bytes4(calls[i][2]) >> 16) | (bytes4(calls[i][3]) >> 24);
+            bytes memory innerCallData = _sliceBytes(calls[i], 4, calls[i].length - 4);
+
+            if (selector == SEL_GMX_SEND_WNT) {
+                _validate_gmxSendWnt(innerCallData, orderVault);
+            } else if (selector == SEL_GMX_SEND_TOKENS) {
+                _validate_gmxSendTokens(innerCallData, orderVault);
+            } else if (selector == SEL_GMX_CREATE_ORDER) {
+                _validate_gmxCreateOrder(innerCallData, safeAddress);
+            } else {
+                revert("GMX: Unknown function in multicall");
+            }
+        }
+    }
+
+    function _sliceBytes(bytes memory data, uint256 start, uint256 length) internal pure returns (bytes memory) {
+        bytes memory result = new bytes(length);
+        for (uint256 i = 0; i < length; i++) {
+            result[i] = data[start + i];
+        }
+        return result;
+    }
+
+    function _validate_gmxSendWnt(bytes memory callData, address orderVault) internal pure {
+        (address receiver, ) = abi.decode(callData, (address, uint256));
+        require(receiver == orderVault, "GMX sendWnt: invalid receiver");
+    }
+
+    function _validate_gmxSendTokens(bytes memory callData, address orderVault) internal view {
+        (address token, address receiver, ) = abi.decode(callData, (address, address, uint256));
+        require(receiver == orderVault, "GMX sendTokens: invalid receiver");
+        require(isAllowedAsset(token), "GMX sendTokens: token not allowed");
+    }
+
+    function _validate_gmxCreateOrder(bytes memory callData, address safeAddress) internal view {
+        // Minimal decode - only extract fields we need to validate
+        // CreateOrderParams is a nested tuple with addresses at the start:
+        // Offset 0x00: receiver
+        // Offset 0x20: cancellationReceiver
+        // Offset 0x40: callbackContract (skip)
+        // Offset 0x60: uiFeeReceiver (skip)
+        // Offset 0x80: market
+        // Offset 0xa0: initialCollateralToken
+
+        address receiver;
+        address cancellationReceiver;
+        address market;
+        address initialCollateralToken;
+
+        assembly {
+            let dataPtr := add(callData, 32) // Skip length prefix
+            receiver := mload(dataPtr)
+            cancellationReceiver := mload(add(dataPtr, 0x20))
+            market := mload(add(dataPtr, 0x80))
+            initialCollateralToken := mload(add(dataPtr, 0xa0))
+        }
+
+        // Validate receiver addresses - must be Safe only
+        require(receiver == safeAddress, "GMX createOrder: receiver must be Safe");
+        require(cancellationReceiver == safeAddress, "GMX createOrder: cancellationReceiver must be Safe");
+
+        // Validate market (unless anyAsset is set)
+        require(isAllowedGMXMarket(market), "GMX createOrder: market not allowed");
+
+        // Validate collateral token (unless anyAsset is set)
+        require(isAllowedAsset(initialCollateralToken), "GMX createOrder: collateral not allowed");
     }
 
     // Validate Velora swap and compute pre-swap balance
