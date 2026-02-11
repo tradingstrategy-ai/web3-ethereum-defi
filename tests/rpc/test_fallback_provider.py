@@ -12,7 +12,7 @@ from eth_account import Account
 from web3 import HTTPProvider, Web3
 
 from eth_defi.abi import ZERO_ADDRESS
-from eth_defi.compat import WEB3_PY_V7, clear_middleware, create_http_provider
+from eth_defi.compat import clear_middleware, create_http_provider
 from eth_defi.confirmation import NonceMismatch, wait_and_broadcast_multiple_nodes
 from eth_defi.event_reader.fast_json_rpc import get_last_headers
 from eth_defi.gas import node_default_gas_price_strategy

@@ -2,6 +2,8 @@
 
 [![Automated test suite](https://github.com/tradingstrategy-ai/web3-ethereum-defi/actions/workflows/test.yml/badge.svg)](https://github.com/tradingstrategy-ai/web3-ethereum-defi/actions/workflows/test.yml)
 
+[![GMX Tests](https://github.com/tradingstrategy-ai/web3-ethereum-defi/actions/workflows/test-gmx.yml/badge.svg)](https://github.com/tradingstrategy-ai/web3-ethereum-defi/actions/workflows/test-gmx.yml)
+
 
 # Web3-Ethereum-Defi
 
@@ -158,7 +160,7 @@ This is a MIT-licensed open source project. Those who sponsor and contribute get
 
 To use this package you need to
 
-* Have Python 3.10, Python 3.11, or Python 3.12 (no other versions tested)
+* Have Python 3.12 or older (Python 3.13+ is not yet supported because [Hypersync does not publish wheels for newer versions](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/715))
 * macOS, Linux or Windows Subsystem for Linux (WSL) needed, Microsoft Windows is not officially supported
   * For WSL, [make sure you have gcc and other tools installed](https://stackoverflow.com/questions/62215963/how-to-install-gcc-and-gdb-for-wslwindows-subsytem-for-linux/63548362#63548362)
 * [Be proficient in Python programming](https://wiki.python.org/moin/BeginnersGuide)
@@ -168,42 +170,25 @@ To use this package you need to
 
 # Install
 
-**Warning**: Currently, installation fails with Poetry 2.3 and some other package manager versions.
-
 With `pip`:
 
 ```shell
 pip install "web3-ethereum-defi[data]"
 ```
-**N.B.** From relase `0.32` this project will use `v7` of `web3py`. To keep using it with `v6` after the above setup run the following step as well.
-
-```shell
-pip install "web3-ethereum-defi[web3v6]"
-```
 
 With `poetry`:
 
-<!-- This issue seems to be fixed now -->
-<!-- [//]: # (**N.B.** Currently poetry version `1.8.5` works perfectly. Poetry `>= 2` will be stuck in an infinite loop ) -->
-
 ```shell
-# Poetry version to use the latest web3py v7
 poetry add -E data web3-ethereum-defi
-
-# for web3py v6 
-poetry add -E web3v6 web3-ethereum-defi
 ```
 
-With `poetry` - master Git branch: 
+With `poetry` - master Git branch:
 
 ```shell
 git clone git@github.com:tradingstrategy-ai/web3-ethereum-defi.git
 cd web3-ethereum-defi
 poetry shell
 poetry install --all-extras
-
-# Additional step To force use web3py v6
-poetry install -E web3v6
 ```
 
 # Example code

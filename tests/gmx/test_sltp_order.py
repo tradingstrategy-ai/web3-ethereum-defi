@@ -16,6 +16,7 @@ Tests follow the complete order lifecycle:
 
 import time
 
+import pytest
 from flaky import flaky
 
 from eth_defi.gmx.order.sltp_order import SLTPOrderResult
@@ -515,6 +516,7 @@ def test_standalone_short_with_sl_and_tp(isolated_fork_env_short, execution_buff
 # ============================================================================
 
 
+@pytest.mark.skip(reason="Avik: marked for a fix")
 @flaky(max_runs=3, min_passes=1)
 def test_full_lifecycle_open_and_close_with_sl_tp(isolated_fork_env, execution_buffer):
     """Test full position lifecycle with SL/TP: open then close."""

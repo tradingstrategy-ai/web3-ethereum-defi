@@ -30,7 +30,7 @@ import warnings
 from eth_account._utils.signing import to_bytes32
 from eth_account.signers.local import LocalAccount
 from web3.contract.contract import ContractFunction
-from eth_defi.compat import WEB3_PY_V7, native_datetime_utc_now
+from eth_defi.compat import native_datetime_utc_now
 
 from eth_defi.eip_712 import eip712_encode_hash
 from eth_defi.token import TokenDetails
@@ -290,10 +290,7 @@ def make_eip_3009_transfer(
     # Mute DeprecationWarning
     with warnings.catch_warnings():
         warnings.filterwarnings(action="ignore", category=DeprecationWarning)
-        if WEB3_PY_V7:
-            signed_message = from_.unsafe_sign_hash(message_hash)
-        else:
-            signed_message = from_.signHash(message_hash)
+        signed_message = from_.unsafe_sign_hash(message_hash)
 
     # Should come in the order defined for the dict,
     # as Python 3.10+ does ordered dicts

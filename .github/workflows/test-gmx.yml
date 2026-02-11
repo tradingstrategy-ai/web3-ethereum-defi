@@ -30,18 +30,15 @@ jobs:
     # Only run the action for the latest push
     # See https://docs.github.com/en/actions/using-jobs/using-concurrency#example-only-cancel-in-progress-jobs-or-runs-for-the-current-workflow
     concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}-${{ matrix.python-version }}-${{ matrix.web3-version }}
+      group: ${{ github.workflow }}-${{ github.ref }}-${{ matrix.python-version }}
       cancel-in-progress: true
 
     strategy:
       fail-fast: false
       matrix:
-        # The project is developed using 3.12
         python-version: ["3.12"]
-        # v6 has it's own separate workflow
-        web3-version: ["7"]
 
-    name: GMX Tests - Python ${{ matrix.python-version }} - Web3.py v${{ matrix.web3-version }}
+    name: GMX Tests - Python ${{ matrix.python-version }}
 
     steps:
       - uses: actions/checkout@v3
@@ -55,17 +52,16 @@ jobs:
           # Disable cache to force fresh installation when debugging
           # cache: "poetry"
 
-      # Poetry 2.0 breaks everything
       # https://github.com/python-poetry/poetry/blob/main/CHANGELOG.md
       - name: Install poetry (using matrix Python)
-        run: pipx install "poetry>2" --python "${{ env.PYTHON_PATH }}"
+        run: pipx install "poetry>=2.3" --python "${{ env.PYTHON_PATH }}"
 
       # Install dependencies with the specific Web3.py version
       # Using a single installation command to avoid conflicts
-      - name: Install dependencies with specific Web3.py version
+      - name: Install dependencies
         run: |
             poetry install
-            poetry install -E docs -E data -E test -E hypersync -E ccxt -E web3v7 -E duckdb
+            poetry install -E docs -E data -E test -E hypersync -E ccxt -E duckdb
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1

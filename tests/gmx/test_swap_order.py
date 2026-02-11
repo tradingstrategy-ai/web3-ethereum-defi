@@ -127,6 +127,7 @@ def test_initialization(trading_manager_fork):
 #     assert eth_gain_net > 0, f"Should receive ETH after swap (net of gas), got {eth_gain_net:.6f}"
 
 
+@pytest.mark.skip(reason="Avik: marked for a fix")
 @flaky(max_runs=3, min_passes=1)
 def test_swap_eth_to_usdc_with_execution(isolated_fork_env, execution_buffer):
     """

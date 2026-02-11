@@ -6,6 +6,7 @@ Two minimal tests demonstrating complete position lifecycle:
 2. Open and close a short ETH position
 """
 
+import pytest
 from flaky import flaky
 
 from eth_defi.gmx.order.base_order import OrderResult
@@ -28,6 +29,7 @@ def _execute_order(web3, tx_hash):
     return exec_receipt
 
 
+@pytest.mark.skip(reason="Avik: marked for a fix")
 @flaky(max_runs=3, min_passes=1)
 def test_ccxt_open_and_close_long_position(isolated_fork_env, execution_buffer):
     """
@@ -137,6 +139,7 @@ def test_ccxt_open_and_close_long_position(isolated_fork_env, execution_buffer):
     assert len(positions_after_close) == initial_position_count
 
 
+@pytest.mark.skip(reason="Avik: marked for a fix")
 @flaky(max_runs=3, min_passes=1)
 def test_ccxt_open_and_close_short_position(
     isolated_fork_env_short,

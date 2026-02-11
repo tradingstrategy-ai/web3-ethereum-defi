@@ -28,7 +28,7 @@ from web3.contract.contract import Contract, ContractEvent, ContractFunction
 # Cache loaded ABI files in-process memory for speedup
 from web3.datastructures import AttributeDict
 
-from eth_defi.compat import WEB3_PY_V7, abi_to_signature, get_function_info
+from eth_defi.compat import abi_to_signature, get_function_info
 
 # How big are our ABI and contract caches
 _CACHE_SIZE = 512
@@ -351,10 +351,7 @@ def encode_function_call(
         args = func.args
         assert args is not None, f"Function {func.fn_name} has no bound arguments, please provide args explicitly or bind them to ContractFunction object"
 
-    if WEB3_PY_V7:
-        fn_identifier = func.abi_element_identifier
-    else:
-        fn_identifier = func.function_identifier
+    fn_identifier = func.abi_element_identifier
 
     fn_abi, fn_selector, fn_arguments = get_function_info(
         # type ignored b/c fn_id here is always str b/c FallbackFn is handled above
@@ -509,13 +506,6 @@ def get_function_selector(func: ContractFunction) -> bytes:
     fn_abi = next((a for a in contract_abi if a.get("name") == func.fn_name), None)
     assert fn_abi, f"Could not find function {func.fn_name} in Contract ABI"
 
-    # In v7 the function_abi_to_4byte_selector method is updated to call abi_to_signature before processing the signature
-    # for some reason this is not required maybe
-    # if WEB3_PY_V7:
-    #     function_signature = fn_abi
-    # else:
-    #     function_signature = abi_to_signature(fn_abi)
-    # print(f"{fn_abi=}")
     fn_selector = function_abi_to_4byte_selector(fn_abi)  # type: ignore
     return fn_selector
 

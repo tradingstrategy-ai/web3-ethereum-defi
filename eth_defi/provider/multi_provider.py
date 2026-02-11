@@ -12,7 +12,7 @@ from urllib3.util import Retry, Url, parse_url
 from web3 import HTTPProvider, Web3
 
 from eth_defi.chain import install_chain_middleware
-from eth_defi.compat import WEB3_PY_V7, clear_middleware, create_http_provider
+from eth_defi.compat import clear_middleware, create_http_provider
 from eth_defi.event_reader.fast_json_rpc import patch_provider, patch_web3
 from eth_defi.middleware import static_call_cache_middleware
 from eth_defi.provider.anvil import is_anvil
@@ -290,39 +290,16 @@ def create_multi_provider_web3(
 
     patch_web3(web3)
 
-    # Import compatibility functions
-    from eth_defi.compat import WEB3_PY_V7, add_middleware, clear_middleware
+    from eth_defi.compat import add_middleware
 
-    # Clear all middleware first
     clear_middleware(web3)
 
-    # Add static call cache middleware with v6/v7 compatibility
-    if WEB3_PY_V7:
-        # For v7, try to add it but skip if it causes issues
-        try:
-            add_middleware(web3, static_call_cache_middleware, layer=0)
-            logger.info("Successfully added static_call_cache_middleware for web3.py v7")
-        except Exception as e:
-            logger.warning(f"Skipping static_call_cache_middleware in v7 due to compatibility issue: {e}")
-    else:
-        # v6 - direct injection
-        web3.middleware_onion.inject(static_call_cache_middleware, layer=0)
-
-    # Install chain middleware with error handling
     try:
-        install_chain_middleware(web3, hint=hint)
+        add_middleware(web3, static_call_cache_middleware, layer=0)
     except Exception as e:
-        if "missing 1 required positional argument" in str(e):
-            logger.error(f"Middleware compatibility issue in v7: {e}")
-            logger.info("Continuing without problematic chain middleware...")
-            # Clear any partially installed middleware and continue
-            clear_middleware(web3)
-            # Try to add just the basic middleware we need
-            if not WEB3_PY_V7:
-                web3.middleware_onion.inject(static_call_cache_middleware, layer=0)
-        else:
-            # Re-raise other types of errors
-            raise
+        logger.warning("Skipping static_call_cache_middleware due to compatibility issue: %s", e)
+
+    install_chain_middleware(web3, hint=hint)
 
     if is_anvil(web3):
         # When running against local testing,

@@ -41,7 +41,7 @@ ENV PYTHONUNBUFFERED=1
 RUN apt-get update && apt-get install -y libmpfr-dev libmpc-dev && rm -rf /var/lib/apt/lists/*
 
 # Install Python Poetry - pinned version
-RUN curl -sSL https://install.python-poetry.org | python - --version 2.2.1
+RUN curl -sSL https://install.python-poetry.org | python - --version 2.3.2
 
 WORKDIR /usr/src/web3-ethereum-defi
 ENV PATH="/usr/src/web3-ethereum-defi/.venv/bin:/root/.local/bin:$PATH"
@@ -58,7 +58,7 @@ COPY README.md README.md
 # some setuptools issue, so we need to create a virtual env
 ENV POETRY_VIRTUALENVS_CREATE=true
 ENV POETRY_VIRTUALENVS_IN_PROJECT=true
-RUN poetry install -E data -E web3v6 -E hypersync -E cloudflare_r2 -E duckdb --no-interaction --no-ansi --without=dev
+RUN poetry install -E data -E hypersync -E cloudflare_r2 -E duckdb --no-interaction --no-ansi --without=dev
 
 # Clean Poetry cache to reduce image size
 RUN poetry cache clear pypi --all --no-interaction

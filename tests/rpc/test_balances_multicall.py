@@ -11,7 +11,6 @@ from eth_defi.balances import fetch_erc20_balances_multicall, BalanceFetchFailed
 from eth_defi.provider.broken_provider import get_almost_latest_block_number
 from eth_defi.provider.mev_blocker import MEVBlockerProvider
 from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.compat import WEB3_PY_V7
 
 
 CI = os.environ.get("CI") == "true"
@@ -128,9 +127,3 @@ def test_web3_middleware_compatibility():
     # Test that we can make a simple call
     latest_block = web3.eth.block_number
     assert latest_block > 0
-
-    # Check if we're running v7 and log for debugging
-    if WEB3_PY_V7:
-        print(f"Running with web3.py v7+, chain_id: {chain_id}, latest_block: {latest_block}")
-    else:
-        print(f"Running with web3.py v6, chain_id: {chain_id}, latest_block: {latest_block}")

@@ -27,7 +27,6 @@ from eth_defi.provider.multi_provider import MultiProviderWeb3Factory
 from eth_defi.provider.named import get_provider_name
 from eth_defi.token import fetch_erc20_details, DEFAULT_TOKEN_CACHE
 from eth_defi.vault.lower_case_dict import LowercaseDict
-from eth_defi.compat import WEB3_PY_V7
 
 logger = logging.getLogger(__name__)
 
@@ -643,10 +642,7 @@ def fetch_erc20_balances_multicall_v7(
     return result
 
 
-if WEB3_PY_V7:
-    fetch_erc20_balances_multicall = fetch_erc20_balances_multicall_v7
-else:
-    fetch_erc20_balances_multicall = fetch_erc20_balances_multicall_v6
+fetch_erc20_balances_multicall = fetch_erc20_balances_multicall_v7
 
 
 def fetch_erc20_balances_fallback(

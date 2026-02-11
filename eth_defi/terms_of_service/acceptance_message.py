@@ -10,7 +10,6 @@
 
 import datetime
 
-from eth_defi.compat import WEB3_PY_V7
 from eth_account.messages import encode_defunct, _hash_eip191_message
 from eth_account.signers.local import LocalAccount
 
@@ -59,9 +58,6 @@ def sign_terms_of_service(
 
     assert isinstance(user, LocalAccount)
     message_hash = get_signing_hash(signable_message)
-    if WEB3_PY_V7:
-        signed_message = user.unsafe_sign_hash(message_hash)
-    else:
-        signed_message = user.signHash(message_hash)
+    signed_message = user.unsafe_sign_hash(message_hash)
     # import ipdb ; ipdb.set_trace()
     return message_hash, signed_message.signature

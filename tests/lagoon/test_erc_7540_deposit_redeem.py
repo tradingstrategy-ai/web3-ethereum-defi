@@ -8,7 +8,6 @@ from typing import cast
 import pytest
 from web3 import Web3
 
-from eth_defi.compat import WEB3_PY_V7
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.lagoon.deposit_redeem import ERC7540DepositManager, ERC7540DepositRequest, ERC7540DepositTicket, ERC7540RedemptionTicket
@@ -26,9 +25,6 @@ from eth_defi.vault.deposit_redeem import DepositRedeemEventAnalysis
 JSON_RPC_BASE = os.environ.get("JSON_RPC_BASE")
 
 CI = os.environ.get("CI", None) is not None
-
-
-WEB3_PY_V6 = not WEB3_PY_V7
 
 
 pytestmark = pytest.mark.skipif(not JSON_RPC_BASE, reason="No JSON_RPC_BASE environment variable")
@@ -114,8 +110,6 @@ def test_user(web3, usdc):
     return account
 
 
-#  FAILED tests/lagoon/test_erc_7540_deposit_redeem.py::test_erc_7540_deposit_722_capital - AssertionError: Cannot find Referral event in logs:
-@pytest.mark.skipif(WEB3_PY_V6, reason="Web3.py v6 event log parsing is broken?")
 def test_erc_7540_deposit_722_capital(
     vault: ERC4626Vault,
     test_user: HexAddress,
@@ -188,7 +182,6 @@ def test_erc_7540_deposit_722_capital(
     assert deposit_result.get_share_price() == pytest.approx(Decimal("1.040966706424453185124846464"))
 
 
-@pytest.mark.skipif(WEB3_PY_V6, reason="Web3.py v6 event log parsing is broken?")
 def test_erc_7540_redeem_722_capital(
     vault: ERC4626Vault,
     test_user: HexAddress,

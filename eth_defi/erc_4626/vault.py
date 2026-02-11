@@ -12,17 +12,12 @@ from requests.exceptions import HTTPError
 from web3 import Web3
 from web3.contract import Contract
 
-from eth_defi.compat import WEB3_PY_V7
 from eth_defi.middleware import ProbablyNodeHasNoBlock
 from eth_defi.provider.broken_provider import get_safe_cached_latest_block_number
 from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.vault.flag import VaultFlag
 
-if WEB3_PY_V7:
-    from web3.exceptions import BadFunctionCallOutput, BlockNumberOutOfRange
-else:
-    from web3.exceptions import BadFunctionCallOutput
-    from web3.exceptions import BlockNumberOutofRange as BlockNumberOutOfRange
+from web3.exceptions import BadFunctionCallOutput, BlockNumberOutOfRange
 
 from web3.types import BlockIdentifier
 

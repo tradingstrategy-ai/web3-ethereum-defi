@@ -18,7 +18,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Poetry
-RUN curl -sSL https://install.python-poetry.org | python - --version 2.2.1
+RUN curl -sSL https://install.python-poetry.org | python - --version 2.3.2
 
 # Set working directory
 WORKDIR /usr/src/web3-ethereum-defi
@@ -36,7 +36,7 @@ ENV POETRY_VIRTUALENVS_CREATE=true
 ENV POETRY_VIRTUALENVS_IN_PROJECT=true
 
 # Install base dependencies with Poetry (your current ones)
-RUN poetry install -E data -E web3v6 -E hypersync -E duckdb --no-interaction --no-ansi --without=dev
+RUN poetry install -E data -E hypersync -E duckdb --no-interaction --no-ansi --without=dev
 
 # Add Google Sheets dependencies
 RUN .venv/bin/pip install gspread gspread-dataframe google-auth google-auth-oauthlib google-auth-httplib2

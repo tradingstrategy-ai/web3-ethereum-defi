@@ -53,21 +53,10 @@ def user(web3, deployer, usdc) -> LocalAccount:
         500 * 10**6,
     ).transact({"from": deployer})
 
-    # Use official patterns from web3.py docs
-    from eth_defi.compat import WEB3_PY_V7
+    from web3.middleware import SignAndSendRawMiddlewareBuilder
 
-    if WEB3_PY_V7:
-        # v7 - official pattern from docs
-        from web3.middleware import SignAndSendRawMiddlewareBuilder
-
-        middleware = SignAndSendRawMiddlewareBuilder.build(account)
-        web3.middleware_onion.inject(middleware, layer=0)
-    else:
-        # v6 - use your existing function
-        from eth_defi.middleware import construct_sign_and_send_raw_middleware_anvil
-
-        middleware = construct_sign_and_send_raw_middleware_anvil(account)
-        web3.middleware_onion.inject(middleware, layer=0)
+    middleware = SignAndSendRawMiddlewareBuilder.build(account)
+    web3.middleware_onion.inject(middleware, layer=0)
 
     return account
 

@@ -18,7 +18,6 @@ from web3.types import RPCEndpoint, RPCResponse
 from eth_defi.event_reader.fast_json_rpc import get_last_headers
 from eth_defi.middleware import DEFAULT_RETRYABLE_EXCEPTIONS, DEFAULT_RETRYABLE_HTTP_STATUS_CODES, DEFAULT_RETRYABLE_RPC_ERROR_CODES, ProbablyNodeHasNoBlock, is_retryable_http_exception, SomeCrappyRPCProviderException
 from eth_defi.provider.named import BaseNamedProvider, NamedProvider, get_provider_name
-from eth_defi.compat import WEB3_PY_V7
 
 logger = logging.getLogger(__name__)
 
@@ -46,48 +45,14 @@ class FallbackStrategy(enum.Enum):
 
 
 def _check_provider_middlewares_compat(provider):
-    """Check if provider has conflicting retry middleware with v6/v7 compatibility.
+    """Check if provider has conflicting retry middleware.
 
-    In v7, retry is handled via ExceptionRetryConfiguration on provider,
-    not middleware. This function handles both cases.
+    Retry is handled via ExceptionRetryConfiguration on provider.
     """
-    if WEB3_PY_V7:
-        # v7: Check for provider-level retry configuration instead of middleware
-        if hasattr(provider, "exception_retry_configuration") and provider.exception_retry_configuration is not None:
-            msg = f"Provider {get_provider_name(provider)} {type(provider)} has exception_retry_configuration enabled. This may interfere with FallbackProvider's retry logic. Make sure you disable it before using FallbackProvider."
-            logger.warning(msg)
-            raise AssertionError(msg)
-
-        # v7: Middleware checking is less relevant but we can still check if middlewares exist
-        if hasattr(provider, "middlewares"):
-            middleware_names = []
-            try:
-                # Try to get middleware names - structure might be different in v7
-                if hasattr(provider.middlewares, "__iter__"):
-                    for middleware in provider.middlewares:
-                        if hasattr(middleware, "__name__"):
-                            middleware_names.append(middleware.__name__)
-                        elif hasattr(middleware, "__class__"):
-                            middleware_names.append(middleware.__class__.__name__)
-
-                # Check for known problematic middleware names
-                problematic_names = ["http_retry_request", "exception_retry", "retry_middleware"]
-                for name in problematic_names:
-                    if any(name in str(mw_name).lower() for mw_name in middleware_names):
-                        msg = f"Provider {get_provider_name(provider)} may have retry middleware '{name}' which could interfere with FallbackProvider. Please make sure the fallback provider is not installed on a provider having existing middleware"
-                        logger.warning(msg)
-
-                        # Make sure this cannot happen in newer versions,
-                        # and the code is set up properly
-                        raise AssertionError(msg)
-
-            except Exception as e:
-                # If we can't inspect middlewares, just log and continue
-                logger.debug(f"Could not inspect middlewares for provider {get_provider_name(provider)}: {e}")
-    else:
-        # v6: Original behavior
-        if hasattr(provider, "middlewares") and "http_retry_request" in provider.middlewares:
-            raise AssertionError("http_retry_request middleware cannot be used with FallbackProvider")
+    if hasattr(provider, "exception_retry_configuration") and provider.exception_retry_configuration is not None:
+        msg = f"Provider {get_provider_name(provider)} {type(provider)} has exception_retry_configuration enabled. This may interfere with FallbackProvider's retry logic. Make sure you disable it before using FallbackProvider."
+        logger.warning(msg)
+        raise AssertionError(msg)
 
 
 def _is_tac_provider_madness(error_json_payload: dict) -> bool:
