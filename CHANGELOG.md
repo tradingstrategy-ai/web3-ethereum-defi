@@ -1,7 +1,8 @@
-# 1.0 
+# 1.0
 
 - Full GMX support for CCXT and FreqTrade
 - Remove web3.py v6 support, web3.py v7+ is now required, unblocking installation compabilit with `uv` and other Python package managers (2026-02-11)
+- Make pandas a required dependency instead of optional, as it is used across core modules (2026-02-11)
 
 # 0.41
 
