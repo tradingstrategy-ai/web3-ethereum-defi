@@ -7,6 +7,7 @@
 
 - Make pandas a required dependency instead of optional, as it is used across core modules (2026-02-11)
 - Update README with pip, uv, installation instructions (2026-02-11)
+- Docs: Update GMX API documentation with CCXT adapter, Freqtrade integration, and historical data collector links (2026-02-10)
 
 # 1.0
 
