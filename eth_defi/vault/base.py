@@ -361,6 +361,46 @@ class VaultHistoricalRead:
         )
         return schema
 
+    @staticmethod
+    def migrate_parquet_schema(existing_table: "pyarrow.Table") -> "pyarrow.Table":
+        """Migrate an existing Parquet table to the current schema.
+
+        When new columns are added to :py:meth:`to_pyarrow_schema`,
+        existing parquet files still have the old schema. This function
+        adds missing columns as null arrays so incremental scans can
+        write new data without losing columns.
+
+        :param existing_table:
+            Table read from an older parquet file.
+
+        :return:
+            Table with all current schema columns, missing ones filled with nulls.
+        """
+        import pyarrow as pa
+
+        target_schema = VaultHistoricalRead.to_pyarrow_schema()
+        existing_names = set(existing_table.schema.names)
+
+        for field in target_schema:
+            if field.name not in existing_names:
+                null_array = pa.nulls(len(existing_table), type=field.type)
+                existing_table = existing_table.append_column(field, null_array)
+
+        # Drop any legacy columns not in the current schema (e.g. __index_level_0__)
+        target_names = set(target_schema.names)
+        for name in existing_table.schema.names:
+            if name not in target_names:
+                existing_table = existing_table.drop(name)
+
+        # Reorder to match target schema
+        existing_table = existing_table.select(target_schema.names)
+
+        # Cast columns whose type changed (e.g. block_number uint32 -> uint64)
+        # and strip any file-level metadata (e.g. pandas metadata)
+        existing_table = existing_table.cast(target_schema)
+
+        return existing_table
+
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class VaultReadCondition:
