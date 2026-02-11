@@ -75,7 +75,10 @@
       "Bash(pip index:*)",
       "Bash(pip download:*)",
       "Bash(python3.14 -m pip install:*)",
-      "Bash(forge build:*)"
+      "Bash(forge build:*)",
+      "Bash(uv pip index:*)",
+      "Skill(make-release)",
+      "Skill(make-release:*)"
     ]
   },
   "model": "opus",
