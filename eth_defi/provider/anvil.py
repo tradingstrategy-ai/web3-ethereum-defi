@@ -295,6 +295,21 @@ def _verify_archive_node_access(
     provides archive node access. If the call fails, raises an
     informative exception with HTTP response headers for debugging.
 
+    .. note::
+
+        This check is best-effort. It only tests ``eth_getBalance`` for
+        ``address(0)`` at the historical block. Some non-archive RPCs return
+        cached/stale success for simple balance queries but fail on full state
+        lookups (account nonces, contract code). When this happens, our check
+        passes but Anvil's genesis creation fails later with errors like:
+
+        - ``state histories haven't been fully indexed yet``
+        - ``state 0x... is not available``
+        - ``missing trie node``
+
+        These Anvil-side failures are caught separately in :py:func:`launch_anvil`
+        by inspecting Anvil's stderr output and raising :py:class:`ArchiveNodeRequired`.
+
     :param web3:
         Web3 connection to test
 
@@ -712,6 +727,34 @@ def launch_anvil(
                 block=True,
                 check_port=port,
             )
+
+            # Check if Anvil failed because the RPC lacks archive data.
+            #
+            # _verify_archive_node_access() only tests eth_getBalance for address(0),
+            # which some non-archive RPCs answer from cache. Anvil's genesis creation
+            # needs full state access (account nonces, code) and fails with errors like:
+            # - "state histories haven't been fully indexed yet" (node still syncing history)
+            # - "state 0x... is not available" (pruned state)
+            # - "missing trie node" (pruned state on geth-based nodes)
+            # - "header not found" (block too old for the node)
+            #
+            # When we detect these patterns in Anvil stderr, we raise ArchiveNodeRequired
+            # so callers get a clear error instead of a generic AssertionError.
+            stderr_str = stderr.decode("utf-8", errors="replace") if isinstance(stderr, bytes) else str(stderr)
+            archive_error_patterns = [
+                "state histories haven't been fully indexed",
+                "state is not available",
+                "missing trie node",
+                "header not found",
+            ]
+            if fork_block_number and any(p in stderr_str for p in archive_error_patterns):
+                raise ArchiveNodeRequired(
+                    f"Anvil failed to fork {cleaned_fork_url} at block {fork_block_number:,}: the RPC does not provide full archive state access. Anvil stderr: {stderr_str[:500]}",
+                    rpc_url=cleaned_fork_url,
+                    requested_block=fork_block_number,
+                    available_block=locals().get("current_rpc_block"),
+                    response_headers={},
+                )
 
             if len(stdout) == 0:
                 attempts_left -= 1
