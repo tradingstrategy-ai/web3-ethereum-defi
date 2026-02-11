@@ -10,14 +10,12 @@ import flaky
 import pytest
 from web3 import Web3
 
-from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.classification import detect_vault_features
 from eth_defi.erc_4626.core import ERC4626Feature, is_lending_protocol
 from eth_defi.erc_4626.vault_protocol.ipor.vault import IPORVault, IPORVaultHistoricalReader
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.vault.base import (
     DEPOSIT_CLOSED_UTILISATION,
-    REDEMPTION_CLOSED_INSUFFICIENT_LIQUIDITY,
     VaultSpec,
 )
 
@@ -84,18 +82,14 @@ def test_ipor_deposit_redemption_status(
 
     # IPOR utilisation-based - check reasons are either None or start with valid constants
     assert deposit_reason is None or deposit_reason.startswith(DEPOSIT_CLOSED_UTILISATION)
-    assert redemption_reason is None or redemption_reason.startswith(REDEMPTION_CLOSED_INSUFFICIENT_LIQUIDITY)
+    assert redemption_reason is None
 
     # IPOR has no timing info (utilisation-based)
     assert deposit_next is None
     assert redemption_next is None
 
-    # IPOR uses maxDeposit/maxRedeem with address(0) for global availability checks
-    max_deposit = vault.vault_contract.functions.maxDeposit(ZERO_ADDRESS_STR).call()
-    max_redeem = vault.vault_contract.functions.maxRedeem(ZERO_ADDRESS_STR).call()
-    assert max_deposit >= 0
-    assert max_redeem >= 0
-    assert vault.can_check_redeem() is True
+    # IPOR maxRedeem is unreliable, so we skip it
+    assert vault.can_check_redeem() is False
 
 
 @flaky.flaky

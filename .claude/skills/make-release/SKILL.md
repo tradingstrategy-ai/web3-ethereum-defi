@@ -36,7 +36,7 @@ Edit the `version` field in `pyproject.toml` to the new version number.
 
 ### 3. Create a git commit
 
-Create a commit with the message `Preparing a release`.
+Create a commit with the message `Preparing a release`. Push to the master.
 
 ### 4. Build the package
 
