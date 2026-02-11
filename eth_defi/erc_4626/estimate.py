@@ -118,7 +118,37 @@ def estimate_4626_redeem(
         raw_share_amount,
     )
 
-    raw_amount = redeem_call.call(block_identifier=block_identifier)
+    # Some vaults revert on previewRedeem() instead of returning 0.
+    #
+    # Known cases:
+    # - Tokemak arbUSD (0xf63b7F49B4f5Dc5D0e7e583Cfd79DC64E646320c) on Arbitrum:
+    #   Reverts with BalanceNotSettled() custom error (selector 0x20f1d86d).
+    #   The vault uses a flash-accounting pattern (similar to Uniswap v4)
+    #   and won't allow previewing redemptions when its internal balances
+    #   aren't settled.
+    #
+    # When the revert happens and fallback_using_share_price is enabled,
+    # we fall back to estimating the value using totalAssets/totalSupply
+    # share price, matching the existing fallback for previewRedeem() == 0.
+    #
+    # Note: estimate_4626_deposit() has a similar try/except pattern for
+    # previewDeposit() reverts, but raises instead of falling back.
+    try:
+        raw_amount = redeem_call.call(block_identifier=block_identifier)
+    except Exception as e:
+        if fallback_using_share_price:
+            logger.warning(
+                "previewRedeem() reverted for vault %s %s, falling back to share price estimation. Error: %s",
+                vault.name,
+                vault.vault_address,
+                e,
+            )
+            return estimate_value_by_share_price(
+                vault,
+                share_amount,
+                block_identifier=block_identifier,
+            )
+        raise RuntimeError(f"previewRedeem() failed at vault {vault} with share amount {share_amount} ({raw_share_amount} raw) @ {block_identifier}\nRevert reason: {e}\n{format_debug_instructions(redeem_call)}") from e
 
     if raw_amount == 0 and fallback_using_share_price:
         logger.info(f"previewRedeem() returned 0 for vault {vault.name} {vault.vault_address}, falling back to share price estimation.")
