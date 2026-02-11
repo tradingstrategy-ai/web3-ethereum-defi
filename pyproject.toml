@@ -180,7 +180,7 @@ build-backend = "poetry.core.masonry.api"
 requires = ["poetry-core>=1.0.0"]
 
 [tool.pytest.ini_options]
-addopts = "--capture=no --tb=native"
+addopts = "--capture=no --tb=native --durations=20"
 
 # Do not let pytest to crawl into contracts/ subprojects
 # that contain tests and are independent from us
