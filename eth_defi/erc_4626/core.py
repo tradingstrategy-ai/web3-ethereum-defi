@@ -591,7 +591,7 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     elif ERC4626Feature.harvest_finance in features:
         return "Harvest Finance"
     elif ERC4626Feature.ipor_like in features:
-        return "IPOR"
+        return "IPOR Fusion"
     elif ERC4626Feature.lagoon_like in features:
         return "Lagoon Finance"
     elif ERC4626Feature.morpho_like in features:

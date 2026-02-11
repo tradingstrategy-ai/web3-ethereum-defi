@@ -18,7 +18,6 @@ from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResu
 from eth_defi.types import Percent
 from eth_defi.vault.base import (
     DEPOSIT_CLOSED_UTILISATION,
-    REDEMPTION_CLOSED_INSUFFICIENT_LIQUIDITY,
     VaultHistoricalRead,
     VaultHistoricalReader,
 )
@@ -320,16 +319,7 @@ class IPORVault(ERC4626Vault):
         return None
 
     def fetch_redemption_closed_reason(self) -> str | None:
-        """Check maxRedeem to determine if redemptions are closed.
-
-        IPOR vaults are utilisation-based.
-        """
-        try:
-            max_redeem = self.vault_contract.functions.maxRedeem(ZERO_ADDRESS_STR).call()
-            if max_redeem == 0:
-                return f"{REDEMPTION_CLOSED_INSUFFICIENT_LIQUIDITY} (maxRedeem=0)"
-        except Exception:
-            pass
+        """IPOR maxRedeem check is unreliable, so we skip it."""
         return None
 
     def fetch_deposit_next_open(self) -> datetime.datetime | None:
@@ -341,11 +331,8 @@ class IPORVault(ERC4626Vault):
         return None
 
     def can_check_redeem(self) -> bool:
-        """IPOR supports address(0) checks for redemption availability.
-
-        - maxRedeem(address(0)) returns 0 when redemptions are blocked due to utilisation
-        """
-        return True
+        """IPOR maxRedeem check is unreliable, so we skip it."""
+        return False
 
     def fetch_available_liquidity(self, block_identifier: BlockIdentifier = "latest") -> Decimal | None:
         """Get the amount of denomination token available for immediate withdrawal.

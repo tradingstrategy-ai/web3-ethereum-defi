@@ -62,7 +62,7 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Morpho": VaultTechnicalRisk.negligible,
     "Enzyme": VaultTechnicalRisk.negligible,
     "Lagoon Finance": VaultTechnicalRisk.minimal,
-    "IPOR": VaultTechnicalRisk.minimal,
+    "IPOR Fusion": VaultTechnicalRisk.minimal,
     "Velvet Capital": VaultTechnicalRisk.high,
     "Umami": VaultTechnicalRisk.severe,
     # Unverified contracts, no open source repo

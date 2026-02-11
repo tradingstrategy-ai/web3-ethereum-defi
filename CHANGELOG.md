@@ -1,7 +1,12 @@
 # Current
 
+- Rename IPOR protocol to "IPOR Fusion" with slug `ipor-fusion` to match official branding (2026-02-11)
+- Remove unreliable maxRedeem lock-up check from IPOR Fusion vaults (2026-02-11)
+
+# 1.0.1
+
 - Make pandas a required dependency instead of optional, as it is used across core modules (2026-02-11)
-- Update README with pip, uv, installation instructions
+- Update README with pip, uv, installation instructions (2026-02-11)
 
 # 1.0
 
