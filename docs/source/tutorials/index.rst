@@ -63,6 +63,7 @@ Tutorials and examples
    gmx-swap
    gmx-v2-price-analysis
    lagoon-cowswap
+   lagoon-gmx
    lagoon-velora
    erc-4626-read-apy
    erc-4626-historical-apy
