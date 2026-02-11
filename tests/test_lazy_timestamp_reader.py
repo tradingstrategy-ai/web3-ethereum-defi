@@ -48,20 +48,7 @@ def web3(anvil: AnvilLaunch) -> Web3:
 
 def debug_web3_setup(web3: Web3):
     """Debug what's happening with the web3 setup"""
-    from eth_defi.compat import WEB3_PY_V7
-
-    print(f"Web3.py v7: {WEB3_PY_V7}")
-    print(f"Block number: {web3.eth.block_number}")
-    print(f"Chain ID: {web3.eth.chain_id}")
-    print(f"Middleware count: {len(web3.middleware_onion)}")
-
-    # Test block reading
-    try:
-        block = web3.eth.get_block(1)
-        print(f"Block 1 hash: {block['hash'].hex()}")
-        print(f"Block 1 timestamp: {block['timestamp']}")
-    except Exception as e:
-        print(f"Error reading block 1: {e}")
+    pass
 
 
 def test_lazy_timestamp_reader_block_range_debug(web3: Web3):

@@ -20,11 +20,7 @@ from web3.types import RPCEndpoint, RPCResponse
 from eth_defi.event_reader.conversion import convert_jsonrpc_value_to_int
 from eth_defi.middleware import http_retry_request_with_sleep_middleware
 from eth_defi.provider.named import get_provider_name
-from eth_defi.compat import WEB3_PY_V7, native_datetime_utc_fromtimestamp
-from eth_defi.compat import install_poa_middleware, install_retry_middleware_compat, install_api_call_counter_middleware_compat, WEB3_PY_V7
-from eth_defi.middleware import http_retry_request_with_sleep_middleware
-from eth_defi.provider.named import get_provider_name
-from eth_defi.compat import WEB3_PY_V7, install_retry_middleware_compat
+from eth_defi.compat import native_datetime_utc_fromtimestamp
 
 #: List of chain ids that need to have proof-of-authority middleweare installed
 POA_MIDDLEWARE_NEEDED_CHAIN_IDS = {
@@ -251,15 +247,9 @@ def install_chain_middleware(web3: Web3, poa_middleware=None, hint: str = ""):
             raise RuntimeError(f"Could not call eth_chainId on {name} provider. Is it a valid JSON-RPC provider? As this is often the first call, you might be also out of API credits. Hint is {hint}") from e
 
     if poa_middleware:
-        # Use compat POA middleware installation
-        if WEB3_PY_V7:
-            from web3.middleware import ExtraDataToPOAMiddleware
+        from web3.middleware import ExtraDataToPOAMiddleware
 
-            web3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
-        else:
-            from eth_defi.compat import geth_poa_middleware
-
-            web3.middleware_onion.inject(geth_poa_middleware, layer=0)
+        web3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
 
 
 def install_retry_middleware(web3: Web3):
@@ -268,22 +258,16 @@ def install_retry_middleware(web3: Web3):
     In the case your Internet connection or JSON-RPC node has issues,
     gracefully do exponential backoff retries.
     """
-    # Use v7 provider configuration or v6 middleware
-    if WEB3_PY_V7:
-        # v7 uses ExceptionRetryConfiguration on provider (recommended approach)
-        from web3.providers.rpc.utils import ExceptionRetryConfiguration
-        from requests.exceptions import ConnectionError, HTTPError, Timeout
+    from requests.exceptions import ConnectionError, HTTPError, Timeout
+    from web3.providers.rpc.utils import ExceptionRetryConfiguration
 
-        provider = web3.provider
-        if hasattr(provider, "exception_retry_configuration"):
-            provider.exception_retry_configuration = ExceptionRetryConfiguration(
-                errors=(ConnectionError, HTTPError, Timeout),
-                retries=10,  # defaults to 5
-                backoff_factor=0.5,  # defaults to 0.125
-            )
-    else:
-        # v6 uses middleware injection
-        web3.middleware_onion.inject(http_retry_request_with_sleep_middleware, layer=0)
+    provider = web3.provider
+    if hasattr(provider, "exception_retry_configuration"):
+        provider.exception_retry_configuration = ExceptionRetryConfiguration(
+            errors=(ConnectionError, HTTPError, Timeout),
+            retries=10,
+            backoff_factor=0.5,
+        )
 
 
 def install_api_call_counter_middleware(web3: Web3) -> Counter:
@@ -319,37 +303,24 @@ def install_api_call_counter_middleware(web3: Web3) -> Counter:
         Counter object with columns per RPC endpoint and "total"
     """
 
+    from web3.middleware import Web3Middleware
+
     api_counter = Counter()
 
-    if WEB3_PY_V7:
-        from web3.middleware import Web3Middleware
+    def create_counter_middleware():
+        class APICallCounterMiddleware(Web3Middleware):
+            def wrap_make_request(self, make_request):
+                def middleware(method, params):
+                    api_counter[method] += 1
+                    api_counter["total"] += 1
+                    return make_request(method, params)
 
-        def create_counter_middleware():
-            class APICallCounterMiddleware(Web3Middleware):
-                def wrap_make_request(self, make_request):
-                    def middleware(method, params):
-                        api_counter[method] += 1
-                        api_counter["total"] += 1
-                        return make_request(method, params)
+                return middleware
 
-                    return middleware
+        return APICallCounterMiddleware
 
-            return APICallCounterMiddleware
-
-        # Inject the CLASS, not an instance
-        middleware_class = create_counter_middleware()
-        web3.middleware_onion.inject(middleware_class, layer=0)
-    else:
-        # v6: Use function-based middleware
-        def factory(make_request: Callable[[RPCEndpoint, Any], Any], web3: "Web3"):
-            def middleware(method: RPCEndpoint, params: Any) -> Optional[RPCResponse]:
-                api_counter[method] += 1
-                api_counter["total"] += 1
-                return make_request(method, params)
-
-            return middleware
-
-        web3.middleware_onion.inject(factory, layer=0)
+    middleware_class = create_counter_middleware()
+    web3.middleware_onion.inject(middleware_class, layer=0)
 
     return api_counter
 
@@ -376,34 +347,10 @@ def install_api_call_counter_middleware_on_provider(provider: JSONBaseProvider) 
     assert isinstance(provider, JSONBaseProvider), f"Got {provider.__class__}"
     api_counter = Counter()
 
-    if WEB3_PY_V7:
-        # v7: Provider middleware works differently
-        # In v7, middleware is primarily managed at the Web3 level
-        # Provider-level middleware is less common and has different patterns
+    logger.warning("install_api_call_counter_middleware_on_provider() is deprecated. Provider-level middleware is discouraged in web3.py v7. Consider using install_api_call_counter_middleware() on the Web3 instance instead.")
 
-        logger.warning("install_api_call_counter_middleware_on_provider() is deprecated in web3.py v7+. Provider-level middleware is discouraged in v7. Consider using install_api_call_counter_middleware() on the Web3 instance instead.")
+    if hasattr(provider, "middlewares") and hasattr(provider.middlewares, "add"):
 
-        # Try to add middleware if the provider still supports it
-        if hasattr(provider, "middlewares") and hasattr(provider.middlewares, "add"):
-            # Some v7 providers might still support this pattern
-            def factory(make_request: Callable[[RPCEndpoint, Any], Any], web3: Web3):
-                def middleware(method: RPCEndpoint, params: Any) -> Optional[RPCResponse]:
-                    api_counter[method] += 1
-                    api_counter["total"] += 1
-                    return make_request(method, params)
-
-                return middleware
-
-            try:
-                provider.middlewares.add("api_counter_middleware", factory)
-            except (AttributeError, TypeError) as e:
-                logger.error(f"Cannot install provider-level middleware in v7: {e}. Provider type: {type(provider)}. Use install_api_call_counter_middleware() on Web3 instance instead.")
-                # Return empty counter that will remain at zero
-                pass
-        else:
-            logger.error(f"Provider {type(provider)} does not support middleware installation in v7. Use install_api_call_counter_middleware() on Web3 instance instead.")
-    else:
-        # v6: Original behavior
         def factory(make_request: Callable[[RPCEndpoint, Any], Any], web3: Web3):
             def middleware(method: RPCEndpoint, params: Any) -> Optional[RPCResponse]:
                 api_counter[method] += 1
@@ -412,7 +359,12 @@ def install_api_call_counter_middleware_on_provider(provider: JSONBaseProvider) 
 
             return middleware
 
-        provider.middlewares.add("api_counter_middleware", factory)
+        try:
+            provider.middlewares.add("api_counter_middleware", factory)
+        except (AttributeError, TypeError) as e:
+            logger.error("Cannot install provider-level middleware: %s. Provider type: %s. Use install_api_call_counter_middleware() on Web3 instance instead.", e, type(provider))
+    else:
+        logger.error("Provider %s does not support middleware installation. Use install_api_call_counter_middleware() on Web3 instance instead.", type(provider))
 
     return api_counter
 

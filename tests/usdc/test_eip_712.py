@@ -7,7 +7,6 @@ from eth_account.signers.local import LocalAccount
 from web3.contract import Contract
 
 from eth_defi.deploy import deploy_contract
-from eth_defi.compat import WEB3_PY_V7
 from eth_defi.eip_712 import eip712_encode_hash
 from eth_defi.middleware import construct_sign_and_send_raw_middleware_anvil
 from eth_defi.token import TokenDetails
@@ -87,10 +86,7 @@ def test_ec_recover(
     # The message payload is receiveAuthorization arguments, tightly encoded,
     # without the function selector
     message_hash = eip712_encode_hash(data)
-    if WEB3_PY_V7:
-        signed_message = from_.unsafe_sign_hash(message_hash)
-    else:
-        signed_message = from_.signHash(message_hash)
+    signed_message = from_.unsafe_sign_hash(message_hash)
     # Should come in the order defined for the dict,
     # as Python 3.10+ does ordered dicts
     args = list(data["message"].values())  # from, to, value, validAfter, validBefore, nonce

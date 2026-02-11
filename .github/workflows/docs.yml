@@ -34,8 +34,7 @@ jobs:
           python-version: "3.12"
           cache: "poetry"
           cache-dependency-path: |
-            **/pyproject.toml 
-            .web3v7.txt
+            **/pyproject.toml
 
       # Required by nbsphinx for notebook conversion
       - name: Install Pandoc
@@ -43,9 +42,9 @@ jobs:
 
       # Install dependencies with the specific Web3.py version
       # Using a single installation command to avoid conflicts
-      - name: Install dependencies with specific Web3.py version
+      - name: Install dependencies
         run: |
-          poetry install -E docs -E data -E test -E hypersync -E ccxt -E web3v7 -E duckdb
+          poetry install -E docs -E data -E test -E hypersync -E ccxt -E duckdb
 
       - name: Build documentation
         run: |

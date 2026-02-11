@@ -15,18 +15,15 @@ jobs:
     # Only run the action for the latest push
     # See https://docs.github.com/en/actions/using-jobs/using-concurrency#example-only-cancel-in-progress-jobs-or-runs-for-the-current-workflow
     concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}-${{ matrix.python-version }}-${{ matrix.web3-version }}
+      group: ${{ github.workflow }}-${{ github.ref }}-${{ matrix.python-version }}
       cancel-in-progress: true
 
     strategy:
       fail-fast: false
       matrix:
-        # The project is developed using 3.12
         python-version: ["3.12"]
-        # v6 has it's own separate workflow
-        web3-version: ["7"]
 
-    name: Python ${{ matrix.python-version }} - Web3.py v${{ matrix.web3-version }}
+    name: Python ${{ matrix.python-version }}
 
     steps:
       # TODO: we only need contracts/aave-v3-deploy for tests
@@ -73,15 +70,12 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: "poetry"
           cache-dependency-path: |
-            **/pyproject.toml 
-            .web3v7.txt
+            **/pyproject.toml
 
-      # Install dependencies with the specific Web3.py version
-      # Using a single installation command to avoid conflicts
-      - name: Install dependencies with specific Web3.py version
+      - name: Install dependencies
         run: |
           poetry install
-          poetry install -E docs -E data -E test -E hypersync -E ccxt -E web3v7 -E duckdb
+          poetry install -E docs -E data -E test -E hypersync -E ccxt -E duckdb
 
       - name: Install Ganache
         run: yarn global add ganache
@@ -181,5 +175,3 @@ jobs:
       - name: Ruff lint check
         run: |
           poetry run ruff format --check --diff
-        # Only run linting once (on the newest Python with latest web3.py)
-        if: "matrix.python-version == '3.12' && matrix.web3-version == '7'"

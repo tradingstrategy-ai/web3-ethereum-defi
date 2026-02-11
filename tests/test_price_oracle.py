@@ -18,7 +18,7 @@ from decimal import Decimal
 import flaky
 import pytest
 from web3 import Web3
-from eth_defi.compat import WEB3_PY_V7, install_retry_middleware_compat
+from eth_defi.compat import install_retry_middleware_compat
 
 from eth_defi.compat import clear_middleware
 from eth_defi.price_oracle.oracle import PriceOracle, time_weighted_average_price, NotEnoughData, DataTooOld, DataPeriodTooShort
@@ -44,21 +44,10 @@ def web3() -> Web3:
     # MIGRATED: Clear middleware with v6/v7 compatibility
     clear_middleware(web3)
 
-    # MIGRATED: Use compatibility functions instead of direct middleware injection
-    if WEB3_PY_V7:
-        from web3.middleware import ExtraDataToPOAMiddleware
+    from web3.middleware import ExtraDataToPOAMiddleware
 
-        # v7: Use provider-level retry configuration instead of middleware
-        install_retry_middleware_compat(web3)
-        # v7: Use ExtraDataToPOAMiddleware
-        web3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
-    else:
-        # v6: Use the original middleware approach
-        from eth_defi.middleware import http_retry_request_with_sleep_middleware
-        from eth_defi.compat import geth_poa_middleware
-
-        web3.middleware_onion.inject(http_retry_request_with_sleep_middleware, layer=0)
-        web3.middleware_onion.inject(geth_poa_middleware, layer=0)
+    install_retry_middleware_compat(web3)
+    web3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
 
     return web3
 

@@ -25,7 +25,7 @@ from web3.exceptions import BlockNotFound
 from web3.middleware import Middleware
 from web3.types import RPCEndpoint, RPCResponse
 
-from eth_defi.compat import WEB3_PY_V7, check_if_retry_on_failure_compat
+from eth_defi.compat import check_if_retry_on_failure_compat
 from eth_defi.compat import exception_retry_middleware as compat_exception_retry_middleware
 from eth_defi.tx import get_tx_broadcast_data
 
@@ -355,13 +355,6 @@ def http_retry_request_with_sleep_middleware(
         Web3.py middleware
     """
 
-    if WEB3_PY_V7:
-        # In v7, this middleware is deprecated but we'll still provide it
-        # for backwards compatibility. However, users should prefer
-        # configuring ExceptionRetryConfiguration on the provider instead.
-        logger.warning("http_retry_request_with_sleep_middleware is deprecated in web3.py v7+. Consider using ExceptionRetryConfiguration on your HTTPProvider instead.")
-
-    # MIGRATED: Use the compat version
     return exception_retry_middleware(
         make_request,
         web3,
@@ -386,11 +379,6 @@ def configure_provider_retry(
     :param backoff_factor: Initial delay multiplier (default 0.5)
     :param retryable_exceptions: Tuple of exceptions to retry on
     """
-    if not WEB3_PY_V7:
-        # For v6, this function doesn't do anything since v6 uses middleware
-        logger.warning("configure_provider_retry only works with web3.py v7+. Use middleware for v6.")
-        return
-
     if retryable_exceptions is None:
         # Map our custom exceptions to v7 defaults
         retryable_exceptions = (ConnectionError, HTTPError, Timeout)
@@ -511,49 +499,23 @@ def construct_sign_and_send_raw_middleware_anvil(private_key_or_account) -> Midd
     return sign_and_send_raw_middleware
 
 
-# Create class-based middleware for v7 compatibility
-if WEB3_PY_V7:
-    from web3.middleware import Web3Middleware
+from web3.middleware import Web3Middleware
 
-    class StaticCallCacheMiddleware(Web3Middleware):
-        """v7-style static call cache middleware."""
 
-        def __init__(self, w3):
-            super().__init__(w3)
-            self.w3 = w3
+class StaticCallCacheMiddleware(Web3Middleware):
+    """Cache JSON-RPC call values that never change.
 
-        def wrap_make_request(self, make_request):
-            def middleware(method: RPCEndpoint, params: Any) -> RPCResponse:
-                cache = getattr(self.w3, "static_call_cache", {})
-                if method in STATIC_CALL_LIST:
-                    cached = cache.get(method)
-                    if cached:
-                        return cached
+    The cache is stored on the web3 instance itself, to allow sharing the cache
+    between different JSON-RPC providers.
+    """
 
-                resp = make_request(method, params)
-                cache[method] = resp
-                self.w3.static_call_cache = cache
-                return resp
+    def __init__(self, w3):
+        super().__init__(w3)
+        self.w3 = w3
 
-            return middleware
-
-    # Export the class as the middleware
-    static_call_cache_middleware = StaticCallCacheMiddleware
-
-else:
-    # v6: Original function-based middleware
-    def static_call_cache_middleware(
-        make_request: Callable[[RPCEndpoint, Any], Any],
-        web3: "Web3",
-    ) -> Callable[[RPCEndpoint, Any], Any]:
-        """Cache JSON-RPC call values that never change.
-
-        The cache is web3 instance itself, to allow sharing the cache
-        between different JSON-RPC providers.
-        """
-
+    def wrap_make_request(self, make_request):
         def middleware(method: RPCEndpoint, params: Any) -> RPCResponse:
-            cache = getattr(web3, "static_call_cache", {})
+            cache = getattr(self.w3, "static_call_cache", {})
             if method in STATIC_CALL_LIST:
                 cached = cache.get(method)
                 if cached:
@@ -561,7 +523,10 @@ else:
 
             resp = make_request(method, params)
             cache[method] = resp
-            web3.static_call_cache = cache
+            self.w3.static_call_cache = cache
             return resp
 
         return middleware
+
+
+static_call_cache_middleware = StaticCallCacheMiddleware

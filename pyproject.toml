@@ -1,6 +1,6 @@
 # To install:
 #
-# poetry install -E web3v6 -E data -E test -E docs -E data -E hypersync -E ccxt -E cloudflare_r2 -E duckdb
+# poetry install -E data -E test -E docs -E hypersync -E ccxt -E cloudflare_r2 -E duckdb
 #
 # 
 
@@ -9,7 +9,7 @@ authors = ["Mikko Ohtamaa <mikko@tradingstrategy.ai>"]
 description = "Integrate DeFi protocols and Web3 frameworks to Python applications"
 license = "MIT"
 name = "web3-ethereum-defi"
-version = "0.40"
+version = "0.41"
 
 homepage = "https://web3-ethereum-defi.tradingstrategy.ai/"
 keywords = [
@@ -108,50 +108,14 @@ joblib = "^1.4.2"
 hypersync = {version = "^0.8.5", optional = true}
 # cherry-etl = "^0.5.1"
 
-# The project is now migrating to web3py v7 while keeping the legacy support for v6. To make it compatible with v6 use these dependencies
-# Conditional dependencies matrix based on extras
-web3 = [
-  {version = "^7.12.0", markers = "extra != 'web3v6'"},
-  {version = "==6.14.0", markers = "extra == 'web3v6'"},
-]
-
-eth-tester = [
-  {version = "*", markers = "extra != 'web3v6'"},
-  {version = "*", markers = "extra == 'web3v6'"},
-]
-
-evm-trace = [
-  {version = "^0.2.6", markers = "extra != 'web3v6'"},
-  {version = "^0.1.0a17", markers = "extra == 'web3v6'"},
-]
-
-safe-eth-py = [
-  {version = "^7.8.0", markers = "extra != 'web3v6'"},
-  {version = "^6.0.0b42", markers = "extra == 'web3v6'"},
-]
-
-eth-pydantic-types = [
-  {version = "^0.2.0", markers = "extra != 'web3v6'"},
-  {version = "<0.2", markers = "extra == 'web3v6'"},
-]
-
-multicall = [
-  {version = "^0.12.3", markers = "extra != 'web3v6'"},
-  {version = "^0.9.0", markers = "extra == 'web3v6'"},
-]
-# Have to pin it to make web3py v6/v7 compatible
-eth-account = [
-  {version = "^0.13.7", markers = "extra != 'web3v6'"},
-  {version = "^0.11.3", markers = "extra == 'web3v6'"},
-]
-eth-typing = [
-  {version = "^5.2.1", markers = "extra != 'web3v6'"},
-  {version = "^4.2.1", markers = "extra == 'web3v6'"},
-]
-#py-evm = [
-#    {version = "^0.12.1b1", markers = "extra != 'web3v6'"},
-#    {version = "^v0.10.1-beta.2", markers = "extra == 'web3v6'"}
-#]
+web3 = "^7.12.0"
+eth-tester = "*"
+evm-trace = "^0.2.6"
+safe-eth-py = "^7.8.0"
+eth-pydantic-types = "^0.2.0"
+multicall = "^0.12.3"
+eth-account = "^0.13.7"
+eth-typing = "^5.2.1"
 atomicwrites = "^1.4.1"
 filelock = "^3.20.0"
 zstandard = "^0.25.0"
@@ -204,8 +168,6 @@ docs = [
   "sphinx-rtd-theme",
 ]
 test = ["pytest-xdist"]
-web3v6 = ["eth-tester", "evm-trace", "safe-eth-py", "eth-pydantic-types", "multicall", "eth-account", "eth-typing"]
-web3v7 = ["eth-tester", "evm-trace", "safe-eth-py", "eth-pydantic-types", "multicall", "eth-account", "eth-typing"]
 
 ccxt = ["ccxt"]
 cloudflare_r2 = ["boto3"]

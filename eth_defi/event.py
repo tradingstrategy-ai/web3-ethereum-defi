@@ -9,7 +9,6 @@ from web3._utils.events import get_event_data
 from web3._utils.filters import construct_event_filter_params
 from web3.contract.contract import ContractEvent
 from web3.datastructures import AttributeDict
-from eth_defi.chain import WEB3_PY_V7
 
 
 def fetch_all_events(
@@ -61,10 +60,7 @@ def fetch_all_events(
     # Namely, convert event names to their keccak signatures
     # More information here:
     # https://github.com/ethereum/web3.py/blob/e176ce0793dafdd0573acc8d4b76425b6eb604ca/web3/_utils/filters.py#L71
-    if WEB3_PY_V7:
-        data_filter_set, event_filter_params = construct_event_filter_params(abi, codec, address=address, argument_filters=argument_filters, from_block=from_block, to_block=to_block)
-    else:
-        data_filter_set, event_filter_params = construct_event_filter_params(abi, codec, address=address, argument_filters=argument_filters, fromBlock=from_block, toBlock=to_block)
+    data_filter_set, event_filter_params = construct_event_filter_params(abi, codec, address=address, argument_filters=argument_filters, from_block=from_block, to_block=to_block)
     # Call JSON-RPC API on your Ethereum node.
     # get_logs() returns raw AttributedDict entries
     logs = web3.eth.get_logs(event_filter_params)

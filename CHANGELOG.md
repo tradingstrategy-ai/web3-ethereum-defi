@@ -1,4 +1,8 @@
-# Current
+# Current 
+
+- Remove web3.py v6 support, web3.py v7+ is now required (2026-02-11)
+
+# 0.41
 
 - Fix: Autopool (Tokemak / AUTO Finance) vaults no longer crash on `previewRedeem()` revert — `AutoPoolDepositManager` bypasses it and estimates redemption value via share price; generic `estimate_4626_redeem()` also catches reverts as a safety net (2026-02-11)
 - Fix: Guard contract now validates Umami non-standard ERC-4626 deposit/redeem selectors instead of reverting with "Unknown function selector" (2026-02-10)
@@ -9,7 +13,7 @@
 - Fix: Replace deprecated `datetime.utcnow()` and `pd.Timestamp.utcfromtimestamp()` with Python 3.12+ compatible alternatives (2026-02-08)
 - Add: New protocol: [sBOLD](https://tradingstrategy.ai/trading-view/vaults/protocols/sbold) - yield-bearing tokenised representation of deposits into Liquity V2 Stability Pools by K3 Capital (2026-02-08)
 - Fix: Multi-chain vault scanner now captures and displays exceptions per chain instead of crashing, with full tracebacks printed before the final dashboard (2026-02-05)
-- Fix: Remove `.html` suffix from Sphinx generated sitemap URLs for Cloudflare Pages compatibility (2026-02-05)
+
 
 # 0.40
 
