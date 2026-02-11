@@ -6,10 +6,10 @@
 
 [tool.poetry]
 authors = ["Mikko Ohtamaa <mikko@tradingstrategy.ai>"]
-description = "Integrate DeFi protocols and Web3 frameworks to Python applications"
+description = "Integrate Web3 and DeFi protocols to Python applications"
 license = "MIT"
 name = "web3-ethereum-defi"
-version = "0.41"
+version = "1.0"
 
 homepage = "https://web3-ethereum-defi.tradingstrategy.ai/"
 keywords = [
@@ -24,6 +24,8 @@ keywords = [
   "arbitrum",
   "chainlink",
   "hyperliquid",
+  "ccxt",
+  "freqtrade",
 ]
 packages = [
   {include = "eth_defi"},
@@ -108,16 +110,16 @@ joblib = "^1.4.2"
 hypersync = {version = "^0.8.5", optional = true}
 # cherry-etl = "^0.5.1"
 
-web3 = "^7.12.0"
-eth-tester = "*"
-evm-trace = "^0.2.6"
-safe-eth-py = "^7.8.0"
-eth-pydantic-types = "^0.2.0"
-multicall = "^0.12.3"
-eth-account = "^0.13.7"
-eth-typing = "^5.2.1"
 atomicwrites = "^1.4.1"
+eth-account = "^0.13.7"
+eth-pydantic-types = "^0.2.0"
+eth-tester = "*"
+eth-typing = "^5.2.1"
+evm-trace = "^0.2.6"
 filelock = "^3.20.0"
+multicall = "^0.12.3"
+safe-eth-py = "^7.8.0"
+web3 = "^7.12.0"
 zstandard = "^0.25.0"
 
 # CCXT
