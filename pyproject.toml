@@ -9,7 +9,7 @@ authors = ["Mikko Ohtamaa <mikko@tradingstrategy.ai>"]
 description = "Integrate Web3 and DeFi protocols to Python applications"
 license = "MIT"
 name = "web3-ethereum-defi"
-version = "1.0"
+version = "1.0.1"
 
 homepage = "https://web3-ethereum-defi.tradingstrategy.ai/"
 keywords = [
