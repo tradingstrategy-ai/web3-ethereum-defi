@@ -35,6 +35,7 @@ from eth_defi.gmx.core.open_positions import GetOpenPositions
 from eth_defi.gmx.core.oracle import OraclePrices
 from eth_defi.gmx.order.sltp_order import SLTPEntry, SLTPOrder, SLTPParams
 from eth_defi.gmx.contracts import get_contract_addresses
+from eth_defi.gmx.ccxt.exchange import _derive_side_from_trade_action
 from eth_defi.gmx.events import decode_gmx_event, extract_order_key_from_receipt, GMX_USD_PRECISION
 from eth_defi.gmx.utils import convert_raw_price_to_usd
 from eth_defi.gmx.order_tracking import check_order_status
@@ -1675,6 +1676,7 @@ class GMX(Exchange):
                         "fee": {
                             "currency": "ETH",
                             "cost": float(receipt.get("gasUsed", 0)) * float(tx.get("gasPrice", 0)) / 1e18,
+                            "rate": 0.0,
                         },
                         "info": {
                             "creation_receipt": receipt,
@@ -1719,6 +1721,7 @@ class GMX(Exchange):
                         "fee": {
                             "currency": "ETH",
                             "cost": float(receipt.get("gasUsed", 0)) * float(tx.get("gasPrice", 0)) / 1e18,
+                            "rate": 0.0,
                         },
                         "info": {
                             "creation_receipt": receipt,
@@ -1738,7 +1741,7 @@ class GMX(Exchange):
                     # No timeout - this is a historical query, not waiting for new data
                     trade_action = await subsquid.get_trade_action_by_order_key(
                         order_key_hex,
-                        timeout_seconds=0,  # Don't wait, just check if exists
+                        timeout_seconds=5,  # Allow time for indexing
                         poll_interval=0.5,
                     )
                 except Exception as e:
@@ -1794,6 +1797,7 @@ class GMX(Exchange):
                         "fee": {
                             "currency": "ETH",
                             "cost": float(receipt.get("gasUsed", 0)) * float(tx.get("gasPrice", 0)) / 1e18,
+                            "rate": 0.0,
                         },
                         "info": {
                             "creation_receipt": receipt,
@@ -1804,6 +1808,17 @@ class GMX(Exchange):
                         "fees": [],
                     }
                     return order
+
+                # Log trade_action fields for diagnostics (exclude bulky transaction data)
+                trade_action_fields = {k: v for k, v in trade_action.items() if k != "transaction"}
+                logger.info(
+                    "fetch_order(%s): trade_action fields: %s",
+                    id,
+                    trade_action_fields,
+                )
+
+                # Derive CCXT side from orderType + isLong
+                derived_side = _derive_side_from_trade_action(trade_action)
 
                 # Check event type
                 event_name = trade_action.get("eventName", "")
@@ -1826,7 +1841,7 @@ class GMX(Exchange):
                         "lastTradeTimestamp": timestamp,
                         "symbol": symbol,
                         "type": "market",
-                        "side": None,
+                        "side": derived_side,  # Derived from orderType + isLong
                         "price": None,
                         "amount": None,
                         "cost": None,
@@ -1837,6 +1852,7 @@ class GMX(Exchange):
                         "fee": {
                             "currency": "ETH",
                             "cost": float(receipt.get("gasUsed", 0)) * float(tx.get("gasPrice", 0)) / 1e18,
+                            "rate": 0.0,
                         },
                         "trades": [],
                         "info": {
@@ -1852,19 +1868,52 @@ class GMX(Exchange):
                 # Order executed successfully (OrderExecuted event)
                 raw_exec_price = trade_action.get("executionPrice")
                 execution_price = None
-                if raw_exec_price and symbol:
-                    market = self.markets.get(symbol)
-                    if market:
-                        execution_price = self._convert_price_to_usd(float(raw_exec_price), market)
+                market = self.markets.get(symbol) if symbol else None
+                if raw_exec_price and market:
+                    execution_price = self._convert_price_to_usd(float(raw_exec_price), market)
 
                 execution_tx_hash = trade_action.get("transaction", {}).get("hash")
                 is_long = trade_action.get("isLong")
 
+                # Compute trading fee from trade_action data (matches sync design)
+                # Gas cost stored separately in info, trading fee in USDC in fee dict
+                gas_cost_eth = float(receipt.get("gasUsed", 0)) * float(tx.get("gasPrice", 0)) / 1e18
+                size_delta_usd = float(trade_action.get("sizeDeltaUsd", 0)) / GMX_USD_PRECISION if trade_action.get("sizeDeltaUsd") else 0.0
+
+                # Sum all available fee components (in collateral token decimals)
+                raw_position_fee = trade_action.get("positionFeeAmount")
+                raw_borrowing_fee = trade_action.get("borrowingFeeAmount")
+                raw_funding_fee = trade_action.get("fundingFeeAmount")
+                total_fee_tokens = 0
+                if raw_position_fee:
+                    total_fee_tokens += int(float(raw_position_fee))
+                if raw_borrowing_fee:
+                    total_fee_tokens += int(float(raw_borrowing_fee))
+                if raw_funding_fee:
+                    total_fee_tokens += int(float(raw_funding_fee))
+
+                if total_fee_tokens > 0 and market:
+                    # Actual fee from Subsquid/EventEmitter trade_action
+                    fee_usd = self._convert_token_fee_to_usd(total_fee_tokens, market, is_long)
+                    actual_rate = fee_usd / size_delta_usd if size_delta_usd > 0 else 0.0
+                    currency = self.safe_string(market, "settle", "USDC")
+                    fee_dict = {"cost": fee_usd, "currency": currency, "rate": actual_rate}
+                elif size_delta_usd > 0 and symbol:
+                    # Fallback: estimate fee at 0.06% when no fee data in trade_action
+                    fee_dict = self._build_trading_fee(symbol, size_delta_usd)
+                else:
+                    # Last resort: gas cost only (no trading fee data available)
+                    fee_dict = {"currency": "ETH", "cost": gas_cost_eth, "rate": 0.0}
+
                 logger.info(
-                    "ORDER_TRACE: fetch_order(%s) - Order EXECUTED (async) at price=%s, size_usd=%s - RETURNING status=closed",
+                    "ORDER_TRACE: fetch_order(%s) - Order EXECUTED (async) at price=%s, size_usd=%s, derived_side=%s, orderType=%s, isLong=%s, fee=%s - RETURNING status=closed",
                     id,
                     execution_price or 0,
-                    float(trade_action.get("sizeDeltaUsd", 0)) / 1e30 if trade_action.get("sizeDeltaUsd") else 0,
+                    size_delta_usd,
+                    derived_side,
+                    trade_action.get("orderType"),
+                    trade_action.get("isLong"),
+                    fee_dict,
                 )
 
                 timestamp = self.milliseconds()
@@ -1876,18 +1925,15 @@ class GMX(Exchange):
                     "lastTradeTimestamp": timestamp,
                     "symbol": symbol,
                     "type": "market",
-                    "side": None,  # Unknown from tx alone
+                    "side": derived_side,  # Derived from orderType + isLong
                     "price": execution_price,
-                    "amount": None,  # Unknown from tx alone
+                    "amount": None,
                     "cost": None,
                     "average": execution_price,
                     "filled": None,  # Unknown from tx alone
                     "remaining": 0.0,
                     "status": "closed",
-                    "fee": {
-                        "currency": "ETH",
-                        "cost": float(receipt.get("gasUsed", 0)) * float(tx.get("gasPrice", 0)) / 1e18,
-                    },
+                    "fee": fee_dict,
                     "trades": [],
                     "info": {
                         "creation_receipt": receipt,
@@ -1897,9 +1943,10 @@ class GMX(Exchange):
                         "execution_price": execution_price,
                         "is_long": is_long,
                         "event_name": event_name,
-                        "pnl_usd": float(trade_action.get("pnlUsd", 0)) / 1e30 if trade_action.get("pnlUsd") else None,
-                        "size_delta_usd": float(trade_action.get("sizeDeltaUsd", 0)) / 1e30 if trade_action.get("sizeDeltaUsd") else None,
-                        "price_impact_usd": float(trade_action.get("priceImpactUsd", 0)) / 1e30 if trade_action.get("priceImpactUsd") else None,
+                        "execution_fee_eth": gas_cost_eth,
+                        "pnl_usd": float(trade_action.get("pnlUsd", 0)) / GMX_USD_PRECISION if trade_action.get("pnlUsd") else None,
+                        "size_delta_usd": size_delta_usd if size_delta_usd else None,
+                        "price_impact_usd": float(trade_action.get("priceImpactUsd", 0)) / GMX_USD_PRECISION if trade_action.get("priceImpactUsd") else None,
                     },
                 }
                 return order
