@@ -432,7 +432,7 @@ def test_guard_unauthorized_withdraw(
         usdc_amount,
     )
 
-    with pytest.raises(TransactionFailed, match="Receiver address"):
+    with pytest.raises(TransactionFailed, match="Receiver not whitelisted"):
         target, call_data = encode_simple_vault_transaction(transfer_call)
         vault.functions.performCall(target, call_data).transact({"from": asset_manager})
 
