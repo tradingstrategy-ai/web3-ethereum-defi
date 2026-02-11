@@ -303,10 +303,12 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0xf91a9a1c782a1c11b627f6e576d92c7d72cdd4af": (VaultFlag.subvault, SUBVAULT),
     # dgnHYPE (D2 Finance on Arbitrum)
     "0x64167cd42859f64cff2aa4b63c3175ccef9659dd": (VaultFlag.subvault, SUBVAULT),
-    # ETH Strategy Perpetual Note (Ethereum)
-    "0xb250c9e0f7be4cff13f94374c993ac445a1385fe": (None, ETH_STRATEGY_ESPN),
+    # Convex crvUSD-sfrxUSD Lender 
+    "0x7a26c6c1628c86788526efb81f37a2ffac243a98": (VaultFlag.subvault, SUBVAULT),
     # USDC Fluid Lender
     "0x00c8a649c9837523ebb406ceb17a6378ab5c74cf": (VaultFlag.subvault, SUBVAULT),
+    # ETH Strategy Perpetual Note (Ethereum)
+    "0xb250c9e0f7be4cff13f94374c993ac445a1385fe": (None, ETH_STRATEGY_ESPN),
     # Apostro aprUSDC (Sonic)
     "0xcca902f2d3d265151f123d8ce8fdac38ba9745ed": (VaultFlag.unofficial, MISSING_IN_PROTOCOL_FRONTEND),
 }
