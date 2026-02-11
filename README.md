@@ -170,19 +170,25 @@ To use this package you need to
 
 # Install
 
+With `uv`:
+
+```shell
+uv pip install "web3-ethereum-defi" --all-extras
+```
+
 With `pip`:
 
 ```shell
-pip install "web3-ethereum-defi[data]"
+pip install "web3-ethereum-defi[data,test,docs,hypersync,ccxt,cloudflare_r2,duckdb]"
 ```
 
 With `poetry`:
 
 ```shell
-poetry add -E data web3-ethereum-defi
+poetry add --extras "data test docs hypersync ccxt cloudflare_r2 duckdb" web3-ethereum-defi
 ```
 
-With `poetry` - master Git branch:
+From master Git branch:
 
 ```shell
 git clone git@github.com:tradingstrategy-ai/web3-ethereum-defi.git
