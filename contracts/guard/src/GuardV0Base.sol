@@ -108,6 +108,12 @@ abstract contract GuardV0Base is IGuard,  Multicall, SwapCowSwap  {
         uint256 amountInMaximum;
     }
 
+    // ========================================================================
+    //                           STORAGE VARIABLES
+    // ========================================================================
+
+    // ----- Core access control -----
+
     // Allowed external smart contract calls (address, function selector) tuples
     mapping(address target => mapping(bytes4 selector => bool allowed)) public allowedCallSites;
 
@@ -146,6 +152,8 @@ abstract contract GuardV0Base is IGuard,  Multicall, SwapCowSwap  {
     //
     mapping(address receiver => bool allowed) public allowedReceivers;
 
+    // ----- Transfer destinations -----
+
     // Allowed owners
     mapping(address destination => bool allowed) public allowedWithdrawDestinations;
 
@@ -155,11 +163,15 @@ abstract contract GuardV0Base is IGuard,  Multicall, SwapCowSwap  {
     // Allowed delegation approval destinations
     mapping(address destination => bool allowed) public allowedDelegationApprovalDestinations;
 
+    // ----- Protocol: Lagoon -----
+
     // Allowed Lagoon vault settlement destinations
     //
     // We need to perform this action as a Safe multisig by calling Vault.settleDeposit() and Vault.settleRedeem()
     //
     mapping(address destination => bool allowed) public allowedLagoonVaults;
+
+    // ----- Protocol: CowSwap -----
 
     // Allowed cow swap instances.
     //
@@ -169,12 +181,16 @@ abstract contract GuardV0Base is IGuard,  Multicall, SwapCowSwap  {
     //
     mapping(address destination => bool allowed) public allowedCowSwaps;
 
+    // ----- Protocol: Velora -----
+
     // Allowed Velora (ParaSwap) Augustus Swapper instances.
     //
     // Augustus Swapper is the main router contract for Velora/ParaSwap.
     // TokenTransferProxy is whitelisted separately via allowApprovalDestination.
     //
     mapping(address destination => bool allowed) public allowedVeloraSwappers;
+
+    // ----- Protocol: GMX -----
 
     // Allowed GMX Exchange Router instances.
     //
@@ -197,11 +213,17 @@ abstract contract GuardV0Base is IGuard,  Multicall, SwapCowSwap  {
     //
     mapping(address market => bool allowed) public allowedGMXMarkets;
 
+    // ----- Dangerous flags -----
+
     // Allow trading any token
     //
     // Dangerous, as malicious/compromised trade-executor can drain all assets through creating fake tokens
     //
     bool public anyAsset;
+
+    // ========================================================================
+    //                                 EVENTS
+    // ========================================================================
 
     event CallSiteApproved(address target, bytes4 selector, string notes);
     event CallSiteRemoved(address target, bytes4 selector, string notes);
@@ -209,20 +231,20 @@ abstract contract GuardV0Base is IGuard,  Multicall, SwapCowSwap  {
     event SenderApproved(address sender, string notes);
     event SenderRemoved(address sender, string notes);
 
-    event ReceiverApproved(address sender, string notes);
-    event ReceiverRemoved(address sender, string notes);
+    event ReceiverApproved(address receiver, string notes);
+    event ReceiverRemoved(address receiver, string notes);
 
-    event WithdrawDestinationApproved(address sender, string notes);
-    event WithdrawDestinationRemoved(address sender, string notes);
+    event WithdrawDestinationApproved(address destination, string notes);
+    event WithdrawDestinationRemoved(address destination, string notes);
 
-    event ApprovalDestinationApproved(address sender, string notes);
-    event ApprovalDestinationRemoved(address sender, string notes);
+    event ApprovalDestinationApproved(address destination, string notes);
+    event ApprovalDestinationRemoved(address destination, string notes);
 
-    event DelegationApprovalDestinationApproved(address sender, string notes);
-    event DelegationApprovalDestinationRemoved(address sender, string notes);
+    event DelegationApprovalDestinationApproved(address destination, string notes);
+    event DelegationApprovalDestinationRemoved(address destination, string notes);
 
-    event AssetApproved(address sender, string notes);
-    event AssetRemoved(address sender, string notes);
+    event AssetApproved(address asset, string notes);
+    event AssetRemoved(address asset, string notes);
 
     event AnyAssetSet(bool value, string notes);
     event AnyVaultSet(bool value, string notes);
@@ -511,6 +533,8 @@ abstract contract GuardV0Base is IGuard,  Multicall, SwapCowSwap  {
 
         // Validate the function payload.
         // Depends on the called protocol.
+
+        // --- DEX swaps (Uniswap V2/V3) ---
         if(selector == SEL_SWAP_EXACT_TOKENS) {
             validate_swapExactTokensForTokens(callData);
         } else if(selector == SEL_SWAP_EXACT_TOKENS_FEE) {
@@ -520,16 +544,22 @@ abstract contract GuardV0Base is IGuard,  Multicall, SwapCowSwap  {
         } else if(selector == SEL_EXACT_INPUT_ROUTER02) {
             // See whitelistUniswapV3Router
             require(anyAsset, "SwapRouter02 requires anyAsset");
+
+        // --- ERC-20 token operations ---
         } else if(selector == SEL_TRANSFER) {
             validate_transfer(callData);
         } else if(selector == SEL_APPROVE) {
             validate_approve(callData);
         } else if(selector == SEL_APPROVE_DELEGATION) {
             validate_approveDelegation(callData);
+
+        // --- Aave V3 lending ---
         } else if(selector == SEL_AAVE_SUPPLY) {
             validate_aaveSupply(callData);
         } else if(selector == SEL_AAVE_WITHDRAW) {
             validate_aaveWithdraw(callData);
+
+        // --- Lagoon vault settlement ---
         } else if (selector == SEL_SETTLE_DEPOSIT) {
             validate_lagoonSettle(target);
         } else if (selector == SEL_SETTLE_REDEEM) {
@@ -538,6 +568,8 @@ abstract contract GuardV0Base is IGuard,  Multicall, SwapCowSwap  {
             validate_lagoonSettle(target);
         } else if (selector == SEL_SETTLE_REDEEM_UINT) {
             validate_lagoonSettle(target);
+
+        // --- ERC-4626 / ERC-7540 vaults ---
         } else if (selector == SEL_DEPOSIT || selector == SEL_DEPOSIT_7540) {
             // Guard logic in approve() whitelist - no further checks here needed
         } else if (selector == SEL_DEPOSIT_UMAMI) {
@@ -560,15 +592,19 @@ abstract contract GuardV0Base is IGuard,  Multicall, SwapCowSwap  {
             // Guard logic in approve() whitelist - no further checks here needed
         } else if (selector == SEL_MAKE_WITHDRAW_REQUEST) {
             // Gains/Ostium modified ERC-4626
+
+        // --- Orderly perpetuals ---
         } else if (selector == SEL_DELEGATE_SIGNER) {
             validate_orderlyDelegateSigner(callData);
         } else if (selector == SEL_ORDERLY_DEPOSIT) {
             validate_orderlyDeposit(callData);
         } else if (selector == SEL_ORDERLY_WITHDRAW) {
             validate_orderlyWithdraw(callData);
+
+        // --- GMX perpetuals ---
         } else if (selector == SEL_GMX_MULTICALL) {
-            // GMX multicall - validate inner calls
             validate_gmxMulticall(target, callData);
+
         } else {
             revert("Unknown function selector");
         }
