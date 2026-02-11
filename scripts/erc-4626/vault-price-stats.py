@@ -25,6 +25,10 @@ def print_basic_stats(df: pd.DataFrame, label: str):
     :param df: Vault price dataframe with chain, address, timestamp columns
     :param label: Label for the table (e.g. "Uncleaned" or "Cleaned")
     """
+    # timestamp may be a column or the index depending on the file
+    if "timestamp" not in df.columns and df.index.name == "timestamp":
+        df = df.reset_index()
+
     rows = []
     for chain_id, group in sorted(df.groupby("chain")):
         chain_name = get_chain_name(chain_id)
