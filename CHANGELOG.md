@@ -1,6 +1,7 @@
-# Current 
+# 1.0 
 
-- Remove web3.py v6 support, web3.py v7+ is now required (2026-02-11)
+- Full GMX support for CCXT and FreqTrade
+- Remove web3.py v6 support, web3.py v7+ is now required, unblocking installation compabilit with `uv` and other Python package managers (2026-02-11)
 
 # 0.41
 
