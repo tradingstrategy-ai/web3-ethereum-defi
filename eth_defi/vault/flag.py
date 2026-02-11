@@ -307,6 +307,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0xb250c9e0f7be4cff13f94374c993ac445a1385fe": (None, ETH_STRATEGY_ESPN),
     # USDC Fluid Lender
     "0x00c8a649c9837523ebb406ceb17a6378ab5c74cf": (VaultFlag.subvault, SUBVAULT),
+    # Apostro aprUSDC (Sonic)
+    "0xcca902f2d3d265151f123d8ce8fdac38ba9745ed": (VaultFlag.unofficial, MISSING_IN_PROTOCOL_FRONTEND),
 }
 
 for addr in VAULT_FLAGS_AND_NOTES.keys():
