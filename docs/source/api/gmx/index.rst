@@ -14,7 +14,8 @@ This module contains `GMX <https://gmx.io/>`__ support for Python.
 Tutorials
 =========
 
-- :ref:`gmx-swap`
+- :ref:`gmx-swap` - Execute swaps on GMX
+- :ref:`lagoon-gmx` - Trade GMX perpetuals from a Lagoon vault
 
 What Is GMX?
 =============

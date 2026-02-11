@@ -2,6 +2,8 @@
 
 This document describes the security architecture of the GMX perpetuals integration with Lagoon vaults, focusing on the Guard contract's role in preventing unauthorised fund transfers.
 
+For a tutorial on how to use this integration, see [Lagoon and GMX perpetuals integration](https://web3-ethereum-defi.readthedocs.io/tutorials/lagoon-gmx.html) or run the example script at `scripts/lagoon/lagoon-gmx-example.py`.
+
 ## Overview
 
 The integration allows Lagoon vaults (which use Gnosis Safe) to trade GMX V2 perpetuals while ensuring that:
