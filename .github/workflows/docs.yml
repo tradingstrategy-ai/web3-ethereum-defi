@@ -26,7 +26,7 @@ jobs:
       # Poetry must be installed before setup-python for cache to work
       # https://github.com/python-poetry/poetry/blob/main/CHANGELOG.md
       - name: Install poetry
-        run: pipx install "poetry<2.3"
+        run: pipx install "poetry>=2.3"
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v5

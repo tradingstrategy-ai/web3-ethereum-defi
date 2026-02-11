@@ -2,6 +2,8 @@
 
 [![Automated test suite](https://github.com/tradingstrategy-ai/web3-ethereum-defi/actions/workflows/test.yml/badge.svg)](https://github.com/tradingstrategy-ai/web3-ethereum-defi/actions/workflows/test.yml)
 
+[![GMX Tests](https://github.com/tradingstrategy-ai/web3-ethereum-defi/actions/workflows/test-gmx.yml/badge.svg)](https://github.com/tradingstrategy-ai/web3-ethereum-defi/actions/workflows/test-gmx.yml)
+
 
 # Web3-Ethereum-Defi
 
@@ -167,8 +169,6 @@ To use this package you need to
  
 
 # Install
-
-**Warning**: Currently, installation fails with Poetry 2.3 and some other package manager versions.
 
 With `pip`:
 

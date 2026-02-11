@@ -8,7 +8,7 @@
 
 ## Installing dependencies
 
-Use Poetry version `<2.3` as newer versions may have compatibility issues. Install dependencies with all required extras:
+Install dependencies with all required extras:
 
 ```shell
 poetry install -E data -E test -E docs -E hypersync -E ccxt -E cloudflare_r2 -E duckdb

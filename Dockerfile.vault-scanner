@@ -41,7 +41,7 @@ ENV PYTHONUNBUFFERED=1
 RUN apt-get update && apt-get install -y libmpfr-dev libmpc-dev && rm -rf /var/lib/apt/lists/*
 
 # Install Python Poetry - pinned version
-RUN curl -sSL https://install.python-poetry.org | python - --version 2.2.1
+RUN curl -sSL https://install.python-poetry.org | python - --version 2.3.2
 
 WORKDIR /usr/src/web3-ethereum-defi
 ENV PATH="/usr/src/web3-ethereum-defi/.venv/bin:/root/.local/bin:$PATH"

@@ -61,8 +61,8 @@ jobs:
           # https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#adding-a-system-path
           echo $PNPM_HOME >> $GITHUB_PATH
 
-      - name: Install poetry less than 2.3 (using matrix Python)
-        run: pipx install "poetry<2.3" --python "${{ env.PYTHON_PATH }}"
+      - name: Install poetry (using matrix Python)
+        run: pipx install "poetry>=2.3" --python "${{ env.PYTHON_PATH }}"
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5

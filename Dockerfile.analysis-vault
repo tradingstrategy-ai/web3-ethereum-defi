@@ -18,7 +18,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Poetry
-RUN curl -sSL https://install.python-poetry.org | python - --version 2.2.1
+RUN curl -sSL https://install.python-poetry.org | python - --version 2.3.2
 
 # Set working directory
 WORKDIR /usr/src/web3-ethereum-defi

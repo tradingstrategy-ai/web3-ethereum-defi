@@ -52,10 +52,9 @@ jobs:
           # Disable cache to force fresh installation when debugging
           # cache: "poetry"
 
-      # Poetry 2.0 breaks everything
       # https://github.com/python-poetry/poetry/blob/main/CHANGELOG.md
       - name: Install poetry (using matrix Python)
-        run: pipx install "poetry>2" --python "${{ env.PYTHON_PATH }}"
+        run: pipx install "poetry>=2.3" --python "${{ env.PYTHON_PATH }}"
 
       # Install dependencies with the specific Web3.py version
       # Using a single installation command to avoid conflicts
