@@ -506,9 +506,6 @@ def setup_gmx_trading(
         default_gas_limit=500_000,
     )
 
-    # Re-sync nonce after approval
-    lagoon_wallet.sync_nonce(web3)
-
     # Create GMX CCXT adapter with the vault wallet
     gmx = GMX(
         params={
@@ -547,9 +544,6 @@ def open_gmx_position(
     print(f"  Size: ${size_usd}")
     print(f"  Leverage: {leverage}x")
     print(f"  Collateral: ${float(size_usd) / leverage:.2f} USDC")
-
-    # Sync wallet nonce before trading
-    gmx.wallet.sync_nonce(gmx.web3)
 
     # Create the order using CCXT-style interface
     order = gmx.create_order(
@@ -600,9 +594,6 @@ def close_gmx_position(
     :return: CCXT-style order result dict
     """
     print(f"\nClosing {'LONG' if is_long else 'SHORT'} ETH position...")
-
-    # Sync wallet nonce before trading
-    gmx.wallet.sync_nonce(gmx.web3)
 
     # Close the position (reduceOnly=True)
     order = gmx.create_order(
