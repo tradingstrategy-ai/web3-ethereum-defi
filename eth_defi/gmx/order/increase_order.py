@@ -11,6 +11,7 @@ from typing import Optional
 from eth_utils import to_checksum_address
 from eth_typing import ChecksumAddress
 
+from eth_defi.gmx.execution_buffer import DEFAULT_EXECUTION_BUFFER
 from eth_defi.gmx.order.base_order import BaseOrder, OrderParams, OrderResult
 
 
@@ -63,7 +64,7 @@ class IncreaseOrder(BaseOrder):
         initial_collateral_delta_amount: int | str,
         slippage_percent: float = 0.003,
         swap_path: Optional[list[str]] = None,
-        execution_buffer: float = 2.2,
+        execution_buffer: float = DEFAULT_EXECUTION_BUFFER,
         auto_cancel: bool = False,
         data_list: Optional[list[str]] = None,
         callback_gas_limit: int = 0,
@@ -130,7 +131,7 @@ class IncreaseOrder(BaseOrder):
         initial_collateral_delta_amount: int | str,
         slippage_percent: float = 0.003,
         swap_path: Optional[list[str]] = None,
-        execution_buffer: float = 2.2,
+        execution_buffer: float = DEFAULT_EXECUTION_BUFFER,
         auto_cancel: bool = True,
         data_list: Optional[list[str]] = None,
         callback_gas_limit: int = 0,

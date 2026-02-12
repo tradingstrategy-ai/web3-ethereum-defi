@@ -49,6 +49,7 @@ More info
    eth_defi.gmx.contracts
    eth_defi.gmx.data
    eth_defi.gmx.events
+   eth_defi.gmx.execution_buffer
    eth_defi.gmx.gas_utils
    eth_defi.gmx.keys
    eth_defi.gmx.order
