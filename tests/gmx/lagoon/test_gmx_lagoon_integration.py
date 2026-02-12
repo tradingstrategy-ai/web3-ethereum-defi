@@ -1,7 +1,7 @@
-"""Integration tests for LagoonWallet with real GMX contracts on Arbitrum fork.
+"""Integration tests for LagoonGMXTradingWallet with real GMX contracts on Arbitrum fork.
 
 Tests run against actual GMX V2 contracts using an Anvil fork of Arbitrum mainnet.
-The LagoonWallet wraps all transactions through TradingStrategyModuleV0.performCall().
+The LagoonGMXTradingWallet wraps all transactions through TradingStrategyModuleV0.performCall().
 """
 
 import logging
@@ -26,7 +26,7 @@ from eth_defi.erc_4626.vault_protocol.lagoon.deployment import (
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.contracts import get_contract_addresses
-from eth_defi.gmx.lagoon.wallet import LagoonWallet
+from eth_defi.gmx.lagoon.wallet import LagoonGMXTradingWallet
 from eth_defi.gmx.order import OrderResult
 from eth_defi.gmx.core.open_positions import GetOpenPositions
 from eth_defi.gmx.trading import GMXTrading
@@ -68,11 +68,11 @@ WETH_WHALE = to_checksum_address("0x70d95587d40A2caf56bd97485aB3Eec10Bee6336")
 
 @dataclass
 class LagoonGMXForkEnv:
-    """All components needed for LagoonWallet + GMX fork testing."""
+    """All components needed for LagoonGMXTradingWallet + GMX fork testing."""
 
     web3: Web3
     vault: LagoonVault
-    lagoon_wallet: LagoonWallet
+    lagoon_wallet: LagoonGMXTradingWallet
     asset_manager_wallet: HotWallet
     gmx_config: GMXConfig
     trading: GMXTrading
@@ -82,14 +82,14 @@ class LagoonGMXForkEnv:
 
 
 def _create_lagoon_gmx_fork_env(rpc_url: str) -> LagoonGMXForkEnv:
-    """Create a complete isolated fork environment for LagoonWallet + GMX testing.
+    """Create a complete isolated fork environment for LagoonGMXTradingWallet + GMX testing.
 
     Order of operations (CRITICAL):
     1. Spawn fresh Anvil fork
     2. Setup mock oracle FIRST
     3. Deploy Lagoon vault with TradingStrategyModuleV0
     4. Fund vault's Safe with USDC/WETH
-    5. Create LagoonWallet
+    5. Create LagoonGMXTradingWallet
     6. Create GMXConfig pointing to Safe address
     7. Approve tokens for GMX
     """
@@ -242,8 +242,8 @@ def _create_lagoon_gmx_fork_env(rpc_url: str) -> LagoonGMXForkEnv:
 
     logger.info(f"Safe funded: {usdc_amount / 10**6} USDC, {weth_amount / 10**18} WETH")
 
-    # === Step 5: Create LagoonWallet ===
-    lagoon_wallet = LagoonWallet(
+    # === Step 5: Create LagoonGMXTradingWallet ===
+    lagoon_wallet = LagoonGMXTradingWallet(
         vault=vault,
         asset_manager=asset_manager_wallet,
         gas_buffer=500_000,  # Extra gas for performCall overhead
@@ -295,13 +295,13 @@ def _create_lagoon_gmx_fork_env(rpc_url: str) -> LagoonGMXForkEnv:
 
 @pytest.fixture()
 def lagoon_gmx_fork_env() -> Generator[LagoonGMXForkEnv, None, None]:
-    """Completely isolated fork environment for LagoonWallet + GMX testing.
+    """Completely isolated fork environment for LagoonGMXTradingWallet + GMX testing.
 
     Each test gets its own fresh Anvil instance with:
     - Mock oracle set up FIRST
     - Deployed Lagoon vault with TradingStrategyModuleV0
     - Safe funded with USDC/WETH
-    - LagoonWallet wrapping the vault
+    - LagoonGMXTradingWallet wrapping the vault
     - GMXConfig pointing to Safe address
     - Token approvals for GMX
     """
@@ -319,11 +319,11 @@ def lagoon_gmx_fork_env() -> Generator[LagoonGMXForkEnv, None, None]:
 
 @flaky(max_runs=3, min_passes=1)
 def test_lagoon_wallet_open_long_position(lagoon_gmx_fork_env: LagoonGMXForkEnv):
-    """Test opening a long ETH position through LagoonWallet.
+    """Test opening a long ETH position through LagoonGMXTradingWallet.
 
     Flow:
     1. Create order via GMXTrading
-    2. Sign with LagoonWallet (wraps in performCall)
+    2. Sign with LagoonGMXTradingWallet (wraps in performCall)
     3. Submit transaction
     4. Execute as keeper
     5. Verify position owned by Safe
@@ -354,7 +354,7 @@ def test_lagoon_wallet_open_long_position(lagoon_gmx_fork_env: LagoonGMXForkEnv)
     assert isinstance(order_result, OrderResult)
     assert order_result.execution_fee > 0
 
-    # === Step 2: Sign with LagoonWallet (wraps in performCall) ===
+    # === Step 2: Sign with LagoonGMXTradingWallet (wraps in performCall) ===
     transaction = order_result.transaction.copy()
     if "nonce" in transaction:
         del transaction["nonce"]
@@ -364,7 +364,7 @@ def test_lagoon_wallet_open_long_position(lagoon_gmx_fork_env: LagoonGMXForkEnv)
     logger.info(f"Expected ExchangeRouter: {GMX_EXCHANGE_ROUTER}")
     logger.info(f"Target matches ExchangeRouter: {transaction.get('to') == GMX_EXCHANGE_ROUTER}")
 
-    logger.info("Signing transaction with LagoonWallet...")
+    logger.info("Signing transaction with LagoonGMXTradingWallet...")
     signed_tx = env.lagoon_wallet.sign_transaction_with_new_nonce(transaction)
 
     # === Step 3: Submit transaction ===
@@ -402,7 +402,7 @@ def test_lagoon_wallet_open_long_position(lagoon_gmx_fork_env: LagoonGMXForkEnv)
 
 @flaky(max_runs=3, min_passes=1)
 def test_lagoon_wallet_open_short_position(lagoon_gmx_fork_env: LagoonGMXForkEnv):
-    """Test opening a short ETH position with USDC collateral through LagoonWallet."""
+    """Test opening a short ETH position with USDC collateral through LagoonGMXTradingWallet."""
     env = lagoon_gmx_fork_env
     safe_address = env.vault.safe_address
 
@@ -428,7 +428,7 @@ def test_lagoon_wallet_open_short_position(lagoon_gmx_fork_env: LagoonGMXForkEnv
 
     assert isinstance(order_result, OrderResult)
 
-    # Sign with LagoonWallet
+    # Sign with LagoonGMXTradingWallet
     transaction = order_result.transaction.copy()
     if "nonce" in transaction:
         del transaction["nonce"]
@@ -457,10 +457,10 @@ def test_lagoon_wallet_open_short_position(lagoon_gmx_fork_env: LagoonGMXForkEnv
 
 
 def test_lagoon_wallet_address_is_safe(lagoon_gmx_fork_env: LagoonGMXForkEnv):
-    """Verify LagoonWallet reports Safe address, not asset manager address."""
+    """Verify LagoonGMXTradingWallet reports Safe address, not asset manager address."""
     env = lagoon_gmx_fork_env
 
-    # LagoonWallet.address should return the Safe address
+    # LagoonGMXTradingWallet.address should return the Safe address
     assert env.lagoon_wallet.address == env.vault.safe_address
     assert env.lagoon_wallet.address != env.asset_manager_wallet.get_main_address()
 

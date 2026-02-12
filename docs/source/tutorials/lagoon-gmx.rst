@@ -53,6 +53,43 @@ The Guard contract validates all GMX calls to ensure:
 
 For security details, see the `README-GMX-Lagoon.md <https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/README-GMX-Lagoon.md>`__ file.
 
+ERC-7540 deposit/redeem flow
+-----------------------------
+
+Lagoon vaults implement `ERC-7540 <https://tradingstrategy.ai/glossary/erc-7540>`__ (async redemption extension to ERC-4626).
+Deposits and redemptions are asynchronous with a silo holding assets/shares
+between request and finalisation.
+
+Deposit flow::
+
+    User                    Vault                   Silo                    Safe
+      │                       │                       │                       │
+      │── requestDeposit() ──▶│                       │                       │
+      │   (transfer USDC)     │── hold USDC ─────────▶│                       │
+      │                       │                       │                       │
+      │                       │◀── settleDeposit() ───│                       │
+      │                       │   (asset manager)     │── transfer USDC ─────▶│
+      │                       │                       │                       │
+      │                       │── mint shares ───────▶│                       │
+      │                       │                       │                       │
+      │◀── finaliseDeposit() ─│◀── transfer shares ───│                       │
+      │   (claim shares)      │                       │                       │
+      │                       │                       │                       │
+
+Redeem flow::
+
+    User                    Vault                   Silo                    Safe
+      │                       │                       │                       │
+      │── requestRedeem() ───▶│                       │                       │
+      │   (transfer shares)   │── hold shares ───────▶│                       │
+      │                       │                       │                       │
+      │                       │◀── settleRedeem() ────│◀── transfer USDC ─────│
+      │                       │   (asset manager)     │   (burn shares)       │
+      │                       │                       │                       │
+      │◀── finaliseRedeem() ──│◀── transfer USDC ─────│                       │
+      │   (claim USDC)        │                       │                       │
+      │                       │                       │                       │
+
 Prerequisites
 -------------
 
@@ -234,7 +271,7 @@ API documentation
 
 - GMX whitelisting: :py:mod:`eth_defi.gmx.whitelist`
 - GMX CCXT adapter: :py:mod:`eth_defi.gmx.ccxt`
-- LagoonWallet: :py:mod:`eth_defi.gmx.lagoon.wallet`
+- LagoonGMXTradingWallet: :py:mod:`eth_defi.gmx.lagoon.wallet`
 - LagoonVault: :py:mod:`eth_defi.erc_4626.vault_protocol.lagoon.vault`
 - Vault deployment: :py:func:`eth_defi.erc_4626.vault_protocol.lagoon.deployment.deploy_automated_lagoon_vault`
 - Guard contract: `GuardV0Base.sol <https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/contracts/guard/src/GuardV0Base.sol>`__

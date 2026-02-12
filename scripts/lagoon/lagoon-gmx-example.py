@@ -63,43 +63,6 @@ The Guard contract validates all GMX calls to ensure:
 
 For security details, see: README-GMX-Lagoon.md
 
-ERC-7540 deposit/redeem flow
-----------------------------
-
-Lagoon vaults implement ERC-7540 (async redemption extension to ERC-4626).
-Deposits and redemptions are asynchronous with a silo holding assets/shares
-between request and finalisation.
-
-Deposit flow::
-
-    User                    Vault                   Silo                    Safe
-      │                       │                       │                       │
-      │── requestDeposit() ──▶│                       │                       │
-      │   (transfer USDC)     │── hold USDC ─────────▶│                       │
-      │                       │                       │                       │
-      │                       │◀── settleDeposit() ───│                       │
-      │                       │   (asset manager)     │── transfer USDC ─────▶│
-      │                       │                       │                       │
-      │                       │── mint shares ───────▶│                       │
-      │                       │                       │                       │
-      │◀── finaliseDeposit() ─│◀── transfer shares ───│                       │
-      │   (claim shares)      │                       │                       │
-      │                       │                       │                       │
-
-Redeem flow::
-
-    User                    Vault                   Silo                    Safe
-      │                       │                       │                       │
-      │── requestRedeem() ───▶│                       │                       │
-      │   (transfer shares)   │── hold shares ───────▶│                       │
-      │                       │                       │                       │
-      │                       │◀── settleRedeem() ────│◀── transfer USDC ─────│
-      │                       │   (asset manager)     │   (burn shares)       │
-      │                       │                       │                       │
-      │◀── finaliseRedeem() ──│◀── transfer USDC ─────│                       │
-      │   (claim USDC)        │                       │                       │
-      │                       │                       │                       │
-
 GMX minimum amounts
 -------------------
 
@@ -133,7 +96,7 @@ API documentation
 -----------------
 
 - GMX CCXT adapter: :py:mod:`eth_defi.gmx.ccxt`
-- LagoonWallet: :py:mod:`eth_defi.gmx.lagoon.wallet`
+- LagoonGMXTradingWallet: :py:mod:`eth_defi.gmx.lagoon.wallet`
 - LagoonVault: :py:mod:`eth_defi.erc_4626.vault_protocol.lagoon.vault`
 - Guard contract: contracts/guard/src/GuardV0Base.sol
 """
@@ -158,7 +121,7 @@ from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.gas import apply_gas, estimate_gas_price
 from eth_defi.gmx.ccxt import GMX
 from eth_defi.gmx.contracts import get_contract_addresses
-from eth_defi.gmx.lagoon.wallet import LagoonWallet
+from eth_defi.gmx.lagoon.wallet import LagoonGMXTradingWallet
 from eth_defi.gmx.whitelist import GMX_POPULAR_MARKETS, GMXDeployment
 from eth_defi.hotwallet import HotWallet, SignedTransactionWithNonce
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
@@ -705,7 +668,7 @@ def setup_gmx_trading(
 ) -> GMX:
     """Set up GMX trading through the Lagoon vault.
 
-    Creates the LagoonWallet and GMX adapter, and approves USDC for trading.
+    Creates the LagoonGMXTradingWallet and GMX adapter, and approves USDC for trading.
     Returns a configured GMX instance that can be reused for multiple orders.
 
     :param web3: Web3 instance
@@ -715,9 +678,9 @@ def setup_gmx_trading(
     """
     print("\nSetting up GMX trading...")
 
-    # Create LagoonWallet to wrap transactions through the vault
+    # Create LagoonGMXTradingWallet to wrap transactions through the vault
     # This implements the BaseWallet interface expected by GMX
-    lagoon_wallet = LagoonWallet(
+    lagoon_wallet = LagoonGMXTradingWallet(
         vault=vault,
         asset_manager=asset_manager,
         gas_buffer=500_000,  # Extra gas for performCall overhead

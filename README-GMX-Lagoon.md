@@ -341,7 +341,7 @@ The integration includes comprehensive tests covering all inner calls and valida
 |------|-------------|
 | `contracts/guard/src/GuardV0Base.sol` | Guard contract with GMX validation |
 | `eth_defi/gmx/order/base_order.py` | GMX order building with multicall patterns |
-| `eth_defi/gmx/lagoon/wallet.py` | LagoonWallet adapter for vault trading |
+| `eth_defi/gmx/lagoon/wallet.py` | LagoonGMXTradingWallet adapter for vault trading |
 | `eth_defi/erc_4626/vault_protocol/lagoon/vault.py` | LagoonVault Python wrapper |
 | `tests/guard/test_guard_gmx_validation.py` | Unit tests for Guard GMX validation |
 | `tests/gmx/lagoon/test_gmx_lagoon_integration.py` | Integration tests on Arbitrum fork |

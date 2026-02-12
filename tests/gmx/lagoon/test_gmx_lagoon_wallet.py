@@ -1,4 +1,4 @@
-"""Tests for LagoonWallet - GMX trading through Lagoon vaults.
+"""Tests for LagoonGMXTradingWallet - GMX trading through Lagoon vaults.
 
 These tests use mocks to verify the wallet logic without requiring
 real blockchain access or GMX API calls.
@@ -63,21 +63,21 @@ def mock_asset_manager(mock_web3):
 
 
 def test_lagoon_wallet_is_base_wallet(mock_vault, mock_asset_manager):
-    """Test that LagoonWallet implements BaseWallet interface."""
-    from eth_defi.gmx.lagoon.wallet import LagoonWallet
+    """Test that LagoonGMXTradingWallet implements BaseWallet interface."""
+    from eth_defi.gmx.lagoon.wallet import LagoonGMXTradingWallet
     from eth_defi.basewallet import BaseWallet
 
-    wallet = LagoonWallet(mock_vault, mock_asset_manager)
+    wallet = LagoonGMXTradingWallet(mock_vault, mock_asset_manager)
 
     # Should be a BaseWallet subclass
     assert isinstance(wallet, BaseWallet)
 
 
 def test_lagoon_wallet_init(mock_vault, mock_asset_manager):
-    """Test LagoonWallet initialisation."""
-    from eth_defi.gmx.lagoon.wallet import LagoonWallet
+    """Test LagoonGMXTradingWallet initialisation."""
+    from eth_defi.gmx.lagoon.wallet import LagoonGMXTradingWallet
 
-    wallet = LagoonWallet(mock_vault, mock_asset_manager)
+    wallet = LagoonGMXTradingWallet(mock_vault, mock_asset_manager)
 
     assert wallet.vault == mock_vault
     assert wallet.asset_manager == mock_asset_manager
@@ -86,9 +86,9 @@ def test_lagoon_wallet_init(mock_vault, mock_asset_manager):
 
 def test_lagoon_wallet_address_returns_safe(mock_vault, mock_asset_manager):
     """Test that wallet.address returns the Safe address, not asset manager."""
-    from eth_defi.gmx.lagoon.wallet import LagoonWallet
+    from eth_defi.gmx.lagoon.wallet import LagoonGMXTradingWallet
 
-    wallet = LagoonWallet(mock_vault, mock_asset_manager)
+    wallet = LagoonGMXTradingWallet(mock_vault, mock_asset_manager)
 
     # Address should be the Safe, not the asset manager
     assert wallet.address == mock_vault.safe_address
@@ -97,9 +97,9 @@ def test_lagoon_wallet_address_returns_safe(mock_vault, mock_asset_manager):
 
 def test_lagoon_wallet_sync_nonce_delegates(mock_vault, mock_asset_manager, mock_web3):
     """Test that sync_nonce delegates to asset manager."""
-    from eth_defi.gmx.lagoon.wallet import LagoonWallet
+    from eth_defi.gmx.lagoon.wallet import LagoonGMXTradingWallet
 
-    wallet = LagoonWallet(mock_vault, mock_asset_manager)
+    wallet = LagoonGMXTradingWallet(mock_vault, mock_asset_manager)
     wallet.sync_nonce(mock_web3)
 
     mock_asset_manager.sync_nonce.assert_called_once_with(mock_web3)
@@ -107,9 +107,9 @@ def test_lagoon_wallet_sync_nonce_delegates(mock_vault, mock_asset_manager, mock
 
 def test_lagoon_wallet_allocate_nonce_delegates(mock_vault, mock_asset_manager):
     """Test that allocate_nonce delegates to asset manager."""
-    from eth_defi.gmx.lagoon.wallet import LagoonWallet
+    from eth_defi.gmx.lagoon.wallet import LagoonGMXTradingWallet
 
-    wallet = LagoonWallet(mock_vault, mock_asset_manager)
+    wallet = LagoonGMXTradingWallet(mock_vault, mock_asset_manager)
     nonce = wallet.allocate_nonce()
 
     assert nonce == 42
@@ -118,9 +118,9 @@ def test_lagoon_wallet_allocate_nonce_delegates(mock_vault, mock_asset_manager):
 
 def test_lagoon_wallet_sign_wraps_in_perform_call(mock_vault, mock_asset_manager):
     """Test that sign_transaction_with_new_nonce wraps tx in performCall."""
-    from eth_defi.gmx.lagoon.wallet import LagoonWallet
+    from eth_defi.gmx.lagoon.wallet import LagoonGMXTradingWallet
 
-    wallet = LagoonWallet(mock_vault, mock_asset_manager)
+    wallet = LagoonGMXTradingWallet(mock_vault, mock_asset_manager)
 
     # Create a mock GMX transaction
     tx = {
@@ -151,9 +151,9 @@ def test_lagoon_wallet_sign_wraps_in_perform_call(mock_vault, mock_asset_manager
 
 def test_lagoon_wallet_get_native_balance(mock_vault, mock_asset_manager, mock_web3):
     """Test that get_native_currency_balance returns Safe balance."""
-    from eth_defi.gmx.lagoon.wallet import LagoonWallet
+    from eth_defi.gmx.lagoon.wallet import LagoonGMXTradingWallet
 
-    wallet = LagoonWallet(mock_vault, mock_asset_manager)
+    wallet = LagoonGMXTradingWallet(mock_vault, mock_asset_manager)
     balance = wallet.get_native_currency_balance(mock_web3)
 
     # Should query Safe address, not asset manager
@@ -162,28 +162,28 @@ def test_lagoon_wallet_get_native_balance(mock_vault, mock_asset_manager, mock_w
 
 
 def test_lagoon_wallet_rejects_invalid_vault(mock_asset_manager):
-    """Test that LagoonWallet rejects objects without trading_strategy_module."""
-    from eth_defi.gmx.lagoon.wallet import LagoonWallet
+    """Test that LagoonGMXTradingWallet rejects objects without trading_strategy_module."""
+    from eth_defi.gmx.lagoon.wallet import LagoonGMXTradingWallet
 
     invalid_vault = Mock(spec=[])  # No trading_strategy_module attribute
 
     with pytest.raises(TypeError, match="trading_strategy_module"):
-        LagoonWallet(invalid_vault, mock_asset_manager)
+        LagoonGMXTradingWallet(invalid_vault, mock_asset_manager)
 
 
 def test_lagoon_wallet_rejects_invalid_asset_manager(mock_vault):
-    """Test that LagoonWallet rejects objects without sign_bound_call_with_new_nonce."""
-    from eth_defi.gmx.lagoon.wallet import LagoonWallet
+    """Test that LagoonGMXTradingWallet rejects objects without sign_bound_call_with_new_nonce."""
+    from eth_defi.gmx.lagoon.wallet import LagoonGMXTradingWallet
 
     invalid_manager = Mock(spec=[])  # No sign_bound_call_with_new_nonce attribute
 
     with pytest.raises(TypeError, match="HotWallet-like"):
-        LagoonWallet(mock_vault, invalid_manager)
+        LagoonGMXTradingWallet(mock_vault, invalid_manager)
 
 
 def test_lagoon_wallet_rejects_vault_without_module_address(mock_asset_manager, mock_web3):
-    """Test that LagoonWallet rejects vault without TradingStrategyModuleV0."""
-    from eth_defi.gmx.lagoon.wallet import LagoonWallet
+    """Test that LagoonGMXTradingWallet rejects vault without TradingStrategyModuleV0."""
+    from eth_defi.gmx.lagoon.wallet import LagoonGMXTradingWallet
 
     vault = Mock()
     vault.web3 = mock_web3
@@ -192,7 +192,7 @@ def test_lagoon_wallet_rejects_vault_without_module_address(mock_asset_manager, 
     vault.vault_address = "0x1234"
 
     with pytest.raises(ValueError, match="no TradingStrategyModuleV0"):
-        LagoonWallet(vault, mock_asset_manager)
+        LagoonGMXTradingWallet(vault, mock_asset_manager)
 
 
 def test_approve_gmx_collateral_via_vault():

@@ -1,6 +1,6 @@
 """Lagoon vault wallet for GMX trading.
 
-This module provides a `LagoonWallet` class that implements the `BaseWallet`
+This module provides a `LagoonGMXTradingWallet` class that implements the `BaseWallet`
 interface, allowing the standard GMX CCXT adapter to trade through a Lagoon
 vault without any modifications.
 
@@ -11,7 +11,7 @@ asset manager's hot wallet.
 Example usage::
 
     from eth_defi.gmx.ccxt import GMX
-    from eth_defi.gmx.lagoon import LagoonWallet
+    from eth_defi.gmx.lagoon import LagoonGMXTradingWallet
     from eth_defi.erc_4626.vault_protocol.lagoon import LagoonVault
     from eth_defi.hotwallet import HotWallet
 
@@ -20,7 +20,7 @@ Example usage::
     asset_manager = HotWallet.from_private_key("0x...")
 
     # Create vault wallet
-    wallet = LagoonWallet(vault, asset_manager)
+    wallet = LagoonGMXTradingWallet(vault, asset_manager)
 
     # Use standard GMX adapter with vault wallet
     gmx = GMX(params={"rpcUrl": rpc_url}, wallet=wallet)
@@ -53,7 +53,7 @@ logger = logging.getLogger(__name__)
 PERFORM_CALL_GAS_BUFFER = 200_000
 
 
-class LagoonWallet(BaseWallet):
+class LagoonGMXTradingWallet(BaseWallet):
     """Wallet implementation that routes transactions through a Lagoon vault.
 
     This wallet wraps all transactions through the vault's
@@ -66,7 +66,7 @@ class LagoonWallet(BaseWallet):
     Architecture::
 
         GMX CCXT Adapter
-        └── wallet: LagoonWallet
+        └── wallet: LagoonGMXTradingWallet
             ├── vault: LagoonVault (holds assets in Safe multisig)
             ├── asset_manager: HotWallet (signs wrapped transactions)
             └── sign_transaction_with_new_nonce():
@@ -84,7 +84,7 @@ class LagoonWallet(BaseWallet):
         vault = LagoonVault(web3, vault_address)
         asset_manager = HotWallet.from_private_key("0x...")
 
-        wallet = LagoonWallet(vault, asset_manager)
+        wallet = LagoonGMXTradingWallet(vault, asset_manager)
 
         # Use with GMX
         gmx = GMX(params={"rpcUrl": rpc_url}, wallet=wallet)
@@ -125,7 +125,7 @@ class LagoonWallet(BaseWallet):
         self.gas_buffer = gas_buffer
 
         logger.info(
-            "LagoonWallet initialised: safe=%s, asset_manager=%s",
+            "LagoonGMXTradingWallet initialised: safe=%s, asset_manager=%s",
             vault.safe_address,
             asset_manager.address,
         )

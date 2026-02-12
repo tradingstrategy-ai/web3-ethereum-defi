@@ -6,7 +6,7 @@
 - Fix Euler vault description crash when vault is not in Euler's GitHub labels metadata (2026-02-12)
 - Lagoon vaults now return offchain description as notes when no manual notes are set (2026-02-12)
 - Lagoon vault lockup estimation now uses average settlement time from offchain metadata (2026-02-12)
-- Add: GMX Lagoon adapter with LagoonWallet to trade through vault instead of hot wallet (2026-02-11)
+- Add: GMX Lagoon adapter with LagoonGMXTradingWallet to trade through vault instead of hot wallet (2026-02-11)
 - Add: Guard contract GMX multicall validation with asset/market whitelisting and receiver checks (2026-02-11)
 - Rename IPOR protocol to "IPOR Fusion" with slug `ipor-fusion` to match official branding (2026-02-11)
 - Remove unreliable maxRedeem lock-up check from IPOR Fusion vaults (2026-02-11)
