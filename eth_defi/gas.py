@@ -11,6 +11,25 @@ from typing import Optional
 from web3 import Web3
 from web3.gas_strategies.rpc import rpc_gas_price_strategy
 
+#: Safety buffer multiplier applied to ``maxFeePerGas`` in EIP-1559 transactions.
+#:
+#: On L2 chains like Arbitrum, the base fee can fluctuate between the time
+#: gas is estimated and the time the signed transaction reaches the sequencer.
+#: Without a buffer, this race condition causes rejections with:
+#:
+#: ``max fee per gas less than block base fee``
+#:
+#: A 12% buffer absorbs typical L2 base fee volatility while keeping
+#: overpayment minimal (unused gas fee is refunded by the protocol).
+#:
+#: For more information see:
+#:
+#: - `Arbitrum gas fees documentation <https://docs.arbitrum.io/how-arbitrum-works/gas-fees>`_
+#: - `Arbitrum base fee discussion on GitHub <https://github.com/OffchainLabs/nitro/issues/1>`_
+#: - `EIP-1559 specification <https://eips.ethereum.org/EIPS/eip-1559>`_
+#:
+GAS_PRICE_BUFFER_MULTIPLIER = 1.12
+
 
 class GasPriceMethod(enum.Enum):
     """What method we did use for setting the gas price."""
@@ -74,10 +93,28 @@ class GasPriceSuggestion:
         return pformat(data)
 
 
-def estimate_gas_price(web3: Web3, method=None) -> GasPriceSuggestion:
+def estimate_gas_price(
+    web3: Web3,
+    method=None,
+    gas_price_buffer_multiplier: float = GAS_PRICE_BUFFER_MULTIPLIER,
+) -> GasPriceSuggestion:
     """Get a good gas price for a transaction.
 
-    TODO: This is non-optimal, first draft implementation.
+    Applies a safety buffer to ``maxFeePerGas`` to absorb base fee fluctuations
+    between estimation and transaction submission.
+    See :py:data:`GAS_PRICE_BUFFER_MULTIPLIER` for details.
+
+    :param web3:
+        Web3 instance connected to a node.
+
+    :param method:
+        Force a specific gas pricing method.
+        If ``None``, auto-detect based on whether the chain supports EIP-1559.
+
+    :param gas_price_buffer_multiplier:
+        Multiplier applied to ``maxFeePerGas`` to absorb base fee fluctuations.
+        Defaults to :py:data:`GAS_PRICE_BUFFER_MULTIPLIER` (1.12 = 12% buffer).
+        Set to ``1.0`` to disable the buffer.
     """
 
     last_block = web3.eth.get_block("latest")
@@ -101,6 +138,12 @@ def estimate_gas_price(web3: Web3, method=None) -> GasPriceSuggestion:
             max_priority_fee_per_gas = max(30_000_000_000, web3.eth.max_priority_fee)
         else:
             max_priority_fee_per_gas = web3.eth.max_priority_fee
+
+        # Apply safety buffer to absorb L2 base fee volatility between
+        # estimation and submission. On Arbitrum the sequencer can adjust
+        # the base fee in the time it takes to sign and broadcast, causing
+        # "max fee per gas less than block base fee" rejections.
+        max_fee_per_gas = int(max_fee_per_gas * gas_price_buffer_multiplier)
 
         # https://github.com/ethereum/go-ethereum/blob/2e478aab98c13577c66b4531ba240a601dbc1516/core/error.go#L87
         if max_priority_fee_per_gas > max_fee_per_gas:

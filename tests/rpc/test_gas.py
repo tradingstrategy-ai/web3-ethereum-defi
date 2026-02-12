@@ -8,7 +8,7 @@ from eth_typing import HexAddress
 from web3 import Web3, EthereumTesterProvider
 from web3._utils.transactions import fill_nonce
 
-from eth_defi.gas import estimate_gas_fees, GasPriceMethod, apply_gas, GasPriceSuggestion, node_default_gas_price_strategy
+from eth_defi.gas import estimate_gas_fees, GasPriceMethod, apply_gas, GasPriceSuggestion, node_default_gas_price_strategy, GAS_PRICE_BUFFER_MULTIPLIER
 from eth_defi.hotwallet import HotWallet
 from eth_defi.token import create_token
 from eth_defi.tx import get_tx_broadcast_data
@@ -59,6 +59,16 @@ def test_gas_fees_london(web3: Web3, deployer: str):
     https://github.com/ethereum/eth-tester/issues/233
     """
     fees = estimate_gas_fees(web3)
+    assert fees.method == GasPriceMethod.london
+    assert fees.base_fee == 1000000000
+    # max_fee_per_gas = (priority_fee + 2 * base_fee) * buffer = (1G + 2G) * 1.12 = 3.36G
+    assert fees.max_fee_per_gas == int(3000000000 * GAS_PRICE_BUFFER_MULTIPLIER)
+    assert fees.max_priority_fee_per_gas == 1000000000
+
+
+def test_gas_fees_london_no_buffer(web3: Web3, deployer: str):
+    """Gas estimation with buffer disabled gives the raw value."""
+    fees = estimate_gas_fees(web3, gas_price_buffer_multiplier=1.0)
     assert fees.method == GasPriceMethod.london
     assert fees.base_fee == 1000000000
     assert fees.max_fee_per_gas == 3000000000
