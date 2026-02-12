@@ -289,6 +289,17 @@ class LagoonVault(ERC7540Vault):
             return self.lagoon_metadata.get("short_description")
         return None
 
+    def get_notes(self) -> str | None:
+        """Get notes for this vault.
+
+        - Returns manual notes from the vault flags if set
+        - Otherwise falls back to the full description from Lagoon's offchain metadata
+        """
+        manual_notes = super().get_notes()
+        if manual_notes:
+            return manual_notes
+        return self.description
+
     @cached_property
     def trading_strategy_module_version(self) -> str:
         """Get TradingStrategyModuleV0 contract ABI version.
@@ -818,6 +829,15 @@ class LagoonFlowManager(VaultFlowManager):
         share_price = self.vault.fetch_share_price(block_identifier)
         return shares_pending * share_price
 
-    def get_estimated_lock_up(self) -> datetime.timedelta:
-        """TODO: Add vault specific lock up period retrieval."""
-        return datetime.timedelta(days=3)
+    def get_estimated_lock_up(self) -> datetime.timedelta | None:
+        """Estimate lock up period from Lagoon's offchain metadata.
+
+        - Uses ``average_settlement`` from Lagoon's web app API (in seconds)
+        - Returns None if metadata is not available
+        """
+        metadata = self.vault.lagoon_metadata
+        if metadata:
+            avg = metadata.get("average_settlement")
+            if avg is not None:
+                return datetime.timedelta(seconds=avg)
+        return None
