@@ -1,5 +1,9 @@
 # Current
 
+- TODO
+
+# 1.0.2
+
 - **Fix: Add 12% gas price buffer to EIP-1559 `maxFeePerGas` estimation to prevent L2 base fee race condition rejections on Arbitrum and similar chains (2026-02-12)**
 - Extract GMX execution buffer constants and logic into dedicated `execution_buffer` module with comprehensive documentation (2026-02-12)
 - Fix threading.Timer crash when HTTP timeout tuple leaks into web3 session cache eviction under high concurrency (2026-02-12)
