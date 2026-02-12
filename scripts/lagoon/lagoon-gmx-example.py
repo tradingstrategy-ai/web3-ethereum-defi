@@ -108,8 +108,8 @@ GMX V2 has the following minimum requirements (per gmx-synthetics config):
 - **Minimum collateral**: $1 USD
 - **Minimum position size**: $1 USD
 
-This script uses $1.1 deposit and $1.1 position size to demonstrate
-trading at near-minimum values. The Safe also needs ETH for execution
+This script uses a $5 deposit and $5 position size with 1.1x leverage,
+providing ~$4.55 collateral (above the $2 minimum). The Safe also needs ETH for execution
 fees (~0.0001-0.001 ETH per order, paid to GMX keepers). The script
 sends 0.001 ETH to the Safe before trading and recovers it afterwards.
 
@@ -124,7 +124,7 @@ Prerequisites
 
 You need:
 - An Arbitrum wallet funded with at least 0.01 ETH for gas + execution fees
-- Some USDC on Arbitrum for trading collateral (~$50-100 recommended)
+- Some USDC on Arbitrum for trading collateral (~$10 recommended)
 - JSON_RPC_ARBITRUM environment variable pointing to an Arbitrum RPC
 - GMX_PRIVATE_KEY environment variable with your wallet private key
 - ETHERSCAN_API_KEY for contract verification (optional but recommended)
@@ -153,8 +153,7 @@ from safe_eth.safe.safe import Safe
 
 from eth_defi.chain import get_chain_name
 from eth_defi.confirmation import broadcast_and_wait_transactions_to_complete
-from eth_defi.erc_4626.vault_protocol.lagoon.deployment import (
-    LagoonDeploymentParameters, deploy_automated_lagoon_vault)
+from eth_defi.erc_4626.vault_protocol.lagoon.deployment import LagoonDeploymentParameters, deploy_automated_lagoon_vault
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.gas import apply_gas, estimate_gas_price
 from eth_defi.gmx.ccxt import GMX

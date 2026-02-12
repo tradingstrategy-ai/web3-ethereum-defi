@@ -3,10 +3,12 @@
 
 .. _lagoon-gmx:
 
-Lagoon and GMX perpetuals integration
-=====================================
+Lagoon vault, GMX and CCXT integration
+======================================
 
 Here is a Python example how to trade GMX V2 perpetuals from a Lagoon vault.
+This is a low level code example that shows every step in the process. For setting up a full trading vault with a bot for GMX,
+see `trade-executor <https://github.com/tradingstrategy-ai/trade-executor/>`__ Python project.
 
 - You need ~0.01 ETH and ~$5 USDC on Arbitrum to run this tutorial script.
 - This script deploys a new Lagoon vault with GMX integration enabled.
@@ -78,15 +80,16 @@ Your wallet must have the following minimum balances on Arbitrum:
 
 **USDC** (~$5 minimum)
     Used as trading collateral. The tutorial deposits $5 USDC into the vault
-    and opens a $2 position with 2x leverage ($1 collateral).
+    and opens a $5 position with 1.1x leverage (~$4.55 collateral).
 
     You can modify ``deposit_amount`` and ``position_size`` in the script
     to trade larger amounts.
 
 .. note::
 
-    GMX has minimum position sizes. Very small positions may be rejected
-    by the GMX keeper. The default $2 position size is near the minimum.
+    GMX requires >$2 of collateral per position. The default $5 position
+    size with 1.1x leverage provides ~$4.55 collateral, safely above the
+    minimum.
 
 Environment variables
 ---------------------
@@ -105,7 +108,7 @@ The following environment variables must be configured before running the tutori
 
     The RPC must be an archive node if you want to query historical state.
 
-``PRIVATE_KEY_SWAP_TEST`` (required)
+``GMX_PRIVATE_KEY`` (required)
     Private key of the Arbitrum wallet that will deploy and interact with the vault.
     This wallet must have sufficient ETH and USDC (see "Required funds" above).
 
@@ -136,7 +139,7 @@ Running the script
 
     # Private key of wallet with ETH + USDC (required)
     # Must have ~0.01 ETH for gas and ~$5 USDC for trading
-    export PRIVATE_KEY_SWAP_TEST="0x..."
+    export GMX_PRIVATE_KEY="0x..."
 
     # Arbiscan API key for contract verification (optional)
     # Get one at https://arbiscan.io/apis
@@ -150,12 +153,14 @@ The script will:
 1. Deploy a Lagoon vault with GMX integration
 2. Whitelist GMX contracts and the ETH/USDC market
 3. Deposit USDC collateral into the vault
-4. Approve tokens for GMX SyntheticsRouter
-5. Open a leveraged ETH long position
-6. Wait for GMX keeper execution
-7. Close the position
-8. Withdraw collateral from the vault
-9. Print a summary of all transactions and costs
+4. Fund the vault's Safe with ETH for GMX execution fees
+5. Approve tokens for GMX SyntheticsRouter
+6. Open a leveraged ETH long position
+7. Wait for GMX keeper execution
+8. Close the position
+9. Recover remaining ETH from the Safe back to the hot wallet
+10. Withdraw collateral from the vault
+11. Print a summary of all transactions and costs
 
 Listing available GMX markets
 -----------------------------
