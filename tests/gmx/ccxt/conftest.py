@@ -222,7 +222,6 @@ def ccxt_gmx_fork_open_close(
         large_usdc_holder_arbitrum,
         large_weth_holder_arbitrum,
     )
-    test_wallet.sync_nonce(web3_arbitrum_fork_ccxt_long)
 
     config = GMXConfig(
         web3_arbitrum_fork_ccxt_long,
@@ -233,6 +232,12 @@ def ccxt_gmx_fork_open_close(
         web3_arbitrum_fork_ccxt_long,
         test_wallet.address,
     )
+
+    # Sync nonce AFTER approve transactions — _approve_tokens_for_config()
+    # uses transact() which increments the on-chain nonce without going
+    # through HotWallet's internal counter
+    test_wallet.sync_nonce(web3_arbitrum_fork_ccxt_long)
+
     gmx = GMX(
         params={
             "rpcUrl": web3_arbitrum_fork_ccxt_long.provider.endpoint_uri if hasattr(web3_arbitrum_fork_ccxt_long.provider, "endpoint_uri") else None,
@@ -267,10 +272,15 @@ def ccxt_gmx_fork_short(
         large_usdc_holder_arbitrum,
         large_weth_holder_arbitrum,
     )
-    test_wallet.sync_nonce(web3_arbitrum_fork_ccxt_short)
 
     config = GMXConfig(web3_arbitrum_fork_ccxt_short, user_wallet_address=test_wallet.address)
     _approve_tokens_for_config(config, web3_arbitrum_fork_ccxt_short, test_wallet.address)
+
+    # Sync nonce AFTER approve transactions — _approve_tokens_for_config()
+    # uses transact() which increments the on-chain nonce without going
+    # through HotWallet's internal counter
+    test_wallet.sync_nonce(web3_arbitrum_fork_ccxt_short)
+
     gmx = GMX(
         params={
             "rpcUrl": web3_arbitrum_fork_ccxt_short.provider.endpoint_uri if hasattr(web3_arbitrum_fork_ccxt_short.provider, "endpoint_uri") else None,
@@ -344,10 +354,15 @@ def ccxt_gmx_fork_graphql(
         large_usdc_holder_arbitrum,
         large_weth_holder_arbitrum,
     )
-    test_wallet.sync_nonce(web3_arbitrum_fork_ccxt_long)
 
     config = GMXConfig(web3_arbitrum_fork_ccxt_long, user_wallet_address=test_wallet.address)
     _approve_tokens_for_config(config, web3_arbitrum_fork_ccxt_long, test_wallet.address)
+
+    # Sync nonce AFTER approve transactions — _approve_tokens_for_config()
+    # uses transact() which increments the on-chain nonce without going
+    # through HotWallet's internal counter
+    test_wallet.sync_nonce(web3_arbitrum_fork_ccxt_long)
+
     gmx = GMX(
         params={
             "rpcUrl": web3_arbitrum_fork_ccxt_long.provider.endpoint_uri if hasattr(web3_arbitrum_fork_ccxt_long.provider, "endpoint_uri") else None,
