@@ -451,7 +451,7 @@ def deposit_to_vault(
     broadcast_tx(
         web3,
         hot_wallet,
-        usdc.approve(vault.address, raw_amount),
+        usdc.approve(vault.address, usdc_amount),
         "Approve USDC for vault deposit",
     )
 
@@ -464,27 +464,40 @@ def deposit_to_vault(
     )
 
     # Step 3: Settle the vault
-    # First, post a valuation (USDC balance in Safe)
+    # For initial deposit, valuation is 0 (NAV before this deposit)
+    # For subsequent deposits, use current Safe balance
     safe_usdc_balance = usdc.fetch_balance_of(vault.safe_address)
-    raw_valuation = usdc.convert_to_raw(safe_usdc_balance + usdc_amount)
+    valuation = safe_usdc_balance  # Current balance BEFORE settlement
 
     broadcast_tx(
         web3,
         hot_wallet,
-        vault.post_new_valuation(raw_valuation),
+        vault.post_new_valuation(valuation),
         "Post vault valuation",
     )
 
     broadcast_tx(
         web3,
         hot_wallet,
-        vault.settle_via_trading_strategy_module(raw_valuation),
+        vault.settle_via_trading_strategy_module(valuation),
         "Settle vault deposits",
+    )
+
+    # Step 4: Finalise deposit (transfer shares to depositor's wallet)
+    # ERC-7540 vaults hold shares in a silo until finalised
+    broadcast_tx(
+        web3,
+        hot_wallet,
+        vault.finalise_deposit(hot_wallet.address),
+        "Finalise deposit (claim shares)",
     )
 
     # Verify deposit
     final_balance = usdc.fetch_balance_of(vault.safe_address)
-    print(f"\nDeposit complete! Safe USDC balance: {final_balance}")
+    share_balance = vault.share_token.fetch_balance_of(hot_wallet.address)
+    print(f"\nDeposit complete!")
+    print(f"  Safe USDC balance: {final_balance}")
+    print(f"  Depositor share balance: {share_balance}")
 
 
 # ============================================================================
@@ -676,9 +689,9 @@ def withdraw_from_vault(
     """
     usdc = fetch_erc20_details(web3, USDC_ARBITRUM)
 
-    # Get vault share balance
-    vault_token = fetch_erc20_details(web3, vault.address)
-    shares = vault_token.fetch_balance_of(hot_wallet.address)
+    # Get vault share balance using vault's share token
+    share_token = vault.share_token
+    shares = share_token.fetch_balance_of(hot_wallet.address)
 
     print(f"\nWithdrawing from vault...")
     print(f"  Shares to redeem: {shares}")
@@ -687,7 +700,7 @@ def withdraw_from_vault(
         print("  No shares to redeem")
         return Decimal("0")
 
-    raw_shares = vault_token.convert_to_raw(shares)
+    raw_shares = share_token.convert_to_raw(shares)
 
     # Request redemption
     broadcast_tx(
@@ -699,20 +712,28 @@ def withdraw_from_vault(
 
     # Settle the vault
     safe_usdc_balance = usdc.fetch_balance_of(vault.safe_address)
-    raw_valuation = usdc.convert_to_raw(safe_usdc_balance)
 
     broadcast_tx(
         web3,
         hot_wallet,
-        vault.post_new_valuation(raw_valuation),
+        vault.post_new_valuation(safe_usdc_balance),
         "Post vault valuation for withdrawal",
     )
 
     broadcast_tx(
         web3,
         hot_wallet,
-        vault.settle_via_trading_strategy_module(raw_valuation),
+        vault.settle_via_trading_strategy_module(safe_usdc_balance),
         "Settle vault for withdrawal",
+    )
+
+    # Finalise redemption (transfer USDC from silo to user)
+    # ERC-7540 vaults hold redeemed assets in a silo until finalised
+    broadcast_tx(
+        web3,
+        hot_wallet,
+        vault.finalise_redeem(hot_wallet.address),
+        "Finalise redemption (claim USDC)",
     )
 
     # Check final balance
