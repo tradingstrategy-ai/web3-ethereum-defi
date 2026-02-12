@@ -62,6 +62,43 @@ The Guard contract validates all GMX calls to ensure:
 
 For security details, see: README-GMX-Lagoon.md
 
+ERC-7540 deposit/redeem flow
+----------------------------
+
+Lagoon vaults implement ERC-7540 (async redemption extension to ERC-4626).
+Deposits and redemptions are asynchronous with a silo holding assets/shares
+between request and finalisation.
+
+Deposit flow::
+
+    User                    Vault                   Silo                    Safe
+      │                       │                       │                       │
+      │── requestDeposit() ──▶│                       │                       │
+      │   (transfer USDC)     │── hold USDC ─────────▶│                       │
+      │                       │                       │                       │
+      │                       │◀── settleDeposit() ───│                       │
+      │                       │   (asset manager)     │── transfer USDC ─────▶│
+      │                       │                       │                       │
+      │                       │── mint shares ───────▶│                       │
+      │                       │                       │                       │
+      │◀── finaliseDeposit() ─│◀── transfer shares ───│                       │
+      │   (claim shares)      │                       │                       │
+      │                       │                       │                       │
+
+Redeem flow::
+
+    User                    Vault                   Silo                    Safe
+      │                       │                       │                       │
+      │── requestRedeem() ───▶│                       │                       │
+      │   (transfer shares)   │── hold shares ───────▶│                       │
+      │                       │                       │                       │
+      │                       │◀── settleRedeem() ────│◀── transfer USDC ─────│
+      │                       │   (asset manager)     │   (burn shares)       │
+      │                       │                       │                       │
+      │◀── finaliseRedeem() ──│◀── transfer USDC ─────│                       │
+      │   (claim USDC)        │                       │                       │
+      │                       │                       │                       │
+
 Prerequisites
 -------------
 
