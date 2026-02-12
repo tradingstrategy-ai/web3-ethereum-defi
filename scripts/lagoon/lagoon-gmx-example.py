@@ -5,10 +5,11 @@ through a Lagoon vault using the CCXT-compatible GMX adapter:
 
 1. Deploy a Lagoon vault with GMX integration enabled
 2. Deposit collateral (USDC) into the vault
-3. Open a leveraged ETH long position via GMX
-4. Close the position and realise PnL
-5. Withdraw collateral from the vault
-6. Display summary of all transactions and costs
+3. Setup GMX trading (approve tokens, create adapter)
+4. Open a leveraged ETH long position via GMX
+5. Close the position and realise PnL
+6. Withdraw collateral from the vault
+7. Display summary of all transactions and costs
 
 Architecture overview
 ---------------------
@@ -75,14 +76,12 @@ from web3.contract.contract import ContractFunction
 from eth_defi.chain import get_chain_name
 from eth_defi.confirmation import broadcast_and_wait_transactions_to_complete
 from eth_defi.erc_4626.vault_protocol.lagoon.deployment import (
-    LagoonAutomatedDeployment,
     LagoonDeploymentParameters,
     deploy_automated_lagoon_vault,
 )
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.gas import apply_gas, estimate_gas_price
 from eth_defi.gmx.ccxt import GMX
-from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.contracts import get_contract_addresses
 from eth_defi.gmx.lagoon.wallet import LagoonWallet
 from eth_defi.gmx.whitelist import GMXDeployment
@@ -463,47 +462,26 @@ def deposit_to_vault(
 
 
 # ============================================================================
-# Step 3: Open a GMX position
+# Step 3: Setup GMX trading
 # ============================================================================
 
 
-def open_gmx_position(
+def setup_gmx_trading(
     web3: Web3,
     vault: LagoonVault,
     asset_manager: HotWallet,
-    size_usd: Decimal,
-    leverage: float,
-    is_long: bool = True,
-) -> dict:
-    """Open a leveraged GMX position through the Lagoon vault.
+) -> GMX:
+    """Set up GMX trading through the Lagoon vault.
 
-    Uses the CCXT-compatible GMX adapter with LagoonWallet to route
-    trades through the vault's TradingStrategyModuleV0.
-
-    The order flow:
-    1. GMX adapter builds multicall transaction
-    2. LagoonWallet wraps it in performCall()
-    3. Asset manager signs and broadcasts
-    4. GMX keeper executes the order on-chain
-
-    For GMX CCXT adapter details, see:
-    :py:class:`eth_defi.gmx.ccxt.GMX`
-
-    For LagoonWallet details, see:
-    :py:class:`eth_defi.gmx.lagoon.wallet.LagoonWallet`
+    Creates the LagoonWallet and GMX adapter, and approves USDC for trading.
+    Returns a configured GMX instance that can be reused for multiple orders.
 
     :param web3: Web3 instance
     :param vault: LagoonVault holding the collateral
     :param asset_manager: Hot wallet of the asset manager
-    :param size_usd: Position size in USD
-    :param leverage: Leverage multiplier (e.g., 2.0 for 2x)
-    :param is_long: True for long, False for short
-    :return: CCXT-style order result dict
+    :return: Configured GMX CCXT adapter instance
     """
-    print(f"\nOpening {'LONG' if is_long else 'SHORT'} ETH position...")
-    print(f"  Size: ${size_usd}")
-    print(f"  Leverage: {leverage}x")
-    print(f"  Collateral: ${float(size_usd) / leverage:.2f} USDC")
+    print("\nSetting up GMX trading...")
 
     # Create LagoonWallet to wrap transactions through the vault
     # This implements the BaseWallet interface expected by GMX
@@ -512,11 +490,9 @@ def open_gmx_position(
         asset_manager=asset_manager,
         gas_buffer=500_000,  # Extra gas for performCall overhead
     )
-
-    # Sync nonce before trading
     lagoon_wallet.sync_nonce(web3)
 
-    # First, approve USDC for GMX SyntheticsRouter
+    # Approve USDC for GMX SyntheticsRouter (one-time approval)
     # This approval comes FROM the Safe, so we wrap it through performCall
     usdc = fetch_erc20_details(web3, USDC_ARBITRUM)
     approve_call = usdc.contract.functions.approve(GMX_SYNTHETICS_ROUTER, 2**256 - 1)
@@ -534,7 +510,6 @@ def open_gmx_position(
     lagoon_wallet.sync_nonce(web3)
 
     # Create GMX CCXT adapter with the vault wallet
-    # The wallet parameter tells GMX to use our LagoonWallet for signing
     gmx = GMX(
         params={
             "rpcUrl": web3.provider.endpoint_uri,
@@ -543,12 +518,40 @@ def open_gmx_position(
             "defaultSlippage": 0.005,  # 0.5% slippage tolerance
         }
     )
-
-    # Load available markets
     gmx.load_markets()
 
+    print("GMX trading ready!")
+    return gmx
+
+
+# ============================================================================
+# Step 4: Open a GMX position
+# ============================================================================
+
+
+def open_gmx_position(
+    gmx: GMX,
+    size_usd: Decimal,
+    leverage: float,
+    is_long: bool = True,
+) -> dict:
+    """Open a leveraged GMX position through the Lagoon vault.
+
+    :param gmx: Configured GMX CCXT adapter instance
+    :param size_usd: Position size in USD
+    :param leverage: Leverage multiplier (e.g., 2.0 for 2x)
+    :param is_long: True for long, False for short
+    :return: CCXT-style order result dict
+    """
+    print(f"\nOpening {'LONG' if is_long else 'SHORT'} ETH position...")
+    print(f"  Size: ${size_usd}")
+    print(f"  Leverage: {leverage}x")
+    print(f"  Collateral: ${float(size_usd) / leverage:.2f} USDC")
+
+    # Sync wallet nonce before trading
+    gmx.wallet.sync_nonce(gmx.web3)
+
     # Create the order using CCXT-style interface
-    # Symbol format: "ETH/USDC:USDC" for Freqtrade futures style
     order = gmx.create_order(
         symbol="ETH/USDC:USDC",
         type="market",
@@ -558,7 +561,7 @@ def open_gmx_position(
             "size_usd": float(size_usd),
             "leverage": leverage,
             "collateral_symbol": "USDC",
-            "wait_for_execution": False,  # Don't wait for keeper (for mainnet, set True)
+            "wait_for_execution": False,
         },
     )
 
@@ -580,53 +583,28 @@ def open_gmx_position(
 
 
 # ============================================================================
-# Step 4: Close the GMX position
+# Step 5: Close the GMX position
 # ============================================================================
 
 
 def close_gmx_position(
-    web3: Web3,
-    vault: LagoonVault,
-    asset_manager: HotWallet,
+    gmx: GMX,
     size_usd: Decimal,
     is_long: bool = True,
 ) -> dict:
     """Close an existing GMX position through the Lagoon vault.
 
-    Uses reduceOnly=True to close the position. The collateral and
-    any profit are returned to the Safe.
-
-    :param web3: Web3 instance
-    :param vault: LagoonVault holding the position
-    :param asset_manager: Hot wallet of the asset manager
+    :param gmx: Configured GMX CCXT adapter instance
     :param size_usd: Position size to close (in USD)
     :param is_long: True if closing a long, False if closing a short
     :return: CCXT-style order result dict
     """
     print(f"\nClosing {'LONG' if is_long else 'SHORT'} ETH position...")
 
-    # Create LagoonWallet
-    lagoon_wallet = LagoonWallet(
-        vault=vault,
-        asset_manager=asset_manager,
-        gas_buffer=500_000,
-    )
-    lagoon_wallet.sync_nonce(web3)
+    # Sync wallet nonce before trading
+    gmx.wallet.sync_nonce(gmx.web3)
 
-    # Create GMX adapter
-    gmx = GMX(
-        params={
-            "rpcUrl": web3.provider.endpoint_uri,
-            "wallet": lagoon_wallet,
-            "executionBuffer": 2.5,
-            "defaultSlippage": 0.005,
-        }
-    )
-    gmx.load_markets()
-
-    # Close the position
-    # For longs: side="sell" with reduceOnly=True
-    # For shorts: side="buy" with reduceOnly=True
+    # Close the position (reduceOnly=True)
     order = gmx.create_order(
         symbol="ETH/USDC:USDC",
         type="market",
@@ -636,7 +614,7 @@ def close_gmx_position(
             "size_usd": float(size_usd),
             "leverage": 1.0,  # Not relevant for closes
             "collateral_symbol": "USDC",
-            "reduceOnly": True,  # This flags it as a close order
+            "reduceOnly": True,
             "wait_for_execution": False,
         },
     )
@@ -658,7 +636,7 @@ def close_gmx_position(
 
 
 # ============================================================================
-# Step 5: Withdraw from the vault
+# Step 6: Withdraw from the vault
 # ============================================================================
 
 
@@ -812,39 +790,41 @@ def main():
     deposit_to_vault(web3, hot_wallet, vault, deposit_amount)
 
     # =========================================================================
-    # Step 3: Open position
+    # Step 3: Setup GMX trading
     # =========================================================================
     print("\n" + "=" * 80)
-    print("STEP 3: Open leveraged ETH long position")
+    print("STEP 3: Setup GMX trading")
+    print("=" * 80)
+
+    gmx = setup_gmx_trading(web3, vault, hot_wallet)
+
+    # =========================================================================
+    # Step 4: Open position
+    # =========================================================================
+    print("\n" + "=" * 80)
+    print("STEP 4: Open leveraged ETH long position")
     print("=" * 80)
 
     open_order = open_gmx_position(
-        web3,
-        vault,
-        hot_wallet,
+        gmx,
         size_usd=position_size,
         leverage=leverage,
         is_long=True,
     )
 
-    # Wait a bit for keeper execution (on mainnet)
+    # Wait for keeper execution
     print("\nWaiting for GMX keeper execution...")
     time.sleep(30)
 
     # =========================================================================
-    # Step 4: Close position
+    # Step 5: Close position
     # =========================================================================
     print("\n" + "=" * 80)
-    print("STEP 4: Close the position")
+    print("STEP 5: Close the position")
     print("=" * 80)
 
-    # Re-sync nonce
-    hot_wallet.sync_nonce(web3)
-
     close_order = close_gmx_position(
-        web3,
-        vault,
-        hot_wallet,
+        gmx,
         size_usd=position_size,
         is_long=True,
     )
@@ -854,10 +834,10 @@ def main():
     time.sleep(30)
 
     # =========================================================================
-    # Step 5: Withdraw
+    # Step 6: Withdraw
     # =========================================================================
     print("\n" + "=" * 80)
-    print("STEP 5: Withdraw collateral from vault")
+    print("STEP 6: Withdraw collateral from vault")
     print("=" * 80)
 
     hot_wallet.sync_nonce(web3)
@@ -867,10 +847,10 @@ def main():
     _summary.realised_pnl = final_usdc - deposit_amount
 
     # =========================================================================
-    # Step 6: Print summary
+    # Step 7: Print summary
     # =========================================================================
     print("\n" + "=" * 80)
-    print("STEP 6: Trading summary")
+    print("STEP 7: Trading summary")
     print("=" * 80)
 
     _summary.print_summary()
