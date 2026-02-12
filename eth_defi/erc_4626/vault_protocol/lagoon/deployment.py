@@ -63,6 +63,84 @@ DEFAULT_MANAGEMENT_RATE = 200
 DEFAULT_PERFORMANCE_RATE = 2000
 
 
+def _wait_for_rpc_propagation(
+    web3: Web3,
+    delay_seconds: float,
+    reason: str,
+    logger_instance: logging.Logger = logger,
+) -> None:
+    """Wait for RPC nodes to propagate recent state changes.
+
+    Many RPC providers have a delay between when a transaction is mined
+    and when the new contract state becomes readable via eth_call. This
+    function adds a configurable delay to prevent "contract not deployed"
+    errors.
+
+    :param web3: Web3 instance to check if we're on Anvil (skip delays)
+    :param delay_seconds: How long to wait (0 = skip)
+    :param reason: Description for logging (e.g. "vault deployment event read")
+    :param logger_instance: Logger to use for info messages
+
+    **Why this is needed:**
+
+    RPC providers use node clusters with eventual consistency. When you
+    deploy a contract or change state:
+
+    1. Transaction is mined and included in a block
+    2. Your RPC node receives the new block
+    3. eth_getTransactionReceipt returns immediately (local node has it)
+    4. But eth_call to the new contract may hit a different node that
+       hasn't synced the new state yet
+
+    This causes errors like:
+    - "Could not transact with/call contract function"
+    - "Tried to read 32 bytes, only got 0 bytes" (ABI decode failure)
+    - Functions returning empty data or stale state
+
+    **When to use:**
+
+    - After deploying a contract and before calling its functions
+    - After state-changing transactions and before reading new state
+    - Before parsing events from transaction receipts (if events query contract)
+    - When enabling modules on Safe (reads Safe state)
+
+    **When to skip (delay_seconds=0):**
+
+    - On Anvil (single node, no propagation)
+    - When reading transaction receipt data only (no eth_call)
+    - When sufficient time has already passed
+
+    **Example:**
+
+        # Deploy contract via Forge
+        module, tx_hash = deploy_contract_with_forge(...)
+
+        # Wait before calling functions on the deployed contract
+        _wait_for_rpc_propagation(
+            web3,
+            rpc_propagation_delay_seconds,
+            "TradingStrategyModule deployment before enableModule"
+        )
+
+        # Now safe to call contract functions
+        safe.contract.functions.enableModule(module.address).transact()
+
+    See Also:
+    - https://ethereum.stackexchange.com/q/87138 (RPC propagation delays)
+    - https://github.com/safe-global/safe-eth-py/issues/654 (Safe deployment)
+    """
+    if is_anvil(web3):
+        logger_instance.debug("Skipping RPC propagation delay on Anvil")
+        return
+
+    if delay_seconds <= 0:
+        logger_instance.debug("RPC propagation delay disabled (delay_seconds=%s)", delay_seconds)
+        return
+
+    logger_instance.info("Waiting %.1f seconds for RPC propagation: %s", delay_seconds, reason)
+    time.sleep(delay_seconds)
+
+
 CONTRACTS_ROOT = Path(os.path.dirname(__file__)) / ".." / ".." / ".." / ".." / "contracts"
 
 DEFAULT_LAGOON_VAULT_ABI = "v0.5.0/Vault.sol"
@@ -434,6 +512,7 @@ def deploy_lagoon(
     legacy: bool = False,
     salt=Web3.to_bytes(hexstr="0x" + "01" * 32),
     optin_proxy_delay=3 * 24 * 3600,
+    rpc_propagation_delay_seconds=3.0,
 ) -> Contract:
     """Deploy a new Lagoon vault.
 
@@ -641,6 +720,9 @@ def deploy_lagoon(
             vault_abi,
             contract_address,
         )
+
+        # Wait for RPC nodes to sync the new vault deployment
+        _wait_for_rpc_propagation(web3, rpc_propagation_delay_seconds, "vault proxy deployment (before potential state reads)")
     else:
         # Direct deployment without factory, new Lagoon version
         vault = deploy_beacon_proxy(
@@ -663,6 +745,7 @@ def deploy_safe_trading_strategy_module(
     verifier: Literal["etherscan", "blockscout", "sourcify", "oklink"] | None = None,
     verifier_url: str | None = None,
     enable_on_safe=True,
+    rpc_propagation_delay_seconds=3.0,
 ) -> Contract:
     """Deploy TradingStrategyModuleV0 for Safe and Lagoon.
 
@@ -706,6 +789,10 @@ def deploy_safe_trading_strategy_module(
             owner,
             safe.address,
         )
+
+    # Wait for RPC propagation before enabling module on Safe
+    # The enableModule call needs to read Safe's current module list
+    _wait_for_rpc_propagation(web3, rpc_propagation_delay_seconds, "TradingStrategyModule deployment before enableModule call")
 
     if enable_on_safe:
         gas_estimate = estimate_gas_price(web3)
@@ -991,6 +1078,7 @@ def deploy_automated_lagoon_vault(
     verifier_url: str | None = None,
     use_forge=False,
     between_contracts_delay_seconds=45.0,
+    rpc_propagation_delay_seconds=3.0,
     erc_4626_vaults: list[ERC4626Vault] | None = None,
     guard_only: bool = False,
     existing_vault_address: HexAddress | str | None = None,
@@ -1020,6 +1108,29 @@ def deploy_automated_lagoon_vault(
     .. note ::
 
         Deployer account must be manually removed from the Safe by new owners.
+
+    :param between_contracts_delay_seconds:
+        Delay between major deployment phases for nonce propagation
+        (default: 45.0 seconds). This is separate from `rpc_propagation_delay_seconds`
+        and handles the gap between deploying different contracts (Safe → Vault → Module).
+
+    :param rpc_propagation_delay_seconds:
+        How long to wait after contract deployments and state changes for RPC
+        nodes to propagate new state (default: 3.0 seconds).
+
+        **Why this is needed:** RPC providers use load-balanced node clusters.
+        When a contract is deployed, the transaction receipt returns immediately,
+        but calling functions on the new contract may hit a different node that
+        hasn't synced yet, causing "contract not deployed" errors.
+
+        **Recommended values:**
+
+        - Anvil/local: 0 (disabled automatically)
+        - Private RPC (Alchemy, Infura): 2-3 seconds
+        - Public RPC: 5-10 seconds
+        - Unreliable RPC: 10-15 seconds
+
+        Set to 0 to disable (not recommended for production deployments).
 
     :param guard_only:
         Deploy a new version of the guard smart contract and skip deploying the actual vault.
@@ -1107,6 +1218,14 @@ def deploy_automated_lagoon_vault(
         logger.info("Using existing Safe: %s", safe.address)
         parameters.safe = safe.address
 
+        # In guard-only mode, we're reading from an existing vault
+        # Small delay helps if vault was just modified
+        _wait_for_rpc_propagation(
+            web3,
+            rpc_propagation_delay_seconds / 2,  # Shorter delay for existing contracts
+            "guard-only mode vault state read",
+        )
+
         try:
             vault_contract.functions.totalAssets().call()
         except Exception as e:
@@ -1167,6 +1286,7 @@ def deploy_automated_lagoon_vault(
             legacy=legacy,
             beacon_proxy_factory_address=beacon_proxy_factory_address,
             beacon_proxy_factory_abi=beacon_proxy_factory_abi,
+            rpc_propagation_delay_seconds=rpc_propagation_delay_seconds,
         )
 
     if not is_anvil(web3):
@@ -1182,6 +1302,7 @@ def deploy_automated_lagoon_vault(
         verifier_url=verifier_url,
         use_forge=use_forge,
         enable_on_safe=not guard_only,
+        rpc_propagation_delay_seconds=rpc_propagation_delay_seconds,
     )
 
     if not is_anvil(web3):
