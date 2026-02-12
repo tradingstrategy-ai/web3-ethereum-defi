@@ -38,6 +38,7 @@ More info
 =========
 
 - `GMX documentation <https://docs.gmx.io/>`__
+- `GMX Freqtrade and CCXT integration <https://github.com/tradingstrategy-ai/gmx-ccxt-freqtrade>`__ - trade GMX perpetuals using Freqtrade and CCXT
 
 .. autosummary::
    :toctree: _autosummary_gmx

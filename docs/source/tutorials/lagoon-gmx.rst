@@ -9,6 +9,7 @@ Lagoon vault, GMX and CCXT integration
 Here is a Python example how to trade GMX V2 perpetuals from a Lagoon vault.
 This is a low level code example that shows every step in the process. For setting up a full trading vault with a bot for GMX,
 see `trade-executor <https://github.com/tradingstrategy-ai/trade-executor/>`__ Python project.
+For trading GMX perpetuals using Freqtrade and CCXT, see `gmx-ccxt-freqtrade <https://github.com/tradingstrategy-ai/gmx-ccxt-freqtrade>`__.
 
 - You need ~0.01 ETH and ~$5 USDC on Arbitrum to run this tutorial script.
 - This script deploys a new Lagoon vault with GMX integration enabled.
