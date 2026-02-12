@@ -29,7 +29,12 @@ class BaseWallet(ABC):
 
     @abstractmethod
     def sync_nonce(self, web3: Web3) -> None:
-        """Synchronize the nonce with the blockchain."""
+        """Read the current nonce from the blockchain and set the internal counter.
+
+        Should be called once at startup. After that, as long as all
+        transactions are broadcast through :py:meth:`sign_transaction_with_new_nonce`,
+        the internal counter stays in sync and no further calls are needed.
+        """
         pass
 
     @abstractmethod
