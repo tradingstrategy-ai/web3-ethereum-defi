@@ -231,12 +231,9 @@ dataclass to configure which GMX contracts and markets to whitelist:
 
     from eth_defi.gmx.whitelist import GMXDeployment
 
-    # Configure GMX integration
-    gmx_deployment = GMXDeployment(
-        # GMX contract addresses (Arbitrum mainnet)
-        exchange_router="0x7C68C7866A64FA2160F78EEaE12217FFbf871fa8",
-        synthetics_router="0x7452c558d45f8afC8c83dAe62C3f8A5BE19c71f6",
-        order_vault="0x31eF83a530Fde1B38EE9A18093A333D8Bbbc40D5",
+    # create_arbitrum() dynamically fetches the latest GMX contract
+    # addresses from the GMX contracts registry on GitHub
+    gmx_deployment = GMXDeployment.create_arbitrum(
         # Markets to whitelist for trading
         markets=[
             "0x70d95587d40A2caf56bd97485aB3Eec10Bee6336",  # ETH/USD

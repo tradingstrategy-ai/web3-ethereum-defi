@@ -55,12 +55,10 @@ GMX deployment configuration
 When deploying a new Lagoon vault with GMX support, use the :class:`GMXDeployment`
 dataclass to configure all GMX-related whitelisting::
 
-    from eth_defi.gmx.whitelist import GMXDeployment, GMX_ARBITRUM_ADDRESSES
+    from eth_defi.gmx.whitelist import GMXDeployment
 
-    gmx_deployment = GMXDeployment(
-        exchange_router=GMX_ARBITRUM_ADDRESSES["exchange_router"],
-        synthetics_router=GMX_ARBITRUM_ADDRESSES["synthetics_router"],
-        order_vault=GMX_ARBITRUM_ADDRESSES["order_vault"],
+    # create_arbitrum() dynamically fetches the latest GMX contract addresses
+    gmx_deployment = GMXDeployment.create_arbitrum(
         markets=[
             "0x70d95587d40A2caf56bd97485aB3Eec10Bee6336",  # ETH/USD
             "0x47c031236e19d024b42f8AE6780E44A573170703",  # BTC/USD
@@ -106,7 +104,14 @@ from eth_defi.gmx.core.markets import MarketInfo, Markets
 logger = logging.getLogger(__name__)
 
 
-#: GMX contract addresses on Arbitrum mainnet
+#: GMX contract addresses on Arbitrum mainnet.
+#:
+#: .. warning::
+#:
+#:     These addresses may become stale when GMX upgrades contracts.
+#:     Prefer using :func:`get_gmx_arbitrum_addresses` or
+#:     :meth:`GMXDeployment.create_arbitrum` which fetch addresses
+#:     dynamically from the GMX contracts registry.
 #:
 #: These are the official GMX V2 contract addresses required for
 #: whitelisting GMX trading in a Guard contract.
@@ -115,6 +120,29 @@ GMX_ARBITRUM_ADDRESSES: dict[str, HexAddress] = {
     "synthetics_router": "0x7452c558d45f8afC8c83dAe62C3f8A5BE19c71f6",
     "order_vault": "0x31eF83a530Fde1B38EE9A18093A333D8Bbbc40D5",
 }
+
+
+def get_gmx_arbitrum_addresses() -> dict[str, HexAddress]:
+    """Fetch current GMX contract addresses for Arbitrum mainnet.
+
+    Unlike :data:`GMX_ARBITRUM_ADDRESSES` which may become stale,
+    this function dynamically fetches the latest addresses from
+    the GMX contracts registry on GitHub.
+
+    :return:
+        Dictionary with keys ``exchange_router``, ``synthetics_router``, ``order_vault``.
+
+    :raises ValueError:
+        If addresses cannot be fetched from the GMX API.
+    """
+    from eth_defi.gmx.contracts import get_contract_addresses
+
+    addresses = get_contract_addresses("arbitrum")
+    return {
+        "exchange_router": addresses.exchangerouter,
+        "synthetics_router": addresses.syntheticsrouter,
+        "order_vault": addresses.ordervault,
+    }
 
 
 #: Popular GMX markets on Arbitrum with human-readable names
@@ -145,10 +173,8 @@ class GMXDeployment:
 
     Example::
 
-        gmx_deployment = GMXDeployment(
-            exchange_router="0x7C68C7866A64FA2160F78EEaE12217FFbf871fa8",
-            synthetics_router="0x7452c558d45f8afC8c83dAe62C3f8A5BE19c71f6",
-            order_vault="0x31eF83a530Fde1B38EE9A18093A333D8Bbbc40D5",
+        # Recommended: use factory method with dynamic address fetch
+        gmx_deployment = GMXDeployment.create_arbitrum(
             markets=[
                 "0x70d95587d40A2caf56bd97485aB3Eec10Bee6336",  # ETH/USD
                 "0x47c031236e19d024b42f8AE6780E44A573170703",  # BTC/USD
@@ -187,7 +213,10 @@ class GMXDeployment:
         markets: list[HexAddress] | None = None,
         tokens: list[HexAddress] | None = None,
     ) -> "GMXDeployment":
-        """Create a GMXDeployment for Arbitrum mainnet with default addresses.
+        """Create a GMXDeployment for Arbitrum mainnet with dynamically fetched addresses.
+
+        Fetches the latest GMX contract addresses from the GMX contracts registry
+        on GitHub, ensuring addresses are always up-to-date even after GMX upgrades.
 
         :param markets:
             List of market addresses to whitelist. If None, no markets are whitelisted.
@@ -197,11 +226,15 @@ class GMXDeployment:
 
         :return:
             GMXDeployment configured for Arbitrum mainnet.
+
+        :raises ValueError:
+            If addresses cannot be fetched from the GMX API.
         """
+        addresses = get_gmx_arbitrum_addresses()
         return cls(
-            exchange_router=GMX_ARBITRUM_ADDRESSES["exchange_router"],
-            synthetics_router=GMX_ARBITRUM_ADDRESSES["synthetics_router"],
-            order_vault=GMX_ARBITRUM_ADDRESSES["order_vault"],
+            exchange_router=addresses["exchange_router"],
+            synthetics_router=addresses["synthetics_router"],
+            order_vault=addresses["order_vault"],
             markets=markets or [],
             tokens=tokens,
         )

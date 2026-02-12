@@ -65,4 +65,7 @@ More info
    eth_defi.gmx.order_tracking
    eth_defi.gmx.price_sanity
    eth_defi.gmx.verification
+   eth_defi.gmx.whitelist
+   eth_defi.gmx.ccxt
+   eth_defi.gmx.lagoon
 

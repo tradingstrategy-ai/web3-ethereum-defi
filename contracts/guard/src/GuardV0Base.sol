@@ -18,6 +18,7 @@ import "./IGuard.sol";
 
 import "./lib/IERC4626.sol";
 import "./lib/IERC20.sol";
+import "./lib/IGmxV2.sol";
 import "./lib/Multicall.sol";
 import "./lib/SwapCowSwap.sol";
 
@@ -834,11 +835,12 @@ abstract contract GuardV0Base is IGuard,  Multicall, SwapCowSwap  {
     //
     // - sendWnt: receiver must be the configured orderVault
     // - sendTokens: token must be in allowedAssets, receiver must be orderVault
-    // - createOrder: validates the CreateOrderParams tuple:
+    // - createOrder: validates the CreateOrderParams struct (decoded via abi.decode):
     //   - receiver must be in allowedReceivers (typically the Safe address)
     //   - cancellationReceiver must be in allowedReceivers (typically the Safe address)
     //   - market must be in allowedGMXMarkets (or anyAsset=true)
     //   - initialCollateralToken must be in allowedAssets (or anyAsset=true)
+    //   - swapPath markets must each be in allowedGMXMarkets (or anyAsset=true)
     //
     // IMPORTANT: Before using GMX, ensure the Safe address is whitelisted via allowReceiver().
     //
@@ -884,57 +886,32 @@ abstract contract GuardV0Base is IGuard,  Multicall, SwapCowSwap  {
 
     // Validate GMX createOrder call parameters.
     //
-    // Extracts and validates key fields from the ABI-encoded CreateOrderParams:
+    // Decodes the ABI-encoded CreateOrderParams using struct definitions
+    // from lib/IGmxV2.sol (copied from GMX Synthetics V2) and validates:
+    //
     // - receiver: where profits/collateral are sent (must be in allowedReceivers)
     // - cancellationReceiver: where funds go if order is cancelled (must be in allowedReceivers)
     // - market: the GMX market contract (must be in allowedGMXMarkets or anyAsset=true)
     // - initialCollateralToken: the collateral token (must be in allowedAssets or anyAsset=true)
-    //
-    // GMX CreateOrderParams ABI encoding layout (nested tuples with dynamic swapPath array):
-    //
-    // Offset | Content
-    // -------|--------
-    // 0x000  | Outer tuple offset pointer (0x20)
-    // 0x020  | Addresses tuple offset pointer (0x200)
-    // 0x040  | Numbers tuple offset pointer
-    // ...    | (other fixed fields)
-    // 0x200  | Start of addresses tuple
-    // 0x220  | addresses.receiver
-    // 0x240  | addresses.cancellationReceiver
-    // 0x260  | addresses.callbackContract
-    // 0x280  | addresses.uiFeeReceiver
-    // 0x2a0  | addresses.market
-    // 0x2c0  | addresses.initialCollateralToken
-    // 0x2e0  | addresses.swapPath offset (dynamic array)
-    //
-    // WARNING: These offsets are specific to GMX V2 contract ABI.
-    // If GMX changes their CreateOrderParams struct, these offsets must be updated.
+    // - swapPath: each intermediate swap market (must be in allowedGMXMarkets or anyAsset=true)
     //
     function _validate_gmxCreateOrder(bytes memory callData) internal view {
-
-        address receiver;
-        address cancellationReceiver;
-        address market;
-        address initialCollateralToken;
-
-        assembly {
-            let dataPtr := add(callData, 32) // Skip length prefix
-            // Addresses are at fixed offsets in the encoded data
-            receiver := mload(add(dataPtr, 0x220))
-            cancellationReceiver := mload(add(dataPtr, 0x240))
-            market := mload(add(dataPtr, 0x2a0))
-            initialCollateralToken := mload(add(dataPtr, 0x2c0))
-        }
+        CreateOrderParams memory params = abi.decode(callData, (CreateOrderParams));
 
         // Validate receiver addresses using whitelist mechanism
-        require(isAllowedReceiver(receiver), "GMX createOrder: receiver not whitelisted");
-        require(isAllowedReceiver(cancellationReceiver), "GMX createOrder: cancellationReceiver not whitelisted");
+        require(isAllowedReceiver(params.addresses.receiver), "GMX createOrder: receiver not whitelisted");
+        require(isAllowedReceiver(params.addresses.cancellationReceiver), "GMX createOrder: cancellationReceiver not whitelisted");
 
         // Validate market (unless anyAsset is set)
-        require(isAllowedGMXMarket(market), "GMX createOrder: market not allowed");
+        require(isAllowedGMXMarket(params.addresses.market), "GMX createOrder: market not allowed");
 
         // Validate collateral token (unless anyAsset is set)
-        require(isAllowedAsset(initialCollateralToken), "GMX createOrder: collateral not allowed");
+        require(isAllowedAsset(params.addresses.initialCollateralToken), "GMX createOrder: collateral not allowed");
+
+        // Validate swapPath - each entry is a GMX market used for intermediate token swaps
+        for (uint256 i = 0; i < params.addresses.swapPath.length; i++) {
+            require(isAllowedGMXMarket(params.addresses.swapPath[i]), "GMX createOrder: swapPath market not allowed");
+        }
     }
 
     // Validate Velora swap and compute pre-swap balance

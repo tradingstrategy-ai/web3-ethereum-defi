@@ -103,22 +103,22 @@ function _validate_gmxSendTokens(bytes memory callData, address orderVault) inte
 
 ### 3. createOrder validation
 
+The `CreateOrderParams` struct is decoded using `abi.decode()` with struct definitions
+copied from GMX Synthetics V2 (see `contracts/guard/src/lib/IGmxV2.sol`):
+
 ```solidity
 function _validate_gmxCreateOrder(bytes memory callData) internal view {
-    // Extract addresses from ABI-encoded CreateOrderParams
-    // Offsets are fixed based on the nested tuple structure
-    assembly {
-        let dataPtr := add(callData, 32)
-        receiver := mload(add(dataPtr, 0x220))
-        cancellationReceiver := mload(add(dataPtr, 0x240))
-        market := mload(add(dataPtr, 0x2a0))
-        initialCollateralToken := mload(add(dataPtr, 0x2c0))
-    }
+    CreateOrderParams memory params = abi.decode(callData, (CreateOrderParams));
 
-    require(isAllowedReceiver(receiver), "GMX createOrder: receiver not whitelisted");
-    require(isAllowedReceiver(cancellationReceiver), "GMX createOrder: cancellationReceiver not whitelisted");
-    require(isAllowedGMXMarket(market), "GMX createOrder: market not allowed");
-    require(isAllowedAsset(initialCollateralToken), "GMX createOrder: collateral not allowed");
+    require(isAllowedReceiver(params.addresses.receiver), "GMX createOrder: receiver not whitelisted");
+    require(isAllowedReceiver(params.addresses.cancellationReceiver), "GMX createOrder: cancellationReceiver not whitelisted");
+    require(isAllowedGMXMarket(params.addresses.market), "GMX createOrder: market not allowed");
+    require(isAllowedAsset(params.addresses.initialCollateralToken), "GMX createOrder: collateral not allowed");
+
+    // Validate swapPath - each entry is a GMX market used for intermediate swaps
+    for (uint256 i = 0; i < params.addresses.swapPath.length; i++) {
+        require(isAllowedGMXMarket(params.addresses.swapPath[i]), "GMX createOrder: swapPath market not allowed");
+    }
 }
 ```
 
@@ -127,6 +127,7 @@ function _validate_gmxCreateOrder(bytes memory callData) internal view {
 - Cancellation receiver must also be whitelisted
 - Market must be explicitly whitelisted or `anyAsset` enabled
 - Collateral token must be whitelisted
+- Each swapPath market must be whitelisted (prevents routing through illiquid/manipulated markets)
 
 ## Whitelist configuration
 
@@ -250,30 +251,34 @@ An attacker cannot whitelist themselves as a receiver or enable dangerous modes.
 
 ## ABI encoding details
 
+The Guard uses `abi.decode()` with struct definitions copied from GMX Synthetics V2
+(see `contracts/guard/src/lib/IGmxV2.sol`). This provides type-safe field access
+without manual byte offset calculations.
+
 The GMX `CreateOrderParams` structure uses nested dynamic tuples:
 
 ```
 CreateOrderParams:
-├── addresses (tuple)
-│   ├── receiver (address)           @ offset 0x220
-│   ├── cancellationReceiver         @ offset 0x240
-│   ├── callbackContract             @ offset 0x260
-│   ├── uiFeeReceiver                @ offset 0x280
-│   ├── market                       @ offset 0x2a0
-│   ├── initialCollateralToken       @ offset 0x2c0
-│   └── swapPath (address[])         @ dynamic
-├── numbers (tuple)
-│   └── ... (7 uint256 values)
+├── addresses (CreateOrderParamsAddresses)
+│   ├── receiver (address)
+│   ├── cancellationReceiver (address)
+│   ├── callbackContract (address)
+│   ├── uiFeeReceiver (address)
+│   ├── market (address)
+│   ├── initialCollateralToken (address)
+│   └── swapPath (address[])
+├── numbers (CreateOrderParamsNumbers)
+│   └── ... (8 uint256 values)
 ├── orderType (uint8)
 ├── decreasePositionSwapType (uint8)
 ├── isLong (bool)
 ├── shouldUnwrapNativeToken (bool)
 ├── autoCancel (bool)
 ├── referralCode (bytes32)
-└── uiFeeKeys (bytes32[])
+└── dataList (bytes32[])
 ```
 
-The fixed offsets (0x220, 0x240, 0x2a0, 0x2c0) are calculated based on the ABI encoding rules for nested tuples with a dynamic array (swapPath).
+The struct definitions match GMX's official interface, with enum fields represented as `uint8` to ensure correct ABI decoding.
 
 ## Test coverage
 
@@ -306,6 +311,8 @@ The integration includes comprehensive tests covering all inner calls and valida
 | createOrder cancellationReceiver whitelisted | `_validate_gmxCreateOrder()` | ✅ `test_receiver_whitelisted` | ✅ via real GMX |
 | createOrder market whitelisted | `_validate_gmxCreateOrder()` | ✅ `test_gmx_market_whitelisted` | ✅ via real GMX |
 | createOrder collateral whitelisted | `_validate_gmxCreateOrder()` | ✅ `test_any_asset_allows_non_whitelisted_asset` | ✅ via real GMX |
+| createOrder swapPath markets whitelisted | `_validate_gmxCreateOrder()` | ✅ `test_security_attack_scenario_non_whitelisted_swap_path` | ✅ via real GMX |
+| createOrder swapPath with anyAsset | `_validate_gmxCreateOrder()` | ✅ `test_any_asset_allows_non_whitelisted_swap_path_market` | - |
 
 ### Unit tests (`tests/guard/test_guard_gmx_validation.py`)
 
@@ -313,6 +320,7 @@ The integration includes comprehensive tests covering all inner calls and valida
 - Valid multicall acceptance tests
 - Invalid receiver rejection tests
 - Invalid market/collateral rejection tests
+- swapPath market validation tests
 - anyAsset mode tests
 - Security/adversarial input tests
 
@@ -327,19 +335,18 @@ The integration includes comprehensive tests covering all inner calls and valida
 
 1. **Always whitelist only the Safe address** as a receiver. Never whitelist external addresses.
 
-2. **Use explicit market whitelisting** rather than `anyAsset=true` when possible.
+2. **Use explicit market whitelisting** rather than `anyAsset=true` when possible. This covers both the primary market and all swapPath markets.
 
-3. **Review the swapPath** if your strategy uses complex swap routes - the current validation does not check swapPath tokens.
+3. **Monitor for GMX contract upgrades** that might change the `CreateOrderParams` struct layout. The Guard uses `abi.decode()` with struct definitions from `contracts/guard/src/lib/IGmxV2.sol` — these must match the deployed GMX contracts.
 
-4. **Monitor for GMX contract upgrades** that might change the ABI encoding offsets.
-
-5. **Test thoroughly on fork** before deploying to mainnet.
+4. **Test thoroughly on fork** before deploying to mainnet.
 
 ## Files
 
 | File | Description |
 |------|-------------|
 | `contracts/guard/src/GuardV0Base.sol` | Guard contract with GMX validation |
+| `contracts/guard/src/lib/IGmxV2.sol` | GMX struct definitions for `abi.decode()` |
 | `eth_defi/gmx/order/base_order.py` | GMX order building with multicall patterns |
 | `eth_defi/gmx/lagoon/wallet.py` | LagoonGMXTradingWallet adapter for vault trading |
 | `eth_defi/erc_4626/vault_protocol/lagoon/vault.py` | LagoonVault Python wrapper |

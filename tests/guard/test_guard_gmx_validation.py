@@ -510,6 +510,42 @@ def test_security_attack_scenario_non_whitelisted_router(
     assert guard.functions.isAllowedGMXRouter(attacker).call() is False
 
 
+def test_any_asset_allows_non_whitelisted_swap_path_market(
+    guard: Contract,
+    owner: str,
+    btc_usd_market: str,
+):
+    """Test that anyAsset=true allows non-whitelisted markets in swapPath.
+
+    swapPath entries are validated via isAllowedGMXMarket(), which respects anyAsset.
+    """
+    # BTC/USD is NOT whitelisted
+    assert guard.functions.isAllowedGMXMarket(btc_usd_market).call() is False
+
+    # Enable anyAsset
+    guard.functions.setAnyAssetAllowed(True, "Enable anyAsset").transact({"from": owner})
+
+    # Now it should be allowed (even in swapPath context)
+    assert guard.functions.isAllowedGMXMarket(btc_usd_market).call() is True
+
+
+def test_security_attack_scenario_non_whitelisted_swap_path(
+    guard: Contract,
+    btc_usd_market: str,
+):
+    """SECURITY: Verify non-whitelisted market in swapPath would be rejected.
+
+    Attack scenario:
+    1. Vault owner has whitelisted ETH/USD market only
+    2. Malicious asset manager crafts order with BTC/USD in swapPath
+    3. Guard's isAllowedGMXMarket check on each swapPath entry would reject
+
+    The actual ABI validation is tested in integration tests.
+    """
+    # BTC/USD is NOT whitelisted (only ETH/USD was whitelisted in fixture)
+    assert guard.functions.isAllowedGMXMarket(btc_usd_market).call() is False
+
+
 def test_security_verify_all_whitelisted_addresses_accepted(
     guard: Contract,
     safe_address: str,
