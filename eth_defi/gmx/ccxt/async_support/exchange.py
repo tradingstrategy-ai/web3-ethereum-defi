@@ -2731,9 +2731,15 @@ class GMX(Exchange):
             {
                 "from": to_checksum_address(wallet_address),
                 "gas": 100_000,
-                "gasPrice": self.web3.eth.gas_price,
             },
         )
+
+        # Apply EIP-1559 gas pricing with safety buffer to avoid
+        # "max fee per gas less than block base fee" race condition on L2s
+        from eth_defi.gas import estimate_gas_price, apply_gas
+
+        gas_fees = estimate_gas_price(self.web3)
+        apply_gas(approve_tx, gas_fees)
 
         if "nonce" in approve_tx:
             del approve_tx["nonce"]
