@@ -47,11 +47,23 @@ def _make_request(self, method: RPCEndpoint, params: Any) -> RPCResponse:
     # Clear the last headers
     last_headers_storage.headers = {}
 
+    request_kwargs = self.get_request_kwargs()
+
+    # The requests library accepts timeout as a (connect_timeout, read_timeout) tuple,
+    # but this value leaks into web3's HTTPSessionManager.cache_and_return_session()
+    # which passes it to threading.Timer() on session cache eviction.
+    # threading.Timer expects a single float, not a tuple, causing:
+    #   TypeError: '>' not supported between instances of 'tuple' and 'int'
+    # We flatten the tuple to the read timeout value to prevent the crash.
+    timeout = request_kwargs.get("timeout")
+    if isinstance(timeout, tuple):
+        request_kwargs = {**request_kwargs, "timeout": timeout[1]}
+
     try:
         raw_response = get_response_from_post_request(
             self.endpoint_uri,
             data=request_data,
-            **self.get_request_kwargs(),
+            **request_kwargs,
         )
     except Exception as e:
         # Low level network error like ConnectionErro
