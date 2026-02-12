@@ -24,6 +24,7 @@ from eth_defi.gas import estimate_gas_fees
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.constants import DECREASE_POSITION_SWAP_TYPES, ETH_ZERO_ADDRESS, PRECISION, OrderType
 from eth_defi.gmx.contracts import NETWORK_TOKENS, TESTNET_TO_MAINNET_ORACLE_TOKENS
+from eth_defi.gmx.execution_buffer import DEFAULT_EXECUTION_BUFFER, DEFAULT_SLTP_EXECUTION_FEE_BUFFER, apply_execution_buffer
 from eth_defi.gmx.gas_utils import calculate_execution_fee
 from eth_defi.gmx.order.base_order import ZERO_REFERRAL_CODE, BaseOrder, OrderParams, OrderResult
 
@@ -103,7 +104,7 @@ class SLTPParams:
 
     stop_loss: SLTPEntry | None = None
     take_profit: SLTPEntry | None = None
-    execution_fee_buffer: float = 3.0  # I know what I'm doing DO NOT REMOVE THIS Plz.
+    execution_fee_buffer: float = DEFAULT_SLTP_EXECUTION_FEE_BUFFER  # I know what I'm doing DO NOT REMOVE THIS Plz.
 
 
 @dataclass
@@ -482,7 +483,7 @@ class SLTPOrder(BaseOrder):
         entry: SLTPEntry,
         entry_price: float | None = None,
         slippage_percent: float = 0.003,
-        execution_buffer: float = 2.2,
+        execution_buffer: float = DEFAULT_EXECUTION_BUFFER,
     ) -> OrderResult:
         """Create standalone stop loss for existing position.
 
@@ -520,7 +521,7 @@ class SLTPOrder(BaseOrder):
 
         # Calculate execution fee
         base_fee = self._calculate_execution_fee("decrease_order")
-        execution_fee = int(base_fee * execution_buffer)
+        execution_fee = apply_execution_buffer(base_fee, execution_buffer)
         logger.info(
             "Stop Loss fee: base=%.6f ETH × buffer=%.1f = %.6f ETH",
             base_fee / 10**18,
@@ -569,7 +570,7 @@ class SLTPOrder(BaseOrder):
         entry: SLTPEntry,
         entry_price: float | None = None,
         slippage_percent: float = 0.003,
-        execution_buffer: float = 2.2,
+        execution_buffer: float = DEFAULT_EXECUTION_BUFFER,
     ) -> OrderResult:
         """Create standalone take profit for existing position.
 
@@ -607,7 +608,7 @@ class SLTPOrder(BaseOrder):
 
         # Calculate execution fee
         base_fee = self._calculate_execution_fee("decrease_order")
-        execution_fee = int(base_fee * execution_buffer)
+        execution_fee = apply_execution_buffer(base_fee, execution_buffer)
         logger.info(
             "Take Profit fee: base=%.6f ETH × buffer=%.1f = %.6f ETH",
             base_fee / 10**18,
@@ -657,7 +658,7 @@ class SLTPOrder(BaseOrder):
         sltp_params: SLTPParams | None = None,
         slippage_percent: float = 0.003,
         swap_path: list[str] | None = None,
-        execution_buffer: float = 2.2,
+        execution_buffer: float = DEFAULT_EXECUTION_BUFFER,
         auto_cancel: bool = False,
         data_list: list[str] | None = None,
     ) -> SLTPOrderResult:
@@ -747,7 +748,7 @@ class SLTPOrder(BaseOrder):
         if sltp_params:
             if sltp_params.stop_loss:
                 sl_fee = self._calculate_execution_fee("decrease_order")
-                sl_fee = int(sl_fee * execution_buffer * sltp_params.execution_fee_buffer)
+                sl_fee = apply_execution_buffer(sl_fee, execution_buffer * sltp_params.execution_fee_buffer, validate=False)
 
                 sl_trigger_price = self._resolve_trigger_price(
                     sltp_params.stop_loss,
@@ -758,7 +759,7 @@ class SLTPOrder(BaseOrder):
 
             if sltp_params.take_profit:
                 tp_fee = self._calculate_execution_fee("decrease_order")
-                tp_fee = int(tp_fee * execution_buffer * sltp_params.execution_fee_buffer)
+                tp_fee = apply_execution_buffer(tp_fee, execution_buffer * sltp_params.execution_fee_buffer, validate=False)
 
                 tp_trigger_price = self._resolve_trigger_price(
                     sltp_params.take_profit,

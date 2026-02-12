@@ -12,6 +12,7 @@ from eth_utils import to_checksum_address
 from eth_typing import ChecksumAddress
 
 from eth_defi.gmx.config import GMXConfig
+from eth_defi.gmx.execution_buffer import DEFAULT_EXECUTION_BUFFER
 from eth_defi.gmx.order.base_order import BaseOrder, OrderParams, OrderResult
 from eth_defi.gmx.constants import PRECISION, ETH_ZERO_ADDRESS
 from eth_defi.gmx.contracts import get_contract_addresses, get_reader_contract
@@ -56,7 +57,7 @@ class SwapOrder(BaseOrder):
         amount_in: int | float,
         slippage_percent: float = 0.005,
         min_output_amount: int = 0,
-        execution_buffer: float = 2.2,
+        execution_buffer: float = DEFAULT_EXECUTION_BUFFER,
         auto_cancel: bool = False,
     ) -> OrderResult:
         """Create a swap order transaction.
@@ -244,7 +245,7 @@ class SwapOrder(BaseOrder):
         self,
         amount_in: int | float,
         slippage_percent: float = 0.005,
-        execution_buffer: float = 2.2,
+        execution_buffer: float = DEFAULT_EXECUTION_BUFFER,
     ) -> OrderResult:
         """Create a market swap order (CCXT-style method).
 

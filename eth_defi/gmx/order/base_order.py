@@ -22,6 +22,7 @@ from eth_defi.gmx.core.markets import Markets
 from eth_defi.gmx.core.oracle import OraclePrices
 from eth_defi.gas import estimate_gas_fees
 from eth_defi.compat import encode_abi_compat, native_datetime_utc_now
+from eth_defi.gmx.execution_buffer import DEFAULT_EXECUTION_BUFFER, apply_execution_buffer, validate_execution_buffer
 from eth_defi.gmx.gas_utils import get_gas_limits
 from eth_defi.token import fetch_erc20_details
 
@@ -153,7 +154,7 @@ class OrderParams:
     # Optional parameters
     max_fee_per_gas: Optional[int] = None
     auto_cancel: bool = False
-    execution_buffer: float = 2.2
+    execution_buffer: float = DEFAULT_EXECUTION_BUFFER
     # GMX v2.2 new dataList field
     data_list: Optional[list[str]] = field(default_factory=list)
 
@@ -371,19 +372,7 @@ class BaseOrder:
         gas_price = self.web3.eth.gas_price
         gas_limits = self._determine_gas_limits(is_open, is_close, is_swap)
         base_execution_fee = int(gas_limits["total"] * gas_price)
-        execution_fee = int(base_execution_fee * params.execution_buffer)
-
-        # Warn if execution buffer is dangerously low
-        if params.execution_buffer < 1.2:
-            logger.error(
-                "⚠️  CRITICAL: executionBuffer=%.1fx is DANGEROUSLY LOW! GMX keepers will likely reject this order. Minimum safe value: 1.5x. Recommended: 1.8-2.2x. Your order may fail with InsufficientExecutionFee error.",
-                params.execution_buffer,
-            )
-        elif params.execution_buffer < 1.5:
-            logger.warning(
-                "⚠️  WARNING: executionBuffer=%.1fx is very low. Consider increasing to 1.8-2.2x to avoid order failures during gas spikes.",
-                params.execution_buffer,
-            )
+        execution_fee = apply_execution_buffer(base_execution_fee, params.execution_buffer)
 
         # Log execution fee breakdown for user visibility
         execution_fee_eth = execution_fee / 1e18

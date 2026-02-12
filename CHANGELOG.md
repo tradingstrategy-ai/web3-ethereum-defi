@@ -1,5 +1,6 @@
 # Current
 
+- Extract GMX execution buffer constants and logic into dedicated `execution_buffer` module with comprehensive documentation (2026-02-12)
 - Fix threading.Timer crash when HTTP timeout tuple leaks into web3 session cache eviction under high concurrency (2026-02-12)
 - Fix Euler vault description crash when vault is not in Euler's GitHub labels metadata (2026-02-12)
 - Lagoon vaults now return offchain description as notes when no manual notes are set (2026-02-12)
