@@ -26,6 +26,7 @@ from eth_account.signers.local import LocalAccount
 from eth_defi.aave_v3.deployment import AaveV3Deployment
 from eth_defi.abi import ZERO_ADDRESS_STR, encode_multicalls, get_deployed_contract
 from eth_defi.cow.constants import COWSWAP_SETTLEMENT, COWSWAP_VAULT_RELAYER
+from eth_defi.gmx.whitelist import GMXDeployment
 from eth_defi.velora.api import get_augustus_swapper, get_token_transfer_proxy
 from eth_defi.deploy import deploy_contract
 from eth_defi.erc_4626.vault import ERC4626Vault
@@ -748,6 +749,7 @@ def setup_guard(
     erc_4626_vaults: list[ERC4626Vault] | None = None,
     cowswap: bool = False,
     velora: bool = False,
+    gmx_deployment: GMXDeployment | None = None,
     hack_sleep=20.0,
     assets: list[HexAddress | str] | None = None,
     multicall_chunk_size=40,
@@ -919,6 +921,41 @@ def setup_guard(
         tx_hash = _broadcast(module.functions.whitelistVelora(augustus, proxy, "Allow Velora"))
         assert_transaction_success_with_explanation(web3, tx_hash)
 
+    # Whitelist GMX perpetuals trading
+    if gmx_deployment:
+        logger.info(
+            "Whitelisting GMX: ExchangeRouter=%s, SyntheticsRouter=%s, OrderVault=%s",
+            gmx_deployment.exchange_router,
+            gmx_deployment.synthetics_router,
+            gmx_deployment.order_vault,
+        )
+        tx_hash = _broadcast(
+            module.functions.whitelistGMX(
+                gmx_deployment.exchange_router,
+                gmx_deployment.synthetics_router,
+                gmx_deployment.order_vault,
+                "Allow GMX perpetuals",
+            )
+        )
+        assert_transaction_success_with_explanation(web3, tx_hash)
+
+        # Whitelist GMX markets
+        for idx, market in enumerate(gmx_deployment.markets, start=1):
+            logger.info("Whitelisting GMX market #%d: %s", idx, market)
+            tx_hash = _broadcast(module.functions.whitelistGMXMarket(market, f"GMX market #{idx}"))
+            assert_transaction_success_with_explanation(web3, tx_hash)
+
+        # Whitelist GMX collateral tokens if specified
+        if gmx_deployment.tokens:
+            for idx, token in enumerate(gmx_deployment.tokens, start=1):
+                logger.info("Whitelisting GMX collateral token #%d: %s", idx, token)
+                tx_hash = _broadcast(module.functions.whitelistToken(token, f"GMX collateral #{idx}"))
+                assert_transaction_success_with_explanation(web3, tx_hash)
+
+        logger.info("GMX whitelisting complete: %d markets", len(gmx_deployment.markets))
+    else:
+        logger.info("Not whitelisted: GMX")
+
     # Whitelist all assets
     if any_asset:
         logger.info("Allow any asset whitelist")
@@ -947,6 +984,7 @@ def deploy_automated_lagoon_vault(
     aave_v3: AaveV3Deployment | None = None,
     cowswap: bool = False,
     velora: bool = False,
+    gmx_deployment: GMXDeployment | None = None,
     any_asset: bool = False,
     etherscan_api_key: str = None,
     verifier: Literal["etherscan", "blockscout", "sourcify", "oklink"] | None = None,
@@ -1168,6 +1206,7 @@ def deploy_automated_lagoon_vault(
         aave_v3=aave_v3,
         cowswap=cowswap,
         velora=velora,
+        gmx_deployment=gmx_deployment,
         erc_4626_vaults=erc_4626_vaults,
         any_asset=any_asset,
         broadcast_func=_broadcast,

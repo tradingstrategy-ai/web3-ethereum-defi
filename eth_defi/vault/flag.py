@@ -264,7 +264,7 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     # https://tradingstrategy.ai/trading-view/arbitrum/vaults/steakhouse-high-yield-usdt0
     "0x4739e2c293bdcd835829aa7c5d7fbdee93565d1a": (None, PENDLE_LOOPING),
     # Static RWA ZeroLend USDC
-    "0x942bed98560e9b2aa0d4ec76bbda7a7e55f6b2d6": (None, ZEROLEND_SUPERFORM_WITHDRAW_ONLY),
+    "0x942bed98560e9b2aa0d4ec76bbda7a7e55f6b2d6": (VaultFlag.illiquid, ZEROLEND_SUPERFORM_WITHDRAW_ONLY),
     # Euler MEV Capital USDC
     "0xa446938b0204aa4055cdfed68ddf0e0d1bab3e9e": (VaultFlag.unofficial, MISSING_IN_PROTOCOL_FRONTEND),
     # Rezerve USDC

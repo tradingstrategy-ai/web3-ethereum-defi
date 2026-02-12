@@ -191,7 +191,19 @@ class HotWallet:
         return self.address
 
     def sync_nonce(self, web3: Web3):
-        """Initialise the current nonce from the on-chain data."""
+        """Read the current nonce from the blockchain and set the internal counter.
+
+        Should be called once at startup. After that, as long as all
+        transactions are broadcast through :py:meth:`sign_transaction_with_new_nonce`,
+        the internal counter stays in sync and no further calls are needed.
+
+        .. warning::
+
+            Do not call this repeatedly before each transaction.
+            Load-balanced RPCs may return a stale transaction count
+            (e.g. a node one block behind), which would reset the
+            counter backwards and cause "nonce too low" errors.
+        """
         new_nonce = web3.eth.get_transaction_count(self.account.address)
         if self.current_nonce:
             # Handle Alchemy sending us back old nonce

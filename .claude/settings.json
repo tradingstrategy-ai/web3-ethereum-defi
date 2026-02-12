@@ -78,7 +78,8 @@
       "Bash(forge build:*)",
       "Bash(uv pip index:*)",
       "Skill(make-release)",
-      "Skill(make-release:*)"
+      "Skill(make-release:*)",
+      "Bash(pkill:*)"
     ]
   },
   "model": "opus",

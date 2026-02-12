@@ -31,13 +31,7 @@ from pathlib import Path
 from statistics import median
 from typing import Any
 
-from ccxt.base.errors import (
-    BaseError,
-    ExchangeError,
-    InvalidOrder,
-    NotSupported,
-    OrderNotFound,
-)
+from ccxt.base.errors import BaseError, ExchangeError, InvalidOrder, NotSupported, OrderNotFound
 from eth_utils import to_checksum_address
 
 from eth_defi.ccxt.exchange_compatible import ExchangeCompatible
@@ -47,15 +41,7 @@ from eth_defi.gmx.cache import GMXMarketCache
 from eth_defi.gmx.ccxt.properties import describe_gmx
 from eth_defi.gmx.ccxt.validation import _validate_ohlcv_data_sufficiency
 from eth_defi.gmx.config import GMXConfig
-from eth_defi.gmx.constants import (
-    DEFAULT_GAS_CRITICAL_THRESHOLD_USD,
-    DEFAULT_GAS_ESTIMATE_BUFFER,
-    DEFAULT_GAS_MONITOR_ENABLED,
-    DEFAULT_GAS_RAISE_ON_CRITICAL,
-    DEFAULT_GAS_WARNING_THRESHOLD_USD,
-    GMX_MIN_COST_USD,
-    PRECISION,
-)
+from eth_defi.gmx.constants import DEFAULT_GAS_CRITICAL_THRESHOLD_USD, DEFAULT_GAS_ESTIMATE_BUFFER, DEFAULT_GAS_MONITOR_ENABLED, DEFAULT_GAS_RAISE_ON_CRITICAL, DEFAULT_GAS_WARNING_THRESHOLD_USD, GMX_MIN_COST_USD, PRECISION
 from eth_defi.gmx.contracts import get_contract_addresses, get_token_address_normalized
 from eth_defi.gmx.core.markets import Markets
 from eth_defi.gmx.core.open_positions import GetOpenPositions
@@ -383,7 +369,8 @@ class GMX(ExchangeCompatible):
 
         # Create web3 instance from RPC URL
         if not self._rpc_url:
-            raise ValueError("rpcUrl is required in parameters")
+            keys = parameters.keys()
+            raise ValueError(f"rpcUrl is required in parameters - we got keys: {keys}")
 
         # Log detected RPC providers (space-separated format)
         rpc_urls = [u for u in self._rpc_url.split() if u and not u.startswith("mev+")]
@@ -2385,11 +2372,7 @@ class GMX(ExchangeCompatible):
         # Perform price sanity check if enabled
         if self._price_sanity_config.enabled:
             try:
-                from eth_defi.gmx.price_sanity import (
-                    check_price_sanity,
-                    PriceSanityAction,
-                    PriceSanityException,
-                )
+                from eth_defi.gmx.price_sanity import PriceSanityAction, PriceSanityException, check_price_sanity
 
                 # Get oracle prices (lazy initialization)
                 if self._oracle_prices_instance is None:
@@ -4962,9 +4945,15 @@ class GMX(ExchangeCompatible):
             {
                 "from": to_checksum_address(wallet_address),
                 "gas": 100_000,
-                "gasPrice": self.web3.eth.gas_price,
             }
         )
+
+        # Apply EIP-1559 gas pricing with safety buffer to avoid
+        # "max fee per gas less than block base fee" race condition on L2s
+        from eth_defi.gas import estimate_gas_price, apply_gas
+
+        gas_fees = estimate_gas_price(self.web3)
+        apply_gas(approve_tx, gas_fees)
 
         # CRITICAL: Remove nonce before calling sign_transaction_with_new_nonce
         # The wallet will manage the nonce automatically
@@ -5209,8 +5198,11 @@ class GMX(ExchangeCompatible):
             # Raise BaseError which becomes OperationalException (stops bot, sends EXCEPTION to Telegram)
             raise BaseError(error_msg)
 
-        # Sync wallet nonce before creating/closing order (required for Freqtrade)
-        self.wallet.sync_nonce(self.web3)
+        # Nonce is managed by the HotWallet's internal counter:
+        # - Initialised once via sync_nonce() at wallet creation (line ~406)
+        # - Incremented locally by each sign_transaction_with_new_nonce() call
+        # Do NOT re-sync from chain here — the RPC may return a stale count
+        # (e.g. load-balanced nodes 1 block behind), causing "nonce too low".
 
         # Check gas balance before creating order (if gas monitoring enabled)
         gas_config = getattr(self, "_gas_monitor_config", None)
@@ -5382,9 +5374,10 @@ class GMX(ExchangeCompatible):
             # Try to get raw token amount using oracle price
             collateral_tokens = None
             try:
+                from statistics import median
+
                 from eth_defi.gmx.contracts import get_token_address_normalized
                 from eth_defi.gmx.core.oracle import OraclePrices
-                from statistics import median
 
                 chain = self.config.get_chain()
                 collateral_address = get_token_address_normalized(chain, collateral_symbol)

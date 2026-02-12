@@ -248,7 +248,10 @@ def deploy_contract_with_forge(
     if verifier in ("etherscan", "oklink") and not etherscan_api_key:
         raise ValueError(f"etherscan_api_key is required when using {verifier} verifier")
 
-    json_rpc_url = web3.provider.endpoint_uri
+    # Use call provider URL instead of transact provider,
+    # because MEV sequencer endpoints (mev+https://) do not support
+    # standard RPC methods like eth_chainId that forge requires.
+    json_rpc_url = getattr(web3.provider, "call_endpoint_uri", None) or web3.provider.endpoint_uri
 
     forge = which("forge")
     assert forge is not None, "No forge command in path, needed for the contract deployment"

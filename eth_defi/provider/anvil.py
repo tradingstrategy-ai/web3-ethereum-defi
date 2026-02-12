@@ -642,7 +642,15 @@ def launch_anvil(
         # Multi-RPC syntax: rotate through available endpoints across
         # successive launch_anvil() calls to work around test flakiness on CI.
         # Each call advances to the next RPC in round-robin order.
-        available_rpcs = [u for u in fork_url.split(" ") if u]
+        #
+        # Filter out mev+ prefixed endpoints (e.g. mev+https://sequencer.example.com)
+        # as these are MEV-protected sequencer endpoints that typically don't support
+        # standard RPC calls like eth_blockNumber needed by Anvil.
+        all_rpcs = [u for u in fork_url.split(" ") if u]
+        available_rpcs = [u for u in all_rpcs if not u.startswith("mev+")]
+        if not available_rpcs:
+            # All endpoints are mev+, strip the prefix as a fallback
+            available_rpcs = [u.replace("mev+", "", 1) for u in all_rpcs]
         if not hasattr(_anvil_rpc_state, "rpc_index"):
             _anvil_rpc_state.rpc_index = random.randint(0, len(available_rpcs) - 1)
         else:
@@ -651,7 +659,7 @@ def launch_anvil(
         cleaned_fork_url = available_rpcs[rpc_index]
         logger.info("Multi RPC detected, using Anvil at RPC endpoint %d/%d: %s", rpc_index + 1, len(available_rpcs), cleaned_fork_url)
     else:
-        cleaned_fork_url = fork_url
+        cleaned_fork_url = fork_url if not fork_url or not fork_url.startswith("mev+") else fork_url.replace("mev+", "", 1)
 
     # Check given RPC works
     if fork_url and rpc_smoke_test:

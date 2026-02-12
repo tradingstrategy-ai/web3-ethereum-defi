@@ -1221,7 +1221,6 @@ def _create_fork_config(
     # Create wallet from anvil private key
     account = Account.from_key(anvil_private_key)
     wallet = HotWallet(account)
-    wallet.sync_nonce(web3_arbitrum_fork)
     wallet_address = wallet.get_main_address()
 
     # Note: wallet_with_all_tokens dependency already funded the wallet with:
@@ -1233,6 +1232,11 @@ def _create_fork_config(
 
     # Approve tokens for GMX routers
     _approve_tokens_for_config(config, web3_arbitrum_fork, wallet_address)
+
+    # Sync nonce AFTER approve transactions — _approve_tokens_for_config()
+    # uses transact() which increments the on-chain nonce without going
+    # through HotWallet's internal counter
+    wallet.sync_nonce(web3_arbitrum_fork)
 
     return config
 
@@ -1408,7 +1412,6 @@ def arbitrum_tenderly_config(
     """GMX config for Tenderly virtual testnet with funded wallet and mock oracle."""
     account = Account.from_key(anvil_private_key)
     wallet = HotWallet(account)
-    wallet.sync_nonce(web3_tenderly)
     wallet_address = wallet.get_main_address()
 
     # Fund wallet with ETH
@@ -1464,6 +1467,10 @@ def arbitrum_tenderly_config(
 
     # Approve tokens for GMX routers
     _approve_tokens_for_config(gmx_config, web3_tenderly, wallet_address)
+
+    # Sync nonce AFTER all transact() calls — they increment the on-chain
+    # nonce without going through HotWallet's internal counter
+    wallet.sync_nonce(web3_tenderly)
 
     return gmx_config
 
@@ -1569,14 +1576,16 @@ def _create_isolated_fork_env(
         {"from": large_usdc_holder},
     )
 
-    # Sync nonce after transfers
-    wallet.sync_nonce(web3)
-
     # === Step 4: Create GMX config ===
     gmx_config = GMXConfig(web3, user_wallet_address=wallet_address)
 
     # === Step 5: Approve tokens for GMX routers ===
     _approve_tokens_for_config(gmx_config, web3, wallet_address)
+
+    # Sync nonce AFTER approve transactions — _approve_tokens_for_config()
+    # uses transact() which increments the on-chain nonce without going
+    # through HotWallet's internal counter
+    wallet.sync_nonce(web3)
 
     # Create trading and position instances
     trading = GMXTrading(gmx_config)

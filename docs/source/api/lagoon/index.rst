@@ -9,7 +9,15 @@ This module provides tools for interacting with Lagoon vaults, including:
 - Vault deployment and configuration
 - Deposits and redemptions
 - CoW Swap integration for vault trading
+- GMX perpetuals integration for vault trading
 - Offchain metadata fetching
+
+Tutorials
+~~~~~~~~~
+
+- :ref:`lagoon-cowswap` - Trading via CowSwap from a Lagoon vault
+- :ref:`lagoon-gmx` - Trading GMX perpetuals from a Lagoon vault
+- :ref:`lagoon-velora` - Velora integration
 
 .. autosummary::
    :toctree: _autosummary_lagoon

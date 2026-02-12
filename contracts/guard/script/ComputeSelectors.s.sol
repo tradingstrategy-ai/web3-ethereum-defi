@@ -82,6 +82,14 @@ contract ComputeSelectors is Script {
         logSelector("delegateSigner((bytes32,address))");
         logSelector("deposit((bytes32,bytes32,bytes32,uint128))");
         logSelector("withdraw((bytes32,bytes32,bytes32,uint128,uint128,address,address,uint64))");
+        console.log("");
+
+        // GMX
+        console.log("// GMX");
+        logSelector("multicall(bytes[])");
+        logSelector("sendWnt(address,uint256)");
+        logSelector("sendTokens(address,address,uint256)");
+        console.log("// createOrder selector: 0x296ea41f (hardcoded, complex tuple signature)");
     }
 
     function logSelector(string memory sig) internal view {

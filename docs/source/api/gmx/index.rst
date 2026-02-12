@@ -14,7 +14,8 @@ This module contains `GMX <https://gmx.io/>`__ support for Python.
 Tutorials
 =========
 
-- :ref:`gmx-swap`
+- :ref:`gmx-swap` - Execute swaps on GMX
+- :ref:`lagoon-gmx` - Trade GMX perpetuals from a Lagoon vault
 
 What Is GMX?
 =============
@@ -37,6 +38,7 @@ More info
 =========
 
 - `GMX documentation <https://docs.gmx.io/>`__
+- `GMX Freqtrade and CCXT integration <https://github.com/tradingstrategy-ai/gmx-ccxt-freqtrade>`__ - trade GMX perpetuals using Freqtrade and CCXT
 
 .. autosummary::
    :toctree: _autosummary_gmx
@@ -64,4 +66,7 @@ More info
    eth_defi.gmx.order_tracking
    eth_defi.gmx.price_sanity
    eth_defi.gmx.verification
+   eth_defi.gmx.whitelist
+   eth_defi.gmx.ccxt
+   eth_defi.gmx.lagoon
 
