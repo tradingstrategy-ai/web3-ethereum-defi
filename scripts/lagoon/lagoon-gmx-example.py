@@ -107,15 +107,9 @@ GMX V2 has the following minimum requirements (per gmx-synthetics config):
 - **Minimum collateral**: $1 USD
 - **Minimum position size**: $1 USD
 
-However, for practical trading you'll need more to cover:
-
-- Execution fees (~0.0001-0.001 ETH per order, paid to keepers)
-- Price impact and slippage
-- Borrowing fees over time
-- A buffer above liquidation threshold
-
-This script uses $5 deposit and $2 position size as reasonable minimums
-for demonstration purposes.
+This script uses $1.1 deposit and $1.1 position size to demonstrate
+trading at near-minimum values. Note that you'll also need ETH to cover
+execution fees (~0.0001-0.001 ETH per order, paid to keepers).
 
 Source: https://github.com/gmx-io/gmx-synthetics/blob/main/config/general.ts
 
@@ -877,12 +871,12 @@ def main():
     anvil_launch = None
 
     # Trading parameters
-    # GMX minimums are $1 collateral and $1 position size, but we use slightly
-    # higher values to cover execution fees and provide a safety buffer.
+    # GMX minimums are $1 collateral and $1 position size.
+    # We use $1.1 to have a small buffer above the minimum.
     # See: https://github.com/gmx-io/gmx-synthetics/blob/main/config/general.ts
-    deposit_amount = Decimal("5")  # $5 USDC deposit
-    position_size = Decimal("2")  # $2 position size
-    leverage = 2.0  # 2x leverage (so $1 collateral for $2 position)
+    deposit_amount = Decimal("1.1")  # $1.1 USDC deposit (just above $1 minimum)
+    position_size = Decimal("1.1")  # $1.1 position size (just above $1 minimum)
+    leverage = 1.1  # 1.1x leverage (minimum allowed)
 
     try:
         if simulate:
