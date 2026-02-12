@@ -191,11 +191,15 @@ class EulerVault(ERC4626Vault):
 
     @property
     def description(self) -> str | None:
-        return self.euler_metadata.get("description")
+        if self.euler_metadata:
+            return self.euler_metadata.get("description")
+        return None
 
     @property
     def entity(self) -> str | None:
-        return self.euler_metadata.get("entity")
+        if self.euler_metadata:
+            return self.euler_metadata.get("entity")
+        return None
 
     def get_management_fee(self, block_identifier: BlockIdentifier) -> float:
         """Euler vault kit vaults never have management fee"""
