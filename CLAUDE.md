@@ -70,7 +70,7 @@ poetry run ruff format
 - Each changelog entry should follow the date of the PR in YYYY-MM-DD format and then the pull request id with a link to the pull request. Example: Something was updated (2026-01-01, [#666](http://example.com)).
 - If this is a major feature instead of minor fix, use **major** bold suffix and then put them to the top of changelog list. Put minor features bottom.
 - Before opening or updating a pull request, format the code
-- When merging pull request, squash and merge commits and use the PR description as the commit message
+- When merging pull request, squash and merge commits and use the PR description as the commit message. If there is a related changelog entry, link it to the closed PR.
 
 ## Specific rules
 
