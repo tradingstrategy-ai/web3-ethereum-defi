@@ -11,6 +11,26 @@ through a Lagoon vault using the CCXT-compatible GMX adapter:
 6. Withdraw collateral from the vault
 7. Display summary of all transactions and costs
 
+Simulation mode
+---------------
+
+Set ``SIMULATE=true`` to run the script using an Anvil fork of Arbitrum.
+This allows testing vault deployment, deposit, and withdrawal flows
+without needing real funds or a private key.
+
+In simulation mode:
+- An Anvil fork is spawned from JSON_RPC_ARBITRUM
+- A test wallet is created and funded with ETH and USDC from whale accounts
+- Trading steps (open/close position) are skipped because GMX keepers
+  cannot be simulated in a local fork
+- The vault deployment, deposit, and withdrawal flows are fully tested
+
+Example:
+
+.. code-block:: shell
+
+    SIMULATE=true JSON_RPC_ARBITRUM="https://arb1.arbitrum.io/rpc" python scripts/lagoon/lagoon-gmx-example.py
+
 Architecture overview
 ---------------------
 
@@ -86,8 +106,10 @@ from eth_defi.gmx.contracts import get_contract_addresses
 from eth_defi.gmx.lagoon.wallet import LagoonWallet
 from eth_defi.gmx.whitelist import GMXDeployment
 from eth_defi.hotwallet import HotWallet, SignedTransactionWithNonce
+from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import fetch_erc20_details
+from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.utils import setup_console_logging
 
 
@@ -111,6 +133,10 @@ GMX_ORDER_VAULT = _GMX_ADDRESSES.ordervault
 # The ETH/USD market uses WETH and USDC as collateral tokens
 # See: https://app.gmx.io/#/markets for market list
 GMX_ETH_USDC_MARKET = to_checksum_address("0x70d95587d40A2caf56bd97485aB3Eec10Bee6336")
+
+# Whale addresses for simulation mode (accounts with large token balances)
+# See: https://arbiscan.io/token/0xaf88d065e77c8cC2239327C5EDb3A432268e5831#balances
+USDC_WHALE_ARBITRUM = to_checksum_address("0xEe7aE85f2Fe2239E27D9c1E23fFFe168D63b4055")
 
 
 # ============================================================================
@@ -697,6 +723,59 @@ def withdraw_from_vault(
 
 
 # ============================================================================
+# Simulation mode setup
+# ============================================================================
+
+
+def setup_simulation_environment(json_rpc_url: str) -> tuple[Web3, HotWallet, "AnvilLaunch"]:
+    """Set up an Anvil fork environment for simulation.
+
+    Creates:
+    - An Anvil fork of Arbitrum mainnet
+    - A test wallet funded with ETH and USDC
+
+    :param json_rpc_url: Arbitrum RPC URL to fork from
+    :return: Tuple of (web3, hot_wallet, anvil_launch)
+    """
+    print("\nStarting Anvil fork of Arbitrum...")
+
+    # Fork Arbitrum with whale account unlocked for funding
+    anvil_launch = fork_network_anvil(
+        json_rpc_url,
+        unlocked_addresses=[USDC_WHALE_ARBITRUM],
+    )
+
+    web3 = create_multi_provider_web3(
+        anvil_launch.json_rpc_url,
+        default_http_timeout=(3.0, 180.0),
+    )
+
+    print(f"  Anvil fork running at: {anvil_launch.json_rpc_url}")
+    print(f"  Forked at block: {web3.eth.block_number:,}")
+
+    # Create a test wallet
+    hot_wallet = HotWallet.create_for_testing(web3, test_account_n=0, eth_amount=0)
+    hot_wallet.sync_nonce(web3)
+
+    # Fund with ETH (10 ETH for gas)
+    web3.provider.make_request("anvil_setBalance", [hot_wallet.address, hex(10 * 10**18)])
+
+    # Fund with USDC from whale (100 USDC for testing)
+    usdc = fetch_erc20_details(web3, USDC_ARBITRUM)
+    tx_hash = usdc.contract.functions.transfer(
+        hot_wallet.address,
+        100 * 10**6,  # 100 USDC
+    ).transact({"from": USDC_WHALE_ARBITRUM, "gas": 100_000})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    print(f"\nSimulation wallet created: {hot_wallet.address}")
+    print(f"  ETH balance: 10 ETH (simulated)")
+    print(f"  USDC balance: 100 USDC (from whale)")
+
+    return web3, hot_wallet, anvil_launch
+
+
+# ============================================================================
 # Main tutorial flow
 # ============================================================================
 
@@ -708,16 +787,16 @@ def main():
     # Setup logging
     logger = setup_console_logging()
 
+    # Check for simulation mode
+    simulate = os.environ.get("SIMULATE", "").lower() in ("true", "1", "yes")
+
     # Load configuration from environment
     json_rpc_url = os.environ.get("JSON_RPC_ARBITRUM")
     if not json_rpc_url:
         raise ValueError("JSON_RPC_ARBITRUM environment variable required. Set it to an Arbitrum RPC endpoint.")
 
-    private_key = os.environ.get("PRIVATE_KEY_SWAP_TEST")
-    if not private_key:
-        raise ValueError("PRIVATE_KEY_SWAP_TEST environment variable required. Set it to the private key of a funded Arbitrum wallet.")
-
     etherscan_api_key = os.environ.get("ETHERSCAN_API_KEY")
+    anvil_launch = None
 
     # Trading parameters
     # Start with a small position for testing
@@ -726,129 +805,167 @@ def main():
     position_size = Decimal("2")  # $2 position size
     leverage = 2.0  # 2x leverage (so $1 collateral for $2 position)
 
-    # Connect to Arbitrum
-    web3 = create_multi_provider_web3(json_rpc_url)
-    chain_id = web3.eth.chain_id
-    chain_name = get_chain_name(chain_id)
+    try:
+        if simulate:
+            # Simulation mode: use Anvil fork with test wallet
+            print("=" * 80)
+            print("LAGOON-GMX TRADING TUTORIAL (SIMULATION MODE)")
+            print("=" * 80)
+            print("\nRunning in SIMULATION mode using Anvil fork.")
+            print("Trading steps will be skipped (GMX keepers cannot be simulated).")
 
-    print("=" * 80)
-    print("LAGOON-GMX TRADING TUTORIAL")
-    print("=" * 80)
-    print(f"\nConnected to {chain_name} (chain ID: {chain_id})")
-    print(f"Latest block: {web3.eth.block_number:,}")
+            web3, hot_wallet, anvil_launch = setup_simulation_environment(json_rpc_url)
+            # Don't verify contracts in simulation mode
+            etherscan_api_key = None
+        else:
+            # Production mode: use real wallet and RPC
+            private_key = os.environ.get("PRIVATE_KEY_SWAP_TEST")
+            if not private_key:
+                raise ValueError("PRIVATE_KEY_SWAP_TEST environment variable required. Set it to the private key of a funded Arbitrum wallet.")
 
-    # Setup wallet
-    hot_wallet = HotWallet.from_private_key(private_key)
-    hot_wallet.sync_nonce(web3)
+            # Connect to Arbitrum
+            web3 = create_multi_provider_web3(json_rpc_url)
 
-    eth_balance = web3.eth.get_balance(hot_wallet.address)
-    print(f"\nWallet: {hot_wallet.address}")
-    print(f"ETH balance: {web3.from_wei(eth_balance, 'ether')} ETH")
+            print("=" * 80)
+            print("LAGOON-GMX TRADING TUTORIAL")
+            print("=" * 80)
 
-    # Check USDC balance
-    usdc = fetch_erc20_details(web3, USDC_ARBITRUM)
-    usdc_balance = usdc.fetch_balance_of(hot_wallet.address)
-    print(f"USDC balance: {usdc_balance}")
+            # Setup wallet
+            hot_wallet = HotWallet.from_private_key(private_key)
+            hot_wallet.sync_nonce(web3)
 
-    if usdc_balance < deposit_amount:
-        raise ValueError(f"Insufficient USDC. Need {deposit_amount}, have {usdc_balance}. Fund your wallet with USDC on Arbitrum.")
+        chain_id = web3.eth.chain_id
+        chain_name = get_chain_name(chain_id)
 
-    # Get current ETH price for cost calculations
-    eth_price = get_eth_price_usd(web3)
-    print(f"\nCurrent ETH price: ${eth_price:.2f}")
+        print(f"\nConnected to {chain_name} (chain ID: {chain_id})")
+        print(f"Latest block: {web3.eth.block_number:,}")
 
-    # =========================================================================
-    # Step 1: Deploy vault
-    # =========================================================================
-    print("\n" + "=" * 80)
-    print("STEP 1: Deploy Lagoon vault with GMX integration")
-    print("=" * 80)
+        eth_balance = web3.eth.get_balance(hot_wallet.address)
+        print(f"\nWallet: {hot_wallet.address}")
+        print(f"ETH balance: {web3.from_wei(eth_balance, 'ether')} ETH")
 
-    logger.setLevel(logging.WARNING)  # Reduce noise during deployment
-    vault = deploy_lagoon_vault(web3, hot_wallet, etherscan_api_key)
-    logger.setLevel(logging.INFO)
+        # Check USDC balance
+        usdc = fetch_erc20_details(web3, USDC_ARBITRUM)
+        usdc_balance = usdc.fetch_balance_of(hot_wallet.address)
+        print(f"USDC balance: {usdc_balance}")
 
-    # Re-sync nonce after deployment
-    hot_wallet.sync_nonce(web3)
+        if usdc_balance < deposit_amount:
+            raise ValueError(f"Insufficient USDC. Need {deposit_amount}, have {usdc_balance}. Fund your wallet with USDC on Arbitrum.")
 
-    # =========================================================================
-    # Step 2: Deposit collateral
-    # =========================================================================
-    print("\n" + "=" * 80)
-    print("STEP 2: Deposit USDC collateral to vault")
-    print("=" * 80)
+        # Get current ETH price for cost calculations
+        eth_price = get_eth_price_usd(web3)
+        print(f"\nCurrent ETH price: ${eth_price:.2f}")
 
-    deposit_to_vault(web3, hot_wallet, vault, deposit_amount)
+        # =========================================================================
+        # Step 1: Deploy vault
+        # =========================================================================
+        print("\n" + "=" * 80)
+        print("STEP 1: Deploy Lagoon vault with GMX integration")
+        print("=" * 80)
 
-    # =========================================================================
-    # Step 3: Setup GMX trading
-    # =========================================================================
-    print("\n" + "=" * 80)
-    print("STEP 3: Setup GMX trading")
-    print("=" * 80)
+        logger.setLevel(logging.WARNING)  # Reduce noise during deployment
+        vault = deploy_lagoon_vault(web3, hot_wallet, etherscan_api_key)
+        logger.setLevel(logging.INFO)
 
-    gmx = setup_gmx_trading(web3, vault, hot_wallet)
+        # Re-sync nonce after deployment
+        hot_wallet.sync_nonce(web3)
 
-    # =========================================================================
-    # Step 4: Open position
-    # =========================================================================
-    print("\n" + "=" * 80)
-    print("STEP 4: Open leveraged ETH long position")
-    print("=" * 80)
+        # =========================================================================
+        # Step 2: Deposit collateral
+        # =========================================================================
+        print("\n" + "=" * 80)
+        print("STEP 2: Deposit USDC collateral to vault")
+        print("=" * 80)
 
-    open_order = open_gmx_position(
-        gmx,
-        size_usd=position_size,
-        leverage=leverage,
-        is_long=True,
-    )
+        deposit_to_vault(web3, hot_wallet, vault, deposit_amount)
 
-    # Wait for keeper execution
-    print("\nWaiting for GMX keeper execution...")
-    time.sleep(30)
+        if simulate:
+            # In simulation mode, skip trading steps
+            print("\n" + "=" * 80)
+            print("STEPS 3-5: SKIPPED (Simulation mode)")
+            print("=" * 80)
+            print("\nGMX trading steps are skipped in simulation mode because")
+            print("GMX keepers cannot be simulated in a local Anvil fork.")
+            print("The vault deployment and deposit/withdraw flows have been tested.")
+        else:
+            # =========================================================================
+            # Step 3: Setup GMX trading
+            # =========================================================================
+            print("\n" + "=" * 80)
+            print("STEP 3: Setup GMX trading")
+            print("=" * 80)
 
-    # =========================================================================
-    # Step 5: Close position
-    # =========================================================================
-    print("\n" + "=" * 80)
-    print("STEP 5: Close the position")
-    print("=" * 80)
+            gmx = setup_gmx_trading(web3, vault, hot_wallet)
 
-    close_order = close_gmx_position(
-        gmx,
-        size_usd=position_size,
-        is_long=True,
-    )
+            # =========================================================================
+            # Step 4: Open position
+            # =========================================================================
+            print("\n" + "=" * 80)
+            print("STEP 4: Open leveraged ETH long position")
+            print("=" * 80)
 
-    # Wait for keeper
-    print("\nWaiting for GMX keeper execution...")
-    time.sleep(30)
+            open_order = open_gmx_position(
+                gmx,
+                size_usd=position_size,
+                leverage=leverage,
+                is_long=True,
+            )
 
-    # =========================================================================
-    # Step 6: Withdraw
-    # =========================================================================
-    print("\n" + "=" * 80)
-    print("STEP 6: Withdraw collateral from vault")
-    print("=" * 80)
+            # Wait for keeper execution
+            print("\nWaiting for GMX keeper execution...")
+            time.sleep(30)
 
-    hot_wallet.sync_nonce(web3)
-    final_usdc = withdraw_from_vault(web3, hot_wallet, vault)
+            # =========================================================================
+            # Step 5: Close position
+            # =========================================================================
+            print("\n" + "=" * 80)
+            print("STEP 5: Close the position")
+            print("=" * 80)
 
-    # Calculate realised PnL
-    _summary.realised_pnl = final_usdc - deposit_amount
+            close_order = close_gmx_position(
+                gmx,
+                size_usd=position_size,
+                is_long=True,
+            )
 
-    # =========================================================================
-    # Step 7: Print summary
-    # =========================================================================
-    print("\n" + "=" * 80)
-    print("STEP 7: Trading summary")
-    print("=" * 80)
+            # Wait for keeper
+            print("\nWaiting for GMX keeper execution...")
+            time.sleep(30)
 
-    _summary.print_summary()
+        # =========================================================================
+        # Step 6: Withdraw
+        # =========================================================================
+        print("\n" + "=" * 80)
+        print("STEP 6: Withdraw collateral from vault")
+        print("=" * 80)
 
-    print("\nTutorial complete!")
-    print(f"\nVault address: {vault.address}")
-    print(f"View on Arbiscan: https://arbiscan.io/address/{vault.address}")
+        hot_wallet.sync_nonce(web3)
+        final_usdc = withdraw_from_vault(web3, hot_wallet, vault)
+
+        # Calculate realised PnL
+        _summary.realised_pnl = final_usdc - deposit_amount
+
+        # =========================================================================
+        # Step 7: Print summary
+        # =========================================================================
+        print("\n" + "=" * 80)
+        print("STEP 7: Trading summary")
+        print("=" * 80)
+
+        _summary.print_summary()
+
+        print("\nTutorial complete!")
+        print(f"\nVault address: {vault.address}")
+        if not simulate:
+            print(f"View on Arbiscan: https://arbiscan.io/address/{vault.address}")
+        else:
+            print("(Simulation mode - vault exists only in Anvil fork)")
+
+    finally:
+        # Clean up Anvil process if running
+        if anvil_launch is not None:
+            print("\nShutting down Anvil fork...")
+            anvil_launch.close()
 
 
 if __name__ == "__main__":
