@@ -67,7 +67,8 @@ poetry run ruff format
 - Never push directly to a master, and open a pull request when asked.
 - Do not include test plan in a pull request description
 - If the user ask to open a pull request as feature then start the PR title with "feat:" prefix and also add one line about the feature into `CHANGELOG.md`
-- Each changelog entry should follow the date of the PR in YYYY-MM-DD format. Example: Something was updated (2026-01-01).
+- Each changelog entry should follow the date of the PR in YYYY-MM-DD format and then the pull request id with a link to the pull request. Example: Something was updated (2026-01-01, [#666](http://example.com)).
+- If this is a major feature instead of minor fix, use **major** bold suffix and then put them to the top of changelog list. Put minor features bottom.
 - Before opening or updating a pull request, format the code
 - When merging pull request, squash and merge commits and use the PR description as the commit message
 

@@ -14,7 +14,7 @@ through a Lagoon vault using the CCXT-compatible GMX adapter:
 Simulation mode
 ---------------
 
-Set ``SIMULATE=true`` to run the script using an Anvil fork of Arbitrum.
+Set ``SIMULATE=true`` to run the script using an Anvil mainnet fork of Arbitrum.
 This allows testing vault deployment, deposit, and withdrawal flows
 without needing real funds or a private key.
 
@@ -147,9 +147,7 @@ from web3.contract.contract import ContractFunction
 from eth_defi.chain import get_chain_name
 from eth_defi.confirmation import broadcast_and_wait_transactions_to_complete
 from eth_defi.erc_4626.vault_protocol.lagoon.deployment import (
-    LagoonDeploymentParameters,
-    deploy_automated_lagoon_vault,
-)
+    LagoonDeploymentParameters, deploy_automated_lagoon_vault)
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.gas import apply_gas, estimate_gas_price
 from eth_defi.gmx.ccxt import GMX
@@ -157,12 +155,11 @@ from eth_defi.gmx.contracts import get_contract_addresses
 from eth_defi.gmx.lagoon.wallet import LagoonWallet
 from eth_defi.gmx.whitelist import GMXDeployment
 from eth_defi.hotwallet import HotWallet, SignedTransactionWithNonce
-from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch
+from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.utils import setup_console_logging
-
 
 # ============================================================================
 # Configuration constants
@@ -812,6 +809,7 @@ def setup_simulation_environment(json_rpc_url: str) -> tuple[Web3, HotWallet, "A
     print("\nStarting Anvil fork of Arbitrum...")
 
     # Fork Arbitrum with whale account unlocked for funding
+    # launch_anvil handles mev+ prefixed URLs automatically
     anvil_launch = fork_network_anvil(
         json_rpc_url,
         unlocked_addresses=[USDC_WHALE_ARBITRUM],

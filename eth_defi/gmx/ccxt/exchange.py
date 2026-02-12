@@ -31,13 +31,8 @@ from pathlib import Path
 from statistics import median
 from typing import Any
 
-from ccxt.base.errors import (
-    BaseError,
-    ExchangeError,
-    InvalidOrder,
-    NotSupported,
-    OrderNotFound,
-)
+from ccxt.base.errors import (BaseError, ExchangeError, InvalidOrder,
+                              NotSupported, OrderNotFound)
 from eth_utils import to_checksum_address
 
 from eth_defi.ccxt.exchange_compatible import ExchangeCompatible
@@ -47,26 +42,28 @@ from eth_defi.gmx.cache import GMXMarketCache
 from eth_defi.gmx.ccxt.properties import describe_gmx
 from eth_defi.gmx.ccxt.validation import _validate_ohlcv_data_sufficiency
 from eth_defi.gmx.config import GMXConfig
-from eth_defi.gmx.constants import (
-    DEFAULT_GAS_CRITICAL_THRESHOLD_USD,
-    DEFAULT_GAS_ESTIMATE_BUFFER,
-    DEFAULT_GAS_MONITOR_ENABLED,
-    DEFAULT_GAS_RAISE_ON_CRITICAL,
-    DEFAULT_GAS_WARNING_THRESHOLD_USD,
-    GMX_MIN_COST_USD,
-    PRECISION,
-)
-from eth_defi.gmx.contracts import get_contract_addresses, get_token_address_normalized
+from eth_defi.gmx.constants import (DEFAULT_GAS_CRITICAL_THRESHOLD_USD,
+                                    DEFAULT_GAS_ESTIMATE_BUFFER,
+                                    DEFAULT_GAS_MONITOR_ENABLED,
+                                    DEFAULT_GAS_RAISE_ON_CRITICAL,
+                                    DEFAULT_GAS_WARNING_THRESHOLD_USD,
+                                    GMX_MIN_COST_USD, PRECISION)
+from eth_defi.gmx.contracts import (get_contract_addresses,
+                                    get_token_address_normalized)
 from eth_defi.gmx.core.markets import Markets
 from eth_defi.gmx.core.open_positions import GetOpenPositions
 from eth_defi.gmx.core.oracle import OraclePrices
-from eth_defi.gmx.events import decode_gmx_event, extract_order_execution_result, extract_order_key_from_receipt
-from eth_defi.gmx.gas_monitor import GasMonitorConfig, GMXGasMonitor, InsufficientGasError
+from eth_defi.gmx.events import (decode_gmx_event,
+                                 extract_order_execution_result,
+                                 extract_order_key_from_receipt)
+from eth_defi.gmx.gas_monitor import (GasMonitorConfig, GMXGasMonitor,
+                                      InsufficientGasError)
 from eth_defi.gmx.graphql.client import GMXSubsquidClient
 from eth_defi.gmx.order import SLTPEntry, SLTPOrder, SLTPParams
 from eth_defi.gmx.order_tracking import check_order_status
 from eth_defi.gmx.trading import GMXTrading
-from eth_defi.gmx.utils import calculate_estimated_liquidation_price, convert_raw_price_to_usd
+from eth_defi.gmx.utils import (calculate_estimated_liquidation_price,
+                                convert_raw_price_to_usd)
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.fallback import get_fallback_provider
 from eth_defi.provider.log_block_range import get_logs_max_block_range
@@ -383,7 +380,8 @@ class GMX(ExchangeCompatible):
 
         # Create web3 instance from RPC URL
         if not self._rpc_url:
-            raise ValueError("rpcUrl is required in parameters")
+            keys = parameters.keys()
+            raise ValueError(f"rpcUrl is required in parameters - we got keys: {keys}")
 
         # Log detected RPC providers (space-separated format)
         rpc_urls = [u for u in self._rpc_url.split() if u and not u.startswith("mev+")]
@@ -2385,11 +2383,9 @@ class GMX(ExchangeCompatible):
         # Perform price sanity check if enabled
         if self._price_sanity_config.enabled:
             try:
-                from eth_defi.gmx.price_sanity import (
-                    check_price_sanity,
-                    PriceSanityAction,
-                    PriceSanityException,
-                )
+                from eth_defi.gmx.price_sanity import (PriceSanityAction,
+                                                       PriceSanityException,
+                                                       check_price_sanity)
 
                 # Get oracle prices (lazy initialization)
                 if self._oracle_prices_instance is None:
@@ -2433,7 +2429,8 @@ class GMX(ExchangeCompatible):
                     "arbitrum_sepolia",
                     "avalanche_fuji",
                 ]:
-                    from eth_defi.gmx.core.oracle import _TESTNET_TO_MAINNET_ADDRESSES
+                    from eth_defi.gmx.core.oracle import \
+                        _TESTNET_TO_MAINNET_ADDRESSES
 
                     testnet_mappings = _TESTNET_TO_MAINNET_ADDRESSES.get(self.config.get_chain(), {})
                     oracle_address = testnet_mappings.get(oracle_address, oracle_address)
@@ -5382,9 +5379,10 @@ class GMX(ExchangeCompatible):
             # Try to get raw token amount using oracle price
             collateral_tokens = None
             try:
+                from statistics import median
+
                 from eth_defi.gmx.contracts import get_token_address_normalized
                 from eth_defi.gmx.core.oracle import OraclePrices
-                from statistics import median
 
                 chain = self.config.get_chain()
                 collateral_address = get_token_address_normalized(chain, collateral_symbol)
@@ -5705,7 +5703,8 @@ class GMX(ExchangeCompatible):
             revert_reason = "Transaction reverted on-chain"
 
             try:
-                from eth_defi.revert_reason import fetch_transaction_revert_reason
+                from eth_defi.revert_reason import \
+                    fetch_transaction_revert_reason
 
                 revert_reason = fetch_transaction_revert_reason(self.web3, tx_hash_bytes, unknown_error_message="<revert reason not available>")
 
@@ -6436,7 +6435,8 @@ class GMX(ExchangeCompatible):
             # Order no longer pending - verify execution result
             if status_result.execution_receipt:
                 # Import here to avoid circular dependency
-                from eth_defi.gmx.verification import verify_gmx_order_execution
+                from eth_defi.gmx.verification import \
+                    verify_gmx_order_execution
 
                 verification = verify_gmx_order_execution(
                     self.web3,
