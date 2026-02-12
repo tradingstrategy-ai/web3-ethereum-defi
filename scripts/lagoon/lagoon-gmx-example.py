@@ -85,6 +85,7 @@ from eth_defi.gmx.ccxt import GMX
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.contracts import get_contract_addresses
 from eth_defi.gmx.lagoon.wallet import LagoonWallet
+from eth_defi.gmx.whitelist import GMXDeployment
 from eth_defi.hotwallet import HotWallet, SignedTransactionWithNonce
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import fetch_erc20_details
@@ -320,7 +321,6 @@ def deploy_lagoon_vault(
     :param etherscan_api_key: API key for contract verification
     :return: Deployed LagoonVault instance
     """
-    chain_id = web3.eth.chain_id
 
     # Configure vault parameters
     # Using USDC as the base asset for the vault
@@ -339,12 +339,29 @@ def deploy_lagoon_vault(
     # Single-owner Safe for simplicity (in production, use multiple owners)
     multisig_owners = [hot_wallet.address]
 
+    # Configure GMX integration using GMXDeployment
+    # This whitelists the GMX routers, order vault, and specified markets
+    gmx_deployment = GMXDeployment(
+        exchange_router=GMX_EXCHANGE_ROUTER,
+        synthetics_router=GMX_SYNTHETICS_ROUTER,
+        order_vault=GMX_ORDER_VAULT,
+        markets=[
+            GMX_ETH_USDC_MARKET,  # ETH/USD perpetuals market
+        ],
+        tokens=[
+            USDC_ARBITRUM,  # Collateral token for GMX orders
+            WETH_ARBITRUM,  # Alternative collateral
+        ],
+    )
+
     print("\nDeploying Lagoon vault with GMX integration...")
     print(f"  Deployer/Asset Manager: {hot_wallet.address}")
     print(f"  Base asset: USDC ({USDC_ARBITRUM})")
+    print(f"  GMX ExchangeRouter: {GMX_EXCHANGE_ROUTER}")
+    print(f"  GMX Market: {GMX_ETH_USDC_MARKET}")
 
     # Deploy the vault with all integrations
-    # The gmx=True flag enables GMX whitelisting
+    # The gmx_deployment parameter handles all GMX whitelisting automatically
     deploy_info = deploy_automated_lagoon_vault(
         web3=web3,
         deployer=hot_wallet,
@@ -355,7 +372,7 @@ def deploy_lagoon_vault(
         uniswap_v2=None,
         uniswap_v3=None,
         any_asset=False,  # Only whitelisted assets allowed
-        gmx=True,  # Enable GMX integration and whitelisting
+        gmx_deployment=gmx_deployment,  # GMX integration configuration
         from_the_scratch=False,  # Use pre-deployed factory if available
         use_forge=True,  # Use forge for contract compilation
         assets=assets,
@@ -368,36 +385,6 @@ def deploy_lagoon_vault(
     print(f"  Vault address: {vault.address}")
     print(f"  Safe address: {vault.safe_address}")
     print(f"  Trading module: {vault.trading_strategy_module_address}")
-
-    # Additional GMX-specific whitelisting
-    # The Safe needs to be whitelisted as a receiver for order proceeds
-    # This is done via the Guard contract
-    module = deploy_info.trading_strategy_module
-    safe_address = vault.safe_address
-
-    # Impersonate Safe to call owner-only functions
-    web3.provider.make_request("anvil_impersonateAccount", [safe_address])
-
-    # Whitelist the Safe as a valid receiver for GMX orders
-    # This ensures order profits and refunds go back to the Safe
-    print("\nWhitelisting Safe as GMX order receiver...")
-    tx_hash = module.functions.allowReceiver(
-        safe_address,
-        "Safe receives GMX order proceeds",
-    ).transact({"from": safe_address, "gas": 200_000})
-
-    web3.eth.wait_for_transaction_receipt(tx_hash)
-
-    # Whitelist the ETH/USDC market for trading
-    print("Whitelisting ETH/USDC market...")
-    tx_hash = module.functions.whitelistGMXMarket(
-        GMX_ETH_USDC_MARKET,
-        "ETH/USDC perpetuals market",
-    ).transact({"from": safe_address, "gas": 200_000})
-
-    web3.eth.wait_for_transaction_receipt(tx_hash)
-
-    web3.provider.make_request("anvil_stopImpersonatingAccount", [safe_address])
 
     print("GMX integration configured!")
 
@@ -765,9 +752,10 @@ def main():
 
     # Trading parameters
     # Start with a small position for testing
-    deposit_amount = Decimal("50")  # $50 USDC deposit
-    position_size = Decimal("25")  # $25 position size
-    leverage = 2.0  # 2x leverage
+    # Minimum viable amounts to demonstrate the flow
+    deposit_amount = Decimal("5")  # $5 USDC deposit
+    position_size = Decimal("2")  # $2 position size
+    leverage = 2.0  # 2x leverage (so $1 collateral for $2 position)
 
     # Connect to Arbitrum
     web3 = create_multi_provider_web3(json_rpc_url)

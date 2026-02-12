@@ -432,3 +432,110 @@ def test_gmx_selector_constant():
     computed = Web3.keccak(text=sig)[:4]
 
     assert computed == expected_selector, f"Expected {expected_selector.hex()}, got {computed.hex()}"
+
+
+# =============================================================================
+# SECURITY TESTS - Malicious market trading attack scenarios
+# =============================================================================
+#
+# Note: The full ABI-encoded GMX multicall validation is tested in integration tests
+# (tests/gmx/lagoon/test_gmx_lagoon_integration.py) which run against real GMX
+# contracts on an Arbitrum fork. These unit tests verify the whitelisting logic
+# that _validate_gmxCreateOrder uses when checking addresses.
+
+
+def test_security_attack_scenario_non_whitelisted_market(
+    guard: Contract,
+    btc_usd_market: str,
+):
+    """SECURITY: Verify non-whitelisted market would be rejected during validation.
+
+    Attack scenario:
+    1. Vault owner has whitelisted ETH/USD market only
+    2. Malicious asset manager tries to open position on BTC/USD market
+    3. Guard's isAllowedGMXMarket check would reject
+
+    The actual ABI validation is tested in integration tests.
+    """
+    # BTC/USD is NOT whitelisted (only ETH/USD was whitelisted in fixture)
+    assert guard.functions.isAllowedGMXMarket(btc_usd_market).call() is False
+
+
+def test_security_attack_scenario_non_whitelisted_collateral(
+    web3: Web3,
+    guard: Contract,
+    deployer: str,
+):
+    """SECURITY: Verify non-whitelisted collateral would be rejected during validation.
+
+    Attack scenario:
+    1. Vault owner has whitelisted USDC as collateral
+    2. Malicious asset manager tries to use a malicious token
+    3. Guard's isAllowedAsset check would reject
+    """
+    # Create a non-whitelisted token
+    bad_token = create_token(web3, deployer, "Bad Token", "BAD", 1_000_000 * 10**18)
+
+    # Bad token is NOT whitelisted
+    assert guard.functions.isAllowedAsset(bad_token.address).call() is False
+
+
+def test_security_attack_scenario_non_whitelisted_receiver(
+    guard: Contract,
+    attacker: str,
+):
+    """SECURITY: Verify non-whitelisted receiver would be rejected during validation.
+
+    Attack scenario:
+    1. Vault owner has whitelisted Safe as order receiver
+    2. Malicious asset manager tries to set attacker as order receiver
+    3. Guard's isAllowedReceiver check would reject
+    """
+    # Attacker is NOT whitelisted as receiver
+    assert guard.functions.isAllowedReceiver(attacker).call() is False
+
+
+def test_security_attack_scenario_non_whitelisted_router(
+    guard: Contract,
+    attacker: str,
+):
+    """SECURITY: Verify non-whitelisted GMX router would be rejected.
+
+    Attack scenario:
+    1. Vault owner has whitelisted official GMX ExchangeRouter
+    2. Attacker tries to route through a malicious contract
+    3. Guard's isAllowedGMXRouter check would reject
+    """
+    # Attacker contract is NOT a whitelisted GMX router
+    assert guard.functions.isAllowedGMXRouter(attacker).call() is False
+
+
+def test_security_verify_all_whitelisted_addresses_accepted(
+    guard: Contract,
+    safe_address: str,
+    exchange_router: str,
+    order_vault: str,
+    eth_usd_market: str,
+    usdc: Contract,
+    weth: Contract,
+):
+    """Verify all whitelisted addresses pass validation checks.
+
+    This is the positive case - all addresses whitelisted in fixture
+    should pass the individual checks that _validate_gmxCreateOrder performs.
+    """
+    # Router is whitelisted
+    assert guard.functions.isAllowedGMXRouter(exchange_router).call() is True
+
+    # Order vault is configured
+    assert guard.functions.gmxOrderVaults(exchange_router).call() == order_vault
+
+    # Market is whitelisted
+    assert guard.functions.isAllowedGMXMarket(eth_usd_market).call() is True
+
+    # Collateral tokens are whitelisted
+    assert guard.functions.isAllowedAsset(usdc.address).call() is True
+    assert guard.functions.isAllowedAsset(weth.address).call() is True
+
+    # Safe is whitelisted as receiver
+    assert guard.functions.isAllowedReceiver(safe_address).call() is True
