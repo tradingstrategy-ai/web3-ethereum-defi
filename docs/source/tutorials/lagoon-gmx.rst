@@ -239,3 +239,221 @@ Source code
 
 .. literalinclude:: ../../../scripts/lagoon/lagoon-gmx-example.py
    :language: python
+
+Example output
+--------------
+
+.. code-block:: plain
+
+    ================================================================================
+    LAGOON-GMX TRADING TUTORIAL
+    ================================================================================
+
+    Connected to Arbitrum (chain ID: 42161)
+    Latest block: 431,223,855
+
+    Wallet: 0xdcc6D3A3C006bb4a10B448b1Ee750966395622c6
+    ETH balance: 0.025746700731346354 ETH
+    USDC balance: 41.725675
+
+    Current ETH price: $1969.93
+
+    ================================================================================
+    STEP 1: Deploy Lagoon vault with GMX integration
+    ================================================================================
+
+    Deploying Lagoon vault with GMX integration...
+    Deployer/Asset Manager: 0xdcc6D3A3C006bb4a10B448b1Ee750966395622c6
+    Base asset: USDC (0xaf88d065e77c8cC2239327C5EDb3A432268e5831)
+    GMX ExchangeRouter: 0x1C3fa76e6E1088bCE750f23a5BFcffa1efEF6A41
+    GMX Market: 0x70d95587d40A2caf56bd97485aB3Eec10Bee6336
+
+    Vault deployed successfully!
+    Vault address: 0xc1121b5808068815bc7D330Af6F1e5BE50b8a253
+    Safe address: 0x6ed3C2fe7deDe9c0Da94bd1D1ed04718689a91fC
+    Trading module: 0x9e7Bc7E5f60f9dE92aB76F42a948b48176A8E30c
+    GMX integration configured!
+
+    ================================================================================
+    STEP 2: Deposit USDC collateral to vault
+    ================================================================================
+
+    Depositing 5 USDC to vault...
+
+    Broadcasting tx #1: Approve USDC for vault deposit
+    TX hash: 8f521397f87893d5d8dc1bcfd1306fee2c9a230d0618ee606794b0a774f5c084
+    Gas used: 55,527 @ 0.02 gwei = 0.000001 ETH
+
+    Broadcasting tx #2: Request USDC deposit to vault
+    TX hash: 2c995b5083685c2662b70aa1a103005402c61df6292f04baa219f44fe28682fc
+    Gas used: 152,211 @ 0.02 gwei = 0.000003 ETH
+
+    Broadcasting tx #3: Post vault valuation
+    TX hash: c72a1a367ff59f885296bcdf90736b1838ae79b95d5a18ab3709e805df530fff
+    Gas used: 129,483 @ 0.02 gwei = 0.000003 ETH
+
+    Broadcasting tx #4: Settle vault deposits
+    TX hash: a5f3c37f919af9b470c9b1e89c717d0bcfc4aa50cef2030b513da9e75361b969
+    Gas used: 318,665 @ 0.02 gwei = 0.000006 ETH
+
+    Broadcasting tx #5: Finalise deposit (claim shares)
+    TX hash: b69faff61b19e91064adfac2a3dbbe0985dcaccc34ad3bce36615328a32ecf34
+    Gas used: 71,732 @ 0.02 gwei = 0.000001 ETH
+
+    Deposit complete!
+    Safe USDC balance: 5
+    Depositor share balance: 5
+
+    --------------------------------------------------------------------------------
+    STEP 2b: Fund Safe with ETH for GMX execution fees
+    --------------------------------------------------------------------------------
+
+    Funding Safe with 0.001 ETH for GMX execution fees...
+    Safe address: 0x6ed3C2fe7deDe9c0Da94bd1D1ed04718689a91fC
+    Safe ETH balance: 0.001 ETH
+
+    ================================================================================
+    STEP 3: Setup GMX trading
+    ================================================================================
+
+    Setting up GMX trading...
+
+    Broadcasting tx #7: Approve USDC for GMX SyntheticsRouter
+    TX hash: 1d74747f76131d2ef7961cec7d56dbcdac579701f49dd95012c83a1f29bac13e
+    Gas used: 92,350 @ 0.02 gwei = 0.000002 ETH
+    GMX trading ready!
+
+    ================================================================================
+    STEP 4: Open leveraged ETH long position
+    ================================================================================
+
+    Opening LONG ETH position...
+    Size: $5
+    Leverage: 1.1x
+    Collateral: $4.55 USDC
+
+    Order submitted!
+    TX hash: 0xe184bb5e1005d99f236d98cc81af03530d41203d841d7ebcd87e60eb0a26acce
+    Status: open
+
+    Waiting for GMX keeper execution...
+
+    ================================================================================
+    STEP 5: Close the position
+    ================================================================================
+
+    Closing LONG ETH position...
+
+    Close order submitted!
+    TX hash: 0x1b0817309cd94fe80bd5d6dfe4776534bab147cd5b8f4b1225990854ef4d1911
+    Status: open
+
+    Waiting for GMX keeper execution...
+
+    --------------------------------------------------------------------------------
+    STEP 5b: Recover ETH from Safe
+    --------------------------------------------------------------------------------
+
+    Recovering 0.000766 ETH from Safe to hot wallet...
+    Recovered 0.000766 ETH
+
+    ================================================================================
+    STEP 6: Withdraw collateral from vault
+    ================================================================================
+
+    Withdrawing from vault...
+    Shares to redeem: 5
+
+    Broadcasting tx #9: Request vault redemption
+    TX hash: f4c1edf95dd3f23879e24b83ce9699a3e3e6d674846c8356743197832cdd239b
+    Gas used: 127,582 @ 0.02 gwei = 0.000003 ETH
+
+    Broadcasting tx #10: Post vault valuation for withdrawal
+    TX hash: d180907f38b51a868b0b055e8953913ac2325383045d32d32800d6fb4c9d50e8
+    Gas used: 114,495 @ 0.02 gwei = 0.000002 ETH
+
+    Broadcasting tx #11: Settle vault for withdrawal
+    TX hash: ff0df4eaba37286b9aae48a3421ca1bfbdc9d3099d4524b673bf37aa85fcc71e
+    Gas used: 302,482 @ 0.02 gwei = 0.000006 ETH
+
+    Broadcasting tx #12: Finalise redemption (claim USDC)
+    TX hash: 49c84e6a928dcbcfbeac1acd761ea57df3832a4c2fd92af04e89966e1a697ebd
+    Gas used: 75,264 @ 0.02 gwei = 0.000002 ETH
+
+    Withdrawal complete! USDC balance: 41.720259
+
+    ================================================================================
+    STEP 7: Trading summary
+    ================================================================================
+
+    ================================================================================
+    TRADING SUMMARY
+    ================================================================================
+
+    Transactions:
+    --------------------------------------------------------------------------------
+    1. Approve USDC for vault deposit
+        TX: 8f521397f87893d5d8dc1bcfd1306fee2c9a230d0618ee606794b0a774f5c084
+        Gas: 55,527 @ 0.02 gwei = 0.000001 ETH ($0.00)
+
+    2. Request USDC deposit to vault
+        TX: 2c995b5083685c2662b70aa1a103005402c61df6292f04baa219f44fe28682fc
+        Gas: 152,211 @ 0.02 gwei = 0.000003 ETH ($0.01)
+
+    3. Post vault valuation
+        TX: c72a1a367ff59f885296bcdf90736b1838ae79b95d5a18ab3709e805df530fff
+        Gas: 129,483 @ 0.02 gwei = 0.000003 ETH ($0.01)
+
+    4. Settle vault deposits
+        TX: a5f3c37f919af9b470c9b1e89c717d0bcfc4aa50cef2030b513da9e75361b969
+        Gas: 318,665 @ 0.02 gwei = 0.000006 ETH ($0.01)
+
+    5. Finalise deposit (claim shares)
+        TX: b69faff61b19e91064adfac2a3dbbe0985dcaccc34ad3bce36615328a32ecf34
+        Gas: 71,732 @ 0.02 gwei = 0.000001 ETH ($0.00)
+
+    6. Fund Safe with ETH for GMX execution fees
+        TX: e46b64b6cd843e1e435ebd9e561499f053e294290e65fe5a0d76a1d17f4769be
+        Gas: 27,359 @ 0.02 gwei = 0.000001 ETH ($0.00)
+
+    7. Approve USDC for GMX SyntheticsRouter
+        TX: 1d74747f76131d2ef7961cec7d56dbcdac579701f49dd95012c83a1f29bac13e
+        Gas: 92,350 @ 0.02 gwei = 0.000002 ETH ($0.00)
+
+    8. Recover ETH from Safe to hot wallet
+        TX: 0e80889ae34b4462d85f29b36a989e157d71afe8a0e2e13a55279e788b898b2a
+        Gas: 63,984 @ 0.02 gwei = 0.000001 ETH ($0.00)
+
+    9. Request vault redemption
+        TX: f4c1edf95dd3f23879e24b83ce9699a3e3e6d674846c8356743197832cdd239b
+        Gas: 127,582 @ 0.02 gwei = 0.000003 ETH ($0.01)
+
+    10. Post vault valuation for withdrawal
+        TX: d180907f38b51a868b0b055e8953913ac2325383045d32d32800d6fb4c9d50e8
+        Gas: 114,495 @ 0.02 gwei = 0.000002 ETH ($0.00)
+
+    11. Settle vault for withdrawal
+        TX: ff0df4eaba37286b9aae48a3421ca1bfbdc9d3099d4524b673bf37aa85fcc71e
+        Gas: 302,482 @ 0.02 gwei = 0.000006 ETH ($0.01)
+
+    12. Finalise redemption (claim USDC)
+        TX: 49c84e6a928dcbcfbeac1acd761ea57df3832a4c2fd92af04e89966e1a697ebd
+        Gas: 75,264 @ 0.02 gwei = 0.000002 ETH ($0.00)
+
+    --------------------------------------------------------------------------------
+    Position details:
+    Size:        $5.00
+    Entry price: $1968.62
+    Exit price:  $1968.60
+    Realised PnL: $36.72
+
+    Costs:
+    Total gas:           0.000031 ETH ($0.06)
+    GMX execution fees:  0.000301 ETH
+    Total costs:         0.000332 ETH
+
+    Net result:
+    PnL after costs: $36.66
+    ================================================================================
+
+    Tutorial complete!

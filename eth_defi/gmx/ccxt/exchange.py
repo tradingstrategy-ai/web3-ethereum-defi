@@ -5198,8 +5198,11 @@ class GMX(ExchangeCompatible):
             # Raise BaseError which becomes OperationalException (stops bot, sends EXCEPTION to Telegram)
             raise BaseError(error_msg)
 
-        # Sync wallet nonce before creating/closing order (required for Freqtrade)
-        self.wallet.sync_nonce(self.web3)
+        # Nonce is managed by the HotWallet's internal counter:
+        # - Initialised once via sync_nonce() at wallet creation (line ~406)
+        # - Incremented locally by each sign_transaction_with_new_nonce() call
+        # Do NOT re-sync from chain here — the RPC may return a stale count
+        # (e.g. load-balanced nodes 1 block behind), causing "nonce too low".
 
         # Check gas balance before creating order (if gas monitoring enabled)
         gas_config = getattr(self, "_gas_monitor_config", None)

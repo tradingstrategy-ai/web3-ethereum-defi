@@ -24,6 +24,7 @@ In simulation mode:
 - Trading steps (open/close position) are skipped because GMX keepers
   cannot be simulated in a local fork
 - The vault deployment, deposit, and withdrawal flows are fully tested
+- No real money is spent
 
 Example:
 
@@ -108,8 +109,13 @@ GMX V2 has the following minimum requirements (per gmx-synthetics config):
 - **Minimum position size**: $1 USD
 
 This script uses $1.1 deposit and $1.1 position size to demonstrate
-trading at near-minimum values. Note that you'll also need ETH to cover
-execution fees (~0.0001-0.001 ETH per order, paid to keepers).
+trading at near-minimum values. The Safe also needs ETH for execution
+fees (~0.0001-0.001 ETH per order, paid to GMX keepers). The script
+sends 0.001 ETH to the Safe before trading and recovers it afterwards.
+
+Note: ``TradingStrategyModuleV0.performCall()`` is not ``payable``, so
+execution fee ETH must come from the Safe's own balance — not from the
+hot wallet's ``msg.value``.
 
 Source: https://github.com/gmx-io/gmx-synthetics/blob/main/config/general.ts
 
@@ -117,10 +123,10 @@ Prerequisites
 -------------
 
 You need:
-- An Arbitrum wallet funded with at least 0.01 ETH for gas fees
+- An Arbitrum wallet funded with at least 0.01 ETH for gas + execution fees
 - Some USDC on Arbitrum for trading collateral (~$50-100 recommended)
 - JSON_RPC_ARBITRUM environment variable pointing to an Arbitrum RPC
-- PRIVATE_KEY_SWAP_TEST environment variable with your wallet private key
+- GMX_PRIVATE_KEY environment variable with your wallet private key
 - ETHERSCAN_API_KEY for contract verification (optional but recommended)
 
 API documentation
@@ -140,9 +146,10 @@ from decimal import Decimal
 from typing import Optional
 
 from eth_typing import HexAddress
-from eth_utils import to_checksum_address
 from web3 import Web3
 from web3.contract.contract import ContractFunction
+
+from safe_eth.safe.safe import Safe
 
 from eth_defi.chain import get_chain_name
 from eth_defi.confirmation import broadcast_and_wait_transactions_to_complete
@@ -153,11 +160,13 @@ from eth_defi.gas import apply_gas, estimate_gas_price
 from eth_defi.gmx.ccxt import GMX
 from eth_defi.gmx.contracts import get_contract_addresses
 from eth_defi.gmx.lagoon.wallet import LagoonWallet
-from eth_defi.gmx.whitelist import GMXDeployment
+from eth_defi.gmx.whitelist import GMX_POPULAR_MARKETS, GMXDeployment
 from eth_defi.hotwallet import HotWallet, SignedTransactionWithNonce
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.token import fetch_erc20_details
+from eth_defi.safe.execute import execute_safe_tx
+from eth_defi.safe.safe_compat import create_safe_ethereum_client
+from eth_defi.token import USDC_NATIVE_TOKEN, USDC_WHALE, WRAPPED_NATIVE_TOKEN, fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.utils import setup_console_logging
 
@@ -165,10 +174,12 @@ from eth_defi.utils import setup_console_logging
 # Configuration constants
 # ============================================================================
 
-# Token addresses on Arbitrum mainnet
-# See: https://arbiscan.io/tokens for contract addresses
-USDC_ARBITRUM = to_checksum_address("0xaf88d065e77c8cC2239327C5EDb3A432268e5831")  # Native USDC
-WETH_ARBITRUM = to_checksum_address("0x82aF49447D8a07e3bd95BD0d56f35241523fBab1")  # WETH
+# Arbitrum chain ID
+ARBITRUM_CHAIN_ID = 42161
+
+# Token addresses on Arbitrum mainnet (from eth_defi.token)
+USDC_ARBITRUM = USDC_NATIVE_TOKEN[ARBITRUM_CHAIN_ID]
+WETH_ARBITRUM = WRAPPED_NATIVE_TOKEN[ARBITRUM_CHAIN_ID]
 
 # GMX contract addresses - fetched dynamically from eth_defi.gmx.contracts
 # These include ExchangeRouter, SyntheticsRouter, OrderVault, etc.
@@ -177,14 +188,11 @@ GMX_EXCHANGE_ROUTER = _GMX_ADDRESSES.exchangerouter
 GMX_SYNTHETICS_ROUTER = _GMX_ADDRESSES.syntheticsrouter
 GMX_ORDER_VAULT = _GMX_ADDRESSES.ordervault
 
-# GMX market addresses on Arbitrum
-# The ETH/USD market uses WETH and USDC as collateral tokens
-# See: https://app.gmx.io/#/markets for market list
-GMX_ETH_USDC_MARKET = to_checksum_address("0x70d95587d40A2caf56bd97485aB3Eec10Bee6336")
+# GMX ETH/USD market on Arbitrum (from eth_defi.gmx.whitelist)
+GMX_ETH_USDC_MARKET = GMX_POPULAR_MARKETS["ETH/USD"]
 
-# Whale addresses for simulation mode (accounts with large token balances)
-# See: https://arbiscan.io/token/0xaf88d065e77c8cC2239327C5EDb3A432268e5831#balances
-USDC_WHALE_ARBITRUM = to_checksum_address("0xEe7aE85f2Fe2239E27D9c1E23fFFe168D63b4055")
+# Whale address for simulation mode (from eth_defi.token)
+USDC_WHALE_ARBITRUM = USDC_WHALE[ARBITRUM_CHAIN_ID]
 
 
 # ============================================================================
@@ -549,6 +557,143 @@ def deposit_to_vault(
 
 
 # ============================================================================
+# Step 2b: Fund Safe with ETH for GMX execution fees
+# ============================================================================
+
+
+def fund_safe_with_eth(
+    web3: Web3,
+    hot_wallet: HotWallet,
+    vault: LagoonVault,
+    eth_amount: Decimal,
+) -> None:
+    """Send ETH from the hot wallet to the vault's Safe.
+
+    GMX orders require ETH execution fees paid to keepers. The Safe must hold
+    ETH because ``TradingStrategyModuleV0.performCall()`` sends the ``value``
+    parameter from the Safe's own balance (the function is not ``payable``).
+
+    The Safe has a ``receive()`` function so it accepts plain ETH transfers.
+
+    :param web3: Web3 instance
+    :param hot_wallet: Wallet that holds ETH
+    :param vault: LagoonVault whose Safe needs funding
+    :param eth_amount: Amount of ETH to send (human-readable)
+    """
+    global _tx_count, _summary
+    _tx_count += 1
+
+    wei_amount = int(eth_amount * Decimal(10**18))
+
+    print(f"\nFunding Safe with {eth_amount} ETH for GMX execution fees...")
+    print(f"  Safe address: {vault.safe_address}")
+
+    gas_price_suggestion = estimate_gas_price(web3)
+    tx_params = apply_gas({}, gas_price_suggestion)
+    tx_params["chainId"] = web3.eth.chain_id
+    tx_params["from"] = hot_wallet.address
+    tx_params["to"] = vault.safe_address
+    tx_params["value"] = wei_amount
+    tx_params["gas"] = 50_000  # ETH transfer (extra buffer for Anvil fork)
+
+    tx = hot_wallet.sign_transaction_with_new_nonce(tx_params)
+    broadcast_and_wait_transactions_to_complete(web3, [tx])
+
+    receipt = web3.eth.get_transaction_receipt(tx.hash)
+    gas_used = receipt["gasUsed"]
+    gas_price = receipt.get("effectiveGasPrice", web3.eth.gas_price)
+    cost_eth = Decimal(gas_used * gas_price) / Decimal(10**18)
+
+    try:
+        eth_price = get_eth_price_usd(web3)
+        cost_usd = cost_eth * eth_price
+    except Exception:
+        cost_usd = None
+
+    record = TransactionRecord(
+        description="Fund Safe with ETH for GMX execution fees",
+        tx_hash=tx.hash.hex(),
+        gas_used=gas_used,
+        gas_price_gwei=gas_price / 1e9,
+        cost_eth=cost_eth,
+        cost_usd=cost_usd,
+        block_number=receipt["blockNumber"],
+    )
+    _summary.add_transaction(record)
+
+    safe_eth = web3.eth.get_balance(vault.safe_address)
+    print(f"  Safe ETH balance: {web3.from_wei(safe_eth, 'ether')} ETH")
+
+
+def recover_eth_from_safe(
+    web3: Web3,
+    hot_wallet: HotWallet,
+    vault: LagoonVault,
+) -> None:
+    """Recover remaining ETH from the Safe back to the hot wallet.
+
+    Uses a Safe owner-signed transaction (``execTransaction``) to send ETH
+    directly from the Safe. This bypasses the Guard because it goes through
+    the Safe's own execution path, not through the TradingStrategyModuleV0.
+
+    :param web3: Web3 instance
+    :param hot_wallet: Destination wallet (must be a Safe owner)
+    :param vault: LagoonVault whose Safe holds the ETH
+    """
+    global _tx_count, _summary
+
+    safe_eth_wei = web3.eth.get_balance(vault.safe_address)
+    if safe_eth_wei == 0:
+        print("\n  No ETH in Safe to recover")
+        return
+
+    safe_eth = Decimal(safe_eth_wei) / Decimal(10**18)
+    print(f"\nRecovering {safe_eth:.6f} ETH from Safe to hot wallet...")
+
+    ethereum_client = create_safe_ethereum_client(web3)
+    safe = Safe(vault.safe_address, ethereum_client)
+
+    # Build Safe owner transaction to send ETH to hot wallet
+    safe_tx = safe.build_multisig_tx(hot_wallet.address, safe_eth_wei, b"")
+    safe_tx.sign(hot_wallet.private_key.hex())
+
+    gas_estimate = estimate_gas_price(web3)
+    _tx_count += 1
+    hot_wallet.sync_nonce(web3)
+    tx_hash, tx = execute_safe_tx(
+        safe_tx,
+        tx_sender_private_key=hot_wallet.private_key.hex(),
+        tx_gas=100_000,
+        tx_nonce=hot_wallet.allocate_nonce(),
+        gas_fee=gas_estimate,
+    )
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    receipt = web3.eth.get_transaction_receipt(tx_hash)
+    gas_used = receipt["gasUsed"]
+    gas_price = receipt.get("effectiveGasPrice", web3.eth.gas_price)
+    cost_eth = Decimal(gas_used * gas_price) / Decimal(10**18)
+
+    try:
+        eth_price = get_eth_price_usd(web3)
+        cost_usd = cost_eth * eth_price
+    except Exception:
+        cost_usd = None
+
+    record = TransactionRecord(
+        description="Recover ETH from Safe to hot wallet",
+        tx_hash=tx_hash.hex(),
+        gas_used=gas_used,
+        gas_price_gwei=gas_price / 1e9,
+        cost_eth=cost_eth,
+        cost_usd=cost_usd,
+        block_number=receipt["blockNumber"],
+    )
+    _summary.add_transaction(record)
+    print(f"  Recovered {safe_eth:.6f} ETH")
+
+
+# ============================================================================
 # Step 3: Setup GMX trading
 # ============================================================================
 
@@ -557,6 +702,7 @@ def setup_gmx_trading(
     web3: Web3,
     vault: LagoonVault,
     asset_manager: HotWallet,
+    json_rpc_url: str,
 ) -> GMX:
     """Set up GMX trading through the Lagoon vault.
 
@@ -596,7 +742,7 @@ def setup_gmx_trading(
     # Create GMX CCXT adapter with the vault wallet
     gmx = GMX(
         params={
-            "rpcUrl": web3.provider.endpoint_uri,
+            "rpcUrl": json_rpc_url,
             "wallet": lagoon_wallet,
             "executionBuffer": 2.5,  # Higher buffer for reliability
             "defaultSlippage": 0.005,  # 0.5% slippage tolerance
@@ -869,11 +1015,11 @@ def main():
     anvil_launch = None
 
     # Trading parameters
-    # GMX minimums are $1 collateral and $1 position size.
-    # We use $1.1 to have a small buffer above the minimum.
+    # GMX requires >$2 collateral per position.
+    # We deposit $5 to cover collateral plus execution fees buffer.
     # See: https://github.com/gmx-io/gmx-synthetics/blob/main/config/general.ts
-    deposit_amount = Decimal("1.1")  # $1.1 USDC deposit (just above $1 minimum)
-    position_size = Decimal("1.1")  # $1.1 position size (just above $1 minimum)
+    deposit_amount = Decimal("5")  # $5 USDC deposit
+    position_size = Decimal("5")  # $5 position size
     leverage = 1.1  # 1.1x leverage (minimum allowed)
 
     try:
@@ -890,9 +1036,9 @@ def main():
             etherscan_api_key = None
         else:
             # Production mode: use real wallet and RPC
-            private_key = os.environ.get("PRIVATE_KEY_SWAP_TEST")
+            private_key = os.environ.get("GMX_PRIVATE_KEY")
             if not private_key:
-                raise ValueError("PRIVATE_KEY_SWAP_TEST environment variable required. Set it to the private key of a funded Arbitrum wallet.")
+                raise ValueError("GMX_PRIVATE_KEY environment variable required. Set it to the private key of a funded Arbitrum wallet.")
 
             # Connect to Arbitrum
             web3 = create_multi_provider_web3(json_rpc_url)
@@ -950,6 +1096,17 @@ def main():
 
         deposit_to_vault(web3, hot_wallet, vault, deposit_amount)
 
+        # =========================================================================
+        # Step 2b: Fund Safe with ETH for GMX execution fees
+        # =========================================================================
+        # The Safe needs ETH because performCall() sends the value parameter
+        # from the Safe's own balance (the function is not payable).
+        eth_for_safe = Decimal("0.001")
+        print("\n" + "-" * 80)
+        print("STEP 2b: Fund Safe with ETH for GMX execution fees")
+        print("-" * 80)
+        fund_safe_with_eth(web3, hot_wallet, vault, eth_for_safe)
+
         if simulate:
             # In simulation mode, skip trading steps
             print("\n" + "=" * 80)
@@ -966,7 +1123,7 @@ def main():
             print("STEP 3: Setup GMX trading")
             print("=" * 80)
 
-            gmx = setup_gmx_trading(web3, vault, hot_wallet)
+            gmx = setup_gmx_trading(web3, vault, hot_wallet, json_rpc_url)
 
             # =========================================================================
             # Step 4: Open position
@@ -1002,6 +1159,18 @@ def main():
             # Wait for keeper
             print("\nWaiting for GMX keeper execution...")
             time.sleep(30)
+
+        # =========================================================================
+        # Step 5b: Recover ETH from Safe
+        # =========================================================================
+        # Recover remaining ETH before withdrawing USDC.
+        # Uses a Safe owner-signed transaction (bypasses the Guard).
+        print("\n" + "-" * 80)
+        print("STEP 5b: Recover ETH from Safe")
+        print("-" * 80)
+
+        hot_wallet.sync_nonce(web3)
+        recover_eth_from_safe(web3, hot_wallet, vault)
 
         # =========================================================================
         # Step 6: Withdraw
