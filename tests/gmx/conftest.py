@@ -1648,3 +1648,26 @@ def isolated_fork_env_short() -> Generator[IsolatedForkEnv, None, None]:
         yield env
     finally:
         env.anvil_launch.close(log_level=logging.ERROR)
+
+
+# =========================================================================
+# Sensitive data filter fixtures
+# =========================================================================
+
+
+@pytest.fixture()
+def patched_logging():
+    """Activate :func:`patch_logging` for the test, unpatch afterwards.
+
+    Yields the module-level filter instance so tests can inspect state
+    if needed, but the main point is that the global entrypoint is active.
+    """
+    from eth_defi.gmx.freqtrade.sensitive_filter import (
+        patch_logging,
+        unpatch_logging,
+    )
+
+    unpatch_logging()
+    patch_logging()
+    yield
+    unpatch_logging()
