@@ -777,6 +777,10 @@ class LagoonVault(ERC7540Vault):
 
         return ERC7540DepositManager(self)
 
+    def can_check_deposit(self) -> bool:
+        """Lagoon's maxDeposit does not work correctly for deposit availability checks."""
+        return False
+
     def get_link(self, referral: str | None = None) -> str:
         return f"https://app.lagoon.finance/{self.chain_id}/{self.vault_address}"
 
