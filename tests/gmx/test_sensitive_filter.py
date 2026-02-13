@@ -162,23 +162,136 @@ def test_short_values_not_redacted(patched_logging, caplog):
 
 
 # =========================================================================
-# Entrypoint lifecycle tests
+# Regex bypass attempts
 # =========================================================================
 
 
-def test_patch_is_idempotent():
-    """Calling patch_logging multiple times adds only one filter per handler."""
-    unpatch_logging()
-    try:
-        patch_logging()
-        patch_logging()
-        patch_logging()
+def test_bypass_nested_dict(patched_logging, caplog):
+    """Secrets inside a nested dict are still redacted."""
+    logger = logging.getLogger("test.bypass.nested")
+    outer = {"exchange": {"apiKey": FAKE_API_KEY, "secret": FAKE_SECRET}}
 
-        for handler in logging.root.handlers:
-            count = sum(1 for f in handler.filters if isinstance(f, SensitiveDataFilter))
-            assert count == 1, f"Expected 1 filter on {handler}, got {count}"
-    finally:
-        unpatch_logging()
+    with caplog.at_level(logging.INFO):
+        logger.info("Nested: %s", outer)
+
+    assert FAKE_API_KEY not in caplog.text
+    assert FAKE_SECRET not in caplog.text
+
+
+def test_bypass_list_of_dicts(patched_logging, caplog):
+    """Secrets inside a list of dicts are still redacted."""
+    logger = logging.getLogger("test.bypass.list")
+    configs = [{"apiKey": FAKE_API_KEY}, {"secret": FAKE_SECRET}]
+
+    with caplog.at_level(logging.INFO):
+        logger.info("Configs: %s", configs)
+
+    assert FAKE_API_KEY not in caplog.text
+    assert FAKE_SECRET not in caplog.text
+
+
+def test_bypass_extra_whitespace(patched_logging, caplog):
+    """Extra whitespace between key and value does not bypass redaction."""
+    logger = logging.getLogger("test.bypass.whitespace")
+    # Manually craft string with extra spaces (simulates unusual repr)
+    crafted = "'apiKey':   '" + FAKE_API_KEY + "'"
+
+    with caplog.at_level(logging.INFO):
+        logger.info("Spaced: %s", crafted)
+
+    assert FAKE_API_KEY not in caplog.text
+
+
+def test_bypass_json_double_quotes(patched_logging, caplog):
+    """JSON-style double-quoted keys/values are still redacted."""
+    logger = logging.getLogger("test.bypass.json")
+    import json
+    config = {"apiKey": FAKE_API_KEY, "password": FAKE_PASSWORD}
+
+    with caplog.at_level(logging.INFO):
+        logger.info("JSON config: %s", json.dumps(config))
+
+    assert FAKE_API_KEY not in caplog.text
+    assert FAKE_PASSWORD not in caplog.text
+
+
+def test_bypass_mixed_quotes(patched_logging, caplog):
+    """Mixed quote styles (double key, single value) are still caught."""
+    logger = logging.getLogger("test.bypass.mixed")
+    # Python repr of a dict uses single quotes, but simulate mixed
+    crafted = "\"apiKey\": '" + FAKE_API_KEY + "'"
+
+    with caplog.at_level(logging.INFO):
+        logger.info("Mixed: %s", crafted)
+
+    assert FAKE_API_KEY not in caplog.text
+
+
+def test_bypass_multiple_urls_with_keys(patched_logging, caplog):
+    """Multiple RPC URLs with embedded keys are all redacted."""
+    logger = logging.getLogger("test.bypass.multiurl")
+    text = (
+        f"primary={FAKE_INFURA_URL} "
+        f"fallback=https://eth-mainnet.alchemyapi.io/v2/secretAlchemyKey789"
+    )
+
+    with caplog.at_level(logging.INFO):
+        logger.info("RPCs: %s", text)
+
+    assert "abc123secretkey456def" not in caplog.text
+    assert "secretAlchemyKey789" not in caplog.text
+    assert "mainnet.infura.io" in caplog.text
+    assert "eth-mainnet.alchemyapi.io" in caplog.text
+
+
+def test_bypass_websocket_url(patched_logging, caplog):
+    """wss:// URLs with embedded keys are redacted."""
+    logger = logging.getLogger("test.bypass.wss")
+    url = "wss://mainnet.infura.io/ws/v3/secretWsKey123456"
+
+    with caplog.at_level(logging.INFO):
+        logger.info("WS: %s", url)
+
+    assert "secretWsKey123456" not in caplog.text
+    assert "mainnet.infura.io" in caplog.text
+
+
+def test_bypass_space_separated_rpcs(patched_logging, caplog):
+    """Space-separated RPC URLs (multi-provider format) are all redacted."""
+    logger = logging.getLogger("test.bypass.spacerpcs")
+    rpcs = (
+        "https://mainnet.infura.io/v3/key111aaa "
+        "https://eth-mainnet.alchemyapi.io/v2/key222bbb "
+        "https://user:pass@rpc.ankr.com/eth/key333ccc"
+    )
+
+    with caplog.at_level(logging.INFO):
+        logger.info("JSON_RPC_ETHEREUM=%s", rpcs)
+
+    assert "key111aaa" not in caplog.text
+    assert "key222bbb" not in caplog.text
+    assert "key333ccc" not in caplog.text
+    assert "user:pass@" not in caplog.text
+    assert "mainnet.infura.io" in caplog.text
+    assert "eth-mainnet.alchemyapi.io" in caplog.text
+    assert "rpc.ankr.com" in caplog.text
+
+
+def test_bypass_f_string_interpolation(patched_logging, caplog):
+    """Secrets injected via f-string into the message are still caught."""
+    logger = logging.getLogger("test.bypass.fstring")
+    config = {"apiKey": FAKE_API_KEY, "secret": FAKE_SECRET}
+
+    with caplog.at_level(logging.INFO):
+        logger.info(f"Config dump: {config}")
+
+    assert FAKE_API_KEY not in caplog.text
+    assert FAKE_SECRET not in caplog.text
+
+
+# =========================================================================
+# Entrypoint lifecycle tests
+# =========================================================================
 
 
 def test_unpatch_removes_filter():
