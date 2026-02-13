@@ -270,6 +270,10 @@ def fetch_lagoon_vaults_for_chain(
 
             logger.info("Fetched metadata for %d Lagoon vaults on chain %d", len(result), chain_id)
 
+            if not result:
+                logger.warning("Lagoon API returned 0 vaults for chain %d, skipping cache write to avoid poisoning the cache", chain_id)
+                return {}
+
             # Serialise result dict so that TypedDict values are JSON-compatible
             with file.open("wt") as f:
                 json.dump(result, f, indent=2)
