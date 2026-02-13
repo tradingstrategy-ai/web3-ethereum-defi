@@ -110,7 +110,6 @@ def test_fetch_ticker_disabled_sanity_check(chain_rpc_url):
         pytest.fail("Price sanity check should not run when disabled")
 
 
-@pytest.mark.skip(reason="Avik: marked for a fix")
 def test_fetch_ticker_raise_exception_action(chain_rpc_url):
     """Test fetch_ticker with raise_exception action.
 

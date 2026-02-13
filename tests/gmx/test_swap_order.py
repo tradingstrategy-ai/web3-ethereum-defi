@@ -15,7 +15,7 @@ from eth_defi.gmx.contracts import get_token_address_normalized
 from eth_defi.gmx.order.base_order import OrderResult
 from eth_defi.hotwallet import HotWallet
 from eth_defi.token import fetch_erc20_details
-from tests.gmx.fork_helpers import execute_order_as_keeper, extract_order_key_from_receipt
+from tests.gmx.fork_helpers import execute_order_as_keeper, extract_order_key_from_receipt, fetch_on_chain_oracle_prices
 
 
 def test_initialization(trading_manager_fork):
@@ -127,7 +127,6 @@ def test_initialization(trading_manager_fork):
 #     assert eth_gain_net > 0, f"Should receive ETH after swap (net of gas), got {eth_gain_net:.6f}"
 
 
-@pytest.mark.skip(reason="Avik: marked for a fix")
 @flaky(max_runs=3, min_passes=1)
 def test_swap_eth_to_usdc_with_execution(isolated_fork_env, execution_buffer):
     """
@@ -222,8 +221,10 @@ def test_swap_eth_to_usdc_with_execution(isolated_fork_env, execution_buffer):
     usdc_change = (final_usdc_balance - initial_usdc_balance) / (10**usdc.decimals)
     print(f"USDC received: {usdc_change:.2f}")
     assert final_usdc_balance > initial_usdc_balance, "USDC balance should increase after swap"
-    # At ~$2700/ETH, 1 ETH should give us at least 2500 USDC (accounting for slippage)
-    assert usdc_change > 2500, f"Should receive substantial USDC for 1 ETH (got {usdc_change:.2f})"
+    # Dynamically check against current ETH price (accounting for fees/slippage)
+    eth_price, _ = fetch_on_chain_oracle_prices(env.web3)
+    min_expected_usdc = eth_price * 0.9  # At least 90% of ETH price after fees/slippage
+    assert usdc_change > min_expected_usdc, f"Should receive substantial USDC for 1 ETH (got {usdc_change:.2f}, expected > {min_expected_usdc:.2f})"
 
 
 def test_swap_order_creation_without_execution(trading_manager_fork):

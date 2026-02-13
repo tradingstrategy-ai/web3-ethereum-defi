@@ -177,7 +177,6 @@ def test_open_short_position(isolated_fork_env_short, execution_buffer):
     assert position["position_size"] > 0, "Position size should be > 0"
 
 
-@pytest.mark.skip(reason="Avik: marked for a fix")
 @flaky(max_runs=3, min_passes=1)
 def test_open_and_close_position(isolated_fork_env, execution_buffer):
     """
@@ -242,7 +241,7 @@ def test_open_and_close_position(isolated_fork_env, execution_buffer):
     # Update mock oracle price before closing to simulate price movement
     # For long positions: price goes UP (+1000) to create profit
     current_eth_price, current_usdc_price = fetch_on_chain_oracle_prices(env.web3)
-    new_eth_price = current_eth_price + 1000  # Increase price for long position profit
+    new_eth_price = current_eth_price + 20  # Small increase to create profit without breaking pool solvency
     setup_mock_oracle(
         env.web3,
         eth_price_usd=new_eth_price,

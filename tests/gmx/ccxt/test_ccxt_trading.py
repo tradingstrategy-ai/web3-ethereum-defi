@@ -29,7 +29,6 @@ def _execute_order(web3, tx_hash):
     return exec_receipt
 
 
-@pytest.mark.skip(reason="Avik: marked for a fix")
 @flaky(max_runs=3, min_passes=1)
 def test_ccxt_open_and_close_long_position(isolated_fork_env, execution_buffer):
     """
@@ -99,7 +98,7 @@ def test_ccxt_open_and_close_long_position(isolated_fork_env, execution_buffer):
 
     # Update oracle price for profit (long: price goes UP)
     current_eth_price, current_usdc_price = fetch_on_chain_oracle_prices(env.web3)
-    new_eth_price = current_eth_price + 1000
+    new_eth_price = current_eth_price + 20  # Small increase to create profit without breaking pool solvency
     setup_mock_oracle(
         env.web3,
         eth_price_usd=new_eth_price,
@@ -139,7 +138,6 @@ def test_ccxt_open_and_close_long_position(isolated_fork_env, execution_buffer):
     assert len(positions_after_close) == initial_position_count
 
 
-@pytest.mark.skip(reason="Avik: marked for a fix")
 @flaky(max_runs=3, min_passes=1)
 def test_ccxt_open_and_close_short_position(
     isolated_fork_env_short,
@@ -212,7 +210,7 @@ def test_ccxt_open_and_close_short_position(
 
     # Update oracle price for profit (short: price goes DOWN)
     current_eth_price, current_usdc_price = fetch_on_chain_oracle_prices(env.web3)
-    new_eth_price = current_eth_price - 1000
+    new_eth_price = current_eth_price - 20  # Small decrease to create profit without breaking pool solvency
     setup_mock_oracle(
         env.web3,
         eth_price_usd=new_eth_price,
