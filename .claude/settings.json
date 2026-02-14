@@ -80,6 +80,9 @@
       "Skill(make-release)",
       "Skill(make-release:*)",
       "Bash(pkill:*)"
+    ],
+    "additionalDirectories": [
+      "/Users/moo/.cache/lagoon"
     ]
   },
   "model": "opus",
