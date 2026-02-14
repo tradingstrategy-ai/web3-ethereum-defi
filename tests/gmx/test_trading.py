@@ -239,9 +239,10 @@ def test_open_and_close_position(isolated_fork_env, execution_buffer):
     assert position_size_usd > 0, "Position size should be > 0"
 
     # Update mock oracle price before closing to simulate price movement
-    # For long positions: price goes UP (+1000) to create profit
+    # For long positions: price goes UP to create profit
+    # Use 1% of current price to keep the pool solvent on the fork
     current_eth_price, current_usdc_price = fetch_on_chain_oracle_prices(env.web3)
-    new_eth_price = current_eth_price + 20  # Small increase to create profit without breaking pool solvency
+    new_eth_price = int(current_eth_price * 1.01)
     setup_mock_oracle(
         env.web3,
         eth_price_usd=new_eth_price,

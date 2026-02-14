@@ -44,13 +44,16 @@ from typing import Iterator, Literal
 from eth_typing import HexAddress
 from web3 import Web3
 from web3.contract import Contract
-from eth_utils import keccak
+from eth_utils import keccak, to_checksum_address
 
 from eth_defi.gmx.constants import GMX_EVENT_EMITTER_ABI
 from eth_defi.gmx.contracts import get_contract_addresses
 
 
 logger = logging.getLogger(__name__)
+
+#: Module-level cache for EventEmitter contract instances, keyed by (web3 id, chain_name)
+_event_emitter_cache: dict[tuple, Contract] = {}
 
 
 def get_event_name_hash(event_name: str) -> str:
@@ -292,6 +295,10 @@ def _get_chain_name_from_id(chain_id: int) -> str:
 def _get_event_emitter_contract(web3: Web3, chain_name: str | None = None) -> Contract:
     """Get the EventEmitter contract instance.
 
+    Results are cached per ``(web3, chain_name)`` pair so the GMX contract
+    registry is only queried once, avoiding repeated HTTP requests when
+    decoding many log entries.
+
     :param web3:
         Web3 instance
 
@@ -305,14 +312,18 @@ def _get_event_emitter_contract(web3: Web3, chain_name: str | None = None) -> Co
         chain_id = web3.eth.chain_id
         chain_name = _get_chain_name_from_id(chain_id)
 
-    # Get address dynamically from GMX contracts registry
-    contract_addresses = get_contract_addresses(chain_name)
-    address = contract_addresses.eventemitter
+    cache_key = (id(web3), chain_name)
+    if cache_key not in _event_emitter_cache:
+        # Get address dynamically from GMX contracts registry
+        contract_addresses = get_contract_addresses(chain_name)
+        address = contract_addresses.eventemitter
 
-    return web3.eth.contract(
-        address=Web3.to_checksum_address(address),
-        abi=GMX_EVENT_EMITTER_ABI,
-    )
+        _event_emitter_cache[cache_key] = web3.eth.contract(
+            address=to_checksum_address(address),
+            abi=GMX_EVENT_EMITTER_ABI,
+        )
+
+    return _event_emitter_cache[cache_key]
 
 
 def _parse_event_data_items(items: list, is_array: bool = False) -> dict:
@@ -432,7 +443,11 @@ def _parse_event_log_data(event_data) -> dict:
     return parsed
 
 
-def decode_gmx_event(web3: Web3, log: dict) -> GMXEventData | None:
+def decode_gmx_event(
+    web3: Web3,
+    log: dict,
+    event_emitter_contract: Contract | None = None,
+) -> GMXEventData | None:
     """Decode a single GMX EventLog from a transaction log entry.
 
     This function handles EventLog, EventLog1, and EventLog2 events
@@ -444,10 +459,15 @@ def decode_gmx_event(web3: Web3, log: dict) -> GMXEventData | None:
     :param log:
         A single log entry from transaction receipt
 
+    :param event_emitter_contract:
+        Optional pre-built EventEmitter contract instance.  When decoding
+        many logs in a loop, passing a cached contract avoids repeated
+        lookups.
+
     :return:
         Parsed GMXEventData or None if not a GMX event
     """
-    event_emitter = _get_event_emitter_contract(web3)
+    event_emitter = event_emitter_contract or _get_event_emitter_contract(web3)
 
     # Get event signatures for EventLog, EventLog1, EventLog2
     event_log_sig = keccak(
@@ -529,7 +549,7 @@ def decode_gmx_event(web3: Web3, log: dict) -> GMXEventData | None:
         )
 
     except Exception as e:
-        logger.warning("Failed to decode GMX event: %s", e)
+        logger.error("Failed to decode GMX event: %s", e)
         return None
 
 

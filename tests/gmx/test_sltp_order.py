@@ -562,8 +562,9 @@ def test_full_lifecycle_open_and_close_with_sl_tp(isolated_fork_env, execution_b
     position_size_usd_raw = position["position_size_usd_raw"]
     collateral_amount_usd = position["initial_collateral_amount_usd"]
 
+    # Use 1% of current price to keep the pool solvent on the fork
     current_eth_price, current_usdc_price = fetch_on_chain_oracle_prices(env.web3)
-    new_eth_price = current_eth_price + 20  # Small increase to create profit without breaking pool solvency
+    new_eth_price = int(current_eth_price * 1.01)
     setup_mock_oracle(
         env.web3,
         eth_price_usd=new_eth_price,

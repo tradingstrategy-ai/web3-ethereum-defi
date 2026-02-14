@@ -97,8 +97,9 @@ def test_ccxt_open_and_close_long_position(isolated_fork_env, execution_buffer):
     assert position["position_size"] > 0
 
     # Update oracle price for profit (long: price goes UP)
+    # Use 1% of current price to keep the pool solvent on the fork
     current_eth_price, current_usdc_price = fetch_on_chain_oracle_prices(env.web3)
-    new_eth_price = current_eth_price + 20  # Small increase to create profit without breaking pool solvency
+    new_eth_price = int(current_eth_price * 1.01)
     setup_mock_oracle(
         env.web3,
         eth_price_usd=new_eth_price,
@@ -209,8 +210,9 @@ def test_ccxt_open_and_close_short_position(
     assert position["position_size"] > 0
 
     # Update oracle price for profit (short: price goes DOWN)
+    # Use 1% of current price to keep the pool solvent on the fork
     current_eth_price, current_usdc_price = fetch_on_chain_oracle_prices(env.web3)
-    new_eth_price = current_eth_price - 20  # Small decrease to create profit without breaking pool solvency
+    new_eth_price = int(current_eth_price * 0.99)
     setup_mock_oracle(
         env.web3,
         eth_price_usd=new_eth_price,

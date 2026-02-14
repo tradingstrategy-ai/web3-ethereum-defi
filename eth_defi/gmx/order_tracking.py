@@ -40,7 +40,7 @@ from eth_defi.gmx.constants import (
     SUBSQUID_ORDER_TRACKING_TIMEOUT,
 )
 from eth_defi.gmx.contracts import get_contract_addresses, get_datastore_contract
-from eth_defi.gmx.events import decode_gmx_event
+from eth_defi.gmx.events import _get_event_emitter_contract, decode_gmx_event
 from eth_defi.gmx.graphql.client import GMXSubsquidClient
 from eth_defi.provider.log_block_range import get_logs_max_block_range
 
@@ -119,6 +119,10 @@ def _scan_event_emitter_logs_chunked(
         chunk_size,
     )
 
+    # Build the EventEmitter contract once for the entire scan to avoid
+    # repeated HTTP requests to the GMX contract registry per log entry
+    emitter_contract = _get_event_emitter_contract(web3)
+
     for chunk_start in range(from_block, to_block + 1, chunk_size):
         chunk_end = min(chunk_start + chunk_size - 1, to_block)
 
@@ -140,7 +144,7 @@ def _scan_event_emitter_logs_chunked(
 
             for log in logs:
                 try:
-                    event = decode_gmx_event(web3, log)
+                    event = decode_gmx_event(web3, log, event_emitter_contract=emitter_contract)
                     if not event:
                         continue
 
@@ -171,7 +175,7 @@ def _scan_event_emitter_logs_chunked(
                         execution_block=log["blockNumber"],
                     )
                 except Exception as e:
-                    logger.debug("Error decoding log: %s", e)
+                    logger.warning("Error decoding log: %s", e)
                     continue
 
         except Exception as e:
