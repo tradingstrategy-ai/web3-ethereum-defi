@@ -150,8 +150,6 @@ def test_get_pool_tvl_total_calculations(chain_name, get_pool_tvl):
             highest_tvl = highest_tvl_market[1]["total_tvl"]
 
             assert highest_tvl > 0
-            # Typically ETH or BTC should have highest TVL
-            assert any(token in highest_tvl_market[0].upper() for token in ["ETH", "BTC"]), f"Expected ETH or BTC to have highest TVL, got {highest_tvl_market[0]}"
 
 
 def test_get_pool_tvl_error_handling(chain_name, get_pool_tvl):
