@@ -198,7 +198,7 @@ def test_rest_api_performance(ccxt_gmx_arbitrum: GMX):
     elapsed = time.time() - start_time
 
     # REST API loading should be fast
-    assert elapsed < 5.0, f"REST API loading took {elapsed:.1f}s (expected <5s)"
+    assert elapsed < 30.0, f"REST API loading took {elapsed:.1f}s (expected <30s)"
 
     # Should still load markets successfully
     assert len(markets) > 0

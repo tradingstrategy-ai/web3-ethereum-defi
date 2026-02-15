@@ -200,7 +200,6 @@ def test_order_verification_succeeds_for_valid_order(
     assert result.execution_price is not None
 
 
-@pytest.mark.skip(reason="Avik: marked for a fix")
 @flaky(max_runs=3, min_passes=1)
 def test_ccxt_fetch_order_detects_cancelled(isolated_fork_env, execution_buffer):
     """Test that CCXT fetch_order() correctly detects cancelled orders.

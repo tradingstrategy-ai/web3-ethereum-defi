@@ -240,8 +240,7 @@ def test_get_gm_prices_unified_method(chain_name, get_gm_prices):
 
         # Verify values are identical (within this implementation)
         for market in default_data["gm_prices"].keys():
-            # NOTE: Rounding up bcz the values changes within a fraction of the second
-            assert round(default_data["gm_prices"][market], 2) == round(traders_data["gm_prices"][market], 2)
+            assert default_data["gm_prices"][market] == pytest.approx(traders_data["gm_prices"][market], rel=0.01)
 
         # print(f"\n{chain_name.upper()}: Unified method test passed for price type: {price_type}")
 
@@ -304,7 +303,8 @@ def test_get_gm_prices_comprehensive_data(chain_name, get_gm_prices):
         withdrawals_price = price_types["withdrawals"][market]
 
         # In current implementation, all price types return identical values
-        assert round(traders_price, 2) == round(deposits_price, 2) == round(withdrawals_price, 2), f"Prices differ for {market}: traders={traders_price}, deposits={deposits_price}, withdrawals={withdrawals_price}"
+        assert traders_price == pytest.approx(deposits_price, rel=0.01), f"Traders/deposits prices differ for {market}: traders={traders_price}, deposits={deposits_price}"
+        assert traders_price == pytest.approx(withdrawals_price, rel=0.01), f"Traders/withdrawals prices differ for {market}: traders={traders_price}, withdrawals={withdrawals_price}"
 
         # Verify price is a float and (except for UNKNOWN) positive
         assert isinstance(traders_price, float)

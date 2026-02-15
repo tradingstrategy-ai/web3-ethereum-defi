@@ -516,7 +516,6 @@ def test_standalone_short_with_sl_and_tp(isolated_fork_env_short, execution_buff
 # ============================================================================
 
 
-@pytest.mark.skip(reason="Avik: marked for a fix")
 @flaky(max_runs=3, min_passes=1)
 def test_full_lifecycle_open_and_close_with_sl_tp(isolated_fork_env, execution_buffer):
     """Test full position lifecycle with SL/TP: open then close."""
@@ -563,8 +562,9 @@ def test_full_lifecycle_open_and_close_with_sl_tp(isolated_fork_env, execution_b
     position_size_usd_raw = position["position_size_usd_raw"]
     collateral_amount_usd = position["initial_collateral_amount_usd"]
 
+    # Use 1% of current price to keep the pool solvent on the fork
     current_eth_price, current_usdc_price = fetch_on_chain_oracle_prices(env.web3)
-    new_eth_price = current_eth_price + 1000
+    new_eth_price = int(current_eth_price * 1.01)
     setup_mock_oracle(
         env.web3,
         eth_price_usd=new_eth_price,
@@ -580,7 +580,7 @@ def test_full_lifecycle_open_and_close_with_sl_tp(isolated_fork_env, execution_b
         is_long=True,
         size_delta_usd=position_size_usd_raw,
         initial_collateral_delta=collateral_amount_usd,
-        slippage_percent=0.1,  # keep it as it is ik what I'm doing. Don't waste time & move on
+        slippage_percent=0.1,
         execution_buffer=execution_buffer,
     )
 
