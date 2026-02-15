@@ -1,0 +1,47 @@
+[
+    {
+        "inputs": [
+            {"name": "message", "type": "bytes"},
+            {"name": "attestation", "type": "bytes"}
+        ],
+        "name": "receiveMessage",
+        "outputs": [
+            {"name": "success", "type": "bool"}
+        ],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {"name": "destinationDomain", "type": "uint32"},
+            {"name": "recipient", "type": "bytes32"},
+            {"name": "destinationCaller", "type": "bytes32"},
+            {"name": "minFinalityThreshold", "type": "uint32"},
+            {"name": "messageBody", "type": "bytes"}
+        ],
+        "name": "sendMessage",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {"indexed": false, "name": "message", "type": "bytes"}
+        ],
+        "name": "MessageSent",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {"indexed": false, "name": "caller", "type": "address"},
+            {"indexed": false, "name": "sourceDomain", "type": "uint32"},
+            {"indexed": true, "name": "nonce", "type": "uint64"},
+            {"indexed": false, "name": "sender", "type": "bytes32"},
+            {"indexed": false, "name": "messageBody", "type": "bytes"}
+        ],
+        "name": "MessageReceived",
+        "type": "event"
+    }
+]

@@ -26,6 +26,7 @@ from eth_account.signers.local import LocalAccount
 from eth_defi.aave_v3.deployment import AaveV3Deployment
 from eth_defi.abi import ZERO_ADDRESS_STR, encode_multicalls, get_deployed_contract
 from eth_defi.cow.constants import COWSWAP_SETTLEMENT, COWSWAP_VAULT_RELAYER
+from eth_defi.cctp.whitelist import CCTPDeployment
 from eth_defi.gmx.whitelist import GMXDeployment
 from eth_defi.velora.api import get_augustus_swapper, get_token_transfer_proxy
 from eth_defi.deploy import deploy_contract
@@ -750,6 +751,7 @@ def setup_guard(
     cowswap: bool = False,
     velora: bool = False,
     gmx_deployment: GMXDeployment | None = None,
+    cctp_deployment: CCTPDeployment | None = None,
     hack_sleep=20.0,
     assets: list[HexAddress | str] | None = None,
     multicall_chunk_size=40,
@@ -956,6 +958,32 @@ def setup_guard(
     else:
         logger.info("Not whitelisted: GMX")
 
+    # Whitelist CCTP cross-chain USDC transfers
+    if cctp_deployment:
+        logger.info(
+            "Whitelisting CCTP: TokenMessenger=%s",
+            cctp_deployment.token_messenger,
+        )
+        tx_hash = _broadcast(
+            module.functions.whitelistCCTP(
+                cctp_deployment.token_messenger,
+                "Allow CCTP cross-chain transfers",
+            )
+        )
+        assert_transaction_success_with_explanation(web3, tx_hash)
+
+        for domain in cctp_deployment.allowed_destination_domains:
+            logger.info("Whitelisting CCTP destination domain: %d", domain)
+            tx_hash = _broadcast(module.functions.whitelistCCTPDestination(domain, f"CCTP domain {domain}"))
+            assert_transaction_success_with_explanation(web3, tx_hash)
+
+        logger.info(
+            "CCTP whitelisting complete: %d destination(s)",
+            len(cctp_deployment.allowed_destination_domains),
+        )
+    else:
+        logger.info("Not whitelisted: CCTP")
+
     # Whitelist all assets
     if any_asset:
         logger.info("Allow any asset whitelist")
@@ -985,6 +1013,7 @@ def deploy_automated_lagoon_vault(
     cowswap: bool = False,
     velora: bool = False,
     gmx_deployment: GMXDeployment | None = None,
+    cctp_deployment: CCTPDeployment | None = None,
     any_asset: bool = False,
     etherscan_api_key: str = None,
     verifier: Literal["etherscan", "blockscout", "sourcify", "oklink"] | None = None,
@@ -1207,6 +1236,7 @@ def deploy_automated_lagoon_vault(
         cowswap=cowswap,
         velora=velora,
         gmx_deployment=gmx_deployment,
+        cctp_deployment=cctp_deployment,
         erc_4626_vaults=erc_4626_vaults,
         any_asset=any_asset,
         broadcast_func=_broadcast,
