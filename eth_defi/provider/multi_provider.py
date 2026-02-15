@@ -7,6 +7,7 @@ import logging
 from typing import Any, Dict, List, Optional
 
 import requests
+from eth_account.signers.local import LocalAccount
 from requests.adapters import HTTPAdapter
 from urllib3.util import Retry, Url, parse_url
 from web3 import HTTPProvider, Web3
@@ -111,6 +112,7 @@ def create_multi_provider_web3(
     retries: int = 6,
     hint: Optional[str] = "",
     unit_test=False,
+    add_signing_middleware: LocalAccount | None = None,
 ) -> MultiProviderWeb3:
     """Create a Web3 instance with multi-provider support.
 
@@ -185,6 +187,15 @@ def create_multi_provider_web3(
         Run in unit test mode.
 
         Have special hooks and environment variable based timeouts for unit tests.
+
+    :param add_signing_middleware:
+        If set, install signing middleware for this account.
+
+        This allows ``contract.functions.foo().transact({"from": account.address})``
+        to automatically sign transactions with the given private key.
+
+        Pass an :py:class:`eth_account.signers.local.LocalAccount` instance,
+        e.g. from ``Account.from_key(private_key)``.
 
     :return:
         Configured Web3 instance with multiple providers
@@ -300,6 +311,11 @@ def create_multi_provider_web3(
         logger.warning("Skipping static_call_cache_middleware due to compatibility issue: %s", e)
 
     install_chain_middleware(web3, hint=hint)
+
+    if add_signing_middleware is not None:
+        from eth_defi.middleware import construct_sign_and_send_raw_middleware_anvil
+
+        add_middleware(web3, construct_sign_and_send_raw_middleware_anvil(add_signing_middleware))
 
     if is_anvil(web3):
         # When running against local testing,

@@ -90,6 +90,11 @@ contract ComputeSelectors is Script {
         logSelector("sendWnt(address,uint256)");
         logSelector("sendTokens(address,address,uint256)");
         console.log("// createOrder selector: 0x296ea41f (hardcoded, complex tuple signature)");
+        console.log("");
+
+        // CCTP V2
+        console.log("// CCTP V2");
+        logSelector("depositForBurn(uint256,uint32,bytes32,address,bytes32,uint256,uint32)");
     }
 
     function logSelector(string memory sig) internal view {

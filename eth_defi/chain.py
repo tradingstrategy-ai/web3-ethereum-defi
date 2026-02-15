@@ -44,7 +44,9 @@ CHAIN_NAMES = {
     5000: "Mantle",
     999: "Hyperliquid",  # TODO: Not sure what's correct for Hyperliquid
     42161: "Arbitrum",
+    11155111: "Ethereum_Sepolia",
     421614: "Arbitrum_Sepolia",
+    84532: "Base_Sepolia",
     #
     2741: "Abstract",
     10: "Optimism",
@@ -80,6 +82,9 @@ CHAIN_HOMEPAGES = {
     5000: {"name": "Mantle", "homepage": "https://www.mantle.xyz"},
     999: {"name": "Hyperliquid", "homepage": "https://hyperliquid.xyz"},  # Duplicate, same as 645749
     42161: {"name": "Arbitrum", "homepage": "https://arbitrum.io"},
+    11155111: {"name": "Ethereum Sepolia", "homepage": "https://ethereum.org"},
+    421614: {"name": "Arbitrum Sepolia", "homepage": "https://arbitrum.io"},
+    84532: {"name": "Base Sepolia", "homepage": "https://www.base.org"},
     2741: {"name": "Abstract", "homepage": "https://www.abstract.foundation"},  # Limited info, assumed official
     10: {"name": "Optimism", "homepage": "https://www.optimism.io"},
     1868: {"name": "Soneium", "homepage": "https://www.soneium.org"},
@@ -116,7 +121,9 @@ EVM_BLOCK_TIMES = {
     5000: 2,  # Mantle (~2 seconds, based on its Ethereum L2 design)
     999: 0.1,  # Hyperliquid (same as 645749, assuming chain ID confusion; verify correct ID)
     42161: 0.25,  # Arbitrum (block time ~250ms, though batches vary; reflects Nitro update)
+    11155111: 12,  # Ethereum Sepolia (same as Ethereum mainnet)
     421614: 0.25,  # Arbitrum Sepolia (same as Arbitrum mainnet)
+    84532: 2,  # Base Sepolia (same as Base mainnet)
     2741: 2,  # Layer-2, assumed fast EVM_BLOCK_TIMESlike other L2s
     10: 2,  # Optimistic Rollup, ~2s block time
     1868: 2,  # New L2, assumed ~2s based on typical L2 performance
