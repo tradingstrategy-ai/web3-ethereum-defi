@@ -27,12 +27,11 @@ from eth_defi.cctp.transfer import (
     prepare_deposit_for_burn,
 )
 from eth_defi.deploy import deploy_contract
-from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch
+from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.simple_vault.transact import encode_simple_vault_transaction
-from eth_defi.token import fetch_erc20_details, USDC_NATIVE_TOKEN, USDC_WHALE
+from eth_defi.token import USDC_NATIVE_TOKEN, USDC_WHALE, fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
-
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
@@ -50,7 +49,7 @@ ARBITRUM_USDC_WHALE = USDC_WHALE[42161]
 
 
 @pytest.fixture()
-def anvil_ethereum(request) -> AnvilLaunch:
+def anvil_ethereum(_request) -> AnvilLaunch:
     """Ethereum mainnet fork."""
     launch = fork_network_anvil(
         JSON_RPC_ETHEREUM,
@@ -63,7 +62,7 @@ def anvil_ethereum(request) -> AnvilLaunch:
 
 
 @pytest.fixture()
-def anvil_arbitrum(request) -> AnvilLaunch:
+def anvil_arbitrum(_request) -> AnvilLaunch:
     """Arbitrum mainnet fork."""
     launch = fork_network_anvil(
         JSON_RPC_ARBITRUM,
@@ -87,7 +86,7 @@ def web3_ethereum(anvil_ethereum) -> Web3:
 def web3_arbitrum(anvil_arbitrum) -> Web3:
     """Web3 connected to Arbitrum fork."""
     web3 = create_multi_provider_web3(anvil_arbitrum.json_rpc_url)
-    assert web3.eth.chain_id == 42161
+    assert web3.eth.chain_id == 42161  # noqa: PLR2004
     return web3
 
 
@@ -164,9 +163,9 @@ def vault(
     return vault
 
 
-def test_dual_fork_cctp_transfer(
+def test_dual_fork_cctp_transfer(  # noqa: PLR0917
     web3_ethereum: Web3,
-    web3_arbitrum: Web3,
+    _web3_arbitrum: Web3,
     vault: Contract,
     usdc_ethereum: Contract,
     usdc_arbitrum: Contract,

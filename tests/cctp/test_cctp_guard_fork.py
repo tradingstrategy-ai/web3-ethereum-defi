@@ -20,13 +20,11 @@ from eth_defi.cctp.constants import (
     TOKEN_MESSENGER_V2,
 )
 from eth_defi.cctp.transfer import (
-    encode_mint_recipient,
     prepare_approve_for_burn,
     prepare_deposit_for_burn,
 )
 from eth_defi.deploy import deploy_contract
 from eth_defi.simple_vault.transact import encode_simple_vault_transaction
-from eth_defi.token import USDC_NATIVE_TOKEN
 from eth_defi.trace import (
     TransactionAssertionError,
     assert_transaction_success_with_explanation,
@@ -112,7 +110,7 @@ def guard(
 
 @pytest.fixture()
 def funded_vault(
-    web3: Web3,
+    _web3: Web3,
     vault: Contract,
     usdc: Contract,
     ethereum_usdc_whale: HexAddress,
@@ -126,7 +124,7 @@ def funded_vault(
 
 def test_cctp_guard_whitelist_status(
     guard: Contract,
-    safe_address: str,
+    _safe_address: str,
 ):
     """Verify CCTP whitelisting state is correct."""
     assert guard.functions.isAllowedCCTPMessenger(Web3.to_checksum_address(TOKEN_MESSENGER_V2)).call() is True
@@ -137,7 +135,7 @@ def test_cctp_guard_whitelist_status(
 def test_cctp_deposit_for_burn_through_vault(
     web3: Web3,
     funded_vault: Contract,
-    guard: Contract,
+    _guard: Contract,
     asset_manager: str,
     safe_address: str,
     usdc: Contract,
@@ -176,10 +174,10 @@ def test_cctp_deposit_for_burn_through_vault(
 def test_cctp_wrong_destination_rejected(
     web3: Web3,
     funded_vault: Contract,
-    guard: Contract,
+    _guard: Contract,
     asset_manager: str,
     safe_address: str,
-    usdc: Contract,
+    _usdc: Contract,
 ):
     """Test that depositForBurn to a non-whitelisted domain is rejected."""
     amount = 100 * 10**6
@@ -206,9 +204,9 @@ def test_cctp_wrong_destination_rejected(
 def test_cctp_wrong_recipient_rejected(
     web3: Web3,
     funded_vault: Contract,
-    guard: Contract,
+    _guard: Contract,
     asset_manager: str,
-    usdc: Contract,
+    _usdc: Contract,
 ):
     """Test that depositForBurn to a non-whitelisted recipient is rejected."""
     amount = 100 * 10**6
@@ -234,7 +232,7 @@ def test_cctp_wrong_recipient_rejected(
 
 
 def test_cctp_destination_removal(
-    web3: Web3,
+    _web3: Web3,
     guard: Contract,
     owner: str,
 ):

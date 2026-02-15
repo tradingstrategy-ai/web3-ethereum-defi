@@ -32,6 +32,9 @@ from eth_defi.cctp.constants import IRIS_API_BASE_URL
 
 logger = logging.getLogger(__name__)
 
+#: HTTP 404 status code indicating resource not found
+HTTP_NOT_FOUND = 404
+
 
 @dataclass(slots=True)
 class CCTPAttestation:
@@ -86,8 +89,12 @@ def fetch_attestation(
         If attestation is not ready within the timeout period.
 
     :raises requests.HTTPError:
-        If the Iris API returns an error response.
+        If the Iris API returns a non-retryable error response.
     """
+    # Iris API requires 0x-prefixed transaction hash
+    if not transaction_hash.startswith("0x"):
+        transaction_hash = f"0x{transaction_hash}"
+
     url = f"{api_base_url}/v2/messages/{source_domain}?transactionHash={transaction_hash}"
 
     start_time = time.time()
@@ -108,6 +115,14 @@ def fetch_attestation(
         )
 
         response = requests.get(url, timeout=30)
+
+        # Iris API returns 404 when the transaction is not yet indexed;
+        # treat it as "pending" and retry.
+        if response.status_code == HTTP_NOT_FOUND:
+            logger.info("Attestation not yet indexed (404), retrying...")
+            time.sleep(poll_interval)
+            continue
+
         response.raise_for_status()
 
         data = response.json()
@@ -153,6 +168,9 @@ def is_attestation_complete(
     :return:
         ``True`` if attestation is complete and available.
     """
+    if not transaction_hash.startswith("0x"):
+        transaction_hash = f"0x{transaction_hash}"
+
     url = f"{api_base_url}/v2/messages/{source_domain}?transactionHash={transaction_hash}"
 
     try:
@@ -162,7 +180,7 @@ def is_attestation_complete(
         messages = data.get("messages", [])
         if messages:
             msg = messages[0]
-            return msg.get("status") == "complete" and msg.get("attestation") not in (None, "PENDING")
+            return msg.get("status") == "complete" and msg.get("attestation") not in {None, "PENDING"}
     except requests.RequestException:
         logger.warning(
             "Failed to check attestation status for tx %s",

@@ -4,15 +4,13 @@ import logging
 import os
 
 import pytest
-
 from eth_typing import HexAddress, HexStr
 from web3 import Web3
 from web3.contract import Contract
 
-from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch
+from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.token import fetch_erc20_details, USDC_NATIVE_TOKEN
-
+from eth_defi.token import USDC_NATIVE_TOKEN, fetch_erc20_details
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
@@ -30,7 +28,7 @@ def ethereum_usdc_whale() -> HexAddress:
 
 
 @pytest.fixture()
-def anvil_ethereum_fork(request, ethereum_usdc_whale) -> AnvilLaunch:
+def anvil_ethereum_fork(_request, ethereum_usdc_whale) -> AnvilLaunch:
     """Create a testable fork of live Ethereum mainnet."""
     launch = fork_network_anvil(
         JSON_RPC_ETHEREUM,

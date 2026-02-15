@@ -8,7 +8,7 @@ TokenMessengerV2 contract.
 import os
 
 import pytest
-from eth_typing import HexAddress, HexStr
+from eth_typing import HexAddress
 from web3 import Web3
 from web3.contract import Contract
 
@@ -31,7 +31,7 @@ def test_encode_mint_recipient():
     """Test that Ethereum addresses are correctly encoded to bytes32."""
     address = "0x1234567890abcdef1234567890abcdef12345678"
     result = encode_mint_recipient(address)
-    assert len(result) == 32
+    assert len(result) == 32  # noqa: PLR2004
     # Last 20 bytes should be the address
     assert result[-20:] == bytes.fromhex("1234567890abcdef1234567890abcdef12345678")
     # First 12 bytes should be zero padding

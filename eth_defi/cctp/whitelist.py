@@ -36,8 +36,8 @@ from web3 import Web3
 from web3.contract import Contract
 
 from eth_defi.cctp.constants import (
-    CHAIN_ID_TO_CCTP_DOMAIN,
     CCTP_DOMAIN_NAMES,
+    CHAIN_ID_TO_CCTP_DOMAIN,
     MESSAGE_TRANSMITTER_V2,
     TOKEN_MESSENGER_V2,
     TOKEN_MINTER_V2,
@@ -56,13 +56,13 @@ class CCTPDeployment:
     """
 
     #: TokenMessengerV2 contract address
-    token_messenger: HexAddress = HexAddress(TOKEN_MESSENGER_V2)
+    token_messenger: HexAddress = field(default_factory=lambda: HexAddress(TOKEN_MESSENGER_V2))
 
     #: MessageTransmitterV2 contract address
-    message_transmitter: HexAddress = HexAddress(MESSAGE_TRANSMITTER_V2)
+    message_transmitter: HexAddress = field(default_factory=lambda: HexAddress(MESSAGE_TRANSMITTER_V2))
 
     #: TokenMinterV2 contract address
-    token_minter: HexAddress = HexAddress(TOKEN_MINTER_V2)
+    token_minter: HexAddress = field(default_factory=lambda: HexAddress(TOKEN_MINTER_V2))
 
     #: CCTP domain IDs of allowed destination chains.
     #: Use :data:`eth_defi.cctp.constants.CHAIN_ID_TO_CCTP_DOMAIN` to convert

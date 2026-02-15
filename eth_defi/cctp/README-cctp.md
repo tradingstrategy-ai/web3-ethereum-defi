@@ -146,10 +146,81 @@ The guard validates `depositForBurn()` calls by checking:
 - **Burn token validation**: Only whitelisted tokens (USDC) can be burned, preventing approval of arbitrary tokens to the TokenMessenger.
 - **`destinationCaller`**: When set to bytes32(0), anyone can relay the attestation. For production use, consider setting this to a specific relayer address.
 
+## Testnet
+
+### Getting testnet tokens
+
+**Testnet USDC** — Circle provides a [public faucet](https://faucet.circle.com/):
+
+- **No account required**: 10 USDC per request, once every 24 hours per chain
+- **Developer console** ([console.circle.com/faucet](https://console.circle.com/faucet)): 20 USDC per request, 10 requests per 24 hours (requires a free Circle developer account)
+
+**Testnet ETH** (for gas) — use one of these faucets:
+
+- [LearnWeb3 Arbitrum Sepolia faucet](https://learnweb3.io/faucets/arbitrum_sepolia/) — no account required
+- [Alchemy Sepolia faucet](https://www.alchemy.com/faucets/ethereum-sepolia) — requires Alchemy account
+- [Google Cloud Sepolia faucet](https://cloud.google.com/application/web3/faucet/ethereum/sepolia) — requires Google account
+
+### Testnet USDC addresses
+
+| Chain | USDC address |
+|-------|-------------|
+| Ethereum Sepolia | `0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238` |
+| Arbitrum Sepolia | `0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d` |
+| Base Sepolia | `0x036CbD53842c5426634e7929541eC2318f3dCF7e` |
+
+### Testnet CCTP V2 contracts
+
+Testnet contracts use **different** addresses from mainnet (still identical across all testnets via CREATE2):
+
+| Contract | Testnet address |
+|----------|----------------|
+| TokenMessengerV2 | `0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA` |
+| MessageTransmitterV2 | `0xE737e5cEBEEBa77EFE34D4aa090756590b1CE275` |
+| TokenMinterV2 | `0xb43db544E2c27092c107639Ad201b3dEfAbcF192` |
+
+### Testnet attestation API
+
+Use the sandbox Iris API for testnet attestations:
+
+```
+https://iris-api-sandbox.circle.com
+```
+
+Example attestation poll:
+
+```
+GET https://iris-api-sandbox.circle.com/v2/messages/{sourceDomainId}?transactionHash={txHash}
+```
+
+### Manual testnet bridge walkthrough
+
+1. Get Sepolia ETH from a faucet (for gas)
+2. Get testnet USDC from [faucet.circle.com](https://faucet.circle.com/) on the source chain
+3. Approve USDC to testnet TokenMessengerV2 (`0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA`)
+4. Call `depositForBurn()` targeting the destination domain
+5. Poll `https://iris-api-sandbox.circle.com/v2/messages/{domainId}?transactionHash={txHash}` until status is `complete`
+6. Call `receiveMessage()` on the destination chain's MessageTransmitterV2 with the attestation
+
+## Attestation timing
+
+Per [Circle's block confirmation requirements](https://developers.circle.com/cctp/required-block-confirmations):
+
+| Transfer mode | L2 chains (Arbitrum, Base) | Ethereum |
+|---------------|---------------------------|----------|
+| Standard (finalized) | ~65 ETH blocks (~15-19 min) | ~65 blocks (~15-19 min) |
+| Fast (confirmed) | 1 block (~8 sec) | 1 block (~8 sec) |
+
+**Testnet caveats:**
+
+- Attestation times on Sepolia testnets can be **much longer** than mainnet. We observed 45+ minutes on Arbitrum Sepolia with no attestation completion, even with `FINALITY_THRESHOLD_FAST`.
+- Both Arbitrum and Base have identical confirmation requirements per Circle's docs. The slow testnet attestation is likely caused by infrequent L2 batch posting to L1 Ethereum Sepolia, which delays Circle's Iris service from observing finality.
+- The sandbox Iris API (`iris-api-sandbox.circle.com`) may also process attestations with different priority than production.
+
 ## Testing
 
 ```bash
-# Fork integration tests
+# Fork integration tests (mainnet forks, no testnet USDC needed)
 source .local-test.env && poetry run pytest tests/cctp/ -v
 ```
 

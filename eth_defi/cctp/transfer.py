@@ -39,6 +39,10 @@ from eth_defi.cctp.constants import (
     CHAIN_ID_TO_CCTP_DOMAIN,
     FINALITY_THRESHOLD_STANDARD,
     MESSAGE_TRANSMITTER_V2,
+    TESTNET_CHAIN_ID_TO_CCTP_DOMAIN,
+    TESTNET_CHAIN_IDS,
+    TESTNET_MESSAGE_TRANSMITTER_V2,
+    TESTNET_TOKEN_MESSENGER_V2,
     TOKEN_MESSENGER_V2,
 )
 from eth_defi.token import USDC_NATIVE_TOKEN
@@ -46,8 +50,44 @@ from eth_defi.token import USDC_NATIVE_TOKEN
 logger = logging.getLogger(__name__)
 
 
+def _resolve_token_messenger_address(chain_id: int) -> HexAddress:
+    """Pick mainnet or testnet TokenMessengerV2 address based on chain ID."""
+    if chain_id in TESTNET_CHAIN_IDS:
+        return TESTNET_TOKEN_MESSENGER_V2
+    return TOKEN_MESSENGER_V2
+
+
+def resolve_token_messenger_address(chain_id: int) -> HexAddress:
+    """Pick mainnet or testnet TokenMessengerV2 address based on chain ID.
+
+    :param chain_id:
+        EVM chain ID. Testnet chain IDs return the testnet address.
+
+    :return:
+        Checksummed TokenMessengerV2 contract address.
+    """
+    return _resolve_token_messenger_address(chain_id)
+
+
+def _resolve_message_transmitter_address(chain_id: int) -> HexAddress:
+    """Pick mainnet or testnet MessageTransmitterV2 address based on chain ID."""
+    if chain_id in TESTNET_CHAIN_IDS:
+        return TESTNET_MESSAGE_TRANSMITTER_V2
+    return MESSAGE_TRANSMITTER_V2
+
+
+def _resolve_cctp_domain(chain_id: int) -> int | None:
+    """Resolve CCTP domain from chain ID, checking both mainnet and testnet mappings."""
+    domain = CHAIN_ID_TO_CCTP_DOMAIN.get(chain_id)
+    if domain is None:
+        domain = TESTNET_CHAIN_ID_TO_CCTP_DOMAIN.get(chain_id)
+    return domain
+
+
 def get_token_messenger_v2(web3: Web3) -> Contract:
     """Load the TokenMessengerV2 contract at its known address.
+
+    Automatically selects mainnet or testnet address based on the connected chain.
 
     :param web3:
         Web3 connection
@@ -55,15 +95,18 @@ def get_token_messenger_v2(web3: Web3) -> Contract:
     :return:
         Contract proxy for TokenMessengerV2
     """
+    address = _resolve_token_messenger_address(web3.eth.chain_id)
     return get_deployed_contract(
         web3,
         "cctp/TokenMessengerV2.json",
-        TOKEN_MESSENGER_V2,
+        address,
     )
 
 
 def get_message_transmitter_v2(web3: Web3) -> Contract:
     """Load the MessageTransmitterV2 contract at its known address.
+
+    Automatically selects mainnet or testnet address based on the connected chain.
 
     :param web3:
         Web3 connection
@@ -71,10 +114,11 @@ def get_message_transmitter_v2(web3: Web3) -> Contract:
     :return:
         Contract proxy for MessageTransmitterV2
     """
+    address = _resolve_message_transmitter_address(web3.eth.chain_id)
     return get_deployed_contract(
         web3,
         "cctp/MessageTransmitterV2.json",
-        MESSAGE_TRANSMITTER_V2,
+        address,
     )
 
 
@@ -95,7 +139,7 @@ def encode_mint_recipient(address: HexAddress | str) -> bytes:
     return bytes.fromhex(address[2:].lower().zfill(64))
 
 
-def prepare_deposit_for_burn(
+def prepare_deposit_for_burn(  # noqa: PLR0917
     web3: Web3,
     amount: int,
     destination_chain_id: int,
@@ -146,10 +190,11 @@ def prepare_deposit_for_burn(
     """
     chain_id = web3.eth.chain_id
 
-    # Resolve CCTP domain
-    destination_domain = CHAIN_ID_TO_CCTP_DOMAIN.get(destination_chain_id)
+    # Resolve CCTP domain (checks both mainnet and testnet mappings)
+    destination_domain = _resolve_cctp_domain(destination_chain_id)
     if destination_domain is None:
-        raise ValueError(f"Destination chain {destination_chain_id} is not supported by CCTP. Supported chains: {list(CHAIN_ID_TO_CCTP_DOMAIN.keys())}")
+        all_supported = list(CHAIN_ID_TO_CCTP_DOMAIN.keys()) + list(TESTNET_CHAIN_ID_TO_CCTP_DOMAIN.keys())
+        raise ValueError(f"Destination chain {destination_chain_id} is not supported by CCTP. Supported chains: {all_supported}")
 
     # Auto-detect USDC address on source chain
     if burn_token is None:
@@ -218,7 +263,8 @@ def prepare_approve_for_burn(
 
     usdc = get_deployed_contract(web3, "ERC20MockDecimals.json", burn_token)
 
+    messenger_address = _resolve_token_messenger_address(chain_id)
     return usdc.functions.approve(
-        Web3.to_checksum_address(TOKEN_MESSENGER_V2),
+        Web3.to_checksum_address(messenger_address),
         amount,
     )

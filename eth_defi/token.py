@@ -97,6 +97,10 @@ USDC_NATIVE_TOKEN: dict[int, HexAddress | str] = {
     56: "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d",
     # Arbitrum Sepolia
     421614: "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d",
+    # Base Sepolia
+    84532: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+    # Ethereum Sepolia
+    11155111: "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
     # Derive (Lyra L2)
     957: "0x6879287835A86F50f784313dBEd5E5cCC5bb8481",
 }

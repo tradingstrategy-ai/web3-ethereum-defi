@@ -22,7 +22,6 @@ All CCTP V2 contracts share the same address across all EVM chains (deployed via
 
 from eth_typing import HexAddress
 
-
 #: CCTP V2 TokenMessengerV2 - entry point for cross-chain USDC transfers.
 #: Same address on all EVM chains via CREATE2.
 TOKEN_MESSENGER_V2: HexAddress = HexAddress("0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d")
@@ -71,9 +70,38 @@ CCTP_DOMAIN_NAMES: dict[int, str] = {
 #: Circle Iris attestation API base URL (mainnet).
 IRIS_API_BASE_URL = "https://iris-api.circle.com"
 
+#: Circle Iris attestation API base URL (testnet/sandbox).
+IRIS_API_SANDBOX_URL = "https://iris-api-sandbox.circle.com"
+
 #: Minimum finality threshold for standard (finalized) transfers.
 FINALITY_THRESHOLD_STANDARD = 2000
 
 #: Minimum finality threshold for fast (confirmed) transfers.
 #: Uses lower block confirmation, may incur fees.
 FINALITY_THRESHOLD_FAST = 1000
+
+# ---- Testnet (Sepolia) constants ----
+
+#: CCTP V2 TokenMessengerV2 on Sepolia testnets.
+#: Different from mainnet, but identical across all Sepolia chains via CREATE2.
+TESTNET_TOKEN_MESSENGER_V2: HexAddress = HexAddress("0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA")
+
+#: CCTP V2 MessageTransmitterV2 on Sepolia testnets.
+TESTNET_MESSAGE_TRANSMITTER_V2: HexAddress = HexAddress("0xE737e5cEBEEBa77EFE34D4aa090756590b1CE275")
+
+#: CCTP V2 TokenMinterV2 on Sepolia testnets.
+TESTNET_TOKEN_MINTER_V2: HexAddress = HexAddress("0xb43db544E2c27092c107639Ad201b3dEfAbcF192")
+
+#: Sepolia testnet chain IDs that use CCTP testnet contracts.
+TESTNET_CHAIN_IDS: set[int] = {
+    11155111,  # Ethereum Sepolia
+    421614,  # Arbitrum Sepolia
+    84532,  # Base Sepolia
+}
+
+#: Sepolia chain IDs share the same CCTP domain IDs as their mainnet counterparts.
+TESTNET_CHAIN_ID_TO_CCTP_DOMAIN: dict[int, int] = {
+    11155111: CCTP_DOMAIN_ETHEREUM,
+    421614: CCTP_DOMAIN_ARBITRUM,
+    84532: CCTP_DOMAIN_BASE,
+}
