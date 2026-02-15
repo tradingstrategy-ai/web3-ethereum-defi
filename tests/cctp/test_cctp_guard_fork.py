@@ -110,7 +110,7 @@ def guard(
 
 @pytest.fixture()
 def funded_vault(
-    _web3: Web3,
+    web3: Web3,  # noqa: ARG001
     vault: Contract,
     usdc: Contract,
     ethereum_usdc_whale: HexAddress,
@@ -124,7 +124,7 @@ def funded_vault(
 
 def test_cctp_guard_whitelist_status(
     guard: Contract,
-    _safe_address: str,
+    safe_address: str,  # noqa: ARG001
 ):
     """Verify CCTP whitelisting state is correct."""
     assert guard.functions.isAllowedCCTPMessenger(Web3.to_checksum_address(TOKEN_MESSENGER_V2)).call() is True
@@ -132,10 +132,10 @@ def test_cctp_guard_whitelist_status(
     assert guard.functions.isAllowedCCTPDestination(CCTP_DOMAIN_BASE).call() is False
 
 
-def test_cctp_deposit_for_burn_through_vault(
+def test_cctp_deposit_for_burn_through_vault(  # noqa: PLR0917
     web3: Web3,
     funded_vault: Contract,
-    _guard: Contract,
+    guard: Contract,  # noqa: ARG001
     asset_manager: str,
     safe_address: str,
     usdc: Contract,
@@ -171,13 +171,13 @@ def test_cctp_deposit_for_burn_through_vault(
     assert vault_balance_after == vault_balance_before - amount
 
 
-def test_cctp_wrong_destination_rejected(
+def test_cctp_wrong_destination_rejected(  # noqa: PLR0917
     web3: Web3,
     funded_vault: Contract,
-    _guard: Contract,
+    guard: Contract,  # noqa: ARG001
     asset_manager: str,
     safe_address: str,
-    _usdc: Contract,
+    usdc: Contract,  # noqa: ARG001
 ):
     """Test that depositForBurn to a non-whitelisted domain is rejected."""
     amount = 100 * 10**6
@@ -204,9 +204,9 @@ def test_cctp_wrong_destination_rejected(
 def test_cctp_wrong_recipient_rejected(
     web3: Web3,
     funded_vault: Contract,
-    _guard: Contract,
+    guard: Contract,  # noqa: ARG001
     asset_manager: str,
-    _usdc: Contract,
+    usdc: Contract,  # noqa: ARG001
 ):
     """Test that depositForBurn to a non-whitelisted recipient is rejected."""
     amount = 100 * 10**6
@@ -232,7 +232,7 @@ def test_cctp_wrong_recipient_rejected(
 
 
 def test_cctp_destination_removal(
-    _web3: Web3,
+    web3: Web3,  # noqa: ARG001
     guard: Contract,
     owner: str,
 ):

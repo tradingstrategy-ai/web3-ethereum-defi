@@ -49,7 +49,7 @@ ARBITRUM_USDC_WHALE = USDC_WHALE[42161]
 
 
 @pytest.fixture()
-def anvil_ethereum(_request) -> AnvilLaunch:
+def anvil_ethereum(request) -> AnvilLaunch:  # noqa: ARG001
     """Ethereum mainnet fork."""
     launch = fork_network_anvil(
         JSON_RPC_ETHEREUM,
@@ -62,7 +62,7 @@ def anvil_ethereum(_request) -> AnvilLaunch:
 
 
 @pytest.fixture()
-def anvil_arbitrum(_request) -> AnvilLaunch:
+def anvil_arbitrum(request) -> AnvilLaunch:  # noqa: ARG001
     """Arbitrum mainnet fork."""
     launch = fork_network_anvil(
         JSON_RPC_ARBITRUM,
@@ -165,7 +165,7 @@ def vault(
 
 def test_dual_fork_cctp_transfer(  # noqa: PLR0917
     web3_ethereum: Web3,
-    _web3_arbitrum: Web3,
+    web3_arbitrum: Web3,  # noqa: ARG001
     vault: Contract,
     usdc_ethereum: Contract,
     usdc_arbitrum: Contract,

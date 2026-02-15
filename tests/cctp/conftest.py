@@ -28,7 +28,7 @@ def ethereum_usdc_whale() -> HexAddress:
 
 
 @pytest.fixture()
-def anvil_ethereum_fork(_request, ethereum_usdc_whale) -> AnvilLaunch:
+def anvil_ethereum_fork(request, ethereum_usdc_whale) -> AnvilLaunch:  # noqa: ARG001
     """Create a testable fork of live Ethereum mainnet."""
     launch = fork_network_anvil(
         JSON_RPC_ETHEREUM,
