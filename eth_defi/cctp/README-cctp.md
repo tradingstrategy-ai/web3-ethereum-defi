@@ -84,18 +84,25 @@ attestation = fetch_attestation(
 
 ### Completing the transfer on destination chain
 
+Once Circle's Iris service has attested the burn, anyone can complete the transfer by calling `receiveMessage()` on the destination chain's `MessageTransmitterV2`. No special permissions or guard whitelisting is required — the message and attestation are self-contained proofs of the burn.
+
+This means any relayer, the vault's asset manager, or even the recipient themselves can fund the gas and relay the attestation. The USDC is always minted to the `mintRecipient` specified in the original `depositForBurn()` call, regardless of who calls `receiveMessage()`.
+
 ```python
 from eth_defi.cctp.receive import prepare_receive_message
 
 web3_arbitrum = Web3(Web3.HTTPProvider("https://arb1..."))
 
+# Anyone can relay — no guard check, no special role needed
 receive_fn = prepare_receive_message(
     web3_arbitrum,
     message=attestation.message,
     attestation=attestation.attestation,
 )
-receive_fn.transact({"from": relayer})
+receive_fn.transact({"from": relayer})  # Any funded account
 ```
+
+For Lagoon vaults, this means the asset manager does **not** need to route `receiveMessage()` through `TradingStrategyModuleV0`. An external relayer or bot can call it directly, and the minted USDC arrives at the vault's Safe address.
 
 ## Guard whitelisting (Lagoon vaults)
 
@@ -217,7 +224,41 @@ Per [Circle's block confirmation requirements](https://developers.circle.com/cct
 - Both Arbitrum and Base have identical confirmation requirements per Circle's docs. The slow testnet attestation is likely caused by infrequent L2 batch posting to L1 Ethereum Sepolia, which delays Circle's Iris service from observing finality.
 - The sandbox Iris API (`iris-api-sandbox.circle.com`) may also process attestations with different priority than production.
 
-## Testing
+## Testing on forks
+
+On Anvil forks, Circle's Iris attestation service cannot observe burns, so `receiveMessage()` cannot be tested with real attestations. The `eth_defi.cctp.testing` module provides helpers to bypass this by replacing the on-chain attester with a test account we control:
+
+1. **Replace attester**: Impersonate the `attesterManager` on the forked `MessageTransmitterV2`, add a test attester, and lower the signature threshold to 1
+2. **Craft message**: Build a valid CCTP V2 message (376 bytes: 148-byte header + 228-byte burn body) as if USDC was burned on another chain
+3. **Forge attestation**: Sign `keccak256(message)` with the test attester to produce a valid 65-byte ECDSA attestation
+4. **Relay**: Call `prepare_receive_message()` with the crafted message and forged attestation — `MessageTransmitterV2` accepts it and triggers the real mint flow
+
+```python
+from eth_defi.cctp.testing import replace_attester_on_fork, craft_cctp_message, forge_attestation
+from eth_defi.cctp.receive import prepare_receive_message
+
+# Replace the real attester with one we control
+test_attester = replace_attester_on_fork(web3)
+
+# Craft a message as if 100 USDC was burned on Ethereum
+message = craft_cctp_message(
+    source_domain=0,       # Ethereum
+    destination_domain=6,  # Base
+    nonce=999_999_999,     # Unique, unused nonce
+    mint_recipient=safe_address,
+    amount=100 * 10**6,    # 100 USDC
+    burn_token="0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",  # USDC on Ethereum
+)
+
+# Sign with our test attester
+attestation = forge_attestation(message, test_attester)
+
+# Anyone can relay — USDC is minted to the Safe
+receive_fn = prepare_receive_message(web3, message, attestation)
+receive_fn.transact({"from": relayer})
+```
+
+### Running tests
 
 ```bash
 # Fork integration tests (mainnet forks, no testnet USDC needed)
