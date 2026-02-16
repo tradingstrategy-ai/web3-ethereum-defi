@@ -206,6 +206,7 @@ def test_bypass_json_double_quotes(patched_logging, caplog):
     """JSON-style double-quoted keys/values are still redacted."""
     logger = logging.getLogger("test.bypass.json")
     import json
+
     config = {"apiKey": FAKE_API_KEY, "password": FAKE_PASSWORD}
 
     with caplog.at_level(logging.INFO):
@@ -219,7 +220,7 @@ def test_bypass_mixed_quotes(patched_logging, caplog):
     """Mixed quote styles (double key, single value) are still caught."""
     logger = logging.getLogger("test.bypass.mixed")
     # Python repr of a dict uses single quotes, but simulate mixed
-    crafted = "\"apiKey\": '" + FAKE_API_KEY + "'"
+    crafted = '"apiKey": \'' + FAKE_API_KEY + "'"
 
     with caplog.at_level(logging.INFO):
         logger.info("Mixed: %s", crafted)
@@ -230,10 +231,7 @@ def test_bypass_mixed_quotes(patched_logging, caplog):
 def test_bypass_multiple_urls_with_keys(patched_logging, caplog):
     """Multiple RPC URLs with embedded keys are all redacted."""
     logger = logging.getLogger("test.bypass.multiurl")
-    text = (
-        f"primary={FAKE_INFURA_URL} "
-        f"fallback=https://eth-mainnet.alchemyapi.io/v2/secretAlchemyKey789"
-    )
+    text = f"primary={FAKE_INFURA_URL} fallback=https://eth-mainnet.alchemyapi.io/v2/secretAlchemyKey789"
 
     with caplog.at_level(logging.INFO):
         logger.info("RPCs: %s", text)
@@ -259,11 +257,7 @@ def test_bypass_websocket_url(patched_logging, caplog):
 def test_bypass_space_separated_rpcs(patched_logging, caplog):
     """Space-separated RPC URLs (multi-provider format) are all redacted."""
     logger = logging.getLogger("test.bypass.spacerpcs")
-    rpcs = (
-        "https://mainnet.infura.io/v3/key111aaa "
-        "https://eth-mainnet.alchemyapi.io/v2/key222bbb "
-        "https://user:pass@rpc.ankr.com/eth/key333ccc"
-    )
+    rpcs = "https://mainnet.infura.io/v3/key111aaa https://eth-mainnet.alchemyapi.io/v2/key222bbb https://user:pass@rpc.ankr.com/eth/key333ccc"
 
     with caplog.at_level(logging.INFO):
         logger.info("JSON_RPC_ETHEREUM=%s", rpcs)

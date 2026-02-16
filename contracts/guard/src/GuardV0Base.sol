@@ -78,6 +78,9 @@ bytes4 constant SEL_GMX_SEND_WNT = 0x7d39aaf1;  // sendWnt(address,uint256)
 bytes4 constant SEL_GMX_SEND_TOKENS = 0xe6d66ac8;  // sendTokens(address,address,uint256)
 bytes4 constant SEL_GMX_CREATE_ORDER = 0xf59c48eb;  // createOrder(tuple)
 
+// ===== CCTP V2 =====
+bytes4 constant SEL_CCTP_DEPOSIT_FOR_BURN = 0x8e0250ee;  // depositForBurn(uint256,uint32,bytes32,address,bytes32,uint256,uint32)
+
 /**
  * Prototype guard implementation.
  *
@@ -214,6 +217,22 @@ abstract contract GuardV0Base is IGuard,  Multicall, SwapCowSwap  {
     //
     mapping(address market => bool allowed) public allowedGMXMarkets;
 
+    // ----- Protocol: CCTP V2 -----
+
+    // Allowed CCTP TokenMessengerV2 instances.
+    //
+    // TokenMessengerV2 is the entry point for cross-chain USDC transfers.
+    // USDC must be approved to TokenMessengerV2 before calling depositForBurn().
+    //
+    mapping(address messenger => bool allowed) public allowedCCTPMessengers;
+
+    // Allowed CCTP destination domains.
+    //
+    // CCTP uses its own domain IDs (not EVM chain IDs).
+    // E.g. Ethereum=0, Arbitrum=3, Base=6, Polygon=7.
+    //
+    mapping(uint32 domain => bool allowed) public allowedCCTPDestinations;
+
     // ----- Dangerous flags -----
 
     // Allow trading any token
@@ -259,6 +278,9 @@ abstract contract GuardV0Base is IGuard,  Multicall, SwapCowSwap  {
     event GMXMarketApproved(address market, string notes);
     event GMXMarketRemoved(address market, string notes);
     event ERC4626Approved(address vault, string notes);
+    event CCTPMessengerApproved(address tokenMessenger, string notes);
+    event CCTPDestinationApproved(uint32 domain, string notes);
+    event CCTPDestinationRemoved(uint32 domain, string notes);
 
     // Velora swap execution event - emitted after successful atomic swap
     event VeloraSwapExecuted(
@@ -606,6 +628,10 @@ abstract contract GuardV0Base is IGuard,  Multicall, SwapCowSwap  {
         } else if (selector == SEL_GMX_MULTICALL) {
             validate_gmxMulticall(target, callData);
 
+        // --- CCTP cross-chain transfers ---
+        } else if (selector == SEL_CCTP_DEPOSIT_FOR_BURN) {
+            validate_cctpDepositForBurn(target, callData);
+
         } else {
             revert("Unknown function selector");
         }
@@ -828,6 +854,57 @@ abstract contract GuardV0Base is IGuard,  Multicall, SwapCowSwap  {
         return anyAsset || allowedGMXMarkets[market];
     }
 
+    // Whitelist CCTP TokenMessengerV2 for cross-chain USDC transfers.
+    //
+    // TokenMessengerV2.depositForBurn() is the main call that burns USDC on source chain.
+    // USDC must be approved to TokenMessengerV2 for spending.
+    //
+    // IMPORTANT: After calling this function, you must also:
+    // 1. Call whitelistCCTPDestination(domain, "notes") for each allowed destination chain
+    // 2. Call whitelistToken(usdcAddress, "notes") for the USDC token on this chain
+    // 3. Call allowReceiver(recipientAddress, "notes") for allowed mint recipients
+    //
+    // See: https://developers.circle.com/cctp
+    //
+    function whitelistCCTP(
+        address tokenMessenger,
+        string calldata notes
+    ) external onlyGuardOwner {
+        allowCallSite(tokenMessenger, SEL_CCTP_DEPOSIT_FOR_BURN, notes);
+        allowApprovalDestination(tokenMessenger, notes);
+        allowedCCTPMessengers[tokenMessenger] = true;
+        emit CCTPMessengerApproved(tokenMessenger, notes);
+    }
+
+    // Whitelist a CCTP destination domain for cross-chain transfers.
+    //
+    // CCTP uses its own domain IDs (not EVM chain IDs):
+    // Ethereum=0, Arbitrum=3, Base=6, Polygon=7
+    //
+    function whitelistCCTPDestination(
+        uint32 domain,
+        string calldata notes
+    ) external onlyGuardOwner {
+        allowedCCTPDestinations[domain] = true;
+        emit CCTPDestinationApproved(domain, notes);
+    }
+
+    function removeCCTPDestination(
+        uint32 domain,
+        string calldata notes
+    ) external onlyGuardOwner {
+        allowedCCTPDestinations[domain] = false;
+        emit CCTPDestinationRemoved(domain, notes);
+    }
+
+    function isAllowedCCTPMessenger(address messenger) public view returns (bool) {
+        return allowedCCTPMessengers[messenger];
+    }
+
+    function isAllowedCCTPDestination(uint32 domain) public view returns (bool) {
+        return allowedCCTPDestinations[domain];
+    }
+
     // Validate a GMX multicall payload.
     //
     // GMX uses multicall() on ExchangeRouter to batch order operations.
@@ -912,6 +989,35 @@ abstract contract GuardV0Base is IGuard,  Multicall, SwapCowSwap  {
         for (uint256 i = 0; i < params.addresses.swapPath.length; i++) {
             require(isAllowedGMXMarket(params.addresses.swapPath[i]), "GMX createOrder: swapPath market not allowed");
         }
+    }
+
+    // Validate CCTP depositForBurn call parameters.
+    //
+    // Checks:
+    // - TokenMessenger is whitelisted
+    // - Destination domain is whitelisted
+    // - Burn token (USDC) is an allowed asset
+    // - Mint recipient (converted from bytes32 to address) is an allowed receiver
+    //
+    function validate_cctpDepositForBurn(address target, bytes calldata callData) public view {
+        require(isAllowedCCTPMessenger(target), "CCTP messenger not allowed");
+
+        (
+            ,                          // uint256 amount
+            uint32 destinationDomain,
+            bytes32 mintRecipient,
+            address burnToken,
+            ,                          // bytes32 destinationCaller
+            ,                          // uint256 maxFee
+                                       // uint32 minFinalityThreshold
+        ) = abi.decode(callData, (uint256, uint32, bytes32, address, bytes32, uint256, uint32));
+
+        require(isAllowedCCTPDestination(destinationDomain), "CCTP destination not allowed");
+        require(isAllowedAsset(burnToken), "CCTP burn token not allowed");
+
+        // Convert bytes32 mintRecipient to address (last 20 bytes)
+        address recipient = address(uint160(uint256(mintRecipient)));
+        require(isAllowedReceiver(recipient), "CCTP mint recipient not allowed");
     }
 
     // Validate Velora swap and compute pre-swap balance

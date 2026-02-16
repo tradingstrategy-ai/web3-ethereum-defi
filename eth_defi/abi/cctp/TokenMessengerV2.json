@@ -1,0 +1,63 @@
+[
+    {
+        "inputs": [
+            {"name": "amount", "type": "uint256"},
+            {"name": "destinationDomain", "type": "uint32"},
+            {"name": "mintRecipient", "type": "bytes32"},
+            {"name": "burnToken", "type": "address"},
+            {"name": "destinationCaller", "type": "bytes32"},
+            {"name": "maxFee", "type": "uint256"},
+            {"name": "minFinalityThreshold", "type": "uint32"}
+        ],
+        "name": "depositForBurn",
+        "outputs": [
+            {"name": "_nonce", "type": "uint64"}
+        ],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {"name": "amount", "type": "uint256"},
+            {"name": "destinationDomain", "type": "uint32"},
+            {"name": "mintRecipient", "type": "bytes32"},
+            {"name": "burnToken", "type": "address"},
+            {"name": "destinationCaller", "type": "bytes32"},
+            {"name": "maxFee", "type": "uint256"},
+            {"name": "minFinalityThreshold", "type": "uint32"},
+            {"name": "hookData", "type": "bytes"}
+        ],
+        "name": "depositForBurnWithHook",
+        "outputs": [
+            {"name": "_nonce", "type": "uint64"}
+        ],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {"name": "amount", "type": "uint256"}
+        ],
+        "name": "getMinFeeAmount",
+        "outputs": [
+            {"name": "", "type": "uint256"}
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {"indexed": true, "name": "nonce", "type": "uint64"},
+            {"indexed": true, "name": "burnToken", "type": "address"},
+            {"indexed": false, "name": "amount", "type": "uint256"},
+            {"indexed": true, "name": "depositor", "type": "address"},
+            {"indexed": false, "name": "mintRecipient", "type": "bytes32"},
+            {"indexed": false, "name": "destinationDomain", "type": "uint32"},
+            {"indexed": false, "name": "destinationTokenMessenger", "type": "bytes32"},
+            {"indexed": false, "name": "destinationCaller", "type": "bytes32"}
+        ],
+        "name": "DepositForBurn",
+        "type": "event"
+    }
+]
