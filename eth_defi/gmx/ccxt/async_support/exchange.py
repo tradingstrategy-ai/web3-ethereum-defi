@@ -35,7 +35,8 @@ from eth_defi.gmx.core.open_positions import GetOpenPositions
 from eth_defi.gmx.core.oracle import OraclePrices
 from eth_defi.gmx.order.sltp_order import SLTPEntry, SLTPOrder, SLTPParams
 from eth_defi.gmx.contracts import get_contract_addresses
-from eth_defi.gmx.events import decode_gmx_event, extract_order_key_from_receipt, GMX_USD_PRECISION
+from eth_defi.gmx.ccxt.exchange import _derive_side_from_trade_action
+from eth_defi.gmx.events import decode_gmx_event, extract_order_execution_result, extract_order_key_from_receipt, GMX_USD_PRECISION
 from eth_defi.gmx.utils import convert_raw_price_to_usd
 from eth_defi.gmx.order_tracking import check_order_status
 from eth_defi.gmx.verification import verify_gmx_order_execution
@@ -346,41 +347,100 @@ class GMX(Exchange):
         cost = abs(size_delta_usd) * rate if size_delta_usd else 0.0
         return {"cost": cost, "currency": currency, "rate": rate}
 
-    def _convert_token_fee_to_usd(self, fee_tokens: int, market: dict, is_long: bool) -> float:
+    def _convert_token_fee_to_usd(
+        self,
+        fee_tokens: int,
+        market: dict,
+        is_long: bool,
+        collateral_token: str | None = None,
+        collateral_token_price: int | None = None,
+    ) -> float:
         """Convert raw token fee amount to USD.
 
-        GMX fees are denominated in the collateral token (long_token for longs,
-        short_token for shorts). This converts the raw token amount to USD.
+        GMX fees are denominated in the collateral token. The actual collateral
+        token is determined dynamically from event data (users can choose USDC
+        as collateral even for long positions).
 
-        Args:
-            fee_tokens: Raw fee amount in token's native decimals
-            market: CCXT market dict
-            is_long: Whether position is long (True) or short (False)
+        For stablecoin collateral (USDC), fee_in_tokens ~ fee_in_usd.
+        For non-stablecoin collateral (WETH, WBTC), multiply by collateral price.
 
-        Returns:
+        :param fee_tokens:
+            Raw fee amount in token's native decimals
+        :param market:
+            CCXT market dict
+        :param is_long:
+            Whether position is long (True) or short (False)
+        :param collateral_token:
+            Actual collateral token address from event data. If not provided,
+            falls back to market's long_token/short_token.
+        :param collateral_token_price:
+            Collateral token price in raw 30-decimal GMX format from event data.
+            Used for USD conversion of non-stablecoin fees.
+        :return:
             Fee amount in USD
-
-        Note:
-            Currently assumes USDC collateral (most common on GMX).
-            For non-stablecoin collateral (WETH, WBTC), would need oracle price lookup.
         """
         if not fee_tokens or not market:
             return 0.0
 
-        # Get collateral token address
-        collateral_token = self.safe_string(market.get("info", {}), "long_token" if is_long else "short_token")
+        # Get collateral token address - prefer event data, fall back to market assumption
+        if not collateral_token:
+            collateral_token = self.safe_string(market.get("info", {}), "long_token" if is_long else "short_token")
 
         if not collateral_token:
             return 0.0
 
-        # Get token decimals (USDC=6, WETH=18, WBTC=8, etc.)
-        token_decimals = self._get_token_decimals(collateral_token)
+        # Look up token decimals from _token_metadata (keyed by lowercase address)
+        if not getattr(self, "_token_metadata", None):
+            self._token_metadata = {}
+        if not self._token_metadata:
+            self._load_token_metadata()
+
+        token_meta = self._token_metadata.get(collateral_token.lower())
+        if not token_meta:
+            logger.warning("Token metadata not found for collateral %s, cannot convert fee", collateral_token)
+            return 0.0
+
+        token_decimals = token_meta.get("decimals")
+        if token_decimals is None:
+            return 0.0
 
         # Convert to token amount
-        fee_in_tokens = fee_tokens / (10**token_decimals)
+        fee_in_tokens = fee_tokens / (10 ** int(token_decimals))
 
-        # For stablecoins (USDC, USDT), price is ~$1.00
-        # TODO: Add oracle price lookup for non-stablecoin collateral
+        token_symbol = token_meta.get("symbol", "?")
+
+        # Check if collateral is a stablecoin (USDC, USDT, DAI - 6 decimals typical)
+        # If we have a collateral token price from events, use it for accurate conversion
+        if collateral_token_price is not None:
+            collateral_price_usd = convert_raw_price_to_usd(collateral_token_price, int(token_decimals))
+            if collateral_price_usd and collateral_price_usd > 0:
+                fee_usd = fee_in_tokens * collateral_price_usd
+                logger.info(
+                    "Fee conversion (event price): %s raw -> %s %s * $%s = $%s USD",
+                    fee_tokens,
+                    fee_in_tokens,
+                    token_symbol,
+                    collateral_price_usd,
+                    fee_usd,
+                )
+                return fee_usd
+
+        # Non-stablecoin collateral without price data - cannot convert accurately
+        if is_long:
+            logger.warning(
+                "Fee conversion: no collateral price for long position, fee_tokens=%s %s cannot be converted to USD. Returning token amount as approximate USD (may be inaccurate for non-stablecoin collateral).",
+                fee_in_tokens,
+                token_symbol,
+            )
+
+        # Stablecoin path: token amount ≈ USD amount
+        logger.info(
+            "Fee conversion (stablecoin): %s raw -> %s %s ≈ $%s USD",
+            fee_tokens,
+            fee_in_tokens,
+            token_symbol,
+            fee_in_tokens,
+        )
         return fee_in_tokens
 
     def _extract_actual_fee(self, verification, market: dict, is_long: bool, size_delta_usd: float) -> dict:
@@ -402,13 +462,34 @@ class GMX(Exchange):
         """
         if not verification or not verification.fees:
             # Fallback to fixed rate if no fee data available
-            return self._build_trading_fee(market.get("symbol", ""), size_delta_usd)
+            fallback = self._build_trading_fee(market.get("symbol", ""), size_delta_usd)
+            logger.info(
+                "Fee extract: no verification fees, using estimated fee: %s",
+                fallback,
+            )
+            return fallback
 
         # Sum all fee components (in collateral token amounts)
         total_fee_tokens = verification.fees.position_fee + verification.fees.borrowing_fee + verification.fees.funding_fee + verification.fees.liquidation_fee
 
-        # Convert to USD using CCXT-compatible helper
-        fee_usd = self._convert_token_fee_to_usd(total_fee_tokens, market, is_long)
+        logger.info(
+            "Fee extract: position_fee=%s, borrowing_fee=%s, funding_fee=%s, liquidation_fee=%s, total_tokens=%s, is_long=%s",
+            verification.fees.position_fee,
+            verification.fees.borrowing_fee,
+            verification.fees.funding_fee,
+            verification.fees.liquidation_fee,
+            total_fee_tokens,
+            is_long,
+        )
+
+        # Convert to USD using actual collateral token from events
+        fee_usd = self._convert_token_fee_to_usd(
+            total_fee_tokens,
+            market,
+            is_long,
+            collateral_token=getattr(verification, "collateral_token", None),
+            collateral_token_price=getattr(verification, "collateral_token_price", None),
+        )
 
         # Calculate actual rate
         actual_rate = fee_usd / size_delta_usd if size_delta_usd > 0 else 0.0
@@ -416,31 +497,44 @@ class GMX(Exchange):
         # Get currency from market using CCXT safe access
         currency = self.safe_string(market, "settle", "USDC") if market else "USDC"
 
+        fee_result = {"cost": fee_usd, "currency": currency, "rate": actual_rate}
+        logger.info(
+            "Fee extract: fee_usd=$%s, rate=%s%%, currency=%s -> %s",
+            fee_usd,
+            actual_rate * 100 if actual_rate else 0,
+            currency,
+            fee_result,
+        )
+
         # Return CCXT-compliant structure
-        return {"cost": fee_usd, "currency": currency, "rate": actual_rate}
+        return fee_result
 
     def _build_fee_breakdown(self, verification, market: dict, is_long: bool, execution_fee_eth: float) -> dict:
         """Build comprehensive fee breakdown for order info.
 
         Creates detailed breakdown of all fee components.
 
-        Args:
-            verification: GMXOrderVerificationResult with fee data
-            market: CCXT market
-            is_long: Position direction
-            execution_fee_eth: Execution fee in ETH
-
-        Returns:
+        :param verification:
+            GMXOrderVerificationResult with fee data
+        :param market:
+            CCXT market
+        :param is_long:
+            Position direction
+        :param execution_fee_eth:
+            Execution fee in ETH
+        :return:
             Detailed fee breakdown dict
         """
         breakdown = {}
 
         if verification and verification.fees:
-            # Convert each fee component to USD
-            position_fee_usd = self._convert_token_fee_to_usd(verification.fees.position_fee, market, is_long)
-            borrowing_fee_usd = self._convert_token_fee_to_usd(verification.fees.borrowing_fee, market, is_long)
-            funding_fee_usd = self._convert_token_fee_to_usd(verification.fees.funding_fee, market, is_long)
-            liquidation_fee_usd = self._convert_token_fee_to_usd(verification.fees.liquidation_fee, market, is_long) if verification.fees.liquidation_fee else 0.0
+            coll_token = getattr(verification, "collateral_token", None)
+            coll_price = getattr(verification, "collateral_token_price", None)
+            # Convert each fee component to USD using actual collateral data
+            position_fee_usd = self._convert_token_fee_to_usd(verification.fees.position_fee, market, is_long, collateral_token=coll_token, collateral_token_price=coll_price)
+            borrowing_fee_usd = self._convert_token_fee_to_usd(verification.fees.borrowing_fee, market, is_long, collateral_token=coll_token, collateral_token_price=coll_price)
+            funding_fee_usd = self._convert_token_fee_to_usd(verification.fees.funding_fee, market, is_long, collateral_token=coll_token, collateral_token_price=coll_price)
+            liquidation_fee_usd = self._convert_token_fee_to_usd(verification.fees.liquidation_fee, market, is_long, collateral_token=coll_token, collateral_token_price=coll_price) if verification.fees.liquidation_fee else 0.0
 
             total_trading_fee_usd = position_fee_usd + borrowing_fee_usd + funding_fee_usd + liquidation_fee_usd
 
@@ -1583,8 +1677,8 @@ class GMX(Exchange):
                     order["info"]["verification"] = {
                         "execution_price": verification.execution_price,
                         "size_delta_usd": verification.size_delta_usd,
-                        "pnl_usd": verification.pnl_usd / GMX_USD_PRECISION if verification.pnl_usd else None,
-                        "price_impact_usd": verification.price_impact_usd / GMX_USD_PRECISION if verification.price_impact_usd else None,
+                        "pnl_usd": verification.pnl_usd,
+                        "price_impact_usd": verification.price_impact_usd,
                         "event_count": verification.event_count,
                         "event_names": verification.event_names,
                         "is_long": verification.is_long,
@@ -1675,6 +1769,7 @@ class GMX(Exchange):
                         "fee": {
                             "currency": "ETH",
                             "cost": float(receipt.get("gasUsed", 0)) * float(tx.get("gasPrice", 0)) / 1e18,
+                            "rate": None,
                         },
                         "info": {
                             "creation_receipt": receipt,
@@ -1719,6 +1814,7 @@ class GMX(Exchange):
                         "fee": {
                             "currency": "ETH",
                             "cost": float(receipt.get("gasUsed", 0)) * float(tx.get("gasPrice", 0)) / 1e18,
+                            "rate": None,
                         },
                         "info": {
                             "creation_receipt": receipt,
@@ -1735,10 +1831,9 @@ class GMX(Exchange):
 
                 try:
                     subsquid = AsyncGMXSubsquidClient(chain=self.config.get_chain())
-                    # No timeout - this is a historical query, not waiting for new data
                     trade_action = await subsquid.get_trade_action_by_order_key(
                         order_key_hex,
-                        timeout_seconds=0,  # Don't wait, just check if exists
+                        timeout_seconds=5,
                         poll_interval=0.5,
                     )
                 except Exception as e:
@@ -1794,6 +1889,7 @@ class GMX(Exchange):
                         "fee": {
                             "currency": "ETH",
                             "cost": float(receipt.get("gasUsed", 0)) * float(tx.get("gasPrice", 0)) / 1e18,
+                            "rate": None,
                         },
                         "info": {
                             "creation_receipt": receipt,
@@ -1804,6 +1900,17 @@ class GMX(Exchange):
                         "fees": [],
                     }
                     return order
+
+                # Log trade_action fields for diagnostics (exclude bulky transaction data)
+                trade_action_fields = {k: v for k, v in trade_action.items() if k != "transaction"}
+                logger.info(
+                    "fetch_order(%s): trade_action fields: %s",
+                    id[:16],
+                    trade_action_fields,
+                )
+
+                # Derive CCXT side from orderType + isLong
+                derived_side = _derive_side_from_trade_action(trade_action)
 
                 # Check event type
                 event_name = trade_action.get("eventName", "")
@@ -1826,7 +1933,7 @@ class GMX(Exchange):
                         "lastTradeTimestamp": timestamp,
                         "symbol": symbol,
                         "type": "market",
-                        "side": None,
+                        "side": derived_side,
                         "price": None,
                         "amount": None,
                         "cost": None,
@@ -1837,6 +1944,7 @@ class GMX(Exchange):
                         "fee": {
                             "currency": "ETH",
                             "cost": float(receipt.get("gasUsed", 0)) * float(tx.get("gasPrice", 0)) / 1e18,
+                            "rate": None,
                         },
                         "trades": [],
                         "info": {
@@ -1852,19 +1960,110 @@ class GMX(Exchange):
                 # Order executed successfully (OrderExecuted event)
                 raw_exec_price = trade_action.get("executionPrice")
                 execution_price = None
-                if raw_exec_price and symbol:
-                    market = self.markets.get(symbol)
-                    if market:
-                        execution_price = self._convert_price_to_usd(float(raw_exec_price), market)
+                market = self.markets.get(symbol) if symbol else None
+                if raw_exec_price and market:
+                    execution_price = self._convert_price_to_usd(float(raw_exec_price), market)
 
                 execution_tx_hash = trade_action.get("transaction", {}).get("hash")
                 is_long = trade_action.get("isLong")
 
+                # Compute trading fee from trade_action data (matches sync path design)
+                gas_cost_eth = float(receipt.get("gasUsed", 0)) * float(tx.get("gasPrice", 0)) / 1e18
+                size_delta_usd = float(trade_action.get("sizeDeltaUsd", 0)) / 1e30 if trade_action.get("sizeDeltaUsd") else 0.0
+
+                # Sum all available fee components (in collateral token decimals)
+                raw_position_fee = trade_action.get("positionFeeAmount")
+                raw_borrowing_fee = trade_action.get("borrowingFeeAmount")
+                raw_funding_fee = trade_action.get("fundingFeeAmount")
+                total_fee_tokens = 0
+                if raw_position_fee:
+                    total_fee_tokens += int(float(raw_position_fee))
+                if raw_borrowing_fee:
+                    total_fee_tokens += int(float(raw_borrowing_fee))
+                if raw_funding_fee:
+                    total_fee_tokens += int(float(raw_funding_fee))
+
                 logger.info(
-                    "ORDER_TRACE: fetch_order(%s) - Order EXECUTED (async) at price=%s, size_usd=%s - RETURNING status=closed",
-                    id,
+                    "fetch_order(%s): blockchain fee components: position=%s, borrowing=%s, funding=%s, total_tokens=%s, is_long=%s",
+                    id[:16],
+                    raw_position_fee,
+                    raw_borrowing_fee,
+                    raw_funding_fee,
+                    total_fee_tokens,
+                    is_long,
+                )
+
+                # Extract collateral token data from trade_action (Subsquid/EventEmitter)
+                ta_collateral_token = trade_action.get("collateralToken")
+                ta_collateral_price_raw = trade_action.get("collateralTokenPriceMax")
+                ta_collateral_price = int(float(ta_collateral_price_raw)) if ta_collateral_price_raw else None
+
+                # If Subsquid didn't provide collateral data, enrich from on-chain events
+                if ta_collateral_token is None and execution_tx_hash:
+                    try:
+                        exec_receipt = await self.web3.eth.get_transaction_receipt(execution_tx_hash)
+                        exec_result = extract_order_execution_result(self.sync_web3, dict(exec_receipt), order_key)
+                        if exec_result:
+                            ta_collateral_token = exec_result.collateral_token
+                            ta_collateral_price = exec_result.collateral_token_price
+                            logger.info(
+                                "fetch_order(%s): enriched collateral from on-chain events: token=%s, price=%s",
+                                id[:16],
+                                ta_collateral_token,
+                                ta_collateral_price,
+                            )
+                    except Exception as e:
+                        logger.warning(
+                            "fetch_order(%s): failed to fetch execution receipt for collateral enrichment: %s",
+                            id[:16],
+                            e,
+                        )
+
+                if total_fee_tokens > 0 and market:
+                    # Actual fee from Subsquid/EventEmitter trade_action
+                    fee_usd = self._convert_token_fee_to_usd(
+                        total_fee_tokens,
+                        market,
+                        is_long,
+                        collateral_token=ta_collateral_token,
+                        collateral_token_price=ta_collateral_price,
+                    )
+                    actual_rate = fee_usd / size_delta_usd if size_delta_usd > 0 else 0.0
+                    currency = self.safe_string(market, "settle", "USDC")
+                    fee_dict = {"cost": fee_usd, "currency": currency, "rate": actual_rate}
+                    logger.info(
+                        "fetch_order(%s): blockchain fee -> $%s %s (rate=%s%%)",
+                        id[:16],
+                        fee_usd,
+                        currency,
+                        actual_rate * 100,
+                    )
+                elif size_delta_usd > 0 and symbol:
+                    # Fallback: estimate fee at 0.06% when no fee data in trade_action
+                    fee_dict = self._build_trading_fee(symbol, size_delta_usd)
+                    logger.info(
+                        "fetch_order(%s): no fee data in trade_action, using estimated fee: %s",
+                        id[:16],
+                        fee_dict,
+                    )
+                else:
+                    # Last resort: gas cost only (no trading fee data available)
+                    fee_dict = {"currency": "ETH", "cost": gas_cost_eth, "rate": None}
+                    logger.info(
+                        "fetch_order(%s): no fee data or size, gas-only fee: %s",
+                        id[:16],
+                        fee_dict,
+                    )
+
+                logger.info(
+                    "ORDER_TRACE: fetch_order(%s) - Order EXECUTED (async) at price=%s, size_usd=%s, derived_side=%s, orderType=%s, isLong=%s, fee=%s - RETURNING status=closed",
+                    id[:16],
                     execution_price or 0,
-                    float(trade_action.get("sizeDeltaUsd", 0)) / 1e30 if trade_action.get("sizeDeltaUsd") else 0,
+                    size_delta_usd,
+                    derived_side,
+                    trade_action.get("orderType"),
+                    trade_action.get("isLong"),
+                    fee_dict,
                 )
 
                 timestamp = self.milliseconds()
@@ -1876,18 +2075,15 @@ class GMX(Exchange):
                     "lastTradeTimestamp": timestamp,
                     "symbol": symbol,
                     "type": "market",
-                    "side": None,  # Unknown from tx alone
+                    "side": derived_side,
                     "price": execution_price,
-                    "amount": None,  # Unknown from tx alone
+                    "amount": None,
                     "cost": None,
                     "average": execution_price,
-                    "filled": None,  # Unknown from tx alone
+                    "filled": None,
                     "remaining": 0.0,
                     "status": "closed",
-                    "fee": {
-                        "currency": "ETH",
-                        "cost": float(receipt.get("gasUsed", 0)) * float(tx.get("gasPrice", 0)) / 1e18,
-                    },
+                    "fee": fee_dict,
                     "trades": [],
                     "info": {
                         "creation_receipt": receipt,
@@ -1897,8 +2093,9 @@ class GMX(Exchange):
                         "execution_price": execution_price,
                         "is_long": is_long,
                         "event_name": event_name,
+                        "execution_fee_eth": gas_cost_eth,
                         "pnl_usd": float(trade_action.get("pnlUsd", 0)) / 1e30 if trade_action.get("pnlUsd") else None,
-                        "size_delta_usd": float(trade_action.get("sizeDeltaUsd", 0)) / 1e30 if trade_action.get("sizeDeltaUsd") else None,
+                        "size_delta_usd": size_delta_usd if size_delta_usd else None,
                         "price_impact_usd": float(trade_action.get("priceImpactUsd", 0)) / 1e30 if trade_action.get("priceImpactUsd") else None,
                     },
                 }

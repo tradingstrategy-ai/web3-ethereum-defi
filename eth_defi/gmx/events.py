@@ -88,6 +88,7 @@ GMX_EVENT_NAMES = {
     "OrderUpdated",
     "PositionIncrease",
     "PositionDecrease",
+    "PositionFeesCollected",
     "DepositCreated",
     "DepositExecuted",
     "WithdrawalCreated",
@@ -268,6 +269,12 @@ class OrderExecutionResult:
 
     #: Whether the position is long
     is_long: bool | None = None
+
+    #: Collateral token address (from PositionFeesCollected/PositionIncrease events)
+    collateral_token: HexAddress | None = None
+
+    #: Collateral token price in raw 30-decimal format (from events)
+    collateral_token_price: int | None = None
 
 
 def _get_chain_name_from_id(chain_id: int) -> str:
@@ -879,6 +886,14 @@ def extract_order_execution_result(
                 # Collateral delta
                 result.collateral_delta = event.get_int("collateralDeltaAmount")
 
+                # Extract collateral token address and price from position event
+                collateral_addr = event.get_address("collateralToken")
+                if collateral_addr:
+                    result.collateral_token = collateral_addr
+                collateral_price = event.get_uint("collateralTokenPrice.max")
+                if collateral_price:
+                    result.collateral_token_price = collateral_price
+
                 # For decrease orders, get PnL
                 if event.event_name == "PositionDecrease":
                     result.pnl_usd = event.get_int("basePnlUsd")
@@ -903,6 +918,17 @@ def extract_order_execution_result(
                     funding_fee=event.get_uint("fundingFeeAmount") or 0,
                     liquidation_fee=event.get_uint("liquidationFeeAmount") or 0,
                 )
+
+                # Extract collateral token address and price from fees event
+                # These override any values from PositionIncrease/Decrease since
+                # fees are denominated in the collateral token
+                collateral_addr = event.get_address("collateralToken")
+                if collateral_addr:
+                    result.collateral_token = collateral_addr
+                collateral_price = event.get_uint("collateralTokenPrice.max")
+                if collateral_price:
+                    result.collateral_token_price = collateral_price
+
                 break
 
     return result
