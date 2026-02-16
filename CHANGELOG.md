@@ -1,6 +1,7 @@
 # Current
 
 - **Add: Circle CCTP V2 cross-chain USDC transfer support with guard whitelisting and Lagoon vault integration (2026-02-15)**
+- Add: Deterministic cross-chain Safe deployment using CREATE2 via canonical SafeProxyFactory (2026-02-16)
 
 # 1.0.2
 
