@@ -25,6 +25,118 @@
         "type": "function"
     },
     {
+        "inputs": [],
+        "name": "attesterManager",
+        "outputs": [
+            {"name": "", "type": "address"}
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {"name": "newAttester", "type": "address"}
+        ],
+        "name": "enableAttester",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {"name": "attester", "type": "address"}
+        ],
+        "name": "disableAttester",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {"name": "newSignatureThreshold", "type": "uint256"}
+        ],
+        "name": "setSignatureThreshold",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "localDomain",
+        "outputs": [
+            {"name": "", "type": "uint32"}
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "version",
+        "outputs": [
+            {"name": "", "type": "uint32"}
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "nextAvailableNonce",
+        "outputs": [
+            {"name": "", "type": "uint64"}
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "signatureThreshold",
+        "outputs": [
+            {"name": "", "type": "uint256"}
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "getNumEnabledAttesters",
+        "outputs": [
+            {"name": "", "type": "uint256"}
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {"name": "index", "type": "uint256"}
+        ],
+        "name": "getEnabledAttester",
+        "outputs": [
+            {"name": "", "type": "address"}
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {"name": "nonce", "type": "bytes32"}
+        ],
+        "name": "usedNonces",
+        "outputs": [
+            {"name": "", "type": "uint256"}
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "maxMessageBodySize",
+        "outputs": [
+            {"name": "", "type": "uint256"}
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
         "anonymous": false,
         "inputs": [
             {"indexed": false, "name": "message", "type": "bytes"}
