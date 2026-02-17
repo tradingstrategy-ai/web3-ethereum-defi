@@ -34,6 +34,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
+from ccxt.base.errors import InsufficientFunds as InsufficientFundsError
 from eth_typing import HexAddress
 from web3 import Web3
 from web3.types import TxParams
@@ -152,8 +153,12 @@ class TradeExecutionResult:
     error_message: str | None
 
 
-class InsufficientGasError(Exception):
-    """Raised when gas balance is critically low and raise_on_critical is True."""
+class InsufficientGasError(InsufficientFundsError):
+    """Raised when gas balance is critically low.
+
+    Inherits from CCXT's ``InsufficientFunds`` so Freqtrade's built-in
+    handler (``handle_insufficient_funds``) catches it automatically.
+    """
 
     def __init__(self, message: str, gas_check: GasCheckResult):
         """Initialise with message and gas check result.

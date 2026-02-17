@@ -36,7 +36,7 @@ from eth_defi.gmx.core.oracle import OraclePrices
 from eth_defi.gmx.order.sltp_order import SLTPEntry, SLTPOrder, SLTPParams
 from eth_defi.gmx.contracts import get_contract_addresses
 from eth_defi.gmx.ccxt.exchange import _derive_side_from_trade_action
-from eth_defi.gmx.events import decode_gmx_event, extract_order_execution_result, extract_order_key_from_receipt, GMX_USD_PRECISION
+from eth_defi.gmx.events import decode_gmx_event, extract_order_key_from_receipt
 from eth_defi.gmx.utils import convert_raw_price_to_usd
 from eth_defi.gmx.order_tracking import check_order_status
 from eth_defi.gmx.verification import verify_gmx_order_execution
@@ -425,23 +425,29 @@ class GMX(Exchange):
                 )
                 return fee_usd
 
-        # Non-stablecoin collateral without price data - cannot convert accurately
-        if is_long:
-            logger.warning(
-                "Fee conversion: no collateral price for long position, fee_tokens=%s %s cannot be converted to USD. Returning token amount as approximate USD (may be inaccurate for non-stablecoin collateral).",
+        # No collateral price from events - check if token is a stablecoin
+        # For stablecoins, token amount ≈ USD amount. For non-stablecoins, we
+        # cannot accurately convert without a price, so return 0 to avoid
+        # reporting misleadingly wrong values (e.g. 0.001 WETH as $0.001)
+        stablecoin_symbols = {"USDC", "USDC.e", "USDT", "DAI", "FRAX", "BUSD", "TUSD", "LUSD"}
+        if token_symbol.upper() in stablecoin_symbols:
+            logger.info(
+                "Fee conversion (stablecoin fallback): %s raw -> %s %s ≈ $%s USD",
+                fee_tokens,
                 fee_in_tokens,
                 token_symbol,
+                fee_in_tokens,
             )
+            return fee_in_tokens
 
-        # Stablecoin path: token amount ≈ USD amount
-        logger.info(
-            "Fee conversion (stablecoin): %s raw -> %s %s ≈ $%s USD",
-            fee_tokens,
-            fee_in_tokens,
+        # Non-stablecoin without price data - cannot convert accurately
+        logger.warning(
+            "Fee conversion failed: no collateral_token_price for non-stablecoin %s (fee_tokens=%s, is_long=%s). Returning 0 to avoid misleading values.",
             token_symbol,
             fee_in_tokens,
+            is_long,
         )
-        return fee_in_tokens
+        return 0.0
 
     def _extract_actual_fee(self, verification, market: dict, is_long: bool, size_delta_usd: float) -> dict:
         """Extract actual fees from order verification.
@@ -1967,93 +1973,19 @@ class GMX(Exchange):
                 execution_tx_hash = trade_action.get("transaction", {}).get("hash")
                 is_long = trade_action.get("isLong")
 
-                # Compute trading fee from trade_action data (matches sync path design)
                 gas_cost_eth = float(receipt.get("gasUsed", 0)) * float(tx.get("gasPrice", 0)) / 1e18
                 size_delta_usd = float(trade_action.get("sizeDeltaUsd", 0)) / 1e30 if trade_action.get("sizeDeltaUsd") else 0.0
 
-                # Sum all available fee components (in collateral token decimals)
-                raw_position_fee = trade_action.get("positionFeeAmount")
-                raw_borrowing_fee = trade_action.get("borrowingFeeAmount")
-                raw_funding_fee = trade_action.get("fundingFeeAmount")
-                total_fee_tokens = 0
-                if raw_position_fee:
-                    total_fee_tokens += int(float(raw_position_fee))
-                if raw_borrowing_fee:
-                    total_fee_tokens += int(float(raw_borrowing_fee))
-                if raw_funding_fee:
-                    total_fee_tokens += int(float(raw_funding_fee))
-
-                logger.info(
-                    "fetch_order(%s): blockchain fee components: position=%s, borrowing=%s, funding=%s, total_tokens=%s, is_long=%s",
-                    id[:16],
-                    raw_position_fee,
-                    raw_borrowing_fee,
-                    raw_funding_fee,
-                    total_fee_tokens,
+                fee_dict = self._extract_fee_from_trade_action(
+                    trade_action,
+                    symbol,
+                    size_delta_usd,
                     is_long,
+                    execution_tx_hash,
+                    order_key,
+                    log_prefix=f"fetch_order({id[:16]})",
+                    web3_instance=self.sync_web3,
                 )
-
-                # Extract collateral token data from trade_action (Subsquid/EventEmitter)
-                ta_collateral_token = trade_action.get("collateralToken")
-                ta_collateral_price_raw = trade_action.get("collateralTokenPriceMax")
-                ta_collateral_price = int(float(ta_collateral_price_raw)) if ta_collateral_price_raw else None
-
-                # If Subsquid didn't provide collateral data, enrich from on-chain events
-                if ta_collateral_token is None and execution_tx_hash:
-                    try:
-                        exec_receipt = await self.web3.eth.get_transaction_receipt(execution_tx_hash)
-                        exec_result = extract_order_execution_result(self.sync_web3, dict(exec_receipt), order_key)
-                        if exec_result:
-                            ta_collateral_token = exec_result.collateral_token
-                            ta_collateral_price = exec_result.collateral_token_price
-                            logger.info(
-                                "fetch_order(%s): enriched collateral from on-chain events: token=%s, price=%s",
-                                id[:16],
-                                ta_collateral_token,
-                                ta_collateral_price,
-                            )
-                    except Exception as e:
-                        logger.warning(
-                            "fetch_order(%s): failed to fetch execution receipt for collateral enrichment: %s",
-                            id[:16],
-                            e,
-                        )
-
-                if total_fee_tokens > 0 and market:
-                    # Actual fee from Subsquid/EventEmitter trade_action
-                    fee_usd = self._convert_token_fee_to_usd(
-                        total_fee_tokens,
-                        market,
-                        is_long,
-                        collateral_token=ta_collateral_token,
-                        collateral_token_price=ta_collateral_price,
-                    )
-                    actual_rate = fee_usd / size_delta_usd if size_delta_usd > 0 else 0.0
-                    currency = self.safe_string(market, "settle", "USDC")
-                    fee_dict = {"cost": fee_usd, "currency": currency, "rate": actual_rate}
-                    logger.info(
-                        "fetch_order(%s): blockchain fee -> $%s %s (rate=%s%%)",
-                        id[:16],
-                        fee_usd,
-                        currency,
-                        actual_rate * 100,
-                    )
-                elif size_delta_usd > 0 and symbol:
-                    # Fallback: estimate fee at 0.06% when no fee data in trade_action
-                    fee_dict = self._build_trading_fee(symbol, size_delta_usd)
-                    logger.info(
-                        "fetch_order(%s): no fee data in trade_action, using estimated fee: %s",
-                        id[:16],
-                        fee_dict,
-                    )
-                else:
-                    # Last resort: gas cost only (no trading fee data available)
-                    fee_dict = {"currency": "ETH", "cost": gas_cost_eth, "rate": None}
-                    logger.info(
-                        "fetch_order(%s): no fee data or size, gas-only fee: %s",
-                        id[:16],
-                        fee_dict,
-                    )
 
                 logger.info(
                     "ORDER_TRACE: fetch_order(%s) - Order EXECUTED (async) at price=%s, size_usd=%s, derived_side=%s, orderType=%s, isLong=%s, fee=%s - RETURNING status=closed",
