@@ -16,6 +16,7 @@ Tutorials
 
 - :ref:`gmx-swap` - Execute swaps on GMX
 - :ref:`lagoon-gmx` - Trade GMX perpetuals from a Lagoon vault
+- :ref:`gmx-ccxt-freqtrade` - Algorithmic trading on GMX using FreqTrade and CCXT
 
 What Is GMX?
 =============
