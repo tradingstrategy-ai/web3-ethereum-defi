@@ -1841,6 +1841,7 @@ class GMX(Exchange):
                         order_key_hex,
                         timeout_seconds=5,
                         poll_interval=0.5,
+                        account=self.wallet_address,
                     )
                 except Exception as e:
                     logger.debug("fetch_order(%s): Subsquid query failed: %s", id, e)
@@ -1988,14 +1989,16 @@ class GMX(Exchange):
                 )
 
                 logger.info(
-                    "ORDER_TRACE: fetch_order(%s) - Order EXECUTED (async) at price=%s, size_usd=%s, derived_side=%s, orderType=%s, isLong=%s, fee=%s - RETURNING status=closed",
+                    "ORDER_TRACE: fetch_order(%s) - Order EXECUTED (async): price=%s, size_usd=$%.2f, side=%s, orderType=%s, isLong=%s | trading_fee=$%.6f %s (rate=%.4f%%)",
                     id[:16],
                     execution_price or 0,
                     size_delta_usd,
                     derived_side,
                     trade_action.get("orderType"),
                     trade_action.get("isLong"),
-                    fee_dict,
+                    fee_dict.get("cost", 0),
+                    fee_dict.get("currency", "USDC"),
+                    fee_dict.get("rate", 0) * 100,
                 )
 
                 timestamp = self.milliseconds()

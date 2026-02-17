@@ -1203,13 +1203,15 @@ class GMX(ExchangeCompatible):
             total_fee_tokens += int(float(raw_funding_fee))
 
         logger.info(
-            "%s: fee components: position=%s, borrowing=%s, funding=%s, total_tokens=%s, is_long=%s",
+            "%s: fee raw tokens from trade_action: position=%s, borrowing=%s, funding=%s, total=%s, is_long=%s, collateral=%s, collateral_price=%s",
             log_prefix,
             raw_position_fee,
             raw_borrowing_fee,
             raw_funding_fee,
             total_fee_tokens,
             is_long,
+            trade_action.get("collateralToken"),
+            trade_action.get("collateralTokenPriceMax"),
         )
 
         # Extract collateral token data
@@ -1217,23 +1219,34 @@ class GMX(ExchangeCompatible):
         ta_collateral_price_raw = trade_action.get("collateralTokenPriceMax")
         ta_collateral_price = int(float(ta_collateral_price_raw)) if ta_collateral_price_raw else None
 
-        # If no collateral data, enrich from on-chain events
-        if ta_collateral_token is None and execution_tx_hash:
+        # If trade_action lacks fee data or collateral data, enrich from on-chain events
+        if (total_fee_tokens == 0 or ta_collateral_token is None) and execution_tx_hash:
             try:
                 exec_receipt = w3.eth.get_transaction_receipt(execution_tx_hash)
                 exec_result = extract_order_execution_result(w3, exec_receipt, order_key)
                 if exec_result:
-                    ta_collateral_token = exec_result.collateral_token
-                    ta_collateral_price = exec_result.collateral_token_price
-                    logger.info(
-                        "%s: enriched collateral from on-chain events: token=%s, price=%s",
-                        log_prefix,
-                        ta_collateral_token,
-                        ta_collateral_price,
-                    )
+                    # Enrich collateral data
+                    if ta_collateral_token is None and exec_result.collateral_token:
+                        ta_collateral_token = exec_result.collateral_token
+                    if ta_collateral_price is None and exec_result.collateral_token_price:
+                        ta_collateral_price = exec_result.collateral_token_price
+
+                    # Enrich fee amounts from PositionFeesCollected event
+                    if total_fee_tokens == 0 and exec_result.fees:
+                        total_fee_tokens = (exec_result.fees.position_fee or 0) + (exec_result.fees.borrowing_fee or 0) + (exec_result.fees.funding_fee or 0)
+                        logger.info(
+                            "%s: enriched fees from on-chain PositionFeesCollected: position=%s, borrowing=%s, funding=%s, total=%s, collateral_token=%s, collateral_price=%s",
+                            log_prefix,
+                            exec_result.fees.position_fee,
+                            exec_result.fees.borrowing_fee,
+                            exec_result.fees.funding_fee,
+                            total_fee_tokens,
+                            ta_collateral_token,
+                            ta_collateral_price,
+                        )
             except Exception as e:
                 logger.warning(
-                    "%s: failed to fetch execution receipt for collateral enrichment: %s",
+                    "%s: failed to fetch execution receipt for fee/collateral enrichment: %s",
                     log_prefix,
                     e,
                 )
@@ -1249,27 +1262,44 @@ class GMX(ExchangeCompatible):
             actual_rate = fee_usd / size_delta_usd if size_delta_usd > 0 else 0.0
             currency = self.safe_string(market, "settle", "USDC")
             fee_dict = {"cost": fee_usd, "currency": currency, "rate": actual_rate}
+
+            # Determine fee source for logging
+            fee_source = "trade_action"
+            if raw_position_fee is None and raw_borrowing_fee is None and raw_funding_fee is None:
+                fee_source = "on-chain PositionFeesCollected"
+
             logger.info(
-                "%s: actual fee -> $%s %s (rate=%s%%)",
+                "%s: TRADING FEE BREAKDOWN: source=%s | position_fee=%s, borrowing_fee=%s, funding_fee=%s | total_raw_tokens=%s | collateral=%s (price=%s) | fee_usd=$%.6f %s | rate=%.4f%% | size_usd=$%.2f",
                 log_prefix,
+                fee_source,
+                raw_position_fee or "(enriched)",
+                raw_borrowing_fee or "(enriched)",
+                raw_funding_fee or "(enriched)",
+                total_fee_tokens,
+                ta_collateral_token,
+                ta_collateral_price,
                 fee_usd,
                 currency,
                 actual_rate * 100,
+                size_delta_usd,
             )
             return fee_dict
 
         if size_delta_usd > 0 and symbol:
             fee_dict = self._build_trading_fee(symbol, size_delta_usd)
             logger.info(
-                "%s: no fee data in trade_action, using estimated fee: %s",
+                "%s: TRADING FEE BREAKDOWN: source=estimated (no fee data in trade_action) | fee_usd=$%.6f %s | rate=%.4f%% | size_usd=$%.2f",
                 log_prefix,
-                fee_dict,
+                fee_dict.get("cost", 0),
+                fee_dict.get("currency", "USDC"),
+                fee_dict.get("rate", 0) * 100,
+                size_delta_usd,
             )
             return fee_dict
 
         # Last resort: zero fee
         logger.warning(
-            "%s: no fee data or size available, returning zero fee",
+            "%s: TRADING FEE BREAKDOWN: source=none (no fee data or size available) | fee_usd=$0.00",
             log_prefix,
         )
         return {"cost": 0.0, "currency": "USDC", "rate": 0.0}
@@ -6325,6 +6355,7 @@ class GMX(ExchangeCompatible):
                     order_key_hex,
                     timeout_seconds=30,
                     poll_interval=0.5,
+                    account=self.wallet_address,
                 )
 
                 # Debug: Print full trade_action response
@@ -6529,11 +6560,14 @@ class GMX(ExchangeCompatible):
             self._orders[tx_hash] = order
 
             logger.info(
-                "ORDER_TRACE: create_order() RETURNING - order_id=%s, status=%s, filled=%.8f, remaining=%.8f",
+                "ORDER_TRACE: create_order() RETURNING - order_id=%s, status=%s, filled=%.8f, remaining=%.8f | trading_fee=$%.6f %s (rate=%.4f%%)",
                 order.get("id")[:16] if order.get("id") else "None",
                 order.get("status"),
                 order.get("filled", 0),
                 order.get("remaining", 0),
+                fee_dict.get("cost", 0),
+                fee_dict.get("currency", "USDC"),
+                fee_dict.get("rate", 0) * 100,
             )
             logger.info("=" * 80)
 
@@ -7033,6 +7067,7 @@ class GMX(ExchangeCompatible):
                         order_key_hex,
                         timeout_seconds=5,
                         poll_interval=0.5,
+                        account=self.wallet_address,
                     )
                 except Exception as e:
                     logger.info("fetch_order(%s): Subsquid query failed: %s", id[:16], e)
@@ -7180,14 +7215,16 @@ class GMX(ExchangeCompatible):
                 )
 
                 logger.info(
-                    "ORDER_TRACE: fetch_order(%s) - Order EXECUTED at price=%s, size_usd=%s, derived_side=%s, orderType=%s, isLong=%s, fee=%s - RETURNING status=closed",
+                    "ORDER_TRACE: fetch_order(%s) - Order EXECUTED: price=%s, size_usd=$%.2f, side=%s, orderType=%s, isLong=%s | trading_fee=$%.6f %s (rate=%.4f%%)",
                     id[:16],
                     execution_price or 0,
                     size_delta_usd,
                     derived_side,
                     trade_action.get("orderType"),
                     trade_action.get("isLong"),
-                    fee_dict,
+                    fee_dict.get("cost", 0),
+                    fee_dict.get("currency", "USDC"),
+                    fee_dict.get("rate", 0) * 100,
                 )
 
                 timestamp = self.milliseconds()

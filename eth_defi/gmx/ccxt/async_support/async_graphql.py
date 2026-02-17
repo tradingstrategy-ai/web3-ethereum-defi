@@ -1,7 +1,8 @@
 """Async GraphQL client for GMX Subsquid data."""
 
+import asyncio
 import logging
-from typing import Any
+from typing import Any, Optional
 
 import aiohttp
 
@@ -158,6 +159,43 @@ class AsyncGMXSubsquidClient:
 
         data = await self._query(query)
         return data.get("marketInfos", [])
+
+    async def get_trade_action_by_order_key(
+        self,
+        order_key: str,
+        timeout_seconds: int = 30,
+        poll_interval: float = 0.5,
+        max_retries: int = 3,
+        account: str | None = None,
+    ) -> Optional[dict[str, Any]]:
+        """Query for order execution status via Subsquid (async).
+
+        Delegates to the sync :py:class:`GMXSubsquidClient` via
+        ``run_in_executor`` to reuse the full tradeActions + positionChanges
+        + orderById query logic.
+
+        :param order_key: Order key (hex string with 0x prefix)
+        :param timeout_seconds: Max time to wait for indexer (default 30s)
+        :param poll_interval: Time between queries in seconds (default 0.5s)
+        :param max_retries: Number of retries for failed requests (default 3)
+        :param account: Wallet address for tradeActions query filter.
+        :return: Trade action dict or None if not found within timeout
+        """
+        sync_client = GMXSubsquidClient(
+            chain=self.chain,
+            custom_endpoint=self.custom_endpoint,
+        )
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(
+            None,
+            lambda: sync_client.get_trade_action_by_order_key(
+                order_key,
+                timeout_seconds=timeout_seconds,
+                poll_interval=poll_interval,
+                max_retries=max_retries,
+                account=account,
+            ),
+        )
 
     @staticmethod
     def calculate_max_leverage(min_collateral_factor: str) -> float | None:
