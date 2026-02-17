@@ -5937,6 +5937,7 @@ class GMX(ExchangeCompatible):
                         "trades": [],
                         "info": {
                             "reason": "position_already_closed",
+                            "exit_reason": "sold_on_exchange",
                             "message": f"Position for {symbol} was already closed (likely by stop-loss)",
                             "requested_close_size_usd": gmx_params["size_delta_usd"],
                         },
@@ -6036,6 +6037,7 @@ class GMX(ExchangeCompatible):
                         "trades": [],
                         "info": {
                             "reason": "position_already_closed",
+                            "exit_reason": "sold_on_exchange",
                             "message": error_msg,
                             "requested_close_size_usd": gmx_params.get("size_delta_usd"),
                         },
@@ -6231,52 +6233,10 @@ class GMX(ExchangeCompatible):
                 pause_msg = f"\n{pause_separator}\nTRADING PAUSED - MANUAL INTERVENTION REQUIRED\n{pause_separator}\nReason: {self._consecutive_failures} consecutive transaction failures\n{self._trading_paused_reason}\nTo resume trading, call: gmx.reset_failure_counter()\n{pause_separator}"
                 logger.error(pause_msg)
 
-            # Return cancelled order - don't store as "open"
-            # Match the pattern from commit 2e2a8757 for cancelled orders
-            timestamp = self.milliseconds()
-            failed_order = {
-                "id": tx_hash,
-                "clientOrderId": None,
-                "timestamp": timestamp,
-                "datetime": self.iso8601(timestamp),
-                "lastTradeTimestamp": timestamp,
-                "symbol": symbol,
-                "type": type,
-                "side": side,
-                "price": None,
-                "amount": amount,
-                "cost": None,
-                "average": None,
-                "filled": 0.0,
-                "remaining": amount,
-                "status": "cancelled",  # Mark as cancelled, not open
-                "fee": {
-                    "cost": order_result.execution_fee / 1e18,
-                    "currency": "ETH",
-                    "rate": None,
-                },
-                "trades": [],
-                "info": {
-                    "tx_hash": tx_hash,
-                    "creation_receipt": receipt,
-                    "block_number": receipt.get("blockNumber"),
-                    "gas_used": receipt.get("gasUsed"),
-                    "revert_reason": revert_reason,
-                    "event_name": "TransactionReverted",
-                    "cancel_reason": f"Order creation transaction reverted: {revert_reason}",
-                },
-            }
-
-            # Store in cache for consistency
-            self._orders[tx_hash] = failed_order
-
-            logger.info(
-                "Order creation FAILED - returning cancelled order id=%s, reason=%s",
-                tx_hash[:18],
-                revert_reason[:100],
-            )
-
-            return failed_order
+            # Raise InvalidOrder so freqtrade does NOT persist a broken order/exit_reason.
+            # The auto-pause logic above already ran and set _trading_paused if needed.
+            # Freqtrade catches this as DependencyException — bot loop continues.
+            raise InvalidOrder(f"GMX order creation tx reverted for {symbol}: {revert_reason[:200]} (tx={tx_hash[:18]}...)")
 
         # Transaction succeeded - reset consecutive failure counter
         if self._consecutive_failures > 0:
@@ -6439,55 +6399,20 @@ class GMX(ExchangeCompatible):
             event_name = trade_action.get("eventName", "")
             if event_name in ("OrderCancelled", "OrderFrozen"):
                 error_reason = trade_action.get("reason") or f"Order {event_name.lower()}"
-                logger.debug(
-                    "ORDER_TRACE: Order %s by keeper - reason=%s",
+                logger.info(
+                    "ORDER_TRACE: create_order() - Order %s by keeper for %s - reason=%s, tx=%s, order_key=%s",
                     event_name,
+                    symbol,
                     error_reason,
-                )
-                # Return cancelled order - don't raise exception
-                # Freqtrade expects order dict, not exception
-                timestamp = self.milliseconds()
-                order = {
-                    "id": tx_hash,
-                    "clientOrderId": None,
-                    "timestamp": timestamp,
-                    "datetime": self.iso8601(timestamp),
-                    "lastTradeTimestamp": timestamp,
-                    "symbol": symbol,
-                    "type": type,
-                    "side": side,
-                    "price": None,
-                    "amount": amount,
-                    "cost": None,
-                    "average": None,
-                    "filled": 0.0,
-                    "remaining": amount,
-                    "status": "cancelled",
-                    "fee": {
-                        "cost": order_result.execution_fee / 1e18,
-                        "currency": "ETH",
-                        "rate": None,
-                    },
-                    "trades": [],
-                    "info": {
-                        "tx_hash": tx_hash,
-                        "creation_receipt": receipt,
-                        "order_key": order_key.hex(),
-                        "event_name": event_name,
-                        "cancel_reason": error_reason,
-                    },
-                }
-
-                # Store in cache
-                self._orders[tx_hash] = order
-
-                logger.debug(
-                    "ORDER_TRACE: create_order() RETURNING cancelled order_id=%s, reason=%s",
                     tx_hash[:18],
-                    error_reason,
+                    order_key.hex()[:18] if order_key else "N/A",
                 )
 
-                return order
+                # Raise InvalidOrder so freqtrade does NOT set exit_reason on the trade.
+                # Freqtrade's exchange wrapper converts ccxt.InvalidOrder to
+                # InvalidOrderException (subclass of DependencyException), which is
+                # caught per-trade in exit_positions() — the bot loop continues.
+                raise InvalidOrder(f"GMX order {event_name} by keeper for {symbol}: {error_reason} (tx={tx_hash[:18]}..., order_key={order_key.hex()[:18] if order_key else 'N/A'}...)")
 
             # Order executed successfully
             # Parse execution price from Subsquid (30 decimals) or event
@@ -6937,7 +6862,10 @@ class GMX(ExchangeCompatible):
                     )
                 else:
                     # Order was cancelled or frozen
-                    order["status"] = "cancelled"
+                    # Use "expired" for frozen orders — still in NON_OPEN_EXCHANGE_STATES
+                    # but distinguishable from hard cancels
+                    is_frozen = "OrderFrozen" in (verification.event_names or [])
+                    order["status"] = "expired" if is_frozen else "cancelled"
                     order["filled"] = 0.0
                     order["remaining"] = order["amount"]
 
@@ -6947,6 +6875,7 @@ class GMX(ExchangeCompatible):
                     order["info"]["execution_block"] = status_result.execution_block
                     order["info"]["cancellation_reason"] = verification.decoded_error or verification.reason
                     order["info"]["event_names"] = verification.event_names
+                    order["info"]["gmx_status"] = "frozen" if is_frozen else "cancelled"
 
                     logger.warning(
                         "fetch_order(%s): order CANCELLED - reason=%s, events=%s",
@@ -7149,11 +7078,14 @@ class GMX(ExchangeCompatible):
 
                 if event_name in ("OrderCancelled", "OrderFrozen"):
                     # Order cancelled/frozen
+                    is_frozen = event_name == "OrderFrozen"
                     error_reason = trade_action.get("reason") or f"Order {event_name.lower()}"
                     logger.info(
-                        "ORDER_TRACE: fetch_order(%s) - Order CANCELLED/FROZEN - reason=%s - RETURNING status=cancelled",
+                        "ORDER_TRACE: fetch_order(%s) - Order %s - reason=%s - RETURNING status=%s",
                         id,
+                        event_name,
                         error_reason,
+                        "expired" if is_frozen else "cancelled",
                     )
 
                     timestamp = self.milliseconds()
@@ -7172,7 +7104,7 @@ class GMX(ExchangeCompatible):
                         "average": None,
                         "filled": 0.0,
                         "remaining": None,
-                        "status": "cancelled",
+                        "status": "expired" if is_frozen else "cancelled",
                         "fee": {
                             "currency": "ETH",
                             "cost": float(receipt.get("gasUsed", 0)) * float(tx.get("gasPrice", 0)) / 1e18,
@@ -7185,6 +7117,7 @@ class GMX(ExchangeCompatible):
                             "order_key": order_key_hex,
                             "event_name": event_name,
                             "cancel_reason": error_reason,
+                            "gmx_status": "frozen" if is_frozen else "cancelled",
                         },
                     }
                     return order
