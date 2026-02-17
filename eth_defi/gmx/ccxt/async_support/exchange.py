@@ -1934,7 +1934,10 @@ class GMX(Exchange):
                     )
                 else:
                     # Order was cancelled or frozen
-                    order["status"] = "cancelled"
+                    # Use "expired" for frozen orders — still in NON_OPEN_EXCHANGE_STATES
+                    # but distinguishable from hard cancels
+                    is_frozen = "OrderFrozen" in (verification.event_names or [])
+                    order["status"] = "expired" if is_frozen else "cancelled"
                     order["filled"] = 0.0
                     order["remaining"] = order["amount"]
 
@@ -1944,12 +1947,15 @@ class GMX(Exchange):
                     order["info"]["execution_block"] = status_result.execution_block
                     order["info"]["cancellation_reason"] = verification.decoded_error or verification.reason
                     order["info"]["event_names"] = verification.event_names
+                    order["info"]["gmx_status"] = "frozen" if is_frozen else "cancelled"
 
                     logger.warning(
-                        "ORDER_TRACE: fetch_order(%s) - Order CANCELLED (async) - reason=%s, events=%s - RETURNING status=cancelled",
+                        "ORDER_TRACE: fetch_order(%s) - Order %s (async) - reason=%s, events=%s - RETURNING status=%s",
                         id,
+                        "FROZEN" if is_frozen else "CANCELLED",
                         verification.decoded_error or verification.reason,
                         verification.event_names,
+                        order["status"],
                     )
 
                 # Update cache with new status
@@ -2150,11 +2156,14 @@ class GMX(Exchange):
 
                 if event_name in ("OrderCancelled", "OrderFrozen"):
                     # Order cancelled/frozen
+                    is_frozen = event_name == "OrderFrozen"
                     error_reason = trade_action.get("reason") or f"Order {event_name.lower()}"
                     logger.info(
-                        "ORDER_TRACE: fetch_order(%s) - Order CANCELLED/FROZEN (async) - reason=%s - RETURNING status=cancelled",
+                        "ORDER_TRACE: fetch_order(%s) - Order %s (async) - reason=%s - RETURNING status=%s",
                         id,
+                        event_name,
                         error_reason,
+                        "expired" if is_frozen else "cancelled",
                     )
 
                     timestamp = self.milliseconds()
@@ -2173,7 +2182,7 @@ class GMX(Exchange):
                         "average": None,
                         "filled": 0.0,
                         "remaining": None,
-                        "status": "cancelled",
+                        "status": "expired" if is_frozen else "cancelled",
                         "fee": {
                             "currency": "ETH",
                             "cost": float(receipt.get("gasUsed", 0)) * float(tx.get("gasPrice", 0)) / 1e18,
@@ -2186,6 +2195,7 @@ class GMX(Exchange):
                             "order_key": order_key_hex,
                             "event_name": event_name,
                             "cancel_reason": error_reason,
+                            "gmx_status": "frozen" if is_frozen else "cancelled",
                         },
                     }
                     return order
