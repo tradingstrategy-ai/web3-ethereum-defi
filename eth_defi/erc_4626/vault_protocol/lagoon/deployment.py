@@ -38,7 +38,7 @@ from eth_defi.gas import apply_gas, estimate_gas_price
 from eth_defi.hotwallet import HotWallet
 from eth_defi.orderly.vault import OrderlyVault
 from eth_defi.provider.anvil import is_anvil
-from eth_defi.safe.deployment import add_new_safe_owners, deploy_safe, fetch_safe_deployment
+from eth_defi.safe.deployment import add_new_safe_owners, deploy_safe, deploy_safe_with_deterministic_address, fetch_safe_deployment
 from eth_defi.safe.execute import execute_safe_tx
 from eth_defi.token import WRAPPED_NATIVE_TOKEN, fetch_erc20_details, get_wrapped_native_token_address
 from eth_defi.trace import assert_transaction_success_with_explanation
@@ -1028,6 +1028,8 @@ def deploy_automated_lagoon_vault(
     factory_contract=True,
     from_the_scratch: bool = False,
     assets: list[HexAddress | str] | None = None,
+    safe_salt_nonce: int | None = None,
+    safe_proxy_factory_address: HexAddress | str | None = None,
 ) -> LagoonAutomatedDeployment:
     """Deploy a full Lagoon setup with a guard.
 
@@ -1057,6 +1059,15 @@ def deploy_automated_lagoon_vault(
         Need to deloy a fee registry contract as well.
 
         A new chain deployment.
+
+    :param safe_salt_nonce:
+        If set, deploy the Safe using CREATE2 via the canonical SafeProxyFactory
+        for a deterministic address. Use the same value across chains to get the
+        same Safe address everywhere.
+
+    :param safe_proxy_factory_address:
+        Override the Safe ProxyFactory address. Defaults to the canonical v1.4.1
+        factory (``0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67``).
     """
 
     legacy = vault_abi == "lagoon/Vault.json"
@@ -1110,12 +1121,22 @@ def deploy_automated_lagoon_vault(
 
     if not existing_vault_address:
         # Deploy a Safe multisig that forms the core of Lagoon vault
-        safe = deploy_safe(
-            web3,
-            deployer_local_account,
-            owners=[deployer.address],
-            threshold=1,
-        )
+        if safe_salt_nonce is not None:
+            safe = deploy_safe_with_deterministic_address(
+                web3,
+                deployer_local_account,
+                owners=[deployer.address],
+                threshold=1,
+                salt_nonce=safe_salt_nonce,
+                proxy_factory_address=safe_proxy_factory_address or "0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67",
+            )
+        else:
+            safe = deploy_safe(
+                web3,
+                deployer_local_account,
+                owners=[deployer.address],
+                threshold=1,
+            )
 
         parameters.safe = safe.address
         logger.info("Deployed new Safe: %s", safe.address)
