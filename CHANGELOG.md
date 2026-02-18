@@ -1,5 +1,6 @@
 # Current
 
+- Fix block timestamp scan range clipping to prevent querying blocks beyond HyperSync database range (2026-02-18)
 - Switch from ujson to orjson for faster JSON-RPC response decoding (2026-02-18)
 - Add Accountable Capital offchain metadata for vault descriptions, company info, and performance fees (2026-02-18)
 - Fix Accountable vault NAV calculation to use convertToAssets(totalSupply()) instead of totalAssets() which only returns idle liquidity (2026-02-18)

@@ -1528,7 +1528,7 @@ def read_multicall_historical_stateful(
     from eth_defi.erc_4626.vault import VaultReaderState
 
     timestamp_end_block = timestamps.get_last_block()
-    if timestamp_end_block > end_block:
+    if timestamp_end_block < end_block:
         logger.warning(f"Clipping end block by timestamps cache end block {timestamp_end_block:,} < {end_block:,}")
         end_block = timestamp_end_block
 
