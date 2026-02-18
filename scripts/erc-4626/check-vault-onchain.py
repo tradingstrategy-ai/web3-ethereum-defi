@@ -24,8 +24,8 @@ from eth_defi.vault.base import VaultSpec
 
 setup_console_logging(default_log_level="INFO")
 
-# Gearbox vault on Plasma (chain 9745)
-spec = VaultSpec.parse_string("9745-0x76309a9a56309104518847bba321c261b7b4a43f")
+# Hub Capital USDC vault on Ethereum
+spec = VaultSpec.parse_string("1-0xca790385506b790554571cbc9da73f0130cdcfd5")
 
 json_rpc_url = read_json_rpc_url(spec.chain_id)
 web3 = create_multi_provider_web3(json_rpc_url)
@@ -50,6 +50,20 @@ print("Vault denominator:", vault.denomination_token)
 print("Vault share token:", vault.share_token)
 print("Share price:", share_price)
 print("TVL:", vault.fetch_nav())
+print("-" * 80)
+
+# Vault descriptions
+print("\nDescriptions:")
+print(f"  Short: {vault.short_description or 'None'}")
+print(f"  Long: {vault.description or 'None'}")
+print("-" * 80)
+
+# Vault flags and notes (uses vault instance methods for protocol-specific auto-flagging)
+flags = vault.get_flags()
+notes = vault.get_notes()
+print("\nFlags and notes:")
+print(f"  Flags: {flags or 'None'}")
+print(f"  Notes: {notes or 'None'}")
 print("-" * 80)
 
 # Check deposit/redemption status

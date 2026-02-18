@@ -121,6 +121,8 @@ MISSING_IN_PROTOCOL_FRONTEND = "This vault is missing in the protocol's primary 
 
 SUBVAULT = "This vault is likely not intended to be directly exposed to the end users. It may be used by other vaults as a part of the strategy mix and has erratic TVL."
 
+PEAPODS_ILLIQUID = "Peapods vault is illiquid"
+
 YIELDNEST_YNRWAX = """ynRWAx: Tokenized Australian residential real estate credit earning 11% APY, allocated to mortgage-backed loans on verified house-and-land developments. Made safe in collaboration with a fully licensed and insured fund manager, [Kimber Capital](https://kimbercapital.au/) (AFS Licence No. 425278).
 
 Fees: 0%.
@@ -160,7 +162,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0xe0fc62e685e2b3183b4b88b1fe674cfec55a63f7": (VaultFlag.illiquid, XUSD_MESSAGE),
     "0x9c4d4800b489d217724155399cd64d07eae603f3": (VaultFlag.illiquid, XUSD_MESSAGE),
     "0xa1627a0e1d0ebca9326d2219b84df0c600bed4b1": (VaultFlag.illiquid, XUSD_MESSAGE),
-    "0xacb7432a4bb15402ce2afe0a7c9d5b738604f6f9": (VaultFlag.illiquid, XUSD_MESSAGE),
+    # Harvest: USDC Vault (0xACB7)
+    "0xacb7432a4bb15402ce2afe0a7c9d5b738604f6f9": (VaultFlag.subvault, SUBVAULT),
     "0x1320382143d98a80a0b247148a42dd2aa33d9c2d": (VaultFlag.illiquid, XUSD_MESSAGE),
     "0xed9777944a2fb32504a410d23f246463b3f40908": (VaultFlag.illiquid, XUSD_MESSAGE),
     "0x61ffbead1d4dc9ffba35eb16fd6cadee9b37b2aa": (VaultFlag.illiquid, XUSD_MESSAGE),
@@ -315,6 +318,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0x74847d0d124ce5c89ca8f4e7547aecd09e86b2e0": (VaultFlag.unofficial, MISSING_IN_PROTOCOL_FRONTEND),
     # Borrowable USDC Deposit, SiloId: 125 on Avalanche
     "0xe0345f66318f482acccd67244a921c7fdc410957": (VaultFlag.illiquid, XUSD_MESSAGE),
+    # Peapods Interest Bearing USDC - 22 (Arbitrum)
+    "0x0319c82013cf676661f7bde576c6731869a93fc0": (VaultFlag.illiquid, PEAPODS_ILLIQUID),
 }
 
 for addr in VAULT_FLAGS_AND_NOTES.keys():

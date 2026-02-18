@@ -47,7 +47,6 @@ CHAIN_RESTRICTED_PROBES: dict[str, set[int]] = {
     "vaultManager": {5000},  # Brink - Mantle only
     "strategy": {143},  # Accountable - Monad only
     "queue": {143},  # Accountable - Monad only
-    "registry": {42161},  # Ostium - Arbitrum only
     "POOL": {999},  # Sentiment - HyperEVM only
     # Two chain protocols
     "claimableKeeper": {137, 42161},  # Untangle Finance - Polygon, Arbitrum
@@ -402,17 +401,6 @@ def create_probe_calls(
             data=b"",
             extra_data=None,
         )
-
-        # Ostium - Arbitrum only (registry() call)
-        # https://github.com/0xOstium/smart-contracts-public/blob/da3b944623bef814285b7f418d43e6a95f4ad4b1/src/OstiumVault.sol
-        if _should_yield_probe("registry", chain_id):
-            yield EncodedCall.from_keccak_signature(
-                address=address,
-                signature=Web3.keccak(text="registry()")[0:4],
-                function="registry",
-                data=b"",
-                extra_data=None,
-            )
 
         # Umami - Arbitrum only
         # https://arbiscan.io/address/0x5f851f67d24419982ecd7b7765defd64fbb50a97#readContract
@@ -802,10 +790,7 @@ def identify_vault_features(
         features.add(ERC4626Feature.gains_tranche_like)
 
     if calls["maxDiscountP"].success:
-        if calls["registry"].success:
-            features.add(ERC4626Feature.ostium_like)
-        else:
-            features.add(ERC4626Feature.gains_like)
+        features.add(ERC4626Feature.gains_like)
 
     if calls["MORPHO"].success:
         features.add(ERC4626Feature.morpho_like)
@@ -1803,6 +1788,9 @@ HARDCODED_PROTOCOLS = {
     # sBOLD - K3 Capital yield-bearing tokenised Liquity V2 Stability Pool deposit
     # https://etherscan.io/address/0x50bd66d59911f5e086ec87ae43c811e0d059dd11
     "0x50bd66d59911f5e086ec87ae43c811e0d059dd11": {ERC4626Feature.sbold_like},
+    # Ostium - ostiumLP vault on Arbitrum
+    # https://arbiscan.io/address/0x20d419a8e12c45f88fda7c5760bb6923cee27f98
+    "0x20d419a8e12c45f88fda7c5760bb6923cee27f98": {ERC4626Feature.ostium_like},
 }
 
 for a in HARDCODED_PROTOCOLS.keys():
