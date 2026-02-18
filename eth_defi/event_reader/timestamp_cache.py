@@ -263,6 +263,32 @@ class BlockTimestampDatabase:
             """
         ).fetchone()[0]
 
+    def find_gaps(self) -> list[tuple[int, int, int]]:
+        """Find all gaps in the block timestamp database.
+
+        Uses LEAD window function for efficient gap boundary detection
+        without materialising the full expected block range.
+
+        :return:
+            List of ``(gap_start, gap_end, gap_size)`` tuples.
+            ``gap_start`` is the last present block before the gap,
+            ``gap_end`` is the first present block after the gap,
+            ``gap_size`` is the number of missing blocks.
+        """
+        rows = self.con.execute("""
+            SELECT block_number AS gap_start,
+                   next_block AS gap_end,
+                   (next_block - block_number - 1) AS gap_size
+            FROM (
+                SELECT block_number,
+                       LEAD(block_number) OVER (ORDER BY block_number) AS next_block
+                FROM block_timestamps
+            )
+            WHERE next_block - block_number > 1
+            ORDER BY block_number
+        """).fetchall()
+        return [(int(r[0]), int(r[1]), int(r[2])) for r in rows]
+
     def get_slicer(self) -> "BlockTimestampSlicer":
         return BlockTimestampSlicer(self)
 
