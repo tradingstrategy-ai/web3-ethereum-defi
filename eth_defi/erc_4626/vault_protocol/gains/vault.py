@@ -535,3 +535,11 @@ class OstiumVault(GainsVault):
             )
 
         raise NotImplementedError(f"Does not know this Gains-like vault structure")
+
+    @property
+    def short_description(self) -> str | None:
+        return "Ostium liquidity pool vault where depositors provide USDC as counterparty liquidity to perpetual traders, earning trading fees and trader PnL exposure."
+
+    @property
+    def description(self) -> str | None:
+        return "Users deposit USDC to mint OLP tokens, representing a stake in a fund that generates returns through trading fees and trader PnL exposure. The vault operates on an epoch-based system (currently 3-day cycles) with two states: when undercollateralised (c-ratio < 100%), OLP holders act as direct counterparties to traders with higher fee capture but more volatility; when overcollateralised (c-ratio >= 100%), a buffer absorbs trader PnL first, insulating OLP from volatility. Fees include 30% of opening fees (continuous) and 100% of rollover/liquidation fees (end-of-epoch). Withdrawals require a request during the first 48 hours of an epoch, followed by a cool-off period before USDC redemption. See [Ostium vault documentation](https://ostium-labs.gitbook.io/ostium-docs/vault/overview) for more details."
