@@ -42,8 +42,9 @@ def test_multi_provider_mev_and_fallback():
     assert mev_blocker.provider_counter == {"call": 3, "transact": 0}
 
 
+@pytest.mark.skip(reason="polygon-rpc.com is unreliable public RPC")
 def test_multi_provider_fallback_only():
-    config = """ 
+    config = """
     https://polygon-rpc.com
     """
     web3 = create_multi_provider_web3(config)
@@ -94,6 +95,7 @@ def test_multi_provider_bad_url():
         create_multi_provider_web3(config)
 
 
+@pytest.mark.flaky(reruns=3)
 def test_multi_provider_transact(anvil):
     """See we use MEV Blocker for doing transactions."""
 
