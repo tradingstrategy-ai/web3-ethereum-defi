@@ -10,6 +10,7 @@ Example:
 
 """
 
+import gzip
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -21,10 +22,9 @@ from tqdm_loggable.auto import tqdm
 from joblib import Parallel, delayed
 
 from eth_defi.token import is_stablecoin_like
-from eth_defi.research.sparkline import render_sparkline_simple, export_sparkline_as_svg, render_sparkline_gradient, export_sparkline_as_png
+from eth_defi.research.sparkline import export_sparkline_as_svg, render_sparkline_gradient, export_sparkline_as_png
 from eth_defi.utils import setup_console_logging
-from eth_defi.vault.vaultdb import VaultDatabase, read_default_vault_prices, VaultRow
-from eth_defi.research.sparkline import upload_to_r2_compressed
+from eth_defi.vault.vaultdb import VaultDatabase, read_default_vault_prices
 
 
 #: What's the threshold to render the spark line for the vault
@@ -33,7 +33,7 @@ from eth_defi.research.sparkline import upload_to_r2_compressed
 MIN_PEAK_TVL = 5000
 
 
-@dataclass(slots=True)
+@dataclass
 class RenderData:
     vault_id: str
     svg_bytes: bytes
@@ -41,22 +41,28 @@ class RenderData:
     extension: str
 
 
-def is_vault_included(
-    row: VaultRow,
-    prices_df_grouped: pd.core.groupby.generic.DataFrameGroupBy,
-):
-    id = row["_detection_data"].get_spec().as_string_id()
-    denomination = row.get("Denomination") or ""
-    if not is_stablecoin_like(denomination):
-        return False
+def get_included_vault_ids(
+    vault_db: VaultDatabase,
+    prices_df: pd.DataFrame,
+) -> set[str]:
+    """Pre-compute which vault IDs pass the inclusion filter.
 
-    try:
-        vault_price_df = prices_df_grouped.get_group(id)
-    except KeyError:
-        return False
+    Uses a single groupby aggregation instead of per-vault get_group() calls,
+    which avoids expensive pyarrow ChunkedArray.take() on every iteration.
+    """
+    # Compute peak TVL per vault in one pass
+    peak_tvl = prices_df.groupby("id")["total_assets"].max()
+    eligible_ids = set(peak_tvl[peak_tvl >= MIN_PEAK_TVL].index)
 
-    # Check the peak TVL passed our threshold
-    return vault_price_df["total_assets"].max() >= MIN_PEAK_TVL
+    included = set()
+    for row in vault_db.rows.values():
+        vault_id = row["_detection_data"].get_spec().as_string_id()
+        denomination = row.get("Denomination") or ""
+        if not is_stablecoin_like(denomination):
+            continue
+        if vault_id in eligible_ids:
+            included.add(vault_id)
+    return included
 
 
 def main():
@@ -77,11 +83,9 @@ def main():
     vault_db = VaultDatabase.read()
     prices_df = read_default_vault_prices()
 
-    prices_groped = prices_df.groupby("id")
-
-    # Select entries with peak TVL 50k USD
-
-    vault_rows = [r for r in vault_db.rows.values() if is_vault_included(r, prices_groped)]
+    # Select entries with peak TVL threshold - uses single aggregation pass
+    included_ids = get_included_vault_ids(vault_db, prices_df)
+    vault_rows = [r for r in vault_db.rows.values() if r["_detection_data"].get_spec().as_string_id() in included_ids]
 
     logger.info(f"Exporting sparklines for {len(vault_rows)} vaults to R2 bucket '{bucket_name}'")
 
@@ -92,131 +96,93 @@ def main():
     prices_df = prices_df[prices_df.index >= (last_day - pd.Timedelta(days=90))]
     prices_df = prices_df.reset_index().set_index(["id", "timestamp"]).sort_index()
 
-    def _render_row_simple_svg(row: VaultRow) -> RenderData:
+    # Pre-extract per-vault DataFrames so workers receive small data, not the full prices_df
+    vault_data_items = []
+    for row in vault_rows:
         detection_data = row["_detection_data"]
         spec = detection_data.get_spec()
         vault_id = spec.as_string_id()
-
-        nav = row.get("NAV") or 0
-        denomination = row.get("Denomination") or ""
-
-        logger.info(
-            "Exporting sparkline for vault %s: %s, NAV: %s, denomination: %s",
-            vault_id,
-            row.get("Name", "<unknown>"),
-            nav,
-            denomination,
-        )
-
         try:
             vault_prices_df = prices_df.loc[vault_id]
         except KeyError:
-            # print(f"Skipping vault {vault_id}, no price data")
-            logger.info("Skipping vault %s, no price data", vault_id)
-            return None
-
-        # Do daily data points
+            continue
+        # Resample to daily data points once
         vault_prices_df = vault_prices_df.resample("D").last()[["share_price", "total_assets"]]
+        vault_data_items.append((vault_id, vault_prices_df))
 
-        fig = render_sparkline_gradient(
+    logger.info("Rendering sparklines for %s vaults with %s workers", len(vault_data_items), max_workers)
+
+    # Render both SVG and PNG for a single vault - uses Agg backend, safe in worker processes
+    def _render_vault(vault_id: str, vault_prices_df: pd.DataFrame) -> list[RenderData]:
+        results = []
+
+        # Small SVG sparkline for listings
+        fig_svg = render_sparkline_gradient(
             vault_prices_df,
             width=100,
             height=25,
             line_width=1,
             margin_ratio=4,
         )
-
-        svg_bytes = export_sparkline_as_svg(
-            fig,
-        )
-        return RenderData(
-            vault_id=vault_id,
-            svg_bytes=svg_bytes,
-            content_type="image/svg+xml",
-            extension="svg",
-        )
-
-    def _render_row_gradient_png(row: VaultRow) -> RenderData:
-        detection_data = row["_detection_data"]
-        spec = detection_data.get_spec()
-        vault_id = spec.as_string_id()
-
-        nav = row.get("NAV") or 0
-        denomination = row.get("Denomination") or ""
-
-        logger.info(
-            "Exporting sparkline for vault %s: %s, NAV: %s, denomination: %s",
-            vault_id,
-            row.get("Name", "<unknown>"),
-            nav,
-            denomination,
+        svg_bytes = export_sparkline_as_svg(fig_svg)
+        results.append(
+            RenderData(
+                vault_id=vault_id,
+                svg_bytes=svg_bytes,
+                content_type="image/svg+xml",
+                extension="svg",
+            )
         )
 
-        try:
-            vault_prices_df = prices_df.loc[vault_id]
-        except KeyError:
-            # print(f"Skipping vault {vault_id}, no price data")
-            logger.info("Skipping vault %s, no price data", vault_id)
-            return None
-
-        # Do daily data points
-        vault_prices_df = vault_prices_df.resample("D").last()[["share_price", "total_assets"]]
-
-        # Use Twitter Summary Card size
-        fig = render_sparkline_gradient(
+        # Large PNG sparkline for Twitter Summary Cards
+        fig_png = render_sparkline_gradient(
             vault_prices_df,
             width=300,
             height=300,
         )
+        png_bytes = export_sparkline_as_png(fig_png)
+        results.append(
+            RenderData(
+                vault_id=vault_id,
+                svg_bytes=png_bytes,
+                content_type="image/png",
+                extension="png",
+            )
+        )
 
-        png_bytes = export_sparkline_as_png(
-            fig,
-        )
-        return RenderData(
-            vault_id=vault_id,
-            svg_bytes=png_bytes,
-            content_type="image/png",
-            extension="png",
-        )
+        return results
+
+    # Parallelise rendering across processes - each gets its own matplotlib instance
+    render_tasks = (delayed(_render_vault)(vid, df) for vid, df in vault_data_items)
+    render_results = Parallel(n_jobs=max_workers, prefer="processes")(tqdm(render_tasks, total=len(vault_data_items), desc="Rendering sparklines"))
+    render_data = [item for sublist in render_results for item in sublist]
+
+    logger.info("Uploading %s sparkline images to R2", len(render_data))
+
+    # Create boto3 client once, reuse for all uploads
+    import boto3
+
+    s3_client = boto3.client(
+        "s3",
+        endpoint_url=endpoint_url,
+        aws_access_key_id=access_key_id,
+        aws_secret_access_key=secret_access_key,
+        region_name="auto",
+    )
 
     def _upload_row(render_data: RenderData):
-        vault_id = render_data.vault_id
-        svg_bytes = render_data.svg_bytes
-        svg_bytes = render_data.svg_bytes
-        object_name = f"sparkline-90d-{vault_id}.{render_data.extension}"
-
-        logger.info(
-            "Uploading vault %s, filename %s",
-            vault_id,
-            object_name,
+        object_name = f"sparkline-90d-{render_data.vault_id}.{render_data.extension}"
+        s3_client.put_object(
+            Bucket=bucket_name,
+            Key=object_name,
+            Body=gzip.compress(render_data.svg_bytes),
+            ContentType=render_data.content_type,
+            ContentEncoding="gzip",
         )
 
-        upload_to_r2_compressed(
-            payload=svg_bytes,
-            bucket_name=bucket_name,
-            object_name=object_name,
-            endpoint_url=endpoint_url,
-            access_key_id=access_key_id,
-            secret_access_key=secret_access_key,
-            content_type=render_data.content_type,
-        )
-        # print(f"Uploaded sparkline to R2 bucket '{bucket_name}' as '{object_name}'")
-
-    # Matplotlib segfaults if run outside main thread, so we first render all in main thread
-    # NSWindow should only be instantiated on the main thread!
-    render_data = []
-    for row in tqdm(vault_rows, desc="Rendering sparklines"):
-        data = _render_row_simple_svg(row)
-        if data is not None:
-            render_data.append(data)
-
-        data = _render_row_gradient_png(row)
-        if data is not None:
-            render_data.append(data)
-
-    # Use joblib to run uploads in parallel
-    tasks = (delayed(_upload_row)(row) for row in render_data)
-    Parallel(n_jobs=max_workers, prefer="threads")(tqdm(tasks, total=len(render_data), desc="Uploading sparklines to R2"))
+    # Upload in parallel using threads (I/O bound)
+    upload_tasks = (delayed(_upload_row)(row) for row in render_data)
+    Parallel(n_jobs=max_workers, prefer="threads")(tqdm(upload_tasks, total=len(render_data), desc="Uploading sparklines to R2"))
 
     print("Sparkline export complete")
 

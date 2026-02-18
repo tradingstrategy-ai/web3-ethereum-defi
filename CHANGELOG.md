@@ -1,5 +1,6 @@
 # Current
 
+- Fix sparkline export hanging on vault filtering and parallelise rendering with multiprocessing (2026-02-18)
 - Fix block timestamp scan range clipping to prevent querying blocks beyond HyperSync database range (2026-02-18)
 - Switch from ujson to orjson for faster JSON-RPC response decoding (2026-02-18)
 - Add Accountable Capital offchain metadata for vault descriptions, company info, and performance fees (2026-02-18)
