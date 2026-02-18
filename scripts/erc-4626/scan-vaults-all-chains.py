@@ -305,6 +305,79 @@ def scan_prices_for_chain(rpc_url: str, max_workers: int, frequency: str) -> tup
         return False, {"error": str(e), "traceback": traceback.format_exc()}
 
 
+def verify_archive_node(rpc_url: str, chain_name: str) -> int:
+    """Verify that each RPC provider in the configuration is an archive node.
+
+    Parses the space-separated multi-RPC configuration line and tests each
+    endpoint individually. Checks that each provider can serve both block 1
+    and the latest block. This catches misconfigured RPC endpoints early
+    before starting expensive scans.
+
+    :param rpc_url: RPC URL configuration line (may contain space-separated fallbacks, ``mev+`` prefixed endpoints are skipped)
+    :param chain_name: Chain name for logging
+    :return: Latest block number from the first working provider
+    :raises RuntimeError: If any provider fails verification, listing working and faulty providers
+    """
+    from eth_defi.utils import get_url_domain
+
+    zero_address = "0x0000000000000000000000000000000000000000"
+
+    # Parse individual endpoints from the configuration line,
+    # skip mev+ transact-only endpoints
+    endpoints = [url.strip() for url in rpc_url.split() if url.strip() and not url.strip().startswith("mev+")]
+
+    if not endpoints:
+        raise RuntimeError(f"{chain_name}: No call endpoints found in RPC configuration")
+
+    working = []  # (domain, latest_block)
+    faulty = []  # (domain, error_message)
+    first_latest_block = None
+
+    for endpoint in endpoints:
+        domain = get_url_domain(endpoint)
+        try:
+            web3 = create_multi_provider_web3(endpoint)
+
+            # Check latest block
+            latest_block = web3.eth.block_number
+            if first_latest_block is None:
+                first_latest_block = latest_block
+
+            # Check block 1 (archive node test)
+            web3.eth.get_balance(zero_address, block_identifier=1)
+
+            # Check latest block is queryable
+            web3.eth.get_balance(zero_address, block_identifier=latest_block)
+
+            working.append((domain, latest_block))
+            logger.info(
+                "%s: Provider %s passed archive node check (latest block %s)",
+                chain_name,
+                domain,
+                f"{latest_block:,}",
+            )
+        except Exception as e:
+            faulty.append((domain, str(e)))
+            logger.error(
+                "%s: Provider %s failed archive node check: %s",
+                chain_name,
+                domain,
+                e,
+            )
+
+    if faulty:
+        working_str = ", ".join(f"{d} (block {b:,})" for d, b in working) if working else "none"
+        faulty_str = ", ".join(f"{d} ({err})" for d, err in faulty)
+        raise RuntimeError(f"{chain_name}: {len(faulty)}/{len(endpoints)} RPC providers failed archive node verification. Working: [{working_str}]. Faulty: [{faulty_str}].")
+
+    logger.info(
+        "%s: All %d RPC providers passed archive node verification",
+        chain_name,
+        len(working),
+    )
+    return first_latest_block
+
+
 def scan_chain(config: ChainConfig, scan_prices: bool, max_workers: int, frequency: str, retry_attempt: int) -> ChainResult:
     """Scan a single chain (vaults and optionally prices).
 
@@ -327,6 +400,17 @@ def scan_chain(config: ChainConfig, scan_prices: bool, max_workers: int, frequen
 
     logger.info("%s: Starting scan (retry %d)", config.name, retry_attempt)
     start_time = time.time()
+
+    # Verify RPC provider is an archive node before starting expensive scans
+    try:
+        latest_block = verify_archive_node(rpc_url, config.name)
+        logger.info("%s: RPC archive node verification passed, latest block %s", config.name, f"{latest_block:,}")
+    except RuntimeError as e:
+        logger.error("%s: Archive node verification failed: %s", config.name, e)
+        result.status = "failed"
+        result.error = str(e)
+        result.duration = time.time() - start_time
+        return result
 
     # Scan vaults
     if config.scan_vaults:
