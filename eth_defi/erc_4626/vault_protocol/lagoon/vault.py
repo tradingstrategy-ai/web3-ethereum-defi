@@ -40,6 +40,7 @@ from web3.contract.contract import ContractFunction
 from web3.exceptions import ContractLogicError, BadFunctionCallOutput
 
 from eth_defi.vault.base import VaultFlowManager, VaultInfo, VaultSpec
+from eth_defi.vault.flag import MISSING_IN_PROTOCOL_FRONTEND, VaultFlag
 from eth_defi.erc_7540.vault import ERC7540Vault
 from eth_defi.erc_4626.vault_protocol.lagoon.offchain_metadata import LagoonVaultMetadata, fetch_lagoon_vault_metadata
 
@@ -289,15 +290,31 @@ class LagoonVault(ERC7540Vault):
             return self.lagoon_metadata.get("short_description")
         return None
 
+    def get_flags(self) -> set[VaultFlag]:
+        """Get vault flags, auto-flagging vaults missing from Lagoon's frontend.
+
+        - If the vault has no metadata in Lagoon's API, it is flagged as ``unofficial``
+        - Manual flags from :py:data:`~eth_defi.vault.flag.VAULT_FLAGS_AND_NOTES` take precedence
+        """
+        flags = super().get_flags()
+        if flags:
+            return flags
+        if self.lagoon_metadata is None:
+            return {VaultFlag.unofficial}
+        return flags
+
     def get_notes(self) -> str | None:
         """Get notes for this vault.
 
         - Returns manual notes from the vault flags if set
+        - If vault is missing from Lagoon's frontend, returns the missing note
         - Otherwise falls back to the full description from Lagoon's offchain metadata
         """
         manual_notes = super().get_notes()
         if manual_notes:
             return manual_notes
+        if self.lagoon_metadata is None:
+            return MISSING_IN_PROTOCOL_FRONTEND
         return self.description
 
     @cached_property

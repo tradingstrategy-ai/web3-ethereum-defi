@@ -21,7 +21,6 @@ from eth_defi.provider.env import read_json_rpc_url
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.base import VaultSpec
-from eth_defi.vault.flag import get_notes, get_vault_special_flags
 
 setup_console_logging(default_log_level="INFO")
 
@@ -53,9 +52,15 @@ print("Share price:", share_price)
 print("TVL:", vault.fetch_nav())
 print("-" * 80)
 
-# Vault flags and notes
-flags = get_vault_special_flags(spec.vault_address)
-notes = get_notes(spec.vault_address)
+# Vault descriptions
+print("\nDescriptions:")
+print(f"  Short: {vault.short_description or 'None'}")
+print(f"  Long: {vault.description or 'None'}")
+print("-" * 80)
+
+# Vault flags and notes (uses vault instance methods for protocol-specific auto-flagging)
+flags = vault.get_flags()
+notes = vault.get_notes()
 print("\nFlags and notes:")
 print(f"  Flags: {flags or 'None'}")
 print(f"  Notes: {notes or 'None'}")
