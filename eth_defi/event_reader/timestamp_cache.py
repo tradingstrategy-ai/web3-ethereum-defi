@@ -327,7 +327,7 @@ class BlockTimestampSlicer:
             total = self.timestamp_db.get_count()
             expected = last - first + 1 if last > first else 0
             missing = expected - total
-            raise KeyError(f"Block number {block_number:,} not found in timestamp database. Available range: {first:,} - {last:,}, total {total:,} timestamp records, {missing:,} blocks missing in range ({missing / expected * 100:.1f}% gaps). The _get_nearest fallback also failed — check warnings above for gap details.")
+            raise KeyError(f"Block number {block_number:,} not found in timestamp database. Available range: {first:,} - {last:,}, total {total:,} timestamp records, {missing:,} blocks missing in range ({missing / expected * 100:.1f}% gaps). The _get_nearest fallback also failed — check warnings above for gap details. Run scripts/erc-4626/heal-timestamps.py to repair gaps in the timestamp database.")
         return value
 
     def get(self, block_number: int) -> datetime.datetime | None:
@@ -361,7 +361,7 @@ class BlockTimestampSlicer:
         except KeyError:
             return self._get_nearest(block_number)
 
-    def _get_nearest(self, block_number: int, max_distance: int = 10_000) -> datetime.datetime | None:
+    def _get_nearest(self, block_number: int, max_distance: int = 200) -> datetime.datetime | None:
         """Find the nearest available block timestamp when the exact block is missing.
 
         Handles gaps in HyperSync data on fast chains like Monad.
@@ -369,9 +369,8 @@ class BlockTimestampSlicer:
         :param max_distance:
             Maximum block distance to tolerate.
             Returns None if the nearest available block is further than this.
-            At 10,000 blocks, worst-case timestamp error is ~5.5h on Monad (2s blocks)
-            or ~33h on Ethereum (12s blocks).
-            HyperSync gaps on Monad have been observed at ~5,000 blocks.
+            At 200 blocks, worst-case timestamp error is ~6.7 min on Monad (2s blocks)
+            or ~40 min on Ethereum (12s blocks).
         """
         if self.current_slice is None or len(self.current_slice) == 0:
             return None
@@ -420,7 +419,7 @@ class BlockTimestampSlicer:
 
         if distance > max_distance:
             logger.warning(
-                "Block %d not found in timestamp database. Nearest block %d is %d blocks away (exceeds max_distance %d). %s",
+                "Block %d not found in timestamp database. Nearest block %d is %d blocks away (exceeds max_distance %d). %s. Run scripts/erc-4626/heal-timestamps.py to repair gaps.",
                 block_number,
                 nearest_block,
                 distance,
