@@ -11,6 +11,9 @@ from io import BytesIO
 import pandas as pd
 import numpy as np
 
+import matplotlib
+
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 from eth_defi.research.wrangle_vault_prices import forward_fill_vault
