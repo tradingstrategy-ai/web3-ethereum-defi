@@ -1,6 +1,6 @@
 """JSON-RPC decoding optimised for web3.py.
 
-Monkey-patches JSON decoder to use ujson.
+Monkey-patches JSON decoder to use orjson.
 """
 
 import logging
@@ -8,7 +8,7 @@ import threading
 from json import JSONDecodeError
 from typing import Any, cast
 
-import ujson
+import orjson
 from web3 import Web3
 from web3.providers import JSONBaseProvider
 from web3.providers.rpc import HTTPProvider
@@ -28,9 +28,9 @@ class PartialHttpResponseException(JSONDecodeError):
 
 
 def _fast_decode_rpc_response(raw_response: bytes) -> RPCResponse:
-    """Uses ujson for speeding up JSON decoding instead of web3.py default JSON."""
+    """Uses orjson for speeding up JSON decoding instead of web3.py default JSON."""
     try:
-        decoded = ujson.loads(raw_response)
+        decoded = orjson.loads(raw_response)
     except ValueError as e:
         # We received partial JSON-RPC response over IPC.
         # Signal the underlying stack to keep reading

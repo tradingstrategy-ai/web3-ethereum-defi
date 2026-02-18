@@ -179,7 +179,7 @@ def main():
     json_rpc_url = os.environ["JSON_RPC_POLYGON"]
     web3 = Web3(HTTPProvider(json_rpc_url, session=session))
 
-    # Enable faster JSON decoding with ujson
+    # Enable faster JSON decoding with orjson
     patch_web3(web3)
 
     web3.middleware_onion.clear()

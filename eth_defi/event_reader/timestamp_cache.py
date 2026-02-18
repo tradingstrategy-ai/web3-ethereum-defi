@@ -303,7 +303,11 @@ class BlockTimestampSlicer:
         return value
 
     def get(self, block_number: int) -> datetime.datetime | None:
-        """Get timestamp for a given block number, or None if not found."""
+        """Get timestamp for a given block number, or None if not found.
+
+        If the exact block is missing (gap in HyperSync data),
+        returns the timestamp of the nearest available block in the current slice.
+        """
 
         assert not self.timestamp_db.is_closed(), f"BlockTimestampSlicer.get(): underlying database is already closed"
 
@@ -327,7 +331,58 @@ class BlockTimestampSlicer:
         try:
             return self.current_slice[block_number]
         except KeyError:
+            return self._get_nearest(block_number)
+
+    def _get_nearest(self, block_number: int, max_distance: int = 200) -> datetime.datetime | None:
+        """Find the nearest available block timestamp when the exact block is missing.
+
+        Handles small gaps in HyperSync data on fast chains like Monad.
+
+        :param max_distance:
+            Maximum block distance to tolerate.
+            Returns None if the nearest available block is further than this.
+            At 200 blocks, worst-case timestamp error is ~7 min on Monad (2s blocks)
+            or ~40 min on Ethereum (12s blocks).
+        """
+        if self.current_slice is None or len(self.current_slice) == 0:
             return None
+
+        idx = self.current_slice.index.searchsorted(block_number)
+        if idx >= len(self.current_slice):
+            nearest_block = self.current_slice.index[-1]
+            nearest = self.current_slice.iloc[-1]
+        elif idx == 0:
+            nearest_block = self.current_slice.index[0]
+            nearest = self.current_slice.iloc[0]
+        else:
+            # Pick whichever neighbour is closer
+            before = self.current_slice.index[idx - 1]
+            after = self.current_slice.index[idx]
+            if block_number - before <= after - block_number:
+                nearest_block = before
+                nearest = self.current_slice.iloc[idx - 1]
+            else:
+                nearest_block = after
+                nearest = self.current_slice.iloc[idx]
+
+        distance = abs(block_number - nearest_block)
+        if distance > max_distance:
+            logger.warning(
+                "Block %s not found in timestamp database and nearest block %s is %d blocks away (exceeds max_distance %d)",
+                block_number,
+                nearest_block,
+                distance,
+                max_distance,
+            )
+            return None
+
+        logger.warning(
+            "Block %s not found in timestamp database, using nearest block %s (%d blocks away)",
+            block_number,
+            nearest_block,
+            distance,
+        )
+        return nearest
 
     def get_last_block(self) -> int:
         """Get the maximum block number in the database."""
