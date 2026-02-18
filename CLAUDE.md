@@ -127,6 +127,7 @@ poetry run ruff format
 - Instead of manual float fuzzy comparison like `assert abs(aave_total_pnl - 96.6087) < 0.01` use `pytest.approx()`
 - For DuckDB testing, make sure the database is always closed using finally clause or fixtures
 - Always use fixture and test functions, never use test classes
+- For Anvil mainnet fork based tests, whici use a fixed block number, in asserts check for absolute number values instead of relative values like above zero, because values never change
 
 ### pyproject.toml
 

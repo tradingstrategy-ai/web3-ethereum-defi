@@ -2,6 +2,7 @@
 
 import os
 
+import flaky
 import pytest
 from web3 import HTTPProvider, Web3
 
@@ -95,7 +96,7 @@ def test_multi_provider_bad_url():
         create_multi_provider_web3(config)
 
 
-@pytest.mark.flaky(reruns=3)
+@flaky.flaky
 def test_multi_provider_transact(anvil):
     """See we use MEV Blocker for doing transactions."""
 
