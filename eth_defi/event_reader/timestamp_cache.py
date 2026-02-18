@@ -333,31 +333,33 @@ class BlockTimestampSlicer:
         except KeyError:
             return self._get_nearest(block_number)
 
-    def _get_nearest(self, block_number: int, max_distance: int = 200) -> datetime.datetime | None:
+    def _get_nearest(self, block_number: int, max_distance: int = 10_000) -> datetime.datetime | None:
         """Find the nearest available block timestamp when the exact block is missing.
 
-        Handles small gaps in HyperSync data on fast chains like Monad.
+        Handles gaps in HyperSync data on fast chains like Monad.
 
         :param max_distance:
             Maximum block distance to tolerate.
             Returns None if the nearest available block is further than this.
-            At 200 blocks, worst-case timestamp error is ~7 min on Monad (2s blocks)
-            or ~40 min on Ethereum (12s blocks).
+            At 10,000 blocks, worst-case timestamp error is ~5.5h on Monad (2s blocks)
+            or ~33h on Ethereum (12s blocks).
+            HyperSync gaps on Monad have been observed at ~5,000 blocks.
         """
         if self.current_slice is None or len(self.current_slice) == 0:
             return None
 
         idx = self.current_slice.index.searchsorted(block_number)
         if idx >= len(self.current_slice):
-            nearest_block = self.current_slice.index[-1]
+            nearest_block = int(self.current_slice.index[-1])
             nearest = self.current_slice.iloc[-1]
         elif idx == 0:
-            nearest_block = self.current_slice.index[0]
+            nearest_block = int(self.current_slice.index[0])
             nearest = self.current_slice.iloc[0]
         else:
             # Pick whichever neighbour is closer
-            before = self.current_slice.index[idx - 1]
-            after = self.current_slice.index[idx]
+            # Cast to int to avoid numpy uint64 underflow
+            before = int(self.current_slice.index[idx - 1])
+            after = int(self.current_slice.index[idx])
             if block_number - before <= after - block_number:
                 nearest_block = before
                 nearest = self.current_slice.iloc[idx - 1]
