@@ -299,7 +299,9 @@ class BlockTimestampSlicer:
         if value is None:
             first, last = self.timestamp_db.get_first_and_last_block()
             total = self.timestamp_db.get_count()
-            raise KeyError(f"Block number {block_number} not found in timestamp database. Available range: {first:,} - {last:,}, total {total:,} timestamp records")
+            expected = last - first + 1 if last > first else 0
+            missing = expected - total
+            raise KeyError(f"Block number {block_number:,} not found in timestamp database. Available range: {first:,} - {last:,}, total {total:,} timestamp records, {missing:,} blocks missing in range ({missing / expected * 100:.1f}% gaps). The _get_nearest fallback also failed — check warnings above for gap details.")
         return value
 
     def get(self, block_number: int) -> datetime.datetime | None:
@@ -349,40 +351,64 @@ class BlockTimestampSlicer:
             return None
 
         idx = self.current_slice.index.searchsorted(block_number)
+
+        # Determine the gap boundaries (blocks before and after the missing block)
+        # Cast to int to avoid numpy uint64 underflow in subtraction
         if idx >= len(self.current_slice):
-            nearest_block = int(self.current_slice.index[-1])
-            nearest = self.current_slice.iloc[-1]
+            gap_start_block = int(self.current_slice.index[-1])
+            gap_start_ts = self.current_slice.iloc[-1]
+            gap_end_block = None
+            gap_end_ts = None
+            nearest_block = gap_start_block
+            nearest = gap_start_ts
         elif idx == 0:
-            nearest_block = int(self.current_slice.index[0])
-            nearest = self.current_slice.iloc[0]
+            gap_start_block = None
+            gap_start_ts = None
+            gap_end_block = int(self.current_slice.index[0])
+            gap_end_ts = self.current_slice.iloc[0]
+            nearest_block = gap_end_block
+            nearest = gap_end_ts
         else:
+            gap_start_block = int(self.current_slice.index[idx - 1])
+            gap_start_ts = self.current_slice.iloc[idx - 1]
+            gap_end_block = int(self.current_slice.index[idx])
+            gap_end_ts = self.current_slice.iloc[idx]
             # Pick whichever neighbour is closer
-            # Cast to int to avoid numpy uint64 underflow
-            before = int(self.current_slice.index[idx - 1])
-            after = int(self.current_slice.index[idx])
-            if block_number - before <= after - block_number:
-                nearest_block = before
-                nearest = self.current_slice.iloc[idx - 1]
+            if block_number - gap_start_block <= gap_end_block - block_number:
+                nearest_block = gap_start_block
+                nearest = gap_start_ts
             else:
-                nearest_block = after
-                nearest = self.current_slice.iloc[idx]
+                nearest_block = gap_end_block
+                nearest = gap_end_ts
 
         distance = abs(block_number - nearest_block)
+
+        # Format gap info for human-readable messages
+        if gap_start_block is not None and gap_end_block is not None:
+            gap_size = gap_end_block - gap_start_block
+            gap_desc = f"Gap of {gap_size:,} blocks: {gap_start_block:,} ({gap_start_ts}) to {gap_end_block:,} ({gap_end_ts})"
+        elif gap_start_block is not None:
+            gap_desc = f"Missing block is beyond last available block {gap_start_block:,} ({gap_start_ts})"
+        else:
+            gap_desc = f"Missing block is before first available block {gap_end_block:,} ({gap_end_ts})"
+
         if distance > max_distance:
             logger.warning(
-                "Block %s not found in timestamp database and nearest block %s is %d blocks away (exceeds max_distance %d)",
+                "Block %d not found in timestamp database. Nearest block %d is %d blocks away (exceeds max_distance %d). %s",
                 block_number,
                 nearest_block,
                 distance,
                 max_distance,
+                gap_desc,
             )
             return None
 
         logger.warning(
-            "Block %s not found in timestamp database, using nearest block %s (%d blocks away)",
+            "Block %d not found in timestamp database, using nearest block %d (%d blocks away). %s",
             block_number,
             nearest_block,
             distance,
+            gap_desc,
         )
         return nearest
 
