@@ -11,6 +11,10 @@ from web3.contract import Contract
 
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
+from eth_defi.erc_4626.vault_protocol.accountable.offchain_metadata import (
+    AccountableVaultMetadata,
+    fetch_accountable_vault_metadata,
+)
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.types import Percent
 from eth_defi.vault.base import VaultHistoricalRead, VaultHistoricalReader
@@ -224,6 +228,29 @@ class AccountableVault(ERC4626Vault):
             return None
         return float((nav - idle) / nav)
 
+    @cached_property
+    def accountable_metadata(self) -> AccountableVaultMetadata | None:
+        """Offchain metadata from Accountable's yield app API.
+
+        Fetched from ``yield.accountable.capital/api/loan``.
+        Cached on disk and in-process to avoid repeated API calls.
+        """
+        return fetch_accountable_vault_metadata(self.web3, self.spec.vault_address)
+
+    @property
+    def description(self) -> str | None:
+        """Full vault strategy description from Accountable's offchain metadata."""
+        if self.accountable_metadata:
+            return self.accountable_metadata.get("description")
+        return None
+
+    @property
+    def short_description(self) -> str | None:
+        """Company/manager description from Accountable's offchain metadata."""
+        if self.accountable_metadata:
+            return self.accountable_metadata.get("short_description")
+        return None
+
     def get_management_fee(self, block_identifier: BlockIdentifier) -> float | None:
         """Management fee is not publicly available.
 
@@ -232,10 +259,12 @@ class AccountableVault(ERC4626Vault):
         return None
 
     def get_performance_fee(self, block_identifier: BlockIdentifier) -> float | None:
-        """Performance fee is not publicly available.
+        """Performance fee from Accountable's offchain metadata.
 
-        Accountable vaults do not expose fee information on-chain.
+        Falls back to None if metadata is unavailable.
         """
+        if self.accountable_metadata:
+            return self.accountable_metadata.get("performance_fee")
         return None
 
     def get_estimated_lock_up(self) -> datetime.timedelta | None:
@@ -246,8 +275,5 @@ class AccountableVault(ERC4626Vault):
         return None
 
     def get_link(self, referral: str | None = None) -> str:
-        """Return the protocol homepage link.
-
-        Accountable does not have individual vault pages.
-        """
-        return "https://www.accountable.capital/"
+        """Return the yield app link."""
+        return "https://yield.accountable.capital/vaults"
