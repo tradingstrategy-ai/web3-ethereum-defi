@@ -1530,7 +1530,8 @@ def read_multicall_historical_stateful(
     timestamp_end_block = timestamps.get_last_block()
     if timestamp_end_block < end_block:
         logger.warning(f"Clipping end block by timestamps cache end block {timestamp_end_block:,} < {end_block:,}")
-        end_block = timestamp_end_block
+        # +1 because end_block is used in range(start, end_block, step) which is exclusive
+        end_block = timestamp_end_block + 1
 
     logger.info("Starting the main historical state read loop from block %d to %d", start_block, end_block)
 
