@@ -16,6 +16,9 @@ from web3 import Web3
 from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
+from eth_defi.erc_4626.vault_protocol.accountable.offchain_metadata import (
+    fetch_accountable_vaults,
+)
 from eth_defi.erc_4626.vault_protocol.accountable.vault import AccountableHistoricalReader, AccountableVault
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
@@ -65,9 +68,9 @@ def test_accountable_susn_vault(
     assert vault.get_protocol_name() == "Accountable"
     assert vault.denomination_token.symbol == "USDC"
 
-    # Fees are not publicly available
+    # Management fee not available, performance fee from offchain metadata
     assert vault.get_management_fee("latest") is None
-    assert vault.get_performance_fee("latest") is None
+    assert vault.get_performance_fee("latest") is not None
 
     # Check maxDeposit/maxRedeem with address(0)
     max_deposit = vault.vault_contract.functions.maxDeposit(ZERO_ADDRESS_STR).call()
@@ -236,3 +239,47 @@ def test_accountable_historical_reader(
     # The corrected NAV should match the direct fetch_total_assets call
     direct_nav = vault.fetch_total_assets(block_number)
     assert vault_read.total_assets == pytest.approx(direct_nav, rel=Decimal("0.001"))
+
+
+@flaky.flaky
+def test_accountable_metadata(
+    web3: Web3,
+):
+    """Read Accountable vault metadata from offchain yield app API.
+
+    Uses the sUSN vault which is already detected in the Anvil fork.
+    """
+
+    vault = create_vault_instance_autodetect(
+        web3,
+        vault_address="0x58ba69b289De313E66A13B7D1F822Fc98b970554",
+    )
+
+    assert isinstance(vault, AccountableVault)
+    assert vault.accountable_metadata is not None
+    assert vault.description is not None
+    assert len(vault.description) > 10
+    assert vault.short_description is not None
+    assert vault.accountable_metadata.get("company_name") is not None
+    assert vault.accountable_metadata.get("performance_fee") is not None
+
+
+@flaky.flaky
+def test_accountable_metadata_cache(tmp_path: Path):
+    """Verify disk caching works for Accountable metadata."""
+    vaults = fetch_accountable_vaults(cache_path=tmp_path)
+    assert isinstance(vaults, dict)
+    assert len(vaults) > 0
+
+    # Should have cached the file
+    cache_file = tmp_path / "accountable_vaults.json"
+    assert cache_file.exists()
+    assert cache_file.stat().st_size > 0
+
+    # Second call should use cache (no API calls)
+    vaults2 = fetch_accountable_vaults(cache_path=tmp_path)
+    assert vaults2 == vaults
+
+    # Check that at least one vault has a description
+    has_description = any(v.get("description") for v in vaults.values())
+    assert has_description, "Expected at least one Accountable vault with a description"

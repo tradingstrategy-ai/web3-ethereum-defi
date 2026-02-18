@@ -1,5 +1,6 @@
 # Current
 
+- Add Accountable Capital offchain metadata for vault descriptions, company info, and performance fees (2026-02-18)
 - Fix Accountable vault NAV calculation to use convertToAssets(totalSupply()) instead of totalAssets() which only returns idle liquidity (2026-02-18)
 - **Add: Multichain Lagoon vault deployment with shared deterministic Safe and CCTP bridging (2026-02-18, [#741](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/741))**
 - **Add: Circle CCTP V2 cross-chain USDC transfer support with guard whitelisting and Lagoon vault integration (2026-02-15)**
