@@ -194,6 +194,104 @@ class LagoonDeploymentParameters:
         return list(export_data.values())
 
 
+@dataclass(slots=True)
+class LagoonConfig:
+    """Configuration for Lagoon vault deployment.
+
+    Captures all parameters needed to deploy a Lagoon vault except the
+    chain connection (``web3``) and deployer account.
+
+    Can be passed to :func:`deploy_automated_lagoon_vault` (single chain)
+    or :func:`deploy_multichain_lagoon_vault` (multiple chains).
+    """
+
+    #: Vault parameters (name, symbol, underlying token, fees)
+    parameters: LagoonDeploymentParameters
+
+    #: Address that manages vault assets and executes trades
+    asset_manager: HexAddress
+
+    #: Addresses of Safe multisig owners
+    safe_owners: list[HexAddress | str]
+
+    #: Number of owner signatures required for Safe transactions
+    safe_threshold: int
+
+    #: Uniswap V2 deployment for router whitelisting
+    uniswap_v2: UniswapV2Deployment | None = None
+
+    #: Uniswap V3 deployment for router/quoter whitelisting
+    uniswap_v3: UniswapV3Deployment | None = None
+
+    #: Orderly perps vault for whitelisting
+    orderly_vault: OrderlyVault | None = None
+
+    #: Aave V3 deployment for lending whitelisting
+    aave_v3: AaveV3Deployment | None = None
+
+    #: Enable CowSwap settlement contract whitelisting
+    cowswap: bool = False
+
+    #: Enable Velora contract whitelisting
+    velora: bool = False
+
+    #: GMX perpetuals deployment for whitelisting
+    gmx_deployment: GMXDeployment | None = None
+
+    #: CCTP V2 deployment for cross-chain USDC transfers
+    cctp_deployment: CCTPDeployment | None = None
+
+    #: Allow any ERC-20 asset instead of explicit whitelist
+    any_asset: bool = False
+
+    #: Etherscan API key for contract verification
+    etherscan_api_key: str | None = None
+
+    #: Block explorer for contract verification
+    verifier: Literal["etherscan", "blockscout", "sourcify", "oklink"] | None = None
+
+    #: Custom block explorer URL
+    verifier_url: str | None = None
+
+    #: Use Forge for contract deployment
+    use_forge: bool = False
+
+    #: Delay between contract deployments (seconds) for nonce propagation
+    between_contracts_delay_seconds: float = 45.0
+
+    #: ERC-4626 vaults to whitelist for deposit/withdrawal
+    erc_4626_vaults: list[ERC4626Vault] | None = None
+
+    #: Deploy only the guard, skip vault deployment
+    guard_only: bool = False
+
+    #: Reuse an existing vault (requires guard_only=True)
+    existing_vault_address: HexAddress | str | None = None
+
+    #: Reuse an existing Safe instead of deploying a new one
+    existing_safe_address: HexAddress | str | None = None
+
+    #: Vault contract ABI file path
+    vault_abi: str = "lagoon/v0.5.0/Vault.json"
+
+    #: Use BeaconProxyFactory for vault deployment
+    factory_contract: bool = True
+
+    #: Deploy fresh Lagoon protocol (fee registry + vault implementation + factory)
+    from_the_scratch: bool = False
+
+    #: ERC-20 token addresses to whitelist
+    assets: list[HexAddress | str] | None = None
+
+    #: CREATE2 salt for deterministic Safe address across chains
+    safe_salt_nonce: int | None = None
+
+    #: Override Safe ProxyFactory address (default: v1.4.1 canonical).
+    #: See `Safe canonical deployments <https://github.com/safe-global/safe-deployments>`__
+    #: and `Safe contract deployment docs <https://docs.safe.global/core-api/safe-contracts-deployment>`__.
+    safe_proxy_factory_address: HexAddress | str | None = None
+
+
 @dataclass(slots=True, frozen=True)
 class LagoonAutomatedDeployment:
     """Capture information of the lagoon automated deployment.
@@ -267,6 +365,24 @@ class LagoonAutomatedDeployment:
             print("{:<30} {:<30}".format(k, v or "-"), file=io)
 
         return io.getvalue()
+
+
+@dataclass(slots=True, frozen=True)
+class LagoonMultichainDeployment:
+    """Result of deploying Lagoon vaults across multiple chains with a shared deterministic Safe.
+
+    All vaults share the same deterministic Safe address created via CREATE2
+    with the same salt nonce on each chain.
+    """
+
+    #: The deterministic Safe address shared by all chains
+    safe_address: HexAddress
+
+    #: Per-chain deployment results keyed by chain name (lowercase)
+    deployments: dict[str, LagoonAutomatedDeployment]
+
+    #: The salt nonce used for deterministic Safe deployment
+    safe_salt_nonce: int
 
 
 def deploy_lagoon_protocol_registry(
@@ -700,12 +816,19 @@ def deploy_safe_trading_strategy_module(
             verifier_url=verifier_url,
         )
     else:
+        # Use explicit gas to skip eth_estimateGas (very slow on HyperEVM Anvil fork).
+        # HyperEVM dual-block architecture: small blocks have only 2–3M gas limit,
+        # while large blocks allow 30M. TradingStrategyModuleV0 needs ~5.4M gas.
+        # https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm/dual-block-architecture
+        block_gas_limit = web3.eth.get_block("latest")["gasLimit"]
+        guard_gas = min(10_000_000, block_gas_limit - 100_000)
         module = deploy_contract(
             web3,
             "safe-integration/TradingStrategyModuleV0.json",
             deployer,
             owner,
             safe.address,
+            gas=guard_gas,
         )
 
     if enable_on_safe:
@@ -1002,12 +1125,13 @@ def deploy_automated_lagoon_vault(
     *,
     web3: Web3,
     deployer: LocalAccount | HotWallet,
-    asset_manager: HexAddress,
-    parameters: LagoonDeploymentParameters,
-    safe_owners: list[HexAddress | str],
-    safe_threshold: int,
-    uniswap_v2: UniswapV2Deployment | None,
-    uniswap_v3: UniswapV3Deployment | None,
+    config: LagoonConfig | None = None,
+    asset_manager: HexAddress | None = None,
+    parameters: LagoonDeploymentParameters | None = None,
+    safe_owners: list[HexAddress | str] | None = None,
+    safe_threshold: int | None = None,
+    uniswap_v2: UniswapV2Deployment | None = None,
+    uniswap_v3: UniswapV3Deployment | None = None,
     orderly_vault: OrderlyVault | None = None,
     aave_v3: AaveV3Deployment | None = None,
     cowswap: bool = False,
@@ -1052,6 +1176,10 @@ def deploy_automated_lagoon_vault(
 
         Deployer account must be manually removed from the Safe by new owners.
 
+    :param config:
+        Pass a :class:`LagoonConfig` object instead of individual kwargs.
+        When provided, individual kwargs are ignored.
+
     :param guard_only:
         Deploy a new version of the guard smart contract and skip deploying the actual vault.
 
@@ -1068,7 +1196,47 @@ def deploy_automated_lagoon_vault(
     :param safe_proxy_factory_address:
         Override the Safe ProxyFactory address. Defaults to the canonical v1.4.1
         factory (``0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67``).
+        See `Safe canonical deployments <https://github.com/safe-global/safe-deployments>`__
+        and `Safe contract deployment docs <https://docs.safe.global/core-api/safe-contracts-deployment>`__.
     """
+
+    if config is not None:
+        # New-style: extract all fields from config into local variables
+        # so the rest of the function body works unchanged
+        parameters = config.parameters
+        asset_manager = config.asset_manager
+        safe_owners = config.safe_owners
+        safe_threshold = config.safe_threshold
+        uniswap_v2 = config.uniswap_v2
+        uniswap_v3 = config.uniswap_v3
+        orderly_vault = config.orderly_vault
+        aave_v3 = config.aave_v3
+        cowswap = config.cowswap
+        velora = config.velora
+        gmx_deployment = config.gmx_deployment
+        cctp_deployment = config.cctp_deployment
+        any_asset = config.any_asset
+        etherscan_api_key = config.etherscan_api_key
+        verifier = config.verifier
+        verifier_url = config.verifier_url
+        use_forge = config.use_forge
+        between_contracts_delay_seconds = config.between_contracts_delay_seconds
+        erc_4626_vaults = config.erc_4626_vaults
+        guard_only = config.guard_only
+        existing_vault_address = config.existing_vault_address
+        existing_safe_address = config.existing_safe_address
+        vault_abi = config.vault_abi
+        factory_contract = config.factory_contract
+        from_the_scratch = config.from_the_scratch
+        assets = config.assets
+        safe_salt_nonce = config.safe_salt_nonce
+        safe_proxy_factory_address = config.safe_proxy_factory_address
+    else:
+        # Legacy kwargs: validate required arguments
+        assert asset_manager is not None, "asset_manager required when config not provided"
+        assert parameters is not None, "parameters required when config not provided"
+        assert safe_owners is not None, "safe_owners required when config not provided"
+        assert safe_threshold is not None, "safe_threshold required when config not provided"
 
     legacy = vault_abi == "lagoon/Vault.json"
 
@@ -1363,6 +1531,13 @@ LAGOON_FEE_REGISTRIES = {
 #: https://basescan.org/address/0xC953Fd298FdfA8Ed0D38ee73772D3e21Bf19c61b#writeContract
 #: https://docs.lagoon.finance/vault/create-your-vault
 LAGOON_BEACON_PROXY_FACTORIES = {
+    # Ethereum
+    # https://docs.lagoon.finance/resources/networks-and-addresses
+    # https://etherscan.io/address/0x8D6f5479B14348186faE9BC7E636e947c260f9B1
+    1: {
+        "abi": "lagoon/OptinProxyFactory.json",
+        "address": "0x8D6f5479B14348186faE9BC7E636e947c260f9B1",
+    },
     # Base
     8453: {
         "abi": "lagoon/BeaconProxyFactory.json",
@@ -1383,4 +1558,131 @@ LAGOON_BEACON_PROXY_FACTORIES = {
         "abi": "lagoon/BeaconProxyFactory.json",
         "address": "0x4058140097F313886536bd64a7C1D25FF7356931",
     },
+    # HyperEVM
+    # https://docs.lagoon.finance/resources/networks-and-addresses
+    999: {
+        "abi": "lagoon/OptinProxyFactory.json",
+        "address": "0x90beB507A1BA7D64633540cbce615B574224CD84",
+    },
 }
+
+
+def deploy_multichain_lagoon_vault(
+    *,
+    chain_web3: dict[str, Web3],
+    deployer: LocalAccount,
+    config: LagoonConfig,
+    cctp_enabled: bool = False,
+    max_workers: int | None = None,
+) -> LagoonMultichainDeployment:
+    """Deploy Lagoon vaults across multiple chains with a shared deterministic Safe.
+
+    Uses CREATE2 via the canonical Safe v1.4.1 ProxyFactory to produce the
+    same Safe address on every chain. Each chain gets its own vault and
+    guard deployment, but all vaults share the same Safe multisig address.
+
+    Deploys all chains in parallel using threads to minimise wall-clock time.
+
+    If ``cctp_enabled`` is True, CCTP whitelisting is automatically configured
+    per chain. Chains without CCTP support (e.g. HyperEVM) are silently skipped.
+
+    :param chain_web3:
+        Mapping of chain names (lowercase, matching :data:`eth_defi.chain.CHAIN_NAMES`)
+        to Web3 instances. Example: ``{"ethereum": w3_eth, "arbitrum": w3_arb}``.
+
+    :param deployer:
+        The deployer account. A separate :class:`HotWallet` is created per chain
+        for nonce management.
+
+    :param config:
+        Shared :class:`LagoonConfig`. Must have ``safe_salt_nonce`` set.
+        The ``parameters.underlying`` field is auto-resolved per chain from
+        :data:`eth_defi.token.USDC_NATIVE_TOKEN` if set to a zero/empty address.
+
+    :param cctp_enabled:
+        If True, auto-create :class:`CCTPDeployment` per chain using
+        :func:`CCTPDeployment.create_for_chain`. Chains not in
+        :data:`CHAIN_ID_TO_CCTP_DOMAIN` are silently skipped.
+
+    :param max_workers:
+        Maximum number of parallel deployment threads.
+        Defaults to the number of chains.
+
+    :return:
+        :class:`LagoonMultichainDeployment` with per-chain results.
+    """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    from copy import deepcopy
+    from eth_defi.cctp.constants import CHAIN_ID_TO_CCTP_DOMAIN
+    from eth_defi.token import USDC_NATIVE_TOKEN
+
+    assert config.safe_salt_nonce is not None, "safe_salt_nonce must be set for multichain deployment"
+    assert len(chain_web3) >= 1, "Must deploy to at least one chain"
+
+    if max_workers is None:
+        max_workers = len(chain_web3)
+
+    # Pre-compute CCTP-capable chain IDs for destination resolution
+    cctp_chain_ids = {name: w3.eth.chain_id for name, w3 in chain_web3.items() if w3.eth.chain_id in CHAIN_ID_TO_CCTP_DOMAIN} if cctp_enabled else {}
+
+    def _deploy_single_chain(chain_name: str, web3: Web3) -> tuple[str, LagoonAutomatedDeployment]:
+        chain_id = web3.eth.chain_id
+        logger.info("Deploying Lagoon vault on %s (chain %d)", chain_name, chain_id)
+
+        # Create a per-chain HotWallet for nonce management
+        wallet = HotWallet(deployer)
+        wallet.sync_nonce(web3)
+
+        # Deep-copy config so per-chain overrides don't leak
+        per_chain_config = deepcopy(config)
+
+        # Auto-resolve underlying token (USDC) per chain if not already set
+        if per_chain_config.parameters.underlying is None or per_chain_config.parameters.underlying == "":
+            usdc = USDC_NATIVE_TOKEN.get(chain_id)
+            assert usdc is not None, f"No USDC address known for chain {chain_id}. Set parameters.underlying manually."
+            per_chain_config.parameters.underlying = usdc
+
+        # Auto-configure CCTP per chain
+        if cctp_enabled:
+            if chain_id in CHAIN_ID_TO_CCTP_DOMAIN:
+                other_chain_ids = [cid for name, cid in cctp_chain_ids.items() if name != chain_name]
+                if other_chain_ids:
+                    per_chain_config.cctp_deployment = CCTPDeployment.create_for_chain(
+                        chain_id=chain_id,
+                        allowed_destinations=other_chain_ids,
+                    )
+                    logger.info("CCTP enabled on %s with destinations: %s", chain_name, other_chain_ids)
+                else:
+                    logger.info("CCTP enabled on %s but no other CCTP-capable chains in deployment", chain_name)
+            else:
+                logger.info("CCTP not available on %s (chain %d), skipping", chain_name, chain_id)
+                per_chain_config.cctp_deployment = None
+
+        deployment = deploy_automated_lagoon_vault(
+            web3=web3,
+            deployer=wallet,
+            config=per_chain_config,
+        )
+
+        logger.info("Lagoon vault deployed on %s: vault=%s, safe=%s", chain_name, deployment.vault.address, deployment.safe.address)
+        return chain_name, deployment
+
+    # Deploy all chains in parallel
+    deployments: dict[str, LagoonAutomatedDeployment] = {}
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {executor.submit(_deploy_single_chain, chain_name, web3): chain_name for chain_name, web3 in chain_web3.items()}
+        for future in as_completed(futures):
+            chain_name = futures[future]
+            chain_name, deployment = future.result()
+            deployments[chain_name] = deployment
+
+    # Verify all Safe addresses are identical (deterministic deployment)
+    safe_addresses = {name: d.safe.address for name, d in deployments.items()}
+    unique_safe_addresses = set(safe_addresses.values())
+    assert len(unique_safe_addresses) == 1, f"Safe addresses differ across chains — deterministic deployment failed: {safe_addresses}"
+
+    return LagoonMultichainDeployment(
+        safe_address=next(iter(unique_safe_addresses)),
+        deployments=deployments,
+        safe_salt_nonce=config.safe_salt_nonce,
+    )

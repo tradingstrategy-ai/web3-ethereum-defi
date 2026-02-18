@@ -37,12 +37,12 @@ CHAIN_NAMES = {
     43114: "Avalanche",
     80094: "Berachain",
     130: "Unichain",
-    645749: "Hyperliquid",  # TODO: Not sure what's correct for Hyperliquid
+    645749: "Hyperliquid",  # Legacy chain ID, see also 999 (HyperEVM)
     8453: "Base",
     146: "Sonic",
     34443: "Mode",
     5000: "Mantle",
-    999: "Hyperliquid",  # TODO: Not sure what's correct for Hyperliquid
+    999: "Hyperliquid",  # HyperEVM, see https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm
     42161: "Arbitrum",
     11155111: "Ethereum_Sepolia",
     421614: "Arbitrum_Sepolia",
@@ -75,12 +75,12 @@ CHAIN_HOMEPAGES = {
     43114: {"name": "Avalanche", "homepage": "https://www.avax.network"},
     80094: {"name": "Berachain", "homepage": "https://www.berachain.com"},
     130: {"name": "Unichain", "homepage": "https://www.uniswap.org/unichain"},  # Uniswap's Unichain
-    645749: {"name": "Hyperliquid", "homepage": "https://hyperliquid.xyz"},  # Primary Hyperliquid entry
+    645749: {"name": "Hyperliquid", "homepage": "https://hyperliquid.xyz"},  # Legacy chain ID, see also 999
     8453: {"name": "Base", "homepage": "https://www.base.org"},
     146: {"name": "Sonic", "homepage": "https://www.soniclabs.com/"},  # Formerly Fantom Sonic
     34443: {"name": "Mode", "homepage": "https://www.mode.network"},
     5000: {"name": "Mantle", "homepage": "https://www.mantle.xyz"},
-    999: {"name": "Hyperliquid", "homepage": "https://hyperliquid.xyz"},  # Duplicate, same as 645749
+    999: {"name": "Hyperliquid", "homepage": "https://hyperliquid.xyz"},  # HyperEVM, see https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm
     42161: {"name": "Arbitrum", "homepage": "https://arbitrum.io"},
     11155111: {"name": "Ethereum Sepolia", "homepage": "https://ethereum.org"},
     421614: {"name": "Arbitrum Sepolia", "homepage": "https://arbitrum.io"},
@@ -103,7 +103,11 @@ CHAIN_HOMEPAGES = {
     957: {"name": "Derive", "homepage": "https://derive.xyz"},
 }
 
-#: Chain avg block times.
+#: Chain shortest block times in seconds.
+#:
+#: Used to convert between block ranges and wall-clock durations.
+#: For chains with multiple block types (e.g. HyperEVM dual-block architecture),
+#: we use the **shortest** block time so that block-range → time estimates are accurate.
 #:
 #: Note that for many chains these are approximate and can vary based on network conditions and upgrades.
 #:
@@ -114,12 +118,15 @@ EVM_BLOCK_TIMES = {
     43114: 2,  # Avalanche C-Chain (~2 seconds)
     80094: 1,  # Berachain (assuming ~1 second, based on high-performance claims; may need verification)
     130: 1,  # Unichain (estimated ~1 second, as a high-throughput chain; confirm with official docs)
-    645749: 0.1,  # Hyperliquid (speculative: ~100ms, based on its high-speed design; adjust as needed)
+    645749: 1,  # HyperEVM dual-block: small blocks (2M gas, ~1s), large blocks (30M gas, ~60s). See chain ID 999 comment.
     8453: 2,  # Base (~2 seconds, aligned with Optimism rollup timing)
     146: 1,  # Sonic (estimated ~1 second, designed for speed; confirm with official sources)
     34443: 2,  # Mode (~2 seconds, typical for Optimistic rollups)
     5000: 2,  # Mantle (~2 seconds, based on its Ethereum L2 design)
-    999: 0.1,  # Hyperliquid (same as 645749, assuming chain ID confusion; verify correct ID)
+    #: HyperEVM uses a dual-block architecture: small blocks (2M gas, ~1s) and large blocks (30M gas, ~60s).
+    #: Contract deployments >2M gas require opting in to large blocks via ``evmUserModify`` with ``usingBigBlocks``.
+    #: See `HyperEVM dual-block architecture <https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm/dual-block-architecture>`__.
+    999: 1,  # HyperEVM dual-block: small blocks (2M gas, ~1s), large blocks (30M gas, ~60s). Using shortest.
     42161: 0.25,  # Arbitrum (block time ~250ms, though batches vary; reflects Nitro update)
     11155111: 12,  # Ethereum Sepolia (same as Ethereum mainnet)
     421614: 0.25,  # Arbitrum Sepolia (same as Arbitrum mainnet)

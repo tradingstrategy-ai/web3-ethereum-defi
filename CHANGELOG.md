@@ -1,5 +1,6 @@
 # Current
 
+- **Add: Multichain Lagoon vault deployment with shared deterministic Safe and CCTP bridging (2026-02-18, [#741](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/741))**
 - **Add: Circle CCTP V2 cross-chain USDC transfer support with guard whitelisting and Lagoon vault integration (2026-02-15)**
 - Add: Deterministic cross-chain Safe deployment using CREATE2 via canonical SafeProxyFactory (2026-02-16)
 

@@ -80,6 +80,8 @@ WRAPPED_NATIVE_TOKEN: dict[int, HexAddress | str] = {
     421614: "0x7b79995e5f793A07Bc00c21412e50Ecae098E7f9",
     # WETH: Derive (OP Stack, same as Base/Optimism)
     957: "0x4200000000000000000000000000000000000006",
+    # WHYPE: HyperEVM
+    999: "0x5555555555555555555555555555555555555555",
 }
 
 #: Addresses of USDC of different chains
@@ -103,6 +105,8 @@ USDC_NATIVE_TOKEN: dict[int, HexAddress | str] = {
     11155111: "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
     # Derive (Lyra L2)
     957: "0x6879287835A86F50f784313dBEd5E5cCC5bb8481",
+    # HyperEVM
+    999: "0xb88339CB7199b77E23DB6E890353E22632Ba630f",
 }
 
 #: Bridged USDC of different chains
@@ -114,6 +118,9 @@ BRIDGED_USDC_TOKEN: dict[int, HexAddress | str] = {
 
 #: Used in fork testing
 USDC_WHALE: dict[int, HexAddress | str] = {
+    # Ethereum
+    # https://etherscan.io/token/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48#balances
+    1: "0x37305B1cD40574E4C5Ce33f8e8306Be057fD7341",
     # Base
     #
     8453: "0x40EbC1Ac8d4Fedd2E144b75fe9C0420BE82750c6",

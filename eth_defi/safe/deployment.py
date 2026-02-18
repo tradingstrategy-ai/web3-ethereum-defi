@@ -103,10 +103,13 @@ def deploy_safe(
 
 
 #: Safe v1.4.1 ProxyFactory — deployed at the same address on all EVM chains.
-#: See https://docs.safe.global/advanced/smart-account-supported-networks/v1.4.1
+#: See `Safe supported networks <https://docs.safe.global/advanced/smart-account-supported-networks/v1.4.1>`__
+#: and `Safe canonical deployments <https://github.com/safe-global/safe-deployments>`__.
 SAFE_PROXY_FACTORY_ADDRESS = "0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67"
 
 #: Safe v1.4.1 L2 singleton (master copy) — deployed at the same address on all EVM chains.
+#: See `Safe supported networks <https://docs.safe.global/advanced/smart-account-supported-networks/v1.4.1>`__
+#: and `Safe canonical deployments <https://github.com/safe-global/safe-deployments>`__.
 SAFE_L2_MASTER_COPY_ADDRESS = "0x29fcB43b46531BcA003ddC8FCB67FFE91900C762"
 
 
