@@ -236,7 +236,6 @@ types-requests==2.32.4.20250809
 typing-inspection==0.4.1
 typing_extensions==4.15.0
 tzdata==2025.2
-ujson==5.11.0
 uri-template==1.3.0
 urllib3==2.5.0
 wcwidth==0.2.13

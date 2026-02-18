@@ -13,7 +13,7 @@ The example shows How to read Solidity events, or use eth_getLogs RPC, to maximi
 
 - The example uses a thread pool reader with 16 parallel reading threads (JSON-RPC API requets)
 
-- The example uses optimised `ujson` library for decoding JSON
+- The example uses optimised `orjson` library for decoding JSON
 
 - We do ABI decoding by hand to optimise speed - to avoid wasting time to decode data
   we do not read, or will discard

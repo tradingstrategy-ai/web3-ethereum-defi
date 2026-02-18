@@ -51,7 +51,7 @@ class TunedWeb3Factory(Web3Factory):
 
     - Enable graceful retries in the case of network errors and API throttling
 
-    - Use faster `ujson` instead of stdlib json to decode the responses
+    - Use faster `orjson` instead of stdlib json to decode the responses
     """
 
     def __init__(
@@ -103,7 +103,7 @@ class TunedWeb3Factory(Web3Factory):
 
         - Get rid of middleware
 
-        - Patch for ujson
+        - Patch for orjson
         """
 
         if self.thread_local_cache:
