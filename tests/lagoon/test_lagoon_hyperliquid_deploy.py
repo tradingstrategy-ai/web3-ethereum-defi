@@ -31,7 +31,9 @@ pytestmark = pytest.mark.skipif(
     reason="JSON_RPC_HYPERLIQUID environment variable required",
 )
 
+#: Anvil default account #0 private key.
 DEPLOYER_PRIVATE_KEY = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+#: Anvil default accounts #1 and #2. Used as Safe owners.
 OWNER_1 = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
 OWNER_2 = "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"
 
