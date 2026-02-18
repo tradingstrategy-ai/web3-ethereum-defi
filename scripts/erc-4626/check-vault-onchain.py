@@ -24,8 +24,8 @@ from eth_defi.vault.base import VaultSpec
 
 setup_console_logging(default_log_level="INFO")
 
-# Hub Capital USDC vault on Ethereum
-spec = VaultSpec.parse_string("1-0xca790385506b790554571cbc9da73f0130cdcfd5")
+# Ostium LP on Arbitrum
+spec = VaultSpec.parse_string("42161-0x20d419a8e12c45f88fda7c5760bb6923cee27f98")
 
 json_rpc_url = read_json_rpc_url(spec.chain_id)
 web3 = create_multi_provider_web3(json_rpc_url)
