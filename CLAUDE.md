@@ -71,6 +71,7 @@ poetry run ruff format
 - If this is a major feature instead of minor fix, use **major** bold suffix and then put them to the top of changelog list. Put minor features bottom.
 - Before opening or updating a pull request, format the code
 - When merging pull request, squash and merge commits and use the PR description as the commit message. If there is a related changelog entry, link it to the closed PR.
+- When editing pull request title or body, use `gh api` REST endpoint instead of `gh pr edit` which uses a deprecated GraphQL API that fails on repos with classic projects. Example: `gh api repos/OWNER/REPO/pulls/NUMBER -X PATCH -f title="..." -f body="..."`
 
 ## Specific rules
 
