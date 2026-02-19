@@ -1,6 +1,6 @@
 # Current
 
-- Fix: Auto-heal gaps in HyperSync timestamp collection on fast chains like Monad (2026-02-19)
+- Fix: Auto-heal gaps in HyperSync timestamp collection on fast chains like Monad (2026-02-19, [#750](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/750))
 - Add check-vault-history.py script for historical single-vault data verification using scan-prices pipeline (2026-02-19)
 - Fix sparkline export hanging on vault filtering and parallelise rendering with multiprocessing (2026-02-18, [#748](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/748))
 - Fix block timestamp scan range clipping to prevent querying blocks beyond HyperSync database range (2026-02-18)
