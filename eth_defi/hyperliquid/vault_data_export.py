@@ -33,10 +33,10 @@ from eth_typing import HexAddress
 
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.core import ERC4626Feature, ERC4262VaultDetection
-from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID, HYPERLIQUID_VAULT_PERFORMANCE_FEE
+from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID, HYPERLIQUID_VAULT_FEE_MODE, HYPERLIQUID_VAULT_PERFORMANCE_FEE
 from eth_defi.hyperliquid.daily_metrics import HyperliquidDailyMetricsDatabase
 from eth_defi.vault.base import VaultSpec
-from eth_defi.vault.fee import FeeData, VaultFeeMode
+from eth_defi.vault.fee import FeeData
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
 
 logger = logging.getLogger(__name__)
@@ -91,7 +91,7 @@ def create_hyperliquid_vault_row(
     )
 
     fee_data = FeeData(
-        fee_mode=VaultFeeMode.internalised_skimming,
+        fee_mode=HYPERLIQUID_VAULT_FEE_MODE,
         management=0.0,
         performance=perf_fee,
         deposit=0.0,
