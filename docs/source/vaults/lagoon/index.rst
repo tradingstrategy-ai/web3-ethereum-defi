@@ -41,4 +41,7 @@ Links
    eth_defi.erc_4626.vault_protocol.lagoon.analysis
    eth_defi.erc_4626.vault_protocol.lagoon.beacon_proxy
    eth_defi.erc_4626.vault_protocol.lagoon.cowswap
+   eth_defi.erc_4626.vault_protocol.lagoon.lagoon_compatibility
+   eth_defi.erc_4626.vault_protocol.lagoon.offchain_metadata
    eth_defi.erc_4626.vault_protocol.lagoon.testing
+   eth_defi.erc_4626.vault_protocol.lagoon.velora

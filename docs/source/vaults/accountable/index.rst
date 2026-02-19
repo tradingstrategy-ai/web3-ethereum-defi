@@ -32,4 +32,5 @@ Notes
    :toctree: _autosummary_accountable
    :recursive:
 
+   eth_defi.erc_4626.vault_protocol.accountable.offchain_metadata
    eth_defi.erc_4626.vault_protocol.accountable.vault

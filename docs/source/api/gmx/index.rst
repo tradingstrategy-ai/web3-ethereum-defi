@@ -69,5 +69,9 @@ More info
    eth_defi.gmx.verification
    eth_defi.gmx.whitelist
    eth_defi.gmx.ccxt
+   eth_defi.gmx.core
+   eth_defi.gmx.freqtrade
+   eth_defi.gmx.graphql
    eth_defi.gmx.lagoon
+   eth_defi.gmx.onchain
 
