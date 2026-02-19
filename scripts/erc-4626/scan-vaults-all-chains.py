@@ -502,7 +502,7 @@ def print_dashboard(results: dict[str, ChainResult], display_order: list[str] | 
         line = f"{result.name:<15} {status:<10} {vaults:<8} {new:<6} {blocks:<22} {duration:<10} {retry:<5}"
         if result.status == "failed" and result.error:
             # Truncate long error messages to fit the dashboard
-            error_msg = result.error[:80]
+            error_msg = result.error[:40]
             line += f"  {error_msg}"
         print(line)
 
@@ -516,6 +516,11 @@ def print_dashboard(results: dict[str, ChainResult], display_order: list[str] | 
 
     print(f"Summary: {success_count} success, {failed_count} failed, {pending_count} pending, {running_count} running, {skipped_count} skipped")
     print("=" * 100)
+
+    # Print full error messages below the dashboard
+    failed_results = [r for r in ordered_results if r.status == "failed" and r.error]
+    for r in failed_results:
+        logger.error("%s: %s", r.name, r.error)
 
 
 def run_post_processing() -> dict[str, bool]:
