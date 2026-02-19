@@ -296,9 +296,8 @@ def scan_all_chains(
     """Scan all supported HyperSync chains and update the state file"""
     supported_chains = HYPERSYNC_SERVES
 
-    for chain_id, hypersync_data in supported_chains.items():
-        hypersync_url = hypersync_data["URL"].split(" ")[0]
-        chain_name = hypersync_data["Network Name"]
+    for chain_id, hypersync_url in supported_chains.items():
+        chain_name = f"Chain {chain_id}"
         client = hypersync.HypersyncClient(hypersync.ClientConfig(url=hypersync_url))
 
         chain_state = world_state.chain_states.get(chain_id, ChainState(chain_id=chain_id))
