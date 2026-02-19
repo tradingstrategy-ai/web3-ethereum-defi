@@ -268,6 +268,7 @@ _BROKEN_VAULT_CONTRACTS = {
     "0x6a6E4ad4a5ca14B940Cd6949b1A90f947AE21c19",  # Broken Gains vault on Berachain - its open PnL feed contract (0x5705554B) causes multicall failures
     "0x5705554BAa86Da01fF4A82d29a1598c5B3A8B476",  # Open PnL feed helper contract for broken Gains vault on Berachain
     "0x8fF6aDBC653405245B6b686E31b14A7da7000281",  # BNB broken contract
+    "0x6949bcab16c0B389095C5b744f6FBF9741A1b3b6",  # Test vault on Monad
 }
 
 #: Cause excessive gas fees, RPC havoc.

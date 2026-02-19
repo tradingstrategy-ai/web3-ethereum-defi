@@ -273,6 +273,43 @@ async def fetch_block_timestamps_using_hypersync_cached_async(
 
         _save()
 
+        # Detect and heal any gaps left by silently dropped HyperSync batches.
+        # On fast chains like Monad, HyperSync can skip entire ~9,000-block
+        # streaming batches without raising errors.
+        max_heal_attempts = 3
+        for heal_attempt in range(max_heal_attempts):
+            gaps = timestamp_db.find_gaps()
+            # Only heal gaps within our scan range
+            gaps = [(s, e, n) for s, e, n in gaps if s >= scan_start and e <= end_block]
+            if not gaps:
+                break
+            total_missing = sum(g[2] for g in gaps)
+            logger.warning(
+                "HyperSync dropped %d blocks across %d gaps in range %d-%d (heal attempt %d/%d), re-fetching",
+                total_missing,
+                len(gaps),
+                scan_start,
+                end_block,
+                heal_attempt + 1,
+                max_heal_attempts,
+            )
+            for gap_start, gap_end, gap_size in gaps:
+                heal_index = []
+                heal_values = []
+                async for bh in get_block_timestamps_using_hypersync_async(
+                    client,
+                    chain_id,
+                    start_block=gap_start + 1,
+                    end_block=gap_end - 1,
+                    display_progress=False,
+                ):
+                    heal_index.append(bh.block_number)
+                    heal_values.append(bh.timestamp)
+                if heal_index:
+                    heal_series = pd.Series(data=heal_values, index=heal_index)
+                    timestamp_db.import_chain_data(chain_id, heal_series)
+                    logger.info("Healed gap %d-%d: inserted %d timestamps", gap_start + 1, gap_end - 1, len(heal_index))
+
     # Drop unnecessary blocks from memory
     return timestamp_db.get_slicer()
 

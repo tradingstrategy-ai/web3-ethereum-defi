@@ -159,8 +159,11 @@ def main():
 
     logger.info("Uploading %s sparkline images to R2", len(render_data))
 
-    # Create boto3 client once, reuse for all uploads
+    # Create boto3 client once, reuse for all uploads.
+    # Set max_pool_connections to match worker count so urllib3
+    # doesn't discard connections under concurrent thread load.
     import boto3
+    from botocore.config import Config
 
     s3_client = boto3.client(
         "s3",
@@ -168,6 +171,7 @@ def main():
         aws_access_key_id=access_key_id,
         aws_secret_access_key=secret_access_key,
         region_name="auto",
+        config=Config(max_pool_connections=max_workers),
     )
 
     def _upload_row(render_data: RenderData):
