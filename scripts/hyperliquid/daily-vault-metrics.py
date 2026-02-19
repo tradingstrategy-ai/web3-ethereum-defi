@@ -39,10 +39,8 @@ import logging
 import os
 from pathlib import Path
 
-from eth_defi.hyperliquid.daily_metrics import (
-    HYPERLIQUID_DAILY_METRICS_DATABASE,
-    run_daily_scan,
-)
+from eth_defi.hyperliquid.constants import HYPERLIQUID_DAILY_METRICS_DATABASE
+from eth_defi.hyperliquid.daily_metrics import run_daily_scan
 from eth_defi.hyperliquid.session import create_hyperliquid_session
 from eth_defi.hyperliquid.vault_data_export import (
     merge_into_cleaned_parquet,

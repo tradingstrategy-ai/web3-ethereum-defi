@@ -17,8 +17,8 @@ import pandas as pd
 import pytest
 
 from eth_defi.erc_4626.core import ERC4626Feature, ERC4262VaultDetection
+from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID
 from eth_defi.hyperliquid.daily_metrics import (
-    HYPERCORE_CHAIN_ID,
     HyperliquidDailyMetricsDatabase,
     fetch_and_store_vault,
 )

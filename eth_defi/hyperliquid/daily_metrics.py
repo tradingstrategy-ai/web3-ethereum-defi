@@ -39,6 +39,7 @@ from tqdm_loggable.auto import tqdm
 
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.hyperliquid.combined_analysis import _calculate_share_price
+from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID, HYPERLIQUID_DAILY_METRICS_DATABASE
 from eth_defi.hyperliquid.vault import (
     HyperliquidVault,
     PortfolioHistory,
@@ -48,15 +49,6 @@ from eth_defi.hyperliquid.vault import (
 )
 
 logger = logging.getLogger(__name__)
-
-#: Synthetic in-house chain ID for Hypercore (Hyperliquid's native non-EVM layer).
-#:
-#: Uses a negative number to avoid collision with any real EVM chain ID.
-#: This is distinct from HyperEVM (chain ID 999) which is the EVM-compatible sidechain.
-HYPERCORE_CHAIN_ID: int = -1
-
-#: Default path for Hyperliquid daily metrics database
-HYPERLIQUID_DAILY_METRICS_DATABASE = Path.home() / ".tradingstrategy" / "hyperliquid" / "daily-metrics.duckdb"
 
 
 def portfolio_to_combined_dataframe(portfolio_all_time: PortfolioHistory) -> pd.DataFrame:
