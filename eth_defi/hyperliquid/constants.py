@@ -15,10 +15,10 @@ from eth_defi.vault.fee import VaultFeeMode
 #: This is distinct from HyperEVM (chain ID 999) which is the EVM-compatible sidechain.
 #:
 #: Added to :py:data:`eth_defi.chain.CHAIN_NAMES` as ``-999: "Hypercore"``.
-HYPERCORE_CHAIN_ID: int = -999
+HYPERCORE_CHAIN_ID: int = 9999
 
 #: Default path for Hyperliquid daily metrics DuckDB database.
-HYPERLIQUID_DAILY_METRICS_DATABASE = Path.home() / ".tradingstrategy" / "hyperliquid" / "daily-metrics.duckdb"
+HYPERLIQUID_DAILY_METRICS_DATABASE = Path.home() / ".tradingstrategy" / "vaults" / "hyperliquid-vaults.duckdb"
 
 #: Fixed performance fee (profit share) for Hyperliquid native vault leaders.
 #:
