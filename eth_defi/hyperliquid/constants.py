@@ -11,10 +11,7 @@ from eth_defi.vault.fee import VaultFeeMode
 
 #: Synthetic in-house chain ID for Hypercore (Hyperliquid's native non-EVM layer).
 #:
-#: Uses a negative number to avoid collision with any real EVM chain ID.
-#: This is distinct from HyperEVM (chain ID 999) which is the EVM-compatible sidechain.
-#:
-#: Added to :py:data:`eth_defi.chain.CHAIN_NAMES` as ``-999: "Hypercore"``.
+#: Added to :py:data:`eth_defi.chain.CHAIN_NAMES` as ``9999: "Hypercore"``.
 HYPERCORE_CHAIN_ID: int = 9999
 
 #: Default path for Hyperliquid daily metrics DuckDB database.

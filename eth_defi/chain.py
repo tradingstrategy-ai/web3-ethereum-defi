@@ -8,7 +8,6 @@ import datetime
 import logging
 from collections import Counter
 from typing import Any, Callable, Optional
-
 #: These chains need POA middleware
 from urllib.parse import urljoin
 
@@ -17,10 +16,10 @@ from web3 import HTTPProvider, Web3
 from web3.providers import BaseProvider, JSONBaseProvider
 from web3.types import RPCEndpoint, RPCResponse
 
+from eth_defi.compat import native_datetime_utc_fromtimestamp
 from eth_defi.event_reader.conversion import convert_jsonrpc_value_to_int
 from eth_defi.middleware import http_retry_request_with_sleep_middleware
 from eth_defi.provider.named import get_provider_name
-from eth_defi.compat import native_datetime_utc_fromtimestamp
 
 #: List of chain ids that need to have proof-of-authority middleweare installed
 POA_MIDDLEWARE_NEEDED_CHAIN_IDS = {
@@ -31,7 +30,7 @@ POA_MIDDLEWARE_NEEDED_CHAIN_IDS = {
 
 #: Manually maintained shorthand names for different EVM chains
 CHAIN_NAMES = {
-    -999: "Hypercore",  # Synthetic in-house ID for native Hyperliquid vaults (non-EVM)
+    9999: "Hypercore",  # Synthetic in-house ID for native Hyperliquid vaults (non-EVM)
     1: "Ethereum",
     56: "Binance",
     137: "Polygon",
@@ -82,6 +81,7 @@ CHAIN_HOMEPAGES = {
     34443: {"name": "Mode", "homepage": "https://www.mode.network"},
     5000: {"name": "Mantle", "homepage": "https://www.mantle.xyz"},
     999: {"name": "Hyperliquid", "homepage": "https://hyperliquid.xyz"},  # HyperEVM, see https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm
+    9999: {"name": "Hyperliquid", "homepage": "https://hyperliquid.xyz"},  # See eth_defi.hyperliquid.constants.HYPERCORE_CHAIN_ID for synthetic chain ID for Hyperliquid native vaults (non-EVM)
     42161: {"name": "Arbitrum", "homepage": "https://arbitrum.io"},
     11155111: {"name": "Ethereum Sepolia", "homepage": "https://ethereum.org"},
     421614: {"name": "Arbitrum Sepolia", "homepage": "https://arbitrum.io"},
