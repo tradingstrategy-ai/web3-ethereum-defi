@@ -60,7 +60,7 @@ class DecreaseOrder(BaseOrder):
 
     def create_decrease_order(
         self,
-        size_delta: float,
+        size_delta: int | float,
         initial_collateral_delta_amount: int | str,
         slippage_percent: float = 0.003,
         swap_path: Optional[list[str]] = None,
