@@ -32,12 +32,17 @@ from freqtrade.enums import MarginMode, TradingMode
 from freqtrade.exceptions import OperationalException, TemporaryError
 from freqtrade.exchange import Exchange
 from freqtrade.exchange.common import retrier
-from freqtrade.exchange.exchange_types import FtHas
+from freqtrade.exchange.exchange_types import CcxtOrder, FtHas
 
 from eth_defi.gmx.ccxt.errors import InsufficientHistoricalDataError
 from eth_defi.gmx.core.open_positions import GetOpenPositions
 
 logger = logging.getLogger(__name__)
+
+#: Maximum age for an open GMX order before force-cancelling (milliseconds).
+#: GMX market orders execute within seconds via keepers.
+#: 10 minutes is generous — if no keeper event after this, something is wrong.
+GMX_ORDER_MAX_AGE_MS = 10 * 60 * 1000
 
 
 class Gmx(Exchange):
@@ -156,6 +161,61 @@ class Gmx(Exchange):
         :param **kwargs: Keyword arguments passed to parent Exchange
         """
         super().__init__(*args, **kwargs)
+
+    def fetch_order(self, order_id: str, pair: str, params: dict | None = None) -> CcxtOrder:
+        """Fetch order with GMX-specific zombie detection and cancel reason logging.
+
+        Extends the parent ``fetch_order()`` with two GMX-specific behaviours:
+
+        **Zombie order detection:** GMX market orders execute within seconds via
+        keepers. If an order is still "open" after :data:`GMX_ORDER_MAX_AGE_MS`
+        (default 10 min) with no keeper event, the indexer missed it or something
+        went wrong. Force-resolve as cancelled so freqtrade can retry.
+
+        **Cancel reason logging:** When a keeper rejects an order (e.g.
+        ``OrderNotFulfillableAtAcceptablePrice``), log the GMX-specific reason
+        for easier debugging in freqtrade logs.
+        """
+        order = super().fetch_order(order_id, pair, params)
+        info = order.get("info", {})
+
+        # Zombie order detection: force-cancel orders stuck as "open" beyond max age
+        if order.get("status") == "open" and order.get("timestamp") is not None:
+            age_ms = int(datetime.now(timezone.utc).timestamp() * 1000) - order["timestamp"]
+            if age_ms > GMX_ORDER_MAX_AGE_MS:
+                age_seconds = age_ms // 1000
+                logger.warning(
+                    "GMX zombie order detected: %s for %s has been open for %d seconds. "
+                    "Force-resolving as cancelled.",
+                    order_id[:18], pair, age_seconds,
+                )
+                order["status"] = "cancelled"
+                order["filled"] = 0.0
+                order["remaining"] = order.get("amount")
+                order.setdefault("info", {})
+                info = order["info"]
+                info["gmx_status"] = "zombie_cancelled"
+                info["cancel_reason"] = (
+                    f"Order open for {age_seconds}s without keeper execution"
+                )
+                return order
+
+        # Log GMX-specific cancel reasons for debugging
+        if order.get("status") in ("cancelled", "canceled", "expired"):
+            cancel_reason = (
+                info.get("cancellation_reason")
+                or info.get("cancel_reason")
+            )
+            if cancel_reason:
+                logger.info(
+                    "GMX order %s for %s was %s: %s",
+                    order_id[:18],
+                    pair,
+                    info.get("gmx_status", order["status"]),
+                    cancel_reason,
+                )
+
+        return order
 
     @property
     def _ccxt_config(self) -> dict:
@@ -693,6 +753,19 @@ class Gmx(Exchange):
             time_in_force=time_in_force,
             **kwargs,
         )
+
+        # Detect "position already closed" synthetic orders from the CCXT adapter.
+        # This happens when the bot tries to exit a position that no longer exists
+        # on-chain. The CCXT adapter returns a synthetic closed order with
+        # info["reason"] == "position_already_closed". The actual close reason
+        # (stop-loss, liquidation, manual close) is not available at this layer.
+        if order.get("info", {}).get("reason") == "position_already_closed":
+            logger.warning(
+                "GMX position for %s no longer exists on-chain. "
+                "Returning synthetic closed order with exit_reason=%s",
+                pair,
+                order.get("info", {}).get("exit_reason", "sold_on_exchange"),
+            )
 
         logger.debug("=" * 80)
         logger.debug("*** GMX CCXT adapter RETURNED order ***")
