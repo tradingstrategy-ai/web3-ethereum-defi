@@ -31,6 +31,7 @@ POA_MIDDLEWARE_NEEDED_CHAIN_IDS = {
 
 #: Manually maintained shorthand names for different EVM chains
 CHAIN_NAMES = {
+    -999: "Hypercore",  # Synthetic in-house ID for native Hyperliquid vaults (non-EVM)
     1: "Ethereum",
     56: "Binance",
     137: "Polygon",

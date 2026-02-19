@@ -108,9 +108,13 @@ class VaultSpec:
                 raise ValueError(f"Cannot parse vault spec from string: {spec}. No separator found.")
 
         try:
-            chain_id, address = spec.split(separator)
-            chain_id = chain_id.strip()
-            address = address.strip()
+            # Use rsplit with maxsplit=1 to handle negative chain IDs like "-1-0xabc..."
+            # where a naive split("-") would break on the leading minus sign
+            parts = spec.rsplit(separator, 1)
+            if len(parts) != 2:
+                raise ValueError(f"Expected exactly one separator '{separator}' in spec: {spec}")
+            chain_id = parts[0].strip()
+            address = parts[1].strip()
             return VaultSpec(chain_id=int(chain_id), vault_address=address)
         except Exception as e:
             raise ValueError(f"Cannot parse vault spec from string: {spec}") from e

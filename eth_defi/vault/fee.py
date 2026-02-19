@@ -127,6 +127,8 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "BaseVol": None,
     # sBOLD - yield accrues through stability pool rewards, no external fees
     "sBOLD": VaultFeeMode.internalised_skimming,
+    # Hyperliquid native vaults - leader commission is taken from PnL, share price already reflects it
+    "Hyperliquid": VaultFeeMode.internalised_skimming,
 }
 
 

@@ -18,6 +18,9 @@ Usage:
     # Scan all chains with prices
     SCAN_PRICES=true python scripts/erc-4626/scan-vaults-all-chains.py
 
+    # Include Hyperliquid native (Hypercore) vaults
+    SCAN_HYPERCORE=true python scripts/erc-4626/scan-vaults-all-chains.py
+
     # Custom retry count
     RETRY_COUNT=2 python scripts/erc-4626/scan-vaults-all-chains.py
 
@@ -62,6 +65,7 @@ Manual testing:
 
 Environment variables:
     - SCAN_PRICES: "true" or "false" (default: "false")
+    - SCAN_HYPERCORE: "true" to scan Hyperliquid native (Hypercore) vaults via REST API (default: "false")
     - RETRY_COUNT: Number of retry attempts (default: "1")
     - MAX_WORKERS: Number of parallel workers (default: "50")
     - FREQUENCY: "1h" or "1d" (default: "1h")
@@ -468,6 +472,62 @@ def scan_chain(config: ChainConfig, scan_prices: bool, max_workers: int, frequen
     return result
 
 
+def scan_hypercore_fn(max_workers: int) -> ChainResult:
+    """Scan Hyperliquid native (Hypercore) vaults via REST API.
+
+    Runs the Hyperliquid daily metrics pipeline: fetches vault data,
+    computes share prices, stores in DuckDB, and merges into the
+    shared ERC-4626 pipeline files (VaultDatabase pickle + cleaned Parquet).
+
+    :param max_workers:
+        Number of parallel workers for fetching vault details.
+    :return:
+        Scan result with vault count and duration.
+    """
+    from eth_defi.hyperliquid.constants import HYPERLIQUID_DAILY_METRICS_DATABASE
+    from eth_defi.hyperliquid.daily_metrics import run_daily_scan
+    from eth_defi.hyperliquid.session import create_hyperliquid_session
+    from eth_defi.hyperliquid.vault_data_export import (
+        merge_into_cleaned_parquet,
+        merge_into_vault_database,
+    )
+    from eth_defi.vault.vaultdb import DEFAULT_RAW_PRICE_DATABASE
+
+    result = ChainResult(name="Hypercore", status="running")
+    start_time = time.time()
+
+    try:
+        session = create_hyperliquid_session(requests_per_second=2.75)
+
+        db = run_daily_scan(
+            session=session,
+            db_path=HYPERLIQUID_DAILY_METRICS_DATABASE,
+            max_workers=max_workers,
+        )
+
+        try:
+            vault_count = db.get_vault_count()
+            result.vault_count = vault_count
+            result.vault_scan_ok = True
+
+            merge_into_vault_database(db, DEFAULT_VAULT_DATABASE)
+            merge_into_cleaned_parquet(db, DEFAULT_RAW_PRICE_DATABASE)
+            result.price_scan_ok = True
+        finally:
+            db.close()
+
+        result.status = "success"
+
+    except Exception as e:
+        logger.exception("Hypercore scan failed")
+        result.status = "failed"
+        result.error = str(e)
+        result.traceback_str = traceback.format_exc()
+
+    result.duration = time.time() - start_time
+    return result
+
+
 def print_dashboard(results: dict[str, ChainResult], display_order: list[str] | None = None) -> None:
     """Print console dashboard showing scan progress.
 
@@ -587,6 +647,7 @@ def main():
     # Read configuration from environment
     retry_count = int(os.environ.get("RETRY_COUNT", "1"))
     scan_prices = os.environ.get("SCAN_PRICES", "false").lower() == "true"
+    scan_hypercore = os.environ.get("SCAN_HYPERCORE", "false").lower() == "true"
     max_workers = int(os.environ.get("MAX_WORKERS", "50"))
     frequency = os.environ.get("FREQUENCY", "1h")
     skip_post_processing = os.environ.get("SKIP_POST_PROCESSING", "false").lower() == "true"
@@ -602,7 +663,7 @@ def main():
 
     logger.info("=" * 80)
     logger.info("Starting multi-chain vault scan")
-    logger.info("SCAN_PRICES: %s, RETRY_COUNT: %d, MAX_WORKERS: %d, FREQUENCY: %s", scan_prices, retry_count, max_workers, frequency)
+    logger.info("SCAN_PRICES: %s, SCAN_HYPERCORE: %s, RETRY_COUNT: %d, MAX_WORKERS: %d, FREQUENCY: %s", scan_prices, scan_hypercore, retry_count, max_workers, frequency)
     if skip_post_processing:
         logger.info("SKIP_POST_PROCESSING: true - post-processing will be skipped")
     if test_chain_names:
@@ -660,6 +721,10 @@ def main():
 
     results = {c.name: ChainResult(name=c.name, status="pending", retry_attempt=0) for c in chains}
 
+    # Add Hypercore (Hyperliquid native vaults) to tracking
+    if scan_hypercore:
+        results["Hypercore"] = ChainResult(name="Hypercore", status="pending")
+
     # Add chains skipped by CHAIN_ORDER to results
     for chain in skipped_by_order:
         results[chain.name] = ChainResult(name=chain.name, status="skipped", error="Not in CHAIN_ORDER")
@@ -668,8 +733,11 @@ def main():
     for chain in disabled_chains:
         results[chain.name] = ChainResult(name=chain.name, status="skipped", error="Disabled via DISABLE_CHAINS")
 
-    # Build display order: chains to scan first, then skipped/disabled chains
-    display_order = [c.name for c in chains] + [c.name for c in skipped_by_order] + [c.name for c in disabled_chains]
+    # Build display order: EVM chains first, then Hypercore, then skipped/disabled
+    display_order = [c.name for c in chains]
+    if scan_hypercore:
+        display_order.append("Hypercore")
+    display_order += [c.name for c in skipped_by_order] + [c.name for c in disabled_chains]
 
     # Display initial dashboard
     print_dashboard(results, display_order)
@@ -708,9 +776,32 @@ def main():
 
         print_dashboard(results, display_order)
 
-    # Retry passes - retry failed chains
+    # Hypercore scan (Hyperliquid native vaults via REST API)
+    if scan_hypercore:
+        logger.info("Scanning Hypercore (Hyperliquid native vaults)")
+        try:
+            results["Hypercore"] = scan_hypercore_fn(max_workers)
+        except Exception as e:
+            logger.exception("Hypercore scan crashed with unhandled exception")
+            results["Hypercore"] = ChainResult(
+                name="Hypercore",
+                status="failed",
+                error=str(e),
+                traceback_str=traceback.format_exc(),
+            )
+
+        r = results["Hypercore"]
+        if r.status == "success":
+            logger.info("Hypercore: SUCCESS - %d vaults", r.vault_count or 0)
+        elif r.status == "failed":
+            logger.error("Hypercore: FAILED - %s", r.error)
+
+        print_dashboard(results, display_order)
+
+    # Retry passes - retry failed EVM chains (Hypercore is not retried)
+    evm_chain_names = {c.name for c in chains}
     for attempt in range(1, retry_count + 1):
-        failed_chain_names = [name for name, r in results.items() if r.status == "failed"]
+        failed_chain_names = [name for name, r in results.items() if r.status == "failed" and name in evm_chain_names]
         if not failed_chain_names:
             logger.info("No failed chains to retry")
             break

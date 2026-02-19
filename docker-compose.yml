@@ -41,6 +41,7 @@ services:
       JSON_RPC_KATANA: ${JSON_RPC_KATANA:-}
       JSON_RPC_MONAD: ${JSON_RPC_MONAD:-}
       SCAN_PRICES: ${SCAN_PRICES:-true}
+      SCAN_HYPERCORE: ${SCAN_HYPERCORE:-false}
       LOG_LEVEL: ${LOG_LEVEL:-warning}
       MAX_WORKERS: ${MAX_WORKERS:-50}
 

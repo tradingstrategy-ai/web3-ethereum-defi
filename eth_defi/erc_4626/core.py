@@ -535,6 +535,13 @@ class ERC4626Feature(enum.Enum):
     #: https://www.k3.capital/
     sbold_like = "sbold_like"
 
+    #: Hypercore native vault
+    #:
+    #: Native Hyperliquid perpetuals trading vault on Hypercore (non-EVM).
+    #: Not an ERC-4626 vault but shares the same metrics interface.
+    #: https://app.hyperliquid.xyz/vaults
+    hypercore_native = "hypercore_native"
+
 
 #: Features that identify lending protocol vaults.
 #:
@@ -806,6 +813,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.sbold_like in features:
         return "sBOLD"
+
+    elif ERC4626Feature.hypercore_native in features:
+        return "Hyperliquid"
 
     # No idea
     if ERC4626Feature.erc_7540_like in features:

@@ -26,10 +26,7 @@ import pandas as pd
 
 from eth_defi.chain import get_chain_name
 from eth_defi.utils import setup_console_logging
-from eth_defi.vault.vaultdb import (DEFAULT_READER_STATE_DATABASE,
-                                    DEFAULT_UNCLEANED_PRICE_DATABASE,
-                                    DEFAULT_VAULT_DATABASE, VaultDatabase,
-                                    VaultReaderData)
+from eth_defi.vault.vaultdb import DEFAULT_READER_STATE_DATABASE, DEFAULT_UNCLEANED_PRICE_DATABASE, DEFAULT_VAULT_DATABASE, VaultDatabase, VaultReaderData
 
 logger = logging.getLogger(__name__)
 
