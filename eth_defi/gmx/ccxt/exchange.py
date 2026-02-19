@@ -46,7 +46,8 @@ from eth_defi.gmx.contracts import get_contract_addresses, get_token_address_nor
 from eth_defi.gmx.core.markets import Markets
 from eth_defi.gmx.core.open_positions import GetOpenPositions
 from eth_defi.gmx.core.oracle import OraclePrices
-from eth_defi.gmx.events import decode_gmx_event, extract_order_execution_result, extract_order_key_from_receipt
+from eth_defi.gmx.precision import cap_size_delta_to_position, is_raw_usd_amount
+from eth_defi.gmx.events import decode_error_reason, decode_gmx_event, extract_order_execution_result, extract_order_key_from_receipt
 from eth_defi.gmx.gas_monitor import GasMonitorConfig, GMXGasMonitor, InsufficientGasError
 from eth_defi.gmx.graphql.client import GMXSubsquidClient
 from eth_defi.gmx.order import SLTPEntry, SLTPOrder, SLTPParams
@@ -956,6 +957,15 @@ class GMX(ExchangeCompatible):
         self._max_consecutive_failures = 3  # Threshold to pause trading
         self._trading_paused = False  # Flag to indicate if trading is paused
         self._trading_paused_reason = None  # Store reason for pause
+
+        #: Per-symbol keeper cancellation tracking (close orders only).
+        #: Prevents infinite retry loops when structurally doomed orders are retried every cycle.
+        #: Format: ``{symbol: {"count": int, "cooldown_until": float, "last_reason": str}}``
+        self._keeper_cancel_tracker: dict = {}
+        #: Max consecutive keeper cancellations before cooldown is applied.
+        self._max_keeper_cancels: int = 3
+        #: Cooldown duration after hitting the cancel limit (seconds).
+        self._keeper_cancel_cooldown_secs: int = 3600
 
         self.timeframes = {
             "1m": "1m",
@@ -4778,6 +4788,7 @@ class GMX(ExchangeCompatible):
             "size_delta_usd": size_delta_usd,  # Now uses exact GMX value for closes
             "leverage": leverage,
             "slippage_percent": slippage_percent,
+            "_gmx_position": gmx_position,  # Pass through for reuse in close path (avoids duplicate RPC)
         }
 
         # Add any additional parameters
@@ -5848,6 +5859,8 @@ class GMX(ExchangeCompatible):
             # ============================================
             # OPENING POSITIONS (buy=LONG, sell=SHORT)
             # ============================================
+            # Remove internal key used only in the close path
+            gmx_params.pop("_gmx_position", None)
             if type == "limit":
                 # Limit order - triggers at specified price
                 if price is None:
@@ -5871,6 +5884,20 @@ class GMX(ExchangeCompatible):
             # decrease on the actual open position instead of the user-requested
             # amount to avoid "invalid decrease order size" reverts.
 
+            # Circuit breaker: refuse close orders for symbols with too many consecutive
+            # keeper cancellations to prevent burn loops (e.g., 436 retries in 17 hours).
+            _cancel_entry = self._keeper_cancel_tracker.get(symbol, {})
+            _cooldown_until = _cancel_entry.get("cooldown_until", 0.0)
+            if time.monotonic() < _cooldown_until:
+                _remaining = int(_cooldown_until - time.monotonic())
+                _last_reason = _cancel_entry.get("last_reason", "unknown")
+                _cancel_count = _cancel_entry.get("count", 0)
+                raise InvalidOrder(
+                    f"CIRCUIT_BREAKER: skipping close for {symbol} — "
+                    f"{_cancel_count} consecutive keeper cancellations (last reason: {_last_reason}). "
+                    f"Cooldown: {_remaining}s remaining. Call reset_keeper_cancel_count('{symbol}') to resume."
+                )
+
             # RACE CONDITION FIX: When stop-loss executes, it closes the position on-chain.
             # If Freqtrade's main loop then tries to close the same position (e.g., via ROI),
             # we need to handle this gracefully instead of raising an error.
@@ -5883,41 +5910,35 @@ class GMX(ExchangeCompatible):
             market = self.markets[normalized_symbol]
             base_currency = market["base"]
 
-            # Get existing positions to determine the position we're closing
-            positions_manager = GetOpenPositions(self.config)
+            # Reuse position data from _convert_ccxt_to_gmx_params if available
+            # (avoids a duplicate GetOpenPositions RPC call and race condition window)
+            cached_position = gmx_params.get("_gmx_position")
 
             try:
-                existing_positions = positions_manager.get_data(self.wallet.address)
+                if cached_position:
+                    position_to_close = cached_position
+                    logger.debug("CLOSE: Reusing cached position data from _convert_ccxt_to_gmx_params")
+                else:
+                    # Fallback: query positions if not cached (shouldn't happen in normal flow)
+                    positions_manager = GetOpenPositions(self.config)
+                    existing_positions = positions_manager.get_data(self.wallet.address)
 
-                # Log existing positions for debugging
-                # logger.info("ORDER_TRACE: Fetched %d existing positions for close operation", len(existing_positions))
-                # for key, pos in existing_positions.items():
-                #     logger.info(
-                #         "ORDER_TRACE: Position %s - market=%s, is_long=%s, size_usd=%.2f, collateral_usd=%.2f, percent_profit=%.4f%%",
-                #         key,
-                #         pos.get("market_symbol"),
-                #         pos.get("is_long"),
-                #         pos.get("position_size", 0),
-                #         pos.get("initial_collateral_amount_usd", 0),
-                #         pos.get("percent_profit", 0),
-                #     )
+                    # Find the matching position for this market + collateral + direction
+                    position_to_close = None
+                    for position_key, position_data in existing_positions.items():
+                        position_market = position_data.get("market_symbol", "")
+                        position_is_long = position_data.get("is_long", None)
+                        position_collateral = position_data.get("collateral_token", "")
 
-                # Find the matching position for this market + collateral + direction
-                position_to_close = None
-                for position_key, position_data in existing_positions.items():
-                    position_market = position_data.get("market_symbol", "")
-                    position_is_long = position_data.get("is_long", None)
-                    position_collateral = position_data.get("collateral_token", "")
-
-                    # Match market and collateral
-                    if position_market == base_currency and position_collateral == gmx_params["collateral_symbol"]:
-                        # Check if position direction matches what we're trying to close
-                        if is_closing_long and position_is_long:
-                            position_to_close = position_data
-                            break
-                        elif is_closing_short and not position_is_long:
-                            position_to_close = position_data
-                            break
+                        # Match market and collateral
+                        if position_market == base_currency and position_collateral == gmx_params["collateral_symbol"]:
+                            # Check if position direction matches what we're trying to close
+                            if is_closing_long and position_is_long:
+                                position_to_close = position_data
+                                break
+                            elif is_closing_short and not position_is_long:
+                                position_to_close = position_data
+                                break
 
                 if not position_to_close:
                     # Position not found - likely already closed (e.g., by stop-loss)
@@ -5973,6 +5994,19 @@ class GMX(ExchangeCompatible):
                 # ============================================
 
                 size_delta_usd = gmx_params["size_delta_usd"]
+
+                # SAFETY CAP: For MarketDecrease, sizeDeltaUsd must NEVER exceed
+                # the on-chain sizeInUsd, or GMX reverts with InvalidDecreaseOrderSize.
+                # LimitDecrease/StopLossDecrease auto-cap, but MarketDecrease does not.
+                # This mirrors the GMX SDK: values.sizeDeltaUsd = position.sizeInUsd
+                position_size_raw = position_to_close.get("position_size_usd_raw", 0)
+                if position_size_raw > 0 and is_raw_usd_amount(size_delta_usd):
+                    size_delta_usd = cap_size_delta_to_position(
+                        size_delta_usd,
+                        position_size_raw,
+                        label=symbol,
+                    )
+
                 # Human-readable float for logging and collateral math
                 size_delta_usd_display = size_delta_usd / 10**30 if isinstance(size_delta_usd, int) and size_delta_usd > 10**20 else float(size_delta_usd)
 
@@ -5980,7 +6014,7 @@ class GMX(ExchangeCompatible):
                 if size_delta_usd <= 0:
                     raise ValueError(f"Invalid close size {size_delta_usd} for {symbol}. Position data: {position_to_close}")
 
-                logger.info("CLOSE: Using size_delta_usd=%.2f from exact GMX position data (raw=%s)", size_delta_usd_display, size_delta_usd)
+                logger.info("CLOSE: Using size_delta_usd=%.2f from exact GMX position data (raw=%s, type=%s)", size_delta_usd_display, size_delta_usd, size_delta_usd.__class__.__name__)
 
                 # Derive collateral delta proportionally from the original collateral.
                 # Since size is now exact from GMX, this calculation is accurate.
@@ -6418,15 +6452,54 @@ class GMX(ExchangeCompatible):
             # Check if order was cancelled or frozen
             event_name = trade_action.get("eventName", "")
             if event_name in ("OrderCancelled", "OrderFrozen"):
-                error_reason = trade_action.get("reason") or f"Order {event_name.lower()}"
-                logger.info(
-                    "ORDER_TRACE: create_order() - Order %s by keeper for %s - reason=%s, tx=%s, order_key=%s",
+                # Try to decode reasonBytes for a precise GMX error name.
+                # Subsquid provides "reasonBytes" as a hex string; blockchain fallback puts decoded text in "reason".
+                raw_reason_bytes = trade_action.get("reasonBytes", "") or ""
+                decoded_error = None
+                if raw_reason_bytes:
+                    try:
+                        _reason_bytes = bytes.fromhex(raw_reason_bytes.replace("0x", ""))
+                        decoded_error = decode_error_reason(_reason_bytes)
+                    except Exception:
+                        pass
+                error_reason = decoded_error or trade_action.get("reason") or f"Order {event_name.lower()}"
+                logger.warning(
+                    "ORDER_TRACE: create_order() - Order %s by keeper for %s - decoded=%s, raw_reason=%s, tx=%s, order_key=%s",
                     event_name,
                     symbol,
-                    error_reason,
+                    decoded_error,
+                    trade_action.get("reason"),
                     tx_hash[:18],
                     order_key.hex()[:18] if order_key else "N/A",
                 )
+
+                # Circuit breaker: track consecutive keeper cancellations for close orders.
+                # Only close orders (reduceOnly=True) are tracked — open-order failures are
+                # already handled by _consecutive_failures.
+                if reduceOnly:
+                    _cb_entry = self._keeper_cancel_tracker.setdefault(
+                        symbol, {"count": 0, "cooldown_until": 0.0, "last_reason": ""}
+                    )
+                    _cb_entry["count"] += 1
+                    _cb_entry["last_reason"] = error_reason
+                    if _cb_entry["count"] >= self._max_keeper_cancels:
+                        _cb_entry["cooldown_until"] = time.monotonic() + self._keeper_cancel_cooldown_secs
+                        logger.error(
+                            "CIRCUIT_BREAKER: %d consecutive keeper cancellations for %s close orders. "
+                            "Setting %ds cooldown. Last reason: %s",
+                            _cb_entry["count"],
+                            symbol,
+                            self._keeper_cancel_cooldown_secs,
+                            error_reason,
+                        )
+                    else:
+                        logger.warning(
+                            "CIRCUIT_BREAKER: keeper cancel %d/%d for %s close. Reason: %s",
+                            _cb_entry["count"],
+                            self._max_keeper_cancels,
+                            symbol,
+                            error_reason,
+                        )
 
                 # Raise InvalidOrder so freqtrade does NOT set exit_reason on the trade.
                 # Freqtrade's exchange wrapper converts ccxt.InvalidOrder to
@@ -6434,7 +6507,14 @@ class GMX(ExchangeCompatible):
                 # caught per-trade in exit_positions() — the bot loop continues.
                 raise InvalidOrder(f"GMX order {event_name} by keeper for {symbol}: {error_reason} (tx={tx_hash[:18]}..., order_key={order_key.hex()[:18] if order_key else 'N/A'}...)")
 
-            # Order executed successfully
+            # Order executed successfully — reset keeper cancel counter for this symbol.
+            if reduceOnly and symbol in self._keeper_cancel_tracker:
+                logger.info(
+                    "CIRCUIT_BREAKER: resetting keeper cancel counter for %s after successful close",
+                    symbol,
+                )
+                self._keeper_cancel_tracker.pop(symbol, None)
+
             # Parse execution price from Subsquid (30 decimals) or event
             # Convert using token-specific decimals (30 - token_decimals)
             raw_exec_price = trade_action.get("executionPrice")
@@ -6709,6 +6789,38 @@ class GMX(ExchangeCompatible):
                 "Failure counter reset (was %d failures, trading was not paused)",
                 failure_count,
             )
+
+    def reset_keeper_cancel_count(self, symbol: str | None = None) -> None:
+        """Reset keeper cancellation counter and cooldown for a symbol or all symbols.
+
+        Call this after investigating why close orders are being cancelled, or
+        when you want the bot to retry a pair that is currently in cooldown.
+
+        :param symbol:
+            Symbol to reset (e.g. ``"ONDO/USDC:USDC"``), or ``None`` to reset all symbols.
+
+        :Example:
+
+            .. code-block:: python
+
+                # Reset one symbol after fixing slippage settings
+                gmx.reset_keeper_cancel_count("ONDO/USDC:USDC")
+
+                # Reset everything
+                gmx.reset_keeper_cancel_count()
+
+        .. warning::
+            Only call this after investigating and resolving the root cause
+            of the cancellations. Resetting without fixing the underlying issue
+            will simply re-enter the retry loop.
+        """
+        if symbol is None:
+            count = len(self._keeper_cancel_tracker)
+            self._keeper_cancel_tracker.clear()
+            logger.info("CIRCUIT_BREAKER: reset all keeper cancel counters (%d symbols)", count)
+        else:
+            self._keeper_cancel_tracker.pop(symbol, None)
+            logger.info("CIRCUIT_BREAKER: reset keeper cancel counter for %s", symbol)
 
     def cancel_order(
         self,

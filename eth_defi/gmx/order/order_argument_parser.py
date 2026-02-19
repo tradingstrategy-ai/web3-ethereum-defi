@@ -12,6 +12,7 @@ from web3 import Web3
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.core.markets import Markets
 from eth_defi.gmx.core.oracle import OraclePrices
+from eth_defi.gmx.precision import is_raw_usd_amount
 from eth_defi.gmx.utils import determine_swap_route
 from eth_defi.gmx.contracts import get_tokens_metadata_dict
 
@@ -480,9 +481,13 @@ class OrderArgumentParser:
             # If size_delta_usd is already a large int (> 10^20), it's in raw format (30 decimals)
             # This happens when closing positions using the exact on-chain position size
             size_delta_value = self.parameters_dict["size_delta_usd"]
-            if isinstance(size_delta_value, int) and size_delta_value > 10**20:
-                # Already in raw format with 30 decimals, use as-is
+            if is_raw_usd_amount(size_delta_value):
+                # Already in raw format with 30 decimals, use as-is.
                 self.parameters_dict["size_delta"] = size_delta_value
+                logger.debug(
+                    "PRECISION: size_delta_usd is raw int (%s), using as-is",
+                    size_delta_value,
+                )
             else:
                 # Human-readable format, multiply by 10^30
                 self.parameters_dict["size_delta"] = int(size_delta_value * 10**30)

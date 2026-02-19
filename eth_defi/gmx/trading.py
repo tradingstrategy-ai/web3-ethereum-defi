@@ -768,7 +768,7 @@ class GMXTrading:
         collateral_symbol: str,
         start_token_symbol: str,
         is_long: bool,
-        size_delta_usd: float,
+        size_delta_usd: int | float,
         initial_collateral_delta: float,
         slippage_percent: Optional[float] = 0.003,
         **kwargs,
