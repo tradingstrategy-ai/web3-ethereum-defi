@@ -140,6 +140,8 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "BaseVol": VaultTechnicalRisk.severe,
     # sBOLD - audited by ChainSecurity, open source on GitHub
     "sBOLD": VaultTechnicalRisk.low,
+    # Hyperliquid - native vaults on Hypercore, closed-source centralised exchange
+    "Hyperliquid": VaultTechnicalRisk.severe,
 }
 
 #: Particular vaults that are broken, misleading or otherwise problematic.
