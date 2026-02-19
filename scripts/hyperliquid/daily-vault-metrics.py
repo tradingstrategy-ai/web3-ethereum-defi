@@ -18,6 +18,10 @@ Usage:
     # Quick test with one vault
     MAX_VAULTS=1 MIN_TVL=1000000 poetry run python scripts/hyperliquid/daily-vault-metrics.py
 
+    # Scan specific vaults by address
+    VAULT_ADDRESSES=0x3df9769bbbb335340872f01d8157c779d73c6ed0,0xdfc24b077bc1425ad1dea75bcb6f8158e3df2f0f \
+      poetry run python scripts/hyperliquid/daily-vault-metrics.py
+
     # With debug logging
     LOG_LEVEL=info poetry run python scripts/hyperliquid/daily-vault-metrics.py
 
@@ -25,6 +29,8 @@ Environment variables:
 
 - ``LOG_LEVEL``: Logging level (debug, info, warning, error). Default: warning
 - ``DB_PATH``: Path to DuckDB database file. Default: ~/.tradingstrategy/hyperliquid/daily-metrics.duckdb
+- ``VAULT_ADDRESSES``: Comma-separated list of vault addresses to scan.
+  When set, overrides ``MIN_TVL`` and ``MAX_VAULTS`` filters.
 - ``MIN_TVL``: Minimum TVL in USD to include a vault. Default: 10000
 - ``MAX_VAULTS``: Maximum number of vaults to process. Default: 500
 - ``MAX_WORKERS``: Maximum number of parallel workers. Default: 16
@@ -63,6 +69,9 @@ def main():
     db_path_str = os.environ.get("DB_PATH")
     db_path = Path(db_path_str).expanduser() if db_path_str else HYPERLIQUID_DAILY_METRICS_DATABASE
 
+    vault_addresses_str = os.environ.get("VAULT_ADDRESSES", "").strip()
+    vault_addresses = [a.strip() for a in vault_addresses_str.split(",") if a.strip()] or None
+
     min_tvl = float(os.environ.get("MIN_TVL", "10000"))
     max_vaults = int(os.environ.get("MAX_VAULTS", "500"))
     max_workers = int(os.environ.get("MAX_WORKERS", "16"))
@@ -75,8 +84,11 @@ def main():
 
     print(f"Hyperliquid daily vault metrics pipeline")
     print(f"DuckDB path: {db_path}")
-    print(f"Min TVL: ${min_tvl:,.0f}")
-    print(f"Max vaults: {max_vaults}")
+    if vault_addresses:
+        print(f"Vault addresses: {', '.join(vault_addresses)}")
+    else:
+        print(f"Min TVL: ${min_tvl:,.0f}")
+        print(f"Max vaults: {max_vaults}")
     print(f"Max workers: {max_workers}")
     print(f"VaultDB path: {vault_db_path}")
     print(f"Parquet path: {parquet_path}")
@@ -92,6 +104,7 @@ def main():
         min_tvl=min_tvl,
         max_vaults=max_vaults,
         max_workers=max_workers,
+        vault_addresses=vault_addresses,
     )
 
     try:

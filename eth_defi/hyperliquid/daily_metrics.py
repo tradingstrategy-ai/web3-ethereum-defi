@@ -523,11 +523,12 @@ def run_daily_scan(
     max_workers: int = 16,
     cutoff_date: datetime.date | None = None,
     timeout: float = 30.0,
+    vault_addresses: list[str] | None = None,
 ) -> HyperliquidDailyMetricsDatabase:
     """Run the daily Hyperliquid vault metrics scan.
 
     1. Bulk-fetches all vaults from stats-data API
-    2. Filters by TVL, open status, and vault limit
+    2. Filters by TVL, open status, and vault limit (or by explicit address list)
     3. Fetches per-vault details and computes share prices
     4. Stores everything in DuckDB
 
@@ -538,8 +539,10 @@ def run_daily_scan(
         Path to the DuckDB database file.
     :param min_tvl:
         Minimum TVL in USD to include a vault.
+        Ignored when ``vault_addresses`` is provided.
     :param max_vaults:
         Maximum number of vaults to process (sorted by TVL descending).
+        Ignored when ``vault_addresses`` is provided.
     :param max_workers:
         Number of parallel workers for fetching vault details.
     :param cutoff_date:
@@ -547,6 +550,9 @@ def run_daily_scan(
         Used for incremental scanning / testing.
     :param timeout:
         HTTP request timeout.
+    :param vault_addresses:
+        If provided, only scan these specific vault addresses.
+        Overrides ``min_tvl`` and ``max_vaults`` filters.
     :return:
         The metrics database instance.
     """
@@ -569,14 +575,25 @@ def run_daily_scan(
 
     logger.info("Fetched %d total vaults from stats-data API", len(vault_summaries))
 
-    # Filter: TVL threshold, not closed, normal relationship
-    filtered = [s for s in vault_summaries if float(s.tvl) >= min_tvl and not s.is_closed]
-    logger.info("After filtering (min_tvl=$%s, open only): %d vaults", f"{min_tvl:,.0f}", len(filtered))
+    if vault_addresses is not None:
+        # Filter by explicit address list
+        address_set = {a.lower() for a in vault_addresses}
+        filtered = [s for s in vault_summaries if s.vault_address.lower() in address_set]
+        found = {s.vault_address.lower() for s in filtered}
+        missing = address_set - found
+        if missing:
+            logger.warning("Requested vaults not found in bulk listing: %s", missing)
+        logger.info("Selected %d vaults by address", len(filtered))
+    else:
+        # Filter: TVL threshold, not closed, normal relationship
+        filtered = [s for s in vault_summaries if float(s.tvl) >= min_tvl and not s.is_closed]
+        logger.info("After filtering (min_tvl=$%s, open only): %d vaults", f"{min_tvl:,.0f}", len(filtered))
 
-    # Sort by TVL descending and limit
-    filtered.sort(key=lambda s: float(s.tvl), reverse=True)
-    filtered = filtered[:max_vaults]
-    logger.info("Processing top %d vaults by TVL", len(filtered))
+        # Sort by TVL descending and limit
+        filtered.sort(key=lambda s: float(s.tvl), reverse=True)
+        filtered = filtered[:max_vaults]
+
+    logger.info("Processing %d vaults", len(filtered))
 
     # Fetch details and compute prices in parallel
     desc = "Fetching Hyperliquid vault details"

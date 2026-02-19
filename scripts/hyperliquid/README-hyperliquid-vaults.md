@@ -90,12 +90,35 @@ The cleaned Parquet gains these extra columns. For EVM vaults they are `NA`:
 - `cumulative_pnl` -- cumulative total PnL in USD
 - `daily_pnl` -- daily PnL in USD
 
+## Quick start example
+
+Scan HLP and Growi HF vaults, compute metrics, and display the JSON output:
+
+```shell
+poetry run python scripts/hyperliquid/example-vault-metrics.py
+```
+
+Pick your own vaults by address:
+
+```shell
+VAULT_ADDRESSES=0xdfc24b077bc1425ad1dea75bcb6f8158e10df303,0x1e37a337ed460039d1b15bd3bc489de789768d5e \
+  poetry run python scripts/hyperliquid/example-vault-metrics.py
+```
+
 ## Manual testing commands
 
 ### Quick smoke test (single vault)
 
 ```shell
 LOG_LEVEL=info MAX_VAULTS=1 MIN_TVL=1000000 \
+  poetry run python scripts/hyperliquid/daily-vault-metrics.py
+```
+
+### Scan specific vaults by address
+
+```shell
+LOG_LEVEL=info \
+  VAULT_ADDRESSES=0xdfc24b077bc1425ad1dea75bcb6f8158e10df303,0x1e37a337ed460039d1b15bd3bc489de789768d5e \
   poetry run python scripts/hyperliquid/daily-vault-metrics.py
 ```
 
@@ -152,8 +175,9 @@ source .local-test.env && poetry run pytest tests/hyperliquid/ -x -n auto --time
 ### Full end-to-end: scan + generate JSON
 
 ```shell
-# 1. Scan Hyperliquid vaults into DuckDB + merge into pipeline files
-LOG_LEVEL=info MAX_VAULTS=10 \
+# 1. Scan specific Hyperliquid vaults into DuckDB + merge into pipeline files
+LOG_LEVEL=info \
+  VAULT_ADDRESSES=0xdfc24b077bc1425ad1dea75bcb6f8158e10df303,0x1e37a337ed460039d1b15bd3bc489de789768d5e \
   DB_PATH=/tmp/hl-e2e.duckdb \
   VAULT_DB_PATH=/tmp/vault-metadata-db.pickle \
   PARQUET_PATH=/tmp/cleaned-vault-prices-1h.parquet \
@@ -182,6 +206,7 @@ for v in data['vaults'][:5]:
 |----------|---------|-------------|
 | `LOG_LEVEL` | `warning` | Logging level (debug, info, warning, error) |
 | `DB_PATH` | `~/.tradingstrategy/hyperliquid/daily-metrics.duckdb` | DuckDB database path |
+| `VAULT_ADDRESSES` | *(all)* | Comma-separated vault addresses to scan (overrides `MIN_TVL`/`MAX_VAULTS`) |
 | `MIN_TVL` | `10000` | Minimum TVL in USD to include a vault |
 | `MAX_VAULTS` | `500` | Maximum number of vaults to process |
 | `MAX_WORKERS` | `16` | Parallel worker threads for API calls |
