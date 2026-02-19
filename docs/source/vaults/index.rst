@@ -58,6 +58,7 @@ Supported protocols
    harvest/index
    hyperdrive_hl/index
    hyperlend/index
+   hyperliquid/index
    hypurrfi/index
    infinifi/index
    ipor/index

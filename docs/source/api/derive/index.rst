@@ -21,6 +21,37 @@ Derive.xyz (formerly Lyra) is a self-custodial, high-performance trading platfor
 - wstETH (Wrapped Liquid Staked Ethereum)
 - wBTC (Wrapped Bitcoin)
 
+Bridging
+~~~~~~~~
+
+Derive Chain is an OP Stack L2. To trade on Derive, you need to bridge collateral from other networks
+to Derive Chain. Derive uses a custom bridge built on `Socket <https://www.socket.tech/>`__ smart contracts
+and L1-L2 messaging infrastructure.
+
+**Supported source networks:**
+
+- Ethereum
+- Arbitrum
+- Optimism
+- Base
+- HyperEVM
+
+**Bridge timing:**
+
+- From Layer 2 networks (Arbitrum, Optimism, Base): 2-5 minutes
+- From Ethereum mainnet: 5-10 minutes
+
+Delays result from cross-chain message relaying required to securely confirm deposits on Derive Chain.
+
+**Fast withdrawals:**
+
+Derive supports fast withdrawals that bypass the standard 7-day OP Stack challenge period.
+Global daily limits apply to fast withdrawals to maintain self-custody protections
+inherent to the fraud proof system.
+
+For more details, see the `Derive bridging documentation <https://help.derive.xyz/en/articles/9086191-what-bridge-does-derive-use>`__
+and `supported networks <https://help.derive.xyz/en/articles/9085623-what-networks-are-supported>`__.
+
 Authentication
 ~~~~~~~~~~~~~~
 

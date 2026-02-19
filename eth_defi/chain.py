@@ -8,6 +8,7 @@ import datetime
 import logging
 from collections import Counter
 from typing import Any, Callable, Optional
+
 #: These chains need POA middleware
 from urllib.parse import urljoin
 

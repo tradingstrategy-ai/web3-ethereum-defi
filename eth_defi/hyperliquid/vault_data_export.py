@@ -118,7 +118,7 @@ def create_hyperliquid_vault_row(
         "Withdraw fee": 0.0,
         "Features": "",
         "_detection_data": detection,
-        "_denomination_token": {"address": "0x0000000000000000000000000000000000000000", "symbol": "USDC", "decimals": 6},
+        "_denomination_token": {"address": "0x2000000000000000000000000000000000000000", "symbol": "USDC", "decimals": 6},
         "_share_token": None,
         "_fees": fee_data,
         "_flags": set(),

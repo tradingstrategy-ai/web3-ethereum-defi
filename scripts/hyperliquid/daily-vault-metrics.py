@@ -45,7 +45,7 @@ import logging
 import os
 from pathlib import Path
 
-from eth_defi.hyperliquid.constants import HYPERLIQUID_DAILY_METRICS_DATABASE
+from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID, HYPERLIQUID_DAILY_METRICS_DATABASE
 from eth_defi.hyperliquid.daily_metrics import run_daily_scan
 from eth_defi.hyperliquid.session import create_hyperliquid_session
 from eth_defi.hyperliquid.vault_data_export import (
@@ -119,7 +119,7 @@ def main():
         # Step 3: Merge into cleaned Parquet
         print(f"\nStep 3: Merging into cleaned Parquet at {parquet_path}...")
         combined_df = merge_into_cleaned_parquet(db, parquet_path)
-        hl_rows = combined_df[combined_df["chain"] == -1] if len(combined_df) > 0 else combined_df
+        hl_rows = combined_df[combined_df["chain"] == HYPERCORE_CHAIN_ID] if len(combined_df) > 0 else combined_df
         print(f"Parquet now has {len(combined_df):,} total rows ({len(hl_rows):,} Hyperliquid)")
 
     finally:

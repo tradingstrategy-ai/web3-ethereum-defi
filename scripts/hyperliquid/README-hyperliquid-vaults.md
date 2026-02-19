@@ -46,9 +46,21 @@ daily-metrics.duckdb  ----merge----->  vault-metadata-db.pickle
 Hyperliquid native vaults use a synthetic chain ID of `9999` (constant
 `HYPERCORE_CHAIN_ID`). 
 
+### Denomination token
+
+All Hyperliquid native vaults are denominated in USDC — the only settlement
+currency on the platform. On Hypercore, USDC has token index `0`. Each token's
+system address is derived from its index: first byte `0x20`, remaining bytes
+all zeros except for the index in big-endian. For USDC (index 0) the system
+address is `0x2000000000000000000000000000000000000000`.
+
+See [Asset IDs](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/asset-ids)
+and [HIP-1](https://hyperliquid.gitbook.io/hyperliquid-docs/hyperliquid-improvement-proposals-hips/hip-1-native-token-standard)
+in the Hyperliquid docs.
+
 ### DuckDB schema
 
-Stored at `~/.tradingstrategy/hyperliquid/daily-metrics.duckdb` by default.
+See `constants.py` for storage.
 
 ```
 vault_metadata                     vault_daily_prices

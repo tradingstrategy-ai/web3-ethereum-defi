@@ -1,0 +1,38 @@
+name: Hyperliquid
+slug: hyperliquid
+short_description: |
+  Native perpetual trading vaults on Hyperliquid's HyperCore layer.
+long_description: |
+  Hyperliquid vaults are core primitives within HyperCore that enable strategy
+  deployment using the same infrastructure as the Hyperliquid DEX, including
+  liquidation mechanisms and high-frequency trading capabilities.
+
+  Anyone can deposit into a vault to earn a share of the profits from the vault
+  leader's trading strategy. Vaults can be managed by individual traders or
+  operated as automated market makers (e.g. the Hyperliquidity Provider, HLP).
+
+  All strategies carry their own risk profile. Users should conduct due diligence
+  on vault performance history before depositing.
+
+  Key features:
+
+  - Vault leaders deploy perpetual trading strategies on HyperCore
+  - Depositors earn 90% of profits; vault leaders receive 10% profit share
+  - Protocol vaults (e.g. HLP) have no fees or profit sharing
+  - Same infrastructure as the DEX — liquidation engine, high-frequency execution
+  - All vaults denominated in USDC
+fee_description: |
+  Vault leaders receive a fixed 10% profit share from depositor profits, deducted
+  at withdrawal time. Protocol-managed vaults (e.g. HLP, HLP Strategy A/B) carry
+  no fees or profit sharing.
+links:
+  homepage: https://hyperliquid.xyz
+  app: https://app.hyperliquid.xyz/vaults
+  twitter: https://x.com/HyperliquidX
+  github: https://github.com/hyperliquid-dex
+  documentation: https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/vaults
+  defillama: https://defillama.com/protocol/hyperliquid-perp
+  audits:
+  fees: https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/vaults
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/hyperliquid
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/hyperliquid/index.html

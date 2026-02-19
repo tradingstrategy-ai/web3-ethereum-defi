@@ -98,11 +98,7 @@ from eth_defi.research.wrangle_vault_prices import generate_cleaned_vault_datase
 from eth_defi.token import TokenDiskCache
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.historical import scan_historical_prices_to_parquet
-from eth_defi.vault.vaultdb import (
-    DEFAULT_READER_STATE_DATABASE,
-    DEFAULT_UNCLEANED_PRICE_DATABASE,
-    DEFAULT_VAULT_DATABASE,
-)
+from eth_defi.vault.vaultdb import DEFAULT_READER_STATE_DATABASE, DEFAULT_UNCLEANED_PRICE_DATABASE, DEFAULT_VAULT_DATABASE
 
 logger = logging.getLogger(__name__)
 
@@ -487,11 +483,7 @@ def scan_hypercore_fn(max_workers: int) -> ChainResult:
     from eth_defi.hyperliquid.constants import HYPERLIQUID_DAILY_METRICS_DATABASE
     from eth_defi.hyperliquid.daily_metrics import run_daily_scan
     from eth_defi.hyperliquid.session import create_hyperliquid_session
-    from eth_defi.hyperliquid.vault_data_export import (
-        merge_into_cleaned_parquet,
-        merge_into_vault_database,
-    )
-    from eth_defi.vault.vaultdb import DEFAULT_RAW_PRICE_DATABASE
+    from eth_defi.hyperliquid.vault_data_export import merge_into_vault_database
 
     result = ChainResult(name="Hypercore", status="running")
     start_time = time.time()
@@ -511,7 +503,8 @@ def scan_hypercore_fn(max_workers: int) -> ChainResult:
             result.vault_scan_ok = True
 
             merge_into_vault_database(db, DEFAULT_VAULT_DATABASE)
-            merge_into_cleaned_parquet(db, DEFAULT_RAW_PRICE_DATABASE)
+            # Price merge happens in post-processing after generate_cleaned_vault_datasets()
+            # to avoid being overwritten by the EVM price cleaning step
             result.price_scan_ok = True
         finally:
             db.close()
@@ -587,14 +580,17 @@ def print_dashboard(results: dict[str, ChainResult], display_order: list[str] | 
         logger.error("%s: %s", r.name, r.error)
 
 
-def run_post_processing() -> dict[str, bool]:
+def run_post_processing(scan_hypercore: bool = False) -> dict[str, bool]:
     """Run post-processing steps after all chain scans complete.
 
+    :param scan_hypercore:
+        Whether to merge Hypercore (Hyperliquid native) price data
+        into the cleaned Parquet after the EVM price cleaning step.
     :return: Dictionary mapping step name to success boolean
     """
     steps = {}
 
-    # Step 1: Clean prices
+    # Step 1: Clean prices (EVM vaults only — reads raw parquet, writes cleaned)
     try:
         logger.info("Cleaning vault prices data")
         generate_cleaned_vault_datasets()
@@ -604,7 +600,32 @@ def run_post_processing() -> dict[str, bool]:
         logger.exception("Clean prices failed")
         steps["clean-prices"] = False
 
-    # Step 2: Export sparklines
+    # Step 2: Merge Hypercore prices into the cleaned Parquet
+    # Must run after clean-prices so the merge is not overwritten
+    if scan_hypercore:
+        try:
+            from eth_defi.hyperliquid.constants import HYPERLIQUID_DAILY_METRICS_DATABASE
+            from eth_defi.hyperliquid.daily_metrics import HyperliquidDailyMetricsDatabase
+            from eth_defi.hyperliquid.vault_data_export import merge_into_cleaned_parquet
+            from eth_defi.vault.vaultdb import DEFAULT_RAW_PRICE_DATABASE
+
+            logger.info("Merging Hypercore prices into cleaned Parquet")
+            db = HyperliquidDailyMetricsDatabase(HYPERLIQUID_DAILY_METRICS_DATABASE)
+            try:
+                combined_df = merge_into_cleaned_parquet(db, DEFAULT_RAW_PRICE_DATABASE)
+                from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID
+
+                hl_rows = len(combined_df[combined_df["chain"] == HYPERCORE_CHAIN_ID]) if len(combined_df) > 0 else 0
+                logger.info("Hypercore price merge: %d Hyperliquid price entries in cleaned Parquet", hl_rows)
+            finally:
+                db.close()
+            steps["hypercore-price-merge"] = True
+            logger.info("Hypercore price merge complete")
+        except Exception as e:
+            logger.exception("Hypercore price merge failed")
+            steps["hypercore-price-merge"] = False
+
+    # Step 3: Export sparklines
     try:
         logger.info("Creating sparkline images")
         import importlib.util
@@ -850,7 +871,7 @@ def main():
         logger.info("All chain scans complete, starting post-processing")
         logger.info("=" * 80)
 
-        post_results = run_post_processing()
+        post_results = run_post_processing(scan_hypercore=scan_hypercore)
         for step, success in post_results.items():
             status_str = "SUCCESS" if success else "FAILED"
             logger.info("Post-processing %s: %s", step, status_str)
