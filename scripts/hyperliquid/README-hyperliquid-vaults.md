@@ -116,7 +116,7 @@ Use `DISABLE_CHAINS` to skip every EVM chain, leaving only Hypercore:
 
 ```shell
 SCAN_HYPERCORE=true \
-  DISABLE_CHAINS=Ethereum,Arbitrum,Base,Polygon,Avalanche,Optimism,Binance,Sonic,Berachain,Unichain,Mantle,Mode,Abstract,Celo,Soneium,zkSync,Gnosis,Blast,Zora,Ink,Hemi,Linea,TAC,Plasma,Katana,Monad,HyperEVM \
+  DISABLE_CHAINS=Ethereum,Arbitrum,Base,Polygon,Avalanche,Optimism,Binance,Sonic,Berachain,Unichain,Mantle,Mode,Abstract,Celo,Soneium,zkSync,Gnosis,Blast,Zora,Ink,Hemi,Linea,TAC,Plasma,Katana,Monad,Hyperliquid \
   LOG_LEVEL=info \
   poetry run python scripts/erc-4626/scan-vaults-all-chains.py
 ```

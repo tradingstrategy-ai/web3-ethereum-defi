@@ -519,7 +519,7 @@ def run_daily_scan(
     session: Session,
     db_path: Path = HYPERLIQUID_DAILY_METRICS_DATABASE,
     min_tvl: float = 10_000,
-    max_vaults: int = 500,
+    max_vaults: int = 20_000,
     max_workers: int = 16,
     cutoff_date: datetime.date | None = None,
     timeout: float = 30.0,
@@ -528,7 +528,7 @@ def run_daily_scan(
     """Run the daily Hyperliquid vault metrics scan.
 
     1. Bulk-fetches all vaults from stats-data API
-    2. Filters by TVL, open status, and vault limit (or by explicit address list)
+    2. Filters by TVL and vault limit (or by explicit address list)
     3. Fetches per-vault details and computes share prices
     4. Stores everything in DuckDB
 
@@ -585,9 +585,9 @@ def run_daily_scan(
             logger.warning("Requested vaults not found in bulk listing: %s", missing)
         logger.info("Selected %d vaults by address", len(filtered))
     else:
-        # Filter: TVL threshold, not closed, normal relationship
-        filtered = [s for s in vault_summaries if float(s.tvl) >= min_tvl and not s.is_closed]
-        logger.info("After filtering (min_tvl=$%s, open only): %d vaults", f"{min_tvl:,.0f}", len(filtered))
+        # Filter: TVL threshold (includes both open and closed vaults)
+        filtered = [s for s in vault_summaries if float(s.tvl) >= min_tvl]
+        logger.info("After filtering (min_tvl=$%s): %d vaults", f"{min_tvl:,.0f}", len(filtered))
 
         # Sort by TVL descending and limit
         filtered.sort(key=lambda s: float(s.tvl), reverse=True)
