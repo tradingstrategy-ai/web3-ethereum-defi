@@ -6850,10 +6850,15 @@ class GMX(ExchangeCompatible):
                 "type": type,
                 "side": side,
                 "price": execution_price,
-                "amount": amount,
-                "cost": (execution_price or 0) * amount if execution_price else None,
+                # Use actual executed token amount derived from on-chain size_delta_usd / execution_price.
+                # The original `amount` parameter is a pre-execution estimate based on signal price;
+                # GMX price impact shifts the fill price slightly, producing a different sizeInTokens
+                # on-chain. Using the post-execution value here avoids the Freqtrade wallet-sync
+                # mismatch warning "Wallet shows X but trade has Y".
+                "amount": size_delta_usd / execution_price if (size_delta_usd and execution_price) else amount,
+                "cost": size_delta_usd if size_delta_usd else ((execution_price or 0) * amount if execution_price else None),
                 "average": execution_price,
-                "filled": amount,
+                "filled": size_delta_usd / execution_price if (size_delta_usd and execution_price) else amount,
                 "remaining": 0.0,
                 "status": "closed",
                 "fee": fee_dict,
