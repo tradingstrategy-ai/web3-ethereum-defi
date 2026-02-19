@@ -81,6 +81,7 @@ Tutorials and examples
    erc-4626-deposit-redeem
    vault-historical-data
    scratchpad
+   hyperliquid-vault-benchmark
    hyperliquid-vault-analysis
    enzyme-read-vaults
    enzyme-deploy

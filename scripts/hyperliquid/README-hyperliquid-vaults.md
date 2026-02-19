@@ -105,6 +105,39 @@ VAULT_ADDRESSES=0xdfc24b077bc1425ad1dea75bcb6f8158e10df303,0x1e37a337ed460039d1b
   poetry run python scripts/hyperliquid/example-vault-metrics.py
 ```
 
+## Running as part of the all-chains scanner
+
+The multi-chain `scan-vaults-all-chains.py` script can include Hyperliquid vaults
+when the `SCAN_HYPERCORE` environment variable is set.
+
+### Scan only Hypercore vaults (skip all EVM chains)
+
+Use `DISABLE_CHAINS` to skip every EVM chain, leaving only Hypercore:
+
+```shell
+SCAN_HYPERCORE=true \
+  DISABLE_CHAINS=Ethereum,Arbitrum,Base,Polygon,Avalanche,Optimism,Binance,Sonic,Berachain,Unichain,Mantle,Mode,Abstract,Celo,Soneium,zkSync,Gnosis,Blast,Zora,Ink,Hemi,Linea,TAC,Plasma,Katana,Monad,HyperEVM \
+  LOG_LEVEL=info \
+  poetry run python scripts/erc-4626/scan-vaults-all-chains.py
+```
+
+### Scan Hypercore alongside all EVM chains
+
+```shell
+source ~/vault-scanner/vault-rpc.env
+SCAN_HYPERCORE=true LOG_LEVEL=info \
+  poetry run python scripts/erc-4626/scan-vaults-all-chains.py
+```
+
+### Docker: scan only Hypercore
+
+```shell
+SCAN_HYPERCORE=true \
+  DISABLE_CHAINS=Ethereum,Arbitrum,Base,Polygon,Avalanche,Optimism,Binance,Sonic,Berachain,Unichain,Mantle,Mode,Abstract,Celo,Soneium,zkSync,Gnosis,Blast,Zora,Ink,Hemi,Linea,TAC,Plasma,Katana,Monad,HyperEVM \
+  LOG_LEVEL=info \
+  docker compose run vault-scanner
+```
+
 ## Manual testing commands
 
 ### Quick smoke test (single vault)

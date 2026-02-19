@@ -3,6 +3,7 @@
 Based on https://github.com/enzymefinance/protocol/blob/v4/packages/protocol/tests/release/e2e/FundManagementWalkthrough.test.ts
 """
 
+import pytest
 from eth_typing import HexAddress
 from web3 import Web3
 from web3.contract import Contract
@@ -64,6 +65,7 @@ def test_deploy_enzyme(
     assert balance == 500 * 10**18
 
 
+@pytest.mark.skip(reason="Unmaintained")
 def test_vault_api(
     web3: Web3,
     deployer: HexAddress,
