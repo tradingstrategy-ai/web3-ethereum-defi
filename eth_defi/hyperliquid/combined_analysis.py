@@ -276,8 +276,9 @@ def _calculate_share_price(
                 # Calculate shares to mint/burn at current share price
                 # For deposits: shares_minted = deposit_amount / share_price
                 # For withdrawals: shares_burned = withdrawal_amount / share_price
-                shares_change = netflow / current_share_price
-                current_total_supply += shares_change
+                if current_share_price > 0:
+                    shares_change = netflow / current_share_price
+                    current_total_supply += shares_change
 
         # Ensure total_supply doesn't go negative
         current_total_supply = max(0.0, current_total_supply)
