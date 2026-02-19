@@ -43,9 +43,8 @@ daily-metrics.duckdb  ----merge----->  vault-metadata-db.pickle
 
 ### Chain ID
 
-Hyperliquid native vaults use a synthetic chain ID of `-999` (constant
-`HYPERCORE_CHAIN_ID`). This avoids collision with any real EVM chain ID.
-Vault IDs in the pipeline look like `-999-0xabc...`.
+Hyperliquid native vaults use a synthetic chain ID of `9999` (constant
+`HYPERCORE_CHAIN_ID`). 
 
 ### DuckDB schema
 
@@ -240,7 +239,7 @@ for v in data['vaults'][:5]:
 | `LOG_LEVEL` | `warning` | Logging level (debug, info, warning, error) |
 | `DB_PATH` | `~/.tradingstrategy/hyperliquid/daily-metrics.duckdb` | DuckDB database path |
 | `VAULT_ADDRESSES` | *(all)* | Comma-separated vault addresses to scan (overrides `MIN_TVL`/`MAX_VAULTS`) |
-| `MIN_TVL` | `10000` | Minimum TVL in USD to include a vault |
+| `MIN_TVL` | `5000` | Minimum TVL in USD to include a vault |
 | `MAX_VAULTS` | `500` | Maximum number of vaults to process |
 | `MAX_WORKERS` | `16` | Parallel worker threads for API calls |
 | `VAULT_DB_PATH` | `~/.tradingstrategy/vaults/vault-metadata-db.pickle` | ERC-4626 VaultDatabase pickle to merge into |

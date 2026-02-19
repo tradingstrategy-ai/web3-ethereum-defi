@@ -19,7 +19,7 @@ Example::
     from eth_defi.hyperliquid.daily_metrics import run_daily_scan, HyperliquidDailyMetricsDatabase
 
     session = create_hyperliquid_session(requests_per_second=2.75)
-    db = run_daily_scan(session, min_tvl=10_000, max_vaults=500)
+    db = run_daily_scan(session, min_tvl=5_000, max_vaults=500)
     print(f"Stored metrics for {db.get_vault_count()} vaults")
     db.close()
 
@@ -518,7 +518,7 @@ def _process_vault_worker(
 def run_daily_scan(
     session: Session,
     db_path: Path = HYPERLIQUID_DAILY_METRICS_DATABASE,
-    min_tvl: float = 10_000,
+    min_tvl: float = 5_000,
     max_vaults: int = 20_000,
     max_workers: int = 16,
     cutoff_date: datetime.date | None = None,

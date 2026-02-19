@@ -31,7 +31,7 @@ Environment variables:
 - ``DB_PATH``: Path to DuckDB database file. Default: ~/.tradingstrategy/hyperliquid/daily-metrics.duckdb
 - ``VAULT_ADDRESSES``: Comma-separated list of vault addresses to scan.
   When set, overrides ``MIN_TVL`` and ``MAX_VAULTS`` filters.
-- ``MIN_TVL``: Minimum TVL in USD to include a vault. Default: 10000
+- ``MIN_TVL``: Minimum TVL in USD to include a vault. Default: 5000
 - ``MAX_VAULTS``: Maximum number of vaults to process. Default: 20000
 - ``MAX_WORKERS``: Maximum number of parallel workers. Default: 16
 - ``VAULT_DB_PATH``: Path to existing ERC-4626 VaultDatabase pickle to merge into.
@@ -72,7 +72,7 @@ def main():
     vault_addresses_str = os.environ.get("VAULT_ADDRESSES", "").strip()
     vault_addresses = [a.strip() for a in vault_addresses_str.split(",") if a.strip()] or None
 
-    min_tvl = float(os.environ.get("MIN_TVL", "10000"))
+    min_tvl = float(os.environ.get("MIN_TVL", "5000"))
     max_vaults = int(os.environ.get("MAX_VAULTS", "20000"))
     max_workers = int(os.environ.get("MAX_WORKERS", "16"))
 
