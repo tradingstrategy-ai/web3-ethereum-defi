@@ -27,6 +27,9 @@ Usage:
     # Test mode without post-processing
     TEST_CHAINS=Berachain,Gnosis SKIP_POST_PROCESSING=true python scripts/erc-4626/scan-vaults-all-chains.py
 
+    # Disable specific chains (skip them)
+    DISABLE_CHAINS=Plasma,Katana python scripts/erc-4626/scan-vaults-all-chains.py
+
 Manual testing:
 
 .. code-block:: shell
@@ -65,6 +68,7 @@ Environment variables:
     - LOG_LEVEL: Logging level (default: "warning")
     - TEST_CHAINS: Comma-separated list of chain names to scan (default: all chains)
     - CHAIN_ORDER: Comma-separated list of chain names to scan in order (whitespace allowed, chains not listed are skipped)
+    - DISABLE_CHAINS: Comma-separated list of chain names to skip (whitespace allowed)
     - SKIP_POST_PROCESSING: "true" to skip post-processing steps (default: "false")
     - JSON_RPC_<CHAIN>: RPC URL for each chain (required per chain)
 
@@ -588,6 +592,7 @@ def main():
     skip_post_processing = os.environ.get("SKIP_POST_PROCESSING", "false").lower() == "true"
 
     # Test mode - filter chains if TEST_CHAINS is set
+    disable_chains_str = os.environ.get("DISABLE_CHAINS")
     test_chains_str = os.environ.get("TEST_CHAINS")
     if test_chains_str:
         test_chain_names = {name.strip() for name in test_chains_str.split(",")}
@@ -602,6 +607,8 @@ def main():
         logger.info("SKIP_POST_PROCESSING: true - post-processing will be skipped")
     if test_chain_names:
         logger.info("TEST_CHAINS: %s", ", ".join(sorted(test_chain_names)))
+    if disable_chains_str:
+        logger.info("DISABLE_CHAINS: %s", disable_chains_str)
     logger.info("=" * 80)
 
     # Build chain configurations
@@ -629,6 +636,14 @@ def main():
         if skipped_by_order:
             logger.info("Chains not in CHAIN_ORDER (will be skipped): %s", ", ".join([c.name for c in skipped_by_order]))
 
+    # Disable specific chains if DISABLE_CHAINS is set
+    disabled_chains = []
+    if disable_chains_str:
+        disable_chain_names = {name.strip() for name in disable_chains_str.split(",")}
+        disabled_chains = [c for c in all_chains if c.name in disable_chain_names]
+        all_chains = [c for c in all_chains if c.name not in disable_chain_names]
+        logger.info("DISABLE_CHAINS: %s", ", ".join(sorted(disable_chain_names)))
+
     # Filter chains if in test mode
     if test_chain_names:
         chains = [c for c in all_chains if c.name in test_chain_names]
@@ -649,8 +664,12 @@ def main():
     for chain in skipped_by_order:
         results[chain.name] = ChainResult(name=chain.name, status="skipped", error="Not in CHAIN_ORDER")
 
-    # Build display order: chains to scan first (in CHAIN_ORDER), then skipped chains
-    display_order = [c.name for c in chains] + [c.name for c in skipped_by_order]
+    # Add disabled chains to results
+    for chain in disabled_chains:
+        results[chain.name] = ChainResult(name=chain.name, status="skipped", error="Disabled via DISABLE_CHAINS")
+
+    # Build display order: chains to scan first, then skipped/disabled chains
+    display_order = [c.name for c in chains] + [c.name for c in skipped_by_order] + [c.name for c in disabled_chains]
 
     # Display initial dashboard
     print_dashboard(results, display_order)
