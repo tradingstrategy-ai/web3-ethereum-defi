@@ -49,6 +49,7 @@ def create_hyperliquid_vault_row(
     tvl: float,
     create_time: datetime.datetime | None,
     follower_count: int | None = None,
+    is_closed: bool = False,
 ) -> tuple[VaultSpec, VaultRow]:
     """Create a synthetic VaultRow for a Hyperliquid native vault.
 
@@ -71,6 +72,8 @@ def create_hyperliquid_vault_row(
         Vault creation timestamp.
     :param follower_count:
         Number of vault depositors.
+    :param is_closed:
+        Whether the vault is closed for new deposits.
     :return:
         Tuple of (VaultSpec, VaultRow).
     """
@@ -105,7 +108,6 @@ def create_hyperliquid_vault_row(
         "Denomination": "USDC",
         "Share token": (name or "")[:10],
         "NAV": Decimal(str(tvl)),
-        "Peak NAV": Decimal(str(tvl)),
         "Shares": Decimal("0"),
         "Protocol": "Hyperliquid",
         "Link": f"https://app.hyperliquid.xyz/vaults/{address}",
@@ -113,7 +115,8 @@ def create_hyperliquid_vault_row(
         "Mgmt fee": 0.0,
         "Perf fee": perf_fee,
         "Deposit fee": 0.0,
-        "Withdrawal fee": 0.0,
+        "Withdraw fee": 0.0,
+        "Features": "",
         "_detection_data": detection,
         "_denomination_token": {"address": "0x0000000000000000000000000000000000000000", "symbol": "USDC", "decimals": 6},
         "_share_token": None,
@@ -122,7 +125,12 @@ def create_hyperliquid_vault_row(
         "_lockup": None,
         "_description": description,
         "_short_description": description[:200] if description else None,
-        "features": {ERC4626Feature.hypercore_native},
+        "_available_liquidity": None,
+        "_utilisation": None,
+        "_deposit_closed_reason": "Vault deposits closed" if is_closed else None,
+        "_deposit_next_open": None,
+        "_redemption_closed_reason": None,
+        "_redemption_next_open": None,
     }
 
     spec = VaultSpec(chain_id=chain_id, vault_address=address)
@@ -232,6 +240,7 @@ def merge_into_vault_database(
             tvl=row.get("tvl", 0.0) or 0.0,
             create_time=row.get("create_time"),
             follower_count=row.get("follower_count"),
+            is_closed=bool(row.get("is_closed", False)),
         )
 
         if spec in vault_db.rows:
