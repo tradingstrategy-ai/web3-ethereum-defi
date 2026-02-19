@@ -43,9 +43,9 @@ daily-metrics.duckdb  ----merge----->  vault-metadata-db.pickle
 
 ### Chain ID
 
-Hyperliquid native vaults use a synthetic chain ID of `-1` (constant
+Hyperliquid native vaults use a synthetic chain ID of `-999` (constant
 `HYPERCORE_CHAIN_ID`). This avoids collision with any real EVM chain ID.
-Vault IDs in the pipeline look like `-1-0xabc...`.
+Vault IDs in the pipeline look like `-999-0xabc...`.
 
 ### DuckDB schema
 

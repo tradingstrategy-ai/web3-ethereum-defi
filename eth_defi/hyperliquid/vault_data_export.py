@@ -33,7 +33,7 @@ from eth_typing import HexAddress
 
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.core import ERC4626Feature, ERC4262VaultDetection
-from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID
+from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID, HYPERLIQUID_VAULT_PERFORMANCE_FEE
 from eth_defi.hyperliquid.daily_metrics import HyperliquidDailyMetricsDatabase
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.fee import FeeData, VaultFeeMode
@@ -46,7 +46,6 @@ def create_hyperliquid_vault_row(
     vault_address: HexAddress,
     name: str,
     description: str | None,
-    commission_rate: float | None,
     tvl: float,
     create_time: datetime.datetime | None,
     follower_count: int | None = None,
@@ -57,14 +56,15 @@ def create_hyperliquid_vault_row(
     :py:func:`~eth_defi.research.vault_metrics.calculate_vault_record` expects,
     using the Hypercore synthetic chain ID.
 
+    All Hyperliquid vaults use the fixed platform performance fee
+    :py:data:`~eth_defi.hyperliquid.constants.HYPERLIQUID_VAULT_PERFORMANCE_FEE`.
+
     :param vault_address:
         Vault hex address (will be lowercased).
     :param name:
         Vault display name.
     :param description:
         Vault description text.
-    :param commission_rate:
-        Leader's commission rate (decimal, e.g. 0.1 = 10%).
     :param tvl:
         Current TVL in USD.
     :param create_time:
@@ -77,7 +77,7 @@ def create_hyperliquid_vault_row(
     address = vault_address.lower()
     chain_id = HYPERCORE_CHAIN_ID
 
-    perf_fee = commission_rate if commission_rate is not None else 0.10
+    perf_fee = HYPERLIQUID_VAULT_PERFORMANCE_FEE
 
     detection = ERC4262VaultDetection(
         chain=chain_id,
@@ -229,7 +229,6 @@ def merge_into_vault_database(
             vault_address=row["vault_address"],
             name=row["name"],
             description=row.get("description"),
-            commission_rate=row.get("commission_rate"),
             tvl=row.get("tvl", 0.0) or 0.0,
             create_time=row.get("create_time"),
             follower_count=row.get("follower_count"),
@@ -262,7 +261,7 @@ def merge_into_cleaned_parquet(
     """Merge Hyperliquid daily prices into an existing cleaned Parquet file.
 
     Reads the existing Parquet, removes any prior Hypercore rows
-    (chain == -1), appends fresh Hyperliquid daily price rows,
+    (chain == -999), appends fresh Hyperliquid daily price rows,
     and writes back. Idempotent: running twice produces the same result.
 
     If the Parquet file does not exist, creates a new one.
