@@ -13,6 +13,8 @@ Usage:
     CHAIN_ID=8453 python scripts/erc-4626/purge-price-data.py
     # Mantle
     CHAIN_ID=5000 python scripts/erc-4626/purge-price-data.py
+    # Monad
+    CHAIN_ID=143 python scripts/erc-4626/purge-price-data.py
 
 """
 
@@ -24,7 +26,10 @@ import pandas as pd
 
 from eth_defi.chain import get_chain_name
 from eth_defi.utils import setup_console_logging
-from eth_defi.vault.vaultdb import DEFAULT_UNCLEANED_PRICE_DATABASE, VaultDatabase, DEFAULT_READER_STATE_DATABASE, VaultReaderData, DEFAULT_VAULT_DATABASE
+from eth_defi.vault.vaultdb import (DEFAULT_READER_STATE_DATABASE,
+                                    DEFAULT_UNCLEANED_PRICE_DATABASE,
+                                    DEFAULT_VAULT_DATABASE, VaultDatabase,
+                                    VaultReaderData)
 
 logger = logging.getLogger(__name__)
 
