@@ -50,6 +50,7 @@ def create_hyperliquid_vault_row(
     create_time: datetime.datetime | None,
     follower_count: int | None = None,
     is_closed: bool = False,
+    relationship_type: str = "normal",
 ) -> tuple[VaultSpec, VaultRow]:
     """Create a synthetic VaultRow for a Hyperliquid native vault.
 
@@ -57,8 +58,11 @@ def create_hyperliquid_vault_row(
     :py:func:`~eth_defi.research.vault_metrics.calculate_vault_record` expects,
     using the Hypercore synthetic chain ID.
 
-    All Hyperliquid vaults use the fixed platform performance fee
+    User-created vaults (``relationship_type="normal"``) use the fixed platform
+    performance fee
     :py:data:`~eth_defi.hyperliquid.constants.HYPERLIQUID_VAULT_PERFORMANCE_FEE`.
+    Protocol vaults (HLP and its children with ``relationship_type="parent"``
+    or ``"child"``) have zero fees.
 
     :param vault_address:
         Vault hex address (will be lowercased).
@@ -74,13 +78,21 @@ def create_hyperliquid_vault_row(
         Number of vault depositors.
     :param is_closed:
         Whether the vault is closed for new deposits.
+    :param relationship_type:
+        Vault relationship type from the API: ``"normal"`` for user-created
+        vaults, ``"parent"`` for HLP, ``"child"`` for HLP sub-vaults.
     :return:
         Tuple of (VaultSpec, VaultRow).
     """
     address = vault_address.lower()
     chain_id = HYPERCORE_CHAIN_ID
 
-    perf_fee = HYPERLIQUID_VAULT_PERFORMANCE_FEE
+    # Protocol vaults (HLP parent + children) have zero gross fees.
+    # User-created vaults have the standard 10% leader profit share.
+    if relationship_type in ("parent", "child"):
+        perf_fee = 0.0
+    else:
+        perf_fee = HYPERLIQUID_VAULT_PERFORMANCE_FEE
 
     detection = ERC4262VaultDetection(
         chain=chain_id,
@@ -241,6 +253,7 @@ def merge_into_vault_database(
             create_time=row.get("create_time"),
             follower_count=row.get("follower_count"),
             is_closed=bool(row.get("is_closed", False)),
+            relationship_type=row.get("relationship_type", "normal") or "normal",
         )
 
         if spec in vault_db.rows:
