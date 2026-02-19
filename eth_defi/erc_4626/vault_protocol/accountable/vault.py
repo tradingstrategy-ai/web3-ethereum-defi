@@ -60,6 +60,17 @@ class AccountableHistoricalReader(ERC4626HistoricalReader):
         if share_price is not None and total_supply is not None and total_supply > 0:
             total_assets = share_price * total_supply
 
+        # Fix VaultReaderState that was updated with the raw totalAssets() (idle capital only)
+        # inside process_core_erc_4626_result(). The state uses TVL for adaptive polling frequency
+        # and peaked/faded detection, so it must reflect the true NAV.
+        convert_to_assets_result = call_by_name.get("convertToAssets")
+        if convert_to_assets_result is not None and convert_to_assets_result.state is not None:
+            convert_to_assets_result.state.on_called(
+                convert_to_assets_result,
+                total_assets=total_assets,
+                share_price=share_price,
+            )
+
         # Utilisation = deployed capital / true NAV
         utilisation = None
         if total_assets is not None and available_liquidity is not None and total_assets > 0:
