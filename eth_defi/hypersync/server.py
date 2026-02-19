@@ -5,89 +5,94 @@
 
 from web3 import Web3
 
-#: Converted with Grok.
-#: Mess. Partially cleaned.
+#: HyperSync server URLs by chain id.
+#: Updated 2026-02-19.
 HYPERSYNC_SERVES = {
-    2741: {"Network Name": "Abstract", "URL": "https://abstract.hypersync.xyz or https://2741.hypersync.xyz", "Tier": "🪨", "Supports Traces": False},
-    42161: {"Network Name": "Arbitrum", "URL": "https://arbitrum.hypersync.xyz or https://42161.hypersync.xyz", "Tier": "🏅", "Supports Traces": False},
-    42170: {"Network Name": "Arbitrum Nova", "URL": "https://arbitrum-nova.hypersync.xyz or https://42170.hypersync.xyz", "Tier": "🥉", "Supports Traces": False},
-    421614: {"Network Name": "Arbitrum Sepolia", "URL": "https://arbitrum-sepolia.hypersync.xyz or https://421614.hypersync.xyz", "Tier": "🎒", "Supports Traces": False},
-    1313161554: {"Network Name": "Aurora", "URL": "https://aurora.hypersync.xyz or https://1313161554.hypersync.xyz", "Tier": "🪨", "Supports Traces": False},
-    43114: {"Network Name": "Avalanche", "URL": "https://avalanche.hypersync.xyz or https://43114.hypersync.xyz", "Tier": "🥉", "Supports Traces": False},
-    8453: {"Network Name": "Base", "URL": "https://base.hypersync.xyz or https://8453.hypersync.xyz", "Tier": "🏅", "Supports Traces": False},
-    84532: {"Network Name": "Base Sepolia", "URL": "https://base-sepolia.hypersync.xyz or https://84532.hypersync.xyz", "Tier": "🎒", "Supports Traces": False},
-    80094: {"Network Name": "Berachain", "URL": "https://berachain.hypersync.xyz or https://80094.hypersync.xyz", "Tier": "🪨", "Supports Traces": False},
-    80084: {"Network Name": "Berachain Bartio", "URL": "https://berachain-bartio.hypersync.xyz or https://80084.hypersync.xyz", "Tier": "🎒", "Supports Traces": False},
-    81457: {"Network Name": "Blast", "URL": "https://blast.hypersync.xyz or https://81457.hypersync.xyz", "Tier": "🥉", "Supports Traces": False},
-    168587773: {"Network Name": "Blast Sepolia", "URL": "https://blast-sepolia.hypersync.xyz or https://168587773.hypersync.xyz", "Tier": "🎒", "Supports Traces": False},
-    288: {"Network Name": "Boba", "URL": "https://boba.hypersync.xyz or https://288.hypersync.xyz", "Tier": "🪨", "Supports Traces": False},
-    56: {"Network Name": "Bsc", "URL": "https://bsc.hypersync.xyz or https://56.hypersync.xyz", "Tier": "🥉", "Supports Traces": False},
-    97: {"Network Name": "Bsc Testnet", "URL": "https://bsc-testnet.hypersync.xyz or https://97.hypersync.xyz", "Tier": "🎒", "Supports Traces": False},
-    42220: {"Network Name": "Celo", "URL": "https://celo.hypersync.xyz or https://42220.hypersync.xyz", "Tier": "🪨", "Supports Traces": False},
-    8888: {"Network Name": "Chiliz", "URL": "https://chiliz.hypersync.xyz or https://8888.hypersync.xyz", "Tier": "🥉", "Supports Traces": False},
-    5115: {"Network Name": "Citrea Testnet", "URL": "https://citrea-testnet.hypersync.xyz or https://5115.hypersync.xyz", "Tier": "🪨", "Supports Traces": False},
-    7560: {"Network Name": "Cyber", "URL": "https://cyber.hypersync.xyz or https://7560.hypersync.xyz", "Tier": "🪨", "Supports Traces": False},
-    46: {"Network Name": "Darwinia", "URL": "https://darwinia.hypersync.xyz or https://46.hypersync.xyz", "Tier": "🪨", "Supports Traces": True},
-    1: {"Network Name": "Ethereum Mainnet", "URL": "https://eth.hypersync.xyz or https://1.hypersync.xyz", "Tier": "🏅", "Supports Traces": True},
-    283027429: {"Network Name": "Extrabud", "URL": "https://extrabud.hypersync.xyz or https://283027429.hypersync.xyz", "Tier": "🏗️", "Supports Traces": False},
-    250: {"Network Name": "Fantom", "URL": "https://fantom.hypersync.xyz or https://250.hypersync.xyz", "Tier": "🥉", "Supports Traces": False},
-    14: {"Network Name": "Flare", "URL": "https://flare.hypersync.xyz or https://14.hypersync.xyz", "Tier": "🪨", "Supports Traces": False},
-    252: {"Network Name": "Fraxtal", "URL": "https://fraxtal.hypersync.xyz or https://252.hypersync.xyz", "Tier": "🪨", "Supports Traces": False},
-    43113: {"Network Name": "Fuji", "URL": "https://fuji.hypersync.xyz or https://43113.hypersync.xyz", "Tier": "🎒", "Supports Traces": False},
-    696969: {"Network Name": "Galadriel Devnet", "URL": "https://galadriel-devnet.hypersync.xyz or https://696969.hypersync.xyz", "Tier": "🎒", "Supports Traces": False},
-    100: {"Network Name": "Gnosis", "URL": "https://gnosis.hypersync.xyz or https://100.hypersync.xyz", "Tier": "🏅", "Supports Traces": False},  # Note: Gnosis appears twice with different URLs/Tiers
-    10200: {"Network Name": "Gnosis Chiado", "URL": "https://gnosis-chiado.hypersync.xyz or https://10200.hypersync.xyz", "Tier": "🎒", "Supports Traces": False},
-    # 100: {"Network Name": "Gnosis Traces", "URL": "https://gnosis-traces.hypersync.xyz or https://100.hypersync.xyz", "Tier": "🥉", "Supports Traces": False},  # Duplicate Network ID
-    1666600000: {"Network Name": "Harmony Shard 0", "URL": "https://harmony-shard-0.hypersync.xyz or https://1666600000.hypersync.xyz", "Tier": "🪨", "Supports Traces": False},
-    17000: {"Network Name": "Holesky", "URL": "https://holesky.hypersync.xyz or https://17000.hypersync.xyz", "Tier": "🎒", "Supports Traces": False},  # Note: Holesky appears twice with different URLs
-    # 17000: {"Network Name": "Holesky Token Test", "URL": "https://holesky-token-test.hypersync.xyz or https://17000.hypersync.xyz", "Tier": "🔒", "Supports Traces": False},  # Duplicate Network ID
-    999: {"Network Name": "Hyperliquid", "URL": "https://hyperliquid.hypersync.xyz or https://645749.hypersync.xyz", "Tier": "🥉", "Supports Traces": False},
-    645748: {"Network Name": "Hyperliquid Temp", "URL": "https://hyperliquid-temp.hypersync.xyz or https://645748.hypersync.xyz", "Tier": "🥉", "Supports Traces": False},
-    57073: {"Network Name": "Ink", "URL": "https://ink.hypersync.xyz or https://57073.hypersync.xyz", "Tier": "🪨", "Supports Traces": False},
-    16858666: {"Network Name": "Internal Test Chain", "URL": "https://internal-test-chain.hypersync.xyz or https://16858666.hypersync.xyz", "Tier": "🔒", "Supports Traces": False},
-    255: {"Network Name": "Kroma", "URL": "https://kroma.hypersync.xyz or https://255.hypersync.xyz", "Tier": "🪨", "Supports Traces": False},
-    59144: {"Network Name": "Linea", "URL": "https://linea.hypersync.xyz or https://59144.hypersync.xyz", "Tier": "🥉", "Supports Traces": False},
-    1135: {"Network Name": "Lisk", "URL": "https://lisk.hypersync.xyz or https://1135.hypersync.xyz", "Tier": "🥉", "Supports Traces": False},
-    42: {"Network Name": "Lukso", "URL": "https://lukso.hypersync.xyz or https://42.hypersync.xyz", "Tier": "🪨", "Supports Traces": False},
-    4201: {"Network Name": "Lukso Testnet", "URL": "https://lukso-testnet.hypersync.xyz or https://4201.hypersync.xyz", "Tier": "🎒", "Supports Traces": False},
-    169: {"Network Name": "Manta", "URL": "https://manta.hypersync.xyz or https://169.hypersync.xyz", "Tier": "🪨", "Supports Traces": False},
-    5000: {"Network Name": "Mantle", "URL": "https://mantle.hypersync.xyz or https://5000.hypersync.xyz", "Tier": "🪨", "Supports Traces": False},
-    6342: {"Network Name": "Megaeth Testnet", "URL": "https://megaeth-testnet.hypersync.xyz or https://6342.hypersync.xyz", "Tier": "🪨", "Supports Traces": False},
-    4200: {"Network Name": "Merlin", "URL": "https://merlin.hypersync.xyz or https://4200.hypersync.xyz", "Tier": "🪨", "Supports Traces": False},
-    1750: {"Network Name": "Metall2", "URL": "https://metall2.hypersync.xyz or https://1750.hypersync.xyz", "Tier": "🪨", "Supports Traces": False},
-    1088: {"Network Name": "Metis", "URL": "https://metis.hypersync.xyz or https://1088.hypersync.xyz", "Tier": "🪨", "Supports Traces": False},
-    17864: {"Network Name": "Mev Commit", "URL": "https://mev-commit.hypersync.xyz or https://17864.hypersync.xyz", "Tier": "🪨", "Supports Traces": False},
-    34443: {"Network Name": "Mode", "URL": "https://mode.hypersync.xyz or https://34443.hypersync.xyz", "Tier": "🪨", "Supports Traces": False},
-    10143: {"Network Name": "Monad Testnet", "URL": "https://monad-testnet.hypersync.xyz or https://10143.hypersync.xyz", "Tier": "🏅", "Supports Traces": False},
-    1287: {"Network Name": "Moonbase Alpha", "URL": "https://moonbase-alpha.hypersync.xyz or https://1287.hypersync.xyz", "Tier": "🪨", "Supports Traces": False},
-    1284: {"Network Name": "Moonbeam", "URL": "https://moonbeam.hypersync.xyz or https://1284.hypersync.xyz", "Tier": "🥈", "Supports Traces": False},
-    2818: {"Network Name": "Morph", "URL": "https://morph.hypersync.xyz or https://2818.hypersync.xyz", "Tier": "🪨", "Supports Traces": False},
-    2810: {"Network Name": "Morph Holesky", "URL": "https://morph-holesky.hypersync.xyz or https://2810.hypersync.xyz", "Tier": "🎒", "Supports Traces": False},
-    204: {"Network Name": "Opbnb", "URL": "https://opbnb.hypersync.xyz or https://204.hypersync.xyz", "Tier": "🪨", "Supports Traces": False},
-    10: {"Network Name": "Optimism", "URL": "https://optimism.hypersync.xyz or https://10.hypersync.xyz", "Tier": "🏅", "Supports Traces": False},
-    11155420: {"Network Name": "Optimism Sepolia", "URL": "https://optimism-sepolia.hypersync.xyz or https://11155420.hypersync.xyz", "Tier": "🎒", "Supports Traces": False},
-    50002: {"Network Name": "Pharos Devnet", "URL": "https://pharos-devnet.hypersync.xyz"},
-    137: {"Network Name": "Polygon", "URL": "https://polygon.hypersync.xyz or https://137.hypersync.xyz", "Tier": "🏅", "Supports Traces": False},
-    80002: {"Network Name": "Polygon Amoy", "URL": "https://polygon-amoy.hypersync.xyz or https://80002.hypersync.xyz", "Tier": "🥉", "Supports Traces": False},
-    1101: {"Network Name": "Polygon zkEVM", "URL": "https://polygon-zkevm.hypersync.xyz or https://1101.hypersync.xyz", "Tier": "🪨", "Supports Traces": False},
-    30: {"Network Name": "Rootstock", "URL": "https://rootstock.hypersync.xyz or https://30.hypersync.xyz", "Tier": "🥉", "Supports Traces": False},
-    7225878: {"Network Name": "Saakuru", "URL": "https://saakuru.hypersync.xyz or https://7225878.hypersync.xyz", "Tier": "🪨", "Supports Traces": False},
-    534352: {"Network Name": "Scroll", "URL": "https://scroll.hypersync.xyz or https://534352.hypersync.xyz", "Tier": "🥉", "Supports Traces": False},
-    11155111: {"Network Name": "Sepolia", "URL": "https://sepolia.hypersync.xyz or https://11155111.hypersync.xyz", "Tier": "🥉", "Supports Traces": False},
-    148: {"Network Name": "Shimmer Evm", "URL": "https://shimmer-evm.hypersync.xyz or https://148.hypersync.xyz", "Tier": "🪨", "Supports Traces": False},
-    1868: {"Network Name": "Soneium", "URL": "https://soneium.hypersync.xyz or https://1868.hypersync.xyz", "Tier": "🪨", "Supports Traces": False},
-    50104: {"Network Name": "Sophon", "URL": "https://sophon.hypersync.xyz or https://50104.hypersync.xyz", "Tier": "🥉", "Supports Traces": False},
-    531050104: {"Network Name": "Sophon Testnet", "URL": "https://sophon-testnet.hypersync.xyz or https://531050104.hypersync.xyz", "Tier": "🎒", "Supports Traces": False},
-    130: {"Network Name": "Unichain", "URL": "https://unichain.hypersync.xyz or https://130.hypersync.xyz", "Tier": "🪨", "Supports Traces": False},
-    1301: {"Network Name": "Unichain Sepolia", "URL": "https://unichain-sepolia.hypersync.xyz or https://1301.hypersync.xyz", "Tier": "🎒", "Supports Traces": False},
-    50: {"Network Name": "Xdc", "URL": "https://xdc.hypersync.xyz or https://50.hypersync.xyz", "Tier": "🥈", "Supports Traces": False},
-    51: {"Network Name": "Xdc Testnet", "URL": "https://xdc-testnet.hypersync.xyz or https://51.hypersync.xyz", "Tier": "🎒", "Supports Traces": False},
-    7000: {"Network Name": "Zeta", "URL": "https://zeta.hypersync.xyz or https://7000.hypersync.xyz", "Tier": "🪨", "Supports Traces": False},
-    48900: {"Network Name": "Zircuit", "URL": "https://zircuit.hypersync.xyz or https://48900.hypersync.xyz", "Tier": "🪨", "Supports Traces": False},
-    324: {"Network Name": "ZKsync", "URL": "https://zksync.hypersync.xyz or https://324.hypersync.xyz", "Tier": "🥉", "Supports Traces": False},
-    7777777: {"Network Name": "Zora", "URL": "https://zora.hypersync.xyz or https://7777777.hypersync.xyz", "Tier": "🪨", "Supports Traces": False},
-    146: {"Network Name": "Sonic", "URL": "https://sonic.hypersync.xyz or https://146.hypersync.xyz", "Tier": "🪨", "Supports Traces": False},
-    143: {"Network Name": "Monad", "URL": "https://monad.hypersync.xyz or https://143.hypersync.xyz", "Tier": "🪨", "Supports Traces": False},
+    1: "https://eth.hypersync.xyz",  # Ethereum Mainnet
+    10: "https://optimism.hypersync.xyz",  # Optimism
+    14: "https://flare.hypersync.xyz",  # Flare
+    30: "https://rootstock.hypersync.xyz",  # Rootstock
+    42: "https://lukso.hypersync.xyz",  # Lukso
+    50: "https://xdc.hypersync.xyz",  # XDC
+    51: "https://xdc-testnet.hypersync.xyz",  # XDC Testnet
+    56: "https://bsc.hypersync.xyz",  # BSC
+    97: "https://bsc-testnet.hypersync.xyz",  # BSC Testnet
+    100: "https://gnosis.hypersync.xyz",  # Gnosis
+    130: "https://unichain.hypersync.xyz",  # Unichain
+    137: "https://polygon.hypersync.xyz",  # Polygon
+    143: "https://monad.hypersync.xyz",  # Monad
+    146: "https://sonic.hypersync.xyz",  # Sonic
+    148: "https://shimmer-evm.hypersync.xyz",  # Shimmer EVM
+    169: "https://manta.hypersync.xyz",  # Manta
+    204: "https://opbnb.hypersync.xyz",  # opBNB
+    250: "https://fantom.hypersync.xyz",  # Fantom
+    252: "https://fraxtal.hypersync.xyz",  # Fraxtal
+    255: "https://kroma.hypersync.xyz",  # Kroma
+    288: "https://boba.hypersync.xyz",  # Boba
+    324: "https://zksync.hypersync.xyz",  # zkSync
+    480: "https://worldchain.hypersync.xyz",  # Worldchain
+    841: "https://taraxa.hypersync.xyz",  # Taraxa
+    999: "https://hyperliquid.hypersync.xyz",  # Hyperliquid
+    1101: "https://polygon-zkevm.hypersync.xyz",  # Polygon zkEVM
+    1135: "https://lisk.hypersync.xyz",  # Lisk
+    1284: "https://moonbeam.hypersync.xyz",  # Moonbeam
+    1328: "https://sei-testnet.hypersync.xyz",  # Sei Testnet
+    1329: "https://sei.hypersync.xyz",  # Sei
+    1750: "https://metall2.hypersync.xyz",  # Metall2
+    1868: "https://soneium.hypersync.xyz",  # Soneium
+    1923: "https://swell.hypersync.xyz",  # Swell
+    2741: "https://abstract.hypersync.xyz",  # Abstract
+    2818: "https://morph.hypersync.xyz",  # Morph
+    4114: "https://citrea.hypersync.xyz",  # Citrea
+    4200: "https://merlin.hypersync.xyz",  # Merlin
+    4201: "https://lukso-testnet.hypersync.xyz",  # Lukso Testnet
+    4326: "https://megaeth.hypersync.xyz",  # MegaETH
+    5000: "https://mantle.hypersync.xyz",  # Mantle
+    5115: "https://citrea-testnet.hypersync.xyz",  # Citrea Testnet
+    5330: "https://superseed.hypersync.xyz",  # Superseed
+    6342: "https://megaeth-testnet.hypersync.xyz",  # MegaETH Testnet
+    6343: "https://megaeth-testnet2.hypersync.xyz",  # MegaETH Testnet2
+    6767: "https://sentient.hypersync.xyz",  # Sentient
+    7000: "https://zeta.hypersync.xyz",  # Zeta
+    7560: "https://cyber.hypersync.xyz",  # Cyber
+    8453: "https://base.hypersync.xyz",  # Base
+    9745: "https://plasma.hypersync.xyz",  # Plasma
+    10143: "https://monad-testnet.hypersync.xyz",  # Monad Testnet
+    10200: "https://gnosis-chiado.hypersync.xyz",  # Gnosis Chiado
+    14601: "https://sonic-testnet.hypersync.xyz",  # Sonic Testnet
+    17000: "https://holesky.hypersync.xyz",  # Holesky
+    33111: "https://curtis.hypersync.xyz",  # Curtis
+    34443: "https://mode.hypersync.xyz",  # Mode
+    36888: "https://ab.hypersync.xyz",  # Ab
+    42161: "https://arbitrum.hypersync.xyz",  # Arbitrum
+    42170: "https://arbitrum-nova.hypersync.xyz",  # Arbitrum Nova
+    42220: "https://celo.hypersync.xyz",  # Celo
+    43113: "https://fuji.hypersync.xyz",  # Fuji
+    43114: "https://avalanche.hypersync.xyz",  # Avalanche
+    48900: "https://zircuit.hypersync.xyz",  # Zircuit
+    50104: "https://sophon.hypersync.xyz",  # Sophon
+    57073: "https://ink.hypersync.xyz",  # Ink
+    59144: "https://linea.hypersync.xyz",  # Linea
+    80002: "https://polygon-amoy.hypersync.xyz",  # Polygon Amoy
+    80094: "https://berachain.hypersync.xyz",  # Berachain
+    81457: "https://blast.hypersync.xyz",  # Blast
+    84532: "https://base-sepolia.hypersync.xyz",  # Base Sepolia
+    88888: "https://chiliz.hypersync.xyz",  # Chiliz
+    98866: "https://plume.hypersync.xyz",  # Plume
+    421614: "https://arbitrum-sepolia.hypersync.xyz",  # Arbitrum Sepolia
+    534352: "https://scroll.hypersync.xyz",  # Scroll
+    560048: "https://hoodi.hypersync.xyz",  # Hoodi
+    168587773: "https://blast-sepolia.hypersync.xyz",  # Blast Sepolia
+    531050104: "https://sophon-testnet.hypersync.xyz",  # Sophon Testnet
+    5042002: "https://arc-testnet.hypersync.xyz",  # Arc Testnet
+    7225878: "https://saakuru.hypersync.xyz",  # Saakuru
+    7777777: "https://zora.hypersync.xyz",  # Zora
+    11155111: "https://sepolia.hypersync.xyz",  # Sepolia
+    11155420: "https://optimism-sepolia.hypersync.xyz",  # Optimism Sepolia
+    1184075182: "https://sentient-testnet.hypersync.xyz",  # Sentient Testnet
+    1313161554: "https://aurora.hypersync.xyz",  # Aurora
+    1660990954: "https://status-sepolia.hypersync.xyz",  # Status Sepolia
+    1666600000: "https://harmony-shard-0.hypersync.xyz",  # Harmony Shard 0
 }
 
 
@@ -106,8 +111,7 @@ def get_hypersync_server(web3: Web3 | int, allow_missing=False) -> str | None:
         if not server:
             return None
 
-    urls = server["URL"]
-    return urls.split(" ")[0]
+    return server
 
 
 def is_hypersync_supported_chain(web3: Web3 | int) -> bool:
