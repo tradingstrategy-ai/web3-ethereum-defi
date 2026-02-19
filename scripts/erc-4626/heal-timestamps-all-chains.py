@@ -241,12 +241,21 @@ def main():
         print(f"No timestamp databases found in {DEFAULT_TIMESTAMP_CACHE_FOLDER}")
         return
 
+    # Skip chains that do not have a HyperSync server (healing requires HyperSync)
+    skipped_no_hypersync = [(cid, path) for cid, path in databases if not is_hypersync_supported_chain(cid)]
+    databases = [(cid, path) for cid, path in databases if is_hypersync_supported_chain(cid)]
+
+    if skipped_no_hypersync:
+        skipped_names = ", ".join(f"{get_chain_name(cid)} ({cid})" for cid, _ in skipped_no_hypersync)
+        logger.info("Skipping chains without HyperSync support: %s", skipped_names)
+
     # Filter by chain name if TEST_CHAINS is set
     if test_chain_names:
         databases = [(cid, path) for cid, path in databases if get_chain_name(cid) in test_chain_names]
         if not databases:
             print(f"No matching databases for TEST_CHAINS={test_chains_str}")
-            print(f"Available chains: {', '.join(get_chain_name(cid) for cid, _ in discover_timestamp_databases(DEFAULT_TIMESTAMP_CACHE_FOLDER))}")
+            all_dbs = discover_timestamp_databases(DEFAULT_TIMESTAMP_CACHE_FOLDER)
+            print(f"Available chains: {', '.join(get_chain_name(cid) for cid, _ in all_dbs)}")
             sys.exit(1)
 
     mode = "DRY RUN" if dry_run else "HEAL"
