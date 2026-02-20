@@ -26,7 +26,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import requests
+from eth_defi.grvt.session import create_grvt_session
 from tabulate import tabulate
 
 from eth_defi.grvt.daily_metrics import GRVTDailyMetricsDatabase, fetch_and_store_vault
@@ -80,7 +80,7 @@ def main():
     default_log_level = os.environ.get("LOG_LEVEL", "info")
     setup_console_logging(default_log_level=default_log_level)
 
-    session = requests.Session()
+    session = create_grvt_session()
 
     # Step 1: Discover vaults
     print("=" * 80)

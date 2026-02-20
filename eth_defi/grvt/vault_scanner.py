@@ -312,7 +312,8 @@ def scan_vaults(
         db.close()
 
     :param session:
-        HTTP session. If None, a plain ``requests.Session()`` is created.
+        HTTP session. If None, one is created via
+        :py:func:`~eth_defi.grvt.session.create_grvt_session`.
     :param db_path:
         Path to the DuckDB database file.
     :param timeout:
@@ -322,10 +323,10 @@ def scan_vaults(
     :return:
         VaultSnapshotDatabase instance with the newly inserted snapshots.
     """
-    import requests as req_lib
-
     if session is None:
-        session = req_lib.Session()
+        from eth_defi.grvt.session import create_grvt_session
+
+        session = create_grvt_session()
 
     snapshot_timestamp = native_datetime_utc_now()
 

@@ -8,15 +8,15 @@ Vault discovery uses the public GraphQL API at
 """
 
 import pytest
-import requests
 
+from eth_defi.grvt.session import create_grvt_session
 from eth_defi.grvt.vault import fetch_vault_listing_graphql
 
 
 @pytest.fixture(scope="module")
 def grvt_session():
     """Create a shared HTTP session for all tests in this module."""
-    return requests.Session()
+    return create_grvt_session()
 
 
 @pytest.fixture(scope="module")

@@ -173,6 +173,11 @@ def create_grvt_session(
 
     session = Session()
 
+    # GRVT endpoints are behind Cloudflare — a browser-like User-Agent
+    # is needed to avoid 403 responses on both the GraphQL API
+    # (edge.grvt.io) and the market data API (market-data.grvt.io).
+    session.headers["User-Agent"] = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+
     # Need to whitelist POST as retry method as GRVT endpoints use POST
     retry_policy = LoggingRetry(
         total=retries,

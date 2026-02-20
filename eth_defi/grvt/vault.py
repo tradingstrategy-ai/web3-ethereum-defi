@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 class GRVTVaultSummary:
     """Summary information for a GRVT vault.
 
-    Combines data from the GRVT GraphQL API and/or strategies page
+    Combines data from the GRVT GraphQL API
     with live data from the market data API.
     """
 
@@ -80,12 +80,10 @@ class GRVTVaultSummary:
 
     #: Annual management fee as a decimal fraction (e.g. 0.01 = 1%).
     #: From the GRVT GraphQL API ``managementFee`` field (PPM).
-    #: ``None`` if not available (e.g. from scraping fallback).
     management_fee: Percent | None = None
 
     #: Performance fee as a decimal fraction (e.g. 0.20 = 20%).
     #: From the GRVT GraphQL API ``performanceFee`` field (PPM).
-    #: ``None`` if not available (e.g. from scraping fallback).
     performance_fee: Percent | None = None
 
 
@@ -202,19 +200,18 @@ def fetch_vault_listing_graphql(
 ) -> list[GRVTVaultSummary]:
     """Fetch GRVT vault listing via the public GraphQL API.
 
-    This is the preferred method for discovering vaults, as it returns
-    per-vault fee data (``managementFee``, ``performanceFee``) that the
-    strategies page scraping method does not provide.
+    Returns per-vault fee data (``managementFee``, ``performanceFee``)
+    alongside vault metadata.
 
     The GraphQL endpoint at ``https://edge.grvt.io/query`` is public
     and requires no authentication.
 
     Example::
 
-        import requests
+        from eth_defi.grvt.session import create_grvt_session
         from eth_defi.grvt.vault import fetch_vault_listing_graphql
 
-        session = requests.Session()
+        session = create_grvt_session()
         vaults = fetch_vault_listing_graphql(session)
         for v in vaults:
             print(f"{v.name}: mgmt={v.management_fee}, perf={v.performance_fee}")
@@ -238,13 +235,7 @@ def fetch_vault_listing_graphql(
         "variables": {"first": 100, "where": where},
     }
 
-    # The GraphQL endpoint is behind Cloudflare — a browser-like
-    # User-Agent is needed to avoid 403 responses.
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
-        "Content-Type": "application/json",
-    }
-    resp = session.post(graphql_url, json=payload, headers=headers, timeout=timeout)
+    resp = session.post(graphql_url, json=payload, timeout=timeout)
     resp.raise_for_status()
     data = resp.json()
 

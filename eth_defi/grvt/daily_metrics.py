@@ -344,7 +344,8 @@ def run_daily_scan(
     No authentication is required — all data comes from public endpoints.
 
     :param session:
-        HTTP session. If None, a plain ``requests.Session()`` is created.
+        HTTP session. If None, one is created via
+        :py:func:`~eth_defi.grvt.session.create_grvt_session`.
     :param db_path:
         Path to the DuckDB database file.
     :param timeout:
@@ -357,10 +358,10 @@ def run_daily_scan(
     :return:
         The metrics database instance.
     """
-    import requests
-
     if session is None:
-        session = requests.Session()
+        from eth_defi.grvt.session import create_grvt_session
+
+        session = create_grvt_session()
 
     logger.info("Starting daily GRVT vault scan")
 
