@@ -104,6 +104,12 @@ def create_hyperliquid_vault_row(
         perf_fee = HYPERLIQUID_VAULT_PERFORMANCE_FEE
         lockup = HYPERLIQUID_USER_VAULT_LOCKUP
 
+    flags = {VaultFlag.perp_dex_trading_vault}
+
+    # HLP child sub-vaults are internal system vaults not directly investable by users
+    if relationship_type == "child":
+        flags.add(VaultFlag.subvault)
+
     detection = ERC4262VaultDetection(
         chain=chain_id,
         address=address,
@@ -143,7 +149,7 @@ def create_hyperliquid_vault_row(
         "_denomination_token": {"address": "0x2000000000000000000000000000000000000000", "symbol": "USDC", "decimals": 6},
         "_share_token": None,
         "_fees": fee_data,
-        "_flags": {VaultFlag.perp_dex_trading_vault},
+        "_flags": flags,
         "_lockup": lockup,
         "_description": description,
         "_short_description": description[:200] if description else None,
