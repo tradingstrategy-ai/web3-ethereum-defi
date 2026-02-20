@@ -34,10 +34,17 @@ from eth_typing import HexAddress
 
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.core import ERC4626Feature, ERC4262VaultDetection
-from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID, HYPERLIQUID_VAULT_FEE_MODE, HYPERLIQUID_VAULT_PERFORMANCE_FEE
+from eth_defi.hyperliquid.constants import (
+    HYPERCORE_CHAIN_ID,
+    HYPERLIQUID_PROTOCOL_VAULT_LOCKUP,
+    HYPERLIQUID_USER_VAULT_LOCKUP,
+    HYPERLIQUID_VAULT_FEE_MODE,
+    HYPERLIQUID_VAULT_PERFORMANCE_FEE,
+)
 from eth_defi.hyperliquid.daily_metrics import HyperliquidDailyMetricsDatabase
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.fee import FeeData
+from eth_defi.vault.flag import VaultFlag
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
 
 logger = logging.getLogger(__name__)
@@ -88,12 +95,14 @@ def create_hyperliquid_vault_row(
     address = vault_address.lower()
     chain_id = HYPERCORE_CHAIN_ID
 
-    # Protocol vaults (HLP parent + children) have zero gross fees.
-    # User-created vaults have the standard 10% leader profit share.
+    # Protocol vaults (HLP parent + children) have zero gross fees and 4-day lockup.
+    # User-created vaults have the standard 10% leader profit share and 1-day lockup.
     if relationship_type in ("parent", "child"):
         perf_fee = 0.0
+        lockup = HYPERLIQUID_PROTOCOL_VAULT_LOCKUP
     else:
         perf_fee = HYPERLIQUID_VAULT_PERFORMANCE_FEE
+        lockup = HYPERLIQUID_USER_VAULT_LOCKUP
 
     detection = ERC4262VaultDetection(
         chain=chain_id,
@@ -134,8 +143,8 @@ def create_hyperliquid_vault_row(
         "_denomination_token": {"address": "0x2000000000000000000000000000000000000000", "symbol": "USDC", "decimals": 6},
         "_share_token": None,
         "_fees": fee_data,
-        "_flags": set(),
-        "_lockup": None,
+        "_flags": {VaultFlag.perp_dex_trading_vault},
+        "_lockup": lockup,
         "_description": description,
         "_short_description": description[:200] if description else None,
         "_available_liquidity": None,

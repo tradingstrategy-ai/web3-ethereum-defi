@@ -30,9 +30,7 @@ Filtering rules implemented:
 - Share price > 10,000 at source → capped (``combined_analysis.py``)
 - Hypercore share prices > 10,000 in cleaning → capped (``wrangle_vault_prices.py``)
 - |daily return| > 50% in cleaning → zeroed (``wrangle_vault_prices.py``)
-- max share price > 10,000 in metrics → blacklisted (``vault_metrics.py``)
 - CAGR > 10,000% in period metrics → capped (``vault_metrics.py``)
-- New ``abnormal_share_price`` flag in ``VaultFlag`` enum
 
 Usage:
 

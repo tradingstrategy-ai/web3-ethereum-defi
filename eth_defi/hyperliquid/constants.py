@@ -5,6 +5,7 @@ Shared constants used across the Hyperliquid modules
 :py:mod:`~eth_defi.hyperliquid.vault_data_export`, etc.).
 """
 
+import datetime
 from pathlib import Path
 
 from eth_defi.vault.fee import VaultFeeMode
@@ -37,3 +38,19 @@ HYPERLIQUID_VAULT_PERFORMANCE_FEE: float = 0.10
 #: Source: https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/vaults
 #: Source: https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/vaults/for-vault-leaders
 HYPERLIQUID_VAULT_FEE_MODE: VaultFeeMode = VaultFeeMode.internalised_skimming
+
+#: Lockup period for user-created Hyperliquid vaults.
+#:
+#: After depositing into a user vault, followers must wait 1 day
+#: before they can withdraw.
+#:
+#: Source: https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/vaults/for-vault-depositors
+HYPERLIQUID_USER_VAULT_LOCKUP: datetime.timedelta = datetime.timedelta(days=1)
+
+#: Lockup period for Hyperliquid protocol vaults (HLP and sub-vaults).
+#:
+#: After depositing into the HLP or its child vaults, followers must
+#: wait 4 days before they can withdraw.
+#:
+#: Source: https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/vaults/for-vault-depositors
+HYPERLIQUID_PROTOCOL_VAULT_LOCKUP: datetime.timedelta = datetime.timedelta(days=4)

@@ -56,10 +56,9 @@ class VaultFlag(str, enum.Enum):
     #: This vault is a subvault used by other vaults
     subvault = "subvault"
 
-    #: Share price has reached absurd values, likely due to a calculation
-    #: overflow when total_supply approaches zero while total_assets
-    #: remains nonzero (e.g. Hyperliquid leveraged trading vaults)
-    abnormal_share_price = "abnormal_share_price"
+    #: Tnis vault is a perp dex trading vault on Hyperliquid, Orderly, Lighter, etc.
+    perp_dex_trading_vault = "perp_dex_trading_vault"
+
 
 
 #: Don't touch vaults with these flags
@@ -71,7 +70,6 @@ BAD_FLAGS = {
     VaultFlag.unofficial,
     VaultFlag.abnormal_price_on_low_tvl,
     VaultFlag.subvault,
-    VaultFlag.abnormal_share_price,
 }
 
 
@@ -113,7 +111,6 @@ MAINST_VAULT = "Main Street Market related products were wiped out in Oct 10th e
 
 ABNORMAL_TVL = "The TVL on this vault is abnormal"
 
-ABNORMAL_SHARE_PRICE = "Share price is abnormally high, likely due to a calculation overflow in the share price derivation (total_supply near zero while total_assets remains nonzero)"
 
 UNKNOWN_VAULT = "Vault is not known, not listed on the website of the protocol"
 

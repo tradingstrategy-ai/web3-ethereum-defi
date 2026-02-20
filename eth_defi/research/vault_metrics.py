@@ -31,7 +31,7 @@ from eth_defi.research.wrangle_vault_prices import forward_fill_vault
 from eth_defi.token import is_stablecoin_like, normalise_token_symbol
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.fee import FeeData, VaultFeeMode
-from eth_defi.vault.flag import ABNORMAL_SHARE_PRICE, ABNORMAL_TVL, VaultFlag, get_notes
+from eth_defi.vault.flag import ABNORMAL_TVL, VaultFlag, get_notes
 from eth_defi.vault.risk import VaultTechnicalRisk, get_vault_risk
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
 
@@ -968,21 +968,6 @@ def calculate_vault_record(
             # which gets shared across all vaults
             flags = set()
         flags.add(VaultFlag.abnormal_tvl)
-
-    # Check for abnormal share prices.
-    # Hyperliquid leveraged trading vaults can have share price calculation overflow
-    # when total_supply approaches zero while total_assets remains nonzero.
-    # E.g. a share price of 14 quadrillion is clearly broken data.
-    # We also detect when any single-period return exceeds 10,000%
-    # which indicates broken share price derivation, not real vault performance.
-    last_share_price = prices_df["share_price"].iloc[-1]
-    max_share_price = prices_df["share_price"].max()
-    if max_share_price > 10_000 or last_share_price > 10_000:
-        risk = VaultTechnicalRisk.blacklisted
-        notes = ABNORMAL_SHARE_PRICE
-        if not flags:
-            flags = set()
-        flags.add(VaultFlag.abnormal_share_price)
 
     vault_slug = vault_metadata["vault_slug"]
     protocol_slug = vault_metadata["protocol_slug"]
