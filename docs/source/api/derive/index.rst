@@ -36,6 +36,49 @@ and L1-L2 messaging infrastructure.
 - Base
 - HyperEVM
 
+**Supported collateral assets (via Socket bridges):**
+
+- USDC
+- wETH
+- wBTC
+
+Each asset has dedicated bridge contract addresses on the source chain. For example,
+USDC from Ethereum mainnet routes through ``0x6D303CEE7959f814042D31E0624fB88Ec6fbcC1d``.
+
+**Mainnet bridging:**
+
+The easiest way to deposit is through the `Derive web interface <https://derive.xyz/>`__.
+For manual on-chain deposits:
+
+1. Approve the bridge contract to spend your tokens
+2. Call the deposit function through the bridge contract (e.g. via Etherscan write contract interface)
+3. Wait for cross-chain message relaying to confirm the deposit on Derive Chain
+
+**Native ETH deposits:**
+
+Native ETH on Derive Chain is needed for transactions that require direct smart contract interaction.
+Do not use the native bridge for wETH collateral deposits — use Socket bridges for that instead.
+
+*Option 1: Superbridge interface (recommended)*
+
+Use the `Superbridge interface <https://superbridge.app/?fromChainId=1&toChainId=957&tokenAddress=0x01ba67aac7f75f647d94220cc98fb30fcc5105bf>`__
+for a user-friendly bridging experience (direct link for Ethereum → Derive Chain ETH bridging).
+
+*Option 2: OP Stack native bridge via Etherscan*
+
+The native bridge contract is at
+`0x61e44dc0dae6888b5a301887732217d5725b0bff <https://etherscan.io/address/0x61e44dc0dae6888b5a301887732217d5725b0bff#writeProxyContract>`__
+on Ethereum mainnet.
+
+1. Go to the `bridge contract write proxy <https://etherscan.io/address/0x61e44dc0dae6888b5a301887732217d5725b0bff#writeProxyContract>`__ on Etherscan
+2. Connect your wallet
+3. Call the deposit function with the amount of ETH you want to bridge
+4. Deposits are confirmed in 5-10 minutes
+5. Withdrawals use the standard OP Stack 7-day challenge period
+
+See `this example transaction <https://etherscan.io/tx/0x1c6b7bb4e060d2e335dfc1b3501d9e778cec1adac80652645f645a6d79daf159>`__
+for reference.
+
 **Bridge timing:**
 
 - From Layer 2 networks (Arbitrum, Optimism, Base): 2-5 minutes
@@ -43,13 +86,19 @@ and L1-L2 messaging infrastructure.
 
 Delays result from cross-chain message relaying required to securely confirm deposits on Derive Chain.
 
+**Daily limits:**
+
+Global daily limits apply to deposits and withdrawals. For example,
+the USDC mainnet fast connector enforces $10M in deposits and $1M in withdrawals per day.
+
 **Fast withdrawals:**
 
 Derive supports fast withdrawals that bypass the standard 7-day OP Stack challenge period.
 Global daily limits apply to fast withdrawals to maintain self-custody protections
 inherent to the fraud proof system.
 
-For more details, see the `Derive bridging documentation <https://help.derive.xyz/en/articles/9086191-what-bridge-does-derive-use>`__
+For more details, see the `Derive deposit documentation <https://docs.derive.xyz/reference/deposit-to-lyra-chain>`__,
+`bridging FAQ <https://help.derive.xyz/en/articles/9086191-what-bridge-does-derive-use>`__,
 and `supported networks <https://help.derive.xyz/en/articles/9085623-what-networks-are-supported>`__.
 
 Authentication
