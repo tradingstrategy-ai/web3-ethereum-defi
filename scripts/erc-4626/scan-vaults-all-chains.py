@@ -585,12 +585,37 @@ def run_post_processing(scan_hypercore: bool = False) -> dict[str, bool]:
 
     :param scan_hypercore:
         Whether to merge Hypercore (Hyperliquid native) price data
-        into the cleaned Parquet after the EVM price cleaning step.
+        into the uncleaned Parquet before the cleaning step, so
+        Hypercore data goes through the same cleaning pipeline.
     :return: Dictionary mapping step name to success boolean
     """
     steps = {}
 
-    # Step 1: Clean prices (EVM vaults only — reads raw parquet, writes cleaned)
+    # Step 1: Merge Hypercore prices into the uncleaned Parquet
+    # Must run BEFORE clean-prices so Hypercore data goes through the
+    # same cleaning pipeline as EVM vaults.
+    if scan_hypercore:
+        try:
+            from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID, HYPERLIQUID_DAILY_METRICS_DATABASE
+            from eth_defi.hyperliquid.daily_metrics import HyperliquidDailyMetricsDatabase
+            from eth_defi.hyperliquid.vault_data_export import merge_into_uncleaned_parquet
+            from eth_defi.vault.vaultdb import DEFAULT_UNCLEANED_PRICE_DATABASE
+
+            logger.info("Merging Hypercore prices into uncleaned Parquet")
+            db = HyperliquidDailyMetricsDatabase(HYPERLIQUID_DAILY_METRICS_DATABASE)
+            try:
+                combined_df = merge_into_uncleaned_parquet(db, DEFAULT_UNCLEANED_PRICE_DATABASE)
+                hl_rows = len(combined_df[combined_df["chain"] == HYPERCORE_CHAIN_ID]) if len(combined_df) > 0 else 0
+                logger.info("Hypercore price merge: %d Hyperliquid price entries in uncleaned Parquet", hl_rows)
+            finally:
+                db.close()
+            steps["hypercore-price-merge"] = True
+            logger.info("Hypercore price merge complete")
+        except Exception as e:
+            logger.exception("Hypercore price merge failed")
+            steps["hypercore-price-merge"] = False
+
+    # Step 2: Clean prices (all vaults — reads raw parquet including Hypercore, writes cleaned)
     try:
         logger.info("Cleaning vault prices data")
         generate_cleaned_vault_datasets()
@@ -599,31 +624,6 @@ def run_post_processing(scan_hypercore: bool = False) -> dict[str, bool]:
     except Exception as e:
         logger.exception("Clean prices failed")
         steps["clean-prices"] = False
-
-    # Step 2: Merge Hypercore prices into the cleaned Parquet
-    # Must run after clean-prices so the merge is not overwritten
-    if scan_hypercore:
-        try:
-            from eth_defi.hyperliquid.constants import HYPERLIQUID_DAILY_METRICS_DATABASE
-            from eth_defi.hyperliquid.daily_metrics import HyperliquidDailyMetricsDatabase
-            from eth_defi.hyperliquid.vault_data_export import merge_into_cleaned_parquet
-            from eth_defi.vault.vaultdb import DEFAULT_RAW_PRICE_DATABASE
-
-            logger.info("Merging Hypercore prices into cleaned Parquet")
-            db = HyperliquidDailyMetricsDatabase(HYPERLIQUID_DAILY_METRICS_DATABASE)
-            try:
-                combined_df = merge_into_cleaned_parquet(db, DEFAULT_RAW_PRICE_DATABASE)
-                from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID
-
-                hl_rows = len(combined_df[combined_df["chain"] == HYPERCORE_CHAIN_ID]) if len(combined_df) > 0 else 0
-                logger.info("Hypercore price merge: %d Hyperliquid price entries in cleaned Parquet", hl_rows)
-            finally:
-                db.close()
-            steps["hypercore-price-merge"] = True
-            logger.info("Hypercore price merge complete")
-        except Exception as e:
-            logger.exception("Hypercore price merge failed")
-            steps["hypercore-price-merge"] = False
 
     # Step 3: Export sparklines
     try:

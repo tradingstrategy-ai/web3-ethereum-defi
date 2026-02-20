@@ -36,8 +36,10 @@ Environment variables:
 - ``MAX_WORKERS``: Maximum number of parallel workers. Default: 16
 - ``VAULT_DB_PATH``: Path to existing ERC-4626 VaultDatabase pickle to merge into.
   Default: ~/.tradingstrategy/vaults/vault-metadata-db.pickle
-- ``PARQUET_PATH``: Path to existing cleaned Parquet to merge into.
-  Default: ~/.tradingstrategy/vaults/cleaned-vault-prices-1h.parquet
+- ``PARQUET_PATH``: Path to uncleaned Parquet to merge into (raw format).
+  Hypercore data is written here and then goes through the standard
+  cleaning pipeline.
+  Default: ~/.tradingstrategy/vaults/vault-prices-1h.parquet
 
 """
 
@@ -49,11 +51,12 @@ from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID, HYPERLIQUID_DAILY
 from eth_defi.hyperliquid.daily_metrics import run_daily_scan
 from eth_defi.hyperliquid.session import create_hyperliquid_session
 from eth_defi.hyperliquid.vault_data_export import (
-    merge_into_cleaned_parquet,
+    merge_into_uncleaned_parquet,
     merge_into_vault_database,
 )
+from eth_defi.research.wrangle_vault_prices import generate_cleaned_vault_datasets
 from eth_defi.utils import setup_console_logging
-from eth_defi.vault.vaultdb import DEFAULT_VAULT_DATABASE, DEFAULT_RAW_PRICE_DATABASE
+from eth_defi.vault.vaultdb import DEFAULT_VAULT_DATABASE, DEFAULT_UNCLEANED_PRICE_DATABASE
 
 logger = logging.getLogger(__name__)
 
@@ -79,8 +82,8 @@ def main():
     vault_db_path_str = os.environ.get("VAULT_DB_PATH")
     vault_db_path = Path(vault_db_path_str).expanduser() if vault_db_path_str else DEFAULT_VAULT_DATABASE
 
-    parquet_path_str = os.environ.get("PARQUET_PATH")
-    parquet_path = Path(parquet_path_str).expanduser() if parquet_path_str else DEFAULT_RAW_PRICE_DATABASE
+    uncleaned_path_str = os.environ.get("PARQUET_PATH")
+    uncleaned_path = Path(uncleaned_path_str).expanduser() if uncleaned_path_str else DEFAULT_UNCLEANED_PRICE_DATABASE
 
     print(f"Hyperliquid daily vault metrics pipeline")
     print(f"DuckDB path: {db_path}")
@@ -91,7 +94,7 @@ def main():
         print(f"Max vaults: {max_vaults}")
     print(f"Max workers: {max_workers}")
     print(f"VaultDB path: {vault_db_path}")
-    print(f"Parquet path: {parquet_path}")
+    print(f"Uncleaned parquet path: {uncleaned_path}")
 
     # Create rate-limited session
     session = create_hyperliquid_session(requests_per_second=2.75)
@@ -116,14 +119,23 @@ def main():
         vault_db = merge_into_vault_database(db, vault_db_path)
         print(f"VaultDatabase now has {len(vault_db)} total vaults")
 
-        # Step 3: Merge into cleaned Parquet
-        print(f"\nStep 3: Merging into cleaned Parquet at {parquet_path}...")
-        combined_df = merge_into_cleaned_parquet(db, parquet_path)
+        # Step 3: Merge into uncleaned Parquet (raw format for the cleaning pipeline)
+        print(f"\nStep 3: Merging into uncleaned Parquet at {uncleaned_path}...")
+        combined_df = merge_into_uncleaned_parquet(db, uncleaned_path)
         hl_rows = combined_df[combined_df["chain"] == HYPERCORE_CHAIN_ID] if len(combined_df) > 0 else combined_df
-        print(f"Parquet now has {len(combined_df):,} total rows ({len(hl_rows):,} Hyperliquid)")
+        print(f"Uncleaned parquet now has {len(combined_df):,} total rows ({len(hl_rows):,} Hyperliquid)")
 
     finally:
         db.close()
+
+    # Step 4: Run the cleaning pipeline so Hypercore data goes through
+    # the same cleaning steps as EVM vaults (outlier share price smoothing,
+    # return cleaning, TVL-based filtering, etc.)
+    print(f"\nStep 4: Running cleaning pipeline...")
+    generate_cleaned_vault_datasets(
+        vault_db_path=vault_db_path,
+        price_df_path=uncleaned_path,
+    )
 
     print(f"\nAll ok")
 

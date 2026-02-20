@@ -25,7 +25,7 @@ from eth_defi.hyperliquid.daily_metrics import (
 from eth_defi.hyperliquid.session import create_hyperliquid_session
 from eth_defi.hyperliquid.vault import HyperliquidVault, fetch_all_vaults
 from eth_defi.hyperliquid.vault_data_export import (
-    merge_into_cleaned_parquet,
+    merge_into_uncleaned_parquet,
     merge_into_vault_database,
 )
 from eth_defi.research.vault_metrics import (
@@ -33,6 +33,7 @@ from eth_defi.research.vault_metrics import (
     calculate_lifetime_metrics,
     export_lifetime_row,
 )
+from eth_defi.research.wrangle_vault_prices import generate_cleaned_vault_datasets
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.fee import FeeData, VaultFeeMode
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
@@ -40,9 +41,14 @@ from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
 
 def _create_mock_arbitrum_vault_data(
     vault_db_path: Path,
-    parquet_path: Path,
+    uncleaned_path: Path,
 ) -> tuple[VaultDatabase, pd.DataFrame]:
-    """Create a synthetic Arbitrum ERC-4626 vault with 90 days of price data."""
+    """Create a synthetic Arbitrum ERC-4626 vault with 90 days of raw price data.
+
+    Produces raw format matching the EVM vault scanner output, so it
+    can go through the standard cleaning pipeline together with
+    Hypercore data.
+    """
 
     chain_id = 42161
     vault_address = "0x75288264fdfea8ce68e6d852696ab1ce2f3e5004"
@@ -97,7 +103,7 @@ def _create_mock_arbitrum_vault_data(
     vault_db = VaultDatabase(rows={spec: vault_row})
     vault_db.write(vault_db_path)
 
-    # Create 90 days of synthetic price data with a gentle uptrend
+    # Create 90 days of synthetic price data with a gentle uptrend (raw format)
     dates = pd.date_range(end="2025-12-28", periods=90, freq="D")
     np.random.seed(42)
     base_price = 1.0
@@ -109,26 +115,20 @@ def _create_mock_arbitrum_vault_data(
             "chain": chain_id,
             "address": vault_address,
             "block_number": range(100000000, 100000000 + len(dates)),
+            "timestamp": dates,
             "share_price": share_prices,
-            "raw_share_price": share_prices,
             "total_assets": share_prices * 450000,
             "total_supply": 450000.0,
             "performance_fee": 0.20,
             "management_fee": 0.02,
             "errors": "",
-            "id": f"{chain_id}-{vault_address}",
-            "name": "D2 Hype++",
-            "event_count": 60,
-            "protocol": "D2 Finance",
-            "returns_1h": np.concatenate([[0.0], daily_returns[1:]]),
         },
-        index=pd.DatetimeIndex(dates, name="timestamp"),
     )
 
     prices_df["chain"] = prices_df["chain"].astype("int32")
     prices_df["block_number"] = prices_df["block_number"].astype("int64")
 
-    prices_df.to_parquet(parquet_path, compression="zstd")
+    prices_df.to_parquet(uncleaned_path, compression="zstd")
 
     return vault_db, prices_df
 
@@ -139,11 +139,12 @@ def test_unified_vault_metrics_json(tmp_path):
 
     duckdb_path = tmp_path / "daily-metrics.duckdb"
     vault_db_path = tmp_path / "vault-metadata-db.pickle"
-    parquet_path = tmp_path / "cleaned-vault-prices-1h.parquet"
+    uncleaned_path = tmp_path / "vault-prices-1h.parquet"
+    cleaned_path = tmp_path / "cleaned-vault-prices-1h.parquet"
     output_json = tmp_path / "vault-metrics.json"
 
-    # Step 1: Create synthetic Arbitrum vault data
-    _create_mock_arbitrum_vault_data(vault_db_path, parquet_path)
+    # Step 1: Create synthetic Arbitrum vault data (raw format)
+    _create_mock_arbitrum_vault_data(vault_db_path, uncleaned_path)
 
     # Step 2: Scan a single Hyperliquid vault
     session = create_hyperliquid_session()
@@ -168,15 +169,22 @@ def test_unified_vault_metrics_json(tmp_path):
         assert db.get_vault_count() == 1
         assert db.get_vault_daily_price_count(vault_address) > 0
 
-        # Step 3: Merge Hyperliquid data into existing files
+        # Step 3: Merge Hyperliquid data into existing pipeline files
         merge_into_vault_database(db, vault_db_path)
-        merge_into_cleaned_parquet(db, parquet_path)
+        merge_into_uncleaned_parquet(db, uncleaned_path)
     finally:
         db.close()
 
-    # Step 4: Run the full analysis pipeline
+    # Step 4: Run the cleaning pipeline (processes both EVM + Hypercore data)
+    generate_cleaned_vault_datasets(
+        vault_db_path=vault_db_path,
+        price_df_path=uncleaned_path,
+        cleaned_price_df_path=cleaned_path,
+    )
+
+    # Step 5: Run the full analysis pipeline
     vault_db = VaultDatabase.read(vault_db_path)
-    prices_df = pd.read_parquet(parquet_path)
+    prices_df = pd.read_parquet(cleaned_path)
 
     if not isinstance(prices_df.index, pd.DatetimeIndex):
         if "timestamp" in prices_df.columns:

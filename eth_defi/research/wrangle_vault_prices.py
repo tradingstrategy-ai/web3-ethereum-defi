@@ -529,6 +529,49 @@ def remove_inactive_lead_time(
     return filtered_df
 
 
+def cap_hypercore_share_prices(
+    prices_df: pd.DataFrame,
+    logger=print,
+    max_share_price: float = 10_000.0,
+) -> pd.DataFrame:
+    """Cap share prices for Hypercore (Hyperliquid native) vaults.
+
+    Hypercore share prices are derived synthetically from portfolio
+    history in :py:func:`~eth_defi.hyperliquid.combined_analysis._calculate_share_price`.
+    When ``total_supply`` approaches zero while ``total_assets`` remains nonzero
+    (e.g. after most depositors withdrew from a leveraged trading vault),
+    share prices can overflow to absurd values (trillions+).
+
+    This step caps those overflow values before the standard
+    :py:func:`fix_outlier_share_prices` smoothing runs.  Only applies
+    to Hypercore vaults (chain == 9999).
+
+    :param prices_df:
+        Price data with ``chain`` and ``share_price`` columns.
+    :param logger:
+        Logging function.
+    :param max_share_price:
+        Maximum allowed share price for Hypercore vaults.
+    :return:
+        DataFrame with capped share prices.
+    """
+    from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID
+
+    hypercore_mask = prices_df["chain"] == HYPERCORE_CHAIN_ID
+    if not hypercore_mask.any():
+        return prices_df
+
+    overflow_mask = hypercore_mask & (prices_df["share_price"] > max_share_price)
+    overflow_count = overflow_mask.sum()
+
+    if overflow_count > 0:
+        logger(f"Capping {overflow_count:,} Hypercore share prices above {max_share_price:,.0f}")
+        prices_df = prices_df.copy()
+        prices_df.loc[overflow_mask, "share_price"] = max_share_price
+
+    return prices_df
+
+
 def fix_outlier_share_prices(
     prices_df: pd.DataFrame,
     logger=print,
@@ -762,6 +805,11 @@ def process_raw_vault_scan_data(
         vault_prices_df = prices_df[prices_df["id"] == diagnose_vault_id]
         logger("After remove_inactive_lead_time():")
         display(vault_prices_df)
+
+    # Cap Hypercore share prices before the standard outlier smoothing.
+    # Hypercore share prices can overflow when total_supply → 0;
+    # this prevents the smoothing algorithm from being confused by absurd values.
+    prices_df = cap_hypercore_share_prices(prices_df, logger)
 
     prices_df = fix_outlier_share_prices(prices_df, logger)
 

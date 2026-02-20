@@ -5,19 +5,20 @@ consumed by the existing ERC-4626 vault metrics pipeline:
 
 - Synthetic :py:class:`~eth_defi.vault.vaultdb.VaultRow` entries for the
   :py:class:`~eth_defi.vault.vaultdb.VaultDatabase` pickle
-- Daily price DataFrames matching the cleaned Parquet schema
+- Raw price DataFrames matching the uncleaned Parquet schema, so that
+  Hypercore data goes through the same cleaning pipeline as EVM vaults
 - Merge functions to append Hyperliquid data into existing files
 
 Example::
 
     from pathlib import Path
     from eth_defi.hyperliquid.daily_metrics import HyperliquidDailyMetricsDatabase
-    from eth_defi.hyperliquid.vault_data_export import merge_into_vault_database, merge_into_cleaned_parquet
+    from eth_defi.hyperliquid.vault_data_export import merge_into_vault_database, merge_into_uncleaned_parquet
 
     db = HyperliquidDailyMetricsDatabase(Path("daily-metrics.duckdb"))
 
     merge_into_vault_database(db, vault_db_path)
-    merge_into_cleaned_parquet(db, parquet_path)
+    merge_into_uncleaned_parquet(db, uncleaned_parquet_path)
 
     db.close()
 
@@ -149,62 +150,45 @@ def create_hyperliquid_vault_row(
     return spec, row
 
 
-def build_cleaned_prices_dataframe(db: HyperliquidDailyMetricsDatabase) -> pd.DataFrame:
-    """Build a cleaned prices DataFrame from the Hyperliquid DuckDB.
+def build_raw_prices_dataframe(db: HyperliquidDailyMetricsDatabase) -> pd.DataFrame:
+    """Build a raw prices DataFrame from the Hyperliquid DuckDB.
 
-    Produces a DataFrame matching the schema expected by
-    :py:func:`~eth_defi.research.vault_metrics.calculate_hourly_returns_for_all_vaults`
-    and :py:func:`~eth_defi.research.vault_metrics.calculate_lifetime_metrics`.
+    Produces rows matching the schema of the EVM vault scanner
+    (:py:meth:`~eth_defi.vault.base.VaultHistoricalRead.export`),
+    so Hypercore data can go through the same cleaning pipeline
+    (:py:func:`~eth_defi.research.wrangle_vault_prices.process_raw_vault_scan_data`)
+    as ERC-4626 vaults.
 
-    Includes Hypercore-specific columns (``follower_count``, ``apr``,
-    ``cumulative_pnl``, ``daily_pnl``) that will be ``NaN`` for EVM vaults.
+    The output has ``timestamp`` as a column (not index), matching
+    the raw uncleaned Parquet format.
 
     :param db:
         The Hyperliquid daily metrics database.
     :return:
-        DataFrame with DatetimeIndex and columns matching the cleaned Parquet schema.
+        DataFrame with columns matching the uncleaned Parquet schema.
     """
     prices_df = db.get_all_daily_prices()
-    metadata_df = db.get_all_vault_metadata()
 
     if prices_df.empty:
         return pd.DataFrame()
 
-    # Build a name lookup from metadata
-    name_lookup = dict(zip(metadata_df["vault_address"], metadata_df["name"]))
-
     chain_id = HYPERCORE_CHAIN_ID
 
-    # Convert date to datetime for the index
-    prices_df["timestamp"] = pd.to_datetime(prices_df["date"])
-
-    # Build the output DataFrame matching cleaned Parquet schema.
     # Use .values to strip the DuckDB RangeIndex — otherwise pandas
-    # tries to align it with the DatetimeIndex and fills everything with NaN.
+    # tries to align it with the new index and fills everything with NaN.
     result = pd.DataFrame(
         {
             "chain": chain_id,
             "address": prices_df["vault_address"].values,
             "block_number": 0,
+            "timestamp": pd.to_datetime(prices_df["date"]).values,
             "share_price": prices_df["share_price"].values,
-            "raw_share_price": prices_df["share_price"].values,
             "total_assets": prices_df["tvl"].values,
             "total_supply": 0.0,
             "performance_fee": 0.0,
             "management_fee": 0.0,
             "errors": "",
-            "id": prices_df["vault_address"].apply(lambda a: f"{chain_id}-{a}").values,
-            "name": prices_df["vault_address"].map(name_lookup).fillna("<unnamed>").values,
-            "event_count": 1,
-            "protocol": "Hyperliquid",
-            "returns_1h": prices_df["daily_return"].fillna(0.0).values,
-            # Hypercore-specific columns
-            "follower_count": prices_df["follower_count"].values,
-            "apr": prices_df["apr"].values,
-            "cumulative_pnl": prices_df["cumulative_pnl"].values,
-            "daily_pnl": prices_df["daily_pnl"].values,
         },
-        index=pd.DatetimeIndex(prices_df["timestamp"].values, name="timestamp"),
     )
 
     # Ensure correct dtypes
@@ -276,26 +260,32 @@ def merge_into_vault_database(
     return vault_db
 
 
-def merge_into_cleaned_parquet(
+def merge_into_uncleaned_parquet(
     db: HyperliquidDailyMetricsDatabase,
     parquet_path: Path,
 ) -> pd.DataFrame:
-    """Merge Hyperliquid daily prices into an existing cleaned Parquet file.
+    """Merge Hyperliquid daily prices into the uncleaned Parquet file.
+
+    Writes Hypercore raw data in the same format as the EVM vault scanner,
+    so the standard cleaning pipeline
+    (:py:func:`~eth_defi.research.wrangle_vault_prices.process_raw_vault_scan_data`)
+    can process all vaults together.
 
     Reads the existing Parquet, removes any prior Hypercore rows
-    (chain == -999), appends fresh Hyperliquid daily price rows,
-    and writes back. Idempotent: running twice produces the same result.
+    (chain == 9999), appends fresh Hyperliquid daily price rows,
+    and writes back.  Idempotent: running twice produces the same result.
 
     If the Parquet file does not exist, creates a new one.
 
     :param db:
         The Hyperliquid daily metrics database.
     :param parquet_path:
-        Path to the cleaned Parquet file.
+        Path to the uncleaned Parquet file
+        (typically ``vault-prices-1h.parquet``).
     :return:
         The combined DataFrame.
     """
-    hl_df = build_cleaned_prices_dataframe(db)
+    hl_df = build_raw_prices_dataframe(db)
 
     if hl_df.empty:
         logger.warning("No Hyperliquid data to merge")
@@ -305,32 +295,23 @@ def merge_into_cleaned_parquet(
 
     if parquet_path.exists():
         existing_df = pd.read_parquet(parquet_path)
-        # Ensure timestamp index
-        if not isinstance(existing_df.index, pd.DatetimeIndex):
-            if "timestamp" in existing_df.columns:
-                existing_df = existing_df.set_index("timestamp")
 
         # Remove any existing Hypercore rows
         existing_df = existing_df[existing_df["chain"] != HYPERCORE_CHAIN_ID]
 
-        # Add Hypercore-specific columns to existing data if missing
-        for col in ("follower_count", "apr", "cumulative_pnl", "daily_pnl"):
-            if col not in existing_df.columns:
-                existing_df[col] = pd.NA
-
-        combined = pd.concat([existing_df, hl_df])
+        combined = pd.concat([existing_df, hl_df], ignore_index=True)
     else:
         parquet_path.parent.mkdir(parents=True, exist_ok=True)
         combined = hl_df
 
     # Sort for compression efficiency
-    combined = combined.sort_values(["id", combined.index.name or "timestamp"])
+    combined = combined.sort_values(["chain", "address", "timestamp"])
 
     combined.to_parquet(parquet_path, compression="zstd")
 
-    hl_vault_count = hl_df["id"].nunique()
+    hl_vault_count = hl_df["address"].nunique()
     logger.info(
-        "Merged %d Hyperliquid vaults (%d rows) into %s",
+        "Merged %d Hyperliquid vaults (%d rows) into uncleaned %s",
         hl_vault_count,
         len(hl_df),
         parquet_path,
