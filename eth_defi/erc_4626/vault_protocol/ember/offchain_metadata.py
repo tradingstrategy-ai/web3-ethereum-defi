@@ -30,11 +30,12 @@ from eth_typing import HexAddress
 from web3 import Web3
 
 from eth_defi.compat import native_datetime_utc_now, native_datetime_utc_fromtimestamp
+from eth_defi.disk_cache import DEFAULT_CACHE_ROOT
 from eth_defi.utils import wait_other_writers
 
 
 #: Where we cache fetched Ember metadata files
-DEFAULT_CACHE_PATH = Path.home() / ".cache" / "ember"
+DEFAULT_CACHE_PATH = DEFAULT_CACHE_ROOT / "ember"
 
 #: Ember vault API base URL, reverse-engineered from the Vite+React SPA at ember.so
 DEFAULT_API_BASE_URL = "https://vaults.api.sui-prod.bluefin.io/api/v2"
@@ -190,7 +191,7 @@ def fetch_ember_vaults(
     - Multiprocess safe via file lock
 
     :param cache_path:
-        Directory for cache files (default ``~/.cache/ember/``)
+        Directory for cache files (default ``~/.tradingstrategy/cache/ember/``)
 
     :param api_base_url:
         Ember API base URL

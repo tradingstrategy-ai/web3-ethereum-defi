@@ -360,7 +360,7 @@ DISK_CACHE_MARKETS_TTL_SECONDS = 3600  # 1 hour
 DISK_CACHE_APY_TTL_SECONDS = 300  # 5 minutes
 
 #: Default cache directory for market data
-DEFAULT_MARKET_CACHE_DIR = "~/.cache/web3-ethereum-defi/gmx"
+DEFAULT_MARKET_CACHE_DIR = "~/.tradingstrategy/cache/gmx"
 
 #: Subsquid retry configuration for order tracking
 SUBSQUID_ORDER_TRACKING_TIMEOUT = 10  # Increased from 5

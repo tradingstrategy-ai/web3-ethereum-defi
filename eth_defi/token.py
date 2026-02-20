@@ -1101,7 +1101,7 @@ class TokenDiskCache(PersistentKeyValueStore):
         assert token.extra_data["cached"] == True
     """
 
-    DEFAULT_TOKEN_DISK_CACHE_PATH = Path("~/.cache/eth-defi-tokens.sqlite")
+    DEFAULT_TOKEN_DISK_CACHE_PATH = Path.home() / ".tradingstrategy" / "cache" / "eth-defi-tokens.sqlite"
 
     def __init__(
         self,
