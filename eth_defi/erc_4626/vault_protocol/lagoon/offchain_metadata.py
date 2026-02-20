@@ -21,11 +21,12 @@ import requests
 from web3 import Web3
 from eth_typing import HexAddress
 from eth_defi.compat import native_datetime_utc_now, native_datetime_utc_fromtimestamp
+from eth_defi.disk_cache import DEFAULT_CACHE_ROOT
 from eth_defi.utils import wait_other_writers
 
 
 #: Where we cache fetched Lagoon metadata files
-DEFAULT_CACHE_PATH = Path.home() / ".cache" / "lagoon"
+DEFAULT_CACHE_PATH = DEFAULT_CACHE_ROOT / "lagoon"
 
 #: Lagoon web app API base URL, reverse-engineered from their Next.js frontend
 DEFAULT_API_BASE_URL = "https://app.lagoon.finance/api"
@@ -211,7 +212,7 @@ def fetch_lagoon_vaults_for_chain(
         EVM chain id
 
     :param cache_path:
-        Directory for cache files (default ``~/.cache/lagoon/``)
+        Directory for cache files (default ``~/.tradingstrategy/cache/lagoon/``)
 
     :param api_base_url:
         Lagoon API base URL

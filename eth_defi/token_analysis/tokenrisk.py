@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 
 #: The default location of SQLite cache of Token Risk replies
-DEFAULT_CACHE_PATH = Path.home() / ".cache" / "tradingstrategy" / "glide-token-risk.sqlite"
+DEFAULT_CACHE_PATH = Path.home() / ".tradingstrategy" / "cache" / "glide-token-risk.sqlite"
 
 
 #: List of Token Risk flags we do not want to trade by default

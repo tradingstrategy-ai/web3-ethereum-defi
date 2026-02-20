@@ -3,6 +3,7 @@
 - Shared across RPC/Hypersync discovery
 - Supports standard ERC-4626 Deposit/Withdraw events
 - Supports BrinkVault DepositFunds/WithdrawFunds events
+- Supports EmberVault VaultDeposit/RequestRedeemed events
 """
 
 import abc
@@ -61,6 +62,14 @@ def get_brink_vault_contract(web3):
     )
 
 
+def get_ember_vault_event_contract(web3):
+    """Get IEmberVaultEvents interface for EmberVault events."""
+    return get_contract(
+        web3,
+        "ember/IEmberVaultEvents.json",
+    )
+
+
 def get_standard_erc_4626_vault_discovery_events(web3) -> list[Type[ContractEvent]]:
     """Get list of standard ERC-4626 events we use in vault discovery.
 
@@ -107,18 +116,34 @@ def get_brink_vault_discovery_events(web3) -> list[Type[ContractEvent]]:
     ]
 
 
+def get_ember_vault_discovery_events(web3) -> list[Type[ContractEvent]]:
+    """Get list of EmberVault events we use in vault discovery.
+
+    EmberVault uses custom events instead of standard ERC-4626 Deposit/Withdraw:
+
+    - VaultDeposit(address indexed vault, address indexed depositor, address indexed receiver, uint256 amountDeposited, uint256 sharesMinted, uint256 totalShares, uint256 timestamp, uint256 sequenceNumber)
+    - RequestRedeemed(address indexed vault, address indexed owner, address indexed receiver, uint256 shares, uint256 estimatedWithdrawAmount, uint256 timestamp, uint256 sequenceNumber)
+    """
+    IEmberVaultEvents = get_ember_vault_event_contract(web3)
+    return [
+        IEmberVaultEvents.events.VaultDeposit,
+        IEmberVaultEvents.events.RequestRedeemed,
+    ]
+
+
 def get_vault_discovery_events(web3) -> list[Type[ContractEvent]]:
     """Get all events used in vault discovery, including protocol-specific ones.
 
     This includes:
     - Standard ERC-4626 Deposit/Withdraw events
     - BrinkVault DepositFunds/WithdrawFunds events
+    - EmberVault VaultDeposit/RequestRedeemed events
 
     :return:
         List of contract event types in order:
-        [ERC4626.Deposit, ERC4626.Withdraw, BrinkVault.DepositFunds, BrinkVault.WithdrawFunds]
+        [ERC4626.Deposit, ERC4626.Withdraw, BrinkVault.Deposited, BrinkVault.Withdrawal, EmberVault.VaultDeposit, EmberVault.RequestRedeemed]
     """
-    return get_standard_erc_4626_vault_discovery_events(web3) + get_brink_vault_discovery_events(web3)
+    return get_standard_erc_4626_vault_discovery_events(web3) + get_brink_vault_discovery_events(web3) + get_ember_vault_discovery_events(web3)
 
 
 def get_vault_event_topic_map(web3) -> dict[str, VaultEventKind]:
@@ -133,12 +158,15 @@ def get_vault_event_topic_map(web3) -> dict[str, VaultEventKind]:
 
     erc4626_events = get_standard_erc_4626_vault_discovery_events(web3)
     brink_events = get_brink_vault_discovery_events(web3)
+    ember_events = get_ember_vault_discovery_events(web3)
 
     return {
         get_topic_signature_from_event(erc4626_events[0]): VaultEventKind.deposit,
         get_topic_signature_from_event(erc4626_events[1]): VaultEventKind.withdraw,
         get_topic_signature_from_event(brink_events[0]): VaultEventKind.deposit,
         get_topic_signature_from_event(brink_events[1]): VaultEventKind.withdraw,
+        get_topic_signature_from_event(ember_events[0]): VaultEventKind.deposit,
+        get_topic_signature_from_event(ember_events[1]): VaultEventKind.withdraw,
     }
 
 

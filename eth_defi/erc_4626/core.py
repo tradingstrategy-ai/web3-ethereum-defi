@@ -542,6 +542,13 @@ class ERC4626Feature(enum.Enum):
     #: https://app.hyperliquid.xyz/vaults
     hypercore_native = "hypercore_native"
 
+    #: Ember Protocol
+    #:
+    #: Investment platform for launching and distributing onchain financial products.
+    #: Uses custom VaultDeposit/RequestRedeemed events instead of standard ERC-4626.
+    #: https://ember.so/
+    ember_like = "ember_like"
+
 
 #: Features that identify lending protocol vaults.
 #:
@@ -816,6 +823,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.hypercore_native in features:
         return "Hyperliquid"
+
+    elif ERC4626Feature.ember_like in features:
+        return "Ember"
 
     # No idea
     if ERC4626Feature.erc_7540_like in features:

@@ -17,10 +17,11 @@ import requests
 from web3 import Web3
 from eth_typing import HexAddress
 from eth_defi.compat import native_datetime_utc_now, native_datetime_utc_fromtimestamp
+from eth_defi.disk_cache import DEFAULT_CACHE_ROOT
 from eth_defi.utils import wait_other_writers
 
-#: Where we copy files from Euelr Github repo
-DEFAULT_CACHE_PATH = Path.home() / ".cache" / "euler"
+#: Where we copy files from Euler Github repo
+DEFAULT_CACHE_PATH = DEFAULT_CACHE_ROOT / "euler"
 
 
 logger = logging.getLogger(__name__)

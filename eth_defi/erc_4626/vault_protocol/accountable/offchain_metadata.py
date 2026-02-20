@@ -24,11 +24,12 @@ from eth_typing import HexAddress
 from web3 import Web3
 
 from eth_defi.compat import native_datetime_utc_now, native_datetime_utc_fromtimestamp
+from eth_defi.disk_cache import DEFAULT_CACHE_ROOT
 from eth_defi.utils import wait_other_writers
 
 
 #: Where we cache fetched Accountable metadata files
-DEFAULT_CACHE_PATH = Path.home() / ".cache" / "accountable"
+DEFAULT_CACHE_PATH = DEFAULT_CACHE_ROOT / "accountable"
 
 #: Accountable yield app API base URL, reverse-engineered from their React SPA
 DEFAULT_API_BASE_URL = "https://yield.accountable.capital/api"
@@ -180,7 +181,7 @@ def fetch_accountable_vaults(
     - Multiprocess safe via file lock
 
     :param cache_path:
-        Directory for cache files (default ``~/.cache/accountable/``)
+        Directory for cache files (default ``~/.tradingstrategy/cache/accountable/``)
 
     :param api_base_url:
         Accountable API base URL
