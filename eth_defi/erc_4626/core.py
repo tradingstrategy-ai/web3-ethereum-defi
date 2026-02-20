@@ -542,6 +542,13 @@ class ERC4626Feature(enum.Enum):
     #: https://app.hyperliquid.xyz/vaults
     hypercore_native = "hypercore_native"
 
+    #: GRVT native vault
+    #:
+    #: Native GRVT (Gravity Markets) perpetuals trading vault.
+    #: Not an ERC-4626 vault but shares the same metrics interface.
+    #: https://grvt.io/exchange/strategies
+    grvt_native = "grvt_native"
+
     #: Ember Protocol
     #:
     #: Investment platform for launching and distributing onchain financial products.
@@ -823,6 +830,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.hypercore_native in features:
         return "Hyperliquid"
+
+    elif ERC4626Feature.grvt_native in features:
+        return "GRVT"
 
     elif ERC4626Feature.ember_like in features:
         return "Ember"

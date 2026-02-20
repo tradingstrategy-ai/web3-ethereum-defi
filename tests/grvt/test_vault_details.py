@@ -1,0 +1,76 @@
+"""Test GRVT vault details fetching.
+
+This test module verifies that we can fetch detailed vault information
+from the GRVT public endpoints: vault listing from the strategies page,
+vault details, performance, risk metrics, and share price history
+from the market data API.
+
+No authentication required — all endpoints are public.
+"""
+
+from eth_defi.grvt.vault import (
+    GRVTVaultPerformance,
+    GRVTVaultRiskMetric,
+    GRVTVaultSummary,
+    fetch_vault_details,
+    fetch_vault_listing,
+    fetch_vault_performance,
+    fetch_vault_risk_metrics,
+    fetch_vault_summary_history,
+)
+
+
+def test_vault_listing(grvt_session):
+    """Test that we can discover vaults from the strategies page."""
+    vaults = fetch_vault_listing(grvt_session, only_discoverable=True)
+
+    assert len(vaults) > 0, "Expected at least one discoverable vault"
+
+    vault = vaults[0]
+    assert isinstance(vault, GRVTVaultSummary)
+    assert vault.vault_id.startswith("VLT:")
+    assert vault.chain_vault_id > 0
+    assert vault.name
+    assert vault.discoverable is True
+    assert vault.status == "active"
+
+
+def test_vault_details_and_performance(grvt_session, grvt_vault_listing):
+    """Test fetching vault details and performance from market data API."""
+    chain_ids = [v.chain_vault_id for v in grvt_vault_listing[:3]]
+
+    details = fetch_vault_details(grvt_session, chain_ids)
+    assert len(details) > 0, "Expected at least one vault detail"
+
+    for cid, d in details.items():
+        assert isinstance(cid, int)
+        assert "total_equity" in d
+        assert "share_price" in d
+
+    perf = fetch_vault_performance(grvt_session, chain_ids)
+    assert len(perf) > 0, "Expected at least one vault performance"
+
+    for cid, p in perf.items():
+        assert isinstance(p, GRVTVaultPerformance)
+        assert isinstance(p.apr, float)
+
+    risk = fetch_vault_risk_metrics(grvt_session, chain_ids)
+    assert len(risk) > 0, "Expected at least one vault risk metric"
+
+    for cid, r in risk.items():
+        assert isinstance(r, GRVTVaultRiskMetric)
+        assert isinstance(r.max_drawdown, float)
+
+
+def test_vault_summary_history(grvt_session, grvt_sample_vault):
+    """Test fetching share price history for a vault."""
+    daily_df = fetch_vault_summary_history(
+        grvt_session,
+        chain_vault_id=grvt_sample_vault.chain_vault_id,
+    )
+
+    assert not daily_df.empty, f"Expected share price history for {grvt_sample_vault.name}"
+    assert "share_price" in daily_df.columns
+    assert "daily_return" in daily_df.columns
+    assert len(daily_df) >= 2
+    assert (daily_df["share_price"] > 0).all()
