@@ -189,3 +189,20 @@ source .local-test.env && make build-docs
 ```
 
 Never directly edit auto-generated sphinx files in `_autosummary*` folders.
+
+## Web Fetching and 403
+
+When fetching web pages, if `web_fetch` returns a 403 error, retry the request using the Chrome MCP tool to load the page in a real browser instead.
+
+Prerequisites:
+
+1. **Claude in Chrome extension** (v1.0.36+) - [Chrome Web Store](https://chromewebstore.google.com/detail/claude/fcoeoabgfenejglbffodgkkbkcdhcgfn)
+2. **Google Chrome** running
+3. **Direct Anthropic plan** (Pro, Max, Team, or Enterprise)
+
+
+Browser tools are automatically available when the Chrome extension is connected. Use `@browser` in your Visual Studio Code prompt to activate the connection.
+
+When using browser tools, Claude may ask for permission to visit specific domains. **Approve these prompts** to allow browser automation. You can also pre-approve domains in the Chrome extension settings.
+
+
