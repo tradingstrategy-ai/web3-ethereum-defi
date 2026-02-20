@@ -7,6 +7,10 @@ and merges the data into the existing ERC-4626 vault metrics pipeline so that
 `vault-analysis-json.py` produces a single unified JSON with both EVM and
 Hyperliquid vaults.
 
+Hypercore data goes through the same `process_raw_vault_scan_data()` cleaning
+pipeline as EVM vaults (outlier share price smoothing, return cleaning,
+TVL-based filtering, etc.).
+
 ## Architecture
 
 ```
@@ -18,7 +22,7 @@ stats-data (bulk GET)                 scan-vaults.py (multi-chain)
       |                                      |
       v                                      v
 Filter by TVL & open status           vault-metadata-db.pickle
-      |                               cleaned-vault-prices-1h.parquet
+      |                               vault-prices-1h.parquet (uncleaned)
       v                                      |
 vaultDetails (per-vault POST)                |
   portfolio.allTime history                  |
@@ -29,8 +33,17 @@ _calculate_share_price()                     |
       |                                      |
       v                                      |
 daily-metrics.duckdb  ----merge----->  vault-metadata-db.pickle
-  vault_metadata table                 cleaned-vault-prices-1h.parquet
+  vault_metadata table                 vault-prices-1h.parquet (uncleaned)
   vault_daily_prices table                   |
+                                             v
+                                      process_raw_vault_scan_data()
+                                        cap_hypercore_share_prices()
+                                        fix_outlier_share_prices()
+                                        calculate_vault_returns()
+                                             |
+                                             v
+                                      cleaned-vault-prices-1h.parquet
+                                             |
                                              v
                                       vault-analysis-json.py
                                         calculate_lifetime_metrics()
@@ -77,6 +90,42 @@ apr            DOUBLE              apr            DOUBLE
 create_time    TIMESTAMP
 last_updated   TIMESTAMP
 ```
+
+### Fees
+
+Hyperliquid vault fees are defined in `constants.py`:
+
+- **User-created vaults** (`relationship_type="normal"`): 10% performance fee
+  (`HYPERLIQUID_VAULT_PERFORMANCE_FEE`), zero management/deposit/withdraw fees
+- **Protocol vaults** (HLP parent + children, `relationship_type="parent"` or `"child"`):
+  zero fees
+
+The fee mode is `internalised_skimming` — the leader's profit share is deducted
+at withdrawal time, and the PnL history from the API already reflects net returns.
+This means gross and net returns are identical from the pipeline's perspective.
+
+Source: [Hyperliquid vault docs](https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/vaults)
+
+### Lockup periods
+
+Defined in `constants.py`:
+
+- **User-created vaults**: 1-day lockup after deposit (`HYPERLIQUID_USER_VAULT_LOCKUP`)
+- **Protocol vaults** (HLP + children): 4-day lockup (`HYPERLIQUID_PROTOCOL_VAULT_LOCKUP`)
+
+Source: [Depositor docs](https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/vaults/for-vault-depositors)
+
+### Vault flags
+
+All Hyperliquid vaults get the `perp_dex_trading_vault` flag. HLP child
+sub-vaults (internal system vaults not directly investable) additionally get
+the `subvault` flag which causes them to be filtered out via `BAD_FLAGS`.
+
+### Vault notes
+
+All Hypercore vaults get a default note via `get_notes(address, chain_id=...)`:
+"Profit calculations are cleaned from deposit/redeem net flow and differ from
+the account Profit and Loss (PnL) on Hyperliquid website".
 
 ### Share price computation
 
