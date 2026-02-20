@@ -1,6 +1,6 @@
 # Current
 
-- Add: Ember protocol vault integration with custom VaultDeposit/RequestRedeemed event support and 9 hardcoded Ethereum vaults (2026-02-20)
+- **Add: Ember protocol vault integration with custom VaultDeposit/RequestRedeemed event support, offchain metadata, and disk cache consolidation (2026-02-20, [#755](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/755))**
 - **Add: Hyperliquid native vault daily metrics pipeline with DuckDB storage, share price computation, and unified ERC-4626 pipeline export (2026-02-19)**
 - Update HyperSync supported networks list with 21 new chains and simplified server mapping (2026-02-19, [#751](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/751))
 - Fix: Auto-heal gaps in HyperSync timestamp collection on fast chains like Monad (2026-02-19, [#750](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/750))
