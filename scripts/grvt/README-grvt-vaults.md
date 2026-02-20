@@ -17,12 +17,13 @@ pipeline as EVM vaults.
 ```
 GRVT public endpoints                ERC-4626 pipeline
 ======================                =================
-strategies page (Next.js SSR)         vault-metadata-db.pickle
-  __NEXT_DATA__ JSON                  vault-prices-1h.parquet (uncleaned)
+GraphQL API (edge.grvt.io/query)     vault-metadata-db.pickle
+  vault listing + per-vault fees     vault-prices-1h.parquet (uncleaned)
       |                                      |
       v                                      |
-fetch_vault_listing()                        |
+fetch_vault_listing_graphql()                |
   vault discovery (~14 vaults)               |
+  managementFee, performanceFee              |
       |                                      |
       v                                      |
 market-data.grvt.io                          |
@@ -60,18 +61,62 @@ All GRVT vaults are denominated in USDT.
 
 ### Vault discovery
 
-Vaults are discovered dynamically by scraping the GRVT strategies page
-(`https://grvt.io/exchange/strategies`), which embeds all vault metadata
-via Next.js server-side rendering in a `__NEXT_DATA__` JSON block.
+Vaults are discovered via the **public GraphQL API** at
+`https://edge.grvt.io/query`. This endpoint requires no authentication
+and returns vault metadata including per-vault fee percentages.
 
 Each vault has two IDs:
 
-- **String ID** (e.g. `VLT:34dTZyg6LhkGM49Je5AABi9tEbW`) — from the strategies page
+- **String ID** (e.g. `VLT:34dTZyg6LhkGM49Je5AABi9tEbW`) — from the API
 - **Numeric chain vault ID** (e.g. `1463215095`) — used by the market data API
 
 ### Public API endpoints
 
-All endpoints are on `https://market-data.grvt.io` and require no authentication.
+#### GraphQL API (`https://edge.grvt.io/query`)
+
+The GraphQL API is used for vault listing with full metadata. No authentication
+required. Introspection is disabled.
+
+Key fields on the `Vault` type:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | String | Vault string ID (e.g. `VLT:xxx`) |
+| `chainVaultID` | Int | Numeric chain vault ID for market data API |
+| `name` | String | Vault display name |
+| `description` | String | Strategy description |
+| `managementFee` | Int | Annual management fee in PPM (10000 = 1%) |
+| `performanceFee` | Int | Performance fee in PPM (200000 = 20%) |
+| `discoverable` | Boolean | Whether the vault is listed publicly |
+| `status` | String | e.g. `active` |
+| `type` | String | `prime` or `launchpad` |
+| `managerName` | String | Manager display name |
+| `mappedCategories` | List | Strategy categories |
+| `valuationCap` | String | Max AUM capacity |
+
+Example query:
+
+```graphql
+query {
+  vaults(first: 50, where: {discoverable: true}) {
+    totalCount
+    edges {
+      node {
+        id
+        name
+        chainVaultID
+        managementFee
+        performanceFee
+        description
+      }
+    }
+  }
+}
+```
+
+#### Market data API (`https://market-data.grvt.io`)
+
+All endpoints require no authentication.
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
@@ -88,29 +133,35 @@ History endpoint accepts `{"vault_id": "chainVaultID"}`.
 ```
 vault_metadata                     vault_daily_prices
 ==============                     ==================
-vault_id       VARCHAR PK          vault_id       VARCHAR  \
-chain_vault_id INTEGER             date           DATE      > composite PK
-name           VARCHAR             share_price    DOUBLE
-description    VARCHAR             tvl            DOUBLE
-vault_type     VARCHAR             daily_return   DOUBLE
-manager_name   VARCHAR
-tvl            DOUBLE
-share_price    DOUBLE
-investor_count INTEGER
-last_updated   TIMESTAMP
+vault_id        VARCHAR PK         vault_id       VARCHAR  \
+chain_vault_id  INTEGER            date           DATE      > composite PK
+name            VARCHAR            share_price    DOUBLE
+description     VARCHAR            tvl            DOUBLE
+vault_type      VARCHAR            daily_return   DOUBLE
+manager_name    VARCHAR
+tvl             DOUBLE
+share_price     DOUBLE
+investor_count  INTEGER
+management_fee  DOUBLE
+performance_fee DOUBLE
+last_updated    TIMESTAMP
 ```
 
 ### Fees
 
 GRVT vault fees vary per vault (unlike Hyperliquid's fixed 10%):
 
-- **Management fee**: 0-4% annually, charged daily based on AUM
+- **Management fee**: 0-4% annually, charged daily via newly minted strategy
+  shares (dilutes existing holders — already reflected in the share price)
 - **Performance fee**: 0-40%, charged on realised profits at redemption
+  (NOT reflected in the share price)
 
-The fee mode is `internalised_skimming` — fees are embedded in the LP token
-price, so gross and net returns are identical from the pipeline's perspective.
-Fee percentages are not returned by the public API, so they are set to zero
-in the pipeline.
+The fee mode is `externalised` — the share price is gross of performance fees.
+The downstream pipeline deducts performance fees to calculate net returns.
+
+Per-vault fee percentages are fetched from the public GraphQL API at
+`https://edge.grvt.io/query` (`managementFee` and `performanceFee` fields
+in PPM: 10000 = 1%, 200000 = 20%).
 
 Source: [GRVT strategies core concepts](https://help.grvt.io/en/articles/11424466-grvt-strategies-core-concepts)
 
@@ -152,7 +203,7 @@ VAULT_IDS=VLT:34dTZyg6LhkGM49Je5AABi9tEbW \
 
 | Module | Role |
 |--------|------|
-| `eth_defi/grvt/vault.py` | Public API client (listing, details, performance, history) |
+| `eth_defi/grvt/vault.py` | Public API client (GraphQL listing, market data details, performance, history) |
 | `eth_defi/grvt/daily_metrics.py` | DuckDB storage, daily price pipeline |
 | `eth_defi/grvt/vault_data_export.py` | Bridge to ERC-4626 pipeline (VaultRow builder, Parquet/pickle merge) |
 | `eth_defi/grvt/vault_scanner.py` | Point-in-time vault snapshots in DuckDB |

@@ -33,8 +33,7 @@ import pandas as pd
 
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
-from eth_defi.grvt.constants import (GRVT_CHAIN_ID, GRVT_VAULT_FEE_MODE,
-                                     GRVT_VAULT_LOCKUP)
+from eth_defi.grvt.constants import GRVT_CHAIN_ID, GRVT_VAULT_FEE_MODE, GRVT_VAULT_LOCKUP
 from eth_defi.grvt.daily_metrics import GRVTDailyMetricsDatabase
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.fee import FeeData
@@ -49,6 +48,8 @@ def create_grvt_vault_row(
     name: str,
     description: str | None,
     tvl: float,
+    management_fee: float | None = None,
+    performance_fee: float | None = None,
 ) -> tuple[VaultSpec, VaultRow]:
     """Create a synthetic VaultRow for a GRVT native vault.
 
@@ -62,11 +63,10 @@ def create_grvt_vault_row(
     is ``externalised`` so the pipeline treats the share price as gross
     of performance fees.
 
-    Management and performance fee fields are ``None`` (unknown) because
-    per-vault fee percentages are not available from the public API.
-    This causes the pipeline to skip net return calculations
-    (``known_fee = False``), which is correct — we cannot calculate
-    net returns without knowing the actual fee percentages.
+    Per-vault fee percentages are fetched from the GRVT public GraphQL API
+    (``managementFee`` and ``performanceFee`` fields). When fees are known,
+    the downstream pipeline can calculate net returns by deducting the
+    externalised performance fee.
 
     :param vault_id:
         Vault string ID on the GRVT platform (e.g. ``VLT:xxx``).
@@ -76,6 +76,12 @@ def create_grvt_vault_row(
         Vault description text.
     :param tvl:
         Current TVL in USDT.
+    :param management_fee:
+        Annual management fee as a decimal fraction (e.g. 0.01 = 1%).
+        ``None`` if not available.
+    :param performance_fee:
+        Performance fee as a decimal fraction (e.g. 0.20 = 20%).
+        ``None`` if not available.
     :return:
         Tuple of (VaultSpec, VaultRow).
     """
@@ -97,8 +103,8 @@ def create_grvt_vault_row(
 
     fee_data = FeeData(
         fee_mode=GRVT_VAULT_FEE_MODE,
-        management=None,
-        performance=None,
+        management=management_fee,
+        performance=performance_fee,
         deposit=0.0,
         withdraw=0.0,
     )
@@ -114,8 +120,8 @@ def create_grvt_vault_row(
         "Protocol": "GRVT",
         "Link": "https://grvt.io/exchange/strategies",
         "First seen": datetime.datetime(2025, 1, 1),
-        "Mgmt fee": None,
-        "Perf fee": None,
+        "Mgmt fee": management_fee,
+        "Perf fee": performance_fee,
         "Deposit fee": 0.0,
         "Withdraw fee": 0.0,
         "Features": "",
@@ -218,11 +224,21 @@ def merge_into_vault_database(
     added = 0
     updated = 0
     for _, row in metadata_df.iterrows():
+        # Extract fee values; convert NaN to None
+        mgmt_fee = row.get("management_fee")
+        perf_fee = row.get("performance_fee")
+        if pd.isna(mgmt_fee):
+            mgmt_fee = None
+        if pd.isna(perf_fee):
+            perf_fee = None
+
         spec, vault_row = create_grvt_vault_row(
             vault_id=row["vault_id"],
             name=row["name"],
             description=row.get("description"),
             tvl=row.get("tvl", 0.0) or 0.0,
+            management_fee=mgmt_fee,
+            performance_fee=perf_fee,
         )
 
         if spec in vault_db.rows:

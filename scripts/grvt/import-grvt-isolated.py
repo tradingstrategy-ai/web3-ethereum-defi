@@ -32,7 +32,7 @@ from tabulate import tabulate
 from eth_defi.grvt.daily_metrics import GRVTDailyMetricsDatabase, fetch_and_store_vault
 from eth_defi.grvt.vault import (
     fetch_vault_details,
-    fetch_vault_listing,
+    fetch_vault_listing_graphql,
     fetch_vault_performance,
     fetch_vault_risk_metrics,
     fetch_vault_summary_history,
@@ -87,8 +87,8 @@ def main():
     print("GRVT isolated pipeline test")
     print("=" * 80)
 
-    print("\n--- Step 1: Discovering vaults from strategies page ---")
-    vaults = fetch_vault_listing(session, only_discoverable=True)
+    print("\n--- Step 1: Discovering vaults via GraphQL API ---")
+    vaults = fetch_vault_listing_graphql(session, only_discoverable=True)
     print(f"Found {len(vaults)} discoverable vaults")
 
     for v in vaults:
@@ -97,7 +97,9 @@ def main():
         if v.create_time:
             age_days = (pd.Timestamp.now() - pd.Timestamp(v.create_time)).days
             age = f" (age: {age_days}d)"
-        print(f"  {v.name:30s} chain_id={v.chain_vault_id:>12d}  type={v.vault_type:10s}  categories=[{cats}]{age}")
+        mgmt = f"{v.management_fee * 100:.0f}%" if v.management_fee is not None else "?"
+        perf = f"{v.performance_fee * 100:.0f}%" if v.performance_fee is not None else "?"
+        print(f"  {v.name:30s} chain_id={v.chain_vault_id:>12d}  fees={mgmt}/{perf}  type={v.vault_type:10s}{age}")
 
     # Step 2: Fetch API-reported metrics
     chain_ids = [v.chain_vault_id for v in vaults]

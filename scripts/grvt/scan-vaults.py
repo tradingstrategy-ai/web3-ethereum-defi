@@ -1,8 +1,9 @@
 """Scan all GRVT vaults and store snapshots in DuckDB.
 
-This script discovers vaults from the GRVT strategies page,
-enriches them with live data from the public market data API,
-and stores point-in-time snapshots in a DuckDB database.
+This script discovers vaults via the public GraphQL API
+(includes per-vault fee data), enriches them with live data
+from the market data API, and stores point-in-time snapshots
+in a DuckDB database.
 
 No authentication is required — all data comes from public endpoints.
 

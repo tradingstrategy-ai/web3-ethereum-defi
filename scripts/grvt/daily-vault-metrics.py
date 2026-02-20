@@ -1,9 +1,9 @@
 """Daily GRVT vault metrics pipeline.
 
-Discovers GRVT vaults from the strategies page, fetches share price
-history from the public market data API, stores metrics in DuckDB,
-and merges the data into the existing ERC-4626 vault pipeline files
-(VaultDatabase pickle and cleaned Parquet).
+Discovers GRVT vaults via the public GraphQL API (includes per-vault
+fee data), fetches share price history from the market data API,
+stores metrics in DuckDB, and merges the data into the existing
+ERC-4626 vault pipeline files (VaultDatabase pickle and cleaned Parquet).
 
 No authentication is required — all data comes from public endpoints.
 

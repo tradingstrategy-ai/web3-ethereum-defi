@@ -18,7 +18,7 @@ def test_scan_vaults(tmp_path: Path):
     """Scan all discoverable GRVT vaults into a temporary DuckDB.
 
     - Creates a temporary DuckDB database
-    - Discovers vaults from the strategies page
+    - Discovers vaults via the GraphQL API
     - Enriches with live data from market data API
     - Verifies snapshots are stored correctly
     """

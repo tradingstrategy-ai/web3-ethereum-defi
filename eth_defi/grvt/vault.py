@@ -3,9 +3,9 @@
 This module provides functionality for extracting GRVT vault data
 via public endpoints:
 
-- **Vault discovery** is done by scraping the GRVT strategies page
-  (``https://grvt.io/exchange/strategies``), which embeds vault metadata
-  in Next.js server-side rendered ``__NEXT_DATA__`` JSON.
+- **Vault discovery** is done via the public GraphQL API at
+  ``https://edge.grvt.io/query``, which provides vault metadata
+  including per-vault fee percentages.
 
 - **Vault details** (TVL, share price, performance, risk metrics,
   share price history) come from the public market data API at
@@ -20,9 +20,7 @@ For more information about GRVT strategies see:
 - https://help.grvt.io/en/articles/11424466-grvt-strategies-core-concepts
 """
 
-import json
 import logging
-import re
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -30,7 +28,7 @@ from typing import Any
 import pandas as pd
 from requests import Session
 
-from eth_defi.grvt.constants import GRVT_MARKET_DATA_URL, GRVT_STRATEGIES_URL
+from eth_defi.grvt.constants import GRVT_FEE_PPM_DIVISOR, GRVT_GRAPHQL_URL, GRVT_MARKET_DATA_URL
 from eth_defi.types import Percent
 
 logger = logging.getLogger(__name__)
@@ -40,7 +38,7 @@ logger = logging.getLogger(__name__)
 class GRVTVaultSummary:
     """Summary information for a GRVT vault.
 
-    Combines data from the GRVT strategies page (Next.js SSR)
+    Combines data from the GRVT GraphQL API and/or strategies page
     with live data from the market data API.
     """
 
@@ -80,6 +78,16 @@ class GRVTVaultSummary:
     #: Current share price (from market data API)
     share_price: float | None = None
 
+    #: Annual management fee as a decimal fraction (e.g. 0.01 = 1%).
+    #: From the GRVT GraphQL API ``managementFee`` field (PPM).
+    #: ``None`` if not available (e.g. from scraping fallback).
+    management_fee: Percent | None = None
+
+    #: Performance fee as a decimal fraction (e.g. 0.20 = 20%).
+    #: From the GRVT GraphQL API ``performanceFee`` field (PPM).
+    #: ``None`` if not available (e.g. from scraping fallback).
+    performance_fee: Percent | None = None
+
 
 @dataclass(slots=True)
 class GRVTVaultPerformance:
@@ -117,114 +125,138 @@ class GRVTVaultRiskMetric:
     max_drawdown: Percent
 
 
-def _parse_strategies_page(html: str) -> list[dict[str, Any]]:
-    """Extract vault data from the GRVT strategies page HTML.
+#: GraphQL query for fetching GRVT vault listing with fee data.
+_VAULT_LISTING_GRAPHQL_QUERY = """
+query VaultListingQuery($first: Int, $where: VaultWhereInput) {
+    vaults(first: $first, where: $where) {
+        totalCount
+        edges {
+            node {
+                id
+                name
+                chainVaultID
+                description
+                type
+                discoverable
+                status
+                managerName
+                managementFee
+                performanceFee
+                createTime
+                valuationCap
+                mappedCategories {
+                    name
+                }
+            }
+        }
+    }
+}
+"""
 
-    Parses the ``__NEXT_DATA__`` JSON that Next.js embeds during
-    server-side rendering.
 
-    :param html:
-        Raw HTML content of the strategies page.
-    :return:
-        List of raw vault dicts from the page data.
-    :raises ValueError:
-        If the ``__NEXT_DATA__`` block cannot be found or parsed.
-    """
-    match = re.search(
-        r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>',
-        html,
-        re.DOTALL,
-    )
-    if not match:
-        raise ValueError("Could not find __NEXT_DATA__ in GRVT strategies page")
+def _graphql_node_to_summary(node: dict[str, Any]) -> GRVTVaultSummary:
+    """Convert a GraphQL vault node into a :py:class:`GRVTVaultSummary`.
 
-    data = json.loads(match.group(1))
-    vaults = data.get("props", {}).get("pageProps", {}).get("vaults", [])
-    if not vaults:
-        raise ValueError("No vaults found in __NEXT_DATA__")
-
-    return vaults
-
-
-def _raw_to_summary(raw: dict[str, Any]) -> GRVTVaultSummary:
-    """Convert a raw vault dict from the strategies page into a summary.
-
-    :param raw:
-        Raw vault dict from ``__NEXT_DATA__``.
+    :param node:
+        Vault node dict from the GraphQL response.
     :return:
         Parsed :py:class:`GRVTVaultSummary`.
     """
     create_time = None
-    if raw.get("createTime"):
+    if node.get("createTime"):
         try:
-            # Strip trailing Z and parse
-            ct = raw["createTime"].rstrip("Z")
+            ct = node["createTime"].rstrip("Z")
             create_time = datetime.fromisoformat(ct)
         except (ValueError, TypeError):
             pass
 
-    categories = [c.get("name", "") for c in raw.get("mappedCategories", [])]
+    categories = [c.get("name", "") for c in node.get("mappedCategories", []) or []]
+
+    # Convert PPM fee values to decimal fractions
+    mgmt_fee_ppm = node.get("managementFee")
+    perf_fee_ppm = node.get("performanceFee")
+    management_fee = mgmt_fee_ppm / GRVT_FEE_PPM_DIVISOR if mgmt_fee_ppm is not None else None
+    performance_fee = perf_fee_ppm / GRVT_FEE_PPM_DIVISOR if perf_fee_ppm is not None else None
 
     return GRVTVaultSummary(
-        vault_id=raw["id"],
-        chain_vault_id=int(raw["chainVaultID"]),
-        name=raw.get("name", ""),
-        description=raw.get("description", ""),
-        vault_type=raw.get("type", ""),
-        discoverable=raw.get("discoverable", False),
-        status=raw.get("status", ""),
-        manager_name=raw.get("managerName", ""),
+        vault_id=node["id"],
+        chain_vault_id=int(node["chainVaultID"]),
+        name=node.get("name", ""),
+        description=node.get("description", ""),
+        vault_type=node.get("type", ""),
+        discoverable=node.get("discoverable", False),
+        status=node.get("status", ""),
+        manager_name=node.get("managerName", ""),
         categories=categories,
         create_time=create_time,
+        management_fee=management_fee,
+        performance_fee=performance_fee,
     )
 
 
-def fetch_vault_listing(
+def fetch_vault_listing_graphql(
     session: Session,
-    strategies_url: str = GRVT_STRATEGIES_URL,
+    graphql_url: str = GRVT_GRAPHQL_URL,
     only_discoverable: bool = True,
     timeout: float = 30.0,
 ) -> list[GRVTVaultSummary]:
-    """Fetch the list of all GRVT vaults from the strategies page.
+    """Fetch GRVT vault listing via the public GraphQL API.
 
-    Scrapes the GRVT website's strategies page, which embeds vault
-    metadata via Next.js server-side rendering. No authentication required.
+    This is the preferred method for discovering vaults, as it returns
+    per-vault fee data (``managementFee``, ``performanceFee``) that the
+    strategies page scraping method does not provide.
+
+    The GraphQL endpoint at ``https://edge.grvt.io/query`` is public
+    and requires no authentication.
 
     Example::
 
         import requests
-        from eth_defi.grvt.vault import fetch_vault_listing
+        from eth_defi.grvt.vault import fetch_vault_listing_graphql
 
         session = requests.Session()
-        vaults = fetch_vault_listing(session)
+        vaults = fetch_vault_listing_graphql(session)
         for v in vaults:
-            print(f"{v.name}: {v.vault_id} (chain_vault_id={v.chain_vault_id})")
+            print(f"{v.name}: mgmt={v.management_fee}, perf={v.performance_fee}")
 
     :param session:
         HTTP session (no authentication needed).
-    :param strategies_url:
-        URL of the GRVT strategies page.
+    :param graphql_url:
+        GRVT GraphQL API URL.
     :param only_discoverable:
         If True, only return vaults marked as discoverable.
     :param timeout:
         HTTP request timeout in seconds.
     :return:
-        List of :py:class:`GRVTVaultSummary` objects.
+        List of :py:class:`GRVTVaultSummary` objects with fee data populated.
     """
-    logger.info("Fetching GRVT vault listing from %s", strategies_url)
+    logger.info("Fetching GRVT vault listing from GraphQL API at %s", graphql_url)
 
-    # The strategies page is behind Cloudflare — a browser-like
+    where = {"discoverable": True} if only_discoverable else {}
+    payload = {
+        "query": _VAULT_LISTING_GRAPHQL_QUERY,
+        "variables": {"first": 100, "where": where},
+    }
+
+    # The GraphQL endpoint is behind Cloudflare — a browser-like
     # User-Agent is needed to avoid 403 responses.
     headers = {
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+        "Content-Type": "application/json",
     }
-    response = session.get(strategies_url, headers=headers, timeout=timeout)
-    response.raise_for_status()
+    resp = session.post(graphql_url, json=payload, headers=headers, timeout=timeout)
+    resp.raise_for_status()
+    data = resp.json()
 
-    raw_vaults = _parse_strategies_page(response.text)
-    logger.info("Parsed %d vaults from strategies page", len(raw_vaults))
+    if "errors" in data:
+        raise ValueError(f"GraphQL errors: {data['errors']}")
 
-    summaries = [_raw_to_summary(v) for v in raw_vaults]
+    edges = data.get("data", {}).get("vaults", {}).get("edges", [])
+    total_count = data.get("data", {}).get("vaults", {}).get("totalCount", 0)
+
+    logger.info("GraphQL returned %d vaults (totalCount=%d)", len(edges), total_count)
+
+    summaries = [_graphql_node_to_summary(e["node"]) for e in edges]
 
     if only_discoverable:
         summaries = [s for s in summaries if s.discoverable]

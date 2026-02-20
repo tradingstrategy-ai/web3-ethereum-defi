@@ -24,18 +24,19 @@ GRVT_DAILY_METRICS_DATABASE = Path.home() / ".tradingstrategy" / "vaults" / "grv
 #: ``vault_manager_investor_history``.
 GRVT_API_URL = "https://edge.grvt.io"
 
+#: GRVT public GraphQL API endpoint.
+#:
+#: Used for vault listing with full metadata including per-vault fees
+#: (``managementFee``, ``performanceFee``). No authentication required.
+#: Fee values are in parts per million (PPM): 10000 = 1%, 200000 = 20%.
+GRVT_GRAPHQL_URL = "https://edge.grvt.io/query"
+
 #: GRVT public market data API base URL.
 #:
 #: Used for public endpoints: ``vault_detail``, ``vault_performance``,
 #: ``vault_risk_metric``, ``vault_summary_history``.
 #: No authentication required.
 GRVT_MARKET_DATA_URL = "https://market-data.grvt.io"
-
-#: GRVT website URL for scraping vault listings.
-#:
-#: The strategies page renders vault metadata via Next.js SSR into
-#: ``__NEXT_DATA__`` JSON, which we parse to discover all vaults.
-GRVT_STRATEGIES_URL = "https://grvt.io/exchange/strategies"
 
 #: GRVT testnet API base URL.
 GRVT_TESTNET_API_URL = "https://edge.testnet.grvt.io"
@@ -54,15 +55,21 @@ GRVT_DEFAULT_REQUESTS_PER_SECOND: float = 2.0
 #:
 #: We use ``externalised`` because performance fees are deducted at
 #: redemption — the share price is gross of performance fees.
-#: Per-vault fee percentages are not available from the public API,
-#: so fee fields are set to 0.0 for now. When per-vault data becomes
-#: available the pipeline will automatically deduct them.
+#: Per-vault fee percentages are fetched from the public GraphQL API
+#: at :py:data:`GRVT_GRAPHQL_URL` (``managementFee``, ``performanceFee``
+#: fields in PPM: 10000 = 1%).
 #:
 #: Sources:
 #:
 #: - `Core concepts <https://help.grvt.io/en/articles/11424466-grvt-strategies-core-concepts>`__
 #: - `Fee setup guide <https://help.grvt.io/en/articles/11640733-strategy-setup-guide-how-to-configure-fees-redemptions-and-rewards-on-grvt>`__
 GRVT_VAULT_FEE_MODE: VaultFeeMode = VaultFeeMode.externalised
+
+#: Parts per million divisor for GRVT fee values.
+#:
+#: GRVT GraphQL API returns fee values in PPM (parts per million).
+#: Divide by this constant to get a decimal fraction (e.g. 200000 / 1000000 = 0.20 = 20%).
+GRVT_FEE_PPM_DIVISOR: int = 1_000_000
 
 #: Position update interval for GRVT vaults.
 #:

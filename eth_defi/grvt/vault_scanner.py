@@ -4,8 +4,9 @@ This module provides functionality for scanning all known GRVT vaults and storin
 historical snapshots in a DuckDB database for tracking TVL and other metrics
 over time.
 
-Vault discovery is dynamic — vaults are fetched from the GRVT strategies page
-and enriched with live data from the public market data API.
+Vault discovery uses the public GraphQL API at ``https://edge.grvt.io/query``
+(which includes per-vault fee data), enriched with live data from the
+market data API.
 
 Example usage::
 
@@ -30,7 +31,7 @@ from eth_defi.compat import native_datetime_utc_now
 from eth_defi.grvt.vault import (
     GRVTVaultSummary,
     fetch_vault_details,
-    fetch_vault_listing,
+    fetch_vault_listing_graphql,
     fetch_vault_performance,
 )
 
@@ -297,8 +298,8 @@ def scan_vaults(
 ) -> VaultSnapshotDatabase:
     """Scan all GRVT vaults and store snapshots in DuckDB.
 
-    Discovers vaults from the GRVT strategies page and enriches
-    with live data from the public market data API.
+    Discovers vaults via the public GraphQL API (includes per-vault fees),
+    enriched with live data from the market data API.
     No authentication required.
 
     Example::
@@ -330,8 +331,8 @@ def scan_vaults(
 
     logger.info("Starting GRVT vault scan at %s", snapshot_timestamp)
 
-    # Step 1: Discover vaults
-    vault_summaries = fetch_vault_listing(
+    # Step 1: Discover vaults via the public GraphQL API (includes per-vault fees).
+    vault_summaries = fetch_vault_listing_graphql(
         session,
         only_discoverable=only_discoverable,
         timeout=timeout,

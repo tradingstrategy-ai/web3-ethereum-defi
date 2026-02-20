@@ -7,7 +7,7 @@ GRVT market data API.
 
 The pipeline:
 
-1. Discovers vaults by scraping the GRVT strategies page
+1. Discovers vaults via the public GraphQL API (includes per-vault fees)
 2. Fetches per-vault share price history via ``vault_summary_history``
 3. Enriches with TVL from ``vault_detail``
 4. Stores daily prices and metadata in DuckDB
@@ -34,7 +34,7 @@ from eth_defi.grvt.constants import GRVT_DAILY_METRICS_DATABASE
 from eth_defi.grvt.vault import (
     GRVTVaultSummary,
     fetch_vault_details,
-    fetch_vault_listing,
+    fetch_vault_listing_graphql,
     fetch_vault_summary_history,
 )
 
@@ -95,9 +95,21 @@ class GRVTDailyMetricsDatabase:
                 tvl DOUBLE,
                 share_price DOUBLE,
                 investor_count INTEGER,
+                management_fee DOUBLE,
+                performance_fee DOUBLE,
                 last_updated TIMESTAMP NOT NULL
             )
         """)
+
+        # Migrate existing databases that lack fee columns
+        try:
+            self.con.execute("ALTER TABLE vault_metadata ADD COLUMN management_fee DOUBLE")
+        except Exception:
+            pass  # Column already exists
+        try:
+            self.con.execute("ALTER TABLE vault_metadata ADD COLUMN performance_fee DOUBLE")
+        except Exception:
+            pass  # Column already exists
 
         self.con.execute("""
             CREATE TABLE IF NOT EXISTS vault_daily_prices (
@@ -121,6 +133,8 @@ class GRVTDailyMetricsDatabase:
         tvl: float | None,
         share_price: float | None,
         investor_count: int | None,
+        management_fee: float | None = None,
+        performance_fee: float | None = None,
     ):
         """Insert or update a vault's metadata.
 
@@ -128,13 +142,18 @@ class GRVTDailyMetricsDatabase:
             Vault string ID (e.g. ``VLT:xxx``).
         :param chain_vault_id:
             Numeric on-chain vault ID.
+        :param management_fee:
+            Annual management fee as a decimal fraction (e.g. 0.01 = 1%).
+        :param performance_fee:
+            Performance fee as a decimal fraction (e.g. 0.20 = 20%).
         """
         self.con.execute(
             """
             INSERT INTO vault_metadata (
                 vault_id, chain_vault_id, name, description, vault_type,
-                manager_name, tvl, share_price, investor_count, last_updated
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                manager_name, tvl, share_price, investor_count,
+                management_fee, performance_fee, last_updated
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT (vault_id)
             DO UPDATE SET
                 chain_vault_id = EXCLUDED.chain_vault_id,
@@ -145,6 +164,8 @@ class GRVTDailyMetricsDatabase:
                 tvl = EXCLUDED.tvl,
                 share_price = EXCLUDED.share_price,
                 investor_count = EXCLUDED.investor_count,
+                management_fee = EXCLUDED.management_fee,
+                performance_fee = EXCLUDED.performance_fee,
                 last_updated = EXCLUDED.last_updated
             """,
             [
@@ -157,6 +178,8 @@ class GRVTDailyMetricsDatabase:
                 tvl,
                 share_price,
                 investor_count,
+                management_fee,
+                performance_fee,
                 native_datetime_utc_now(),
             ],
         )
@@ -280,6 +303,8 @@ def fetch_and_store_vault(
         tvl=summary.tvl,
         share_price=summary.share_price,
         investor_count=None,
+        management_fee=summary.management_fee,
+        performance_fee=summary.performance_fee,
     )
 
     # Build daily price rows
@@ -311,7 +336,7 @@ def run_daily_scan(
 ) -> GRVTDailyMetricsDatabase:
     """Run the daily GRVT vault metrics scan.
 
-    1. Discovers vaults from the GRVT strategies page
+    1. Discovers vaults via the public GraphQL API (includes per-vault fees)
     2. Fetches TVL from the market data API
     3. Fetches per-vault share price history
     4. Stores everything in DuckDB
@@ -341,8 +366,8 @@ def run_daily_scan(
 
     db = GRVTDailyMetricsDatabase(db_path)
 
-    # Step 1: Discover vaults
-    vault_summaries = fetch_vault_listing(
+    # Step 1: Discover vaults via the public GraphQL API (includes per-vault fees).
+    vault_summaries = fetch_vault_listing_graphql(
         session,
         only_discoverable=only_discoverable,
         timeout=timeout,
