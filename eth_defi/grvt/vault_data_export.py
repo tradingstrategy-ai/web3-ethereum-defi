@@ -60,8 +60,13 @@ def create_grvt_vault_row(
     (already reflected in share price). Performance fees (0-40%) are
     charged at redemption (externalised, NOT in share price). Fee mode
     is ``externalised`` so the pipeline treats the share price as gross
-    of performance fees. Fee fields are set to zero because per-vault
-    fee percentages are not available from the public API.
+    of performance fees.
+
+    Management and performance fee fields are ``None`` (unknown) because
+    per-vault fee percentages are not available from the public API.
+    This causes the pipeline to skip net return calculations
+    (``known_fee = False``), which is correct — we cannot calculate
+    net returns without knowing the actual fee percentages.
 
     :param vault_id:
         Vault string ID on the GRVT platform (e.g. ``VLT:xxx``).
@@ -92,8 +97,8 @@ def create_grvt_vault_row(
 
     fee_data = FeeData(
         fee_mode=GRVT_VAULT_FEE_MODE,
-        management=0.0,
-        performance=0.0,
+        management=None,
+        performance=None,
         deposit=0.0,
         withdraw=0.0,
     )
@@ -109,8 +114,8 @@ def create_grvt_vault_row(
         "Protocol": "GRVT",
         "Link": "https://grvt.io/exchange/strategies",
         "First seen": datetime.datetime(2025, 1, 1),
-        "Mgmt fee": 0.0,
-        "Perf fee": 0.0,
+        "Mgmt fee": None,
+        "Perf fee": None,
         "Deposit fee": 0.0,
         "Withdraw fee": 0.0,
         "Features": "",
