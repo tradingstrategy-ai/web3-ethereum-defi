@@ -57,13 +57,9 @@ def test_ember(
     # Check risk level
     assert vault.get_risk() == VaultTechnicalRisk.severe
 
-    # Check fees
-    management_fee = vault.get_management_fee("latest")
-    assert management_fee is not None
-    assert management_fee >= 0
-
-    performance_fee = vault.get_performance_fee("latest")
-    assert performance_fee is None
+    # Fees are internalised in the share price and not readable on-chain
+    assert vault.get_management_fee("latest") is None
+    assert vault.get_performance_fee("latest") is None
 
     # Check lock-up
     assert vault.get_estimated_lock_up().days == 4

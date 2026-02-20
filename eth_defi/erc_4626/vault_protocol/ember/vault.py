@@ -11,7 +11,9 @@ and distributing traditional and onchain financial products through crypto capit
 - Uses ``protocolConfig()`` returning ``IEmberProtocolConfig`` for protocol identification
 - Uses custom ``VaultDeposit`` event instead of standard ERC-4626 ``Deposit``
 - Uses ``RequestRedeemed``/``RequestProcessed`` events instead of standard ``Withdraw``
-- Has a ``platformFee`` with ``platformFeePercentage`` field
+- `Fee structure <https://learn.ember.so/ember-protocol/core-concepts>`__
+- Management and performance fees are set per curator and embedded in the vault rate (internalised skimming)
+- ``platformFee()`` returns protocol-level fee, not curator fees
 - Withdrawal requests go through a pending queue (``redeemShares`` -> ``processWithdrawalRequests``)
 """
 
@@ -33,10 +35,12 @@ class EmberVault(ERC4626Vault):
 
     - `Homepage <https://ember.so/>`__
     - `Documentation <https://learn.ember.so/>`__
+    - `Fee structure <https://learn.ember.so/ember-protocol/core-concepts>`__
     - `Example vault <https://etherscan.io/address/0xf3190a3ecc109f88e7947b849b281918c798a0c4>`__
     - Ember uses a vault rate mechanism following ERC-4626 principles
-    - Platform fees are embedded in the vault rate updates
-    - Has ``platformFee()`` view returning ``(accrued, lastChargedAt, platformFeePercentage)``
+    - Management fee: annualised % of AUM, accrued continuously and reflected in the vault share price
+    - Performance fee: % of positive performance, embedded in share price, collected monthly
+    - Both fees are set per curator and internalised in the vault rate — no on-chain getter available
     - Withdrawals go through a pending queue with ``redeemShares`` -> ``processWithdrawalRequests``
     """
 
@@ -50,28 +54,30 @@ class EmberVault(ERC4626Vault):
         )
 
     def has_custom_fees(self) -> bool:
-        """Ember has platform fees embedded in the vault rate."""
         return False
 
     def get_management_fee(self, block_identifier: BlockIdentifier) -> float | None:
-        """Read management fee from ``platformFee()`` on-chain.
+        """Management fee is not readable on-chain.
 
-        The ``platformFee()`` function returns ``(accrued, lastChargedAt, platformFeePercentage)``.
-        ``platformFeePercentage`` is in basis points (1e18 = 100%).
+        Ember curators set their own management fee (annualised % of AUM),
+        which is accrued continuously and embedded in the vault share price.
+        There is no on-chain getter for the curator management fee.
+
+        The ``platformFee()`` function returns a separate protocol-level fee,
+        not the curator's management fee.
+
+        See `fee documentation <https://learn.ember.so/ember-protocol/core-concepts>`__.
         """
-        try:
-            result = self.vault_contract.functions.platformFee().call(block_identifier=block_identifier)
-            # platformFeePercentage is the third element, in 1e18 basis (1e18 = 100%)
-            platform_fee_pct = result[2]
-            return platform_fee_pct / 1e18
-        except Exception as e:
-            logger.warning("Could not read platformFee for %s: %s", self.address, e)
-            return None
+        return None
 
     def get_performance_fee(self, block_identifier: BlockIdentifier) -> float | None:
-        """Ember does not have a separate performance fee.
+        """Performance fee is not readable on-chain.
 
-        Performance is captured through the vault rate update mechanism.
+        Ember curators set their own performance fee (% of positive performance),
+        which is embedded in the vault share price and collected monthly.
+        There is no on-chain getter for the curator performance fee.
+
+        See `fee documentation <https://learn.ember.so/ember-protocol/core-concepts>`__.
         """
         return None
 

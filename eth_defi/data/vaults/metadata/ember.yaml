@@ -12,8 +12,10 @@ long_description: |
   VaultDeposit instead of the standard Deposit event, and RequestRedeemed/RequestProcessed instead
   of the standard Withdraw event. Withdrawals go through a pending queue with typical T+4 settlement.
 fee_description: |
-  Platform fees are embedded in the vault rate updates. The platformFee function returns the
-  platform fee percentage which is applied as a management fee. There is no separate performance fee.
+  Ember curators set their own management fee (annualised % of AUM, accrued continuously)
+  and performance fee (% of positive performance, collected monthly). Both fees are
+  internalised in the vault share price — there are no separate deductions on deposit
+  or withdrawal. Fee parameters are not readable on-chain but are displayed in the vault UI.
 links:
   homepage: https://ember.so/
   app: https://ember.so/earn
@@ -22,7 +24,7 @@ links:
   documentation: https://learn.ember.so/
   defillama: https://defillama.com/protocol/ember
   audits: https://ember.so/documents/ember_protocol_audit.pdf
-  fees:
+  fees: https://learn.ember.so/ember-protocol/core-concepts
   trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/ember
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/ember/index.html
 example_smart_contracts:
