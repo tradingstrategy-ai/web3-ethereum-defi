@@ -31,6 +31,7 @@ POA_MIDDLEWARE_NEEDED_CHAIN_IDS = {
 
 #: Manually maintained shorthand names for different EVM chains
 CHAIN_NAMES = {
+    325: "GRVT",  # GRVT (Gravity Markets) decentralised perp DEX
     9999: "Hypercore",  # Synthetic in-house ID for native Hyperliquid vaults (non-EVM)
     1: "Ethereum",
     56: "Binance",
@@ -70,6 +71,7 @@ CHAIN_NAMES = {
 
 #: For linking on reports
 CHAIN_HOMEPAGES = {
+    325: {"name": "GRVT", "homepage": "https://grvt.io"},
     1: {"name": "Ethereum", "homepage": "https://ethereum.org"},
     56: {"name": "Binance", "homepage": "https://www.bnbchain.org"},
     137: {"name": "Polygon", "homepage": "https://polygon.technology"},

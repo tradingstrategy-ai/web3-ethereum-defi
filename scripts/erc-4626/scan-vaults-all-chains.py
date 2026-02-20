@@ -21,6 +21,9 @@ Usage:
     # Include Hyperliquid native (Hypercore) vaults
     SCAN_HYPERCORE=true python scripts/erc-4626/scan-vaults-all-chains.py
 
+    # Include GRVT native vaults
+    SCAN_GRVT=true python scripts/erc-4626/scan-vaults-all-chains.py
+
     # Custom retry count
     RETRY_COUNT=2 python scripts/erc-4626/scan-vaults-all-chains.py
 
@@ -66,6 +69,7 @@ Manual testing:
 Environment variables:
     - SCAN_PRICES: "true" or "false" (default: "false")
     - SCAN_HYPERCORE: "true" to scan Hyperliquid native (Hypercore) vaults via REST API (default: "false")
+    - SCAN_GRVT: "true" to scan GRVT native vaults via public endpoints (default: "false")
     - RETRY_COUNT: Number of retry attempts (default: "1")
     - MAX_WORKERS: Number of parallel workers (default: "50")
     - FREQUENCY: "1h" or "1d" (default: "1h")
@@ -521,6 +525,55 @@ def scan_hypercore_fn(max_workers: int) -> ChainResult:
     return result
 
 
+def scan_grvt_fn() -> ChainResult:
+    """Scan GRVT native vaults via public endpoints.
+
+    Runs the GRVT daily metrics pipeline: discovers vaults from the
+    strategies page, fetches share price history from the public market
+    data API, stores in DuckDB, and merges into the shared ERC-4626
+    pipeline files (VaultDatabase pickle + cleaned Parquet).
+
+    No authentication required.
+
+    :return:
+        Scan result with vault count and duration.
+    """
+    from eth_defi.grvt.constants import GRVT_DAILY_METRICS_DATABASE
+    from eth_defi.grvt.daily_metrics import run_daily_scan
+    from eth_defi.grvt.vault_data_export import merge_into_vault_database
+
+    result = ChainResult(name="GRVT", status="running")
+    start_time = time.time()
+
+    try:
+        db = run_daily_scan(
+            db_path=GRVT_DAILY_METRICS_DATABASE,
+        )
+
+        try:
+            vault_count = db.get_vault_count()
+            result.vault_count = vault_count
+            result.vault_scan_ok = True
+
+            merge_into_vault_database(db, DEFAULT_VAULT_DATABASE)
+            # Price merge happens in post-processing after generate_cleaned_vault_datasets()
+            # to avoid being overwritten by the EVM price cleaning step
+            result.price_scan_ok = True
+        finally:
+            db.close()
+
+        result.status = "success"
+
+    except Exception as e:
+        logger.exception("GRVT scan failed")
+        result.status = "failed"
+        result.error = str(e)
+        result.traceback_str = traceback.format_exc()
+
+    result.duration = time.time() - start_time
+    return result
+
+
 def print_dashboard(results: dict[str, ChainResult], display_order: list[str] | None = None) -> None:
     """Print console dashboard showing scan progress.
 
@@ -580,13 +633,16 @@ def print_dashboard(results: dict[str, ChainResult], display_order: list[str] | 
         logger.error("%s: %s", r.name, r.error)
 
 
-def run_post_processing(scan_hypercore: bool = False) -> dict[str, bool]:
+def run_post_processing(scan_hypercore: bool = False, scan_grvt: bool = False) -> dict[str, bool]:
     """Run post-processing steps after all chain scans complete.
 
     :param scan_hypercore:
         Whether to merge Hypercore (Hyperliquid native) price data
         into the uncleaned Parquet before the cleaning step, so
         Hypercore data goes through the same cleaning pipeline.
+    :param scan_grvt:
+        Whether to merge GRVT native vault price data into the
+        uncleaned Parquet before the cleaning step.
     :return: Dictionary mapping step name to success boolean
     """
     steps = {}
@@ -615,7 +671,31 @@ def run_post_processing(scan_hypercore: bool = False) -> dict[str, bool]:
             logger.exception("Hypercore price merge failed")
             steps["hypercore-price-merge"] = False
 
-    # Step 2: Clean prices (all vaults — reads raw parquet including Hypercore, writes cleaned)
+    # Step 1b: Merge GRVT prices into the uncleaned Parquet
+    # Must run BEFORE clean-prices so GRVT data goes through the
+    # same cleaning pipeline as EVM vaults.
+    if scan_grvt:
+        try:
+            from eth_defi.grvt.constants import GRVT_CHAIN_ID, GRVT_DAILY_METRICS_DATABASE
+            from eth_defi.grvt.daily_metrics import GRVTDailyMetricsDatabase
+            from eth_defi.grvt.vault_data_export import merge_into_uncleaned_parquet as grvt_merge_parquet
+            from eth_defi.vault.vaultdb import DEFAULT_UNCLEANED_PRICE_DATABASE
+
+            logger.info("Merging GRVT prices into uncleaned Parquet")
+            db = GRVTDailyMetricsDatabase(GRVT_DAILY_METRICS_DATABASE)
+            try:
+                combined_df = grvt_merge_parquet(db, DEFAULT_UNCLEANED_PRICE_DATABASE)
+                grvt_rows = len(combined_df[combined_df["chain"] == GRVT_CHAIN_ID]) if len(combined_df) > 0 else 0
+                logger.info("GRVT price merge: %d GRVT price entries in uncleaned Parquet", grvt_rows)
+            finally:
+                db.close()
+            steps["grvt-price-merge"] = True
+            logger.info("GRVT price merge complete")
+        except Exception as e:
+            logger.exception("GRVT price merge failed")
+            steps["grvt-price-merge"] = False
+
+    # Step 2: Clean prices (all vaults — reads raw parquet including Hypercore + GRVT, writes cleaned)
     try:
         logger.info("Cleaning vault prices data")
         generate_cleaned_vault_datasets()
@@ -669,6 +749,7 @@ def main():
     retry_count = int(os.environ.get("RETRY_COUNT", "1"))
     scan_prices = os.environ.get("SCAN_PRICES", "false").lower() == "true"
     scan_hypercore = os.environ.get("SCAN_HYPERCORE", "false").lower() == "true"
+    scan_grvt = os.environ.get("SCAN_GRVT", "false").lower() == "true"
     max_workers = int(os.environ.get("MAX_WORKERS", "50"))
     frequency = os.environ.get("FREQUENCY", "1h")
     skip_post_processing = os.environ.get("SKIP_POST_PROCESSING", "false").lower() == "true"
@@ -684,7 +765,7 @@ def main():
 
     logger.info("=" * 80)
     logger.info("Starting multi-chain vault scan")
-    logger.info("SCAN_PRICES: %s, SCAN_HYPERCORE: %s, RETRY_COUNT: %d, MAX_WORKERS: %d, FREQUENCY: %s", scan_prices, scan_hypercore, retry_count, max_workers, frequency)
+    logger.info("SCAN_PRICES: %s, SCAN_HYPERCORE: %s, SCAN_GRVT: %s, RETRY_COUNT: %d, MAX_WORKERS: %d, FREQUENCY: %s", scan_prices, scan_hypercore, scan_grvt, retry_count, max_workers, frequency)
     if skip_post_processing:
         logger.info("SKIP_POST_PROCESSING: true - post-processing will be skipped")
     if test_chain_names:
@@ -746,6 +827,10 @@ def main():
     if scan_hypercore:
         results["Hypercore"] = ChainResult(name="Hypercore", status="pending")
 
+    # Add GRVT (native vaults) to tracking
+    if scan_grvt:
+        results["GRVT"] = ChainResult(name="GRVT", status="pending")
+
     # Add chains skipped by CHAIN_ORDER to results
     for chain in skipped_by_order:
         results[chain.name] = ChainResult(name=chain.name, status="skipped", error="Not in CHAIN_ORDER")
@@ -754,10 +839,12 @@ def main():
     for chain in disabled_chains:
         results[chain.name] = ChainResult(name=chain.name, status="skipped", error="Disabled via DISABLE_CHAINS")
 
-    # Build display order: EVM chains first, then Hypercore, then skipped/disabled
+    # Build display order: EVM chains first, then Hypercore/GRVT, then skipped/disabled
     display_order = [c.name for c in chains]
     if scan_hypercore:
         display_order.append("Hypercore")
+    if scan_grvt:
+        display_order.append("GRVT")
     display_order += [c.name for c in skipped_by_order] + [c.name for c in disabled_chains]
 
     # Display initial dashboard
@@ -819,7 +906,29 @@ def main():
 
         print_dashboard(results, display_order)
 
-    # Retry passes - retry failed EVM chains (Hypercore is not retried)
+    # GRVT scan (native vaults via public endpoints)
+    if scan_grvt:
+        logger.info("Scanning GRVT (native vaults)")
+        try:
+            results["GRVT"] = scan_grvt_fn()
+        except Exception as e:
+            logger.exception("GRVT scan crashed with unhandled exception")
+            results["GRVT"] = ChainResult(
+                name="GRVT",
+                status="failed",
+                error=str(e),
+                traceback_str=traceback.format_exc(),
+            )
+
+        r = results["GRVT"]
+        if r.status == "success":
+            logger.info("GRVT: SUCCESS - %d vaults", r.vault_count or 0)
+        elif r.status == "failed":
+            logger.error("GRVT: FAILED - %s", r.error)
+
+        print_dashboard(results, display_order)
+
+    # Retry passes - retry failed EVM chains (Hypercore/GRVT are not retried)
     evm_chain_names = {c.name for c in chains}
     for attempt in range(1, retry_count + 1):
         failed_chain_names = [name for name, r in results.items() if r.status == "failed" and name in evm_chain_names]
@@ -871,7 +980,7 @@ def main():
         logger.info("All chain scans complete, starting post-processing")
         logger.info("=" * 80)
 
-        post_results = run_post_processing(scan_hypercore=scan_hypercore)
+        post_results = run_post_processing(scan_hypercore=scan_hypercore, scan_grvt=scan_grvt)
         for step, success in post_results.items():
             status_str = "SUCCESS" if success else "FAILED"
             logger.info("Post-processing %s: %s", step, status_str)
