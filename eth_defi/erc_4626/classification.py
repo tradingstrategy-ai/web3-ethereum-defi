@@ -1581,6 +1581,11 @@ def create_vault_instance(
 
         return SBOLDVault(web3, spec, token_cache=token_cache, features=features)
 
+    elif ERC4626Feature.ember_like in features:
+        from eth_defi.erc_4626.vault_protocol.ember.vault import EmberVault
+
+        return EmberVault(web3, spec, token_cache=token_cache, features=features)
+
     else:
         # Generic ERC-4626 without fee data
         from eth_defi.erc_4626.vault import ERC4626Vault
@@ -1791,6 +1796,33 @@ HARDCODED_PROTOCOLS = {
     # Ostium - ostiumLP vault on Arbitrum
     # https://arbiscan.io/address/0x20d419a8e12c45f88fda7c5760bb6923cee27f98
     "0x20d419a8e12c45f88fda7c5760bb6923cee27f98": {ERC4626Feature.ostium_like},
+    # Ember Protocol - EmberVault on Ethereum
+    # https://etherscan.io/address/0xf3190a3ecc109f88e7947b849b281918c798a0c4
+    "0xf3190a3ecc109f88e7947b849b281918c798a0c4": {ERC4626Feature.ember_like},
+    # Ember Protocol - Ember UDL (eUDL) on Ethereum
+    # https://etherscan.io/address/0x373152feef81cc59502da2c8de877b3d5ae2e342
+    "0x373152feef81cc59502da2c8de877b3d5ae2e342": {ERC4626Feature.ember_like},
+    # Ember Protocol - Polymarket Vault on Ethereum
+    # https://etherscan.io/address/0x0b9342c15143e8f54a83f887c280a922f4c48771
+    "0x0b9342c15143e8f54a83f887c280a922f4c48771": {ERC4626Feature.ember_like},
+    # Ember Protocol - Ember YN (eYN) on Ethereum
+    # https://etherscan.io/address/0x821fc97196d47566b618d27515df2c5201cc4125
+    "0x821fc97196d47566b618d27515df2c5201cc4125": {ERC4626Feature.ember_like},
+    # Ember Protocol - Pharos Alpha Vault (pALPHA) on Ethereum
+    # https://etherscan.io/address/0xde88c15bbc9c4254a147a964f1fc937bae12712e
+    "0xde88c15bbc9c4254a147a964f1fc937bae12712e": {ERC4626Feature.ember_like},
+    # Ember Protocol - Metaversal USD (metaUSD) on Ethereum
+    # https://etherscan.io/address/0xb920ed46dec7455d0caf52b357d9a9f55b4daeca
+    "0xb920ed46dec7455d0caf52b357d9a9f55b4daeca": {ERC4626Feature.ember_like},
+    # Ember Protocol - Ember ETH (etETH) on Ethereum
+    # https://etherscan.io/address/0x7e1916fa3bb694d4e7a038771e8fe97222e775ca
+    "0x7e1916fa3bb694d4e7a038771e8fe97222e775ca": {ERC4626Feature.ember_like},
+    # Ember Protocol - Ember Earn (eEARN) on Ethereum
+    # https://etherscan.io/address/0x9be9294722f8aad37b11a9792be2c782182cafa2
+    "0x9be9294722f8aad37b11a9792be2c782182cafa2": {ERC4626Feature.ember_like},
+    # Ember Protocol - Ember Apollo ACRED (eACRED) on Ethereum
+    # https://etherscan.io/address/0x2b13311fd553e74b421d4ccc96e348f71e179dcf
+    "0x2b13311fd553e74b421d4ccc96e348f71e179dcf": {ERC4626Feature.ember_like},
 }
 
 for a in HARDCODED_PROTOCOLS.keys():

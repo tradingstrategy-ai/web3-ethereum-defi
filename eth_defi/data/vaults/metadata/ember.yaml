@@ -1,0 +1,31 @@
+name: Ember
+slug: ember
+short_description: |
+  Investment platform and infrastructure for launching, accessing, and distributing financial products through crypto capital markets.
+long_description: |
+  Ember is the investment platform and infrastructure for launching, accessing,
+  and distributing traditional and onchain financial products through crypto capital markets.
+  The protocol enables issuers to tokenise and distribute products while providing investors
+  access to yield-bearing vaults through a unified interface.
+
+  Ember vaults operate on Ethereum and Sui. They follow ERC-4626 principles but use custom events:
+  VaultDeposit instead of the standard Deposit event, and RequestRedeemed/RequestProcessed instead
+  of the standard Withdraw event. Withdrawals go through a pending queue with typical T+4 settlement.
+fee_description: |
+  Platform fees are embedded in the vault rate updates. The platformFee function returns the
+  platform fee percentage which is applied as a management fee. There is no separate performance fee.
+links:
+  homepage: https://ember.so/
+  app: https://ember.so/earn
+  twitter: https://x.com/EmberProtocol_
+  github:
+  documentation: https://learn.ember.so/
+  defillama: https://defillama.com/protocol/ember
+  audits: https://ember.so/documents/ember_protocol_audit.pdf
+  fees:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/ember
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/ember/index.html
+example_smart_contracts:
+  - https://etherscan.io/address/0xf3190a3ecc109f88e7947b849b281918c798a0c4
+  - https://etherscan.io/address/0x373152feef81cc59502da2c8de877b3d5ae2e342
+  - https://etherscan.io/address/0x0b9342c15143e8f54a83f887c280a922f4c48771

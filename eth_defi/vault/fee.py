@@ -129,6 +129,8 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "sBOLD": VaultFeeMode.internalised_skimming,
     # Hyperliquid native vaults - leader commission is taken from PnL, share price already reflects it
     "Hyperliquid": VaultFeeMode.internalised_skimming,
+    # Ember - platform fees are embedded in vault rate updates
+    "Ember": None,
 }
 
 

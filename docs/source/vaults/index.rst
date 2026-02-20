@@ -46,6 +46,7 @@ Supported protocols
    d2_finance/index
    deltr/index
    dolomite/index
+   ember/index
    ethena/index
    euler/index
    eth_strategy/index
