@@ -10,6 +10,7 @@ The original contract-based implementation (GetOpenPositions) remains the source
 of truth for on-chain data when executing trades.
 """
 
+import json
 import logging
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -981,23 +982,28 @@ class GMXSubsquidClient:
         timeout_seconds: int = 30,
         poll_interval: float = 0.5,
         max_retries: int = 3,
+        account: str | None = None,
     ) -> Optional[dict[str, Any]]:
         """Query for order execution status via Subsquid.
 
         Polls Subsquid until the order status appears or timeout.
         Much faster than on-chain polling (typically < 1 second).
 
-        This uses a two-query approach for better reliability:
-        1. First tries positionChanges (fast, for executed position changes)
-        2. Falls back to orderById (fast and reliable for all order statuses)
+        This uses a three-query approach for better reliability:
+        1. First tries tradeActions (has real fee fields, requires account filter)
+        2. Falls back to positionChanges (fast, for executed position changes)
+        3. Falls back to orderById (fast and reliable for all order statuses)
 
-        Note: The tradeActions query was removed due to reliability issues
-        (frequent 504 Gateway Timeout errors when filtering by orderKey).
+        The tradeActions query uses an additional ``account_eq`` filter to avoid
+        504 Gateway Timeout errors that occurred when filtering by orderKey alone.
 
         :param order_key: Order key (hex string with 0x prefix)
         :param timeout_seconds: Max time to wait for indexer (default 30s)
         :param poll_interval: Time between queries in seconds (default 0.5s)
         :param max_retries: Number of retries for failed requests (default 3)
+        :param account: Wallet address for tradeActions query filter.
+            When provided, enables the tradeActions query which returns real
+            fee breakdown (positionFee, borrowingFee, fundingFee).
         :return: Trade action dict or None if not found within timeout
 
         Example::
@@ -1006,6 +1012,7 @@ class GMXSubsquidClient:
             action = client.get_trade_action_by_order_key(
                 "0x1234...abcd",
                 timeout_seconds=30,
+                account="0xabcd...1234",
             )
 
             if action:
@@ -1037,8 +1044,36 @@ class GMXSubsquidClient:
         }
         """
 
-        # Query 2: orderById (fast and reliable for all order statuses)
-        # Note: tradeActions query was removed due to frequent 504 timeouts
+        # Query 2: tradeActions (has real fee fields, but requires account filter
+        # to avoid 504 timeouts that occurred with orderKey-only filtering)
+        query_trade_actions = """
+        query GetTradeAction($orderKey: String!, $account: String!) {
+          tradeActions(
+            where: { orderKey_eq: $orderKey, account_eq: $account, eventName_eq: "OrderExecuted" }
+            limit: 1
+          ) {
+            id
+            eventName
+            orderKey
+            orderType
+            isLong
+            sizeDeltaUsd
+            executionPrice
+            priceImpactUsd
+            basePnlUsd
+            positionFeeAmount
+            borrowingFeeAmount
+            fundingFeeAmount
+            initialCollateralTokenAddress
+            collateralTokenPriceMax
+            proportionalPendingImpactUsd
+            timestamp
+            transaction { hash }
+          }
+        }
+        """
+
+        # Query 3: orderById (fast and reliable for all order statuses)
         query_order_by_id = """
         query GetOrderById($id: String!) {
           orderById(id: $id) {
@@ -1065,7 +1100,58 @@ class GMXSubsquidClient:
 
         while time.time() - start_time < timeout_seconds:
             try:
-                # Try positionChanges first (faster)
+                # Try tradeActions first if account is provided (has real fee fields)
+                if account:
+                    try:
+                        logger.info(
+                            "Trying tradeActions query with account=%s for order %s",
+                            account,
+                            order_key,
+                        )
+                        ta_data = self._query(
+                            query_trade_actions,
+                            variables={"orderKey": order_key, "account": account},
+                            timeout=30,
+                        )
+                        actions = ta_data.get("tradeActions", [])
+                        if actions:
+                            action = actions[0]
+                            result = {
+                                "eventName": action.get("eventName", "OrderExecuted"),
+                                "orderKey": action["orderKey"],
+                                "orderType": action.get("orderType"),
+                                "isLong": action.get("isLong"),
+                                "executionPrice": str(action.get("executionPrice") or 0),
+                                "sizeDeltaUsd": str(action.get("sizeDeltaUsd") or 0),
+                                "priceImpactUsd": str(action.get("priceImpactUsd") or 0),
+                                "pendingPriceImpactUsd": str(action.get("proportionalPendingImpactUsd") or 0),
+                                "pnlUsd": str(action.get("basePnlUsd") or 0) if action.get("basePnlUsd") else None,
+                                "positionFeeAmount": str(action.get("positionFeeAmount") or 0),
+                                "borrowingFeeAmount": str(action.get("borrowingFeeAmount") or 0),
+                                "fundingFeeAmount": str(action.get("fundingFeeAmount") or 0),
+                                "collateralToken": action.get("initialCollateralTokenAddress"),
+                                "collateralTokenPriceMax": str(action.get("collateralTokenPriceMax") or 0) if action.get("collateralTokenPriceMax") else None,
+                                "timestamp": action.get("timestamp"),
+                                "transaction": action.get("transaction", {}),
+                            }
+                            logger.info(
+                                "Subsquid tradeActions returned fee data: eventName=%s | positionFee=%s, borrowingFee=%s, fundingFee=%s | collateral=%s (price=%s) | orderKey=%s",
+                                result["eventName"],
+                                result["positionFeeAmount"],
+                                result["borrowingFeeAmount"],
+                                result["fundingFeeAmount"],
+                                result["collateralToken"],
+                                result["collateralTokenPriceMax"],
+                                order_key[:16] + "..." if len(order_key) > 16 else order_key,
+                            )
+                            return result
+                    except Exception as e:
+                        logger.warning(
+                            "tradeActions query failed (will fall back to positionChanges): %s",
+                            e,
+                        )
+
+                # Try positionChanges (faster, has tx hash in id field)
                 logger.debug("=" * 70)
                 logger.debug("Querying positionChanges")
                 logger.debug("=" * 70)
@@ -1075,8 +1161,6 @@ class GMXSubsquidClient:
 
                 data = self._query(query_position_changes, variables={"orderKey": order_key}, timeout=60)
                 changes = data.get("positionChanges", [])
-
-                import json
 
                 logger.debug("positionChanges response: %s", json.dumps({"positionChanges": changes}, indent=2, default=str))
                 logger.debug("=" * 70)

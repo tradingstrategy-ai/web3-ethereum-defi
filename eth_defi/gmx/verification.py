@@ -132,6 +132,12 @@ class GMXOrderVerificationResult:
     #: Position key (if position was modified)
     position_key: bytes | None = None
 
+    #: Collateral token address (actual, from events - not assumed from market)
+    collateral_token: HexAddress | None = None
+
+    #: Collateral token price in raw 30-decimal GMX format (from events)
+    collateral_token_price: int | None = None
+
     #: Execution fees
     fees: OrderFees | None = None
 
@@ -233,6 +239,8 @@ def verify_gmx_order_execution(
     result.account = order_result.account
     result.is_long = order_result.is_long
     result.position_key = order_result.position_key
+    result.collateral_token = order_result.collateral_token
+    result.collateral_token_price = order_result.collateral_token_price
     result.fees = order_result.fees
     result.reason = order_result.reason
     result.reason_bytes = order_result.reason_bytes
