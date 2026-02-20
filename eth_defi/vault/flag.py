@@ -60,7 +60,6 @@ class VaultFlag(str, enum.Enum):
     perp_dex_trading_vault = "perp_dex_trading_vault"
 
 
-
 #: Don't touch vaults with these flags
 BAD_FLAGS = {
     VaultFlag.illiquid,
@@ -85,11 +84,25 @@ def get_vault_special_flags(address: str | HexAddress) -> set[VaultFlag]:
     return _empty_set
 
 
-def get_notes(address: HexAddress | str) -> str | None:
-    """Get notes related to the flags."""
+def get_notes(address: HexAddress | str, chain_id: int | None = None) -> str | None:
+    """Get notes related to the flags.
+
+    :param address:
+        Vault address (will be lowercased).
+    :param chain_id:
+        Chain ID of the vault. Used to apply chain-wide default notes
+        (e.g. all Hypercore vaults get :py:data:`HYPERCORE_VAULT_NOTE`).
+    """
     entry = VAULT_FLAGS_AND_NOTES.get(address.lower())
     if entry:
         return entry[1]
+
+    # Default note for all Hypercore vaults
+    from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID
+
+    if chain_id == HYPERCORE_CHAIN_ID:
+        return HYPERCORE_VAULT_NOTE
+
     return None
 
 
@@ -111,6 +124,8 @@ MAINST_VAULT = "Main Street Market related products were wiped out in Oct 10th e
 
 ABNORMAL_TVL = "The TVL on this vault is abnormal"
 
+
+HYPERCORE_VAULT_NOTE = "Profit calculations are cleaned from deposit/redeem net flow and differ from the account Profit and Loss (PnL) on Hyperliquid website"
 
 UNKNOWN_VAULT = "Vault is not known, not listed on the website of the protocol"
 

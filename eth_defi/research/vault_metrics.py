@@ -954,7 +954,7 @@ def calculate_vault_record(
     protocol = vault_metadata["Protocol"]
 
     risk = get_vault_risk(protocol, vault_address)
-    notes = get_notes(vault_address)
+    notes = get_notes(vault_address, chain_id=chain_id)
 
     flags = vault_metadata.get("_flags", set())
 
