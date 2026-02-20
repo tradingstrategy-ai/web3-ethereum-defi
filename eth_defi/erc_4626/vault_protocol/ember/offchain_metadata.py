@@ -88,18 +88,22 @@ class EmberVaultMetadata(TypedDict):
 
 def _fetch_ember_vaults(
     api_base_url: str = DEFAULT_API_BASE_URL,
+    chain: str = "ethereum",
 ) -> list[dict]:
-    """Fetch all Ethereum vaults from the Ember API.
+    """Fetch vaults from the Ember API for a given chain.
 
     Single GET request, no pagination needed (~9 EVM vaults).
 
     :param api_base_url:
         API base URL
 
+    :param chain:
+        Chain name as used by the Ember API (e.g. ``"ethereum"``)
+
     :return:
         List of raw vault dicts from the API
     """
-    url = f"{api_base_url}/vaults?chain=ethereum"
+    url = f"{api_base_url}/vaults?chain={chain}"
     logger.debug("Fetching Ember vault listing from %s", url)
     try:
         resp = requests.get(url, timeout=30, headers={"Accept": "application/json"})
@@ -181,12 +185,13 @@ def _parse_vault_metadata(item: dict) -> EmberVaultMetadata:
 def fetch_ember_vaults(
     cache_path: Path = DEFAULT_CACHE_PATH,
     api_base_url: str = DEFAULT_API_BASE_URL,
+    chain: str = "ethereum",
     now_: datetime.datetime | None = None,
     max_cache_duration: datetime.timedelta = datetime.timedelta(days=2),
 ) -> dict[str, EmberVaultMetadata]:
     """Fetch and cache all Ember offchain vault metadata.
 
-    - Fetches all Ethereum vaults from a single API call
+    - Fetches vaults for the given chain from a single API call
     - Single JSON cache file for all Ember EVM vaults (~9 total)
     - Multiprocess safe via file lock
 
@@ -195,6 +200,9 @@ def fetch_ember_vaults(
 
     :param api_base_url:
         Ember API base URL
+
+    :param chain:
+        Chain name as used by the Ember API (e.g. ``"ethereum"``)
 
     :param now_:
         Override current time (for testing)
@@ -221,16 +229,16 @@ def fetch_ember_vaults(
         if not file.exists() or (now_ - native_datetime_utc_fromtimestamp(file.stat().st_mtime)) > max_cache_duration or file_size == 0:
             logger.info("Re-fetching Ember vaults metadata from %s", api_base_url)
 
-            items = _fetch_ember_vaults(api_base_url=api_base_url)
+            items = _fetch_ember_vaults(api_base_url=api_base_url, chain=chain)
 
-            logger.info("Found %d Ember vaults", len(items))
+            logger.info("Found %d Ember vaults for chain %s", len(items), chain)
 
             result: dict[str, EmberVaultMetadata] = {}
             for item in items:
-                # Extract Ethereum vault address from detailsByChain
+                # Extract vault address from detailsByChain
                 details_by_chain = item.get("detailsByChain", {}) or {}
-                eth_details = details_by_chain.get("ethereum", {}) or {}
-                address = eth_details.get("address")
+                chain_details = details_by_chain.get(chain, {}) or {}
+                address = chain_details.get("address")
                 if not address:
                     continue
 
