@@ -56,16 +56,12 @@ def create_grvt_vault_row(
     :py:func:`~eth_defi.research.vault_metrics.calculate_vault_record` expects,
     using the GRVT chain ID.
 
-    GRVT management fees (0-4%) are paid daily via newly minted shares,
-    diluting existing holders — this is already reflected in the share price.
-    Performance fees (0-40%) are charged at redemption (externalised) and
-    NOT reflected in the share price. Fee fields are set to zero because
-    per-vault fee percentages are not available from the public API.
-
-    Sources:
-
-    - `Core concepts <https://help.grvt.io/en/articles/11424466-grvt-strategies-core-concepts>`__
-    - `Fee setup guide <https://help.grvt.io/en/articles/11640733-strategy-setup-guide-how-to-configure-fees-redemptions-and-rewards-on-grvt>`__
+    GRVT management fees (0-4%) are internalised via daily share minting
+    (already reflected in share price). Performance fees (0-40%) are
+    charged at redemption (externalised, NOT in share price). Fee mode
+    is ``externalised`` so the pipeline treats the share price as gross
+    of performance fees. Fee fields are set to zero because per-vault
+    fee percentages are not available from the public API.
 
     :param vault_id:
         Vault string ID on the GRVT platform (e.g. ``VLT:xxx``).

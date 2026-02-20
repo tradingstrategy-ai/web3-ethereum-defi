@@ -48,20 +48,21 @@ GRVT_DEFAULT_REQUESTS_PER_SECOND: float = 2.0
 #: Fee mode for GRVT native vaults.
 #:
 #: Management fees (0-4%) are paid daily via newly minted strategy shares,
-#: diluting existing holders — this is reflected in the share price.
+#: diluting existing holders — already reflected in the share price.
 #: Performance fees (0-40%) are charged on gains at redemption time
-#: (externalised) and NOT reflected in the share price — returns shown
-#: are gross of performance fees. Per-vault fee percentages are not
-#: available from the public API.
+#: and NOT reflected in the share price.
 #:
-#: We use ``internalised_skimming`` because management fee dilution is
-#: the dominant mechanism affecting the share price that the pipeline tracks.
+#: We use ``externalised`` because performance fees are deducted at
+#: redemption — the share price is gross of performance fees.
+#: Per-vault fee percentages are not available from the public API,
+#: so fee fields are set to 0.0 for now. When per-vault data becomes
+#: available the pipeline will automatically deduct them.
 #:
 #: Sources:
 #:
 #: - `Core concepts <https://help.grvt.io/en/articles/11424466-grvt-strategies-core-concepts>`__
 #: - `Fee setup guide <https://help.grvt.io/en/articles/11640733-strategy-setup-guide-how-to-configure-fees-redemptions-and-rewards-on-grvt>`__
-GRVT_VAULT_FEE_MODE: VaultFeeMode = VaultFeeMode.internalised_skimming
+GRVT_VAULT_FEE_MODE: VaultFeeMode = VaultFeeMode.externalised
 
 #: Position update interval for GRVT vaults.
 #:
