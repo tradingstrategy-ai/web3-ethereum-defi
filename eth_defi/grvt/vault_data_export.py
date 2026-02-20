@@ -32,12 +32,9 @@ from pathlib import Path
 import pandas as pd
 
 from eth_defi.compat import native_datetime_utc_now
-from eth_defi.erc_4626.core import ERC4626Feature, ERC4262VaultDetection
-from eth_defi.grvt.constants import (
-    GRVT_CHAIN_ID,
-    GRVT_VAULT_FEE_MODE,
-    GRVT_VAULT_LOCKUP,
-)
+from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
+from eth_defi.grvt.constants import (GRVT_CHAIN_ID, GRVT_VAULT_FEE_MODE,
+                                     GRVT_VAULT_LOCKUP)
 from eth_defi.grvt.daily_metrics import GRVTDailyMetricsDatabase
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.fee import FeeData
@@ -59,9 +56,16 @@ def create_grvt_vault_row(
     :py:func:`~eth_defi.research.vault_metrics.calculate_vault_record` expects,
     using the GRVT chain ID.
 
-    GRVT fees are embedded in the LP token price (internalised skimming),
-    so management and performance fee fields are set to zero — they are
-    already reflected in the share price.
+    GRVT management fees (0-4%) are paid daily via newly minted shares,
+    diluting existing holders — this is already reflected in the share price.
+    Performance fees (0-40%) are charged at redemption (externalised) and
+    NOT reflected in the share price. Fee fields are set to zero because
+    per-vault fee percentages are not available from the public API.
+
+    Sources:
+
+    - `Core concepts <https://help.grvt.io/en/articles/11424466-grvt-strategies-core-concepts>`__
+    - `Fee setup guide <https://help.grvt.io/en/articles/11640733-strategy-setup-guide-how-to-configure-fees-redemptions-and-rewards-on-grvt>`__
 
     :param vault_id:
         Vault string ID on the GRVT platform (e.g. ``VLT:xxx``).
@@ -121,7 +125,7 @@ def create_grvt_vault_row(
         "_flags": flags,
         "_lockup": GRVT_VAULT_LOCKUP,
         "_description": description,
-        "_short_description": description[:200] if description else None,
+        "_short_description": None,
         "_available_liquidity": None,
         "_utilisation": None,
         "_deposit_closed_reason": None,

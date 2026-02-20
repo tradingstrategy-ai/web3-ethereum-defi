@@ -132,9 +132,12 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     # Ember - management and performance fees are embedded in the vault rate updates (internalised)
     # https://learn.ember.so/ember-protocol/core-concepts
     "Ember": VaultFeeMode.internalised_skimming,
-    # GRVT native vaults - management and performance fees vary per vault (0-4% mgmt, 0-40% perf)
-    # Fees are embedded in the LP token price
+    # GRVT native vaults - management fees (0-4%) are paid daily via newly minted shares (internalised),
+    # so the share price is net of management fees. Performance fees (0-40%) are charged on gains at
+    # redemption time (externalised) and NOT reflected in the share price — returns shown are gross
+    # of performance fees. Per-vault fee percentages are not available from the public API.
     # https://help.grvt.io/en/articles/11424466-grvt-strategies-core-concepts
+    # https://help.grvt.io/en/articles/11640733-strategy-setup-guide-how-to-configure-fees-redemptions-and-rewards-on-grvt
     "GRVT": VaultFeeMode.internalised_skimming,
 }
 
