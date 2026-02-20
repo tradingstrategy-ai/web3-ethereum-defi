@@ -2,6 +2,10 @@
 
 This module provides session creation with:
 
+- Browser-like User-Agent header to bypass Cloudflare protection on
+  GRVT endpoints (both ``edge.grvt.io`` and ``market-data.grvt.io``
+  return 403 Forbidden when the default ``python-requests`` User-Agent
+  is used)
 - Rate limiting that is thread-safe using SQLite backend
 - Retry logic for handling transient errors using exponential backoff
 - Optional API key authentication for private endpoints

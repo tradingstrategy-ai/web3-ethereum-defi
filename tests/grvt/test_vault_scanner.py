@@ -6,6 +6,14 @@ snapshots in a DuckDB database.
 No authentication required — all endpoints are public.
 """
 
+import os
+
+import pytest
+
+CI = os.environ.get("CI", None) is not None
+
+pytestmark = pytest.mark.skipif(CI, reason="GRVT endpoints are behind Cloudflare which blocks CI runners")
+
 from pathlib import Path
 
 from eth_defi.grvt.vault_scanner import (
