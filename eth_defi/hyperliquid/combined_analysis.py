@@ -285,9 +285,14 @@ def _calculate_share_price(
 
         total_supply_values.append(current_total_supply)
 
-        # Calculate share price: total_assets / total_supply
+        # Calculate share price: total_assets / total_supply.
+        # When total_supply is very small but total_assets is nonzero
+        # (e.g. after most depositors withdrew from a leveraged trading vault),
+        # the share price can overflow to absurd values (trillions+).
+        # Cap at 10,000 to keep downstream metrics sane.
         if current_total_supply > 0:
             current_share_price = total_assets / current_total_supply
+            current_share_price = min(current_share_price, 10_000.0)
         else:
             current_share_price = 1.0  # Default to 1.0 if no shares
 

@@ -32,7 +32,7 @@ import pandas as pd
 from eth_defi.hyperliquid.daily_metrics import run_daily_scan
 from eth_defi.hyperliquid.session import create_hyperliquid_session
 from eth_defi.hyperliquid.vault_data_export import (
-    merge_into_cleaned_parquet,
+    merge_into_uncleaned_parquet,
     merge_into_vault_database,
 )
 from eth_defi.research.vault_metrics import (
@@ -40,6 +40,7 @@ from eth_defi.research.vault_metrics import (
     calculate_lifetime_metrics,
     export_lifetime_row,
 )
+from eth_defi.research.wrangle_vault_prices import generate_cleaned_vault_datasets
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.vaultdb import VaultDatabase
 
@@ -70,7 +71,8 @@ def main():
         tmp_path = Path(tmp)
         duckdb_path = tmp_path / "daily-metrics.duckdb"
         vault_db_path = tmp_path / "vault-metadata-db.pickle"
-        parquet_path = tmp_path / "cleaned-vault-prices-1h.parquet"
+        uncleaned_path = tmp_path / "vault-prices-1h.parquet"
+        cleaned_path = tmp_path / "cleaned-vault-prices-1h.parquet"
 
         # Step 1: scan vaults and store in DuckDB
         print("Step 1: Fetching vault data from Hyperliquid API...")
@@ -88,16 +90,25 @@ def main():
             # Step 2: merge into pipeline files
             print("Step 2: Merging into pipeline files...")
             merge_into_vault_database(db, vault_db_path)
-            merge_into_cleaned_parquet(db, parquet_path)
+            merge_into_uncleaned_parquet(db, uncleaned_path)
             print()
 
         finally:
             db.close()
 
-        # Step 3: run lifetime metrics calculation
-        print("Step 3: Calculating lifetime metrics...")
+        # Step 3: run cleaning pipeline
+        print("Step 3: Running cleaning pipeline...")
+        generate_cleaned_vault_datasets(
+            vault_db_path=vault_db_path,
+            price_df_path=uncleaned_path,
+            cleaned_price_df_path=cleaned_path,
+        )
+        print()
+
+        # Step 4: run lifetime metrics calculation
+        print("Step 4: Calculating lifetime metrics...")
         vault_db = VaultDatabase.read(vault_db_path)
-        prices_df = pd.read_parquet(parquet_path)
+        prices_df = pd.read_parquet(cleaned_path)
 
         if not isinstance(prices_df.index, pd.DatetimeIndex):
             if "timestamp" in prices_df.columns:
@@ -107,7 +118,7 @@ def main():
         lifetime_df = calculate_lifetime_metrics(returns_df, vault_db)
         print(f"  Calculated metrics for {len(lifetime_df)} vaults\n")
 
-        # Step 4: export to JSON and display
+        # Step 5: export to JSON and display
         print("=" * 80)
         print("VAULT METRICS JSON OUTPUT")
         print("=" * 80)

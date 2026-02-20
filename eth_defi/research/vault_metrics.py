@@ -795,6 +795,15 @@ def calculate_period_metrics(
     cagr_gross = base_gross ** (1 / years) - 1
     cagr_net = base_net ** (1 / years) - 1
 
+    # Cap CAGR at a reasonable maximum.
+    # Short-lived vaults (e.g. 14 days with 600% return) extrapolate to
+    # absurd annual rates via (1+r)^(365/days). A 10,000% (100x) annual cap
+    # is generous enough for any legitimate vault while preventing
+    # astronomical numbers from polluting rankings.
+    max_cagr = 100.0  # 10,000%
+    cagr_gross = min(cagr_gross, max_cagr)
+    cagr_net = min(cagr_net, max_cagr)
+
     # Calculate daily returns for volatility and max drawdown
     # Filter to only numeric values, drop NaN and infinite values
     daily_returns = period_samples_daily.pct_change(fill_method=None).dropna()
@@ -945,7 +954,7 @@ def calculate_vault_record(
     protocol = vault_metadata["Protocol"]
 
     risk = get_vault_risk(protocol, vault_address)
-    notes = get_notes(vault_address)
+    notes = get_notes(vault_address, chain_id=chain_id)
 
     flags = vault_metadata.get("_flags", set())
 

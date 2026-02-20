@@ -20,3 +20,6 @@ This module provides tools for interacting with Hyperliquid, including:
    eth_defi.hyperliquid.combined_analysis
    eth_defi.hyperliquid.deposit
    eth_defi.hyperliquid.vault_scanner
+   eth_defi.hyperliquid.constants
+   eth_defi.hyperliquid.daily_metrics
+   eth_defi.hyperliquid.vault_data_export
