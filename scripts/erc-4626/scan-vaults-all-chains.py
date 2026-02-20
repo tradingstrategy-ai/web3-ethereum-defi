@@ -90,7 +90,7 @@ import traceback
 from dataclasses import dataclass
 from pathlib import Path
 
-from eth_defi.erc_4626.classification import create_vault_instance
+from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS, create_vault_instance
 from eth_defi.erc_4626.lead_scan_core import scan_leads
 from eth_defi.hypersync.utils import configure_hypersync_from_env
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
@@ -262,8 +262,8 @@ def scan_prices_for_chain(rpc_url: str, max_workers: int, frequency: str) -> tup
         for row in chain_vaults:
             detection = row["_detection_data"]
 
-            # Skip vaults with low activity
-            if detection.deposit_count < min_deposit_threshold:
+            # Skip vaults with low activity (but keep hardcoded protocol vaults)
+            if detection.deposit_count < min_deposit_threshold and detection.address.lower() not in HARDCODED_PROTOCOLS:
                 continue
 
             vault = create_vault_instance(web3, detection.address, detection.features, token_cache=token_cache)

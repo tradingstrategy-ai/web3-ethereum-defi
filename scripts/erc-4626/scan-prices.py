@@ -84,7 +84,7 @@ except ImportError as e:
     raise ImportError("Install the library with optional HyperSync dependency to use this module") from e
 
 from eth_defi.chain import get_chain_name
-from eth_defi.erc_4626.classification import create_vault_instance
+from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS, create_vault_instance
 from eth_defi.erc_4626.core import ERC4262VaultDetection
 from eth_defi.provider.multi_provider import create_multi_provider_web3, MultiProviderWeb3Factory
 from eth_defi.token import TokenDiskCache
@@ -194,7 +194,7 @@ def main():
         detection = row["_detection_data"]
         address = detection.address
 
-        if detection.deposit_count < min_deposit_threshold:
+        if detection.deposit_count < min_deposit_threshold and address.lower() not in HARDCODED_PROTOCOLS:
             # print(f"Vault does not have enough deposits: {address}, has: {detection.deposit_count}, threshold {min_deposit_threshold}")
             continue
 
