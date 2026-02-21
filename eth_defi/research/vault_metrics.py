@@ -29,9 +29,11 @@ from eth_defi.erc_4626.core import ERC4262VaultDetection
 from eth_defi.research.value_table import format_series_as_multi_column_grid
 from eth_defi.research.wrangle_vault_prices import forward_fill_vault
 from eth_defi.token import is_stablecoin_like, normalise_token_symbol
+from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.fee import FeeData, VaultFeeMode
-from eth_defi.vault.flag import ABNORMAL_SHARE_PRICE, ABNORMAL_TVL, VaultFlag, get_notes
+from eth_defi.vault.flag import (ABNORMAL_SHARE_PRICE, ABNORMAL_TVL, VaultFlag,
+                                 get_notes)
 from eth_defi.vault.risk import VaultTechnicalRisk, get_vault_risk
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
 
@@ -1401,6 +1403,39 @@ def calculate_vault_rankings(
     return results_df
 
 
+#: Protocol slugs for vaults where we do not necessarily have
+#: on-chain deposit/redeem event data.
+#:
+#: These vaults get their data from off-chain APIs (e.g. GRVT, Hyperliquid)
+#: or are hardcoded protocol entries that may lack standard ERC-4626 events.
+SPECIAL_VAULT_PROTOCOL_SLUGS = {"grvt", "hyperliquid"}
+
+
+def is_special_vault(
+    protocol_slug: str,
+    vault_address: str,
+) -> bool:
+    """Check if a vault is a special vault that may not have deposit/redeem event data.
+
+    - GRVT and Hyperliquid vaults get data from off-chain APIs
+    - Hardcoded protocol vaults may lack standard ERC-4626 deposit/redeem events
+
+    :param protocol_slug:
+        Protocol slug (e.g. "grvt", "hyperliquid", "morpho")
+
+    :param vault_address:
+        Vault contract address
+
+    :return:
+        True if this vault should bypass the minimum event count filter
+    """
+    if protocol_slug in SPECIAL_VAULT_PROTOCOL_SLUGS:
+        return True
+    if vault_address.lower() in HARDCODED_PROTOCOLS:
+        return True
+    return False
+
+
 def clean_lifetime_metrics(
     lifetime_data_df: pd.DataFrame,
     broken_max_nav_value=99_000_000_000,
@@ -1442,8 +1477,14 @@ def clean_lifetime_metrics(
     logger(f"Vaults abnormally high returns: {len(lifetime_data_df[broken_mask])}")
     lifetime_data_df = lifetime_data_df[~broken_mask]
 
-    # Filter out some vaults that have not seen many deposit and redemptions
-    broken_mask = lifetime_data_df["event_count"] < min_events
+    # Filter out some vaults that have not seen many deposit and redemptions.
+    # Special vaults (GRVT, Hyperliquid, hardcoded protocols) are exempt
+    # because we do not necessarily have on-chain deposit/redeem event data for them.
+    special_mask = lifetime_data_df.apply(
+        lambda row: is_special_vault(row["protocol_slug"], row["address"]),
+        axis=1,
+    )
+    broken_mask = (lifetime_data_df["event_count"] < min_events) & ~special_mask
     logger(f"Vault entries with too few deposit and redeem events (min {min_events}) filtered out: {len(lifetime_data_df[broken_mask])}")
     lifetime_data_df = lifetime_data_df[~broken_mask]
     return lifetime_data_df
@@ -1948,8 +1989,14 @@ def calculate_performance_metrics_for_all_vaults(
     logger(f"Vault entries with too small ATH NAV values filtered out: {len(lifetime_data_df[broken_mask])}")
     lifetime_data_df = lifetime_data_df[~broken_mask]
 
-    # Filter out some vaults that have not seen many deposit and redemptions
-    broken_mask = lifetime_data_df["event_count"] < min_events
+    # Filter out some vaults that have not seen many deposit and redemptions.
+    # Special vaults (GRVT, Hyperliquid, hardcoded protocols) are exempt
+    # because we do not necessarily have on-chain deposit/redeem event data for them.
+    special_mask = lifetime_data_df.apply(
+        lambda row: is_special_vault(row["protocol_slug"], row["address"]),
+        axis=1,
+    )
+    broken_mask = (lifetime_data_df["event_count"] < min_events) & ~special_mask
     logger(f"Vault entries with too few deposit and redeem events (min {min_events}) filtered out: {len(lifetime_data_df[broken_mask])}")
     lifetime_data_df = lifetime_data_df[~broken_mask]
 
