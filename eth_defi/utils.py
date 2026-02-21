@@ -22,6 +22,21 @@ from eth_typing import HexAddress, HexStr
 logger = logging.getLogger(__name__)
 
 
+def is_good_vault_address(address: str) -> bool:
+    """Check if a vault address has a recognised format.
+
+    - EVM vaults use ``0x``-prefixed hex addresses
+    - Non-EVM protocols like GRVT use platform-specific IDs (e.g. ``VLT:xxx``)
+
+    :param address:
+        The vault address string to validate.
+    :return:
+        ``True`` if the address starts with a known prefix.
+    """
+    addr_lower = address.lower()
+    return addr_lower.startswith("0x") or addr_lower.startswith("vlt:")
+
+
 def sanitise_string(s: str, max_length: int | None = None) -> str:
     """Remove null characters."""
     # https://stackoverflow.com/a/18762899/315168

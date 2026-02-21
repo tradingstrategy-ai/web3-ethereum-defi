@@ -110,6 +110,7 @@ def visualise_vault_return_benchmark(
     fig.update_layout(
         xaxis_title="Date",
         yaxis_title="Cumulative returns %",
+        legend_title_text="Vault",
     )
 
     return fig, net_returns_df

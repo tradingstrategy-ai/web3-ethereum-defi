@@ -783,7 +783,11 @@ def process_raw_vault_scan_data(
 
     assign_unique_names(rows, prices_df, logger)
 
-    check_missing_metadata(rows, prices_df["id"], logger)
+    missing_ids = check_missing_metadata(rows, prices_df["id"], prices_df, logger)
+    if missing_ids:
+        before_count = len(prices_df)
+        prices_df = prices_df[~prices_df["id"].isin(missing_ids)]
+        logger(f"Dropped {before_count - len(prices_df):,} price rows for {len(missing_ids):,} vaults without metadata")
 
     prices_df = add_denormalised_vault_data(rows, prices_df, logger)
 
@@ -843,37 +847,57 @@ def process_raw_vault_scan_data(
 def check_missing_metadata(
     rows: dict,
     price_ids: pd.Series,
+    prices_df: pd.DataFrame,
     logger=print,
-):
+) -> set[str]:
     """Check that we have metadata for all vaults in the prices DataFrame.
 
-    Vault id is in format: 56-0x10c90bfcfb3d2a7ae814da1548ae3a7fc31c35a0'
+    Vault id is in format: ``56-0x10c90bfcfb3d2a7ae814da1548ae3a7fc31c35a0``
+
+    If there are vaults with price data but no metadata, they are logged
+    at error level and their IDs returned so the caller can drop them.
 
     :param rows:
         Metadata rows from vault database
+
+    :param prices_df:
+        The full prices DataFrame, used to extract context for missing vaults.
+
+    :return:
+        Set of vault IDs that are missing from the metadata.
+        These should be dropped from the price data before further processing.
     """
 
     assert isinstance(price_ids, pd.Series)
 
-    price_ids = sorted(list(price_ids.unique()))
+    unique_price_ids = sorted(list(price_ids.unique()))
 
     vaults_by_id = get_vaults_by_id(rows)
 
-    # assert "56-0x10c90bfcfb3d2a7ae814da1548ae3a7fc31c35a0" in price_ids
-    # assert "56-0x10c90bfcfb3d2a7ae814da1548ae3a7fc31c35a0" in vaults_by_id
+    logger(f"Price data has {len(unique_price_ids):,} unique vault ids, vault database has {len(vaults_by_id):,} vault ids")
 
-    logger(f"Price data has {len(price_ids):,} unique vault ids, vault database has {len(vaults_by_id):,} vault ids")
+    assert len(unique_price_ids) > 0, "No vault ids in price data"
 
-    assert len(price_ids) > 0, "No vault ids in price data"
+    missing_ids = set()
 
-    missing_count = 0
-
-    for vault_id in price_ids:
+    for vault_id in unique_price_ids:
         if vault_id not in vaults_by_id:
-            missing_count += 1
-            logger(f"Missing metadata for vault id {vault_id}")
+            missing_ids.add(vault_id)
 
-    assert not missing_count, f"Missing vault metadata for {missing_count:,} vault ids, cannot continue"
+            # Extract context from the price rows for this vault
+            vault_rows = prices_df[prices_df["id"] == vault_id]
+            row_count = len(vault_rows)
+            chain = vault_rows["chain"].iloc[0] if row_count > 0 else "?"
+            address = vault_rows["address"].iloc[0] if row_count > 0 else "?"
+            chain_name = get_chain_name(chain) if isinstance(chain, int) else str(chain)
+            first_ts = vault_rows["timestamp"].min() if row_count > 0 else "?"
+            last_ts = vault_rows["timestamp"].max() if row_count > 0 else "?"
+            logger(f"ERROR: Missing metadata for vault {vault_id} (chain={chain_name}, address={address}, {row_count:,} price rows, {first_ts} to {last_ts}), dropping from price data")
+
+    if missing_ids:
+        logger(f"ERROR: Missing vault metadata for {len(missing_ids):,} vault ids out of {len(unique_price_ids):,}, dropping their price rows. This may be caused by a case mismatch between address formats in the price data vs vault database.")
+
+    return missing_ids
 
 
 def generate_cleaned_vault_datasets(

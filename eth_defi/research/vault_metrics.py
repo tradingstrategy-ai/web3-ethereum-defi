@@ -26,12 +26,14 @@ from tqdm.auto import tqdm
 from eth_defi.chain import get_chain_name
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.core import ERC4262VaultDetection
-from eth_defi.research.value_table import format_series_as_multi_column_grid
+from eth_defi.research.value_table import format_grouped_series_as_multi_column_grid, format_series_as_multi_column_grid
 from eth_defi.research.wrangle_vault_prices import forward_fill_vault
 from eth_defi.token import is_stablecoin_like, normalise_token_symbol
+from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.fee import FeeData, VaultFeeMode
-from eth_defi.vault.flag import ABNORMAL_SHARE_PRICE, ABNORMAL_TVL, VaultFlag, get_notes
+from eth_defi.vault.flag import (ABNORMAL_SHARE_PRICE, ABNORMAL_TVL, VaultFlag,
+                                 get_notes)
 from eth_defi.vault.risk import VaultTechnicalRisk, get_vault_risk
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
 
@@ -1401,6 +1403,39 @@ def calculate_vault_rankings(
     return results_df
 
 
+#: Protocol slugs for vaults where we do not necessarily have
+#: on-chain deposit/redeem event data.
+#:
+#: These vaults get their data from off-chain APIs (e.g. GRVT, Hyperliquid)
+#: or are hardcoded protocol entries that may lack standard ERC-4626 events.
+SPECIAL_VAULT_PROTOCOL_SLUGS = {"grvt", "hyperliquid"}
+
+
+def is_special_vault(
+    protocol_slug: str,
+    vault_address: str,
+) -> bool:
+    """Check if a vault is a special vault that may not have deposit/redeem event data.
+
+    - GRVT and Hyperliquid vaults get data from off-chain APIs
+    - Hardcoded protocol vaults may lack standard ERC-4626 deposit/redeem events
+
+    :param protocol_slug:
+        Protocol slug (e.g. "grvt", "hyperliquid", "morpho")
+
+    :param vault_address:
+        Vault contract address
+
+    :return:
+        True if this vault should bypass the minimum event count filter
+    """
+    if protocol_slug in SPECIAL_VAULT_PROTOCOL_SLUGS:
+        return True
+    if vault_address.lower() in HARDCODED_PROTOCOLS:
+        return True
+    return False
+
+
 def clean_lifetime_metrics(
     lifetime_data_df: pd.DataFrame,
     broken_max_nav_value=99_000_000_000,
@@ -1442,8 +1477,14 @@ def clean_lifetime_metrics(
     logger(f"Vaults abnormally high returns: {len(lifetime_data_df[broken_mask])}")
     lifetime_data_df = lifetime_data_df[~broken_mask]
 
-    # Filter out some vaults that have not seen many deposit and redemptions
-    broken_mask = lifetime_data_df["event_count"] < min_events
+    # Filter out some vaults that have not seen many deposit and redemptions.
+    # Special vaults (GRVT, Hyperliquid, hardcoded protocols) are exempt
+    # because we do not necessarily have on-chain deposit/redeem event data for them.
+    special_mask = lifetime_data_df.apply(
+        lambda row: is_special_vault(row["protocol_slug"], row["address"]),
+        axis=1,
+    )
+    broken_mask = (lifetime_data_df["event_count"] < min_events) & ~special_mask
     logger(f"Vault entries with too few deposit and redeem events (min {min_events}) filtered out: {len(lifetime_data_df[broken_mask])}")
     lifetime_data_df = lifetime_data_df[~broken_mask]
     return lifetime_data_df
@@ -1948,8 +1989,14 @@ def calculate_performance_metrics_for_all_vaults(
     logger(f"Vault entries with too small ATH NAV values filtered out: {len(lifetime_data_df[broken_mask])}")
     lifetime_data_df = lifetime_data_df[~broken_mask]
 
-    # Filter out some vaults that have not seen many deposit and redemptions
-    broken_mask = lifetime_data_df["event_count"] < min_events
+    # Filter out some vaults that have not seen many deposit and redemptions.
+    # Special vaults (GRVT, Hyperliquid, hardcoded protocols) are exempt
+    # because we do not necessarily have on-chain deposit/redeem event data for them.
+    special_mask = lifetime_data_df.apply(
+        lambda row: is_special_vault(row["protocol_slug"], row["address"]),
+        axis=1,
+    )
+    broken_mask = (lifetime_data_df["event_count"] < min_events) & ~special_mask
     logger(f"Vault entries with too few deposit and redeem events (min {min_events}) filtered out: {len(lifetime_data_df[broken_mask])}")
     lifetime_data_df = lifetime_data_df[~broken_mask]
 
@@ -2074,6 +2121,90 @@ def format_ffn_performance_stats(
         return pd.concat([prefix_series, data_series])
     else:
         return data_series
+
+
+#: Group headings for FFN performance stats, matching the None
+#: separators in ``PerformanceStats._stats()``.
+FFN_GROUP_HEADINGS = [
+    "Overview",
+    "Returns",
+    "Period returns",
+    "Daily statistics",
+    "Monthly statistics",
+    "Yearly statistics",
+    "Drawdown statistics",
+]
+
+
+def format_ffn_performance_stats_grouped(
+    report: PerformanceStats,
+    prefix_series: pd.Series | None = None,
+) -> list[tuple[str, pd.Series]]:
+    """Format FFN report as logically grouped sections.
+
+    Returns a list of ``(heading, series)`` tuples where each tuple
+    represents a group of related metrics. The groups correspond to
+    the ``None`` separators in FFN's ``PerformanceStats._stats()``.
+
+    :param report:
+        FFN performance report to format.
+
+    :param prefix_series:
+        Extra header data to prepend to the first group.
+
+    :return:
+        List of ``(heading, series)`` tuples for each logical group.
+    """
+    assert isinstance(report, PerformanceStats), f"report must be an instance of PerformanceStats, got {type(report)}"
+
+    stat_definitions = report._stats()
+
+    def _format(k, f, raw):
+        if k == "rf" and not isinstance(raw, float):
+            return np.nan
+        elif f is None:
+            return raw
+        elif f == "p":
+            return fmtp(raw)
+        elif f == "n":
+            return fmtn(raw)
+        elif f == "dt":
+            return raw.strftime("%Y-%m-%d")
+        else:
+            raise NotImplementedError("unsupported format %s" % f)
+
+    # Split stats into groups at None boundaries
+    groups = []
+    current_keys = []
+    current_values = []
+
+    for key, name, typ in stat_definitions:
+        if not name:
+            # None separator = group boundary
+            if current_keys:
+                groups.append(pd.Series(current_values, index=current_keys))
+                current_keys = []
+                current_values = []
+            continue
+        current_keys.append(name)
+        raw = getattr(report, key, "")
+        current_values.append(_format(key, typ, raw))
+
+    # Don't forget the last group (no trailing None)
+    if current_keys:
+        groups.append(pd.Series(current_values, index=current_keys))
+
+    # Prepend prefix_series to first group
+    if prefix_series is not None and len(groups) > 0:
+        groups[0] = pd.concat([prefix_series, groups[0]])
+
+    # Pair groups with headings
+    result = []
+    for i, group_series in enumerate(groups):
+        heading = FFN_GROUP_HEADINGS[i] if i < len(FFN_GROUP_HEADINGS) else f"Group {i + 1}"
+        result.append((heading, group_series))
+
+    return result
 
 
 def cross_check_data(
@@ -2221,17 +2352,13 @@ def display_vault_chart_and_tearsheet(
     df = pd.Series(data)
     # display(df)
 
-    # Display FFN stats
+    # Display FFN stats as grouped sections
     performance_stats = vault_report.performance_stats
     if performance_stats is not None:
-        stats_df = format_ffn_performance_stats(performance_stats)
-
-        multi_column_df = format_series_as_multi_column_grid(stats_df)
-
-        # display(stats_df)
-        out_table = HTML(multi_column_df.to_html(float_format="{:,.2f}".format, index=True))
+        grouped = format_ffn_performance_stats_grouped(performance_stats)
+        grouped_html = format_grouped_series_as_multi_column_grid(grouped)
         if render:
-            display(out_table)
+            display(HTML(grouped_html))
     else:
         if render:
             print(f"Vault {vault_spec.chain_id}-{vault_spec.vault_address}: performance metrics not available, is quantstats library installed?")
