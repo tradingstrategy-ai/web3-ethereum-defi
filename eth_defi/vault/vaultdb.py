@@ -17,6 +17,7 @@ from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, get_va
 from eth_defi.erc_4626.discovery_base import PotentialVaultMatch
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.flag import VaultFlag
+from eth_defi.vault.risk import VaultTechnicalRisk
 
 #: Where we store the vault metadata database by default
 DEFAULT_VAULT_DATABASE = Path.home() / ".tradingstrategy" / "vaults" / "vault-metadata-db.pickle"
@@ -69,6 +70,11 @@ class VaultRow(TypedDict):
     features: set[ERC4626Feature]
 
     _flags: set[VaultFlag]
+
+    #: Override the risk level for this vault.
+    #:
+    #: If set, takes priority over :py:func:`~eth_defi.vault.risk.get_vault_risk`.
+    _risk: VaultTechnicalRisk | None
 
     __annotations__ = {
         "First seen at": datetime.datetime,
