@@ -511,11 +511,12 @@ def print_dashboard(results: dict[str, ChainResult], display_order: list[str] | 
     # Clear screen (simple approach)
     print("\n" * 3)
 
-    print("=" * 100)
-    print(" " * 35 + "Chain Scan Progress")
-    print("=" * 100)
-    print(f"{'Chain':<15} {'Status':<10} {'Vaults':<8} {'New':<6} {'Blocks':<22} {'Duration':<10} {'Retry':<5}")
-    print("-" * 100)
+    lines = []
+    lines.append("=" * 100)
+    lines.append(" " * 35 + "Chain Scan Progress")
+    lines.append("=" * 100)
+    lines.append(f"{'Chain':<15} {'Status':<10} {'Vaults':<8} {'New':<6} {'Blocks':<22} {'Duration':<10} {'Retry':<5}")
+    lines.append("-" * 100)
 
     # Use display_order if provided, otherwise use dict order
     if display_order:
@@ -542,18 +543,23 @@ def print_dashboard(results: dict[str, ChainResult], display_order: list[str] | 
             # Truncate long error messages to fit the dashboard
             error_msg = result.error[:40]
             line += f"  {error_msg}"
-        print(line)
+        lines.append(line)
 
     # Summary
-    print("-" * 100)
+    lines.append("-" * 100)
     success_count = sum(1 for r in results.values() if r.status == "success")
     failed_count = sum(1 for r in results.values() if r.status == "failed")
     pending_count = sum(1 for r in results.values() if r.status == "pending")
     running_count = sum(1 for r in results.values() if r.status == "running")
     skipped_count = sum(1 for r in results.values() if r.status == "skipped")
 
-    print(f"Summary: {success_count} success, {failed_count} failed, {pending_count} pending, {running_count} running, {skipped_count} skipped")
-    print("=" * 100)
+    lines.append(f"Summary: {success_count} success, {failed_count} failed, {pending_count} pending, {running_count} running, {skipped_count} skipped")
+    lines.append("=" * 100)
+
+    # Print to console and log at info level
+    dashboard = "\n".join(lines)
+    print(dashboard)
+    logger.info(dashboard)
 
     # Print full error messages below the dashboard
     failed_results = [r for r in ordered_results if r.status == "failed" and r.error]

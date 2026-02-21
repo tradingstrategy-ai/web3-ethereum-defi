@@ -9,14 +9,13 @@
 See :py:class:`VaultHistoricalReadMulticaller` for usage.
 """
 
+import datetime
 import logging
 import os
 import tempfile
-from collections import defaultdict, Counter
-import datetime
+from collections import Counter, defaultdict
 from pathlib import Path
-
-from typing import Iterable, TypedDict, Callable, Literal
+from typing import Callable, Iterable, Literal, TypedDict
 
 from eth_typing import HexAddress
 from joblib import Parallel, delayed
@@ -27,13 +26,17 @@ from eth_defi import hypersync
 from eth_defi.chain import EVM_BLOCK_TIMES, get_chain_name
 from eth_defi.erc_4626.vault import VaultReaderState
 from eth_defi.erc_4626.warmup import warmup_vault_reader
-from eth_defi.event_reader.multicall_batcher import EncodedCall, read_multicall_historical, EncodedCallResult, read_multicall_historical_stateful, BatchCallState
-from eth_defi.event_reader.timestamp_cache import DEFAULT_TIMESTAMP_CACHE_FOLDER
+from eth_defi.event_reader.multicall_batcher import (
+    BatchCallState, EncodedCall, EncodedCallResult, read_multicall_historical,
+    read_multicall_historical_stateful)
+from eth_defi.event_reader.timestamp_cache import \
+    DEFAULT_TIMESTAMP_CACHE_FOLDER
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.provider.broken_provider import get_almost_latest_block_number
 from eth_defi.token import TokenDetails, TokenDiskCache, fetch_erc20_details
 from eth_defi.utils import chunked
-from eth_defi.vault.base import VaultBase, VaultHistoricalReader, VaultHistoricalRead, VaultSpec
+from eth_defi.vault.base import (VaultBase, VaultHistoricalRead,
+                                 VaultHistoricalReader, VaultSpec)
 from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
 
 logger = logging.getLogger(__name__)
@@ -585,8 +588,8 @@ def scan_historical_prices_to_parquet(
     """
 
     import pyarrow as pa
-    import pyarrow.parquet as pq
     import pyarrow.compute as pc
+    import pyarrow.parquet as pq
 
     stateful = reader_states is not None
 
