@@ -248,7 +248,7 @@ def verify_archive_node(rpc_url: str, chain_name: str) -> int:
         step = "connecting"
         latest_block = None
         try:
-            web3 = create_multi_provider_web3(endpoint)
+            web3 = create_multi_provider_web3(endpoint, retries=2)
 
             # Check latest block
             step = f"eth_blockNumber()"

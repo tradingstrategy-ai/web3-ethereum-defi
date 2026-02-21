@@ -11,7 +11,6 @@ from pathlib import Path
 from typing import Literal
 
 import pandas as pd
-from IPython.core.display_functions import display
 from joblib import Parallel, delayed
 from tqdm_loggable.auto import tqdm
 
@@ -39,7 +38,7 @@ def display_vaults_table(df: pd.DataFrame, nav_threshold=Decimal(1.1)) -> None:
     # df["First seen"] = df["First seen"].dt.strftime("%Y-%b-%d")
 
     if len(df) == 0:
-        print("No data")
+        logger.info("No data")
         return
 
     df = df.copy()
@@ -99,10 +98,8 @@ def display_vaults_table(df: pd.DataFrame, nav_threshold=Decimal(1.1)) -> None:
     # Apply the function to all elements in the DataFrame
     df = df.apply(lambda col: col.map(round_below_epsilon))
 
-    with pd.option_context("display.max_rows", None):
-        display(df)
-
-    print("Displayed columns:", df.columns.tolist())
+    with pd.option_context("display.max_rows", None, "display.max_columns", None, "display.width", 200):
+        logger.info("Vault scan results:\n%s", df.to_string())
 
 
 def scan_leads(

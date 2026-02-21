@@ -221,7 +221,7 @@ def create_vault_scan_record(
             detection.features,
             str(e),
             extra_message,
-            exc_info=True,
+            exc_info=False,
         )
         return record
 
