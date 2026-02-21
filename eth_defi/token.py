@@ -21,8 +21,11 @@ import cachetools
 from web3.contract.contract import ContractFunction, ContractFunctions
 
 from eth_defi.compat import native_datetime_utc_now
-from eth_defi.event_reader.conversion import convert_int256_bytes_to_int, convert_solidity_bytes_to_string
-from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, read_multicall_chunked
+from eth_defi.event_reader.conversion import (convert_int256_bytes_to_int,
+                                              convert_solidity_bytes_to_string)
+from eth_defi.event_reader.multicall_batcher import (EncodedCall,
+                                                     EncodedCallResult,
+                                                     read_multicall_chunked)
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.provider.named import get_provider_name
 from eth_defi.sqlite_cache import PersistentKeyValueStore
@@ -239,6 +242,7 @@ STABLECOIN_LIKE = set(
         "MIMATIC",
         "MKUSD",
         "MUSD",
+        "NUSD",
         "ONC",
         "OUSD",
         "PAR",
