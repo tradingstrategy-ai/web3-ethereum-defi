@@ -94,16 +94,21 @@ import traceback
 from dataclasses import dataclass
 from pathlib import Path
 
-from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS, create_vault_instance
+from eth_defi.erc_4626.classification import (HARDCODED_PROTOCOLS,
+                                              create_vault_instance)
 from eth_defi.erc_4626.lead_scan_core import scan_leads
 from eth_defi.hypersync.utils import configure_hypersync_from_env
 from eth_defi.provider.broken_provider import verify_archive_node
-from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
-from eth_defi.research.wrangle_vault_prices import generate_cleaned_vault_datasets
+from eth_defi.provider.multi_provider import (MultiProviderWeb3Factory,
+                                              create_multi_provider_web3)
+from eth_defi.research.wrangle_vault_prices import \
+    generate_cleaned_vault_datasets
 from eth_defi.token import TokenDiskCache
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.historical import scan_historical_prices_to_parquet
-from eth_defi.vault.vaultdb import DEFAULT_READER_STATE_DATABASE, DEFAULT_UNCLEANED_PRICE_DATABASE, DEFAULT_VAULT_DATABASE
+from eth_defi.vault.vaultdb import (DEFAULT_READER_STATE_DATABASE,
+                                    DEFAULT_UNCLEANED_PRICE_DATABASE,
+                                    DEFAULT_VAULT_DATABASE)
 
 logger = logging.getLogger(__name__)
 
@@ -412,10 +417,12 @@ def scan_hypercore_fn(max_workers: int) -> ChainResult:
     :return:
         Scan result with vault count and duration.
     """
-    from eth_defi.hyperliquid.constants import HYPERLIQUID_DAILY_METRICS_DATABASE
+    from eth_defi.hyperliquid.constants import \
+        HYPERLIQUID_DAILY_METRICS_DATABASE
     from eth_defi.hyperliquid.daily_metrics import run_daily_scan
     from eth_defi.hyperliquid.session import create_hyperliquid_session
-    from eth_defi.hyperliquid.vault_data_export import merge_into_vault_database
+    from eth_defi.hyperliquid.vault_data_export import \
+        merge_into_vault_database
 
     result = ChainResult(name="Hypercore", status="running")
     start_time = time.time()
@@ -586,9 +593,12 @@ def run_post_processing(scan_hypercore: bool = False, scan_grvt: bool = False) -
     # same cleaning pipeline as EVM vaults.
     if scan_hypercore:
         try:
-            from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID, HYPERLIQUID_DAILY_METRICS_DATABASE
-            from eth_defi.hyperliquid.daily_metrics import HyperliquidDailyMetricsDatabase
-            from eth_defi.hyperliquid.vault_data_export import merge_into_uncleaned_parquet
+            from eth_defi.hyperliquid.constants import (
+                HYPERCORE_CHAIN_ID, HYPERLIQUID_DAILY_METRICS_DATABASE)
+            from eth_defi.hyperliquid.daily_metrics import \
+                HyperliquidDailyMetricsDatabase
+            from eth_defi.hyperliquid.vault_data_export import \
+                merge_into_uncleaned_parquet
             from eth_defi.vault.vaultdb import DEFAULT_UNCLEANED_PRICE_DATABASE
 
             logger.info("Merging Hypercore prices into uncleaned Parquet")
@@ -610,9 +620,11 @@ def run_post_processing(scan_hypercore: bool = False, scan_grvt: bool = False) -
     # same cleaning pipeline as EVM vaults.
     if scan_grvt:
         try:
-            from eth_defi.grvt.constants import GRVT_CHAIN_ID, GRVT_DAILY_METRICS_DATABASE
+            from eth_defi.grvt.constants import (GRVT_CHAIN_ID,
+                                                 GRVT_DAILY_METRICS_DATABASE)
             from eth_defi.grvt.daily_metrics import GRVTDailyMetricsDatabase
-            from eth_defi.grvt.vault_data_export import merge_into_uncleaned_parquet as grvt_merge_parquet
+            from eth_defi.grvt.vault_data_export import \
+                merge_into_uncleaned_parquet as grvt_merge_parquet
             from eth_defi.vault.vaultdb import DEFAULT_UNCLEANED_PRICE_DATABASE
 
             logger.info("Merging GRVT prices into uncleaned Parquet")

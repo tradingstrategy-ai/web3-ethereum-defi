@@ -235,7 +235,7 @@ def setup_console_logging(
         date_fmt = "%H:%M:%S"
     else:
         fmt = "%(asctime)s %(name)-44s %(message)s"
-        date_fmt = "%H:%M:%S"
+        date_fmt = "%Y-%m-%d %H:%M:%S"
 
     try:
         # Optional dev dependency

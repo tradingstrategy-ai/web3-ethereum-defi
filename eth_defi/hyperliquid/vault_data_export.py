@@ -33,14 +33,12 @@ import pandas as pd
 from eth_typing import HexAddress
 
 from eth_defi.compat import native_datetime_utc_now
-from eth_defi.erc_4626.core import ERC4626Feature, ERC4262VaultDetection
-from eth_defi.hyperliquid.constants import (
-    HYPERCORE_CHAIN_ID,
-    HYPERLIQUID_PROTOCOL_VAULT_LOCKUP,
-    HYPERLIQUID_USER_VAULT_LOCKUP,
-    HYPERLIQUID_VAULT_FEE_MODE,
-    HYPERLIQUID_VAULT_PERFORMANCE_FEE,
-)
+from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
+from eth_defi.hyperliquid.constants import (HYPERCORE_CHAIN_ID,
+                                            HYPERLIQUID_PROTOCOL_VAULT_LOCKUP,
+                                            HYPERLIQUID_USER_VAULT_LOCKUP,
+                                            HYPERLIQUID_VAULT_FEE_MODE,
+                                            HYPERLIQUID_VAULT_PERFORMANCE_FEE)
 from eth_defi.hyperliquid.daily_metrics import HyperliquidDailyMetricsDatabase
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.fee import FeeData
@@ -105,7 +103,7 @@ def create_hyperliquid_vault_row(
         perf_fee = HYPERLIQUID_VAULT_PERFORMANCE_FEE
         lockup = HYPERLIQUID_USER_VAULT_LOCKUP
 
-    flags = {VaultFlag.perp_dex_trading_vault}
+    flags = {VaultFlag.perp_dex_trading_vault}  
 
     # HLP child sub-vaults are internal system vaults not directly investable by users
     risk = None
@@ -154,8 +152,8 @@ def create_hyperliquid_vault_row(
         "_fees": fee_data,
         "_flags": flags,
         "_lockup": lockup,
-        "_description": description,
-        "_short_description": description[:200] if description else None,
+        "_description": None,
+        "_short_description": description,
         "_available_liquidity": None,
         "_utilisation": None,
         "_deposit_closed_reason": "Vault deposits closed" if is_closed else None,
