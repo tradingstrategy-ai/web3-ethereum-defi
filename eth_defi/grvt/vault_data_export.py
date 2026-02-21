@@ -171,10 +171,12 @@ def build_raw_prices_dataframe(db: GRVTDailyMetricsDatabase) -> pd.DataFrame:
 
     # Use .values to strip the DuckDB RangeIndex — otherwise pandas
     # tries to align it with the new index and fills everything with NaN.
+    # Lowercase addresses to match create_grvt_vault_row() which lowercases
+    # the vault ID before storing it in VaultSpec / ERC4262VaultDetection.
     result = pd.DataFrame(
         {
             "chain": chain_id,
-            "address": prices_df["vault_id"].values,
+            "address": prices_df["vault_id"].str.lower().values,
             "block_number": 0,
             "timestamp": pd.to_datetime(prices_df["date"]).values,
             "share_price": prices_df["share_price"].values,

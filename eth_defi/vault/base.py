@@ -23,6 +23,7 @@ from web3 import Web3
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.token import DEFAULT_TOKEN_CACHE, TokenAddress, TokenDetails, fetch_erc20_details
 from eth_defi.types import Percent
+from eth_defi.utils import is_good_vault_address
 from eth_defi.vault.deposit_redeem import VaultDepositManager
 from eth_defi.vault.lower_case_dict import LowercaseDict
 
@@ -69,8 +70,7 @@ class VaultSpec:
     def __post_init__(self):
         assert isinstance(self.chain_id, int)
         assert isinstance(self.vault_address, str), f"Expected str, got {self.vault_address}"
-        assert self.vault_address.startswith("0x")
-        # assert self.vault_address == self.vault_address.lower(), f"Vault address not lowercase: {self.vault_address}"
+        assert is_good_vault_address(self.vault_address), f"Vault address must start with 0x or VLT: prefix, got: {self.vault_address}"
         # TODO: Get rid of old codepaths so we can make this dataclass frozen
         self.vault_address = self.vault_address.lower()
 
