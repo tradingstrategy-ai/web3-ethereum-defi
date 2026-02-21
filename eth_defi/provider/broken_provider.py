@@ -246,6 +246,7 @@ def verify_archive_node(rpc_url: str, chain_name: str) -> int:
     for endpoint in endpoints:
         domain = get_url_domain(endpoint)
         step = "connecting"
+        latest_block = None
         try:
             web3 = create_multi_provider_web3(endpoint)
 
@@ -272,19 +273,23 @@ def verify_archive_node(rpc_url: str, chain_name: str) -> int:
             )
         except Exception as e:
             headers = get_last_headers()
-            faulty.append((domain, str(e), headers))
+            faulty.append((domain, str(e), headers, latest_block))
             logger.error(
-                "%s: Provider %s failed archive node check.\nAt step %s: %s\nHTTP response headers: %s",
+                "%s: Provider %s failed archive node check.\nAt step %s (block number %s): %s\nHTTP response headers: %s",
                 chain_name,
                 domain,
                 step,
+                f"{latest_block:,}" if latest_block is not None else "unknown",
                 e,
                 pformat(headers),
             )
 
     if faulty:
         working_str = ", ".join(f"{d} (block {b:,})" for d, b in working) if working else "none"
-        faulty_str = ", ".join(f"{d} ({err}, headers: {pformat(h)})" for d, err, h in faulty)
+        faulty_str = ", ".join(
+            f"{d} (block {b:,}, {err}, headers: {pformat(h)})" if b is not None else f"{d} ({err}, headers: {pformat(h)})"
+            for d, err, h, b in faulty
+        )
         raise RuntimeError(f"{chain_name}: {len(faulty)}/{len(endpoints)} RPC providers failed archive node verification. Working: [{working_str}]. Faulty: [{faulty_str}].")
 
     logger.info(
