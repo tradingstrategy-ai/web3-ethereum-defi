@@ -3,6 +3,7 @@
 import pandas as pd
 
 from eth_defi.chain import get_chain_homepage
+from eth_defi.research.vault_metrics import _get_trading_strategy_chain_link
 
 
 def get_address_link(
@@ -15,8 +16,7 @@ def get_address_link(
 def _get_chain_link(
     chain_name: str,
 ) -> str:
-    slug = chain_name.lower().replace(" ", "-")
-    return f"https://tradingstrategy.ai/trading-view/{slug}/vaults"
+    return _get_trading_strategy_chain_link(chain_name)
 
 
 def _move_columns_to_front(df: pd.DataFrame, cols: list[str]) -> pd.DataFrame:

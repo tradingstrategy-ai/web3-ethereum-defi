@@ -190,6 +190,31 @@ def slugify_vault(
     return address
 
 
+#: Map internal chain names to tradingstrategy.ai website slugs.
+#:
+#: Only chains that differ from ``chain_name.lower()`` need an entry.
+_CHAIN_SLUG_OVERRIDES = {
+    "hypercore": "hyperliquid",
+}
+
+
+def _get_chain_slug(chain_name: str) -> str:
+    """Get the tradingstrategy.ai website slug for a chain name."""
+    slug = chain_name.lower()
+    return _CHAIN_SLUG_OVERRIDES.get(slug, slug)
+
+
+def _get_trading_strategy_chain_link(chain_name: str) -> str:
+    """Get the tradingstrategy.ai vault listing URL for a chain."""
+    chain_slug = _get_chain_slug(chain_name)
+    return f"https://tradingstrategy.ai/trading-view/{chain_slug}/vaults"
+
+
+def _get_trading_strategy_protocol_link(protocol_slug: str) -> str:
+    """Get the tradingstrategy.ai vault listing URL for a protocol."""
+    return f"https://tradingstrategy.ai/trading-view/vaults/protocols/{protocol_slug}"
+
+
 def _get_trading_strategy_vault_link(
     chain_id: int,
     chain_name: str,
@@ -197,7 +222,7 @@ def _get_trading_strategy_vault_link(
     vault_slug: str,
     vault_address: str,
 ):
-    chain_slug = chain_name.lower()
+    chain_slug = _get_chain_slug(chain_name)
     return f"https://tradingstrategy.ai/trading-view/{chain_slug}/vaults/{vault_slug}?a={vault_address}"
 
 
@@ -1550,6 +1575,7 @@ def format_lifetime_table(
     add_share_token=False,
     drop_blacklisted=True,
     profit_presentation: Literal["split", "net_only"] = "split",
+    html_links=False,
 ) -> pd.DataFrame:
     """Format table for human readable output.
 
@@ -1565,6 +1591,21 @@ def format_lifetime_table(
 
     :param drop_blacklisted:
         Remove vaults we have manually flagged as troublesome.
+
+    :param html_links:
+        Wrap Name, Chain, and Protocol values in ``<a>`` tags
+        linking to `tradingstrategy.ai <https://tradingstrategy.ai>`__.
+        Use :py:func:`display_lifetime_table` to render the result
+        with compact styling in a Jupyter notebook.
+
+        Example::
+
+            from eth_defi.research.vault_metrics import (
+                format_lifetime_table, display_lifetime_table,
+            )
+
+            formatted = format_lifetime_table(df, html_links=True)
+            display_lifetime_table(formatted)
 
     :return:
         Human readable data frame
@@ -1632,6 +1673,24 @@ def format_lifetime_table(
     # Format lending protocol statistics
     df["utilisation"] = df["utilisation"].apply(lambda x: f"{x:.1%}" if pd.notna(x) else "---")
     df["available_liquidity"] = df["available_liquidity"].apply(lambda x: f"${x:,.0f}" if pd.notna(x) else "---")
+
+    # Optionally wrap name, chain, and protocol in <a> links.
+    # Must be done before the columns they depend on are deleted below.
+    if html_links:
+        if "trading_strategy_link" in df.columns:
+            df["name"] = df.apply(
+                lambda row: f'<a href="{row["trading_strategy_link"]}">{row["name"]}</a>',
+                axis=1,
+            )
+        if "chain" in df.columns:
+            df["chain"] = df["chain"].apply(
+                lambda name: f'<a href="{_get_trading_strategy_chain_link(name)}">{name}</a>',
+            )
+        if "protocol" in df.columns and "protocol_slug" in df.columns:
+            df["protocol"] = df.apply(
+                lambda row: f'<a href="{_get_trading_strategy_protocol_link(row["protocol_slug"])}">{row["protocol"]}</a>',
+                axis=1,
+            )
 
     def _del(x):
         if x in df.columns:
@@ -1764,6 +1823,33 @@ def format_lifetime_table(
         df["Address"] = df["id"].apply(lambda x: x.split("-")[1])
 
     return df
+
+
+def display_lifetime_table(df: pd.DataFrame):
+    """Render a formatted lifetime table as compact HTML in a Jupyter notebook.
+
+    Produces an HTML table with minimal cell padding and renders
+    ``<a>`` links created by :py:func:`format_lifetime_table` with
+    ``html_links=True``.
+
+    Example::
+
+        formatted = format_lifetime_table(df, html_links=True)
+        display_lifetime_table(formatted)
+
+    :param df:
+        DataFrame returned by :py:func:`format_lifetime_table`.
+    """
+    from IPython.display import display, HTML
+
+    style = (
+        "<style>"
+        "table.lifetime-table td, table.lifetime-table th "
+        "{ padding: 2px 6px; white-space: nowrap; }"
+        "</style>"
+    )
+    table_html = df.to_html(escape=False, classes="lifetime-table")
+    display(HTML(style + table_html))
 
 
 @dataclass(frozen=True, slots=True)
