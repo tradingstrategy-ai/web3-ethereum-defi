@@ -24,6 +24,21 @@ from eth_defi.provider.mev_blocker import MEVBlockerProvider
 
 logger = logging.getLogger(__name__)
 
+# There are no archive nodes on Monad.
+#
+# This is a network-specific behavior. The Monad archive approach does not support historical state data, only historical transactional data (please see this for more info https://docs.monad.xyz/developer-essentials/historical-data).
+# "Well, I do understand where you're coming from. Having managed dozens of chains myself with the "full/archive" terminology, this sounds odd.
+# However, Monad being a high-throughput chain, it's not feasible to store every state since the genesis. If we do that, you would require a few TBs for every day (check TrieDB).
+# For this reason, we've multi-layered storage system:
+# - TrieDB (Hot) - Has states
+# - ArchiveDB (MongoDB) (Warm) - Doesn't have states
+# - Archive (Object Storage) (Cold) - Doesn't have states
+# So, "archive" in reference to Monad contains blocks, receipts, traces, etc., not states.
+# If you want to store more states locally, you can provision a beefy drive for TrieDB, but still you'd only make a few weeks.
+# Lastly, even without states, ArchiveDB is estimated to store hundreds of GBs of data per day if Monad throughput peaks at 10k TPS."
+
+MONAD_START_BLOCK = 50_000_000
+
 
 def get_default_block_tip_latency(web3: Web3) -> int:
     """Workaround for Ankr and other node providers that do not handle the chain tip properly.
