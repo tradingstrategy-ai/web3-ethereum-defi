@@ -10,7 +10,9 @@ See also
 
 """
 
+import logging
 import time
+from pprint import pformat
 
 from eth_typing import BlockIdentifier
 from web3 import Web3
@@ -19,6 +21,8 @@ from eth_defi.provider.ankr import is_ankr
 from eth_defi.provider.anvil import is_anvil, is_mainnet_fork
 from eth_defi.provider.fallback import FallbackProvider
 from eth_defi.provider.mev_blocker import MEVBlockerProvider
+
+logger = logging.getLogger(__name__)
 
 
 def get_default_block_tip_latency(web3: Web3) -> int:
@@ -207,3 +211,85 @@ def get_safe_cached_latest_block_number(
     _latest_delayed_block_number_cache[chain_id] = (safe_block, now)
 
     return safe_block
+
+
+def verify_archive_node(rpc_url: str, chain_name: str) -> int:
+    """Verify that each RPC provider in the configuration is an archive node.
+
+    Parses the space-separated multi-RPC configuration line and tests each
+    endpoint individually. Checks that each provider can serve both block 1
+    and the latest block. This catches misconfigured RPC endpoints early
+    before starting expensive scans.
+
+    :param rpc_url: RPC URL configuration line (may contain space-separated fallbacks, ``mev+`` prefixed endpoints are skipped)
+    :param chain_name: Chain name for logging
+    :return: Latest block number from the first working provider
+    :raises RuntimeError: If any provider fails verification, listing working and faulty providers
+    """
+    from eth_defi.event_reader.fast_json_rpc import get_last_headers
+    from eth_defi.provider.multi_provider import create_multi_provider_web3
+    from eth_defi.utils import get_url_domain
+
+    zero_address = "0x0000000000000000000000000000000000000000"
+
+    # Parse individual endpoints from the configuration line,
+    # skip mev+ transact-only endpoints
+    endpoints = [url.strip() for url in rpc_url.split() if url.strip() and not url.strip().startswith("mev+")]
+
+    if not endpoints:
+        raise RuntimeError(f"{chain_name}: No call endpoints found in RPC configuration")
+
+    working = []  # (domain, latest_block)
+    faulty = []  # (domain, error_message)
+    first_latest_block = None
+
+    for endpoint in endpoints:
+        domain = get_url_domain(endpoint)
+        step = "connecting"
+        try:
+            web3 = create_multi_provider_web3(endpoint)
+
+            # Check latest block
+            step = f"eth_blockNumber()"
+            latest_block = web3.eth.block_number
+            if first_latest_block is None:
+                first_latest_block = latest_block
+
+            # Check block 1 (archive node test)
+            step = f"eth_getBalance({zero_address}, block=1)"
+            web3.eth.get_balance(zero_address, block_identifier=1)
+
+            # Check latest block is queryable
+            step = f"eth_getBalance({zero_address}, block={latest_block:,})"
+            web3.eth.get_balance(zero_address, block_identifier=latest_block)
+
+            working.append((domain, latest_block))
+            logger.info(
+                "%s: Provider %s passed archive node check (latest block %s)",
+                chain_name,
+                domain,
+                f"{latest_block:,}",
+            )
+        except Exception as e:
+            headers = get_last_headers()
+            faulty.append((domain, str(e)))
+            logger.error(
+                "%s: Provider %s failed archive node check at step %s: %s\nHTTP response headers: %s",
+                chain_name,
+                domain,
+                step,
+                e,
+                pformat(headers),
+            )
+
+    if faulty:
+        working_str = ", ".join(f"{d} (block {b:,})" for d, b in working) if working else "none"
+        faulty_str = ", ".join(f"{d} ({err})" for d, err in faulty)
+        raise RuntimeError(f"{chain_name}: {len(faulty)}/{len(endpoints)} RPC providers failed archive node verification. Working: [{working_str}]. Faulty: [{faulty_str}].")
+
+    logger.info(
+        "%s: All %d RPC providers passed archive node verification",
+        chain_name,
+        len(working),
+    )
+    return first_latest_block
