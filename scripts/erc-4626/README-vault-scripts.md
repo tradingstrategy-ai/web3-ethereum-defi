@@ -22,8 +22,25 @@ JSON_RPC_URL=$JSON_RPC_BASE poetry run python scripts/erc-4626/scan-vaults.py
 | `JSON_RPC_URL` | Required. RPC endpoint for the chain. |
 | `LOG_LEVEL` | Optional. Default: WARNING. |
 | `MAX_GETLOGS_RANGE` | Optional. Max block range for getLogs. |
-| `SCAN_BACKEND` | Optional. Event reader backend. |
+| `SCAN_BACKEND` | Optional. Event reader backend (`auto`, `hypersync`, `rpc`). |
 | `END_BLOCK` | Optional. Stop scanning at this block. |
+| `RESET_LEADS` | Optional. Rescan from block 1, discarding existing leads. Use when new protocol event support has been added and historical events need to be re-discovered. Very slow on large chains like Ethereum mainnet (~24M+ blocks). |
+| `HYPERSYNC_API_KEY` | Optional. Required when using `auto` scan backend. |
+
+#### Re-discovering vaults after adding new protocol support
+
+The vault scanner is incremental — it only scans new blocks since the last run.
+When support for a new protocol's custom events is added (e.g. Ember's `VaultDeposit`),
+vaults that emitted events before the code change will not be discovered because the scanner
+has already passed those blocks. Use `RESET_LEADS` to rescan from the beginning:
+
+```shell
+# Re-discover all vaults on Ethereum from block 1
+# Works with both Hypersync and RPC backends
+RESET_LEADS=1 LOG_LEVEL=info JSON_RPC_URL=$JSON_RPC_ETHEREUM \
+  HYPERSYNC_API_KEY=$HYPERSYNC_API_KEY \
+  poetry run python scripts/erc-4626/scan-vaults.py
+```
 
 ### scan-vaults-all-chains.py
 

@@ -26,7 +26,7 @@ from tqdm.auto import tqdm
 from eth_defi.chain import get_chain_name
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.core import ERC4262VaultDetection
-from eth_defi.research.value_table import format_series_as_multi_column_grid
+from eth_defi.research.value_table import format_grouped_series_as_multi_column_grid, format_series_as_multi_column_grid
 from eth_defi.research.wrangle_vault_prices import forward_fill_vault
 from eth_defi.token import is_stablecoin_like, normalise_token_symbol
 from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS
@@ -2123,6 +2123,90 @@ def format_ffn_performance_stats(
         return data_series
 
 
+#: Group headings for FFN performance stats, matching the None
+#: separators in ``PerformanceStats._stats()``.
+FFN_GROUP_HEADINGS = [
+    "Overview",
+    "Returns",
+    "Period returns",
+    "Daily statistics",
+    "Monthly statistics",
+    "Yearly statistics",
+    "Drawdown statistics",
+]
+
+
+def format_ffn_performance_stats_grouped(
+    report: PerformanceStats,
+    prefix_series: pd.Series | None = None,
+) -> list[tuple[str, pd.Series]]:
+    """Format FFN report as logically grouped sections.
+
+    Returns a list of ``(heading, series)`` tuples where each tuple
+    represents a group of related metrics. The groups correspond to
+    the ``None`` separators in FFN's ``PerformanceStats._stats()``.
+
+    :param report:
+        FFN performance report to format.
+
+    :param prefix_series:
+        Extra header data to prepend to the first group.
+
+    :return:
+        List of ``(heading, series)`` tuples for each logical group.
+    """
+    assert isinstance(report, PerformanceStats), f"report must be an instance of PerformanceStats, got {type(report)}"
+
+    stat_definitions = report._stats()
+
+    def _format(k, f, raw):
+        if k == "rf" and not isinstance(raw, float):
+            return np.nan
+        elif f is None:
+            return raw
+        elif f == "p":
+            return fmtp(raw)
+        elif f == "n":
+            return fmtn(raw)
+        elif f == "dt":
+            return raw.strftime("%Y-%m-%d")
+        else:
+            raise NotImplementedError("unsupported format %s" % f)
+
+    # Split stats into groups at None boundaries
+    groups = []
+    current_keys = []
+    current_values = []
+
+    for key, name, typ in stat_definitions:
+        if not name:
+            # None separator = group boundary
+            if current_keys:
+                groups.append(pd.Series(current_values, index=current_keys))
+                current_keys = []
+                current_values = []
+            continue
+        current_keys.append(name)
+        raw = getattr(report, key, "")
+        current_values.append(_format(key, typ, raw))
+
+    # Don't forget the last group (no trailing None)
+    if current_keys:
+        groups.append(pd.Series(current_values, index=current_keys))
+
+    # Prepend prefix_series to first group
+    if prefix_series is not None and len(groups) > 0:
+        groups[0] = pd.concat([prefix_series, groups[0]])
+
+    # Pair groups with headings
+    result = []
+    for i, group_series in enumerate(groups):
+        heading = FFN_GROUP_HEADINGS[i] if i < len(FFN_GROUP_HEADINGS) else f"Group {i + 1}"
+        result.append((heading, group_series))
+
+    return result
+
+
 def cross_check_data(
     vault_db: VaultDatabase,
     prices_df: pd.DataFrame,
@@ -2268,17 +2352,13 @@ def display_vault_chart_and_tearsheet(
     df = pd.Series(data)
     # display(df)
 
-    # Display FFN stats
+    # Display FFN stats as grouped sections
     performance_stats = vault_report.performance_stats
     if performance_stats is not None:
-        stats_df = format_ffn_performance_stats(performance_stats)
-
-        multi_column_df = format_series_as_multi_column_grid(stats_df)
-
-        # display(stats_df)
-        out_table = HTML(multi_column_df.to_html(float_format="{:,.2f}".format, index=True))
+        grouped = format_ffn_performance_stats_grouped(performance_stats)
+        grouped_html = format_grouped_series_as_multi_column_grid(grouped)
         if render:
-            display(out_table)
+            display(HTML(grouped_html))
     else:
         if render:
             print(f"Vault {vault_spec.chain_id}-{vault_spec.vault_address}: performance metrics not available, is quantstats library installed?")
