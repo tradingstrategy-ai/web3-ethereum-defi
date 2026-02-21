@@ -101,27 +101,28 @@ def format_grouped_series_as_multi_column_grid(
 
         grid_df = pd.DataFrame(grid_data.reshape(n_rows, effective_cols * 2), columns=columns)
 
-        # Build CSS: fixed table layout, column widths, borders, alignment.
-        # Use the same per-column widths regardless of effective_cols so
-        # that single-column and multi-column sections align.
+        # Hide column headers (already have section heading) and index
+        styler = grid_df.style.hide(axis="index").hide(axis="columns")
+        table_id = f"T_{styler.uuid}"
+
+        # Build CSS scoped to this table's ID so rules don't leak
+        # across sections. Use the same per-column widths regardless
+        # of effective_cols so that columns align consistently.
         section_width = effective_cols * (metric_col_width + value_col_width)
         cell_css = []
-        cell_css.append(f"table {{ table-layout: fixed; width: {section_width}px; }}")
+        cell_css.append(f"#{table_id} {{ table-layout: fixed; width: {section_width}px; }}")
         for i in range(effective_cols):
             metric_col_idx = i * 2
             value_col_idx = i * 2 + 1
-            cell_css.append(f"td:nth-child({metric_col_idx + 1}) {{ width: {metric_col_width}px; }}")
-            cell_css.append(f"td:nth-child({value_col_idx + 1}) {{ width: {value_col_width}px; text-align: right; }}")
+            cell_css.append(f"#{table_id} td:nth-child({metric_col_idx + 1}) {{ width: {metric_col_width}px; }}")
+            cell_css.append(f"#{table_id} td:nth-child({value_col_idx + 1}) {{ width: {value_col_width}px; text-align: right; }}")
         if effective_cols == 1:
-            # Remove the right border on the only value column
-            cell_css.append("td:nth-child(2) { border-right: none !important; }")
+            cell_css.append(f"#{table_id} td:nth-child(2) {{ border-right: none !important; }}")
         else:
             for i in range(effective_cols - 1):
                 value_col_idx = i * 2 + 1
-                cell_css.append(f"td:nth-child({value_col_idx + 1}) {{ border-right: 2px solid #999; }}")
+                cell_css.append(f"#{table_id} td:nth-child({value_col_idx + 1}) {{ border-right: 2px solid #999; }}")
 
-        # Hide column headers (already have section heading) and index
-        styler = grid_df.style.hide(axis="index").hide(axis="columns")
         table_html = styler.to_html()
 
         # Inject scoped CSS into the table's <style> block
