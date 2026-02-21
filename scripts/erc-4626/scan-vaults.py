@@ -96,20 +96,24 @@ def main():
     if scan_backend == "auto":
         assert hypersync_api_key, f"HYPERSYNC_API_KEY must be set to use auto scan backend"
 
-    scan_leads(
-        json_rpc_urls=JSON_RPC_URL,
-        vault_db_file=vault_db_file,
-        max_workers=max_workers,
-        start_block=None,
-        end_block=end_block,
-        printer=print,
-        backend=scan_backend,
-        max_getlogs_range=max_getlogs_range,
-        reset_leads=reset_leads,
-        hypersync_api_key=hypersync_api_key,
-    )
+    try:
+        scan_leads(
+            json_rpc_urls=JSON_RPC_URL,
+            vault_db_file=vault_db_file,
+            max_workers=max_workers,
+            start_block=None,
+            end_block=end_block,
+            printer=print,
+            backend=scan_backend,
+            max_getlogs_range=max_getlogs_range,
+            reset_leads=reset_leads,
+            hypersync_api_key=hypersync_api_key,
+        )
 
-    print("All ok")
+        print("All ok")
+    except Exception as e:
+        print("Died with error: %s", e)
+        raise
 
 
 if __name__ == "__main__":
