@@ -12,21 +12,18 @@ import logging
 import time
 
 from eth_typing import HexAddress, HexStr
-from web3 import Web3
-
 from tqdm_loggable.auto import tqdm
+from web3 import Web3
 
 from eth_defi.abi import get_topic_signature_from_event
 from eth_defi.chain import get_chain_name
 from eth_defi.compat import native_datetime_utc_fromtimestamp
-from eth_defi.erc_4626.discovery_base import (
-    PotentialVaultMatch,
-    VaultDiscoveryBase,
-    LeadScanReport,
-    get_vault_discovery_events,
-    get_vault_event_topic_map,
-    is_deposit_event,
-)
+from eth_defi.erc_4626.discovery_base import (LeadScanReport,
+                                              PotentialVaultMatch,
+                                              VaultDiscoveryBase,
+                                              get_vault_discovery_events,
+                                              get_vault_event_topic_map,
+                                              is_deposit_event)
 from eth_defi.event_reader.web3factory import Web3Factory
 
 try:

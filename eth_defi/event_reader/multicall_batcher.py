@@ -29,7 +29,8 @@ from http.client import RemoteDisconnected
 from itertools import islice
 from pathlib import Path
 from pprint import pformat
-from typing import Any, Callable, Final, Generator, Hashable, Iterable, TypeAlias
+from typing import (Any, Callable, Final, Generator, Hashable, Iterable,
+                    TypeAlias)
 
 from eth_typing import BlockIdentifier, BlockNumber, HexAddress
 from hexbytes import HexBytes
@@ -41,14 +42,18 @@ from web3 import Web3
 from web3.contract import Contract
 from web3.contract.contract import ContractFunction
 
-from eth_defi.abi import ZERO_ADDRESS, ZERO_ADDRESS_STR, encode_function_call, format_debug_instructions, get_deployed_contract
+from eth_defi.abi import (ZERO_ADDRESS, ZERO_ADDRESS_STR, encode_function_call,
+                          format_debug_instructions, get_deployed_contract)
 from eth_defi.chain import get_default_call_gas_limit
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.event_reader.fast_json_rpc import get_last_headers
-from eth_defi.event_reader.multicall_timestamp import fetch_block_timestamps_multiprocess_auto_backend
-from eth_defi.event_reader.timestamp_cache import DEFAULT_TIMESTAMP_CACHE_FOLDER
+from eth_defi.event_reader.multicall_timestamp import \
+    fetch_block_timestamps_multiprocess_auto_backend
+from eth_defi.event_reader.timestamp_cache import \
+    DEFAULT_TIMESTAMP_CACHE_FOLDER
 from eth_defi.event_reader.web3factory import Web3Factory
-from eth_defi.middleware import ProbablyNodeHasNoBlock, is_retryable_http_exception
+from eth_defi.middleware import (ProbablyNodeHasNoBlock,
+                                 is_retryable_http_exception)
 from eth_defi.provider.fallback import FallbackProvider
 from eth_defi.provider.named import get_provider_name
 from eth_defi.timestamp import get_block_timestamp
@@ -1218,7 +1223,7 @@ class MultiprocessMulticallReader:
                         logger.warning("Received HTTP 429: sleeping %f, cause %s", self.too_many_requets_sleep, cause)
                         time.sleep(self.too_many_requets_sleep)
                     else:
-                        logger.warning("Received no-throttle status %s: %s, cause: %s, multicall target addresses: %s...", status_code, pformat(headers), cause, multicall_addresses[0:6])
+                        logger.warning("Received no-throttle status %s: %s, cause: %s, multicall target addresses: %s...", status_code, pformat(headers), cause, multicall_addresses[0:12])
 
                     fallback_provider.switch_provider(
                         log_level=logging.WARNING,
@@ -1252,7 +1257,7 @@ class MultiprocessMulticallReader:
                         msg = (
                             # Ruff piece of crap hack
                             # https://github.com/astral-sh/ruff/pull/8822
-                            f"   Fallback attempt number #{i}, max fallback attempts {fallback_attempts}.\n   Original provider: {provider} ({provider_name}), fallback provider: {fallback_provider} ({active_provider_name}), chain {chain_id}, block {block_identifier_str}, batch size: 1.\n   Attempted providers: {attempted_providers}.\n   Exception: {e.__class__}: {e}.\n   Cause: {cause.__class__}: {cause}.\n   Headers: {pformat(headers)}.\n   Status code: {status_code}\n   Address batch size: {fallback_batch_size}\n   Addresses: {multicall_addresses[0:6]}... total {len(multicall_addresses)}\n"
+                            f"   Fallback attempt number #{i}, max fallback attempts {fallback_attempts}.\n   Original provider: {provider} ({provider_name}), fallback provider: {fallback_provider} ({active_provider_name}), chain {chain_id}, block {block_identifier_str}, batch size: 1.\n   Attempted providers: {attempted_providers}.\n   Exception: {e.__class__}: {e}.\n   Cause: {cause.__class__}: {cause}.\n   Headers: {pformat(headers)}.\n   Status code: {status_code}\n   Address batch size: {fallback_batch_size}\n   Addresses: {multicall_addresses[0:15]}... total {len(multicall_addresses)}\n"
                         )
 
                         logger.warning("Multicall retry status:\n%s", msg)
