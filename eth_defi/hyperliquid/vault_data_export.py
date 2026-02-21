@@ -45,6 +45,7 @@ from eth_defi.hyperliquid.daily_metrics import HyperliquidDailyMetricsDatabase
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.fee import FeeData
 from eth_defi.vault.flag import VaultFlag
+from eth_defi.vault.risk import VaultTechnicalRisk
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
 
 logger = logging.getLogger(__name__)
@@ -107,8 +108,10 @@ def create_hyperliquid_vault_row(
     flags = {VaultFlag.perp_dex_trading_vault}
 
     # HLP child sub-vaults are internal system vaults not directly investable by users
+    risk = None
     if relationship_type == "child":
         flags.add(VaultFlag.subvault)
+        risk = VaultTechnicalRisk.blacklisted
 
     detection = ERC4262VaultDetection(
         chain=chain_id,
@@ -159,6 +162,7 @@ def create_hyperliquid_vault_row(
         "_deposit_next_open": None,
         "_redemption_closed_reason": None,
         "_redemption_next_open": None,
+        "_risk": risk,
     }
 
     spec = VaultSpec(chain_id=chain_id, vault_address=address)

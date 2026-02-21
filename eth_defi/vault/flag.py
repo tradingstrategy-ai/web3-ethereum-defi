@@ -56,6 +56,9 @@ class VaultFlag(str, enum.Enum):
     #: This vault is a subvault used by other vaults
     subvault = "subvault"
 
+    #: Share price is unrealistically high (> $1M), likely a broken contract
+    abnormal_share_price = "abnormal_share_price"
+
     #: Tnis vault is a perp dex trading vault on Hyperliquid, Orderly, Lighter, etc.
     perp_dex_trading_vault = "perp_dex_trading_vault"
 
@@ -68,6 +71,7 @@ BAD_FLAGS = {
     VaultFlag.abnormal_tvl,
     VaultFlag.unofficial,
     VaultFlag.abnormal_price_on_low_tvl,
+    VaultFlag.abnormal_share_price,
     VaultFlag.subvault,
 }
 
@@ -123,6 +127,8 @@ MALICIOUS_VAULT = "This vault is reported as malicious, and may have some sort o
 MAINST_VAULT = "Main Street Market related products were wiped out in Oct 10th event https://x.com/Main_St_Finance/status/1976972055951147194"
 
 ABNORMAL_TVL = "The TVL on this vault is abnormal"
+
+ABNORMAL_SHARE_PRICE = "Share price is unrealistically high, likely a broken smart contract"
 
 
 HYPERCORE_VAULT_NOTE = "Profit calculations are cleaned from deposit/redeem net flow and differ from the account Profit and Loss (PnL) on Hyperliquid website"

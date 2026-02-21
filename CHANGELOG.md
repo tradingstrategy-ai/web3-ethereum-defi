@@ -1,5 +1,6 @@
 # Current
 
+- Auto-blacklist HyperCore HLP child sub-vaults and vaults with abnormal share price > $1M (2026-02-21)
 - **Add: GRVT (Gravity Markets) native vault metrics pipeline with dynamic vault discovery via public endpoints, DuckDB storage, and unified ERC-4626 pipeline export (2026-02-20)**
 - **Fix: Route Hypercore vaults through the standard ERC-4626 cleaning pipeline to fix abnormal profit metrics (2026-02-20)**
 - **Add: Ember protocol vault integration with custom VaultDeposit/RequestRedeemed event support, offchain metadata, and disk cache consolidation (2026-02-20, [#755](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/755))**

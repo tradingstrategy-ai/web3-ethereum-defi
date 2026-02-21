@@ -31,7 +31,7 @@ from eth_defi.research.wrangle_vault_prices import forward_fill_vault
 from eth_defi.token import is_stablecoin_like, normalise_token_symbol
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.fee import FeeData, VaultFeeMode
-from eth_defi.vault.flag import ABNORMAL_TVL, VaultFlag, get_notes
+from eth_defi.vault.flag import ABNORMAL_SHARE_PRICE, ABNORMAL_TVL, VaultFlag, get_notes
 from eth_defi.vault.risk import VaultTechnicalRisk, get_vault_risk
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
 
@@ -45,6 +45,12 @@ Percent: TypeAlias = float
 Period: TypeAlias = Literal["1W", "1M", "3M", "6M", "1Y", "lifetime"]
 
 USDollarAmount: TypeAlias = float
+
+#: Vaults with TVL above this are considered broken smart contracts
+MAX_VALID_NAV: USDollarAmount = 100_000_000_000
+
+#: Vaults with share price above this are considered broken smart contracts
+MAX_VALID_SHARE_PRICE: USDollarAmount = 1_000_000
 
 
 @dataclass(slots=True)
@@ -953,14 +959,14 @@ def calculate_vault_record(
     event_count = prices_df["event_count"].iloc[-1]
     protocol = vault_metadata["Protocol"]
 
-    risk = get_vault_risk(protocol, vault_address)
+    risk = vault_metadata.get("_risk") or get_vault_risk(protocol, vault_address)
     notes = get_notes(vault_address, chain_id=chain_id)
 
     flags = vault_metadata.get("_flags", set())
 
     # Check for broken vaults by abnormal TVL > $100B.
     # This automatically filters out several broken entries
-    if current_nav > 100_000_000_000:
+    if current_nav > MAX_VALID_NAV:
         risk = VaultTechnicalRisk.blacklisted
         notes = ABNORMAL_TVL
         if not flags:
@@ -968,6 +974,16 @@ def calculate_vault_record(
             # which gets shared across all vaults
             flags = set()
         flags.add(VaultFlag.abnormal_tvl)
+
+    # Check for broken vaults by abnormal share price > $1M.
+    # Real stablecoin vaults should never reach this price.
+    current_share_price = prices_df.iloc[-1]["share_price"]
+    if current_share_price > MAX_VALID_SHARE_PRICE:
+        risk = VaultTechnicalRisk.blacklisted
+        notes = ABNORMAL_SHARE_PRICE
+        if not flags:
+            flags = set()
+        flags.add(VaultFlag.abnormal_share_price)
 
     vault_slug = vault_metadata["vault_slug"]
     protocol_slug = vault_metadata["protocol_slug"]
