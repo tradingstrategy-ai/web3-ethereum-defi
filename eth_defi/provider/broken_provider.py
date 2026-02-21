@@ -272,7 +272,7 @@ def verify_archive_node(rpc_url: str, chain_name: str) -> int:
             )
         except Exception as e:
             headers = get_last_headers()
-            faulty.append((domain, str(e)))
+            faulty.append((domain, str(e), headers))
             logger.error(
                 "%s: Provider %s failed archive node check at step %s: %s\nHTTP response headers: %s",
                 chain_name,
@@ -284,7 +284,7 @@ def verify_archive_node(rpc_url: str, chain_name: str) -> int:
 
     if faulty:
         working_str = ", ".join(f"{d} (block {b:,})" for d, b in working) if working else "none"
-        faulty_str = ", ".join(f"{d} ({err})" for d, err in faulty)
+        faulty_str = ", ".join(f"{d} ({err}, headers: {pformat(h)})" for d, err, h in faulty)
         raise RuntimeError(f"{chain_name}: {len(faulty)}/{len(endpoints)} RPC providers failed archive node verification. Working: [{working_str}]. Faulty: [{faulty_str}].")
 
     logger.info(
