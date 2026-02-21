@@ -275,7 +275,7 @@ def verify_archive_node(rpc_url: str, chain_name: str) -> int:
             headers = get_last_headers()
             faulty.append((domain, str(e), headers, latest_block))
             logger.error(
-                "%s: Provider %s failed archive node check.\nAt step %s (block number %s): %s\nHTTP response headers: %s",
+                "%s: Provider %s\nFailed archive node check.\nAt step %s (block number %s): %s\nHTTP response headers: %s",
                 chain_name,
                 domain,
                 step,
