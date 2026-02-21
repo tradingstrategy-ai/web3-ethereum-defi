@@ -1,0 +1,37 @@
+name: GRVT
+slug: grvt
+short_description: |
+  Native perpetual trading strategies on Gravity Markets (GRVT).
+long_description: |
+  GRVT (Gravity Markets) is a hybrid derivatives exchange built on a
+  ZKsync-based chain (chain ID 325). Strategy vaults allow managers to
+  deploy perpetual trading strategies while depositors earn a share of
+  the returns.
+
+  All vaults are denominated in USDT. Investor positions are updated
+  every 4 hours, which acts as a practical settlement/lockup period.
+
+  Key features:
+
+  - Strategy managers deploy perpetual trading strategies on GRVT
+  - Management fees range from 0% to 4%, charged daily via share minting
+  - Performance fees range from 0% to 40%, charged at redemption
+  - 4-hour position update interval (settlement period)
+  - All vaults denominated in USDT
+fee_description: |
+  Management fees (0-4%) are charged daily by minting new strategy shares,
+  diluting existing holders. These fees are already reflected in the share
+  price. Performance fees (0-40%) are charged on gains at redemption time
+  and are NOT reflected in the share price (externalised). Each vault sets
+  its own fee percentages.
+links:
+  homepage: https://grvt.io
+  app: https://grvt.io/exchange/strategies
+  twitter: https://x.com/gaborgurbacs
+  github: https://github.com/gravity-technologies
+  documentation: https://help.grvt.io/en/articles/11424466-grvt-strategies-core-concepts
+  defillama: https://defillama.com/protocol/grvt-perps
+  audits:
+  fees: https://help.grvt.io/en/articles/11640733-strategy-setup-guide-how-to-configure-fees-redemptions-and-rewards-on-grvt
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/grvt
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/api/grvt/index.html

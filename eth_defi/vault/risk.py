@@ -142,6 +142,8 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "sBOLD": VaultTechnicalRisk.low,
     # Hyperliquid - native vaults on Hypercore, closed-source centralised exchange
     "Hyperliquid": VaultTechnicalRisk.severe,
+    # GRVT - centralised perp DEX on ZKsync-based chain, closed-source
+    "GRVT": VaultTechnicalRisk.severe,
     # Ember - investment platform, audited but limited on-chain transparency
     "Ember": VaultTechnicalRisk.severe,
 }

@@ -1,6 +1,7 @@
 """Generic ECR-4626 vault reader implementation."""
 
 import datetime
+import inspect
 import logging
 from decimal import Decimal
 from functools import cached_property
@@ -1013,7 +1014,9 @@ class ERC4626Vault(VaultBase):
     def fetch_share_token(self) -> TokenDetails:
         # eth_defi.token.TokenDetailError: Token 0xDb7869Ffb1E46DD86746eA7403fa2Bb5Caf7FA46 missing symbol
         share_token_address = self.fetch_share_token_address()
-        logger.info("Attempting to fetch share token details: %s for vault %s", share_token_address, self.address)
+        stack = inspect.stack()
+        caller_info = " <- ".join(f"{f.filename}:{f.lineno} {f.function}" for f in stack[1:5])
+        logger.info("Attempting to fetch share token details: %s for vault %s, called from: %s", share_token_address, self.address, caller_info)
         return fetch_erc20_details(
             self.web3,
             self.fetch_share_token_address(),
