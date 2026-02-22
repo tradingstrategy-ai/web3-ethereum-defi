@@ -32,8 +32,7 @@ from eth_defi.token import is_stablecoin_like, normalise_token_symbol
 from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.fee import FeeData, VaultFeeMode
-from eth_defi.vault.flag import (ABNORMAL_SHARE_PRICE, ABNORMAL_TVL, VaultFlag,
-                                 get_notes)
+from eth_defi.vault.flag import ABNORMAL_SHARE_PRICE, ABNORMAL_TVL, ABNORMAL_VOLATILITY, VaultFlag, get_notes
 from eth_defi.vault.risk import VaultTechnicalRisk, get_vault_risk
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
 
@@ -53,6 +52,11 @@ MAX_VALID_NAV: USDollarAmount = 100_000_000_000
 
 #: Vaults with share price above this are considered broken smart contracts
 MAX_VALID_SHARE_PRICE: USDollarAmount = 1_000_000
+
+#: Vaults with annualised volatility above this are considered broken.
+#: This catches low-TVL Hyperliquid vaults with one or few trades
+#: that produce extreme volatility numbers.
+MAX_VALID_VOLATILITY: Percent = 10_000
 
 
 @dataclass(slots=True)
@@ -911,6 +915,75 @@ def calculate_period_metrics(
     )
 
 
+def apply_abnormal_value_checks(
+    risk: VaultTechnicalRisk,
+    notes: str,
+    flags: set[VaultFlag],
+    current_nav: USDollarAmount | None = None,
+    current_share_price: float | None = None,
+    three_months_volatility: Percent | None = None,
+) -> tuple[VaultTechnicalRisk, str, set[VaultFlag]]:
+    """Check for broken vaults by detecting abnormal metric values.
+
+    Automatically blacklists vaults with unrealistic TVL, share price,
+    or volatility. These thresholds catch broken smart contracts and
+    low-TVL vaults that produce meaningless metrics.
+
+    Called multiple times as more metrics become available
+    (first with NAV/price, then again after 3M volatility is computed).
+
+    :param risk:
+        Current risk classification.
+
+    :param notes:
+        Current notes string.
+
+    :param flags:
+        Current vault flags set.
+
+    :param current_nav:
+        Current TVL in USD. Checked against :py:data:`MAX_VALID_NAV`.
+
+    :param current_share_price:
+        Current share price. Checked against :py:data:`MAX_VALID_SHARE_PRICE`.
+
+    :param three_months_volatility:
+        3-month annualised volatility. Checked against :py:data:`MAX_VALID_VOLATILITY`.
+        Catches low-TVL Hyperliquid vaults with one or few trades that
+        produce extreme volatility numbers.
+
+    :return:
+        Updated (risk, notes, flags) tuple.
+    """
+
+    def _ensure_mutable_flags(flags):
+        # TODO: Hack to break somewhere reused empty set object
+        # which gets shared across all vaults
+        if not flags:
+            return set()
+        return flags
+
+    if current_nav is not None and current_nav > MAX_VALID_NAV:
+        risk = VaultTechnicalRisk.blacklisted
+        notes = ABNORMAL_TVL
+        flags = _ensure_mutable_flags(flags)
+        flags.add(VaultFlag.abnormal_tvl)
+
+    if current_share_price is not None and current_share_price > MAX_VALID_SHARE_PRICE:
+        risk = VaultTechnicalRisk.blacklisted
+        notes = ABNORMAL_SHARE_PRICE
+        flags = _ensure_mutable_flags(flags)
+        flags.add(VaultFlag.abnormal_share_price)
+
+    if three_months_volatility is not None and three_months_volatility > MAX_VALID_VOLATILITY:
+        risk = VaultTechnicalRisk.blacklisted
+        notes = ABNORMAL_VOLATILITY
+        flags = _ensure_mutable_flags(flags)
+        flags.add(VaultFlag.abnormal_volatility)
+
+    return risk, notes, flags
+
+
 def calculate_vault_record(
     prices_df: pd.DataFrame,
     vault_metadata_rows: dict[VaultSpec, VaultRow],
@@ -991,26 +1064,14 @@ def calculate_vault_record(
 
     flags = vault_metadata.get("_flags", set())
 
-    # Check for broken vaults by abnormal TVL > $100B.
-    # This automatically filters out several broken entries
-    if current_nav > MAX_VALID_NAV:
-        risk = VaultTechnicalRisk.blacklisted
-        notes = ABNORMAL_TVL
-        if not flags:
-            # TODO: Hack to break somewhere reused empty set object
-            # which gets shared across all vaults
-            flags = set()
-        flags.add(VaultFlag.abnormal_tvl)
-
-    # Check for broken vaults by abnormal share price > $1M.
-    # Real stablecoin vaults should never reach this price.
     current_share_price = prices_df.iloc[-1]["share_price"]
-    if current_share_price > MAX_VALID_SHARE_PRICE:
-        risk = VaultTechnicalRisk.blacklisted
-        notes = ABNORMAL_SHARE_PRICE
-        if not flags:
-            flags = set()
-        flags.add(VaultFlag.abnormal_share_price)
+    risk, notes, flags = apply_abnormal_value_checks(
+        risk=risk,
+        notes=notes,
+        flags=flags,
+        current_nav=current_nav,
+        current_share_price=current_share_price,
+    )
 
     vault_slug = vault_metadata["vault_slug"]
     protocol_slug = vault_metadata["protocol_slug"]
@@ -1150,6 +1211,14 @@ def calculate_vault_record(
         three_months_start = None
         three_months_end = None
         three_months_samples = 0
+
+    # Check abnormal volatility now that 3M metrics are available
+    risk, notes, flags = apply_abnormal_value_checks(
+        risk=risk,
+        notes=notes,
+        flags=flags,
+        three_months_volatility=three_months_volatility,
+    )
 
     # Legacy: One month metrics
     if one_month_pm and one_month_pm.error_reason is None:
@@ -1601,7 +1670,8 @@ def format_lifetime_table(
         Example::
 
             from eth_defi.research.vault_metrics import (
-                format_lifetime_table, display_lifetime_table,
+                format_lifetime_table,
+                display_lifetime_table,
             )
 
             formatted = format_lifetime_table(df, html_links=True)
@@ -1842,12 +1912,7 @@ def display_lifetime_table(df: pd.DataFrame):
     """
     from IPython.display import display, HTML
 
-    style = (
-        "<style>"
-        "table.lifetime-table td, table.lifetime-table th "
-        "{ padding: 2px 6px; white-space: nowrap; }"
-        "</style>"
-    )
+    style = "<style>table.lifetime-table td, table.lifetime-table th { padding: 2px 6px; white-space: nowrap; }</style>"
     table_html = df.to_html(escape=False, classes="lifetime-table")
     display(HTML(style + table_html))
 
