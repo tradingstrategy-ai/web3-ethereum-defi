@@ -23,7 +23,7 @@ from eth_defi.cctp.transfer import (
     prepare_approve_for_burn,
     prepare_deposit_for_burn,
 )
-from eth_defi.deploy import deploy_contract
+from eth_defi.deploy import GUARD_LIBRARIES, deploy_contract
 from eth_defi.simple_vault.transact import encode_simple_vault_transaction
 from eth_defi.trace import (
     TransactionAssertionError,
@@ -65,7 +65,7 @@ def vault(
     asset_manager: str,
 ) -> Contract:
     """Deploy SimpleVaultV0 with guard."""
-    vault = deploy_contract(web3, "guard/SimpleVaultV0.json", deployer, asset_manager)
+    vault = deploy_contract(web3, "guard/SimpleVaultV0.json", deployer, asset_manager, libraries=GUARD_LIBRARIES)
     vault.functions.initialiseOwnership(owner).transact({"from": deployer})
     return vault
 

@@ -12,7 +12,7 @@ from web3._utils.events import EventLogErrorFlags
 from web3.contract import Contract
 
 from eth_defi.abi import get_contract, get_deployed_contract, get_function_selector
-from eth_defi.deploy import deploy_contract
+from eth_defi.deploy import GUARD_LIBRARIES, deploy_contract
 from eth_defi.simple_vault.transact import encode_simple_vault_transaction
 from eth_defi.token import create_token
 from eth_defi.uniswap_v2.deployment import (
@@ -97,7 +97,7 @@ def vault(
 ) -> Contract:
     """Deploy mock Uniswap v2."""
     weth = uniswap_v2.weth
-    vault = deploy_contract(web3, "guard/SimpleVaultV0.json", deployer, asset_manager)
+    vault = deploy_contract(web3, "guard/SimpleVaultV0.json", deployer, asset_manager, libraries=GUARD_LIBRARIES)
 
     assert vault.functions.owner().call() == deployer
     vault.functions.initialiseOwnership(owner).transact({"from": deployer})
@@ -517,6 +517,7 @@ def test_guard_can_trade_any_asset_uniswap_v2(
         deployer,
         asset_manager,
         gas=10_000_000,
+        libraries=GUARD_LIBRARIES,
     )
     vault.functions.initialiseOwnership(owner).transact({"from": deployer})
 

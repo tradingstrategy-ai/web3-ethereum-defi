@@ -14,8 +14,19 @@ from pytz.reference import Local
 from web3 import Web3
 from web3.contract import Contract
 
-from eth_defi.abi import get_contract, get_contract_with_forge_libraries
+from eth_defi.abi import ZERO_ADDRESS, get_contract, get_contract_with_forge_libraries
 from eth_defi.tx import get_tx_broadcast_data
+
+#: Default library addresses for deploying guard contracts (SimpleVaultV0, TradingStrategyModuleV0).
+#:
+#: All external Forge libraries are linked to :data:`~eth_defi.abi.ZERO_ADDRESS`
+#: so the bytecode resolves cleanly.  Tests that exercise a specific library
+#: should override the relevant entry with the real deployed address.
+GUARD_LIBRARIES: dict[str, str] = {
+    "CowSwapLib": ZERO_ADDRESS,
+    "GmxLib": ZERO_ADDRESS,
+    "HypercoreVaultLib": ZERO_ADDRESS,
+}
 
 #: Manage internal registry of deployed contracts
 #:

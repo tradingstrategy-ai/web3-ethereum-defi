@@ -33,10 +33,13 @@ from eth_defi.hyperliquid.core_writer import (
     CORE_WRITER_ADDRESS,
     SPOT_DEX,
     USDC_TOKEN_INDEX,
+    build_hypercore_deposit_multicall,
+    build_hypercore_withdraw_multicall,
     encode_spot_send,
     encode_transfer_usd_class,
     encode_vault_deposit,
     encode_vault_withdraw,
+    get_core_deposit_wallet_contract,
 )
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
@@ -126,6 +129,12 @@ def mock_core_writer(web3) -> Contract:
     bytecode = _load_deployed_bytecode("guard/MockCoreWriter.json")
     address = Web3.to_checksum_address(CORE_WRITER_ADDRESS)
     web3.provider.make_request("anvil_setCode", [address, bytecode])
+    # Clear storage slot 0 (actions array length) to avoid conflicts
+    # with existing storage at the real CoreWriter address
+    web3.provider.make_request(
+        "anvil_setStorageAt",
+        [address, "0x" + "0" * 64, "0x" + "0" * 64],
+    )
     deployed_code = web3.eth.get_code(address)
     assert len(deployed_code) > 0, "MockCoreWriter bytecode not set"
     abi_data = get_abi_by_filename("guard/MockCoreWriter.json")
@@ -138,6 +147,12 @@ def mock_core_deposit_wallet(web3) -> Contract:
     bytecode = _load_deployed_bytecode("guard/MockCoreDepositWallet.json")
     address = Web3.to_checksum_address(CORE_DEPOSIT_WALLET_MAINNET)
     web3.provider.make_request("anvil_setCode", [address, bytecode])
+    # Clear storage slot 0 (deposits array length) to avoid conflicts
+    # with existing storage at the real CDW address
+    web3.provider.make_request(
+        "anvil_setStorageAt",
+        [address, "0x" + "0" * 64, "0x" + "0" * 64],
+    )
     deployed_code = web3.eth.get_code(address)
     assert len(deployed_code) > 0, "MockCoreDepositWallet bytecode not set"
     abi_data = get_abi_by_filename("guard/MockCoreDepositWallet.json")
@@ -180,28 +195,36 @@ def lagoon_deployment(
     assert deploy_info.safe is not None
     assert deploy_info.trading_strategy_module is not None
 
-    # Set up Hypercore whitelisting on the guard
+    # Set up Hypercore whitelisting on the guard.
+    # After deploy_automated_lagoon_vault(), ownership has been transferred
+    # to the Safe, so we impersonate the Safe to call onlyGuardOwner functions.
     module = deploy_info.trading_strategy_module
+    safe_address = deploy_info.safe.address
+
+    web3.provider.make_request("anvil_impersonateAccount", [safe_address])
+    web3.provider.make_request("anvil_setBalance", [safe_address, hex(10 * 10**18)])
 
     tx_hash = module.functions.whitelistCoreWriter(
         Web3.to_checksum_address(CORE_WRITER_ADDRESS),
         Web3.to_checksum_address(CORE_DEPOSIT_WALLET_MAINNET),
         "Hypercore vault trading",
-    ).transact({"from": deployer.address})
+    ).transact({"from": safe_address})
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     tx_hash = module.functions.whitelistHypercoreVault(
         Web3.to_checksum_address(TEST_HYPERCORE_VAULT),
         "Test Hypercore vault",
-    ).transact({"from": deployer.address})
+    ).transact({"from": safe_address})
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     # Whitelist USDC token for approve calls
     tx_hash = module.functions.whitelistToken(
         Web3.to_checksum_address(USDC_ADDRESS),
         "USDC for Hypercore bridging",
-    ).transact({"from": deployer.address})
+    ).transact({"from": safe_address})
     assert_transaction_success_with_explanation(web3, tx_hash)
+
+    web3.provider.make_request("anvil_stopImpersonatingAccount", [safe_address])
 
     return deploy_info
 
@@ -233,7 +256,8 @@ def test_lagoon_hypercore_vault_deposit(
         "anvil_setStorageAt",
         [
             Web3.to_checksum_address(USDC_ADDRESS),
-            Web3.solidity_keccak(
+            "0x"
+            + Web3.solidity_keccak(
                 ["uint256", "uint256"],
                 [int(safe_address, 16), 9],
             ).hex(),
@@ -310,3 +334,79 @@ def test_lagoon_hypercore_disallowed_vault(
     tx_hash = _perform_call(module, fn_call, asset_manager)
     with pytest.raises(TransactionAssertionError):
         assert_transaction_success_with_explanation(web3, tx_hash)
+
+
+@pytest.mark.timeout(600)
+def test_lagoon_hypercore_deposit_multicall(
+    web3: Web3,
+    deployer: LocalAccount,
+    lagoon_deployment: LagoonAutomatedDeployment,
+    mock_core_writer: Contract,
+    mock_core_deposit_wallet: Contract,
+    usdc: TokenDetails,
+):
+    """Execute the full 4-step Hypercore deposit as a single multicall transaction.
+
+    Uses build_hypercore_deposit_multicall() to batch all 4 steps into one
+    EVM transaction via TradingStrategyModuleV0.multicall().
+    """
+    module = lagoon_deployment.trading_strategy_module
+    safe_address = lagoon_deployment.safe.address
+    asset_manager = deployer.address
+    usdc_amount = 10_000 * 10**6  # 10k USDC
+
+    # Fund the Safe with USDC by setting storage directly
+    web3.provider.make_request("anvil_setBalance", [safe_address, hex(10 * 10**18)])
+    web3.provider.make_request(
+        "anvil_setStorageAt",
+        [
+            Web3.to_checksum_address(USDC_ADDRESS),
+            "0x"
+            + Web3.solidity_keccak(
+                ["uint256", "uint256"],
+                [int(safe_address, 16), 9],
+            ).hex(),
+            "0x" + usdc_amount.to_bytes(32, "big").hex(),
+        ],
+    )
+    balance = usdc.contract.functions.balanceOf(safe_address).call()
+    assert balance >= usdc_amount
+
+    # Get CDW contract instance for the multicall builder
+    cdw = get_core_deposit_wallet_contract(web3, CORE_DEPOSIT_WALLET_MAINNET)
+    hypercore_amount = 10_000 * 10**6
+
+    # Build and execute the multicall in a single transaction
+    fn = build_hypercore_deposit_multicall(
+        module=module,
+        usdc_contract=usdc.contract,
+        core_deposit_wallet=cdw,
+        core_writer=mock_core_writer,
+        evm_usdc_amount=usdc_amount,
+        hypercore_usdc_amount=hypercore_amount,
+        vault_address=TEST_HYPERCORE_VAULT,
+    )
+    tx_hash = fn.transact({"from": asset_manager})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # Verify mock recorded the CDW deposit
+    assert mock_core_deposit_wallet.functions.getDepositCount().call() == 1
+    sender, amount, dex = mock_core_deposit_wallet.functions.getDeposit(0).call()
+    assert sender == safe_address
+    assert amount == usdc_amount
+    assert dex == SPOT_DEX
+
+    # Verify mock recorded both CoreWriter actions
+    assert mock_core_writer.functions.getActionCount().call() == 2
+
+    # Check transferUsdClass (action ID 7)
+    sender, version, action_id, params = mock_core_writer.functions.getAction(0).call()
+    assert sender == safe_address
+    assert version == 1
+    assert action_id == 7
+
+    # Check vaultTransfer deposit (action ID 2)
+    sender, version, action_id, params = mock_core_writer.functions.getAction(1).call()
+    assert sender == safe_address
+    assert version == 1
+    assert action_id == 2

@@ -26,7 +26,7 @@ from eth_defi.cctp.transfer import (
     prepare_approve_for_burn,
     prepare_deposit_for_burn,
 )
-from eth_defi.deploy import deploy_contract
+from eth_defi.deploy import GUARD_LIBRARIES, deploy_contract
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.simple_vault.transact import encode_simple_vault_transaction
@@ -132,7 +132,7 @@ def vault(
     usdc_ethereum: Contract,
 ) -> Contract:
     """Deploy guarded vault on Ethereum fork with CCTP whitelisted."""
-    vault = deploy_contract(web3_ethereum, "guard/SimpleVaultV0.json", deployer, asset_manager)
+    vault = deploy_contract(web3_ethereum, "guard/SimpleVaultV0.json", deployer, asset_manager, libraries=GUARD_LIBRARIES)
     vault.functions.initialiseOwnership(owner).transact({"from": deployer})
 
     guard = get_deployed_contract(web3_ethereum, "guard/GuardV0.json", vault.functions.guard().call())

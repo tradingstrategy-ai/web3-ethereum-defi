@@ -823,21 +823,47 @@ def deploy_safe_trading_strategy_module(
         block_gas_limit = web3.eth.get_block("latest")["gasLimit"]
         guard_gas = min(10_000_000, block_gas_limit - 100_000)
 
-        # TradingStrategyModuleV0 uses HypercoreVaultLib via DELEGATECALL.
-        # On HyperEVM (chain 999): deploy the library for Hypercore vault support.
-        # On other chains: link with zero address (Hypercore code paths never entered).
+        # TradingStrategyModuleV0 uses external Forge libraries via DELEGATECALL:
+        # - CowSwapLib: CowSwap order creation/signing (used on all chains with CowSwap)
+        # - GmxLib: GMX perpetuals validation (used on Arbitrum, etc.)
+        # - HypercoreVaultLib: Hypercore vault validation (HyperEVM only)
+        # On chains where a library is not needed, link with zero address.
         chain_id = web3.eth.chain_id
+
+        # CowSwapLib is always deployed (CowSwap available on most EVM chains)
+        cowswap_lib = deploy_contract(
+            web3,
+            "guard/CowSwapLib.json",
+            deployer,
+            gas=guard_gas,
+        )
+        logger.info("Deployed CowSwapLib at %s", cowswap_lib.address)
+
+        # GmxLib is always deployed (GMX available on multiple chains)
+        gmx_lib = deploy_contract(
+            web3,
+            "guard/GmxLib.json",
+            deployer,
+            gas=guard_gas,
+        )
+        logger.info("Deployed GmxLib at %s", gmx_lib.address)
+
+        library_addresses = {
+            "CowSwapLib": cowswap_lib.address,
+            "GmxLib": gmx_lib.address,
+        }
+
         if chain_id == 999:
-            lib = deploy_contract(
+            hypercore_lib = deploy_contract(
                 web3,
                 "guard/HypercoreVaultLib.json",
                 deployer,
                 gas=guard_gas,
             )
-            library_addresses = {"HypercoreVaultLib": lib.address}
-            logger.info("Deployed HypercoreVaultLib at %s for HyperEVM", lib.address)
+            library_addresses["HypercoreVaultLib"] = hypercore_lib.address
+            logger.info("Deployed HypercoreVaultLib at %s for HyperEVM", hypercore_lib.address)
         else:
-            library_addresses = {"HypercoreVaultLib": ZERO_ADDRESS}
+            library_addresses["HypercoreVaultLib"] = ZERO_ADDRESS
 
         module = deploy_contract(
             web3,

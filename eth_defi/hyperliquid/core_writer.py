@@ -32,6 +32,11 @@ Example::
 
 from eth_abi import encode
 from eth_typing import HexAddress
+from web3 import Web3
+from web3.contract import Contract
+from web3.contract.contract import ContractFunction
+
+from eth_defi.abi import encode_function_call, get_contract
 
 #: CoreWriter system contract address on HyperEVM
 CORE_WRITER_ADDRESS: HexAddress = HexAddress("0x3333333333333333333333333333333333333333")
@@ -158,3 +163,217 @@ def encode_spot_send(
         [destination, token_id, amount_wei],
     )
     return _encode_raw_action(ACTION_SPOT_SEND, params)
+
+
+def get_core_deposit_wallet_contract(web3: Web3, address: HexAddress | str) -> Contract:
+    """Get a Contract instance for the CoreDepositWallet.
+
+    Uses the MockCoreDepositWallet ABI which has the same ``deposit(uint256,uint32)``
+    signature as the real CoreDepositWallet.
+
+    :param web3:
+        Web3 connection.
+
+    :param address:
+        CoreDepositWallet address (use :py:data:`CORE_DEPOSIT_WALLET_MAINNET`
+        or :py:data:`CORE_DEPOSIT_WALLET_TESTNET`).
+
+    :return:
+        Contract instance with the CoreDepositWallet ABI.
+    """
+    ContractClass = get_contract(web3, "guard/MockCoreDepositWallet.json")
+    return ContractClass(address=Web3.to_checksum_address(address))
+
+
+def _encode_perform_call(
+    module: Contract,
+    target: HexAddress | str,
+    fn_call: ContractFunction,
+) -> bytes:
+    """Encode a single ``performCall(target, data)`` invocation as bytes.
+
+    :param module:
+        TradingStrategyModuleV0 contract.
+
+    :param target:
+        Target contract address.
+
+    :param fn_call:
+        Bound contract function call (e.g. ``usdc.functions.approve(spender, amount)``).
+
+    :return:
+        ABI-encoded bytes for ``module.performCall(target, data)``.
+    """
+    data_payload = encode_function_call(fn_call, fn_call.arguments)
+    return encode_function_call(
+        module.functions.performCall(target, data_payload),
+    )
+
+
+def build_hypercore_deposit_multicall(
+    module: Contract,
+    usdc_contract: Contract,
+    core_deposit_wallet: Contract,
+    core_writer: Contract,
+    evm_usdc_amount: int,
+    hypercore_usdc_amount: int,
+    vault_address: HexAddress | str,
+) -> ContractFunction:
+    """Build a single multicall transaction for the full Hypercore deposit flow.
+
+    Batches the 4-step deposit into one EVM transaction:
+
+    1. ``approve(CoreDepositWallet, amount)`` — approve USDC transfer
+    2. ``CoreDepositWallet.deposit(amount, SPOT_DEX)`` — bridge USDC to HyperCore spot
+    3. ``CoreWriter.sendRawAction(transferUsdClass)`` — move USDC from spot to perp
+    4. ``CoreWriter.sendRawAction(vaultTransfer)`` — deposit into vault
+
+    When the EVM block finishes execution, all queued CoreWriter actions
+    are processed sequentially on HyperCore (~47k gas per action).
+
+    Example::
+
+        from eth_defi.hyperliquid.core_writer import (
+            build_hypercore_deposit_multicall,
+            get_core_deposit_wallet_contract,
+            CORE_DEPOSIT_WALLET_MAINNET,
+            CORE_WRITER_ADDRESS,
+        )
+
+        cdw = get_core_deposit_wallet_contract(web3, CORE_DEPOSIT_WALLET_MAINNET)
+        core_writer = web3.eth.contract(address=CORE_WRITER_ADDRESS, abi=cw_abi)
+
+        fn = build_hypercore_deposit_multicall(
+            module=module,
+            usdc_contract=usdc.contract,
+            core_deposit_wallet=cdw,
+            core_writer=core_writer,
+            evm_usdc_amount=10_000 * 10**6,
+            hypercore_usdc_amount=10_000 * 10**6,
+            vault_address="0x...",
+        )
+        tx_hash = fn.transact({"from": asset_manager})
+
+    :param module:
+        TradingStrategyModuleV0 contract instance.
+
+    :param usdc_contract:
+        ERC-20 USDC contract on HyperEVM.
+
+    :param core_deposit_wallet:
+        CoreDepositWallet contract (use :py:func:`get_core_deposit_wallet_contract`).
+
+    :param core_writer:
+        CoreWriter contract instance.
+
+    :param evm_usdc_amount:
+        USDC amount in EVM wei (uint256) for approve and CDW deposit.
+
+    :param hypercore_usdc_amount:
+        USDC amount in HyperCore wei (uint64) for CoreWriter actions.
+
+    :param vault_address:
+        Hypercore native vault address.
+
+    :return:
+        Bound ``module.functions.multicall(data)`` ready to ``.transact()``.
+    """
+    calls = [
+        # 1. Approve USDC to CoreDepositWallet
+        _encode_perform_call(
+            module,
+            usdc_contract.address,
+            usdc_contract.functions.approve(
+                Web3.to_checksum_address(core_deposit_wallet.address),
+                evm_usdc_amount,
+            ),
+        ),
+        # 2. CoreDepositWallet.deposit(amount, SPOT_DEX)
+        _encode_perform_call(
+            module,
+            core_deposit_wallet.address,
+            core_deposit_wallet.functions.deposit(evm_usdc_amount, SPOT_DEX),
+        ),
+        # 3. CoreWriter.sendRawAction(transferUsdClass(amount, true))
+        _encode_perform_call(
+            module,
+            core_writer.address,
+            core_writer.functions.sendRawAction(
+                encode_transfer_usd_class(hypercore_usdc_amount, to_perp=True),
+            ),
+        ),
+        # 4. CoreWriter.sendRawAction(vaultTransfer(vault, true, amount))
+        _encode_perform_call(
+            module,
+            core_writer.address,
+            core_writer.functions.sendRawAction(
+                encode_vault_deposit(vault_address, hypercore_usdc_amount),
+            ),
+        ),
+    ]
+    return module.functions.multicall(calls)
+
+
+def build_hypercore_withdraw_multicall(
+    module: Contract,
+    core_writer: Contract,
+    hypercore_usdc_amount: int,
+    vault_address: HexAddress | str,
+    safe_address: HexAddress | str,
+) -> ContractFunction:
+    """Build a single multicall transaction for the full Hypercore withdrawal flow.
+
+    Batches the 3-step withdrawal into one EVM transaction:
+
+    1. ``CoreWriter.sendRawAction(vaultTransfer)`` — withdraw from vault
+    2. ``CoreWriter.sendRawAction(transferUsdClass)`` — move USDC from perp to spot
+    3. ``CoreWriter.sendRawAction(spotSend)`` — bridge USDC back to EVM Safe
+
+    When the EVM block finishes execution, all queued CoreWriter actions
+    are processed sequentially on HyperCore (~47k gas per action).
+
+    :param module:
+        TradingStrategyModuleV0 contract instance.
+
+    :param core_writer:
+        CoreWriter contract instance.
+
+    :param hypercore_usdc_amount:
+        USDC amount in HyperCore wei (uint64) for all CoreWriter actions.
+
+    :param vault_address:
+        Hypercore native vault address.
+
+    :param safe_address:
+        Safe address to receive USDC back on EVM.
+
+    :return:
+        Bound ``module.functions.multicall(data)`` ready to ``.transact()``.
+    """
+    calls = [
+        # 1. CoreWriter.sendRawAction(vaultTransfer(vault, false, amount))
+        _encode_perform_call(
+            module,
+            core_writer.address,
+            core_writer.functions.sendRawAction(
+                encode_vault_withdraw(vault_address, hypercore_usdc_amount),
+            ),
+        ),
+        # 2. CoreWriter.sendRawAction(transferUsdClass(amount, false))
+        _encode_perform_call(
+            module,
+            core_writer.address,
+            core_writer.functions.sendRawAction(
+                encode_transfer_usd_class(hypercore_usdc_amount, to_perp=False),
+            ),
+        ),
+        # 3. CoreWriter.sendRawAction(spotSend(safe, USDC, amount))
+        _encode_perform_call(
+            module,
+            core_writer.address,
+            core_writer.functions.sendRawAction(
+                encode_spot_send(safe_address, USDC_TOKEN_INDEX, hypercore_usdc_amount),
+            ),
+        ),
+    ]
+    return module.functions.multicall(calls)

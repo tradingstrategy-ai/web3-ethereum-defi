@@ -7,7 +7,7 @@ from web3 import Web3
 from web3.contract import Contract
 
 from eth_defi.abi import get_deployed_contract
-from eth_defi.deploy import deploy_contract
+from eth_defi.deploy import GUARD_LIBRARIES, deploy_contract
 from eth_defi.hotwallet import HotWallet
 from eth_defi.orderly.api import OrderlyApiClient
 from eth_defi.orderly.vault import OrderlyVault
@@ -35,7 +35,7 @@ def simple_vault(
     asset_manager: str,
 ) -> Contract:
     """Mock vault."""
-    vault = deploy_contract(web3, "guard/SimpleVaultV0.json", deployer, asset_manager)
+    vault = deploy_contract(web3, "guard/SimpleVaultV0.json", deployer, asset_manager, libraries=GUARD_LIBRARIES)
 
     assert vault.functions.owner().call() == deployer
     vault.functions.initialiseOwnership(owner).transact({"from": deployer})

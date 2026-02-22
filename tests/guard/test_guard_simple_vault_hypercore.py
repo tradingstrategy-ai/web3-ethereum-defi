@@ -15,7 +15,7 @@ from eth_typing import HexAddress, HexStr
 from web3 import Web3
 from web3.contract import Contract
 
-from eth_defi.abi import get_abi_by_filename, get_deployed_contract
+from eth_defi.abi import ZERO_ADDRESS, get_abi_by_filename, get_deployed_contract
 from eth_defi.deploy import deploy_contract
 from eth_defi.hyperliquid.core_writer import (
     CORE_DEPOSIT_WALLET_MAINNET,
@@ -150,12 +150,14 @@ def mock_core_deposit_wallet(web3) -> Contract:
 
 @pytest.fixture()
 def hypercore_vault_lib(web3: Web3, deployer: str) -> Contract:
-    """Deploy HypercoreVaultLib library contract.
-
-    The library is used via DELEGATECALL by GuardV0/SimpleVaultV0.
-    On non-HyperEVM chains, link with ZERO_ADDRESS instead of deploying.
-    """
+    """Deploy HypercoreVaultLib library contract."""
     return deploy_contract(web3, "guard/HypercoreVaultLib.json", deployer)
+
+
+@pytest.fixture()
+def cowswap_lib(web3: Web3, deployer: str) -> Contract:
+    """Deploy CowSwapLib library contract."""
+    return deploy_contract(web3, "guard/CowSwapLib.json", deployer)
 
 
 @pytest.fixture()
@@ -168,10 +170,11 @@ def vault(
     mock_core_writer: Contract,
     mock_core_deposit_wallet: Contract,
     hypercore_vault_lib: Contract,
+    cowswap_lib: Contract,
 ) -> Contract:
     """Create SimpleVaultV0 with Hypercore whitelisting.
 
-    - Deploys HypercoreVaultLib and links it into SimpleVaultV0 bytecode
+    - Deploys libraries and links them into SimpleVaultV0 bytecode
     - Deploys SimpleVaultV0 (which creates its own GuardV0)
     - Whitelists CoreWriter + CoreDepositWallet on the guard
     - Whitelists a test vault address
@@ -182,7 +185,11 @@ def vault(
         "guard/SimpleVaultV0.json",
         deployer,
         asset_manager,
-        libraries={"HypercoreVaultLib": hypercore_vault_lib.address},
+        libraries={
+            "HypercoreVaultLib": hypercore_vault_lib.address,
+            "CowSwapLib": cowswap_lib.address,
+            "GmxLib": ZERO_ADDRESS,
+        },
     )
 
     assert vault.functions.owner().call() == deployer

@@ -74,6 +74,51 @@ Three `performCall` transactions:
    - Function: `sendRawAction(spotSend(safe_address, USDC_TOKEN, amount))`
    - Guard: validates action ID 6, destination is an allowed receiver
 
+## Multicall batching
+
+Both the deposit and withdrawal flows can be batched into a single EVM transaction
+via `TradingStrategyModuleV0.multicall(bytes[])`. The module inherits `Multicall`
+from `GuardV0Base`, which uses `delegatecall` to execute each inner call — preserving
+`msg.sender` so guard validation works correctly within each batched `performCall`.
+
+When the EVM block finishes execution, all queued CoreWriter actions are processed
+sequentially on HyperCore (~47k gas per action). This is implicit batching at the
+block level.
+
+Python helpers for building multicall transactions:
+
+```python
+from eth_defi.hyperliquid.core_writer import (
+    build_hypercore_deposit_multicall,
+    build_hypercore_withdraw_multicall,
+    get_core_deposit_wallet_contract,
+    CORE_DEPOSIT_WALLET_MAINNET,
+)
+
+# Single-transaction deposit (4 steps batched)
+cdw = get_core_deposit_wallet_contract(web3, CORE_DEPOSIT_WALLET_MAINNET)
+fn = build_hypercore_deposit_multicall(
+    module=module,
+    usdc_contract=usdc_contract,
+    core_deposit_wallet=cdw,
+    core_writer=core_writer,
+    evm_usdc_amount=10_000 * 10**6,
+    hypercore_usdc_amount=10_000 * 10**6,
+    vault_address="0x...",
+)
+tx_hash = fn.transact({"from": asset_manager})
+
+# Single-transaction withdrawal (3 steps batched)
+fn = build_hypercore_withdraw_multicall(
+    module=module,
+    core_writer=core_writer,
+    hypercore_usdc_amount=10_000 * 10**6,
+    vault_address="0x...",
+    safe_address=safe.address,
+)
+tx_hash = fn.transact({"from": asset_manager})
+```
+
 ## Guard security model
 
 The guard prevents:
@@ -130,6 +175,24 @@ No RPC provider supports querying precompile views at historic blocks. Only `lat
 - User-created vaults: **1 day** lock-up after deposit before withdrawal.
 - Protocol vaults (HLP): **4 day** lock-up.
 - The `vaultTransfer(withdraw)` action will fail on HyperCore if the lock-up has not expired. The `hyper-evm-lib` library checks the lock via the vault equity precompile before submitting the action.
+
+## Manual testing
+
+A manual test script deploys a Lagoon vault on a HyperEVM Anvil fork and exercises
+the full deposit/withdrawal flow:
+
+```shell
+source .local-test.env && poetry run python scripts/hyperliquid/deploy-lagoon-hyperliquid-vault.py
+```
+
+See the script's docstring for environment variables and account funding instructions.
+
+## Contract size
+
+`TradingStrategyModuleV0` is the critical contract for size — it inherits all guard
+logic from `GuardV0Base` and sits at 99.3% of the EIP-170 24,576-byte limit.
+See [README-contract-size.md](README-contract-size.md) for contract sizes,
+compiler options, and size optimisation techniques.
 
 ## Source material
 
