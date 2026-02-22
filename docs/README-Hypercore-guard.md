@@ -85,36 +85,30 @@ When the EVM block finishes execution, all queued CoreWriter actions are process
 sequentially on HyperCore (~47k gas per action). This is implicit batching at the
 block level.
 
-Python helpers for building multicall transactions:
+Python helpers for building multicall transactions. Both functions take a
+`LagoonVault` and derive the module, USDC contract, CoreWriter, CoreDepositWallet,
+and Safe address internally:
 
 ```python
 from eth_defi.hyperliquid.core_writer import (
     build_hypercore_deposit_multicall,
     build_hypercore_withdraw_multicall,
-    get_core_deposit_wallet_contract,
-    CORE_DEPOSIT_WALLET_MAINNET,
 )
 
 # Single-transaction deposit (4 steps batched)
-cdw = get_core_deposit_wallet_contract(web3, CORE_DEPOSIT_WALLET_MAINNET)
 fn = build_hypercore_deposit_multicall(
-    module=module,
-    usdc_contract=usdc_contract,
-    core_deposit_wallet=cdw,
-    core_writer=core_writer,
+    lagoon_vault=lagoon_vault,
     evm_usdc_amount=10_000 * 10**6,
     hypercore_usdc_amount=10_000 * 10**6,
-    vault_address="0x...",
+    vault_address="0x...",  # Hypercore vault, not the Lagoon vault
 )
 tx_hash = fn.transact({"from": asset_manager})
 
 # Single-transaction withdrawal (3 steps batched)
 fn = build_hypercore_withdraw_multicall(
-    module=module,
-    core_writer=core_writer,
+    lagoon_vault=lagoon_vault,
     hypercore_usdc_amount=10_000 * 10**6,
-    vault_address="0x...",
-    safe_address=safe.address,
+    vault_address="0x...",  # Hypercore vault, not the Lagoon vault
 )
 tx_hash = fn.transact({"from": asset_manager})
 ```

@@ -85,7 +85,6 @@ from eth_defi.hyperliquid.core_writer import (
     CORE_WRITER_ADDRESS,
     build_hypercore_deposit_multicall,
     build_hypercore_withdraw_multicall,
-    get_core_deposit_wallet_contract,
 )
 from eth_defi.hyperliquid.guard_whitelist import get_core_deposit_wallet
 from eth_defi.provider.anvil import fork_network_anvil
@@ -164,11 +163,7 @@ def _fund_safe_usdc(web3: Web3, safe_address: str, usdc_address: str, amount: in
 
 
 def _do_deposit(
-    web3: Web3,
-    module,
-    usdc,
-    cdw,
-    core_writer,
+    lagoon_vault,
     usdc_amount: int,
     hypercore_amount: int,
     vault_address: str,
@@ -176,12 +171,10 @@ def _do_deposit(
     usdc_human: int,
 ):
     """Execute deposit via multicall."""
+    web3 = lagoon_vault.web3
     logger.info("Executing multicall deposit (%d USDC)...", usdc_human)
     fn = build_hypercore_deposit_multicall(
-        module=module,
-        usdc_contract=usdc.contract,
-        core_deposit_wallet=cdw,
-        core_writer=core_writer,
+        lagoon_vault=lagoon_vault,
         evm_usdc_amount=usdc_amount,
         hypercore_usdc_amount=hypercore_amount,
         vault_address=vault_address,
@@ -201,23 +194,19 @@ def _do_deposit(
 
 
 def _do_withdraw(
-    web3: Web3,
-    module,
-    core_writer,
+    lagoon_vault,
     hypercore_amount: int,
     vault_address: str,
-    safe_address: str,
     deployer_address: str,
     usdc_human: int,
 ):
     """Execute withdrawal via multicall."""
+    web3 = lagoon_vault.web3
     logger.info("Executing multicall withdrawal (%d USDC)...", usdc_human)
     fn = build_hypercore_withdraw_multicall(
-        module=module,
-        core_writer=core_writer,
+        lagoon_vault=lagoon_vault,
         hypercore_usdc_amount=hypercore_amount,
         vault_address=vault_address,
-        safe_address=safe_address,
     )
     try:
         tx_hash = fn.transact({"from": deployer_address})
@@ -356,22 +345,12 @@ def main():
     balance = usdc.contract.functions.balanceOf(safe_address).call()
     logger.info("Safe USDC balance: %s", balance / 10**usdc.decimals)
 
-    # Prepare contract instances
-    cdw = get_core_deposit_wallet_contract(web3, cdw_address)
-    core_writer = web3.eth.contract(
-        address=Web3.to_checksum_address(CORE_WRITER_ADDRESS),
-        abi=get_abi_by_filename("guard/MockCoreWriter.json")["abi"],
-    )
-
     # Execute actions
+    lagoon_vault = deploy_info.vault
     if action in ("deposit", "both"):
         assert balance >= usdc_amount, f"Safe USDC balance {balance} insufficient, need {usdc_amount}"
         _do_deposit(
-            web3,
-            module,
-            usdc,
-            cdw,
-            core_writer,
+            lagoon_vault,
             usdc_amount,
             hypercore_amount,
             vault_address,
@@ -381,12 +360,9 @@ def main():
 
     if action in ("withdraw", "both"):
         _do_withdraw(
-            web3,
-            module,
-            core_writer,
+            lagoon_vault,
             hypercore_amount,
             vault_address,
-            safe_address,
             deployer_account.address,
             usdc_human,
         )

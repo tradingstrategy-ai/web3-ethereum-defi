@@ -39,7 +39,6 @@ from eth_defi.hyperliquid.core_writer import (
     encode_transfer_usd_class,
     encode_vault_deposit,
     encode_vault_withdraw,
-    get_core_deposit_wallet_contract,
 )
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
@@ -350,7 +349,7 @@ def test_lagoon_hypercore_deposit_multicall(
     Uses build_hypercore_deposit_multicall() to batch all 4 steps into one
     EVM transaction via TradingStrategyModuleV0.multicall().
     """
-    module = lagoon_deployment.trading_strategy_module
+    vault = lagoon_deployment.vault
     safe_address = lagoon_deployment.safe.address
     asset_manager = deployer.address
     usdc_amount = 10_000 * 10**6  # 10k USDC
@@ -372,16 +371,11 @@ def test_lagoon_hypercore_deposit_multicall(
     balance = usdc.contract.functions.balanceOf(safe_address).call()
     assert balance >= usdc_amount
 
-    # Get CDW contract instance for the multicall builder
-    cdw = get_core_deposit_wallet_contract(web3, CORE_DEPOSIT_WALLET_MAINNET)
     hypercore_amount = 10_000 * 10**6
 
     # Build and execute the multicall in a single transaction
     fn = build_hypercore_deposit_multicall(
-        module=module,
-        usdc_contract=usdc.contract,
-        core_deposit_wallet=cdw,
-        core_writer=mock_core_writer,
+        lagoon_vault=vault,
         evm_usdc_amount=usdc_amount,
         hypercore_usdc_amount=hypercore_amount,
         vault_address=TEST_HYPERCORE_VAULT,

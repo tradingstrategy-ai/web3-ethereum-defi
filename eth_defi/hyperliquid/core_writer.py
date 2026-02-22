@@ -30,13 +30,20 @@ Example::
     fn_call = core_writer.functions.sendRawAction(raw_action)
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from eth_abi import encode
 from eth_typing import HexAddress
 from web3 import Web3
 from web3.contract import Contract
 from web3.contract.contract import ContractFunction
 
-from eth_defi.abi import encode_function_call, get_contract
+from eth_defi.abi import encode_function_call, get_contract, get_deployed_contract
+
+if TYPE_CHECKING:
+    from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 
 #: CoreWriter system contract address on HyperEVM
 CORE_WRITER_ADDRESS: HexAddress = HexAddress("0x3333333333333333333333333333333333333333")
@@ -185,6 +192,21 @@ def get_core_deposit_wallet_contract(web3: Web3, address: HexAddress | str) -> C
     return ContractClass(address=Web3.to_checksum_address(address))
 
 
+def get_core_writer_contract(web3: Web3) -> Contract:
+    """Get a Contract instance for the CoreWriter system contract.
+
+    Uses the MockCoreWriter ABI which exposes the same ``sendRawAction(bytes)``
+    interface as the real CoreWriter precompile.
+
+    :param web3:
+        Web3 connection.
+
+    :return:
+        Contract instance at :py:data:`CORE_WRITER_ADDRESS`.
+    """
+    return get_deployed_contract(web3, "guard/MockCoreWriter.json", CORE_WRITER_ADDRESS)
+
+
 def _encode_perform_call(
     module: Contract,
     target: HexAddress | str,
@@ -211,10 +233,7 @@ def _encode_perform_call(
 
 
 def build_hypercore_deposit_multicall(
-    module: Contract,
-    usdc_contract: Contract,
-    core_deposit_wallet: Contract,
-    core_writer: Contract,
+    lagoon_vault: LagoonVault,
     evm_usdc_amount: int,
     hypercore_usdc_amount: int,
     vault_address: HexAddress | str,
@@ -231,40 +250,27 @@ def build_hypercore_deposit_multicall(
     When the EVM block finishes execution, all queued CoreWriter actions
     are processed sequentially on HyperCore (~47k gas per action).
 
+    Derives all contract instances internally from the :py:class:`LagoonVault`:
+
+    - ``module`` from :py:attr:`LagoonVault.trading_strategy_module`
+    - ``usdc_contract`` from the vault's underlying asset address
+    - ``core_deposit_wallet`` from the chain ID (mainnet vs testnet)
+    - ``core_writer`` at the system address :py:data:`CORE_WRITER_ADDRESS`
+
     Example::
 
-        from eth_defi.hyperliquid.core_writer import (
-            build_hypercore_deposit_multicall,
-            get_core_deposit_wallet_contract,
-            CORE_DEPOSIT_WALLET_MAINNET,
-            CORE_WRITER_ADDRESS,
-        )
-
-        cdw = get_core_deposit_wallet_contract(web3, CORE_DEPOSIT_WALLET_MAINNET)
-        core_writer = web3.eth.contract(address=CORE_WRITER_ADDRESS, abi=cw_abi)
+        from eth_defi.hyperliquid.core_writer import build_hypercore_deposit_multicall
 
         fn = build_hypercore_deposit_multicall(
-            module=module,
-            usdc_contract=usdc.contract,
-            core_deposit_wallet=cdw,
-            core_writer=core_writer,
+            lagoon_vault=lagoon_vault,
             evm_usdc_amount=10_000 * 10**6,
             hypercore_usdc_amount=10_000 * 10**6,
             vault_address="0x...",
         )
         tx_hash = fn.transact({"from": asset_manager})
 
-    :param module:
-        TradingStrategyModuleV0 contract instance.
-
-    :param usdc_contract:
-        ERC-20 USDC contract on HyperEVM.
-
-    :param core_deposit_wallet:
-        CoreDepositWallet contract (use :py:func:`get_core_deposit_wallet_contract`).
-
-    :param core_writer:
-        CoreWriter contract instance.
+    :param lagoon_vault:
+        Lagoon vault instance with ``trading_strategy_module_address`` configured.
 
     :param evm_usdc_amount:
         USDC amount in EVM wei (uint256) for approve and CDW deposit.
@@ -273,11 +279,22 @@ def build_hypercore_deposit_multicall(
         USDC amount in HyperCore wei (uint64) for CoreWriter actions.
 
     :param vault_address:
-        Hypercore native vault address.
+        Hypercore native vault address (not the Lagoon vault address).
 
     :return:
         Bound ``module.functions.multicall(data)`` ready to ``.transact()``.
     """
+    web3 = lagoon_vault.web3
+    module = lagoon_vault.trading_strategy_module
+    chain_id = lagoon_vault.spec.chain_id
+
+    # Derive contract instances from the vault
+    asset_address = lagoon_vault.vault_contract.functions.asset().call()
+    usdc_contract = get_deployed_contract(web3, "centre/ERC20.json", asset_address)
+    cdw_address = CORE_DEPOSIT_WALLET_TESTNET if chain_id == 998 else CORE_DEPOSIT_WALLET_MAINNET
+    core_deposit_wallet = get_core_deposit_wallet_contract(web3, cdw_address)
+    core_writer = get_core_writer_contract(web3)
+
     calls = [
         # 1. Approve USDC to CoreDepositWallet
         _encode_perform_call(
@@ -315,11 +332,9 @@ def build_hypercore_deposit_multicall(
 
 
 def build_hypercore_withdraw_multicall(
-    module: Contract,
-    core_writer: Contract,
+    lagoon_vault: LagoonVault,
     hypercore_usdc_amount: int,
     vault_address: HexAddress | str,
-    safe_address: HexAddress | str,
 ) -> ContractFunction:
     """Build a single multicall transaction for the full Hypercore withdrawal flow.
 
@@ -332,24 +347,28 @@ def build_hypercore_withdraw_multicall(
     When the EVM block finishes execution, all queued CoreWriter actions
     are processed sequentially on HyperCore (~47k gas per action).
 
-    :param module:
-        TradingStrategyModuleV0 contract instance.
+    Derives all contract instances internally from the :py:class:`LagoonVault`:
 
-    :param core_writer:
-        CoreWriter contract instance.
+    - ``module`` from :py:attr:`LagoonVault.trading_strategy_module`
+    - ``core_writer`` at the system address :py:data:`CORE_WRITER_ADDRESS`
+    - ``safe_address`` from :py:attr:`LagoonVault.safe_address`
+
+    :param lagoon_vault:
+        Lagoon vault instance with ``trading_strategy_module_address`` configured.
 
     :param hypercore_usdc_amount:
         USDC amount in HyperCore wei (uint64) for all CoreWriter actions.
 
     :param vault_address:
-        Hypercore native vault address.
-
-    :param safe_address:
-        Safe address to receive USDC back on EVM.
+        Hypercore native vault address (not the Lagoon vault address).
 
     :return:
         Bound ``module.functions.multicall(data)`` ready to ``.transact()``.
     """
+    module = lagoon_vault.trading_strategy_module
+    safe_address = lagoon_vault.safe_address
+    core_writer = get_core_writer_contract(lagoon_vault.web3)
+
     calls = [
         # 1. CoreWriter.sendRawAction(vaultTransfer(vault, false, amount))
         _encode_perform_call(
