@@ -59,6 +59,9 @@ class VaultFlag(str, enum.Enum):
     #: Share price is unrealistically high (> $1M), likely a broken contract
     abnormal_share_price = "abnormal_share_price"
 
+    #: Annualised volatility is unrealistically high
+    abnormal_volatility = "abnormal_volatility"
+
     #: Tnis vault is a perp dex trading vault on Hyperliquid, Orderly, Lighter, etc.
     perp_dex_trading_vault = "perp_dex_trading_vault"
 
@@ -72,6 +75,7 @@ BAD_FLAGS = {
     VaultFlag.unofficial,
     VaultFlag.abnormal_price_on_low_tvl,
     VaultFlag.abnormal_share_price,
+    VaultFlag.abnormal_volatility,
     VaultFlag.subvault,
 }
 
@@ -130,8 +134,9 @@ ABNORMAL_TVL = "The TVL on this vault is abnormal"
 
 ABNORMAL_SHARE_PRICE = "Share price is unrealistically high, likely a broken smart contract"
 
+ABNORMAL_VOLATILITY = "Annualised volatility is unrealistically high, likely a low-TVL vault with very few trades"
 
-HYPERCORE_VAULT_NOTE = "Profit calculations are cleaned from deposit/redeem net flow and differ from the account Profit and Loss (PnL) on Hyperliquid website"
+HYPERCORE_VAULT_NOTE = "Profit and loss (PnL) results here differ from the method used on the Hyperliquid website. Instead of raw account PnL, the data is cleaned from deposit/redeem flow and reflects better the actual profitability of the underlying trading activity."
 
 UNKNOWN_VAULT = "Vault is not known, not listed on the website of the protocol"
 

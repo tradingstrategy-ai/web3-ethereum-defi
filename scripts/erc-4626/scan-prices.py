@@ -65,6 +65,19 @@ Debug scan of a single vault:
     UNCLEANED_PRICE_DATABASE=/tmp/prices.parquet \
     python scripts/erc-4626/scan-prices.py
 
+Scan multiple vaults (comma-separated, with whitespace trimming).
+When VAULT_ID is set, saved reader states for those vaults are cleared
+for a fresh scan, and parquet deletion is vault-aware (other vaults' data
+is preserved):
+
+.. code-block:: shell
+
+    # All Ember vaults on Ethereum from scratch
+    VAULT_ID="1-0xf3190a3ecc109f88e7947b849b281918c798a0c4, 1-0x373152feef81cc59502da2c8de877b3d5ae2e342, 1-0x0b9342c15143e8f54a83f887c280a922f4c48771, 1-0x821fc97196d47566b618d27515df2c5201cc4125, 1-0xde88c15bbc9c4254a147a964f1fc937bae12712e, 1-0xb920ed46dec7455d0caf52b357d9a9f55b4daeca, 1-0x7e1916fa3bb694d4e7a038771e8fe97222e775ca, 1-0x9be9294722f8aad37b11a9792be2c782182cafa2, 1-0x2b13311fd553e74b421d4ccc96e348f71e179dcf" \
+    JSON_RPC_URL=$JSON_RPC_ETHEREUM \
+    START_BLOCK=1 \
+    python scripts/erc-4626/scan-prices.py
+
 """
 
 import logging
@@ -130,6 +143,10 @@ def main():
 
     min_deposit_threshold = 5
 
+    start_block = os.environ.get("START_BLOCK")
+    if start_block is not None:
+        start_block = int(start_block)
+
     end_block = os.environ.get("END_BLOCK")
     if end_block is None:
         end_block = web3.eth.block_number
@@ -144,12 +161,15 @@ def main():
     else:
         output_folder = Path(output_folder).expanduser()
 
-    # Scan a single vault
+    # Scan specific vaults (comma-separated list)
     vault_id = os.environ.get("VAULT_ID")
     if vault_id is not None:
-        vault_spec = VaultSpec.parse_string(vault_id)
+        vault_specs = [VaultSpec.parse_string(v.strip()) for v in vault_id.split(",")]
+        vault_addresses = {spec.vault_address for spec in vault_specs}
+        print(f"Filtering to {len(vault_addresses)} specific vaults")
     else:
-        vault_spec = None
+        vault_specs = None
+        vault_addresses = None
 
     frequency = os.environ.get("FREQUENCY", "1h")
 
@@ -198,11 +218,9 @@ def main():
             # print(f"Vault does not have enough deposits: {address}, has: {detection.deposit_count}, threshold {min_deposit_threshold}")
             continue
 
-        if vault_spec is not None:
-            # Skip
-            if vault_spec.vault_address != address:
+        if vault_addresses is not None:
+            if address.lower() not in vault_addresses:
                 continue
-            print(f"Scanning single vault: {vault_spec}")
 
         vault = create_vault_instance(web3, address, detection.features, token_cache=token_cache)
         if vault is not None:
@@ -214,6 +232,14 @@ def main():
             pass
 
     print(f"After filtering vaults for non-interesting entries, we have {len(vaults):,} vaults left")
+
+    if vault_addresses is not None and reader_states:
+        # Fresh scan for selected vaults - remove their saved state
+        # so they scan from the beginning
+        cleared = sum(1 for spec in reader_states if spec.vault_address in vault_addresses)
+        reader_states = {spec: state for spec, state in reader_states.items() if spec.vault_address not in vault_addresses}
+        if cleared:
+            print(f"Cleared {cleared} reader states for selected vaults (fresh scan)")
 
     if len(vaults) == 0:
         print(f"No vaults to scan on {name} after filtering, exiting")
@@ -236,7 +262,7 @@ def main():
             web3=web3,
             web3factory=web3factory,
             vaults=vaults,
-            start_block=None,
+            start_block=start_block,
             end_block=end_block,
             max_workers=max_workers,
             chunk_size=32,
@@ -244,6 +270,7 @@ def main():
             frequency=frequency,
             reader_states=reader_states,
             hypersync_client=hypersync_config.hypersync_client,
+            vault_addresses=vault_addresses,
         )
     finally:
         if pr:

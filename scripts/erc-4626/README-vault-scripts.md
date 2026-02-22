@@ -68,8 +68,28 @@ JSON_RPC_URL=$JSON_RPC_BASE poetry run python scripts/erc-4626/scan-prices.py
 | Variable | Description |
 |----------|-------------|
 | `JSON_RPC_URL` | Required. RPC endpoint. |
-| `FREQUENCY` | Optional. Sampling frequency. |
-| `END_BLOCK` | Optional. Stop at this block. |
+| `FREQUENCY` | Optional. Sampling frequency (`1h`, `1d`). Default: `1h`. |
+| `START_BLOCK` | Optional. Start scanning from this block. Default: auto-detected from reader states. |
+| `END_BLOCK` | Optional. Stop at this block. Default: latest. |
+| `MAX_WORKERS` | Optional. Parallel workers. Default: 20. |
+| `VAULT_ID` | Optional. Comma-separated list of vault specs to scan (format: `chain_id-address`). When set, only those vaults are scanned and their saved reader states are cleared for a fresh scan. Parquet deletion is vault-aware — other vaults' data is preserved. |
+| `READER_STATE_DATABASE` | Optional. Custom reader state pickle path. |
+| `UNCLEANED_PRICE_DATABASE` | Optional. Custom parquet output path. |
+| `OUTPUT_FOLDER` | Optional. Custom output directory. |
+
+#### Scanning specific vaults
+
+You can scan a subset of vaults using `VAULT_ID` with comma-separated vault specs.
+This is safe to run against production data — only the specified vaults' parquet rows
+are deleted and rewritten.
+
+```shell
+# Scan all Ember vaults on Ethereum from scratch
+VAULT_ID="1-0xf3190a3ecc109f88e7947b849b281918c798a0c4, 1-0x373152feef81cc59502da2c8de877b3d5ae2e342, 1-0x0b9342c15143e8f54a83f887c280a922f4c48771, 1-0x821fc97196d47566b618d27515df2c5201cc4125, 1-0xde88c15bbc9c4254a147a964f1fc937bae12712e, 1-0xb920ed46dec7455d0caf52b357d9a9f55b4daeca, 1-0x7e1916fa3bb694d4e7a038771e8fe97222e775ca, 1-0x9be9294722f8aad37b11a9792be2c782182cafa2, 1-0x2b13311fd553e74b421d4ccc96e348f71e179dcf" \
+JSON_RPC_URL=$JSON_RPC_ETHEREUM \
+START_BLOCK=1 \
+poetry run python scripts/erc-4626/scan-prices.py
+```
 
 ### clean-prices.py
 

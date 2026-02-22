@@ -4,7 +4,7 @@ short_description: |
   Native perpetual trading strategies on Gravity Markets (GRVT).
 long_description: |
   GRVT (Gravity Markets) is a hybrid derivatives exchange built on a
-  ZKsync-based chain (chain ID 325). Strategy vaults allow managers to
+  ZKsync-based chain. Strategy vaults allow managers to
   deploy perpetual trading strategies while depositors earn a share of
   the returns.
 
@@ -22,7 +22,7 @@ fee_description: |
   Management fees (0-4%) are charged daily by minting new strategy shares,
   diluting existing holders. These fees are already reflected in the share
   price. Performance fees (0-40%) are charged on gains at redemption time
-  and are NOT reflected in the share price (externalised). Each vault sets
+  and are not reflected in the share price (externalised). Each vault sets
   its own fee percentages.
 links:
   homepage: https://grvt.io
