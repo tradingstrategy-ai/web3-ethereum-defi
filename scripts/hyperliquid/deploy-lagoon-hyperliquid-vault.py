@@ -13,6 +13,11 @@ mock CoreWriter/CoreDepositWallet contracts so no real funds are needed.
 Without ``SIMULATE`` the script connects to the live network (mainnet or
 testnet) and requires a funded deployer key.
 
+You can also reconnect to an existing Lagoon deployment by setting
+``LAGOON_VAULT`` and ``TRADING_STRATEGY_MODULE`` environment variables.
+This is useful for the testnet withdrawal test: deploy + deposit on day 1,
+then come back on day 2 with the same addresses to run withdrawal only.
+
 Account funding for Hyperliquid testnet
 ---------------------------------------
 
@@ -49,19 +54,27 @@ Environment variables
 - ``USDC_AMOUNT``: USDC amount in human units (default: ``1``)
 - ``LOG_LEVEL``: Logging level (default: ``info``)
 
+Reconnecting to an existing deployment:
+
+- ``LAGOON_VAULT``: Existing Lagoon vault address. When set, skips
+  deployment and whitelisting entirely.
+- ``TRADING_STRATEGY_MODULE``: Existing TradingStrategyModuleV0 address
+  (required when ``LAGOON_VAULT`` is set).
+
 Usage::
 
     # Simulate on Anvil fork (no real funds needed)
     source .local-test.env && SIMULATE=true poetry run python scripts/hyperliquid/deploy-lagoon-hyperliquid-vault.py
 
-    # Testnet deposit only (wait 1 day before withdrawal)
+    # Testnet deposit only (deploy + deposit, wait 1 day before withdrawal)
     PRIVATE_KEY=0x... JSON_RPC_HYPERLIQUID="https://api.hyperliquid-testnet.xyz/evm" \\
         ACTION=deposit HYPERCORE_VAULT=0xabc... USDC_AMOUNT=5 \\
         poetry run python scripts/hyperliquid/deploy-lagoon-hyperliquid-vault.py
 
-    # Testnet withdrawal (after lock-up period)
+    # Testnet withdrawal (reconnect to existing deployment after lock-up)
     PRIVATE_KEY=0x... JSON_RPC_HYPERLIQUID="https://api.hyperliquid-testnet.xyz/evm" \\
         ACTION=withdraw HYPERCORE_VAULT=0xabc... USDC_AMOUNT=5 \\
+        LAGOON_VAULT=0xdef... TRADING_STRATEGY_MODULE=0x123... \\
         poetry run python scripts/hyperliquid/deploy-lagoon-hyperliquid-vault.py
 """
 
@@ -79,6 +92,7 @@ from eth_defi.erc_4626.vault_protocol.lagoon.deployment import (
     LagoonDeploymentParameters,
     deploy_automated_lagoon_vault,
 )
+from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.hotwallet import HotWallet
 from eth_defi.hyperliquid.core_writer import (
     CORE_DEPOSIT_WALLET_MAINNET,
@@ -95,6 +109,7 @@ from eth_defi.trace import (
     assert_transaction_success_with_explanation,
 )
 from eth_defi.utils import setup_console_logging
+from eth_defi.vault.base import VaultSpec
 
 logger = logging.getLogger(__name__)
 
@@ -160,6 +175,54 @@ def _fund_safe_usdc(web3: Web3, safe_address: str, usdc_address: str, amount: in
         ],
     )
     logger.info("Funded Safe %s with %d USDC (wei)", safe_address, amount)
+
+
+def _setup_hypercore_whitelisting(
+    web3: Web3,
+    module,
+    vault_address: str,
+    usdc_address: str,
+    safe_address: str,
+    simulate: bool,
+) -> None:
+    """Whitelist CoreWriter, Hypercore vault, and USDC on the guard.
+
+    In SIMULATE mode impersonates the Safe; on live network the sender
+    must be the guard owner (typically the Safe via multisig).
+    """
+    if simulate:
+        web3.provider.make_request("anvil_impersonateAccount", [safe_address])
+        web3.provider.make_request("anvil_setBalance", [safe_address, hex(10 * 10**18)])
+        sender = safe_address
+    else:
+        sender = safe_address
+
+    chain_id = web3.eth.chain_id
+    cdw_address = get_core_deposit_wallet(chain_id)
+
+    tx_hash = module.functions.whitelistCoreWriter(
+        Web3.to_checksum_address(CORE_WRITER_ADDRESS),
+        Web3.to_checksum_address(cdw_address),
+        "Hypercore vault trading",
+    ).transact({"from": sender})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    tx_hash = module.functions.whitelistHypercoreVault(
+        Web3.to_checksum_address(vault_address),
+        f"Hypercore vault: {vault_address}",
+    ).transact({"from": sender})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    tx_hash = module.functions.whitelistToken(
+        Web3.to_checksum_address(usdc_address),
+        "USDC for Hypercore bridging",
+    ).transact({"from": sender})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    if simulate:
+        web3.provider.make_request("anvil_stopImpersonatingAccount", [safe_address])
+
+    logger.info("Hypercore whitelisting complete")
 
 
 def _do_deposit(
@@ -244,6 +307,13 @@ def main():
     vault_address = HexAddress(HexStr(os.environ.get("HYPERCORE_VAULT", DEFAULT_VAULT)))
     usdc_human = int(os.environ.get("USDC_AMOUNT", "1"))
 
+    # Existing deployment addresses (skip deploy + whitelist when set)
+    existing_lagoon_vault = os.environ.get("LAGOON_VAULT")
+    existing_module = os.environ.get("TRADING_STRATEGY_MODULE")
+
+    if existing_lagoon_vault:
+        assert existing_module, "TRADING_STRATEGY_MODULE required when LAGOON_VAULT is set"
+
     # Connect to network
     anvil = None
     if simulate:
@@ -270,83 +340,66 @@ def main():
     usdc_amount = usdc_human * 10**usdc.decimals
     hypercore_amount = usdc_human * 10**6  # HyperCore uses 6 decimals
 
-    # Deploy mock contracts at system addresses (Anvil fork only)
-    if simulate:
-        _setup_anvil_mocks(web3)
-
-    # Deploy Lagoon vault
-    logger.info("Deploying Lagoon vault...")
-    config = LagoonConfig(
-        parameters=LagoonDeploymentParameters(
-            underlying=usdc_address,
-            name="HyperEVM Hypercore Manual Test",
-            symbol="HHMT",
-        ),
-        asset_manager=deployer_account.address,
-        safe_owners=[OWNER_1, OWNER_2],
-        safe_threshold=2,
-        any_asset=True,
-        safe_salt_nonce=99,
-    )
-
-    deploy_info = deploy_automated_lagoon_vault(
-        web3=web3,
-        deployer=deployer,
-        config=config,
-    )
-
-    module = deploy_info.trading_strategy_module
-    safe_address = deploy_info.safe.address
-
-    logger.info("Vault:  %s", deploy_info.vault.address)
-    logger.info("Safe:   %s", safe_address)
-    logger.info("Module: %s", module.address)
-
-    # Set up Hypercore whitelisting
-    # In SIMULATE mode we impersonate the Safe; on live network the deployer
-    # is a Safe owner (added automatically during deployment)
-    if simulate:
-        web3.provider.make_request("anvil_impersonateAccount", [safe_address])
-        web3.provider.make_request("anvil_setBalance", [safe_address, hex(10 * 10**18)])
-        whitelisting_sender = safe_address
+    if existing_lagoon_vault:
+        # Reconnect to an existing Lagoon deployment
+        logger.info("Reconnecting to existing deployment: vault=%s module=%s", existing_lagoon_vault, existing_module)
+        lagoon_vault = LagoonVault(
+            web3,
+            VaultSpec(chain_id, existing_lagoon_vault),
+            trading_strategy_module_address=existing_module,
+            default_block_identifier="latest",
+        )
+        safe_address = lagoon_vault.safe_address
+        module = lagoon_vault.trading_strategy_module
+        logger.info("Vault:  %s", lagoon_vault.vault_address)
+        logger.info("Safe:   %s", safe_address)
+        logger.info("Module: %s", module.address)
     else:
-        whitelisting_sender = deployer_account.address
+        # Fresh deployment via deploy_automated_lagoon_vault()
+        if simulate:
+            _setup_anvil_mocks(web3)
 
-    cdw_address = get_core_deposit_wallet(chain_id)
+        logger.info("Deploying Lagoon vault...")
+        config = LagoonConfig(
+            parameters=LagoonDeploymentParameters(
+                underlying=usdc_address,
+                name="HyperEVM Hypercore Manual Test",
+                symbol="HHMT",
+            ),
+            asset_manager=deployer_account.address,
+            safe_owners=[OWNER_1, OWNER_2],
+            safe_threshold=2,
+            any_asset=True,
+            safe_salt_nonce=99,
+        )
 
-    tx_hash = module.functions.whitelistCoreWriter(
-        Web3.to_checksum_address(CORE_WRITER_ADDRESS),
-        Web3.to_checksum_address(cdw_address),
-        "Hypercore vault trading",
-    ).transact({"from": whitelisting_sender})
-    assert_transaction_success_with_explanation(web3, tx_hash)
+        deploy_info = deploy_automated_lagoon_vault(
+            web3=web3,
+            deployer=deployer,
+            config=config,
+        )
 
-    tx_hash = module.functions.whitelistHypercoreVault(
-        Web3.to_checksum_address(vault_address),
-        f"Hypercore vault: {vault_address}",
-    ).transact({"from": whitelisting_sender})
-    assert_transaction_success_with_explanation(web3, tx_hash)
+        lagoon_vault = deploy_info.vault
+        module = deploy_info.trading_strategy_module
+        safe_address = deploy_info.safe.address
 
-    tx_hash = module.functions.whitelistToken(
-        Web3.to_checksum_address(usdc_address),
-        "USDC for Hypercore bridging",
-    ).transact({"from": whitelisting_sender})
-    assert_transaction_success_with_explanation(web3, tx_hash)
+        logger.info("Vault:  %s", lagoon_vault.vault_address)
+        logger.info("Safe:   %s", safe_address)
+        logger.info("Module: %s", module.address)
 
-    if simulate:
-        web3.provider.make_request("anvil_stopImpersonatingAccount", [safe_address])
+        # Hypercore whitelisting (only needed for fresh deployments)
+        _setup_hypercore_whitelisting(
+            web3, module, vault_address, usdc_address, safe_address, simulate,
+        )
 
-    logger.info("Hypercore whitelisting complete")
-
-    # Fund Safe with USDC (Anvil only)
-    if simulate:
-        _fund_safe_usdc(web3, safe_address, usdc_address, usdc_amount)
+        # Fund Safe with USDC (Anvil only)
+        if simulate:
+            _fund_safe_usdc(web3, safe_address, usdc_address, usdc_amount)
 
     balance = usdc.contract.functions.balanceOf(safe_address).call()
     logger.info("Safe USDC balance: %s", balance / 10**usdc.decimals)
 
     # Execute actions
-    lagoon_vault = deploy_info.vault
     if action in ("deposit", "both"):
         assert balance >= usdc_amount, f"Safe USDC balance {balance} insufficient, need {usdc_amount}"
         _do_deposit(
@@ -370,7 +423,7 @@ def main():
     # Summary
     final_balance = usdc.contract.functions.balanceOf(safe_address).call()
     summary = [
-        ["Vault", deploy_info.vault.address],
+        ["Vault", lagoon_vault.vault_address],
         ["Safe", safe_address],
         ["Module", module.address],
         ["Chain ID", chain_id],
