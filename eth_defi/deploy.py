@@ -28,6 +28,48 @@ GUARD_LIBRARIES: dict[str, str] = {
     "HypercoreVaultLib": ZERO_ADDRESS,
 }
 
+#: Forge ``--libraries`` source paths for the **guard** project.
+#:
+#: Maps library name to ``source_path:LibraryName`` as seen by the compiler.
+GUARD_FORGE_LIBRARY_SOURCES: dict[str, str] = {
+    "CowSwapLib": "src/lib/CowSwapLib.sol:CowSwapLib",
+    "GmxLib": "src/lib/GmxLib.sol:GmxLib",
+    "HypercoreVaultLib": "src/lib/HypercoreVaultLib.sol:HypercoreVaultLib",
+}
+
+#: Forge ``--libraries`` source paths for the **safe-integration** project.
+#:
+#: The guard sources are referenced via ``../guard/src/`` because
+#: ``remappings.txt`` maps ``@guard=../guard/src``.
+SAFE_INTEGRATION_FORGE_LIBRARY_SOURCES: dict[str, str] = {
+    "CowSwapLib": "../guard/src/lib/CowSwapLib.sol:CowSwapLib",
+    "GmxLib": "../guard/src/lib/GmxLib.sol:GmxLib",
+    "HypercoreVaultLib": "../guard/src/lib/HypercoreVaultLib.sol:HypercoreVaultLib",
+}
+
+
+def build_guard_forge_libraries(
+    library_addresses: dict[str, str] | None = None,
+    project: str = "guard",
+) -> dict[str, str]:
+    """Build ``forge_libraries`` mapping for :py:func:`eth_defi.foundry.forge.deploy_contract_with_forge`.
+
+    Returns a dict of ``"source_path:LibraryName" -> address`` suitable for the
+    ``--libraries`` flag of ``forge create``.
+
+    :param library_addresses:
+        Overrides for specific libraries. Keys are library names
+        (e.g. ``"CowSwapLib"``), values are deployed addresses.
+        Libraries not listed default to :data:`~eth_defi.abi.ZERO_ADDRESS`.
+
+    :param project:
+        ``"guard"`` or ``"safe-integration"``, determines source paths.
+    """
+    sources = GUARD_FORGE_LIBRARY_SOURCES if project == "guard" else SAFE_INTEGRATION_FORGE_LIBRARY_SOURCES
+    addresses = library_addresses or {}
+    return {sources[name]: addresses.get(name, ZERO_ADDRESS) for name in sources}
+
+
 #: Manage internal registry of deployed contracts
 #:
 #: Lower case address -> Contract mapping.

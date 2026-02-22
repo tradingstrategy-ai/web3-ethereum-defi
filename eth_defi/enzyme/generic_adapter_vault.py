@@ -31,6 +31,7 @@ from eth_defi.enzyme.policy import (
     create_safe_default_policy_configuration_for_generic_adapter,
 )
 from eth_defi.enzyme.vault import Vault
+from eth_defi.deploy import build_guard_forge_libraries
 from eth_defi.foundry.forge import deploy_contract_with_forge
 from eth_defi.hotwallet import HotWallet
 from eth_defi.one_delta.constants import ONE_DELTA_DEPLOYMENTS
@@ -373,6 +374,7 @@ def deploy_guard(
             f"GuardV0",
             deployer,
             etherscan_api_key=etherscan_api_key,
+            forge_libraries=build_guard_forge_libraries(),
         )
         logger.info("GuardV0 is %s deployed at %s", guard.address, tx_hash.hex())
         assert guard.functions.getInternalVersion().call() == 1
