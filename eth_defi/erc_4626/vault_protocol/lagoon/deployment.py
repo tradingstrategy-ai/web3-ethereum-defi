@@ -280,6 +280,10 @@ class LagoonConfig:
     #: Deploy fresh Lagoon protocol (fee registry + vault implementation + factory)
     from_the_scratch: bool = False
 
+    #: Hypercore native vault addresses to whitelist (HyperEVM only).
+    #: When set, also whitelists CoreWriter and CoreDepositWallet.
+    hypercore_vaults: list[HexAddress | str] | None = None
+
     #: ERC-20 token addresses to whitelist
     assets: list[HexAddress | str] | None = None
 
@@ -922,6 +926,7 @@ def setup_guard(
     velora: bool = False,
     gmx_deployment: GMXDeployment | None = None,
     cctp_deployment: CCTPDeployment | None = None,
+    hypercore_vaults: list[HexAddress | str] | None = None,
     hack_sleep=20.0,
     assets: list[HexAddress | str] | None = None,
     multicall_chunk_size=40,
@@ -1154,6 +1159,41 @@ def setup_guard(
     else:
         logger.info("Not whitelisted: CCTP")
 
+    # Whitelist Hypercore native vaults (HyperEVM only)
+    if hypercore_vaults:
+        from eth_defi.hyperliquid.guard_whitelist import get_core_deposit_wallet
+        from eth_defi.hyperliquid.core_writer import CORE_WRITER_ADDRESS
+
+        chain_id = web3.eth.chain_id
+        cdw_address = get_core_deposit_wallet(chain_id)
+        logger.info(
+            "Whitelisting Hypercore: CoreWriter=%s, CoreDepositWallet=%s",
+            CORE_WRITER_ADDRESS,
+            cdw_address,
+        )
+        tx_hash = _broadcast(
+            module.functions.whitelistCoreWriter(
+                Web3.to_checksum_address(CORE_WRITER_ADDRESS),
+                Web3.to_checksum_address(cdw_address),
+                "Hypercore vault trading",
+            )
+        )
+        assert_transaction_success_with_explanation(web3, tx_hash)
+
+        for idx, hv_address in enumerate(hypercore_vaults, start=1):
+            logger.info("Whitelisting Hypercore vault #%d: %s", idx, hv_address)
+            tx_hash = _broadcast(
+                module.functions.whitelistHypercoreVault(
+                    Web3.to_checksum_address(hv_address),
+                    f"Hypercore vault: {hv_address}",
+                )
+            )
+            assert_transaction_success_with_explanation(web3, tx_hash)
+
+        logger.info("Hypercore whitelisting complete: %d vault(s)", len(hypercore_vaults))
+    else:
+        logger.info("Not whitelisted: Hypercore")
+
     # Whitelist all assets
     if any_asset:
         logger.info("Allow any asset whitelist")
@@ -1185,6 +1225,7 @@ def deploy_automated_lagoon_vault(
     velora: bool = False,
     gmx_deployment: GMXDeployment | None = None,
     cctp_deployment: CCTPDeployment | None = None,
+    hypercore_vaults: list[HexAddress | str] | None = None,
     any_asset: bool = False,
     etherscan_api_key: str = None,
     verifier: Literal["etherscan", "blockscout", "sourcify", "oklink"] | None = None,
@@ -1276,6 +1317,7 @@ def deploy_automated_lagoon_vault(
         factory_contract = config.factory_contract
         from_the_scratch = config.from_the_scratch
         assets = config.assets
+        hypercore_vaults = config.hypercore_vaults
         safe_salt_nonce = config.safe_salt_nonce
         safe_proxy_factory_address = config.safe_proxy_factory_address
     else:
@@ -1306,6 +1348,15 @@ def deploy_automated_lagoon_vault(
         deployer_local_account = deployer.account
     else:
         deployer_local_account = deployer
+
+    # HyperEVM dual-block architecture: enable large blocks if the small block
+    # gas limit is too low for contract deployment (~5.4M gas for guard).
+    # https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm/dual-block-architecture
+    from eth_defi.hyperliquid.block import enable_big_blocks, disable_big_blocks
+    big_blocks_toggled = enable_big_blocks(
+        web3,
+        deployer_local_account._private_key.hex(),
+    )
 
     existing_guard_module = None
     beacon_proxy_factory_address = None
@@ -1479,11 +1530,17 @@ def deploy_automated_lagoon_vault(
         velora=velora,
         gmx_deployment=gmx_deployment,
         cctp_deployment=cctp_deployment,
+        hypercore_vaults=hypercore_vaults,
         erc_4626_vaults=erc_4626_vaults,
         any_asset=any_asset,
         broadcast_func=_broadcast,
         assets=assets,
     )
+
+    # Disable large blocks now that all heavy deployments are done.
+    # Remaining operations (ownership transfer, approvals) fit in small blocks.
+    if big_blocks_toggled:
+        disable_big_blocks(web3, deployer_local_account._private_key.hex())
 
     # After everything is deployed, fix ownership
     # 1. Transfer TradingStrategyModuleV0 module ownership to Gnosis

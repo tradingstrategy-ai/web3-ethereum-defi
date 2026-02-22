@@ -20,7 +20,7 @@ from eth_typing import HexAddress, HexStr
 from web3 import Web3
 from web3.contract import Contract
 
-from eth_defi.abi import encode_function_call, get_abi_by_filename
+from eth_defi.abi import encode_function_call
 from eth_defi.erc_4626.vault_protocol.lagoon.deployment import (
     LagoonAutomatedDeployment,
     LagoonConfig,
@@ -40,7 +40,17 @@ from eth_defi.hyperliquid.core_writer import (
     encode_vault_deposit,
     encode_vault_withdraw,
 )
-from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
+from eth_defi.hyperliquid.testing import (
+    deploy_mock_core_deposit_wallet,
+    deploy_mock_core_writer,
+)
+from eth_defi.provider.anvil import (
+    ANVIL_OWNER_1,
+    ANVIL_OWNER_2,
+    AnvilLaunch,
+    fork_network_anvil,
+    fund_erc20_on_anvil,
+)
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import USDC_NATIVE_TOKEN, fetch_erc20_details, TokenDetails
 from eth_defi.trace import (
@@ -59,24 +69,12 @@ pytestmark = pytest.mark.skipif(
 
 #: Anvil default account #0 private key
 DEPLOYER_PRIVATE_KEY = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
-#: Anvil default accounts #1 and #2 as Safe owners
-OWNER_1 = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
-OWNER_2 = "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"
 
 #: Test vault address (arbitrary, just needs to be whitelisted)
 TEST_HYPERCORE_VAULT = HexAddress(HexStr("0x1111111111111111111111111111111111111111"))
 
 #: HyperEVM USDC address
 USDC_ADDRESS = USDC_NATIVE_TOKEN[999]
-
-
-def _load_deployed_bytecode(abi_filename: str) -> str:
-    """Load deployed bytecode from an ABI JSON file."""
-    abi_data = get_abi_by_filename(abi_filename)
-    bytecode = abi_data["deployedBytecode"]["object"]
-    if not bytecode.startswith("0x"):
-        bytecode = "0x" + bytecode
-    return bytecode
 
 
 def _perform_call(module: Contract, fn_call, asset_manager: str):
@@ -125,37 +123,13 @@ def usdc(web3) -> TokenDetails:
 @pytest.fixture()
 def mock_core_writer(web3) -> Contract:
     """Deploy MockCoreWriter at the system address via anvil_setCode."""
-    bytecode = _load_deployed_bytecode("guard/MockCoreWriter.json")
-    address = Web3.to_checksum_address(CORE_WRITER_ADDRESS)
-    web3.provider.make_request("anvil_setCode", [address, bytecode])
-    # Clear storage slot 0 (actions array length) to avoid conflicts
-    # with existing storage at the real CoreWriter address
-    web3.provider.make_request(
-        "anvil_setStorageAt",
-        [address, "0x" + "0" * 64, "0x" + "0" * 64],
-    )
-    deployed_code = web3.eth.get_code(address)
-    assert len(deployed_code) > 0, "MockCoreWriter bytecode not set"
-    abi_data = get_abi_by_filename("guard/MockCoreWriter.json")
-    return web3.eth.contract(address=address, abi=abi_data["abi"])
+    return deploy_mock_core_writer(web3)
 
 
 @pytest.fixture()
 def mock_core_deposit_wallet(web3) -> Contract:
     """Deploy MockCoreDepositWallet at the mainnet address via anvil_setCode."""
-    bytecode = _load_deployed_bytecode("guard/MockCoreDepositWallet.json")
-    address = Web3.to_checksum_address(CORE_DEPOSIT_WALLET_MAINNET)
-    web3.provider.make_request("anvil_setCode", [address, bytecode])
-    # Clear storage slot 0 (deposits array length) to avoid conflicts
-    # with existing storage at the real CDW address
-    web3.provider.make_request(
-        "anvil_setStorageAt",
-        [address, "0x" + "0" * 64, "0x" + "0" * 64],
-    )
-    deployed_code = web3.eth.get_code(address)
-    assert len(deployed_code) > 0, "MockCoreDepositWallet bytecode not set"
-    abi_data = get_abi_by_filename("guard/MockCoreDepositWallet.json")
-    return web3.eth.contract(address=address, abi=abi_data["abi"])
+    return deploy_mock_core_deposit_wallet(web3)
 
 
 @pytest.fixture()
@@ -178,7 +152,7 @@ def lagoon_deployment(
             symbol="HHTV",
         ),
         asset_manager=deployer.address,
-        safe_owners=[OWNER_1, OWNER_2],
+        safe_owners=[ANVIL_OWNER_1, ANVIL_OWNER_2],
         safe_threshold=2,
         any_asset=True,
         safe_salt_nonce=42,
@@ -249,20 +223,9 @@ def test_lagoon_hypercore_vault_deposit(
     asset_manager = deployer.address
     usdc_amount = 10_000 * 10**6  # 10k USDC
 
-    # Fund the Safe with USDC by setting storage directly
+    # Fund the Safe with USDC
     web3.provider.make_request("anvil_setBalance", [safe_address, hex(10 * 10**18)])
-    web3.provider.make_request(
-        "anvil_setStorageAt",
-        [
-            Web3.to_checksum_address(USDC_ADDRESS),
-            "0x"
-            + Web3.solidity_keccak(
-                ["uint256", "uint256"],
-                [int(safe_address, 16), 9],
-            ).hex(),
-            "0x" + usdc_amount.to_bytes(32, "big").hex(),
-        ],
-    )
+    fund_erc20_on_anvil(web3, USDC_ADDRESS, safe_address, usdc_amount)
     balance = usdc.contract.functions.balanceOf(safe_address).call()
     assert balance >= usdc_amount, f"Safe USDC balance {balance} < {usdc_amount}"
 
@@ -354,20 +317,9 @@ def test_lagoon_hypercore_deposit_multicall(
     asset_manager = deployer.address
     usdc_amount = 10_000 * 10**6  # 10k USDC
 
-    # Fund the Safe with USDC by setting storage directly
+    # Fund the Safe with USDC
     web3.provider.make_request("anvil_setBalance", [safe_address, hex(10 * 10**18)])
-    web3.provider.make_request(
-        "anvil_setStorageAt",
-        [
-            Web3.to_checksum_address(USDC_ADDRESS),
-            "0x"
-            + Web3.solidity_keccak(
-                ["uint256", "uint256"],
-                [int(safe_address, 16), 9],
-            ).hex(),
-            "0x" + usdc_amount.to_bytes(32, "big").hex(),
-        ],
-    )
+    fund_erc20_on_anvil(web3, USDC_ADDRESS, safe_address, usdc_amount)
     balance = usdc.contract.functions.balanceOf(safe_address).call()
     assert balance >= usdc_amount
 

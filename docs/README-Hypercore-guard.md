@@ -170,6 +170,124 @@ No RPC provider supports querying precompile views at historic blocks. Only `lat
 - Protocol vaults (HLP): **4 day** lock-up.
 - The `vaultTransfer(withdraw)` action will fail on HyperCore if the lock-up has not expired. The `hyper-evm-lib` library checks the lock via the vault equity precompile before submitting the action.
 
+## Dual-block architecture and contract deployment
+
+HyperEVM produces two types of blocks under a unified, increasing sequence of EVM block numbers.
+This has major implications for deploying Lagoon vaults and guard contracts.
+
+### Block types
+
+| Property | Small blocks | Large blocks |
+|----------|-------------|-------------|
+| Gas limit | ~2–3M | 30M |
+| Cadence | Every ~1 second | Every ~1 minute |
+| Transactions per block | Multiple | 1 |
+| Use case | Normal transactions | Contract deployments, heavy computation |
+
+Two independent mempools source transactions for the two block types.
+A transaction is routed to one or the other based on the sender's account-level flag.
+
+### Why this matters for Lagoon deployment
+
+- `TradingStrategyModuleV0` requires **~5.4M gas** to deploy — exceeds the small block limit
+- `Vault.sol` (Lagoon implementation) requires **>3M gas** — also exceeds the small block limit
+- On HyperEVM **mainnet** (chain 999), a Lagoon `BeaconProxyFactory` is already deployed,
+  so vault deployment uses lightweight proxies that fit in small blocks
+- On HyperEVM **testnet** (chain 998), there is **no factory** — the script deploys from scratch
+  via `forge create`, which hits the small block gas limit and fails
+
+The deployment script failure we encountered:
+
+```
+Error: server returned an error response: error code -32603: exceeds block gas limit
+```
+
+This occurs because `forge create` submits to the default (small block) mempool.
+
+### How to enable large blocks
+
+Before deploying contracts that exceed the small block gas limit, the deployer address
+must opt into the large block mempool. This is a HyperCore-level action, not an EVM transaction.
+
+**Method 1: Hyperliquid Python SDK**
+
+```python
+from hyperliquid.exchange import Exchange
+from eth_account import Account
+
+account = Account.from_key(private_key)
+exchange = Exchange(account, "https://api.hyperliquid.xyz", account_address=account.address)
+
+# Enable large blocks for this address
+exchange.use_big_blocks(True)
+
+# ... deploy contracts ...
+
+# Disable large blocks to return to fast confirmation
+exchange.use_big_blocks(False)
+```
+
+For testnet, use `"https://api.hyperliquid-testnet.xyz"` as the API URL.
+
+Under the hood, this sends an `evmUserModify` action: `{"type": "evmUserModify", "usingBigBlocks": true}`.
+
+**Method 2: Web toggle**
+
+Visit https://hyperevm-block-toggle.vercel.app/, connect the deployer wallet, and sign the enabling transaction.
+
+**Method 3: LayerZero CLI**
+
+```shell
+npx @layerzerolabs/hyperliquid-composer set-block --size big --network mainnet --private-key $PRIVATE_KEY
+```
+
+**Method 4: `eth_bigBlockGasPrice` RPC**
+
+Query `eth_bigBlockGasPrice` to get the base fee for the next large block, then use that gas price
+in the transaction. This routes to the large block mempool without toggling the account flag.
+
+### Prerequisites
+
+- The deployer address must be a known HyperCore user (e.g., by having received Core assets)
+- HYPE must be on HyperEVM for gas
+- After toggling to large blocks, **all** transactions from that address go to the large block mempool
+  until toggled back — including normal transfers, which will take ~1 minute instead of ~1 second
+
+### Checking current block mode
+
+```python
+# Check if an address is using large blocks
+result = web3.provider.make_request("eth_usingBigBlocks", [address])
+```
+
+### Custom HyperEVM JSON-RPC methods
+
+| Method | Purpose |
+|--------|---------|
+| `eth_bigBlockGasPrice` | Base fee for the next large block |
+| `eth_usingBigBlocks` | Whether an address is flagged for large blocks |
+| `eth_getSystemTxsByBlockHash` | System transactions from HyperCore by block hash |
+| `eth_getSystemTxsByBlockNumber` | System transactions from HyperCore by block number |
+
+### Deployment strategy summary
+
+| Scenario | Block type needed | Notes |
+|----------|-------------------|-------|
+| Mainnet vault deployment (factory exists) | Small blocks | Proxies are lightweight |
+| Testnet from-scratch deployment | **Large blocks required** | Vault + registry + guard exceed 3M gas |
+| Guard deployment (`TradingStrategyModuleV0`) | **Large blocks required** | ~5.4M gas |
+| Multicall deposit/withdrawal | Small blocks | Individual calls are <100k gas each |
+| Anvil fork (SIMULATE mode) | N/A | Anvil overrides gas limit to 30M |
+
+### Source material
+
+- [Dual-block architecture — Hyperliquid docs](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm/dual-block-architecture)
+- [A guide to HyperEVM's dual block architecture — HypeRPC](https://hyperpc.app/blog/hyperevm-dual-block-architecture)
+- [How to enable big blocks on HyperEVM — Curve Resources](https://resources.curve.finance/troubleshooting/how-to-enable-big-blocks/)
+- [Curve Finance big blocks Python script](https://github.com/curvefi/curve-core/blob/main/scripts/utils/hyperevm_enable_big_blocks.py)
+- [Hyperliquid Python SDK `use_big_blocks()` example](https://github.com/hyperliquid-dex/hyperliquid-python-sdk/blob/master/examples/basic_evm_use_big_blocks.py)
+- [HyperEVM JSON-RPC — Hyperliquid docs](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm/json-rpc)
+
 ## Manual testing
 
 A manual test script deploys a Lagoon vault on a HyperEVM Anvil fork and exercises

@@ -1,25 +1,19 @@
-"""Deploy a Lagoon vault on HyperEVM and exercise Hypercore deposit/withdrawal.
+"""Deploy a Lagoon vault on HyperEVM and exercise Hypercore vault deposit/withdrawal.
 
-A quick script to test/simulate Lagoon vault deployment on HyperEVM,
-with Hypercore deposit and withdrawal flows via multicall.
+A quick example script to test/simulate Lagoon vault deployment on HyperEVM.
 
-.. note ::
-
-    THIS SCRIPT IS ONLY FOR TESTING PURPOSES. The Safe multisig
-    is configured with random owners and cannot be used for production.
-
-In ``SIMULATE`` mode the script forks HyperEVM mainnet via Anvil and deploys
+In ``SIMULATE`` mode the script forks the selected network via Anvil and deploys
 mock CoreWriter/CoreDepositWallet contracts so no real funds are needed.
-Without ``SIMULATE`` the script connects to the live network (mainnet or
-testnet) and requires a funded deployer key.
+Without ``SIMULATE`` the script connects to the live network and requires a
+funded deployer key.
 
 You can also reconnect to an existing Lagoon deployment by setting
 ``LAGOON_VAULT`` and ``TRADING_STRATEGY_MODULE`` environment variables.
 This is useful for the testnet withdrawal test: deploy + deposit on day 1,
 then come back on day 2 with the same addresses to run withdrawal only.
 
-Account funding for Hyperliquid testnet
----------------------------------------
+Account funding for HyperEVM testnet
+------------------------------------
 
 1. Create a new private key and set ``HYPERCORE_WRITER_TEST_PRIVATE_KEY`` env
 2. Move ~$2 worth of ETH on Arbitrum to that address
@@ -39,8 +33,13 @@ Account funding for Hyperliquid testnet
 
 Environment variables
 ---------------------
-- ``JSON_RPC_HYPERLIQUID``: HyperEVM RPC URL (required).
-  For testnet use ``https://api.hyperliquid-testnet.xyz/evm``.
+- ``NETWORK``: ``mainnet`` or ``testnet`` (default: ``testnet``).
+  Selects the RPC URL and chain parameters.
+- ``JSON_RPC_HYPERLIQUID``: HyperEVM mainnet RPC URL.
+  Read from environment when ``NETWORK=mainnet``.
+- ``JSON_RPC_HYPERLIQUID_TESTNET``: HyperEVM testnet RPC URL.
+  Defaults to ``https://rpc.hyperliquid-testnet.xyz/evm``
+  when ``NETWORK=testnet``.
 - ``HYPERCORE_WRITER_TEST_PRIVATE_KEY``: Deployer private key (required on live network;
   defaults to Anvil account #0 in SIMULATE mode)
 - ``SIMULATE``: Set to any value to fork via Anvil (default: unset)
@@ -65,13 +64,16 @@ Usage::
     # Simulate on Anvil fork (no real funds needed)
     source .local-test.env && SIMULATE=true poetry run python scripts/hyperliquid/deploy-lagoon-hyperliquid-vault.py
 
+    # Simulate testnet on Anvil fork
+    SIMULATE=true NETWORK=testnet poetry run python scripts/hyperliquid/deploy-lagoon-hyperliquid-vault.py
+
     # Testnet deposit only (deploy + deposit, wait 1 day before withdrawal)
-    HYPERCORE_WRITER_TEST_PRIVATE_KEY=0x... JSON_RPC_HYPERLIQUID="https://api.hyperliquid-testnet.xyz/evm" \\
+    HYPERCORE_WRITER_TEST_PRIVATE_KEY=0x... NETWORK=testnet \\
         ACTION=deposit HYPERCORE_VAULT=0xabc... USDC_AMOUNT=5 \\
         poetry run python scripts/hyperliquid/deploy-lagoon-hyperliquid-vault.py
 
     # Testnet withdrawal (reconnect to existing deployment after lock-up)
-    HYPERCORE_WRITER_TEST_PRIVATE_KEY=0x... JSON_RPC_HYPERLIQUID="https://api.hyperliquid-testnet.xyz/evm" \\
+    HYPERCORE_WRITER_TEST_PRIVATE_KEY=0x... NETWORK=testnet \\
         ACTION=withdraw HYPERCORE_VAULT=0xabc... USDC_AMOUNT=5 \\
         LAGOON_VAULT=0xdef... TRADING_STRATEGY_MODULE=0x123... \\
         poetry run python scripts/hyperliquid/deploy-lagoon-hyperliquid-vault.py
@@ -85,171 +87,31 @@ from eth_typing import HexAddress, HexStr
 from tabulate import tabulate
 from web3 import Web3
 
-from eth_defi.abi import get_abi_by_filename
 from eth_defi.erc_4626.vault_protocol.lagoon.deployment import (
-    LAGOON_BEACON_PROXY_FACTORIES,
-    LagoonConfig,
-    LagoonDeploymentParameters,
-    deploy_automated_lagoon_vault,
-)
+    LAGOON_BEACON_PROXY_FACTORIES, LagoonConfig, LagoonDeploymentParameters,
+    deploy_automated_lagoon_vault)
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.hotwallet import HotWallet
 from eth_defi.hyperliquid.core_writer import (
-    CORE_DEPOSIT_WALLET_MAINNET,
-    CORE_DEPOSIT_WALLET_TESTNET,
-    CORE_WRITER_ADDRESS,
-    build_hypercore_deposit_multicall,
-    build_hypercore_withdraw_multicall,
-)
-from eth_defi.hyperliquid.guard_whitelist import get_core_deposit_wallet
-from eth_defi.provider.anvil import fork_network_anvil
+    build_hypercore_deposit_multicall, build_hypercore_withdraw_multicall)
+from eth_defi.hyperliquid.testing import setup_anvil_hypercore_mocks
+from eth_defi.provider.anvil import (ANVIL_OWNER_1, ANVIL_OWNER_2,
+                                     ANVIL_PRIVATE_KEY, fork_network_anvil,
+                                     fund_erc20_on_anvil)
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import USDC_NATIVE_TOKEN, fetch_erc20_details
-from eth_defi.trace import (
-    TransactionAssertionError,
-    assert_transaction_success_with_explanation,
-)
+from eth_defi.trace import (TransactionAssertionError,
+                            assert_transaction_success_with_explanation)
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.base import VaultSpec
 
 logger = logging.getLogger(__name__)
 
-#: Anvil default account #0 private key
-ANVIL_DEFAULT_KEY = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
-
-#: Anvil default accounts #1 and #2 as Safe owners
-OWNER_1 = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
-OWNER_2 = "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"
-
 #: Default Hypercore vault address (Testnet HLP)
 DEFAULT_VAULT = "0xa15099a30bbf2e68942d6f4c43d70d04faeab0a0"
 
-
-def _load_deployed_bytecode(abi_filename: str) -> str:
-    """Load deployed bytecode from an ABI JSON file."""
-    abi_data = get_abi_by_filename(abi_filename)
-    bytecode = abi_data["deployedBytecode"]["object"]
-    if not bytecode.startswith("0x"):
-        bytecode = "0x" + bytecode
-    return bytecode
-
-
-def _setup_anvil_mocks(web3: Web3, deployer_address: str) -> None:
-    """Deploy mock CoreWriter and CoreDepositWallet on Anvil forks."""
-    # MockCoreWriter at the system address
-    cw_bytecode = _load_deployed_bytecode("guard/MockCoreWriter.json")
-    cw_address = Web3.to_checksum_address(CORE_WRITER_ADDRESS)
-    web3.provider.make_request("anvil_setCode", [cw_address, cw_bytecode])
-    web3.provider.make_request(
-        "anvil_setStorageAt",
-        [cw_address, "0x" + "0" * 64, "0x" + "0" * 64],
-    )
-    logger.info("MockCoreWriter deployed at %s", cw_address)
-
-    # MockCoreDepositWallet at the correct address for the chain
-    cdw_bytecode = _load_deployed_bytecode("guard/MockCoreDepositWallet.json")
-    chain_id = web3.eth.chain_id
-    cdw_address = Web3.to_checksum_address(CORE_DEPOSIT_WALLET_TESTNET if chain_id == 998 else CORE_DEPOSIT_WALLET_MAINNET)
-    web3.provider.make_request("anvil_setCode", [cdw_address, cdw_bytecode])
-    web3.provider.make_request(
-        "anvil_setStorageAt",
-        [cdw_address, "0x" + "0" * 64, "0x" + "0" * 64],
-    )
-    logger.info("MockCoreDepositWallet deployed at %s", cdw_address)
-
-    # Fund deployer with HYPE for gas (need enough for library + module + Safe deployment)
-    web3.provider.make_request("anvil_setBalance", [deployer_address, hex(1_000 * 10**18)])
-
-
-def _find_balance_slot(web3: Web3, token_address: str, holder_address: str) -> int:
-    """Find the ERC-20 balanceOf mapping storage slot by brute force on Anvil.
-
-    Tries slots 0-19 (covers all common ERC-20 implementations).
-    """
-    erc20_abi = [{"constant": True, "inputs": [{"name": "", "type": "address"}], "name": "balanceOf", "outputs": [{"name": "", "type": "uint256"}], "type": "function"}]
-    token = web3.eth.contract(address=Web3.to_checksum_address(token_address), abi=erc20_abi)
-    test_amount = 10**18
-
-    for slot in range(20):
-        snap = web3.provider.make_request("evm_snapshot", [])["result"]
-        key = Web3.solidity_keccak(["uint256", "uint256"], [int(holder_address, 16), slot])
-        web3.provider.make_request("anvil_setStorageAt", [
-            Web3.to_checksum_address(token_address),
-            "0x" + key.hex(),
-            "0x" + test_amount.to_bytes(32, "big").hex(),
-        ])
-        bal = token.functions.balanceOf(Web3.to_checksum_address(holder_address)).call()
-        web3.provider.make_request("evm_revert", [snap])
-        if bal == test_amount:
-            return slot
-
-    raise RuntimeError(f"Could not find balance slot for token {token_address}")
-
-
-def _fund_safe_usdc(web3: Web3, safe_address: str, usdc_address: str, amount: int):
-    """Fund Safe with USDC by directly setting storage on Anvil."""
-    slot = _find_balance_slot(web3, usdc_address, safe_address)
-    web3.provider.make_request(
-        "anvil_setStorageAt",
-        [
-            Web3.to_checksum_address(usdc_address),
-            "0x"
-            + Web3.solidity_keccak(
-                ["uint256", "uint256"],
-                [int(safe_address, 16), slot],
-            ).hex(),
-            "0x" + amount.to_bytes(32, "big").hex(),
-        ],
-    )
-    logger.info("Funded Safe %s with %d USDC (wei) via storage slot %d", safe_address, amount, slot)
-
-
-def _setup_hypercore_whitelisting(
-    web3: Web3,
-    module,
-    vault_address: str,
-    usdc_address: str,
-    safe_address: str,
-    simulate: bool,
-) -> None:
-    """Whitelist CoreWriter, Hypercore vault, and USDC on the guard.
-
-    In SIMULATE mode impersonates the Safe; on live network the sender
-    must be the guard owner (typically the Safe via multisig).
-    """
-    if simulate:
-        web3.provider.make_request("anvil_impersonateAccount", [safe_address])
-        web3.provider.make_request("anvil_setBalance", [safe_address, hex(10 * 10**18)])
-        sender = safe_address
-    else:
-        sender = safe_address
-
-    chain_id = web3.eth.chain_id
-    cdw_address = get_core_deposit_wallet(chain_id)
-
-    tx_hash = module.functions.whitelistCoreWriter(
-        Web3.to_checksum_address(CORE_WRITER_ADDRESS),
-        Web3.to_checksum_address(cdw_address),
-        "Hypercore vault trading",
-    ).transact({"from": sender})
-    assert_transaction_success_with_explanation(web3, tx_hash)
-
-    tx_hash = module.functions.whitelistHypercoreVault(
-        Web3.to_checksum_address(vault_address),
-        f"Hypercore vault: {vault_address}",
-    ).transact({"from": sender})
-    assert_transaction_success_with_explanation(web3, tx_hash)
-
-    tx_hash = module.functions.whitelistToken(
-        Web3.to_checksum_address(usdc_address),
-        "USDC for Hypercore bridging",
-    ).transact({"from": sender})
-    assert_transaction_success_with_explanation(web3, tx_hash)
-
-    if simulate:
-        web3.provider.make_request("anvil_stopImpersonatingAccount", [safe_address])
-
-    logger.info("Hypercore whitelisting complete")
+#: Default public RPC for HyperEVM testnet
+HYPERLIQUID_TESTNET_RPC = "https://rpc.hyperliquid-testnet.xyz/evm"
 
 
 def _do_deposit(
@@ -321,14 +183,20 @@ def main():
     log_level = os.environ.get("LOG_LEVEL", "info")
     setup_console_logging(default_log_level=log_level)
 
-    json_rpc = os.environ.get("JSON_RPC_HYPERLIQUID")
-    assert json_rpc, "JSON_RPC_HYPERLIQUID environment variable required"
+    network = os.environ.get("NETWORK", "testnet").lower()
+    assert network in ("mainnet", "testnet"), f"NETWORK must be 'mainnet' or 'testnet', got '{network}'"
+
+    if network == "testnet":
+        json_rpc = os.environ.get("JSON_RPC_HYPERLIQUID_TESTNET", HYPERLIQUID_TESTNET_RPC)
+    else:
+        json_rpc = os.environ.get("JSON_RPC_HYPERLIQUID")
+        assert json_rpc, "JSON_RPC_HYPERLIQUID environment variable required for mainnet"
 
     simulate = os.environ.get("SIMULATE")
     action = os.environ.get("ACTION", "both").lower()
     assert action in ("deposit", "withdraw", "both"), f"ACTION must be 'deposit', 'withdraw', or 'both', got '{action}'"
 
-    private_key = os.environ.get("HYPERCORE_WRITER_TEST_PRIVATE_KEY", ANVIL_DEFAULT_KEY if simulate else None)
+    private_key = os.environ.get("HYPERCORE_WRITER_TEST_PRIVATE_KEY", ANVIL_PRIVATE_KEY if simulate else None)
     assert private_key, "HYPERCORE_WRITER_TEST_PRIVATE_KEY environment variable required (or set SIMULATE=true)"
 
     vault_address = HexAddress(HexStr(os.environ.get("HYPERCORE_VAULT", DEFAULT_VAULT)))
@@ -344,14 +212,14 @@ def main():
     # Connect to network
     anvil = None
     if simulate:
-        logger.info("SIMULATE mode: forking HyperEVM via Anvil")
+        logger.info("SIMULATE mode: forking HyperEVM %s via Anvil (RPC: %s)", network, json_rpc)
         anvil = fork_network_anvil(
             json_rpc,
             gas_limit=30_000_000,
         )
         web3 = create_multi_provider_web3(anvil.json_rpc_url, default_http_timeout=(3, 500.0))
     else:
-        logger.info("Live network mode")
+        logger.info("Live %s mode (RPC: %s)", network, json_rpc)
         web3 = create_multi_provider_web3(json_rpc, default_http_timeout=(3, 500.0))
 
     chain_id = web3.eth.chain_id
@@ -365,7 +233,25 @@ def main():
     usdc_address = USDC_NATIVE_TOKEN[chain_id]
     usdc = fetch_erc20_details(web3, usdc_address)
     usdc_amount = usdc.convert_to_raw(usdc_human)
-    hypercore_amount = usdc_human * 10**6  # Hypercore always uses 6 decimals
+    hypercore_amount = usdc_amount  # Hypercore uses same decimals as EVM USDC
+
+    # Check deployer has enough HYPE (gas) and USDC before doing anything expensive
+    if not simulate:
+        hype_balance = web3.eth.get_balance(deployer_account.address)
+        hype_human = hype_balance / 10**18
+        min_hype = 0.1
+        assert hype_human >= min_hype, (
+            f"Deployer {deployer_account.address} has {hype_human:.4f} HYPE, "
+            f"need at least {min_hype} HYPE for gas"
+        )
+
+        deployer_usdc_human = usdc.fetch_balance_of(deployer_account.address)
+        min_usdc = 5
+        assert deployer_usdc_human >= min_usdc, (
+            f"Deployer {deployer_account.address} has {deployer_usdc_human:.2f} USDC, "
+            f"need at least {min_usdc} USDC"
+        )
+        logger.info("Deployer balances: %.4f HYPE, %.2f USDC", hype_human, deployer_usdc_human)
 
     if existing_lagoon_vault:
         # Reconnect to an existing Lagoon deployment
@@ -384,7 +270,7 @@ def main():
     else:
         # Fresh deployment via deploy_automated_lagoon_vault()
         if simulate:
-            _setup_anvil_mocks(web3, deployer_account.address)
+            setup_anvil_hypercore_mocks(web3, deployer_account.address)
 
         logger.info("Deploying Lagoon vault...")
         # Deploy from scratch when there is no pre-deployed factory on the chain.
@@ -397,12 +283,13 @@ def main():
             parameters=LagoonDeploymentParameters(
                 underlying=usdc_address,
                 name="HyperEVM Hypercore Manual Test",
-                symbol="HHMT",
+                symbol="TEST",
             ),
             asset_manager=deployer_account.address,
-            safe_owners=[OWNER_1, OWNER_2],
+            safe_owners=[ANVIL_OWNER_1, ANVIL_OWNER_2],
             safe_threshold=2,
             any_asset=True,
+            hypercore_vaults=[vault_address],
             safe_salt_nonce=99 if not from_the_scratch else None,
             from_the_scratch=from_the_scratch,
             use_forge=from_the_scratch,  # Required for from_the_scratch
@@ -422,22 +309,12 @@ def main():
         logger.info("Safe:   %s", safe_address)
         logger.info("Module: %s", module.address)
 
-        # Hypercore whitelisting (only needed for fresh deployments)
-        _setup_hypercore_whitelisting(
-            web3,
-            module,
-            vault_address,
-            usdc_address,
-            safe_address,
-            simulate,
-        )
-
         # Fund Safe with USDC (Anvil only)
         if simulate:
-            _fund_safe_usdc(web3, safe_address, usdc_address, usdc_amount)
+            fund_erc20_on_anvil(web3, usdc_address, safe_address, usdc_amount)
 
-    balance = usdc.contract.functions.balanceOf(safe_address).call()
-    logger.info("Safe USDC balance: %s", balance / 10**usdc.decimals)
+    balance = usdc.fetch_balance_of(safe_address)
+    logger.info("Safe USDC balance: %s", balance)
 
     # In SIMULATE mode, impersonate the deployer so eth_sendTransaction works
     # (the deployer may not be an Anvil-unlocked account if HYPERCORE_WRITER_TEST_PRIVATE_KEY is set)
@@ -445,7 +322,7 @@ def main():
         web3.provider.make_request("anvil_impersonateAccount", [deployer_account.address])
 
     if action in ("deposit", "both"):
-        assert balance >= usdc_amount, f"Safe USDC balance {balance} insufficient, need {usdc_amount}"
+        assert balance >= usdc_human, f"Safe USDC balance {balance} insufficient, need {usdc_human}"
         _do_deposit(
             lagoon_vault,
             usdc_amount,
@@ -468,15 +345,16 @@ def main():
         web3.provider.make_request("anvil_stopImpersonatingAccount", [deployer_account.address])
 
     # Summary
-    final_balance = usdc.contract.functions.balanceOf(safe_address).call()
+    final_balance = usdc.fetch_balance_of(safe_address)
     summary = [
+        ["Network", network],
         ["Vault", lagoon_vault.vault_address],
         ["Safe", safe_address],
         ["Module", module.address],
         ["Chain ID", chain_id],
         ["Action", action],
         ["USDC amount", f"{usdc_human:,}"],
-        ["Final USDC balance", f"{final_balance / 10**usdc.decimals:,.2f}"],
+        ["Final USDC balance", f"{final_balance:,.2f}"],
         ["Simulate", "yes" if simulate else "no"],
     ]
     print("\nSummary:")

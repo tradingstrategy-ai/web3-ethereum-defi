@@ -191,6 +191,10 @@ source .local-test.env && make build-docs
 
 Never directly edit auto-generated sphinx files in `_autosummary*` folders.
 
+## ERC-20
+
+- Don't do hardcoded token decimal multiply, use `TokenDetails.convert_to_raw()`
+
 ## Web Fetching and 403
 
 When fetching web pages, if `web_fetch` returns a 403 error, retry the request using the Chrome MCP tool to load the page in a real browser instead.

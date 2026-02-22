@@ -965,5 +965,135 @@ def create_fork_funded_wallet(
     return hot_wallet
 
 
+#: Anvil default account #0 private key
+ANVIL_PRIVATE_KEY = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+
+#: Anvil default account #0 address
+ANVIL_DEPLOYER = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+
+#: Anvil default account #1 address (useful as a Safe owner)
+ANVIL_OWNER_1 = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
+
+#: Anvil default account #2 address (useful as a Safe owner)
+ANVIL_OWNER_2 = "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"
+
+
+def find_erc20_balance_slot(
+    web3: Web3,
+    token_address: HexAddress | str,
+    holder_address: HexAddress | str,
+) -> int:
+    """Find the ERC-20 ``balanceOf`` mapping storage slot by brute force.
+
+    Tries slots 0-19 using Anvil snapshots, which covers all common
+    ERC-20 implementations (OpenZeppelin, Solmate, USDC proxy, etc.).
+
+    .. note::
+
+        Only works on Anvil forks, as it uses ``evm_snapshot``,
+        ``evm_revert``, and ``anvil_setStorageAt`` RPC methods.
+
+    :param web3:
+        Web3 connected to an Anvil fork.
+
+    :param token_address:
+        ERC-20 token contract address.
+
+    :param holder_address:
+        Address whose balance slot to find.
+
+    :return:
+        Storage slot number (0-19).
+
+    :raises RuntimeError:
+        If no matching slot is found in the first 20 slots.
+    """
+    erc20_abi = [
+        {
+            "constant": True,
+            "inputs": [{"name": "", "type": "address"}],
+            "name": "balanceOf",
+            "outputs": [{"name": "", "type": "uint256"}],
+            "type": "function",
+        }
+    ]
+    token = web3.eth.contract(
+        address=Web3.to_checksum_address(token_address),
+        abi=erc20_abi,
+    )
+    test_amount = 10**18
+
+    for slot in range(20):
+        snap = web3.provider.make_request("evm_snapshot", [])["result"]
+        key = Web3.solidity_keccak(
+            ["uint256", "uint256"],
+            [int(holder_address, 16), slot],
+        )
+        web3.provider.make_request(
+            "anvil_setStorageAt",
+            [
+                Web3.to_checksum_address(token_address),
+                "0x" + key.hex(),
+                "0x" + test_amount.to_bytes(32, "big").hex(),
+            ],
+        )
+        bal = token.functions.balanceOf(Web3.to_checksum_address(holder_address)).call()
+        web3.provider.make_request("evm_revert", [snap])
+        if bal == test_amount:
+            return slot
+
+    raise RuntimeError(f"Could not find balance slot for token {token_address}")
+
+
+def fund_erc20_on_anvil(
+    web3: Web3,
+    token_address: HexAddress | str,
+    recipient: HexAddress | str,
+    amount: int,
+) -> int:
+    """Fund an address with ERC-20 tokens by directly setting Anvil storage.
+
+    Auto-detects the ``balanceOf`` mapping slot using
+    :func:`find_erc20_balance_slot`, then writes the amount directly
+    to the token's storage.
+
+    :param web3:
+        Web3 connected to an Anvil fork.
+
+    :param token_address:
+        ERC-20 token contract address.
+
+    :param recipient:
+        Address to receive the tokens.
+
+    :param amount:
+        Token amount in raw wei.
+
+    :return:
+        The storage slot that was written to.
+    """
+    slot = find_erc20_balance_slot(web3, token_address, recipient)
+    web3.provider.make_request(
+        "anvil_setStorageAt",
+        [
+            Web3.to_checksum_address(token_address),
+            "0x"
+            + Web3.solidity_keccak(
+                ["uint256", "uint256"],
+                [int(recipient, 16), slot],
+            ).hex(),
+            "0x" + amount.to_bytes(32, "big").hex(),
+        ],
+    )
+    logger.info(
+        "Funded %s with %d tokens (wei) at %s via storage slot %d",
+        recipient,
+        amount,
+        token_address,
+        slot,
+    )
+    return slot
+
+
 # Backwards compatibility
 fork_network_anvil = launch_anvil
