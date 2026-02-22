@@ -26,17 +26,13 @@ from eth_defi import hypersync
 from eth_defi.chain import EVM_BLOCK_TIMES, get_chain_name
 from eth_defi.erc_4626.vault import VaultReaderState
 from eth_defi.erc_4626.warmup import warmup_vault_reader
-from eth_defi.event_reader.multicall_batcher import (
-    BatchCallState, EncodedCall, EncodedCallResult, read_multicall_historical,
-    read_multicall_historical_stateful)
-from eth_defi.event_reader.timestamp_cache import \
-    DEFAULT_TIMESTAMP_CACHE_FOLDER
+from eth_defi.event_reader.multicall_batcher import BatchCallState, EncodedCall, EncodedCallResult, read_multicall_historical, read_multicall_historical_stateful
+from eth_defi.event_reader.timestamp_cache import DEFAULT_TIMESTAMP_CACHE_FOLDER
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.provider.broken_provider import get_almost_latest_block_number
 from eth_defi.token import TokenDetails, TokenDiskCache, fetch_erc20_details
 from eth_defi.utils import chunked
-from eth_defi.vault.base import (VaultBase, VaultHistoricalRead,
-                                 VaultHistoricalReader, VaultSpec)
+from eth_defi.vault.base import VaultBase, VaultHistoricalRead, VaultHistoricalReader, VaultSpec
 from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
 
 logger = logging.getLogger(__name__)
@@ -532,6 +528,7 @@ def scan_historical_prices_to_parquet(
     reader_states: dict[VaultSpec, dict] | None = None,
     hypersync_client=None,
     timestamp_cache_file=DEFAULT_TIMESTAMP_CACHE_FOLDER,
+    vault_addresses: set[str] | None = None,
 ) -> ParquetScanResult:
     """Scan all historical vault share prices of vaults and save them in to Parquet file.
 
@@ -542,7 +539,9 @@ def scan_historical_prices_to_parquet(
     :param output_fname:
         Path to a destination Parquet file.
 
-        If the file exists, all entries for the current chain are deleted and rewritten.
+        If the file exists and ``vault_addresses`` is set, only entries for those
+        vaults are deleted and rewritten. Otherwise all entries for the current
+        chain are deleted and rewritten.
 
     :param web3:
         Web3 connection
@@ -582,6 +581,12 @@ def scan_historical_prices_to_parquet(
 
     :param hypersync_client:
         Speed up the discovery of timestamps
+
+    :param vault_addresses:
+        If set, only delete and rewrite parquet rows for these vault addresses.
+
+        Addresses must be lowercase. When ``None``, all rows for the chain
+        are deleted and rewritten (default behaviour).
 
     :return:
         Scan report.
@@ -725,10 +730,15 @@ def scan_historical_prices_to_parquet(
             len(existing_table),
         )
         # Clear existing entries for this chain
+        # When vault_addresses is set, only delete rows for those specific vaults
+        # to preserve other vaults' data
         mask = pc.and_(
             pc.equal(existing_table["chain"], chain_id),
             pc.greater_equal(existing_table["block_number"], start_block),
         )
+        if vault_addresses:
+            address_mask = pc.is_in(existing_table["address"], pa.array(list(vault_addresses)))
+            mask = pc.and_(mask, address_mask)
         all_row_count = len(existing_table)
         rows_deleted = pc.sum(mask).as_py() or 0
         existing_table = existing_table.filter(pc.invert(mask))
