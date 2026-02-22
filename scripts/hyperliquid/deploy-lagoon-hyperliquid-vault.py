@@ -21,7 +21,7 @@ then come back on day 2 with the same addresses to run withdrawal only.
 Account funding for Hyperliquid testnet
 ---------------------------------------
 
-1. Create a new private key and set ``PRIVATE_KEY`` env
+1. Create a new private key and set ``HYPERCORE_WRITER_TEST_PRIVATE_KEY`` env
 2. Move ~$2 worth of ETH on Arbitrum to that address
 3. Move ~$5 worth of USDC on Arbitrum to that address
 4. Sign in to https://app.hyperliquid.xyz with the new account
@@ -41,7 +41,7 @@ Environment variables
 ---------------------
 - ``JSON_RPC_HYPERLIQUID``: HyperEVM RPC URL (required).
   For testnet use ``https://api.hyperliquid-testnet.xyz/evm``.
-- ``PRIVATE_KEY``: Deployer private key (required on live network;
+- ``HYPERCORE_WRITER_TEST_PRIVATE_KEY``: Deployer private key (required on live network;
   defaults to Anvil account #0 in SIMULATE mode)
 - ``SIMULATE``: Set to any value to fork via Anvil (default: unset)
 - ``ACTION``: ``deposit``, ``withdraw``, or ``both`` (default: ``both``).
@@ -49,8 +49,7 @@ Environment variables
   due to the vault lock-up period, so run deposit first, then withdraw
   later.
 - ``HYPERCORE_VAULT``: Hypercore vault address to deposit into.
-  Defaults to ``0x1111111111111111111111111111111111111111`` (dummy address,
-  fine for SIMULATE mode). Must be set to a real vault for live testnet.
+  Defaults to ``0xa15099a30bbf2e68942d6f4c43d70d04faeab0a0`` (Testnet HLP).
 - ``USDC_AMOUNT``: USDC amount in human units (default: ``1``)
 - ``LOG_LEVEL``: Logging level (default: ``info``)
 
@@ -67,12 +66,12 @@ Usage::
     source .local-test.env && SIMULATE=true poetry run python scripts/hyperliquid/deploy-lagoon-hyperliquid-vault.py
 
     # Testnet deposit only (deploy + deposit, wait 1 day before withdrawal)
-    PRIVATE_KEY=0x... JSON_RPC_HYPERLIQUID="https://api.hyperliquid-testnet.xyz/evm" \\
+    HYPERCORE_WRITER_TEST_PRIVATE_KEY=0x... JSON_RPC_HYPERLIQUID="https://api.hyperliquid-testnet.xyz/evm" \\
         ACTION=deposit HYPERCORE_VAULT=0xabc... USDC_AMOUNT=5 \\
         poetry run python scripts/hyperliquid/deploy-lagoon-hyperliquid-vault.py
 
     # Testnet withdrawal (reconnect to existing deployment after lock-up)
-    PRIVATE_KEY=0x... JSON_RPC_HYPERLIQUID="https://api.hyperliquid-testnet.xyz/evm" \\
+    HYPERCORE_WRITER_TEST_PRIVATE_KEY=0x... JSON_RPC_HYPERLIQUID="https://api.hyperliquid-testnet.xyz/evm" \\
         ACTION=withdraw HYPERCORE_VAULT=0xabc... USDC_AMOUNT=5 \\
         LAGOON_VAULT=0xdef... TRADING_STRATEGY_MODULE=0x123... \\
         poetry run python scripts/hyperliquid/deploy-lagoon-hyperliquid-vault.py
@@ -120,8 +119,8 @@ ANVIL_DEFAULT_KEY = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf
 OWNER_1 = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
 OWNER_2 = "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"
 
-#: Default Hypercore vault address (dummy, only works in SIMULATE mode)
-DEFAULT_VAULT = "0x1111111111111111111111111111111111111111"
+#: Default Hypercore vault address (Testnet HLP)
+DEFAULT_VAULT = "0xa15099a30bbf2e68942d6f4c43d70d04faeab0a0"
 
 
 def _load_deployed_bytecode(abi_filename: str) -> str:
@@ -133,7 +132,7 @@ def _load_deployed_bytecode(abi_filename: str) -> str:
     return bytecode
 
 
-def _setup_anvil_mocks(web3: Web3) -> None:
+def _setup_anvil_mocks(web3: Web3, deployer_address: str) -> None:
     """Deploy mock CoreWriter and CoreDepositWallet on Anvil forks."""
     # MockCoreWriter at the system address
     cw_bytecode = _load_deployed_bytecode("guard/MockCoreWriter.json")
@@ -155,9 +154,8 @@ def _setup_anvil_mocks(web3: Web3) -> None:
     )
     logger.info("MockCoreDepositWallet deployed at %s", cdw_address)
 
-    # Fund deployer with HYPE for gas
-    deployer = web3.eth.accounts[0]
-    web3.provider.make_request("anvil_setBalance", [deployer, hex(100 * 10**18)])
+    # Fund deployer with HYPE for gas (need enough for library + module + Safe deployment)
+    web3.provider.make_request("anvil_setBalance", [deployer_address, hex(1_000 * 10**18)])
 
 
 def _fund_safe_usdc(web3: Web3, safe_address: str, usdc_address: str, amount: int):
@@ -301,8 +299,8 @@ def main():
     action = os.environ.get("ACTION", "both").lower()
     assert action in ("deposit", "withdraw", "both"), f"ACTION must be 'deposit', 'withdraw', or 'both', got '{action}'"
 
-    private_key = os.environ.get("PRIVATE_KEY", ANVIL_DEFAULT_KEY if simulate else None)
-    assert private_key, "PRIVATE_KEY environment variable required (or set SIMULATE=true)"
+    private_key = os.environ.get("HYPERCORE_WRITER_TEST_PRIVATE_KEY", ANVIL_DEFAULT_KEY if simulate else None)
+    assert private_key, "HYPERCORE_WRITER_TEST_PRIVATE_KEY environment variable required (or set SIMULATE=true)"
 
     vault_address = HexAddress(HexStr(os.environ.get("HYPERCORE_VAULT", DEFAULT_VAULT)))
     usdc_human = int(os.environ.get("USDC_AMOUNT", "1"))
@@ -357,7 +355,7 @@ def main():
     else:
         # Fresh deployment via deploy_automated_lagoon_vault()
         if simulate:
-            _setup_anvil_mocks(web3)
+            _setup_anvil_mocks(web3, deployer_account.address)
 
         logger.info("Deploying Lagoon vault...")
         config = LagoonConfig(
@@ -389,7 +387,12 @@ def main():
 
         # Hypercore whitelisting (only needed for fresh deployments)
         _setup_hypercore_whitelisting(
-            web3, module, vault_address, usdc_address, safe_address, simulate,
+            web3,
+            module,
+            vault_address,
+            usdc_address,
+            safe_address,
+            simulate,
         )
 
         # Fund Safe with USDC (Anvil only)
@@ -399,7 +402,11 @@ def main():
     balance = usdc.contract.functions.balanceOf(safe_address).call()
     logger.info("Safe USDC balance: %s", balance / 10**usdc.decimals)
 
-    # Execute actions
+    # In SIMULATE mode, impersonate the deployer so eth_sendTransaction works
+    # (the deployer may not be an Anvil-unlocked account if HYPERCORE_WRITER_TEST_PRIVATE_KEY is set)
+    if simulate:
+        web3.provider.make_request("anvil_impersonateAccount", [deployer_account.address])
+
     if action in ("deposit", "both"):
         assert balance >= usdc_amount, f"Safe USDC balance {balance} insufficient, need {usdc_amount}"
         _do_deposit(
@@ -419,6 +426,9 @@ def main():
             deployer_account.address,
             usdc_human,
         )
+
+    if simulate:
+        web3.provider.make_request("anvil_stopImpersonatingAccount", [deployer_account.address])
 
     # Summary
     final_balance = usdc.contract.functions.balanceOf(safe_address).call()
