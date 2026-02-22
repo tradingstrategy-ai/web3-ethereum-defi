@@ -17,10 +17,12 @@ from pprint import pformat
 from eth_typing import BlockIdentifier
 from web3 import Web3
 
+from eth_defi.event_reader.fast_json_rpc import get_last_headers
 from eth_defi.provider.ankr import is_ankr
 from eth_defi.provider.anvil import is_anvil, is_mainnet_fork
 from eth_defi.provider.fallback import FallbackProvider
 from eth_defi.provider.mev_blocker import MEVBlockerProvider
+from eth_defi.utils import get_url_domain
 
 logger = logging.getLogger(__name__)
 
@@ -241,9 +243,8 @@ def verify_archive_node(rpc_url: str, chain_name: str) -> tuple[str, int]:
     :return: Tuple of (filtered RPC URL with only working providers, latest block number)
     :raises RuntimeError: If all providers fail verification
     """
-    from eth_defi.event_reader.fast_json_rpc import get_last_headers
+    # Local import to avoid circular dependency (multi_provider imports from broken_provider)
     from eth_defi.provider.multi_provider import create_multi_provider_web3
-    from eth_defi.utils import get_url_domain
 
     zero_address = "0x0000000000000000000000000000000000000000"
 
