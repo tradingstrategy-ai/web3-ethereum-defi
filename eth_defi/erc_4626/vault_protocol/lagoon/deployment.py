@@ -24,7 +24,7 @@ from typing import Any, Callable, Literal
 import eth_abi
 from eth_account.signers.local import LocalAccount
 from eth_defi.aave_v3.deployment import AaveV3Deployment
-from eth_defi.abi import ZERO_ADDRESS_STR, encode_multicalls, get_deployed_contract
+from eth_defi.abi import ZERO_ADDRESS, ZERO_ADDRESS_STR, encode_multicalls, get_deployed_contract
 from eth_defi.cow.constants import COWSWAP_SETTLEMENT, COWSWAP_VAULT_RELAYER
 from eth_defi.cctp.whitelist import CCTPDeployment
 from eth_defi.gmx.whitelist import GMXDeployment
@@ -822,6 +822,23 @@ def deploy_safe_trading_strategy_module(
         # https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm/dual-block-architecture
         block_gas_limit = web3.eth.get_block("latest")["gasLimit"]
         guard_gas = min(10_000_000, block_gas_limit - 100_000)
+
+        # TradingStrategyModuleV0 uses HypercoreVaultLib via DELEGATECALL.
+        # On HyperEVM (chain 999): deploy the library for Hypercore vault support.
+        # On other chains: link with zero address (Hypercore code paths never entered).
+        chain_id = web3.eth.chain_id
+        if chain_id == 999:
+            lib = deploy_contract(
+                web3,
+                "guard/HypercoreVaultLib.json",
+                deployer,
+                gas=guard_gas,
+            )
+            library_addresses = {"HypercoreVaultLib": lib.address}
+            logger.info("Deployed HypercoreVaultLib at %s for HyperEVM", lib.address)
+        else:
+            library_addresses = {"HypercoreVaultLib": ZERO_ADDRESS}
+
         module = deploy_contract(
             web3,
             "safe-integration/TradingStrategyModuleV0.json",
@@ -829,6 +846,7 @@ def deploy_safe_trading_strategy_module(
             owner,
             safe.address,
             gas=guard_gas,
+            libraries=library_addresses,
         )
 
     if enable_on_safe:

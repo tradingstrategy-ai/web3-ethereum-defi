@@ -44,6 +44,12 @@ guard:
 		-name "GuardV0.json" \
 		-o \
 		-name "SimpleVaultV0.json" \
+		-o \
+		-name "HypercoreVaultLib.json" \
+		-o \
+		-name "MockCoreWriter.json" \
+		-o \
+		-name "MockCoreDepositWallet.json" \
 		\) \
 		-exec cp {} eth_defi/abi/guard \;
 

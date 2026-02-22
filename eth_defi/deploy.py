@@ -14,7 +14,7 @@ from pytz.reference import Local
 from web3 import Web3
 from web3.contract import Contract
 
-from eth_defi.abi import get_contract
+from eth_defi.abi import get_contract, get_contract_with_forge_libraries
 from eth_defi.tx import get_tx_broadcast_data
 
 #: Manage internal registry of deployed contracts
@@ -39,6 +39,7 @@ def deploy_contract(
     register_for_tracing=True,
     gas: int = None,
     confirm=True,
+    libraries: dict[str, str] | None = None,
 ) -> Contract | HexBytes:
     """Deploys a new contract from ABI file.
 
@@ -50,6 +51,31 @@ def deploy_contract(
 
         token = deploy_contract(web3, deployer, "ERC20Mock.json", name, symbol, supply)
         print(f"Deployed ERC-20 token at {token.address}")
+
+    For contracts that require Forge library linking:
+
+    .. code-block:: python
+
+        # Deploy the library first, then link it
+        lib = deploy_contract(web3, "guard/HypercoreVaultLib.json", deployer)
+        vault = deploy_contract(
+            web3,
+            "guard/SimpleVaultV0.json",
+            deployer,
+            asset_manager,
+            libraries={"HypercoreVaultLib": lib.address},
+        )
+
+        # Or link with zero address if the library is never called on this chain
+        from eth_defi.abi import ZERO_ADDRESS
+
+        vault = deploy_contract(
+            web3,
+            "guard/SimpleVaultV0.json",
+            deployer,
+            asset_manager,
+            libraries={"HypercoreVaultLib": ZERO_ADDRESS},
+        )
 
     If you need to verify the deployed contract use :py:func:`eth_defi.foundry.forge.deploy_contract_with_forge`.
 
@@ -80,6 +106,13 @@ def deploy_contract(
     :param confirm:
         Confirm the contract deployment.
 
+    :param libraries:
+        Forge library linking addresses.
+        Mapping of library name to deployed address for resolving
+        ``__$<hash>$__`` placeholders in Forge-compiled bytecode.
+        Use :py:data:`~eth_defi.abi.ZERO_ADDRESS` for libraries
+        that are never called on the target chain.
+
     :raise ContractDeploymentFailed:
         In the case we could not deploy the contract.
 
@@ -88,7 +121,10 @@ def deploy_contract(
 
     """
     if isinstance(contract, str):
-        Contract = get_contract(web3, contract)
+        if libraries:
+            Contract = get_contract_with_forge_libraries(web3, contract, libraries)
+        else:
+            Contract = get_contract(web3, contract)
 
         # Used in trace.py
         contract_name = contract.replace(".json", "")

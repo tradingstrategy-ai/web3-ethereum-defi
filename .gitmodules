@@ -65,3 +65,6 @@
 [submodule "contracts/aave-v3-origin"]
 	path = contracts/aave-v3-origin
 	url = https://github.com/aave-dao/aave-v3-origin.git
+[submodule "contracts/guard/lib/hyper-evm-lib"]
+	path = contracts/guard/lib/hyper-evm-lib
+	url = https://github.com/hyperliquid-dev/hyper-evm-lib
