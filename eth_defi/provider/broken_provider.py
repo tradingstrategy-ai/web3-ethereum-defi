@@ -17,10 +17,12 @@ from pprint import pformat
 from eth_typing import BlockIdentifier
 from web3 import Web3
 
+from eth_defi.event_reader.fast_json_rpc import get_last_headers
 from eth_defi.provider.ankr import is_ankr
 from eth_defi.provider.anvil import is_anvil, is_mainnet_fork
 from eth_defi.provider.fallback import FallbackProvider
 from eth_defi.provider.mev_blocker import MEVBlockerProvider
+from eth_defi.utils import get_url_domain
 
 logger = logging.getLogger(__name__)
 
@@ -228,33 +230,33 @@ def get_safe_cached_latest_block_number(
     return safe_block
 
 
-def verify_archive_node(rpc_url: str, chain_name: str) -> int:
-    """Verify that each RPC provider in the configuration is an archive node.
+def verify_archive_node(rpc_url: str, chain_name: str) -> tuple[str, int]:
+    """Verify RPC providers and filter out broken ones.
 
     Parses the space-separated multi-RPC configuration line and tests each
     endpoint individually. Checks that each provider can serve both block 1
-    and the latest block. This catches misconfigured RPC endpoints early
-    before starting expensive scans.
+    and the latest block. Broken providers are logged at ERROR level and
+    filtered out; the scan continues with working providers only.
 
     :param rpc_url: RPC URL configuration line (may contain space-separated fallbacks, ``mev+`` prefixed endpoints are skipped)
     :param chain_name: Chain name for logging
-    :return: Latest block number from the first working provider
-    :raises RuntimeError: If any provider fails verification, listing working and faulty providers
+    :return: Tuple of (filtered RPC URL with only working providers, latest block number)
+    :raises RuntimeError: If all providers fail verification
     """
-    from eth_defi.event_reader.fast_json_rpc import get_last_headers
+    # Local import to avoid circular dependency (multi_provider imports from broken_provider)
     from eth_defi.provider.multi_provider import create_multi_provider_web3
-    from eth_defi.utils import get_url_domain
 
     zero_address = "0x0000000000000000000000000000000000000000"
 
-    # Parse individual endpoints from the configuration line,
-    # skip mev+ transact-only endpoints
-    endpoints = [url.strip() for url in rpc_url.split() if url.strip() and not url.strip().startswith("mev+")]
+    # Preserve mev+ transact-only endpoints as-is
+    all_parts = [url.strip() for url in rpc_url.split() if url.strip()]
+    mev_endpoints = [url for url in all_parts if url.startswith("mev+")]
+    endpoints = [url for url in all_parts if not url.startswith("mev+")]
 
     if not endpoints:
         raise RuntimeError(f"{chain_name}: No call endpoints found in RPC configuration")
 
-    working = []  # (domain, latest_block)
+    working = []  # (endpoint_url, domain, latest_block)
     faulty = []  # (domain, error_message)
     first_latest_block = None
 
@@ -279,7 +281,7 @@ def verify_archive_node(rpc_url: str, chain_name: str) -> int:
             step = f"eth_getBalance({zero_address}, block={latest_block:,})"
             web3.eth.get_balance(zero_address, block_identifier=latest_block)
 
-            working.append((domain, latest_block))
+            working.append((endpoint, domain, latest_block))
             logger.info(
                 "%s: Provider %s passed archive node check (latest block %s)",
                 chain_name,
@@ -290,7 +292,7 @@ def verify_archive_node(rpc_url: str, chain_name: str) -> int:
             headers = get_last_headers()
             faulty.append((domain, str(e), headers, latest_block))
             logger.error(
-                "%s: Provider %s\nFailed archive node check.\nAt step %s (block number %s): %s\nHTTP response headers: %s",
+                "%s: Provider %s failed archive node check at step %s (block number %s): %s\nHTTP response headers: %s",
                 chain_name,
                 domain,
                 step,
@@ -299,17 +301,30 @@ def verify_archive_node(rpc_url: str, chain_name: str) -> int:
                 pformat(headers),
             )
 
-    if faulty:
-        working_str = ", ".join(f"{d} (block {b:,})" for d, b in working) if working else "none"
-        faulty_str = ", ".join(
-            f"{d} (block {b:,}, {err}, headers: {pformat(h)})" if b is not None else f"{d} ({err}, headers: {pformat(h)})"
-            for d, err, h, b in faulty
-        )
-        raise RuntimeError(f"{chain_name}: {len(faulty)}/{len(endpoints)} RPC providers failed archive node verification. Working: [{working_str}]. Faulty: [{faulty_str}].")
+    if not working:
+        faulty_str = ", ".join(f"{d} (block {b:,}, {err})" if b is not None else f"{d} ({err})" for d, err, _h, b in faulty)
+        raise RuntimeError(f"{chain_name}: All {len(endpoints)} RPC providers failed archive node verification. Faulty: [{faulty_str}].")
 
-    logger.info(
-        "%s: All %d RPC providers passed archive node verification",
-        chain_name,
-        len(working),
-    )
-    return first_latest_block
+    if faulty:
+        faulty_domains = ", ".join(d for d, _, _, _ in faulty)
+        working_domains = ", ".join(d for _, d, _ in working)
+        logger.error(
+            "%s: %d/%d RPC providers failed verification and were filtered out. Faulty: [%s]. Continuing with: [%s]",
+            chain_name,
+            len(faulty),
+            len(endpoints),
+            faulty_domains,
+            working_domains,
+        )
+    else:
+        logger.info(
+            "%s: All %d RPC providers passed archive node verification",
+            chain_name,
+            len(working),
+        )
+
+    # Reconstruct the RPC URL with only working call endpoints + preserved mev+ endpoints
+    filtered_parts = [url for url, _, _ in working] + mev_endpoints
+    filtered_rpc_url = " ".join(filtered_parts)
+
+    return filtered_rpc_url, first_latest_block
