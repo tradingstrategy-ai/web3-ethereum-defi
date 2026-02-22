@@ -170,7 +170,7 @@ You chan find these in `CHAIN_NAMES` and in `eth_defi.provider.env`
 
 ## Building integrated smart contracts
 
-You can use `Makefile` commands `make guard safe-integration` to rebuild smart contracts for Safe and Lagoon integration.
+You can use `Makefile` commands `make guard safe-integration` to rebuild smart contracts for Satfe and Lagoon integration.
 
 ## Documentation
 

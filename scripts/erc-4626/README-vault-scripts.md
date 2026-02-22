@@ -37,9 +37,7 @@ has already passed those blocks. Use `RESET_LEADS` to rescan from the beginning:
 ```shell
 # Re-discover all vaults on Ethereum from block 1
 # Works with both Hypersync and RPC backends
-RESET_LEADS=1 LOG_LEVEL=info JSON_RPC_URL=$JSON_RPC_ETHEREUM \
-  HYPERSYNC_API_KEY=$HYPERSYNC_API_KEY \
-  poetry run python scripts/erc-4626/scan-vaults.py
+RESET_LEADS=1 LOG_LEVEL=info JSON_RPC_URL=$JSON_RPC_ETHEREUM poetry run python scripts/erc-4626/scan-vaults.py
 ```
 
 ### scan-vaults-all-chains.py
