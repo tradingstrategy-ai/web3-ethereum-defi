@@ -122,7 +122,7 @@ contract TradingStrategyModuleV0 is Module, GuardV0Base {
         bytes memory response;
 
         // Checks for asset manager (msg.sender), receiver, etc.
-        PresignDeletaCallData memory presignDeletaCallData = _swapAndValidateCowSwap(
+        PresignCallData memory presignDeletaCallData = _swapAndValidateCowSwap(
             settlementContract,
             receiver,
             appData,

@@ -91,17 +91,17 @@ library HypercoreVaultLib {
         bytes calldata callData
     ) external view returns (uint24 actionId, address spotSendDestination) {
         HypercoreStorage storage s = _storage();
-        require(target == s.allowedCoreWriter, "CW");
+        require(target == s.allowedCoreWriter, "CoreWriter not allowed");
 
         // Decode the bytes parameter from sendRawAction(bytes)
         bytes memory rawAction = abi.decode(callData, (bytes));
         uint256 len = rawAction.length;
-        require(len >= 4, "CW short");
+        require(len >= 4, "CoreWriter action too short");
 
         // Parse version (first byte, must be 1)
         uint8 version;
         assembly { version := byte(0, mload(add(rawAction, 32))) }
-        require(version == 1, "CW ver");
+        require(version == 1, "CoreWriter unsupported version");
 
         // Parse action ID (bytes 1-3, big-endian uint24)
         // Shift right by 224 (= 256 - 32) to bring the first 4 bytes to
@@ -111,7 +111,7 @@ library HypercoreVaultLib {
             actionId := and(shr(224, w), 0xFFFFFF)
         }
 
-        require(s.allowedCoreWriterActions[actionId], "CW act");
+        require(s.allowedCoreWriterActions[actionId], "CoreWriter action ID not allowed");
 
         // Parse and validate action-specific parameters
         if (len > 4) {
@@ -130,7 +130,7 @@ library HypercoreVaultLib {
 
             if (actionId == VAULT_TRANSFER_ACTION) {
                 (address vault, , ) = abi.decode(actionParams, (address, bool, uint64));
-                require(s.allowedHypercoreVaults[vault], "HC vault");
+                require(s.allowedHypercoreVaults[vault], "Hypercore vault not allowed");
             } else if (actionId == SPOT_SEND_ACTION) {
                 (spotSendDestination, , ) = abi.decode(actionParams, (address, uint64, uint64));
             }
@@ -139,7 +139,7 @@ library HypercoreVaultLib {
 
     /// Validate a CoreDepositWallet deposit() call.
     function validateDeposit(address target) external view {
-        require(target == _storage().allowedCoreDepositWallet, "CDW");
+        require(target == _storage().allowedCoreDepositWallet, "CoreDepositWallet not allowed");
     }
 
     // ----- View functions -----

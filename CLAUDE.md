@@ -128,6 +128,7 @@ poetry run ruff format
 - For DuckDB testing, make sure the database is always closed using finally clause or fixtures
 - Always use fixture and test functions, never use test classes
 - For Anvil mainnet fork based tests, whici use a fixed block number, in asserts check for absolute number values instead of relative values like above zero, because values never change
+- For reuseable testing code, use `testing` modules under `eth_defi` - do not nyt try to import "tests" as it does not work with pytest
 
 ### pyproject.toml
 

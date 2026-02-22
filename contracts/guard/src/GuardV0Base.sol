@@ -708,7 +708,7 @@ abstract contract GuardV0Base is IGuard, Multicall {
             );
             if (actionId == 6) {
                 // SPOT_SEND_ACTION
-                require(isAllowedReceiver(dest), "CW recv");
+                require(isAllowedReceiver(dest), "CoreWriter spotSend receiver not allowed");
             }
 
             // --- Hypercore CoreDepositWallet ---
