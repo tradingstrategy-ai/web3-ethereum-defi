@@ -1,3 +1,4 @@
 @openzeppelin/=lib/openzeppelin-contracts/contracts
 @gnosis.pm/=lib
+@hyper-evm-lib/=lib/hyper-evm-lib/src/
 

@@ -18,7 +18,7 @@ from web3 import EthereumTesterProvider, Web3
 from web3.contract import Contract
 
 from eth_defi.abi import get_deployed_contract
-from eth_defi.deploy import deploy_contract
+from eth_defi.deploy import GUARD_LIBRARIES, deploy_contract
 from eth_defi.token import create_token
 
 
@@ -103,14 +103,22 @@ def weth(web3, deployer) -> Contract:
 
 
 @pytest.fixture
+def gmx_lib(web3: Web3, deployer: str) -> Contract:
+    """Deploy GmxLib library contract."""
+    return deploy_contract(web3, "guard/GmxLib.json", deployer)
+
+
+@pytest.fixture
 def vault(
     web3: Web3,
     deployer: str,
     owner: str,
     asset_manager: str,
+    gmx_lib: Contract,
 ) -> Contract:
-    """Deploy SimpleVaultV0 with guard."""
-    vault = deploy_contract(web3, "guard/SimpleVaultV0.json", deployer, asset_manager)
+    """Deploy SimpleVaultV0 with guard and real GmxLib."""
+    libs = {**GUARD_LIBRARIES, "GmxLib": gmx_lib.address}
+    vault = deploy_contract(web3, "guard/SimpleVaultV0.json", deployer, asset_manager, libraries=libs)
     vault.functions.initialiseOwnership(owner).transact({"from": deployer})
     return vault
 

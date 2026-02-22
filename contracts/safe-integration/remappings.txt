@@ -2,3 +2,4 @@
 @openzeppelin/=lib/openzeppelin-contracts/contracts
 @gnosis.pm/=lib
 @guard=../guard/src
+@hyper-evm-lib/=../guard/lib/hyper-evm-lib/src/

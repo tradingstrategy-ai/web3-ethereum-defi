@@ -21,7 +21,7 @@ from eth_defi.aave_v3.deployment import AaveV3Deployment
 from eth_defi.aave_v3.deployment import fetch_deployment as fetch_aave_deployment
 from eth_defi.abi import get_contract, get_deployed_contract, get_function_selector
 from eth_defi.compat import encode_abi_compat
-from eth_defi.deploy import deploy_contract
+from eth_defi.deploy import GUARD_LIBRARIES, deploy_contract
 from eth_defi.one_delta.constants import Exchange, TradeOperation, TradeType
 from eth_defi.one_delta.deployment import OneDeltaDeployment
 from eth_defi.one_delta.deployment import fetch_deployment as fetch_1delta_deployment
@@ -194,7 +194,7 @@ def vault(
     aave_v3_deployment: AaveV3Deployment,
 ) -> Contract:
     """Mock vault."""
-    vault = deploy_contract(web3, "guard/SimpleVaultV0.json", deployer, asset_manager)
+    vault = deploy_contract(web3, "guard/SimpleVaultV0.json", deployer, asset_manager, libraries=GUARD_LIBRARIES)
 
     assert vault.functions.owner().call() == deployer
     tx_hash = vault.functions.initialiseOwnership(owner).transact({"from": deployer})

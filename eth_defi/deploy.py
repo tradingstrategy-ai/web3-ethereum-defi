@@ -14,8 +14,61 @@ from pytz.reference import Local
 from web3 import Web3
 from web3.contract import Contract
 
-from eth_defi.abi import get_contract
+from eth_defi.abi import ZERO_ADDRESS, get_contract, get_contract_with_forge_libraries
 from eth_defi.tx import get_tx_broadcast_data
+
+#: Default library addresses for deploying guard contracts (SimpleVaultV0, TradingStrategyModuleV0).
+#:
+#: All external Forge libraries are linked to :data:`~eth_defi.abi.ZERO_ADDRESS`
+#: so the bytecode resolves cleanly.  Tests that exercise a specific library
+#: should override the relevant entry with the real deployed address.
+GUARD_LIBRARIES: dict[str, str] = {
+    "CowSwapLib": ZERO_ADDRESS,
+    "GmxLib": ZERO_ADDRESS,
+    "HypercoreVaultLib": ZERO_ADDRESS,
+}
+
+#: Forge ``--libraries`` source paths for the **guard** project.
+#:
+#: Maps library name to ``source_path:LibraryName`` as seen by the compiler.
+GUARD_FORGE_LIBRARY_SOURCES: dict[str, str] = {
+    "CowSwapLib": "src/lib/CowSwapLib.sol:CowSwapLib",
+    "GmxLib": "src/lib/GmxLib.sol:GmxLib",
+    "HypercoreVaultLib": "src/lib/HypercoreVaultLib.sol:HypercoreVaultLib",
+}
+
+#: Forge ``--libraries`` source paths for the **safe-integration** project.
+#:
+#: The guard sources are referenced via ``../guard/src/`` because
+#: ``remappings.txt`` maps ``@guard=../guard/src``.
+SAFE_INTEGRATION_FORGE_LIBRARY_SOURCES: dict[str, str] = {
+    "CowSwapLib": "../guard/src/lib/CowSwapLib.sol:CowSwapLib",
+    "GmxLib": "../guard/src/lib/GmxLib.sol:GmxLib",
+    "HypercoreVaultLib": "../guard/src/lib/HypercoreVaultLib.sol:HypercoreVaultLib",
+}
+
+
+def build_guard_forge_libraries(
+    library_addresses: dict[str, str] | None = None,
+    project: str = "guard",
+) -> dict[str, str]:
+    """Build ``forge_libraries`` mapping for :py:func:`eth_defi.foundry.forge.deploy_contract_with_forge`.
+
+    Returns a dict of ``"source_path:LibraryName" -> address`` suitable for the
+    ``--libraries`` flag of ``forge create``.
+
+    :param library_addresses:
+        Overrides for specific libraries. Keys are library names
+        (e.g. ``"CowSwapLib"``), values are deployed addresses.
+        Libraries not listed default to :data:`~eth_defi.abi.ZERO_ADDRESS`.
+
+    :param project:
+        ``"guard"`` or ``"safe-integration"``, determines source paths.
+    """
+    sources = GUARD_FORGE_LIBRARY_SOURCES if project == "guard" else SAFE_INTEGRATION_FORGE_LIBRARY_SOURCES
+    addresses = library_addresses or {}
+    return {sources[name]: addresses.get(name, ZERO_ADDRESS) for name in sources}
+
 
 #: Manage internal registry of deployed contracts
 #:
@@ -39,6 +92,7 @@ def deploy_contract(
     register_for_tracing=True,
     gas: int = None,
     confirm=True,
+    libraries: dict[str, str] | None = None,
 ) -> Contract | HexBytes:
     """Deploys a new contract from ABI file.
 
@@ -50,6 +104,31 @@ def deploy_contract(
 
         token = deploy_contract(web3, deployer, "ERC20Mock.json", name, symbol, supply)
         print(f"Deployed ERC-20 token at {token.address}")
+
+    For contracts that require Forge library linking:
+
+    .. code-block:: python
+
+        # Deploy the library first, then link it
+        lib = deploy_contract(web3, "guard/HypercoreVaultLib.json", deployer)
+        vault = deploy_contract(
+            web3,
+            "guard/SimpleVaultV0.json",
+            deployer,
+            asset_manager,
+            libraries={"HypercoreVaultLib": lib.address},
+        )
+
+        # Or link with zero address if the library is never called on this chain
+        from eth_defi.abi import ZERO_ADDRESS
+
+        vault = deploy_contract(
+            web3,
+            "guard/SimpleVaultV0.json",
+            deployer,
+            asset_manager,
+            libraries={"HypercoreVaultLib": ZERO_ADDRESS},
+        )
 
     If you need to verify the deployed contract use :py:func:`eth_defi.foundry.forge.deploy_contract_with_forge`.
 
@@ -80,6 +159,13 @@ def deploy_contract(
     :param confirm:
         Confirm the contract deployment.
 
+    :param libraries:
+        Forge library linking addresses.
+        Mapping of library name to deployed address for resolving
+        ``__$<hash>$__`` placeholders in Forge-compiled bytecode.
+        Use :py:data:`~eth_defi.abi.ZERO_ADDRESS` for libraries
+        that are never called on the target chain.
+
     :raise ContractDeploymentFailed:
         In the case we could not deploy the contract.
 
@@ -88,7 +174,10 @@ def deploy_contract(
 
     """
     if isinstance(contract, str):
-        Contract = get_contract(web3, contract)
+        if libraries:
+            Contract = get_contract_with_forge_libraries(web3, contract, libraries)
+        else:
+            Contract = get_contract(web3, contract)
 
         # Used in trace.py
         contract_name = contract.replace(".json", "")

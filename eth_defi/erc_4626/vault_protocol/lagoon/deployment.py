@@ -24,12 +24,12 @@ from typing import Any, Callable, Literal
 import eth_abi
 from eth_account.signers.local import LocalAccount
 from eth_defi.aave_v3.deployment import AaveV3Deployment
-from eth_defi.abi import ZERO_ADDRESS_STR, encode_multicalls, get_deployed_contract
+from eth_defi.abi import ZERO_ADDRESS, ZERO_ADDRESS_STR, encode_multicalls, get_deployed_contract
 from eth_defi.cow.constants import COWSWAP_SETTLEMENT, COWSWAP_VAULT_RELAYER
 from eth_defi.cctp.whitelist import CCTPDeployment
 from eth_defi.gmx.whitelist import GMXDeployment
 from eth_defi.velora.api import get_augustus_swapper, get_token_transfer_proxy
-from eth_defi.deploy import deploy_contract
+from eth_defi.deploy import build_guard_forge_libraries, deploy_contract
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.lagoon.beacon_proxy import deploy_beacon_proxy
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
@@ -780,6 +780,8 @@ def deploy_safe_trading_strategy_module(
     verifier: Literal["etherscan", "blockscout", "sourcify", "oklink"] | None = None,
     verifier_url: str | None = None,
     enable_on_safe=True,
+    cowswap: bool = False,
+    gmx_deployment: GMXDeployment | None = None,
 ) -> Contract:
     """Deploy TradingStrategyModuleV0 for Safe and Lagoon.
 
@@ -814,6 +816,7 @@ def deploy_safe_trading_strategy_module(
             etherscan_api_key=etherscan_api_key,
             verifier=verifier,
             verifier_url=verifier_url,
+            forge_libraries=build_guard_forge_libraries(project="safe-integration"),
         )
     else:
         # Use explicit gas to skip eth_estimateGas (very slow on HyperEVM Anvil fork).
@@ -822,6 +825,55 @@ def deploy_safe_trading_strategy_module(
         # https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm/dual-block-architecture
         block_gas_limit = web3.eth.get_block("latest")["gasLimit"]
         guard_gas = min(10_000_000, block_gas_limit - 100_000)
+
+        # TradingStrategyModuleV0 uses external Forge libraries via DELEGATECALL:
+        # - CowSwapLib: CowSwap order creation/signing
+        # - GmxLib: GMX perpetuals validation
+        # - HypercoreVaultLib: Hypercore vault validation (HyperEVM only)
+        # Libraries not needed by this deployment are linked to zero address.
+        chain_id = web3.eth.chain_id
+
+        library_addresses = {}
+
+        if cowswap:
+            cowswap_lib = deploy_contract(
+                web3,
+                "guard/CowSwapLib.json",
+                deployer,
+                gas=guard_gas,
+            )
+            library_addresses["CowSwapLib"] = cowswap_lib.address
+            logger.info("Deployed CowSwapLib at %s", cowswap_lib.address)
+        else:
+            library_addresses["CowSwapLib"] = ZERO_ADDRESS
+            logger.info("CowSwapLib not needed, linking with zero address")
+
+        if gmx_deployment:
+            gmx_lib = deploy_contract(
+                web3,
+                "guard/GmxLib.json",
+                deployer,
+                gas=guard_gas,
+            )
+            library_addresses["GmxLib"] = gmx_lib.address
+            logger.info("Deployed GmxLib at %s", gmx_lib.address)
+        else:
+            library_addresses["GmxLib"] = ZERO_ADDRESS
+            logger.info("GmxLib not needed, linking with zero address")
+
+        if chain_id == 999:
+            hypercore_lib = deploy_contract(
+                web3,
+                "guard/HypercoreVaultLib.json",
+                deployer,
+                gas=guard_gas,
+            )
+            library_addresses["HypercoreVaultLib"] = hypercore_lib.address
+            logger.info("Deployed HypercoreVaultLib at %s for HyperEVM", hypercore_lib.address)
+        else:
+            library_addresses["HypercoreVaultLib"] = ZERO_ADDRESS
+            logger.info("HypercoreVaultLib not needed, linking with zero address")
+
         module = deploy_contract(
             web3,
             "safe-integration/TradingStrategyModuleV0.json",
@@ -829,6 +881,7 @@ def deploy_safe_trading_strategy_module(
             owner,
             safe.address,
             gas=guard_gas,
+            libraries=library_addresses,
         )
 
     if enable_on_safe:
@@ -1400,6 +1453,8 @@ def deploy_automated_lagoon_vault(
         verifier_url=verifier_url,
         use_forge=use_forge,
         enable_on_safe=not guard_only,
+        cowswap=cowswap,
+        gmx_deployment=gmx_deployment,
     )
 
     if not is_anvil(web3):

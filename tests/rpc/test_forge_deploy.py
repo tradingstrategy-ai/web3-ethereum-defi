@@ -18,6 +18,7 @@ from hexbytes import HexBytes
 from web3 import HTTPProvider, Web3
 
 from eth_defi.chain import install_chain_middleware
+from eth_defi.deploy import build_guard_forge_libraries
 from eth_defi.foundry.forge import deploy_contract_with_forge
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.anvil import AnvilLaunch, launch_anvil
@@ -92,6 +93,7 @@ def test_deploy_contract_with_forge_no_constructor_args(
         hot_wallet,
         constructor_args=[],
         wait_for_block_confirmations=0,
+        forge_libraries=build_guard_forge_libraries(),
     )
 
     assert isinstance(tx_hash, HexBytes)

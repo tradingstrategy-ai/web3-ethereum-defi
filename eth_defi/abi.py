@@ -94,6 +94,11 @@ def get_contract(
 
     Any results are cached. Web3 connection is part of the cache key.
 
+    .. note::
+
+        If the contract requires library linking (Forge ``linkReferences``),
+        use :py:func:`get_contract_with_forge_libraries` instead.
+
     Example:
 
     .. code-block:: python
@@ -134,12 +139,79 @@ def get_contract(
             # Sol 0.8 / Forge?
             # Contains keys object, sourceMap, linkReferences
             bytecode = bytecode["object"]
+            # Auto-link unresolved library placeholders with zero address.
+            # Forge leaves __$<hash>$__ patterns in bytecode for external
+            # libraries (e.g. HypercoreVaultLib). When not explicitly linked
+            # via get_contract_with_forge_libraries(), replace with zeros so
+            # the bytecode is valid hex. The library code paths must never be
+            # entered at runtime on chains where the library is not deployed.
+            if "__$" in bytecode:
+                bytecode = re.sub(r"__\$[0-9a-f]+\$__", "0" * 40, bytecode)
         else:
             # Sol 0.6 / legacy
             # Bytecode hex is directly in the key.
             pass
 
     Contract = web3.eth.contract(abi=abi, bytecode=bytecode)
+    return Contract
+
+
+def get_contract_with_forge_libraries(
+    web3: Web3,
+    fname: str | Path,
+    library_addresses: dict[str, str | HexAddress],
+) -> Type[Contract]:
+    """Get Contract proxy class with Forge library linking.
+
+    Similar to :py:func:`get_contract` but resolves Forge ``linkReferences``
+    placeholders in the creation bytecode before constructing the Contract class.
+
+    Use this for contracts that depend on Solidity libraries compiled with Forge.
+    The library must be deployed first and its address passed in ``library_addresses``.
+
+    On chains where the library is not needed (its code paths are never entered),
+    pass :py:data:`ZERO_ADDRESS` as the library address to produce valid bytecode
+    without deploying the library.
+
+    Example:
+
+    .. code-block:: python
+
+        from eth_defi.abi import get_contract_with_forge_libraries, ZERO_ADDRESS
+
+        # On HyperEVM: deploy library first
+        lib = deploy_contract(web3, "guard/HypercoreVaultLib.json", deployer)
+        Contract = get_contract_with_forge_libraries(web3, "guard/SimpleVaultV0.json", {"HypercoreVaultLib": lib.address})
+
+        # On other chains: link with zero address (library never called)
+        Contract = get_contract_with_forge_libraries(web3, "guard/SimpleVaultV0.json", {"HypercoreVaultLib": ZERO_ADDRESS})
+
+    :param web3:
+        Web3 instance.
+
+    :param fname:
+        ABI JSON filename (Forge compiler artifact).
+
+    :param library_addresses:
+        Mapping of library name to deployed address.
+
+    :return:
+        Contract proxy class with linked bytecode ready for deployment.
+    """
+    contract_interface = get_abi_by_filename(fname)
+    abi = contract_interface["abi"]
+    bytecode_dict = contract_interface["bytecode"]
+    assert isinstance(bytecode_dict, dict), f"Expected Forge bytecode dict with 'object' and 'linkReferences', got {type(bytecode_dict)}"
+
+    raw_bytecode = bytecode_dict["object"]
+    link_references = bytecode_dict.get("linkReferences", {})
+
+    if link_references:
+        linked_bytecode = link_libraries_forge(raw_bytecode, link_references, library_addresses)
+    else:
+        linked_bytecode = raw_bytecode
+
+    Contract = web3.eth.contract(abi=abi, bytecode=linked_bytecode)
     return Contract
 
 
@@ -412,6 +484,68 @@ def humanise_decoded_arg_data(args: dict) -> dict:
         return v
 
     return {k: _humanize(v) for k, v in args.items()}
+
+
+def link_libraries_forge(
+    bytecode: str,
+    link_references: dict,
+    library_addresses: dict[str, str | HexAddress],
+) -> str:
+    """Link Solidity libraries in Forge-compiled bytecode.
+
+    Replaces ``__$<hash>$__`` placeholder patterns in the bytecode
+    hex string with the deployed library addresses.
+
+    Example:
+
+    .. code-block:: python
+
+        from eth_defi.abi import get_abi_by_filename, link_libraries_forge
+
+        abi_data = get_abi_by_filename("guard/SimpleVaultV0.json")
+        bytecode = abi_data["bytecode"]["object"]
+        link_refs = abi_data["bytecode"]["linkReferences"]
+        linked = link_libraries_forge(bytecode, link_refs, {"HypercoreVaultLib": lib_address})
+
+    :param bytecode:
+        Hex-encoded bytecode string (with or without ``0x`` prefix).
+        Contains ``__$<hash>$__`` placeholders at the positions
+        described by ``link_references``.
+
+    :param link_references:
+        Forge ``linkReferences`` dict from the compiled ABI JSON.
+        Format: ``{"source_path": {"LibName": [{"start": int, "length": 20}, ...]}}``.
+
+    :param library_addresses:
+        Mapping of library name to deployed address.
+        Use ``ZERO_ADDRESS`` for libraries that will never be called
+        (e.g. HypercoreVaultLib on non-HyperEVM chains).
+
+    :return:
+        Linked bytecode hex string (with ``0x`` prefix).
+    """
+    has_prefix = bytecode.startswith("0x")
+    hex_blob = bytecode[2:] if has_prefix else bytecode
+
+    # First pass: zero out all placeholders so we can parse the hex
+    zeroes = "0" * 40  # 20 bytes = 40 hex chars
+    fixed_hex = re.sub(r"__\$(.*?)\$__", zeroes, hex_blob, flags=re.DOTALL)
+
+    data = bytearray.fromhex(fixed_hex)
+
+    for source_path, libs in link_references.items():
+        for lib_name, refs in libs.items():
+            address = library_addresses.get(lib_name)
+            assert address is not None, f"No address provided for library {lib_name!r} (referenced from {source_path}). Available: {list(library_addresses.keys())}"
+            addr_str = address[2:] if address.startswith("0x") else address
+            byte_address = bytes.fromhex(addr_str)
+            assert len(byte_address) == 20, f"Library address must be 20 bytes, got {len(byte_address)}"
+            for ref in refs:
+                start = ref["start"]
+                length = ref["length"]
+                data[start : start + length] = byte_address
+
+    return "0x" + data.hex()
 
 
 def link_libraries_hardhat(bytecode: str, link_references: dict, hardhat_export: dict):

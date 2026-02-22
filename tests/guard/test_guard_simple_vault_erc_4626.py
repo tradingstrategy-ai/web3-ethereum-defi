@@ -15,7 +15,7 @@ from web3._utils.events import EventLogErrorFlags
 from web3.contract import Contract
 
 from eth_defi.abi import get_deployed_contract, get_function_selector
-from eth_defi.deploy import deploy_contract
+from eth_defi.deploy import GUARD_LIBRARIES, deploy_contract
 from eth_defi.erc_4626.classification import create_vault_instance
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.flow import approve_and_deposit_4626, approve_and_redeem_4626
@@ -181,7 +181,7 @@ def vault(
 
     assert isinstance(erc4626_vault, ERC4626Vault)
 
-    vault = deploy_contract(web3, "guard/SimpleVaultV0.json", deployer, asset_manager)
+    vault = deploy_contract(web3, "guard/SimpleVaultV0.json", deployer, asset_manager, libraries=GUARD_LIBRARIES)
 
     assert vault.functions.owner().call() == deployer
     tx_hash = vault.functions.initialiseOwnership(owner).transact({"from": deployer})

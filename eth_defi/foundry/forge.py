@@ -112,6 +112,7 @@ def deploy_contract_with_forge(
     verify_retries=9,
     verbose=False,
     contract_file_out: Path | str | None = None,
+    forge_libraries: dict[str, str] | None = None,
 ) -> Tuple[Contract, HexBytes]:
     """Deploy and verify smart contract with Forge.
 
@@ -212,6 +213,15 @@ def deploy_contract_with_forge(
     :param verbose:
         Try to be extra verbose with Forge output to pin point errors
 
+    :param forge_libraries:
+        Pre-deployed library addresses for ``--libraries`` flag.
+
+        Maps ``"source_path:LibraryName"`` to deployed address.
+        E.g. ``{"src/lib/CowSwapLib.sol:CowSwapLib": "0x000..."}``.
+
+        Use :py:func:`eth_defi.deploy.build_guard_forge_libraries` to build
+        this mapping for guard contracts.
+
     :raise ForgeFailed:
         In the case we could not deploy the contract.
 
@@ -310,6 +320,11 @@ def deploy_contract_with_forge(
                     "--verifier-url",
                     verifier_url,
                 ]
+
+    # Add library linking flags (--libraries path:name:address)
+    if forge_libraries:
+        for source_key, address in forge_libraries.items():
+            cmd_line += ["--libraries", f"{source_key}:{address}"]
 
     cmd_line += [f"{src_contract_file}:{contract_name}"]
 

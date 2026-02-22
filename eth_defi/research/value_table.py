@@ -131,12 +131,7 @@ def format_grouped_series_as_multi_column_grid(
 
         # Heading row: bold, underlined, with top margin (except first)
         top_margin = "margin-top: 12px;" if group_idx > 0 else ""
-        heading_html = (
-            f'<div style="font-weight: bold; font-size: 1.1em; '
-            f'width: {total_width}px; '
-            f'padding: 4px 0 2px 0; border-bottom: 2px solid #333; {top_margin}">'
-            f"{heading}</div>"
-        )
+        heading_html = f'<div style="font-weight: bold; font-size: 1.1em; width: {total_width}px; padding: 4px 0 2px 0; border-bottom: 2px solid #333; {top_margin}">{heading}</div>'
 
         html_parts.append(heading_html)
         html_parts.append(table_html)

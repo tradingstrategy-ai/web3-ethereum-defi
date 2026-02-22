@@ -1,5 +1,6 @@
 # Current
 
+- **Add: Hypercore native vault guard support with CoreWriter whitelisting, Forge library linking, and chain-conditional deployment for HyperEVM Safe multisig deposits (2026-02-22)**
 - Add comma-separated VAULT_ID support to scan-prices.py with vault-aware parquet deletion and START_BLOCK env var (2026-02-22)
 - Fix GRVT vault address case mismatch and VaultSpec 0x assertion that prevented GRVT data from reaching the cleaned pipeline output (2026-02-21)
 - Auto-blacklist HyperCore HLP child sub-vaults and vaults with abnormal share price > $1M (2026-02-21)

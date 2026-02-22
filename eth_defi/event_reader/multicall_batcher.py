@@ -29,8 +29,7 @@ from http.client import RemoteDisconnected
 from itertools import islice
 from pathlib import Path
 from pprint import pformat
-from typing import (Any, Callable, Final, Generator, Hashable, Iterable,
-                    TypeAlias)
+from typing import Any, Callable, Final, Generator, Hashable, Iterable, TypeAlias
 
 from eth_typing import BlockIdentifier, BlockNumber, HexAddress
 from hexbytes import HexBytes
@@ -42,18 +41,14 @@ from web3 import Web3
 from web3.contract import Contract
 from web3.contract.contract import ContractFunction
 
-from eth_defi.abi import (ZERO_ADDRESS, ZERO_ADDRESS_STR, encode_function_call,
-                          format_debug_instructions, get_deployed_contract)
+from eth_defi.abi import ZERO_ADDRESS, ZERO_ADDRESS_STR, encode_function_call, format_debug_instructions, get_deployed_contract
 from eth_defi.chain import get_default_call_gas_limit
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.event_reader.fast_json_rpc import get_last_headers
-from eth_defi.event_reader.multicall_timestamp import \
-    fetch_block_timestamps_multiprocess_auto_backend
-from eth_defi.event_reader.timestamp_cache import \
-    DEFAULT_TIMESTAMP_CACHE_FOLDER
+from eth_defi.event_reader.multicall_timestamp import fetch_block_timestamps_multiprocess_auto_backend
+from eth_defi.event_reader.timestamp_cache import DEFAULT_TIMESTAMP_CACHE_FOLDER
 from eth_defi.event_reader.web3factory import Web3Factory
-from eth_defi.middleware import (ProbablyNodeHasNoBlock,
-                                 is_retryable_http_exception)
+from eth_defi.middleware import ProbablyNodeHasNoBlock, is_retryable_http_exception
 from eth_defi.provider.fallback import FallbackProvider
 from eth_defi.provider.named import get_provider_name
 from eth_defi.timestamp import get_block_timestamp
