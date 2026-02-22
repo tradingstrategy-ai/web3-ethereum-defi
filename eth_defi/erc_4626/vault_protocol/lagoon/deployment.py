@@ -799,24 +799,16 @@ def deploy_safe_trading_strategy_module(
     logger.info("Deploying TradingStrategyModuleV0")
 
     owner = deployer.address
+    chain_id = web3.eth.chain_id
+    library_addresses = {}
 
-    # Deploy guard module
+    # NOTE: ``forge create`` does not support dynamic library linking, so we
+    # always use the pre-compiled ABI path (non-Forge) for TradingStrategyModuleV0.
+    # The caller (``deploy_automated_lagoon_vault``) enforces ``use_forge=False``.
     if use_forge:
-        # Unit test path
-        if verifier == "etherscan" and etherscan_api_key is None:
-            verifier = None
-
-        module, tx_hash = deploy_contract_with_forge(
-            web3,
-            CONTRACTS_ROOT / "safe-integration",
-            "TradingStrategyModuleV0.sol",
-            "TradingStrategyModuleV0",
-            deployer,
-            [owner, safe.address],
-            etherscan_api_key=etherscan_api_key,
-            verifier=verifier,
-            verifier_url=verifier_url,
-            forge_libraries=build_guard_forge_libraries(project="safe-integration"),
+        raise NotImplementedError(
+            "forge create does not support dynamic library linking. "
+            "Use use_forge=False for TradingStrategyModuleV0 deployment."
         )
     else:
         # Use explicit gas to skip eth_estimateGas (very slow on HyperEVM Anvil fork).
@@ -861,15 +853,17 @@ def deploy_safe_trading_strategy_module(
             library_addresses["GmxLib"] = ZERO_ADDRESS
             logger.info("GmxLib not needed, linking with zero address")
 
-        if chain_id == 999:
-            hypercore_lib = deploy_contract(
-                web3,
-                "guard/HypercoreVaultLib.json",
-                deployer,
-                gas=guard_gas,
-            )
-            library_addresses["HypercoreVaultLib"] = hypercore_lib.address
-            logger.info("Deployed HypercoreVaultLib at %s for HyperEVM", hypercore_lib.address)
+        if chain_id in (998, 999):  # Both testnet (998) and mainnet (999)
+            # Only deploy if not already deployed via Forge
+            if "HypercoreVaultLib" not in library_addresses:
+                hypercore_lib = deploy_contract(
+                    web3,
+                    "guard/HypercoreVaultLib.json",
+                    deployer,
+                    gas=guard_gas,
+                )
+                library_addresses["HypercoreVaultLib"] = hypercore_lib.address
+                logger.info("Deployed HypercoreVaultLib at %s for HyperEVM", hypercore_lib.address)
         else:
             library_addresses["HypercoreVaultLib"] = ZERO_ADDRESS
             logger.info("HypercoreVaultLib not needed, linking with zero address")
@@ -1444,6 +1438,10 @@ def deploy_automated_lagoon_vault(
         logger.info("Between contracts deployment delay: Sleeping %s for new nonce to propagade", between_contracts_delay_seconds)
         time.sleep(between_contracts_delay_seconds)
 
+    # Always use the non-Forge path for TradingStrategyModuleV0 because
+    # ``forge create`` does not support dynamic library linking.
+    # The Lagoon protocol contracts (ProtocolRegistry, Vault, BeaconProxyFactory)
+    # can use Forge because they have no library dependencies.
     module = deploy_safe_trading_strategy_module(
         web3=web3,
         deployer=deployer_local_account,
@@ -1451,7 +1449,7 @@ def deploy_automated_lagoon_vault(
         etherscan_api_key=etherscan_api_key,
         verifier=verifier,
         verifier_url=verifier_url,
-        use_forge=use_forge,
+        use_forge=False,
         enable_on_safe=not guard_only,
         cowswap=cowswap,
         gmx_deployment=gmx_deployment,

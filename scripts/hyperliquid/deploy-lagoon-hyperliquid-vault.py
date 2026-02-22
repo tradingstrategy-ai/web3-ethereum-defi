@@ -87,6 +87,7 @@ from web3 import Web3
 
 from eth_defi.abi import get_abi_by_filename
 from eth_defi.erc_4626.vault_protocol.lagoon.deployment import (
+    LAGOON_BEACON_PROXY_FACTORIES,
     LagoonConfig,
     LagoonDeploymentParameters,
     deploy_automated_lagoon_vault,
@@ -95,6 +96,7 @@ from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.hotwallet import HotWallet
 from eth_defi.hyperliquid.core_writer import (
     CORE_DEPOSIT_WALLET_MAINNET,
+    CORE_DEPOSIT_WALLET_TESTNET,
     CORE_WRITER_ADDRESS,
     build_hypercore_deposit_multicall,
     build_hypercore_withdraw_multicall,
@@ -144,9 +146,10 @@ def _setup_anvil_mocks(web3: Web3, deployer_address: str) -> None:
     )
     logger.info("MockCoreWriter deployed at %s", cw_address)
 
-    # MockCoreDepositWallet at the mainnet address
+    # MockCoreDepositWallet at the correct address for the chain
     cdw_bytecode = _load_deployed_bytecode("guard/MockCoreDepositWallet.json")
-    cdw_address = Web3.to_checksum_address(CORE_DEPOSIT_WALLET_MAINNET)
+    chain_id = web3.eth.chain_id
+    cdw_address = Web3.to_checksum_address(CORE_DEPOSIT_WALLET_TESTNET if chain_id == 998 else CORE_DEPOSIT_WALLET_MAINNET)
     web3.provider.make_request("anvil_setCode", [cdw_address, cdw_bytecode])
     web3.provider.make_request(
         "anvil_setStorageAt",
@@ -158,8 +161,34 @@ def _setup_anvil_mocks(web3: Web3, deployer_address: str) -> None:
     web3.provider.make_request("anvil_setBalance", [deployer_address, hex(1_000 * 10**18)])
 
 
+def _find_balance_slot(web3: Web3, token_address: str, holder_address: str) -> int:
+    """Find the ERC-20 balanceOf mapping storage slot by brute force on Anvil.
+
+    Tries slots 0-19 (covers all common ERC-20 implementations).
+    """
+    erc20_abi = [{"constant": True, "inputs": [{"name": "", "type": "address"}], "name": "balanceOf", "outputs": [{"name": "", "type": "uint256"}], "type": "function"}]
+    token = web3.eth.contract(address=Web3.to_checksum_address(token_address), abi=erc20_abi)
+    test_amount = 10**18
+
+    for slot in range(20):
+        snap = web3.provider.make_request("evm_snapshot", [])["result"]
+        key = Web3.solidity_keccak(["uint256", "uint256"], [int(holder_address, 16), slot])
+        web3.provider.make_request("anvil_setStorageAt", [
+            Web3.to_checksum_address(token_address),
+            "0x" + key.hex(),
+            "0x" + test_amount.to_bytes(32, "big").hex(),
+        ])
+        bal = token.functions.balanceOf(Web3.to_checksum_address(holder_address)).call()
+        web3.provider.make_request("evm_revert", [snap])
+        if bal == test_amount:
+            return slot
+
+    raise RuntimeError(f"Could not find balance slot for token {token_address}")
+
+
 def _fund_safe_usdc(web3: Web3, safe_address: str, usdc_address: str, amount: int):
     """Fund Safe with USDC by directly setting storage on Anvil."""
+    slot = _find_balance_slot(web3, usdc_address, safe_address)
     web3.provider.make_request(
         "anvil_setStorageAt",
         [
@@ -167,12 +196,12 @@ def _fund_safe_usdc(web3: Web3, safe_address: str, usdc_address: str, amount: in
             "0x"
             + Web3.solidity_keccak(
                 ["uint256", "uint256"],
-                [int(safe_address, 16), 9],
+                [int(safe_address, 16), slot],
             ).hex(),
             "0x" + amount.to_bytes(32, "big").hex(),
         ],
     )
-    logger.info("Funded Safe %s with %d USDC (wei)", safe_address, amount)
+    logger.info("Funded Safe %s with %d USDC (wei) via storage slot %d", safe_address, amount, slot)
 
 
 def _setup_hypercore_whitelisting(
@@ -335,8 +364,8 @@ def main():
 
     usdc_address = USDC_NATIVE_TOKEN[chain_id]
     usdc = fetch_erc20_details(web3, usdc_address)
-    usdc_amount = usdc_human * 10**usdc.decimals
-    hypercore_amount = usdc_human * 10**6  # HyperCore uses 6 decimals
+    usdc_amount = usdc.convert_to_raw(usdc_human)
+    hypercore_amount = usdc_human * 10**6  # Hypercore always uses 6 decimals
 
     if existing_lagoon_vault:
         # Reconnect to an existing Lagoon deployment
@@ -358,6 +387,12 @@ def main():
             _setup_anvil_mocks(web3, deployer_account.address)
 
         logger.info("Deploying Lagoon vault...")
+        # Deploy from scratch when there is no pre-deployed factory on the chain.
+        # Testnet (998) has no factory; simulate forks mainnet (999) which does.
+        from_the_scratch = chain_id not in LAGOON_BEACON_PROXY_FACTORIES
+        if from_the_scratch:
+            logger.info("No Lagoon factory on chain %d, deploying from scratch", chain_id)
+
         config = LagoonConfig(
             parameters=LagoonDeploymentParameters(
                 underlying=usdc_address,
@@ -368,7 +403,9 @@ def main():
             safe_owners=[OWNER_1, OWNER_2],
             safe_threshold=2,
             any_asset=True,
-            safe_salt_nonce=99,
+            safe_salt_nonce=99 if not from_the_scratch else None,
+            from_the_scratch=from_the_scratch,
+            use_forge=from_the_scratch,  # Required for from_the_scratch
         )
 
         deploy_info = deploy_automated_lagoon_vault(

@@ -82,6 +82,8 @@ WRAPPED_NATIVE_TOKEN: dict[int, HexAddress | str] = {
     957: "0x4200000000000000000000000000000000000006",
     # WHYPE: HyperEVM
     999: "0x5555555555555555555555555555555555555555",
+    # WHYPE: HyperEVM testnet (same address as mainnet)
+    998: "0x5555555555555555555555555555555555555555",
 }
 
 #: Addresses of USDC of different chains
@@ -107,6 +109,8 @@ USDC_NATIVE_TOKEN: dict[int, HexAddress | str] = {
     957: "0x6879287835A86F50f784313dBEd5E5cCC5bb8481",
     # HyperEVM
     999: "0xb88339CB7199b77E23DB6E890353E22632Ba630f",
+    # HyperEVM testnet (8 decimals, testnet mock token)
+    998: "0xd9CBEC81df392A88AEff575E962d149d57F4d6bc",
 }
 
 #: Bridged USDC of different chains

@@ -45,6 +45,7 @@ CHAIN_NAMES = {
     34443: "Mode",
     5000: "Mantle",
     999: "Hyperliquid",  # HyperEVM, see https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm
+    998: "Hyperliquid_Testnet",  # HyperEVM testnet
     42161: "Arbitrum",
     11155111: "Ethereum_Sepolia",
     421614: "Arbitrum_Sepolia",
@@ -84,6 +85,7 @@ CHAIN_HOMEPAGES = {
     34443: {"name": "Mode", "homepage": "https://www.mode.network"},
     5000: {"name": "Mantle", "homepage": "https://www.mantle.xyz"},
     999: {"name": "Hyperliquid", "homepage": "https://hyperliquid.xyz"},  # HyperEVM, see https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm
+    998: {"name": "Hyperliquid Testnet", "homepage": "https://hyperliquid.xyz"},  # HyperEVM testnet
     9999: {"name": "Hyperliquid", "homepage": "https://hyperliquid.xyz"},  # See eth_defi.hyperliquid.constants.HYPERCORE_CHAIN_ID for synthetic chain ID for Hyperliquid native vaults (non-EVM)
     42161: {"name": "Arbitrum", "homepage": "https://arbitrum.io"},
     11155111: {"name": "Ethereum Sepolia", "homepage": "https://ethereum.org"},
@@ -131,6 +133,7 @@ EVM_BLOCK_TIMES = {
     #: Contract deployments >2M gas require opting in to large blocks via ``evmUserModify`` with ``usingBigBlocks``.
     #: See `HyperEVM dual-block architecture <https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm/dual-block-architecture>`__.
     999: 1,  # HyperEVM dual-block: small blocks (2M gas, ~1s), large blocks (30M gas, ~60s). Using shortest.
+    998: 1,  # HyperEVM testnet, same dual-block architecture as mainnet
     42161: 0.25,  # Arbitrum (block time ~250ms, though batches vary; reflects Nitro update)
     11155111: 12,  # Ethereum Sepolia (same as Ethereum mainnet)
     421614: 0.25,  # Arbitrum Sepolia (same as Arbitrum mainnet)
