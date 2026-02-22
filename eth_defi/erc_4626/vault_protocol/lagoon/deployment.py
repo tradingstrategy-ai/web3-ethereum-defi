@@ -810,10 +810,7 @@ def deploy_safe_trading_strategy_module(
     # always use the pre-compiled ABI path (non-Forge) for TradingStrategyModuleV0.
     # The caller (``deploy_automated_lagoon_vault``) enforces ``use_forge=False``.
     if use_forge:
-        raise NotImplementedError(
-            "forge create does not support dynamic library linking. "
-            "Use use_forge=False for TradingStrategyModuleV0 deployment."
-        )
+        raise NotImplementedError("forge create does not support dynamic library linking. Use use_forge=False for TradingStrategyModuleV0 deployment.")
     else:
         # Use explicit gas to skip eth_estimateGas (very slow on HyperEVM Anvil fork).
         # HyperEVM dual-block architecture: small blocks have only 2–3M gas limit,
@@ -1349,14 +1346,14 @@ def deploy_automated_lagoon_vault(
     else:
         deployer_local_account = deployer
 
-    # HyperEVM dual-block architecture: enable large blocks if the small block
-    # gas limit is too low for contract deployment (~5.4M gas for guard).
+    # HyperEVM dual-block architecture: enable large blocks only around
+    # contract deployments (Safe, Lagoon protocol, vault, guard module).
+    # Configuration transactions (guard setup, ownership, approvals) use
+    # small blocks for fast ~1 second confirmation.
     # https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm/dual-block-architecture
-    from eth_defi.hyperliquid.block import enable_big_blocks, disable_big_blocks
-    big_blocks_toggled = enable_big_blocks(
-        web3,
-        deployer_local_account._private_key.hex(),
-    )
+    from eth_defi.hyperliquid.block import big_blocks_for_deployment
+
+    _private_key_hex = deployer_local_account._private_key.hex()
 
     existing_guard_module = None
     beacon_proxy_factory_address = None
@@ -1387,22 +1384,23 @@ def deploy_automated_lagoon_vault(
 
     if not existing_vault_address:
         # Deploy a Safe multisig that forms the core of Lagoon vault
-        if safe_salt_nonce is not None:
-            safe = deploy_safe_with_deterministic_address(
-                web3,
-                deployer_local_account,
-                owners=[deployer.address],
-                threshold=1,
-                salt_nonce=safe_salt_nonce,
-                proxy_factory_address=safe_proxy_factory_address or "0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67",
-            )
-        else:
-            safe = deploy_safe(
-                web3,
-                deployer_local_account,
-                owners=[deployer.address],
-                threshold=1,
-            )
+        with big_blocks_for_deployment(web3, _private_key_hex):
+            if safe_salt_nonce is not None:
+                safe = deploy_safe_with_deterministic_address(
+                    web3,
+                    deployer_local_account,
+                    owners=[deployer.address],
+                    threshold=1,
+                    salt_nonce=safe_salt_nonce,
+                    proxy_factory_address=safe_proxy_factory_address or "0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67",
+                )
+            else:
+                safe = deploy_safe(
+                    web3,
+                    deployer_local_account,
+                    owners=[deployer.address],
+                    threshold=1,
+                )
 
         parameters.safe = safe.address
         logger.info("Deployed new Safe: %s", safe.address)
@@ -1447,43 +1445,44 @@ def deploy_automated_lagoon_vault(
 
     beacon_proxy_factory_abi = "lagoon/BeaconProxyFactory.json"  # Default ABI (legacy)
     if not existing_vault_address:
-        if from_the_scratch:
-            # Deploy the full Lagoon protocol with fee registry and beacon proxy factory,
-            # setting out Safe as the protocol owner
-            assert use_forge, "Fee registry deployment is only supported with Forge"
-            beacon_proxy_factory_contract = deploy_fresh_lagoon_protocol(
+        with big_blocks_for_deployment(web3, _private_key_hex):
+            if from_the_scratch:
+                # Deploy the full Lagoon protocol with fee registry and beacon proxy factory,
+                # setting out Safe as the protocol owner
+                assert use_forge, "Fee registry deployment is only supported with Forge"
+                beacon_proxy_factory_contract = deploy_fresh_lagoon_protocol(
+                    web3=web3,
+                    deployer=deployer,
+                    safe=safe,
+                    etherscan_api_key=etherscan_api_key,
+                    verifier=verifier,
+                    verifier_url=verifier_url,
+                    broadcast_func=_broadcast,
+                )
+                beacon_proxy_factory_address = beacon_proxy_factory_contract.address
+            else:
+                beacon_factory = LAGOON_BEACON_PROXY_FACTORIES.get(chain_id)
+                assert beacon_factory, f"No beacon factory in LAGOON_BEACON_PROXY_FACTORIES for {chain_id}"
+                beacon_proxy_factory_address = beacon_factory["address"]
+                beacon_proxy_factory_abi = beacon_factory["abi"]
+
+            assert beacon_proxy_factory_address, f"Cannot deploy Lagoon vault beacon proxy on chain {chain_id}, no factory address found. Registered factories: {pformat(LAGOON_BEACON_PROXY_FACTORIES)}"
+
+            vault_contract = deploy_lagoon(
                 web3=web3,
-                deployer=deployer,
+                deployer=deployer_local_account,
                 safe=safe,
+                asset_manager=asset_manager,
+                parameters=parameters,
+                owner=safe.address,
                 etherscan_api_key=etherscan_api_key,
-                verifier=verifier,
-                verifier_url=verifier_url,
-                broadcast_func=_broadcast,
+                use_forge=use_forge,
+                vault_abi=vault_abi,
+                factory_contract=factory_contract,
+                legacy=legacy,
+                beacon_proxy_factory_address=beacon_proxy_factory_address,
+                beacon_proxy_factory_abi=beacon_proxy_factory_abi,
             )
-            beacon_proxy_factory_address = beacon_proxy_factory_contract.address
-        else:
-            beacon_factory = LAGOON_BEACON_PROXY_FACTORIES.get(chain_id)
-            assert beacon_factory, f"No beacon factory in LAGOON_BEACON_PROXY_FACTORIES for {chain_id}"
-            beacon_proxy_factory_address = beacon_factory["address"]
-            beacon_proxy_factory_abi = beacon_factory["abi"]
-
-        assert beacon_proxy_factory_address, f"Cannot deploy Lagoon vault beacon proxy on chain {chain_id}, no factory address found. Registered factories: {pformat(LAGOON_BEACON_PROXY_FACTORIES)}"
-
-        vault_contract = deploy_lagoon(
-            web3=web3,
-            deployer=deployer_local_account,
-            safe=safe,
-            asset_manager=asset_manager,
-            parameters=parameters,
-            owner=safe.address,
-            etherscan_api_key=etherscan_api_key,
-            use_forge=use_forge,
-            vault_abi=vault_abi,
-            factory_contract=factory_contract,
-            legacy=legacy,
-            beacon_proxy_factory_address=beacon_proxy_factory_address,
-            beacon_proxy_factory_abi=beacon_proxy_factory_abi,
-        )
 
     if not is_anvil(web3):
         logger.info("Between contracts deployment delay: Sleeping %s for new nonce to propagade", between_contracts_delay_seconds)
@@ -1493,18 +1492,19 @@ def deploy_automated_lagoon_vault(
     # ``forge create`` does not support dynamic library linking.
     # The Lagoon protocol contracts (ProtocolRegistry, Vault, BeaconProxyFactory)
     # can use Forge because they have no library dependencies.
-    module = deploy_safe_trading_strategy_module(
-        web3=web3,
-        deployer=deployer_local_account,
-        safe=safe,
-        etherscan_api_key=etherscan_api_key,
-        verifier=verifier,
-        verifier_url=verifier_url,
-        use_forge=False,
-        enable_on_safe=not guard_only,
-        cowswap=cowswap,
-        gmx_deployment=gmx_deployment,
-    )
+    with big_blocks_for_deployment(web3, _private_key_hex):
+        module = deploy_safe_trading_strategy_module(
+            web3=web3,
+            deployer=deployer_local_account,
+            safe=safe,
+            etherscan_api_key=etherscan_api_key,
+            verifier=verifier,
+            verifier_url=verifier_url,
+            use_forge=False,
+            enable_on_safe=not guard_only,
+            cowswap=cowswap,
+            gmx_deployment=gmx_deployment,
+        )
 
     if not is_anvil(web3):
         logger.info("Between contracts deployment delay: Sleeping %s for new nonce to propagade", between_contracts_delay_seconds)
@@ -1513,7 +1513,7 @@ def deploy_automated_lagoon_vault(
     if isinstance(deployer, HotWallet):
         deployer.sync_nonce(web3)
 
-    # Configure TradingStrategyModuleV0 guard
+    # Configure TradingStrategyModuleV0 guard — runs in small blocks
     setup_guard(
         web3=web3,
         safe=safe,
@@ -1536,11 +1536,6 @@ def deploy_automated_lagoon_vault(
         broadcast_func=_broadcast,
         assets=assets,
     )
-
-    # Disable large blocks now that all heavy deployments are done.
-    # Remaining operations (ownership transfer, approvals) fit in small blocks.
-    if big_blocks_toggled:
-        disable_big_blocks(web3, deployer_local_account._private_key.hex())
 
     # After everything is deployed, fix ownership
     # 1. Transfer TradingStrategyModuleV0 module ownership to Gnosis

@@ -13,21 +13,14 @@ HyperCore action.
 
 Example::
 
-    from eth_defi.hyperliquid.block import (
-        fetch_using_big_blocks,
-        set_big_blocks,
-    )
+    from eth_defi.hyperliquid.block import big_blocks_for_deployment
 
-    # Check current status
-    using_big = fetch_using_big_blocks(web3, deployer_address)
+    # Wrap each contract deployment — no-op on non-HyperEVM chains
+    with big_blocks_for_deployment(web3, private_key):
+        deploy_contract(...)
 
-    # Enable large blocks for deployment
-    set_big_blocks(private_key, enable=True, is_mainnet=False)
-
-    # ... deploy contracts ...
-
-    # Disable large blocks to return to fast confirmation
-    set_big_blocks(private_key, enable=False, is_mainnet=False)
+    # Configuration transactions run in small blocks (fast confirmation)
+    setup_guard(...)
 
 See `Dual-block architecture <https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm/dual-block-architecture>`__
 for details.
@@ -352,3 +345,50 @@ def disable_big_blocks(
     chain_id = web3.eth.chain_id
     is_mainnet = chain_id == 999
     set_big_blocks(private_key, enable=False, is_mainnet=is_mainnet)
+
+
+@contextmanager
+def big_blocks_for_deployment(
+    web3: Web3,
+    private_key: str,
+):
+    """Context manager that enables large blocks for a single contract deployment.
+
+    Use this to wrap individual contract deployment calls so that
+    configuration transactions between deployments run in small blocks
+    (fast ~1 second confirmation) rather than large blocks (~1 minute).
+
+    On non-HyperEVM chains or Anvil forks this is a no-op.
+
+    Example::
+
+        with big_blocks_for_deployment(web3, private_key):
+            deploy_contract(...)
+
+    :param web3:
+        Web3 connection.
+
+    :param private_key:
+        Hex-encoded deployer private key.
+    """
+    from eth_defi.provider.anvil import is_anvil
+
+    chain_id = web3.eth.chain_id
+    if not is_hyperevm(chain_id) or is_anvil(web3):
+        yield
+        return
+
+    is_mainnet = chain_id == 999
+    wallet = Account.from_key(private_key)
+    address = wallet.address
+
+    already_enabled = fetch_using_big_blocks(web3, address)
+    if already_enabled:
+        logger.info("Big blocks already enabled for %s, skipping toggle", address)
+        yield
+    else:
+        set_big_blocks(private_key, enable=True, is_mainnet=is_mainnet)
+        try:
+            yield
+        finally:
+            set_big_blocks(private_key, enable=False, is_mainnet=is_mainnet)
