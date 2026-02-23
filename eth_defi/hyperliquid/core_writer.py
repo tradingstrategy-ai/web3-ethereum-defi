@@ -40,7 +40,8 @@ from web3 import Web3
 from web3.contract import Contract
 from web3.contract.contract import ContractFunction
 
-from eth_defi.abi import encode_function_call, get_contract, get_deployed_contract
+from eth_defi.abi import (encode_function_call, get_contract,
+                          get_deployed_contract)
 
 if TYPE_CHECKING:
     from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
@@ -106,7 +107,7 @@ def encode_vault_deposit(vault: HexAddress | str, usdc_amount_wei: int) -> bytes
         If the deposit amount is below :py:data:`MINIMUM_VAULT_DEPOSIT`.
     """
     assert usdc_amount_wei >= MINIMUM_VAULT_DEPOSIT, (
-        f"Vault deposit amount {usdc_amount_wei} raw ({usdc_amount_wei / 1e6:.2f} USDC) "
+        f"Vault deposit amount {usdc_amount_wei} raw ({usdc_amount_wei / 1e6:.2f} delagoUSDC) "
         f"is below the minimum {MINIMUM_VAULT_DEPOSIT} raw "
         f"({MINIMUM_VAULT_DEPOSIT / 1e6:.0f} USDC). "
         f"Hyperliquid silently rejects vault deposits below this threshold."

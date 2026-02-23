@@ -2,7 +2,7 @@
 
 Guard support for depositing USDC from a guarded Safe multisig on HyperEVM (chain 999) into Hypercore native vaults (chain 9999) via the CoreWriter system contract.
 
-We recommend using HyperEVM mainnet for testing. It's cheap and it will be more hassle/costly to fund HyperEVM testnet accounts.
+> **Use mainnet for testing.** The HyperEVM testnet EVM-to-Core bridge (`CoreDepositWallet.deposit()`) frequently times out or silently fails — deposited USDC gets stuck in EVM escrow indefinitely. Testnet also lacks pre-deployed Safe and Lagoon factory contracts, requiring from-scratch deployment via `forge create`. Mainnet testing is cheap (~0.1 HYPE + ~7 USDC) and uses the same factory infrastructure as production.
 
 ## Whitelisted activities
 
@@ -33,9 +33,86 @@ All other CoreWriter action IDs (limit orders, staking, cancel, etc.) are reject
 | USDC (testnet) | `0x2B3370eE501B4a559b57D449569354196457D8Ab` | Testnet USDC |
 | Vault equity precompile | `0x0000000000000000000000000000000000000802` | Read vault equity/lock status |
 
+## Deployment flow
+
+### Overview
+
+```
+  Deployer EOA
+       │
+       ├─ 1. Enable big blocks (evmUserModify via exchange API)
+       │      └─ Required for TradingStrategyModuleV0 (~5.4M gas)
+       │
+       ├─ 2. Deploy Safe (1/1 multisig)
+       │      └─ Mainnet: via SafeProxyFactory (small blocks OK)
+       │      └─ Testnet: from scratch via forge create (big blocks)
+       │
+       ├─ 3. Deploy Lagoon vault (ERC-4626)
+       │      └─ Mainnet: via OptinProxyFactory (small blocks OK)
+       │      └─ Testnet: from scratch via forge create (big blocks)
+       │
+       ├─ 4. Deploy TradingStrategyModuleV0 (guard)
+       │      └─ Always requires big blocks (~5.4M gas)
+       │      └─ Whitelists: CoreWriter, CoreDepositWallet, vault address
+       │
+       └─ 5. Disable big blocks (return to fast ~1s confirmations)
+```
+
+The deployment script (`deploy-lagoon-hyperliquid-vault.py`) handles all of these
+steps. Set `SIMULATE=true` to test on an Anvil fork without real funds.
+
 ## Deposit flow
 
-Four `performCall` transactions through TradingStrategyModuleV0:
+### Overview
+
+```
+                          HyperEVM (chain 999)                       HyperCore (chain 9999)
+                    ┌─────────────────────────────┐            ┌──────────────────────────────┐
+                    │                             │            │                              │
+  Preparation       │  Deployer EOA               │            │                              │
+  (first deposit    │    │                        │            │                              │
+   only)            │    ├─ transfer USDC to Safe  │            │                              │
+                    │    │  (deposit + 2 activation)│           │                              │
+                    │    │                        │            │                              │
+                    │    └─ activate Safe ────────────────────>│  depositFor(safe, 2 USDC)    │
+                    │       via CDW.depositFor()  │            │    └─ creates HyperCore acct │
+                    │                             │            │       (~1 USDC creation fee) │
+                    │                             │            │                              │
+  Phase 1           │  Safe (USDC on EVM)         │            │                              │
+  (1 multicall)     │    │                        │            │                              │
+                    │    ├─ approve(CDW, amount)   │            │                              │
+                    │    │                        │            │                              │
+                    │    └─ CDW.deposit(amount)  ─────────────>│  EVM escrow                  │
+                    │                             │   bridge   │    │                          │
+                    │                             │            │    └─> Safe spot account      │
+                    │                             │            │         (USDC arrives ~2-10s) │
+                    │                             │            │                              │
+                    │         ... wait for escrow to clear ...                                │
+                    │                             │            │                              │
+  Phase 2           │  Safe (via CoreWriter)      │            │                              │
+  (1 multicall)     │    │                        │            │                              │
+                    │    ├─ transferUsdClass ─────────────────>│  spot ──> perp               │
+                    │    │                        │            │                              │
+                    │    └─ vaultTransfer   ──────────────────>│  perp ──> vault              │
+                    │                             │            │                              │
+                    └─────────────────────────────┘            └──────────────────────────────┘
+```
+
+### First deposit preparation
+
+Before the first deposit, the Safe must be funded and activated on HyperCore:
+
+1. **Fund Safe with USDC** — transfer deposit amount + 2 USDC activation overhead from deployer
+2. **Activate Safe on HyperCore** — call `CoreDepositWallet.depositFor(safe, 2 USDC, SPOT_DEX)` via the trading strategy module. This bridges 2 USDC and creates the HyperCore account (~1 USDC creation fee). Use `is_account_activated()` to check and `activate_account()` to perform this step.
+
+Subsequent deposits skip activation (the Safe is already known to HyperCore).
+
+### Two-phase deposit
+
+The deposit is split into two phases with an escrow wait between them.
+This is the default on live networks (`DEPOSIT_MODE=two_phase`).
+
+**Phase 1** — bridge USDC from EVM to HyperCore spot (1 multicall, 2 `performCall`s):
 
 1. **Approve USDC** to CoreDepositWallet
    - Target: USDC contract
@@ -47,6 +124,10 @@ Four `performCall` transactions through TradingStrategyModuleV0:
    - Function: `deposit(amount, SPOT_DEX)`
    - Guard: validates target is allowed CoreDepositWallet
 
+**Wait** — poll `spotClearinghouseState` until `evmEscrows` clears (~2-10 seconds).
+
+**Phase 2** — move USDC into vault (1 multicall, 2 `performCall`s):
+
 3. **Move USDC spot -> perp**
    - Target: CoreWriter
    - Function: `sendRawAction(transferUsdClass(amount, true))`
@@ -57,9 +138,32 @@ Four `performCall` transactions through TradingStrategyModuleV0:
    - Function: `sendRawAction(vaultTransfer(vault, true, amount))`
    - Guard: validates CoreWriter target, action ID 2 allowed, vault address whitelisted
 
+### Minimum deposit amount
+
+Hyperliquid silently rejects `vaultTransfer` deposits below **5 USDC** (`MINIMUM_VAULT_DEPOSIT = 5_000_000` raw). There is no error — the EVM transaction succeeds but the vault position is never created on HyperCore.
+
 ## Withdrawal flow
 
-Three `performCall` transactions:
+### Overview
+
+```
+                          HyperEVM (chain 999)                       HyperCore (chain 9999)
+                    ┌─────────────────────────────┐            ┌──────────────────────────────┐
+                    │                             │            │                              │
+  1 multicall       │  Safe (via CoreWriter)      │            │                              │
+  (3 performCalls)  │    │                        │            │                              │
+                    │    ├─ vaultTransfer   ──────────────────>│  vault ──> perp              │
+                    │    │                        │            │                              │
+                    │    ├─ transferUsdClass ─────────────────>│  perp ──> spot               │
+                    │    │                        │            │                              │
+                    │    └─ spotSend        ──────────────────>│  spot ──> EVM bridge         │
+                    │                             │            │    │                          │
+                    │  Safe (USDC on EVM) <────────────────────────┘                          │
+                    │                             │   bridge   │                              │
+                    └─────────────────────────────┘            └──────────────────────────────┘
+```
+
+Three `performCall` transactions batched in a single multicall:
 
 1. **Withdraw from vault**
    - Target: CoreWriter
@@ -78,42 +182,14 @@ Three `performCall` transactions:
 
 ## Multicall batching
 
-Both the deposit and withdrawal flows can be batched into a single EVM transaction
-via `TradingStrategyModuleV0.multicall(bytes[])`. The module inherits `Multicall`
-from `GuardV0Base`, which uses `delegatecall` to execute each inner call — preserving
-`msg.sender` so guard validation works correctly within each batched `performCall`.
+Both the deposit and withdrawal flows use `TradingStrategyModuleV0.multicall(bytes[])`
+to batch multiple `performCall` invocations into a single EVM transaction. The module
+inherits `Multicall` from `GuardV0Base`, which uses `delegatecall` to execute each
+inner call — preserving `msg.sender` so guard validation works correctly.
 
 When the EVM block finishes execution, all queued CoreWriter actions are processed
 sequentially on HyperCore (~47k gas per action). This is implicit batching at the
 block level.
-
-Python helpers for building multicall transactions. Both functions take a
-`LagoonVault` and derive the module, USDC contract, CoreWriter, CoreDepositWallet,
-and Safe address internally:
-
-```python
-from eth_defi.hyperliquid.core_writer import (
-    build_hypercore_deposit_multicall,
-    build_hypercore_withdraw_multicall,
-)
-
-# Single-transaction deposit (4 steps batched)
-fn = build_hypercore_deposit_multicall(
-    lagoon_vault=lagoon_vault,
-    evm_usdc_amount=10_000 * 10**6,
-    hypercore_usdc_amount=10_000 * 10**6,
-    vault_address="0x...",  # Hypercore vault, not the Lagoon vault
-)
-tx_hash = fn.transact({"from": asset_manager})
-
-# Single-transaction withdrawal (3 steps batched)
-fn = build_hypercore_withdraw_multicall(
-    lagoon_vault=lagoon_vault,
-    hypercore_usdc_amount=10_000 * 10**6,
-    vault_address="0x...",  # Hypercore vault, not the Lagoon vault
-)
-tx_hash = fn.transact({"from": asset_manager})
-```
 
 ## Guard security model
 
@@ -133,7 +209,7 @@ Based on [Chase Manning's article](https://x.com/chase_manning_/status/201437067
 
 CoreWriter actions are **not atomic**. When `sendRawAction()` succeeds on HyperEVM, it only means the action was queued. The action is processed by HyperCore validators with a few seconds delay. **An action can succeed on EVM but later fail on HyperCore**, with no revert propagation back to EVM.
 
-This means the 4-step deposit flow can partially fail. For example, USDC could be bridged to Core (step 2) but the vault deposit (step 4) could fail on Core, leaving funds in the Safe's perp account rather than in the vault.
+This means the deposit flow can partially fail. For example, USDC could be bridged to Core (phase 1) but the vault deposit (phase 2) could fail on Core, leaving funds in the Safe's spot or perp account rather than in the vault.
 
 **Mitigation**: validate preconditions before submitting actions. Never assume a CoreWriter action has succeeded. Verify via precompile reads in subsequent blocks.
 
@@ -153,18 +229,31 @@ Any precompile read (e.g., vault equity at `0x802`) in the same block as a CoreW
 
 ### Fees and activation
 
-- **Contract activation**: smart contracts must be "activated" on HyperCore before CoreWriter actions work. Send 1-2 USDC to the contract's Core address to trigger activation. For a Safe, the Safe address is the Core identity.
+- **Contract activation**: smart contract addresses (like Safe multisigs) must be activated on HyperCore before `CoreDepositWallet.deposit()` bridge actions will clear the EVM escrow. Without activation, deposited USDC gets **permanently stuck** in `evmEscrows`.
+  - New HyperCore accounts incur a **~1 USDC account creation fee**.
+  - The default activation amount is **2 USDC** (`DEFAULT_ACTIVATION_AMOUNT = 2_000_000` raw). Deposits ≤1 USDC to new accounts fail silently.
+  - Activation uses `CoreDepositWallet.depositFor(safe, amount, SPOT_DEX)` which bridges USDC and creates the account in one step.
+  - Use `is_account_activated()` to check and `activate_account()` to perform activation.
+- **Minimum vault deposit**: **5 USDC** (`MINIMUM_VAULT_DEPOSIT = 5_000_000` raw). Hyperliquid silently rejects `vaultTransfer` deposits below this threshold.
 - **Bridging fees (Core -> EVM)**: requires HYPE or USDC on HyperCore spot for fees. HYPE is consumed first.
 - **Bridging fees (EVM -> Core)**: requires HYPE on HyperEVM for gas.
 - The Safe needs its HYPE balance managed to ensure bridging operations can pay fees.
 
-### Historic precompile reads
+### Flaky RPCs
 
-No RPC provider supports querying precompile views at historic blocks. Only `latest` works. Any blockchain indexer using a backfill architecture will fail on historic precompile queries.
+HyperEVM JSON-RPC endpoints are unreliable — requests randomly fail with connection resets, timeouts, or 5xx errors. Always use `create_multi_provider_web3()` with multiple RPC URLs (space-separated in the `JSON_RPC_HYPERLIQUID` environment variable) so that failed requests are automatically retried against fallback providers:
 
-**Schrödinger's balance**: between blocks during a bridge, RPC providers may return 0 for both spot and perp balances. The funds "exist" for EVM transactions in that block but not for external RPC reads.
+```python
+from eth_defi.provider.multi_provider import create_multi_provider_web3
 
-**Mitigation**: use event logs to detect bridges and adjust reported balances. Do not rely on precompile reads for balance calculations during or immediately after bridge operations.
+# Space-separated URLs in env var: "https://rpc1.example.com https://rpc2.example.com"
+web3 = create_multi_provider_web3(
+    os.environ["JSON_RPC_HYPERLIQUID"],
+    default_http_timeout=(3, 500.0),  # (connect, read) timeout in seconds
+)
+```
+
+The long read timeout (500 s) accommodates big block transactions which take ~1 minute to confirm. Without fallback providers, a single RPC failure during a multi-step deployment or deposit flow can leave operations in a partially completed state.
 
 ### Vault lock-up
 
@@ -293,15 +382,6 @@ Lagoon protocol from scratch using `forge create`.
 | Multicall deposit/withdrawal | Small blocks | Individual calls are <100k gas each |
 | Anvil fork (SIMULATE mode) | N/A | Anvil overrides gas limit to 30M |
 
-### Source material
-
-- [Dual-block architecture — Hyperliquid docs](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm/dual-block-architecture)
-- [A guide to HyperEVM's dual block architecture — HypeRPC](https://hyperpc.app/blog/hyperevm-dual-block-architecture)
-- [How to enable big blocks on HyperEVM — Curve Resources](https://resources.curve.finance/troubleshooting/how-to-enable-big-blocks/)
-- [Curve Finance big blocks Python script](https://github.com/curvefi/curve-core/blob/main/scripts/utils/hyperevm_enable_big_blocks.py)
-- [Hyperliquid Python SDK `use_big_blocks()` example](https://github.com/hyperliquid-dex/hyperliquid-python-sdk/blob/master/examples/basic_evm_use_big_blocks.py)
-- [HyperEVM JSON-RPC — Hyperliquid docs](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm/json-rpc)
-
 ## Manual testing
 
 A manual test script deploys a Lagoon vault on a HyperEVM Anvil fork and exercises
@@ -339,12 +419,9 @@ This is useful for diagnosing:
 
 ## Contract size
 
-`TradingStrategyModuleV0` is the critical contract for size — it inherits all guard
-logic from `GuardV0Base` and sits at 99.3% of the EIP-170 24,576-byte limit.
-See [README-contract-size.md](README-contract-size.md) for contract sizes,
-compiler options, and size optimisation techniques.
+See `README-contract-size.md`.
 
-## Source material
+## Further reading
 
 - [hyper-evm-lib](https://github.com/hyperliquid-dev/hyper-evm-lib) -- canonical Solidity library (MIT, maintained by Obsidian Audits)
 - [Chase Manning: Hyperliquid Precompiles - An Inconvenient Truth](https://x.com/chase_manning_/status/2014370671514538379)
@@ -352,3 +429,9 @@ compiler options, and size optimisation techniques.
 - [HypeRPC: CoreWriter Guide](https://hyperpc.app/blog/hyperliquid-corewriter)
 - [Hyperliquid docs: Interacting with HyperCore](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm/interacting-with-hypercore)
 - [Hyperliquid docs: HyperCore <> HyperEVM transfers](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm/hypercore-less-than-greater-than-hyperevm-transfers)
+- [Dual-block architecture — Hyperliquid docs](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm/dual-block-architecture)
+- [A guide to HyperEVM's dual block architecture — HypeRPC](https://hyperpc.app/blog/hyperevm-dual-block-architecture)
+- [How to enable big blocks on HyperEVM — Curve Resources](https://resources.curve.finance/troubleshooting/how-to-enable-big-blocks/)
+- [Curve Finance big blocks Python script](https://github.com/curvefi/curve-core/blob/main/scripts/utils/hyperevm_enable_big_blocks.py)
+- [Hyperliquid Python SDK `use_big_blocks()` example](https://github.com/hyperliquid-dex/hyperliquid-python-sdk/blob/master/examples/basic_evm_use_big_blocks.py)
+- [HyperEVM JSON-RPC — Hyperliquid docs](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm/json-rpc)
