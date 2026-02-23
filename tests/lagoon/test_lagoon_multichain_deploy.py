@@ -16,14 +16,13 @@ from eth_typing import HexAddress
 
 from eth_defi.cctp.constants import CCTP_DOMAIN_ARBITRUM, CCTP_DOMAIN_BASE
 from eth_defi.cctp.receive import prepare_receive_message
-from eth_defi.cctp.testing import craft_cctp_message, forge_attestation, replace_attester_on_fork
-from eth_defi.cctp.transfer import prepare_approve_for_burn, prepare_deposit_for_burn
+from eth_defi.cctp.testing import (craft_cctp_message, forge_attestation,
+                                   replace_attester_on_fork)
+from eth_defi.cctp.transfer import (prepare_approve_for_burn,
+                                    prepare_deposit_for_burn)
 from eth_defi.erc_4626.vault_protocol.lagoon.deployment import (
-    LagoonConfig,
-    LagoonDeploymentParameters,
-    LagoonMultichainDeployment,
-    deploy_multichain_lagoon_vault,
-)
+    LagoonConfig, LagoonDeploymentParameters, LagoonMultichainDeployment,
+    deploy_multichain_lagoon_vault)
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
@@ -36,6 +35,7 @@ JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
 JSON_RPC_BASE = os.environ.get("JSON_RPC_BASE")
 JSON_RPC_HYPERLIQUID = os.environ.get("JSON_RPC_HYPERLIQUID")
+CI = os.environ.get("CI") == "true"
 
 pytestmark = pytest.mark.skipif(
     not JSON_RPC_ETHEREUM or not JSON_RPC_ARBITRUM or not JSON_RPC_BASE or not JSON_RPC_HYPERLIQUID,
@@ -176,7 +176,9 @@ def _fund_vault(web3, vault, usdc_details, depositor, asset_manager, amount_usdc
     assert vault.underlying_token.fetch_balance_of(vault.safe_address) == amount_usdc
 
 
+
 @pytest.mark.timeout(900)
+@pytest.mark.skipif(CI, reason="This is a long-running test that deploys multiple vaults and performs cross-chain bridging. Run locally for testing.")
 def test_multichain_lagoon_deploy_and_cctp_bridge(
     web3_ethereum,
     web3_arbitrum,
