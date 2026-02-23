@@ -61,6 +61,11 @@ USDC_TOKEN_INDEX = 0
 #: Spot dex constant (type(uint32).max)
 SPOT_DEX = 0xFFFFFFFF
 
+#: Minimum USDC deposit into a Hypercore vault (raw, 6 decimals).
+#: Hyperliquid silently rejects vaultTransfer deposits below this amount.
+#: Determined by reverse-engineering the Hyperliquid web UI.
+MINIMUM_VAULT_DEPOSIT = 5_000_000
+
 # CoreWriter action IDs
 ACTION_VAULT_TRANSFER = 2
 ACTION_SPOT_SEND = 6
@@ -96,7 +101,16 @@ def encode_vault_deposit(vault: HexAddress | str, usdc_amount_wei: int) -> bytes
 
     :return:
         Raw action bytes for ``CoreWriter.sendRawAction()``.
+
+    :raises AssertionError:
+        If the deposit amount is below :py:data:`MINIMUM_VAULT_DEPOSIT`.
     """
+    assert usdc_amount_wei >= MINIMUM_VAULT_DEPOSIT, (
+        f"Vault deposit amount {usdc_amount_wei} raw ({usdc_amount_wei / 1e6:.2f} USDC) "
+        f"is below the minimum {MINIMUM_VAULT_DEPOSIT} raw "
+        f"({MINIMUM_VAULT_DEPOSIT / 1e6:.0f} USDC). "
+        f"Hyperliquid silently rejects vault deposits below this threshold."
+    )
     params = encode(
         ["address", "bool", "uint64"],
         [vault, True, usdc_amount_wei],
@@ -446,75 +460,58 @@ def build_hypercore_deposit_phase1(
 def build_hypercore_deposit_phase2(
     lagoon_vault: LagoonVault,
     hypercore_usdc_amount: int,
+    vault_address: HexAddress | str,
 ) -> ContractFunction:
-    """Build phase 2 of a three-phase Hypercore deposit: move USDC from spot to perp.
+    """Build phase 2 of a two-phase Hypercore deposit: spot to perp to vault.
 
-    Sends a single ``transferUsdClass`` CoreWriter action to move USDC from
-    the HyperCore spot account to the perp account.
+    Batches two CoreWriter actions into a single multicall:
+
+    1. ``transferUsdClass`` — move USDC from spot to perp
+    2. ``vaultTransfer`` — deposit USDC from perp into vault
+
+    When the EVM block finishes execution, HyperCore processes all queued
+    CoreWriter actions from that block sequentially, so the ``transferUsdClass``
+    completes before the ``vaultTransfer`` runs.
 
     Must only be called after phase 1 USDC has cleared the EVM escrow and
     is available in the user's HyperCore spot account. Use
     :py:func:`~eth_defi.hyperliquid.evm_escrow.wait_for_evm_escrow_clear`
     between phase 1 and phase 2.
 
-    After this transaction, wait at least one block (2 s on HyperEVM) before
-    calling :py:func:`build_hypercore_deposit_phase3` so that the perp balance
-    is updated on HyperCore.
-
     :param lagoon_vault:
         Lagoon vault instance with ``trading_strategy_module_address`` configured.
 
     :param hypercore_usdc_amount:
-        USDC amount in HyperCore wei (uint64) for the transferUsdClass action.
-
-    :return:
-        Bound ``module.functions.performCall(...)`` ready to ``.transact()``.
-    """
-    module = lagoon_vault.trading_strategy_module
-    core_writer = get_core_writer_contract(lagoon_vault.web3)
-
-    return lagoon_vault.transact_via_trading_strategy_module(
-        core_writer.functions.sendRawAction(
-            encode_transfer_usd_class(hypercore_usdc_amount, to_perp=True),
-        ),
-    )
-
-
-def build_hypercore_deposit_phase3(
-    lagoon_vault: LagoonVault,
-    hypercore_usdc_amount: int,
-    vault_address: HexAddress | str,
-) -> ContractFunction:
-    """Build phase 3 of a three-phase Hypercore deposit: deposit from perp into vault.
-
-    Sends a single ``vaultTransfer`` CoreWriter action to deposit USDC from
-    the perp account into a Hypercore native vault.
-
-    Must only be called after phase 2's ``transferUsdClass`` has been processed
-    by HyperCore (i.e. the USDC is available in the perp account). CoreWriter
-    actions within the same EVM block do not see each other's state changes,
-    so this **must** be in a separate block from phase 2.
-
-    :param lagoon_vault:
-        Lagoon vault instance with ``trading_strategy_module_address`` configured.
-
-    :param hypercore_usdc_amount:
-        USDC amount in HyperCore wei (uint64) for the vaultTransfer action.
+        USDC amount in HyperCore wei (uint64) for both CoreWriter actions.
 
     :param vault_address:
         Hypercore native vault address (not the Lagoon vault address).
 
     :return:
-        Bound ``module.functions.performCall(...)`` ready to ``.transact()``.
+        Bound ``module.functions.multicall(data)`` ready to ``.transact()``.
     """
     module = lagoon_vault.trading_strategy_module
     core_writer = get_core_writer_contract(lagoon_vault.web3)
 
-    return lagoon_vault.transact_via_trading_strategy_module(
-        core_writer.functions.sendRawAction(
-            encode_vault_deposit(vault_address, hypercore_usdc_amount),
+    calls = [
+        # 1. Move USDC from spot to perp
+        _encode_perform_call(
+            module,
+            core_writer.address,
+            core_writer.functions.sendRawAction(
+                encode_transfer_usd_class(hypercore_usdc_amount, to_perp=True),
+            ),
         ),
-    )
+        # 2. Deposit USDC from perp into vault
+        _encode_perform_call(
+            module,
+            core_writer.address,
+            core_writer.functions.sendRawAction(
+                encode_vault_deposit(vault_address, hypercore_usdc_amount),
+            ),
+        ),
+    ]
+    return module.functions.multicall(calls)
 
 
 def build_hypercore_withdraw_multicall(

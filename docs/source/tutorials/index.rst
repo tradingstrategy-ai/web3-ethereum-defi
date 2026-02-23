@@ -66,6 +66,7 @@ Tutorials and examples
    lagoon-cowswap
    lagoon-gmx
    lagoon-velora
+   lagoon-hyperliquid
    erc-4626-read-apy
    erc-4626-historical-apy
    erc-4626-scan-prices

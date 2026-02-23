@@ -57,9 +57,7 @@ from enum import Enum
 from typing import Iterable, Iterator
 
 from eth_typing import HexAddress
-from requests import Session
-
-from eth_defi.hyperliquid.session import HYPERLIQUID_API_URL
+from eth_defi.hyperliquid.session import HyperliquidSession
 
 logger = logging.getLogger(__name__)
 
@@ -191,11 +189,10 @@ class Fill:
 
 
 def fetch_vault_fills(
-    session: Session,
+    session: HyperliquidSession,
     vault_address: HexAddress,
     start_time: datetime.datetime | None = None,
     end_time: datetime.datetime | None = None,
-    server_url: str = HYPERLIQUID_API_URL,
     timeout: float = 30.0,
     aggregate_by_time: bool = False,
 ) -> Iterator[Fill]:
@@ -232,15 +229,13 @@ def fetch_vault_fills(
         print(f"Fetched {len(fills)} fills")
 
     :param session:
-        HTTP session with retry logic from :py:func:`~eth_defi.hyperliquid.session.create_hyperliquid_session`
+        Session from :py:func:`~eth_defi.hyperliquid.session.create_hyperliquid_session`
     :param vault_address:
         Vault address to fetch fills for
     :param start_time:
         Start of time range (inclusive). Defaults to 30 days ago.
     :param end_time:
         End of time range (inclusive). Defaults to current time.
-    :param server_url:
-        Hyperliquid API URL
     :param timeout:
         HTTP request timeout in seconds
     :param aggregate_by_time:
@@ -282,7 +277,7 @@ def fetch_vault_fills(
         logger.debug(f"Fetching fills: startTime={start_ms}, endTime={current_end_ms}")
 
         response = session.post(
-            f"{server_url}/info",
+            f"{session.api_url}/info",
             json=payload,
             headers={"Content-Type": "application/json"},
             timeout=timeout,
@@ -326,11 +321,10 @@ def fetch_vault_fills(
 
 
 def fetch_vault_fills_iterator(
-    session: Session,
+    session: HyperliquidSession,
     vault_address: HexAddress,
     start_time: datetime.datetime | None = None,
     end_time: datetime.datetime | None = None,
-    server_url: str = HYPERLIQUID_API_URL,
     timeout: float = 30.0,
     aggregate_by_time: bool = False,
 ) -> Iterator[Fill]:
@@ -344,15 +338,13 @@ def fetch_vault_fills_iterator(
     need chronological ordering.
 
     :param session:
-        HTTP session with retry logic
+        Session from :py:func:`~eth_defi.hyperliquid.session.create_hyperliquid_session`
     :param vault_address:
         Vault address to fetch fills for
     :param start_time:
         Start of time range (inclusive)
     :param end_time:
         End of time range (inclusive)
-    :param server_url:
-        Hyperliquid API URL
     :param timeout:
         HTTP request timeout in seconds
     :param aggregate_by_time:
@@ -381,7 +373,7 @@ def fetch_vault_fills_iterator(
             payload["aggregateByTime"] = True
 
         response = session.post(
-            f"{server_url}/info",
+            f"{session.api_url}/info",
             json=payload,
             headers={"Content-Type": "application/json"},
             timeout=timeout,

@@ -34,12 +34,12 @@ from pathlib import Path
 import pandas as pd
 from eth_typing import HexAddress
 from joblib import Parallel, delayed
-from requests import Session
 from tqdm_loggable.auto import tqdm
 
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.hyperliquid.combined_analysis import _calculate_share_price
 from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID, HYPERLIQUID_DAILY_METRICS_DATABASE
+from eth_defi.hyperliquid.session import HyperliquidSession
 from eth_defi.hyperliquid.vault import (
     HyperliquidVault,
     PortfolioHistory,
@@ -401,7 +401,7 @@ class HyperliquidDailyMetricsDatabase:
 
 
 def fetch_and_store_vault(
-    session: Session,
+    session: HyperliquidSession,
     db: HyperliquidDailyMetricsDatabase,
     summary: VaultSummary,
     cutoff_date: datetime.date | None = None,
@@ -505,7 +505,7 @@ def fetch_and_store_vault(
 
 
 def _process_vault_worker(
-    session: Session,
+    session: HyperliquidSession,
     db: HyperliquidDailyMetricsDatabase,
     summary: VaultSummary,
     cutoff_date: datetime.date | None,
@@ -516,7 +516,7 @@ def _process_vault_worker(
 
 
 def run_daily_scan(
-    session: Session,
+    session: HyperliquidSession,
     db_path: Path = HYPERLIQUID_DAILY_METRICS_DATABASE,
     min_tvl: float = 5_000,
     max_vaults: int = 20_000,

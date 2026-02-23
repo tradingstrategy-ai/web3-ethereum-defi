@@ -100,7 +100,6 @@ from typing import TYPE_CHECKING
 
 from eth_abi import decode, encode
 from eth_typing import HexAddress
-from requests import Session
 from web3 import Web3
 
 from eth_defi.abi import get_deployed_contract
@@ -108,7 +107,7 @@ from eth_defi.hotwallet import HotWallet
 from eth_defi.hyperliquid.api import fetch_spot_clearinghouse_state
 from eth_defi.hyperliquid.core_writer import (CORE_DEPOSIT_WALLET, SPOT_DEX,
                                               get_core_deposit_wallet_contract)
-from eth_defi.hyperliquid.session import HYPERLIQUID_API_URL
+from eth_defi.hyperliquid.session import HyperliquidSession
 from eth_defi.trace import assert_transaction_success_with_explanation
 
 if TYPE_CHECKING:
@@ -124,7 +123,7 @@ CORE_USER_EXISTS_ADDRESS = "0x0000000000000000000000000000000000000810"
 #: Default USDC amount (raw, 6 decimals) for account activation.
 #: New HyperCore accounts incur a ~1 USDC fee, so the minimum
 #: activation deposit must comfortably exceed that.
-DEFAULT_ACTIVATION_AMOUNT = 1_100_000
+DEFAULT_ACTIVATION_AMOUNT = 2_000_000
 
 
 def is_account_activated(
@@ -174,6 +173,7 @@ def activate_account(
     web3: Web3,
     lagoon_vault: LagoonVault,
     deployer: HotWallet,
+    session: HyperliquidSession | None = None,
     activation_amount: int = DEFAULT_ACTIVATION_AMOUNT,
     timeout: float = 60.0,
     poll_interval: float = 2.0,
@@ -195,8 +195,7 @@ def activate_account(
 
         New HyperCore accounts incur a **1 USDC account creation fee**.
         Deposits ≤1 USDC to new accounts fail silently. The default
-        ``activation_amount`` of 2 USDC is the minimum that works
-        (1 USDC reaches the spot account after the fee).
+        ``activation_amount`` of 2 USDC comfortably exceeds the fee.
 
     .. warning::
 
@@ -224,9 +223,15 @@ def activate_account(
     :param deployer:
         Hot wallet for the asset manager / deployer EOA.
 
+    :param session:
+        Optional Hyperliquid API session. If provided, the function checks
+        that the Safe has no existing EVM escrow entries before attempting
+        activation. Stuck escrow entries from prior failed deposits will
+        prevent activation from succeeding.
+
     :param activation_amount:
         USDC amount in raw units (6 decimals) to deposit for activation.
-        Defaults to 1.1 USDC (:py:data:`DEFAULT_ACTIVATION_AMOUNT`).
+        Defaults to 2 USDC (:py:data:`DEFAULT_ACTIVATION_AMOUNT`).
         Must comfortably exceed the ~1 USDC account creation fee.
 
     :param timeout:
@@ -245,6 +250,19 @@ def activate_account(
     if is_account_activated(web3, safe_address):
         logger.info("Account %s is already activated on HyperCore", safe_address)
         return
+
+    # Check for stuck EVM escrow entries from prior failed deposits.
+    # If the Safe already has USDC stuck in escrow, the depositFor
+    # will succeed on EVM but HyperCore will never process it.
+    if session is not None:
+        state = fetch_spot_clearinghouse_state(session, user=safe_address)
+        assert not state.evm_escrows, (
+            f"Account {safe_address} has existing EVM escrow entries "
+            f"that must clear before activation can succeed: "
+            f"{', '.join(f'{e.coin}={e.total}' for e in state.evm_escrows)}. "
+            f"This typically means a prior deposit() was called before "
+            f"the account was activated, and the USDC is permanently stuck."
+        )
 
     logger.info(
         "Activating account %s on HyperCore via depositFor (%d raw USDC)",
@@ -299,9 +317,8 @@ def activate_account(
 
 
 def wait_for_evm_escrow_clear(
-    session: Session,
+    session: HyperliquidSession,
     user: str,
-    server_url: str = HYPERLIQUID_API_URL,
     timeout: float = 60.0,
     poll_interval: float = 2.0,
 ) -> None:
@@ -323,14 +340,11 @@ def wait_for_evm_escrow_clear(
         # Now safe to proceed with CoreWriter actions that need spot balance
 
     :param session:
-        HTTP session from :py:func:`~eth_defi.hyperliquid.session.create_hyperliquid_session`.
+        Session from :py:func:`~eth_defi.hyperliquid.session.create_hyperliquid_session`.
 
     :param user:
         On-chain address whose escrow to monitor
         (the Safe address for Lagoon vaults).
-
-    :param server_url:
-        Hyperliquid API base URL.
 
     :param timeout:
         Maximum seconds to wait before raising :py:class:`TimeoutError`.
@@ -354,7 +368,7 @@ def wait_for_evm_escrow_clear(
 
     while True:
         attempt += 1
-        state = fetch_spot_clearinghouse_state(session, user=user, server_url=server_url)
+        state = fetch_spot_clearinghouse_state(session, user=user)
 
         if not state.evm_escrows:
             logger.info(

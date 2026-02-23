@@ -26,10 +26,10 @@ import pandas as pd
 import requests
 from eth_typing import HexAddress
 from joblib import Parallel, delayed
-from requests import Session
 from tqdm_loggable.auto import tqdm
 
 from eth_defi.compat import native_datetime_utc_now
+from eth_defi.hyperliquid.session import HyperliquidSession
 from eth_defi.hyperliquid.vault import HYPERLIQUID_STATS_URL, HyperliquidVault, VaultSummary, fetch_all_vaults
 from eth_defi.types import Percent
 
@@ -419,7 +419,7 @@ class VaultSnapshotDatabase:
 
 
 def scan_vaults(
-    session: Session,
+    session: HyperliquidSession,
     db_path: Path = HYPERLIQUID_VAULT_METADATA_DATABASE,
     stats_url: str = HYPERLIQUID_STATS_URL,
     fetch_follower_counts: bool = True,

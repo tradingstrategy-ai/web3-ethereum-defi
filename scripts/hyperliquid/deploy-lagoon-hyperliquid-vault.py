@@ -135,13 +135,14 @@ from eth_defi.hotwallet import HotWallet
 from eth_defi.hyperliquid.api import fetch_user_vault_equities
 from eth_defi.hyperliquid.core_writer import (
     build_hypercore_deposit_multicall, build_hypercore_deposit_phase1,
-    build_hypercore_deposit_phase2, build_hypercore_deposit_phase3,
+    build_hypercore_deposit_phase2,
     build_hypercore_withdraw_multicall)
 from eth_defi.hyperliquid.evm_escrow import (DEFAULT_ACTIVATION_AMOUNT,
                                              activate_account,
                                              is_account_activated,
                                              wait_for_evm_escrow_clear)
-from eth_defi.hyperliquid.session import (HYPERLIQUID_TESTNET_API_URL,
+from eth_defi.hyperliquid.session import (HYPERLIQUID_API_URL,
+                                          HYPERLIQUID_TESTNET_API_URL,
                                           create_hyperliquid_session)
 from eth_defi.hyperliquid.testing import setup_anvil_hypercore_mocks
 from eth_defi.provider.anvil import (ANVIL_PRIVATE_KEY, fork_network_anvil,
@@ -184,13 +185,9 @@ def _print_hypercore_balances(
         logger.info("Skipping Hypercore balance check in SIMULATE mode")
         return []
 
-    server_url = HYPERLIQUID_TESTNET_API_URL if network == "testnet" else None  # None = mainnet default
-    session = create_hyperliquid_session()
-    kwargs = {"session": session, "user": safe_address}
-    if server_url:
-        kwargs["server_url"] = server_url
-
-    equities = fetch_user_vault_equities(**kwargs)
+    api_url = HYPERLIQUID_TESTNET_API_URL if network == "testnet" else HYPERLIQUID_API_URL
+    session = create_hyperliquid_session(api_url=api_url)
+    equities = fetch_user_vault_equities(session, user=safe_address)
     if equities:
         rows = [[eq.vault_address, f"{eq.equity:,.6f}", eq.locked_until.isoformat()] for eq in equities]
         print("\nHypercore vault balances (Safe):")
@@ -225,6 +222,10 @@ def _do_deposit(
     """
     web3 = lagoon_vault.web3
 
+    # Build session with the correct API URL for escrow polling
+    api_url = HYPERLIQUID_TESTNET_API_URL if network == "testnet" else HYPERLIQUID_API_URL
+    session = create_hyperliquid_session(api_url=api_url) if not simulate else None
+
     # On live networks, ensure the Safe is activated on HyperCore
     if not simulate:
         if not is_account_activated(web3, user=lagoon_vault.safe_address):
@@ -233,13 +234,9 @@ def _do_deposit(
                 web3=web3,
                 lagoon_vault=lagoon_vault,
                 deployer=deployer,
+                session=session,
             )
             deployer.sync_nonce(web3)
-
-    # Build API kwargs for testnet vs mainnet (used for escrow polling in two_phase mode)
-    api_kwargs = {}
-    if network == "testnet":
-        api_kwargs["server_url"] = HYPERLIQUID_TESTNET_API_URL
 
     if not simulate:
         assert deposit_mode != "batched", (
@@ -287,8 +284,8 @@ def _do_deposit(
         print(tabulate(deposit_results, tablefmt="simple"))
 
     elif deposit_mode == "two_phase":
-        # Three-phase deposit: each CoreWriter action in a separate EVM block
-        # so that HyperCore processes each state change before the next.
+        # Two-phase deposit: bridge first, wait for escrow, then batch
+        # the spot-to-perp and perp-to-vault CoreWriter actions together.
 
         # Phase 1: bridge USDC from EVM to HyperCore spot
         logger.info("Phase 1: bridging %d USDC to HyperCore spot...", usdc_human)
@@ -302,44 +299,26 @@ def _do_deposit(
 
         # Wait for EVM escrow to clear
         logger.info("Waiting for EVM escrow to clear...")
-        session = create_hyperliquid_session()
-        wait_for_evm_escrow_clear(session, user=lagoon_vault.safe_address, **api_kwargs)
+        wait_for_evm_escrow_clear(session, user=lagoon_vault.safe_address)
 
-        # Phase 2: move USDC from spot to perp
-        logger.info("Phase 2: moving USDC from spot to perp...")
+        # Phase 2: move USDC from spot to perp and deposit into vault
+        logger.info("Phase 2: transferUsdClass + vaultTransfer...")
         deployer.sync_nonce(web3)
         fn2 = build_hypercore_deposit_phase2(
             lagoon_vault=lagoon_vault,
             hypercore_usdc_amount=hypercore_amount,
+            vault_address=vault_address,
         )
         tx_hash = deployer.transact_and_broadcast_with_contract(fn2)
         receipt = assert_transaction_success_with_explanation(web3, tx_hash)
-        logger.info("Phase 2 tx: %s (gas: %d)", tx_hash.hex(), receipt["gasUsed"])
-
-        # Wait for the CoreWriter action to be processed before the next one.
-        # CoreWriter actions within the same EVM block do not see each other's
-        # state changes, so the vaultTransfer must be in a separate block.
-        logger.info("Waiting 4s for transferUsdClass to settle on HyperCore...")
-        time.sleep(4)
-
-        # Phase 3: deposit from perp into vault
-        logger.info("Phase 3: depositing USDC into Hypercore vault...")
-        deployer.sync_nonce(web3)
-        fn3 = build_hypercore_deposit_phase3(
-            lagoon_vault=lagoon_vault,
-            hypercore_usdc_amount=hypercore_amount,
-            vault_address=vault_address,
-        )
-        tx_hash = deployer.transact_and_broadcast_with_contract(fn3)
-        receipt = assert_transaction_success_with_explanation(web3, tx_hash)
 
         deposit_results = [
-            ["Phase 3 tx", tx_hash.hex()],
+            ["Phase 2 tx", tx_hash.hex()],
             ["Gas used", receipt["gasUsed"]],
             ["Block", receipt["blockNumber"]],
             ["USDC amount", f"{usdc_human:,}"],
             ["Vault", vault_address],
-            ["Mode", "three_phase"],
+            ["Mode", "two_phase"],
         ]
         print("\nDeposit results:")
         print(tabulate(deposit_results, tablefmt="simple"))
@@ -470,7 +449,8 @@ def main():
     assert private_key, "HYPERCORE_WRITER_TEST_PRIVATE_KEY environment variable required (or set SIMULATE=true)"
 
     vault_address = HexAddress(HexStr(os.environ.get("HYPERCORE_VAULT", DEFAULT_VAULTS[network])))
-    usdc_human = int(os.environ.get("USDC_AMOUNT", "1"))
+    # Minimum vault deposit is 5 USDC
+    usdc_human = int(os.environ.get("USDC_AMOUNT", "5"))
     deposit_mode = os.environ.get("DEPOSIT_MODE", "two_phase").lower()
     assert deposit_mode in ("batched", "two_phase"), f"DEPOSIT_MODE must be 'batched' or 'two_phase', got '{deposit_mode}'"
 

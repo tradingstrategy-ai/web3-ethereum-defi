@@ -386,16 +386,14 @@ def big_blocks_for_deployment(
         return
 
     is_mainnet = chain_id == 999
-    wallet = Account.from_key(private_key)
-    address = wallet.address
 
-    already_enabled = fetch_using_big_blocks(web3, address)
-    if already_enabled:
-        logger.info("Big blocks already enabled for %s, skipping toggle", address)
+    # Always toggle rather than checking eth_usingBigBlocks first.
+    # The check reads from the EVM RPC while set_big_blocks writes
+    # via the exchange API; there is a propagation delay between the
+    # two, so back-to-back context managers can see stale state and
+    # skip the enable, causing "exceeds block gas limit" failures.
+    set_big_blocks(private_key, enable=True, is_mainnet=is_mainnet)
+    try:
         yield
-    else:
-        set_big_blocks(private_key, enable=True, is_mainnet=is_mainnet)
-        try:
-            yield
-        finally:
-            set_big_blocks(private_key, enable=False, is_mainnet=is_mainnet)
+    finally:
+        set_big_blocks(private_key, enable=False, is_mainnet=is_mainnet)

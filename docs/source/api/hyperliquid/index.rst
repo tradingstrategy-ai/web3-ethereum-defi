@@ -8,6 +8,13 @@ This module provides tools for interacting with Hyperliquid, including:
 - Vault data extraction and analysis
 - Position history reconstruction from trade fills
 - DataFrame-based position analytics
+- HyperEVM smart contract deployment with dual-block architecture
+- CoreWriter actions for Hypercore vault deposits and withdrawals
+
+Tutorials
+~~~~~~~~~
+
+- :ref:`lagoon-hyperliquid` - Deploying a Lagoon vault on HyperEVM with Hypercore deposits
 
 .. autosummary::
    :toctree: _autosummary_hyperliquid
@@ -23,3 +30,7 @@ This module provides tools for interacting with Hyperliquid, including:
    eth_defi.hyperliquid.constants
    eth_defi.hyperliquid.daily_metrics
    eth_defi.hyperliquid.vault_data_export
+   eth_defi.hyperliquid.api
+   eth_defi.hyperliquid.core_writer
+   eth_defi.hyperliquid.evm_escrow
+   eth_defi.hyperliquid.block

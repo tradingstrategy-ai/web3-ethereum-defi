@@ -23,9 +23,8 @@ from dataclasses import dataclass
 from decimal import Decimal
 
 from eth_typing import HexAddress
-from requests import Session
 
-from eth_defi.hyperliquid.session import HYPERLIQUID_API_URL, HYPERLIQUID_TESTNET_API_URL
+from eth_defi.hyperliquid.session import HyperliquidSession
 from eth_defi.utils import from_unix_timestamp
 
 logger = logging.getLogger(__name__)
@@ -172,9 +171,8 @@ class PerpClearinghouseState:
 
 
 def fetch_user_vault_equities(
-    session: Session,
+    session: HyperliquidSession,
     user: HexAddress | str,
-    server_url: str = HYPERLIQUID_API_URL,
     timeout: float = 10.0,
 ) -> list[UserVaultEquity]:
     """Fetch a user's equity positions across all Hypercore vaults.
@@ -188,31 +186,21 @@ def fetch_user_vault_equities(
     Example::
 
         from eth_defi.hyperliquid.api import fetch_user_vault_equities
-        from eth_defi.hyperliquid.session import create_hyperliquid_session
-
-        session = create_hyperliquid_session()
+        from eth_defi.hyperliquid.session import create_hyperliquid_session, HYPERLIQUID_TESTNET_API_URL
 
         # Mainnet
+        session = create_hyperliquid_session()
         equities = fetch_user_vault_equities(session, user="0xAbc...")
 
         # Testnet
-        from eth_defi.hyperliquid.session import HYPERLIQUID_TESTNET_API_URL
-
-        equities = fetch_user_vault_equities(
-            session,
-            user="0xAbc...",
-            server_url=HYPERLIQUID_TESTNET_API_URL,
-        )
+        session = create_hyperliquid_session(api_url=HYPERLIQUID_TESTNET_API_URL)
+        equities = fetch_user_vault_equities(session, user="0xAbc...")
 
     :param session:
-        HTTP session from :py:func:`~eth_defi.hyperliquid.session.create_hyperliquid_session`.
+        Session from :py:func:`~eth_defi.hyperliquid.session.create_hyperliquid_session`.
 
     :param user:
         On-chain address (the Safe address for Lagoon vaults).
-
-    :param server_url:
-        Hyperliquid API base URL.
-        Use :py:data:`~eth_defi.hyperliquid.vault.HYPERLIQUID_TESTNET_API_URL` for testnet.
 
     :param timeout:
         HTTP request timeout in seconds.
@@ -220,7 +208,7 @@ def fetch_user_vault_equities(
     :return:
         List of vault equity positions. Empty list if the user has no vault deposits.
     """
-    url = f"{server_url}/info"
+    url = f"{session.api_url}/info"
     payload = {"type": "userVaultEquities", "user": user}
 
     logger.debug("Fetching userVaultEquities for %s from %s", user, url)
@@ -254,9 +242,8 @@ def fetch_user_vault_equities(
 
 
 def fetch_spot_clearinghouse_state(
-    session: Session,
+    session: HyperliquidSession,
     user: HexAddress | str,
-    server_url: str = HYPERLIQUID_API_URL,
     timeout: float = 10.0,
 ) -> SpotClearinghouseState:
     """Fetch a user's spot account state on HyperCore.
@@ -265,13 +252,10 @@ def fetch_spot_clearinghouse_state(
     spot token balances and EVM escrow amounts.
 
     :param session:
-        HTTP session from :py:func:`~eth_defi.hyperliquid.session.create_hyperliquid_session`.
+        Session from :py:func:`~eth_defi.hyperliquid.session.create_hyperliquid_session`.
 
     :param user:
         On-chain address.
-
-    :param server_url:
-        Hyperliquid API base URL.
 
     :param timeout:
         HTTP request timeout in seconds.
@@ -279,7 +263,7 @@ def fetch_spot_clearinghouse_state(
     :return:
         Spot clearinghouse state with balances and EVM escrows.
     """
-    url = f"{server_url}/info"
+    url = f"{session.api_url}/info"
     payload = {"type": "spotClearinghouseState", "user": user}
 
     logger.debug("Fetching spotClearinghouseState for %s from %s", user, url)
@@ -323,9 +307,8 @@ def fetch_spot_clearinghouse_state(
 
 
 def fetch_perp_clearinghouse_state(
-    session: Session,
+    session: HyperliquidSession,
     user: HexAddress | str,
-    server_url: str = HYPERLIQUID_API_URL,
     timeout: float = 10.0,
 ) -> PerpClearinghouseState:
     """Fetch a user's perpetual account state on HyperCore.
@@ -334,13 +317,10 @@ def fetch_perp_clearinghouse_state(
     margin summary, withdrawable balance, and open positions.
 
     :param session:
-        HTTP session from :py:func:`~eth_defi.hyperliquid.session.create_hyperliquid_session`.
+        Session from :py:func:`~eth_defi.hyperliquid.session.create_hyperliquid_session`.
 
     :param user:
         On-chain address.
-
-    :param server_url:
-        Hyperliquid API base URL.
 
     :param timeout:
         HTTP request timeout in seconds.
@@ -348,7 +328,7 @@ def fetch_perp_clearinghouse_state(
     :return:
         Perpetual clearinghouse state with margin info and positions.
     """
-    url = f"{server_url}/info"
+    url = f"{session.api_url}/info"
     payload = {"type": "clearinghouseState", "user": user}
 
     logger.debug("Fetching clearinghouseState for %s from %s", user, url)

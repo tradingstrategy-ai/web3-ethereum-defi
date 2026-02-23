@@ -27,8 +27,11 @@ from eth_defi.hyperliquid.api import (
     fetch_spot_clearinghouse_state,
     fetch_user_vault_equities,
 )
-from eth_defi.hyperliquid.session import create_hyperliquid_session
-from eth_defi.hyperliquid.session import HYPERLIQUID_API_URL, HYPERLIQUID_TESTNET_API_URL
+from eth_defi.hyperliquid.session import (
+    HYPERLIQUID_API_URL,
+    HYPERLIQUID_TESTNET_API_URL,
+    create_hyperliquid_session,
+)
 from eth_defi.utils import setup_console_logging
 
 logger = logging.getLogger(__name__)
@@ -44,16 +47,16 @@ def main():
     network = os.environ.get("NETWORK", "mainnet").lower()
     assert network in ("mainnet", "testnet"), f"NETWORK must be 'mainnet' or 'testnet', got '{network}'"
 
-    server_url = HYPERLIQUID_TESTNET_API_URL if network == "testnet" else HYPERLIQUID_API_URL
+    api_url = HYPERLIQUID_TESTNET_API_URL if network == "testnet" else HYPERLIQUID_API_URL
 
     print(f"HyperCore user: {address}")
     print(f"Network: {network}")
-    print(f"API: {server_url}")
+    print(f"API: {api_url}")
 
-    session = create_hyperliquid_session()
+    session = create_hyperliquid_session(api_url=api_url)
 
     # Spot balances
-    spot = fetch_spot_clearinghouse_state(session, user=address, server_url=server_url)
+    spot = fetch_spot_clearinghouse_state(session, user=address)
     if spot.balances:
         rows = [[b.coin, f"{b.total:,.6f}", f"{b.hold:,.6f}"] for b in spot.balances]
         print("\nSpot balances:")
@@ -67,7 +70,7 @@ def main():
         print(tabulate(rows, headers=["Token", "Amount"], tablefmt="simple"))
 
     # Perpetual account
-    perp = fetch_perp_clearinghouse_state(session, user=address, server_url=server_url)
+    perp = fetch_perp_clearinghouse_state(session, user=address)
     ms = perp.margin_summary
     perp_rows = [
         ["Account value", f"{ms.account_value:,.2f} USDC"],
@@ -95,7 +98,7 @@ def main():
         print(tabulate(rows, headers=["Coin", "Size", "Entry", "Value", "PnL", "Liq price"], tablefmt="simple"))
 
     # Vault positions
-    equities = fetch_user_vault_equities(session, user=address, server_url=server_url)
+    equities = fetch_user_vault_equities(session, user=address)
     if equities:
         rows = [
             [eq.vault_address, f"{eq.equity:,.6f}", eq.locked_until.isoformat()]

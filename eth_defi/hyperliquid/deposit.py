@@ -54,9 +54,8 @@ from typing import Iterator
 
 import pandas as pd
 from eth_typing import HexAddress
-from requests import Session
 
-from eth_defi.hyperliquid.session import HYPERLIQUID_API_URL
+from eth_defi.hyperliquid.session import HyperliquidSession
 
 logger = logging.getLogger(__name__)
 
@@ -146,11 +145,10 @@ class RawLedgerUpdate:
 
 
 def fetch_vault_deposits(
-    session: Session,
+    session: HyperliquidSession,
     vault_address: HexAddress,
     start_time: datetime.datetime | None = None,
     end_time: datetime.datetime | None = None,
-    server_url: str = HYPERLIQUID_API_URL,
     timeout: float = 30.0,
 ) -> Iterator[VaultDepositEvent]:
     """Fetch all deposit and withdrawal events for a vault.
@@ -181,15 +179,13 @@ def fetch_vault_deposits(
         print(f"Fetched {len(events)} vault events")
 
     :param session:
-        HTTP session with retry logic from :py:func:`~eth_defi.hyperliquid.session.create_hyperliquid_session`
+        Session from :py:func:`~eth_defi.hyperliquid.session.create_hyperliquid_session`
     :param vault_address:
         Vault address to fetch events for
     :param start_time:
         Start of time range (inclusive). Defaults to 30 days ago.
     :param end_time:
         End of time range (inclusive). Defaults to current time.
-    :param server_url:
-        Hyperliquid API URL
     :param timeout:
         HTTP request timeout in seconds
     :return:
@@ -225,7 +221,7 @@ def fetch_vault_deposits(
         logger.debug("Fetching ledger updates: startTime=%s, endTime=%s", start_ms, current_end_ms)
 
         response = session.post(
-            f"{server_url}/info",
+            f"{session.api_url}/info",
             json=payload,
             headers={"Content-Type": "application/json"},
             timeout=timeout,

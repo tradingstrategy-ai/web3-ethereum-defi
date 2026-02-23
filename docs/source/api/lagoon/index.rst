@@ -18,6 +18,7 @@ Tutorials
 - :ref:`lagoon-cowswap` - Trading via CowSwap from a Lagoon vault
 - :ref:`lagoon-gmx` - Trading GMX perpetuals from a Lagoon vault
 - :ref:`lagoon-velora` - Velora integration
+- :ref:`lagoon-hyperliquid` - Deploying on HyperEVM with Hypercore deposits
 
 .. autosummary::
    :toctree: _autosummary_lagoon
