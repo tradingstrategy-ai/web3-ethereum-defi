@@ -1,5 +1,6 @@
 # Current
 
+- Update GRVT vault protocol logo to high-quality brand icon (2026-02-23)
 - Add comma-separated VAULT_ID support to scan-prices.py with vault-aware parquet deletion and START_BLOCK env var (2026-02-22)
 - Fix GRVT vault address case mismatch and VaultSpec 0x assertion that prevented GRVT data from reaching the cleaned pipeline output (2026-02-21)
 - Auto-blacklist HyperCore HLP child sub-vaults and vaults with abnormal share price > $1M (2026-02-21)
