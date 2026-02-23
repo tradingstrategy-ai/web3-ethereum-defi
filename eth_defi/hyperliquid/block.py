@@ -44,6 +44,13 @@ logger = logging.getLogger(__name__)
 #: HyperEVM chain IDs where dual-block architecture applies.
 HYPEREVM_CHAIN_IDS: set[int] = {998, 999}
 
+#: Gas limit for HyperEVM large blocks (30M).
+#:
+#: Small blocks have ~2-3M gas; large blocks always have 30M.
+#: Used to override ``eth_getBlock("latest")["gasLimit"]`` which may return
+#: a small block's limit even when the deployer has big blocks enabled.
+HYPEREVM_BIG_BLOCK_GAS_LIMIT: int = 30_000_000
+
 #: Hyperliquid exchange API URL (mainnet).
 HYPERLIQUID_EXCHANGE_API_MAINNET = "https://api.hyperliquid.xyz"
 

@@ -2,22 +2,20 @@
 
 import calendar
 import datetime
+import logging
+import os
 import random
 import socket
 import time
+from contextlib import contextmanager
 from itertools import islice
+from pathlib import Path
 from typing import Optional
 from urllib.parse import urlparse
-import logging
-import os
-from contextlib import contextmanager
-from pathlib import Path
 
-from filelock import FileLock
 import psutil
-
 from eth_typing import HexAddress, HexStr
-
+from filelock import FileLock
 
 logger = logging.getLogger(__name__)
 
@@ -201,7 +199,14 @@ def to_unix_timestamp(dt: datetime.datetime) -> float:
 
 
 def from_unix_timestamp(timestamp: float) -> datetime.datetime:
-    """Convert UNIX seconds since epoch to naive Python datetime."""
+    """Convert UNIX seconds since epoch to naive Python datetime.
+    
+    :param timestamp:
+        Timestamp in since 1970-1-1 as float or int as seconds
+
+    :return:
+        Naive Python datetime in UTC timezone (tzinfo is None, but the time is in UTC)
+    """
     assert type(timestamp) in (int, float), f"Got {type(timestamp)}: {timestamp}"
     return datetime.datetime.fromtimestamp(timestamp, tz=datetime.timezone.utc).replace(tzinfo=None)
 

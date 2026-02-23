@@ -1,6 +1,12 @@
 """Deploy a Lagoon vault on HyperEVM and exercise Hypercore vault deposit/withdrawal.
 
 A quick example script to test/simulate Lagoon vault deployment on HyperEVM.
+The deployment script deals with the lack of deployed protocol contracts (Lagoon, Safe) on HyperEVM testnet,
+and also deals with HyperEVM big block limitation.
+
+We recommend using HyperEVM mainnet for testing. It's cheap and it will be more hassle/costly to fund HyperEVM testnet accounts.
+
+Because of the big block usage, this script may take several minutes to run.
 
 In ``SIMULATE`` mode the script forks the selected network via Anvil and deploys
 mock CoreWriter/CoreDepositWallet contracts so no real funds are needed.
@@ -48,7 +54,9 @@ Environment variables
   due to the vault lock-up period, so run deposit first, then withdraw
   later.
 - ``HYPERCORE_VAULT``: Hypercore vault address to deposit into.
-  Defaults to ``0xa15099a30bbf2e68942d6f4c43d70d04faeab0a0`` (Testnet HLP).
+  Defaults to the HLP vault for the selected network
+  (testnet: ``0xa15099a30bbf2e68942d6f4c43d70d04faeab0a0``,
+  mainnet: ``0xdfc24b077bc1425ad1dea75bcb6f8158e10df303``).
 - ``USDC_AMOUNT``: USDC amount in human units (default: ``1``)
 - ``LOG_LEVEL``: Logging level (default: ``info``)
 
@@ -62,21 +70,24 @@ Reconnecting to an existing deployment:
 Usage::
 
     # Simulate on Anvil fork (no real funds needed)
-    source .local-test.env && SIMULATE=true poetry run python scripts/hyperliquid/deploy-lagoon-hyperliquid-vault.py
+    SIMULATE=true python scripts/hyperliquid/deploy-lagoon-hyperliquid-vault.py
 
     # Simulate testnet on Anvil fork
-    SIMULATE=true NETWORK=testnet poetry run python scripts/hyperliquid/deploy-lagoon-hyperliquid-vault.py
+    SIMULATE=true NETWORK=testnet python scripts/hyperliquid/deploy-lagoon-hyperliquid-vault.py
 
     # Testnet deposit only (deploy + deposit, wait 1 day before withdrawal)
-    HYPERCORE_WRITER_TEST_PRIVATE_KEY=0x... NETWORK=testnet \\
-        ACTION=deposit HYPERCORE_VAULT=0xabc... USDC_AMOUNT=5 \\
-        poetry run python scripts/hyperliquid/deploy-lagoon-hyperliquid-vault.py
+    NETWORK=testnet ACTION=deposit USDC_AMOUNT=1 python scripts/hyperliquid/deploy-lagoon-hyperliquid-vault.py
+
+    # Mainnet deposit only
+    NETWORK=mainnet ACTION=deposit USDC_AMOUNT=1 python scripts/hyperliquid/deploy-lagoon-hyperliquid-vault.py
 
     # Testnet withdrawal (reconnect to existing deployment after lock-up)
-    HYPERCORE_WRITER_TEST_PRIVATE_KEY=0x... NETWORK=testnet \\
-        ACTION=withdraw HYPERCORE_VAULT=0xabc... USDC_AMOUNT=5 \\
-        LAGOON_VAULT=0xdef... TRADING_STRATEGY_MODULE=0x123... \\
+    HYPERCORE_WRITER_TEST_PRIVATE_KEY=0x... NETWORK=testnet \
+        ACTION=withdraw HYPERCORE_VAULT=0xabc... USDC_AMOUNT=5 \
+        LAGOON_VAULT=0xdef... TRADING_STRATEGY_MODULE=0x123... \
         poetry run python scripts/hyperliquid/deploy-lagoon-hyperliquid-vault.py
+
+For more information see `README-Hypercore-guard.md`.
 """
 
 import logging
@@ -92,11 +103,13 @@ from eth_defi.erc_4626.vault_protocol.lagoon.deployment import (
     deploy_automated_lagoon_vault)
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.hotwallet import HotWallet
+from eth_defi.hyperliquid.api import fetch_user_vault_equities
 from eth_defi.hyperliquid.core_writer import (
     build_hypercore_deposit_multicall, build_hypercore_withdraw_multicall)
+from eth_defi.hyperliquid.session import create_hyperliquid_session
 from eth_defi.hyperliquid.testing import setup_anvil_hypercore_mocks
-from eth_defi.provider.anvil import (ANVIL_OWNER_1, ANVIL_OWNER_2,
-                                     ANVIL_PRIVATE_KEY, fork_network_anvil,
+from eth_defi.hyperliquid.vault import HYPERLIQUID_TESTNET_API_URL
+from eth_defi.provider.anvil import (ANVIL_PRIVATE_KEY, fork_network_anvil,
                                      fund_erc20_on_anvil)
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import USDC_NATIVE_TOKEN, fetch_erc20_details
@@ -107,11 +120,42 @@ from eth_defi.vault.base import VaultSpec
 
 logger = logging.getLogger(__name__)
 
-#: Default Hypercore vault address (Testnet HLP)
-DEFAULT_VAULT = "0xa15099a30bbf2e68942d6f4c43d70d04faeab0a0"
+#: Default Hypercore vault address per network (HLP on each network)
+DEFAULT_VAULTS = {
+    "testnet": "0xa15099a30bbf2e68942d6f4c43d70d04faeab0a0",
+    "mainnet": "0xdfc24b077bc1425ad1dea75bcb6f8158e10df303",
+}
 
 #: Default public RPC for HyperEVM testnet
 HYPERLIQUID_TESTNET_RPC = "https://rpc.hyperliquid-testnet.xyz/evm"
+
+
+def _print_hypercore_balances(
+    safe_address: str,
+    network: str,
+    simulate: bool,
+):
+    """Query Hyperliquid info API and print the Safe's Hypercore vault balances.
+
+    Skipped in SIMULATE mode (Anvil mocks CoreWriter, no real Hypercore state).
+    """
+    if simulate:
+        logger.info("Skipping Hypercore balance check in SIMULATE mode")
+        return
+
+    server_url = HYPERLIQUID_TESTNET_API_URL if network == "testnet" else None  # None = mainnet default
+    session = create_hyperliquid_session()
+    kwargs = {"session": session, "user": safe_address}
+    if server_url:
+        kwargs["server_url"] = server_url
+
+    equities = fetch_user_vault_equities(**kwargs)
+    if equities:
+        rows = [[eq.vault_address, f"{eq.equity:,.6f}", eq.locked_until.isoformat()] for eq in equities]
+        print("\nHypercore vault balances (Safe):")
+        print(tabulate(rows, headers=["Vault", "Equity (USDC)", "Locked until (UTC)"], tablefmt="simple"))
+    else:
+        print("\nHypercore vault balances: none (Safe has no vault deposits on Hypercore)")
 
 
 def _do_deposit(
@@ -121,6 +165,8 @@ def _do_deposit(
     vault_address: str,
     deployer_address: str,
     usdc_human: int,
+    network: str,
+    simulate: bool,
 ):
     """Execute deposit via multicall."""
     web3 = lagoon_vault.web3
@@ -144,6 +190,8 @@ def _do_deposit(
     print("\nDeposit results:")
     print(tabulate(deposit_results, tablefmt="simple"))
 
+    _print_hypercore_balances(lagoon_vault.safe_address, network, simulate)
+
 
 def _do_withdraw(
     lagoon_vault,
@@ -151,6 +199,8 @@ def _do_withdraw(
     vault_address: str,
     deployer_address: str,
     usdc_human: int,
+    network: str,
+    simulate: bool,
 ):
     """Execute withdrawal via multicall."""
     web3 = lagoon_vault.web3
@@ -178,6 +228,8 @@ def _do_withdraw(
         )
         print(f"\nWithdrawal skipped: {str(e)[:200]}")
 
+    _print_hypercore_balances(lagoon_vault.safe_address, network, simulate)
+
 
 def main():
     log_level = os.environ.get("LOG_LEVEL", "info")
@@ -199,7 +251,7 @@ def main():
     private_key = os.environ.get("HYPERCORE_WRITER_TEST_PRIVATE_KEY", ANVIL_PRIVATE_KEY if simulate else None)
     assert private_key, "HYPERCORE_WRITER_TEST_PRIVATE_KEY environment variable required (or set SIMULATE=true)"
 
-    vault_address = HexAddress(HexStr(os.environ.get("HYPERCORE_VAULT", DEFAULT_VAULT)))
+    vault_address = HexAddress(HexStr(os.environ.get("HYPERCORE_VAULT", DEFAULT_VAULTS[network])))
     usdc_human = int(os.environ.get("USDC_AMOUNT", "1"))
 
     # Existing deployment addresses (skip deploy + whitelist when set)
@@ -240,18 +292,15 @@ def main():
         hype_balance = web3.eth.get_balance(deployer_account.address)
         hype_human = hype_balance / 10**18
         min_hype = 0.1
-        assert hype_human >= min_hype, (
-            f"Deployer {deployer_account.address} has {hype_human:.4f} HYPE, "
-            f"need at least {min_hype} HYPE for gas"
-        )
+        assert hype_human >= min_hype, f"Deployer {deployer_account.address} has {hype_human:.4f} HYPE, need at least {min_hype} HYPE for gas"
 
         deployer_usdc_human = usdc.fetch_balance_of(deployer_account.address)
         min_usdc = 5
-        assert deployer_usdc_human >= min_usdc, (
-            f"Deployer {deployer_account.address} has {deployer_usdc_human:.2f} USDC, "
-            f"need at least {min_usdc} USDC"
-        )
+        assert deployer_usdc_human >= min_usdc, f"Deployer {deployer_account.address} has {deployer_usdc_human:.2f} USDC, need at least {min_usdc} USDC"
         logger.info("Deployer balances: %.4f HYPE, %.2f USDC", hype_human, deployer_usdc_human)
+
+    # Track HYPE (gas) usage across all phases
+    hype_start = web3.eth.get_balance(deployer_account.address)
 
     if existing_lagoon_vault:
         # Reconnect to an existing Lagoon deployment
@@ -274,8 +323,13 @@ def main():
 
         logger.info("Deploying Lagoon vault...")
         # Deploy from scratch when there is no pre-deployed factory on the chain.
-        # Testnet (998) has no factory; simulate forks mainnet (999) which does.
+        # Testnet (998) has no factory; mainnet (999) has an OptinProxyFactory
+        # at 0x90beB507A1BA7D64633540cbce615B574224CD84 so we use it.
         from_the_scratch = chain_id not in LAGOON_BEACON_PROXY_FACTORIES
+        assert not (from_the_scratch and network == "mainnet"), (
+            f"Mainnet (chain {chain_id}) should have a Lagoon factory in "
+            f"LAGOON_BEACON_PROXY_FACTORIES — from-scratch deployment is not supported on mainnet"
+        )
         if from_the_scratch:
             logger.info("No Lagoon factory on chain %d, deploying from scratch", chain_id)
 
@@ -286,13 +340,14 @@ def main():
                 symbol="TEST",
             ),
             asset_manager=deployer_account.address,
-            safe_owners=[ANVIL_OWNER_1, ANVIL_OWNER_2],
-            safe_threshold=2,
-            any_asset=True,
+            safe_owners=[private_key],
+            safe_threshold=1,
+            any_asset=False,
             hypercore_vaults=[vault_address],
             safe_salt_nonce=99 if not from_the_scratch else None,
             from_the_scratch=from_the_scratch,
             use_forge=from_the_scratch,  # Required for from_the_scratch
+            between_contracts_delay_seconds=8.0,  # Speed up deployment by waiting less
         )
 
         deploy_info = deploy_automated_lagoon_vault(
@@ -308,6 +363,10 @@ def main():
         logger.info("Vault:  %s", lagoon_vault.vault_address)
         logger.info("Safe:   %s", safe_address)
         logger.info("Module: %s", module.address)
+
+        hype_after_deploy = web3.eth.get_balance(deployer_account.address)
+        deploy_cost = (hype_start - hype_after_deploy) / 10**18
+        logger.info("Deployment gas cost: %.6f HYPE", deploy_cost)
 
         # Fund Safe with USDC (Anvil only)
         if simulate:
@@ -330,6 +389,8 @@ def main():
             vault_address,
             deployer_account.address,
             usdc_human,
+            network=network,
+            simulate=bool(simulate),
         )
 
     if action in ("withdraw", "both"):
@@ -339,12 +400,16 @@ def main():
             vault_address,
             deployer_account.address,
             usdc_human,
+            network=network,
+            simulate=bool(simulate),
         )
 
     if simulate:
         web3.provider.make_request("anvil_stopImpersonatingAccount", [deployer_account.address])
 
     # Summary
+    hype_end = web3.eth.get_balance(deployer_account.address)
+    total_hype_spent = (hype_start - hype_end) / 10**18
     final_balance = usdc.fetch_balance_of(safe_address)
     summary = [
         ["Network", network],
@@ -355,6 +420,7 @@ def main():
         ["Action", action],
         ["USDC amount", f"{usdc_human:,}"],
         ["Final USDC balance", f"{final_balance:,.2f}"],
+        ["HYPE spent (gas)", f"{total_hype_spent:.6f}"],
         ["Simulate", "yes" if simulate else "no"],
     ]
     print("\nSummary:")

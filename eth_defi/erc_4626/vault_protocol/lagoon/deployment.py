@@ -14,6 +14,7 @@ Any Safe must be deployed as 1-of-1 deployer address multisig and multisig holde
 import logging
 import os
 import time
+from contextlib import nullcontext
 from dataclasses import asdict, dataclass
 from decimal import Decimal
 from io import StringIO
@@ -712,7 +713,7 @@ def deploy_lagoon(
                 logger.info(
                     "Transacting with factory contract %s.createVaultProxy() with args %s",
                     beacon_proxy_factory_address,
-                    args,
+                    [args[0], "0x" + salt.hex()],
                 )
                 bound_func = beacon_proxy_factory.functions.createVaultProxy(*args)
             case "lagoon/OptinProxyFactory.json":
@@ -728,7 +729,7 @@ def deploy_lagoon(
                 logger.info(
                     "Transacting with OptinBeaconFactory contract %s.createVaultProxy() with args %s",
                     beacon_proxy_factory_address,
-                    args,
+                    [*args[:-1], "0x" + salt.hex()],
                 )
                 bound_func = beacon_proxy_factory.functions.createVaultProxy(
                     *args,
@@ -815,8 +816,16 @@ def deploy_safe_trading_strategy_module(
         # Use explicit gas to skip eth_estimateGas (very slow on HyperEVM Anvil fork).
         # HyperEVM dual-block architecture: small blocks have only 2–3M gas limit,
         # while large blocks allow 30M. TradingStrategyModuleV0 needs ~5.4M gas.
+        # On HyperEVM, eth_getBlock("latest") may return a small block's gas limit
+        # even when the deployer has big blocks enabled, so we use the known big
+        # block gas limit constant instead.
         # https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm/dual-block-architecture
-        block_gas_limit = web3.eth.get_block("latest")["gasLimit"]
+        from eth_defi.hyperliquid.block import HYPEREVM_BIG_BLOCK_GAS_LIMIT, is_hyperevm
+
+        if is_hyperevm(chain_id):
+            block_gas_limit = HYPEREVM_BIG_BLOCK_GAS_LIMIT
+        else:
+            block_gas_limit = web3.eth.get_block("latest")["gasLimit"]
         guard_gas = min(10_000_000, block_gas_limit - 100_000)
 
         # TradingStrategyModuleV0 uses external Forge libraries via DELEGATECALL:
@@ -1347,9 +1356,13 @@ def deploy_automated_lagoon_vault(
         deployer_local_account = deployer
 
     # HyperEVM dual-block architecture: enable large blocks only around
-    # contract deployments (Safe, Lagoon protocol, vault, guard module).
-    # Configuration transactions (guard setup, ownership, approvals) use
-    # small blocks for fast ~1 second confirmation.
+    # contract deployments that exceed the small block gas limit (~2-3M).
+    # When a pre-deployed factory exists (mainnet), Safe and Lagoon vault
+    # deployment uses lightweight proxies that fit in small blocks — only
+    # TradingStrategyModuleV0 (~5.4M gas) needs big blocks.
+    # From-scratch deployment (testnet) needs big blocks for everything.
+    # Configuration transactions (guard setup, ownership, approvals) always
+    # use small blocks for fast ~1 second confirmation.
     # https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm/dual-block-architecture
     from eth_defi.hyperliquid.block import big_blocks_for_deployment
 
@@ -1382,9 +1395,13 @@ def deploy_automated_lagoon_vault(
         else:
             raise NotImplementedError(f"No idea about: {deployer}")
 
+    # When a pre-deployed factory exists, Safe proxy deployment fits in small blocks.
+    # From-scratch deployment needs big blocks for the full Safe contract.
+    _need_big_blocks_for_proxy = from_the_scratch
+
     if not existing_vault_address:
         # Deploy a Safe multisig that forms the core of Lagoon vault
-        with big_blocks_for_deployment(web3, _private_key_hex):
+        with big_blocks_for_deployment(web3, _private_key_hex) if _need_big_blocks_for_proxy else nullcontext():
             if safe_salt_nonce is not None:
                 safe = deploy_safe_with_deterministic_address(
                     web3,
@@ -1445,7 +1462,7 @@ def deploy_automated_lagoon_vault(
 
     beacon_proxy_factory_abi = "lagoon/BeaconProxyFactory.json"  # Default ABI (legacy)
     if not existing_vault_address:
-        with big_blocks_for_deployment(web3, _private_key_hex):
+        with big_blocks_for_deployment(web3, _private_key_hex) if _need_big_blocks_for_proxy else nullcontext():
             if from_the_scratch:
                 # Deploy the full Lagoon protocol with fee registry and beacon proxy factory,
                 # setting out Safe as the protocol owner

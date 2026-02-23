@@ -2,6 +2,8 @@
 
 Guard support for depositing USDC from a guarded Safe multisig on HyperEVM (chain 999) into Hypercore native vaults (chain 9999) via the CoreWriter system contract.
 
+We recommend using HyperEVM mainnet for testing. It's cheap and it will be more hassle/costly to fund HyperEVM testnet accounts.
+
 ## Whitelisted activities
 
 The guard enables three CoreWriter action IDs through `sendRawAction(bytes)`:
@@ -191,8 +193,9 @@ A transaction is routed to one or the other based on the sender's account-level 
 
 - `TradingStrategyModuleV0` requires **~5.4M gas** to deploy — exceeds the small block limit
 - `Vault.sol` (Lagoon implementation) requires **>3M gas** — also exceeds the small block limit
-- On HyperEVM **mainnet** (chain 999), a Lagoon `BeaconProxyFactory` is already deployed,
-  so vault deployment uses lightweight proxies that fit in small blocks
+- On HyperEVM **mainnet** (chain 999), Safe and Lagoon factories are already deployed,
+  so Safe proxy and vault proxy deployment fits in small blocks — only the
+  `TradingStrategyModuleV0` guard module (~5.4M gas) requires big blocks
 - On HyperEVM **testnet** (chain 998), there is **no factory** — the script deploys from scratch
   via `forge create`, which hits the small block gas limit and fails
 
@@ -269,13 +272,24 @@ result = web3.provider.make_request("eth_usingBigBlocks", [address])
 | `eth_getSystemTxsByBlockHash` | System transactions from HyperCore by block hash |
 | `eth_getSystemTxsByBlockNumber` | System transactions from HyperCore by block number |
 
+### Lagoon factory on mainnet
+
+HyperEVM mainnet (chain 999) has a pre-deployed Lagoon `OptinProxyFactory` at
+`0x90beB507A1BA7D64633540cbce615B574224CD84`, registered in `LAGOON_BEACON_PROXY_FACTORIES`.
+This means vault deployment uses lightweight proxies and does **not** require from-scratch
+deployment. The deploy script explicitly asserts against from-scratch deployment on mainnet.
+
+HyperEVM testnet (chain 998) has **no factory**, so the deploy script deploys the full
+Lagoon protocol from scratch using `forge create`.
+
 ### Deployment strategy summary
 
 | Scenario | Block type needed | Notes |
 |----------|-------------------|-------|
-| Mainnet vault deployment (factory exists) | Small blocks | Proxies are lightweight |
-| Testnet from-scratch deployment | **Large blocks required** | Vault + registry + guard exceed 3M gas |
-| Guard deployment (`TradingStrategyModuleV0`) | **Large blocks required** | ~5.4M gas |
+| Mainnet Safe deployment (proxy factory exists) | Small blocks | Proxy deployment is lightweight |
+| Mainnet Lagoon vault deployment (factory exists) | Small blocks | Beacon proxy is lightweight |
+| Testnet from-scratch deployment | **Large blocks required** | Vault + registry + Safe exceed 3M gas |
+| Guard deployment (`TradingStrategyModuleV0`) | **Large blocks required** | ~5.4M gas, always needs big blocks |
 | Multicall deposit/withdrawal | Small blocks | Individual calls are <100k gas each |
 | Anvil fork (SIMULATE mode) | N/A | Anvil overrides gas limit to 30M |
 
