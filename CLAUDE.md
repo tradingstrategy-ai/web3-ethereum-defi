@@ -86,6 +86,7 @@ poetry run ruff format
 - Always try to return `Iterator` instead of `list` from a function call to make functions faster
 - For long runnign for loops, use `tqdm` and `tqdm_loggable.auto` module for progress bar. As an example, see `lead_scan_core.py`.
 - For visualusations, use Plotly. For chart titles, use heading case as explained above.
+- Use module level imports, not function level lazy imports, whenever possible
 
 ### Code comments
 

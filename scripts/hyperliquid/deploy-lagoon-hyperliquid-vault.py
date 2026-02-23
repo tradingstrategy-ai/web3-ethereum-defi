@@ -57,7 +57,12 @@ Environment variables
   Defaults to the HLP vault for the selected network
   (testnet: ``0xa15099a30bbf2e68942d6f4c43d70d04faeab0a0``,
   mainnet: ``0xdfc24b077bc1425ad1dea75bcb6f8158e10df303``).
-- ``USDC_AMOUNT``: USDC amount in human units (default: ``1``)
+- ``USDC_AMOUNT``: USDC amount in human units for the vault deposit (default: ``2``).
+  On live networks, an additional 2 USDC is automatically added for
+  HyperCore account activation (1 USDC creation fee + 1 USDC reaches spot).
+- ``DEPOSIT_MODE``: ``batched`` (default) or ``two_phase``.
+  ``batched`` uses a single multicall with activation check;
+  ``two_phase`` splits bridge and vault deposit with an escrow wait.
 - ``LOG_LEVEL``: Logging level (default: ``info``)
 
 Reconnecting to an existing deployment:
@@ -87,6 +92,25 @@ Usage::
         LAGOON_VAULT=0xdef... TRADING_STRATEGY_MODULE=0x123... \
         poetry run python scripts/hyperliquid/deploy-lagoon-hyperliquid-vault.py
 
+Troubleshooting
+---------------
+
+If deposit lands on EVM but the vault position is missing, use
+``check-hypercore-user.py`` to inspect the Safe's HyperCore state
+(spot balances, EVM escrows, perp account, vault positions)::
+
+    ADDRESS=<safe_address> NETWORK=mainnet \
+        poetry run python scripts/hyperliquid/check-hypercore-user.py
+
+Common issues:
+
+- **USDC stuck in EVM escrow**: the bridge step succeeded but HyperCore
+  has not yet processed the deposit. Wait and re-check.
+- **USDC in spot but no vault position**: ``transferUsdClass`` or
+  ``vaultTransfer`` failed silently on HyperCore. Re-submit phase 2.
+- **USDC in perp but no vault position**: ``vaultTransfer`` failed
+  (e.g. vault lock-up, wrong vault address). Check vault address.
+
 For more information see `README-Hypercore-guard.md`.
 """
 
@@ -101,20 +125,37 @@ from eth_typing import HexAddress, HexStr
 from tabulate import tabulate
 from web3 import Web3
 
+from safe_eth.safe.safe import Safe
+
 from eth_defi.erc_4626.vault_protocol.lagoon.deployment import (
     LAGOON_BEACON_PROXY_FACTORIES, LagoonConfig, LagoonDeploymentParameters,
     deploy_automated_lagoon_vault)
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
+from eth_defi.gas import estimate_gas_price
 from eth_defi.hotwallet import HotWallet
 from eth_defi.hyperliquid.api import fetch_user_vault_equities
 from eth_defi.hyperliquid.core_writer import (
-    build_hypercore_deposit_multicall, build_hypercore_withdraw_multicall)
-from eth_defi.hyperliquid.session import create_hyperliquid_session
+    build_hypercore_deposit_multicall,
+    build_hypercore_deposit_phase1,
+    build_hypercore_deposit_phase2,
+    build_hypercore_withdraw_multicall,
+)
+from eth_defi.hyperliquid.evm_escrow import (
+    activate_account,
+    is_account_activated,
+    wait_for_evm_escrow_clear,
+    DEFAULT_ACTIVATION_AMOUNT,
+)
+from eth_defi.hyperliquid.session import (
+    HYPERLIQUID_TESTNET_API_URL,
+    create_hyperliquid_session,
+)
 from eth_defi.hyperliquid.testing import setup_anvil_hypercore_mocks
-from eth_defi.hyperliquid.vault import HYPERLIQUID_TESTNET_API_URL
 from eth_defi.provider.anvil import (ANVIL_PRIVATE_KEY, fork_network_anvil,
                                      fund_erc20_on_anvil)
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.safe.execute import execute_safe_tx
+from eth_defi.safe.safe_compat import create_safe_ethereum_client
 from eth_defi.token import USDC_NATIVE_TOKEN, fetch_erc20_details
 from eth_defi.trace import (TransactionAssertionError,
                             assert_transaction_success_with_explanation)
@@ -137,14 +178,18 @@ def _print_hypercore_balances(
     safe_address: str,
     network: str,
     simulate: bool,
-):
+) -> list:
     """Query Hyperliquid info API and print the Safe's Hypercore vault balances.
 
     Skipped in SIMULATE mode (Anvil mocks CoreWriter, no real Hypercore state).
+
+    :return:
+        List of :py:class:`~eth_defi.hyperliquid.api.UserVaultEquity` positions,
+        or empty list in simulate mode.
     """
     if simulate:
         logger.info("Skipping Hypercore balance check in SIMULATE mode")
-        return
+        return []
 
     server_url = HYPERLIQUID_TESTNET_API_URL if network == "testnet" else None  # None = mainnet default
     session = create_hyperliquid_session()
@@ -160,47 +205,136 @@ def _print_hypercore_balances(
     else:
         print("\nHypercore vault balances: none (Safe has no vault deposits on Hypercore)")
 
+    return equities
+
 
 def _do_deposit(
     lagoon_vault,
     usdc_amount: int,
     hypercore_amount: int,
     vault_address: str,
-    deployer_address: str,
+    deployer: HotWallet,
     usdc_human: int,
     network: str,
     simulate: bool,
+    deposit_mode: str = "batched",
 ):
-    """Execute deposit via multicall."""
+    """Execute deposit into a Hypercore vault via Lagoon.
+
+    Supports two deposit modes (set via ``DEPOSIT_MODE`` env var):
+
+    - ``batched`` (default): Single multicall with all 4 steps. The Safe
+      must be activated on HyperCore first (done automatically).
+    - ``two_phase``: Splits into bridge (phase 1) + escrow wait +
+      vault deposit (phase 2). Safer under heavy HyperCore load.
+
+    In SIMULATE mode, always uses batched (Anvil mocks, no real escrow).
+    """
     web3 = lagoon_vault.web3
-    logger.info("Executing multicall deposit (%d USDC)...", usdc_human)
-    fn = build_hypercore_deposit_multicall(
-        lagoon_vault=lagoon_vault,
-        evm_usdc_amount=usdc_amount,
-        hypercore_usdc_amount=hypercore_amount,
-        vault_address=vault_address,
-    )
-    tx_hash = fn.transact({"from": deployer_address})
-    receipt = assert_transaction_success_with_explanation(web3, tx_hash)
 
-    deposit_results = [
-        ["Transaction", tx_hash.hex()],
-        ["Gas used", receipt["gasUsed"]],
-        ["Block", receipt["blockNumber"]],
-        ["USDC amount", f"{usdc_human:,}"],
-        ["Vault", vault_address],
-    ]
-    print("\nDeposit results:")
-    print(tabulate(deposit_results, tablefmt="simple"))
+    # On live networks, ensure the Safe is activated on HyperCore
+    if not simulate:
+        if not is_account_activated(web3, user=lagoon_vault.safe_address):
+            logger.info("Safe %s not activated on HyperCore, activating...", lagoon_vault.safe_address)
+            activate_account(
+                web3=web3,
+                lagoon_vault=lagoon_vault,
+                deployer=deployer,
+            )
+            deployer.sync_nonce(web3)
 
-    _print_hypercore_balances(lagoon_vault.safe_address, network, simulate)
+    # Build API kwargs for testnet vs mainnet (used for escrow polling in two_phase mode)
+    api_kwargs = {}
+    if network == "testnet":
+        api_kwargs["server_url"] = HYPERLIQUID_TESTNET_API_URL
+
+    if simulate or deposit_mode == "batched":
+        # Batched: single multicall with all 4 steps
+        label = "batched (simulate)" if simulate else "batched"
+        logger.info("Executing %s deposit (%d USDC)...", label, usdc_human)
+
+        fn = build_hypercore_deposit_multicall(
+            lagoon_vault=lagoon_vault,
+            evm_usdc_amount=usdc_amount,
+            hypercore_usdc_amount=hypercore_amount,
+            vault_address=vault_address,
+            check_activation=not simulate,
+        )
+
+        if simulate:
+            tx_hash = fn.transact({"from": deployer.address})
+        else:
+            tx_hash = deployer.transact_and_broadcast_with_contract(fn)
+
+        receipt = assert_transaction_success_with_explanation(web3, tx_hash)
+        deposit_results = [
+            ["Transaction", tx_hash.hex()],
+            ["Gas used", receipt["gasUsed"]],
+            ["Block", receipt["blockNumber"]],
+            ["USDC amount", f"{usdc_human:,}"],
+            ["Vault", vault_address],
+            ["Mode", label],
+        ]
+        print("\nDeposit results:")
+        print(tabulate(deposit_results, tablefmt="simple"))
+
+    elif deposit_mode == "two_phase":
+        # Two-phase: bridge, wait, vault deposit
+        logger.info("Phase 1: bridging %d USDC to HyperCore spot...", usdc_human)
+        fn1 = build_hypercore_deposit_phase1(
+            lagoon_vault=lagoon_vault,
+            evm_usdc_amount=usdc_amount,
+        )
+        tx_hash = deployer.transact_and_broadcast_with_contract(fn1)
+        receipt = assert_transaction_success_with_explanation(web3, tx_hash)
+        logger.info("Phase 1 tx: %s (gas: %d)", tx_hash.hex(), receipt["gasUsed"])
+
+        # Wait for EVM escrow to clear
+        logger.info("Waiting for EVM escrow to clear...")
+        session = create_hyperliquid_session()
+        wait_for_evm_escrow_clear(session, user=lagoon_vault.safe_address, **api_kwargs)
+
+        # Phase 2: spot -> perp -> vault
+        logger.info("Phase 2: moving USDC to perp and depositing into vault...")
+        deployer.sync_nonce(web3)
+        fn2 = build_hypercore_deposit_phase2(
+            lagoon_vault=lagoon_vault,
+            hypercore_usdc_amount=hypercore_amount,
+            vault_address=vault_address,
+        )
+        tx_hash = deployer.transact_and_broadcast_with_contract(fn2)
+        receipt = assert_transaction_success_with_explanation(web3, tx_hash)
+
+        deposit_results = [
+            ["Phase 2 tx", tx_hash.hex()],
+            ["Gas used", receipt["gasUsed"]],
+            ["Block", receipt["blockNumber"]],
+            ["USDC amount", f"{usdc_human:,}"],
+            ["Vault", vault_address],
+            ["Mode", "two_phase"],
+        ]
+        print("\nDeposit results:")
+        print(tabulate(deposit_results, tablefmt="simple"))
+
+    else:
+        raise ValueError(f"Unknown deposit mode: {deposit_mode!r} (expected 'batched' or 'two_phase')")
+
+    # CoreWriter actions are asynchronous: the EVM transaction only queues
+    # the action, and HyperCore processes it with a few seconds delay.
+    # Wait before checking balances so the deposit has time to land.
+    if not simulate:
+        logger.info("Waiting 10s for CoreWriter actions to settle on HyperCore...")
+        time.sleep(10)
+    equities = _print_hypercore_balances(lagoon_vault.safe_address, network, simulate)
+    if not simulate:
+        assert len(equities) > 0, f"Deposit failed: Safe {lagoon_vault.safe_address} has no vault positions on HyperCore after deposit"
 
 
 def _do_withdraw(
     lagoon_vault,
     hypercore_amount: int,
     vault_address: str,
-    deployer_address: str,
+    deployer: HotWallet,
     usdc_human: int,
     network: str,
     simulate: bool,
@@ -214,7 +348,10 @@ def _do_withdraw(
         vault_address=vault_address,
     )
     try:
-        tx_hash = fn.transact({"from": deployer_address})
+        if simulate:
+            tx_hash = fn.transact({"from": deployer.address})
+        else:
+            tx_hash = deployer.transact_and_broadcast_with_contract(fn)
         receipt = assert_transaction_success_with_explanation(web3, tx_hash)
         withdraw_results = [
             ["Transaction", tx_hash.hex()],
@@ -230,8 +367,58 @@ def _do_withdraw(
             str(e)[:200],
         )
         print(f"\nWithdrawal skipped: {str(e)[:200]}")
+        return
 
+    # CoreWriter actions are asynchronous: the EVM transaction only queues
+    # the action, and HyperCore processes it with a few seconds delay.
+    # Wait before checking balances so the withdrawal has time to settle.
+    if not simulate:
+        logger.info("Waiting 10s for CoreWriter actions to settle on HyperCore...")
+        time.sleep(10)
     _print_hypercore_balances(lagoon_vault.safe_address, network, simulate)
+
+    # Transfer remaining USDC from Safe back to deployer via Safe
+    # multisig execTransaction (bypasses the guard, which would block
+    # performCall transfers to non-whitelisted receivers).
+    usdc_token = lagoon_vault.underlying_token
+    safe_balance = usdc_token.fetch_balance_of(lagoon_vault.safe_address)
+    if safe_balance > 0:
+        logger.info("Transferring %s USDC from Safe back to deployer %s", safe_balance, deployer.address)
+        raw_amount = usdc_token.convert_to_raw(safe_balance)
+        transfer_data = usdc_token.contract.functions.transfer(
+            deployer.address, raw_amount,
+        ).build_transaction({"from": lagoon_vault.safe_address})["data"]
+
+        if simulate:
+            # In Anvil simulate mode, impersonate the Safe and call the
+            # USDC contract directly (bypasses signer requirement).
+            # Fund the Safe with HYPE for gas first.
+            web3.provider.make_request("anvil_setBalance", [lagoon_vault.safe_address, hex(10**18)])
+            web3.provider.make_request("anvil_impersonateAccount", [lagoon_vault.safe_address])
+            tx_hash = web3.eth.send_transaction({
+                "from": lagoon_vault.safe_address,
+                "to": usdc_token.address,
+                "data": transfer_data,
+            })
+            web3.provider.make_request("anvil_stopImpersonatingAccount", [lagoon_vault.safe_address])
+        else:
+            ethereum_client = create_safe_ethereum_client(web3)
+            safe = Safe(lagoon_vault.safe_address, ethereum_client)
+            safe_tx = safe.build_multisig_tx(
+                usdc_token.address, 0, bytes.fromhex(transfer_data[2:]),
+            )
+            safe_tx.sign(deployer.private_key.hex())
+            gas_estimate = estimate_gas_price(web3)
+            deployer.sync_nonce(web3)
+            tx_hash, _tx = execute_safe_tx(
+                safe_tx,
+                tx_sender_private_key=deployer.private_key.hex(),
+                tx_gas=100_000,
+                tx_nonce=deployer.allocate_nonce(),
+                gas_fee=gas_estimate,
+            )
+        assert_transaction_success_with_explanation(web3, tx_hash)
+        logger.info("USDC returned to deployer: tx %s", tx_hash.hex())
 
 
 def main():
@@ -255,7 +442,9 @@ def main():
     assert private_key, "HYPERCORE_WRITER_TEST_PRIVATE_KEY environment variable required (or set SIMULATE=true)"
 
     vault_address = HexAddress(HexStr(os.environ.get("HYPERCORE_VAULT", DEFAULT_VAULTS[network])))
-    usdc_human = int(os.environ.get("USDC_AMOUNT", "1"))
+    usdc_human = int(os.environ.get("USDC_AMOUNT", "2"))
+    deposit_mode = os.environ.get("DEPOSIT_MODE", "batched").lower()
+    assert deposit_mode in ("batched", "two_phase"), f"DEPOSIT_MODE must be 'batched' or 'two_phase', got '{deposit_mode}'"
 
     # Existing deployment addresses (skip deploy + whitelist when set)
     existing_lagoon_vault = os.environ.get("LAGOON_VAULT")
@@ -290,6 +479,14 @@ def main():
     usdc_amount = usdc.convert_to_raw(usdc_human)
     hypercore_amount = usdc_amount  # Hypercore uses same decimals as EVM USDC
 
+    # On live networks doing deposits, the Safe needs extra USDC for
+    # HyperCore account activation (2 USDC: 1 USDC fee + 1 USDC reaches spot).
+    # In simulate mode, activation is skipped (no real HyperCore state).
+    activation_raw = DEFAULT_ACTIVATION_AMOUNT if (not simulate and action in ("deposit", "both")) else 0
+    activation_human = activation_raw / 10**6
+    total_safe_funding_raw = usdc_amount + activation_raw
+    total_safe_funding_human = usdc_human + activation_human
+
     # Check deployer has enough HYPE (gas) and USDC before doing anything expensive
     if not simulate:
         hype_balance = web3.eth.get_balance(deployer_account.address)
@@ -298,8 +495,11 @@ def main():
         assert hype_human >= min_hype, f"Deployer {deployer_account.address} has {hype_human:.4f} HYPE, need at least {min_hype} HYPE for gas"
 
         deployer_usdc_human = usdc.fetch_balance_of(deployer_account.address)
-        min_usdc = 5
-        assert deployer_usdc_human >= min_usdc, f"Deployer {deployer_account.address} has {deployer_usdc_human:.2f} USDC, need at least {min_usdc} USDC"
+        min_usdc = total_safe_funding_human
+        assert deployer_usdc_human >= min_usdc, (
+            f"Deployer {deployer_account.address} has {deployer_usdc_human:.2f} USDC, "
+            f"need at least {min_usdc:.0f} USDC ({usdc_human} deposit + {activation_human:.0f} activation)"
+        )
         logger.info("Deployer balances: %.4f HYPE, %.2f USDC", hype_human, deployer_usdc_human)
 
     # Track HYPE (gas) usage across all phases
@@ -371,7 +571,7 @@ def main():
         deploy_cost = (hype_start - hype_after_deploy) / 10**18
         logger.info("Deployment gas cost: %.6f HYPE", deploy_cost)
 
-        # Fund Safe with USDC
+        # Fund Safe with USDC (deposit amount + activation overhead on live)
         if simulate:
             fund_erc20_on_anvil(web3, usdc_address, safe_address, usdc_amount)
         else:
@@ -380,11 +580,18 @@ def main():
             time.sleep(2)
             deployer.sync_nonce(web3)
 
-            # Transfer USDC from deployer to Safe on live network
+            # Transfer USDC from deployer to Safe on live network.
+            # Includes activation overhead (2 USDC) so the Safe has enough
+            # for both account activation and the vault deposit.
             safe_balance = usdc.fetch_balance_of(safe_address)
-            if safe_balance < usdc_human:
-                transfer_amount = Decimal(usdc_human) - safe_balance
-                logger.info("Transferring %s USDC from deployer to Safe %s", transfer_amount, safe_address)
+            if safe_balance < total_safe_funding_human:
+                transfer_amount = Decimal(str(total_safe_funding_human)) - safe_balance
+                logger.info(
+                    "Transferring %s USDC from deployer to Safe %s "
+                    "(%d deposit + %d activation)",
+                    transfer_amount, safe_address,
+                    usdc_human, int(activation_human),
+                )
                 tx_hash = deployer.transact_and_broadcast_with_contract(
                     usdc.transfer(safe_address, transfer_amount),
                     gas_limit=100_000,
@@ -401,16 +608,20 @@ def main():
         web3.provider.make_request("anvil_impersonateAccount", [deployer_account.address])
 
     if action in ("deposit", "both"):
-        assert balance >= usdc_human, f"Safe USDC balance {balance} insufficient, need {usdc_human}"
+        assert balance >= total_safe_funding_human, (
+            f"Safe USDC balance {balance} insufficient, "
+            f"need {total_safe_funding_human:.0f} ({usdc_human} deposit + {activation_human:.0f} activation)"
+        )
         _do_deposit(
             lagoon_vault,
             usdc_amount,
             hypercore_amount,
             vault_address,
-            deployer_account.address,
+            deployer,
             usdc_human,
             network=network,
             simulate=bool(simulate),
+            deposit_mode=deposit_mode,
         )
 
     if action in ("withdraw", "both"):
@@ -418,7 +629,7 @@ def main():
             lagoon_vault,
             hypercore_amount,
             vault_address,
-            deployer_account.address,
+            deployer,
             usdc_human,
             network=network,
             simulate=bool(simulate),

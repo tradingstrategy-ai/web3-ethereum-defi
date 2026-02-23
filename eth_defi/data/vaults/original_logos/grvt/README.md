@@ -5,10 +5,11 @@
 - `github-avatar.png` — 420x420 PNG, blue pixel/block pattern on light grey background. This is the Gravity Technologies corporate logo, not the GRVT exchange brand. Source: https://avatars.githubusercontent.com/u/112316440?s=500&v=4
 - `defillama-perps.jpg` — 200x200 JPEG, dark blue interlinked "G" marks on green background. Source: https://icons.llama.fi/grvt-perps.jpg
 - `defillama-bridge.jpg` — 200x200 JPEG, identical to defillama-perps. Source: https://icons.llama.fi/grvt-bridge.jpg
+- `grvt-brand-icon.png` — 1080x1080 PNG, black interlocking "G" marks on green (#A4D65E) rounded-square background. Official GRVT brand icon. Source: user-provided
 
 ## Selected for formatting
 
-- **light variant** (for dark backgrounds): `defillama-perps.jpg` — actual GRVT exchange brand logo, green background with dark logo mark
+- **light variant** (for dark backgrounds): `grvt-brand-icon.png` — official GRVT exchange brand icon, high-quality version
 - **dark variant**: not available — no suitable dark-background variant found
 
 ## Brand pages checked

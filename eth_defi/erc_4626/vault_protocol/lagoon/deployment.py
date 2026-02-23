@@ -1208,12 +1208,20 @@ def setup_guard(
             cdw_address,
         )
 
+        # The deposit multicall calls approve(USDC) as its first step,
+        # so the underlying token must be whitelisted for transfer/approve.
+        underlying_address = Web3.to_checksum_address(vault.functions.asset().call())
+
         multicalls = [
+            module.functions.whitelistToken(
+                underlying_address,
+                "Underlying token for Hypercore deposit approve",
+            ),
             module.functions.whitelistCoreWriter(
                 Web3.to_checksum_address(CORE_WRITER_ADDRESS),
                 Web3.to_checksum_address(cdw_address),
                 "Hypercore vault trading",
-            )
+            ),
         ]
 
         for idx, hv_address in enumerate(hypercore_vaults, start=1):

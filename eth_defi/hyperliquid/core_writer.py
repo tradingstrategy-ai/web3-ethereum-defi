@@ -237,8 +237,17 @@ def build_hypercore_deposit_multicall(
     evm_usdc_amount: int,
     hypercore_usdc_amount: int,
     vault_address: HexAddress | str,
+    check_activation: bool = False,
 ) -> ContractFunction:
     """Build a single multicall transaction for the full Hypercore deposit flow.
+
+    .. warning::
+
+        The Safe must be **activated** on HyperCore before using the batched
+        deposit. Pass ``check_activation=True`` to automatically verify, or
+        use :py:func:`~eth_defi.hyperliquid.evm_escrow.activate_account`
+        beforehand. Without activation, deposited USDC gets permanently stuck
+        in EVM escrow.
 
     Batches the 4-step deposit into one EVM transaction:
 
@@ -249,6 +258,12 @@ def build_hypercore_deposit_multicall(
 
     When the EVM block finishes execution, all queued CoreWriter actions
     are processed sequentially on HyperCore (~47k gas per action).
+
+    For extra safety under heavy HyperCore load, use the two-phase approach
+    with :py:func:`build_hypercore_deposit_phase1` and
+    :py:func:`build_hypercore_deposit_phase2` with
+    :py:func:`~eth_defi.hyperliquid.evm_escrow.wait_for_evm_escrow_clear`
+    between them.
 
     Derives all contract instances internally from the :py:class:`LagoonVault`:
 
@@ -266,6 +281,7 @@ def build_hypercore_deposit_multicall(
             evm_usdc_amount=10_000 * 10**6,
             hypercore_usdc_amount=10_000 * 10**6,
             vault_address="0x...",
+            check_activation=True,
         )
         tx_hash = fn.transact({"from": asset_manager})
 
@@ -281,9 +297,30 @@ def build_hypercore_deposit_multicall(
     :param vault_address:
         Hypercore native vault address (not the Lagoon vault address).
 
+    :param check_activation:
+        If ``True``, verifies the Safe is activated on HyperCore using the
+        ``coreUserExists`` precompile before building the multicall.
+        Set to ``False`` (default) in simulate/Anvil mode where the
+        precompile is not available.
+
     :return:
         Bound ``module.functions.multicall(data)`` ready to ``.transact()``.
+
+    :raises RuntimeError:
+        If ``check_activation`` is True and the Safe is not activated on HyperCore.
     """
+    if check_activation:
+        from eth_defi.hyperliquid.evm_escrow import is_account_activated
+
+        safe_address = lagoon_vault.safe_address
+        if not is_account_activated(lagoon_vault.web3, user=safe_address):
+            raise RuntimeError(
+                f"Safe {safe_address} is not activated on HyperCore. "
+                f"Call activate_account() before depositing, or bridge actions "
+                f"will get permanently stuck in EVM escrow. "
+                f"See eth_defi.hyperliquid.evm_escrow for details."
+            )
+
     web3 = lagoon_vault.web3
     module = lagoon_vault.trading_strategy_module
     chain_id = lagoon_vault.spec.chain_id
@@ -320,6 +357,134 @@ def build_hypercore_deposit_multicall(
             ),
         ),
         # 4. CoreWriter.sendRawAction(vaultTransfer(vault, true, amount))
+        _encode_perform_call(
+            module,
+            core_writer.address,
+            core_writer.functions.sendRawAction(
+                encode_vault_deposit(vault_address, hypercore_usdc_amount),
+            ),
+        ),
+    ]
+    return module.functions.multicall(calls)
+
+
+def build_hypercore_deposit_phase1(
+    lagoon_vault: LagoonVault,
+    evm_usdc_amount: int,
+) -> ContractFunction:
+    """Build phase 1 of a two-phase Hypercore deposit: bridge USDC to HyperCore spot.
+
+    This multicall performs:
+
+    1. ``approve(CoreDepositWallet, amount)`` -- approve USDC transfer
+    2. ``CoreDepositWallet.deposit(amount, SPOT_DEX)`` -- bridge USDC to HyperCore spot
+
+    After this transaction lands, the USDC enters EVM escrow. Use
+    :py:func:`~eth_defi.hyperliquid.evm_escrow.wait_for_evm_escrow_clear`
+    to wait for the funds to arrive in the spot account, then call
+    :py:func:`build_hypercore_deposit_phase2` for the remaining steps.
+
+    Example::
+
+        from eth_defi.hyperliquid.core_writer import (
+            build_hypercore_deposit_phase1,
+            build_hypercore_deposit_phase2,
+        )
+        from eth_defi.hyperliquid.evm_escrow import wait_for_evm_escrow_clear
+
+        # Phase 1: bridge USDC to HyperCore
+        fn1 = build_hypercore_deposit_phase1(lagoon_vault, evm_usdc_amount=1_000_000)
+        tx_hash = fn1.transact({"from": asset_manager})
+
+        # Wait for escrow to clear
+        wait_for_evm_escrow_clear(session, user=safe_address)
+
+        # Phase 2: move to perp and deposit into vault
+        fn2 = build_hypercore_deposit_phase2(
+            lagoon_vault, hypercore_usdc_amount=1_000_000, vault_address="0x...",
+        )
+        tx_hash = fn2.transact({"from": asset_manager})
+
+    :param lagoon_vault:
+        Lagoon vault instance with ``trading_strategy_module_address`` configured.
+
+    :param evm_usdc_amount:
+        USDC amount in EVM wei (uint256) for approve and CDW deposit.
+
+    :return:
+        Bound ``module.functions.multicall(data)`` ready to ``.transact()``.
+    """
+    web3 = lagoon_vault.web3
+    module = lagoon_vault.trading_strategy_module
+    chain_id = lagoon_vault.spec.chain_id
+
+    asset_address = lagoon_vault.vault_contract.functions.asset().call()
+    usdc_contract = get_deployed_contract(web3, "centre/ERC20.json", asset_address)
+    cdw_address = CORE_DEPOSIT_WALLET_TESTNET if chain_id == 998 else CORE_DEPOSIT_WALLET_MAINNET
+    core_deposit_wallet = get_core_deposit_wallet_contract(web3, cdw_address)
+
+    calls = [
+        # 1. Approve USDC to CoreDepositWallet
+        _encode_perform_call(
+            module,
+            usdc_contract.address,
+            usdc_contract.functions.approve(
+                Web3.to_checksum_address(core_deposit_wallet.address),
+                evm_usdc_amount,
+            ),
+        ),
+        # 2. CoreDepositWallet.deposit(amount, SPOT_DEX)
+        _encode_perform_call(
+            module,
+            core_deposit_wallet.address,
+            core_deposit_wallet.functions.deposit(evm_usdc_amount, SPOT_DEX),
+        ),
+    ]
+    return module.functions.multicall(calls)
+
+
+def build_hypercore_deposit_phase2(
+    lagoon_vault: LagoonVault,
+    hypercore_usdc_amount: int,
+    vault_address: HexAddress | str,
+) -> ContractFunction:
+    """Build phase 2 of a two-phase Hypercore deposit: spot-to-perp and vault deposit.
+
+    This multicall performs:
+
+    1. ``CoreWriter.sendRawAction(transferUsdClass)`` -- move USDC from spot to perp
+    2. ``CoreWriter.sendRawAction(vaultTransfer)`` -- deposit into vault
+
+    Must only be called after phase 1 USDC has cleared the EVM escrow and
+    is available in the user's HyperCore spot account. Use
+    :py:func:`~eth_defi.hyperliquid.evm_escrow.wait_for_evm_escrow_clear`
+    between phase 1 and phase 2.
+
+    :param lagoon_vault:
+        Lagoon vault instance with ``trading_strategy_module_address`` configured.
+
+    :param hypercore_usdc_amount:
+        USDC amount in HyperCore wei (uint64) for CoreWriter actions.
+
+    :param vault_address:
+        Hypercore native vault address (not the Lagoon vault address).
+
+    :return:
+        Bound ``module.functions.multicall(data)`` ready to ``.transact()``.
+    """
+    module = lagoon_vault.trading_strategy_module
+    core_writer = get_core_writer_contract(lagoon_vault.web3)
+
+    calls = [
+        # 1. CoreWriter.sendRawAction(transferUsdClass(amount, true))
+        _encode_perform_call(
+            module,
+            core_writer.address,
+            core_writer.functions.sendRawAction(
+                encode_transfer_usd_class(hypercore_usdc_amount, to_perp=True),
+            ),
+        ),
+        # 2. CoreWriter.sendRawAction(vaultTransfer(vault, true, amount))
         _encode_perform_call(
             module,
             core_writer.address,

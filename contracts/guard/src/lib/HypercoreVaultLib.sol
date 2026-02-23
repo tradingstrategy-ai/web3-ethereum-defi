@@ -16,6 +16,7 @@ pragma solidity ^0.8.0;
 // Pre-computed function selectors
 bytes4 constant SEL_SEND_RAW_ACTION = 0x17938e13;  // sendRawAction(bytes)
 bytes4 constant SEL_CORE_DEPOSIT = 0x2b2dfd2c;      // deposit(uint256,uint32)
+bytes4 constant SEL_CORE_DEPOSIT_FOR = 0xc23c545a;  // depositFor(address,uint256,uint32) — needed for Hypercore account activation
 
 library HypercoreVaultLib {
 
@@ -141,6 +142,7 @@ library HypercoreVaultLib {
     function validateDeposit(address target) external view {
         require(target == _storage().allowedCoreDepositWallet, "CoreDepositWallet not allowed");
     }
+
 
     // ----- View functions -----
 

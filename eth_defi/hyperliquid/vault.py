@@ -49,11 +49,8 @@ from eth_defi.types import Percent
 
 logger = logging.getLogger(__name__)
 
-#: Hyperliquid mainnet API URL
-HYPERLIQUID_API_URL = "https://api.hyperliquid.xyz"
-
-#: Hyperliquid testnet API URL
-HYPERLIQUID_TESTNET_API_URL = "https://api.hyperliquid-testnet.xyz"
+# Re-exported from session for backwards compatibility
+from eth_defi.hyperliquid.session import HYPERLIQUID_API_URL, HYPERLIQUID_TESTNET_API_URL  # noqa: E402, F401
 
 #: Hyperliquid stats-data API URL for vault listing (mainnet).
 #: This is an undocumented internal endpoint that powers the Hyperliquid web UI.

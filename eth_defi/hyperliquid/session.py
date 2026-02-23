@@ -18,6 +18,12 @@ from eth_defi.velvet.logging_retry import LoggingRetry
 
 logger = logging.getLogger(__name__)
 
+#: Hyperliquid mainnet API URL.
+HYPERLIQUID_API_URL: str = "https://api.hyperliquid.xyz"
+
+#: Hyperliquid testnet API URL.
+HYPERLIQUID_TESTNET_API_URL: str = "https://api.hyperliquid-testnet.xyz"
+
 #: Default SQLite database path for rate limiting state.
 #:
 #: Using SQLite ensures thread-safe rate limiting across multiple threads

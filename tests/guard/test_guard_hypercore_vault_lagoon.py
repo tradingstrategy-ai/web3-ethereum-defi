@@ -279,6 +279,82 @@ def test_lagoon_hypercore_vault_deposit(
 
 
 @pytest.mark.timeout(600)
+def test_lagoon_hypercore_deposit_for_activation(
+    web3: Web3,
+    deployer: LocalAccount,
+    lagoon_deployment: LagoonAutomatedDeployment,
+    mock_core_deposit_wallet: Contract,
+    usdc: TokenDetails,
+):
+    """Execute depositFor() for account activation through TradingStrategyModuleV0.
+
+    depositFor(safe, amount, SPOT_DEX) is used to activate a Safe's HyperCore
+    account before the first deposit. New HyperCore accounts require >1 USDC
+    (1 USDC account creation fee, deposits <=1 USDC fail silently).
+    """
+    module = lagoon_deployment.trading_strategy_module
+    safe_address = lagoon_deployment.safe.address
+    asset_manager = deployer.address
+    activation_amount = 5 * 10**6  # 5 USDC
+
+    # Fund the Safe with USDC for activation
+    web3.provider.make_request("anvil_setBalance", [safe_address, hex(10 * 10**18)])
+    fund_erc20_on_anvil(web3, USDC_ADDRESS, safe_address, activation_amount)
+    balance = usdc.contract.functions.balanceOf(safe_address).call()
+    assert balance >= activation_amount
+
+    # Step 1: Approve USDC to CoreDepositWallet
+    fn_call = usdc.contract.functions.approve(
+        Web3.to_checksum_address(CORE_DEPOSIT_WALLET_MAINNET),
+        activation_amount,
+    )
+    tx_hash = _perform_call(module, fn_call, asset_manager)
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # Step 2: depositFor(safe, amount, SPOT_DEX) — recipient is the Safe itself
+    fn_call = mock_core_deposit_wallet.functions.depositFor(
+        safe_address,
+        activation_amount,
+        SPOT_DEX,
+    )
+    tx_hash = _perform_call(module, fn_call, asset_manager)
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # Verify mock recorded the depositFor
+    assert mock_core_deposit_wallet.functions.getDepositCount().call() == 1
+    sender, amount, dex = mock_core_deposit_wallet.functions.getDeposit(0).call()
+    assert sender == safe_address
+    assert amount == activation_amount
+    assert dex == SPOT_DEX
+
+
+@pytest.mark.timeout(600)
+def test_lagoon_hypercore_deposit_for_wrong_recipient(
+    web3: Web3,
+    deployer: LocalAccount,
+    lagoon_deployment: LagoonAutomatedDeployment,
+    mock_core_deposit_wallet: Contract,
+):
+    """depositFor() with a recipient other than the Safe should revert.
+
+    The guard checks that the depositFor recipient is an allowed receiver.
+    A third-party address that hasn't been whitelisted will be rejected.
+    """
+    module = lagoon_deployment.trading_strategy_module
+    asset_manager = deployer.address
+    third_party = "0x4444444444444444444444444444444444444444"
+
+    fn_call = mock_core_deposit_wallet.functions.depositFor(
+        third_party,
+        5 * 10**6,
+        SPOT_DEX,
+    )
+    tx_hash = _perform_call(module, fn_call, asset_manager)
+    with pytest.raises(TransactionAssertionError):
+        assert_transaction_success_with_explanation(web3, tx_hash)
+
+
+@pytest.mark.timeout(600)
 def test_lagoon_hypercore_disallowed_vault(
     web3: Web3,
     deployer: LocalAccount,

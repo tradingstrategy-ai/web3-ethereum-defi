@@ -372,6 +372,78 @@ def test_guard_hypercore_vault_withdraw(
 
 
 @pytest.mark.skipif(CI, reason="Flaky on CI due to Anvil fork block range errors")
+def test_guard_hypercore_deposit_for_activation(
+    web3: Web3,
+    asset_manager: str,
+    vault_with_balance: Contract,
+    mock_core_deposit_wallet: Contract,
+    usdc: TokenDetails,
+):
+    """Execute CoreDepositWallet.depositFor() for account activation through the guard.
+
+    depositFor(safe, amount, SPOT_DEX) is used to activate a Safe's HyperCore
+    account before the first deposit. The guard validates that the recipient
+    is an allowed receiver (the vault/Safe address is always whitelisted).
+    """
+    vault = vault_with_balance
+    activation_amount = 5 * 10**6  # 5 USDC (>1 USDC minimum for new accounts)
+
+    # Step 1: Approve USDC to CoreDepositWallet
+    fn_call = usdc.contract.functions.approve(
+        Web3.to_checksum_address(CORE_DEPOSIT_WALLET_MAINNET),
+        activation_amount,
+    )
+    target, call_data = encode_simple_vault_transaction(fn_call)
+    tx_hash = vault.functions.performCall(target, call_data).transact({"from": asset_manager})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # Step 2: depositFor(vault_address, amount, SPOT_DEX) — recipient is the vault (Safe)
+    fn_call = mock_core_deposit_wallet.functions.depositFor(
+        vault.address,
+        activation_amount,
+        SPOT_DEX,
+    )
+    target, call_data = encode_simple_vault_transaction(fn_call)
+    tx_hash = vault.functions.performCall(target, call_data).transact({"from": asset_manager})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # Verify mock recorded the depositFor
+    assert mock_core_deposit_wallet.functions.getDepositCount().call() == 1
+    sender, amount, dex = mock_core_deposit_wallet.functions.getDeposit(0).call()
+    assert sender == vault.address
+    assert amount == activation_amount
+    assert dex == SPOT_DEX
+
+
+@pytest.mark.skipif(CI, reason="Flaky on CI due to Anvil fork block range errors")
+def test_guard_hypercore_deposit_for_wrong_recipient(
+    web3: Web3,
+    asset_manager: str,
+    vault_with_balance: Contract,
+    mock_core_deposit_wallet: Contract,
+    third_party: str,
+):
+    """depositFor() with a recipient other than the calling Safe should revert.
+
+    The guard checks that the depositFor recipient is an allowed receiver.
+    A third-party address that hasn't been whitelisted will be rejected.
+    """
+    vault = vault_with_balance
+    activation_amount = 5 * 10**6
+
+    # Try depositFor to a third party (not the vault/Safe itself)
+    fn_call = mock_core_deposit_wallet.functions.depositFor(
+        third_party,
+        activation_amount,
+        SPOT_DEX,
+    )
+    target, call_data = encode_simple_vault_transaction(fn_call)
+    tx_hash = vault.functions.performCall(target, call_data).transact({"from": asset_manager})
+    with pytest.raises(TransactionAssertionError):
+        assert_transaction_success_with_explanation(web3, tx_hash)
+
+
+@pytest.mark.skipif(CI, reason="Flaky on CI due to Anvil fork block range errors")
 def test_guard_hypercore_disallowed_vault(
     web3: Web3,
     asset_manager: str,

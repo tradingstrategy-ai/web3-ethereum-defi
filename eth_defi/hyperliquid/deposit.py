@@ -56,7 +56,7 @@ import pandas as pd
 from eth_typing import HexAddress
 from requests import Session
 
-from eth_defi.hyperliquid.vault import HYPERLIQUID_API_URL
+from eth_defi.hyperliquid.session import HYPERLIQUID_API_URL
 
 logger = logging.getLogger(__name__)
 

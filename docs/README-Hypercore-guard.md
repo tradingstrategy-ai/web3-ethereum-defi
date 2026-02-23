@@ -313,6 +313,30 @@ source .local-test.env && poetry run python scripts/hyperliquid/deploy-lagoon-hy
 
 See the script's docstring for environment variables and account funding instructions.
 
+## Troubleshooting
+
+Use `check-hypercore-user.py` to inspect a HyperCore user's spot balances,
+EVM escrows, perpetual account state, and vault positions:
+
+```shell
+# Mainnet
+ADDRESS=0xfBF2cc6708DC303484b3b8008F1DEcC6d934787a \
+    poetry run python scripts/hyperliquid/check-hypercore-user.py
+
+# Testnet
+NETWORK=testnet ADDRESS=0xAbc... \
+    poetry run python scripts/hyperliquid/check-hypercore-user.py
+```
+
+This is useful for diagnosing:
+
+- **Stuck EVM escrows**: USDC bridged via `CoreDepositWallet.deposit()` but not
+  yet processed by HyperCore (shows in `EVM escrows` section).
+- **Missing vault positions**: deposit EVM transaction succeeded but CoreWriter
+  action failed silently on HyperCore (vault positions section is empty).
+- **Spot/perp balance mismatches**: USDC arrived on HyperCore spot but the
+  `transferUsdClass` or `vaultTransfer` step failed.
+
 ## Contract size
 
 `TradingStrategyModuleV0` is the critical contract for size — it inherits all guard

@@ -24,7 +24,8 @@ import {GmxLib, SEL_GMX_MULTICALL} from "./lib/GmxLib.sol";
 import {
     HypercoreVaultLib,
     SEL_SEND_RAW_ACTION,
-    SEL_CORE_DEPOSIT
+    SEL_CORE_DEPOSIT,
+    SEL_CORE_DEPOSIT_FOR
 } from "./lib/HypercoreVaultLib.sol";
 
 // Pre-computed function selectors to avoid runtime keccak256
@@ -609,7 +610,8 @@ abstract contract GuardV0Base is IGuard, Multicall {
         // the general allowCallSite registry (saves bytecode by avoiding extra call site
         // registrations in whitelistCoreWriter).
         bool hypercoreCheck = (selector == SEL_SEND_RAW_ACTION ||
-            selector == SEL_CORE_DEPOSIT);
+            selector == SEL_CORE_DEPOSIT ||
+            selector == SEL_CORE_DEPOSIT_FOR);
 
         // With anyToken, we cannot check approve() call site because we do not whitelist
         // individual token addresses
@@ -714,6 +716,12 @@ abstract contract GuardV0Base is IGuard, Multicall {
             // --- Hypercore CoreDepositWallet ---
         } else if (selector == SEL_CORE_DEPOSIT) {
             HypercoreVaultLib.validateDeposit(target);
+
+            // --- Hypercore CoreDepositWallet depositFor (account activation) ---
+        } else if (selector == SEL_CORE_DEPOSIT_FOR) {
+            HypercoreVaultLib.validateDeposit(target);
+            (address recipient, , ) = abi.decode(callData, (address, uint256, uint32));
+            require(isAllowedReceiver(recipient), "depositFor recipient not allowed");
         } else {
             revert("Unknown function selector");
         }
