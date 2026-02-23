@@ -1,5 +1,7 @@
 # Current
 
+- **Add: Parallel CCTP bridging with Iris V2 transfer monitoring module and phased burn/attest/receive flow (2026-02-23)**
+- **Add: Per-chain LagoonConfig for multichain deployment, CCTP bridge helper, Monad/HyperEVM CCTP support, and tutorial script (2026-02-23)**
 - **Add: Hypercore native vault guard support with CoreWriter whitelisting, Forge library linking, and chain-conditional deployment for HyperEVM Safe multisig deposits (2026-02-22)**
 - Update GRVT vault protocol logo to high-quality brand icon (2026-02-23)
 - Add comma-separated VAULT_ID support to scan-prices.py with vault-aware parquet deletion and START_BLOCK env var (2026-02-22)

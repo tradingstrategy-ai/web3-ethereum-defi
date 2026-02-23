@@ -33,14 +33,12 @@ from web3.contract import Contract
 from web3.contract.contract import ContractFunction
 
 from eth_defi.aave_v3.deployment import AaveV3Deployment
-from eth_defi.abi import (ZERO_ADDRESS, ZERO_ADDRESS_STR, encode_multicalls,
-                          get_deployed_contract)
+from eth_defi.abi import ZERO_ADDRESS, ZERO_ADDRESS_STR, encode_multicalls, get_deployed_contract
 from eth_defi.cctp.whitelist import CCTPDeployment
 from eth_defi.cow.constants import COWSWAP_SETTLEMENT, COWSWAP_VAULT_RELAYER
 from eth_defi.deploy import build_guard_forge_libraries, deploy_contract
 from eth_defi.erc_4626.vault import ERC4626Vault
-from eth_defi.erc_4626.vault_protocol.lagoon.beacon_proxy import \
-    deploy_beacon_proxy
+from eth_defi.erc_4626.vault_protocol.lagoon.beacon_proxy import deploy_beacon_proxy
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.foundry.forge import deploy_contract_with_forge
 from eth_defi.gas import apply_gas, estimate_gas_price
@@ -48,12 +46,9 @@ from eth_defi.gmx.whitelist import GMXDeployment
 from eth_defi.hotwallet import HotWallet
 from eth_defi.orderly.vault import OrderlyVault
 from eth_defi.provider.anvil import is_anvil
-from eth_defi.safe.deployment import (add_new_safe_owners, deploy_safe,
-                                      deploy_safe_with_deterministic_address,
-                                      fetch_safe_deployment)
+from eth_defi.safe.deployment import add_new_safe_owners, deploy_safe, deploy_safe_with_deterministic_address, fetch_safe_deployment
 from eth_defi.safe.execute import execute_safe_tx
-from eth_defi.token import (WRAPPED_NATIVE_TOKEN, fetch_erc20_details,
-                            get_wrapped_native_token_address)
+from eth_defi.token import WRAPPED_NATIVE_TOKEN, fetch_erc20_details, get_wrapped_native_token_address
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.tx import get_tx_broadcast_data
 from eth_defi.uniswap_v2.deployment import UniswapV2Deployment
@@ -838,8 +833,7 @@ def deploy_safe_trading_strategy_module(
         # even when the deployer has big blocks enabled, so we use the known big
         # block gas limit constant instead.
         # https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm/dual-block-architecture
-        from eth_defi.hyperliquid.block import (HYPEREVM_BIG_BLOCK_GAS_LIMIT,
-                                                is_hyperevm)
+        from eth_defi.hyperliquid.block import HYPEREVM_BIG_BLOCK_GAS_LIMIT, is_hyperevm
 
         if is_hyperevm(chain_id):
             block_gas_limit = HYPEREVM_BIG_BLOCK_GAS_LIMIT
@@ -887,6 +881,7 @@ def deploy_safe_trading_strategy_module(
             logger.info("Deploying HypercoreVaultLib for HyperEVM chain %d", chain_id)
             if "HypercoreVaultLib" not in library_addresses:
                 from eth_defi.hyperliquid.block import big_blocks_for_deployment as _big_blocks
+
                 with _big_blocks(web3, deployer.key.hex()):
                     hypercore_lib = deploy_contract(
                         web3,
@@ -903,6 +898,7 @@ def deploy_safe_trading_strategy_module(
         # TradingStrategyModuleV0 needs ~5.4M gas — exceeds small block limit on HyperEVM.
         # Enable big blocks only for this deployment; libraries above fit in small blocks.
         from eth_defi.hyperliquid.block import big_blocks_for_deployment
+
         with big_blocks_for_deployment(web3, deployer.key.hex()):
             logger.info("Deploying TradingStrategyModuleV0 with libraries %s and gas %d", library_addresses, guard_gas)
             module = deploy_contract(
@@ -1197,8 +1193,7 @@ def setup_guard(
     # Batch CoreWriter + all vault whitelisting into a single multicall transaction.
     if hypercore_vaults:
         from eth_defi.hyperliquid.core_writer import CORE_WRITER_ADDRESS
-        from eth_defi.hyperliquid.guard_whitelist import \
-            get_core_deposit_wallet
+        from eth_defi.hyperliquid.guard_whitelist import get_core_deposit_wallet
 
         chain_id = web3.eth.chain_id
         cdw_address = get_core_deposit_wallet(chain_id)
@@ -1729,6 +1724,12 @@ LAGOON_BEACON_PROXY_FACTORIES = {
         "abi": "lagoon/OptinProxyFactory.json",
         "address": "0x90beB507A1BA7D64633540cbce615B574224CD84",
     },
+    # Monad
+    # https://docs.lagoon.finance/resources/networks-and-addresses
+    143: {
+        "abi": "lagoon/OptinProxyFactory.json",
+        "address": "0xcCdC4d06cA12A29C47D5d105fED59a6D07E9cf70",
+    },
 }
 
 
@@ -1736,8 +1737,7 @@ def deploy_multichain_lagoon_vault(
     *,
     chain_web3: dict[str, Web3],
     deployer: LocalAccount,
-    config: LagoonConfig,
-    cctp_enabled: bool = False,
+    chain_configs: dict[str, LagoonConfig],
     max_workers: int | None = None,
 ) -> LagoonMultichainDeployment:
     """Deploy Lagoon vaults across multiple chains with a shared deterministic Safe.
@@ -1748,8 +1748,10 @@ def deploy_multichain_lagoon_vault(
 
     Deploys all chains in parallel using threads to minimise wall-clock time.
 
-    If ``cctp_enabled`` is True, CCTP whitelisting is automatically configured
-    per chain. Chains without CCTP support (e.g. HyperEVM) are silently skipped.
+    Each chain receives its own :class:`LagoonConfig` with chain-specific
+    whitelisting (ERC-4626 vaults, Hypercore vaults, CCTP, CowSwap, etc.).
+    All configs must share the same ``safe_salt_nonce`` to ensure deterministic
+    Safe addresses.
 
     :param chain_web3:
         Mapping of chain names (lowercase, matching :data:`eth_defi.chain.CHAIN_NAMES`)
@@ -1759,15 +1761,11 @@ def deploy_multichain_lagoon_vault(
         The deployer account. A separate :class:`HotWallet` is created per chain
         for nonce management.
 
-    :param config:
-        Shared :class:`LagoonConfig`. Must have ``safe_salt_nonce`` set.
+    :param chain_configs:
+        Per-chain :class:`LagoonConfig` instances. Keys must match ``chain_web3`` keys.
+        All configs must have the same ``safe_salt_nonce`` set.
         The ``parameters.underlying`` field is auto-resolved per chain from
         :data:`eth_defi.token.USDC_NATIVE_TOKEN` if set to a zero/empty address.
-
-    :param cctp_enabled:
-        If True, auto-create :class:`CCTPDeployment` per chain using
-        :func:`CCTPDeployment.create_for_chain`. Chains not in
-        :data:`CHAIN_ID_TO_CCTP_DOMAIN` are silently skipped.
 
     :param max_workers:
         Maximum number of parallel deployment threads.
@@ -1779,17 +1777,20 @@ def deploy_multichain_lagoon_vault(
     from concurrent.futures import ThreadPoolExecutor, as_completed
     from copy import deepcopy
 
-    from eth_defi.cctp.constants import CHAIN_ID_TO_CCTP_DOMAIN
     from eth_defi.token import USDC_NATIVE_TOKEN
 
-    assert config.safe_salt_nonce is not None, "safe_salt_nonce must be set for multichain deployment"
     assert len(chain_web3) >= 1, "Must deploy to at least one chain"
+    assert set(chain_configs.keys()) == set(chain_web3.keys()), f"chain_configs and chain_web3 must have the same keys: configs={set(chain_configs.keys())}, web3={set(chain_web3.keys())}"
+
+    # Validate all configs share the same safe_salt_nonce
+    salt_nonces = {name: c.safe_salt_nonce for name, c in chain_configs.items()}
+    unique_nonces = set(salt_nonces.values())
+    assert len(unique_nonces) == 1, f"All configs must share the same safe_salt_nonce: {salt_nonces}"
+    safe_salt_nonce = next(iter(unique_nonces))
+    assert safe_salt_nonce is not None, "safe_salt_nonce must be set for multichain deployment"
 
     if max_workers is None:
         max_workers = len(chain_web3)
-
-    # Pre-compute CCTP-capable chain IDs for destination resolution
-    cctp_chain_ids = {name: w3.eth.chain_id for name, w3 in chain_web3.items() if w3.eth.chain_id in CHAIN_ID_TO_CCTP_DOMAIN} if cctp_enabled else {}
 
     def _deploy_single_chain(chain_name: str, web3: Web3) -> tuple[str, LagoonAutomatedDeployment]:
         chain_id = web3.eth.chain_id
@@ -1799,30 +1800,14 @@ def deploy_multichain_lagoon_vault(
         wallet = HotWallet(deployer)
         wallet.sync_nonce(web3)
 
-        # Deep-copy config so per-chain overrides don't leak
-        per_chain_config = deepcopy(config)
+        # Deep-copy config so thread-local mutations don't leak
+        per_chain_config = deepcopy(chain_configs[chain_name])
 
         # Auto-resolve underlying token (USDC) per chain if not already set
         if per_chain_config.parameters.underlying is None or per_chain_config.parameters.underlying == "":
             usdc = USDC_NATIVE_TOKEN.get(chain_id)
             assert usdc is not None, f"No USDC address known for chain {chain_id}. Set parameters.underlying manually."
             per_chain_config.parameters.underlying = usdc
-
-        # Auto-configure CCTP per chain
-        if cctp_enabled:
-            if chain_id in CHAIN_ID_TO_CCTP_DOMAIN:
-                other_chain_ids = [cid for name, cid in cctp_chain_ids.items() if name != chain_name]
-                if other_chain_ids:
-                    per_chain_config.cctp_deployment = CCTPDeployment.create_for_chain(
-                        chain_id=chain_id,
-                        allowed_destinations=other_chain_ids,
-                    )
-                    logger.info("CCTP enabled on %s with destinations: %s", chain_name, other_chain_ids)
-                else:
-                    logger.info("CCTP enabled on %s but no other CCTP-capable chains in deployment", chain_name)
-            else:
-                logger.info("CCTP not available on %s (chain %d), skipping", chain_name, chain_id)
-                per_chain_config.cctp_deployment = None
 
         deployment = deploy_automated_lagoon_vault(
             web3=web3,
@@ -1850,5 +1835,5 @@ def deploy_multichain_lagoon_vault(
     return LagoonMultichainDeployment(
         safe_address=next(iter(unique_safe_addresses)),
         deployments=deployments,
-        safe_salt_nonce=config.safe_salt_nonce,
+        safe_salt_nonce=safe_salt_nonce,
     )

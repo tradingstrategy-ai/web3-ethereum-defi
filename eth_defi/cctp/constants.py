@@ -16,6 +16,7 @@ to mint. The caller does not need to specify the destination USDC address.
 All CCTP V2 contracts share the same address across all EVM chains (deployed via CREATE2).
 
 - `CCTP V2 documentation <https://developers.circle.com/cctp>`_
+- `Supported chains and domains <https://developers.circle.com/cctp/concepts/supported-chains-and-domains>`_
 - `EVM contract addresses <https://developers.circle.com/cctp/evm-smart-contracts>`_
 - `Circle CCTP GitHub <https://github.com/circlefin/evm-cctp-contracts>`_
 """
@@ -46,14 +47,28 @@ CCTP_DOMAIN_BASE = 6
 #: CCTP domain ID for Polygon PoS
 CCTP_DOMAIN_POLYGON = 7
 
+#: CCTP domain ID for Monad
+#:
+#: For the full list of supported chains and domains, see:
+#: https://developers.circle.com/cctp/concepts/supported-chains-and-domains
+CCTP_DOMAIN_MONAD = 15
+
+#: CCTP domain ID for HyperEVM (Hyperliquid)
+CCTP_DOMAIN_HYPEREVM = 19
+
 #: Mapping from EVM chain ID to CCTP domain ID.
 #:
 #: CCTP uses its own domain identifiers, not EVM chain IDs.
+#:
+#: For the full list of supported chains and domains, see:
+#: https://developers.circle.com/cctp/concepts/supported-chains-and-domains
 CHAIN_ID_TO_CCTP_DOMAIN: dict[int, int] = {
     1: CCTP_DOMAIN_ETHEREUM,
     42161: CCTP_DOMAIN_ARBITRUM,
     8453: CCTP_DOMAIN_BASE,
     137: CCTP_DOMAIN_POLYGON,
+    143: CCTP_DOMAIN_MONAD,
+    999: CCTP_DOMAIN_HYPEREVM,
 }
 
 #: Reverse mapping from CCTP domain to EVM chain ID.
@@ -65,6 +80,8 @@ CCTP_DOMAIN_NAMES: dict[int, str] = {
     CCTP_DOMAIN_ARBITRUM: "Arbitrum",
     CCTP_DOMAIN_BASE: "Base",
     CCTP_DOMAIN_POLYGON: "Polygon",
+    CCTP_DOMAIN_MONAD: "Monad",
+    CCTP_DOMAIN_HYPEREVM: "HyperEVM",
 }
 
 #: Circle Iris attestation API base URL (mainnet).
