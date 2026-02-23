@@ -31,8 +31,7 @@ from web3.contract import Contract
 
 from eth_defi.abi import get_abi_by_filename
 from eth_defi.hyperliquid.core_writer import (
-    CORE_DEPOSIT_WALLET_MAINNET,
-    CORE_DEPOSIT_WALLET_TESTNET,
+    CORE_DEPOSIT_WALLET,
     CORE_WRITER_ADDRESS,
 )
 from eth_defi.provider.anvil import (
@@ -114,8 +113,8 @@ def deploy_mock_core_deposit_wallet(web3: Web3) -> Contract:
 
     Auto-selects the address based on chain ID:
 
-    - Chain 998 (testnet): :py:data:`~eth_defi.hyperliquid.core_writer.CORE_DEPOSIT_WALLET_TESTNET`
-    - Chain 999 (mainnet): :py:data:`~eth_defi.hyperliquid.core_writer.CORE_DEPOSIT_WALLET_MAINNET`
+    - Chain 998 (testnet): ``CORE_DEPOSIT_WALLET[998]``
+    - Chain 999 (mainnet): ``CORE_DEPOSIT_WALLET[999]``
 
     :param web3:
         Web3 connected to an Anvil fork.
@@ -126,7 +125,7 @@ def deploy_mock_core_deposit_wallet(web3: Web3) -> Contract:
     bytecode = load_deployed_bytecode("guard/MockCoreDepositWallet.json")
     chain_id = web3.eth.chain_id
     cdw_address = Web3.to_checksum_address(
-        CORE_DEPOSIT_WALLET_TESTNET if chain_id == 998 else CORE_DEPOSIT_WALLET_MAINNET
+        CORE_DEPOSIT_WALLET[chain_id]
     )
     web3.provider.make_request("anvil_setCode", [cdw_address, bytecode])
     # Clear storage slot 0 (deposits array length) to avoid conflicts

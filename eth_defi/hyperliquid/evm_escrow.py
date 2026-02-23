@@ -106,12 +106,8 @@ from web3 import Web3
 from eth_defi.abi import get_deployed_contract
 from eth_defi.hotwallet import HotWallet
 from eth_defi.hyperliquid.api import fetch_spot_clearinghouse_state
-from eth_defi.hyperliquid.core_writer import (
-    CORE_DEPOSIT_WALLET_MAINNET,
-    CORE_DEPOSIT_WALLET_TESTNET,
-    SPOT_DEX,
-    get_core_deposit_wallet_contract,
-)
+from eth_defi.hyperliquid.core_writer import (CORE_DEPOSIT_WALLET, SPOT_DEX,
+                                              get_core_deposit_wallet_contract)
 from eth_defi.hyperliquid.session import HYPERLIQUID_API_URL
 from eth_defi.trace import assert_transaction_success_with_explanation
 
@@ -126,9 +122,9 @@ logger = logging.getLogger(__name__)
 CORE_USER_EXISTS_ADDRESS = "0x0000000000000000000000000000000000000810"
 
 #: Default USDC amount (raw, 6 decimals) for account activation.
-#: New HyperCore accounts incur a 1 USDC fee, and deposits ≤1 USDC
-#: fail silently. 2 USDC is the minimum that works (1 USDC reaches spot).
-DEFAULT_ACTIVATION_AMOUNT = 2_000_000
+#: New HyperCore accounts incur a ~1 USDC fee, so the minimum
+#: activation deposit must comfortably exceed that.
+DEFAULT_ACTIVATION_AMOUNT = 1_100_000
 
 
 def is_account_activated(
@@ -230,8 +226,8 @@ def activate_account(
 
     :param activation_amount:
         USDC amount in raw units (6 decimals) to deposit for activation.
-        Defaults to 2 USDC (:py:data:`DEFAULT_ACTIVATION_AMOUNT`).
-        Must be >1 USDC (1 USDC fee for new accounts).
+        Defaults to 1.1 USDC (:py:data:`DEFAULT_ACTIVATION_AMOUNT`).
+        Must comfortably exceed the ~1 USDC account creation fee.
 
     :param timeout:
         Maximum seconds to wait for activation verification.
@@ -261,7 +257,7 @@ def activate_account(
     # Get contract instances
     asset_address = lagoon_vault.vault_contract.functions.asset().call()
     usdc_contract = get_deployed_contract(web3, "centre/ERC20.json", asset_address)
-    cdw_address = CORE_DEPOSIT_WALLET_TESTNET if chain_id == 998 else CORE_DEPOSIT_WALLET_MAINNET
+    cdw_address = CORE_DEPOSIT_WALLET[chain_id]
     core_deposit_wallet = get_core_deposit_wallet_contract(web3, cdw_address)
 
     # Step 1: Approve USDC to CoreDepositWallet via trading strategy module
@@ -311,10 +307,11 @@ def wait_for_evm_escrow_clear(
 ) -> None:
     """Wait until the user's EVM escrow is empty (all bridged funds have cleared).
 
-    Polls the ``spotClearinghouseState`` endpoint until the ``evmEscrows``
-    list is empty, indicating that all ``CoreDepositWallet.deposit()`` actions
-    have been processed by HyperCore and the funds are available in the
-    user's spot account.
+    Waits one ``poll_interval`` before the first check to give HyperCore
+    time to register the escrow entry (the API can lag behind the EVM tx).
+    Then polls ``spotClearinghouseState`` until ``evmEscrows`` is empty,
+    indicating that all ``CoreDepositWallet.deposit()`` actions have been
+    processed and funds are available in the user's spot account.
 
     Example::
 
@@ -347,6 +344,13 @@ def wait_for_evm_escrow_clear(
     """
     deadline = time.time() + timeout
     attempt = 0
+
+    # Initial delay: the HyperCore API needs time to register the
+    # escrow entry after the EVM transaction lands. Without this,
+    # the first poll may see the pre-existing state (no escrow) and
+    # return immediately, causing phase 2 to fire before the USDC
+    # has actually arrived in spot.
+    time.sleep(poll_interval)
 
     while True:
         attempt += 1

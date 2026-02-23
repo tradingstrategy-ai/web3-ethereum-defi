@@ -60,9 +60,9 @@ Environment variables
 - ``USDC_AMOUNT``: USDC amount in human units for the vault deposit (default: ``2``).
   On live networks, an additional 2 USDC is automatically added for
   HyperCore account activation (1 USDC creation fee + 1 USDC reaches spot).
-- ``DEPOSIT_MODE``: ``batched`` (default) or ``two_phase``.
-  ``batched`` uses a single multicall with activation check;
-  ``two_phase`` splits bridge and vault deposit with an escrow wait.
+- ``DEPOSIT_MODE``: ``two_phase`` (default) or ``batched``.
+  ``two_phase`` splits bridge and vault deposit with an escrow wait;
+  ``batched`` uses a single multicall but can silently fail under load.
 - ``LOG_LEVEL``: Logging level (default: ``info``)
 
 Reconnecting to an existing deployment:
@@ -122,10 +122,9 @@ from decimal import Decimal
 
 from eth_account import Account
 from eth_typing import HexAddress, HexStr
+from safe_eth.safe.safe import Safe
 from tabulate import tabulate
 from web3 import Web3
-
-from safe_eth.safe.safe import Safe
 
 from eth_defi.erc_4626.vault_protocol.lagoon.deployment import (
     LAGOON_BEACON_PROXY_FACTORIES, LagoonConfig, LagoonDeploymentParameters,
@@ -135,21 +134,15 @@ from eth_defi.gas import estimate_gas_price
 from eth_defi.hotwallet import HotWallet
 from eth_defi.hyperliquid.api import fetch_user_vault_equities
 from eth_defi.hyperliquid.core_writer import (
-    build_hypercore_deposit_multicall,
-    build_hypercore_deposit_phase1,
-    build_hypercore_deposit_phase2,
-    build_hypercore_withdraw_multicall,
-)
-from eth_defi.hyperliquid.evm_escrow import (
-    activate_account,
-    is_account_activated,
-    wait_for_evm_escrow_clear,
-    DEFAULT_ACTIVATION_AMOUNT,
-)
-from eth_defi.hyperliquid.session import (
-    HYPERLIQUID_TESTNET_API_URL,
-    create_hyperliquid_session,
-)
+    build_hypercore_deposit_multicall, build_hypercore_deposit_phase1,
+    build_hypercore_deposit_phase2, build_hypercore_deposit_phase3,
+    build_hypercore_withdraw_multicall)
+from eth_defi.hyperliquid.evm_escrow import (DEFAULT_ACTIVATION_AMOUNT,
+                                             activate_account,
+                                             is_account_activated,
+                                             wait_for_evm_escrow_clear)
+from eth_defi.hyperliquid.session import (HYPERLIQUID_TESTNET_API_URL,
+                                          create_hyperliquid_session)
 from eth_defi.hyperliquid.testing import setup_anvil_hypercore_mocks
 from eth_defi.provider.anvil import (ANVIL_PRIVATE_KEY, fork_network_anvil,
                                      fund_erc20_on_anvil)
@@ -248,8 +241,23 @@ def _do_deposit(
     if network == "testnet":
         api_kwargs["server_url"] = HYPERLIQUID_TESTNET_API_URL
 
+    if not simulate:
+        assert deposit_mode != "batched", (
+            "Batched deposit mode is disabled on live networks. "
+            "The batched multicall puts all 4 steps (approve, CDW.deposit, "
+            "transferUsdClass, vaultTransfer) into a single EVM block. "
+            "Steps 3-4 are CoreWriter actions that depend on the CDW bridge "
+            "(step 2) having cleared the EVM escrow, but because they land "
+            "in the same block, HyperCore may process the CoreWriter actions "
+            "before the bridge clears — causing steps 3-4 to silently fail "
+            "while the EVM transaction succeeds. The USDC ends up stuck in "
+            "spot or perp with no vault position. "
+            "Use DEPOSIT_MODE=two_phase (default) which waits for the escrow "
+            "to clear between the bridge and the CoreWriter actions."
+        )
+
     if simulate or deposit_mode == "batched":
-        # Batched: single multicall with all 4 steps
+        # Batched: single multicall with all 4 steps (simulate only)
         label = "batched (simulate)" if simulate else "batched"
         logger.info("Executing %s deposit (%d USDC)...", label, usdc_human)
 
@@ -279,7 +287,10 @@ def _do_deposit(
         print(tabulate(deposit_results, tablefmt="simple"))
 
     elif deposit_mode == "two_phase":
-        # Two-phase: bridge, wait, vault deposit
+        # Three-phase deposit: each CoreWriter action in a separate EVM block
+        # so that HyperCore processes each state change before the next.
+
+        # Phase 1: bridge USDC from EVM to HyperCore spot
         logger.info("Phase 1: bridging %d USDC to HyperCore spot...", usdc_human)
         fn1 = build_hypercore_deposit_phase1(
             lagoon_vault=lagoon_vault,
@@ -294,24 +305,41 @@ def _do_deposit(
         session = create_hyperliquid_session()
         wait_for_evm_escrow_clear(session, user=lagoon_vault.safe_address, **api_kwargs)
 
-        # Phase 2: spot -> perp -> vault
-        logger.info("Phase 2: moving USDC to perp and depositing into vault...")
+        # Phase 2: move USDC from spot to perp
+        logger.info("Phase 2: moving USDC from spot to perp...")
         deployer.sync_nonce(web3)
         fn2 = build_hypercore_deposit_phase2(
             lagoon_vault=lagoon_vault,
             hypercore_usdc_amount=hypercore_amount,
-            vault_address=vault_address,
         )
         tx_hash = deployer.transact_and_broadcast_with_contract(fn2)
         receipt = assert_transaction_success_with_explanation(web3, tx_hash)
+        logger.info("Phase 2 tx: %s (gas: %d)", tx_hash.hex(), receipt["gasUsed"])
+
+        # Wait for the CoreWriter action to be processed before the next one.
+        # CoreWriter actions within the same EVM block do not see each other's
+        # state changes, so the vaultTransfer must be in a separate block.
+        logger.info("Waiting 4s for transferUsdClass to settle on HyperCore...")
+        time.sleep(4)
+
+        # Phase 3: deposit from perp into vault
+        logger.info("Phase 3: depositing USDC into Hypercore vault...")
+        deployer.sync_nonce(web3)
+        fn3 = build_hypercore_deposit_phase3(
+            lagoon_vault=lagoon_vault,
+            hypercore_usdc_amount=hypercore_amount,
+            vault_address=vault_address,
+        )
+        tx_hash = deployer.transact_and_broadcast_with_contract(fn3)
+        receipt = assert_transaction_success_with_explanation(web3, tx_hash)
 
         deposit_results = [
-            ["Phase 2 tx", tx_hash.hex()],
+            ["Phase 3 tx", tx_hash.hex()],
             ["Gas used", receipt["gasUsed"]],
             ["Block", receipt["blockNumber"]],
             ["USDC amount", f"{usdc_human:,}"],
             ["Vault", vault_address],
-            ["Mode", "two_phase"],
+            ["Mode", "three_phase"],
         ]
         print("\nDeposit results:")
         print(tabulate(deposit_results, tablefmt="simple"))
@@ -442,8 +470,8 @@ def main():
     assert private_key, "HYPERCORE_WRITER_TEST_PRIVATE_KEY environment variable required (or set SIMULATE=true)"
 
     vault_address = HexAddress(HexStr(os.environ.get("HYPERCORE_VAULT", DEFAULT_VAULTS[network])))
-    usdc_human = int(os.environ.get("USDC_AMOUNT", "2"))
-    deposit_mode = os.environ.get("DEPOSIT_MODE", "batched").lower()
+    usdc_human = int(os.environ.get("USDC_AMOUNT", "1"))
+    deposit_mode = os.environ.get("DEPOSIT_MODE", "two_phase").lower()
     assert deposit_mode in ("batched", "two_phase"), f"DEPOSIT_MODE must be 'batched' or 'two_phase', got '{deposit_mode}'"
 
     # Existing deployment addresses (skip deploy + whitelist when set)
@@ -608,9 +636,11 @@ def main():
         web3.provider.make_request("anvil_impersonateAccount", [deployer_account.address])
 
     if action in ("deposit", "both"):
-        assert balance >= total_safe_funding_human, (
-            f"Safe USDC balance {balance} insufficient, "
-            f"need {total_safe_funding_human:.0f} ({usdc_human} deposit + {activation_human:.0f} activation)"
+        balance_raw = usdc.contract.functions.balanceOf(Web3.to_checksum_address(safe_address)).call()
+        assert balance_raw >= total_safe_funding_raw, (
+            f"Safe USDC balance {balance} ({balance_raw} raw) insufficient, "
+            f"need {total_safe_funding_human} ({total_safe_funding_raw} raw): "
+            f"{usdc_human} deposit + {activation_human} activation"
         )
         _do_deposit(
             lagoon_vault,

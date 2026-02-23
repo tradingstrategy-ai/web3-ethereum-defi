@@ -18,7 +18,7 @@ from web3.contract import Contract
 from eth_defi.abi import ZERO_ADDRESS, get_abi_by_filename, get_deployed_contract
 from eth_defi.deploy import deploy_contract
 from eth_defi.hyperliquid.core_writer import (
-    CORE_DEPOSIT_WALLET_MAINNET,
+    CORE_DEPOSIT_WALLET,
     CORE_WRITER_ADDRESS,
     SPOT_DEX,
     USDC_TOKEN_INDEX,
@@ -140,7 +140,7 @@ def mock_core_writer(web3) -> Contract:
 def mock_core_deposit_wallet(web3) -> Contract:
     """Deploy MockCoreDepositWallet at the mainnet address via anvil_setCode."""
     bytecode = _load_deployed_bytecode("guard/MockCoreDepositWallet.json")
-    address = Web3.to_checksum_address(CORE_DEPOSIT_WALLET_MAINNET)
+    address = Web3.to_checksum_address(CORE_DEPOSIT_WALLET[999])
     web3.provider.make_request("anvil_setCode", [address, bytecode])
     deployed_code = web3.eth.get_code(address)
     assert len(deployed_code) > 0, "MockCoreDepositWallet bytecode not set"
@@ -204,7 +204,7 @@ def vault(
     # Whitelist CoreWriter + CoreDepositWallet
     tx_hash = guard.functions.whitelistCoreWriter(
         Web3.to_checksum_address(CORE_WRITER_ADDRESS),
-        Web3.to_checksum_address(CORE_DEPOSIT_WALLET_MAINNET),
+        Web3.to_checksum_address(CORE_DEPOSIT_WALLET[999]),
         "Hypercore vault trading",
     ).transact({"from": owner})
     assert_transaction_success_with_explanation(web3, tx_hash)
@@ -263,7 +263,7 @@ def test_guard_hypercore_vault_deposit(
 
     # Step 1: Approve USDC to CoreDepositWallet
     fn_call = usdc.contract.functions.approve(
-        Web3.to_checksum_address(CORE_DEPOSIT_WALLET_MAINNET),
+        Web3.to_checksum_address(CORE_DEPOSIT_WALLET[999]),
         usdc_amount,
     )
     target, call_data = encode_simple_vault_transaction(fn_call)
@@ -390,7 +390,7 @@ def test_guard_hypercore_deposit_for_activation(
 
     # Step 1: Approve USDC to CoreDepositWallet
     fn_call = usdc.contract.functions.approve(
-        Web3.to_checksum_address(CORE_DEPOSIT_WALLET_MAINNET),
+        Web3.to_checksum_address(CORE_DEPOSIT_WALLET[999]),
         activation_amount,
     )
     target, call_data = encode_simple_vault_transaction(fn_call)

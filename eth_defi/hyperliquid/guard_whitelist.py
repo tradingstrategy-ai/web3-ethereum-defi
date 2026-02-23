@@ -30,8 +30,7 @@ from web3 import Web3
 from web3.contract import Contract
 
 from eth_defi.hyperliquid.core_writer import (
-    CORE_DEPOSIT_WALLET_MAINNET,
-    CORE_DEPOSIT_WALLET_TESTNET,
+    CORE_DEPOSIT_WALLET,
     CORE_WRITER_ADDRESS,
 )
 from eth_defi.trace import assert_transaction_success_with_explanation
@@ -48,9 +47,7 @@ def get_core_deposit_wallet(chain_id: int) -> HexAddress:
     :return:
         CoreDepositWallet address.
     """
-    if chain_id == 998:
-        return CORE_DEPOSIT_WALLET_TESTNET
-    return CORE_DEPOSIT_WALLET_MAINNET
+    return CORE_DEPOSIT_WALLET[chain_id]
 
 
 def setup_hypercore_whitelisting(

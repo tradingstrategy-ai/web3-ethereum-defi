@@ -29,7 +29,7 @@ from eth_defi.erc_4626.vault_protocol.lagoon.deployment import (
 )
 from eth_defi.hotwallet import HotWallet
 from eth_defi.hyperliquid.core_writer import (
-    CORE_DEPOSIT_WALLET_MAINNET,
+    CORE_DEPOSIT_WALLET,
     CORE_WRITER_ADDRESS,
     SPOT_DEX,
     USDC_TOKEN_INDEX,
@@ -179,7 +179,7 @@ def lagoon_deployment(
 
     tx_hash = module.functions.whitelistCoreWriter(
         Web3.to_checksum_address(CORE_WRITER_ADDRESS),
-        Web3.to_checksum_address(CORE_DEPOSIT_WALLET_MAINNET),
+        Web3.to_checksum_address(CORE_DEPOSIT_WALLET[999]),
         "Hypercore vault trading",
     ).transact({"from": safe_address})
     assert_transaction_success_with_explanation(web3, tx_hash)
@@ -231,7 +231,7 @@ def test_lagoon_hypercore_vault_deposit(
 
     # Step 1: Approve USDC to CoreDepositWallet
     fn_call = usdc.contract.functions.approve(
-        Web3.to_checksum_address(CORE_DEPOSIT_WALLET_MAINNET),
+        Web3.to_checksum_address(CORE_DEPOSIT_WALLET[999]),
         usdc_amount,
     )
     tx_hash = _perform_call(module, fn_call, asset_manager)
@@ -305,7 +305,7 @@ def test_lagoon_hypercore_deposit_for_activation(
 
     # Step 1: Approve USDC to CoreDepositWallet
     fn_call = usdc.contract.functions.approve(
-        Web3.to_checksum_address(CORE_DEPOSIT_WALLET_MAINNET),
+        Web3.to_checksum_address(CORE_DEPOSIT_WALLET[999]),
         activation_amount,
     )
     tx_hash = _perform_call(module, fn_call, asset_manager)
