@@ -194,6 +194,8 @@ Never directly edit auto-generated sphinx files in `_autosummary*` folders.
 ## ERC-20
 
 - Don't do hardcoded token decimal multiply, use `TokenDetails.convert_to_raw()`
+- Use `TokenDetails.transfer()` and similar - do not do raw ERC-20 contract calls unless needed
+- Use `eth_defi.hotwallet.HotWallet` for deployer accounts and signing transactions when possible
 
 ## Web Fetching and 403
 

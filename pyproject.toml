@@ -118,6 +118,8 @@ eth-tester = "*"
 eth-typing = "^5.2.1"
 evm-trace = "^0.2.6"
 filelock = "^3.20.0"
+# Hyperliquid L1 action signing (phantom agent protocol) in eth_defi.hyperliquid.block
+msgpack = "^1.0"
 multicall = "^0.12.3"
 safe-eth-py = "^7.8.0"
 web3 = "^7.12.0"

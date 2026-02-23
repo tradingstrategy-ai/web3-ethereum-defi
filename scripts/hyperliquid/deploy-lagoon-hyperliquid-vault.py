@@ -92,6 +92,9 @@ For more information see `README-Hypercore-guard.md`.
 
 import logging
 import os
+import random
+import time
+from decimal import Decimal
 
 from eth_account import Account
 from eth_typing import HexAddress, HexStr
@@ -340,11 +343,11 @@ def main():
                 symbol="TEST",
             ),
             asset_manager=deployer_account.address,
-            safe_owners=[private_key],
+            safe_owners=[deployer_account.address],
             safe_threshold=1,
             any_asset=False,
             hypercore_vaults=[vault_address],
-            safe_salt_nonce=99 if not from_the_scratch else None,
+            safe_salt_nonce=random.randint(0, 1000) if not from_the_scratch else None,
             from_the_scratch=from_the_scratch,
             use_forge=from_the_scratch,  # Required for from_the_scratch
             between_contracts_delay_seconds=8.0,  # Speed up deployment by waiting less
@@ -368,9 +371,26 @@ def main():
         deploy_cost = (hype_start - hype_after_deploy) / 10**18
         logger.info("Deployment gas cost: %.6f HYPE", deploy_cost)
 
-        # Fund Safe with USDC (Anvil only)
+        # Fund Safe with USDC
         if simulate:
             fund_erc20_on_anvil(web3, usdc_address, safe_address, usdc_amount)
+        else:
+            # Wait for RPC nodes to catch up with the latest nonce after
+            # deployment, then sync HotWallet's internal nonce counter
+            time.sleep(2)
+            deployer.sync_nonce(web3)
+
+            # Transfer USDC from deployer to Safe on live network
+            safe_balance = usdc.fetch_balance_of(safe_address)
+            if safe_balance < usdc_human:
+                transfer_amount = Decimal(usdc_human) - safe_balance
+                logger.info("Transferring %s USDC from deployer to Safe %s", transfer_amount, safe_address)
+                tx_hash = deployer.transact_and_broadcast_with_contract(
+                    usdc.transfer(safe_address, transfer_amount),
+                    gas_limit=100_000,
+                )
+                assert_transaction_success_with_explanation(web3, tx_hash)
+                logger.info("USDC transfer to Safe complete: tx %s", tx_hash.hex())
 
     balance = usdc.fetch_balance_of(safe_address)
     logger.info("Safe USDC balance: %s", balance)
