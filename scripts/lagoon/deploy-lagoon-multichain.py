@@ -127,6 +127,7 @@ chain-specific whitelisting rules.
 import logging
 import os
 import random
+import threading
 import time
 from copy import deepcopy
 from decimal import Decimal
@@ -137,25 +138,22 @@ from eth_account.signers.local import LocalAccount
 from eth_typing import HexAddress
 from web3 import Web3
 
-from eth_defi.cctp.bridge import (CCTPBridgeDestination,
-                                  bridge_usdc_cctp_parallel)
-from eth_defi.cctp.constants import (CHAIN_ID_TO_CCTP_DOMAIN,
-                                     TESTNET_CHAIN_ID_TO_CCTP_DOMAIN)
+from eth_defi.cctp.bridge import CCTPBridgeDestination, bridge_usdc_cctp_parallel
+from eth_defi.cctp.constants import CHAIN_ID_TO_CCTP_DOMAIN, TESTNET_CHAIN_ID_TO_CCTP_DOMAIN
 from eth_defi.cctp.testing import replace_attester_on_fork
 from eth_defi.cctp.whitelist import CCTPDeployment
-from eth_defi.erc_4626.classification import (create_vault_instance,
-                                              detect_vault_features)
+from eth_defi.erc_4626.classification import create_vault_instance, detect_vault_features
 from eth_defi.erc_4626.vault import ERC4626Vault
-from eth_defi.erc_4626.vault_protocol.lagoon.deployment import (
-    LagoonConfig, LagoonDeploymentParameters, LagoonMultichainDeployment,
-    deploy_multichain_lagoon_vault)
+from eth_defi.erc_4626.vault_protocol.lagoon.deployment import LagoonConfig, LagoonDeploymentParameters, LagoonMultichainDeployment, deploy_multichain_lagoon_vault
 from eth_defi.erc_4626.vault_protocol.lagoon.testing import fund_lagoon_vault
 from eth_defi.hotwallet import HotWallet
-from eth_defi.provider.anvil import (AnvilLaunch, fork_network_anvil,
-                                     fund_erc20_on_anvil)
+from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil, fund_erc20_on_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.token import USDC_NATIVE_TOKEN, USDC_WHALE, fetch_erc20_details
+from eth_defi.token import USDC_NATIVE_TOKEN, USDC_WHALE, WRAPPED_NATIVE_TOKEN, fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
+from eth_defi.uniswap_v3.constants import UNISWAP_V3_DEPLOYMENTS
+from eth_defi.uniswap_v3.deployment import fetch_deployment as fetch_deployment_uni_v3
+from eth_defi.uniswap_v3.swap import swap_with_slippage_protection
 from eth_defi.utils import setup_console_logging
 
 logger = logging.getLogger(__name__)
@@ -251,6 +249,12 @@ TESTNET_CHAIN_ID_MAP: dict[str, int] = {
 #: Default chain ordering. First chain is the source vault (deposit/redeem entry point).
 MAINNET_DEFAULT_CHAINS: list[str] = ["arbitrum", "ethereum", "base", "hyperliquid", "monad"]
 TESTNET_DEFAULT_CHAINS: list[str] = ["arbitrum_sepolia", "base_sepolia"]
+
+#: Testnet chain names to Uniswap V3 deployment keys in ``UNISWAP_V3_DEPLOYMENTS``
+TESTNET_UNISWAP_V3_KEYS: dict[str, str] = {
+    "arbitrum_sepolia": "arbitrum_sepolia",
+    "base_sepolia": "base_sepolia",
+}
 
 #: Per-chain vault whitelisting and feature configuration (mainnet only).
 #: Keys that are absent get a plain config with no vaults.
@@ -464,6 +468,21 @@ def create_testnet_whitelisting_configuration(
                 deploy_retries=3,
             )
 
+    # Configure Uniswap V3 on testnet chains that have deployments
+    for chain_name in chain_web3:
+        uni_key = TESTNET_UNISWAP_V3_KEYS.get(chain_name)
+        if uni_key and uni_key in UNISWAP_V3_DEPLOYMENTS:
+            d = UNISWAP_V3_DEPLOYMENTS[uni_key]
+            uni_v3 = fetch_deployment_uni_v3(
+                chain_web3[chain_name],
+                factory_address=d["factory"],
+                router_address=d["router"],
+                position_manager_address=d["position_manager"],
+                quoter_address=d["quoter"],
+            )
+            configs[chain_name].uniswap_v3 = uni_v3
+            logger.info("Uniswap V3 configured on %s (testnet)", chain_name)
+
     # Configure CCTP between all testnet chains
     cctp_chain_ids = []
     for chain_name, web3 in chain_web3.items():
@@ -508,7 +527,6 @@ def setup_simulate_chains(
         # HyperEVM needs higher gas limit for TradingStrategyModuleV0 deployment
         # due to dual-block architecture (small blocks ~2-3M gas, large blocks ~30M)
         extra_args = {}
-
 
         # Unlock USDC whales for funding (mainnet only)
         chain_id = chain_id_map[chain_name]
@@ -608,10 +626,7 @@ def bridge_to_destinations(
     total_bridge_human = source_usdc.convert_to_decimals(total_bridge)
     print(f"\nSource vault USDC balance: {safe_balance_human} USDC")
     print(f"  Required for bridging: {total_bridge_human} USDC ({len(dest_chain_names)} destinations x {bridge_usdc_amount} USDC)")
-    assert safe_balance >= total_bridge, (
-        f"Source vault needs {total_bridge_human} USDC but has {safe_balance_human} USDC. "
-        f"Fund the vault on {source_chain} first."
-    )
+    assert safe_balance >= total_bridge, f"Source vault needs {total_bridge_human} USDC but has {safe_balance_human} USDC. Fund the vault on {source_chain} first."
 
     print(f"Bridging {bridge_usdc_amount} USDC from {source_chain} to each destination chain...")
 
@@ -656,7 +671,98 @@ def bridge_to_destinations(
     return bridge_results
 
 
+def swap_on_satellites(
+    chain_web3: dict[str, Web3],
+    result: LagoonMultichainDeployment,
+    source_chain: str,
+    deployer: HotWallet | None = None,
+    swap_fraction: Decimal = Decimal("0.5"),
+):
+    """Swap bridged USDC to WETH on satellite chains via Uniswap V3.
+
+    Proves the guard allows trading on satellite chains after bridging.
+    Only swaps on satellite chains, not on the source chain.
+
+    :param deployer:
+        HotWallet for signing on live networks.
+        ``None`` for Anvil simulate mode (uses unlocked account).
+
+    :param swap_fraction:
+        Fraction of the satellite Safe's USDC balance to swap.
+    """
+    for chain_name, deployment in result.deployments.items():
+        if chain_name == source_chain or not deployment.is_satellite:
+            continue
+
+        web3 = chain_web3[chain_name]
+        chain_id = web3.eth.chain_id
+
+        uni_key = TESTNET_UNISWAP_V3_KEYS.get(chain_name)
+        if not uni_key or uni_key not in UNISWAP_V3_DEPLOYMENTS:
+            print(f"  {chain_name}: no Uniswap V3, skipping swap")
+            continue
+
+        d = UNISWAP_V3_DEPLOYMENTS[uni_key]
+        uni_v3 = fetch_deployment_uni_v3(
+            web3,
+            factory_address=d["factory"],
+            router_address=d["router"],
+            position_manager_address=d["position_manager"],
+            quoter_address=d["quoter"],
+        )
+
+        usdc = fetch_erc20_details(web3, USDC_NATIVE_TOKEN[chain_id])
+        weth_address = WRAPPED_NATIVE_TOKEN.get(chain_id)
+        if not weth_address:
+            print(f"  {chain_name}: no WETH configured, skipping swap")
+            continue
+        weth = fetch_erc20_details(web3, weth_address)
+        safe_address = deployment.safe_address
+
+        usdc_balance_raw = usdc.contract.functions.balanceOf(safe_address).call()
+        swap_amount = int(usdc_balance_raw * swap_fraction)
+        if swap_amount == 0:
+            print(f"  {chain_name}: no USDC to swap")
+            continue
+
+        print(f"  {chain_name}: swapping {usdc.convert_to_decimals(swap_amount)} USDC -> WETH...")
+
+        satellite = deployment.vault
+
+        # Approve USDC for Uniswap V3 router
+        approve_call = usdc.contract.functions.approve(uni_v3.swap_router.address, swap_amount)
+        moduled_tx = satellite.transact_via_trading_strategy_module(approve_call)
+        if deployer is not None:
+            deployer.sync_nonce(web3)
+            tx_hash = deployer.transact_and_broadcast_with_contract(moduled_tx)
+        else:
+            tx_hash = moduled_tx.transact({"from": result.deployments[source_chain].vault.safe_address, "gas": 1_000_000})
+        assert_transaction_success_with_explanation(web3, tx_hash)
+
+        # Swap USDC -> WETH
+        swap_call = swap_with_slippage_protection(
+            uni_v3,
+            recipient_address=safe_address,
+            base_token=weth.contract,
+            quote_token=usdc.contract,
+            amount_in=swap_amount,
+            pool_fees=[3000],  # 30 bps fee tier
+            max_slippage=500,  # 5% — testnet pools have thin liquidity
+        )
+        moduled_tx = satellite.transact_via_trading_strategy_module(swap_call)
+        if deployer is not None:
+            deployer.sync_nonce(web3)
+            tx_hash = deployer.transact_and_broadcast_with_contract(moduled_tx)
+        else:
+            tx_hash = moduled_tx.transact({"from": result.deployments[source_chain].vault.safe_address, "gas": 1_000_000})
+        assert_transaction_success_with_explanation(web3, tx_hash)
+
+        weth_balance = weth.fetch_balance_of(safe_address)
+        print(f"  {chain_name}: received {weth_balance} WETH")
+
+
 def main():
+    threading.current_thread().name = "main"
     setup_console_logging("info", coloured_threads=True)
 
     network = os.environ.get("NETWORK", "mainnet").lower()
@@ -833,12 +939,7 @@ def main():
             # Real mode: fund the vault from the deployer's USDC balance
             deployer_balance = source_usdc.fetch_balance_of(deployer.address)
             print(f"\nDeployer USDC balance on {source_chain}: {deployer_balance} USDC")
-            assert deployer_balance >= usdc_amount, (
-                f"Deployer needs at least {usdc_amount} USDC on {source_chain} but has {deployer_balance} USDC. "
-                f"Get testnet USDC from Circle faucet: https://faucet.circle.com/"
-                if is_testnet
-                else f"Transfer USDC to deployer {deployer.address} on {source_chain}."
-            )
+            assert deployer_balance >= usdc_amount, f"Deployer needs at least {usdc_amount} USDC on {source_chain} but has {deployer_balance} USDC. Get testnet USDC from Circle faucet: https://faucet.circle.com/" if is_testnet else f"Transfer USDC to deployer {deployer.address} on {source_chain}."
 
             print(f"Funding {source_chain} vault with {usdc_amount} USDC from deployer...")
             deployer.sync_nonce(source_web3)
@@ -868,6 +969,16 @@ def main():
             attestation_timeout=3600.0 if is_testnet else 2400.0,
         )
 
+        # --- Step 8b: Swap bridged USDC to WETH on satellite chains ---
+        if is_testnet:
+            print("\nSwapping bridged USDC to WETH on satellite chains...")
+            swap_on_satellites(
+                chain_web3=chain_web3,
+                result=result,
+                source_chain=source_chain,
+                deployer=deployer if not simulate else None,
+            )
+
         # --- Step 9: Print final summary ---
         print("\n" + "=" * 70)
         print("Bridge summary")
@@ -894,6 +1005,12 @@ def main():
                 print(f"    Share price: {share_price}")
             print(f"    Safe:        {deployment.safe_address}")
             print(f"    Safe USDC:   {safe_balance} USDC")
+            weth_address = WRAPPED_NATIVE_TOKEN.get(chain_id)
+            if weth_address:
+                weth = fetch_erc20_details(web3, weth_address)
+                weth_balance = weth.fetch_balance_of(deployment.safe_address)
+                if weth_balance > 0:
+                    print(f"    Safe WETH:   {weth_balance} WETH")
 
         print("\nDone!")
 

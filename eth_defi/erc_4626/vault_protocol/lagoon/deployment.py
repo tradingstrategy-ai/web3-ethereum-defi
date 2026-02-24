@@ -1894,6 +1894,7 @@ def deploy_multichain_lagoon_vault(
     needs_forge = any(c.from_the_scratch for c in chain_configs.values())
     if needs_forge:
         import tempfile
+
         forge_tmp_root = Path(tempfile.mkdtemp(prefix="lagoon-forge-"))
         logger.info("Using per-chain forge cache directories under %s", forge_tmp_root)
     else:
@@ -1901,6 +1902,7 @@ def deploy_multichain_lagoon_vault(
 
     def _deploy_single_chain(chain_name: str, web3: Web3) -> tuple[str, LagoonAutomatedDeployment]:
         import threading
+
         threading.current_thread().name = chain_name
         chain_id = web3.eth.chain_id
         logger.info("Deploying Lagoon vault on %s (chain %d)", chain_name, chain_id)

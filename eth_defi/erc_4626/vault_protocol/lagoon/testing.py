@@ -41,8 +41,11 @@ def fund_lagoon_vault(
     Example (Anvil mode — pytest)::
 
         fund_lagoon_vault(
-            web3, vault.address, asset_manager,
-            depositor, module.address,
+            web3,
+            vault.address,
+            asset_manager,
+            depositor,
+            module.address,
             amount=Decimal(500),
         )
 
@@ -51,8 +54,11 @@ def fund_lagoon_vault(
         deployer = HotWallet.from_private_key(os.environ["PRIVATE_KEY"])
         deployer.sync_nonce(web3)
         fund_lagoon_vault(
-            web3, vault.address, deployer.address,
-            deployer.address, module.address,
+            web3,
+            vault.address,
+            deployer.address,
+            deployer.address,
+            module.address,
             amount=Decimal(2),
             hot_wallet=deployer,
         )
@@ -103,11 +109,7 @@ def fund_lagoon_vault(
 
     denomination_token = vault.denomination_token
     depositor_balance = denomination_token.fetch_balance_of(test_account_with_balance)
-    assert depositor_balance >= amount, (
-        f"Depositor {test_account_with_balance} has {depositor_balance} {denomination_token.symbol} "
-        f"(token {denomination_token.address}) but needs {amount}. "
-        f"Vault denomination token: {denomination_token.symbol} at {denomination_token.address}"
-    )
+    assert depositor_balance >= amount, f"Depositor {test_account_with_balance} has {depositor_balance} {denomination_token.symbol} (token {denomination_token.address}) but needs {amount}. Vault denomination token: {denomination_token.symbol} at {denomination_token.address}"
     raw_amount = denomination_token.convert_to_raw(amount)
 
     def _send(bound_func, description: str, gas: int = 1_000_000):

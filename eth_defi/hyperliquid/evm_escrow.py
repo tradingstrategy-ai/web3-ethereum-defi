@@ -105,8 +105,7 @@ from web3 import Web3
 from eth_defi.abi import get_deployed_contract
 from eth_defi.hotwallet import HotWallet
 from eth_defi.hyperliquid.api import fetch_spot_clearinghouse_state
-from eth_defi.hyperliquid.core_writer import (CORE_DEPOSIT_WALLET, SPOT_DEX,
-                                              get_core_deposit_wallet_contract)
+from eth_defi.hyperliquid.core_writer import CORE_DEPOSIT_WALLET, SPOT_DEX, get_core_deposit_wallet_contract
 from eth_defi.hyperliquid.session import HyperliquidSession
 from eth_defi.trace import assert_transaction_success_with_explanation
 
@@ -160,10 +159,12 @@ def is_account_activated(
         ``True`` if the address exists on HyperCore.
     """
     data = encode(["address"], [Web3.to_checksum_address(user)])
-    result = web3.eth.call({
-        "to": Web3.to_checksum_address(CORE_USER_EXISTS_ADDRESS),
-        "data": "0x" + data.hex(),
-    })
+    result = web3.eth.call(
+        {
+            "to": Web3.to_checksum_address(CORE_USER_EXISTS_ADDRESS),
+            "data": "0x" + data.hex(),
+        }
+    )
     exists = decode(["bool"], result)[0]
     logger.info("Account %s coreUserExists on HyperCore: %s", user, exists)
     return exists
@@ -256,13 +257,7 @@ def activate_account(
     # will succeed on EVM but HyperCore will never process it.
     if session is not None:
         state = fetch_spot_clearinghouse_state(session, user=safe_address)
-        assert not state.evm_escrows, (
-            f"Account {safe_address} has existing EVM escrow entries "
-            f"that must clear before activation can succeed: "
-            f"{', '.join(f'{e.coin}={e.total}' for e in state.evm_escrows)}. "
-            f"This typically means a prior deposit() was called before "
-            f"the account was activated, and the USDC is permanently stuck."
-        )
+        assert not state.evm_escrows, f"Account {safe_address} has existing EVM escrow entries that must clear before activation can succeed: {', '.join(f'{e.coin}={e.total}' for e in state.evm_escrows)}. This typically means a prior deposit() was called before the account was activated, and the USDC is permanently stuck."
 
     logger.info(
         "Activating account %s on HyperCore via depositFor (%d raw USDC)",
@@ -310,10 +305,7 @@ def activate_account(
             logger.info("Account %s successfully activated on HyperCore", safe_address)
             return
         if time.time() >= deadline:
-            raise TimeoutError(
-                f"Account {safe_address} was not activated within {timeout}s "
-                f"after depositFor transaction {tx_hash.hex()}"
-            )
+            raise TimeoutError(f"Account {safe_address} was not activated within {timeout}s after depositFor transaction {tx_hash.hex()}")
 
 
 def wait_for_evm_escrow_clear(
@@ -382,10 +374,7 @@ def wait_for_evm_escrow_clear(
         remaining = deadline - time.time()
 
         if remaining <= 0:
-            raise TimeoutError(
-                f"EVM escrow for {user} did not clear within {timeout}s. "
-                f"Remaining escrows: {escrow_summary}"
-            )
+            raise TimeoutError(f"EVM escrow for {user} did not clear within {timeout}s. Remaining escrows: {escrow_summary}")
 
         logger.info(
             "EVM escrow pending for %s: %s (%.0fs remaining, poll #%d)",

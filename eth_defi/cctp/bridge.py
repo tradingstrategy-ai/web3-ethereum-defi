@@ -562,6 +562,7 @@ def bridge_usdc_cctp_parallel(
         with lock:
             old_phase = transfer_phases[idx]
             if phase.value == old_phase.value:
+                progress_bar.refresh()
                 return
             transfer_phases[idx] = phase
             # Advance by the number of phases skipped
@@ -609,6 +610,8 @@ def bridge_usdc_cctp_parallel(
     else:
         # Production mode: poll Iris API in parallel (~15-19 min per transfer)
         def _attest_with_progress(idx: int, burn_result: CCTPBurnResult) -> tuple[bytes, bytes]:
+            threading.current_thread().name = f"cctp-attest-{dest_names[idx]}"
+
             def on_phase(iris_status: str):
                 phase_map = {
                     "waiting_for_indexing": CCTPBridgePhase.waiting_for_indexing,
@@ -627,7 +630,7 @@ def bridge_usdc_cctp_parallel(
                 on_phase_change=on_phase,
             )
 
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="cctp-attest") as executor:
             futures = {}
             for idx, burn_result in enumerate(burn_results):
                 _update_phase(idx, CCTPBridgePhase.waiting_for_indexing)
@@ -672,6 +675,7 @@ def bridge_usdc_cctp_parallel(
     else:
         # Production mode: receive in parallel across independent destination chains
         def _receive_with_progress(idx: int, dest, message, attestation) -> str:
+            threading.current_thread().name = f"cctp-receive-{dest_names[idx]}"
             _update_phase(idx, CCTPBridgePhase.receiving)
             tx_hash = receive_usdc_cctp(
                 dest_web3=dest.dest_web3,
@@ -684,7 +688,7 @@ def bridge_usdc_cctp_parallel(
             _update_phase(idx, CCTPBridgePhase.complete)
             return tx_hash
 
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="cctp-receive") as executor:
             futures = {}
             for idx, (dest, (message, attestation)) in enumerate(zip(destinations, attestation_data)):
                 future = executor.submit(_receive_with_progress, idx, dest, message, attestation)

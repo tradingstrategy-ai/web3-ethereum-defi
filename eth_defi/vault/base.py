@@ -792,11 +792,7 @@ class VaultBase(ABC):
         result = self.fetch_denomination_token()
         if result is None:
             if getattr(self, "require_denomination_token", False):
-                raise RuntimeError(
-                    f"Vault {self.address} denomination token is None — "
-                    f"asset() returned zero address or token lookup failed. "
-                    f"Set require_denomination_token=False to allow None."
-                )
+                raise RuntimeError(f"Vault {self.address} denomination token is None — asset() returned zero address or token lookup failed. Set require_denomination_token=False to allow None.")
             # Do not let @cached_property memoise None — delete
             # the descriptor value so the next access retries.
             try:

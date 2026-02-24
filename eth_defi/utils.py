@@ -200,7 +200,7 @@ def to_unix_timestamp(dt: datetime.datetime) -> float:
 
 def from_unix_timestamp(timestamp: float) -> datetime.datetime:
     """Convert UNIX seconds since epoch to naive Python datetime.
-    
+
     :param timestamp:
         Timestamp in since 1970-1-1 as float or int as seconds
 
@@ -240,16 +240,16 @@ class ThreadColourFormatter(logging.Formatter):
 
     # Bold + distinct hues from the ANSI 256-colour table
     _PALETTE = [
-        "\033[1;36m",   # bold cyan
-        "\033[1;33m",   # bold yellow
-        "\033[1;35m",   # bold magenta
-        "\033[1;32m",   # bold green
-        "\033[1;34m",   # bold blue
-        "\033[1;91m",   # bold bright red
-        "\033[1;96m",   # bold bright cyan
-        "\033[1;93m",   # bold bright yellow
-        "\033[1;95m",   # bold bright magenta
-        "\033[1;94m",   # bold bright blue
+        "\033[1;36m",  # bold cyan
+        "\033[1;33m",  # bold yellow
+        "\033[1;35m",  # bold magenta
+        "\033[1;32m",  # bold green
+        "\033[1;34m",  # bold blue
+        "\033[1;91m",  # bold bright red
+        "\033[1;96m",  # bold bright cyan
+        "\033[1;93m",  # bold bright yellow
+        "\033[1;95m",  # bold bright magenta
+        "\033[1;94m",  # bold bright blue
     ]
     _RESET = "\033[0m"
 

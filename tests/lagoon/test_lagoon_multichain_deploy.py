@@ -16,14 +16,11 @@ from eth_account.signers.local import LocalAccount
 from eth_typing import HexAddress
 from web3 import Web3
 
-from eth_defi.cctp.bridge import (CCTPBridgeDestination, CCTPBridgeResult,
-                                  bridge_usdc_cctp_parallel)
+from eth_defi.cctp.bridge import CCTPBridgeDestination, CCTPBridgeResult, bridge_usdc_cctp_parallel
 from eth_defi.cctp.constants import CHAIN_ID_TO_CCTP_DOMAIN
 from eth_defi.cctp.testing import replace_attester_on_fork
 from eth_defi.cctp.whitelist import CCTPDeployment
-from eth_defi.erc_4626.vault_protocol.lagoon.deployment import (
-    LagoonConfig, LagoonDeploymentParameters, LagoonMultichainDeployment,
-    deploy_multichain_lagoon_vault)
+from eth_defi.erc_4626.vault_protocol.lagoon.deployment import LagoonConfig, LagoonDeploymentParameters, LagoonMultichainDeployment, deploy_multichain_lagoon_vault
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonSatelliteVault, LagoonVault
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
@@ -99,7 +96,7 @@ def anvil_hyperliquid(request) -> AnvilLaunch:
     launch = fork_network_anvil(
         JSON_RPC_HYPERLIQUID,
         # HyperEVM small blocks have 2-3M gas limit; override to large block limit (30M) for TradingStrategyModuleV0 (~5.4M gas). See https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm/dual-block-architecture
-        gas_limit=30_000_000,  
+        gas_limit=30_000_000,
     )
     try:
         yield launch

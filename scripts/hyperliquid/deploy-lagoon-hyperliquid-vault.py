@@ -126,33 +126,21 @@ from safe_eth.safe.safe import Safe
 from tabulate import tabulate
 from web3 import Web3
 
-from eth_defi.erc_4626.vault_protocol.lagoon.deployment import (
-    LAGOON_BEACON_PROXY_FACTORIES, LagoonConfig, LagoonDeploymentParameters,
-    deploy_automated_lagoon_vault)
+from eth_defi.erc_4626.vault_protocol.lagoon.deployment import LAGOON_BEACON_PROXY_FACTORIES, LagoonConfig, LagoonDeploymentParameters, deploy_automated_lagoon_vault
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.gas import estimate_gas_price
 from eth_defi.hotwallet import HotWallet
 from eth_defi.hyperliquid.api import fetch_user_vault_equities
-from eth_defi.hyperliquid.core_writer import (
-    build_hypercore_deposit_multicall, build_hypercore_deposit_phase1,
-    build_hypercore_deposit_phase2,
-    build_hypercore_withdraw_multicall)
-from eth_defi.hyperliquid.evm_escrow import (DEFAULT_ACTIVATION_AMOUNT,
-                                             activate_account,
-                                             is_account_activated,
-                                             wait_for_evm_escrow_clear)
-from eth_defi.hyperliquid.session import (HYPERLIQUID_API_URL,
-                                          HYPERLIQUID_TESTNET_API_URL,
-                                          create_hyperliquid_session)
+from eth_defi.hyperliquid.core_writer import build_hypercore_deposit_multicall, build_hypercore_deposit_phase1, build_hypercore_deposit_phase2, build_hypercore_withdraw_multicall
+from eth_defi.hyperliquid.evm_escrow import DEFAULT_ACTIVATION_AMOUNT, activate_account, is_account_activated, wait_for_evm_escrow_clear
+from eth_defi.hyperliquid.session import HYPERLIQUID_API_URL, HYPERLIQUID_TESTNET_API_URL, create_hyperliquid_session
 from eth_defi.hyperliquid.testing import setup_anvil_hypercore_mocks
-from eth_defi.provider.anvil import (ANVIL_PRIVATE_KEY, fork_network_anvil,
-                                     fund_erc20_on_anvil)
+from eth_defi.provider.anvil import ANVIL_PRIVATE_KEY, fork_network_anvil, fund_erc20_on_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.safe.execute import execute_safe_tx
 from eth_defi.safe.safe_compat import create_safe_ethereum_client
 from eth_defi.token import USDC_NATIVE_TOKEN, fetch_erc20_details
-from eth_defi.trace import (TransactionAssertionError,
-                            assert_transaction_success_with_explanation)
+from eth_defi.trace import TransactionAssertionError, assert_transaction_success_with_explanation
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.base import VaultSpec
 
@@ -239,19 +227,7 @@ def _do_deposit(
             deployer.sync_nonce(web3)
 
     if not simulate:
-        assert deposit_mode != "batched", (
-            "Batched deposit mode is disabled on live networks. "
-            "The batched multicall puts all 4 steps (approve, CDW.deposit, "
-            "transferUsdClass, vaultTransfer) into a single EVM block. "
-            "Steps 3-4 are CoreWriter actions that depend on the CDW bridge "
-            "(step 2) having cleared the EVM escrow, but because they land "
-            "in the same block, HyperCore may process the CoreWriter actions "
-            "before the bridge clears — causing steps 3-4 to silently fail "
-            "while the EVM transaction succeeds. The USDC ends up stuck in "
-            "spot or perp with no vault position. "
-            "Use DEPOSIT_MODE=two_phase (default) which waits for the escrow "
-            "to clear between the bridge and the CoreWriter actions."
-        )
+        assert deposit_mode != "batched", "Batched deposit mode is disabled on live networks. The batched multicall puts all 4 steps (approve, CDW.deposit, transferUsdClass, vaultTransfer) into a single EVM block. Steps 3-4 are CoreWriter actions that depend on the CDW bridge (step 2) having cleared the EVM escrow, but because they land in the same block, HyperCore may process the CoreWriter actions before the bridge clears — causing steps 3-4 to silently fail while the EVM transaction succeeds. The USDC ends up stuck in spot or perp with no vault position. Use DEPOSIT_MODE=two_phase (default) which waits for the escrow to clear between the bridge and the CoreWriter actions."
 
     if simulate or deposit_mode == "batched":
         # Batched: single multicall with all 4 steps (simulate only)
@@ -393,7 +369,8 @@ def _do_withdraw(
         logger.info("Transferring %s USDC from Safe back to deployer %s", safe_balance, deployer.address)
         raw_amount = usdc_token.convert_to_raw(safe_balance)
         transfer_data = usdc_token.contract.functions.transfer(
-            deployer.address, raw_amount,
+            deployer.address,
+            raw_amount,
         ).build_transaction({"from": lagoon_vault.safe_address})["data"]
 
         if simulate:
@@ -402,17 +379,21 @@ def _do_withdraw(
             # Fund the Safe with HYPE for gas first.
             web3.provider.make_request("anvil_setBalance", [lagoon_vault.safe_address, hex(10**18)])
             web3.provider.make_request("anvil_impersonateAccount", [lagoon_vault.safe_address])
-            tx_hash = web3.eth.send_transaction({
-                "from": lagoon_vault.safe_address,
-                "to": usdc_token.address,
-                "data": transfer_data,
-            })
+            tx_hash = web3.eth.send_transaction(
+                {
+                    "from": lagoon_vault.safe_address,
+                    "to": usdc_token.address,
+                    "data": transfer_data,
+                }
+            )
             web3.provider.make_request("anvil_stopImpersonatingAccount", [lagoon_vault.safe_address])
         else:
             ethereum_client = create_safe_ethereum_client(web3)
             safe = Safe(lagoon_vault.safe_address, ethereum_client)
             safe_tx = safe.build_multisig_tx(
-                usdc_token.address, 0, bytes.fromhex(transfer_data[2:]),
+                usdc_token.address,
+                0,
+                bytes.fromhex(transfer_data[2:]),
             )
             safe_tx.sign(deployer.private_key.hex())
             gas_estimate = estimate_gas_price(web3)
@@ -504,10 +485,7 @@ def main():
 
         deployer_usdc_human = usdc.fetch_balance_of(deployer_account.address)
         min_usdc = total_safe_funding_human
-        assert deployer_usdc_human >= min_usdc, (
-            f"Deployer {deployer_account.address} has {deployer_usdc_human:.2f} USDC, "
-            f"need at least {min_usdc:.0f} USDC ({usdc_human} deposit + {activation_human:.0f} activation)"
-        )
+        assert deployer_usdc_human >= min_usdc, f"Deployer {deployer_account.address} has {deployer_usdc_human:.2f} USDC, need at least {min_usdc:.0f} USDC ({usdc_human} deposit + {activation_human:.0f} activation)"
         logger.info("Deployer balances: %.4f HYPE, %.2f USDC", hype_human, deployer_usdc_human)
 
     # Track HYPE (gas) usage across all phases
@@ -537,10 +515,7 @@ def main():
         # Testnet (998) has no factory; mainnet (999) has an OptinProxyFactory
         # at 0x90beB507A1BA7D64633540cbce615B574224CD84 so we use it.
         from_the_scratch = chain_id not in LAGOON_BEACON_PROXY_FACTORIES
-        assert not (from_the_scratch and network == "mainnet"), (
-            f"Mainnet (chain {chain_id}) should have a Lagoon factory in "
-            f"LAGOON_BEACON_PROXY_FACTORIES — from-scratch deployment is not supported on mainnet"
-        )
+        assert not (from_the_scratch and network == "mainnet"), f"Mainnet (chain {chain_id}) should have a Lagoon factory in LAGOON_BEACON_PROXY_FACTORIES — from-scratch deployment is not supported on mainnet"
         if from_the_scratch:
             logger.info("No Lagoon factory on chain %d, deploying from scratch", chain_id)
 
@@ -595,10 +570,11 @@ def main():
             if safe_balance < total_safe_funding_human:
                 transfer_amount = Decimal(str(total_safe_funding_human)) - safe_balance
                 logger.info(
-                    "Transferring %s USDC from deployer to Safe %s "
-                    "(%d deposit + %d activation)",
-                    transfer_amount, safe_address,
-                    usdc_human, int(activation_human),
+                    "Transferring %s USDC from deployer to Safe %s (%d deposit + %d activation)",
+                    transfer_amount,
+                    safe_address,
+                    usdc_human,
+                    int(activation_human),
                 )
                 tx_hash = deployer.transact_and_broadcast_with_contract(
                     usdc.transfer(safe_address, transfer_amount),
@@ -617,11 +593,7 @@ def main():
 
     if action in ("deposit", "both"):
         balance_raw = usdc.contract.functions.balanceOf(Web3.to_checksum_address(safe_address)).call()
-        assert balance_raw >= total_safe_funding_raw, (
-            f"Safe USDC balance {balance} ({balance_raw} raw) insufficient, "
-            f"need {total_safe_funding_human} ({total_safe_funding_raw} raw): "
-            f"{usdc_human} deposit + {activation_human} activation"
-        )
+        assert balance_raw >= total_safe_funding_raw, f"Safe USDC balance {balance} ({balance_raw} raw) insufficient, need {total_safe_funding_human} ({total_safe_funding_raw} raw): {usdc_human} deposit + {activation_human} activation"
         _do_deposit(
             lagoon_vault,
             usdc_amount,

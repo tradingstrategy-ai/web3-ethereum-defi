@@ -162,10 +162,7 @@ def _exec_cmd(
                 if line.startswith("Transaction hash: "):
                     tx_hash_hint = f"\nTransaction hash: {line.split(':')[1].strip()}"
                     break
-            raise ForgeFailed(
-                f"forge return code {result} when running: {censored_command}{tx_hash_hint}\n"
-                f"Output is:\n{output}"
-            )
+            raise ForgeFailed(f"forge return code {result} when running: {censored_command}{tx_hash_hint}\nOutput is:\n{output}")
 
     logger.debug("forge result:\n%s", output)
 
@@ -418,10 +415,7 @@ def deploy_contract_with_forge(
 
         chain_id = web3.eth.chain_id
         if not is_anvil(web3) and chain_id not in TESTNET_CHAIN_IDS:
-            raise ValueError(
-                f"deploy_retries={deploy_retries} is only allowed on testnets or Anvil, "
-                f"not on chain {chain_id}. Retrying forge deployments on mainnet is dangerous."
-            )
+            raise ValueError(f"deploy_retries={deploy_retries} is only allowed on testnets or Anvil, not on chain {chain_id}. Retrying forge deployments on mainnet is dangerous.")
 
     # Do NOT call sync_nonce here — the caller is responsible for syncing
     # the nonce once at startup.  Re-syncing before every transaction can
@@ -495,8 +489,10 @@ def deploy_contract_with_forge(
     # when running concurrent deployments from the same project folder
     if cache_dir is not None:
         base_cmd_args += [
-            "--cache-path", str(cache_dir / "cache"),
-            "--out", str(out_dir),
+            "--cache-path",
+            str(cache_dir / "cache"),
+            "--out",
+            str(out_dir),
         ]
 
     if verbose:
@@ -612,16 +608,20 @@ def deploy_contract_with_forge(
                 if recovered:
                     contract_address, tx_hash = recovered
                     logger.warning(
-                        "Forge reported failure but contract was actually deployed at %s "
-                        "(nonce %s, tx %s). Recovering from false positive (foundry#1362).",
-                        contract_address, recovery_nonce, tx_hash,
+                        "Forge reported failure but contract was actually deployed at %s (nonce %s, tx %s). Recovering from false positive (foundry#1362).",
+                        contract_address,
+                        recovery_nonce,
+                        tx_hash,
                     )
                     break
 
                 logger.warning(
-                    "Forge deploy failed on attempt %d/%d (nonce %s, deployer %s, error: %s). "
-                    "Re-syncing nonce and retrying in 5s…",
-                    attempt, deploy_retries, nonce, deployer_address, error_msg[:120],
+                    "Forge deploy failed on attempt %d/%d (nonce %s, deployer %s, error: %s). Re-syncing nonce and retrying in 5s…",
+                    attempt,
+                    deploy_retries,
+                    nonce,
+                    deployer_address,
+                    error_msg[:120],
                 )
                 _time.sleep(5)
                 # Re-sync nonce from chain — the failed tx may or may not

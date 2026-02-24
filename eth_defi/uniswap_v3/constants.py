@@ -66,6 +66,26 @@ UNISWAP_V3_DEPLOYMENTS = {
         "quoter_v2": True,
         "router_v2": True,
     },
+    # Base Sepolia testnet
+    # https://docs.uniswap.org/contracts/v3/reference/deployments/base-deployments
+    "base_sepolia": {
+        "factory": "0x4752ba5DBc23f44D87826276BF6Fd6b1C372aD24",
+        "router": "0x94cC0AaC535CCDB3C01d6787D6413C739ae12bc4",
+        "position_manager": "0x27F971cb582BF9E50F397e4d29a5C7A34f11faA2",
+        "quoter": "0xC5290058841028F1614F3A6F0F5816cAd0df5E27",
+        "quoter_v2": True,
+        "router_v2": True,
+    },
+    # Arbitrum Sepolia testnet
+    # https://docs.uniswap.org/contracts/v3/reference/deployments/arbitrum-deployments
+    "arbitrum_sepolia": {
+        "factory": "0x248AB79Bbb9bC29bB72f7Cd42F17e054Fc40188e",
+        "router": "0x101F443B4d1b059569D643917553c771E1b9663E",
+        "position_manager": "0x6b2937Bde17889EDCf8fbD8dE31C3C2a70Bc4d65",
+        "quoter": "0x2779a0CC1c3e0E44D2542EC3e79e3864Ae93Ef0B",
+        "quoter_v2": True,
+        "router_v2": True,
+    },
 }
 
 # address of factory deployed on Ethereum mainnet, Polygon, Optimism, Arbitrum

@@ -124,9 +124,7 @@ def deploy_mock_core_deposit_wallet(web3: Web3) -> Contract:
     """
     bytecode = load_deployed_bytecode("guard/MockCoreDepositWallet.json")
     chain_id = web3.eth.chain_id
-    cdw_address = Web3.to_checksum_address(
-        CORE_DEPOSIT_WALLET[chain_id]
-    )
+    cdw_address = Web3.to_checksum_address(CORE_DEPOSIT_WALLET[chain_id])
     web3.provider.make_request("anvil_setCode", [cdw_address, bytecode])
     # Clear storage slot 0 (deposits array length) to avoid conflicts
     web3.provider.make_request(

@@ -100,10 +100,7 @@ def main():
     # Vault positions
     equities = fetch_user_vault_equities(session, user=address)
     if equities:
-        rows = [
-            [eq.vault_address, f"{eq.equity:,.6f}", eq.locked_until.isoformat()]
-            for eq in equities
-        ]
+        rows = [[eq.vault_address, f"{eq.equity:,.6f}", eq.locked_until.isoformat()] for eq in equities]
         print("\nVault positions:")
         print(tabulate(rows, headers=["Vault", "Equity (USDC)", "Locked until (UTC)"], tablefmt="simple"))
     else:

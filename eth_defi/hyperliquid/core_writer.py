@@ -40,8 +40,7 @@ from web3 import Web3
 from web3.contract import Contract
 from web3.contract.contract import ContractFunction
 
-from eth_defi.abi import (encode_function_call, get_contract,
-                          get_deployed_contract)
+from eth_defi.abi import encode_function_call, get_contract, get_deployed_contract
 
 if TYPE_CHECKING:
     from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
@@ -106,12 +105,7 @@ def encode_vault_deposit(vault: HexAddress | str, usdc_amount_wei: int) -> bytes
     :raises AssertionError:
         If the deposit amount is below :py:data:`MINIMUM_VAULT_DEPOSIT`.
     """
-    assert usdc_amount_wei >= MINIMUM_VAULT_DEPOSIT, (
-        f"Vault deposit amount {usdc_amount_wei} raw ({usdc_amount_wei / 1e6:.2f} delagoUSDC) "
-        f"is below the minimum {MINIMUM_VAULT_DEPOSIT} raw "
-        f"({MINIMUM_VAULT_DEPOSIT / 1e6:.0f} USDC). "
-        f"Hyperliquid silently rejects vault deposits below this threshold."
-    )
+    assert usdc_amount_wei >= MINIMUM_VAULT_DEPOSIT, f"Vault deposit amount {usdc_amount_wei} raw ({usdc_amount_wei / 1e6:.2f} delagoUSDC) is below the minimum {MINIMUM_VAULT_DEPOSIT} raw ({MINIMUM_VAULT_DEPOSIT / 1e6:.0f} USDC). Hyperliquid silently rejects vault deposits below this threshold."
     params = encode(
         ["address", "bool", "uint64"],
         [vault, True, usdc_amount_wei],
@@ -329,12 +323,7 @@ def build_hypercore_deposit_multicall(
 
         safe_address = lagoon_vault.safe_address
         if not is_account_activated(lagoon_vault.web3, user=safe_address):
-            raise RuntimeError(
-                f"Safe {safe_address} is not activated on HyperCore. "
-                f"Call activate_account() before depositing, or bridge actions "
-                f"will get permanently stuck in EVM escrow. "
-                f"See eth_defi.hyperliquid.evm_escrow for details."
-            )
+            raise RuntimeError(f"Safe {safe_address} is not activated on HyperCore. Call activate_account() before depositing, or bridge actions will get permanently stuck in EVM escrow. See eth_defi.hyperliquid.evm_escrow for details.")
 
     web3 = lagoon_vault.web3
     module = lagoon_vault.trading_strategy_module
@@ -416,7 +405,9 @@ def build_hypercore_deposit_phase1(
 
         # Phase 2: move to perp and deposit into vault
         fn2 = build_hypercore_deposit_phase2(
-            lagoon_vault, hypercore_usdc_amount=1_000_000, vault_address="0x...",
+            lagoon_vault,
+            hypercore_usdc_amount=1_000_000,
+            vault_address="0x...",
         )
         tx_hash = fn2.transact({"from": asset_manager})
 

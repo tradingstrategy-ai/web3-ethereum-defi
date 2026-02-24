@@ -942,13 +942,16 @@ class ERC4626Vault(VaultBase):
             if result is None:
                 logger.warning(
                     "Vault %s denomination token at %s could not be fetched (block_identifier=%s)",
-                    self.address, token_address, block_identifier,
+                    self.address,
+                    token_address,
+                    block_identifier,
                 )
             return result
         else:
             logger.warning(
                 "Vault %s asset() returned no address (block_identifier=%s)",
-                self.address, block_identifier,
+                self.address,
+                block_identifier,
             )
             return None
 

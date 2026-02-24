@@ -150,10 +150,9 @@ def fetch_attestation(
 
     def _notify(phase: str):
         nonlocal last_phase
-        if phase != last_phase:
-            last_phase = phase
-            if on_phase_change is not None:
-                on_phase_change(phase)
+        last_phase = phase
+        if on_phase_change is not None:
+            on_phase_change(phase)
 
     _notify("waiting_for_indexing")
 
@@ -163,8 +162,9 @@ def fetch_attestation(
             raise TimeoutError(f"CCTP attestation not ready after {timeout}s for tx {transaction_hash} on {domain_name}")
 
         attempt += 1
-        # Log every 10th attempt at INFO, others at DEBUG to reduce noise
-        log_level = logging.INFO if attempt <= 3 or attempt % 10 == 0 else logging.DEBUG
+        # Log first attempt at INFO so the user sees the poll started,
+        # then DEBUG to avoid drowning out the tqdm progress bar.
+        log_level = logging.INFO if attempt == 1 else logging.DEBUG
         logger.log(
             log_level,
             "Polling CCTP attestation: %s (domain %s), tx=%s, attempt=%d, elapsed=%.1fs, status=%s",
@@ -200,7 +200,10 @@ def fetch_attestation(
                 _notify("complete")
                 logger.info(
                     "Attestation complete for %s after %d attempts (%.1fs): tx=%s",
-                    domain_name, attempt, elapsed, transaction_hash,
+                    domain_name,
+                    attempt,
+                    elapsed,
+                    transaction_hash,
                 )
                 message_hex = msg.get("message", "")
                 return CCTPAttestation(
@@ -210,12 +213,11 @@ def fetch_attestation(
                 )
 
             _notify(status)
-            if log_level <= logging.INFO:
-                logger.info(
-                    "Attestation status for %s: %s (waiting for 'complete')",
-                    domain_name,
-                    status,
-                )
+            logger.debug(
+                "Attestation status for %s: %s (waiting for 'complete')",
+                domain_name,
+                status,
+            )
 
         time.sleep(poll_interval)
 
