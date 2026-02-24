@@ -843,6 +843,24 @@ def main():
         for br in bridge_results:
             print(f"  Chain {br.source_chain_id} -> {br.dest_chain_id}: {source_usdc.convert_to_decimals(br.amount):.2f} USDC")
 
+        # --- Step 10: Print vault status across all chains ---
+        print("\n" + "=" * 70)
+        print("Vault status")
+        print("=" * 70)
+        for chain_name, deployment in sorted(result.deployments.items()):
+            web3 = chain_web3[chain_name]
+            vault = deployment.vault
+            chain_id = web3.eth.chain_id
+            usdc_address = USDC_NATIVE_TOKEN[chain_id]
+            usdc = fetch_erc20_details(web3, usdc_address)
+            safe_balance = usdc.fetch_balance_of(vault.safe_address)
+            share_price = vault.fetch_share_price("latest")
+            print(f"  {chain_name}:")
+            print(f"    Vault:       {vault.address}")
+            print(f"    Safe:        {vault.safe_address}")
+            print(f"    Share price: {share_price}")
+            print(f"    Safe USDC:   {safe_balance} USDC")
+
         print("\nDone!")
 
     finally:
