@@ -28,6 +28,10 @@ Derive Chain is an OP Stack L2. To trade on Derive, you need to bridge collatera
 to Derive Chain. Derive uses a custom bridge built on `Socket <https://www.socket.tech/>`__ smart contracts
 and L1-L2 messaging infrastructure.
 
+There is only one way and it is very painful way.
+
+Use Rabby wallet. You need to a custom network Lyra mainnet.
+
 **Supported source networks:**
 
 - Ethereum
@@ -41,6 +45,7 @@ and L1-L2 messaging infrastructure.
 - USDC
 - wETH
 - wBTC
+- `You can find the tokens in Derive explorer <https://explorer.derive.xyz/tokens>`__.
 
 Each asset has dedicated bridge contract addresses on the source chain. For example,
 USDC from Ethereum mainnet routes through ``0x6D303CEE7959f814042D31E0624fB88Ec6fbcC1d``.
@@ -79,6 +84,36 @@ on Ethereum mainnet.
 See `this example transaction <https://etherscan.io/tx/0x1c6b7bb4e060d2e335dfc1b3501d9e778cec1adac80652645f645a6d79daf159>`__
 for reference.
 
+**USDC deposits**
+
+If you use Derive web interface to deposit USDC, it does not show up on Lyra mainnet. It goes directly to Derive hot wallet.
+
+The best option is to use [Arbirum bridge 0x5e027ad442e031424b5a2c0ad6f656662be32882](https://arbiscan.io/address/0x5e027ad442e031424b5a2c0ad6f656662be32882).
+
+Let's do transfer for 250 USDC.
+
+1. Have USDC and ETH (gas) on Arbitrum in a wallet
+2. Go to [USDC contract, write as proxy](https://arbiscan.io/token/0xaf88d065e77c8cc2239327c5edb3a432268e5831#writeProxyContract). Approve 250000000 on 0x5e027ad442e031424b5a2c0ad6f656662be32882.
+3. Go to [bridge contract, write contract](https://arbiscan.io/address/0x5e027ad442e031424b5a2c0ad6f656662be32882#writeContract). 
+
+- `receiver`: <your wallet addres>
+- `payableAmount`: 0.000005690851070718 (see getMinFees below) 
+- `amount`: 25000000 - USDC
+- `msgGasLimit`: `100000` - gas 
+- `connector`: `0x17Fc4c7ea8267044b6D0ACC17a6C049Bed6F8B21`
+
+Bridging should happen almost instantly. USDC address on Derive (Lyra mainnet): `0x6879287835A86F50f784313dBEd5E5cCC5bb8481 <0x6879287835A86F50f784313dBEd5E5cCC5bb8481>`__. Add it to your wallet.
+
+After you have bridged over, send the USDC to the Gnosis Safe driving the vault.
+
+getMinFees: this is the ETH amount we need to pay payableAmount for the bridge contract. Above payableAmount is a test figure tripled. To get a real number:
+
+- `Go to connect <https://arbiscan.io/token/0x17Fc4c7ea8267044b6D0ACC17a6C049Bed6F8B21#readContract>__
+- Click `getMinFees`
+- Enter msgLimit 100000
+- Enter connector contract `0x17Fc4c7ea8267044b6D0ACC17a6C049Bed6F8B21`
+- You should get something like: `1896950356906` - this is wei so divide it with 10**18 to get the ETH amountn for Arbiscan input
+
 **Bridge timing:**
 
 - From Layer 2 networks (Arbitrum, Optimism, Base): 2-5 minutes
@@ -100,6 +135,24 @@ inherent to the fraud proof system.
 For more details, see the `Derive deposit documentation <https://docs.derive.xyz/reference/deposit-to-lyra-chain>`__,
 `bridging FAQ <https://help.derive.xyz/en/articles/9086191-what-bridge-does-derive-use>`__,
 and `supported networks <https://help.derive.xyz/en/articles/9085623-what-networks-are-supported>`__.
+
+Depositing from Safe
+~~~~~~~~~~~~~~~~~~~~
+
+After you have a session key created from Safe, you can log in to the Derive UI with this session.
+
+1. Cleear site data for derive.xyz in your browser if needed (to restart)
+2. Import session key to your Rabby wallet
+3. Connect to Derive
+4. On the first connect dialog, choose Session key
+
+Now you can move the USDC from the vault's Safe wallet to the subaccount for trading.
+
+- In left-nav, after login ,you see "Recover ⚠️"
+- You should see the USDC that was deposited in [step 3](#step-3-make-a-test-deposit-usdc)
+- Click "Recover"
+- The "Recover Balance" dialog should default to the subaccount from step 4.b. and the full amount of USDC.
+- Click "Recover USDC" and sign the signature request in your wallet
 
 Authentication
 ~~~~~~~~~~~~~~
@@ -187,6 +240,7 @@ connect to the Derive web interface. To export it:
 ``DERIVE_SESSION_PRIVATE_KEY`` and ``DERIVE_WALLET_ADDRESS`` are found on the Derive
 web interface under Home → Developers.
 
+
 Links
 ~~~~~
 
@@ -197,6 +251,7 @@ Links
 - `Manual Onboarding Guide <https://docs.derive.xyz/reference/onboard-manually>`__
 - `Python Signing SDK <https://github.com/derivexyz/v2-action-signing-python>`__
 - `Derive Chain Explorer <https://explorer.derive.xyz/>`__
+- `Gnosis Safe on Derive guide <https://derivexyz.notion.site/Manual-Gnosis-safe-onboarding-24503b51517e80e1b75ef0db0096f6ff>`__
 
 API modules
 ~~~~~~~~~~~

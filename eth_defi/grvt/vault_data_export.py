@@ -45,6 +45,7 @@ logger = logging.getLogger(__name__)
 
 def create_grvt_vault_row(
     vault_id: str,
+    chain_vault_id: int,
     name: str,
     description: str | None,
     tvl: float,
@@ -70,6 +71,9 @@ def create_grvt_vault_row(
 
     :param vault_id:
         Vault string ID on the GRVT platform (e.g. ``VLT:xxx``).
+    :param chain_vault_id:
+        Numeric on-chain vault ID used by the market data API
+        and the strategies page URL.
     :param name:
         Vault display name.
     :param description:
@@ -118,7 +122,7 @@ def create_grvt_vault_row(
         "NAV": Decimal(str(tvl)),
         "Shares": Decimal("0"),
         "Protocol": "GRVT",
-        "Link": "https://grvt.io/exchange/strategies",
+        "Link": f"https://grvt.io/exchange/strategies/{chain_vault_id}",
         "First seen": datetime.datetime(2025, 1, 1),
         "Mgmt fee": management_fee,
         "Perf fee": performance_fee,
@@ -236,6 +240,7 @@ def merge_into_vault_database(
 
         spec, vault_row = create_grvt_vault_row(
             vault_id=row["vault_id"],
+            chain_vault_id=int(row["chain_vault_id"]),
             name=row["name"],
             description=row.get("description"),
             tvl=row.get("tvl", 0.0) or 0.0,
