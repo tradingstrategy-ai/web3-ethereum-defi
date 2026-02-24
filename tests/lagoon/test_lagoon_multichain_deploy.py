@@ -24,10 +24,14 @@ from eth_defi.cctp.whitelist import CCTPDeployment
 from eth_defi.erc_4626.vault_protocol.lagoon.deployment import (
     LagoonConfig, LagoonDeploymentParameters, LagoonMultichainDeployment,
     deploy_multichain_lagoon_vault)
+from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonSatelliteVault, LagoonVault
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import USDC_NATIVE_TOKEN, USDC_WHALE, fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
+from eth_defi.uniswap_v3.constants import UNISWAP_V3_DEPLOYMENTS
+from eth_defi.uniswap_v3.deployment import fetch_deployment as fetch_deployment_uni_v3
+from eth_defi.uniswap_v3.swap import swap_with_slippage_protection
 
 logger = logging.getLogger(__name__)
 
@@ -146,11 +150,16 @@ def web3_hyperliquid(anvil_hyperliquid) -> Web3:
 def _make_chain_configs(
     deployer_address: HexAddress,
     salt_nonce: int,
+    source_chain: str | None = None,
 ) -> dict[str, LagoonConfig]:
     """Build per-chain LagoonConfig dicts with explicit CCTP configuration.
 
     Each chain gets its own config with CCTP whitelisting to all other
     CCTP-capable chains in the test set.
+
+    :param source_chain:
+        When set, only the source chain gets a full vault deployment;
+        other chains are deployed as satellite (Safe + guard only, no vault).
     """
     chain_names = ["ethereum", "arbitrum", "base", "hyperliquid"]
     chain_id_map = {
@@ -173,6 +182,8 @@ def _make_chain_configs(
                 allowed_destinations=other_chain_ids,
             )
 
+        is_satellite = source_chain is not None and chain_name != source_chain
+
         configs[chain_name] = LagoonConfig(
             parameters=LagoonDeploymentParameters(
                 underlying=None,
@@ -185,6 +196,7 @@ def _make_chain_configs(
             any_asset=True,
             safe_salt_nonce=salt_nonce,
             cctp_deployment=cctp,
+            satellite_chain=is_satellite,
         )
 
     return configs
@@ -258,7 +270,7 @@ def test_multichain_lagoon_deploy_and_parallel_cctp_bridge(
     # Verify all Safe addresses are the same
     assert isinstance(result, LagoonMultichainDeployment)
     assert len(result.deployments) == 4
-    safe_addresses = {name: d.vault.safe_address for name, d in result.deployments.items()}
+    safe_addresses = {name: d.safe_address for name, d in result.deployments.items()}
     assert len(set(safe_addresses.values())) == 1, f"Safe addresses differ: {safe_addresses}"
 
     # Verify vault addresses differ across chains
@@ -300,24 +312,24 @@ def test_multichain_lagoon_deploy_and_parallel_cctp_bridge(
     dest_balances_before = {}
     for chain_name, (web3, chain_id) in dest_chains.items():
         usdc = fetch_erc20_details(web3, USDC_NATIVE_TOKEN[chain_id])
-        dest_safe = result.deployments[chain_name].vault.safe_address
+        dest_safe = result.deployments[chain_name].safe_address
         dest_balances_before[chain_name] = usdc.contract.functions.balanceOf(dest_safe).call()
 
     # Build parallel bridge destinations
     destinations = [
         CCTPBridgeDestination(
             dest_web3=web3_ethereum,
-            dest_safe_address=result.deployments["ethereum"].vault.safe_address,
+            dest_safe_address=result.deployments["ethereum"].safe_address,
             amount=bridge_amount,
         ),
         CCTPBridgeDestination(
             dest_web3=web3_base,
-            dest_safe_address=result.deployments["base"].vault.safe_address,
+            dest_safe_address=result.deployments["base"].safe_address,
             amount=bridge_amount,
         ),
         CCTPBridgeDestination(
             dest_web3=web3_hyperliquid,
-            dest_safe_address=result.deployments["hyperliquid"].vault.safe_address,
+            dest_safe_address=result.deployments["hyperliquid"].safe_address,
             amount=bridge_amount,
         ),
     ]
@@ -354,6 +366,160 @@ def test_multichain_lagoon_deploy_and_parallel_cctp_bridge(
     dest_chain_names = ["ethereum", "base", "hyperliquid"]
     for chain_name, (web3, chain_id) in dest_chains.items():
         usdc = fetch_erc20_details(web3, USDC_NATIVE_TOKEN[chain_id])
-        dest_safe = result.deployments[chain_name].vault.safe_address
+        dest_safe = result.deployments[chain_name].safe_address
         balance_after = usdc.contract.functions.balanceOf(dest_safe).call()
         assert balance_after == dest_balances_before[chain_name] + bridge_amount, f"USDC not minted on {chain_name}: before={dest_balances_before[chain_name]}, after={balance_after}"
+
+
+@pytest.mark.timeout(600)
+@pytest.mark.skipif(CI, reason="Long-running test. Run locally for testing.")
+def test_satellite_deploy_bridge_and_swap(
+    web3_arbitrum,
+    web3_base,
+    deployer,
+):
+    """Deploy Arbitrum as source vault, Base as satellite, bridge USDC, then swap on satellite.
+
+    - Arbitrum gets a full Lagoon vault (source chain)
+    - Base gets only Safe + TradingStrategyModuleV0 guard (satellite chain)
+    - Bridges USDC from Arbitrum to Base satellite Safe via CCTP
+    - Performs a Uniswap V3 swap (USDC -> WETH) on the Base satellite
+      using ``transact_via_trading_strategy_module()``
+    """
+
+    salt_nonce = 43
+
+    # Fund deployer with native tokens on both forks
+    for web3 in [web3_arbitrum, web3_base]:
+        web3.provider.make_request("anvil_setBalance", [deployer.address, hex(100 * 10**18)])
+
+    # Create Uniswap V3 deployment for Base (needed for guard whitelisting)
+    deployment_data = UNISWAP_V3_DEPLOYMENTS["base"]
+    uniswap_v3_base = fetch_deployment_uni_v3(
+        web3_base,
+        factory_address=deployment_data["factory"],
+        router_address=deployment_data["router"],
+        position_manager_address=deployment_data["position_manager"],
+        quoter_address=deployment_data["quoter"],
+        quoter_v2=deployment_data.get("quoter_v2", False),
+        router_v2=deployment_data.get("router_v2", False),
+    )
+
+    # Arbitrum: full vault (source chain)
+    arb_cctp = CCTPDeployment.create_for_chain(chain_id=42161, allowed_destinations=[8453])
+    arb_config = LagoonConfig(
+        parameters=LagoonDeploymentParameters(underlying=None, name="Source Vault", symbol="SRC"),
+        asset_manager=deployer.address,
+        safe_owners=[deployer.address],
+        safe_threshold=1,
+        any_asset=True,
+        safe_salt_nonce=salt_nonce,
+        cctp_deployment=arb_cctp,
+    )
+
+    # Base: satellite chain (no vault, just Safe + guard)
+    base_cctp = CCTPDeployment.create_for_chain(chain_id=8453, allowed_destinations=[42161])
+    base_config = LagoonConfig(
+        parameters=LagoonDeploymentParameters(underlying=None, name="Satellite Base", symbol="SAT"),
+        asset_manager=deployer.address,
+        safe_owners=[deployer.address],
+        safe_threshold=1,
+        any_asset=True,
+        safe_salt_nonce=salt_nonce,
+        satellite_chain=True,
+        uniswap_v3=uniswap_v3_base,
+        cctp_deployment=base_cctp,
+    )
+
+    chain_web3 = {"arbitrum": web3_arbitrum, "base": web3_base}
+    chain_configs = {"arbitrum": arb_config, "base": base_config}
+
+    result = deploy_multichain_lagoon_vault(
+        chain_web3=chain_web3,
+        deployer=deployer,
+        chain_configs=chain_configs,
+    )
+
+    # Verify deployment types
+    assert isinstance(result.deployments["arbitrum"].vault, LagoonVault)
+    assert isinstance(result.deployments["base"].vault, LagoonSatelliteVault)
+    assert result.deployments["arbitrum"].is_satellite is False
+    assert result.deployments["base"].is_satellite is True
+
+    # Verify same deterministic Safe address on both chains
+    assert result.deployments["arbitrum"].safe_address == result.deployments["base"].safe_address
+
+    # --- Fund Arbitrum vault and bridge USDC to Base satellite ---
+
+    arb_vault = result.deployments["arbitrum"].vault
+    arb_usdc = fetch_erc20_details(web3_arbitrum, USDC_NATIVE_TOKEN[42161])
+    arb_depositor = USDC_WHALE[42161]
+    _fund_vault(web3_arbitrum, arb_vault, arb_usdc, arb_depositor, deployer.address, amount_usdc=200)
+
+    bridge_amount = arb_usdc.convert_to_raw(100)
+
+    # Replace attester on Base fork for simulated CCTP attestation
+    test_attesters = {8453: replace_attester_on_fork(web3_base)}
+
+    destinations = [
+        CCTPBridgeDestination(
+            dest_web3=web3_base,
+            dest_safe_address=result.deployments["base"].safe_address,
+            amount=bridge_amount,
+        ),
+    ]
+
+    bridge_results = bridge_usdc_cctp_parallel(
+        source_web3=web3_arbitrum,
+        source_vault=arb_vault,
+        destinations=destinations,
+        sender=deployer.address,
+        simulate=True,
+        test_attesters=test_attesters,
+    )
+
+    assert len(bridge_results) == 1
+    assert bridge_results[0].dest_chain_id == 8453
+
+    # Verify USDC arrived on Base satellite Safe
+    base_usdc = fetch_erc20_details(web3_base, USDC_NATIVE_TOKEN[8453])
+    base_safe_address = result.deployments["base"].safe_address
+    usdc_balance = base_usdc.contract.functions.balanceOf(base_safe_address).call()
+    assert usdc_balance == bridge_amount
+
+    # --- Swap USDC -> WETH on Base satellite via trading strategy module ---
+
+    satellite = result.deployments["base"].vault
+    swap_amount = base_usdc.convert_to_raw(50)  # Swap 50 USDC
+
+    # Approve USDC for Uniswap V3 router
+    approve_call = base_usdc.contract.functions.approve(uniswap_v3_base.swap_router.address, swap_amount)
+    moduled_tx = satellite.transact_via_trading_strategy_module(approve_call)
+    tx_hash = moduled_tx.transact({"from": deployer.address, "gas": 1_000_000})
+    assert_transaction_success_with_explanation(web3_base, tx_hash)
+
+    # Get WETH token details for verification
+    base_weth_address = "0x4200000000000000000000000000000000000006"
+    base_weth = fetch_erc20_details(web3_base, base_weth_address)
+    weth_before = base_weth.contract.functions.balanceOf(base_safe_address).call()
+
+    # Swap USDC -> WETH via Uniswap V3
+    swap_call = swap_with_slippage_protection(
+        uniswap_v3_base,
+        recipient_address=base_safe_address,
+        base_token=base_weth.contract,
+        quote_token=base_usdc.contract,
+        amount_in=swap_amount,
+        pool_fees=[500],
+    )
+    moduled_tx = satellite.transact_via_trading_strategy_module(swap_call)
+    tx_hash = moduled_tx.transact({"from": deployer.address, "gas": 1_000_000})
+    assert_transaction_success_with_explanation(web3_base, tx_hash)
+
+    # Verify WETH balance increased on the satellite Safe
+    weth_after = base_weth.contract.functions.balanceOf(base_safe_address).call()
+    assert weth_after > weth_before, f"WETH balance did not increase: before={weth_before}, after={weth_after}"
+
+    # Verify USDC balance decreased by swap amount
+    usdc_after = base_usdc.contract.functions.balanceOf(base_safe_address).call()
+    assert usdc_after == usdc_balance - swap_amount

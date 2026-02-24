@@ -312,6 +312,7 @@ def create_multichain_whitelisting_configuration(
     safe_owners: list[HexAddress],
     safe_threshold: int,
     safe_salt_nonce: int,
+    source_chain: str | None = None,
 ) -> dict[str, LagoonConfig]:
     """Build per-chain LagoonConfig dicts for mainnet deployment.
 
@@ -333,6 +334,10 @@ def create_multichain_whitelisting_configuration(
 
     :param safe_salt_nonce:
         CREATE2 salt for deterministic Safe address.
+
+    :param source_chain:
+        Name of the source chain. Non-source chains are deployed as
+        satellites (Safe + guard only, no vault contract).
 
     :return:
         Per-chain LagoonConfig dict ready for ``deploy_multichain_lagoon_vault()``.
@@ -356,6 +361,7 @@ def create_multichain_whitelisting_configuration(
         if "erc_4626_vaults_list" in features:
             kwargs["erc_4626_vaults"] = resolve_vaults(web3, features["erc_4626_vaults_list"])
 
+        is_satellite = source_chain is not None and chain_name != source_chain
         configs[chain_name] = LagoonConfig(
             parameters=deepcopy(base_params),
             asset_manager=asset_manager,
@@ -363,6 +369,7 @@ def create_multichain_whitelisting_configuration(
             safe_threshold=safe_threshold,
             safe_salt_nonce=safe_salt_nonce,
             any_asset=True,
+            satellite_chain=is_satellite,
             **kwargs,
         )
 
@@ -391,12 +398,14 @@ def create_testnet_whitelisting_configuration(
     safe_owners: list[HexAddress],
     safe_threshold: int,
     safe_salt_nonce: int,
+    source_chain: str | None = None,
 ) -> dict[str, LagoonConfig]:
     """Build per-chain LagoonConfig for testnet deployment.
 
     No vault whitelisting — only CCTP for cross-chain transfers.
-    Testnet chains (Arbitrum Sepolia, Base Sepolia) deploy the full
-    Lagoon protocol from scratch since no factory exists.
+    The source chain deploys the full Lagoon protocol from scratch
+    since no factory exists on testnets. Satellite chains deploy
+    only Safe + guard.
 
     :param chain_web3:
         Mapping of chain names to Web3 instances.
@@ -413,6 +422,10 @@ def create_testnet_whitelisting_configuration(
     :param safe_salt_nonce:
         CREATE2 salt for deterministic Safe address.
 
+    :param source_chain:
+        Name of the source chain. Non-source chains are deployed as
+        satellites (Safe + guard only, no vault contract).
+
     :return:
         Per-chain LagoonConfig dict ready for ``deploy_multichain_lagoon_vault()``.
     """
@@ -425,17 +438,31 @@ def create_testnet_whitelisting_configuration(
     )
 
     for chain_name in chain_web3:
-        configs[chain_name] = LagoonConfig(
-            parameters=deepcopy(base_params),
-            asset_manager=asset_manager,
-            safe_owners=list(safe_owners),
-            safe_threshold=safe_threshold,
-            safe_salt_nonce=safe_salt_nonce,
-            any_asset=True,
-            from_the_scratch=True,
-            use_forge=True,
-            deploy_retries=3,
-        )
+        is_satellite = source_chain is not None and chain_name != source_chain
+        if is_satellite:
+            # Satellite chains: Safe + guard only, no Lagoon protocol
+            configs[chain_name] = LagoonConfig(
+                parameters=deepcopy(base_params),
+                asset_manager=asset_manager,
+                safe_owners=list(safe_owners),
+                safe_threshold=safe_threshold,
+                safe_salt_nonce=safe_salt_nonce,
+                any_asset=True,
+                satellite_chain=True,
+            )
+        else:
+            # Source chain: full Lagoon protocol from scratch
+            configs[chain_name] = LagoonConfig(
+                parameters=deepcopy(base_params),
+                asset_manager=asset_manager,
+                safe_owners=list(safe_owners),
+                safe_threshold=safe_threshold,
+                safe_salt_nonce=safe_salt_nonce,
+                any_asset=True,
+                from_the_scratch=True,
+                use_forge=True,
+                deploy_retries=3,
+            )
 
     # Configure CCTP between all testnet chains
     cctp_chain_ids = []
@@ -599,7 +626,7 @@ def bridge_to_destinations(
     # Build destination list for parallel bridging
     destinations = []
     for dest_chain_name in dest_chain_names:
-        dest_safe = result.deployments[dest_chain_name].vault.safe_address
+        dest_safe = result.deployments[dest_chain_name].safe_address
         destinations.append(
             CCTPBridgeDestination(
                 dest_web3=chain_web3[dest_chain_name],
@@ -726,6 +753,7 @@ def main():
                 safe_owners=safe_owners,
                 safe_threshold=safe_threshold,
                 safe_salt_nonce=salt_nonce,
+                source_chain=source_chain,
             )
         else:
             chain_configs = create_multichain_whitelisting_configuration(
@@ -734,6 +762,7 @@ def main():
                 safe_owners=safe_owners,
                 safe_threshold=safe_threshold,
                 safe_salt_nonce=salt_nonce,
+                source_chain=source_chain,
             )
 
         for chain_name, config in chain_configs.items():
@@ -758,9 +787,12 @@ def main():
         print(f"  Salt nonce: {result.safe_salt_nonce}")
         print()
         for chain_name, deployment in sorted(result.deployments.items()):
-            print(f"  {chain_name}:")
-            print(f"    Vault:  {deployment.vault.address}")
-            print(f"    Safe:   {deployment.vault.safe_address}")
+            print(f"  {chain_name}{'  (satellite)' if deployment.is_satellite else ''}:")
+            if deployment.is_satellite:
+                print(f"    Vault:  N/A (satellite chain)")
+            else:
+                print(f"    Vault:  {deployment.vault.address}")
+            print(f"    Safe:   {deployment.safe_address}")
             print(f"    Module: {deployment.trading_strategy_module.address if deployment.trading_strategy_module else 'N/A'}")
 
         # --- Step 7: Fund source vault for bridging ---
@@ -849,16 +881,18 @@ def main():
         print("=" * 70)
         for chain_name, deployment in sorted(result.deployments.items()):
             web3 = chain_web3[chain_name]
-            vault = deployment.vault
             chain_id = web3.eth.chain_id
             usdc_address = USDC_NATIVE_TOKEN[chain_id]
             usdc = fetch_erc20_details(web3, usdc_address)
-            safe_balance = usdc.fetch_balance_of(vault.safe_address)
-            share_price = vault.fetch_share_price("latest")
-            print(f"  {chain_name}:")
-            print(f"    Vault:       {vault.address}")
-            print(f"    Safe:        {vault.safe_address}")
-            print(f"    Share price: {share_price}")
+            safe_balance = usdc.fetch_balance_of(deployment.safe_address)
+            print(f"  {chain_name}{'  (satellite)' if deployment.is_satellite else ''}:")
+            if deployment.is_satellite:
+                print(f"    Vault:       N/A (satellite chain)")
+            else:
+                print(f"    Vault:       {deployment.vault.address}")
+                share_price = deployment.vault.fetch_share_price("latest")
+                print(f"    Share price: {share_price}")
+            print(f"    Safe:        {deployment.safe_address}")
             print(f"    Safe USDC:   {safe_balance} USDC")
 
         print("\nDone!")

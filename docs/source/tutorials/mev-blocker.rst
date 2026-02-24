@@ -86,6 +86,8 @@ For L2 like Base you can do:
         https://mainnet.base.org
         """
 
+For known L2 sequencer endpoints see :py:data:`eth_defi.chain.SEQUENCERS`.
+
 If you want to keep using a single RPC endpoint, you do not need to do any changes:
 
 .. code-block:: python

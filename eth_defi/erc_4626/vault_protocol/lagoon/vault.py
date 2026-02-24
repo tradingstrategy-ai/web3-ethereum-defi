@@ -107,7 +107,235 @@ class LagoonVersion(enum.Enum):
     v_0_4_0 = "v0.4.0"
 
 
-class LagoonVault(ERC7540Vault):
+class AutomatedSafe:
+    """Mixin for Safe multisig wallets with TradingStrategyModuleV0 guard.
+
+    Provides transaction wrapping through the guard module,
+    used by both full Lagoon vaults (:class:`LagoonVault`) and
+    satellite Safe-only deployments (:class:`LagoonSatelliteVault`).
+
+    - Encapsulates Safe + TradingStrategyModuleV0 interaction
+    - Independent of vault contracts (no ERC-4626 dependency)
+    """
+
+    def __init__(
+        self,
+        web3: Web3,
+        safe_address: HexAddress | None = None,
+        trading_strategy_module_address: HexAddress | None = None,
+    ):
+        """
+        :param web3:
+            Web3 connection to the chain where the Safe is deployed.
+
+        :param safe_address:
+            Address of the Gnosis Safe multisig.
+            Can be None for :class:`LagoonVault` where it is lazily
+            resolved from the vault contract.
+
+        :param trading_strategy_module_address:
+            Address of the TradingStrategyModuleV0 guard module enabled on the Safe.
+        """
+        self._automated_safe_web3 = web3
+        self._automated_safe_address = safe_address
+        self._trading_strategy_module_address = trading_strategy_module_address
+
+    @property
+    def safe_address(self) -> HexAddress:
+        """Get Safe multisig contract address."""
+        assert self._automated_safe_address is not None, "Safe address not set"
+        return self._automated_safe_address
+
+    @property
+    def trading_strategy_module_address(self) -> HexAddress | None:
+        """Get TradingStrategyModuleV0 contract address."""
+        return self._trading_strategy_module_address
+
+    @trading_strategy_module_address.setter
+    def trading_strategy_module_address(self, value: HexAddress | None):
+        self._trading_strategy_module_address = value
+
+    def fetch_safe(self, address: HexAddress | str) -> Safe:
+        """Create a Safe object from an address.
+
+        Use :py:attr:`safe` property for cached access.
+        """
+        client = create_safe_ethereum_client(self._automated_safe_web3)
+        return Safe(
+            address,
+            client,
+        )
+
+    @cached_property
+    def safe(self) -> Safe:
+        """Get the underlying Safe object used as an API from safe-eth-py library.
+
+        - Wraps Safe contract using Gnosis's in-house library
+        """
+        return self.fetch_safe(self.safe_address)
+
+    @cached_property
+    def safe_contract(self) -> Contract:
+        """Safe multisig as a contract.
+
+        - Interact with Safe multisig ABI
+        """
+        return self.safe.contract
+
+    @cached_property
+    def trading_strategy_module(self) -> Contract:
+        """Get the TradingStrategyModuleV0 contract instance."""
+        assert self._trading_strategy_module_address, "TradingStrategyModuleV0 address must be separately given in the configuration"
+        return get_deployed_contract(
+            self._automated_safe_web3,
+            "safe-integration/TradingStrategyModuleV0.json",
+            self._trading_strategy_module_address,
+        )
+
+    def fetch_trading_strategy_module_version(self) -> str | None:
+        """Perform deployed smart contract probing.
+
+        :return:
+            v0.1.0 or v0.1.1.
+
+            None if not TS module associated.
+        """
+
+        if not self._trading_strategy_module_address:
+            return None
+
+        probe_call = EncodedCall.from_keccak_signature(
+            function="getTradingStrategyModuleVersion",
+            address=Web3.to_checksum_address(self._trading_strategy_module_address),
+            signature=Web3.keccak(text="getTradingStrategyModuleVersion()")[0:4],
+            data=b"",
+            extra_data={},
+        )
+
+        try:
+            version_bytes = probe_call.call(self._automated_safe_web3, block_identifier="latest")
+            return version_bytes.decode("utf-8")
+        except (ValueError, ContractLogicError) as e:
+            # getTradingStrategyModuleVersion() was not yet created
+            return "v0.1.0"
+
+    @cached_property
+    def trading_strategy_module_version(self) -> str:
+        """Get TradingStrategyModuleV0 contract ABI version.
+
+        - Subject to change, development in progress
+        """
+        version = self.fetch_trading_strategy_module_version()
+        return version
+
+    def transact_via_exec_module(
+        self,
+        func_call: ContractFunction,
+        value: int = 0,
+        operation=0,
+    ) -> ContractFunction:
+        """Create a multisig transaction using a module.
+
+        - Calls ``execTransactionFromModule`` on Gnosis Safe contract
+
+        - Executes a transaction as a multisig
+
+        - Mostly used for testing w/whitelist ignore
+
+        .. warning ::
+
+            A special gas fix is needed, because ``eth_estimateGas`` seems to fail for these Gnosis Safe transactions.
+
+        :param func_call:
+            Bound smart contract function call
+
+        :param value:
+            ETH attached to the transaction
+
+        :param operation:
+            Gnosis enum.
+
+            Call = 0, DelegateCall = 1.
+        """
+        contract_address = func_call.address
+        data_payload = encode_function_call(func_call, func_call.arguments)
+        contract = self.safe_contract
+        bound_func = contract.functions.execTransactionFromModule(
+            contract_address,
+            value,
+            data_payload,
+            operation,
+        )
+        return bound_func
+
+    def transact_via_trading_strategy_module(
+        self,
+        func_call: ContractFunction,
+        value: int = 0,
+        abi_version: str = None,
+    ) -> ContractFunction:
+        """Create a Safe multisig transaction using TradingStrategyModuleV0.
+
+        :param func_call:
+            Bound smart contract function call
+
+        :param value:
+            ETH value attached to the call.
+
+        :param abi_version:
+            Use specific TradingStrategyModuleV0 ABI version.
+
+        :return:
+            Bound Solidity function call you need to turn to a transaction
+        """
+        assert self._trading_strategy_module_address is not None, f"TradingStrategyModuleV0 address not set for {self.safe_address}"
+        contract_address = func_call.address
+        data_payload = encode_function_call(func_call, func_call.arguments)
+
+        module_version = abi_version or self.trading_strategy_module_version
+
+        logger.info(
+            "Lagoon: Wrapping call to TradingStrategyModuleV0 %s. Target: %s, function: %s (0x%s), args: %s, payload is %d bytes",
+            module_version,
+            contract_address,
+            func_call.fn_name,
+            get_function_selector(func_call).hex(),
+            present_solidity_args(func_call.arguments),
+            len(data_payload),
+        )
+
+        if module_version == "v0.1.0":
+            bound_func = self.trading_strategy_module.functions.performCall(
+                contract_address,
+                data_payload,
+            )
+        else:
+            # Value parameter was added for Orderly
+            bound_func = self.trading_strategy_module.functions.performCall(
+                contract_address,
+                data_payload,
+                value,
+            )
+        return bound_func
+
+
+class LagoonSatelliteVault(AutomatedSafe):
+    """A satellite chain deployment: Safe + TradingStrategyModuleV0, no vault contract.
+
+    Used on chains that only receive bridged assets and execute trades,
+    without deposit/redemption infrastructure (no ERC-4626 vault).
+    """
+
+    def __init__(
+        self,
+        web3: Web3,
+        safe_address: HexAddress,
+        trading_strategy_module_address: HexAddress,
+    ):
+        super().__init__(web3, safe_address, trading_strategy_module_address)
+
+
+class LagoonVault(ERC7540Vault, AutomatedSafe):
     """Python interface for interacting with Lagoon Finance vaults.
 
     For information see :py:class:`~eth_defi.vault.base.VaultBase` base class documentation.
@@ -160,8 +388,8 @@ class LagoonVault(ERC7540Vault):
 
             See :py:class:`ERC4626Vault` for details.
         """
-        super().__init__(web3, spec, features=features or {ERC4626Feature.lagoon_like, ERC4626Feature.erc_7540_like}, token_cache=token_cache, default_block_identifier=default_block_identifier, **kwargs)
-        self.trading_strategy_module_address = trading_strategy_module_address
+        ERC7540Vault.__init__(self, web3, spec, features=features or {ERC4626Feature.lagoon_like, ERC4626Feature.erc_7540_like}, token_cache=token_cache, default_block_identifier=default_block_identifier, **kwargs)
+        AutomatedSafe.__init__(self, web3, safe_address=None, trading_strategy_module_address=trading_strategy_module_address)
 
         if vault_abi is None:
             version = self.version
@@ -219,33 +447,6 @@ class LagoonVault(ERC7540Vault):
             version = LagoonVersion.v_0_5_0
 
         return version
-
-    def fetch_trading_strategy_module_version(self) -> str | None:
-        """ "Perform deployed smart contract probing.
-
-        :return:
-            v0.1.0 or v0.1.1.
-
-            None if not TS module associated.
-        """
-
-        if not self.trading_strategy_module_address:
-            return None
-
-        probe_call = EncodedCall.from_keccak_signature(
-            function="getTradingStrategyModuleVersion",
-            address=Web3.to_checksum_address(self.trading_strategy_module_address),
-            signature=Web3.keccak(text="getTradingStrategyModuleVersion()")[0:4],
-            data=b"",
-            extra_data={},
-        )
-
-        try:
-            version_bytes = probe_call.call(self.web3, block_identifier="latest")
-            return version_bytes.decode("utf-8")
-        except (ValueError, ContractLogicError) as e:
-            # getTradingStrategyModuleVersion() was not yet created
-            return "v0.1.0"
 
     def check_version_compatibility(self):
         """Throw if there is mismatch between ABI and contract exposed EVM calls"""
@@ -319,15 +520,6 @@ class LagoonVault(ERC7540Vault):
         return self.description
 
     @cached_property
-    def trading_strategy_module_version(self) -> str:
-        """Get TradingStrategyModuleV0 contract ABI version.
-
-        - Subject to change, development in progress
-        """
-        version = self.fetch_trading_strategy_module_version()
-        return version
-
-    @cached_property
     def vault_contract(self) -> Contract:
         """Get vault deployment."""
         return get_deployed_contract(
@@ -344,23 +536,6 @@ class LagoonVault(ERC7540Vault):
 
     def get_flow_manager(self) -> "LagoonFlowManager":
         return LagoonFlowManager(self)
-
-    def fetch_safe(self, address) -> Safe:
-        """Use :py:meth:`safe` property for cached access"""
-        client = create_safe_ethereum_client(self.web3)
-        return Safe(
-            address,
-            client,
-        )
-
-    @cached_property
-    def trading_strategy_module(self) -> Contract:
-        assert self.trading_strategy_module_address, "TradingStrategyModuleV0 address must be separately given in the configuration"
-        return get_deployed_contract(
-            self.web3,
-            "safe-integration/TradingStrategyModuleV0.json",
-            self.trading_strategy_module_address,
-        )
 
     def fetch_vault_info(self) -> dict:
         """Get all information we can extract from the vault smart contracts."""
@@ -467,116 +642,6 @@ class LagoonVault(ERC7540Vault):
         - This contract does not have any functionality, but stores deposits (pending USDC) and redemptions (pending share token)
         """
         return get_deployed_contract(self.web3, "lagoon/Silo.json", self.silo_address)
-
-    def transact_via_exec_module(
-        self,
-        func_call: ContractFunction,
-        value: int = 0,
-        operation=0,
-    ) -> ContractFunction:
-        """Create a multisig transaction using a module.
-
-        - Calls `execTransactionFromModule` on Gnosis Safe contract
-
-        - Executes a transaction as a multisig
-
-        - Mostly used for testing w/whitelist ignore
-
-        .. warning ::
-
-            A special gas fix is needed, because `eth_estimateGas` seems to fail for these Gnosis Safe transactions.
-
-        Example:
-
-        .. code-block:: python
-
-            # Then settle the valuation as the vault owner (Safe multisig) in this case
-            settle_call = vault.settle()
-            moduled_tx = vault.transact_through_module(settle_call)
-            tx_data = moduled_tx.build_transaction(
-                {
-                    "from": asset_manager,
-                }
-            )
-            # Normal estimate_gas does not give enough gas for
-            # Safe execTransactionFromModule() transaction for some reason
-            gnosis_gas_fix = 1_000_000
-            tx_data["gas"] = web3.eth.estimate_gas(tx_data) + gnosis_gas_fix
-            tx_hash = web3.eth.send_transaction(tx_data)
-            assert_execute_module_success(web3, tx_hash)
-
-        :param func_call:
-            Bound smart contract function call
-
-        :param value:
-            ETH attached to the transaction
-
-        :param operation:
-            Gnosis enum.
-
-            Call = 0, DelegateCall = 1.
-        """
-        contract_address = func_call.address
-        data_payload = encode_function_call(func_call, func_call.arguments)
-        contract = self.safe_contract
-        bound_func = contract.functions.execTransactionFromModule(
-            contract_address,
-            value,
-            data_payload,
-            operation,
-        )
-        return bound_func
-
-    def transact_via_trading_strategy_module(
-        self,
-        func_call: ContractFunction,
-        value: int = 0,
-        abi_version: str = None,
-    ) -> ContractFunction:
-        """Create a Safe multisig transaction using TradingStrategyModuleV0.
-
-        :param module:
-            Deployed TradingStrategyModuleV0 contract that is enabled on Safe.
-
-        :param func_call:
-            Bound smart contract function call
-
-        :param abi_version:
-            Use specific TradingStrategyModuleV0 ABI version.
-
-        :return:
-            Bound Solidity functionc all you need to turn to a transaction
-
-        """
-        assert self.trading_strategy_module_address is not None, f"TradingStrategyModuleV0 address not set for vault {self.vault_address}"
-        contract_address = func_call.address
-        data_payload = encode_function_call(func_call, func_call.arguments)
-
-        module_version = abi_version or self.trading_strategy_module_version
-
-        logger.info(
-            "Lagoon: Wrapping call to TradingStrategyModuleV0 %s. Target: %s, function: %s (0x%s), args: %s, payload is %d bytes",
-            module_version,
-            contract_address,
-            func_call.fn_name,
-            get_function_selector(func_call).hex(),
-            present_solidity_args(func_call.arguments),
-            len(data_payload),
-        )
-
-        if module_version == "v0.1.0":
-            bound_func = self.trading_strategy_module.functions.performCall(
-                contract_address,
-                data_payload,
-            )
-        else:
-            # Value parameter was added for Orderly
-            bound_func = self.trading_strategy_module.functions.performCall(
-                contract_address,
-                data_payload,
-                value,
-            )
-        return bound_func
 
     def post_new_valuation(
         self,

@@ -11,6 +11,7 @@ Lagoon automatised vault consists of
 Any Safe must be deployed as 1-of-1 deployer address multisig and multisig holders changed after the deployment.
 """
 
+import copy
 import logging
 import os
 import time
@@ -39,7 +40,7 @@ from eth_defi.cow.constants import COWSWAP_SETTLEMENT, COWSWAP_VAULT_RELAYER
 from eth_defi.deploy import build_guard_forge_libraries, deploy_contract
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.lagoon.beacon_proxy import deploy_beacon_proxy
-from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
+from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonSatelliteVault, LagoonVault
 from eth_defi.foundry.forge import deploy_contract_with_forge
 from eth_defi.gas import apply_gas, estimate_gas_price
 from eth_defi.gmx.whitelist import GMXDeployment
@@ -305,6 +306,11 @@ class LagoonConfig:
     #: Only allowed on testnets.  Default: 1 (no retries).
     deploy_retries: int = 1
 
+    #: When True, deploy only Safe + TradingStrategyModuleV0 guard (no vault).
+    #: Used for satellite chains in multichain deployments where only the
+    #: source chain needs a vault contract.
+    satellite_chain: bool = False
+
 
 @dataclass(slots=True, frozen=True)
 class LagoonAutomatedDeployment:
@@ -314,7 +320,10 @@ class LagoonAutomatedDeployment:
     """
 
     chain_id: int
-    vault: LagoonVault
+
+    #: The deployed Lagoon vault, or :class:`LagoonSatelliteVault` for satellite chains.
+    vault: LagoonVault | LagoonSatelliteVault
+
     trading_strategy_module: Contract
     asset_manager: HexAddress
     multisig_owners: list[HexAddress]
@@ -324,6 +333,10 @@ class LagoonAutomatedDeployment:
 
     #: Vault ABI file we use
     vault_abi: str
+
+    #: The Safe multisig address, stored explicitly so it is available
+    #: even on satellite chains where there is no vault contract.
+    safe_address: HexAddress = None
 
     #: In redeploy guard, the old module
     old_trading_strategy_module: Contract | None = None
@@ -344,6 +357,11 @@ class LagoonAutomatedDeployment:
     def safe(self) -> Safe:
         return self.vault.safe
 
+    @property
+    def is_satellite(self) -> bool:
+        """Whether this deployment is a satellite chain (Safe + guard only, no vault)."""
+        return isinstance(self.vault, LagoonSatelliteVault)
+
     def is_asset_manager(self, address: HexAddress) -> bool:
         return self.trading_strategy_module.functions.isAllowedSender(address).call()
 
@@ -352,27 +370,30 @@ class LagoonAutomatedDeployment:
 
         Store all addresses etc.
         """
-        vault = self.vault
-        safe = vault.safe
         fields = {
             "Deployer": self.deployer,
-            "Safe": safe.address,
-            "Vault": vault.address,
+            "Safe": self.safe_address,
             "Beacon proxy factory": self.beacon_proxy_factory,
             "Trading strategy module": self.trading_strategy_module.address,
             "Asset manager": self.asset_manager,
-            "Underlying token": self.vault.underlying_token.address,
-            "Underlying symbol": self.vault.underlying_token.symbol,
-            "Share token": self.vault.share_token.address,
-            "Share token symbol": self.vault.share_token.symbol,
             "Multisig owners": ", ".join(self.multisig_owners),
             "Block number": f"{self.block_number:,}",
             "Performance fee": f"{self.parameters.performanceRate / 100:,} %",
             "Management fee": f"{self.parameters.managementRate / 100:,} %",
             "ABI": self.vault_abi,
-            "Gas used": float(self.gas_used),
+            "Gas used": float(self.gas_used) if self.gas_used else 0.0,
             "Safe salt nonce": self.safe_salt_nonce,
         }
+
+        if not self.is_satellite:
+            vault = self.vault
+            fields["Vault"] = vault.address
+            fields["Underlying token"] = vault.underlying_token.address
+            fields["Underlying symbol"] = vault.underlying_token.symbol
+            fields["Share token"] = vault.share_token.address
+            fields["Share token symbol"] = vault.share_token.symbol
+        else:
+            fields["Vault"] = "N/A (satellite chain)"
 
         return fields
 
@@ -965,7 +986,7 @@ def setup_guard(
     deployer: HotWallet,
     owner: HexAddress,
     asset_manager: HexAddress,
-    vault: Contract,
+    vault: Contract | None,
     module: Contract,
     broadcast_func: Callable[[ContractFunction], HexBytes],
     any_asset: bool = False,
@@ -982,6 +1003,7 @@ def setup_guard(
     hack_sleep=20.0,
     assets: list[HexAddress | str] | None = None,
     multicall_chunk_size=40,
+    underlying_token_address: HexAddress | None = None,
 ):
     """Setups up TradingStrategyModuleV0 guard on the Lagoon vault.
 
@@ -989,12 +1011,19 @@ def setup_guard(
       and enables it on the Safe multisig as a module.
 
     - Runs through various whitelisting rules as transactions against this contract
+
+    :param vault:
+        The deployed Lagoon vault contract. ``None`` on satellite chains.
+
+    :param underlying_token_address:
+        Underlying token address for Hypercore whitelisting when vault is None.
     """
 
     assert isinstance(deployer, HotWallet), f"Got: {deployer}"
     assert isinstance(owner, str), f"Got: {owner}"
     assert isinstance(module, Contract)
-    assert isinstance(vault, Contract)
+    if vault is not None:
+        assert isinstance(vault, Contract)
     assert callable(broadcast_func), "Must have a broadcast function for txs"
 
     _broadcast = broadcast_func
@@ -1227,7 +1256,12 @@ def setup_guard(
 
         # The deposit multicall calls approve(USDC) as its first step,
         # so the underlying token must be whitelisted for transfer/approve.
-        underlying_address = Web3.to_checksum_address(vault.functions.asset().call())
+        if vault is not None:
+            underlying_address = Web3.to_checksum_address(vault.functions.asset().call())
+        elif underlying_token_address is not None:
+            underlying_address = Web3.to_checksum_address(underlying_token_address)
+        else:
+            raise ValueError("hypercore_vaults requires either vault or underlying_token_address")
 
         multicalls = [
             module.functions.whitelistToken(
@@ -1267,9 +1301,12 @@ def setup_guard(
         logger.info("Using only whitelisted assets")
 
     # Whitelist vault settle
-    logger.info("Whitelist vault settlement")
-    tx_hash = _broadcast(module.functions.whitelistLagoon(vault.address, "Whitelist vault settlement"))
-    assert_transaction_success_with_explanation(web3, tx_hash)
+    if vault is not None:
+        logger.info("Whitelist vault settlement")
+        tx_hash = _broadcast(module.functions.whitelistLagoon(vault.address, "Whitelist vault settlement"))
+        assert_transaction_success_with_explanation(web3, tx_hash)
+    else:
+        logger.info("Skipping vault settlement whitelisting (satellite chain, no vault)")
 
 
 def deploy_automated_lagoon_vault(
@@ -1386,6 +1423,7 @@ def deploy_automated_lagoon_vault(
         safe_proxy_factory_address = config.safe_proxy_factory_address
         forge_cache_dir = config.forge_cache_dir
         deploy_retries = config.deploy_retries
+        satellite_chain = config.satellite_chain
     else:
         # Legacy kwargs: validate required arguments
         assert asset_manager is not None, "asset_manager required when config not provided"
@@ -1394,6 +1432,7 @@ def deploy_automated_lagoon_vault(
         assert safe_threshold is not None, "safe_threshold required when config not provided"
         forge_cache_dir = None
         deploy_retries = 1
+        satellite_chain = False
 
     legacy = vault_abi == "lagoon/Vault.json"
 
@@ -1408,6 +1447,10 @@ def deploy_automated_lagoon_vault(
 
     if guard_only:
         assert existing_vault_address, "You must pass existing vault address if guard_only=True"
+
+    if satellite_chain:
+        assert not guard_only, "satellite_chain and guard_only are mutually exclusive"
+        assert not existing_vault_address, "satellite_chain does not use existing_vault_address"
 
     chain_id = web3.eth.chain_id
 
@@ -1432,6 +1475,7 @@ def deploy_automated_lagoon_vault(
 
     existing_guard_module = None
     beacon_proxy_factory_address = None
+    vault_contract = None
 
     def _broadcast(bound_func: ContractFunction):
         """Hack together a nonce management helper.
@@ -1523,7 +1567,7 @@ def deploy_automated_lagoon_vault(
         time.sleep(between_contracts_delay_seconds)
 
     beacon_proxy_factory_abi = "lagoon/BeaconProxyFactory.json"  # Default ABI (legacy)
-    if not existing_vault_address:
+    if not existing_vault_address and not satellite_chain:
         with big_blocks_for_deployment(web3, _private_key_hex) if _need_big_blocks_for_proxy else nullcontext():
             if from_the_scratch:
                 # Deploy the full Lagoon protocol with fee registry and beacon proxy factory,
@@ -1617,6 +1661,7 @@ def deploy_automated_lagoon_vault(
         any_asset=any_asset,
         broadcast_func=_broadcast,
         assets=assets,
+        underlying_token_address=parameters.underlying if satellite_chain else None,
     )
 
     # After everything is deployed, fix ownership
@@ -1631,7 +1676,7 @@ def deploy_automated_lagoon_vault(
 
     gas_estimate = estimate_gas_price(web3)
 
-    if not guard_only:
+    if not guard_only and not satellite_chain:
         # 2. USDC.approve() for redemptions on Safe
         underlying = fetch_erc20_details(web3, parameters.underlying, chain_id=chain_id)
         tx_data = underlying.contract.functions.approve(vault_contract.address, 2**256 - 1).build_transaction(
@@ -1668,20 +1713,36 @@ def deploy_automated_lagoon_vault(
             owners=safe_owners,
             threshold=safe_threshold,
         )
+    elif satellite_chain:
+        # Satellite chains still need Safe owners set up
+        add_new_safe_owners(
+            web3,
+            safe,
+            deployer_local_account,
+            owners=safe_owners,
+            threshold=safe_threshold,
+        )
 
-    vault = LagoonVault(
-        web3,
-        VaultSpec(chain_id, vault_contract.address),
-        trading_strategy_module_address=module.address,
-        vault_abi=vault_abi,
-        default_block_identifier="latest",
-    )
+    if satellite_chain:
+        vault_or_satellite = LagoonSatelliteVault(
+            web3,
+            safe_address=safe.address,
+            trading_strategy_module_address=module.address,
+        )
+    else:
+        vault_or_satellite = LagoonVault(
+            web3,
+            VaultSpec(chain_id, vault_contract.address),
+            trading_strategy_module_address=module.address,
+            vault_abi=vault_abi,
+            default_block_identifier="latest",
+        )
 
     end_balance = web3.eth.get_balance(deployer.address)
 
     return LagoonAutomatedDeployment(
         chain_id=chain_id,
-        vault=vault,
+        vault=vault_or_satellite,
         trading_strategy_module=module,
         asset_manager=asset_manager,
         multisig_owners=safe_owners,
@@ -1690,6 +1751,7 @@ def deploy_automated_lagoon_vault(
         parameters=parameters,
         old_trading_strategy_module=existing_guard_module,
         vault_abi=vault_abi,
+        safe_address=safe.address,
         beacon_proxy_factory=beacon_proxy_factory_address,
         gas_used=Decimal((start_balance - end_balance) / 10**18),
         safe_salt_nonce=safe_salt_nonce,
@@ -1841,8 +1903,12 @@ def deploy_multichain_lagoon_vault(
         wallet = HotWallet(deployer)
         wallet.sync_nonce(web3)
 
-        # Deep-copy config so thread-local mutations don't leak
-        per_chain_config = deepcopy(chain_configs[chain_name])
+        # Shallow-copy the config so thread-local mutations don't leak.
+        # Web3-bound objects (uniswap_v3, aave_v3, etc.) contain thread locks
+        # and cannot be deep-copied. Only ``parameters`` needs a deep copy
+        # because we mutate ``underlying`` below.
+        per_chain_config = copy.copy(chain_configs[chain_name])
+        per_chain_config.parameters = deepcopy(chain_configs[chain_name].parameters)
 
         # Auto-resolve underlying token (USDC) per chain if not already set
         if per_chain_config.parameters.underlying is None or per_chain_config.parameters.underlying == "":
@@ -1860,7 +1926,10 @@ def deploy_multichain_lagoon_vault(
             config=per_chain_config,
         )
 
-        logger.info("Lagoon vault deployed on %s: vault=%s, safe=%s", chain_name, deployment.vault.address, deployment.safe.address)
+        if deployment.is_satellite:
+            logger.info("Satellite Safe deployed on %s: safe=%s (no vault)", chain_name, deployment.safe_address)
+        else:
+            logger.info("Lagoon vault deployed on %s: vault=%s, safe=%s", chain_name, deployment.vault.address, deployment.safe_address)
         return chain_name, deployment
 
     # Deploy all chains in parallel
@@ -1873,7 +1942,7 @@ def deploy_multichain_lagoon_vault(
             deployments[chain_name] = deployment
 
     # Verify all Safe addresses are identical (deterministic deployment)
-    safe_addresses = {name: d.safe.address for name, d in deployments.items()}
+    safe_addresses = {name: d.safe_address for name, d in deployments.items()}
     unique_safe_addresses = set(safe_addresses.values())
     assert len(unique_safe_addresses) == 1, f"Safe addresses differ across chains — deterministic deployment failed: {safe_addresses}"
 
