@@ -223,6 +223,52 @@ def get_url_domain(url: str) -> str:
         return f"{parsed.hostname}:{parsed.port}"
 
 
+class ThreadColourFormatter(logging.Formatter):
+    """Log formatter that assigns a unique ANSI colour to each thread name.
+
+    Useful for visually distinguishing interleaved log output from
+    parallel threads (e.g. per-chain deployment threads).
+
+    Colours are drawn from a palette of bold ANSI 256-colour codes
+    and assigned on first encounter, cycling if more threads appear
+    than palette entries.
+    """
+
+    # Bold + distinct hues from the ANSI 256-colour table
+    _PALETTE = [
+        "\033[1;36m",   # bold cyan
+        "\033[1;33m",   # bold yellow
+        "\033[1;35m",   # bold magenta
+        "\033[1;32m",   # bold green
+        "\033[1;34m",   # bold blue
+        "\033[1;91m",   # bold bright red
+        "\033[1;96m",   # bold bright cyan
+        "\033[1;93m",   # bold bright yellow
+        "\033[1;95m",   # bold bright magenta
+        "\033[1;94m",   # bold bright blue
+    ]
+    _RESET = "\033[0m"
+
+    def __init__(self, fmt=None, datefmt=None):
+        super().__init__(fmt, datefmt)
+        self._thread_colours: dict[str, str] = {}
+        self._next_idx = 0
+
+    def _colour_for(self, thread_name: str) -> str:
+        if thread_name not in self._thread_colours:
+            self._thread_colours[thread_name] = self._PALETTE[self._next_idx % len(self._PALETTE)]
+            self._next_idx += 1
+        return self._thread_colours[thread_name]
+
+    def format(self, record: logging.LogRecord) -> str:
+        original_name = record.threadName
+        colour = self._colour_for(original_name)
+        record.threadName = f"{colour}{original_name}{self._RESET}"
+        result = super().format(record)
+        record.threadName = original_name
+        return result
+
+
 def setup_console_logging(
     default_log_level="warning",
     simplified_logging=False,
@@ -230,6 +276,7 @@ def setup_console_logging(
     std_out_log_level: Optional[int] = None,
     only_log_file=False,
     clear_log_file=True,
+    coloured_threads=False,
 ) -> logging.Logger:
     """Set up coloured log output.
 
@@ -238,6 +285,11 @@ def setup_console_logging(
 
     :param log_file:
         Output both console and this log file.
+
+    :param coloured_threads:
+        When ``True``, each thread name in the log output gets a
+        unique ANSI colour so interleaved parallel logs are easy
+        to follow visually.
 
     :return:
         Root logger
@@ -254,19 +306,41 @@ def setup_console_logging(
         fmt = "%(message)s"
         date_fmt = "%H:%M:%S"
     else:
-        fmt = "%(asctime)s %(name)-44s %(message)s"
+        fmt = "%(asctime)s %(name)-44s [%(threadName)s] %(message)s"
         date_fmt = "%Y-%m-%d %H:%M:%S"
+
+    def _make_stream_formatter():
+        if coloured_threads and not simplified_logging:
+            return ThreadColourFormatter(fmt, date_fmt)
+        return logging.Formatter(fmt, date_fmt)
 
     try:
         # Optional dev dependency
         import coloredlogs
 
-        coloredlogs.install(level=std_out_log_level, fmt=fmt, date_fmt=date_fmt)
+        if coloured_threads and not simplified_logging:
+            # coloredlogs doesn't support per-field custom colours,
+            # so we bypass it and use our own formatter on a StreamHandler
+            root = logging.getLogger()
+            root.setLevel(std_out_log_level)
+            # Remove any existing handlers to avoid duplicates
+            root.handlers.clear()
+            handler = logging.StreamHandler()
+            handler.setLevel(std_out_log_level)
+            handler.setFormatter(_make_stream_formatter())
+            root.addHandler(handler)
+        else:
+            coloredlogs.install(level=std_out_log_level, fmt=fmt, date_fmt=date_fmt)
     except ImportError as e:
         # non-ANSI e.g. Docker
 
         assert numeric_level, f"No level: {level}"
         logging.basicConfig(level=std_out_log_level, format=fmt, datefmt=date_fmt)
+        if coloured_threads and not simplified_logging:
+            root = logging.getLogger()
+            for handler in root.handlers:
+                if isinstance(handler, logging.StreamHandler) and not isinstance(handler, logging.FileHandler):
+                    handler.setFormatter(_make_stream_formatter())
 
     if log_file:
         assert isinstance(log_file, Path), "log_file must be a string path"
@@ -281,6 +355,7 @@ def setup_console_logging(
         else:
             mode = "a"
 
+        # File handler always uses plain formatter (no ANSI codes)
         file_handler = logging.FileHandler(log_file, mode=mode, encoding="utf-8")
         file_handler.setLevel(min_level)
         file_handler.setFormatter(logging.Formatter(fmt, date_fmt))
@@ -293,7 +368,7 @@ def setup_console_logging(
         if not only_log_file:
             stream_handler = logging.StreamHandler()
             stream_handler.setLevel(numeric_level)
-            stream_handler.setFormatter(logging.Formatter(fmt, date_fmt))
+            stream_handler.setFormatter(_make_stream_formatter())
             root.addHandler(stream_handler)
 
     else:

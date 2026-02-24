@@ -1199,6 +1199,8 @@ def create_vault_instance(
     features: set[ERC4626Feature] | None = None,
     token_cache: dict | None = None,
     auto_detect: bool = False,
+    default_block_identifier: BlockIdentifier | None = None,
+    require_denomination_token: bool = False,
 ) -> VaultBase | None:
     """Create a new vault instance class based on the detected features.
 
@@ -1218,6 +1220,16 @@ def create_vault_instance(
         Very slow, do not use except in tutorials and scripts.
         Prefer to manually pass ``feature``.
 
+    :param default_block_identifier:
+        Override block identifier for on-chain metadata reads.
+
+        Set to ``"latest"`` for freshly deployed vaults whose contracts
+        do not exist at the safe-cached block number.
+
+    :param require_denomination_token:
+        If ``True``, accessing ``denomination_token`` will raise
+        :py:exc:`RuntimeError` when the on-chain lookup returns ``None``.
+
     :return:
         None if the vault creation is not supported
     """
@@ -1230,6 +1242,7 @@ def create_vault_instance(
         assert not features, "Do not pass features when auto-detecting vault type"
 
     spec = VaultSpec(web3.eth.chain_id, address.lower())
+    kwargs = dict(token_cache=token_cache, features=features, default_block_identifier=default_block_identifier, require_denomination_token=require_denomination_token)
 
     if ERC4626Feature.broken in features:
         return None
@@ -1237,12 +1250,12 @@ def create_vault_instance(
         # IPOR instance
         from eth_defi.erc_4626.vault_protocol.ipor.vault import IPORVault
 
-        return IPORVault(web3, spec, token_cache=token_cache, features=features)
+        return IPORVault(web3, spec, **kwargs)
     elif ERC4626Feature.lagoon_like in features:
         # Lagoon instance
         from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 
-        return LagoonVault(web3, spec, token_cache=token_cache, features=features)
+        return LagoonVault(web3, spec, **kwargs)
 
     # TODO: Some module deadlock sheningans for Morpho
     elif ERC4626Feature.morpho_like in features:
@@ -1250,347 +1263,347 @@ def create_vault_instance(
         from eth_defi.erc_4626.vault_protocol.morpho.vault_v1 import MorphoV1Vault
         from eth_defi.erc_4626.vault_protocol.morpho.vault_v2 import MorphoV2Vault
 
-        return MorphoV1Vault(web3, spec, token_cache=token_cache, features=features)
+        return MorphoV1Vault(web3, spec, **kwargs)
     elif ERC4626Feature.morpho_v2_like in features:
         # Morpho V2 instance (adapter-based architecture)
         from eth_defi.erc_4626.vault_protocol.morpho.vault_v1 import MorphoV1Vault
         from eth_defi.erc_4626.vault_protocol.morpho.vault_v2 import MorphoV2Vault
 
-        return MorphoV2Vault(web3, spec, token_cache=token_cache, features=features)
+        return MorphoV2Vault(web3, spec, **kwargs)
     elif ERC4626Feature.euler_earn_like in features:
         # EulerEarn metavault instance
         from eth_defi.erc_4626.vault_protocol.euler.vault import EulerEarnVault
 
-        return EulerEarnVault(web3, spec, token_cache=token_cache, features=features)
+        return EulerEarnVault(web3, spec, **kwargs)
     elif ERC4626Feature.euler_like in features:
         # Euler instance
         from eth_defi.erc_4626.vault_protocol.euler.vault import EulerVault
 
-        return EulerVault(web3, spec, token_cache=token_cache, features=features)
+        return EulerVault(web3, spec, **kwargs)
 
     elif ERC4626Feature.gains_like in features:
         # Gains instance
         from eth_defi.erc_4626.vault_protocol.gains.vault import GainsVault
 
-        return GainsVault(web3, spec, token_cache=token_cache, features=features)
+        return GainsVault(web3, spec, **kwargs)
     elif ERC4626Feature.ostium_like in features:
         # Ostium instance
         from eth_defi.erc_4626.vault_protocol.gains.vault import OstiumVault
 
-        return OstiumVault(web3, spec, token_cache=token_cache, features=features)
+        return OstiumVault(web3, spec, **kwargs)
     elif ERC4626Feature.umami_like in features:
         from eth_defi.erc_4626.vault_protocol.umami.vault import UmamiVault
 
-        return UmamiVault(web3, spec, token_cache=token_cache, features=features)
+        return UmamiVault(web3, spec, **kwargs)
     elif ERC4626Feature.plutus_like in features:
         from eth_defi.erc_4626.vault_protocol.plutus.vault import PlutusVault
 
-        return PlutusVault(web3, spec, token_cache=token_cache, features=features)
+        return PlutusVault(web3, spec, **kwargs)
 
     elif ERC4626Feature.harvest_finance in features:
         from eth_defi.erc_4626.vault_protocol.harvest.vault import HarvestVault
 
-        return HarvestVault(web3, spec, token_cache=token_cache, features=features)
+        return HarvestVault(web3, spec, **kwargs)
 
     elif ERC4626Feature.d2_like in features:
         from eth_defi.erc_4626.vault_protocol.d2.vault import D2Vault
 
-        return D2Vault(web3, spec, token_cache=token_cache, features=features)
+        return D2Vault(web3, spec, **kwargs)
     elif ERC4626Feature.untangled_like in features:
         from eth_defi.erc_4626.vault_protocol.untangle.vault import UntangleVault
 
-        return UntangleVault(web3, spec, token_cache=token_cache, features=features)
+        return UntangleVault(web3, spec, **kwargs)
     elif ERC4626Feature.cap_like in features:
         # Covered Agent Protocol (CAP) uses Yearn V3 infrastructure
         from eth_defi.erc_4626.vault_protocol.cap.vault import CAPVault
 
-        return CAPVault(web3, spec, token_cache=token_cache, features=features)
+        return CAPVault(web3, spec, **kwargs)
     elif ERC4626Feature.foxify_like in features:
         from eth_defi.erc_4626.vault_protocol.foxify.vault import FoxifyVault
 
-        return FoxifyVault(web3, spec, token_cache=token_cache, features=features)
+        return FoxifyVault(web3, spec, **kwargs)
     elif ERC4626Feature.liquidity_royalty_like in features:
         from eth_defi.erc_4626.vault_protocol.liquidity_royalty.vault import LiquidityRoyalyJuniorVault
 
-        return LiquidityRoyalyJuniorVault(web3, spec, token_cache=token_cache, features=features)
+        return LiquidityRoyalyJuniorVault(web3, spec, **kwargs)
     elif ERC4626Feature.csigma_like in features:
         from eth_defi.erc_4626.vault_protocol.csigma.vault import CsigmaVault
 
-        return CsigmaVault(web3, spec, token_cache=token_cache, features=features)
+        return CsigmaVault(web3, spec, **kwargs)
     elif ERC4626Feature.spark_like in features:
         from eth_defi.erc_4626.vault_protocol.spark.vault import SparkVault
 
-        return SparkVault(web3, spec, token_cache=token_cache, features=features)
+        return SparkVault(web3, spec, **kwargs)
     elif ERC4626Feature.yearn_morpho_compounder_like in features:
         # Yearn V3 vault with Morpho Compounder strategy
         from eth_defi.erc_4626.vault_protocol.yearn.morpho_compounder import YearnMorphoCompounderStrategy
 
-        return YearnMorphoCompounderStrategy(web3, spec, token_cache=token_cache, features=features)
+        return YearnMorphoCompounderStrategy(web3, spec, **kwargs)
     elif ERC4626Feature.yearn_v3_like in features or ERC4626Feature.yearn_tokenised_strategy in features:
         # Both of these have fees internatilised
         from eth_defi.erc_4626.vault_protocol.yearn.vault import YearnV3Vault
 
-        return YearnV3Vault(web3, spec, token_cache=token_cache, features=features)
+        return YearnV3Vault(web3, spec, **kwargs)
     elif ERC4626Feature.goat_like in features:
         # Both of these have fees internatilised
         from eth_defi.erc_4626.vault_protocol.goat.vault import GoatVault
 
-        return GoatVault(web3, spec, token_cache=token_cache, features=features)
+        return GoatVault(web3, spec, **kwargs)
     elif ERC4626Feature.usdai_like in features:
         # Both of these have fees internatilised
         from eth_defi.erc_4626.vault_protocol.usdai.vault import StakedUSDaiVault
 
-        return StakedUSDaiVault(web3, spec, token_cache=token_cache, features=features)
+        return StakedUSDaiVault(web3, spec, **kwargs)
     elif ERC4626Feature.autopool_like in features:
         # Both of these have fees internatilised
         from eth_defi.erc_4626.vault_protocol.autopool.vault import AutoPoolVault
 
-        return AutoPoolVault(web3, spec, token_cache=token_cache, features=features)
+        return AutoPoolVault(web3, spec, **kwargs)
     elif ERC4626Feature.nashpoint_like in features:
         # Both of these have fees internatilised
         from eth_defi.erc_4626.vault_protocol.nashpoint.vault import NashpointNodeVault
 
-        return NashpointNodeVault(web3, spec, token_cache=token_cache, features=features)
+        return NashpointNodeVault(web3, spec, **kwargs)
 
     elif ERC4626Feature.llamma_like in features:
         # Llama Lend - fees are internalised
         from eth_defi.erc_4626.vault_protocol.llama_lend.vault import LlamaLendVault
 
-        return LlamaLendVault(web3, spec, token_cache=token_cache, features=features)
+        return LlamaLendVault(web3, spec, **kwargs)
 
     elif ERC4626Feature.summer_like in features:
         # Both of these have fees internatilised
         from eth_defi.erc_4626.vault_protocol.summer.vault import SummerVault
 
-        return SummerVault(web3, spec, token_cache=token_cache, features=features)
+        return SummerVault(web3, spec, **kwargs)
 
     elif ERC4626Feature.silo_like in features:
         # Both of these have fees internatilised
         from eth_defi.erc_4626.vault_protocol.silo.vault import SiloVault
 
-        return SiloVault(web3, spec, token_cache=token_cache, features=features)
+        return SiloVault(web3, spec, **kwargs)
 
     elif ERC4626Feature.truefi_like in features:
         # Both of these have fees internatilised
         from eth_defi.erc_4626.vault_protocol.truefi.vault import TrueFiVault
 
-        return TrueFiVault(web3, spec, token_cache=token_cache, features=features)
+        return TrueFiVault(web3, spec, **kwargs)
 
     elif ERC4626Feature.superform_like in features:
         # Both of these have fees internatilised
         from eth_defi.erc_4626.vault_protocol.superform.vault import SuperformVault
 
-        return SuperformVault(web3, spec, token_cache=token_cache, features=features)
+        return SuperformVault(web3, spec, **kwargs)
 
     elif ERC4626Feature.teller_like in features:
         from eth_defi.erc_4626.vault_protocol.teller.vault import TellerVault
 
-        return TellerVault(web3, spec, token_cache=token_cache, features=features)
+        return TellerVault(web3, spec, **kwargs)
 
     elif ERC4626Feature.deltr_like in features:
         from eth_defi.erc_4626.vault_protocol.deltr.vault import DeltrVault
 
-        return DeltrVault(web3, spec, token_cache=token_cache, features=features)
+        return DeltrVault(web3, spec, **kwargs)
 
     elif ERC4626Feature.upshift_like in features:
         from eth_defi.erc_4626.vault_protocol.upshift.vault import UpshiftVault
 
-        return UpshiftVault(web3, spec, token_cache=token_cache, features=features)
+        return UpshiftVault(web3, spec, **kwargs)
     elif ERC4626Feature.sky_like in features:
         from eth_defi.erc_4626.vault_protocol.sky.vault import SkyVault
 
-        return SkyVault(web3, spec, token_cache=token_cache, features=features)
+        return SkyVault(web3, spec, **kwargs)
 
     elif ERC4626Feature.maple_like in features:
         from eth_defi.erc_4626.vault_protocol.maple.vault import SyrupVault
 
-        return SyrupVault(web3, spec, token_cache=token_cache, features=features)
+        return SyrupVault(web3, spec, **kwargs)
 
     elif ERC4626Feature.maple_aqru_like in features:
         from eth_defi.erc_4626.vault_protocol.maple.aqru_vault import AQRUPoolVault
 
-        return AQRUPoolVault(web3, spec, token_cache=token_cache, features=features)
+        return AQRUPoolVault(web3, spec, **kwargs)
 
     elif ERC4626Feature.centrifuge_like in features:
         from eth_defi.erc_4626.vault_protocol.centrifuge.vault import CentrifugeVault
 
-        return CentrifugeVault(web3, spec, token_cache=token_cache, features=features)
+        return CentrifugeVault(web3, spec, **kwargs)
 
     elif ERC4626Feature.ethena_like in features:
         from eth_defi.erc_4626.vault_protocol.ethena.vault import EthenaVault
 
-        return EthenaVault(web3, spec, token_cache=token_cache, features=features)
+        return EthenaVault(web3, spec, **kwargs)
 
     elif ERC4626Feature.usdd_like in features:
         from eth_defi.erc_4626.vault_protocol.usdd.vault import USSDVault
 
-        return USSDVault(web3, spec, token_cache=token_cache, features=features)
+        return USSDVault(web3, spec, **kwargs)
 
     elif ERC4626Feature.term_finance_like in features:
         from eth_defi.erc_4626.vault_protocol.term_finance.vault import TermFinanceVault
 
-        return TermFinanceVault(web3, spec, token_cache=token_cache, features=features)
+        return TermFinanceVault(web3, spec, **kwargs)
 
     elif ERC4626Feature.zerolend_like in features:
         from eth_defi.erc_4626.vault_protocol.zerolend.vault import ZeroLendVault
 
-        return ZeroLendVault(web3, spec, token_cache=token_cache, features=features)
+        return ZeroLendVault(web3, spec, **kwargs)
 
     elif ERC4626Feature.royco_like in features:
         from eth_defi.erc_4626.vault_protocol.royco.vault import RoycoVault
 
-        return RoycoVault(web3, spec, token_cache=token_cache, features=features)
+        return RoycoVault(web3, spec, **kwargs)
 
     elif ERC4626Feature.eth_strategy_like in features:
         from eth_defi.erc_4626.vault_protocol.eth_strategy.vault import EthStrategyVault
 
-        return EthStrategyVault(web3, spec, token_cache=token_cache, features=features)
+        return EthStrategyVault(web3, spec, **kwargs)
 
     elif ERC4626Feature.yuzu_money_like in features:
         from eth_defi.erc_4626.vault_protocol.yuzu_money.vault import YuzuMoneyVault
 
-        return YuzuMoneyVault(web3, spec, token_cache=token_cache, features=features)
+        return YuzuMoneyVault(web3, spec, **kwargs)
 
     elif ERC4626Feature.altura_like in features:
         from eth_defi.erc_4626.vault_protocol.altura.vault import AlturaVault
 
-        return AlturaVault(web3, spec, token_cache=token_cache, features=features)
+        return AlturaVault(web3, spec, **kwargs)
 
     elif ERC4626Feature.spectra_usdn_wrapper_like in features or ERC4626Feature.spectra_erc4626_wrapper_like in features:
         from eth_defi.erc_4626.vault_protocol.spectra.erc4626_wrapper_vault import SpectraERC4626WrapperVault
 
-        return SpectraERC4626WrapperVault(web3, spec, token_cache=token_cache, features=features)
+        return SpectraERC4626WrapperVault(web3, spec, **kwargs)
 
     elif ERC4626Feature.gearbox_like in features:
         from eth_defi.erc_4626.vault_protocol.gearbox.vault import GearboxVault
 
-        return GearboxVault(web3, spec, token_cache=token_cache, features=features)
+        return GearboxVault(web3, spec, **kwargs)
 
     elif ERC4626Feature.mainstreet_like in features:
         from eth_defi.erc_4626.vault_protocol.mainstreet.vault import MainstreetVault
 
-        return MainstreetVault(web3, spec, token_cache=token_cache, features=features)
+        return MainstreetVault(web3, spec, **kwargs)
 
     elif ERC4626Feature.yieldfi_like in features:
         from eth_defi.erc_4626.vault_protocol.yieldfi.vault import YieldFiVault
 
-        return YieldFiVault(web3, spec, token_cache=token_cache, features=features)
+        return YieldFiVault(web3, spec, **kwargs)
 
     elif ERC4626Feature.resolv_like in features:
         from eth_defi.erc_4626.vault_protocol.resolv.vault import ResolvVault
 
-        return ResolvVault(web3, spec, token_cache=token_cache, features=features)
+        return ResolvVault(web3, spec, **kwargs)
 
     elif ERC4626Feature.curvance_like in features:
         from eth_defi.erc_4626.vault_protocol.curvance.vault import CurvanceVault
 
-        return CurvanceVault(web3, spec, token_cache=token_cache, features=features)
+        return CurvanceVault(web3, spec, **kwargs)
 
     elif ERC4626Feature.singularity_like in features:
         from eth_defi.erc_4626.vault_protocol.singularity.vault import SingularityVault
 
-        return SingularityVault(web3, spec, token_cache=token_cache, features=features)
+        return SingularityVault(web3, spec, **kwargs)
 
     elif ERC4626Feature.brink_like in features:
         from eth_defi.erc_4626.vault_protocol.brink.vault import BrinkVault
 
-        return BrinkVault(web3, spec, token_cache=token_cache, features=features)
+        return BrinkVault(web3, spec, **kwargs)
 
     elif ERC4626Feature.accountable_like in features:
         from eth_defi.erc_4626.vault_protocol.accountable.vault import AccountableVault
 
-        return AccountableVault(web3, spec, token_cache=token_cache, features=features)
+        return AccountableVault(web3, spec, **kwargs)
 
     elif ERC4626Feature.yieldnest_like in features:
         from eth_defi.erc_4626.vault_protocol.yieldnest.vault import YieldNestVault
 
-        return YieldNestVault(web3, spec, token_cache=token_cache, features=features)
+        return YieldNestVault(web3, spec, **kwargs)
 
     elif ERC4626Feature.dolomite_like in features:
         from eth_defi.erc_4626.vault_protocol.dolomite.vault import DolomiteVault
 
-        return DolomiteVault(web3, spec, token_cache=token_cache, features=features)
+        return DolomiteVault(web3, spec, **kwargs)
 
     elif ERC4626Feature.hypurrfi_like in features:
         from eth_defi.erc_4626.vault_protocol.hypurrfi.vault import HypurrFiVault
 
-        return HypurrFiVault(web3, spec, token_cache=token_cache, features=features)
+        return HypurrFiVault(web3, spec, **kwargs)
 
     elif ERC4626Feature.fluid_like in features:
         from eth_defi.erc_4626.vault_protocol.fluid.vault import FluidVault
 
-        return FluidVault(web3, spec, token_cache=token_cache, features=features)
+        return FluidVault(web3, spec, **kwargs)
 
     elif ERC4626Feature.usdx_money_like in features:
         from eth_defi.erc_4626.vault_protocol.usdx_money.vault import USDXMoneyVault
 
-        return USDXMoneyVault(web3, spec, token_cache=token_cache, features=features)
+        return USDXMoneyVault(web3, spec, **kwargs)
 
     elif ERC4626Feature.hyperlend_like in features:
         from eth_defi.erc_4626.vault_protocol.hyperlend.vault import WrappedHLPVault
 
-        return WrappedHLPVault(web3, spec, token_cache=token_cache, features=features)
+        return WrappedHLPVault(web3, spec, **kwargs)
 
     elif ERC4626Feature.sentiment_like in features:
         from eth_defi.erc_4626.vault_protocol.sentiment.vault import SentimentVault
 
-        return SentimentVault(web3, spec, token_cache=token_cache, features=features)
+        return SentimentVault(web3, spec, **kwargs)
 
     elif ERC4626Feature.infinifi_like in features:
         from eth_defi.erc_4626.vault_protocol.infinifi.vault import InfiniFiVault
 
-        return InfiniFiVault(web3, spec, token_cache=token_cache, features=features)
+        return InfiniFiVault(web3, spec, **kwargs)
 
     elif ERC4626Feature.renalta_like in features:
         from eth_defi.erc_4626.vault_protocol.renalta.vault import RenaltaVault
 
-        return RenaltaVault(web3, spec, token_cache=token_cache, features=features)
+        return RenaltaVault(web3, spec, **kwargs)
 
     elif ERC4626Feature.avant_like in features:
         from eth_defi.erc_4626.vault_protocol.avant.vault import AvantVault
 
-        return AvantVault(web3, spec, token_cache=token_cache, features=features)
+        return AvantVault(web3, spec, **kwargs)
 
     elif ERC4626Feature.aarna_like in features:
         from eth_defi.erc_4626.vault_protocol.aarna.vault import AarnaVault
 
-        return AarnaVault(web3, spec, token_cache=token_cache, features=features)
+        return AarnaVault(web3, spec, **kwargs)
 
     elif ERC4626Feature.yo_like in features:
         from eth_defi.erc_4626.vault_protocol.yo.vault import YoVault
 
-        return YoVault(web3, spec, token_cache=token_cache, features=features)
+        return YoVault(web3, spec, **kwargs)
 
     elif ERC4626Feature.frax_like in features:
         from eth_defi.erc_4626.vault_protocol.frax.vault import FraxVault
 
-        return FraxVault(web3, spec, token_cache=token_cache, features=features)
+        return FraxVault(web3, spec, **kwargs)
 
     elif ERC4626Feature.hyperdrive_hl_like in features:
         from eth_defi.erc_4626.vault_protocol.hyperdrive_hl.vault import HyperdriveVault
 
-        return HyperdriveVault(web3, spec, token_cache=token_cache, features=features)
+        return HyperdriveVault(web3, spec, **kwargs)
 
     elif ERC4626Feature.basevol_like in features:
         from eth_defi.erc_4626.vault_protocol.basevol.vault import BaseVolVault
 
-        return BaseVolVault(web3, spec, token_cache=token_cache, features=features)
+        return BaseVolVault(web3, spec, **kwargs)
 
     elif ERC4626Feature.sbold_like in features:
         from eth_defi.erc_4626.vault_protocol.sbold.vault import SBOLDVault
 
-        return SBOLDVault(web3, spec, token_cache=token_cache, features=features)
+        return SBOLDVault(web3, spec, **kwargs)
 
     elif ERC4626Feature.ember_like in features:
         from eth_defi.erc_4626.vault_protocol.ember.vault import EmberVault
 
-        return EmberVault(web3, spec, token_cache=token_cache, features=features)
+        return EmberVault(web3, spec, **kwargs)
 
     else:
         # Generic ERC-4626 without fee data
         from eth_defi.erc_4626.vault import ERC4626Vault
 
-        return ERC4626Vault(web3, spec, token_cache=token_cache, features=features)
+        return ERC4626Vault(web3, spec, **kwargs)
 
 
 def create_vault_instance_autodetect(

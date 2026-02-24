@@ -86,8 +86,7 @@ Testnet deployment
 
 .. code-block:: shell
 
-    NETWORK=testnet \
-    poetry run python scripts/lagoon/deploy-lagoon-multichain.py
+    NETWORK=testnet python scripts/lagoon/deploy-lagoon-multichain.py
 
 .. note::
 
@@ -128,6 +127,7 @@ chain-specific whitelisting rules.
 import logging
 import os
 import random
+import time
 from copy import deepcopy
 from decimal import Decimal
 from typing import cast
@@ -433,6 +433,8 @@ def create_testnet_whitelisting_configuration(
             safe_salt_nonce=safe_salt_nonce,
             any_asset=True,
             from_the_scratch=True,
+            use_forge=True,
+            deploy_retries=3,
         )
 
     # Configure CCTP between all testnet chains
@@ -530,7 +532,9 @@ def bridge_to_destinations(
     source_usdc,
     asset_manager: HexAddress,
     simulate: bool,
+    deployer: "HotWallet | None" = None,
     bridge_usdc_amount: Decimal = Decimal("0.1"),
+    attestation_timeout: float = 2400.0,
 ) -> list:
     """Bridge USDC from the source vault to each destination chain.
 
@@ -558,6 +562,9 @@ def bridge_to_destinations(
 
     :param bridge_usdc_amount:
         Human-readable amount of USDC to bridge per destination.
+
+    :param attestation_timeout:
+        Maximum seconds to wait for each attestation.
 
     :return:
         List of :class:`~eth_defi.cctp.bridge.CCTPBridgeResult`.
@@ -608,8 +615,10 @@ def bridge_to_destinations(
         source_vault=source_vault,
         destinations=destinations,
         sender=asset_manager,
+        hot_wallet=deployer,
         simulate=simulate,
         test_attesters=test_attesters,
+        attestation_timeout=attestation_timeout,
     )
 
     for dest_name, br in zip(dest_chain_names, bridge_results):
@@ -621,7 +630,7 @@ def bridge_to_destinations(
 
 
 def main():
-    setup_console_logging("info")
+    setup_console_logging("info", coloured_threads=True)
 
     network = os.environ.get("NETWORK", "mainnet").lower()
     simulate = os.environ.get("SIMULATE", "").lower() in ("true", "1", "yes")
@@ -789,12 +798,32 @@ def main():
                 hot_wallet=deployer,
             )
         else:
-            print(f"\nReal mode: vault must be pre-funded with USDC on {source_chain}.")
-            print(f"  Deposit USDC into the vault so the Safe holds funds for bridging.")
-            if is_testnet:
-                print(f"  Get testnet USDC from Circle faucet: https://faucet.circle.com/")
+            # Real mode: fund the vault from the deployer's USDC balance
+            deployer_balance = source_usdc.fetch_balance_of(deployer.address)
+            print(f"\nDeployer USDC balance on {source_chain}: {deployer_balance} USDC")
+            assert deployer_balance >= usdc_amount, (
+                f"Deployer needs at least {usdc_amount} USDC on {source_chain} but has {deployer_balance} USDC. "
+                f"Get testnet USDC from Circle faucet: https://faucet.circle.com/"
+                if is_testnet
+                else f"Transfer USDC to deployer {deployer.address} on {source_chain}."
+            )
+
+            print(f"Funding {source_chain} vault with {usdc_amount} USDC from deployer...")
+            deployer.sync_nonce(source_web3)
+            source_module = result.deployments[source_chain].trading_strategy_module
+            fund_lagoon_vault(
+                web3=source_web3,
+                vault_address=source_vault.address,
+                asset_manager=deployer.address,
+                test_account_with_balance=deployer.address,
+                trading_strategy_module_address=source_module.address,
+                amount=usdc_amount,
+                hot_wallet=deployer,
+            )
 
         # --- Step 8: Bridge 0.1 USDC from source to each destination chain ---
+        if not simulate:
+            deployer.sync_nonce(source_web3)
         bridge_results = bridge_to_destinations(
             chain_web3=chain_web3,
             result=result,
@@ -802,7 +831,9 @@ def main():
             source_usdc=source_usdc,
             asset_manager=asset_manager,
             simulate=simulate,
+            deployer=deployer if not simulate else None,
             bridge_usdc_amount=bridged_usdc_amount,
+            attestation_timeout=3600.0 if is_testnet else 2400.0,
         )
 
         # --- Step 9: Print final summary ---

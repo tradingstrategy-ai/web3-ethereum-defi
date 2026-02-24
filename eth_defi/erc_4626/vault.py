@@ -780,6 +780,7 @@ class ERC4626Vault(VaultBase):
         token_cache: dict | None = None,
         features: set[ERC4626Feature] | None = None,
         default_block_identifier: BlockIdentifier | None = None,
+        require_denomination_token: bool = False,
     ):
         """
         :param web3:
@@ -801,12 +802,16 @@ class ERC4626Vault(VaultBase):
 
             When ``None``, use :py:func:`get_safe_cached_latest_block_number` (the default, safe for broken RPCs).
             Set to ``"latest"`` for freshly deployed vaults whose contracts do not exist at the safe-cached block.
+
+        :param require_denomination_token:
+            If ``True``, accessing :py:attr:`denomination_token` will raise
+            :py:exc:`RuntimeError` when the on-chain lookup returns ``None``.
         """
 
         if type(features) == set:
             assert len(features) >= 1, "If given, the vault features set should contain at least one feature"
 
-        super().__init__(token_cache=token_cache)
+        super().__init__(token_cache=token_cache, require_denomination_token=require_denomination_token)
         self.web3 = web3
         self.spec = spec
         self.features = features
@@ -922,10 +927,11 @@ class ERC4626Vault(VaultBase):
         return None
 
     def fetch_denomination_token(self) -> TokenDetails | None:
+        block_identifier = self._get_block_identifier()
         token_address = self.fetch_denomination_token_address()
         # eth_defi.token.TokenDetailError: Token 0x4C36388bE6F416A29C8d8Eee81C771cE6bE14B18 missing symbol
         if token_address:
-            return fetch_erc20_details(
+            result = fetch_erc20_details(
                 self.web3,
                 token_address,
                 chain_id=self.spec.chain_id,
@@ -933,7 +939,17 @@ class ERC4626Vault(VaultBase):
                 cause_diagnostics_message=f"Vault {self.__class__.__name__} {self.address} denominating token lookup",
                 cache=self.token_cache,
             )
+            if result is None:
+                logger.warning(
+                    "Vault %s denomination token at %s could not be fetched (block_identifier=%s)",
+                    self.address, token_address, block_identifier,
+                )
+            return result
         else:
+            logger.warning(
+                "Vault %s asset() returned no address (block_identifier=%s)",
+                self.address, block_identifier,
+            )
             return None
 
     def fetch_share_token_address(self, block_identifier: BlockIdentifier = "latest") -> HexAddress:

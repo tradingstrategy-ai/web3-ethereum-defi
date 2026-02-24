@@ -29,6 +29,76 @@ POA_MIDDLEWARE_NEEDED_CHAIN_IDS = {
     43114,  # Avalanche C-chain
 }
 
+#: Known testnet chain IDs — used to guard operations that should never
+#: be retried or relaxed on mainnets (e.g. forge deploy retries).
+TESTNET_CHAIN_IDS: set[int] = {
+    998,  # HyperEVM testnet
+    11155111,  # Ethereum Sepolia
+    421614,  # Arbitrum Sepolia
+    84532,  # Base Sepolia
+}
+
+#: L2 sequencer and official public RPC endpoints.
+#:
+#: Many L2 chains have a centralised sequencer that processes transactions.
+#: Broadcasting directly to the sequencer (or the chain's official single-endpoint
+#: public RPC) avoids issues with load-balanced RPCs like drpc.live where
+#: different backend nodes may return inconsistent state.
+#:
+#: Each entry maps a chain ID to a dict with:
+#:
+#: - ``sequencer``: write-only endpoint for ``eth_sendRawTransaction``.
+#:   Arbitrum sequencers **only** support ``eth_sendRawTransaction``
+#:   (no reads: no ``eth_chainId``, ``eth_getTransactionReceipt``, etc.).
+#:   OP Stack sequencers (Base, Optimism) run a full ``op-geth`` but may
+#:   return 403 on read calls under load.
+#:   Use with the ``mev+`` prefix in :py:func:`~eth_defi.provider.multi_provider.create_multi_provider_web3`.
+#:
+#: - ``public_rpc``: official single-endpoint RPC that supports both reads and writes.
+#:   Suitable for ``forge create`` which needs ``eth_chainId``, ``eth_gasPrice``,
+#:   ``eth_getTransactionReceipt`` etc.  These avoid the receipt-polling issue on
+#:   load-balanced providers (see ``forge.py`` docstring on foundry#1362).
+#:
+#: Sources:
+#:
+#: - Arbitrum: https://docs.arbitrum.io/for-devs/dev-tools-and-resources/chain-info
+#: - Base: https://docs.base.org/chain/network-information
+#: - Optimism: https://docs.optimism.io/chain/networks
+#: - StackExchange: https://ethereum.stackexchange.com/questions/162207
+#:
+SEQUENCERS: dict[int, dict[str, str]] = {
+    # Arbitrum One — sequencer is write-only (eth_sendRawTransaction only)
+    42161: {
+        "sequencer": "https://arb1-sequencer.arbitrum.io/rpc",
+        "public_rpc": "https://arb1.arbitrum.io/rpc",
+    },
+    # Arbitrum Sepolia — sequencer is write-only
+    421614: {
+        "sequencer": "https://sepolia-rollup-sequencer.arbitrum.io/rpc",
+        "public_rpc": "https://sepolia-rollup.arbitrum.io/rpc",
+    },
+    # Base — sequencer runs full op-geth but may 403 on reads under load
+    8453: {
+        "sequencer": "https://mainnet-sequencer.base.org",
+        "public_rpc": "https://mainnet.base.org",
+    },
+    # Base Sepolia — sequencer runs full op-geth
+    84532: {
+        "sequencer": "https://sepolia-sequencer.base.org",
+        "public_rpc": "https://sepolia.base.org",
+    },
+    # Optimism — sequencer described as write-only in docs
+    10: {
+        "sequencer": "https://mainnet-sequencer.optimism.io",
+        "public_rpc": "https://mainnet.optimism.io",
+    },
+    # Optimism Sepolia
+    11155420: {
+        "sequencer": "https://sepolia-sequencer.optimism.io",
+        "public_rpc": "https://sepolia.optimism.io",
+    },
+}
+
 #: Manually maintained shorthand names for different EVM chains
 CHAIN_NAMES = {
     325: "GRVT",  # GRVT (Gravity Markets) decentralised perp DEX

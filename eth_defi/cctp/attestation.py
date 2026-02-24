@@ -36,6 +36,25 @@ logger = logging.getLogger(__name__)
 #: HTTP 404 status code indicating resource not found
 HTTP_NOT_FOUND = 404
 
+#: Range CCTP explorer base URL for transaction status lookup
+CCTP_EXPLORER_BASE_URL = "https://usdc.range.org/status"
+
+#: CCTP domain ID → Range explorer chain slug
+_DOMAIN_TO_EXPLORER_CHAIN: dict[int, str] = {
+    0: "ethereum",
+    3: "arbitrum",
+    6: "base",
+    7: "polygon",
+}
+
+
+def _cctp_explorer_url(source_domain: int, transaction_hash: str) -> str | None:
+    """Build a Range CCTP explorer URL for a burn transaction, or None if unknown chain."""
+    chain = _DOMAIN_TO_EXPLORER_CHAIN.get(source_domain)
+    if chain is None:
+        return None
+    return f"{CCTP_EXPLORER_BASE_URL}?id={chain}/{transaction_hash}"
+
 
 @dataclass(slots=True)
 class CCTPAttestation:
@@ -110,7 +129,20 @@ def fetch_attestation(
     if not transaction_hash.startswith("0x"):
         transaction_hash = f"0x{transaction_hash}"
 
+    from eth_defi.cctp.constants import CCTP_DOMAIN_NAMES
+
+    domain_name = CCTP_DOMAIN_NAMES.get(source_domain, f"domain-{source_domain}")
     url = f"{api_base_url}/v2/messages/{source_domain}?transactionHash={transaction_hash}"
+    explorer_url = _cctp_explorer_url(source_domain, transaction_hash)
+
+    explorer_suffix = f"\n  Explorer: {explorer_url}" if explorer_url else ""
+    logger.info(
+        "Waiting for CCTP attestation on %s: tx=%s\n  Iris API: %s%s",
+        domain_name,
+        transaction_hash,
+        url,
+        explorer_suffix,
+    )
 
     start_time = time.time()
     attempt = 0
@@ -128,15 +160,20 @@ def fetch_attestation(
     while True:
         elapsed = time.time() - start_time
         if elapsed >= timeout:
-            raise TimeoutError(f"CCTP attestation not ready after {timeout}s for tx {transaction_hash} on domain {source_domain}")
+            raise TimeoutError(f"CCTP attestation not ready after {timeout}s for tx {transaction_hash} on {domain_name}")
 
         attempt += 1
-        logger.info(
-            "Polling CCTP attestation: domain=%s, tx=%s, attempt=%d, elapsed=%.1fs",
+        # Log every 10th attempt at INFO, others at DEBUG to reduce noise
+        log_level = logging.INFO if attempt <= 3 or attempt % 10 == 0 else logging.DEBUG
+        logger.log(
+            log_level,
+            "Polling CCTP attestation: %s (domain %s), tx=%s, attempt=%d, elapsed=%.1fs, status=%s",
+            domain_name,
             source_domain,
             transaction_hash,
             attempt,
             elapsed,
+            last_phase or "unknown",
         )
 
         response = requests.get(url, timeout=30)
@@ -145,7 +182,7 @@ def fetch_attestation(
         # treat it as "pending" and retry.
         if response.status_code == HTTP_NOT_FOUND:
             _notify("waiting_for_indexing")
-            logger.info("Attestation not yet indexed (404), retrying...")
+            logger.debug("Attestation not yet indexed (404) for %s, retrying...", domain_name)
             time.sleep(poll_interval)
             continue
 
@@ -161,6 +198,10 @@ def fetch_attestation(
 
             if status == "complete" and attestation_hex and attestation_hex != "PENDING":
                 _notify("complete")
+                logger.info(
+                    "Attestation complete for %s after %d attempts (%.1fs): tx=%s",
+                    domain_name, attempt, elapsed, transaction_hash,
+                )
                 message_hex = msg.get("message", "")
                 return CCTPAttestation(
                     message=bytes.fromhex(message_hex.replace("0x", "")),
@@ -169,10 +210,12 @@ def fetch_attestation(
                 )
 
             _notify(status)
-            logger.info(
-                "Attestation status: %s (waiting for 'complete')",
-                status,
-            )
+            if log_level <= logging.INFO:
+                logger.info(
+                    "Attestation status for %s: %s (waiting for 'complete')",
+                    domain_name,
+                    status,
+                )
 
         time.sleep(poll_interval)
 

@@ -259,7 +259,7 @@ class LagoonConfig:
     use_forge: bool = False
 
     #: Delay between contract deployments (seconds) for nonce propagation
-    between_contracts_delay_seconds: float = 45.0
+    between_contracts_delay_seconds: float = 5.0
 
     #: ERC-4626 vaults to whitelist for deposit/withdrawal
     erc_4626_vaults: list[ERC4626Vault] | None = None
@@ -296,6 +296,14 @@ class LagoonConfig:
     #: See `Safe canonical deployments <https://github.com/safe-global/safe-deployments>`__
     #: and `Safe contract deployment docs <https://docs.safe.global/core-api/safe-contracts-deployment>`__.
     safe_proxy_factory_address: HexAddress | str | None = None
+
+    #: Isolated directory for forge cache and output artifacts.
+    #: Allows concurrent forge deployments from the same source tree.
+    forge_cache_dir: Path | None = None
+
+    #: Number of forge deploy retries on ``"contract was not deployed"`` errors.
+    #: Only allowed on testnets.  Default: 1 (no retries).
+    deploy_retries: int = 1
 
 
 @dataclass(slots=True, frozen=True)
@@ -406,6 +414,8 @@ def deploy_lagoon_protocol_registry(
     etherscan_api_key: str = None,
     verifier: Literal["etherscan", "blockscout", "sourcify", "oklink"] | None = None,
     verifier_url: str | None = None,
+    cache_dir: Path | None = None,
+    deploy_retries: int = 1,
 ) -> Contract:
     """Deploy a fee registry contract.
 
@@ -434,6 +444,8 @@ def deploy_lagoon_protocol_registry(
         verifier_url=verifier_url,
         contract_file_out="ProtocolRegistry.sol",
         verbose=True,
+        cache_dir=cache_dir,
+        deploy_retries=deploy_retries,
     )
 
     time.sleep(4)
@@ -464,12 +476,18 @@ def deploy_fresh_lagoon_protocol(
     verifier: Literal["etherscan", "blockscout", "sourcify", "oklink"] | None = None,
     verifier_url: str | None = None,
     forge_sync_delay=4.0,
+    cache_dir: Path | None = None,
+    deploy_retries: int = 1,
 ) -> Contract:
     """Deploy a fresh Lagoon implementation from the scratch.
 
     - Fee registry contract
     - Vault implementation
     - Beacon proxy factory contract
+
+    :param cache_dir:
+        Isolated directory for forge cache and output artifacts.
+        Allows concurrent deployments from the same source tree.
     """
 
     assert isinstance(deployer, HotWallet), f"Can be only deployed with HotWallet deployer. got: {type(deployer)}: {deployer}"
@@ -478,7 +496,7 @@ def deploy_fresh_lagoon_protocol(
 
     wrapped_native_token_address = WRAPPED_NATIVE_TOKEN[web3.eth.chain_id]
 
-    # Deploy fee regis
+    # Deploy fee registry
     fee_registry = deploy_lagoon_protocol_registry(
         web3=web3,
         deployer=deployer,
@@ -487,6 +505,8 @@ def deploy_fresh_lagoon_protocol(
         verifier=verifier,
         verifier_url=verifier_url,
         broadcast_func=broadcast_func,
+        cache_dir=cache_dir,
+        deploy_retries=deploy_retries,
     )
 
     lagoon_folder = CONTRACTS_ROOT / "lagoon-v0"
@@ -503,6 +523,8 @@ def deploy_fresh_lagoon_protocol(
         constructor_args=["true"],
         contract_file_out="Vault.sol",
         verbose=True,
+        cache_dir=cache_dir,
+        deploy_retries=deploy_retries,
     )
     time.sleep(forge_sync_delay)
     assert_transaction_success_with_explanation(web3, tx_hash)
@@ -534,6 +556,8 @@ def deploy_fresh_lagoon_protocol(
         ],
         contract_file_out="BeaconProxyFactory.sol",
         verbose=True,
+        cache_dir=cache_dir,
+        deploy_retries=deploy_retries,
     )
     time.sleep(forge_sync_delay)
     assert_transaction_success_with_explanation(web3, tx_hash)
@@ -754,9 +778,7 @@ def deploy_lagoon(
         signed_tx = deployer.sign_transaction(tx_data)
         raw_bytes = get_tx_broadcast_data(signed_tx)
         tx_hash = web3.eth.send_raw_transaction(raw_bytes)
-        assert_transaction_success_with_explanation(web3, tx_hash)
-
-        receipt = web3.eth.get_transaction_receipt(tx_hash)
+        receipt = assert_transaction_success_with_explanation(web3, tx_hash)
         match beacon_proxy_factory_abi:
             case "lagoon/BeaconProxyFactory.json":
                 events = beacon_proxy_factory.events.BeaconProxyDeployed().process_receipt(receipt, EventLogErrorFlags.Discard)
@@ -1273,7 +1295,7 @@ def deploy_automated_lagoon_vault(
     verifier: Literal["etherscan", "blockscout", "sourcify", "oklink"] | None = None,
     verifier_url: str | None = None,
     use_forge=False,
-    between_contracts_delay_seconds=45.0,
+    between_contracts_delay_seconds=5.0,
     erc_4626_vaults: list[ERC4626Vault] | None = None,
     guard_only: bool = False,
     existing_vault_address: HexAddress | str | None = None,
@@ -1362,12 +1384,16 @@ def deploy_automated_lagoon_vault(
         hypercore_vaults = config.hypercore_vaults
         safe_salt_nonce = config.safe_salt_nonce
         safe_proxy_factory_address = config.safe_proxy_factory_address
+        forge_cache_dir = config.forge_cache_dir
+        deploy_retries = config.deploy_retries
     else:
         # Legacy kwargs: validate required arguments
         assert asset_manager is not None, "asset_manager required when config not provided"
         assert parameters is not None, "parameters required when config not provided"
         assert safe_owners is not None, "safe_owners required when config not provided"
         assert safe_threshold is not None, "safe_threshold required when config not provided"
+        forge_cache_dir = None
+        deploy_retries = 1
 
     legacy = vault_abi == "lagoon/Vault.json"
 
@@ -1511,6 +1537,8 @@ def deploy_automated_lagoon_vault(
                     verifier=verifier,
                     verifier_url=verifier_url,
                     broadcast_func=_broadcast,
+                    cache_dir=forge_cache_dir,
+                    deploy_retries=deploy_retries,
                 )
                 beacon_proxy_factory_address = beacon_proxy_factory_contract.address
             else:
@@ -1792,7 +1820,20 @@ def deploy_multichain_lagoon_vault(
     if max_workers is None:
         max_workers = len(chain_web3)
 
+    # When from_the_scratch configs use forge, concurrent processes would
+    # conflict on the shared project cache.  Give each chain its own
+    # cache/out directory under /tmp so they can run in parallel.
+    needs_forge = any(c.from_the_scratch for c in chain_configs.values())
+    if needs_forge:
+        import tempfile
+        forge_tmp_root = Path(tempfile.mkdtemp(prefix="lagoon-forge-"))
+        logger.info("Using per-chain forge cache directories under %s", forge_tmp_root)
+    else:
+        forge_tmp_root = None
+
     def _deploy_single_chain(chain_name: str, web3: Web3) -> tuple[str, LagoonAutomatedDeployment]:
+        import threading
+        threading.current_thread().name = chain_name
         chain_id = web3.eth.chain_id
         logger.info("Deploying Lagoon vault on %s (chain %d)", chain_name, chain_id)
 
@@ -1808,6 +1849,10 @@ def deploy_multichain_lagoon_vault(
             usdc = USDC_NATIVE_TOKEN.get(chain_id)
             assert usdc is not None, f"No USDC address known for chain {chain_id}. Set parameters.underlying manually."
             per_chain_config.parameters.underlying = usdc
+
+        # Isolate forge cache per chain to avoid lock contention
+        if forge_tmp_root is not None and per_chain_config.from_the_scratch:
+            per_chain_config.forge_cache_dir = forge_tmp_root / chain_name
 
         deployment = deploy_automated_lagoon_vault(
             web3=web3,

@@ -72,16 +72,45 @@ from typing import Callable
 
 from eth_account.signers.local import LocalAccount
 from eth_typing import HexAddress
+from hexbytes import HexBytes
 from tqdm_loggable.auto import tqdm
 from web3 import Web3
+from web3.contract.contract import ContractFunction
 
 from eth_defi.cctp.receive import prepare_receive_message
 from eth_defi.cctp.transfer import _resolve_cctp_domain, prepare_approve_for_burn, prepare_deposit_for_burn
 from eth_defi.chain import get_chain_name
+from eth_defi.hotwallet import HotWallet
 from eth_defi.token import USDC_NATIVE_TOKEN
 from eth_defi.trace import assert_transaction_success_with_explanation
 
 logger = logging.getLogger(__name__)
+
+
+def _send_contract_tx(
+    web3: Web3,
+    func: ContractFunction,
+    sender: HexAddress,
+    hot_wallet: HotWallet | None,
+    gas: int,
+) -> HexBytes:
+    """Send a contract function call, either via HotWallet signing or unlocked account.
+
+    :param hot_wallet:
+        When provided, signs and broadcasts via ``eth_sendRawTransaction``.
+        When ``None``, uses ``eth_sendTransaction`` (requires unlocked account, e.g. Anvil).
+    """
+    if hot_wallet is not None:
+        signed_tx = hot_wallet.sign_bound_call_with_new_nonce(
+            func,
+            tx_params={"gas": gas},
+            web3=web3,
+            fill_gas_price=True,
+        )
+        raw_bytes = signed_tx.rawTransaction
+        return web3.eth.send_raw_transaction(raw_bytes)
+    else:
+        return func.transact({"from": sender, "gas": gas})
 
 
 class CCTPBridgePhase(enum.Enum):
@@ -184,6 +213,7 @@ def burn_usdc_cctp(
     dest_safe_address: HexAddress,
     amount: int,
     sender: HexAddress,
+    hot_wallet: HotWallet | None = None,
     gas: int = 1_000_000,
 ) -> CCTPBurnResult:
     """Execute the approve + burn phase of a CCTP bridge.
@@ -213,6 +243,10 @@ def burn_usdc_cctp(
     :param sender:
         Address of the asset manager.
 
+    :param hot_wallet:
+        When provided, signs transactions locally via ``eth_sendRawTransaction``.
+        When ``None``, uses ``eth_sendTransaction`` (requires unlocked account, e.g. Anvil).
+
     :param gas:
         Gas limit for transactions.
 
@@ -235,7 +269,7 @@ def burn_usdc_cctp(
     # Step 1: Approve USDC to TokenMessengerV2
     approve_fn = prepare_approve_for_burn(source_web3, amount)
     moduled_tx = source_vault.transact_via_trading_strategy_module(approve_fn)
-    tx_hash = moduled_tx.transact({"from": sender, "gas": gas})
+    tx_hash = _send_contract_tx(source_web3, moduled_tx, sender, hot_wallet, gas)
     assert_transaction_success_with_explanation(source_web3, tx_hash)
     logger.info("USDC approval for CCTP burn confirmed: %s", tx_hash.hex())
 
@@ -247,7 +281,7 @@ def burn_usdc_cctp(
         mint_recipient=dest_safe_address,
     )
     moduled_tx = source_vault.transact_via_trading_strategy_module(burn_fn)
-    burn_tx_hash = moduled_tx.transact({"from": sender, "gas": gas})
+    burn_tx_hash = _send_contract_tx(source_web3, moduled_tx, sender, hot_wallet, gas)
     assert_transaction_success_with_explanation(source_web3, burn_tx_hash)
     logger.info("CCTP burn confirmed: %s", burn_tx_hash.hex())
 
@@ -266,6 +300,7 @@ def receive_usdc_cctp(
     message: bytes,
     attestation: bytes,
     sender: HexAddress,
+    hot_wallet: HotWallet | None = None,
     gas: int = 1_000_000,
 ) -> str:
     """Execute the receive phase of a CCTP bridge on the destination chain.
@@ -285,6 +320,10 @@ def receive_usdc_cctp(
     :param sender:
         Relayer address (can be any funded account).
 
+    :param hot_wallet:
+        When provided, signs transactions locally via ``eth_sendRawTransaction``.
+        When ``None``, uses ``eth_sendTransaction`` (requires unlocked account, e.g. Anvil).
+
     :param gas:
         Gas limit for the receive transaction.
 
@@ -294,8 +333,7 @@ def receive_usdc_cctp(
     dest_chain_id = dest_web3.eth.chain_id
 
     receive_fn = prepare_receive_message(dest_web3, message, attestation)
-    relayer = dest_web3.eth.accounts[0] if dest_web3.eth.accounts else sender
-    receive_tx_hash = receive_fn.transact({"from": relayer, "gas": gas})
+    receive_tx_hash = _send_contract_tx(dest_web3, receive_fn, sender, hot_wallet, gas)
     assert_transaction_success_with_explanation(dest_web3, receive_tx_hash)
     logger.info("CCTP receive confirmed on chain %d: %s", dest_chain_id, receive_tx_hash.hex())
 
@@ -310,6 +348,7 @@ def bridge_usdc_cctp(
     dest_safe_address: HexAddress,
     amount: int,
     sender: HexAddress,
+    hot_wallet: HotWallet | None = None,
     simulate: bool = False,
     test_attester: LocalAccount | None = None,
     attestation_timeout: float = 300.0,
@@ -339,6 +378,10 @@ def bridge_usdc_cctp(
 
     :param sender:
         Address of the asset manager that executes trades via the module.
+
+    :param hot_wallet:
+        When provided, signs transactions locally via ``eth_sendRawTransaction``.
+        When ``None``, uses ``eth_sendTransaction`` (requires unlocked account, e.g. Anvil).
 
     :param simulate:
         If True, use forged attestations on Anvil forks instead of
@@ -370,6 +413,7 @@ def bridge_usdc_cctp(
         dest_safe_address=dest_safe_address,
         amount=amount,
         sender=sender,
+        hot_wallet=hot_wallet,
         gas=gas,
     )
 
@@ -387,6 +431,7 @@ def bridge_usdc_cctp(
         message=message,
         attestation=attestation,
         sender=sender,
+        hot_wallet=hot_wallet,
         gas=gas,
     )
 
@@ -405,9 +450,10 @@ def bridge_usdc_cctp_parallel(
     source_vault,
     destinations: list[CCTPBridgeDestination],
     sender: HexAddress,
+    hot_wallet: HotWallet | None = None,
     simulate: bool = False,
     test_attesters: dict[int, LocalAccount] | None = None,
-    attestation_timeout: float = 1200.0,
+    attestation_timeout: float = 2400.0,
     gas: int = 1_000_000,
     max_workers: int | None = None,
     progress: bool = True,
@@ -444,6 +490,14 @@ def bridge_usdc_cctp_parallel(
 
     :param sender:
         Address of the asset manager.
+
+    :param hot_wallet:
+        When provided, signs transactions locally via ``eth_sendRawTransaction``.
+        When ``None``, uses ``eth_sendTransaction`` (requires unlocked account, e.g. Anvil).
+
+        For the receive phase on multiple destination chains, a separate
+        :class:`HotWallet` is created per thread from the same underlying account
+        with per-chain nonce management.
 
     :param simulate:
         If True, use forged attestations. Requires ``test_attesters``.
@@ -531,6 +585,7 @@ def bridge_usdc_cctp_parallel(
             dest_safe_address=dest.dest_safe_address,
             amount=dest.amount,
             sender=sender,
+            hot_wallet=hot_wallet,
             gas=gas,
         )
         burn_results.append(burn_result)
@@ -589,6 +644,19 @@ def bridge_usdc_cctp_parallel(
     # --- Phase 3: Receives ---
     receive_tx_hashes: list[str] = [""] * n_dest
 
+    # Build per-destination-chain HotWallets for the receive phase.
+    # Each destination chain needs its own nonce management.
+    dest_wallets: dict[int, HotWallet | None] = {}
+    if hot_wallet is not None:
+        for cid, dest in zip(dest_chain_ids, destinations):
+            if cid not in dest_wallets:
+                w = HotWallet(hot_wallet.account)
+                w.sync_nonce(dest.dest_web3)
+                dest_wallets[cid] = w
+    else:
+        for cid in dest_chain_ids:
+            dest_wallets[cid] = None
+
     if simulate:
         # Simulation mode: receive sequentially (local Anvil forks, no threading needed)
         for idx, (dest, (message, attestation)) in enumerate(zip(destinations, attestation_data)):
@@ -610,6 +678,7 @@ def bridge_usdc_cctp_parallel(
                 message=message,
                 attestation=attestation,
                 sender=sender,
+                hot_wallet=dest_wallets[dest_chain_ids[idx]],
                 gas=gas,
             )
             _update_phase(idx, CCTPBridgePhase.complete)

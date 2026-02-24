@@ -94,14 +94,20 @@ def fund_lagoon_vault(
         web3,
         vault_address,
         features={ERC4626Feature.lagoon_like},
+        default_block_identifier="latest",
+        require_denomination_token=True,
     )
     assert isinstance(vault, LagoonVault), f"Vault is not a Lagoon vault: {vault}"
 
     vault.trading_strategy_module_address = trading_strategy_module_address
 
-    assert vault.denomination_token.fetch_balance_of(test_account_with_balance) >= amount
-
     denomination_token = vault.denomination_token
+    depositor_balance = denomination_token.fetch_balance_of(test_account_with_balance)
+    assert depositor_balance >= amount, (
+        f"Depositor {test_account_with_balance} has {depositor_balance} {denomination_token.symbol} "
+        f"(token {denomination_token.address}) but needs {amount}. "
+        f"Vault denomination token: {denomination_token.symbol} at {denomination_token.address}"
+    )
     raw_amount = denomination_token.convert_to_raw(amount)
 
     def _send(bound_func, description: str, gas: int = 1_000_000):

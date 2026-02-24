@@ -258,10 +258,9 @@ def create_multi_provider_web3(
             exception_retry_configuration=None,
         )
         logger.info(
-            "Created provider %s, using request args %s, headers %s",
+            "Created provider %s, timeout %s",
             get_url_domain(url),
-            provider.get_request_kwargs(),
-            provider.get_request_headers(),
+            request_kwargs.get("timeout"),
         )
 
         call_providers.append(provider)

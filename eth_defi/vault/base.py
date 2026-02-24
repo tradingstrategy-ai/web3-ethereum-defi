@@ -595,18 +595,30 @@ class VaultBase(ABC):
     #:
     first_seen_at_block: int | None
 
-    def __init__(self, token_cache: dict | None = None):
+    def __init__(
+        self,
+        token_cache: dict | None = None,
+        require_denomination_token: bool = False,
+    ):
         """
         :param token_cache:
             Token cache for vault tokens.
 
             Allows to pass :py:class:`eth_defi.token.TokenDiskCache` to speed up operations.
+
+        :param require_denomination_token:
+            If ``True``, accessing :py:attr:`denomination_token` will raise
+            :py:exc:`RuntimeError` when the on-chain lookup returns ``None``.
+
+            Use for deployment scripts and operational contexts where a missing
+            denomination token is always a hard error.
         """
         self.first_seen_at_block = None
         if token_cache is None:
             token_cache = DEFAULT_TOKEN_CACHE
 
         self.token_cache = token_cache
+        self.require_denomination_token = require_denomination_token
 
     def __repr__(self):
         return f"<{self.__class__.__name__} {self.name} {self.symbol} at {self.address}>"
@@ -770,8 +782,28 @@ class VaultBase(ABC):
 
             Maybe None for broken vaults like
             https://arbiscan.io/address/0x9d0fbc852deccb7dcdd6cb224fa7561efda74411#code
+
+        .. note::
+
+            ``None`` results are **not** cached — the next access will
+            retry the on-chain call.  This avoids permanently caching a
+            transient RPC failure.
         """
-        return self.fetch_denomination_token()
+        result = self.fetch_denomination_token()
+        if result is None:
+            if getattr(self, "require_denomination_token", False):
+                raise RuntimeError(
+                    f"Vault {self.address} denomination token is None — "
+                    f"asset() returned zero address or token lookup failed. "
+                    f"Set require_denomination_token=False to allow None."
+                )
+            # Do not let @cached_property memoise None — delete
+            # the descriptor value so the next access retries.
+            try:
+                del self.__dict__["denomination_token"]
+            except KeyError:
+                pass
+        return result
 
     @abstractmethod
     def fetch_share_token(self) -> TokenDetails:
