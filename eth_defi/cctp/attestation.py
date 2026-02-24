@@ -80,7 +80,7 @@ def fetch_attestation(
     timeout: float = 300.0,
     poll_interval: float = 5.0,
     api_base_url: str = IRIS_API_BASE_URL,
-    on_phase_change: Callable[[str], None] | None = None,
+    on_phase_change: Callable[[str, int], None] | None = None,
 ) -> CCTPAttestation:
     """Poll the Iris API until attestation is ready or timeout.
 
@@ -110,9 +110,10 @@ def fetch_attestation(
         Iris API base URL. Defaults to mainnet.
 
     :param on_phase_change:
-        Optional callback invoked when the attestation status changes.
-        Receives the new status string: ``"waiting_for_indexing"``,
-        ``"pending_confirmations"``, or ``"complete"``.
+        Optional callback invoked on every poll attempt.
+        Receives ``(status, attempt)`` where *status* is one of
+        ``"waiting_for_indexing"``, ``"pending_confirmations"``, or
+        ``"complete"`` and *attempt* is the 1-based poll count.
         Used by :func:`~eth_defi.cctp.bridge.bridge_usdc_cctp_parallel`
         for progress bar updates.
 
@@ -152,7 +153,7 @@ def fetch_attestation(
         nonlocal last_phase
         last_phase = phase
         if on_phase_change is not None:
-            on_phase_change(phase)
+            on_phase_change(phase, attempt)
 
     _notify("waiting_for_indexing")
 

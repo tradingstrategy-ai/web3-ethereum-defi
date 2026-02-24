@@ -548,6 +548,8 @@ def bridge_usdc_cctp_parallel(
     # Each transfer goes through len(CCTPBridgePhase) phases = 6 steps.
     n_phases = len(CCTPBridgePhase)
     transfer_phases: list[CCTPBridgePhase] = [CCTPBridgePhase.burning] * n_dest
+    #: Per-transfer poll attempt count (updated by attestation callback).
+    poll_counts: list[int] = [0] * n_dest
     lock = threading.Lock()
 
     progress_bar = tqdm(
@@ -557,11 +559,14 @@ def bridge_usdc_cctp_parallel(
         disable=not progress,
     )
 
-    def _update_phase(idx: int, phase: CCTPBridgePhase):
+    def _update_phase(idx: int, phase: CCTPBridgePhase, attempt: int = 0):
         """Thread-safe progress bar update."""
         with lock:
+            if attempt > 0:
+                poll_counts[idx] = attempt
             old_phase = transfer_phases[idx]
             if phase.value == old_phase.value:
+                progress_bar.set_postfix_str(f"polls: {sum(poll_counts)}")
                 progress_bar.refresh()
                 return
             transfer_phases[idx] = phase
@@ -574,6 +579,7 @@ def bridge_usdc_cctp_parallel(
             # Build description showing per-transfer status
             parts = [f"{dest_names[i]}:{transfer_phases[i].value}" for i in range(n_dest)]
             progress_bar.set_description(f"CCTP [{', '.join(parts)}]")
+            progress_bar.set_postfix_str(f"polls: {sum(poll_counts)}")
 
     # --- Phase 1: Burns (sequential on source chain) ---
     burn_results: list[CCTPBurnResult] = []
@@ -612,7 +618,7 @@ def bridge_usdc_cctp_parallel(
         def _attest_with_progress(idx: int, burn_result: CCTPBurnResult) -> tuple[bytes, bytes]:
             threading.current_thread().name = f"cctp-attest-{dest_names[idx]}"
 
-            def on_phase(iris_status: str):
+            def on_phase(iris_status: str, attempt: int = 0):
                 phase_map = {
                     "waiting_for_indexing": CCTPBridgePhase.waiting_for_indexing,
                     "pending_confirmations": CCTPBridgePhase.pending_confirmations,
@@ -620,7 +626,7 @@ def bridge_usdc_cctp_parallel(
                 }
                 phase = phase_map.get(iris_status)
                 if phase:
-                    _update_phase(idx, phase)
+                    _update_phase(idx, phase, attempt=attempt)
 
             return _get_attestation(
                 burn_result=burn_result,

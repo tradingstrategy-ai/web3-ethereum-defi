@@ -729,12 +729,20 @@ def swap_on_satellites(
 
         satellite = deployment.vault
 
+        # Create a per-chain HotWallet so the nonce counter is independent
+        # of the source chain (the shared deployer may have nonce 300+ on
+        # Arbitrum Sepolia while Base Sepolia is at 200).
+        if deployer is not None:
+            chain_wallet = HotWallet(deployer.account)
+            chain_wallet.sync_nonce(web3)
+        else:
+            chain_wallet = None
+
         # Approve USDC for Uniswap V3 router
         approve_call = usdc.contract.functions.approve(uni_v3.swap_router.address, swap_amount)
         moduled_tx = satellite.transact_via_trading_strategy_module(approve_call)
-        if deployer is not None:
-            deployer.sync_nonce(web3)
-            tx_hash = deployer.transact_and_broadcast_with_contract(moduled_tx)
+        if chain_wallet is not None:
+            tx_hash = chain_wallet.transact_and_broadcast_with_contract(moduled_tx)
         else:
             tx_hash = moduled_tx.transact({"from": result.deployments[source_chain].vault.safe_address, "gas": 1_000_000})
         assert_transaction_success_with_explanation(web3, tx_hash)
@@ -750,9 +758,8 @@ def swap_on_satellites(
             max_slippage=500,  # 5% — testnet pools have thin liquidity
         )
         moduled_tx = satellite.transact_via_trading_strategy_module(swap_call)
-        if deployer is not None:
-            deployer.sync_nonce(web3)
-            tx_hash = deployer.transact_and_broadcast_with_contract(moduled_tx)
+        if chain_wallet is not None:
+            tx_hash = chain_wallet.transact_and_broadcast_with_contract(moduled_tx)
         else:
             tx_hash = moduled_tx.transact({"from": result.deployments[source_chain].vault.safe_address, "gas": 1_000_000})
         assert_transaction_success_with_explanation(web3, tx_hash)
