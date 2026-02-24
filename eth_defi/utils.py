@@ -226,12 +226,16 @@ def get_url_domain(url: str) -> str:
 class ThreadColourFormatter(logging.Formatter):
     """Log formatter that assigns a unique ANSI colour to each thread name.
 
-    Useful for visually distinguishing interleaved log output from
-    parallel threads (e.g. per-chain deployment threads).
+    Wraps an existing formatter (e.g. the one installed by ``coloredlogs``)
+    and replaces the plain thread name in the formatted output with a
+    colour-coded version. This preserves all other colours (timestamp,
+    logger name, level) that the underlying formatter provides.
 
-    Colours are drawn from a palette of bold ANSI 256-colour codes
-    and assigned on first encounter, cycling if more threads appear
-    than palette entries.
+    When no *inner* formatter is given, falls back to standard
+    :class:`logging.Formatter` behaviour.
+
+    Colours are drawn from a palette of bold ANSI codes and assigned on
+    first encounter, cycling if more threads appear than palette entries.
     """
 
     # Bold + distinct hues from the ANSI 256-colour table
@@ -249,8 +253,9 @@ class ThreadColourFormatter(logging.Formatter):
     ]
     _RESET = "\033[0m"
 
-    def __init__(self, fmt=None, datefmt=None):
+    def __init__(self, inner: logging.Formatter | None = None, fmt=None, datefmt=None):
         super().__init__(fmt, datefmt)
+        self._inner = inner
         self._thread_colours: dict[str, str] = {}
         self._next_idx = 0
 
@@ -263,7 +268,20 @@ class ThreadColourFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         original_name = record.threadName
         colour = self._colour_for(original_name)
-        record.threadName = f"{colour}{original_name}{self._RESET}"
+        coloured_name = f"{colour}{original_name}{self._RESET}"
+
+        if self._inner is not None:
+            # Let the inner formatter (e.g. coloredlogs) do its thing,
+            # then swap the plain thread name for the coloured one.
+            result = self._inner.format(record)
+            # Replace the literal thread name that the inner formatter
+            # inserted.  Use replace (not record mutation) so we don't
+            # interfere with the inner formatter's own ANSI handling.
+            result = result.replace(original_name, coloured_name, 1)
+            return result
+
+        # Fallback: no inner formatter — behave like a normal Formatter
+        record.threadName = coloured_name
         result = super().format(record)
         record.threadName = original_name
         return result
@@ -309,28 +327,25 @@ def setup_console_logging(
         fmt = "%(asctime)s %(name)-44s [%(threadName)s] %(message)s"
         date_fmt = "%Y-%m-%d %H:%M:%S"
 
-    def _make_stream_formatter():
+    def _wrap_thread_colours(handler: logging.Handler):
+        """Wrap a handler's existing formatter with ThreadColourFormatter."""
         if coloured_threads and not simplified_logging:
-            return ThreadColourFormatter(fmt, date_fmt)
-        return logging.Formatter(fmt, date_fmt)
+            inner = handler.formatter
+            handler.setFormatter(ThreadColourFormatter(inner=inner))
 
     try:
         # Optional dev dependency
         import coloredlogs
 
+        coloredlogs.install(level=std_out_log_level, fmt=fmt, date_fmt=date_fmt)
         if coloured_threads and not simplified_logging:
-            # coloredlogs doesn't support per-field custom colours,
-            # so we bypass it and use our own formatter on a StreamHandler
+            # Wrap the coloredlogs formatter so we get both
+            # coloredlogs colours (timestamp, level, name) AND
+            # per-thread colours on the thread name field.
             root = logging.getLogger()
-            root.setLevel(std_out_log_level)
-            # Remove any existing handlers to avoid duplicates
-            root.handlers.clear()
-            handler = logging.StreamHandler()
-            handler.setLevel(std_out_log_level)
-            handler.setFormatter(_make_stream_formatter())
-            root.addHandler(handler)
-        else:
-            coloredlogs.install(level=std_out_log_level, fmt=fmt, date_fmt=date_fmt)
+            for handler in root.handlers:
+                if isinstance(handler, logging.StreamHandler) and not isinstance(handler, logging.FileHandler):
+                    _wrap_thread_colours(handler)
     except ImportError as e:
         # non-ANSI e.g. Docker
 
@@ -340,7 +355,7 @@ def setup_console_logging(
             root = logging.getLogger()
             for handler in root.handlers:
                 if isinstance(handler, logging.StreamHandler) and not isinstance(handler, logging.FileHandler):
-                    handler.setFormatter(_make_stream_formatter())
+                    _wrap_thread_colours(handler)
 
     if log_file:
         assert isinstance(log_file, Path), "log_file must be a string path"
