@@ -1,5 +1,6 @@
 # Current
 
+- Add testnet mode (Arbitrum Sepolia + Base Sepolia) to multichain Lagoon deployment with CCTP bridging, testnet contract address resolution (2026-02-23)
 - **Add: Parallel CCTP bridging with Iris V2 transfer monitoring module and phased burn/attest/receive flow (2026-02-23)**
 - **Add: Per-chain LagoonConfig for multichain deployment, CCTP bridge helper, Monad/HyperEVM CCTP support, and tutorial script (2026-02-23)**
 - **Add: Hypercore native vault guard support with CoreWriter whitelisting, Forge library linking, and chain-conditional deployment for HyperEVM Safe multisig deposits (2026-02-22)**

@@ -63,21 +63,55 @@ Example (parallel bridges to 4 chains)::
     )
 """
 
+import enum
 import logging
+import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
+from typing import Callable
 
 from eth_account.signers.local import LocalAccount
 from eth_typing import HexAddress
+from tqdm_loggable.auto import tqdm
 from web3 import Web3
 
-from eth_defi.cctp.constants import CHAIN_ID_TO_CCTP_DOMAIN
 from eth_defi.cctp.receive import prepare_receive_message
-from eth_defi.cctp.transfer import prepare_approve_for_burn, prepare_deposit_for_burn
+from eth_defi.cctp.transfer import _resolve_cctp_domain, prepare_approve_for_burn, prepare_deposit_for_burn
+from eth_defi.chain import get_chain_name
 from eth_defi.token import USDC_NATIVE_TOKEN
 from eth_defi.trace import assert_transaction_success_with_explanation
 
 logger = logging.getLogger(__name__)
+
+
+class CCTPBridgePhase(enum.Enum):
+    """Phase of a single CCTP bridge transfer.
+
+    Used for progress tracking when block numbers are not available.
+    Each transfer progresses through these phases in order.
+    """
+
+    #: Approving USDC and calling depositForBurn on the source chain
+    burning = "burning"
+
+    #: Waiting for Iris API to index the burn transaction (HTTP 404)
+    waiting_for_indexing = "waiting_for_indexing"
+
+    #: Iris API indexed the burn, waiting for block finality confirmations
+    pending_confirmations = "pending_confirmations"
+
+    #: Attestation received from Iris API (or forged in simulation)
+    attested = "attested"
+
+    #: Calling receiveMessage on the destination chain
+    receiving = "receiving"
+
+    #: USDC successfully minted on the destination chain
+    complete = "complete"
+
+
+#: Type for progress callbacks: (transfer_index, phase, dest_chain_id)
+CCTPProgressCallback = Callable[[int, CCTPBridgePhase, int], None]
 
 
 @dataclass(slots=True)
@@ -187,8 +221,8 @@ def burn_usdc_cctp(
     """
     source_chain_id = source_web3.eth.chain_id
 
-    assert source_chain_id in CHAIN_ID_TO_CCTP_DOMAIN, f"Source chain {source_chain_id} is not CCTP-enabled"
-    assert dest_chain_id in CHAIN_ID_TO_CCTP_DOMAIN, f"Destination chain {dest_chain_id} is not CCTP-enabled"
+    assert _resolve_cctp_domain(source_chain_id) is not None, f"Source chain {source_chain_id} is not CCTP-enabled"
+    assert _resolve_cctp_domain(dest_chain_id) is not None, f"Destination chain {dest_chain_id} is not CCTP-enabled"
 
     logger.info(
         "Burning %d raw USDC on chain %d for chain %d (safe %s)",
@@ -376,6 +410,7 @@ def bridge_usdc_cctp_parallel(
     attestation_timeout: float = 1200.0,
     gas: int = 1_000_000,
     max_workers: int | None = None,
+    progress: bool = True,
 ) -> list[CCTPBridgeResult]:
     """Bridge USDC from a Lagoon vault to multiple destination chains in parallel.
 
@@ -392,6 +427,11 @@ def bridge_usdc_cctp_parallel(
 
     3. **Receives** (parallel) — ``receiveMessage()`` on each destination chain
        simultaneously. Each chain is independent.
+
+    When *progress* is ``True``, shows a ``tqdm`` progress bar tracking each
+    transfer through :class:`CCTPBridgePhase` stages.  Since block-level
+    progress is not available from the Iris API, the bar advances by phase
+    transitions instead.
 
     :param source_web3:
         Web3 connected to the source chain (e.g. Arbitrum).
@@ -423,6 +463,9 @@ def bridge_usdc_cctp_parallel(
         Maximum parallel threads for attestation polling and receives.
         Defaults to number of destinations.
 
+    :param progress:
+        Show a ``tqdm`` progress bar tracking per-transfer phase transitions.
+
     :return:
         List of :class:`CCTPBridgeResult` in the same order as ``destinations``.
     """
@@ -443,15 +486,48 @@ def bridge_usdc_cctp_parallel(
         total_amount,
     )
 
+    # Resolve destination chain names for progress bar descriptions
+    dest_chain_ids = [d.dest_web3.eth.chain_id for d in destinations]
+    dest_names = [get_chain_name(cid) for cid in dest_chain_ids]
+
+    # Track per-transfer phase for progress bar description.
+    # Each transfer goes through len(CCTPBridgePhase) phases = 6 steps.
+    n_phases = len(CCTPBridgePhase)
+    transfer_phases: list[CCTPBridgePhase] = [CCTPBridgePhase.burning] * n_dest
+    lock = threading.Lock()
+
+    progress_bar = tqdm(
+        total=n_dest * n_phases,
+        desc="CCTP bridge",
+        unit="phase",
+        disable=not progress,
+    )
+
+    def _update_phase(idx: int, phase: CCTPBridgePhase):
+        """Thread-safe progress bar update."""
+        with lock:
+            old_phase = transfer_phases[idx]
+            if phase.value == old_phase.value:
+                return
+            transfer_phases[idx] = phase
+            # Advance by the number of phases skipped
+            old_ord = list(CCTPBridgePhase).index(old_phase)
+            new_ord = list(CCTPBridgePhase).index(phase)
+            advance = max(0, new_ord - old_ord)
+            if advance > 0:
+                progress_bar.update(advance)
+            # Build description showing per-transfer status
+            parts = [f"{dest_names[i]}:{transfer_phases[i].value}" for i in range(n_dest)]
+            progress_bar.set_description(f"CCTP [{', '.join(parts)}]")
+
     # --- Phase 1: Burns (sequential on source chain) ---
-    logger.info("Phase 1: Burning USDC for %d destinations...", n_dest)
     burn_results: list[CCTPBurnResult] = []
-    for dest in destinations:
-        dest_chain_id = dest.dest_web3.eth.chain_id
+    for idx, dest in enumerate(destinations):
+        _update_phase(idx, CCTPBridgePhase.burning)
         burn_result = burn_usdc_cctp(
             source_web3=source_web3,
             source_vault=source_vault,
-            dest_chain_id=dest_chain_id,
+            dest_chain_id=dest_chain_ids[idx],
             dest_safe_address=dest.dest_safe_address,
             amount=dest.amount,
             sender=sender,
@@ -459,46 +535,48 @@ def bridge_usdc_cctp_parallel(
         )
         burn_results.append(burn_result)
 
-    logger.info("Phase 1 complete: %d burns confirmed", len(burn_results))
-
-    # --- Phase 2: Attestations (parallel) ---
-    logger.info("Phase 2: Obtaining attestations for %d burns...", n_dest)
+    # --- Phase 2: Attestations ---
     attestation_data: list[tuple[bytes, bytes]] = []
 
     if simulate:
-        # Simulation mode: forge attestations in parallel (instant)
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = {}
-            for idx, burn_result in enumerate(burn_results):
-                dest_chain_id = burn_result.dest_chain_id
-                attester = test_attesters[dest_chain_id]
-                future = executor.submit(
-                    _get_attestation,
+        # Simulation mode: forge attestations sequentially (instant, no threading needed)
+        for idx, burn_result in enumerate(burn_results):
+            attester = test_attesters[dest_chain_ids[idx]]
+            _update_phase(idx, CCTPBridgePhase.attested)
+            attestation_data.append(
+                _get_attestation(
                     burn_result=burn_result,
                     simulate=True,
                     test_attester=attester,
                     attestation_timeout=attestation_timeout,
                 )
-                futures[future] = idx
-
-            indexed_results: dict[int, tuple[bytes, bytes]] = {}
-            for future in as_completed(futures):
-                idx = futures[future]
-                indexed_results[idx] = future.result()
-
-            attestation_data = [indexed_results[i] for i in range(n_dest)]
+            )
     else:
-        # Production mode: poll Iris API in parallel
+        # Production mode: poll Iris API in parallel (~15-19 min per transfer)
+        def _attest_with_progress(idx: int, burn_result: CCTPBurnResult) -> tuple[bytes, bytes]:
+            def on_phase(iris_status: str):
+                phase_map = {
+                    "waiting_for_indexing": CCTPBridgePhase.waiting_for_indexing,
+                    "pending_confirmations": CCTPBridgePhase.pending_confirmations,
+                    "complete": CCTPBridgePhase.attested,
+                }
+                phase = phase_map.get(iris_status)
+                if phase:
+                    _update_phase(idx, phase)
+
+            return _get_attestation(
+                burn_result=burn_result,
+                simulate=False,
+                test_attester=None,
+                attestation_timeout=attestation_timeout,
+                on_phase_change=on_phase,
+            )
+
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = {}
             for idx, burn_result in enumerate(burn_results):
-                future = executor.submit(
-                    _get_attestation,
-                    burn_result=burn_result,
-                    simulate=False,
-                    test_attester=None,
-                    attestation_timeout=attestation_timeout,
-                )
+                _update_phase(idx, CCTPBridgePhase.waiting_for_indexing)
+                future = executor.submit(_attest_with_progress, idx, burn_result)
                 futures[future] = idx
 
             indexed_results: dict[int, tuple[bytes, bytes]] = {}
@@ -508,30 +586,46 @@ def bridge_usdc_cctp_parallel(
 
             attestation_data = [indexed_results[i] for i in range(n_dest)]
 
-    logger.info("Phase 2 complete: %d attestations obtained", len(attestation_data))
-
-    # --- Phase 3: Receives (parallel across destination chains) ---
-    logger.info("Phase 3: Receiving on %d destination chains...", n_dest)
+    # --- Phase 3: Receives ---
     receive_tx_hashes: list[str] = [""] * n_dest
 
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = {}
+    if simulate:
+        # Simulation mode: receive sequentially (local Anvil forks, no threading needed)
         for idx, (dest, (message, attestation)) in enumerate(zip(destinations, attestation_data)):
-            future = executor.submit(
-                receive_usdc_cctp,
+            _update_phase(idx, CCTPBridgePhase.receiving)
+            receive_tx_hashes[idx] = receive_usdc_cctp(
                 dest_web3=dest.dest_web3,
                 message=message,
                 attestation=attestation,
                 sender=sender,
                 gas=gas,
             )
-            futures[future] = idx
+            _update_phase(idx, CCTPBridgePhase.complete)
+    else:
+        # Production mode: receive in parallel across independent destination chains
+        def _receive_with_progress(idx: int, dest, message, attestation) -> str:
+            _update_phase(idx, CCTPBridgePhase.receiving)
+            tx_hash = receive_usdc_cctp(
+                dest_web3=dest.dest_web3,
+                message=message,
+                attestation=attestation,
+                sender=sender,
+                gas=gas,
+            )
+            _update_phase(idx, CCTPBridgePhase.complete)
+            return tx_hash
 
-        for future in as_completed(futures):
-            idx = futures[future]
-            receive_tx_hashes[idx] = future.result()
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {}
+            for idx, (dest, (message, attestation)) in enumerate(zip(destinations, attestation_data)):
+                future = executor.submit(_receive_with_progress, idx, dest, message, attestation)
+                futures[future] = idx
 
-    logger.info("Phase 3 complete: %d receives confirmed", n_dest)
+            for future in as_completed(futures):
+                idx = futures[future]
+                receive_tx_hashes[idx] = future.result()
+
+    progress_bar.close()
 
     # Build results in input order
     results = []
@@ -555,17 +649,22 @@ def _get_attestation(
     simulate: bool,
     test_attester: LocalAccount | None,
     attestation_timeout: float,
+    on_phase_change: Callable[[str], None] | None = None,
     nonce_base: int = 999_999_000,
 ) -> tuple[bytes, bytes]:
     """Obtain attestation for a burn, either forged or from Iris API.
+
+    :param on_phase_change:
+        Callback for Iris API status transitions (production mode only).
+        Passed through to :func:`~eth_defi.cctp.attestation.fetch_attestation`.
 
     :return:
         Tuple of (message_bytes, attestation_bytes).
     """
     source_chain_id = burn_result.source_chain_id
     dest_chain_id = burn_result.dest_chain_id
-    source_domain = CHAIN_ID_TO_CCTP_DOMAIN[source_chain_id]
-    dest_domain = CHAIN_ID_TO_CCTP_DOMAIN[dest_chain_id]
+    source_domain = _resolve_cctp_domain(source_chain_id)
+    dest_domain = _resolve_cctp_domain(dest_chain_id)
 
     if simulate:
         from eth_defi.cctp.testing import craft_cctp_message, forge_attestation
@@ -586,11 +685,17 @@ def _get_attestation(
         return message, attestation
     else:
         from eth_defi.cctp.attestation import fetch_attestation
+        from eth_defi.cctp.constants import IRIS_API_BASE_URL, IRIS_API_SANDBOX_URL, TESTNET_CHAIN_IDS
+
+        # Use sandbox Iris API for testnet chains
+        api_url = IRIS_API_SANDBOX_URL if source_chain_id in TESTNET_CHAIN_IDS else IRIS_API_BASE_URL
 
         cctp_attestation = fetch_attestation(
             source_domain=source_domain,
             transaction_hash=burn_result.burn_tx_hash,
             timeout=attestation_timeout,
+            api_base_url=api_url,
+            on_phase_change=on_phase_change,
         )
         logger.info("Attestation received from Iris API for chain %d", dest_chain_id)
         return cctp_attestation.message, cctp_attestation.attestation

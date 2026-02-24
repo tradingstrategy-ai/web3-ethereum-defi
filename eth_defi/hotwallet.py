@@ -21,9 +21,8 @@ from web3._utils.contracts import prepare_transaction
 from web3.contract.contract import ContractFunction
 
 from eth_defi.gas import apply_gas, estimate_gas_fees, estimate_gas_price
-from eth_defi.provider.named import get_provider_name
-from eth_defi.tx import decode_signed_transaction
 from eth_defi.middleware import construct_sign_and_send_raw_middleware_anvil
+from eth_defi.provider.named import get_provider_name
 from eth_defi.tx import decode_signed_transaction, get_tx_broadcast_data
 
 logger = logging.getLogger(__name__)
@@ -115,8 +114,7 @@ class HotWallet:
     See also :py:func:`eth_defi.middleware.construct_sign_and_send_raw_middleware_anvil`
     when working with Anvil.
 
-
-    Example sending USDC with ``HotWallet`` class:
+    Example sending USDC with ``HotWallet`` class, using :py:meth:`transact_and_broadcast_with_contract` to transact with a smart contract function:
 
     .. code-block:: python
 

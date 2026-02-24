@@ -39,6 +39,11 @@ from eth_defi.cctp.constants import (
     CCTP_DOMAIN_NAMES,
     CHAIN_ID_TO_CCTP_DOMAIN,
     MESSAGE_TRANSMITTER_V2,
+    TESTNET_CHAIN_ID_TO_CCTP_DOMAIN,
+    TESTNET_CHAIN_IDS,
+    TESTNET_MESSAGE_TRANSMITTER_V2,
+    TESTNET_TOKEN_MESSENGER_V2,
+    TESTNET_TOKEN_MINTER_V2,
     TOKEN_MESSENGER_V2,
     TOKEN_MINTER_V2,
 )
@@ -77,8 +82,12 @@ class CCTPDeployment:
     ) -> "CCTPDeployment":
         """Create a CCTP deployment configuration for a given chain.
 
+        Supports both mainnet and testnet (Sepolia) chain IDs.
+        Testnet chains automatically use testnet contract addresses.
+
         :param chain_id:
-            EVM chain ID of the **source** chain (e.g. 1 for Ethereum).
+            EVM chain ID of the **source** chain (e.g. 1 for Ethereum,
+            421614 for Arbitrum Sepolia).
 
         :param allowed_destinations:
             List of **EVM chain IDs** for allowed destination chains.
@@ -91,16 +100,26 @@ class CCTPDeployment:
         :raises ValueError:
             If the source chain or a destination chain is not supported.
         """
-        if chain_id not in CHAIN_ID_TO_CCTP_DOMAIN:
-            raise ValueError(f"Chain {chain_id} is not supported by CCTP. Supported chains: {list(CHAIN_ID_TO_CCTP_DOMAIN.keys())}")
+        all_domains = {**CHAIN_ID_TO_CCTP_DOMAIN, **TESTNET_CHAIN_ID_TO_CCTP_DOMAIN}
+
+        if chain_id not in all_domains:
+            raise ValueError(f"Chain {chain_id} is not supported by CCTP. Supported chains: {list(all_domains.keys())}")
 
         domains = []
         if allowed_destinations:
             for dest_chain_id in allowed_destinations:
-                domain = CHAIN_ID_TO_CCTP_DOMAIN.get(dest_chain_id)
+                domain = all_domains.get(dest_chain_id)
                 if domain is None:
-                    raise ValueError(f"Destination chain {dest_chain_id} is not supported by CCTP. Supported chains: {list(CHAIN_ID_TO_CCTP_DOMAIN.keys())}")
+                    raise ValueError(f"Destination chain {dest_chain_id} is not supported by CCTP. Supported chains: {list(all_domains.keys())}")
                 domains.append(domain)
+
+        if chain_id in TESTNET_CHAIN_IDS:
+            return cls(
+                token_messenger=HexAddress(TESTNET_TOKEN_MESSENGER_V2),
+                message_transmitter=HexAddress(TESTNET_MESSAGE_TRANSMITTER_V2),
+                token_minter=HexAddress(TESTNET_TOKEN_MINTER_V2),
+                allowed_destination_domains=domains,
+            )
 
         return cls(allowed_destination_domains=domains)
 

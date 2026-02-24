@@ -25,6 +25,7 @@ Example::
 import logging
 import time
 from dataclasses import dataclass
+from typing import Callable
 
 import requests
 
@@ -60,12 +61,19 @@ def fetch_attestation(
     timeout: float = 300.0,
     poll_interval: float = 5.0,
     api_base_url: str = IRIS_API_BASE_URL,
+    on_phase_change: Callable[[str], None] | None = None,
 ) -> CCTPAttestation:
     """Poll the Iris API until attestation is ready or timeout.
 
     Circle's Iris service observes burn events on the source chain and
     produces a cryptographic attestation after block finality is reached.
     This function polls until the attestation is available.
+
+    The attestation goes through these Iris API statuses:
+
+    - **404** — transaction not yet indexed by Circle
+    - **pending_confirmations** — burn detected, waiting for block finality
+    - **complete** — attestation signed and ready
 
     :param source_domain:
         CCTP domain ID of the source chain (e.g. 0 for Ethereum).
@@ -81,6 +89,13 @@ def fetch_attestation(
 
     :param api_base_url:
         Iris API base URL. Defaults to mainnet.
+
+    :param on_phase_change:
+        Optional callback invoked when the attestation status changes.
+        Receives the new status string: ``"waiting_for_indexing"``,
+        ``"pending_confirmations"``, or ``"complete"``.
+        Used by :func:`~eth_defi.cctp.bridge.bridge_usdc_cctp_parallel`
+        for progress bar updates.
 
     :return:
         :class:`CCTPAttestation` with message and attestation bytes.
@@ -99,6 +114,16 @@ def fetch_attestation(
 
     start_time = time.time()
     attempt = 0
+    last_phase = None
+
+    def _notify(phase: str):
+        nonlocal last_phase
+        if phase != last_phase:
+            last_phase = phase
+            if on_phase_change is not None:
+                on_phase_change(phase)
+
+    _notify("waiting_for_indexing")
 
     while True:
         elapsed = time.time() - start_time
@@ -119,6 +144,7 @@ def fetch_attestation(
         # Iris API returns 404 when the transaction is not yet indexed;
         # treat it as "pending" and retry.
         if response.status_code == HTTP_NOT_FOUND:
+            _notify("waiting_for_indexing")
             logger.info("Attestation not yet indexed (404), retrying...")
             time.sleep(poll_interval)
             continue
@@ -134,6 +160,7 @@ def fetch_attestation(
             attestation_hex = msg.get("attestation")
 
             if status == "complete" and attestation_hex and attestation_hex != "PENDING":
+                _notify("complete")
                 message_hex = msg.get("message", "")
                 return CCTPAttestation(
                     message=bytes.fromhex(message_hex.replace("0x", "")),
@@ -141,6 +168,7 @@ def fetch_attestation(
                     status=status,
                 )
 
+            _notify(status)
             logger.info(
                 "Attestation status: %s (waiting for 'complete')",
                 status,

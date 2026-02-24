@@ -1,8 +1,8 @@
 """Lagoon unit test helpers."""
 
+import logging
 from decimal import Decimal
 
-import pytest
 from web3 import Web3
 
 from eth_typing import HexAddress
@@ -12,7 +12,10 @@ from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.event_reader.conversion import convert_uint256_string_to_int, convert_uin256_to_bytes
 from eth_defi.event_reader.multicall_batcher import EncodedCall
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
+from eth_defi.hotwallet import HotWallet
 from eth_defi.trace import assert_transaction_success_with_explanation
+
+logger = logging.getLogger(__name__)
 
 
 def fund_lagoon_vault(
@@ -23,10 +26,63 @@ def fund_lagoon_vault(
     trading_strategy_module_address: HexAddress,
     amount=Decimal(500),
     nav=Decimal(0),
+    hot_wallet: HotWallet | None = None,
 ):
-    """Make sure vault has some starting balance in the unit testing.
+    """Deposit tokens into a Lagoon vault so the Safe holds funds.
 
-    - Used in unit testing to prepare the vault for a test trade to have some capital
+    Supports two transaction signing modes:
+
+    - **Anvil mode** (default): uses ``.transact({"from": ...})`` for unlocked
+      accounts on Anvil forks.  This is the mode used by pytest fixtures.
+    - **HotWallet mode**: when *hot_wallet* is provided, signs and broadcasts
+      each transaction via :py:meth:`HotWallet.transact_and_broadcast_with_contract`.
+      Use this for real deployments and scripts.
+
+    Example (Anvil mode — pytest)::
+
+        fund_lagoon_vault(
+            web3, vault.address, asset_manager,
+            depositor, module.address,
+            amount=Decimal(500),
+        )
+
+    Example (HotWallet mode — deploy script)::
+
+        deployer = HotWallet.from_private_key(os.environ["PRIVATE_KEY"])
+        deployer.sync_nonce(web3)
+        fund_lagoon_vault(
+            web3, vault.address, deployer.address,
+            deployer.address, module.address,
+            amount=Decimal(2),
+            hot_wallet=deployer,
+        )
+
+    :param web3:
+        Web3 connection to the chain where the vault lives.
+
+    :param vault_address:
+        On-chain address of the Lagoon vault.
+
+    :param asset_manager:
+        Address that has the ``updateNewTotalAssets`` + ``settleDeposit``
+        role on the vault.
+
+    :param test_account_with_balance:
+        Address that holds the denomination token and will deposit.
+
+    :param trading_strategy_module_address:
+        Address of the ``TradingStrategyModuleV0`` guard contract.
+
+    :param amount:
+        Human-readable amount to deposit (e.g. ``Decimal(500)`` for 500 USDC).
+
+    :param nav:
+        NAV value to post during settlement (usually ``Decimal(0)`` for
+        initial funding).
+
+    :param hot_wallet:
+        When provided, all transactions are signed with this wallet
+        instead of using Anvil's unlocked-account shortcut.
     """
 
     assert vault_address.startswith("0x"), f"Vault address should be an address, got: {vault_address}"
@@ -48,21 +104,40 @@ def fund_lagoon_vault(
     denomination_token = vault.denomination_token
     raw_amount = denomination_token.convert_to_raw(amount)
 
-    # 1. approve
-    tx_hash = denomination_token.approve(vault.address, amount).transact({"from": test_account_with_balance})
-    assert_transaction_success_with_explanation(web3, tx_hash)
+    def _send(bound_func, description: str, gas: int = 1_000_000):
+        """Sign and broadcast a single transaction."""
+        if hot_wallet is not None:
+            logger.info("Broadcasting (HotWallet): %s", description)
+            tx_hash = hot_wallet.transact_and_broadcast_with_contract(bound_func, gas_limit=gas)
+        else:
+            tx_hash = bound_func.transact({"from": test_account_with_balance, "gas": gas})
+        assert_transaction_success_with_explanation(web3, tx_hash)
 
-    # 2. put to deposit queue
+    def _send_as_manager(bound_func, description: str, gas: int = 1_000_000):
+        """Sign and broadcast as asset manager."""
+        if hot_wallet is not None:
+            logger.info("Broadcasting (HotWallet): %s", description)
+            tx_hash = hot_wallet.transact_and_broadcast_with_contract(bound_func, gas_limit=gas)
+        else:
+            tx_hash = bound_func.transact({"from": asset_manager, "gas": gas})
+        assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # 1. Post initial valuation (needed for fresh vaults)
+    _send_as_manager(vault.post_new_valuation(Decimal(0)), "Post initial valuation")
+
+    # 2. Approve denomination token for vault deposit
+    _send(denomination_token.approve(vault.address, amount), f"Approve {amount} for vault deposit")
+
+    # 3. Put to deposit queue
     deposit_func = vault.request_deposit(test_account_with_balance, raw_amount)
-    tx_hash = deposit_func.transact({"from": test_account_with_balance})
-    assert_transaction_success_with_explanation(web3, tx_hash)
+    _send(deposit_func, f"Request {amount} deposit to vault")
 
-    # 2.b) deposit waiting in the silo
-    assert denomination_token.fetch_balance_of(vault.silo_address) == pytest.approx(amount)
+    # 4. Update NAV and settle
+    _send_as_manager(vault.post_new_valuation(nav), "Post valuation for settlement")
+    _send_as_manager(vault.settle_via_trading_strategy_module(nav), "Settle vault deposits")
 
-    # 3. update NAV and settle
-    tx_hash = vault.post_valuation_and_settle(nav, asset_manager)
-    assert_transaction_success_with_explanation(web3, tx_hash)
+    balance = vault.underlying_token.fetch_balance_of(vault.safe_address)
+    logger.info("Vault funded: Safe balance is %s %s", balance, vault.underlying_token.symbol)
 
 
 def force_lagoon_settle(

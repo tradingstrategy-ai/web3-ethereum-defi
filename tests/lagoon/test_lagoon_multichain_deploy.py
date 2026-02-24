@@ -14,21 +14,16 @@ import pytest
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
 from eth_typing import HexAddress
+from web3 import Web3
 
-from eth_defi.cctp.bridge import (
-    CCTPBridgeDestination,
-    CCTPBridgeResult,
-    bridge_usdc_cctp_parallel,
-)
+from eth_defi.cctp.bridge import (CCTPBridgeDestination, CCTPBridgeResult,
+                                  bridge_usdc_cctp_parallel)
 from eth_defi.cctp.constants import CHAIN_ID_TO_CCTP_DOMAIN
 from eth_defi.cctp.testing import replace_attester_on_fork
 from eth_defi.cctp.whitelist import CCTPDeployment
 from eth_defi.erc_4626.vault_protocol.lagoon.deployment import (
-    LagoonConfig,
-    LagoonDeploymentParameters,
-    LagoonMultichainDeployment,
-    deploy_multichain_lagoon_vault,
-)
+    LagoonConfig, LagoonDeploymentParameters, LagoonMultichainDeployment,
+    deploy_multichain_lagoon_vault)
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import USDC_NATIVE_TOKEN, USDC_WHALE, fetch_erc20_details
@@ -49,10 +44,6 @@ pytestmark = pytest.mark.skipif(
 
 #: Anvil default account #0 private key. Fixed so the deployer address is the same on all chains.
 DEPLOYER_PRIVATE_KEY = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
-
-#: Anvil default accounts #1 and #2. Used as Safe owners.
-OWNER_1 = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
-OWNER_2 = "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"
 
 #: All chain IDs in the test (Ethereum, Arbitrum, Base, HyperEVM)
 TEST_CHAIN_IDS = [1, 42161, 8453, 999]
@@ -103,7 +94,8 @@ def anvil_base(request) -> AnvilLaunch:
 def anvil_hyperliquid(request) -> AnvilLaunch:
     launch = fork_network_anvil(
         JSON_RPC_HYPERLIQUID,
-        gas_limit=30_000_000,  # HyperEVM small blocks have 2-3M gas limit; override to large block limit (30M) for TradingStrategyModuleV0 (~5.4M gas). See https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm/dual-block-architecture
+        # HyperEVM small blocks have 2-3M gas limit; override to large block limit (30M) for TradingStrategyModuleV0 (~5.4M gas). See https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm/dual-block-architecture
+        gas_limit=30_000_000,  
     )
     try:
         yield launch
@@ -112,9 +104,7 @@ def anvil_hyperliquid(request) -> AnvilLaunch:
 
 
 @pytest.fixture()
-def web3_ethereum(anvil_ethereum) -> "Web3":
-    from web3 import Web3
-
+def web3_ethereum(anvil_ethereum) -> Web3:
     web3 = create_multi_provider_web3(
         anvil_ethereum.json_rpc_url,
         default_http_timeout=(3, 250.0),
@@ -124,9 +114,7 @@ def web3_ethereum(anvil_ethereum) -> "Web3":
 
 
 @pytest.fixture()
-def web3_arbitrum(anvil_arbitrum) -> "Web3":
-    from web3 import Web3
-
+def web3_arbitrum(anvil_arbitrum) -> Web3:
     web3 = create_multi_provider_web3(
         anvil_arbitrum.json_rpc_url,
         default_http_timeout=(3, 250.0),
@@ -136,9 +124,7 @@ def web3_arbitrum(anvil_arbitrum) -> "Web3":
 
 
 @pytest.fixture()
-def web3_base(anvil_base) -> "Web3":
-    from web3 import Web3
-
+def web3_base(anvil_base) -> Web3:
     web3 = create_multi_provider_web3(
         anvil_base.json_rpc_url,
         default_http_timeout=(3, 250.0),
@@ -148,9 +134,7 @@ def web3_base(anvil_base) -> "Web3":
 
 
 @pytest.fixture()
-def web3_hyperliquid(anvil_hyperliquid) -> "Web3":
-    from web3 import Web3
-
+def web3_hyperliquid(anvil_hyperliquid) -> Web3:
     web3 = create_multi_provider_web3(
         anvil_hyperliquid.json_rpc_url,
         default_http_timeout=(3, 500.0),
@@ -193,11 +177,11 @@ def _make_chain_configs(
             parameters=LagoonDeploymentParameters(
                 underlying=None,
                 name="Multichain Test Vault",
-                symbol="MTV",
+                symbol="TEST",
             ),
             asset_manager=deployer_address,
-            safe_owners=[OWNER_1, OWNER_2],
-            safe_threshold=2,
+            safe_owners=[deployer_address],
+            safe_threshold=1,
             any_asset=True,
             safe_salt_nonce=salt_nonce,
             cctp_deployment=cctp,

@@ -27,7 +27,11 @@ def get_lagoon_chain_config(chain_id: int) -> LagoonChainConfig:
         underlying = USDT_NATIVE_TOKEN[chain_id]
         from_the_scratch = True
         factory_contract = True
-    elif chain_id == 421614:
+    elif chain_id == 421614:  # Arbitrum Sepolia
+        underlying = USDC_NATIVE_TOKEN[chain_id]
+        factory_contract = True
+        from_the_scratch = True
+    elif chain_id == 84532:  # Base Sepolia
         underlying = USDC_NATIVE_TOKEN[chain_id]
         factory_contract = True
         from_the_scratch = True

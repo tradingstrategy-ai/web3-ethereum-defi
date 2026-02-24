@@ -1,22 +1,74 @@
-"""Tutorial: Deploying Lagoon vaults across 5 chains with CCTP bridging.
+"""Tutorial: Deploying Lagoon vaults across multiple chains with CCTP bridging.
 
-Deploys a multichain Lagoon vault setup where all chains share the same
-deterministic Safe address via CREATE2:
+Supports two network modes:
 
-- **Arbitrum**: Lagoon vault (deposit/redeem entry point) + Safe
-- **Ethereum**: Safe + TradingStrategyModuleV0 + CowSwap
-- **Base**: Safe + TradingStrategyModuleV0
-- **HyperEVM**: Safe + TradingStrategyModuleV0 + Hypercore vaults
-- **Monad**: Safe + TradingStrategyModuleV0
+- **mainnet** (default): 5 chains — Arbitrum, Ethereum, Base, HyperEVM, Monad
+- **testnet**: 2 chains — Arbitrum Sepolia, Base Sepolia (no vault whitelisting)
 
-After deployment, bridges 1 USDC from the Arbitrum vault to each other
+All chains share the same deterministic Safe address via CREATE2.
+After deployment, bridges 1 USDC from the source vault to each other
 chain via Circle's CCTP V2 protocol to verify cross-chain connectivity.
 
-Simulation mode
----------------
+The deployer needs ETH, HYPE and MONAD balance on all chains.
 
-Set ``SIMULATE=true`` to run using Anvil mainnet forks of all 5 chains.
-CCTP bridging uses forged attestations in simulation mode.
+Environment variables
+---------------------
+
+``NETWORK``
+    ``mainnet`` (default) or ``testnet``. Selects which set of chains
+    and RPC variables to use.
+
+``SIMULATE``
+    Set to ``true`` to run using Anvil mainnet/testnet forks with forged
+    CCTP attestations. No real transactions are sent.
+
+``LAGOON_MULTCHAIN_TEST_PRIVATE_KEY``
+    Deployer private key. Required in real (non-simulate) mode.
+    Must hold native gas token balance on all chains.
+
+``SALT_NONCE``
+    Optional CREATE2 salt for deterministic Safe address.
+    Defaults to a random integer.
+
+``CHAINS``
+    Comma-separated list of chain names to deploy on.
+    The first chain is the source vault (deposit/redeem entry point).
+    Defaults to all chains for the selected network:
+    mainnet ``arbitrum,ethereum,base,hyperliquid,monad``,
+    testnet ``arbitrum_sepolia,base_sepolia``.
+    Example: ``CHAINS=arbitrum,base`` to deploy only on two chains.
+
+``USDC_AMOUNT``
+    Amount of USDC to deposit into the source vault for bridge testing.
+    Defaults to ``2``.
+
+``BRIDGED_USDC_AMOUNT``
+    Amount of USDC to bridge per destination chain.
+    Defaults to ``0.1``.
+
+``JSON_RPC_ARBITRUM``
+    Arbitrum One RPC URL (mainnet mode).
+
+``JSON_RPC_ETHEREUM``
+    Ethereum mainnet RPC URL (mainnet mode).
+
+``JSON_RPC_BASE``
+    Base mainnet RPC URL (mainnet mode).
+
+``JSON_RPC_HYPERLIQUID``
+    HyperEVM RPC URL (mainnet mode).
+
+``JSON_RPC_MONAD``
+    Monad RPC URL (mainnet mode).
+
+``JSON_RPC_ARBITRUM_SEPOLIA``
+    Arbitrum Sepolia RPC URL (testnet mode).
+
+``JSON_RPC_BASE_SEPOLIA``
+    Base Sepolia RPC URL (testnet mode).
+
+Mainnet simulation
+------------------
 
 .. code-block:: shell
 
@@ -28,10 +80,32 @@ CCTP bridging uses forged attestations in simulation mode.
     JSON_RPC_MONAD="https://..." \\
     poetry run python scripts/lagoon/deploy-lagoon-multichain.py
 
+Testnet deployment
+------------------
+
+
+.. code-block:: shell
+
+    NETWORK=testnet \
+    poetry run python scripts/lagoon/deploy-lagoon-multichain.py
+
+.. note::
+
+    Testnet simulation (``NETWORK=testnet SIMULATE=true``) is **not supported**
+    because Lagoon factory contracts are not deployed on Sepolia chains.
+    From-scratch deployment requires Forge. Use mainnet simulation
+    (``SIMULATE=true``) for local testing.
+
+
+Unlike mainnet deployment, we do not use a factory contracts, but both Gnosis Safe and all Lagoon contracts are deployed from the scratch.
+
+To get testnet ERH funding, use `thirdweb faucet for Base sepolia <https://thirdweb.com/base-sepolia-testnet>`__ and `LearnWeb3 faucet for Arbitrum sepolia <https://learnweb3.io/faucets/arbitrum_sepolia/>`__.
+Get testnet USDC from `Circle faucet <https://faucet.circle.com/>`__.
+
 Architecture overview
 ---------------------
 
-::
+Mainnet::
 
     Arbitrum (Lagoon vault — deposit/redeem entry)
         │
@@ -39,6 +113,12 @@ Architecture overview
         ├── CCTP V2 ────► Base Safe (ERC-4626 vaults)
         ├── CCTP V2 ────► HyperEVM Safe (Hypercore + ERC-4626 vaults)
         └── CCTP V2 ────► Monad Safe (ERC-4626 vaults)
+
+Testnet::
+
+    Arbitrum Sepolia (Lagoon vault — deposit/redeem entry)
+        │
+        └── CCTP V2 ────► Base Sepolia Safe (CCTP only, no vaults)
 
 All Safes share the same deterministic address across all chains.
 Each chain has its own TradingStrategyModuleV0 guard with
@@ -54,23 +134,25 @@ from typing import cast
 
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
-from eth_typing import HexAddress, HexStr
+from eth_typing import HexAddress
 from web3 import Web3
 
-from eth_defi.cctp.bridge import CCTPBridgeDestination, CCTPBridgeResult, bridge_usdc_cctp_parallel
-from eth_defi.cctp.constants import CHAIN_ID_TO_CCTP_DOMAIN
+from eth_defi.cctp.bridge import (CCTPBridgeDestination,
+                                  bridge_usdc_cctp_parallel)
+from eth_defi.cctp.constants import (CHAIN_ID_TO_CCTP_DOMAIN,
+                                     TESTNET_CHAIN_ID_TO_CCTP_DOMAIN)
 from eth_defi.cctp.testing import replace_attester_on_fork
 from eth_defi.cctp.whitelist import CCTPDeployment
-from eth_defi.erc_4626.classification import create_vault_instance, detect_vault_features
+from eth_defi.erc_4626.classification import (create_vault_instance,
+                                              detect_vault_features)
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.lagoon.deployment import (
-    LagoonConfig,
-    LagoonDeploymentParameters,
-    LagoonMultichainDeployment,
-    deploy_multichain_lagoon_vault,
-)
+    LagoonConfig, LagoonDeploymentParameters, LagoonMultichainDeployment,
+    deploy_multichain_lagoon_vault)
+from eth_defi.erc_4626.vault_protocol.lagoon.testing import fund_lagoon_vault
 from eth_defi.hotwallet import HotWallet
-from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
+from eth_defi.provider.anvil import (AnvilLaunch, fork_network_anvil,
+                                     fund_erc20_on_anvil)
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import USDC_NATIVE_TOKEN, USDC_WHALE, fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
@@ -132,13 +214,64 @@ MONAD_VAULTS: list[str] = [
     "0xad4aa2a713fb86fbb6b60de2af9e32a11db6abf2",  # Curvance: Curvance AUSD
 ]
 
-#: Chain names mapping to environment variable names for RPC URLs
-CHAIN_RPC_ENV_VARS: dict[str, str] = {
+# ---------------------------------------------------------------------------
+# Network configuration
+# ---------------------------------------------------------------------------
+
+#: Mainnet chain names to RPC environment variables
+MAINNET_CHAIN_RPC_ENV_VARS: dict[str, str] = {
     "arbitrum": "JSON_RPC_ARBITRUM",
     "ethereum": "JSON_RPC_ETHEREUM",
     "base": "JSON_RPC_BASE",
     "hyperliquid": "JSON_RPC_HYPERLIQUID",
     "monad": "JSON_RPC_MONAD",
+}
+
+#: Mainnet chain names to expected chain IDs
+MAINNET_CHAIN_ID_MAP: dict[str, int] = {
+    "arbitrum": 42161,
+    "ethereum": 1,
+    "base": 8453,
+    "hyperliquid": 999,
+    "monad": 143,
+}
+
+#: Testnet chain names to RPC environment variables
+TESTNET_CHAIN_RPC_ENV_VARS: dict[str, str] = {
+    "arbitrum_sepolia": "JSON_RPC_ARBITRUM_SEPOLIA",
+    "base_sepolia": "JSON_RPC_BASE_SEPOLIA",
+}
+
+#: Testnet chain names to expected chain IDs
+TESTNET_CHAIN_ID_MAP: dict[str, int] = {
+    "arbitrum_sepolia": 421614,
+    "base_sepolia": 84532,
+}
+
+#: Default chain ordering. First chain is the source vault (deposit/redeem entry point).
+MAINNET_DEFAULT_CHAINS: list[str] = ["arbitrum", "ethereum", "base", "hyperliquid", "monad"]
+TESTNET_DEFAULT_CHAINS: list[str] = ["arbitrum_sepolia", "base_sepolia"]
+
+#: Per-chain vault whitelisting and feature configuration (mainnet only).
+#: Keys that are absent get a plain config with no vaults.
+MAINNET_CHAIN_FEATURES: dict[str, dict] = {
+    "arbitrum": {
+        "erc_4626_vaults_list": ARBITRUM_VAULTS,
+    },
+    "ethereum": {
+        "erc_4626_vaults_list": ETHEREUM_VAULTS,
+        "cowswap": True,
+    },
+    "base": {
+        "erc_4626_vaults_list": BASE_VAULTS,
+    },
+    "hyperliquid": {
+        "erc_4626_vaults_list": HYPEREVM_VAULTS,
+        "hypercore_vaults": HYPERCORE_VAULT_ADDRESSES,
+    },
+    "monad": {
+        "erc_4626_vaults_list": MONAD_VAULTS,
+    },
 }
 
 
@@ -180,22 +313,11 @@ def create_multichain_whitelisting_configuration(
     safe_threshold: int,
     safe_salt_nonce: int,
 ) -> dict[str, LagoonConfig]:
-    """Build per-chain LagoonConfig dicts for multichain deployment.
+    """Build per-chain LagoonConfig dicts for mainnet deployment.
 
-    Shared across all chains:
-
-    - USDC as underlying (auto-resolved per chain)
-    - CCTP whitelisting (configured for all CCTP-capable chains)
-    - Safe owners, threshold, salt nonce
-    - Asset manager
-
-    Chain-specific:
-
-    - Arbitrum: Lagoon vault entry point + ERC-4626 vaults
-    - Ethereum: ERC-4626 vaults + CowSwap
-    - Base: ERC-4626 vaults
-    - HyperEVM: Hypercore vaults + ERC-4626 vaults
-    - Monad: ERC-4626 vaults
+    Only configures chains present in ``chain_web3`` (controlled by
+    the ``CHAINS`` environment variable). Per-chain vault lists and
+    features are looked up from :data:`MAINNET_CHAIN_FEATURES`.
 
     :param chain_web3:
         Mapping of chain names to Web3 instances.
@@ -217,16 +339,24 @@ def create_multichain_whitelisting_configuration(
     """
     configs: dict[str, LagoonConfig] = {}
 
-    # Shared base parameters
     base_params = LagoonDeploymentParameters(
         underlying=None,  # auto-resolved per chain from USDC_NATIVE_TOKEN
         name="Multichain Strategy Vault",
         symbol="MSV",
     )
 
-    def make_base_config(**kwargs) -> LagoonConfig:
-        """Create a LagoonConfig with shared settings."""
-        return LagoonConfig(
+    for chain_name, web3 in chain_web3.items():
+        features = MAINNET_CHAIN_FEATURES.get(chain_name, {})
+
+        kwargs: dict = {}
+        if "cowswap" in features:
+            kwargs["cowswap"] = features["cowswap"]
+        if "hypercore_vaults" in features:
+            kwargs["hypercore_vaults"] = features["hypercore_vaults"]
+        if "erc_4626_vaults_list" in features:
+            kwargs["erc_4626_vaults"] = resolve_vaults(web3, features["erc_4626_vaults_list"])
+
+        configs[chain_name] = LagoonConfig(
             parameters=deepcopy(base_params),
             asset_manager=asset_manager,
             safe_owners=list(safe_owners),
@@ -236,34 +366,7 @@ def create_multichain_whitelisting_configuration(
             **kwargs,
         )
 
-    # --- Arbitrum: vault entry point ---
-    configs["arbitrum"] = make_base_config(
-        erc_4626_vaults=resolve_vaults(chain_web3["arbitrum"], ARBITRUM_VAULTS),
-    )
-
-    # --- Ethereum: CowSwap + vaults ---
-    configs["ethereum"] = make_base_config(
-        cowswap=True,
-        erc_4626_vaults=resolve_vaults(chain_web3["ethereum"], ETHEREUM_VAULTS),
-    )
-
-    # --- Base: vaults ---
-    configs["base"] = make_base_config(
-        erc_4626_vaults=resolve_vaults(chain_web3["base"], BASE_VAULTS),
-    )
-
-    # --- HyperEVM: Hypercore + ERC-4626 vaults ---
-    configs["hyperliquid"] = make_base_config(
-        hypercore_vaults=HYPERCORE_VAULT_ADDRESSES,
-        erc_4626_vaults=resolve_vaults(chain_web3["hyperliquid"], HYPEREVM_VAULTS),
-    )
-
-    # --- Monad: vaults ---
-    configs["monad"] = make_base_config(
-        erc_4626_vaults=resolve_vaults(chain_web3["monad"], MONAD_VAULTS),
-    )
-
-    # --- Configure CCTP for all CCTP-capable chains ---
+    # Configure CCTP for all CCTP-capable chains
     cctp_chain_ids = []
     for chain_name, web3 in chain_web3.items():
         chain_id = web3.eth.chain_id
@@ -282,39 +385,109 @@ def create_multichain_whitelisting_configuration(
     return configs
 
 
-def setup_simulate_chains() -> tuple[dict[str, Web3], list[AnvilLaunch]]:
-    """Create Anvil forks for all 5 chains.
+def create_testnet_whitelisting_configuration(
+    chain_web3: dict[str, Web3],
+    asset_manager: HexAddress,
+    safe_owners: list[HexAddress],
+    safe_threshold: int,
+    safe_salt_nonce: int,
+) -> dict[str, LagoonConfig]:
+    """Build per-chain LagoonConfig for testnet deployment.
+
+    No vault whitelisting — only CCTP for cross-chain transfers.
+    Testnet chains (Arbitrum Sepolia, Base Sepolia) deploy the full
+    Lagoon protocol from scratch since no factory exists.
+
+    :param chain_web3:
+        Mapping of chain names to Web3 instances.
+
+    :param asset_manager:
+        Address that manages vault assets and executes trades.
+
+    :param safe_owners:
+        Addresses of Safe multisig owners.
+
+    :param safe_threshold:
+        Number of owner signatures required.
+
+    :param safe_salt_nonce:
+        CREATE2 salt for deterministic Safe address.
 
     :return:
-        Tuple of (chain_name→Web3 dict, list of AnvilLaunch handles for cleanup).
+        Per-chain LagoonConfig dict ready for ``deploy_multichain_lagoon_vault()``.
+    """
+    configs: dict[str, LagoonConfig] = {}
+
+    base_params = LagoonDeploymentParameters(
+        underlying=None,  # auto-resolved per chain from USDC_NATIVE_TOKEN
+        name="Testnet Strategy Vault",
+        symbol="TSV",
+    )
+
+    for chain_name in chain_web3:
+        configs[chain_name] = LagoonConfig(
+            parameters=deepcopy(base_params),
+            asset_manager=asset_manager,
+            safe_owners=list(safe_owners),
+            safe_threshold=safe_threshold,
+            safe_salt_nonce=safe_salt_nonce,
+            any_asset=True,
+            from_the_scratch=True,
+        )
+
+    # Configure CCTP between all testnet chains
+    cctp_chain_ids = []
+    for chain_name, web3 in chain_web3.items():
+        chain_id = web3.eth.chain_id
+        if chain_id in TESTNET_CHAIN_ID_TO_CCTP_DOMAIN:
+            cctp_chain_ids.append((chain_name, chain_id))
+
+    for chain_name, chain_id in cctp_chain_ids:
+        other_ids = [cid for name, cid in cctp_chain_ids if name != chain_name]
+        if other_ids:
+            configs[chain_name].cctp_deployment = CCTPDeployment.create_for_chain(
+                chain_id=chain_id,
+                allowed_destinations=other_ids,
+            )
+            logger.info("CCTP configured on %s (testnet) with destinations: %s", chain_name, other_ids)
+
+    return configs
+
+
+def setup_simulate_chains(
+    chain_rpc_env_vars: dict[str, str],
+    chain_id_map: dict[str, int],
+) -> tuple[dict[str, Web3], list[AnvilLaunch]]:
+    """Create Anvil forks for all chains.
+
+    :param chain_rpc_env_vars:
+        Mapping of chain names to RPC environment variable names.
+
+    :param chain_id_map:
+        Mapping of chain names to expected chain IDs.
+
+    :return:
+        Tuple of (chain_name->Web3 dict, list of AnvilLaunch handles for cleanup).
     """
     anvil_launches = []
     chain_web3 = {}
 
-    for chain_name, env_var in CHAIN_RPC_ENV_VARS.items():
+    for chain_name, env_var in chain_rpc_env_vars.items():
         rpc_url = os.environ.get(env_var)
         assert rpc_url, f"{env_var} environment variable is required"
-        rpc_url = rpc_url.split()[0]  # Take first URL if space-separated fallback format
 
         # HyperEVM needs higher gas limit for TradingStrategyModuleV0 deployment
         # due to dual-block architecture (small blocks ~2-3M gas, large blocks ~30M)
         extra_args = {}
-        if chain_name == "hyperliquid":
-            extra_args["gas_limit"] = 30_000_000
 
-        # Unlock USDC whales for funding
-        chain_id_map = {
-            "arbitrum": 42161,
-            "ethereum": 1,
-            "base": 8453,
-            "hyperliquid": 999,
-            "monad": 143,
-        }
+
+        # Unlock USDC whales for funding (mainnet only)
         chain_id = chain_id_map[chain_name]
         unlocked = []
         if chain_id in USDC_WHALE:
             unlocked.append(USDC_WHALE[chain_id])
 
+        # fork_network_anvil handles space-separated multi-RPC URLs natively
         launch = fork_network_anvil(rpc_url, unlocked_addresses=unlocked, **extra_args)
         anvil_launches.append(launch)
 
@@ -329,14 +502,19 @@ def setup_simulate_chains() -> tuple[dict[str, Web3], list[AnvilLaunch]]:
     return chain_web3, anvil_launches
 
 
-def setup_real_chains() -> dict[str, Web3]:
+def setup_real_chains(
+    chain_rpc_env_vars: dict[str, str],
+) -> dict[str, Web3]:
     """Create Web3 connections for real networks.
 
+    :param chain_rpc_env_vars:
+        Mapping of chain names to RPC environment variable names.
+
     :return:
-        chain_name→Web3 dict.
+        chain_name->Web3 dict.
     """
     chain_web3 = {}
-    for chain_name, env_var in CHAIN_RPC_ENV_VARS.items():
+    for chain_name, env_var in chain_rpc_env_vars.items():
         rpc_url = os.environ.get(env_var)
         assert rpc_url, f"{env_var} environment variable is required"
         web3 = create_multi_provider_web3(rpc_url)
@@ -345,46 +523,146 @@ def setup_real_chains() -> dict[str, Web3]:
     return chain_web3
 
 
-def fund_vault(web3: Web3, vault, usdc_details, depositor: str, asset_manager: str, amount_usdc: int = 200):
-    """Deposit USDC into the vault and settle so the Safe holds funds."""
-    raw_amount = usdc_details.convert_to_raw(amount_usdc)
+def bridge_to_destinations(
+    chain_web3: dict[str, Web3],
+    result: LagoonMultichainDeployment,
+    source_chain: str,
+    source_usdc,
+    asset_manager: HexAddress,
+    simulate: bool,
+    bridge_usdc_amount: Decimal = Decimal("0.1"),
+) -> list:
+    """Bridge USDC from the source vault to each destination chain.
 
-    tx_hash = vault.post_new_valuation(Decimal(0)).transact({"from": asset_manager})
-    assert_transaction_success_with_explanation(web3, tx_hash)
+    Checks that the source vault has sufficient USDC, prepares test
+    attesters in simulate mode, and calls
+    :func:`~eth_defi.cctp.bridge.bridge_usdc_cctp_parallel`.
 
-    tx_hash = usdc_details.contract.functions.approve(
-        vault.address,
-        raw_amount,
-    ).transact({"from": depositor})
-    assert_transaction_success_with_explanation(web3, tx_hash)
+    :param chain_web3:
+        Mapping of chain names to Web3 instances.
 
-    tx_hash = vault.request_deposit(depositor, raw_amount).transact({"from": depositor})
-    assert_transaction_success_with_explanation(web3, tx_hash)
+    :param result:
+        Multichain deployment result with vault references.
 
-    tx_hash = vault.post_new_valuation(Decimal(0)).transact({"from": asset_manager})
-    assert_transaction_success_with_explanation(web3, tx_hash)
+    :param source_chain:
+        Name of the source chain (e.g. ``"arbitrum"``).
 
-    tx_hash = vault.settle_via_trading_strategy_module(Decimal(0)).transact(
-        {"from": asset_manager, "gas": 1_000_000},
+    :param source_usdc:
+        USDC token details on the source chain.
+
+    :param asset_manager:
+        Address that executes trades via the module.
+
+    :param simulate:
+        Whether to use forged attestations on Anvil forks.
+
+    :param bridge_usdc_amount:
+        Human-readable amount of USDC to bridge per destination.
+
+    :return:
+        List of :class:`~eth_defi.cctp.bridge.CCTPBridgeResult`.
+    """
+    source_vault = result.deployments[source_chain].vault
+    dest_chain_names = [name for name in chain_web3 if name != source_chain]
+
+    bridge_amount = source_usdc.convert_to_raw(bridge_usdc_amount)
+    total_bridge = bridge_amount * len(dest_chain_names)
+
+    # Check source vault has sufficient USDC for bridging
+    safe_balance = source_usdc.contract.functions.balanceOf(source_vault.safe_address).call()
+    safe_balance_human = source_usdc.convert_to_decimals(safe_balance)
+    total_bridge_human = source_usdc.convert_to_decimals(total_bridge)
+    print(f"\nSource vault USDC balance: {safe_balance_human} USDC")
+    print(f"  Required for bridging: {total_bridge_human} USDC ({len(dest_chain_names)} destinations x {bridge_usdc_amount} USDC)")
+    assert safe_balance >= total_bridge, (
+        f"Source vault needs {total_bridge_human} USDC but has {safe_balance_human} USDC. "
+        f"Fund the vault on {source_chain} first."
     )
-    assert_transaction_success_with_explanation(web3, tx_hash)
 
-    balance = vault.underlying_token.fetch_balance_of(vault.safe_address)
-    logger.info("Vault funded with %d USDC (Safe balance: %s)", amount_usdc, balance)
+    print(f"Bridging {bridge_usdc_amount} USDC from {source_chain} to each destination chain...")
+
+    # Prepare test attesters on destination forks (simulate mode only)
+    test_attesters: dict[int, LocalAccount] | None = None
+    if simulate:
+        test_attesters = {}
+        for chain_name in dest_chain_names:
+            dest_chain_id = chain_web3[chain_name].eth.chain_id
+            test_attesters[dest_chain_id] = replace_attester_on_fork(chain_web3[chain_name])
+
+    # Build destination list for parallel bridging
+    destinations = []
+    for dest_chain_name in dest_chain_names:
+        dest_safe = result.deployments[dest_chain_name].vault.safe_address
+        destinations.append(
+            CCTPBridgeDestination(
+                dest_web3=chain_web3[dest_chain_name],
+                dest_safe_address=dest_safe,
+                amount=bridge_amount,
+            )
+        )
+        print(f"  Destination: {dest_chain_name} (Safe: {dest_safe})")
+
+    # Execute parallel bridge: burns sequentially, attestations + receives in parallel
+    bridge_results = bridge_usdc_cctp_parallel(
+        source_web3=chain_web3[source_chain],
+        source_vault=source_vault,
+        destinations=destinations,
+        sender=asset_manager,
+        simulate=simulate,
+        test_attesters=test_attesters,
+    )
+
+    for dest_name, br in zip(dest_chain_names, bridge_results):
+        print(f"\n  {dest_name}:")
+        print(f"    Burn TX:    {br.burn_tx_hash}")
+        print(f"    Receive TX: {br.receive_tx_hash}")
+
+    return bridge_results
 
 
 def main():
-    setup_console_logging(logging.INFO)
+    setup_console_logging("info")
 
+    network = os.environ.get("NETWORK", "mainnet").lower()
     simulate = os.environ.get("SIMULATE", "").lower() in ("true", "1", "yes")
     salt_nonce = int(os.environ.get("SALT_NONCE", str(random.randint(1, 2**32))))
+    usdc_amount = Decimal(os.environ.get("USDC_AMOUNT", "2"))
+    bridged_usdc_amount = Decimal(os.environ.get("BRIDGED_USDC_AMOUNT", "0.1"))
+
+    assert network in ("mainnet", "testnet"), f"NETWORK must be 'mainnet' or 'testnet', got '{network}'"
+
+    is_testnet = network == "testnet"
+
+    # Resolve which chains to deploy on
+    all_rpc_env_vars = TESTNET_CHAIN_RPC_ENV_VARS if is_testnet else MAINNET_CHAIN_RPC_ENV_VARS
+    all_chain_id_map = TESTNET_CHAIN_ID_MAP if is_testnet else MAINNET_CHAIN_ID_MAP
+    default_chains = TESTNET_DEFAULT_CHAINS if is_testnet else MAINNET_DEFAULT_CHAINS
+
+    chains_env = os.environ.get("CHAINS", "")
+    if chains_env.strip():
+        selected_chains = [c.strip() for c in chains_env.split(",") if c.strip()]
+    else:
+        selected_chains = list(default_chains)
+
+    for chain_name in selected_chains:
+        assert chain_name in all_rpc_env_vars, f"Unknown chain '{chain_name}' for {network} mode. Available: {list(all_rpc_env_vars.keys())}"
+
+    # First chain is the source vault (deposit/redeem entry point)
+    source_chain = selected_chains[0]
+
+    # Filter dicts to selected chains only
+    chain_rpc_env_vars = {k: all_rpc_env_vars[k] for k in selected_chains}
+    chain_id_map = {k: all_chain_id_map[k] for k in selected_chains}
 
     print("=" * 70)
     print("Lagoon multichain deployment tutorial")
     print("=" * 70)
+    print(f"  Network: {network}")
     print(f"  Mode: {'SIMULATE (Anvil forks)' if simulate else 'REAL (live networks)'}")
     print(f"  Salt nonce: {salt_nonce}")
-    print(f"  Chains: Arbitrum, Ethereum, Base, HyperEVM, Monad")
+    print(f"  Chains: {', '.join(selected_chains)}")
+    print(f"  Vault funding: {usdc_amount} USDC")
+    print(f"  Bridge per chain: {bridged_usdc_amount} USDC")
     print()
 
     anvil_launches: list[AnvilLaunch] = []
@@ -392,21 +670,21 @@ def main():
     try:
         # --- Step 1: Set up chain connections ---
         if simulate:
-            chain_web3, anvil_launches = setup_simulate_chains()
+            chain_web3, anvil_launches = setup_simulate_chains(chain_rpc_env_vars, chain_id_map)
         else:
-            chain_web3 = setup_real_chains()
+            chain_web3 = setup_real_chains(chain_rpc_env_vars)
 
         # --- Step 2: Set up deployer wallet ---
         if simulate:
-            deployer = Account.create()
+            deployer = HotWallet(Account.create())
             # Fund deployer with ETH/native on all chains
             for chain_name, web3 in chain_web3.items():
                 web3.provider.make_request("anvil_setBalance", [deployer.address, hex(100 * 10**18)])
             print(f"  Deployer: {deployer.address} (simulated, funded with 100 ETH)")
         else:
-            private_key = os.environ.get("PRIVATE_KEY")
-            assert private_key, "PRIVATE_KEY environment variable is required in real mode"
-            deployer = Account.from_key(private_key)
+            private_key = os.environ.get("LAGOON_MULTCHAIN_TEST_PRIVATE_KEY")
+            assert private_key, "LAGOON_MULTCHAIN_TEST_PRIVATE_KEY environment variable is required in real mode"
+            deployer = HotWallet.from_private_key(private_key)
             print(f"  Deployer: {deployer.address}")
 
         # Use deployer as both asset manager and single Safe owner for tutorial
@@ -414,15 +692,40 @@ def main():
         safe_owners = [deployer.address]
         safe_threshold = 1
 
-        # --- Step 3: Build per-chain configurations ---
+        # --- Step 3: Check deployer balance on all chains ---
+        if not simulate:
+            print("\nChecking deployer balances...")
+            insufficient = []
+            for chain_name, web3 in chain_web3.items():
+                balance_wei = web3.eth.get_balance(deployer.address)
+                balance_eth = balance_wei / 10**18
+                status = "OK" if balance_wei > 0 else "EMPTY"
+                print(f"  {chain_name}: {balance_eth:.6f} native ({status})")
+                if balance_wei == 0:
+                    insufficient.append(chain_name)
+            if insufficient:
+                print(f"\n  WARNING: Deployer has zero balance on: {', '.join(insufficient)}")
+                print(f"  Deployment will fail on chains without gas. Fund {deployer.address} first.")
+                raise SystemExit(1)
+
+        # --- Step 4: Build per-chain configurations ---
         print("\nBuilding per-chain whitelisting configurations...")
-        chain_configs = create_multichain_whitelisting_configuration(
-            chain_web3=chain_web3,
-            asset_manager=asset_manager,
-            safe_owners=safe_owners,
-            safe_threshold=safe_threshold,
-            safe_salt_nonce=salt_nonce,
-        )
+        if is_testnet:
+            chain_configs = create_testnet_whitelisting_configuration(
+                chain_web3=chain_web3,
+                asset_manager=asset_manager,
+                safe_owners=safe_owners,
+                safe_threshold=safe_threshold,
+                safe_salt_nonce=salt_nonce,
+            )
+        else:
+            chain_configs = create_multichain_whitelisting_configuration(
+                chain_web3=chain_web3,
+                asset_manager=asset_manager,
+                safe_owners=safe_owners,
+                safe_threshold=safe_threshold,
+                safe_salt_nonce=salt_nonce,
+            )
 
         for chain_name, config in chain_configs.items():
             n_vaults = len(config.erc_4626_vaults) if config.erc_4626_vaults else 0
@@ -430,15 +733,15 @@ def main():
             cctp = "yes" if config.cctp_deployment else "no"
             print(f"  {chain_name}: {n_vaults} ERC-4626 vaults, {n_hypercore} Hypercore vaults, CCTP: {cctp}")
 
-        # --- Step 4: Deploy across all chains ---
+        # --- Step 5: Deploy across all chains ---
         print("\nDeploying Lagoon vaults across all chains (parallel)...")
         result = deploy_multichain_lagoon_vault(
             chain_web3=chain_web3,
-            deployer=deployer,
+            deployer=deployer.account,
             chain_configs=chain_configs,
         )
 
-        # --- Step 5: Print deployment summary ---
+        # --- Step 6: Print deployment summary ---
         print("\n" + "=" * 70)
         print("Deployment summary")
         print("=" * 70)
@@ -451,67 +754,63 @@ def main():
             print(f"    Safe:   {deployment.vault.safe_address}")
             print(f"    Module: {deployment.trading_strategy_module.address if deployment.trading_strategy_module else 'N/A'}")
 
-        # --- Step 6: Fund Arbitrum vault for bridging ---
+        # --- Step 7: Fund source vault for bridging ---
+        source_chain_id = chain_web3[source_chain].eth.chain_id
+        source_usdc_address = USDC_NATIVE_TOKEN[source_chain_id]
+        source_usdc = fetch_erc20_details(chain_web3[source_chain], source_usdc_address)
+        source_vault = result.deployments[source_chain].vault
+
+        source_web3 = chain_web3[source_chain]
+
         if simulate:
-            print("\nFunding Arbitrum vault with 10 USDC for bridge testing...")
-            arb_web3 = chain_web3["arbitrum"]
-            arb_vault = result.deployments["arbitrum"].vault
-            arb_usdc = fetch_erc20_details(arb_web3, USDC_NATIVE_TOKEN[42161])
-            depositor = USDC_WHALE[42161]
-            fund_vault(arb_web3, arb_vault, arb_usdc, depositor, asset_manager, amount_usdc=10)
-        else:
-            print("\nSkipping vault funding in real mode (vault must be pre-funded).")
+            if source_chain_id in USDC_WHALE:
+                # Mainnet simulate: transfer USDC from whale to deployer
+                whale = USDC_WHALE[source_chain_id]
+                raw_amount = source_usdc.convert_to_raw(usdc_amount)
+                tx_hash = source_usdc.contract.functions.transfer(
+                    deployer.address,
+                    raw_amount,
+                ).transact({"from": whale})
+                assert_transaction_success_with_explanation(source_web3, tx_hash)
+            else:
+                # Testnet simulate: mint USDC to deployer via storage manipulation
+                fund_erc20_on_anvil(source_web3, source_usdc.address, deployer.address, source_usdc.convert_to_raw(usdc_amount))
 
-        # --- Step 7: Bridge 1 USDC from Arbitrum to each CCTP-enabled chain (parallel) ---
-        print("\nBridging 1 USDC from Arbitrum to each destination chain (parallel)...")
-        arb_vault = result.deployments["arbitrum"].vault
-        arb_usdc = fetch_erc20_details(chain_web3["arbitrum"], USDC_NATIVE_TOKEN[42161])
-        bridge_amount = arb_usdc.convert_to_raw(1)  # 1 USDC
-
-        # Prepare test attesters on destination forks (simulate mode only)
-        # Keyed by chain ID for bridge_usdc_cctp_parallel()
-        test_attesters: dict[int, LocalAccount] | None = None
-        if simulate:
-            test_attesters = {}
-            for chain_name in ["ethereum", "base", "hyperliquid", "monad"]:
-                dest_chain_id = chain_web3[chain_name].eth.chain_id
-                test_attesters[dest_chain_id] = replace_attester_on_fork(chain_web3[chain_name])
-
-        # Build destination list for parallel bridging
-        dest_chain_names = ["ethereum", "base", "hyperliquid", "monad"]
-        destinations = []
-        for dest_chain_name in dest_chain_names:
-            dest_safe = result.deployments[dest_chain_name].vault.safe_address
-            destinations.append(
-                CCTPBridgeDestination(
-                    dest_web3=chain_web3[dest_chain_name],
-                    dest_safe_address=dest_safe,
-                    amount=bridge_amount,
-                )
+            print(f"\nFunding {source_chain} vault with {usdc_amount} USDC for bridge testing...")
+            deployer.sync_nonce(source_web3)
+            source_module = result.deployments[source_chain].trading_strategy_module
+            fund_lagoon_vault(
+                web3=source_web3,
+                vault_address=source_vault.address,
+                asset_manager=deployer.address,
+                test_account_with_balance=deployer.address,
+                trading_strategy_module_address=source_module.address,
+                amount=usdc_amount,
+                hot_wallet=deployer,
             )
-            print(f"  Destination: {dest_chain_name} (Safe: {dest_safe})")
+        else:
+            print(f"\nReal mode: vault must be pre-funded with USDC on {source_chain}.")
+            print(f"  Deposit USDC into the vault so the Safe holds funds for bridging.")
+            if is_testnet:
+                print(f"  Get testnet USDC from Circle faucet: https://faucet.circle.com/")
 
-        # Execute parallel bridge: burns sequentially, attestations + receives in parallel
-        bridge_results = bridge_usdc_cctp_parallel(
-            source_web3=chain_web3["arbitrum"],
-            source_vault=arb_vault,
-            destinations=destinations,
-            sender=asset_manager,
+        # --- Step 8: Bridge 0.1 USDC from source to each destination chain ---
+        bridge_results = bridge_to_destinations(
+            chain_web3=chain_web3,
+            result=result,
+            source_chain=source_chain,
+            source_usdc=source_usdc,
+            asset_manager=asset_manager,
             simulate=simulate,
-            test_attesters=test_attesters,
+            bridge_usdc_amount=bridged_usdc_amount,
         )
 
-        for dest_name, br in zip(dest_chain_names, bridge_results):
-            print(f"\n  {dest_name}:")
-            print(f"    Burn TX:    {br.burn_tx_hash}")
-            print(f"    Receive TX: {br.receive_tx_hash}")
-
-        # --- Step 8: Print final summary ---
+        # --- Step 9: Print final summary ---
         print("\n" + "=" * 70)
         print("Bridge summary")
         print("=" * 70)
         for br in bridge_results:
-            print(f"  Chain {br.source_chain_id} -> {br.dest_chain_id}: {arb_usdc.convert_to_decimals(br.amount):.2f} USDC")
+            print(f"  Chain {br.source_chain_id} -> {br.dest_chain_id}: {source_usdc.convert_to_decimals(br.amount):.2f} USDC")
 
         print("\nDone!")
 

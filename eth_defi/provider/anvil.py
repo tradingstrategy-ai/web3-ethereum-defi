@@ -1057,6 +1057,32 @@ def fund_erc20_on_anvil(
     :func:`find_erc20_balance_slot`, then writes the amount directly
     to the token's storage.
 
+    Example — mint 1000 USDC on an Arbitrum Anvil fork:
+
+    .. code-block:: python
+
+        from eth_defi.provider.anvil import launch_anvil, fund_erc20_on_anvil
+        from eth_defi.provider.multi_provider import create_multi_provider_web3
+        from eth_defi.token import USDC_NATIVE_TOKEN, fetch_erc20_details
+
+        anvil = launch_anvil(fork_url="https://arb1.arbitrum.io/rpc")
+        web3 = create_multi_provider_web3(anvil.json_rpc_url)
+
+        chain_id = web3.eth.chain_id  # 42161
+        usdc_address = USDC_NATIVE_TOKEN[chain_id]
+        usdc = fetch_erc20_details(web3, usdc_address)
+
+        recipient = "0xYourAddress..."
+        fund_erc20_on_anvil(
+            web3,
+            usdc_address,
+            recipient,
+            usdc.convert_to_raw(1000),  # 1000 USDC
+        )
+
+        balance = usdc.fetch_balance_of(recipient)
+        assert balance == 1000
+
     :param web3:
         Web3 connected to an Anvil fork.
 
