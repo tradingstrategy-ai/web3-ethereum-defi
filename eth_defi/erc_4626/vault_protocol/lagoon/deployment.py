@@ -1527,6 +1527,12 @@ def deploy_automated_lagoon_vault(
 
         parameters.safe = safe.address
         logger.info("Deployed new Safe: %s", safe.address)
+
+        # Safe deployment bypasses HotWallet nonce tracking (uses LocalAccount
+        # directly via safe-eth-py). Sync so subsequent forge deploys use the
+        # correct on-chain nonce.
+        if isinstance(deployer, HotWallet):
+            deployer.sync_nonce(web3)
     else:
         assert existing_safe_address, "You must pass existing Safe address if existing_vault_address is set"
 

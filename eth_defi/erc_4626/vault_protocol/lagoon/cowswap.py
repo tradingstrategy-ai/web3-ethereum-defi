@@ -161,12 +161,14 @@ def presign_and_broadcast(
     #     );
     receipt = web3.eth.get_transaction_receipt(tx_hash)
 
-    TradingStrategyModuleV0 = get_contract(
+    # OrderSigned event lives in the CowSwapLib library (extracted from
+    # TradingStrategyModuleV0 during the GmxLib/CowSwapLib refactoring).
+    cowswap_lib = get_contract(
         web3,
-        "safe-integration/TradingStrategyModuleV0.json",
+        "guard/CowSwapLib.json",
     )
 
-    events = list(TradingStrategyModuleV0.events.OrderSigned().process_receipt(receipt, EventLogErrorFlags.Discard))
+    events = list(cowswap_lib.events.OrderSigned().process_receipt(receipt, EventLogErrorFlags.Discard))
 
     assert len(events) == 1, f"Expected exactly one OrderSigned event, got {len(events)} for {receipt}"
 
