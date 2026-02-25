@@ -101,7 +101,7 @@ SEQUENCERS: dict[int, dict[str, str]] = {
 
 #: Manually maintained shorthand names for different EVM chains
 CHAIN_NAMES = {
-    325: "GRVT",  # GRVT (Gravity Markets) decentralised perp DEX
+    325: "Grvt",  # GRVT (Gravity Markets) decentralised perp DEX
     9999: "Hypercore",  # Synthetic in-house ID for native Hyperliquid vaults (non-EVM)
     1: "Ethereum",
     56: "Binance",

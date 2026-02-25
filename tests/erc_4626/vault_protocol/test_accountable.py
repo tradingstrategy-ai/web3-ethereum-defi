@@ -43,7 +43,7 @@ def anvil_monad_fork(request) -> AnvilLaunch:
 def web3(anvil_monad_fork):
     web3 = create_multi_provider_web3(
         anvil_monad_fork.json_rpc_url,
-        retries=2,
+        retries=3,
         default_http_timeout=(10, 60),
     )
     return web3

@@ -1,5 +1,6 @@
 # Current
 
+- **Guard security hardening round 2: ERC-4626/7540 deposit receiver validation, SwapRouter02 recipient validation, Velora balance-envelope check with dual-balance verification and minAmountOut > 0 enforcement, exactOutput dispatcher fix (2026-02-25)**
 - Fix test suite: skip TokenSniffer (expired API key) and Orderly (no archive RPC) tests, fix guard Umami regex assertions, refactor GMX retry from module constants to configurable `GMXRetryConfig` dataclass with fast-fail test defaults (2026-02-25)
 - **Guard security hardening: Aave onBehalfOf validation, Velora receiver check, Hypercore vault withdraw check, VeloraLib extraction, isDeployed() library guards, CowSwap/Velora validation consolidation, Orderly removal (2026-02-25, [#769](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/769))**
 - Add testnet mode (Arbitrum Sepolia + Base Sepolia) to multichain Lagoon deployment with CCTP bridging, testnet contract address resolution (2026-02-23)

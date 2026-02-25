@@ -107,6 +107,15 @@ abstract contract GuardV0Base is IGuard, Multicall {
         uint256 amountInMaximum;
     }
 
+    // Uniswap SwapRouter02 (IV3SwapRouter) uses a different struct layout
+    // with no `deadline` field, unlike the original SwapRouter.
+    struct ExactInputParamsRouter02 {
+        bytes path;
+        address recipient;
+        uint256 amountIn;
+        uint256 amountOutMinimum;
+    }
+
     // ========================================================================
     //                           STORAGE VARIABLES
     // ========================================================================
@@ -630,9 +639,15 @@ abstract contract GuardV0Base is IGuard, Multicall {
             validate_swapExactTokensForTokens(callData);
         } else if (selector == SEL_EXACT_INPUT) {
             validate_exactInput(callData);
+        } else if (selector == SEL_EXACT_OUTPUT) {
+            // Previously unreachable: whitelistUniswapV3Router() registered
+            // the call site but the dispatcher had no branch, causing all
+            // exactOutput calls to revert with "Unknown function selector".
+            validate_exactOutput(callData);
         } else if (selector == SEL_EXACT_INPUT_ROUTER02) {
             // See whitelistUniswapV3Router
             require(anyAsset, "SwapRouter02 requires anyAsset");
+            validate_exactInputRouter02(callData);
 
             // --- ERC-20 token operations ---
         } else if (selector == SEL_TRANSFER) {
@@ -658,8 +673,10 @@ abstract contract GuardV0Base is IGuard, Multicall {
             validate_lagoonSettle(target);
 
             // --- ERC-4626 / ERC-7540 vaults ---
-        } else if (selector == SEL_DEPOSIT || selector == SEL_DEPOSIT_7540) {
-            // Guard logic in approve() whitelist - no further checks here needed
+        } else if (selector == SEL_DEPOSIT) {
+            _validate_ERC4626Deposit(callData);
+        } else if (selector == SEL_DEPOSIT_7540) {
+            _validate_ERC7540Deposit(callData);
         } else if (selector == SEL_DEPOSIT_UMAMI) {
             // Umami non-standard ERC-4626 deposit with minShares slippage parameter
             validate_UmamiDeposit(callData);
@@ -677,7 +694,7 @@ abstract contract GuardV0Base is IGuard, Multicall {
             // ERC-7540: same parameters as ERC-4626
             _validate_ERC4626WithdrawOrRedeem(callData);
         } else if (selector == SEL_REQUEST_DEPOSIT) {
-            // Guard logic in approve() whitelist - no further checks here needed
+            _validate_ERC7540Deposit(callData);
         } else if (selector == SEL_MAKE_WITHDRAW_REQUEST) {
             // Gains/Ostium modified ERC-4626: makeWithdrawRequest(uint256,address)
             validate_makeWithdrawRequest(callData);
@@ -767,6 +784,26 @@ abstract contract GuardV0Base is IGuard, Multicall {
         validateUniswapV3Path(params.path);
     }
 
+    // Validate Uniswap SwapRouter02 (IV3SwapRouter) exactInput trade.
+    //
+    // SwapRouter02 uses a different struct layout (no deadline field) than
+    // the original SwapRouter. The recipient must be validated to prevent
+    // the asset manager from routing swap output to a non-whitelisted address.
+    // When anyAsset is false, the token path is also validated.
+    function validate_exactInputRouter02(bytes memory callData) internal view {
+        (ExactInputParamsRouter02 memory params) = abi.decode(
+            callData,
+            (ExactInputParamsRouter02)
+        );
+        require(
+            isAllowedReceiver(params.recipient),
+            "Receiver not whitelisted"
+        );
+        if (!anyAsset) {
+            validateUniswapV3Path(params.path);
+        }
+    }
+
     function validateUniswapV3Path(bytes memory path) internal view {
         address tokenIn;
         address tokenOut;
@@ -792,6 +829,31 @@ abstract contract GuardV0Base is IGuard, Multicall {
     function _validate_ERC4626WithdrawOrRedeem(
         bytes memory callData
     ) internal view {
+        (, address receiver, ) = abi.decode(
+            callData,
+            (uint256, address, address)
+        );
+        require(isAllowedReceiver(receiver), "Receiver not whitelisted");
+    }
+
+    // ERC-4626: validate deposit(uint256 assets, address receiver)
+    //
+    // Without this check a malicious asset manager could mint vault shares
+    // to a non-whitelisted address, effectively exfiltrating the deposited
+    // assets. The approve() whitelist only controls which vault can pull
+    // the Safe's tokens — it does NOT restrict who receives the minted shares.
+    function _validate_ERC4626Deposit(bytes memory callData) internal view {
+        (, address receiver) = abi.decode(callData, (uint256, address));
+        require(isAllowedReceiver(receiver), "Receiver not whitelisted");
+    }
+
+    // ERC-7540: validate deposit(uint256 assets, address receiver, address controller)
+    // and requestDeposit(uint256 assets, address controller, address owner).
+    //
+    // Same threat as _validate_ERC4626Deposit — the second address parameter
+    // (receiver or controller) determines who controls the minted shares or
+    // deposit claim; it must be a whitelisted receiver.
+    function _validate_ERC7540Deposit(bytes memory callData) internal view {
         (, address receiver, ) = abi.decode(
             callData,
             (uint256, address, address)

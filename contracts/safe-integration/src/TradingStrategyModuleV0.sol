@@ -179,7 +179,7 @@ contract TradingStrategyModuleV0 is Module, GuardV0Base {
     ) public {
         require(VeloraLib.isDeployed(), "VeloraLib not linked");
 
-        uint256 preBalance = VeloraLib.validateAndGetPreBalance(
+        (uint256 preBalanceIn, uint256 preBalanceOut) = VeloraLib.validateAndGetPreBalances(
             avatar,
             augustusSwapper,
             receiver,
@@ -196,14 +196,15 @@ contract TradingStrategyModuleV0 is Module, GuardV0Base {
 
         _bubbleUpRevert(success, response);
 
-        VeloraLib.verifySlippageAndEmit(
+        VeloraLib.verifyBalancesAndEmit(
             avatar,
             augustusSwapper,
             tokenIn,
             tokenOut,
             amountIn,
             minAmountOut,
-            preBalance
+            preBalanceIn,
+            preBalanceOut
         );
     }
 }

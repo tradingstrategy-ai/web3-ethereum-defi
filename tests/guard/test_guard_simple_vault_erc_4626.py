@@ -449,3 +449,46 @@ def test_guard_malicious_withdraw(
     tx_hash = vault.functions.performCall(target, call_data).transact({"from": asset_manager})
     with pytest.raises(TransactionAssertionError) as exc_info:
         assert_transaction_success_with_explanation(web3, tx_hash, tracing=True, func=fn_calls[1])
+
+
+@flaky.flaky
+def test_guard_malicious_deposit_receiver(
+    web3: Web3,
+    erc4626_vault: IPORVault,
+    asset_manager: HexAddress,
+    vault_with_balance: Contract,
+    guard: Contract,
+    usdc: TokenDetails,
+    third_party: HexAddress,
+):
+    """Deposit receiver must be a whitelisted address.
+
+    Without receiver validation a malicious asset manager could mint vault
+    shares to an arbitrary address, exfiltrating the Safe's deposited assets.
+    The approve() whitelist only controls which vault can pull tokens — it
+    does NOT restrict who receives the minted shares.
+    """
+    vault = vault_with_balance
+    usdc_amount = Decimal(10_000)
+
+    fn_calls = approve_and_deposit_4626(
+        vault=erc4626_vault,
+        amount=usdc_amount,
+        from_=vault.address,
+    )
+
+    # Execute the approve call normally
+    target, call_data = encode_simple_vault_transaction(fn_calls[0])
+    tx_hash = vault.functions.performCall(target, call_data).transact({"from": asset_manager})
+    assert_transaction_success_with_explanation(web3, tx_hash, tracing=True, func=fn_calls[0])
+
+    # Inject malicious address as deposit receiver
+    # deposit(uint256 assets, address receiver) — inject third_party as receiver
+    fn_calls[1].args = (
+        fn_calls[1].args[0],
+        third_party,
+    )
+    target, call_data = encode_simple_vault_transaction(fn_calls[1])
+    tx_hash = vault.functions.performCall(target, call_data).transact({"from": asset_manager})
+    with pytest.raises(TransactionAssertionError):
+        assert_transaction_success_with_explanation(web3, tx_hash, tracing=True, func=fn_calls[1])

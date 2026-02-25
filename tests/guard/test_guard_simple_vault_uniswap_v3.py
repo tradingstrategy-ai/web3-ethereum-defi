@@ -344,3 +344,96 @@ def test_guard_pair_not_approved(
     with pytest.raises(TransactionFailed, match="Token not allowed"):
         target, call_data = encode_simple_vault_transaction(trade_call)
         vault.functions.performCall(target, call_data).transact({"from": asset_manager})
+
+
+def test_guard_can_trade_exact_output_uniswap_v3(
+    uniswap_v3: UniswapV3Deployment,
+    weth_usdc_pool: PoolDetails,
+    owner: str,
+    asset_manager: str,
+    deployer: str,
+    weth: Contract,
+    usdc: Contract,
+    vault: Contract,
+    guard: Contract,
+):
+    """Asset manager can perform exact output swap.
+
+    Previously SEL_EXACT_OUTPUT was registered by whitelistUniswapV3Router()
+    but the dispatcher had no branch, causing all exactOutput calls to revert
+    with 'Unknown function selector'.
+    """
+    usdc_amount = 10_000 * 10**6
+    usdc.functions.transfer(vault.address, usdc_amount).transact({"from": deployer})
+
+    approve_call = usdc.functions.approve(
+        uniswap_v3.swap_router.address,
+        usdc_amount,
+    )
+    target, call_data = encode_simple_vault_transaction(approve_call)
+    vault.functions.performCall(target, call_data).transact({"from": asset_manager})
+
+    # exactOutput path is reversed (output token first)
+    encoded_path = encode_path([weth.address, usdc.address], [POOL_FEE_RAW])
+
+    # Buy exactly 1 WETH, spending up to 10000 USDC
+    weth_amount = 1 * 10**18
+    trade_call = uniswap_v3.swap_router.functions.exactOutput(
+        (
+            encoded_path,
+            vault.address,
+            FOREVER_DEADLINE,
+            weth_amount,
+            usdc_amount,
+        )
+    )
+
+    target, call_data = encode_simple_vault_transaction(trade_call)
+    vault.functions.performCall(target, call_data).transact({"from": asset_manager})
+
+    assert weth.functions.balanceOf(vault.address).call() == weth_amount
+
+
+def test_guard_malicious_exact_input_recipient(
+    uniswap_v3: UniswapV3Deployment,
+    weth_usdc_pool: PoolDetails,
+    owner: str,
+    asset_manager: str,
+    third_party: str,
+    deployer: str,
+    weth: Contract,
+    usdc: Contract,
+    vault: Contract,
+    guard: Contract,
+):
+    """Swap recipient must be a whitelisted receiver.
+
+    Without recipient validation a malicious asset manager could route
+    swap output to an arbitrary address, stealing the traded tokens.
+    """
+    usdc_amount = 10_000 * 10**6
+    usdc.functions.transfer(vault.address, usdc_amount).transact({"from": deployer})
+
+    approve_call = usdc.functions.approve(
+        uniswap_v3.swap_router.address,
+        usdc_amount,
+    )
+    target, call_data = encode_simple_vault_transaction(approve_call)
+    vault.functions.performCall(target, call_data).transact({"from": asset_manager})
+
+    encoded_path = encode_path([usdc.address, weth.address], [POOL_FEE_RAW])
+
+    # Inject third_party as swap recipient
+    trade_call = uniswap_v3.swap_router.functions.exactInput(
+        (
+            encoded_path,
+            third_party,
+            FOREVER_DEADLINE,
+            usdc_amount,
+            0,
+        )
+    )
+
+    with pytest.raises(TransactionFailed, match="Receiver not whitelisted"):
+        target, call_data = encode_simple_vault_transaction(trade_call)
+        vault.functions.performCall(target, call_data).transact({"from": asset_manager})

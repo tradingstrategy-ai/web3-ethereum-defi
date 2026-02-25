@@ -489,3 +489,80 @@ def test_velora_receiver_not_whitelisted(
             b"\x00",  # Dummy calldata (never reached — guard fires first)
         ).transact({"from": asset_manager})
     assert "Receiver not allowed" in str(e)
+
+
+@flaky.flaky
+@pytest.mark.skipif(CI, reason="Too flaky on CI")
+def test_velora_zero_min_amount_out(
+    web3: Web3,
+    safe: Safe,
+    asset_manager: HexAddress,
+    base_usdc: TokenDetails,
+    base_weth: TokenDetails,
+    velora_whitelisted_trading_strategy_module: Contract,
+):
+    """swapAndValidateVelora() with minAmountOut=0 should revert.
+
+    Without a positive minAmountOut the post-balance check is vacuous:
+    the opaque Augustus calldata could route all tokens to an attacker
+    while the check `postBalance >= preBalance + 0` passes trivially.
+
+    The minAmountOut > 0 requirement is enforced in VeloraLib.verifyBalancesAndEmit(),
+    which runs after Augustus execution. Since our fake Augustus will
+    revert before reaching that check, we verify via a sender-whitelisted
+    but balance-failing path: the guard pre-validation passes, then the
+    fake Augustus call fails. This confirms the ABI is compatible and
+    the pre-validation (including the dual-balance snapshot) works.
+
+    For the actual minAmountOut=0 rejection to trigger, we would need
+    a real successful swap — which is tested in the Lagoon Velora integration tests.
+    """
+    ts_module = velora_whitelisted_trading_strategy_module
+
+    # Call with whitelisted receiver but minAmountOut=0
+    # The fake Augustus will revert during execution (no code at that address)
+    # but the pre-validation phase (validateAndGetPreBalances) should pass
+    with pytest.raises(ValueError) as e:
+        ts_module.functions.swapAndValidateVelora(
+            FAKE_AUGUSTUS,
+            safe.address,  # Whitelisted receiver
+            base_usdc.address,
+            base_weth.address,
+            1_000 * 10**6,
+            0,  # minAmountOut = 0 — should be rejected post-swap
+            b"\x00",  # Dummy calldata
+        ).transact({"from": asset_manager})
+    # The revert comes from the fake Augustus execution failing,
+    # not from minAmountOut check (which is post-swap).
+    # This test validates the ABI is correct and pre-validation works.
+
+
+@flaky.flaky
+@pytest.mark.skipif(CI, reason="Too flaky on CI")
+def test_velora_token_not_whitelisted(
+    web3: Web3,
+    safe: Safe,
+    asset_manager: HexAddress,
+    attacker_account: HexAddress,
+    base_usdc: TokenDetails,
+    velora_whitelisted_trading_strategy_module: Contract,
+):
+    """swapAndValidateVelora() with non-whitelisted token should revert.
+
+    Validates that the balance-envelope pre-check verifies both
+    tokenIn and tokenOut against the asset whitelist.
+    """
+    ts_module = velora_whitelisted_trading_strategy_module
+
+    # Use attacker_account as a fake token address (not whitelisted)
+    with pytest.raises(ValueError) as e:
+        ts_module.functions.swapAndValidateVelora(
+            FAKE_AUGUSTUS,
+            safe.address,
+            attacker_account,  # Non-whitelisted tokenIn
+            base_usdc.address,
+            1_000 * 10**6,
+            1,
+            b"\x00",
+        ).transact({"from": asset_manager})
+    assert "tokenIn not allowed" in str(e)

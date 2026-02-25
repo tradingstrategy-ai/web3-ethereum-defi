@@ -7,13 +7,13 @@ to stay within the [EIP-170 24,576-byte limit](https://eips.ethereum.org/EIPS/ei
 
 | Contract | Project | Size (bytes) | % of 24,576 limit | Margin (bytes) |
 |----------|---------|-------------:|------------------:|---------------:|
-| TradingStrategyModuleV0 | safe-integration | 21,399 | 87.1% | 3,177 |
-| GuardV0 | guard | 19,434 | 79.1% | 5,142 |
+| TradingStrategyModuleV0 | safe-integration | 21,672 | 88.2% | 2,904 |
+| GuardV0 | guard | 19,685 | 80.1% | 4,891 |
 | GmxLib | guard | 4,402 | 17.9% | 20,174 |
 | CowSwapLib | guard | 2,757 | 11.2% | 21,819 |
 | HypercoreVaultLib | guard | 2,513 | 10.2% | 22,063 |
+| VeloraLib | guard | 2,247 | 9.1% | 22,329 |
 | SimpleVaultV0 | guard | 2,202 | 9.0% | 22,374 |
-| VeloraLib | guard | 1,850 | 7.5% | 22,726 |
 | MockCoreWriter | guard | 1,632 | 6.6% | 22,944 |
 | MockCoreDepositWallet | guard | 755 | 3.1% | 23,821 |
 | MockSafe | safe-integration | 737 | 3.0% | 23,839 |
@@ -110,7 +110,7 @@ optimising for execution gas. But at runs=1 (deployment size focus), the legacy 
 ### Bytecode composition (via_ir=true, runs=1, pre-GmxLib extraction)
 
 This breakdown was measured before GMX extraction to GmxLib. After extraction,
-TSM is 21,399 bytes; GMX validation now lives in the separate GmxLib (4,402 bytes).
+TSM is 21,672 bytes; GMX validation now lives in the separate GmxLib (4,402 bytes).
 
 | Category | Approx. bytes | % of total | Notes |
 |----------|-------------:|----------:|----|
@@ -158,7 +158,7 @@ DELEGATECALL context.
 | `GmxLib` | GMX V2 perpetuals: router/market whitelisting, multicall validation | 4,402 | `keccak256("eth_defi.gmx.v1")` |
 | `CowSwapLib` | CowSwap order creation, GPv2Order hashing, presigning, and swap validation | 2,757 | `keccak256("eth_defi.cowswap.v1")` |
 | `HypercoreVaultLib` | Hypercore vault validation and CoreWriter action checking | 2,513 | `keccak256("eth_defi.hypercore.vault.v1")` |
-| `VeloraLib` | Velora (ParaSwap) swapper whitelisting, swap validation, post-swap slippage verification | 1,850 | `keccak256("eth_defi.velora.v1")` |
+| `VeloraLib` | Velora (ParaSwap) swapper whitelisting, swap validation, balance-envelope verification | 2,247 | `keccak256("eth_defi.velora.v1")` |
 
 On chains where a library is not needed, it is linked with the zero address
 (`0x0000...0000`) so the library code is never actually called and doesn't need
