@@ -1,5 +1,6 @@
 # Current
 
+- **Guard security hardening: Aave onBehalfOf validation, Velora receiver check, Hypercore vault withdraw check, VeloraLib extraction, isDeployed() library guards, CowSwap/Velora validation consolidation, Orderly removal (2026-02-25)**
 - Add testnet mode (Arbitrum Sepolia + Base Sepolia) to multichain Lagoon deployment with CCTP bridging, testnet contract address resolution (2026-02-23)
 - **Add: Parallel CCTP bridging with Iris V2 transfer monitoring module and phased burn/attest/receive flow (2026-02-23)**
 - **Add: Per-chain LagoonConfig for multichain deployment, CCTP bridge helper, Monad/HyperEVM CCTP support, and tutorial script (2026-02-23)**

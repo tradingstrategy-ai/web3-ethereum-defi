@@ -10,6 +10,7 @@ from safe_eth.safe.safe import SafeV141
 from web3 import Web3
 from web3.contract import Contract
 
+from eth_defi.abi import ZERO_ADDRESS
 from eth_defi.compat import construct_sign_and_send_raw_middleware
 from eth_defi.deploy import deploy_contract
 from eth_defi.hotwallet import HotWallet
@@ -393,3 +394,98 @@ def test_swap_through_module_unauthorised(
     with pytest.raises(ValueError) as e:
         ts_module.functions.performCall(target, call_data).transact({"from": attacker_account})
     assert "Sender not allowed" in str(e)
+
+
+#: Fake Augustus Swapper address for Velora test
+FAKE_AUGUSTUS = "0x3333333333333333333333333333333333333333"
+
+#: Fake TokenTransferProxy address for Velora test
+FAKE_TOKEN_TRANSFER_PROXY = "0x4444444444444444444444444444444444444444"
+
+
+@pytest.fixture()
+def velora_whitelisted_trading_strategy_module(
+    web3: Web3,
+    safe: Safe,
+    safe_deployer_hot_wallet: HotWallet,
+    deployer: HexAddress,
+    asset_manager: HexAddress,
+    base_usdc: TokenDetails,
+    base_weth: TokenDetails,
+) -> Contract:
+    """TradingStrategyModuleV0 with VeloraLib linked and Velora whitelisted."""
+    owner = deployer
+
+    # Deploy VeloraLib
+    velora_lib = deploy_contract(web3, "guard/VeloraLib.json", deployer)
+
+    # Deploy TradingStrategyModuleV0 with VeloraLib linked
+    module = deploy_contract(
+        web3,
+        "safe-integration/TradingStrategyModuleV0.json",
+        deployer,
+        owner,
+        safe.address,
+        libraries={
+            "VeloraLib": velora_lib.address,
+            "CowSwapLib": ZERO_ADDRESS,
+            "GmxLib": ZERO_ADDRESS,
+            "HypercoreVaultLib": ZERO_ADDRESS,
+        },
+    )
+
+    # Enable Safe module
+    tx = safe.contract.functions.enableModule(module.address).build_transaction(
+        {"from": safe_deployer_hot_wallet.address, "gas": 0, "gasPrice": 0},
+    )
+    safe_tx = safe.build_multisig_tx(safe.address, 0, tx["data"])
+    safe_tx.sign(safe_deployer_hot_wallet.private_key.hex())
+    tx_hash, tx = safe_tx.execute(
+        tx_sender_private_key=safe_deployer_hot_wallet.private_key.hex(),
+    )
+    assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # Whitelist sender, receiver, tokens, and Velora
+    module.functions.allowSender(asset_manager, "trade-executor").transact({"from": owner})
+    module.functions.allowReceiver(safe.address, "Safe receiver").transact({"from": owner})
+    module.functions.whitelistToken(base_usdc.address, "USDC").transact({"from": owner})
+    module.functions.whitelistToken(base_weth.address, "WETH").transact({"from": owner})
+    module.functions.whitelistVelora(
+        FAKE_AUGUSTUS,
+        FAKE_TOKEN_TRANSFER_PROXY,
+        "Allow Velora",
+    ).transact({"from": owner})
+
+    return module
+
+
+@flaky.flaky
+@pytest.mark.skipif(CI, reason="Too flaky on CI")
+def test_velora_receiver_not_whitelisted(
+    web3: Web3,
+    safe: Safe,
+    asset_manager: HexAddress,
+    attacker_account: HexAddress,
+    base_usdc: TokenDetails,
+    base_weth: TokenDetails,
+    velora_whitelisted_trading_strategy_module: Contract,
+):
+    """swapAndValidateVelora() with non-whitelisted receiver should revert.
+
+    The guard validates the receiver parameter against isAllowedReceiver()
+    before executing the swap. An attacker address as receiver is rejected.
+    """
+    ts_module = velora_whitelisted_trading_strategy_module
+
+    # Call swapAndValidateVelora with attacker as receiver
+    with pytest.raises(ValueError) as e:
+        ts_module.functions.swapAndValidateVelora(
+            FAKE_AUGUSTUS,
+            attacker_account,  # Non-whitelisted receiver
+            base_usdc.address,
+            base_weth.address,
+            1_000 * 10**6,
+            1,
+            b"\x00",  # Dummy calldata (never reached — guard fires first)
+        ).transact({"from": asset_manager})
+    assert "Receiver not allowed" in str(e)

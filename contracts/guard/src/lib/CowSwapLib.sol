@@ -9,6 +9,7 @@ pragma solidity ^0.8.13;
 import {IERC20} from "./IERC20.sol";
 import {ICowSettlement} from "./ICowSettlement.sol";
 import {GPv2Order} from "./GPv2Order.sol";
+import {IGuardChecks} from "./IGuardChecks.sol";
 
 // Gnosis Safe delegatecall information to presign CowSwap order
 struct PresignCallData {
@@ -43,6 +44,14 @@ library CowSwapLib {
         }
     }
 
+    /// Returns true when the library is properly linked.
+    /// A DELEGATECALL to ZERO_ADDRESS silently returns zero bytes,
+    /// so calling this function and requiring a true result catches
+    /// missing library links at runtime with a human-readable error.
+    function isDeployed() external pure returns (bool) {
+        return true;
+    }
+
     function isAllowedCowSwap(address settlement) external view returns (bool) {
         return _storage().allowedCowSwaps[settlement];
     }
@@ -65,6 +74,63 @@ library CowSwapLib {
         uint256 amountIn,
         uint256 minAmountOut
     ) external returns (PresignCallData memory) {
+        GPv2Order.Data memory order = GPv2Order.Data({
+            sellToken: IERC20(tokenIn),
+            buyToken: IERC20(tokenOut),
+            receiver: receiver,
+            sellAmount: amountIn,
+            buyAmount: minAmountOut,
+            validTo: uint32(block.timestamp + _SIGN_COOLDOWN),
+            appData: appData,
+            feeAmount: 0,
+            kind: GPv2Order.KIND_SELL,
+            partiallyFillable: false,
+            sellTokenBalance: GPv2Order.BALANCE_ERC20,
+            buyTokenBalance: GPv2Order.BALANCE_ERC20
+        });
+
+        ICowSettlement settlement = ICowSettlement(payable(settlementContract));
+        bytes32 orderDigest = GPv2Order.hash(order, settlement.domainSeparator());
+
+        bytes memory orderUid = new bytes(GPv2Order.UID_LENGTH);
+        GPv2Order.packOrderUidParams(orderUid, orderDigest, receiver, order.validTo);
+
+        emit OrderSigned(block.timestamp, orderUid, order, order.validTo, order.buyAmount, order.sellAmount);
+
+        return PresignCallData({
+            orderUid: orderUid,
+            targetAddress: settlementContract,
+            data: abi.encodeWithSelector(
+                ICowSettlement.setPreSignature.selector,
+                orderUid,
+                true
+            )
+        });
+    }
+
+    /// Validate permissions and create a signed CowSwap order in one call.
+    ///
+    /// Consolidates sender/token/receiver validation and order creation
+    /// into a single library function to reduce the calling contract's
+    /// bytecode (EIP-170). Uses IGuardChecks callbacks via address(this)
+    /// to check permissions on the calling contract's storage.
+    function validateAndCreateOrder(
+        address settlementContract,
+        address receiver,
+        bytes32 appData,
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn,
+        uint256 minAmountOut
+    ) external returns (PresignCallData memory) {
+        require(_storage().allowedCowSwaps[settlementContract], "CowSwap not enabled");
+
+        IGuardChecks guard = IGuardChecks(address(this));
+        require(guard.isAllowedSender(msg.sender), "Sender not allowed");
+        require(guard.isAllowedAsset(tokenIn), "tokenIn not allowed");
+        require(guard.isAllowedAsset(tokenOut), "tokenOut not allowed");
+        require(guard.isAllowedReceiver(receiver), "Receiver not allowed");
+
         GPv2Order.Data memory order = GPv2Order.Data({
             sellToken: IERC20(tokenIn),
             buyToken: IERC20(tokenOut),

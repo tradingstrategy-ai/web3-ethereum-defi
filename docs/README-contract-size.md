@@ -7,12 +7,13 @@ to stay within the [EIP-170 24,576-byte limit](https://eips.ethereum.org/EIPS/ei
 
 | Contract | Project | Size (bytes) | % of 24,576 limit | Margin (bytes) |
 |----------|---------|-------------:|------------------:|---------------:|
-| TradingStrategyModuleV0 | safe-integration | 21,522 | 87.6% | 3,054 |
-| GuardV0 | guard | 19,072 | 77.6% | 5,504 |
-| GmxLib | guard | 4,364 | 17.8% | 20,212 |
-| HypercoreVaultLib | guard | 2,434 | 9.9% | 22,142 |
+| TradingStrategyModuleV0 | safe-integration | 21,399 | 87.1% | 3,177 |
+| GuardV0 | guard | 19,434 | 79.1% | 5,142 |
+| GmxLib | guard | 4,402 | 17.9% | 20,174 |
+| CowSwapLib | guard | 2,757 | 11.2% | 21,819 |
+| HypercoreVaultLib | guard | 2,513 | 10.2% | 22,063 |
 | SimpleVaultV0 | guard | 2,202 | 9.0% | 22,374 |
-| CowSwapLib | guard | 1,895 | 7.7% | 22,681 |
+| VeloraLib | guard | 1,850 | 7.5% | 22,726 |
 | MockCoreWriter | guard | 1,632 | 6.6% | 22,944 |
 | MockCoreDepositWallet | guard | 755 | 3.1% | 23,821 |
 | MockSafe | safe-integration | 737 | 3.0% | 23,839 |
@@ -109,7 +110,7 @@ optimising for execution gas. But at runs=1 (deployment size focus), the legacy 
 ### Bytecode composition (via_ir=true, runs=1, pre-GmxLib extraction)
 
 This breakdown was measured before GMX extraction to GmxLib. After extraction,
-TSM is 21,522 bytes; GMX validation now lives in the separate GmxLib (4,364 bytes).
+TSM is 21,399 bytes; GMX validation now lives in the separate GmxLib (4,402 bytes).
 
 | Category | Approx. bytes | % of total | Notes |
 |----------|-------------:|----------:|----|
@@ -118,9 +119,9 @@ TSM is 21,522 bytes; GMX validation now lives in the separate GmxLib (4,364 byte
 | Whitelisting functions | ~2,800 | 12% | 16 functions, each with event emissions |
 | Embedded revert strings | ~2,430 | 10% | 228 string fragments across all validators |
 | Uniswap V2/V3 validation | ~1,800 | 8% | Multi-hop path validation loop |
-| Velora swap validation | ~1,200 | 5% | Pre/post balance checks, event |
 | CCTP validation | ~1,000 | 4% | Tuple unpacking, bytes32-to-address conversion |
-| CowSwap delegation | ~1,000 | 4% | Library call + argument validation |
+| CowSwap delegation | ~500 | 2% | isDeployed check + library call (validation consolidated in CowSwapLib) |
+| Velora delegation | ~200 | 1% | isDeployed check + library calls (validation consolidated in VeloraLib) |
 | ERC-4626 validation | ~1,000 | 4% | Multiple selector variants |
 | View/query functions | ~800 | 3% | 31 simple mapping reads |
 | Zodiac Module, Ownable, init, ABI encoding | ~4,500 | 19% | Inherited framework code |
@@ -133,10 +134,13 @@ If additional space is needed in future:
 | Technique | Est. savings | Effort | Status |
 |-----------|------------:|--------|--------|
 | Extract GMX validation to `GmxLib` | ~2,121 bytes | New library with diamond storage | Done |
+| Consolidate CowSwap validation into `CowSwapLib` | ~550 bytes | Combined validate+create function | Done |
+| Consolidate Velora validation into `VeloraLib` | ~450 bytes | Combined validate+balance function | Done |
+| Error bubbling helper | ~150 bytes | Shared `_bubbleUpRevert()` in module | Done |
 | Switch to `via_ir=false` | ~1,537 bytes | Config change only; slightly higher runtime gas | Available |
 | Shorten revert strings (e.g. "GMX:R01" codes) | ~1,000 bytes | All validators; hurts debuggability | Available |
 | Extract CCTP validation to `CctpLib` | ~800 bytes | New library | Available |
-| Extract Velora validation to `VeloraLib` | ~1,000 bytes | New library | Available |
+| Extract Velora validation to `VeloraLib` | ~1,000 bytes | New library with diamond storage | Done |
 
 ## Library pattern
 
@@ -144,11 +148,17 @@ External Forge libraries keep protocol-specific logic outside the main contract 
 They use `DELEGATECALL` via Forge's library linking mechanism, so they have access to
 the calling contract's storage through diamond storage slots.
 
+Libraries that need cross-cutting permission checks (sender, asset, receiver validation)
+use the `IGuardChecks` callback interface — they call `IGuardChecks(address(this)).isAllowed*()`
+which resolves to the calling contract's public view functions via a regular CALL in the
+DELEGATECALL context.
+
 | Library | Purpose | Size (bytes) | Storage slot |
 |---------|---------|-------------:|-------------|
-| `GmxLib` | GMX V2 perpetuals: router/market whitelisting, multicall validation | 4,364 | `keccak256("eth_defi.gmx.v1")` |
-| `HypercoreVaultLib` | Hypercore vault validation and CoreWriter action checking | 2,434 | `keccak256("eth_defi.hypercore.vault.v1")` |
-| `CowSwapLib` | CowSwap order creation, GPv2Order hashing, and presigning | 1,895 | `keccak256("eth_defi.cowswap.v1")` |
+| `GmxLib` | GMX V2 perpetuals: router/market whitelisting, multicall validation | 4,402 | `keccak256("eth_defi.gmx.v1")` |
+| `CowSwapLib` | CowSwap order creation, GPv2Order hashing, presigning, and swap validation | 2,757 | `keccak256("eth_defi.cowswap.v1")` |
+| `HypercoreVaultLib` | Hypercore vault validation and CoreWriter action checking | 2,513 | `keccak256("eth_defi.hypercore.vault.v1")` |
+| `VeloraLib` | Velora (ParaSwap) swapper whitelisting, swap validation, post-swap slippage verification | 1,850 | `keccak256("eth_defi.velora.v1")` |
 
 On chains where a library is not needed, it is linked with the zero address
 (`0x0000...0000`) so the library code is never actually called and doesn't need
@@ -161,13 +171,18 @@ Applied to `GuardV0Base.sol` to reduce bytecode size:
 - **Extract libraries**: CowSwap order creation and GPv2Order hashing (758 bytes saved)
   moved to `CowSwapLib`. Hypercore vault validation moved to `HypercoreVaultLib`.
   GMX V2 validation moved to `GmxLib` (2,121 bytes saved).
+- **Consolidate validation into libraries**: CowSwap and Velora swap validation
+  (sender, token, receiver checks) consolidated into their respective libraries
+  using `IGuardChecks` callbacks (~733 bytes saved from module).
+- **Error bubbling helper**: Duplicate revert-reason assembly blocks replaced with
+  shared `_bubbleUpRevert()` private function (~150 bytes saved).
 - **Merge identical branches**: Four separate Lagoon settlement selector branches
   that all called `validate_lagoonSettle(target)` were merged into a single
   `if` with OR conditions.
 - **Remove dead code**: `validate_ERC4626Deposit()` and `validate_cowSwapSettlement()`
   were defined but never called. Removed entirely.
-- **Inline empty stubs**: Three empty Orderly validator functions with only TODO
-  comments were inlined as no-ops in the dispatcher.
+- **Remove dead code (Orderly)**: Orderly stub selectors and whitelisting function
+  removed entirely (protocol integration abandoned).
 
 ## Checking sizes
 

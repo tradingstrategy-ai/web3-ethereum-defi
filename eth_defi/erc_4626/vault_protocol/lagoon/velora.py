@@ -146,6 +146,7 @@ def build_velora_swap(
 
     return trading_strategy_module.functions.swapAndValidateVelora(
         augustus_swapper,
+        vault.safe_address,
         sell_token.address,
         buy_token.address,
         amount_in_raw,

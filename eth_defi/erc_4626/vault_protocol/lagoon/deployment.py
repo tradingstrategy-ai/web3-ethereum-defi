@@ -45,7 +45,6 @@ from eth_defi.foundry.forge import deploy_contract_with_forge
 from eth_defi.gas import apply_gas, estimate_gas_price
 from eth_defi.gmx.whitelist import GMXDeployment
 from eth_defi.hotwallet import HotWallet
-from eth_defi.orderly.vault import OrderlyVault
 from eth_defi.provider.anvil import is_anvil
 from eth_defi.safe.deployment import add_new_safe_owners, deploy_safe, deploy_safe_with_deterministic_address, fetch_safe_deployment
 from eth_defi.safe.execute import execute_safe_tx
@@ -225,9 +224,6 @@ class LagoonConfig:
 
     #: Uniswap V3 deployment for router/quoter whitelisting
     uniswap_v3: UniswapV3Deployment | None = None
-
-    #: Orderly perps vault for whitelisting
-    orderly_vault: OrderlyVault | None = None
 
     #: Aave V3 deployment for lending whitelisting
     aave_v3: AaveV3Deployment | None = None
@@ -866,13 +862,14 @@ def deploy_safe_trading_strategy_module(
     verifier_url: str | None = None,
     enable_on_safe=True,
     cowswap: bool = False,
+    velora: bool = False,
     gmx_deployment: GMXDeployment | None = None,
 ) -> Contract:
     """Deploy TradingStrategyModuleV0 for Safe and Lagoon.
 
     On HyperEVM chains, automatically enables big blocks only for the
     TradingStrategyModuleV0 deployment (~5.4M gas). Library deployments
-    (CowSwapLib, GmxLib, HypercoreVaultLib) fit in small blocks and
+    (CowSwapLib, GmxLib, HypercoreVaultLib, VeloraLib) fit in small blocks and
     are deployed without toggling.
 
     :param use_forge:
@@ -967,6 +964,19 @@ def deploy_safe_trading_strategy_module(
             library_addresses["HypercoreVaultLib"] = ZERO_ADDRESS
             logger.info("HypercoreVaultLib not needed, linking with zero address")
 
+        if velora:
+            velora_lib = deploy_contract(
+                web3,
+                "guard/VeloraLib.json",
+                deployer,
+                gas=guard_gas,
+            )
+            library_addresses["VeloraLib"] = velora_lib.address
+            logger.info("Deployed VeloraLib at %s", velora_lib.address)
+        else:
+            library_addresses["VeloraLib"] = ZERO_ADDRESS
+            logger.info("VeloraLib not needed, linking with zero address")
+
         # TradingStrategyModuleV0 needs ~5.4M gas — exceeds small block limit on HyperEVM.
         # Enable big blocks only for this deployment; libraries above fit in small blocks.
         from eth_defi.hyperliquid.block import big_blocks_for_deployment
@@ -1021,7 +1031,6 @@ def setup_guard(
     any_asset: bool = False,
     uniswap_v2: UniswapV2Deployment | None = None,
     uniswap_v3: UniswapV3Deployment | None = None,
-    orderly_vault: OrderlyVault | None = None,
     aave_v3: AaveV3Deployment | None = None,
     erc_4626_vaults: list[ERC4626Vault] | None = None,
     cowswap: bool = False,
@@ -1121,14 +1130,6 @@ def setup_guard(
 
     else:
         logger.info("Not whitelisted: Aave v3")
-
-    if orderly_vault:
-        logger.info("Whitelisting Orderly vault: %s", orderly_vault.address)
-        tx_hash = _broadcast(module.functions.whitelistOrderly(orderly_vault.address, "Allow Orderly"))
-        assert_transaction_success_with_explanation(web3, tx_hash)
-        entries.append(WhitelistEntry("Orderly vault", "Orderly", orderly_vault.address))
-    else:
-        logger.info("Not whitelisted: Orderly vault")
 
     # Whitelist all ERC-4626 vaults
     if erc_4626_vaults:
@@ -1382,7 +1383,6 @@ def deploy_automated_lagoon_vault(
     safe_threshold: int | None = None,
     uniswap_v2: UniswapV2Deployment | None = None,
     uniswap_v3: UniswapV3Deployment | None = None,
-    orderly_vault: OrderlyVault | None = None,
     aave_v3: AaveV3Deployment | None = None,
     cowswap: bool = False,
     velora: bool = False,
@@ -1460,7 +1460,6 @@ def deploy_automated_lagoon_vault(
         safe_threshold = config.safe_threshold
         uniswap_v2 = config.uniswap_v2
         uniswap_v3 = config.uniswap_v3
-        orderly_vault = config.orderly_vault
         aave_v3 = config.aave_v3
         cowswap = config.cowswap
         velora = config.velora
@@ -1697,6 +1696,7 @@ def deploy_automated_lagoon_vault(
         use_forge=False,
         enable_on_safe=not guard_only,
         cowswap=cowswap,
+        velora=velora,
         gmx_deployment=gmx_deployment,
     )
 
@@ -1718,7 +1718,6 @@ def deploy_automated_lagoon_vault(
         module=module,
         uniswap_v2=uniswap_v2,
         uniswap_v3=uniswap_v3,
-        orderly_vault=orderly_vault,
         aave_v3=aave_v3,
         cowswap=cowswap,
         velora=velora,

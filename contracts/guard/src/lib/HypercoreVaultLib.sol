@@ -36,6 +36,16 @@ library HypercoreVaultLib {
         assembly { s.slot := slot }
     }
 
+    // ----- Deployment check -----
+
+    /// Returns true when the library is properly linked.
+    /// A DELEGATECALL to ZERO_ADDRESS silently returns zero bytes,
+    /// so calling this function and requiring a true result catches
+    /// missing library links at runtime with a human-readable error.
+    function isDeployed() external pure returns (bool) {
+        return true;
+    }
+
     // ----- CoreWriter action IDs -----
 
     uint24 constant VAULT_TRANSFER_ACTION = 2;
@@ -85,12 +95,18 @@ library HypercoreVaultLib {
     // ----- Validation functions (called via delegatecall from guard) -----
 
     /// Validate a CoreWriter sendRawAction() call.
-    /// Parses the raw action bytes, checks version, action ID, and vault address.
-    /// Returns the action ID and (for spotSend) the destination address.
+    /// Parses the raw action bytes, checks version, action ID.
+    /// Returns the action ID and destination address for the calling
+    /// contract to validate against allowedReceivers or allowedHypercoreVaults.
+    ///
+    /// - Action 2 (vaultTransfer): returns the vault address as destination
+    /// - Action 6 (spotSend): returns the send destination
+    /// - Action 7 (usdClassTransfer): no external address — funds move
+    ///   between spot and perp within the same Hypercore account
     function validateAction(
         address target,
         bytes calldata callData
-    ) external view returns (uint24 actionId, address spotSendDestination) {
+    ) external view returns (uint24 actionId, address destination) {
         HypercoreStorage storage s = _storage();
         require(target == s.allowedCoreWriter, "CoreWriter not allowed");
 
@@ -114,7 +130,8 @@ library HypercoreVaultLib {
 
         require(s.allowedCoreWriterActions[actionId], "CoreWriter action ID not allowed");
 
-        // Parse and validate action-specific parameters
+        // Parse action-specific parameters and return destination for
+        // the calling contract to validate.
         if (len > 4) {
             uint256 paramLen = len - 4;
             bytes memory actionParams;
@@ -130,11 +147,14 @@ library HypercoreVaultLib {
             }
 
             if (actionId == VAULT_TRANSFER_ACTION) {
-                (address vault, , ) = abi.decode(actionParams, (address, bool, uint64));
-                require(s.allowedHypercoreVaults[vault], "Hypercore vault not allowed");
+                // Return vault address for the caller to check against allowedHypercoreVaults
+                (destination, , ) = abi.decode(actionParams, (address, bool, uint64));
             } else if (actionId == SPOT_SEND_ACTION) {
-                (spotSendDestination, , ) = abi.decode(actionParams, (address, uint64, uint64));
+                // Return send destination for the caller to check against allowedReceivers
+                (destination, , ) = abi.decode(actionParams, (address, uint64, uint64));
             }
+            // Action 7 (USD_CLASS_TRANSFER_ACTION): params are (uint64 amount, bool toPerp).
+            // No external address — destination stays address(0).
         }
     }
 

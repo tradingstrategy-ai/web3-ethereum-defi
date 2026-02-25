@@ -18,19 +18,13 @@ import "@guard/GuardV0Base.sol";
 /**
  * Trading Strategy integration as Zodiac Module.
  *
- * - Add automated trading strategy support w/whitelisted trading universe and
- *   and trade executors
+ * - GuardV0 contract integration for Safe multisignature wallets as a module
+ * - Add automated trading strategy support w/whitelisted trading universe and trade executors
  * - Support Lagoon, Gnosis Safe and other Gnosis Safe-based ecosystems which support Zodiac modules
  * - Owner should point to Gnosis Safe / DAO
  *
- * This is initial, MVP, version.
- *
- * Notes
- * - See VelvetSafeModule as an example https://github.com/Velvet-Capital/velvet-core/blob/9d487937d0569c12e85b436a1c6f3e68a1dc8c44/contracts/vault/VelvetSafeModule.sol#L16
- *
  */
 contract TradingStrategyModuleV0 is Module, GuardV0Base {
-
     constructor(address _owner, address _target) {
         bytes memory initializeParams = abi.encode(_owner, _target);
         setUp(initializeParams);
@@ -43,8 +37,12 @@ contract TradingStrategyModuleV0 is Module, GuardV0Base {
     }
 
     // Identify the deployed ABI
-    function getTradingStrategyModuleVersion() public pure returns (string memory) {
-        return "v0.1.4";
+    function getTradingStrategyModuleVersion()
+        public
+        pure
+        returns (string memory)
+    {
+        return "v0.3";
     }
 
     /**
@@ -52,7 +50,7 @@ contract TradingStrategyModuleV0 is Module, GuardV0Base {
      *
      * Override to use Zodiac Module's ownership mechanism.
      */
-    function getGovernanceAddress() override public view returns (address) {
+    function getGovernanceAddress() public view override returns (address) {
         return owner();
     }
 
@@ -61,10 +59,24 @@ contract TradingStrategyModuleV0 is Module, GuardV0Base {
     /// https://gist.github.com/auryn-macmillan/841906d0bc6c2624e83598cdfac17de8
     function setUp(bytes memory initializeParams) public override initializer {
         __Ownable_init(msg.sender);
-        (address _owner, address _target) = abi.decode(initializeParams, (address, address));
+        (address _owner, address _target) = abi.decode(
+            initializeParams,
+            (address, address)
+        );
         setAvatar(_target);
         setTarget(_target);
         transferOwnership(_owner);
+    }
+
+    // Bubble up revert reason from a failed Safe execution.
+    // Used by performCall, swapAndValidateCowSwap, and swapAndValidateVelora
+    // to avoid duplicating the assembly block.
+    function _bubbleUpRevert(bool success, bytes memory response) private pure {
+        if (!success) {
+            assembly {
+                revert(add(response, 0x20), mload(response))
+            }
+        }
     }
 
     /**
@@ -75,30 +87,25 @@ contract TradingStrategyModuleV0 is Module, GuardV0Base {
      * - Execute transaction on behalf of Safe
      *
      */
-    function performCall(address target, bytes calldata callData, uint256 value) public {
-
-        bool success;
-        bytes memory response;
-
+    function performCall(
+        address target,
+        bytes calldata callData,
+        uint256 value
+    ) public {
         // Check that the asset manager can perform this function.
         // Will revert() on error
         _validateCallInternal(msg.sender, target, callData);
 
         // Inherit from Module contract,
         // execute a tx on behalf of Gnosis
-        (success, response) = execAndReturnData(
+        (bool success, bytes memory response) = execAndReturnData(
             target,
             value,
             callData,
             Enum.Operation.Call
         );
 
-        // Bubble up the revert reason
-        if (!success) {
-            assembly {
-                revert(add(response, 0x20), mload(response))
-            }
-       }
+        _bubbleUpRevert(success, response);
     }
 
     /**
@@ -108,7 +115,10 @@ contract TradingStrategyModuleV0 is Module, GuardV0Base {
         performCall(target, callData, 0);
     }
 
-    // Expose CowSwap swap function pre-signer to asset managers
+    // Expose CowSwap swap function pre-signer to asset managers.
+    //
+    // Validation and order creation are consolidated in CowSwapLib to
+    // minimise the module's bytecode (EIP-170).
     function swapAndValidateCowSwap(
         address settlementContract,
         address receiver,
@@ -118,11 +128,9 @@ contract TradingStrategyModuleV0 is Module, GuardV0Base {
         uint256 amountIn,
         uint256 minAmountOut
     ) public {
-        bool success;
-        bytes memory response;
+        require(CowSwapLib.isDeployed(), "CowSwapLib not linked");
 
-        // Checks for asset manager (msg.sender), receiver, etc.
-        PresignCallData memory presignDeletaCallData = _swapAndValidateCowSwap(
+        PresignCallData memory presignCallData = CowSwapLib.validateAndCreateOrder(
             settlementContract,
             receiver,
             appData,
@@ -131,20 +139,16 @@ contract TradingStrategyModuleV0 is Module, GuardV0Base {
             amountIn,
             minAmountOut
         );
+
         // Perform ICowSettlement.setPresigned() call on the behalf of the Safe
-        (success, response) = execAndReturnData(
-            presignDeletaCallData.targetAddress,
+        (bool success, bytes memory response) = execAndReturnData(
+            presignCallData.targetAddress,
             0,
-            presignDeletaCallData.data,
+            presignCallData.data,
             Enum.Operation.Call
         );
 
-        // Bubble up the revert reason
-        if (!success) {
-            assembly {
-                revert(add(response, 0x20), mload(response))
-            }
-       }
+        _bubbleUpRevert(success, response);
     }
 
     /**
@@ -153,7 +157,11 @@ contract TradingStrategyModuleV0 is Module, GuardV0Base {
      * Unlike CowSwap which uses offchain order books and presigning,
      * Velora executes atomically by calling Augustus Swapper directly.
      *
+     * Validation is consolidated in VeloraLib to minimise the module's
+     * bytecode (EIP-170).
+     *
      * @param augustusSwapper The Velora Augustus Swapper contract address
+     * @param receiver The address that receives swap output (must be whitelisted)
      * @param tokenIn The token being sold
      * @param tokenOut The token being bought
      * @param amountIn The amount of tokenIn to sell (for event logging)
@@ -162,15 +170,19 @@ contract TradingStrategyModuleV0 is Module, GuardV0Base {
      */
     function swapAndValidateVelora(
         address augustusSwapper,
+        address receiver,
         address tokenIn,
         address tokenOut,
         uint256 amountIn,
         uint256 minAmountOut,
         bytes memory augustusCalldata
     ) public {
-        uint256 preBalance = _validateVeloraSwapAndGetPreBalance(
+        require(VeloraLib.isDeployed(), "VeloraLib not linked");
+
+        uint256 preBalance = VeloraLib.validateAndGetPreBalance(
             avatar,
             augustusSwapper,
+            receiver,
             tokenIn,
             tokenOut
         );
@@ -182,13 +194,9 @@ contract TradingStrategyModuleV0 is Module, GuardV0Base {
             Enum.Operation.Call
         );
 
-        if (!success) {
-            assembly {
-                revert(add(response, 0x20), mload(response))
-            }
-        }
+        _bubbleUpRevert(success, response);
 
-        _verifyVeloraSwapAndEmit(
+        VeloraLib.verifySlippageAndEmit(
             avatar,
             augustusSwapper,
             tokenIn,
@@ -198,8 +206,4 @@ contract TradingStrategyModuleV0 is Module, GuardV0Base {
             preBalance
         );
     }
-
 }
-
-
-

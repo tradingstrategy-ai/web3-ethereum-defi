@@ -189,6 +189,7 @@ def vault(
             "HypercoreVaultLib": hypercore_vault_lib.address,
             "CowSwapLib": cowswap_lib.address,
             "GmxLib": ZERO_ADDRESS,
+            "VeloraLib": ZERO_ADDRESS,
         },
     )
 
@@ -507,6 +508,30 @@ def test_guard_hypercore_disallowed_spot_send_receiver(
 
     # spotSend to third_party (not in allowedReceivers)
     raw_action = encode_spot_send(third_party, USDC_TOKEN_INDEX, hypercore_amount)
+    fn_call = mock_core_writer.functions.sendRawAction(raw_action)
+    target, call_data = encode_simple_vault_transaction(fn_call)
+    tx_hash = vault.functions.performCall(target, call_data).transact({"from": asset_manager})
+    with pytest.raises(TransactionAssertionError):
+        assert_transaction_success_with_explanation(web3, tx_hash)
+
+
+@pytest.mark.skipif(CI, reason="Flaky on CI due to Anvil fork block range errors")
+def test_guard_hypercore_disallowed_vault_withdraw(
+    web3: Web3,
+    asset_manager: str,
+    vault_with_balance: Contract,
+    mock_core_writer: Contract,
+):
+    """Withdraw from a non-whitelisted vault address should revert.
+
+    The guard validates the vault address for both deposits and withdrawals
+    (action ID 2, vaultTransfer) against the Hypercore vault whitelist.
+    """
+    vault = vault_with_balance
+    hypercore_amount = 1_000 * 10**6
+
+    # Try to withdraw from MALICIOUS_VAULT (not whitelisted)
+    raw_action = encode_vault_withdraw(MALICIOUS_VAULT, hypercore_amount)
     fn_call = mock_core_writer.functions.sendRawAction(raw_action)
     target, call_data = encode_simple_vault_transaction(fn_call)
     tx_hash = vault.functions.performCall(target, call_data).transact({"from": asset_manager})

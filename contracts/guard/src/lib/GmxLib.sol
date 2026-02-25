@@ -49,6 +49,16 @@ library GmxLib {
         assembly { s.slot := slot }
     }
 
+    // ----- Deployment check -----
+
+    /// Returns true when the library is properly linked.
+    /// A DELEGATECALL to ZERO_ADDRESS silently returns zero bytes,
+    /// so calling this function and requiring a true result catches
+    /// missing library links at runtime with a human-readable error.
+    function isDeployed() external pure returns (bool) {
+        return true;
+    }
+
     // ----- Whitelisting functions -----
 
     function whitelistRouter(
