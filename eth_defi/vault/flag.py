@@ -163,9 +163,25 @@ Fixed Maturity Date: 15 Oct, 2026.
 Although the vault has long lock up matching the duration of the underlying real-world asset instrument, [the share token can be traded against the secondary liquidity available at Curve DEX](https://www.curve.finance/dex/ethereum/pools/factory-stable-ng-650/swap).
 """
 
-ETH_STRATEGY_ESPN = """ESPN (ETH Strategy Perpetual Note) lends USDS to ETH Strategy, but instead of receiving interest, ESPN receives a long-dated ETH call option. To extract yield from this long-dated call option, ESPN systematically sells shorter-dated call options on [Derive](https://www.derive.xyz/). The symmetry between the long-dated convertibles acquired and short-dated calls sold keeps the strategy balanced in USD terms. 
+ETH_STRATEGY_ESPN = """ESPN (ETH Strategy Perpetual Note) lends USDS to ETH Strategy, but instead of receiving interest, ESPN receives a long-dated ETH call option. To extract yield from this long-dated call option, ESPN systematically sells shorter-dated call options on [Derive](https://www.derive.xyz/). The symmetry between the long-dated convertibles acquired and short-dated calls sold keeps the strategy balanced in USD terms.
 
 [Discussion about the ESPN vault](https://x.com/TradingProtocol/status/2011043276283900198).
+"""
+
+GRVT_GLP_DEPOSIT_LIMITS = """GLP deposit limits are tied to your lifetime trading volume on GRVT. Each tier sets a maximum percentage of account equity and an absolute USDT cap:
+
+| Trading volume | % of equity | Max USDT |
+|---|---|---|
+| $0–$10k | 10% | $10k |
+| $10k–$1m | 20% | $20k |
+| $1m–$10m | 30% | $50k |
+| $10m–$100m | 40% | $100k |
+| $100m–$250m | 50% | $250k |
+| $250m+ | 60% | $500k |
+
+The system checks your total equity meets the minimum for your tier when you attempt withdrawals, transfers, or redemption cancellations — if it does not, the action is blocked. Redemptions take 2–7 days.
+
+[More details on the GLP programme](https://help.grvt.io/en/articles/12760192-grvt-liquidity-provider-glp).
 """
 
 #: Vault manual blacklist flags and notes.
@@ -353,6 +369,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0x0319c82013cf676661f7bde576c6731869a93fc0": (VaultFlag.illiquid, PEAPODS_ILLIQUID),
     # Curve Boosted crvUSD-fxSAVE Lender (Yearn on Ethereum)
     "0x5103d3ee6d599984609daaadd3a439152cc0c392": (VaultFlag.subvault, SUBVAULT),
+    # Grvt Liquidity Provider (GLP)
+    "vlt:34dtzyg6lhkgm49je5aabi9tebw": (None, GRVT_GLP_DEPOSIT_LIMITS),
 }
 
 for addr in VAULT_FLAGS_AND_NOTES.keys():
