@@ -98,20 +98,20 @@ def test_multi_provider_bad_url():
 CI = os.environ.get("CI") == "true"
 
 
-@pytest.mark.skipif(CI, reason="polygon-rpc.com is unreliable public RPC on CI")
 def test_multi_provider_transact(anvil):
     """See we use MEV Blocker for doing transactions."""
 
-    # Use Anvil as MEV blocker instance
-    config = f""" 
+    # Use Anvil as both MEV blocker and fallback — we only care about
+    # routing behaviour, not actual multi-chain connectivity.
+    config = f"""
     mev+{anvil.json_rpc_url}
-    https://polygon-rpc.com
+    {anvil.json_rpc_url}
     """
 
     web3 = create_multi_provider_web3(config)
 
     # Need to connect to Anvil directly
-    anvil_web3 = Web3(HTTPProvider(anvil.json_rpc_url))
+    anvil_web3 = Web3(HTTPProvider(anvil.json_rpc_url, exception_retry_configuration=None))
     wallet = HotWallet.create_for_testing(anvil_web3)
 
     signed_tx = wallet.sign_transaction_with_new_nonce(
