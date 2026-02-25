@@ -9,6 +9,7 @@ from flaky import flaky
 import pytest
 
 from eth_defi.gmx.api import GMXAPI, clear_ticker_prices_cache
+from tests.gmx.conftest import GMX_TEST_RETRY_CONFIG
 from eth_defi.gmx.core.oracle import OraclePrices
 from eth_defi.gmx.price_sanity import (
     PriceSanityAction,
@@ -29,7 +30,7 @@ def test_price_sanity_check_within_threshold(gmx_config):
     oracle_prices_client = OraclePrices(gmx_config.get_chain())
     oracle_prices = oracle_prices_client.get_recent_prices()
 
-    api = GMXAPI(gmx_config)
+    api = GMXAPI(gmx_config, retry_config=GMX_TEST_RETRY_CONFIG)
     tickers = api.get_tickers()
 
     # Find ETH token (should exist on all chains)
@@ -110,7 +111,7 @@ def test_price_sanity_custom_threshold(gmx_config):
     oracle_prices_client = OraclePrices(gmx_config.get_chain())
     oracle_prices = oracle_prices_client.get_recent_prices()
 
-    api = GMXAPI(gmx_config)
+    api = GMXAPI(gmx_config, retry_config=GMX_TEST_RETRY_CONFIG)
     tickers = api.get_tickers()
 
     # Find ETH token (should exist on all chains)
@@ -190,7 +191,7 @@ def test_price_sanity_action_use_oracle_warn(gmx_config):
     oracle_prices_client = OraclePrices(gmx_config.get_chain())
     oracle_prices = oracle_prices_client.get_recent_prices()
 
-    api = GMXAPI(gmx_config)
+    api = GMXAPI(gmx_config, retry_config=GMX_TEST_RETRY_CONFIG)
     tickers = api.get_tickers()
 
     # Find ETH token (should exist on all chains)
@@ -252,7 +253,7 @@ def test_price_sanity_action_raise_exception(gmx_config):
     oracle_prices_client = OraclePrices(gmx_config.get_chain())
     oracle_prices = oracle_prices_client.get_recent_prices()
 
-    api = GMXAPI(gmx_config)
+    api = GMXAPI(gmx_config, retry_config=GMX_TEST_RETRY_CONFIG)
     tickers = api.get_tickers()
 
     # Find ETH token (should exist on all chains)
@@ -316,7 +317,7 @@ def test_price_sanity_disabled(gmx_config):
     oracle_prices_client = OraclePrices(gmx_config.get_chain())
     oracle_prices = oracle_prices_client.get_recent_prices()
 
-    api = GMXAPI(gmx_config)
+    api = GMXAPI(gmx_config, retry_config=GMX_TEST_RETRY_CONFIG)
     tickers = api.get_tickers()
 
     # Find ETH token (should exist on all chains)
@@ -370,7 +371,7 @@ def test_price_conversion_consistency(gmx_config):
     oracle_prices_client = OraclePrices(gmx_config.get_chain())
     oracle_prices = oracle_prices_client.get_recent_prices()
 
-    api = GMXAPI(gmx_config)
+    api = GMXAPI(gmx_config, retry_config=GMX_TEST_RETRY_CONFIG)
     tickers = api.get_tickers()
 
     # Test with ETH (18 decimals)
@@ -445,7 +446,7 @@ def test_ticker_cache_functionality(gmx_config):
     # Clear cache first
     clear_ticker_prices_cache()
 
-    api = GMXAPI(gmx_config)
+    api = GMXAPI(gmx_config, retry_config=GMX_TEST_RETRY_CONFIG)
 
     # First call - should fetch from API
     tickers1 = api.get_tickers(use_cache=True)

@@ -18,7 +18,9 @@ HOT_WALLET_PRIVATE_KEY = os.environ.get("HOT_WALLET_PRIVATE_KEY")
 
 CI = os.environ.get("CI", None) is not None
 
-pytestmark = pytest.mark.skipif(not JSON_RPC_ARBITRUM_SEPOLIA, reason="No JSON_RPC_ARBITRUM_SEPOLIA environment variable")
+pytestmark = pytest.mark.skip(
+    reason="Orderly tests need an archive node for Arbitrum Sepolia — the public RPC does not provide archive state for the hardcoded fork block",
+)
 
 
 @pytest.fixture()

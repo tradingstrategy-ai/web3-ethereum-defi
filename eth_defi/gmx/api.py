@@ -19,7 +19,7 @@ from eth_defi.gmx.constants import (
     _MARKETS_INFO_CACHE_TTL_SECONDS,
     _TICKER_CACHE_TTL_SECONDS,
 )
-from eth_defi.gmx.retry import make_gmx_api_request
+from eth_defi.gmx.retry import GMXRetryConfig, make_gmx_api_request
 
 logger = logging.getLogger(__name__)
 
@@ -109,6 +109,7 @@ class GMXAPI:
         self,
         config: Optional[GMXConfig] = None,
         chain: Optional[str] = None,
+        retry_config: GMXRetryConfig | None = None,
     ):
         """
         Initialise the GMX API client with the provided configuration.
@@ -119,6 +120,9 @@ class GMXAPI:
         :param chain:
             Chain name (arbitrum or avalanche) as an alternative to config (optional if config is provided)
         :type chain: Optional[str]
+        :param retry_config:
+            Retry behaviour for API requests.
+            Defaults to production settings when ``None``.
         :raises ValueError: If neither config nor chain is provided
         """
         if config is not None:
@@ -129,6 +133,8 @@ class GMXAPI:
             self.chain = chain
         else:
             raise ValueError("Either config or chain must be provided")
+
+        self.retry_config = retry_config
 
         # Validate chain is supported
         supported_chains = ["arbitrum", "arbitrum_sepolia", "avalanche", "avalanche_fuji"]
@@ -160,19 +166,15 @@ class GMXAPI:
         endpoint: str,
         params: Optional[dict[str, Any]] = None,
         timeout: float = 10.0,
-        max_retries: int = 2,
-        retry_delay: float = 0.1,
     ) -> dict[str, Any]:
         """
         Make a request to the GMX API with retry logic and automatic failover to backup URL.
 
-        This method uses the centralized retry logic from eth_defi.gmx.retry module.
+        This method uses the centralised retry logic from eth_defi.gmx.retry module.
 
         :param endpoint: API endpoint path (e.g., "/prices/tickers", "/signed_prices/latest")
         :param params: Optional query parameters
         :param timeout: HTTP request timeout in seconds
-        :param max_retries: Maximum retry attempts per URL
-        :param retry_delay: Initial delay between retries (exponential backoff)
         :return: API response parsed as a dictionary
         :raises RuntimeError: When all retry and backup attempts fail
         """
@@ -181,8 +183,7 @@ class GMXAPI:
             endpoint=endpoint,
             params=params,
             timeout=timeout,
-            max_retries=max_retries,
-            retry_delay=retry_delay,
+            retry_config=self.retry_config,
         )
 
     def get_tickers(self, use_cache: bool = True) -> dict[str, Any]:
@@ -380,8 +381,7 @@ class GMXAPI:
             endpoint=endpoint,
             params=None,
             timeout=10.0,
-            max_retries=2,
-            retry_delay=0.1,
+            retry_config=self.retry_config,
         )
 
         # Cache result
@@ -444,8 +444,7 @@ class GMXAPI:
             endpoint=endpoint,
             params=params,
             timeout=10.0,
-            max_retries=2,
-            retry_delay=0.1,
+            retry_config=self.retry_config,
         )
 
         # Cache result
@@ -523,8 +522,7 @@ class GMXAPI:
             endpoint=endpoint,
             params=params,
             timeout=10.0,
-            max_retries=2,
-            retry_delay=0.1,
+            retry_config=self.retry_config,
         )
 
         # Cache result

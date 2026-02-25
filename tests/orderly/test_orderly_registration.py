@@ -8,14 +8,8 @@ from web3 import Web3
 from eth_defi.hotwallet import HotWallet
 from eth_defi.orderly.api import OrderlyApiClient
 
-pytestmark = pytest.mark.skipif(
-    not any(
-        [
-            os.environ.get("JSON_RPC_ARBITRUM_SEPOLIA"),
-            os.environ.get("HOT_WALLET_PRIVATE_KEY"),
-        ]
-    ),
-    reason="No JSON_RPC_ARBITRUM_SEPOLIA or HOT_WALLET_PRIVATE_KEY environment variable",
+pytestmark = pytest.mark.skip(
+    reason="Orderly tests need an archive node for Arbitrum Sepolia — the public RPC does not provide archive state for the hardcoded fork block",
 )
 
 SEND_REAL_REQUESTS = os.environ.get("SEND_REAL_REQUESTS") == "true"

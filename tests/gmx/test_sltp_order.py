@@ -240,13 +240,14 @@ def test_bundled_short_with_sl_tp(isolated_fork_env_short, execution_buffer):
 from eth_defi.gmx.synthetic_tokens import get_gmx_synthetic_token_by_symbol
 from eth_defi.token import fetch_erc20_details
 from eth_utils import to_checksum_address
+from tests.gmx.conftest import GMX_TEST_RETRY_CONFIG
 
 
 def _fund_wallet_for_trading(env, wallet_address):
     """Fund wallet with USDC and ETH for trading."""
     # Fund wallet with USDC from whale if needed
     large_usdc_holder = to_checksum_address("0x2Df1c51E09aECF9cacB7bc98cB1742757f163dF7")
-    usdc_token = get_gmx_synthetic_token_by_symbol(env.web3.eth.chain_id, "USDC")
+    usdc_token = get_gmx_synthetic_token_by_symbol(env.web3.eth.chain_id, "USDC", retry_config=GMX_TEST_RETRY_CONFIG)
 
     if usdc_token:
         usdc = fetch_erc20_details(env.web3, usdc_token.address)

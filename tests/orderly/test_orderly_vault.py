@@ -11,14 +11,8 @@ from eth_defi.orderly.vault import OrderlyVault, deposit
 from eth_defi.token import TokenDetails
 from eth_defi.trace import assert_transaction_success_with_explanation
 
-pytestmark = pytest.mark.skipif(
-    not any(
-        [
-            os.environ.get("JSON_RPC_ARBITRUM_SEPOLIA"),
-            os.environ.get("HOT_WALLET_PRIVATE_KEY"),
-        ]
-    ),
-    reason="No JSON_RPC_ARBITRUM_SEPOLIA or HOT_WALLET_PRIVATE_KEY environment variable",
+pytestmark = pytest.mark.skip(
+    reason="Orderly tests need an archive node for Arbitrum Sepolia — the public RPC does not provide archive state for the hardcoded fork block",
 )
 
 

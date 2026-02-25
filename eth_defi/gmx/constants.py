@@ -369,9 +369,5 @@ SUBSQUID_ORDER_TRACKING_INITIAL_DELAY = 2.0  # Increased from 1.0
 SUBSQUID_ORDER_TRACKING_MAX_DELAY = 30.0
 SUBSQUID_ORDER_TRACKING_BACKOFF_MULTIPLIER = 2.0
 
-#: GMX API retry configuration
-GMX_API_MAX_RETRIES = 3  # Per endpoint (primary + backup)
-GMX_API_INITIAL_DELAY = 2.0
-GMX_API_MAX_DELAY = 30.0
-GMX_API_BACKOFF_MULTIPLIER = 2.0
-GMX_API_FULL_CYCLE_RETRIES = 2  # Full cycles through primary+backup
+# GMX API retry configuration has moved to eth_defi.gmx.retry.GMXRetryConfig.
+# The old module-level constants are no longer used.

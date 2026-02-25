@@ -15,7 +15,7 @@ import cachetools
 from eth_typing import HexAddress
 
 from eth_defi.chain import get_chain_name
-from eth_defi.gmx.retry import make_gmx_api_request
+from eth_defi.gmx.retry import GMXRetryConfig, make_gmx_api_request
 
 logger = logging.getLogger(__name__)
 
@@ -154,6 +154,7 @@ def fetch_gmx_synthetic_tokens(
     force_refresh: bool = False,
     max_retries: int = 2,
     retry_delay: float = 0.1,
+    retry_config: GMXRetryConfig | None = None,
 ) -> list[GMXSyntheticTokenDetails]:
     """Fetch GMX synthetic token details from API with caching and retry logic.
 
@@ -203,14 +204,13 @@ def fetch_gmx_synthetic_tokens(
                 for token_data in cached_tokens
             ]
 
-    # Use centralized retry + backup logic
+    # Use centralised retry + backup logic
     try:
         api_data = make_gmx_api_request(
             chain=chain_name,
             endpoint="/tokens",
             timeout=timeout,
-            max_retries=max_retries,
-            retry_delay=retry_delay,
+            retry_config=retry_config,
         )
     except RuntimeError as e:
         raise GMXTokenFetchError(f"Failed to fetch GMX tokens for chain {chain_name} (chain_id: {chain_id})") from e
@@ -261,6 +261,7 @@ def get_gmx_synthetic_token_by_symbol(
     chain_id: int,
     symbol: str,
     cache: Optional[cachetools.Cache] = DEFAULT_GMX_TOKEN_CACHE,
+    retry_config: GMXRetryConfig | None = None,
 ) -> Optional[GMXSyntheticTokenDetails]:
     """Get a specific GMX token by symbol on a given chain.
 
@@ -270,6 +271,9 @@ def get_gmx_synthetic_token_by_symbol(
     :param chain_id: Blockchain chain ID
     :param symbol: Token symbol to search for (case-insensitive)
     :param cache: Cache instance to use
+    :param retry_config:
+        Retry behaviour for the underlying API request.
+        Defaults to production settings when ``None``.
     :return: GMXSyntheticTokenDetails if found, None otherwise
 
     Example:
@@ -281,7 +285,7 @@ def get_gmx_synthetic_token_by_symbol(
         if usdc:
             print(f"USDC decimals: {usdc.decimals}")
     """
-    tokens = fetch_gmx_synthetic_tokens(chain_id, cache=cache)
+    tokens = fetch_gmx_synthetic_tokens(chain_id, cache=cache, retry_config=retry_config)
 
     # Case-insensitive symbol search
     symbol_lower = symbol.lower()

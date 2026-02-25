@@ -1,13 +1,14 @@
-"""TokenSniffer integration tests."""
+"""TokenSniffer integration tests.
 
-import os
+.. note::
+
+    These tests are currently skipped because the TokenSniffer API key has expired
+    and the service is no longer actively supported by the project.
+"""
 
 import pytest
 
-from eth_defi.token_analysis.tokensniffer import CachedTokenSniffer, is_tradeable_token, TokenSnifferError
-
-TOKENSNIFFER_API_KEY = os.environ.get("TOKENSNIFFER_API_KEY")
-pytestmark = pytest.mark.skipif(not TOKENSNIFFER_API_KEY, reason="This test needs TOKENSNIFFER_API_KEY set")
+pytestmark = pytest.mark.skip(reason="TokenSniffer API key expired and service no longer supported")
 
 
 def test_token_sniffer_cached(tmp_path):

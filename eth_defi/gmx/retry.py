@@ -1,21 +1,17 @@
 """
 GMX API Retry and Failover Logic
 
-Centralized retry and backup failover handling for all GMX API calls.
+Centralised retry and backup failover handling for all GMX API calls.
 """
 
 import logging
 import time
+from dataclasses import dataclass
 from typing import Any
 
 import requests
 
 from eth_defi.gmx.constants import (
-    GMX_API_BACKOFF_MULTIPLIER,
-    GMX_API_FULL_CYCLE_RETRIES,
-    GMX_API_INITIAL_DELAY,
-    GMX_API_MAX_DELAY,
-    GMX_API_MAX_RETRIES,
     GMX_API_URLS,
     GMX_API_URLS_BACKUP,
     GMX_API_URLS_FALLBACK,
@@ -25,13 +21,66 @@ from eth_defi.gmx.constants import (
 logger = logging.getLogger(__name__)
 
 
+@dataclass(slots=True)
+class GMXRetryConfig:
+    """Configuration for GMX API retry and failover behaviour.
+
+    Controls how aggressively the GMX API client retries failed requests
+    across multiple endpoints. Production defaults are tuned for reliability;
+    tests should use :func:`get_test_retry_config` for faster feedback.
+
+    Example:
+
+    .. code-block:: python
+
+        # Production (default)
+        config = GMXRetryConfig()
+
+        # Fast-fail for tests
+        config = GMXRetryConfig.create_test_config()
+    """
+
+    #: Maximum retry attempts per endpoint (primary, backup, fallback, fallback-2)
+    max_retries: int = 3
+
+    #: Initial delay in seconds between retries (grows with backoff)
+    initial_delay: float = 2.0
+
+    #: Maximum delay cap in seconds for exponential backoff
+    max_delay: float = 30.0
+
+    #: Multiplier applied to delay after each failed attempt
+    backoff_multiplier: float = 2.0
+
+    #: Number of full cycles through all endpoints before giving up
+    full_cycle_retries: int = 2
+
+    @classmethod
+    def create_test_config(cls) -> "GMXRetryConfig":
+        """Create a retry config tuned for fast test feedback.
+
+        Reduces retries and delays so tests fail quickly instead of
+        burning minutes on unreachable API endpoints.
+        """
+        return cls(
+            max_retries=1,
+            initial_delay=0.1,
+            max_delay=1.0,
+            backoff_multiplier=2.0,
+            full_cycle_retries=1,
+        )
+
+
+#: Default production retry configuration
+DEFAULT_RETRY_CONFIG = GMXRetryConfig()
+
+
 def _try_api_with_retries(
     base_url: str,
     endpoint: str,
     params: dict | None,
     timeout: float,
-    max_retries: int,
-    initial_delay: float,
+    retry_config: GMXRetryConfig,
     api_name: str,
 ) -> tuple[dict | None, Exception | None]:
     """Try API endpoint with retries and exponential backoff.
@@ -44,20 +93,18 @@ def _try_api_with_retries(
         Optional query parameters
     :param timeout:
         Request timeout in seconds
-    :param max_retries:
-        Maximum retry attempts
-    :param initial_delay:
-        Initial delay between retries
+    :param retry_config:
+        Retry behaviour configuration
     :param api_name:
         Name for logging (e.g., "primary", "backup")
     :return:
         Tuple of (result, error). If successful, result is dict and error is None.
         If failed, result is None and error is the last exception.
     """
-    delay = initial_delay
+    delay = retry_config.initial_delay
     last_error = None
 
-    for attempt in range(max_retries):
+    for attempt in range(retry_config.max_retries):
         try:
             url = f"{base_url}{endpoint}"
             response = requests.get(url, params=params, timeout=timeout)
@@ -66,22 +113,22 @@ def _try_api_with_retries(
 
         except Exception as e:
             last_error = e
-            if attempt < max_retries - 1:
+            if attempt < retry_config.max_retries - 1:
                 logger.warning(
                     "GMX %s API attempt %d/%d failed: %s. Retrying in %.1fs",
                     api_name,
                     attempt + 1,
-                    max_retries,
+                    retry_config.max_retries,
                     e,
                     delay,
                 )
                 time.sleep(delay)
-                delay = min(delay * GMX_API_BACKOFF_MULTIPLIER, GMX_API_MAX_DELAY)
+                delay = min(delay * retry_config.backoff_multiplier, retry_config.max_delay)
             else:
                 logger.warning(
                     "GMX %s API failed after %d attempts: %s",
                     api_name,
-                    max_retries,
+                    retry_config.max_retries,
                     e,
                 )
 
@@ -93,6 +140,7 @@ def make_gmx_api_request(
     endpoint: str,
     params: dict[str, Any] | None = None,
     timeout: float = 10.0,
+    retry_config: GMXRetryConfig | None = None,
     max_retries: int | None = None,
     retry_delay: float | None = None,
 ) -> dict[str, Any]:
@@ -106,12 +154,12 @@ def make_gmx_api_request(
 
     Retry flow:
 
-    1. Try primary API (GMX_API_MAX_RETRIES attempts with exponential backoff)
-    2. Try backup API (GMX_API_MAX_RETRIES attempts with exponential backoff)
-    3. Try fallback API (GMX_API_MAX_RETRIES attempts with exponential backoff)
-    4. Try fallback-2 API (GMX_API_MAX_RETRIES attempts with exponential backoff)
-    5. Wait GMX_API_INITIAL_DELAY, then repeat full cycle
-    6. After GMX_API_FULL_CYCLE_RETRIES full cycles, raise RuntimeError
+    1. Try primary API (max_retries attempts with exponential backoff)
+    2. Try backup API (max_retries attempts with exponential backoff)
+    3. Try fallback API (max_retries attempts with exponential backoff)
+    4. Try fallback-2 API (max_retries attempts with exponential backoff)
+    5. Wait initial_delay, then repeat full cycle
+    6. After full_cycle_retries full cycles, raise RuntimeError
 
     :param chain:
         Chain name (e.g., "arbitrum", "avalanche")
@@ -121,19 +169,22 @@ def make_gmx_api_request(
         Optional query parameters
     :param timeout:
         HTTP request timeout in seconds
+    :param retry_config:
+        Retry behaviour configuration. Uses :data:`DEFAULT_RETRY_CONFIG` when ``None``.
     :param max_retries:
         Deprecated. Kept for backwards compatibility but ignored.
-        Retry count is now controlled by GMX_API_MAX_RETRIES constant.
     :param retry_delay:
         Deprecated. Kept for backwards compatibility but ignored.
-        Delay is now controlled by GMX_API_INITIAL_DELAY constant.
     :return:
         Parsed JSON response
     :raises RuntimeError:
         If all retries and backup attempts fail
     """
-    # Note: max_retries and retry_delay are ignored - using constants instead
-    _ = max_retries, retry_delay  # Silence unused variable warnings
+    _ = max_retries, retry_delay  # Backwards compat — ignored
+
+    if retry_config is None:
+        retry_config = DEFAULT_RETRY_CONFIG
+
     chain_lower = chain.lower()
 
     # Get primary, backup, and fallback URLs
@@ -147,14 +198,14 @@ def make_gmx_api_request(
 
     last_error = None
 
-    for cycle in range(GMX_API_FULL_CYCLE_RETRIES):
+    for cycle in range(retry_config.full_cycle_retries):
         if cycle > 0:
-            wait_time = GMX_API_INITIAL_DELAY * (GMX_API_BACKOFF_MULTIPLIER ** (cycle - 1))
-            wait_time = min(wait_time, GMX_API_MAX_DELAY)
+            wait_time = retry_config.initial_delay * (retry_config.backoff_multiplier ** (cycle - 1))
+            wait_time = min(wait_time, retry_config.max_delay)
             logger.warning(
                 "GMX API: Starting retry cycle %d/%d after %.1fs wait",
                 cycle + 1,
-                GMX_API_FULL_CYCLE_RETRIES,
+                retry_config.full_cycle_retries,
                 wait_time,
             )
             time.sleep(wait_time)
@@ -166,8 +217,7 @@ def make_gmx_api_request(
                 endpoint,
                 params,
                 timeout,
-                GMX_API_MAX_RETRIES,
-                GMX_API_INITIAL_DELAY,
+                retry_config,
                 "primary",
             )
             if result is not None:
@@ -181,8 +231,7 @@ def make_gmx_api_request(
                 endpoint,
                 params,
                 timeout,
-                GMX_API_MAX_RETRIES,
-                GMX_API_INITIAL_DELAY,
+                retry_config,
                 "backup",
             )
             if result is not None:
@@ -196,8 +245,7 @@ def make_gmx_api_request(
                 endpoint,
                 params,
                 timeout,
-                GMX_API_MAX_RETRIES,
-                GMX_API_INITIAL_DELAY,
+                retry_config,
                 "fallback",
             )
             if result is not None:
@@ -211,12 +259,11 @@ def make_gmx_api_request(
                 endpoint,
                 params,
                 timeout,
-                GMX_API_MAX_RETRIES,
-                GMX_API_INITIAL_DELAY,
+                retry_config,
                 "fallback-2",
             )
             if result is not None:
                 return result
             last_error = error
 
-    raise RuntimeError(f"Failed to connect to GMX API endpoint {endpoint} for chain {chain} after {GMX_API_FULL_CYCLE_RETRIES} full cycles. Last error: {last_error}") from last_error
+    raise RuntimeError(f"Failed to connect to GMX API endpoint {endpoint} for chain {chain} after {retry_config.full_cycle_retries} full cycles. Last error: {last_error}") from last_error

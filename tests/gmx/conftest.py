@@ -24,7 +24,11 @@ from eth_defi.gmx.data import GMXMarketData
 from eth_defi.gmx.graphql.client import GMXSubsquidClient
 from eth_defi.gmx.order.base_order import BaseOrder
 from eth_defi.gmx.order.swap_order import SwapOrder
+from eth_defi.gmx.retry import GMXRetryConfig
 from eth_defi.gmx.synthetic_tokens import get_gmx_synthetic_token_by_symbol
+
+#: Fast-fail retry config for tests — avoids burning minutes on API timeouts
+GMX_TEST_RETRY_CONFIG = GMXRetryConfig.create_test_config()
 from eth_defi.gmx.trading import GMXTrading
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.anvil import fork_network_anvil
@@ -75,7 +79,7 @@ def get_gmx_address(chain_id: int, symbol: str) -> str:
     elif symbol == "WAVAX":
         symbol = "AVAX"
 
-    token = get_gmx_synthetic_token_by_symbol(chain_id, symbol)
+    token = get_gmx_synthetic_token_by_symbol(chain_id, symbol, retry_config=GMX_TEST_RETRY_CONFIG)
     if token is None:
         raise ValueError(f"Token '{symbol}' not found on chain {chain_id}")
     return token.address
@@ -465,7 +469,7 @@ def get_pool_tvl(gmx_config) -> GetPoolTVL:
 @pytest.fixture()
 def api(gmx_config):
     """Create a GMXAPI instance for the specified chain."""
-    return GMXAPI(gmx_config)
+    return GMXAPI(gmx_config, retry_config=GMX_TEST_RETRY_CONFIG)
 
 
 # Token fixtures for specific chains

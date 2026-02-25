@@ -8,6 +8,7 @@ import pandas as pd
 from flaky import flaky
 
 from eth_defi.gmx.api import GMXAPI
+from tests.gmx.conftest import GMX_TEST_RETRY_CONFIG
 
 
 @flaky(max_runs=3, min_passes=1)
@@ -15,7 +16,7 @@ def test_api_initialization(chain_name, gmx_config):
     """
     Test that the API initialises correctly with chain-specific config.
     """
-    api = GMXAPI(gmx_config)
+    api = GMXAPI(gmx_config, retry_config=GMX_TEST_RETRY_CONFIG)
     assert api.chain.lower() == chain_name.lower()
     assert chain_name.lower() in api.base_url
     assert chain_name.lower() in api.backup_url
@@ -149,7 +150,7 @@ def test_api_retry_mechanism(chain_name, gmx_config):
 
     Makes real API calls to verify the retry logic works correctly.
     """
-    api = GMXAPI(gmx_config)
+    api = GMXAPI(gmx_config, retry_config=GMX_TEST_RETRY_CONFIG)
 
     # Make a real API call - this tests that the retry mechanism works
     # The API should successfully return data even if there are transient failures

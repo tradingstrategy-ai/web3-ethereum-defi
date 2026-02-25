@@ -232,7 +232,7 @@ def test_guard_umami_deposit_malicious_receiver(
 
     target, call_data = encode_simple_vault_transaction(deposit_fn)
 
-    with pytest.raises(Exception, match="validate_UmamiDeposit"):
+    with pytest.raises(Exception, match="Receiver not whitelisted"):
         guard.functions.validateCall(asset_manager, target, call_data).call()
 
 
@@ -262,5 +262,5 @@ def test_guard_umami_redeem_malicious_receiver(
     )
     target, call_data = encode_simple_vault_transaction(redeem_fn)
 
-    with pytest.raises(Exception, match="validate_UmamiRedeem"):
+    with pytest.raises(Exception, match="Receiver not whitelisted"):
         guard.functions.validateCall(asset_manager, target, call_data).call()
