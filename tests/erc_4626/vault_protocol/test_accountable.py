@@ -49,6 +49,7 @@ def web3(anvil_monad_fork):
     return web3
 
 
+@pytest.mark.timeout(180)
 @flaky.flaky
 def test_accountable_susn_vault(
     web3: Web3,
@@ -83,6 +84,7 @@ def test_accountable_susn_vault(
     assert vault.can_check_redeem() is False
 
 
+@pytest.mark.timeout(180)
 @flaky.flaky
 def test_accountable_yuzu_vault(
     web3: Web3,
@@ -113,6 +115,7 @@ def test_accountable_yuzu_vault(
     assert vault.can_check_redeem() is False
 
 
+@pytest.mark.timeout(180)
 @flaky.flaky
 def test_accountable_asia_credit_vault(
     web3: Web3,
@@ -143,6 +146,7 @@ def test_accountable_asia_credit_vault(
     assert vault.can_check_redeem() is False
 
 
+@pytest.mark.timeout(180)
 @flaky.flaky
 def test_accountable_aegis_vault(
     web3: Web3,
@@ -191,6 +195,7 @@ def test_accountable_aegis_vault(
     assert vault.can_check_redeem() is False
 
 
+@pytest.mark.timeout(180)
 @flaky.flaky
 def test_accountable_historical_reader(
     web3: Web3,
@@ -242,6 +247,7 @@ def test_accountable_historical_reader(
     assert vault_read.total_assets == pytest.approx(direct_nav, rel=Decimal("0.001"))
 
 
+@pytest.mark.timeout(180)
 @flaky.flaky
 def test_accountable_metadata(
     web3: Web3,
@@ -265,6 +271,7 @@ def test_accountable_metadata(
     assert vault.accountable_metadata.get("performance_fee") is not None
 
 
+@pytest.mark.timeout(180)
 @flaky.flaky
 def test_accountable_metadata_cache(tmp_path: Path):
     """Verify disk caching works for Accountable metadata."""
