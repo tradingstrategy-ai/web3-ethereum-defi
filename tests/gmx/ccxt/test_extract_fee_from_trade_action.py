@@ -51,17 +51,16 @@ def gmx_exchange():
     if not rpc_url:
         pytest.skip("JSON_RPC_ARBITRUM not set")
 
-    exchange = GMX({
-        "rpcUrl": rpc_url,
-        "privateKey": "0x" + "01" * 32,  # Dummy key - read-only operations
-    })
+    exchange = GMX(
+        {
+            "rpcUrl": rpc_url,
+            "privateKey": "0x" + "01" * 32,  # Dummy key - read-only operations
+        }
+    )
     exchange.load_markets()
 
     # Sanity check: verify market exists
-    assert ETH_SYMBOL in exchange.markets, (
-        f"Market {ETH_SYMBOL} not found. Available ETH markets: "
-        f"{[k for k in exchange.markets if 'ETH' in k]}"
-    )
+    assert ETH_SYMBOL in exchange.markets, f"Market {ETH_SYMBOL} not found. Available ETH markets: {[k for k in exchange.markets if 'ETH' in k]}"
 
     return exchange
 
@@ -280,9 +279,7 @@ def test_extract_fee_all_three_txs(gmx_exchange, web3):
         assert fee_dict["currency"] == "USDC", f"{case['label']}: expected USDC, got {fee_dict['currency']}"
         assert fee_dict["cost"] > 0, f"{case['label']}: fee cost should be > 0, got {fee_dict['cost']}"
         assert fee_dict["cost"] < 0.01, f"{case['label']}: fee should be < $0.01 for ~$3 position, got {fee_dict['cost']}"
-        assert pytest.approx(fee_dict["cost"], abs=0.001) == case["expected_fee_approx"], (
-            f"{case['label']}: expected ~${case['expected_fee_approx']}, got ${fee_dict['cost']}"
-        )
+        assert pytest.approx(fee_dict["cost"], abs=0.001) == case["expected_fee_approx"], f"{case['label']}: expected ~${case['expected_fee_approx']}, got ${fee_dict['cost']}"
 
         logger.info(
             "%s: PASS - fee=$%s, rate=%s%%",

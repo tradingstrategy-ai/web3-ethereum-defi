@@ -6118,11 +6118,7 @@ class GMX(ExchangeCompatible):
                 _remaining = int(_cooldown_until - time.monotonic())
                 _last_reason = _cancel_entry.get("last_reason", "unknown")
                 _cancel_count = _cancel_entry.get("count", 0)
-                raise InvalidOrder(
-                    f"CIRCUIT_BREAKER: skipping close for {symbol} — "
-                    f"{_cancel_count} consecutive keeper cancellations (last reason: {_last_reason}). "
-                    f"Cooldown: {_remaining}s remaining. Call reset_keeper_cancel_count('{symbol}') to resume."
-                )
+                raise InvalidOrder(f"CIRCUIT_BREAKER: skipping close for {symbol} — {_cancel_count} consecutive keeper cancellations (last reason: {_last_reason}). Cooldown: {_remaining}s remaining. Call reset_keeper_cancel_count('{symbol}') to resume.")
 
             # RACE CONDITION FIX: When stop-loss executes, it closes the position on-chain.
             # If Freqtrade's main loop then tries to close the same position (e.g., via ROI),
@@ -6770,16 +6766,13 @@ class GMX(ExchangeCompatible):
                 # Only close orders (reduceOnly=True) are tracked — open-order failures are
                 # already handled by _consecutive_failures.
                 if reduceOnly:
-                    _cb_entry = self._keeper_cancel_tracker.setdefault(
-                        symbol, {"count": 0, "cooldown_until": 0.0, "last_reason": ""}
-                    )
+                    _cb_entry = self._keeper_cancel_tracker.setdefault(symbol, {"count": 0, "cooldown_until": 0.0, "last_reason": ""})
                     _cb_entry["count"] += 1
                     _cb_entry["last_reason"] = error_reason
                     if _cb_entry["count"] >= self._max_keeper_cancels:
                         _cb_entry["cooldown_until"] = time.monotonic() + self._keeper_cancel_cooldown_secs
                         logger.error(
-                            "CIRCUIT_BREAKER: %d consecutive keeper cancellations for %s close orders. "
-                            "Setting %ds cooldown. Last reason: %s",
+                            "CIRCUIT_BREAKER: %d consecutive keeper cancellations for %s close orders. Setting %ds cooldown. Last reason: %s",
                             _cb_entry["count"],
                             symbol,
                             self._keeper_cancel_cooldown_secs,

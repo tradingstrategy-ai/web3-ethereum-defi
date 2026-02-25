@@ -125,7 +125,9 @@ from eth_typing import HexAddress
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.constants import PRECISION, OrderType
 from eth_defi.gmx.contracts import get_token_address_normalized
+from eth_defi.gmx.core.open_positions import GetOpenPositions
 from eth_defi.gmx.core.oracle import OraclePrices
+from eth_defi.gmx.precision import cap_size_delta_to_position, is_raw_usd_amount
 from eth_defi.gmx.gas_monitor import (
     GasCheckResult,
     GasMonitorConfig,
@@ -891,6 +893,25 @@ class GMXTrading:
             "initial_collateral_delta": initial_collateral_delta,
             "slippage_percent": slippage_percent,
         }
+
+        # SAFETY CAP: For MarketDecrease, sizeDeltaUsd must NEVER exceed sizeInUsd
+        # or GMX reverts with InvalidDecreaseOrderSize.  Mirrors exchange.py behaviour.
+        # Only applies when size_delta_usd is already a raw 30-decimal int.
+        if is_raw_usd_amount(size_delta_usd):
+            wallet_address = self.config.get_wallet_address()
+            if wallet_address:
+                open_positions = GetOpenPositions(self.config).get_data(wallet_address)
+                for pos in open_positions.values():
+                    if pos.get("market_symbol") == market_symbol and pos.get("is_long") == is_long:
+                        position_size_raw = pos.get("position_size_usd_raw", 0)
+                        if position_size_raw > 0:
+                            size_delta_usd = cap_size_delta_to_position(
+                                size_delta_usd,
+                                position_size_raw,
+                                label=market_symbol,
+                            )
+                            parameters["size_delta_usd"] = size_delta_usd
+                        break
 
         # Process parameters
         order_parameters = OrderArgumentParser(

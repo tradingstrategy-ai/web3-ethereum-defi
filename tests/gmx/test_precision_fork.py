@@ -99,10 +99,7 @@ def test_safety_cap_prevents_invalid_close(isolated_fork_env, execution_buffer):
     # ~103 bits, so the lower ~50 bits are lost. Rounding direction (up or down)
     # depends on the specific value — we do NOT assume direction here.
     float_size = int(float(raw_size))
-    assert float_size != raw_size, (
-        "Expected float corruption for position size %s but int(float(x)) == x. "
-        "The position might be too small to trigger precision loss." % raw_size
-    )
+    assert float_size != raw_size, "Expected float corruption for position size %s but int(float(x)) == x. The position might be too small to trigger precision loss." % raw_size
     logger.info(
         "Float corruption confirmed: raw=%s, float_result=%s, delta=%s (direction=%s)",
         raw_size,
@@ -123,10 +120,7 @@ def test_safety_cap_prevents_invalid_close(isolated_fork_env, execution_buffer):
 
     # cap_size_delta_to_position must clamp overshoot to raw_size.
     capped = cap_size_delta_to_position(overshoot_size, raw_size)
-    assert capped == raw_size, (
-        "Safety cap must reduce overshoot_size=%s to raw_size=%s, got %s"
-        % (overshoot_size, raw_size, capped)
-    )
+    assert capped == raw_size, "Safety cap must reduce overshoot_size=%s to raw_size=%s, got %s" % (overshoot_size, raw_size, capped)
     logger.info("Safety cap math verified: cap(%s, %s) == %s", overshoot_size, raw_size, capped)
 
     # === Step 4: Close with OVERSHOOT value — safety cap saves the day ===
@@ -164,10 +158,7 @@ def test_safety_cap_prevents_invalid_close(isolated_fork_env, execution_buffer):
 
     # Keeper should SUCCEED because the cap prevented the overshoot.
     close_exec_receipt, _ = execute_order_as_keeper(env.web3, close_order_key)
-    assert close_exec_receipt["status"] == 1, (
-        "Keeper should succeed: safety cap clamped overshoot to raw_size, preventing "
-        "InvalidDecreaseOrderSize. Got status=%s" % close_exec_receipt["status"]
-    )
+    assert close_exec_receipt["status"] == 1, "Keeper should succeed: safety cap clamped overshoot to raw_size, preventing InvalidDecreaseOrderSize. Got status=%s" % close_exec_receipt["status"]
     logger.info("Confirmed: overshoot close succeeded because safety cap intercepted it")
 
     # === Step 5: Verify position is now closed ===

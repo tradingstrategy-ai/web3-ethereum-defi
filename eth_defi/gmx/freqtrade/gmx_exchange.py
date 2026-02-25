@@ -196,9 +196,10 @@ class Gmx(Exchange):
             if age_ms > GMX_ORDER_MAX_AGE_MS:
                 age_seconds = age_ms // 1000
                 logger.warning(
-                    "GMX zombie order detected: %s for %s has been open for %d seconds. "
-                    "Force-resolving as cancelled.",
-                    order_id[:18], pair, age_seconds,
+                    "GMX zombie order detected: %s for %s has been open for %d seconds. Force-resolving as cancelled.",
+                    order_id[:18],
+                    pair,
+                    age_seconds,
                 )
                 order["status"] = "cancelled"
                 order["filled"] = 0.0
@@ -206,17 +207,12 @@ class Gmx(Exchange):
                 order.setdefault("info", {})
                 info = order["info"]
                 info["gmx_status"] = "zombie_cancelled"
-                info["cancel_reason"] = (
-                    f"Order open for {age_seconds}s without keeper execution"
-                )
+                info["cancel_reason"] = f"Order open for {age_seconds}s without keeper execution"
                 return order
 
         # Log GMX-specific cancel reasons for debugging
         if order.get("status") in ("cancelled", "canceled", "expired"):
-            cancel_reason = (
-                info.get("cancellation_reason")
-                or info.get("cancel_reason")
-            )
+            cancel_reason = info.get("cancellation_reason") or info.get("cancel_reason")
             if cancel_reason:
                 logger.info(
                     "GMX order %s for %s was %s: %s",
@@ -871,8 +867,7 @@ class Gmx(Exchange):
         # (stop-loss, liquidation, manual close) is not available at this layer.
         if order.get("info", {}).get("reason") == "position_already_closed":
             logger.warning(
-                "GMX position for %s no longer exists on-chain. "
-                "Returning synthetic closed order with exit_reason=%s",
+                "GMX position for %s no longer exists on-chain. Returning synthetic closed order with exit_reason=%s",
                 pair,
                 order.get("info", {}).get("exit_reason", "sold_on_exchange"),
             )
