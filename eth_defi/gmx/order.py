@@ -112,11 +112,11 @@ from typing import Any
 
 from eth_typing import ChecksumAddress as Address
 
+from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.core.open_positions import GetOpenPositions
-from eth_defi.gmx.order import OrderResult
+from eth_defi.gmx.order.base_order import OrderResult
 from eth_defi.gmx.order.decrease_order import DecreaseOrder
 from eth_defi.gmx.order.order_argument_parser import OrderArgumentParser
-from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.utils import transform_open_position_to_order_parameters
 
 

@@ -290,6 +290,22 @@ GAS_LIMITS = {
     "multicall_base": 200000,
 }
 
+#: Gas limit per cancel order call.
+#:
+#: GMX's ``OrderUtils.cancelOrder`` checks ``gasleft() >= minHandleExecutionErrorGas``
+#: at the start of execution.  On Arbitrum mainnet, ``minHandleExecutionErrorGas``
+#: is stored in the DataStore at **1,200,000** gas.  With multicall overhead and the
+#: EVM's 63/64 gas-forwarding rule, the transaction must provide enough gas that
+#: at least 1,200,000 gas units remain when the check runs.  Empirically, a
+#: 700,000 gas limit leaves only ~438,308 gas at the check point, triggering
+#: ``InsufficientGasForCancellation(438308, 1200000)``.
+#:
+#: Applied **per order** in both single and batch cancellations; for a batch
+#: of N orders the total gas is ``CANCEL_ORDER_GAS_LIMIT * N``.
+#:
+#: Reference: https://github.com/gmx-io/gmx-synthetics/blob/main/contracts/order/OrderUtils.sol
+CANCEL_ORDER_GAS_LIMIT: int = 2_000_000
+
 # Gas monitoring default thresholds (in USD)
 #: Default warning threshold for low gas balance in USD
 #: When balance drops below this value, a warning is logged

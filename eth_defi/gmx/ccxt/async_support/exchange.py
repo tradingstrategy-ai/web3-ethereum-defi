@@ -5,9 +5,9 @@ AsyncWeb3 for blockchain operations, and async GraphQL for Subsquid queries.
 """
 
 import asyncio
+import logging
 import os
 from datetime import datetime
-import logging
 from pathlib import Path
 from statistics import median
 from typing import Any
@@ -30,14 +30,15 @@ from eth_defi.gmx.ccxt.properties import describe_gmx
 from eth_defi.gmx.ccxt.validation import _validate_ohlcv_data_sufficiency
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.constants import GMX_MIN_COST_USD, PRECISION
+from eth_defi.gmx.contracts import get_contract_addresses
 from eth_defi.gmx.core import Markets
 from eth_defi.gmx.core.open_positions import GetOpenPositions
 from eth_defi.gmx.core.oracle import OraclePrices
-from eth_defi.gmx.order.sltp_order import SLTPEntry, SLTPOrder, SLTPParams
-from eth_defi.gmx.contracts import get_contract_addresses
 from eth_defi.gmx.events import decode_gmx_event, extract_order_key_from_receipt
+from eth_defi.gmx.order.cancel_order import CancelOrder
+from eth_defi.gmx.order.sltp_order import SLTPEntry, SLTPOrder, SLTPParams
+from eth_defi.gmx.order_tracking import check_order_status, is_order_pending
 from eth_defi.gmx.utils import convert_raw_price_to_usd
-from eth_defi.gmx.order_tracking import check_order_status
 from eth_defi.gmx.verification import verify_gmx_order_execution
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.log_block_range import get_logs_max_block_range
@@ -1241,9 +1242,106 @@ class GMX(Exchange):
         self._orders = {}
         logger.info("Cleared order cache")
 
-    async def cancel_order(self, id: str, symbol: str | None = None, params: dict | None = None):
-        """Not supported - GMX orders execute immediately."""
-        raise NotSupported(f"{self.id} cancel_order() not supported - GMX orders execute immediately")
+    async def cancel_order(self, id: str, symbol: str | None = None, params: dict | None = None) -> dict:
+        """Cancel a pending limit order (stop loss, take profit, or limit increase).
+
+        Only pending limit orders stored in the GMX DataStore can be cancelled.
+        Market orders execute immediately via keepers and are not cancellable.
+
+        :param id:
+            Order key as a hex string (``"0x..."`` or bare hex).
+        :param symbol:
+            Symbol (not used, included for CCXT compatibility).
+        :param params:
+            Additional parameters (not used).
+        :return:
+            CCXT-compatible order dict with ``status="cancelled"``.
+        :raises ValueError:
+            If wallet not configured.
+        :raises OrderNotFound:
+            If the order key does not exist in the DataStore.
+        :raises ExchangeError:
+            If the cancel transaction reverts on-chain.
+        """
+        if not self.wallet:
+            raise ValueError(
+                "Wallet required for order cancellation. Provide 'privateKey' or 'wallet' in constructor parameters.",
+            )
+
+        # Normalise id → bytes32
+        hex_str = id.removeprefix("0x")
+        if len(hex_str) != 64:
+            raise ValueError(
+                f"Invalid order key '{id}': expected 32-byte (64 hex chars) key, got {len(hex_str)} chars.",
+            )
+        order_key = bytes.fromhex(hex_str)
+
+        chain = self.config.get_chain()
+
+        # Verify the order exists in the DataStore (sync call)
+        if not is_order_pending(self.sync_web3, order_key, chain):
+            raise OrderNotFound(
+                f"{self.id} order {id} not found in DataStore (may have already been executed or cancelled).",
+            )
+
+        logger.info("Cancelling limit order %s", id[:18])
+
+        # Build unsigned cancel transaction (uses sync_web3 internally)
+        canceller = CancelOrder(self.config)
+        result = canceller.cancel_order(order_key)
+
+        # Sign (wallet manages nonce internally)
+        transaction = dict(result.transaction)
+        transaction.pop("nonce", None)
+
+        signed_tx = self.wallet.sign_transaction_with_new_nonce(transaction)
+
+        # Submit and wait for on-chain confirmation (sync calls run in event loop)
+        loop = asyncio.get_event_loop()
+        tx_hash_bytes = await loop.run_in_executor(None, self.sync_web3.eth.send_raw_transaction, signed_tx.rawTransaction)
+        tx_hash = self.sync_web3.to_hex(tx_hash_bytes)
+        receipt = await loop.run_in_executor(None, self.sync_web3.eth.wait_for_transaction_receipt, tx_hash_bytes)
+
+        if receipt.get("status") == 0:
+            raise ExchangeError(
+                f"{self.id} cancel_order() transaction reverted on-chain: {tx_hash}",
+            )
+
+        logger.info("Order %s cancelled successfully: tx_hash=%s", id[:18], tx_hash)
+
+        return {
+            "id": id,
+            "clientOrderId": None,
+            "timestamp": self.milliseconds(),
+            "datetime": self.iso8601(self.milliseconds()),
+            "lastTradeTimestamp": None,
+            "status": "cancelled",
+            "symbol": symbol,
+            "type": None,
+            "timeInForce": None,
+            "side": None,
+            "price": None,
+            "amount": None,
+            "filled": 0.0,
+            "remaining": None,
+            "cost": None,
+            "trades": [],
+            "fee": None,
+            "info": {
+                "status": "ok",
+                "response": {
+                    "type": "cancel",
+                    "data": {
+                        "statuses": ["success"],
+                    },
+                },
+                "order_key": id,
+                "tx_hash": tx_hash,
+                "block_number": receipt.get("blockNumber"),
+            },
+            "average": None,
+            "fees": [],
+        }
 
     def _get_token_decimals(self, market: dict | None) -> int | None:
         """Get token decimals from market metadata.
@@ -2639,15 +2737,14 @@ class GMX(Exchange):
         if "size_usd" in params:
             # Direct USD amount (GMX-native approach)
             size_delta_usd = params["size_usd"]
+        # Standard CCXT: amount is in base currency, convert to USD
+        elif price:
+            size_delta_usd = amount * price
         else:
-            # Standard CCXT: amount is in base currency, convert to USD
-            if price:
-                size_delta_usd = amount * price
-            else:
-                # For market orders, fetch current price
-                ticker = await self.fetch_ticker(symbol)
-                current_price = ticker["last"]
-                size_delta_usd = amount * current_price
+            # For market orders, fetch current price
+            ticker = await self.fetch_ticker(symbol)
+            current_price = ticker["last"]
+            size_delta_usd = amount * current_price
 
         return {
             "symbol": symbol,
@@ -2737,7 +2834,7 @@ class GMX(Exchange):
 
         # Apply EIP-1559 gas pricing with safety buffer to avoid
         # "max fee per gas less than block base fee" race condition on L2s
-        from eth_defi.gas import estimate_gas_price, apply_gas
+        from eth_defi.gas import apply_gas, estimate_gas_price
 
         gas_fees = estimate_gas_price(self.web3)
         apply_gas(approve_tx, gas_fees)

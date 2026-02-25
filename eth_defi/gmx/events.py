@@ -662,6 +662,8 @@ GMX_ERROR_SELECTORS: dict[str, tuple[str, list[str]]] = {
     "ac504dbb": ("InsufficientExecutionFee", ["uint256", "uint256"]),
     "78cd7e7a": ("InsufficientWntAmountForExecutionFee", ["uint256", "uint256"]),
     "416f9306": ("InsufficientExecutionGas", ["uint256", "uint256", "uint256"]),
+    # Thrown when gasleft() < minHandleExecutionErrorGas in OrderUtils.cancelOrder
+    "d3dacaac": ("InsufficientGasForCancellation", ["uint256", "uint256"]),
     # Standard revert
     "08c379a0": ("Error", ["string"]),
 }

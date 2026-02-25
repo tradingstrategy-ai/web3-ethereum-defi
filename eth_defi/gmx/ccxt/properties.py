@@ -43,7 +43,7 @@ def describe_gmx() -> dict:
             "borrowMargin": None,
             "cancelAllOrders": False,
             "cancelAllOrdersWs": None,
-            "cancelOrder": False,  # Requires contract integration
+            "cancelOrder": True,  # Cancels pending DataStore limit orders
             "cancelOrderWithClientOrderId": None,
             "cancelOrderWs": None,
             "cancelOrders": None,
@@ -180,7 +180,7 @@ def describe_gmx() -> dict:
             "fetchOrderBook": False,  # GMX uses liquidity pools, not order books
             "fetchOrderBooks": None,
             "fetchOrderBookWs": None,
-            "fetchOrders": None,
+            "fetchOrders": True,  # Returns pending DataStore limit orders
             "fetchOrdersByStatus": None,
             "fetchOrdersWs": None,
             "fetchOrderTrades": None,

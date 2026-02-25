@@ -116,23 +116,32 @@ Warning:
 """
 
 import logging
-from decimal import Decimal
+from collections.abc import Iterator
+from statistics import median
 from typing import TYPE_CHECKING, Optional
 
-from eth_defi.gmx.order import OrderResult
-from eth_defi.gmx.order.increase_order import IncreaseOrder
-from eth_defi.gmx.order.decrease_order import DecreaseOrder
-from eth_defi.gmx.order.swap_order import SwapOrder
-from eth_defi.gmx.order.sltp_order import SLTPOrder, SLTPEntry, SLTPParams, SLTPOrderResult
-from eth_defi.gmx.order.order_argument_parser import OrderArgumentParser
+from eth_typing import HexAddress
+
 from eth_defi.gmx.config import GMXConfig
+from eth_defi.gmx.constants import PRECISION, OrderType
+from eth_defi.gmx.contracts import get_token_address_normalized
+from eth_defi.gmx.core.oracle import OraclePrices
 from eth_defi.gmx.gas_monitor import (
+    GasCheckResult,
     GasMonitorConfig,
     GMXGasMonitor,
-    GasCheckResult,
-    TradeExecutionResult,
     InsufficientGasError,
+    TradeExecutionResult,
 )
+from eth_defi.gmx.order.base_order import OrderResult
+from eth_defi.gmx.order.cancel_order import BatchCancelOrderResult, CancelOrder, CancelOrderResult
+from eth_defi.gmx.order.decrease_order import DecreaseOrder
+from eth_defi.gmx.order.increase_order import IncreaseOrder
+from eth_defi.gmx.order.order_argument_parser import OrderArgumentParser
+from eth_defi.gmx.order.pending_orders import PendingOrder, fetch_pending_orders
+from eth_defi.gmx.order.sltp_order import SLTPEntry, SLTPOrder, SLTPOrderResult, SLTPParams
+from eth_defi.gmx.order.swap_order import SwapOrder
+from eth_defi.token import fetch_erc20_details
 
 if TYPE_CHECKING:
     from eth_defi.hotwallet import HotWallet
@@ -684,12 +693,6 @@ class GMXTrading:
             position_type = "LONG" if is_long else "SHORT"
             # Try to get raw token amount
             try:
-                from eth_defi.gmx.contracts import get_token_address_normalized
-                from eth_defi.token import fetch_erc20_details
-                from eth_defi.gmx.core.oracle import OraclePrices
-                from eth_defi.gmx.constants import PRECISION
-                from statistics import median
-
                 chain = self.config.get_chain()
                 collateral_address = get_token_address_normalized(chain, collateral_symbol)
                 if collateral_address:
@@ -900,12 +903,6 @@ class GMXTrading:
             position_type = "LONG" if is_long else "SHORT"
             # Try to get raw token amount for collateral withdrawal
             try:
-                from eth_defi.gmx.contracts import get_token_address_normalized
-                from eth_defi.token import fetch_erc20_details
-                from eth_defi.gmx.core.oracle import OraclePrices
-                from eth_defi.gmx.constants import PRECISION
-                from statistics import median
-
                 chain = self.config.get_chain()
                 collateral_address = get_token_address_normalized(chain, collateral_symbol)
                 if collateral_address:
@@ -1593,3 +1590,106 @@ class GMXTrading:
         self._check_gas_and_log_estimate(order_result, "create_take_profit")
 
         return order_result
+
+    # -------------------------------------------------------------------------
+    # Pending order management
+    # -------------------------------------------------------------------------
+
+    def fetch_pending_orders(
+        self,
+        order_type_filter: OrderType | None = None,
+        market_filter: HexAddress | None = None,
+        is_long_filter: bool | None = None,
+    ) -> Iterator[PendingOrder]:
+        """Fetch pending limit orders for the configured wallet.
+
+        Returns cancellable order types only: ``LIMIT_INCREASE``,
+        ``LIMIT_DECREASE`` (take profit), and ``STOP_LOSS_DECREASE`` (stop loss).
+
+        :param order_type_filter:
+            If provided, only return orders of this specific type.
+        :param market_filter:
+            If provided, only return orders for this market address.
+        :param is_long_filter:
+            If provided, only return orders for long or short positions.
+        :return:
+            Iterator of :class:`~eth_defi.gmx.order.pending_orders.PendingOrder`.
+        :raises ValueError:
+            If no wallet address is configured.
+        """
+        wallet_address = self.config.get_wallet_address()
+        if not wallet_address:
+            raise ValueError("Wallet address is required to fetch pending orders")
+
+        return fetch_pending_orders(
+            web3=self.config.web3,
+            chain=self.config.get_chain(),
+            account=wallet_address,
+            order_type_filter=order_type_filter,
+            market_filter=market_filter,
+            is_long_filter=is_long_filter,
+        )
+
+    def cancel_order(self, order_key: bytes) -> CancelOrderResult:
+        """Build an unsigned transaction to cancel a single pending order.
+
+        :param order_key:
+            The 32-byte key from :attr:`~eth_defi.gmx.order.pending_orders.PendingOrder.order_key`.
+        :return:
+            :class:`~eth_defi.gmx.order.cancel_order.CancelOrderResult` with the unsigned transaction.
+        """
+        cancel = CancelOrder(self.config)
+        result = cancel.cancel_order(order_key)
+        self._check_gas_and_log_estimate(result, "cancel_order")
+        return result
+
+    def cancel_orders(self, order_keys: list[bytes]) -> BatchCancelOrderResult:
+        """Build an unsigned transaction to cancel multiple pending orders at once.
+
+        :param order_keys:
+            List of 32-byte order keys to cancel.
+        :return:
+            :class:`~eth_defi.gmx.order.cancel_order.BatchCancelOrderResult` with the unsigned transaction.
+        :raises ValueError:
+            If ``order_keys`` is empty.
+        """
+        cancel = CancelOrder(self.config)
+        result = cancel.cancel_orders(order_keys)
+        self._check_gas_and_log_estimate(result, "cancel_orders")
+        return result
+
+    def cancel_all_pending_orders(
+        self,
+        order_type_filter: OrderType | None = None,
+        market_filter: HexAddress | None = None,
+        is_long_filter: bool | None = None,
+    ) -> BatchCancelOrderResult | None:
+        """Fetch all matching pending orders and cancel them in a single transaction.
+
+        Convenience method combining :meth:`fetch_pending_orders` and
+        :meth:`cancel_orders`. Returns ``None`` if no matching orders are found.
+
+        :param order_type_filter:
+            If provided, only cancel orders of this specific type.
+        :param market_filter:
+            If provided, only cancel orders for this market address.
+        :param is_long_filter:
+            If provided, only cancel orders for long or short positions.
+        :return:
+            :class:`~eth_defi.gmx.order.cancel_order.BatchCancelOrderResult` if
+            orders were found, ``None`` otherwise.
+        """
+        orders = list(
+            self.fetch_pending_orders(
+                order_type_filter=order_type_filter,
+                market_filter=market_filter,
+                is_long_filter=is_long_filter,
+            )
+        )
+
+        if not orders:
+            logger.info("No pending orders found matching the given filters")
+            return None
+
+        logger.info("Cancelling %d pending order(s)", len(orders))
+        return self.cancel_orders([o.order_key for o in orders])

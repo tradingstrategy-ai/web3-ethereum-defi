@@ -49,8 +49,10 @@ from eth_defi.gmx.core.oracle import OraclePrices
 from eth_defi.gmx.events import decode_gmx_event, extract_order_execution_result, extract_order_key_from_receipt
 from eth_defi.gmx.gas_monitor import GasMonitorConfig, GMXGasMonitor, InsufficientGasError
 from eth_defi.gmx.graphql.client import GMXSubsquidClient
-from eth_defi.gmx.order import SLTPEntry, SLTPOrder, SLTPParams
-from eth_defi.gmx.order_tracking import check_order_status
+from eth_defi.gmx.order.cancel_order import CancelOrder
+from eth_defi.gmx.order.pending_orders import PendingOrder, fetch_pending_orders
+from eth_defi.gmx.order.sltp_order import SLTPEntry, SLTPOrder, SLTPParams
+from eth_defi.gmx.order_tracking import check_order_status, is_order_pending
 from eth_defi.gmx.trading import GMXTrading
 from eth_defi.gmx.utils import calculate_estimated_liquidation_price, convert_raw_price_to_usd
 from eth_defi.hotwallet import HotWallet
@@ -3440,6 +3442,82 @@ class GMX(ExchangeCompatible):
             "info": position,
         }
 
+    def _market_address_to_symbol(self, market_address: str) -> str | None:
+        """Map a GMX market contract address to a unified CCXT symbol.
+
+        Iterates loaded markets to find the one whose ``market_token`` matches
+        the given address.
+
+        :param market_address:
+            Checksummed or lowercase market contract address.
+        :return:
+            Unified symbol string (e.g. ``"ETH/USDC:USDC"``) or ``None`` if not found.
+        """
+        addr_lower = market_address.lower()
+        for mkt_symbol, mkt in self.markets.items():
+            info = mkt.get("info") or {}
+            if info.get("market_token", "").lower() == addr_lower:
+                return mkt_symbol
+        return None
+
+    def _pending_order_to_ccxt(self, order: PendingOrder, symbol: str | None = None) -> dict:
+        """Convert a :class:`~eth_defi.gmx.order.pending_orders.PendingOrder` to CCXT format.
+
+        :param order:
+            Pending limit order fetched from the GMX DataStore.
+        :param symbol:
+            Unified symbol override; resolved from the market address if not provided.
+        :return:
+            CCXT-compatible order dict with ``status="open"``.
+        """
+        order_key_hex = "0x" + order.order_key.hex()
+
+        if symbol is None:
+            symbol = self._market_address_to_symbol(order.market)
+
+        if order.is_stop_loss:
+            order_type = "stop_loss"
+        elif order.is_take_profit:
+            order_type = "take_profit"
+        else:
+            order_type = "limit"
+
+        size_usd = order.size_delta_usd_human
+        trigger = order.trigger_price_usd
+
+        return {
+            "id": order_key_hex,
+            "clientOrderId": None,
+            "timestamp": order.updated_at_time * 1000,
+            "datetime": self.iso8601(order.updated_at_time * 1000),
+            "lastTradeTimestamp": None,
+            "status": "open",
+            "symbol": symbol,
+            "type": order_type,
+            "timeInForce": None,
+            "side": "buy" if order.is_long else "sell",
+            "price": trigger,
+            "amount": size_usd,
+            "filled": 0.0,
+            "remaining": size_usd,
+            "cost": None,
+            "trades": [],
+            "fee": None,
+            "info": {
+                "order_key": order_key_hex,
+                "order_type": order.order_type.name,
+                "market": order.market,
+                "is_long": order.is_long,
+                "trigger_price_usd": trigger,
+                "size_delta_usd": size_usd,
+                "execution_fee": order.execution_fee,
+                "is_frozen": order.is_frozen,
+                "auto_cancel": order.auto_cancel,
+            },
+            "average": None,
+            "fees": [],
+        }
+
     def fetch_open_orders(
         self,
         symbol: str = None,
@@ -3447,26 +3525,35 @@ class GMX(ExchangeCompatible):
         limit: int = None,
         params: dict = None,
     ) -> list[dict]:
-        """
-        Fetch open orders (positions) for the account.
+        """Fetch open orders for the account.
 
-        In GMX, open positions are treated as "open orders".
-        Requires user_wallet_address to be set in GMXConfig.
+        By default, returns current open **positions** formatted as CCXT orders
+        (the original GMX behaviour). Pass ``params={"pending_orders_only": True}``
+        to return only pending DataStore limit orders (stop loss, take profit,
+        limit increase) instead.
 
-        :param symbol: Filter by symbol (optional)
-        :param since: Not used (GMX returns current positions)
-        :param limit: Maximum number of orders to return
-        :param params: Optional parameters
-            - wallet_address: Override default wallet address
-        :return: List of CCXT-formatted orders
+        :param symbol: Filter by symbol (optional).
+        :param since: Not used.
+        :param limit: Maximum number of results.
+        :param params:
+            Optional parameters:
+
+            - ``wallet_address`` (str): Override default wallet address.
+            - ``pending_orders_only`` (bool): Return pending limit orders only (default: ``False``).
+
+        :return: List of CCXT-formatted orders.
 
         Example::
 
             # Initialize with wallet address
             config = GMXConfig(web3, user_wallet_address="0x...")
             gmx = GMX(config)
+
+            # Default: returns open positions as orders
             orders = gmx.fetch_open_orders()
-            eth_orders = gmx.fetch_open_orders(symbol="ETH/USD")
+
+            # Pending DataStore limit orders only (SL, TP, limit increase)
+            pending = gmx.fetch_open_orders(params={"pending_orders_only": True})
         """
         params = params or {}
         self.load_markets()
@@ -3476,11 +3563,32 @@ class GMX(ExchangeCompatible):
         if not wallet:
             raise ValueError("wallet_address must be provided in GMXConfig or params")
 
-        # Fetch open positions
+        pending_orders_only = params.get("pending_orders_only", False)
+
+        if pending_orders_only:
+            # Return pending DataStore limit orders (SL, TP, limit increase)
+            chain = self.config.get_chain()
+            result = []
+            for order in fetch_pending_orders(self.web3, chain, wallet):
+                try:
+                    ccxt_order = self._pending_order_to_ccxt(order)
+                    # Apply symbol filter
+                    if symbol and ccxt_order.get("symbol"):
+                        normalized_input = self._normalize_symbol(symbol)
+                        if ccxt_order["symbol"] != normalized_input:
+                            continue
+                    result.append(ccxt_order)
+                except Exception as exc:
+                    logger.warning("Could not convert pending order %s to CCXT format: %s", order.order_key.hex()[:16], exc)
+
+            if limit:
+                result = result[:limit]
+            return result
+
+        # Default: return open positions as orders
         positions_manager = GetOpenPositions(self.config)
         positions = positions_manager.get_data(wallet)
 
-        # Parse to CCXT orders
         result = []
         for position_key, position_data in positions.items():
             try:
@@ -6341,16 +6449,108 @@ class GMX(ExchangeCompatible):
         id: str,
         symbol: str | None = None,
         params: dict | None = None,
-    ):
-        """Cancel an order.
+    ) -> dict:
+        """Cancel a pending limit order (stop loss, take profit, or limit increase).
 
-        Not supported by GMX - orders execute immediately via keeper system.
+        Only pending limit orders stored in the GMX DataStore can be cancelled.
+        Market orders execute immediately via keepers and are not cancellable.
 
-        :raises NotSupported: GMX doesn't support order cancellation
+        :param id:
+            Order key as a hex string (``"0x..."`` or bare hex). Obtained from
+            :func:`~eth_defi.gmx.order.pending_orders.fetch_pending_orders` or
+            from a previous SL/TP order creation response.
+        :param symbol:
+            Symbol (not used, included for CCXT compatibility).
+        :param params:
+            Additional parameters (not used).
+        :return:
+            CCXT-compatible order dict with ``status="cancelled"``.
+        :raises ValueError:
+            If wallet not configured.
+        :raises OrderNotFound:
+            If the order key does not exist in the DataStore.
+        :raises ExchangeError:
+            If the cancel transaction reverts on-chain.
         """
-        raise NotSupported(
-            self.id + " cancel_order() is not supported - GMX orders are executed immediately by keepers and cannot be cancelled. Orders either execute or revert if conditions aren't met.",
-        )
+        if not self.wallet:
+            raise ValueError(
+                "Wallet required for order cancellation. Provide 'privateKey' or 'wallet' in constructor parameters.",
+            )
+
+        # Normalise id → bytes32
+        hex_str = id.removeprefix("0x")
+        if len(hex_str) != 64:
+            raise ValueError(
+                f"Invalid order key '{id}': expected 32-byte (64 hex chars) key, got {len(hex_str)} chars.",
+            )
+        order_key = bytes.fromhex(hex_str)
+
+        chain = self.config.get_chain()
+
+        # Verify the order exists in the DataStore
+        if not is_order_pending(self.web3, order_key, chain):
+            raise OrderNotFound(
+                f"{self.id} order {id} not found in DataStore (may have already been executed or cancelled).",
+            )
+
+        logger.info("Cancelling limit order %s", id[:18])
+
+        # Build unsigned cancel transaction
+        canceller = CancelOrder(self.config)
+        result = canceller.cancel_order(order_key)
+
+        # Sign (wallet manages nonce internally)
+        transaction = dict(result.transaction)
+        if "nonce" in transaction:
+            del transaction["nonce"]
+
+        signed_tx = self.wallet.sign_transaction_with_new_nonce(transaction)
+
+        # Submit and wait for on-chain confirmation
+        tx_hash_bytes = self.web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+        tx_hash = self.web3.to_hex(tx_hash_bytes)
+        receipt = self.web3.eth.wait_for_transaction_receipt(tx_hash_bytes)
+
+        if receipt.get("status") == 0:
+            raise ExchangeError(
+                f"{self.id} cancel_order() transaction reverted on-chain: {tx_hash}",
+            )
+
+        logger.info("Order %s cancelled successfully: tx_hash=%s", id[:18], tx_hash)
+
+        return {
+            "id": id,
+            "clientOrderId": None,
+            "timestamp": self.milliseconds(),
+            "datetime": self.iso8601(self.milliseconds()),
+            "lastTradeTimestamp": None,
+            "status": "cancelled",
+            "symbol": symbol,
+            "type": None,
+            "timeInForce": None,
+            "side": None,
+            "price": None,
+            "amount": None,
+            "filled": 0.0,
+            "remaining": None,
+            "cost": None,
+            "trades": [],
+            "fee": None,
+            "info": {
+                "status": "ok",
+                "response": {
+                    "type": "cancel",
+                    "data": {
+                        "statuses": ["success"],
+                    },
+                },
+                "order_key": id,
+                "tx_hash": tx_hash,
+                "block_number": receipt.get("blockNumber"),
+            },
+            "average": None,
+            "fees": [],
+        }
 
     def fetch_order(
         self,
@@ -6818,16 +7018,27 @@ class GMX(ExchangeCompatible):
         since: int | None = None,
         limit: int | None = None,
         params: dict | None = None,
-    ):
-        """Fetch all orders.
+    ) -> list[dict]:
+        """Fetch pending DataStore limit orders (stop loss, take profit, limit increase).
 
-        Not supported by GMX - use fetch_positions() and fetch_my_trades() instead.
+        Delegates to :meth:`fetch_open_orders` with ``pending_orders_only=True``,
+        returning only orders that are currently waiting in the GMX DataStore
+        for their trigger price conditions to be met.
 
-        :raises NotSupported: GMX doesn't track pending orders
+        :param symbol:
+            Filter by market symbol (optional).
+        :param since:
+            Not used.
+        :param limit:
+            Maximum number of results.
+        :param params:
+            Forwarded to :meth:`fetch_open_orders`. ``wallet_address`` override supported.
+        :return:
+            List of CCXT-formatted pending limit orders.
         """
-        raise NotSupported(
-            self.id + " fetch_orders() is not supported - GMX orders execute immediately. Use fetch_positions() for open positions.",
-        )
+        merged = dict(params or {})
+        merged["pending_orders_only"] = True
+        return self.fetch_open_orders(symbol=symbol, since=since, limit=limit, params=merged)
 
     async def close(self) -> None:
         """Close exchange connection and clean up resources.

@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Generator
@@ -36,7 +37,7 @@ from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.utils import addr
-from tests.gmx.fork_helpers import setup_mock_oracle
+from tests.gmx.fork_helpers import execute_order_as_keeper, extract_order_key_from_receipt, setup_mock_oracle
 
 # Fork configuration constants
 FORK_BLOCK_ARBITRUM = 401729535  # Updated: old block 392496384 had empty getMarkets() data
@@ -1652,6 +1653,138 @@ def isolated_fork_env_short() -> Generator[IsolatedForkEnv, None, None]:
         yield env
     finally:
         env.anvil_launch.close(log_level=logging.ERROR)
+
+
+# =========================================================================
+# Cancel order test fixtures
+# =========================================================================
+
+
+@pytest.fixture()
+def funded_isolated_fork_env(isolated_fork_env) -> IsolatedForkEnv:
+    """Isolated fork environment with USDC top-up for cancel order tests.
+
+    Wraps :func:`isolated_fork_env` and ensures the wallet holds at least
+    1 000 USDC so stop-loss and take-profit creation does not fail due to
+    insufficient collateral.
+    """
+    env = isolated_fork_env
+    wallet_address = env.config.get_wallet_address()
+    large_usdc_holder = to_checksum_address("0x2Df1c51E09aECF9cacB7bc98cB1742757f163dF7")
+    usdc_token = get_gmx_synthetic_token_by_symbol(env.web3.eth.chain_id, "USDC")
+    if usdc_token:
+        usdc = fetch_erc20_details(env.web3, usdc_token.address)
+        balance = usdc.contract.functions.balanceOf(wallet_address).call()
+        if balance < 1_000 * 10**6:
+            env.web3.provider.make_request("anvil_impersonateAccount", [large_usdc_holder])
+            env.web3.provider.make_request("anvil_setBalance", [large_usdc_holder, hex(100 * 10**18)])
+            usdc.contract.functions.transfer(wallet_address, 10_000 * 10**6).transact({"from": large_usdc_holder})
+            env.web3.provider.make_request("anvil_stopImpersonatingAccount", [large_usdc_holder])
+    return env
+
+
+@pytest.fixture()
+def executed_eth_long(funded_isolated_fork_env, execution_buffer) -> tuple[bytes, dict]:
+    """Open a long ETH position via keeper and return ``(order_key, position_data)``.
+
+    Opens a $100 ETH/USDC long position at 2.5x leverage, submits the
+    creation transaction, and executes it via a simulated keeper call.
+    The position is confirmed present in the DataStore before returning.
+    """
+    env = funded_isolated_fork_env
+    env.wallet.sync_nonce(env.web3)
+    order_result = env.trading.open_position(
+        market_symbol="ETH",
+        collateral_symbol="USDC",
+        start_token_symbol="USDC",
+        is_long=True,
+        size_delta_usd=100,
+        leverage=2.5,
+        slippage_percent=0.1,
+        execution_buffer=execution_buffer,
+    )
+
+    tx = order_result.transaction.copy()
+    tx.pop("nonce", None)
+    signed = env.wallet.sign_transaction_with_new_nonce(tx)
+    tx_hash = env.web3.eth.send_raw_transaction(signed.rawTransaction)
+    receipt = env.web3.eth.wait_for_transaction_receipt(tx_hash)
+    assert receipt["status"] == 1, "Open position transaction must succeed"
+
+    order_key = extract_order_key_from_receipt(receipt)
+    exec_receipt, _ = execute_order_as_keeper(env.web3, order_key)
+    assert exec_receipt["status"] == 1, "Keeper execution must succeed"
+
+    time.sleep(1)  # Allow state to propagate
+    positions = env.positions.get_data(env.config.get_wallet_address())
+    assert len(positions) > 0, "Must have at least one position after opening"
+    return next(iter(positions.items()))
+
+
+@pytest.fixture()
+def pending_sl_key(executed_eth_long, funded_isolated_fork_env, execution_buffer) -> bytes:
+    """Create a stop-loss order against the open ETH long and return its DataStore key.
+
+    Funds the wallet with ETH for execution fees, then submits a 5 % stop-loss
+    order. Asserts the creation transaction succeeds before returning the key.
+    """
+    _, position_data = executed_eth_long
+    env = funded_isolated_fork_env
+
+    env.web3.provider.make_request("anvil_setBalance", [env.config.get_wallet_address(), hex(100 * 10**18)])
+    env.wallet.sync_nonce(env.web3)
+
+    sl_result = env.trading.create_stop_loss(
+        market_symbol="ETH",
+        collateral_symbol="ETH",
+        is_long=True,
+        position_size_usd=position_data["position_size"],
+        entry_price=position_data["entry_price"],
+        stop_loss_percent=0.05,
+        execution_buffer=execution_buffer * 10,
+    )
+
+    sl_tx = sl_result.transaction.copy()
+    sl_tx.pop("nonce", None)
+    signed_sl = env.wallet.sign_transaction_with_new_nonce(sl_tx)
+    sl_hash = env.web3.eth.send_raw_transaction(signed_sl.rawTransaction)
+    sl_receipt = env.web3.eth.wait_for_transaction_receipt(sl_hash)
+    assert sl_receipt["status"] == 1, "Stop-loss creation must succeed"
+
+    return extract_order_key_from_receipt(sl_receipt)
+
+
+@pytest.fixture()
+def pending_tp_key(executed_eth_long, funded_isolated_fork_env, execution_buffer) -> bytes:
+    """Create a take-profit order against the open ETH long and return its DataStore key.
+
+    Funds the wallet with ETH for execution fees, then submits a 10 % take-profit
+    order. Asserts the creation transaction succeeds before returning the key.
+    """
+    _, position_data = executed_eth_long
+    env = funded_isolated_fork_env
+
+    env.web3.provider.make_request("anvil_setBalance", [env.config.get_wallet_address(), hex(100 * 10**18)])
+    env.wallet.sync_nonce(env.web3)
+
+    tp_result = env.trading.create_take_profit(
+        market_symbol="ETH",
+        collateral_symbol="ETH",
+        is_long=True,
+        position_size_usd=position_data["position_size"],
+        entry_price=position_data["entry_price"],
+        take_profit_percent=0.10,
+        execution_buffer=execution_buffer * 10,
+    )
+
+    tp_tx = tp_result.transaction.copy()
+    tp_tx.pop("nonce", None)
+    signed_tp = env.wallet.sign_transaction_with_new_nonce(tp_tx)
+    tp_hash = env.web3.eth.send_raw_transaction(signed_tp.rawTransaction)
+    tp_receipt = env.web3.eth.wait_for_transaction_receipt(tp_hash)
+    assert tp_receipt["status"] == 1, "Take-profit creation must succeed"
+
+    return extract_order_key_from_receipt(tp_receipt)
 
 
 # =========================================================================
