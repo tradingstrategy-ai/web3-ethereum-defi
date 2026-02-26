@@ -701,7 +701,8 @@ abstract contract GuardV0Base is IGuard, Multicall {
 
             // --- GMX perpetuals ---
         } else if (selector == SEL_GMX_MULTICALL) {
-            _validate_gmxMulticall(target, callData);
+            require(GmxLib.isDeployed(), "GmxLib not linked");
+            GmxLib.validateMulticall(target, callData, anyAsset);
 
             // --- CCTP cross-chain transfers ---
         } else if (selector == SEL_CCTP_DEPOSIT_FOR_BURN) {
@@ -1122,41 +1123,6 @@ abstract contract GuardV0Base is IGuard, Multicall {
         string calldata notes
     ) external onlyGuardOwner {
         HypercoreVaultLib.removeHypercoreVault(vault, notes);
-    }
-
-    // Validate a GMX multicall payload.
-    //
-    // Delegates parsing, decoding, and GMX-internal checks (router, orderVault,
-    // markets) to GmxLib. The library returns arrays of addresses that need
-    // cross-cutting checks (isAllowedAsset, isAllowedReceiver) which only the
-    // main contract can perform (since it owns the asset/receiver storage).
-    //
-    function _validate_gmxMulticall(
-        address exchangeRouter,
-        bytes calldata callData
-    ) internal view {
-        require(GmxLib.isDeployed(), "GmxLib not linked");
-        (
-            address[] memory assets,
-            address[] memory receivers,
-            address[] memory markets
-        ) = GmxLib.validateMulticall(exchangeRouter, callData, anyAsset);
-
-        for (uint256 i = 0; i < assets.length; i++) {
-            require(isAllowedAsset(assets[i]), "GMX: asset not allowed");
-        }
-        for (uint256 i = 0; i < receivers.length; i++) {
-            require(
-                isAllowedReceiver(receivers[i]),
-                "GMX: receiver not allowed"
-            );
-        }
-        for (uint256 i = 0; i < markets.length; i++) {
-            require(
-                GmxLib.isAllowedMarket(markets[i], anyAsset),
-                "GMX: market not allowed"
-            );
-        }
     }
 
     // Validate CCTP depositForBurn call parameters.

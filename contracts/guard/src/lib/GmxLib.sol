@@ -10,14 +10,14 @@
 //   - Storage reads/writes happen in the calling contract's context
 //
 // Validation functions that need main-contract state (isAllowedAsset,
-// isAllowedReceiver) receive those values as parameters rather than
-// reading the main contract's storage slots directly (which would be
-// fragile and depend on declaration order).
+// isAllowedReceiver) use IGuardChecks callbacks via address(this) to
+// check permissions on the calling contract's storage.
 
 pragma solidity ^0.8.0;
 
 import "./IGmxV2.sol";
 import {BytesLib} from "./BytesLib.sol";
+import {IGuardChecks} from "./IGuardChecks.sol";
 
 // Pre-computed GMX function selectors
 bytes4 constant SEL_GMX_MULTICALL = 0xac9650d8;  // multicall(bytes[])
@@ -102,11 +102,12 @@ library GmxLib {
 
     // ----- Validation -----
 
-    /// Validate a GMX multicall payload.
+    /// Validate a GMX multicall payload with full permission checks.
     ///
-    /// Decodes the multicall bytes[] and validates each inner call.
-    /// Asset and receiver checks are passed as boolean arrays pre-computed
-    /// by the caller (main contract) to avoid fragile storage slot dependencies.
+    /// Decodes the multicall bytes[], validates each inner call, and checks
+    /// assets/receivers/markets using IGuardChecks callbacks via address(this).
+    /// This consolidates all GMX validation into the library, reducing the
+    /// calling contract's bytecode (EIP-170).
     ///
     /// @param exchangeRouter The GMX ExchangeRouter address
     /// @param callData The multicall calldata (bytes[])
@@ -115,32 +116,17 @@ library GmxLib {
         address exchangeRouter,
         bytes calldata callData,
         bool anyAsset
-    ) external view returns (
-        address[] memory assetsToCheck,
-        address[] memory receiversToCheck,
-        address[] memory marketsToCheck
-    ) {
+    ) external view {
         GmxStorage storage s = _storage();
         require(s.allowedRouters[exchangeRouter], "GMX router not allowed");
 
         address orderVault = s.orderVaults[exchangeRouter];
         require(orderVault != address(0), "GMX orderVault not configured");
 
+        IGuardChecks guard = IGuardChecks(address(this));
+
         // Decode multicall bytes array
         bytes[] memory calls = abi.decode(callData, (bytes[]));
-
-        // Pre-allocate max-size arrays for addresses that need checking by main contract.
-        // Sized at calls.length * 2 which covers the common case (single-hop swaps).
-        // NOTE: If a createOrder has a swapPath with > 1 entry, the array could
-        // overflow and revert. This is accepted behaviour — GMX V2 swap paths are
-        // typically 0-1 entries, and an overflow simply reverts the transaction
-        // (no fund safety impact).
-        assetsToCheck = new address[](calls.length * 2);
-        receiversToCheck = new address[](calls.length * 2);
-        marketsToCheck = new address[](calls.length * 2);
-        uint256 assetIdx = 0;
-        uint256 receiverIdx = 0;
-        uint256 marketIdx = 0;
 
         for (uint256 i = 0; i < calls.length; i++) {
             require(calls[i].length >= 4, "GMX: call too short");
@@ -153,28 +139,23 @@ library GmxLib {
             } else if (selector == SEL_GMX_SEND_TOKENS) {
                 (address token, address receiver, ) = abi.decode(innerCallData, (address, address, uint256));
                 require(receiver == orderVault, "GMX sendTokens: invalid receiver");
-                assetsToCheck[assetIdx++] = token;
+                if (!anyAsset) {
+                    require(guard.isAllowedAsset(token), "GMX: asset not allowed");
+                }
             } else if (selector == SEL_GMX_CREATE_ORDER) {
                 CreateOrderParams memory params = abi.decode(innerCallData, (CreateOrderParams));
-                receiversToCheck[receiverIdx++] = params.addresses.receiver;
-                receiversToCheck[receiverIdx++] = params.addresses.cancellationReceiver;
+                require(guard.isAllowedReceiver(params.addresses.receiver), "GMX: receiver not allowed");
+                require(guard.isAllowedReceiver(params.addresses.cancellationReceiver), "GMX: receiver not allowed");
                 if (!anyAsset) {
-                    marketsToCheck[marketIdx++] = params.addresses.market;
-                    assetsToCheck[assetIdx++] = params.addresses.initialCollateralToken;
+                    require(s.allowedMarkets[params.addresses.market], "GMX: market not allowed");
+                    require(guard.isAllowedAsset(params.addresses.initialCollateralToken), "GMX: asset not allowed");
                     for (uint256 j = 0; j < params.addresses.swapPath.length; j++) {
-                        marketsToCheck[marketIdx++] = params.addresses.swapPath[j];
+                        require(s.allowedMarkets[params.addresses.swapPath[j]], "GMX: market not allowed");
                     }
                 }
             } else {
                 revert("GMX: Unknown function in multicall");
             }
-        }
-
-        // Trim arrays to actual size
-        assembly {
-            mstore(assetsToCheck, assetIdx)
-            mstore(receiversToCheck, receiverIdx)
-            mstore(marketsToCheck, marketIdx)
         }
     }
 }
