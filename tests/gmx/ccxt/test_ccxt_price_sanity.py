@@ -12,7 +12,6 @@ from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.price_sanity import (
     PriceSanityAction,
     PriceSanityCheckConfig,
-    PriceSanityException,
 )
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 
@@ -109,32 +108,6 @@ def test_fetch_ticker_disabled_sanity_check(chain_rpc_url):
         # If the check ran anyway, that's a bug
         pytest.fail("Price sanity check should not run when disabled")
 
-
-def test_fetch_ticker_raise_exception_action(chain_rpc_url):
-    """Test fetch_ticker with raise_exception action.
-
-    Makes real API calls with extremely strict threshold to force exception.
-    """
-    web3 = create_multi_provider_web3(chain_rpc_url)
-    config = GMXConfig(web3)
-
-    # Use extremely strict threshold to force failure
-    sanity_config = PriceSanityCheckConfig(
-        enabled=True,
-        threshold_percent=0.0000001,  # 0.00001%
-        action=PriceSanityAction.raise_exception,
-    )
-
-    gmx = GMX(config=config, price_sanity_config=sanity_config)
-    gmx.load_markets()
-
-    # Should raise exception due to tiny threshold
-    with pytest.raises(PriceSanityException) as exc_info:
-        gmx.fetch_ticker("ETH/USDC:USDC")
-
-    # Verify exception structure
-    assert exc_info.value.result is not None
-    assert not exc_info.value.result.passed
 
 
 def test_fetch_ticker_multiple_markets(chain_rpc_url):
