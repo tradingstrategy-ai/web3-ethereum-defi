@@ -1,142 +1,141 @@
-# Guard and vault (prototype)
+# GuardV0 — on-chain trade validation for asset management
 
-This is a simple implementation of a guard smart contract and a vault smart contract
+GuardV0 is a guard-pattern smart contract that validates every action an asset manager
+performs on behalf of asset owners. It works with **any vault or multisignature wallet**
+that can delegate call validation to an external contract, but is primarily designed for:
 
-- [GuardV0](./src/GuardV0.sol) can check whether an asset manager is allowed to do an action on behalf of the asset owners 
-- [SimpleVaultV0](./src/SimpleVaultV0.sol) is an example vault implementation with two roles
-  - Owner (who can withdraw assets)
-  - Asset manager (who can decide on trades)
+- **[Gnosis Safe](https://safe.global/) multisig wallets** — via the
+  [TradingStrategyModuleV0](../safe-integration/src/TradingStrategyModuleV0.sol) Zodiac module
+- **[Lagoon](https://lagoon.finance/) vaults** — ERC-7540 vaults backed by a Safe wallet
 
-This code is prototype code for Trading Strategy Protocol Minimal Viable Product version
-and not indented for wider distribution.
+Even if the asset manager's private key is compromised, the guard ensures the attacker
+cannot withdraw capital, trade into non-whitelisted tokens, or route swap output to
+unauthorised addresses.
 
 ## Architecture
 
-![Development architecture](./docs/simplevault-v0.png)
+GuardV0 uses an **external library pattern** to stay within the
+[EIP-170](https://eips.ethereum.org/EIPS/eip-170) 24 KB contract size limit.
+Protocol-specific logic is extracted into Forge libraries that are called via
+`DELEGATECALL` and use [diamond storage](https://eips.ethereum.org/EIPS/eip-2535)
+for their whitelist state.
 
-## Guard 
+```
+┌─────────────────────┐       DELEGATECALL       ┌──────────────────┐
+│  GuardV0Base.sol    │ ◄─────────────────────── │  CowSwapLib.sol  │
+│  (main dispatcher)  │ ◄─────────────────────── │  VeloraLib.sol   │
+│                     │ ◄─────────────────────── │  GmxLib.sol      │
+│                     │ ◄─────────────────────── │  HypercoreVaultLib│
+└─────────────────────┘                           └──────────────────┘
+         ▲
+         │ validateCall()
+         │
+┌────────┴────────────┐
+│ TradingStrategy     │       Safe wallet
+│ ModuleV0            │ ────► execTransactionFromModule()
+│ (Zodiac module)     │
+└─────────────────────┘
+```
 
-Guard will check for activities asset manager perform, all of them which need to be whitelisted by the owner:
-- [GuardV0.sol](./src/SimpleVaultV0.sol)
-- Any smart contract call (contract address, selector)
-- Whitelisted token (asset manager cannot trade into an unsupported token)
-- Withdrawal (transfer) of assets - assets can be only withdraw back to the owner
-- Uniswap v2 router swaps (approval + swap path)
-- Uniswap v3 router (TODO)
-- 1delta (skipped - old version no longer supported)
+All libraries implement the [IGuardLib](./src/lib/IGuardLib.sol) deployment check interface.
 
-Guard can be used independently from the vault implementation.
-It can be used with any asset management protocol e.g.
-- SimpleVaultV0 
-- Enzyme Protocol's IntegrationManager 
+## Supported protocols
 
-Examples of protected activities that asset manager must be whitelisted to do:
+The guard dispatcher validates calls to the following protocols:
 
-- Every smart contract call must be whitelisted: `validateCall`
-- Sending and receiving whitelisted tokens 
-- approve() to whitelisted addresses: `validate_approve`
-- transfer() to whitelisted addresses: `validate_transfer`
-- Check inside Uniswap v2 trades (path contains only whitelisted tokens): `validate_swapTokensForExactTokens`
-- .... TODO other checks here
+| Protocol | Guard logic | Description |
+|----------|-------------|-------------|
+| **Uniswap V2** | Built-in | Swap path token validation, receiver checks |
+| **Uniswap V3** | Built-in | `exactInput`, `exactOutput`, SwapRouter02 recipient validation |
+| **Aave V3** | Built-in | `supply`, `withdraw` with asset and receiver checks |
+| **ERC-4626** | Built-in | `deposit`, `withdraw`, `redeem` with receiver validation |
+| **ERC-7540** | Built-in | `deposit`, `requestDeposit`, `requestRedeem` with receiver validation |
+| **CowSwap** | [CowSwapLib](./src/lib/CowSwapLib.sol) | Presigned order creation with sender/token/receiver validation |
+| **Velora (ParaSwap)** | [VeloraLib](./src/lib/VeloraLib.sol) | Atomic swaps with balance-envelope verification for opaque Augustus calldata |
+| **GMX V2** | [GmxLib](./src/lib/GmxLib.sol) | Perpetuals multicall validation with market/router whitelisting |
+| **Hypercore** | [HypercoreVaultLib](./src/lib/HypercoreVaultLib.sol) | HyperEVM native vault deposits, CoreWriter action validation |
+| **ERC-20** | Built-in | `approve`, `transfer` to whitelisted addresses only |
 
-`GuardV0` does not offer any slippage protection, and this is assumed to be encoded
-within the trades e.g. in swapTokensForExactTokens arguments.
+Additional built-in support: `multicall` batching, Lagoon vault `settle`/`requestSettle`,
+and general-purpose call-site whitelisting for any contract+selector pair.
 
-### Supported guard integrations
+## Security model
 
-- Uniswap v2 compatibles
-- Uniswap v3 compatibles
-- Aave v3 compatibles (coming)
-- 1delta (skipped - old version no longer supported)
+Every trade or action must pass through these checks:
 
-## Simple vault
+1. **Sender validation** — only whitelisted asset managers can initiate calls
+2. **Call-site whitelisting** — every (contract address, function selector) pair must be pre-approved
+3. **Asset whitelisting** — tokens involved in trades must be on the allowed list (unless `anyAsset` mode)
+4. **Receiver validation** — swap output, deposit shares, and withdrawal proceeds can only go to whitelisted addresses
+5. **Protocol-specific validation** — each supported protocol has tailored checks (swap paths, order parameters, balance envelopes, etc.)
 
-Simple vault can be used as a layer of protection for cases where the hot wallet private key
-of the asset manager is compromised: asset manager can only perform legit trades, not withdraw any assets.
+See the [contract size and optimisation notes](../../docs/README-contract-size.md) for details
+on the library extraction pattern and compiler settings.
 
-- [SimpleVaultV0.sol](./src/SimpleVaultV0.sol)
-- The vault has a guard (smart contract), an asset manager (trade executor) and an owner (governance/multisig)
-- Initially the vault is configured to allow withdrawals to the owner
-- Enabling asset manager allows perform trades
-- Each token needs to be separately whitelisted
-- Each router needs to be separately whitelisted
-- See `test_guard_simple_vault_uniswap_v2` for examples
+## Documentation
 
-Simple vault is simple: there is no special logic for deposits or redemptions needed,
-as it is assumed the single owner always redeemds the full amount, and can 
-perform any arbitrary smart contract call on behalf of the vault. The simple
-vault owner trusts himself/herself.
+- **API reference**: [web3-ethereum-defi API documentation](https://web3-ethereum-defi.readthedocs.io/api/)
+  - [Lagoon vault integration](https://web3-ethereum-defi.readthedocs.io/api/lagoon/index.html)
+- **Tutorials**:
+  - [Lagoon + CowSwap trading](https://web3-ethereum-defi.readthedocs.io/tutorials/lagoon-cowswap.html)
+  - [Lagoon + Velora (ParaSwap) trading](https://web3-ethereum-defi.readthedocs.io/tutorials/lagoon-velora.html)
+  - [Lagoon + GMX V2 perpetuals](https://web3-ethereum-defi.readthedocs.io/tutorials/lagoon-gmx.html)
+  - [Lagoon + Hyperliquid vault](https://web3-ethereum-defi.readthedocs.io/tutorials/lagoon-hyperliquid.html)
+  - [Enzyme vault deployment](https://web3-ethereum-defi.readthedocs.io/tutorials/enzyme-deploy.html)
 
-## Enzyme
+## Tests
 
-Enzyme allows associated adapters to their vaults,
-and comes with [a stock suite of integrations](https://docs.enzyme.finance/managers/trade/defi-protocols).
-A stock Enzyme integration consists of 
-- A HTML UI layer (proprietary)
-- An adapter smart contract
-- Unlike `SimpleVaultV0`, Enzyme vaults are share-based and support multiple investors
-  who can deposit and redeem any time
+Integration tests use the [eth-defi](https://github.com/tradingstrategy-ai/web3-ethereum-defi)
+Python test suite with Anvil mainnet forks. Run individual test modules with:
 
-The downside of adapters is that they have Enzyme-specific call signatures
-and would need separate integration for everything.
+```shell
+source .local-test.env && poetry run pytest tests/guard/<module> -v
+```
 
-Enzyme also offers a way to extend vaults with generic adapters.
-We have a special [GuardedGenericAdapter](../in-house/src/GuardedGenericAdapter.sol)
-which allows validate and pass through arbitraty smart contract calls `GuardV0`.
+### Python test suites
 
-![Development architecture](./docs/enzyme.png)
+| Test module | Coverage |
+|-------------|----------|
+| [test_guard_simple_vault_uniswap_v2.py](../../tests/guard/test_guard_simple_vault_uniswap_v2.py) | Uniswap V2 swaps, access control, vault/guard basics |
+| [test_guard_simple_vault_uniswap_v3.py](../../tests/guard/test_guard_simple_vault_uniswap_v3.py) | Uniswap V3 exactInput/exactOutput, malicious recipient detection |
+| [test_guard_simple_vault_aave_v3.py](../../tests/guard/test_guard_simple_vault_aave_v3.py) | Aave V3 supply/withdraw guard validation |
+| [test_guard_simple_vault_erc_4626.py](../../tests/guard/test_guard_simple_vault_erc_4626.py) | ERC-4626 deposit/withdraw, malicious receiver detection |
+| [test_guard_simple_vault_one_delta.py](../../tests/guard/test_guard_simple_vault_one_delta.py) | 1delta leveraged trading guard validation |
+| [test_guard_gmx_validation.py](../../tests/guard/test_guard_gmx_validation.py) | GMX V2 multicall validation, market/router whitelisting |
+| [test_guard_simple_vault_hypercore.py](../../tests/guard/test_guard_simple_vault_hypercore.py) | Hypercore vault guard validation |
+| [test_guard_hypercore_vault_lagoon.py](../../tests/guard/test_guard_hypercore_vault_lagoon.py) | Full Lagoon vault with Hypercore integration |
 
-On the top of `GuardV0`, Enzyme integration manager gives additional restrictions
-- Enzyme vaults can only manage tokens which are whitelisted by Enzyme Council 
-- Vault owner cannot withdraw any tokens (no transfer) - vault protects investor assets
-- External slippage protection with asset deltas encoded to adapter calls
+### Forge tests
 
-
-Enzyme trade execution model is different than with `SimpleVaultV0`,
-as besides the vault Enzyme has comptroller and integration manager smart contracts:
-
-- Tokens are held in Enzyme vault (`VaultLib' smart contract)
-- Integration manager smart contract can perform arbitrary calls 
-  on the behalf of vault using adapters, subclasses from Enzyme's `AdapterBase`
-- Integration manager moves tokens from vault to the adapter smart contract,
-  then adapter can trade them. This is based on asset deltas, namely expected tokens out.
-- After the trade(s), integration manager moves tokens back from the adapter base to 
-  vault, based on asset deltas, and also checks the slippage tolerance
-  based on expected tokens in.
-- We have a special [GuardedGenericAdapter](../in-house/src/GuardedGenericAdapter.sol)
-  that is using `GuardV0` to validate arbitrary calls the integration 
-  manager is performing
-- See `test_guard_enzyme_uniswap_v2` for examples
+```shell
+cd contracts/guard && forge test -v
+```
 
 ## Development
 
-### Installing the dependencies
+### Installing dependencies
 
 ```shell
 forge soldeer install --config-location foundry
 ```
 
-Compiling
+### Compiling
 
 ```shell
 forge build
 ```
-## Tests
 
-Because of complex the integrations, tests are part of `eth_defi` package
-test suite, which provides fixtures to ramp up various protocols (Enzyme, Uniswap, Aave, 1delta).
-Please refer to [eth_defi developer documentation]https://web3-ethereum-defi.readthedocs.io/) how to run tests.
+### Repackaging ABIs for Python
 
-### Manual cast test
+From the repository root:
 
 ```shell
-anvil &
-cast send src/GuardV0.sol:GuardV0 --create --rpc-url "http://localhost:8545" --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+make guard safe-integration
 ```
 
-## Deployment
+This regenerates ABI JSON files used by the Python automation layer.
 
-Example:
+### Deployment example
 
 ```shell
 export DEPLOY_PRIVATE_KEY=
