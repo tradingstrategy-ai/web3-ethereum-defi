@@ -367,6 +367,19 @@ def deploy_guard(
     )
 
     if not mock_guard:
+        # Deploy UniswapLib — needed for all Uniswap V2/V3 swap validation
+        uniswap_lib, _ = deploy_contract_with_forge(
+            web3,
+            CONTRACTS_ROOT / "guard",
+            "lib/UniswapLib.sol",
+            "UniswapLib",
+            deployer,
+            etherscan_api_key=etherscan_api_key,
+            contract_file_out="UniswapLib.sol",
+        )
+        deployer.sync_nonce(web3)
+        logger.info("UniswapLib deployed at %s", uniswap_lib.address)
+
         guard, tx_hash = deploy_contract_with_forge(
             web3,
             CONTRACTS_ROOT / "guard",
@@ -374,7 +387,7 @@ def deploy_guard(
             f"GuardV0",
             deployer,
             etherscan_api_key=etherscan_api_key,
-            forge_libraries=build_guard_forge_libraries(),
+            forge_libraries=build_guard_forge_libraries({"UniswapLib": uniswap_lib.address}),
         )
         logger.info("GuardV0 is %s deployed at %s", guard.address, tx_hash.hex())
         assert guard.functions.getInternalVersion().call() == 1
