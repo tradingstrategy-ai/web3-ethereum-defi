@@ -189,6 +189,7 @@ def vault(
             "HypercoreVaultLib": hypercore_vault_lib.address,
             "CowSwapLib": cowswap_lib.address,
             "GmxLib": ZERO_ADDRESS,
+            "UniswapLib": ZERO_ADDRESS,
             "VeloraLib": ZERO_ADDRESS,
         },
     )

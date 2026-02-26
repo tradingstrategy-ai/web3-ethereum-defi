@@ -97,7 +97,9 @@ def vault(
 ) -> Contract:
     """Deploy mock Uniswap v2."""
     weth = uniswap_v2.weth
-    vault = deploy_contract(web3, "guard/SimpleVaultV0.json", deployer, asset_manager, libraries=GUARD_LIBRARIES)
+    uniswap_lib = deploy_contract(web3, "guard/UniswapLib.json", deployer)
+    libs = {**GUARD_LIBRARIES, "UniswapLib": uniswap_lib.address}
+    vault = deploy_contract(web3, "guard/SimpleVaultV0.json", deployer, asset_manager, libraries=libs)
 
     assert vault.functions.owner().call() == deployer
     vault.functions.initialiseOwnership(owner).transact({"from": deployer})
@@ -511,13 +513,15 @@ def test_guard_can_trade_any_asset_uniswap_v2(
 ):
     """After whitelist removed, we can trade any asset."""
     weth = uniswap_v2.weth
+    uniswap_lib = deploy_contract(web3, "guard/UniswapLib.json", deployer)
+    libs = {**GUARD_LIBRARIES, "UniswapLib": uniswap_lib.address}
     vault = deploy_contract(
         web3,
         "guard/SimpleVaultV0.json",
         deployer,
         asset_manager,
         gas=10_000_000,
-        libraries=GUARD_LIBRARIES,
+        libraries=libs,
     )
     vault.functions.initialiseOwnership(owner).transact({"from": deployer})
 

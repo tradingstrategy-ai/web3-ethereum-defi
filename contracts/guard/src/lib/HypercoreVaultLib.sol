@@ -9,9 +9,15 @@
 //     calling contract's 24 KB EIP-170 limit)
 //   - Storage reads/writes happen in the calling contract's context
 //
+// Validation functions that need main-contract state (isAllowedReceiver)
+// use IGuardChecks callbacks via address(this) to check permissions on
+// the calling contract's storage.
+//
 // See README-Hypercore-guard.md for full documentation.
 
 pragma solidity ^0.8.0;
+
+import {IGuardChecks} from "./IGuardChecks.sol";
 
 // Pre-computed function selectors
 bytes4 constant SEL_SEND_RAW_ACTION = 0x17938e13;  // sendRawAction(bytes)
@@ -89,21 +95,63 @@ library HypercoreVaultLib {
         emit HypercoreVaultRemoved(vault, notes);
     }
 
-    // ----- Validation functions (called via delegatecall from guard) -----
+    // ----- Full validation (called from dispatcher) -----
+
+    /// Validate a Hypercore call with full permission checks.
+    ///
+    /// Handles all three Hypercore selectors:
+    ///   - SEL_SEND_RAW_ACTION: validates CoreWriter action, checks vault/receiver
+    ///   - SEL_CORE_DEPOSIT: validates CoreDepositWallet target
+    ///   - SEL_CORE_DEPOSIT_FOR: validates target + recipient via IGuardChecks
+    ///
+    /// Uses IGuardChecks(address(this)) callbacks for cross-cutting receiver
+    /// checks, consolidating all Hypercore dispatcher logic into the library
+    /// to reduce the calling contract's bytecode (EIP-170).
+    function validateCall(
+        bytes4 selector,
+        address target,
+        bytes calldata callData
+    ) external view {
+        if (selector == SEL_SEND_RAW_ACTION) {
+            (uint24 actionId, address dest) = _validateAction(target, callData);
+            if (actionId == VAULT_TRANSFER_ACTION) {
+                require(
+                    _storage().allowedHypercoreVaults[dest],
+                    "Hypercore vault not allowed"
+                );
+            } else if (actionId == SPOT_SEND_ACTION) {
+                require(
+                    IGuardChecks(address(this)).isAllowedReceiver(dest),
+                    "CoreWriter spotSend receiver not allowed"
+                );
+            }
+            // Action 7 (USD_CLASS_TRANSFER_ACTION): no external address.
+            // Funds move between spot and perp within the same Hypercore account.
+        } else if (selector == SEL_CORE_DEPOSIT) {
+            _validateDeposit(target);
+        } else if (selector == SEL_CORE_DEPOSIT_FOR) {
+            _validateDeposit(target);
+            (address recipient, , ) = abi.decode(callData, (address, uint256, uint32));
+            require(
+                IGuardChecks(address(this)).isAllowedReceiver(recipient),
+                "depositFor recipient not allowed"
+            );
+        }
+    }
+
+    // ----- Internal validation helpers -----
 
     /// Validate a CoreWriter sendRawAction() call.
     /// Parses the raw action bytes, checks version, action ID.
-    /// Returns the action ID and destination address for the calling
-    /// contract to validate against allowedReceivers or allowedHypercoreVaults.
+    /// Returns the action ID and destination address.
     ///
     /// - Action 2 (vaultTransfer): returns the vault address as destination
     /// - Action 6 (spotSend): returns the send destination
-    /// - Action 7 (usdClassTransfer): no external address — funds move
-    ///   between spot and perp within the same Hypercore account
-    function validateAction(
+    /// - Action 7 (usdClassTransfer): no external address — destination stays address(0)
+    function _validateAction(
         address target,
         bytes calldata callData
-    ) external view returns (uint24 actionId, address destination) {
+    ) private view returns (uint24 actionId, address destination) {
         HypercoreStorage storage s = _storage();
         require(target == s.allowedCoreWriter, "CoreWriter not allowed");
 
@@ -118,8 +166,6 @@ library HypercoreVaultLib {
         require(version == 1, "CoreWriter unsupported version");
 
         // Parse action ID (bytes 1-3, big-endian uint24)
-        // Shift right by 224 (= 256 - 32) to bring the first 4 bytes to
-        // the low 32 bits, then mask with 0xFFFFFF to drop the version byte.
         assembly {
             let w := mload(add(rawAction, 32))
             actionId := and(shr(224, w), 0xFFFFFF)
@@ -127,8 +173,7 @@ library HypercoreVaultLib {
 
         require(s.allowedCoreWriterActions[actionId], "CoreWriter action ID not allowed");
 
-        // Parse action-specific parameters and return destination for
-        // the calling contract to validate.
+        // Parse action-specific parameters and return destination
         if (len > 4) {
             uint256 paramLen = len - 4;
             bytes memory actionParams;
@@ -144,22 +189,18 @@ library HypercoreVaultLib {
             }
 
             if (actionId == VAULT_TRANSFER_ACTION) {
-                // Return vault address for the caller to check against allowedHypercoreVaults
                 (destination, , ) = abi.decode(actionParams, (address, bool, uint64));
             } else if (actionId == SPOT_SEND_ACTION) {
-                // Return send destination for the caller to check against allowedReceivers
                 (destination, , ) = abi.decode(actionParams, (address, uint64, uint64));
             }
-            // Action 7 (USD_CLASS_TRANSFER_ACTION): params are (uint64 amount, bool toPerp).
-            // No external address — destination stays address(0).
+            // Action 7: params are (uint64 amount, bool toPerp). No external address.
         }
     }
 
     /// Validate a CoreDepositWallet deposit() call.
-    function validateDeposit(address target) external view {
+    function _validateDeposit(address target) private view {
         require(target == _storage().allowedCoreDepositWallet, "CoreDepositWallet not allowed");
     }
-
 
     // ----- View functions -----
 

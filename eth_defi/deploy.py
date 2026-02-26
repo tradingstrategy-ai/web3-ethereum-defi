@@ -26,6 +26,7 @@ GUARD_LIBRARIES: dict[str, str] = {
     "CowSwapLib": ZERO_ADDRESS,
     "GmxLib": ZERO_ADDRESS,
     "HypercoreVaultLib": ZERO_ADDRESS,
+    "UniswapLib": ZERO_ADDRESS,
     "VeloraLib": ZERO_ADDRESS,
 }
 
@@ -36,6 +37,7 @@ GUARD_FORGE_LIBRARY_SOURCES: dict[str, str] = {
     "CowSwapLib": "src/lib/CowSwapLib.sol:CowSwapLib",
     "GmxLib": "src/lib/GmxLib.sol:GmxLib",
     "HypercoreVaultLib": "src/lib/HypercoreVaultLib.sol:HypercoreVaultLib",
+    "UniswapLib": "src/lib/UniswapLib.sol:UniswapLib",
     "VeloraLib": "src/lib/VeloraLib.sol:VeloraLib",
 }
 
@@ -47,6 +49,7 @@ SAFE_INTEGRATION_FORGE_LIBRARY_SOURCES: dict[str, str] = {
     "CowSwapLib": "../guard/src/lib/CowSwapLib.sol:CowSwapLib",
     "GmxLib": "../guard/src/lib/GmxLib.sol:GmxLib",
     "HypercoreVaultLib": "../guard/src/lib/HypercoreVaultLib.sol:HypercoreVaultLib",
+    "UniswapLib": "../guard/src/lib/UniswapLib.sol:UniswapLib",
     "VeloraLib": "../guard/src/lib/VeloraLib.sol:VeloraLib",
 }
 

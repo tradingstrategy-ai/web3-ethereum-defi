@@ -129,7 +129,9 @@ def vault(
     uniswap_v3: UniswapV3Deployment,
 ) -> Contract:
     """Mock vault."""
-    vault = deploy_contract(web3, "guard/SimpleVaultV0.json", deployer, asset_manager, libraries=GUARD_LIBRARIES)
+    uniswap_lib = deploy_contract(web3, "guard/UniswapLib.json", deployer)
+    libs = {**GUARD_LIBRARIES, "UniswapLib": uniswap_lib.address}
+    vault = deploy_contract(web3, "guard/SimpleVaultV0.json", deployer, asset_manager, libraries=libs)
 
     assert vault.functions.owner().call() == deployer
     vault.functions.initialiseOwnership(owner).transact({"from": deployer})

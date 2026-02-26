@@ -51,6 +51,8 @@ guard:
 		-o \
 		-name "GmxLib.json" \
 		-o \
+		-name "UniswapLib.json" \
+		-o \
 		-name "VeloraLib.json" \
 		-o \
 		-name "MockCoreWriter.json" \

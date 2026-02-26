@@ -185,6 +185,9 @@ def uniswap_v2_whitelisted_trading_strategy_module(
 
     owner = deployer
 
+    # Deploy UniswapLib (needed for Uniswap V2 swap validation)
+    uniswap_lib = deploy_contract(web3, "guard/UniswapLib.json", deployer)
+
     # Deploy guard module
     module = deploy_contract(
         web3,
@@ -192,6 +195,13 @@ def uniswap_v2_whitelisted_trading_strategy_module(
         deployer,
         owner,
         safe.address,
+        libraries={
+            "UniswapLib": uniswap_lib.address,
+            "VeloraLib": ZERO_ADDRESS,
+            "CowSwapLib": ZERO_ADDRESS,
+            "GmxLib": ZERO_ADDRESS,
+            "HypercoreVaultLib": ZERO_ADDRESS,
+        },
     )
 
     # Enable Safe module
@@ -248,6 +258,13 @@ def test_enable_safe_module(
         deployer,
         safe.address,
         safe.address,
+        libraries={
+            "UniswapLib": ZERO_ADDRESS,
+            "VeloraLib": ZERO_ADDRESS,
+            "CowSwapLib": ZERO_ADDRESS,
+            "GmxLib": ZERO_ADDRESS,
+            "HypercoreVaultLib": ZERO_ADDRESS,
+        },
     )
 
     # Multisig owners can enable the module
@@ -431,6 +448,7 @@ def velora_whitelisted_trading_strategy_module(
             "CowSwapLib": ZERO_ADDRESS,
             "GmxLib": ZERO_ADDRESS,
             "HypercoreVaultLib": ZERO_ADDRESS,
+            "UniswapLib": ZERO_ADDRESS,
         },
     )
 

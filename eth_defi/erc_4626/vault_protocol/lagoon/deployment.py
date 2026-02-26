@@ -911,6 +911,7 @@ def deploy_safe_trading_strategy_module(
         guard_gas = min(10_000_000, block_gas_limit - 100_000)
 
         # TradingStrategyModuleV0 uses external Forge libraries via DELEGATECALL:
+        # - UniswapLib: Uniswap V2/V3 swap validation (always deployed)
         # - CowSwapLib: CowSwap order creation/signing
         # - GmxLib: GMX perpetuals validation
         # - HypercoreVaultLib: Hypercore vault validation (HyperEVM only)
@@ -918,6 +919,16 @@ def deploy_safe_trading_strategy_module(
         chain_id = web3.eth.chain_id
 
         library_addresses = {}
+
+        # UniswapLib is always needed — it validates all Uniswap V2/V3 swaps
+        uniswap_lib = deploy_contract(
+            web3,
+            "guard/UniswapLib.json",
+            deployer,
+            gas=guard_gas,
+        )
+        library_addresses["UniswapLib"] = uniswap_lib.address
+        logger.info("Deployed UniswapLib at %s", uniswap_lib.address)
 
         if cowswap:
             cowswap_lib = deploy_contract(
