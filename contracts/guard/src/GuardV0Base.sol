@@ -533,14 +533,14 @@ abstract contract GuardV0Base is IGuard, Multicall {
     }
 
     // Allow ERC-20.approve() to a specific asset and this asset used as the part of path of swaps
-    function whitelistToken(address token, string calldata notes) external {
+    function whitelistToken(address token, string calldata notes) external onlyGuardOwner {
         _whitelistToken(token, notes);
     }
 
     function whitelistTokenForDelegation(
         address token,
         string calldata notes
-    ) external {
+    ) external onlyGuardOwner {
         allowCallSite(token, SEL_APPROVE_DELEGATION, notes);
         allowAsset(token, notes);
     }
@@ -549,7 +549,7 @@ abstract contract GuardV0Base is IGuard, Multicall {
     function whitelistUniswapV3Router(
         address router,
         string calldata notes
-    ) external {
+    ) external onlyGuardOwner {
         allowCallSite(router, SEL_EXACT_INPUT, notes);
         allowCallSite(router, SEL_EXACT_OUTPUT, notes);
         allowCallSite(router, SEL_EXACT_INPUT_ROUTER02, notes);
@@ -559,7 +559,7 @@ abstract contract GuardV0Base is IGuard, Multicall {
     function whitelistUniswapV2Router(
         address router,
         string calldata notes
-    ) external {
+    ) external onlyGuardOwner {
         allowCallSite(router, SEL_SWAP_EXACT_TOKENS, notes);
         allowCallSite(router, SEL_SWAP_EXACT_TOKENS_FEE, notes);
         allowApprovalDestination(router, notes);
@@ -888,7 +888,7 @@ abstract contract GuardV0Base is IGuard, Multicall {
      * - ERC-4626 withdrawal address must be always the Safe
      * - Because of non-standardisation the whitelisted function list is long
      */
-    function whitelistERC4626(address vault, string calldata notes) external {
+    function whitelistERC4626(address vault, string calldata notes) external onlyGuardOwner {
         IERC4626 vault_ = IERC4626(vault);
         address denominationToken = vault_.asset();
         address shareToken = vault;
@@ -941,7 +941,7 @@ abstract contract GuardV0Base is IGuard, Multicall {
     function whitelistAaveV3(
         address lendingPool,
         string calldata notes
-    ) external {
+    ) external onlyGuardOwner {
         allowCallSite(lendingPool, SEL_AAVE_SUPPLY, notes);
         allowCallSite(lendingPool, SEL_AAVE_WITHDRAW, notes);
         allowApprovalDestination(lendingPool, notes);
@@ -956,7 +956,7 @@ abstract contract GuardV0Base is IGuard, Multicall {
         address settlementContract,
         address relayerContract,
         string calldata notes
-    ) external {
+    ) external onlyGuardOwner {
         // Interaction by special _swapAndValidateCowSwap() internal function
         allowApprovalDestination(settlementContract, notes);
         allowApprovalDestination(relayerContract, notes);
