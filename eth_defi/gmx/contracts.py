@@ -35,7 +35,6 @@ GMX_SUBSQUID_ENDPOINTS = {
 
 # Subsquid GraphQL backup endpoints by chain (versioned deployments)
 GMX_SUBSQUID_ENDPOINTS_BACKUP = {
-    "arbitrum": "https://gmx.squids.live/gmx-synthetics-arbitrum@cc00ce/api/graphql",
     "avalanche": "https://gmx.squids.live/gmx-synthetics-avalanche@cc00ce/api/graphql",
     "arbitrum_sepolia": "https://gmx.squids.live/gmx-synthetics-arb-sepolia:prod/api/graphql",
 }
