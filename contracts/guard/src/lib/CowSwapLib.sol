@@ -44,10 +44,7 @@ library CowSwapLib {
         }
     }
 
-    /// Returns true when the library is properly linked.
-    /// A DELEGATECALL to ZERO_ADDRESS silently returns zero bytes,
-    /// so calling this function and requiring a true result catches
-    /// missing library links at runtime with a human-readable error.
+    /// @dev See IGuardLib.isDeployed()
     function isDeployed() external pure returns (bool) {
         return true;
     }
