@@ -1725,12 +1725,14 @@ def executed_eth_long(funded_isolated_fork_env, execution_buffer) -> tuple[bytes
 def pending_sl_key(executed_eth_long, funded_isolated_fork_env, execution_buffer) -> bytes:
     """Create a stop-loss order against the open ETH long and return its DataStore key.
 
-    Funds the wallet with ETH for execution fees, then submits a 5 % stop-loss
-    order. Asserts the creation transaction succeeds before returning the key.
+    Submits a 5 % stop-loss order. Asserts the creation transaction succeeds
+    before returning the key.
     """
     _, position_data = executed_eth_long
     env = funded_isolated_fork_env
 
+    # Re-fund wallet — execute_order_as_keeper zeroes the wallet's ETH
+    # balance on Anvil forks.  See execute_order_as_keeper docstring.
     env.web3.provider.make_request("anvil_setBalance", [env.config.get_wallet_address(), hex(100 * 10**18)])
     env.wallet.sync_nonce(env.web3)
 
@@ -1758,12 +1760,14 @@ def pending_sl_key(executed_eth_long, funded_isolated_fork_env, execution_buffer
 def pending_tp_key(executed_eth_long, funded_isolated_fork_env, execution_buffer) -> bytes:
     """Create a take-profit order against the open ETH long and return its DataStore key.
 
-    Funds the wallet with ETH for execution fees, then submits a 10 % take-profit
-    order. Asserts the creation transaction succeeds before returning the key.
+    Submits a 10 % take-profit order. Asserts the creation transaction succeeds
+    before returning the key.
     """
     _, position_data = executed_eth_long
     env = funded_isolated_fork_env
 
+    # Re-fund wallet — execute_order_as_keeper zeroes the wallet's ETH
+    # balance on Anvil forks.  See execute_order_as_keeper docstring.
     env.web3.provider.make_request("anvil_setBalance", [env.config.get_wallet_address(), hex(100 * 10**18)])
     env.wallet.sync_nonce(env.web3)
 

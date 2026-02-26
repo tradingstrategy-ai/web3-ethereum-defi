@@ -635,8 +635,31 @@ def execute_order_as_keeper(web3: Web3, order_key: bytes):
 
     Works with both Anvil and Tenderly.
 
-    Returns:
-        Tuple of (receipt, keeper_address)
+    .. warning::
+
+        On Anvil forks this function has a side-effect: **the test wallet's
+        native ETH balance is set to exactly 0 after the keeper transaction
+        is mined.**  The root cause is Anvil's transaction-processing
+        behaviour — the ``executeOrder`` call is submitted from the
+        impersonated keeper address, yet Anvil zeroes the *wallet* account's
+        ETH balance as a side-effect.  The wallet nonce and ERC-20 balances
+        are unaffected.
+
+        Callers that need to send further wallet transactions (e.g.
+        ``cancel_order``, ``close_position``, creating SL/TP orders) **must
+        re-fund the wallet** after calling this function::
+
+            exec_receipt, keeper = execute_order_as_keeper(web3, order_key)
+
+            # Restore wallet ETH so subsequent txs can pay for gas
+            web3.provider.make_request(
+                "anvil_setBalance",
+                [wallet_address, hex(100_000_000 * 10**18)],
+            )
+            wallet.sync_nonce(web3)
+
+    :return:
+        Tuple of ``(receipt, keeper_address)``.
     """
     provider_type = detect_provider_type(web3)
     chain = get_chain_name(web3.eth.chain_id).lower()

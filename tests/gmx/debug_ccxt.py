@@ -415,7 +415,8 @@ def main():
                     )
                     console.print("[dim]Mock oracle configured[/dim]\n")
 
-                    # Re-fund wallet for close operation (setup_mock_oracle may have used transactions)
+                    # Re-fund wallet — execute_order_as_keeper zeroes the wallet's
+                    # ETH balance on Anvil forks.  See execute_order_as_keeper docstring.
                     web3.provider.make_request("anvil_setBalance", [wallet_address, hex(100_000 * 10**18)])
 
                     try:

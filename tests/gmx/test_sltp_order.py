@@ -320,7 +320,8 @@ def test_standalone_long_with_stop_loss(isolated_fork_env, execution_buffer):
     entry_price = pos_data["entry_price"]
     position_size = pos_data["position_size"]
 
-    # Re-fund wallet with ETH explicitly to fix the 0 balance issue
+    # Re-fund wallet — execute_order_as_keeper zeroes the wallet's ETH
+    # balance on Anvil forks.  See execute_order_as_keeper docstring.
     env.web3.provider.make_request("anvil_setBalance", [wallet_address, hex(100 * 10**18)])
 
     # Step 2: Create standalone stop loss
@@ -391,7 +392,8 @@ def test_standalone_long_with_take_profit(isolated_fork_env, execution_buffer):
     entry_price = pos_data["entry_price"]
     position_size = pos_data["position_size"]
 
-    # Re-fund wallet with ETH explicitly to fix the 0 balance issue
+    # Re-fund wallet — execute_order_as_keeper zeroes the wallet's ETH
+    # balance on Anvil forks.  See execute_order_as_keeper docstring.
     env.web3.provider.make_request("anvil_setBalance", [wallet_address, hex(100 * 10**18)])
 
     # Step 2: Create standalone take profit
@@ -462,7 +464,8 @@ def test_standalone_short_with_sl_and_tp(isolated_fork_env_short, execution_buff
     entry_price = pos_data["entry_price"]
     position_size = pos_data["position_size"]
 
-    # Re-fund wallet with ETH explicitly to fix the 0 balance issue
+    # Re-fund wallet — execute_order_as_keeper zeroes the wallet's ETH
+    # balance on Anvil forks.  See execute_order_as_keeper docstring.
     env.web3.provider.make_request("anvil_setBalance", [wallet_address, hex(100 * 10**18)])
 
     # Step 2: Create stop loss for short position

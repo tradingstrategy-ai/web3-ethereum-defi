@@ -20,11 +20,29 @@ from eth_defi.gmx.ccxt.exchange import GMX
 from tests.gmx.fork_helpers import execute_order_as_keeper, extract_order_key_from_receipt
 
 
-def _execute_order(web3, tx_hash: str) -> dict:
-    """Execute a GMX order as keeper given a creation transaction hash."""
+def _execute_order(web3, tx_hash: str, refund_address: str | None = None) -> dict:
+    """Execute a GMX order as keeper given a creation transaction hash.
+
+    :param web3:
+        Web3 instance connected to the Anvil fork.
+    :param tx_hash:
+        Transaction hash from the order creation.
+    :param refund_address:
+        If given, re-fund this address with ETH after keeper execution.
+        ``execute_order_as_keeper`` drains the wallet's ETH balance on
+        Anvil forks; this restores it so subsequent wallet transactions
+        (e.g. ``cancel_order``) can pay for gas.
+    :return:
+        Execution receipt.
+    """
     receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
     order_key = extract_order_key_from_receipt(receipt)
     exec_receipt, _ = execute_order_as_keeper(web3, order_key)
+
+    if refund_address is not None:
+        eth_amount = 100_000_000 * 10**18
+        web3.provider.make_request("anvil_setBalance", [refund_address, hex(eth_amount)])
+
     return exec_receipt
 
 
@@ -123,8 +141,12 @@ def test_ccxt_cancel_order_lifecycle(
     tx_hash = order.get("info", {}).get("tx_hash") or order.get("id")
     assert tx_hash is not None
 
-    # Step 2: Execute the position order; SL stays pending
-    _execute_order(web3, tx_hash)
+    # Step 2: Execute the position order; SL stays pending.
+    # Re-fund wallet — execute_order_as_keeper zeroes the wallet's ETH
+    # balance on Anvil forks.  See execute_order_as_keeper docstring.
+    wallet_address = gmx.wallet.address
+    _execute_order(web3, tx_hash, refund_address=wallet_address)
+    gmx.wallet.sync_nonce(web3)
 
     # Step 3: Get the pending SL order via fetch_orders
     pending = gmx.fetch_orders(symbol=symbol)
