@@ -637,13 +637,35 @@ def execute_order_as_keeper(web3: Web3, order_key: bytes):
 
     .. warning::
 
-        On Anvil forks this function has a side-effect: **the test wallet's
-        native ETH balance is set to exactly 0 after the keeper transaction
-        is mined.**  The root cause is Anvil's transaction-processing
-        behaviour — the ``executeOrder`` call is submitted from the
-        impersonated keeper address, yet Anvil zeroes the *wallet* account's
-        ETH balance as a side-effect.  The wallet nonce and ERC-20 balances
-        are unaffected.
+        On Anvil (and Tenderly) forks this function has a side-effect:
+        **the test wallet's native ETH balance drops to exactly 0 after the
+        keeper transaction is mined.**
+
+        **Why it happens** — verified via Tenderly transaction debugger:
+
+        When the order is created (``create_market_buy_order`` /
+        ``open_position``), the GMX order struct stores the wallet address
+        as ``receiver`` with ``shouldUnwrapNativeToken = True``
+        (see ``BaseOrder._build_order_params`` in
+        ``eth_defi/gmx/order/base_order.py``).  During ``executeOrder``,
+        the GMX protocol's internal settlement logic transfers the wallet's
+        **entire** native ETH balance to a GMX settlement contract.  This
+        happens because the wallet address is in ``unlocked_addresses``
+        (i.e. ``anvil_impersonateAccount`` was called for it), which allows
+        the fork node to process ETH transfers from the wallet without a
+        signed transaction.
+
+        Tenderly balance-change trace for the ``executeOrder`` transaction::
+
+            Address                  Token  Balance change
+            ─────────────────────────────────────────────────
+            0xe47b…33a7ab [Keeper]   ETH    +0.0001     (gas refund)
+            0x6dc5…c98473 [Wallet]   ETH    -99.9722    (entire balance)
+            0x2306…3afb02 [GMX]      ETH    +99.9740    (settlement)
+
+        **This is a fork-only artefact.**  In production the wallet is never
+        impersonated, so GMX contracts cannot move ETH from it.  The wallet
+        nonce and ERC-20 balances are unaffected.
 
         Callers that need to send further wallet transactions (e.g.
         ``cancel_order``, ``close_position``, creating SL/TP orders) **must
