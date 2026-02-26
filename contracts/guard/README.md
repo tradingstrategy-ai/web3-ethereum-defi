@@ -135,7 +135,23 @@ make guard safe-integration
 
 This regenerates ABI JSON files used by the Python automation layer.
 
-### Deployment example
+### Deployment
+
+Production deployments use the Python function
+[`deploy_automated_lagoon_vault()`](https://web3-ethereum-defi.readthedocs.io/api/lagoon/index.html)
+which handles the full deployment flow:
+
+1. Deploy a Safe 1.4.1 multisig (or attach to an existing one)
+2. Deploy the Lagoon vault contract
+3. Deploy GuardV0, link all required protocol libraries (CowSwapLib, VeloraLib, GmxLib, HypercoreVaultLib)
+4. Deploy TradingStrategyModuleV0 and enable it as a Safe module
+5. Whitelist routers, assets, and protocol-specific contracts
+6. Optionally verify all contracts on Etherscan/Blockscout/Sourcify
+
+See [`eth_defi.erc_4626.vault_protocol.lagoon.deployment`](../../eth_defi/erc_4626/vault_protocol/lagoon/deployment.py)
+for the full source and [`LagoonDeploymentParameters`](../../eth_defi/erc_4626/vault_protocol/lagoon/deployment.py) for configuration options.
+
+For manual single-contract deployment with Forge:
 
 ```shell
 export DEPLOY_PRIVATE_KEY=
