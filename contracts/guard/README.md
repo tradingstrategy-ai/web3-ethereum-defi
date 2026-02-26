@@ -22,8 +22,9 @@ for their whitelist state.
 
 ```
 ┌─────────────────────┐       DELEGATECALL       ┌──────────────────┐
-│  GuardV0Base.sol    │ ◄─────────────────────── │  CowSwapLib.sol  │
-│  (main dispatcher)  │ ◄─────────────────────── │  VeloraLib.sol   │
+│  GuardV0Base.sol    │ ◄─────────────────────── │  UniswapLib.sol  │
+│  (main dispatcher)  │ ◄─────────────────────── │  CowSwapLib.sol  │
+│                     │ ◄─────────────────────── │  VeloraLib.sol   │
 │                     │ ◄─────────────────────── │  GmxLib.sol      │
 │                     │ ◄─────────────────────── │  HypercoreVaultLi│
 └─────────────────────┘                          └──────────────────┘
@@ -45,8 +46,8 @@ The guard dispatcher validates calls to the following protocols:
 
 | Protocol | Guard logic | Description |
 |----------|-------------|-------------|
-| **Uniswap V2** | Built-in | Swap path token validation, receiver checks |
-| **Uniswap V3** | Built-in | `exactInput`, `exactOutput`, SwapRouter02 recipient validation |
+| **Uniswap V2** | [UniswapLib](./src/lib/UniswapLib.sol) | Swap path token validation, receiver checks |
+| **Uniswap V3** | [UniswapLib](./src/lib/UniswapLib.sol) | `exactInput`, `exactOutput`, SwapRouter02 recipient validation |
 | **Aave V3** | Built-in | `supply`, `withdraw` with asset and receiver checks |
 | **ERC-4626** | Built-in | `deposit`, `withdraw`, `redeem` with receiver validation |
 | **ERC-7540** | Built-in | `deposit`, `requestDeposit`, `requestRedeem` with receiver validation |
@@ -143,7 +144,7 @@ which handles the full deployment flow:
 
 1. Deploy a Safe 1.4.1 multisig (or attach to an existing one)
 2. Deploy the Lagoon vault contract
-3. Deploy GuardV0, link all required protocol libraries (CowSwapLib, VeloraLib, GmxLib, HypercoreVaultLib)
+3. Deploy GuardV0, link all required protocol libraries (UniswapLib, CowSwapLib, VeloraLib, GmxLib, HypercoreVaultLib)
 4. Deploy TradingStrategyModuleV0 and enable it as a Safe module
 5. Whitelist routers, assets, and protocol-specific contracts
 6. Optionally verify all contracts on Etherscan/Blockscout/Sourcify

@@ -7,13 +7,14 @@ to stay within the [EIP-170 24,576-byte limit](https://eips.ethereum.org/EIPS/ei
 
 | Contract | Project | Size (bytes) | % of 24,576 limit | Margin (bytes) |
 |----------|---------|-------------:|------------------:|---------------:|
-| TradingStrategyModuleV0 | safe-integration | 21,672 | 88.2% | 2,904 |
-| GuardV0 | guard | 19,685 | 80.1% | 4,891 |
-| GmxLib | guard | 4,402 | 17.9% | 20,174 |
+| TradingStrategyModuleV0 | safe-integration | 19,215 | 78.2% | 5,361 |
+| GuardV0 | guard | 17,203 | 70.0% | 7,373 |
+| GmxLib | guard | 4,577 | 18.6% | 19,999 |
+| HypercoreVaultLib | guard | 3,198 | 13.0% | 21,378 |
 | CowSwapLib | guard | 2,757 | 11.2% | 21,819 |
-| HypercoreVaultLib | guard | 2,513 | 10.2% | 22,063 |
+| UniswapLib | guard | 2,448 | 10.0% | 22,128 |
 | VeloraLib | guard | 2,247 | 9.1% | 22,329 |
-| SimpleVaultV0 | guard | 2,202 | 9.0% | 22,374 |
+| SimpleVaultV0 | guard | 2,201 | 9.0% | 22,375 |
 | MockCoreWriter | guard | 1,632 | 6.6% | 22,944 |
 | MockCoreDepositWallet | guard | 755 | 3.1% | 23,821 |
 | MockSafe | safe-integration | 737 | 3.0% | 23,839 |
@@ -52,8 +53,9 @@ TradingStrategyModuleV0 size under different compiler configurations (solc 0.8.2
 bytecode_hash=none unless noted). Configurations that exceed the 24,576-byte EIP-170 limit
 are marked with a negative margin.
 
-Note: The table below was measured before `GmxLib` extraction. With GmxLib extracted,
-TSM is ~2,121 bytes smaller across all configurations.
+Note: The table below was measured before library extraction (GmxLib, UniswapLib,
+HypercoreVaultLib). With all libraries extracted, TSM is ~4,400 bytes smaller
+across all configurations.
 
 | optimizer_runs | via_ir | TSM size (bytes) | Margin | GuardV0 | CowSwapLib | HypercoreVaultLib |
 |---------------:|--------|----------------:|-------:|--------:|-----------:|------------------:|
@@ -107,25 +109,27 @@ With higher `optimizer_runs`, via_ir starts winning: at runs=1,000, via_ir=true 
 vs via_ir=false at 25,730. The IR pipeline's cross-function optimisation helps when
 optimising for execution gas. But at runs=1 (deployment size focus), the legacy pipeline wins.
 
-### Bytecode composition (via_ir=true, runs=1, pre-GmxLib extraction)
+### Bytecode composition (via_ir=true, runs=1, pre-library extraction)
 
-This breakdown was measured before GMX extraction to GmxLib. After extraction,
-TSM is 21,672 bytes; GMX validation now lives in the separate GmxLib (4,402 bytes).
+This breakdown was measured before library extraction. After extraction,
+TSM is 19,215 bytes; validation logic now lives in separate libraries
+(GmxLib, UniswapLib, HypercoreVaultLib, CowSwapLib, VeloraLib).
 
 | Category | Approx. bytes | % of total | Notes |
 |----------|-------------:|----------:|----|
 | Selector dispatcher (`_validateCallInternal`) | ~3,500 | 15% | 20+ if-else branches for protocol routing |
-| GMX validation | ~3,000 | 13% | Now extracted to GmxLib |
+| GMX validation | ~3,000 | 13% | Extracted to GmxLib |
 | Whitelisting functions | ~2,800 | 12% | 16 functions, each with event emissions |
 | Embedded revert strings | ~2,430 | 10% | 228 string fragments across all validators |
-| Uniswap V2/V3 validation | ~1,800 | 8% | Multi-hop path validation loop |
+| Uniswap V2/V3 validation | ~1,800 | 8% | Extracted to UniswapLib |
 | CCTP validation | ~1,000 | 4% | Tuple unpacking, bytes32-to-address conversion |
 | CowSwap delegation | ~500 | 2% | isDeployed check + library call (validation consolidated in CowSwapLib) |
 | Velora delegation | ~200 | 1% | isDeployed check + library calls (validation consolidated in VeloraLib) |
 | ERC-4626 validation | ~1,000 | 4% | Multiple selector variants |
 | View/query functions | ~800 | 3% | 31 simple mapping reads |
 | Zodiac Module, Ownable, init, ABI encoding | ~4,500 | 19% | Inherited framework code |
-| Other (Aave, Hypercore delegation, Lagoon, constants) | ~500 | 2% | Small validators |
+| Hypercore validation | ~500 | 2% | Extracted to HypercoreVaultLib |
+| Other (Aave, Lagoon, constants) | ~300 | 1% | Small validators |
 
 ### Further size reduction opportunities
 
@@ -134,13 +138,14 @@ If additional space is needed in future:
 | Technique | Est. savings | Effort | Status |
 |-----------|------------:|--------|--------|
 | Extract GMX validation to `GmxLib` | ~2,121 bytes | New library with diamond storage | Done |
+| Extract Uniswap V2/V3 validation to `UniswapLib` | ~1,800 bytes | New library with IGuardChecks callbacks | Done |
+| Extract Hypercore validation to `HypercoreVaultLib` | ~500 bytes | Consolidated validateCall() entry point | Done |
 | Consolidate CowSwap validation into `CowSwapLib` | ~550 bytes | Combined validate+create function | Done |
 | Consolidate Velora validation into `VeloraLib` | ~450 bytes | Combined validate+balance function | Done |
 | Error bubbling helper | ~150 bytes | Shared `_bubbleUpRevert()` in module | Done |
 | Switch to `via_ir=false` | ~1,537 bytes | Config change only; slightly higher runtime gas | Available |
 | Shorten revert strings (e.g. "GMX:R01" codes) | ~1,000 bytes | All validators; hurts debuggability | Available |
 | Extract CCTP validation to `CctpLib` | ~800 bytes | New library | Available |
-| Extract Velora validation to `VeloraLib` | ~1,000 bytes | New library with diamond storage | Done |
 
 ## Library pattern
 
@@ -155,9 +160,10 @@ DELEGATECALL context.
 
 | Library | Purpose | Size (bytes) | Storage slot |
 |---------|---------|-------------:|-------------|
-| `GmxLib` | GMX V2 perpetuals: router/market whitelisting, multicall validation | 4,402 | `keccak256("eth_defi.gmx.v1")` |
+| `GmxLib` | GMX V2 perpetuals: router/market whitelisting, multicall validation | 4,577 | `keccak256("eth_defi.gmx.v1")` |
+| `HypercoreVaultLib` | Hypercore vault deposit/action validation, CoreWriter checking | 3,198 | `keccak256("eth_defi.hypercore.vault.v1")` |
 | `CowSwapLib` | CowSwap order creation, GPv2Order hashing, presigning, and swap validation | 2,757 | `keccak256("eth_defi.cowswap.v1")` |
-| `HypercoreVaultLib` | Hypercore vault validation and CoreWriter action checking | 2,513 | `keccak256("eth_defi.hypercore.vault.v1")` |
+| `UniswapLib` | Uniswap V2 swap path validation, V3 exactInput/exactOutput/SwapRouter02 recipient checks | 2,448 | None (stateless) |
 | `VeloraLib` | Velora (ParaSwap) swapper whitelisting, swap validation, balance-envelope verification | 2,247 | `keccak256("eth_defi.velora.v1")` |
 
 On chains where a library is not needed, it is linked with the zero address
@@ -168,9 +174,15 @@ to be deployed.
 
 Applied to `GuardV0Base.sol` to reduce bytecode size:
 
-- **Extract libraries**: CowSwap order creation and GPv2Order hashing (758 bytes saved)
-  moved to `CowSwapLib`. Hypercore vault validation moved to `HypercoreVaultLib`.
-  GMX V2 validation moved to `GmxLib` (2,121 bytes saved).
+- **Extract protocol libraries**: Protocol-specific validation extracted into external
+  Forge libraries using `DELEGATECALL` and diamond storage. Libraries use `IGuardChecks`
+  callbacks for cross-cutting permission checks (sender, asset, receiver validation).
+  - `GmxLib` — GMX V2 multicall validation (~2,121 bytes saved)
+  - `UniswapLib` — Uniswap V2/V3 swap path and recipient validation (~1,800 bytes saved)
+  - `HypercoreVaultLib` — Hypercore deposit/action validation with consolidated
+    `validateCall()` entry point (~500 bytes saved)
+  - `CowSwapLib` — CowSwap order creation and GPv2Order hashing (~758 bytes saved)
+  - `VeloraLib` — Velora swap validation with balance-envelope verification
 - **Consolidate validation into libraries**: CowSwap and Velora swap validation
   (sender, token, receiver checks) consolidated into their respective libraries
   using `IGuardChecks` callbacks (~733 bytes saved from module).
