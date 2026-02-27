@@ -3477,10 +3477,10 @@ class GMX(ExchangeCompatible):
             symbol = self._market_address_to_symbol(order.market)
 
         if order.is_stop_loss:
-            # Use "stop" (CCXT standard) rather than "stop_loss" — the underscore
+            # Use "stopLoss" (camelCase) rather than "stop_loss" — the underscore
             # in "stop_loss" is interpreted as an italic marker in Telegram MarkdownV1,
             # causing "Can't parse entities" errors in freqtrade Telegram notifications.
-            order_type = "stop"
+            order_type = "stopLoss"
         elif order.is_take_profit:
             order_type = "take_profit"
         else:
@@ -7317,7 +7317,7 @@ class GMX(ExchangeCompatible):
                 if symbol:
                     try:
                         pending = self.fetch_open_orders(symbol=symbol, params={"pending_orders_only": True})
-                        matching = [o for o in pending if o.get("type") in ("stop", "take_profit", "limit")]
+                        matching = [o for o in pending if o.get("type") in ("stopLoss", "take_profit", "limit")]
                         if matching:
                             recovered = dict(matching[0])
                             # Override the id to match what freqtrade has stored in its DB

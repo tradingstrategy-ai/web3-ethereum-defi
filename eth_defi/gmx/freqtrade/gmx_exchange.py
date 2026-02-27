@@ -497,7 +497,7 @@ class Gmx(Exchange):
                 )
                 existing_sl = [
                     o for o in pending
-                    if o.get("type") in ("stop", "stop_loss") and o.get("side") == side
+                    if o.get("type") in ("stopLoss", "stop_loss") and o.get("side") == side
                 ]
                 if existing_sl:
                     logger.warning(

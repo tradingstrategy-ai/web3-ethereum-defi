@@ -558,7 +558,7 @@ def main():
 
         # Validate CCXT structure
         assert sl_order.get("status") == "open", f"Expected status='open', got {sl_order.get('status')!r}"
-        assert sl_order.get("type") == "stop_loss", f"Expected type='stop_loss', got {sl_order.get('type')!r}"
+        assert sl_order.get("type") == "stopLoss", f"Expected type='stopLoss', got {sl_order.get('type')!r}"
         assert sl_order.get("side") == "buy", f"Expected side='buy' for long SL, got {sl_order.get('side')!r}"
         assert sl_order.get("price", 0) > 0, "SL trigger price must be non-zero"
         console.print("  [green]SL order structure validated (status=open, type=stop_loss, side=buy)[/green]")

@@ -95,7 +95,7 @@ def test_ccxt_fetch_orders_after_sl_creation(
     sl = pending[0]
     assert sl.get("status") == "open", "Pending order must have status='open'"
     assert sl.get("id") is not None, "Pending order must have an id (order key hex)"
-    assert sl.get("type") == "stop_loss", f"Expected type='stop_loss', got {sl.get('type')!r}"
+    assert sl.get("type") == "stopLoss", f"Expected type='stopLoss', got {sl.get('type')!r}"
     assert sl.get("side") == "buy", "Long SL order must have side='buy'"
     assert sl.get("price", 0) > 0, "SL trigger price must be non-zero"
 
@@ -211,7 +211,7 @@ def test_ccxt_fetch_open_orders_pending_only(
     assert len(positions_as_orders) >= 1, "Default fetch_open_orders must return open positions"
     # None of the default orders should be stop_loss typed
     for o in positions_as_orders:
-        assert o.get("type") != "stop_loss", "Default fetch_open_orders must not return SL orders"
+        assert o.get("type") != "stopLoss", "Default fetch_open_orders must not return SL orders"
 
 
 def test_ccxt_cancel_nonexistent_order(
