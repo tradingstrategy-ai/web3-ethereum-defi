@@ -23,13 +23,14 @@ Limitations:
 """
 
 import logging
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
 
 from freqtrade.enums import MarginMode, TradingMode
-from freqtrade.exceptions import OperationalException, TemporaryError
+from freqtrade.exceptions import InsufficientFundsError, OperationalException, TemporaryError
 from freqtrade.exchange import Exchange
 from freqtrade.exchange.common import retrier
 from freqtrade.exchange.exchange_types import FtHas
@@ -38,6 +39,10 @@ from eth_defi.gmx.ccxt.errors import InsufficientHistoricalDataError
 from eth_defi.gmx.core.open_positions import GetOpenPositions
 
 logger = logging.getLogger(__name__)
+
+_GAS_CRITICAL_MAX_RETRIES = 3
+_GAS_CRITICAL_WINDOW_SECS = 300   # 5-minute sliding window for failure counting
+_GAS_CRITICAL_PAUSE_SECS  = 900   # 15-minute pause once threshold is reached
 
 
 class Gmx(Exchange):
@@ -156,6 +161,11 @@ class Gmx(Exchange):
         :param **kwargs: Keyword arguments passed to parent Exchange
         """
         super().__init__(*args, **kwargs)
+        # Tracks consecutive gas-critical order failures per pair.
+        # Value: (attempt_count, window_start_timestamp, paused_until_timestamp)
+        # paused_until=0.0 means not yet paused.  When paused_until > now, create_order
+        # raises InsufficientFundsError immediately (no GMX call, no extra Telegram).
+        self._gas_critical_attempts: dict[str, tuple[int, float, float]] = {}
 
     @property
     def _ccxt_config(self) -> dict:
@@ -473,6 +483,35 @@ class Gmx(Exchange):
         logger.debug("*" * 80)
 
         try:
+            # Guard: check for an existing pending SL order on the exchange before
+            # creating a new one.  GMX allows only one SL per position; placing a
+            # duplicate wastes ETH on the execution fee and the second tx is silently
+            # ignored by the keeper.  This can happen when freqtrade previously
+            # received status="closed" for the SL creation tx and mistakenly thought
+            # the order was no longer live.
+            try:
+                pending = self._api.fetch_open_orders(
+                    symbol=pair,
+                    params={"pending_orders_only": True},
+                )
+                existing_sl = [
+                    o for o in pending
+                    if o.get("type") in ("stop", "stop_loss") and o.get("side") == side
+                ]
+                if existing_sl:
+                    logger.warning(
+                        "Stop-loss already exists on GMX for %s (side=%s, trigger=%.4f, id=%s) — "
+                        "skipping duplicate creation to avoid wasting ETH",
+                        pair,
+                        side,
+                        existing_sl[0].get("price", 0),
+                        existing_sl[0].get("id", "?"),
+                    )
+                    return existing_sl[0]
+            except Exception as check_err:
+                # Non-fatal: if the duplicate check fails, proceed with creation
+                logger.warning("Could not check for existing SL orders on %s: %s — proceeding", pair, check_err)
+
             # Convert amount from base currency to USD
             # Freqtrade passes amount in base currency (BTC/ETH), but GMX expects USD
             ticker = self._api.fetch_ticker(pair)
@@ -519,20 +558,96 @@ class Gmx(Exchange):
             raise TemporaryError(f"GMX stop-loss creation failed: {e}")
 
     def stoploss_adjust(self, stop_loss: float, order: dict, side: str) -> bool:
-        """Check if stoploss needs adjustment.
+        """Check if the exchange stop-loss order needs to be cancelled and recreated.
 
-        GMX stop-loss orders are immutable once created. To adjust, you must
-        cancel the existing order and create a new one.
+        Freqtrade calls this inside ``handle_trailing_stoploss_on_exchange`` to decide
+        whether to cancel the current SL order and place a new one at ``stop_loss``.
+        Returning ``True`` means "yes, please cancel and recreate".  Returning ``False``
+        means "no change needed, keep the existing order as-is".
 
-        :param stop_loss: New stop-loss price
-        :param order: Existing stop-loss order
-        :param side: Order side
-        :return: True if adjustment needed, False otherwise
+        GMX SL orders are immutable once created — to move the SL we must cancel the
+        current order and submit a fresh one.  That is exactly what freqtrade does when
+        this method returns ``True``.
+
+        :param stop_loss:
+            New (absolute) stoploss price, already rounded via ``price_to_precision``.
+        :param order:
+            Existing on-exchange stoploss order dict returned by ``fetch_stoploss_order``.
+        :param side:
+            ``"sell"`` for long positions, ``"buy"`` for short positions.
+        :return:
+            ``True`` if the current order's trigger price differs from ``stop_loss``
+            in the direction that tightens the stop (up for longs, down for shorts).
         """
-        # GMX orders are immutable - any change requires cancellation and recreation
-        # Since GMX doesn't support order cancellation for executed orders,
-        # return False to indicate no adjustment possible
-        return False
+        existing_price = float(order.get("stopPrice") or order.get("price") or 0)
+        if not existing_price:
+            # No price information — assume update is needed to be safe.
+            return True
+
+        if side == "sell":
+            # Long position: only move SL up (closer to current price).
+            result = stop_loss > existing_price
+        else:
+            # Short position: only move SL down.
+            result = stop_loss < existing_price
+
+        logger.info(
+            "stoploss_adjust: side=%s, new_sl=%.6f, existing_sl=%.6f → adjust=%s",
+            side,
+            stop_loss,
+            existing_price,
+            result,
+        )
+        return result
+
+    def _send_gas_critical_telegram_alert(self, pair: str, attempt_count: int) -> None:
+        """Send a direct Telegram alert when gas is critically low and retries are exhausted.
+
+        Called just before raising InsufficientFundsError so the user knows the bot has
+        paused exit attempts.  Uses the Telegram bot token and chat_id from the freqtrade
+        config.  Failure is non-fatal — the exception is raised regardless.
+
+        :param pair: Trading pair that failed to exit.
+        :param attempt_count: Number of consecutive failed attempts.
+        """
+        tg = self._config.get("telegram", {})
+        if not tg.get("enabled") or not tg.get("token") or not tg.get("chat_id"):
+            return
+
+        wallet_address = ""
+        try:
+            if hasattr(self._api, "wallet") and self._api.wallet:
+                wallet_address = self._api.wallet.address
+        except Exception:
+            pass
+
+        bot_name = self._config.get("bot_name", "freqtrade")
+        pause_mins = _GAS_CRITICAL_PAUSE_SECS // 60
+        msg = (
+            f"⛽ *{bot_name} — Gas Critical*\n\n"
+            f"Exit orders for `{pair}` are *paused for {pause_mins} minutes* after "
+            f"{attempt_count} consecutive gas failures.\n\n"
+            f"Top up wallet `{wallet_address}` with ETH on Arbitrum to resume trading.\n"
+            f"The bot will automatically retry after the pause expires."
+        )
+
+        try:
+            import urllib.request as _urllib
+
+            import json as _json
+
+            url = f"https://api.telegram.org/bot{tg['token']}/sendMessage"
+            payload = _json.dumps({
+                "chat_id": tg["chat_id"],
+                "text": msg,
+                "parse_mode": "Markdown",
+            }).encode()
+            req = _urllib.Request(url, data=payload, headers={"Content-Type": "application/json"})
+            with _urllib.urlopen(req, timeout=5):
+                pass
+            logger.info("Gas critical Telegram alert sent for %s", pair)
+        except Exception as err:
+            logger.warning("Could not send gas critical Telegram alert: %s", err)
 
     @retrier
     def create_order(
@@ -662,6 +777,32 @@ class Gmx(Exchange):
             logger.debug("  kwargs=%s", kwargs)
         logger.debug("=" * 80)
 
+        # Pre-flight: skip immediately if this pair is in a gas-critical pause.
+        # This prevents unnecessary GMX API calls (and keeper fee waste) while gas is low.
+        _now = time.time()
+        _gas_state = self._gas_critical_attempts.get(pair)
+        if _gas_state is not None:
+            _count, _win, _paused_until = _gas_state
+            if _paused_until > _now:
+                _remaining = int(_paused_until - _now)
+                logger.debug(
+                    "⛽ Gas pause active for %s — skipping exit order (%ds remaining)",
+                    pair,
+                    _remaining,
+                )
+                raise InsufficientFundsError(
+                    f"GMX gas critical: exit orders paused for {pair} ({_remaining}s remaining). "
+                    "Top up wallet ETH to resume."
+                )
+            elif _paused_until > 0.0:
+                # Pause expired — clear state and log recovery
+                logger.info(
+                    "⛽ Gas pause expired for %s after %ds — resuming exit orders",
+                    pair,
+                    int(_GAS_CRITICAL_PAUSE_SECS),
+                )
+                self._gas_critical_attempts.pop(pair)
+
         # Check wallet ETH balance and warn if low (before creating order)
         try:
             if hasattr(self._api, "web3") and hasattr(self._api, "wallet"):
@@ -709,5 +850,72 @@ class Gmx(Exchange):
         if order_info:
             logger.debug("  FREQTRADE_ORDER_TRACE: info=%s", order_info)
         logger.debug("=" * 80)
+
+        # --- Gas-critical retry throttle ---
+        # When the CCXT layer returns a rejected order due to insufficient ETH gas
+        # (status="rejected", info.error="insufficient_gas"), freqtrade would
+        # normally continue past create_order, hit _notify_exit, and spam Telegram
+        # with "Exiting …" on every bot loop.  After _GAS_CRITICAL_MAX_RETRIES
+        # attempts we raise InsufficientFundsError instead, which freqtrade catches
+        # at execute_trade_exit:2151 and returns False — no Telegram notification,
+        # no DB entry, but the bot keeps running and will retry on the next loop
+        # once gas is topped up.
+
+        if order.get("status") == "rejected" and order.get("info", {}).get("error") == "insufficient_gas":
+            # Re-sample time here; _now (pre-flight) was taken before super().create_order()
+            # and may be several seconds stale after the GMX RPC round-trip.
+            now = time.time()
+            count, window_start, paused_until = self._gas_critical_attempts.get(pair, (0, now, 0.0))
+
+            # Reset window if it expired
+            if now - window_start > _GAS_CRITICAL_WINDOW_SECS:
+                count = 0
+                window_start = now
+
+            count += 1
+            self._gas_critical_attempts[pair] = (count, window_start, paused_until)
+
+            if count == _GAS_CRITICAL_MAX_RETRIES:
+                # First time hitting the threshold: send Telegram ONCE and start the pause.
+                paused_until = now + _GAS_CRITICAL_PAUSE_SECS
+                self._gas_critical_attempts[pair] = (count, window_start, paused_until)
+                logger.error(
+                    "🚫 Gas critical: %d consecutive failed attempts for %s. "
+                    "Pausing exit orders for %ds. Top up wallet ETH to resume trading.",
+                    count,
+                    pair,
+                    _GAS_CRITICAL_PAUSE_SECS,
+                )
+                self._send_gas_critical_telegram_alert(pair, count)
+                raise InsufficientFundsError(
+                    f"GMX gas critical after {count} attempts for {pair}. "
+                    f"Exit orders paused for {_GAS_CRITICAL_PAUSE_SECS}s. Top up wallet ETH."
+                )
+            elif count > _GAS_CRITICAL_MAX_RETRIES:
+                # Unreachable in steady-state: once count hits the threshold the pre-flight
+                # guard intercepts all subsequent calls before reaching this post-order block.
+                # Note: _gas_critical_attempts is in-memory and reset on bot restart, so a
+                # freshly-restarted bot will re-accumulate from count=0 (up to 3 retries)
+                # before pausing again — this branch is not reached in that case either.
+                logger.debug(
+                    "Gas still critical for %s (attempt %d, pause should be active)",
+                    pair,
+                    count,
+                )
+                raise InsufficientFundsError(
+                    f"GMX gas critical (attempt {count}) for {pair}. Pause is active."
+                )
+            else:
+                logger.warning(
+                    "⛽ Gas critical attempt %d/%d for %s — will pause exit orders after %d failures.",
+                    count,
+                    _GAS_CRITICAL_MAX_RETRIES,
+                    pair,
+                    _GAS_CRITICAL_MAX_RETRIES,
+                )
+        else:
+            # Successful order — reset the gas failure counter for this pair
+            if pair in self._gas_critical_attempts:
+                self._gas_critical_attempts.pop(pair)
 
         return order
