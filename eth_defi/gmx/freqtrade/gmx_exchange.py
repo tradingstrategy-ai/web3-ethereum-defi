@@ -37,6 +37,7 @@ from freqtrade.exchange.exchange_types import FtHas
 
 from eth_defi.gmx.ccxt.errors import InsufficientHistoricalDataError
 from eth_defi.gmx.core.open_positions import GetOpenPositions
+from eth_defi.gmx.freqtrade.telegram_utils import send_freqtrade_telegram_message
 
 logger = logging.getLogger(__name__)
 
@@ -601,19 +602,16 @@ class Gmx(Exchange):
         return result
 
     def _send_gas_critical_telegram_alert(self, pair: str, attempt_count: int) -> None:
-        """Send a direct Telegram alert when gas is critically low and retries are exhausted.
+        """Send a Telegram alert when gas is critically low and exit orders are paused.
 
-        Called just before raising InsufficientFundsError so the user knows the bot has
-        paused exit attempts.  Uses the Telegram bot token and chat_id from the freqtrade
-        config.  Failure is non-fatal — the exception is raised regardless.
+        Called just before raising ``InsufficientFundsError`` so the operator knows
+        the bot has paused exit attempts.  Delegates delivery to
+        :func:`~eth_defi.gmx.freqtrade.telegram_utils.send_freqtrade_telegram_message`;
+        failure is non-fatal — the exception is raised regardless.
 
         :param pair: Trading pair that failed to exit.
         :param attempt_count: Number of consecutive failed attempts.
         """
-        tg = self._config.get("telegram", {})
-        if not tg.get("enabled") or not tg.get("token") or not tg.get("chat_id"):
-            return
-
         wallet_address = ""
         try:
             if hasattr(self._api, "wallet") and self._api.wallet:
@@ -631,23 +629,9 @@ class Gmx(Exchange):
             f"The bot will automatically retry after the pause expires."
         )
 
-        try:
-            import urllib.request as _urllib
-
-            import json as _json
-
-            url = f"https://api.telegram.org/bot{tg['token']}/sendMessage"
-            payload = _json.dumps({
-                "chat_id": tg["chat_id"],
-                "text": msg,
-                "parse_mode": "Markdown",
-            }).encode()
-            req = _urllib.Request(url, data=payload, headers={"Content-Type": "application/json"})
-            with _urllib.urlopen(req, timeout=5):
-                pass
+        sent = send_freqtrade_telegram_message(self._config, msg)
+        if sent:
             logger.info("Gas critical Telegram alert sent for %s", pair)
-        except Exception as err:
-            logger.warning("Could not send gas critical Telegram alert: %s", err)
 
     @retrier
     def create_order(
