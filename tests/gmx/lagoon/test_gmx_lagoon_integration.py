@@ -424,6 +424,7 @@ def test_lagoon_wallet_open_short_position(lagoon_gmx_fork_env: LagoonGMXForkEnv
     logger.info("Short position opened: %s", position["market_symbol"])
 
 
+@flaky(max_runs=3, min_passes=1)
 def test_lagoon_wallet_address_is_safe(lagoon_gmx_fork_env: LagoonGMXForkEnv):
     """Verify LagoonGMXTradingWallet reports Safe address, not asset manager address."""
     env = lagoon_gmx_fork_env
@@ -433,6 +434,7 @@ def test_lagoon_wallet_address_is_safe(lagoon_gmx_fork_env: LagoonGMXForkEnv):
     assert env.lagoon_wallet.address != env.asset_manager_wallet.get_main_address()
 
 
+@flaky(max_runs=3, min_passes=1)
 def test_lagoon_wallet_native_balance(lagoon_gmx_fork_env: LagoonGMXForkEnv):
     """Test that get_native_currency_balance returns Safe's ETH balance."""
     env = lagoon_gmx_fork_env

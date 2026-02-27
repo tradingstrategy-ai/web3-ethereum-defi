@@ -31,13 +31,18 @@ import sys
 from pathlib import Path
 
 from eth_account import Account
-from rich.console import Console
-from rich.logging import RichHandler
-from rich.panel import Panel
-from rich.prompt import Prompt
-from rich.table import Table
-from rich.text import Text
-from rich import box
+
+try:
+    from rich.console import Console
+    from rich.logging import RichHandler
+    from rich.panel import Panel
+    from rich.prompt import Prompt
+    from rich.table import Table
+    from rich.text import Text
+    from rich import box
+except ImportError as _rich_err:
+    print("Error: 'rich' is required by this script. Install it with: pip install rich")
+    raise SystemExit(1) from _rich_err
 
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.order.cancel_order import CancelOrder
@@ -69,6 +74,10 @@ def _strip_json_comments(text: str) -> str:
     whitespace), which is the freqtrade comment style.  This avoids
     accidentally stripping ``//`` inside URL values such as
     ``"rpcUrl": "https://arb1.arbitrum.io/rpc"``.
+
+    .. note::
+        Inline trailing comments (e.g. ``"key": "value",  // comment``) are
+        **not** handled — only full-line comments are stripped.
 
     :param text: Raw JSON text that may contain ``//`` line comments.
     :return: Clean JSON string with comments removed.

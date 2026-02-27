@@ -6562,8 +6562,8 @@ class GMX(ExchangeCompatible):
         :param transaction:
             Transaction dict as returned by the order builder, already passed through
             :meth:`~eth_defi.hotwallet.HotWallet.sign_transaction_with_new_nonce` by the
-            caller (so it **will** contain a ``nonce`` key at this point).  On a nonce
-            mismatch the helper deletes and re-assigns the ``nonce`` key before retrying.
+            caller.  The helper never mutates the caller's dict — the retry path works
+            on an internal copy.
         :param signed_tx:
             The already-signed transaction returned by
             ``wallet.sign_transaction_with_new_nonce()``.
@@ -6604,10 +6604,10 @@ class GMX(ExchangeCompatible):
             else:
                 raise
 
-            # Re-sign with the corrected nonce and retry once
-            if "nonce" in transaction:
-                del transaction["nonce"]
-            signed_tx = self.wallet.sign_transaction_with_new_nonce(transaction)
+            # Re-sign with the corrected nonce and retry once.
+            # Use a shallow copy so the caller's dict is never mutated.
+            retry_tx = {k: v for k, v in transaction.items() if k != "nonce"}
+            signed_tx = self.wallet.sign_transaction_with_new_nonce(retry_tx)
             try:
                 return self.web3.eth.send_raw_transaction(signed_tx.rawTransaction)
             except Web3RPCError as retry_err:
@@ -6773,6 +6773,11 @@ class GMX(ExchangeCompatible):
             If any order key does not exist in the DataStore.
         :raises ExchangeError:
             If the batch cancel transaction reverts on-chain.
+
+        .. note::
+            Each order key is validated via a separate ``is_order_pending()`` RPC
+            call before the batch transaction is built (O(N) sequential reads).
+            For large batches this can add noticeable latency.
         """
         if not ids:
             raise ValueError("ids must not be empty")
@@ -6784,6 +6789,8 @@ class GMX(ExchangeCompatible):
 
         order_keys: list[bytes] = []
         resolved_ids: list[str] = []
+        # Resolve once — chain never changes between iterations.
+        chain = self.config.get_chain()
 
         for raw_id in ids:
             # Resolve tx_hash → order_key via cache (same logic as cancel_order)
@@ -6806,7 +6813,6 @@ class GMX(ExchangeCompatible):
                 )
             order_key = bytes.fromhex(hex_str)
 
-            chain = self.config.get_chain()
             if not is_order_pending(self.web3, order_key, chain):
                 raise OrderNotFound(
                     f"{self.id} order {raw_id} not found in DataStore (may have already been executed or cancelled).",

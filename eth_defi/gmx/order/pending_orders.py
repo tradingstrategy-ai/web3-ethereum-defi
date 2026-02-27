@@ -111,14 +111,35 @@ class PendingOrder:
     def trigger_price_usd(self) -> float:
         """Trigger price as a human-readable USD float.
 
-        GMX stores prices with ``10^(30 - token_decimals)`` precision.
-        For standard 18-decimal index tokens this means dividing by ``10^12``.
+        GMX stores prices with ``10^(30 - token_decimals)`` precision (``PRECISION = 30``).
+        This property assumes an **18-decimal index token** (ETH, most ERC-20 alts) and
+        therefore divides by ``10^12`` (= ``10^(30 - 18)``).
 
-        :return: Approximate trigger price in USD.
+        .. warning::
+            For non-18-decimal index tokens (e.g. WBTC with 8 decimals) this property
+            returns a value that is orders of magnitude too small.  Use
+            :meth:`trigger_price_usd_for_decimals` with the correct token decimals in
+            those cases.
+
+        :return: Approximate trigger price in USD (accurate for 18-decimal tokens only).
         """
         if self.trigger_price == 0:
             return 0.0
         return self.trigger_price / 10**12
+
+    def trigger_price_usd_for_decimals(self, token_decimals: int) -> float:
+        """Trigger price in USD for a token with *token_decimals* decimal places.
+
+        GMX stores prices with ``10^(PRECISION - token_decimals)`` precision where
+        ``PRECISION = 30``.  Use this method when working with tokens other than
+        standard 18-decimal ERC-20s.
+
+        :param token_decimals: Decimal places of the index token (e.g. 8 for WBTC, 18 for ETH).
+        :return: Trigger price in USD.
+        """
+        if self.trigger_price == 0:
+            return 0.0
+        return self.trigger_price / 10 ** (PRECISION - token_decimals)
 
     @property
     def size_delta_usd_human(self) -> float:

@@ -9,7 +9,8 @@ It uses a unique liquidity pool model instead of traditional order books.
 Key Features:
 - Perpetual futures trading with up to 100x leverage
 - Direct execution against liquidity pools (no order books)
-- Immediate order execution (no pending orders)
+- Immediate market order execution
+- Pending limit orders: stop-loss and take-profit placed on exchange and cancellable
 - Cross and isolated margin modes
 - Funding fee mechanics for long/short positions
 - Zero-price-impact trades within liquidity limits
@@ -17,8 +18,6 @@ Key Features:
 Limitations:
 - No spot trading (futures only)
 - No traditional order book
-- No limit orders (all orders execute immediately or revert)
-- No order cancellation (orders execute atomically)
 - Trading requires Web3 wallet (not API keys)
 """
 

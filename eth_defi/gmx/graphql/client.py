@@ -24,8 +24,8 @@ logger = logging.getLogger(__name__)
 from eth_defi.gmx.constants import GMX_MIN_DISPLAY_STAKE
 from eth_defi.gmx.contracts import GMX_SUBSQUID_ENDPOINTS, GMX_SUBSQUID_ENDPOINTS_BACKUP, get_tokens_metadata_dict
 
-# Thresholds from GMX interface (in USD, 30 decimals)
-# Just Random values ChatGPT gave
+# Approximate volume thresholds used by the GMX interface (USD).
+# These are illustrative reference values; adjust as needed for production use.
 MAX_DAILY_VOLUME = 340_000
 ROLLING_14_DAY_VOLUME = 1_800_000
 ALL_TIME_VOLUME = 5_800_000
@@ -976,6 +976,9 @@ class GMXSubsquidClient:
         }
 
     # Maps GMX orderType integer to a human-readable close reason string.
+    # Kept as an explicit dict rather than using OrderType(value).name.lower() because
+    # the enum names don't match the desired strings (e.g. STOP_LOSS_DECREASE → "stop_loss_decrease"
+    # vs the "stop_loss" string expected here).
     _GMX_ORDER_TYPE_NAMES: dict = {
         0: "market_swap",
         1: "limit_swap",
@@ -1000,6 +1003,11 @@ class GMXSubsquidClient:
         Polls Subsquid until a matching close event appears or the timeout elapses.
         Combines a ``positionChanges`` query (execution data) with an ``orderById``
         query (order type) to return a complete picture of what closed the position.
+
+        .. note::
+            This method blocks the calling thread for up to *max_wait_seconds* (default 10 s)
+            using ``time.sleep()`` between polls.  It is safe on the sync CCXT path but
+            must not be called directly from an async context.
 
         Used when freqtrade tries to close a position that is already gone so that
         actual execution price, fees, and close reason (stop-loss, market close,

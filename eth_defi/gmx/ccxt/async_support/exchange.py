@@ -1316,8 +1316,10 @@ class GMX(Exchange):
 
         signed_tx = self.wallet.sign_transaction_with_new_nonce(transaction)
 
-        # Submit and wait for on-chain confirmation (sync calls run in event loop)
-        loop = asyncio.get_event_loop()
+        # Submit and wait for on-chain confirmation (sync calls run in event loop).
+        # get_running_loop() is the correct call inside an async function (get_event_loop()
+        # is deprecated since Python 3.10).
+        loop = asyncio.get_running_loop()
         tx_hash_bytes = await loop.run_in_executor(None, self.sync_web3.eth.send_raw_transaction, signed_tx.rawTransaction)
         tx_hash = self.sync_web3.to_hex(tx_hash_bytes)
         receipt = await loop.run_in_executor(None, self.sync_web3.eth.wait_for_transaction_receipt, tx_hash_bytes)
@@ -1409,6 +1411,8 @@ class GMX(Exchange):
 
         order_keys: list[bytes] = []
         resolved_ids: list[str] = []
+        # Resolve once — chain never changes between iterations.
+        chain = self.config.get_chain()
 
         for raw_id in ids:
             # Resolve tx_hash → order_key via cache (same logic as cancel_order)
@@ -1431,7 +1435,6 @@ class GMX(Exchange):
                 )
             order_key = bytes.fromhex(hex_str)
 
-            chain = self.config.get_chain()
             if not is_order_pending(self.sync_web3, order_key, chain):
                 raise OrderNotFound(
                     f"{self.id} order {raw_id} not found in DataStore (may have already been executed or cancelled).",
@@ -1454,7 +1457,7 @@ class GMX(Exchange):
 
         signed_tx = self.wallet.sign_transaction_with_new_nonce(transaction)
 
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         tx_hash_bytes = await loop.run_in_executor(None, self.sync_web3.eth.send_raw_transaction, signed_tx.rawTransaction)
         tx_hash = self.sync_web3.to_hex(tx_hash_bytes)
         receipt = await loop.run_in_executor(None, self.sync_web3.eth.wait_for_transaction_receipt, tx_hash_bytes)
