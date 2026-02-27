@@ -111,7 +111,7 @@ from typing import Any
 from decimal import Decimal
 
 from eth_defi.gmx.config import GMXConfig
-from eth_defi.gmx.constants import TOKEN_ADDRESS_MAPPINGS
+from eth_defi.gmx.constants import GMX_MIN_LIQUIDATION_COLLATERAL_USD, TOKEN_ADDRESS_MAPPINGS
 from eth_defi.gmx.contracts import get_tokens_address_dict, NETWORK_TOKENS, TESTNET_TO_MAINNET_ORACLE_TOKENS
 
 
@@ -347,7 +347,7 @@ def calculate_estimated_liquidation_price(
     total_fees = total_pending_fees + closing_fee
 
     # Calculate liquidation collateral threshold (0.5% of size, min $5)
-    liquidation_collateral_usd = max(size_usd * 0.005, 5.0)
+    liquidation_collateral_usd = max(size_usd * 0.005, GMX_MIN_LIQUIDATION_COLLATERAL_USD)
 
     # Use exact formula if token details provided
     if collateral_amount is not None:
@@ -389,11 +389,23 @@ def calculate_estimated_liquidation_price(
         if is_long:
             # For longs: price drop reduces collateral value
             max_loss = remaining_collateral - min_collateral_requirement
+            if max_loss <= 0:
+                # Collateral is smaller than GMX_MIN_LIQUIDATION_COLLATERAL_USD ($5).
+                # Note: GMX_MIN_COST_USD ($2) is the minimum ORDER size — a separate value.
+                # When collateral < min liquidation threshold the formula produces a
+                # liquidation price ABOVE entry, which is nonsensical for a long.
+                # Return 0.0 so freqtrade's stoploss_or_liquidation() treats it as unset
+                # (falsy) and falls back to the strategy's stop-loss price instead.
+                return 0.0
             price_drop_ratio = max_loss / size_usd
             liquidation_price = entry_price * (1 - price_drop_ratio)
         else:
             # For shorts: price rise reduces collateral value
             max_loss = remaining_collateral - min_collateral_requirement
+            if max_loss <= 0:
+                # Same issue for shorts: formula produces liquidation price BELOW entry.
+                # Return 0.0 as sentinel — caller should treat 0.0 as "not meaningful".
+                return 0.0
             price_rise_ratio = max_loss / size_usd
             liquidation_price = entry_price * (1 + price_rise_ratio)
 

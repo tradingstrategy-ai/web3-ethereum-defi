@@ -348,9 +348,16 @@ TOKEN_ADDRESS_MAPPINGS = {
 }
 
 # Trading limits
-#: Minimum cost (USD) for GMX orders - GMX protocol minimum is $2
-#: It's not mentioned in the docs but observed from the web UI. https://app.gmx.io/#/trade
+#: Minimum order/position size (USD) on GMX — the protocol rejects orders below this.
+#: Observed from the GMX web UI: https://app.gmx.io/#/trade
 GMX_MIN_COST_USD = 2
+
+#: Minimum liquidation collateral threshold (USD) used by the GMX protocol.
+#: GMX liquidates a position when remaining collateral falls below
+#: ``max(position_size_usd * 0.005, GMX_MIN_LIQUIDATION_COLLATERAL_USD)``.
+#: This is a separate protocol constant from the minimum position size (``GMX_MIN_COST_USD``).
+#: For positions smaller than ~$1000, this $5 floor dominates the 0.5% term.
+GMX_MIN_LIQUIDATION_COLLATERAL_USD = 5.0
 
 #: Minimum display stake (USD) for leverage tier calculations
 #: Used to ensure minimum position sizes in leverage tier max notional calculations

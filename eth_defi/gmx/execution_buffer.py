@@ -122,7 +122,12 @@ DEFAULT_SLTP_EXECUTION_BUFFER: float = 2.5
 #: Additional fee buffer multiplier specific to the SL/TP sub-orders within a
 #: bundled transaction. Applied on top of the main execution buffer:
 #: ``total_multiplier = execution_buffer * execution_fee_buffer``.
-DEFAULT_SLTP_EXECUTION_FEE_BUFFER: float = 3.0
+#:
+#: Set to 1.0 (no compound multiplier) to match the GMX interface behaviour —
+#: the interface applies the same single buffer (``executionFeeBufferBps = 30%``)
+#: to all order types including SL/TP sub-orders in a multicall.
+#: The previous value of 3.0 caused SL/TP fees to be ~5x higher than the UI.
+DEFAULT_SLTP_EXECUTION_FEE_BUFFER: float = 1.0
 
 #: Execution buffer below this value will trigger a critical error log.
 #: Keepers will very likely reject orders with a buffer this low.

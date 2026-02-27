@@ -1268,7 +1268,27 @@ class GMX(Exchange):
                 "Wallet required for order cancellation. Provide 'privateKey' or 'wallet' in constructor parameters.",
             )
 
-        # Normalise id → bytes32
+        if params is None:
+            params = {}
+
+        # Read execution_buffer from params or fall back to ccxt_config value.
+        execution_buffer = params.get("execution_buffer", self.options.get("executionBuffer", 2.2))
+
+        # Normalise id → bytes32, resolving tx-hash → order_key via cache if needed.
+        # freqtrade stores the tx_hash returned by create_stoploss(); the GMX
+        # DataStore uses a separate order_key.  Look up the mapping in _orders.
+        _lookup_id = id if id.startswith("0x") else "0x" + id
+        _cached = self._orders.get(id) or self._orders.get(_lookup_id)
+        if _cached:
+            _cached_key = _cached.get("info", {}).get("order_key")
+            if _cached_key:
+                logger.debug(
+                    "cancel_order: resolved tx_hash %s → order_key %s via cache",
+                    id[:18],
+                    _cached_key[:18],
+                )
+                id = _cached_key
+
         hex_str = id.removeprefix("0x")
         if len(hex_str) != 64:
             raise ValueError(
@@ -1284,11 +1304,11 @@ class GMX(Exchange):
                 f"{self.id} order {id} not found in DataStore (may have already been executed or cancelled).",
             )
 
-        logger.info("Cancelling limit order %s", id[:18])
+        logger.info("Cancelling limit order %s with execution_buffer=%.1fx", id[:18], execution_buffer)
 
         # Build unsigned cancel transaction (uses sync_web3 internally)
         canceller = CancelOrder(self.config)
-        result = canceller.cancel_order(order_key)
+        result = canceller.cancel_order(order_key, execution_buffer=execution_buffer)
 
         # Sign (wallet manages nonce internally)
         transaction = dict(result.transaction)
@@ -1342,6 +1362,152 @@ class GMX(Exchange):
             "average": None,
             "fees": [],
         }
+
+    async def cancel_orders(
+        self,
+        ids: list[str],
+        symbol: str | None = None,
+        params: dict | None = None,
+    ) -> list[dict]:
+        """Cancel multiple pending limit orders in a single batch transaction.
+
+        Batches all ``cancelOrder`` calls into one ``multicall`` via
+        :class:`~eth_defi.gmx.order.cancel_order.CancelOrder`, which is more
+        gas-efficient than calling :meth:`cancel_order` in a loop.
+
+        :param ids:
+            List of order keys as hex strings (``"0x..."`` or bare hex).
+            Each may be a tx_hash (resolved to order_key via the orders
+            cache) or a raw DataStore order_key.
+        :param symbol:
+            Symbol (not used, included for CCXT compatibility).
+        :param params:
+            Additional parameters.  Pass ``execution_buffer`` to override
+            the default from ``ccxt_config["executionBuffer"]``.
+        :return:
+            List of CCXT-compatible order dicts with ``status="cancelled"``,
+            one per cancelled order.  All entries share the same ``tx_hash``.
+        :raises ValueError:
+            If *ids* is empty or wallet not configured.
+        :raises OrderNotFound:
+            If any order key does not exist in the DataStore.
+        :raises ExchangeError:
+            If the batch cancel transaction reverts on-chain.
+        """
+        if not ids:
+            raise ValueError("ids must not be empty")
+
+        if not self.wallet:
+            raise ValueError(
+                "Wallet required for order cancellation. Provide 'privateKey' or 'wallet' in constructor parameters.",
+            )
+
+        if params is None:
+            params = {}
+
+        execution_buffer = params.get("execution_buffer", self.options.get("executionBuffer", 2.2))
+
+        order_keys: list[bytes] = []
+        resolved_ids: list[str] = []
+
+        for raw_id in ids:
+            # Resolve tx_hash → order_key via cache (same logic as cancel_order)
+            _lookup_id = raw_id if raw_id.startswith("0x") else "0x" + raw_id
+            _cached = self._orders.get(raw_id) or self._orders.get(_lookup_id)
+            if _cached:
+                _cached_key = _cached.get("info", {}).get("order_key")
+                if _cached_key:
+                    logger.debug(
+                        "cancel_orders: resolved tx_hash %s → order_key %s via cache",
+                        raw_id[:18],
+                        _cached_key[:18],
+                    )
+                    raw_id = _cached_key
+
+            hex_str = raw_id.removeprefix("0x")
+            if len(hex_str) != 64:
+                raise ValueError(
+                    f"Invalid order key '{raw_id}': expected 32-byte (64 hex chars) key, got {len(hex_str)} chars.",
+                )
+            order_key = bytes.fromhex(hex_str)
+
+            chain = self.config.get_chain()
+            if not is_order_pending(self.sync_web3, order_key, chain):
+                raise OrderNotFound(
+                    f"{self.id} order {raw_id} not found in DataStore (may have already been executed or cancelled).",
+                )
+
+            order_keys.append(order_key)
+            resolved_ids.append(raw_id)
+
+        logger.info(
+            "Cancelling %d orders in batch with execution_buffer=%.1fx",
+            len(order_keys),
+            execution_buffer,
+        )
+
+        canceller = CancelOrder(self.config)
+        result = canceller.cancel_orders(order_keys, execution_buffer=execution_buffer)
+
+        transaction = dict(result.transaction)
+        transaction.pop("nonce", None)
+
+        signed_tx = self.wallet.sign_transaction_with_new_nonce(transaction)
+
+        loop = asyncio.get_event_loop()
+        tx_hash_bytes = await loop.run_in_executor(None, self.sync_web3.eth.send_raw_transaction, signed_tx.rawTransaction)
+        tx_hash = self.sync_web3.to_hex(tx_hash_bytes)
+        receipt = await loop.run_in_executor(None, self.sync_web3.eth.wait_for_transaction_receipt, tx_hash_bytes)
+
+        if receipt.get("status") == 0:
+            raise ExchangeError(
+                f"{self.id} cancel_orders() transaction reverted on-chain: {tx_hash}",
+            )
+
+        logger.info(
+            "%d orders cancelled in batch: tx_hash=%s",
+            len(order_keys),
+            tx_hash,
+        )
+
+        timestamp = self.milliseconds()
+        block_number = receipt.get("blockNumber")
+        return [
+            {
+                "id": resolved_id,
+                "clientOrderId": None,
+                "timestamp": timestamp,
+                "datetime": self.iso8601(timestamp),
+                "lastTradeTimestamp": None,
+                "status": "cancelled",
+                "symbol": symbol,
+                "type": None,
+                "timeInForce": None,
+                "side": None,
+                "price": None,
+                "amount": None,
+                "filled": 0.0,
+                "remaining": None,
+                "cost": None,
+                "trades": [],
+                "fee": None,
+                "info": {
+                    "status": "ok",
+                    "response": {
+                        "type": "cancel",
+                        "data": {
+                            "statuses": ["success"],
+                        },
+                    },
+                    "order_key": resolved_id,
+                    "tx_hash": tx_hash,
+                    "block_number": block_number,
+                },
+                "average": None,
+                "fees": [],
+            }
+            for resolved_id in resolved_ids
+        ]
 
     def _get_token_decimals(self, market: dict | None) -> int | None:
         """Get token decimals from market metadata.

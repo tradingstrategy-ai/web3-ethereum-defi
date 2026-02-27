@@ -133,6 +133,7 @@ from eth_defi.gmx.gas_monitor import (
     InsufficientGasError,
     TradeExecutionResult,
 )
+from eth_defi.gmx.execution_buffer import DEFAULT_EXECUTION_BUFFER
 from eth_defi.gmx.order.base_order import OrderResult
 from eth_defi.gmx.order.cancel_order import BatchCancelOrderResult, CancelOrder, CancelOrderResult
 from eth_defi.gmx.order.decrease_order import DecreaseOrder
@@ -1630,31 +1631,37 @@ class GMXTrading:
             is_long_filter=is_long_filter,
         )
 
-    def cancel_order(self, order_key: bytes) -> CancelOrderResult:
+    def cancel_order(self, order_key: bytes, execution_buffer: float = DEFAULT_EXECUTION_BUFFER) -> CancelOrderResult:
         """Build an unsigned transaction to cancel a single pending order.
 
         :param order_key:
             The 32-byte key from :attr:`~eth_defi.gmx.order.pending_orders.PendingOrder.order_key`.
+        :param execution_buffer:
+            Multiplier applied to ``web3.eth.gas_price`` for ``maxFeePerGas``.
+            Defaults to :data:`~eth_defi.gmx.execution_buffer.DEFAULT_EXECUTION_BUFFER`.
         :return:
             :class:`~eth_defi.gmx.order.cancel_order.CancelOrderResult` with the unsigned transaction.
         """
         cancel = CancelOrder(self.config)
-        result = cancel.cancel_order(order_key)
+        result = cancel.cancel_order(order_key, execution_buffer=execution_buffer)
         self._check_gas_and_log_estimate(result, "cancel_order")
         return result
 
-    def cancel_orders(self, order_keys: list[bytes]) -> BatchCancelOrderResult:
+    def cancel_orders(self, order_keys: list[bytes], execution_buffer: float = DEFAULT_EXECUTION_BUFFER) -> BatchCancelOrderResult:
         """Build an unsigned transaction to cancel multiple pending orders at once.
 
         :param order_keys:
             List of 32-byte order keys to cancel.
+        :param execution_buffer:
+            Multiplier applied to ``web3.eth.gas_price`` for ``maxFeePerGas``.
+            Defaults to :data:`~eth_defi.gmx.execution_buffer.DEFAULT_EXECUTION_BUFFER`.
         :return:
             :class:`~eth_defi.gmx.order.cancel_order.BatchCancelOrderResult` with the unsigned transaction.
         :raises ValueError:
             If ``order_keys`` is empty.
         """
         cancel = CancelOrder(self.config)
-        result = cancel.cancel_orders(order_keys)
+        result = cancel.cancel_orders(order_keys, execution_buffer=execution_buffer)
         self._check_gas_and_log_estimate(result, "cancel_orders")
         return result
 
@@ -1663,6 +1670,7 @@ class GMXTrading:
         order_type_filter: OrderType | None = None,
         market_filter: HexAddress | None = None,
         is_long_filter: bool | None = None,
+        execution_buffer: float = DEFAULT_EXECUTION_BUFFER,
     ) -> BatchCancelOrderResult | None:
         """Fetch all matching pending orders and cancel them in a single transaction.
 
@@ -1675,6 +1683,9 @@ class GMXTrading:
             If provided, only cancel orders for this market address.
         :param is_long_filter:
             If provided, only cancel orders for long or short positions.
+        :param execution_buffer:
+            Multiplier applied to ``web3.eth.gas_price`` for ``maxFeePerGas``.
+            Defaults to :data:`~eth_defi.gmx.execution_buffer.DEFAULT_EXECUTION_BUFFER`.
         :return:
             :class:`~eth_defi.gmx.order.cancel_order.BatchCancelOrderResult` if
             orders were found, ``None`` otherwise.
@@ -1692,4 +1703,4 @@ class GMXTrading:
             return None
 
         logger.info("Cancelling %d pending order(s)", len(orders))
-        return self.cancel_orders([o.order_key for o in orders])
+        return self.cancel_orders([o.order_key for o in orders], execution_buffer=execution_buffer)

@@ -34,6 +34,7 @@ from eth_defi.gas import estimate_gas_fees
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.constants import CANCEL_ORDER_GAS_LIMIT
 from eth_defi.gmx.contracts import ContractAddresses, get_contract_addresses, get_exchange_router_contract
+from eth_defi.gmx.execution_buffer import DEFAULT_EXECUTION_BUFFER
 
 logger = logging.getLogger(__name__)
 
@@ -115,7 +116,7 @@ class CancelOrder:
         self._exchange_router_contract = get_exchange_router_contract(self.web3, self.chain)
         self.chain_id: int = self.web3.eth.chain_id
 
-    def cancel_order(self, order_key: bytes) -> CancelOrderResult:
+    def cancel_order(self, order_key: bytes, execution_buffer: float = DEFAULT_EXECUTION_BUFFER) -> CancelOrderResult:
         """Build an unsigned transaction to cancel a single pending order.
 
         Encodes ``ExchangeRouter.cancelOrder(orderKey)`` and wraps it in a
@@ -125,6 +126,11 @@ class CancelOrder:
             The 32-byte key identifying the order to cancel. Obtain this from
             :attr:`~eth_defi.gmx.order.pending_orders.PendingOrder.order_key`
             or from a previous order creation receipt.
+        :param execution_buffer:
+            Multiplier applied to ``web3.eth.gas_price`` to set the cancel
+            transaction's ``maxFeePerGas``. Uses the same basis as open/close/sltp
+            keeper fee calculations so gas costs are comparable.
+            Defaults to :data:`~eth_defi.gmx.execution_buffer.DEFAULT_EXECUTION_BUFFER`.
         :return:
             :class:`CancelOrderResult` with the unsigned transaction.
         :raises ValueError:
@@ -136,6 +142,7 @@ class CancelOrder:
         transaction = self._build_cancel_transaction(
             multicall_args=[self._encode_cancel_order(order_key)],
             gas_limit=gas_limit,
+            execution_buffer=execution_buffer,
         )
 
         logger.info(
@@ -150,7 +157,7 @@ class CancelOrder:
             gas_limit=gas_limit,
         )
 
-    def cancel_orders(self, order_keys: list[bytes]) -> BatchCancelOrderResult:
+    def cancel_orders(self, order_keys: list[bytes], execution_buffer: float = DEFAULT_EXECUTION_BUFFER,) -> BatchCancelOrderResult:
         """Build an unsigned transaction to cancel multiple pending orders at once.
 
         Batches all ``cancelOrder`` calls into a single ``multicall`` transaction
@@ -158,6 +165,9 @@ class CancelOrder:
 
         :param order_keys:
             List of 32-byte keys identifying the orders to cancel.
+        :param execution_buffer:
+            Multiplier applied to ``web3.eth.gas_price`` to set ``maxFeePerGas``.
+            Defaults to :data:`~eth_defi.gmx.execution_buffer.DEFAULT_EXECUTION_BUFFER`.
         :return:
             :class:`BatchCancelOrderResult` with the unsigned multicall transaction.
         :raises ValueError:
@@ -175,6 +185,7 @@ class CancelOrder:
         transaction = self._build_cancel_transaction(
             multicall_args=[self._encode_cancel_order(key) for key in order_keys],
             gas_limit=gas_limit,
+            execution_buffer=execution_buffer,
         )
 
         logger.info(
@@ -213,6 +224,7 @@ class CancelOrder:
         self,
         multicall_args: list[bytes],
         gas_limit: int,
+        execution_buffer: float = DEFAULT_EXECUTION_BUFFER,
     ) -> TxParams:
         """Build the final unsigned cancel transaction.
 
@@ -220,10 +232,18 @@ class CancelOrder:
         :meth:`~eth_defi.gmx.order.base_order.BaseOrder._build_transaction`
         but with ``value=0`` since cancellations do not send ETH.
 
+        Gas pricing uses ``web3.eth.gas_price * execution_buffer`` — the same
+        basis as open/close/sltp keeper fee calculations — instead of
+        ``estimate_gas_fees()`` which includes ``maxPriorityFeePerGas`` from
+        the Arbitrum RPC.  On Arbitrum the suggested priority fee can be ~1.5 gwei
+        while the actual base fee is ~0.01 gwei, inflating cancel costs 100x.
+
         :param multicall_args:
             List of ABI-encoded ``cancelOrder`` calls to batch.
         :param gas_limit:
             Gas limit for the transaction.
+        :param execution_buffer:
+            Multiplier applied to ``web3.eth.gas_price`` to set ``maxFeePerGas``.
         :return:
             Unsigned :class:`~web3.types.TxParams` ready for signing.
         :raises ValueError:
@@ -234,6 +254,23 @@ class CancelOrder:
             raise ValueError("User wallet address required for order cancellation")
 
         nonce = self.web3.eth.get_transaction_count(to_checksum_address(user_address))
+
+        # Use web3.eth.gas_price (≈ base fee on Arbitrum) multiplied by
+        # execution_buffer — identical to how BaseOrder calculates its keeper
+        # fee basis.  This avoids the inflated maxPriorityFeePerGas returned
+        # by eth_maxPriorityFeePerGas on Arbitrum (~1.5 gwei vs 0.01 gwei base).
+        gas_price = self.web3.eth.gas_price
+        buffered_gas_price = int(gas_price * execution_buffer)
+
+        logger.info(
+            "Cancel order gas pricing: gas_price=%.4f gwei, execution_buffer=%.1fx → maxFeePerGas=%.4f gwei",
+            gas_price / 1e9,
+            execution_buffer,
+            buffered_gas_price / 1e9,
+        )
+
+        # Use estimate_gas_fees only to detect EIP-1559 support; the actual
+        # fee values are overridden with the buffered gas_price.
         gas_fees = estimate_gas_fees(self.web3)
 
         transaction: TxParams = {
@@ -251,9 +288,11 @@ class CancelOrder:
         }
 
         if gas_fees.max_fee_per_gas is not None:
-            transaction["maxFeePerGas"] = gas_fees.max_fee_per_gas
-            transaction["maxPriorityFeePerGas"] = gas_fees.max_priority_fee_per_gas
+            # EIP-1559 chain (Arbitrum, Avalanche): set maxFeePerGas from
+            # gas_price * execution_buffer; zero priority tip (sequencer ignores it).
+            transaction["maxFeePerGas"] = buffered_gas_price
+            transaction["maxPriorityFeePerGas"] = 0
         else:
-            transaction["gasPrice"] = gas_fees.legacy_gas_price
+            transaction["gasPrice"] = buffered_gas_price
 
         return transaction

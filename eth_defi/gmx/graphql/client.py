@@ -975,6 +975,142 @@ class GMXSubsquidClient:
             "opened_at": position["openedAt"],
         }
 
+    # Maps GMX orderType integer to a human-readable close reason string.
+    _GMX_ORDER_TYPE_NAMES: dict = {
+        0: "market_swap",
+        1: "limit_swap",
+        2: "market_increase",
+        3: "limit_increase",
+        4: "market_decrease",
+        5: "limit_decrease",
+        6: "stop_loss",
+        7: "liquidation",
+    }
+
+    def get_latest_position_close(
+        self,
+        account: str,
+        market_address: str,
+        is_long: bool = True,
+        max_wait_seconds: float = 10.0,
+        poll_interval: float = 1.0,
+    ) -> Optional[dict[str, Any]]:
+        """Fetch the most recent position decrease (close) for an account and market.
+
+        Polls Subsquid until a matching close event appears or the timeout elapses.
+        Combines a ``positionChanges`` query (execution data) with an ``orderById``
+        query (order type) to return a complete picture of what closed the position.
+
+        Used when freqtrade tries to close a position that is already gone so that
+        actual execution price, fees, and close reason (stop-loss, market close,
+        or liquidation) can be returned instead of synthetic guesses.
+
+        :param account: Wallet address (any case – normalised internally).
+        :param market_address: GMX market contract address.
+        :param is_long: True for long position, False for short.
+        :param max_wait_seconds: Maximum seconds to wait for the indexer (default 10).
+        :param poll_interval: Seconds between polls (default 1.0).
+        :return:
+            Dict with keys ``order_key``, ``order_type_int``, ``order_type``,
+            ``is_long``, ``execution_price``, ``size_delta_usd``, ``pnl_usd``,
+            ``fees_usd``, ``timestamp_ms``, ``tx_hash``, ``block``;
+            or ``None`` if no close event was indexed within the timeout.
+        """
+        query = """
+        query GetLatestPositionClose($account: String!, $market: String!) {
+          positionChanges(
+            limit: 1
+            orderBy: [timestamp_DESC]
+            where: {
+              account_eq: $account
+              market_eq: $market
+              type_eq: "decrease"
+            }
+          ) {
+            id
+            type
+            orderKey
+            isLong
+            sizeDeltaUsd
+            executionPrice
+            basePnlUsd
+            feesAmount
+            block
+            timestamp
+          }
+        }
+        """
+        market_lower = market_address.lower()
+        start = time.time()
+
+        while time.time() - start < max_wait_seconds:
+            try:
+                data = self._query(query, variables={"account": account, "market": market_lower})
+                changes = data.get("positionChanges", [])
+
+                if changes:
+                    change = changes[0]
+
+                    # Skip if direction does not match (e.g. short close returned for a long)
+                    if change.get("isLong") != is_long:
+                        time.sleep(poll_interval)
+                        continue
+
+                    order_key = change.get("orderKey") or ""
+
+                    # Subsquid stores all monetary values with 30 decimal places.
+                    execution_price = float(self.from_fixed_point(str(change.get("executionPrice") or "0")))
+                    size_delta_usd = float(self.from_fixed_point(str(change.get("sizeDeltaUsd") or "0")))
+                    pnl_usd = float(self.from_fixed_point(str(change.get("basePnlUsd") or "0"))) if change.get("basePnlUsd") else None
+                    fees_usd = float(self.from_fixed_point(str(change.get("feesAmount") or "0")))
+                    timestamp_s = change.get("timestamp") or 0
+                    timestamp_ms = int(timestamp_s) * 1000 if timestamp_s else int(time.time() * 1000)
+                    # The id field in positionChanges is the transaction hash.
+                    tx_hash = change.get("id", "")
+
+                    # Resolve the order type (stop-loss=6, market=4, liquidation=7)
+                    # via the orderById Subsquid query.
+                    order_type_int = None
+                    if order_key:
+                        action = self.get_trade_action_by_order_key(order_key, timeout_seconds=5)
+                        if action:
+                            order_type_int = action.get("orderType")
+
+                    order_type_name = self._GMX_ORDER_TYPE_NAMES.get(order_type_int, "unknown")
+                    logger.info(
+                        "get_latest_position_close: found %s close for %s at price %.6f (order_type=%s, tx=%s)",
+                        "long" if is_long else "short",
+                        market_address,
+                        execution_price,
+                        order_type_name,
+                        tx_hash,
+                    )
+                    return {
+                        "order_key": order_key,
+                        "order_type_int": order_type_int,
+                        "order_type": order_type_name,
+                        "is_long": change.get("isLong"),
+                        "execution_price": execution_price,
+                        "size_delta_usd": size_delta_usd,
+                        "pnl_usd": pnl_usd,
+                        "fees_usd": fees_usd,
+                        "timestamp_ms": timestamp_ms,
+                        "tx_hash": tx_hash,
+                        "block": change.get("block"),
+                    }
+
+            except Exception as e:
+                logger.warning("get_latest_position_close query failed: %s", e)
+
+            time.sleep(poll_interval)
+
+        logger.warning(
+            "get_latest_position_close: no close event indexed for market %s within %.0fs",
+            market_address,
+            max_wait_seconds,
+        )
+        return None
+
     def get_trade_action_by_order_key(
         self,
         order_key: str,

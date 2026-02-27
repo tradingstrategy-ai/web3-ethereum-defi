@@ -20,7 +20,6 @@ from eth_typing import ChecksumAddress
 from eth_utils import to_checksum_address
 from web3.types import TxParams
 
-from eth_defi.gas import estimate_gas_fees
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.constants import DECREASE_POSITION_SWAP_TYPES, ETH_ZERO_ADDRESS, PRECISION, OrderType
 from eth_defi.gmx.contracts import NETWORK_TOKENS, TESTNET_TO_MAINNET_ORACLE_TOKENS
@@ -345,10 +344,12 @@ class SLTPOrder(BaseOrder):
         :param oracle_price_count: Number of oracle prices (typically 2)
         :return: Execution fee in wei
         """
-        # Use maxFeePerGas for EIP-1559 transactions since GMX uses tx.gasprice
-        # which equals effectiveGasPrice (min of maxFeePerGas and baseFee + priorityFee)
-        gas_fees = estimate_gas_fees(self.web3)
-        gas_price = gas_fees.max_fee_per_gas if gas_fees.max_fee_per_gas else self.web3.eth.gas_price
+        # Use web3.eth.gas_price (≈ base fee on Arbitrum) rather than
+        # estimate_gas_fees().max_fee_per_gas, which returns an inflated
+        # maxFeePerGas (~1.5 gwei vs ~0.01 gwei actual base fee on Arbitrum).
+        # This is consistent with CancelOrder and BaseOrder gas price calculations
+        # and avoids over-estimating execution fees by 100x.
+        gas_price = self.web3.eth.gas_price
 
         execution_fee = calculate_execution_fee(
             gas_limits=self._gas_limits,
