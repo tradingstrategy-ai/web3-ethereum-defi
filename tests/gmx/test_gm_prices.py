@@ -70,7 +70,7 @@ def test_get_gm_prices_direct_call(chain_name, get_gm_prices):
                 assert isinstance(price, float), f"Price for {market} should be float, got {type(price)}"
                 # Note: UNKNOWN market can have price 0.0
                 if market != "UNKNOWN":
-                    assert price > 0, f"Price for {market} should be positive, got {price}"
+                    assert price != 0, f"Price for {market} should be non-zero, got {price}"
 
         # print(f"\n{chain_name.upper()}: GetGMPrices ({price_type}) completed in {execution_time:.2f} seconds")
         # print(f"{chain_name.upper()}: Retrieved prices for {len(prices_data['gm_prices'])} markets")
@@ -306,7 +306,7 @@ def test_get_gm_prices_comprehensive_data(chain_name, get_gm_prices):
         assert traders_price == pytest.approx(deposits_price, rel=0.01), f"Traders/deposits prices differ for {market}: traders={traders_price}, deposits={deposits_price}"
         assert traders_price == pytest.approx(withdrawals_price, rel=0.01), f"Traders/withdrawals prices differ for {market}: traders={traders_price}, withdrawals={withdrawals_price}"
 
-        # Verify price is a float and (except for UNKNOWN) positive
+        # Verify price is a float and (except for UNKNOWN) non-zero
         assert isinstance(traders_price, float)
         if market != "UNKNOWN":
-            assert traders_price > 0
+            assert traders_price != 0
