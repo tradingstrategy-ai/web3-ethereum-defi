@@ -18,6 +18,42 @@ Tutorials
 - :ref:`lagoon-gmx` - Trade GMX perpetuals from a Lagoon vault
 - :ref:`gmx-ccxt-freqtrade` - Algorithmic trading on GMX using FreqTrade and CCXT
 
+Cancelling orders
+=================
+
+Use :class:`~eth_defi.gmx.order.cancel_order.CancelOrder` to cancel pending limit orders
+(stop-loss, take-profit, limit increase) placed on GMX.  Cancel transactions send no ETH —
+only gas is required.
+
+First fetch open orders to obtain their keys, then cancel one or many in a single transaction:
+
+.. code-block:: python
+
+    from eth_defi.gmx.order import CancelOrder, fetch_pending_orders
+
+    cancel = CancelOrder(config)
+
+    # Find all pending stop-loss orders for the wallet
+    pending = fetch_pending_orders(web3, "arbitrum", wallet_address)
+    stop_losses = [o for o in pending if o.is_stop_loss]
+
+    # Cancel a single order
+    result = cancel.cancel_order(stop_losses[0].order_key)
+
+    # — or cancel several in one multicall transaction —
+    keys = [o.order_key for o in stop_losses]
+    result = cancel.cancel_orders(keys)
+
+    # Sign and submit (same pattern for both result types)
+    tx = result.transaction.copy()
+    del tx["nonce"]
+    signed = wallet.sign_transaction_with_new_nonce(tx)
+    tx_hash = web3.eth.send_raw_transaction(signed.rawTransaction)
+    web3.eth.wait_for_transaction_receipt(tx_hash)
+
+Gas limit scales linearly with the number of orders: ``2_000_000 * len(order_keys)``.
+See :data:`~eth_defi.gmx.constants.CANCEL_ORDER_GAS_LIMIT` for the per-order constant.
+
 What Is GMX?
 =============
 
