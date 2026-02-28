@@ -11,7 +11,7 @@ from typing import Optional
 from eth_utils import to_checksum_address
 from eth_typing import ChecksumAddress
 
-from eth_defi.gmx.execution_buffer import DEFAULT_EXECUTION_BUFFER
+from eth_defi.gmx.constants import DEFAULT_EXECUTION_BUFFER
 from eth_defi.gmx.order.base_order import BaseOrder, OrderParams, OrderResult
 
 

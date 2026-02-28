@@ -6,7 +6,25 @@ import logging
 
 from web3.contract import Contract
 
-from eth_defi.gmx.keys import DEPOSIT_GAS_LIMIT, WITHDRAWAL_GAS_LIMIT, SINGLE_SWAP_GAS_LIMIT, SWAP_ORDER_GAS_LIMIT, INCREASE_ORDER_GAS_LIMIT, DECREASE_ORDER_GAS_LIMIT, EXECUTION_GAS_FEE_BASE_AMOUNT, EXECUTION_GAS_FEE_BASE_AMOUNT_V2_1, EXECUTION_GAS_FEE_MULTIPLIER_FACTOR, EXECUTION_GAS_FEE_PER_ORACLE_PRICE, apply_factor
+from eth_defi.gmx.constants import (
+    EXECUTION_BUFFER_CRITICAL_THRESHOLD,
+    EXECUTION_BUFFER_RECOMMENDED_MAX,
+    EXECUTION_BUFFER_RECOMMENDED_MIN,
+    EXECUTION_BUFFER_WARNING_THRESHOLD,
+)
+from eth_defi.gmx.keys import (
+    DECREASE_ORDER_GAS_LIMIT,
+    DEPOSIT_GAS_LIMIT,
+    EXECUTION_GAS_FEE_BASE_AMOUNT,
+    EXECUTION_GAS_FEE_BASE_AMOUNT_V2_1,
+    EXECUTION_GAS_FEE_MULTIPLIER_FACTOR,
+    EXECUTION_GAS_FEE_PER_ORACLE_PRICE,
+    INCREASE_ORDER_GAS_LIMIT,
+    SINGLE_SWAP_GAS_LIMIT,
+    SWAP_ORDER_GAS_LIMIT,
+    WITHDRAWAL_GAS_LIMIT,
+    apply_factor,
+)
 
 # Module-level cache for gas limits to avoid repeated RPC calls
 # Key: (chain_id, datastore_address)
@@ -98,6 +116,9 @@ def get_gas_limits(datastore_object: Contract, use_cache: bool = True) -> dict[s
     return gas_limits
 
 
+logger = logging.getLogger(__name__)
+
+
 def clear_gas_limits_cache():
     """Clear the module-level gas limits cache.
 
@@ -132,8 +153,6 @@ def calculate_execution_fee(
     :return: Calculated execution fee in wei
     :rtype: int
     """
-    logger = logging.getLogger(__name__)
-
     # Get base gas limit (prefer V2.1 if available, fallback to V1)
     base_gas_limit = gas_limits.get("estimated_fee_base_gas_limit_v2_1", 0)
     if base_gas_limit == 0:
@@ -170,5 +189,65 @@ def calculate_execution_fee(
         execution_fee,
         execution_fee / 10**18,
     )
+
+    return execution_fee
+
+
+def validate_execution_buffer(execution_buffer: float) -> None:
+    """Check the execution buffer value and log warnings if it is dangerously low.
+
+    This does not raise an exception — it only emits log messages so that the
+    caller can proceed with the order while being informed of the risk.
+
+    :param execution_buffer:
+        The multiplier to validate. Values below
+        :data:`~eth_defi.gmx.constants.EXECUTION_BUFFER_CRITICAL_THRESHOLD` (1.2)
+        emit a critical error; values below
+        :data:`~eth_defi.gmx.constants.EXECUTION_BUFFER_WARNING_THRESHOLD` (1.5)
+        emit a warning.
+    """
+    if execution_buffer < EXECUTION_BUFFER_CRITICAL_THRESHOLD:
+        logger.error(
+            "CRITICAL: executionBuffer=%.1fx is DANGEROUSLY LOW! GMX keepers will likely reject this order. Minimum safe value: %.1fx. Recommended: %.1f-%.1fx. Your order may fail with InsufficientExecutionFee error.",
+            execution_buffer,
+            EXECUTION_BUFFER_WARNING_THRESHOLD,
+            EXECUTION_BUFFER_RECOMMENDED_MIN,
+            EXECUTION_BUFFER_RECOMMENDED_MAX,
+        )
+    elif execution_buffer < EXECUTION_BUFFER_WARNING_THRESHOLD:
+        logger.warning(
+            "WARNING: executionBuffer=%.1fx is very low. Consider increasing to %.1f-%.1fx to avoid order failures during gas spikes.",
+            execution_buffer,
+            EXECUTION_BUFFER_RECOMMENDED_MIN,
+            EXECUTION_BUFFER_RECOMMENDED_MAX,
+        )
+
+
+def apply_execution_buffer(
+    base_fee: int,
+    execution_buffer: float,
+    validate: bool = True,
+) -> int:
+    """Apply the execution buffer multiplier to a base execution fee.
+
+    Multiplies the base fee by the given buffer to produce a fee high enough
+    for GMX keepers to execute profitably. Any excess is refunded by GMX.
+
+    :param base_fee:
+        Raw execution fee in wei, typically ``gas_limit * gas_price``.
+    :param execution_buffer:
+        Multiplier to apply. See
+        :data:`~eth_defi.gmx.constants.DEFAULT_EXECUTION_BUFFER` for the
+        recommended default.
+    :param validate:
+        If ``True`` (default), call :func:`validate_execution_buffer` before
+        applying. Set to ``False`` to skip validation when the buffer has
+        already been validated earlier in the call chain.
+    :return:
+        The buffered execution fee in wei.
+    """
+    if validate:
+        validate_execution_buffer(execution_buffer)
+    return int(base_fee * execution_buffer)
 
     return execution_fee

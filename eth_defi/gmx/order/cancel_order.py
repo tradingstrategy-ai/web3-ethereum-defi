@@ -32,9 +32,8 @@ from web3.types import TxParams
 from eth_defi.compat import encode_abi_compat
 from eth_defi.gas import estimate_gas_fees
 from eth_defi.gmx.config import GMXConfig
-from eth_defi.gmx.constants import CANCEL_ORDER_GAS_LIMIT
+from eth_defi.gmx.constants import CANCEL_ORDER_GAS_LIMIT, DEFAULT_EXECUTION_BUFFER
 from eth_defi.gmx.contracts import ContractAddresses, get_contract_addresses, get_exchange_router_contract
-from eth_defi.gmx.execution_buffer import DEFAULT_EXECUTION_BUFFER
 
 logger = logging.getLogger(__name__)
 

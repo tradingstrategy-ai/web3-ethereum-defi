@@ -22,8 +22,8 @@ from eth_defi.gmx.core.markets import Markets
 from eth_defi.gmx.core.oracle import OraclePrices
 from eth_defi.gas import estimate_gas_fees
 from eth_defi.compat import encode_abi_compat, native_datetime_utc_now
-from eth_defi.gmx.execution_buffer import DEFAULT_EXECUTION_BUFFER, apply_execution_buffer, validate_execution_buffer
-from eth_defi.gmx.gas_utils import get_gas_limits
+from eth_defi.gmx.constants import DEFAULT_EXECUTION_BUFFER
+from eth_defi.gmx.gas_utils import apply_execution_buffer, get_gas_limits, validate_execution_buffer
 from eth_defi.token import fetch_erc20_details
 
 

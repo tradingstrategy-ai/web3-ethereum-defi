@@ -23,8 +23,8 @@ from web3.types import TxParams
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.constants import DECREASE_POSITION_SWAP_TYPES, ETH_ZERO_ADDRESS, PRECISION, OrderType
 from eth_defi.gmx.contracts import NETWORK_TOKENS, TESTNET_TO_MAINNET_ORACLE_TOKENS
-from eth_defi.gmx.execution_buffer import DEFAULT_EXECUTION_BUFFER, DEFAULT_SLTP_EXECUTION_FEE_BUFFER, apply_execution_buffer
-from eth_defi.gmx.gas_utils import calculate_execution_fee
+from eth_defi.gmx.constants import DEFAULT_EXECUTION_BUFFER, DEFAULT_SLTP_EXECUTION_FEE_BUFFER
+from eth_defi.gmx.gas_utils import apply_execution_buffer, calculate_execution_fee
 from eth_defi.gmx.order.base_order import ZERO_REFERRAL_CODE, BaseOrder, OrderParams, OrderResult
 
 logger = logging.getLogger(__name__)

@@ -12,7 +12,7 @@ from eth_utils import to_checksum_address
 from eth_typing import ChecksumAddress
 
 from eth_defi.gmx.config import GMXConfig
-from eth_defi.gmx.execution_buffer import DEFAULT_EXECUTION_BUFFER
+from eth_defi.gmx.constants import DEFAULT_EXECUTION_BUFFER
 from eth_defi.gmx.order.base_order import BaseOrder, OrderParams, OrderResult
 from eth_defi.gmx.constants import PRECISION, ETH_ZERO_ADDRESS
 from eth_defi.gmx.contracts import get_contract_addresses, get_reader_contract

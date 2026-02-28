@@ -133,7 +133,7 @@ from eth_defi.gmx.gas_monitor import (
     InsufficientGasError,
     TradeExecutionResult,
 )
-from eth_defi.gmx.execution_buffer import DEFAULT_EXECUTION_BUFFER
+from eth_defi.gmx.constants import DEFAULT_EXECUTION_BUFFER
 from eth_defi.gmx.order.base_order import OrderResult
 from eth_defi.gmx.order.cancel_order import BatchCancelOrderResult, CancelOrder, CancelOrderResult
 from eth_defi.gmx.order.decrease_order import DecreaseOrder
