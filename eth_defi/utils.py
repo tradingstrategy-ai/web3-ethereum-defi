@@ -383,7 +383,8 @@ def setup_console_logging(
         if not only_log_file:
             stream_handler = logging.StreamHandler()
             stream_handler.setLevel(numeric_level)
-            stream_handler.setFormatter(_make_stream_formatter())
+            stream_handler.setFormatter(logging.Formatter(fmt, date_fmt))
+            _wrap_thread_colours(stream_handler)
             root.addHandler(stream_handler)
 
     else:

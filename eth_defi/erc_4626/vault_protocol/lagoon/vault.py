@@ -334,6 +334,11 @@ class LagoonSatelliteVault(AutomatedSafe):
     ):
         super().__init__(web3, safe_address, trading_strategy_module_address)
 
+    @property
+    def web3(self) -> Web3:
+        """Get Web3 connection for this satellite chain."""
+        return self._automated_safe_web3
+
 
 class LagoonVault(ERC7540Vault, AutomatedSafe):
     """Python interface for interacting with Lagoon Finance vaults.

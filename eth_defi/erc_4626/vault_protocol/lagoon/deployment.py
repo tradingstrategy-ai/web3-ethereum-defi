@@ -687,7 +687,7 @@ def deploy_lagoon(
     """
 
     assert isinstance(safe, Safe)
-    assert isinstance(deployer, LocalAccount)
+    assert isinstance(deployer, (LocalAccount, HotWallet))
 
     chain_id = web3.eth.chain_id
 
@@ -755,17 +755,23 @@ def deploy_lagoon(
                 False,
             )
 
+        if isinstance(deployer, HotWallet):
+            _init_nonce = deployer.allocate_nonce()
+            _init_acct = deployer.account
+        else:
+            _init_nonce = web3.eth.get_transaction_count(deployer.address)
+            _init_acct = deployer
         tx_params = vault.functions.initialize(
             init_struct,
         ).build_transaction(
             {
                 "gas": 2_000_000,
                 "chainId": chain_id,
-                "nonce": web3.eth.get_transaction_count(deployer.address),
+                "nonce": _init_nonce,
             }
         )
 
-        signed_tx = deployer.sign_transaction(tx_params)
+        signed_tx = _init_acct.sign_transaction(tx_params)
         raw_bytes = get_tx_broadcast_data(signed_tx)
         tx_hash = web3.eth.send_raw_transaction(raw_bytes)
         assert_transaction_success_with_explanation(web3, tx_hash)
@@ -815,13 +821,19 @@ def deploy_lagoon(
             case _:
                 raise NotImplementedError(f"Unknown Lagoon proxy factory ABI pattern: {beacon_proxy_factory_abi}")
 
+        if isinstance(deployer, HotWallet):
+            nonce = deployer.allocate_nonce()
+            _local_acct = deployer.account
+        else:
+            nonce = web3.eth.get_transaction_count(deployer.address)
+            _local_acct = deployer
         tx_params = {
             "gas": 2_000_000,
             "chainId": chain_id,
-            "nonce": web3.eth.get_transaction_count(deployer.address),
+            "nonce": nonce,
         }
         tx_data = bound_func.build_transaction(tx_params)
-        signed_tx = deployer.sign_transaction(tx_data)
+        signed_tx = _local_acct.sign_transaction(tx_data)
         raw_bytes = get_tx_broadcast_data(signed_tx)
         tx_hash = web3.eth.send_raw_transaction(raw_bytes)
         receipt = assert_transaction_success_with_explanation(web3, tx_hash)
@@ -854,7 +866,7 @@ def deploy_lagoon(
 
 def deploy_safe_trading_strategy_module(
     web3,
-    deployer: LocalAccount,
+    deployer: LocalAccount | HotWallet,
     safe: Safe,
     use_forge=False,
     etherscan_api_key: str = None,
@@ -872,6 +884,11 @@ def deploy_safe_trading_strategy_module(
     (CowSwapLib, GmxLib, HypercoreVaultLib, VeloraLib) fit in small blocks and
     are deployed without toggling.
 
+    :param deployer:
+        Deployer account. When a :class:`~eth_defi.hotwallet.HotWallet` is
+        passed, nonces are managed internally (avoids stale RPC nonce reads
+        on load-balanced public endpoints).
+
     :param use_forge:
         Deploy Etherscan verified build with Forge
 
@@ -885,7 +902,13 @@ def deploy_safe_trading_strategy_module(
 
     logger.info("Deploying TradingStrategyModuleV0")
 
-    owner = deployer.address
+    # Extract the LocalAccount for signing operations that need it directly
+    if isinstance(deployer, HotWallet):
+        _deployer_account = deployer.account
+    else:
+        _deployer_account = deployer
+
+    owner = _deployer_account.address
     chain_id = web3.eth.chain_id
     library_addresses = {}
 
@@ -962,7 +985,7 @@ def deploy_safe_trading_strategy_module(
             if "HypercoreVaultLib" not in library_addresses:
                 from eth_defi.hyperliquid.block import big_blocks_for_deployment as _big_blocks
 
-                with _big_blocks(web3, deployer.key.hex()):
+                with _big_blocks(web3, _deployer_account._private_key.hex()):
                     hypercore_lib = deploy_contract(
                         web3,
                         "guard/HypercoreVaultLib.json",
@@ -992,7 +1015,7 @@ def deploy_safe_trading_strategy_module(
         # Enable big blocks only for this deployment; libraries above fit in small blocks.
         from eth_defi.hyperliquid.block import big_blocks_for_deployment
 
-        with big_blocks_for_deployment(web3, deployer.key.hex()):
+        with big_blocks_for_deployment(web3, _deployer_account._private_key.hex()):
             logger.info("Deploying TradingStrategyModuleV0 with libraries %s and gas %d", library_addresses, guard_gas)
             module = deploy_contract(
                 web3,
@@ -1011,15 +1034,15 @@ def deploy_safe_trading_strategy_module(
         # Enable TradingStrategyModuleV0 as Safe module
         # Multisig owners can enable the module
         tx = safe.contract.functions.enableModule(module.address).build_transaction(
-            {"from": deployer.address, "gas": 1_500_000},
+            {"from": _deployer_account.address, "gas": 1_500_000},
         )
         tx = apply_gas(tx, gas_estimate)
 
         safe_tx = safe.build_multisig_tx(safe.address, 0, tx["data"])
-        safe_tx.sign(deployer._private_key.hex())
+        safe_tx.sign(_deployer_account._private_key.hex())
         tx_hash, tx = execute_safe_tx(
             safe_tx,
-            tx_sender_private_key=deployer._private_key.hex(),
+            tx_sender_private_key=_deployer_account._private_key.hex(),
             tx_gas=1_500_000,
             # eip1559_speed=TxSpeed.NORMAL,
             gas_fee=gas_estimate,
@@ -1673,7 +1696,7 @@ def deploy_automated_lagoon_vault(
 
             vault_contract = deploy_lagoon(
                 web3=web3,
-                deployer=deployer_local_account,
+                deployer=deployer,
                 safe=safe,
                 asset_manager=asset_manager,
                 parameters=parameters,
@@ -1699,7 +1722,7 @@ def deploy_automated_lagoon_vault(
     # only the module itself (~5.4M gas) needs big blocks, not the libraries.
     module = deploy_safe_trading_strategy_module(
         web3=web3,
-        deployer=deployer_local_account,
+        deployer=deployer,
         safe=safe,
         etherscan_api_key=etherscan_api_key,
         verifier=verifier,

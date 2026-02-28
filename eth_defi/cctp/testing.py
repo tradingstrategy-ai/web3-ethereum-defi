@@ -41,7 +41,7 @@ from eth_account.signers.local import LocalAccount
 from eth_typing import HexAddress
 from web3 import Web3
 
-from eth_defi.cctp.constants import FINALITY_THRESHOLD_STANDARD, TOKEN_MESSENGER_V2
+from eth_defi.cctp.constants import FINALITY_THRESHOLD_STANDARD, TESTNET_TOKEN_MESSENGER_V2, TOKEN_MESSENGER_V2
 from eth_defi.cctp.transfer import encode_mint_recipient, get_message_transmitter_v2
 from eth_defi.trace import assert_transaction_success_with_explanation
 
@@ -125,6 +125,7 @@ def craft_cctp_message(
     amount: int,
     burn_token: HexAddress | str,
     min_finality_threshold: int = FINALITY_THRESHOLD_STANDARD,
+    testnet: bool = False,
 ) -> bytes:
     """Craft a CCTP V2 message for testing ``receiveMessage()`` on forks.
 
@@ -175,12 +176,16 @@ def craft_cctp_message(
     :param min_finality_threshold:
         Finality threshold (2000 for standard, 1000 for fast)
 
+    :param testnet:
+        Use testnet TokenMessenger address instead of mainnet.
+
     :return:
         Packed message bytes (376 bytes total)
     """
     # TokenMessenger is the sender/recipient in the message header
-    # (same address on all chains via CREATE2)
-    token_messenger_bytes32 = encode_mint_recipient(TOKEN_MESSENGER_V2)
+    # (same address on all chains via CREATE2 — different for testnet vs mainnet)
+    messenger_address = TESTNET_TOKEN_MESSENGER_V2 if testnet else TOKEN_MESSENGER_V2
+    token_messenger_bytes32 = encode_mint_recipient(messenger_address)
     mint_recipient_bytes32 = encode_mint_recipient(mint_recipient)
     burn_token_bytes32 = encode_mint_recipient(burn_token)
     destination_caller = b"\x00" * 32

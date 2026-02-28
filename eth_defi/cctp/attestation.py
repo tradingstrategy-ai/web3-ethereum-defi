@@ -22,12 +22,17 @@ Example::
     # with prepare_receive_message() on the destination chain
 """
 
+from __future__ import annotations
+
 import logging
 import time
 from dataclasses import dataclass
-from typing import Callable
+from typing import TYPE_CHECKING, Callable
 
 import requests
+
+if TYPE_CHECKING:
+    from eth_account.signers.local import LocalAccount
 
 from eth_defi.cctp.constants import IRIS_API_BASE_URL
 
@@ -177,13 +182,24 @@ def fetch_attestation(
             last_phase or "unknown",
         )
 
-        response = requests.get(url, timeout=30)
+        try:
+            response = requests.get(url, timeout=30)
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+            logger.warning("Transient HTTP error polling attestation for %s: %s, retrying...", domain_name, e)
+            time.sleep(poll_interval)
+            continue
 
         # Iris API returns 404 when the transaction is not yet indexed;
         # treat it as "pending" and retry.
         if response.status_code == HTTP_NOT_FOUND:
             _notify("waiting_for_indexing")
             logger.debug("Attestation not yet indexed (404) for %s, retrying...", domain_name)
+            time.sleep(poll_interval)
+            continue
+
+        # Retry on server errors (5xx)
+        if response.status_code >= 500:
+            logger.warning("Server error %d polling attestation for %s, retrying...", response.status_code, domain_name)
             time.sleep(poll_interval)
             continue
 
@@ -221,6 +237,77 @@ def fetch_attestation(
             )
 
         time.sleep(poll_interval)
+
+
+def wait_for_cctp_attestation(
+    source_chain_id: int,
+    dest_chain_id: int,
+    burn_tx_hash: str,
+    dest_safe_address: str,
+    amount: int,
+    simulate: bool = False,
+    test_attester: LocalAccount | None = None,
+    timeout: float = 3600.0,
+    nonce_base: int = 999_999_000,
+) -> tuple[bytes, bytes]:
+    """Wait for CCTP attestation and return message + attestation bytes.
+
+    Convenience wrapper that handles both simulation (forged attestation)
+    and production (Iris API polling) modes.
+
+    In simulation mode, crafts a fake CCTP message and forges an attestation
+    using the provided test attester key. In production mode, polls the
+    Circle Iris API until the attestation is ready.
+
+    :param source_chain_id:
+        Numeric chain ID of the source chain (where USDC was burned).
+
+    :param dest_chain_id:
+        Numeric chain ID of the destination chain (where USDC will be minted).
+
+    :param burn_tx_hash:
+        Transaction hash of the ``depositForBurn()`` call.
+
+    :param dest_safe_address:
+        Address that will receive the minted USDC on the destination chain.
+
+    :param amount:
+        Amount of USDC burned (in raw units, e.g. 1_000_000 for 1 USDC).
+
+    :param simulate:
+        If ``True``, forge attestation locally using ``test_attester``.
+
+    :param test_attester:
+        LocalAccount used to forge attestation in simulation mode.
+        Required when ``simulate=True``.
+
+    :param timeout:
+        Maximum seconds to wait for attestation (production mode only).
+
+    :param nonce_base:
+        Base nonce for forged messages in simulation mode.
+
+    :return:
+        Tuple of ``(message_bytes, attestation_bytes)`` ready for
+        :func:`~eth_defi.cctp.bridge.receive_usdc_cctp`.
+    """
+    from eth_defi.cctp.bridge import _get_attestation, CCTPBurnResult
+
+    burn_result = CCTPBurnResult(
+        source_chain_id=source_chain_id,
+        dest_chain_id=dest_chain_id,
+        burn_tx_hash=burn_tx_hash,
+        dest_safe_address=dest_safe_address,
+        amount=amount,
+    )
+
+    return _get_attestation(
+        burn_result=burn_result,
+        simulate=simulate,
+        test_attester=test_attester,
+        attestation_timeout=timeout,
+        nonce_base=nonce_base,
+    )
 
 
 def is_attestation_complete(
